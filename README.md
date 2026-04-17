@@ -1,65 +1,141 @@
 # Better File Browser
 
-A Chrome extension that replaces the browser's plain directory listings with a modern, feature-rich file explorer.
+```
+╔==================================================================╗
+║  +--⊕ BETTER FILE BROWSER ⊕--+                                   ║
+║  |  Chrome Extension  v2.1   |  2026-04-18                       ║
+║  +---------------------------+                                   ║
+╠==============◆◆====================================◆◆============╣
+║                                                                  ║
+║  ◆ OVERVIEW ---------------------------------------------------  ║
+║  ├- Purpose ...... Replaces file:// listings with a modern UI    ║
+║  ├- Entry ...... content.js  (document_end)                      ║
+║  ├- Flash fix ...... loader.js   (document_start)                ║
+║  └- Terminal ...... Ghostty via native messaging host            ║
+║                                                                  ║
+║  ▶ FEATURES ---------------------------------------------------  ║
+║  ├- 4 view modes  — Details / List / Tiles / Large Icons         ║
+║  ├- Zoom slider   — proportional content scaling                 ║
+║  ├- Live search   — filters rows + tiles as you type             ║
+║  ├- Dark / Light  — theme toggle, persisted in localStorage      ║
+║  ├- Sortable cols — Name / Size / Modified                       ║
+║  ├- 30+ SVG icons — per-extension colour coding                  ║
+║  ├- Rich tooltips — name, size, date, type, hidden flag          ║
+║  └- Hidden files  — toggle dotfile visibility                    ║
+║                                                                  ║
+║  ○ SIDEBAR ----------------------------------------------------  ║
+║  ├- Finder Favs  — synced from macOS SFL4 binary                 ║
+║  ├- Quick Places — Root / Home / Desktop / Docs / Down           ║
+║  ├- Bookmarks    — star any folder, drag-to-reorder              ║
+║  └- Remove btn   — per-bookmark x control                        ║
+║                                                                  ║
+║  ■ INSTALL ----------------------------------------------------  ║
+║  ├- 1. chrome://extensions -> Load unpacked                      ║
+║  ├- 2. Details -> Allow access to file URLs                      ║
+║  ├- 3. (opt) cd native/ && ./install.sh <ext-id>                 ║
+║  └- 4. Reload extension after any content.js edit                ║
+║                                                                  ║
+╠==============◆◆====================================◆◆============╣
+╚==================================================================╝
+```
+
+A Chrome extension that replaces the browser's plain `file://` directory listings with a modern, feature-rich file explorer.
+
+---
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Better File Browser                                            │
-├──────────────────────────────────────────────────────────────── ┤
-│                                                                  │
-│  ARCHITECTURE                                                    │
-│                                                                  │
-│  Chrome navigates to file:///some/path/                         │
-│         │                                                        │
-│         ▼                                                        │
-│  ┌─────────────────┐    loader.js (document_start)              │
-│  │  Chrome's plain │ ──► hides body immediately                 │
-│  │  directory HTML │    (prevents white flash)                  │
-│  └─────────────────┘         │                                  │
-│                               ▼                                  │
-│                    content.js (document_end)                     │
-│                    ┌──────────────────────┐                     │
-│                    │ 1. parse table data  │                     │
-│                    │ 2. replace DOM       │                     │
-│                    │ 3. attach events     │                     │
-│                    └──────────────────────┘                     │
-│                               │                                  │
-│                               ▼                                  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ PATH BAR  /  Users  ›  alcatraz627  ›  Projects  ›  app  │  │
-│  ├────────────┬──────────────────────────────────────────────┤  │
-│  │ SIDEBAR    │ TOOLBAR  [Details][List][Tiles][Icons] [🔍]  │  │
-│  │            ├──────────────────────────────────────────────┤  │
-│  │ Bookmarks  │ Name           │ Type    │ Size    │ Modified │  │
-│  │  ★ app     │ 📁 src/        │ Folder  │  —      │ Apr 17   │  │
-│  │  ★ docs    │ 📁 node_mods/  │ Folder  │  —      │ Apr 15   │  │
-│  │            │ 🟨 index.js    │ JS File │ 4.2 KB  │ Apr 17   │  │
-│  │ Places     │ 🔷 types.ts    │ TS File │ 1.1 KB  │ Apr 15   │  │
-│  │  🖥 Root   │ {} package.json│ JSON    │  890 B  │ Apr 10   │  │
-│  │  🏠 Home   │ 🔒 yarn.lock   │ File    │  —      │ Apr 10   │  │
-│  │  📋 Docs   │                │         │         │          │  │
-│  │  ⬇ Down   │                │         │         │          │  │
-│  └────────────┴──────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+Chrome navigates to file:///some/path/
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  loader.js          (run_at: document_start)                │
+│  └─ Immediately hides <body> to prevent default listing     │
+│     flash — checks URL ends with "/" before acting          │
+└─────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│  content.js         (run_at: document_end)                  │
+│  ├─ 1. Detect: document.title.startsWith("Index of")        │
+│  ├─ 2. Parse Chrome's <table> with data-value attributes    │
+│  ├─ 3. Replace full DOM with custom UI                      │
+│  └─ 4. Attach events (search, sort, tooltips, sidebar…)     │
+└─────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌──────────────┬──────────────────────────────────────────────┐
+│  SIDEBAR     │  PATH BAR   / Users › alcatraz627 › Code     │
+│              ├──────────────────────────────────────────────┤
+│  Finder Favs │  TOOLBAR  [zoom] [Details][List][Tiles][Icons]│
+│  ★ Code      ├──────────────────────────────────────────────┤
+│  ★ Downloads │  Name         │ Type   │ Size    │ Modified   │
+│              │  📁 src/      │ Folder │  —      │ Apr 17     │
+│  Places      │  🟨 index.js  │ JS     │ 4.2 KB  │ Apr 17     │
+│  🖥 Root     │  🔷 types.ts  │ TS     │ 1.1 KB  │ Apr 15     │
+│  🏠 Home     │  {} pkg.json  │ JSON   │  890 B  │ Apr 10     │
+│  📋 Docs     │                                               │
+│  ⬇ Down     │                                               │
+└──────────────┴───────────────────────────────────────────────┘
 ```
+
+---
 
 ## Features
 
-- **Breadcrumb path bar** — every path segment is a clickable link
-- **Bookmarks** — star any folder; persists across sessions via `localStorage`
-- **Quick places** — Root, Home, Desktop, Documents, Downloads, Projects (auto-detected from your username)
-- **4 view modes** — Details (table), List (compact), Tiles (medium grid), Large Icons
-- **Live search** — filter files by name as you type
-- **Sortable columns** — click Name, Size, or Modified to sort
-- **SVG icon set** — 30+ file types with distinct colors; clean folder icons
-- **Dark / Light theme** — toggle in the path bar; preference persists
-- **No flash** — `loader.js` pre-hides Chrome's plain listing at `document_start`
-- **Ghostty terminal** — open current folder in Ghostty (requires optional native setup)
+### Views
+| Mode | Description |
+|------|-------------|
+| **Details** | Full table — Name, Type, Size, Modified |
+| **List** | Compact single-column rows |
+| **Tiles** | Medium icon grid with name below |
+| **Large Icons** | Oversized icon grid |
 
-## What's NOT supported
+Switch with the toolbar buttons. Preference persists across sessions.
 
-- **System Finder icons / macOS `.icns`** — Chrome's extension sandbox cannot read the filesystem or macOS metadata APIs. Icons are custom SVG.
-- **Finder sidebar sync** — Finder favorites live in a binary plist (`com.apple.sidebarlists.plist`) that's inaccessible from a browser extension. Use the built-in Bookmarks feature instead.
+### Toolbar
+- **Zoom slider** — scales the entire file list proportionally (50–200%)
+- **View toggle** — Details / List / Tiles / Large Icons
+- **Search** — live filter by filename as you type (covers all view modes)
+- **Hidden files** — show/hide dotfiles with one click
+- **Terminal** — open current folder in Ghostty (or copy path to clipboard)
+- **Theme** — dark / light toggle; persisted in `localStorage`
+
+### Sidebar
+- **Finder Favourites** — parsed from your macOS SFL4 sidebar binary at install time and hardcoded (live sync isn't possible from a sandboxed extension)
+- **Quick Places** — Root, Home, Desktop, Documents, Downloads
+- **Bookmarks** — star (☆) any folder to save it; drag rows to reorder; ✕ to remove
+- All bookmark state persists in `localStorage`
+
+### File Icons
+30+ file types with distinct SVG icons and per-extension colour coding:
+
+| Category | Colour |
+|----------|--------|
+| JS / MJS | Golden yellow |
+| TS / TSX / JSX | Blue / Cyan |
+| HTML / CSS | Orange / Deep blue |
+| Python / Go / Rust | Blue variants |
+| Images | Purple |
+| Video / Audio | Red / Orange |
+| Archives | Brown |
+| JSON / YAML | Teal / Red |
+
+Special folders (Desktop, Documents, Downloads, Code, etc.) render in amber; generic folders in blue.
+
+### Tooltips
+Hover any item for a rich tooltip showing:
+- Full filename
+- Full path
+- File type
+- Size (formatted)
+- Modified date
+- Hidden file indicator (if dotfile)
+
+> Permissions, creation date, and image dimensions require the optional native host.
+
+---
 
 ## Installation
 
@@ -70,7 +146,7 @@ A Chrome extension that replaces the browser's plain directory listings with a m
 3. Click **Load unpacked** → select this folder (`better-file-browser/`)
 4. On the extension card → **Details** → enable **"Allow access to file URLs"**
 
-### 2. (Optional) Enable Ghostty one-click launch
+### 2. (Optional) Ghostty terminal integration
 
 ```bash
 # Find your Extension ID on chrome://extensions, then:
@@ -80,24 +156,57 @@ cd native/
 
 This registers a native messaging host that lets the terminal button open Ghostty directly in the current folder.
 
-Without this step, the terminal button copies the path to your clipboard with instructions.
+Without this step the terminal button copies the path to your clipboard with instructions.
 
-## File Structure
+---
+
+## What's not supported
+
+| Feature | Reason |
+|---------|--------|
+| System Finder icons (`.icns`) | Chrome's extension sandbox cannot read macOS metadata APIs |
+| Live Finder sidebar sync | Favourites live in a binary plist inaccessible from a browser extension |
+| File permissions / creation date | Require a native filesystem agent |
+| Image dimensions in tooltips | Require loading each image — possible future enhancement with native host |
+
+---
+
+## File structure
 
 ```
 better-file-browser/
-├── manifest.json          MV3 extension manifest
-├── loader.js              document_start: hides Chrome listing before it renders
-├── content.js             document_end: parses + replaces the full page
+├── manifest.json               MV3 extension manifest
+├── loader.js                   document_start: hides Chrome listing before render
+├── content.js                  document_end: parses + replaces the full page
+├── icon.svg                    Extension icon (dark rounded square + folder)
 ├── README.md
 └── native/
-    ├── ghostty_launcher.py    Native messaging host (Python)
-    ├── install.sh             Registers the host with Chrome
+    ├── ghostty_launcher.py     Native messaging host (Python)
+    ├── install.sh              Registers the host with Chrome
     └── com.better_file_browser.ghostty.json  Host manifest template
 ```
 
+---
+
 ## Development
 
-All logic is in `content.js` — reload the extension after edits (`chrome://extensions/` → refresh button).
+All logic lives in `content.js`. After any edit:
+
+1. Open `chrome://extensions/`
+2. Click the refresh icon on the **Better File Browser** card
+3. Reload any open `file://` tab
 
 The extension uses no bundler, no dependencies, and no network requests.
+
+---
+
+## Possible future enhancements
+
+- **Image preview** — thumbnail on hover for PNG/JPG/GIF/SVG (possible in-extension with `<img src="file://...">`)
+- **File permissions** — displayed via native host returning `os.stat()` data
+- **Multi-select** — shift/cmd-click to select multiple items, then copy paths
+- **Keyboard navigation** — arrow keys, Enter to open, Backspace to go up
+- **Custom places** — user-editable quick-access list beyond the fixed Places section
+- **Context menu** — right-click for Copy Path, Copy Name, Open in Terminal
+- **Column resize** — drag column headers to adjust widths
+- **Recently visited** — history of the last N directories browsed
