@@ -1,43 +1,8 @@
-# Better File Browser
+<div align="center">
+  <img src="banner.svg" alt="Better File Browser" width="860"/>
+</div>
 
-```
-╔==================================================================╗
-║  +--⊕ BETTER FILE BROWSER ⊕--+                                   ║
-║  |  Chrome Extension  v2.1   |  2026-04-18                       ║
-║  +---------------------------+                                   ║
-╠==============◆◆====================================◆◆============╣
-║                                                                  ║
-║  ◆ OVERVIEW ---------------------------------------------------  ║
-║  ├- Purpose ...... Replaces file:// listings with a modern UI    ║
-║  ├- Entry ...... content.js  (document_end)                      ║
-║  ├- Flash fix ...... loader.js   (document_start)                ║
-║  └- Terminal ...... Ghostty via native messaging host            ║
-║                                                                  ║
-║  ▶ FEATURES ---------------------------------------------------  ║
-║  ├- 4 view modes  — Details / List / Tiles / Large Icons         ║
-║  ├- Zoom slider   — proportional content scaling                 ║
-║  ├- Live search   — filters rows + tiles as you type             ║
-║  ├- Dark / Light  — theme toggle, persisted in localStorage      ║
-║  ├- Sortable cols — Name / Size / Modified                       ║
-║  ├- 30+ SVG icons — per-extension colour coding                  ║
-║  ├- Rich tooltips — name, size, date, type, hidden flag          ║
-║  └- Hidden files  — toggle dotfile visibility                    ║
-║                                                                  ║
-║  ○ SIDEBAR ----------------------------------------------------  ║
-║  ├- Finder Favs  — synced from macOS SFL4 binary                 ║
-║  ├- Quick Places — Root / Home / Desktop / Docs / Down           ║
-║  ├- Bookmarks    — star any folder, drag-to-reorder              ║
-║  └- Remove btn   — per-bookmark x control                        ║
-║                                                                  ║
-║  ■ INSTALL ----------------------------------------------------  ║
-║  ├- 1. chrome://extensions -> Load unpacked                      ║
-║  ├- 2. Details -> Allow access to file URLs                      ║
-║  ├- 3. (opt) cd native/ && ./install.sh <ext-id>                 ║
-║  └- 4. Reload extension after any content.js edit                ║
-║                                                                  ║
-╠==============◆◆====================================◆◆============╣
-╚==================================================================╝
-```
+<br/>
 
 A Chrome extension that replaces the browser's plain `file://` directory listings with a modern, feature-rich file explorer.
 
