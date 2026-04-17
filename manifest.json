@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Better File Browser",
+  "version": "2.0",
+  "description": "Transforms Chrome's plain directory listings into a rich, modern file explorer",
+  "permissions": ["storage", "nativeMessaging", "clipboardWrite"],
+  "content_scripts": [
+    {
+      "matches": ["file://*/*"],
+      "js": ["loader.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": ["file://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ]
+}

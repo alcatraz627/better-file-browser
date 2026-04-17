@@ -1,0 +1,7 @@
+{
+  "name": "com.better_file_browser.ghostty",
+  "description": "Opens Ghostty terminal for Better File Browser extension",
+  "path": "/Users/alcatraz627/Code/better-file-browser/native/ghostty_launcher.py",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://EXTENSION_ID_PLACEHOLDER/"]
+}
