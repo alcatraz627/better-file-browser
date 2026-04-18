@@ -1,5 +1,9 @@
 <div align="center">
   <img src="banner.svg" alt="Better File Browser" width="860"/>
+  <br/><br/>
+  <img src="chrome-badge.svg" alt="Chrome Extension v2.1" height="48"/>
+  &nbsp;&nbsp;
+  <img src="icon128.png" alt="Extension Icon" width="48" height="48" style="border-radius:10px;vertical-align:middle"/>
 </div>
 
 <br/>

@@ -1,0 +1,3745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Better File Browser</title>
+<meta property="og:title" content="Better File Browser">
+<meta property="og:description" content="Chrome Extension v2.1 — Modern file:// directory explorer">
+<meta property="og:type" content="article">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Better File Browser">
+<meta name="twitter:description" content="Chrome Extension v2.1 — Modern file:// directory explorer">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%230a0a0f'/%3E%3Ctext x='4' y='23' font-family='monospace' font-size='20' font-weight='bold' fill='%2300f0ff'%3EN%3C/text%3E%3Ctext x='16' y='23' font-family='monospace' font-size='20' font-weight='bold' fill='%23ff00ff'%3EX%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+<style>
+/* shared-base.css — Common styles for all create-report templates.
+ *
+ * Prepended to each template's style.css by generate-html.ts.
+ * Templates can override any variable or class.
+ */
+
+/* ── Syntax Highlighting Tokens ─────────────────────────────────────────── */
+/* Override these custom properties in your template's CSS to change colors */
+:root {
+  --hl-keyword: #c084fc;
+  --hl-string: #86efac;
+  --hl-comment: #64748b;
+  --hl-number: #fbbf24;
+  --hl-type: #67e8f9;
+  --hl-attr: #fb923c;
+  --hl-operator: #94a3b8;
+  --hl-function: #60a5fa;
+}
+.kw {
+  color: var(--hl-keyword);
+}
+.st {
+  color: var(--hl-string);
+}
+.cm {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+.nm {
+  color: var(--hl-number);
+}
+.tp {
+  color: var(--hl-type);
+}
+.at {
+  color: var(--hl-attr);
+}
+.op {
+  color: var(--hl-operator);
+}
+.fn {
+  color: var(--hl-function);
+}
+
+/* ── Code Dialog ────────────────────────────────────────────────────────── */
+dialog#code-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(90vw, 900px);
+  max-height: 85vh;
+  border: 1px solid var(--border, #333);
+  border-radius: 12px;
+  background: var(--code-dialog-bg, #1a1a2e);
+  color: var(--code-dialog-text, #e2e8f0);
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+}
+dialog#code-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+dialog#code-dialog[open] {
+  animation: dlg-in 0.2s ease-out;
+}
+dialog#code-dialog[data-closing] {
+  animation: dlg-out 0.15s ease-in forwards;
+}
+@keyframes dlg-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes dlg-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+dialog#code-dialog .dlg-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border, #333);
+  font-size: 0.85rem;
+}
+dialog#code-dialog .dlg-lang {
+  background: var(--hl-keyword, #c084fc);
+  color: #000;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+dialog#code-dialog .dlg-title {
+  flex: 1;
+  opacity: 0.7;
+}
+dialog#code-dialog .dlg-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+dialog#code-dialog .dlg-lines {
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+dialog#code-dialog .dlg-copy,
+dialog#code-dialog .dlg-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: inherit;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+dialog#code-dialog .dlg-copy:hover,
+dialog#code-dialog .dlg-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+dialog#code-dialog .dlg-copy.copied {
+  color: var(--hl-string, #86efac);
+}
+dialog#code-dialog .dlg-body {
+  overflow: auto;
+  max-height: calc(85vh - 52px);
+  padding: 0;
+}
+dialog#code-dialog .dlg-body pre {
+  margin: 0;
+  padding: 16px 20px;
+  max-height: none;
+  overflow: visible;
+}
+
+/* ── Search Highlight ───────────────────────────────────────────────────── */
+mark {
+  background: rgba(250, 204, 21, 0.3);
+  color: inherit;
+  border-radius: 2px;
+  padding: 1px 0;
+}
+mark.search-active {
+  background: rgba(250, 204, 21, 0.7);
+  outline: 2px solid rgba(250, 204, 21, 0.9);
+  outline-offset: 1px;
+}
+.hidden-search {
+  display: none !important;
+}
+.search-reveal {
+  animation: search-fade 0.3s ease-out;
+}
+@keyframes search-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Search Nav Buttons (Chrome-like prev/next) ─────────────────────────── */
+.search-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 4px;
+}
+.search-prev,
+.search-next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border, #333);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  font-size: 0.6rem;
+  line-height: 1;
+  transition: all 0.1s;
+  padding: 0;
+}
+.search-prev {
+  border-radius: 4px 0 0 4px;
+}
+.search-next {
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+}
+.search-prev:hover,
+.search-next:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text, #eee);
+}
+
+/* ── Width Picker ───────────────────────────────────────────────────────── */
+.width-picker {
+  display: inline-flex;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 2px;
+}
+.width-btn {
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  color: inherit;
+  opacity: 0.5;
+  transition: all 0.15s;
+}
+.width-btn:hover {
+  opacity: 0.8;
+}
+.width-btn.active {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Width Classes (shared defaults — styles can override these) ────────── */
+/* Applied by the shared toolbar JS via class toggling on the content container.
+   Individual style CSS files can define their own values for these classes. */
+.width-sm {
+  max-width: 640px !important;
+}
+.width-md {
+  max-width: 960px !important;
+}
+.width-lg {
+  max-width: 1200px !important;
+}
+.width-xl {
+  max-width: 100% !important;
+}
+
+/* ── Theme Toggle Button ────────────────────────────────────────────────── */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #333);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition: all 0.15s;
+}
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Print Media ────────────────────────────────────────────────────────── */
+@media print {
+  /* ── Page setup ────────────────────────────────────────────────────── */
+  @page {
+    margin: 1.5cm 1.3cm;
+    size: A4;
+  }
+
+  /* ── Hide interactive UI ───────────────────────────────────────────── */
+  .theme-toggle,
+  .width-picker,
+  .search-wrap,
+  #search,
+  #search-count,
+  dialog#code-dialog,
+  .tool-btn,
+  .font-picker,
+  .color-picker,
+  .style-picker,
+  .search-nav,
+  .copy-btn,
+  .code-expand,
+  .code-line-count,
+  .floating-toolbar,
+  .scroll-top-btn,
+  .reading-progress,
+  button:not(.tab-btn) {
+    display: none !important;
+  }
+
+  /* ── Color fidelity ────────────────────────────────────────────────── */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Typography & readability ──────────────────────────────────────── */
+  body {
+    font-size: 11pt;
+    line-height: 1.6;
+  }
+  p,
+  li,
+  td,
+  th,
+  blockquote {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* ── Code blocks: prevent horizontal overflow ──────────────────────── */
+  pre {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    overflow-x: visible !important;
+    font-size: 9pt !important;
+    line-height: 1.45 !important;
+  }
+  pre code {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    font-size: 9pt !important;
+  }
+  .code-wrap {
+    break-inside: avoid;
+    cursor: default !important;
+  }
+  .code-header {
+    break-after: avoid;
+  }
+
+  /* ── Tables: prevent split rows ────────────────────────────────────── */
+  .table-wrap {
+    break-inside: auto;
+    overflow: visible !important;
+  }
+  table {
+    font-size: 9pt;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+
+  /* ── Section headings: keep with following content, reduce print sizes */
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+  h2 {
+    font-size: 14pt !important;
+    margin-top: 1.2rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  h3 {
+    font-size: 12pt !important;
+    margin-top: 0.8rem !important;
+    margin-bottom: 0.4rem !important;
+  }
+  h4 {
+    font-size: 11pt !important;
+    margin-top: 0.6rem !important;
+    margin-bottom: 0.3rem !important;
+  }
+  /* Don't prevent page breaks inside sections/cards — long sections
+     would leave previous pages half-empty. Let content flow naturally. */
+
+  /* ── Blockquotes ───────────────────────────────────────────────────── */
+  blockquote {
+    break-inside: avoid;
+  }
+
+  /* ── Tree blocks: force all details open for print ─────────────────── */
+  details.tree-node {
+    open: true;
+  }
+  details.tree-node > summary {
+    list-style: none;
+  }
+  details.tree-node > summary::before {
+    content: "▾" !important;
+    transform: none !important;
+  }
+  .tree-wrap {
+    break-inside: avoid;
+  }
+
+  /* ── Links: show URL after link text ───────────────────────────────── */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+    font-weight: normal;
+  }
+  /* Don't show URL for anchor links (internal nav) */
+  a[href^="#"]::after {
+    content: none;
+  }
+
+  /* ── Search highlights: clean up ───────────────────────────────────── */
+  mark {
+    background: transparent !important;
+    outline: none !important;
+    color: inherit !important;
+  }
+}
+
+/* ── Code Line Numbers ──────────────────────────────────────────────────── */
+pre.has-line-nums {
+  padding: 0 !important;
+}
+pre.has-line-nums code {
+  display: block;
+  padding: 12px 0;
+}
+.line-row {
+  display: block;
+  /* NOTE(by human): Line height of 1.35 makes the lines very scattered, updated to 0.25 */
+  line-height: 0.25;
+  padding: 0 16px 0 0;
+}
+.line-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.line-num {
+  display: inline-block;
+  width: 3.5em;
+  padding: 0 12px 0 12px;
+  text-align: right;
+  color: var(--hl-comment, #64748b);
+  opacity: 0.5;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  pointer-events: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  margin-right: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.line-content {
+  display: inline;
+}
+.code-line-count {
+  font-size: 0.72rem;
+  opacity: 0.45;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Inline Code Path Coloring ──────────────────────────────────────────── */
+code.code-path .code-path-file {
+  color: var(--hl-function, #60a5fa);
+}
+code.code-path .code-path-line {
+  color: var(--hl-number, #fbbf24);
+  opacity: 0.7;
+}
+
+/* ── Floating Toolbar ──────────────────────────────────────────────────── */
+/* Unified container — both rows share one pill background so they look like
+   a single widget rather than two independent floating bars.
+   Row 2 (template-specific controls) sits above row 1 (universal actions);
+   a thin divider appears between them only when row 2 is visible. */
+.floating-toolbar {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: rgba(20, 20, 30, 0.92);
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  color: #e2e8f0;
+  /* @user made change here to have overflow: visible otherwise the dropdowns are clipped */
+  /* overflow: hidden; */
+  overflow: visible;
+}
+html.light .floating-toolbar {
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f2328;
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+.ftb-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+}
+/* When row-2 is visible, a bottom border separates it from row-1.
+   display:none hides the border too, so it only shows when row-2 has content. */
+.ftb-row-2 {
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+}
+html.light .ftb-row-2 {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+.ftb-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.ftb-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+html.light .ftb-btn:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+.ftb-dropdown-btn svg:last-child {
+  opacity: 0.5;
+}
+.ftb-label {
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+.ftb-icon {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.ftb-sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(128, 128, 128, 0.3);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+.ftb-group {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+/* Toolbar dropdowns open UPWARD (bottom-anchored toolbar) */
+.ftb-group .style-menu,
+.ftb-group .copy-for-menu,
+.ftb-group .font-menu,
+.ftb-group .color-menu {
+  bottom: calc(100% + 8px);
+  top: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+/* Floating toolbar width-picker override */
+.ftb-group.width-picker {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+html.light .ftb-group.width-picker {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Floating toolbar text-size override */
+.ftb-group.text-size-picker {
+  gap: 2px;
+}
+.ftb-group.text-size-picker .text-size-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 0.7rem;
+  border-color: rgba(128, 128, 128, 0.25);
+}
+.ftb-group.text-size-picker .text-size-label {
+  font-size: 0.65rem;
+  min-width: 28px;
+}
+
+/* ── Style Picker ───────────────────────────────────────────────────────── */
+.style-picker {
+  position: relative;
+}
+.style-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 260px;
+  max-width: 320px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--surface, #1a1a2e);
+  border: 1px solid var(--border, #333);
+  border-radius: 10px;
+  padding: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 200;
+}
+.style-menu.open {
+  display: block;
+}
+.style-group-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 8px 10px 3px;
+  pointer-events: none;
+  user-select: none;
+}
+.style-group-label:first-child {
+  padding-top: 4px;
+}
+html.light .style-group-label {
+  color: rgba(0, 0, 0, 0.35);
+}
+.style-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+.style-opt:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+html.light .style-opt:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.style-opt.active {
+  background: rgba(255, 255, 255, 0.06);
+}
+html.light .style-opt.active {
+  background: rgba(0, 0, 0, 0.04);
+}
+.style-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.style-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.style-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text, #e2e8f0);
+}
+.style-opt.active .style-name {
+  font-weight: 600;
+  color: var(--accent, #818cf8);
+}
+.style-desc {
+  font-size: 0.68rem;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.style-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted, #888);
+  margin-left: auto;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.style-badge-ready {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+/* ── Style Preview Float ───────────────────────────────────────────────── */
+.style-preview-float {
+  display: none;
+  position: fixed;
+  width: 180px;
+  height: 120px;
+  background: var(--surface, #1a1a2e);
+  border: 1px solid var(--border, #444);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 300;
+}
+.style-preview-float.visible {
+  display: block;
+  animation: tip-fade-in 0.15s ease-out;
+}
+.style-preview-float svg {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+@keyframes tip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+/* On narrow screens, hide preview float to avoid overflow */
+@media (max-width: 700px) {
+  .style-preview-float {
+    display: none !important;
+  }
+}
+
+/* ── Restyle Toast ─────────────────────────────────────────────────────── */
+.restyle-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: var(--surface, rgba(15, 15, 25, 0.95));
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.3));
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  animation: restyle-toast-in 0.2s ease-out;
+}
+.restyle-toast-label {
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.restyle-toast-cmd {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 0.78rem;
+  color: var(--accent, #a5b4fc);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 420px;
+}
+@keyframes restyle-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Reading Progress Bar ──────────────────────────────────────────────── */
+.reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0%;
+  height: 3px;
+  background: var(--accent, #818cf8);
+  z-index: 99999;
+  transition: width 0.1s linear;
+  pointer-events: none;
+}
+
+/* ── Text Size Controls ────────────────────────────────────────────────── */
+.text-size-picker {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.text-size-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.text-size-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text, #e2e8f0);
+}
+.text-size-label {
+  font-size: 0.7rem;
+  color: var(--text-muted, #888);
+  min-width: 32px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Scroll to Top ─────────────────────────────────────────────────────── */
+.scroll-top-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.3));
+  background: var(--surface, rgba(15, 15, 25, 0.9));
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px);
+  z-index: 9000;
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 0.25s,
+    transform 0.25s,
+    background 0.15s;
+  pointer-events: none;
+}
+.scroll-top-btn.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.scroll-top-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text, #e2e8f0);
+}
+html.light .scroll-top-btn {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #555;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+html.light .scroll-top-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1f2328;
+}
+
+/* ── Copy For Menu ─────────────────────────────────────────────────────── */
+.copy-for-picker {
+  position: relative;
+}
+.copy-for-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  background: var(--surface, #1a1a2e);
+  border: 1px solid var(--border, #333);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 200;
+}
+.copy-for-menu.open {
+  display: block;
+}
+.copy-for-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+.copy-for-opt:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.copy-for-opt .copy-for-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.copy-for-opt .copy-for-label {
+  flex: 1;
+}
+.copy-for-feedback {
+  font-size: 0.75rem;
+  color: #6ee7b7;
+}
+
+/* ── Light mode: dropdown menus ─────────────────────────────────────────── */
+/* Dropdowns use var(--surface, #1a1a2e) which falls back to a dark colour.
+   Templates don't define --surface for html.light, so text turns dark while
+   the dropdown background stays dark → invisible text. Fix with explicit rules. */
+html.light .style-menu,
+html.light .copy-for-menu,
+html.light .font-menu,
+html.light .color-menu {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1f2328;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+html.light .style-preview-float {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+html.light .style-name {
+  color: #1f2328;
+}
+html.light .style-desc {
+  color: #64748b;
+}
+html.light .style-opt:hover,
+html.light .copy-for-opt:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+html.light .style-opt.active {
+  background: rgba(0, 0, 0, 0.05);
+}
+html.light .style-badge {
+  background: rgba(0, 0, 0, 0.08);
+  color: #555;
+}
+html.light .style-badge-ready {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0a0a0f;
+  --bg-card: rgba(15, 15, 25, 0.7);
+  --bg-code: #06060c;
+  --bg-header: #0a0a0f;
+  --bg-sidebar: #07070d;
+  --bg-table-head: rgba(15, 15, 30, 0.8);
+  --bg-code-header: rgba(15, 15, 30, 0.8);
+  --border: rgba(0, 240, 255, 0.15);
+  --text: #e0e0f0;
+  --text-muted: #6a6a8a;
+  --accent: #00f0ff;
+  --accent-rgb: 0, 240, 255;
+  --accent-secondary: #ff00ff;
+  --accent-tertiary: #ff2d95;
+  --green: #00ff88;
+  --green-bg: rgba(0, 255, 136, 0.08);
+  --yellow: #ffee00;
+  --yellow-bg: rgba(255, 238, 0, 0.08);
+  --red: #ff2d5e;
+  --red-bg: rgba(255, 45, 94, 0.08);
+  --gray-pill: #6a6a8a;
+  --gray-pill-bg: rgba(106, 106, 138, 0.1);
+  --code-dialog-bg: #0c0c18;
+  --code-dialog-text: #e0e0f0;
+  --glow-sm: 0 0 6px rgba(var(--accent-rgb), 0.4);
+  --glow-md:
+    0 0 12px rgba(var(--accent-rgb), 0.3), 0 0 24px rgba(var(--accent-rgb), 0.1);
+  --glow-lg:
+    0 0 20px rgba(var(--accent-rgb), 0.4),
+    0 0 40px rgba(var(--accent-rgb), 0.2), 0 0 60px rgba(var(--accent-rgb), 0.1);
+  --glass-bg: rgba(15, 15, 30, 0.5);
+  --glass-border: rgba(var(--accent-rgb), 0.2);
+  --glass-blur: 12px;
+
+  /* Syntax highlighting */
+  --hl-keyword: #ff00ff;
+  --hl-function: #00f0ff;
+  --hl-string: #00ff88;
+  --hl-comment: #4a4a6a;
+  --hl-type: #ff2d95;
+  --hl-number: #ffee00;
+  --hl-operator: #6a6a8a;
+  --hl-attr: #b48eff;
+}
+
+/* ── Light mode ─────────────────────────────────────────────────────────── */
+:root.light {
+  --bg: #f4f4f8;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-code: #f0f0f5;
+  --bg-header: #f4f4f8;
+  --bg-sidebar: #eeeef3;
+  --bg-table-head: rgba(230, 230, 240, 0.8);
+  --bg-code-header: rgba(230, 230, 240, 0.8);
+  --border: rgba(0, 180, 200, 0.2);
+  --text: #1a1a2e;
+  --text-muted: #6a6a8a;
+  --green: #059669;
+  --green-bg: rgba(5, 150, 105, 0.1);
+  --yellow: #d97706;
+  --yellow-bg: rgba(217, 119, 6, 0.1);
+  --red: #dc2626;
+  --red-bg: rgba(220, 38, 38, 0.1);
+  --gray-pill: #6b7280;
+  --gray-pill-bg: rgba(107, 114, 128, 0.1);
+  --code-dialog-bg: #f4f4f8;
+  --code-dialog-text: #1a1a2e;
+  --glow-sm: 0 0 4px rgba(var(--accent-rgb), 0.2);
+  --glow-md: 0 0 8px rgba(var(--accent-rgb), 0.15);
+  --glow-lg: 0 0 12px rgba(var(--accent-rgb), 0.2);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(var(--accent-rgb), 0.15);
+  --glass-blur: 8px;
+  --hl-keyword: #a626a4;
+  --hl-function: #0077aa;
+  --hl-string: #059669;
+  --hl-comment: #9ca3af;
+  --hl-type: #c41a7f;
+  --hl-number: #986801;
+  --hl-operator: #4b5563;
+  --hl-attr: #7c3aed;
+}
+
+:root.light .scanline-overlay {
+  display: none;
+}
+/* Tone down neon text glow in light mode — bright on white is distracting */
+:root.light h1,
+:root.light h2,
+:root.light h3,
+:root.light h4,
+:root.light .sidebar a.active,
+:root.light thead th,
+:root.light .tree-label,
+:root.light .code-path {
+  text-shadow: none !important;
+}
+/* Boost contrast for table/code headers in light mode */
+:root.light thead th {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1a1a2e;
+  font-weight: 600;
+}
+:root.light .code-header {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1a1a2e;
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+:root.light .section-glow-bar {
+  box-shadow: none;
+}
+
+body {
+  font-family: "Space Grotesk", "JetBrains Mono", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ── Scanline overlay ────────────────────────────────────────────────────── */
+.scanline-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.neon-header {
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 16px 32px;
+  position: relative;
+}
+.neon-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent),
+    var(--accent-secondary),
+    var(--accent-tertiary),
+    transparent
+  );
+  box-shadow: var(--glow-sm);
+}
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.header-title {
+  flex: 1;
+}
+.neon-header h1 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow:
+    0 0 10px rgba(var(--accent-rgb), 0.5),
+    0 0 20px rgba(var(--accent-rgb), 0.3);
+  letter-spacing: 0.02em;
+}
+.neon-header .subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* ── Header controls ─────────────────────────────────────────────────────── */
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Width picker */
+.width-picker {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 2px;
+  backdrop-filter: blur(var(--glass-blur));
+}
+.width-btn {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.width-btn:hover {
+  color: var(--accent);
+  text-shadow: 0 0 6px rgba(var(--accent-rgb), 0.5);
+}
+.width-btn.active {
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+  box-shadow: var(--glow-sm);
+}
+
+/* Neon color picker dropdown */
+.neon-color-picker {
+  position: relative;
+}
+.neon-color-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  transition: all 0.2s;
+  backdrop-filter: blur(var(--glass-blur));
+}
+.neon-color-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: var(--glow-sm);
+}
+.neon-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.6);
+}
+.neon-color-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 280px;
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 8px;
+  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), var(--glow-sm);
+  z-index: 100;
+  display: none;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+.neon-color-picker.open .neon-color-dropdown {
+  display: grid;
+}
+.neon-color-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.neon-color-opt:hover {
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--text);
+}
+.neon-color-opt.active {
+  color: var(--accent);
+  text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5);
+}
+.neon-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Search ──────────────────────────────────────────────────────────────── */
+.header-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#search {
+  flex: 1;
+  max-width: 420px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: "JetBrains Mono", monospace;
+  outline: none;
+  transition: all 0.25s;
+  backdrop-filter: blur(var(--glass-blur));
+}
+#search::placeholder {
+  color: var(--text-muted);
+}
+#search:focus {
+  border-color: var(--accent);
+  box-shadow: var(--glow-md);
+  background: rgba(var(--accent-rgb), 0.05);
+}
+#search-count {
+  font-size: 0.75rem;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--text-muted);
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.layout {
+  display: flex;
+  flex: 1;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.sidebar {
+  width: 230px;
+  min-width: 230px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--glass-border);
+  padding: 24px 0;
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+.sidebar-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  padding: 0 20px;
+  margin-bottom: 12px;
+}
+.sidebar a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-left: 2px solid transparent;
+  transition: all 0.2s;
+  position: relative;
+}
+.sidebar a:hover {
+  color: var(--text);
+  background: rgba(var(--accent-rgb), 0.04);
+}
+.sidebar a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.06);
+  text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.4);
+}
+.nav-indicator {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.sidebar a.active .nav-indicator {
+  background: var(--accent);
+  box-shadow:
+    0 0 6px var(--accent),
+    0 0 12px var(--accent);
+}
+.nav-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Content ─────────────────────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  max-width: 1100px;
+  padding: 36px 44px 64px;
+  min-width: 0;
+}
+
+/* Width overrides — !important to beat shared-base defaults */
+.content.width-sm {
+  max-width: 680px !important;
+}
+.content.width-md {
+  max-width: 860px !important;
+}
+.content.width-lg {
+  max-width: 1100px !important;
+}
+.content.width-xl {
+  max-width: 1400px !important;
+}
+
+/* ── Section ─────────────────────────────────────────────────────────────── */
+.neon-section {
+  margin-bottom: 40px;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.section-glow-bar {
+  width: 3px;
+  height: 28px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-secondary));
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5);
+}
+.section-header h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+  display: inline;
+  flex: 1;
+}
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.neon-section:hover .section-actions {
+  opacity: 1;
+}
+.section-copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: #4a4a5a;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.section-copy-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--glow-sm);
+}
+.section-content {
+  padding-left: 17px;
+}
+
+/* ── Glassmorphism cards ─────────────────────────────────────────────────── */
+.neon-section .section-content > .table-wrap,
+.neon-section .section-content > .code-wrap,
+.neon-section .section-content > .tree-wrap,
+.neon-section .section-content > blockquote {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: 0 0 1px rgba(var(--accent-rgb), 0.1);
+}
+
+/* ── Paragraphs and lists ────────────────────────────────────────────────── */
+p {
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+blockquote {
+  border-left: 3px solid var(--accent-secondary);
+  padding: 14px 18px;
+  margin: 14px 0;
+  background: var(--glass-bg);
+  border-radius: 0 10px 10px 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--accent-secondary);
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.08);
+}
+ul {
+  padding-left: 20px;
+  margin-bottom: 12px;
+}
+ol {
+  padding-left: 20px;
+  margin-bottom: 12px;
+}
+li {
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+li::marker {
+  color: var(--accent);
+}
+
+/* ── Tables with neon grid lines ─────────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  margin: 14px 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+thead th {
+  background: var(--bg-table-head);
+  text-align: left;
+  padding: 10px 14px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.25);
+  text-shadow: 0 0 4px rgba(var(--accent-rgb), 0.3);
+}
+tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.08);
+  vertical-align: middle;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
+tbody tr:hover {
+  background: rgba(var(--accent-rgb), 0.04);
+}
+
+/* ── Status pills ────────────────────────────────────────────────────────── */
+.pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.pill-active {
+  background: var(--green-bg);
+  color: var(--green);
+  border: 1px solid rgba(0, 255, 136, 0.25);
+  box-shadow: 0 0 6px rgba(0, 255, 136, 0.15);
+}
+.pill-maintenance {
+  background: var(--yellow-bg);
+  color: var(--yellow);
+  border: 1px solid rgba(255, 238, 0, 0.25);
+  box-shadow: 0 0 6px rgba(255, 238, 0, 0.15);
+}
+.pill-degraded {
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid rgba(255, 45, 94, 0.25);
+  box-shadow: 0 0 6px rgba(255, 45, 94, 0.15);
+}
+.pill-inactive {
+  background: var(--gray-pill-bg);
+  color: var(--gray-pill);
+  border: 1px solid rgba(106, 106, 138, 0.3);
+}
+
+/* ── Bar chart in table ──────────────────────────────────────────────────── */
+.bar-cell {
+  min-width: 100px;
+}
+.bar-bg {
+  height: 6px;
+  background: rgba(var(--accent-rgb), 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+  box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.4);
+}
+
+/* ── Code blocks ─────────────────────────────────────────────────────────── */
+.code-wrap {
+  margin: 14px 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+}
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  background: var(--bg-code-header);
+  border-bottom: 1px solid var(--glass-border);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.code-lang {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--accent);
+  text-shadow: 0 0 4px rgba(var(--accent-rgb), 0.3);
+}
+.code-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.code-actions button {
+  background: none;
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.code-actions button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--glow-sm);
+}
+pre {
+  background: var(--bg-code);
+  padding: 18px 20px;
+  overflow-x: auto;
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+code {
+  font-family: "JetBrains Mono", monospace;
+}
+pre code {
+  color: var(--text);
+}
+
+.code-label {
+  display: inline-block;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.06);
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-bottom: 6px;
+}
+
+/* ── Headings ────────────────────────────────────────────────────────────── */
+h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  display: inline;
+}
+h3 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 28px 0 12px;
+  color: var(--accent);
+  text-shadow: 0 0 6px rgba(var(--accent-rgb), 0.3);
+}
+h4 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 20px 0 10px;
+  color: var(--text-muted);
+}
+
+/* ── Horizontal rule — animated gradient ─────────────────────────────────── */
+hr {
+  border: none;
+  height: 1px;
+  margin: 28px 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent),
+    var(--accent-secondary),
+    var(--accent-tertiary),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: gradient-slide 4s linear infinite;
+}
+@keyframes gradient-slide {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 200% 0%;
+  }
+}
+
+/* ── Tree blocks ─────────────────────────────────────────────────────────── */
+.tree-wrap {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 14px 0;
+  font-size: 0.8rem;
+  font-family: "JetBrains Mono", monospace;
+  backdrop-filter: blur(var(--glass-blur));
+}
+.tree-node {
+  margin-left: 16px;
+}
+.tree-node summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 2px 0;
+}
+.tree-node summary::-webkit-details-marker {
+  display: none;
+}
+.tree-leaf {
+  margin-left: 16px;
+  padding: 2px 0;
+}
+.tree-label {
+  font-weight: 500;
+}
+.tree-dir-label {
+  color: var(--accent);
+  text-shadow: 0 0 4px rgba(var(--accent-rgb), 0.3);
+}
+.tree-dir-label::before {
+  content: "\1F4C1 ";
+}
+.tree-file-label::before {
+  content: "\1F4C4 ";
+}
+.tree-desc {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-left: 8px;
+}
+.tree-children {
+  margin-left: 8px;
+}
+
+/* ── Dialog ──────────────────────────────────────────────────────────────── */
+dialog {
+  background: var(--code-dialog-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  color: var(--code-dialog-text);
+  max-width: 90vw;
+  max-height: 85vh;
+  width: 900px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: var(--glow-lg);
+}
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+.dlg-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--bg-code-header);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", monospace;
+}
+.dlg-lang {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.dlg-title {
+  flex: 1;
+}
+.dlg-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.dlg-lines {
+  font-size: 0.65rem;
+}
+.dlg-copy,
+.dlg-close {
+  background: none;
+  border: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dlg-copy:hover,
+.dlg-close:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--glow-sm);
+}
+.dlg-body {
+  overflow: auto;
+  max-height: calc(85vh - 48px);
+}
+.dlg-body pre {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+
+/* ── No results ──────────────────────────────────────────────────────────── */
+#no-results {
+  color: var(--text-muted);
+}
+
+/* ── Search highlight ────────────────────────────────────────────────────── */
+mark.search-hit {
+  background: rgba(var(--accent-rgb), 0.25);
+  color: var(--accent);
+  border-radius: 2px;
+  padding: 0 2px;
+  box-shadow: 0 0 4px rgba(var(--accent-rgb), 0.3);
+}
+
+/* ── Search hidden ───────────────────────────────────────────────────────── */
+.search-hidden {
+  display: none !important;
+}
+
+/* ── Print ───────────────────────────────────────────────────────────────── */
+@media print {
+  .scanline-overlay,
+  .sidebar,
+  .header-controls,
+  .header-search,
+  .print-btn,
+  #no-results {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+  .neon-header {
+    border-bottom: 2px solid #000;
+  }
+  .neon-header h1 {
+    color: #000;
+    text-shadow: none;
+  }
+  .neon-header .subtitle {
+    color: #444;
+  }
+  .content {
+    max-width: 100%;
+    padding: 20px;
+  }
+  .layout {
+    display: block;
+  }
+  .neon-section {
+    page-break-inside: avoid;
+  }
+
+  .table-wrap,
+  .code-wrap,
+  .tree-wrap,
+  blockquote,
+  dialog {
+    background: #fff;
+    border-color: #ccc;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+  thead th {
+    color: #000;
+    text-shadow: none;
+    background: #f0f0f0;
+  }
+  hr {
+    background: #ccc;
+    animation: none;
+  }
+  .section-glow-bar {
+    box-shadow: none;
+    background: #333;
+  }
+  h3 {
+    color: #333;
+    text-shadow: none;
+  }
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .sidebar {
+    display: none;
+  }
+  .content {
+    padding: 24px 20px 48px;
+  }
+  .header-top {
+    flex-wrap: wrap;
+  }
+  #search {
+    max-width: 100%;
+  }
+}
+@media (max-width: 500px) {
+  .header-controls {
+    flex-wrap: wrap;
+  }
+  .width-picker {
+    display: none;
+  }
+}
+
+</style>
+<script>
+window.__RPT_CURRENT_STYLE = "neon";
+window.__RPT_GENERATED_STYLES = [];
+window.__RPT_REPORT_DIR = "/Users/alcatraz627/Code/better-file-browser";
+</script>
+</head>
+<body>
+
+<!-- Scanline overlay -->
+<div class="scanline-overlay"></div>
+
+<!-- Code Dialog -->
+<dialog id="code-dialog">
+  <div class="dlg-header">
+    <span class="dlg-lang"></span>
+    <span class="dlg-title"></span>
+    <div class="dlg-actions">
+      <span class="dlg-lines"></span>
+      <button class="dlg-copy">Copy</button>
+      <button class="dlg-close">Close</button>
+    </div>
+  </div>
+  <div class="dlg-body"></div>
+</dialog>
+
+<!-- Header -->
+<header class="neon-header">
+  <div class="header-top">
+    <div class="header-title">
+      <h1>Better File Browser</h1>
+      <p class="subtitle">Chrome Extension v2.1 — Modern file:// directory explorer</p>
+    </div>
+    <div class="header-controls">
+      <div class="width-picker">
+        <button class="width-btn" data-width="sm">SM</button>
+        <button class="width-btn" data-width="md">MD</button>
+        <button class="width-btn" data-width="lg">LG</button>
+        <button class="width-btn" data-width="xl">XL</button>
+      </div>
+      <div class="neon-color-picker">
+        <button class="neon-color-toggle" title="Neon accent color">
+          <span class="neon-swatch"></span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="neon-color-dropdown" id="neon-color-dropdown"></div>
+      </div>
+    </div>
+    <div class="header-search">
+      <input type="text" id="search" placeholder="Search... (Ctrl+K)" autocomplete="off" spellcheck="false">
+      <span id="search-count"></span>
+    </div>
+  </div>
+</header>
+
+<div id="no-results" style="display:none;text-align:center;padding:48px 20px;color:var(--text-muted);font-size:0.9rem;font-family:'JetBrains Mono',monospace;">No sections match your search.</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-label">// SECTIONS</div>
+    <a href="#architecture" class="active"><span class="nav-indicator"></span><span class="nav-text">Architecture</span></a>
+      <a href="#features"><span class="nav-indicator"></span><span class="nav-text">Features</span></a>
+      <a href="#installation"><span class="nav-indicator"></span><span class="nav-text">Installation</span></a>
+      <a href="#whats-not-supported"><span class="nav-indicator"></span><span class="nav-text">What's not supported</span></a>
+      <a href="#file-structure"><span class="nav-indicator"></span><span class="nav-text">File Structure</span></a>
+      <a href="#development"><span class="nav-indicator"></span><span class="nav-text">Development</span></a>
+      <a href="#possible-future-enhancements"><span class="nav-indicator"></span><span class="nav-text">Possible Future Enhancements</span></a>
+  </nav>
+
+  <!-- Content -->
+  <main class="content">
+    <section class="neon-section" data-section-id="architecture">
+        <a id="architecture"></a>
+        <div class="section-header">
+          <div class="section-glow-bar"></div>
+          <h2>Architecture</h2>
+          <div class="section-actions">
+            <button class="section-copy-btn" title="Copy section" aria-label="Copy section">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="section-content">
+          <p>A Chrome extension that replaces the browser's plain <code>file://</code> directory listings with a modern, feature-rich file explorer. Two content scripts work in tandem to eliminate the flash of the default listing.</p>
+          <div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">text</span>
+    <span class="code-line-count">30 lines</span>
+    <div class="code-actions">
+      <button class="code-expand" aria-label="Expand">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+          <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg> Expand
+      </button>
+      <button class="copy-btn">Copy</button>
+    </div>
+  </div>
+  <pre class="has-line-nums"><code><span class="line-row"><span class="line-num" aria-hidden="true"> 1</span><span class="line-content">Chrome navigates to file:///some/path/</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true"> 2</span><span class="line-content">        │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true"> 3</span><span class="line-content">        ▼</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true"> 4</span><span class="line-content">┌─────────────────────────────────────────────────────────────┐</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true"> 5</span><span class="line-content">│  loader.js          (run_at: document_start)                │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true"> 6</span><span class="line-content">│  └─ Immediately hides &lt;body&gt; to prevent default listing     │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true"> 7</span><span class="line-content">│     flash — checks URL ends with &quot;/&quot; before acting          │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true"> 8</span><span class="line-content">└─────────────────────────────────────────────────────────────┘</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true"> 9</span><span class="line-content">        │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">10</span><span class="line-content">        ▼</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">11</span><span class="line-content">┌─────────────────────────────────────────────────────────────┐</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">12</span><span class="line-content">│  content.js         (run_at: document_end)                  │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">13</span><span class="line-content">│  ├─ 1. Detect: document.title.startsWith(&quot;Index of&quot;)        │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">14</span><span class="line-content">│  ├─ 2. Parse Chrome's &lt;table&gt; with data-value attributes    │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">15</span><span class="line-content">│  ├─ 3. Replace full DOM with custom UI                      │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">16</span><span class="line-content">│  └─ 4. Attach events (search, sort, tooltips, sidebar…)     │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">17</span><span class="line-content">└─────────────────────────────────────────────────────────────┘</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">18</span><span class="line-content">        │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">19</span><span class="line-content">        ▼</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">20</span><span class="line-content">┌──────────────┬──────────────────────────────────────────────┐</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">21</span><span class="line-content">│  SIDEBAR     │  PATH BAR   / Users &gt; alcatraz627 &gt; Code     │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">22</span><span class="line-content">│              ├──────────────────────────────────────────────┤</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">23</span><span class="line-content">│  Finder Favs │  TOOLBAR  [zoom] [Details][List][Tiles][Icons]│</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">24</span><span class="line-content">│  ★ Code      ├──────────────────────────────────────────────┤</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">25</span><span class="line-content">│  ★ Downloads │  Name         │ Type   │ Size    │ Modified   │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">26</span><span class="line-content">│              │  📁 src/      │ Folder │  —      │ Apr 17     │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">27</span><span class="line-content">│  Places      │  🟨 index.js  │ JS     │ 4.2 KB  │ Apr 17     │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">28</span><span class="line-content">│  🖥 Root     │  🔷 types.ts  │ TS     │ 1.1 KB  │ Apr 15     │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">29</span><span class="line-content">│  🏠 Home     │  {} pkg.json  │ JSON   │  890 B  │ Apr 10     │</span></span>
+<span class="line-row"><span class="line-num" aria-hidden="true">30</span><span class="line-content">└──────────────┴───────────────────────────────────────────────┘</span></span></code></pre>
+</div>
+        </div>
+      </section>
+
+      <section class="neon-section" data-section-id="features">
+        <a id="features"></a>
+        <div class="section-header">
+          <div class="section-glow-bar"></div>
+          <h2>Features</h2>
+          <div class="section-actions">
+            <button class="section-copy-btn" title="Copy section" aria-label="Copy section">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="section-content">
+          <h3 id="views">Views</h3><div class="table-wrap"><table><thead><tr><th>Mode</th><th>Description</th></tr></thead><tbody><tr><td>Details</td><td>Full table — Name, Type, Size, Modified</td></tr><tr><td>List</td><td>Compact single-column rows</td></tr><tr><td>Tiles</td><td>Medium icon grid with name below</td></tr><tr><td>Large Icons</td><td>Oversized icon grid</td></tr></tbody></table></div><p>Switch with the toolbar buttons. Preference persists across sessions.</p>
+          <h3 id="toolbar">Toolbar</h3><ul><li><strong>Zoom slider</strong> — scales the entire file list proportionally (50–200%)</li><li><strong>View toggle</strong> — Details / List / Tiles / Large Icons</li><li><strong>Search</strong> — live filter by filename as you type (covers all view modes)</li><li><strong>Hidden files</strong> — show/hide dotfiles with one click</li><li><strong>Terminal</strong> — open current folder in Ghostty (or copy path to clipboard)</li><li><strong>Theme</strong> — dark / light toggle; persisted in <code>localStorage</code></li></ul>
+          <h3 id="sidebar">Sidebar</h3><ul><li><strong>Finder Favourites</strong> — parsed from your macOS SFL4 sidebar binary at install time and hardcoded (live sync isn't possible from a sandboxed extension)</li><li><strong>Quick Places</strong> — Root, Home, Desktop, Documents, Downloads</li><li><strong>Bookmarks</strong> — star (☆) any folder to save it; drag rows to reorder; ✕ to remove</li><li>All bookmark state persists in <code>localStorage</code></li></ul>
+          <h3 id="file-icons">File Icons</h3><p>30+ file types with distinct SVG icons and per-extension colour coding:</p><div class="table-wrap"><table><thead><tr><th>Category</th><th>Colour</th></tr></thead><tbody><tr><td>JS / MJS</td><td>Golden yellow</td></tr><tr><td>TS / TSX / JSX</td><td>Blue / Cyan</td></tr><tr><td>HTML / CSS</td><td>Orange / Deep blue</td></tr><tr><td>Python / Go / Rust</td><td>Blue variants</td></tr><tr><td>Images</td><td>Purple</td></tr><tr><td>Video / Audio</td><td>Red / Orange</td></tr><tr><td>Archives</td><td>Brown</td></tr><tr><td>JSON / YAML</td><td>Teal / Red</td></tr></tbody></table></div><p>Special folders (Desktop, Documents, Downloads, Code, etc.) render in amber; generic folders in blue.</p>
+          <h3 id="tooltips">Tooltips</h3><p>Hover any item for a rich tooltip showing:</p><ul><li>Full filename</li><li>Full path</li><li>File type</li><li>Size (formatted)</li><li>Modified date</li><li>Hidden file indicator (if dotfile)</li></ul><blockquote>Permissions, creation date, and image dimensions require the optional native host.</blockquote>
+        </div>
+      </section>
+
+      <section class="neon-section" data-section-id="installation">
+        <a id="installation"></a>
+        <div class="section-header">
+          <div class="section-glow-bar"></div>
+          <h2>Installation</h2>
+          <div class="section-actions">
+            <button class="section-copy-btn" title="Copy section" aria-label="Copy section">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="section-content">
+          <h3 id="load-the-extension">1. Load the extension</h3><ol><li>Open <code>chrome://extensions/</code></li><li>Enable <strong>Developer mode</strong> (top-right toggle)</li><li>Click <strong>Load unpacked</strong> → select this folder (<code>better-file-browser/</code>)</li><li>On the extension card → <strong>Details</strong> → enable <strong>"Allow access to file URLs"</strong></li></ol>
+          <h3 id="ghostty-terminal-integration">2. (Optional) Ghostty terminal integration</h3><div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+    <span class="code-line-count">3 lines</span>
+    <div class="code-actions">
+      <button class="code-expand" aria-label="Expand">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+          <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg> Expand
+      </button>
+      <button class="copy-btn">Copy</button>
+    </div>
+  </div>
+  <pre><code><span class="cm"># Find your Extension ID on chrome://extensions, then:</span>
+<span class="kw">cd</span> native/
+./install.sh &lt;your-extension-id&gt;</code></pre>
+</div><p>This registers a native messaging host that lets the terminal button open Ghostty directly in the current folder.</p><p>Without this step the terminal button copies the path to your clipboard with instructions.</p>
+        </div>
+      </section>
+
+      <section class="neon-section" data-section-id="whats-not-supported">
+        <a id="whats-not-supported"></a>
+        <div class="section-header">
+          <div class="section-glow-bar"></div>
+          <h2>What's Not Supported</h2>
+          <div class="section-actions">
+            <button class="section-copy-btn" title="Copy section" aria-label="Copy section">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="section-content">
+          <div class="table-wrap"><table><thead><tr><th>Feature</th><th>Reason</th></tr></thead><tbody><tr><td>System Finder icons (.icns)</td><td>Chrome's extension sandbox cannot read macOS metadata APIs</td></tr><tr><td>Live Finder sidebar sync</td><td>Favourites live in a binary plist inaccessible from a browser extension</td></tr><tr><td>File permissions / creation date</td><td>Require a native filesystem agent</td></tr><tr><td>Image dimensions in tooltips</td><td>Require loading each image — possible future enhancement with native host</td></tr></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="neon-section" data-section-id="file-structure">
+        <a id="file-structure"></a>
+        <div class="section-header">
+          <div class="section-glow-bar"></div>
+          <h2>File Structure</h2>
+          <div class="section-actions">
+            <button class="section-copy-btn" title="Copy section" aria-label="Copy section">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="section-content">
+          <div class="tree-wrap"><details open class="tree-node">
+  <summary><span class="tree-label tree-dir-label">better-file-browser/</span> <span class="tree-desc">Extension root</span></summary>
+  <div class="tree-children"><div class="tree-leaf"><span class="tree-label tree-file-label" data-ext="json">manifest.json</span> <span class="tree-desc">MV3 extension manifest</span></div><div class="tree-leaf"><span class="tree-label tree-file-label" data-ext="js">loader.js</span> <span class="tree-desc">document_start: hides Chrome listing before render</span></div><div class="tree-leaf"><span class="tree-label tree-file-label" data-ext="js">content.js</span> <span class="tree-desc">document_end: parses + replaces the full page</span></div><div class="tree-leaf"><span class="tree-label tree-file-label" data-ext="png">icon.svg / icon*.png</span> <span class="tree-desc">Extension icon (dark rounded square + folder)</span></div><div class="tree-leaf"><span class="tree-label tree-file-label" data-ext="svg">banner.svg</span> <span class="tree-desc">GitHub README hero banner</span></div><div class="tree-leaf"><span class="tree-label tree-file-label" data-ext="md">README.md</span></div><details class="tree-node">
+  <summary><span class="tree-label tree-dir-label">native/</span> <span class="tree-desc">Optional Ghostty integration</span></summary>
+  <div class="tree-children"><div class="tree-leaf"><span class="tree-label tree-file-label" data-ext="py">ghostty_launcher.py</span> <span class="tree-desc">Native messaging host (Python)</span></div><div class="tree-leaf"><span class="tree-label tree-file-label" data-ext="sh">install.sh</span> <span class="tree-desc">Registers the host with Chrome</span></div><div class="tree-leaf"><span class="tree-label tree-file-label" data-ext="json">com.better_file_browser.ghostty.json</span> <span class="tree-desc">Host manifest template</span></div></div>
+</details></div>
+</details></div>
+        </div>
+      </section>
+
+      <section class="neon-section" data-section-id="development">
+        <a id="development"></a>
+        <div class="section-header">
+          <div class="section-glow-bar"></div>
+          <h2>Development</h2>
+          <div class="section-actions">
+            <button class="section-copy-btn" title="Copy section" aria-label="Copy section">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="section-content">
+          <p>All logic lives in <code>content.js</code>. After any edit:</p>
+          <ol><li>Open <code>chrome://extensions/</code></li><li>Click the refresh icon on the <strong>Better File Browser</strong> card</li><li>Reload any open <code>file://</code> tab</li></ol>
+          <p>The extension uses no bundler, no dependencies, and no network requests.</p>
+        </div>
+      </section>
+
+      <section class="neon-section" data-section-id="possible-future-enhancements">
+        <a id="possible-future-enhancements"></a>
+        <div class="section-header">
+          <div class="section-glow-bar"></div>
+          <h2>Possible Future Enhancements</h2>
+          <div class="section-actions">
+            <button class="section-copy-btn" title="Copy section" aria-label="Copy section">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="section-content">
+          <ul><li><strong>Image preview</strong> — thumbnail on hover for PNG/JPG/GIF/SVG (possible in-extension with <code>&lt;img src="file://..."&gt;</code>)</li><li><strong>File permissions</strong> — displayed via native host returning <code>os.stat()</code> data</li><li><strong>Multi-select</strong> — shift/cmd-click to select multiple items, then copy paths</li><li><strong>Keyboard navigation</strong> — arrow keys, Enter to open, Backspace to go up</li><li><strong>Custom places</strong> — user-editable quick-access list beyond the fixed Places section</li><li><strong>Context menu</strong> — right-click for Copy Path, Copy Name, Open in Terminal</li><li><strong>Column resize</strong> — drag column headers to adjust widths</li><li><strong>Recently visited</strong> — history of the last N directories browsed</li></ul>
+        </div>
+      </section>
+  </main>
+</div>
+
+
+
+<!-- Unified floating toolbar -->
+<div class="floating-toolbar" id="floating-toolbar">
+  <div class="ftb-row ftb-row-2" id="ftb-row-2" style="display:none"></div>
+  <div class="ftb-row ftb-row-1">
+    <button id="ftb-theme-btn" class="ftb-btn" title="Toggle light/dark theme">🌙</button>
+    <span class="ftb-sep"></span>
+    <div class="ftb-group copy-for-picker" id="copy-for-wrap">
+      <button id="copy-for-btn" class="ftb-btn ftb-dropdown-btn" title="Copy report content" aria-expanded="false">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        <span class="ftb-label">Copy</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div id="copy-for-menu" class="copy-for-menu">
+        <button class="copy-for-opt" data-format="notion"><span class="copy-for-icon">N</span><span class="copy-for-label">Copy for Notion</span></button>
+        <button class="copy-for-opt" data-format="slack"><span class="copy-for-icon">#</span><span class="copy-for-label">Copy for Slack</span></button>
+        <button class="copy-for-opt" data-format="markdown"><span class="copy-for-icon">M&darr;</span><span class="copy-for-label">Copy as Markdown</span></button>
+      </div>
+    </div>
+    <button id="ftb-print-btn" class="ftb-btn" title="Print report">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <polyline points="6 9 6 2 18 2 18 9"/>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+        <rect x="6" y="14" width="12" height="8"/>
+      </svg>
+    </button>
+    <span class="ftb-sep"></span>
+    <div class="ftb-group style-picker" id="style-picker-wrap">
+      <button id="style-picker-btn" class="ftb-btn ftb-dropdown-btn" title="Switch report style" aria-expanded="false">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+        </svg>
+        <span class="ftb-label">neon</span>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div id="style-menu" class="style-menu">
+        <div class="style-group-label">Classic</div>
+<button class="style-opt" data-style="default" data-ready="false" title="Dark sidebar with accent colors" data-preview="&lt;rect fill=&quot;#0f0f17&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#1a1a2e&quot; x=&quot;0&quot; y=&quot;0&quot; width=&quot;40&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#6366f1&quot; x=&quot;6&quot; y=&quot;8&quot; width=&quot;28&quot; height=&quot;3&quot; rx=&quot;1&quot;/&gt;
+    &lt;rect fill=&quot;#2d2d44&quot; x=&quot;6&quot; y=&quot;16&quot; width=&quot;24&quot; height=&quot;2&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#2d2d44&quot; x=&quot;6&quot; y=&quot;22&quot; width=&quot;20&quot; height=&quot;2&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#2d2d44&quot; x=&quot;6&quot; y=&quot;28&quot; width=&quot;22&quot; height=&quot;2&quot; rx=&quot;1&quot;/&gt;
+    &lt;rect fill=&quot;#6366f1&quot; x=&quot;50&quot; y=&quot;10&quot; width=&quot;50&quot; height=&quot;4&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;&lt;rect fill=&quot;#e2e8f0&quot; x=&quot;50&quot; y=&quot;20&quot; width=&quot;90&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;&lt;rect fill=&quot;#e2e8f0&quot; x=&quot;50&quot; y=&quot;26&quot; width=&quot;80&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;&lt;rect fill=&quot;#1a1a2e&quot; x=&quot;50&quot; y=&quot;36&quot; width=&quot;100&quot; height=&quot;30&quot; rx=&quot;3&quot;/&gt;&lt;rect fill=&quot;#e2e8f0&quot; x=&quot;50&quot; y=&quot;74&quot; width=&quot;70&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;"><span class="style-dot" style="background:#6366f1"></span><span class="style-info"><span class="style-name">default</span><span class="style-desc">Dark sidebar with accent colors</span></span></button>
+<button class="style-opt" data-style="minimal" data-ready="false" title="Ultra-clean reading-focused layout" data-preview="&lt;rect fill=&quot;#fafafa&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#111&quot; x=&quot;30&quot; y=&quot;12&quot; width=&quot;100&quot; height=&quot;5&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#6b7280&quot; x=&quot;50&quot; y=&quot;22&quot; width=&quot;60&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;
+    &lt;rect fill=&quot;#e5e7eb&quot; x=&quot;30&quot; y=&quot;32&quot; width=&quot;100&quot; height=&quot;.5&quot;/&gt;
+    &lt;rect fill=&quot;#374151&quot; x=&quot;30&quot; y=&quot;42&quot; width=&quot;100&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#374151&quot; x=&quot;30&quot; y=&quot;48&quot; width=&quot;96&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;&lt;rect fill=&quot;#374151&quot; x=&quot;30&quot; y=&quot;54&quot; width=&quot;100&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#374151&quot; x=&quot;30&quot; y=&quot;60&quot; width=&quot;80&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;
+    &lt;rect fill=&quot;#e5e7eb&quot; x=&quot;30&quot; y=&quot;70&quot; width=&quot;100&quot; height=&quot;.5&quot;/&gt;"><span class="style-dot" style="background:#6b7280"></span><span class="style-info"><span class="style-name">minimal</span><span class="style-desc">Ultra-clean reading-focused layout</span></span></button>
+<button class="style-opt" data-style="notion" data-ready="false" title="Clean Notion-style with cards" data-preview="&lt;rect fill=&quot;#ffffff&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#f7f6f3&quot; x=&quot;0&quot; y=&quot;0&quot; width=&quot;160&quot; height=&quot;14&quot; rx=&quot;4&quot;/&gt;&lt;rect fill=&quot;#37352f&quot; x=&quot;8&quot; y=&quot;5&quot; width=&quot;40&quot; height=&quot;4&quot; rx=&quot;1&quot;/&gt;
+    &lt;rect fill=&quot;#fff&quot; x=&quot;12&quot; y=&quot;22&quot; width=&quot;136&quot; height=&quot;30&quot; rx=&quot;4&quot; stroke=&quot;#e3e2de&quot; stroke-width=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#f7f6f3&quot; x=&quot;16&quot; y=&quot;26&quot; width=&quot;60&quot; height=&quot;3&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#9b9a97&quot; x=&quot;16&quot; y=&quot;32&quot; width=&quot;90&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#9b9a97&quot; x=&quot;16&quot; y=&quot;38&quot; width=&quot;70&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;
+    &lt;rect fill=&quot;#fff&quot; x=&quot;12&quot; y=&quot;58&quot; width=&quot;136&quot; height=&quot;30&quot; rx=&quot;4&quot; stroke=&quot;#e3e2de&quot; stroke-width=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#f7f6f3&quot; x=&quot;16&quot; y=&quot;62&quot; width=&quot;50&quot; height=&quot;3&quot; rx=&quot;1&quot;/&gt;"><span class="style-dot" style="background:#9b9a97"></span><span class="style-info"><span class="style-name">notion</span><span class="style-desc">Clean Notion-style with cards</span></span></button>
+<div class="style-group-label">Data</div>
+<button class="style-opt" data-style="dashboard" data-ready="false" title="Analytics dashboard with metrics" data-preview="&lt;rect fill=&quot;#0f172a&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#1e293b&quot; x=&quot;4&quot; y=&quot;4&quot; width=&quot;36&quot; height=&quot;20&quot; rx=&quot;3&quot;/&gt;&lt;rect fill=&quot;#3b82f6&quot; x=&quot;8&quot; y=&quot;8&quot; width=&quot;16&quot; height=&quot;6&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#64748b&quot; x=&quot;8&quot; y=&quot;17&quot; width=&quot;24&quot; height=&quot;2&quot; rx=&quot;1&quot;/&gt;
+    &lt;rect fill=&quot;#1e293b&quot; x=&quot;44&quot; y=&quot;4&quot; width=&quot;36&quot; height=&quot;20&quot; rx=&quot;3&quot;/&gt;&lt;rect fill=&quot;#10b981&quot; x=&quot;48&quot; y=&quot;8&quot; width=&quot;16&quot; height=&quot;6&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#64748b&quot; x=&quot;48&quot; y=&quot;17&quot; width=&quot;24&quot; height=&quot;2&quot; rx=&quot;1&quot;/&gt;
+    &lt;rect fill=&quot;#1e293b&quot; x=&quot;84&quot; y=&quot;4&quot; width=&quot;36&quot; height=&quot;20&quot; rx=&quot;3&quot;/&gt;&lt;rect fill=&quot;#f59e0b&quot; x=&quot;88&quot; y=&quot;8&quot; width=&quot;16&quot; height=&quot;6&quot; rx=&quot;1&quot;/&gt;
+    &lt;rect fill=&quot;#1e293b&quot; x=&quot;124&quot; y=&quot;4&quot; width=&quot;32&quot; height=&quot;20&quot; rx=&quot;3&quot;/&gt;&lt;rect fill=&quot;#ef4444&quot; x=&quot;128&quot; y=&quot;8&quot; width=&quot;16&quot; height=&quot;6&quot; rx=&quot;1&quot;/&gt;
+    &lt;rect fill=&quot;#1e293b&quot; x=&quot;4&quot; y=&quot;28&quot; width=&quot;76&quot; height=&quot;68&quot; rx=&quot;3&quot;/&gt;&lt;rect fill=&quot;#3b82f6&quot; x=&quot;10&quot; y=&quot;40&quot; width=&quot;6&quot; height=&quot;30&quot; rx=&quot;1&quot; opacity=&quot;.7&quot;/&gt;&lt;rect fill=&quot;#3b82f6&quot; x=&quot;20&quot; y=&quot;50&quot; width=&quot;6&quot; height=&quot;20&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#3b82f6&quot; x=&quot;30&quot; y=&quot;35&quot; width=&quot;6&quot; height=&quot;35&quot; rx=&quot;1&quot; opacity=&quot;.8&quot;/&gt;&lt;rect fill=&quot;#3b82f6&quot; x=&quot;40&quot; y=&quot;45&quot; width=&quot;6&quot; height=&quot;25&quot; rx=&quot;1&quot; opacity=&quot;.6&quot;/&gt;
+    &lt;rect fill=&quot;#1e293b&quot; x=&quot;84&quot; y=&quot;28&quot; width=&quot;72&quot; height=&quot;68&quot; rx=&quot;3&quot;/&gt;"><span class="style-dot" style="background:#3b82f6"></span><span class="style-info"><span class="style-name">dashboard</span><span class="style-desc">Analytics dashboard with metrics</span></span></button>
+<button class="style-opt" data-style="data-table" data-ready="false" title="Spreadsheet table layout" data-preview="&lt;rect fill=&quot;#f8fafc&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#16a34a&quot; x=&quot;0&quot; y=&quot;0&quot; width=&quot;160&quot; height=&quot;10&quot; rx=&quot;4&quot;/&gt;&lt;rect fill=&quot;#fff&quot; x=&quot;6&quot; y=&quot;3&quot; width=&quot;30&quot; height=&quot;4&quot; rx=&quot;1&quot; opacity=&quot;.8&quot;/&gt;
+    &lt;rect fill=&quot;#e2e8f0&quot; x=&quot;4&quot; y=&quot;16&quot; width=&quot;152&quot; height=&quot;8&quot;/&gt;&lt;rect fill=&quot;#64748b&quot; x=&quot;8&quot; y=&quot;18&quot; width=&quot;24&quot; height=&quot;4&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#64748b&quot; x=&quot;48&quot; y=&quot;18&quot; width=&quot;30&quot; height=&quot;4&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#64748b&quot; x=&quot;96&quot; y=&quot;18&quot; width=&quot;20&quot; height=&quot;4&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;
+    &lt;rect fill=&quot;#fff&quot; x=&quot;4&quot; y=&quot;26&quot; width=&quot;152&quot; height=&quot;8&quot;/&gt;&lt;rect fill=&quot;#334155&quot; x=&quot;8&quot; y=&quot;28&quot; width=&quot;30&quot; height=&quot;4&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;&lt;rect fill=&quot;#334155&quot; x=&quot;48&quot; y=&quot;28&quot; width=&quot;24&quot; height=&quot;4&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#f1f5f9&quot; x=&quot;4&quot; y=&quot;36&quot; width=&quot;152&quot; height=&quot;8&quot;/&gt;&lt;rect fill=&quot;#334155&quot; x=&quot;8&quot; y=&quot;38&quot; width=&quot;28&quot; height=&quot;4&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#fff&quot; x=&quot;4&quot; y=&quot;46&quot; width=&quot;152&quot; height=&quot;8&quot;/&gt;"><span class="style-dot" style="background:#16a34a"></span><span class="style-info"><span class="style-name">data-table</span><span class="style-desc">Spreadsheet table layout</span></span></button>
+<button class="style-opt" data-style="jupyter" data-ready="false" title="Jupyter notebook with executable-style cells" data-preview="&lt;rect fill=&quot;#fff&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#f57c00&quot; x=&quot;0&quot; y=&quot;0&quot; width=&quot;160&quot; height=&quot;10&quot; rx=&quot;4&quot;/&gt;&lt;rect fill=&quot;#fff&quot; x=&quot;6&quot; y=&quot;3&quot; width=&quot;24&quot; height=&quot;4&quot; rx=&quot;1&quot; opacity=&quot;.8&quot;/&gt;
+    &lt;rect fill=&quot;#f5f5f5&quot; x=&quot;4&quot; y=&quot;16&quot; width=&quot;152&quot; height=&quot;24&quot; rx=&quot;3&quot; stroke=&quot;#e0e0e0&quot; stroke-width=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#f57c00&quot; x=&quot;4&quot; y=&quot;16&quot; width=&quot;3&quot; height=&quot;24&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#333&quot; x=&quot;14&quot; y=&quot;20&quot; width=&quot;60&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;&lt;rect fill=&quot;#333&quot; x=&quot;14&quot; y=&quot;26&quot; width=&quot;80&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;&lt;rect fill=&quot;#333&quot; x=&quot;14&quot; y=&quot;32&quot; width=&quot;50&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#f5f5f5&quot; x=&quot;4&quot; y=&quot;46&quot; width=&quot;152&quot; height=&quot;24&quot; rx=&quot;3&quot; stroke=&quot;#e0e0e0&quot; stroke-width=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#42a5f5&quot; x=&quot;4&quot; y=&quot;46&quot; width=&quot;3&quot; height=&quot;24&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#333&quot; x=&quot;14&quot; y=&quot;50&quot; width=&quot;70&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;"><span class="style-dot" style="background:#f57c00"></span><span class="style-info"><span class="style-name">jupyter</span><span class="style-desc">Jupyter notebook with executable-style cells</span></span></button>
+<div class="style-group-label">Creative</div>
+<button class="style-opt active" data-style="neon" data-ready="false" title="Cyberpunk neon-glow dark theme with gradients" data-preview="&lt;rect fill=&quot;#0a0a1a&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#00f0ff&quot; x=&quot;8&quot; y=&quot;8&quot; width=&quot;50&quot; height=&quot;5&quot; rx=&quot;1&quot; opacity=&quot;.8&quot;/&gt;&lt;rect fill=&quot;#ff00ff&quot; x=&quot;8&quot; y=&quot;16&quot; width=&quot;30&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;
+    &lt;rect fill=&quot;#00f0ff&quot; x=&quot;8&quot; y=&quot;26&quot; width=&quot;144&quot; height=&quot;.5&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#1a1a3e&quot; x=&quot;8&quot; y=&quot;32&quot; width=&quot;68&quot; height=&quot;40&quot; rx=&quot;4&quot; stroke=&quot;#00f0ff&quot; stroke-width=&quot;.5&quot; opacity=&quot;.6&quot;/&gt;&lt;rect fill=&quot;#00f0ff&quot; x=&quot;14&quot; y=&quot;36&quot; width=&quot;30&quot; height=&quot;3&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;
+    &lt;rect fill=&quot;#1a1a3e&quot; x=&quot;84&quot; y=&quot;32&quot; width=&quot;68&quot; height=&quot;40&quot; rx=&quot;4&quot; stroke=&quot;#ff00ff&quot; stroke-width=&quot;.5&quot; opacity=&quot;.6&quot;/&gt;&lt;rect fill=&quot;#ff00ff&quot; x=&quot;90&quot; y=&quot;36&quot; width=&quot;30&quot; height=&quot;3&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;
+    &lt;rect fill=&quot;#00f0ff&quot; x=&quot;8&quot; y=&quot;80&quot; width=&quot;144&quot; height=&quot;12&quot; rx=&quot;3&quot; opacity=&quot;.1&quot;/&gt;&lt;rect fill=&quot;#00f0ff&quot; x=&quot;14&quot; y=&quot;84&quot; width=&quot;40&quot; height=&quot;3&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;"><span class="style-dot" style="background:#00f0ff"></span><span class="style-info"><span class="style-name">neon</span><span class="style-desc">Cyberpunk neon-glow dark theme with gradients</span></span><span class="style-badge">current</span></button>
+<button class="style-opt" data-style="terminal" data-ready="false" title="Green-on-black retro terminal" data-preview="&lt;rect fill=&quot;#0a0a0a&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#1a1a1a&quot; x=&quot;0&quot; y=&quot;0&quot; width=&quot;160&quot; height=&quot;12&quot; rx=&quot;4&quot;/&gt;&lt;circle fill=&quot;#ff5f57&quot; cx=&quot;8&quot; cy=&quot;6&quot; r=&quot;2.5&quot;/&gt;&lt;circle fill=&quot;#febc2e&quot; cx=&quot;16&quot; cy=&quot;6&quot; r=&quot;2.5&quot;/&gt;&lt;circle fill=&quot;#28c840&quot; cx=&quot;24&quot; cy=&quot;6&quot; r=&quot;2.5&quot;/&gt;
+    &lt;rect fill=&quot;#33ff33&quot; x=&quot;8&quot; y=&quot;18&quot; width=&quot;12&quot; height=&quot;3&quot; rx=&quot;1&quot; opacity=&quot;.8&quot;/&gt;&lt;rect fill=&quot;#33ff33&quot; x=&quot;24&quot; y=&quot;18&quot; width=&quot;60&quot; height=&quot;3&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;
+    &lt;rect fill=&quot;#33ff33&quot; x=&quot;8&quot; y=&quot;26&quot; width=&quot;8&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.6&quot;/&gt;&lt;rect fill=&quot;#33ff33&quot; x=&quot;20&quot; y=&quot;26&quot; width=&quot;80&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#33ff33&quot; x=&quot;8&quot; y=&quot;32&quot; width=&quot;8&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.6&quot;/&gt;&lt;rect fill=&quot;#33ff33&quot; x=&quot;20&quot; y=&quot;32&quot; width=&quot;50&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#33ff33&quot; x=&quot;8&quot; y=&quot;42&quot; width=&quot;4&quot; height=&quot;3&quot; rx=&quot;1&quot; opacity=&quot;.9&quot;/&gt;&lt;rect fill=&quot;#33ff33&quot; x=&quot;14&quot; y=&quot;42&quot; width=&quot;1&quot; height=&quot;3&quot; opacity=&quot;.5&quot;/&gt;"><span class="style-dot" style="background:#33ff33"></span><span class="style-info"><span class="style-name">terminal</span><span class="style-desc">Green-on-black retro terminal</span></span></button>
+<button class="style-opt" data-style="magazine" data-ready="false" title="Editorial with serif typography" data-preview="&lt;rect fill=&quot;#faf8f5&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#8b2252&quot; x=&quot;8&quot; y=&quot;6&quot; width=&quot;60&quot; height=&quot;5&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#333&quot; x=&quot;8&quot; y=&quot;14&quot; width=&quot;40&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;
+    &lt;rect fill=&quot;#eee&quot; x=&quot;8&quot; y=&quot;22&quot; width=&quot;68&quot; height=&quot;40&quot; rx=&quot;2&quot;/&gt;&lt;rect fill=&quot;#8b2252&quot; x=&quot;12&quot; y=&quot;26&quot; width=&quot;30&quot; height=&quot;3&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#333&quot; x=&quot;84&quot; y=&quot;22&quot; width=&quot;68&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#333&quot; x=&quot;84&quot; y=&quot;28&quot; width=&quot;64&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;&lt;rect fill=&quot;#333&quot; x=&quot;84&quot; y=&quot;34&quot; width=&quot;68&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;&lt;rect fill=&quot;#333&quot; x=&quot;84&quot; y=&quot;40&quot; width=&quot;60&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;&lt;rect fill=&quot;#333&quot; x=&quot;84&quot; y=&quot;46&quot; width=&quot;66&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#8b2252&quot; x=&quot;8&quot; y=&quot;68&quot; width=&quot;144&quot; height=&quot;.5&quot; opacity=&quot;.3&quot;/&gt;"><span class="style-dot" style="background:#8b2252"></span><span class="style-info"><span class="style-name">magazine</span><span class="style-desc">Editorial with serif typography</span></span></button>
+<button class="style-opt" data-style="feed" data-ready="false" title="Social feed timeline cards" data-preview="&lt;rect fill=&quot;#15202b&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;circle fill=&quot;#1d9bf0&quot; cx=&quot;16&quot; cy=&quot;16&quot; r=&quot;6&quot; opacity=&quot;.7&quot;/&gt;&lt;rect fill=&quot;#e7e9ea&quot; x=&quot;28&quot; y=&quot;12&quot; width=&quot;30&quot; height=&quot;3&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#71767b&quot; x=&quot;28&quot; y=&quot;18&quot; width=&quot;20&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.6&quot;/&gt;
+    &lt;rect fill=&quot;#71767b&quot; x=&quot;28&quot; y=&quot;26&quot; width=&quot;100&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;&lt;rect fill=&quot;#71767b&quot; x=&quot;28&quot; y=&quot;32&quot; width=&quot;80&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#2f3336&quot; x=&quot;8&quot; y=&quot;42&quot; width=&quot;144&quot; height=&quot;.5&quot;/&gt;
+    &lt;circle fill=&quot;#1d9bf0&quot; cx=&quot;16&quot; cy=&quot;54&quot; r=&quot;6&quot; opacity=&quot;.7&quot;/&gt;&lt;rect fill=&quot;#e7e9ea&quot; x=&quot;28&quot; y=&quot;50&quot; width=&quot;24&quot; height=&quot;3&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#71767b&quot; x=&quot;28&quot; y=&quot;56&quot; width=&quot;16&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.6&quot;/&gt;
+    &lt;rect fill=&quot;#1e3a4f&quot; x=&quot;28&quot; y=&quot;64&quot; width=&quot;110&quot; height=&quot;26&quot; rx=&quot;6&quot;/&gt;"><span class="style-dot" style="background:#1d9bf0"></span><span class="style-info"><span class="style-name">feed</span><span class="style-desc">Social feed timeline cards</span></span></button>
+<div class="style-group-label">Print</div>
+<button class="style-opt" data-style="academic" data-ready="false" title="LaTeX-inspired academic paper with serif fonts" data-preview="&lt;rect fill=&quot;#fefefe&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#374151&quot; x=&quot;30&quot; y=&quot;8&quot; width=&quot;100&quot; height=&quot;5&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#6b7280&quot; x=&quot;50&quot; y=&quot;16&quot; width=&quot;60&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.5&quot;/&gt;
+    &lt;rect fill=&quot;#374151&quot; x=&quot;20&quot; y=&quot;26&quot; width=&quot;30&quot; height=&quot;3&quot; rx=&quot;1&quot; opacity=&quot;.6&quot;/&gt;
+    &lt;rect fill=&quot;#4b5563&quot; x=&quot;20&quot; y=&quot;34&quot; width=&quot;120&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;&lt;rect fill=&quot;#4b5563&quot; x=&quot;20&quot; y=&quot;40&quot; width=&quot;118&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.35&quot;/&gt;&lt;rect fill=&quot;#4b5563&quot; x=&quot;20&quot; y=&quot;46&quot; width=&quot;120&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;&lt;rect fill=&quot;#4b5563&quot; x=&quot;20&quot; y=&quot;52&quot; width=&quot;100&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.35&quot;/&gt;
+    &lt;rect fill=&quot;#374151&quot; x=&quot;20&quot; y=&quot;62&quot; width=&quot;25&quot; height=&quot;3&quot; rx=&quot;1&quot; opacity=&quot;.6&quot;/&gt;&lt;rect fill=&quot;#4b5563&quot; x=&quot;20&quot; y=&quot;70&quot; width=&quot;120&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;"><span class="style-dot" style="background:#374151"></span><span class="style-info"><span class="style-name">academic</span><span class="style-desc">LaTeX-inspired academic paper with serif fonts</span></span></button>
+<button class="style-opt" data-style="corporate" data-ready="false" title="Print-ready corporate report" data-preview="&lt;rect fill=&quot;#fff&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#0f2b46&quot; x=&quot;0&quot; y=&quot;0&quot; width=&quot;160&quot; height=&quot;14&quot; rx=&quot;4&quot;/&gt;&lt;rect fill=&quot;#fff&quot; x=&quot;8&quot; y=&quot;4&quot; width=&quot;40&quot; height=&quot;5&quot; rx=&quot;1&quot; opacity=&quot;.8&quot;/&gt;
+    &lt;rect fill=&quot;#0f2b46&quot; x=&quot;12&quot; y=&quot;22&quot; width=&quot;80&quot; height=&quot;5&quot; rx=&quot;1&quot;/&gt;&lt;rect fill=&quot;#64748b&quot; x=&quot;12&quot; y=&quot;32&quot; width=&quot;136&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;&lt;rect fill=&quot;#64748b&quot; x=&quot;12&quot; y=&quot;38&quot; width=&quot;120&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#f0f4f8&quot; x=&quot;12&quot; y=&quot;48&quot; width=&quot;136&quot; height=&quot;40&quot; rx=&quot;2&quot;/&gt;&lt;rect fill=&quot;#0f2b46&quot; x=&quot;16&quot; y=&quot;52&quot; width=&quot;40&quot; height=&quot;3&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;&lt;rect fill=&quot;#64748b&quot; x=&quot;16&quot; y=&quot;60&quot; width=&quot;100&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;"><span class="style-dot" style="background:#0f2b46"></span><span class="style-info"><span class="style-name">corporate</span><span class="style-desc">Print-ready corporate report</span></span></button>
+<button class="style-opt" data-style="slide" data-ready="false" title="Presentation slide deck with navigation" data-preview="&lt;rect fill=&quot;#1e1b4b&quot; width=&quot;160&quot; height=&quot;100&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#312e81&quot; x=&quot;4&quot; y=&quot;4&quot; width=&quot;152&quot; height=&quot;72&quot; rx=&quot;4&quot;/&gt;
+    &lt;rect fill=&quot;#818cf8&quot; x=&quot;20&quot; y=&quot;16&quot; width=&quot;80&quot; height=&quot;6&quot; rx=&quot;1&quot; opacity=&quot;.8&quot;/&gt;&lt;rect fill=&quot;#a5b4fc&quot; x=&quot;20&quot; y=&quot;28&quot; width=&quot;120&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.4&quot;/&gt;&lt;rect fill=&quot;#a5b4fc&quot; x=&quot;20&quot; y=&quot;34&quot; width=&quot;100&quot; height=&quot;2&quot; rx=&quot;1&quot; opacity=&quot;.3&quot;/&gt;
+    &lt;rect fill=&quot;#818cf8&quot; x=&quot;20&quot; y=&quot;46&quot; width=&quot;50&quot; height=&quot;16&quot; rx=&quot;3&quot; opacity=&quot;.2&quot;/&gt;&lt;rect fill=&quot;#818cf8&quot; x=&quot;78&quot; y=&quot;46&quot; width=&quot;50&quot; height=&quot;16&quot; rx=&quot;3&quot; opacity=&quot;.2&quot;/&gt;
+    &lt;circle fill=&quot;#818cf8&quot; cx=&quot;74&quot; cy=&quot;84&quot; r=&quot;3&quot; opacity=&quot;.5&quot;/&gt;&lt;circle fill=&quot;#818cf8&quot; cx=&quot;82&quot; cy=&quot;84&quot; r=&quot;3&quot; opacity=&quot;.8&quot;/&gt;&lt;circle fill=&quot;#818cf8&quot; cx=&quot;90&quot; cy=&quot;84&quot; r=&quot;3&quot; opacity=&quot;.5&quot;/&gt;"><span class="style-dot" style="background:#818cf8"></span><span class="style-info"><span class="style-name">slide</span><span class="style-desc">Presentation slide deck with navigation</span></span></button>
+      </div>
+      <div id="style-preview-float" class="style-preview-float" aria-hidden="true">
+        <svg viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  var root = document.documentElement;
+
+  // ── Theme button ─────────────────────────────────────────────────────────
+  var themeBtn = document.getElementById('ftb-theme-btn');
+  function syncThemeIcon() {
+    if (themeBtn) themeBtn.textContent = root.classList.contains('light') ? '☀️' : '🌙';
+  }
+  syncThemeIcon();
+  if (themeBtn) {
+    themeBtn.addEventListener('click', function() {
+      root.classList.toggle('light');
+      // Sync inverse dark class for templates that use html.dark (jupyter)
+      if (root.classList.contains('light')) {
+        root.classList.remove('dark');
+      } else {
+        root.classList.add('dark');
+      }
+      syncThemeIcon();
+      try { localStorage.setItem('rpt-theme', root.classList.contains('light') ? 'light' : 'dark'); } catch(e){}
+      // Notify templates that coordinate on a shared theme event
+      root.dispatchEvent(new CustomEvent('rpt:theme-change', { detail: { theme: root.classList.contains('light') ? 'light' : 'dark' } }));
+    });
+  }
+
+  // ── Print button — delegates to __RPT_TOOLBAR.print() if registered ──────
+  var printBtn = document.getElementById('ftb-print-btn');
+  if (printBtn) {
+    printBtn.addEventListener('click', function() {
+      if (window.__RPT_TOOLBAR && typeof window.__RPT_TOOLBAR.print === 'function') {
+        window.__RPT_TOOLBAR.print();
+      } else {
+        window.print();
+      }
+    });
+  }
+
+  // ── Close all toolbar dropdowns on outside click / Escape ─────────────────
+  document.addEventListener('click', function() {
+    document.querySelectorAll('.floating-toolbar .style-menu, .floating-toolbar .copy-for-menu, .floating-toolbar .font-menu, .floating-toolbar .color-menu').forEach(function(m) { m.classList.remove('open'); });
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.floating-toolbar .style-menu, .floating-toolbar .copy-for-menu, .floating-toolbar .font-menu, .floating-toolbar .color-menu').forEach(function(m) { m.classList.remove('open'); });
+    }
+  });
+
+  // ── DOMContentLoaded: inject row 2, init shared RPT features ─────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    // Inject row 2 from __RPT_TOOLBAR if provided by the template
+    var row2 = document.getElementById('ftb-row-2');
+    if (row2 && window.__RPT_TOOLBAR && window.__RPT_TOOLBAR.row2Html) {
+      row2.innerHTML = window.__RPT_TOOLBAR.row2Html;
+      row2.style.display = '';
+      if (typeof window.__RPT_TOOLBAR.row2Init === 'function') {
+        window.__RPT_TOOLBAR.row2Init();
+      }
+    }
+    // Init shared __RPT features
+    if (window.__RPT) {
+      if (window.__RPT.initStylePicker) window.__RPT.initStylePicker('#style-picker-btn', '#style-menu');
+      if (window.__RPT.initProgressBar) window.__RPT.initProgressBar();
+      if (window.__RPT.initScrollToTop) window.__RPT.initScrollToTop();
+      if (window.__RPT.initTextSize) window.__RPT.initTextSize('main,.content,article,.notebook,.slide-container', 'rpt-text-size');
+      if (window.__RPT.initCopyForMenu) window.__RPT.initCopyForMenu('#copy-for-btn', '#copy-for-menu');
+    }
+  });
+})();
+</script>
+<script>
+/**
+ * shared.js — Reusable interactive modules for create-report templates.
+ *
+ * Attaches to window.__RPT namespace. Templates call only what they need:
+ *   __RPT.initThemeToggle('#theme-btn');
+ *   __RPT.initSearch('#search', '#search-count', '#no-results', 'section[data-section-id]');
+ *   __RPT.initCodeDialog('#code-dialog');
+ *   __RPT.initCopyButtons('.copy-btn');
+ *   __RPT.initWidthPicker('main.content', 'rpt-width');
+ *   __RPT.initMath();
+ *   __RPT.openExternalLinks();
+ */
+(function () {
+  "use strict";
+
+  const root = document.documentElement;
+
+  // ── Safe localStorage (file:// may block access) ──────────────────────────
+  const store = (() => {
+    const mem = Object.create(null);
+    try {
+      localStorage.setItem("__rpt_test", "1");
+      localStorage.removeItem("__rpt_test");
+      return localStorage;
+    } catch (_) {
+      return {
+        getItem: (k) => (k in mem ? mem[k] : null),
+        setItem: (k, v) => {
+          mem[k] = String(v);
+        },
+        removeItem: (k) => {
+          delete mem[k];
+        },
+      };
+    }
+  })();
+
+  // ── SVG icons ─────────────────────────────────────────────────────────────
+  const SUN_SVG =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  const MOON_SVG =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  // ── Theme Toggle ──────────────────────────────────────────────────────────
+  /**
+   * @param {string} btnSelector - CSS selector for the toggle button
+   * @param {object} opts
+   * @param {string} opts.storageKey - localStorage key (default: 'rpt-theme')
+   * @param {string} opts.darkClass - class to add for light mode (default: 'light')
+   * @param {string} opts.defaultTheme - 'dark' or 'light' (default: 'dark')
+   * @param {string} opts.lightLabel - label text for light mode
+   * @param {string} opts.darkLabel - label text for dark mode
+   */
+  function initThemeToggle(btnSelector, opts) {
+    opts = Object.assign(
+      {
+        storageKey: "rpt-theme",
+        darkClass: "light",
+        defaultTheme: "light",
+        lightLabel: "Light",
+        darkLabel: "Dark",
+        // 'light-class': html.light = light mode (default for most templates)
+        // 'dark-class':  html.dark  = dark mode (for templates where :root is already light)
+        convention: "light-class",
+      },
+      opts,
+    );
+
+    var btn = document.querySelector(btnSelector);
+    if (!btn) return;
+
+    var saved = store.getItem(opts.storageKey) || opts.defaultTheme;
+    if (opts.convention === "dark-class") {
+      if (saved === "dark") root.classList.add(opts.darkClass);
+    } else {
+      if (saved === "light") root.classList.add(opts.darkClass);
+    }
+
+    function isCurrentlyLight() {
+      return opts.convention === "dark-class"
+        ? !root.classList.contains(opts.darkClass)
+        : root.classList.contains(opts.darkClass);
+    }
+
+    function sync() {
+      var light = isCurrentlyLight();
+      btn.innerHTML = light
+        ? SUN_SVG + ' <span class="btn-label">' + opts.lightLabel + "</span>"
+        : MOON_SVG + ' <span class="btn-label">' + opts.darkLabel + "</span>";
+    }
+    sync();
+
+    btn.addEventListener("click", function () {
+      root.classList.toggle(opts.darkClass);
+      store.setItem(opts.storageKey, isCurrentlyLight() ? "light" : "dark");
+      sync();
+    });
+
+    return {
+      getTheme: () => (isCurrentlyLight() ? "light" : "dark"),
+    };
+  }
+
+  // ── Search (Chrome-like: multi-word OR, next/back cycling, match index) ──
+  /**
+   * Chrome-like find-in-page. Splits query by spaces (OR search), highlights
+   * all matching words, provides next/back cycling with index/count display.
+   *
+   * Expected HTML near the search input:
+   *   <input id="search">
+   *   <span id="search-count"></span>           ← shows "3 / 12"
+   *   <button class="search-prev">▲</button>    ← optional, auto-created if missing
+   *   <button class="search-next">▼</button>    ← optional, auto-created if missing
+   *
+   * @param {string} inputSel
+   * @param {string} countSel
+   * @param {string} noResultsSel
+   * @param {string} sectionSel
+   * @param {object} opts
+   */
+  function initSearch(inputSel, countSel, noResultsSel, sectionSel, opts) {
+    opts = Object.assign(
+      { navLinkSel: null, hiddenClass: "hidden-search" },
+      opts,
+    );
+
+    var searchEl = document.querySelector(inputSel);
+    var countEl = document.querySelector(countSel);
+    var noResultEl = document.querySelector(noResultsSel);
+    var allSections = Array.from(document.querySelectorAll(sectionSel));
+    if (!searchEl || !allSections.length) return;
+
+    // Auto-create prev/next buttons if not present
+    var wrap = searchEl.closest(".search-wrap") || searchEl.parentElement;
+    var prevBtn = wrap.querySelector(".search-prev");
+    var nextBtn = wrap.querySelector(".search-next");
+    if (!prevBtn || !nextBtn) {
+      var navContainer = document.createElement("span");
+      navContainer.className = "search-nav";
+      navContainer.innerHTML =
+        '<button class="search-prev" title="Previous (Shift+Enter)">&#9650;</button>' +
+        '<button class="search-next" title="Next (Enter)">&#9660;</button>';
+      if (countEl && countEl.parentNode) {
+        countEl.parentNode.insertBefore(navContainer, countEl.nextSibling);
+      } else {
+        wrap.appendChild(navContainer);
+      }
+      prevBtn = navContainer.querySelector(".search-prev");
+      nextBtn = navContainer.querySelector(".search-next");
+    }
+
+    // State
+    var allMarks = []; // all <mark> elements in document order
+    var currentIdx = -1;
+    var ACTIVE_CLASS = "search-active";
+
+    function clearMarks() {
+      allSections.forEach(function (sec) {
+        sec.querySelectorAll("mark").forEach(function (m) {
+          var parent = m.parentNode;
+          if (parent)
+            parent.replaceChild(
+              document.createTextNode(m.textContent || ""),
+              m,
+            );
+        });
+        sec.normalize();
+      });
+      allMarks = [];
+      currentIdx = -1;
+    }
+
+    function addMarksForWord(el, word) {
+      var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      var nodes = [];
+      var n;
+      while ((n = walker.nextNode())) {
+        if (n.parentElement && !n.parentElement.closest("script,style,mark"))
+          nodes.push(n);
+      }
+      nodes.forEach(function (node) {
+        var txt = node.textContent || "";
+        var lo = txt.toLowerCase();
+        if (!lo.includes(word)) return;
+        var frag = document.createDocumentFragment();
+        var last = 0;
+        var idx = lo.indexOf(word, last);
+        while (idx !== -1) {
+          if (idx > last)
+            frag.appendChild(document.createTextNode(txt.slice(last, idx)));
+          var mark = document.createElement("mark");
+          mark.textContent = txt.slice(idx, idx + word.length);
+          frag.appendChild(mark);
+          last = idx + word.length;
+          idx = lo.indexOf(word, last);
+        }
+        if (last < txt.length)
+          frag.appendChild(document.createTextNode(txt.slice(last)));
+        if (node.parentNode) node.parentNode.replaceChild(frag, node);
+      });
+    }
+
+    function updateCount() {
+      if (!countEl) return;
+      if (allMarks.length === 0) {
+        countEl.textContent = "";
+        return;
+      }
+      countEl.textContent = currentIdx + 1 + " / " + allMarks.length;
+    }
+
+    function goToMark(idx) {
+      if (allMarks.length === 0) return;
+      // Remove active from previous
+      if (currentIdx >= 0 && currentIdx < allMarks.length) {
+        allMarks[currentIdx].classList.remove(ACTIVE_CLASS);
+      }
+      currentIdx =
+        ((idx % allMarks.length) + allMarks.length) % allMarks.length;
+      var mark = allMarks[currentIdx];
+      mark.classList.add(ACTIVE_CLASS);
+      mark.scrollIntoView({ behavior: "smooth", block: "center" });
+      updateCount();
+    }
+
+    function goNext() {
+      goToMark(currentIdx + 1);
+    }
+    function goPrev() {
+      goToMark(currentIdx - 1);
+    }
+
+    var timer;
+    function doSearch() {
+      var raw = (searchEl.value || "").trim().toLowerCase();
+      clearMarks();
+
+      if (!raw) {
+        allSections.forEach(function (sec) {
+          sec.classList.remove(opts.hiddenClass, "search-reveal");
+        });
+        if (opts.navLinkSel) {
+          document.querySelectorAll(opts.navLinkSel).forEach(function (n) {
+            n.classList.remove(opts.hiddenClass);
+          });
+        }
+        if (noResultEl) noResultEl.style.display = "none";
+        updateCount();
+        return;
+      }
+
+      // Split by spaces for OR search, filter empty
+      var words = raw.split(/\s+/).filter(function (w) {
+        return w.length > 0;
+      });
+
+      // For section visibility: a section matches if ANY word is found
+      allSections.forEach(function (sec) {
+        var text = (sec.textContent || "").toLowerCase();
+        var hit = words.some(function (w) {
+          return text.includes(w);
+        });
+        sec.classList.toggle(opts.hiddenClass, !hit);
+        if (hit) {
+          sec.classList.remove("search-reveal");
+          void sec.offsetHeight;
+          sec.classList.add("search-reveal");
+          // Add marks for each word
+          words.forEach(function (w) {
+            addMarksForWord(sec, w);
+          });
+        }
+      });
+
+      // Nav link visibility
+      if (opts.navLinkSel) {
+        allSections.forEach(function (sec) {
+          var id = sec.dataset.sectionId || sec.id || "";
+          if (!id) return;
+          var link = document.querySelector(
+            opts.navLinkSel + ' a[href="#' + id + '"]',
+          );
+          var navItem = link && link.closest(opts.navLinkSel);
+          if (navItem)
+            navItem.classList.toggle(
+              opts.hiddenClass,
+              sec.classList.contains(opts.hiddenClass),
+            );
+        });
+      }
+
+      // Collect all marks in document order
+      allMarks = Array.from(document.querySelectorAll("mark"));
+
+      if (noResultEl)
+        noResultEl.style.display = allMarks.length === 0 ? "block" : "none";
+
+      // Jump to first match
+      if (allMarks.length > 0) {
+        goToMark(0);
+      } else {
+        updateCount();
+      }
+    }
+
+    // Event handlers
+    searchEl.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(doSearch, 180);
+    });
+    searchEl.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        searchEl.value = "";
+        doSearch();
+        searchEl.blur();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          goPrev();
+        } else {
+          goNext();
+        }
+      }
+    });
+    document.addEventListener("keydown", function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchEl.focus();
+        searchEl.select();
+      }
+    });
+
+    prevBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      goPrev();
+    });
+    nextBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      goNext();
+    });
+  }
+
+  // ── Code Dialog ───────────────────────────────────────────────────────────
+  /**
+   * @param {string} dialogSel - CSS selector for the <dialog> element
+   */
+  function initCodeDialog(dialogSel) {
+    var dialog = document.querySelector(dialogSel);
+    if (!dialog) return;
+
+    var dlgLang = dialog.querySelector(".dlg-lang");
+    var dlgTitle = dialog.querySelector(".dlg-title");
+    var dlgLines = dialog.querySelector(".dlg-lines");
+    var dlgBody = dialog.querySelector(".dlg-body");
+    var dlgCopy = dialog.querySelector(".dlg-copy");
+    var dlgClose = dialog.querySelector(".dlg-close");
+
+    function setupCopy(btn, getText) {
+      if (!btn) return;
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var text = getText();
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = "Copied!";
+          btn.classList.add("copied");
+          setTimeout(function () {
+            btn.textContent = "Copy";
+            btn.classList.remove("copied");
+          }, 2000);
+        });
+      });
+    }
+
+    function openDialog(wrap) {
+      var pre = wrap.querySelector("pre");
+      var code = wrap.querySelector("pre code");
+      var langEl = wrap.querySelector(".code-lang");
+      var lang = langEl ? langEl.textContent : "";
+      var lines = (code ? code.textContent || "" : "").split("\n").length;
+
+      if (dlgLang) dlgLang.textContent = lang || "text";
+      if (dlgTitle)
+        dlgTitle.textContent = lang ? lang + " snippet" : "Code preview";
+      if (dlgLines)
+        dlgLines.textContent = lines + " line" + (lines !== 1 ? "s" : "");
+
+      if (dlgBody) {
+        dlgBody.innerHTML = "";
+        if (pre) dlgBody.appendChild(pre.cloneNode(true));
+      }
+
+      if (dlgCopy) {
+        dlgCopy.textContent = "Copy";
+        dlgCopy.classList.remove("copied");
+        // Remove old listener by cloning
+        var newCopy = dlgCopy.cloneNode(true);
+        dlgCopy.parentNode.replaceChild(newCopy, dlgCopy);
+        dlgCopy = newCopy;
+        dialog.querySelector(".dlg-copy"); // re-query not needed, we have ref
+        setupCopy(newCopy, function () {
+          return code ? code.textContent || "" : "";
+        });
+      }
+
+      dialog.showModal();
+      if (dlgBody) dlgBody.scrollTop = 0;
+    }
+
+    function closeDialog() {
+      dialog.setAttribute("data-closing", "");
+      dialog.addEventListener(
+        "animationend",
+        function () {
+          dialog.removeAttribute("data-closing");
+          dialog.close();
+        },
+        { once: true },
+      );
+      // Fallback if no animation
+      setTimeout(function () {
+        if (dialog.hasAttribute("data-closing")) {
+          dialog.removeAttribute("data-closing");
+          dialog.close();
+        }
+      }, 400);
+    }
+
+    // Wire expand buttons and pre clicks
+    document.querySelectorAll(".code-wrap").forEach(function (wrap) {
+      var expandBtn = wrap.querySelector(".code-expand");
+      if (expandBtn)
+        expandBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          openDialog(wrap);
+        });
+      // Pre click removed — only expand button opens the dialog
+    });
+
+    if (dlgClose) dlgClose.addEventListener("click", closeDialog);
+    dialog.addEventListener("click", function (e) {
+      var r = dialog.getBoundingClientRect();
+      if (
+        e.clientX < r.left ||
+        e.clientX > r.right ||
+        e.clientY < r.top ||
+        e.clientY > r.bottom
+      ) {
+        closeDialog();
+      }
+    });
+    dialog.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeDialog();
+      }
+    });
+  }
+
+  // ── Copy Buttons ──────────────────────────────────────────────────────────
+  function initCopyButtons(sel) {
+    document.querySelectorAll(sel || ".copy-btn").forEach(function (btn) {
+      var wrap = btn.closest(".code-wrap");
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var code = wrap && wrap.querySelector("pre code");
+        var text = code ? code.textContent || "" : "";
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = "Copied!";
+          btn.classList.add("copied");
+          setTimeout(function () {
+            btn.textContent = "Copy";
+            btn.classList.remove("copied");
+          }, 2000);
+        });
+      });
+    });
+  }
+
+  // ── Width Picker ──────────────────────────────────────────────────────────
+  var WIDTH_MAP = { sm: "640px", md: "960px", lg: "1200px", xl: "100%" };
+
+  function initWidthPicker(contentSel, storageKey) {
+    storageKey = storageKey || "rpt-width";
+    var contentEl = document.querySelector(contentSel);
+    if (!contentEl) return;
+
+    var active = store.getItem(storageKey) || "md";
+
+    function apply(w) {
+      // Use CSS classes instead of inline maxWidth to avoid overriding
+      // style-specific width rules (e.g., slide template's !important rules)
+      contentEl.style.maxWidth = '';  // Clear any legacy inline style
+      ['width-sm', 'width-md', 'width-lg', 'width-xl'].forEach(function(cls) {
+        contentEl.classList.remove(cls);
+      });
+      if (w) contentEl.classList.add('width-' + w);
+      active = w;
+      store.setItem(storageKey, w);
+      document.querySelectorAll(".width-btn").forEach(function (b) {
+        b.classList.toggle("active", b.dataset.width === w);
+      });
+    }
+    apply(active);
+
+    document.querySelectorAll(".width-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        apply(btn.dataset.width);
+      });
+    });
+
+    return {
+      getWidth: function () {
+        return active;
+      },
+    };
+  }
+
+  // ── Math (KaTeX) ──────────────────────────────────────────────────────────
+  function initMath() {
+    if (typeof renderMathInElement !== "undefined") {
+      renderMathInElement(document.body, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\\\(", right: "\\\\)", display: false },
+          { left: "\\\\[", right: "\\\\]", display: true },
+        ],
+        throwOnError: false,
+      });
+    }
+  }
+
+  // ── External Links ────────────────────────────────────────────────────────
+  function openExternalLinks() {
+    document.querySelectorAll('a[href^="http"]').forEach(function (a) {
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
+    });
+  }
+
+  // ── Inline code path:line coloring ────────────────────────────────────────
+  function initCodePaths() {
+    var PATH_RE = /^(.+\.[a-z0-9]+):(\d+)$/i;
+    document
+      .querySelectorAll("p code, li code, td code")
+      .forEach(function (el) {
+        var text = el.textContent || "";
+        var m = PATH_RE.exec(text.trim());
+        if (!m) return;
+        el.classList.add("code-path");
+        el.innerHTML =
+          '<span class="code-path-file">' +
+          m[1] +
+          "</span>" +
+          '<span class="code-path-line">:' +
+          m[2] +
+          "</span>";
+      });
+  }
+
+  // ── Style Picker ──────────────────────────────────────────────────────────
+  /**
+   * @param {string} btnSel    - CSS selector for the toggle button
+   * @param {string} menuSel   - CSS selector for the dropdown menu
+   */
+  function initStylePicker(btnSel, menuSel) {
+    var btn = document.querySelector(btnSel);
+    var menu = document.querySelector(menuSel);
+    if (!btn || !menu) return;
+    if (btn._stylePickerInit) return;
+    btn._stylePickerInit = true;
+
+    var currentStyle = window.__RPT_CURRENT_STYLE || "default";
+    var generatedStyles = window.__RPT_GENERATED_STYLES || [];
+
+    function closeMenu() {
+      menu.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+      var pf = document.getElementById("style-preview-float");
+      if (pf) pf.classList.remove("visible");
+    }
+    function toggleMenu() {
+      var isOpen = menu.classList.toggle("open");
+      btn.setAttribute("aria-expanded", String(isOpen));
+    }
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      toggleMenu();
+    });
+    document.addEventListener("click", function () {
+      closeMenu();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeMenu();
+    });
+
+    // Style preview float on hover — move to body to escape transform containing block
+    var previewFloat = document.getElementById("style-preview-float");
+    if (previewFloat) {
+      document.body.appendChild(previewFloat);
+      var previewSvg = previewFloat.querySelector("svg");
+      menu.addEventListener("mouseover", function (e) {
+        var opt = e.target.closest(".style-opt");
+        if (!opt || !opt.dataset.preview) {
+          previewFloat.classList.remove("visible");
+          return;
+        }
+        previewSvg.innerHTML = opt.dataset.preview;
+        var menuRect = menu.getBoundingClientRect();
+        var optRect = opt.getBoundingClientRect();
+        var top = optRect.top + optRect.height / 2 - 60;
+        top = Math.max(8, Math.min(top, window.innerHeight - 140));
+        previewFloat.style.top = top + "px";
+        previewFloat.style.left = menuRect.left - 192 + "px";
+        previewFloat.classList.add("visible");
+      });
+      menu.addEventListener("mouseleave", function () {
+        previewFloat.classList.remove("visible");
+      });
+    }
+
+    // Handle clicks on style option buttons
+    menu.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var opt = e.target.closest(".style-opt");
+      if (!opt) return;
+
+      var style = opt.dataset.style;
+      if (!style || style === currentStyle) {
+        closeMenu();
+        return;
+      }
+
+      var isReady = opt.dataset.ready === "true";
+      if (isReady) {
+        // Open pre-generated style in new tab
+        window.open("./" + style + "/index.html", "_blank");
+        closeMenu();
+      } else {
+        // Copy restyle command to clipboard and show polished toast
+        var reportDir = window.__RPT_REPORT_DIR || "";
+        var cmd =
+          "bash ~/.claude/skills/create-report/restyle-report.sh " +
+          reportDir +
+          " " +
+          style;
+        function showRestyleToast(cmdText) {
+          // Remove any existing toast
+          var old = document.querySelector(".restyle-toast");
+          if (old) old.remove();
+          var toast = document.createElement("div");
+          toast.className = "restyle-toast";
+          toast.innerHTML =
+            '<span class="restyle-toast-label">Copied to clipboard</span>' +
+            '<code class="restyle-toast-cmd">' +
+            cmdText.replace(/</g, "&lt;") +
+            "</code>";
+          document.body.appendChild(toast);
+          setTimeout(function () {
+            toast.style.opacity = "0";
+            toast.style.transform = "translateY(8px)";
+            toast.style.transition = "opacity 0.2s, transform 0.2s";
+            setTimeout(function () {
+              toast.remove();
+            }, 200);
+          }, 2500);
+        }
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(cmd).then(function () {
+            showRestyleToast(cmd);
+          });
+        } else {
+          showRestyleToast(cmd + " (copy manually)");
+        }
+        closeMenu();
+      }
+    });
+
+    // Mark already-generated styles as ready (in case state changed after page load)
+    menu.querySelectorAll(".style-opt").forEach(function (opt) {
+      if (
+        generatedStyles.indexOf(opt.dataset.style) !== -1 &&
+        opt.dataset.style !== currentStyle
+      ) {
+        opt.dataset.ready = "true";
+        var badge = opt.querySelector(".style-badge");
+        if (!badge) {
+          var b = document.createElement("span");
+          b.className = "style-badge style-badge-ready";
+          b.textContent = "ready";
+          opt.appendChild(b);
+        }
+      }
+    });
+  }
+
+  // ── Reading Progress Bar ─────────────────────────────────────────────────
+  function initProgressBar() {
+    if (document.querySelector(".reading-progress")) return; // already initialized
+    var bar = document.createElement("div");
+    bar.className = "reading-progress";
+    document.body.appendChild(bar);
+    var ticking = false;
+    window.addEventListener("scroll", function () {
+      if (!ticking) {
+        requestAnimationFrame(function () {
+          var scrollTop = window.scrollY || document.documentElement.scrollTop;
+          var docHeight =
+            document.documentElement.scrollHeight - window.innerHeight;
+          var pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+          bar.style.width = Math.min(100, pct) + "%";
+          ticking = false;
+        });
+        ticking = true;
+      }
+    });
+  }
+
+  // ── Text Size Controls ──────────────────────────────────────────────────
+  /**
+   * @param {string} contentSel - CSS selector for the main content area
+   * @param {string} storeKey   - localStorage key for persisting size
+   */
+  function initTextSize(contentSel, storeKey) {
+    storeKey = storeKey || "rpt-text-size";
+    var content = document.querySelector(contentSel);
+    if (!content) return;
+    if (content._textSizeInit) return;
+    content._textSizeInit = true;
+
+    var sizes = [80, 90, 100, 110, 120, 130];
+    var current = parseInt(store.getItem(storeKey) || "100", 10);
+    if (sizes.indexOf(current) === -1) current = 100;
+
+    function apply() {
+      content.style.fontSize = current + "%";
+      var label = document.querySelector(".text-size-label");
+      if (label) label.textContent = current + "%";
+      store.setItem(storeKey, String(current));
+    }
+    apply();
+
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest(".text-size-btn");
+      if (!btn) return;
+      var dir = btn.dataset.dir;
+      var idx = sizes.indexOf(current);
+      if (dir === "down" && idx > 0) {
+        current = sizes[idx - 1];
+      } else if (dir === "up" && idx < sizes.length - 1) {
+        current = sizes[idx + 1];
+      }
+      apply();
+    });
+  }
+
+  // ── Scroll to Top ──────────────────────────────────────────────────────
+  function initScrollToTop() {
+    if (document.querySelector(".scroll-top-btn")) return; // already initialized
+    var btn = document.createElement("button");
+    btn.className = "scroll-top-btn";
+    btn.title = "Scroll to top";
+    btn.setAttribute("aria-label", "Scroll to top");
+    btn.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>';
+    document.body.appendChild(btn);
+
+    var ticking = false;
+    window.addEventListener("scroll", function () {
+      if (!ticking) {
+        requestAnimationFrame(function () {
+          var y = window.scrollY || document.documentElement.scrollTop;
+          if (y > 400) {
+            btn.classList.add("visible");
+          } else {
+            btn.classList.remove("visible");
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    });
+
+    btn.addEventListener("click", function () {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  // ── Notion-compatible HTML builder ─────────────────────────────────────
+  // Walks the report DOM and emits only the flat semantic elements that
+  // Notion's clipboard parser recognises as block types.
+  function toNotionHtml(root) {
+    var parts = [];
+
+    // Preserve inline formatting (bold, italic, code, links) but strip classes/styles
+    function inlineHtml(el) {
+      var out = "";
+      el.childNodes.forEach(function (n) {
+        if (n.nodeType === 3) {
+          // text node
+          out += n.textContent;
+          return;
+        }
+        if (n.nodeType !== 1) return;
+        var tag = n.tagName.toLowerCase();
+        if (tag === "strong" || tag === "b") {
+          out += "<strong>" + inlineHtml(n) + "</strong>";
+        } else if (tag === "em" || tag === "i") {
+          out += "<em>" + inlineHtml(n) + "</em>";
+        } else if (tag === "code") {
+          out += "<code>" + n.textContent + "</code>";
+        } else if (tag === "a") {
+          out += '<a href="' + (n.getAttribute("href") || "") + '">' + inlineHtml(n) + "</a>";
+        } else if (tag === "br") {
+          out += "<br>";
+        } else {
+          // Unwrap unknown inline wrappers (spans, etc.)
+          out += inlineHtml(n);
+        }
+      });
+      return out;
+    }
+
+    function walk(el) {
+      var children = el.children;
+      for (var i = 0; i < children.length; i++) {
+        var node = children[i];
+        var tag = node.tagName.toLowerCase();
+
+        // Skip hidden, toolbar, nav, dialog elements
+        if (node.hidden || node.offsetParent === null && tag !== "body" && tag !== "html") continue;
+        if (tag === "nav" || tag === "dialog" || tag === "script" || tag === "style") continue;
+        if (node.classList.contains("floating-toolbar") ||
+            node.classList.contains("toolbar") ||
+            node.classList.contains("sidebar") ||
+            node.classList.contains("metrics") ||
+            node.classList.contains("header-controls") ||
+            node.classList.contains("toc-bar") ||
+            node.classList.contains("toc") ||
+            node.classList.contains("running-header") ||
+            node.classList.contains("search-wrap") ||
+            node.classList.contains("dlg-header")) continue;
+
+        // Headings
+        if (tag === "h1") {
+          parts.push("<h1>" + inlineHtml(node) + "</h1>");
+        } else if (tag === "h2") {
+          parts.push("<h2>" + inlineHtml(node) + "</h2>");
+        } else if (tag === "h3") {
+          parts.push("<h3>" + inlineHtml(node) + "</h3>");
+        } else if (tag === "h4") {
+          // Notion only has H1-H3, map H4 to bold paragraph
+          parts.push("<p><strong>" + inlineHtml(node) + "</strong></p>");
+        }
+        // Paragraphs
+        else if (tag === "p") {
+          var text = node.textContent.trim();
+          if (text) parts.push("<p>" + inlineHtml(node) + "</p>");
+        }
+        // Horizontal rules / dividers
+        else if (tag === "hr") {
+          parts.push("<hr>");
+        }
+        // Blockquotes
+        else if (tag === "blockquote") {
+          parts.push("<blockquote>" + inlineHtml(node) + "</blockquote>");
+        }
+        // Lists (unordered and ordered)
+        else if (tag === "ul") {
+          var items = node.querySelectorAll(":scope > li");
+          var listHtml = "<ul>";
+          items.forEach(function (li) { listHtml += "<li>" + inlineHtml(li) + "</li>"; });
+          listHtml += "</ul>";
+          parts.push(listHtml);
+        } else if (tag === "ol") {
+          var oItems = node.querySelectorAll(":scope > li");
+          var oListHtml = "<ol>";
+          oItems.forEach(function (li) { oListHtml += "<li>" + inlineHtml(li) + "</li>"; });
+          oListHtml += "</ol>";
+          parts.push(oListHtml);
+        }
+        // Code blocks
+        else if (tag === "pre") {
+          var codeEl = node.querySelector("code");
+          var codeText = codeEl ? codeEl.textContent : node.textContent;
+          parts.push("<pre><code>" + codeText + "</code></pre>");
+        }
+        // Tables
+        else if (tag === "table") {
+          var tableHtml = "<table>";
+          node.querySelectorAll("tr").forEach(function (tr) {
+            tableHtml += "<tr>";
+            tr.querySelectorAll("th, td").forEach(function (cell) {
+              var cellTag = cell.tagName.toLowerCase();
+              tableHtml += "<" + cellTag + ">" + inlineHtml(cell) + "</" + cellTag + ">";
+            });
+            tableHtml += "</tr>";
+          });
+          tableHtml += "</table>";
+          parts.push(tableHtml);
+        }
+        // Containers — recurse into divs, sections, details, main, article, etc.
+        else if (tag === "div" || tag === "section" || tag === "details" ||
+                 tag === "main" || tag === "article" || tag === "summary" ||
+                 tag === "header" || tag === "footer" || tag === "figure") {
+          walk(node);
+        }
+        // Skip everything else (canvas, svg, img, form, input, etc.)
+      }
+    }
+
+    walk(root);
+    return parts.join("\n");
+  }
+
+  // ── Copy For Menu (Notion / Slack) ─────────────────────────────────────
+  /**
+   * @param {string} btnSel  - CSS selector for the toggle button
+   * @param {string} menuSel - CSS selector for the dropdown
+   */
+  function initCopyForMenu(btnSel, menuSel) {
+    var btn = document.querySelector(btnSel);
+    var menu = document.querySelector(menuSel);
+    if (!btn || !menu) return;
+    if (btn._copyForInit) return;
+    btn._copyForInit = true;
+
+    function closeMenu() {
+      menu.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+    }
+    function toggleMenu() {
+      var isOpen = menu.classList.toggle("open");
+      btn.setAttribute("aria-expanded", String(isOpen));
+    }
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      toggleMenu();
+    });
+    document.addEventListener("click", function () {
+      closeMenu();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeMenu();
+    });
+
+    function getReportContent() {
+      var main =
+        document.querySelector("main.content") ||
+        document.querySelector("main") ||
+        document.querySelector(".content") ||
+        document.body;
+      return main;
+    }
+
+    function showFeedback(optEl, msg) {
+      var label = optEl.querySelector(".copy-for-label");
+      var orig = label ? label.textContent : "";
+      if (label) label.textContent = msg;
+      setTimeout(function () {
+        if (label) label.textContent = orig;
+      }, 1500);
+    }
+
+    menu.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var opt = e.target.closest(".copy-for-opt");
+      if (!opt) return;
+
+      var format = opt.dataset.format;
+      var content = getReportContent();
+
+      if (format === "notion") {
+        // Build Notion-compatible HTML from semantic elements
+        var html = toNotionHtml(content);
+        if (navigator.clipboard && window.ClipboardItem) {
+          var blob = new Blob([html], { type: "text/html" });
+          navigator.clipboard
+            .write([new ClipboardItem({ "text/html": blob })])
+            .then(function () {
+              showFeedback(opt, "Copied!");
+            })
+            .catch(function () {
+              showFeedback(opt, "Failed");
+            });
+        } else {
+          // Fallback: copy as plain text
+          navigator.clipboard.writeText(content.innerText).then(function () {
+            showFeedback(opt, "Copied (text)");
+          });
+        }
+      } else if (format === "slack") {
+        // Convert to Slack mrkdwn format
+        var text = content.innerText || content.textContent || "";
+        // Basic mrkdwn: keep structure, trim excessive whitespace
+        text = text.replace(/\n{3,}/g, "\n\n").trim();
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(text).then(function () {
+            showFeedback(opt, "Copied!");
+          });
+        }
+      } else if (format === "markdown") {
+        // Simple markdown: headings + text
+        var md = "";
+        content.querySelectorAll("h1,h2,h3,h4,p,li,code,pre").forEach(function (el) {
+          var tag = el.tagName.toLowerCase();
+          var t = el.textContent.trim();
+          if (!t) return;
+          if (tag === "h1") md += "# " + t + "\n\n";
+          else if (tag === "h2") md += "## " + t + "\n\n";
+          else if (tag === "h3") md += "### " + t + "\n\n";
+          else if (tag === "h4") md += "#### " + t + "\n\n";
+          else if (tag === "li") md += "- " + t + "\n";
+          else if (tag === "pre") md += "```\n" + t + "\n```\n\n";
+          else if (tag === "code" && el.parentElement.tagName !== "PRE") return;
+          else md += t + "\n\n";
+        });
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(md.trim()).then(function () {
+            showFeedback(opt, "Copied!");
+          });
+        }
+      }
+
+      closeMenu();
+    });
+  }
+
+  // ── Print: force tree <details> open ─────────────────────────────────────
+  // CSS cannot toggle the `open` attribute — use beforeprint/afterprint events.
+  (function () {
+    var savedStates = [];
+    window.addEventListener("beforeprint", function () {
+      savedStates = [];
+      document.querySelectorAll("details.tree-node").forEach(function (d) {
+        savedStates.push({ el: d, wasOpen: d.open });
+        d.open = true;
+      });
+    });
+    window.addEventListener("afterprint", function () {
+      savedStates.forEach(function (s) {
+        s.el.open = s.wasOpen;
+      });
+      savedStates = [];
+    });
+  })();
+
+  // ── Expose namespace ──────────────────────────────────────────────────────
+  window.__RPT = {
+    store: store,
+    initThemeToggle: initThemeToggle,
+    initSearch: initSearch,
+    initCodeDialog: initCodeDialog,
+    initCopyButtons: initCopyButtons,
+    initWidthPicker: initWidthPicker,
+    initStylePicker: initStylePicker,
+    initMath: initMath,
+    openExternalLinks: openExternalLinks,
+    initCodePaths: initCodePaths,
+    initProgressBar: initProgressBar,
+    initTextSize: initTextSize,
+    initScrollToTop: initScrollToTop,
+    initCopyForMenu: initCopyForMenu,
+    WIDTH_MAP: WIDTH_MAP,
+  };
+})();
+
+
+/**
+ * Neon cyberpunk report — interactive JS
+ * Uses window.__RPT namespace for shared modules.
+ * Custom: neon accent cycling (cyan/magenta/pink), sidebar tracking,
+ * print button, smooth scroll.
+ */
+
+(function () {
+  "use strict";
+
+  // ─── Neon Accent Presets ────────────────────────────────────────────────────
+  var NEON_VARS = {
+    // Blues & cyans
+    cyan:       { hex: "#00f0ff", rgb: "0, 240, 255",   secondary: "#ff00ff" },
+    ice:        { hex: "#72f1f7", rgb: "114, 241, 247", secondary: "#ff2d95" },
+    sky:        { hex: "#0ea5e9", rgb: "14, 165, 233",  secondary: "#ff00ff" },
+    blue:       { hex: "#3b82f6", rgb: "59, 130, 246",  secondary: "#ff2d95" },
+    electric:   { hex: "#0066ff", rgb: "0, 102, 255",   secondary: "#ff00ff" },
+    // Purples & pinks
+    violet:     { hex: "#8b5cf6", rgb: "139, 92, 246",  secondary: "#ff00ff" },
+    purple:     { hex: "#a855f7", rgb: "168, 85, 247",  secondary: "#00f0ff" },
+    magenta:    { hex: "#ff00ff", rgb: "255, 0, 255",   secondary: "#00f0ff" },
+    pink:       { hex: "#ff2d95", rgb: "255, 45, 149",  secondary: "#00f0ff" },
+    rose:       { hex: "#f43f5e", rgb: "244, 63, 94",   secondary: "#ff00ff" },
+    // Warm
+    red:        { hex: "#ef4444", rgb: "239, 68, 68",   secondary: "#00f0ff" },
+    orange:     { hex: "#ff6b00", rgb: "255, 107, 0",   secondary: "#00f0ff" },
+    amber:      { hex: "#ffbf00", rgb: "255, 191, 0",   secondary: "#ff2d95" },
+    yellow:     { hex: "#facc15", rgb: "250, 204, 21",  secondary: "#ff2d95" },
+    // Greens
+    lime:       { hex: "#a3e635", rgb: "163, 230, 53",  secondary: "#ff00ff" },
+    green:      { hex: "#39ff14", rgb: "57, 255, 20",   secondary: "#00f0ff" },
+    emerald:    { hex: "#10b981", rgb: "16, 185, 129",  secondary: "#ff00ff" },
+    teal:       { hex: "#14b8a6", rgb: "20, 184, 166",  secondary: "#ff2d95" },
+  };
+  var NEON_STORAGE_KEY = "neon-accent";
+
+  function applyNeonAccent(name) {
+    var preset = NEON_VARS[name];
+    if (!preset) return;
+    var root = document.documentElement;
+    root.setAttribute("data-neon", name);
+    root.style.setProperty("--accent", preset.hex);
+    root.style.setProperty("--accent-rgb", preset.rgb);
+    root.style.setProperty("--accent-secondary", preset.secondary);
+    try {
+      localStorage.setItem(NEON_STORAGE_KEY, name);
+    } catch (_) {}
+  }
+
+  // Restore saved accent immediately (before DOM ready)
+  try {
+    var saved = localStorage.getItem(NEON_STORAGE_KEY);
+    if (saved && NEON_VARS[saved]) {
+      var root = document.documentElement;
+      root.setAttribute("data-neon", saved);
+      root.style.setProperty("--accent", NEON_VARS[saved].hex);
+      root.style.setProperty("--accent-rgb", NEON_VARS[saved].rgb);
+      root.style.setProperty("--accent-secondary", NEON_VARS[saved].secondary);
+    }
+  } catch (_) {}
+
+  // ─── Shared module initialization ──────────────────────────────────────────
+  if (window.__RPT) {
+    __RPT.initCodeDialog("#code-dialog");
+    __RPT.initCopyButtons(".copy-btn");
+    __RPT.initWidthPicker(".content", "neon-width");
+    __RPT.openExternalLinks();
+    __RPT.initCodePaths();
+  }
+
+  // ─── DOMContentLoaded ──────────────────────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", function () {
+    // ─── Math rendering ──────────────────────────────────────────────────
+    if (window.__RPT) {
+      __RPT.initMath();
+      __RPT.initSearch(
+        "#search",
+        "#search-count",
+        "#no-results",
+        ".neon-section",
+      );
+    }
+
+    // ─── Accent dropdown (dynamically populated from NEON_VARS) ────────────
+    var picker = document.querySelector(".neon-color-picker");
+    if (picker) {
+      // Build dropdown buttons from NEON_VARS
+      var dropdown = document.getElementById("neon-color-dropdown");
+      if (dropdown) {
+        var html = "";
+        Object.keys(NEON_VARS).forEach(function (name) {
+          var p = NEON_VARS[name];
+          var label = name.charAt(0).toUpperCase() + name.slice(1);
+          html += '<button class="neon-color-opt" data-neon="' + name + '"><span class="neon-dot" style="background:' + p.hex + '"></span> ' + label + '</button>';
+        });
+        dropdown.innerHTML = html;
+      }
+      var toggle = picker.querySelector(".neon-color-toggle");
+      if (toggle) {
+        toggle.addEventListener("click", function (e) {
+          e.stopPropagation();
+          picker.classList.toggle("open");
+        });
+      }
+      document.querySelectorAll(".neon-color-opt").forEach(function (btn) {
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          applyNeonAccent(btn.dataset.neon);
+          picker.classList.remove("open");
+          var swatch = document.querySelector(".neon-swatch");
+          if (swatch && NEON_VARS[btn.dataset.neon]) swatch.style.background = NEON_VARS[btn.dataset.neon].hex;
+          document.querySelectorAll(".neon-color-opt").forEach(function (b) {
+            b.classList.toggle("active", b.dataset.neon === btn.dataset.neon);
+          });
+        });
+      });
+      document.addEventListener("click", function () { picker.classList.remove("open"); });
+      // Mark initial active state
+      var savedNeon = "cyan";
+      try { savedNeon = localStorage.getItem(NEON_STORAGE_KEY) || "cyan"; } catch (_) {}
+      document.querySelectorAll(".neon-color-opt").forEach(function (b) {
+        b.classList.toggle("active", b.dataset.neon === savedNeon);
+      });
+      var swatch = document.querySelector(".neon-swatch");
+      if (swatch && NEON_VARS[savedNeon]) swatch.style.background = NEON_VARS[savedNeon].hex;
+    }
+
+    // ─── Section copy buttons ───────────────────────────────────────────
+    document.querySelectorAll(".section-copy-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var section = btn.closest(".neon-section");
+        if (!section) return;
+        var content = section.querySelector(".section-content");
+        if (!content) return;
+        var text = content.innerText || content.textContent || "";
+        navigator.clipboard.writeText(text).then(function () {
+          btn.innerHTML = "✓";
+          setTimeout(function () {
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+          }, 1500);
+        });
+      });
+    });
+
+    // ─── Sidebar active link tracking ───────────────────────────────────
+    var sidebarLinks = document.querySelectorAll(".sidebar a[href^='#']");
+    var sectionAnchors = [];
+
+    sidebarLinks.forEach(function (link) {
+      var id = link.getAttribute("href");
+      if (!id || id.length < 2) return;
+      var el = document.getElementById(id.slice(1));
+      if (el) sectionAnchors.push({ id: id.slice(1), el: el, link: link });
+    });
+
+    function updateActiveLink() {
+      var current = sectionAnchors[0];
+      var scrollY = window.scrollY + 140;
+      for (var i = 0; i < sectionAnchors.length; i++) {
+        if (sectionAnchors[i].el.offsetTop <= scrollY)
+          current = sectionAnchors[i];
+      }
+      sidebarLinks.forEach(function (l) {
+        l.classList.remove("active");
+      });
+      if (current) current.link.classList.add("active");
+    }
+
+    if (sectionAnchors.length) {
+      window.addEventListener("scroll", updateActiveLink, { passive: true });
+      updateActiveLink();
+    }
+
+    // ─── Smooth scroll for sidebar links ────────────────────────────────
+    sidebarLinks.forEach(function (link) {
+      link.addEventListener("click", function (e) {
+        var id = link.getAttribute("href");
+        if (!id || id.length < 2) return;
+        var target = document.getElementById(id.slice(1));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          history.replaceState(null, "", id);
+        }
+      });
+    });
+  });
+
+  // ── Toolbar interface ─────────────────────────────────────────────────────
+  window.__RPT_TOOLBAR = {
+    print: function() { window.print(); },
+    row2Html: window.__RPT_DEFAULT_ROW2_HTML || '',
+    row2Init: function() {
+      if (window.__RPT && __RPT.initWidthPicker) {
+        __RPT.initWidthPicker('.content', 'neon-width');
+      }
+    },
+  };
+})();
+
+</script>
+</body>
+</html>

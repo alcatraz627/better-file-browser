@@ -1,0 +1,457 @@
+{
+  "title": "Better File Browser",
+  "subtitle": "Chrome Extension v2.1 — Modern file:// directory explorer",
+  "generated": "2026-04-18",
+  "nav": [
+    {
+      "id": "architecture",
+      "text": "Architecture",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "features",
+      "text": "Features",
+      "level": 2,
+      "children": [
+        {
+          "id": "views",
+          "text": "Views",
+          "level": 3
+        },
+        {
+          "id": "toolbar",
+          "text": "Toolbar",
+          "level": 3
+        },
+        {
+          "id": "sidebar",
+          "text": "Sidebar",
+          "level": 3
+        },
+        {
+          "id": "file-icons",
+          "text": "File Icons",
+          "level": 3
+        },
+        {
+          "id": "tooltips",
+          "text": "Tooltips",
+          "level": 3
+        }
+      ]
+    },
+    {
+      "id": "installation",
+      "text": "Installation",
+      "level": 2,
+      "children": [
+        {
+          "id": "load-the-extension",
+          "text": "1. Load the extension",
+          "level": 3
+        },
+        {
+          "id": "ghostty-terminal-integration",
+          "text": "2. Ghostty terminal integration",
+          "level": 3
+        }
+      ]
+    },
+    {
+      "id": "whats-not-supported",
+      "text": "What's not supported",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "file-structure",
+      "text": "File Structure",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "development",
+      "text": "Development",
+      "level": 2,
+      "children": []
+    },
+    {
+      "id": "possible-future-enhancements",
+      "text": "Possible Future Enhancements",
+      "level": 2,
+      "children": []
+    }
+  ],
+  "sections": [
+    {
+      "id": "architecture",
+      "heading": "Architecture",
+      "level": 2,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "html": "A Chrome extension that replaces the browser's plain <code>file://</code> directory listings with a modern, feature-rich file explorer. Two content scripts work in tandem to eliminate the flash of the default listing."
+        },
+        {
+          "type": "code",
+          "lang": "",
+          "content": "Chrome navigates to file:///some/path/\n        │\n        ▼\n┌─────────────────────────────────────────────────────────────┐\n│  loader.js          (run_at: document_start)                │\n│  └─ Immediately hides <body> to prevent default listing     │\n│     flash — checks URL ends with \"/\" before acting          │\n└─────────────────────────────────────────────────────────────┘\n        │\n        ▼\n┌─────────────────────────────────────────────────────────────┐\n│  content.js         (run_at: document_end)                  │\n│  ├─ 1. Detect: document.title.startsWith(\"Index of\")        │\n│  ├─ 2. Parse Chrome's <table> with data-value attributes    │\n│  ├─ 3. Replace full DOM with custom UI                      │\n│  └─ 4. Attach events (search, sort, tooltips, sidebar…)     │\n└─────────────────────────────────────────────────────────────┘\n        │\n        ▼\n┌──────────────┬──────────────────────────────────────────────┐\n│  SIDEBAR     │  PATH BAR   / Users > alcatraz627 > Code     │\n│              ├──────────────────────────────────────────────┤\n│  Finder Favs │  TOOLBAR  [zoom] [Details][List][Tiles][Icons]│\n│  ★ Code      ├──────────────────────────────────────────────┤\n│  ★ Downloads │  Name         │ Type   │ Size    │ Modified   │\n│              │  📁 src/      │ Folder │  —      │ Apr 17     │\n│  Places      │  🟨 index.js  │ JS     │ 4.2 KB  │ Apr 17     │\n│  🖥 Root     │  🔷 types.ts  │ TS     │ 1.1 KB  │ Apr 15     │\n│  🏠 Home     │  {} pkg.json  │ JSON   │  890 B  │ Apr 10     │\n└──────────────┴───────────────────────────────────────────────┘"
+        }
+      ]
+    },
+    {
+      "id": "features",
+      "heading": "Features",
+      "level": 2,
+      "blocks": [
+        {
+          "type": "subsection",
+          "id": "views",
+          "heading": "Views",
+          "level": 3,
+          "blocks": [
+            {
+              "type": "table",
+              "headers": [
+                "Mode",
+                "Description"
+              ],
+              "rows": [
+                [
+                  "Details",
+                  "Full table — Name, Type, Size, Modified"
+                ],
+                [
+                  "List",
+                  "Compact single-column rows"
+                ],
+                [
+                  "Tiles",
+                  "Medium icon grid with name below"
+                ],
+                [
+                  "Large Icons",
+                  "Oversized icon grid"
+                ]
+              ]
+            },
+            {
+              "type": "paragraph",
+              "html": "Switch with the toolbar buttons. Preference persists across sessions."
+            }
+          ]
+        },
+        {
+          "type": "subsection",
+          "id": "toolbar",
+          "heading": "Toolbar",
+          "level": 3,
+          "blocks": [
+            {
+              "type": "ul",
+              "items": [
+                "<strong>Zoom slider</strong> — scales the entire file list proportionally (50–200%)",
+                "<strong>View toggle</strong> — Details / List / Tiles / Large Icons",
+                "<strong>Search</strong> — live filter by filename as you type (covers all view modes)",
+                "<strong>Hidden files</strong> — show/hide dotfiles with one click",
+                "<strong>Terminal</strong> — open current folder in Ghostty (or copy path to clipboard)",
+                "<strong>Theme</strong> — dark / light toggle; persisted in <code>localStorage</code>"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "subsection",
+          "id": "sidebar",
+          "heading": "Sidebar",
+          "level": 3,
+          "blocks": [
+            {
+              "type": "ul",
+              "items": [
+                "<strong>Finder Favourites</strong> — parsed from your macOS SFL4 sidebar binary at install time and hardcoded (live sync isn't possible from a sandboxed extension)",
+                "<strong>Quick Places</strong> — Root, Home, Desktop, Documents, Downloads",
+                "<strong>Bookmarks</strong> — star (☆) any folder to save it; drag rows to reorder; ✕ to remove",
+                "All bookmark state persists in <code>localStorage</code>"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "subsection",
+          "id": "file-icons",
+          "heading": "File Icons",
+          "level": 3,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "html": "30+ file types with distinct SVG icons and per-extension colour coding:"
+            },
+            {
+              "type": "table",
+              "headers": [
+                "Category",
+                "Colour"
+              ],
+              "rows": [
+                [
+                  "JS / MJS",
+                  "Golden yellow"
+                ],
+                [
+                  "TS / TSX / JSX",
+                  "Blue / Cyan"
+                ],
+                [
+                  "HTML / CSS",
+                  "Orange / Deep blue"
+                ],
+                [
+                  "Python / Go / Rust",
+                  "Blue variants"
+                ],
+                [
+                  "Images",
+                  "Purple"
+                ],
+                [
+                  "Video / Audio",
+                  "Red / Orange"
+                ],
+                [
+                  "Archives",
+                  "Brown"
+                ],
+                [
+                  "JSON / YAML",
+                  "Teal / Red"
+                ]
+              ]
+            },
+            {
+              "type": "paragraph",
+              "html": "Special folders (Desktop, Documents, Downloads, Code, etc.) render in amber; generic folders in blue."
+            }
+          ]
+        },
+        {
+          "type": "subsection",
+          "id": "tooltips",
+          "heading": "Tooltips",
+          "level": 3,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "html": "Hover any item for a rich tooltip showing:"
+            },
+            {
+              "type": "ul",
+              "items": [
+                "Full filename",
+                "Full path",
+                "File type",
+                "Size (formatted)",
+                "Modified date",
+                "Hidden file indicator (if dotfile)"
+              ]
+            },
+            {
+              "type": "blockquote",
+              "html": "Permissions, creation date, and image dimensions require the optional native host."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "installation",
+      "heading": "Installation",
+      "level": 2,
+      "blocks": [
+        {
+          "type": "subsection",
+          "id": "load-the-extension",
+          "heading": "1. Load the extension",
+          "level": 3,
+          "blocks": [
+            {
+              "type": "ol",
+              "items": [
+                "Open <code>chrome://extensions/</code>",
+                "Enable <strong>Developer mode</strong> (top-right toggle)",
+                "Click <strong>Load unpacked</strong> → select this folder (<code>better-file-browser/</code>)",
+                "On the extension card → <strong>Details</strong> → enable <strong>\"Allow access to file URLs\"</strong>"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "subsection",
+          "id": "ghostty-terminal-integration",
+          "heading": "2. (Optional) Ghostty terminal integration",
+          "level": 3,
+          "blocks": [
+            {
+              "type": "code",
+              "lang": "bash",
+              "content": "# Find your Extension ID on chrome://extensions, then:\ncd native/\n./install.sh <your-extension-id>"
+            },
+            {
+              "type": "paragraph",
+              "html": "This registers a native messaging host that lets the terminal button open Ghostty directly in the current folder."
+            },
+            {
+              "type": "paragraph",
+              "html": "Without this step the terminal button copies the path to your clipboard with instructions."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "whats-not-supported",
+      "heading": "What's Not Supported",
+      "level": 2,
+      "blocks": [
+        {
+          "type": "table",
+          "headers": [
+            "Feature",
+            "Reason"
+          ],
+          "rows": [
+            [
+              "System Finder icons (.icns)",
+              "Chrome's extension sandbox cannot read macOS metadata APIs"
+            ],
+            [
+              "Live Finder sidebar sync",
+              "Favourites live in a binary plist inaccessible from a browser extension"
+            ],
+            [
+              "File permissions / creation date",
+              "Require a native filesystem agent"
+            ],
+            [
+              "Image dimensions in tooltips",
+              "Require loading each image — possible future enhancement with native host"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "file-structure",
+      "heading": "File Structure",
+      "level": 2,
+      "blocks": [
+        {
+          "type": "tree",
+          "nodes": [
+            {
+              "label": "better-file-browser/",
+              "desc": "Extension root",
+              "children": [
+                {
+                  "label": "manifest.json",
+                  "desc": "MV3 extension manifest",
+                  "children": []
+                },
+                {
+                  "label": "loader.js",
+                  "desc": "document_start: hides Chrome listing before render",
+                  "children": []
+                },
+                {
+                  "label": "content.js",
+                  "desc": "document_end: parses + replaces the full page",
+                  "children": []
+                },
+                {
+                  "label": "icon.svg / icon*.png",
+                  "desc": "Extension icon (dark rounded square + folder)",
+                  "children": []
+                },
+                {
+                  "label": "banner.svg",
+                  "desc": "GitHub README hero banner",
+                  "children": []
+                },
+                {
+                  "label": "README.md",
+                  "desc": "",
+                  "children": []
+                },
+                {
+                  "label": "native/",
+                  "desc": "Optional Ghostty integration",
+                  "children": [
+                    {
+                      "label": "ghostty_launcher.py",
+                      "desc": "Native messaging host (Python)",
+                      "children": []
+                    },
+                    {
+                      "label": "install.sh",
+                      "desc": "Registers the host with Chrome",
+                      "children": []
+                    },
+                    {
+                      "label": "com.better_file_browser.ghostty.json",
+                      "desc": "Host manifest template",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "development",
+      "heading": "Development",
+      "level": 2,
+      "blocks": [
+        {
+          "type": "paragraph",
+          "html": "All logic lives in <code>content.js</code>. After any edit:"
+        },
+        {
+          "type": "ol",
+          "items": [
+            "Open <code>chrome://extensions/</code>",
+            "Click the refresh icon on the <strong>Better File Browser</strong> card",
+            "Reload any open <code>file://</code> tab"
+          ]
+        },
+        {
+          "type": "paragraph",
+          "html": "The extension uses no bundler, no dependencies, and no network requests."
+        }
+      ]
+    },
+    {
+      "id": "possible-future-enhancements",
+      "heading": "Possible Future Enhancements",
+      "level": 2,
+      "blocks": [
+        {
+          "type": "ul",
+          "items": [
+            "<strong>Image preview</strong> — thumbnail on hover for PNG/JPG/GIF/SVG (possible in-extension with <code>&lt;img src=\"file://...\"&gt;</code>)",
+            "<strong>File permissions</strong> — displayed via native host returning <code>os.stat()</code> data",
+            "<strong>Multi-select</strong> — shift/cmd-click to select multiple items, then copy paths",
+            "<strong>Keyboard navigation</strong> — arrow keys, Enter to open, Backspace to go up",
+            "<strong>Custom places</strong> — user-editable quick-access list beyond the fixed Places section",
+            "<strong>Context menu</strong> — right-click for Copy Path, Copy Name, Open in Terminal",
+            "<strong>Column resize</strong> — drag column headers to adjust widths",
+            "<strong>Recently visited</strong> — history of the last N directories browsed"
+          ]
+        }
+      ]
+    }
+  ]
+}

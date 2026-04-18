@@ -1,15 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <!-- Background -->
-  <rect width="128" height="128" rx="22" fill="#161b22"/>
-  <!-- Folder shadow/depth -->
-  <path d="M22 58a10 10 0 0 1 10-10h26l13 13H106a10 10 0 0 1 10 10v32a10 10 0 0 1-10 10H32a10 10 0 0 1-10-10z" fill="#1e3a5f" opacity=".6"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a2332"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="folderFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#58a6ff"/>
+      <stop offset="100%" stop-color="#1f6feb"/>
+    </linearGradient>
+    <linearGradient id="tabFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#79c0ff"/>
+      <stop offset="100%" stop-color="#58a6ff"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded background -->
+  <rect width="128" height="128" rx="24" fill="url(#bg)"/>
+
+  <!-- Subtle inner border -->
+  <rect x="1" y="1" width="126" height="126" rx="23" fill="none" stroke="#30363d" stroke-width="1.5"/>
+
   <!-- Folder body -->
-  <path d="M20 56a10 10 0 0 1 10-10h26l13 13H106a10 10 0 0 1 10 10v32a10 10 0 0 1-10 10H30a10 10 0 0 1-10-10z" fill="#4a9eff"/>
-  <!-- Folder highlight top edge -->
-  <path d="M20 56a10 10 0 0 1 10-10h26l6 6H20z" fill="#79c0ff" opacity=".35"/>
-  <!-- File listing lines -->
-  <path d="M36 80h28M36 91h44M36 102h18" stroke="white" stroke-width="5.5" stroke-linecap="round" opacity=".75"/>
-  <!-- Magnifying glass accent -->
-  <circle cx="91" cy="88" r="13" fill="none" stroke="white" stroke-width="4.5" opacity=".55"/>
-  <line x1="100" y1="97" x2="108" y2="105" stroke="white" stroke-width="5" stroke-linecap="round" opacity=".55"/>
+  <path d="M16 52a9 9 0 0 1 9-9h28l12 12H112a9 9 0 0 1 9 9v32a9 9 0 0 1-9 9H25a9 9 0 0 1-9-9z"
+        fill="url(#folderFill)"/>
+
+  <!-- Folder tab (lighter top-left section) -->
+  <path d="M16 52a9 9 0 0 1 9-9h28l7 7H16z" fill="url(#tabFill)"/>
+
+  <!-- Subtle folder sheen -->
+  <path d="M16 52a9 9 0 0 1 9-9h28l7 7H16z" fill="white" opacity="0.12"/>
+
+  <!-- File listing lines — bold so they read at 16px -->
+  <rect x="33" y="77" width="30" height="6" rx="3" fill="white" opacity="0.9"/>
+  <rect x="33" y="90" width="46" height="6" rx="3" fill="white" opacity="0.9"/>
+  <rect x="33" y="103" width="20" height="6" rx="3" fill="white" opacity="0.9"/>
+
+  <!-- Magnifying glass -->
+  <circle cx="94" cy="88" r="14" fill="none" stroke="white" stroke-width="5.5" opacity="0.85" filter="url(#glow)"/>
+  <line x1="103.9" y1="97.9" x2="113" y2="107" stroke="white" stroke-width="5.5" stroke-linecap="round" opacity="0.85"/>
 </svg>
