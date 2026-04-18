@@ -554,11 +554,11 @@ body{opacity:1!important}
 .fe-crumb:hover{background:var(--hover);color:var(--tx)}
 .fe-sep{color:var(--dm);font-size:11px;flex-shrink:0;padding:0 1px}
 
-/* Crumb dropdown chevron */
-.fe-crumb-dd{background:none;border:none;color:var(--dm);cursor:pointer;
-  padding:1px 3px;font-size:10px;border-radius:3px;line-height:1;
-  transition:background .1s,color .1s;flex-shrink:0}
-.fe-crumb-dd:hover{background:var(--hover);color:var(--ac)}
+/* Crumb dropdown chevron — override #fe-bar button specificity */
+#fe-bar .fe-crumb-dd{background:none;border:none;color:var(--dm);cursor:pointer;
+  padding:0 2px;font-size:9px;border-radius:3px;line-height:1;opacity:0.35;
+  transition:opacity .1s,color .1s,background .1s;flex-shrink:0;min-width:0}
+#fe-bar .fe-crumb-dd:hover{background:var(--hover);color:var(--ac);opacity:1;border:none}
 
 /* Crumb dropdown menu */
 #fe-crumb-menu{
@@ -997,7 +997,8 @@ td.c-tp{color:var(--dm);font-size:11px}
 
     try {
       const res  = await fetch(url);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      // file:// URLs return status 0 (not 200); only reject on real HTTP errors
+      if (res.status !== 0 && !res.ok) throw new Error('HTTP ' + res.status);
       const text = await res.text();
       if (crumbMenuUrl !== url) return;
       const doc     = new DOMParser().parseFromString(text, 'text/html');
@@ -1008,7 +1009,8 @@ td.c-tp{color:var(--dm);font-size:11px}
       crumbMenu.innerHTML = entries.map(e =>
         `<a href="${esc(e.href)}" class="fe-dd-item${e.isDir?' dir':''}">${getIcon(e)}<span>${esc(e.name)}</span></a>`
       ).join('');
-    } catch {
+    } catch(err) {
+      console.error('[BFB] crumb dropdown failed:', url, err);
       if (crumbMenuUrl === url)
         crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
     }
