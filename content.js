@@ -1,4 +1,4 @@
-// Better File Browser v2.1
+// Better File Browser v2.2
 (function () {
   const preload = document.getElementById('bfb-preload');
   if (!document.title.startsWith('Index of')) {
@@ -9,14 +9,12 @@
   // ── Path ─────────────────────────────────────────────────────────
   const rawPath = decodeURIComponent(window.location.pathname);
   const segments = rawPath.split('/').filter(Boolean);
-  const homeUser = segments[0] === 'Users' && segments[1] ? segments[1] : null;
 
   // ── Parse Chrome's directory listing ─────────────────────────────
   function parseEntries() {
     const table = document.querySelector('table') || document.getElementById('listing-table');
     if (!table) return [];
-    const rows = table.querySelectorAll('tr');
-    return Array.from(rows).slice(1).flatMap(row => {  // slice(1) skips header row
+    return Array.from(table.querySelectorAll('tr')).slice(1).flatMap(row => {
       const cells = row.querySelectorAll('td');
       if (cells.length < 2) return [];
       const link = cells[0]?.querySelector('a');
@@ -32,7 +30,24 @@
     });
   }
 
-  // ── Escape HTML attribute values ──────────────────────────────────
+  function parseFetchedDoc(doc, baseUrl) {
+    const table = doc.querySelector('table');
+    if (!table) return [];
+    return Array.from(table.querySelectorAll('tr')).slice(1).flatMap(row => {
+      const cells = row.querySelectorAll('td');
+      if (cells.length < 2) return [];
+      const link = cells[0]?.querySelector('a');
+      if (!link) return [];
+      const name = link.textContent.trim();
+      const rel = link.getAttribute('href');
+      if (rel === '../') return [];
+      const href = new URL(rel, baseUrl).href;
+      const isDir = rel?.endsWith('/') ?? false;
+      const isHidden = name.startsWith('.');
+      return [{ name, href, isDir, isParent: false, isHidden, rawBytes: -1, dateStr: '' }];
+    });
+  }
+
   function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
@@ -125,16 +140,19 @@
     if (e.isParent) return '';
     if (e.isDir) return 'Folder';
     if (!e.name.includes('.')) return 'File';
-    const ext = e.name.split('.').pop().toUpperCase();
-    return ext + ' File';
+    return e.name.split('.').pop().toUpperCase() + ' File';
+  }
+  function getExt(e) {
+    if (e.isDir || e.isParent) return '';
+    return e.name.includes('.') ? e.name.split('.').pop().toLowerCase() : '';
   }
 
   // ── Storage ───────────────────────────────────────────────────────
-  const BM_KEY   = 'bfb-bookmarks-v2';
-  const VIEW_KEY = 'bfb-view';
-  const THEME_KEY= 'bfb-theme';
-  const ZOOM_KEY = 'bfb-zoom';
-  const HIDDEN_KEY='bfb-show-hidden';
+  const BM_KEY    = 'bfb-bookmarks-v2';
+  const VIEW_KEY  = 'bfb-view';
+  const THEME_KEY = 'bfb-theme';
+  const ZOOM_KEY  = 'bfb-zoom';
+  const HIDDEN_KEY= 'bfb-show-hidden';
 
   function getBM()  { try { return JSON.parse(localStorage.getItem(BM_KEY) ?? '[]'); } catch { return []; } }
   function saveBM(bm) { localStorage.setItem(BM_KEY, JSON.stringify(bm)); }
@@ -145,12 +163,12 @@
     else bm.unshift({ path, label: path.split('/').filter(Boolean).pop() || '/' });
     saveBM(bm); return bm;
   }
-  function getView()      { return localStorage.getItem(VIEW_KEY)   ?? 'details'; }
-  function getTheme()     { return localStorage.getItem(THEME_KEY)  ?? 'dark'; }
-  function getZoom()      { return parseInt(localStorage.getItem(ZOOM_KEY) ?? '100'); }
-  function getShowHidden(){ return localStorage.getItem(HIDDEN_KEY) === 'true'; }
+  function getView()       { return localStorage.getItem(VIEW_KEY)   ?? 'details'; }
+  function getTheme()      { return localStorage.getItem(THEME_KEY)  ?? 'dark'; }
+  function getZoom()       { return parseInt(localStorage.getItem(ZOOM_KEY) ?? '100'); }
+  function getShowHidden() { return localStorage.getItem(HIDDEN_KEY) === 'true'; }
 
-  // ── Finder Sidebar Favorites (parsed from macOS SFL4, 2026-04-18) ─
+  // ── Finder Sidebar Favorites ──────────────────────────────────────
   const FINDER_FAVORITES = [
     { label: 'Screenshots', icon: 'scrnsh', href: 'file:///Users/alcatraz627/Pictures/Screenshots/' },
     { label: 'Downloads',   icon: 'down',   href: 'file:///Users/alcatraz627/Downloads/' },
@@ -164,8 +182,153 @@
     { label: 'resumes',     icon: 'docs',   href: 'file:///Users/alcatraz627/Code/Claude/resumes/' },
   ];
 
-  // ── Entries (parse before replacing DOM) ─────────────────────────
+  // ── Sort / Group / Filter state ───────────────────────────────────
   const ALL_ENTRIES = parseEntries();
+
+  let sortConfig  = { col: null, dir: 'asc' };
+  let groupConfig = 'none';   // 'none'|'folders-first'|'files-first'|'ext'|'type'
+  let filterConfig = { q: '', regex: false, type: 'all' };
+
+  function applyAll() {
+    const parent = ALL_ENTRIES.filter(e => e.isParent);
+    let entries  = ALL_ENTRIES.filter(e => !e.isParent);
+
+    // 1. filter
+    entries = entries.filter(e => {
+      if (filterConfig.type !== 'all') {
+        if (filterConfig.type === 'folders' && !e.isDir)  return false;
+        if (filterConfig.type === 'files'   && e.isDir)   return false;
+        if (!['all','folders','files'].includes(filterConfig.type)) {
+          if (getExt(e) !== filterConfig.type) return false;
+        }
+      }
+      if (filterConfig.q) {
+        if (filterConfig.regex) {
+          try { if (!new RegExp(filterConfig.q, 'i').test(e.name)) return false; }
+          catch { /* invalid regex – skip filter */ }
+        } else {
+          if (!e.name.toLowerCase().includes(filterConfig.q.toLowerCase())) return false;
+        }
+      }
+      return true;
+    });
+
+    // 2. sort
+    if (sortConfig.col) {
+      entries.sort((a, b) => {
+        let va, vb;
+        if      (sortConfig.col === 'name') { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
+        else if (sortConfig.col === 'size') { va = a.rawBytes; vb = b.rawBytes; }
+        else if (sortConfig.col === 'date') { va = a.dateStr;  vb = b.dateStr; }
+        else if (sortConfig.col === 'type') { va = fmtType(a); vb = fmtType(b); }
+        else if (sortConfig.col === 'ext')  { va = getExt(a);  vb = getExt(b); }
+        else return 0;
+        const cmp = (typeof va === 'number')
+          ? va - vb
+          : String(va).localeCompare(String(vb));
+        return sortConfig.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    // 3. group
+    let grouped = null;
+    if (groupConfig !== 'none') {
+      grouped = buildGroups(entries, groupConfig);
+    }
+
+    // 4. re-render
+    const tbody = document.getElementById('fe-tbody');
+    const tiles  = document.getElementById('fe-tiles');
+    if (grouped) {
+      tbody.innerHTML = [...parent.map(e => renderRow(e)),
+        ...grouped.flatMap(g => [
+          `<tr class="fe-group-hdr"><td colspan="4">${esc(g.label)}</td></tr>`,
+          ...g.items.map(e => renderRow(e))
+        ])
+      ].join('');
+      tiles.innerHTML = [...parent.map(e => renderTile(e)),
+        ...grouped.flatMap(g => [
+          `<div class="fe-group-hdr-tile">${esc(g.label)}</div>`,
+          ...g.items.map(e => renderTile(e))
+        ])
+      ].join('');
+    } else {
+      const all = [...parent, ...entries];
+      tbody.innerHTML = all.map(e => renderRow(e)).join('');
+      tiles.innerHTML = all.map(e => renderTile(e)).join('');
+    }
+
+    // update search box to reflect current q (in case it was set programmatically)
+    const search = document.getElementById('fe-search');
+    if (search && search.value !== filterConfig.q && !filterConfig.regex) {
+      // don't overwrite on every call
+    }
+  }
+
+  function buildGroups(entries, mode) {
+    if (mode === 'folders-first') {
+      const dirs  = entries.filter(e => e.isDir);
+      const files = entries.filter(e => !e.isDir);
+      return [
+        ...(dirs.length  ? [{ label: `Folders (${dirs.length})`,  items: dirs  }] : []),
+        ...(files.length ? [{ label: `Files (${files.length})`,   items: files }] : []),
+      ];
+    }
+    if (mode === 'files-first') {
+      const dirs  = entries.filter(e => e.isDir);
+      const files = entries.filter(e => !e.isDir);
+      return [
+        ...(files.length ? [{ label: `Files (${files.length})`,  items: files }] : []),
+        ...(dirs.length  ? [{ label: `Folders (${dirs.length})`, items: dirs  }] : []),
+      ];
+    }
+    if (mode === 'ext') {
+      const map = new Map();
+      entries.forEach(e => {
+        const key = e.isDir ? '📁 Folders' : (getExt(e) ? `.${getExt(e)}` : 'Other');
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(e);
+      });
+      return Array.from(map.entries()).map(([label, items]) => ({ label, items }));
+    }
+    if (mode === 'type') {
+      const map = new Map();
+      entries.forEach(e => {
+        const key = e.isDir ? 'Folder' : fmtType(e);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(e);
+      });
+      return Array.from(map.entries()).map(([label, items]) => ({ label, items }));
+    }
+    return [{ label: 'All', items: entries }];
+  }
+
+  // ── Render: single row / tile ─────────────────────────────────────
+  function renderRow(e) {
+    const tipData = buildTipData(e);
+    return `<tr class="fe-row${e.isDir?' dir':''}${e.isParent?' par':''}${e.isHidden?' dotfile':''}"
+               data-name="${esc(e.name.toLowerCase())}"
+               data-tip="${esc(tipData)}">
+      <td class="c-nm"><a href="${e.href}" class="fe-lnk">${getIcon(e)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a></td>
+      <td class="c-tp">${fmtType(e)}</td>
+      <td class="c-sz">${e.isDir ? '—' : fmtSize(e.rawBytes)}</td>
+      <td class="c-dt">${fmtDate(e.dateStr)}</td>
+    </tr>`;
+  }
+
+  function renderTile(e) {
+    const tipData = buildTipData(e);
+    return `<a href="${e.href}" class="fe-tile${e.isDir?' dir':''}${e.isParent?' par':''}${e.isHidden?' dotfile':''}"
+              data-name="${esc(e.name.toLowerCase())}"
+              data-tip="${esc(tipData)}">
+      <span class="fe-tile-ic">${getIcon(e)}</span>
+      <span class="fe-tile-nm">${esc(e.isParent ? '..' : e.name)}</span>
+      ${!e.isDir && !e.isParent ? `<span class="fe-tile-sz">${fmtSize(e.rawBytes)}</span>` : ''}
+    </a>`;
+  }
+
+  function renderRows(entries)  { return entries.map(renderRow).join(''); }
+  function renderTiles(entries) { return entries.map(renderTile).join(''); }
 
   // ── Render: Bookmark sidebar list ────────────────────────────────
   function renderBMList(bm) {
@@ -180,76 +343,42 @@
       </div>`).join('');
   }
 
-  // ── Render: Breadcrumbs ───────────────────────────────────────────
+  // ── Render: Breadcrumbs with dropdown chevrons ────────────────────
   function renderCrumbs() {
     const crumbs = [{ label: '/', href: 'file:///' }];
     let acc = '/';
     for (const seg of segments) { acc += seg + '/'; crumbs.push({ label: seg, href: 'file://' + acc }); }
     return crumbs.map((c, i) =>
       `<a href="${c.href}" class="fe-crumb">${esc(c.label)}</a>` +
+      `<button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">▾</button>` +
       (i < crumbs.length - 1 ? `<span class="fe-sep">›</span>` : '')
     ).join('');
   }
 
-  // ── Render: Table rows ────────────────────────────────────────────
-  function renderRows(entries) {
-    return entries.map(e => {
-      const tipData = buildTipData(e);
-      return `<tr class="fe-row${e.isDir?' dir':''}${e.isParent?' par':''}${e.isHidden?' dotfile':''}"
-                 data-name="${esc(e.name.toLowerCase())}"
-                 data-tip="${esc(tipData)}">
-        <td class="c-nm"><a href="${e.href}" class="fe-lnk">${getIcon(e)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a></td>
-        <td class="c-tp">${fmtType(e)}</td>
-        <td class="c-sz">${e.isDir ? '—' : fmtSize(e.rawBytes)}</td>
-        <td class="c-dt">${fmtDate(e.dateStr)}</td>
-      </tr>`;
-    }).join('');
-  }
-
-  // ── Render: Tiles ─────────────────────────────────────────────────
-  function renderTiles(entries) {
-    return entries.map(e => {
-      const tipData = buildTipData(e);
-      return `<a href="${e.href}" class="fe-tile${e.isDir?' dir':''}${e.isParent?' par':''}${e.isHidden?' dotfile':''}"
-                data-name="${esc(e.name.toLowerCase())}"
-                data-tip="${esc(tipData)}">
-        <span class="fe-tile-ic">${getIcon(e)}</span>
-        <span class="fe-tile-nm">${esc(e.isParent ? '..' : e.name)}</span>
-        ${!e.isDir && !e.isParent ? `<span class="fe-tile-sz">${fmtSize(e.rawBytes)}</span>` : ''}
-      </a>`;
-    }).join('');
-  }
-
-  // ── Build tooltip content string ──────────────────────────────────
+  // ── Build tooltip content ─────────────────────────────────────────
   function buildTipData(e) {
     if (e.isParent) return 'Parent Directory\nNavigate up one level';
     const fullPath = rawPath.replace(/\/$/, '') + '/' + e.name + (e.isDir ? '/' : '');
-    const lines = [
-      e.name,
-      `Path: ${fullPath}`,
-      `Type: ${fmtType(e)}`,
-    ];
+    const lines = [e.name, `Path: ${fullPath}`, `Type: ${fmtType(e)}`];
     if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
     lines.push(`Modified: ${fmtDate(e.dateStr)}`);
     if (e.isHidden) lines.push('Hidden file (dotfile)');
-    const ext = e.name.includes('.') ? e.name.split('.').pop().toLowerCase() : '';
-    if (IMG_EXTS.has(ext)) lines.push('Image dimensions require native host');
+    if (IMG_EXTS.has(getExt(e))) lines.push('Image — dimensions require native host');
     lines.push('\n⚠ Permissions/creation date require native host');
     return lines.join('\n');
   }
 
   // ── Counts ────────────────────────────────────────────────────────
   const nonPar = ALL_ENTRIES.filter(e => !e.isParent);
-  const dirs  = nonPar.filter(e => e.isDir).length;
-  const files = nonPar.filter(e => !e.isDir).length;
-  const hidden= nonPar.filter(e => e.isHidden).length;
-  const countLabel = [
-    dirs  && `${dirs} folder${dirs>1?'s':''}`,
-    files && `${files} file${files>1?'s':''}`,
-    hidden && `${hidden} hidden`,
-  ].filter(Boolean).join('  ·  ');
+  const dirs   = nonPar.filter(e => e.isDir).length;
+  const files  = nonPar.filter(e => !e.isDir).length;
+  const hidden = nonPar.filter(e => e.isHidden).length;
 
-  // ── View mode buttons HTML ────────────────────────────────────────
+  // Extension list for type filter dropdown
+  const allExts = [...new Set(nonPar.filter(e => !e.isDir && getExt(e)).map(getExt))].sort();
+  const extOpts = allExts.map(x => `<option value="${x}">.${x}</option>`).join('');
+
+  // ── View mode buttons ─────────────────────────────────────────────
   const VIEW_MODES = [
     { id:'details', label:'Details',    ico:`<svg width="13" height="11" viewBox="0 0 13 11"><path d="M1 1h11M1 4h11M1 7h11M1 10h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
     { id:'list',    label:'List',       ico:`<svg width="13" height="11" viewBox="0 0 13 11"><circle cx="2" cy="2" r="1.1" fill="currentColor"/><path d="M5 2h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2" cy="5.5" r="1.1" fill="currentColor"/><path d="M5 5.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2" cy="9" r="1.1" fill="currentColor"/><path d="M5 9h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
@@ -260,11 +389,11 @@
     `<button class="fe-view-btn" data-view="${v.id}" title="${v.label}">${v.ico}</button>`
   ).join('');
 
-  const initZoom  = getZoom();
-  const initView  = getView();
-  const initTheme = getTheme();
-  const initHidden= getShowHidden();
-  const initBM    = getBM();
+  const initZoom   = getZoom();
+  const initView   = getView();
+  const initTheme  = getTheme();
+  const initHidden = getShowHidden();
+  const initBM     = getBM();
   const curIsBookmarked = initBM.some(b => b.path === rawPath);
 
   // ── Page HTML ─────────────────────────────────────────────────────
@@ -304,18 +433,66 @@
 
     <div id="fe-main">
       <div id="fe-toolbar">
-        <span id="fe-count">${countLabel}</span>
+        <span id="fe-count">${dirs} folder${dirs!==1?'s':''}, ${files} file${files!==1?'s':''}</span>
         <div id="fe-tb-right">
+          <button id="fe-sg-btn" title="Sort &amp; Group">
+            <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11M2 5h9M3.5 8h6M5.5 11h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Sort
+          </button>
+          <button id="fe-filter-btn" title="Filter">
+            <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11l-4.5 5v4l-2-1V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+          </button>
           <button id="fe-hidden-btn" class="${initHidden?'on':''}" title="Show hidden files">
             <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="6.5" cy="6.5" r="2" fill="${initHidden?'currentColor':'none'}" stroke="currentColor" stroke-width="1.3"/></svg>
           </button>
           <div id="fe-zoom-wrap" title="Zoom">
             <svg width="11" height="11" viewBox="0 0 11 11"><circle cx="4.5" cy="4.5" r="3.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 7.5L10 10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-            <input type="range" id="fe-zoom" min="70" max="160" value="${initZoom}" step="5">
+            <input type="range" id="fe-zoom" min="50" max="320" value="${initZoom}" step="5">
             <span id="fe-zoom-val">${initZoom}%</span>
           </div>
           <div id="fe-view-group">${viewBtnsHTML}</div>
           <input id="fe-search" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false"/>
+        </div>
+      </div>
+
+      <!-- Sort & Group panel -->
+      <div id="fe-sg-panel" style="display:none">
+        <div class="fe-panel-row">
+          <span class="fe-panel-lbl">Sort by</span>
+          <div class="fe-btn-group" id="fe-sort-cols">
+            <button class="fe-pbn active" data-col="name">Name</button>
+            <button class="fe-pbn" data-col="size">Size</button>
+            <button class="fe-pbn" data-col="date">Modified</button>
+            <button class="fe-pbn" data-col="type">Type</button>
+            <button class="fe-pbn" data-col="ext">Extension</button>
+          </div>
+          <button class="fe-pbn" id="fe-sort-dir" title="Direction">↑ Asc</button>
+        </div>
+        <div class="fe-panel-row">
+          <span class="fe-panel-lbl">Group by</span>
+          <div class="fe-btn-group" id="fe-group-btns">
+            <button class="fe-pbn active" data-group="none">None</button>
+            <button class="fe-pbn" data-group="folders-first">Folders first</button>
+            <button class="fe-pbn" data-group="files-first">Files first</button>
+            <button class="fe-pbn" data-group="ext">Extension</button>
+            <button class="fe-pbn" data-group="type">Type</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div id="fe-filter-bar" style="display:none">
+        <div class="fe-panel-row">
+          <span class="fe-panel-lbl">Name</span>
+          <input id="fe-filter-q" type="text" placeholder="pattern…" autocomplete="off" spellcheck="false"/>
+          <button id="fe-regex-btn" class="fe-pbn" title="Toggle regex mode">.*</button>
+          <span class="fe-panel-lbl" style="margin-left:12px">Type</span>
+          <select id="fe-type-filter">
+            <option value="all">All types</option>
+            <option value="folders">Folders only</option>
+            <option value="files">Files only</option>
+            ${extOpts}
+          </select>
         </div>
       </div>
 
@@ -341,6 +518,9 @@
     </div>
   </div>
 
+  <!-- Crumb dropdown menu (shared, repositioned dynamically) -->
+  <div id="fe-crumb-menu"></div>
+
   <div id="fe-tip"></div>
   <div id="fe-toast"></div>
 </div>`;
@@ -362,20 +542,43 @@
 html,body{height:100%;background:var(--bg);color:var(--tx);
   font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
 body{opacity:1!important}
-
 #fe{display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--tx)}
 
 /* ── Path bar ── */
 #fe-bar{display:flex;align-items:center;gap:6px;padding:8px 14px;
   background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:42px}
-#fe-bc{display:flex;align-items:center;gap:2px;flex:1;overflow:hidden;white-space:nowrap;min-width:0}
-.fe-crumb{color:var(--mt);text-decoration:none;padding:2px 5px;border-radius:4px;font-size:12px;flex-shrink:0;transition:background .1s,color .1s}
+#fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0}
+.fe-crumb{color:var(--mt);text-decoration:none;padding:2px 5px;border-radius:4px;
+  font-size:12px;flex-shrink:0;transition:background .1s,color .1s}
 .fe-crumb:last-of-type{color:var(--tx);font-weight:500}
 .fe-crumb:hover{background:var(--hover);color:var(--tx)}
-.fe-sep{color:var(--dm);font-size:11px;flex-shrink:0}
+.fe-sep{color:var(--dm);font-size:11px;flex-shrink:0;padding:0 1px}
+
+/* Crumb dropdown chevron */
+.fe-crumb-dd{background:none;border:none;color:var(--dm);cursor:pointer;
+  padding:1px 3px;font-size:10px;border-radius:3px;line-height:1;
+  transition:background .1s,color .1s;flex-shrink:0}
+.fe-crumb-dd:hover{background:var(--hover);color:var(--ac)}
+
+/* Crumb dropdown menu */
+#fe-crumb-menu{
+  position:fixed;z-index:300;
+  background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
+  min-width:220px;max-width:340px;max-height:340px;overflow-y:auto;
+  box-shadow:0 8px 24px #0009;display:none;
+  padding:4px 0;
+}
+.fe-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;
+  color:var(--tx);text-decoration:none;font-size:12px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;transition:background .08s}
+.fe-dd-item:hover{background:var(--hover)}
+.fe-dd-item.dir{color:var(--dir)}
+.fe-dd-item svg{flex-shrink:0}
+.fe-dd-spinner,.fe-dd-empty{padding:10px 14px;font-size:12px;color:var(--dm);font-style:italic}
+
 #fe-bar button{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;
   padding:4px 8px;border-radius:var(--r);line-height:1;display:flex;align-items:center;
-  justify-content:center;transition:all .15s;flex-shrink:0}
+  justify-content:center;gap:5px;transition:all .15s;flex-shrink:0}
 #fe-bar button:hover{border-color:var(--ac);color:var(--ac)}
 #fe-bm-btn.on{color:var(--gold);border-color:var(--gold)}
 #fe-bm-btn.on:hover{color:var(--gold)}
@@ -388,32 +591,32 @@ body{opacity:1!important}
 /* ── Layout ── */
 #fe-body{display:flex;flex:1;overflow:hidden}
 
-/* ── Sidebar ── */
-#fe-side{width:192px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);overflow-y:auto;padding:6px 0}
+/* ── Sidebar — 1.5× size ── */
+#fe-side{width:220px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);overflow-y:auto;padding:6px 0}
 .fe-sec{margin-bottom:4px}
-.fe-sh{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--dm);padding:8px 14px 4px;display:flex;align-items:center;gap:6px}
-.fe-si{display:flex;align-items:center;gap:8px;padding:5px 14px;
+.fe-sh{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--dm);padding:10px 14px 5px;display:flex;align-items:center;gap:6px}
+.fe-si{display:flex;align-items:center;gap:10px;padding:8px 14px;
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
 .fe-si:hover{background:var(--hover);color:var(--tx)}
 .fe-si.active{background:var(--act);color:var(--ac)}
-.fe-si svg{flex-shrink:0;opacity:.7}
-.fe-sl{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fe-hint{font-size:11px;color:var(--dm);padding:5px 14px;font-style:italic;line-height:1.7}
+.fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
+.fe-sl{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-hint{font-size:12px;color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
 
 /* ── Bookmark drag-to-reorder ── */
 .fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
-.fe-drag-h{padding:5px 4px 5px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
+.fe-drag-h{padding:7px 4px 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
 .fe-bm-item:hover .fe-drag-h{opacity:1}
 .fe-bm-item.dragging{opacity:.4;background:var(--hover)}
 .fe-bm-item.drag-over{border-top:2px solid var(--ac)}
-.fe-si-link{display:flex;align-items:center;gap:8px;flex:1;padding:5px 6px 5px 4px;
+.fe-si-link{display:flex;align-items:center;gap:10px;flex:1;padding:7px 6px 7px 4px;
   color:var(--mt);text-decoration:none;min-width:0;transition:color .1s}
 .fe-si-link:hover{color:var(--tx)}
 .fe-si-link.active{color:var(--ac)}
-.fe-si-link svg{flex-shrink:0;opacity:.7}
+.fe-si-link svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-rm-btn{background:none;border:none;color:var(--dm);cursor:pointer;
-  padding:3px 8px 3px 4px;font-size:11px;opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
+  padding:4px 10px 4px 4px;font-size:12px;opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
 .fe-rm-btn:hover{color:#f85149}
 
@@ -422,16 +625,18 @@ body{opacity:1!important}
 #fe-toolbar{display:flex;align-items:center;gap:10px;padding:7px 14px;
   background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-count{font-size:11px;color:var(--dm);flex:1;white-space:nowrap}
-#fe-tb-right{display:flex;align-items:center;gap:8px}
+#fe-tb-right{display:flex;align-items:center;gap:6px}
 
-#fe-hidden-btn{background:none;border:1px solid var(--bd);color:var(--dm);cursor:pointer;
-  padding:4px 7px;border-radius:var(--r);display:flex;align-items:center;transition:all .15s}
-#fe-hidden-btn:hover{border-color:var(--ac);color:var(--ac)}
+#fe-toolbar button{background:none;border:1px solid var(--bd);color:var(--dm);cursor:pointer;
+  padding:4px 8px;border-radius:var(--r);display:flex;align-items:center;gap:4px;
+  font-size:12px;transition:all .15s}
+#fe-toolbar button:hover{border-color:var(--ac);color:var(--ac)}
 #fe-hidden-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
+#fe-sg-btn.on,#fe-filter-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 
 #fe-zoom-wrap{display:flex;align-items:center;gap:5px;color:var(--dm)}
-#fe-zoom{width:72px;accent-color:var(--ac);cursor:pointer}
-#fe-zoom-val{font-size:10px;color:var(--dm);width:30px;text-align:right}
+#fe-zoom{width:80px;accent-color:var(--ac);cursor:pointer}
+#fe-zoom-val{font-size:10px;color:var(--dm);width:34px;text-align:right}
 
 #fe-view-group{display:flex;gap:2px}
 .fe-view-btn{background:none;border:1px solid transparent;color:var(--dm);cursor:pointer;
@@ -439,14 +644,31 @@ body{opacity:1!important}
 .fe-view-btn:hover{background:var(--hover);color:var(--tx)}
 .fe-view-btn.active{background:var(--s3);border-color:var(--bd);color:var(--tx)}
 #fe-search{background:var(--s1);border:1px solid var(--bd);color:var(--tx);
-  padding:4px 10px;border-radius:var(--r);font-size:12px;width:160px;outline:none;transition:border-color .15s}
+  padding:4px 10px;border-radius:var(--r);font-size:12px;width:150px;outline:none;transition:border-color .15s}
 #fe-search:focus{border-color:var(--ac)}
 #fe-search::placeholder{color:var(--dm)}
+
+/* ── Sort & Group / Filter panels ── */
+#fe-sg-panel,#fe-filter-bar{
+  padding:8px 14px;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
+.fe-panel-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fe-panel-lbl{font-size:11px;color:var(--dm);font-weight:500;white-space:nowrap}
+.fe-btn-group{display:flex;gap:4px;flex-wrap:wrap}
+.fe-pbn{background:none;border:1px solid var(--bd);color:var(--dm);cursor:pointer;
+  padding:3px 9px;border-radius:5px;font-size:11px;transition:all .12s;white-space:nowrap}
+.fe-pbn:hover{border-color:var(--ac);color:var(--ac)}
+.fe-pbn.active{background:var(--act);border-color:var(--ac);color:var(--ac)}
+#fe-filter-q{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
+  padding:3px 8px;border-radius:var(--r);font-size:12px;width:200px;outline:none;transition:border-color .15s}
+#fe-filter-q:focus{border-color:var(--ac)}
+#fe-type-filter{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
+  padding:3px 8px;border-radius:var(--r);font-size:12px;outline:none;cursor:pointer}
+#fe-regex-btn.active{background:var(--act);border-color:var(--ac);color:var(--ac)}
 
 /* ── Scroll container ── */
 #fe-scroll{flex:1;overflow-y:auto;transform-origin:top left}
 
-/* ── Table (details + list) ── */
+/* ── Table ── */
 #fe-table{width:100%;border-collapse:collapse;table-layout:fixed}
 thead{position:sticky;top:0;z-index:5;background:var(--s2)}
 thead th{padding:6px 12px;text-align:left;font-size:11px;font-weight:600;
@@ -471,6 +693,13 @@ td.c-tp{color:var(--dm);font-size:11px}
 .par td.c-nm .fe-nm{color:var(--dm)}
 .par:hover .fe-nm{color:var(--mt)}
 .dotfile{opacity:.65}
+
+/* Group header rows */
+.fe-group-hdr td{padding:5px 12px;font-size:10.5px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--dm);
+  background:var(--s2);border-bottom:1px solid var(--bd);border-top:1px solid var(--bd)}
+.fe-group-hdr-tile{width:100%;padding:6px 4px 2px;font-size:10.5px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--dm)}
 
 /* Hidden files toggle */
 #fe:not(.show-hidden) .fe-row.dotfile,
@@ -504,21 +733,19 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe[data-view="icons"] .fe-tile-nm{font-size:12px}
 
 /* ── Status bar ── */
-#fe-statusbar{
-  display:flex;justify-content:space-between;padding:4px 14px;
-  background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:11px;color:var(--dm)
-}
+#fe-statusbar{display:flex;justify-content:space-between;padding:4px 14px;
+  background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:11px;color:var(--dm)}
 
-/* ── Tooltip ── */
+/* ── Tooltip — wrap long paths ── */
 #fe-tip{
-  position:fixed;pointer-events:none;z-index:100;
+  position:fixed;pointer-events:none;z-index:200;
   background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);
   padding:9px 12px;font-size:11.5px;line-height:1.7;color:var(--tx);
-  max-width:340px;white-space:pre;box-shadow:0 4px 16px #0008;
-  opacity:0;transition:opacity .12s;
+  max-width:380px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;
+  box-shadow:0 4px 16px #0008;opacity:0;transition:opacity .12s;
 }
 #fe-tip.show{opacity:1}
-#fe-tip .tip-name{font-weight:600;font-size:12px;margin-bottom:2px}
+#fe-tip .tip-name{font-weight:600;font-size:12px;margin-bottom:2px;word-break:break-all}
 #fe-tip .tip-warn{color:var(--dm);font-size:10.5px;margin-top:3px}
 
 /* ── Toast ── */
@@ -546,7 +773,8 @@ td.c-tp{color:var(--dm);font-size:11px}
   document.head.appendChild(styleEl);
   if (preload) preload.remove();
 
-  // ── Helpers ───────────────────────────────────────────────────────
+  const fe = document.getElementById('fe');
+
   function toast(msg, ms = 2400) {
     const t = document.getElementById('fe-toast');
     t.textContent = msg;
@@ -554,8 +782,6 @@ td.c-tp{color:var(--dm);font-size:11px}
     clearTimeout(t._tid);
     t._tid = setTimeout(() => t.classList.remove('show'), ms);
   }
-
-  const fe = document.getElementById('fe');
 
   // ── Active view buttons ───────────────────────────────────────────
   document.querySelectorAll('.fe-view-btn').forEach(btn => {
@@ -568,7 +794,7 @@ td.c-tp{color:var(--dm);font-size:11px}
     });
   });
 
-  // ── Show/hide hidden files ────────────────────────────────────────
+  // ── Hidden files ──────────────────────────────────────────────────
   const hiddenBtn = document.getElementById('fe-hidden-btn');
   if (initHidden) fe.classList.add('show-hidden');
   hiddenBtn.addEventListener('click', () => {
@@ -578,7 +804,7 @@ td.c-tp{color:var(--dm);font-size:11px}
     toast(on ? `Showing ${hidden} hidden file${hidden!==1?'s':''}` : 'Hidden files concealed');
   });
 
-  // ── Zoom slider ───────────────────────────────────────────────────
+  // ── Zoom slider (max 320 = 2× previous 160) ───────────────────────
   const zoomEl  = document.getElementById('fe-zoom');
   const zoomVal = document.getElementById('fe-zoom-val');
   const scroll  = document.getElementById('fe-scroll');
@@ -589,17 +815,98 @@ td.c-tp{color:var(--dm);font-size:11px}
     localStorage.setItem(ZOOM_KEY, z);
   });
 
-  // ── Search / filter (robust: uses text content, not data attr) ────
+  // ── Column sort (header clicks) ───────────────────────────────────
+  document.querySelectorAll('th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      if (sortConfig.col === col) {
+        sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortConfig.col = col; sortConfig.dir = 'asc';
+      }
+      // sync sort panel button state
+      document.querySelectorAll('#fe-sort-cols .fe-pbn').forEach(b => b.classList.toggle('active', b.dataset.col === col));
+      document.getElementById('fe-sort-dir').textContent = sortConfig.dir === 'asc' ? '↑ Asc' : '↓ Desc';
+      document.querySelectorAll('th[data-sort]').forEach(h => {
+        h.classList.remove('sorted');
+        h.querySelector('.si').textContent = '↕';
+      });
+      th.classList.add('sorted');
+      th.querySelector('.si').textContent = sortConfig.dir === 'asc' ? '↑' : '↓';
+      applyAll();
+    });
+  });
+
+  // ── Sort & Group panel ────────────────────────────────────────────
+  const sgPanel = document.getElementById('fe-sg-panel');
+  document.getElementById('fe-sg-btn').addEventListener('click', () => {
+    const open = sgPanel.style.display === 'none';
+    sgPanel.style.display = open ? '' : 'none';
+    document.getElementById('fe-sg-btn').classList.toggle('on', open);
+  });
+
+  document.querySelectorAll('#fe-sort-cols .fe-pbn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (sortConfig.col === btn.dataset.col) {
+        sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortConfig.col = btn.dataset.col; sortConfig.dir = 'asc';
+      }
+      document.querySelectorAll('#fe-sort-cols .fe-pbn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('fe-sort-dir').textContent = sortConfig.dir === 'asc' ? '↑ Asc' : '↓ Desc';
+      applyAll();
+    });
+  });
+
+  document.getElementById('fe-sort-dir').addEventListener('click', () => {
+    sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc';
+    document.getElementById('fe-sort-dir').textContent = sortConfig.dir === 'asc' ? '↑ Asc' : '↓ Desc';
+    applyAll();
+  });
+
+  document.querySelectorAll('#fe-group-btns .fe-pbn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      groupConfig = btn.dataset.group;
+      document.querySelectorAll('#fe-group-btns .fe-pbn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyAll();
+    });
+  });
+
+  // ── Filter bar ────────────────────────────────────────────────────
+  const filterBar = document.getElementById('fe-filter-bar');
+  document.getElementById('fe-filter-btn').addEventListener('click', () => {
+    const open = filterBar.style.display === 'none';
+    filterBar.style.display = open ? '' : 'none';
+    document.getElementById('fe-filter-btn').classList.toggle('on', open);
+    if (open) document.getElementById('fe-filter-q').focus();
+  });
+
+  document.getElementById('fe-filter-q').addEventListener('input', function () {
+    filterConfig.q = this.value;
+    applyAll();
+  });
+
+  document.getElementById('fe-regex-btn').addEventListener('click', function () {
+    filterConfig.regex = !filterConfig.regex;
+    this.classList.toggle('active', filterConfig.regex);
+    this.title = filterConfig.regex ? 'Regex mode on' : 'Toggle regex mode';
+    applyAll();
+  });
+
+  document.getElementById('fe-type-filter').addEventListener('change', function () {
+    filterConfig.type = this.value;
+    applyAll();
+  });
+
+  // ── Search bar (quick name filter, delegates to applyAll) ─────────
   document.getElementById('fe-search').addEventListener('input', function () {
-    const q = this.value.trim().toLowerCase();
-    document.querySelectorAll('.fe-row:not(.par)').forEach(r => {
-      const nm = (r.querySelector('.fe-nm')?.textContent ?? '').toLowerCase();
-      r.style.display = (!q || nm.includes(q)) ? '' : 'none';
-    });
-    document.querySelectorAll('.fe-tile:not(.par)').forEach(t => {
-      const nm = (t.querySelector('.fe-tile-nm')?.textContent ?? '').toLowerCase();
-      t.style.display = (!q || nm.includes(q)) ? '' : 'none';
-    });
+    filterConfig.q = this.value;
+    // also sync the filter bar input
+    const fq = document.getElementById('fe-filter-q');
+    if (fq) fq.value = this.value;
+    applyAll();
   });
 
   // ── Bookmark toggle ───────────────────────────────────────────────
@@ -635,38 +942,6 @@ td.c-tp{color:var(--dm);font-size:11px}
     toast(`Path copied  —  open -a Ghostty "${path}"`);
   }
 
-  // ── Column sort ───────────────────────────────────────────────────
-  let sortState = { col: null, asc: true };
-  document.querySelectorAll('th[data-sort]').forEach(th => {
-    th.addEventListener('click', () => {
-      const col = th.dataset.sort;
-      sortState = { col, asc: sortState.col === col ? !sortState.asc : true };
-      document.querySelectorAll('th[data-sort]').forEach(h => { h.classList.remove('sorted'); h.querySelector('.si').textContent = '↕'; });
-      th.classList.add('sorted');
-      th.querySelector('.si').textContent = sortState.asc ? '↑' : '↓';
-      sortRows(col, sortState.asc);
-    });
-  });
-  function sortRows(col, asc) {
-    const tbody = document.getElementById('fe-tbody');
-    const parRow = tbody.querySelector('.par');
-    const rows = Array.from(tbody.querySelectorAll('.fe-row:not(.par)'));
-    rows.sort((a, b) => {
-      const ga = sel => a.querySelector(sel)?.textContent?.trim() ?? '';
-      const gb = sel => b.querySelector(sel)?.textContent?.trim() ?? '';
-      if (col === 'name') return asc ? ga('.fe-nm').localeCompare(gb('.fe-nm')) : gb('.fe-nm').localeCompare(ga('.fe-nm'));
-      if (col === 'size') {
-        const pa = parseFloat(ga('.c-sz')) || 0;
-        const pb = parseFloat(gb('.c-sz')) || 0;
-        return asc ? pa - pb : pb - pa;
-      }
-      if (col === 'date') return asc ? ga('.c-dt').localeCompare(gb('.c-dt')) : gb('.c-dt').localeCompare(ga('.c-dt'));
-      return 0;
-    });
-    if (parRow) tbody.prepend(parRow);
-    rows.forEach(r => tbody.appendChild(r));
-  }
-
   // ── Tooltip ───────────────────────────────────────────────────────
   const tip = document.getElementById('fe-tip');
   let tipTimeout;
@@ -677,7 +952,6 @@ td.c-tp{color:var(--dm);font-size:11px}
     tipTimeout = setTimeout(() => showTip(target, e), 300);
   });
   document.getElementById('fe-scroll').addEventListener('mouseleave', hideTip);
-
   function showTip(el, e) {
     const raw = el.getAttribute('data-tip') ?? '';
     const lines = raw.split('\n');
@@ -689,12 +963,10 @@ td.c-tp{color:var(--dm);font-size:11px}
     positionTip(e);
   }
   function hideTip() { clearTimeout(tipTimeout); tip.classList.remove('show'); }
-  document.addEventListener('mousemove', e => {
-    if (tip.classList.contains('show')) positionTip(e);
-  });
+  document.addEventListener('mousemove', e => { if (tip.classList.contains('show')) positionTip(e); });
   function positionTip(e) {
     const vw = window.innerWidth, vh = window.innerHeight;
-    const tw = tip.offsetWidth || 260, th = tip.offsetHeight || 100;
+    const tw = tip.offsetWidth || 280, th = tip.offsetHeight || 100;
     let x = e.clientX + 14, y = e.clientY + 14;
     if (x + tw > vw - 8) x = e.clientX - tw - 10;
     if (y + th > vh - 8) y = e.clientY - th - 10;
@@ -702,29 +974,69 @@ td.c-tp{color:var(--dm);font-size:11px}
     tip.style.top  = y + 'px';
   }
 
+  // ── Crumb dropdown (async directory listing) ──────────────────────
+  const crumbMenu = document.getElementById('fe-crumb-menu');
+  let crumbMenuUrl = null;
+
+  document.getElementById('fe-bc').addEventListener('click', async e => {
+    const btn = e.target.closest('.fe-crumb-dd');
+    if (!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    const url = btn.dataset.url;
+
+    if (crumbMenu.style.display !== 'none' && crumbMenuUrl === url) {
+      closeCrumbMenu(); return;
+    }
+
+    const rect = btn.getBoundingClientRect();
+    crumbMenu.style.left = Math.min(rect.left, window.innerWidth - 260) + 'px';
+    crumbMenu.style.top  = (rect.bottom + 4) + 'px';
+    crumbMenu.style.display = 'block';
+    crumbMenu.innerHTML = '<div class="fe-dd-spinner">Loading…</div>';
+    crumbMenuUrl = url;
+
+    try {
+      const res  = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const text = await res.text();
+      if (crumbMenuUrl !== url) return;
+      const doc     = new DOMParser().parseFromString(text, 'text/html');
+      const entries = parseFetchedDoc(doc, url);
+      if (!entries.length) {
+        crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>'; return;
+      }
+      crumbMenu.innerHTML = entries.map(e =>
+        `<a href="${esc(e.href)}" class="fe-dd-item${e.isDir?' dir':''}">${getIcon(e)}<span>${esc(e.name)}</span></a>`
+      ).join('');
+    } catch {
+      if (crumbMenuUrl === url)
+        crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!crumbMenu.contains(e.target) && !e.target.classList.contains('fe-crumb-dd'))
+      closeCrumbMenu();
+  });
+  function closeCrumbMenu() { crumbMenu.style.display = 'none'; crumbMenuUrl = null; }
+
   // ── Bookmark drag-to-reorder ──────────────────────────────────────
   let dragSrc = null;
   function attachBMEvents() {
     const bmList = document.getElementById('fe-bm-list');
-
-    // Remove buttons
     bmList.querySelectorAll('.fe-rm-btn').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation(); e.preventDefault();
-        const path = btn.dataset.path;
-        const bm = getBM().filter(b => b.path !== path);
+        const bm = getBM().filter(b => b.path !== btn.dataset.path);
         saveBM(bm);
         bmList.innerHTML = renderBMList(bm);
         attachBMEvents();
         toast('Bookmark removed');
       });
     });
-
-    // Drag reorder
     bmList.querySelectorAll('.fe-bm-item').forEach(item => {
       item.addEventListener('dragstart', e => {
-        dragSrc = item;
-        e.dataTransfer.effectAllowed = 'move';
+        dragSrc = item; e.dataTransfer.effectAllowed = 'move';
         setTimeout(() => item.classList.add('dragging'), 0);
       });
       item.addEventListener('dragend', () => item.classList.remove('dragging'));
@@ -735,10 +1047,8 @@ td.c-tp{color:var(--dm);font-size:11px}
         item.classList.remove('drag-over');
         if (!dragSrc || dragSrc === item) return;
         const bm = getBM();
-        const fromPath = dragSrc.dataset.path;
-        const toPath   = item.dataset.path;
-        const fi = bm.findIndex(b => b.path === fromPath);
-        const ti = bm.findIndex(b => b.path === toPath);
+        const fi = bm.findIndex(b => b.path === dragSrc.dataset.path);
+        const ti = bm.findIndex(b => b.path === item.dataset.path);
         if (fi >= 0 && ti >= 0) {
           const [moved] = bm.splice(fi, 1);
           bm.splice(ti, 0, moved);
