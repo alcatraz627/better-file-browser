@@ -99,8 +99,25 @@
       <path d="M9 3.5L5 8l4 4.5M5 8h9" fill="none" stroke="#6e7681" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>`;
   }
+  function icoCustom(label, color) {
+    const lbl = String(label || '?').slice(0, 4);
+    const safe = lbl.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${color}22" stroke="${color}" stroke-width="1.1"/>
+      <path d="M10 0.5v5.5h5.5" fill="none" stroke="${color}" stroke-width="1.1"/>
+      <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${color}">${safe}</text>
+    </svg>`;
+  }
   function getIcon(e) {
     if (e.isParent) return icoParent();
+    // Custom rules take priority over built-in icons
+    if (iconRules) {
+      for (const rule of iconRules) {
+        if (!rule.enabled) continue;
+        try { if (new RegExp(rule.pattern, 'i').test(e.name)) return icoCustom(rule.label, rule.color); }
+        catch {} // invalid regex — skip silently
+      }
+    }
     if (e.isDir) return icoFolder(e.name);
     const ext = e.name.includes('.') ? e.name.split('.').pop() : '';
     return icoFile(ext || '—');
@@ -134,7 +151,10 @@
     if (!s) return '—';
     const d = new Date(s);
     if (isNaN(d)) return s;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const fmt = settings?.dateFormat ?? 'short';
+    return d.toLocaleDateString('en-US',
+      fmt === 'full' ? { month:'long', day:'numeric', year:'numeric' }
+                     : { month:'short', day:'numeric', year:'numeric' });
   }
   function fmtType(e) {
     if (e.isParent) return '';
@@ -152,7 +172,27 @@
   const VIEW_KEY  = 'bfb-view';
   const THEME_KEY = 'bfb-theme';
   const ZOOM_KEY  = 'bfb-zoom';
-  const HIDDEN_KEY= 'bfb-show-hidden';
+  const HIDDEN_KEY    = 'bfb-show-hidden';
+  const ICON_RULES_KEY = 'bfb-icon-rules-v1';
+  const SETTINGS_KEY   = 'bfb-settings-v1';
+
+  const DEFAULT_ICON_RULES = [
+    { id:'r1', pattern:'\\.claude$|^Claude', label:'Cld', color:'#d97757', enabled:true },
+    { id:'r2', pattern:'\\.md$',             label:'MD↓', color:'#4a9eff', enabled:true },
+    { id:'r3', pattern:'^\\.DS_Store$',      label:'DS',  color:'#8b949e', enabled:true },
+  ];
+  const DEFAULT_SETTINGS = { compactMode:false, showSidebar:true, dateFormat:'short' };
+
+  function getIconRules() {
+    try { const r = JSON.parse(localStorage.getItem(ICON_RULES_KEY)); return Array.isArray(r) ? r : DEFAULT_ICON_RULES; }
+    catch { return DEFAULT_ICON_RULES.map(r => ({ ...r })); }
+  }
+  function saveIconRules(r) { localStorage.setItem(ICON_RULES_KEY, JSON.stringify(r)); }
+  function getSettings() {
+    try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') }; }
+    catch { return { ...DEFAULT_SETTINGS }; }
+  }
+  function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
 
   function getBM()  { try { return JSON.parse(localStorage.getItem(BM_KEY) ?? '[]'); } catch { return []; } }
   function saveBM(bm) { localStorage.setItem(BM_KEY, JSON.stringify(bm)); }
@@ -394,6 +434,8 @@
   const initTheme  = getTheme();
   const initHidden = getShowHidden();
   const initBM     = getBM();
+  let iconRules    = getIconRules();
+  let settings     = getSettings();
   const curIsBookmarked = initBM.some(b => b.path === rawPath);
 
   // ── Page HTML ─────────────────────────────────────────────────────
@@ -409,6 +451,9 @@
     <button id="fe-theme-btn" title="Toggle theme">
       <svg id="fe-sun" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M10.1 2.9l-1 1M3.9 10.1l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
       <svg id="fe-moon" width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 8.5A5 5 0 0 1 5.5 2.5a5 5 0 1 0 6 6z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+    </button>
+    <button id="fe-settings-btn" title="Settings">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M8.5 1H5.5L4.5 2.8 2.5 4 1 5.5v3L2.5 10l2 1.2L5.5 13h3l1-1.8 2-1.2L13 8.5v-3L11.5 4l-2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
     </button>
   </div>
 
@@ -523,6 +568,71 @@
 
   <div id="fe-tip"></div>
   <div id="fe-toast"></div>
+
+  <!-- Settings modal -->
+  <div id="fe-settings-modal" style="display:none">
+    <div id="fe-settings-bg"></div>
+    <div id="fe-settings-dialog">
+      <div id="fe-settings-hdr">
+        <span>Settings</span>
+        <button id="fe-settings-close" title="Close">✕</button>
+      </div>
+      <div id="fe-settings-body">
+
+        <div class="fe-st-section">
+          <div class="fe-st-title">Theme</div>
+          <div class="fe-st-row">
+            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark"> Dark</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light"> Light</label>
+          </div>
+        </div>
+
+        <div class="fe-st-section">
+          <div class="fe-st-title">Appearance</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Default view</span>
+            <select id="fe-st-defview" class="fe-st-select">
+              <option value="details">Details</option>
+              <option value="list">List</option>
+              <option value="tiles">Tiles</option>
+              <option value="icons">Large Icons</option>
+            </select>
+          </div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact"> Compact mode</label>
+          </div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar"> Show sidebar</label>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Date format</span>
+            <select id="fe-st-datefmt" class="fe-st-select">
+              <option value="short">Short — Apr 17</option>
+              <option value="full">Full — April 17, 2025</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fe-st-section">
+          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Custom Icon Rules</span>
+            <button id="fe-st-add-rule" class="fe-pbn">+ Add rule</button>
+          </div>
+          <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
+          <div class="fe-st-rules-cols">
+            <span></span><span></span>
+            <span class="fe-st-col-lbl">Pattern (regex)</span>
+            <span class="fe-st-col-lbl">Label</span>
+            <span class="fe-st-col-lbl">Color</span>
+            <span></span>
+          </div>
+          <div id="fe-st-rules-list"></div>
+          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940">Reset to defaults</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
 </div>`;
 
   // ── CSS ───────────────────────────────────────────────────────────
@@ -762,6 +872,62 @@ td.c-tp{color:var(--dm);font-size:11px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--dm)}
+
+/* ── Compact mode ── */
+#fe.compact tbody td{padding:2px 12px}
+#fe.compact .fe-tile{padding:6px 6px 5px;gap:3px}
+
+/* ── Settings Modal ── */
+#fe-settings-modal{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center}
+#fe-settings-bg{position:absolute;inset:0;background:#00000088;backdrop-filter:blur(2px)}
+#fe-settings-dialog{
+  position:relative;z-index:1;
+  background:var(--s1);border:1px solid var(--bd);border-radius:10px;
+  width:520px;max-width:calc(100vw - 40px);max-height:82vh;
+  display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;
+}
+#fe-settings-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--bd);flex-shrink:0;
+}
+#fe-settings-hdr>span{font-size:14px;font-weight:600;color:var(--tx)}
+#fe-settings-close{background:none;border:none;color:var(--dm);cursor:pointer;
+  font-size:14px;padding:3px 7px;border-radius:4px;line-height:1;transition:color .1s,background .1s}
+#fe-settings-close:hover{background:var(--hover);color:var(--tx)}
+#fe-settings-body{overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:20px}
+.fe-st-section{display:flex;flex-direction:column;gap:10px}
+.fe-st-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--dm);padding-bottom:4px;border-bottom:1px solid var(--bd)}
+.fe-st-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fe-st-lbl{font-size:12px;color:var(--mt);min-width:90px;flex-shrink:0}
+.fe-st-radio{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--tx);cursor:pointer}
+.fe-st-radio input{accent-color:var(--ac);cursor:pointer}
+.fe-st-check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--tx);cursor:pointer}
+.fe-st-check input{accent-color:var(--ac);cursor:pointer;width:14px;height:14px}
+.fe-st-select{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
+  padding:4px 8px;border-radius:var(--r);font-size:12px;outline:none;cursor:pointer}
+/* Icon rules */
+.fe-st-rules-hint{font-size:11px;color:var(--dm);font-style:italic}
+.fe-st-rules-cols{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
+  gap:6px;padding:0 2px 4px;align-items:center;font-size:10px;color:var(--dm)}
+.fe-st-col-lbl{font-size:10px;color:var(--dm);font-weight:500}
+.fe-st-rule{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
+  gap:6px;align-items:center;padding:5px 2px;border-bottom:1px solid var(--bd)}
+.fe-st-rule:last-child{border-bottom:none}
+.fe-st-rule input[type="checkbox"]{accent-color:var(--ac);cursor:pointer;width:13px;height:13px}
+.fe-st-rule-preview{display:flex;align-items:center;justify-content:center;height:20px}
+.fe-st-rule-pattern,.fe-st-rule-label{
+  background:var(--s2);border:1px solid var(--bd);color:var(--tx);
+  padding:3px 6px;border-radius:var(--r);font-size:11px;
+  font-family:'SF Mono',Consolas,monospace;outline:none;transition:border-color .15s;width:100%}
+.fe-st-rule-pattern:focus,.fe-st-rule-label:focus{border-color:var(--ac)}
+.fe-st-rule-label{text-align:center}
+.fe-st-rule-color{border:1px solid var(--bd);background:none;cursor:pointer;
+  width:28px;height:24px;padding:1px;border-radius:4px;flex-shrink:0}
+.fe-st-rule-del{background:none;border:none;color:var(--dm);cursor:pointer;
+  padding:3px 5px;font-size:12px;border-radius:3px;line-height:1;transition:color .1s,background .1s;text-align:center}
+.fe-st-rule-del:hover{color:#f85149;background:var(--hover)}
+.fe-st-rules-empty{font-size:12px;color:var(--dm);padding:8px 2px;font-style:italic}
 `;
 
   // ── Inject ────────────────────────────────────────────────────────
@@ -774,6 +940,10 @@ td.c-tp{color:var(--dm);font-size:11px}
   if (preload) preload.remove();
 
   const fe = document.getElementById('fe');
+
+  // Apply persisted settings on load
+  if (!settings.showSidebar) document.getElementById('fe-side').style.display = 'none';
+  if (settings.compactMode) fe.classList.add('compact');
 
   function toast(msg, ms = 2400) {
     const t = document.getElementById('fe-toast');
@@ -1021,6 +1191,111 @@ td.c-tp{color:var(--dm);font-size:11px}
       closeCrumbMenu();
   });
   function closeCrumbMenu() { crumbMenu.style.display = 'none'; crumbMenuUrl = null; }
+
+  // ── Settings modal ────────────────────────────────────────────────
+  const settingsModal = document.getElementById('fe-settings-modal');
+
+  function renderRulesList() {
+    const list = document.getElementById('fe-st-rules-list');
+    if (!iconRules.length) {
+      list.innerHTML = '<div class="fe-st-rules-empty">No rules — click "+ Add rule" to create one.</div>'; return;
+    }
+    list.innerHTML = iconRules.map((rule, i) => `
+      <div class="fe-st-rule" data-idx="${i}">
+        <input type="checkbox" class="fe-st-rule-en" title="Enable" ${rule.enabled ? 'checked' : ''}>
+        <div class="fe-st-rule-preview">${icoCustom(rule.label, rule.color)}</div>
+        <input type="text" class="fe-st-rule-pattern" value="${esc(rule.pattern)}" placeholder="regex…" title="Regex (case-insensitive)">
+        <input type="text" class="fe-st-rule-label" value="${esc(rule.label)}" placeholder="LBL" maxlength="4" title="Badge text (≤4 chars)">
+        <input type="color" class="fe-st-rule-color" value="${rule.color}" title="Icon color">
+        <button class="fe-st-rule-del" data-idx="${i}" title="Delete">✕</button>
+      </div>`).join('');
+  }
+
+  function openSettings() {
+    document.querySelectorAll('input[name="bfb-theme"]').forEach(r => { r.checked = r.value === (fe.dataset.theme || 'dark'); });
+    document.getElementById('fe-st-defview').value  = getView();
+    document.getElementById('fe-st-compact').checked = !!settings.compactMode;
+    document.getElementById('fe-st-sidebar').checked = settings.showSidebar !== false;
+    document.getElementById('fe-st-datefmt').value  = settings.dateFormat || 'short';
+    renderRulesList();
+    settingsModal.style.display = 'flex';
+  }
+  function closeSettings() { settingsModal.style.display = 'none'; }
+
+  document.getElementById('fe-settings-btn').addEventListener('click', openSettings);
+  document.getElementById('fe-settings-close').addEventListener('click', closeSettings);
+  document.getElementById('fe-settings-bg').addEventListener('click', closeSettings);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && settingsModal.style.display !== 'none') closeSettings();
+  });
+
+  document.querySelectorAll('input[name="bfb-theme"]').forEach(r => {
+    r.addEventListener('change', () => { fe.dataset.theme = r.value; localStorage.setItem(THEME_KEY, r.value); });
+  });
+  document.getElementById('fe-st-defview').addEventListener('change', function () {
+    localStorage.setItem(VIEW_KEY, this.value);
+  });
+  document.getElementById('fe-st-compact').addEventListener('change', function () {
+    settings.compactMode = this.checked;
+    saveSettings(settings);
+    fe.classList.toggle('compact', this.checked);
+  });
+  document.getElementById('fe-st-sidebar').addEventListener('change', function () {
+    settings.showSidebar = this.checked;
+    saveSettings(settings);
+    document.getElementById('fe-side').style.display = this.checked ? '' : 'none';
+  });
+  document.getElementById('fe-st-datefmt').addEventListener('change', function () {
+    settings.dateFormat = this.value;
+    saveSettings(settings);
+    applyAll();
+  });
+
+  // Icon rules — event delegation
+  const rulesList = document.getElementById('fe-st-rules-list');
+  rulesList.addEventListener('change', e => {
+    const row = e.target.closest('.fe-st-rule');
+    if (!row) return;
+    const idx = parseInt(row.dataset.idx);
+    if (isNaN(idx) || idx >= iconRules.length) return;
+    if (e.target.classList.contains('fe-st-rule-en'))    iconRules[idx].enabled = e.target.checked;
+    if (e.target.classList.contains('fe-st-rule-color')) {
+      iconRules[idx].color = e.target.value;
+      row.querySelector('.fe-st-rule-preview').innerHTML = icoCustom(iconRules[idx].label, iconRules[idx].color);
+    }
+    saveIconRules(iconRules); applyAll();
+  });
+  rulesList.addEventListener('input', e => {
+    const row = e.target.closest('.fe-st-rule');
+    if (!row) return;
+    const idx = parseInt(row.dataset.idx);
+    if (isNaN(idx) || idx >= iconRules.length) return;
+    if (e.target.classList.contains('fe-st-rule-pattern')) iconRules[idx].pattern = e.target.value;
+    if (e.target.classList.contains('fe-st-rule-label')) {
+      iconRules[idx].label = e.target.value;
+      row.querySelector('.fe-st-rule-preview').innerHTML = icoCustom(iconRules[idx].label, iconRules[idx].color);
+    }
+    saveIconRules(iconRules); applyAll();
+  });
+  rulesList.addEventListener('click', e => {
+    const del = e.target.closest('.fe-st-rule-del');
+    if (!del) return;
+    const idx = parseInt(del.dataset.idx);
+    if (!isNaN(idx)) { iconRules.splice(idx, 1); saveIconRules(iconRules); applyAll(); renderRulesList(); }
+  });
+  document.getElementById('fe-st-add-rule').addEventListener('click', () => {
+    iconRules.push({ id: 'r' + Date.now(), pattern: '', label: 'NEW', color: '#58a6ff', enabled: true });
+    saveIconRules(iconRules);
+    renderRulesList();
+    rulesList.querySelectorAll('.fe-st-rule-pattern').forEach((el, i, arr) => { if (i === arr.length - 1) el.focus(); });
+  });
+  document.getElementById('fe-st-reset-rules').addEventListener('click', () => {
+    iconRules = DEFAULT_ICON_RULES.map(r => ({ ...r }));
+    saveIconRules(iconRules);
+    applyAll();
+    renderRulesList();
+    toast('Icon rules reset to defaults');
+  });
 
   // ── Bookmark drag-to-reorder ──────────────────────────────────────
   let dragSrc = null;
