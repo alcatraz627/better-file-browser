@@ -218,11 +218,13 @@
     folder: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 3.5a.8.8 0 0 1 .8-.8h3l1.4 1.5H13.2a.8.8 0 0 1 .8.8V11a.8.8 0 0 1-.8.8H1.8A.8.8 0 0 1 1 11z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`,
     scrnsh: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4 5.5l2.5 2.5L9 4.5M5 9.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     bm: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 1h8v12l-4-3-4 3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
+    recent: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 4v3l2 1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     drag: `<svg width="10" height="14" viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="3" cy="11" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="11" r="1.2" fill="currentColor"/></svg>`
   };
 
   // src/storage.ts
   var BM_KEY = "bfb-bookmarks-v2";
+  var RECENTS_KEY = "bfb-recents-v1";
   var VIEW_KEY = "bfb-view";
   var THEME_KEY = "bfb-theme";
   var ZOOM_KEY = "bfb-zoom";
@@ -287,6 +289,18 @@
     saveBM(bm);
     return bm;
   }
+  function getRecents() {
+    try {
+      return JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "[]");
+    } catch {
+      return [];
+    }
+  }
+  function pushRecent(path) {
+    const list = getRecents().filter((r) => r.path !== path);
+    list.unshift({ path, ts: Date.now() });
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 8)));
+  }
   function getView() {
     return localStorage.getItem(VIEW_KEY) ?? "details";
   }
@@ -298,6 +312,442 @@
   }
   function getShowHidden() {
     return localStorage.getItem(HIDDEN_KEY) === "true";
+  }
+
+  // src/renderers.ts
+  var CODE_EXTS = /* @__PURE__ */ new Set([
+    "sh",
+    "bash",
+    "zsh",
+    "fish",
+    "js",
+    "mjs",
+    "cjs",
+    "ts",
+    "tsx",
+    "jsx",
+    "py",
+    "rb",
+    "go",
+    "rs",
+    "java",
+    "kt",
+    "swift",
+    "c",
+    "cpp",
+    "h",
+    "cs",
+    "php",
+    "css",
+    "scss",
+    "less",
+    "html",
+    "htm",
+    "xml",
+    "svg",
+    "vue",
+    "svelte",
+    "yaml",
+    "yml",
+    "toml",
+    "ini",
+    "conf",
+    "env",
+    "sql",
+    "md",
+    "mdx",
+    "txt",
+    "log",
+    "rst",
+    "lock",
+    "gitignore",
+    "csv"
+  ]);
+  var TABLE_EXTS = /* @__PURE__ */ new Set(["tsv", "csv"]);
+  var JSONL_EXTS = /* @__PURE__ */ new Set(["jsonl", "ndjson"]);
+  var RENDER_CAPS = {
+    codeChars: 3e5,
+    tableRows: 5e3,
+    jsonlLines: 2e3,
+    treeNodes: 2e4
+  };
+  function sniffBinary(text) {
+    const probe = text.slice(0, 1e3);
+    if (probe.includes("\0")) return true;
+    let weird = 0;
+    for (const ch of probe) {
+      const c = ch.charCodeAt(0);
+      if (c < 9 || c > 13 && c < 32 || c === 65533) weird++;
+    }
+    return probe.length > 0 && weird / probe.length > 0.1;
+  }
+  var KW_SH = "if then elif else fi for while until do done case esac in function select local export readonly declare unset return exit break continue shift eval exec source alias trap set echo printf read cd test true false";
+  var KW_JS = "const let var function return if else for while do switch case break continue new class extends super this typeof instanceof in of import export from default async await yield try catch finally throw delete void null undefined true false interface type enum implements private public protected readonly static namespace declare as is keyof never unknown any string number boolean object symbol";
+  var KW_PY = "def class return if elif else for while break continue pass import from as with lambda try except finally raise yield global nonlocal assert del in is not and or None True False async await match self";
+  var KW_SQL = "select from where insert into update delete join left right inner outer on group by order having limit offset create table drop alter index view as and or not null primary key foreign references distinct union all values set";
+  var KW_GO = "func package import return if else for range switch case break continue defer go chan select map struct interface type var const nil true false make new len cap append";
+  var KW_RS = "fn let mut pub use mod struct enum impl trait return if else for while loop match break continue ref self Self crate super move async await dyn where unsafe true false Some None Ok Err";
+  var LANGS = {
+    shell: { line: ["#"], strings: [`"`, `'`], vars: true, kw: KW_SH.split(" ") },
+    js: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`, "`"], tickML: true, kw: KW_JS.split(" ") },
+    py: { line: ["#"], strings: [`"`, `'`], kw: KW_PY.split(" ") },
+    go: { line: ["//"], block: ["/*", "*/"], strings: [`"`, "`"], tickML: true, kw: KW_GO.split(" ") },
+    rs: { line: ["//"], block: ["/*", "*/"], strings: [`"`], kw: KW_RS.split(" ") },
+    sql: { line: ["--"], block: ["/*", "*/"], strings: [`'`, `"`], kw: KW_SQL.split(" ") },
+    cfg: { line: ["#", ";"], strings: [`"`, `'`], vars: true, kw: [] },
+    cstyle: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`], kw: KW_JS.split(" ") },
+    css: { block: ["/*", "*/"], strings: [`"`, `'`], kw: [] },
+    plain: { strings: [], kw: [] }
+  };
+  var EXT_LANG = {
+    sh: "shell",
+    bash: "shell",
+    zsh: "shell",
+    fish: "shell",
+    js: "js",
+    mjs: "js",
+    cjs: "js",
+    ts: "js",
+    tsx: "js",
+    jsx: "js",
+    vue: "js",
+    svelte: "js",
+    py: "py",
+    rb: "py",
+    go: "go",
+    rs: "rs",
+    java: "cstyle",
+    kt: "cstyle",
+    swift: "cstyle",
+    c: "cstyle",
+    cpp: "cstyle",
+    h: "cstyle",
+    cs: "cstyle",
+    php: "cstyle",
+    css: "css",
+    scss: "css",
+    less: "css",
+    yaml: "cfg",
+    yml: "cfg",
+    toml: "cfg",
+    ini: "cfg",
+    conf: "cfg",
+    env: "cfg",
+    gitignore: "cfg",
+    sql: "sql"
+  };
+  function reEsc(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function buildTokenRe(lang) {
+    const parts = [];
+    if (lang.block) parts.push(`(?<cmt>${reEsc(lang.block[0])}[\\s\\S]*?(?:${reEsc(lang.block[1])}|$))`);
+    if (lang.line?.length) {
+      const starters = lang.line.map(reEsc).join("|");
+      parts.push(lang.block ? `(?<lcmt>(?:${starters})[^\\n]*)` : `(?<cmt>(?:${starters})[^\\n]*)`);
+    }
+    for (let i = 0; i < (lang.strings?.length ?? 0); i++) {
+      const q = lang.strings[i];
+      const body = q === "`" && lang.tickML ? "(?:\\\\.|[^`\\\\])*(?:`|$)" : `(?:\\\\.|[^${reEsc(q)}\\\\\\n])*(?:${reEsc(q)}|\\n|$)`;
+      parts.push(`(?<str${i}>${reEsc(q)}${body})`);
+    }
+    if (lang.vars) parts.push("(?<v>\\$\\{[^}\\n]*\\}?|\\$[\\w@#?!*-]+)");
+    parts.push("(?<num>\\b(?:0[xX][0-9a-fA-F]+|\\d+(?:\\.\\d+)?)\\b)");
+    parts.push("(?<word>[A-Za-z_$][\\w$]*)");
+    return new RegExp(parts.join("|"), "g");
+  }
+  function highlightCode(src, ext) {
+    const langKey = EXT_LANG[ext.toLowerCase()] ?? "plain";
+    const lang = LANGS[langKey];
+    if (langKey === "plain") return esc(src);
+    const kw = new Set(lang.kw);
+    const re = buildTokenRe(lang);
+    let out = "";
+    let last = 0;
+    let m;
+    while ((m = re.exec(src)) !== null) {
+      out += esc(src.slice(last, m.index));
+      last = m.index + m[0].length;
+      const g = m.groups ?? {};
+      const text = esc(m[0]);
+      if (g.cmt !== void 0 || g.lcmt !== void 0) out += `<span class="tok-cmt">${text}</span>`;
+      else if (g.v !== void 0) out += `<span class="tok-var">${text}</span>`;
+      else if (g.num !== void 0) out += `<span class="tok-num">${text}</span>`;
+      else if (g.word !== void 0) out += kw.has(m[0]) ? `<span class="tok-kw">${text}</span>` : text;
+      else out += `<span class="tok-str">${text}</span>`;
+      if (m[0].length === 0) re.lastIndex++;
+    }
+    out += esc(src.slice(last));
+    return out;
+  }
+  function renderCode(src, ext) {
+    let truncNote = "";
+    if (src.length > RENDER_CAPS.codeChars) {
+      src = src.slice(0, RENDER_CAPS.codeChars);
+      truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.codeChars.toLocaleString()} characters \u2014 open the raw file for the rest.</div>`;
+    }
+    const lines = src.split("\n").length;
+    const gutter = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
+    return `${truncNote}<div class="fe-code-wrap"><pre class="fe-code-gut">${gutter}</pre><pre class="fe-code">${highlightCode(src, ext)}</pre></div>`;
+  }
+  function parseDSV(text, delim) {
+    const rows = [];
+    let row = [];
+    let cell = "";
+    let inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQ) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') {
+            cell += '"';
+            i++;
+          } else inQ = false;
+        } else cell += ch;
+      } else if (ch === '"' && cell === "") {
+        inQ = true;
+      } else if (ch === delim) {
+        row.push(cell);
+        cell = "";
+      } else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && text[i + 1] === "\n") i++;
+        row.push(cell);
+        cell = "";
+        rows.push(row);
+        row = [];
+      } else cell += ch;
+    }
+    if (cell !== "" || row.length) {
+      row.push(cell);
+      rows.push(row);
+    }
+    if (rows.length && rows[rows.length - 1].every((c) => c === "")) rows.pop();
+    return rows;
+  }
+  function numericCols(rows) {
+    const out = /* @__PURE__ */ new Set();
+    if (rows.length < 2) return out;
+    const width = rows[0].length;
+    for (let c = 0; c < width; c++) {
+      let seen = 0, num = 0;
+      for (let r = 1; r < Math.min(rows.length, 200); r++) {
+        const v = (rows[r][c] ?? "").trim();
+        if (!v) continue;
+        seen++;
+        if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v.replace(/,/g, ""))) num++;
+      }
+      if (seen > 0 && num / seen > 0.8) out.add(c);
+    }
+    return out;
+  }
+  function sortDSVRows(rows, col, dir, numeric) {
+    const sorted = [...rows].sort((a, b) => {
+      const va = (a[col] ?? "").trim(), vb = (b[col] ?? "").trim();
+      const cmp = numeric ? (parseFloat(va.replace(/,/g, "")) || 0) - (parseFloat(vb.replace(/,/g, "")) || 0) : va.localeCompare(vb);
+      return dir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }
+  function renderDSVTable(header, dataRows, numCols, sort) {
+    let truncNote = "";
+    let rows = dataRows;
+    if (rows.length > RENDER_CAPS.tableRows) {
+      rows = rows.slice(0, RENDER_CAPS.tableRows);
+      truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.tableRows.toLocaleString()} of ${dataRows.length.toLocaleString()} rows.</div>`;
+    }
+    const ths = header.map((h, i) => {
+      const arrow = sort?.col === i ? sort.dir === "asc" ? " \u2191" : " \u2193" : "";
+      return `<th data-col="${i}" class="${numCols.has(i) ? "num" : ""}${sort?.col === i ? " sorted" : ""}" title="Click to sort">${esc(h)}${arrow}</th>`;
+    }).join("");
+    const trs = rows.map(
+      (r) => `<tr>${header.map((_, i) => `<td class="${numCols.has(i) ? "num" : ""}">${esc(r[i] ?? "")}</td>`).join("")}</tr>`
+    ).join("");
+    return `${truncNote}<table class="fe-ql-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  }
+  function jsonLeaf(v) {
+    if (v === null) return `<span class="tok-kw">null</span>`;
+    switch (typeof v) {
+      case "string": {
+        const s = v.length > 500 ? v.slice(0, 500) + "\u2026" : v;
+        return `<span class="tok-str">"${esc(s)}"</span>`;
+      }
+      case "number":
+        return `<span class="tok-num">${v}</span>`;
+      case "boolean":
+        return `<span class="tok-kw">${v}</span>`;
+      default:
+        return esc(String(v));
+    }
+  }
+  function jsonNode(key, v, depth, budget) {
+    if (budget.n-- <= 0) return `<div class="fe-jt-row">\u2026</div>`;
+    const keyHtml = key !== null ? `<span class="fe-jt-key">${esc(key)}</span><span class="fe-jt-colon">: </span>` : "";
+    if (v !== null && typeof v === "object") {
+      const isArr = Array.isArray(v);
+      const entries = isArr ? v.map((x, i) => [String(i), x]) : Object.entries(v);
+      const badge = isArr ? `[${entries.length}]` : `{${entries.length}}`;
+      if (!entries.length) return `<div class="fe-jt-row">${keyHtml}<span class="fe-jt-badge">${isArr ? "[]" : "{}"}</span></div>`;
+      const open = depth < 2 ? " open" : "";
+      return `<details class="fe-jt"${open}><summary>${keyHtml}<span class="fe-jt-badge">${badge}</span></summary><div class="fe-jt-kids">${entries.map(([k, x]) => jsonNode(k, x, depth + 1, budget)).join("")}</div></details>`;
+    }
+    return `<div class="fe-jt-row">${keyHtml}${jsonLeaf(v)}</div>`;
+  }
+  function renderJsonTree(text) {
+    let v;
+    try {
+      v = JSON.parse(text);
+    } catch (err) {
+      return `<div class="fe-ql-note err">Invalid JSON \u2014 ${esc(err.message)}</div><div class="fe-code-wrap"><pre class="fe-code">${esc(text.slice(0, RENDER_CAPS.codeChars))}</pre></div>`;
+    }
+    return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
+  }
+  function renderJsonl(text) {
+    const lines = text.split("\n").filter((l) => l.trim() !== "");
+    let truncNote = "";
+    let shown = lines;
+    if (lines.length > RENDER_CAPS.jsonlLines) {
+      shown = lines.slice(0, RENDER_CAPS.jsonlLines);
+      truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.jsonlLines.toLocaleString()} of ${lines.length.toLocaleString()} lines.</div>`;
+    }
+    const body = shown.map((line, i) => {
+      try {
+        const v = JSON.parse(line);
+        const compact = JSON.stringify(v);
+        const preview = compact.length > 140 ? compact.slice(0, 140) + "\u2026" : compact;
+        return `<details class="fe-jl-line"><summary><span class="fe-jl-n">${i + 1}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2e3 })}</div></details>`;
+      } catch {
+        return `<div class="fe-jl-line bad"><span class="fe-jl-n">${i + 1}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line.slice(0, 200))}</span></div>`;
+      }
+    }).join("");
+    return `${truncNote}<div class="fe-jl-root">${body}</div>`;
+  }
+
+  // src/preview.ts
+  var FETCH_WARN_BYTES = 8 * 1024 * 1024;
+  function canPreview(e) {
+    if (e.isDir || e.isParent) return false;
+    const ext = getExt(e);
+    return IMG_EXTS.has(ext) || TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === "json" || CODE_EXTS.has(ext) || ext === "";
+  }
+  var deps;
+  var overlay;
+  var currentEntry = null;
+  var reqSeq = 0;
+  var dsvHeader = [];
+  var dsvRows = [];
+  var dsvNum = /* @__PURE__ */ new Set();
+  var dsvSort = null;
+  function initPreview(d) {
+    deps = d;
+    overlay = document.createElement("div");
+    overlay.id = "fe-qlook";
+    overlay.style.display = "none";
+    overlay.innerHTML = `
+    <div id="fe-ql-bg"></div>
+    <div id="fe-ql-dialog">
+      <div id="fe-ql-hdr">
+        <span id="fe-ql-icon"></span>
+        <span id="fe-ql-name"></span>
+        <span id="fe-ql-meta"></span>
+        <a id="fe-ql-open" title="Open raw file in this tab">open raw \u2197</a>
+        <button id="fe-ql-close" title="Close (Esc)">\u2715</button>
+      </div>
+      <div id="fe-ql-body"></div>
+    </div>`;
+    document.getElementById("fe").appendChild(overlay);
+    document.getElementById("fe-ql-close").addEventListener("click", closePreview);
+    document.getElementById("fe-ql-bg").addEventListener("click", closePreview);
+    document.getElementById("fe-ql-body").addEventListener("click", (e) => {
+      const th = e.target.closest(".fe-ql-table th");
+      if (!th || !dsvHeader.length) return;
+      const col = parseInt(th.dataset.col);
+      dsvSort = dsvSort?.col === col ? { col, dir: dsvSort.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" };
+      const sorted = sortDSVRows(dsvRows, col, dsvSort.dir, dsvNum.has(col));
+      document.getElementById("fe-ql-body").innerHTML = renderDSVTable(dsvHeader, sorted, dsvNum, dsvSort);
+    });
+  }
+  function isPreviewOpen() {
+    return overlay?.style.display !== "none";
+  }
+  function closePreview() {
+    overlay.style.display = "none";
+    currentEntry = null;
+    dsvHeader = [];
+    dsvRows = [];
+    dsvSort = null;
+    document.getElementById("fe-ql-body").innerHTML = "";
+  }
+  function openPreview(e) {
+    if (!canPreview(e)) return;
+    currentEntry = e;
+    const seq = ++reqSeq;
+    const ext = getExt(e);
+    document.getElementById("fe-ql-icon").innerHTML = getIcon(e, deps.iconRules());
+    document.getElementById("fe-ql-name").textContent = e.name;
+    document.getElementById("fe-ql-meta").textContent = `${fmtSize(e.rawBytes)}${ext ? " \xB7 ." + ext : ""}`;
+    document.getElementById("fe-ql-open").href = e.href;
+    const body = document.getElementById("fe-ql-body");
+    overlay.style.display = "flex";
+    dsvHeader = [];
+    dsvRows = [];
+    dsvSort = null;
+    if (IMG_EXTS.has(ext)) {
+      body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"></div>`;
+      return;
+    }
+    if (e.rawBytes > FETCH_WARN_BYTES) {
+      body.innerHTML = `
+      <div class="fe-ql-center">
+        <div class="fe-ql-note">File is ${fmtSize(e.rawBytes)} \u2014 large files can be slow to render.</div>
+        <button id="fe-ql-force" class="fe-pbn">Load anyway</button>
+      </div>`;
+      document.getElementById("fe-ql-force").addEventListener("click", () => fetchAndRender(e, ext, seq));
+      return;
+    }
+    fetchAndRender(e, ext, seq);
+  }
+  function fetchAndRender(e, ext, seq) {
+    const body = document.getElementById("fe-ql-body");
+    body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Loading\u2026</div></div>`;
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", e.href);
+    xhr.onload = () => {
+      if (seq !== reqSeq) return;
+      render(xhr.responseText, ext);
+    };
+    xhr.onerror = () => {
+      if (seq !== reqSeq) return;
+      body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div></div>`;
+    };
+    xhr.send();
+  }
+  function render(text, ext) {
+    const body = document.getElementById("fe-ql-body");
+    if (sniffBinary(text)) {
+      body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Binary file \u2014 no text preview.</div></div>`;
+      return;
+    }
+    if (TABLE_EXTS.has(ext)) {
+      const rows = parseDSV(text, ext === "tsv" ? "	" : ",");
+      if (rows.length) {
+        dsvHeader = rows[0];
+        dsvRows = rows.slice(1);
+        dsvNum = numericCols(rows);
+        body.innerHTML = renderDSVTable(dsvHeader, dsvRows, dsvNum);
+        return;
+      }
+      body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Empty file.</div></div>`;
+      return;
+    }
+    if (JSONL_EXTS.has(ext)) {
+      body.innerHTML = renderJsonl(text);
+      return;
+    }
+    if (ext === "json") {
+      body.innerHTML = renderJsonTree(text);
+      return;
+    }
+    body.innerHTML = renderCode(text, ext);
   }
 
   // src/sort-filter.ts
@@ -408,8 +858,11 @@
     if (e.isParent) return "";
     const fullPath = rawPath.replace(/\/$/, "") + "/" + e.name + (e.isDir ? "/" : "");
     const dPath = esc(fullPath), dName = esc(e.name);
+    const pvBtn = canPreview(e) ? `<button class="fe-act-btn fe-act-pv" title="Preview (Space)" data-pv="${dName}">
+        <svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>` : "";
     return `<span class="fe-acts" data-path="${dPath}" data-name="${dName}">
-    <button class="fe-act-btn fe-act-cp" title="Copy full path" data-copy="${dPath}">
+    ${pvBtn}<button class="fe-act-btn fe-act-cp" title="Copy full path" data-copy="${dPath}">
       <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
     </button>
     <button class="fe-act-btn fe-act-nm" title="Copy name" data-copy="${dName}">
@@ -417,10 +870,11 @@
     </button>
   </span>`;
   }
-  function renderRow(e, ctx) {
+  function renderRow(e, ctx, idx = -1) {
     const tipData = buildTipData(e, ctx);
     return `<tr class="fe-row${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
              data-name="${esc(e.name.toLowerCase())}"
+             data-idx="${idx}"
              data-tip="${esc(tipData)}">
     <td class="c-nm"><a href="${e.href}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
@@ -428,12 +882,13 @@
     <td class="c-dt">${fmtDate(e.dateStr, ctx.settings)}</td>
   </tr>`;
   }
-  function renderTile(e, ctx) {
+  function renderTile(e, ctx, idx = -1) {
     const tipData = buildTipData(e, ctx);
     const isImg = !e.isDir && !e.isParent && IMG_EXTS.has(getExt(e));
     const iconHtml = isImg ? `<span class="fe-tile-img-wrap"><img class="fe-tile-thumb" src="${esc(e.href)}" loading="lazy" alt="" onerror="this.closest('.fe-tile-img-wrap').classList.add('err')">${getIcon(e, ctx.iconRules)}</span>` : getIcon(e, ctx.iconRules);
     return `<a href="${e.href}" class="fe-tile${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
             data-name="${esc(e.name.toLowerCase())}"
+            data-idx="${idx}"
             data-tip="${esc(tipData)}">
     <span class="fe-tile-ic">${iconHtml}</span>
     <span class="fe-tile-nm">${esc(e.isParent ? ".." : e.name)}</span>
@@ -441,11 +896,11 @@
     ${itemActions(e, ctx.rawPath)}
   </a>`;
   }
-  function renderRows(entries, ctx) {
-    return entries.map((e) => renderRow(e, ctx)).join("");
+  function renderRows(entries, ctx, start = 0) {
+    return entries.map((e, i) => renderRow(e, ctx, start + i)).join("");
   }
-  function renderTiles(entries, ctx) {
-    return entries.map((e) => renderTile(e, ctx)).join("");
+  function renderTiles(entries, ctx, start = 0) {
+    return entries.map((e, i) => renderTile(e, ctx, start + i)).join("");
   }
   function renderBMList(bm, rawPath) {
     if (!bm.length) return `<div class="fe-hint">No bookmarks.<br>Click \u2606 in the path bar to add.</div>`;
@@ -488,6 +943,7 @@
     function getRenderCtx() {
       return { rawPath, iconRules, settings };
     }
+    let VISIBLE = ALL_ENTRIES;
     function applyAll() {
       const parent = ALL_ENTRIES.filter((e) => e.isParent);
       let entries = ALL_ENTRIES.filter((e) => !e.isParent);
@@ -496,27 +952,27 @@
       const ctx = getRenderCtx();
       const tbody = document.getElementById("fe-tbody");
       const tiles = document.getElementById("fe-tiles");
+      VISIBLE = [];
+      const rowParts = [], tileParts = [];
+      const pushEntry = (e) => {
+        const idx = VISIBLE.length;
+        VISIBLE.push(e);
+        rowParts.push(renderRow(e, ctx, idx));
+        tileParts.push(renderTile(e, ctx, idx));
+      };
+      parent.forEach(pushEntry);
       if (groupConfig !== "none") {
-        const grouped = buildGroups(entries, groupConfig);
-        tbody.innerHTML = [
-          ...parent.map((e) => renderRow(e, ctx)),
-          ...grouped.flatMap((g) => [
-            `<tr class="fe-group-hdr"><td colspan="4">${esc(g.label)}</td></tr>`,
-            ...g.items.map((e) => renderRow(e, ctx))
-          ])
-        ].join("");
-        tiles.innerHTML = [
-          ...parent.map((e) => renderTile(e, ctx)),
-          ...grouped.flatMap((g) => [
-            `<div class="fe-group-hdr-tile">${esc(g.label)}</div>`,
-            ...g.items.map((e) => renderTile(e, ctx))
-          ])
-        ].join("");
+        for (const g of buildGroups(entries, groupConfig)) {
+          rowParts.push(`<tr class="fe-group-hdr"><td colspan="4">${esc(g.label)}</td></tr>`);
+          tileParts.push(`<div class="fe-group-hdr-tile">${esc(g.label)}</div>`);
+          g.items.forEach(pushEntry);
+        }
       } else {
-        const all = [...parent, ...entries];
-        tbody.innerHTML = renderRows(all, ctx);
-        tiles.innerHTML = renderTiles(all, ctx);
+        entries.forEach(pushEntry);
       }
+      tbody.innerHTML = rowParts.join("");
+      tiles.innerHTML = tileParts.join("");
+      setSel(-1);
     }
     const nonPar = ALL_ENTRIES.filter((e) => !e.isParent);
     const dirs = nonPar.filter((e) => e.isDir).length;
@@ -557,6 +1013,16 @@
       { label: "Desktop", icon: "desk", href: "file:///Users/alcatraz627/Desktop/" },
       { label: "resumes", icon: "docs", href: "file:///Users/alcatraz627/Code/Claude/resumes/" }
     ];
+    const recents = getRecents().filter((r) => r.path !== rawPath).slice(0, 6);
+    pushRecent(rawPath);
+    const recentsHTML = recents.length ? `
+      <div class="fe-sec">
+        <div class="fe-sh">Recent</div>
+        ${recents.map((r) => {
+      const lbl = r.path.split("/").filter(Boolean).pop() || "/";
+      return `<a href="file://${esc(r.path)}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
+    }).join("")}
+      </div>` : "";
     const ctx0 = getRenderCtx();
     const PAGE_HTML = `
 <div id="fe" data-theme="${initTheme}" data-view="${initView}">
@@ -581,7 +1047,7 @@
       <div class="fe-sec">
         <div class="fe-sh">Bookmarks</div>
         <div id="fe-bm-list">${renderBMList(initBM, rawPath)}</div>
-      </div>
+      </div>${recentsHTML}
       <div class="fe-sec">
         <div class="fe-sh">Finder Favorites</div>
         ${FINDER_FAVORITES.map(
@@ -1058,6 +1524,77 @@ td.c-tp{color:var(--dm);font-size:11px}
   padding:3px 5px;font-size:12px;border-radius:3px;line-height:1;transition:color .1s,background .1s;text-align:center}
 .fe-st-rule-del:hover{color:#f85149;background:var(--hover)}
 .fe-st-rules-empty{font-size:12px;color:var(--dm);padding:8px 2px;font-style:italic}
+.fe-row.selected td{background:var(--act)}
+.fe-row.selected .fe-nm{color:var(--ac)}
+.fe-tile.selected{background:var(--act);border-color:var(--ac)}
+#fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
+#fe-ql-bg{position:absolute;inset:0;background:#0009;backdrop-filter:blur(2px)}
+#fe-ql-dialog{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);
+  border-radius:10px;width:min(880px,calc(100vw - 64px));height:min(78vh,900px);
+  display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;overflow:hidden}
+#fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-ql-icon svg{display:block}
+#fe-ql-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fe-ql-meta{font-size:11px;color:var(--dm);flex:1;white-space:nowrap}
+#fe-ql-open{font-size:11px;color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
+#fe-ql-open:hover{border-color:var(--ac)}
+#fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:13px;padding:3px 7px;border-radius:4px;line-height:1}
+#fe-ql-close:hover{background:var(--hover);color:var(--tx)}
+#fe-ql-body{flex:1;overflow:auto;font-size:12px}
+.fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
+.fe-ql-note{font-size:11.5px;color:var(--dm);padding:6px 14px}
+.fe-ql-note.err{color:#f85149}
+.fe-ql-imgwrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
+.fe-ql-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
+.fe-code-wrap{display:flex;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
+.fe-code-gut{padding:10px 8px 14px 12px;text-align:right;color:var(--dm);user-select:none;
+  border-right:1px solid var(--bd);background:var(--s2);min-width:34px;flex-shrink:0}
+.fe-code{padding:10px 14px 14px;white-space:pre;flex:1}
+.tok-cmt{color:var(--mt);font-style:italic}
+.tok-str{color:#7ee787}
+.tok-kw{color:#ff7b72}
+.tok-num{color:#79c0ff}
+.tok-var{color:#d2a8ff}
+#fe[data-theme="light"] .tok-str{color:#0a7d33}
+#fe[data-theme="light"] .tok-kw{color:#cf222e}
+#fe[data-theme="light"] .tok-num{color:#0550ae}
+#fe[data-theme="light"] .tok-var{color:#8250df}
+.fe-ql-table{border-collapse:collapse;width:100%;font:11.5px 'SF Mono',Menlo,Consolas,monospace}
+.fe-ql-table th{position:sticky;top:0;background:var(--s2);padding:6px 10px;text-align:left;
+  border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
+.fe-ql-table th:hover{color:var(--tx)}
+.fe-ql-table th.sorted{color:var(--ac)}
+.fe-ql-table td{padding:4px 10px;border-bottom:1px solid var(--s2);white-space:nowrap;
+  max-width:340px;overflow:hidden;text-overflow:ellipsis}
+.fe-ql-table th.num,.fe-ql-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.fe-ql-table tbody tr:hover{background:var(--hover)}
+.fe-jt-root,.fe-jl-root{padding:10px 14px;font:11.5px/1.6 'SF Mono',Menlo,Consolas,monospace}
+.fe-jt summary,.fe-jl-line summary{cursor:pointer;list-style:none}
+.fe-jt summary::-webkit-details-marker,.fe-jl-line summary::-webkit-details-marker{display:none}
+.fe-jt summary::before{content:'\u25B8';display:inline-block;width:12px;color:var(--dm);font-size:9px}
+.fe-jt[open]>summary::before{content:'\u25BE'}
+.fe-jt summary:hover{background:var(--hover)}
+.fe-jt-kids{padding-left:16px;border-left:1px solid var(--s3);margin-left:4px}
+.fe-jt-key{color:#79c0ff}
+#fe[data-theme="light"] .fe-jt-key{color:#0550ae}
+.fe-jt-colon{color:var(--dm)}
+.fe-jt-badge{color:var(--dm);font-size:10.5px}
+.fe-jt-row{padding-left:12px}
+.fe-jl-line{border-bottom:1px solid var(--s2);padding:2px 0}
+.fe-jl-line summary{display:flex;gap:8px;align-items:baseline}
+.fe-jl-line summary::before{content:'\u25B8';color:var(--dm);font-size:9px;flex-shrink:0}
+.fe-jl-line[open]>summary::before{content:'\u25BE'}
+.fe-jl-n{color:var(--dm);min-width:28px;text-align:right;user-select:none;font-size:10.5px;flex-shrink:0}
+.fe-jl-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mt)}
+.fe-jl-line.bad{display:flex;gap:8px;align-items:baseline}
+.fe-jl-err{color:#f85149;font-size:10px;border:1px solid #f8514940;border-radius:3px;padding:0 4px;flex-shrink:0}
+#fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
+  min-width:180px;box-shadow:0 8px 24px #0009;display:none;padding:4px 0}
+.fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
+  font-size:12px;cursor:pointer;white-space:nowrap}
+.fe-ctx-item:hover{background:var(--hover)}
+.fe-ctx-key{margin-left:auto;color:var(--dm);font-size:10px;padding-left:16px}
+.fe-ctx-sep{height:1px;background:var(--bd);margin:4px 0}
 `;
     const dirName = segments[segments.length - 1] || "/";
     const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + "\u2026" : dirName;
@@ -1072,6 +1609,7 @@ td.c-tp{color:var(--dm);font-size:11px}
     const fe = document.getElementById("fe");
     if (!settings.showSidebar) document.getElementById("fe-side").style.display = "none";
     if (settings.compactMode) fe.classList.add("compact");
+    initPreview({ iconRules: () => iconRules });
     const toastEl = document.getElementById("fe-toast");
     function toast(msg, ms = 2400) {
       toastEl.textContent = msg;
@@ -1206,21 +1744,22 @@ td.c-tp{color:var(--dm);font-size:11px}
       const tpl = app === "custom" ? settings.terminalCmd || 'cd "${p}"' : TERMINAL_CMDS[app] || TERMINAL_CMDS.ghostty;
       return tpl.replace(/\$\{p\}/g, path);
     }
-    document.getElementById("fe-term-btn").addEventListener("click", () => {
+    function openInTerminal(path) {
       const app = settings.terminalApp || "ghostty";
       if (app === "ghostty") {
         try {
           const port = chrome.runtime.connectNative("com.better_file_browser.ghostty");
-          port.postMessage({ action: "open_terminal", path: rawPath });
+          port.postMessage({ action: "open_terminal", path });
           port.onDisconnect.addListener(() => {
-            if (chrome.runtime.lastError) fallbackCopy(rawPath);
+            if (chrome.runtime.lastError) fallbackCopy(path);
           });
           return;
         } catch {
         }
       }
-      fallbackCopy(rawPath);
-    });
+      fallbackCopy(path);
+    }
+    document.getElementById("fe-term-btn").addEventListener("click", () => openInTerminal(rawPath));
     function fallbackCopy(path) {
       const cmd = getTermCmd(path);
       navigator.clipboard.writeText(cmd).catch(() => {
@@ -1324,12 +1863,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       crumbMenu.style.display = "none";
       crumbMenuUrl = null;
     }
-    scroll.addEventListener("click", (e) => {
-      const btn = e.target.closest(".fe-act-btn");
-      if (!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const val = btn.dataset.copy || "";
+    function copyText(val) {
       navigator.clipboard.writeText(val).then(() => toast(`Copied: ${val}`)).catch(() => {
         const ta = document.createElement("textarea");
         ta.value = val;
@@ -1339,6 +1873,154 @@ td.c-tp{color:var(--dm);font-size:11px}
         ta.remove();
         toast(`Copied: ${val}`);
       });
+    }
+    scroll.addEventListener("click", (e) => {
+      const pv = e.target.closest(".fe-act-pv");
+      if (pv) {
+        e.preventDefault();
+        e.stopPropagation();
+        const en = ALL_ENTRIES.find((x) => x.name === pv.dataset.pv);
+        if (en) {
+          setSel(VISIBLE.indexOf(en));
+          openPreview(en);
+        }
+        return;
+      }
+      const btn = e.target.closest(".fe-act-btn");
+      if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        copyText(btn.dataset.copy || "");
+        return;
+      }
+      const holder = e.target.closest("[data-idx]");
+      if (holder && !e.target.closest("a")) {
+        setSel(parseInt(holder.dataset.idx));
+      }
+    });
+    let selIdx = -1;
+    function entryShown(en) {
+      return !en.isHidden || fe.classList.contains("show-hidden");
+    }
+    function setSel(i) {
+      document.querySelectorAll("#fe-scroll .selected").forEach((el) => el.classList.remove("selected"));
+      selIdx = i;
+      if (i < 0) return;
+      document.querySelectorAll(`#fe-scroll [data-idx="${i}"]`).forEach((el) => {
+        el.classList.add("selected");
+        if (el.offsetParent) el.scrollIntoView({ block: "nearest" });
+      });
+    }
+    function moveSel(step) {
+      let i = selIdx;
+      for (let n = 0; n < VISIBLE.length; n++) {
+        i += step;
+        if (i < 0 || i >= VISIBLE.length) return;
+        if (entryShown(VISIBLE[i])) {
+          setSel(i);
+          return;
+        }
+      }
+    }
+    function tryPreview(en) {
+      if (canPreview(en)) {
+        setSel(VISIBLE.indexOf(en));
+        openPreview(en);
+      } else if (en.isDir || en.isParent) toast("Folders have no preview \u2014 press Enter to open");
+      else toast("No preview for this file type");
+    }
+    function previewStep(step) {
+      let i = selIdx;
+      for (let n = 0; n < VISIBLE.length; n++) {
+        i += step;
+        if (i < 0 || i >= VISIBLE.length) return;
+        const en = VISIBLE[i];
+        if (entryShown(en) && canPreview(en)) {
+          setSel(i);
+          openPreview(en);
+          return;
+        }
+      }
+    }
+    document.addEventListener("keydown", (e) => {
+      const ae = document.activeElement;
+      if (ae && ["INPUT", "TEXTAREA", "SELECT"].includes(ae.tagName)) return;
+      if (settingsModal.style.display !== "none") return;
+      if (ctxMenu.style.display !== "none") {
+        if (e.key === "Escape") closeCtx();
+        return;
+      }
+      if (isPreviewOpen()) {
+        if (e.key === "Escape" || e.key === " ") {
+          e.preventDefault();
+          closePreview();
+        } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+          e.preventDefault();
+          previewStep(1);
+        } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+          e.preventDefault();
+          previewStep(-1);
+        }
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        moveSel(1);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        moveSel(-1);
+      } else if (e.key === "Enter" && selIdx >= 0) {
+        location.href = VISIBLE[selIdx].href;
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        const up = ALL_ENTRIES.find((x) => x.isParent);
+        if (up) location.href = up.href;
+        else if (rawPath !== "/") location.href = "file:///";
+      } else if (e.key === " " && selIdx >= 0) {
+        e.preventDefault();
+        tryPreview(VISIBLE[selIdx]);
+      }
+    });
+    const ctxMenu = document.createElement("div");
+    ctxMenu.id = "fe-ctx";
+    fe.appendChild(ctxMenu);
+    function closeCtx() {
+      ctxMenu.style.display = "none";
+    }
+    scroll.addEventListener("contextmenu", (e) => {
+      const holder = e.target.closest("[data-idx]");
+      if (!holder) return;
+      const idx = parseInt(holder.dataset.idx);
+      const en = VISIBLE[idx];
+      if (!en || en.isParent) return;
+      e.preventDefault();
+      setSel(idx);
+      ctxMenu.innerHTML = [
+        canPreview(en) ? `<div class="fe-ctx-item" data-act="pv">Preview<span class="fe-ctx-key">Space</span></div>` : "",
+        `<div class="fe-ctx-item" data-act="cp-path">Copy path</div>`,
+        `<div class="fe-ctx-item" data-act="cp-name">Copy name</div>`,
+        `<div class="fe-ctx-sep"></div>`,
+        `<div class="fe-ctx-item" data-act="term">Open in terminal</div>`
+      ].join("");
+      ctxMenu.dataset.idx = String(idx);
+      ctxMenu.style.display = "block";
+      ctxMenu.style.left = Math.min(e.clientX, window.innerWidth - ctxMenu.offsetWidth - 8) + "px";
+      ctxMenu.style.top = Math.min(e.clientY, window.innerHeight - ctxMenu.offsetHeight - 8) + "px";
+    });
+    ctxMenu.addEventListener("click", (e) => {
+      const item = e.target.closest(".fe-ctx-item");
+      if (!item) return;
+      const en = VISIBLE[parseInt(ctxMenu.dataset.idx)];
+      closeCtx();
+      if (!en) return;
+      const fullPath = rawPath.replace(/\/$/, "") + "/" + en.name + (en.isDir ? "/" : "");
+      if (item.dataset.act === "pv") openPreview(en);
+      else if (item.dataset.act === "cp-path") copyText(fullPath);
+      else if (item.dataset.act === "cp-name") copyText(en.name);
+      else if (item.dataset.act === "term") openInTerminal(en.isDir ? fullPath : rawPath);
+    });
+    document.addEventListener("click", (e) => {
+      if (ctxMenu.style.display !== "none" && !ctxMenu.contains(e.target)) closeCtx();
     });
     const settingsModal = document.getElementById("fe-settings-modal");
     function renderRulesList() {

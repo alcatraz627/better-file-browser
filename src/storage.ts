@@ -1,6 +1,7 @@
-import type { Bookmark, IconRule, Settings } from './types';
+import type { Bookmark, IconRule, RecentDir, Settings } from './types';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
+export const RECENTS_KEY   = 'bfb-recents-v1';
 export const VIEW_KEY      = 'bfb-view';
 export const THEME_KEY     = 'bfb-theme';
 export const ZOOM_KEY      = 'bfb-zoom';
@@ -62,6 +63,16 @@ export function toggleBM(path: string): Bookmark[] {
   else bm.unshift({ path, label: path.split('/').filter(Boolean).pop() || '/' });
   saveBM(bm);
   return bm;
+}
+
+export function getRecents(): RecentDir[] {
+  try { return JSON.parse(localStorage.getItem(RECENTS_KEY) ?? '[]'); }
+  catch { return []; }
+}
+export function pushRecent(path: string): void {
+  const list = getRecents().filter(r => r.path !== path);
+  list.unshift({ path, ts: Date.now() });
+  localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 8)));
 }
 
 export function getView():       string  { return localStorage.getItem(VIEW_KEY)   ?? 'details'; }

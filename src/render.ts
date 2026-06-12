@@ -1,6 +1,7 @@
 import type { Entry, Bookmark, IconRule, Settings, TipData } from './types';
 import { esc, fmtSize, fmtDate, fmtType, getExt } from './utils';
 import { getIcon, IMG_EXTS, PI } from './icons';
+import { canPreview } from './preview';
 
 export interface RenderContext {
   rawPath:   string;
@@ -31,8 +32,13 @@ export function itemActions(e: Entry, rawPath: string): string {
   if (e.isParent) return '';
   const fullPath = rawPath.replace(/\/$/, '') + '/' + e.name + (e.isDir ? '/' : '');
   const dPath = esc(fullPath), dName = esc(e.name);
+  const pvBtn = canPreview(e)
+    ? `<button class="fe-act-btn fe-act-pv" title="Preview (Space)" data-pv="${dName}">
+        <svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>`
+    : '';
   return `<span class="fe-acts" data-path="${dPath}" data-name="${dName}">
-    <button class="fe-act-btn fe-act-cp" title="Copy full path" data-copy="${dPath}">
+    ${pvBtn}<button class="fe-act-btn fe-act-cp" title="Copy full path" data-copy="${dPath}">
       <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
     </button>
     <button class="fe-act-btn fe-act-nm" title="Copy name" data-copy="${dName}">
@@ -41,10 +47,11 @@ export function itemActions(e: Entry, rawPath: string): string {
   </span>`;
 }
 
-export function renderRow(e: Entry, ctx: RenderContext): string {
+export function renderRow(e: Entry, ctx: RenderContext, idx = -1): string {
   const tipData = buildTipData(e, ctx);
   return `<tr class="fe-row${e.isDir ? ' dir' : ''}${e.isParent ? ' par' : ''}${e.isHidden ? ' dotfile' : ''}"
              data-name="${esc(e.name.toLowerCase())}"
+             data-idx="${idx}"
              data-tip="${esc(tipData)}">
     <td class="c-nm"><a href="${e.href}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
@@ -53,7 +60,7 @@ export function renderRow(e: Entry, ctx: RenderContext): string {
   </tr>`;
 }
 
-export function renderTile(e: Entry, ctx: RenderContext): string {
+export function renderTile(e: Entry, ctx: RenderContext, idx = -1): string {
   const tipData = buildTipData(e, ctx);
   const isImg = !e.isDir && !e.isParent && IMG_EXTS.has(getExt(e));
   const iconHtml = isImg
@@ -61,6 +68,7 @@ export function renderTile(e: Entry, ctx: RenderContext): string {
     : getIcon(e, ctx.iconRules);
   return `<a href="${e.href}" class="fe-tile${e.isDir ? ' dir' : ''}${e.isParent ? ' par' : ''}${e.isHidden ? ' dotfile' : ''}"
             data-name="${esc(e.name.toLowerCase())}"
+            data-idx="${idx}"
             data-tip="${esc(tipData)}">
     <span class="fe-tile-ic">${iconHtml}</span>
     <span class="fe-tile-nm">${esc(e.isParent ? '..' : e.name)}</span>
@@ -69,11 +77,11 @@ export function renderTile(e: Entry, ctx: RenderContext): string {
   </a>`;
 }
 
-export function renderRows(entries: Entry[], ctx: RenderContext): string {
-  return entries.map(e => renderRow(e, ctx)).join('');
+export function renderRows(entries: Entry[], ctx: RenderContext, start = 0): string {
+  return entries.map((e, i) => renderRow(e, ctx, start + i)).join('');
 }
-export function renderTiles(entries: Entry[], ctx: RenderContext): string {
-  return entries.map(e => renderTile(e, ctx)).join('');
+export function renderTiles(entries: Entry[], ctx: RenderContext, start = 0): string {
+  return entries.map((e, i) => renderTile(e, ctx, start + i)).join('');
 }
 
 export function renderBMList(bm: Bookmark[], rawPath: string): string {

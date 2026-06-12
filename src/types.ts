@@ -13,6 +13,11 @@ export interface Bookmark {
   label: string;
 }
 
+export interface RecentDir {
+  path: string;
+  ts:   number;
+}
+
 export interface Settings {
   compactMode:  boolean;
   showSidebar:  boolean;

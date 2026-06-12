@@ -8,7 +8,12 @@ import {
   ICON_RULES_KEY, SETTINGS_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES,
   getBM, saveBM, toggleBM, getView, getTheme, getZoom, getShowHidden,
   getIconRules, saveIconRules, getSettings, saveSettings,
+  getRecents, pushRecent,
 } from './storage';
+import {
+  initPreview, openPreview, closePreview, isPreviewOpen, canPreview,
+} from './preview';
+import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
 import {
   renderRows, renderTiles, renderBMList, renderCrumbs,
@@ -39,6 +44,11 @@ import { getIcon } from './icons';
     return { rawPath, iconRules, settings };
   }
 
+  // The currently rendered entries, in on-screen order. data-idx attributes
+  // index into this array — it's what keyboard selection and the context
+  // menu resolve against.
+  let VISIBLE: Entry[] = ALL_ENTRIES;
+
   function applyAll(): void {
     const parent  = ALL_ENTRIES.filter(e => e.isParent);
     let entries   = ALL_ENTRIES.filter(e => !e.isParent);
@@ -49,27 +59,28 @@ import { getIcon } from './icons';
     const tbody = document.getElementById('fe-tbody')!;
     const tiles = document.getElementById('fe-tiles')!;
 
+    VISIBLE = [];
+    const rowParts: string[] = [], tileParts: string[] = [];
+    const pushEntry = (e: Entry) => {
+      const idx = VISIBLE.length;
+      VISIBLE.push(e);
+      rowParts.push(renderRow(e, ctx, idx));
+      tileParts.push(renderTile(e, ctx, idx));
+    };
+
+    parent.forEach(pushEntry);
     if (groupConfig !== 'none') {
-      const grouped = buildGroups(entries, groupConfig);
-      tbody.innerHTML = [
-        ...parent.map(e => renderRow(e, ctx)),
-        ...grouped.flatMap(g => [
-          `<tr class="fe-group-hdr"><td colspan="4">${esc(g.label)}</td></tr>`,
-          ...g.items.map(e => renderRow(e, ctx)),
-        ]),
-      ].join('');
-      tiles.innerHTML = [
-        ...parent.map(e => renderTile(e, ctx)),
-        ...grouped.flatMap(g => [
-          `<div class="fe-group-hdr-tile">${esc(g.label)}</div>`,
-          ...g.items.map(e => renderTile(e, ctx)),
-        ]),
-      ].join('');
+      for (const g of buildGroups(entries, groupConfig)) {
+        rowParts.push(`<tr class="fe-group-hdr"><td colspan="4">${esc(g.label)}</td></tr>`);
+        tileParts.push(`<div class="fe-group-hdr-tile">${esc(g.label)}</div>`);
+        g.items.forEach(pushEntry);
+      }
     } else {
-      const all = [...parent, ...entries];
-      tbody.innerHTML = renderRows(all, ctx);
-      tiles.innerHTML = renderTiles(all, ctx);
+      entries.forEach(pushEntry);
     }
+    tbody.innerHTML = rowParts.join('');
+    tiles.innerHTML = tileParts.join('');
+    setSel(-1);
   }
 
   // ── Counts ────────────────────────────────────────────────────────
@@ -118,6 +129,19 @@ import { getIcon } from './icons';
     { label: 'resumes',             icon: 'docs',   href: 'file:///Users/alcatraz627/Code/Claude/resumes/' },
   ];
 
+  // Snapshot history BEFORE recording this visit so the list shown
+  // excludes the directory we're currently in.
+  const recents = getRecents().filter(r => r.path !== rawPath).slice(0, 6);
+  pushRecent(rawPath);
+  const recentsHTML = recents.length ? `
+      <div class="fe-sec">
+        <div class="fe-sh">Recent</div>
+        ${recents.map(r => {
+          const lbl = r.path.split('/').filter(Boolean).pop() || '/';
+          return `<a href="file://${esc(r.path)}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
+        }).join('')}
+      </div>` : '';
+
   const ctx0 = getRenderCtx();
 
   const PAGE_HTML = `
@@ -143,7 +167,7 @@ import { getIcon } from './icons';
       <div class="fe-sec">
         <div class="fe-sh">Bookmarks</div>
         <div id="fe-bm-list">${renderBMList(initBM, rawPath)}</div>
-      </div>
+      </div>${recentsHTML}
       <div class="fe-sec">
         <div class="fe-sh">Finder Favorites</div>
         ${FINDER_FAVORITES.map(p =>
@@ -619,6 +643,77 @@ td.c-tp{color:var(--dm);font-size:11px}
   padding:3px 5px;font-size:12px;border-radius:3px;line-height:1;transition:color .1s,background .1s;text-align:center}
 .fe-st-rule-del:hover{color:#f85149;background:var(--hover)}
 .fe-st-rules-empty{font-size:12px;color:var(--dm);padding:8px 2px;font-style:italic}
+.fe-row.selected td{background:var(--act)}
+.fe-row.selected .fe-nm{color:var(--ac)}
+.fe-tile.selected{background:var(--act);border-color:var(--ac)}
+#fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
+#fe-ql-bg{position:absolute;inset:0;background:#0009;backdrop-filter:blur(2px)}
+#fe-ql-dialog{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);
+  border-radius:10px;width:min(880px,calc(100vw - 64px));height:min(78vh,900px);
+  display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;overflow:hidden}
+#fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-ql-icon svg{display:block}
+#fe-ql-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fe-ql-meta{font-size:11px;color:var(--dm);flex:1;white-space:nowrap}
+#fe-ql-open{font-size:11px;color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
+#fe-ql-open:hover{border-color:var(--ac)}
+#fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:13px;padding:3px 7px;border-radius:4px;line-height:1}
+#fe-ql-close:hover{background:var(--hover);color:var(--tx)}
+#fe-ql-body{flex:1;overflow:auto;font-size:12px}
+.fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
+.fe-ql-note{font-size:11.5px;color:var(--dm);padding:6px 14px}
+.fe-ql-note.err{color:#f85149}
+.fe-ql-imgwrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
+.fe-ql-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
+.fe-code-wrap{display:flex;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
+.fe-code-gut{padding:10px 8px 14px 12px;text-align:right;color:var(--dm);user-select:none;
+  border-right:1px solid var(--bd);background:var(--s2);min-width:34px;flex-shrink:0}
+.fe-code{padding:10px 14px 14px;white-space:pre;flex:1}
+.tok-cmt{color:var(--mt);font-style:italic}
+.tok-str{color:#7ee787}
+.tok-kw{color:#ff7b72}
+.tok-num{color:#79c0ff}
+.tok-var{color:#d2a8ff}
+#fe[data-theme="light"] .tok-str{color:#0a7d33}
+#fe[data-theme="light"] .tok-kw{color:#cf222e}
+#fe[data-theme="light"] .tok-num{color:#0550ae}
+#fe[data-theme="light"] .tok-var{color:#8250df}
+.fe-ql-table{border-collapse:collapse;width:100%;font:11.5px 'SF Mono',Menlo,Consolas,monospace}
+.fe-ql-table th{position:sticky;top:0;background:var(--s2);padding:6px 10px;text-align:left;
+  border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
+.fe-ql-table th:hover{color:var(--tx)}
+.fe-ql-table th.sorted{color:var(--ac)}
+.fe-ql-table td{padding:4px 10px;border-bottom:1px solid var(--s2);white-space:nowrap;
+  max-width:340px;overflow:hidden;text-overflow:ellipsis}
+.fe-ql-table th.num,.fe-ql-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.fe-ql-table tbody tr:hover{background:var(--hover)}
+.fe-jt-root,.fe-jl-root{padding:10px 14px;font:11.5px/1.6 'SF Mono',Menlo,Consolas,monospace}
+.fe-jt summary,.fe-jl-line summary{cursor:pointer;list-style:none}
+.fe-jt summary::-webkit-details-marker,.fe-jl-line summary::-webkit-details-marker{display:none}
+.fe-jt summary::before{content:'▸';display:inline-block;width:12px;color:var(--dm);font-size:9px}
+.fe-jt[open]>summary::before{content:'▾'}
+.fe-jt summary:hover{background:var(--hover)}
+.fe-jt-kids{padding-left:16px;border-left:1px solid var(--s3);margin-left:4px}
+.fe-jt-key{color:#79c0ff}
+#fe[data-theme="light"] .fe-jt-key{color:#0550ae}
+.fe-jt-colon{color:var(--dm)}
+.fe-jt-badge{color:var(--dm);font-size:10.5px}
+.fe-jt-row{padding-left:12px}
+.fe-jl-line{border-bottom:1px solid var(--s2);padding:2px 0}
+.fe-jl-line summary{display:flex;gap:8px;align-items:baseline}
+.fe-jl-line summary::before{content:'▸';color:var(--dm);font-size:9px;flex-shrink:0}
+.fe-jl-line[open]>summary::before{content:'▾'}
+.fe-jl-n{color:var(--dm);min-width:28px;text-align:right;user-select:none;font-size:10.5px;flex-shrink:0}
+.fe-jl-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mt)}
+.fe-jl-line.bad{display:flex;gap:8px;align-items:baseline}
+.fe-jl-err{color:#f85149;font-size:10px;border:1px solid #f8514940;border-radius:3px;padding:0 4px;flex-shrink:0}
+#fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
+  min-width:180px;box-shadow:0 8px 24px #0009;display:none;padding:4px 0}
+.fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
+  font-size:12px;cursor:pointer;white-space:nowrap}
+.fe-ctx-item:hover{background:var(--hover)}
+.fe-ctx-key{margin-left:auto;color:var(--dm);font-size:10px;padding-left:16px}
+.fe-ctx-sep{height:1px;background:var(--bd);margin:4px 0}
 `;
 
   // ── Inject DOM ────────────────────────────────────────────────────
@@ -637,6 +732,8 @@ td.c-tp{color:var(--dm);font-size:11px}
 
   if (!settings.showSidebar) (document.getElementById('fe-side') as HTMLElement).style.display = 'none';
   if (settings.compactMode) fe.classList.add('compact');
+
+  initPreview({ iconRules: () => iconRules });
 
   // ── Toast ─────────────────────────────────────────────────────────
   const toastEl = document.getElementById('fe-toast') as HTMLElement & { _tid?: ReturnType<typeof setTimeout> };
@@ -796,18 +893,19 @@ td.c-tp{color:var(--dm);font-size:11px}
       : (TERMINAL_CMDS[app] || TERMINAL_CMDS.ghostty);
     return tpl.replace(/\$\{p\}/g, path);
   }
-  document.getElementById('fe-term-btn')!.addEventListener('click', () => {
+  function openInTerminal(path: string): void {
     const app = settings.terminalApp || 'ghostty';
     if (app === 'ghostty') {
       try {
         const port = chrome.runtime.connectNative('com.better_file_browser.ghostty');
-        port.postMessage({ action: 'open_terminal', path: rawPath });
-        port.onDisconnect.addListener(() => { if (chrome.runtime.lastError) fallbackCopy(rawPath); });
+        port.postMessage({ action: 'open_terminal', path });
+        port.onDisconnect.addListener(() => { if (chrome.runtime.lastError) fallbackCopy(path); });
         return;
       } catch { /* fall through to copy */ }
     }
-    fallbackCopy(rawPath);
-  });
+    fallbackCopy(path);
+  }
+  document.getElementById('fe-term-btn')!.addEventListener('click', () => openInTerminal(rawPath));
   function fallbackCopy(path: string): void {
     const cmd = getTermCmd(path);
     navigator.clipboard.writeText(cmd).catch(() => {});
@@ -903,16 +1001,141 @@ td.c-tp{color:var(--dm);font-size:11px}
   function closeCrumbMenu(): void { crumbMenu.style.display = 'none'; crumbMenuUrl = null; }
 
   // ── Per-item actions ──────────────────────────────────────────────
-  scroll.addEventListener('click', e => {
-    const btn = (e.target as HTMLElement).closest<HTMLElement>('.fe-act-btn');
-    if (!btn) return;
-    e.preventDefault(); e.stopPropagation();
-    const val = btn.dataset.copy || '';
+  function copyText(val: string): void {
     navigator.clipboard.writeText(val).then(() => toast(`Copied: ${val}`)).catch(() => {
       const ta = document.createElement('textarea');
       ta.value = val; document.body.appendChild(ta); ta.select();
       document.execCommand('copy'); ta.remove(); toast(`Copied: ${val}`);
     });
+  }
+
+  scroll.addEventListener('click', e => {
+    const pv = (e.target as HTMLElement).closest<HTMLElement>('.fe-act-pv');
+    if (pv) {
+      e.preventDefault(); e.stopPropagation();
+      const en = ALL_ENTRIES.find(x => x.name === pv.dataset.pv);
+      if (en) { setSel(VISIBLE.indexOf(en)); openPreview(en); }
+      return;
+    }
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('.fe-act-btn');
+    if (btn) {
+      e.preventDefault(); e.stopPropagation();
+      copyText(btn.dataset.copy || '');
+      return;
+    }
+    // Clicking row whitespace (not the name link) selects the entry
+    const holder = (e.target as HTMLElement).closest<HTMLElement>('[data-idx]');
+    if (holder && !(e.target as HTMLElement).closest('a')) {
+      setSel(parseInt(holder.dataset.idx!));
+    }
+  });
+
+  // ── Selection & keyboard navigation ───────────────────────────────
+  let selIdx = -1;
+  function entryShown(en: Entry): boolean {
+    return !en.isHidden || fe.classList.contains('show-hidden');
+  }
+  function setSel(i: number): void {
+    document.querySelectorAll('#fe-scroll .selected').forEach(el => el.classList.remove('selected'));
+    selIdx = i;
+    if (i < 0) return;
+    document.querySelectorAll<HTMLElement>(`#fe-scroll [data-idx="${i}"]`).forEach(el => {
+      el.classList.add('selected');
+      if (el.offsetParent) el.scrollIntoView({ block: 'nearest' });
+    });
+  }
+  function moveSel(step: number): void {
+    let i = selIdx;
+    for (let n = 0; n < VISIBLE.length; n++) {
+      i += step;
+      if (i < 0 || i >= VISIBLE.length) return;
+      if (entryShown(VISIBLE[i])) { setSel(i); return; }
+    }
+  }
+  function tryPreview(en: Entry): void {
+    if (canPreview(en)) { setSel(VISIBLE.indexOf(en)); openPreview(en); }
+    else if (en.isDir || en.isParent) toast('Folders have no preview — press Enter to open');
+    else toast('No preview for this file type');
+  }
+  // With the overlay open, arrows step between previewable files
+  function previewStep(step: number): void {
+    let i = selIdx;
+    for (let n = 0; n < VISIBLE.length; n++) {
+      i += step;
+      if (i < 0 || i >= VISIBLE.length) return;
+      const en = VISIBLE[i];
+      if (entryShown(en) && canPreview(en)) { setSel(i); openPreview(en); return; }
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    const ae = document.activeElement;
+    if (ae && ['INPUT', 'TEXTAREA', 'SELECT'].includes(ae.tagName)) return;
+    if (settingsModal.style.display !== 'none') return;
+    if (ctxMenu.style.display !== 'none') {
+      if (e.key === 'Escape') closeCtx();
+      return;
+    }
+    if (isPreviewOpen()) {
+      if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); closePreview(); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); previewStep(1); }
+      else if (e.key === 'ArrowUp'   || e.key === 'ArrowLeft')  { e.preventDefault(); previewStep(-1); }
+      return;
+    }
+    if      (e.key === 'ArrowDown') { e.preventDefault(); moveSel(1); }
+    else if (e.key === 'ArrowUp')   { e.preventDefault(); moveSel(-1); }
+    else if (e.key === 'Enter' && selIdx >= 0) { location.href = VISIBLE[selIdx].href; }
+    else if (e.key === 'Backspace') {
+      e.preventDefault();
+      const up = ALL_ENTRIES.find(x => x.isParent);
+      if (up) location.href = up.href;
+      else if (rawPath !== '/') location.href = 'file:///';
+    }
+    else if (e.key === ' ' && selIdx >= 0) { e.preventDefault(); tryPreview(VISIBLE[selIdx]); }
+  });
+
+  // ── Context menu ──────────────────────────────────────────────────
+  const ctxMenu = document.createElement('div');
+  ctxMenu.id = 'fe-ctx';
+  fe.appendChild(ctxMenu);
+  function closeCtx(): void { ctxMenu.style.display = 'none'; }
+
+  scroll.addEventListener('contextmenu', e => {
+    const holder = (e.target as HTMLElement).closest<HTMLElement>('[data-idx]');
+    if (!holder) return;
+    const idx = parseInt(holder.dataset.idx!);
+    const en = VISIBLE[idx];
+    if (!en || en.isParent) return;
+    e.preventDefault();
+    setSel(idx);
+    ctxMenu.innerHTML = [
+      canPreview(en) ? `<div class="fe-ctx-item" data-act="pv">Preview<span class="fe-ctx-key">Space</span></div>` : '',
+      `<div class="fe-ctx-item" data-act="cp-path">Copy path</div>`,
+      `<div class="fe-ctx-item" data-act="cp-name">Copy name</div>`,
+      `<div class="fe-ctx-sep"></div>`,
+      `<div class="fe-ctx-item" data-act="term">Open in terminal</div>`,
+    ].join('');
+    ctxMenu.dataset.idx = String(idx);
+    ctxMenu.style.display = 'block';
+    ctxMenu.style.left = Math.min(e.clientX, window.innerWidth  - ctxMenu.offsetWidth  - 8) + 'px';
+    ctxMenu.style.top  = Math.min(e.clientY, window.innerHeight - ctxMenu.offsetHeight - 8) + 'px';
+  });
+
+  ctxMenu.addEventListener('click', e => {
+    const item = (e.target as HTMLElement).closest<HTMLElement>('.fe-ctx-item');
+    if (!item) return;
+    const en = VISIBLE[parseInt(ctxMenu.dataset.idx!)];
+    closeCtx();
+    if (!en) return;
+    const fullPath = rawPath.replace(/\/$/, '') + '/' + en.name + (en.isDir ? '/' : '');
+    if      (item.dataset.act === 'pv')      openPreview(en);
+    else if (item.dataset.act === 'cp-path') copyText(fullPath);
+    else if (item.dataset.act === 'cp-name') copyText(en.name);
+    else if (item.dataset.act === 'term')    openInTerminal(en.isDir ? fullPath : rawPath);
+  });
+
+  document.addEventListener('click', e => {
+    if (ctxMenu.style.display !== 'none' && !ctxMenu.contains(e.target as Node)) closeCtx();
   });
 
   // ── Settings modal ────────────────────────────────────────────────
