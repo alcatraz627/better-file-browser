@@ -20,6 +20,34 @@
       return [{ name, href, isDir, isParent, isHidden, rawBytes, dateStr }];
     });
   }
+  function parseListing(html, baseUrl) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const fromTable = parseFetchedDoc(doc, baseUrl);
+    if (fromTable.length) return fromTable;
+    return parseAddRows(html, baseUrl);
+  }
+  function parseAddRows(html, baseUrl) {
+    const out = [];
+    for (const m of html.matchAll(/addRow\((.*?)\);/g)) {
+      try {
+        const a = JSON.parse("[" + m[1] + "]");
+        const name = String(a[0]), url = String(a[1]);
+        if (name === "." || name === "..") continue;
+        const isDir = !!a[2];
+        out.push({
+          name,
+          href: new URL(url + (isDir ? "/" : ""), baseUrl).href,
+          isDir,
+          isParent: false,
+          isHidden: name.startsWith("."),
+          rawBytes: typeof a[3] === "number" ? a[3] : -1,
+          dateStr: typeof a[6] === "string" ? a[6] : ""
+        });
+      } catch {
+      }
+    }
+    return out;
+  }
   function parseFetchedDoc(doc, baseUrl) {
     const table = doc.querySelector("table");
     if (!table) return [];
@@ -622,6 +650,38 @@
     return `${truncNote}<div class="fe-jl-root">${body}</div>`;
   }
 
+  // src/file-fetch.ts
+  function xhrDirect(url) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", url);
+      xhr.onload = () => resolve(xhr.responseText);
+      xhr.onerror = () => reject(new Error("XHR error"));
+      xhr.send();
+    });
+  }
+  function fetchFileText(rawUrl) {
+    const url = new URL(rawUrl, location.href).href;
+    return new Promise((resolve, reject) => {
+      let relayed = false;
+      try {
+        chrome.runtime.sendMessage({ type: "bfb-fetch", url }, (res) => {
+          if (relayed) return;
+          relayed = true;
+          if (chrome.runtime.lastError || !res) {
+            xhrDirect(url).then(resolve, reject);
+          } else if (res.ok) {
+            resolve(res.text);
+          } else {
+            xhrDirect(url).then(resolve, () => reject(new Error(res.error || "read failed")));
+          }
+        });
+      } catch {
+        xhrDirect(url).then(resolve, reject);
+      }
+    });
+  }
+
   // src/preview.ts
   var FETCH_WARN_BYTES = 8 * 1024 * 1024;
   function canPreview(e) {
@@ -709,17 +769,13 @@
   function fetchAndRender(e, ext, seq) {
     const body = document.getElementById("fe-ql-body");
     body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Loading\u2026</div></div>`;
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", e.href);
-    xhr.onload = () => {
+    fetchFileText(e.href).then((text) => {
+      if (seq === reqSeq) render(text, ext);
+    }).catch((err) => {
       if (seq !== reqSeq) return;
-      render(xhr.responseText, ext);
-    };
-    xhr.onerror = () => {
-      if (seq !== reqSeq) return;
+      console.error("[BFB] preview failed:", e.href, err);
       body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div></div>`;
-    };
-    xhr.send();
+    });
   }
   function render(text, ext) {
     const body = document.getElementById("fe-ql-body");
@@ -1825,13 +1881,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       crumbMenu.style.display = "block";
       crumbMenu.innerHTML = '<div class="fe-dd-spinner">Loading\u2026</div>';
       crumbMenuUrl = url;
-      const text = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("GET", url);
-        xhr.onload = () => resolve(xhr.responseText);
-        xhr.onerror = () => reject(new Error("XHR error"));
-        xhr.send();
-      }).catch((err) => {
+      const text = await fetchFileText(url).catch((err) => {
         console.error("[BFB] crumb dropdown failed:", url, err);
         return null;
       });
@@ -1841,8 +1891,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       }
       if (crumbMenuUrl !== url) return;
       try {
-        const doc = new DOMParser().parseFromString(text, "text/html");
-        const entries = parseFetchedDoc(doc, url);
+        const entries = parseListing(text, url);
         if (!entries.length) {
           crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>';
           return;
@@ -1983,6 +2032,7 @@ td.c-tp{color:var(--dm);font-size:11px}
     });
     const ctxMenu = document.createElement("div");
     ctxMenu.id = "fe-ctx";
+    ctxMenu.style.display = "none";
     fe.appendChild(ctxMenu);
     function closeCtx() {
       ctxMenu.style.display = "none";

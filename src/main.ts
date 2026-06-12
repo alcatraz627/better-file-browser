@@ -1,5 +1,5 @@
 import type { SortConfig, FilterConfig, GroupMode } from './types';
-import { parseEntries, parseFetchedDoc } from './parse';
+import { parseEntries, parseListing } from './parse';
 import { getExt } from './utils';
 import { esc } from './utils';
 import { icoCustom, PI } from './icons';
@@ -13,6 +13,7 @@ import {
 import {
   initPreview, openPreview, closePreview, isPreviewOpen, canPreview,
 } from './preview';
+import { fetchFileText } from './file-fetch';
 import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
 import {
@@ -968,13 +969,8 @@ td.c-tp{color:var(--dm);font-size:11px}
     crumbMenu.innerHTML     = '<div class="fe-dd-spinner">Loading…</div>';
     crumbMenuUrl = url;
 
-    const text = await new Promise<string>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url);
-      xhr.onload  = () => resolve(xhr.responseText);
-      xhr.onerror = () => reject(new Error('XHR error'));
-      xhr.send();
-    }).catch(err => { console.error('[BFB] crumb dropdown failed:', url, err); return null; });
+    const text = await fetchFileText(url)
+      .catch(err => { console.error('[BFB] crumb dropdown failed:', url, err); return null; });
 
     if (text === null) {
       if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
@@ -982,8 +978,7 @@ td.c-tp{color:var(--dm);font-size:11px}
     }
     if (crumbMenuUrl !== url) return;
     try {
-      const doc     = new DOMParser().parseFromString(text, 'text/html');
-      const entries = parseFetchedDoc(doc, url);
+      const entries = parseListing(text, url);
       if (!entries.length) { crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>'; return; }
       crumbMenu.innerHTML = entries.map(e =>
         `<a href="${esc(e.href)}" class="fe-dd-item${e.isDir ? ' dir' : ''}">${getIcon(e, iconRules)}<span>${esc(e.name)}</span></a>`
@@ -1097,6 +1092,7 @@ td.c-tp{color:var(--dm);font-size:11px}
   // ── Context menu ──────────────────────────────────────────────────
   const ctxMenu = document.createElement('div');
   ctxMenu.id = 'fe-ctx';
+  ctxMenu.style.display = 'none';
   fe.appendChild(ctxMenu);
   function closeCtx(): void { ctxMenu.style.display = 'none'; }
 

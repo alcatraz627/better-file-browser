@@ -20,6 +20,42 @@ export function parseEntries(): Entry[] {
   });
 }
 
+/**
+ * Parse a fetched directory listing into entries. Chrome serves listings as
+ * a template populated by inline addRow(...) script calls — DOMParser never
+ * executes those, so the <table> path only works for live-DOM HTML; the
+ * addRow text fallback covers fetched listings.
+ */
+export function parseListing(html: string, baseUrl: string): Entry[] {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const fromTable = parseFetchedDoc(doc, baseUrl);
+  if (fromTable.length) return fromTable;
+  return parseAddRows(html, baseUrl);
+}
+
+/** Extract entries from addRow("name","url",isdir,size,"sizeStr",mtime,"dateStr") calls. */
+export function parseAddRows(html: string, baseUrl: string): Entry[] {
+  const out: Entry[] = [];
+  for (const m of html.matchAll(/addRow\((.*?)\);/g)) {
+    try {
+      const a = JSON.parse('[' + m[1] + ']');
+      const name = String(a[0]), url = String(a[1]);
+      if (name === '.' || name === '..') continue;
+      const isDir = !!a[2];
+      out.push({
+        name,
+        href:     new URL(url + (isDir ? '/' : ''), baseUrl).href,
+        isDir,
+        isParent: false,
+        isHidden: name.startsWith('.'),
+        rawBytes: typeof a[3] === 'number' ? a[3] : -1,
+        dateStr:  typeof a[6] === 'string' ? a[6] : '',
+      });
+    } catch { /* malformed addRow line — skip it */ }
+  }
+  return out;
+}
+
 export function parseFetchedDoc(doc: Document, baseUrl: string): Entry[] {
   const table = doc.querySelector('table');
   if (!table) return [];

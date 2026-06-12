@@ -10,6 +10,7 @@ import {
   parseDSV, numericCols, sortDSVRows, renderDSVTable,
   sniffBinary,
 } from './renderers';
+import { fetchFileText } from './file-fetch';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
 
@@ -122,17 +123,13 @@ export function openPreview(e: Entry): void {
 function fetchAndRender(e: Entry, ext: string, seq: number): void {
   const body = document.getElementById('fe-ql-body')!;
   body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Loading…</div></div>`;
-  const xhr = new XMLHttpRequest();
-  xhr.open('GET', e.href);
-  xhr.onload = () => {
-    if (seq !== reqSeq) return;          // a newer preview replaced this one
-    render(xhr.responseText, ext);
-  };
-  xhr.onerror = () => {
-    if (seq !== reqSeq) return;
-    body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div></div>`;
-  };
-  xhr.send();
+  fetchFileText(e.href)
+    .then(text => { if (seq === reqSeq) render(text, ext); })
+    .catch(err => {
+      if (seq !== reqSeq) return;
+      console.error('[BFB] preview failed:', e.href, err);
+      body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div></div>`;
+    });
 }
 
 function render(text: string, ext: string): void {
