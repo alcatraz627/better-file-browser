@@ -6,7 +6,7 @@ import { esc, fmtSize, getExt } from './utils';
 import { getIcon, IMG_EXTS } from './icons';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
-  renderCode, renderJsonTree, renderJsonl,
+  renderCode, renderJsonTree, renderJsonl, renderMarkdown,
   parseDSV, numericCols, sortDSVRows, renderDSVTable,
   sniffBinary,
 } from './renderers';
@@ -183,5 +183,6 @@ function render(text: string, ext: string): void {
   }
   if (JSONL_EXTS.has(ext)) { body.innerHTML = renderJsonl(text); return; }
   if (ext === 'json')      { body.innerHTML = renderJsonTree(text); return; }
+  if (ext === 'md' || ext === 'mdx') { body.innerHTML = renderMarkdown(text); return; }
   body.innerHTML = renderCode(text, ext);
 }

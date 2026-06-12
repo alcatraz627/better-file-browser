@@ -1,6 +1,6 @@
 import type { SortConfig, FilterConfig, GroupMode } from './types';
 import { parseEntries, parseListing } from './parse';
-import { getExt } from './utils';
+import { getExt, fmtSize } from './utils';
 import { esc } from './utils';
 import { icoCustom, PI } from './icons';
 import {
@@ -34,6 +34,18 @@ import { getIcon } from './icons';
 
   const ALL_ENTRIES = parseEntries();
 
+  // Chrome's listing no longer includes a "../" table row (the parent link
+  // lives outside the table now) — synthesize one so the Parent Directory
+  // row and up-navigation keep working.
+  if (segments.length && !ALL_ENTRIES.some(e => e.isParent)) {
+    const parentSegs = segments.slice(0, -1);
+    ALL_ENTRIES.unshift({
+      name: '..',
+      href: 'file:///' + parentSegs.map(encodeURIComponent).join('/') + (parentSegs.length ? '/' : ''),
+      isDir: true, isParent: true, isHidden: false, rawBytes: -1, dateStr: '',
+    });
+  }
+
   let sortConfig:   SortConfig   = { col: null, dir: 'asc' };
   let groupConfig:  GroupMode    = 'none';
   let filterConfig: FilterConfig = { q: '', regex: false, type: 'all' };
@@ -49,6 +61,7 @@ import { getIcon } from './icons';
   // index into this array — it's what keyboard selection and the context
   // menu resolve against.
   let VISIBLE: Entry[] = ALL_ENTRIES;
+  let baseStatus = '';   // count line shown when nothing is selected
 
   function applyAll(): void {
     const parent  = ALL_ENTRIES.filter(e => e.isParent);
@@ -81,6 +94,13 @@ import { getIcon } from './icons';
     }
     tbody.innerHTML = rowParts.join('');
     tiles.innerHTML = tileParts.join('');
+
+    const shown = VISIBLE.filter(en => !en.isParent).length;
+    const filtered = !!filterConfig.q || filterConfig.type !== 'all';
+    baseStatus = filtered
+      ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? 's' : ''} shown`
+      : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`;
+    document.getElementById('fe-count')!.textContent = baseStatus;
     setSel(-1);
   }
 
@@ -91,6 +111,8 @@ import { getIcon } from './icons';
   const hidden  = nonPar.filter(e => e.isHidden).length;
   const allExts = [...new Set(nonPar.filter(e => !e.isDir && getExt(e)).map(getExt))].sort();
   const extOpts = allExts.map(x => `<option value="${x}">.${x}</option>`).join('');
+
+  baseStatus = `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`;
 
   const initZoom   = getZoom();
   const initView   = getView();
@@ -388,9 +410,14 @@ body{opacity:1!important}
 #fe-crumb-menu{
   position:fixed;z-index:300;
   background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
-  min-width:220px;max-width:340px;max-height:340px;overflow-y:auto;
+  min-width:220px;max-width:340px;max-height:340px;overflow:hidden;
   box-shadow:0 8px 24px #0009;display:none;padding:4px 0;
 }
+.fe-dd-search-wrap{padding:5px 8px 7px;border-bottom:1px solid var(--bd)}
+.fe-dd-search{width:100%;background:var(--s2);border:1px solid var(--bd);color:var(--tx);
+  padding:4px 8px;border-radius:5px;font-size:12px;outline:none;box-sizing:border-box}
+.fe-dd-search:focus{border-color:var(--ac)}
+.fe-dd-items{max-height:288px;overflow-y:auto;padding:2px 0}
 .fe-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;
   color:var(--tx);text-decoration:none;font-size:12px;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;transition:background .08s}
@@ -712,6 +739,27 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-jl-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mt)}
 .fe-jl-line.bad{display:flex;gap:8px;align-items:baseline}
 .fe-jl-err{color:#f85149;font-size:10px;border:1px solid #f8514940;border-radius:3px;padding:0 4px;flex-shrink:0}
+.fe-md{padding:14px 22px 20px;font-size:13px;line-height:1.65;max-width:760px}
+.fe-md h1{font-size:19px;border-bottom:1px solid var(--bd);padding-bottom:6px;margin:16px 0 10px}
+.fe-md h2{font-size:16px;border-bottom:1px solid var(--bd);padding-bottom:4px;margin:14px 0 8px}
+.fe-md h3{font-size:14px;margin:12px 0 6px}
+.fe-md h4,.fe-md h5,.fe-md h6{font-size:13px;margin:10px 0 5px}
+.fe-md p{margin:7px 0}
+.fe-md code{background:var(--s2);border:1px solid var(--bd);padding:0 5px;border-radius:4px;
+  font:11.5px 'SF Mono',Menlo,Consolas,monospace}
+.fe-md-pre{background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:10px 12px;
+  overflow-x:auto;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;margin:10px 0;white-space:pre}
+.fe-md blockquote{border-left:3px solid var(--bd);padding:1px 12px;color:var(--mt);margin:8px 0}
+.fe-md blockquote .fe-md{padding:0}
+.fe-md ul,.fe-md ol{padding-left:24px;margin:7px 0}
+.fe-md li{margin:3px 0}
+.fe-md a{color:var(--ac);text-decoration:none}
+.fe-md a:hover{text-decoration:underline}
+.fe-md img{max-width:100%;border-radius:6px}
+.fe-md hr{border:none;border-top:1px solid var(--bd);margin:14px 0}
+.fe-md-table{border-collapse:collapse;margin:10px 0;font-size:12.5px}
+.fe-md-table th,.fe-md-table td{border:1px solid var(--bd);padding:5px 11px;text-align:left}
+.fe-md-table th{background:var(--s2);font-weight:600}
 #fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
   min-width:180px;box-shadow:0 8px 24px #0009;display:none;padding:4px 0}
 .fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
@@ -865,11 +913,24 @@ td.c-tp{color:var(--dm);font-size:11px}
   });
 
   // ── Search ────────────────────────────────────────────────────────
-  (document.getElementById('fe-search') as HTMLInputElement).addEventListener('input', function () {
+  const searchEl = document.getElementById('fe-search') as HTMLInputElement;
+  searchEl.addEventListener('input', function () {
     filterConfig.q = this.value;
     const fq = document.getElementById('fe-filter-q') as HTMLInputElement | null;
     if (fq) fq.value = this.value;
     applyAll();
+  });
+  searchEl.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    if (searchEl.value) {
+      searchEl.value = '';
+      filterConfig.q = '';
+      const fq = document.getElementById('fe-filter-q') as HTMLInputElement | null;
+      if (fq) fq.value = '';
+      applyAll();
+    }
+    searchEl.blur();
   });
 
   // ── Bookmark toggle ───────────────────────────────────────────────
@@ -984,9 +1045,27 @@ td.c-tp{color:var(--dm);font-size:11px}
     try {
       const entries = parseListing(text, url);
       if (!entries.length) { crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>'; return; }
-      crumbMenu.innerHTML = entries.map(e =>
-        `<a href="${esc(e.href)}" class="fe-dd-item${e.isDir ? ' dir' : ''}">${getIcon(e, iconRules)}<span>${esc(e.name)}</span></a>`
-      ).join('');
+      crumbMenu.innerHTML =
+        `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false"></div>` +
+        `<div class="fe-dd-items">${entries.map(en =>
+          `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? ' dir' : ''}" data-name="${esc(en.name.toLowerCase())}">${getIcon(en, iconRules)}<span>${esc(en.name)}</span></a>`
+        ).join('')}</div>`;
+      const ddSearch = crumbMenu.querySelector<HTMLInputElement>('.fe-dd-search')!;
+      ddSearch.focus();
+      ddSearch.addEventListener('input', () => {
+        const q = ddSearch.value.toLowerCase();
+        crumbMenu.querySelectorAll<HTMLElement>('.fe-dd-item').forEach(it => {
+          it.style.display = it.dataset.name!.includes(q) ? '' : 'none';
+        });
+      });
+      ddSearch.addEventListener('keydown', ke => {
+        if (ke.key === 'Escape') { ke.stopPropagation(); closeCrumbMenu(); }
+        else if (ke.key === 'Enter') {
+          const first = [...crumbMenu.querySelectorAll<HTMLAnchorElement>('.fe-dd-item')]
+            .find(it => it.style.display !== 'none');
+          if (first) location.href = first.href;
+        }
+      });
     } catch (err) {
       console.error('[BFB] crumb dropdown parse error:', url, err);
       if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
@@ -1037,6 +1116,10 @@ td.c-tp{color:var(--dm);font-size:11px}
   function setSel(i: number): void {
     document.querySelectorAll('#fe-scroll .selected').forEach(el => el.classList.remove('selected'));
     selIdx = i;
+    const en = i >= 0 ? VISIBLE[i] : null;
+    document.getElementById('fe-status-text')!.textContent = en && !en.isParent
+      ? (en.isDir ? `${en.name}/` : `${en.name} — ${fmtSize(en.rawBytes)}`)
+      : baseStatus;
     if (i < 0) return;
     document.querySelectorAll<HTMLElement>(`#fe-scroll [data-idx="${i}"]`).forEach(el => {
       el.classList.add('selected');
@@ -1067,10 +1150,24 @@ td.c-tp{color:var(--dm);font-size:11px}
     }
   }
 
+  function goUp(): void {
+    const up = ALL_ENTRIES.find(x => x.isParent);
+    if (up) location.href = up.href;
+    else if (rawPath !== '/') location.href = 'file:///';
+  }
+
   document.addEventListener('keydown', e => {
+    // Cmd/Ctrl+F focuses the list filter; when it's already focused, fall
+    // through so the browser's native find opens instead.
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'f') {
+      const s = document.getElementById('fe-search') as HTMLInputElement;
+      if (document.activeElement !== s) { e.preventDefault(); s.focus(); s.select(); }
+      return;
+    }
     const ae = document.activeElement;
     if (ae && ['INPUT', 'TEXTAREA', 'SELECT'].includes(ae.tagName)) return;
     if (settingsModal.style.display !== 'none') return;
+    if (e.metaKey && e.key === 'ArrowUp') { e.preventDefault(); goUp(); return; }   // Finder: go to parent
     if (ctxMenu.style.display !== 'none') {
       if (e.key === 'Escape') closeCtx();
       return;
@@ -1084,12 +1181,7 @@ td.c-tp{color:var(--dm);font-size:11px}
     if      (e.key === 'ArrowDown') { e.preventDefault(); moveSel(1); }
     else if (e.key === 'ArrowUp')   { e.preventDefault(); moveSel(-1); }
     else if (e.key === 'Enter' && selIdx >= 0) { location.href = VISIBLE[selIdx].href; }
-    else if (e.key === 'Backspace') {
-      e.preventDefault();
-      const up = ALL_ENTRIES.find(x => x.isParent);
-      if (up) location.href = up.href;
-      else if (rawPath !== '/') location.href = 'file:///';
-    }
+    else if (e.key === 'Backspace') { e.preventDefault(); goUp(); }
     else if (e.key === ' ' && selIdx >= 0) { e.preventDefault(); tryPreview(VISIBLE[selIdx]); }
   });
 

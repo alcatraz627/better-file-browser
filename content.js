@@ -592,6 +592,100 @@
     ).join("");
     return `${truncNote}<table class="fe-ql-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
   }
+  function badUrl(url) {
+    return /^\s*(javascript|data|vbscript):/i.test(url);
+  }
+  function mdInline(s) {
+    let out = esc(s);
+    out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+    out = out.replace(/!\[([^\]]*)\]\(([^)\s]+?)\)/g, (_m, alt, url) => badUrl(url) ? alt : `<img src="${url}" alt="${alt}" loading="lazy">`);
+    out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) => badUrl(url) ? t : `<a href="${url}">${t}</a>`);
+    out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+    out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
+    return out;
+  }
+  function renderMarkdown(src) {
+    const lines = src.replace(/\r\n/g, "\n").split("\n");
+    const out = [];
+    let para = [];
+    const flush = () => {
+      if (para.length) {
+        out.push(`<p>${mdInline(para.join(" "))}</p>`);
+        para = [];
+      }
+    };
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const fence = line.match(/^```(\w*)\s*$/);
+      if (fence) {
+        flush();
+        const buf = [];
+        i++;
+        while (i < lines.length && !/^```\s*$/.test(lines[i])) buf.push(lines[i++]);
+        i++;
+        const code = buf.join("\n");
+        out.push(`<pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre>`);
+        continue;
+      }
+      const h = line.match(/^(#{1,6})\s+(.*)$/);
+      if (h) {
+        flush();
+        const n = h[1].length;
+        out.push(`<h${n}>${mdInline(h[2])}</h${n}>`);
+        i++;
+        continue;
+      }
+      if (para.length === 0 && /^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/.test(line)) {
+        flush();
+        out.push("<hr>");
+        i++;
+        continue;
+      }
+      if (/^\s*>/.test(line)) {
+        flush();
+        const buf = [];
+        while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ""));
+        out.push(`<blockquote>${renderMarkdown(buf.join("\n"))}</blockquote>`);
+        continue;
+      }
+      const li = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
+      if (li) {
+        flush();
+        const ordered = /\d/.test(li[2]);
+        const items = [];
+        while (i < lines.length) {
+          const m = lines[i].match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
+          if (!m) break;
+          const depth = Math.min(Math.floor(m[1].length / 2), 4);
+          items.push(`<li style="margin-left:${depth * 18}px">${mdInline(m[3])}</li>`);
+          i++;
+        }
+        out.push(`<${ordered ? "ol" : "ul"}>${items.join("")}</${ordered ? "ol" : "ul"}>`);
+        continue;
+      }
+      if (line.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i + 1])) {
+        flush();
+        const cells = (l) => l.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => mdInline(c.trim()));
+        const head = cells(line);
+        i += 2;
+        const rows = [];
+        while (i < lines.length && lines[i].includes("|")) rows.push(cells(lines[i++]));
+        out.push(`<table class="fe-md-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+        continue;
+      }
+      if (/^\s*$/.test(line)) {
+        flush();
+        i++;
+        continue;
+      }
+      para.push(line.trim());
+      i++;
+    }
+    flush();
+    return `<div class="fe-md">${out.join("\n")}</div>`;
+  }
   function jsonLeaf(v) {
     if (v === null) return `<span class="tok-kw">null</span>`;
     switch (typeof v) {
@@ -836,6 +930,10 @@
       body.innerHTML = renderJsonTree(text);
       return;
     }
+    if (ext === "md" || ext === "mdx") {
+      body.innerHTML = renderMarkdown(text);
+      return;
+    }
     body.innerHTML = renderCode(text, ext);
   }
 
@@ -1024,6 +1122,18 @@
     const rawPath = decodeURIComponent(window.location.pathname);
     const segments = rawPath.split("/").filter(Boolean);
     const ALL_ENTRIES = parseEntries();
+    if (segments.length && !ALL_ENTRIES.some((e) => e.isParent)) {
+      const parentSegs = segments.slice(0, -1);
+      ALL_ENTRIES.unshift({
+        name: "..",
+        href: "file:///" + parentSegs.map(encodeURIComponent).join("/") + (parentSegs.length ? "/" : ""),
+        isDir: true,
+        isParent: true,
+        isHidden: false,
+        rawBytes: -1,
+        dateStr: ""
+      });
+    }
     let sortConfig = { col: null, dir: "asc" };
     let groupConfig = "none";
     let filterConfig = { q: "", regex: false, type: "all" };
@@ -1033,6 +1143,7 @@
       return { rawPath, iconRules, settings };
     }
     let VISIBLE = ALL_ENTRIES;
+    let baseStatus = "";
     function applyAll() {
       const parent = ALL_ENTRIES.filter((e) => e.isParent);
       let entries = ALL_ENTRIES.filter((e) => !e.isParent);
@@ -1061,6 +1172,10 @@
       }
       tbody.innerHTML = rowParts.join("");
       tiles.innerHTML = tileParts.join("");
+      const shown = VISIBLE.filter((en) => !en.isParent).length;
+      const filtered = !!filterConfig.q || filterConfig.type !== "all";
+      baseStatus = filtered ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`;
+      document.getElementById("fe-count").textContent = baseStatus;
       setSel(-1);
     }
     const nonPar = ALL_ENTRIES.filter((e) => !e.isParent);
@@ -1069,6 +1184,7 @@
     const hidden = nonPar.filter((e) => e.isHidden).length;
     const allExts = [...new Set(nonPar.filter((e) => !e.isDir && getExt(e)).map(getExt))].sort();
     const extOpts = allExts.map((x) => `<option value="${x}">.${x}</option>`).join("");
+    baseStatus = `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`;
     const initZoom = getZoom();
     const initView = getView();
     const initTheme = getTheme();
@@ -1357,9 +1473,14 @@ body{opacity:1!important}
 #fe-crumb-menu{
   position:fixed;z-index:300;
   background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
-  min-width:220px;max-width:340px;max-height:340px;overflow-y:auto;
+  min-width:220px;max-width:340px;max-height:340px;overflow:hidden;
   box-shadow:0 8px 24px #0009;display:none;padding:4px 0;
 }
+.fe-dd-search-wrap{padding:5px 8px 7px;border-bottom:1px solid var(--bd)}
+.fe-dd-search{width:100%;background:var(--s2);border:1px solid var(--bd);color:var(--tx);
+  padding:4px 8px;border-radius:5px;font-size:12px;outline:none;box-sizing:border-box}
+.fe-dd-search:focus{border-color:var(--ac)}
+.fe-dd-items{max-height:288px;overflow-y:auto;padding:2px 0}
 .fe-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;
   color:var(--tx);text-decoration:none;font-size:12px;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;transition:background .08s}
@@ -1681,6 +1802,27 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-jl-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mt)}
 .fe-jl-line.bad{display:flex;gap:8px;align-items:baseline}
 .fe-jl-err{color:#f85149;font-size:10px;border:1px solid #f8514940;border-radius:3px;padding:0 4px;flex-shrink:0}
+.fe-md{padding:14px 22px 20px;font-size:13px;line-height:1.65;max-width:760px}
+.fe-md h1{font-size:19px;border-bottom:1px solid var(--bd);padding-bottom:6px;margin:16px 0 10px}
+.fe-md h2{font-size:16px;border-bottom:1px solid var(--bd);padding-bottom:4px;margin:14px 0 8px}
+.fe-md h3{font-size:14px;margin:12px 0 6px}
+.fe-md h4,.fe-md h5,.fe-md h6{font-size:13px;margin:10px 0 5px}
+.fe-md p{margin:7px 0}
+.fe-md code{background:var(--s2);border:1px solid var(--bd);padding:0 5px;border-radius:4px;
+  font:11.5px 'SF Mono',Menlo,Consolas,monospace}
+.fe-md-pre{background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:10px 12px;
+  overflow-x:auto;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;margin:10px 0;white-space:pre}
+.fe-md blockquote{border-left:3px solid var(--bd);padding:1px 12px;color:var(--mt);margin:8px 0}
+.fe-md blockquote .fe-md{padding:0}
+.fe-md ul,.fe-md ol{padding-left:24px;margin:7px 0}
+.fe-md li{margin:3px 0}
+.fe-md a{color:var(--ac);text-decoration:none}
+.fe-md a:hover{text-decoration:underline}
+.fe-md img{max-width:100%;border-radius:6px}
+.fe-md hr{border:none;border-top:1px solid var(--bd);margin:14px 0}
+.fe-md-table{border-collapse:collapse;margin:10px 0;font-size:12.5px}
+.fe-md-table th,.fe-md-table td{border:1px solid var(--bd);padding:5px 11px;text-align:left}
+.fe-md-table th{background:var(--s2);font-weight:600}
 #fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
   min-width:180px;box-shadow:0 8px 24px #0009;display:none;padding:4px 0}
 .fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
@@ -1812,11 +1954,24 @@ td.c-tp{color:var(--dm);font-size:11px}
       filterConfig.type = this.value;
       applyAll();
     });
-    document.getElementById("fe-search").addEventListener("input", function() {
+    const searchEl = document.getElementById("fe-search");
+    searchEl.addEventListener("input", function() {
       filterConfig.q = this.value;
       const fq = document.getElementById("fe-filter-q");
       if (fq) fq.value = this.value;
       applyAll();
+    });
+    searchEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      if (searchEl.value) {
+        searchEl.value = "";
+        filterConfig.q = "";
+        const fq = document.getElementById("fe-filter-q");
+        if (fq) fq.value = "";
+        applyAll();
+      }
+      searchEl.blur();
     });
     document.getElementById("fe-bm-btn").addEventListener("click", function() {
       const newBm = toggleBM(rawPath);
@@ -1933,9 +2088,26 @@ td.c-tp{color:var(--dm);font-size:11px}
           crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>';
           return;
         }
-        crumbMenu.innerHTML = entries.map(
-          (e2) => `<a href="${esc(e2.href)}" class="fe-dd-item${e2.isDir ? " dir" : ""}">${getIcon(e2, iconRules)}<span>${esc(e2.name)}</span></a>`
-        ).join("");
+        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter\u2026" autocomplete="off" spellcheck="false"></div><div class="fe-dd-items">${entries.map(
+          (en) => `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}">${getIcon(en, iconRules)}<span>${esc(en.name)}</span></a>`
+        ).join("")}</div>`;
+        const ddSearch = crumbMenu.querySelector(".fe-dd-search");
+        ddSearch.focus();
+        ddSearch.addEventListener("input", () => {
+          const q = ddSearch.value.toLowerCase();
+          crumbMenu.querySelectorAll(".fe-dd-item").forEach((it) => {
+            it.style.display = it.dataset.name.includes(q) ? "" : "none";
+          });
+        });
+        ddSearch.addEventListener("keydown", (ke) => {
+          if (ke.key === "Escape") {
+            ke.stopPropagation();
+            closeCrumbMenu();
+          } else if (ke.key === "Enter") {
+            const first = [...crumbMenu.querySelectorAll(".fe-dd-item")].find((it) => it.style.display !== "none");
+            if (first) location.href = first.href;
+          }
+        });
       } catch (err) {
         console.error("[BFB] crumb dropdown parse error:", url, err);
         if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
@@ -1991,6 +2163,8 @@ td.c-tp{color:var(--dm);font-size:11px}
     function setSel(i) {
       document.querySelectorAll("#fe-scroll .selected").forEach((el) => el.classList.remove("selected"));
       selIdx = i;
+      const en = i >= 0 ? VISIBLE[i] : null;
+      document.getElementById("fe-status-text").textContent = en && !en.isParent ? en.isDir ? `${en.name}/` : `${en.name} \u2014 ${fmtSize(en.rawBytes)}` : baseStatus;
       if (i < 0) return;
       document.querySelectorAll(`#fe-scroll [data-idx="${i}"]`).forEach((el) => {
         el.classList.add("selected");
@@ -2028,10 +2202,29 @@ td.c-tp{color:var(--dm);font-size:11px}
         }
       }
     }
+    function goUp() {
+      const up = ALL_ENTRIES.find((x) => x.isParent);
+      if (up) location.href = up.href;
+      else if (rawPath !== "/") location.href = "file:///";
+    }
     document.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f") {
+        const s = document.getElementById("fe-search");
+        if (document.activeElement !== s) {
+          e.preventDefault();
+          s.focus();
+          s.select();
+        }
+        return;
+      }
       const ae = document.activeElement;
       if (ae && ["INPUT", "TEXTAREA", "SELECT"].includes(ae.tagName)) return;
       if (settingsModal.style.display !== "none") return;
+      if (e.metaKey && e.key === "ArrowUp") {
+        e.preventDefault();
+        goUp();
+        return;
+      }
       if (ctxMenu.style.display !== "none") {
         if (e.key === "Escape") closeCtx();
         return;
@@ -2059,9 +2252,7 @@ td.c-tp{color:var(--dm);font-size:11px}
         location.href = VISIBLE[selIdx].href;
       } else if (e.key === "Backspace") {
         e.preventDefault();
-        const up = ALL_ENTRIES.find((x) => x.isParent);
-        if (up) location.href = up.href;
-        else if (rawPath !== "/") location.href = "file:///";
+        goUp();
       } else if (e.key === " " && selIdx >= 0) {
         e.preventDefault();
         tryPreview(VISIBLE[selIdx]);
