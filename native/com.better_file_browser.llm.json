@@ -1,0 +1,7 @@
+{
+  "name": "com.better_file_browser.llm",
+  "description": "Runs the local lm CLI for Better File Browser AI features",
+  "path": "/Users/alcatraz627/Code/better-file-browser/native/llm_host.py",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://EXTENSION_ID_PLACEHOLDER/"]
+}

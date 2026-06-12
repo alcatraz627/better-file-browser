@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sets up the native messaging host so the terminal button can open Ghostty directly.
+# Sets up the native messaging hosts: Ghostty terminal launcher + lm AI bridge.
 # Usage: ./install.sh <extension-id>
 #   Extension ID is shown on chrome://extensions after loading the unpacked extension.
 
@@ -14,8 +14,9 @@ if [[ -z "$EXT_ID" ]]; then
   exit 1
 fi
 
-# Make the launcher executable
+# Make the hosts executable
 chmod +x "$SCRIPT_DIR/ghostty_launcher.py"
+chmod +x "$SCRIPT_DIR/llm_host.py"
 
 # Write the host manifest with the real extension ID
 MANIFEST_DIR="$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts"
@@ -31,8 +32,19 @@ cat > "$MANIFEST_DIR/com.better_file_browser.ghostty.json" <<EOF
 }
 EOF
 
-echo "✓ Native messaging host installed"
+cat > "$MANIFEST_DIR/com.better_file_browser.llm.json" <<EOF
+{
+  "name": "com.better_file_browser.llm",
+  "description": "Runs the local lm CLI for Better File Browser AI features",
+  "path": "$SCRIPT_DIR/llm_host.py",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://${EXT_ID}/"]
+}
+EOF
+
+echo "✓ Native messaging hosts installed"
 echo "  Manifest: $MANIFEST_DIR/com.better_file_browser.ghostty.json"
-echo "  Launcher: $SCRIPT_DIR/ghostty_launcher.py"
+echo "  Manifest: $MANIFEST_DIR/com.better_file_browser.llm.json"
+echo "  Hosts:    $SCRIPT_DIR/ghostty_launcher.py · $SCRIPT_DIR/llm_host.py"
 echo ""
-echo "Reload the extension at chrome://extensions, then the terminal button will open Ghostty."
+echo "Reload the extension at chrome://extensions to pick them up."

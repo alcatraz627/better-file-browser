@@ -11,6 +11,7 @@ import {
   sniffBinary,
 } from './renderers';
 import { fetchFileText } from './file-fetch';
+import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
 
@@ -37,6 +38,10 @@ let dsvRows:   string[][] = [];
 let dsvNum:    Set<number> = new Set();
 let dsvSort:   { col: number; dir: 'asc' | 'desc' } | null = null;
 
+// AI bar state: one in-flight query at a time, cancelled on close/rerun
+let aiCancel: (() => void) | null = null;
+let aiSeq = 0;
+
 export function initPreview(d: PreviewDeps): void {
   deps = d;
   overlay = document.createElement('div');
@@ -55,6 +60,17 @@ export function initPreview(d: PreviewDeps): void {
         </button>
         <a id="fe-ql-open" title="Open raw file in this tab">open raw ↗</a>
         <button id="fe-ql-close" title="Close (Esc)">✕</button>
+      </div>
+      <div id="fe-ql-ai" style="display:none">
+        <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
+        <button class="fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
+        <button class="fe-ql-ai-btn" id="fe-ql-ai-exp"></button>
+        <input id="fe-ql-ai-q" type="text" placeholder="Ask about this file…" autocomplete="off" spellcheck="false">
+        <button class="fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
+      </div>
+      <div id="fe-ql-ai-out" style="display:none">
+        <div id="fe-ql-ai-out-body"></div>
+        <div id="fe-ql-ai-out-meta"></div>
       </div>
       <div id="fe-ql-body"></div>
     </div>`;
@@ -76,6 +92,22 @@ export function initPreview(d: PreviewDeps): void {
       const ok = document.execCommand('copy');
       ta.remove(); flash(ok);
     });
+  });
+
+  const aiQ = document.getElementById('fe-ql-ai-q') as HTMLInputElement;
+  document.getElementById('fe-ql-ai-sum')!.addEventListener('click', () => runAi('summarize'));
+  document.getElementById('fe-ql-ai-exp')!.addEventListener('click', function () {
+    runAi((this as HTMLElement).dataset.intent || 'explain-code');
+  });
+  const askAi = () => {
+    const q = aiQ.value.trim();
+    if (!q) { aiQ.focus(); return; }
+    runAi('qa', q);
+  };
+  document.getElementById('fe-ql-ai-ask')!.addEventListener('click', askAi);
+  aiQ.addEventListener('keydown', e => {
+    if (e.key === 'Enter') askAi();
+    else if (e.key === 'Escape') { e.stopPropagation(); aiQ.blur(); }
   });
 
   // Table header sorting via delegation — the body is re-rendered per click
@@ -106,6 +138,79 @@ export function closePreview(): void {
   currentText  = null;
   dsvHeader = []; dsvRows = []; dsvSort = null;
   document.getElementById('fe-ql-body')!.innerHTML = '';
+  resetAiUi();
+}
+
+function resetAiUi(): void {
+  aiCancel?.();
+  aiCancel = null;
+  aiSeq++;
+  document.getElementById('fe-ql-ai')!.style.display = 'none';
+  document.getElementById('fe-ql-ai-out')!.style.display = 'none';
+  document.getElementById('fe-ql-ai-out-body')!.innerHTML = '';
+  document.getElementById('fe-ql-ai-out-meta')!.textContent = '';
+  (document.getElementById('fe-ql-ai-q') as HTMLInputElement).value = '';
+}
+
+// Show the AI bar once the host confirms lm is reachable. "unavailable"
+// (host not installed / lm missing) keeps the bar hidden entirely — the
+// preview works exactly as before for users without the toolkit.
+function setupAi(e: Entry, ext: string): void {
+  llmAvailability().then((av: LlmAvailability) => {
+    if (currentEntry !== e || !isPreviewOpen()) return;
+    if (av.kind === 'unavailable') return;
+    const tabular = TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === 'json';
+    const exp = document.getElementById('fe-ql-ai-exp') as HTMLButtonElement;
+    exp.textContent    = tabular ? 'Describe' : 'Explain';
+    exp.dataset.intent = tabular ? 'describe-data' : 'explain-code';
+    exp.title = tabular
+      ? 'Schema + notable observations (local model)'
+      : 'What this does, with safety callouts (local model)';
+    const ready = av.kind === 'ready';
+    const chip = document.getElementById('fe-ql-ai-chip')!;
+    chip.className = ready ? (av.cold ? 'cold' : 'ready') : 'down';
+    document.getElementById('fe-ql-ai-chip-txt')!.textContent =
+      ready ? (av.cold ? 'AI · cold start' : 'AI · ready') : 'AI · lm server down';
+    document.querySelectorAll<HTMLButtonElement>('.fe-ql-ai-btn').forEach(b => { b.disabled = !ready; });
+    (document.getElementById('fe-ql-ai-q') as HTMLInputElement).disabled = !ready;
+    document.getElementById('fe-ql-ai')!.style.display = '';
+  });
+}
+
+function runAi(intent: string, question?: string): void {
+  if (currentText === null || !currentEntry) return;   // fetch not done yet
+  aiCancel?.();
+  const seq = ++aiSeq;
+  const body = document.getElementById('fe-ql-ai-out-body')!;
+  const meta = document.getElementById('fe-ql-ai-out-meta')!;
+  document.getElementById('fe-ql-ai-out')!.style.display = '';
+  body.textContent = '';
+  meta.textContent = 'Thinking…';
+  let full = '';
+  aiCancel = llmQuery(
+    { ctx: currentText, ctxName: currentEntry.name, intent, question },
+    {
+      onChunk: t => {
+        if (seq !== aiSeq) return;
+        full += t;
+        body.textContent = full;
+      },
+      onDone: info => {
+        if (seq !== aiSeq) return;
+        aiCancel = null;
+        body.innerHTML = renderMarkdown(full);
+        meta.textContent = `${info.model} · ${(info.ms / 1000).toFixed(1)}s` +
+          (info.truncated ? ' · input truncated to fit the model' : '');
+      },
+      onError: (code, message) => {
+        if (seq !== aiSeq) return;
+        aiCancel = null;
+        if (code === 'cancelled') return;
+        body.textContent = LLM_ERROR_TEXT[code] ?? message;
+        meta.textContent = '';
+      },
+    },
+  );
 }
 
 export function openPreview(e: Entry): void {
@@ -123,15 +228,17 @@ export function openPreview(e: Entry): void {
   overlay.style.display = 'flex';
   dsvHeader = []; dsvRows = []; dsvSort = null;
   currentText = null;
+  resetAiUi();
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.disabled = true;
 
   if (IMG_EXTS.has(ext)) {
-    copyBtn.style.display = 'none';   // no text contents to copy
+    copyBtn.style.display = 'none';   // no text contents to copy, no AI either
     body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"></div>`;
     return;
   }
   copyBtn.style.display = '';
+  setupAi(e, ext);
 
   if (e.rawBytes > FETCH_WARN_BYTES) {
     body.innerHTML = `
@@ -166,6 +273,7 @@ function fetchAndRender(e: Entry, ext: string, seq: number): void {
 function render(text: string, ext: string): void {
   const body = document.getElementById('fe-ql-body')!;
   if (sniffBinary(text)) {
+    document.getElementById('fe-ql-ai')!.style.display = 'none';   // nothing for a model to read
     body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Binary file — no text preview.</div></div>`;
     return;
   }

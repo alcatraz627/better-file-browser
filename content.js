@@ -848,6 +848,120 @@
     });
   }
 
+  // src/llm.ts
+  function openProxyPort() {
+    try {
+      return chrome.runtime.connect({ name: "bfb-llm" });
+    } catch {
+      return null;
+    }
+  }
+  var availCache = null;
+  function llmAvailability() {
+    if (availCache && Date.now() - availCache.at < 3e4) return Promise.resolve(availCache.res);
+    return new Promise((resolve) => {
+      let done = false;
+      const settle = (res) => {
+        if (done) return;
+        done = true;
+        availCache = { at: Date.now(), res };
+        resolve(res);
+      };
+      const port = openProxyPort();
+      if (!port) {
+        settle({ kind: "unavailable" });
+        return;
+      }
+      const timer = setTimeout(() => {
+        try {
+          port.disconnect();
+        } catch {
+        }
+        settle({ kind: "unavailable" });
+      }, 5e3);
+      port.onMessage.addListener((msg) => {
+        if (msg?.t !== "status" && msg?.t !== "error" && msg?.t !== "native-gone") return;
+        clearTimeout(timer);
+        try {
+          port.disconnect();
+        } catch {
+        }
+        if (msg.t === "status" && msg.data?.server === "up") {
+          settle({ kind: "ready", cold: msg.data.latency_class !== "warm", status: msg.data });
+        } else if (msg.t === "status") {
+          settle({ kind: "down" });
+        } else {
+          settle({ kind: "unavailable" });
+        }
+      });
+      port.onDisconnect.addListener(() => {
+        console.info("[BFB] llm status port disconnected:", chrome.runtime.lastError?.message ?? "(no lastError)");
+        clearTimeout(timer);
+        settle({ kind: "unavailable" });
+      });
+      port.postMessage({ op: "status" });
+    });
+  }
+  function llmQuery(opts, cb) {
+    const port = openProxyPort();
+    if (!port) {
+      cb.onError("unavailable", "AI host not installed");
+      return () => {
+      };
+    }
+    let finished = false;
+    let gotFrame = false;
+    const finish = () => {
+      finished = true;
+      try {
+        port.disconnect();
+      } catch {
+      }
+    };
+    port.onMessage.addListener((msg) => {
+      if (finished || !msg) return;
+      if (msg.t === "chunk") {
+        gotFrame = true;
+        cb.onChunk(msg.text ?? "");
+      } else if (msg.t === "done") {
+        finish();
+        cb.onDone({ model: msg.model ?? "", ms: msg.ms ?? 0, truncated: !!msg.truncated });
+      } else if (msg.t === "error") {
+        finish();
+        cb.onError(msg.code ?? "unknown", msg.message ?? "");
+      } else if (msg.t === "native-gone") {
+        finish();
+        cb.onError(gotFrame ? "disconnected" : "unavailable", msg.message ?? "");
+      }
+    });
+    port.onDisconnect.addListener(() => {
+      if (!finished) {
+        finished = true;
+        cb.onError("disconnected", "AI host disconnected");
+      }
+    });
+    port.postMessage({
+      op: "query",
+      ctx: opts.ctx,
+      ctxName: opts.ctxName,
+      intent: opts.intent,
+      question: opts.question,
+      timeout: opts.timeout ?? 120
+    });
+    return () => finish();
+  }
+  var LLM_ERROR_TEXT = {
+    server_down: "Local model server is down \u2014 run `lm status` in a terminal.",
+    model_missing: "The model is not available on the server.",
+    ctx_too_large: "This file is too large for the model.",
+    timeout: "The model took too long and was stopped.",
+    invalid_args: "Invalid request.",
+    cancelled: "Cancelled.",
+    host_no_lm: "The lm CLI was not found on this machine.",
+    unavailable: "AI host not installed \u2014 run native/install.sh <extension-id>.",
+    disconnected: "The AI host disconnected unexpectedly."
+  };
+
   // src/preview.ts
   var FETCH_WARN_BYTES = 8 * 1024 * 1024;
   function canPreview(e) {
@@ -864,6 +978,8 @@
   var dsvRows = [];
   var dsvNum = /* @__PURE__ */ new Set();
   var dsvSort = null;
+  var aiCancel = null;
+  var aiSeq = 0;
   function initPreview(d) {
     deps = d;
     overlay = document.createElement("div");
@@ -882,6 +998,17 @@
         </button>
         <a id="fe-ql-open" title="Open raw file in this tab">open raw \u2197</a>
         <button id="fe-ql-close" title="Close (Esc)">\u2715</button>
+      </div>
+      <div id="fe-ql-ai" style="display:none">
+        <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
+        <button class="fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
+        <button class="fe-ql-ai-btn" id="fe-ql-ai-exp"></button>
+        <input id="fe-ql-ai-q" type="text" placeholder="Ask about this file\u2026" autocomplete="off" spellcheck="false">
+        <button class="fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
+      </div>
+      <div id="fe-ql-ai-out" style="display:none">
+        <div id="fe-ql-ai-out-body"></div>
+        <div id="fe-ql-ai-out-meta"></div>
       </div>
       <div id="fe-ql-body"></div>
     </div>`;
@@ -907,6 +1034,27 @@
         flash(ok);
       });
     });
+    const aiQ = document.getElementById("fe-ql-ai-q");
+    document.getElementById("fe-ql-ai-sum").addEventListener("click", () => runAi("summarize"));
+    document.getElementById("fe-ql-ai-exp").addEventListener("click", function() {
+      runAi(this.dataset.intent || "explain-code");
+    });
+    const askAi = () => {
+      const q = aiQ.value.trim();
+      if (!q) {
+        aiQ.focus();
+        return;
+      }
+      runAi("qa", q);
+    };
+    document.getElementById("fe-ql-ai-ask").addEventListener("click", askAi);
+    aiQ.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") askAi();
+      else if (e.key === "Escape") {
+        e.stopPropagation();
+        aiQ.blur();
+      }
+    });
     document.getElementById("fe-ql-body").addEventListener("click", (e) => {
       const th = e.target.closest(".fe-ql-table th");
       if (!th || !dsvHeader.length) return;
@@ -927,6 +1075,71 @@
     dsvRows = [];
     dsvSort = null;
     document.getElementById("fe-ql-body").innerHTML = "";
+    resetAiUi();
+  }
+  function resetAiUi() {
+    aiCancel?.();
+    aiCancel = null;
+    aiSeq++;
+    document.getElementById("fe-ql-ai").style.display = "none";
+    document.getElementById("fe-ql-ai-out").style.display = "none";
+    document.getElementById("fe-ql-ai-out-body").innerHTML = "";
+    document.getElementById("fe-ql-ai-out-meta").textContent = "";
+    document.getElementById("fe-ql-ai-q").value = "";
+  }
+  function setupAi(e, ext) {
+    llmAvailability().then((av) => {
+      if (currentEntry !== e || !isPreviewOpen()) return;
+      if (av.kind === "unavailable") return;
+      const tabular = TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === "json";
+      const exp = document.getElementById("fe-ql-ai-exp");
+      exp.textContent = tabular ? "Describe" : "Explain";
+      exp.dataset.intent = tabular ? "describe-data" : "explain-code";
+      exp.title = tabular ? "Schema + notable observations (local model)" : "What this does, with safety callouts (local model)";
+      const ready = av.kind === "ready";
+      const chip = document.getElementById("fe-ql-ai-chip");
+      chip.className = ready ? av.cold ? "cold" : "ready" : "down";
+      document.getElementById("fe-ql-ai-chip-txt").textContent = ready ? av.cold ? "AI \xB7 cold start" : "AI \xB7 ready" : "AI \xB7 lm server down";
+      document.querySelectorAll(".fe-ql-ai-btn").forEach((b) => {
+        b.disabled = !ready;
+      });
+      document.getElementById("fe-ql-ai-q").disabled = !ready;
+      document.getElementById("fe-ql-ai").style.display = "";
+    });
+  }
+  function runAi(intent, question) {
+    if (currentText === null || !currentEntry) return;
+    aiCancel?.();
+    const seq = ++aiSeq;
+    const body = document.getElementById("fe-ql-ai-out-body");
+    const meta = document.getElementById("fe-ql-ai-out-meta");
+    document.getElementById("fe-ql-ai-out").style.display = "";
+    body.textContent = "";
+    meta.textContent = "Thinking\u2026";
+    let full = "";
+    aiCancel = llmQuery(
+      { ctx: currentText, ctxName: currentEntry.name, intent, question },
+      {
+        onChunk: (t) => {
+          if (seq !== aiSeq) return;
+          full += t;
+          body.textContent = full;
+        },
+        onDone: (info) => {
+          if (seq !== aiSeq) return;
+          aiCancel = null;
+          body.innerHTML = renderMarkdown(full);
+          meta.textContent = `${info.model} \xB7 ${(info.ms / 1e3).toFixed(1)}s` + (info.truncated ? " \xB7 input truncated to fit the model" : "");
+        },
+        onError: (code, message) => {
+          if (seq !== aiSeq) return;
+          aiCancel = null;
+          if (code === "cancelled") return;
+          body.textContent = LLM_ERROR_TEXT[code] ?? message;
+          meta.textContent = "";
+        }
+      }
+    );
   }
   function openPreview(e) {
     if (!canPreview(e)) return;
@@ -943,6 +1156,7 @@
     dsvRows = [];
     dsvSort = null;
     currentText = null;
+    resetAiUi();
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.disabled = true;
     if (IMG_EXTS.has(ext)) {
@@ -951,6 +1165,7 @@
       return;
     }
     copyBtn.style.display = "";
+    setupAi(e, ext);
     if (e.rawBytes > FETCH_WARN_BYTES) {
       body.innerHTML = `
       <div class="fe-ql-center">
@@ -979,6 +1194,7 @@
   function render(text, ext) {
     const body = document.getElementById("fe-ql-body");
     if (sniffBinary(text)) {
+      document.getElementById("fe-ql-ai").style.display = "none";
       body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Binary file \u2014 no text preview.</div></div>`;
       return;
     }
@@ -1827,6 +2043,27 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:13px;padding:3px 7px;border-radius:4px;line-height:1}
 #fe-ql-close:hover{background:var(--hover);color:var(--tx)}
 #fe-ql-body{flex:1;overflow:auto;font-size:12px}
+#fe-ql-ai{display:flex;align-items:center;gap:6px;padding:7px 14px;
+  border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0}
+#fe-ql-ai-chip{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dm);
+  margin-right:4px;white-space:nowrap}
+#fe-ql-ai-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--dm);flex-shrink:0}
+#fe-ql-ai-chip.ready .dot{background:var(--green)}
+#fe-ql-ai-chip.cold .dot{background:var(--gold)}
+#fe-ql-ai-chip.down .dot{background:#f85149}
+.fe-ql-ai-btn{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;
+  padding:3px 9px;border-radius:5px;font-size:11px;transition:all .12s;white-space:nowrap}
+.fe-ql-ai-btn:hover:not(:disabled){border-color:var(--ac);color:var(--ac)}
+.fe-ql-ai-btn:disabled{opacity:.45;cursor:default}
+#fe-ql-ai-q{flex:1;min-width:80px;background:var(--s1);border:1px solid var(--bd);color:var(--tx);
+  padding:4px 9px;border-radius:5px;font-size:11.5px;outline:none;transition:border-color .15s}
+#fe-ql-ai-q:focus{border-color:var(--ac)}
+#fe-ql-ai-q:disabled{opacity:.45}
+#fe-ql-ai-q::placeholder{color:var(--dm)}
+#fe-ql-ai-out{border-bottom:1px solid var(--bd);max-height:42%;overflow-y:auto;flex-shrink:0;background:var(--s1)}
+#fe-ql-ai-out-body{padding:10px 16px 4px;font-size:12.5px;line-height:1.6;white-space:pre-wrap}
+#fe-ql-ai-out-body .fe-md{padding:0;white-space:normal}
+#fe-ql-ai-out-meta{padding:2px 16px 8px;font-size:10px;color:var(--dm)}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
 .fe-ql-note{font-size:11.5px;color:var(--dm);padding:6px 14px}
 .fe-ql-note.err{color:#f85149}
@@ -2067,15 +2304,13 @@ td.c-tp{color:var(--dm);font-size:11px}
     function openInTerminal(path) {
       const app = settings.terminalApp || "ghostty";
       if (app === "ghostty") {
-        try {
-          const port = chrome.runtime.connectNative("com.better_file_browser.ghostty");
-          port.postMessage({ action: "open_terminal", path });
-          port.onDisconnect.addListener(() => {
-            if (chrome.runtime.lastError) fallbackCopy(path);
-          });
-          return;
-        } catch {
-        }
+        chrome.runtime.sendMessage(
+          { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_terminal", path } },
+          (res) => {
+            if (chrome.runtime.lastError || !res?.ok) fallbackCopy(path);
+          }
+        );
+        return;
       }
       fallbackCopy(path);
     }

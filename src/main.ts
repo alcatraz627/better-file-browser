@@ -692,6 +692,27 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:13px;padding:3px 7px;border-radius:4px;line-height:1}
 #fe-ql-close:hover{background:var(--hover);color:var(--tx)}
 #fe-ql-body{flex:1;overflow:auto;font-size:12px}
+#fe-ql-ai{display:flex;align-items:center;gap:6px;padding:7px 14px;
+  border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0}
+#fe-ql-ai-chip{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dm);
+  margin-right:4px;white-space:nowrap}
+#fe-ql-ai-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--dm);flex-shrink:0}
+#fe-ql-ai-chip.ready .dot{background:var(--green)}
+#fe-ql-ai-chip.cold .dot{background:var(--gold)}
+#fe-ql-ai-chip.down .dot{background:#f85149}
+.fe-ql-ai-btn{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;
+  padding:3px 9px;border-radius:5px;font-size:11px;transition:all .12s;white-space:nowrap}
+.fe-ql-ai-btn:hover:not(:disabled){border-color:var(--ac);color:var(--ac)}
+.fe-ql-ai-btn:disabled{opacity:.45;cursor:default}
+#fe-ql-ai-q{flex:1;min-width:80px;background:var(--s1);border:1px solid var(--bd);color:var(--tx);
+  padding:4px 9px;border-radius:5px;font-size:11.5px;outline:none;transition:border-color .15s}
+#fe-ql-ai-q:focus{border-color:var(--ac)}
+#fe-ql-ai-q:disabled{opacity:.45}
+#fe-ql-ai-q::placeholder{color:var(--dm)}
+#fe-ql-ai-out{border-bottom:1px solid var(--bd);max-height:42%;overflow-y:auto;flex-shrink:0;background:var(--s1)}
+#fe-ql-ai-out-body{padding:10px 16px 4px;font-size:12.5px;line-height:1.6;white-space:pre-wrap}
+#fe-ql-ai-out-body .fe-md{padding:0;white-space:normal}
+#fe-ql-ai-out-meta{padding:2px 16px 8px;font-size:10px;color:var(--dm)}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
 .fe-ql-note{font-size:11.5px;color:var(--dm);padding:6px 14px}
 .fe-ql-note.err{color:#f85149}
@@ -962,12 +983,13 @@ td.c-tp{color:var(--dm);font-size:11px}
   function openInTerminal(path: string): void {
     const app = settings.terminalApp || 'ghostty';
     if (app === 'ghostty') {
-      try {
-        const port = chrome.runtime.connectNative('com.better_file_browser.ghostty');
-        port.postMessage({ action: 'open_terminal', path });
-        port.onDisconnect.addListener(() => { if (chrome.runtime.lastError) fallbackCopy(path); });
-        return;
-      } catch { /* fall through to copy */ }
+      // connectNative is unavailable in content scripts — round-trip through
+      // the background worker, falling back to copy if the host isn't there.
+      chrome.runtime.sendMessage(
+        { type: 'bfb-native-oneshot', host: 'com.better_file_browser.ghostty', payload: { action: 'open_terminal', path } },
+        res => { if (chrome.runtime.lastError || !res?.ok) fallbackCopy(path); },
+      );
+      return;
     }
     fallbackCopy(path);
   }
