@@ -233,6 +233,41 @@ function badUrl(url: string): boolean {
   return /^\s*(javascript|data|vbscript):/i.test(url);
 }
 
+// READMEs routinely open with raw HTML (centered logo divs, badge imgs).
+// Rather than escaping them into tag soup, keep a safe subset.
+const HTML_TAGS = new Set([
+  'div', 'span', 'p', 'br', 'hr', 'img', 'a', 'strong', 'em', 'b', 'i', 'u', 's',
+  'code', 'pre', 'center', 'sub', 'sup', 'details', 'summary', 'kbd', 'picture', 'source',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
+  'table', 'thead', 'tbody', 'tr', 'th', 'td', 'blockquote',
+]);
+const HTML_ATTRS = new Set(['src', 'href', 'alt', 'title', 'width', 'height', 'align']);
+const VOID_TAGS  = new Set(['br', 'hr', 'img', 'source']);
+
+/** Reduce arbitrary HTML to a whitelisted subset; unknown tags are unwrapped. */
+export function sanitizeHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const walk = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return esc(node.textContent ?? '');
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const el = node as Element;
+    const tag = el.tagName.toLowerCase();
+    const kids = Array.from(el.childNodes).map(walk).join('');
+    if (!HTML_TAGS.has(tag)) return kids;
+    let attrs = '';
+    for (const a of Array.from(el.attributes)) {
+      if (!HTML_ATTRS.has(a.name)) continue;
+      if ((a.name === 'src' || a.name === 'href') && badUrl(a.value)) continue;
+      attrs += ` ${a.name}="${esc(a.value)}"`;
+    }
+    if (tag === 'a' && /^https?:/i.test(el.getAttribute('href') ?? '')) {
+      attrs += ' target="_blank" rel="noopener"';
+    }
+    return VOID_TAGS.has(tag) ? `<${tag}${attrs}>` : `<${tag}${attrs}>${kids}</${tag}>`;
+  };
+  return Array.from(doc.body.childNodes).map(walk).join('');
+}
+
 /** Inline markdown: code spans, images, links, bold, italic, strikethrough. */
 export function mdInline(s: string): string {
   let out = esc(s);
@@ -240,7 +275,8 @@ export function mdInline(s: string): string {
   out = out.replace(/!\[([^\]]*)\]\(([^)\s]+?)\)/g, (_m, alt, url) =>
     badUrl(url) ? alt : `<img src="${url}" alt="${alt}" loading="lazy">`);
   out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) =>
-    badUrl(url) ? t : `<a href="${url}">${t}</a>`);
+    badUrl(url) ? t
+      : `<a href="${url}"${/^https?:/i.test(url) ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`);
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
   out = out.replace(/~~([^~]+)~~/g, '<del>$1</del>');
@@ -271,6 +307,15 @@ export function renderMarkdown(src: string): string {
 
     const h = line.match(/^(#{1,6})\s+(.*)$/);
     if (h) { flush(); const n = h[1].length; out.push(`<h${n}>${mdInline(h[2])}</h${n}>`); i++; continue; }
+
+    // Raw HTML block: consume until the next blank line, keep a safe subset
+    if (/^\s*<[a-zA-Z!/]/.test(line)) {
+      flush();
+      const buf: string[] = [];
+      while (i < lines.length && !/^\s*$/.test(lines[i])) buf.push(lines[i++]);
+      out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join('\n'))}</div>`);
+      continue;
+    }
 
     if (para.length === 0 && /^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/.test(line)) {
       flush(); out.push('<hr>'); i++; continue;

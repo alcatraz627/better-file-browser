@@ -3,7 +3,7 @@ import {
   parseDSV, numericCols, sortDSVRows, renderDSVTable,
   highlightCode, renderCode, sniffBinary,
   renderJsonl, renderJsonTree, RENDER_CAPS,
-  renderMarkdown, mdInline,
+  renderMarkdown, mdInline, sanitizeHtml,
 } from '../src/renderers';
 
 describe('parseDSV', () => {
@@ -155,7 +155,10 @@ describe('mdInline', () => {
     expect(html).toContain('<del>s</del>');
   });
   it('renders links and blocks javascript: URLs', () => {
-    expect(mdInline('[ok](https://x.dev)')).toContain('<a href="https://x.dev">ok</a>');
+    const ok = mdInline('[ok](https://x.dev)');
+    expect(ok).toContain('<a href="https://x.dev"');
+    expect(ok).toContain('target="_blank"');
+    expect(mdInline('[rel](./other.md)')).not.toContain('target=');   // relative stays in-tab
     const evil = mdInline('[bad](javascript:alert(1))');
     expect(evil).not.toContain('<a');
     expect(evil).toContain('bad');
@@ -194,8 +197,31 @@ describe('renderMarkdown', () => {
     expect(renderMarkdown('> quoted')).toContain('<blockquote>');
     expect(renderMarkdown('above\n\n---\n\nbelow')).toContain('<hr>');
   });
-  it('escapes raw HTML in paragraphs', () => {
-    expect(renderMarkdown('<img src=x onerror=alert(1)>')).not.toContain('<img src=x');
+  it('renders whitelisted raw HTML blocks instead of escaping them', () => {
+    const html = renderMarkdown('<div align="center">\n<img src="logo.svg" width="320">\n<strong>Tagline</strong>\n</div>');
+    expect(html).toContain('<div align="center">');
+    expect(html).toContain('<img src="logo.svg" width="320">');
+    expect(html).toContain('<strong>Tagline</strong>');
+  });
+  it('strips dangerous HTML even inside raw blocks', () => {
+    expect(renderMarkdown('<img src=x onerror=alert(1)>')).not.toContain('onerror');
+  });
+});
+
+describe('sanitizeHtml', () => {
+  it('keeps whitelisted tags and attributes', () => {
+    const out = sanitizeHtml('<div align="center"><a href="https://x.dev"><img src="b.svg" alt="b"></a></div>');
+    expect(out).toContain('<div align="center">');
+    expect(out).toContain('<img src="b.svg" alt="b">');
+    expect(out).toContain('target="_blank"');
+  });
+  it('drops scripts and event handlers, unwraps unknown tags', () => {
+    expect(sanitizeHtml('<script>alert(1)</script>')).not.toContain('script');
+    expect(sanitizeHtml('<img src="x.png" onerror="alert(1)">')).not.toContain('onerror');
+    expect(sanitizeHtml('<marquee>hi</marquee>')).toBe('hi');
+  });
+  it('blocks javascript: URLs in src and href', () => {
+    expect(sanitizeHtml('<a href="javascript:alert(1)">x</a>')).not.toContain('href');
   });
 });
 

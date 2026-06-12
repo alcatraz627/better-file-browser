@@ -595,11 +595,76 @@
   function badUrl(url) {
     return /^\s*(javascript|data|vbscript):/i.test(url);
   }
+  var HTML_TAGS = /* @__PURE__ */ new Set([
+    "div",
+    "span",
+    "p",
+    "br",
+    "hr",
+    "img",
+    "a",
+    "strong",
+    "em",
+    "b",
+    "i",
+    "u",
+    "s",
+    "code",
+    "pre",
+    "center",
+    "sub",
+    "sup",
+    "details",
+    "summary",
+    "kbd",
+    "picture",
+    "source",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "ul",
+    "ol",
+    "li",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "blockquote"
+  ]);
+  var HTML_ATTRS = /* @__PURE__ */ new Set(["src", "href", "alt", "title", "width", "height", "align"]);
+  var VOID_TAGS = /* @__PURE__ */ new Set(["br", "hr", "img", "source"]);
+  function sanitizeHtml(html) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const walk = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) return esc(node.textContent ?? "");
+      if (node.nodeType !== Node.ELEMENT_NODE) return "";
+      const el = node;
+      const tag = el.tagName.toLowerCase();
+      const kids = Array.from(el.childNodes).map(walk).join("");
+      if (!HTML_TAGS.has(tag)) return kids;
+      let attrs = "";
+      for (const a of Array.from(el.attributes)) {
+        if (!HTML_ATTRS.has(a.name)) continue;
+        if ((a.name === "src" || a.name === "href") && badUrl(a.value)) continue;
+        attrs += ` ${a.name}="${esc(a.value)}"`;
+      }
+      if (tag === "a" && /^https?:/i.test(el.getAttribute("href") ?? "")) {
+        attrs += ' target="_blank" rel="noopener"';
+      }
+      return VOID_TAGS.has(tag) ? `<${tag}${attrs}>` : `<${tag}${attrs}>${kids}</${tag}>`;
+    };
+    return Array.from(doc.body.childNodes).map(walk).join("");
+  }
   function mdInline(s) {
     let out = esc(s);
     out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
     out = out.replace(/!\[([^\]]*)\]\(([^)\s]+?)\)/g, (_m, alt, url) => badUrl(url) ? alt : `<img src="${url}" alt="${alt}" loading="lazy">`);
-    out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) => badUrl(url) ? t : `<a href="${url}">${t}</a>`);
+    out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) => badUrl(url) ? t : `<a href="${url}"${/^https?:/i.test(url) ? ' target="_blank" rel="noopener"' : ""}>${t}</a>`);
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
     out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
@@ -635,6 +700,13 @@
         const n = h[1].length;
         out.push(`<h${n}>${mdInline(h[2])}</h${n}>`);
         i++;
+        continue;
+      }
+      if (/^\s*<[a-zA-Z!/]/.test(line)) {
+        flush();
+        const buf = [];
+        while (i < lines.length && !/^\s*$/.test(lines[i])) buf.push(lines[i++]);
+        out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join("\n"))}</div>`);
         continue;
       }
       if (para.length === 0 && /^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/.test(line)) {
