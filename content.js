@@ -692,6 +692,7 @@
   var deps;
   var overlay;
   var currentEntry = null;
+  var currentText = null;
   var reqSeq = 0;
   var dsvHeader = [];
   var dsvRows = [];
@@ -709,6 +710,10 @@
         <span id="fe-ql-icon"></span>
         <span id="fe-ql-name"></span>
         <span id="fe-ql-meta"></span>
+        <button id="fe-ql-copy" title="Copy full file contents to clipboard" disabled>
+          <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          <span>copy</span>
+        </button>
         <a id="fe-ql-open" title="Open raw file in this tab">open raw \u2197</a>
         <button id="fe-ql-close" title="Close (Esc)">\u2715</button>
       </div>
@@ -717,6 +722,25 @@
     document.getElementById("fe").appendChild(overlay);
     document.getElementById("fe-ql-close").addEventListener("click", closePreview);
     document.getElementById("fe-ql-bg").addEventListener("click", closePreview);
+    const copyBtn = document.getElementById("fe-ql-copy");
+    copyBtn.addEventListener("click", () => {
+      if (currentText === null) return;
+      const flash = (ok) => {
+        copyBtn.querySelector("span").textContent = ok ? "\u2713 copied" : "failed";
+        setTimeout(() => {
+          copyBtn.querySelector("span").textContent = "copy";
+        }, 1400);
+      };
+      navigator.clipboard.writeText(currentText).then(() => flash(true)).catch(() => {
+        const ta = document.createElement("textarea");
+        ta.value = currentText;
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        ta.remove();
+        flash(ok);
+      });
+    });
     document.getElementById("fe-ql-body").addEventListener("click", (e) => {
       const th = e.target.closest(".fe-ql-table th");
       if (!th || !dsvHeader.length) return;
@@ -732,6 +756,7 @@
   function closePreview() {
     overlay.style.display = "none";
     currentEntry = null;
+    currentText = null;
     dsvHeader = [];
     dsvRows = [];
     dsvSort = null;
@@ -751,10 +776,15 @@
     dsvHeader = [];
     dsvRows = [];
     dsvSort = null;
+    currentText = null;
+    const copyBtn = document.getElementById("fe-ql-copy");
+    copyBtn.disabled = true;
     if (IMG_EXTS.has(ext)) {
+      copyBtn.style.display = "none";
       body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"></div>`;
       return;
     }
+    copyBtn.style.display = "";
     if (e.rawBytes > FETCH_WARN_BYTES) {
       body.innerHTML = `
       <div class="fe-ql-center">
@@ -770,7 +800,10 @@
     const body = document.getElementById("fe-ql-body");
     body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Loading\u2026</div></div>`;
     fetchFileText(e.href).then((text) => {
-      if (seq === reqSeq) render(text, ext);
+      if (seq !== reqSeq) return;
+      currentText = text;
+      document.getElementById("fe-ql-copy").disabled = false;
+      render(text, ext);
     }).catch((err) => {
       if (seq !== reqSeq) return;
       console.error("[BFB] preview failed:", e.href, err);
@@ -1594,6 +1627,10 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-ql-meta{font-size:11px;color:var(--dm);flex:1;white-space:nowrap}
 #fe-ql-open{font-size:11px;color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
 #fe-ql-open:hover{border-color:var(--ac)}
+#fe-ql-copy{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mt);background:none;
+  cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap;line-height:1.4}
+#fe-ql-copy:hover:not(:disabled){border-color:var(--ac);color:var(--ac)}
+#fe-ql-copy:disabled{opacity:.45;cursor:default}
 #fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:13px;padding:3px 7px;border-radius:4px;line-height:1}
 #fe-ql-close:hover{background:var(--hover);color:var(--tx)}
 #fe-ql-body{flex:1;overflow:auto;font-size:12px}

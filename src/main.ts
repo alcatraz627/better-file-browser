@@ -658,6 +658,10 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-ql-meta{font-size:11px;color:var(--dm);flex:1;white-space:nowrap}
 #fe-ql-open{font-size:11px;color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
 #fe-ql-open:hover{border-color:var(--ac)}
+#fe-ql-copy{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mt);background:none;
+  cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap;line-height:1.4}
+#fe-ql-copy:hover:not(:disabled){border-color:var(--ac);color:var(--ac)}
+#fe-ql-copy:disabled{opacity:.45;cursor:default}
 #fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:13px;padding:3px 7px;border-radius:4px;line-height:1}
 #fe-ql-close:hover{background:var(--hover);color:var(--tx)}
 #fe-ql-body{flex:1;overflow:auto;font-size:12px}
