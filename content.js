@@ -856,20 +856,17 @@
       return null;
     }
   }
-  var availCache = null;
   function llmAvailability() {
-    if (availCache && Date.now() - availCache.at < 3e4) return Promise.resolve(availCache.res);
     return new Promise((resolve) => {
       let done = false;
       const settle = (res) => {
         if (done) return;
         done = true;
-        availCache = { at: Date.now(), res };
         resolve(res);
       };
       const port = openProxyPort();
       if (!port) {
-        settle({ kind: "unavailable" });
+        settle({ kind: "unavailable", reason: "extension messaging unavailable" });
         return;
       }
       const timer = setTimeout(() => {
@@ -877,7 +874,7 @@
           port.disconnect();
         } catch {
         }
-        settle({ kind: "unavailable" });
+        settle({ kind: "unavailable", reason: "status check timed out" });
       }, 5e3);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "status" && msg?.t !== "error" && msg?.t !== "native-gone") return;
@@ -889,15 +886,14 @@
         if (msg.t === "status" && msg.data?.server === "up") {
           settle({ kind: "ready", cold: msg.data.latency_class !== "warm", status: msg.data });
         } else if (msg.t === "status") {
-          settle({ kind: "down" });
+          settle({ kind: "down", status: msg.data });
         } else {
-          settle({ kind: "unavailable" });
+          settle({ kind: "unavailable", reason: msg.message || "lm host not found" });
         }
       });
       port.onDisconnect.addListener(() => {
-        console.info("[BFB] llm status port disconnected:", chrome.runtime.lastError?.message ?? "(no lastError)");
         clearTimeout(timer);
-        settle({ kind: "unavailable" });
+        settle({ kind: "unavailable", reason: chrome.runtime.lastError?.message || "lm host not found" });
       });
       port.postMessage({ op: "status" });
     });
@@ -1710,6 +1706,21 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
 
         <div class="fe-st-section">
           <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Local Model (AI)</span>
+            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">\u21BB Refresh</button>
+          </div>
+          <div id="fe-st-ai-card">
+            <div class="fe-st-ai-head">
+              <span class="fe-st-ai-blink"><span class="dot"></span></span>
+              <span class="fe-st-ai-state">Checking\u2026</span>
+            </div>
+            <div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>
+            <div class="fe-st-ai-hint" id="fe-st-ai-hint"></div>
+          </div>
+        </div>
+
+        <div class="fe-st-section">
+          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
             <span>Custom Icon Rules</span>
             <button id="fe-st-add-rule" class="fe-pbn">+ Add rule</button>
           </div>
@@ -2022,6 +2033,28 @@ td.c-tp{color:var(--dm);font-size:11px}
   padding:3px 5px;font-size:12px;border-radius:3px;line-height:1;transition:color .1s,background .1s;text-align:center}
 .fe-st-rule-del:hover{color:#f85149;background:var(--hover)}
 .fe-st-rules-empty{font-size:12px;color:var(--dm);padding:8px 2px;font-style:italic}
+#fe-st-ai-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:11px 13px}
+.fe-st-ai-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.fe-st-ai-blink{position:relative;display:inline-flex;width:9px;height:9px;flex-shrink:0}
+.fe-st-ai-blink .dot{width:9px;height:9px;border-radius:50%;background:var(--dm);z-index:1}
+.fe-st-ai-blink::after{content:'';position:absolute;inset:0;border-radius:50%;background:inherit}
+.fe-st-ai-head.ready .dot{background:var(--green)}
+.fe-st-ai-head.cold .dot{background:var(--gold)}
+.fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:#f85149}
+/* Pulsing halo only when the model is actually resident (ready). */
+.fe-st-ai-head.ready .fe-st-ai-blink::after{background:var(--green);animation:fe-blink 1.6s ease-out infinite}
+.fe-st-ai-head.cold .fe-st-ai-blink::after{background:var(--gold);animation:fe-blink 2.4s ease-out infinite}
+@keyframes fe-blink{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
+.fe-st-ai-state{font-size:12.5px;font-weight:600;color:var(--tx)}
+.fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:11.5px}
+.fe-st-ai-grid .k{color:var(--dm)}
+.fe-st-ai-grid .v{color:var(--tx);font-family:'SF Mono',Menlo,Consolas,monospace;font-size:11px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-st-ai-grid .v.warm-yes{color:var(--green)}
+.fe-st-ai-grid .v.warm-no{color:var(--gold)}
+.fe-st-ai-hint{font-size:11px;color:var(--dm);margin-top:8px;line-height:1.5}
+.fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 4px;
+  font-family:'SF Mono',Menlo,Consolas,monospace;font-size:10.5px;color:var(--mt)}
 .fe-row.selected td{background:var(--act)}
 .fe-row.selected .fe-nm{color:var(--ac)}
 .fe-tile.selected{background:var(--act);border-color:var(--ac)}
@@ -2644,11 +2677,51 @@ td.c-tp{color:var(--dm);font-size:11px}
       document.getElementById("fe-st-term-custom").value = settings.terminalCmd || "";
       updateTermHint();
       renderRulesList();
+      refreshAiStatus();
       settingsModal.style.display = "flex";
     }
     function closeSettings() {
       settingsModal.style.display = "none";
     }
+    function refreshAiStatus() {
+      const head = document.querySelector(".fe-st-ai-head");
+      const state = document.querySelector(".fe-st-ai-state");
+      const grid = document.getElementById("fe-st-ai-grid");
+      const hint = document.getElementById("fe-st-ai-hint");
+      head.className = "fe-st-ai-head";
+      state.textContent = "Checking\u2026";
+      grid.innerHTML = "";
+      hint.innerHTML = "";
+      const row = (k, v, cls = "") => `<span class="k">${esc(k)}</span><span class="v ${cls}">${esc(v)}</span>`;
+      llmAvailability().then((av) => {
+        if (av.kind === "unavailable") {
+          head.classList.add("off");
+          state.textContent = "Not installed";
+          hint.innerHTML = `The native host isn't registered (${esc(av.reason)}). Install it once: run <code>native/install.sh &lt;extension-id&gt;</code> and reload the extension.`;
+          return;
+        }
+        const s = av.status;
+        const cls = av.kind === "down" ? "down" : av.cold ? "cold" : "ready";
+        head.classList.add(cls);
+        state.textContent = av.kind === "down" ? "Server down" : av.cold ? "Ready (cold \u2014 first reply loads the model)" : "Ready & warm";
+        grid.innerHTML = [
+          row("Default model", s.default_model || "\u2014"),
+          row("Warm", s.warm ? "yes \u2014 model resident" : "no \u2014 loads on first use", s.warm ? "warm-yes" : "warm-no"),
+          row("Latency", s.latency_class),
+          row("Server", `${s.server}${s.host ? "  " + s.host : ""}`),
+          s.available_models?.length ? row("Models", `${s.available_models.length} on disk`) : "",
+          s.toolkit_version ? row("Toolkit", `lm ${s.toolkit_version}`) : ""
+        ].join("");
+        if (av.kind === "down") {
+          hint.innerHTML = `Ollama isn't responding. Start it, then Refresh.`;
+        } else if (av.cold) {
+          hint.innerHTML = `Run <code>lm warm on</code> in a terminal to keep the model resident for instant replies, then Refresh.`;
+        } else {
+          hint.innerHTML = `Model is resident \u2014 replies are near-instant. <code>lm warm off</code> frees the memory.`;
+        }
+      });
+    }
+    document.getElementById("fe-st-ai-refresh").addEventListener("click", refreshAiStatus);
     document.getElementById("fe-settings-btn").addEventListener("click", openSettings);
     document.getElementById("fe-settings-close").addEventListener("click", closeSettings);
     document.getElementById("fe-settings-bg").addEventListener("click", closeSettings);

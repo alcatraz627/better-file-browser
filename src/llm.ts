@@ -11,32 +11,36 @@ function openProxyPort(): chrome.runtime.Port | null {
 export interface LlmStatus {
   api_version:     number;
   server:          'up' | 'down';
+  host?:           string;
   default_model:   string;
   warm:            boolean;
   latency_class:   'warm' | 'cold' | 'down';
+  resident_models?:  string[];
   available_models?: string[];
+  toolkit_version?:  string;
 }
 
 export type LlmAvailability =
   | { kind: 'ready'; cold: boolean; status: LlmStatus }
-  | { kind: 'down' }            // lm + host fine, model server down
-  | { kind: 'unavailable' };    // host not registered or lm CLI missing
+  | { kind: 'down'; status: LlmStatus }   // lm + host fine, model server down
+  | { kind: 'unavailable'; reason: string };  // host not registered or lm CLI missing
 
-let availCache: { at: number; res: LlmAvailability } | null = null;
-
+// No caching: `lm status --json` returns in ~40ms, and a stale cache would
+// show "cold" after the user runs `lm warm on`. Always ask fresh.
 export function llmAvailability(): Promise<LlmAvailability> {
-  if (availCache && Date.now() - availCache.at < 30_000) return Promise.resolve(availCache.res);
   return new Promise(resolve => {
     let done = false;
     const settle = (res: LlmAvailability) => {
       if (done) return;
       done = true;
-      availCache = { at: Date.now(), res };
       resolve(res);
     };
     const port = openProxyPort();
-    if (!port) { settle({ kind: 'unavailable' }); return; }
-    const timer = setTimeout(() => { try { port.disconnect(); } catch { /* gone */ } settle({ kind: 'unavailable' }); }, 5000);
+    if (!port) { settle({ kind: 'unavailable', reason: 'extension messaging unavailable' }); return; }
+    const timer = setTimeout(() => {
+      try { port.disconnect(); } catch { /* gone */ }
+      settle({ kind: 'unavailable', reason: 'status check timed out' });
+    }, 5000);
     port.onMessage.addListener(msg => {
       if (msg?.t !== 'status' && msg?.t !== 'error' && msg?.t !== 'native-gone') return;
       clearTimeout(timer);
@@ -44,15 +48,14 @@ export function llmAvailability(): Promise<LlmAvailability> {
       if (msg.t === 'status' && msg.data?.server === 'up') {
         settle({ kind: 'ready', cold: msg.data.latency_class !== 'warm', status: msg.data });
       } else if (msg.t === 'status') {
-        settle({ kind: 'down' });
+        settle({ kind: 'down', status: msg.data });
       } else {
-        settle({ kind: 'unavailable' });   // host missing, lm missing, or host error
+        settle({ kind: 'unavailable', reason: msg.message || 'lm host not found' });
       }
     });
     port.onDisconnect.addListener(() => {
-      console.info('[BFB] llm status port disconnected:', chrome.runtime.lastError?.message ?? '(no lastError)');
       clearTimeout(timer);
-      settle({ kind: 'unavailable' });
+      settle({ kind: 'unavailable', reason: chrome.runtime.lastError?.message || 'lm host not found' });
     });
     port.postMessage({ op: 'status' });
   });
