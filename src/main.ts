@@ -43,7 +43,7 @@ import { getIcon } from './icons';
     ALL_ENTRIES.unshift({
       name: '..',
       href: 'file:///' + parentSegs.map(encodeURIComponent).join('/') + (parentSegs.length ? '/' : ''),
-      isDir: true, isParent: true, isHidden: false, rawBytes: -1, dateStr: '',
+      isDir: true, isParent: true, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: '',
     });
   }
 

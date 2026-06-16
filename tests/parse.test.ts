@@ -22,6 +22,7 @@ describe('parseAddRows', () => {
     expect(file.isDir).toBe(false);
     expect(file.href).toBe('file:///tmp/bfb-fixtures/data.tsv');
     expect(file.rawBytes).toBe(67);
+    expect(file.dateMs).toBe(1781262723 * 1000);   // epoch (a[5]), not the DD/MM string
     expect(file.dateStr).toBe('12/06/2026, 16:42:03');
   });
 

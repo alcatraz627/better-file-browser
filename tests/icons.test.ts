@@ -3,11 +3,11 @@ import { getIcon, IMG_EXTS } from '../src/icons';
 import type { Entry, IconRule } from '../src/types';
 
 const file = (name: string): Entry =>
-  ({ name, href: name, isDir: false, isParent: false, isHidden: false, rawBytes: 0, dateStr: '' });
+  ({ name, href: name, isDir: false, isParent: false, isHidden: false, rawBytes: 0, dateMs: NaN, dateStr: '' });
 const dir = (name: string): Entry =>
-  ({ name, href: name + '/', isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateStr: '' });
+  ({ name, href: name + '/', isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: '' });
 const parent = (): Entry =>
-  ({ name: '..', href: '../', isDir: false, isParent: true, isHidden: false, rawBytes: -1, dateStr: '' });
+  ({ name: '..', href: '../', isDir: false, isParent: true, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: '' });
 
 const rules: IconRule[] = [
   { id: 'r1', pattern: '\\.md$', label: 'MD', color: '#4a9eff', enabled: true },

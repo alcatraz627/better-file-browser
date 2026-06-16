@@ -5,7 +5,8 @@ export interface Entry {
   isParent: boolean;
   isHidden: boolean;
   rawBytes: number;
-  dateStr:  string;
+  dateMs:   number;   // epoch ms from the listing's data-value; NaN if unknown
+  dateStr:  string;   // raw listing text, display fallback only
 }
 
 export interface Bookmark {

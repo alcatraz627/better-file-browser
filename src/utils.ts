@@ -16,10 +16,18 @@ export function fmtSize(b: number): string {
   return (b / 1073741824).toFixed(2) + ' GB';
 }
 
-export function fmtDate(s: string, settings?: Pick<Settings, 'dateFormat'>): string {
-  if (!s) return '—';
-  const d = new Date(s);
-  if (isNaN(d.getTime())) return s;
+// Format a modified-date for display. Prefers the unambiguous epoch (dateMs);
+// the raw listing string is a last-resort fallback only, because Chrome renders
+// it locale-formatted (e.g. "12/06/2026") which new Date() misreads as MM/DD.
+export function fmtDate(dateMs: number, settings?: Pick<Settings, 'dateFormat'>, rawFallback = ''): string {
+  let d: Date | null = null;
+  if (Number.isFinite(dateMs)) {
+    d = new Date(dateMs);
+  } else if (rawFallback) {
+    const p = new Date(rawFallback);
+    if (!isNaN(p.getTime())) d = p;
+  }
+  if (!d || isNaN(d.getTime())) return rawFallback || '—';
   const fmt = settings?.dateFormat ?? 'short';
   return d.toLocaleDateString('en-US',
     fmt === 'full'

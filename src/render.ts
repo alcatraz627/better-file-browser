@@ -16,7 +16,7 @@ export function buildTipData(e: Entry, ctx: RenderContext): string {
   const fullPath = ctx.rawPath.replace(/\/$/, '') + '/' + e.name + (e.isDir ? '/' : '');
   const lines = [`Path: ${fullPath}`, `Type: ${fmtType(e)}`];
   if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
-  lines.push(`Modified: ${fmtDate(e.dateStr, ctx.settings)}`);
+  lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
   if (e.isHidden) lines.push('Hidden file (dotfile)');
   if (IMG_EXTS.has(getExt(e))) lines.push('Image — dimensions require native host');
   const tip: TipData = {
@@ -56,7 +56,7 @@ export function renderRow(e: Entry, ctx: RenderContext, idx = -1): string {
     <td class="c-nm"><a href="${e.href}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-sz">${e.isDir ? '—' : fmtSize(e.rawBytes)}</td>
-    <td class="c-dt">${fmtDate(e.dateStr, ctx.settings)}</td>
+    <td class="c-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</td>
   </tr>`;
 }
 

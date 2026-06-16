@@ -12,12 +12,14 @@
       const rawName = link.textContent.trim();
       const href = link.getAttribute("href");
       const rawBytes = parseInt(cells[1]?.getAttribute("data-value") ?? cells[1]?.textContent ?? "-1");
+      const epoch = parseInt(cells[2]?.getAttribute("data-value") ?? "");
+      const dateMs = Number.isFinite(epoch) ? epoch * 1e3 : NaN;
       const dateStr = cells[2]?.textContent?.trim() ?? "";
       const isParent = href === "../";
       const isDir = !isParent && (href?.endsWith("/") ?? false);
       const name = isParent ? ".." : isDir ? rawName.replace(/\/$/, "") : rawName;
       const isHidden = !isParent && name.startsWith(".");
-      return [{ name, href, isDir, isParent, isHidden, rawBytes, dateStr }];
+      return [{ name, href, isDir, isParent, isHidden, rawBytes, dateMs, dateStr }];
     });
   }
   function parseListing(html, baseUrl) {
@@ -34,6 +36,7 @@
         const name = String(a[0]), url = String(a[1]);
         if (name === "." || name === "..") continue;
         const isDir = !!a[2];
+        const epoch = typeof a[5] === "number" ? a[5] : NaN;
         out.push({
           name,
           href: new URL(url + (isDir ? "/" : ""), baseUrl).href,
@@ -41,6 +44,7 @@
           isParent: false,
           isHidden: name.startsWith("."),
           rawBytes: typeof a[3] === "number" ? a[3] : -1,
+          dateMs: Number.isFinite(epoch) ? epoch * 1e3 : NaN,
           dateStr: typeof a[6] === "string" ? a[6] : ""
         });
       } catch {
@@ -63,7 +67,7 @@
       const isDir = rel?.endsWith("/") ?? false;
       const name = isDir ? rawName.replace(/\/$/, "") : rawName;
       const isHidden = name.startsWith(".");
-      return [{ name, href, isDir, isParent: false, isHidden, rawBytes: -1, dateStr: "" }];
+      return [{ name, href, isDir, isParent: false, isHidden, rawBytes: -1, dateMs: NaN, dateStr: "" }];
     });
   }
 
@@ -78,10 +82,15 @@
     if (b < 1073741824) return (b / 1048576).toFixed(1) + " MB";
     return (b / 1073741824).toFixed(2) + " GB";
   }
-  function fmtDate(s, settings) {
-    if (!s) return "\u2014";
-    const d = new Date(s);
-    if (isNaN(d.getTime())) return s;
+  function fmtDate(dateMs, settings, rawFallback = "") {
+    let d = null;
+    if (Number.isFinite(dateMs)) {
+      d = new Date(dateMs);
+    } else if (rawFallback) {
+      const p = new Date(rawFallback);
+      if (!isNaN(p.getTime())) d = p;
+    }
+    if (!d || isNaN(d.getTime())) return rawFallback || "\u2014";
     const fmt = settings?.dateFormat ?? "short";
     return d.toLocaleDateString(
       "en-US",
@@ -1255,8 +1264,8 @@
         va = a.rawBytes;
         vb = b.rawBytes;
       } else if (config.col === "date") {
-        va = a.dateStr;
-        vb = b.dateStr;
+        va = Number.isFinite(a.dateMs) ? a.dateMs : 0;
+        vb = Number.isFinite(b.dateMs) ? b.dateMs : 0;
       } else if (config.col === "type") {
         va = fmtType(a);
         vb = fmtType(b);
@@ -1314,7 +1323,7 @@
     const fullPath = ctx.rawPath.replace(/\/$/, "") + "/" + e.name + (e.isDir ? "/" : "");
     const lines = [`Path: ${fullPath}`, `Type: ${fmtType(e)}`];
     if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
-    lines.push(`Modified: ${fmtDate(e.dateStr, ctx.settings)}`);
+    lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
     if (e.isHidden) lines.push("Hidden file (dotfile)");
     if (IMG_EXTS.has(getExt(e))) lines.push("Image \u2014 dimensions require native host");
     const tip = {
@@ -1350,7 +1359,7 @@
     <td class="c-nm"><a href="${e.href}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-sz">${e.isDir ? "\u2014" : fmtSize(e.rawBytes)}</td>
-    <td class="c-dt">${fmtDate(e.dateStr, ctx.settings)}</td>
+    <td class="c-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</td>
   </tr>`;
   }
   function renderTile(e, ctx, idx = -1) {
@@ -1415,6 +1424,7 @@
         isParent: true,
         isHidden: false,
         rawBytes: -1,
+        dateMs: NaN,
         dateStr: ""
       });
     }

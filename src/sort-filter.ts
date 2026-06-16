@@ -28,7 +28,7 @@ export function applySort(entries: Entry[], config: SortConfig): Entry[] {
     let va: string | number, vb: string | number;
     if      (config.col === 'name') { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
     else if (config.col === 'size') { va = a.rawBytes; vb = b.rawBytes; }
-    else if (config.col === 'date') { va = a.dateStr;  vb = b.dateStr; }
+    else if (config.col === 'date') { va = Number.isFinite(a.dateMs) ? a.dateMs : 0; vb = Number.isFinite(b.dateMs) ? b.dateMs : 0; }
     else if (config.col === 'type') { va = fmtType(a); vb = fmtType(b); }
     else if (config.col === 'ext')  { va = getExt(a);  vb = getExt(b); }
     else return 0;

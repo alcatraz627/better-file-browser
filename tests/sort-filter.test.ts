@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { applyFilter, applySort, buildGroups } from '../src/sort-filter';
 import type { Entry } from '../src/types';
 
-const file = (name: string, rawBytes = 0, dateStr = '2024-01-01'): Entry =>
-  ({ name, href: name, isDir: false, isParent: false, isHidden: name.startsWith('.'), rawBytes, dateStr });
+const file = (name: string, rawBytes = 0, dateMs = Date.UTC(2024, 0, 1)): Entry =>
+  ({ name, href: name, isDir: false, isParent: false, isHidden: name.startsWith('.'), rawBytes, dateMs, dateStr: '' });
 const dir = (name: string): Entry =>
-  ({ name, href: name + '/', isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateStr: '2024-01-01' });
+  ({ name, href: name + '/', isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: Date.UTC(2024, 0, 1), dateStr: '' });
 
 const ENTRIES: Entry[] = [
   dir('src'),
@@ -77,6 +77,18 @@ describe('applySort', () => {
     const result = applySort(ENTRIES, { col: 'size', dir: 'asc' });
     const sizes = result.map(e => e.rawBytes);
     for (let i = 1; i < sizes.length; i++) expect(sizes[i]).toBeGreaterThanOrEqual(sizes[i - 1]);
+  });
+
+  it('sorts by date chronologically, not lexically (the DD/MM sort bug)', () => {
+    // Jan 9 vs Jan 10: lexical on "01/09" vs "01/10" was fine, but Feb 1 vs
+    // Jan 10 (02/01 vs 01/10) sorted wrong. Numeric epoch fixes it.
+    const items: Entry[] = [
+      file('feb', 0, Date.UTC(2024, 1, 1)),
+      file('jan10', 0, Date.UTC(2024, 0, 10)),
+      file('jan9', 0, Date.UTC(2024, 0, 9)),
+    ];
+    const asc = applySort(items, { col: 'date', dir: 'asc' }).map(e => e.name);
+    expect(asc).toEqual(['jan9', 'jan10', 'feb']);
   });
 
   it('does not mutate original array', () => {

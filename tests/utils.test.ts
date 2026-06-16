@@ -3,9 +3,9 @@ import { esc, fmtSize, fmtDate, fmtType, getExt } from '../src/utils';
 import type { Entry } from '../src/types';
 
 const file = (name: string, rawBytes = 0, dateStr = ''): Entry =>
-  ({ name, href: name, isDir: false, isParent: false, isHidden: false, rawBytes, dateStr });
+  ({ name, href: name, isDir: false, isParent: false, isHidden: false, rawBytes, dateMs: NaN, dateStr });
 const dir = (name: string): Entry =>
-  ({ name, href: name + '/', isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateStr: '' });
+  ({ name, href: name + '/', isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: '' });
 
 describe('esc', () => {
   it('escapes HTML special chars', () => {
@@ -27,14 +27,31 @@ describe('fmtSize', () => {
 });
 
 describe('fmtDate', () => {
-  it('returns dash for empty string', () => { expect(fmtDate('')).toBe('—'); });
-  it('formats a valid date string (short)', () => {
-    const result = fmtDate('2024-06-15 12:00', { dateFormat: 'short' });
-    expect(result).toMatch(/Jun|6\/15|15\/6/);
+  it('returns dash for unknown date (NaN, no fallback)', () => { expect(fmtDate(NaN)).toBe('—'); });
+
+  it('formats an epoch (short)', () => {
+    const result = fmtDate(Date.UTC(2024, 5, 15, 12, 0), { dateFormat: 'short' });
+    expect(result).toMatch(/Jun/);
   });
-  it('formats a valid date string (full)', () => {
-    const result = fmtDate('2024-06-15 12:00', { dateFormat: 'full' });
-    expect(result).toMatch(/2024/);
+  it('formats an epoch (full)', () => {
+    const result = fmtDate(Date.UTC(2024, 5, 15, 12, 0), { dateFormat: 'full' });
+    expect(result).toMatch(/June.*2024/);
+  });
+
+  // Regression: the bug was new Date("12/06/2026,…") parsing DD/MM as MM/DD →
+  // "Dec 6". With the epoch source it must read as June (mid-day UTC → TZ-robust).
+  it('reads a June epoch as June, not December (the DD/MM bug)', () => {
+    const jun12_2026 = 1781270523000; // 2026-06-12 ~18:42 UTC, the fixture mtime class
+    const result = fmtDate(jun12_2026, { dateFormat: 'short' });
+    expect(result).toMatch(/Jun/);
+    expect(result).not.toMatch(/Dec/);
+  });
+
+  it('falls back to a parseable raw string when epoch is unknown', () => {
+    expect(fmtDate(NaN, { dateFormat: 'short' }, '2024-06-15T12:00:00Z')).toMatch(/Jun/);
+  });
+  it('returns the raw string verbatim when it is unparseable', () => {
+    expect(fmtDate(NaN, undefined, 'whenever')).toBe('whenever');
   });
 });
 
