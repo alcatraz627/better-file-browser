@@ -262,6 +262,7 @@
   // src/storage.ts
   var BM_KEY = "bfb-bookmarks-v2";
   var RECENTS_KEY = "bfb-recents-v1";
+  var COL_WIDTHS_KEY = "bfb-col-widths-v1";
   var VIEW_KEY = "bfb-view";
   var THEME_KEY = "bfb-theme";
   var ZOOM_KEY = "bfb-zoom";
@@ -337,6 +338,16 @@
     const list = getRecents().filter((r) => r.path !== path);
     list.unshift({ path, ts: Date.now() });
     localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 8)));
+  }
+  function getColWidths() {
+    try {
+      return JSON.parse(localStorage.getItem(COL_WIDTHS_KEY) ?? "{}");
+    } catch {
+      return {};
+    }
+  }
+  function saveColWidths(w) {
+    localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(w));
   }
   function getView() {
     return localStorage.getItem(VIEW_KEY) ?? "details";
@@ -1639,10 +1650,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         <table id="fe-table">
           <thead>
             <tr>
-              <th class="c-nm" data-sort="name">Name <span class="si">\u2195</span></th>
-              <th class="c-tp">Type</th>
-              <th class="c-sz" data-sort="size">Size <span class="si">\u2195</span></th>
-              <th class="c-dt" data-sort="date">Modified <span class="si">\u2195</span></th>
+              <th class="c-nm" data-ck="nm" data-sort="name">Name <span class="si">\u2195</span><span class="fe-col-rz"></span></th>
+              <th class="c-tp" data-ck="tp">Type<span class="fe-col-rz"></span></th>
+              <th class="c-sz" data-ck="sz" data-sort="size">Size <span class="si">\u2195</span><span class="fe-col-rz"></span></th>
+              <th class="c-dt" data-ck="dt" data-sort="date">Modified <span class="si">\u2195</span></th>
             </tr>
           </thead>
           <tbody id="fe-tbody">${renderRows(ALL_ENTRIES, ctx0)}</tbody>
@@ -1887,8 +1898,11 @@ thead{position:sticky;top:0;z-index:5;background:var(--s2)}
 thead th{padding:6px 12px;text-align:left;font-size:11px;font-weight:600;
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm);
   border-bottom:1px solid var(--bd);user-select:none;white-space:nowrap}
+thead th{position:relative}
 thead th[data-sort]{cursor:pointer}
 thead th[data-sort]:hover{color:var(--tx)}
+.fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;user-select:none}
+.fe-col-rz:hover{background:linear-gradient(90deg,transparent,var(--ac))}
 .si{opacity:.35;font-size:10px}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:46%}.c-tp{width:16%}.c-sz{width:13%;text-align:right}.c-dt{width:25%}
@@ -2259,6 +2273,36 @@ td.c-tp{color:var(--dm);font-size:11px}
         th.classList.add("sorted");
         th.querySelector(".si").textContent = sortConfig.dir === "asc" ? "\u2191" : "\u2193";
         applyAll();
+      });
+    });
+    function applyColWidths() {
+      const w = getColWidths();
+      document.querySelectorAll("thead th[data-ck]").forEach((th) => {
+        const px = w[th.dataset.ck];
+        if (px) th.style.width = px + "px";
+      });
+    }
+    applyColWidths();
+    document.querySelectorAll(".fe-col-rz").forEach((handle) => {
+      handle.addEventListener("click", (e) => e.stopPropagation());
+      handle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const th = handle.closest("th");
+        const key = th.dataset.ck;
+        const startX = e.clientX, startW = th.offsetWidth;
+        const onMove = (ev) => {
+          th.style.width = Math.max(48, startW + ev.clientX - startX) + "px";
+        };
+        const onUp = (ev) => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+          const all = getColWidths();
+          all[key] = Math.max(48, startW + ev.clientX - startX);
+          saveColWidths(all);
+        };
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
       });
     });
     const sgPanel = document.getElementById("fe-sg-panel");

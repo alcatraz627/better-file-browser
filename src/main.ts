@@ -8,7 +8,7 @@ import {
   ICON_RULES_KEY, SETTINGS_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES,
   getBM, saveBM, toggleBM, getView, getTheme, getZoom, getShowHidden,
   getIconRules, saveIconRules, getSettings, saveSettings,
-  getRecents, pushRecent,
+  getRecents, pushRecent, getColWidths, saveColWidths,
 } from './storage';
 import {
   initPreview, openPreview, closePreview, isPreviewOpen, canPreview,
@@ -273,10 +273,10 @@ import { getIcon } from './icons';
         <table id="fe-table">
           <thead>
             <tr>
-              <th class="c-nm" data-sort="name">Name <span class="si">↕</span></th>
-              <th class="c-tp">Type</th>
-              <th class="c-sz" data-sort="size">Size <span class="si">↕</span></th>
-              <th class="c-dt" data-sort="date">Modified <span class="si">↕</span></th>
+              <th class="c-nm" data-ck="nm" data-sort="name">Name <span class="si">↕</span><span class="fe-col-rz"></span></th>
+              <th class="c-tp" data-ck="tp">Type<span class="fe-col-rz"></span></th>
+              <th class="c-sz" data-ck="sz" data-sort="size">Size <span class="si">↕</span><span class="fe-col-rz"></span></th>
+              <th class="c-dt" data-ck="dt" data-sort="date">Modified <span class="si">↕</span></th>
             </tr>
           </thead>
           <tbody id="fe-tbody">${renderRows(ALL_ENTRIES, ctx0)}</tbody>
@@ -523,8 +523,11 @@ thead{position:sticky;top:0;z-index:5;background:var(--s2)}
 thead th{padding:6px 12px;text-align:left;font-size:11px;font-weight:600;
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm);
   border-bottom:1px solid var(--bd);user-select:none;white-space:nowrap}
+thead th{position:relative}
 thead th[data-sort]{cursor:pointer}
 thead th[data-sort]:hover{color:var(--tx)}
+.fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;user-select:none}
+.fe-col-rz:hover{background:linear-gradient(90deg,transparent,var(--ac))}
 .si{opacity:.35;font-size:10px}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:46%}.c-tp{width:16%}.c-sz{width:13%;text-align:right}.c-dt{width:25%}
@@ -908,6 +911,36 @@ td.c-tp{color:var(--dm);font-size:11px}
       th.classList.add('sorted');
       th.querySelector('.si')!.textContent = sortConfig.dir === 'asc' ? '↑' : '↓';
       applyAll();
+    });
+  });
+
+  // ── Column resize (drag handles on Details headers) ───────────────
+  function applyColWidths(): void {
+    const w = getColWidths();
+    document.querySelectorAll<HTMLElement>('thead th[data-ck]').forEach(th => {
+      const px = w[th.dataset.ck!];
+      if (px) th.style.width = px + 'px';
+    });
+  }
+  applyColWidths();
+  document.querySelectorAll<HTMLElement>('.fe-col-rz').forEach(handle => {
+    // Stop the click reaching the th's sort handler when the grip is used.
+    handle.addEventListener('click', e => e.stopPropagation());
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const th = handle.closest<HTMLElement>('th')!;
+      const key = th.dataset.ck!;
+      const startX = e.clientX, startW = th.offsetWidth;
+      const onMove = (ev: MouseEvent) => { th.style.width = Math.max(48, startW + ev.clientX - startX) + 'px'; };
+      const onUp = (ev: MouseEvent) => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        const all = getColWidths();
+        all[key] = Math.max(48, startW + ev.clientX - startX);
+        saveColWidths(all);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     });
   });
 

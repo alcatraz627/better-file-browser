@@ -2,6 +2,7 @@ import type { Bookmark, IconRule, RecentDir, Settings } from './types';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
 export const RECENTS_KEY   = 'bfb-recents-v1';
+export const COL_WIDTHS_KEY = 'bfb-col-widths-v1';
 export const VIEW_KEY      = 'bfb-view';
 export const THEME_KEY     = 'bfb-theme';
 export const ZOOM_KEY      = 'bfb-zoom';
@@ -73,6 +74,14 @@ export function pushRecent(path: string): void {
   const list = getRecents().filter(r => r.path !== path);
   list.unshift({ path, ts: Date.now() });
   localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 8)));
+}
+
+export function getColWidths(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(COL_WIDTHS_KEY) ?? '{}'); }
+  catch { return {}; }
+}
+export function saveColWidths(w: Record<string, number>): void {
+  localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(w));
 }
 
 export function getView():       string  { return localStorage.getItem(VIEW_KEY)   ?? 'details'; }
