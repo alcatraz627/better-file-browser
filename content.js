@@ -461,21 +461,86 @@
     }
     return probe.length > 0 && weird / probe.length > 0.1;
   }
+  var sp = (s) => s.split(" ");
+  function wordClasses(lang) {
+    const m = /* @__PURE__ */ new Map();
+    for (const w of lang.kw) m.set(w, "tok-kw");
+    const c = lang.kwCats;
+    if (c) {
+      for (const w of c.ctrl ?? []) m.set(w, "tok-kw-ctrl");
+      for (const w of c.type ?? []) m.set(w, "tok-type");
+      for (const w of c.builtin ?? []) m.set(w, "tok-builtin");
+      for (const w of c.lit ?? []) m.set(w, "tok-lit");
+    }
+    return m;
+  }
   var KW_SH = "if then elif else fi for while until do done case esac in function select local export readonly declare unset return exit break continue shift eval exec source alias trap set echo printf read cd test true false";
   var KW_JS = "const let var function return if else for while do switch case break continue new class extends super this typeof instanceof in of import export from default async await yield try catch finally throw delete void null undefined true false interface type enum implements private public protected readonly static namespace declare as is keyof never unknown any string number boolean object symbol";
   var KW_PY = "def class return if elif else for while break continue pass import from as with lambda try except finally raise yield global nonlocal assert del in is not and or None True False async await match self";
   var KW_SQL = "select from where insert into update delete join left right inner outer on group by order having limit offset create table drop alter index view as and or not null primary key foreign references distinct union all values set";
   var KW_GO = "func package import return if else for range switch case break continue defer go chan select map struct interface type var const nil true false make new len cap append";
   var KW_RS = "fn let mut pub use mod struct enum impl trait return if else for while loop match break continue ref self Self crate super move async await dyn where unsafe true false Some None Ok Err";
+  var CATS_JS = {
+    ctrl: sp("return if else for while do switch case break continue new throw try catch finally yield await delete in of"),
+    type: sp("interface type enum implements string number boolean object symbol any unknown never void keyof readonly as is namespace"),
+    builtin: sp("this super console"),
+    lit: sp("true false null undefined")
+  };
+  var CATS_PY = {
+    ctrl: sp("return if elif else for while break continue pass raise yield try except finally with assert del in is not and or match async await"),
+    builtin: sp("self print len range"),
+    lit: sp("None True False")
+  };
+  var CATS_GO = {
+    ctrl: sp("return if else for range switch case break continue defer go select"),
+    type: sp("chan map struct interface type"),
+    builtin: sp("make new len cap append"),
+    lit: sp("nil true false")
+  };
+  var CATS_RS = {
+    ctrl: sp("return if else for while loop match break continue move async await unsafe where"),
+    type: sp("struct enum impl trait mod dyn"),
+    lit: sp("true false Some None Ok Err self Self")
+  };
+  var CATS_SQL = {
+    ctrl: sp("select from where insert into update delete join on group by order having limit union"),
+    type: sp("table view index"),
+    lit: sp("null true false")
+  };
   var LANGS = {
-    shell: { line: ["#"], strings: [`"`, `'`], vars: true, kw: KW_SH.split(" ") },
-    js: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`, "`"], tickML: true, kw: KW_JS.split(" ") },
-    py: { line: ["#"], strings: [`"`, `'`], kw: KW_PY.split(" ") },
-    go: { line: ["//"], block: ["/*", "*/"], strings: [`"`, "`"], tickML: true, kw: KW_GO.split(" ") },
-    rs: { line: ["//"], block: ["/*", "*/"], strings: [`"`], kw: KW_RS.split(" ") },
-    sql: { line: ["--"], block: ["/*", "*/"], strings: [`'`, `"`], kw: KW_SQL.split(" ") },
+    shell: {
+      line: ["#"],
+      strings: [`"`, `'`],
+      vars: true,
+      kw: KW_SH.split(" "),
+      kwCats: { ctrl: sp("if then elif else fi for while until do done case esac return exit break continue"), builtin: sp("echo printf read cd test eval exec source"), lit: sp("true false") }
+    },
+    js: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`, "`"], tickML: true, deco: true, kw: KW_JS.split(" "), kwCats: CATS_JS },
+    py: {
+      line: ["#"],
+      strings: [],
+      deco: true,
+      kw: KW_PY.split(" "),
+      kwCats: CATS_PY,
+      strRules: [
+        '[rbfuRBFU]{0,2}"""[\\s\\S]*?"""',
+        "[rbfuRBFU]{0,2}'''[\\s\\S]*?'''",
+        '[rbfuRBFU]{0,2}"(?:\\\\.|[^"\\\\\\n])*"',
+        "[rbfuRBFU]{0,2}'(?:\\\\.|[^'\\\\\\n])*'"
+      ]
+    },
+    go: { line: ["//"], block: ["/*", "*/"], strings: [`"`, "`"], tickML: true, kw: KW_GO.split(" "), kwCats: CATS_GO },
+    rs: {
+      line: ["//"],
+      block: ["/*", "*/"],
+      strings: [],
+      kw: KW_RS.split(" "),
+      kwCats: CATS_RS,
+      strRules: ['r#+"[\\s\\S]*?"#+', 'r"[^"\\n]*"', 'b?"(?:\\\\.|[^"\\\\\\n])*"']
+    },
+    sql: { line: ["--"], block: ["/*", "*/"], strings: [`'`, `"`], kw: KW_SQL.split(" "), kwCats: CATS_SQL },
     cfg: { line: ["#", ";"], strings: [`"`, `'`], vars: true, kw: [] },
-    cstyle: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`], kw: KW_JS.split(" ") },
+    cstyle: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`], deco: true, kw: KW_JS.split(" "), kwCats: CATS_JS },
     css: { block: ["/*", "*/"], strings: [`"`, `'`], kw: [] },
     plain: { strings: [], kw: [] }
   };
@@ -519,29 +584,45 @@
   function reEsc(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  function buildTokenRe(lang) {
-    const parts = [];
-    if (lang.block) parts.push(`(?<cmt>${reEsc(lang.block[0])}[\\s\\S]*?(?:${reEsc(lang.block[1])}|$))`);
+  function buildRules(lang) {
+    const rules = [];
+    if (lang.block) rules.push({ kind: "cmt", pattern: `${reEsc(lang.block[0])}[\\s\\S]*?(?:${reEsc(lang.block[1])}|$)` });
     if (lang.line?.length) {
       const starters = lang.line.map(reEsc).join("|");
-      parts.push(lang.block ? `(?<lcmt>(?:${starters})[^\\n]*)` : `(?<cmt>(?:${starters})[^\\n]*)`);
+      rules.push({ kind: "cmt", pattern: `(?:${starters})[^\\n]*` });
     }
-    for (let i = 0; i < (lang.strings?.length ?? 0); i++) {
-      const q = lang.strings[i];
+    for (const p of lang.strRules ?? []) rules.push({ kind: "str", pattern: p });
+    for (const q of lang.strings ?? []) {
       const body = q === "`" && lang.tickML ? "(?:\\\\.|[^`\\\\])*(?:`|$)" : `(?:\\\\.|[^${reEsc(q)}\\\\\\n])*(?:${reEsc(q)}|\\n|$)`;
-      parts.push(`(?<str${i}>${reEsc(q)}${body})`);
+      rules.push({ kind: "str", pattern: `${reEsc(q)}${body}` });
     }
-    if (lang.vars) parts.push("(?<v>\\$\\{[^}\\n]*\\}?|\\$[\\w@#?!*-]+)");
-    parts.push("(?<num>\\b(?:0[xX][0-9a-fA-F]+|\\d+(?:\\.\\d+)?)\\b)");
-    parts.push("(?<word>[A-Za-z_$][\\w$]*)");
-    return new RegExp(parts.join("|"), "g");
+    if (lang.vars) rules.push({ kind: "var", pattern: "\\$\\{[^}\\n]*\\}?|\\$[\\w@#?!*-]+" });
+    if (lang.deco) rules.push({ kind: "deco", pattern: "@[A-Za-z_][\\w.]*" });
+    rules.push({ kind: "num", pattern: "\\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:[eE][+-]?\\d+)?)\\b" });
+    rules.push({ kind: "word", pattern: "[A-Za-z_$][\\w$]*" });
+    return rules;
   }
+  function compile(rules) {
+    const kinds = [];
+    const parts = rules.map((r, i) => {
+      kinds[i] = r.kind;
+      return `(?<g${i}>${r.pattern})`;
+    });
+    return { re: new RegExp(parts.join("|"), "g"), kinds };
+  }
+  var KIND_CLASS = {
+    cmt: "tok-cmt",
+    str: "tok-str",
+    var: "tok-var",
+    num: "tok-num",
+    deco: "tok-deco"
+  };
   function highlightCode(src, ext) {
     const langKey = EXT_LANG[ext.toLowerCase()] ?? "plain";
     const lang = LANGS[langKey];
     if (langKey === "plain") return esc(src);
-    const kw = new Set(lang.kw);
-    const re = buildTokenRe(lang);
+    const wmap = wordClasses(lang);
+    const { re, kinds } = compile(buildRules(lang));
     let out = "";
     let last = 0;
     let m;
@@ -549,12 +630,17 @@
       out += esc(src.slice(last, m.index));
       last = m.index + m[0].length;
       const g = m.groups ?? {};
+      let kind;
+      for (let i = 0; i < kinds.length; i++) if (g[`g${i}`] !== void 0) {
+        kind = kinds[i];
+        break;
+      }
       const text = esc(m[0]);
-      if (g.cmt !== void 0 || g.lcmt !== void 0) out += `<span class="tok-cmt">${text}</span>`;
-      else if (g.v !== void 0) out += `<span class="tok-var">${text}</span>`;
-      else if (g.num !== void 0) out += `<span class="tok-num">${text}</span>`;
-      else if (g.word !== void 0) out += kw.has(m[0]) ? `<span class="tok-kw">${text}</span>` : text;
-      else out += `<span class="tok-str">${text}</span>`;
+      if (kind === "word") {
+        const cls = wmap.get(m[0]);
+        out += cls ? `<span class="${cls}">${text}</span>` : text;
+      } else if (kind) out += `<span class="${KIND_CLASS[kind]}">${text}</span>`;
+      else out += text;
       if (m[0].length === 0) re.lastIndex++;
     }
     out += esc(src.slice(last));
@@ -2237,12 +2323,21 @@ td.c-tp{color:var(--dm);font-size:11px}
 .tok-cmt{color:var(--mt);font-style:italic}
 .tok-str{color:#7ee787}
 .tok-kw{color:#ff7b72}
+.tok-kw-ctrl{color:#ff7b72}
+.tok-type{color:#56d4dd}
+.tok-builtin{color:#ffa657}
+.tok-lit{color:#a5d6ff}
 .tok-num{color:#79c0ff}
 .tok-var{color:#d2a8ff}
+.tok-deco{color:#e2b340}
 #fe[data-theme="light"] .tok-str{color:#0a7d33}
-#fe[data-theme="light"] .tok-kw{color:#cf222e}
+#fe[data-theme="light"] .tok-kw,#fe[data-theme="light"] .tok-kw-ctrl{color:#cf222e}
+#fe[data-theme="light"] .tok-type{color:#1b7c83}
+#fe[data-theme="light"] .tok-builtin{color:#953800}
+#fe[data-theme="light"] .tok-lit{color:#0550ae}
 #fe[data-theme="light"] .tok-num{color:#0550ae}
 #fe[data-theme="light"] .tok-var{color:#8250df}
+#fe[data-theme="light"] .tok-deco{color:#9a6700}
 .fe-ql-table{border-collapse:collapse;width:100%;font:11.5px 'SF Mono',Menlo,Consolas,monospace}
 .fe-ql-table th{position:sticky;top:0;background:var(--s2);padding:6px 10px;text-align:left;
   border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}

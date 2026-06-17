@@ -77,7 +77,7 @@ describe('highlightCode', () => {
     expect(html).toContain('<span class="tok-cmt"># note</span>');
     expect(html).toContain('tok-str');
     expect(html).toContain('<span class="tok-var">$USER</span>');
-    expect(html).toContain('<span class="tok-kw">echo</span>');
+    expect(html).toContain('<span class="tok-builtin">echo</span>');   // echo is a shell builtin (P1 categories)
   });
 
   it('does not treat # inside a shell string as a comment', () => {
@@ -99,6 +99,44 @@ describe('highlightCode', () => {
 
   it('returns escaped plain text for unknown extensions', () => {
     expect(highlightCode('<hello>', 'xyz')).toBe('&lt;hello&gt;');
+  });
+
+  it('categorizes keywords: control / type / literal / builtin (ts)', () => {
+    const html = highlightCode('const x: string = true', 'ts');
+    expect(html).toContain('<span class="tok-kw">const</span>');       // declaration → generic kw
+    expect(html).toContain('<span class="tok-type">string</span>');    // type
+    expect(html).toContain('<span class="tok-lit">true</span>');       // literal
+    expect(highlightCode('return 1', 'ts')).toContain('<span class="tok-kw-ctrl">return</span>');
+  });
+  it('categorizes python literals and builtins', () => {
+    const html = highlightCode('print(None)', 'py');
+    expect(html).toContain('<span class="tok-builtin">print</span>');
+    expect(html).toContain('<span class="tok-lit">None</span>');
+  });
+  it('leaves non-keyword identifiers unstyled', () => {
+    expect(highlightCode('myVariable', 'ts')).toBe('myVariable');
+  });
+
+  it('handles Python triple-quoted strings as one string (regression)', () => {
+    const html = highlightCode('x = """line one\nline two"""\ny = 1', 'py');
+    // The whole triple-quoted block is one tok-str; the body does not bleed.
+    expect(html).toContain('<span class="tok-str">&quot;&quot;&quot;line one\nline two&quot;&quot;&quot;</span>');
+    expect(html).toContain('<span class="tok-num">1</span>');   // code after the docstring still tokenizes
+  });
+  it('recognizes Python string prefixes (f/r/b)', () => {
+    expect(highlightCode('f"hi {x}"', 'py')).toContain('<span class="tok-str">f&quot;hi {x}&quot;</span>');
+  });
+  it('recognizes Rust raw strings', () => {
+    expect(highlightCode('let s = r#"a "quote" b"#;', 'rs')).toContain('tok-str">r#&quot;a &quot;quote&quot; b&quot;#');
+  });
+  it('highlights decorators / annotations', () => {
+    expect(highlightCode('@decorator\ndef f(): pass', 'py')).toContain('<span class="tok-deco">@decorator</span>');
+    expect(highlightCode('@Override', 'java')).toContain('<span class="tok-deco">@Override</span>');
+  });
+  it('highlights numbers with separators, binary, and exponent', () => {
+    expect(highlightCode('1_000_000', 'ts')).toContain('<span class="tok-num">1_000_000</span>');
+    expect(highlightCode('0b1010', 'ts')).toContain('<span class="tok-num">0b1010</span>');
+    expect(highlightCode('6.022e23', 'ts')).toContain('<span class="tok-num">6.022e23</span>');
   });
 });
 
@@ -182,7 +220,7 @@ describe('renderMarkdown', () => {
   it('highlights fenced code blocks by language', () => {
     const html = renderMarkdown('```sh\necho "hi"\n```');
     expect(html).toContain('fe-md-pre');
-    expect(html).toContain('tok-kw');
+    expect(html).toContain('tok-str');   // the "hi" string — language-aware highlighting ran
   });
   it('renders unordered and ordered lists', () => {
     expect(renderMarkdown('- a\n- b')).toContain('<ul><li');

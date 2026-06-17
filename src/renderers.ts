@@ -43,7 +43,32 @@ interface LangDef {
   strings:  string[];            // quote characters
   tickML?:  boolean;             // backtick strings may span lines (JS templates)
   vars?:    boolean;             // highlight $VAR / ${...} (shell)
-  kw:       string[];
+  strRules?: string[];           // extra string patterns BEFORE the per-quote ones (triple-quotes, prefixed/raw)
+  deco?:    boolean;             // highlight @decorator / @Annotation
+  kw:       string[];            // generic keywords (→ tok-kw)
+  kwCats?: {                     // overlays on kw: words here get a richer class
+    ctrl?:    string[];          // control flow → tok-kw-ctrl
+    type?:    string[];          // type names/keywords → tok-type
+    builtin?: string[];          // builtins → tok-builtin
+    lit?:     string[];          // literals → tok-lit
+  };
+}
+
+const sp = (s: string) => s.split(' ');
+
+// Resolve each keyword to its CSS class: generic kw first, then category
+// overlays win. Words absent from this map render as plain identifiers.
+function wordClasses(lang: LangDef): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const w of lang.kw) m.set(w, 'tok-kw');
+  const c = lang.kwCats;
+  if (c) {
+    for (const w of c.ctrl ?? [])    m.set(w, 'tok-kw-ctrl');
+    for (const w of c.type ?? [])    m.set(w, 'tok-type');
+    for (const w of c.builtin ?? []) m.set(w, 'tok-builtin');
+    for (const w of c.lit ?? [])     m.set(w, 'tok-lit');
+  }
+  return m;
 }
 
 const KW_SH = 'if then elif else fi for while until do done case esac in function select local export readonly declare unset return exit break continue shift eval exec source alias trap set echo printf read cd test true false';
@@ -53,15 +78,51 @@ const KW_SQL = 'select from where insert into update delete join left right inne
 const KW_GO = 'func package import return if else for range switch case break continue defer go chan select map struct interface type var const nil true false make new len cap append';
 const KW_RS = 'fn let mut pub use mod struct enum impl trait return if else for while loop match break continue ref self Self crate super move async await dyn where unsafe true false Some None Ok Err';
 
+const CATS_JS = {
+  ctrl: sp('return if else for while do switch case break continue new throw try catch finally yield await delete in of'),
+  type: sp('interface type enum implements string number boolean object symbol any unknown never void keyof readonly as is namespace'),
+  builtin: sp('this super console'),
+  lit: sp('true false null undefined'),
+};
+const CATS_PY = {
+  ctrl: sp('return if elif else for while break continue pass raise yield try except finally with assert del in is not and or match async await'),
+  builtin: sp('self print len range'),
+  lit: sp('None True False'),
+};
+const CATS_GO = {
+  ctrl: sp('return if else for range switch case break continue defer go select'),
+  type: sp('chan map struct interface type'),
+  builtin: sp('make new len cap append'),
+  lit: sp('nil true false'),
+};
+const CATS_RS = {
+  ctrl: sp('return if else for while loop match break continue move async await unsafe where'),
+  type: sp('struct enum impl trait mod dyn'),
+  lit: sp('true false Some None Ok Err self Self'),
+};
+const CATS_SQL = {
+  ctrl: sp('select from where insert into update delete join on group by order having limit union'),
+  type: sp('table view index'),
+  lit: sp('null true false'),
+};
+
 const LANGS: Record<string, LangDef> = {
-  shell:  { line: ['#'],  strings: [`"`, `'`], vars: true,  kw: KW_SH.split(' ') },
-  js:     { line: ['//'], block: ['/*', '*/'], strings: [`"`, `'`, '`'], tickML: true, kw: KW_JS.split(' ') },
-  py:     { line: ['#'],  strings: [`"`, `'`], kw: KW_PY.split(' ') },
-  go:     { line: ['//'], block: ['/*', '*/'], strings: [`"`, '`'], tickML: true, kw: KW_GO.split(' ') },
-  rs:     { line: ['//'], block: ['/*', '*/'], strings: [`"`], kw: KW_RS.split(' ') },
-  sql:    { line: ['--'], block: ['/*', '*/'], strings: [`'`, `"`], kw: KW_SQL.split(' ') },
+  shell:  { line: ['#'],  strings: [`"`, `'`], vars: true,  kw: KW_SH.split(' '),
+            kwCats: { ctrl: sp('if then elif else fi for while until do done case esac return exit break continue'), builtin: sp('echo printf read cd test eval exec source'), lit: sp('true false') } },
+  js:     { line: ['//'], block: ['/*', '*/'], strings: [`"`, `'`, '`'], tickML: true, deco: true, kw: KW_JS.split(' '), kwCats: CATS_JS },
+  py:     { line: ['#'],  strings: [], deco: true, kw: KW_PY.split(' '), kwCats: CATS_PY,
+            strRules: [
+              '[rbfuRBFU]{0,2}"""[\\s\\S]*?"""',
+              "[rbfuRBFU]{0,2}'''[\\s\\S]*?'''",
+              '[rbfuRBFU]{0,2}"(?:\\\\.|[^"\\\\\\n])*"',
+              "[rbfuRBFU]{0,2}'(?:\\\\.|[^'\\\\\\n])*'",
+            ] },
+  go:     { line: ['//'], block: ['/*', '*/'], strings: [`"`, '`'], tickML: true, kw: KW_GO.split(' '), kwCats: CATS_GO },
+  rs:     { line: ['//'], block: ['/*', '*/'], strings: [], kw: KW_RS.split(' '), kwCats: CATS_RS,
+            strRules: ['r#+"[\\s\\S]*?"#+', 'r"[^"\\n]*"', 'b?"(?:\\\\.|[^"\\\\\\n])*"'] },
+  sql:    { line: ['--'], block: ['/*', '*/'], strings: [`'`, `"`], kw: KW_SQL.split(' '), kwCats: CATS_SQL },
   cfg:    { line: ['#', ';'], strings: [`"`, `'`], vars: true, kw: [] },
-  cstyle: { line: ['//'], block: ['/*', '*/'], strings: [`"`, `'`], kw: KW_JS.split(' ') },
+  cstyle: { line: ['//'], block: ['/*', '*/'], strings: [`"`, `'`], deco: true, kw: KW_JS.split(' '), kwCats: CATS_JS },
   css:    { block: ['/*', '*/'], strings: [`"`, `'`], kw: [] },
   plain:  { strings: [], kw: [] },
 };
@@ -84,27 +145,44 @@ function reEsc(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function buildTokenRe(lang: LangDef): RegExp {
-  const parts: string[] = [];
-  if (lang.block) parts.push(`(?<cmt>${reEsc(lang.block[0])}[\\s\\S]*?(?:${reEsc(lang.block[1])}|$))`);
+// Token kinds the tokenizer emits. `word` is resolved to keyword-or-plain at
+// match time via the language's keyword set. (P1+ will add more kinds.)
+type TokKind = 'cmt' | 'str' | 'var' | 'num' | 'word' | 'deco';
+interface Rule { kind: TokKind; pattern: string; }   // pattern: a regex fragment, no capture groups
+
+// Ordered rules per language. Order IS the greedy guarantee: comments and
+// strings come before `word`/`num`, so a `//` inside a string stays a string —
+// the property Prism's `greedy` flag buys, free from single-regex alternation.
+function buildRules(lang: LangDef): Rule[] {
+  const rules: Rule[] = [];
+  if (lang.block) rules.push({ kind: 'cmt', pattern: `${reEsc(lang.block[0])}[\\s\\S]*?(?:${reEsc(lang.block[1])}|$)` });
   if (lang.line?.length) {
     const starters = lang.line.map(reEsc).join('|');
-    parts.push(lang.block
-      ? `(?<lcmt>(?:${starters})[^\\n]*)`
-      : `(?<cmt>(?:${starters})[^\\n]*)`);
+    rules.push({ kind: 'cmt', pattern: `(?:${starters})[^\\n]*` });
   }
-  for (let i = 0; i < (lang.strings?.length ?? 0); i++) {
-    const q = lang.strings[i];
+  for (const p of lang.strRules ?? []) rules.push({ kind: 'str', pattern: p });
+  for (const q of lang.strings ?? []) {
     const body = q === '`' && lang.tickML
       ? '(?:\\\\.|[^`\\\\])*(?:`|$)'
       : `(?:\\\\.|[^${reEsc(q)}\\\\\\n])*(?:${reEsc(q)}|\\n|$)`;
-    parts.push(`(?<str${i}>${reEsc(q)}${body})`);
+    rules.push({ kind: 'str', pattern: `${reEsc(q)}${body}` });
   }
-  if (lang.vars) parts.push('(?<v>\\$\\{[^}\\n]*\\}?|\\$[\\w@#?!*-]+)');
-  parts.push('(?<num>\\b(?:0[xX][0-9a-fA-F]+|\\d+(?:\\.\\d+)?)\\b)');
-  parts.push('(?<word>[A-Za-z_$][\\w$]*)');
-  return new RegExp(parts.join('|'), 'g');
+  if (lang.vars) rules.push({ kind: 'var', pattern: '\\$\\{[^}\\n]*\\}?|\\$[\\w@#?!*-]+' });
+  if (lang.deco) rules.push({ kind: 'deco', pattern: '@[A-Za-z_][\\w.]*' });
+  rules.push({ kind: 'num',  pattern: '\\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:[eE][+-]?\\d+)?)\\b' });
+  rules.push({ kind: 'word', pattern: '[A-Za-z_$][\\w$]*' });
+  return rules;
 }
+
+function compile(rules: Rule[]): { re: RegExp; kinds: TokKind[] } {
+  const kinds: TokKind[] = [];
+  const parts = rules.map((r, i) => { kinds[i] = r.kind; return `(?<g${i}>${r.pattern})`; });
+  return { re: new RegExp(parts.join('|'), 'g'), kinds };
+}
+
+const KIND_CLASS: Partial<Record<TokKind, string>> = {
+  cmt: 'tok-cmt', str: 'tok-str', var: 'tok-var', num: 'tok-num', deco: 'tok-deco',
+};
 
 /**
  * Highlight source text into HTML spans (tok-cmt / tok-str / tok-kw /
@@ -114,8 +192,8 @@ export function highlightCode(src: string, ext: string): string {
   const langKey = EXT_LANG[ext.toLowerCase()] ?? 'plain';
   const lang = LANGS[langKey];
   if (langKey === 'plain') return esc(src);
-  const kw = new Set(lang.kw);
-  const re = buildTokenRe(lang);
+  const wmap = wordClasses(lang);
+  const { re, kinds } = compile(buildRules(lang));
   let out = '';
   let last = 0;
   let m: RegExpExecArray | null;
@@ -123,13 +201,13 @@ export function highlightCode(src: string, ext: string): string {
     out += esc(src.slice(last, m.index));
     last = m.index + m[0].length;
     const g = m.groups ?? {};
+    let kind: TokKind | undefined;
+    for (let i = 0; i < kinds.length; i++) if (g[`g${i}`] !== undefined) { kind = kinds[i]; break; }
     const text = esc(m[0]);
-    if (g.cmt !== undefined || g.lcmt !== undefined) out += `<span class="tok-cmt">${text}</span>`;
-    else if (g.v !== undefined)   out += `<span class="tok-var">${text}</span>`;
-    else if (g.num !== undefined) out += `<span class="tok-num">${text}</span>`;
-    else if (g.word !== undefined) out += kw.has(m[0]) ? `<span class="tok-kw">${text}</span>` : text;
-    else out += `<span class="tok-str">${text}</span>`;   // any strN group
-    if (m[0].length === 0) re.lastIndex++;                // safety: never stall
+    if (kind === 'word')   { const cls = wmap.get(m[0]); out += cls ? `<span class="${cls}">${text}</span>` : text; }
+    else if (kind)         out += `<span class="${KIND_CLASS[kind]}">${text}</span>`;
+    else                   out += text;
+    if (m[0].length === 0) re.lastIndex++;   // safety: never stall on a zero-width match
   }
   out += esc(src.slice(last));
   return out;

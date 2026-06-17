@@ -784,12 +784,21 @@ td.c-tp{color:var(--dm);font-size:11px}
 .tok-cmt{color:var(--mt);font-style:italic}
 .tok-str{color:#7ee787}
 .tok-kw{color:#ff7b72}
+.tok-kw-ctrl{color:#ff7b72}
+.tok-type{color:#56d4dd}
+.tok-builtin{color:#ffa657}
+.tok-lit{color:#a5d6ff}
 .tok-num{color:#79c0ff}
 .tok-var{color:#d2a8ff}
+.tok-deco{color:#e2b340}
 #fe[data-theme="light"] .tok-str{color:#0a7d33}
-#fe[data-theme="light"] .tok-kw{color:#cf222e}
+#fe[data-theme="light"] .tok-kw,#fe[data-theme="light"] .tok-kw-ctrl{color:#cf222e}
+#fe[data-theme="light"] .tok-type{color:#1b7c83}
+#fe[data-theme="light"] .tok-builtin{color:#953800}
+#fe[data-theme="light"] .tok-lit{color:#0550ae}
 #fe[data-theme="light"] .tok-num{color:#0550ae}
 #fe[data-theme="light"] .tok-var{color:#8250df}
+#fe[data-theme="light"] .tok-deco{color:#9a6700}
 .fe-ql-table{border-collapse:collapse;width:100%;font:11.5px 'SF Mono',Menlo,Consolas,monospace}
 .fe-ql-table th{position:sticky;top:0;background:var(--s2);padding:6px 10px;text-align:left;
   border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
