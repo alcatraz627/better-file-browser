@@ -1,6 +1,12 @@
-# Better File Browser — sprint plan (v2.4 → v2.6)
+# Better File Browser — sprint plan (v2.4 → v2.7)
 
 <!-- sessions: catch-proj-3f@2026-06-16 -->
+
+> **Status (2026-06-18): DONE.** Sprints 1–3 shipped (v2.4 → v2.7) plus the
+> image-dimensions "cheap win" (v2.7.1). Sprint 4 (native `os.stat` metadata
+> host: permissions/ctime) was **dropped** — low value, high setup friction;
+> its one useful item (image dimensions) shipped without a native host.
+> Highlighter S2.3 shipped P0–P2; P3/P4 (regex literals, more languages) not done.
 
 Scope: every open item from the audit's to-do list **except** committing the
 e2e harness (skipped per decision). Unit tests are in scope throughout — every

@@ -229,4 +229,18 @@ After a build:
 - **File permissions** — displayed via native host returning `os.stat()` data
 - **Markdown image rendering** — currently `<img>` in previewed markdown points at relative paths that don't resolve under `file://`
 
-_Shipped since v2.2: Quick Look preview, rich renderers, local-model AI bar, keyboard navigation, context menu, recent directories, breadcrumb dropdown search, multi-select, column resize, custom Places._
+_Shipped since v2.2: Quick Look preview, rich renderers, local-model AI bar (with model picker + warm toggle), keyboard navigation, context menu, recent directories, breadcrumb dropdown search, multi-select, column resize, custom Places, categorized syntax highlighting, and image dimensions._
+
+---
+
+## Changelog
+
+| Version | Highlights |
+|---------|------------|
+| **2.7.1** | Image dimensions (W × H) in the preview |
+| **2.7** | AI bar model picker (`-m`) + Keep-warm/Unload toggle |
+| **2.6** | Syntax-highlighter upgrade — categorized keywords (control/type/builtin/literal), Python triple-quotes & string prefixes, Rust raw strings, decorators, richer numbers |
+| **2.5** | Markdown relative-path resolution; PDF / audio / video / font previews |
+| **2.4** | Date-parse fix (epoch, not the locale string — also fixes date sorting); multi-select with bulk copy; resizable columns; custom "My Places" sidebar |
+| **2.3** | Documented the v2.x features; manifest/package version sync |
+| **2.2** | TypeScript + esbuild + vitest migration; settings modal |
