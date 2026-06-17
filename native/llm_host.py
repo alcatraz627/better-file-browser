@@ -43,6 +43,16 @@ def handle_status(lm):
     except Exception as e:
         write_msg({'t': 'error', 'code': 'host_status_failed', 'message': str(e)})
 
+def handle_warm(lm, msg):
+    # Runs the user-facing `lm warm on|off` — an explicit user toggle, not an
+    # automatic side effect of querying.
+    sub = 'on' if msg.get('on') else 'off'
+    try:
+        out = subprocess.run([lm, 'warm', sub], capture_output=True, timeout=60)
+        write_msg({'t': 'warm', 'ok': out.returncode == 0, 'on': bool(msg.get('on'))})
+    except Exception as e:
+        write_msg({'t': 'error', 'code': 'host_warm_failed', 'message': str(e)})
+
 def handle_query(lm, msg):
     args = [lm, 'q', '--stream-json', '--ctx', '-']
     if msg.get('ctxName'):  args += ['--ctx-name', str(msg['ctxName'])]
@@ -99,6 +109,8 @@ def main():
     op = msg.get('op')
     if op == 'status':
         handle_status(lm)
+    elif op == 'warm':
+        handle_warm(lm, msg)
     elif op == 'query':
         handle_query(lm, msg)
     else:

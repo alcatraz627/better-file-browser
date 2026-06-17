@@ -43,6 +43,7 @@ function fontSpecimen(href: string): string {
 
 interface PreviewDeps {
   iconRules: () => IconRule[] | null;
+  aiModel?:  () => string | undefined;   // chosen -m override, or undefined for default
 }
 
 let deps: PreviewDeps;
@@ -207,7 +208,7 @@ function runAi(intent: string, question?: string): void {
   meta.textContent = 'Thinking…';
   let full = '';
   aiCancel = llmQuery(
-    { ctx: currentText, ctxName: currentEntry.name, intent, question },
+    { ctx: currentText, ctxName: currentEntry.name, intent, question, model: deps.aiModel?.() },
     {
       onChunk: t => {
         if (seq !== aiSeq) return;

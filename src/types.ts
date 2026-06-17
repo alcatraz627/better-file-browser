@@ -30,6 +30,7 @@ export interface Settings {
   dateFormat:   'short' | 'full';
   terminalApp:  string;
   terminalCmd:  string;
+  aiModel?:     string;   // overrides the lm default model for AI queries (-m)
 }
 
 export interface IconRule {

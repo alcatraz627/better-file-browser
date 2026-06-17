@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getColWidths, saveColWidths } from '../src/storage';
+import { getColWidths, saveColWidths, getSettings, saveSettings } from '../src/storage';
 
 describe('column widths storage', () => {
   beforeEach(() => localStorage.clear());
@@ -16,5 +16,14 @@ describe('column widths storage', () => {
   it('tolerates corrupt JSON', () => {
     localStorage.setItem('bfb-col-widths-v1', '{not json');
     expect(getColWidths()).toEqual({});
+  });
+});
+
+describe('settings storage (aiModel)', () => {
+  beforeEach(() => localStorage.clear());
+  it('defaults aiModel to undefined and round-trips a chosen model', () => {
+    expect(getSettings().aiModel).toBeUndefined();
+    saveSettings({ ...getSettings(), aiModel: 'qwen2.5-coder:3b' });
+    expect(getSettings().aiModel).toBe('qwen2.5-coder:3b');
   });
 });

@@ -67,6 +67,7 @@ export interface LlmQueryOpts {
   intent?:  string;
   question?: string;
   timeout?: number;
+  model?:   string;   // -m override; omitted → lm default model
 }
 export interface LlmCallbacks {
   onChunk: (text: string) => void;
@@ -99,8 +100,28 @@ export function llmQuery(opts: LlmQueryOpts, cb: LlmCallbacks): () => void {
   port.postMessage({
     op: 'query', ctx: opts.ctx, ctxName: opts.ctxName,
     intent: opts.intent, question: opts.question, timeout: opts.timeout ?? 120,
+    model: opts.model,
   });
   return () => finish();
+}
+
+/** Warm or unwarm the default model (runs `lm warm on|off`). User-initiated. */
+export function llmWarm(on: boolean): Promise<{ ok: boolean; message?: string }> {
+  return new Promise(resolve => {
+    let done = false;
+    const settle = (r: { ok: boolean; message?: string }) => { if (!done) { done = true; resolve(r); } };
+    const port = openProxyPort();
+    if (!port) { settle({ ok: false, message: 'AI host not installed' }); return; }
+    const timer = setTimeout(() => { try { port.disconnect(); } catch { /* gone */ } settle({ ok: false, message: 'timed out' }); }, 30_000);
+    port.onMessage.addListener(msg => {
+      if (msg?.t !== 'warm' && msg?.t !== 'error' && msg?.t !== 'native-gone') return;
+      clearTimeout(timer);
+      try { port.disconnect(); } catch { /* gone */ }
+      settle(msg.t === 'warm' ? { ok: !!msg.ok } : { ok: false, message: msg.message });
+    });
+    port.onDisconnect.addListener(() => { clearTimeout(timer); settle({ ok: false, message: chrome.runtime.lastError?.message }); });
+    port.postMessage({ op: 'warm', on });
+  });
 }
 
 /** Human messages keyed by stable error code — never branch on message text. */

@@ -16,7 +16,7 @@ import {
   initPreview, openPreview, closePreview, isPreviewOpen, canPreview,
 } from './preview';
 import { fetchFileText } from './file-fetch';
-import { llmAvailability, type LlmAvailability } from './llm';
+import { llmAvailability, llmWarm, type LlmAvailability } from './llm';
 import { selectionRange } from './selection';
 import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
@@ -375,6 +375,11 @@ import { getIcon } from './icons';
               <span class="fe-st-ai-state">Checking…</span>
             </div>
             <div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>
+            <div class="fe-st-ai-controls" id="fe-st-ai-controls" style="display:none">
+              <span class="fe-st-lbl">Model</span>
+              <select id="fe-st-ai-model" class="fe-st-select" title="Model used for AI queries (-m)"></select>
+              <button id="fe-st-ai-warm" class="fe-pbn" title="Keep the model resident (lm warm)"></button>
+            </div>
             <div class="fe-st-ai-hint" id="fe-st-ai-hint"></div>
           </div>
         </div>
@@ -721,6 +726,8 @@ td.c-tp{color:var(--dm);font-size:11px}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-st-ai-grid .v.warm-yes{color:var(--green)}
 .fe-st-ai-grid .v.warm-no{color:var(--gold)}
+.fe-st-ai-controls{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.fe-st-ai-controls .fe-st-select{flex:1;min-width:120px}
 .fe-st-ai-hint{font-size:11px;color:var(--dm);margin-top:8px;line-height:1.5}
 .fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 4px;
   font-family:'SF Mono',Menlo,Consolas,monospace;font-size:10.5px;color:var(--mt)}
@@ -875,7 +882,7 @@ td.c-tp{color:var(--dm);font-size:11px}
   if (!settings.showSidebar) (document.getElementById('fe-side') as HTMLElement).style.display = 'none';
   if (settings.compactMode) fe.classList.add('compact');
 
-  initPreview({ iconRules: () => iconRules });
+  initPreview({ iconRules: () => iconRules, aiModel: () => settings.aiModel });
 
   // ── Toast ─────────────────────────────────────────────────────────
   const toastEl = document.getElementById('fe-toast') as HTMLElement & { _tid?: ReturnType<typeof setTimeout> };
@@ -1483,10 +1490,14 @@ td.c-tp{color:var(--dm);font-size:11px}
     const state = document.querySelector<HTMLElement>('.fe-st-ai-state')!;
     const grid  = document.getElementById('fe-st-ai-grid')!;
     const hint  = document.getElementById('fe-st-ai-hint')!;
+    const controls = document.getElementById('fe-st-ai-controls')!;
+    const modelSel = document.getElementById('fe-st-ai-model') as HTMLSelectElement;
+    const warmBtn  = document.getElementById('fe-st-ai-warm') as HTMLButtonElement;
     head.className = 'fe-st-ai-head';
     state.textContent = 'Checking…';
     grid.innerHTML = '';
     hint.innerHTML = '';
+    controls.style.display = 'none';
     const row = (k: string, v: string, cls = '') =>
       `<span class="k">${esc(k)}</span><span class="v ${cls}">${esc(v)}</span>`;
 
@@ -1508,19 +1519,41 @@ td.c-tp{color:var(--dm);font-size:11px}
         row('Warm', s.warm ? 'yes — model resident' : 'no — loads on first use', s.warm ? 'warm-yes' : 'warm-no'),
         row('Latency', s.latency_class),
         row('Server', `${s.server}${s.host ? '  ' + s.host : ''}`),
-        s.available_models?.length ? row('Models', `${s.available_models.length} on disk`) : '',
         s.toolkit_version ? row('Toolkit', `lm ${s.toolkit_version}`) : '',
       ].join('');
-      if (av.kind === 'down') {
-        hint.innerHTML = `Ollama isn't responding. Start it, then Refresh.`;
-      } else if (av.cold) {
-        hint.innerHTML = `Run <code>lm warm on</code> in a terminal to keep the model resident for instant replies, then Refresh.`;
-      } else {
-        hint.innerHTML = `Model is resident — replies are near-instant. <code>lm warm off</code> frees the memory.`;
+
+      // Model picker — populate from available_models, mark the default, persist choice
+      if (av.kind === 'ready' && s.available_models?.length) {
+        const chosen = settings.aiModel || s.default_model;
+        modelSel.innerHTML = s.available_models.map(m =>
+          `<option value="${esc(m)}"${m === chosen ? ' selected' : ''}>${esc(m)}${m === s.default_model ? ' (default)' : ''}</option>`,
+        ).join('');
+        // Warm toggle reflects + controls the DEFAULT model's residency
+        warmBtn.textContent = s.warm ? 'Unload (warm off)' : 'Keep warm';
+        warmBtn.disabled = false;
+        controls.style.display = '';
       }
+      hint.innerHTML = av.kind === 'down'
+        ? `Ollama isn't responding. Start it, then Refresh.`
+        : (av.cold
+            ? `Cold start — first reply loads the model (~2–3s). "Keep warm" makes replies instant.`
+            : `Model is resident — replies are near-instant.`);
     });
   }
   document.getElementById('fe-st-ai-refresh')!.addEventListener('click', refreshAiStatus);
+  (document.getElementById('fe-st-ai-model') as HTMLSelectElement).addEventListener('change', function () {
+    settings.aiModel = this.value || undefined;
+    saveSettings(settings);
+  });
+  document.getElementById('fe-st-ai-warm')!.addEventListener('click', function () {
+    const btn = this as HTMLButtonElement;
+    const turnOn = btn.textContent !== 'Unload (warm off)';
+    btn.disabled = true; btn.textContent = turnOn ? 'Warming…' : 'Unloading…';
+    llmWarm(turnOn).then(r => {
+      if (!r.ok) toast(r.message ? `Warm failed: ${r.message}` : 'Warm failed');
+      refreshAiStatus();
+    });
+  });
 
   document.getElementById('fe-settings-btn')!.addEventListener('click', openSettings);
   document.getElementById('fe-settings-close')!.addEventListener('click', closeSettings);

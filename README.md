@@ -1,7 +1,7 @@
 <div align="center">
   <img src="banner.svg" alt="Better File Browser" width="860"/>
   <br/><br/>
-  <img src="chrome-badge.svg" alt="Chrome Extension v2.6" height="48"/>
+  <img src="chrome-badge.svg" alt="Chrome Extension v2.7" height="48"/>
   &nbsp;&nbsp;
   <img src="icon128.png" alt="Extension Icon" width="48" height="48" style="border-radius:10px;vertical-align:middle"/>
 </div>
@@ -89,7 +89,7 @@ Select a file and press **Space** (or click the eye button on hover, or right-cl
 A **copy** button in the header copies the full raw file contents. Previews fetch `file://` content through the background service worker (page-context `file://` XHR is CORS-blocked in current Chrome), so no extra permissions are required.
 
 ### AI (local model) — optional
-With the [local-models `lm` CLI](https://github.com/alcatraz627/local-models) installed, the preview gains an **AI bar**: **Summarize**, **Explain** (→ **Describe** for tabular files), and an **Ask** box. Answers stream in and render as markdown; closing the overlay cancels the generation. A status chip shows whether the model is warm/cold/down, and the settings modal has a **Local Model** panel with a live status blinker. Fully local — the extension shells out to `lm` via a native messaging host; no network egress. Requires the `install.sh` step below.
+With the [local-models `lm` CLI](https://github.com/alcatraz627/local-models) installed, the preview gains an **AI bar**: **Summarize**, **Explain** (→ **Describe** for tabular files), and an **Ask** box. Answers stream in and render as markdown; closing the overlay cancels the generation. A status chip shows whether the model is warm/cold/down, and the settings modal has a **Local Model** panel with a live status blinker, a **model picker** (choose any installed model; passed as `-m`), and a **Keep warm / Unload** toggle (runs `lm warm on/off`). Fully local — the extension shells out to `lm` via a native messaging host; no network egress. Requires the `install.sh` step below.
 
 ### Keyboard & navigation
 - **↑ / ↓** move the selection, **Enter** opens, **Backspace** or **⌘↑** goes to the parent
