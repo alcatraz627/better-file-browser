@@ -1366,8 +1366,18 @@
     copyBtn.disabled = true;
     if (IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext)) {
       copyBtn.style.display = "none";
-      if (IMG_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"></div>`;
-      else if (PDF_EXTS.has(ext)) body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
+      if (IMG_EXTS.has(ext)) {
+        body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"><div class="fe-ql-dim"></div></div>`;
+        const img = body.querySelector("img.fe-ql-img");
+        const dim = body.querySelector(".fe-ql-dim");
+        if (img && dim) {
+          const show = () => {
+            if (img.naturalWidth) dim.textContent = `${img.naturalWidth} \xD7 ${img.naturalHeight}`;
+          };
+          if (img.complete) show();
+          else img.addEventListener("load", show, { once: true });
+        }
+      } else if (PDF_EXTS.has(ext)) body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
       else if (VIDEO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;
       else if (AUDIO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-center"><audio src="${esc(e.href)}" controls></audio></div>`;
       else body.innerHTML = fontSpecimen(e.href);
@@ -2353,8 +2363,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
 .fe-ql-note{font-size:11.5px;color:var(--dm);padding:6px 14px}
 .fe-ql-note.err{color:#f85149}
-.fe-ql-imgwrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
-.fe-ql-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
+.fe-ql-imgwrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;height:100%;padding:16px}
+.fe-ql-img{max-width:100%;max-height:calc(100% - 22px);object-fit:contain;border-radius:4px}
+.fe-ql-dim{font-size:11px;color:var(--dm);font-variant-numeric:tabular-nums}
 .fe-ql-pdf{width:100%;height:100%;border:none}
 .fe-ql-media-wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
 .fe-ql-media{max-width:100%;max-height:100%;border-radius:4px;background:#000}

@@ -776,8 +776,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
 .fe-ql-note{font-size:11.5px;color:var(--dm);padding:6px 14px}
 .fe-ql-note.err{color:#f85149}
-.fe-ql-imgwrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
-.fe-ql-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
+.fe-ql-imgwrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;height:100%;padding:16px}
+.fe-ql-img{max-width:100%;max-height:calc(100% - 22px);object-fit:contain;border-radius:4px}
+.fe-ql-dim{font-size:11px;color:var(--dm);font-variant-numeric:tabular-nums}
 .fe-ql-pdf{width:100%;height:100%;border:none}
 .fe-ql-media-wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
 .fe-ql-media{max-width:100%;max-height:100%;border-radius:4px;background:#000}

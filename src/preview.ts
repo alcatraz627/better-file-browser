@@ -254,7 +254,15 @@ export function openPreview(e: Entry): void {
 
   if (IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext)) {
     copyBtn.style.display = 'none';   // binary media: rendered from file://, no text/AI
-    if (IMG_EXTS.has(ext))        body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"></div>`;
+    if (IMG_EXTS.has(ext)) {
+      body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"><div class="fe-ql-dim"></div></div>`;
+      const img = body.querySelector<HTMLImageElement>('img.fe-ql-img');
+      const dim = body.querySelector<HTMLElement>('.fe-ql-dim');
+      if (img && dim) {
+        const show = () => { if (img.naturalWidth) dim.textContent = `${img.naturalWidth} × ${img.naturalHeight}`; };
+        if (img.complete) show(); else img.addEventListener('load', show, { once: true });
+      }
+    }
     else if (PDF_EXTS.has(ext))   body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
     else if (VIDEO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;
     else if (AUDIO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-center"><audio src="${esc(e.href)}" controls></audio></div>`;

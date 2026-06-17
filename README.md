@@ -81,7 +81,7 @@ Select a file and press **Space** (or click the eye button on hover, or right-cl
 | `.json` | Collapsible tree |
 | `.jsonl` / `.ndjson` | One collapsible row per line; malformed lines badged |
 | `.md` / `.mdx` | Rendered markdown — headings, code fences, tables, lists, sanitized inline HTML; relative image/link paths resolve against the file |
-| Images | Fit-to-view |
+| Images | Fit-to-view, with pixel dimensions (W × H) |
 | `.pdf` | Embedded PDF viewer |
 | Audio / video (`.mp4`, `.webm`, `.mp3`, `.flac`…) | Native player |
 | Fonts (`.ttf`, `.otf`, `.woff`, `.woff2`) | Multi-size glyph specimen |
