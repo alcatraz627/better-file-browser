@@ -15,11 +15,30 @@ import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from 
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
 
+// Media types rendered straight from file:// (like images): no fetch, no text
+// copy, no AI bar. Only formats Chrome plays/renders natively are claimed.
+const PDF_EXTS   = new Set(['pdf']);
+const VIDEO_EXTS = new Set(['mp4', 'm4v', 'webm', 'ogv', 'mov']);
+const AUDIO_EXTS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac']);
+const FONT_EXTS  = new Set(['ttf', 'otf', 'woff', 'woff2']);
+
 export function canPreview(e: Entry): boolean {
   if (e.isDir || e.isParent) return false;
   const ext = getExt(e);
-  return IMG_EXTS.has(ext) || TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext)
+  return IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext)
+    || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext)
+    || TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext)
     || ext === 'json' || CODE_EXTS.has(ext) || ext === '';
+}
+
+function fontSpecimen(href: string): string {
+  const sample = 'The quick brown fox jumps over the lazy dog 0123456789';
+  const sizes = [14, 20, 28, 40, 56];
+  return `<style>@font-face{font-family:'bfb-spec';src:url("${esc(href)}")}</style>
+    <div class="fe-ql-font">
+      ${sizes.map(s => `<div style="font-size:${s}px">${sample}</div>`).join('')}
+      <div style="font-size:30px">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz</div>
+    </div>`;
 }
 
 interface PreviewDeps {
@@ -232,9 +251,13 @@ export function openPreview(e: Entry): void {
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.disabled = true;
 
-  if (IMG_EXTS.has(ext)) {
-    copyBtn.style.display = 'none';   // no text contents to copy, no AI either
-    body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"></div>`;
+  if (IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext)) {
+    copyBtn.style.display = 'none';   // binary media: rendered from file://, no text/AI
+    if (IMG_EXTS.has(ext))        body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"></div>`;
+    else if (PDF_EXTS.has(ext))   body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
+    else if (VIDEO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;
+    else if (AUDIO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-center"><audio src="${esc(e.href)}" controls></audio></div>`;
+    else                          body.innerHTML = fontSpecimen(e.href);
     return;
   }
   copyBtn.style.display = '';

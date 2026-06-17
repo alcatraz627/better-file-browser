@@ -1032,10 +1032,23 @@
 
   // src/preview.ts
   var FETCH_WARN_BYTES = 8 * 1024 * 1024;
+  var PDF_EXTS = /* @__PURE__ */ new Set(["pdf"]);
+  var VIDEO_EXTS = /* @__PURE__ */ new Set(["mp4", "m4v", "webm", "ogv", "mov"]);
+  var AUDIO_EXTS = /* @__PURE__ */ new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac"]);
+  var FONT_EXTS = /* @__PURE__ */ new Set(["ttf", "otf", "woff", "woff2"]);
   function canPreview(e) {
     if (e.isDir || e.isParent) return false;
     const ext = getExt(e);
-    return IMG_EXTS.has(ext) || TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === "json" || CODE_EXTS.has(ext) || ext === "";
+    return IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext) || TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === "json" || CODE_EXTS.has(ext) || ext === "";
+  }
+  function fontSpecimen(href) {
+    const sample = "The quick brown fox jumps over the lazy dog 0123456789";
+    const sizes = [14, 20, 28, 40, 56];
+    return `<style>@font-face{font-family:'bfb-spec';src:url("${esc(href)}")}</style>
+    <div class="fe-ql-font">
+      ${sizes.map((s) => `<div style="font-size:${s}px">${sample}</div>`).join("")}
+      <div style="font-size:30px">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz</div>
+    </div>`;
   }
   var deps;
   var overlay;
@@ -1227,9 +1240,13 @@
     resetAiUi();
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.disabled = true;
-    if (IMG_EXTS.has(ext)) {
+    if (IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext)) {
       copyBtn.style.display = "none";
-      body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"></div>`;
+      if (IMG_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"></div>`;
+      else if (PDF_EXTS.has(ext)) body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
+      else if (VIDEO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;
+      else if (AUDIO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-center"><audio src="${esc(e.href)}" controls></audio></div>`;
+      else body.innerHTML = fontSpecimen(e.href);
       return;
     }
     copyBtn.style.display = "";
@@ -2207,6 +2224,12 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-ql-note.err{color:#f85149}
 .fe-ql-imgwrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
 .fe-ql-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
+.fe-ql-pdf{width:100%;height:100%;border:none}
+.fe-ql-media-wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
+.fe-ql-media{max-width:100%;max-height:100%;border-radius:4px;background:#000}
+.fe-ql-center audio{width:min(480px,90%)}
+.fe-ql-font{padding:20px 26px;overflow:auto;line-height:1.5}
+.fe-ql-font>div{margin:6px 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:6px}
 .fe-code-wrap{display:flex;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
 .fe-code-gut{padding:10px 8px 14px 12px;text-align:right;color:var(--dm);user-select:none;
   border-right:1px solid var(--bd);background:var(--s2);min-width:34px;flex-shrink:0}

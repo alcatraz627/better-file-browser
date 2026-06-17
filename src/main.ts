@@ -771,6 +771,12 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-ql-note.err{color:#f85149}
 .fe-ql-imgwrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
 .fe-ql-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
+.fe-ql-pdf{width:100%;height:100%;border:none}
+.fe-ql-media-wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
+.fe-ql-media{max-width:100%;max-height:100%;border-radius:4px;background:#000}
+.fe-ql-center audio{width:min(480px,90%)}
+.fe-ql-font{padding:20px 26px;overflow:auto;line-height:1.5}
+.fe-ql-font>div{margin:6px 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:6px}
 .fe-code-wrap{display:flex;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
 .fe-code-gut{padding:10px 8px 14px 12px;text-align:right;color:var(--dm);user-select:none;
   border-right:1px solid var(--bd);background:var(--s2);min-width:34px;flex-shrink:0}
