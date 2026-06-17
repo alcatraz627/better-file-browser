@@ -15,6 +15,7 @@ import {
 } from './preview';
 import { fetchFileText } from './file-fetch';
 import { llmAvailability, type LlmAvailability } from './llm';
+import { selectionRange } from './selection';
 import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
 import {
@@ -1161,29 +1162,95 @@ td.c-tp{color:var(--dm);font-size:11px}
       copyText(btn.dataset.copy || '');
       return;
     }
-    // Clicking row whitespace (not the name link) selects the entry
+    // Modifier-clicks select (overriding link navigation); a plain click on
+    // row whitespace single-selects; a plain click on the name link navigates.
     const holder = (e.target as HTMLElement).closest<HTMLElement>('[data-idx]');
-    if (holder && !(e.target as HTMLElement).closest('a')) {
-      setSel(parseInt(holder.dataset.idx!));
+    if (!holder) return;
+    const i = parseInt(holder.dataset.idx!);
+    if ((e.shiftKey || e.metaKey || e.ctrlKey) && selectable(i)) {
+      e.preventDefault();
+      if (e.shiftKey) rangeSel(i); else toggleSel(i);
+      return;
     }
+    if (!(e.target as HTMLElement).closest('a') && selectable(i)) setSel(i);
   });
 
   // ── Selection & keyboard navigation ───────────────────────────────
+  // selSet holds every selected VISIBLE index; selIdx is the lead (last
+  // touched, drives scroll + the single-item status line); anchor is the
+  // fixed end of a shift-range.
+  const selSet = new Set<number>();
   let selIdx = -1;
+  let anchor = -1;
   function entryShown(en: Entry): boolean {
     return !en.isHidden || fe.classList.contains('show-hidden');
   }
-  function setSel(i: number): void {
+  function selectable(i: number): boolean {
+    const en = VISIBLE[i];
+    return !!en && !en.isParent && entryShown(en);
+  }
+  function paintSel(): void {
     document.querySelectorAll('#fe-scroll .selected').forEach(el => el.classList.remove('selected'));
-    selIdx = i;
-    const en = i >= 0 ? VISIBLE[i] : null;
-    document.getElementById('fe-status-text')!.textContent = en && !en.isParent
-      ? (en.isDir ? `${en.name}/` : `${en.name} — ${fmtSize(en.rawBytes)}`)
-      : baseStatus;
-    if (i < 0) return;
-    document.querySelectorAll<HTMLElement>(`#fe-scroll [data-idx="${i}"]`).forEach(el => {
-      el.classList.add('selected');
+    selSet.forEach(i =>
+      document.querySelectorAll<HTMLElement>(`#fe-scroll [data-idx="${i}"]`).forEach(el => el.classList.add('selected')));
+    const t = document.getElementById('fe-status-text')!;
+    if (selSet.size > 1) {
+      t.textContent = `${selSet.size} selected`;
+    } else {
+      const en = selIdx >= 0 ? VISIBLE[selIdx] : null;
+      t.textContent = en && !en.isParent
+        ? (en.isDir ? `${en.name}/` : `${en.name} — ${fmtSize(en.rawBytes)}`)
+        : baseStatus;
+    }
+  }
+  function scrollToLead(): void {
+    if (selIdx < 0) return;
+    document.querySelectorAll<HTMLElement>(`#fe-scroll [data-idx="${selIdx}"]`).forEach(el => {
       if (el.offsetParent) el.scrollIntoView({ block: 'nearest' });
+    });
+  }
+  function setSel(i: number): void {     // single-select, replacing any set
+    selSet.clear();
+    selIdx = i; anchor = i;
+    if (i >= 0) selSet.add(i);
+    paintSel();
+    scrollToLead();
+  }
+  function toggleSel(i: number): void {  // ⌘/ctrl-click
+    if (selSet.has(i)) selSet.delete(i); else selSet.add(i);
+    selIdx = i; anchor = i;
+    paintSel();
+  }
+  function rangeSel(target: number): void {  // shift-click from anchor
+    const a = anchor >= 0 ? anchor : target;
+    selSet.clear();
+    selectionRange(a, target).filter(selectable).forEach(i => selSet.add(i));
+    selIdx = target;
+    paintSel();
+    scrollToLead();
+  }
+  function selectAll(): void {
+    selSet.clear();
+    for (let i = 0; i < VISIBLE.length; i++) if (selectable(i)) selSet.add(i);
+    if (selSet.size && selIdx < 0) selIdx = [...selSet][0];
+    paintSel();
+  }
+  function selectedPaths(): string[] {
+    return [...selSet].sort((a, b) => a - b).map(i => {
+      const en = VISIBLE[i];
+      return rawPath.replace(/\/$/, '') + '/' + en.name + (en.isDir ? '/' : '');
+    });
+  }
+  function copySelection(): void {
+    const paths = selectedPaths();
+    if (!paths.length) return;
+    navigator.clipboard.writeText(paths.join('\n')).then(
+      () => toast(`Copied ${paths.length} path${paths.length !== 1 ? 's' : ''}`),
+    ).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = paths.join('\n'); document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+      toast(`Copied ${paths.length} path${paths.length !== 1 ? 's' : ''}`);
     });
   }
   function moveSel(step: number): void {
@@ -1240,6 +1307,8 @@ td.c-tp{color:var(--dm);font-size:11px}
     }
     if      (e.key === 'ArrowDown') { e.preventDefault(); moveSel(1); }
     else if (e.key === 'ArrowUp')   { e.preventDefault(); moveSel(-1); }
+    else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAll(); }
+    else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c' && selSet.size) { e.preventDefault(); copySelection(); }
     else if (e.key === 'Enter' && selIdx >= 0) { location.href = VISIBLE[selIdx].href; }
     else if (e.key === 'Backspace') { e.preventDefault(); goUp(); }
     else if (e.key === ' ' && selIdx >= 0) { e.preventDefault(); tryPreview(VISIBLE[selIdx]); }
@@ -1259,14 +1328,22 @@ td.c-tp{color:var(--dm);font-size:11px}
     const en = VISIBLE[idx];
     if (!en || en.isParent) return;
     e.preventDefault();
-    setSel(idx);
-    ctxMenu.innerHTML = [
-      canPreview(en) ? `<div class="fe-ctx-item" data-act="pv">Preview<span class="fe-ctx-key">Space</span></div>` : '',
-      `<div class="fe-ctx-item" data-act="cp-path">Copy path</div>`,
-      `<div class="fe-ctx-item" data-act="cp-name">Copy name</div>`,
-      `<div class="fe-ctx-sep"></div>`,
-      `<div class="fe-ctx-item" data-act="term">Open in terminal</div>`,
-    ].join('');
+    // Right-clicking inside an existing multi-selection keeps it (bulk menu);
+    // otherwise the click single-selects the row under the cursor.
+    const multi = selSet.size > 1 && selSet.has(idx);
+    if (!multi) setSel(idx);
+    ctxMenu.innerHTML = multi
+      ? [
+          `<div class="fe-ctx-item" data-act="cp-paths">Copy ${selSet.size} paths</div>`,
+          `<div class="fe-ctx-item" data-act="cp-names">Copy ${selSet.size} names</div>`,
+        ].join('')
+      : [
+          canPreview(en) ? `<div class="fe-ctx-item" data-act="pv">Preview<span class="fe-ctx-key">Space</span></div>` : '',
+          `<div class="fe-ctx-item" data-act="cp-path">Copy path</div>`,
+          `<div class="fe-ctx-item" data-act="cp-name">Copy name</div>`,
+          `<div class="fe-ctx-sep"></div>`,
+          `<div class="fe-ctx-item" data-act="term">Open in terminal</div>`,
+        ].join('');
     ctxMenu.dataset.idx = String(idx);
     ctxMenu.style.display = 'block';
     ctxMenu.style.left = Math.min(e.clientX, window.innerWidth  - ctxMenu.offsetWidth  - 8) + 'px';
@@ -1284,6 +1361,11 @@ td.c-tp{color:var(--dm);font-size:11px}
     else if (item.dataset.act === 'cp-path') copyText(fullPath);
     else if (item.dataset.act === 'cp-name') copyText(en.name);
     else if (item.dataset.act === 'term')    openInTerminal(en.isDir ? fullPath : rawPath);
+    else if (item.dataset.act === 'cp-paths') copySelection();
+    else if (item.dataset.act === 'cp-names') {
+      const names = [...selSet].sort((a, b) => a - b).map(i => VISIBLE[i].name).join('\n');
+      navigator.clipboard.writeText(names).then(() => toast(`Copied ${selSet.size} names`)).catch(() => {});
+    }
   });
 
   document.addEventListener('click', e => {
