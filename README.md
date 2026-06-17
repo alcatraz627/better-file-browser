@@ -1,7 +1,7 @@
 <div align="center">
   <img src="banner.svg" alt="Better File Browser" width="860"/>
   <br/><br/>
-  <img src="chrome-badge.svg" alt="Chrome Extension v2.3" height="48"/>
+  <img src="chrome-badge.svg" alt="Chrome Extension v2.4" height="48"/>
   &nbsp;&nbsp;
   <img src="icon128.png" alt="Extension Icon" width="48" height="48" style="border-radius:10px;vertical-align:middle"/>
 </div>
@@ -99,10 +99,13 @@ Right-click any row or tile for **Preview · Copy path · Copy name · Open in t
 
 ### Sidebar
 - **Finder Favourites** — parsed from your macOS SFL4 sidebar binary at install time and hardcoded (live sync isn't possible from a sandboxed extension)
+- **My Places** — your own editable quick-access list: **+** adds the current folder, double-click a label to rename, drag to reorder, ✕ to remove
 - **Recent** — the last directories you browsed (persisted in `localStorage`)
 - **Quick Places** — Root, Home, Desktop, Documents, Downloads
 - **Bookmarks** — star (☆) any folder to save it; drag rows to reorder; ✕ to remove
-- All bookmark state persists in `localStorage`
+- All sidebar state persists in `localStorage`
+
+Details-view columns are resizable — drag a header's right edge; widths persist. Rows support multi-select (shift-click range, ⌘/ctrl-click toggle, ⌘A), and ⌘C copies the selected paths.
 
 ### Breadcrumbs
 Each path segment has a **▾** dropdown that lists that folder's contents with a focused filter box — type to narrow, Enter opens the first match.
@@ -221,9 +224,6 @@ After a build:
 ## Possible future enhancements
 
 - **File permissions** — displayed via native host returning `os.stat()` data
-- **Multi-select** — shift/cmd-click to select multiple items, then copy paths
-- **Custom places** — user-editable quick-access list beyond the fixed Places section
-- **Column resize** — drag column headers to adjust widths
 - **Markdown image rendering** — currently `<img>` in previewed markdown points at relative paths that don't resolve under `file://`
 
-_Shipped since v2.2: Quick Look preview, rich renderers, local-model AI bar, keyboard navigation, context menu, recent directories, breadcrumb dropdown search._
+_Shipped since v2.2: Quick Look preview, rich renderers, local-model AI bar, keyboard navigation, context menu, recent directories, breadcrumb dropdown search, multi-select, column resize, custom Places._

@@ -19,6 +19,11 @@ export interface RecentDir {
   ts:   number;
 }
 
+export interface Place {
+  path:  string;
+  label: string;
+}
+
 export interface Settings {
   compactMode:  boolean;
   showSidebar:  boolean;

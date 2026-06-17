@@ -1,4 +1,4 @@
-import type { Entry, Bookmark, IconRule, Settings, TipData } from './types';
+import type { Entry, Bookmark, IconRule, Place, Settings, TipData } from './types';
 import { esc, fmtSize, fmtDate, fmtType, getExt } from './utils';
 import { getIcon, IMG_EXTS, PI } from './icons';
 import { canPreview } from './preview';
@@ -93,6 +93,18 @@ export function renderBMList(bm: Bookmark[], rawPath: string): string {
         ${PI.bm}<span class="fe-sl">${esc(b.label)}</span>
       </a>
       <button class="fe-rm-btn" data-path="${esc(b.path)}" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+export function renderPlacesList(places: Place[], rawPath: string): string {
+  if (!places.length) return `<div class="fe-hint">No places yet.<br>Click + to add this folder.</div>`;
+  return places.map(p => `
+    <div class="fe-bm-item fe-pl-item" draggable="true" data-path="${esc(p.path)}">
+      <span class="fe-drag-h">${PI.drag}</span>
+      <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? ' active' : ''}" title="${esc(p.path)}">
+        ${PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
+      </a>
+      <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove">✕</button>
     </div>`).join('');
 }
 

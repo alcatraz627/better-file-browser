@@ -9,7 +9,9 @@ import {
   getBM, saveBM, toggleBM, getView, getTheme, getZoom, getShowHidden,
   getIconRules, saveIconRules, getSettings, saveSettings,
   getRecents, pushRecent, getColWidths, saveColWidths,
+  getPlaces, savePlaces,
 } from './storage';
+import { upsertPlace, removePlace, renamePlace, movePlace } from './places';
 import {
   initPreview, openPreview, closePreview, isPreviewOpen, canPreview,
 } from './preview';
@@ -19,7 +21,7 @@ import { selectionRange } from './selection';
 import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
 import {
-  renderRows, renderTiles, renderBMList, renderCrumbs,
+  renderRows, renderTiles, renderBMList, renderPlacesList, renderCrumbs,
   renderRow, renderTile, type RenderContext,
 } from './render';
 import { getIcon } from './icons';
@@ -192,6 +194,11 @@ import { getIcon } from './icons';
       <div class="fe-sec">
         <div class="fe-sh">Bookmarks</div>
         <div id="fe-bm-list">${renderBMList(initBM, rawPath)}</div>
+      </div>
+      <div class="fe-sec">
+        <div class="fe-sh" style="justify-content:space-between">My Places
+          <button id="fe-pl-add" title="Add this folder to Places">+</button></div>
+        <div id="fe-pl-list">${renderPlacesList(getPlaces(), rawPath)}</div>
       </div>${recentsHTML}
       <div class="fe-sec">
         <div class="fe-sh">Finder Favorites</div>
@@ -479,6 +486,10 @@ body{opacity:1!important}
   padding:4px 10px 4px 4px;font-size:12px;opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
 .fe-rm-btn:hover{color:#f85149}
+#fe-pl-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
+  width:18px;height:18px;line-height:1;font-size:13px;padding:0;display:flex;align-items:center;justify-content:center}
+#fe-pl-add:hover{border-color:var(--ac);color:var(--ac)}
+.fe-pl-label.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
 #fe-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
 #fe-toolbar{display:flex;align-items:center;gap:10px;padding:7px 14px;
   background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
@@ -1620,5 +1631,73 @@ td.c-tp{color:var(--dm);font-size:11px}
     });
   }
   attachBMEvents();
+
+  // ── Custom Places (editable sidebar quick-access) ─────────────────
+  const plList = document.getElementById('fe-pl-list')!;
+  function refreshPlaces(): void {
+    plList.innerHTML = renderPlacesList(getPlaces(), rawPath);
+    attachPlaceEvents();
+  }
+  function startRename(lbl: HTMLElement): void {
+    const item = lbl.closest<HTMLElement>('.fe-pl-item')!;
+    const path = item.dataset.path!;
+    const orig = lbl.textContent || '';
+    lbl.contentEditable = 'true';
+    lbl.classList.add('editing');
+    lbl.focus();
+    const range = document.createRange(); range.selectNodeContents(lbl);
+    const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(range);
+    let done = false;
+    const finish = (save: boolean) => {
+      if (done) return; done = true;
+      const val = (lbl.textContent || '').trim();
+      lbl.contentEditable = 'false'; lbl.classList.remove('editing');
+      if (save && val && val !== orig) savePlaces(renamePlace(getPlaces(), path, val));
+      refreshPlaces();
+    };
+    lbl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); lbl.textContent = orig; finish(false); }
+    });
+    lbl.addEventListener('blur', () => finish(true), { once: true });
+  }
+  function attachPlaceEvents(): void {
+    plList.querySelectorAll<HTMLElement>('.fe-rm-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        savePlaces(removePlace(getPlaces(), btn.dataset.path!));
+        refreshPlaces(); toast('Removed from Places');
+      });
+    });
+    plList.querySelectorAll<HTMLElement>('.fe-pl-label').forEach(lbl => {
+      lbl.addEventListener('dblclick', e => { e.preventDefault(); e.stopPropagation(); startRename(lbl); });
+    });
+    plList.querySelectorAll<HTMLElement>('.fe-pl-item').forEach(item => {
+      item.addEventListener('dragstart', e => {
+        dragSrc = item; (e as DragEvent).dataTransfer!.effectAllowed = 'move';
+        setTimeout(() => item.classList.add('dragging'), 0);
+      });
+      item.addEventListener('dragend',  () => item.classList.remove('dragging'));
+      item.addEventListener('dragover', e => { e.preventDefault(); item.classList.add('drag-over'); });
+      item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+      item.addEventListener('drop', e => {
+        e.stopPropagation(); e.preventDefault();
+        item.classList.remove('drag-over');
+        if (!dragSrc || dragSrc === item) return;
+        savePlaces(movePlace(getPlaces(), dragSrc.dataset.path!, item.dataset.path!));
+        refreshPlaces();
+      });
+    });
+  }
+  document.getElementById('fe-pl-add')!.addEventListener('click', () => {
+    const label = rawPath.split('/').filter(Boolean).pop() || '/';
+    savePlaces(upsertPlace(getPlaces(), { path: rawPath, label }));
+    refreshPlaces();
+    toast('Added to Places');
+    const fresh = [...plList.querySelectorAll<HTMLElement>('.fe-pl-item')].find(i => i.dataset.path === rawPath);
+    const lbl = fresh?.querySelector<HTMLElement>('.fe-pl-label');
+    if (lbl) startRename(lbl);
+  });
+  attachPlaceEvents();
 
 })();
