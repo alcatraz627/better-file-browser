@@ -1,7 +1,7 @@
 <div align="center">
   <img src="banner.svg" alt="Better File Browser" width="860"/>
   <br/><br/>
-  <img src="chrome-badge.svg" alt="Chrome Extension v2.4" height="48"/>
+  <img src="chrome-badge.svg" alt="Chrome Extension v2.5" height="48"/>
   &nbsp;&nbsp;
   <img src="icon128.png" alt="Extension Icon" width="48" height="48" style="border-radius:10px;vertical-align:middle"/>
 </div>
@@ -80,8 +80,11 @@ Select a file and press **Space** (or click the eye button on hover, or right-cl
 | `.tsv` / `.csv` | Sortable table; numeric columns detected and right-aligned |
 | `.json` | Collapsible tree |
 | `.jsonl` / `.ndjson` | One collapsible row per line; malformed lines badged |
-| `.md` / `.mdx` | Rendered markdown — headings, code fences, tables, lists, sanitized inline HTML |
+| `.md` / `.mdx` | Rendered markdown — headings, code fences, tables, lists, sanitized inline HTML; relative image/link paths resolve against the file |
 | Images | Fit-to-view |
+| `.pdf` | Embedded PDF viewer |
+| Audio / video (`.mp4`, `.webm`, `.mp3`, `.flac`…) | Native player |
+| Fonts (`.ttf`, `.otf`, `.woff`, `.woff2`) | Multi-size glyph specimen |
 
 A **copy** button in the header copies the full raw file contents. Previews fetch `file://` content through the background service worker (page-context `file://` XHR is CORS-blocked in current Chrome), so no extra permissions are required.
 
