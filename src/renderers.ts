@@ -233,6 +233,15 @@ function badUrl(url: string): boolean {
   return /^\s*(javascript|data|vbscript):/i.test(url);
 }
 
+// Resolve a markdown image/link target against the file's own URL so relative
+// paths (logo.svg, ./docs/x.md, ../y.png) point at the right file:// location.
+// URLs that already carry a scheme, protocol-relative //, or #anchors pass through.
+export function resolveMdUrl(base: string, url: string): string {
+  if (!base) return url;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith('//') || url.startsWith('#')) return url;
+  try { return new URL(url, base).href; } catch { return url; }
+}
+
 // READMEs routinely open with raw HTML (centered logo divs, badge imgs).
 // Rather than escaping them into tag soup, keep a safe subset.
 const HTML_TAGS = new Set([
@@ -245,7 +254,7 @@ const HTML_ATTRS = new Set(['src', 'href', 'alt', 'title', 'width', 'height', 'a
 const VOID_TAGS  = new Set(['br', 'hr', 'img', 'source']);
 
 /** Reduce arbitrary HTML to a whitelisted subset; unknown tags are unwrapped. */
-export function sanitizeHtml(html: string): string {
+export function sanitizeHtml(html: string, baseUrl = ''): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const walk = (node: Node): string => {
     if (node.nodeType === Node.TEXT_NODE) return esc(node.textContent ?? '');
@@ -257,10 +266,14 @@ export function sanitizeHtml(html: string): string {
     let attrs = '';
     for (const a of Array.from(el.attributes)) {
       if (!HTML_ATTRS.has(a.name)) continue;
-      if ((a.name === 'src' || a.name === 'href') && badUrl(a.value)) continue;
-      attrs += ` ${a.name}="${esc(a.value)}"`;
+      let val = a.value;
+      if (a.name === 'src' || a.name === 'href') {
+        if (badUrl(val)) continue;
+        val = resolveMdUrl(baseUrl, val);
+      }
+      attrs += ` ${a.name}="${esc(val)}"`;
     }
-    if (tag === 'a' && /^https?:/i.test(el.getAttribute('href') ?? '')) {
+    if (tag === 'a' && /^https?:/i.test(resolveMdUrl(baseUrl, el.getAttribute('href') ?? ''))) {
       attrs += ' target="_blank" rel="noopener"';
     }
     return VOID_TAGS.has(tag) ? `<${tag}${attrs}>` : `<${tag}${attrs}>${kids}</${tag}>`;
@@ -269,26 +282,30 @@ export function sanitizeHtml(html: string): string {
 }
 
 /** Inline markdown: code spans, images, links, bold, italic, strikethrough. */
-export function mdInline(s: string): string {
+export function mdInline(s: string, baseUrl = ''): string {
   let out = esc(s);
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
-  out = out.replace(/!\[([^\]]*)\]\(([^)\s]+?)\)/g, (_m, alt, url) =>
-    badUrl(url) ? alt : `<img src="${url}" alt="${alt}" loading="lazy">`);
-  out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) =>
-    badUrl(url) ? t
-      : `<a href="${url}"${/^https?:/i.test(url) ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`);
+  out = out.replace(/!\[([^\]]*)\]\(([^)\s]+?)\)/g, (_m, alt, url) => {
+    if (badUrl(url)) return alt;
+    return `<img src="${resolveMdUrl(baseUrl, url)}" alt="${alt}" loading="lazy">`;
+  });
+  out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) => {
+    if (badUrl(url)) return t;
+    const u = resolveMdUrl(baseUrl, url);
+    return `<a href="${u}"${/^https?:/i.test(u) ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`;
+  });
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
   out = out.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   return out;
 }
 
-export function renderMarkdown(src: string): string {
+export function renderMarkdown(src: string, baseUrl = ''): string {
   const lines = src.replace(/\r\n/g, '\n').split('\n');
   const out: string[] = [];
   let para: string[] = [];
   const flush = () => {
-    if (para.length) { out.push(`<p>${mdInline(para.join(' '))}</p>`); para = []; }
+    if (para.length) { out.push(`<p>${mdInline(para.join(' '), baseUrl)}</p>`); para = []; }
   };
   let i = 0;
   while (i < lines.length) {
@@ -306,14 +323,14 @@ export function renderMarkdown(src: string): string {
     }
 
     const h = line.match(/^(#{1,6})\s+(.*)$/);
-    if (h) { flush(); const n = h[1].length; out.push(`<h${n}>${mdInline(h[2])}</h${n}>`); i++; continue; }
+    if (h) { flush(); const n = h[1].length; out.push(`<h${n}>${mdInline(h[2], baseUrl)}</h${n}>`); i++; continue; }
 
     // Raw HTML block: consume until the next blank line, keep a safe subset
     if (/^\s*<[a-zA-Z!/]/.test(line)) {
       flush();
       const buf: string[] = [];
       while (i < lines.length && !/^\s*$/.test(lines[i])) buf.push(lines[i++]);
-      out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join('\n'))}</div>`);
+      out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join('\n'), baseUrl)}</div>`);
       continue;
     }
 
@@ -325,7 +342,7 @@ export function renderMarkdown(src: string): string {
       flush();
       const buf: string[] = [];
       while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ''));
-      out.push(`<blockquote>${renderMarkdown(buf.join('\n'))}</blockquote>`);
+      out.push(`<blockquote>${renderMarkdown(buf.join('\n'), baseUrl)}</blockquote>`);
       continue;
     }
 
@@ -340,7 +357,7 @@ export function renderMarkdown(src: string): string {
         // Nesting is rendered as indentation, not nested lists — close enough
         // for a preview and far simpler than tracking list stacks.
         const depth = Math.min(Math.floor(m[1].length / 2), 4);
-        items.push(`<li style="margin-left:${depth * 18}px">${mdInline(m[3])}</li>`);
+        items.push(`<li style="margin-left:${depth * 18}px">${mdInline(m[3], baseUrl)}</li>`);
         i++;
       }
       out.push(`<${ordered ? 'ol' : 'ul'}>${items.join('')}</${ordered ? 'ol' : 'ul'}>`);
@@ -350,7 +367,7 @@ export function renderMarkdown(src: string): string {
     if (line.includes('|') && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i + 1])) {
       flush();
       const cells = (l: string) =>
-        l.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => mdInline(c.trim()));
+        l.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => mdInline(c.trim(), baseUrl));
       const head = cells(line);
       i += 2;
       const rows: string[][] = [];

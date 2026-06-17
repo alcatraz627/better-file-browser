@@ -647,6 +647,15 @@
   function badUrl(url) {
     return /^\s*(javascript|data|vbscript):/i.test(url);
   }
+  function resolveMdUrl(base, url) {
+    if (!base) return url;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith("//") || url.startsWith("#")) return url;
+    try {
+      return new URL(url, base).href;
+    } catch {
+      return url;
+    }
+  }
   var HTML_TAGS = /* @__PURE__ */ new Set([
     "div",
     "span",
@@ -690,7 +699,7 @@
   ]);
   var HTML_ATTRS = /* @__PURE__ */ new Set(["src", "href", "alt", "title", "width", "height", "align"]);
   var VOID_TAGS = /* @__PURE__ */ new Set(["br", "hr", "img", "source"]);
-  function sanitizeHtml(html) {
+  function sanitizeHtml(html, baseUrl = "") {
     const doc = new DOMParser().parseFromString(html, "text/html");
     const walk = (node) => {
       if (node.nodeType === Node.TEXT_NODE) return esc(node.textContent ?? "");
@@ -702,33 +711,44 @@
       let attrs = "";
       for (const a of Array.from(el.attributes)) {
         if (!HTML_ATTRS.has(a.name)) continue;
-        if ((a.name === "src" || a.name === "href") && badUrl(a.value)) continue;
-        attrs += ` ${a.name}="${esc(a.value)}"`;
+        let val = a.value;
+        if (a.name === "src" || a.name === "href") {
+          if (badUrl(val)) continue;
+          val = resolveMdUrl(baseUrl, val);
+        }
+        attrs += ` ${a.name}="${esc(val)}"`;
       }
-      if (tag === "a" && /^https?:/i.test(el.getAttribute("href") ?? "")) {
+      if (tag === "a" && /^https?:/i.test(resolveMdUrl(baseUrl, el.getAttribute("href") ?? ""))) {
         attrs += ' target="_blank" rel="noopener"';
       }
       return VOID_TAGS.has(tag) ? `<${tag}${attrs}>` : `<${tag}${attrs}>${kids}</${tag}>`;
     };
     return Array.from(doc.body.childNodes).map(walk).join("");
   }
-  function mdInline(s) {
+  function mdInline(s, baseUrl = "") {
     let out = esc(s);
     out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
-    out = out.replace(/!\[([^\]]*)\]\(([^)\s]+?)\)/g, (_m, alt, url) => badUrl(url) ? alt : `<img src="${url}" alt="${alt}" loading="lazy">`);
-    out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) => badUrl(url) ? t : `<a href="${url}"${/^https?:/i.test(url) ? ' target="_blank" rel="noopener"' : ""}>${t}</a>`);
+    out = out.replace(/!\[([^\]]*)\]\(([^)\s]+?)\)/g, (_m, alt, url) => {
+      if (badUrl(url)) return alt;
+      return `<img src="${resolveMdUrl(baseUrl, url)}" alt="${alt}" loading="lazy">`;
+    });
+    out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) => {
+      if (badUrl(url)) return t;
+      const u = resolveMdUrl(baseUrl, url);
+      return `<a href="${u}"${/^https?:/i.test(u) ? ' target="_blank" rel="noopener"' : ""}>${t}</a>`;
+    });
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
     out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
     return out;
   }
-  function renderMarkdown(src) {
+  function renderMarkdown(src, baseUrl = "") {
     const lines = src.replace(/\r\n/g, "\n").split("\n");
     const out = [];
     let para = [];
     const flush = () => {
       if (para.length) {
-        out.push(`<p>${mdInline(para.join(" "))}</p>`);
+        out.push(`<p>${mdInline(para.join(" "), baseUrl)}</p>`);
         para = [];
       }
     };
@@ -750,7 +770,7 @@
       if (h) {
         flush();
         const n = h[1].length;
-        out.push(`<h${n}>${mdInline(h[2])}</h${n}>`);
+        out.push(`<h${n}>${mdInline(h[2], baseUrl)}</h${n}>`);
         i++;
         continue;
       }
@@ -758,7 +778,7 @@
         flush();
         const buf = [];
         while (i < lines.length && !/^\s*$/.test(lines[i])) buf.push(lines[i++]);
-        out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join("\n"))}</div>`);
+        out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join("\n"), baseUrl)}</div>`);
         continue;
       }
       if (para.length === 0 && /^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/.test(line)) {
@@ -771,7 +791,7 @@
         flush();
         const buf = [];
         while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ""));
-        out.push(`<blockquote>${renderMarkdown(buf.join("\n"))}</blockquote>`);
+        out.push(`<blockquote>${renderMarkdown(buf.join("\n"), baseUrl)}</blockquote>`);
         continue;
       }
       const li = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
@@ -783,7 +803,7 @@
           const m = lines[i].match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
           if (!m) break;
           const depth = Math.min(Math.floor(m[1].length / 2), 4);
-          items.push(`<li style="margin-left:${depth * 18}px">${mdInline(m[3])}</li>`);
+          items.push(`<li style="margin-left:${depth * 18}px">${mdInline(m[3], baseUrl)}</li>`);
           i++;
         }
         out.push(`<${ordered ? "ol" : "ul"}>${items.join("")}</${ordered ? "ol" : "ul"}>`);
@@ -791,7 +811,7 @@
       }
       if (line.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i + 1])) {
         flush();
-        const cells = (l) => l.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => mdInline(c.trim()));
+        const cells = (l) => l.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => mdInline(c.trim(), baseUrl));
         const head = cells(line);
         i += 2;
         const rows = [];
@@ -1267,7 +1287,7 @@
       return;
     }
     if (ext === "md" || ext === "mdx") {
-      body.innerHTML = renderMarkdown(text);
+      body.innerHTML = renderMarkdown(text, currentEntry?.href ?? "");
       return;
     }
     body.innerHTML = renderCode(text, ext);

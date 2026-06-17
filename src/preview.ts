@@ -291,6 +291,9 @@ function render(text: string, ext: string): void {
   }
   if (JSONL_EXTS.has(ext)) { body.innerHTML = renderJsonl(text); return; }
   if (ext === 'json')      { body.innerHTML = renderJsonTree(text); return; }
-  if (ext === 'md' || ext === 'mdx') { body.innerHTML = renderMarkdown(text); return; }
+  if (ext === 'md' || ext === 'mdx') {
+    body.innerHTML = renderMarkdown(text, currentEntry?.href ?? '');
+    return;
+  }
   body.innerHTML = renderCode(text, ext);
 }

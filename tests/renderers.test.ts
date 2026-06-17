@@ -3,7 +3,7 @@ import {
   parseDSV, numericCols, sortDSVRows, renderDSVTable,
   highlightCode, renderCode, sniffBinary,
   renderJsonl, renderJsonTree, RENDER_CAPS,
-  renderMarkdown, mdInline, sanitizeHtml,
+  renderMarkdown, mdInline, sanitizeHtml, resolveMdUrl,
 } from '../src/renderers';
 
 describe('parseDSV', () => {
@@ -205,6 +205,39 @@ describe('renderMarkdown', () => {
   });
   it('strips dangerous HTML even inside raw blocks', () => {
     expect(renderMarkdown('<img src=x onerror=alert(1)>')).not.toContain('onerror');
+  });
+});
+
+describe('resolveMdUrl', () => {
+  const base = 'file:///a/b/README.md';
+  it('resolves a bare relative path against the file dir', () => {
+    expect(resolveMdUrl(base, 'logo.svg')).toBe('file:///a/b/logo.svg');
+  });
+  it('resolves ./ and ../ paths', () => {
+    expect(resolveMdUrl(base, './sub/x.png')).toBe('file:///a/b/sub/x.png');
+    expect(resolveMdUrl(base, '../y.png')).toBe('file:///a/y.png');
+  });
+  it('leaves scheme/protocol-relative/anchor URLs untouched', () => {
+    expect(resolveMdUrl(base, 'https://x.dev/i.png')).toBe('https://x.dev/i.png');
+    expect(resolveMdUrl(base, '//cdn/i.png')).toBe('//cdn/i.png');
+    expect(resolveMdUrl(base, '#section')).toBe('#section');
+  });
+  it('no-ops without a base', () => {
+    expect(resolveMdUrl('', 'logo.svg')).toBe('logo.svg');
+  });
+});
+
+describe('renderMarkdown relative-path resolution', () => {
+  const base = 'file:///a/b/README.md';
+  it('resolves relative image src against the file', () => {
+    expect(renderMarkdown('![logo](logo.svg)', base)).toContain('src="file:///a/b/logo.svg"');
+  });
+  it('relative links stay in-tab; external links open in a new tab', () => {
+    expect(renderMarkdown('[rel](./other.md)', base)).not.toContain('target=');
+    expect(renderMarkdown('[ext](https://x.dev)', base)).toContain('target="_blank"');
+  });
+  it('resolves relative src inside raw-HTML blocks too', () => {
+    expect(renderMarkdown('<img src="cover.png">', base)).toContain('src="file:///a/b/cover.png"');
   });
 });
 
