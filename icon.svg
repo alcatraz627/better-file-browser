@@ -1,45 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1a2332"/>
-      <stop offset="100%" stop-color="#0d1117"/>
-    </linearGradient>
-    <linearGradient id="folderFill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#58a6ff"/>
-      <stop offset="100%" stop-color="#1f6feb"/>
-    </linearGradient>
-    <linearGradient id="tabFill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#79c0ff"/>
-      <stop offset="100%" stop-color="#58a6ff"/>
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-    </filter>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1a2332"/><stop offset="1" stop-color="#0d1117"/></linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#58a6ff"/><stop offset="1" stop-color="#1f6feb"/></linearGradient>
   </defs>
-
-  <!-- Rounded background -->
-  <rect width="128" height="128" rx="24" fill="url(#bg)"/>
-
-  <!-- Subtle inner border -->
-  <rect x="1" y="1" width="126" height="126" rx="23" fill="none" stroke="#30363d" stroke-width="1.5"/>
-
-  <!-- Folder body -->
-  <path d="M16 52a9 9 0 0 1 9-9h28l12 12H112a9 9 0 0 1 9 9v32a9 9 0 0 1-9 9H25a9 9 0 0 1-9-9z"
-        fill="url(#folderFill)"/>
-
-  <!-- Folder tab (lighter top-left section) -->
-  <path d="M16 52a9 9 0 0 1 9-9h28l7 7H16z" fill="url(#tabFill)"/>
-
-  <!-- Subtle folder sheen -->
-  <path d="M16 52a9 9 0 0 1 9-9h28l7 7H16z" fill="white" opacity="0.12"/>
-
-  <!-- File listing lines — bold so they read at 16px -->
-  <rect x="33" y="77" width="30" height="6" rx="3" fill="white" opacity="0.9"/>
-  <rect x="33" y="90" width="46" height="6" rx="3" fill="white" opacity="0.9"/>
-  <rect x="33" y="103" width="20" height="6" rx="3" fill="white" opacity="0.9"/>
-
-  <!-- Magnifying glass -->
-  <circle cx="94" cy="88" r="14" fill="none" stroke="white" stroke-width="5.5" opacity="0.85" filter="url(#glow)"/>
-  <line x1="103.9" y1="97.9" x2="113" y2="107" stroke="white" stroke-width="5.5" stroke-linecap="round" opacity="0.85"/>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <rect x="1" y="1" width="126" height="126" rx="27" fill="none" stroke="#30363d" stroke-width="1.5"/>
+  <!-- abstract explorer window: sidebar + content rows (the *browser*, not just a folder) -->
+  <rect x="26" y="30" width="76" height="68" rx="12" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+  <path d="M26 42a12 12 0 0 1 12-12h10v68H38a12 12 0 0 1-12-12z" fill="url(#side)"/>
+  <circle cx="37" cy="46" r="3.2" fill="#bcd9ff"/>
+  <circle cx="37" cy="60" r="3.2" fill="#bcd9ff"/>
+  <circle cx="37" cy="74" r="3.2" fill="#bcd9ff"/>
+  <rect x="60" y="44" width="34" height="6" rx="3" fill="#79c0ff"/>
+  <rect x="60" y="60" width="30" height="6" rx="3" fill="#ffffff" opacity="0.85"/>
+  <rect x="60" y="76" width="22" height="6" rx="3" fill="#ffffff" opacity="0.55"/>
 </svg>
