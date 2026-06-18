@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { esc, fmtSize, fmtDate, fmtType, getExt } from '../src/utils';
+import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath } from '../src/utils';
 import type { Entry } from '../src/types';
 
 const file = (name: string, rawBytes = 0, dateStr = ''): Entry =>
@@ -62,6 +62,16 @@ describe('fmtType', () => {
   });
   it('returns File for extensionless files', () => {
     expect(fmtType(file('Makefile'))).toBe('File');
+  });
+});
+
+describe('fullPath', () => {
+  it('joins rawPath + file name', () => {
+    expect(fullPath('/a/b/', file('x.ts'))).toBe('/a/b/x.ts');
+    expect(fullPath('/a/b', file('x.ts'))).toBe('/a/b/x.ts');   // tolerates missing trailing slash
+  });
+  it('appends a trailing slash for directories', () => {
+    expect(fullPath('/a/b/', dir('sub'))).toBe('/a/b/sub/');
   });
 });
 

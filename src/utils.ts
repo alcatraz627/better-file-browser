@@ -47,3 +47,21 @@ export function getExt(e: Entry): string {
   if (e.isDir || e.isParent) return '';
   return e.name.includes('.') ? e.name.split('.').pop()!.toLowerCase() : '';
 }
+
+/** Absolute path of an entry within rawPath (dirs get a trailing slash). */
+export function fullPath(rawPath: string, e: Pick<Entry, 'name' | 'isDir'>): string {
+  return rawPath.replace(/\/$/, '') + '/' + e.name + (e.isDir ? '/' : '');
+}
+
+/** Copy text to the clipboard with an execCommand fallback. Resolves to success. */
+export function copyToClipboard(text: string): Promise<boolean> {
+  return navigator.clipboard.writeText(text).then(() => true).catch(() => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch { return false; }
+  });
+}

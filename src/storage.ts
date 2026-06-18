@@ -95,5 +95,5 @@ export function saveColWidths(w: Record<string, number>): void {
 
 export function getView():       string  { return localStorage.getItem(VIEW_KEY)   ?? 'details'; }
 export function getTheme():      string  { return localStorage.getItem(THEME_KEY)  ?? 'dark'; }
-export function getZoom():       number  { return parseInt(localStorage.getItem(ZOOM_KEY) ?? '100'); }
+export function getZoom():       number  { const z = parseInt(localStorage.getItem(ZOOM_KEY) ?? '100'); return Number.isFinite(z) ? z : 100; }
 export function getShowHidden(): boolean { return localStorage.getItem(HIDDEN_KEY) === 'true'; }

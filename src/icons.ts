@@ -55,13 +55,19 @@ export function icoParent(): string {
   </svg>`;
 }
 
+/** A color safe to drop into SVG attributes: hex or a bare CSS keyword, else a default. */
+export function safeColor(color: string): string {
+  return /^#[0-9a-fA-F]{3,8}$/.test(color) || /^[a-zA-Z]{1,20}$/.test(color) ? color : '#6e7681';
+}
+
 export function icoCustom(label: string, color: string): string {
   const lbl = String(label || '?').slice(0, 4);
   const safe = lbl.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const c = safeColor(color);
   return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">
-    <path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${color}" fill-opacity="0.12" stroke="${color}" stroke-width="1.1"/>
-    <path d="M10 0.5L15.5 6H10z" fill="${color}" fill-opacity="0.75"/>
-    <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${color}">${safe}</text>
+    <path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${c}" fill-opacity="0.12" stroke="${c}" stroke-width="1.1"/>
+    <path d="M10 0.5L15.5 6H10z" fill="${c}" fill-opacity="0.75"/>
+    <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${c}">${safe}</text>
   </svg>`;
 }
 

@@ -2,7 +2,7 @@
 // Fetches file:// content over XHR (the same trick the crumb dropdown uses)
 // and hands it to a renderer picked by extension. No new permissions needed.
 import type { Entry, IconRule } from './types';
-import { esc, fmtSize, getExt } from './utils';
+import { esc, fmtSize, getExt, copyToClipboard } from './utils';
 import { getIcon, IMG_EXTS } from './icons';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
@@ -106,12 +106,7 @@ export function initPreview(d: PreviewDeps): void {
       copyBtn.querySelector('span')!.textContent = ok ? '✓ copied' : 'failed';
       setTimeout(() => { copyBtn.querySelector('span')!.textContent = 'copy'; }, 1400);
     };
-    navigator.clipboard.writeText(currentText).then(() => flash(true)).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = currentText!; document.body.appendChild(ta); ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove(); flash(ok);
-    });
+    copyToClipboard(currentText).then(flash);
   });
 
   const aiQ = document.getElementById('fe-ql-ai-q') as HTMLInputElement;
@@ -146,10 +141,6 @@ export function initPreview(d: PreviewDeps): void {
 
 export function isPreviewOpen(): boolean {
   return overlay?.style.display !== 'none';
-}
-
-export function previewedEntry(): Entry | null {
-  return isPreviewOpen() ? currentEntry : null;
 }
 
 export function closePreview(): void {

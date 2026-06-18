@@ -107,6 +107,24 @@
     if (e.isDir || e.isParent) return "";
     return e.name.includes(".") ? e.name.split(".").pop().toLowerCase() : "";
   }
+  function fullPath(rawPath, e) {
+    return rawPath.replace(/\/$/, "") + "/" + e.name + (e.isDir ? "/" : "");
+  }
+  function copyToClipboard(text) {
+    return navigator.clipboard.writeText(text).then(() => true).catch(() => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        ta.remove();
+        return ok;
+      } catch {
+        return false;
+      }
+    });
+  }
 
   // src/icons.ts
   var EXT_COLORS = {
@@ -219,13 +237,17 @@
     <path d="M9 3.5L5 8l4 4.5M5 8h9" fill="none" stroke="#6e7681" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`;
   }
+  function safeColor(color) {
+    return /^#[0-9a-fA-F]{3,8}$/.test(color) || /^[a-zA-Z]{1,20}$/.test(color) ? color : "#6e7681";
+  }
   function icoCustom(label, color) {
     const lbl = String(label || "?").slice(0, 4);
     const safe = lbl.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const c = safeColor(color);
     return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">
-    <path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${color}" fill-opacity="0.12" stroke="${color}" stroke-width="1.1"/>
-    <path d="M10 0.5L15.5 6H10z" fill="${color}" fill-opacity="0.75"/>
-    <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${color}">${safe}</text>
+    <path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${c}" fill-opacity="0.12" stroke="${c}" stroke-width="1.1"/>
+    <path d="M10 0.5L15.5 6H10z" fill="${c}" fill-opacity="0.75"/>
+    <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${c}">${safe}</text>
   </svg>`;
   }
   function getIcon(e, iconRules) {
@@ -367,7 +389,8 @@
     return localStorage.getItem(THEME_KEY) ?? "dark";
   }
   function getZoom() {
-    return parseInt(localStorage.getItem(ZOOM_KEY) ?? "100");
+    const z = parseInt(localStorage.getItem(ZOOM_KEY) ?? "100");
+    return Number.isFinite(z) ? z : 100;
   }
   function getShowHidden() {
     return localStorage.getItem(HIDDEN_KEY) === "true";
@@ -1229,15 +1252,7 @@
           copyBtn.querySelector("span").textContent = "copy";
         }, 1400);
       };
-      navigator.clipboard.writeText(currentText).then(() => flash(true)).catch(() => {
-        const ta = document.createElement("textarea");
-        ta.value = currentText;
-        document.body.appendChild(ta);
-        ta.select();
-        const ok = document.execCommand("copy");
-        ta.remove();
-        flash(ok);
-      });
+      copyToClipboard(currentText).then(flash);
     });
     const aiQ = document.getElementById("fe-ql-ai-q");
     document.getElementById("fe-ql-ai-sum").addEventListener("click", () => runAi("summarize"));
@@ -1543,8 +1558,8 @@
     if (e.isParent) {
       return JSON.stringify({ icon: "", name: "Parent Directory", lines: ["Navigate up one level"] });
     }
-    const fullPath = ctx.rawPath.replace(/\/$/, "") + "/" + e.name + (e.isDir ? "/" : "");
-    const lines = [`Path: ${fullPath}`, `Type: ${fmtType(e)}`];
+    const fp = fullPath(ctx.rawPath, e);
+    const lines = [`Path: ${fp}`, `Type: ${fmtType(e)}`];
     if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
     lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
     if (e.isHidden) lines.push("Hidden file (dotfile)");
@@ -1559,8 +1574,7 @@
   }
   function itemActions(e, rawPath) {
     if (e.isParent) return "";
-    const fullPath = rawPath.replace(/\/$/, "") + "/" + e.name + (e.isDir ? "/" : "");
-    const dPath = esc(fullPath), dName = esc(e.name);
+    const dPath = esc(fullPath(rawPath, e)), dName = esc(e.name);
     const pvBtn = canPreview(e) ? `<button class="fe-act-btn fe-act-pv" title="Preview (Space)" data-pv="${dName}">
         <svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
       </button>` : "";
@@ -1579,7 +1593,7 @@
              data-name="${esc(e.name.toLowerCase())}"
              data-idx="${idx}"
              data-tip="${esc(tipData)}">
-    <td class="c-nm"><a href="${e.href}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
+    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-sz">${e.isDir ? "\u2014" : fmtSize(e.rawBytes)}</td>
     <td class="c-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</td>
@@ -1589,7 +1603,7 @@
     const tipData = buildTipData(e, ctx);
     const isImg = !e.isDir && !e.isParent && IMG_EXTS.has(getExt(e));
     const iconHtml = isImg ? `<span class="fe-tile-img-wrap"><img class="fe-tile-thumb" src="${esc(e.href)}" loading="lazy" alt="" onerror="this.closest('.fe-tile-img-wrap').classList.add('err')">${getIcon(e, ctx.iconRules)}</span>` : getIcon(e, ctx.iconRules);
-    return `<a href="${e.href}" class="fe-tile${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
+    return `<a href="${esc(e.href)}" class="fe-tile${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
             data-name="${esc(e.name.toLowerCase())}"
             data-idx="${idx}"
             data-tip="${esc(tipData)}">
@@ -1635,7 +1649,7 @@
       crumbs.push({ label: seg, href: "file://" + acc });
     }
     return crumbs.map(
-      (c, i) => `<a href="${c.href}" class="fe-crumb">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">\u25BE</button>` + (i < crumbs.length - 1 ? `<span class="fe-sep">\u203A</span>` : "")
+      (c, i) => `<a href="${esc(c.href)}" class="fe-crumb">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">\u25BE</button>` + (i < crumbs.length - 1 ? `<span class="fe-sep">\u203A</span>` : "")
     ).join("");
   }
 
@@ -2771,15 +2785,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       crumbMenuUrl = null;
     }
     function copyText(val) {
-      navigator.clipboard.writeText(val).then(() => toast(`Copied: ${val}`)).catch(() => {
-        const ta = document.createElement("textarea");
-        ta.value = val;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        ta.remove();
-        toast(`Copied: ${val}`);
-      });
+      copyToClipboard(val).then(() => toast(`Copied: ${val}`));
     }
     scroll.addEventListener("click", (e) => {
       const pv = e.target.closest(".fe-act-pv");
@@ -2868,25 +2874,12 @@ td.c-tp{color:var(--dm);font-size:11px}
       paintSel();
     }
     function selectedPaths() {
-      return [...selSet].sort((a, b) => a - b).map((i) => {
-        const en = VISIBLE[i];
-        return rawPath.replace(/\/$/, "") + "/" + en.name + (en.isDir ? "/" : "");
-      });
+      return [...selSet].sort((a, b) => a - b).map((i) => fullPath(rawPath, VISIBLE[i]));
     }
     function copySelection() {
       const paths = selectedPaths();
       if (!paths.length) return;
-      navigator.clipboard.writeText(paths.join("\n")).then(
-        () => toast(`Copied ${paths.length} path${paths.length !== 1 ? "s" : ""}`)
-      ).catch(() => {
-        const ta = document.createElement("textarea");
-        ta.value = paths.join("\n");
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        ta.remove();
-        toast(`Copied ${paths.length} path${paths.length !== 1 ? "s" : ""}`);
-      });
+      copyToClipboard(paths.join("\n")).then(() => toast(`Copied ${paths.length} path${paths.length !== 1 ? "s" : ""}`));
     }
     function moveSel(step) {
       let i = selIdx;
@@ -3018,16 +3011,15 @@ td.c-tp{color:var(--dm);font-size:11px}
       const en = VISIBLE[parseInt(ctxMenu.dataset.idx)];
       closeCtx();
       if (!en) return;
-      const fullPath = rawPath.replace(/\/$/, "") + "/" + en.name + (en.isDir ? "/" : "");
+      const fp = fullPath(rawPath, en);
       if (item.dataset.act === "pv") openPreview(en);
-      else if (item.dataset.act === "cp-path") copyText(fullPath);
+      else if (item.dataset.act === "cp-path") copyText(fp);
       else if (item.dataset.act === "cp-name") copyText(en.name);
-      else if (item.dataset.act === "term") openInTerminal(en.isDir ? fullPath : rawPath);
+      else if (item.dataset.act === "term") openInTerminal(en.isDir ? fp : rawPath);
       else if (item.dataset.act === "cp-paths") copySelection();
       else if (item.dataset.act === "cp-names") {
         const names = [...selSet].sort((a, b) => a - b).map((i) => VISIBLE[i].name).join("\n");
-        navigator.clipboard.writeText(names).then(() => toast(`Copied ${selSet.size} names`)).catch(() => {
-        });
+        copyToClipboard(names).then(() => toast(`Copied ${selSet.size} names`));
       }
     });
     document.addEventListener("click", (e) => {
@@ -3046,7 +3038,7 @@ td.c-tp{color:var(--dm);font-size:11px}
         <div class="fe-st-rule-preview">${icoCustom(rule.label, rule.color)}</div>
         <input type="text" class="fe-st-rule-pattern" value="${esc(rule.pattern)}" placeholder="regex\u2026" title="Regex (case-insensitive)">
         <input type="text" class="fe-st-rule-label"   value="${esc(rule.label)}"   placeholder="LBL"   maxlength="4" title="Badge text (\u22644 chars)">
-        <input type="color" class="fe-st-rule-color"  value="${rule.color}"        title="Icon color">
+        <input type="color" class="fe-st-rule-color"  value="${esc(rule.color)}"        title="Icon color">
         <button class="fe-st-rule-del" data-idx="${i}" title="Delete">\u2715</button>
       </div>`).join("");
     }

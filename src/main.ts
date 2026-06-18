@@ -1,6 +1,6 @@
 import type { SortConfig, FilterConfig, GroupMode } from './types';
 import { parseEntries, parseListing } from './parse';
-import { getExt, fmtSize } from './utils';
+import { getExt, fmtSize, fullPath, copyToClipboard } from './utils';
 import { esc } from './utils';
 import { icoCustom, PI } from './icons';
 import {
@@ -1208,11 +1208,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 
   // ── Per-item actions ──────────────────────────────────────────────
   function copyText(val: string): void {
-    navigator.clipboard.writeText(val).then(() => toast(`Copied: ${val}`)).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = val; document.body.appendChild(ta); ta.select();
-      document.execCommand('copy'); ta.remove(); toast(`Copied: ${val}`);
-    });
+    copyToClipboard(val).then(() => toast(`Copied: ${val}`));
   }
 
   scroll.addEventListener('click', e => {
@@ -1303,22 +1299,12 @@ td.c-tp{color:var(--dm);font-size:11px}
     paintSel();
   }
   function selectedPaths(): string[] {
-    return [...selSet].sort((a, b) => a - b).map(i => {
-      const en = VISIBLE[i];
-      return rawPath.replace(/\/$/, '') + '/' + en.name + (en.isDir ? '/' : '');
-    });
+    return [...selSet].sort((a, b) => a - b).map(i => fullPath(rawPath, VISIBLE[i]));
   }
   function copySelection(): void {
     const paths = selectedPaths();
     if (!paths.length) return;
-    navigator.clipboard.writeText(paths.join('\n')).then(
-      () => toast(`Copied ${paths.length} path${paths.length !== 1 ? 's' : ''}`),
-    ).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = paths.join('\n'); document.body.appendChild(ta); ta.select();
-      document.execCommand('copy'); ta.remove();
-      toast(`Copied ${paths.length} path${paths.length !== 1 ? 's' : ''}`);
-    });
+    copyToClipboard(paths.join('\n')).then(() => toast(`Copied ${paths.length} path${paths.length !== 1 ? 's' : ''}`));
   }
   function moveSel(step: number): void {
     let i = selIdx;
@@ -1423,15 +1409,15 @@ td.c-tp{color:var(--dm);font-size:11px}
     const en = VISIBLE[parseInt(ctxMenu.dataset.idx!)];
     closeCtx();
     if (!en) return;
-    const fullPath = rawPath.replace(/\/$/, '') + '/' + en.name + (en.isDir ? '/' : '');
+    const fp = fullPath(rawPath, en);
     if      (item.dataset.act === 'pv')      openPreview(en);
-    else if (item.dataset.act === 'cp-path') copyText(fullPath);
+    else if (item.dataset.act === 'cp-path') copyText(fp);
     else if (item.dataset.act === 'cp-name') copyText(en.name);
-    else if (item.dataset.act === 'term')    openInTerminal(en.isDir ? fullPath : rawPath);
+    else if (item.dataset.act === 'term')    openInTerminal(en.isDir ? fp : rawPath);
     else if (item.dataset.act === 'cp-paths') copySelection();
     else if (item.dataset.act === 'cp-names') {
       const names = [...selSet].sort((a, b) => a - b).map(i => VISIBLE[i].name).join('\n');
-      navigator.clipboard.writeText(names).then(() => toast(`Copied ${selSet.size} names`)).catch(() => {});
+      copyToClipboard(names).then(() => toast(`Copied ${selSet.size} names`));
     }
   });
 
@@ -1454,7 +1440,7 @@ td.c-tp{color:var(--dm);font-size:11px}
         <div class="fe-st-rule-preview">${icoCustom(rule.label, rule.color)}</div>
         <input type="text" class="fe-st-rule-pattern" value="${esc(rule.pattern)}" placeholder="regex…" title="Regex (case-insensitive)">
         <input type="text" class="fe-st-rule-label"   value="${esc(rule.label)}"   placeholder="LBL"   maxlength="4" title="Badge text (≤4 chars)">
-        <input type="color" class="fe-st-rule-color"  value="${rule.color}"        title="Icon color">
+        <input type="color" class="fe-st-rule-color"  value="${esc(rule.color)}"        title="Icon color">
         <button class="fe-st-rule-del" data-idx="${i}" title="Delete">✕</button>
       </div>`).join('');
   }

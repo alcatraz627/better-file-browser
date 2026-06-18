@@ -17,15 +17,14 @@ def write_msg(obj):
 msg = read_msg()
 if msg and msg.get('action') == 'open_terminal':
     path = msg.get('path', '/')
-    # AppleScript: open Ghostty with the directory as the working dir
-    script = f'''tell application "Ghostty"
-    activate
-    create window with default profile command "cd {repr(path)} && exec $SHELL"
-end tell'''
+    # Pass the directory as a separate argv element to `open` — no shell, no
+    # AppleScript string-building, so a maliciously-named directory cannot inject
+    # commands (Ghostty opens a new window with that path as the working dir).
     try:
-        subprocess.Popen(['osascript', '-e', script])
+        if not isinstance(path, str) or not path.startswith('/'):
+            raise ValueError('path must be an absolute string')
+        subprocess.Popen(['open', '-a', 'Ghostty', path])
         write_msg({'success': True})
     except Exception as e:
-        # Fallback: just open Ghostty and let user cd manually
-        subprocess.Popen(['open', '-a', 'Ghostty'])
+        subprocess.Popen(['open', '-a', 'Ghostty'])   # fallback: just open Ghostty
         write_msg({'success': False, 'error': str(e)})

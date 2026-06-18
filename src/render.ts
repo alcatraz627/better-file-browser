@@ -1,5 +1,5 @@
 import type { Entry, Bookmark, IconRule, Place, Settings, TipData } from './types';
-import { esc, fmtSize, fmtDate, fmtType, getExt } from './utils';
+import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath } from './utils';
 import { getIcon, IMG_EXTS, PI } from './icons';
 import { canPreview } from './preview';
 
@@ -13,8 +13,8 @@ export function buildTipData(e: Entry, ctx: RenderContext): string {
   if (e.isParent) {
     return JSON.stringify({ icon: '', name: 'Parent Directory', lines: ['Navigate up one level'] } satisfies TipData);
   }
-  const fullPath = ctx.rawPath.replace(/\/$/, '') + '/' + e.name + (e.isDir ? '/' : '');
-  const lines = [`Path: ${fullPath}`, `Type: ${fmtType(e)}`];
+  const fp = fullPath(ctx.rawPath, e);
+  const lines = [`Path: ${fp}`, `Type: ${fmtType(e)}`];
   if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
   lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
   if (e.isHidden) lines.push('Hidden file (dotfile)');
@@ -30,8 +30,7 @@ export function buildTipData(e: Entry, ctx: RenderContext): string {
 
 export function itemActions(e: Entry, rawPath: string): string {
   if (e.isParent) return '';
-  const fullPath = rawPath.replace(/\/$/, '') + '/' + e.name + (e.isDir ? '/' : '');
-  const dPath = esc(fullPath), dName = esc(e.name);
+  const dPath = esc(fullPath(rawPath, e)), dName = esc(e.name);
   const pvBtn = canPreview(e)
     ? `<button class="fe-act-btn fe-act-pv" title="Preview (Space)" data-pv="${dName}">
         <svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
@@ -53,7 +52,7 @@ export function renderRow(e: Entry, ctx: RenderContext, idx = -1): string {
              data-name="${esc(e.name.toLowerCase())}"
              data-idx="${idx}"
              data-tip="${esc(tipData)}">
-    <td class="c-nm"><a href="${e.href}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
+    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-sz">${e.isDir ? '—' : fmtSize(e.rawBytes)}</td>
     <td class="c-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</td>
@@ -66,7 +65,7 @@ export function renderTile(e: Entry, ctx: RenderContext, idx = -1): string {
   const iconHtml = isImg
     ? `<span class="fe-tile-img-wrap"><img class="fe-tile-thumb" src="${esc(e.href)}" loading="lazy" alt="" onerror="this.closest('.fe-tile-img-wrap').classList.add('err')">${getIcon(e, ctx.iconRules)}</span>`
     : getIcon(e, ctx.iconRules);
-  return `<a href="${e.href}" class="fe-tile${e.isDir ? ' dir' : ''}${e.isParent ? ' par' : ''}${e.isHidden ? ' dotfile' : ''}"
+  return `<a href="${esc(e.href)}" class="fe-tile${e.isDir ? ' dir' : ''}${e.isParent ? ' par' : ''}${e.isHidden ? ' dotfile' : ''}"
             data-name="${esc(e.name.toLowerCase())}"
             data-idx="${idx}"
             data-tip="${esc(tipData)}">
@@ -113,7 +112,7 @@ export function renderCrumbs(rawPath: string, segments: string[]): string {
   let acc = '/';
   for (const seg of segments) { acc += seg + '/'; crumbs.push({ label: seg, href: 'file://' + acc }); }
   return crumbs.map((c, i) =>
-    `<a href="${c.href}" class="fe-crumb">${esc(c.label)}</a>` +
+    `<a href="${esc(c.href)}" class="fe-crumb">${esc(c.label)}</a>` +
     `<button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">▾</button>` +
     (i < crumbs.length - 1 ? `<span class="fe-sep">›</span>` : '')
   ).join('');

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getIcon, IMG_EXTS } from '../src/icons';
+import { getIcon, IMG_EXTS, safeColor } from '../src/icons';
 import type { Entry, IconRule } from '../src/types';
 
 const file = (name: string): Entry =>
@@ -45,6 +45,40 @@ describe('getIcon', () => {
     expect(html).toContain('<svg');
     // no MD custom color
     expect(html).not.toContain('#4a9eff');
+  });
+
+  it('skips a rule with an invalid regex without throwing', () => {
+    const bad: IconRule[] = [{ id: 'x', pattern: '[invalid(', label: 'X', color: '#fff', enabled: true }];
+    expect(() => getIcon(file('a.md'), bad)).not.toThrow();
+    expect(getIcon(file('a.md'), bad)).toContain('<svg');
+  });
+
+  it('first matching enabled rule wins (precedence)', () => {
+    const r: IconRule[] = [
+      { id: '1', pattern: '\\.md$', label: 'FST', color: '#111111', enabled: true },
+      { id: '2', pattern: 'a',      label: 'SND', color: '#222222', enabled: true },
+    ];
+    expect(getIcon(file('a.md'), r)).toContain('FST');
+  });
+
+  it('sanitizes a malicious rule color (XSS guard) — no quote breakout in output', () => {
+    const evil: IconRule[] = [{ id: 'e', pattern: '\\.md$', label: 'E', color: '#000" onload="alert(1)', enabled: true }];
+    const html = getIcon(file('a.md'), evil);
+    expect(html).not.toContain('onload');
+    expect(html).toContain('#6e7681');   // fell back to the safe default
+  });
+});
+
+describe('safeColor', () => {
+  it('accepts hex and bare CSS keywords', () => {
+    expect(safeColor('#fff')).toBe('#fff');
+    expect(safeColor('#1f6feb')).toBe('#1f6feb');
+    expect(safeColor('red')).toBe('red');
+  });
+  it('rejects anything with quotes/markup → default', () => {
+    expect(safeColor('#000" onerror="x')).toBe('#6e7681');
+    expect(safeColor('url(javascript:1)')).toBe('#6e7681');
+    expect(safeColor('')).toBe('#6e7681');
   });
 });
 
