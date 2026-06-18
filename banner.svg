@@ -56,21 +56,17 @@
   <rect x="0" y="0" width="860" height="4" rx="0" fill="url(#chrome)"/>
   <rect x="0" y="0" width="860" height="4" rx="0" fill="url(#chrome)" opacity="0.4"/>
 
-  <!-- Left: Folder icon (large) -->
-  <g transform="translate(44, 60)">
-    <!-- Folder shadow -->
-    <path d="M4 26a8 8 0 0 1 8-8h22l11 11H92a8 8 0 0 1 8 8v36a8 8 0 0 1-8 8H12a8 8 0 0 1-8-8z" fill="#1e3a5f" opacity="0.5"/>
-    <!-- Folder body -->
-    <path d="M2 24a8 8 0 0 1 8-8h22l11 11H90a8 8 0 0 1 8 8v36a8 8 0 0 1-8 8H10a8 8 0 0 1-8-8z" fill="url(#folder)"/>
-    <!-- Highlight -->
-    <path d="M2 24a8 8 0 0 1 8-8h22l5 5H2z" fill="white" opacity="0.18"/>
-    <!-- File lines -->
-    <line x1="22" y1="50" x2="50" y2="50" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.8"/>
-    <line x1="22" y1="62" x2="68" y2="62" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.8"/>
-    <line x1="22" y1="74" x2="40" y2="74" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.8"/>
-    <!-- Magnifier -->
-    <circle cx="74" cy="62" r="12" fill="none" stroke="white" stroke-width="4" opacity="0.6"/>
-    <line x1="82" y1="71" x2="90" y2="79" stroke="white" stroke-width="4.5" stroke-linecap="round" opacity="0.6"/>
+  <!-- Left: Explorer-window mark (matches the extension icon) -->
+  <g transform="translate(44, 64)">
+    <rect x="3" y="4" width="100" height="84" rx="14" fill="#1e3a5f" opacity="0.4"/>
+    <rect x="0" y="0" width="100" height="84" rx="14" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+    <path d="M0 14a14 14 0 0 1 14-14h18v84H14a14 14 0 0 1-14-14z" fill="url(#folder)"/>
+    <circle cx="16" cy="22" r="3.6" fill="#bcd9ff"/>
+    <circle cx="16" cy="42" r="3.6" fill="#bcd9ff"/>
+    <circle cx="16" cy="62" r="3.6" fill="#bcd9ff"/>
+    <rect x="44" y="18" width="44" height="7" rx="3.5" fill="#79c0ff"/>
+    <rect x="44" y="40" width="38" height="7" rx="3.5" fill="#ffffff" opacity="0.85"/>
+    <rect x="44" y="62" width="28" height="7" rx="3.5" fill="#ffffff" opacity="0.55"/>
   </g>
 
   <!-- Chrome logo (right of folder) -->
@@ -110,12 +106,12 @@
     <!-- Pill 1: 4 View Modes -->
     <rect x="0" y="0" width="104" height="26" rx="13" fill="#1f6feb" opacity="0.3"/>
     <rect x="0" y="0" width="104" height="26" rx="13" fill="none" stroke="#1f6feb" stroke-width="1"/>
-    <text x="52" y="17" text-anchor="middle" font-family="'Segoe UI', sans-serif" font-size="11.5" font-weight="600" fill="#79c0ff">4 View Modes</text>
+    <text x="52" y="17" text-anchor="middle" font-family="'Segoe UI', sans-serif" font-size="11.5" font-weight="600" fill="#79c0ff">Quick Look</text>
 
     <!-- Pill 2: Live Search -->
     <rect x="114" y="0" width="96" height="26" rx="13" fill="#1a7f37" opacity="0.3"/>
     <rect x="114" y="0" width="96" height="26" rx="13" fill="none" stroke="#238636" stroke-width="1"/>
-    <text x="162" y="17" text-anchor="middle" font-family="'Segoe UI', sans-serif" font-size="11.5" font-weight="600" fill="#56d364">Live Search</text>
+    <text x="162" y="17" text-anchor="middle" font-family="'Segoe UI', sans-serif" font-size="11.5" font-weight="600" fill="#56d364">Local AI</text>
 
     <!-- Pill 3: Dark / Light -->
     <rect x="220" y="0" width="96" height="26" rx="13" fill="#6e40c9" opacity="0.3"/>
@@ -125,7 +121,7 @@
     <!-- Pill 4: Bookmarks -->
     <rect x="326" y="0" width="96" height="26" rx="13" fill="#9e6a03" opacity="0.3"/>
     <rect x="326" y="0" width="96" height="26" rx="13" fill="none" stroke="#d29922" stroke-width="1"/>
-    <text x="374" y="17" text-anchor="middle" font-family="'Segoe UI', sans-serif" font-size="11.5" font-weight="600" fill="#e3b341">Bookmarks</text>
+    <text x="374" y="17" text-anchor="middle" font-family="'Segoe UI', sans-serif" font-size="11.5" font-weight="600" fill="#e3b341">Markdown</text>
 
     <!-- Pill 5: Ghostty -->
     <rect x="432" y="0" width="96" height="26" rx="13" fill="#da3633" opacity="0.2"/>
@@ -136,7 +132,7 @@
   <!-- Version badge top-right -->
   <rect x="778" y="14" width="64" height="22" rx="11" fill="#21262d"/>
   <rect x="778" y="14" width="64" height="22" rx="11" fill="none" stroke="#30363d" stroke-width="1"/>
-  <text x="810" y="28" text-anchor="middle" font-family="'SF Mono', Consolas, monospace" font-size="11" fill="#8b949e">v 2.1</text>
+  <text x="810" y="28" text-anchor="middle" font-family="'SF Mono', Consolas, monospace" font-size="11" fill="#8b949e">v 2.7</text>
 
   <!-- Bottom border line -->
   <rect x="0" y="216" width="860" height="4" rx="0" fill="url(#chrome)" opacity="0.5"/>
