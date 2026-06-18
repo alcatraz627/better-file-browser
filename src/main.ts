@@ -18,6 +18,8 @@ import {
 import { fetchFileText } from './file-fetch';
 import { llmAvailability, llmWarm, type LlmAvailability } from './llm';
 import { selectionRange } from './selection';
+import { renderMarkdown } from './renderers';
+import { HELP_MD } from './help';
 import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
 import {
@@ -183,6 +185,9 @@ import { getIcon } from './icons';
     <button id="fe-theme-btn" title="Toggle theme — currently ${initTheme === 'light' ? 'Light' : 'Dark'}">
       <svg id="fe-sun" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M10.1 2.9l-1 1M3.9 10.1l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
       <svg id="fe-moon" width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 8.5A5 5 0 0 1 5.5 2.5a5 5 0 1 0 6 6z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+    </button>
+    <button id="fe-help-btn" title="Help — what's here and how to use it">
+      <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.2 5.2a1.9 1.9 0 1 1 2.6 1.8c-.6.3-.8.6-.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="10.3" r="0.9" fill="currentColor"/></svg>
     </button>
     <button id="fe-settings-btn" title="Settings — customize theme, views, terminal, icon rules">
       <svg width="14" height="14" viewBox="0 0 14 14"><path d="M8.5 1H5.5L4.5 2.8 2.5 4 1 5.5v3L2.5 10l2 1.2L5.5 13h3l1-1.8 2-1.2L13 8.5v-3L11.5 4l-2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
@@ -402,6 +407,17 @@ import { getIcon } from './icons';
         </div>
 
       </div>
+    </div>
+  </div>
+
+  <div id="fe-help-modal" style="display:none">
+    <div id="fe-help-bg"></div>
+    <div id="fe-help-dialog">
+      <div id="fe-help-hdr">
+        <span>Help &amp; shortcuts</span>
+        <button id="fe-help-close" title="Close (Esc)">✕</button>
+      </div>
+      <div id="fe-help-body"></div>
     </div>
   </div>
 </div>`;
@@ -671,6 +687,20 @@ td.c-tp{color:var(--dm);font-size:11px}
   font-size:14px;padding:3px 7px;border-radius:4px;line-height:1;transition:color .1s,background .1s}
 #fe-settings-close:hover{background:var(--hover);color:var(--tx)}
 #fe-settings-body{overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:20px}
+#fe-help-modal{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center}
+#fe-help-bg{position:absolute;inset:0;background:#00000088;backdrop-filter:blur(2px)}
+#fe-help-dialog{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);
+  border-radius:10px;width:640px;max-width:calc(100vw - 40px);max-height:84vh;
+  display:flex;flex-direction:column;box-shadow:0 24px 64px #000d}
+#fe-help-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-help-hdr>span{font-size:14px;font-weight:600;color:var(--tx)}
+#fe-help-close{background:none;border:none;color:var(--dm);cursor:pointer;
+  font-size:14px;padding:3px 7px;border-radius:4px;line-height:1;transition:color .1s,background .1s}
+#fe-help-close:hover{background:var(--hover);color:var(--tx)}
+#fe-help-body{overflow-y:auto;padding:4px 20px 16px}
+#fe-help-body .fe-md{max-width:none}
+#fe-help-body .fe-md h1{font-size:20px;margin-top:14px}
 .fe-st-section{display:flex;flex-direction:column;gap:10px}
 .fe-st-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
   color:var(--dm);padding-bottom:4px;border-bottom:1px solid var(--bd)}
@@ -1347,6 +1377,7 @@ td.c-tp{color:var(--dm);font-size:11px}
     const ae = document.activeElement;
     if (ae && ['INPUT', 'TEXTAREA', 'SELECT'].includes(ae.tagName)) return;
     if (settingsModal.style.display !== 'none') return;
+    if (document.getElementById('fe-help-modal')!.style.display !== 'none') return;
     if (e.metaKey && e.key === 'ArrowUp') { e.preventDefault(); goUp(); return; }   // Finder: go to parent
     if (ctxMenu.style.display !== 'none') {
       if (e.key === 'Escape') closeCtx();
@@ -1547,6 +1578,18 @@ td.c-tp{color:var(--dm);font-size:11px}
   document.getElementById('fe-settings-bg')!.addEventListener('click', closeSettings);
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && settingsModal.style.display !== 'none') closeSettings();
+  });
+
+  // ── Help modal ────────────────────────────────────────────────────
+  const helpModal = document.getElementById('fe-help-modal')!;
+  document.getElementById('fe-help-body')!.innerHTML = renderMarkdown(HELP_MD);
+  const openHelp  = () => { helpModal.style.display = 'flex'; };
+  const closeHelp = () => { helpModal.style.display = 'none'; };
+  document.getElementById('fe-help-btn')!.addEventListener('click', openHelp);
+  document.getElementById('fe-help-close')!.addEventListener('click', closeHelp);
+  document.getElementById('fe-help-bg')!.addEventListener('click', closeHelp);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && helpModal.style.display !== 'none') closeHelp();
   });
 
   document.querySelectorAll<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => {

@@ -1468,6 +1468,112 @@
     return out;
   }
 
+  // src/help.ts
+  var HELP_MD = `
+# Better File Browser
+
+Replaces Chrome's plain \`file://\` directory listings with a modern explorer \u2014
+views, search, file previews, and an optional local-AI assistant. Everything
+runs on your machine; the extension makes no network requests.
+
+## Views & zoom
+
+Switch layout from the toolbar: **Details** (table), **List** (compact),
+**Tiles**, or **Large Icons**. Your choice is remembered. The **zoom** slider
+(50\u2013320%) scales the whole list.
+
+## Finding files
+
+- **Quick filter** \u2014 type in the **Filter\u2026** box (top-right), or press **\u2318F** to
+  jump to it. Press **\u2318F** again to fall through to Chrome's own find.
+- **Sort** \u2014 click a column header, or open the **Sort** panel to sort by name,
+  size, type, extension, or modified date, and to **group** (folders-first,
+  files-first, by extension, or by type).
+- **Filter** panel \u2014 match names by text or regex, or show only folders / files /
+  one extension.
+- **Hidden files** \u2014 the eye button toggles dotfiles.
+
+## Selecting & opening
+
+- Click a name to open it. Click a row's whitespace to **select** it.
+- **\u2191 / \u2193** move the selection, **Enter** opens, **Backspace** or **\u2318\u2191** goes up.
+- **Multi-select**: **shift-click** a range, **\u2318/Ctrl-click** to toggle one,
+  **\u2318A** selects all. **\u2318C** copies the selected paths.
+- **Right-click** an item for Copy path, Copy name, Open in terminal \u2014 plus
+  Preview for previewable files. With several items selected, the menu offers
+  bulk Copy paths / Copy names.
+
+## File preview (Quick Look)
+
+Select a file and press **Space** (or click the eye button on hover, or
+right-click \u2192 Preview) to open a preview overlay \u2014 **Space** again, or **Esc**,
+closes it. **\u2191 / \u2193** (or **\u2190 / \u2192**) step between previewable files; the **copy**
+button copies the raw contents. Files over 8 MB ask before loading.
+
+Renders by type:
+
+| Type | Shown as |
+|------|----------|
+| Code (\`.sh\`, \`.ts\`, \`.py\`, \`.go\`, \`.rs\`, \`.sql\`, \`.yaml\`, \u2026) | Syntax-highlighted, with line numbers |
+| \`.tsv\` / \`.csv\` | Sortable table (numeric columns detected) |
+| \`.json\` / \`.jsonl\` | Collapsible tree |
+| \`.md\` / \`.mdx\` | Rendered markdown (relative images/links resolved) |
+| Images | Fit-to-view, with pixel dimensions |
+| PDF \xB7 audio/video \xB7 fonts | Embedded viewer / player / glyph specimen |
+| Plain text & extensionless (\`.txt\`, \`.log\`, \`LICENSE\`, \`Makefile\`) | Plain text with line numbers |
+
+## AI assistant (optional)
+
+If you have the local-models **\`lm\`** CLI and its native host installed, the
+preview gains an **AI bar**: **Summarize**, **Explain** (**Describe** for tables),
+and an **Ask** box. Answers stream in; closing the overlay cancels them.
+
+Pick the model and toggle **Keep warm** in **Settings \u2192 Local Model**. It's fully
+local \u2014 nothing is sent anywhere. Without the CLI installed, the bar simply
+doesn't appear and everything else works normally.
+
+## Sidebar
+
+- **Bookmarks** \u2014 click the \u2605 in the path bar to bookmark the current folder;
+  drag to reorder, \u2715 to remove.
+- **My Places** \u2014 **+** adds the current folder; **double-click** a label to
+  rename; drag to reorder; \u2715 to remove.
+- **Recent** \u2014 folders you visited lately.
+- **Finder Favorites** / **System** \u2014 quick jumps (Root, Home, \u2026).
+
+## Breadcrumbs
+
+Click any path segment to jump there. The **\u25BE** next to a segment opens a
+dropdown of that folder's contents with its own filter box \u2014 type to narrow,
+**Enter** opens the first match.
+
+## Terminal
+
+The terminal button opens the current folder in your terminal. With the optional
+native host it launches Ghostty directly; otherwise it copies a \`cd\` command to
+your clipboard. Choose your terminal in **Settings \u2192 Terminal**.
+
+## Settings
+
+Theme (dark/light \u2014 also the sun/moon button), default view, compact mode,
+sidebar visibility, date format, terminal app, the **Local Model** panel (AI
+status, model picker, keep-warm), and **custom icon rules** (a regex matched
+against filenames \u2192 a colored label badge).
+
+## Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| \u2191 / \u2193 | Move selection |
+| Enter | Open |
+| Backspace \xB7 \u2318\u2191 | Go to parent folder |
+| Space | Preview selected file (Space again closes) |
+| \u2318F | Focus the filter (again \u2192 browser find) |
+| \u2318A | Select all |
+| \u2318C | Copy selected path(s) |
+| Esc | Close preview / clear filter |
+`;
+
   // src/sort-filter.ts
   function applyFilter(entries, config) {
     return entries.filter((e) => {
@@ -1784,6 +1890,9 @@
       <svg id="fe-sun" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M10.1 2.9l-1 1M3.9 10.1l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
       <svg id="fe-moon" width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 8.5A5 5 0 0 1 5.5 2.5a5 5 0 1 0 6 6z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
     </button>
+    <button id="fe-help-btn" title="Help \u2014 what's here and how to use it">
+      <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.2 5.2a1.9 1.9 0 1 1 2.6 1.8c-.6.3-.8.6-.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="10.3" r="0.9" fill="currentColor"/></svg>
+    </button>
     <button id="fe-settings-btn" title="Settings \u2014 customize theme, views, terminal, icon rules">
       <svg width="14" height="14" viewBox="0 0 14 14"><path d="M8.5 1H5.5L4.5 2.8 2.5 4 1 5.5v3L2.5 10l2 1.2L5.5 13h3l1-1.8 2-1.2L13 8.5v-3L11.5 4l-2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
     </button>
@@ -2005,6 +2114,17 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         </div>
 
       </div>
+    </div>
+  </div>
+
+  <div id="fe-help-modal" style="display:none">
+    <div id="fe-help-bg"></div>
+    <div id="fe-help-dialog">
+      <div id="fe-help-hdr">
+        <span>Help &amp; shortcuts</span>
+        <button id="fe-help-close" title="Close (Esc)">\u2715</button>
+      </div>
+      <div id="fe-help-body"></div>
     </div>
   </div>
 </div>`;
@@ -2272,6 +2392,20 @@ td.c-tp{color:var(--dm);font-size:11px}
   font-size:14px;padding:3px 7px;border-radius:4px;line-height:1;transition:color .1s,background .1s}
 #fe-settings-close:hover{background:var(--hover);color:var(--tx)}
 #fe-settings-body{overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:20px}
+#fe-help-modal{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center}
+#fe-help-bg{position:absolute;inset:0;background:#00000088;backdrop-filter:blur(2px)}
+#fe-help-dialog{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);
+  border-radius:10px;width:640px;max-width:calc(100vw - 40px);max-height:84vh;
+  display:flex;flex-direction:column;box-shadow:0 24px 64px #000d}
+#fe-help-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-help-hdr>span{font-size:14px;font-weight:600;color:var(--tx)}
+#fe-help-close{background:none;border:none;color:var(--dm);cursor:pointer;
+  font-size:14px;padding:3px 7px;border-radius:4px;line-height:1;transition:color .1s,background .1s}
+#fe-help-close:hover{background:var(--hover);color:var(--tx)}
+#fe-help-body{overflow-y:auto;padding:4px 20px 16px}
+#fe-help-body .fe-md{max-width:none}
+#fe-help-body .fe-md h1{font-size:20px;margin-top:14px}
 .fe-st-section{display:flex;flex-direction:column;gap:10px}
 .fe-st-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
   color:var(--dm);padding-bottom:4px;border-bottom:1px solid var(--bd)}
@@ -2930,6 +3064,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       const ae = document.activeElement;
       if (ae && ["INPUT", "TEXTAREA", "SELECT"].includes(ae.tagName)) return;
       if (settingsModal.style.display !== "none") return;
+      if (document.getElementById("fe-help-modal").style.display !== "none") return;
       if (e.metaKey && e.key === "ArrowUp") {
         e.preventDefault();
         goUp();
@@ -3132,6 +3267,20 @@ td.c-tp{color:var(--dm);font-size:11px}
     document.getElementById("fe-settings-bg").addEventListener("click", closeSettings);
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && settingsModal.style.display !== "none") closeSettings();
+    });
+    const helpModal = document.getElementById("fe-help-modal");
+    document.getElementById("fe-help-body").innerHTML = renderMarkdown(HELP_MD);
+    const openHelp = () => {
+      helpModal.style.display = "flex";
+    };
+    const closeHelp = () => {
+      helpModal.style.display = "none";
+    };
+    document.getElementById("fe-help-btn").addEventListener("click", openHelp);
+    document.getElementById("fe-help-close").addEventListener("click", closeHelp);
+    document.getElementById("fe-help-bg").addEventListener("click", closeHelp);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && helpModal.style.display !== "none") closeHelp();
     });
     document.querySelectorAll('input[name="bfb-theme"]').forEach((r) => {
       r.addEventListener("change", () => {
