@@ -25,6 +25,17 @@ export type LlmAvailability =
   | { kind: 'down'; status: LlmStatus }   // lm + host fine, model server down
   | { kind: 'unavailable'; reason: string };  // host not registered or lm CLI missing
 
+// The frames the native host (and the background proxy) send over a port.
+// Branch on `.t` to narrow. `native-gone` is injected by background.js when the
+// native port closes (host exited or was never found).
+export type NativeFrame =
+  | { t: 'status'; data: LlmStatus }
+  | { t: 'chunk'; text: string }
+  | { t: 'done'; model: string; ms: number; truncated: boolean }
+  | { t: 'error'; code: string; message: string }
+  | { t: 'warm'; ok: boolean; on: boolean }
+  | { t: 'native-gone'; message?: string };
+
 // No caching: `lm status --json` returns in ~40ms, and a stale cache would
 // show "cold" after the user runs `lm warm on`. Always ask fresh.
 export function llmAvailability(): Promise<LlmAvailability> {
@@ -41,7 +52,7 @@ export function llmAvailability(): Promise<LlmAvailability> {
       try { port.disconnect(); } catch { /* gone */ }
       settle({ kind: 'unavailable', reason: 'status check timed out' });
     }, 5000);
-    port.onMessage.addListener(msg => {
+    port.onMessage.addListener((msg: NativeFrame) => {
       if (msg?.t !== 'status' && msg?.t !== 'error' && msg?.t !== 'native-gone') return;
       clearTimeout(timer);
       try { port.disconnect(); } catch { /* gone */ }
@@ -82,7 +93,7 @@ export function llmQuery(opts: LlmQueryOpts, cb: LlmCallbacks): () => void {
   let finished = false;
   let gotFrame = false;
   const finish = () => { finished = true; try { port.disconnect(); } catch { /* gone */ } };
-  port.onMessage.addListener(msg => {
+  port.onMessage.addListener((msg: NativeFrame) => {
     if (finished || !msg) return;
     if      (msg.t === 'chunk') { gotFrame = true; cb.onChunk(msg.text ?? ''); }
     else if (msg.t === 'done')  { finish(); cb.onDone({ model: msg.model ?? '', ms: msg.ms ?? 0, truncated: !!msg.truncated }); }
@@ -113,7 +124,7 @@ export function llmWarm(on: boolean): Promise<{ ok: boolean; message?: string }>
     const port = openProxyPort();
     if (!port) { settle({ ok: false, message: 'AI host not installed' }); return; }
     const timer = setTimeout(() => { try { port.disconnect(); } catch { /* gone */ } settle({ ok: false, message: 'timed out' }); }, 30_000);
-    port.onMessage.addListener(msg => {
+    port.onMessage.addListener((msg: NativeFrame) => {
       if (msg?.t !== 'warm' && msg?.t !== 'error' && msg?.t !== 'native-gone') return;
       clearTimeout(timer);
       try { port.disconnect(); } catch { /* gone */ }
