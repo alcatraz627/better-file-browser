@@ -19,9 +19,16 @@ export interface RecentDir {
   ts:   number;
 }
 
+// One saved folder in the sidebar. Bookmarks and My Places both became this.
 export interface Place {
   path:  string;
   label: string;
+  tags?: string[];
+}
+
+export interface Tag {
+  name:  string;
+  color: string;
 }
 
 export interface Settings {

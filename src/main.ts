@@ -4,15 +4,15 @@ import { getExt, fmtSize, fullPath, copyToClipboard } from './utils';
 import { esc } from './utils';
 import { icoCustom, PI } from './icons';
 import {
-  BM_KEY, VIEW_KEY, THEME_KEY, ZOOM_KEY, HIDDEN_KEY,
+  VIEW_KEY, THEME_KEY, ZOOM_KEY, HIDDEN_KEY,
   ICON_RULES_KEY, SETTINGS_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES,
-  getBM, saveBM, toggleBM, getView, getTheme, getZoom, getShowHidden,
+  getView, getTheme, getZoom, getShowHidden,
   getIconRules, saveIconRules, getSettings, saveSettings,
   getRecents, pushRecent, getColWidths, saveColWidths,
-  getPlaces, savePlaces,
+  getSaved, saveSaved, getTags, saveTags,
   getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
 } from './storage';
-import { upsertPlace, removePlace, renamePlace, movePlace } from './places';
+import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import {
   initPreview, openPreview, closePreview, isPreviewOpen, isPreviewDocked, canPreview,
 } from './preview';
@@ -26,7 +26,7 @@ import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
 import { crawl } from './deep-search';
 import {
-  renderRows, renderTiles, renderBMList, renderPlacesList, renderCrumbs,
+  renderRows, renderTiles, renderSavedList, renderCrumbs,
   renderRow, renderTile, type RenderContext,
 } from './render';
 import { getIcon } from './icons';
@@ -140,8 +140,7 @@ import { getIcon } from './icons';
   const initView   = getView();
   const initTheme  = getTheme();
   const initHidden = getShowHidden();
-  const initBM     = getBM();
-  const curIsBookmarked = initBM.some(b => b.path === rawPath);
+  const curIsBookmarked = getSaved().some(p => p.path === rawPath);
 
   const VIEW_MODES = [
     { id: 'details', label: 'Details',     ico: `<svg width="13" height="11" viewBox="0 0 13 11"><path d="M1 1h11M1 4h11M1 7h11M1 10h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
@@ -195,7 +194,7 @@ import { getIcon } from './icons';
   <div id="fe-bar">
     <div id="fe-bc">${renderCrumbs(rawPath, segments)}</div>
     <button id="fe-term-btn" title="Open in terminal (${settings.terminalApp || 'ghostty'}) — Click to open current folder · Shift+click copies command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button id="fe-bm-btn" class="${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? 'Remove bookmark for this folder' : 'Bookmark this folder — saved in sidebar'}">
+    <button id="fe-bm-btn" class="${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? 'Remove this folder from Saved' : 'Save this folder (sidebar)'}">
       <svg width="13" height="13" viewBox="0 0 13 13"><path id="fe-bm-path" d="M2.5 1h8v11l-4-2.8L2.5 12z" fill="${curIsBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
     </button>
     <button id="fe-theme-btn" title="Toggle theme — currently ${initTheme === 'light' ? 'Light' : 'Dark'}">
@@ -213,13 +212,9 @@ import { getIcon } from './icons';
   <div id="fe-body">
     <nav id="fe-side">
       <div class="fe-sec">
-        <div class="fe-sh">Bookmarks</div>
-        <div id="fe-bm-list">${renderBMList(initBM, rawPath)}</div>
-      </div>
-      <div class="fe-sec">
-        <div class="fe-sh" style="justify-content:space-between">My Places
-          <button id="fe-pl-add" title="Add this folder to Places">+</button></div>
-        <div id="fe-pl-list">${renderPlacesList(getPlaces(), rawPath)}</div>
+        <div class="fe-sh" style="justify-content:space-between">Saved
+          <button id="fe-sv-add" title="Save this folder and name it">+</button></div>
+        <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
       </div>${recentsHTML}
       <div class="fe-sec">
         <div class="fe-sh">Finder Favorites</div>
@@ -668,17 +663,6 @@ import { getIcon } from './icons';
       applyAll();
     }
     searchEl.blur();
-  });
-
-  // ── Bookmark toggle ───────────────────────────────────────────────
-  document.getElementById('fe-bm-btn')!.addEventListener('click', function () {
-    const newBm = toggleBM(rawPath);
-    const on = newBm.some(b => b.path === rawPath);
-    (this as HTMLElement).classList.toggle('on', on);
-    document.getElementById('fe-bm-path')!.setAttribute('fill', on ? 'currentColor' : 'none');
-    document.getElementById('fe-bm-list')!.innerHTML = renderBMList(newBm, rawPath);
-    attachBMEvents();
-    toast(on ? 'Bookmarked' : 'Bookmark removed');
   });
 
   // ── Theme ─────────────────────────────────────────────────────────
@@ -1252,89 +1236,79 @@ import { getIcon } from './icons';
     toast('Icon rules reset to defaults');
   });
 
-  // ── Bookmark drag-to-reorder ──────────────────────────────────────
+  // ── Saved folders (one list: star or + adds, tags group, drag reorders) ─
+  const svList = document.getElementById('fe-sv-list')!;
   let dragSrc: HTMLElement | null = null;
-  function attachBMEvents(): void {
-    const bmList = document.getElementById('fe-bm-list')!;
-    bmList.querySelectorAll<HTMLElement>('.fe-rm-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation(); e.preventDefault();
-        const bm = getBM().filter(b => b.path !== btn.dataset.path);
-        saveBM(bm);
-        bmList.innerHTML = renderBMList(bm, rawPath);
-        attachBMEvents();
-        toast('Bookmark removed');
-      });
-    });
-    bmList.querySelectorAll<HTMLElement>('.fe-bm-item').forEach(item => {
-      item.addEventListener('dragstart', e => {
-        dragSrc = item;
-        (e as DragEvent).dataTransfer!.effectAllowed = 'move';
-        setTimeout(() => item.classList.add('dragging'), 0);
-      });
-      item.addEventListener('dragend',  () => item.classList.remove('dragging'));
-      item.addEventListener('dragover', e => { e.preventDefault(); item.classList.add('drag-over'); });
-      item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
-      item.addEventListener('drop', e => {
-        e.stopPropagation(); e.preventDefault();
-        item.classList.remove('drag-over');
-        if (!dragSrc || dragSrc === item) return;
-        const bm = getBM();
-        const fi = bm.findIndex(b => b.path === dragSrc!.dataset.path);
-        const ti = bm.findIndex(b => b.path === item.dataset.path);
-        if (fi >= 0 && ti >= 0) {
-          const [moved] = bm.splice(fi, 1);
-          bm.splice(ti, 0, moved);
-          saveBM(bm);
-          bmList.innerHTML = renderBMList(bm, rawPath);
-          attachBMEvents();
-        }
-      });
-    });
+  function syncStar(): void {
+    const on = getSaved().some(p => p.path === rawPath);
+    const btn = document.getElementById('fe-bm-btn')!;
+    btn.classList.toggle('on', on);
+    btn.title = on ? 'Remove this folder from Saved' : 'Save this folder (sidebar)';
+    document.getElementById('fe-bm-path')!.setAttribute('fill', on ? 'currentColor' : 'none');
   }
-  attachBMEvents();
-
-  // ── Custom Places (editable sidebar quick-access) ─────────────────
-  const plList = document.getElementById('fe-pl-list')!;
-  function refreshPlaces(): void {
-    plList.innerHTML = renderPlacesList(getPlaces(), rawPath);
-    attachPlaceEvents();
+  function refreshSaved(): void {
+    svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath);
+    attachSavedEvents();
+    syncStar();
   }
-  function startRename(lbl: HTMLElement): void {
-    const item = lbl.closest<HTMLElement>('.fe-pl-item')!;
-    const path = item.dataset.path!;
-    const orig = lbl.textContent || '';
-    lbl.contentEditable = 'true';
-    lbl.classList.add('editing');
-    lbl.focus();
-    const range = document.createRange(); range.selectNodeContents(lbl);
+  // Inline edit of a label or a tag list: contentEditable on the span,
+  // Enter saves, Esc restores, blur saves.
+  function inlineEdit(el: HTMLElement, onSave: (val: string) => void): void {
+    const orig = el.textContent || '';
+    el.contentEditable = 'true';
+    el.classList.add('editing');
+    el.focus();
+    const range = document.createRange(); range.selectNodeContents(el);
     const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(range);
     let done = false;
     const finish = (save: boolean) => {
       if (done) return; done = true;
-      const val = (lbl.textContent || '').trim();
-      lbl.contentEditable = 'false'; lbl.classList.remove('editing');
-      if (save && val && val !== orig) savePlaces(renamePlace(getPlaces(), path, val));
-      refreshPlaces();
+      const val = (el.textContent || '').trim();
+      el.contentEditable = 'false'; el.classList.remove('editing');
+      if (save && val !== orig) onSave(val);
+      refreshSaved();
     };
-    lbl.addEventListener('keydown', e => {
+    el.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); finish(true); }
-      else if (e.key === 'Escape') { e.preventDefault(); lbl.textContent = orig; finish(false); }
+      else if (e.key === 'Escape') { e.preventDefault(); el.textContent = orig; finish(false); }
+      e.stopPropagation();
     });
-    lbl.addEventListener('blur', () => finish(true), { once: true });
+    el.addEventListener('blur', () => finish(true), { once: true });
   }
-  function attachPlaceEvents(): void {
-    plList.querySelectorAll<HTMLElement>('.fe-rm-btn').forEach(btn => {
+  function attachSavedEvents(): void {
+    svList.querySelectorAll<HTMLElement>('.fe-rm-btn').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation(); e.preventDefault();
-        savePlaces(removePlace(getPlaces(), btn.dataset.path!));
-        refreshPlaces(); toast('Removed from Places');
+        saveSaved(removePlace(getSaved(), btn.dataset.path!));
+        refreshSaved(); toast('Removed from Saved');
       });
     });
-    plList.querySelectorAll<HTMLElement>('.fe-pl-label').forEach(lbl => {
-      lbl.addEventListener('dblclick', e => { e.preventDefault(); e.stopPropagation(); startRename(lbl); });
+    svList.querySelectorAll<HTMLElement>('.fe-pl-label').forEach(lbl => {
+      lbl.addEventListener('dblclick', e => {
+        e.preventDefault(); e.stopPropagation();
+        const path = lbl.closest<HTMLElement>('.fe-pl-item')!.dataset.path!;
+        inlineEdit(lbl, val => { if (val) saveSaved(renamePlace(getSaved(), path, val)); });
+      });
     });
-    plList.querySelectorAll<HTMLElement>('.fe-pl-item').forEach(item => {
+    svList.querySelectorAll<HTMLElement>('.fe-tag-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        const item = btn.closest<HTMLElement>('.fe-pl-item')!;
+        const path = item.dataset.path!;
+        const tagsEl = item.querySelector<HTMLElement>('.fe-pl-tags')!;
+        tagsEl.textContent = (getSaved().find(p => p.path === path)?.tags ?? []).join(', ');
+        tagsEl.classList.add('show');
+        inlineEdit(tagsEl, val => saveSaved(setTags(getSaved(), path, parseTags(val))));
+      });
+    });
+    svList.querySelectorAll<HTMLElement>('.fe-sv-dot').forEach(dot => {
+      dot.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        saveTags(cycleTagColor(getTags(), dot.dataset.tag!));
+        refreshSaved();
+      });
+    });
+    svList.querySelectorAll<HTMLElement>('.fe-pl-item').forEach(item => {
       item.addEventListener('dragstart', e => {
         dragSrc = item; (e as DragEvent).dataTransfer!.effectAllowed = 'move';
         setTimeout(() => item.classList.add('dragging'), 0);
@@ -1346,21 +1320,30 @@ import { getIcon } from './icons';
         e.stopPropagation(); e.preventDefault();
         item.classList.remove('drag-over');
         if (!dragSrc || dragSrc === item) return;
-        savePlaces(movePlace(getPlaces(), dragSrc.dataset.path!, item.dataset.path!));
-        refreshPlaces();
+        saveSaved(movePlace(getSaved(), dragSrc.dataset.path!, item.dataset.path!));
+        refreshSaved();
       });
     });
   }
-  document.getElementById('fe-pl-add')!.addEventListener('click', () => {
+  function addCurrentFolder(rename: boolean): void {
     const label = rawPath.split('/').filter(Boolean).pop() || '/';
-    savePlaces(upsertPlace(getPlaces(), { path: rawPath, label }));
-    refreshPlaces();
-    toast('Added to Places');
-    const fresh = [...plList.querySelectorAll<HTMLElement>('.fe-pl-item')].find(i => i.dataset.path === rawPath);
+    saveSaved(upsertPlace(getSaved(), { path: rawPath, label }));
+    refreshSaved();
+    toast('Saved');
+    if (!rename) return;
+    const fresh = [...svList.querySelectorAll<HTMLElement>('.fe-pl-item')].find(i => i.dataset.path === rawPath);
     const lbl = fresh?.querySelector<HTMLElement>('.fe-pl-label');
-    if (lbl) startRename(lbl);
+    if (lbl) lbl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  }
+  document.getElementById('fe-sv-add')!.addEventListener('click', () => addCurrentFolder(true));
+  document.getElementById('fe-bm-btn')!.addEventListener('click', () => {
+    if (getSaved().some(p => p.path === rawPath)) {
+      saveSaved(removePlace(getSaved(), rawPath));
+      refreshSaved(); toast('Removed from Saved');
+    } else addCurrentFolder(false);
   });
-  attachPlaceEvents();
+  attachSavedEvents();
+  syncStar();
 
   // The first render drew the listing raw; apply the persisted sort/group
   // last, once every handler applyAll touches (selection included) exists.

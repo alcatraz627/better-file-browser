@@ -79,10 +79,12 @@ doesn't appear and everything else works normally.
 
 ## Sidebar
 
-- **Bookmarks** — click the ★ in the path bar to bookmark the current folder;
-  drag to reorder, ✕ to remove.
-- **My Places** — **+** adds the current folder; **double-click** a label to
-  rename; drag to reorder; ✕ to remove.
+- **Saved** — one list of your folders. The ★ in the path bar saves or
+  unsaves the current folder; **+** saves it and opens the name for editing.
+  **Double-click** a label to rename, drag to reorder, ✕ to remove. Hover a
+  row and press **#** to type tags (comma separated); tagged folders group
+  under their first tag, and clicking the coloured dot on a tag heading
+  changes its colour. Old Bookmarks and My Places entries were merged in.
 - **Recent** — folders you visited lately.
 - **Finder Favorites** / **System** — quick jumps (Root, Home, …).
 

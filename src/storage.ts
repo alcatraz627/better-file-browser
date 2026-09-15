@@ -1,9 +1,12 @@
-import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode, PreviewLayout } from './types';
+import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode, PreviewLayout, Tag } from './types';
+import { mergeLegacy, reconcileTags } from './places';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
 export const RECENTS_KEY   = 'bfb-recents-v1';
 export const COL_WIDTHS_KEY = 'bfb-col-widths-v1';
 export const PLACES_KEY    = 'bfb-places-v1';
+export const SAVED_KEY     = 'bfb-saved-v1';
+export const TAGS_KEY      = 'bfb-tags-v1';
 export const VIEW_KEY      = 'bfb-view';
 export const THEME_KEY     = 'bfb-theme';
 export const ZOOM_KEY      = 'bfb-zoom';
@@ -54,20 +57,28 @@ export function saveSettings(s: Settings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
 }
 
-export function getBM(): Bookmark[] {
-  try { return JSON.parse(localStorage.getItem(BM_KEY) ?? '[]'); }
+function readList<T>(key: string): T[] {
+  try { const v = JSON.parse(localStorage.getItem(key) ?? '[]'); return Array.isArray(v) ? v : []; }
   catch { return []; }
 }
-export function saveBM(bm: Bookmark[]): void {
-  localStorage.setItem(BM_KEY, JSON.stringify(bm));
+
+// Saved folders. The first read after the merge builds the list from the two
+// old keys, which stay in place untouched so nothing is lost if this rolls back.
+export function getSaved(): Place[] {
+  if (localStorage.getItem(SAVED_KEY) !== null) return readList<Place>(SAVED_KEY);
+  const merged = mergeLegacy(readList<Bookmark>(BM_KEY), readList<Place>(PLACES_KEY));
+  localStorage.setItem(SAVED_KEY, JSON.stringify(merged));
+  return merged;
 }
-export function toggleBM(path: string): Bookmark[] {
-  const bm = getBM();
-  const idx = bm.findIndex(b => b.path === path);
-  if (idx >= 0) bm.splice(idx, 1);
-  else bm.unshift({ path, label: path.split('/').filter(Boolean).pop() || '/' });
-  saveBM(bm);
-  return bm;
+export function saveSaved(list: Place[]): void {
+  localStorage.setItem(SAVED_KEY, JSON.stringify(list));
+  localStorage.setItem(TAGS_KEY, JSON.stringify(reconcileTags(list, readList<Tag>(TAGS_KEY))));
+}
+export function getTags(): Tag[] {
+  return reconcileTags(getSaved(), readList<Tag>(TAGS_KEY));
+}
+export function saveTags(tags: Tag[]): void {
+  localStorage.setItem(TAGS_KEY, JSON.stringify(tags));
 }
 
 export function getRecents(): RecentDir[] {
@@ -78,14 +89,6 @@ export function pushRecent(path: string): void {
   const list = getRecents().filter(r => r.path !== path);
   list.unshift({ path, ts: Date.now() });
   localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 8)));
-}
-
-export function getPlaces(): Place[] {
-  try { return JSON.parse(localStorage.getItem(PLACES_KEY) ?? '[]'); }
-  catch { return []; }
-}
-export function savePlaces(p: Place[]): void {
-  localStorage.setItem(PLACES_KEY, JSON.stringify(p));
 }
 
 export function getColWidths(): Record<string, number> {

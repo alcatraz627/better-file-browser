@@ -3,7 +3,42 @@ import {
   getColWidths, saveColWidths, getSettings, saveSettings,
   getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
   getPreviewLayout, savePreviewLayout,
+  getSaved, saveSaved, getTags, saveTags,
 } from '../src/storage';
+
+describe('saved folders storage', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('migrates the old bookmarks and places keys once, leaving them in place', () => {
+    localStorage.setItem('bfb-bookmarks-v2', JSON.stringify([{ path: '/a', label: 'a' }, { path: '/c', label: 'c' }]));
+    localStorage.setItem('bfb-places-v1', JSON.stringify([{ path: '/a', label: 'Alpha' }, { path: '/b', label: 'Bee' }]));
+    expect(getSaved().map(p => p.label)).toEqual(['Alpha', 'Bee', 'c']);
+    expect(localStorage.getItem('bfb-saved-v1')).not.toBeNull();
+    expect(localStorage.getItem('bfb-bookmarks-v2')).not.toBeNull();
+    localStorage.setItem('bfb-bookmarks-v2', '[]');
+    expect(getSaved().length).toBe(3);   // migration does not re-run
+  });
+
+  it('starts empty with no legacy keys and round-trips a save', () => {
+    expect(getSaved()).toEqual([]);
+    saveSaved([{ path: '/x', label: 'X', tags: ['work'] }]);
+    expect(getSaved()[0].tags).toEqual(['work']);
+  });
+
+  it('keeps the tag registry in step with the tags in use', () => {
+    saveSaved([{ path: '/x', label: 'X', tags: ['work'] }]);
+    expect(getTags().map(t => t.name)).toEqual(['work']);
+    saveTags([{ name: 'work', color: '#abcdef' }]);
+    expect(getTags()[0].color).toBe('#abcdef');
+    saveSaved([{ path: '/x', label: 'X' }]);
+    expect(getTags()).toEqual([]);
+  });
+
+  it('tolerates corrupt JSON in any key', () => {
+    localStorage.setItem('bfb-saved-v1', '{nope');
+    expect(getSaved()).toEqual([]);
+  });
+});
 
 describe('preview layout persistence', () => {
   beforeEach(() => localStorage.clear());

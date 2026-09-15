@@ -1,6 +1,7 @@
-import type { Entry, Bookmark, IconRule, Place, Settings, TipData } from './types';
+import type { Entry, IconRule, Place, Settings, Tag, TipData } from './types';
 import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath } from './utils';
 import { getIcon, IMG_EXTS, PI } from './icons';
+import { groupByTag } from './places';
 import { canPreview } from './preview';
 
 export interface RenderContext {
@@ -83,28 +84,28 @@ export function renderTiles(entries: Entry[], ctx: RenderContext, start = 0): st
   return entries.map((e, i) => renderTile(e, ctx, start + i)).join('');
 }
 
-export function renderBMList(bm: Bookmark[], rawPath: string): string {
-  if (!bm.length) return `<div class="fe-hint">No bookmarks.<br>Click ☆ in the path bar to add.</div>`;
-  return bm.map(b => `
-    <div class="fe-bm-item" draggable="true" data-path="${esc(b.path)}">
-      <span class="fe-drag-h">${PI.drag}</span>
-      <a href="file://${esc(b.path)}" class="fe-si-link${b.path === rawPath ? ' active' : ''}" title="${esc(b.path)}">
-        ${PI.bm}<span class="fe-sl">${esc(b.label)}</span>
-      </a>
-      <button class="fe-rm-btn" data-path="${esc(b.path)}" title="Remove">✕</button>
-    </div>`).join('');
-}
-
-export function renderPlacesList(places: Place[], rawPath: string): string {
-  if (!places.length) return `<div class="fe-hint">No places yet.<br>Click + to add this folder.</div>`;
-  return places.map(p => `
+// Saved folders, untagged first, then one sub-heading per tag. Each row has
+// a drag grip, the label (double-click renames), a tag button and a remove.
+export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string): string {
+  if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click ☆ in the path bar, or + to name this folder.</div>`;
+  const color = (name: string) => tags.find(t => t.name === name)?.color ?? '#8b949e';
+  const row = (p: Place) => `
     <div class="fe-bm-item fe-pl-item" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h">${PI.drag}</span>
       <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? ' active' : ''}" title="${esc(p.path)}">
         ${PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
+        <span class="fe-pl-dots">${(p.tags ?? []).map(t => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join('')}</span>
       </a>
+      <span class="fe-pl-tags" title="Tags, comma separated"></span>
+      <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Tags">#</button>
       <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove">✕</button>
-    </div>`).join('');
+    </div>`;
+  return groupByTag(saved, tags).map(g => {
+    const head = g.tag
+      ? `<div class="fe-sv-tag"><i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}</div>`
+      : '';
+    return head + g.items.map(row).join('');
+  }).join('');
 }
 
 export function renderCrumbs(rawPath: string, segments: string[]): string {

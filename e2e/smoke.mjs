@@ -118,6 +118,52 @@ try {
   check(after === before + 1, `middle-click opened a new tab (${before} → ${after})`);
   check(page.url().endsWith('/'), 'explorer tab stayed on the listing');
 
+  // Saved folders: legacy keys merge once; star, name, tag, colour, persist.
+  await page.evaluate(fx => {
+    localStorage.removeItem('bfb-saved-v1'); localStorage.removeItem('bfb-tags-v1');
+    localStorage.setItem('bfb-bookmarks-v2', JSON.stringify([{ path: fx + '/nested/', label: 'nested' }, { path: '/tmp/', label: 'tmp' }]));
+    localStorage.setItem('bfb-places-v1', JSON.stringify([{ path: fx + '/nested/', label: 'Nested (named)' }]));
+  }, h.fixture);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  const savedLabels = () => page.$$eval('#fe-sv-list .fe-pl-label', els => els.map(e => e.textContent));
+  let labels = await savedLabels();
+  check(labels.length === 2 && labels[0] === 'Nested (named)' && labels[1] === 'tmp', `legacy merged into Saved: ${JSON.stringify(labels)}`);
+  const sections = await page.$$eval('#fe-side .fe-sh', els => els.map(e => e.textContent.trim().split('\n')[0].trim()));
+  check(!sections.some(s => /Bookmarks|My Places/.test(s)) && sections.some(s => s.startsWith('Saved')), `sidebar sections: ${JSON.stringify(sections)}`);
+
+  await page.click('#fe-bm-btn');
+  labels = await savedLabels();
+  const starOn = await page.$eval('#fe-bm-btn', el => el.classList.contains('on'));
+  check(labels.length === 3 && starOn, `star saved the current folder: ${JSON.stringify(labels)}`);
+
+  const tagBtn = await page.$('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-tag-btn');
+  await tagBtn.evaluate(el => el.click());
+  await page.keyboard.type('Work, code');
+  await page.keyboard.press('Enter');
+  const tagState = await page.evaluate(() => ({
+    heads: [...document.querySelectorAll('#fe-sv-list .fe-sv-tag')].map(h => h.textContent.trim()),
+    dotColor: document.querySelector('#fe-sv-list .fe-sv-dot')?.style.background,
+    minis: document.querySelectorAll('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-sv-mini').length,
+    stored: JSON.parse(localStorage.getItem('bfb-saved-v1')).find(p => p.path.endsWith('/nested/')).tags,
+  }));
+  check(tagState.heads.join() === 'work' && tagState.minis === 2 && JSON.stringify(tagState.stored) === '["work","code"]',
+    `tags applied and grouped: ${JSON.stringify(tagState)}`);
+  const c1 = tagState.dotColor;
+  await page.click('#fe-sv-list .fe-sv-dot');
+  const c2 = await page.$eval('#fe-sv-list .fe-sv-dot', el => el.style.background);
+  check(c1 && c2 && c1 !== c2, `tag colour cycles ${c1} → ${c2}`);
+  await shot(page, 'saved-sidebar');
+
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  const savedAfter = await page.evaluate(() => ({
+    labels: [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].map(e => e.textContent),
+    heads: [...document.querySelectorAll('#fe-sv-list .fe-sv-tag')].map(h => h.textContent.trim()),
+    dot: document.querySelector('#fe-sv-list .fe-sv-dot')?.style.background,
+  }));
+  check(savedAfter.labels.length === 3 && savedAfter.heads.join() === 'work' && savedAfter.dot === c2, `saved state persists: ${JSON.stringify(savedAfter)}`);
+
   // Deep search: the crawl adds subfolder entries with relative names.
   await page.click('#fe-deep-btn');
   await page.waitForFunction(() => /items in \d+ folders/.test(document.getElementById('fe-count').textContent), { timeout: 10_000 }).catch(() => null);
