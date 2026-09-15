@@ -2171,11 +2171,15 @@ doesn't appear and everything else works normally.
 
 ## Tabs
 
-The strip above the toolbar is your working set of folders, the same in every
-explorer window. The folder you are in shows as an italic tab until you keep
-it: press **t** or double-click it. **w** closes the current tab, **[** and
-**]** move between tabs, **1** to **9** jump. Drag to reorder, \u2715 to close.
-Saved (below) is the long-term list; tabs are what is open right now.
+The strip above the toolbar is the working set of this Chrome tab: folders
+and files, kept through refresh and navigation, gone when the Chrome tab
+closes. Open the same folder again within a day and the strip comes back with
+an undo. The place you are in shows as an italic tab until you keep it: press
+**t** or double-click it. **w** closes the current tab, **p** pins it (pinned
+tabs sit first and have no \u2715), **[** and **]** move between tabs, **1** to
+**9** jump. Drag to reorder. Hover a tab for **\u2026**: copy path, save, pin,
+close, close others. Saved (below) is the long-term list; tabs are what is
+open right now.
 
 ## Sidebar
 
@@ -2219,7 +2223,7 @@ against filenames \u2192 a colored label badge).
 | \u2318A | Select all |
 | \u2318C | Copy selected path(s) |
 | Esc | Close preview / clear filter |
-| t \xB7 w | Keep this folder as a tab \xB7 close the current tab |
+| t \xB7 w \xB7 p | Keep this folder or file as a tab \xB7 close it \xB7 pin it |
 | [ \xB7 ] \xB7 1-9 | Previous / next tab \xB7 jump to a tab |
 | n | New note (when a Notes folder is set) |
 | r | Raw / rendered, on a file page |
@@ -2488,6 +2492,8 @@ td.c-tp{color:var(--dm);font-size:11px}
   border:1px solid #374151;z-index:200
 }
 #fe-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#fe-toast.act{pointer-events:auto}
+.fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
@@ -2614,16 +2620,22 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-tab.temp .fe-tab-lbl{font-style:italic;color:var(--mt)}
 .fe-tab.drag-over{border-left:2px solid var(--ac)}
 .fe-tab-lbl{overflow:hidden;text-overflow:ellipsis}
-.fe-tab-x{background:none;border:none;color:var(--dm);cursor:pointer;font-size:10px;padding:1px 4px;border-radius:3px;opacity:0;line-height:1}
-.fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x{opacity:1}
+.fe-tab-x,.fe-tab-more{background:none;border:none;color:var(--dm);cursor:pointer;font-size:10px;padding:1px 4px;border-radius:3px;opacity:0;line-height:1}
+.fe-tab-more{font-size:12px;letter-spacing:1px}
+.fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
 .fe-tab-x:hover{background:var(--s3);color:#f85149}
+.fe-tab-more:hover{background:var(--s3);color:var(--tx)}
+.fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
+.fe-tab-ico{display:flex;flex-shrink:0}
+.fe-tab-ico svg{width:11px;height:12px}
+.fe-tab-menu{position:fixed}
 #fe.fe-file-page #fe-body{display:flex;flex:1;min-height:0}
 #fe-toc{width:220px;flex-shrink:0;overflow-y:auto;background:var(--s1);border-right:1px solid var(--bd);padding:10px 0;font-size:12px}
 #fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fe-toc a:hover{color:var(--ac);background:var(--hover)}
 #fe-toc a.fe-toc-h2{padding-left:24px}#fe-toc a.fe-toc-h3{padding-left:34px}#fe-toc a.fe-toc-h4{padding-left:44px}
 #fe-page{flex:1;min-width:0;overflow:auto;font-size:12px}
-#fe-page .fe-md{max-width:860px;margin:0 auto;padding:24px 32px 60px;font-size:14px}
+#fe-page .fe-md{max-width:none;margin:0;padding:24px 40px 60px;font-size:14px}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:11px;color:var(--dm);margin-right:4px;white-space:nowrap}
 #fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
@@ -2770,7 +2782,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-md-table{border-collapse:collapse;margin:10px 0;font-size:12.5px}
 .fe-md-table th,.fe-md-table td{border:1px solid var(--bd);padding:5px 11px;text-align:left}
 .fe-md-table th{background:var(--s2);font-weight:600}
-#fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
+#fe-ctx,.fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
   min-width:180px;box-shadow:0 8px 24px #0009;display:none;padding:4px 0}
 .fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
   font-size:12px;cursor:pointer;white-space:nowrap}
@@ -3086,6 +3098,367 @@ td.c-tp{color:var(--dm);font-size:11px}
     ).join("");
   }
 
+  // src/tabs.ts
+  var EMPTY = { list: [], active: null };
+  function labelFor(path) {
+    return path.split("/").filter(Boolean).pop() || "/";
+  }
+  function kindOf(path) {
+    return path.endsWith("/") ? "folder" : "file";
+  }
+  var newId = () => Math.random().toString(36).slice(2, 10);
+  var pinnedCount = (s) => s.list.filter((t) => t.pinned).length;
+  function openTab(s, path) {
+    const found = s.list.find((t) => t.path === path);
+    if (found) return { ...s, active: found.id };
+    const tab = { id: newId(), path, kind: kindOf(path), label: labelFor(path), pinned: false };
+    const i = s.list.findIndex((t) => t.id === s.active);
+    const list = [...s.list];
+    list.splice(Math.max(i < 0 ? list.length : i + 1, pinnedCount(s)), 0, tab);
+    return { list, active: tab.id };
+  }
+  function closeTab(s, id) {
+    const i = s.list.findIndex((t) => t.id === id);
+    if (i < 0) return s;
+    const list = s.list.filter((t) => t.id !== id);
+    let active = s.active;
+    if (active === id) active = list[Math.min(i, list.length - 1)]?.id ?? null;
+    return { list, active };
+  }
+  function closeOthers(s, id) {
+    if (!s.list.some((t) => t.id === id)) return s;
+    const list = s.list.filter((t) => t.pinned || t.id === id);
+    return { list, active: list.some((t) => t.id === s.active) ? s.active : id };
+  }
+  function activate(s, id) {
+    return s.list.some((t) => t.id === id) ? { ...s, active: id } : s;
+  }
+  function togglePin(s, id) {
+    const t = s.list.find((x) => x.id === id);
+    if (!t) return s;
+    const rest = s.list.filter((x) => x.id !== id);
+    const at = rest.filter((x) => x.pinned).length;
+    rest.splice(at, 0, { ...t, pinned: !t.pinned });
+    return { ...s, list: rest };
+  }
+  function step(s, dir) {
+    if (!s.list.length) return null;
+    const i = s.list.findIndex((t) => t.id === s.active);
+    const j = i < 0 ? dir > 0 ? 0 : s.list.length - 1 : (i + dir + s.list.length) % s.list.length;
+    return s.list[j];
+  }
+  function moveTab(s, id, toId) {
+    const from = s.list.findIndex((t2) => t2.id === id), to = s.list.findIndex((t2) => t2.id === toId);
+    if (from < 0 || to < 0 || from === to || s.list[from].pinned !== s.list[to].pinned) return s;
+    const list = [...s.list];
+    const [t] = list.splice(from, 1);
+    list.splice(to, 0, t);
+    return { ...s, list };
+  }
+  function isTabState(v) {
+    const s = v;
+    return !!s && Array.isArray(s.list) && s.list.every((t) => t && typeof t.id === "string" && typeof t.path === "string") && (s.active === null || typeof s.active === "string");
+  }
+  function normalize(s) {
+    return { active: s.active, list: s.list.map((t) => ({ ...t, kind: t.kind ?? kindOf(t.path), label: t.label ?? labelFor(t.path), pinned: !!t.pinned })) };
+  }
+  var RECOVERY_MAX_AGE = 24 * 60 * 60 * 1e3;
+  function pickRecovery(entries, now, maxAge = RECOVERY_MAX_AGE) {
+    let best = null;
+    for (const [sid, e] of Object.entries(entries)) {
+      if (!e.closed || !e.state.list.length || now - e.at > maxAge) continue;
+      if (best === null || e.at > entries[best].at) best = sid;
+    }
+    return best;
+  }
+  function isStale(e, now, maxAge = RECOVERY_MAX_AGE) {
+    return now - e.at > maxAge || !e.state.list.length;
+  }
+
+  // src/strip.ts
+  var SESSION_KEY = "bfb-strip-v2";
+  var RECOVERY_PREFIX = "bfb-strip-v2:";
+  var storageArea = () => typeof chrome !== "undefined" && chrome.storage?.local || null;
+  function readSession() {
+    try {
+      const v = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
+      return v && typeof v.sid === "string" && isTabState(v.state) ? { sid: v.sid, state: normalize(v.state) } : null;
+    } catch {
+      return null;
+    }
+  }
+  function writeSession(sid, state) {
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ sid, state }));
+    } catch {
+    }
+  }
+  function writeRecovery(sid, state, closed) {
+    const area = storageArea();
+    if (!area) return;
+    try {
+      if (!state.list.length) area.remove(RECOVERY_PREFIX + sid, () => void chrome.runtime.lastError);
+      else area.set({ [RECOVERY_PREFIX + sid]: { state, at: Date.now(), closed } }, () => void chrome.runtime.lastError);
+    } catch {
+    }
+  }
+  function readRecoveries() {
+    return new Promise((resolve) => {
+      const area = storageArea();
+      if (!area) return resolve({});
+      try {
+        area.get(null, (all) => {
+          const out = {};
+          for (const [k, v] of Object.entries(all || {})) {
+            if (!k.startsWith(RECOVERY_PREFIX)) continue;
+            const e = v;
+            if (e && isTabState(e.state) && typeof e.at === "number") out[k.slice(RECOVERY_PREFIX.length)] = { state: normalize(e.state), at: e.at, closed: !!e.closed };
+          }
+          resolve(out);
+        });
+      } catch {
+        resolve({});
+      }
+    });
+  }
+  function mountStrip(host) {
+    const { el, rawPath, toast } = host;
+    const hereIn = (s) => s.list.find((t) => t.path === rawPath);
+    const activateHere = (s) => {
+      const h = hereIn(s);
+      return h ? activate(s, h.id) : s;
+    };
+    let sid = "";
+    let state = EMPTY;
+    let drag = null;
+    function commit(next) {
+      state = next;
+      writeSession(sid, state);
+      writeRecovery(sid, state, false);
+      render2();
+    }
+    function hrefFor(t) {
+      return "file://" + t.path;
+    }
+    function goTab(id) {
+      const t = state.list.find((x) => x.id === id);
+      if (!t) return;
+      commit(activate(state, id));
+      if (t.path !== rawPath) location.href = hrefFor(t);
+    }
+    function closeHere() {
+      const here = hereIn(state);
+      if (!here) return;
+      const next = closeTab(state, here.id);
+      commit(next);
+      const to = next.list.find((t) => t.id === next.active);
+      if (to && to.path !== rawPath) location.href = hrefFor(to);
+    }
+    function closeById(id) {
+      if (hereIn(state)?.id === id) closeHere();
+      else commit(closeTab(state, id));
+    }
+    const menu = document.createElement("div");
+    menu.className = "fe-ctx fe-tab-menu";
+    menu.style.display = "none";
+    (el.closest("#fe") ?? document.body).appendChild(menu);
+    const closeMenu = () => {
+      menu.style.display = "none";
+    };
+    function openMenu(t, anchor) {
+      const saved = getSaved().some((p) => p.path === t.path);
+      menu.innerHTML = [
+        `<div class="fe-ctx-item" data-act="copy">Copy path</div>`,
+        `<div class="fe-ctx-item" data-act="save">${saved ? "Unsave" : "Save"}</div>`,
+        `<div class="fe-ctx-item" data-act="pin">${t.pinned ? "Unpin" : "Pin"}<span class="fe-ctx-key">p</span></div>`,
+        `<div class="fe-ctx-sep"></div>`,
+        `<div class="fe-ctx-item" data-act="close">Close<span class="fe-ctx-key">w</span></div>`,
+        `<div class="fe-ctx-item" data-act="others">Close others</div>`
+      ].join("");
+      menu.dataset.id = t.id;
+      menu.style.display = "block";
+      const r = anchor.getBoundingClientRect();
+      menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + "px";
+      menu.style.top = r.bottom + 4 + "px";
+    }
+    menu.addEventListener("click", (e) => {
+      const item = e.target.closest(".fe-ctx-item");
+      const t = state.list.find((x) => x.id === menu.dataset.id);
+      closeMenu();
+      if (!item || !t) return;
+      const act = item.dataset.act;
+      if (act === "copy") void copyToClipboard(t.path).then((ok) => toast(ok ? "Copied path" : "Copy failed"));
+      else if (act === "save") {
+        const was = getSaved().some((p) => p.path === t.path);
+        saveSaved(was ? removePlace(getSaved(), t.path) : upsertPlace(getSaved(), { path: t.path, label: t.label }));
+        host.onSavedChange?.();
+        toast(was ? "Removed from Saved" : "Saved");
+      } else if (act === "pin") commit(togglePin(state, t.id));
+      else if (act === "close") closeById(t.id);
+      else if (act === "others") commit(closeOthers(state, t.id));
+    });
+    document.addEventListener("click", (e) => {
+      if (menu.style.display !== "none" && !menu.contains(e.target)) closeMenu();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeMenu();
+    });
+    function tabHtml(t, i, on) {
+      const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : "";
+      return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}" draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(t.path)}${i < 9 ? ` (${i + 1})` : ""}">
+      ${ico}<span class="fe-tab-lbl">${esc(t.label)}</span>
+      <button class="fe-tab-more" data-id="${esc(t.id)}" title="More">\u2026</button>
+      ${t.pinned ? "" : `<button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">\u2715</button>`}
+    </a>`;
+    }
+    function render2() {
+      const here = hereIn(state);
+      const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id));
+      if (!here) {
+        const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : "";
+        rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet: press t or double-click">${ico}<span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
+      }
+      el.innerHTML = rows.join("");
+      el.classList.toggle("empty", state.list.length === 0);
+      el.querySelectorAll(".fe-tab").forEach((a) => {
+        a.addEventListener("click", (e) => {
+          if (e.target.closest("button")) return;
+          e.preventDefault();
+          if (a.dataset.id) goTab(a.dataset.id);
+        });
+        a.addEventListener("dblclick", (e) => {
+          e.preventDefault();
+          if (!a.dataset.id) commit(openTab(state, rawPath));
+        });
+        a.addEventListener("dragstart", () => {
+          drag = a.dataset.id || null;
+        });
+        a.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          a.classList.add("drag-over");
+        });
+        a.addEventListener("dragleave", () => a.classList.remove("drag-over"));
+        a.addEventListener("drop", (e) => {
+          e.preventDefault();
+          a.classList.remove("drag-over");
+          if (drag && a.dataset.id && drag !== a.dataset.id) commit(moveTab(state, drag, a.dataset.id));
+          drag = null;
+        });
+      });
+      el.querySelectorAll(".fe-tab-x").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          closeById(btn.dataset.id);
+        });
+      });
+      el.querySelectorAll(".fe-tab-more").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const t = state.list.find((x) => x.id === btn.dataset.id);
+          if (t) openMenu(t, btn);
+        });
+      });
+    }
+    function handleKey(e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return false;
+      const here = hereIn(state);
+      if (e.key === "t") {
+        commit(openTab(state, rawPath));
+        return true;
+      }
+      if (e.key === "w") {
+        if (here && !here.pinned) closeHere();
+        return true;
+      }
+      if (e.key === "p") {
+        const s = here ? state : openTab(state, rawPath);
+        commit(togglePin(s, here?.id ?? s.active));
+        return true;
+      }
+      if (e.key === "[" || e.key === "]") {
+        const t = step({ ...state, active: here?.id ?? null }, e.key === "]" ? 1 : -1);
+        if (t) goTab(t.id);
+        return true;
+      }
+      if (/^[1-9]$/.test(e.key)) {
+        const t = state.list[parseInt(e.key) - 1];
+        if (t) {
+          goTab(t.id);
+          return true;
+        }
+      }
+      return false;
+    }
+    async function recover() {
+      const all = await readRecoveries();
+      const now = Date.now();
+      const area = storageArea();
+      for (const [k, e] of Object.entries(all)) if (isStale(e, now)) {
+        try {
+          area?.remove(RECOVERY_PREFIX + k, () => void chrome.runtime.lastError);
+        } catch {
+        }
+        delete all[k];
+      }
+      const pick = pickRecovery(all, now);
+      if (!pick) return;
+      const old = all[pick];
+      try {
+        area?.remove(RECOVERY_PREFIX + pick, () => void chrome.runtime.lastError);
+      } catch {
+      }
+      commit(activateHere(old.state));
+      const n = old.state.list.length;
+      toast(`Restored ${n} tab${n === 1 ? "" : "s"}`, 6e3, {
+        label: "undo",
+        run: () => {
+          commit(EMPTY);
+          try {
+            area?.set({ [RECOVERY_PREFIX + pick]: old }, () => void chrome.runtime.lastError);
+          } catch {
+          }
+        }
+      });
+    }
+    const stored = readSession();
+    if (stored) {
+      sid = stored.sid;
+      commit(activateHere(stored.state));
+    } else {
+      sid = Math.random().toString(36).slice(2, 12);
+      writeSession(sid, state);
+      render2();
+      void recover();
+    }
+    window.addEventListener("pagehide", () => writeRecovery(sid, state, true));
+    return { handleKey, state: () => state };
+  }
+
+  // src/toast.ts
+  function makeToast(el) {
+    let tid;
+    return (msg, ms = 2400, action) => {
+      el.textContent = msg;
+      if (action) {
+        const btn = document.createElement("button");
+        btn.className = "fe-toast-act";
+        btn.textContent = action.label;
+        btn.addEventListener("click", () => {
+          action.run();
+          el.classList.remove("show");
+        });
+        el.append(" \xB7 ", btn);
+        ms = Math.max(ms, 6e3);
+      }
+      el.classList.toggle("act", !!action);
+      el.classList.add("show");
+      clearTimeout(tid);
+      tid = setTimeout(() => el.classList.remove("show"), ms);
+    };
+  }
+
   // src/file-page.ts
   var SCROLL_KEY = "bfb-page-scroll-v1";
   var RELOAD_MS = 2e3;
@@ -3152,6 +3525,7 @@ td.c-tp{color:var(--dm);font-size:11px}
     document.head.appendChild(style);
     document.body.innerHTML = `
 <div id="fe" data-theme="${esc(theme)}" class="fe-file-page">
+  <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this file, w closes, p pins, [ ] switch, 1-9 jump)"></div>
   <div id="fe-bar">
     <div id="fe-bc">${renderCrumbs(folderPath, segments)}<span class="fe-sep">\u203A</span><span class="fe-crumb fe-crumb-file">${esc(name)}</span></div>
     <span id="fe-fp-meta">${fmtSize(new Blob([text]).size)}</span>
@@ -3167,8 +3541,11 @@ td.c-tp{color:var(--dm);font-size:11px}
     <div id="fe-page"></div>
   </div>
   <div id="fe-statusbar"><span id="fe-status-text">${esc(name)}</span><span id="fe-fp-reload" title="Re-rendered when the file changes on disk">watching for changes</span></div>
+  <div id="fe-toast"></div>
 </div>`;
     const fe = document.getElementById("fe");
+    const toast = makeToast(document.getElementById("fe-toast"));
+    const strip = mountStrip({ el: document.getElementById("fe-tabs"), rawPath, toast });
     const page = document.getElementById("fe-page");
     const toc = document.getElementById("fe-toc");
     const rawBtn = document.getElementById("fe-fp-raw");
@@ -3212,7 +3589,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       } else if (e.key === "Backspace" || e.metaKey && e.key === "ArrowUp") {
         e.preventDefault();
         location.href = "file://" + folderPath;
-      }
+      } else if (strip.handleKey(e)) e.preventDefault();
     });
     const reloadEl = document.getElementById("fe-fp-reload");
     setInterval(() => {
@@ -3227,51 +3604,6 @@ td.c-tp{color:var(--dm);font-size:11px}
         reloadEl.textContent = "not watching (cannot read file)";
       });
     }, RELOAD_MS);
-  }
-
-  // src/tabs.ts
-  var EMPTY = { list: [], active: null };
-  function labelFor(path) {
-    return path.split("/").filter(Boolean).pop() || "/";
-  }
-  var newId = () => Math.random().toString(36).slice(2, 10);
-  function openTab(s, path) {
-    const found = s.list.find((t) => t.path === path);
-    if (found) return { ...s, active: found.id };
-    const tab = { id: newId(), path, label: labelFor(path) };
-    const i = s.list.findIndex((t) => t.id === s.active);
-    const list = [...s.list];
-    list.splice(i < 0 ? list.length : i + 1, 0, tab);
-    return { list, active: tab.id };
-  }
-  function closeTab(s, id) {
-    const i = s.list.findIndex((t) => t.id === id);
-    if (i < 0) return s;
-    const list = s.list.filter((t) => t.id !== id);
-    let active = s.active;
-    if (active === id) active = list[Math.min(i, list.length - 1)]?.id ?? null;
-    return { list, active };
-  }
-  function activate(s, id) {
-    return s.list.some((t) => t.id === id) ? { ...s, active: id } : s;
-  }
-  function step(s, dir) {
-    if (!s.list.length) return null;
-    const i = s.list.findIndex((t) => t.id === s.active);
-    const j = i < 0 ? dir > 0 ? 0 : s.list.length - 1 : (i + dir + s.list.length) % s.list.length;
-    return s.list[j];
-  }
-  function moveTab(s, id, toId) {
-    const from = s.list.findIndex((t2) => t2.id === id), to = s.list.findIndex((t2) => t2.id === toId);
-    if (from < 0 || to < 0 || from === to) return s;
-    const list = [...s.list];
-    const [t] = list.splice(from, 1);
-    list.splice(to, 0, t);
-    return { ...s, list };
-  }
-  function isTabState(v) {
-    const s = v;
-    return !!s && Array.isArray(s.list) && s.list.every((t) => t && typeof t.id === "string" && typeof t.path === "string") && (s.active === null || typeof s.active === "string");
   }
 
   // src/main.ts
@@ -3461,7 +3793,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     </nav>
 
     <div id="fe-main">
-      <div id="fe-tabs" title="Open folders (t opens this one, w closes, [ ] switch, 1-9 jump)"></div>
+      <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
       <div id="fe-toolbar">
         <span id="fe-count">${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}</span>
         <div id="fe-tb-right">
@@ -3707,13 +4039,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     if (!settings.showSidebar) document.getElementById("fe-side").style.display = "none";
     if (settings.compactMode) fe.classList.add("compact");
     initPreview({ iconRules: () => iconRules, aiModel: () => settings.aiModel });
-    const toastEl = document.getElementById("fe-toast");
-    function toast(msg, ms = 2400) {
-      toastEl.textContent = msg;
-      toastEl.classList.add("show");
-      clearTimeout(toastEl._tid);
-      toastEl._tid = setTimeout(() => toastEl.classList.remove("show"), ms);
-    }
+    const toast = makeToast(document.getElementById("fe-toast"));
+    const strip = mountStrip({ el: document.getElementById("fe-tabs"), rawPath, toast, onSavedChange: () => refreshSaved() });
     document.querySelectorAll(".fe-view-btn").forEach((btn) => {
       if (btn.dataset.view === initView) btn.classList.add("active");
       btn.addEventListener("click", () => {
@@ -4339,26 +4666,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       } else if (e.key === "n" && !e.metaKey && !e.ctrlKey && settings.notesRoot) {
         e.preventDefault();
         newNote();
-      } else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (e.key === "t") {
-          e.preventDefault();
-          void writeTabs(openTab(tabs, rawPath));
-        } else if (e.key === "w") {
-          e.preventDefault();
-          closeCurrentTab();
-        } else if (e.key === "]" || e.key === "[") {
-          e.preventDefault();
-          const here = tabs.list.find((t2) => t2.path === rawPath);
-          const t = step({ ...tabs, active: here?.id ?? null }, e.key === "]" ? 1 : -1);
-          if (t) goTab(t.id);
-        } else if (/^[1-9]$/.test(e.key)) {
-          const t = tabs.list[parseInt(e.key) - 1];
-          if (t) {
-            e.preventDefault();
-            goTab(t.id);
-          }
-        }
-      }
+      } else if (strip.handleKey(e)) e.preventDefault();
     });
     const ctxMenu = document.createElement("div");
     ctxMenu.id = "fe-ctx";
@@ -4834,110 +5142,6 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     }
     document.getElementById("fe-nt-add").addEventListener("click", newNote);
     refreshNotes();
-    const TABS_KEY = "bfb-tabs-v1";
-    const tabsEl = document.getElementById("fe-tabs");
-    let tabs = EMPTY;
-    let tabDrag = null;
-    const storageArea = () => typeof chrome !== "undefined" && chrome.storage?.local || null;
-    function readTabs() {
-      return new Promise((resolve) => {
-        const area = storageArea();
-        if (!area) return resolve(EMPTY);
-        try {
-          area.get(TABS_KEY, (r) => resolve(isTabState(r?.[TABS_KEY]) ? r[TABS_KEY] : EMPTY));
-        } catch {
-          resolve(EMPTY);
-        }
-      });
-    }
-    function writeTabs(next) {
-      tabs = next;
-      renderTabs();
-      return new Promise((resolve) => {
-        const area = storageArea();
-        if (!area) return resolve();
-        try {
-          area.set({ [TABS_KEY]: next }, () => resolve());
-        } catch {
-          resolve();
-        }
-      });
-    }
-    function goTab(id) {
-      const t = tabs.list.find((x) => x.id === id);
-      if (!t) return;
-      void writeTabs(activate(tabs, id)).then(() => {
-        if (t.path !== rawPath) location.href = "file://" + t.path;
-      });
-    }
-    function closeCurrentTab() {
-      const cur = tabs.list.find((t) => t.path === rawPath);
-      if (!cur) return;
-      const next = closeTab(tabs, cur.id);
-      void writeTabs(next).then(() => {
-        const to = next.list.find((t) => t.id === next.active);
-        if (to && to.path !== rawPath) location.href = "file://" + to.path;
-      });
-    }
-    function renderTabs() {
-      const here = tabs.list.find((t) => t.path === rawPath);
-      const rows = tabs.list.map((t, i) => `
-      <a class="fe-tab${t.id === here?.id ? " on" : ""}" draggable="true" data-id="${esc(t.id)}" href="file://${esc(t.path)}" title="${esc(t.path)}${i < 9 ? ` (${i + 1})` : ""}">
-        <span class="fe-tab-lbl">${esc(t.label)}</span><button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">\u2715</button>
-      </a>`);
-      if (!here) rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet: press t or double-click"><span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
-      tabsEl.innerHTML = rows.join("");
-      tabsEl.classList.toggle("empty", tabs.list.length === 0);
-      tabsEl.querySelectorAll(".fe-tab").forEach((el) => {
-        el.addEventListener("click", (e) => {
-          if (e.target.closest(".fe-tab-x")) return;
-          e.preventDefault();
-          if (el.dataset.id) goTab(el.dataset.id);
-        });
-        el.addEventListener("dblclick", (e) => {
-          e.preventDefault();
-          if (!el.dataset.id) void writeTabs(openTab(tabs, rawPath));
-        });
-        el.addEventListener("dragstart", () => {
-          tabDrag = el.dataset.id || null;
-        });
-        el.addEventListener("dragover", (e) => {
-          e.preventDefault();
-          el.classList.add("drag-over");
-        });
-        el.addEventListener("dragleave", () => el.classList.remove("drag-over"));
-        el.addEventListener("drop", (e) => {
-          e.preventDefault();
-          el.classList.remove("drag-over");
-          if (tabDrag && el.dataset.id && tabDrag !== el.dataset.id) void writeTabs(moveTab(tabs, tabDrag, el.dataset.id));
-          tabDrag = null;
-        });
-      });
-      tabsEl.querySelectorAll(".fe-tab-x").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const id = btn.dataset.id;
-          if (tabs.list.find((t) => t.id === id)?.path === rawPath) closeCurrentTab();
-          else void writeTabs(closeTab(tabs, id));
-        });
-      });
-    }
-    readTabs().then((s) => {
-      const here = s.list.find((t) => t.path === rawPath);
-      void writeTabs(here ? activate(s, here.id) : s);
-    });
-    try {
-      chrome.storage?.onChanged?.addListener((changes, area) => {
-        if (area !== "local" || !changes[TABS_KEY]) return;
-        const v = changes[TABS_KEY].newValue;
-        if (isTabState(v)) {
-          tabs = v;
-          renderTabs();
-        }
-      });
-    } catch {
-    }
     if (sortConfig.col || groupConfig !== "none") applyAll();
     applyFindFromHash();
   })();

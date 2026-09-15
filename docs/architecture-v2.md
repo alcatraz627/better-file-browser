@@ -52,7 +52,8 @@ still reaches the browser because the anchor keeps its href.
 
 ## The strip
 
-`Tab = { id, url, kind: 'folder' | 'file', label, pinned }`. Pinned tabs sit
+`Tab = { id, path, kind: 'folder' | 'file', label, pinned }` (`path` is the
+decoded file path; a folder's ends with `/`). Pinned tabs sit
 first, keep no close button, and survive "close others". Drag reorders.
 Hover shows a small `…` that opens a menu: copy path, save or unsave (the
 same Saved list, so the star and the tab agree), pin or unpin, close, close

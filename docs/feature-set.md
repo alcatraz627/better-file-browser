@@ -35,7 +35,7 @@ browser tabs sit above browser bookmarks. Saved is bookmarks; tabs are tabs.
 
 Single-letter keys work when nothing is focused, the way the kanban board's
 do, so the two tools share one hand: `t` opens a tab for this folder, `w`
-closes the tab, `[` and `]` move between tabs, `1` to `9` jump, `n` starts a
+closes the tab, `p` pins it, `[` and `]` move between tabs, `1` to `9` jump, `n` starts a
 new note. Chrome owns Cmd+T and Cmd+W and a page cannot take them, which is
 why these are bare letters.
 
@@ -110,19 +110,20 @@ where Places are kept.
 
 ## Tabs: the working set
 
-- A strip above the toolbar. Each tab is a folder with its label; the active
-  tab is the folder shown. The strip state lives in `chrome.storage.local`
-  and every explorer window listens to `chrome.storage.onChanged`, so
-  opening or closing a tab in one window updates the strip in all of them.
-  The DOM `storage` event cannot do this on file:// pages; the recon has the
-  citation.
+- A strip above the toolbar, on the explorer and on file pages. Each tab is
+  a folder or a file with its label; the active tab is the location shown.
+  The strip belongs to one Chrome tab: its state lives in `sessionStorage`,
+  so it survives navigation and refresh and dies with the Chrome tab. A copy
+  in `chrome.storage.local`, keyed by a per-tab session id, lets a fresh
+  Chrome tab bring back a strip closed within the last day, with an undo.
+  `docs/architecture-v2.md` has the rule this follows from.
 - Navigation is real: a tab click sets `location.href`. Chrome's behaviour
   for `pushState` between file:// paths has changed across versions, so the
   address bar staying honest is worth more than an in-page switch.
 - A folder you are in that has no tab shows as a temporary tab in italics,
-  the way editors show a preview tab. `t`, double-click, or opening a second
-  folder from it makes it permanent. Closing the last tab leaves the strip
-  empty; the current folder still renders.
+  the way editors show a preview tab. `t` or double-click makes it permanent,
+  `p` pins it. Closing the last tab leaves the strip empty; the current
+  folder still renders.
 
 ## What other tools help
 

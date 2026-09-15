@@ -85,11 +85,15 @@ doesn't appear and everything else works normally.
 
 ## Tabs
 
-The strip above the toolbar is your working set of folders, the same in every
-explorer window. The folder you are in shows as an italic tab until you keep
-it: press **t** or double-click it. **w** closes the current tab, **[** and
-**]** move between tabs, **1** to **9** jump. Drag to reorder, ✕ to close.
-Saved (below) is the long-term list; tabs are what is open right now.
+The strip above the toolbar is the working set of this Chrome tab: folders
+and files, kept through refresh and navigation, gone when the Chrome tab
+closes. Open the same folder again within a day and the strip comes back with
+an undo. The place you are in shows as an italic tab until you keep it: press
+**t** or double-click it. **w** closes the current tab, **p** pins it (pinned
+tabs sit first and have no ✕), **[** and **]** move between tabs, **1** to
+**9** jump. Drag to reorder. Hover a tab for **…**: copy path, save, pin,
+close, close others. Saved (below) is the long-term list; tabs are what is
+open right now.
 
 ## Sidebar
 
@@ -133,7 +137,7 @@ against filenames → a colored label badge).
 | ⌘A | Select all |
 | ⌘C | Copy selected path(s) |
 | Esc | Close preview / clear filter |
-| t · w | Keep this folder as a tab · close the current tab |
+| t · w · p | Keep this folder or file as a tab · close it · pin it |
 | [ · ] · 1-9 | Previous / next tab · jump to a tab |
 | n | New note (when a Notes folder is set) |
 | r | Raw / rendered, on a file page |

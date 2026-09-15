@@ -269,6 +269,12 @@ try {
     title: document.title,
   }));
   check(fp.shell && fp.h1 === 'Fixture' && fp.h1id === 'fixture' && fp.crumb === 'readme.md', `file page renders markdown: ${JSON.stringify(fp)}`);
+  const width = await fpage.evaluate(() => {
+    const md = document.querySelector('#fe-page .fe-md').getBoundingClientRect();
+    const pane = document.getElementById('fe-page').getBoundingClientRect();
+    return { md: Math.round(md.right), pane: Math.round(pane.right), strip: !!document.querySelector('#fe-tabs .fe-tab.temp') };
+  });
+  check(width.md >= width.pane - 1 && width.strip, `file page fills the pane width and shows the strip: ${JSON.stringify(width)}`);
   await fpage.click('#fe-fp-raw');
   const rawOn = await fpage.evaluate(() => !!document.querySelector('#fe-page .fe-code') && document.querySelector('#fe-page .fe-code').textContent.includes('# Fixture'));
   check(rawOn, 'raw toggle shows the source');
@@ -295,39 +301,99 @@ try {
   await fpage.close();
   await page.bringToFront();
 
-  // Tabs: t keeps this folder, a second window sees it, ] and w navigate.
-  const tabLabels = p => p.$$eval('#fe-tabs .fe-tab', els => els.map(e => (e.classList.contains('temp') ? '~' : '') + e.querySelector('.fe-tab-lbl').textContent));
+  // Tabs: state lives with this Chrome tab and survives a refresh, a file is
+  // a tab too, p pins, the hover menu closes others, and the address bar is
+  // the active tab's URL after every action. A closed Chrome tab's strip
+  // comes back in a fresh one with an undo.
+  const tabLabels = p => p.$$eval('#fe-tabs .fe-tab', els => els.map(e =>
+    (e.classList.contains('temp') ? '~' : '') + (e.classList.contains('pinned') ? '*' : '') + e.querySelector('.fe-tab-lbl').textContent));
+  const keptCount = n => `document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === ${n}`;
+  const barIsActiveTab = p => p.evaluate(() => {
+    const on = document.querySelector('#fe-tabs .fe-tab.on');
+    return !!on && decodeURIComponent(new URL(on.href).pathname) === decodeURIComponent(location.pathname);
+  });
   await page.bringToFront();
   await page.keyboard.press('Escape');
   let tabsA = await tabLabels(page);
   check(tabsA.length === 1 && tabsA[0].startsWith('~'), `fresh strip shows a temporary tab: ${JSON.stringify(tabsA)}`);
   await page.keyboard.press('t');
-  await page.waitForFunction(() => document.querySelector('#fe-tabs .fe-tab.on:not(.temp)'), { timeout: 3_000 }).catch(() => null);
+  await page.waitForFunction(keptCount(1), { timeout: 3_000 }).catch(() => null);
   tabsA = await tabLabels(page);
   check(tabsA.length === 1 && !tabsA[0].startsWith('~'), `t keeps the folder: ${JSON.stringify(tabsA)}`);
 
-  const pageB = await h.open(h.fixture + '/nested');
-  let tabsB = await tabLabels(pageB);
-  check(tabsB.length === 2 && tabsB[1] === '~nested', `second window shows the shared tab plus its own temporary one: ${JSON.stringify(tabsB)}`);
-  await pageB.bringToFront();
-  await pageB.keyboard.press('t');
-  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 2, { timeout: 5_000 }).catch(() => null);
+  await page.goto('file://' + h.fixture + '/nested/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  await page.keyboard.press('t');
+  await page.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
   tabsA = await tabLabels(page);
-  check(tabsA.length === 2 && tabsA[1] === 'nested', `first window picked up the new tab through storage.onChanged: ${JSON.stringify(tabsA)}`);
-  await shot(pageB, 'tabs');
-  await pageB.close();
+  check(tabsA.length === 2 && tabsA[1] === 'nested' && await barIsActiveTab(page), `two tabs survive a refresh of this Chrome tab: ${JSON.stringify(tabsA)}`);
 
-  await page.bringToFront();
-  await page.keyboard.press(']');
+  await page.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
+  await page.waitForSelector('#fe.fe-file-page');
+  tabsA = await tabLabels(page);
+  check(tabsA.length === 3 && tabsA[2] === '~readme.md', `the file page carries the strip with a temporary file tab: ${JSON.stringify(tabsA)}`);
+  await page.keyboard.press('t');
+  await page.waitForFunction(keptCount(3), { timeout: 3_000 }).catch(() => null);
+  const fileTab = await page.evaluate(() => {
+    const t = document.querySelector('#fe-tabs .fe-tab.on');
+    return { icon: !!t.querySelector('.fe-tab-ico svg'), label: t.querySelector('.fe-tab-lbl').textContent, bar: true };
+  });
+  check(fileTab.icon && fileTab.label === 'readme.md' && await barIsActiveTab(page), `t keeps the file as a tab with the file icon: ${JSON.stringify(fileTab)}`);
+
+  await page.keyboard.press('p');
+  await page.waitForSelector('#fe-tabs .fe-tab.pinned', { timeout: 3_000 }).catch(() => null);
+  const pinned = await page.evaluate(() => {
+    const t = document.querySelector('#fe-tabs .fe-tab.pinned');
+    return t && { first: document.querySelector('#fe-tabs .fe-tab') === t, closeBtn: !!t.querySelector('.fe-tab-x'), label: t.querySelector('.fe-tab-lbl').textContent };
+  });
+  check(pinned && pinned.first && !pinned.closeBtn && pinned.label === 'readme.md', `p pins the tab: first in the strip, no close button: ${JSON.stringify(pinned)}`);
+  await shot(page, 'tabs');
+
+  await page.keyboard.press('[');
   await page.waitForFunction(() => location.pathname.endsWith('/nested/'), { timeout: 5_000 }).catch(() => null);
   await page.waitForSelector('#fe');
-  check(page.url().endsWith('/nested/'), `] navigates to the next tab: ${page.url()}`);
-  await page.waitForFunction(() => document.querySelector('#fe-tabs .fe-tab.on'), { timeout: 3_000 }).catch(() => null);
+  check(page.url().endsWith('/nested/') && await barIsActiveTab(page), `[ wraps to the last tab by real navigation: ${page.url()}`);
+
+  await page.hover('#fe-tabs .fe-tab:nth-child(2)');
+  await page.click('#fe-tabs .fe-tab:nth-child(2) .fe-tab-more');
+  await page.waitForSelector('.fe-tab-menu[style*="block"]', { timeout: 3_000 }).catch(() => null);
+  const menuItems = await page.$$eval('.fe-tab-menu .fe-ctx-item', els => els.map(e => e.firstChild.textContent));
+  const rootSaved = await page.evaluate(fx => JSON.parse(localStorage.getItem('bfb-saved-v1') || '[]').some(p => p.path === fx + '/'), h.fixture);
+  check(menuItems.join('|') === `Copy path|${rootSaved ? 'Unsave' : 'Save'}|Pin|Close|Close others`, `hover menu lists the tab actions and agrees with the star: ${JSON.stringify(menuItems)}`);
+  await page.click('.fe-tab-menu [data-act="others"]');
+  await page.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
+  tabsA = await tabLabels(page);
+  check(tabsA.length === 3 && tabsA[0] === '*readme.md' && tabsA[2] === '~nested' && page.url().endsWith('/nested/'),
+    `close others keeps the pinned tab and the one picked; this folder is temporary again, URL unchanged: ${JSON.stringify(tabsA)}`);
+
+  await page.keyboard.press('t');
+  await page.waitForFunction(keptCount(3), { timeout: 3_000 }).catch(() => null);
   await page.keyboard.press('w');
   await page.waitForFunction(() => !location.pathname.endsWith('/nested/'), { timeout: 5_000 }).catch(() => null);
   await page.waitForSelector('#fe');
   tabsA = await tabLabels(page);
-  check(!page.url().endsWith('/nested/') && tabsA.length === 1, `w closes the tab and returns to the remaining one: ${JSON.stringify(tabsA)}`);
+  check(page.url() === 'file://' + h.fixture + '/' && tabsA.length === 2 && await barIsActiveTab(page), `w closes the tab and navigates to its neighbour: ${JSON.stringify(tabsA)} ${page.url()}`);
+
+  const pageB = await h.open(h.fixture + '/nested');
+  await pageB.keyboard.press('t');
+  await pageB.goto('file://' + h.fixture + '/nested/deeper/', { waitUntil: 'load' });
+  await pageB.waitForSelector('#fe');
+  await pageB.keyboard.press('t');
+  await pageB.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
+  await pageB.close();
+  const pageC = await h.open(h.fixture + '/nested/deeper');
+  await pageC.waitForFunction(keptCount(2), { timeout: 5_000 }).catch(() => null);
+  const restored = { tabs: await tabLabels(pageC), toast: await pageC.$eval('#fe-toast', el => el.textContent), bar: await barIsActiveTab(pageC) };
+  check(restored.tabs.join('|') === 'nested|deeper' && /Restored 2 tabs/.test(restored.toast) && restored.bar, `a closed Chrome tab's strip comes back in a fresh one: ${JSON.stringify(restored)}`);
+  await shot(pageC, 'tabs-restored');
+  await pageC.click('#fe-toast .fe-toast-act');
+  await pageC.waitForFunction(keptCount(0), { timeout: 3_000 }).catch(() => null);
+  const undone = await tabLabels(pageC);
+  check(undone.length === 1 && undone[0] === '~deeper', `undo drops the restored strip: ${JSON.stringify(undone)}`);
+  await pageC.close();
+  await page.bringToFront();
 
   // Find: text inside files, held until re-run, saved as a view, reopened by hash.
   const rowNames = () => page.$$eval('#fe-tbody tr[data-idx]:not(.par) .fe-nm', els => els.map(e => e.textContent));
