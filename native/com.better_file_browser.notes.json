@@ -1,0 +1,7 @@
+{
+  "name": "com.better_file_browser.notes",
+  "description": "Reads and writes markdown notes in one folder for Better File Browser",
+  "path": "/Users/alcatraz627/Code/better-file-browser/native/notes_host.py",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://EXTENSION_ID_PLACEHOLDER/"]
+}

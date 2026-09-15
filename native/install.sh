@@ -17,6 +17,7 @@ fi
 # Make the hosts executable
 chmod +x "$SCRIPT_DIR/ghostty_launcher.py"
 chmod +x "$SCRIPT_DIR/llm_host.py"
+chmod +x "$SCRIPT_DIR/notes_host.py"
 
 # Write the host manifest with the real extension ID
 MANIFEST_DIR="$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts"
@@ -42,9 +43,20 @@ cat > "$MANIFEST_DIR/com.better_file_browser.llm.json" <<EOF
 }
 EOF
 
+cat > "$MANIFEST_DIR/com.better_file_browser.notes.json" <<EOF
+{
+  "name": "com.better_file_browser.notes",
+  "description": "Reads and writes markdown notes in one folder for Better File Browser",
+  "path": "$SCRIPT_DIR/notes_host.py",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://${EXT_ID}/"]
+}
+EOF
+
 echo "✓ Native messaging hosts installed"
 echo "  Manifest: $MANIFEST_DIR/com.better_file_browser.ghostty.json"
 echo "  Manifest: $MANIFEST_DIR/com.better_file_browser.llm.json"
-echo "  Hosts:    $SCRIPT_DIR/ghostty_launcher.py · $SCRIPT_DIR/llm_host.py"
+echo "  Manifest: $MANIFEST_DIR/com.better_file_browser.notes.json"
+echo "  Hosts:    $SCRIPT_DIR/ghostty_launcher.py · $SCRIPT_DIR/llm_host.py · $SCRIPT_DIR/notes_host.py"
 echo ""
 echo "Reload the extension at chrome://extensions to pick them up."
