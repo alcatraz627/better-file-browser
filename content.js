@@ -512,7 +512,7 @@
         <button class="fe-dlg-close" title="Close (Esc)">\u2715</button>
       </div>
       <div class="fe-dlg-tabs" role="tablist">
-        ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}"><b>${esc(t.label)}</b>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
+        ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><b>${esc(t.label)}</b>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
       </div>
       ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.body}</div>`).join("")}
     </div>
@@ -1643,7 +1643,7 @@ ${body}
       <div id="fe-ql-ai" style="display:none">
         <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
         <button class="fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
-        <button class="fe-ql-ai-btn" id="fe-ql-ai-exp"></button>
+        <button class="fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
         <input id="fe-ql-ai-q" type="text" placeholder="Ask about this file\u2026" autocomplete="off" spellcheck="false">
         <button class="fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
       </div>
@@ -2030,7 +2030,7 @@ ${body}
           if (!document.getElementById("fe-ed-conflict")) {
             body.insertAdjacentHTML(
               "afterbegin",
-              `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="fe-pbn">Reload from disk</button> <button id="fe-ed-force" class="fe-pbn">Overwrite</button></div>`
+              `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="fe-pbn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="fe-pbn" title="Write the editor text over the disk copy">Overwrite</button></div>`
             );
             document.getElementById("fe-ed-reload").addEventListener("click", () => {
               notes.read(st.root, st.rel).then((d) => openNote(st.root, d, st.onSaved));
@@ -2102,7 +2102,7 @@ ${body}
       body.innerHTML = `
       <div class="fe-ql-center">
         <div class="fe-ql-note">File is ${fmtSize(e.rawBytes)} \u2014 large files can be slow to render.</div>
-        <button id="fe-ql-force" class="fe-pbn">Load anyway</button>
+        <button id="fe-ql-force" class="fe-pbn" title="Render despite the size">Load anyway</button>
       </div>`;
       document.getElementById("fe-ql-force").addEventListener("click", () => fetchAndRender(e, ext2, seq));
       return;
@@ -2121,7 +2121,7 @@ ${body}
       if (seq !== reqSeq) return;
       console.error("[BFB] preview failed:", e.href, err);
       const stale = err instanceof FileFetchError && err.code === "context-invalidated";
-      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="fe-pbn">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="fe-pbn">Retry</button></div>`;
+      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="fe-pbn" title="Reload this page">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="fe-pbn" title="Try reading the file again">Retry</button></div>`;
       document.getElementById("fe-ql-retry").addEventListener("click", () => {
         if (stale) location.reload();
         else fetchAndRender(e, ext2, seq);
@@ -2299,9 +2299,9 @@ closes. Open the same folder again within a day and the strip comes back with
 an undo. The place you are in shows as an italic tab until you keep it: press
 **t** or double-click it. **w** closes the current tab, **p** pins it (pinned
 tabs sit first and have no \u2715), **[** and **]** move between tabs, **1** to
-**9** jump. Drag to reorder. Hover a tab for **\u2026**: copy path, save, pin,
-close, close others. Navigation is real, so the address bar is always the
-active tab's location.
+**9** jump. Drag to reorder. **Middle-click** a tab to close it (pinned
+tabs stay). Hover a tab for **\u2026**: copy path, save, pin, close, close others.
+Navigation is real, so the address bar is always the active tab's location.
 
 ## Saved
 
@@ -3102,6 +3102,7 @@ td.c-tp{color:var(--dm);font-size:11px}
     lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
     if (e.isHidden) lines.push("Hidden file (dotfile)");
     if (IMG_EXTS.has(getExt(e))) lines.push("Image \u2014 dimensions require native host");
+    lines.push(e.isDir ? "Click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab" : "Click looks \xB7 double-click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab");
     const tip = {
       icon: getIcon(e, ctx.iconRules),
       name: e.name,
@@ -3187,7 +3188,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       crumbs.push({ label: seg, href: "file://" + acc });
     }
     return crumbs.map(
-      (c, i) => `<a href="${esc(c.href)}" class="fe-crumb">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">\u25BE</button>` + (i < crumbs.length - 1 ? `<span class="fe-sep">\u203A</span>` : "")
+      (c, i) => `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">\u25BE</button>` + (i < crumbs.length - 1 ? `<span class="fe-sep">\u203A</span>` : "")
     ).join("");
   }
 
@@ -3398,9 +3399,11 @@ td.c-tp{color:var(--dm);font-size:11px}
     });
     function tabHtml(t, i, on) {
       const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : "";
-      return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}" draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(t.path)}${i < 9 ? ` (${i + 1})` : ""}">
+      const tip = `${t.path}
+${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins)" : "middle-click closes"} \xB7 drag reorders`;
+      return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}" draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}<span class="fe-tab-lbl">${esc(t.label)}</span>
-      <button class="fe-tab-more" data-id="${esc(t.id)}" title="More">\u2026</button>
+      <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">\u2026</button>
       ${t.pinned ? "" : `<button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">\u2715</button>`}
     </a>`;
     }
@@ -3409,19 +3412,27 @@ td.c-tp{color:var(--dm);font-size:11px}
       const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id));
       if (!here) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : "";
-        rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet: press t or double-click">${ico}<span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
+        rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}<span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
       }
       el.innerHTML = rows.join("");
       el.classList.toggle("empty", state.list.length === 0);
       el.querySelectorAll(".fe-tab").forEach((a) => {
         a.addEventListener("click", (e) => {
           if (e.target.closest("button")) return;
+          if (e.metaKey || e.ctrlKey || e.shiftKey) return;
           e.preventDefault();
+          if (e.detail > 1) return;
           if (a.dataset.id) goTab(a.dataset.id);
         });
         a.addEventListener("dblclick", (e) => {
           e.preventDefault();
           if (!a.dataset.id) commit(openTab(state, rawPath));
+        });
+        a.addEventListener("auxclick", (e) => {
+          if (e.button !== 1) return;
+          e.preventDefault();
+          const t = state.list.find((x) => x.id === a.dataset.id);
+          if (t && !t.pinned) closeById(t.id);
         });
         a.addEventListener("dragstart", () => {
           drag = a.dataset.id || null;
@@ -3582,7 +3593,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       seen.set(id, n + 1);
       if (n) id += "-" + n;
       h.id = id;
-      return `<a href="#${esc(id)}" class="fe-toc-${h.tagName.toLowerCase()}">${esc(h.textContent || "")}</a>`;
+      return `<a href="#${esc(id)}" class="fe-toc-${h.tagName.toLowerCase()}" title="Jump to this heading">${esc(h.textContent || "")}</a>`;
     });
     toc.innerHTML = items.join("");
     toc.style.display = items.length > 1 ? "" : "none";
@@ -3846,15 +3857,15 @@ td.c-tp{color:var(--dm);font-size:11px}
         <div class="fe-st-section">
           <div class="fe-st-title">Theme</div>
           <div class="fe-st-row">
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark"> Dark</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light"> Light</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark" title="Dark theme"> Dark</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light" title="Light theme"> Light</label>
           </div>
         </div>
         <div class="fe-st-section">
           <div class="fe-st-title">Appearance</div>
           <div class="fe-st-row">
             <span class="fe-st-lbl">Default view</span>
-            <select id="fe-st-defview" class="fe-st-select">
+            <select id="fe-st-defview" class="fe-st-select" title="View a folder opens in">
               <option value="details">Details</option>
               <option value="list">List</option>
               <option value="tiles">Tiles</option>
@@ -3862,14 +3873,14 @@ td.c-tp{color:var(--dm);font-size:11px}
             </select>
           </div>
           <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact"> Compact mode</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact" title="Tighter rows and tiles"> Compact mode</label>
           </div>
           <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar"> Show sidebar</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar" title="Saved, Notes, Recent and Favorites on the left"> Show sidebar</label>
           </div>
           <div class="fe-st-row">
             <span class="fe-st-lbl">Date format</span>
-            <select id="fe-st-datefmt" class="fe-st-select">
+            <select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads">
               <option value="short">Short \u2014 Apr 17</option>
               <option value="full">Full \u2014 April 17, 2025</option>
             </select>
@@ -3881,7 +3892,7 @@ td.c-tp{color:var(--dm);font-size:11px}
           <div class="fe-st-title">File pages</div>
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="A file opened directly in the tab renders like the preview">Render file pages</span>
-            <select id="fe-st-filepages" class="fe-st-select">
+            <select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page">
               <option value="all">All text files</option>
               <option value="not-md">All except markdown</option>
               <option value="off">Off (Chrome's plain text)</option>
@@ -3891,7 +3902,7 @@ td.c-tp{color:var(--dm);font-size:11px}
         <div class="fe-st-section">
           <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
             <span>Custom Icon Rules</span>
-            <button id="fe-st-add-rule" class="fe-pbn">+ Add rule</button>
+            <button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">+ Add rule</button>
           </div>
           <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
           <div class="fe-st-rules-cols">
@@ -3902,7 +3913,7 @@ td.c-tp{color:var(--dm);font-size:11px}
             <span></span>
           </div>
           <div id="fe-st-rules-list"></div>
-          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940">Reset to defaults</button>
+          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940" title="Replace every rule with the built-in set">Reset to defaults</button>
         </div>
 ` },
         { key: "notes", label: "Notes", hint: "the notes folder", body: `
@@ -3910,7 +3921,7 @@ td.c-tp{color:var(--dm);font-size:11px}
           <div class="fe-st-title">Notes</div>
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
-            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false">
+            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder">
           </div>
           <div class="fe-st-hint" id="fe-st-notes-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
         </div>
@@ -4083,7 +4094,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text inside files</span>
           <input id="fe-find-text" type="text" placeholder="words to look for\u2026" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
-          <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case"> Aa</label>
+          <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
           <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
           <button id="fe-find-cancel" class="fe-pbn" style="display:none" title="Stop scanning">Cancel</button>
           <span id="fe-find-status"></span>
@@ -4095,10 +4106,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         <table id="fe-table">
           <thead>
             <tr>
-              <th class="c-nm" data-ck="nm" data-sort="name">Name <span class="si">\u2195</span><span class="fe-col-rz"></span></th>
-              <th class="c-tp" data-ck="tp">Type<span class="fe-col-rz"></span></th>
-              <th class="c-sz" data-ck="sz" data-sort="size">Size <span class="si">\u2195</span><span class="fe-col-rz"></span></th>
-              <th class="c-dt" data-ck="dt" data-sort="date">Modified <span class="si">\u2195</span></th>
+              <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name \xB7 again flips \xB7 drag the edge to resize">Name <span class="si">\u2195</span><span class="fe-col-rz"></span></th>
+              <th class="c-tp" data-ck="tp" title="Type \xB7 drag the edge to resize">Type<span class="fe-col-rz"></span></th>
+              <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size \xB7 again flips">Size <span class="si">\u2195</span><span class="fe-col-rz"></span></th>
+              <th class="c-dt" data-ck="dt" data-sort="date" title="Sort by modified date \xB7 again flips">Modified <span class="si">\u2195</span></th>
             </tr>
           </thead>
           <tbody id="fe-tbody">${renderRows(ALL_ENTRIES, ctx0)}</tbody>
@@ -4533,8 +4544,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
           crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>';
           return;
         }
-        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter\u2026" autocomplete="off" spellcheck="false"></div><div class="fe-dd-items">${entries.map(
-          (en) => `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}">${getIcon(en, iconRules)}<span>${esc(en.name)}</span></a>`
+        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter\u2026" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
+          (en) => `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, iconRules)}<span>${esc(en.name)}</span></a>`
         ).join("")}</div>`;
         const ddSearch = crumbMenu.querySelector(".fe-dd-search");
         ddSearch.focus();
@@ -4619,16 +4630,32 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         return;
       }
       if (lookTimer) clearTimeout(lookTimer);
-      if (e.detail >= 2) {
-        location.href = en.href;
-        return;
-      }
+      if (e.detail > 1) return;
       lookTimer = setTimeout(() => {
         lookTimer = null;
         openPreview(en);
       }, 220);
     });
     let lookTimer = null;
+    scroll.addEventListener("dblclick", (e) => {
+      const holder = e.target.closest("[data-idx]");
+      const en = holder ? VISIBLE[parseInt(holder.dataset.idx)] : null;
+      if (!en || en.isDir || en.isParent || e.altKey || e.shiftKey || e.metaKey || e.ctrlKey) return;
+      e.preventDefault();
+      if (lookTimer) {
+        clearTimeout(lookTimer);
+        lookTimer = null;
+      }
+      location.href = en.href;
+    });
+    scroll.addEventListener("auxclick", (e) => {
+      if (e.button !== 1 || e.target.closest("a")) return;
+      const holder = e.target.closest("[data-idx]");
+      const en = holder ? VISIBLE[parseInt(holder.dataset.idx)] : null;
+      if (!en) return;
+      e.preventDefault();
+      window.open(en.href, "_blank");
+    });
     const selSet = /* @__PURE__ */ new Set();
     let selIdx = -1;
     let anchor = -1;

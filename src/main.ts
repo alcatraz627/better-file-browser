@@ -214,15 +214,15 @@ import { getIcon } from './icons';
         <div class="fe-st-section">
           <div class="fe-st-title">Theme</div>
           <div class="fe-st-row">
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark"> Dark</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light"> Light</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark" title="Dark theme"> Dark</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light" title="Light theme"> Light</label>
           </div>
         </div>
         <div class="fe-st-section">
           <div class="fe-st-title">Appearance</div>
           <div class="fe-st-row">
             <span class="fe-st-lbl">Default view</span>
-            <select id="fe-st-defview" class="fe-st-select">
+            <select id="fe-st-defview" class="fe-st-select" title="View a folder opens in">
               <option value="details">Details</option>
               <option value="list">List</option>
               <option value="tiles">Tiles</option>
@@ -230,14 +230,14 @@ import { getIcon } from './icons';
             </select>
           </div>
           <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact"> Compact mode</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact" title="Tighter rows and tiles"> Compact mode</label>
           </div>
           <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar"> Show sidebar</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar" title="Saved, Notes, Recent and Favorites on the left"> Show sidebar</label>
           </div>
           <div class="fe-st-row">
             <span class="fe-st-lbl">Date format</span>
-            <select id="fe-st-datefmt" class="fe-st-select">
+            <select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads">
               <option value="short">Short — Apr 17</option>
               <option value="full">Full — April 17, 2025</option>
             </select>
@@ -249,7 +249,7 @@ import { getIcon } from './icons';
           <div class="fe-st-title">File pages</div>
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="A file opened directly in the tab renders like the preview">Render file pages</span>
-            <select id="fe-st-filepages" class="fe-st-select">
+            <select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page">
               <option value="all">All text files</option>
               <option value="not-md">All except markdown</option>
               <option value="off">Off (Chrome's plain text)</option>
@@ -259,7 +259,7 @@ import { getIcon } from './icons';
         <div class="fe-st-section">
           <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
             <span>Custom Icon Rules</span>
-            <button id="fe-st-add-rule" class="fe-pbn">+ Add rule</button>
+            <button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">+ Add rule</button>
           </div>
           <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
           <div class="fe-st-rules-cols">
@@ -270,7 +270,7 @@ import { getIcon } from './icons';
             <span></span>
           </div>
           <div id="fe-st-rules-list"></div>
-          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940">Reset to defaults</button>
+          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940" title="Replace every rule with the built-in set">Reset to defaults</button>
         </div>
 ` },
       { key: 'notes', label: 'Notes', hint: 'the notes folder', body: `
@@ -278,7 +278,7 @@ import { getIcon } from './icons';
           <div class="fe-st-title">Notes</div>
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
-            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false">
+            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder">
           </div>
           <div class="fe-st-hint" id="fe-st-notes-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
         </div>
@@ -446,7 +446,7 @@ import { getIcon } from './icons';
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text inside files</span>
           <input id="fe-find-text" type="text" placeholder="words to look for…" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
-          <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case"> Aa</label>
+          <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
           <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
           <button id="fe-find-cancel" class="fe-pbn" style="display:none" title="Stop scanning">Cancel</button>
           <span id="fe-find-status"></span>
@@ -458,10 +458,10 @@ import { getIcon } from './icons';
         <table id="fe-table">
           <thead>
             <tr>
-              <th class="c-nm" data-ck="nm" data-sort="name">Name <span class="si">↕</span><span class="fe-col-rz"></span></th>
-              <th class="c-tp" data-ck="tp">Type<span class="fe-col-rz"></span></th>
-              <th class="c-sz" data-ck="sz" data-sort="size">Size <span class="si">↕</span><span class="fe-col-rz"></span></th>
-              <th class="c-dt" data-ck="dt" data-sort="date">Modified <span class="si">↕</span></th>
+              <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name · again flips · drag the edge to resize">Name <span class="si">↕</span><span class="fe-col-rz"></span></th>
+              <th class="c-tp" data-ck="tp" title="Type · drag the edge to resize">Type<span class="fe-col-rz"></span></th>
+              <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size · again flips">Size <span class="si">↕</span><span class="fe-col-rz"></span></th>
+              <th class="c-dt" data-ck="dt" data-sort="date" title="Sort by modified date · again flips">Modified <span class="si">↕</span></th>
             </tr>
           </thead>
           <tbody id="fe-tbody">${renderRows(ALL_ENTRIES, ctx0)}</tbody>
@@ -882,9 +882,9 @@ import { getIcon } from './icons';
       const entries = parseListing(text, url);
       if (!entries.length) { crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>'; return; }
       crumbMenu.innerHTML =
-        `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false"></div>` +
+        `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false" title="Type to narrow · Enter opens the first match · Esc closes"></div>` +
         `<div class="fe-dd-items">${entries.map(en =>
-          `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? ' dir' : ''}" data-name="${esc(en.name.toLowerCase())}">${getIcon(en, iconRules)}<span>${esc(en.name)}</span></a>`
+          `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? ' dir' : ''}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, iconRules)}<span>${esc(en.name)}</span></a>`
         ).join('')}</div>`;
       const ddSearch = crumbMenu.querySelector<HTMLInputElement>('.fe-dd-search')!;
       ddSearch.focus();
@@ -955,12 +955,30 @@ import { getIcon } from './icons';
     setSel(i);
     if (!canPreview(en)) { location.href = en.href; return; }
     // The panel waits out the double-click interval, or its scrim would
-    // swallow the second click that means go.
+    // swallow the second click that means go; dblclick below does the going.
     if (lookTimer) clearTimeout(lookTimer);
-    if (e.detail >= 2) { location.href = en.href; return; }
+    if (e.detail > 1) return;
     lookTimer = setTimeout(() => { lookTimer = null; openPreview(en); }, 220);
   });
   let lookTimer: ReturnType<typeof setTimeout> | null = null;
+  scroll.addEventListener('dblclick', e => {
+    const holder = (e.target as HTMLElement).closest<HTMLElement>('[data-idx]');
+    const en = holder ? VISIBLE[parseInt(holder.dataset.idx!)] : null;
+    if (!en || en.isDir || en.isParent || e.altKey || e.shiftKey || e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    if (lookTimer) { clearTimeout(lookTimer); lookTimer = null; }
+    location.href = en.href;
+  });
+  // Middle click anywhere on a row opens a Chrome tab; on the name link the
+  // anchor already does it natively.
+  scroll.addEventListener('auxclick', e => {
+    if (e.button !== 1 || (e.target as HTMLElement).closest('a')) return;
+    const holder = (e.target as HTMLElement).closest<HTMLElement>('[data-idx]');
+    const en = holder ? VISIBLE[parseInt(holder.dataset.idx!)] : null;
+    if (!en) return;
+    e.preventDefault();
+    window.open(en.href, '_blank');
+  });
 
   // ── Selection & keyboard navigation ───────────────────────────────
   // selSet holds every selected VISIBLE index; selIdx is the lead (last

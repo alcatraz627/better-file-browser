@@ -148,9 +148,10 @@ export function mountStrip(host: StripHost): Strip {
   // ── Render ────────────────────────────────────────────────────────
   function tabHtml(t: Tab, i: number, on: boolean): string {
     const ico = t.kind === 'file' ? `<span class="fe-tab-ico">${icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '')}</span>` : '';
-    return `<a class="fe-tab${on ? ' on' : ''}${t.pinned ? ' pinned' : ''}" draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(t.path)}${i < 9 ? ` (${i + 1})` : ''}">
+    const tip = `${t.path}\n${i < 9 ? `${i + 1} jumps · ` : ''}click switches · ${t.pinned ? 'pinned (p unpins)' : 'middle-click closes'} · drag reorders`;
+    return `<a class="fe-tab${on ? ' on' : ''}${t.pinned ? ' pinned' : ''}" draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}<span class="fe-tab-lbl">${esc(t.label)}</span>
-      <button class="fe-tab-more" data-id="${esc(t.id)}" title="More">…</button>
+      <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path · save · pin · close others">…</button>
       ${t.pinned ? '' : `<button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">✕</button>`}
     </a>`;
   }
@@ -159,17 +160,25 @@ export function mountStrip(host: StripHost): Strip {
     const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id));
     if (!here) {
       const ico = kindOf(rawPath) === 'file' ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split('.').pop()!.toLowerCase())}</span>` : '';
-      rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet: press t or double-click">${ico}<span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
+      rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet · t or double-click keeps · p pins">${ico}<span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
     }
     el.innerHTML = rows.join('');
     el.classList.toggle('empty', state.list.length === 0);
     el.querySelectorAll<HTMLElement>('.fe-tab').forEach(a => {
       a.addEventListener('click', e => {
         if ((e.target as HTMLElement).closest('button')) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey) return;   // Chrome's own new-window gestures keep the anchor
         e.preventDefault();
+        if (e.detail > 1) return;                            // a double-click is not two switches
         if (a.dataset.id) goTab(a.dataset.id);
       });
       a.addEventListener('dblclick', e => { e.preventDefault(); if (!a.dataset.id) commit(openTab(state, rawPath)); });
+      a.addEventListener('auxclick', e => {
+        if (e.button !== 1) return;
+        e.preventDefault();                                  // middle click closes, as in Chrome's strip
+        const t = state.list.find(x => x.id === a.dataset.id);
+        if (t && !t.pinned) closeById(t.id);
+      });
       a.addEventListener('dragstart', () => { drag = a.dataset.id || null; });
       a.addEventListener('dragover', e => { e.preventDefault(); a.classList.add('drag-over'); });
       a.addEventListener('dragleave', () => a.classList.remove('drag-over'));

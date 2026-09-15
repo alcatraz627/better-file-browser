@@ -47,7 +47,7 @@ function buildToc(page: HTMLElement, toc: HTMLElement): void {
     const n = seen.get(id) ?? 0; seen.set(id, n + 1);
     if (n) id += '-' + n;
     h.id = id;
-    return `<a href="#${esc(id)}" class="fe-toc-${h.tagName.toLowerCase()}">${esc(h.textContent || '')}</a>`;
+    return `<a href="#${esc(id)}" class="fe-toc-${h.tagName.toLowerCase()}" title="Jump to this heading">${esc(h.textContent || '')}</a>`;
   });
   toc.innerHTML = items.join('');
   toc.style.display = items.length > 1 ? '' : 'none';

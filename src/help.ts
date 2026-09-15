@@ -127,9 +127,9 @@ closes. Open the same folder again within a day and the strip comes back with
 an undo. The place you are in shows as an italic tab until you keep it: press
 **t** or double-click it. **w** closes the current tab, **p** pins it (pinned
 tabs sit first and have no ✕), **[** and **]** move between tabs, **1** to
-**9** jump. Drag to reorder. Hover a tab for **…**: copy path, save, pin,
-close, close others. Navigation is real, so the address bar is always the
-active tab's location.
+**9** jump. Drag to reorder. **Middle-click** a tab to close it (pinned
+tabs stay). Hover a tab for **…**: copy path, save, pin, close, close others.
+Navigation is real, so the address bar is always the active tab's location.
 
 ## Saved
 

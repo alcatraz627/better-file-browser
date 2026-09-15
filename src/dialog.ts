@@ -19,7 +19,7 @@ export function renderDialog(d: DialogSpec): string {
         <button class="fe-dlg-close" title="Close (Esc)">✕</button>
       </div>
       <div class="fe-dlg-tabs" role="tablist">
-        ${d.tabs.map(t => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}"><b>${esc(t.label)}</b>${t.hint ? `<i>${esc(t.hint)}</i>` : ''}</button>`).join('')}
+        ${d.tabs.map(t => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} · [ ] switch tabs · Esc closes"><b>${esc(t.label)}</b>${t.hint ? `<i>${esc(t.hint)}</i>` : ''}</button>`).join('')}
       </div>
       ${d.tabs.map(t => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.body}</div>`).join('')}
     </div>

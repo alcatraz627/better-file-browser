@@ -117,6 +117,10 @@ try {
   const after = (await h.browser.pages()).length;
   check(after === before + 1, `middle-click opened a new tab (${before} → ${after})`);
   check(page.url().endsWith('/'), 'explorer tab stayed on the listing');
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="data.json"]) td:last-child')).click({ button: 'middle' });
+  await new Promise(r => setTimeout(r, 800));
+  const afterRow = (await h.browser.pages()).length;
+  check(afterRow === after + 1 && page.url().endsWith('/'), `middle-click on row whitespace also opens a new tab (${after} → ${afterRow})`);
 
   // Click model: a plain click on a file looks and leaves the URL alone,
   // ⇧ toggles rows, ⌥ keeps a background strip tab, a double-click goes.
@@ -402,6 +406,48 @@ try {
     check(closed, `${d.title}: Esc closes`);
   }
 
+  // Tooltips: every control on every surface carries a title. Rows and tiles
+  // use the custom hover tip instead, menu items are their own label.
+  const SWEEP = 'button, a[href], input:not([type="hidden"]), select, [role="tab"], th[data-sort], .fe-crumb-dd, .fe-sv-dot';
+  const sweep = surface => page.evaluate((sel, surface) => {
+    const out = [];
+    const seen = new Set();
+    for (const el of document.querySelectorAll(sel)) {
+      if (!el.offsetParent && getComputedStyle(el).position !== 'fixed') continue;
+      if (el.matches('.fe-lnk, .fe-tile, .fe-ctx-item') || el.closest('.fe-md, [data-tip]')) continue;
+      if (el.title || el.getAttribute('aria-label')) continue;
+      const key = el.id ? '#' + el.id : el.tagName.toLowerCase() + '.' + [...el.classList].join('.');
+      if (!seen.has(key)) { seen.add(key); out.push(`${surface}: ${key}`); }
+    }
+    return out;
+  }, SWEEP, surface);
+  const missing = [];
+  missing.push(...await sweep('listing'));
+  for (const v of ['list', 'tiles', 'icons']) { await page.evaluate(v => document.querySelector(`.fe-view-btn[data-view="${v}"]`).click(), v); missing.push(...await sweep(`view ${v}`)); }
+  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="details"]').click());
+  await page.click('#fe-sg-btn'); missing.push(...await sweep('sort panel')); await page.click('#fe-sg-btn');
+  await page.click('#fe-filter-btn'); missing.push(...await sweep('filter panel')); await page.click('#fe-filter-btn');
+  await page.click('#fe-tbody a[href$="readme.md"]');
+  await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
+  missing.push(...await sweep('preview'));
+  await page.keyboard.press('Escape');
+  await page.click('#fe-bc .fe-crumb-dd'); await new Promise(r => setTimeout(r, 400)); missing.push(...await sweep('crumb dropdown')); await page.keyboard.press('Escape');
+  await page.click('#fe-help-btn'); missing.push(...await sweep('help')); await page.keyboard.press('Escape');
+  await page.click('#fe-settings-btn');
+  for (let i = 1; i <= 5; i++) { await page.click(`#fe-settings-modal .fe-dlg-tab:nth-child(${i})`); missing.push(...await sweep(`settings ${i}`)); }
+  await page.keyboard.press('Escape');
+  const fpage2 = await h.browser.newPage();
+  await fpage2.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
+  await fpage2.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);
+  missing.push(...await fpage2.evaluate((sel) => {
+    const out = [];
+    for (const el of document.querySelectorAll(sel)) if (el.offsetParent && !el.closest('.fe-md') && !el.title) out.push('file page: ' + (el.id ? '#' + el.id : el.className));
+    return out;
+  }, SWEEP));
+  await fpage2.close();
+  await page.bringToFront();
+  check(missing.length === 0, `every control carries a title (${missing.length} missing)${missing.length ? ': ' + missing.join(', ') : ''}`);
+
   // Tabs: state lives with this Chrome tab and survives a refresh, a file is
   // a tab too, p pins, the hover menu closes others, and the address bar is
   // the active tab's URL after every action. A closed Chrome tab's strip
@@ -469,13 +515,34 @@ try {
   check(tabsA.length === 3 && tabsA[0] === '*readme.md' && tabsA[2] === '~nested' && page.url().endsWith('/nested/'),
     `close others keeps the pinned tab and the one picked; this folder is temporary again, URL unchanged: ${JSON.stringify(tabsA)}`);
 
+  // Middle click closes a kept tab but never a pinned one; a double-click on
+  // the current tab is not two switches.
   await page.keyboard.press('t');
   await page.waitForFunction(keptCount(3), { timeout: 3_000 }).catch(() => null);
+  const pagesBefore = (await h.browser.pages()).length;
+  await (await page.$('#fe-tabs .fe-tab:nth-child(1)')).click({ button: 'middle' });
+  await new Promise(r => setTimeout(r, 300));
+  tabsA = await tabLabels(page);
+  check(tabsA.length === 3 && tabsA[0] === '*readme.md' && (await h.browser.pages()).length === pagesBefore, `middle click leaves a pinned tab alone and opens no Chrome tab: ${JSON.stringify(tabsA)}`);
+  const onTab = await (await page.$('#fe-tabs .fe-tab.on')).boundingBox();
+  await page.mouse.move(onTab.x + 20, onTab.y + onTab.height / 2);
+  await page.mouse.down({ clickCount: 1 }); await page.mouse.up({ clickCount: 1 });
+  await page.mouse.down({ clickCount: 2 }); await page.mouse.up({ clickCount: 2 });
+  await new Promise(r => setTimeout(r, 300));
+  tabsA = await tabLabels(page);
+  check(page.url().endsWith('/nested/') && tabsA.length === 3 && (await h.browser.pages()).length === pagesBefore, `double-click on the current tab changes nothing: ${JSON.stringify(tabsA)} ${page.url()}`);
+  await (await page.$('#fe-tabs .fe-tab:nth-child(2)')).click({ button: 'middle' });
+  await page.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
+  tabsA = await tabLabels(page);
+  check(tabsA.join('|') === '*readme.md|nested' && page.url().endsWith('/nested/') && (await h.browser.pages()).length === pagesBefore, `middle click closes a kept tab, URL unchanged, no Chrome tab: ${JSON.stringify(tabsA)}`);
+
   await page.keyboard.press('w');
   await page.waitForFunction(() => !location.pathname.endsWith('/nested/'), { timeout: 5_000 }).catch(() => null);
   await page.waitForSelector('#fe');
   tabsA = await tabLabels(page);
-  check(page.url() === 'file://' + h.fixture + '/' && tabsA.length === 2 && await barIsActiveTab(page), `w closes the tab and navigates to its neighbour: ${JSON.stringify(tabsA)} ${page.url()}`);
+  check(page.url().endsWith('/readme.md') && tabsA.length === 1 && await barIsActiveTab(page), `w closes the tab and navigates to its neighbour: ${JSON.stringify(tabsA)} ${page.url()}`);
+  await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe');
 
   const pageB = await h.open(h.fixture + '/nested');
   await pageB.keyboard.press('t');

@@ -21,6 +21,9 @@ export function buildTipData(e: Entry, ctx: RenderContext): string {
   lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
   if (e.isHidden) lines.push('Hidden file (dotfile)');
   if (IMG_EXTS.has(getExt(e))) lines.push('Image — dimensions require native host');
+  lines.push(e.isDir
+    ? 'Click opens · ⌥-click keeps a tab · middle-click: Chrome tab'
+    : 'Click looks · double-click opens · ⌥-click keeps a tab · middle-click: Chrome tab');
   const tip: TipData = {
     icon: getIcon(e, ctx.iconRules),
     name: e.name,
@@ -117,7 +120,7 @@ export function renderCrumbs(rawPath: string, segments: string[]): string {
   let acc = '/';
   for (const seg of segments) { acc += seg + '/'; crumbs.push({ label: seg, href: 'file://' + acc }); }
   return crumbs.map((c, i) =>
-    `<a href="${esc(c.href)}" class="fe-crumb">${esc(c.label)}</a>` +
+    `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a>` +
     `<button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">▾</button>` +
     (i < crumbs.length - 1 ? `<span class="fe-sep">›</span>` : '')
   ).join('');

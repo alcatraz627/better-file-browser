@@ -96,7 +96,7 @@ export function initPreview(d: PreviewDeps): void {
       <div id="fe-ql-ai" style="display:none">
         <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
         <button class="fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
-        <button class="fe-ql-ai-btn" id="fe-ql-ai-exp"></button>
+        <button class="fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
         <input id="fe-ql-ai-q" type="text" placeholder="Ask about this file…" autocomplete="off" spellcheck="false">
         <button class="fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
       </div>
@@ -462,7 +462,7 @@ async function saveNote(): Promise<void> {
         const body = document.getElementById('fe-ql-body')!;
         if (!document.getElementById('fe-ed-conflict')) {
           body.insertAdjacentHTML('afterbegin',
-            `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="fe-pbn">Reload from disk</button> <button id="fe-ed-force" class="fe-pbn">Overwrite</button></div>`);
+            `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="fe-pbn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="fe-pbn" title="Write the editor text over the disk copy">Overwrite</button></div>`);
           document.getElementById('fe-ed-reload')!.addEventListener('click', () => {
             notes.read(st.root, st.rel).then(d => openNote(st.root, d, st.onSaved));
           });
@@ -526,7 +526,7 @@ export function openPreview(e: Entry): void {
     body.innerHTML = `
       <div class="fe-ql-center">
         <div class="fe-ql-note">File is ${fmtSize(e.rawBytes)} — large files can be slow to render.</div>
-        <button id="fe-ql-force" class="fe-pbn">Load anyway</button>
+        <button id="fe-ql-force" class="fe-pbn" title="Render despite the size">Load anyway</button>
       </div>`;
     document.getElementById('fe-ql-force')!.addEventListener('click', () => fetchAndRender(e, ext, seq));
     return;
@@ -550,8 +550,8 @@ function fetchAndRender(e: Entry, ext: string, seq: number): void {
       console.error('[BFB] preview failed:', e.href, err);
       const stale = err instanceof FileFetchError && err.code === 'context-invalidated';
       body.innerHTML = stale
-        ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="fe-pbn">Refresh page</button></div>`
-        : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="fe-pbn">Retry</button></div>`;
+        ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="fe-pbn" title="Reload this page">Refresh page</button></div>`
+        : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="fe-pbn" title="Try reading the file again">Retry</button></div>`;
       document.getElementById('fe-ql-retry')!.addEventListener('click', () => {
         if (stale) location.reload(); else fetchAndRender(e, ext, seq);
       });
