@@ -45,6 +45,13 @@ try {
   check(/readme\.md$/.test(hdr.nameHref) && hdr.nameTarget === '_blank', `header name links to file in new tab: ${hdr.nameHref}`);
   check(hdr.openTarget === '_blank', 'open raw targets a new tab');
   check(hdr.bodyLinks === 1 && hdr.bodyBlank, `markdown links (${hdr.bodyLinks}) target a new tab`);
+  // Arrows step between previewable files while the panel is open.
+  await page.keyboard.press('ArrowDown');
+  await page.waitForFunction(() => document.getElementById('fe-ql-name').textContent === 'rows.tsv', { timeout: 3_000 }).catch(() => null);
+  const stepped = await page.$eval('#fe-ql-name', el => el.textContent);
+  await page.keyboard.press('ArrowUp');
+  await page.waitForFunction(() => document.getElementById('fe-ql-name').textContent === 'readme.md', { timeout: 3_000 }).catch(() => null);
+  check(stepped === 'rows.tsv' && await page.$eval('#fe-ql-name', el => el.textContent) === 'readme.md', `↓ and ↑ step the preview between files: ${stepped}`);
 
   // Resize the floating window by its corner grip.
   const dragBy = async (sel, dx, dy) => {
@@ -137,6 +144,11 @@ try {
   await page.keyboard.up('Shift');
   const toggled = await page.$$eval('#fe-tbody tr.selected .fe-nm', els => els.map(e => e.textContent).sort());
   check(toggled.join() === 'data.json,notes.txt,readme.md' && page.url() === urlHere, `⇧ click toggles rows into the selection: ${JSON.stringify(toggled)}`);
+  await page.keyboard.down('Shift'); await page.keyboard.down('Meta');
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="script.sh"]) td:last-child')).click();
+  await page.keyboard.up('Meta'); await page.keyboard.up('Shift');
+  const ranged = await page.$$eval('#fe-tbody tr.selected .fe-nm', els => els.map(e => e.textContent));
+  check(ranged.join() === 'data.json,notes.txt,readme.md,rows.tsv,script.sh' && page.url() === urlHere, `⇧⌘ click selects the range from the anchor: ${JSON.stringify(ranged)}`);
   await page.keyboard.down('Alt');
   await (await page.$('#fe-tbody a[href$="/nested/"]')).click();
   await page.keyboard.up('Alt');
@@ -173,6 +185,18 @@ try {
   labels = await savedLabels();
   const starOn = await page.$eval('#fe-bm-btn', el => el.classList.contains('on'));
   check(labels.length === 3 && starOn, `star saved the current folder: ${JSON.stringify(labels)}`);
+  // Drag reorders: the tmp row dropped on the first row moves to the front.
+  const dragTo = (srcSel, dstSel) => page.evaluate((s, d) => {
+    const src = document.querySelector(s), dst = document.querySelector(d);
+    const dt = new DataTransfer();
+    src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+    dst.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    dst.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    src.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
+  }, srcSel, dstSel);
+  await dragTo('#fe-sv-list .fe-pl-item[data-path="/tmp/"]', '#fe-sv-list .fe-pl-item:first-child');
+  labels = await savedLabels();
+  check(labels[0] === 'tmp' && labels.length === 3, `drag reorders the Saved list: ${JSON.stringify(labels)}`);
 
   const tagBtn = await page.$('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-tag-btn');
   await tagBtn.evaluate(el => el.click());
@@ -234,23 +258,33 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 2, { timeout: 3_000 }).catch(() => null);
   let sideTabs = await stripLabels();
   check(sideTabs.join('|') === 'nested|/|~' + h.fixture.split('/').pop() && page.url() === urlSide, `alt-click on a saved row and on a crumb keep background tabs, URL unchanged: ${JSON.stringify(sideTabs)}`);
+  const dds = await page.$$('#fe-bc .fe-crumb-dd');
+  await dds[dds.length - 1].click();
+  await page.waitForSelector('#fe-crumb-menu .fe-dd-item', { timeout: 5_000 }).catch(() => null);
+  await page.keyboard.down('Alt');
+  await page.click('#fe-crumb-menu .fe-dd-item[href$="code.py"]');
+  await page.keyboard.up('Alt');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 3, { timeout: 3_000 }).catch(() => null);
+  await page.keyboard.press('Escape');
+  sideTabs = await stripLabels();
+  check(sideTabs.join('|') === 'nested|/|code.py|~' + h.fixture.split('/').pop() && page.url() === urlSide, `alt-click on a crumb-dropdown item keeps a background tab, URL unchanged: ${JSON.stringify(sideTabs)}`);
   await page.click('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-si-link');
   await page.waitForFunction(() => location.pathname.endsWith('/nested/'), { timeout: 5_000 }).catch(() => null);
   await page.waitForSelector('#fe');
   sideTabs = await stripLabels();
   const onLabel = () => page.$eval('#fe-tabs .fe-tab.on .fe-tab-lbl', el => el.textContent);
-  check(page.url().endsWith('/nested/') && sideTabs.join('|') === 'nested|/' && await onLabel() === 'nested', `click on a saved folder switches to its open tab, no duplicate: ${JSON.stringify(sideTabs)}`);
+  check(page.url().endsWith('/nested/') && sideTabs.join('|') === 'nested|/|code.py' && await onLabel() === 'nested', `click on a saved folder switches to its open tab, no duplicate: ${JSON.stringify(sideTabs)}`);
   await page.click('#fe-sv-list .fe-pl-item[data-path$="/readme.md"] .fe-si-link');
   await page.waitForSelector('#fe.fe-file-page', { timeout: 5_000 }).catch(() => null);
   sideTabs = await stripLabels();
-  check(page.url().endsWith('/readme.md') && sideTabs.join('|') === 'nested|readme.md|/' && await onLabel() === 'readme.md', `click on a saved file opens it as a new kept tab and goes there: ${JSON.stringify(sideTabs)}`);
+  check(page.url().endsWith('/readme.md') && sideTabs.join('|') === 'nested|readme.md|/|code.py' && await onLabel() === 'readme.md', `click on a saved file opens it as a new kept tab and goes there: ${JSON.stringify(sideTabs)}`);
   await page.evaluate(() => {
     const l = JSON.parse(localStorage.getItem('bfb-saved-v1') || '[]').filter(p => !p.path.endsWith('/readme.md'));
     localStorage.setItem('bfb-saved-v1', JSON.stringify(l));
   });
   await page.goto(urlSide, { waitUntil: 'load' });
   await page.waitForSelector('#fe');
-  for (let i = 3; i > 0; i--) {
+  for (let i = 4; i > 0; i--) {
     await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
     await page.waitForFunction(n => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === n, { timeout: 3_000 }, i - 1).catch(() => null);
   }
@@ -323,8 +357,44 @@ try {
   check(/!\[dot\]\(attachments\/grocery-list-[a-z0-9]+\.png\)/.test(src) && attFiles.length === 1 && attFiles[0].endsWith('.png') && !!imgShown,
     `pasted image saved to attachments and rendered: ${JSON.stringify(attFiles)} src=${imgShown}`);
   await shot(page, 'notes-editor-rich');
+  // Editor keys: ⌘B wraps the selection, ⌘Z undoes it, Tab and ⇧Tab indent a line.
+  await page.evaluate(() => {
+    const ta = document.getElementById('fe-ed-src');
+    const i = ta.value.indexOf('milk');
+    ta.setSelectionRange(i, i + 4); ta.focus();
+  });
+  await page.keyboard.down('Meta'); await page.keyboard.press('b'); await page.keyboard.up('Meta');
+  const bolded = await page.$eval('#fe-ed-src', el => el.value.includes('**milk**'));
+  await page.keyboard.down('Meta'); await page.keyboard.press('z'); await page.keyboard.up('Meta');
+  const unbolded = await page.$eval('#fe-ed-src', el => !el.value.includes('**milk**') && el.value.includes('milk'));
+  check(bolded && unbolded, `⌘B wraps the selection in ** and ⌘Z undoes it: bold=${bolded} undo=${unbolded}`);
+  await setCaret(2, 0);
+  await page.keyboard.press('Tab');
+  const indented = await page.$eval('#fe-ed-src', el => el.value.split('\n')[2]);
+  await page.keyboard.down('Shift'); await page.keyboard.press('Tab'); await page.keyboard.up('Shift');
+  const outdented = await page.$eval('#fe-ed-src', el => el.value.split('\n')[2]);
+  check(indented === '  - milk' && outdented === '- milk', `Tab indents the line and ⇧Tab outdents: ${JSON.stringify([indented, outdented])}`);
   await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
   await page.waitForFunction(() => /saved \d/.test(document.getElementById('fe-ql-meta').textContent), { timeout: 8_000 }).catch(() => null);
+
+  // Another program changes the file on disk: the next save shows the conflict
+  // banner instead of overwriting, and Reload from disk takes the disk text.
+  await new Promise(r => setTimeout(r, 60));
+  writeFileSync(join(h.notesDir, 'grocery-list.md'), '# Grocery list\n\n- changed elsewhere\n');
+  await page.evaluate(() => {
+    const ta = document.getElementById('fe-ed-src');
+    ta.value += '\n- butter\n';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
+  await page.waitForSelector('#fe-ed-conflict', { timeout: 8_000 }).catch(() => null);
+  const bannerUp = !!(await page.$('#fe-ed-conflict'));
+  const stillOnDisk = readFileSync(join(h.notesDir, 'grocery-list.md'), 'utf8');
+  check(bannerUp && stillOnDisk.includes('changed elsewhere') && !stillOnDisk.includes('butter'), `a note changed on disk shows the conflict banner and is not overwritten: banner=${bannerUp}`);
+  await page.click('#fe-ed-reload');
+  await page.waitForFunction(() => !document.getElementById('fe-ed-conflict') && document.getElementById('fe-ed-src').value.includes('changed elsewhere'), { timeout: 8_000 }).catch(() => null);
+  const afterReload = await page.$eval('#fe-ed-src', el => el.value);
+  check(afterReload.includes('changed elsewhere') && !afterReload.includes('butter') && !(await page.$('#fe-ed-conflict')), `Reload from disk replaces the editor text and clears the banner`);
 
   await page.keyboard.press('Escape');
   const edClosed = await page.$eval('#fe-qlook', el => el.style.display === 'none');
@@ -332,6 +402,14 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('#fe-nt-list .fe-nt-item').length === 2, { timeout: 8_000 }).catch(() => null);
   const listAfter = await page.$$eval('#fe-nt-list .fe-nt-label', els => els.map(e => e.textContent));
   check(listAfter[0] === 'grocery list' && listAfter.length === 2, `sidebar lists the new note first: ${JSON.stringify(listAfter)}`);
+  await page.keyboard.down('Alt');
+  await page.click('#fe-nt-list .fe-nt-item[data-rel="grocery-list.md"] .fe-si-link');
+  await page.keyboard.up('Alt');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 1, { timeout: 3_000 }).catch(() => null);
+  const noteTab = await stripLabels();
+  check(noteTab[0] === 'grocery-list.md' && await page.$eval('#fe-qlook', el => el.style.display === 'none'), `alt-click on a note keeps a background tab without opening the editor: ${JSON.stringify(noteTab)}`);
+  await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 0, { timeout: 3_000 }).catch(() => null);
 
   await (await page.$('#fe-nt-list .fe-nt-item[data-rel="grocery-list.md"] .fe-rm-btn')).evaluate(el => el.click());
   await page.waitForFunction(() => document.querySelectorAll('#fe-nt-list .fe-nt-item').length === 1, { timeout: 8_000 }).catch(() => null);
@@ -429,6 +507,7 @@ try {
       return { tab: root.querySelector('.fe-dlg-tab.on')?.dataset.tab, index: [...root.querySelectorAll('.fe-dlg-tab')].findIndex(t => t.classList.contains('on')), pane: on[0]?.dataset.tab, count: on.length };
     }, id);
     check(sw.index === 1 && sw.pane === sw.tab && sw.count === 1, `${d.title}: the second tab shows its pane alone: ${JSON.stringify(sw)}`);
+    if (id === 'fe-settings-modal') await page.setViewport({ width: 1400, height: 520 });   // short enough that a Settings pane overflows
     const scrolled = await page.evaluate(i => {
       const root = document.getElementById(i);
       const tabs = [...root.querySelectorAll('.fe-dlg-tab')];
@@ -445,8 +524,8 @@ try {
       }
       return null;
     }, id);
-    if (id === 'fe-help-modal') check(scrolled && scrolled.scrollTop > 0 && scrolled.held, `${d.title}: the chrome holds still while the ${scrolled?.tab} pane scrolls: ${JSON.stringify(scrolled)}`);
-    else console.log(`note ${d.title}: ${scrolled ? `pane ${scrolled.tab} scrolls, chrome held=${scrolled.held}` : 'no pane overflows at 900px tall'}`);
+    check(scrolled && scrolled.scrollTop > 0 && scrolled.held, `${d.title}: the chrome holds still while the ${scrolled?.tab} pane scrolls: ${JSON.stringify(scrolled)}`);
+    await page.setViewport({ width: 1400, height: 900 });
     await page.click(`#${id} .fe-dlg-tab:nth-child(2)`);
     await new Promise(r => setTimeout(r, 250));   // let the tab transition settle before the shot
     await shot(page, shotName);
@@ -525,6 +604,19 @@ try {
   await page.waitForSelector('#fe');
   tabsA = await tabLabels(page);
   check(tabsA.length === 2 && tabsA[1] === 'nested' && await barIsActiveTab(page), `two tabs survive a refresh of this Chrome tab: ${JSON.stringify(tabsA)}`);
+  // Drag reorders the strip; ⌘-click on a tab is Chrome's own new tab.
+  await dragTo('#fe-tabs .fe-tab:nth-child(2)', '#fe-tabs .fe-tab:nth-child(1)');
+  tabsA = await tabLabels(page);
+  check(tabsA.join('|') === 'nested|' + h.fixture.split('/').pop(), `drag reorders the strip: ${JSON.stringify(tabsA)}`);
+  const pagesPreCmd = (await h.browser.pages()).length;
+  await page.keyboard.down('Meta');
+  await page.click('#fe-tabs .fe-tab:nth-child(2)');
+  await page.keyboard.up('Meta');
+  await new Promise(r => setTimeout(r, 800));
+  const pagesPostCmd = (await h.browser.pages()).length;
+  check(pagesPostCmd === pagesPreCmd + 1 && page.url().endsWith('/nested/'), `⌘-click on a tab opens a Chrome tab and leaves this one (${pagesPreCmd} → ${pagesPostCmd})`);
+  await page.bringToFront();
+  await dragTo('#fe-tabs .fe-tab:nth-child(2)', '#fe-tabs .fe-tab:nth-child(1)');   // back to the original order for the steps below
 
   await page.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
   await page.waitForSelector('#fe.fe-file-page');

@@ -1,7 +1,7 @@
 <div align="center">
   <img src="banner.svg" alt="Better File Browser" width="860"/>
   <br/><br/>
-  <img src="chrome-badge.svg" alt="Chrome Extension v2.8" height="48"/>
+  <img src="chrome-badge.svg" alt="Chrome Extension v2.9" height="48"/>
   &nbsp;&nbsp;
   <img src="icon128.png" alt="Extension Icon" width="48" height="48" style="border-radius:10px;vertical-align:middle"/>
 </div>
@@ -263,6 +263,7 @@ _Shipped since v2.2: Quick Look preview (modal or docked), rich renderers, local
 
 | Version | Highlights |
 |---------|------------|
+| **2.9** | One shell for listings and file pages; the strip belongs to the Chrome tab with recovery, file tabs, pins and a hover menu; click model (click looks, double-click goes, alt keeps a tab); sidebar rows open as strip tabs; Saved filter box; Help and Settings on one tabbed dialog; file page fills the width; a written mouse and key contract with a tooltip on every control |
 | **2.8** | Tabs (shared working set), Saved list replacing Bookmarks + My Places (names, tags, colours), Notes editor with a native host and a documented file contract, rendered file pages with ToC and autoreload, deep search, preview docks to the side or floats and resizes, preview links open in new tabs, sort/group persist, relay retry + reloaded-extension message, in-repo e2e harness |
 | **2.7.1** | Image dimensions (W × H) in the preview |
 | **2.7** | AI bar model picker (`-m`) + Keep-warm/Unload toggle |

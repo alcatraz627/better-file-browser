@@ -126,7 +126,8 @@ appear and everything else works normally.
 The strip above the toolbar is the working set of this Chrome tab: folders
 and files, kept through refresh and navigation, gone when the Chrome tab
 closes. Open the same folder again within a day and the strip comes back with
-an undo. The place you are in shows as an italic tab until you keep it: press
+an undo. After a Chrome crash, Chrome's own session restore brings the strip
+back with the tab. The place you are in shows as an italic tab until you keep it: press
 **t** or double-click it. **w** closes the current tab, **p** pins it (pinned
 tabs sit first and have no ✕), **[** and **]** move between tabs, **1** to
 **9** jump. Drag to reorder. **Middle-click** a tab to close it (pinned

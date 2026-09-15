@@ -24,7 +24,7 @@ Conventions that hold everywhere:
 | ⌥-click | keep as a background strip tab ✓ | same ✓ |
 | middle-click (name or whitespace) | Chrome tab ✓ | same |
 | ⇧-click, ⌘-click | toggle the row in the selection ✓ | same |
-| ⇧⌘-click | range from the anchor | same |
+| ⇧⌘-click | range from the anchor ✓ | same |
 | right-click | context menu: Preview, Copy path, Copy name, Open in terminal | same, no Preview |
 | hover | tip: path, type, size, modified, the gesture line | same |
 | hover, eye button | preview | none |
@@ -51,8 +51,8 @@ Conventions that hold everywhere:
 | click | switch, real navigation ✓ | nothing | switch |
 | double-click | nothing beyond the first click ✓ | keep ✓ | nothing |
 | middle-click | close, URL unchanged ✓ | nothing | nothing ✓ |
-| ⌘-click, ⇧-click | Chrome's own new tab or window | same | same |
-| drag | reorder within the pinned or unpinned block | none | reorder among pinned |
+| ⌘-click, ⇧-click | Chrome's own new tab or window (⌘ checked) ✓ | same | same |
+| drag | reorder within the pinned or unpinned block ✓ | none | reorder among pinned |
 | hover, … | menu: copy path, save or unsave, pin or unpin, close, close others ✓ | none | same |
 | hover, ✕ | close | none | no ✕ |
 
@@ -64,7 +64,7 @@ it and pins it.
 | Gesture or key | Action |
 |---|---|
 | click on the scrim, ✕, Esc, Space | close ✓ |
-| ↑ ↓ ← → | previous, next previewable file |
+| ↑ ↓ ← → | previous, next previewable file ✓ |
 | dock button | move between floating and side ✓ |
 | corner grip, side edge | resize ✓ |
 | name in the header, open raw, links in rendered markdown | new Chrome tab ✓ |
@@ -76,14 +76,15 @@ it and pins it.
 | Key | Action |
 |---|---|
 | ⌘S | save ✓ |
-| ⌘B, ⌘I, ⌘E | bold, italic, code |
+| ⌘B, ⌘I, ⌘E | bold, italic, code (⌘B checked) ✓ |
 | ⌥↑ ⌥↓ | move lines |
 | ⌥⇧↑ ⌥⇧↓ | duplicate lines |
-| Tab, ⇧Tab | indent, outdent |
+| Tab, ⇧Tab | indent, outdent ✓ |
 | Enter | continue a list |
-| ⌘Z, ⌘⇧Z | undo, redo |
+| ⌘Z, ⌘⇧Z | undo, redo (⌘Z checked) ✓ |
 | Esc | close the panel |
 | paste or drop an image | saved under attachments/ and linked ✓ |
+| save after another program changed the file | conflict banner: reload from disk or overwrite ✓ |
 
 ## Sidebar: Saved, Notes, Recent, Favorites, System
 
@@ -95,7 +96,7 @@ is kept, and the page navigates there. Files and folders alike.
 |---|---|---|
 | click | switch to its strip tab, or keep a new one, and go ✓ | open in the editor ✓ |
 | double-click on the label | rename (Saved) ✓ | rename |
-| ⌥-click | keep as a background strip tab ✓ | same |
+| ⌥-click | keep as a background strip tab ✓ | same ✓ |
 | middle-click, ⌘-click | Chrome tab | same, plain text |
 | hover, # | edit tags ✓ | same | none |
 | hover, ✕ | remove ✓ | same | move to .trash ✓ |
@@ -111,7 +112,7 @@ is kept, and the page navigates there. Files and folders alike.
 | crumb ⌥-click | keep as a background strip tab ✓ |
 | crumb middle-click, ⌘-click | Chrome tab |
 | crumb ▾ | dropdown of that folder; type to narrow, Enter opens the first match, Esc closes ✓ |
-| dropdown item click, ⌥-click | go; keep as a background tab |
+| dropdown item click, ⌥-click | go; keep as a background tab ✓ |
 | ★ | save or unsave this folder ✓ |
 | terminal button | open here; ⇧-click copies the command instead |
 | sun or moon | toggle the theme ✓ |
@@ -131,6 +132,7 @@ is kept, and the page navigates there. Files and folders alike.
 | tab click | show that pane ✓ |
 | [ ] | previous, next tab |
 | Esc, ✕, scrim click | close, focus returns ✓ |
+| scroll a pane | the title row and tab strip hold still, both dialogs ✓ |
 
 ## File page
 
