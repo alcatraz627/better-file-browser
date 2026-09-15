@@ -51,6 +51,15 @@ describe('tabs', () => {
     expect(old.list.map(t => [t.kind, t.pinned, t.label])).toEqual([['folder', false, 'a'], ['file', false, 'x.md']]);
   });
 
+  it('a background open adds the tab after the active one without activating it', () => {
+    let s = openTab(openTab(EMPTY, '/a/'), '/b/');
+    s = activate(s, s.list[0].id);
+    s = openTab(s, '/c/', true);
+    expect(s.list.map(t => t.label)).toEqual(['a', 'c', 'b']);
+    expect(s.list.find(t => t.id === s.active)?.label).toBe('a');
+    expect(openTab(s, '/b/', true)).toBe(s);
+  });
+
   it('a file path opens as a file tab', () => {
     expect(kindOf('/a/')).toBe('folder');
     expect(kindOf('/a/notes.md')).toBe('file');

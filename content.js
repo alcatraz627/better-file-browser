@@ -1648,9 +1648,6 @@ ${body}
   function isPreviewOpen() {
     return overlay?.style.display !== "none";
   }
-  function isPreviewDocked() {
-    return layout.mode === "side";
-  }
   function applyLayout() {
     const dialog = document.getElementById("fe-ql-dialog");
     const side = layout.mode === "side";
@@ -2123,10 +2120,14 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 
 ## Selecting & opening
 
-- Click a name to open it. Click a row's whitespace to **select** it.
+- Click a file to look at it in the panel; the address bar stays put. Click
+  a folder to go there. **Double-click** a file to open its page in this tab.
+- **\u2325-click** keeps a folder or file as a strip tab, in the background.
+  **Middle-click** opens it in a new Chrome tab.
 - **\u2191 / \u2193** move the selection, **Enter** opens, **Backspace** or **\u2318\u2191** goes up.
-- **Multi-select**: **shift-click** a range, **\u2318/Ctrl-click** to toggle one,
-  **\u2318A** selects all. **\u2318C** copies the selected paths.
+- **Multi-select**: **shift-click** or **\u2318/Ctrl-click** toggles a row,
+  **\u21E7\u2318-click** selects a range, **\u2318A** selects all. **\u2318C** copies the
+  selected paths.
 - **Right-click** an item for Copy path, Copy name, Open in terminal \u2014 plus
   Preview for previewable files. With several items selected, the menu offers
   bulk Copy paths / Copy names.
@@ -3108,14 +3109,14 @@ td.c-tp{color:var(--dm);font-size:11px}
   }
   var newId = () => Math.random().toString(36).slice(2, 10);
   var pinnedCount = (s) => s.list.filter((t) => t.pinned).length;
-  function openTab(s, path) {
+  function openTab(s, path, background = false) {
     const found = s.list.find((t) => t.path === path);
-    if (found) return { ...s, active: found.id };
+    if (found) return background ? s : { ...s, active: found.id };
     const tab = { id: newId(), path, kind: kindOf(path), label: labelFor(path), pinned: false };
     const i = s.list.findIndex((t) => t.id === s.active);
     const list = [...s.list];
     list.splice(Math.max(i < 0 ? list.length : i + 1, pinnedCount(s)), 0, tab);
-    return { list, active: tab.id };
+    return { list, active: background ? s.active : tab.id };
   }
   function closeTab(s, id) {
     const i = s.list.findIndex((t) => t.id === id);
@@ -3433,7 +3434,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       void recover();
     }
     window.addEventListener("pagehide", () => writeRecovery(sid, state, true));
-    return { handleKey, state: () => state };
+    return { handleKey, open: (path, background = false) => commit(openTab(state, path, background)), state: () => state };
   }
 
   // src/toast.ts
@@ -4479,10 +4480,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       if (pv) {
         e.preventDefault();
         e.stopPropagation();
-        const en = ALL_ENTRIES.find((x) => x.name === pv.dataset.pv);
-        if (en) {
-          setSel(VISIBLE.indexOf(en));
-          openPreview(en);
+        const en2 = ALL_ENTRIES.find((x) => x.name === pv.dataset.pv);
+        if (en2) {
+          setSel(VISIBLE.indexOf(en2));
+          openPreview(en2);
         }
         return;
       }
@@ -4496,17 +4497,44 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       const holder = e.target.closest("[data-idx]");
       if (!holder) return;
       const i = parseInt(holder.dataset.idx);
-      if ((e.shiftKey || e.metaKey || e.ctrlKey) && selectable(i)) {
-        e.preventDefault();
-        if (e.shiftKey) rangeSel(i);
+      const en = VISIBLE[i];
+      if (!en) return;
+      e.preventDefault();
+      if (en.isParent) {
+        location.href = en.href;
+        return;
+      }
+      if (e.altKey) {
+        strip.open(fullPath(rawPath, en), true);
+        return;
+      }
+      if (e.shiftKey || e.metaKey || e.ctrlKey) {
+        if (!selectable(i)) return;
+        if (e.shiftKey && (e.metaKey || e.ctrlKey)) rangeSel(i);
         else toggleSel(i);
         return;
       }
-      if (!e.target.closest("a") && selectable(i)) {
-        setSel(i);
-        if (isPreviewOpen() && isPreviewDocked() && canPreview(VISIBLE[i])) openPreview(VISIBLE[i]);
+      if (en.isDir) {
+        location.href = en.href;
+        return;
       }
+      if (!selectable(i)) return;
+      setSel(i);
+      if (!canPreview(en)) {
+        location.href = en.href;
+        return;
+      }
+      if (lookTimer) clearTimeout(lookTimer);
+      if (e.detail >= 2) {
+        location.href = en.href;
+        return;
+      }
+      lookTimer = setTimeout(() => {
+        lookTimer = null;
+        openPreview(en);
+      }, 220);
     });
+    let lookTimer = null;
     const selSet = /* @__PURE__ */ new Set();
     let selIdx = -1;
     let anchor = -1;

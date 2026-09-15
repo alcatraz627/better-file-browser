@@ -37,10 +37,14 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 
 ## Selecting & opening
 
-- Click a name to open it. Click a row's whitespace to **select** it.
+- Click a file to look at it in the panel; the address bar stays put. Click
+  a folder to go there. **Double-click** a file to open its page in this tab.
+- **⌥-click** keeps a folder or file as a strip tab, in the background.
+  **Middle-click** opens it in a new Chrome tab.
 - **↑ / ↓** move the selection, **Enter** opens, **Backspace** or **⌘↑** goes up.
-- **Multi-select**: **shift-click** a range, **⌘/Ctrl-click** to toggle one,
-  **⌘A** selects all. **⌘C** copies the selected paths.
+- **Multi-select**: **shift-click** or **⌘/Ctrl-click** toggles a row,
+  **⇧⌘-click** selects a range, **⌘A** selects all. **⌘C** copies the
+  selected paths.
 - **Right-click** an item for Copy path, Copy name, Open in terminal — plus
   Preview for previewable files. With several items selected, the menu offers
   bulk Copy paths / Copy names.

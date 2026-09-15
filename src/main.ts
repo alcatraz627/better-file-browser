@@ -935,22 +935,34 @@ import { getIcon } from './icons';
       copyText(btn.dataset.copy || '');
       return;
     }
-    // Modifier-clicks select (overriding link navigation); a plain click on
-    // row whitespace single-selects; a plain click on the name link navigates.
+    // The click model (docs/architecture-v2.md): a plain click on a file
+    // looks (panel, URL unchanged) and on a folder goes; double-click goes
+    // either way; ⌥ keeps a background strip tab; ⇧ or ⌘ toggles the row and
+    // ⇧⌘ ranges. The anchor keeps its href so middle click reaches Chrome.
     const holder = (e.target as HTMLElement).closest<HTMLElement>('[data-idx]');
     if (!holder) return;
     const i = parseInt(holder.dataset.idx!);
-    if ((e.shiftKey || e.metaKey || e.ctrlKey) && selectable(i)) {
-      e.preventDefault();
-      if (e.shiftKey) rangeSel(i); else toggleSel(i);
+    const en = VISIBLE[i];
+    if (!en) return;
+    e.preventDefault();
+    if (en.isParent) { location.href = en.href; return; }
+    if (e.altKey) { strip.open(fullPath(rawPath, en), true); return; }
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      if (!selectable(i)) return;
+      if (e.shiftKey && (e.metaKey || e.ctrlKey)) rangeSel(i); else toggleSel(i);
       return;
     }
-    if (!(e.target as HTMLElement).closest('a') && selectable(i)) {
-      setSel(i);
-      // A docked preview follows the selection instead of waiting for Space.
-      if (isPreviewOpen() && isPreviewDocked() && canPreview(VISIBLE[i])) openPreview(VISIBLE[i]);
-    }
+    if (en.isDir) { location.href = en.href; return; }
+    if (!selectable(i)) return;
+    setSel(i);
+    if (!canPreview(en)) { location.href = en.href; return; }
+    // The panel waits out the double-click interval, or its scrim would
+    // swallow the second click that means go.
+    if (lookTimer) clearTimeout(lookTimer);
+    if (e.detail >= 2) { location.href = en.href; return; }
+    lookTimer = setTimeout(() => { lookTimer = null; openPreview(en); }, 220);
   });
+  let lookTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── Selection & keyboard navigation ───────────────────────────────
   // selSet holds every selected VISIBLE index; selIdx is the lead (last

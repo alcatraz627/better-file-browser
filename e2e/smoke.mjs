@@ -23,12 +23,10 @@ try {
   check(/1 folder, 7 files/.test(count), `status count reads "${count}"`);
   await shot(page, 'listing');
 
-  // Select readme.md by clicking its row off the anchor (an anchor click
-  // navigates), then open the preview with Space.
+  // A plain click on a file row opens the panel.
   const row = await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td:last-child');
   check(!!row, 'readme.md row present');
   await row.click();
-  await page.keyboard.press('Space');
   await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
   const h1 = await page.$eval('#fe-ql-body h1', el => el.textContent).catch(() => null);
   check(h1 === 'Fixture', `markdown preview rendered h1 "${h1}"`);
@@ -90,7 +88,6 @@ try {
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
   await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td:last-child')).click();
-  await page.keyboard.press('Space');
   await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
   const persisted = await page.evaluate(() => ({
     side: document.getElementById('fe-qlook').classList.contains('side'),
@@ -120,6 +117,39 @@ try {
   const after = (await h.browser.pages()).length;
   check(after === before + 1, `middle-click opened a new tab (${before} → ${after})`);
   check(page.url().endsWith('/'), 'explorer tab stayed on the listing');
+
+  // Click model: a plain click on a file looks and leaves the URL alone,
+  // ⇧ toggles rows, ⌥ keeps a background strip tab, a double-click goes.
+  const urlHere = page.url();
+  const stripLabels = () => page.$$eval('#fe-tabs .fe-tab', els => els.map(e => (e.classList.contains('temp') ? '~' : '') + e.querySelector('.fe-tab-lbl').textContent));
+  await (await page.$('#fe-tbody a[href$="readme.md"]')).click();
+  await page.waitForFunction(() => document.getElementById('fe-qlook').style.display !== 'none' && document.getElementById('fe-ql-name').textContent === 'readme.md', { timeout: 3_000 }).catch(() => null);
+  const looked = { name: await page.$eval('#fe-ql-name', el => el.textContent), url: page.url() };
+  check(looked.name === 'readme.md' && looked.url === urlHere, `plain click on a file name looks in the panel, URL unchanged: ${JSON.stringify(looked)}`);
+  await page.keyboard.press('Escape');
+  await page.keyboard.down('Shift');
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="notes.txt"]) td:last-child')).click();
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="data.json"]) td:last-child')).click();
+  await page.keyboard.up('Shift');
+  const toggled = await page.$$eval('#fe-tbody tr.selected .fe-nm', els => els.map(e => e.textContent).sort());
+  check(toggled.join() === 'data.json,notes.txt,readme.md' && page.url() === urlHere, `⇧ click toggles rows into the selection: ${JSON.stringify(toggled)}`);
+  await page.keyboard.down('Alt');
+  await (await page.$('#fe-tbody a[href$="/nested/"]')).click();
+  await page.keyboard.up('Alt');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 1, { timeout: 3_000 }).catch(() => null);
+  const bgTab = { tabs: await stripLabels(), url: page.url() };
+  check(bgTab.tabs.join('|') === 'nested|~' + h.fixture.split('/').pop() && bgTab.url === urlHere, `⌥ click keeps a background strip tab, URL unchanged: ${JSON.stringify(bgTab)}`);
+  await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 0, { timeout: 3_000 }).catch(() => null);
+  // A double-click needs explicit press counts; ElementHandle.click({clickCount: 2}) arrives as detail 1.
+  const dbl = await (await page.$('#fe-tbody a[href$="readme.md"]')).boundingBox();
+  await page.mouse.move(dbl.x + 5, dbl.y + dbl.height / 2);
+  await page.mouse.down({ clickCount: 1 }); await page.mouse.up({ clickCount: 1 });
+  await page.mouse.down({ clickCount: 2 }); await page.mouse.up({ clickCount: 2 });
+  await page.waitForSelector('#fe.fe-file-page', { timeout: 5_000 }).catch(() => null);
+  check(page.url().endsWith('/readme.md'), `double-click goes to the file page: ${page.url()}`);
+  await page.goto(urlHere, { waitUntil: 'load' });
+  await page.waitForSelector('#fe');
 
   // Saved folders: legacy keys merge once; star, name, tag, colour, persist.
   await page.evaluate(fx => {

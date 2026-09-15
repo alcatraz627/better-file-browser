@@ -21,15 +21,15 @@ const pinnedCount = (s: TabState) => s.list.filter(t => t.pinned).length;
 
 // Open a tab for a path. A tab for the same path already open becomes
 // active instead of being duplicated. New tabs land after the active one,
-// never inside the pinned block.
-export function openTab(s: TabState, path: string): TabState {
+// never inside the pinned block. A background open leaves the active tab.
+export function openTab(s: TabState, path: string, background = false): TabState {
   const found = s.list.find(t => t.path === path);
-  if (found) return { ...s, active: found.id };
+  if (found) return background ? s : { ...s, active: found.id };
   const tab: Tab = { id: newId(), path, kind: kindOf(path), label: labelFor(path), pinned: false };
   const i = s.list.findIndex(t => t.id === s.active);
   const list = [...s.list];
   list.splice(Math.max(i < 0 ? list.length : i + 1, pinnedCount(s)), 0, tab);
-  return { list, active: tab.id };
+  return { list, active: background ? s.active : tab.id };
 }
 
 export function closeTab(s: TabState, id: string): TabState {

@@ -26,6 +26,8 @@ export interface StripHost {
 export interface Strip {
   // True when the key was a strip key and has been handled.
   handleKey(e: KeyboardEvent): boolean;
+  // Keep a path as a tab; in the background it does not become active.
+  open(path: string, background?: boolean): void;
   state(): TabState;
 }
 
@@ -245,5 +247,5 @@ export function mountStrip(host: StripHost): Strip {
   }
   window.addEventListener('pagehide', () => writeRecovery(sid, state, true));
 
-  return { handleKey, state: () => state };
+  return { handleKey, open: (path, background = false) => commit(openTab(state, path, background)), state: () => state };
 }

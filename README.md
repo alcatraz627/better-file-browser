@@ -122,7 +122,7 @@ The Filter panel's second row searches **text inside files**: the text files the
 ### Deep search
 The folder button beside the filter box includes every subfolder. Names show their path from the current folder, so `src/main.ts` matches `main`. The scan skips `node_modules`, `.git` and dot-folders, stops at 8 levels or 5000 items, and runs once per page.
 
-Details-view columns are resizable — drag a header's right edge; widths persist. Rows support multi-select (shift-click range, ⌘/ctrl-click toggle, ⌘A), and ⌘C copies the selected paths.
+Details-view columns are resizable: drag a header's right edge; widths persist. A plain click on a file opens it in the panel and leaves the address bar alone. A plain click on a folder goes there. Double-click opens a file's page in this tab, ⌥-click keeps the item as a background strip tab, and middle-click opens a Chrome tab. Rows support multi-select (shift-click or ⌘/ctrl-click toggles, ⇧⌘-click ranges, ⌘A), and ⌘C copies the selected paths.
 
 ### Breadcrumbs
 Each path segment has a **▾** dropdown that lists that folder's contents with a focused filter box — type to narrow, Enter opens the first match.
