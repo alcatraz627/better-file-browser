@@ -2065,7 +2065,7 @@ ${body}
     const nameEl = document.getElementById("fe-ql-name");
     nameEl.textContent = e.name;
     nameEl.href = e.href;
-    document.getElementById("fe-ql-meta").textContent = `${fmtSize(e.rawBytes)}${ext2 ? " \xB7 ." + ext2 : ""}`;
+    document.getElementById("fe-ql-meta").textContent = [e.rawBytes >= 0 ? fmtSize(e.rawBytes) : "", ext2 ? "." + ext2 : ""].filter(Boolean).join(" \xB7 ");
     document.getElementById("fe-ql-open").href = e.href;
     const body = document.getElementById("fe-ql-body");
     if (overlay.style.display === "none") rememberFocus();
@@ -2215,7 +2215,7 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 ## Selecting & opening
 
 - Click a file to look at it in the panel; the address bar stays put. Click a folder to go there. **Double-click** a file to open its page in this tab.
-- **\u2325-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab.
+- **\u2325-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab. The same gestures work on sidebar rows and on path segments.
 - **\u2191 / \u2193** move the selection, **Enter** opens, **Backspace** or **\u2318\u2191** goes up.
 - **Multi-select**: **shift-click** or **\u2318/Ctrl-click** toggles a row, **\u21E7\u2318-click** selects a range, **\u2318A** selects all. **\u2318C** copies the selected paths.
 - **Right-click** an item for Copy path, Copy name, Open in terminal \u2014 plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
@@ -2235,10 +2235,12 @@ your clipboard. Choose your terminal in **Settings \u2192 Terminal**.
 ## File pages
 
 A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt)
-renders like the preview instead of Chrome's plain text: folder crumbs, a
-heading table of contents for markdown, **r** for raw, a remembered scroll
-position, and a re-render whenever the file changes on disk. **Settings \u2192
-Files** can limit this to non-markdown files or turn it off.
+renders like the preview instead of Chrome's plain text, inside the same
+shell as a folder: the sidebar, the strip and the path bar stay where they
+are. The main column shows a heading table of contents for markdown, **r**
+for raw, a remembered scroll position, and a re-render whenever the file
+changes on disk. **Settings \u2192 Files** can limit this to non-markdown files or
+turn it off.
 ` },
     { key: "preview", label: "Preview and Notes", hint: "panel, editor, AI", md: `
 ## File preview (Quick Look)
@@ -2720,7 +2722,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-tab-ico{display:flex;flex-shrink:0}
 .fe-tab-ico svg{width:11px;height:12px}
 .fe-tab-menu{position:fixed}
-#fe.fe-file-page #fe-body{display:flex;flex:1;min-height:0}
+#fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
+#fe-fp-bar{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-fp{display:flex;flex:1;min-height:0}
 #fe-toc{width:220px;flex-shrink:0;overflow-y:auto;background:var(--s1);border-right:1px solid var(--bd);padding:10px 0;font-size:12px}
 #fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fe-toc a:hover{color:var(--ac);background:var(--hover)}
@@ -2728,7 +2732,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-page{flex:1;min-width:0;overflow:auto;font-size:12px}
 #fe-page .fe-md{max-width:none;margin:0;padding:24px 40px 60px;font-size:14px}
 .fe-crumb-file{color:var(--tx);font-weight:500}
-#fe-fp-meta{font-size:11px;color:var(--dm);margin-right:4px;white-space:nowrap}
+#fe-fp-meta{font-size:11px;color:var(--dm);margin-right:auto;white-space:nowrap}
 #fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
 #fe-fp-raw:hover,#fe-fp-copy:hover{border-color:var(--ac);color:var(--ac)}
 #fe-fp-raw.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
@@ -3021,175 +3025,121 @@ td.c-tp{color:var(--dm);font-size:11px}
     return { entries, folders, truncated, cancelled: isCancelled() };
   }
 
-  // src/find.ts
-  var EMPTY_FIND = { scope: "here", name: "", regex: false, exts: [], text: "", caseSensitive: false };
-  function isEmptyFind(q) {
-    return q.scope === "here" && !q.name && !q.exts.length && !q.text;
+  // src/file-page.ts
+  var SCROLL_KEY = "bfb-page-scroll-v1";
+  var RELOAD_MS = 2e3;
+  function filePageExt(pathname) {
+    if (pathname.endsWith("/")) return null;
+    const name = decodeURIComponent(pathname.split("/").pop() || "");
+    const ext2 = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+    if (!ext2) return null;
+    if (CODE_EXTS.has(ext2) || TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json") return ext2;
+    return null;
   }
-  var ext = (e) => e.isDir ? "" : e.name.includes(".") ? e.name.split(".").pop().toLowerCase() : "";
-  var TEXT_MAX_BYTES = 2 * 1024 * 1024;
-  function isTextCandidate(e) {
-    if (e.isDir || e.isParent) return false;
-    const x = ext(e);
-    if (!(CODE_EXTS.has(x) || TABLE_EXTS.has(x) || JSONL_EXTS.has(x) || x === "json")) return false;
-    return e.rawBytes < 0 || e.rawBytes <= TEXT_MAX_BYTES;
+  function filePagesEnabled(ext2, settings) {
+    const mode = settings.renderFilePages || "all";
+    return !(mode === "off" || mode === "not-md" && (ext2 === "md" || ext2 === "mdx"));
   }
-  async function searchContents(files, read, q, onProgress, isCancelled = () => false, concurrency = 4) {
-    const hits = /* @__PURE__ */ new Map();
-    let scanned = 0, failed = 0, next = 0;
-    const needle = q.caseSensitive ? q.text : q.text.toLowerCase();
-    const worker = async () => {
-      while (next < files.length && !isCancelled()) {
-        const f = files[next++];
-        try {
-          const text = await read(f.href);
-          const hay = q.caseSensitive ? text : text.toLowerCase();
-          let count = 0, at = hay.indexOf(needle);
-          while (at >= 0) {
-            count++;
-            at = hay.indexOf(needle, at + needle.length);
-          }
-          if (count) {
-            const first = hay.indexOf(needle);
-            const ls = text.lastIndexOf("\n", first) + 1;
-            let le = text.indexOf("\n", first);
-            if (le < 0) le = text.length;
-            hits.set(f.href, { count, line: text.slice(ls, le).trim().slice(0, 160) });
-          }
-        } catch {
-          failed++;
-        }
-        scanned++;
-        onProgress?.(scanned, files.length);
-      }
-    };
-    await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
-    return { hits, scanned, failed, cancelled: isCancelled() };
+  function renderBody(text, ext2, href) {
+    if (TABLE_EXTS.has(ext2)) {
+      const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
+      return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : '<div class="fe-ql-note">Empty file.</div>';
+    }
+    if (JSONL_EXTS.has(ext2)) return renderJsonl(text);
+    if (ext2 === "json") return renderJsonTree(text);
+    if (ext2 === "md" || ext2 === "mdx") return `<div class="fe-md">${renderMarkdown(text, href)}</div>`;
+    return renderCode(text, ext2);
   }
-  function findToHash(q) {
-    return isEmptyFind(q) ? "" : "#find=" + encodeURIComponent(JSON.stringify(q));
+  function buildToc(page, toc) {
+    const heads = [...page.querySelectorAll(".fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4")];
+    const seen = /* @__PURE__ */ new Map();
+    const items = heads.map((h) => {
+      let id = (h.textContent || "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "") || "section";
+      const n = seen.get(id) ?? 0;
+      seen.set(id, n + 1);
+      if (n) id += "-" + n;
+      h.id = id;
+      return `<a href="#${esc(id)}" class="fe-toc-${h.tagName.toLowerCase()}" title="Jump to this heading">${esc(h.textContent || "")}</a>`;
+    });
+    toc.innerHTML = items.join("");
+    toc.style.display = items.length > 1 ? "" : "none";
   }
-  function findFromHash(hash) {
-    const m = hash.match(/^#find=(.+)$/);
-    if (!m) return null;
+  function scrollMemory() {
     try {
-      const q = JSON.parse(decodeURIComponent(m[1]));
-      return { ...EMPTY_FIND, ...q, exts: Array.isArray(q.exts) ? q.exts : [] };
+      return JSON.parse(localStorage.getItem(SCROLL_KEY) || "{}");
     } catch {
-      return null;
+      return {};
     }
   }
-  function isViewPath(path) {
-    return path.includes("#find=");
+  function rememberScroll(path, top) {
+    const m = scrollMemory();
+    m[path] = top;
+    const keys = Object.keys(m);
+    if (keys.length > 200) for (const k of keys.slice(0, keys.length - 200)) delete m[k];
+    localStorage.setItem(SCROLL_KEY, JSON.stringify(m));
   }
-  function describeFind(q) {
-    const bits = [];
-    if (q.name) bits.push(q.regex ? `/${q.name}/` : q.name);
-    if (q.exts.length) bits.push("." + q.exts.join(" ."));
-    if (q.text) bits.push(`"${q.text}"`);
-    const what = bits.join(" ") || "everything";
-    return q.scope === "deep" ? `${what} in subfolders` : what;
+  function renderFileContent() {
+    return `
+      <div id="fe-fp-bar">
+        <span id="fe-fp-meta"></span>
+        <button id="fe-fp-raw" title="Raw text (r)">raw</button>
+        <button id="fe-fp-copy" title="Copy file contents">copy</button>
+      </div>
+      <div id="fe-fp">
+        <nav id="fe-toc" style="display:none"></nav>
+        <div id="fe-page"></div>
+      </div>`;
   }
-
-  // src/render.ts
-  function buildTipData(e, ctx) {
-    if (e.isParent) {
-      return JSON.stringify({ icon: "", name: "Parent Directory", lines: ["Navigate up one level"] });
-    }
-    const fp = fullPath(ctx.rawPath, e);
-    const lines = [`Path: ${fp}`, `Type: ${fmtType(e)}`];
-    if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
-    lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
-    if (e.isHidden) lines.push("Hidden file (dotfile)");
-    if (IMG_EXTS.has(getExt(e))) lines.push("Image \u2014 dimensions require native host");
-    lines.push(e.isDir ? "Click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab" : "Click looks \xB7 double-click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab");
-    const tip = {
-      icon: getIcon(e, ctx.iconRules),
-      name: e.name,
-      lines,
-      warn: "Permissions/creation date require native host"
+  function mountFileContent(opts) {
+    const { ext: ext2, rawPath, href } = opts;
+    let text = opts.text;
+    const page = document.getElementById("fe-page");
+    const toc = document.getElementById("fe-toc");
+    const rawBtn = document.getElementById("fe-fp-raw");
+    const meta = document.getElementById("fe-fp-meta");
+    let raw = false;
+    meta.textContent = fmtSize(new Blob([text]).size);
+    const render2 = () => {
+      const top = page.scrollTop;
+      page.innerHTML = raw ? renderCode(text, "txt") : renderBody(text, ext2, href);
+      if (!raw && (ext2 === "md" || ext2 === "mdx")) buildToc(page, toc);
+      else toc.style.display = "none";
+      page.scrollTop = top;
+      rawBtn.classList.toggle("on", raw);
     };
-    return JSON.stringify(tip);
-  }
-  function itemActions(e, rawPath) {
-    if (e.isParent) return "";
-    const dPath = esc(fullPath(rawPath, e)), dName = esc(e.name);
-    const pvBtn = canPreview(e) ? `<button class="fe-act-btn fe-act-pv" title="Preview (Space)" data-pv="${dName}">
-        <svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-      </button>` : "";
-    return `<span class="fe-acts" data-path="${dPath}" data-name="${dName}">
-    ${pvBtn}<button class="fe-act-btn fe-act-cp" title="Copy full path" data-copy="${dPath}">
-      <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-    </button>
-    <button class="fe-act-btn fe-act-nm" title="Copy name" data-copy="${dName}">
-      <svg width="11" height="11" viewBox="0 0 11 11"><path d="M2 3h7M2 6h7M2 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-    </button>
-  </span>`;
-  }
-  function renderRow(e, ctx, idx = -1) {
-    const tipData = buildTipData(e, ctx);
-    return `<tr class="fe-row${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
-             data-name="${esc(e.name.toLowerCase())}"
-             data-idx="${idx}"
-             data-tip="${esc(tipData)}">
-    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
-    <td class="c-tp">${fmtType(e)}</td>
-    <td class="c-sz">${e.isDir ? "\u2014" : fmtSize(e.rawBytes)}</td>
-    <td class="c-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</td>
-  </tr>`;
-  }
-  function renderTile(e, ctx, idx = -1) {
-    const tipData = buildTipData(e, ctx);
-    const isImg = !e.isDir && !e.isParent && IMG_EXTS.has(getExt(e));
-    const iconHtml = isImg ? `<span class="fe-tile-img-wrap"><img class="fe-tile-thumb" src="${esc(e.href)}" loading="lazy" alt="" onerror="this.closest('.fe-tile-img-wrap').classList.add('err')">${getIcon(e, ctx.iconRules)}</span>` : getIcon(e, ctx.iconRules);
-    return `<a href="${esc(e.href)}" class="fe-tile${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
-            data-name="${esc(e.name.toLowerCase())}"
-            data-idx="${idx}"
-            data-tip="${esc(tipData)}">
-    <span class="fe-tile-ic">${iconHtml}</span>
-    <span class="fe-tile-nm">${esc(e.isParent ? ".." : e.name)}</span>
-    ${!e.isDir && !e.isParent ? `<span class="fe-tile-sz">${fmtSize(e.rawBytes)}</span>` : ""}
-    ${itemActions(e, ctx.rawPath)}
-  </a>`;
-  }
-  function renderRows(entries, ctx, start = 0) {
-    return entries.map((e, i) => renderRow(e, ctx, start + i)).join("");
-  }
-  function renderTiles(entries, ctx, start = 0) {
-    return entries.map((e, i) => renderTile(e, ctx, start + i)).join("");
-  }
-  function renderSavedList(saved, tags, rawPath, filter = "") {
-    if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click \u2606 in the path bar, or + to name this folder.</div>`;
-    saved = filterSaved(saved, filter);
-    if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
-    const color = (name) => tags.find((t) => t.name === name)?.color ?? "#8b949e";
-    const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
-    const row = (p) => `
-    <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
-      <span class="fe-drag-h">${PI.drag}</span>
-      <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? " active" : ""}" title="${esc(isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path)}">
-        ${isViewPath(p.path) ? VIEW_ICON : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
-        <span class="fe-pl-dots">${(p.tags ?? []).map((t) => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join("")}</span>
-      </a>
-      <span class="fe-pl-tags" title="Tags, comma separated"></span>
-      <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Tags">#</button>
-      <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove">\u2715</button>
-    </div>`;
-    return groupByTag(saved, tags).map((g) => {
-      const head = g.tag ? `<div class="fe-sv-tag"><i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}</div>` : "";
-      return head + g.items.map(row).join("");
-    }).join("");
-  }
-  function renderCrumbs(rawPath, segments) {
-    const crumbs = [{ label: "/", href: "file:///" }];
-    let acc = "/";
-    for (const seg of segments) {
-      acc += seg + "/";
-      crumbs.push({ label: seg, href: "file://" + acc });
-    }
-    return crumbs.map(
-      (c, i) => `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">\u25BE</button>` + (i < crumbs.length - 1 ? `<span class="fe-sep">\u203A</span>` : "")
-    ).join("");
+    render2();
+    const remembered = scrollMemory()[rawPath];
+    if (remembered) page.scrollTop = remembered;
+    else if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+    let scrollTimer = null;
+    page.addEventListener("scroll", () => {
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => rememberScroll(rawPath, page.scrollTop), 300);
+    });
+    const toggleRaw = () => {
+      raw = !raw;
+      render2();
+    };
+    rawBtn.addEventListener("click", toggleRaw);
+    document.getElementById("fe-fp-copy").addEventListener("click", () => {
+      copyToClipboard(text).then((ok) => {
+        document.getElementById("fe-status-text").textContent = ok ? "copied" : "copy failed";
+      });
+    });
+    const reloadEl = document.getElementById("fe-fp-reload");
+    setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      fetchFileText(href).then((fresh) => {
+        if (fresh === text) return;
+        text = fresh;
+        meta.textContent = fmtSize(new Blob([text]).size);
+        render2();
+        reloadEl.textContent = "reloaded " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      }).catch(() => {
+        reloadEl.textContent = "not watching (cannot read file)";
+      });
+    }, RELOAD_MS);
+    return { toggleRaw };
   }
 
   // src/tabs.ts
@@ -3563,169 +3513,193 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
     };
   }
 
-  // src/file-page.ts
-  var SCROLL_KEY = "bfb-page-scroll-v1";
-  var RELOAD_MS = 2e3;
-  function filePageExt(pathname) {
-    if (pathname.endsWith("/")) return null;
-    const name = decodeURIComponent(pathname.split("/").pop() || "");
-    const ext2 = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
-    if (!ext2) return null;
-    if (CODE_EXTS.has(ext2) || TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json") return ext2;
-    return null;
+  // src/find.ts
+  var EMPTY_FIND = { scope: "here", name: "", regex: false, exts: [], text: "", caseSensitive: false };
+  function isEmptyFind(q) {
+    return q.scope === "here" && !q.name && !q.exts.length && !q.text;
   }
-  function renderBody(text, ext2, href) {
-    if (TABLE_EXTS.has(ext2)) {
-      const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
-      return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : '<div class="fe-ql-note">Empty file.</div>';
-    }
-    if (JSONL_EXTS.has(ext2)) return renderJsonl(text);
-    if (ext2 === "json") return renderJsonTree(text);
-    if (ext2 === "md" || ext2 === "mdx") return `<div class="fe-md">${renderMarkdown(text, href)}</div>`;
-    return renderCode(text, ext2);
+  var ext = (e) => e.isDir ? "" : e.name.includes(".") ? e.name.split(".").pop().toLowerCase() : "";
+  var TEXT_MAX_BYTES = 2 * 1024 * 1024;
+  function isTextCandidate(e) {
+    if (e.isDir || e.isParent) return false;
+    const x = ext(e);
+    if (!(CODE_EXTS.has(x) || TABLE_EXTS.has(x) || JSONL_EXTS.has(x) || x === "json")) return false;
+    return e.rawBytes < 0 || e.rawBytes <= TEXT_MAX_BYTES;
   }
-  function buildToc(page, toc) {
-    const heads = [...page.querySelectorAll(".fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4")];
-    const seen = /* @__PURE__ */ new Map();
-    const items = heads.map((h) => {
-      let id = (h.textContent || "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "") || "section";
-      const n = seen.get(id) ?? 0;
-      seen.set(id, n + 1);
-      if (n) id += "-" + n;
-      h.id = id;
-      return `<a href="#${esc(id)}" class="fe-toc-${h.tagName.toLowerCase()}" title="Jump to this heading">${esc(h.textContent || "")}</a>`;
-    });
-    toc.innerHTML = items.join("");
-    toc.style.display = items.length > 1 ? "" : "none";
-  }
-  function scrollMemory() {
-    try {
-      return JSON.parse(localStorage.getItem(SCROLL_KEY) || "{}");
-    } catch {
-      return {};
-    }
-  }
-  function rememberScroll(path, top) {
-    const m = scrollMemory();
-    m[path] = top;
-    const keys = Object.keys(m);
-    if (keys.length > 200) for (const k of keys.slice(0, keys.length - 200)) delete m[k];
-    localStorage.setItem(SCROLL_KEY, JSON.stringify(m));
-  }
-  function mountFilePage(ext2) {
-    const settings = getSettings();
-    const mode = settings.renderFilePages || "all";
-    if (mode === "off" || mode === "not-md" && (ext2 === "md" || ext2 === "mdx")) return;
-    let text = document.body.textContent || "";
-    const rawPath = decodeURIComponent(location.pathname);
-    const segments = rawPath.split("/").filter(Boolean);
-    const name = segments.pop() || "";
-    const folderPath = "/" + segments.join("/") + (segments.length ? "/" : "");
-    const href = location.href;
-    const theme = getTheme();
-    document.documentElement.innerHTML = `<head><meta charset="utf-8"><title>${esc(name)} | Better File Browser</title></head><body></body>`;
-    const style = document.createElement("style");
-    style.textContent = CSS;
-    document.head.appendChild(style);
-    document.body.innerHTML = `
-<div id="fe" data-theme="${esc(theme)}" class="fe-file-page">
-  <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this file, w closes, p pins, [ ] switch, 1-9 jump)"></div>
-  <div id="fe-bar">
-    <div id="fe-bc">${renderCrumbs(folderPath, segments)}<span class="fe-sep">\u203A</span><span class="fe-crumb fe-crumb-file">${esc(name)}</span></div>
-    <span id="fe-fp-meta">${fmtSize(new Blob([text]).size)}</span>
-    <button id="fe-fp-raw" title="Raw text (r)">raw</button>
-    <button id="fe-fp-copy" title="Copy file contents">copy</button>
-    <button id="fe-theme-btn" title="Toggle theme">
-      <svg id="fe-sun" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M10.1 2.9l-1 1M3.9 10.1l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-      <svg id="fe-moon" width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 8.5A5 5 0 0 1 5.5 2.5a5 5 0 1 0 6 6z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
-    </button>
-  </div>
-  <div id="fe-body">
-    <nav id="fe-toc" style="display:none"></nav>
-    <div id="fe-page"></div>
-  </div>
-  <div id="fe-statusbar"><span id="fe-status-text">${esc(name)}</span><span id="fe-fp-reload" title="Re-rendered when the file changes on disk">watching for changes</span></div>
-  <div id="fe-toast"></div>
-</div>`;
-    const fe = document.getElementById("fe");
-    const toast = makeToast(document.getElementById("fe-toast"));
-    const strip = mountStrip({ el: document.getElementById("fe-tabs"), rawPath, toast });
-    const page = document.getElementById("fe-page");
-    const toc = document.getElementById("fe-toc");
-    const rawBtn = document.getElementById("fe-fp-raw");
-    let raw = false;
-    const render2 = () => {
-      const top = page.scrollTop;
-      page.innerHTML = raw ? renderCode(text, "txt") : renderBody(text, ext2, href);
-      if (!raw && (ext2 === "md" || ext2 === "mdx")) buildToc(page, toc);
-      else toc.style.display = "none";
-      page.scrollTop = top;
-      rawBtn.classList.toggle("on", raw);
+  async function searchContents(files, read, q, onProgress, isCancelled = () => false, concurrency = 4) {
+    const hits = /* @__PURE__ */ new Map();
+    let scanned = 0, failed = 0, next = 0;
+    const needle = q.caseSensitive ? q.text : q.text.toLowerCase();
+    const worker = async () => {
+      while (next < files.length && !isCancelled()) {
+        const f = files[next++];
+        try {
+          const text = await read(f.href);
+          const hay = q.caseSensitive ? text : text.toLowerCase();
+          let count = 0, at = hay.indexOf(needle);
+          while (at >= 0) {
+            count++;
+            at = hay.indexOf(needle, at + needle.length);
+          }
+          if (count) {
+            const first = hay.indexOf(needle);
+            const ls = text.lastIndexOf("\n", first) + 1;
+            let le = text.indexOf("\n", first);
+            if (le < 0) le = text.length;
+            hits.set(f.href, { count, line: text.slice(ls, le).trim().slice(0, 160) });
+          }
+        } catch {
+          failed++;
+        }
+        scanned++;
+        onProgress?.(scanned, files.length);
+      }
     };
-    render2();
-    const remembered = scrollMemory()[rawPath];
-    if (remembered) page.scrollTop = remembered;
-    else if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
-    let scrollTimer = null;
-    page.addEventListener("scroll", () => {
-      if (scrollTimer) clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(() => rememberScroll(rawPath, page.scrollTop), 300);
-    });
-    rawBtn.addEventListener("click", () => {
-      raw = !raw;
-      render2();
-    });
-    document.getElementById("fe-fp-copy").addEventListener("click", () => {
-      copyToClipboard(text).then((ok) => {
-        document.getElementById("fe-status-text").textContent = ok ? "copied" : "copy failed";
-      });
-    });
-    document.getElementById("fe-theme-btn").addEventListener("click", () => {
-      const next = fe.dataset.theme === "dark" ? "light" : "dark";
-      fe.dataset.theme = next;
-      localStorage.setItem(THEME_KEY, next);
-    });
-    document.addEventListener("keydown", (e) => {
-      if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
-      if (e.key === "r" && !e.metaKey && !e.ctrlKey) {
-        raw = !raw;
-        render2();
-      } else if (e.key === "Backspace" || e.metaKey && e.key === "ArrowUp") {
-        e.preventDefault();
-        location.href = "file://" + folderPath;
-      } else if (strip.handleKey(e)) e.preventDefault();
-    });
-    const reloadEl = document.getElementById("fe-fp-reload");
-    setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      fetchFileText(href).then((fresh) => {
-        if (fresh === text) return;
-        text = fresh;
-        document.getElementById("fe-fp-meta").textContent = fmtSize(new Blob([text]).size);
-        render2();
-        reloadEl.textContent = "reloaded " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      }).catch(() => {
-        reloadEl.textContent = "not watching (cannot read file)";
-      });
-    }, RELOAD_MS);
+    await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
+    return { hits, scanned, failed, cancelled: isCancelled() };
+  }
+  function findToHash(q) {
+    return isEmptyFind(q) ? "" : "#find=" + encodeURIComponent(JSON.stringify(q));
+  }
+  function findFromHash(hash) {
+    const m = hash.match(/^#find=(.+)$/);
+    if (!m) return null;
+    try {
+      const q = JSON.parse(decodeURIComponent(m[1]));
+      return { ...EMPTY_FIND, ...q, exts: Array.isArray(q.exts) ? q.exts : [] };
+    } catch {
+      return null;
+    }
+  }
+  function isViewPath(path) {
+    return path.includes("#find=");
+  }
+  function describeFind(q) {
+    const bits = [];
+    if (q.name) bits.push(q.regex ? `/${q.name}/` : q.name);
+    if (q.exts.length) bits.push("." + q.exts.join(" ."));
+    if (q.text) bits.push(`"${q.text}"`);
+    const what = bits.join(" ") || "everything";
+    return q.scope === "deep" ? `${what} in subfolders` : what;
+  }
+
+  // src/render.ts
+  function buildTipData(e, ctx) {
+    if (e.isParent) {
+      return JSON.stringify({ icon: "", name: "Parent Directory", lines: ["Navigate up one level"] });
+    }
+    const fp = fullPath(ctx.rawPath, e);
+    const lines = [`Path: ${fp}`, `Type: ${fmtType(e)}`];
+    if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
+    lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
+    if (e.isHidden) lines.push("Hidden file (dotfile)");
+    if (IMG_EXTS.has(getExt(e))) lines.push("Image \u2014 dimensions require native host");
+    lines.push(e.isDir ? "Click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab" : "Click looks \xB7 double-click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab");
+    const tip = {
+      icon: getIcon(e, ctx.iconRules),
+      name: e.name,
+      lines,
+      warn: "Permissions/creation date require native host"
+    };
+    return JSON.stringify(tip);
+  }
+  function itemActions(e, rawPath) {
+    if (e.isParent) return "";
+    const dPath = esc(fullPath(rawPath, e)), dName = esc(e.name);
+    const pvBtn = canPreview(e) ? `<button class="fe-act-btn fe-act-pv" title="Preview (Space)" data-pv="${dName}">
+        <svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>` : "";
+    return `<span class="fe-acts" data-path="${dPath}" data-name="${dName}">
+    ${pvBtn}<button class="fe-act-btn fe-act-cp" title="Copy full path" data-copy="${dPath}">
+      <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+    </button>
+    <button class="fe-act-btn fe-act-nm" title="Copy name" data-copy="${dName}">
+      <svg width="11" height="11" viewBox="0 0 11 11"><path d="M2 3h7M2 6h7M2 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    </button>
+  </span>`;
+  }
+  function renderRow(e, ctx, idx = -1) {
+    const tipData = buildTipData(e, ctx);
+    return `<tr class="fe-row${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
+             data-name="${esc(e.name.toLowerCase())}"
+             data-idx="${idx}"
+             data-tip="${esc(tipData)}">
+    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
+    <td class="c-tp">${fmtType(e)}</td>
+    <td class="c-sz">${e.isDir ? "\u2014" : fmtSize(e.rawBytes)}</td>
+    <td class="c-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</td>
+  </tr>`;
+  }
+  function renderTile(e, ctx, idx = -1) {
+    const tipData = buildTipData(e, ctx);
+    const isImg = !e.isDir && !e.isParent && IMG_EXTS.has(getExt(e));
+    const iconHtml = isImg ? `<span class="fe-tile-img-wrap"><img class="fe-tile-thumb" src="${esc(e.href)}" loading="lazy" alt="" onerror="this.closest('.fe-tile-img-wrap').classList.add('err')">${getIcon(e, ctx.iconRules)}</span>` : getIcon(e, ctx.iconRules);
+    return `<a href="${esc(e.href)}" class="fe-tile${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
+            data-name="${esc(e.name.toLowerCase())}"
+            data-idx="${idx}"
+            data-tip="${esc(tipData)}">
+    <span class="fe-tile-ic">${iconHtml}</span>
+    <span class="fe-tile-nm">${esc(e.isParent ? ".." : e.name)}</span>
+    ${!e.isDir && !e.isParent ? `<span class="fe-tile-sz">${fmtSize(e.rawBytes)}</span>` : ""}
+    ${itemActions(e, ctx.rawPath)}
+  </a>`;
+  }
+  function renderRows(entries, ctx, start = 0) {
+    return entries.map((e, i) => renderRow(e, ctx, start + i)).join("");
+  }
+  function renderTiles(entries, ctx, start = 0) {
+    return entries.map((e, i) => renderTile(e, ctx, start + i)).join("");
+  }
+  function renderSavedList(saved, tags, rawPath, filter = "") {
+    if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click \u2606 in the path bar, or + to name this folder.</div>`;
+    saved = filterSaved(saved, filter);
+    if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
+    const color = (name) => tags.find((t) => t.name === name)?.color ?? "#8b949e";
+    const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
+    const row = (p) => `
+    <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
+      <span class="fe-drag-h">${PI.drag}</span>
+      <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? " active" : ""}" title="${esc(isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path)}">
+        ${isViewPath(p.path) ? VIEW_ICON : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
+        <span class="fe-pl-dots">${(p.tags ?? []).map((t) => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join("")}</span>
+      </a>
+      <span class="fe-pl-tags" title="Tags, comma separated"></span>
+      <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Tags">#</button>
+      <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove">\u2715</button>
+    </div>`;
+    return groupByTag(saved, tags).map((g) => {
+      const head = g.tag ? `<div class="fe-sv-tag"><i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}</div>` : "";
+      return head + g.items.map(row).join("");
+    }).join("");
+  }
+  function renderCrumbs(rawPath, segments) {
+    const crumbs = [{ label: "/", href: "file:///" }];
+    let acc = "/";
+    for (const seg of segments) {
+      acc += seg + "/";
+      crumbs.push({ label: seg, href: "file://" + acc });
+    }
+    return crumbs.map(
+      (c, i) => `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">\u25BE</button>` + (i < crumbs.length - 1 ? `<span class="fe-sep">\u203A</span>` : "")
+    ).join("");
   }
 
   // src/main.ts
   (function() {
     const preload = document.getElementById("bfb-preload");
     const fileExt = filePageExt(location.pathname);
-    if (fileExt) {
-      mountFilePage(fileExt);
-      return;
-    }
-    if (!document.title.startsWith("Index of")) {
+    const fileMode = !!fileExt && filePagesEnabled(fileExt, getSettings());
+    if (!fileMode && !document.title.startsWith("Index of")) {
       preload?.remove();
       return;
     }
+    const fileText = fileMode ? document.body.textContent || "" : "";
     const rawPath = decodeURIComponent(window.location.pathname);
     const segments = rawPath.split("/").filter(Boolean);
-    const ALL_ENTRIES = parseEntries();
-    if (segments.length && !ALL_ENTRIES.some((e) => e.isParent)) {
+    const fileName = fileMode ? segments.pop() || "" : "";
+    const folderPath = fileMode ? "/" + segments.join("/") + (segments.length ? "/" : "") : rawPath;
+    const ALL_ENTRIES = fileMode ? [] : parseEntries();
+    if (!fileMode && segments.length && !ALL_ENTRIES.some((e) => e.isParent)) {
       const parentSegs = segments.slice(0, -1);
       ALL_ENTRIES.unshift({
         name: "..",
@@ -3836,8 +3810,8 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       { label: "Desktop", icon: "desk", href: "file:///Users/alcatraz627/Desktop/" },
       { label: "resumes", icon: "docs", href: "file:///Users/alcatraz627/Code/Claude/resumes/" }
     ];
-    const recents = getRecents().filter((r) => r.path !== rawPath).slice(0, 6);
-    pushRecent(rawPath);
+    const recents = getRecents().filter((r) => r.path !== folderPath).slice(0, 6);
+    pushRecent(folderPath);
     const recentsHTML = recents.length ? `
       <div class="fe-sec">
         <div class="fe-sh">Recent</div>
@@ -3977,12 +3951,12 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       tabs: HELP_TABS.map((t) => ({ key: t.key, label: t.label, hint: t.hint, body: `<div class="fe-md">${renderMarkdown(t.md)}</div>` }))
     };
     const PAGE_HTML = `
-<div id="fe" data-theme="${initTheme}" data-view="${initView}">
+<div id="fe" data-theme="${initTheme}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ""}>
 
   <div id="fe-bar">
-    <div id="fe-bc">${renderCrumbs(rawPath, segments)}</div>
+    <div id="fe-bc">${renderCrumbs(folderPath, segments)}${fileMode ? `<span class="fe-sep">\u203A</span><span class="fe-crumb fe-crumb-file">${esc(fileName)}</span>` : ""}</div>
     <button id="fe-term-btn" title="Open in terminal (${settings.terminalApp || "ghostty"}) \u2014 Click to open current folder \xB7 Shift+click copies command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button id="fe-bm-btn" class="${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? "Remove this folder from Saved" : "Save this folder (sidebar)"}">
+    <button id="fe-bm-btn" class="${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
       <svg width="13" height="13" viewBox="0 0 13 13"><path id="fe-bm-path" d="M2.5 1h8v11l-4-2.8L2.5 12z" fill="${curIsBookmarked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
     </button>
     <button id="fe-theme-btn" title="Toggle theme \u2014 currently ${initTheme === "light" ? "Light" : "Dark"}">
@@ -4001,7 +3975,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
     <nav id="fe-side">
       <div class="fe-sec">
         <div class="fe-sh" style="justify-content:space-between">Saved
-          <button id="fe-sv-add" title="Save this folder and name it">+</button></div>
+          <button id="fe-sv-add" title="Save this ${fileMode ? "file" : "folder"} and name it">+</button></div>
         <input id="fe-sv-filter" type="text" placeholder="Filter saved\u2026" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
       </div>
@@ -4028,6 +4002,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
 
     <div id="fe-main">
       <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
+      ${fileMode ? renderFileContent() : ""}
       <div id="fe-toolbar">
         <span id="fe-count">${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}</span>
         <div id="fe-tb-right">
@@ -4118,8 +4093,9 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       </div>
 
       <div id="fe-statusbar">
-        <span id="fe-status-text">${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}</span>
-        <span id="fe-status-path">${rawPath}</span>
+        <span id="fe-status-text">${fileMode ? esc(fileName) : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
+        ${fileMode ? '<span id="fe-fp-reload" title="Re-rendered when the file changes on disk">watching for changes</span>' : ""}
+        <span id="fe-status-path">${esc(rawPath)}</span>
       </div>
     </div>
   </div>
@@ -4131,7 +4107,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
   ${renderDialog(SETTINGS_DIALOG)}
   ${renderDialog(HELP_DIALOG)}
 </div>`;
-    const dirName = segments[segments.length - 1] || "/";
+    const dirName = fileMode ? fileName : segments[segments.length - 1] || "/";
     const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + "\u2026" : dirName;
     document.title = `${shortDir} | Better File Browser`;
     const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="%230d1117"/><path d="M3 12.5A1.5 1.5 0 0 1 4.5 11h5.5l2.5 3H28a1.5 1.5 0 0 1 1.5 1.5V24A1.5 1.5 0 0 1 28 25.5H4.5A1.5 1.5 0 0 1 3 24z" fill="%234a9eff"/><path d="M9 18.5h14M9 22h9" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/></svg>`;
@@ -4147,6 +4123,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     initPreview({ iconRules: () => iconRules, aiModel: () => settings.aiModel });
     const toast = makeToast(document.getElementById("fe-toast"));
     const strip = mountStrip({ el: document.getElementById("fe-tabs"), rawPath, toast, onSavedChange: () => refreshSaved() });
+    const filePage = fileMode ? mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href }) : null;
     document.querySelectorAll(".fe-view-btn").forEach((btn) => {
       if (btn.dataset.view === initView) btn.classList.add("active");
       btn.addEventListener("click", () => {
@@ -4463,7 +4440,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       }
       fallbackCopy(path);
     }
-    document.getElementById("fe-term-btn").addEventListener("click", () => openInTerminal(rawPath));
+    document.getElementById("fe-term-btn").addEventListener("click", () => openInTerminal(folderPath));
     function fallbackCopy(path) {
       const cmd = getTermCmd(path);
       navigator.clipboard.writeText(cmd).catch(() => {
@@ -4752,12 +4729,17 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       }
     }
     function goUp() {
+      if (fileMode) {
+        location.href = "file://" + folderPath;
+        return;
+      }
       const up = ALL_ENTRIES.find((x) => x.isParent);
       if (up) location.href = up.href;
       else if (rawPath !== "/") location.href = "file:///";
     }
     document.addEventListener("keydown", (e) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f") {
+        if (fileMode) return;
         const s = document.getElementById("fe-search");
         if (document.activeElement !== s) {
           e.preventDefault();
@@ -4792,7 +4774,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         }
         return;
       }
-      if (e.key === "ArrowDown") {
+      if (filePage && e.key === "r" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        filePage.toggleRaw();
+      } else if (e.key === "ArrowDown") {
         e.preventDefault();
         moveSel(1);
       } else if (e.key === "ArrowUp") {
@@ -4890,7 +4875,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       const hint = document.getElementById("fe-st-term-hint");
       if (!hint) return;
       const cmd = app === "custom" ? settings.terminalCmd || "" : TERMINAL_CMDS[app] || "";
-      hint.textContent = cmd ? `Command: ${cmd.replace(/\$\{p\}/g, rawPath)}` : "";
+      hint.textContent = cmd ? `Command: ${cmd.replace(/\$\{p\}/g, folderPath)}` : "";
     }
     function openSettings() {
       document.querySelectorAll('input[name="bfb-theme"]').forEach((r) => {
@@ -5249,6 +5234,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       ntList.querySelectorAll(".fe-nt-item").forEach((item) => {
         const rel = item.dataset.rel;
         item.querySelector(".fe-si-link").addEventListener("click", (e) => {
+          if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
           e.preventDefault();
           openNoteRel(root, rel);
         });
@@ -5282,6 +5268,45 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     }
     document.getElementById("fe-nt-add").addEventListener("click", newNote);
     refreshNotes();
+    const anchorPath = (a) => decodeURIComponent((a.getAttribute("href") || "").slice(7));
+    const entryFor = (path, href) => {
+      const name = path.split("/").pop() || path;
+      return { name, href, isDir: false, isParent: false, isHidden: name.startsWith("."), rawBytes: -1, dateMs: NaN, dateStr: "" };
+    };
+    for (const host of [document.getElementById("fe-side"), document.getElementById("fe-bc"), crumbMenu]) {
+      host.addEventListener("click", (e) => {
+        const a = e.target.closest('a[href^="file://"]');
+        if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        const path = anchorPath(a);
+        if (e.altKey) {
+          e.preventDefault();
+          strip.open(path.split("#")[0], true);
+          return;
+        }
+        if (a.closest("#fe-nt-list") || path.includes("#") || path.endsWith("/")) return;
+        const en = entryFor(path, a.href);
+        if (!canPreview(en)) return;
+        e.preventDefault();
+        if (lookTimer) clearTimeout(lookTimer);
+        if (e.detail > 1) return;
+        lookTimer = setTimeout(() => {
+          lookTimer = null;
+          openPreview(en);
+        }, 220);
+      });
+      host.addEventListener("dblclick", (e) => {
+        const a = e.target.closest('a[href^="file://"]');
+        if (!a || e.target.closest(".fe-pl-label, .fe-nt-label")) return;
+        const path = anchorPath(a);
+        if (path.endsWith("/") || path.includes("#")) return;
+        e.preventDefault();
+        if (lookTimer) {
+          clearTimeout(lookTimer);
+          lookTimer = null;
+        }
+        location.href = a.href;
+      });
+    }
     if (sortConfig.col || groupConfig !== "none") applyAll();
     applyFindFromHash();
   })();

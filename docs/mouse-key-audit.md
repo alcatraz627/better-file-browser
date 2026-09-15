@@ -85,25 +85,32 @@ it and pins it.
 | Esc | close the panel |
 | paste or drop an image | saved under attachments/ and linked ✓ |
 
-## Sidebar
+## Sidebar: Saved, Notes, Recent, Favorites, System
 
-| Gesture | Saved row | Notes row |
-|---|---|---|
-| click | go ✓ | open in the editor ✓ |
-| middle-click | Chrome tab | Chrome tab, plain text |
-| double-click on the label | rename ✓ | rename |
-| hover, # | edit tags ✓ | none |
-| hover, ✕ | remove ✓ | move to .trash ✓ |
-| drag | reorder ✓ | none |
-| tag heading dot | cycle the colour ✓ | none |
-| filter box | narrows by label, path, tag; Esc clears ✓ | none |
+The same gestures as a listing row, for every row that has an address.
+
+| Gesture | Folder row | File row (Saved) | Notes row |
+|---|---|---|---|
+| click | go ✓ | look: the panel, URL unchanged ✓ | open in the editor ✓ |
+| double-click on the icon or whitespace | go | go: the file page ✓ | go: the file page |
+| double-click on the label | rename (Saved) ✓ | rename ✓ | rename |
+| ⌥-click | keep as a background strip tab ✓ | same | same |
+| middle-click, ⌘-click | Chrome tab | same | same, plain text |
+| hover, # | edit tags ✓ | same | none |
+| hover, ✕ | remove ✓ | same | move to .trash ✓ |
+| drag | reorder ✓ | same | none |
+| tag heading dot | cycle the colour ✓ | | |
+| filter box | narrows by label, path, tag; Esc clears ✓ | | |
 
 ## Path bar and toolbar
 
 | Gesture | Action |
 |---|---|
 | crumb click | go |
+| crumb ⌥-click | keep as a background strip tab ✓ |
+| crumb middle-click, ⌘-click | Chrome tab |
 | crumb ▾ | dropdown of that folder; type to narrow, Enter opens the first match, Esc closes ✓ |
+| dropdown item click, ⌥-click | go; keep as a background tab |
 | ★ | save or unsave this folder ✓ |
 | terminal button | open here; ⇧-click copies the command instead |
 | sun or moon | toggle the theme ✓ |
@@ -126,15 +133,28 @@ it and pins it.
 
 ## File page
 
+The file page is the listing's shell with the file in the main column: the
+bar, the sidebar, the strip and the status bar sit in the same place on both
+(checked to the pixel in e2e) and take the same gestures.
+
 | Gesture or key | Action |
 |---|---|
 | r, raw button | raw or rendered ✓ |
 | copy | copy the contents |
 | ToC link | jump to the heading |
 | Backspace, ⌘↑ | the folder |
-| strip keys | as above |
+| ⌘F | Chrome's own find |
+| strip, sidebar, path bar | as above |
 
-## Changed in this pass
+## Changed in the second pass, 2026-09-16
+
+- The file page no longer builds its own shell. It is the explorer shell in
+  file mode, so nothing moves when a file opens.
+- Sidebar rows, crumbs and dropdown items take the listing's gestures: a
+  saved file looks in the panel, double-click goes, ⌥ keeps a background tab,
+  ⌘ and middle clicks stay Chrome's.
+
+## Changed in the first pass, 2026-09-15
 
 - Strip: middle-click closes a kept tab and leaves a pinned one; a double-click
   on a kept tab no longer switches twice; cmd-click and shift-click reach

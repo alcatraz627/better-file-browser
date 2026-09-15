@@ -27,7 +27,7 @@ import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
 import { crawl } from './deep-search';
 import { notes, noteTitle, newNoteText, slugForTitle, type NotesError } from './notes';
-import { filePageExt, mountFilePage } from './file-page';
+import { filePageExt, filePagesEnabled, renderFileContent, mountFileContent, type FileContent } from './file-page';
 import { mountStrip } from './strip';
 import { makeToast } from './toast';
 import {
@@ -42,22 +42,28 @@ import { getIcon } from './icons';
 
 (function () {
   const preload = document.getElementById('bfb-preload');
+  // One shell for both pages: a folder listing, or a file rendered in the
+  // main column with the listing parts hidden.
   const fileExt = filePageExt(location.pathname);
-  if (fileExt) { mountFilePage(fileExt); return; }
-  if (!document.title.startsWith('Index of')) {
+  const fileMode = !!fileExt && filePagesEnabled(fileExt, getSettings());
+  if (!fileMode && !document.title.startsWith('Index of')) {
     preload?.remove();
     return;
   }
+  const fileText = fileMode ? (document.body.textContent || '') : '';
 
   const rawPath  = decodeURIComponent(window.location.pathname);
   const segments = rawPath.split('/').filter(Boolean);
+  const fileName = fileMode ? (segments.pop() || '') : '';
+  // The folder this page belongs to: the path itself for a listing.
+  const folderPath = fileMode ? '/' + segments.join('/') + (segments.length ? '/' : '') : rawPath;
 
-  const ALL_ENTRIES = parseEntries();
+  const ALL_ENTRIES = fileMode ? [] : parseEntries();
 
   // Chrome's listing no longer includes a "../" table row (the parent link
   // lives outside the table now) — synthesize one so the Parent Directory
   // row and up-navigation keep working.
-  if (segments.length && !ALL_ENTRIES.some(e => e.isParent)) {
+  if (!fileMode && segments.length && !ALL_ENTRIES.some(e => e.isParent)) {
     const parentSegs = segments.slice(0, -1);
     ALL_ENTRIES.unshift({
       name: '..',
@@ -194,8 +200,8 @@ import { getIcon } from './icons';
 
   // Snapshot history BEFORE recording this visit so the list shown
   // excludes the directory we're currently in.
-  const recents = getRecents().filter(r => r.path !== rawPath).slice(0, 6);
-  pushRecent(rawPath);
+  const recents = getRecents().filter(r => r.path !== folderPath).slice(0, 6);
+  pushRecent(folderPath);
   const recentsHTML = recents.length ? `
       <div class="fe-sec">
         <div class="fe-sh">Recent</div>
@@ -332,12 +338,12 @@ import { getIcon } from './icons';
   };
 
   const PAGE_HTML = `
-<div id="fe" data-theme="${initTheme}" data-view="${initView}">
+<div id="fe" data-theme="${initTheme}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ''}>
 
   <div id="fe-bar">
-    <div id="fe-bc">${renderCrumbs(rawPath, segments)}</div>
+    <div id="fe-bc">${renderCrumbs(folderPath, segments)}${fileMode ? `<span class="fe-sep">›</span><span class="fe-crumb fe-crumb-file">${esc(fileName)}</span>` : ''}</div>
     <button id="fe-term-btn" title="Open in terminal (${settings.terminalApp || 'ghostty'}) — Click to open current folder · Shift+click copies command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button id="fe-bm-btn" class="${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? 'Remove this folder from Saved' : 'Save this folder (sidebar)'}">
+    <button id="fe-bm-btn" class="${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? `Remove this ${fileMode ? 'file' : 'folder'} from Saved` : `Save this ${fileMode ? 'file' : 'folder'} (sidebar)`}">
       <svg width="13" height="13" viewBox="0 0 13 13"><path id="fe-bm-path" d="M2.5 1h8v11l-4-2.8L2.5 12z" fill="${curIsBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
     </button>
     <button id="fe-theme-btn" title="Toggle theme — currently ${initTheme === 'light' ? 'Light' : 'Dark'}">
@@ -356,7 +362,7 @@ import { getIcon } from './icons';
     <nav id="fe-side">
       <div class="fe-sec">
         <div class="fe-sh" style="justify-content:space-between">Saved
-          <button id="fe-sv-add" title="Save this folder and name it">+</button></div>
+          <button id="fe-sv-add" title="Save this ${fileMode ? 'file' : 'folder'} and name it">+</button></div>
         <input id="fe-sv-filter" type="text" placeholder="Filter saved…" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
       </div>
@@ -380,6 +386,7 @@ import { getIcon } from './icons';
 
     <div id="fe-main">
       <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
+      ${fileMode ? renderFileContent() : ''}
       <div id="fe-toolbar">
         <span id="fe-count">${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}</span>
         <div id="fe-tb-right">
@@ -470,8 +477,9 @@ import { getIcon } from './icons';
       </div>
 
       <div id="fe-statusbar">
-        <span id="fe-status-text">${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}</span>
-        <span id="fe-status-path">${rawPath}</span>
+        <span id="fe-status-text">${fileMode ? esc(fileName) : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
+        ${fileMode ? '<span id="fe-fp-reload" title="Re-rendered when the file changes on disk">watching for changes</span>' : ''}
+        <span id="fe-status-path">${esc(rawPath)}</span>
       </div>
     </div>
   </div>
@@ -487,7 +495,7 @@ import { getIcon } from './icons';
 
 
   // ── Inject DOM ────────────────────────────────────────────────────
-  const dirName  = segments[segments.length - 1] || '/';
+  const dirName  = fileMode ? fileName : (segments[segments.length - 1] || '/');
   const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + '…' : dirName;
   document.title = `${shortDir} | Better File Browser`;
   const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="%230d1117"/><path d="M3 12.5A1.5 1.5 0 0 1 4.5 11h5.5l2.5 3H28a1.5 1.5 0 0 1 1.5 1.5V24A1.5 1.5 0 0 1 28 25.5H4.5A1.5 1.5 0 0 1 3 24z" fill="%234a9eff"/><path d="M9 18.5h14M9 22h9" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/></svg>`;
@@ -511,6 +519,7 @@ import { getIcon } from './icons';
   // Tab strip: this Chrome tab's working set. Navigation is real, so the
   // address bar is always the active tab's location.
   const strip = mountStrip({ el: document.getElementById('fe-tabs')!, rawPath, toast, onSavedChange: () => refreshSaved() });
+  const filePage: FileContent | null = fileMode ? mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href }) : null;
 
   // ── View buttons ──────────────────────────────────────────────────
   document.querySelectorAll<HTMLButtonElement>('.fe-view-btn').forEach(btn => {
@@ -807,7 +816,7 @@ import { getIcon } from './icons';
     }
     fallbackCopy(path);
   }
-  document.getElementById('fe-term-btn')!.addEventListener('click', () => openInTerminal(rawPath));
+  document.getElementById('fe-term-btn')!.addEventListener('click', () => openInTerminal(folderPath));
   function fallbackCopy(path: string): void {
     const cmd = getTermCmd(path);
     navigator.clipboard.writeText(cmd).catch(() => {});
@@ -1073,6 +1082,7 @@ import { getIcon } from './icons';
   }
 
   function goUp(): void {
+    if (fileMode) { location.href = 'file://' + folderPath; return; }
     const up = ALL_ENTRIES.find(x => x.isParent);
     if (up) location.href = up.href;
     else if (rawPath !== '/') location.href = 'file:///';
@@ -1082,6 +1092,7 @@ import { getIcon } from './icons';
     // Cmd/Ctrl+F focuses the list filter; when it's already focused, fall
     // through so the browser's native find opens instead.
     if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'f') {
+      if (fileMode) return;   // Chrome's find is the right one on a file page
       const s = document.getElementById('fe-search') as HTMLInputElement;
       if (document.activeElement !== s) { e.preventDefault(); s.focus(); s.select(); }
       return;
@@ -1101,7 +1112,8 @@ import { getIcon } from './icons';
       else if (e.key === 'ArrowUp'   || e.key === 'ArrowLeft')  { e.preventDefault(); previewStep(-1); }
       return;
     }
-    if      (e.key === 'ArrowDown') { e.preventDefault(); moveSel(1); }
+    if (filePage && e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); filePage.toggleRaw(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); moveSel(1); }
     else if (e.key === 'ArrowUp')   { e.preventDefault(); moveSel(-1); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); selectAll(); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c' && selSet.size) { e.preventDefault(); copySelection(); }
@@ -1195,7 +1207,7 @@ import { getIcon } from './icons';
     const hint = document.getElementById('fe-st-term-hint');
     if (!hint) return;
     const cmd = app === 'custom' ? (settings.terminalCmd || '') : (TERMINAL_CMDS[app] || '');
-    hint.textContent = cmd ? `Command: ${cmd.replace(/\$\{p\}/g, rawPath)}` : '';
+    hint.textContent = cmd ? `Command: ${cmd.replace(/\$\{p\}/g, folderPath)}` : '';
   }
 
   function openSettings(): void {
@@ -1527,7 +1539,10 @@ import { getIcon } from './icons';
   function attachNoteEvents(root: string): void {
     ntList.querySelectorAll<HTMLElement>('.fe-nt-item').forEach(item => {
       const rel = item.dataset.rel!;
-      item.querySelector('.fe-si-link')!.addEventListener('click', e => { e.preventDefault(); openNoteRel(root, rel); });
+      item.querySelector<HTMLElement>('.fe-si-link')!.addEventListener('click', e => {
+        if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;   // the shell's gestures take those
+        e.preventDefault(); openNoteRel(root, rel);
+      });
       item.querySelector<HTMLElement>('.fe-nt-label')!.addEventListener('dblclick', e => {
         e.preventDefault(); e.stopPropagation();
         inlineEdit(e.currentTarget as HTMLElement, val => {
@@ -1553,6 +1568,39 @@ import { getIcon } from './icons';
   }
   document.getElementById('fe-nt-add')!.addEventListener('click', newNote);
   refreshNotes();
+
+  // Sidebar, path bar and crumb dropdown share the listing's gestures: a
+  // plain click goes, or looks when the row is a previewable file; alt keeps
+  // a background tab; Chrome's own modifier and middle clicks pass through.
+  const anchorPath = (a: HTMLAnchorElement) => decodeURIComponent((a.getAttribute('href') || '').slice(7));
+  const entryFor = (path: string, href: string): Entry => {
+    const name = path.split('/').pop() || path;
+    return { name, href, isDir: false, isParent: false, isHidden: name.startsWith('.'), rawBytes: -1, dateMs: NaN, dateStr: '' };
+  };
+  for (const host of [document.getElementById('fe-side')!, document.getElementById('fe-bc')!, crumbMenu]) {
+    host.addEventListener('click', e => {
+      const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="file://"]');
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+      const path = anchorPath(a);
+      if (e.altKey) { e.preventDefault(); strip.open(path.split('#')[0], true); return; }
+      if (a.closest('#fe-nt-list') || path.includes('#') || path.endsWith('/')) return;
+      const en = entryFor(path, a.href);
+      if (!canPreview(en)) return;
+      e.preventDefault();
+      if (lookTimer) clearTimeout(lookTimer);
+      if (e.detail > 1) return;
+      lookTimer = setTimeout(() => { lookTimer = null; openPreview(en); }, 220);
+    });
+    host.addEventListener('dblclick', e => {
+      const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="file://"]');
+      if (!a || (e.target as HTMLElement).closest('.fe-pl-label, .fe-nt-label')) return;
+      const path = anchorPath(a);
+      if (path.endsWith('/') || path.includes('#')) return;
+      e.preventDefault();
+      if (lookTimer) { clearTimeout(lookTimer); lookTimer = null; }
+      location.href = a.href;
+    });
+  }
 
   // The first render drew the listing raw; apply the persisted sort/group
   // last, once every handler applyAll touches (selection included) exists.

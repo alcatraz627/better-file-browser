@@ -43,7 +43,7 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 ## Selecting & opening
 
 - Click a file to look at it in the panel; the address bar stays put. Click a folder to go there. **Double-click** a file to open its page in this tab.
-- **⌥-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab.
+- **⌥-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab. The same gestures work on sidebar rows and on path segments.
 - **↑ / ↓** move the selection, **Enter** opens, **Backspace** or **⌘↑** goes up.
 - **Multi-select**: **shift-click** or **⌘/Ctrl-click** toggles a row, **⇧⌘-click** selects a range, **⌘A** selects all. **⌘C** copies the selected paths.
 - **Right-click** an item for Copy path, Copy name, Open in terminal — plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
@@ -63,10 +63,12 @@ your clipboard. Choose your terminal in **Settings → Terminal**.
 ## File pages
 
 A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt)
-renders like the preview instead of Chrome's plain text: folder crumbs, a
-heading table of contents for markdown, **r** for raw, a remembered scroll
-position, and a re-render whenever the file changes on disk. **Settings →
-Files** can limit this to non-markdown files or turn it off.
+renders like the preview instead of Chrome's plain text, inside the same
+shell as a folder: the sidebar, the strip and the path bar stay where they
+are. The main column shows a heading table of contents for markdown, **r**
+for raw, a remembered scroll position, and a re-render whenever the file
+changes on disk. **Settings → Files** can limit this to non-markdown files or
+turn it off.
 ` },
   { key: 'preview', label: 'Preview and Notes', hint: 'panel, editor, AI', md: `
 ## File preview (Quick Look)

@@ -396,7 +396,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-tab-ico{display:flex;flex-shrink:0}
 .fe-tab-ico svg{width:11px;height:12px}
 .fe-tab-menu{position:fixed}
-#fe.fe-file-page #fe-body{display:flex;flex:1;min-height:0}
+#fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
+#fe-fp-bar{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-fp{display:flex;flex:1;min-height:0}
 #fe-toc{width:220px;flex-shrink:0;overflow-y:auto;background:var(--s1);border-right:1px solid var(--bd);padding:10px 0;font-size:12px}
 #fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fe-toc a:hover{color:var(--ac);background:var(--hover)}
@@ -404,7 +406,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-page{flex:1;min-width:0;overflow:auto;font-size:12px}
 #fe-page .fe-md{max-width:none;margin:0;padding:24px 40px 60px;font-size:14px}
 .fe-crumb-file{color:var(--tx);font-weight:500}
-#fe-fp-meta{font-size:11px;color:var(--dm);margin-right:4px;white-space:nowrap}
+#fe-fp-meta{font-size:11px;color:var(--dm);margin-right:auto;white-space:nowrap}
 #fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
 #fe-fp-raw:hover,#fe-fp-copy:hover{border-color:var(--ac);color:var(--ac)}
 #fe-fp-raw.on{border-color:var(--ac);color:var(--ac);background:var(--act)}

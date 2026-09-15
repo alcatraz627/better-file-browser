@@ -491,7 +491,7 @@ export function openPreview(e: Entry): void {
   nameEl.textContent = e.name;
   nameEl.href = e.href;
   document.getElementById('fe-ql-meta')!.textContent =
-    `${fmtSize(e.rawBytes)}${ext ? ' · .' + ext : ''}`;
+    [e.rawBytes >= 0 ? fmtSize(e.rawBytes) : '', ext ? '.' + ext : ''].filter(Boolean).join(' · ');
   (document.getElementById('fe-ql-open') as HTMLAnchorElement).href = e.href;
   const body = document.getElementById('fe-ql-body')!;
   if (overlay.style.display === 'none') rememberFocus();
