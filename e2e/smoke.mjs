@@ -387,6 +387,24 @@ try {
   const shallowRows = await page.$$eval('#fe-tbody tr[data-idx]', els => els.length);
   check(shallowRows === 9, `deep off restores ${shallowRows} rows`);
 
+  // Tile views: no stretch under icons; the page background follows the theme.
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="icons"]').click());
+  const tileRows = await page.$$eval('#fe-tiles .fe-tile', all => {
+    const els = all.filter(e => e.offsetHeight > 0);   // hidden dotfile tiles are display:none
+    const tops = [...new Set(els.map(e => e.offsetTop))];
+    const hs = els.map(e => e.offsetHeight);
+    return { rows: tops.length, maxH: Math.max(...hs), minH: Math.min(...hs) };
+  });
+  check(tileRows.maxH - tileRows.minH <= 40, `icon tiles keep their own height (rows=${tileRows.rows}, heights ${tileRows.minH}-${tileRows.maxH})`);
+  await shot(page, 'view-icons');
+  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="tiles"]').click());
+  await shot(page, 'view-tiles');
+  const htmlBg = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+  const feBg = await page.$eval('#fe', el => getComputedStyle(el).backgroundColor);
+  check(htmlBg === feBg, `html background matches the theme (${htmlBg} vs ${feBg})`);
+  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="details"]').click());
+
   // Sort + view persist across a folder change and a reload.
   await page.click('th[data-sort="size"]');
   await page.click('th[data-sort="size"]');
