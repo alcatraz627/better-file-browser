@@ -10,7 +10,7 @@ import {
   parseDSV, numericCols, sortDSVRows, renderDSVTable,
   sniffBinary,
 } from './renderers';
-import { fetchFileText } from './file-fetch';
+import { fetchFileText, FileFetchError } from './file-fetch';
 import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
@@ -291,7 +291,13 @@ function fetchAndRender(e: Entry, ext: string, seq: number): void {
     .catch(err => {
       if (seq !== reqSeq) return;
       console.error('[BFB] preview failed:', e.href, err);
-      body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div></div>`;
+      const stale = err instanceof FileFetchError && err.code === 'context-invalidated';
+      body.innerHTML = stale
+        ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="fe-pbn">Refresh page</button></div>`
+        : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="fe-pbn">Retry</button></div>`;
+      document.getElementById('fe-ql-retry')!.addEventListener('click', () => {
+        if (stale) location.reload(); else fetchAndRender(e, ext, seq);
+      });
     });
 }
 

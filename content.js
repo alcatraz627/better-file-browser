@@ -1020,6 +1020,13 @@
   }
 
   // src/file-fetch.ts
+  var FileFetchError = class extends Error {
+    constructor(code, message) {
+      super(message);
+      this.code = code;
+      this.name = "FileFetchError";
+    }
+  };
   function xhrDirect(url) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -1029,25 +1036,36 @@
       xhr.send();
     });
   }
-  function fetchFileText(rawUrl) {
+  function relayOnce(url) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "bfb-fetch", url }, (res) => {
+        if (chrome.runtime.lastError || !res) resolve(null);
+        else resolve(res);
+      });
+    });
+  }
+  var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function fetchFileText(rawUrl, attempts = 3, delayMs = 150) {
     const url = new URL(rawUrl, location.href).href;
-    return new Promise((resolve, reject) => {
-      let relayed = false;
+    for (let i = 0; i < attempts; i++) {
+      if (!chrome.runtime?.id) throw new FileFetchError("context-invalidated", "extension reloaded under this page");
+      let res;
       try {
-        chrome.runtime.sendMessage({ type: "bfb-fetch", url }, (res) => {
-          if (relayed) return;
-          relayed = true;
-          if (chrome.runtime.lastError || !res) {
-            xhrDirect(url).then(resolve, reject);
-          } else if (res.ok) {
-            resolve(res.text);
-          } else {
-            xhrDirect(url).then(resolve, () => reject(new Error(res.error || "read failed")));
-          }
-        });
-      } catch {
-        xhrDirect(url).then(resolve, reject);
+        res = await relayOnce(url);
+      } catch (e) {
+        throw new FileFetchError("context-invalidated", String(e));
       }
+      if (res === null) {
+        await sleep(delayMs * (i + 1));
+        continue;
+      }
+      if (res.ok) return res.text;
+      return xhrDirect(url).catch(() => {
+        throw new FileFetchError("read-failed", res.error || "read failed");
+      });
+    }
+    return xhrDirect(url).catch(() => {
+      throw new FileFetchError("read-failed", "no reply from the extension worker");
     });
   }
 
@@ -1446,7 +1464,12 @@
     }).catch((err) => {
       if (seq !== reqSeq) return;
       console.error("[BFB] preview failed:", e.href, err);
-      body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div></div>`;
+      const stale = err instanceof FileFetchError && err.code === "context-invalidated";
+      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="fe-pbn">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="fe-pbn">Retry</button></div>`;
+      document.getElementById("fe-ql-retry").addEventListener("click", () => {
+        if (stale) location.reload();
+        else fetchAndRender(e, ext, seq);
+      });
     });
   }
   function render(text, ext) {

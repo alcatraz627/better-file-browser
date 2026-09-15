@@ -81,6 +81,22 @@ try {
   st = await readState();
   check(st.sorted === 'size' && st.arrow === '↓' && st.view === 'tiles', `after reload: ${JSON.stringify(st)}`);
   await shot(page, 'persisted-sort-view');
+
+  // Reloading the extension orphans this page's content script. The preview
+  // must say so and offer a refresh instead of a bare "Could not read file".
+  await page.click('.fe-view-btn[data-view="details"]');
+  const sw = await h.browser.waitForTarget(t => t.type() === 'service_worker', { timeout: 5_000 });
+  const worker = await sw.worker();
+  await worker.evaluate(() => chrome.runtime.reload());
+  await new Promise(r => setTimeout(r, 1000));
+  const innerRow = await page.$('#fe-tbody tr[data-idx]:has(a[href$="inner.txt"]) td:last-child');
+  await innerRow.click();
+  await page.keyboard.press('Space');
+  await page.waitForSelector('#fe-ql-retry', { timeout: 5_000 }).catch(() => null);
+  const staleMsg = await page.$eval('#fe-ql-body .fe-ql-note', el => el.textContent).catch(() => null);
+  const staleBtn = await page.$eval('#fe-ql-retry', el => el.textContent).catch(() => null);
+  check(/reloaded/.test(staleMsg || '') && staleBtn === 'Refresh page', `stale context explained: "${staleMsg}" [${staleBtn}]`);
+  await shot(page, 'preview-stale-context');
 } finally {
   await h.close();
 }
