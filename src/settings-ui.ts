@@ -6,7 +6,7 @@ import type { LlmAvailability } from './llm';
 import { el, els } from './el';
 import { esc } from './utils';
 import { icoCustom } from './icons';
-import { VIEW_KEY, THEME_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, getView, saveIconRules, saveSettings } from './storage';
+import { VIEW_KEY, THEME_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout } from './storage';
 import { llmAvailability, llmWarm } from './llm';
 import { mountDialog } from './dialog';
 
@@ -50,6 +50,17 @@ export function initSettingsUi(app: App): void {
     el<HTMLInputElement>('fe-st-term-custom').value = settings.terminalCmd || '';
     el<HTMLInputElement>('fe-st-notes-root').value = settings.notesRoot || '';
     el<HTMLSelectElement>('fe-st-filepages').value = settings.renderFilePages || 'all';
+    el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
+    el<HTMLInputElement>('fe-st-sec-favorites').checked = !settings.hideFavorites;
+    el<HTMLInputElement>('fe-st-sec-system').checked = !settings.hideSystem;
+    el<HTMLInputElement>('fe-st-tooltips').checked = settings.tooltips !== false;
+    el<HTMLSelectElement>('fe-st-panel').value = getPreviewLayout().mode;
+    el<HTMLSelectElement>('fe-st-click').value = settings.clickOpens || 'look';
+    el<HTMLInputElement>('fe-st-strip-restore').checked = settings.stripRestore !== false;
+    el<HTMLInputElement>('fe-st-rd-column').checked = !!settings.readerColumn;
+    el<HTMLSelectElement>('fe-st-rd-size').value = String(settings.readerSize || 15);
+    el<HTMLSelectElement>('fe-st-rd-lh').value = String(settings.readerLineHeight || 1.65);
+    el<HTMLSelectElement>('fe-st-rd-code').value = String(settings.readerCodeSize || 13);
     updateTermHint();
     renderRulesList();
     refreshAiStatus();
@@ -126,6 +137,72 @@ export function initSettingsUi(app: App): void {
   el('fe-settings-btn').addEventListener('click', openSettings);
   const helpDlg = mountDialog('fe-help-modal');
   el('fe-help-btn').addEventListener('click', () => helpDlg.open());
+  el('fe-st-keys').addEventListener('click', () => { settingsDlg.close(); helpDlg.open('keys'); });
+
+  // Sidebar sections, tooltips, panel, click, tabs, reader, data.
+  const secToggle = (id: string, key: 'hideRecent' | 'hideFavorites' | 'hideSystem', sec: string) => {
+    el<HTMLInputElement>(id).addEventListener('change', function () {
+      settings[key] = !this.checked; saveSettings(settings);
+      const node = document.querySelector<HTMLElement>(`#fe-side .fe-sec[data-sec="${sec}"]`);
+      if (node) node.style.display = this.checked ? '' : 'none';
+    });
+  };
+  secToggle('fe-st-sec-recent', 'hideRecent', 'recent');
+  secToggle('fe-st-sec-favorites', 'hideFavorites', 'favorites');
+  secToggle('fe-st-sec-system', 'hideSystem', 'system');
+  el<HTMLInputElement>('fe-st-tooltips').addEventListener('change', function () {
+    settings.tooltips = this.checked; saveSettings(settings);
+    toast(this.checked ? 'Tooltips back after a reload' : 'Tooltips off after a reload');
+  });
+  el<HTMLSelectElement>('fe-st-panel').addEventListener('change', function () {
+    savePreviewLayout({ ...getPreviewLayout(), mode: this.value as 'modal' | 'side' });
+    toast('Applies to the next preview after a reload');
+  });
+  el('fe-st-panel-reset').addEventListener('click', () => {
+    savePreviewLayout({ mode: getPreviewLayout().mode });
+    toast('Panel sizes reset');
+  });
+  el<HTMLSelectElement>('fe-st-click').addEventListener('change', function () {
+    settings.clickOpens = this.value as 'look' | 'go'; saveSettings(settings);
+  });
+  el<HTMLInputElement>('fe-st-strip-restore').addEventListener('change', function () {
+    settings.stripRestore = this.checked; saveSettings(settings);
+  });
+  el<HTMLInputElement>('fe-st-rd-column').addEventListener('change', function () {
+    settings.readerColumn = this.checked; saveSettings(settings);
+  });
+  const readerVar = (id: string, key: 'readerSize' | 'readerLineHeight' | 'readerCodeSize', cssVar: string, unit: string) => {
+    el<HTMLSelectElement>(id).addEventListener('change', function () {
+      settings[key] = Number(this.value); saveSettings(settings);
+      fe.style.setProperty(cssVar, this.value + unit);
+    });
+  };
+  readerVar('fe-st-rd-size', 'readerSize', '--rd-size', 'px');
+  readerVar('fe-st-rd-lh', 'readerLineHeight', '--rd-lh', '');
+  readerVar('fe-st-rd-code', 'readerCodeSize', '--rd-code', 'px');
+  el('fe-st-export').addEventListener('click', () => {
+    const out: Record<string, unknown> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)!;
+      if (k.startsWith('bfb-')) { try { out[k] = JSON.parse(localStorage.getItem(k)!); } catch { out[k] = localStorage.getItem(k); } }
+    }
+    const text = JSON.stringify(out, null, 2);
+    const ta = el<HTMLTextAreaElement>('fe-st-export-out');
+    ta.value = text; ta.style.display = ''; ta.select();
+    navigator.clipboard.writeText(text).then(() => toast('Export copied to the clipboard'), () => toast('Export shown below'));
+  });
+  el('fe-st-import').addEventListener('click', () => el<HTMLInputElement>('fe-st-import-file').click());
+  el<HTMLInputElement>('fe-st-import-file').addEventListener('change', function () {
+    const f = this.files?.[0];
+    if (!f) return;
+    f.text().then(text => {
+      const data = JSON.parse(text) as Record<string, unknown>;
+      let n = 0;
+      for (const [k, v] of Object.entries(data)) if (k.startsWith('bfb-')) { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); n++; }
+      toast(`Imported ${n} keys, reloading`);
+      setTimeout(() => location.reload(), 600);
+    }).catch(() => toast('That file is not a JSON export'));
+  });
 
   els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => {
     r.addEventListener('change', () => { fe.dataset.theme = r.value; localStorage.setItem(THEME_KEY, r.value); });

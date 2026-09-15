@@ -46,7 +46,7 @@ export function initListingInput(app: App, listing: Listing): void {
     if (en.isDir) { location.href = en.href; return; }
     if (!sel.selectable(i)) return;
     sel.setSel(i);
-    if (!canPreview(en)) { location.href = en.href; return; }
+    if (!canPreview(en) || app.settings.clickOpens === 'go') { location.href = en.href; return; }
     // The panel waits out the double-click interval, or its scrim would
     // swallow the second click that means go; dblclick below does the going.
     if (lookTimer) clearTimeout(lookTimer);

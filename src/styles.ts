@@ -411,7 +411,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-toc a:hover{color:var(--ac);background:var(--hover)}
 #fe-toc a.fe-toc-h2{padding-left:24px}#fe-toc a.fe-toc-h3{padding-left:34px}#fe-toc a.fe-toc-h4{padding-left:44px}
 #fe-page{flex:1;min-width:0;overflow:auto;font-size:12px}
-#fe-page .fe-md{max-width:none;margin:0;padding:28px 48px 80px;font-size:15px;line-height:1.65}
+#fe-page .fe-md{max-width:none;margin:0;padding:28px 48px 80px;font-size:var(--rd-size,15px);line-height:var(--rd-lh,1.65)}
 #fe.fe-column #fe-page .fe-md{max-width:80ch;margin:0 auto}
 #fe-page .fe-md h1{font-size:26px;margin:8px 0 16px;padding-bottom:8px}
 #fe-page .fe-md h2{font-size:21px;margin:32px 0 12px;padding-bottom:6px}
@@ -420,8 +420,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-page .fe-md p{margin:12px 0}
 #fe-page .fe-md ul,#fe-page .fe-md ol{margin:10px 0;padding-left:28px}
 #fe-page .fe-md li{margin:5px 0}
-#fe-page .fe-md code{font-size:13px}
-#fe-page .fe-md-pre{font-size:13px;line-height:1.5}
+#fe-page .fe-md code{font-size:var(--rd-code,13px)}
+#fe-page .fe-md-pre{font-size:var(--rd-code,13px);line-height:1.5}
+#fe.fe-notips #fe-tip{display:none!important}
 #fe-page .fe-md-table{font-size:14px}
 #fe-page .fe-md-table th,#fe-page .fe-md-table td{padding:7px 13px}
 #fe-fp-toc,#fe-fp-column{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}

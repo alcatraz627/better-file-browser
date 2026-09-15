@@ -105,7 +105,13 @@ export async function launch({ headless = true } = {}) {
     const page = await browser.newPage();
     page.on('pageerror', e => console.error('[pageerror]', e.message));
     page.on('console', m => { if (m.type() === 'error') console.error('[console]', m.text()); });
-    await page.goto('file://' + dirPath + '/', { waitUntil: 'load' });
+    // A fresh target occasionally detaches mid-navigation on a busy browser; one retry covers it.
+    try { await page.goto('file://' + dirPath + '/', { waitUntil: 'load' }); }
+    catch (err) {
+      if (!/detached/.test(String(err))) throw err;
+      await new Promise(r => setTimeout(r, 400));
+      await page.goto('file://' + dirPath + '/', { waitUntil: 'load' });
+    }
     await page.waitForSelector('#fe', { timeout: 10_000 });
     return page;
   }

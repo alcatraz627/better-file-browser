@@ -549,7 +549,7 @@ try {
   // Dialogs: Help and Settings share one chrome. A title row with a mark and
   // a subtitle, a tab strip, one pane shown at a time; the chrome holds still
   // while a pane scrolls; Esc closes.
-  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 4, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 5, 'settings-dialog']]) {
+  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 4, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 7, 'settings-dialog']]) {
     await page.click(btn);
     await page.waitForFunction(i => document.getElementById(i).style.display !== 'none', { timeout: 3_000 }, id).catch(() => null);
     const d = await page.evaluate(i => {
@@ -596,6 +596,64 @@ try {
     check(closed, `${d.title}: Esc closes`);
   }
 
+  // Settings: sidebar sections off, click goes, reader size, export and
+  // import, tooltips off, the Keyboard link.
+  await page.click('#fe-settings-btn');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+  await page.click('#fe-st-sec-recent');
+  const recentHidden = await page.evaluate(() => getComputedStyle(document.querySelector('#fe-side .fe-sec[data-sec="recent"]')).display === 'none');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="preview"]');
+  await page.select('#fe-st-click', 'go');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="files"]');
+  await page.select('#fe-st-rd-size', '17');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="data"]');
+  await page.click('#fe-st-export');
+  const exported = await page.$eval('#fe-st-export-out', el => el.value);
+  let parsedExport = null;
+  try { parsedExport = JSON.parse(exported); } catch { parsedExport = null; }
+  check(recentHidden && parsedExport && parsedExport['bfb-settings-v1'] && parsedExport['bfb-settings-v1'].clickOpens === 'go' && parsedExport['bfb-settings-v1'].readerSize === 17 && 'bfb-saved-v1' in parsedExport,
+    `settings toggles apply and the export carries settings and Saved: recentHidden=${recentHidden} keys=${parsedExport ? Object.keys(parsedExport).length : 'none'}`);
+  await page.keyboard.press('Escape');
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  const afterSettings = await page.evaluate(() => ({
+    recent: getComputedStyle(document.querySelector('#fe-side .fe-sec[data-sec="recent"]')).display,
+    size: getComputedStyle(document.getElementById('fe')).getPropertyValue('--rd-size').trim(),
+  }));
+  await (await page.$('#fe-tbody a[href$="readme.md"]')).click();
+  await page.waitForSelector('#fe.fe-file-page', { timeout: 5_000 }).catch(() => null);
+  const goSize = await page.evaluate(() => getComputedStyle(document.querySelector('#fe-page .fe-md')).fontSize);
+  check(afterSettings.recent === 'none' && afterSettings.size === '17px' && page.url().endsWith('/readme.md') && goSize === '17px',
+    `after a reload Recent stays hidden, a plain click goes, and the file page reads at 17px: ${JSON.stringify({ ...afterSettings, goSize })}`);
+  await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  const importPath = join(tmpdir(), `bfb-import-${process.pid}.json`);
+  writeFileSync(importPath, JSON.stringify({ 'bfb-settings-v1': { clickOpens: 'look', hideRecent: false, readerSize: 15, tooltips: false, showSidebar: true }, 'bfb-saved-v1': [{ path: '/tmp/', label: 'tmp' }, { path: '/', label: 'Imported root' }] }));
+  await page.click('#fe-settings-btn');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="data"]');
+  const [chooser] = await Promise.all([page.waitForFileChooser({ timeout: 5_000 }), page.click('#fe-st-import')]);
+  await chooser.accept([importPath]);
+  await page.waitForFunction(() => [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].some(e => e.textContent === 'Imported root'), { timeout: 8_000 }).catch(() => null);
+  const imported = await page.evaluate(() => ({
+    labels: [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].map(e => e.textContent),
+    recent: getComputedStyle(document.querySelector('#fe-side .fe-sec[data-sec="recent"]')).display,
+    titles: document.querySelectorAll('#fe-bar [title]').length,
+  }));
+  check(imported.labels.join() === 'tmp,Imported root' && imported.recent !== 'none' && imported.titles === 0, `import restores Saved and settings, and tooltips off strips titles: ${JSON.stringify(imported)}`);
+  await page.click('#fe-settings-btn');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+  await page.click('#fe-st-tooltips');
+  await page.click('#fe-st-keys');
+  const keysOpen = await page.evaluate(() => ({ help: document.getElementById('fe-help-modal').style.display !== 'none', tab: document.querySelector('#fe-help-modal .fe-dlg-tab.on')?.dataset.tab, settings: document.getElementById('fe-settings-modal').style.display === 'none' }));
+  check(keysOpen.help && keysOpen.tab === 'keys' && keysOpen.settings, `the Keyboard link opens Help on its Keyboard tab: ${JSON.stringify(keysOpen)}`);
+  await page.keyboard.press('Escape');
+  await page.evaluate(fx => {
+    localStorage.setItem('bfb-settings-v1', JSON.stringify({ showSidebar: true, tooltips: true }));
+    localStorage.setItem('bfb-saved-v1', JSON.stringify([{ path: '/tmp/', label: 'tmp' }, { path: fx + '/', label: fx.split('/').pop() }, { path: fx + '/nested/', label: 'Nested (named)', tags: ['work', 'code'] }]));
+  }, h.fixture);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+
   // Tooltips: every control on every surface carries a title. Rows and tiles
   // use the custom hover tip instead, menu items are their own label.
   const SWEEP = 'button, a[href], input:not([type="hidden"]), select, [role="tab"], th[data-sort], .fe-crumb-dd, .fe-sv-dot';
@@ -624,7 +682,7 @@ try {
   await page.click('#fe-bc .fe-crumb-dd'); await new Promise(r => setTimeout(r, 400)); missing.push(...await sweep('crumb dropdown')); await page.keyboard.press('Escape');
   await page.click('#fe-help-btn'); missing.push(...await sweep('help')); await page.keyboard.press('Escape');
   await page.click('#fe-settings-btn');
-  for (let i = 1; i <= 5; i++) { await page.click(`#fe-settings-modal .fe-dlg-tab:nth-child(${i})`); missing.push(...await sweep(`settings ${i}`)); }
+  for (let i = 1; i <= 7; i++) { await page.click(`#fe-settings-modal .fe-dlg-tab:nth-child(${i})`); missing.push(...await sweep(`settings ${i}`)); }
   await page.keyboard.press('Escape');
   const fpage2 = await h.browser.newPage();
   await fpage2.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });

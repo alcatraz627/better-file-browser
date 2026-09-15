@@ -2620,7 +2620,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-toc a:hover{color:var(--ac);background:var(--hover)}
 #fe-toc a.fe-toc-h2{padding-left:24px}#fe-toc a.fe-toc-h3{padding-left:34px}#fe-toc a.fe-toc-h4{padding-left:44px}
 #fe-page{flex:1;min-width:0;overflow:auto;font-size:12px}
-#fe-page .fe-md{max-width:none;margin:0;padding:28px 48px 80px;font-size:15px;line-height:1.65}
+#fe-page .fe-md{max-width:none;margin:0;padding:28px 48px 80px;font-size:var(--rd-size,15px);line-height:var(--rd-lh,1.65)}
 #fe.fe-column #fe-page .fe-md{max-width:80ch;margin:0 auto}
 #fe-page .fe-md h1{font-size:26px;margin:8px 0 16px;padding-bottom:8px}
 #fe-page .fe-md h2{font-size:21px;margin:32px 0 12px;padding-bottom:6px}
@@ -2629,8 +2629,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-page .fe-md p{margin:12px 0}
 #fe-page .fe-md ul,#fe-page .fe-md ol{margin:10px 0;padding-left:28px}
 #fe-page .fe-md li{margin:5px 0}
-#fe-page .fe-md code{font-size:13px}
-#fe-page .fe-md-pre{font-size:13px;line-height:1.5}
+#fe-page .fe-md code{font-size:var(--rd-code,13px)}
+#fe-page .fe-md-pre{font-size:var(--rd-code,13px);line-height:1.5}
+#fe.fe-notips #fe-tip{display:none!important}
 #fe-page .fe-md-table{font-size:14px}
 #fe-page .fe-md-table th,#fe-page .fe-md-table td{padding:7px 13px}
 #fe-fp-toc,#fe-fp-column{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
@@ -2897,7 +2898,8 @@ td.c-tp{color:var(--dm);font-size:11px}
     const isMd = ext2 === "md" || ext2 === "mdx";
     let raw = false;
     let tocOpen = localStorage.getItem(TOC_KEY) !== "0";
-    let column = localStorage.getItem(COLUMN_KEY) === "1";
+    const columnStored = localStorage.getItem(COLUMN_KEY);
+    let column = columnStored === null ? !!opts.column : columnStored === "1";
     const fe = document.getElementById("fe");
     meta.textContent = fmtSize(new Blob([text]).size);
     const paint = () => {
@@ -3358,7 +3360,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       sid = Math.random().toString(36).slice(2, 12);
       writeSession(sid, state, closed);
       render2();
-      void recover();
+      if (host.restore !== false) void recover();
     }
     window.addEventListener("pagehide", () => writeRecovery(sid, state, true));
     return {
@@ -3782,6 +3784,16 @@ Folders you visited lately, and quick jumps (Root, Home, \u2026).
             <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar" title="Saved, Notes, Recent and Favorites on the left"> Show sidebar</label>
           </div>
           <div class="fe-st-row">
+            <span class="fe-st-lbl">Sidebar sections</span>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Folders you visited lately"> Recent</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-favorites" title="Finder Favorites"> Favorites</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-system" title="Root and Home"> System</label>
+          </div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-tooltips" title="Native tooltips on every control"> Tooltips</label>
+            <button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">Keyboard shortcuts</button>
+          </div>
+          <div class="fe-st-row">
             <span class="fe-st-lbl">Date format</span>
             <select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads">
               <option value="short">Short \u2014 Apr 17</option>
@@ -3790,7 +3802,46 @@ Folders you visited lately, and quick jumps (Root, Home, \u2026).
           </div>
         </div>
 ` },
-        { key: "files", label: "Files", hint: "file pages, icon rules", body: `
+        { key: "preview", label: "Preview", hint: "panel, click, tabs", body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Panel</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Placement</span>
+            <select id="fe-st-panel" class="fe-st-select" title="Where the preview opens">
+              <option value="modal">Floating window</option>
+              <option value="side">Docked to the side</option>
+            </select>
+            <button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">Reset sizes</button>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Click on a file</span>
+            <select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does">
+              <option value="look">Look: open the panel</option>
+              <option value="go">Go: open its page</option>
+            </select>
+          </div>
+        </div>
+        <div class="fe-st-section">
+          <div class="fe-st-title">Tabs</div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-strip-restore" title="Bring back the strip of a Chrome tab closed within a day"> Restore closed strips</label>
+          </div>
+        </div>` },
+        { key: "files", label: "Files", hint: "file pages, reader, icon rules", body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Reader</div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-rd-column" title="Start file pages in the 80-character reading column"> Reading column by default</label>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Text size</span>
+            <select id="fe-st-rd-size" class="fe-st-select" title="Body size on file pages">${[13, 14, 15, 16, 17].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>
+            <span class="fe-st-lbl">Line height</span>
+            <select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${["1.5", "1.65", "1.8"].map((n) => `<option value="${n}">${n}</option>`).join("")}</select>
+            <span class="fe-st-lbl">Code size</span>
+            <select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>
+          </div>
+        </div>
         <div class="fe-st-section">
           <div class="fe-st-title">File pages</div>
           <div class="fe-st-row">
@@ -3849,6 +3900,16 @@ Folders you visited lately, and quick jumps (Root, Home, \u2026).
           <div class="fe-st-hint" id="fe-st-term-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
         </div>
 ` },
+        { key: "data", label: "Data", hint: "export, import", body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Settings and Saved list</div>
+          <div class="fe-st-row">
+            <button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">Export</button>
+            <button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">Import</button>
+            <input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">
+          </div>
+          <textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px 'SF Mono',Menlo,monospace" spellcheck="false" title="The export, also on the clipboard"></textarea>
+        </div>` },
         { key: "ai", label: "AI", hint: "local model", body: `
         <div class="fe-st-section">
           <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
@@ -3913,14 +3974,14 @@ Folders you visited lately, and quick jumps (Root, Home, \u2026).
           <button id="fe-nt-add" title="New note (n)">+</button></div>
         <div id="fe-nt-list"></div>
       </div>${recentsHTML}
-      <div class="fe-sec">
+      <div class="fe-sec" data-sec="favorites"${settings.hideFavorites ? ' style="display:none"' : ""}>
         <div class="fe-sh">Finder Favorites</div>
         ${FINDER_FAVORITES.map(
       (p2) => `<a href="${p2.href}" class="fe-si${p2.href.replace(/\/$/, "") === "file://" + rawPath.replace(/\/$/, "") ? " active" : ""}" title="${p2.label}
 ${p2.href}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${p2.label}</span></a>`
     ).join("")}
       </div>
-      <div class="fe-sec">
+      <div class="fe-sec" data-sec="system"${settings.hideSystem ? ' style="display:none"' : ""}>
         <div class="fe-sh">System</div>
         <a href="file:///" class="fe-si" title="Root
 file:///">${PI.root}<span class="fe-sl">Root /</span></a>
@@ -4808,7 +4869,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       }
       if (!sel.selectable(i)) return;
       sel.setSel(i);
-      if (!canPreview(en)) {
+      if (!canPreview(en) || app.settings.clickOpens === "go") {
         location.href = en.href;
         return;
       }
@@ -5273,6 +5334,17 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-st-term-custom").value = settings.terminalCmd || "";
       el("fe-st-notes-root").value = settings.notesRoot || "";
       el("fe-st-filepages").value = settings.renderFilePages || "all";
+      el("fe-st-sec-recent").checked = !settings.hideRecent;
+      el("fe-st-sec-favorites").checked = !settings.hideFavorites;
+      el("fe-st-sec-system").checked = !settings.hideSystem;
+      el("fe-st-tooltips").checked = settings.tooltips !== false;
+      el("fe-st-panel").value = getPreviewLayout().mode;
+      el("fe-st-click").value = settings.clickOpens || "look";
+      el("fe-st-strip-restore").checked = settings.stripRestore !== false;
+      el("fe-st-rd-column").checked = !!settings.readerColumn;
+      el("fe-st-rd-size").value = String(settings.readerSize || 15);
+      el("fe-st-rd-lh").value = String(settings.readerLineHeight || 1.65);
+      el("fe-st-rd-code").value = String(settings.readerCodeSize || 13);
       updateTermHint();
       renderRulesList();
       refreshAiStatus();
@@ -5340,6 +5412,90 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     el("fe-settings-btn").addEventListener("click", openSettings);
     const helpDlg = mountDialog("fe-help-modal");
     el("fe-help-btn").addEventListener("click", () => helpDlg.open());
+    el("fe-st-keys").addEventListener("click", () => {
+      settingsDlg.close();
+      helpDlg.open("keys");
+    });
+    const secToggle = (id, key, sec) => {
+      el(id).addEventListener("change", function() {
+        settings[key] = !this.checked;
+        saveSettings(settings);
+        const node = document.querySelector(`#fe-side .fe-sec[data-sec="${sec}"]`);
+        if (node) node.style.display = this.checked ? "" : "none";
+      });
+    };
+    secToggle("fe-st-sec-recent", "hideRecent", "recent");
+    secToggle("fe-st-sec-favorites", "hideFavorites", "favorites");
+    secToggle("fe-st-sec-system", "hideSystem", "system");
+    el("fe-st-tooltips").addEventListener("change", function() {
+      settings.tooltips = this.checked;
+      saveSettings(settings);
+      toast(this.checked ? "Tooltips back after a reload" : "Tooltips off after a reload");
+    });
+    el("fe-st-panel").addEventListener("change", function() {
+      savePreviewLayout({ ...getPreviewLayout(), mode: this.value });
+      toast("Applies to the next preview after a reload");
+    });
+    el("fe-st-panel-reset").addEventListener("click", () => {
+      savePreviewLayout({ mode: getPreviewLayout().mode });
+      toast("Panel sizes reset");
+    });
+    el("fe-st-click").addEventListener("change", function() {
+      settings.clickOpens = this.value;
+      saveSettings(settings);
+    });
+    el("fe-st-strip-restore").addEventListener("change", function() {
+      settings.stripRestore = this.checked;
+      saveSettings(settings);
+    });
+    el("fe-st-rd-column").addEventListener("change", function() {
+      settings.readerColumn = this.checked;
+      saveSettings(settings);
+    });
+    const readerVar = (id, key, cssVar, unit) => {
+      el(id).addEventListener("change", function() {
+        settings[key] = Number(this.value);
+        saveSettings(settings);
+        fe.style.setProperty(cssVar, this.value + unit);
+      });
+    };
+    readerVar("fe-st-rd-size", "readerSize", "--rd-size", "px");
+    readerVar("fe-st-rd-lh", "readerLineHeight", "--rd-lh", "");
+    readerVar("fe-st-rd-code", "readerCodeSize", "--rd-code", "px");
+    el("fe-st-export").addEventListener("click", () => {
+      const out = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k.startsWith("bfb-")) {
+          try {
+            out[k] = JSON.parse(localStorage.getItem(k));
+          } catch {
+            out[k] = localStorage.getItem(k);
+          }
+        }
+      }
+      const text = JSON.stringify(out, null, 2);
+      const ta = el("fe-st-export-out");
+      ta.value = text;
+      ta.style.display = "";
+      ta.select();
+      navigator.clipboard.writeText(text).then(() => toast("Export copied to the clipboard"), () => toast("Export shown below"));
+    });
+    el("fe-st-import").addEventListener("click", () => el("fe-st-import-file").click());
+    el("fe-st-import-file").addEventListener("change", function() {
+      const f = this.files?.[0];
+      if (!f) return;
+      f.text().then((text) => {
+        const data = JSON.parse(text);
+        let n = 0;
+        for (const [k, v] of Object.entries(data)) if (k.startsWith("bfb-")) {
+          localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
+          n++;
+        }
+        toast(`Imported ${n} keys, reloading`);
+        setTimeout(() => location.reload(), 600);
+      }).catch(() => toast("That file is not a JSON export"));
+    });
     els('input[name="bfb-theme"]').forEach((r) => {
       r.addEventListener("change", () => {
         fe.dataset.theme = r.value;
@@ -5507,7 +5663,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const recents = getRecents().filter((r) => r.path !== folderPath).slice(0, 6);
     pushRecent(folderPath);
     const recentsHTML = recents.length ? `
-      <div class="fe-sec">
+      <div class="fe-sec" data-sec="recent"${settings.hideRecent ? ' style="display:none"' : ""}>
         <div class="fe-sh">Recent</div>
         ${recents.map((r) => {
       const lbl = r.path.split("/").filter(Boolean).pop() || "/";
@@ -5546,6 +5702,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const fe = el("fe");
     if (!settings.showSidebar) el("fe-side").style.display = "none";
     if (settings.compactMode) fe.classList.add("compact");
+    fe.style.setProperty("--rd-size", `${settings.readerSize || 15}px`);
+    fe.style.setProperty("--rd-lh", String(settings.readerLineHeight || 1.65));
+    fe.style.setProperty("--rd-code", `${settings.readerCodeSize || 13}px`);
+    if (settings.tooltips === false) fe.classList.add("fe-notips");
     const app = {
       fileMode,
       rawPath,
@@ -5581,8 +5741,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       app.strip.open(path, true);
       app.toast("Kept as a tab");
     } });
-    app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
-    if (fileMode) app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href });
+    app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore !== false });
+    if (fileMode) app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href, column: !!settings.readerColumn });
     initChrome(app);
     initMarkdownUi(app.toast);
     const listing = initListing(app, entries, { view: initView, zoom: initZoom, hidden: initHidden });
@@ -5591,5 +5751,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     initSidebar(app);
     if (listing.ls.sort.col || listing.ls.group !== "none") listing.applyAll();
     listing.applyFindFromHash();
+    if (settings.tooltips === false) {
+      const strip = () => document.querySelectorAll("[title]").forEach((x) => x.removeAttribute("title"));
+      strip();
+      new MutationObserver(strip).observe(fe, { childList: true, subtree: true });
+    }
   })();
 })();

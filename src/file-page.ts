@@ -91,7 +91,7 @@ export function renderFileContent(): string {
 
 export interface FileContent { toggleRaw(): void }
 
-export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string }): FileContent {
+export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean }): FileContent {
   const { ext, rawPath, href } = opts;
   let text = opts.text;
   const page = document.getElementById('fe-page')!;
@@ -105,7 +105,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   // Two remembered choices: the ToC rail open, and a reading column instead
   // of the full width (full width is the owner's default).
   let tocOpen = localStorage.getItem(TOC_KEY) !== '0';
-  let column = localStorage.getItem(COLUMN_KEY) === '1';
+  const columnStored = localStorage.getItem(COLUMN_KEY);
+  let column = columnStored === null ? !!opts.column : columnStored === '1';
   const fe = document.getElementById('fe')!;
 
   meta.textContent = fmtSize(new Blob([text]).size);

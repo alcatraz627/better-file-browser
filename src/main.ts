@@ -69,7 +69,7 @@ import { initMarkdownUi } from './md-ui';
   const recents = getRecents().filter(r => r.path !== folderPath).slice(0, 6);
   pushRecent(folderPath);
   const recentsHTML = recents.length ? `
-      <div class="fe-sec">
+      <div class="fe-sec" data-sec="recent"${settings.hideRecent ? ' style="display:none"' : ''}>
         <div class="fe-sh">Recent</div>
         ${recents.map(r => {
           const lbl = r.path.split('/').filter(Boolean).pop() || '/';
@@ -97,6 +97,10 @@ import { initMarkdownUi } from './md-ui';
   const fe = el('fe');
   if (!settings.showSidebar) el('fe-side').style.display = 'none';
   if (settings.compactMode) fe.classList.add('compact');
+  fe.style.setProperty('--rd-size', `${settings.readerSize || 15}px`);
+  fe.style.setProperty('--rd-lh', String(settings.readerLineHeight || 1.65));
+  fe.style.setProperty('--rd-code', `${settings.readerCodeSize || 13}px`);
+  if (settings.tooltips === false) fe.classList.add('fe-notips');
 
   const app: App = {
     fileMode, rawPath, folderPath, fileName, fe, settings, iconRules,
@@ -116,8 +120,8 @@ import { initMarkdownUi } from './md-ui';
   initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); } });
   // The strip: this Chrome tab's working set. Navigation is real, so the
   // address bar is always the active tab's location.
-  app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
-  if (fileMode) app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href });
+  app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore !== false });
+  if (fileMode) app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href, column: !!settings.readerColumn });
 
   initChrome(app);
   initMarkdownUi(app.toast);
@@ -130,4 +134,10 @@ import { initMarkdownUi } from './md-ui';
   // last, once every handler applyAll touches (selection included) exists.
   if (listing.ls.sort.col || listing.ls.group !== 'none') listing.applyAll();
   listing.applyFindFromHash();
+  // Tooltips off: strip every title now and after each listing render.
+  if (settings.tooltips === false) {
+    const strip = () => document.querySelectorAll('[title]').forEach(x => x.removeAttribute('title'));
+    strip();
+    new MutationObserver(strip).observe(fe, { childList: true, subtree: true });
+  }
 })();

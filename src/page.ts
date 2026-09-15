@@ -84,6 +84,16 @@ export function renderPage(p: PageParams): string {
             <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar" title="Saved, Notes, Recent and Favorites on the left"> Show sidebar</label>
           </div>
           <div class="fe-st-row">
+            <span class="fe-st-lbl">Sidebar sections</span>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Folders you visited lately"> Recent</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-favorites" title="Finder Favorites"> Favorites</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-system" title="Root and Home"> System</label>
+          </div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-tooltips" title="Native tooltips on every control"> Tooltips</label>
+            <button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">Keyboard shortcuts</button>
+          </div>
+          <div class="fe-st-row">
             <span class="fe-st-lbl">Date format</span>
             <select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads">
               <option value="short">Short — Apr 17</option>
@@ -92,7 +102,46 @@ export function renderPage(p: PageParams): string {
           </div>
         </div>
 ` },
-      { key: 'files', label: 'Files', hint: 'file pages, icon rules', body: `
+      { key: 'preview', label: 'Preview', hint: 'panel, click, tabs', body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Panel</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Placement</span>
+            <select id="fe-st-panel" class="fe-st-select" title="Where the preview opens">
+              <option value="modal">Floating window</option>
+              <option value="side">Docked to the side</option>
+            </select>
+            <button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">Reset sizes</button>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Click on a file</span>
+            <select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does">
+              <option value="look">Look: open the panel</option>
+              <option value="go">Go: open its page</option>
+            </select>
+          </div>
+        </div>
+        <div class="fe-st-section">
+          <div class="fe-st-title">Tabs</div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-strip-restore" title="Bring back the strip of a Chrome tab closed within a day"> Restore closed strips</label>
+          </div>
+        </div>` },
+      { key: 'files', label: 'Files', hint: 'file pages, reader, icon rules', body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Reader</div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-rd-column" title="Start file pages in the 80-character reading column"> Reading column by default</label>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Text size</span>
+            <select id="fe-st-rd-size" class="fe-st-select" title="Body size on file pages">${[13, 14, 15, 16, 17].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>
+            <span class="fe-st-lbl">Line height</span>
+            <select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${['1.5', '1.65', '1.8'].map(n => `<option value="${n}">${n}</option>`).join('')}</select>
+            <span class="fe-st-lbl">Code size</span>
+            <select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>
+          </div>
+        </div>
         <div class="fe-st-section">
           <div class="fe-st-title">File pages</div>
           <div class="fe-st-row">
@@ -151,6 +200,16 @@ export function renderPage(p: PageParams): string {
           <div class="fe-st-hint" id="fe-st-term-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
         </div>
 ` },
+      { key: 'data', label: 'Data', hint: 'export, import', body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Settings and Saved list</div>
+          <div class="fe-st-row">
+            <button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">Export</button>
+            <button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">Import</button>
+            <input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">
+          </div>
+          <textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px 'SF Mono',Menlo,monospace" spellcheck="false" title="The export, also on the clipboard"></textarea>
+        </div>` },
       { key: 'ai', label: 'AI', hint: 'local model', body: `
         <div class="fe-st-section">
           <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
@@ -213,13 +272,13 @@ export function renderPage(p: PageParams): string {
           <button id="fe-nt-add" title="New note (n)">+</button></div>
         <div id="fe-nt-list"></div>
       </div>${recentsHTML}
-      <div class="fe-sec">
+      <div class="fe-sec" data-sec="favorites"${settings.hideFavorites ? ' style="display:none"' : ''}>
         <div class="fe-sh">Finder Favorites</div>
         ${FINDER_FAVORITES.map(p =>
           `<a href="${p.href}" class="fe-si${p.href.replace(/\/$/, '') === 'file://' + rawPath.replace(/\/$/, '') ? ' active' : ''}" title="${p.label}\n${p.href}">${(PI[p.icon] ?? PI.folder)}<span class="fe-sl">${p.label}</span></a>`
         ).join('')}
       </div>
-      <div class="fe-sec">
+      <div class="fe-sec" data-sec="system"${settings.hideSystem ? ' style="display:none"' : ''}>
         <div class="fe-sh">System</div>
         <a href="file:///" class="fe-si" title="Root\nfile:///">${PI.root}<span class="fe-sl">Root /</span></a>
         <a href="file:///Users/alcatraz627/" class="fe-si" title="Home\nfile:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>

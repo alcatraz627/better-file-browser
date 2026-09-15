@@ -49,14 +49,14 @@ knobs the first two passes create.
 
 | # | Item | Default | Check |
 |---|---|---|---|
-| S1 | Sidebar sections on or off: Recent, Finder Favorites, System | **default** | off hides the section after reload |
-| S2 | Click on a file: look in the panel, or go to its page | **default**, look | the go setting makes a plain click navigate |
-| S3 | Preview: default placement floating or docked; reset the remembered sizes | **default** | a fresh profile opens docked when set |
-| S4 | Reader: column width (80ch or full), base size 13 to 17, line height 1.5 to 1.8, code size | **default** | the file page follows the values |
-| S5 | Strip: restore closed strips on or off; reopen stack depth | **default** | off skips recovery |
-| S6 | Export and import settings plus the Saved list as one JSON file | **default** | export, wipe, import, same Saved rows |
-| S7 | Tooltips on or off | **default**, on | off strips every title |
-| S8 | Keyboard tab of Help reachable from Settings by a link | **default** | the link opens Help on Keyboard |
+| S1 | Sidebar sections on or off: Recent, Finder Favorites, System | **default**, shipped | e2e: Recent off stays hidden after a reload |
+| S2 | Click on a file: look in the panel, or go to its page | **default**, look, shipped | e2e: with go, a plain click reaches the file page |
+| S3 | Preview: default placement floating or docked; reset the remembered sizes | **default**, shipped, unchecked in e2e | placement writes the remembered layout mode; Reset sizes clears the dragged sizes |
+| S4 | Reader: column width (80ch or full), base size 13 to 17, line height 1.5 to 1.8, code size | **default**, shipped | e2e: 17px shows on the file page after a reload |
+| S5 | Strip: restore closed strips on or off; reopen stack depth | **default**, shipped, unchecked in e2e | the strip skips recovery when off |
+| S6 | Export and import settings plus the Saved list as one JSON file | **default**, shipped | e2e: export carries settings and Saved; import restores both and reloads |
+| S7 | Tooltips on or off | **default**, on, shipped | e2e: off leaves the path bar with no titles |
+| S8 | Keyboard tab of Help reachable from Settings by a link | **default**, shipped | e2e: the button opens Help on its Keyboard tab |
 
 ## Out of scope in this pass
 

@@ -22,6 +22,7 @@ export interface StripHost {
   rawPath: string;
   toast: Toast;
   onSavedChange?: () => void;
+  restore?: boolean;   // bring a closed Chrome tab's strip back; default on
 }
 export interface Strip {
   // True when the key was a strip key and has been handled.
@@ -287,7 +288,7 @@ export function mountStrip(host: StripHost): Strip {
     sid = Math.random().toString(36).slice(2, 12);
     writeSession(sid, state, closed);
     render();
-    void recover();
+    if (host.restore !== false) void recover();
   }
   window.addEventListener('pagehide', () => writeRecovery(sid, state, true));
 

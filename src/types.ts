@@ -40,6 +40,14 @@ export interface Settings {
   aiModel?:     string;   // overrides the lm default model for AI queries (-m)
   notesRoot?:   string;   // absolute folder the Notes section reads and writes
   renderFilePages?: 'all' | 'not-md' | 'off';   // take over file:// text pages
+  hideRecent?: boolean; hideFavorites?: boolean; hideSystem?: boolean;   // sidebar sections off
+  clickOpens?: 'look' | 'go';        // a plain click on a file: the panel, or its page
+  readerColumn?: boolean;            // file pages start in the reading column
+  readerSize?: number;               // file page body size in px
+  readerLineHeight?: number;
+  readerCodeSize?: number;
+  stripRestore?: boolean;            // bring a closed Chrome tab's strip back (default on)
+  tooltips?: boolean;                // native title tooltips (default on)
 }
 
 // Where the Quick Look preview lives and how big the owner dragged it.
