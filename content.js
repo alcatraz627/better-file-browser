@@ -1123,6 +1123,143 @@
     });
   }
 
+  // src/notes.ts
+  var NotesError = class extends Error {
+    constructor(code, message) {
+      super(message);
+      this.code = code;
+      this.name = "NotesError";
+    }
+  };
+  var HOST = "com.better_file_browser.notes";
+  function call(payload) {
+    return new Promise((resolve, reject) => {
+      try {
+        chrome.runtime.sendMessage({ type: "bfb-native-oneshot", host: HOST, payload }, (res) => {
+          if (chrome.runtime.lastError || !res) return reject(new NotesError("unavailable", chrome.runtime.lastError?.message || "no reply"));
+          if (!res.ok) return reject(new NotesError("unavailable", res.error || "notes host not installed"));
+          const f = res.response;
+          if (f.t === "error") return reject(new NotesError(f.code, f.message));
+          resolve(f);
+        });
+      } catch (e) {
+        reject(new NotesError("unavailable", String(e)));
+      }
+    });
+  }
+  var notes = {
+    stat: (root) => call({ op: "stat", root }),
+    list: (root) => call({ op: "list", root }).then((f) => f.notes),
+    read: (root, rel) => call({ op: "read", root, rel }),
+    write: (root, rel, text, expectMtime) => call({ op: "write", root, rel, text, expectMtime }),
+    create: (root, rel, text = "") => call({ op: "create", root, rel, text }),
+    rename: (root, rel, to) => call({ op: "rename", root, rel, to }),
+    delete: (root, rel) => call({ op: "delete", root, rel })
+  };
+  function slugForTitle(title) {
+    const s = title.replace(/^#+\s*/, "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+    return (s || "untitled") + ".md";
+  }
+  function noteTitle(rel, text) {
+    if (text) {
+      const fm = text.match(/^---\n([\s\S]*?)\n---/);
+      const t = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim().replace(/^["']|["']$/g, "");
+      if (t) return t;
+      const h = text.match(/^#\s+(.+)$/m)?.[1].trim();
+      if (h) return h;
+    }
+    return rel.split("/").pop().replace(/\.md$/i, "").replace(/[-_]+/g, " ");
+  }
+  function newNoteText(title, now = /* @__PURE__ */ new Date()) {
+    const iso = now.toISOString();
+    return `---
+title: ${title}
+tags: []
+created: ${iso}
+updated: ${iso}
+---
+
+# ${title}
+
+`;
+  }
+  function stampUpdated(text, now = /* @__PURE__ */ new Date()) {
+    const m = text.match(/^---\n([\s\S]*?)\n---/);
+    if (!m) return text;
+    const iso = now.toISOString();
+    const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, `updated: ${iso}`) : m[1] + `
+updated: ${iso}`;
+    return text.replace(m[0], `---
+${fm}
+---`);
+  }
+
+  // src/editor.ts
+  var BUF_CAP = 60;
+  var BUF_COALESCE = 600;
+  var bufHist = /* @__PURE__ */ new Map();
+  function insertAtCursor(el, text) {
+    const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
+    el.value = el.value.slice(0, a) + text + el.value.slice(b);
+    const at = a + text.length;
+    el.setSelectionRange(at, at);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.focus();
+  }
+  function attachBuffer(el, id) {
+    let h = bufHist.get(id) ?? { past: [], future: [], timer: null };
+    bufHist.set(id, h);
+    h.past = [el.value ?? ""];
+    h.future = [];
+    const snap = () => {
+      const now = el.value ?? "";
+      if (h.past[h.past.length - 1] === now) return;
+      h.past.push(now);
+      if (h.past.length > BUF_CAP) h.past.shift();
+      h.future = [];
+    };
+    const record = () => {
+      if (h.timer) clearTimeout(h.timer);
+      h.timer = setTimeout(snap, BUF_COALESCE);
+    };
+    const put = (v) => {
+      el.value = v;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const undo = () => {
+      if (h.timer) clearTimeout(h.timer);
+      snap();
+      if (h.past.length < 2) return false;
+      h.future.push(h.past.pop());
+      put(h.past[h.past.length - 1]);
+      return true;
+    };
+    const redo = () => {
+      if (!h.future.length) return false;
+      const v = h.future.pop();
+      h.past.push(v);
+      put(v);
+      return true;
+    };
+    el.addEventListener("input", record);
+    el.addEventListener("keydown", (e) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        if (undo()) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      } else if (k === "z" && e.shiftKey || k === "y") {
+        if (redo()) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    });
+    return { undo, redo, snap, depth: () => h.past.length, insert: (t) => insertAtCursor(el, t) };
+  }
+
   // src/llm.ts
   function openProxyPort() {
     try {
@@ -1441,6 +1578,11 @@
     dock.classList.toggle("on", side);
   }
   function closePreview() {
+    if (edit) {
+      if (edit.timer) clearTimeout(edit.timer);
+      if (edit.dirty) void saveNote();
+      edit = null;
+    }
     overlay.style.display = "none";
     currentEntry = null;
     currentText = null;
@@ -1514,8 +1656,135 @@
       }
     );
   }
+  var edit = null;
+  function editHeader(status) {
+    if (!edit) return;
+    const nameEl = document.getElementById("fe-ql-name");
+    nameEl.textContent = (edit.dirty ? "\u25CF " : "") + noteTitle(edit.rel, edit.text);
+    document.getElementById("fe-ql-meta").textContent = `${edit.rel} \xB7 ${status}`;
+  }
+  var stripFrontMatter = (t) => t.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  function openNote(root, doc, onSaved) {
+    if (edit && edit.dirty) void saveNote();
+    currentEntry = null;
+    reqSeq++;
+    edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, dirty: false, saving: false, timer: null, onSaved };
+    currentText = doc.text;
+    document.getElementById("fe-ql-icon").innerHTML = "";
+    const nameEl = document.getElementById("fe-ql-name");
+    nameEl.href = "file://" + root.replace(/\/$/, "") + "/" + doc.rel;
+    document.getElementById("fe-ql-open").href = nameEl.href;
+    resetAiUi();
+    document.getElementById("fe-ql-ai").style.display = "none";
+    const copyBtn = document.getElementById("fe-ql-copy");
+    copyBtn.style.display = "";
+    copyBtn.disabled = false;
+    overlay.style.display = "flex";
+    const body = document.getElementById("fe-ql-body");
+    body.innerHTML = `<div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
+    const ta = document.getElementById("fe-ed-src");
+    const view = document.getElementById("fe-ed-view");
+    ta.value = doc.text;
+    attachBuffer(ta, `note:${root}/${doc.rel}`);
+    const renderView = () => {
+      view.innerHTML = renderMarkdown(stripFrontMatter(ta.value), nameEl.href);
+    };
+    renderView();
+    let viewTimer = null;
+    ta.addEventListener("input", () => {
+      if (!edit) return;
+      edit.text = ta.value;
+      edit.dirty = true;
+      currentText = ta.value;
+      editHeader("unsaved");
+      if (viewTimer) clearTimeout(viewTimer);
+      viewTimer = setTimeout(renderView, 120);
+      if (edit.timer) clearTimeout(edit.timer);
+      edit.timer = setTimeout(() => void saveNote(), 1500);
+    });
+    ta.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        e.stopPropagation();
+        void saveNote();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closePreview();
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        attachBufferInsert(ta, "  ");
+      }
+    });
+    editHeader("saved");
+    ta.focus();
+  }
+  function attachBufferInsert(ta, t) {
+    const a = ta.selectionStart, b = ta.selectionEnd;
+    ta.value = ta.value.slice(0, a) + t + ta.value.slice(b);
+    ta.setSelectionRange(a + t.length, a + t.length);
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  async function saveNote() {
+    const st = edit;
+    if (!st || st.saving) return;
+    if (st.timer) {
+      clearTimeout(st.timer);
+      st.timer = null;
+    }
+    st.saving = true;
+    const text = stampUpdated(st.text);
+    try {
+      const r = await notes.write(st.root, st.rel, text, st.mtime);
+      st.mtime = r.mtime;
+      st.dirty = false;
+      const want = slugForTitle(noteTitle(st.rel, st.text));
+      if (/^untitled-/.test(st.rel.split("/").pop()) && !/^untitled/.test(want)) {
+        const to = st.rel.replace(/[^/]+$/, want);
+        try {
+          await notes.rename(st.root, st.rel, to);
+          st.rel = to;
+        } catch {
+        }
+      }
+      if (edit === st) editHeader("saved " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      st.onSaved?.(st.rel);
+    } catch (err) {
+      const e = err;
+      if (edit === st) {
+        editHeader(e.code === "notes_conflict" ? "changed on disk, not saved" : `save failed: ${e.message}`);
+        if (e.code === "notes_conflict") {
+          const body = document.getElementById("fe-ql-body");
+          if (!document.getElementById("fe-ed-conflict")) {
+            body.insertAdjacentHTML(
+              "afterbegin",
+              `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="fe-pbn">Reload from disk</button> <button id="fe-ed-force" class="fe-pbn">Overwrite</button></div>`
+            );
+            document.getElementById("fe-ed-reload").addEventListener("click", () => {
+              notes.read(st.root, st.rel).then((d) => openNote(st.root, d, st.onSaved));
+            });
+            document.getElementById("fe-ed-force").addEventListener("click", () => {
+              st.mtime = 0;
+              notes.read(st.root, st.rel).then((d) => {
+                st.mtime = d.mtime;
+                document.getElementById("fe-ed-conflict")?.remove();
+                void saveNote();
+              });
+            });
+          }
+        }
+      }
+    } finally {
+      st.saving = false;
+    }
+  }
   function openPreview(e) {
     if (!canPreview(e)) return;
+    if (edit) {
+      if (edit.timer) clearTimeout(edit.timer);
+      if (edit.dirty) void saveNote();
+      edit = null;
+    }
     currentEntry = e;
     const seq = ++reqSeq;
     const ext = getExt(e);
@@ -2123,6 +2392,19 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
+.fe-ed{display:flex;height:100%;min-height:0}
+#fe-ed-src{flex:1;min-width:0;resize:none;border:none;border-right:1px solid var(--bd);background:var(--s1);color:var(--tx);
+  font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px 16px;outline:none;tab-size:2}
+#fe-ed-view{flex:1;min-width:0;overflow:auto}
+#fe-qlook.side .fe-ed{flex-direction:column}
+#fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
+#fe-ed-conflict{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd)}
+.fe-nt-item .fe-si-link{padding-left:14px}
+#fe-nt-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
+  width:18px;height:18px;line-height:1;font-size:13px;padding:0;display:flex;align-items:center;justify-content:center}
+#fe-nt-add:hover{border-color:var(--ac);color:var(--ac)}
+.fe-sh a{color:inherit;text-decoration:none}
+.fe-sh a:hover{color:var(--ac)}
 #fe-ql-dock{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;padding:3px 7px;border-radius:5px;line-height:1;display:flex;align-items:center}
 #fe-ql-dock:hover{border-color:var(--ac);color:var(--ac)}
 #fe-ql-dock.on{color:var(--ac);border-color:var(--ac)}
@@ -2642,6 +2924,11 @@ td.c-tp{color:var(--dm);font-size:11px}
         <div class="fe-sh" style="justify-content:space-between">Saved
           <button id="fe-sv-add" title="Save this folder and name it">+</button></div>
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
+      </div>
+      <div class="fe-sec" id="fe-notes-sec" style="display:none">
+        <div class="fe-sh" style="justify-content:space-between"><a id="fe-notes-root" title="Open the notes folder">Notes</a>
+          <button id="fe-nt-add" title="New note (n)">+</button></div>
+        <div id="fe-nt-list"></div>
       </div>${recentsHTML}
       <div class="fe-sec">
         <div class="fe-sh">Finder Favorites</div>
@@ -2811,6 +3098,15 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             <input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} as placeholder for the folder path.'>
           </div>
           <div class="fe-st-hint" id="fe-st-term-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
+        </div>
+
+        <div class="fe-st-section">
+          <div class="fe-st-title">Notes</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
+            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false">
+          </div>
+          <div class="fe-st-hint" id="fe-st-notes-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
         </div>
 
         <div class="fe-st-section">
@@ -3404,6 +3700,9 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       } else if (e.key === " " && selIdx >= 0) {
         e.preventDefault();
         tryPreview(VISIBLE[selIdx]);
+      } else if (e.key === "n" && !e.metaKey && !e.ctrlKey && settings.notesRoot) {
+        e.preventDefault();
+        newNote();
       }
     });
     const ctxMenu = document.createElement("div");
@@ -3492,6 +3791,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       document.getElementById("fe-st-terminal").value = settings.terminalApp || "ghostty";
       document.getElementById("fe-st-term-custom-row").style.display = settings.terminalApp === "custom" ? "" : "none";
       document.getElementById("fe-st-term-custom").value = settings.terminalCmd || "";
+      document.getElementById("fe-st-notes-root").value = settings.notesRoot || "";
       updateTermHint();
       renderRulesList();
       refreshAiStatus();
@@ -3610,6 +3910,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       updateTermHint();
       const termBtn = document.getElementById("fe-term-btn");
       if (termBtn) termBtn.title = `Open in ${this.options[this.selectedIndex].text}`;
+    });
+    document.getElementById("fe-st-notes-root").addEventListener("change", function() {
+      settings.notesRoot = this.value.trim() || void 0;
+      saveSettings(settings);
+      refreshNotes();
     });
     document.getElementById("fe-st-term-custom").addEventListener("input", function() {
       settings.terminalCmd = this.value;
@@ -3800,6 +4105,75 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     });
     attachSavedEvents();
     syncStar();
+    const ntSec = document.getElementById("fe-notes-sec");
+    const ntList = document.getElementById("fe-nt-list");
+    const ntHint = document.getElementById("fe-st-notes-hint");
+    function notesRoot() {
+      return (settings.notesRoot || "").replace(/\/$/, "");
+    }
+    function refreshNotes() {
+      const root = notesRoot();
+      ntSec.style.display = root ? "" : "none";
+      if (!root) {
+        ntHint.textContent = "";
+        return;
+      }
+      document.getElementById("fe-notes-root").href = "file://" + root + "/";
+      notes.list(root).then((list) => {
+        ntHint.textContent = `${list.length} note${list.length !== 1 ? "s" : ""} in ${root}`;
+        ntList.innerHTML = list.length ? list.map((n) => `
+          <div class="fe-bm-item fe-nt-item" data-rel="${esc(n.rel)}">
+            <a href="file://${esc(root + "/" + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
+              ${PI.docs ?? PI.folder}<span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(noteTitle(n.rel))}</span>
+            </a>
+            <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">\u2715</button>
+          </div>`).join("") : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
+        attachNoteEvents(root);
+      }).catch((err) => {
+        ntHint.textContent = err.message;
+        ntList.innerHTML = `<div class="fe-hint">${esc(err.code === "unavailable" ? "Notes host not installed. Run native/install.sh." : err.message)}</div>`;
+      });
+    }
+    function openNoteRel(root, rel) {
+      notes.read(root, rel).then((doc) => openNote(root, doc, refreshNotes)).catch((err) => toast(err.message));
+    }
+    function attachNoteEvents(root) {
+      ntList.querySelectorAll(".fe-nt-item").forEach((item) => {
+        const rel = item.dataset.rel;
+        item.querySelector(".fe-si-link").addEventListener("click", (e) => {
+          e.preventDefault();
+          openNoteRel(root, rel);
+        });
+        item.querySelector(".fe-nt-label").addEventListener("dblclick", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          inlineEdit(e.currentTarget, (val) => {
+            const to = rel.replace(/[^/]+$/, slugForTitle(val));
+            notes.rename(root, rel, to).then(refreshNotes).catch((err) => toast(err.message));
+          });
+        });
+        item.querySelector(".fe-rm-btn").addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          notes.delete(root, rel).then(() => {
+            refreshNotes();
+            toast("Moved to .trash");
+          }).catch((err) => toast(err.message));
+        });
+      });
+    }
+    function newNote() {
+      const root = notesRoot();
+      if (!root) {
+        toast("Set a Notes folder in Settings first");
+        return;
+      }
+      const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[-:T]/g, "").slice(0, 14);
+      const rel = `untitled-${stamp}.md`;
+      notes.create(root, rel, newNoteText("Untitled")).then(() => openNoteRel(root, rel)).catch((err) => toast(err.message));
+    }
+    document.getElementById("fe-nt-add").addEventListener("click", newNote);
+    refreshNotes();
     if (sortConfig.col || groupConfig !== "none") applyAll();
   })();
 })();

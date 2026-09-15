@@ -48,6 +48,36 @@ export const notes = {
 // A note's file name from its first heading or first line, safe for a path.
 export function slugForTitle(title: string): string {
   const s = title.replace(/^#+\s*/, '').trim().toLowerCase()
-    .replace(/[^a-z0-9À-￿]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+    // Keep letters from any script. The upper bound stays below U+FFFE:
+    // Chrome refuses a content script containing a Unicode noncharacter.
+    .replace(/[^a-z0-9À-ɏͰ-﷏]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
   return (s || 'untitled') + '.md';
+}
+
+// The title a note shows: front matter title, else first heading, else the
+// file name without its extension and dashes.
+export function noteTitle(rel: string, text?: string): string {
+  if (text) {
+    const fm = text.match(/^---\n([\s\S]*?)\n---/);
+    const t = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim().replace(/^["']|["']$/g, '');
+    if (t) return t;
+    const h = text.match(/^#\s+(.+)$/m)?.[1].trim();
+    if (h) return h;
+  }
+  return rel.split('/').pop()!.replace(/\.md$/i, '').replace(/[-_]+/g, ' ');
+}
+
+export function newNoteText(title: string, now = new Date()): string {
+  const iso = now.toISOString();
+  return `---\ntitle: ${title}\ntags: []\ncreated: ${iso}\nupdated: ${iso}\n---\n\n# ${title}\n\n`;
+}
+
+// Refresh `updated` inside existing front matter; a note without front
+// matter is left exactly as written (contract: never add front matter).
+export function stampUpdated(text: string, now = new Date()): string {
+  const m = text.match(/^---\n([\s\S]*?)\n---/);
+  if (!m) return text;
+  const iso = now.toISOString();
+  const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, `updated: ${iso}`) : m[1] + `\nupdated: ${iso}`;
+  return text.replace(m[0], `---\n${fm}\n---`);
 }

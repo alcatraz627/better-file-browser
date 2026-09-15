@@ -368,6 +368,19 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
+.fe-ed{display:flex;height:100%;min-height:0}
+#fe-ed-src{flex:1;min-width:0;resize:none;border:none;border-right:1px solid var(--bd);background:var(--s1);color:var(--tx);
+  font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px 16px;outline:none;tab-size:2}
+#fe-ed-view{flex:1;min-width:0;overflow:auto}
+#fe-qlook.side .fe-ed{flex-direction:column}
+#fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
+#fe-ed-conflict{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd)}
+.fe-nt-item .fe-si-link{padding-left:14px}
+#fe-nt-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
+  width:18px;height:18px;line-height:1;font-size:13px;padding:0;display:flex;align-items:center;justify-content:center}
+#fe-nt-add:hover{border-color:var(--ac);color:var(--ac)}
+.fe-sh a{color:inherit;text-decoration:none}
+.fe-sh a:hover{color:var(--ac)}
 #fe-ql-dock{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;padding:3px 7px;border-radius:5px;line-height:1;display:flex;align-items:center}
 #fe-ql-dock:hover{border-color:var(--ac);color:var(--ac)}
 #fe-ql-dock.on{color:var(--ac);border-color:var(--ac)}

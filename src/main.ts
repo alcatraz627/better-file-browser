@@ -14,7 +14,7 @@ import {
 } from './storage';
 import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import {
-  initPreview, openPreview, closePreview, isPreviewOpen, isPreviewDocked, canPreview,
+  initPreview, openPreview, closePreview, isPreviewOpen, isPreviewDocked, canPreview, openNote,
 } from './preview';
 import { fetchFileText } from './file-fetch';
 import { llmAvailability, llmWarm, type LlmAvailability } from './llm';
@@ -25,6 +25,7 @@ import { CSS } from './styles';
 import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
 import { crawl } from './deep-search';
+import { notes, noteTitle, newNoteText, slugForTitle, type NotesError } from './notes';
 import {
   renderRows, renderTiles, renderSavedList, renderCrumbs,
   renderRow, renderTile, type RenderContext,
@@ -215,6 +216,11 @@ import { getIcon } from './icons';
         <div class="fe-sh" style="justify-content:space-between">Saved
           <button id="fe-sv-add" title="Save this folder and name it">+</button></div>
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
+      </div>
+      <div class="fe-sec" id="fe-notes-sec" style="display:none">
+        <div class="fe-sh" style="justify-content:space-between"><a id="fe-notes-root" title="Open the notes folder">Notes</a>
+          <button id="fe-nt-add" title="New note (n)">+</button></div>
+        <div id="fe-nt-list"></div>
       </div>${recentsHTML}
       <div class="fe-sec">
         <div class="fe-sh">Finder Favorites</div>
@@ -381,6 +387,15 @@ import { getIcon } from './icons';
             <input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} as placeholder for the folder path.'>
           </div>
           <div class="fe-st-hint" id="fe-st-term-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
+        </div>
+
+        <div class="fe-st-section">
+          <div class="fe-st-title">Notes</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
+            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false">
+          </div>
+          <div class="fe-st-hint" id="fe-st-notes-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
         </div>
 
         <div class="fe-st-section">
@@ -964,6 +979,7 @@ import { getIcon } from './icons';
     else if (e.key === 'Enter' && selIdx >= 0) { location.href = VISIBLE[selIdx].href; }
     else if (e.key === 'Backspace') { e.preventDefault(); goUp(); }
     else if (e.key === ' ' && selIdx >= 0) { e.preventDefault(); tryPreview(VISIBLE[selIdx]); }
+    else if (e.key === 'n' && !e.metaKey && !e.ctrlKey && settings.notesRoot) { e.preventDefault(); newNote(); }
   });
 
   // ── Context menu ──────────────────────────────────────────────────
@@ -1064,6 +1080,7 @@ import { getIcon } from './icons';
     (document.getElementById('fe-st-term-custom-row') as HTMLElement).style.display =
       settings.terminalApp === 'custom' ? '' : 'none';
     (document.getElementById('fe-st-term-custom') as HTMLInputElement).value = settings.terminalCmd || '';
+    (document.getElementById('fe-st-notes-root') as HTMLInputElement).value = settings.notesRoot || '';
     updateTermHint();
     renderRulesList();
     refreshAiStatus();
@@ -1184,6 +1201,10 @@ import { getIcon } from './icons';
     updateTermHint();
     const termBtn = document.getElementById('fe-term-btn');
     if (termBtn) termBtn.title = `Open in ${this.options[this.selectedIndex].text}`;
+  });
+  (document.getElementById('fe-st-notes-root') as HTMLInputElement).addEventListener('change', function () {
+    settings.notesRoot = this.value.trim() || undefined; saveSettings(settings);
+    refreshNotes();
   });
   (document.getElementById('fe-st-term-custom') as HTMLInputElement).addEventListener('input', function () {
     settings.terminalCmd = this.value; saveSettings(settings); updateTermHint();
@@ -1344,6 +1365,68 @@ import { getIcon } from './icons';
   });
   attachSavedEvents();
   syncStar();
+
+  // Notes section: the folder from Settings, listed newest first, edited in
+  // the preview panel. Hidden until a folder is set.
+  const ntSec  = document.getElementById('fe-notes-sec')!;
+  const ntList = document.getElementById('fe-nt-list')!;
+  const ntHint = document.getElementById('fe-st-notes-hint')!;
+  function notesRoot(): string { return (settings.notesRoot || '').replace(/\/$/, ''); }
+  function refreshNotes(): void {
+    const root = notesRoot();
+    ntSec.style.display = root ? '' : 'none';
+    if (!root) { ntHint.textContent = ''; return; }
+    (document.getElementById('fe-notes-root') as HTMLAnchorElement).href = 'file://' + root + '/';
+    notes.list(root).then(list => {
+      ntHint.textContent = `${list.length} note${list.length !== 1 ? 's' : ''} in ${root}`;
+      ntList.innerHTML = list.length
+        ? list.map(n => `
+          <div class="fe-bm-item fe-nt-item" data-rel="${esc(n.rel)}">
+            <a href="file://${esc(root + '/' + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
+              ${PI.docs ?? PI.folder}<span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(noteTitle(n.rel))}</span>
+            </a>
+            <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">✕</button>
+          </div>`).join('')
+        : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
+      attachNoteEvents(root);
+    }).catch((err: NotesError) => {
+      ntHint.textContent = err.message;
+      ntList.innerHTML = `<div class="fe-hint">${esc(err.code === 'unavailable' ? 'Notes host not installed. Run native/install.sh.' : err.message)}</div>`;
+    });
+  }
+  function openNoteRel(root: string, rel: string): void {
+    notes.read(root, rel).then(doc => openNote(root, doc, refreshNotes))
+      .catch((err: NotesError) => toast(err.message));
+  }
+  function attachNoteEvents(root: string): void {
+    ntList.querySelectorAll<HTMLElement>('.fe-nt-item').forEach(item => {
+      const rel = item.dataset.rel!;
+      item.querySelector('.fe-si-link')!.addEventListener('click', e => { e.preventDefault(); openNoteRel(root, rel); });
+      item.querySelector<HTMLElement>('.fe-nt-label')!.addEventListener('dblclick', e => {
+        e.preventDefault(); e.stopPropagation();
+        inlineEdit(e.currentTarget as HTMLElement, val => {
+          const to = rel.replace(/[^/]+$/, slugForTitle(val));
+          notes.rename(root, rel, to).then(refreshNotes).catch((err: NotesError) => toast(err.message));
+        });
+      });
+      item.querySelector('.fe-rm-btn')!.addEventListener('click', e => {
+        e.preventDefault(); e.stopPropagation();
+        notes.delete(root, rel).then(() => { refreshNotes(); toast('Moved to .trash'); })
+          .catch((err: NotesError) => toast(err.message));
+      });
+    });
+  }
+  function newNote(): void {
+    const root = notesRoot();
+    if (!root) { toast('Set a Notes folder in Settings first'); return; }
+    const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+    const rel = `untitled-${stamp}.md`;
+    notes.create(root, rel, newNoteText('Untitled'))
+      .then(() => openNoteRel(root, rel))
+      .catch((err: NotesError) => toast(err.message));
+  }
+  document.getElementById('fe-nt-add')!.addEventListener('click', newNote);
+  refreshNotes();
 
   // The first render drew the listing raw; apply the persisted sort/group
   // last, once every handler applyAll touches (selection included) exists.

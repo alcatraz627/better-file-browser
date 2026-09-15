@@ -1,6 +1,8 @@
 // Smoke run: the explorer renders the fixture, a preview opens and closes,
 // and screenshots land in e2e/shots/. Run with `npm run e2e`.
 import { launch, shot } from './harness.mjs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const failures = [];
 function check(cond, msg) {
@@ -163,6 +165,51 @@ try {
     dot: document.querySelector('#fe-sv-list .fe-sv-dot')?.style.background,
   }));
   check(savedAfter.labels.length === 3 && savedAfter.heads.join() === 'work' && savedAfter.dot === c2, `saved state persists: ${JSON.stringify(savedAfter)}`);
+
+  // Notes: the folder from Settings lists, a new note saves to disk under its
+  // title, rename and delete reach the folder, the panel closes on Esc.
+  await page.evaluate(dir => {
+    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
+    s.notesRoot = dir; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
+  }, h.notesDir);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 8_000 }).catch(() => null);
+  const noteRows = await page.$$eval('#fe-nt-list .fe-nt-label', els => els.map(e => e.textContent));
+  check(noteRows.length === 1 && noteRows[0] === 'existing note', `Notes section lists the folder: ${JSON.stringify(noteRows)}`);
+
+  await page.keyboard.press('n');
+  await page.waitForSelector('#fe-ed-src', { timeout: 8_000 }).catch(() => null);
+  const editorUp = await page.$('#fe-ed-src');
+  check(!!editorUp, 'n opens a new note in the editor');
+  await page.evaluate(() => { const ta = document.getElementById('fe-ed-src'); ta.value = ''; });
+  await page.type('#fe-ed-src', '# Grocery list\n\n- eggs\n- milk\n');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-ed-view li').length === 2, { timeout: 3_000 }).catch(() => null);
+  const previewLi = await page.$$eval('#fe-ed-view li', els => els.map(e => e.textContent));
+  check(previewLi.join() === 'eggs,milk', `live render beside the textarea: ${JSON.stringify(previewLi)}`);
+  await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
+  await page.waitForFunction(() => /saved \d/.test(document.getElementById('fe-ql-meta').textContent), { timeout: 8_000 }).catch(() => null);
+  const savedMeta = await page.$eval('#fe-ql-meta', el => el.textContent);
+  const onDisk = existsSync(join(h.notesDir, 'grocery-list.md')) ? readFileSync(join(h.notesDir, 'grocery-list.md'), 'utf8') : null;
+  check(/grocery-list\.md · saved/.test(savedMeta) && onDisk && onDisk.includes('- milk') && !/untitled/.test(onDisk.split('\n')[1] || ''),
+    `Cmd+S wrote grocery-list.md from the title: meta "${savedMeta}", disk ${onDisk ? onDisk.length + ' bytes' : 'missing'}`);
+  await shot(page, 'notes-editor');
+
+  await page.keyboard.press('Escape');
+  const edClosed = await page.$eval('#fe-qlook', el => el.style.display === 'none');
+  check(edClosed, 'Esc closes the editor');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-nt-list .fe-nt-item').length === 2, { timeout: 8_000 }).catch(() => null);
+  const listAfter = await page.$$eval('#fe-nt-list .fe-nt-label', els => els.map(e => e.textContent));
+  check(listAfter[0] === 'grocery list' && listAfter.length === 2, `sidebar lists the new note first: ${JSON.stringify(listAfter)}`);
+
+  await (await page.$('#fe-nt-list .fe-nt-item[data-rel="grocery-list.md"] .fe-rm-btn')).evaluate(el => el.click());
+  await page.waitForFunction(() => document.querySelectorAll('#fe-nt-list .fe-nt-item').length === 1, { timeout: 8_000 }).catch(() => null);
+  const trashed = existsSync(join(h.notesDir, '.trash')) ? readdirSync(join(h.notesDir, '.trash')) : [];
+  check(trashed.length === 1 && trashed[0].endsWith('grocery-list.md') && !existsSync(join(h.notesDir, 'grocery-list.md')), `delete moved the note to .trash: ${JSON.stringify(trashed)}`);
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
+    delete s.notesRoot; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
+  });
 
   // Deep search: the crawl adds subfolder entries with relative names.
   await page.click('#fe-deep-btn');

@@ -38,6 +38,7 @@ export interface Settings {
   terminalApp:  string;
   terminalCmd:  string;
   aiModel?:     string;   // overrides the lm default model for AI queries (-m)
+  notesRoot?:   string;   // absolute folder the Notes section reads and writes
 }
 
 // Where the Quick Look preview lives and how big the owner dragged it.

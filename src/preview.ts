@@ -12,6 +12,8 @@ import {
   sniffBinary,
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
+import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, type NoteDoc } from './notes';
+import { attachBuffer } from './editor';
 import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
@@ -208,6 +210,13 @@ function applyLayout(): void {
 }
 
 export function closePreview(): void {
+  if (edit) {
+    // Leaving the editor flushes a pending autosave; the write completes
+    // after the panel is gone and the sidebar refreshes from its callback.
+    if (edit.timer) clearTimeout(edit.timer);
+    if (edit.dirty) void saveNote();
+    edit = null;
+  }
   overlay.style.display = 'none';
   currentEntry = null;
   currentText  = null;
@@ -288,8 +297,117 @@ function runAi(intent: string, question?: string): void {
   );
 }
 
+// ── Note editor: the same panel, a textarea beside the render ─────────
+interface EditState {
+  root: string; rel: string; mtime: number; text: string;
+  dirty: boolean; saving: boolean; timer: ReturnType<typeof setTimeout> | null;
+  onSaved?: (rel: string) => void;
+}
+let edit: EditState | null = null;
+
+export function isEditing(): boolean { return !!edit; }
+
+function editHeader(status: string): void {
+  if (!edit) return;
+  const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
+  nameEl.textContent = (edit.dirty ? '● ' : '') + noteTitle(edit.rel, edit.text);
+  document.getElementById('fe-ql-meta')!.textContent = `${edit.rel} · ${status}`;
+}
+
+const stripFrontMatter = (t: string) => t.replace(/^---\n[\s\S]*?\n---\n?/, '');
+
+export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => void): void {
+  if (edit && edit.dirty) void saveNote();
+  currentEntry = null; reqSeq++;
+  edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, dirty: false, saving: false, timer: null, onSaved };
+  currentText = doc.text;
+  document.getElementById('fe-ql-icon')!.innerHTML = '';
+  const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
+  nameEl.href = 'file://' + root.replace(/\/$/, '') + '/' + doc.rel;
+  (document.getElementById('fe-ql-open') as HTMLAnchorElement).href = nameEl.href;
+  resetAiUi();
+  document.getElementById('fe-ql-ai')!.style.display = 'none';
+  const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
+  copyBtn.style.display = ''; copyBtn.disabled = false;
+  overlay.style.display = 'flex';
+
+  const body = document.getElementById('fe-ql-body')!;
+  body.innerHTML = `<div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
+  const ta = document.getElementById('fe-ed-src') as HTMLTextAreaElement;
+  const view = document.getElementById('fe-ed-view')!;
+  ta.value = doc.text;
+  attachBuffer(ta, `note:${root}/${doc.rel}`);
+  const renderView = () => { view.innerHTML = renderMarkdown(stripFrontMatter(ta.value), nameEl.href); };
+  renderView();
+  let viewTimer: ReturnType<typeof setTimeout> | null = null;
+  ta.addEventListener('input', () => {
+    if (!edit) return;
+    edit.text = ta.value; edit.dirty = true; currentText = ta.value;
+    editHeader('unsaved');
+    if (viewTimer) clearTimeout(viewTimer);
+    viewTimer = setTimeout(renderView, 120);
+    if (edit.timer) clearTimeout(edit.timer);
+    edit.timer = setTimeout(() => void saveNote(), 1500);
+  });
+  ta.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); e.stopPropagation(); void saveNote(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePreview(); }
+    else if (e.key === 'Tab') { e.preventDefault(); attachBufferInsert(ta, '  '); }
+  });
+  editHeader('saved');
+  ta.focus();
+}
+function attachBufferInsert(ta: HTMLTextAreaElement, t: string): void {
+  const a = ta.selectionStart, b = ta.selectionEnd;
+  ta.value = ta.value.slice(0, a) + t + ta.value.slice(b);
+  ta.setSelectionRange(a + t.length, a + t.length);
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+async function saveNote(): Promise<void> {
+  const st = edit;
+  if (!st || st.saving) return;
+  if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+  st.saving = true;
+  const text = stampUpdated(st.text);
+  try {
+    const r = await notes.write(st.root, st.rel, text, st.mtime);
+    st.mtime = r.mtime; st.dirty = false;
+    // A note created as "untitled-…" takes its title as file name on first save.
+    const want = slugForTitle(noteTitle(st.rel, st.text));
+    if (/^untitled-/.test(st.rel.split('/').pop()!) && !/^untitled/.test(want)) {
+      const to = st.rel.replace(/[^/]+$/, want);
+      try { await notes.rename(st.root, st.rel, to); st.rel = to; } catch { /* keep the old name */ }
+    }
+    if (edit === st) editHeader('saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    st.onSaved?.(st.rel);
+  } catch (err) {
+    const e = err as NotesError;
+    if (edit === st) {
+      editHeader(e.code === 'notes_conflict' ? 'changed on disk, not saved' : `save failed: ${e.message}`);
+      if (e.code === 'notes_conflict') {
+        const body = document.getElementById('fe-ql-body')!;
+        if (!document.getElementById('fe-ed-conflict')) {
+          body.insertAdjacentHTML('afterbegin',
+            `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="fe-pbn">Reload from disk</button> <button id="fe-ed-force" class="fe-pbn">Overwrite</button></div>`);
+          document.getElementById('fe-ed-reload')!.addEventListener('click', () => {
+            notes.read(st.root, st.rel).then(d => openNote(st.root, d, st.onSaved));
+          });
+          document.getElementById('fe-ed-force')!.addEventListener('click', () => {
+            st.mtime = 0 as unknown as number;
+            notes.read(st.root, st.rel).then(d => { st.mtime = d.mtime; document.getElementById('fe-ed-conflict')?.remove(); void saveNote(); });
+          });
+        }
+      }
+    }
+  } finally {
+    st.saving = false;
+  }
+}
+
 export function openPreview(e: Entry): void {
   if (!canPreview(e)) return;
+  if (edit) { if (edit.timer) clearTimeout(edit.timer); if (edit.dirty) void saveNote(); edit = null; }
   currentEntry = e;
   const seq = ++reqSeq;
   const ext = getExt(e);
