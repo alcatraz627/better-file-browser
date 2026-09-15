@@ -42,6 +42,10 @@ right-click → Preview) to open a preview overlay — **Space** again, or **Esc
 closes it. **↑ / ↓** (or **← / →**) step between previewable files; the **copy**
 button copies the raw contents. Files over 8 MB ask before loading.
 
+The file name in the preview header, **open raw**, and every link inside a
+rendered markdown file open in a **new tab**, so the explorer stays put.
+In the listing, middle-click a name to open it natively in a new tab.
+
 Renders by type:
 
 | Type | Shown as |

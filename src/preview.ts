@@ -72,13 +72,13 @@ export function initPreview(d: PreviewDeps): void {
     <div id="fe-ql-dialog">
       <div id="fe-ql-hdr">
         <span id="fe-ql-icon"></span>
-        <span id="fe-ql-name"></span>
+        <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (⌘-click / middle-click also work)"></a>
         <span id="fe-ql-meta"></span>
         <button id="fe-ql-copy" title="Copy full file contents to clipboard" disabled>
           <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>copy</span>
         </button>
-        <a id="fe-ql-open" title="Open raw file in this tab">open raw ↗</a>
+        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">open raw ↗</a>
         <button id="fe-ql-close" title="Close (Esc)">✕</button>
       </div>
       <div id="fe-ql-ai" style="display:none">
@@ -231,7 +231,9 @@ export function openPreview(e: Entry): void {
   const ext = getExt(e);
 
   document.getElementById('fe-ql-icon')!.innerHTML = getIcon(e, deps.iconRules());
-  document.getElementById('fe-ql-name')!.textContent = e.name;
+  const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
+  nameEl.textContent = e.name;
+  nameEl.href = e.href;
   document.getElementById('fe-ql-meta')!.textContent =
     `${fmtSize(e.rawBytes)}${ext ? ' · .' + ext : ''}`;
   (document.getElementById('fe-ql-open') as HTMLAnchorElement).href = e.href;
@@ -316,6 +318,8 @@ function render(text: string, ext: string): void {
   if (ext === 'json')      { body.innerHTML = renderJsonTree(text); return; }
   if (ext === 'md' || ext === 'mdx') {
     body.innerHTML = renderMarkdown(text, currentEntry?.href ?? '');
+    // Links leave the explorer in place: every one opens a new tab.
+    body.querySelectorAll<HTMLAnchorElement>('a[href]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
     return;
   }
   body.innerHTML = renderCode(text, ext);

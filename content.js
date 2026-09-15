@@ -1240,13 +1240,13 @@
     <div id="fe-ql-dialog">
       <div id="fe-ql-hdr">
         <span id="fe-ql-icon"></span>
-        <span id="fe-ql-name"></span>
+        <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (\u2318-click / middle-click also work)"></a>
         <span id="fe-ql-meta"></span>
         <button id="fe-ql-copy" title="Copy full file contents to clipboard" disabled>
           <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>copy</span>
         </button>
-        <a id="fe-ql-open" title="Open raw file in this tab">open raw \u2197</a>
+        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">open raw \u2197</a>
         <button id="fe-ql-close" title="Close (Esc)">\u2715</button>
       </div>
       <div id="fe-ql-ai" style="display:none">
@@ -1389,7 +1389,9 @@
     const seq = ++reqSeq;
     const ext = getExt(e);
     document.getElementById("fe-ql-icon").innerHTML = getIcon(e, deps.iconRules());
-    document.getElementById("fe-ql-name").textContent = e.name;
+    const nameEl = document.getElementById("fe-ql-name");
+    nameEl.textContent = e.name;
+    nameEl.href = e.href;
     document.getElementById("fe-ql-meta").textContent = `${fmtSize(e.rawBytes)}${ext ? " \xB7 ." + ext : ""}`;
     document.getElementById("fe-ql-open").href = e.href;
     const body = document.getElementById("fe-ql-body");
@@ -1476,6 +1478,10 @@
     }
     if (ext === "md" || ext === "mdx") {
       body.innerHTML = renderMarkdown(text, currentEntry?.href ?? "");
+      body.querySelectorAll("a[href]").forEach((a) => {
+        a.target = "_blank";
+        a.rel = "noopener";
+      });
       return;
     }
     body.innerHTML = renderCode(text, ext);
@@ -1531,6 +1537,10 @@ Select a file and press **Space** (or click the eye button on hover, or
 right-click \u2192 Preview) to open a preview overlay \u2014 **Space** again, or **Esc**,
 closes it. **\u2191 / \u2193** (or **\u2190 / \u2192**) step between previewable files; the **copy**
 button copies the raw contents. Files over 8 MB ask before loading.
+
+The file name in the preview header, **open raw**, and every link inside a
+rendered markdown file open in a **new tab**, so the explorer stays put.
+In the listing, middle-click a name to open it natively in a new tab.
 
 Renders by type:
 
@@ -1945,7 +1955,8 @@ td.c-tp{color:var(--dm);font-size:11px}
   display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;overflow:hidden}
 #fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-ql-icon svg{display:block}
-#fe-ql-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fe-ql-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
+#fe-ql-name:hover{color:var(--ac);text-decoration:underline}
 #fe-ql-meta{font-size:11px;color:var(--dm);flex:1;white-space:nowrap}
 #fe-ql-open{font-size:11px;color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
 #fe-ql-open:hover{border-color:var(--ac)}

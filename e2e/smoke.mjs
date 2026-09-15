@@ -31,9 +31,32 @@ try {
   check(h1 === 'Fixture', `markdown preview rendered h1 "${h1}"`);
   await shot(page, 'preview-md');
 
+  const hdr = await page.evaluate(() => {
+    const n = document.getElementById('fe-ql-name');
+    const o = document.getElementById('fe-ql-open');
+    const links = [...document.querySelectorAll('#fe-ql-body a[href]')];
+    return {
+      nameHref: n.getAttribute('href'), nameTarget: n.target,
+      openTarget: o.target,
+      bodyLinks: links.length, bodyBlank: links.every(a => a.target === '_blank'),
+    };
+  });
+  check(/readme\.md$/.test(hdr.nameHref) && hdr.nameTarget === '_blank', `header name links to file in new tab: ${hdr.nameHref}`);
+  check(hdr.openTarget === '_blank', 'open raw targets a new tab');
+  check(hdr.bodyLinks === 1 && hdr.bodyBlank, `markdown links (${hdr.bodyLinks}) target a new tab`);
+
   await page.keyboard.press('Escape');
   const stillOpen = await page.$eval('#fe-qlook', el => el.style.display !== 'none');
   check(!stillOpen, 'Escape closes preview');
+
+  // Middle-click on a row name reaches the browser and opens a new tab.
+  const before = (await h.browser.pages()).length;
+  const notesLink = await page.$('#fe-tbody a[href$="notes.txt"]');
+  await notesLink.click({ button: 'middle' });
+  await new Promise(r => setTimeout(r, 800));
+  const after = (await h.browser.pages()).length;
+  check(after === before + 1, `middle-click opened a new tab (${before} → ${after})`);
+  check(page.url().endsWith('/'), 'explorer tab stayed on the listing');
 
   // Sort + view persist across a folder change and a reload.
   await page.click('th[data-sort="size"]');
