@@ -42,6 +42,11 @@ right-click → Preview) to open a preview overlay — **Space** again, or **Esc
 closes it. **↑ / ↓** (or **← / →**) step between previewable files; the **copy**
 button copies the raw contents. Files over 8 MB ask before loading.
 
+The preview is a floating window by default; drag its bottom-right corner to
+resize it. The dock button in its header moves it to a **side panel** next to
+the listing, where clicking a row previews that file and the left edge drags
+to set the width. Both the choice and the sizes are remembered.
+
 The file name in the preview header, **open raw**, and every link inside a
 rendered markdown file open in a **new tab**, so the explorer stays put.
 In the listing, middle-click a name to open it natively in a new tab.

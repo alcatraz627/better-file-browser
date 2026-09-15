@@ -1,4 +1,4 @@
-import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode } from './types';
+import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode, PreviewLayout } from './types';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
 export const RECENTS_KEY   = 'bfb-recents-v1';
@@ -12,6 +12,7 @@ export const ICON_RULES_KEY = 'bfb-icon-rules-v1';
 export const SETTINGS_KEY  = 'bfb-settings-v1';
 export const SORT_KEY      = 'bfb-sort-v1';
 export const GROUP_KEY     = 'bfb-group-v1';
+export const PREVIEW_LAYOUT_KEY = 'bfb-preview-layout-v1';
 
 export const DEFAULT_ICON_RULES: IconRule[] = [
   { id: 'r1', pattern: '\\.claude$|^Claude', label: 'Cld', color: '#d97757', enabled: true },
@@ -115,6 +116,21 @@ export function getGroupMode(): GroupMode {
 }
 export function saveGroupMode(g: GroupMode): void {
   localStorage.setItem(GROUP_KEY, g);
+}
+
+const px = (v: unknown): number | undefined =>
+  typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.round(v) : undefined;
+
+export function getPreviewLayout(): PreviewLayout {
+  try {
+    const l = JSON.parse(localStorage.getItem(PREVIEW_LAYOUT_KEY) ?? 'null');
+    if (l && (l.mode === 'modal' || l.mode === 'side'))
+      return { mode: l.mode, modalW: px(l.modalW), modalH: px(l.modalH), sideW: px(l.sideW) };
+  } catch { /* fall through */ }
+  return { mode: 'modal' };
+}
+export function savePreviewLayout(l: PreviewLayout): void {
+  localStorage.setItem(PREVIEW_LAYOUT_KEY, JSON.stringify(l));
 }
 
 export function getView():       string  { return localStorage.getItem(VIEW_KEY)   ?? 'details'; }

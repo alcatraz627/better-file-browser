@@ -33,6 +33,14 @@ export interface Settings {
   aiModel?:     string;   // overrides the lm default model for AI queries (-m)
 }
 
+// Where the Quick Look preview lives and how big the owner dragged it.
+export interface PreviewLayout {
+  mode:    'modal' | 'side';
+  modalW?: number;
+  modalH?: number;
+  sideW?:  number;
+}
+
 export interface IconRule {
   id:      string;
   pattern: string;

@@ -294,6 +294,7 @@
   var SETTINGS_KEY = "bfb-settings-v1";
   var SORT_KEY = "bfb-sort-v1";
   var GROUP_KEY = "bfb-group-v1";
+  var PREVIEW_LAYOUT_KEY = "bfb-preview-layout-v1";
   var DEFAULT_ICON_RULES = [
     { id: "r1", pattern: "\\.claude$|^Claude", label: "Cld", color: "#d97757", enabled: true },
     { id: "r2", pattern: "\\.md$", label: "MD\u2193", color: "#4a9eff", enabled: true },
@@ -403,6 +404,19 @@
   }
   function saveGroupMode(g) {
     localStorage.setItem(GROUP_KEY, g);
+  }
+  var px = (v) => typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v) : void 0;
+  function getPreviewLayout() {
+    try {
+      const l = JSON.parse(localStorage.getItem(PREVIEW_LAYOUT_KEY) ?? "null");
+      if (l && (l.mode === "modal" || l.mode === "side"))
+        return { mode: l.mode, modalW: px(l.modalW), modalH: px(l.modalH), sideW: px(l.sideW) };
+    } catch {
+    }
+    return { mode: "modal" };
+  }
+  function savePreviewLayout(l) {
+    localStorage.setItem(PREVIEW_LAYOUT_KEY, JSON.stringify(l));
   }
   function getView() {
     return localStorage.getItem(VIEW_KEY) ?? "details";
@@ -1239,6 +1253,7 @@
   }
   var deps;
   var overlay;
+  var layout = getPreviewLayout();
   var currentEntry = null;
   var currentText = null;
   var reqSeq = 0;
@@ -1265,8 +1280,13 @@
           <span>copy</span>
         </button>
         <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">open raw \u2197</a>
+        <button id="fe-ql-dock" title="Dock the preview to the side">
+          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
+        </button>
         <button id="fe-ql-close" title="Close (Esc)">\u2715</button>
       </div>
+      <div id="fe-ql-rz" title="Drag to resize"></div>
+      <div id="fe-ql-rz-side" title="Drag to resize"></div>
       <div id="fe-ql-ai" style="display:none">
         <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
         <button class="fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
@@ -1283,6 +1303,43 @@
     document.getElementById("fe").appendChild(overlay);
     document.getElementById("fe-ql-close").addEventListener("click", closePreview);
     document.getElementById("fe-ql-bg").addEventListener("click", closePreview);
+    document.getElementById("fe-ql-dock").addEventListener("click", () => {
+      layout = { ...layout, mode: layout.mode === "side" ? "modal" : "side" };
+      savePreviewLayout(layout);
+      applyLayout();
+    });
+    applyLayout();
+    const dialog = document.getElementById("fe-ql-dialog");
+    const drag = (grip, onMove, onUp) => {
+      grip.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const move = (ev) => onMove(ev);
+        const up = () => {
+          document.removeEventListener("mousemove", move);
+          document.removeEventListener("mouseup", up);
+          document.body.style.cursor = "";
+          onUp();
+          savePreviewLayout(layout);
+        };
+        document.body.style.cursor = getComputedStyle(grip).cursor;
+        document.addEventListener("mousemove", move);
+        document.addEventListener("mouseup", up);
+      });
+    };
+    drag(document.getElementById("fe-ql-rz"), (ev) => {
+      const r = dialog.getBoundingClientRect();
+      layout.modalW = Math.min(window.innerWidth - r.left - 8, Math.max(360, ev.clientX - r.left));
+      layout.modalH = Math.min(window.innerHeight - r.top - 8, Math.max(240, ev.clientY - r.top));
+      applyLayout();
+    }, () => {
+    });
+    drag(document.getElementById("fe-ql-rz-side"), (ev) => {
+      const r = overlay.getBoundingClientRect();
+      layout.sideW = Math.min(window.innerWidth * 0.8, Math.max(280, r.right - ev.clientX));
+      applyLayout();
+    }, () => {
+    });
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.addEventListener("click", () => {
       if (currentText === null) return;
@@ -1326,6 +1383,22 @@
   }
   function isPreviewOpen() {
     return overlay?.style.display !== "none";
+  }
+  function isPreviewDocked() {
+    return layout.mode === "side";
+  }
+  function applyLayout() {
+    const dialog = document.getElementById("fe-ql-dialog");
+    const side = layout.mode === "side";
+    overlay.classList.toggle("side", side);
+    const host = side ? document.getElementById("fe-body") : document.getElementById("fe");
+    if (host && overlay.parentElement !== host) host.appendChild(overlay);
+    overlay.style.width = side && layout.sideW ? layout.sideW + "px" : "";
+    dialog.style.width = !side && layout.modalW ? layout.modalW + "px" : "";
+    dialog.style.height = !side && layout.modalH ? layout.modalH + "px" : "";
+    const dock = document.getElementById("fe-ql-dock");
+    dock.title = side ? "Float the preview as a window" : "Dock the preview to the side";
+    dock.classList.toggle("on", side);
   }
   function closePreview() {
     overlay.style.display = "none";
@@ -1560,6 +1633,11 @@ Select a file and press **Space** (or click the eye button on hover, or
 right-click \u2192 Preview) to open a preview overlay \u2014 **Space** again, or **Esc**,
 closes it. **\u2191 / \u2193** (or **\u2190 / \u2192**) step between previewable files; the **copy**
 button copies the raw contents. Files over 8 MB ask before loading.
+
+The preview is a floating window by default; drag its bottom-right corner to
+resize it. The dock button in its header moves it to a **side panel** next to
+the listing, where clicking a row previews that file and the left edge drags
+to set the width. Both the choice and the sizes are remembered.
 
 The file name in the preview header, **open raw**, and every link inside a
 rendered markdown file open in a **new tab**, so the explorer stays put.
@@ -1974,8 +2052,22 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
 #fe-ql-bg{position:absolute;inset:0;background:#0009;backdrop-filter:blur(2px)}
 #fe-ql-dialog{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);
-  border-radius:10px;width:min(880px,calc(100vw - 64px));height:min(78vh,900px);
+  border-radius:10px;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);
+  max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);
   display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;overflow:hidden}
+#fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;z-index:2;
+  background:linear-gradient(135deg,transparent 50%,var(--bd) 50%,var(--bd) 60%,transparent 60%,transparent 75%,var(--bd) 75%,var(--bd) 85%,transparent 85%)}
+#fe-ql-rz:hover{background:linear-gradient(135deg,transparent 50%,var(--ac) 50%)}
+#fe-ql-rz-side{display:none;position:absolute;left:0;top:0;width:6px;height:100%;cursor:col-resize;z-index:2}
+#fe-ql-rz-side:hover{background:linear-gradient(90deg,var(--ac),transparent)}
+#fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;
+  border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch}
+#fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
+#fe-qlook.side #fe-ql-rz-side{display:block}
+#fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
+#fe-ql-dock{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;padding:3px 7px;border-radius:5px;line-height:1;display:flex;align-items:center}
+#fe-ql-dock:hover{border-color:var(--ac);color:var(--ac)}
+#fe-ql-dock.on{color:var(--ac);border-color:var(--ac)}
 #fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-ql-icon svg{display:block}
 #fe-ql-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
@@ -2736,8 +2828,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     function applyColWidths() {
       const w = getColWidths();
       document.querySelectorAll("thead th[data-ck]").forEach((th) => {
-        const px = w[th.dataset.ck];
-        if (px) th.style.width = px + "px";
+        const px2 = w[th.dataset.ck];
+        if (px2) th.style.width = px2 + "px";
       });
     }
     applyColWidths();
@@ -3003,7 +3095,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         else toggleSel(i);
         return;
       }
-      if (!e.target.closest("a") && selectable(i)) setSel(i);
+      if (!e.target.closest("a") && selectable(i)) {
+        setSel(i);
+        if (isPreviewOpen() && isPreviewDocked() && canPreview(VISIBLE[i])) openPreview(VISIBLE[i]);
+      }
     });
     const selSet = /* @__PURE__ */ new Set();
     let selIdx = -1;

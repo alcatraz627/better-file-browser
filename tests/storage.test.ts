@@ -2,7 +2,28 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getColWidths, saveColWidths, getSettings, saveSettings,
   getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
+  getPreviewLayout, savePreviewLayout,
 } from '../src/storage';
+
+describe('preview layout persistence', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('defaults to a modal with no remembered sizes', () => {
+    expect(getPreviewLayout()).toEqual({ mode: 'modal' });
+  });
+
+  it('round-trips mode and sizes, rounding to whole pixels', () => {
+    savePreviewLayout({ mode: 'side', sideW: 411.6, modalW: 900, modalH: 640 });
+    expect(getPreviewLayout()).toEqual({ mode: 'side', sideW: 412, modalW: 900, modalH: 640 });
+  });
+
+  it('drops an unknown mode or a nonsense size', () => {
+    localStorage.setItem('bfb-preview-layout-v1', JSON.stringify({ mode: 'popup', sideW: 300 }));
+    expect(getPreviewLayout()).toEqual({ mode: 'modal' });
+    localStorage.setItem('bfb-preview-layout-v1', JSON.stringify({ mode: 'side', sideW: -5, modalW: 'wide' }));
+    expect(getPreviewLayout()).toEqual({ mode: 'side' });
+  });
+});
 
 describe('sort + group persistence', () => {
   beforeEach(() => localStorage.clear());

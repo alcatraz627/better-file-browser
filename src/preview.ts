@@ -1,8 +1,9 @@
 // Quick Look overlay — macOS-style file preview inside the explorer.
 // Fetches file:// content over XHR (the same trick the crumb dropdown uses)
 // and hands it to a renderer picked by extension. No new permissions needed.
-import type { Entry, IconRule } from './types';
+import type { Entry, IconRule, PreviewLayout } from './types';
 import { esc, fmtSize, getExt, copyToClipboard } from './utils';
+import { getPreviewLayout, savePreviewLayout } from './storage';
 import { getIcon, IMG_EXTS } from './icons';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
@@ -48,6 +49,7 @@ interface PreviewDeps {
 
 let deps: PreviewDeps;
 let overlay: HTMLElement;
+let layout: PreviewLayout = getPreviewLayout();
 let currentEntry: Entry | null = null;
 let currentText: string | null = null;   // raw fetched contents, for copy
 let reqSeq = 0;
@@ -79,8 +81,13 @@ export function initPreview(d: PreviewDeps): void {
           <span>copy</span>
         </button>
         <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">open raw ↗</a>
+        <button id="fe-ql-dock" title="Dock the preview to the side">
+          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
+        </button>
         <button id="fe-ql-close" title="Close (Esc)">✕</button>
       </div>
+      <div id="fe-ql-rz" title="Drag to resize"></div>
+      <div id="fe-ql-rz-side" title="Drag to resize"></div>
       <div id="fe-ql-ai" style="display:none">
         <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
         <button class="fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
@@ -98,6 +105,43 @@ export function initPreview(d: PreviewDeps): void {
 
   document.getElementById('fe-ql-close')!.addEventListener('click', closePreview);
   document.getElementById('fe-ql-bg')!.addEventListener('click', closePreview);
+  document.getElementById('fe-ql-dock')!.addEventListener('click', () => {
+    layout = { ...layout, mode: layout.mode === 'side' ? 'modal' : 'side' };
+    savePreviewLayout(layout);
+    applyLayout();
+  });
+  applyLayout();
+
+  // Corner grip (modal) sets the dialog's size; left-edge grip (side) sets
+  // the panel width. Same mousedown/move/up shape as the column resizers.
+  const dialog = document.getElementById('fe-ql-dialog')!;
+  const drag = (grip: HTMLElement, onMove: (e: MouseEvent) => void, onUp: () => void) => {
+    grip.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const move = (ev: MouseEvent) => onMove(ev);
+      const up = () => {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        document.body.style.cursor = '';
+        onUp();
+        savePreviewLayout(layout);
+      };
+      document.body.style.cursor = getComputedStyle(grip).cursor;
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    });
+  };
+  drag(document.getElementById('fe-ql-rz')!, ev => {
+    const r = dialog.getBoundingClientRect();
+    layout.modalW = Math.min(window.innerWidth - r.left - 8, Math.max(360, ev.clientX - r.left));
+    layout.modalH = Math.min(window.innerHeight - r.top - 8, Math.max(240, ev.clientY - r.top));
+    applyLayout();
+  }, () => {});
+  drag(document.getElementById('fe-ql-rz-side')!, ev => {
+    const r = overlay.getBoundingClientRect();
+    layout.sideW = Math.min(window.innerWidth * 0.8, Math.max(280, r.right - ev.clientX));
+    applyLayout();
+  }, () => {});
 
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.addEventListener('click', () => {
@@ -141,6 +185,26 @@ export function initPreview(d: PreviewDeps): void {
 
 export function isPreviewOpen(): boolean {
   return overlay?.style.display !== 'none';
+}
+
+export function isPreviewDocked(): boolean {
+  return layout.mode === 'side';
+}
+
+// Modal: a fixed overlay under #fe with a scrim. Side: the same element moved
+// into #fe-body as a flex sibling of the listing, no scrim, owner-set width.
+function applyLayout(): void {
+  const dialog = document.getElementById('fe-ql-dialog')!;
+  const side = layout.mode === 'side';
+  overlay.classList.toggle('side', side);
+  const host = side ? document.getElementById('fe-body') : document.getElementById('fe');
+  if (host && overlay.parentElement !== host) host.appendChild(overlay);
+  overlay.style.width = side && layout.sideW ? layout.sideW + 'px' : '';
+  dialog.style.width  = !side && layout.modalW ? layout.modalW + 'px' : '';
+  dialog.style.height = !side && layout.modalH ? layout.modalH + 'px' : '';
+  const dock = document.getElementById('fe-ql-dock')!;
+  dock.title = side ? 'Float the preview as a window' : 'Dock the preview to the side';
+  dock.classList.toggle('on', side);
 }
 
 export function closePreview(): void {

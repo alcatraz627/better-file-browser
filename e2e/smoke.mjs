@@ -45,6 +45,66 @@ try {
   check(hdr.openTarget === '_blank', 'open raw targets a new tab');
   check(hdr.bodyLinks === 1 && hdr.bodyBlank, `markdown links (${hdr.bodyLinks}) target a new tab`);
 
+  // Resize the floating window by its corner grip.
+  const dragBy = async (sel, dx, dy) => {
+    const b = await (await page.$(sel)).boundingBox();
+    const x = b.x + b.width / 2, y = b.y + b.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + dx, y + dy, { steps: 6 });
+    await page.mouse.up();
+  };
+  const dlgBox = () => page.$eval('#fe-ql-dialog', el => ({ w: el.offsetWidth, h: el.offsetHeight }));
+  const dlgBefore = await dlgBox();
+  await dragBy('#fe-ql-rz', -300, -200);
+  const afterDrag = await dlgBox();
+  check(afterDrag.w < dlgBefore.w - 250 && afterDrag.h < dlgBefore.h - 150, `corner drag shrank modal ${dlgBefore.w}x${dlgBefore.h} → ${afterDrag.w}x${afterDrag.h}`);
+  await shot(page, 'preview-modal-resized');
+
+  // Dock to the side: the overlay becomes a flex sibling of the listing.
+  const mainBefore = await page.$eval('#fe-main', el => el.offsetWidth);
+  await page.click('#fe-ql-dock');
+  const docked = await page.evaluate(() => ({
+    side: document.getElementById('fe-qlook').classList.contains('side'),
+    parent: document.getElementById('fe-qlook').parentElement.id,
+    main: document.getElementById('fe-main').offsetWidth,
+  }));
+  check(docked.side && docked.parent === 'fe-body' && docked.main < mainBefore - 300, `docked: ${JSON.stringify(docked)}`);
+
+  // In side mode a row click previews that file.
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="notes.txt"]) td:last-child')).click();
+  await page.waitForFunction(() => document.getElementById('fe-ql-name').textContent === 'notes.txt', { timeout: 3_000 }).catch(() => null);
+  const followed = await page.$eval('#fe-ql-name', el => el.textContent);
+  check(followed === 'notes.txt', `docked preview follows row click: ${followed}`);
+
+  const sideBefore = await page.$eval('#fe-qlook', el => el.offsetWidth);
+  await dragBy('#fe-ql-rz-side', -150, 0);
+  const sideAfter = await page.$eval('#fe-qlook', el => el.offsetWidth);
+  check(sideAfter > sideBefore + 100, `edge drag widened panel ${sideBefore} → ${sideAfter}`);
+  await shot(page, 'preview-docked');
+
+  // Mode and sizes survive a reload.
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td:last-child')).click();
+  await page.keyboard.press('Space');
+  await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
+  const persisted = await page.evaluate(() => ({
+    side: document.getElementById('fe-qlook').classList.contains('side'),
+    w: document.getElementById('fe-qlook').offsetWidth,
+  }));
+  check(persisted.side && Math.abs(persisted.w - sideAfter) <= 2, `docked layout persisted: ${JSON.stringify(persisted)}`);
+
+  await page.click('#fe-ql-dock');
+  const floated = await page.evaluate(() => ({
+    side: document.getElementById('fe-qlook').classList.contains('side'),
+    parent: document.getElementById('fe-qlook').parentElement.id,
+    w: document.getElementById('fe-ql-dialog').offsetWidth,
+    h: document.getElementById('fe-ql-dialog').offsetHeight,
+  }));
+  check(!floated.side && floated.parent === 'fe' && Math.abs(floated.w - afterDrag.w) <= 2 && Math.abs(floated.h - afterDrag.h) <= 2,
+    `floated again with remembered size: ${JSON.stringify(floated)}`);
+
   await page.keyboard.press('Escape');
   const stillOpen = await page.$eval('#fe-qlook', el => el.style.display !== 'none');
   check(!stillOpen, 'Escape closes preview');

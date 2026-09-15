@@ -14,7 +14,7 @@ import {
 } from './storage';
 import { upsertPlace, removePlace, renamePlace, movePlace } from './places';
 import {
-  initPreview, openPreview, closePreview, isPreviewOpen, canPreview,
+  initPreview, openPreview, closePreview, isPreviewOpen, isPreviewDocked, canPreview,
 } from './preview';
 import { fetchFileText } from './file-fetch';
 import { llmAvailability, llmWarm, type LlmAvailability } from './llm';
@@ -798,7 +798,11 @@ import { getIcon } from './icons';
       if (e.shiftKey) rangeSel(i); else toggleSel(i);
       return;
     }
-    if (!(e.target as HTMLElement).closest('a') && selectable(i)) setSel(i);
+    if (!(e.target as HTMLElement).closest('a') && selectable(i)) {
+      setSel(i);
+      // A docked preview follows the selection instead of waiting for Space.
+      if (isPreviewOpen() && isPreviewDocked() && canPreview(VISIBLE[i])) openPreview(VISIBLE[i]);
+    }
   });
 
   // ── Selection & keyboard navigation ───────────────────────────────

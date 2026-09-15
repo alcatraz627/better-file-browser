@@ -343,8 +343,22 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
 #fe-ql-bg{position:absolute;inset:0;background:#0009;backdrop-filter:blur(2px)}
 #fe-ql-dialog{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);
-  border-radius:10px;width:min(880px,calc(100vw - 64px));height:min(78vh,900px);
+  border-radius:10px;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);
+  max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);
   display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;overflow:hidden}
+#fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;z-index:2;
+  background:linear-gradient(135deg,transparent 50%,var(--bd) 50%,var(--bd) 60%,transparent 60%,transparent 75%,var(--bd) 75%,var(--bd) 85%,transparent 85%)}
+#fe-ql-rz:hover{background:linear-gradient(135deg,transparent 50%,var(--ac) 50%)}
+#fe-ql-rz-side{display:none;position:absolute;left:0;top:0;width:6px;height:100%;cursor:col-resize;z-index:2}
+#fe-ql-rz-side:hover{background:linear-gradient(90deg,var(--ac),transparent)}
+#fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;
+  border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch}
+#fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
+#fe-qlook.side #fe-ql-rz-side{display:block}
+#fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
+#fe-ql-dock{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;padding:3px 7px;border-radius:5px;line-height:1;display:flex;align-items:center}
+#fe-ql-dock:hover{border-color:var(--ac);color:var(--ac)}
+#fe-ql-dock.on{color:var(--ac);border-color:var(--ac)}
 #fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-ql-icon svg{display:block}
 #fe-ql-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
