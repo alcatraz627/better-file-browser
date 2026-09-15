@@ -1,7 +1,7 @@
 <div align="center">
   <img src="banner.svg" alt="Better File Browser" width="860"/>
   <br/><br/>
-  <img src="chrome-badge.svg" alt="Chrome Extension v2.7" height="48"/>
+  <img src="chrome-badge.svg" alt="Chrome Extension v2.8" height="48"/>
   &nbsp;&nbsp;
   <img src="icon128.png" alt="Extension Icon" width="48" height="48" style="border-radius:10px;vertical-align:middle"/>
 </div>
@@ -100,13 +100,24 @@ With the [local-models `lm` CLI](https://github.com/alcatraz627/local-models) in
 ### Context menu
 Right-click any row or tile for **Preview · Copy path · Copy name · Open in terminal**.
 
+### Tabs
+The strip above the toolbar is the working set of folders, shared by every explorer window (state in `chrome.storage.local`, synced through `storage.onChanged`). The folder you are in shows as an italic tab until **t** or a double-click keeps it. **w** closes, **[** and **]** step, **1** to **9** jump, drag reorders. Navigation is real, so the address bar always matches the folder shown.
+
 ### Sidebar
-- **Finder Favourites** — parsed from your macOS SFL4 sidebar binary at install time and hardcoded (live sync isn't possible from a sandboxed extension)
-- **My Places** — your own editable quick-access list: **+** adds the current folder, double-click a label to rename, drag to reorder, ✕ to remove
-- **Recent** — the last directories you browsed (persisted in `localStorage`)
-- **Quick Places** — Root, Home, Desktop, Documents, Downloads
-- **Bookmarks** — star (☆) any folder to save it; drag rows to reorder; ✕ to remove
-- All sidebar state persists in `localStorage`
+- **Saved**: one list of your folders. The ★ in the path bar saves or unsaves the current folder, and **+** saves it with the name open for editing. Double-click a label to rename, drag to reorder, ✕ to remove. Hover a row and press **#** to type comma-separated tags. Tagged folders group under a coloured heading, and clicking the heading's dot changes the colour. Bookmarks and My Places from earlier versions are merged in on first load.
+- **Notes**: appears once a Notes folder is set in Settings (see below).
+- **Recent**: the last directories you browsed.
+- **Finder Favourites** and **System**: fixed quick jumps.
+- All sidebar state persists in `localStorage`.
+
+### Notes
+Set a **Notes folder** in Settings and a Notes section lists its `.md` files newest first. **n** or **+** starts a note. The preview panel becomes an editor with the source on the left and the render on the right. **⌘S** saves, a 1.5 s pause autosaves, and a note created as untitled takes its first heading as its file name on first save. Rename by double-click; ✕ moves the note into `.trash/` inside the folder. Files are written through a native host that refuses any path outside the folder and detects edits made by other programs. The folder is plain markdown with optional front matter, readable by Obsidian and any markdown tool. The rules are in [`docs/notes-contract.md`](docs/notes-contract.md).
+
+### File pages
+A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt) renders like the preview instead of Chrome's plain text: folder crumbs, a heading table of contents for markdown, **r** for raw, a remembered scroll position, and a re-render whenever the file changes on disk. Settings can limit this to non-markdown files or turn it off if you keep another markdown extension on file URLs.
+
+### Deep search
+The folder button beside the filter box includes every subfolder. Names show their path from the current folder, so `src/main.ts` matches `main`. The scan skips `node_modules`, `.git` and dot-folders, stops at 8 levels or 5000 items, and runs once per page.
 
 Details-view columns are resizable — drag a header's right edge; widths persist. Rows support multi-select (shift-click range, ⌘/ctrl-click toggle, ⌘A), and ⌘C copies the selected paths.
 
@@ -187,19 +198,27 @@ better-file-browser/
 ├── build.ts                    esbuild bundler (src/ → content.js)
 ├── src/                        TypeScript sources (entry: main.ts)
 │   ├── main.ts                 page replacement, events, settings, keyboard, context menu
-│   ├── preview.ts              Quick Look overlay + AI bar
+│   ├── preview.ts              Quick Look panel (modal or docked) + AI bar + note editor
+│   ├── file-page.ts            takeover for a file opened directly in the tab
 │   ├── renderers.ts            pure render fns: code/DSV/JSON/JSONL/markdown (unit-tested)
+│   ├── deep-search.ts          pure subtree crawler behind the deep search toggle
+│   ├── tabs.ts · places.ts     pure cores for the tab strip and the Saved list
+│   ├── notes.ts · editor.ts    notes host client + front matter; undo/insert core
 │   ├── llm.ts                  native-messaging client for the lm CLI
-│   ├── file-fetch.ts           service-worker fetch relay client
+│   ├── file-fetch.ts           service-worker fetch relay client (retries, error codes)
 │   ├── parse.ts · render.ts · sort-filter.ts · icons.ts · storage.ts · utils.ts · types.ts
 ├── tests/                      vitest unit tests
+├── e2e/                        browser harness + smoke run (npm run e2e)
+├── docs/                       feature-set model, notes contract, design notes
 ├── icon.svg                    Extension icon (dark rounded square + folder)
 ├── README.md
 └── native/
     ├── ghostty_launcher.py     Native host: opens Ghostty
     ├── llm_host.py             Native host: bridges the preview AI bar to the lm CLI
-    ├── install.sh              Registers both hosts with Chrome
-    └── com.better_file_browser.{ghostty,llm}.json  Host manifest templates
+    ├── notes_host.py           Native host: reads and writes notes in one folder
+    ├── test_notes_host.py      Protocol test for the notes host
+    ├── install.sh              Registers the three hosts with Chrome
+    └── com.better_file_browser.{ghostty,llm,notes}.json  Host manifest templates
 ```
 
 ---
@@ -211,8 +230,12 @@ Logic lives in `src/` (TypeScript) and bundles to `content.js` via esbuild.
 ```bash
 npm install
 npm run build      # src/ → content.js  (npm run watch for incremental)
-npm test           # vitest unit tests (renderers, parsing)
+npm test           # vitest unit tests (renderers, parsing, storage, crawler, tabs)
+npm run e2e        # browser run: Chrome for Testing + puppeteer, screenshots in e2e/shots/
+npm run e2e:light  # the same checks on the light theme
 ```
+
+The e2e harness needs Chrome for Testing once: `npx @puppeteer/browsers install chrome@stable`. `BFB_CHROME` overrides the binary, `BFB_HEADED=1` shows the window.
 
 After a build:
 
@@ -229,7 +252,7 @@ After a build:
 - **File permissions** — displayed via native host returning `os.stat()` data
 - **Markdown image rendering** — currently `<img>` in previewed markdown points at relative paths that don't resolve under `file://`
 
-_Shipped since v2.2: Quick Look preview, rich renderers, local-model AI bar (with model picker + warm toggle), keyboard navigation, context menu, recent directories, breadcrumb dropdown search, multi-select, column resize, custom Places, categorized syntax highlighting, and image dimensions._
+_Shipped since v2.2: Quick Look preview (modal or docked), rich renderers, local-model AI bar (with model picker + warm toggle), keyboard navigation, context menu, recent directories, breadcrumb dropdown search, multi-select, column resize, Saved folders with tags, tabs, Notes, rendered file pages, deep search, categorized syntax highlighting, and image dimensions._
 
 ---
 
@@ -237,6 +260,7 @@ _Shipped since v2.2: Quick Look preview, rich renderers, local-model AI bar (wit
 
 | Version | Highlights |
 |---------|------------|
+| **2.8** | Tabs (shared working set), Saved list replacing Bookmarks + My Places (names, tags, colours), Notes editor with a native host and a documented file contract, rendered file pages with ToC and autoreload, deep search, preview docks to the side or floats and resizes, preview links open in new tabs, sort/group persist, relay retry + reloaded-extension message, in-repo e2e harness |
 | **2.7.1** | Image dimensions (W × H) in the preview |
 | **2.7** | AI bar model picker (`-m`) + Keep-warm/Unload toggle |
 | **2.6** | Syntax-highlighter upgrade — categorized keywords (control/type/builtin/literal), Python triple-quotes & string prefixes, Rust raw strings, decorators, richer numbers |

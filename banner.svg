@@ -132,7 +132,7 @@
   <!-- Version badge top-right -->
   <rect x="778" y="14" width="64" height="22" rx="11" fill="#21262d"/>
   <rect x="778" y="14" width="64" height="22" rx="11" fill="none" stroke="#30363d" stroke-width="1"/>
-  <text x="810" y="28" text-anchor="middle" font-family="'SF Mono', Consolas, monospace" font-size="11" fill="#8b949e">v 2.7</text>
+  <text x="810" y="28" text-anchor="middle" font-family="'SF Mono', Consolas, monospace" font-size="11" fill="#8b949e">v 2.8</text>
 
   <!-- Bottom border line -->
   <rect x="0" y="216" width="860" height="4" rx="0" fill="url(#chrome)" opacity="0.5"/>
