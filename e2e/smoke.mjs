@@ -1,7 +1,7 @@
 // Smoke run: the explorer renders the fixture, a preview opens and closes,
 // and screenshots land in e2e/shots/. Run with `npm run e2e`.
 import { launch, shot, applyTheme } from './harness.mjs';
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const failures = [];
@@ -305,6 +305,15 @@ try {
     return { md: Math.round(md.right), pane: Math.round(pane.right), strip: !!document.querySelector('#fe-tabs .fe-tab.temp') };
   });
   check(width.md >= width.pane - 1 && width.strip, `file page fills the pane width and shows the strip: ${JSON.stringify(width)}`);
+  await fpage.setViewport({ width: 1800, height: 900 });
+  const wide = await fpage.evaluate(() => {
+    const r = document.getElementById('fe').getBoundingClientRect();
+    return { html: getComputedStyle(document.documentElement).backgroundColor, body: getComputedStyle(document.body).backgroundColor,
+      fe: getComputedStyle(document.getElementById('fe')).backgroundColor, covers: r.width === innerWidth && r.height === innerHeight };
+  });
+  check(wide.covers && wide.html === wide.fe && wide.body === wide.fe, `at 1800 wide the page background is the theme's and #fe covers the viewport: ${JSON.stringify(wide)}`);
+  await shot(fpage, 'file-page-wide');
+  await fpage.setViewport({ width: 1400, height: 900 });
   await fpage.click('#fe-fp-raw');
   const rawOn = await fpage.evaluate(() => !!document.querySelector('#fe-page .fe-code') && document.querySelector('#fe-page .fe-code').textContent.includes('# Fixture'));
   check(rawOn, 'raw toggle shows the source');
@@ -496,6 +505,32 @@ try {
   await shot(page, 'view-icons');
   await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="tiles"]').click());
   await shot(page, 'view-tiles');
+
+  // Many long names: rows stay one tile tall with a tight gap, names clamp
+  // to two lines, in both tile views at 1400 and 1735 wide.
+  const many = join(h.fixture, 'many');
+  mkdirSync(many, { recursive: true });
+  for (let i = 0; i < 25; i++) writeFileSync(join(many, `a-rather-long-file-name-number-${i}-${'x'.repeat(i % 5 * 6)}.txt`), 'x');
+  await page.goto('file://' + many + '/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  for (const view of ['tiles', 'icons']) {
+    for (const width of [1400, 1735]) {
+      await page.setViewport({ width, height: 900 });
+      await page.evaluate(v => document.querySelector(`.fe-view-btn[data-view="${v}"]`).click(), view);
+      const m = await page.$$eval('#fe-tiles .fe-tile', all => {
+        const els = all.filter(e => e.offsetHeight > 0);
+        const tops = [...new Set(els.map(e => e.offsetTop))].sort((a, b) => a - b);
+        const nm = els.map(e => e.querySelector('.fe-tile-nm').offsetHeight);
+        return { rows: tops.length, pitch: tops[1] - tops[0], tileH: Math.max(...els.map(e => e.offsetHeight)), nameH: Math.max(...nm), lineH: parseFloat(getComputedStyle(els[0].querySelector('.fe-tile-nm')).lineHeight) };
+      });
+      check(m.pitch - m.tileH <= 6 && m.nameH <= m.lineH * 2 + 1, `${view} at ${width}: ${m.rows} rows, pitch ${m.pitch} for tiles ${m.tileH} tall, names ≤ 2 lines (${m.nameH})`);
+      await shot(page, `view-${view}-${width}`);
+    }
+  }
+  await page.setViewport({ width: 1400, height: 900 });
+  await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="tiles"]').click());
   const htmlBg = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
   const feBg = await page.$eval('#fe', el => getComputedStyle(el).backgroundColor);
   check(htmlBg === feBg, `html background matches the theme (${htmlBg} vs ${feBg})`);
