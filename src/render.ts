@@ -2,6 +2,7 @@ import type { Entry, IconRule, Place, Settings, Tag, TipData } from './types';
 import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath } from './utils';
 import { getIcon, IMG_EXTS, PI } from './icons';
 import { groupByTag } from './places';
+import { isViewPath } from './find';
 import { canPreview } from './preview';
 
 export interface RenderContext {
@@ -89,11 +90,12 @@ export function renderTiles(entries: Entry[], ctx: RenderContext, start = 0): st
 export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string): string {
   if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click ☆ in the path bar, or + to name this folder.</div>`;
   const color = (name: string) => tags.find(t => t.name === name)?.color ?? '#8b949e';
+  const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
   const row = (p: Place) => `
-    <div class="fe-bm-item fe-pl-item" draggable="true" data-path="${esc(p.path)}">
+    <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? ' fe-view' : ''}" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h">${PI.drag}</span>
-      <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? ' active' : ''}" title="${esc(p.path)}">
-        ${PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
+      <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? ' active' : ''}" title="${esc(isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path)}">
+        ${isViewPath(p.path) ? VIEW_ICON : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
         <span class="fe-pl-dots">${(p.tags ?? []).map(t => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join('')}</span>
       </a>
       <span class="fe-pl-tags" title="Tags, comma separated"></span>

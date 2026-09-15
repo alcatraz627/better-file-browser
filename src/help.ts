@@ -18,6 +18,12 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 
 - **Quick filter** — type in the **Filter…** box (top-right), or press **⌘F** to
   jump to it. Press **⌘F** again to fall through to Chrome's own find.
+- **Text inside files** — open the **Filter** panel; the second row reads the
+  text files the name and type fields allow (2 MB each at most) and keeps
+  only the ones containing your words. Enter or **Run** starts it, **Cancel**
+  stops it, and the results stay until you run again or clear the field.
+  **Save view** keeps the folder plus these fields as a Saved row with a
+  funnel icon; opening it brings the search back.
 - **Deep search** — the folder button beside the filter box includes every
   subfolder. Names show their path from this folder, so **src/main.ts** matches
   **main**. The scan skips node_modules, .git and dot-folders (unless hidden

@@ -80,6 +80,34 @@ already produces the picture; the batch adds the third frame.
   the editor read, so another tool writing the same file makes the next save
   a visible conflict with a reload button instead of a silent overwrite.
 
+## Find: one record, three fields, kept as a view
+
+The owner's question on 2026-09-15 was whether deep search and a saved filter
+belong together. They do: a search is a Place plus a question, so it is kept
+where Places are kept.
+
+- **The record.** `FindQuery` (`src/find.ts`) has a scope (this folder or
+  every subfolder), a name pattern (substring or regex), extensions, and text
+  inside files. Name and extension filter instantly, as they always did. Text
+  is a second, asynchronous pass.
+- **The contents pass.** Candidates are the files the name and extension
+  fields already allow, of a text type, at most 2 MB each. Four are read at a
+  time through the relay; the status shows `scanning 12/40` with a Cancel
+  button, then `N of M files`. Results are held until the next Run or a
+  cleared text field, so sorting, grouping and previewing work on the result
+  set. Changing the text does not re-run by itself; Enter or Run does. Deep
+  scope waits for the folder crawl, then runs.
+- **A saved view is a URL.** `Save view` writes a Saved row whose path is the
+  folder plus `#find=<query>`, labelled from the fields (`plan .md "todo" in
+  subfolders`). It draws with a funnel icon, and every Saved gesture works on
+  it: rename, tag, drag, remove. Opening it navigates to the folder and the
+  hash applies the query, including the contents pass; a hash change on an
+  already open page applies it in place. Nothing new is stored, and the row
+  is also a link you can paste anywhere.
+- **Not in this cut.** Match snippets in the row, a match count column, and
+  regex over contents. The hit map keeps the first matching line per file for
+  when a snippet column is wanted.
+
 ## Tabs: the working set
 
 - A strip above the toolbar. Each tab is a folder with its label; the active

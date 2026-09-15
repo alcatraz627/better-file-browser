@@ -214,9 +214,9 @@
     "Public",
     "Sites"
   ]);
-  function icoFile(ext) {
-    const c = EXT_COLORS[ext.toLowerCase()] ?? "#6e7681";
-    const lbl = ext.length <= 3 ? ext.toUpperCase() : ext.slice(0, 3).toUpperCase();
+  function icoFile(ext2) {
+    const c = EXT_COLORS[ext2.toLowerCase()] ?? "#6e7681";
+    const lbl = ext2.length <= 3 ? ext2.toUpperCase() : ext2.slice(0, 3).toUpperCase();
     return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">
     <path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${c}1a" stroke="${c}" stroke-width="1.1"/>
     <path d="M10 0.5v5.5h5.5" fill="none" stroke="${c}" stroke-width="1.1"/>
@@ -262,8 +262,8 @@
       }
     }
     if (e.isDir) return icoFolder(e.name);
-    const ext = e.name.includes(".") ? e.name.split(".").pop() : "";
-    return icoFile(ext || "\u2014");
+    const ext2 = e.name.includes(".") ? e.name.split(".").pop() : "";
+    return icoFile(ext2 || "\u2014");
   }
   var PI = {
     root: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1 5h12" stroke="currentColor" stroke-width="1.3"/><circle cx="3.5" cy="3.5" r=".9" fill="currentColor"/><circle cx="5.8" cy="3.5" r=".9" fill="currentColor"/><path d="M3 13h8M7 11v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
@@ -716,8 +716,8 @@
     num: "tok-num",
     deco: "tok-deco"
   };
-  function highlightCode(src, ext) {
-    const langKey = EXT_LANG[ext.toLowerCase()] ?? "plain";
+  function highlightCode(src, ext2) {
+    const langKey = EXT_LANG[ext2.toLowerCase()] ?? "plain";
     const lang = LANGS[langKey];
     if (langKey === "plain") return esc(src);
     const wmap = wordClasses(lang);
@@ -745,7 +745,7 @@
     out += esc(src.slice(last));
     return out;
   }
-  function renderCode(src, ext) {
+  function renderCode(src, ext2) {
     let truncNote = "";
     if (src.length > RENDER_CAPS.codeChars) {
       src = src.slice(0, RENDER_CAPS.codeChars);
@@ -753,7 +753,7 @@
     }
     const lines = src.split("\n").length;
     const gutter = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
-    return `${truncNote}<div class="fe-code-wrap"><pre class="fe-code-gut">${gutter}</pre><pre class="fe-code">${highlightCode(src, ext)}</pre></div>`;
+    return `${truncNote}<div class="fe-code-wrap"><pre class="fe-code-gut">${gutter}</pre><pre class="fe-code">${highlightCode(src, ext2)}</pre></div>`;
   }
   function parseDSV(text, delim) {
     const rows = [];
@@ -1503,8 +1503,8 @@ ${body}
   var FONT_EXTS = /* @__PURE__ */ new Set(["ttf", "otf", "woff", "woff2"]);
   function canPreview(e) {
     if (e.isDir || e.isParent) return false;
-    const ext = getExt(e);
-    return IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext) || TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === "json" || CODE_EXTS.has(ext) || ext === "";
+    const ext2 = getExt(e);
+    return IMG_EXTS.has(ext2) || PDF_EXTS.has(ext2) || VIDEO_EXTS.has(ext2) || AUDIO_EXTS.has(ext2) || FONT_EXTS.has(ext2) || TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json" || CODE_EXTS.has(ext2) || ext2 === "";
   }
   function fontSpecimen(href) {
     const sample = "The quick brown fox jumps over the lazy dog 0123456789";
@@ -1690,11 +1690,11 @@ ${body}
     document.getElementById("fe-ql-ai-out-meta").textContent = "";
     document.getElementById("fe-ql-ai-q").value = "";
   }
-  function setupAi(e, ext) {
+  function setupAi(e, ext2) {
     llmAvailability().then((av) => {
       if (currentEntry !== e || !isPreviewOpen()) return;
       if (av.kind === "unavailable") return;
-      const tabular = TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === "json";
+      const tabular = TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json";
       const exp = document.getElementById("fe-ql-ai-exp");
       exp.textContent = tabular ? "Describe" : "Explain";
       exp.dataset.intent = tabular ? "describe-data" : "explain-code";
@@ -1819,8 +1819,8 @@ ${body}
     const addImage = async (file) => {
       const st = edit;
       if (!st || st.root !== root) return;
-      const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
-      const rel = `attachments/${slugForTitle(noteTitle(st.rel, st.text)).replace(/\.md$/, "")}-${Date.now().toString(36)}.${ext}`;
+      const ext2 = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
+      const rel = `attachments/${slugForTitle(noteTitle(st.rel, st.text)).replace(/\.md$/, "")}-${Date.now().toString(36)}.${ext2}`;
       const b64 = await new Promise((res) => {
         const r = new FileReader();
         r.onload = () => res(String(r.result).split(",")[1] || "");
@@ -1972,12 +1972,12 @@ ${body}
     document.getElementById("fe-ql-body").classList.remove("fe-editing");
     currentEntry = e;
     const seq = ++reqSeq;
-    const ext = getExt(e);
+    const ext2 = getExt(e);
     document.getElementById("fe-ql-icon").innerHTML = getIcon(e, deps.iconRules());
     const nameEl = document.getElementById("fe-ql-name");
     nameEl.textContent = e.name;
     nameEl.href = e.href;
-    document.getElementById("fe-ql-meta").textContent = `${fmtSize(e.rawBytes)}${ext ? " \xB7 ." + ext : ""}`;
+    document.getElementById("fe-ql-meta").textContent = `${fmtSize(e.rawBytes)}${ext2 ? " \xB7 ." + ext2 : ""}`;
     document.getElementById("fe-ql-open").href = e.href;
     const body = document.getElementById("fe-ql-body");
     overlay.style.display = "flex";
@@ -1988,9 +1988,9 @@ ${body}
     resetAiUi();
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.disabled = true;
-    if (IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext)) {
+    if (IMG_EXTS.has(ext2) || PDF_EXTS.has(ext2) || VIDEO_EXTS.has(ext2) || AUDIO_EXTS.has(ext2) || FONT_EXTS.has(ext2)) {
       copyBtn.style.display = "none";
-      if (IMG_EXTS.has(ext)) {
+      if (IMG_EXTS.has(ext2)) {
         body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"><div class="fe-ql-dim"></div></div>`;
         const img = body.querySelector("img.fe-ql-img");
         const dim = body.querySelector(".fe-ql-dim");
@@ -2001,33 +2001,33 @@ ${body}
           if (img.complete) show();
           else img.addEventListener("load", show, { once: true });
         }
-      } else if (PDF_EXTS.has(ext)) body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
-      else if (VIDEO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;
-      else if (AUDIO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-center"><audio src="${esc(e.href)}" controls></audio></div>`;
+      } else if (PDF_EXTS.has(ext2)) body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
+      else if (VIDEO_EXTS.has(ext2)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;
+      else if (AUDIO_EXTS.has(ext2)) body.innerHTML = `<div class="fe-ql-center"><audio src="${esc(e.href)}" controls></audio></div>`;
       else body.innerHTML = fontSpecimen(e.href);
       return;
     }
     copyBtn.style.display = "";
-    setupAi(e, ext);
+    setupAi(e, ext2);
     if (e.rawBytes > FETCH_WARN_BYTES) {
       body.innerHTML = `
       <div class="fe-ql-center">
         <div class="fe-ql-note">File is ${fmtSize(e.rawBytes)} \u2014 large files can be slow to render.</div>
         <button id="fe-ql-force" class="fe-pbn">Load anyway</button>
       </div>`;
-      document.getElementById("fe-ql-force").addEventListener("click", () => fetchAndRender(e, ext, seq));
+      document.getElementById("fe-ql-force").addEventListener("click", () => fetchAndRender(e, ext2, seq));
       return;
     }
-    fetchAndRender(e, ext, seq);
+    fetchAndRender(e, ext2, seq);
   }
-  function fetchAndRender(e, ext, seq) {
+  function fetchAndRender(e, ext2, seq) {
     const body = document.getElementById("fe-ql-body");
     body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Loading\u2026</div></div>`;
     fetchFileText(e.href).then((text) => {
       if (seq !== reqSeq) return;
       currentText = text;
       document.getElementById("fe-ql-copy").disabled = false;
-      render(text, ext);
+      render(text, ext2);
     }).catch((err) => {
       if (seq !== reqSeq) return;
       console.error("[BFB] preview failed:", e.href, err);
@@ -2035,19 +2035,19 @@ ${body}
       body.innerHTML = stale ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="fe-pbn">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="fe-pbn">Retry</button></div>`;
       document.getElementById("fe-ql-retry").addEventListener("click", () => {
         if (stale) location.reload();
-        else fetchAndRender(e, ext, seq);
+        else fetchAndRender(e, ext2, seq);
       });
     });
   }
-  function render(text, ext) {
+  function render(text, ext2) {
     const body = document.getElementById("fe-ql-body");
     if (sniffBinary(text)) {
       document.getElementById("fe-ql-ai").style.display = "none";
       body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Binary file \u2014 no text preview.</div></div>`;
       return;
     }
-    if (TABLE_EXTS.has(ext)) {
-      const rows = parseDSV(text, ext === "tsv" ? "	" : ",");
+    if (TABLE_EXTS.has(ext2)) {
+      const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
       if (rows.length) {
         dsvHeader = rows[0];
         dsvRows = rows.slice(1);
@@ -2058,15 +2058,15 @@ ${body}
       body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Empty file.</div></div>`;
       return;
     }
-    if (JSONL_EXTS.has(ext)) {
+    if (JSONL_EXTS.has(ext2)) {
       body.innerHTML = renderJsonl(text);
       return;
     }
-    if (ext === "json") {
+    if (ext2 === "json") {
       body.innerHTML = renderJsonTree(text);
       return;
     }
-    if (ext === "md" || ext === "mdx") {
+    if (ext2 === "md" || ext2 === "mdx") {
       body.innerHTML = renderMarkdown(text, currentEntry?.href ?? "");
       body.querySelectorAll("a[href]").forEach((a) => {
         a.target = "_blank";
@@ -2074,7 +2074,7 @@ ${body}
       });
       return;
     }
-    body.innerHTML = renderCode(text, ext);
+    body.innerHTML = renderCode(text, ext2);
   }
 
   // src/selection.ts
@@ -2104,6 +2104,12 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 
 - **Quick filter** \u2014 type in the **Filter\u2026** box (top-right), or press **\u2318F** to
   jump to it. Press **\u2318F** again to fall through to Chrome's own find.
+- **Text inside files** \u2014 open the **Filter** panel; the second row reads the
+  text files the name and type fields allow (2 MB each at most) and keeps
+  only the ones containing your words. Enter or **Run** starts it, **Cancel**
+  stops it, and the results stay until you run again or clear the field.
+  **Save view** keeps the folder plus these fields as a Saved row with a
+  funnel icon; opening it brings the search back.
 - **Deep search** \u2014 the folder button beside the filter box includes every
   subfolder. Names show their path from this folder, so **src/main.ts** matches
   **main**. The scan skips node_modules, .git and dot-folders (unless hidden
@@ -2358,6 +2364,10 @@ body{opacity:1!important}
 #fe-type-filter{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
   padding:3px 8px;border-radius:var(--r);font-size:12px;outline:none;cursor:pointer}
 #fe-regex-btn.active{background:var(--act);border-color:var(--ac);color:var(--ac)}
+#fe-find-text{background:var(--s2);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:5px;font-size:12px;width:260px;outline:none}
+#fe-find-text:focus{border-color:var(--ac)}
+#fe-find-status{font-size:11px;color:var(--mt);margin-left:4px}
+.fe-view .fe-si-link svg{color:var(--ac);opacity:.9}
 #fe-scroll{flex:1;overflow-y:auto;transform-origin:top left}
 #fe-table{width:100%;border-collapse:collapse;table-layout:fixed}
 thead{position:sticky;top:0;z-index:5;background:var(--s2)}
@@ -2903,6 +2913,76 @@ td.c-tp{color:var(--dm);font-size:11px}
     return { entries, folders, truncated, cancelled: isCancelled() };
   }
 
+  // src/find.ts
+  var EMPTY_FIND = { scope: "here", name: "", regex: false, exts: [], text: "", caseSensitive: false };
+  function isEmptyFind(q) {
+    return q.scope === "here" && !q.name && !q.exts.length && !q.text;
+  }
+  var ext = (e) => e.isDir ? "" : e.name.includes(".") ? e.name.split(".").pop().toLowerCase() : "";
+  var TEXT_MAX_BYTES = 2 * 1024 * 1024;
+  function isTextCandidate(e) {
+    if (e.isDir || e.isParent) return false;
+    const x = ext(e);
+    if (!(CODE_EXTS.has(x) || TABLE_EXTS.has(x) || JSONL_EXTS.has(x) || x === "json")) return false;
+    return e.rawBytes < 0 || e.rawBytes <= TEXT_MAX_BYTES;
+  }
+  async function searchContents(files, read, q, onProgress, isCancelled = () => false, concurrency = 4) {
+    const hits = /* @__PURE__ */ new Map();
+    let scanned = 0, failed = 0, next = 0;
+    const needle = q.caseSensitive ? q.text : q.text.toLowerCase();
+    const worker = async () => {
+      while (next < files.length && !isCancelled()) {
+        const f = files[next++];
+        try {
+          const text = await read(f.href);
+          const hay = q.caseSensitive ? text : text.toLowerCase();
+          let count = 0, at = hay.indexOf(needle);
+          while (at >= 0) {
+            count++;
+            at = hay.indexOf(needle, at + needle.length);
+          }
+          if (count) {
+            const first = hay.indexOf(needle);
+            const ls = text.lastIndexOf("\n", first) + 1;
+            let le = text.indexOf("\n", first);
+            if (le < 0) le = text.length;
+            hits.set(f.href, { count, line: text.slice(ls, le).trim().slice(0, 160) });
+          }
+        } catch {
+          failed++;
+        }
+        scanned++;
+        onProgress?.(scanned, files.length);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
+    return { hits, scanned, failed, cancelled: isCancelled() };
+  }
+  function findToHash(q) {
+    return isEmptyFind(q) ? "" : "#find=" + encodeURIComponent(JSON.stringify(q));
+  }
+  function findFromHash(hash) {
+    const m = hash.match(/^#find=(.+)$/);
+    if (!m) return null;
+    try {
+      const q = JSON.parse(decodeURIComponent(m[1]));
+      return { ...EMPTY_FIND, ...q, exts: Array.isArray(q.exts) ? q.exts : [] };
+    } catch {
+      return null;
+    }
+  }
+  function isViewPath(path) {
+    return path.includes("#find=");
+  }
+  function describeFind(q) {
+    const bits = [];
+    if (q.name) bits.push(q.regex ? `/${q.name}/` : q.name);
+    if (q.exts.length) bits.push("." + q.exts.join(" ."));
+    if (q.text) bits.push(`"${q.text}"`);
+    const what = bits.join(" ") || "everything";
+    return q.scope === "deep" ? `${what} in subfolders` : what;
+  }
+
   // src/render.ts
   function buildTipData(e, ctx) {
     if (e.isParent) {
@@ -2972,11 +3052,12 @@ td.c-tp{color:var(--dm);font-size:11px}
   function renderSavedList(saved, tags, rawPath) {
     if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click \u2606 in the path bar, or + to name this folder.</div>`;
     const color = (name) => tags.find((t) => t.name === name)?.color ?? "#8b949e";
+    const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
     const row = (p) => `
-    <div class="fe-bm-item fe-pl-item" draggable="true" data-path="${esc(p.path)}">
+    <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h">${PI.drag}</span>
-      <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? " active" : ""}" title="${esc(p.path)}">
-        ${PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
+      <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? " active" : ""}" title="${esc(isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path)}">
+        ${isViewPath(p.path) ? VIEW_ICON : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
         <span class="fe-pl-dots">${(p.tags ?? []).map((t) => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join("")}</span>
       </a>
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
@@ -3006,20 +3087,20 @@ td.c-tp{color:var(--dm);font-size:11px}
   function filePageExt(pathname) {
     if (pathname.endsWith("/")) return null;
     const name = decodeURIComponent(pathname.split("/").pop() || "");
-    const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
-    if (!ext) return null;
-    if (CODE_EXTS.has(ext) || TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === "json") return ext;
+    const ext2 = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+    if (!ext2) return null;
+    if (CODE_EXTS.has(ext2) || TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json") return ext2;
     return null;
   }
-  function renderBody(text, ext, href) {
-    if (TABLE_EXTS.has(ext)) {
-      const rows = parseDSV(text, ext === "tsv" ? "	" : ",");
+  function renderBody(text, ext2, href) {
+    if (TABLE_EXTS.has(ext2)) {
+      const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
       return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : '<div class="fe-ql-note">Empty file.</div>';
     }
-    if (JSONL_EXTS.has(ext)) return renderJsonl(text);
-    if (ext === "json") return renderJsonTree(text);
-    if (ext === "md" || ext === "mdx") return `<div class="fe-md">${renderMarkdown(text, href)}</div>`;
-    return renderCode(text, ext);
+    if (JSONL_EXTS.has(ext2)) return renderJsonl(text);
+    if (ext2 === "json") return renderJsonTree(text);
+    if (ext2 === "md" || ext2 === "mdx") return `<div class="fe-md">${renderMarkdown(text, href)}</div>`;
+    return renderCode(text, ext2);
   }
   function buildToc(page, toc) {
     const heads = [...page.querySelectorAll(".fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4")];
@@ -3049,10 +3130,10 @@ td.c-tp{color:var(--dm);font-size:11px}
     if (keys.length > 200) for (const k of keys.slice(0, keys.length - 200)) delete m[k];
     localStorage.setItem(SCROLL_KEY, JSON.stringify(m));
   }
-  function mountFilePage(ext) {
+  function mountFilePage(ext2) {
     const settings = getSettings();
     const mode = settings.renderFilePages || "all";
-    if (mode === "off" || mode === "not-md" && (ext === "md" || ext === "mdx")) return;
+    if (mode === "off" || mode === "not-md" && (ext2 === "md" || ext2 === "mdx")) return;
     let text = document.body.textContent || "";
     const rawPath = decodeURIComponent(location.pathname);
     const segments = rawPath.split("/").filter(Boolean);
@@ -3089,8 +3170,8 @@ td.c-tp{color:var(--dm);font-size:11px}
     let raw = false;
     const render2 = () => {
       const top = page.scrollTop;
-      page.innerHTML = raw ? renderCode(text, "txt") : renderBody(text, ext, href);
-      if (!raw && (ext === "md" || ext === "mdx")) buildToc(page, toc);
+      page.innerHTML = raw ? renderCode(text, "txt") : renderBody(text, ext2, href);
+      if (!raw && (ext2 === "md" || ext2 === "mdx")) buildToc(page, toc);
       else toc.style.display = "none";
       page.scrollTop = top;
       rawBtn.classList.toggle("on", raw);
@@ -3230,10 +3311,15 @@ td.c-tp{color:var(--dm);font-size:11px}
     let deepEntries = null;
     let deepFolders = 0, deepTruncated = false, deepScanning = false;
     let deepSeq = 0;
+    let contentHits = null;
+    let contentText = "";
+    let findSeq = 0;
+    let pendingFindText = null;
     function applyAll() {
       const parent = ALL_ENTRIES.filter((e) => e.isParent);
       let entries = deepOn && deepEntries ? deepEntries : ALL_ENTRIES.filter((e) => !e.isParent);
       entries = applyFilter(entries, filterConfig);
+      if (contentHits) entries = entries.filter((e) => contentHits.has(e.href));
       entries = applySort(entries, sortConfig);
       const ctx = getRenderCtx();
       const tbody = document.getElementById("fe-tbody");
@@ -3260,7 +3346,9 @@ td.c-tp{color:var(--dm);font-size:11px}
       tiles.innerHTML = tileParts.join("");
       const shown = VISIBLE.filter((en) => !en.isParent).length;
       const filtered = !!filterConfig.q || filterConfig.type !== "all";
-      if (deepOn) {
+      if (contentHits) {
+        baseStatus = `${shown} file${shown !== 1 ? "s" : ""} containing "${contentText}"${deepOn ? ` in ${deepFolders} folders` : ""}`;
+      } else if (deepOn) {
         baseStatus = deepScanning ? `Scanning\u2026 ${deepFolders} folder${deepFolders !== 1 ? "s" : ""}` : `${shown} of ${deepEntries?.length ?? 0} items in ${deepFolders} folders${deepTruncated ? " (capped)" : ""}`;
       } else {
         baseStatus = filtered ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`;
@@ -3431,6 +3519,15 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             <option value="files">Files only</option>
             ${extOpts}
           </select>
+        </div>
+        <div class="fe-panel-row">
+          <span class="fe-panel-lbl">Text inside files</span>
+          <input id="fe-find-text" type="text" placeholder="words to look for\u2026" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
+          <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case"> Aa</label>
+          <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
+          <button id="fe-find-cancel" class="fe-pbn" style="display:none" title="Stop scanning">Cancel</button>
+          <span id="fe-find-status"></span>
+          <button id="fe-find-save" class="fe-pbn" style="margin-left:auto" title="Keep this search as a Saved view: this folder plus these fields">\u2606 Save view</button>
         </div>
       </div>
 
@@ -3736,6 +3833,105 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       this.title = filterConfig.regex ? "Regex mode on" : "Toggle regex mode";
       applyAll();
     });
+    const findText = document.getElementById("fe-find-text");
+    const findCase = document.getElementById("fe-find-case");
+    const findStatus = document.getElementById("fe-find-status");
+    const findCancel = document.getElementById("fe-find-cancel");
+    function currentFind() {
+      const type = filterConfig.type;
+      return {
+        scope: deepOn ? "deep" : "here",
+        name: filterConfig.q,
+        regex: filterConfig.regex,
+        exts: ["all", "folders", "files"].includes(type) ? [] : [type],
+        text: findText.value.trim(),
+        caseSensitive: findCase.checked
+      };
+    }
+    async function runFind(text) {
+      const seq = ++findSeq;
+      contentText = text;
+      if (!text) {
+        contentHits = null;
+        findStatus.textContent = "";
+        findCancel.style.display = "none";
+        applyAll();
+        return;
+      }
+      if (deepOn && deepScanning) {
+        pendingFindText = text;
+        findStatus.textContent = "waiting for the folder scan\u2026";
+        return;
+      }
+      const source = deepOn && deepEntries ? deepEntries : ALL_ENTRIES.filter((e) => !e.isParent);
+      const files2 = applyFilter(source, filterConfig).filter(isTextCandidate);
+      findStatus.textContent = `scanning 0/${files2.length}`;
+      findCancel.style.display = "";
+      const r = await searchContents(
+        files2,
+        fetchFileText,
+        { ...currentFind(), text },
+        (d, t) => {
+          if (seq === findSeq) findStatus.textContent = `scanning ${d}/${t}`;
+        },
+        () => seq !== findSeq
+      );
+      if (seq !== findSeq) return;
+      findCancel.style.display = "none";
+      contentHits = r.hits;
+      findStatus.textContent = `${r.hits.size} of ${r.scanned} files${r.failed ? `, ${r.failed} unreadable` : ""}${r.cancelled ? " (stopped)" : ""}`;
+      applyAll();
+    }
+    document.getElementById("fe-find-run").addEventListener("click", () => void runFind(findText.value.trim()));
+    findText.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        void runFind(findText.value.trim());
+      } else if (e.key === "Escape") {
+        e.stopPropagation();
+        findText.value = "";
+        void runFind("");
+      }
+    });
+    findCancel.addEventListener("click", () => {
+      findSeq++;
+      findCancel.style.display = "none";
+      findStatus.textContent = "stopped";
+    });
+    document.getElementById("fe-find-save").addEventListener("click", () => {
+      const q = currentFind();
+      const hash = findToHash(q);
+      if (!hash) {
+        toast("Set a name, type, text or deep scope first");
+        return;
+      }
+      saveSaved(upsertPlace(getSaved(), { path: rawPath + hash, label: describeFind(q) }));
+      refreshSaved();
+      toast("View saved");
+    });
+    function applyFindFromHash() {
+      const q = findFromHash(location.hash);
+      if (!q) return;
+      filterConfig.q = q.name;
+      filterConfig.regex = q.regex;
+      filterConfig.type = q.exts.length === 1 ? q.exts[0] : "all";
+      document.getElementById("fe-filter-q").value = q.name;
+      document.getElementById("fe-search").value = q.name;
+      document.getElementById("fe-regex-btn").classList.toggle("active", q.regex);
+      document.getElementById("fe-type-filter").value = filterConfig.type;
+      findText.value = q.text;
+      findCase.checked = q.caseSensitive;
+      filterBar.style.display = "";
+      document.getElementById("fe-filter-btn").classList.add("on");
+      if (q.scope === "deep" !== deepOn) deepBtn.click();
+      contentHits = null;
+      if (q.text) {
+        if (deepOn && (deepScanning || !deepEntries)) pendingFindText = q.text;
+        else void runFind(q.text);
+      }
+      applyAll();
+    }
+    window.addEventListener("hashchange", applyFindFromHash);
     document.getElementById("fe-type-filter").addEventListener("change", function() {
       filterConfig.type = this.value;
       applyAll();
@@ -3767,6 +3963,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         deepScanning = false;
         applyAll();
         if (r.truncated) toast("Deep search capped: too many items or folders too deep");
+        if (pendingFindText !== null) {
+          const t = pendingFindText;
+          pendingFindText = null;
+          void runFind(t);
+        }
       });
     }
     deepBtn.addEventListener("click", () => {
@@ -4733,5 +4934,6 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     } catch {
     }
     if (sortConfig.col || groupConfig !== "none") applyAll();
+    applyFindFromHash();
   })();
 })();

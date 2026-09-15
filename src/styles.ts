@@ -137,6 +137,10 @@ body{opacity:1!important}
 #fe-type-filter{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
   padding:3px 8px;border-radius:var(--r);font-size:12px;outline:none;cursor:pointer}
 #fe-regex-btn.active{background:var(--act);border-color:var(--ac);color:var(--ac)}
+#fe-find-text{background:var(--s2);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:5px;font-size:12px;width:260px;outline:none}
+#fe-find-text:focus{border-color:var(--ac)}
+#fe-find-status{font-size:11px;color:var(--mt);margin-left:4px}
+.fe-view .fe-si-link svg{color:var(--ac);opacity:.9}
 #fe-scroll{flex:1;overflow-y:auto;transform-origin:top left}
 #fe-table{width:100%;border-collapse:collapse;table-layout:fixed}
 thead{position:sticky;top:0;z-index:5;background:var(--s2)}

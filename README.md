@@ -116,6 +116,9 @@ Set a **Notes folder** in Settings and a Notes section lists its `.md` files new
 ### File pages
 A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt) renders like the preview instead of Chrome's plain text: folder crumbs, a heading table of contents for markdown, **r** for raw, a remembered scroll position, and a re-render whenever the file changes on disk. Settings can limit this to non-markdown files or turn it off if you keep another markdown extension on file URLs.
 
+### Find and saved views
+The Filter panel's second row searches **text inside files**: the text files the name and type fields allow (2 MB each at most) are read through the service worker, four at a time, with progress and a Cancel button, and the listing keeps only the ones that contain your words until you run again or clear the field. **Save view** keeps the folder plus the query as a Saved row with a funnel icon; the row is a plain URL with the query in its hash, so opening it brings the search back, and a hash change on an open page applies it in place.
+
 ### Deep search
 The folder button beside the filter box includes every subfolder. Names show their path from the current folder, so `src/main.ts` matches `main`. The scan skips `node_modules`, `.git` and dot-folders, stops at 8 levels or 5000 items, and runs once per page.
 

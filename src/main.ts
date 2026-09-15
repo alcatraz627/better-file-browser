@@ -29,6 +29,10 @@ import { notes, noteTitle, newNoteText, slugForTitle, type NotesError } from './
 import { filePageExt, mountFilePage } from './file-page';
 import { EMPTY, openTab, closeTab, activate, step, moveTab, labelFor, isTabState, type TabState } from './tabs';
 import {
+  EMPTY_FIND, isTextCandidate, searchContents, findToHash, findFromHash, describeFind,
+  type FindQuery, type ContentHit,
+} from './find';
+import {
   renderRows, renderTiles, renderSavedList, renderCrumbs,
   renderRow, renderTile, type RenderContext,
 } from './render';
@@ -83,11 +87,17 @@ import { getIcon } from './icons';
   let deepEntries: Entry[] | null = null;
   let deepFolders = 0, deepTruncated = false, deepScanning = false;
   let deepSeq = 0;
+  // Text-inside-files results are held until the next run or a clear.
+  let contentHits: Map<string, ContentHit> | null = null;
+  let contentText = '';
+  let findSeq = 0;
+  let pendingFindText: string | null = null;   // a hash-loaded query waiting for the crawl
 
   function applyAll(): void {
     const parent  = ALL_ENTRIES.filter(e => e.isParent);
     let entries   = deepOn && deepEntries ? deepEntries : ALL_ENTRIES.filter(e => !e.isParent);
     entries = applyFilter(entries, filterConfig);
+    if (contentHits) entries = entries.filter(e => contentHits!.has(e.href));
     entries = applySort(entries, sortConfig);
     const ctx = getRenderCtx();
 
@@ -118,7 +128,9 @@ import { getIcon } from './icons';
 
     const shown = VISIBLE.filter(en => !en.isParent).length;
     const filtered = !!filterConfig.q || filterConfig.type !== 'all';
-    if (deepOn) {
+    if (contentHits) {
+      baseStatus = `${shown} file${shown !== 1 ? 's' : ''} containing "${contentText}"${deepOn ? ` in ${deepFolders} folders` : ''}`;
+    } else if (deepOn) {
       baseStatus = deepScanning
         ? `Scanning… ${deepFolders} folder${deepFolders !== 1 ? 's' : ''}`
         : `${shown} of ${deepEntries?.length ?? 0} items in ${deepFolders} folders${deepTruncated ? ' (capped)' : ''}`;
@@ -303,6 +315,15 @@ import { getIcon } from './icons';
             <option value="files">Files only</option>
             ${extOpts}
           </select>
+        </div>
+        <div class="fe-panel-row">
+          <span class="fe-panel-lbl">Text inside files</span>
+          <input id="fe-find-text" type="text" placeholder="words to look for…" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
+          <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case"> Aa</label>
+          <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
+          <button id="fe-find-cancel" class="fe-pbn" style="display:none" title="Stop scanning">Cancel</button>
+          <span id="fe-find-status"></span>
+          <button id="fe-find-save" class="fe-pbn" style="margin-left:auto" title="Keep this search as a Saved view: this folder plus these fields">☆ Save view</button>
         </div>
       </div>
 
@@ -637,6 +658,73 @@ import { getIcon } from './icons';
     applyAll();
   });
 
+  // Text inside files: a second, async pass over the files the name and
+  // type fields already allow. Results stay until re-run or cleared.
+  const findText   = document.getElementById('fe-find-text') as HTMLInputElement;
+  const findCase   = document.getElementById('fe-find-case') as HTMLInputElement;
+  const findStatus = document.getElementById('fe-find-status')!;
+  const findCancel = document.getElementById('fe-find-cancel')!;
+  function currentFind(): FindQuery {
+    const type = filterConfig.type;
+    return {
+      scope: deepOn ? 'deep' : 'here',
+      name: filterConfig.q, regex: filterConfig.regex,
+      exts: ['all', 'folders', 'files'].includes(type) ? [] : [type],
+      text: findText.value.trim(), caseSensitive: findCase.checked,
+    };
+  }
+  async function runFind(text: string): Promise<void> {
+    const seq = ++findSeq;
+    contentText = text;
+    if (!text) { contentHits = null; findStatus.textContent = ''; findCancel.style.display = 'none'; applyAll(); return; }
+    if (deepOn && deepScanning) { pendingFindText = text; findStatus.textContent = 'waiting for the folder scan…'; return; }
+    const source = deepOn && deepEntries ? deepEntries : ALL_ENTRIES.filter(e => !e.isParent);
+    const files = applyFilter(source, filterConfig).filter(isTextCandidate);
+    findStatus.textContent = `scanning 0/${files.length}`;
+    findCancel.style.display = '';
+    const r = await searchContents(files, fetchFileText, { ...currentFind(), text },
+      (d, t) => { if (seq === findSeq) findStatus.textContent = `scanning ${d}/${t}`; },
+      () => seq !== findSeq);
+    if (seq !== findSeq) return;
+    findCancel.style.display = 'none';
+    contentHits = r.hits;
+    findStatus.textContent = `${r.hits.size} of ${r.scanned} files${r.failed ? `, ${r.failed} unreadable` : ''}${r.cancelled ? ' (stopped)' : ''}`;
+    applyAll();
+  }
+  document.getElementById('fe-find-run')!.addEventListener('click', () => void runFind(findText.value.trim()));
+  findText.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); void runFind(findText.value.trim()); }
+    else if (e.key === 'Escape') { e.stopPropagation(); findText.value = ''; void runFind(''); }
+  });
+  findCancel.addEventListener('click', () => { findSeq++; findCancel.style.display = 'none'; findStatus.textContent = 'stopped'; });
+  document.getElementById('fe-find-save')!.addEventListener('click', () => {
+    const q = currentFind();
+    const hash = findToHash(q);
+    if (!hash) { toast('Set a name, type, text or deep scope first'); return; }
+    saveSaved(upsertPlace(getSaved(), { path: rawPath + hash, label: describeFind(q) }));
+    refreshSaved();
+    toast('View saved');
+  });
+  // A saved view arrives as a hash on the folder URL; apply it, including
+  // when only the hash changes on an already open page.
+  function applyFindFromHash(): void {
+    const q = findFromHash(location.hash);
+    if (!q) return;
+    filterConfig.q = q.name; filterConfig.regex = q.regex;
+    filterConfig.type = q.exts.length === 1 ? q.exts[0] : 'all';
+    (document.getElementById('fe-filter-q') as HTMLInputElement).value = q.name;
+    (document.getElementById('fe-search') as HTMLInputElement).value = q.name;
+    document.getElementById('fe-regex-btn')!.classList.toggle('active', q.regex);
+    (document.getElementById('fe-type-filter') as HTMLSelectElement).value = filterConfig.type;
+    findText.value = q.text; findCase.checked = q.caseSensitive;
+    filterBar.style.display = ''; document.getElementById('fe-filter-btn')!.classList.add('on');
+    if ((q.scope === 'deep') !== deepOn) deepBtn.click();
+    contentHits = null;
+    if (q.text) { if (deepOn && (deepScanning || !deepEntries)) pendingFindText = q.text; else void runFind(q.text); }
+    applyAll();
+  }
+  window.addEventListener('hashchange', applyFindFromHash);
+
   (document.getElementById('fe-type-filter') as HTMLSelectElement).addEventListener('change', function () {
     filterConfig.type = this.value;
     applyAll();
@@ -663,6 +751,7 @@ import { getIcon } from './icons';
       deepScanning = false;
       applyAll();
       if (r.truncated) toast('Deep search capped: too many items or folders too deep');
+      if (pendingFindText !== null) { const t = pendingFindText; pendingFindText = null; void runFind(t); }
     });
   }
   deepBtn.addEventListener('click', () => {
@@ -1546,5 +1635,6 @@ import { getIcon } from './icons';
   // The first render drew the listing raw; apply the persisted sort/group
   // last, once every handler applyAll touches (selection included) exists.
   if (sortConfig.col || groupConfig !== 'none') applyAll();
+  applyFindFromHash();
 
 })();

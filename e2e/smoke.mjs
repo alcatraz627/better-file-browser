@@ -329,6 +329,43 @@ try {
   tabsA = await tabLabels(page);
   check(!page.url().endsWith('/nested/') && tabsA.length === 1, `w closes the tab and returns to the remaining one: ${JSON.stringify(tabsA)}`);
 
+  // Find: text inside files, held until re-run, saved as a view, reopened by hash.
+  const rowNames = () => page.$$eval('#fe-tbody tr[data-idx]:not(.par) .fe-nm', els => els.map(e => e.textContent));
+  await page.click('#fe-filter-btn');
+  await page.click('#fe-find-text');
+  await page.type('#fe-find-text', 'second');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => /^\d+ of \d+ files/.test(document.getElementById('fe-find-status').textContent), { timeout: 10_000 }).catch(() => null);
+  let found = { status: await page.$eval('#fe-find-status', el => el.textContent), rows: await rowNames(), count: await page.$eval('#fe-count', el => el.textContent) };
+  check(found.rows.join() === 'notes.txt' && /^1 of \d+ files$/.test(found.status) && /1 file containing "second"/.test(found.count), `text search narrows to the file containing it: ${JSON.stringify(found)}`);
+  await page.click('#fe-find-save');
+  const viewRow = await page.$eval('#fe-sv-list .fe-pl-item.fe-view .fe-pl-label', el => el.textContent).catch(() => null);
+  check(viewRow === '"second"', `saved view row appears in Saved: ${viewRow}`);
+  await shot(page, 'find-saved-view');
+  await page.click('#fe-find-text');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tbody tr[data-idx]').length === 9, { timeout: 3_000 }).catch(() => null);
+  check((await rowNames()).length === 8, 'Escape in the text field clears the held results');
+  await page.click('#fe-sv-list .fe-pl-item.fe-view .fe-si-link');
+  await page.waitForFunction(() => /^\d+ of \d+ files/.test(document.getElementById('fe-find-status').textContent) && document.querySelectorAll('#fe-tbody tr[data-idx]').length === 2, { timeout: 10_000 }).catch(() => null);
+  found = { hash: await page.evaluate(() => location.hash.slice(0, 6)), rows: await rowNames() };
+  check(found.hash === '#find=' && found.rows.join() === 'notes.txt', `saved view reopens through the hash: ${JSON.stringify(found)}`);
+  await page.evaluate(() => { history.replaceState(null, '', location.pathname); });
+  await page.click('#fe-find-text');
+  await page.keyboard.press('Escape');
+  await page.click('#fe-deep-btn');
+  await page.waitForFunction(() => /items in \d+ folders/.test(document.getElementById('fe-count').textContent), { timeout: 10_000 }).catch(() => null);
+  await page.click('#fe-find-text');
+  await page.type('#fe-find-text', 'deep');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => /^\d+ of \d+ files/.test(document.getElementById('fe-find-status').textContent), { timeout: 10_000 }).catch(() => null);
+  found = { rows: await rowNames(), status: await page.$eval('#fe-find-status', el => el.textContent) };
+  check(found.rows.join() === 'nested/deeper/deepest.md', `deep text search reaches subfolders: ${JSON.stringify(found)}`);
+  await page.click('#fe-find-text');
+  await page.keyboard.press('Escape');
+  await page.click('#fe-deep-btn');
+  await page.click('#fe-filter-btn');
+
   // Deep search: the crawl adds subfolder entries with relative names.
   await page.click('#fe-deep-btn');
   await page.waitForFunction(() => /items in \d+ folders/.test(document.getElementById('fe-count').textContent), { timeout: 10_000 }).catch(() => null);
