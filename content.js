@@ -2392,6 +2392,19 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
+#fe.fe-file-page #fe-body{display:flex;flex:1;min-height:0}
+#fe-toc{width:220px;flex-shrink:0;overflow-y:auto;background:var(--s1);border-right:1px solid var(--bd);padding:10px 0;font-size:12px}
+#fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fe-toc a:hover{color:var(--ac);background:var(--hover)}
+#fe-toc a.fe-toc-h2{padding-left:24px}#fe-toc a.fe-toc-h3{padding-left:34px}#fe-toc a.fe-toc-h4{padding-left:44px}
+#fe-page{flex:1;min-width:0;overflow:auto;font-size:12px}
+#fe-page .fe-md{max-width:860px;margin:0 auto;padding:24px 32px 60px;font-size:14px}
+.fe-crumb-file{color:var(--tx);font-weight:500}
+#fe-fp-meta{font-size:11px;color:var(--dm);margin-right:4px;white-space:nowrap}
+#fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
+#fe-fp-raw:hover,#fe-fp-copy:hover{border-color:var(--ac);color:var(--ac)}
+#fe-fp-raw.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
+#fe-fp-reload{font-size:11px;color:var(--dm)}
 .fe-ed{display:flex;height:100%;min-height:0}
 #fe-ed-src{flex:1;min-width:0;resize:none;border:none;border-right:1px solid var(--bd);background:var(--s1);color:var(--tx);
   font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px 16px;outline:none;tab-size:2}
@@ -2772,9 +2785,157 @@ td.c-tp{color:var(--dm);font-size:11px}
     ).join("");
   }
 
+  // src/file-page.ts
+  var SCROLL_KEY = "bfb-page-scroll-v1";
+  var RELOAD_MS = 2e3;
+  function filePageExt(pathname) {
+    if (pathname.endsWith("/")) return null;
+    const name = decodeURIComponent(pathname.split("/").pop() || "");
+    const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+    if (!ext) return null;
+    if (CODE_EXTS.has(ext) || TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === "json") return ext;
+    return null;
+  }
+  function renderBody(text, ext, href) {
+    if (TABLE_EXTS.has(ext)) {
+      const rows = parseDSV(text, ext === "tsv" ? "	" : ",");
+      return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : '<div class="fe-ql-note">Empty file.</div>';
+    }
+    if (JSONL_EXTS.has(ext)) return renderJsonl(text);
+    if (ext === "json") return renderJsonTree(text);
+    if (ext === "md" || ext === "mdx") return `<div class="fe-md">${renderMarkdown(text, href)}</div>`;
+    return renderCode(text, ext);
+  }
+  function buildToc(page, toc) {
+    const heads = [...page.querySelectorAll(".fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4")];
+    const seen = /* @__PURE__ */ new Map();
+    const items = heads.map((h) => {
+      let id = (h.textContent || "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "") || "section";
+      const n = seen.get(id) ?? 0;
+      seen.set(id, n + 1);
+      if (n) id += "-" + n;
+      h.id = id;
+      return `<a href="#${esc(id)}" class="fe-toc-${h.tagName.toLowerCase()}">${esc(h.textContent || "")}</a>`;
+    });
+    toc.innerHTML = items.join("");
+    toc.style.display = items.length > 1 ? "" : "none";
+  }
+  function scrollMemory() {
+    try {
+      return JSON.parse(localStorage.getItem(SCROLL_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+  function rememberScroll(path, top) {
+    const m = scrollMemory();
+    m[path] = top;
+    const keys = Object.keys(m);
+    if (keys.length > 200) for (const k of keys.slice(0, keys.length - 200)) delete m[k];
+    localStorage.setItem(SCROLL_KEY, JSON.stringify(m));
+  }
+  function mountFilePage(ext) {
+    const settings = getSettings();
+    const mode = settings.renderFilePages || "all";
+    if (mode === "off" || mode === "not-md" && (ext === "md" || ext === "mdx")) return;
+    let text = document.body.textContent || "";
+    const rawPath = decodeURIComponent(location.pathname);
+    const segments = rawPath.split("/").filter(Boolean);
+    const name = segments.pop() || "";
+    const folderPath = "/" + segments.join("/") + (segments.length ? "/" : "");
+    const href = location.href;
+    const theme = getTheme();
+    document.documentElement.innerHTML = `<head><meta charset="utf-8"><title>${esc(name)} | Better File Browser</title></head><body></body>`;
+    const style = document.createElement("style");
+    style.textContent = CSS;
+    document.head.appendChild(style);
+    document.body.innerHTML = `
+<div id="fe" data-theme="${esc(theme)}" class="fe-file-page">
+  <div id="fe-bar">
+    <div id="fe-bc">${renderCrumbs(folderPath, segments)}<span class="fe-sep">\u203A</span><span class="fe-crumb fe-crumb-file">${esc(name)}</span></div>
+    <span id="fe-fp-meta">${fmtSize(new Blob([text]).size)}</span>
+    <button id="fe-fp-raw" title="Raw text (r)">raw</button>
+    <button id="fe-fp-copy" title="Copy file contents">copy</button>
+    <button id="fe-theme-btn" title="Toggle theme">
+      <svg id="fe-sun" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M10.1 2.9l-1 1M3.9 10.1l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <svg id="fe-moon" width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 8.5A5 5 0 0 1 5.5 2.5a5 5 0 1 0 6 6z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+    </button>
+  </div>
+  <div id="fe-body">
+    <nav id="fe-toc" style="display:none"></nav>
+    <div id="fe-page"></div>
+  </div>
+  <div id="fe-statusbar"><span id="fe-status-text">${esc(name)}</span><span id="fe-fp-reload" title="Re-rendered when the file changes on disk">watching for changes</span></div>
+</div>`;
+    const fe = document.getElementById("fe");
+    const page = document.getElementById("fe-page");
+    const toc = document.getElementById("fe-toc");
+    const rawBtn = document.getElementById("fe-fp-raw");
+    let raw = false;
+    const render2 = () => {
+      const top = page.scrollTop;
+      page.innerHTML = raw ? renderCode(text, "txt") : renderBody(text, ext, href);
+      if (!raw && (ext === "md" || ext === "mdx")) buildToc(page, toc);
+      else toc.style.display = "none";
+      page.scrollTop = top;
+      rawBtn.classList.toggle("on", raw);
+    };
+    render2();
+    const remembered = scrollMemory()[rawPath];
+    if (remembered) page.scrollTop = remembered;
+    else if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+    let scrollTimer = null;
+    page.addEventListener("scroll", () => {
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => rememberScroll(rawPath, page.scrollTop), 300);
+    });
+    rawBtn.addEventListener("click", () => {
+      raw = !raw;
+      render2();
+    });
+    document.getElementById("fe-fp-copy").addEventListener("click", () => {
+      copyToClipboard(text).then((ok) => {
+        document.getElementById("fe-status-text").textContent = ok ? "copied" : "copy failed";
+      });
+    });
+    document.getElementById("fe-theme-btn").addEventListener("click", () => {
+      const next = fe.dataset.theme === "dark" ? "light" : "dark";
+      fe.dataset.theme = next;
+      localStorage.setItem(THEME_KEY, next);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
+      if (e.key === "r" && !e.metaKey && !e.ctrlKey) {
+        raw = !raw;
+        render2();
+      } else if (e.key === "Backspace" || e.metaKey && e.key === "ArrowUp") {
+        e.preventDefault();
+        location.href = "file://" + folderPath;
+      }
+    });
+    const reloadEl = document.getElementById("fe-fp-reload");
+    setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      fetchFileText(href).then((fresh) => {
+        if (fresh === text) return;
+        text = fresh;
+        document.getElementById("fe-fp-meta").textContent = fmtSize(new Blob([text]).size);
+        render2();
+        reloadEl.textContent = "reloaded " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      }).catch(() => {
+        reloadEl.textContent = "not watching (cannot read file)";
+      });
+    }, RELOAD_MS);
+  }
+
   // src/main.ts
   (function() {
     const preload = document.getElementById("bfb-preload");
+    const fileExt = filePageExt(location.pathname);
+    if (fileExt) {
+      mountFilePage(fileExt);
+      return;
+    }
     if (!document.title.startsWith("Index of")) {
       preload?.remove();
       return;
@@ -3064,6 +3225,14 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
               <option value="list">List</option>
               <option value="tiles">Tiles</option>
               <option value="icons">Large Icons</option>
+            </select>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="A file opened directly in the tab renders like the preview">Render file pages</span>
+            <select id="fe-st-filepages" class="fe-st-select">
+              <option value="all">All text files</option>
+              <option value="not-md">All except markdown</option>
+              <option value="off">Off (Chrome's plain text)</option>
             </select>
           </div>
           <div class="fe-st-row">
@@ -3792,6 +3961,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       document.getElementById("fe-st-term-custom-row").style.display = settings.terminalApp === "custom" ? "" : "none";
       document.getElementById("fe-st-term-custom").value = settings.terminalCmd || "";
       document.getElementById("fe-st-notes-root").value = settings.notesRoot || "";
+      document.getElementById("fe-st-filepages").value = settings.renderFilePages || "all";
       updateTermHint();
       renderRulesList();
       refreshAiStatus();
@@ -3910,6 +4080,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       updateTermHint();
       const termBtn = document.getElementById("fe-term-btn");
       if (termBtn) termBtn.title = `Open in ${this.options[this.selectedIndex].text}`;
+    });
+    document.getElementById("fe-st-filepages").addEventListener("change", function() {
+      settings.renderFilePages = this.value;
+      saveSettings(settings);
     });
     document.getElementById("fe-st-notes-root").addEventListener("change", function() {
       settings.notesRoot = this.value.trim() || void 0;

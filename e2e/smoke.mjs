@@ -1,7 +1,7 @@
 // Smoke run: the explorer renders the fixture, a preview opens and closes,
 // and screenshots land in e2e/shots/. Run with `npm run e2e`.
 import { launch, shot } from './harness.mjs';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const failures = [];
@@ -211,6 +211,47 @@ try {
     delete s.notesRoot; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
   });
 
+  // File pages: a file opened directly renders with our shell, ToC, raw
+  // toggle, and re-renders when the file changes on disk.
+  const fpage = await h.browser.newPage();
+  fpage.on('pageerror', e => console.error('[pageerror]', e.message));
+  await fpage.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
+  await fpage.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);
+  const fp = await fpage.evaluate(() => ({
+    shell: !!document.querySelector('#fe.fe-file-page'),
+    h1: document.querySelector('#fe-page .fe-md h1')?.textContent,
+    h1id: document.querySelector('#fe-page .fe-md h1')?.id,
+    toc: getComputedStyle(document.getElementById('fe-toc')).display,
+    crumb: document.querySelector('#fe-bc .fe-crumb-file')?.textContent,
+    title: document.title,
+  }));
+  check(fp.shell && fp.h1 === 'Fixture' && fp.h1id === 'fixture' && fp.crumb === 'readme.md', `file page renders markdown: ${JSON.stringify(fp)}`);
+  await fpage.click('#fe-fp-raw');
+  const rawOn = await fpage.evaluate(() => !!document.querySelector('#fe-page .fe-code') && document.querySelector('#fe-page .fe-code').textContent.includes('# Fixture'));
+  check(rawOn, 'raw toggle shows the source');
+  await fpage.keyboard.press('r');
+  writeFileSync(join(h.fixture, 'readme.md'), '# Fixture\n\n## Added later\n\nnew paragraph\n');
+  await fpage.waitForFunction(() => !!document.querySelector('#fe-page .fe-md h2'), { timeout: 6_000 }).catch(() => null);
+  const reloaded = await fpage.evaluate(() => ({
+    h2: document.querySelector('#fe-page .fe-md h2')?.textContent,
+    tocLinks: [...document.querySelectorAll('#fe-toc a')].map(a => a.textContent),
+    tocShown: getComputedStyle(document.getElementById('fe-toc')).display !== 'none',
+    status: document.getElementById('fe-fp-reload').textContent,
+  }));
+  check(reloaded.h2 === 'Added later' && reloaded.tocShown && reloaded.tocLinks.join() === 'Fixture,Added later' && /reloaded/.test(reloaded.status),
+    `autoreload re-rendered with a ToC: ${JSON.stringify(reloaded)}`);
+  await shot(fpage, 'file-page-md');
+  await fpage.goto('file://' + h.fixture + '/code.py', { waitUntil: 'load' });
+  await fpage.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);
+  const codePage = await fpage.evaluate(() => ({
+    gutter: document.querySelector('#fe-page .fe-code-gut')?.textContent.trim().split('\n').length,
+    kw: !!document.querySelector('#fe-page .fe-code span'),
+  }));
+  check(codePage.gutter === 3 && codePage.kw, `code page has a gutter and highlighting: ${JSON.stringify(codePage)}`);
+  await shot(fpage, 'file-page-code');
+  await fpage.close();
+  await page.bringToFront();
+
   // Deep search: the crawl adds subfolder entries with relative names.
   await page.click('#fe-deep-btn');
   await page.waitForFunction(() => /items in \d+ folders/.test(document.getElementById('fe-count').textContent), { timeout: 10_000 }).catch(() => null);
@@ -271,6 +312,8 @@ try {
   const staleBtn = await page.$eval('#fe-ql-retry', el => el.textContent).catch(() => null);
   check(/reloaded/.test(staleMsg || '') && staleBtn === 'Refresh page', `stale context explained: "${staleMsg}" [${staleBtn}]`);
   await shot(page, 'preview-stale-context');
+
+
 } finally {
   await h.close();
 }

@@ -26,6 +26,7 @@ import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
 import { crawl } from './deep-search';
 import { notes, noteTitle, newNoteText, slugForTitle, type NotesError } from './notes';
+import { filePageExt, mountFilePage } from './file-page';
 import {
   renderRows, renderTiles, renderSavedList, renderCrumbs,
   renderRow, renderTile, type RenderContext,
@@ -34,6 +35,8 @@ import { getIcon } from './icons';
 
 (function () {
   const preload = document.getElementById('bfb-preload');
+  const fileExt = filePageExt(location.pathname);
+  if (fileExt) { mountFilePage(fileExt); return; }
   if (!document.title.startsWith('Index of')) {
     preload?.remove();
     return;
@@ -353,6 +356,14 @@ import { getIcon } from './icons';
               <option value="list">List</option>
               <option value="tiles">Tiles</option>
               <option value="icons">Large Icons</option>
+            </select>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="A file opened directly in the tab renders like the preview">Render file pages</span>
+            <select id="fe-st-filepages" class="fe-st-select">
+              <option value="all">All text files</option>
+              <option value="not-md">All except markdown</option>
+              <option value="off">Off (Chrome's plain text)</option>
             </select>
           </div>
           <div class="fe-st-row">
@@ -1081,6 +1092,7 @@ import { getIcon } from './icons';
       settings.terminalApp === 'custom' ? '' : 'none';
     (document.getElementById('fe-st-term-custom') as HTMLInputElement).value = settings.terminalCmd || '';
     (document.getElementById('fe-st-notes-root') as HTMLInputElement).value = settings.notesRoot || '';
+    (document.getElementById('fe-st-filepages') as HTMLSelectElement).value = settings.renderFilePages || 'all';
     updateTermHint();
     renderRulesList();
     refreshAiStatus();
@@ -1201,6 +1213,9 @@ import { getIcon } from './icons';
     updateTermHint();
     const termBtn = document.getElementById('fe-term-btn');
     if (termBtn) termBtn.title = `Open in ${this.options[this.selectedIndex].text}`;
+  });
+  (document.getElementById('fe-st-filepages') as HTMLSelectElement).addEventListener('change', function () {
+    settings.renderFilePages = this.value as 'all' | 'not-md' | 'off'; saveSettings(settings);
   });
   (document.getElementById('fe-st-notes-root') as HTMLInputElement).addEventListener('change', function () {
     settings.notesRoot = this.value.trim() || undefined; saveSettings(settings);
