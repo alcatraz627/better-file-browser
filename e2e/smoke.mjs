@@ -34,6 +34,30 @@ try {
   await page.keyboard.press('Escape');
   const stillOpen = await page.$eval('#fe-qlook', el => el.style.display !== 'none');
   check(!stillOpen, 'Escape closes preview');
+
+  // Sort + view persist across a folder change and a reload.
+  await page.click('th[data-sort="size"]');
+  await page.click('th[data-sort="size"]');
+  await page.click('.fe-view-btn[data-view="tiles"]');
+  const readState = () => page.evaluate(() => ({
+    view: document.getElementById('fe').dataset.view,
+    sorted: document.querySelector('th.sorted')?.dataset.sort,
+    arrow: document.querySelector('th.sorted .si')?.textContent,
+    first: document.querySelector('#fe-tbody tr[data-idx]:not(:first-child) a')?.textContent.trim(),
+  }));
+  let st = await readState();
+  check(st.sorted === 'size' && st.arrow === '↓' && st.view === 'tiles', `set size desc + tiles: ${JSON.stringify(st)}`);
+
+  await page.goto('file://' + h.fixture + '/nested/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  st = await readState();
+  check(st.sorted === 'size' && st.arrow === '↓' && st.view === 'tiles', `after dir change: ${JSON.stringify(st)}`);
+
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  st = await readState();
+  check(st.sorted === 'size' && st.arrow === '↓' && st.view === 'tiles', `after reload: ${JSON.stringify(st)}`);
+  await shot(page, 'persisted-sort-view');
 } finally {
   await h.close();
 }

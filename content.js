@@ -292,6 +292,8 @@
   var HIDDEN_KEY = "bfb-show-hidden";
   var ICON_RULES_KEY = "bfb-icon-rules-v1";
   var SETTINGS_KEY = "bfb-settings-v1";
+  var SORT_KEY = "bfb-sort-v1";
+  var GROUP_KEY = "bfb-group-v1";
   var DEFAULT_ICON_RULES = [
     { id: "r1", pattern: "\\.claude$|^Claude", label: "Cld", color: "#d97757", enabled: true },
     { id: "r2", pattern: "\\.md$", label: "MD\u2193", color: "#4a9eff", enabled: true },
@@ -381,6 +383,26 @@
   }
   function saveColWidths(w) {
     localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(w));
+  }
+  var SORT_COLS = ["name", "size", "date", "type", "ext"];
+  var GROUP_MODES = ["none", "folders-first", "files-first", "ext", "type"];
+  function getSortConfig() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SORT_KEY) ?? "null");
+      if (s && SORT_COLS.includes(s.col) && (s.dir === "asc" || s.dir === "desc")) return { col: s.col, dir: s.dir };
+    } catch {
+    }
+    return { col: null, dir: "asc" };
+  }
+  function saveSortConfig(s) {
+    localStorage.setItem(SORT_KEY, JSON.stringify(s));
+  }
+  function getGroupMode() {
+    const g = localStorage.getItem(GROUP_KEY);
+    return g && GROUP_MODES.includes(g) ? g : "none";
+  }
+  function saveGroupMode(g) {
+    localStorage.setItem(GROUP_KEY, g);
   }
   function getView() {
     return localStorage.getItem(VIEW_KEY) ?? "details";
@@ -2256,8 +2278,8 @@ td.c-tp{color:var(--dm);font-size:11px}
         dateStr: ""
       });
     }
-    let sortConfig = { col: null, dir: "asc" };
-    let groupConfig = "none";
+    let sortConfig = getSortConfig();
+    let groupConfig = getGroupMode();
     let filterConfig = { q: "", regex: false, type: "all" };
     let iconRules = getIconRules();
     let settings = getSettings();
@@ -2652,24 +2674,30 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       document.getElementById("fe-zoom-wrap").title = `Zoom \u2014 Scale the file list (50\u2013320%) \xB7 Currently: ${z}% \xB7 Drag slider to adjust`;
       localStorage.setItem(ZOOM_KEY, String(z));
     });
-    document.querySelectorAll("th[data-sort]").forEach((th) => {
-      th.addEventListener("click", () => {
-        const col = th.dataset.sort;
-        if (sortConfig.col === col) sortConfig.dir = sortConfig.dir === "asc" ? "desc" : "asc";
-        else {
-          sortConfig.col = col;
-          sortConfig.dir = "asc";
-        }
-        document.querySelectorAll("#fe-sort-cols .fe-pbn").forEach((b) => b.classList.toggle("active", b.dataset.col === col));
-        document.getElementById("fe-sort-dir").textContent = sortConfig.dir === "asc" ? "\u2191 Asc" : "\u2193 Desc";
-        document.querySelectorAll("th[data-sort]").forEach((h) => {
-          h.classList.remove("sorted");
-          h.querySelector(".si").textContent = "\u2195";
-        });
-        th.classList.add("sorted");
-        th.querySelector(".si").textContent = sortConfig.dir === "asc" ? "\u2191" : "\u2193";
-        applyAll();
+    function syncSortUi() {
+      const { col, dir } = sortConfig;
+      document.querySelectorAll("#fe-sort-cols .fe-pbn").forEach((b) => b.classList.toggle("active", b.dataset.col === (col ?? "name")));
+      document.getElementById("fe-sort-dir").textContent = dir === "asc" ? "\u2191 Asc" : "\u2193 Desc";
+      document.querySelectorAll("th[data-sort]").forEach((h) => {
+        const on = h.dataset.sort === col;
+        h.classList.toggle("sorted", on);
+        h.querySelector(".si").textContent = on ? dir === "asc" ? "\u2191" : "\u2193" : "\u2195";
       });
+      document.querySelectorAll("#fe-group-btns .fe-pbn").forEach((b) => b.classList.toggle("active", b.dataset.group === groupConfig));
+      saveSortConfig(sortConfig);
+      saveGroupMode(groupConfig);
+    }
+    function setSortCol(col) {
+      if (sortConfig.col === col) sortConfig.dir = sortConfig.dir === "asc" ? "desc" : "asc";
+      else {
+        sortConfig.col = col;
+        sortConfig.dir = "asc";
+      }
+      syncSortUi();
+      applyAll();
+    }
+    document.querySelectorAll("th[data-sort]").forEach((th) => {
+      th.addEventListener("click", () => setSortCol(th.dataset.sort));
     });
     function applyColWidths() {
       const w = getColWidths();
@@ -2708,32 +2736,22 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       document.getElementById("fe-sg-btn").classList.toggle("on", open);
     });
     document.querySelectorAll("#fe-sort-cols .fe-pbn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const col = btn.dataset.col;
-        if (sortConfig.col === col) sortConfig.dir = sortConfig.dir === "asc" ? "desc" : "asc";
-        else {
-          sortConfig.col = col;
-          sortConfig.dir = "asc";
-        }
-        document.querySelectorAll("#fe-sort-cols .fe-pbn").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        document.getElementById("fe-sort-dir").textContent = sortConfig.dir === "asc" ? "\u2191 Asc" : "\u2193 Desc";
-        applyAll();
-      });
+      btn.addEventListener("click", () => setSortCol(btn.dataset.col));
     });
     document.getElementById("fe-sort-dir").addEventListener("click", () => {
       sortConfig.dir = sortConfig.dir === "asc" ? "desc" : "asc";
-      document.getElementById("fe-sort-dir").textContent = sortConfig.dir === "asc" ? "\u2191 Asc" : "\u2193 Desc";
+      if (!sortConfig.col) sortConfig.col = "name";
+      syncSortUi();
       applyAll();
     });
     document.querySelectorAll("#fe-group-btns .fe-pbn").forEach((btn) => {
       btn.addEventListener("click", () => {
         groupConfig = btn.dataset.group;
-        document.querySelectorAll("#fe-group-btns .fe-pbn").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
+        syncSortUi();
         applyAll();
       });
     });
+    syncSortUi();
     const filterBar = document.getElementById("fe-filter-bar");
     document.getElementById("fe-filter-btn").addEventListener("click", () => {
       const open = filterBar.style.display === "none";
@@ -3509,5 +3527,6 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       if (lbl) startRename(lbl);
     });
     attachPlaceEvents();
+    if (sortConfig.col || groupConfig !== "none") applyAll();
   })();
 })();

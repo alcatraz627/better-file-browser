@@ -1,5 +1,35 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getColWidths, saveColWidths, getSettings, saveSettings } from '../src/storage';
+import {
+  getColWidths, saveColWidths, getSettings, saveSettings,
+  getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
+} from '../src/storage';
+
+describe('sort + group persistence', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('defaults to unsorted, ungrouped', () => {
+    expect(getSortConfig()).toEqual({ col: null, dir: 'asc' });
+    expect(getGroupMode()).toBe('none');
+  });
+
+  it('round-trips a sort and a group', () => {
+    saveSortConfig({ col: 'size', dir: 'desc' });
+    saveGroupMode('folders-first');
+    expect(getSortConfig()).toEqual({ col: 'size', dir: 'desc' });
+    expect(getGroupMode()).toBe('folders-first');
+  });
+
+  it('rejects unknown columns, directions, modes and corrupt JSON', () => {
+    localStorage.setItem('bfb-sort-v1', JSON.stringify({ col: 'owner', dir: 'asc' }));
+    expect(getSortConfig()).toEqual({ col: null, dir: 'asc' });
+    localStorage.setItem('bfb-sort-v1', JSON.stringify({ col: 'name', dir: 'sideways' }));
+    expect(getSortConfig()).toEqual({ col: null, dir: 'asc' });
+    localStorage.setItem('bfb-sort-v1', '{oops');
+    expect(getSortConfig()).toEqual({ col: null, dir: 'asc' });
+    localStorage.setItem('bfb-group-v1', 'by-mood');
+    expect(getGroupMode()).toBe('none');
+  });
+});
 
 describe('column widths storage', () => {
   beforeEach(() => localStorage.clear());

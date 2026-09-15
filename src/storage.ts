@@ -1,4 +1,4 @@
-import type { Bookmark, IconRule, Place, RecentDir, Settings } from './types';
+import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode } from './types';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
 export const RECENTS_KEY   = 'bfb-recents-v1';
@@ -10,6 +10,8 @@ export const ZOOM_KEY      = 'bfb-zoom';
 export const HIDDEN_KEY    = 'bfb-show-hidden';
 export const ICON_RULES_KEY = 'bfb-icon-rules-v1';
 export const SETTINGS_KEY  = 'bfb-settings-v1';
+export const SORT_KEY      = 'bfb-sort-v1';
+export const GROUP_KEY     = 'bfb-group-v1';
 
 export const DEFAULT_ICON_RULES: IconRule[] = [
   { id: 'r1', pattern: '\\.claude$|^Claude', label: 'Cld', color: '#d97757', enabled: true },
@@ -91,6 +93,28 @@ export function getColWidths(): Record<string, number> {
 }
 export function saveColWidths(w: Record<string, number>): void {
   localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(w));
+}
+
+const SORT_COLS: SortConfig['col'][] = ['name', 'size', 'date', 'type', 'ext'];
+const GROUP_MODES: GroupMode[] = ['none', 'folders-first', 'files-first', 'ext', 'type'];
+
+// Sort and group are global, like view: the same order in every folder.
+export function getSortConfig(): SortConfig {
+  try {
+    const s = JSON.parse(localStorage.getItem(SORT_KEY) ?? 'null');
+    if (s && SORT_COLS.includes(s.col) && (s.dir === 'asc' || s.dir === 'desc')) return { col: s.col, dir: s.dir };
+  } catch { /* fall through */ }
+  return { col: null, dir: 'asc' };
+}
+export function saveSortConfig(s: SortConfig): void {
+  localStorage.setItem(SORT_KEY, JSON.stringify(s));
+}
+export function getGroupMode(): GroupMode {
+  const g = localStorage.getItem(GROUP_KEY) as GroupMode | null;
+  return g && GROUP_MODES.includes(g) ? g : 'none';
+}
+export function saveGroupMode(g: GroupMode): void {
+  localStorage.setItem(GROUP_KEY, g);
 }
 
 export function getView():       string  { return localStorage.getItem(VIEW_KEY)   ?? 'details'; }

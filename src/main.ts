@@ -10,6 +10,7 @@ import {
   getIconRules, saveIconRules, getSettings, saveSettings,
   getRecents, pushRecent, getColWidths, saveColWidths,
   getPlaces, savePlaces,
+  getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
 } from './storage';
 import { upsertPlace, removePlace, renamePlace, movePlace } from './places';
 import {
@@ -53,8 +54,8 @@ import { getIcon } from './icons';
     });
   }
 
-  let sortConfig:   SortConfig   = { col: null, dir: 'asc' };
-  let groupConfig:  GroupMode    = 'none';
+  let sortConfig:   SortConfig   = getSortConfig();
+  let groupConfig:  GroupMode    = getGroupMode();
   let filterConfig: FilterConfig = { q: '', regex: false, type: 'all' };
 
   let iconRules = getIconRules();
@@ -488,23 +489,32 @@ import { getIcon } from './icons';
     localStorage.setItem(ZOOM_KEY, String(z));
   });
 
+  // ── Sort state → panel buttons, header arrows, storage ────────────
+  function syncSortUi(): void {
+    const { col, dir } = sortConfig;
+    document.querySelectorAll<HTMLElement>('#fe-sort-cols .fe-pbn').forEach(b =>
+      b.classList.toggle('active', b.dataset.col === (col ?? 'name')));
+    document.getElementById('fe-sort-dir')!.textContent = dir === 'asc' ? '↑ Asc' : '↓ Desc';
+    document.querySelectorAll<HTMLElement>('th[data-sort]').forEach(h => {
+      const on = h.dataset.sort === col;
+      h.classList.toggle('sorted', on);
+      h.querySelector('.si')!.textContent = on ? (dir === 'asc' ? '↑' : '↓') : '↕';
+    });
+    document.querySelectorAll<HTMLElement>('#fe-group-btns .fe-pbn').forEach(b =>
+      b.classList.toggle('active', b.dataset.group === groupConfig));
+    saveSortConfig(sortConfig);
+    saveGroupMode(groupConfig);
+  }
+  function setSortCol(col: SortConfig['col']): void {
+    if (sortConfig.col === col) sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc';
+    else { sortConfig.col = col; sortConfig.dir = 'asc'; }
+    syncSortUi();
+    applyAll();
+  }
+
   // ── Column sort (header clicks) ───────────────────────────────────
   document.querySelectorAll<HTMLElement>('th[data-sort]').forEach(th => {
-    th.addEventListener('click', () => {
-      const col = th.dataset.sort as SortConfig['col'];
-      if (sortConfig.col === col) sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc';
-      else { sortConfig.col = col; sortConfig.dir = 'asc'; }
-      document.querySelectorAll('#fe-sort-cols .fe-pbn').forEach(b =>
-        (b as HTMLElement).classList.toggle('active', (b as HTMLElement).dataset.col === col));
-      document.getElementById('fe-sort-dir')!.textContent = sortConfig.dir === 'asc' ? '↑ Asc' : '↓ Desc';
-      document.querySelectorAll<HTMLElement>('th[data-sort]').forEach(h => {
-        h.classList.remove('sorted');
-        h.querySelector('.si')!.textContent = '↕';
-      });
-      th.classList.add('sorted');
-      th.querySelector('.si')!.textContent = sortConfig.dir === 'asc' ? '↑' : '↓';
-      applyAll();
-    });
+    th.addEventListener('click', () => setSortCol(th.dataset.sort as SortConfig['col']));
   });
 
   // ── Column resize (drag handles on Details headers) ───────────────
@@ -546,31 +556,25 @@ import { getIcon } from './icons';
   });
 
   document.querySelectorAll<HTMLElement>('#fe-sort-cols .fe-pbn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const col = btn.dataset.col as SortConfig['col'];
-      if (sortConfig.col === col) sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc';
-      else { sortConfig.col = col; sortConfig.dir = 'asc'; }
-      document.querySelectorAll('#fe-sort-cols .fe-pbn').forEach(b => (b as HTMLElement).classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('fe-sort-dir')!.textContent = sortConfig.dir === 'asc' ? '↑ Asc' : '↓ Desc';
-      applyAll();
-    });
+    btn.addEventListener('click', () => setSortCol(btn.dataset.col as SortConfig['col']));
   });
 
   document.getElementById('fe-sort-dir')!.addEventListener('click', () => {
     sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc';
-    document.getElementById('fe-sort-dir')!.textContent = sortConfig.dir === 'asc' ? '↑ Asc' : '↓ Desc';
+    if (!sortConfig.col) sortConfig.col = 'name';   // a direction implies a column
+    syncSortUi();
     applyAll();
   });
 
   document.querySelectorAll<HTMLElement>('#fe-group-btns .fe-pbn').forEach(btn => {
     btn.addEventListener('click', () => {
       groupConfig = btn.dataset.group as GroupMode;
-      document.querySelectorAll('#fe-group-btns .fe-pbn').forEach(b => (b as HTMLElement).classList.remove('active'));
-      btn.classList.add('active');
+      syncSortUi();
       applyAll();
     });
   });
+
+  syncSortUi();
 
   // ── Filter bar ────────────────────────────────────────────────────
   const filterBar = document.getElementById('fe-filter-bar')!;
@@ -1306,5 +1310,9 @@ import { getIcon } from './icons';
     if (lbl) startRename(lbl);
   });
   attachPlaceEvents();
+
+  // The first render drew the listing raw; apply the persisted sort/group
+  // last, once every handler applyAll touches (selection included) exists.
+  if (sortConfig.col || groupConfig !== 'none') applyAll();
 
 })();
