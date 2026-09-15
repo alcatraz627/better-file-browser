@@ -21,6 +21,7 @@ import { initListing } from './listing';
 import { initListingInput } from './listing-input';
 import { initSidebar } from './sidebar';
 import { initSettingsUi } from './settings-ui';
+import { initMarkdownUi } from './md-ui';
 
 (function () {
   const preload = document.getElementById('bfb-preload');
@@ -119,6 +120,7 @@ import { initSettingsUi } from './settings-ui';
   if (fileMode) app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href });
 
   initChrome(app);
+  initMarkdownUi(app.toast);
   const listing = initListing(app, entries, { view: initView, zoom: initZoom, hidden: initHidden });
   initListingInput(app, listing);
   initSettingsUi(app);

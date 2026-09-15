@@ -207,10 +207,19 @@ describe('mdInline', () => {
 });
 
 describe('renderMarkdown', () => {
-  it('renders headings by level', () => {
-    const html = renderMarkdown('# One\n\n### Three');
-    expect(html).toContain('<h1>One</h1>');
-    expect(html).toContain('<h3>Three</h3>');
+  it('renders headings by level with an id and a hover anchor', () => {
+    const html = renderMarkdown('# One\n\n### Three\n\n### Three');
+    expect(html).toContain('<h1 id="one">One<a class="fe-md-anchor" href="#one" title="Link to this heading"></a></h1>');
+    expect(html).toContain('<h3 id="three">Three');
+    expect(html).toContain('<h3 id="three-1">Three');
+  });
+  it('renders front matter as a key and value block, task items as boxes, fences with a chip', () => {
+    const html = renderMarkdown('---\ntitle: T\nn: 2\n---\n# H\n\n- [x] a\n- [ ] b\n\n```py\nx = 1\n```\n');
+    expect(html).toContain('<dl class="fe-md-fm"><dt>title</dt><dd>T</dd><dt>n</dt><dd>2</dd></dl>');
+    expect(html).toContain('<li class="fe-task" style="margin-left:0px"><input type="checkbox" disabled checked> a</li>');
+    expect(html).toContain('<input type="checkbox" disabled> b</li>');
+    expect(html).toContain('<span class="fe-md-lang">py</span><button class="fe-md-copy"');
+    expect(html).not.toContain('<h1 id="---">');
   });
   it('joins consecutive lines into one paragraph, splits on blanks', () => {
     const html = renderMarkdown('line a\nline b\n\nline c');

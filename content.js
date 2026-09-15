@@ -1016,17 +1016,33 @@
     out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
     return out;
   }
+  function headingId(text, seen) {
+    let id = text.trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "") || "section";
+    const n = seen.get(id) ?? 0;
+    seen.set(id, n + 1);
+    if (n) id += "-" + n;
+    return id;
+  }
   function renderMarkdown(src, baseUrl = "") {
     const lines = src.replace(/\r\n/g, "\n").split("\n");
     const out = [];
     let para = [];
+    const seenIds = /* @__PURE__ */ new Map();
+    let i = 0;
+    if (lines[0] === "---") {
+      const end = lines.slice(1, 60).findIndex((l) => l === "---");
+      if (end >= 0) {
+        const rows = lines.slice(1, end + 1).map((l) => l.match(/^([\w.-]+)\s*:\s*(.*)$/)).filter(Boolean);
+        if (rows.length) out.push(`<dl class="fe-md-fm">${rows.map((m) => `<dt>${esc(m[1])}</dt><dd>${mdInline(m[2], baseUrl)}</dd>`).join("")}</dl>`);
+        i = end + 2;
+      }
+    }
     const flush = () => {
       if (para.length) {
         out.push(`<p>${mdInline(para.join(" "), baseUrl)}</p>`);
         para = [];
       }
     };
-    let i = 0;
     while (i < lines.length) {
       const line = lines[i];
       const fence = line.match(/^```(\w*)\s*$/);
@@ -1037,14 +1053,15 @@
         while (i < lines.length && !/^```\s*$/.test(lines[i])) buf.push(lines[i++]);
         i++;
         const code = buf.join("\n");
-        out.push(`<pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre>`);
+        out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(fence[1] || "text")}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre></div>`);
         continue;
       }
       const h = line.match(/^(#{1,6})\s+(.*)$/);
       if (h) {
         flush();
         const n = h[1].length;
-        out.push(`<h${n}>${mdInline(h[2], baseUrl)}</h${n}>`);
+        const id = headingId(h[2].replace(/[*_`]/g, ""), seenIds);
+        out.push(`<h${n} id="${esc(id)}">${mdInline(h[2], baseUrl)}<a class="fe-md-anchor" href="#${esc(id)}" title="Link to this heading"></a></h${n}>`);
         i++;
         continue;
       }
@@ -1077,7 +1094,8 @@
           const m = lines[i].match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
           if (!m) break;
           const depth = Math.min(Math.floor(m[1].length / 2), 4);
-          items.push(`<li style="margin-left:${depth * 18}px">${mdInline(m[3], baseUrl)}</li>`);
+          const task = m[3].match(/^\[( |x|X)\]\s+(.*)$/);
+          items.push(task ? `<li class="fe-task" style="margin-left:${depth * 18}px"><input type="checkbox" disabled${task[1] === " " ? "" : " checked"}> ${mdInline(task[2], baseUrl)}</li>` : `<li style="margin-left:${depth * 18}px">${mdInline(m[3], baseUrl)}</li>`);
           i++;
         }
         out.push(`<${ordered ? "ol" : "ul"}>${items.join("")}</${ordered ? "ol" : "ul"}>`);
@@ -1090,7 +1108,7 @@
         i += 2;
         const rows = [];
         while (i < lines.length && lines[i].includes("|")) rows.push(cells(lines[i++]));
-        out.push(`<table class="fe-md-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+        out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
         continue;
       }
       if (/^\s*$/.test(line)) {
@@ -2157,7 +2175,7 @@ ${body}
     }
     if (ext2 === "md" || ext2 === "mdx") {
       body.innerHTML = renderMarkdown(text, currentEntry?.href ?? "");
-      body.querySelectorAll("a[href]").forEach((a) => {
+      body.querySelectorAll("a[href]:not(.fe-md-anchor)").forEach((a) => {
         a.target = "_blank";
         a.rel = "noopener";
       });
@@ -2572,7 +2590,23 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-toc a:hover{color:var(--ac);background:var(--hover)}
 #fe-toc a.fe-toc-h2{padding-left:24px}#fe-toc a.fe-toc-h3{padding-left:34px}#fe-toc a.fe-toc-h4{padding-left:44px}
 #fe-page{flex:1;min-width:0;overflow:auto;font-size:12px}
-#fe-page .fe-md{max-width:none;margin:0;padding:24px 40px 60px;font-size:14px}
+#fe-page .fe-md{max-width:none;margin:0;padding:28px 48px 80px;font-size:15px;line-height:1.65}
+#fe.fe-column #fe-page .fe-md{max-width:80ch;margin:0 auto}
+#fe-page .fe-md h1{font-size:26px;margin:8px 0 16px;padding-bottom:8px}
+#fe-page .fe-md h2{font-size:21px;margin:32px 0 12px;padding-bottom:6px}
+#fe-page .fe-md h3{font-size:17px;margin:24px 0 8px}
+#fe-page .fe-md h4,#fe-page .fe-md h5,#fe-page .fe-md h6{font-size:15px;margin:18px 0 6px}
+#fe-page .fe-md p{margin:12px 0}
+#fe-page .fe-md ul,#fe-page .fe-md ol{margin:10px 0;padding-left:28px}
+#fe-page .fe-md li{margin:5px 0}
+#fe-page .fe-md code{font-size:13px}
+#fe-page .fe-md-pre{font-size:13px;line-height:1.5}
+#fe-page .fe-md-table{font-size:14px}
+#fe-page .fe-md-table th,#fe-page .fe-md-table td{padding:7px 13px}
+#fe-fp-toc,#fe-fp-column{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
+#fe-fp-toc:hover,#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
+#fe-fp-toc.on,#fe-fp-column.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
+#fe-toc a.on{color:var(--ac);border-left:2px solid var(--ac);padding-left:12px}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:11px;color:var(--dm);margin-right:auto;white-space:nowrap}
 #fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
@@ -2706,8 +2740,25 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-md p{margin:7px 0}
 .fe-md code{background:var(--s2);border:1px solid var(--bd);padding:0 5px;border-radius:4px;
   font:11.5px 'SF Mono',Menlo,Consolas,monospace}
+.fe-md-code{margin:10px 0;border:1px solid var(--bd);border-radius:6px;background:var(--s2);overflow:hidden}
+.fe-md-code-bar{display:flex;align-items:center;justify-content:space-between;padding:3px 10px;border-bottom:1px solid var(--bd);background:var(--s1)}
+.fe-md-lang{font:600 10.5px/1 'SF Mono',Menlo,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
+.fe-md-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:10.5px;padding:1px 7px;border-radius:4px}
+.fe-md-copy:hover{border-color:var(--ac);color:var(--ac)}
 .fe-md-pre{background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:10px 12px;
   overflow-x:auto;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;margin:10px 0;white-space:pre}
+.fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0}
+.fe-md-anchor{margin-left:8px;color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity .1s}
+.fe-md-anchor::before{content:'#'}
+.fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}
+.fe-md-fm{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;margin:0 0 18px;padding:10px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;font-size:12.5px}
+.fe-md-fm dt{color:var(--dm);font-weight:600}
+.fe-md-fm dd{margin:0;color:var(--tx)}
+.fe-md li.fe-task{list-style:none;margin-left:-20px!important;padding-left:0}
+.fe-md li.fe-task input{accent-color:var(--ac);margin-right:6px;vertical-align:-2px}
+.fe-md-tablewrap{overflow-x:auto;margin:10px 0}
+.fe-md-table tbody tr:nth-child(even){background:var(--s1)}
+.fe-md img{display:block;margin:12px auto;cursor:zoom-in}
 .fe-md blockquote{border-left:3px solid var(--bd);padding:1px 12px;color:var(--mt);margin:8px 0}
 .fe-md blockquote .fe-md{padding:0}
 .fe-md ul,.fe-md ol{padding-left:24px;margin:7px 0}
@@ -2716,7 +2767,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-md a:hover{text-decoration:underline}
 .fe-md img{max-width:100%;border-radius:6px}
 .fe-md hr{border:none;border-top:1px solid var(--bd);margin:14px 0}
-.fe-md-table{border-collapse:collapse;margin:10px 0;font-size:12.5px}
+.fe-md-table{border-collapse:collapse;margin:0;font-size:12.5px}
 .fe-md-table th,.fe-md-table td{border:1px solid var(--bd);padding:5px 11px;text-align:left}
 .fe-md-table th{background:var(--s2);font-weight:600}
 #fe-ctx,.fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
@@ -2730,6 +2781,8 @@ td.c-tp{color:var(--dm);font-size:11px}
 
   // src/file-page.ts
   var SCROLL_KEY = "bfb-page-scroll-v1";
+  var TOC_KEY = "bfb-page-toc-v1";
+  var COLUMN_KEY = "bfb-page-column-v1";
   var RELOAD_MS = 2e3;
   function filePageExt(pathname) {
     if (pathname.endsWith("/")) return null;
@@ -2753,19 +2806,24 @@ td.c-tp{color:var(--dm);font-size:11px}
     if (ext2 === "md" || ext2 === "mdx") return `<div class="fe-md">${renderMarkdown(text, href)}</div>`;
     return renderCode(text, ext2);
   }
-  function buildToc(page, toc) {
+  function buildToc(page, toc, open) {
     const heads = [...page.querySelectorAll(".fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4")];
-    const seen = /* @__PURE__ */ new Map();
     const items = heads.map((h) => {
-      let id = (h.textContent || "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "") || "section";
-      const n = seen.get(id) ?? 0;
-      seen.set(id, n + 1);
-      if (n) id += "-" + n;
-      h.id = id;
-      return `<a href="#${esc(id)}" class="fe-toc-${h.tagName.toLowerCase()}" title="Jump to this heading">${esc(h.textContent || "")}</a>`;
+      const text = (h.textContent || "").replace(/#$/, "").trim();
+      return `<a href="#${esc(h.id)}" class="fe-toc-${h.tagName.toLowerCase()}" data-id="${esc(h.id)}" title="Jump to this heading">${esc(text)}</a>`;
     });
     toc.innerHTML = items.join("");
-    toc.style.display = items.length > 1 ? "" : "none";
+    toc.style.display = items.length > 1 && open ? "" : "none";
+  }
+  function spy(page, toc) {
+    const heads = [...page.querySelectorAll(".fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4")];
+    const top = page.getBoundingClientRect().top + 40;
+    let current = null;
+    for (const h of heads) {
+      if (h.getBoundingClientRect().top <= top) current = h;
+      else break;
+    }
+    toc.querySelectorAll("a").forEach((a) => a.classList.toggle("on", !!current && a.dataset.id === current.id));
   }
   function scrollMemory() {
     try {
@@ -2785,6 +2843,8 @@ td.c-tp{color:var(--dm);font-size:11px}
     return `
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
+        <button id="fe-fp-toc" title="Show or hide the table of contents">toc</button>
+        <button id="fe-fp-column" title="Reading column: narrow the text to 80 characters">column</button>
         <button id="fe-fp-raw" title="Raw text (r)">raw</button>
         <button id="fe-fp-copy" title="Copy file contents">copy</button>
       </div>
@@ -2799,18 +2859,46 @@ td.c-tp{color:var(--dm);font-size:11px}
     const page = document.getElementById("fe-page");
     const toc = document.getElementById("fe-toc");
     const rawBtn = document.getElementById("fe-fp-raw");
+    const tocBtn = document.getElementById("fe-fp-toc");
+    const colBtn = document.getElementById("fe-fp-column");
     const meta = document.getElementById("fe-fp-meta");
+    const isMd = ext2 === "md" || ext2 === "mdx";
     let raw = false;
+    let tocOpen = localStorage.getItem(TOC_KEY) !== "0";
+    let column = localStorage.getItem(COLUMN_KEY) === "1";
+    const fe = document.getElementById("fe");
     meta.textContent = fmtSize(new Blob([text]).size);
+    const paint = () => {
+      fe.classList.toggle("fe-column", column);
+      colBtn.classList.toggle("on", column);
+      tocBtn.classList.toggle("on", tocOpen);
+      tocBtn.style.display = isMd && !raw ? "" : "none";
+      colBtn.style.display = isMd && !raw ? "" : "none";
+    };
     const render2 = () => {
       const top = page.scrollTop;
       page.innerHTML = raw ? renderCode(text, "txt") : renderBody(text, ext2, href);
-      if (!raw && (ext2 === "md" || ext2 === "mdx")) buildToc(page, toc);
+      if (!raw && isMd) buildToc(page, toc, tocOpen);
       else toc.style.display = "none";
       page.scrollTop = top;
       rawBtn.classList.toggle("on", raw);
+      paint();
+      spy(page, toc);
     };
     render2();
+    tocBtn.addEventListener("click", () => {
+      tocOpen = !tocOpen;
+      localStorage.setItem(TOC_KEY, tocOpen ? "1" : "0");
+      render2();
+    });
+    colBtn.addEventListener("click", () => {
+      column = !column;
+      localStorage.setItem(COLUMN_KEY, column ? "1" : "0");
+      paint();
+    });
+    page.addEventListener("scroll", () => {
+      if (isMd && !raw) spy(page, toc);
+    });
     const remembered = scrollMemory()[rawPath];
     if (remembered) page.scrollTop = remembered;
     else if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
@@ -5257,6 +5345,25 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     });
   }
 
+  // src/md-ui.ts
+  function initMarkdownUi(toast) {
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      const copy = t.closest(".fe-md-copy");
+      if (copy) {
+        e.preventDefault();
+        const pre = copy.closest(".fe-md-code")?.querySelector("pre");
+        copyToClipboard(pre?.textContent || "").then((ok) => toast(ok ? "Copied the block" : "Copy failed"));
+        return;
+      }
+      const img = t.closest(".fe-md img");
+      if (img && !img.closest("a")) {
+        e.preventDefault();
+        window.open(img.src, "_blank");
+      }
+    });
+  }
+
   // src/main.ts
   (function() {
     const preload = document.getElementById("bfb-preload");
@@ -5373,6 +5480,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
     if (fileMode) app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href });
     initChrome(app);
+    initMarkdownUi(app.toast);
     const listing = initListing(app, entries, { view: initView, zoom: initZoom, hidden: initHidden });
     initListingInput(app, listing);
     initSettingsUi(app);

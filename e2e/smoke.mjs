@@ -3,6 +3,7 @@
 import { launch, shot, applyTheme } from './harness.mjs';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const failures = [];
 function check(cond, msg) {
@@ -35,7 +36,7 @@ try {
   const hdr = await page.evaluate(() => {
     const n = document.getElementById('fe-ql-name');
     const o = document.getElementById('fe-ql-open');
-    const links = [...document.querySelectorAll('#fe-ql-body a[href]')];
+    const links = [...document.querySelectorAll('#fe-ql-body a[href]:not(.fe-md-anchor)')];
     return {
       nameHref: n.getAttribute('href'), nameTarget: n.target,
       openTarget: o.target,
@@ -449,6 +450,53 @@ try {
     return { md: Math.round(md.right), pane: Math.round(pane.right), strip: !!document.querySelector('#fe-tabs .fe-tab.temp') };
   });
   check(width.md >= width.pane - 1 && width.strip, `file page fills the pane width and shows the strip: ${JSON.stringify(width)}`);
+  // Markdown viewer: front matter block, task boxes, code chip with copy,
+  // table in a scroll wrap, heading anchors, the reading column toggle.
+  const mdBits = await fpage.evaluate(() => ({
+    fm: [...document.querySelectorAll('#fe-page .fe-md-fm dt')].map(d => d.textContent),
+    tasks: [...document.querySelectorAll('#fe-page li.fe-task input')].map(i => i.checked),
+    chip: document.querySelector('#fe-page .fe-md-lang')?.textContent,
+    copy: !!document.querySelector('#fe-page .fe-md-copy'),
+    wrap: !!document.querySelector('#fe-page .fe-md-tablewrap table'),
+    anchor: document.querySelector('#fe-page h1 .fe-md-anchor')?.getAttribute('href'),
+    size: getComputedStyle(document.querySelector('#fe-page .fe-md')).fontSize,
+  }));
+  check(mdBits.fm.join() === 'title,tags' && mdBits.tasks.join() === 'true,false' && mdBits.chip === 'js' && mdBits.copy && mdBits.wrap && mdBits.anchor === '#fixture' && mdBits.size === '15px',
+    `markdown viewer renders front matter, tasks, code chip, table wrap, anchors at 15px: ${JSON.stringify(mdBits)}`);
+  await fpage.click('#fe-fp-column');
+  const widths = () => fpage.evaluate(() => ({
+    md: Math.round(document.querySelector('#fe-page .fe-md').getBoundingClientRect().width),
+    page: Math.round(document.getElementById('fe-page').getBoundingClientRect().width),
+    on: document.getElementById('fe-fp-column').classList.contains('on'),
+  }));
+  const colOn = await widths();
+  await fpage.reload({ waitUntil: 'load' });
+  await fpage.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);
+  const colKept = await widths();
+  await fpage.click('#fe-fp-column');
+  const colOff = await widths();
+  check(colOn.md < colOn.page - 100 && colKept.on && colKept.md === colOn.md && !colOff.on && colOff.md === colOff.page,
+    `reading column narrows the text, survives a reload, and toggles back to full width: ${JSON.stringify({ colOn, colKept, colOff })}`);
+  const longMd = ['---', 'title: Long', '---', ...Array.from({ length: 30 }, (_, i) => `## Section ${i + 1}\n\n${'lorem ipsum '.repeat(40)}\n`)].join('\n');
+  const longPath = join(tmpdir(), `bfb-long-${process.pid}.md`);   // outside the fixture, so listing counts hold
+  writeFileSync(longPath, longMd);
+  await fpage.goto('file://' + longPath, { waitUntil: 'load' });
+  await fpage.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);
+  const spied = await fpage.evaluate(() => {
+    const page = document.getElementById('fe-page');
+    const h = document.getElementById('section-12');
+    page.scrollTop = h.offsetTop - page.offsetTop + 10;
+    page.dispatchEvent(new Event('scroll'));
+    return { on: document.querySelector('#fe-toc a.on')?.dataset.id, rows: document.querySelectorAll('#fe-toc a').length, tocShown: getComputedStyle(document.getElementById('fe-toc')).display !== 'none' };
+  });
+  check(spied.on === 'section-12' && spied.rows === 30 && spied.tocShown, `ToC follows the scroll: ${JSON.stringify(spied)}`);
+  await fpage.click('#fe-fp-toc');
+  const tocHidden = await fpage.evaluate(() => getComputedStyle(document.getElementById('fe-toc')).display === 'none');
+  await fpage.click('#fe-fp-toc');
+  check(tocHidden, 'the toc button hides the rail');
+  await shot(fpage, 'file-page-long');
+  await fpage.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
+  await fpage.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);
   await fpage.setViewport({ width: 1800, height: 900 });
   const wide = await fpage.evaluate(() => {
     const r = document.getElementById('fe').getBoundingClientRect();

@@ -404,7 +404,23 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-toc a:hover{color:var(--ac);background:var(--hover)}
 #fe-toc a.fe-toc-h2{padding-left:24px}#fe-toc a.fe-toc-h3{padding-left:34px}#fe-toc a.fe-toc-h4{padding-left:44px}
 #fe-page{flex:1;min-width:0;overflow:auto;font-size:12px}
-#fe-page .fe-md{max-width:none;margin:0;padding:24px 40px 60px;font-size:14px}
+#fe-page .fe-md{max-width:none;margin:0;padding:28px 48px 80px;font-size:15px;line-height:1.65}
+#fe.fe-column #fe-page .fe-md{max-width:80ch;margin:0 auto}
+#fe-page .fe-md h1{font-size:26px;margin:8px 0 16px;padding-bottom:8px}
+#fe-page .fe-md h2{font-size:21px;margin:32px 0 12px;padding-bottom:6px}
+#fe-page .fe-md h3{font-size:17px;margin:24px 0 8px}
+#fe-page .fe-md h4,#fe-page .fe-md h5,#fe-page .fe-md h6{font-size:15px;margin:18px 0 6px}
+#fe-page .fe-md p{margin:12px 0}
+#fe-page .fe-md ul,#fe-page .fe-md ol{margin:10px 0;padding-left:28px}
+#fe-page .fe-md li{margin:5px 0}
+#fe-page .fe-md code{font-size:13px}
+#fe-page .fe-md-pre{font-size:13px;line-height:1.5}
+#fe-page .fe-md-table{font-size:14px}
+#fe-page .fe-md-table th,#fe-page .fe-md-table td{padding:7px 13px}
+#fe-fp-toc,#fe-fp-column{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
+#fe-fp-toc:hover,#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
+#fe-fp-toc.on,#fe-fp-column.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
+#fe-toc a.on{color:var(--ac);border-left:2px solid var(--ac);padding-left:12px}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:11px;color:var(--dm);margin-right:auto;white-space:nowrap}
 #fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
@@ -538,8 +554,25 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-md p{margin:7px 0}
 .fe-md code{background:var(--s2);border:1px solid var(--bd);padding:0 5px;border-radius:4px;
   font:11.5px 'SF Mono',Menlo,Consolas,monospace}
+.fe-md-code{margin:10px 0;border:1px solid var(--bd);border-radius:6px;background:var(--s2);overflow:hidden}
+.fe-md-code-bar{display:flex;align-items:center;justify-content:space-between;padding:3px 10px;border-bottom:1px solid var(--bd);background:var(--s1)}
+.fe-md-lang{font:600 10.5px/1 'SF Mono',Menlo,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
+.fe-md-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:10.5px;padding:1px 7px;border-radius:4px}
+.fe-md-copy:hover{border-color:var(--ac);color:var(--ac)}
 .fe-md-pre{background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:10px 12px;
   overflow-x:auto;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;margin:10px 0;white-space:pre}
+.fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0}
+.fe-md-anchor{margin-left:8px;color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity .1s}
+.fe-md-anchor::before{content:'#'}
+.fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}
+.fe-md-fm{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;margin:0 0 18px;padding:10px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;font-size:12.5px}
+.fe-md-fm dt{color:var(--dm);font-weight:600}
+.fe-md-fm dd{margin:0;color:var(--tx)}
+.fe-md li.fe-task{list-style:none;margin-left:-20px!important;padding-left:0}
+.fe-md li.fe-task input{accent-color:var(--ac);margin-right:6px;vertical-align:-2px}
+.fe-md-tablewrap{overflow-x:auto;margin:10px 0}
+.fe-md-table tbody tr:nth-child(even){background:var(--s1)}
+.fe-md img{display:block;margin:12px auto;cursor:zoom-in}
 .fe-md blockquote{border-left:3px solid var(--bd);padding:1px 12px;color:var(--mt);margin:8px 0}
 .fe-md blockquote .fe-md{padding:0}
 .fe-md ul,.fe-md ol{padding-left:24px;margin:7px 0}
@@ -548,7 +581,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-md a:hover{text-decoration:underline}
 .fe-md img{max-width:100%;border-radius:6px}
 .fe-md hr{border:none;border-top:1px solid var(--bd);margin:14px 0}
-.fe-md-table{border-collapse:collapse;margin:10px 0;font-size:12.5px}
+.fe-md-table{border-collapse:collapse;margin:0;font-size:12.5px}
 .fe-md-table th,.fe-md-table td{border:1px solid var(--bd);padding:5px 11px;text-align:left}
 .fe-md-table th{background:var(--s2);font-weight:600}
 #fe-ctx,.fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);

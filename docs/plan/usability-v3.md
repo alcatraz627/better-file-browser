@@ -20,13 +20,13 @@ knobs the first two passes create.
 
 | # | Item | Default | Check |
 |---|---|---|---|
-| M1 | Typography scale: 15px body, 1.65 line height, headings 26/21/17/15px with a 32px top margin on h2, 12px paragraph gap, a reading column of 80ch centred beside the ToC rail, and a full-width toggle in the file bar that persists | **default** | shot at 1400 and 1800 wide read back; the toggle survives a reload |
-| M2 | Code blocks: language chip top-right, a copy button per block, horizontal scroll instead of wrap, 13px mono at 1.5 line height on the s2 surface | **default** | a fenced block in the fixture shows the chip and copies |
-| M3 | Tables: zebra rows, header row sticky when the table is taller than the pane, horizontal scroll container so a wide table never widens the page | **default** | a 12-column table stays inside the pane |
-| M4 | Images: centred, max 100 percent, click opens the file natively in a new tab | **default** | click on the fixture image opens a page |
-| M5 | Heading anchors on hover, ToC highlights the section in view, ToC collapsible with a remembered state | **default** | scrolling to a heading marks its ToC row |
-| M6 | Front matter renders as a compact key and value block instead of raw dashes | **default** | the existing note fixture shows a block, not `---` |
-| M7 | Task lists render as checkboxes, read-only | **default** | `- [x]` shows a checked box |
+| M1 | Typography scale: 15px body, 1.65 line height, headings 26/21/17/15px with a 32px top margin on h2, 12px paragraph gap; full width by default (owner ask 2026-09-15) with a reading-column toggle of 80ch in the file bar that persists, and a ToC toggle beside it | **default**, shipped 2026-09-16 | e2e: 15px, column narrows and survives a reload, toc button hides the rail |
+| M2 | Code blocks: language chip, a copy button per block, horizontal scroll instead of wrap, 13px mono at 1.5 line height on the s2 surface | **default**, shipped | e2e: the fixture's js fence shows the chip and the button |
+| M3 | Tables: zebra rows and a horizontal scroll container so a wide table never widens the page. The sticky header was dropped: a sticky row needs the table's own ancestor to be the scrolling box, and the scroll container is that ancestor, so the two cannot coexist | **default**, shipped | e2e: the fixture table sits in a wrap |
+| M4 | Images: centred, max 100 percent, click opens the file natively in a new tab | **default**, shipped, click unchecked in e2e | |
+| M5 | Heading anchors on hover, ToC highlights the section in view, ToC collapsible with a remembered state | **default**, shipped | e2e: scrolling to section 12 marks its row; ids and anchors on every heading |
+| M6 | Front matter renders as a compact key and value block instead of raw dashes | **default**, shipped | e2e: the fixture's title and tags rows |
+| M7 | Task lists render as checkboxes, read-only | **default**, shipped | e2e: one checked, one open |
 | M8 | Reading progress: a thin bar at the top of the pane | *optional* | |
 | M9 | Callouts: `> [!NOTE]` and friends styled as boxes | *optional* | |
 

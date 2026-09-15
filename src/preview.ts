@@ -582,7 +582,7 @@ function render(text: string, ext: string): void {
   if (ext === 'md' || ext === 'mdx') {
     body.innerHTML = renderMarkdown(text, currentEntry?.href ?? '');
     // Links leave the explorer in place: every one opens a new tab.
-    body.querySelectorAll<HTMLAnchorElement>('a[href]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
+    body.querySelectorAll<HTMLAnchorElement>('a[href]:not(.fe-md-anchor)').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
     return;
   }
   body.innerHTML = renderCode(text, ext);

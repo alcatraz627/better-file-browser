@@ -51,7 +51,7 @@ export function makeFixture() {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(join(dir, 'nested', 'deeper'), { recursive: true });
   const files = {
-    'readme.md': '# Fixture\n\nA **markdown** file with a [link](notes.txt).\n\n- one\n- two\n',
+    'readme.md': '---\ntitle: Fixture\ntags: demo\n---\n# Fixture\n\nA **markdown** file with a [link](notes.txt).\n\n- one\n- two\n- [x] done\n- [ ] open\n\n```js\nconst a = 1;\n```\n\n| k | v |\n|---|---|\n| a | 1 |\n',
     'notes.txt': 'plain text\nsecond line\n',
     'data.json': JSON.stringify({ a: 1, b: [1, 2, 3], c: { d: 'e' } }, null, 2),
     'rows.tsv': 'name\tsize\nalpha\t1\nbeta\t22\n',

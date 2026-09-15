@@ -378,14 +378,33 @@ export function mdInline(s: string, baseUrl = ''): string {
   return out;
 }
 
+// Heading ids come from the text, deduplicated per document, so the file
+// page's table of contents and the hover anchors agree.
+export function headingId(text: string, seen: Map<string, number>): string {
+  let id = text.trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, '-').replace(/^-+|-+$/g, '') || 'section';
+  const n = seen.get(id) ?? 0; seen.set(id, n + 1);
+  if (n) id += '-' + n;
+  return id;
+}
+
 export function renderMarkdown(src: string, baseUrl = ''): string {
   const lines = src.replace(/\r\n/g, '\n').split('\n');
   const out: string[] = [];
   let para: string[] = [];
+  const seenIds = new Map<string, number>();
+  // Front matter: a --- block at the top renders as a key and value list.
+  let i = 0;
+  if (lines[0] === '---') {
+    const end = lines.slice(1, 60).findIndex(l => l === '---');
+    if (end >= 0) {
+      const rows = lines.slice(1, end + 1).map(l => l.match(/^([\w.-]+)\s*:\s*(.*)$/)).filter(Boolean) as RegExpMatchArray[];
+      if (rows.length) out.push(`<dl class="fe-md-fm">${rows.map(m => `<dt>${esc(m[1])}</dt><dd>${mdInline(m[2], baseUrl)}</dd>`).join('')}</dl>`);
+      i = end + 2;
+    }
+  }
   const flush = () => {
     if (para.length) { out.push(`<p>${mdInline(para.join(' '), baseUrl)}</p>`); para = []; }
   };
-  let i = 0;
   while (i < lines.length) {
     const line = lines[i];
 
@@ -396,12 +415,18 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
       while (i < lines.length && !/^```\s*$/.test(lines[i])) buf.push(lines[i++]);
       i++;
       const code = buf.join('\n');
-      out.push(`<pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre>`);
+      out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(fence[1] || 'text')}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre></div>`);
       continue;
     }
 
     const h = line.match(/^(#{1,6})\s+(.*)$/);
-    if (h) { flush(); const n = h[1].length; out.push(`<h${n}>${mdInline(h[2], baseUrl)}</h${n}>`); i++; continue; }
+    if (h) {
+      flush();
+      const n = h[1].length;
+      const id = headingId(h[2].replace(/[*_`]/g, ''), seenIds);
+      out.push(`<h${n} id="${esc(id)}">${mdInline(h[2], baseUrl)}<a class="fe-md-anchor" href="#${esc(id)}" title="Link to this heading"></a></h${n}>`);
+      i++; continue;
+    }
 
     // Raw HTML block: consume until the next blank line, keep a safe subset
     if (/^\s*<[a-zA-Z!/]/.test(line)) {
@@ -435,7 +460,10 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
         // Nesting is rendered as indentation, not nested lists — close enough
         // for a preview and far simpler than tracking list stacks.
         const depth = Math.min(Math.floor(m[1].length / 2), 4);
-        items.push(`<li style="margin-left:${depth * 18}px">${mdInline(m[3], baseUrl)}</li>`);
+        const task = m[3].match(/^\[( |x|X)\]\s+(.*)$/);
+        items.push(task
+          ? `<li class="fe-task" style="margin-left:${depth * 18}px"><input type="checkbox" disabled${task[1] === ' ' ? '' : ' checked'}> ${mdInline(task[2], baseUrl)}</li>`
+          : `<li style="margin-left:${depth * 18}px">${mdInline(m[3], baseUrl)}</li>`);
         i++;
       }
       out.push(`<${ordered ? 'ol' : 'ul'}>${items.join('')}</${ordered ? 'ol' : 'ul'}>`);
@@ -450,11 +478,11 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
       i += 2;
       const rows: string[][] = [];
       while (i < lines.length && lines[i].includes('|')) rows.push(cells(lines[i++]));
-      out.push(`<table class="fe-md-table"><thead><tr>${
+      out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table"><thead><tr>${
         head.map(c => `<th>${c}</th>`).join('')
       }</tr></thead><tbody>${
         rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')
-      }</tbody></table>`);
+      }</tbody></table></div>`);
       continue;
     }
 

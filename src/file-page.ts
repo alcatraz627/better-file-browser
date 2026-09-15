@@ -12,6 +12,8 @@ import { fetchFileText } from './file-fetch';
 import type { Settings } from './types';
 
 const SCROLL_KEY = 'bfb-page-scroll-v1';
+const TOC_KEY = 'bfb-page-toc-v1';
+const COLUMN_KEY = 'bfb-page-column-v1';
 const RELOAD_MS = 2000;
 
 export function filePageExt(pathname: string): string | null {
@@ -40,19 +42,24 @@ function renderBody(text: string, ext: string, href: string): string {
   return renderCode(text, ext);
 }
 
-// Give every heading an id from its text and list them in the rail.
-function buildToc(page: HTMLElement, toc: HTMLElement): void {
+// List the headings (the renderer gave them ids) in the rail.
+function buildToc(page: HTMLElement, toc: HTMLElement, open: boolean): void {
   const heads = [...page.querySelectorAll<HTMLElement>('.fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4')];
-  const seen = new Map<string, number>();
   const items = heads.map(h => {
-    let id = (h.textContent || '').trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, '-').replace(/^-+|-+$/g, '') || 'section';
-    const n = seen.get(id) ?? 0; seen.set(id, n + 1);
-    if (n) id += '-' + n;
-    h.id = id;
-    return `<a href="#${esc(id)}" class="fe-toc-${h.tagName.toLowerCase()}" title="Jump to this heading">${esc(h.textContent || '')}</a>`;
+    const text = (h.textContent || '').replace(/#$/, '').trim();
+    return `<a href="#${esc(h.id)}" class="fe-toc-${h.tagName.toLowerCase()}" data-id="${esc(h.id)}" title="Jump to this heading">${esc(text)}</a>`;
   });
   toc.innerHTML = items.join('');
-  toc.style.display = items.length > 1 ? '' : 'none';
+  toc.style.display = items.length > 1 && open ? '' : 'none';
+}
+
+// Mark the ToC row of the heading in view, on every scroll of the page.
+function spy(page: HTMLElement, toc: HTMLElement): void {
+  const heads = [...page.querySelectorAll<HTMLElement>('.fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4')];
+  const top = page.getBoundingClientRect().top + 40;
+  let current: HTMLElement | null = null;
+  for (const h of heads) { if (h.getBoundingClientRect().top <= top) current = h; else break; }
+  toc.querySelectorAll<HTMLElement>('a').forEach(a => a.classList.toggle('on', !!current && a.dataset.id === current.id));
 }
 
 function scrollMemory(): Record<string, number> {
@@ -71,6 +78,8 @@ export function renderFileContent(): string {
   return `
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
+        <button id="fe-fp-toc" title="Show or hide the table of contents">toc</button>
+        <button id="fe-fp-column" title="Reading column: narrow the text to 80 characters">column</button>
         <button id="fe-fp-raw" title="Raw text (r)">raw</button>
         <button id="fe-fp-copy" title="Copy file contents">copy</button>
       </div>
@@ -88,18 +97,38 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   const page = document.getElementById('fe-page')!;
   const toc = document.getElementById('fe-toc')!;
   const rawBtn = document.getElementById('fe-fp-raw')!;
+  const tocBtn = document.getElementById('fe-fp-toc')!;
+  const colBtn = document.getElementById('fe-fp-column')!;
   const meta = document.getElementById('fe-fp-meta')!;
+  const isMd = ext === 'md' || ext === 'mdx';
   let raw = false;
+  // Two remembered choices: the ToC rail open, and a reading column instead
+  // of the full width (full width is the owner's default).
+  let tocOpen = localStorage.getItem(TOC_KEY) !== '0';
+  let column = localStorage.getItem(COLUMN_KEY) === '1';
+  const fe = document.getElementById('fe')!;
 
   meta.textContent = fmtSize(new Blob([text]).size);
+  const paint = () => {
+    fe.classList.toggle('fe-column', column);
+    colBtn.classList.toggle('on', column);
+    tocBtn.classList.toggle('on', tocOpen);
+    tocBtn.style.display = isMd && !raw ? '' : 'none';
+    colBtn.style.display = isMd && !raw ? '' : 'none';
+  };
   const render = () => {
     const top = page.scrollTop;
     page.innerHTML = raw ? renderCode(text, 'txt') : renderBody(text, ext, href);
-    if (!raw && (ext === 'md' || ext === 'mdx')) buildToc(page, toc); else toc.style.display = 'none';
+    if (!raw && isMd) buildToc(page, toc, tocOpen); else toc.style.display = 'none';
     page.scrollTop = top;
     rawBtn.classList.toggle('on', raw);
+    paint();
+    spy(page, toc);
   };
   render();
+  tocBtn.addEventListener('click', () => { tocOpen = !tocOpen; localStorage.setItem(TOC_KEY, tocOpen ? '1' : '0'); render(); });
+  colBtn.addEventListener('click', () => { column = !column; localStorage.setItem(COLUMN_KEY, column ? '1' : '0'); paint(); });
+  page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
 
   const remembered = scrollMemory()[rawPath];
   if (remembered) page.scrollTop = remembered;
