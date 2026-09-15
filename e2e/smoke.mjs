@@ -1,6 +1,6 @@
 // Smoke run: the explorer renders the fixture, a preview opens and closes,
 // and screenshots land in e2e/shots/. Run with `npm run e2e`.
-import { launch, shot } from './harness.mjs';
+import { launch, shot, applyTheme } from './harness.mjs';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -13,6 +13,7 @@ function check(cond, msg) {
 const h = await launch({ headless: process.env.BFB_HEADED ? false : true });
 try {
   const page = await h.open();
+  await applyTheme(page);
 
   const rows = await page.$$eval('#fe-tbody tr[data-idx]', els => els.length);
   // 7 visible files + nested dir + parent row; .hidden is off by default

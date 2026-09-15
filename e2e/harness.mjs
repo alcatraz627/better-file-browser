@@ -120,8 +120,19 @@ export async function launch({ headless = true } = {}) {
   return { browser, fixture, notesDir, open, close };
 }
 
+// BFB_THEME=light runs the same checks on the light theme; screenshots get
+// a -light suffix so both sets sit side by side.
+export const THEME = process.env.BFB_THEME === 'light' ? 'light' : 'dark';
+
+export async function applyTheme(page) {
+  if (THEME === 'dark') return;
+  await page.evaluate(() => localStorage.setItem('bfb-theme', 'light'));
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+}
+
 export async function shot(page, name) {
-  const file = join(SHOTS, `${name}.png`);
+  const file = join(SHOTS, `${name}${THEME === 'light' ? '-light' : ''}.png`);
   await page.screenshot({ path: file });
   return file;
 }
