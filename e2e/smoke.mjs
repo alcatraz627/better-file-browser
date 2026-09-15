@@ -118,6 +118,27 @@ try {
   check(after === before + 1, `middle-click opened a new tab (${before} → ${after})`);
   check(page.url().endsWith('/'), 'explorer tab stayed on the listing');
 
+  // Deep search: the crawl adds subfolder entries with relative names.
+  await page.click('#fe-deep-btn');
+  await page.waitForFunction(() => /items in \d+ folders/.test(document.getElementById('fe-count').textContent), { timeout: 10_000 }).catch(() => null);
+  const deepCount = await page.$eval('#fe-count', el => el.textContent);
+  check(/^11 of 11 items in 3 folders$/.test(deepCount), `deep crawl status "${deepCount}"`);
+  await page.type('#fe-search', 'deep');
+  const deepRows = await page.$$eval('#fe-tbody tr[data-idx]:not(.par) .fe-nm', els => els.map(e => e.textContent));
+  check(deepRows.length === 2 && deepRows.includes('nested/deeper/deepest.md') && deepRows.includes('nested/deeper'),
+    `deep filter rows: ${JSON.stringify(deepRows)}`);
+  await shot(page, 'deep-search');
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="deepest.md"]) td:last-child')).click();
+  await page.keyboard.press('Space');
+  await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
+  const deepH1 = await page.$eval('#fe-ql-body h1', el => el.textContent).catch(() => null);
+  check(deepH1 === 'deep', `deep result previews: h1 "${deepH1}"`);
+  await page.keyboard.press('Escape');
+  await page.click('#fe-deep-btn');
+  await page.$eval('#fe-search', el => { el.value = ''; el.dispatchEvent(new Event('input')); });
+  const shallowRows = await page.$$eval('#fe-tbody tr[data-idx]', els => els.length);
+  check(shallowRows === 9, `deep off restores ${shallowRows} rows`);
+
   // Sort + view persist across a folder change and a reload.
   await page.click('th[data-sort="size"]');
   await page.click('th[data-sort="size"]');

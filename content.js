@@ -1610,6 +1610,10 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 
 - **Quick filter** \u2014 type in the **Filter\u2026** box (top-right), or press **\u2318F** to
   jump to it. Press **\u2318F** again to fall through to Chrome's own find.
+- **Deep search** \u2014 the folder button beside the filter box includes every
+  subfolder. Names show their path from this folder, so **src/main.ts** matches
+  **main**. The scan skips node_modules, .git and dot-folders (unless hidden
+  files are shown), stops at 8 levels or 5000 items, and runs once per page.
 - **Sort** \u2014 click a column header, or open the **Sort** panel to sort by name,
   size, type, extension, or modified date, and to **group** (folders-first,
   files-first, by extension, or by type).
@@ -1806,6 +1810,7 @@ body{opacity:1!important}
   font-size:12px;transition:all .15s}
 #fe-toolbar button:hover{border-color:var(--ac);color:var(--ac)}
 #fe-hidden-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
+#fe-deep-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-sg-btn.on,#fe-filter-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-zoom-wrap{display:flex;align-items:center;gap:5px;color:var(--dm)}
 #fe-zoom{width:80px;accent-color:var(--ac);cursor:pointer}
@@ -2281,6 +2286,60 @@ td.c-tp{color:var(--dm);font-size:11px}
     return [{ label: "All", items: entries }];
   }
 
+  // src/deep-search.ts
+  var DEFAULT_SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", ".svn", ".hg", "__pycache__", ".venv", "venv"]);
+  var CONCURRENCY = 4;
+  function relativeName(href, rootUrl) {
+    const rel = href.startsWith(rootUrl) ? href.slice(rootUrl.length) : href;
+    let out;
+    try {
+      out = decodeURIComponent(rel);
+    } catch {
+      out = rel;
+    }
+    return out.replace(/\/$/, "");
+  }
+  async function crawl(rootUrl, listDir, opts = {}, isCancelled = () => false) {
+    const maxDepth = opts.maxDepth ?? 8;
+    const maxEntries = opts.maxEntries ?? 5e3;
+    const skip = opts.skipDirs ?? DEFAULT_SKIP_DIRS;
+    const entries = [];
+    let folders = 0, truncated = false;
+    let queue = [{ url: rootUrl, depth: 0 }];
+    while (queue.length && !isCancelled() && entries.length < maxEntries) {
+      const batch = queue.splice(0, CONCURRENCY);
+      const listed = await Promise.all(batch.map(async (b) => {
+        try {
+          return { b, kids: await listDir(b.url) };
+        } catch {
+          return { b, kids: [] };
+        }
+      }));
+      for (const { b, kids } of listed) {
+        folders++;
+        for (const k of kids) {
+          if (k.isParent) continue;
+          if (entries.length >= maxEntries) {
+            truncated = true;
+            break;
+          }
+          const name = relativeName(k.href, rootUrl);
+          const hiddenSeg = name.split("/").some((s) => s.startsWith("."));
+          entries.push({ ...k, name, isHidden: hiddenSeg });
+          if (!k.isDir) continue;
+          if (skip.has(k.name) || !opts.includeHidden && k.name.startsWith(".")) continue;
+          if (b.depth + 1 > maxDepth) {
+            truncated = true;
+            continue;
+          }
+          queue.push({ url: k.href, depth: b.depth + 1 });
+        }
+      }
+      opts.onProgress?.(folders, entries.length);
+    }
+    return { entries, folders, truncated, cancelled: isCancelled() };
+  }
+
   // src/render.ts
   function buildTipData(e, ctx) {
     if (e.isParent) {
@@ -2414,9 +2473,13 @@ td.c-tp{color:var(--dm);font-size:11px}
     }
     let VISIBLE = ALL_ENTRIES;
     let baseStatus = "";
+    let deepOn = false;
+    let deepEntries = null;
+    let deepFolders = 0, deepTruncated = false, deepScanning = false;
+    let deepSeq = 0;
     function applyAll() {
       const parent = ALL_ENTRIES.filter((e) => e.isParent);
-      let entries = ALL_ENTRIES.filter((e) => !e.isParent);
+      let entries = deepOn && deepEntries ? deepEntries : ALL_ENTRIES.filter((e) => !e.isParent);
       entries = applyFilter(entries, filterConfig);
       entries = applySort(entries, sortConfig);
       const ctx = getRenderCtx();
@@ -2444,7 +2507,11 @@ td.c-tp{color:var(--dm);font-size:11px}
       tiles.innerHTML = tileParts.join("");
       const shown = VISIBLE.filter((en) => !en.isParent).length;
       const filtered = !!filterConfig.q || filterConfig.type !== "all";
-      baseStatus = filtered ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`;
+      if (deepOn) {
+        baseStatus = deepScanning ? `Scanning\u2026 ${deepFolders} folder${deepFolders !== 1 ? "s" : ""}` : `${shown} of ${deepEntries?.length ?? 0} items in ${deepFolders} folders${deepTruncated ? " (capped)" : ""}`;
+      } else {
+        baseStatus = filtered ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`;
+      }
       document.getElementById("fe-count").textContent = baseStatus;
       setSel(-1);
     }
@@ -2567,6 +2634,9 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             <span id="fe-zoom-val">${initZoom}%</span>
           </div>
           <div id="fe-view-group">${viewBtnsHTML}</div>
+          <button id="fe-deep-btn" title="Deep search: include every subfolder in the filter">
+            <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 2.5h4l1 1.2h6v7H1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3.5 6h3l.8 1h2.7v2.5H3.5z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+          </button>
           <input id="fe-search" type="text" placeholder="Filter\u2026" autocomplete="off" spellcheck="false" title="Quick filter \u2014 Type to filter files by name in any view"/>
         </div>
       </div>
@@ -2899,7 +2969,49 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       filterConfig.type = this.value;
       applyAll();
     });
+    const deepBtn = document.getElementById("fe-deep-btn");
     const searchEl = document.getElementById("fe-search");
+    function startDeepCrawl() {
+      const seq = ++deepSeq;
+      deepScanning = true;
+      const rootUrl = new URL(location.href).href;
+      crawl(
+        rootUrl,
+        (url) => fetchFileText(url).then((html) => parseListing(html, url)),
+        {
+          includeHidden: fe.classList.contains("show-hidden"),
+          onProgress: (f) => {
+            if (seq === deepSeq) {
+              deepFolders = f;
+              applyAll();
+            }
+          }
+        },
+        () => seq !== deepSeq
+      ).then((r) => {
+        if (seq !== deepSeq) return;
+        deepEntries = r.entries;
+        deepFolders = r.folders;
+        deepTruncated = r.truncated;
+        deepScanning = false;
+        applyAll();
+        if (r.truncated) toast("Deep search capped: too many items or folders too deep");
+      });
+    }
+    deepBtn.addEventListener("click", () => {
+      deepOn = !deepOn;
+      deepBtn.classList.toggle("on", deepOn);
+      searchEl.placeholder = deepOn ? "Search subfolders\u2026" : "Filter\u2026";
+      if (deepOn) {
+        if (!deepEntries) startDeepCrawl();
+        else applyAll();
+        searchEl.focus();
+      } else {
+        deepSeq++;
+        deepScanning = false;
+        applyAll();
+      }
+    });
     searchEl.addEventListener("input", function() {
       filterConfig.q = this.value;
       const fq = document.getElementById("fe-filter-q");

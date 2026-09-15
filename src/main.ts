@@ -24,6 +24,7 @@ import { HELP_MD } from './help';
 import { CSS } from './styles';
 import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
+import { crawl } from './deep-search';
 import {
   renderRows, renderTiles, renderBMList, renderPlacesList, renderCrumbs,
   renderRow, renderTile, type RenderContext,
@@ -71,9 +72,16 @@ import { getIcon } from './icons';
   let VISIBLE: Entry[] = ALL_ENTRIES;
   let baseStatus = '';   // count line shown when nothing is selected
 
+  // Deep search: when on, the listing source is the crawled subtree, with
+  // names relative to this folder. Crawled once per page, filtered locally.
+  let deepOn = false;
+  let deepEntries: Entry[] | null = null;
+  let deepFolders = 0, deepTruncated = false, deepScanning = false;
+  let deepSeq = 0;
+
   function applyAll(): void {
     const parent  = ALL_ENTRIES.filter(e => e.isParent);
-    let entries   = ALL_ENTRIES.filter(e => !e.isParent);
+    let entries   = deepOn && deepEntries ? deepEntries : ALL_ENTRIES.filter(e => !e.isParent);
     entries = applyFilter(entries, filterConfig);
     entries = applySort(entries, sortConfig);
     const ctx = getRenderCtx();
@@ -105,9 +113,15 @@ import { getIcon } from './icons';
 
     const shown = VISIBLE.filter(en => !en.isParent).length;
     const filtered = !!filterConfig.q || filterConfig.type !== 'all';
-    baseStatus = filtered
-      ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? 's' : ''} shown`
-      : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`;
+    if (deepOn) {
+      baseStatus = deepScanning
+        ? `Scanning… ${deepFolders} folder${deepFolders !== 1 ? 's' : ''}`
+        : `${shown} of ${deepEntries?.length ?? 0} items in ${deepFolders} folders${deepTruncated ? ' (capped)' : ''}`;
+    } else {
+      baseStatus = filtered
+        ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? 's' : ''} shown`
+        : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`;
+    }
     document.getElementById('fe-count')!.textContent = baseStatus;
     setSel(-1);
   }
@@ -240,6 +254,9 @@ import { getIcon } from './icons';
             <span id="fe-zoom-val">${initZoom}%</span>
           </div>
           <div id="fe-view-group">${viewBtnsHTML}</div>
+          <button id="fe-deep-btn" title="Deep search: include every subfolder in the filter">
+            <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 2.5h4l1 1.2h6v7H1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3.5 6h3l.8 1h2.7v2.5H3.5z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+          </button>
           <input id="fe-search" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false" title="Quick filter — Type to filter files by name in any view"/>
         </div>
       </div>
@@ -602,8 +619,38 @@ import { getIcon } from './icons';
     applyAll();
   });
 
-  // ── Search ────────────────────────────────────────────────────────
+  // ── Deep search toggle ────────────────────────────────────────────
+  const deepBtn = document.getElementById('fe-deep-btn')!;
   const searchEl = document.getElementById('fe-search') as HTMLInputElement;
+  function startDeepCrawl(): void {
+    const seq = ++deepSeq;
+    deepScanning = true;
+    const rootUrl = new URL(location.href).href;
+    crawl(
+      rootUrl,
+      url => fetchFileText(url).then(html => parseListing(html, url)),
+      {
+        includeHidden: fe.classList.contains('show-hidden'),
+        onProgress: f => { if (seq === deepSeq) { deepFolders = f; applyAll(); } },
+      },
+      () => seq !== deepSeq,
+    ).then(r => {
+      if (seq !== deepSeq) return;
+      deepEntries = r.entries; deepFolders = r.folders; deepTruncated = r.truncated;
+      deepScanning = false;
+      applyAll();
+      if (r.truncated) toast('Deep search capped: too many items or folders too deep');
+    });
+  }
+  deepBtn.addEventListener('click', () => {
+    deepOn = !deepOn;
+    deepBtn.classList.toggle('on', deepOn);
+    searchEl.placeholder = deepOn ? 'Search subfolders…' : 'Filter…';
+    if (deepOn) { if (!deepEntries) startDeepCrawl(); else applyAll(); searchEl.focus(); }
+    else { deepSeq++; deepScanning = false; applyAll(); }
+  });
+
+  // ── Search ────────────────────────────────────────────────────────
   searchEl.addEventListener('input', function () {
     filterConfig.q = this.value;
     const fq = document.getElementById('fe-filter-q') as HTMLInputElement | null;

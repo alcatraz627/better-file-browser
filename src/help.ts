@@ -18,6 +18,10 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 
 - **Quick filter** — type in the **Filter…** box (top-right), or press **⌘F** to
   jump to it. Press **⌘F** again to fall through to Chrome's own find.
+- **Deep search** — the folder button beside the filter box includes every
+  subfolder. Names show their path from this folder, so **src/main.ts** matches
+  **main**. The scan skips node_modules, .git and dot-folders (unless hidden
+  files are shown), stops at 8 levels or 5000 items, and runs once per page.
 - **Sort** — click a column header, or open the **Sort** panel to sort by name,
   size, type, extension, or modified date, and to **group** (folders-first,
   files-first, by extension, or by type).

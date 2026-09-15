@@ -97,6 +97,7 @@ body{opacity:1!important}
   font-size:12px;transition:all .15s}
 #fe-toolbar button:hover{border-color:var(--ac);color:var(--ac)}
 #fe-hidden-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
+#fe-deep-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-sg-btn.on,#fe-filter-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-zoom-wrap{display:flex;align-items:center;gap:5px;color:var(--dm)}
 #fe-zoom{width:80px;accent-color:var(--ac);cursor:pointer}
