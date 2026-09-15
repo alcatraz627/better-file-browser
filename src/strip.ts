@@ -28,6 +28,9 @@ export interface Strip {
   handleKey(e: KeyboardEvent): boolean;
   // Keep a path as a tab; in the background it does not become active.
   open(path: string, background?: boolean): void;
+  // A bookmark's click: switch to the tab that already holds the path, or
+  // keep a new one, then navigate there.
+  go(path: string): void;
   state(): TabState;
 }
 
@@ -256,5 +259,10 @@ export function mountStrip(host: StripHost): Strip {
   }
   window.addEventListener('pagehide', () => writeRecovery(sid, state, true));
 
-  return { handleKey, open: (path, background = false) => commit(openTab(state, path, background)), state: () => state };
+  return {
+    handleKey,
+    open: (path, background = false) => commit(openTab(state, path, background)),
+    go: path => { commit(openTab(state, path)); if (path !== rawPath) location.href = 'file://' + path; },
+    state: () => state,
+  };
 }

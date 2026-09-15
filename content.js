@@ -2215,7 +2215,7 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 ## Selecting & opening
 
 - Click a file to look at it in the panel; the address bar stays put. Click a folder to go there. **Double-click** a file to open its page in this tab.
-- **\u2325-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab. The same gestures work on sidebar rows and on path segments.
+- **\u2325-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab. Both work on sidebar rows and path segments too. A click on a sidebar row opens it as a strip tab, switching to the tab that already has it.
 - **\u2191 / \u2193** move the selection, **Enter** opens, **Backspace** or **\u2318\u2191** goes up.
 - **Multi-select**: **shift-click** or **\u2318/Ctrl-click** toggles a row, **\u21E7\u2318-click** selects a range, **\u2318A** selects all. **\u2318C** copies the selected paths.
 - **Right-click** an item for Copy path, Copy name, Open in terminal \u2014 plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
@@ -2307,8 +2307,10 @@ Navigation is real, so the address bar is always the active tab's location.
 
 ## Saved
 
-One list of your folders, files and saved views. The \u2605 in the path bar saves
-or unsaves the current folder; **+** saves it and opens the name for editing.
+One list of your folders, files and saved views. A click opens the row as a
+strip tab, or switches to the tab that already has it; **\u2325-click** keeps it
+in the background. The \u2605 in the path bar saves or unsaves the current
+folder; **+** saves it and opens the name for editing.
 **Double-click** a label to rename, drag to reorder, \u2715 to remove. Hover a row
 and press **#** to type tags (comma separated); tagged rows group under their
 first tag, and clicking the coloured dot on a tag heading changes its colour.
@@ -3487,7 +3489,15 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       void recover();
     }
     window.addEventListener("pagehide", () => writeRecovery(sid, state, true));
-    return { handleKey, open: (path, background = false) => commit(openTab(state, path, background)), state: () => state };
+    return {
+      handleKey,
+      open: (path, background = false) => commit(openTab(state, path, background)),
+      go: (path) => {
+        commit(openTab(state, path));
+        if (path !== rawPath) location.href = "file://" + path;
+      },
+      state: () => state
+    };
   }
 
   // src/toast.ts
@@ -5269,42 +5279,19 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     document.getElementById("fe-nt-add").addEventListener("click", newNote);
     refreshNotes();
     const anchorPath = (a) => decodeURIComponent((a.getAttribute("href") || "").slice(7));
-    const entryFor = (path, href) => {
-      const name = path.split("/").pop() || path;
-      return { name, href, isDir: false, isParent: false, isHidden: name.startsWith("."), rawBytes: -1, dateMs: NaN, dateStr: "" };
-    };
     for (const host of [document.getElementById("fe-side"), document.getElementById("fe-bc"), crumbMenu]) {
       host.addEventListener("click", (e) => {
         const a = e.target.closest('a[href^="file://"]');
-        if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0 || e.detail > 1) return;
         const path = anchorPath(a);
         if (e.altKey) {
           e.preventDefault();
           strip.open(path.split("#")[0], true);
           return;
         }
-        if (a.closest("#fe-nt-list") || path.includes("#") || path.endsWith("/")) return;
-        const en = entryFor(path, a.href);
-        if (!canPreview(en)) return;
+        if (host.id !== "fe-side" || a.closest("#fe-nt-list") || path.includes("#")) return;
         e.preventDefault();
-        if (lookTimer) clearTimeout(lookTimer);
-        if (e.detail > 1) return;
-        lookTimer = setTimeout(() => {
-          lookTimer = null;
-          openPreview(en);
-        }, 220);
-      });
-      host.addEventListener("dblclick", (e) => {
-        const a = e.target.closest('a[href^="file://"]');
-        if (!a || e.target.closest(".fe-pl-label, .fe-nt-label")) return;
-        const path = anchorPath(a);
-        if (path.endsWith("/") || path.includes("#")) return;
-        e.preventDefault();
-        if (lookTimer) {
-          clearTimeout(lookTimer);
-          lookTimer = null;
-        }
-        location.href = a.href;
+        strip.go(path);
       });
     }
     if (sortConfig.col || groupConfig !== "none") applyAll();

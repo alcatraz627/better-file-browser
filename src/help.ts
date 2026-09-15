@@ -43,7 +43,7 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 ## Selecting & opening
 
 - Click a file to look at it in the panel; the address bar stays put. Click a folder to go there. **Double-click** a file to open its page in this tab.
-- **⌥-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab. The same gestures work on sidebar rows and on path segments.
+- **⌥-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab. Both work on sidebar rows and path segments too. A click on a sidebar row opens it as a strip tab, switching to the tab that already has it.
 - **↑ / ↓** move the selection, **Enter** opens, **Backspace** or **⌘↑** goes up.
 - **Multi-select**: **shift-click** or **⌘/Ctrl-click** toggles a row, **⇧⌘-click** selects a range, **⌘A** selects all. **⌘C** copies the selected paths.
 - **Right-click** an item for Copy path, Copy name, Open in terminal — plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
@@ -135,8 +135,10 @@ Navigation is real, so the address bar is always the active tab's location.
 
 ## Saved
 
-One list of your folders, files and saved views. The ★ in the path bar saves
-or unsaves the current folder; **+** saves it and opens the name for editing.
+One list of your folders, files and saved views. A click opens the row as a
+strip tab, or switches to the tab that already has it; **⌥-click** keeps it
+in the background. The ★ in the path bar saves or unsaves the current
+folder; **+** saves it and opens the name for editing.
 **Double-click** a label to rename, drag to reorder, ✕ to remove. Hover a row
 and press **#** to type tags (comma separated); tagged rows group under their
 first tag, and clicking the coloured dot on a tag heading changes its colour.

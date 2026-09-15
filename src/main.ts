@@ -1569,36 +1569,20 @@ import { getIcon } from './icons';
   document.getElementById('fe-nt-add')!.addEventListener('click', newNote);
   refreshNotes();
 
-  // Sidebar, path bar and crumb dropdown share the listing's gestures: a
-  // plain click goes, or looks when the row is a previewable file; alt keeps
-  // a background tab; Chrome's own modifier and middle clicks pass through.
+  // Sidebar rows are bookmarks: a plain click switches to the strip tab that
+  // already holds the place, or keeps a new one, and goes there. Crumbs and
+  // dropdown items just go. Alt keeps a background tab everywhere; Chrome's
+  // own modifier and middle clicks pass through. Notes rows keep the editor.
   const anchorPath = (a: HTMLAnchorElement) => decodeURIComponent((a.getAttribute('href') || '').slice(7));
-  const entryFor = (path: string, href: string): Entry => {
-    const name = path.split('/').pop() || path;
-    return { name, href, isDir: false, isParent: false, isHidden: name.startsWith('.'), rawBytes: -1, dateMs: NaN, dateStr: '' };
-  };
   for (const host of [document.getElementById('fe-side')!, document.getElementById('fe-bc')!, crumbMenu]) {
     host.addEventListener('click', e => {
       const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="file://"]');
-      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0 || e.detail > 1) return;
       const path = anchorPath(a);
       if (e.altKey) { e.preventDefault(); strip.open(path.split('#')[0], true); return; }
-      if (a.closest('#fe-nt-list') || path.includes('#') || path.endsWith('/')) return;
-      const en = entryFor(path, a.href);
-      if (!canPreview(en)) return;
+      if (host.id !== 'fe-side' || a.closest('#fe-nt-list') || path.includes('#')) return;
       e.preventDefault();
-      if (lookTimer) clearTimeout(lookTimer);
-      if (e.detail > 1) return;
-      lookTimer = setTimeout(() => { lookTimer = null; openPreview(en); }, 220);
-    });
-    host.addEventListener('dblclick', e => {
-      const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="file://"]');
-      if (!a || (e.target as HTMLElement).closest('.fe-pl-label, .fe-nt-label')) return;
-      const path = anchorPath(a);
-      if (path.endsWith('/') || path.includes('#')) return;
-      e.preventDefault();
-      if (lookTimer) { clearTimeout(lookTimer); lookTimer = null; }
-      location.href = a.href;
+      strip.go(path);
     });
   }
 

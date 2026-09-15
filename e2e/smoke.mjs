@@ -214,8 +214,8 @@ try {
   }));
   check(savedAfter.labels.length === 3 && savedAfter.heads.join() === 'work' && savedAfter.dot === c2, `saved state persists: ${JSON.stringify(savedAfter)}`);
 
-  // Sidebar and path bar share the listing's gestures: a saved file looks,
-  // double-click goes, alt keeps a background strip tab, the URL stays put.
+  // Sidebar rows are bookmarks: a click switches to the strip tab that holds
+  // the place, or keeps a new one, and goes there; alt keeps a background tab.
   await page.evaluate(fx => {
     const l = JSON.parse(localStorage.getItem('bfb-saved-v1') || '[]');
     l.push({ path: fx + '/readme.md', label: 'Readme file' });
@@ -224,36 +224,35 @@ try {
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
   const urlSide = page.url();
-  await page.click('#fe-sv-list .fe-pl-item[data-path$="/readme.md"] .fe-si-link');
-  await page.waitForFunction(() => document.getElementById('fe-qlook').style.display !== 'none' && document.getElementById('fe-ql-name').textContent === 'readme.md', { timeout: 3_000 }).catch(() => null);
-  const sideLook = { name: await page.$eval('#fe-ql-name', el => el.textContent), meta: await page.$eval('#fe-ql-meta', el => el.textContent), url: page.url() };
-  check(sideLook.name === 'readme.md' && sideLook.meta === '.md' && sideLook.url === urlSide, `click on a saved file looks in the panel, URL unchanged: ${JSON.stringify(sideLook)}`);
-  await page.keyboard.press('Escape');
   await page.keyboard.down('Alt');
-  await page.click('#fe-sv-list .fe-pl-item[data-path="/tmp/"] .fe-si-link');
+  await page.click('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-si-link');
   await page.keyboard.up('Alt');
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 1, { timeout: 3_000 }).catch(() => null);
   await page.keyboard.down('Alt');
   await page.click('#fe-bc .fe-crumb');
   await page.keyboard.up('Alt');
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 2, { timeout: 3_000 }).catch(() => null);
-  const sideTabs = await stripLabels();
-  check(sideTabs.join('|') === 'tmp|/|~' + h.fixture.split('/').pop() && page.url() === urlSide, `alt-click on a saved row and on a crumb keep background tabs, URL unchanged: ${JSON.stringify(sideTabs)}`);
-  const fileRow = await (await page.$('#fe-sv-list .fe-pl-item[data-path$="/readme.md"] .fe-si-link svg')).boundingBox();
-  await page.mouse.move(fileRow.x + 5, fileRow.y + 5);
-  await page.mouse.down({ clickCount: 1 }); await page.mouse.up({ clickCount: 1 });
-  await page.mouse.down({ clickCount: 2 }); await page.mouse.up({ clickCount: 2 });
+  let sideTabs = await stripLabels();
+  check(sideTabs.join('|') === 'nested|/|~' + h.fixture.split('/').pop() && page.url() === urlSide, `alt-click on a saved row and on a crumb keep background tabs, URL unchanged: ${JSON.stringify(sideTabs)}`);
+  await page.click('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-si-link');
+  await page.waitForFunction(() => location.pathname.endsWith('/nested/'), { timeout: 5_000 }).catch(() => null);
+  await page.waitForSelector('#fe');
+  sideTabs = await stripLabels();
+  const onLabel = () => page.$eval('#fe-tabs .fe-tab.on .fe-tab-lbl', el => el.textContent);
+  check(page.url().endsWith('/nested/') && sideTabs.join('|') === 'nested|/' && await onLabel() === 'nested', `click on a saved folder switches to its open tab, no duplicate: ${JSON.stringify(sideTabs)}`);
+  await page.click('#fe-sv-list .fe-pl-item[data-path$="/readme.md"] .fe-si-link');
   await page.waitForSelector('#fe.fe-file-page', { timeout: 5_000 }).catch(() => null);
-  check(page.url().endsWith('/readme.md'), `double-click on a saved file goes to its page: ${page.url()}`);
-  await page.evaluate(fx => {
+  sideTabs = await stripLabels();
+  check(page.url().endsWith('/readme.md') && sideTabs.join('|') === 'nested|readme.md|/' && await onLabel() === 'readme.md', `click on a saved file opens it as a new kept tab and goes there: ${JSON.stringify(sideTabs)}`);
+  await page.evaluate(() => {
     const l = JSON.parse(localStorage.getItem('bfb-saved-v1') || '[]').filter(p => !p.path.endsWith('/readme.md'));
     localStorage.setItem('bfb-saved-v1', JSON.stringify(l));
-  }, h.fixture);
+  });
   await page.goto(urlSide, { waitUntil: 'load' });
   await page.waitForSelector('#fe');
-  for (let i = 0; i < 2; i++) {
+  for (let i = 3; i > 0; i--) {
     await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
-    await page.waitForFunction(n => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === n, { timeout: 3_000 }, 1 - i).catch(() => null);
+    await page.waitForFunction(n => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === n, { timeout: 3_000 }, i - 1).catch(() => null);
   }
 
   // Notes: the folder from Settings lists, a new note saves to disk under its

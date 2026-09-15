@@ -87,15 +87,16 @@ it and pins it.
 
 ## Sidebar: Saved, Notes, Recent, Favorites, System
 
-The same gestures as a listing row, for every row that has an address.
+Sidebar rows are bookmarks, not listing rows. A click opens the place as a
+strip tab: the tab that already holds it is switched to, otherwise a new one
+is kept, and the page navigates there. Files and folders alike.
 
-| Gesture | Folder row | File row (Saved) | Notes row |
-|---|---|---|---|
-| click | go ✓ | look: the panel, URL unchanged ✓ | open in the editor ✓ |
-| double-click on the icon or whitespace | go | go: the file page ✓ | go: the file page |
-| double-click on the label | rename (Saved) ✓ | rename ✓ | rename |
-| ⌥-click | keep as a background strip tab ✓ | same | same |
-| middle-click, ⌘-click | Chrome tab | same | same, plain text |
+| Gesture | Saved, Recent, Favorites, System row | Notes row |
+|---|---|---|
+| click | switch to its strip tab, or keep a new one, and go ✓ | open in the editor ✓ |
+| double-click on the label | rename (Saved) ✓ | rename |
+| ⌥-click | keep as a background strip tab ✓ | same |
+| middle-click, ⌘-click | Chrome tab | same, plain text |
 | hover, # | edit tags ✓ | same | none |
 | hover, ✕ | remove ✓ | same | move to .trash ✓ |
 | drag | reorder ✓ | same | none |
@@ -150,9 +151,10 @@ bar, the sidebar, the strip and the status bar sit in the same place on both
 
 - The file page no longer builds its own shell. It is the explorer shell in
   file mode, so nothing moves when a file opens.
-- Sidebar rows, crumbs and dropdown items take the listing's gestures: a
-  saved file looks in the panel, double-click goes, ⌥ keeps a background tab,
-  ⌘ and middle clicks stay Chrome's.
+- Sidebar rows open as strip tabs, switching to an open one first; crumbs and
+  dropdown items go; ⌥ keeps a background tab everywhere; ⌘ and middle clicks
+  stay Chrome's. An earlier version of this pass made a saved file look in
+  the panel, which the owner rejected: bookmarks open, they do not preview.
 
 ## Changed in the first pass, 2026-09-15
 
