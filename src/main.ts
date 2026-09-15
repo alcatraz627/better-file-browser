@@ -113,7 +113,7 @@ import { initMarkdownUi } from './md-ui';
     },
   };
 
-  initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel });
+  initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); } });
   // The strip: this Chrome tab's working set. Navigation is real, so the
   // address bar is always the active tab's location.
   app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });

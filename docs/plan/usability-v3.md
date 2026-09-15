@@ -34,14 +34,14 @@ knobs the first two passes create.
 
 | # | Item | Default | Check |
 |---|---|---|---|
-| P1 | Panel header gains "Open in this tab" and "Open in a new strip tab"; Enter while the panel is open goes to the file page | **default** | Enter on an open panel reaches the file page |
-| P2 | The panel remembers scroll per file for the session; reopening restores it | **default** | reopen after a scroll lands at the same top |
-| P3 | With the panel open, `t` keeps the previewed file as a background strip tab; `[` and `]` still switch strip tabs | **default** | t with the panel open adds a tab without closing the panel |
-| P4 | Strip overflow: tabs shrink to a minimum, then the strip scrolls horizontally with fade edges, the active tab scrolls into view, and a `⌄` button lists every tab | **default** | 20 tabs at 1400 wide: active visible, menu lists 20 |
-| P5 | Tab labels: middle truncation, and two tabs with the same basename show their folder (`docs/readme.md`) | **default** | two readme.md tabs read differently |
-| P6 | Per-tab listing scroll memory: switching back to a folder tab restores its scroll | **default** | scroll, switch away and back, same top |
-| P7 | Pinned tabs collapse to their icon, as in Chrome | **default** | a pinned tab is narrower than 40px |
-| P8 | Reopen the last closed tab with `T` (shift-t), from a per-Chrome-tab stack | **default** | close, T, it is back at its position |
+| P1 | Panel header gains "Open in this tab" and "Open in a new strip tab"; Enter while the panel is open goes to the file page | **default**, shipped | e2e: Enter reaches the file page; header shows open and + tab |
+| P2 | The panel remembers scroll per file for the session; reopening restores it | **default**, shipped, unchecked in e2e (the fixture is too short to scroll) | |
+| P3 | With the panel open, `t` keeps the previewed file as a background strip tab; `[` and `]` still switch strip tabs | **default**, shipped | e2e: t with the panel open keeps the file, panel stays |
+| P4 | Strip overflow: tabs shrink to a minimum, then the strip scrolls horizontally with fade edges, the active tab scrolls into view, and a `⌄` button lists every tab | **default**, shipped | e2e: 21 tabs, strip scrolls, active visible, list menu names every tab |
+| P5 | Tab labels: middle truncation, and two tabs with the same basename show their folder (`docs/readme.md`) | **default**, shipped | unit: displayLabels shows the folder on collisions |
+| P6 | Per-tab listing scroll memory: switching back to a folder tab restores its scroll | **default**, shipped | e2e: 60px restored after leaving and returning |
+| P7 | Pinned tabs collapse to their icon, as in Chrome | **default**, shipped | e2e: 36px |
+| P8 | Reopen the last closed tab with `T` (shift-t), from a per-Chrome-tab stack | **default**, shipped | e2e: shift-T puts nested back at its index |
 | P9 | Docked panel remembers the open file per folder tab and restores it when the tab returns | *optional* | |
 | P10 | Drag a listing row onto the strip keeps a tab; drag a tab onto Saved saves it | *optional* | |
 

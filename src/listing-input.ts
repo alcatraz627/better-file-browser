@@ -5,7 +5,7 @@ import type { App } from './app';
 import type { Listing } from './listing';
 import { el } from './el';
 import { esc, fullPath, copyToClipboard } from './utils';
-import { openPreview, closePreview, isPreviewOpen, canPreview } from './preview';
+import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab } from './preview';
 
 export function initListingInput(app: App, listing: Listing): void {
   const { fe, toast, rawPath } = app;
@@ -182,6 +182,9 @@ export function initListingInput(app: App, listing: Listing): void {
       if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); closePreview(); }
       else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); sel.previewStep(1); }
       else if (e.key === 'ArrowUp'   || e.key === 'ArrowLeft')  { e.preventDefault(); sel.previewStep(-1); }
+      else if (e.key === 'Enter') { const en = previewEntry(); if (en) location.href = en.href; }
+      else if (e.key === 't' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); keepPreviewedAsTab(); }
+      else if (['[', ']', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
       return;
     }
     if (app.filePage && e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.filePage.toggleRaw(); }

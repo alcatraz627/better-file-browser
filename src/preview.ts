@@ -50,6 +50,13 @@ function fontSpecimen(href: string): string {
 interface PreviewDeps {
   iconRules: () => IconRule[] | null;
   aiModel?:  () => string | undefined;   // chosen -m override, or undefined for default
+  keepTab?:  (path: string) => void;     // keep the previewed file as a background strip tab
+}
+// Scroll position per previewed file, for this page's lifetime.
+const scrollMemo = new Map<string, number>();
+export function previewEntry(): Entry | null { return currentEntry; }
+export function keepPreviewedAsTab(): void {
+  if (currentEntry && deps.keepTab) deps.keepTab(decodeURIComponent(new URL(currentEntry.href, location.href).pathname));
 }
 
 let deps: PreviewDeps;
@@ -86,6 +93,8 @@ export function initPreview(d: PreviewDeps): void {
           <span>copy</span>
         </button>
         <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">open raw ↗</a>
+        <button id="fe-ql-go" title="Open in this tab (Enter)">open</button>
+        <button id="fe-ql-tab" title="Keep as a strip tab (t)">+ tab</button>
         <button id="fe-ql-dock" title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
@@ -109,6 +118,10 @@ export function initPreview(d: PreviewDeps): void {
   document.getElementById('fe')!.appendChild(overlay);
 
   document.getElementById('fe-ql-close')!.addEventListener('click', closePreview);
+  document.getElementById('fe-ql-go')!.addEventListener('click', () => { if (currentEntry) location.href = currentEntry.href; });
+  document.getElementById('fe-ql-tab')!.addEventListener('click', keepPreviewedAsTab);
+  const bodyEl = document.getElementById('fe-ql-body')!;
+  bodyEl.addEventListener('scroll', () => { if (currentEntry) scrollMemo.set(currentEntry.href, bodyEl.scrollTop); });
   document.getElementById('fe-ql-bg')!.addEventListener('click', closePreview);
   document.getElementById('fe-ql-dock')!.addEventListener('click', () => {
     layout = { ...layout, mode: layout.mode === 'side' ? 'modal' : 'side' };
@@ -583,7 +596,13 @@ function render(text: string, ext: string): void {
     body.innerHTML = renderMarkdown(text, currentEntry?.href ?? '');
     // Links leave the explorer in place: every one opens a new tab.
     body.querySelectorAll<HTMLAnchorElement>('a[href]:not(.fe-md-anchor)').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
+    restoreScroll(body);
     return;
   }
   body.innerHTML = renderCode(text, ext);
+  restoreScroll(body);
+}
+function restoreScroll(body: HTMLElement): void {
+  const top = currentEntry ? scrollMemo.get(currentEntry.href) : undefined;
+  if (top) body.scrollTop = top;
 }

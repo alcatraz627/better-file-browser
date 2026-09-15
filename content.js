@@ -1622,6 +1622,13 @@ ${body}
       <div style="font-size:30px">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz</div>
     </div>`;
   }
+  var scrollMemo = /* @__PURE__ */ new Map();
+  function previewEntry() {
+    return currentEntry;
+  }
+  function keepPreviewedAsTab() {
+    if (currentEntry && deps.keepTab) deps.keepTab(decodeURIComponent(new URL(currentEntry.href, location.href).pathname));
+  }
   var deps;
   var overlay;
   var layout = getPreviewLayout();
@@ -1651,6 +1658,8 @@ ${body}
           <span>copy</span>
         </button>
         <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">open raw \u2197</a>
+        <button id="fe-ql-go" title="Open in this tab (Enter)">open</button>
+        <button id="fe-ql-tab" title="Keep as a strip tab (t)">+ tab</button>
         <button id="fe-ql-dock" title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
@@ -1673,6 +1682,14 @@ ${body}
     </div>`;
     document.getElementById("fe").appendChild(overlay);
     document.getElementById("fe-ql-close").addEventListener("click", closePreview);
+    document.getElementById("fe-ql-go").addEventListener("click", () => {
+      if (currentEntry) location.href = currentEntry.href;
+    });
+    document.getElementById("fe-ql-tab").addEventListener("click", keepPreviewedAsTab);
+    const bodyEl = document.getElementById("fe-ql-body");
+    bodyEl.addEventListener("scroll", () => {
+      if (currentEntry) scrollMemo.set(currentEntry.href, bodyEl.scrollTop);
+    });
     document.getElementById("fe-ql-bg").addEventListener("click", closePreview);
     document.getElementById("fe-ql-dock").addEventListener("click", () => {
       layout = { ...layout, mode: layout.mode === "side" ? "modal" : "side" };
@@ -2179,9 +2196,15 @@ ${body}
         a.target = "_blank";
         a.rel = "noopener";
       });
+      restoreScroll(body);
       return;
     }
     body.innerHTML = renderCode(text, ext2);
+    restoreScroll(body);
+  }
+  function restoreScroll(body) {
+    const top = currentEntry ? scrollMemo.get(currentEntry.href) : void 0;
+    if (top) body.scrollTop = top;
   }
 
   // src/styles.ts
@@ -2564,10 +2587,17 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
 #fe-tabs{display:flex;align-items:stretch;gap:2px;padding:6px 10px 0;background:var(--s1);border-bottom:1px solid var(--bd);
-  overflow-x:auto;flex-shrink:0;min-height:34px}
+  overflow-x:auto;flex-shrink:0;min-height:34px;scrollbar-width:none;
+  mask-image:linear-gradient(90deg,transparent 0,#000 10px,#000 calc(100% - 10px),transparent)}
+#fe-tabs::-webkit-scrollbar{display:none}
+.fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
+  font-size:11px;padding:2px 6px;border-radius:5px;margin-left:4px}
+.fe-tab-list:hover{border-color:var(--ac);color:var(--ac)}
+.fe-tab.pinned{padding:5px 6px;min-width:0}
+.fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.empty{padding-top:4px}
 .fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;font-size:12px;color:var(--mt);text-decoration:none;
-  border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;white-space:nowrap;max-width:200px;position:relative;top:1px}
+  border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;white-space:nowrap;max-width:200px;min-width:64px;flex:0 1 auto;position:relative;top:1px}
 .fe-tab:hover{background:var(--hover);color:var(--tx)}
 .fe-tab.on{background:var(--s2);color:var(--tx);border-color:var(--bd)}
 .fe-tab.temp .fe-tab-lbl{font-style:italic;color:var(--mt)}
@@ -2640,6 +2670,8 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-ql-name:hover{color:var(--ac);text-decoration:underline}
 #fe-ql-meta{font-size:11px;color:var(--dm);flex:1;white-space:nowrap}
 #fe-ql-open{font-size:11px;color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
+#fe-ql-go,#fe-ql-tab{font-size:11px;color:var(--mt);background:none;cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
+#fe-ql-go:hover,#fe-ql-tab:hover{border-color:var(--ac);color:var(--ac)}
 #fe-ql-open:hover{border-color:var(--ac)}
 #fe-ql-copy{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mt);background:none;
   cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap;line-height:1.4}
@@ -3009,6 +3041,22 @@ td.c-tp{color:var(--dm);font-size:11px}
   function isStale(e, now, maxAge = RECOVERY_MAX_AGE) {
     return now - e.at > maxAge || !e.state.list.length;
   }
+  function insertTab(s, tab, index) {
+    if (s.list.some((t) => t.path === tab.path)) return s;
+    const list = [...s.list];
+    const at = Math.min(Math.max(index, pinnedCount(s)), list.length);
+    list.splice(at, 0, { ...tab, pinned: false });
+    return { ...s, list };
+  }
+  function displayLabels(list) {
+    const count = /* @__PURE__ */ new Map();
+    for (const t of list) count.set(t.label, (count.get(t.label) ?? 0) + 1);
+    return list.map((t) => {
+      if ((count.get(t.label) ?? 0) < 2) return t.label;
+      const parts = t.path.split("/").filter(Boolean);
+      return parts.length >= 2 ? parts[parts.length - 2] + "/" + t.label : t.label;
+    });
+  }
 
   // src/strip.ts
   var SESSION_KEY = "bfb-strip-v2";
@@ -3017,14 +3065,14 @@ td.c-tp{color:var(--dm);font-size:11px}
   function readSession() {
     try {
       const v = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
-      return v && typeof v.sid === "string" && isTabState(v.state) ? { sid: v.sid, state: normalize(v.state) } : null;
+      return v && typeof v.sid === "string" && isTabState(v.state) ? { sid: v.sid, state: normalize(v.state), closed: Array.isArray(v.closed) ? v.closed : [] } : null;
     } catch {
       return null;
     }
   }
-  function writeSession(sid, state) {
+  function writeSession(sid, state, closed) {
     try {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ sid, state }));
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ sid, state, closed }));
     } catch {
     }
   }
@@ -3065,12 +3113,24 @@ td.c-tp{color:var(--dm);font-size:11px}
     };
     let sid = "";
     let state = EMPTY;
+    let closed = [];
     let drag = null;
     function commit(next) {
+      state.list.forEach((t, i) => {
+        if (!next.list.some((x) => x.id === t.id)) closed.push({ tab: t, index: i });
+      });
+      if (closed.length > 20) closed = closed.slice(-20);
       state = next;
-      writeSession(sid, state);
+      writeSession(sid, state, closed);
       writeRecovery(sid, state, false);
       render2();
+    }
+    function reopenClosed() {
+      const last = closed.pop();
+      if (!last) return;
+      writeSession(sid, state, closed);
+      commit(insertTab(state, last.tab, last.index));
+      toast(`Reopened ${last.tab.label}`);
     }
     function hrefFor(t) {
       return "file://" + t.path;
@@ -3118,8 +3178,12 @@ td.c-tp{color:var(--dm);font-size:11px}
     }
     menu.addEventListener("click", (e) => {
       const item = e.target.closest(".fe-ctx-item");
-      const t = state.list.find((x) => x.id === menu.dataset.id);
       closeMenu();
+      if (item?.dataset.go) {
+        goTab(item.dataset.go);
+        return;
+      }
+      const t = state.list.find((x) => x.id === menu.dataset.id);
       if (!item || !t) return;
       const act = item.dataset.act;
       if (act === "copy") void copyToClipboard(t.path).then((ok) => toast(ok ? "Copied path" : "Copy failed"));
@@ -3138,25 +3202,38 @@ td.c-tp{color:var(--dm);font-size:11px}
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeMenu();
     });
-    function tabHtml(t, i, on) {
-      const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : "";
+    function tabHtml(t, i, on, label) {
+      const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : t.pinned ? `<span class="fe-tab-ico">${icoFolder(t.label)}</span>` : "";
       const tip = `${t.path}
 ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins)" : "middle-click closes"} \xB7 drag reorders`;
       return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}" draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
-      ${ico}<span class="fe-tab-lbl">${esc(t.label)}</span>
+      ${ico}<span class="fe-tab-lbl">${esc(label)}</span>
       <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">\u2026</button>
       ${t.pinned ? "" : `<button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">\u2715</button>`}
     </a>`;
     }
     function render2() {
       const here = hereIn(state);
-      const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id));
+      const labels = displayLabels(state.list);
+      const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i]));
       if (!here) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : "";
         rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}<span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
       }
+      if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">\u2304</button>`);
       el2.innerHTML = rows.join("");
       el2.classList.toggle("empty", state.list.length === 0);
+      el2.querySelector(".fe-tab.on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
+      el2.querySelector(".fe-tab-list")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        menu.innerHTML = state.list.map((t, i) => `<div class="fe-ctx-item" data-go="${esc(t.id)}">${esc(labels[i])}</div>`).join("");
+        menu.dataset.id = "";
+        menu.style.display = "block";
+        const r = e.currentTarget.getBoundingClientRect();
+        menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + "px";
+        menu.style.top = r.bottom + 4 + "px";
+      });
       el2.querySelectorAll(".fe-tab").forEach((a) => {
         a.addEventListener("click", (e) => {
           if (e.target.closest("button")) return;
@@ -3217,6 +3294,10 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
         if (here && !here.pinned) closeHere();
         return true;
       }
+      if (e.key === "T") {
+        reopenClosed();
+        return true;
+      }
       if (e.key === "p") {
         const s = here ? state : openTab(state, rawPath);
         commit(togglePin(s, here?.id ?? s.active));
@@ -3270,10 +3351,12 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
     const stored = readSession();
     if (stored) {
       sid = stored.sid;
+      closed = stored.closed;
+      state = stored.state;
       commit(activateHere(stored.state));
     } else {
       sid = Math.random().toString(36).slice(2, 12);
-      writeSession(sid, state);
+      writeSession(sid, state, closed);
       render2();
       void recover();
     }
@@ -4394,6 +4477,18 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const zoomEl = el("fe-zoom");
     const zoomVal = el("fe-zoom-val");
     const scroll = el("fe-scroll");
+    const scrollKey = "bfb-scroll:" + rawPath;
+    try {
+      const top = Number(sessionStorage.getItem(scrollKey));
+      if (top) scroll.scrollTop = top;
+    } catch {
+    }
+    scroll.addEventListener("scroll", () => {
+      try {
+        sessionStorage.setItem(scrollKey, String(scroll.scrollTop));
+      } catch {
+      }
+    });
     zoomEl.addEventListener("input", () => {
       const z = parseInt(zoomEl.value);
       scroll.style.zoom = String(z / 100);
@@ -4867,7 +4962,13 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
           e.preventDefault();
           sel.previewStep(-1);
-        }
+        } else if (e.key === "Enter") {
+          const en = previewEntry();
+          if (en) location.href = en.href;
+        } else if (e.key === "t" && !e.metaKey && !e.ctrlKey) {
+          e.preventDefault();
+          keepPreviewedAsTab();
+        } else if (["[", "]", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
         return;
       }
       if (app.filePage && e.key === "r" && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -5476,7 +5577,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         else if (rawPath !== "/") location.href = "file:///";
       }
     };
-    initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel });
+    initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: (path) => {
+      app.strip.open(path, true);
+      app.toast("Kept as a tab");
+    } });
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
     if (fileMode) app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href });
     initChrome(app);

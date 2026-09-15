@@ -378,10 +378,17 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
 #fe-tabs{display:flex;align-items:stretch;gap:2px;padding:6px 10px 0;background:var(--s1);border-bottom:1px solid var(--bd);
-  overflow-x:auto;flex-shrink:0;min-height:34px}
+  overflow-x:auto;flex-shrink:0;min-height:34px;scrollbar-width:none;
+  mask-image:linear-gradient(90deg,transparent 0,#000 10px,#000 calc(100% - 10px),transparent)}
+#fe-tabs::-webkit-scrollbar{display:none}
+.fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
+  font-size:11px;padding:2px 6px;border-radius:5px;margin-left:4px}
+.fe-tab-list:hover{border-color:var(--ac);color:var(--ac)}
+.fe-tab.pinned{padding:5px 6px;min-width:0}
+.fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.empty{padding-top:4px}
 .fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;font-size:12px;color:var(--mt);text-decoration:none;
-  border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;white-space:nowrap;max-width:200px;position:relative;top:1px}
+  border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;white-space:nowrap;max-width:200px;min-width:64px;flex:0 1 auto;position:relative;top:1px}
 .fe-tab:hover{background:var(--hover);color:var(--tx)}
 .fe-tab.on{background:var(--s2);color:var(--tx);border-color:var(--bd)}
 .fe-tab.temp .fe-tab-lbl{font-style:italic;color:var(--mt)}
@@ -454,6 +461,8 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-ql-name:hover{color:var(--ac);text-decoration:underline}
 #fe-ql-meta{font-size:11px;color:var(--dm);flex:1;white-space:nowrap}
 #fe-ql-open{font-size:11px;color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
+#fe-ql-go,#fe-ql-tab{font-size:11px;color:var(--mt);background:none;cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
+#fe-ql-go:hover,#fe-ql-tab:hover{border-color:var(--ac);color:var(--ac)}
 #fe-ql-open:hover{border-color:var(--ac)}
 #fe-ql-copy{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mt);background:none;
   cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap;line-height:1.4}

@@ -208,6 +208,10 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
   const zoomEl  = el<HTMLInputElement>('fe-zoom');
   const zoomVal = el('fe-zoom-val');
   const scroll  = el('fe-scroll');
+  // This Chrome tab remembers where each folder was scrolled to.
+  const scrollKey = 'bfb-scroll:' + rawPath;
+  try { const top = Number(sessionStorage.getItem(scrollKey)); if (top) scroll.scrollTop = top; } catch { /* fine */ }
+  scroll.addEventListener('scroll', () => { try { sessionStorage.setItem(scrollKey, String(scroll.scrollTop)); } catch { /* fine */ } });
   zoomEl.addEventListener('input', () => {
     const z = parseInt(zoomEl.value);
     (scroll.style as CSSStyleDeclaration & { zoom: string }).zoom = String(z / 100);

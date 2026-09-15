@@ -112,3 +112,24 @@ export function pickRecovery(entries: Record<string, RecoveryEntry>, now: number
 export function isStale(e: RecoveryEntry, now: number, maxAge = RECOVERY_MAX_AGE): boolean {
   return now - e.at > maxAge || !e.state.list.length;
 }
+
+// Put a tab back where it was, clamped to the list and outside the pinned
+// block; the reopen-closed stack uses this.
+export function insertTab(s: TabState, tab: Tab, index: number): TabState {
+  if (s.list.some(t => t.path === tab.path)) return s;
+  const list = [...s.list];
+  const at = Math.min(Math.max(index, pinnedCount(s)), list.length);
+  list.splice(at, 0, { ...tab, pinned: false });
+  return { ...s, list };
+}
+
+// Labels as shown: two tabs with the same file name carry their folder too.
+export function displayLabels(list: Tab[]): string[] {
+  const count = new Map<string, number>();
+  for (const t of list) count.set(t.label, (count.get(t.label) ?? 0) + 1);
+  return list.map(t => {
+    if ((count.get(t.label) ?? 0) < 2) return t.label;
+    const parts = t.path.split('/').filter(Boolean);
+    return parts.length >= 2 ? parts[parts.length - 2] + '/' + t.label : t.label;
+  });
+}

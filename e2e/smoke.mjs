@@ -116,6 +116,20 @@ try {
   await page.keyboard.press('Escape');
   const stillOpen = await page.$eval('#fe-qlook', el => el.style.display !== 'none');
   check(!stillOpen, 'Escape closes preview');
+  // With the panel open: t keeps the previewed file as a background tab, Enter goes to its page.
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td:last-child')).click();
+  await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
+  await page.keyboard.press('t');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 1, { timeout: 3_000 }).catch(() => null);
+  const keptFromPanel = await page.evaluate(() => ({ tab: document.querySelector('#fe-tabs .fe-tab:not(.temp) .fe-tab-lbl')?.textContent, open: document.getElementById('fe-qlook').style.display !== 'none', go: !!document.getElementById('fe-ql-go'), plus: !!document.getElementById('fe-ql-tab') }));
+  check(keptFromPanel.tab === 'readme.md' && keptFromPanel.open && keptFromPanel.go && keptFromPanel.plus, `t with the panel open keeps the file as a background tab, panel stays, header has open and + tab: ${JSON.stringify(keptFromPanel)}`);
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('#fe.fe-file-page', { timeout: 5_000 }).catch(() => null);
+  check(page.url().endsWith('/readme.md'), `Enter with the panel open goes to the file page: ${page.url()}`);
+  await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 0, { timeout: 3_000 }).catch(() => null);
 
   // Middle-click on a row name reaches the browser and opens a new tab.
   const before = (await h.browser.pages()).length;
@@ -682,9 +696,9 @@ try {
   await page.waitForSelector('#fe-tabs .fe-tab.pinned', { timeout: 3_000 }).catch(() => null);
   const pinned = await page.evaluate(() => {
     const t = document.querySelector('#fe-tabs .fe-tab.pinned');
-    return t && { first: document.querySelector('#fe-tabs .fe-tab') === t, closeBtn: !!t.querySelector('.fe-tab-x'), label: t.querySelector('.fe-tab-lbl').textContent };
+    return t && { first: document.querySelector('#fe-tabs .fe-tab') === t, closeBtn: !!t.querySelector('.fe-tab-x'), label: t.querySelector('.fe-tab-lbl').textContent, w: Math.round(t.getBoundingClientRect().width) };
   });
-  check(pinned && pinned.first && !pinned.closeBtn && pinned.label === 'readme.md', `p pins the tab: first in the strip, no close button: ${JSON.stringify(pinned)}`);
+  check(pinned && pinned.first && !pinned.closeBtn && pinned.label === 'readme.md' && pinned.w < 40, `p pins the tab: first in the strip, no close button, icon only: ${JSON.stringify(pinned)}`);
   await shot(page, 'tabs');
 
   await page.keyboard.press('[');
@@ -730,6 +744,10 @@ try {
   await page.waitForSelector('#fe');
   tabsA = await tabLabels(page);
   check(page.url().endsWith('/readme.md') && tabsA.length === 1 && await barIsActiveTab(page), `w closes the tab and navigates to its neighbour: ${JSON.stringify(tabsA)} ${page.url()}`);
+  await page.keyboard.press('T');
+  await page.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
+  tabsA = await tabLabels(page);
+  check(tabsA.join('|') === '*readme.md|nested' && page.url().endsWith('/readme.md'), `shift-T reopens the last closed tab at its place, URL unchanged: ${JSON.stringify(tabsA)}`);
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await page.waitForSelector('#fe');
 
@@ -846,6 +864,36 @@ try {
     }
   }
   await page.setViewport({ width: 1400, height: 900 });
+  // Per-tab listing scroll memory, then strip overflow with twenty background tabs.
+  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="details"]').click());
+  await page.evaluate(() => { document.getElementById('fe-scroll').scrollTop = 60; });
+  await new Promise(r => setTimeout(r, 100));
+  await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  await page.goto('file://' + many + '/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  const scrollBack = await page.evaluate(() => document.getElementById('fe-scroll').scrollTop);
+  check(scrollBack === 60, `a folder tab remembers its listing scroll: ${scrollBack}`);
+  await page.keyboard.down('Alt');
+  for (let i = 2; i <= 21; i++) await page.click(`#fe-tbody tr[data-idx]:nth-child(${i}) td:last-child`);
+  await page.keyboard.up('Alt');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 20, { timeout: 5_000 }).catch(() => null);
+  const overflow = await page.evaluate(() => {
+    const strip = document.getElementById('fe-tabs').getBoundingClientRect();
+    const on = document.querySelector('#fe-tabs .fe-tab.on').getBoundingClientRect();
+    return { kept: document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length, activeVisible: on.left >= strip.left && on.right <= strip.right, scrolls: document.getElementById('fe-tabs').scrollWidth > document.getElementById('fe-tabs').clientWidth, list: !!document.querySelector('#fe-tabs .fe-tab-list') };
+  });
+  await page.click('#fe-tabs .fe-tab-list');
+  const listed = await page.$$eval('.fe-tab-menu .fe-ctx-item[data-go]', els => els.length);
+  await page.keyboard.press('Escape');
+  check(overflow.kept >= 20 && overflow.activeVisible && overflow.scrolls && overflow.list && listed === overflow.kept, `twenty tabs overflow: strip scrolls, active tab visible, list menu names all 20: ${JSON.stringify({ ...overflow, listed })}`);
+  for (let i = 0; i < 30; i++) {
+    const t = await page.$('#fe-tabs .fe-tab[data-id]:not(.on)');
+    if (!t) break;
+    const n = await page.$$eval('#fe-tabs .fe-tab:not(.temp)', els => els.length);
+    await t.click({ button: 'middle' });
+    await page.waitForFunction(m => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length < m, { timeout: 3_000 }, n).catch(() => null);
+  }
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await page.waitForSelector('#fe');
   await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="tiles"]').click());
@@ -881,7 +929,10 @@ try {
   // Reloading the extension orphans this page's content script. The preview
   // must say so and offer a refresh instead of a bare "Could not read file".
   await page.click('.fe-view-btn[data-view="details"]');
-  const sw = await h.browser.waitForTarget(t => t.type() === 'service_worker', { timeout: 5_000 });
+  // The MV3 worker sleeps after 30 s idle; a runtime message wakes it.
+  await page.click('#fe-term-btn');
+  await new Promise(r => setTimeout(r, 500));
+  const sw = await h.browser.waitForTarget(t => t.type() === 'service_worker', { timeout: 15_000 });
   const worker = await sw.worker();
   await worker.evaluate(() => chrome.runtime.reload());
   await new Promise(r => setTimeout(r, 1000));

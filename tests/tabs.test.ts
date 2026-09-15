@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, isTabState, normalize,
-  pickRecovery, isStale, type RecoveryEntry,
+  pickRecovery, isStale, insertTab, displayLabels, type RecoveryEntry,
 } from '../src/tabs';
 
 describe('tabs', () => {
@@ -95,6 +95,21 @@ describe('tabs', () => {
     expect(s.list.map(t => t.label)).toEqual(['a', 'b']);
     expect(s.active).toBe(b);
     expect(closeOthers(s, 'nope')).toBe(s);
+  });
+
+  it('reinserts a closed tab at its old index, never inside the pinned block or twice', () => {
+    let s = openTab(openTab(openTab(EMPTY, '/a/'), '/b/'), '/c/');
+    const b = s.list[1];
+    s = closeTab(s, b.id);
+    s = togglePin(s, s.list[0].id);
+    s = insertTab(s, b, 0);
+    expect(s.list.map(t => t.label)).toEqual(['a', 'b', 'c']);
+    expect(insertTab(s, b, 0)).toBe(s);
+  });
+
+  it('shows the folder on labels that collide', () => {
+    const s = openTab(openTab(openTab(EMPTY, '/x/docs/readme.md'), '/y/readme.md'), '/z/');
+    expect(displayLabels(s.list)).toEqual(['docs/readme.md', 'y/readme.md', 'z']);
   });
 
   it('recovery picks the newest closed strip inside the window and prunes the rest', () => {
