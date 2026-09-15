@@ -278,6 +278,8 @@
     scrnsh: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4 5.5l2.5 2.5L9 4.5M5 9.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     bm: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 1h8v12l-4-3-4 3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
     recent: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 4v3l2 1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    help: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.2 5.2a1.9 1.9 0 1 1 2.6 1.8c-.6.3-.8.6-.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="10.3" r="0.9" fill="currentColor"/></svg>`,
+    gear: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M8.5 1H5.5L4.5 2.8 2.5 4 1 5.5v3L2.5 10l2 1.2L5.5 13h3l1-1.8 2-1.2L13 8.5v-3L11.5 4l-2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`,
     drag: `<svg width="10" height="14" viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="3" cy="11" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="11" r="1.2" fill="currentColor"/></svg>`
   };
 
@@ -496,6 +498,88 @@
   }
   function getShowHidden() {
     return localStorage.getItem(HIDDEN_KEY) === "true";
+  }
+
+  // src/dialog.ts
+  function renderDialog(d) {
+    return `
+  <div id="${esc(d.id)}" class="fe-dlg" style="display:none">
+    <div class="fe-dlg-bg"></div>
+    <div class="fe-dlg-box" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
+      <div class="fe-dlg-title">
+        <span class="fe-dlg-mark">${d.mark}</span>
+        <span class="fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
+        <button class="fe-dlg-close" title="Close (Esc)">\u2715</button>
+      </div>
+      <div class="fe-dlg-tabs" role="tablist">
+        ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}"><b>${esc(t.label)}</b>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
+      </div>
+      ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.body}</div>`).join("")}
+    </div>
+  </div>`;
+  }
+  var focusBefore = null;
+  function rememberFocus() {
+    focusBefore = document.activeElement;
+  }
+  function restoreFocus() {
+    const el = focusBefore;
+    focusBefore = null;
+    if (el && document.contains(el) && typeof el.focus === "function") el.focus();
+  }
+  function mountDialog(id, hooks = {}) {
+    const root = document.getElementById(id);
+    const box = root.querySelector(".fe-dlg-box");
+    const tabs = [...root.querySelectorAll(".fe-dlg-tab")];
+    const panes = [...root.querySelectorAll(".fe-dlg-pane")];
+    const memory = `bfb-dialog-tab:${id}`;
+    const isOpen = () => root.style.display !== "none";
+    function show(tab) {
+      if (!tabs.some((t) => t.dataset.tab === tab)) tab = tabs[0]?.dataset.tab ?? "";
+      tabs.forEach((t) => t.classList.toggle("on", t.dataset.tab === tab));
+      panes.forEach((p) => {
+        p.classList.toggle("on", p.dataset.tab === tab);
+        if (p.dataset.tab === tab) p.scrollTop = 0;
+      });
+      try {
+        localStorage.setItem(memory, tab);
+      } catch {
+      }
+    }
+    function open(tab) {
+      rememberFocus();
+      hooks.onOpen?.();
+      let last = "";
+      try {
+        last = localStorage.getItem(memory) || "";
+      } catch {
+      }
+      show(tab ?? last);
+      root.style.display = "flex";
+      box.focus();
+    }
+    function close() {
+      if (!isOpen()) return;
+      root.style.display = "none";
+      hooks.onClose?.();
+      restoreFocus();
+    }
+    tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.tab)));
+    root.querySelector(".fe-dlg-close").addEventListener("click", close);
+    root.querySelector(".fe-dlg-bg").addEventListener("click", close);
+    document.addEventListener("keydown", (e) => {
+      if (!isOpen()) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+      } else if ((e.key === "[" || e.key === "]") && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) {
+        const i = tabs.findIndex((t) => t.classList.contains("on"));
+        const j = (i + (e.key === "]" ? 1 : -1) + tabs.length) % tabs.length;
+        e.preventDefault();
+        show(tabs[j].dataset.tab);
+      }
+    });
+    return { open, close, isOpen, show };
   }
 
   // src/renderers.ts
@@ -1673,6 +1757,7 @@ ${body}
       edit = null;
     }
     overlay.style.display = "none";
+    restoreFocus();
     document.getElementById("fe-ql-body").classList.remove("fe-editing");
     currentEntry = null;
     currentText = null;
@@ -1769,6 +1854,7 @@ ${body}
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.style.display = "";
     copyBtn.disabled = false;
+    if (overlay.style.display === "none") rememberFocus();
     overlay.style.display = "flex";
     const body = document.getElementById("fe-ql-body");
     body.classList.add("fe-editing");
@@ -1982,6 +2068,7 @@ ${body}
     document.getElementById("fe-ql-meta").textContent = `${fmtSize(e.rawBytes)}${ext2 ? " \xB7 ." + ext2 : ""}`;
     document.getElementById("fe-ql-open").href = e.href;
     const body = document.getElementById("fe-ql-body");
+    if (overlay.style.display === "none") rememberFocus();
     overlay.style.display = "flex";
     dsvHeader = [];
     dsvRows = [];
@@ -2089,13 +2176,27 @@ ${body}
   }
 
   // src/help.ts
-  var HELP_MD = `
-# Better File Browser
+  var HELP_TABS = [
+    { key: "keys", label: "Keyboard", hint: "every shortcut", md: `
+| Key | Action |
+|-----|--------|
+| \u2191 / \u2193 | Move selection |
+| Enter | Open |
+| Backspace \xB7 \u2318\u2191 | Go to parent folder |
+| Space | Preview selected file (Space again closes) |
+| \u2318F | Focus the filter (again \u2192 browser find) |
+| \u2318A | Select all |
+| \u2318C | Copy selected path(s) |
+| Esc | Close a dialog or the preview / clear the filter |
+| t \xB7 w \xB7 p | Keep this folder or file as a tab \xB7 close it \xB7 pin it |
+| [ \xB7 ] \xB7 1-9 | Previous / next tab \xB7 jump to a tab (in a dialog: switch its tabs) |
+| n | New note (when a Notes folder is set) |
+| r | Raw / rendered, on a file page |
 
-Replaces Chrome's plain \`file://\` directory listings with a modern explorer \u2014
-views, search, file previews, and an optional local-AI assistant. Everything
-runs on your machine; the extension makes no network requests.
-
+Single-letter keys work when nothing is focused. Chrome owns \u2318T and \u2318W, so
+the tab keys are bare letters.
+` },
+    { key: "explorer", label: "Explorer", hint: "views, finding, opening", md: `
 ## Views & zoom
 
 Switch layout from the toolbar: **Details** (table), **List** (compact),
@@ -2104,99 +2205,20 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 
 ## Finding files
 
-- **Quick filter** \u2014 type in the **Filter\u2026** box (top-right), or press **\u2318F** to
-  jump to it. Press **\u2318F** again to fall through to Chrome's own find.
-- **Text inside files** \u2014 open the **Filter** panel; the second row reads the
-  text files the name and type fields allow (2 MB each at most) and keeps
-  only the ones containing your words. Enter or **Run** starts it, **Cancel**
-  stops it, and the results stay until you run again or clear the field.
-  **Save view** keeps the folder plus these fields as a Saved row with a
-  funnel icon; opening it brings the search back.
-- **Deep search** \u2014 the folder button beside the filter box includes every
-  subfolder. Names show their path from this folder, so **src/main.ts** matches
-  **main**. The scan skips node_modules, .git and dot-folders (unless hidden
-  files are shown), stops at 8 levels or 5000 items, and runs once per page.
-- **Sort** \u2014 click a column header, or open the **Sort** panel to sort by name,
-  size, type, extension, or modified date, and to **group** (folders-first,
-  files-first, by extension, or by type).
-- **Filter** panel \u2014 match names by text or regex, or show only folders / files /
-  one extension.
+- **Quick filter** \u2014 type in the **Filter\u2026** box (top-right), or press **\u2318F** to jump to it. Press **\u2318F** again to fall through to Chrome's own find.
+- **Text inside files** \u2014 open the **Filter** panel; the second row reads the text files the name and type fields allow (2 MB each at most) and keeps only the ones containing your words. Enter or **Run** starts it, **Cancel** stops it, and the results stay until you run again or clear the field. **Save view** keeps the folder plus these fields as a Saved row with a funnel icon; opening it brings the search back.
+- **Deep search** \u2014 the folder button beside the filter box includes every subfolder. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 8 levels or 5000 items, and runs once per page.
+- **Sort** \u2014 click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
+- **Filter** panel \u2014 match names by text or regex, or show only folders / files / one extension.
 - **Hidden files** \u2014 the eye button toggles dotfiles.
 
 ## Selecting & opening
 
-- Click a file to look at it in the panel; the address bar stays put. Click
-  a folder to go there. **Double-click** a file to open its page in this tab.
-- **\u2325-click** keeps a folder or file as a strip tab, in the background.
-  **Middle-click** opens it in a new Chrome tab.
+- Click a file to look at it in the panel; the address bar stays put. Click a folder to go there. **Double-click** a file to open its page in this tab.
+- **\u2325-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab.
 - **\u2191 / \u2193** move the selection, **Enter** opens, **Backspace** or **\u2318\u2191** goes up.
-- **Multi-select**: **shift-click** or **\u2318/Ctrl-click** toggles a row,
-  **\u21E7\u2318-click** selects a range, **\u2318A** selects all. **\u2318C** copies the
-  selected paths.
-- **Right-click** an item for Copy path, Copy name, Open in terminal \u2014 plus
-  Preview for previewable files. With several items selected, the menu offers
-  bulk Copy paths / Copy names.
-
-## File preview (Quick Look)
-
-Select a file and press **Space** (or click the eye button on hover, or
-right-click \u2192 Preview) to open a preview overlay \u2014 **Space** again, or **Esc**,
-closes it. **\u2191 / \u2193** (or **\u2190 / \u2192**) step between previewable files; the **copy**
-button copies the raw contents. Files over 8 MB ask before loading.
-
-The preview is a floating window by default; drag its bottom-right corner to
-resize it. The dock button in its header moves it to a **side panel** next to
-the listing, where clicking a row previews that file and the left edge drags
-to set the width. Both the choice and the sizes are remembered.
-
-The file name in the preview header, **open raw**, and every link inside a
-rendered markdown file open in a **new tab**, so the explorer stays put.
-In the listing, middle-click a name to open it natively in a new tab.
-
-Renders by type:
-
-| Type | Shown as |
-|------|----------|
-| Code (\`.sh\`, \`.ts\`, \`.py\`, \`.go\`, \`.rs\`, \`.sql\`, \`.yaml\`, \u2026) | Syntax-highlighted, with line numbers |
-| \`.tsv\` / \`.csv\` | Sortable table (numeric columns detected) |
-| \`.json\` / \`.jsonl\` | Collapsible tree |
-| \`.md\` / \`.mdx\` | Rendered markdown (relative images/links resolved) |
-| Images | Fit-to-view, with pixel dimensions |
-| PDF \xB7 audio/video \xB7 fonts | Embedded viewer / player / glyph specimen |
-| Plain text & extensionless (\`.txt\`, \`.log\`, \`LICENSE\`, \`Makefile\`) | Plain text with line numbers |
-
-## AI assistant (optional)
-
-If you have the local-models **\`lm\`** CLI and its native host installed, the
-preview gains an **AI bar**: **Summarize**, **Explain** (**Describe** for tables),
-and an **Ask** box. Answers stream in; closing the overlay cancels them.
-
-Pick the model and toggle **Keep warm** in **Settings \u2192 Local Model**. It's fully
-local \u2014 nothing is sent anywhere. Without the CLI installed, the bar simply
-doesn't appear and everything else works normally.
-
-## Tabs
-
-The strip above the toolbar is the working set of this Chrome tab: folders
-and files, kept through refresh and navigation, gone when the Chrome tab
-closes. Open the same folder again within a day and the strip comes back with
-an undo. The place you are in shows as an italic tab until you keep it: press
-**t** or double-click it. **w** closes the current tab, **p** pins it (pinned
-tabs sit first and have no \u2715), **[** and **]** move between tabs, **1** to
-**9** jump. Drag to reorder. Hover a tab for **\u2026**: copy path, save, pin,
-close, close others. Saved (below) is the long-term list; tabs are what is
-open right now.
-
-## Sidebar
-
-- **Saved** \u2014 one list of your folders. The \u2605 in the path bar saves or
-  unsaves the current folder; **+** saves it and opens the name for editing.
-  **Double-click** a label to rename, drag to reorder, \u2715 to remove. Hover a
-  row and press **#** to type tags (comma separated); tagged folders group
-  under their first tag, and clicking the coloured dot on a tag heading
-  changes its colour. Old Bookmarks and My Places entries were merged in.
-- **Recent** \u2014 folders you visited lately.
-- **Finder Favorites** / **System** \u2014 quick jumps (Root, Home, \u2026).
+- **Multi-select**: **shift-click** or **\u2318/Ctrl-click** toggles a row, **\u21E7\u2318-click** selects a range, **\u2318A** selects all. **\u2318C** copies the selected paths.
+- **Right-click** an item for Copy path, Copy name, Open in terminal \u2014 plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
 
 ## Breadcrumbs
 
@@ -2210,30 +2232,95 @@ The terminal button opens the current folder in your terminal. With the optional
 native host it launches Ghostty directly; otherwise it copies a \`cd\` command to
 your clipboard. Choose your terminal in **Settings \u2192 Terminal**.
 
-## Settings
+## File pages
 
-Theme (dark/light \u2014 also the sun/moon button), default view, compact mode,
-sidebar visibility, date format, terminal app, the **Local Model** panel (AI
-status, model picker, keep-warm), and **custom icon rules** (a regex matched
-against filenames \u2192 a colored label badge).
+A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt)
+renders like the preview instead of Chrome's plain text: folder crumbs, a
+heading table of contents for markdown, **r** for raw, a remembered scroll
+position, and a re-render whenever the file changes on disk. **Settings \u2192
+Files** can limit this to non-markdown files or turn it off.
+` },
+    { key: "preview", label: "Preview and Notes", hint: "panel, editor, AI", md: `
+## File preview (Quick Look)
 
-## Keyboard shortcuts
+Click a file, or select it and press **Space**, to open a preview \u2014 **Space**
+again, or **Esc**, closes it. **\u2191 / \u2193** (or **\u2190 / \u2192**) step between previewable
+files; the **copy** button copies the raw contents. Files over 8 MB ask before
+loading.
 
-| Key | Action |
-|-----|--------|
-| \u2191 / \u2193 | Move selection |
-| Enter | Open |
-| Backspace \xB7 \u2318\u2191 | Go to parent folder |
-| Space | Preview selected file (Space again closes) |
-| \u2318F | Focus the filter (again \u2192 browser find) |
-| \u2318A | Select all |
-| \u2318C | Copy selected path(s) |
-| Esc | Close preview / clear filter |
-| t \xB7 w \xB7 p | Keep this folder or file as a tab \xB7 close it \xB7 pin it |
-| [ \xB7 ] \xB7 1-9 | Previous / next tab \xB7 jump to a tab |
-| n | New note (when a Notes folder is set) |
-| r | Raw / rendered, on a file page |
-`;
+The preview is a floating window by default; drag its bottom-right corner to
+resize it. The dock button in its header moves it to a **side panel** next to
+the listing, where the left edge drags to set the width. Both the choice and
+the sizes are remembered.
+
+The file name in the preview header, **open raw**, and every link inside a
+rendered markdown file open in a **new tab**, so the explorer stays put.
+
+Renders by type:
+
+| Type | Shown as |
+|------|----------|
+| Code (\`.sh\`, \`.ts\`, \`.py\`, \`.go\`, \`.rs\`, \`.sql\`, \`.yaml\`, \u2026) | Syntax-highlighted, with line numbers |
+| \`.tsv\` / \`.csv\` | Sortable table (numeric columns detected) |
+| \`.json\` / \`.jsonl\` | Collapsible tree |
+| \`.md\` / \`.mdx\` | Rendered markdown (relative images/links resolved) |
+| Images | Fit-to-view, with pixel dimensions |
+| PDF \xB7 audio/video \xB7 fonts | Embedded viewer / player / glyph specimen |
+| Plain text & extensionless (\`.txt\`, \`.log\`, \`LICENSE\`, \`Makefile\`) | Plain text with line numbers |
+
+## Notes
+
+Set a **Notes folder** in **Settings \u2192 Notes** and a Notes section lists its
+\`.md\` files newest first. **n** or **+** starts a note. The panel becomes an
+editor with the source on the left and the render on the right: a toolbar for
+bold, italic, code, lists, tasks, tables and images; \u2325\u2191\u2193 moves lines and
+\u2325\u21E7\u2191\u2193 duplicates them; Tab indents; Enter continues a list; a pasted or
+dropped image is saved under \`attachments/\`. **\u2318S** saves, a pause autosaves,
+and an untitled note takes its first heading as its file name. Rename by
+double-click; \u2715 moves the note into \`.trash/\`. The folder is plain markdown
+that Obsidian and any markdown tool can read.
+
+## AI assistant (optional)
+
+If you have the local-models **\`lm\`** CLI and its native host installed, the
+preview gains an **AI bar**: **Summarize**, **Explain** (**Describe** for tables),
+and an **Ask** box. Answers stream in; closing the overlay cancels them.
+
+Pick the model and toggle **Keep warm** in **Settings \u2192 AI**. It's fully local \u2014
+nothing is sent anywhere. Without the CLI installed, the bar simply doesn't
+appear and everything else works normally.
+` },
+    { key: "tabs", label: "Tabs and Saved", hint: "open now, kept for later", md: `
+## Tabs
+
+The strip above the toolbar is the working set of this Chrome tab: folders
+and files, kept through refresh and navigation, gone when the Chrome tab
+closes. Open the same folder again within a day and the strip comes back with
+an undo. The place you are in shows as an italic tab until you keep it: press
+**t** or double-click it. **w** closes the current tab, **p** pins it (pinned
+tabs sit first and have no \u2715), **[** and **]** move between tabs, **1** to
+**9** jump. Drag to reorder. Hover a tab for **\u2026**: copy path, save, pin,
+close, close others. Navigation is real, so the address bar is always the
+active tab's location.
+
+## Saved
+
+One list of your folders, files and saved views. The \u2605 in the path bar saves
+or unsaves the current folder; **+** saves it and opens the name for editing.
+**Double-click** a label to rename, drag to reorder, \u2715 to remove. Hover a row
+and press **#** to type tags (comma separated); tagged rows group under their
+first tag, and clicking the coloured dot on a tag heading changes its colour.
+The filter box at the top matches label, path and tag; Esc clears it. Old
+Bookmarks and My Places entries were merged in.
+
+Tabs are what is open right now; Saved is the long-term list, the way browser
+tabs sit above browser bookmarks.
+
+## Recent, Finder Favorites, System
+
+Folders you visited lately, and quick jumps (Root, Home, \u2026).
+` }
+  ];
 
   // src/styles.ts
   var CSS = `
@@ -2510,37 +2597,31 @@ td.c-tp{color:var(--dm);font-size:11px}
 ::-webkit-scrollbar-thumb:hover{background:var(--dm)}
 #fe.compact tbody td{padding:2px 12px}
 #fe.compact .fe-tile{padding:6px 6px 5px;gap:3px}
-#fe-settings-modal{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center}
-#fe-settings-bg{position:absolute;inset:0;background:#00000088;backdrop-filter:blur(2px)}
-#fe-settings-dialog{
-  position:relative;z-index:1;
-  background:var(--s1);border:1px solid var(--bd);border-radius:10px;
-  width:520px;max-width:calc(100vw - 40px);max-height:82vh;
-  display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;
-}
-#fe-settings-hdr{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:14px 18px;border-bottom:1px solid var(--bd);flex-shrink:0;
-}
-#fe-settings-hdr>span{font-size:14px;font-weight:600;color:var(--tx)}
-#fe-settings-close{background:none;border:none;color:var(--dm);cursor:pointer;
-  font-size:14px;padding:3px 7px;border-radius:4px;line-height:1;transition:color .1s,background .1s}
-#fe-settings-close:hover{background:var(--hover);color:var(--tx)}
-#fe-settings-body{overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:20px}
-#fe-help-modal{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center}
-#fe-help-bg{position:absolute;inset:0;background:#00000088;backdrop-filter:blur(2px)}
-#fe-help-dialog{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);
-  border-radius:10px;width:640px;max-width:calc(100vw - 40px);max-height:84vh;
-  display:flex;flex-direction:column;box-shadow:0 24px 64px #000d}
-#fe-help-hdr{display:flex;align-items:center;justify-content:space-between;
-  padding:14px 18px;border-bottom:1px solid var(--bd);flex-shrink:0}
-#fe-help-hdr>span{font-size:14px;font-weight:600;color:var(--tx)}
-#fe-help-close{background:none;border:none;color:var(--dm);cursor:pointer;
-  font-size:14px;padding:3px 7px;border-radius:4px;line-height:1;transition:color .1s,background .1s}
-#fe-help-close:hover{background:var(--hover);color:var(--tx)}
-#fe-help-body{overflow-y:auto;padding:4px 20px 16px}
-#fe-help-body .fe-md{max-width:none}
-#fe-help-body .fe-md h1{font-size:20px;margin-top:14px}
+.fe-dlg{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center}
+.fe-dlg-bg{position:absolute;inset:0;background:#00000088;backdrop-filter:blur(2px)}
+.fe-dlg-box{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);border-radius:10px;
+  width:min(760px,calc(100vw - 40px));max-height:84vh;display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;outline:none}
+.fe-dlg-title{display:flex;align-items:center;gap:11px;padding:14px 16px 12px;background:var(--s2);flex:none;border-radius:10px 10px 0 0}
+.fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;
+  background:var(--act);color:var(--ac);border:1px solid var(--ac)}
+.fe-dlg-tx{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.fe-dlg-tx b{font-size:14px;font-weight:600;line-height:1.2;color:var(--tx);letter-spacing:-.01em}
+.fe-dlg-tx i{font-size:11px;line-height:1.2;font-style:normal;color:var(--dm)}
+.fe-dlg-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:14px;padding:3px 7px;border-radius:4px;line-height:1;transition:color .1s,background .1s}
+.fe-dlg-close:hover{background:var(--hover);color:var(--tx)}
+.fe-dlg-tabs{display:flex;gap:3px;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex:none;align-items:stretch;overflow-x:auto}
+.fe-dlg-tab{display:flex;flex-direction:column;gap:2px;background:none;border:none;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
+  padding:9px 13px 8px;color:var(--mt);cursor:pointer;text-align:left;line-height:1;white-space:nowrap;transition:background .1s,color .1s,border-color .1s}
+.fe-dlg-tab b{font-size:12.5px;font-weight:600;color:inherit}
+.fe-dlg-tab i{font-size:10.5px;font-style:normal;color:var(--dm);opacity:.85}
+.fe-dlg-tab:hover{color:var(--tx);background:var(--s1)}
+.fe-dlg-tab.on{background:var(--s1);color:var(--tx);border-bottom-color:var(--ac)}
+.fe-dlg-tab.on i{opacity:1}
+.fe-dlg-pane{display:none;padding:18px 22px 22px;overflow:auto;min-height:0}
+.fe-dlg-pane.on{display:flex;flex-direction:column;gap:20px}
+.fe-dlg-pane .fe-md{max-width:none;padding:0}
+.fe-dlg-pane .fe-md h2{font-size:15px;margin-top:6px}
+.fe-dlg-pane .fe-md>:first-child{margin-top:0}
 .fe-st-section{display:flex;flex-direction:column;gap:10px}
 .fe-st-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
   color:var(--dm);padding-bottom:4px;border-bottom:1px solid var(--bd)}
@@ -3755,6 +3836,135 @@ td.c-tp{color:var(--dm);font-size:11px}
     }).join("")}
       </div>` : "";
     const ctx0 = getRenderCtx();
+    const SETTINGS_DIALOG = {
+      id: "fe-settings-modal",
+      mark: PI.gear,
+      title: "Settings",
+      subtitle: "Stored in this browser profile",
+      tabs: [
+        { key: "appearance", label: "Appearance", hint: "theme, view, density", body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Theme</div>
+          <div class="fe-st-row">
+            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark"> Dark</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light"> Light</label>
+          </div>
+        </div>
+        <div class="fe-st-section">
+          <div class="fe-st-title">Appearance</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Default view</span>
+            <select id="fe-st-defview" class="fe-st-select">
+              <option value="details">Details</option>
+              <option value="list">List</option>
+              <option value="tiles">Tiles</option>
+              <option value="icons">Large Icons</option>
+            </select>
+          </div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact"> Compact mode</label>
+          </div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar"> Show sidebar</label>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Date format</span>
+            <select id="fe-st-datefmt" class="fe-st-select">
+              <option value="short">Short \u2014 Apr 17</option>
+              <option value="full">Full \u2014 April 17, 2025</option>
+            </select>
+          </div>
+        </div>
+` },
+        { key: "files", label: "Files", hint: "file pages, icon rules", body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">File pages</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="A file opened directly in the tab renders like the preview">Render file pages</span>
+            <select id="fe-st-filepages" class="fe-st-select">
+              <option value="all">All text files</option>
+              <option value="not-md">All except markdown</option>
+              <option value="off">Off (Chrome's plain text)</option>
+            </select>
+          </div>
+        </div>
+        <div class="fe-st-section">
+          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Custom Icon Rules</span>
+            <button id="fe-st-add-rule" class="fe-pbn">+ Add rule</button>
+          </div>
+          <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
+          <div class="fe-st-rules-cols">
+            <span></span><span></span>
+            <span class="fe-st-col-lbl">Pattern (regex)</span>
+            <span class="fe-st-col-lbl">Label</span>
+            <span class="fe-st-col-lbl">Color</span>
+            <span></span>
+          </div>
+          <div id="fe-st-rules-list"></div>
+          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940">Reset to defaults</button>
+        </div>
+` },
+        { key: "notes", label: "Notes", hint: "the notes folder", body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Notes</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
+            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false">
+          </div>
+          <div class="fe-st-hint" id="fe-st-notes-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
+        </div>
+` },
+        { key: "terminal", label: "Terminal", hint: "which app opens", body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Terminal</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="Which terminal app to open when clicking the terminal button">Open with</span>
+            <select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open current folder in">
+              <option value="ghostty">Ghostty (native host)</option>
+              <option value="terminal">Terminal.app</option>
+              <option value="iterm">iTerm2</option>
+              <option value="wezterm">WezTerm</option>
+              <option value="kitty">Kitty</option>
+              <option value="custom">Custom command\u2026</option>
+            </select>
+          </div>
+          <div class="fe-st-row" id="fe-st-term-custom-row" style="display:none">
+            <input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} as placeholder for the folder path.'>
+          </div>
+          <div class="fe-st-hint" id="fe-st-term-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
+        </div>
+` },
+        { key: "ai", label: "AI", hint: "local model", body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Local Model (AI)</span>
+            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">\u21BB Refresh</button>
+          </div>
+          <div id="fe-st-ai-card">
+            <div class="fe-st-ai-head">
+              <span class="fe-st-ai-blink"><span class="dot"></span></span>
+              <span class="fe-st-ai-state">Checking\u2026</span>
+            </div>
+            <div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>
+            <div class="fe-st-ai-controls" id="fe-st-ai-controls" style="display:none">
+              <span class="fe-st-lbl">Model</span>
+              <select id="fe-st-ai-model" class="fe-st-select" title="Model used for AI queries (-m)"></select>
+              <button id="fe-st-ai-warm" class="fe-pbn" title="Keep the model resident (lm warm)"></button>
+            </div>
+            <div class="fe-st-ai-hint" id="fe-st-ai-hint"></div>
+          </div>
+        </div>
+` }
+      ]
+    };
+    const HELP_DIALOG = {
+      id: "fe-help-modal",
+      mark: PI.help,
+      title: "Help",
+      subtitle: "Better File Browser \xB7 everything runs on your machine",
+      tabs: HELP_TABS.map((t) => ({ key: t.key, label: t.label, hint: t.hint, body: `<div class="fe-md">${renderMarkdown(t.md)}</div>` }))
+    };
     const PAGE_HTML = `
 <div id="fe" data-theme="${initTheme}" data-view="${initView}">
 
@@ -3907,136 +4117,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
   <div id="fe-tip"></div>
   <div id="fe-toast"></div>
 
-  <div id="fe-settings-modal" style="display:none">
-    <div id="fe-settings-bg"></div>
-    <div id="fe-settings-dialog">
-      <div id="fe-settings-hdr">
-        <span>Settings</span>
-        <button id="fe-settings-close" title="Close">\u2715</button>
-      </div>
-      <div id="fe-settings-body">
-
-        <div class="fe-st-section">
-          <div class="fe-st-title">Theme</div>
-          <div class="fe-st-row">
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark"> Dark</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light"> Light</label>
-          </div>
-        </div>
-
-        <div class="fe-st-section">
-          <div class="fe-st-title">Appearance</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Default view</span>
-            <select id="fe-st-defview" class="fe-st-select">
-              <option value="details">Details</option>
-              <option value="list">List</option>
-              <option value="tiles">Tiles</option>
-              <option value="icons">Large Icons</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="A file opened directly in the tab renders like the preview">Render file pages</span>
-            <select id="fe-st-filepages" class="fe-st-select">
-              <option value="all">All text files</option>
-              <option value="not-md">All except markdown</option>
-              <option value="off">Off (Chrome's plain text)</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact"> Compact mode</label>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar"> Show sidebar</label>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Date format</span>
-            <select id="fe-st-datefmt" class="fe-st-select">
-              <option value="short">Short \u2014 Apr 17</option>
-              <option value="full">Full \u2014 April 17, 2025</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="fe-st-section">
-          <div class="fe-st-title">Terminal</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="Which terminal app to open when clicking the terminal button">Open with</span>
-            <select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open current folder in">
-              <option value="ghostty">Ghostty (native host)</option>
-              <option value="terminal">Terminal.app</option>
-              <option value="iterm">iTerm2</option>
-              <option value="wezterm">WezTerm</option>
-              <option value="kitty">Kitty</option>
-              <option value="custom">Custom command\u2026</option>
-            </select>
-          </div>
-          <div class="fe-st-row" id="fe-st-term-custom-row" style="display:none">
-            <input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} as placeholder for the folder path.'>
-          </div>
-          <div class="fe-st-hint" id="fe-st-term-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
-        </div>
-
-        <div class="fe-st-section">
-          <div class="fe-st-title">Notes</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
-            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false">
-          </div>
-          <div class="fe-st-hint" id="fe-st-notes-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
-        </div>
-
-        <div class="fe-st-section">
-          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>Local Model (AI)</span>
-            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">\u21BB Refresh</button>
-          </div>
-          <div id="fe-st-ai-card">
-            <div class="fe-st-ai-head">
-              <span class="fe-st-ai-blink"><span class="dot"></span></span>
-              <span class="fe-st-ai-state">Checking\u2026</span>
-            </div>
-            <div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>
-            <div class="fe-st-ai-controls" id="fe-st-ai-controls" style="display:none">
-              <span class="fe-st-lbl">Model</span>
-              <select id="fe-st-ai-model" class="fe-st-select" title="Model used for AI queries (-m)"></select>
-              <button id="fe-st-ai-warm" class="fe-pbn" title="Keep the model resident (lm warm)"></button>
-            </div>
-            <div class="fe-st-ai-hint" id="fe-st-ai-hint"></div>
-          </div>
-        </div>
-
-        <div class="fe-st-section">
-          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>Custom Icon Rules</span>
-            <button id="fe-st-add-rule" class="fe-pbn">+ Add rule</button>
-          </div>
-          <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
-          <div class="fe-st-rules-cols">
-            <span></span><span></span>
-            <span class="fe-st-col-lbl">Pattern (regex)</span>
-            <span class="fe-st-col-lbl">Label</span>
-            <span class="fe-st-col-lbl">Color</span>
-            <span></span>
-          </div>
-          <div id="fe-st-rules-list"></div>
-          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940">Reset to defaults</button>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <div id="fe-help-modal" style="display:none">
-    <div id="fe-help-bg"></div>
-    <div id="fe-help-dialog">
-      <div id="fe-help-hdr">
-        <span>Help &amp; shortcuts</span>
-        <button id="fe-help-close" title="Close (Esc)">\u2715</button>
-      </div>
-      <div id="fe-help-body"></div>
-    </div>
-  </div>
+  ${renderDialog(SETTINGS_DIALOG)}
+  ${renderDialog(HELP_DIALOG)}
 </div>`;
     const dirName = segments[segments.length - 1] || "/";
     const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + "\u2026" : dirName;
@@ -4799,11 +4881,9 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       updateTermHint();
       renderRulesList();
       refreshAiStatus();
-      settingsModal.style.display = "flex";
+      settingsDlg.open();
     }
-    function closeSettings() {
-      settingsModal.style.display = "none";
-    }
+    const settingsDlg = mountDialog("fe-settings-modal");
     function refreshAiStatus() {
       const head = document.querySelector(".fe-st-ai-head");
       const state = document.querySelector(".fe-st-ai-state");
@@ -4864,25 +4944,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       });
     });
     document.getElementById("fe-settings-btn").addEventListener("click", openSettings);
-    document.getElementById("fe-settings-close").addEventListener("click", closeSettings);
-    document.getElementById("fe-settings-bg").addEventListener("click", closeSettings);
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && settingsModal.style.display !== "none") closeSettings();
-    });
-    const helpModal = document.getElementById("fe-help-modal");
-    document.getElementById("fe-help-body").innerHTML = renderMarkdown(HELP_MD);
-    const openHelp = () => {
-      helpModal.style.display = "flex";
-    };
-    const closeHelp = () => {
-      helpModal.style.display = "none";
-    };
-    document.getElementById("fe-help-btn").addEventListener("click", openHelp);
-    document.getElementById("fe-help-close").addEventListener("click", closeHelp);
-    document.getElementById("fe-help-bg").addEventListener("click", closeHelp);
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && helpModal.style.display !== "none") closeHelp();
-    });
+    const helpDlg = mountDialog("fe-help-modal");
+    document.getElementById("fe-help-btn").addEventListener("click", () => helpDlg.open());
     document.querySelectorAll('input[name="bfb-theme"]').forEach((r) => {
       r.addEventListener("change", () => {
         fe.dataset.theme = r.value;

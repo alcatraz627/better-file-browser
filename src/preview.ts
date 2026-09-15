@@ -4,6 +4,7 @@
 import type { Entry, IconRule, PreviewLayout } from './types';
 import { esc, fmtSize, getExt, copyToClipboard } from './utils';
 import { getPreviewLayout, savePreviewLayout } from './storage';
+import { rememberFocus, restoreFocus } from './dialog';
 import { getIcon, IMG_EXTS } from './icons';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
@@ -220,6 +221,7 @@ export function closePreview(): void {
     edit = null;
   }
   overlay.style.display = 'none';
+  restoreFocus();
   document.getElementById('fe-ql-body')!.classList.remove('fe-editing');
   currentEntry = null;
   currentText  = null;
@@ -332,6 +334,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   document.getElementById('fe-ql-ai')!.style.display = 'none';
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.style.display = ''; copyBtn.disabled = false;
+  if (overlay.style.display === 'none') rememberFocus();
   overlay.style.display = 'flex';
 
   const body = document.getElementById('fe-ql-body')!;
@@ -491,6 +494,7 @@ export function openPreview(e: Entry): void {
     `${fmtSize(e.rawBytes)}${ext ? ' · .' + ext : ''}`;
   (document.getElementById('fe-ql-open') as HTMLAnchorElement).href = e.href;
   const body = document.getElementById('fe-ql-body')!;
+  if (overlay.style.display === 'none') rememberFocus();
   overlay.style.display = 'flex';
   dsvHeader = []; dsvRows = []; dsvSort = null;
   currentText = null;

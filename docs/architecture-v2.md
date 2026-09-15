@@ -106,3 +106,6 @@ open/close helper manages focus for both and for the preview.
 
 Each item is scoped for an execution seat: the check is the acceptance
 criterion, and the screenshots in `e2e/shots/` are the evidence.
+
+All six shipped on 2026-09-15; every check above runs in `npm run e2e` and
+`npm run e2e:light`.

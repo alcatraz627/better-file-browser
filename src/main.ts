@@ -20,7 +20,8 @@ import { fetchFileText } from './file-fetch';
 import { llmAvailability, llmWarm, type LlmAvailability } from './llm';
 import { selectionRange } from './selection';
 import { renderMarkdown } from './renderers';
-import { HELP_MD } from './help';
+import { HELP_TABS } from './help';
+import { renderDialog, mountDialog, type DialogSpec } from './dialog';
 import { CSS } from './styles';
 import type { Entry } from './types';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
@@ -206,6 +207,130 @@ import { getIcon } from './icons';
 
   const ctx0 = getRenderCtx();
 
+  const SETTINGS_DIALOG: DialogSpec = {
+    id: 'fe-settings-modal', mark: PI.gear, title: 'Settings', subtitle: 'Stored in this browser profile',
+    tabs: [
+      { key: 'appearance', label: 'Appearance', hint: 'theme, view, density', body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Theme</div>
+          <div class="fe-st-row">
+            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark"> Dark</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light"> Light</label>
+          </div>
+        </div>
+        <div class="fe-st-section">
+          <div class="fe-st-title">Appearance</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Default view</span>
+            <select id="fe-st-defview" class="fe-st-select">
+              <option value="details">Details</option>
+              <option value="list">List</option>
+              <option value="tiles">Tiles</option>
+              <option value="icons">Large Icons</option>
+            </select>
+          </div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact"> Compact mode</label>
+          </div>
+          <div class="fe-st-row">
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar"> Show sidebar</label>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Date format</span>
+            <select id="fe-st-datefmt" class="fe-st-select">
+              <option value="short">Short — Apr 17</option>
+              <option value="full">Full — April 17, 2025</option>
+            </select>
+          </div>
+        </div>
+` },
+      { key: 'files', label: 'Files', hint: 'file pages, icon rules', body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">File pages</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="A file opened directly in the tab renders like the preview">Render file pages</span>
+            <select id="fe-st-filepages" class="fe-st-select">
+              <option value="all">All text files</option>
+              <option value="not-md">All except markdown</option>
+              <option value="off">Off (Chrome's plain text)</option>
+            </select>
+          </div>
+        </div>
+        <div class="fe-st-section">
+          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Custom Icon Rules</span>
+            <button id="fe-st-add-rule" class="fe-pbn">+ Add rule</button>
+          </div>
+          <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
+          <div class="fe-st-rules-cols">
+            <span></span><span></span>
+            <span class="fe-st-col-lbl">Pattern (regex)</span>
+            <span class="fe-st-col-lbl">Label</span>
+            <span class="fe-st-col-lbl">Color</span>
+            <span></span>
+          </div>
+          <div id="fe-st-rules-list"></div>
+          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940">Reset to defaults</button>
+        </div>
+` },
+      { key: 'notes', label: 'Notes', hint: 'the notes folder', body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Notes</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
+            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false">
+          </div>
+          <div class="fe-st-hint" id="fe-st-notes-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
+        </div>
+` },
+      { key: 'terminal', label: 'Terminal', hint: 'which app opens', body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Terminal</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="Which terminal app to open when clicking the terminal button">Open with</span>
+            <select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open current folder in">
+              <option value="ghostty">Ghostty (native host)</option>
+              <option value="terminal">Terminal.app</option>
+              <option value="iterm">iTerm2</option>
+              <option value="wezterm">WezTerm</option>
+              <option value="kitty">Kitty</option>
+              <option value="custom">Custom command…</option>
+            </select>
+          </div>
+          <div class="fe-st-row" id="fe-st-term-custom-row" style="display:none">
+            <input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} as placeholder for the folder path.'>
+          </div>
+          <div class="fe-st-hint" id="fe-st-term-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
+        </div>
+` },
+      { key: 'ai', label: 'AI', hint: 'local model', body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Local Model (AI)</span>
+            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">↻ Refresh</button>
+          </div>
+          <div id="fe-st-ai-card">
+            <div class="fe-st-ai-head">
+              <span class="fe-st-ai-blink"><span class="dot"></span></span>
+              <span class="fe-st-ai-state">Checking…</span>
+            </div>
+            <div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>
+            <div class="fe-st-ai-controls" id="fe-st-ai-controls" style="display:none">
+              <span class="fe-st-lbl">Model</span>
+              <select id="fe-st-ai-model" class="fe-st-select" title="Model used for AI queries (-m)"></select>
+              <button id="fe-st-ai-warm" class="fe-pbn" title="Keep the model resident (lm warm)"></button>
+            </div>
+            <div class="fe-st-ai-hint" id="fe-st-ai-hint"></div>
+          </div>
+        </div>
+` },
+    ],
+  };
+  const HELP_DIALOG: DialogSpec = {
+    id: 'fe-help-modal', mark: PI.help, title: 'Help', subtitle: 'Better File Browser · everything runs on your machine',
+    tabs: HELP_TABS.map(t => ({ key: t.key, label: t.label, hint: t.hint, body: `<div class="fe-md">${renderMarkdown(t.md)}</div>` })),
+  };
+
   const PAGE_HTML = `
 <div id="fe" data-theme="${initTheme}" data-view="${initView}">
 
@@ -355,136 +480,8 @@ import { getIcon } from './icons';
   <div id="fe-tip"></div>
   <div id="fe-toast"></div>
 
-  <div id="fe-settings-modal" style="display:none">
-    <div id="fe-settings-bg"></div>
-    <div id="fe-settings-dialog">
-      <div id="fe-settings-hdr">
-        <span>Settings</span>
-        <button id="fe-settings-close" title="Close">✕</button>
-      </div>
-      <div id="fe-settings-body">
-
-        <div class="fe-st-section">
-          <div class="fe-st-title">Theme</div>
-          <div class="fe-st-row">
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark"> Dark</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light"> Light</label>
-          </div>
-        </div>
-
-        <div class="fe-st-section">
-          <div class="fe-st-title">Appearance</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Default view</span>
-            <select id="fe-st-defview" class="fe-st-select">
-              <option value="details">Details</option>
-              <option value="list">List</option>
-              <option value="tiles">Tiles</option>
-              <option value="icons">Large Icons</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="A file opened directly in the tab renders like the preview">Render file pages</span>
-            <select id="fe-st-filepages" class="fe-st-select">
-              <option value="all">All text files</option>
-              <option value="not-md">All except markdown</option>
-              <option value="off">Off (Chrome's plain text)</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact"> Compact mode</label>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar"> Show sidebar</label>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Date format</span>
-            <select id="fe-st-datefmt" class="fe-st-select">
-              <option value="short">Short — Apr 17</option>
-              <option value="full">Full — April 17, 2025</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="fe-st-section">
-          <div class="fe-st-title">Terminal</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="Which terminal app to open when clicking the terminal button">Open with</span>
-            <select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open current folder in">
-              <option value="ghostty">Ghostty (native host)</option>
-              <option value="terminal">Terminal.app</option>
-              <option value="iterm">iTerm2</option>
-              <option value="wezterm">WezTerm</option>
-              <option value="kitty">Kitty</option>
-              <option value="custom">Custom command…</option>
-            </select>
-          </div>
-          <div class="fe-st-row" id="fe-st-term-custom-row" style="display:none">
-            <input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} as placeholder for the folder path.'>
-          </div>
-          <div class="fe-st-hint" id="fe-st-term-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
-        </div>
-
-        <div class="fe-st-section">
-          <div class="fe-st-title">Notes</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
-            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false">
-          </div>
-          <div class="fe-st-hint" id="fe-st-notes-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
-        </div>
-
-        <div class="fe-st-section">
-          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>Local Model (AI)</span>
-            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">↻ Refresh</button>
-          </div>
-          <div id="fe-st-ai-card">
-            <div class="fe-st-ai-head">
-              <span class="fe-st-ai-blink"><span class="dot"></span></span>
-              <span class="fe-st-ai-state">Checking…</span>
-            </div>
-            <div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>
-            <div class="fe-st-ai-controls" id="fe-st-ai-controls" style="display:none">
-              <span class="fe-st-lbl">Model</span>
-              <select id="fe-st-ai-model" class="fe-st-select" title="Model used for AI queries (-m)"></select>
-              <button id="fe-st-ai-warm" class="fe-pbn" title="Keep the model resident (lm warm)"></button>
-            </div>
-            <div class="fe-st-ai-hint" id="fe-st-ai-hint"></div>
-          </div>
-        </div>
-
-        <div class="fe-st-section">
-          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>Custom Icon Rules</span>
-            <button id="fe-st-add-rule" class="fe-pbn">+ Add rule</button>
-          </div>
-          <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
-          <div class="fe-st-rules-cols">
-            <span></span><span></span>
-            <span class="fe-st-col-lbl">Pattern (regex)</span>
-            <span class="fe-st-col-lbl">Label</span>
-            <span class="fe-st-col-lbl">Color</span>
-            <span></span>
-          </div>
-          <div id="fe-st-rules-list"></div>
-          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940">Reset to defaults</button>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
-  <div id="fe-help-modal" style="display:none">
-    <div id="fe-help-bg"></div>
-    <div id="fe-help-dialog">
-      <div id="fe-help-hdr">
-        <span>Help &amp; shortcuts</span>
-        <button id="fe-help-close" title="Close (Esc)">✕</button>
-      </div>
-      <div id="fe-help-body"></div>
-    </div>
-  </div>
+  ${renderDialog(SETTINGS_DIALOG)}
+  ${renderDialog(HELP_DIALOG)}
 </div>`;
 
 
@@ -1200,9 +1197,9 @@ import { getIcon } from './icons';
     updateTermHint();
     renderRulesList();
     refreshAiStatus();
-    settingsModal.style.display = 'flex';
+    settingsDlg.open();
   }
-  function closeSettings(): void { settingsModal.style.display = 'none'; }
+  const settingsDlg = mountDialog('fe-settings-modal');
 
   function refreshAiStatus(): void {
     const head = document.querySelector<HTMLElement>('.fe-st-ai-head')!;
@@ -1275,23 +1272,10 @@ import { getIcon } from './icons';
   });
 
   document.getElementById('fe-settings-btn')!.addEventListener('click', openSettings);
-  document.getElementById('fe-settings-close')!.addEventListener('click', closeSettings);
-  document.getElementById('fe-settings-bg')!.addEventListener('click', closeSettings);
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && settingsModal.style.display !== 'none') closeSettings();
-  });
 
   // ── Help modal ────────────────────────────────────────────────────
-  const helpModal = document.getElementById('fe-help-modal')!;
-  document.getElementById('fe-help-body')!.innerHTML = renderMarkdown(HELP_MD);
-  const openHelp  = () => { helpModal.style.display = 'flex'; };
-  const closeHelp = () => { helpModal.style.display = 'none'; };
-  document.getElementById('fe-help-btn')!.addEventListener('click', openHelp);
-  document.getElementById('fe-help-close')!.addEventListener('click', closeHelp);
-  document.getElementById('fe-help-bg')!.addEventListener('click', closeHelp);
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && helpModal.style.display !== 'none') closeHelp();
-  });
+  const helpDlg = mountDialog('fe-help-modal');
+  document.getElementById('fe-help-btn')!.addEventListener('click', () => helpDlg.open());
 
   document.querySelectorAll<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => {
     r.addEventListener('change', () => { fe.dataset.theme = r.value; localStorage.setItem(THEME_KEY, r.value); });

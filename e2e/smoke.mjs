@@ -353,6 +353,55 @@ try {
   await fpage.close();
   await page.bringToFront();
 
+  // Dialogs: Help and Settings share one chrome. A title row with a mark and
+  // a subtitle, a tab strip, one pane shown at a time; the chrome holds still
+  // while a pane scrolls; Esc closes.
+  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 4, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 5, 'settings-dialog']]) {
+    await page.click(btn);
+    await page.waitForFunction(i => document.getElementById(i).style.display !== 'none', { timeout: 3_000 }, id).catch(() => null);
+    const d = await page.evaluate(i => {
+      const root = document.getElementById(i);
+      return {
+        open: root.style.display !== 'none', title: root.querySelector('.fe-dlg-tx b')?.textContent,
+        subtitle: !!root.querySelector('.fe-dlg-tx i')?.textContent, mark: !!root.querySelector('.fe-dlg-mark svg'),
+        tabs: [...root.querySelectorAll('.fe-dlg-tab b')].map(b => b.textContent),
+        shown: [...root.querySelectorAll('.fe-dlg-pane')].filter(p => getComputedStyle(p).display !== 'none').length,
+      };
+    }, id);
+    check(d.open && d.mark && d.subtitle && d.tabs.length === count && d.shown === 1, `${d.title} dialog opens with a mark, a subtitle, ${count} tabs and one pane: ${JSON.stringify(d.tabs)}`);
+    await page.click(`#${id} .fe-dlg-tab:nth-child(2)`);
+    const sw = await page.evaluate(i => {
+      const root = document.getElementById(i);
+      const on = [...root.querySelectorAll('.fe-dlg-pane.on')];
+      return { tab: root.querySelector('.fe-dlg-tab.on')?.dataset.tab, index: [...root.querySelectorAll('.fe-dlg-tab')].findIndex(t => t.classList.contains('on')), pane: on[0]?.dataset.tab, count: on.length };
+    }, id);
+    check(sw.index === 1 && sw.pane === sw.tab && sw.count === 1, `${d.title}: the second tab shows its pane alone: ${JSON.stringify(sw)}`);
+    const scrolled = await page.evaluate(i => {
+      const root = document.getElementById(i);
+      const tabs = [...root.querySelectorAll('.fe-dlg-tab')];
+      for (const t of tabs) {
+        t.click();
+        const pane = root.querySelector('.fe-dlg-pane.on');
+        if (pane.scrollHeight > pane.clientHeight + 4) {
+          const title = root.querySelector('.fe-dlg-title').getBoundingClientRect().top;
+          const strip = root.querySelector('.fe-dlg-tabs').getBoundingClientRect().top;
+          pane.scrollTop = 300;
+          const after = { title: root.querySelector('.fe-dlg-title').getBoundingClientRect().top, strip: root.querySelector('.fe-dlg-tabs').getBoundingClientRect().top };
+          return { tab: t.dataset.tab, scrollTop: pane.scrollTop, held: title === after.title && strip === after.strip };
+        }
+      }
+      return null;
+    }, id);
+    if (id === 'fe-help-modal') check(scrolled && scrolled.scrollTop > 0 && scrolled.held, `${d.title}: the chrome holds still while the ${scrolled?.tab} pane scrolls: ${JSON.stringify(scrolled)}`);
+    else console.log(`note ${d.title}: ${scrolled ? `pane ${scrolled.tab} scrolls, chrome held=${scrolled.held}` : 'no pane overflows at 900px tall'}`);
+    await page.click(`#${id} .fe-dlg-tab:nth-child(2)`);
+    await new Promise(r => setTimeout(r, 250));   // let the tab transition settle before the shot
+    await shot(page, shotName);
+    await page.keyboard.press('Escape');
+    const closed = await page.evaluate(i => document.getElementById(i).style.display === 'none', id);
+    check(closed, `${d.title}: Esc closes`);
+  }
+
   // Tabs: state lives with this Chrome tab and survives a refresh, a file is
   // a tab too, p pins, the hover menu closes others, and the address bar is
   // the active tab's URL after every action. A closed Chrome tab's strip
