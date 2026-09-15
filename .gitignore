@@ -2,3 +2,4 @@ node_modules/
 .DS_Store
 .claude/
 _*.claude.md
+e2e/shots/
