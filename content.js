@@ -1978,6 +1978,14 @@ Pick the model and toggle **Keep warm** in **Settings \u2192 Local Model**. It's
 local \u2014 nothing is sent anywhere. Without the CLI installed, the bar simply
 doesn't appear and everything else works normally.
 
+## Tabs
+
+The strip above the toolbar is your working set of folders, the same in every
+explorer window. The folder you are in shows as an italic tab until you keep
+it: press **t** or double-click it. **w** closes the current tab, **[** and
+**]** move between tabs, **1** to **9** jump. Drag to reorder, \u2715 to close.
+Saved (below) is the long-term list; tabs are what is open right now.
+
 ## Sidebar
 
 - **Saved** \u2014 one list of your folders. The \u2605 in the path bar saves or
@@ -2020,6 +2028,10 @@ against filenames \u2192 a colored label badge).
 | \u2318A | Select all |
 | \u2318C | Copy selected path(s) |
 | Esc | Close preview / clear filter |
+| t \xB7 w | Keep this folder as a tab \xB7 close the current tab |
+| [ \xB7 ] \xB7 1-9 | Previous / next tab \xB7 jump to a tab |
+| n | New note (when a Notes folder is set) |
+| r | Raw / rendered, on a file page |
 `;
 
   // src/styles.ts
@@ -2392,6 +2404,19 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
+#fe-tabs{display:flex;align-items:stretch;gap:2px;padding:6px 10px 0;background:var(--s1);border-bottom:1px solid var(--bd);
+  overflow-x:auto;flex-shrink:0;min-height:34px}
+#fe-tabs.empty{padding-top:4px}
+.fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;font-size:12px;color:var(--mt);text-decoration:none;
+  border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;white-space:nowrap;max-width:200px;position:relative;top:1px}
+.fe-tab:hover{background:var(--hover);color:var(--tx)}
+.fe-tab.on{background:var(--s2);color:var(--tx);border-color:var(--bd)}
+.fe-tab.temp .fe-tab-lbl{font-style:italic;color:var(--mt)}
+.fe-tab.drag-over{border-left:2px solid var(--ac)}
+.fe-tab-lbl{overflow:hidden;text-overflow:ellipsis}
+.fe-tab-x{background:none;border:none;color:var(--dm);cursor:pointer;font-size:10px;padding:1px 4px;border-radius:3px;opacity:0;line-height:1}
+.fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x{opacity:1}
+.fe-tab-x:hover{background:var(--s3);color:#f85149}
 #fe.fe-file-page #fe-body{display:flex;flex:1;min-height:0}
 #fe-toc{width:220px;flex-shrink:0;overflow-y:auto;background:var(--s1);border-right:1px solid var(--bd);padding:10px 0;font-size:12px}
 #fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2928,6 +2953,51 @@ td.c-tp{color:var(--dm);font-size:11px}
     }, RELOAD_MS);
   }
 
+  // src/tabs.ts
+  var EMPTY = { list: [], active: null };
+  function labelFor(path) {
+    return path.split("/").filter(Boolean).pop() || "/";
+  }
+  var newId = () => Math.random().toString(36).slice(2, 10);
+  function openTab(s, path) {
+    const found = s.list.find((t) => t.path === path);
+    if (found) return { ...s, active: found.id };
+    const tab = { id: newId(), path, label: labelFor(path) };
+    const i = s.list.findIndex((t) => t.id === s.active);
+    const list = [...s.list];
+    list.splice(i < 0 ? list.length : i + 1, 0, tab);
+    return { list, active: tab.id };
+  }
+  function closeTab(s, id) {
+    const i = s.list.findIndex((t) => t.id === id);
+    if (i < 0) return s;
+    const list = s.list.filter((t) => t.id !== id);
+    let active = s.active;
+    if (active === id) active = list[Math.min(i, list.length - 1)]?.id ?? null;
+    return { list, active };
+  }
+  function activate(s, id) {
+    return s.list.some((t) => t.id === id) ? { ...s, active: id } : s;
+  }
+  function step(s, dir) {
+    if (!s.list.length) return null;
+    const i = s.list.findIndex((t) => t.id === s.active);
+    const j = i < 0 ? dir > 0 ? 0 : s.list.length - 1 : (i + dir + s.list.length) % s.list.length;
+    return s.list[j];
+  }
+  function moveTab(s, id, toId) {
+    const from = s.list.findIndex((t2) => t2.id === id), to = s.list.findIndex((t2) => t2.id === toId);
+    if (from < 0 || to < 0 || from === to) return s;
+    const list = [...s.list];
+    const [t] = list.splice(from, 1);
+    list.splice(to, 0, t);
+    return { ...s, list };
+  }
+  function isTabState(v) {
+    const s = v;
+    return !!s && Array.isArray(s.list) && s.list.every((t) => t && typeof t.id === "string" && typeof t.path === "string") && (s.active === null || typeof s.active === "string");
+  }
+
   // src/main.ts
   (function() {
     const preload = document.getElementById("bfb-preload");
@@ -3108,6 +3178,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     </nav>
 
     <div id="fe-main">
+      <div id="fe-tabs" title="Open folders (t opens this one, w closes, [ ] switch, 1-9 jump)"></div>
       <div id="fe-toolbar">
         <span id="fe-count">${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}</span>
         <div id="fe-tb-right">
@@ -3777,10 +3848,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       if (!paths.length) return;
       copyToClipboard(paths.join("\n")).then(() => toast(`Copied ${paths.length} path${paths.length !== 1 ? "s" : ""}`));
     }
-    function moveSel(step) {
+    function moveSel(step2) {
       let i = selIdx;
       for (let n = 0; n < VISIBLE.length; n++) {
-        i += step;
+        i += step2;
         if (i < 0 || i >= VISIBLE.length) return;
         if (entryShown(VISIBLE[i])) {
           setSel(i);
@@ -3795,10 +3866,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       } else if (en.isDir || en.isParent) toast("Folders have no preview \u2014 press Enter to open");
       else toast("No preview for this file type");
     }
-    function previewStep(step) {
+    function previewStep(step2) {
       let i = selIdx;
       for (let n = 0; n < VISIBLE.length; n++) {
-        i += step;
+        i += step2;
         if (i < 0 || i >= VISIBLE.length) return;
         const en = VISIBLE[i];
         if (entryShown(en) && canPreview(en)) {
@@ -3872,6 +3943,25 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       } else if (e.key === "n" && !e.metaKey && !e.ctrlKey && settings.notesRoot) {
         e.preventDefault();
         newNote();
+      } else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key === "t") {
+          e.preventDefault();
+          void writeTabs(openTab(tabs, rawPath));
+        } else if (e.key === "w") {
+          e.preventDefault();
+          closeCurrentTab();
+        } else if (e.key === "]" || e.key === "[") {
+          e.preventDefault();
+          const here = tabs.list.find((t2) => t2.path === rawPath);
+          const t = step({ ...tabs, active: here?.id ?? null }, e.key === "]" ? 1 : -1);
+          if (t) goTab(t.id);
+        } else if (/^[1-9]$/.test(e.key)) {
+          const t = tabs.list[parseInt(e.key) - 1];
+          if (t) {
+            e.preventDefault();
+            goTab(t.id);
+          }
+        }
       }
     });
     const ctxMenu = document.createElement("div");
@@ -4348,6 +4438,110 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     }
     document.getElementById("fe-nt-add").addEventListener("click", newNote);
     refreshNotes();
+    const TABS_KEY = "bfb-tabs-v1";
+    const tabsEl = document.getElementById("fe-tabs");
+    let tabs = EMPTY;
+    let tabDrag = null;
+    const storageArea = () => typeof chrome !== "undefined" && chrome.storage?.local || null;
+    function readTabs() {
+      return new Promise((resolve) => {
+        const area = storageArea();
+        if (!area) return resolve(EMPTY);
+        try {
+          area.get(TABS_KEY, (r) => resolve(isTabState(r?.[TABS_KEY]) ? r[TABS_KEY] : EMPTY));
+        } catch {
+          resolve(EMPTY);
+        }
+      });
+    }
+    function writeTabs(next) {
+      tabs = next;
+      renderTabs();
+      return new Promise((resolve) => {
+        const area = storageArea();
+        if (!area) return resolve();
+        try {
+          area.set({ [TABS_KEY]: next }, () => resolve());
+        } catch {
+          resolve();
+        }
+      });
+    }
+    function goTab(id) {
+      const t = tabs.list.find((x) => x.id === id);
+      if (!t) return;
+      void writeTabs(activate(tabs, id)).then(() => {
+        if (t.path !== rawPath) location.href = "file://" + t.path;
+      });
+    }
+    function closeCurrentTab() {
+      const cur = tabs.list.find((t) => t.path === rawPath);
+      if (!cur) return;
+      const next = closeTab(tabs, cur.id);
+      void writeTabs(next).then(() => {
+        const to = next.list.find((t) => t.id === next.active);
+        if (to && to.path !== rawPath) location.href = "file://" + to.path;
+      });
+    }
+    function renderTabs() {
+      const here = tabs.list.find((t) => t.path === rawPath);
+      const rows = tabs.list.map((t, i) => `
+      <a class="fe-tab${t.id === here?.id ? " on" : ""}" draggable="true" data-id="${esc(t.id)}" href="file://${esc(t.path)}" title="${esc(t.path)}${i < 9 ? ` (${i + 1})` : ""}">
+        <span class="fe-tab-lbl">${esc(t.label)}</span><button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">\u2715</button>
+      </a>`);
+      if (!here) rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet: press t or double-click"><span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
+      tabsEl.innerHTML = rows.join("");
+      tabsEl.classList.toggle("empty", tabs.list.length === 0);
+      tabsEl.querySelectorAll(".fe-tab").forEach((el) => {
+        el.addEventListener("click", (e) => {
+          if (e.target.closest(".fe-tab-x")) return;
+          e.preventDefault();
+          if (el.dataset.id) goTab(el.dataset.id);
+        });
+        el.addEventListener("dblclick", (e) => {
+          e.preventDefault();
+          if (!el.dataset.id) void writeTabs(openTab(tabs, rawPath));
+        });
+        el.addEventListener("dragstart", () => {
+          tabDrag = el.dataset.id || null;
+        });
+        el.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          el.classList.add("drag-over");
+        });
+        el.addEventListener("dragleave", () => el.classList.remove("drag-over"));
+        el.addEventListener("drop", (e) => {
+          e.preventDefault();
+          el.classList.remove("drag-over");
+          if (tabDrag && el.dataset.id && tabDrag !== el.dataset.id) void writeTabs(moveTab(tabs, tabDrag, el.dataset.id));
+          tabDrag = null;
+        });
+      });
+      tabsEl.querySelectorAll(".fe-tab-x").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const id = btn.dataset.id;
+          if (tabs.list.find((t) => t.id === id)?.path === rawPath) closeCurrentTab();
+          else void writeTabs(closeTab(tabs, id));
+        });
+      });
+    }
+    readTabs().then((s) => {
+      const here = s.list.find((t) => t.path === rawPath);
+      void writeTabs(here ? activate(s, here.id) : s);
+    });
+    try {
+      chrome.storage?.onChanged?.addListener((changes, area) => {
+        if (area !== "local" || !changes[TABS_KEY]) return;
+        const v = changes[TABS_KEY].newValue;
+        if (isTabState(v)) {
+          tabs = v;
+          renderTabs();
+        }
+      });
+    } catch {
+    }
     if (sortConfig.col || groupConfig !== "none") applyAll();
   })();
 })();

@@ -252,6 +252,40 @@ try {
   await fpage.close();
   await page.bringToFront();
 
+  // Tabs: t keeps this folder, a second window sees it, ] and w navigate.
+  const tabLabels = p => p.$$eval('#fe-tabs .fe-tab', els => els.map(e => (e.classList.contains('temp') ? '~' : '') + e.querySelector('.fe-tab-lbl').textContent));
+  await page.bringToFront();
+  await page.keyboard.press('Escape');
+  let tabsA = await tabLabels(page);
+  check(tabsA.length === 1 && tabsA[0].startsWith('~'), `fresh strip shows a temporary tab: ${JSON.stringify(tabsA)}`);
+  await page.keyboard.press('t');
+  await page.waitForFunction(() => document.querySelector('#fe-tabs .fe-tab.on:not(.temp)'), { timeout: 3_000 }).catch(() => null);
+  tabsA = await tabLabels(page);
+  check(tabsA.length === 1 && !tabsA[0].startsWith('~'), `t keeps the folder: ${JSON.stringify(tabsA)}`);
+
+  const pageB = await h.open(h.fixture + '/nested');
+  let tabsB = await tabLabels(pageB);
+  check(tabsB.length === 2 && tabsB[1] === '~nested', `second window shows the shared tab plus its own temporary one: ${JSON.stringify(tabsB)}`);
+  await pageB.bringToFront();
+  await pageB.keyboard.press('t');
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 2, { timeout: 5_000 }).catch(() => null);
+  tabsA = await tabLabels(page);
+  check(tabsA.length === 2 && tabsA[1] === 'nested', `first window picked up the new tab through storage.onChanged: ${JSON.stringify(tabsA)}`);
+  await shot(pageB, 'tabs');
+  await pageB.close();
+
+  await page.bringToFront();
+  await page.keyboard.press(']');
+  await page.waitForFunction(() => location.pathname.endsWith('/nested/'), { timeout: 5_000 }).catch(() => null);
+  await page.waitForSelector('#fe');
+  check(page.url().endsWith('/nested/'), `] navigates to the next tab: ${page.url()}`);
+  await page.waitForFunction(() => document.querySelector('#fe-tabs .fe-tab.on'), { timeout: 3_000 }).catch(() => null);
+  await page.keyboard.press('w');
+  await page.waitForFunction(() => !location.pathname.endsWith('/nested/'), { timeout: 5_000 }).catch(() => null);
+  await page.waitForSelector('#fe');
+  tabsA = await tabLabels(page);
+  check(!page.url().endsWith('/nested/') && tabsA.length === 1, `w closes the tab and returns to the remaining one: ${JSON.stringify(tabsA)}`);
+
   // Deep search: the crawl adds subfolder entries with relative names.
   await page.click('#fe-deep-btn');
   await page.waitForFunction(() => /items in \d+ folders/.test(document.getElementById('fe-count').textContent), { timeout: 10_000 }).catch(() => null);

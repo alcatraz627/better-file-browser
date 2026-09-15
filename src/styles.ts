@@ -368,6 +368,19 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
+#fe-tabs{display:flex;align-items:stretch;gap:2px;padding:6px 10px 0;background:var(--s1);border-bottom:1px solid var(--bd);
+  overflow-x:auto;flex-shrink:0;min-height:34px}
+#fe-tabs.empty{padding-top:4px}
+.fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;font-size:12px;color:var(--mt);text-decoration:none;
+  border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;white-space:nowrap;max-width:200px;position:relative;top:1px}
+.fe-tab:hover{background:var(--hover);color:var(--tx)}
+.fe-tab.on{background:var(--s2);color:var(--tx);border-color:var(--bd)}
+.fe-tab.temp .fe-tab-lbl{font-style:italic;color:var(--mt)}
+.fe-tab.drag-over{border-left:2px solid var(--ac)}
+.fe-tab-lbl{overflow:hidden;text-overflow:ellipsis}
+.fe-tab-x{background:none;border:none;color:var(--dm);cursor:pointer;font-size:10px;padding:1px 4px;border-radius:3px;opacity:0;line-height:1}
+.fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x{opacity:1}
+.fe-tab-x:hover{background:var(--s3);color:#f85149}
 #fe.fe-file-page #fe-body{display:flex;flex:1;min-height:0}
 #fe-toc{width:220px;flex-shrink:0;overflow-y:auto;background:var(--s1);border-right:1px solid var(--bd);padding:10px 0;font-size:12px}
 #fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -77,6 +77,14 @@ Pick the model and toggle **Keep warm** in **Settings → Local Model**. It's fu
 local — nothing is sent anywhere. Without the CLI installed, the bar simply
 doesn't appear and everything else works normally.
 
+## Tabs
+
+The strip above the toolbar is your working set of folders, the same in every
+explorer window. The folder you are in shows as an italic tab until you keep
+it: press **t** or double-click it. **w** closes the current tab, **[** and
+**]** move between tabs, **1** to **9** jump. Drag to reorder, ✕ to close.
+Saved (below) is the long-term list; tabs are what is open right now.
+
 ## Sidebar
 
 - **Saved** — one list of your folders. The ★ in the path bar saves or
@@ -119,4 +127,8 @@ against filenames → a colored label badge).
 | ⌘A | Select all |
 | ⌘C | Copy selected path(s) |
 | Esc | Close preview / clear filter |
+| t · w | Keep this folder as a tab · close the current tab |
+| [ · ] · 1-9 | Previous / next tab · jump to a tab |
+| n | New note (when a Notes folder is set) |
+| r | Raw / rendered, on a file page |
 `;

@@ -27,6 +27,7 @@ import { applyFilter, applySort, buildGroups } from './sort-filter';
 import { crawl } from './deep-search';
 import { notes, noteTitle, newNoteText, slugForTitle, type NotesError } from './notes';
 import { filePageExt, mountFilePage } from './file-page';
+import { EMPTY, openTab, closeTab, activate, step, moveTab, labelFor, isTabState, type TabState } from './tabs';
 import {
   renderRows, renderTiles, renderSavedList, renderCrumbs,
   renderRow, renderTile, type RenderContext,
@@ -239,6 +240,7 @@ import { getIcon } from './icons';
     </nav>
 
     <div id="fe-main">
+      <div id="fe-tabs" title="Open folders (t opens this one, w closes, [ ] switch, 1-9 jump)"></div>
       <div id="fe-toolbar">
         <span id="fe-count">${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}</span>
         <div id="fe-tb-right">
@@ -991,6 +993,19 @@ import { getIcon } from './icons';
     else if (e.key === 'Backspace') { e.preventDefault(); goUp(); }
     else if (e.key === ' ' && selIdx >= 0) { e.preventDefault(); tryPreview(VISIBLE[selIdx]); }
     else if (e.key === 'n' && !e.metaKey && !e.ctrlKey && settings.notesRoot) { e.preventDefault(); newNote(); }
+    else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (e.key === 't') { e.preventDefault(); void writeTabs(openTab(tabs, rawPath)); }
+      else if (e.key === 'w') { e.preventDefault(); closeCurrentTab(); }
+      else if (e.key === ']' || e.key === '[') {
+        // Step from THIS window's folder: the shared record's active id is
+        // whichever window last switched, not necessarily this one.
+        e.preventDefault();
+        const here = tabs.list.find(t => t.path === rawPath);
+        const t = step({ ...tabs, active: here?.id ?? null }, e.key === ']' ? 1 : -1);
+        if (t) goTab(t.id);
+      }
+      else if (/^[1-9]$/.test(e.key)) { const t = tabs.list[parseInt(e.key) - 1]; if (t) { e.preventDefault(); goTab(t.id); } }
+    }
   });
 
   // ── Context menu ──────────────────────────────────────────────────
@@ -1442,6 +1457,91 @@ import { getIcon } from './icons';
   }
   document.getElementById('fe-nt-add')!.addEventListener('click', newNote);
   refreshNotes();
+
+  // Tab strip: the working set, shared by every window through
+  // chrome.storage.local. A folder shown with no tab appears as a temporary
+  // tab; t or a double-click keeps it. Navigation is real.
+  const TABS_KEY = 'bfb-tabs-v1';
+  const tabsEl = document.getElementById('fe-tabs')!;
+  let tabs: TabState = EMPTY;
+  let tabDrag: string | null = null;
+  const storageArea = () => (typeof chrome !== 'undefined' && chrome.storage?.local) || null;
+  function readTabs(): Promise<TabState> {
+    return new Promise(resolve => {
+      const area = storageArea();
+      if (!area) return resolve(EMPTY);
+      try { area.get(TABS_KEY, r => resolve(isTabState(r?.[TABS_KEY]) ? r[TABS_KEY] : EMPTY)); }
+      catch { resolve(EMPTY); }
+    });
+  }
+  function writeTabs(next: TabState): Promise<void> {
+    tabs = next;
+    renderTabs();
+    return new Promise(resolve => {
+      const area = storageArea();
+      if (!area) return resolve();
+      try { area.set({ [TABS_KEY]: next }, () => resolve()); } catch { resolve(); }
+    });
+  }
+  function goTab(id: string): void {
+    const t = tabs.list.find(x => x.id === id);
+    if (!t) return;
+    void writeTabs(activate(tabs, id)).then(() => { if (t.path !== rawPath) location.href = 'file://' + t.path; });
+  }
+  function closeCurrentTab(): void {
+    const cur = tabs.list.find(t => t.path === rawPath);
+    if (!cur) return;
+    const next = closeTab(tabs, cur.id);
+    void writeTabs(next).then(() => {
+      const to = next.list.find(t => t.id === next.active);
+      if (to && to.path !== rawPath) location.href = 'file://' + to.path;
+    });
+  }
+  function renderTabs(): void {
+    const here = tabs.list.find(t => t.path === rawPath);
+    const rows = tabs.list.map((t, i) => `
+      <a class="fe-tab${t.id === here?.id ? ' on' : ''}" draggable="true" data-id="${esc(t.id)}" href="file://${esc(t.path)}" title="${esc(t.path)}${i < 9 ? ` (${i + 1})` : ''}">
+        <span class="fe-tab-lbl">${esc(t.label)}</span><button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">✕</button>
+      </a>`);
+    if (!here) rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet: press t or double-click"><span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
+    tabsEl.innerHTML = rows.join('');
+    tabsEl.classList.toggle('empty', tabs.list.length === 0);
+    tabsEl.querySelectorAll<HTMLElement>('.fe-tab').forEach(el => {
+      el.addEventListener('click', e => {
+        if ((e.target as HTMLElement).closest('.fe-tab-x')) return;
+        e.preventDefault();
+        if (el.dataset.id) goTab(el.dataset.id);
+      });
+      el.addEventListener('dblclick', e => { e.preventDefault(); if (!el.dataset.id) void writeTabs(openTab(tabs, rawPath)); });
+      el.addEventListener('dragstart', () => { tabDrag = el.dataset.id || null; });
+      el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag-over'); });
+      el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+      el.addEventListener('drop', e => {
+        e.preventDefault(); el.classList.remove('drag-over');
+        if (tabDrag && el.dataset.id && tabDrag !== el.dataset.id) void writeTabs(moveTab(tabs, tabDrag, el.dataset.id));
+        tabDrag = null;
+      });
+    });
+    tabsEl.querySelectorAll<HTMLElement>('.fe-tab-x').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault(); e.stopPropagation();
+        const id = btn.dataset.id!;
+        if (tabs.list.find(t => t.id === id)?.path === rawPath) closeCurrentTab();
+        else void writeTabs(closeTab(tabs, id));
+      });
+    });
+  }
+  readTabs().then(s => {
+    const here = s.list.find(t => t.path === rawPath);
+    void writeTabs(here ? activate(s, here.id) : s);
+  });
+  try {
+    chrome.storage?.onChanged?.addListener((changes, area) => {
+      if (area !== 'local' || !changes[TABS_KEY]) return;
+      const v = changes[TABS_KEY].newValue;
+      if (isTabState(v)) { tabs = v; renderTabs(); }
+    });
+  } catch { /* storage events unavailable outside the extension */ }
 
   // The first render drew the listing raw; apply the persisted sort/group
   // last, once every handler applyAll touches (selection included) exists.
