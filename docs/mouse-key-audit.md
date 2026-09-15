@@ -98,11 +98,11 @@ is kept, and the page navigates there. Files and folders alike.
 | double-click on the label | rename (Saved) ✓ | rename |
 | ⌥-click | keep as a background strip tab ✓ | same ✓ |
 | middle-click, ⌘-click | Chrome tab | same, plain text |
-| hover, # | edit tags ✓ | same | none |
-| hover, ✕ | remove ✓ | same | move to .trash ✓ |
-| drag | reorder ✓ | same | none |
-| tag heading dot | cycle the colour ✓ | | |
-| filter box | narrows by label, path, tag; Esc clears ✓ | | |
+| hover, # | edit tags ✓ | none |
+| hover, ✕ | remove ✓ | move to .trash ✓ |
+| drag | reorder ✓ | none |
+| tag heading dot | cycle the colour ✓ | |
+| filter box | narrows by label, path, tag; Esc clears ✓ | |
 
 ## Path bar and toolbar
 
