@@ -1,7 +1,7 @@
 import type { Entry, IconRule, Place, Settings, Tag, TipData } from './types';
 import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath } from './utils';
 import { getIcon, IMG_EXTS, PI } from './icons';
-import { groupByTag } from './places';
+import { groupByTag, filterSaved } from './places';
 import { isViewPath } from './find';
 import { canPreview } from './preview';
 
@@ -87,8 +87,10 @@ export function renderTiles(entries: Entry[], ctx: RenderContext, start = 0): st
 
 // Saved folders, untagged first, then one sub-heading per tag. Each row has
 // a drag grip, the label (double-click renames), a tag button and a remove.
-export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string): string {
+export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, filter = ''): string {
   if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click ☆ in the path bar, or + to name this folder.</div>`;
+  saved = filterSaved(saved, filter);
+  if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
   const color = (name: string) => tags.find(t => t.name === name)?.color ?? '#8b949e';
   const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
   const row = (p: Place) => `

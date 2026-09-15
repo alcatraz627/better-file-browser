@@ -330,6 +330,11 @@
       return { ...t, color: TAG_COLORS[(i + 1) % TAG_COLORS.length] };
     });
   }
+  function filterSaved(list, text) {
+    const q = text.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((p) => p.label.toLowerCase().includes(q) || p.path.toLowerCase().includes(q) || (p.tags ?? []).some((t) => t.includes(q)));
+  }
   function groupByTag(list, tags) {
     const groups = [{ tag: null, items: list.filter((p) => !p.tags?.length) }];
     for (const tag of tags) {
@@ -2323,6 +2328,10 @@ body{opacity:1!important}
 #fe-sv-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
   width:18px;height:18px;line-height:1;font-size:13px;padding:0;display:flex;align-items:center;justify-content:center}
 #fe-sv-add:hover{border-color:var(--ac);color:var(--ac)}
+#fe-sv-filter{display:block;width:calc(100% - 20px);margin:0 10px 4px;box-sizing:border-box;background:var(--s1);border:1px solid var(--bd);color:var(--tx);
+  padding:3px 8px;border-radius:var(--r);font-size:11px;outline:none;transition:border-color .15s}
+#fe-sv-filter:focus{border-color:var(--ac)}
+#fe-sv-filter::placeholder{color:var(--dm)}
 .fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
 .fe-sv-tag{display:flex;align-items:center;gap:7px;padding:8px 14px 3px;font-size:10.5px;font-weight:600;
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm)}
@@ -3067,8 +3076,10 @@ td.c-tp{color:var(--dm);font-size:11px}
   function renderTiles(entries, ctx, start = 0) {
     return entries.map((e, i) => renderTile(e, ctx, start + i)).join("");
   }
-  function renderSavedList(saved, tags, rawPath) {
+  function renderSavedList(saved, tags, rawPath, filter = "") {
     if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click \u2606 in the path bar, or + to name this folder.</div>`;
+    saved = filterSaved(saved, filter);
+    if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
     const color = (name) => tags.find((t) => t.name === name)?.color ?? "#8b949e";
     const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
     const row = (p) => `
@@ -3770,6 +3781,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       <div class="fe-sec">
         <div class="fe-sh" style="justify-content:space-between">Saved
           <button id="fe-sv-add" title="Save this folder and name it">+</button></div>
+        <input id="fe-sv-filter" type="text" placeholder="Filter saved\u2026" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
       </div>
       <div class="fe-sec" id="fe-notes-sec" style="display:none">
@@ -4981,11 +4993,21 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       btn.title = on ? "Remove this folder from Saved" : "Save this folder (sidebar)";
       document.getElementById("fe-bm-path").setAttribute("fill", on ? "currentColor" : "none");
     }
+    const svFilter = document.getElementById("fe-sv-filter");
     function refreshSaved() {
-      svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath);
+      svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath, svFilter.value);
       attachSavedEvents();
       syncStar();
     }
+    svFilter.addEventListener("input", refreshSaved);
+    svFilter.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        svFilter.value = "";
+        refreshSaved();
+        svFilter.blur();
+      }
+    });
     function inlineEdit(el, onSave) {
       const orig = el.textContent || "";
       el.contentEditable = "true";

@@ -186,6 +186,19 @@ try {
   await page.click('#fe-sv-list .fe-sv-dot');
   const c2 = await page.$eval('#fe-sv-list .fe-sv-dot', el => el.style.background);
   check(c1 && c2 && c1 !== c2, `tag colour cycles ${c1} → ${c2}`);
+
+  // The filter box narrows the list to matches; a tag name leaves only its group.
+  await page.click('#fe-sv-filter');
+  await page.type('#fe-sv-filter', 'work');
+  const narrowed = await page.evaluate(() => ({
+    labels: [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].map(e => e.textContent),
+    heads: [...document.querySelectorAll('#fe-sv-list .fe-sv-tag')].map(h => h.textContent.trim()),
+  }));
+  check(narrowed.labels.join() === 'Nested (named)' && narrowed.heads.join() === 'work', `typing a tag name shows only that group: ${JSON.stringify(narrowed)}`);
+  await shot(page, 'saved-filtered');
+  await page.keyboard.press('Escape');
+  const widened = await savedLabels();
+  check(widened.length === 3 && await page.$eval('#fe-sv-filter', el => el.value) === '', `Escape clears the box and the full list returns: ${JSON.stringify(widened)}`);
   await shot(page, 'saved-sidebar');
 
   await page.reload({ waitUntil: 'load' });

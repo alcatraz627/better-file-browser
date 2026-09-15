@@ -67,6 +67,14 @@ export function cycleTagColor(tags: Tag[], name: string): Tag[] {
   });
 }
 
+// The Saved filter box: typed text matches label, path or any tag, case
+// blind. Empty text keeps the whole list.
+export function filterSaved(list: Place[], text: string): Place[] {
+  const q = text.trim().toLowerCase();
+  if (!q) return list;
+  return list.filter(p => p.label.toLowerCase().includes(q) || p.path.toLowerCase().includes(q) || (p.tags ?? []).some(t => t.includes(q)));
+}
+
 export interface SavedGroup { tag: Tag | null; items: Place[] }
 
 // Untagged places first, then one group per tag in registry order. A place

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   upsertPlace, removePlace, renamePlace, movePlace, togglePlace,
-  parseTags, setTags, reconcileTags, cycleTagColor, groupByTag, mergeLegacy, TAG_COLORS,
+  parseTags, setTags, reconcileTags, cycleTagColor, groupByTag, filterSaved, mergeLegacy, TAG_COLORS,
 } from '../src/places';
 import type { Place } from '../src/types';
 
@@ -73,6 +73,14 @@ describe('tags', () => {
   it('cycles a tag colour through the palette', () => {
     const tags = [{ name: 'a', color: TAG_COLORS[TAG_COLORS.length - 1] }];
     expect(cycleTagColor(tags, 'a')[0].color).toBe(TAG_COLORS[0]);
+  });
+  it('filters by label, path or tag text, case blind; empty text keeps all', () => {
+    const list = [P('/Users/me/Code', 'Code'), P('/tmp/w', 'Work stuff', ['work']), P('/h', 'h', ['home'])];
+    expect(filterSaved(list, '').length).toBe(3);
+    expect(filterSaved(list, 'WORK').map(p => p.path)).toEqual(['/tmp/w']);
+    expect(filterSaved(list, 'users').map(p => p.path)).toEqual(['/Users/me/Code']);
+    expect(filterSaved(list, 'hom').map(p => p.path)).toEqual(['/h']);
+    expect(filterSaved(list, 'zzz')).toEqual([]);
   });
   it('groups untagged first, then by first tag in registry order', () => {
     const list = [P('/u'), P('/w', 'w', ['work']), P('/h', 'h', ['home', 'work'])];

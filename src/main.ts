@@ -232,6 +232,7 @@ import { getIcon } from './icons';
       <div class="fe-sec">
         <div class="fe-sh" style="justify-content:space-between">Saved
           <button id="fe-sv-add" title="Save this folder and name it">+</button></div>
+        <input id="fe-sv-filter" type="text" placeholder="Filter saved…" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
       </div>
       <div class="fe-sec" id="fe-notes-sec" style="display:none">
@@ -1385,11 +1386,16 @@ import { getIcon } from './icons';
     btn.title = on ? 'Remove this folder from Saved' : 'Save this folder (sidebar)';
     document.getElementById('fe-bm-path')!.setAttribute('fill', on ? 'currentColor' : 'none');
   }
+  const svFilter = document.getElementById('fe-sv-filter') as HTMLInputElement;
   function refreshSaved(): void {
-    svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath);
+    svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath, svFilter.value);
     attachSavedEvents();
     syncStar();
   }
+  svFilter.addEventListener('input', refreshSaved);
+  svFilter.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); svFilter.value = ''; refreshSaved(); svFilter.blur(); }
+  });
   // Inline edit of a label or a tag list: contentEditable on the span,
   // Enter saves, Esc restores, blur saves.
   function inlineEdit(el: HTMLElement, onSave: (val: string) => void): void {
