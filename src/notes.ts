@@ -42,6 +42,8 @@ export const notes = {
             call({ op: 'write', root, rel, text, expectMtime }) as Promise<{ rel: string; mtime: number }>,
   create: (root: string, rel: string, text = '') => call({ op: 'create', root, rel, text }) as Promise<{ rel: string; mtime: number }>,
   rename: (root: string, rel: string, to: string) => call({ op: 'rename', root, rel, to }),
+  writeBinary: (root: string, rel: string, base64: string) =>
+            call({ op: 'writeBinary', root, rel, base64 }) as Promise<{ rel: string; mtime: number }>,
   delete: (root: string, rel: string) => call({ op: 'delete', root, rel }),
 };
 

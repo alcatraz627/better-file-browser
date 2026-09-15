@@ -1154,6 +1154,7 @@
     write: (root, rel, text, expectMtime) => call({ op: "write", root, rel, text, expectMtime }),
     create: (root, rel, text = "") => call({ op: "create", root, rel, text }),
     rename: (root, rel, to) => call({ op: "rename", root, rel, to }),
+    writeBinary: (root, rel, base64) => call({ op: "writeBinary", root, rel, base64 }),
     delete: (root, rel) => call({ op: "delete", root, rel })
   };
   function slugForTitle(title) {
@@ -1205,6 +1206,92 @@ ${fm}
     el.setSelectionRange(at, at);
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.focus();
+  }
+  function lineSpan(text, sel) {
+    const from = text.lastIndexOf("\n", sel.start - 1) + 1;
+    let to = text.indexOf("\n", Math.max(sel.end - (sel.end > sel.start && text[sel.end - 1] === "\n" ? 1 : 0), sel.start));
+    if (to < 0) to = text.length;
+    return { from, to };
+  }
+  function moveLines(text, sel, dir) {
+    const { from, to } = lineSpan(text, sel);
+    const block = text.slice(from, to);
+    if (dir < 0) {
+      if (from === 0) return { text, ...sel };
+      const prevFrom = text.lastIndexOf("\n", from - 2) + 1;
+      const prev = text.slice(prevFrom, from - 1);
+      const out2 = text.slice(0, prevFrom) + block + "\n" + prev + text.slice(to);
+      const shift2 = -(prev.length + 1);
+      return { text: out2, start: sel.start + shift2, end: sel.end + shift2 };
+    }
+    if (to >= text.length) return { text, ...sel };
+    let nextTo = text.indexOf("\n", to + 1);
+    if (nextTo < 0) nextTo = text.length;
+    const next = text.slice(to + 1, nextTo);
+    const out = text.slice(0, from) + next + "\n" + block + text.slice(nextTo);
+    const shift = next.length + 1;
+    return { text: out, start: sel.start + shift, end: sel.end + shift };
+  }
+  function duplicateLines(text, sel) {
+    const { from, to } = lineSpan(text, sel);
+    const block = text.slice(from, to);
+    const out = text.slice(0, to) + "\n" + block + text.slice(to);
+    const shift = block.length + 1;
+    return { text: out, start: sel.start + shift, end: sel.end + shift };
+  }
+  function indentLines(text, sel, outdent, unit = "  ") {
+    const { from, to } = lineSpan(text, sel);
+    const lines = text.slice(from, to).split("\n");
+    let firstDelta = 0, total = 0;
+    const changed = lines.map((l, i) => {
+      let d;
+      if (outdent) {
+        const n = l.startsWith(unit) ? unit.length : l.startsWith(" ") ? 1 : 0;
+        d = -n;
+        l = l.slice(n);
+      } else {
+        l = unit + l;
+        d = unit.length;
+      }
+      if (i === 0) firstDelta = d;
+      total += d;
+      return l;
+    });
+    const out = text.slice(0, from) + changed.join("\n") + text.slice(to);
+    return { text: out, start: Math.max(from, sel.start + firstDelta), end: Math.max(from, sel.end + total) };
+  }
+  function continueList(text, sel) {
+    const from = text.lastIndexOf("\n", sel.start - 1) + 1;
+    const line = text.slice(from, sel.start);
+    const m = line.match(/^(\s*)([-*+]|\d+[.)])\s(\[[ xX]\]\s)?(.*)$/);
+    if (!m) return null;
+    const [, ind, marker, box, rest] = m;
+    if (!rest.trim() && !box) {
+      const out2 = text.slice(0, from) + text.slice(sel.end);
+      return { text: out2, start: from, end: from };
+    }
+    if (!rest.trim() && box) {
+      const out2 = text.slice(0, from) + text.slice(sel.end);
+      return { text: out2, start: from, end: from };
+    }
+    const nextMarker = /^\d+/.test(marker) ? String(parseInt(marker) + 1) + marker.slice(-1) : marker;
+    const ins = "\n" + ind + nextMarker + " " + (box ? "[ ] " : "");
+    const out = text.slice(0, sel.start) + ins + text.slice(sel.end);
+    return { text: out, start: sel.start + ins.length, end: sel.start + ins.length };
+  }
+  function wrapSelection(text, sel, left, right = left) {
+    const inner = text.slice(sel.start, sel.end);
+    const out = text.slice(0, sel.start) + left + inner + right + text.slice(sel.end);
+    return { text: out, start: sel.start + left.length, end: sel.end + left.length };
+  }
+  function tableSnippet(cols = 2, rows = 2) {
+    const head = "| " + Array.from({ length: cols }, (_, i) => `Column ${i + 1}`).join(" | ") + " |";
+    const sep = "|" + Array.from({ length: cols }, () => " --- |").join("");
+    const body = Array.from({ length: rows }, () => "|" + Array.from({ length: cols }, () => "   |").join("")).join("\n");
+    return `${head}
+${sep}
+${body}
+`;
   }
   function attachBuffer(el, id) {
     let h = bufHist.get(id) ?? { past: [], future: [], timer: null };
@@ -1584,6 +1671,7 @@ ${fm}
       edit = null;
     }
     overlay.style.display = "none";
+    document.getElementById("fe-ql-body").classList.remove("fe-editing");
     currentEntry = null;
     currentText = null;
     dsvHeader = [];
@@ -1681,11 +1769,91 @@ ${fm}
     copyBtn.disabled = false;
     overlay.style.display = "flex";
     const body = document.getElementById("fe-ql-body");
-    body.innerHTML = `<div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
+    body.classList.add("fe-editing");
+    body.innerHTML = `
+    <div id="fe-ed-bar">
+      <button class="fe-pbn" data-act="bold" title="Bold (\u2318B)"><b>B</b></button>
+      <button class="fe-pbn" data-act="italic" title="Italic (\u2318I)"><i>I</i></button>
+      <button class="fe-pbn" data-act="code" title="Code (\u2318E)">\u2039\u203A</button>
+      <button class="fe-pbn" data-act="list" title="Bullet list">\u2022 list</button>
+      <button class="fe-pbn" data-act="task" title="Task list">\u2610 task</button>
+      <button class="fe-pbn" data-act="table" title="Insert a table">table</button>
+      <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">image</button>
+      <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
+      <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
+    </div>
+    <div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
     const ta = document.getElementById("fe-ed-src");
     const view = document.getElementById("fe-ed-view");
     ta.value = doc.text;
-    attachBuffer(ta, `note:${root}/${doc.rel}`);
+    const buf = attachBuffer(ta, `note:${root}/${doc.rel}`);
+    const apply = (r) => {
+      buf.snap();
+      ta.value = r.text;
+      ta.setSelectionRange(r.start, r.end);
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      ta.focus();
+    };
+    const sel = () => ({ start: ta.selectionStart, end: ta.selectionEnd });
+    const prefixLines = (prefix) => {
+      const s = sel();
+      const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
+      let to = ta.value.indexOf("\n", s.end);
+      if (to < 0) to = ta.value.length;
+      const lines = ta.value.slice(from, to).split("\n").map((l) => prefix + l);
+      apply({ text: ta.value.slice(0, from) + lines.join("\n") + ta.value.slice(to), start: from, end: from + lines.join("\n").length });
+    };
+    const act = (name) => {
+      if (name === "bold") apply(wrapSelection(ta.value, sel(), "**"));
+      if (name === "italic") apply(wrapSelection(ta.value, sel(), "_"));
+      if (name === "code") apply(wrapSelection(ta.value, sel(), "`"));
+      if (name === "list") prefixLines("- ");
+      if (name === "task") prefixLines("- [ ] ");
+      if (name === "table") buf.insert((ta.value.slice(0, ta.selectionStart).endsWith("\n") || !ta.selectionStart ? "" : "\n") + tableSnippet());
+      if (name === "image") document.getElementById("fe-ed-file").click();
+    };
+    document.getElementById("fe-ed-bar").querySelectorAll("[data-act]").forEach((b) => b.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      act(b.dataset.act);
+    }));
+    const addImage = async (file) => {
+      const st = edit;
+      if (!st || st.root !== root) return;
+      const ext = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
+      const rel = `attachments/${slugForTitle(noteTitle(st.rel, st.text)).replace(/\.md$/, "")}-${Date.now().toString(36)}.${ext}`;
+      const b64 = await new Promise((res) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result).split(",")[1] || "");
+        r.readAsDataURL(file);
+      });
+      try {
+        await notes.writeBinary(root, rel, b64);
+        const depth = st.rel.split("/").length - 1;
+        buf.insert(`![${file.name.replace(/\.[^.]+$/, "")}](${"../".repeat(depth)}${rel})`);
+      } catch (err) {
+        editHeader(`image failed: ${err.message}`);
+      }
+    };
+    const imageFiles = (dt) => [...dt?.files ?? []].filter((f) => f.type.startsWith("image/"));
+    ta.addEventListener("paste", (e) => {
+      const fs = imageFiles(e.clipboardData);
+      if (fs.length) {
+        e.preventDefault();
+        fs.forEach((f) => void addImage(f));
+      }
+    });
+    ta.addEventListener("drop", (e) => {
+      const fs = imageFiles(e.dataTransfer);
+      if (fs.length) {
+        e.preventDefault();
+        fs.forEach((f) => void addImage(f));
+      }
+    });
+    ta.addEventListener("dragover", (e) => e.preventDefault());
+    document.getElementById("fe-ed-file").addEventListener("change", function() {
+      [...this.files ?? []].forEach((f) => void addImage(f));
+      this.value = "";
+    });
     const renderView = () => {
       view.innerHTML = renderMarkdown(stripFrontMatter(ta.value), nameEl.href);
     };
@@ -1703,27 +1871,43 @@ ${fm}
       edit.timer = setTimeout(() => void saveNote(), 1500);
     });
     ta.addEventListener("keydown", (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+      const mod = e.metaKey || e.ctrlKey;
+      const k = e.key.toLowerCase();
+      const stop = () => {
         e.preventDefault();
         e.stopPropagation();
+      };
+      if (mod && k === "s") {
+        stop();
         void saveNote();
       } else if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
+        stop();
         closePreview();
+      } else if (mod && !e.shiftKey && k === "b") {
+        stop();
+        act("bold");
+      } else if (mod && !e.shiftKey && k === "i") {
+        stop();
+        act("italic");
+      } else if (mod && !e.shiftKey && k === "e") {
+        stop();
+        act("code");
+      } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        stop();
+        apply(e.shiftKey ? duplicateLines(ta.value, sel()) : moveLines(ta.value, sel(), e.key === "ArrowDown" ? 1 : -1));
       } else if (e.key === "Tab") {
-        e.preventDefault();
-        attachBufferInsert(ta, "  ");
+        stop();
+        apply(indentLines(ta.value, sel(), e.shiftKey));
+      } else if (e.key === "Enter" && !mod && !e.shiftKey) {
+        const r = continueList(ta.value, sel());
+        if (r) {
+          stop();
+          apply(r);
+        }
       }
     });
     editHeader("saved");
     ta.focus();
-  }
-  function attachBufferInsert(ta, t) {
-    const a = ta.selectionStart, b = ta.selectionEnd;
-    ta.value = ta.value.slice(0, a) + t + ta.value.slice(b);
-    ta.setSelectionRange(a + t.length, a + t.length);
-    ta.dispatchEvent(new Event("input", { bubbles: true }));
   }
   async function saveNote() {
     const st = edit;
@@ -1785,6 +1969,7 @@ ${fm}
       if (edit.dirty) void saveNote();
       edit = null;
     }
+    document.getElementById("fe-ql-body").classList.remove("fe-editing");
     currentEntry = e;
     const seq = ++reqSeq;
     const ext = getExt(e);
@@ -2430,7 +2615,12 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-fp-raw:hover,#fe-fp-copy:hover{border-color:var(--ac);color:var(--ac)}
 #fe-fp-raw.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-fp-reload{font-size:11px;color:var(--dm)}
-.fe-ed{display:flex;height:100%;min-height:0}
+#fe-ed-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
+#fe-ed-bar .fe-pbn{padding:2px 7px;font-size:11px}
+.fe-ed-hint{margin-left:auto;font-size:10.5px;color:var(--dm);white-space:nowrap}
+#fe-ql-body.fe-editing{display:flex;flex-direction:column}
+.fe-ed{display:flex;flex:1;min-height:0}
+.fe-md img{max-width:100%;border-radius:6px}
 #fe-ed-src{flex:1;min-width:0;resize:none;border:none;border-right:1px solid var(--bd);background:var(--s1);color:var(--tx);
   font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px 16px;outline:none;tab-size:2}
 #fe-ed-view{flex:1;min-width:0;overflow:auto}

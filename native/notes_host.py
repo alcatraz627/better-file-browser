@@ -13,6 +13,7 @@ Ops (request -> reply):
   {op:"create", root, rel, text?}            -> {t:"written", rel, mtime}
   {op:"rename", root, rel, to}               -> {t:"renamed", rel, to}
   {op:"delete", root, rel}                   -> {t:"deleted", rel, trashed}
+  {op:"writeBinary", root, rel, base64}      -> {t:"written", rel, mtime}   (attachments, never overwrites)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it.
@@ -102,6 +103,24 @@ def op_create(root, rel, text):
         raise NotesError('notes_exists', f'already exists: {rel}')
     return op_write(root, rel, text)
 
+def op_write_binary(root, rel, b64):
+    import base64
+    full = resolve_rel(root, rel)
+    if os.path.exists(full):
+        raise NotesError('notes_exists', f'already exists: {rel}')
+    try:
+        data = base64.b64decode(b64 or '', validate=True)
+    except Exception:
+        raise NotesError('notes_bad_path', 'attachment payload is not base64')
+    if len(data) > 25 * 1024 * 1024:
+        raise NotesError('notes_io', 'attachment over 25 MB')
+    os.makedirs(os.path.dirname(full), exist_ok=True)
+    tmp = full + '.tmp-' + str(os.getpid())
+    with open(tmp, 'wb') as fh:
+        fh.write(data)
+    os.replace(tmp, full)
+    return {'t': 'written', 'rel': rel, 'mtime': mtime_ms(full)}
+
 def op_rename(root, rel, to):
     src = resolve_rel(root, rel)
     dst = resolve_rel(root, to)
@@ -134,6 +153,7 @@ def handle(msg):
     if op == 'create': return op_create(root, msg.get('rel'), msg.get('text') or '')
     if op == 'rename': return op_rename(root, msg.get('rel'), msg.get('to'))
     if op == 'delete': return op_delete(root, msg.get('rel'))
+    if op == 'writeBinary': return op_write_binary(root, msg.get('rel'), msg.get('base64'))
     raise NotesError('notes_bad_op', f'unknown op {op!r}')
 
 def main():

@@ -183,8 +183,11 @@ try {
   await page.waitForSelector('#fe-ed-src', { timeout: 8_000 }).catch(() => null);
   const editorUp = await page.$('#fe-ed-src');
   check(!!editorUp, 'n opens a new note in the editor');
-  await page.evaluate(() => { const ta = document.getElementById('fe-ed-src'); ta.value = ''; });
-  await page.type('#fe-ed-src', '# Grocery list\n\n- eggs\n- milk\n');
+  await page.evaluate(() => {
+    const ta = document.getElementById('fe-ed-src');
+    ta.value = '# Grocery list\n\n- eggs\n- milk\n';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   await page.waitForFunction(() => document.querySelectorAll('#fe-ed-view li').length === 2, { timeout: 3_000 }).catch(() => null);
   const previewLi = await page.$$eval('#fe-ed-view li', els => els.map(e => e.textContent));
   check(previewLi.join() === 'eggs,milk', `live render beside the textarea: ${JSON.stringify(previewLi)}`);
@@ -195,6 +198,45 @@ try {
   check(/grocery-list\.md · saved/.test(savedMeta) && onDisk && onDisk.includes('- milk') && !/untitled/.test(onDisk.split('\n')[1] || ''),
     `Cmd+S wrote grocery-list.md from the title: meta "${savedMeta}", disk ${onDisk ? onDisk.length + ' bytes' : 'missing'}`);
   await shot(page, 'notes-editor');
+
+  // Editor ergonomics: line move, list continuation, table insert, image paste.
+  const setCaret = (line, col = 0) => page.evaluate((l, c) => {
+    const ta = document.getElementById('fe-ed-src');
+    const lines = ta.value.split('\n');
+    const pos = lines.slice(0, l).reduce((n, s) => n + s.length + 1, 0) + c;
+    ta.setSelectionRange(pos, pos); ta.focus();
+  }, line, col);
+  await setCaret(2);   // "- eggs"
+  await page.keyboard.down('Alt'); await page.keyboard.press('ArrowDown'); await page.keyboard.up('Alt');
+  let src = await page.$eval('#fe-ed-src', el => el.value);
+  check(src.split('\n').slice(2, 4).join('|') === '- milk|- eggs', `Alt+Down moved the line: ${JSON.stringify(src.split('\n').slice(2, 4))}`);
+  await setCaret(3, 6);   // end of "- eggs"
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('bread');
+  src = await page.$eval('#fe-ed-src', el => el.value);
+  check(src.includes('- eggs\n- bread'), `Enter continued the bullet list: ${JSON.stringify(src.split('\n').slice(2, 5))}`);
+  await page.keyboard.press('Enter'); await page.keyboard.press('Enter');
+  await page.evaluate(() => document.querySelector('#fe-ed-bar [data-act="table"]').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
+  await page.waitForFunction(() => document.querySelectorAll('#fe-ed-view table').length === 1, { timeout: 3_000 }).catch(() => null);
+  const tableCells = await page.$$eval('#fe-ed-view table th', els => els.map(e => e.textContent));
+  check(tableCells.join() === 'Column 1,Column 2', `table inserted and rendered: ${JSON.stringify(tableCells)}`);
+  await page.evaluate(() => {
+    const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), c => c.charCodeAt(0));
+    const file = new File([bytes], 'dot.png', { type: 'image/png' });
+    const dt = new DataTransfer(); dt.items.add(file);
+    document.getElementById('fe-ed-src').dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  await page.waitForFunction(() => /!\[dot\]\(attachments\//.test(document.getElementById('fe-ed-src').value), { timeout: 8_000 }).catch(() => null);
+  src = await page.$eval('#fe-ed-src', el => el.value);
+  const attDir = join(h.notesDir, 'attachments');
+  const attFiles = existsSync(attDir) ? readdirSync(attDir) : [];
+  await page.waitForFunction(() => !!document.querySelector('#fe-ed-view img'), { timeout: 3_000 }).catch(() => null);
+  const imgShown = await page.$eval('#fe-ed-view img', el => el.getAttribute('src')).catch(() => null);
+  check(/!\[dot\]\(attachments\/grocery-list-[a-z0-9]+\.png\)/.test(src) && attFiles.length === 1 && attFiles[0].endsWith('.png') && !!imgShown,
+    `pasted image saved to attachments and rendered: ${JSON.stringify(attFiles)} src=${imgShown}`);
+  await shot(page, 'notes-editor-rich');
+  await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
+  await page.waitForFunction(() => /saved \d/.test(document.getElementById('fe-ql-meta').textContent), { timeout: 8_000 }).catch(() => null);
 
   await page.keyboard.press('Escape');
   const edClosed = await page.$eval('#fe-qlook', el => el.style.display === 'none');

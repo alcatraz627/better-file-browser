@@ -68,6 +68,15 @@ r = call({'op': 'read', 'root': root, 'rel': 'nope.md'})
 check(r['code'] == 'notes_missing', 'missing note is notes_missing')
 r = call({'op': 'list', 'root': os.path.join(root, 'nope')})
 check(r['code'] == 'notes_bad_root', 'missing root is notes_bad_root')
+import base64
+png = base64.b64encode(b'\x89PNG\r\n\x1a\n' + b'\x00' * 16).decode()
+r = call({'op': 'writeBinary', 'root': root, 'rel': 'attachments/pic.png', 'base64': png})
+check(r['t'] == 'written' and os.path.getsize(os.path.join(root, 'attachments', 'pic.png')) == 24, f'writeBinary stores an attachment: {r}')
+r = call({'op': 'writeBinary', 'root': root, 'rel': 'attachments/pic.png', 'base64': png})
+check(r['code'] == 'notes_exists', 'writeBinary never overwrites')
+r = call({'op': 'writeBinary', 'root': root, 'rel': 'attachments/x.png', 'base64': '!!'})
+check(r['code'] == 'notes_bad_path', 'writeBinary rejects non-base64')
+
 r = call({'op': 'zap', 'root': root})
 check(r['code'] == 'notes_bad_op', 'unknown op')
 

@@ -13,7 +13,9 @@ import {
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
 import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, type NoteDoc } from './notes';
-import { attachBuffer } from './editor';
+import {
+  attachBuffer, moveLines, duplicateLines, indentLines, continueList, wrapSelection, tableSnippet, type TextEdit,
+} from './editor';
 import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
@@ -218,6 +220,7 @@ export function closePreview(): void {
     edit = null;
   }
   overlay.style.display = 'none';
+  document.getElementById('fe-ql-body')!.classList.remove('fe-editing');
   currentEntry = null;
   currentText  = null;
   dsvHeader = []; dsvRows = []; dsvSort = null;
@@ -332,11 +335,71 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   overlay.style.display = 'flex';
 
   const body = document.getElementById('fe-ql-body')!;
-  body.innerHTML = `<div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
+  body.classList.add('fe-editing');
+  body.innerHTML = `
+    <div id="fe-ed-bar">
+      <button class="fe-pbn" data-act="bold" title="Bold (⌘B)"><b>B</b></button>
+      <button class="fe-pbn" data-act="italic" title="Italic (⌘I)"><i>I</i></button>
+      <button class="fe-pbn" data-act="code" title="Code (⌘E)">‹›</button>
+      <button class="fe-pbn" data-act="list" title="Bullet list">• list</button>
+      <button class="fe-pbn" data-act="task" title="Task list">☐ task</button>
+      <button class="fe-pbn" data-act="table" title="Insert a table">table</button>
+      <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">image</button>
+      <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
+      <span class="fe-ed-hint">⌥↑↓ move line · ⌥⇧↑↓ duplicate · ⇥ indent · Enter continues lists</span>
+    </div>
+    <div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
   const ta = document.getElementById('fe-ed-src') as HTMLTextAreaElement;
   const view = document.getElementById('fe-ed-view')!;
   ta.value = doc.text;
-  attachBuffer(ta, `note:${root}/${doc.rel}`);
+  const buf = attachBuffer(ta, `note:${root}/${doc.rel}`);
+  const apply = (r: TextEdit) => {
+    buf.snap();
+    ta.value = r.text;
+    ta.setSelectionRange(r.start, r.end);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    ta.focus();
+  };
+  const sel = () => ({ start: ta.selectionStart, end: ta.selectionEnd });
+  const prefixLines = (prefix: string) => {
+    const s = sel();
+    const from = ta.value.lastIndexOf('\n', s.start - 1) + 1;
+    let to = ta.value.indexOf('\n', s.end); if (to < 0) to = ta.value.length;
+    const lines = ta.value.slice(from, to).split('\n').map(l => prefix + l);
+    apply({ text: ta.value.slice(0, from) + lines.join('\n') + ta.value.slice(to), start: from, end: from + lines.join('\n').length });
+  };
+  const act = (name: string) => {
+    if (name === 'bold')   apply(wrapSelection(ta.value, sel(), '**'));
+    if (name === 'italic') apply(wrapSelection(ta.value, sel(), '_'));
+    if (name === 'code')   apply(wrapSelection(ta.value, sel(), '`'));
+    if (name === 'list')   prefixLines('- ');
+    if (name === 'task')   prefixLines('- [ ] ');
+    if (name === 'table')  buf.insert((ta.value.slice(0, ta.selectionStart).endsWith('\n') || !ta.selectionStart ? '' : '\n') + tableSnippet());
+    if (name === 'image')  (document.getElementById('fe-ed-file') as HTMLInputElement).click();
+  };
+  document.getElementById('fe-ed-bar')!.querySelectorAll<HTMLElement>('[data-act]').forEach(b =>
+    b.addEventListener('mousedown', e => { e.preventDefault(); act(b.dataset.act!); }));
+
+  // Images: paste, drop, or the file button. Stored beside the note under
+  // attachments/ and referenced by relative path, per the contract.
+  const addImage = async (file: File) => {
+    const st = edit; if (!st || st.root !== root) return;
+    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const rel = `attachments/${slugForTitle(noteTitle(st.rel, st.text)).replace(/\.md$/, '')}-${Date.now().toString(36)}.${ext}`;
+    const b64 = await new Promise<string>(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.readAsDataURL(file); });
+    try {
+      await notes.writeBinary(root, rel, b64);
+      const depth = st.rel.split('/').length - 1;
+      buf.insert(`![${file.name.replace(/\.[^.]+$/, '')}](${'../'.repeat(depth)}${rel})`);
+    } catch (err) { editHeader(`image failed: ${(err as NotesError).message}`); }
+  };
+  const imageFiles = (dt: DataTransfer | null) => [...(dt?.files ?? [])].filter(f => f.type.startsWith('image/'));
+  ta.addEventListener('paste', e => { const fs = imageFiles(e.clipboardData); if (fs.length) { e.preventDefault(); fs.forEach(f => void addImage(f)); } });
+  ta.addEventListener('drop', e => { const fs = imageFiles(e.dataTransfer); if (fs.length) { e.preventDefault(); fs.forEach(f => void addImage(f)); } });
+  ta.addEventListener('dragover', e => e.preventDefault());
+  (document.getElementById('fe-ed-file') as HTMLInputElement).addEventListener('change', function () {
+    [...(this.files ?? [])].forEach(f => void addImage(f)); this.value = '';
+  });
   const renderView = () => { view.innerHTML = renderMarkdown(stripFrontMatter(ta.value), nameEl.href); };
   renderView();
   let viewTimer: ReturnType<typeof setTimeout> | null = null;
@@ -350,20 +413,27 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     edit.timer = setTimeout(() => void saveNote(), 1500);
   });
   ta.addEventListener('keydown', e => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); e.stopPropagation(); void saveNote(); }
-    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePreview(); }
-    else if (e.key === 'Tab') { e.preventDefault(); attachBufferInsert(ta, '  '); }
+    const mod = e.metaKey || e.ctrlKey;
+    const k = e.key.toLowerCase();
+    const stop = () => { e.preventDefault(); e.stopPropagation(); };
+    if (mod && k === 's') { stop(); void saveNote(); }
+    else if (e.key === 'Escape') { stop(); closePreview(); }
+    else if (mod && !e.shiftKey && k === 'b') { stop(); act('bold'); }
+    else if (mod && !e.shiftKey && k === 'i') { stop(); act('italic'); }
+    else if (mod && !e.shiftKey && k === 'e') { stop(); act('code'); }
+    else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      stop();
+      apply(e.shiftKey ? duplicateLines(ta.value, sel()) : moveLines(ta.value, sel(), e.key === 'ArrowDown' ? 1 : -1));
+    }
+    else if (e.key === 'Tab') { stop(); apply(indentLines(ta.value, sel(), e.shiftKey)); }
+    else if (e.key === 'Enter' && !mod && !e.shiftKey) {
+      const r = continueList(ta.value, sel());
+      if (r) { stop(); apply(r); }
+    }
   });
   editHeader('saved');
   ta.focus();
 }
-function attachBufferInsert(ta: HTMLTextAreaElement, t: string): void {
-  const a = ta.selectionStart, b = ta.selectionEnd;
-  ta.value = ta.value.slice(0, a) + t + ta.value.slice(b);
-  ta.setSelectionRange(a + t.length, a + t.length);
-  ta.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
 async function saveNote(): Promise<void> {
   const st = edit;
   if (!st || st.saving) return;
@@ -408,6 +478,7 @@ async function saveNote(): Promise<void> {
 export function openPreview(e: Entry): void {
   if (!canPreview(e)) return;
   if (edit) { if (edit.timer) clearTimeout(edit.timer); if (edit.dirty) void saveNote(); edit = null; }
+  document.getElementById('fe-ql-body')!.classList.remove('fe-editing');
   currentEntry = e;
   const seq = ++reqSeq;
   const ext = getExt(e);
