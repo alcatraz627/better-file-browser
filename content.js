@@ -1626,7 +1626,8 @@ ${body}
     return currentEntry;
   }
   function keepPreviewedAsTab() {
-    if (currentEntry && deps.keepTab) deps.keepTab(decodeURIComponent(new URL(currentEntry.href, location.href).pathname));
+    const path = currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname) : edit ? edit.root.replace(/\/$/, "") + "/" + edit.rel : null;
+    if (path && deps.keepTab) deps.keepTab(path);
   }
   var deps;
   var overlay;
@@ -1683,6 +1684,7 @@ ${body}
     document.getElementById("fe-ql-close").addEventListener("click", closePreview);
     document.getElementById("fe-ql-go").addEventListener("click", () => {
       if (currentEntry) location.href = currentEntry.href;
+      else if (edit) location.href = "file://" + edit.root.replace(/\/$/, "") + "/" + edit.rel;
     });
     document.getElementById("fe-ql-tab").addEventListener("click", keepPreviewedAsTab);
     const bodyEl = document.getElementById("fe-ql-body");

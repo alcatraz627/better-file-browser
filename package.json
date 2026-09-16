@@ -8,7 +8,8 @@
     "test": "vitest run",
     "test:ui": "vitest --ui",
     "e2e": "node e2e/smoke.mjs",
-    "e2e:light": "BFB_THEME=light node e2e/smoke.mjs"
+    "e2e:light": "BFB_THEME=light node e2e/smoke.mjs",
+    "e2e:workflow": "node e2e/workflow.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",

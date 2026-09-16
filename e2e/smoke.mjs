@@ -426,6 +426,19 @@ try {
   await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 0, { timeout: 3_000 }).catch(() => null);
 
+  // The note editor's "+ tab" keeps the note as a strip tab (regression: it used
+  // to be a dead no-op because notes null the preview's currentEntry).
+  await page.click('#fe-nt-list .fe-nt-item[data-rel="grocery-list.md"] .fe-si-link');
+  await page.waitForSelector('#fe-ql-body.fe-editing', { timeout: 5_000 }).catch(() => null);
+  await page.click('#fe-ql-tab');
+  await page.waitForFunction(() => [...document.querySelectorAll('#fe-tabs .fe-tab')].some(t => t.querySelector('.fe-tab-lbl')?.textContent === 'grocery-list.md'), { timeout: 3_000 }).catch(() => null);
+  const noteEdKept = (await stripLabels()).includes('grocery-list.md');
+  await page.keyboard.press('Escape');
+  const noteTabX = await page.$('#fe-tabs .fe-tab[data-id] .fe-tab-x');
+  if (noteTabX) await noteTabX.click();
+  await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 0, { timeout: 3_000 }).catch(() => null);
+  check(noteEdKept, `note editor + tab keeps the note as a strip tab: ${noteEdKept}`);
+
   await (await page.$('#fe-nt-list .fe-nt-item[data-rel="grocery-list.md"] .fe-rm-btn')).evaluate(el => el.click());
   await page.waitForFunction(() => document.querySelectorAll('#fe-nt-list .fe-nt-item').length === 1, { timeout: 8_000 }).catch(() => null);
   const trashed = existsSync(join(h.notesDir, '.trash')) ? readdirSync(join(h.notesDir, '.trash')) : [];

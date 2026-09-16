@@ -56,7 +56,11 @@ interface PreviewDeps {
 const scrollMemo = new Map<string, number>();
 export function previewEntry(): Entry | null { return currentEntry; }
 export function keepPreviewedAsTab(): void {
-  if (currentEntry && deps.keepTab) deps.keepTab(decodeURIComponent(new URL(currentEntry.href, location.href).pathname));
+  // A previewed file comes from currentEntry; a note being edited nulls that,
+  // so fall back to the note's own path instead of a dead no-op.
+  const path = currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname)
+             : edit ? edit.root.replace(/\/$/, '') + '/' + edit.rel : null;
+  if (path && deps.keepTab) deps.keepTab(path);
 }
 
 let deps: PreviewDeps;
@@ -118,7 +122,10 @@ export function initPreview(d: PreviewDeps): void {
   document.getElementById('fe')!.appendChild(overlay);
 
   document.getElementById('fe-ql-close')!.addEventListener('click', closePreview);
-  document.getElementById('fe-ql-go')!.addEventListener('click', () => { if (currentEntry) location.href = currentEntry.href; });
+  document.getElementById('fe-ql-go')!.addEventListener('click', () => {
+    if (currentEntry) location.href = currentEntry.href;
+    else if (edit) location.href = 'file://' + edit.root.replace(/\/$/, '') + '/' + edit.rel;
+  });
   document.getElementById('fe-ql-tab')!.addEventListener('click', keepPreviewedAsTab);
   const bodyEl = document.getElementById('fe-ql-body')!;
   bodyEl.addEventListener('scroll', () => { if (currentEntry) scrollMemo.set(currentEntry.href, bodyEl.scrollTop); });
