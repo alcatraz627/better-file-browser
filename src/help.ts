@@ -16,6 +16,7 @@ export const HELP_TABS: HelpTab[] = [
 | ⌘A | Select all |
 | ⌘C | Copy selected path(s) |
 | Esc | Close a dialog or the preview / clear the filter |
+| ? · , | Open this Help · open Settings |
 | t · w · p | Keep this folder or file as a tab · close it · pin it |
 | [ · ] · 1-9 | Previous / next tab · jump to a tab (in a dialog: switch its tabs) |
 | T (shift-t) | Reopen the last closed tab, at its place |
@@ -154,5 +155,62 @@ tabs sit above browser bookmarks.
 ## Recent, Finder Favorites, System
 
 Folders you visited lately, and quick jumps (Root, Home, …).
+` },
+  { key: 'how', label: 'How it works', hint: 'the model, storage, what runs where', md: `
+## The model
+
+Four things, three actions, one key each. Learn the three actions once and
+every surface behaves the same way.
+
+- **Place** is a folder. It lives in tabs (open now), in Saved (kept), and in
+  Recent, Finder Favorites and System.
+- **File** is something inside a folder, shown in the listing and in search
+  results.
+- **Note** is a file you write here, in the Notes section, which is a Place you
+  write in.
+- **View** is how a Place is shown: its sort, group, filter and layout.
+
+- **Go** (Enter, or a click) moves to a thing. A Place navigates, a File opens
+  natively, a Note opens in the editor, a tab switches.
+- **Look** (Space) sees a thing without leaving. A File previews, a Note reads
+  in the panel. Space again stops looking.
+- **Keep** (★ or **+**, and **t** for the open Place) makes a thing stay. A
+  Place joins Saved, the open Place becomes a tab, a Note saves with **⌘S**.
+
+Tabs are what is open right now; Saved is the long-term list, the way browser
+tabs sit above browser bookmarks.
+
+## Where your state lives
+
+Everything is stored on your machine, in the browser, and nothing leaves it.
+
+- **Settings, the Saved list, tags, view, theme and reader sizes** live in
+  localStorage under \`bfb-\` keys. Settings and Saved export and import as one
+  JSON file in **Settings → Data**.
+- **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
+  survives refresh and navigation. A copy in \`chrome.storage.local\`, keyed by a
+  per-tab id, lets a fresh Chrome tab bring back a strip closed within the last
+  day, with an undo.
+- **Reading choices** (the column toggle, the ToC, a file page's scroll
+  position) live in localStorage, so they persist across reloads.
+
+## What runs where
+
+- The extension replaces Chrome's plain file listing with this UI. No page is
+  fetched from a server.
+- Reading a file for a preview or a file page goes through the extension's
+  background worker, because a page cannot read \`file://\` URLs on its own.
+- The terminal button, the notes editor and the AI bar use optional native
+  hosts you install once. Without them the terminal button copies a command and
+  the AI bar does not appear; notes need their host to write files.
+
+## What you can do
+
+Browse and open in four views with zoom. Preview any file type in a floating or
+docked panel, or open a file directly as a rendered page with a table of
+contents. Keep folders and files as tabs and as Saved bookmarks with tags.
+Write notes in a live editor. Filter by name or regex, search the text inside
+files, and search every subfolder. Save a search as a reusable view. Every
+action is on the keyboard; press **?** for the full list.
 ` },
 ];

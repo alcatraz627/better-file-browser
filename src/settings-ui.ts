@@ -140,6 +140,9 @@ export function initSettingsUi(app: App): void {
   const helpDlg = mountDialog('fe-help-modal');
   el('fe-help-btn').addEventListener('click', () => helpDlg.open());
   el('fe-st-keys').addEventListener('click', () => { settingsDlg.close(); helpDlg.open('keys'); });
+  // The keys ? and , open Help and Settings; the router in listing-input calls these.
+  app.openHelp = tab => helpDlg.open(tab);
+  app.openSettings = openSettings;
 
   // Sidebar sections, tooltips, panel, click, tabs, reader, data.
   const secToggle = (id: string, key: 'hideRecent' | 'hideFavorites' | 'hideSystem', sec: string) => {

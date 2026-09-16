@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, isTabState, normalize,
-  pickRecovery, isStale, insertTab, displayLabels, type RecoveryEntry,
+  pickRecovery, isStale, insertTab, displayLabels, splitLabel, type RecoveryEntry,
 } from '../src/tabs';
 
 describe('tabs', () => {
@@ -110,6 +110,17 @@ describe('tabs', () => {
   it('shows the folder on labels that collide', () => {
     const s = openTab(openTab(openTab(EMPTY, '/x/docs/readme.md'), '/y/readme.md'), '/z/');
     expect(displayLabels(s.list)).toEqual(['docs/readme.md', 'y/readme.md', 'z']);
+  });
+
+  it('splits long labels for middle truncation, keeping the end whole', () => {
+    // Short labels stay whole (no tail span).
+    expect(splitLabel('readme.md')).toEqual({ head: 'readme.md', tail: '' });
+    // Long labels keep the last 7 chars, so the extension always shows.
+    const { head, tail } = splitLabel('components/very-long-name.tsx');
+    expect(tail).toBe('ame.tsx');
+    expect(head + tail).toBe('components/very-long-name.tsx');
+    // The disambiguating folder prefix stays at the head's start.
+    expect(head.startsWith('components/')).toBe(true);
   });
 
   it('recovery picks the newest closed strip inside the window and prunes the rest', () => {

@@ -393,7 +393,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-tab.on{background:var(--s2);color:var(--tx);border-color:var(--bd)}
 .fe-tab.temp .fe-tab-lbl{font-style:italic;color:var(--mt)}
 .fe-tab.drag-over{border-left:2px solid var(--ac)}
-.fe-tab-lbl{overflow:hidden;text-overflow:ellipsis}
+.fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
+.fe-tab-head{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fe-tab-tail{white-space:nowrap;flex-shrink:0}
 .fe-tab-x,.fe-tab-more{background:none;border:none;color:var(--dm);cursor:pointer;font-size:10px;padding:1px 4px;border-radius:3px;opacity:0;line-height:1}
 .fe-tab-more{font-size:12px;letter-spacing:1px}
 .fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
@@ -472,6 +474,10 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:13px;padding:3px 7px;border-radius:4px;line-height:1}
 #fe-ql-close:hover{background:var(--hover);color:var(--tx)}
 #fe-ql-body{flex:1;overflow:auto;font-size:12px}
+/* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
+#fe-ql-body .fe-md{font-size:var(--rd-size,15px);line-height:var(--rd-lh,1.65)}
+#fe-ql-body .fe-md code{font-size:var(--rd-code,13px)}
+#fe-ql-body .fe-md-pre{font-size:var(--rd-code,13px)}
 #fe-ql-ai{display:flex;align-items:center;gap:6px;padding:7px 14px;
   border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0}
 #fe-ql-ai-chip{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dm);

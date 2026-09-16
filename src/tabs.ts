@@ -123,6 +123,15 @@ export function insertTab(s: TabState, tab: Tab, index: number): TabState {
   return { ...s, list };
 }
 
+// Split a label for middle truncation: the tail (the name's end, with its
+// extension) always shows, the head shrinks with an ellipsis. Short labels
+// are left whole. strip.ts renders head and tail as two flex spans.
+export function splitLabel(label: string): { head: string; tail: string } {
+  if (label.length <= 12) return { head: label, tail: '' };
+  const n = Math.min(7, label.length);
+  return { head: label.slice(0, label.length - n), tail: label.slice(label.length - n) };
+}
+
 // Labels as shown: two tabs with the same file name carry their folder too.
 export function displayLabels(list: Tab[]): string[] {
   const count = new Map<string, number>();

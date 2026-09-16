@@ -9,7 +9,7 @@ import { icoFile, icoFolder } from './icons';
 import { getSaved, saveSaved } from './storage';
 import { upsertPlace, removePlace } from './places';
 import {
-  EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, displayLabels,
+  EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, displayLabels, splitLabel,
   isTabState, normalize, pickRecovery, isStale, type TabState, type Tab, type RecoveryEntry,
 } from './tabs';
 import type { Toast } from './toast';
@@ -78,7 +78,10 @@ function readRecoveries(): Promise<Record<string, RecoveryEntry>> {
 export function mountStrip(host: StripHost): Strip {
   const { el, rawPath, toast } = host;
   const hereIn = (s: TabState) => s.list.find(t => t.path === rawPath);
-  const activateHere = (s: TabState) => { const h = hereIn(s); return h ? activate(s, h.id) : s; };
+  // On load, point active at this page's tab; if the page has no tab (go-up to
+  // a folder that was never kept), clear active so [ ] and the next insert
+  // anchor on the page you are on, not a stale tab.
+  const activateHere = (s: TabState) => { const h = hereIn(s); return h ? activate(s, h.id) : { ...s, active: null }; };
 
   let sid = '';
   let state: TabState = EMPTY;
@@ -169,13 +172,17 @@ export function mountStrip(host: StripHost): Strip {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 
   // ── Render ────────────────────────────────────────────────────────
+  function lblHtml(label: string): string {
+    const { head, tail } = splitLabel(label);
+    return `<span class="fe-tab-lbl"><span class="fe-tab-head">${esc(head)}</span>${tail ? `<span class="fe-tab-tail">${esc(tail)}</span>` : ''}</span>`;
+  }
   function tabHtml(t: Tab, i: number, on: boolean, label: string): string {
     const ico = t.kind === 'file'
       ? `<span class="fe-tab-ico">${icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '')}</span>`
       : (t.pinned ? `<span class="fe-tab-ico">${icoFolder(t.label)}</span>` : '');
     const tip = `${t.path}\n${i < 9 ? `${i + 1} jumps · ` : ''}click switches · ${t.pinned ? 'pinned (p unpins)' : 'middle-click closes'} · drag reorders`;
     return `<a class="fe-tab${on ? ' on' : ''}${t.pinned ? ' pinned' : ''}" draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
-      ${ico}<span class="fe-tab-lbl">${esc(label)}</span>
+      ${ico}${lblHtml(label)}
       <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path · save · pin · close others">…</button>
       ${t.pinned ? '' : `<button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">✕</button>`}
     </a>`;
@@ -186,7 +193,7 @@ export function mountStrip(host: StripHost): Strip {
     const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i]));
     if (!here) {
       const ico = kindOf(rawPath) === 'file' ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split('.').pop()!.toLowerCase())}</span>` : '';
-      rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet · t or double-click keeps · p pins">${ico}<span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
+      rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet · t or double-click keeps · p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
     }
     if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">⌄</button>`);
     el.innerHTML = rows.join('');

@@ -23,5 +23,7 @@ export interface App {
   refreshNotes(): void;
   newNote(): void;
   openInTerminal(path: string): void;
+  openHelp(tab?: string): void;
+  openSettings(): void;
   goUp(): void;
 }

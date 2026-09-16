@@ -46,6 +46,7 @@ Conventions that hold everywhere:
 | [ ] | previous, next tab ✓ |
 | 1 to 9 | jump to a tab |
 | T (shift-t) | reopen the last closed tab, at its place ✓ |
+| ? , | open Help, open Settings ✓ |
 
 ## Strip tabs
 
@@ -122,7 +123,7 @@ since a tab keyed by a path-plus-query would be odd.
 | ★ | save or unsave this folder ✓ |
 | terminal button | open here; ⇧-click copies the command instead |
 | sun or moon | toggle the theme ✓ |
-| ? and gear | Help, Settings ✓ |
+| ? and gear | Help, Settings ✓ (the keys `?` and `,` open them too) |
 | view buttons | Details, List, Tiles, Icons ✓ |
 | Sort, Filter | open the panel ✓ |
 | column header | sort; again flips ✓ |

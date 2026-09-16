@@ -173,6 +173,8 @@ export function initListingInput(app: App, listing: Listing): void {
     if (ae && ['INPUT', 'TEXTAREA', 'SELECT'].includes(ae.tagName)) return;
     if (el('fe-settings-modal').style.display !== 'none') return;
     if (el('fe-help-modal').style.display !== 'none') return;
+    if (e.key === '?') { e.preventDefault(); app.openHelp(); return; }
+    if (e.key === ',' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.openSettings(); return; }
     if (e.metaKey && e.key === 'ArrowUp') { e.preventDefault(); app.goUp(); return; }   // Finder: go to parent
     if (ctxMenu.style.display !== 'none') {
       if (e.key === 'Escape') closeCtx();

@@ -2601,7 +2601,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-tab.on{background:var(--s2);color:var(--tx);border-color:var(--bd)}
 .fe-tab.temp .fe-tab-lbl{font-style:italic;color:var(--mt)}
 .fe-tab.drag-over{border-left:2px solid var(--ac)}
-.fe-tab-lbl{overflow:hidden;text-overflow:ellipsis}
+.fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
+.fe-tab-head{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fe-tab-tail{white-space:nowrap;flex-shrink:0}
 .fe-tab-x,.fe-tab-more{background:none;border:none;color:var(--dm);cursor:pointer;font-size:10px;padding:1px 4px;border-radius:3px;opacity:0;line-height:1}
 .fe-tab-more{font-size:12px;letter-spacing:1px}
 .fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
@@ -2680,6 +2682,10 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:13px;padding:3px 7px;border-radius:4px;line-height:1}
 #fe-ql-close:hover{background:var(--hover);color:var(--tx)}
 #fe-ql-body{flex:1;overflow:auto;font-size:12px}
+/* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
+#fe-ql-body .fe-md{font-size:var(--rd-size,15px);line-height:var(--rd-lh,1.65)}
+#fe-ql-body .fe-md code{font-size:var(--rd-code,13px)}
+#fe-ql-body .fe-md-pre{font-size:var(--rd-code,13px)}
 #fe-ql-ai{display:flex;align-items:center;gap:6px;padding:7px 14px;
   border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0}
 #fe-ql-ai-chip{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dm);
@@ -3049,6 +3055,11 @@ td.c-tp{color:var(--dm);font-size:11px}
     list.splice(at, 0, { ...tab, pinned: false });
     return { ...s, list };
   }
+  function splitLabel(label) {
+    if (label.length <= 12) return { head: label, tail: "" };
+    const n = Math.min(7, label.length);
+    return { head: label.slice(0, label.length - n), tail: label.slice(label.length - n) };
+  }
   function displayLabels(list) {
     const count = /* @__PURE__ */ new Map();
     for (const t of list) count.set(t.label, (count.get(t.label) ?? 0) + 1);
@@ -3110,7 +3121,7 @@ td.c-tp{color:var(--dm);font-size:11px}
     const hereIn = (s) => s.list.find((t) => t.path === rawPath);
     const activateHere = (s) => {
       const h = hereIn(s);
-      return h ? activate(s, h.id) : s;
+      return h ? activate(s, h.id) : { ...s, active: null };
     };
     let sid = "";
     let state = EMPTY;
@@ -3208,12 +3219,16 @@ td.c-tp{color:var(--dm);font-size:11px}
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeMenu();
     });
+    function lblHtml(label) {
+      const { head, tail } = splitLabel(label);
+      return `<span class="fe-tab-lbl"><span class="fe-tab-head">${esc(head)}</span>${tail ? `<span class="fe-tab-tail">${esc(tail)}</span>` : ""}</span>`;
+    }
     function tabHtml(t, i, on, label) {
       const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : t.pinned ? `<span class="fe-tab-ico">${icoFolder(t.label)}</span>` : "";
       const tip = `${t.path}
 ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins)" : "middle-click closes"} \xB7 drag reorders`;
       return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}" draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
-      ${ico}<span class="fe-tab-lbl">${esc(label)}</span>
+      ${ico}${lblHtml(label)}
       <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">\u2026</button>
       ${t.pinned ? "" : `<button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">\u2715</button>`}
     </a>`;
@@ -3224,7 +3239,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i]));
       if (!here) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : "";
-        rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}<span class="fe-tab-lbl">${esc(labelFor(rawPath))}</span></a>`);
+        rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
       }
       if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">\u2304</button>`);
       el2.innerHTML = rows.join("");
@@ -3416,6 +3431,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
 | \u2318A | Select all |
 | \u2318C | Copy selected path(s) |
 | Esc | Close a dialog or the preview / clear the filter |
+| ? \xB7 , | Open this Help \xB7 open Settings |
 | t \xB7 w \xB7 p | Keep this folder or file as a tab \xB7 close it \xB7 pin it |
 | [ \xB7 ] \xB7 1-9 | Previous / next tab \xB7 jump to a tab (in a dialog: switch its tabs) |
 | T (shift-t) | Reopen the last closed tab, at its place |
@@ -3554,6 +3570,63 @@ tabs sit above browser bookmarks.
 ## Recent, Finder Favorites, System
 
 Folders you visited lately, and quick jumps (Root, Home, \u2026).
+` },
+    { key: "how", label: "How it works", hint: "the model, storage, what runs where", md: `
+## The model
+
+Four things, three actions, one key each. Learn the three actions once and
+every surface behaves the same way.
+
+- **Place** is a folder. It lives in tabs (open now), in Saved (kept), and in
+  Recent, Finder Favorites and System.
+- **File** is something inside a folder, shown in the listing and in search
+  results.
+- **Note** is a file you write here, in the Notes section, which is a Place you
+  write in.
+- **View** is how a Place is shown: its sort, group, filter and layout.
+
+- **Go** (Enter, or a click) moves to a thing. A Place navigates, a File opens
+  natively, a Note opens in the editor, a tab switches.
+- **Look** (Space) sees a thing without leaving. A File previews, a Note reads
+  in the panel. Space again stops looking.
+- **Keep** (\u2605 or **+**, and **t** for the open Place) makes a thing stay. A
+  Place joins Saved, the open Place becomes a tab, a Note saves with **\u2318S**.
+
+Tabs are what is open right now; Saved is the long-term list, the way browser
+tabs sit above browser bookmarks.
+
+## Where your state lives
+
+Everything is stored on your machine, in the browser, and nothing leaves it.
+
+- **Settings, the Saved list, tags, view, theme and reader sizes** live in
+  localStorage under \`bfb-\` keys. Settings and Saved export and import as one
+  JSON file in **Settings \u2192 Data**.
+- **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
+  survives refresh and navigation. A copy in \`chrome.storage.local\`, keyed by a
+  per-tab id, lets a fresh Chrome tab bring back a strip closed within the last
+  day, with an undo.
+- **Reading choices** (the column toggle, the ToC, a file page's scroll
+  position) live in localStorage, so they persist across reloads.
+
+## What runs where
+
+- The extension replaces Chrome's plain file listing with this UI. No page is
+  fetched from a server.
+- Reading a file for a preview or a file page goes through the extension's
+  background worker, because a page cannot read \`file://\` URLs on its own.
+- The terminal button, the notes editor and the AI bar use optional native
+  hosts you install once. Without them the terminal button copies a command and
+  the AI bar does not appear; notes need their host to write files.
+
+## What you can do
+
+Browse and open in four views with zoom. Preview any file type in a floating or
+docked panel, or open a file directly as a rendered page with a table of
+contents. Keep folders and files as tabs and as Saved bookmarks with tags.
+Write notes in a live editor. Filter by name or regex, search the text inside
+files, and search every subfolder. Save a search as a reusable view. Every
+action is on the keyboard; press **?** for the full list.
 ` }
   ];
 
@@ -3961,10 +4034,10 @@ Folders you visited lately, and quick jumps (Root, Home, \u2026).
       <svg id="fe-sun" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M10.1 2.9l-1 1M3.9 10.1l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
       <svg id="fe-moon" width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 8.5A5 5 0 0 1 5.5 2.5a5 5 0 1 0 6 6z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
     </button>
-    <button id="fe-help-btn" title="Help \u2014 what's here and how to use it">
+    <button id="fe-help-btn" title="Help (press ?), what's here and how to use it">
       <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.2 5.2a1.9 1.9 0 1 1 2.6 1.8c-.6.3-.8.6-.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="10.3" r="0.9" fill="currentColor"/></svg>
     </button>
-    <button id="fe-settings-btn" title="Settings \u2014 customize theme, views, terminal, icon rules">
+    <button id="fe-settings-btn" title="Settings (press ,), theme, views, terminal, icon rules">
       <svg width="14" height="14" viewBox="0 0 14 14"><path d="M8.5 1H5.5L4.5 2.8 2.5 4 1 5.5v3L2.5 10l2 1.2L5.5 13h3l1-1.8 2-1.2L13 8.5v-3L11.5 4l-2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
     </button>
   </div>
@@ -5015,6 +5088,16 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       if (ae && ["INPUT", "TEXTAREA", "SELECT"].includes(ae.tagName)) return;
       if (el("fe-settings-modal").style.display !== "none") return;
       if (el("fe-help-modal").style.display !== "none") return;
+      if (e.key === "?") {
+        e.preventDefault();
+        app.openHelp();
+        return;
+      }
+      if (e.key === "," && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        app.openSettings();
+        return;
+      }
       if (e.metaKey && e.key === "ArrowUp") {
         e.preventDefault();
         app.goUp();
@@ -5427,6 +5510,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       settingsDlg.close();
       helpDlg.open("keys");
     });
+    app.openHelp = (tab) => helpDlg.open(tab);
+    app.openSettings = openSettings;
     const secToggle = (id, key, sec) => {
       el(id).addEventListener("change", function() {
         settings[key] = !this.checked;
@@ -5741,6 +5826,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       newNote: () => {
       },
       openInTerminal: () => {
+      },
+      openHelp: () => {
+      },
+      openSettings: () => {
       },
       goUp: () => {
         if (fileMode) {

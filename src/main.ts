@@ -108,7 +108,7 @@ import { initMarkdownUi } from './md-ui';
     strip: null as unknown as App['strip'],
     filePage: null,
     applyAll: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {},
-    openInTerminal: () => {},
+    openInTerminal: () => {}, openHelp: () => {}, openSettings: () => {},
     goUp: () => {
       if (fileMode) { location.href = 'file://' + folderPath; return; }
       const up = entries.find(x => x.isParent);

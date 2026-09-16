@@ -549,7 +549,7 @@ try {
   // Dialogs: Help and Settings share one chrome. A title row with a mark and
   // a subtitle, a tab strip, one pane shown at a time; the chrome holds still
   // while a pane scrolls; Esc closes.
-  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 4, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 7, 'settings-dialog']]) {
+  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 5, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 7, 'settings-dialog']]) {
     await page.click(btn);
     await page.waitForFunction(i => document.getElementById(i).style.display !== 'none', { timeout: 3_000 }, id).catch(() => null);
     const d = await page.evaluate(i => {
@@ -595,6 +595,17 @@ try {
     const closed = await page.evaluate(i => document.getElementById(i).style.display === 'none', id);
     check(closed, `${d.title}: Esc closes`);
   }
+
+  // Keyboard opens the modals: ? opens Help, , opens Settings, Esc closes each.
+  await page.keyboard.press('?');
+  await page.waitForFunction(() => document.getElementById('fe-help-modal').style.display !== 'none', { timeout: 3_000 }).catch(() => null);
+  const helpByKey = await page.evaluate(() => document.getElementById('fe-help-modal').style.display !== 'none');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press(',');
+  await page.waitForFunction(() => document.getElementById('fe-settings-modal').style.display !== 'none', { timeout: 3_000 }).catch(() => null);
+  const setByKey = await page.evaluate(() => document.getElementById('fe-settings-modal').style.display !== 'none');
+  await page.keyboard.press('Escape');
+  check(helpByKey && setByKey, `? opens Help and , opens Settings: help=${helpByKey} settings=${setByKey}`);
 
   // Settings: sidebar sections off, click goes, reader size, export and
   // import, tooltips off, the Keyboard link.
