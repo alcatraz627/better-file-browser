@@ -1,7 +1,6 @@
-// User-facing help, one markdown document per tab of the Help dialog,
-// rendered through renderMarkdown so it reuses the preview's .fe-md styling.
-// Keep it accurate to the actual features; it is the one doc users read
-// in-product.
+// User-facing help, one markdown document per Help tab, rendered via
+// renderMarkdown to reuse the preview's .fe-md styling. Keep it accurate to the
+// real features; it is the one doc users read in-product.
 export interface HelpTab { key: string; label: string; hint: string; md: string }
 
 export const HELP_TABS: HelpTab[] = [
@@ -32,6 +31,10 @@ the tab keys are bare letters.
 Switch layout from the toolbar: **Details** (table), **List** (compact),
 **Tiles**, or **Large Icons**. Your choice is remembered. The **zoom** slider
 (50–320%) scales the whole list.
+
+The **≡** button at the top left shows or hides the sidebar, and dragging the
+sidebar's right edge resizes it. To scale the whole interface, sidebar and text
+included, set **Interface size** in **Settings → Appearance**.
 
 ## Finding files
 

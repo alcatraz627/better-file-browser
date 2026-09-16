@@ -115,6 +115,7 @@ since a tab keyed by a path-plus-query would be odd.
 
 | Gesture | Action |
 |---|---|
+| ≡ (top left) | show or hide the sidebar ✓ |
 | crumb click | go |
 | crumb ⌥-click | keep as a background strip tab ✓ |
 | crumb middle-click, ⌘-click | Chrome tab |
@@ -123,6 +124,7 @@ since a tab keyed by a path-plus-query would be odd.
 | ★ | save or unsave this folder ✓ |
 | terminal button | open here; ⇧-click copies the command instead |
 | sun or moon | toggle the theme ✓ |
+| sidebar right edge | drag to resize the sidebar, the width persists ✓ |
 | ? and gear | Help, Settings ✓ (the keys `?` and `,` open them too) |
 | view buttons | Details, List, Tiles, Icons ✓ |
 | Sort, Filter | open the panel ✓ |

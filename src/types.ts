@@ -48,6 +48,8 @@ export interface Settings {
   readerCodeSize?: number;
   stripRestore?: boolean;            // bring a closed Chrome tab's strip back (default on)
   tooltips?: boolean;                // native title tooltips (default on)
+  uiScale?: number;                  // whole-interface zoom in percent (default 100)
+  sidebarWidth?: number;             // sidebar width in px (default 220), set by dragging its edge
 }
 
 // Where the Quick Look preview lives and how big the owner dragged it.

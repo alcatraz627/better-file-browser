@@ -2272,6 +2272,8 @@ body{opacity:1!important}
 #fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
 #fe-body{display:flex;flex:1;overflow:hidden}
 #fe-side{width:220px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);overflow-y:auto;padding:6px 0}
+#fe-side-rz{width:5px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .12s}
+#fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
 .fe-sec{margin-bottom:4px}
 .fe-sh{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
   color:var(--dm);padding:10px 14px 5px;display:flex;align-items:center;gap:6px}
@@ -2280,7 +2282,7 @@ body{opacity:1!important}
 .fe-si:hover{background:var(--hover);color:var(--tx)}
 .fe-si.active{background:var(--act);color:var(--ac)}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
-.fe-sl{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-sl{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .fe-hint{font-size:12px;color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
 .fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
 .fe-drag-h{padding:7px 4px 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
@@ -3448,6 +3450,10 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 **Tiles**, or **Large Icons**. Your choice is remembered. The **zoom** slider
 (50\u2013320%) scales the whole list.
 
+The **\u2261** button at the top left shows or hides the sidebar, and dragging the
+sidebar's right edge resizes it. To scale the whole interface, sidebar and text
+included, set **Interface size** in **Settings \u2192 Appearance**.
+
 ## Finding files
 
 - **Quick filter** \u2014 type in the **Filter\u2026** box (top-right), or press **\u2318F** to jump to it. Press **\u2318F** again to fall through to Chrome's own find.
@@ -3859,6 +3865,16 @@ action is on the keyboard; press **?** for the full list.
             </select>
           </div>
           <div class="fe-st-row">
+            <span class="fe-st-lbl">Interface size</span>
+            <select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">
+              <option value="90">90%</option>
+              <option value="100">100%</option>
+              <option value="110">110%</option>
+              <option value="125">125%</option>
+              <option value="150">150%</option>
+            </select>
+          </div>
+          <div class="fe-st-row">
             <label class="fe-st-check"><input type="checkbox" id="fe-st-compact" title="Tighter rows and tiles"> Compact mode</label>
           </div>
           <div class="fe-st-row">
@@ -4025,6 +4041,7 @@ action is on the keyboard; press **?** for the full list.
 <div id="fe" data-theme="${initTheme}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ""}>
 
   <div id="fe-bar">
+    <button id="fe-side-toggle" title="Show or hide the sidebar"><svg width="15" height="15" viewBox="0 0 15 15"><path d="M2 4h11M2 7.5h11M2 11h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
     <div id="fe-bc">${renderCrumbs(folderPath, segments)}${fileMode ? `<span class="fe-sep">\u203A</span><span class="fe-crumb fe-crumb-file">${esc(fileName)}</span>` : ""}</div>
     <button id="fe-term-btn" title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button id="fe-bm-btn" class="${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
@@ -4070,6 +4087,7 @@ file:///">${PI.root}<span class="fe-sl">Root /</span></a>
 file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       </div>
     </nav>
+    <div id="fe-side-rz" title="Drag to resize the sidebar"></div>
 
     <div id="fe-main">
       <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
@@ -4289,6 +4307,33 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     document.addEventListener("click", (e) => {
       if (!crumbMenu.contains(e.target) && !e.target.classList.contains("fe-crumb-dd"))
         closeCrumbMenu();
+    });
+    const side = el("fe-side");
+    const rz = el("fe-side-rz");
+    el("fe-side-toggle").addEventListener("click", () => {
+      settings.showSidebar = !settings.showSidebar;
+      saveSettings(settings);
+      side.style.display = rz.style.display = settings.showSidebar ? "" : "none";
+      const box = document.getElementById("fe-st-sidebar");
+      if (box) box.checked = settings.showSidebar;
+    });
+    rz.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      rz.classList.add("drag");
+      const startX = e.clientX;
+      const startW = side.getBoundingClientRect().width;
+      const move = (m) => {
+        side.style.width = Math.max(150, Math.min(460, startW + m.clientX - startX)) + "px";
+      };
+      const up = () => {
+        rz.classList.remove("drag");
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        settings.sidebarWidth = Math.round(side.getBoundingClientRect().width);
+        saveSettings(settings);
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
     });
   }
 
@@ -5436,6 +5481,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-st-click").value = settings.clickOpens || "look";
       el("fe-st-strip-restore").checked = settings.stripRestore !== false;
       el("fe-st-rd-column").checked = localStorage.getItem(COLUMN_KEY) !== null ? localStorage.getItem(COLUMN_KEY) === "1" : !!settings.readerColumn;
+      el("fe-st-uiscale").value = String(settings.uiScale || 100);
       el("fe-st-rd-size").value = String(settings.readerSize || 15);
       el("fe-st-rd-lh").value = String(settings.readerLineHeight || 1.65);
       el("fe-st-rd-code").value = String(settings.readerCodeSize || 13);
@@ -5610,10 +5656,15 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       saveSettings(settings);
       fe.classList.toggle("compact", this.checked);
     });
+    el("fe-st-uiscale").addEventListener("change", function() {
+      settings.uiScale = Number(this.value);
+      saveSettings(settings);
+      fe.style.zoom = settings.uiScale === 100 ? "" : String(settings.uiScale / 100);
+    });
     el("fe-st-sidebar").addEventListener("change", function() {
       settings.showSidebar = this.checked;
       saveSettings(settings);
-      el("fe-side").style.display = this.checked ? "" : "none";
+      el("fe-side").style.display = el("fe-side-rz").style.display = this.checked ? "" : "none";
     });
     el("fe-st-datefmt").addEventListener("change", function() {
       settings.dateFormat = this.value;
@@ -5800,7 +5851,12 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     document.head.appendChild(styleEl);
     preload?.remove();
     const fe = el("fe");
-    if (!settings.showSidebar) el("fe-side").style.display = "none";
+    if (settings.sidebarWidth) el("fe-side").style.width = settings.sidebarWidth + "px";
+    if (!settings.showSidebar) {
+      el("fe-side").style.display = "none";
+      el("fe-side-rz").style.display = "none";
+    }
+    if (settings.uiScale && settings.uiScale !== 100) fe.style.zoom = String(settings.uiScale / 100);
     if (settings.compactMode) fe.classList.add("compact");
     fe.style.setProperty("--rd-size", `${settings.readerSize || 15}px`);
     fe.style.setProperty("--rd-lh", String(settings.readerLineHeight || 1.65));

@@ -681,6 +681,42 @@ try {
   const termToast = await page.$eval('#fe-toast', el => el.textContent);
   check(/^Copied: open -a Ghostty/.test(termToast), `terminal shift-click copies the command: "${termToast}"`);
 
+  // Sidebar: the hamburger toggles it, the handle resizes it (persisted), and
+  // Interface size scales the whole UI; labels ellipsize instead of clipping.
+  const sideShown = () => page.evaluate(() => getComputedStyle(document.getElementById('fe-side')).display !== 'none');
+  await page.click('#fe-side-toggle');
+  const sideHidden = !(await sideShown());
+  await page.click('#fe-side-toggle');
+  const sideBack = await sideShown();
+  check(sideHidden && sideBack, `hamburger toggles the sidebar: hidden=${sideHidden} back=${sideBack}`);
+
+  const rzBox = await (await page.$('#fe-side-rz')).boundingBox();
+  await page.mouse.move(rzBox.x + 2, rzBox.y + rzBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(rzBox.x + 62, rzBox.y + rzBox.height / 2, { steps: 6 });
+  await page.mouse.up();
+  const wDragged = await page.evaluate(() => Math.round(document.getElementById('fe-side').getBoundingClientRect().width));
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  const wKept = await page.evaluate(() => Math.round(document.getElementById('fe-side').getBoundingClientRect().width));
+  check(wDragged > 240 && Math.abs(wKept - wDragged) <= 2, `sidebar resize persists across reload: dragged=${wDragged} kept=${wKept}`);
+
+  await page.click('#fe-settings-btn');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+  await page.select('#fe-st-uiscale', '125');
+  const zoomed = await page.evaluate(() => document.getElementById('fe').style.zoom);
+  await page.select('#fe-st-uiscale', '100');
+  const unzoomed = await page.evaluate(() => document.getElementById('fe').style.zoom);
+  await page.keyboard.press('Escape');
+  check(zoomed === '1.25' && (unzoomed === '' || unzoomed === '1'), `Interface size scales the UI: 125→${zoomed}, 100→"${unzoomed}"`);
+
+  const labelCss = await page.evaluate(() => {
+    const lbl = document.querySelector('#fe-side .fe-sl');
+    const cs = getComputedStyle(lbl);
+    return { overflow: cs.textOverflow, minW: cs.minWidth };
+  });
+  check(labelCss.overflow === 'ellipsis' && labelCss.minW === '0px', `sidebar labels ellipsize within the pane (min-width:0): ${JSON.stringify(labelCss)}`);
+
   // Tooltips: every control on every surface carries a title. Rows and tiles
   // use the custom hover tip instead, menu items are their own label.
   const SWEEP = 'button, a[href], input:not([type="hidden"]), select, [role="tab"], th[data-sort], .fe-crumb-dd, .fe-sv-dot';

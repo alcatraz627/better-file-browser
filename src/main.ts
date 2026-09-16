@@ -95,7 +95,9 @@ import { initMarkdownUi } from './md-ui';
   preload?.remove();
 
   const fe = el('fe');
-  if (!settings.showSidebar) el('fe-side').style.display = 'none';
+  if (settings.sidebarWidth) el('fe-side').style.width = settings.sidebarWidth + 'px';
+  if (!settings.showSidebar) { el('fe-side').style.display = 'none'; el('fe-side-rz').style.display = 'none'; }
+  if (settings.uiScale && settings.uiScale !== 100) (fe.style as CSSStyleDeclaration & { zoom: string }).zoom = String(settings.uiScale / 100);
   if (settings.compactMode) fe.classList.add('compact');
   fe.style.setProperty('--rd-size', `${settings.readerSize || 15}px`);
   fe.style.setProperty('--rd-lh', String(settings.readerLineHeight || 1.65));

@@ -4,7 +4,7 @@ import type { App } from './app';
 import { el } from './el';
 import { esc } from './utils';
 import { getIcon } from './icons';
-import { THEME_KEY, TERMINAL_CMDS } from './storage';
+import { THEME_KEY, TERMINAL_CMDS, saveSettings } from './storage';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 
@@ -102,5 +102,35 @@ export function initChrome(app: App): void {
   document.addEventListener('click', e => {
     if (!crumbMenu.contains(e.target as Node) && !(e.target as HTMLElement).classList.contains('fe-crumb-dd'))
       closeCrumbMenu();
+  });
+
+  // The hamburger shows or hides the sidebar; the setting and its Settings
+  // checkbox follow along.
+  const side = el('fe-side');
+  const rz = el('fe-side-rz');
+  el('fe-side-toggle').addEventListener('click', () => {
+    settings.showSidebar = !settings.showSidebar;
+    saveSettings(settings);
+    side.style.display = rz.style.display = settings.showSidebar ? '' : 'none';
+    const box = document.getElementById('fe-st-sidebar') as HTMLInputElement | null;
+    if (box) box.checked = settings.showSidebar;
+  });
+
+  // Drag the handle to resize the sidebar; the width persists.
+  rz.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    rz.classList.add('drag');
+    const startX = e.clientX;
+    const startW = side.getBoundingClientRect().width;
+    const move = (m: PointerEvent) => { side.style.width = Math.max(150, Math.min(460, startW + m.clientX - startX)) + 'px'; };
+    const up = () => {
+      rz.classList.remove('drag');
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      settings.sidebarWidth = Math.round(side.getBoundingClientRect().width);
+      saveSettings(settings);
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
   });
 }

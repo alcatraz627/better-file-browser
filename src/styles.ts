@@ -64,6 +64,8 @@ body{opacity:1!important}
 #fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
 #fe-body{display:flex;flex:1;overflow:hidden}
 #fe-side{width:220px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);overflow-y:auto;padding:6px 0}
+#fe-side-rz{width:5px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .12s}
+#fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
 .fe-sec{margin-bottom:4px}
 .fe-sh{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
   color:var(--dm);padding:10px 14px 5px;display:flex;align-items:center;gap:6px}
@@ -72,7 +74,7 @@ body{opacity:1!important}
 .fe-si:hover{background:var(--hover);color:var(--tx)}
 .fe-si.active{background:var(--act);color:var(--ac)}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
-.fe-sl{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-sl{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .fe-hint{font-size:12px;color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
 .fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
 .fe-drag-h{padding:7px 4px 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}

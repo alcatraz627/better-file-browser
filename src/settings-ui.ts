@@ -60,6 +60,7 @@ export function initSettingsUi(app: App): void {
     el<HTMLInputElement>('fe-st-strip-restore').checked = settings.stripRestore !== false;
     el<HTMLInputElement>('fe-st-rd-column').checked =
       localStorage.getItem(COLUMN_KEY) !== null ? localStorage.getItem(COLUMN_KEY) === '1' : !!settings.readerColumn;
+    el<HTMLSelectElement>('fe-st-uiscale').value = String(settings.uiScale || 100);
     el<HTMLSelectElement>('fe-st-rd-size').value = String(settings.readerSize || 15);
     el<HTMLSelectElement>('fe-st-rd-lh').value = String(settings.readerLineHeight || 1.65);
     el<HTMLSelectElement>('fe-st-rd-code').value = String(settings.readerCodeSize || 13);
@@ -222,9 +223,13 @@ export function initSettingsUi(app: App): void {
     settings.compactMode = this.checked; saveSettings(settings);
     fe.classList.toggle('compact', this.checked);
   });
+  el<HTMLSelectElement>('fe-st-uiscale').addEventListener('change', function () {
+    settings.uiScale = Number(this.value); saveSettings(settings);
+    (fe.style as CSSStyleDeclaration & { zoom: string }).zoom = settings.uiScale === 100 ? '' : String(settings.uiScale / 100);
+  });
   el<HTMLInputElement>('fe-st-sidebar').addEventListener('change', function () {
     settings.showSidebar = this.checked; saveSettings(settings);
-    el('fe-side').style.display = this.checked ? '' : 'none';
+    el('fe-side').style.display = el('fe-side-rz').style.display = this.checked ? '' : 'none';
   });
   el<HTMLSelectElement>('fe-st-datefmt').addEventListener('change', function () {
     settings.dateFormat = this.value as 'short' | 'full'; saveSettings(settings); app.applyAll();
