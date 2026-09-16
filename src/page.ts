@@ -243,7 +243,7 @@ export function renderPage(p: PageParams): string {
 
   <div id="fe-bar">
     <div id="fe-bc">${renderCrumbs(folderPath, segments)}${fileMode ? `<span class="fe-sep">›</span><span class="fe-crumb fe-crumb-file">${esc(fileName)}</span>` : ''}</div>
-    <button id="fe-term-btn" title="Open in terminal (${settings.terminalApp || 'ghostty'}) — Click to open current folder · Shift+click copies command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button id="fe-term-btn" title="Open in terminal (${settings.terminalApp || 'ghostty'}), click opens the current folder, shift-click copies the command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button id="fe-bm-btn" class="${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? `Remove this ${fileMode ? 'file' : 'folder'} from Saved` : `Save this ${fileMode ? 'file' : 'folder'} (sidebar)`}">
       <svg width="13" height="13" viewBox="0 0 13 13"><path id="fe-bm-path" d="M2.5 1h8v11l-4-2.8L2.5 12z" fill="${curIsBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
     </button>
@@ -366,9 +366,9 @@ export function renderPage(p: PageParams): string {
         <table id="fe-table">
           <thead>
             <tr>
-              <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name · again flips · drag the edge to resize">Name <span class="si">↕</span><span class="fe-col-rz"></span></th>
-              <th class="c-tp" data-ck="tp" title="Type · drag the edge to resize">Type<span class="fe-col-rz"></span></th>
-              <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size · again flips">Size <span class="si">↕</span><span class="fe-col-rz"></span></th>
+              <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name · again flips · drag the edge to resize">Name <span class="si">↕</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
+              <th class="c-tp" data-ck="tp" title="Type · drag the edge to resize">Type<span class="fe-col-rz" title="Drag to resize this column"></span></th>
+              <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size · again flips">Size <span class="si">↕</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-dt" data-ck="dt" data-sort="date" title="Sort by modified date · again flips">Modified <span class="si">↕</span></th>
             </tr>
           </thead>

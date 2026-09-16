@@ -98,7 +98,7 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
   const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
   const row = (p: Place) => `
     <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? ' fe-view' : ''}" draggable="true" data-path="${esc(p.path)}">
-      <span class="fe-drag-h">${PI.drag}</span>
+      <span class="fe-drag-h" title="Drag to reorder">${PI.drag}</span>
       <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? ' active' : ''}" title="${esc(isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path)}">
         ${isViewPath(p.path) ? VIEW_ICON : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
         <span class="fe-pl-dots">${(p.tags ?? []).map(t => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join('')}</span>

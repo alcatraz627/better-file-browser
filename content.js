@@ -361,13 +361,12 @@
     </div>
   </div>`;
   }
-  var focusBefore = null;
+  var focusStack = [];
   function rememberFocus() {
-    focusBefore = document.activeElement;
+    focusStack.push(document.activeElement);
   }
   function restoreFocus() {
-    const el2 = focusBefore;
-    focusBefore = null;
+    const el2 = focusStack.pop() ?? null;
     if (el2 && document.contains(el2) && typeof el2.focus === "function") el2.focus();
   }
   function mountDialog(id, hooks = {}) {
@@ -3131,6 +3130,11 @@ td.c-tp{color:var(--dm);font-size:11px}
       const last = closed.pop();
       if (!last) return;
       writeSession(sid, state, closed);
+      const open = state.list.find((t) => t.path === last.tab.path);
+      if (open) {
+        goTab(open.id);
+        return;
+      }
       commit(insertTab(state, last.tab, last.index));
       toast(`Reopened ${last.tab.label}`);
     }
@@ -3342,7 +3346,9 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       toast(`Restored ${n} tab${n === 1 ? "" : "s"}`, 6e3, {
         label: "undo",
         run: () => {
-          commit(EMPTY);
+          let back = state;
+          for (const t of old.state.list) back = closeTab(back, t.id);
+          commit(back);
           try {
             area?.set({ [RECOVERY_PREFIX + pick]: old }, () => void chrome.runtime.lastError);
           } catch {
@@ -3412,6 +3418,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
 | Esc | Close a dialog or the preview / clear the filter |
 | t \xB7 w \xB7 p | Keep this folder or file as a tab \xB7 close it \xB7 pin it |
 | [ \xB7 ] \xB7 1-9 | Previous / next tab \xB7 jump to a tab (in a dialog: switch its tabs) |
+| T (shift-t) | Reopen the last closed tab, at its place |
 | n | New note (when a Notes folder is set) |
 | r | Raw / rendered, on a file page |
 
@@ -3524,8 +3531,9 @@ an undo. After a Chrome crash, Chrome's own session restore brings the strip
 back with the tab. The place you are in shows as an italic tab until you keep it: press
 **t** or double-click it. **w** closes the current tab, **p** pins it (pinned
 tabs sit first and have no \u2715), **[** and **]** move between tabs, **1** to
-**9** jump. Drag to reorder. **Middle-click** a tab to close it (pinned
-tabs stay). Hover a tab for **\u2026**: copy path, save, pin, close, close others.
+**9** jump. **Shift-T** reopens the last closed tab at its place. Drag to
+reorder. **Middle-click** a tab to close it (pinned tabs stay). Hover a tab
+for **\u2026**: copy path, save, pin, close, close others.
 Navigation is real, so the address bar is always the active tab's location.
 
 ## Saved
@@ -3694,7 +3702,7 @@ Folders you visited lately, and quick jumps (Root, Home, \u2026).
     const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
     const row = (p) => `
     <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
-      <span class="fe-drag-h">${PI.drag}</span>
+      <span class="fe-drag-h" title="Drag to reorder">${PI.drag}</span>
       <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? " active" : ""}" title="${esc(isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path)}">
         ${isViewPath(p.path) ? VIEW_ICON : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
         <span class="fe-pl-dots">${(p.tags ?? []).map((t) => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join("")}</span>
@@ -3945,7 +3953,7 @@ Folders you visited lately, and quick jumps (Root, Home, \u2026).
 
   <div id="fe-bar">
     <div id="fe-bc">${renderCrumbs(folderPath, segments)}${fileMode ? `<span class="fe-sep">\u203A</span><span class="fe-crumb fe-crumb-file">${esc(fileName)}</span>` : ""}</div>
-    <button id="fe-term-btn" title="Open in terminal (${settings.terminalApp || "ghostty"}) \u2014 Click to open current folder \xB7 Shift+click copies command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button id="fe-term-btn" title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button id="fe-bm-btn" class="${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
       <svg width="13" height="13" viewBox="0 0 13 13"><path id="fe-bm-path" d="M2.5 1h8v11l-4-2.8L2.5 12z" fill="${curIsBookmarked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
     </button>
@@ -4071,9 +4079,9 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         <table id="fe-table">
           <thead>
             <tr>
-              <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name \xB7 again flips \xB7 drag the edge to resize">Name <span class="si">\u2195</span><span class="fe-col-rz"></span></th>
-              <th class="c-tp" data-ck="tp" title="Type \xB7 drag the edge to resize">Type<span class="fe-col-rz"></span></th>
-              <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size \xB7 again flips">Size <span class="si">\u2195</span><span class="fe-col-rz"></span></th>
+              <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name \xB7 again flips \xB7 drag the edge to resize">Name <span class="si">\u2195</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
+              <th class="c-tp" data-ck="tp" title="Type \xB7 drag the edge to resize">Type<span class="fe-col-rz" title="Drag to resize this column"></span></th>
+              <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size \xB7 again flips">Size <span class="si">\u2195</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-dt" data-ck="dt" data-sort="date" title="Sort by modified date \xB7 again flips">Modified <span class="si">\u2195</span></th>
             </tr>
           </thead>
@@ -4139,7 +4147,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       }
       fallbackCopy(path);
     };
-    el("fe-term-btn").addEventListener("click", () => app.openInTerminal(app.folderPath));
+    el("fe-term-btn").addEventListener("click", (e) => {
+      if (e.shiftKey) fallbackCopy(app.folderPath);
+      else app.openInTerminal(app.folderPath);
+    });
     const crumbMenu = el("fe-crumb-menu");
     let crumbMenuUrl = null;
     function closeCrumbMenu() {
@@ -5341,7 +5352,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-st-panel").value = getPreviewLayout().mode;
       el("fe-st-click").value = settings.clickOpens || "look";
       el("fe-st-strip-restore").checked = settings.stripRestore !== false;
-      el("fe-st-rd-column").checked = !!settings.readerColumn;
+      el("fe-st-rd-column").checked = localStorage.getItem(COLUMN_KEY) !== null ? localStorage.getItem(COLUMN_KEY) === "1" : !!settings.readerColumn;
       el("fe-st-rd-size").value = String(settings.readerSize || 15);
       el("fe-st-rd-lh").value = String(settings.readerLineHeight || 1.65);
       el("fe-st-rd-code").value = String(settings.readerCodeSize || 13);
@@ -5451,6 +5462,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     el("fe-st-rd-column").addEventListener("change", function() {
       settings.readerColumn = this.checked;
       saveSettings(settings);
+      try {
+        localStorage.setItem(COLUMN_KEY, this.checked ? "1" : "0");
+      } catch {
+      }
     });
     const readerVar = (id, key, cssVar, unit) => {
       el(id).addEventListener("change", function() {
@@ -5526,7 +5541,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-st-term-custom-row").style.display = this.value === "custom" ? "" : "none";
       updateTermHint();
       const termBtn = document.getElementById("fe-term-btn");
-      if (termBtn) termBtn.title = `Open in ${this.options[this.selectedIndex].text}`;
+      if (termBtn) termBtn.title = `Open in terminal (${this.options[this.selectedIndex].text}), click opens the current folder, shift-click copies the command`;
     });
     el("fe-st-filepages").addEventListener("change", function() {
       settings.renderFilePages = this.value;

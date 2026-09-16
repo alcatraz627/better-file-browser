@@ -9,6 +9,7 @@ import { icoCustom } from './icons';
 import { VIEW_KEY, THEME_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout } from './storage';
 import { llmAvailability, llmWarm } from './llm';
 import { mountDialog } from './dialog';
+import { COLUMN_KEY } from './file-page';
 
 export function initSettingsUi(app: App): void {
   const { fe, settings, toast } = app;
@@ -57,7 +58,8 @@ export function initSettingsUi(app: App): void {
     el<HTMLSelectElement>('fe-st-panel').value = getPreviewLayout().mode;
     el<HTMLSelectElement>('fe-st-click').value = settings.clickOpens || 'look';
     el<HTMLInputElement>('fe-st-strip-restore').checked = settings.stripRestore !== false;
-    el<HTMLInputElement>('fe-st-rd-column').checked = !!settings.readerColumn;
+    el<HTMLInputElement>('fe-st-rd-column').checked =
+      localStorage.getItem(COLUMN_KEY) !== null ? localStorage.getItem(COLUMN_KEY) === '1' : !!settings.readerColumn;
     el<HTMLSelectElement>('fe-st-rd-size').value = String(settings.readerSize || 15);
     el<HTMLSelectElement>('fe-st-rd-lh').value = String(settings.readerLineHeight || 1.65);
     el<HTMLSelectElement>('fe-st-rd-code').value = String(settings.readerCodeSize || 13);
@@ -170,6 +172,9 @@ export function initSettingsUi(app: App): void {
   });
   el<HTMLInputElement>('fe-st-rd-column').addEventListener('change', function () {
     settings.readerColumn = this.checked; saveSettings(settings);
+    // The file page reads COLUMN_KEY, and its in-page button writes it; write it
+    // here too so Settings stays the source of truth instead of going inert.
+    try { localStorage.setItem(COLUMN_KEY, this.checked ? '1' : '0'); } catch { /* fine */ }
   });
   const readerVar = (id: string, key: 'readerSize' | 'readerLineHeight' | 'readerCodeSize', cssVar: string, unit: string) => {
     el<HTMLSelectElement>(id).addEventListener('change', function () {
@@ -226,7 +231,7 @@ export function initSettingsUi(app: App): void {
     el('fe-st-term-custom-row').style.display = this.value === 'custom' ? '' : 'none';
     updateTermHint();
     const termBtn = document.getElementById('fe-term-btn');
-    if (termBtn) termBtn.title = `Open in ${this.options[this.selectedIndex].text}`;
+    if (termBtn) termBtn.title = `Open in terminal (${this.options[this.selectedIndex].text}), click opens the current folder, shift-click copies the command`;
   });
   el<HTMLSelectElement>('fe-st-filepages').addEventListener('change', function () {
     settings.renderFilePages = this.value as 'all' | 'not-md' | 'off'; saveSettings(settings);

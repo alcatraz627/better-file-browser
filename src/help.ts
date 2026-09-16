@@ -18,6 +18,7 @@ export const HELP_TABS: HelpTab[] = [
 | Esc | Close a dialog or the preview / clear the filter |
 | t · w · p | Keep this folder or file as a tab · close it · pin it |
 | [ · ] · 1-9 | Previous / next tab · jump to a tab (in a dialog: switch its tabs) |
+| T (shift-t) | Reopen the last closed tab, at its place |
 | n | New note (when a Notes folder is set) |
 | r | Raw / rendered, on a file page |
 
@@ -130,8 +131,9 @@ an undo. After a Chrome crash, Chrome's own session restore brings the strip
 back with the tab. The place you are in shows as an italic tab until you keep it: press
 **t** or double-click it. **w** closes the current tab, **p** pins it (pinned
 tabs sit first and have no ✕), **[** and **]** move between tabs, **1** to
-**9** jump. Drag to reorder. **Middle-click** a tab to close it (pinned
-tabs stay). Hover a tab for **…**: copy path, save, pin, close, close others.
+**9** jump. **Shift-T** reopens the last closed tab at its place. Drag to
+reorder. **Middle-click** a tab to close it (pinned tabs stay). Hover a tab
+for **…**: copy path, save, pin, close, close others.
 Navigation is real, so the address bar is always the active tab's location.
 
 ## Saved

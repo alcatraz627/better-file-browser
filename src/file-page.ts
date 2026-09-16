@@ -13,7 +13,7 @@ import type { Settings } from './types';
 
 const SCROLL_KEY = 'bfb-page-scroll-v1';
 const TOC_KEY = 'bfb-page-toc-v1';
-const COLUMN_KEY = 'bfb-page-column-v1';
+export const COLUMN_KEY = 'bfb-page-column-v1';
 const RELOAD_MS = 2000;
 
 export function filePageExt(pathname: string): string | null {

@@ -98,6 +98,10 @@ export function mountStrip(host: StripHost): Strip {
     const last = closed.pop();
     if (!last) return;
     writeSession(sid, state, closed);
+    // Already open (reopened, then opened again by hand): switch to it rather
+    // than toast a reopen that insertTab would silently drop as a duplicate.
+    const open = state.list.find(t => t.path === last.tab.path);
+    if (open) { goTab(open.id); return; }
     commit(insertTab(state, last.tab, last.index));
     toast(`Reopened ${last.tab.label}`);
   }
@@ -272,7 +276,11 @@ export function mountStrip(host: StripHost): Strip {
     toast(`Restored ${n} tab${n === 1 ? '' : 's'}`, 6000, {
       label: 'undo',
       run: () => {
-        commit(EMPTY);
+        // Remove only the restored tabs, so anything opened during the 6s
+        // toast window survives; wiping to EMPTY dropped those too.
+        let back = state;
+        for (const t of old.state.list) back = closeTab(back, t.id);
+        commit(back);
         try { area?.set({ [RECOVERY_PREFIX + pick]: old }, () => void chrome.runtime.lastError); } catch { /* gone */ }
       },
     });

@@ -41,7 +41,10 @@ export function initChrome(app: App): void {
     }
     fallbackCopy(path);
   };
-  el('fe-term-btn').addEventListener('click', () => app.openInTerminal(app.folderPath));
+  el('fe-term-btn').addEventListener('click', e => {
+    if ((e as MouseEvent).shiftKey) fallbackCopy(app.folderPath);
+    else app.openInTerminal(app.folderPath);
+  });
 
   // Crumb dropdown: the ▾ beside a segment lists that folder with a filter box.
   const crumbMenu = el('fe-crumb-menu');

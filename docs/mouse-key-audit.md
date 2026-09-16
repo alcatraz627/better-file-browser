@@ -9,6 +9,8 @@ Conventions that hold everywhere:
 
 - Middle-click and cmd-click on anything with an address reach Chrome
   untouched, so they open a Chrome tab or window the way they do on any page.
+  The one exception is listing rows and tiles, where cmd-click and shift-click
+  belong to multi-select (below); middle-click on a row still reaches Chrome.
 - Esc closes the topmost thing: a menu, a dialog, the preview, then it clears
   the filter box.
 - Single-letter keys only fire when no input has focus and no dialog is open.
@@ -43,6 +45,7 @@ Conventions that hold everywhere:
 | t, w, p | keep, close, pin the current tab |
 | [ ] | previous, next tab ✓ |
 | 1 to 9 | jump to a tab |
+| T (shift-t) | reopen the last closed tab, at its place ✓ |
 
 ## Strip tabs
 
@@ -90,7 +93,10 @@ it and pins it.
 
 Sidebar rows are bookmarks, not listing rows. A click opens the place as a
 strip tab: the tab that already holds it is switched to, otherwise a new one
-is kept, and the page navigates there. Files and folders alike.
+is kept, and the page navigates there. Files and folders alike. A saved search
+view (a row whose path carries a `#find` query) is the exception: a click
+navigates to the folder and applies the query, without keeping a strip tab,
+since a tab keyed by a path-plus-query would be odd.
 
 | Gesture | Saved, Recent, Favorites, System row | Notes row |
 |---|---|---|

@@ -606,6 +606,13 @@ try {
   await page.select('#fe-st-click', 'go');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="files"]');
   await page.select('#fe-st-rd-size', '17');
+  // The reading-column checkbox writes the same key the file page reads, so it
+  // does not go dead once the in-page column button has written that key.
+  await page.click('#fe-st-rd-column');
+  const colKeyOn = await page.evaluate(() => localStorage.getItem('bfb-page-column-v1'));
+  await page.click('#fe-st-rd-column');
+  const colKeyOff = await page.evaluate(() => localStorage.getItem('bfb-page-column-v1'));
+  check(colKeyOn === '1' && colKeyOff === '0', `Settings reading-column toggle writes the file-page key both ways: on=${colKeyOn} off=${colKeyOff}`);
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="data"]');
   await page.click('#fe-st-export');
   const exported = await page.$eval('#fe-st-export-out', el => el.value);
@@ -653,6 +660,15 @@ try {
   }, h.fixture);
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
+
+  // Terminal shift-click copies the command instead of opening the app. The
+  // e2e has no native host, so we assert the shift path reaches the copy toast.
+  await page.keyboard.down('Shift');
+  await page.click('#fe-term-btn');
+  await page.keyboard.up('Shift');
+  await page.waitForFunction(() => /^Copied:/.test(document.getElementById('fe-toast')?.textContent || ''), { timeout: 3_000 }).catch(() => null);
+  const termToast = await page.$eval('#fe-toast', el => el.textContent);
+  check(/^Copied: open -a Ghostty/.test(termToast), `terminal shift-click copies the command: "${termToast}"`);
 
   // Tooltips: every control on every surface carries a title. Rows and tiles
   // use the custom hover tip instead, menu items are their own label.

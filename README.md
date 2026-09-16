@@ -200,15 +200,27 @@ better-file-browser/
 ├── background.js               service worker: file:// fetch relay + native-host proxy
 ├── build.ts                    esbuild bundler (src/ → content.js)
 ├── src/                        TypeScript sources (entry: main.ts)
-│   ├── main.ts                 page replacement, events, settings, keyboard, context menu
+│   ├── main.ts                 entry: decide listing vs file, build the shell once, hand each part to its module
+│   ├── app.ts                  the shared page context: identity, live settings, the hooks modules hand each other
+│   ├── page.ts                 the page shell (path bar, sidebar, main column, the two dialogs) as one HTML string
+│   ├── listing.ts              the folder listing: sort, group, filter, text and deep search, view, selection
+│   ├── listing-input.ts        pointer and keyboard for the listing: click model, hover tip, context menu, keydown router
+│   ├── sidebar.ts              the Saved list, the Notes list, and the bookmark gestures shared by rows, crumbs, dropdown
+│   ├── strip.ts                the tab strip of one Chrome tab (sessionStorage state + local recovery); pure ops in tabs.ts
+│   ├── chrome.ts               the path bar's own controls: theme toggle, terminal button, crumb dropdown
+│   ├── dialog.ts               one dialog chrome (title, tab strip, one scrolling pane) for Help and Settings
+│   ├── settings-ui.ts          fills and saves the Settings and Help panes, the icon-rule editor, the local-model card
+│   ├── help.ts                 the in-product help text, one markdown doc per Help tab
 │   ├── preview.ts              Quick Look panel (modal or docked) + AI bar + note editor
 │   ├── file-page.ts            takeover for a file opened directly in the tab
+│   ├── md-ui.ts                behaviour inside rendered markdown: code-block copy, image opens natively
 │   ├── renderers.ts            pure render fns: code/DSV/JSON/JSONL/markdown (unit-tested)
 │   ├── deep-search.ts          pure subtree crawler behind the deep search toggle
 │   ├── tabs.ts · places.ts     pure cores for the tab strip and the Saved list
 │   ├── notes.ts · editor.ts    notes host client + front matter; undo/insert core
 │   ├── llm.ts                  native-messaging client for the lm CLI
 │   ├── file-fetch.ts           service-worker fetch relay client (retries, error codes)
+│   ├── toast.ts · styles.ts · el.ts   status message; injected CSS; the two element lookups
 │   ├── parse.ts · render.ts · sort-filter.ts · icons.ts · storage.ts · utils.ts · types.ts
 ├── tests/                      vitest unit tests
 ├── e2e/                        browser harness + smoke run (npm run e2e)

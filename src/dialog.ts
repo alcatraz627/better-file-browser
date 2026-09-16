@@ -26,14 +26,15 @@ export function renderDialog(d: DialogSpec): string {
   </div>`;
 }
 
-let focusBefore: HTMLElement | null = null;
-// Called when any overlay opens: remember what had focus so close can return it.
+// A stack, not one slot: the preview and the dialogs all remember focus here,
+// and they nest (a dialog can open over a docked preview), so close must return
+// focus to each overlay's own opener, not the last one that opened.
+const focusStack: (HTMLElement | null)[] = [];
 export function rememberFocus(): void {
-  focusBefore = document.activeElement as HTMLElement | null;
+  focusStack.push(document.activeElement as HTMLElement | null);
 }
 export function restoreFocus(): void {
-  const el = focusBefore;
-  focusBefore = null;
+  const el = focusStack.pop() ?? null;
   if (el && document.contains(el) && typeof el.focus === 'function') el.focus();
 }
 
