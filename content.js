@@ -5389,6 +5389,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       });
       target.addEventListener("blur", () => finish(true), { once: true });
     }
+    let clickTimer = null;
     function attachSavedEvents() {
       els(".fe-rm-btn", svList).forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -5403,6 +5404,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         lbl.addEventListener("dblclick", (e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (clickTimer) {
+            clearTimeout(clickTimer);
+            clickTimer = null;
+          }
           const path = lbl.closest(".fe-pl-item").dataset.path;
           inlineEdit(lbl, (val) => {
             if (val) saveSaved(renamePlace(getSaved(), path, val));
@@ -5546,7 +5551,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     for (const host of [el("fe-side"), el("fe-bc"), el("fe-crumb-menu")]) {
       host.addEventListener("click", (e) => {
         const a = e.target.closest('a[href^="file://"]');
-        if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0 || e.detail > 1) return;
+        if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
         const path = anchorPath(a);
         if (e.altKey) {
           e.preventDefault();
@@ -5555,7 +5560,16 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         }
         if (host.id !== "fe-side" || a.closest("#fe-nt-list") || isViewPath(path)) return;
         e.preventDefault();
-        app.strip.go(path);
+        if (e.detail > 1) return;
+        if (a.closest(".fe-pl-item")) {
+          if (clickTimer) clearTimeout(clickTimer);
+          clickTimer = setTimeout(() => {
+            clickTimer = null;
+            app.strip.go(path);
+          }, 250);
+        } else {
+          app.strip.go(path);
+        }
       });
     }
   }

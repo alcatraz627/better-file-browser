@@ -61,6 +61,9 @@ export function initSidebar(app: App): void {
     });
     target.addEventListener('blur', () => finish(true), { once: true });
   }
+  // A Saved-row single click navigates, a double-click renames; defer the
+  // navigation so the double-click can cancel it and rename instead.
+  let clickTimer: ReturnType<typeof setTimeout> | null = null;
   function attachSavedEvents(): void {
     els('.fe-rm-btn', svList).forEach(btn => {
       btn.addEventListener('click', e => {
@@ -72,6 +75,7 @@ export function initSidebar(app: App): void {
     els('.fe-pl-label', svList).forEach(lbl => {
       lbl.addEventListener('dblclick', e => {
         e.preventDefault(); e.stopPropagation();
+        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
         const path = lbl.closest<HTMLElement>('.fe-pl-item')!.dataset.path!;
         inlineEdit(lbl, val => { if (val) saveSaved(renamePlace(getSaved(), path, val)); });
       });
@@ -205,12 +209,21 @@ export function initSidebar(app: App): void {
   for (const host of [el('fe-side'), el('fe-bc'), el('fe-crumb-menu')]) {
     host.addEventListener('click', e => {
       const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="file://"]');
-      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0 || e.detail > 1) return;
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
       const path = anchorPath(a);
       if (e.altKey) { e.preventDefault(); app.strip.open(isViewPath(path) ? path.split('#')[0] : path, true); return; }
       if (host.id !== 'fe-side' || a.closest('#fe-nt-list') || isViewPath(path)) return;
+      // Prevent the anchor's own navigation on both clicks, so the second click
+      // of a double-click cannot navigate before the rename fires.
       e.preventDefault();
-      app.strip.go(path);
+      if (e.detail > 1) return;
+      if (a.closest('.fe-pl-item')) {
+        // A Saved row renames on double-click; defer the go so a rename cancels it.
+        if (clickTimer) clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => { clickTimer = null; app.strip.go(path); }, 250);
+      } else {
+        app.strip.go(path);
+      }
     });
   }
 }

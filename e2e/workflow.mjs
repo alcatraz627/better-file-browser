@@ -53,6 +53,31 @@ try {
   await page.click('#fe-ql-go');
   await new Promise(r => setTimeout(r, 500));
   check(/existing-note\.md$/.test(page.url()), `note editor open goes to the note page: ${page.url()}`);
+  await page.close();
+
+  // A double-click renames a saved bookmark; the single click that precedes it
+  // must not navigate away first.
+  page = await h.open();
+  await page.evaluate(fx => localStorage.setItem('bfb-saved-v1',
+    JSON.stringify([{ path: fx + '/nested/', label: 'nested' }])), h.fixture);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe-sv-list .fe-pl-label');
+  const box = await (await page.$('#fe-sv-list .fe-pl-label')).boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down({ clickCount: 1 }); await page.mouse.up({ clickCount: 1 });
+  await page.mouse.down({ clickCount: 2 }); await page.mouse.up({ clickCount: 2 });
+  await page.waitForFunction(() => document.querySelector('#fe-sv-list .fe-pl-label')?.getAttribute('contenteditable') === 'true', { timeout: 2000 }).catch(() => {});
+  await page.evaluate(() => {
+    const el = document.querySelector('#fe-sv-list .fe-pl-label');
+    el.textContent = 'Renamed';
+    const r = document.createRange(); r.selectNodeContents(el);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  });
+  await page.keyboard.press('Enter');
+  await new Promise(r => setTimeout(r, 400));
+  const renamed = await page.evaluate(() => JSON.parse(localStorage.getItem('bfb-saved-v1'))[0].label);
+  check(renamed === 'Renamed' && !page.url().endsWith('/nested/'), `double-click renames a saved bookmark without navigating: label=${renamed} url=${page.url().split('/').pop() || '/'}`);
+  await page.close();
 } finally {
   await h.close();
 }
