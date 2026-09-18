@@ -75,6 +75,9 @@
   function esc(s) {
     return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
+  function fileHref(path) {
+    return "file://" + path.split("/").map(encodeURIComponent).join("/");
+  }
   function fmtSize(b) {
     if (b < 0 || b === 0) return "\u2014";
     if (b < 1024) return b + " B";
@@ -3909,7 +3912,7 @@ seconds and re-renders when the file changes on disk.
     const row = (p) => `
     <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h" title="Drag to reorder">${PI.drag}</span>
-      <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? " active" : ""}" title="${esc(isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path)}">
+      <a href="${isViewPath(p.path) ? "file://" + esc(p.path) : fileHref(p.path)}" class="fe-si-link${p.path === rawPath ? " active" : ""}" title="${esc(isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path)}">
         ${isViewPath(p.path) ? VIEW_ICON : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
         <span class="fe-pl-dots">${(p.tags ?? []).map((t) => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join("")}</span>
       </a>
@@ -3927,7 +3930,7 @@ seconds and re-renders when the file changes on disk.
     let acc = "/";
     for (const seg of segments) {
       acc += seg + "/";
-      crumbs.push({ label: seg, href: "file://" + acc });
+      crumbs.push({ label: seg, href: fileHref(acc) });
     }
     return crumbs.map(
       (c, i) => `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">\u25BE</button>` + (i < crumbs.length - 1 ? `<span class="fe-sep">\u203A</span>` : "")
@@ -5515,11 +5518,20 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         item.querySelector(".fe-si-link").addEventListener("click", (e) => {
           if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
           e.preventDefault();
-          openNoteRel(root, rel);
+          if (e.detail > 1) return;
+          if (clickTimer) clearTimeout(clickTimer);
+          clickTimer = setTimeout(() => {
+            clickTimer = null;
+            openNoteRel(root, rel);
+          }, 250);
         });
         item.querySelector(".fe-nt-label").addEventListener("dblclick", (e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (clickTimer) {
+            clearTimeout(clickTimer);
+            clickTimer = null;
+          }
           inlineEdit(e.currentTarget, (val) => {
             const to = rel.replace(/[^/]+$/, slugForTitle(val));
             notes.rename(root, rel, to).then(refreshNotes).catch((err) => toast(err.message));

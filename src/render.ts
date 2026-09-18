@@ -1,5 +1,5 @@
 import type { Entry, IconRule, Place, Settings, Tag, TipData } from './types';
-import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath } from './utils';
+import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, fileHref } from './utils';
 import { getIcon, IMG_EXTS, PI } from './icons';
 import { groupByTag, filterSaved } from './places';
 import { isViewPath } from './find';
@@ -99,7 +99,7 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
   const row = (p: Place) => `
     <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? ' fe-view' : ''}" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h" title="Drag to reorder">${PI.drag}</span>
-      <a href="file://${esc(p.path)}" class="fe-si-link${p.path === rawPath ? ' active' : ''}" title="${esc(isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path)}">
+      <a href="${isViewPath(p.path) ? 'file://' + esc(p.path) : fileHref(p.path)}" class="fe-si-link${p.path === rawPath ? ' active' : ''}" title="${esc(isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path)}">
         ${isViewPath(p.path) ? VIEW_ICON : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
         <span class="fe-pl-dots">${(p.tags ?? []).map(t => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join('')}</span>
       </a>
@@ -118,7 +118,7 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
 export function renderCrumbs(rawPath: string, segments: string[]): string {
   const crumbs = [{ label: '/', href: 'file:///' }];
   let acc = '/';
-  for (const seg of segments) { acc += seg + '/'; crumbs.push({ label: seg, href: 'file://' + acc }); }
+  for (const seg of segments) { acc += seg + '/'; crumbs.push({ label: seg, href: fileHref(acc) }); }
   return crumbs.map((c, i) =>
     `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a>` +
     `<button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">▾</button>` +

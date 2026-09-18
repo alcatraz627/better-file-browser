@@ -8,6 +8,12 @@ export function esc(s: unknown): string {
     .replace(/>/g, '&gt;');
 }
 
+// A file:// URL with each path segment encoded, so a # or ? in a name is not
+// read as a fragment or query when the browser follows the anchor.
+export function fileHref(path: string): string {
+  return 'file://' + path.split('/').map(encodeURIComponent).join('/');
+}
+
 export function fmtSize(b: number): string {
   if (b < 0 || b === 0) return '—';
   if (b < 1024)         return b + ' B';

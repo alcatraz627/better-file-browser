@@ -173,10 +173,15 @@ export function initSidebar(app: App): void {
       const rel = item.dataset.rel!;
       item.querySelector<HTMLElement>('.fe-si-link')!.addEventListener('click', e => {
         if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;   // the shell's gestures take those
-        e.preventDefault(); openNoteRel(root, rel);
+        e.preventDefault();
+        if (e.detail > 1) return;   // a double-click renames; ignore the second click
+        // Defer the editor open so a double-click can cancel it and rename.
+        if (clickTimer) clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => { clickTimer = null; openNoteRel(root, rel); }, 250);
       });
       item.querySelector<HTMLElement>('.fe-nt-label')!.addEventListener('dblclick', e => {
         e.preventDefault(); e.stopPropagation();
+        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
         inlineEdit(e.currentTarget as HTMLElement, val => {
           const to = rel.replace(/[^/]+$/, slugForTitle(val));
           notes.rename(root, rel, to).then(refreshNotes).catch((err: NotesError) => toast(err.message));
