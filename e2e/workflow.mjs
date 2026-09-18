@@ -1,6 +1,7 @@
-// Regression gate for the note-editor workflow fixes, driven in the real
-// extension. Isolated harness profile, so it does not touch the smoke state.
-//   The note editor "+ tab" keeps the note; "open" goes to its file page.
+// Regression gate for composite workflow fixes, driven in the real extension.
+// Isolated harness profile, so it does not touch the smoke state.
+//   A sidebar click keeps the current folder; the note editor "+ tab" and
+//   "open" act on the note.
 import { launch } from './harness.mjs';
 
 const strip = page => page.evaluate(() =>
@@ -13,8 +14,22 @@ const check = (ok, msg) => { console.log((ok ? 'ok   ' : 'FAIL ') + msg); if (!o
 
 const h = await launch();
 try {
-  // The note editor "+ tab" keeps the note as a strip tab.
+  // A saved-item sidebar click keeps the current folder as a tab (option 1).
   let page = await h.open();
+  await page.evaluate(fx => localStorage.setItem('bfb-saved-v1',
+    JSON.stringify([{ path: fx + '/readme.md', label: 'readme.md' }])), h.fixture);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe-sv-list .fe-si-link');
+  const sBefore = await strip(page);
+  await page.click('#fe-sv-list .fe-si-link');
+  await new Promise(r => setTimeout(r, 250));
+  const sAfter = await strip(page);
+  check(sBefore.length === 1 && sAfter.some(l => /bfb-fixture/.test(l)) && sAfter.some(l => /readme\.md/.test(l)),
+    `sidebar click keeps the current folder as a tab: before=${JSON.stringify(sBefore)} after=${JSON.stringify(sAfter)}`);
+  await page.close();
+
+  // The note editor "+ tab" keeps the note as a strip tab.
+  page = await h.open();
   await page.evaluate(nd => localStorage.setItem('bfb-settings-v1',
     JSON.stringify({ showSidebar: true, tooltips: true, notesRoot: nd })), h.notesDir);
   await page.reload({ waitUntil: 'load' });

@@ -108,7 +108,10 @@ export function mountStrip(host: StripHost): Strip {
     commit(insertTab(state, last.tab, last.index));
     toast(`Reopened ${last.tab.label}`);
   }
-  function hrefFor(t: Tab): string { return 'file://' + t.path; }
+  // Encode each segment so a '#' or '?' in a filename is not read as a URL
+  // fragment or query and lost.
+  const fileUrl = (p: string) => 'file://' + p.split('/').map(encodeURIComponent).join('/');
+  function hrefFor(t: Tab): string { return fileUrl(t.path); }
   function goTab(id: string): void {
     const t = state.list.find(x => x.id === id);
     if (!t) return;
@@ -310,7 +313,15 @@ export function mountStrip(host: StripHost): Strip {
   return {
     handleKey,
     open: (path, background = false) => commit(openTab(state, path, background)),
-    go: path => { commit(openTab(state, path)); if (path !== rawPath) location.href = 'file://' + path; },
+    go: path => {
+      // Keep the current place: if this folder or file was only a temp tab,
+      // insert it as a kept background tab before navigating away, so a sidebar
+      // click adds the target and never drops the tab the user was on.
+      let s = state;
+      if (rawPath && !s.list.some(t => t.path === rawPath)) s = openTab(s, rawPath, true);
+      commit(openTab(s, path));
+      if (path !== rawPath) location.href = fileUrl(path);
+    },
     state: () => state,
   };
 }

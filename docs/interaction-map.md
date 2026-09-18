@@ -160,7 +160,9 @@ itself every couple of seconds and re-renders when the file changes on disk.
 - Overlays stack: a dialog opened over the preview takes `Esc` first, then the
   preview. Focus returns to where it was, so nesting is safe.
 - Temporary versus kept tabs: the folder you are in shows as an italic temporary
-  tab until `t` or a double-click keeps it. Leaving an unkept folder drops its tab.
+  tab until `t` or a double-click keeps it. Opening a place from the sidebar keeps
+  that folder as a tab so you do not lose it; leaving another way drops an unkept
+  folder.
 - The notes editor is the preview panel in edit mode; its `open` and `+ tab` act
   on the note.
 - Reader size applies to the file page and the preview panel; interface size
@@ -197,6 +199,7 @@ itself every couple of seconds and re-renders when the file changes on disk.
   zoom, theme, or terminal controls, the sidebar and its rows, the breadcrumb
   dropdown, or renaming a saved item, and the context menu is right-click only.
 - The toast message is always dark, in both themes.
-- A filename that contains a `#` can confuse tab navigation.
+- A saved bookmark to a file whose name contains a `#` may be read as a search
+  view rather than opened.
 - There is no drag and drop to move or copy files; dragging reorders tabs and
   saved rows only.

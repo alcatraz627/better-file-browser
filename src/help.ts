@@ -317,8 +317,8 @@ seconds and re-renders when the file changes on disk.
 - A listing click looks or goes by the "Click on a file" setting; a sidebar click
   always goes; ⌥ keeps a background tab in both.
 - A file page is the explorer with the file in the main column, so nothing moves.
-- The folder you are in is a temporary (italic) tab until you keep it; leaving an
-  unkept folder drops its tab.
+- The folder you are in is a temporary (italic) tab until you keep it; opening a
+  place from the sidebar keeps that folder as a tab so you do not lose it.
 - A dialog over the preview takes Esc first, then the preview; focus returns.
 - Reader size affects the file page and the preview; Interface size scales the
   whole interface on top of the list zoom.
@@ -329,7 +329,7 @@ seconds and re-renders when the file changes on disk.
   terminal controls, the sidebar, and rename have no key, and the context menu is
   right-click only.
 - The toast message is always dark, in both themes.
-- A filename containing a # can confuse tab navigation.
+- A saved bookmark to a file whose name contains a # may be read as a search view.
 - Dragging reorders tabs and saved rows; it does not move or copy files.
 ` },
 ];

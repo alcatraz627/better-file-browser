@@ -3153,8 +3153,9 @@ td.c-tp{color:var(--dm);font-size:11px}
       commit(insertTab(state, last.tab, last.index));
       toast(`Reopened ${last.tab.label}`);
     }
+    const fileUrl = (p) => "file://" + p.split("/").map(encodeURIComponent).join("/");
     function hrefFor(t) {
-      return "file://" + t.path;
+      return fileUrl(t.path);
     }
     function goTab(id) {
       const t = state.list.find((x) => x.id === id);
@@ -3392,8 +3393,10 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       handleKey,
       open: (path, background = false) => commit(openTab(state, path, background)),
       go: (path) => {
-        commit(openTab(state, path));
-        if (path !== rawPath) location.href = "file://" + path;
+        let s = state;
+        if (rawPath && !s.list.some((t) => t.path === rawPath)) s = openTab(s, rawPath, true);
+        commit(openTab(s, path));
+        if (path !== rawPath) location.href = fileUrl(path);
       },
       state: () => state
     };
@@ -3737,8 +3740,8 @@ seconds and re-renders when the file changes on disk.
 - A listing click looks or goes by the "Click on a file" setting; a sidebar click
   always goes; \u2325 keeps a background tab in both.
 - A file page is the explorer with the file in the main column, so nothing moves.
-- The folder you are in is a temporary (italic) tab until you keep it; leaving an
-  unkept folder drops its tab.
+- The folder you are in is a temporary (italic) tab until you keep it; opening a
+  place from the sidebar keeps that folder as a tab so you do not lose it.
 - A dialog over the preview takes Esc first, then the preview; focus returns.
 - Reader size affects the file page and the preview; Interface size scales the
   whole interface on top of the list zoom.
@@ -3749,7 +3752,7 @@ seconds and re-renders when the file changes on disk.
   terminal controls, the sidebar, and rename have no key, and the context menu is
   right-click only.
 - The toast message is always dark, in both themes.
-- A filename containing a # can confuse tab navigation.
+- A saved bookmark to a file whose name contains a # may be read as a search view.
 - Dragging reorders tabs and saved rows; it does not move or copy files.
 ` }
   ];

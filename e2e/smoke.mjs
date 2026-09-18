@@ -288,20 +288,22 @@ try {
   await page.waitForSelector('#fe');
   sideTabs = await stripLabels();
   const onLabel = () => page.$eval('#fe-tabs .fe-tab.on .fe-tab-lbl', el => el.textContent);
-  check(page.url().endsWith('/nested/') && sideTabs.join('|') === 'nested|/|code.py' && await onLabel() === 'nested', `click on a saved folder switches to its open tab, no duplicate: ${JSON.stringify(sideTabs)}`);
+  check(page.url().endsWith('/nested/') && sideTabs.join('|') === 'nested|/|code.py|' + h.fixture.split('/').pop() && await onLabel() === 'nested', `click on a saved folder switches to its open tab and keeps the current folder: ${JSON.stringify(sideTabs)}`);
   await page.click('#fe-sv-list .fe-pl-item[data-path$="/readme.md"] .fe-si-link');
   await page.waitForSelector('#fe.fe-file-page', { timeout: 5_000 }).catch(() => null);
   sideTabs = await stripLabels();
-  check(page.url().endsWith('/readme.md') && sideTabs.join('|') === 'nested|readme.md|/|code.py' && await onLabel() === 'readme.md', `click on a saved file opens it as a new kept tab and goes there: ${JSON.stringify(sideTabs)}`);
+  check(page.url().endsWith('/readme.md') && sideTabs.join('|') === 'nested|readme.md|/|code.py|' + h.fixture.split('/').pop() && await onLabel() === 'readme.md', `click on a saved file opens it as a new kept tab and goes there: ${JSON.stringify(sideTabs)}`);
   await page.evaluate(() => {
     const l = JSON.parse(localStorage.getItem('bfb-saved-v1') || '[]').filter(p => !p.path.endsWith('/readme.md'));
     localStorage.setItem('bfb-saved-v1', JSON.stringify(l));
   });
   await page.goto(urlSide, { waitUntil: 'load' });
   await page.waitForSelector('#fe');
-  for (let i = 4; i > 0; i--) {
+  // Close every kept tab so the notes flow starts on a clean strip, however many
+  // a sidebar click left kept (the folder-preserve behaviour leaves one more).
+  for (let n = (await page.$$('#fe-tabs .fe-tab[data-id]')).length; n > 0; n--) {
     await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
-    await page.waitForFunction(n => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === n, { timeout: 3_000 }, i - 1).catch(() => null);
+    await page.waitForFunction(k => document.querySelectorAll('#fe-tabs .fe-tab[data-id]').length === k, { timeout: 3_000 }, n - 1).catch(() => null);
   }
 
   // Notes: the folder from Settings lists, a new note saves to disk under its
