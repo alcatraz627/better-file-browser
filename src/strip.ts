@@ -279,7 +279,15 @@ export function mountStrip(host: StripHost): Strip {
     for (const [k, e] of Object.entries(all)) if (isStale(e, now)) { try { area?.remove(RECOVERY_PREFIX + k, () => void chrome.runtime.lastError); } catch { /* gone */ } delete all[k]; }
     const pick = pickRecovery(all, now);
     if (!pick) return;
-    const old = all[pick];
+    let old = all[pick];
+    // pagehide fires on navigation too, so a just-closed entry may be a live tab
+    // mid-nav about to re-claim it; re-read after a beat before taking a fresh one.
+    if (now - old.at < 2500) {
+      await new Promise(r => setTimeout(r, 700));
+      const again = (await readRecoveries())[pick];
+      if (!again || !again.closed || again.at !== old.at) return;
+      old = again;
+    }
     try { area?.remove(RECOVERY_PREFIX + pick, () => void chrome.runtime.lastError); } catch { /* gone */ }
     commit(activateHere(old.state));
     const n = old.state.list.length;

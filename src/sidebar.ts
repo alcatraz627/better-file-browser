@@ -11,6 +11,7 @@ import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, c
 import { renderSavedList } from './render';
 import { notes, noteTitle, newNoteText, slugForTitle } from './notes';
 import { openNote } from './preview';
+import { isViewPath } from './find';
 
 export function initSidebar(app: App): void {
   const { rawPath, settings, toast } = app;
@@ -206,8 +207,8 @@ export function initSidebar(app: App): void {
       const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="file://"]');
       if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0 || e.detail > 1) return;
       const path = anchorPath(a);
-      if (e.altKey) { e.preventDefault(); app.strip.open(path.split('#')[0], true); return; }
-      if (host.id !== 'fe-side' || a.closest('#fe-nt-list') || path.includes('#')) return;
+      if (e.altKey) { e.preventDefault(); app.strip.open(isViewPath(path) ? path.split('#')[0] : path, true); return; }
+      if (host.id !== 'fe-side' || a.closest('#fe-nt-list') || isViewPath(path)) return;
       e.preventDefault();
       app.strip.go(path);
     });

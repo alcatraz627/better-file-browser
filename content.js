@@ -3356,7 +3356,13 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       }
       const pick = pickRecovery(all, now);
       if (!pick) return;
-      const old = all[pick];
+      let old = all[pick];
+      if (now - old.at < 2500) {
+        await new Promise((r) => setTimeout(r, 700));
+        const again = (await readRecoveries())[pick];
+        if (!again || !again.closed || again.at !== old.at) return;
+        old = again;
+      }
       try {
         area?.remove(RECOVERY_PREFIX + pick, () => void chrome.runtime.lastError);
       } catch {
@@ -5544,10 +5550,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         const path = anchorPath(a);
         if (e.altKey) {
           e.preventDefault();
-          app.strip.open(path.split("#")[0], true);
+          app.strip.open(isViewPath(path) ? path.split("#")[0] : path, true);
           return;
         }
-        if (host.id !== "fe-side" || a.closest("#fe-nt-list") || path.includes("#")) return;
+        if (host.id !== "fe-side" || a.closest("#fe-nt-list") || isViewPath(path)) return;
         e.preventDefault();
         app.strip.go(path);
       });
