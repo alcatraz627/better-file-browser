@@ -216,4 +216,120 @@ Write notes in a live editor. Filter by name or regex, search the text inside
 files, and search every subfolder. Save a search as a reusable view. Every
 action is on the keyboard; press **?** for the full list.
 ` },
+  { key: 'reference', label: 'Reference', hint: 'keys, gestures, how it fits', md: `
+Single-letter keys work only when no text field is focused and no dialog is open.
+⌘ / Ctrl and middle clicks reach the browser, except on rows where ⌘ and ⇧ select.
+**Esc** closes the topmost overlay (a menu, then a dialog, then the preview), and
+clears the filter box when it has focus.
+
+## Listing keys
+
+| Key | Action |
+|-----|--------|
+| ↑ ↓ | move the selection |
+| Enter | open the selection |
+| Space | preview the selection (a toast on a folder) |
+| Backspace · ⌘↑ | parent folder |
+| ⌘A · ⌘C | select all · copy the selected paths |
+| ⌘F | focus the filter; again falls through to the browser's find |
+| ? · , | open Help · open Settings |
+| n · r | new note (with a Notes folder) · raw or rendered (file page) |
+| t · w · p | keep · close · pin the current tab |
+| T | reopen the last closed tab |
+| [ · ] · 1-9 | previous · next · jump to a tab |
+
+## Listing rows and tiles
+
+A click on a file opens it in the panel with the address unchanged, but only when
+the file is previewable and "Click on a file" is set to look (the default). A
+non-previewable file, or the go setting, navigates. A folder always navigates.
+
+| Gesture | Action |
+|---------|--------|
+| double-click | go to the file page |
+| ⌥-click | keep as a background tab |
+| middle-click | browser tab |
+| ⇧ / ⌘-click · ⇧⌘-click | toggle in the selection · range |
+| right-click | Preview, Copy path, Copy name, Open in terminal |
+| hover | a tip, plus a separate eye (preview) and copy buttons |
+
+## Strip tabs
+
+| Gesture | Action |
+|---------|--------|
+| click | switch (kept or pinned); a temporary tab does nothing |
+| double-click | keep a temporary tab |
+| middle-click | close a kept tab; pinned and temporary stay |
+| ⌘ / ⇧-click | browser tab or window |
+| drag | reorder within the pinned or unpinned block |
+| hover … · hover ✕ | menu (copy, save, pin, close, close others) · close |
+
+## Sidebar
+
+| Gesture | Action |
+|---------|--------|
+| click | open as a strip tab (or the editor for a note) and go |
+| double-click | rename |
+| ⌥-click | keep a background tab |
+| middle / ⌘-click | browser tab |
+| hover # · hover ✕ | tags · remove, or a note to trash |
+| drag · tag dot | reorder · cycle the colour |
+
+## Path bar and toolbar
+
+≡ shows or hides the sidebar, and its right edge drags to resize. A crumb goes;
+its ▾ opens a dropdown you can type to narrow. ★ saves the place. The terminal
+button opens here, and ⇧-click copies the command. The rest: theme, Help, Settings,
+the four views, Sort, Filter, hidden files, and a zoom slider that scales the list.
+
+## Preview panel
+
+| Gesture or key | Action |
+|----------------|--------|
+| scrim · ✕ · Esc · Space | close |
+| ↑ ↓ ← → | previous, next previewable file |
+| open · Enter | go to the file page |
+| + tab · t | keep as a background strip tab |
+| copy | copy the whole file |
+| dock · grips | float or dock to the side · resize |
+| header name · open raw · links | new browser tab |
+
+The strip keys still work while the preview is open. A file over 8 MB asks before
+loading. With a local model installed, an AI bar adds Summarize, Explain, and Ask.
+
+## Notes editor
+
+⌘S saves (a pause autosaves). ⌘B, ⌘I, ⌘E are bold, italic, code. ⌥↑↓ move a line
+and ⌥⇧↑↓ duplicate it. Tab and ⇧Tab indent. Enter continues a list. ⌘Z and ⌘⇧Z (or
+⌘Y) undo and redo. The toolbar adds list, task, table, and image, which have no
+key. **open** and **+ tab** act on the note.
+
+## File page
+
+**r** toggles raw, a copy button, and ToC links jump. Backspace or ⌘↑ go to the
+folder, and ⌘F uses the browser's find. Two buttons toggle a table-of-contents
+rail and an 80-character reading column. The page reloads itself every couple of
+seconds and re-renders when the file changes on disk.
+
+## How the parts fit
+
+- The address bar is always the active tab's location; navigation is real.
+- A listing click looks or goes by the "Click on a file" setting; a sidebar click
+  always goes; ⌥ keeps a background tab in both.
+- A file page is the explorer with the file in the main column, so nothing moves.
+- The folder you are in is a temporary (italic) tab until you keep it; leaving an
+  unkept folder drops its tab.
+- A dialog over the preview takes Esc first, then the preview; focus returns.
+- Reader size affects the file page and the preview; Interface size scales the
+  whole interface on top of the list zoom.
+
+## Good to know
+
+- Many controls are mouse-only: the sort, filter, view, hidden, zoom, theme, and
+  terminal controls, the sidebar, and rename have no key, and the context menu is
+  right-click only.
+- The toast message is always dark, in both themes.
+- A filename containing a # can confuse tab navigation.
+- Dragging reorders tabs and saved rows; it does not move or copy files.
+` },
 ];
