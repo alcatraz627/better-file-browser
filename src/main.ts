@@ -71,8 +71,8 @@ import { initMarkdownUi } from './md-ui';
   const recents = getRecents().filter(r => r.path !== folderPath).slice(0, 6);
   pushRecent(folderPath);
   const recentsHTML = recents.length ? `
-      <div class="fe-sec" data-sec="recent"${settings.hideRecent ? ' style="display:none"' : ''}>
-        <div class="fe-sh">Recent</div>
+      <div class="fe-sec" data-sec="recent" data-collapse="recent"${settings.hideRecent ? ' style="display:none"' : ''}>
+        <div class="fe-sh"><span class="fe-sh-label">Recent</span></div>
         ${recents.map(r => {
           const lbl = r.path.split('/').filter(Boolean).pop() || '/';
           return `<a href="file://${esc(r.path)}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
@@ -88,8 +88,7 @@ import { initMarkdownUi } from './md-ui';
   const dirName  = fileMode ? fileName : (segments[segments.length - 1] || '/');
   const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + '…' : dirName;
   document.title = `${shortDir} | Better File Browser`;
-  const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="%230d1117"/><path d="M3 12.5A1.5 1.5 0 0 1 4.5 11h5.5l2.5 3H28a1.5 1.5 0 0 1 1.5 1.5V24A1.5 1.5 0 0 1 28 25.5H4.5A1.5 1.5 0 0 1 3 24z" fill="%234a9eff"/><path d="M9 18.5h14M9 22h9" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/></svg>`;
-  document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" href="data:image/svg+xml,${faviconSvg}">`;
+  document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${chrome.runtime.getURL('assets/favicon.svg')}">`;
   document.body.innerHTML = html;
   const styleEl = document.createElement('style');
   styleEl.textContent = CSS;
@@ -101,7 +100,7 @@ import { initMarkdownUi } from './md-ui';
   if (!settings.showSidebar) { el('fe-side').style.display = 'none'; el('fe-side-rz').style.display = 'none'; }
   if (settings.uiScale && settings.uiScale !== 100) (fe.style as CSSStyleDeclaration & { zoom: string }).zoom = String(settings.uiScale / 100);
   if (settings.compactMode) fe.classList.add('compact');
-  fe.style.setProperty('--rd-size', `${settings.readerSize || 15}px`);
+  document.documentElement.style.setProperty('--ui-text-scale', String((settings.readerSize || 15) / 15));
   fe.style.setProperty('--rd-lh', String(settings.readerLineHeight || 1.65));
   fe.style.setProperty('--rd-code', `${settings.readerCodeSize || 13}px`);
   if (settings.tooltips === false) fe.classList.add('fe-notips');
@@ -121,12 +120,12 @@ import { initMarkdownUi } from './md-ui';
     },
   };
 
-  initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); } });
+  initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); }, saveError: message => app.toast(message) });
   // The strip: this Chrome tab's working set. Navigation is real, so the
   // address bar is always the active tab's location.
   app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore !== false });
   if (fileMode) {
-    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href, column: !!settings.readerColumn });
+    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href, column: settings.readerColumn });
     if (isHtmlSource) fetchFileText(location.href).then(text => app.filePage?.setText(text)).catch(() => {
       app.filePage?.setText('Could not load the HTML source.');
     });

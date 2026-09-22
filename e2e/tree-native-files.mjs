@@ -80,6 +80,18 @@ try {
   assert.equal(await page.$$eval('#fe-tree .fe-nm', nodes => nodes.some(el => el.textContent === 'added after cache.txt')), false);
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-tree');
+  await page.evaluate(() => {
+    const clickNested = () => [...document.querySelectorAll('#fe-tree .fe-tree-row')]
+      .find(el => el.querySelector('.fe-nm')?.textContent === 'nested')
+      .querySelector('.fe-tree-toggle').click();
+    clickNested();
+    clickNested();
+  });
+  await page.waitForFunction(() => {
+    const row = [...document.querySelectorAll('#fe-tree .fe-tree-row')]
+      .find(el => el.querySelector('.fe-nm')?.textContent === 'nested');
+    return row.querySelector('.fe-tree-toggle')?.getAttribute('aria-expanded') === 'false' && !/Could not read folder|Loading/.test(row.nextElementSibling?.textContent ?? '');
+  });
   await toggle('nested');
   await page.waitForFunction(() => [...document.querySelectorAll('#fe-tree .fe-nm')]
     .some(el => el.textContent === 'added after cache.txt'));

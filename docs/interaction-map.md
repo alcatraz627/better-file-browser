@@ -43,6 +43,7 @@ A folder always navigates.
 | click | look in the panel (see above), else go | go |
 | double-click | go to the file page | go |
 | `⌥`-click | keep as a background strip tab | same |
+| note row tab button | | open the rendered note in this page's strip |
 | middle-click | browser tab | same |
 | `⇧`-click `⌘`-click | toggle the row in the selection | same |
 | `⇧⌘`-click | range from the anchor | same |
@@ -79,6 +80,9 @@ pins it.
 | filter box | narrow by label, path, or tag; `Esc` clears | |
 
 A saved search view navigates and applies the query; it does not keep a strip tab.
+Click a section title to collapse that section's contents;
+the state persists across reloads. The note editor remains in the preview
+panel when a note is opened as a reading tab.
 
 ## Path bar and toolbar
 
@@ -146,7 +150,7 @@ saves it beside the note and links it.
 
 `r` toggles raw, a copy button, ToC links jump, `Backspace` or `⌘↑` go to the
 folder, and `⌘F` uses the browser's find. Two buttons toggle a table-of-contents
-rail and an 80-character reading column. While the page is visible it reloads
+rail and a reading-width control (full, XL, LG, MD). While the page is visible it reloads
 itself every couple of seconds and re-renders when the file changes on disk.
 
 ## How the parts work together

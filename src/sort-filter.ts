@@ -1,7 +1,7 @@
 import type { Entry, SortConfig, FilterConfig, GroupMode, Group } from './types';
 import { fmtType, getExt } from './utils';
 
-export function applyFilter(entries: Entry[], config: FilterConfig): Entry[] {
+export function applyFilter(entries: Entry[], config: FilterConfig, regexMatches: Set<string> = new Set()): Entry[] {
   return entries.filter(e => {
     if (config.type !== 'all') {
       if (config.type === 'folders' && !e.isDir)  return false;
@@ -12,8 +12,7 @@ export function applyFilter(entries: Entry[], config: FilterConfig): Entry[] {
     }
     if (config.q) {
       if (config.regex) {
-        try { if (!new RegExp(config.q, 'i').test(e.name)) return false; }
-        catch { /* invalid regex – skip */ }
+        if (!regexMatches.has(e.href)) return false;
       } else {
         if (!e.name.toLowerCase().includes(config.q.toLowerCase())) return false;
       }

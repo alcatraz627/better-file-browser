@@ -6,7 +6,8 @@
 > image-dimensions "cheap win" (v2.7.1). Sprint 4 (native `os.stat` metadata
 > host: permissions/ctime) was **dropped** — low value, high setup friction;
 > its one useful item (image dimensions) shipped without a native host.
-> Highlighter S2.3 shipped P0–P2; P3/P4 (regex literals, more languages) not done.
+> Highlighter S2.3 shipped P0–P2 at the time. P3/P4 shipped later in v2.10;
+> see [the highlighter plan](highlighter-plan.md) for that later checkpoint.
 
 Scope: every open item from the audit's to-do list **except** committing the
 e2e harness (skipped per decision). Unit tests are in scope throughout — every

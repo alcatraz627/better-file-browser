@@ -11,6 +11,7 @@ export function makeToast(el: HTMLElement): Toast {
       const btn = document.createElement('button');
       btn.className = 'fe-toast-act';
       btn.textContent = action.label;
+      btn.title = action.label;
       btn.addEventListener('click', () => { action.run(); el.classList.remove('show'); });
       el.append(' · ', btn);
       ms = Math.max(ms, 6000);

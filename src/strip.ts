@@ -182,9 +182,9 @@ export function mountStrip(host: StripHost): Strip {
   function tabHtml(t: Tab, i: number, on: boolean, label: string): string {
     const ico = t.kind === 'file'
       ? `<span class="fe-tab-ico">${icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '')}</span>`
-      : (t.pinned ? `<span class="fe-tab-ico">${icoFolder(t.label)}</span>` : '');
+      : `<span class="fe-tab-ico">${icoFolder(t.label)}</span>`;
     const tip = `${t.path}\n${i < 9 ? `${i + 1} jumps · ` : ''}click switches · ${t.pinned ? 'pinned (p unpins)' : 'middle-click closes'} · drag reorders`;
-    return `<a class="fe-tab${on ? ' on' : ''}${t.pinned ? ' pinned' : ''}" draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
+    return `<a class="fe-tab${on ? ' on' : ''}${t.pinned ? ' pinned' : ''}"${on ? ' aria-current="page"' : ''} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}${lblHtml(label)}
       <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path · save · pin · close others">…</button>
       ${t.pinned ? '' : `<button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">✕</button>`}
@@ -195,7 +195,7 @@ export function mountStrip(host: StripHost): Strip {
     const labels = displayLabels(state.list);
     const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i]));
     if (!here) {
-      const ico = kindOf(rawPath) === 'file' ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split('.').pop()!.toLowerCase())}</span>` : '';
+      const ico = kindOf(rawPath) === 'file' ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split('.').pop()!.toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
       rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet · t or double-click keeps · p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
     }
     if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">${CHEVRON_DOWN}</button>`);

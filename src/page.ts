@@ -4,6 +4,7 @@
 import type { Entry, Settings } from './types';
 import { esc } from './utils';
 import { PI } from './icons';
+import { UI_ICON } from './control-icons';
 import { getSaved, getTags } from './storage';
 import { renderMarkdown } from './renderers';
 import { HELP_TABS } from './help';
@@ -60,7 +61,7 @@ export function renderPage(p: PageParams): string {
   const SETTINGS_DIALOG: DialogSpec = {
     id: 'fe-settings-modal', mark: PI.gear, title: 'Settings', subtitle: 'Stored in this browser profile',
     tabs: [
-      { key: 'appearance', label: 'Appearance', hint: 'theme, view, density', body: `
+      { key: 'appearance', label: 'Appearance', hint: 'Theme and layout', icon: UI_ICON.appearance, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Theme</div>
           <div class="fe-st-row">
@@ -91,6 +92,10 @@ export function renderPage(p: PageParams): string {
             </select>
           </div>
           <div class="fe-st-row">
+            <label class="fe-st-lbl" for="fe-st-rd-size">Text size</label>
+            <select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>
+          </div>
+          <div class="fe-st-row">
             <label class="fe-st-check"><input type="checkbox" id="fe-st-compact" title="Tighter rows and tiles"> Compact mode</label>
           </div>
           <div class="fe-st-row">
@@ -104,7 +109,7 @@ export function renderPage(p: PageParams): string {
           </div>
           <div class="fe-st-row">
             <label class="fe-st-check"><input type="checkbox" id="fe-st-tooltips" title="Native tooltips on every control"> Tooltips</label>
-            <button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">Keyboard shortcuts</button>
+            <button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Keyboard shortcuts</button>
           </div>
           <div class="fe-st-row">
             <span class="fe-st-lbl">Date format</span>
@@ -115,7 +120,7 @@ export function renderPage(p: PageParams): string {
           </div>
         </div>
 ` },
-      { key: 'preview', label: 'Preview', hint: 'panel, click, tabs', body: `
+      { key: 'preview', label: 'Preview', hint: 'Panel and tabs', icon: UI_ICON.preview, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Panel</div>
           <div class="fe-st-row">
@@ -124,7 +129,7 @@ export function renderPage(p: PageParams): string {
               <option value="modal">Floating window</option>
               <option value="side">Docked to the side</option>
             </select>
-            <button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">Reset sizes</button>
+            <button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">${UI_ICON.reset}Reset sizes</button>
           </div>
           <div class="fe-st-row">
             <span class="fe-st-lbl">Click on a file</span>
@@ -140,15 +145,16 @@ export function renderPage(p: PageParams): string {
             <label class="fe-st-check"><input type="checkbox" id="fe-st-strip-restore" title="Bring back the strip of a Chrome tab closed within a day"> Restore closed strips</label>
           </div>
         </div>` },
-      { key: 'files', label: 'Files', hint: 'file pages, reader, icon rules', body: `
+      { key: 'files', label: 'Files', hint: 'Reader and icons', icon: UI_ICON.files, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Reader</div>
           <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-rd-column" title="Start file pages in the 80-character reading column"> Reading column by default</label>
+            <label class="fe-st-lbl" for="fe-st-rd-column">Reading width</label>
+            <select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages">
+              <option value="unset">Full width</option><option value="xl">XL width · 150ch</option><option value="lg">LG width · 130ch</option><option value="md">MD width · 110ch</option>
+            </select>
           </div>
           <div class="fe-st-row">
-            <span class="fe-st-lbl">Text size</span>
-            <select id="fe-st-rd-size" class="fe-st-select" title="Body size on file pages">${[13, 14, 15, 16, 17].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>
             <span class="fe-st-lbl">Line height</span>
             <select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${['1.5', '1.65', '1.8'].map(n => `<option value="${n}">${n}</option>`).join('')}</select>
             <span class="fe-st-lbl">Code size</span>
@@ -169,7 +175,7 @@ export function renderPage(p: PageParams): string {
         <div class="fe-st-section">
           <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
             <span>Custom Icon Rules</span>
-            <button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">+ Add rule</button>
+            <button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">${UI_ICON.add}Add rule</button>
           </div>
           <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
           <div class="fe-st-rules-cols">
@@ -180,32 +186,32 @@ export function renderPage(p: PageParams): string {
             <span></span>
           </div>
           <div id="fe-st-rules-list"></div>
-          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940" title="Replace every rule with the built-in set">Reset to defaults</button>
+          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940" title="Replace every rule with the built-in set">${UI_ICON.reset}Reset to defaults</button>
         </div>
 ` },
-      { key: 'exclusions', label: 'Exclusions', hint: 'native file pages', body: `
+      { key: 'exclusions', label: 'Exclusions', hint: 'Native pages', icon: UI_ICON.exclusions, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Open with Chrome</div>
           <div class="fe-st-hint">These extensions keep their native file page when opened. The preview panel still works.</div>
           <div class="fe-st-row">
             <label class="fe-st-lbl" for="fe-st-excluded-exts">File extensions</label>
             <input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces">
-            <button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default excluded extensions">Restore defaults</button>
+            <button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default excluded extensions">${UI_ICON.reset}Restore defaults</button>
           </div>
           <div class="fe-st-hint">Changes apply when a file is opened next. PDF stays native even if removed here, because it has no text renderer.</div>
         </div>
 ` },
-      { key: 'notes', label: 'Notes', hint: 'the notes folder', body: `
+      { key: 'notes', label: 'Notes', hint: 'Notes folder', icon: UI_ICON.notes, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Notes</div>
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
             <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder">
           </div>
-          <div class="fe-st-hint" id="fe-st-notes-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
+          <div class="fe-st-hint" id="fe-st-notes-hint" style="color:var(--dm);margin-top:-4px"></div>
         </div>
 ` },
-      { key: 'terminal', label: 'Terminal', hint: 'which app opens', body: `
+      { key: 'terminal', label: 'Terminal', hint: 'Open with', icon: UI_ICON.terminal, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Terminal</div>
           <div class="fe-st-row">
@@ -222,24 +228,24 @@ export function renderPage(p: PageParams): string {
           <div class="fe-st-row" id="fe-st-term-custom-row" style="display:none">
             <input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} as placeholder for the folder path.'>
           </div>
-          <div class="fe-st-hint" id="fe-st-term-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
+          <div class="fe-st-hint" id="fe-st-term-hint" style="color:var(--dm);margin-top:-4px"></div>
         </div>
 ` },
-      { key: 'data', label: 'Data', hint: 'export, import', body: `
+      { key: 'data', label: 'Data', hint: 'Export and import', icon: UI_ICON.data, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Settings and Saved list</div>
           <div class="fe-st-row">
-            <button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">Export</button>
-            <button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">Import</button>
+            <button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>
+            <button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button>
             <input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">
           </div>
           <textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px 'SF Mono',Menlo,monospace" spellcheck="false" title="The export, also on the clipboard"></textarea>
         </div>` },
-      { key: 'ai', label: 'AI', hint: 'local model', body: `
+      { key: 'ai', label: 'AI', hint: 'Local model', icon: UI_ICON.ai, body: `
         <div class="fe-st-section">
           <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
             <span>Local Model (AI)</span>
-            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">↻ Refresh</button>
+            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">${UI_ICON.reset}Refresh</button>
           </div>
           <div id="fe-st-ai-card">
             <div class="fe-st-ai-head">
@@ -287,25 +293,25 @@ export function renderPage(p: PageParams): string {
 
   <div id="fe-body">
     <nav id="fe-side">
-      <div class="fe-sec">
-        <div class="fe-sh" style="justify-content:space-between">Saved
+      <div class="fe-sec" data-collapse="saved">
+        <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
           <button id="fe-sv-add" title="Save this ${fileMode ? 'file' : 'folder'} and name it">+</button></div>
         <input id="fe-sv-filter" type="text" placeholder="Filter saved" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
       </div>
-      <div class="fe-sec" id="fe-notes-sec" style="display:none">
-        <div class="fe-sh" style="justify-content:space-between"><a id="fe-notes-root" title="Open the notes folder">Notes</a>
+      <div class="fe-sec" id="fe-notes-sec" data-collapse="notes">
+        <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Notes</span><a id="fe-notes-root" title="Open the notes folder" aria-label="Open the notes folder">${PI.folder}</a>
           <button id="fe-nt-add" title="New note (n)">+</button></div>
         <div id="fe-nt-list"></div>
       </div>${recentsHTML}
-      <div class="fe-sec" data-sec="favorites"${settings.hideFavorites ? ' style="display:none"' : ''}>
-        <div class="fe-sh">Finder Favorites</div>
+      <div class="fe-sec" data-sec="favorites" data-collapse="favorites"${settings.hideFavorites ? ' style="display:none"' : ''}>
+        <div class="fe-sh"><span class="fe-sh-label">Finder Favorites</span></div>
         ${FINDER_FAVORITES.map(p =>
           `<a href="${p.href}" class="fe-si${p.href.replace(/\/$/, '') === 'file://' + rawPath.replace(/\/$/, '') ? ' active' : ''}" title="${p.label}\n${p.href}">${(PI[p.icon] ?? PI.folder)}<span class="fe-sl">${p.label}</span></a>`
         ).join('')}
       </div>
-      <div class="fe-sec" data-sec="system"${settings.hideSystem ? ' style="display:none"' : ''}>
-        <div class="fe-sh">System</div>
+      <div class="fe-sec" data-sec="system" data-collapse="system"${settings.hideSystem ? ' style="display:none"' : ''}>
+        <div class="fe-sh"><span class="fe-sh-label">System</span></div>
         <a href="file:///" class="fe-si" title="Root\nfile:///">${PI.root}<span class="fe-sl">Root /</span></a>
         <a href="file:///Users/alcatraz627/" class="fe-si" title="Home\nfile:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       </div>

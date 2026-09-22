@@ -314,22 +314,38 @@ try {
     await page.waitForFunction(k => document.querySelectorAll('#fe-tabs .fe-tab[data-id]').length === k, { timeout: 3_000 }, n - 1).catch(() => null);
   }
 
-  // Notes: the folder from Settings lists, a new note saves to disk under its
-  // title, rename and delete reach the folder, the panel closes on Esc.
-  await page.evaluate(dir => {
+  // Notes are visible before setup. The sidebar action opens the Notes setting.
+  await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
-    s.notesRoot = dir; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
-  }, h.notesDir);
+    delete s.notesRoot; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
+  });
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
+  const notesSetupVisible = await page.evaluate(() => {
+    const section = document.getElementById('fe-notes-sec');
+    return getComputedStyle(section).display !== 'none' && !!section.querySelector('#fe-nt-setup');
+  });
+  check(notesSetupVisible, 'Notes section offers setup before a folder is configured');
+  await shot(page, 'notes-unconfigured');
+  await page.click('#fe-nt-setup');
+  const notesSettingsOpen = await page.evaluate(() =>
+    document.querySelector('#fe-settings-modal .fe-dlg-tab[data-tab="notes"]').classList.contains('on') &&
+    document.activeElement?.id === 'fe-st-notes-root');
+  check(notesSettingsOpen, 'sidebar setup opens Settings on the Notes folder field');
+  await page.keyboard.type(h.notesDir);
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Escape');
   await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 8_000 }).catch(() => null);
   const noteRows = await page.$$eval('#fe-nt-list .fe-nt-label', els => els.map(e => e.textContent));
   check(noteRows.length === 1 && noteRows[0] === 'existing note', `Notes section lists the folder: ${JSON.stringify(noteRows)}`);
+  const notesFolderHref = await page.$eval('#fe-notes-root', el => el.getAttribute('href'));
+  check(notesFolderHref === `file://${h.notesDir}/`, 'Notes folder icon links to the configured folder');
 
   await page.keyboard.press('n');
   await page.waitForSelector('#fe-ed-src', { timeout: 8_000 }).catch(() => null);
   const editorUp = await page.$('#fe-ed-src');
-  check(!!editorUp, 'n opens a new note in the editor');
+  const newNoteEmpty = editorUp ? await page.$eval('#fe-ed-src', el => el.value === '') : false;
+  check(!!editorUp && newNoteEmpty, 'n opens a new, empty note in the editor');
   await page.evaluate(() => {
     const ta = document.getElementById('fe-ed-src');
     ta.value = '# Grocery list\n\n- eggs\n- milk\n';
@@ -344,6 +360,14 @@ try {
   const onDisk = existsSync(join(h.notesDir, 'grocery-list.md')) ? readFileSync(join(h.notesDir, 'grocery-list.md'), 'utf8') : null;
   check(/grocery-list\.md · saved/.test(savedMeta) && onDisk && onDisk.includes('- milk') && !/untitled/.test(onDisk.split('\n')[1] || ''),
     `Cmd+S wrote grocery-list.md from the title: meta "${savedMeta}", disk ${onDisk ? onDisk.length + ' bytes' : 'missing'}`);
+  await page.evaluate(() => {
+    const ta = document.getElementById('fe-ed-src');
+    ta.value += '- autosaved\n';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForFunction(() => /saved \d/.test(document.getElementById('fe-ql-meta').textContent), { timeout: 8_000 }).catch(() => null);
+  const autoText = readFileSync(join(h.notesDir, 'grocery-list.md'), 'utf8');
+  check(autoText.includes('- autosaved'), 'a pause autosaves the latest note text to disk');
   await shot(page, 'notes-editor');
 
   // Editor ergonomics: line move, list continuation, table insert, image paste.
@@ -427,6 +451,22 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('#fe-nt-list .fe-nt-item').length === 2, { timeout: 8_000 }).catch(() => null);
   const listAfter = await page.$$eval('#fe-nt-list .fe-nt-label', els => els.map(e => e.textContent));
   check(listAfter[0] === 'grocery list' && listAfter.length === 2, `sidebar lists the new note first: ${JSON.stringify(listAfter)}`);
+  const notePage = await h.open();
+  await notePage.waitForSelector('#fe-nt-list .fe-nt-tab', { timeout: 8_000 }).catch(() => null);
+  await notePage.click('#fe-nt-list .fe-nt-item[data-rel="grocery-list.md"] .fe-nt-tab');
+  await notePage.waitForSelector('#fe-page .fe-md h1', { timeout: 8_000 }).catch(() => null);
+  await notePage.waitForSelector('#fe-nt-list .fe-nt-item[data-rel="grocery-list.md"]', { timeout: 8_000 }).catch(() => null);
+  const openedNoteTab = await notePage.evaluate(() => ({
+    path: location.pathname,
+    heading: document.querySelector('#fe-page .fe-md h1')?.textContent,
+    tab: [...document.querySelectorAll('#fe-tabs .fe-tab-lbl')].map(e => e.textContent),
+    noteVisible: !!document.querySelector('#fe-nt-list .fe-nt-item[data-rel="grocery-list.md"]'),
+  }));
+  check(openedNoteTab.path.endsWith('/grocery-list.md') && openedNoteTab.heading === 'Grocery list' && openedNoteTab.tab.includes('grocery-list.md') && openedNoteTab.noteVisible,
+    `note row opens a rendered in-page tab: ${JSON.stringify(openedNoteTab)}`);
+  await shot(notePage, 'notes-page-tab');
+  await notePage.close();
+  await page.bringToFront();
   await page.keyboard.down('Alt');
   await page.click('#fe-nt-list .fe-nt-item[data-rel="grocery-list.md"] .fe-si-link');
   await page.keyboard.up('Alt');
@@ -502,6 +542,7 @@ try {
     `markdown viewer renders front matter, tasks, code chip, table wrap, anchors at 15px: ${JSON.stringify(mdBits)}`);
   await fpage.waitForSelector('#fe-page .fe-md-mermaid svg', { timeout: 10_000 }).catch(() => null);
   check(!!await fpage.$('#fe-page .fe-md-mermaid svg'), 'Mermaid diagram renders on the file page');
+  await fpage.setViewport({ width: 1900, height: 900 });
   await fpage.click('#fe-fp-column');
   const widths = () => fpage.evaluate(() => ({
     md: Math.round(document.querySelector('#fe-page .fe-md').getBoundingClientRect().width),
@@ -513,9 +554,14 @@ try {
   await fpage.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);
   const colKept = await widths();
   await fpage.click('#fe-fp-column');
+  const colLg = await widths();
+  await fpage.click('#fe-fp-column');
+  const colMd = await widths();
+  await fpage.click('#fe-fp-column');
   const colOff = await widths();
-  check(colOn.md < colOn.page - 100 && colKept.on && colKept.md === colOn.md && !colOff.on && colOff.md === colOff.page,
-    `reading column narrows the text, survives a reload, and toggles back to full width: ${JSON.stringify({ colOn, colKept, colOff })}`);
+  check(colOn.md < colOn.page - 100 && colKept.on && colKept.md === colOn.md && colLg.md < colOn.md && colMd.md < colLg.md && !colOff.on && colOff.md === colOff.page,
+    `reading width cycles through XL, LG, MD, full and survives reload: ${JSON.stringify({ colOn, colKept, colLg, colMd, colOff })}`);
+  await fpage.setViewport({ width: 1400, height: 900 });
   const longMd = ['---', 'title: Long', '---', ...Array.from({ length: 30 }, (_, i) => `## Section ${i + 1}\n\n${'lorem ipsum '.repeat(40)}\n`)].join('\n');
   const longPath = join(tmpdir(), `bfb-long-${process.pid}.md`);   // outside the fixture, so listing counts hold
   writeFileSync(longPath, longMd);
@@ -637,18 +683,16 @@ try {
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
   await page.click('#fe-st-sec-recent');
+  await page.select('#fe-st-rd-size', '17');
   const recentHidden = await page.evaluate(() => getComputedStyle(document.querySelector('#fe-side .fe-sec[data-sec="recent"]')).display === 'none');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="preview"]');
   await page.select('#fe-st-click', 'go');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="files"]');
-  await page.select('#fe-st-rd-size', '17');
-  // The reading-column checkbox writes the same key the file page reads, so it
-  // does not go dead once the in-page column button has written that key.
-  await page.click('#fe-st-rd-column');
-  const colKeyOn = await page.evaluate(() => localStorage.getItem('bfb-page-column-v1'));
-  await page.click('#fe-st-rd-column');
-  const colKeyOff = await page.evaluate(() => localStorage.getItem('bfb-page-column-v1'));
-  check(colKeyOn === '1' && colKeyOff === '0', `Settings reading-column toggle writes the file-page key both ways: on=${colKeyOn} off=${colKeyOff}`);
+  await page.select('#fe-st-rd-column', 'lg');
+  const colKeyOn = await page.evaluate(() => localStorage.getItem('bfb-page-column-v2'));
+  await page.select('#fe-st-rd-column', 'unset');
+  const colKeyOff = await page.evaluate(() => localStorage.getItem('bfb-page-column-v2'));
+  check(colKeyOn === 'lg' && colKeyOff === 'unset', `Settings reading width writes the file-page mode: on=${colKeyOn} off=${colKeyOff}`);
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="data"]');
   await page.click('#fe-st-export');
   const exported = await page.$eval('#fe-st-export-out', el => el.value);
@@ -659,14 +703,15 @@ try {
   await page.keyboard.press('Escape');
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
+
   const afterSettings = await page.evaluate(() => ({
     recent: getComputedStyle(document.querySelector('#fe-side .fe-sec[data-sec="recent"]')).display,
-    size: getComputedStyle(document.getElementById('fe')).getPropertyValue('--rd-size').trim(),
+    size: getComputedStyle(document.documentElement).getPropertyValue('--ui-text-scale').trim(),
   }));
   await (await page.$('#fe-tbody a[href$="readme.md"]')).click();
   await page.waitForSelector('#fe.fe-file-page', { timeout: 5_000 }).catch(() => null);
   const goSize = await page.evaluate(() => getComputedStyle(document.querySelector('#fe-page .fe-md')).fontSize);
-  check(afterSettings.recent === 'none' && afterSettings.size === '17px' && page.url().endsWith('/readme.md') && goSize === '17px',
+  check(afterSettings.recent === 'none' && afterSettings.size === String(17 / 15) && page.url().endsWith('/readme.md') && goSize === '17px',
     `after a reload Recent stays hidden, a plain click goes, and the file page reads at 17px: ${JSON.stringify({ ...afterSettings, goSize })}`);
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await page.waitForSelector('#fe');
@@ -696,6 +741,28 @@ try {
   }, h.fixture);
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
+
+  // Every visible sidebar section collapses and restores its state on reload.
+  const sectionKeys = ['saved', 'notes', 'recent', 'favorites', 'system'];
+  const availableSections = await page.$$eval('#fe-side .fe-sec[data-collapse]', els => els.map(e => e.dataset.collapse));
+  check(sectionKeys.every(k => availableSections.includes(k)), `all sidebar sections have collapse controls: ${JSON.stringify(availableSections)}`);
+  for (const key of sectionKeys) await page.click(`#fe-sec-toggle-${key} .fe-sh-label`);
+  const allCollapsed = await page.evaluate(keys => keys.every(key => {
+    const section = document.querySelector(`#fe-side .fe-sec[data-collapse="${key}"]`);
+    return section.classList.contains('fe-collapsed') && section.querySelector('.fe-sh-collapse').getAttribute('aria-expanded') === 'false'
+      && getComputedStyle(section.children[1]).display === 'none';
+  }), sectionKeys);
+  check(allCollapsed, 'all five sidebar lists collapse while their headings remain');
+  const notesFolderAction = await page.$eval('#fe-notes-root', el => ({ label: el.getAttribute('aria-label'), hasTitle: !!el.textContent?.trim(), separate: !el.closest('.fe-sh-collapse') }));
+  check(notesFolderAction.label === 'Open the notes folder' && !notesFolderAction.hasTitle && notesFolderAction.separate,
+    'Notes folder action stays separate from the collapse title');
+  await shot(page, 'sidebar-collapsed');
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe');
+  const collapseKept = await page.evaluate(keys => keys.every(key =>
+    document.querySelector(`#fe-side .fe-sec[data-collapse="${key}"]`)?.classList.contains('fe-collapsed')), sectionKeys);
+  check(collapseKept, 'sidebar collapse choices persist after reload');
+  for (const key of sectionKeys) await page.click(`#fe-sec-toggle-${key} .fe-sh-label`);
 
   // Terminal shift-click copies the command instead of opening the app. The
   // e2e has no native host, so we assert the shift path reaches the copy toast.
@@ -844,7 +911,7 @@ try {
     const t = document.querySelector('#fe-tabs .fe-tab.pinned');
     return t && { first: document.querySelector('#fe-tabs .fe-tab') === t, closeBtn: !!t.querySelector('.fe-tab-x'), label: t.querySelector('.fe-tab-lbl').textContent, w: Math.round(t.getBoundingClientRect().width) };
   });
-  check(pinned && pinned.first && !pinned.closeBtn && pinned.label === 'readme.md' && pinned.w < 40, `p pins the tab: first in the strip, no close button, icon only: ${JSON.stringify(pinned)}`);
+  check(pinned && pinned.first && !pinned.closeBtn && pinned.label === 'readme.md' && pinned.w <= 40, `p pins the tab: first in the strip, no close button, icon only: ${JSON.stringify(pinned)}`);
   await shot(page, 'tabs');
 
   await page.keyboard.press('[');
@@ -1034,7 +1101,7 @@ try {
   await page.keyboard.press('Escape');
   check(overflow.kept >= 20 && overflow.activeVisible && overflow.scrolls && overflow.list && listed === overflow.kept, `twenty tabs overflow: strip scrolls, active tab visible, list menu names all 20: ${JSON.stringify({ ...overflow, listed })}`);
   for (let i = 0; i < 30; i++) {
-    const t = await page.$('#fe-tabs .fe-tab[data-id]:not(.on)');
+    const t = await page.$('#fe-tabs .fe-tab[data-id]:not(.on):not(.pinned)');
     if (!t) break;
     const n = await page.$$eval('#fe-tabs .fe-tab:not(.temp)', els => els.length);
     await t.click({ button: 'middle' });

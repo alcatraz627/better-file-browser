@@ -1,6 +1,6 @@
 {
   "name": "better-file-browser",
-  "version": "2.10.0",
+  "version": "2.11.0",
   "private": true,
   "scripts": {
     "build": "node --import tsx build.ts",

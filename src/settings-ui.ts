@@ -9,7 +9,8 @@ import { icoCustom } from './icons';
 import { VIEW_KEY, THEME_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout } from './storage';
 import { llmAvailability, llmWarm } from './llm';
 import { mountDialog } from './dialog';
-import { COLUMN_KEY, parseExcludedExtensions } from './file-page';
+import { COLUMN_KEY, parseExcludedExtensions, savedColumnMode } from './file-page';
+import { UI_ICON } from './control-icons';
 
 export function initSettingsUi(app: App): void {
   const { fe, settings, toast } = app;
@@ -27,7 +28,7 @@ export function initSettingsUi(app: App): void {
         <input type="text" class="fe-st-rule-pattern" value="${esc(rule.pattern)}" placeholder="Regex" title="Regex (case-insensitive)">
         <input type="text" class="fe-st-rule-label"   value="${esc(rule.label)}"   placeholder="LBL"   maxlength="4" title="Badge text (≤4 chars)">
         <input type="color" class="fe-st-rule-color"  value="${esc(rule.color)}"        title="Icon color">
-        <button class="fe-st-rule-del" data-idx="${i}" title="Delete">✕</button>
+        <button class="fe-st-rule-del" data-idx="${i}" title="Delete" aria-label="Delete icon rule">${UI_ICON.close}</button>
       </div>`).join('');
   }
 
@@ -40,7 +41,7 @@ export function initSettingsUi(app: App): void {
   }
 
   const settingsDlg = mountDialog('fe-settings-modal');
-  function openSettings(): void {
+  function openSettings(tab?: string): void {
     els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => { r.checked = r.value === (fe.dataset.theme || 'dark'); });
     el<HTMLSelectElement>('fe-st-defview').value   = getView();
     el<HTMLInputElement>('fe-st-compact').checked  = !!settings.compactMode;
@@ -60,8 +61,7 @@ export function initSettingsUi(app: App): void {
     el<HTMLSelectElement>('fe-st-panel').value = getPreviewLayout().mode;
     el<HTMLSelectElement>('fe-st-click').value = settings.clickOpens || 'look';
     el<HTMLInputElement>('fe-st-strip-restore').checked = settings.stripRestore !== false;
-    el<HTMLInputElement>('fe-st-rd-column').checked =
-      localStorage.getItem(COLUMN_KEY) !== null ? localStorage.getItem(COLUMN_KEY) === '1' : !!settings.readerColumn;
+    el<HTMLSelectElement>('fe-st-rd-column').value = savedColumnMode(settings.readerColumn);
     el<HTMLSelectElement>('fe-st-uiscale').value = String(settings.uiScale || 100);
     el<HTMLSelectElement>('fe-st-rd-size').value = String(settings.readerSize || 15);
     el<HTMLSelectElement>('fe-st-rd-lh').value = String(settings.readerLineHeight || 1.65);
@@ -69,7 +69,7 @@ export function initSettingsUi(app: App): void {
     updateTermHint();
     renderRulesList();
     refreshAiStatus();
-    settingsDlg.open();
+    settingsDlg.open(tab);
   }
 
   function refreshAiStatus(): void {
@@ -113,7 +113,7 @@ export function initSettingsUi(app: App): void {
         modelSel.innerHTML = s.available_models.map(m =>
           `<option value="${esc(m)}"${m === chosen ? ' selected' : ''}>${esc(m)}${m === s.default_model ? ' (default)' : ''}</option>`,
         ).join('');
-        warmBtn.textContent = s.warm ? 'Unload (warm off)' : 'Keep warm';
+        warmBtn.innerHTML = `${s.warm ? UI_ICON.unload : UI_ICON.warm}${s.warm ? 'Unload (warm off)' : 'Keep warm'}`;
         warmBtn.disabled = false;
         controls.style.display = '';
       }
@@ -139,7 +139,7 @@ export function initSettingsUi(app: App): void {
     });
   });
 
-  el('fe-settings-btn').addEventListener('click', openSettings);
+  el('fe-settings-btn').addEventListener('click', () => openSettings());
   const helpDlg = mountDialog('fe-help-modal');
   el('fe-help-btn').addEventListener('click', () => helpDlg.open());
   el('fe-st-keys').addEventListener('click', () => { settingsDlg.close(); helpDlg.open('keys'); });
@@ -176,19 +176,20 @@ export function initSettingsUi(app: App): void {
   el<HTMLInputElement>('fe-st-strip-restore').addEventListener('change', function () {
     settings.stripRestore = this.checked; saveSettings(settings);
   });
-  el<HTMLInputElement>('fe-st-rd-column').addEventListener('change', function () {
-    settings.readerColumn = this.checked; saveSettings(settings);
-    // The file page reads COLUMN_KEY, and its in-page button writes it; write it
-    // here too so Settings stays the source of truth instead of going inert.
-    try { localStorage.setItem(COLUMN_KEY, this.checked ? '1' : '0'); } catch { /* fine */ }
+  el<HTMLSelectElement>('fe-st-rd-column').addEventListener('change', function () {
+    settings.readerColumn = this.value as 'unset' | 'xl' | 'lg' | 'md'; saveSettings(settings);
+    try { localStorage.setItem(COLUMN_KEY, this.value); } catch { /* fine */ }
   });
-  const readerVar = (id: string, key: 'readerSize' | 'readerLineHeight' | 'readerCodeSize', cssVar: string, unit: string) => {
+  el<HTMLSelectElement>('fe-st-rd-size').addEventListener('change', function () {
+    settings.readerSize = Number(this.value); saveSettings(settings);
+    document.documentElement.style.setProperty('--ui-text-scale', String(settings.readerSize / 15));
+  });
+  const readerVar = (id: string, key: 'readerLineHeight' | 'readerCodeSize', cssVar: string, unit: string) => {
     el<HTMLSelectElement>(id).addEventListener('change', function () {
       settings[key] = Number(this.value); saveSettings(settings);
       fe.style.setProperty(cssVar, this.value + unit);
     });
   };
-  readerVar('fe-st-rd-size', 'readerSize', '--rd-size', 'px');
   readerVar('fe-st-rd-lh', 'readerLineHeight', '--rd-lh', '');
   readerVar('fe-st-rd-code', 'readerCodeSize', '--rd-code', 'px');
   el('fe-st-export').addEventListener('click', () => {

@@ -83,7 +83,13 @@ try {
   await b.$eval('#fe-find-run', button => button.click());
   await b.waitForFunction(() => document.getElementById('fe-find-error').textContent === 'Text matching timed out', { polling: 100, timeout: 5000 });
   assert.match(await b.$eval('#fe-find-status', el => el.textContent), /partial/);
-  console.log('Independent tabs, content regex, escaped snippet, depth, saved view, stale query, regex cancellation, and timeout passed');
+  await b.$eval('#fe-find-run', button => button.click());
+  await b.close();
+  const afterClose = await h.open();
+  await run(afterClose, 'plain text');
+  await afterClose.waitForFunction(() => document.getElementById('fe-find-status').textContent.includes('scanned'), { polling: 100, timeout: 5000 });
+  assert.match(await afterClose.$eval('#fe-find-status', el => el.textContent), /1 matching file/);
+  console.log('Independent tabs, content regex, escaped snippet, depth, saved view, stale query, regex cancellation, timeout, and tab-close recovery passed');
 } finally {
   await h.close();
 }

@@ -58,6 +58,9 @@ check(r['t'] == 'deleted' and r['trashed'].startswith('.trash/') and os.path.isf
       f'delete moves into .trash: {r}')
 r = call({'op': 'list', 'root': root})
 check('.trash' not in ''.join(n['rel'] for n in r['notes']), 'list skips .trash')
+r = call({'op': 'write', 'root': root, 'rel': 'sub/old.md', 'text': 'recreated', 'expectMtime': mt})
+check(r['code'] == 'notes_missing' and not os.path.exists(os.path.join(root, 'sub', 'old.md')),
+      'saving a note removed outside the editor does not recreate it')
 
 for bad in ['../escape.md', '/etc/passwd', 'sub/../../x.md']:
     r = call({'op': 'write', 'root': root, 'rel': bad, 'text': 'x'})

@@ -1,6 +1,8 @@
 # Saved places: one sidebar model instead of Bookmarks + My Places
 
-Status: proposal, awaiting the owner's merge-vs-keep ruling. Written 2026-09-15.
+**Historical proposal, resolved.** Saved replaced Bookmarks and My Places.
+The sections below describe the 2026-09-15 decision point. See
+[the README](../README.md#sidebar) for current behavior.
 
 ## What exists today
 

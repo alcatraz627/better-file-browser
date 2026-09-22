@@ -56,22 +56,20 @@ export function slugForTitle(title: string): string {
   return (s || 'untitled') + '.md';
 }
 
-// The title a note shows: front matter title, else first heading, else the
-// file name without its extension and dashes.
+// The title a note shows: front matter title, first heading, first text line,
+// then the file name without its extension and dashes.
 export function noteTitle(rel: string, text?: string): string {
   if (text) {
     const fm = text.match(/^---\n([\s\S]*?)\n---/);
     const t = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim().replace(/^["']|["']$/g, '');
     if (t) return t;
-    const h = text.match(/^#\s+(.+)$/m)?.[1].trim();
+    const body = text.replace(/^---\n[\s\S]*?\n---\n?/, '');
+    const h = body.match(/^#\s+(.+)$/m)?.[1].trim();
     if (h) return h;
+    const first = body.split('\n').map(line => line.trim()).find(line => line && !/^(#|>)/.test(line));
+    if (first) return first;
   }
   return rel.split('/').pop()!.replace(/\.md$/i, '').replace(/[-_]+/g, ' ');
-}
-
-export function newNoteText(title: string, now = new Date()): string {
-  const iso = now.toISOString();
-  return `---\ntitle: ${title}\ntags: []\ncreated: ${iso}\nupdated: ${iso}\n---\n\n# ${title}\n\n`;
 }
 
 // Refresh `updated` inside existing front matter; a note without front

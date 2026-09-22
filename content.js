@@ -349,6 +349,28 @@
     return localStorage.getItem(HIDDEN_KEY) === "true";
   }
 
+  // src/control-icons.ts
+  var svg = (body) => `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+  var UI_ICON = {
+    appearance: svg('<circle cx="7" cy="7" r="2.5"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.8 2.8l1.1 1.1m6.2 6.2 1.1 1.1m0-8.4-1.1 1.1m-6.2 6.2-1.1 1.1"/>'),
+    preview: svg('<rect x="1.5" y="2" width="11" height="10" rx="1.5"/><path d="M8 2v10"/>'),
+    files: svg('<path d="M3 1.5h5l3 3V12H3z"/><path d="M8 1.5v3h3M5 7h4M5 9h4"/>'),
+    exclusions: svg('<path d="M7 1l5 2v3.5c0 3-2 5-5 6.5-3-1.5-5-3.5-5-6.5V3z"/><path d="M5 7h4"/>'),
+    notes: svg('<path d="M2 2h10v10H2zM4 5h6M4 7h6M4 9h4"/>'),
+    tab: svg('<path d="M1.5 3h4l1.2 1.5h5.8v7H1.5z"/><path d="M8.5 7.5v3M7 9h3"/>'),
+    terminal: svg('<rect x="1" y="2" width="12" height="10" rx="1.5"/><path d="m3.5 5 2 2-2 2M7 9h3"/>'),
+    data: svg('<ellipse cx="7" cy="3" rx="5" ry="2"/><path d="M2 3v7c0 1.1 2.2 2 5 2s5-.9 5-2V3M2 6.5c0 1.1 2.2 2 5 2s5-.9 5-2"/>'),
+    ai: svg('<path d="M7 1.5 8.2 5.8 12.5 7l-4.3 1.2L7 12.5 5.8 8.2 1.5 7l4.3-1.2z"/>'),
+    keyboard: svg('<rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M3 5h.5M5.5 5H6M8 5h.5M10.5 5h.5M3 7.5h.5M5.5 7.5H6M8 7.5h.5M10.5 7.5h.5M4.5 9h5"/>'),
+    reset: svg('<path d="M2.5 5A5 5 0 1 1 2 8M2.5 2.5V5H5"/>'),
+    add: svg('<path d="M7 2v10M2 7h10"/>'),
+    export: svg('<path d="M7 1.5v7m-2.5-2.5L7 8.5 9.5 6M2 10v2h10v-2"/>'),
+    import: svg('<path d="M7 9V2m-2.5 2.5L7 2l2.5 2.5M2 10v2h10v-2"/>'),
+    warm: svg('<path d="M7 1.5c1 2-1 2.7-.5 4 1-1 1.8-1.2 2-2 .5 2 3 3.1 3 5.1A4.5 4.5 0 0 1 7 13a4.5 4.5 0 0 1-4.5-4.4c0-2 1.4-3.8 3-4.8-.2 1.2.2 1.8.6 2.2C7 4.5 6 3.5 7 1.5z"/>'),
+    unload: svg('<path d="M7 1v12M2 4l10 6M2 10l10-6M4.5 2.5 7 4l2.5-1.5M4.5 11.5 7 10l2.5 1.5"/>'),
+    close: svg('<path d="m3 3 8 8M11 3l-8 8"/>')
+  };
+
   // src/dialog.ts
   function renderDialog(d) {
     return `
@@ -358,10 +380,10 @@
       <div class="fe-dlg-title">
         <span class="fe-dlg-mark">${d.mark}</span>
         <span class="fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
-        <button class="fe-dlg-close" title="Close (Esc)">\u2715</button>
+        <button class="fe-dlg-close" title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div class="fe-dlg-tabs" role="tablist">
-        ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><b>${esc(t.label)}</b>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
+        ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><span class="fe-dlg-tab-main">${t.icon ?? ""}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
       </div>
       ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.body}</div>`).join("")}
     </div>
@@ -1062,7 +1084,8 @@
     "td",
     "blockquote"
   ]);
-  var HTML_ATTRS = /* @__PURE__ */ new Set(["src", "href", "alt", "title", "width", "height", "align"]);
+  var HTML_ATTRS = /* @__PURE__ */ new Set(["src", "href", "alt", "title", "width", "height", "align", "colspan", "rowspan", "start"]);
+  var HTML_BOOL_ATTRS = /* @__PURE__ */ new Set(["open", "reversed"]);
   var VOID_TAGS = /* @__PURE__ */ new Set(["br", "hr", "img", "source"]);
   function sanitizeHtml(html, baseUrl = "") {
     const doc = new DOMParser().parseFromString(html, "text/html");
@@ -1075,6 +1098,10 @@
       if (!HTML_TAGS.has(tag)) return kids;
       let attrs = "";
       for (const a of Array.from(el2.attributes)) {
+        if (HTML_BOOL_ATTRS.has(a.name)) {
+          attrs += ` ${a.name}`;
+          continue;
+        }
         if (!HTML_ATTRS.has(a.name)) continue;
         let val = a.value;
         if (a.name === "src" || a.name === "href") {
@@ -1091,7 +1118,49 @@
     return Array.from(doc.body.childNodes).map(walk).join("");
   }
   function mdInline(s, baseUrl = "") {
-    let out = esc(s);
+    const htmlTags = [];
+    let source = "";
+    let codeTicks = 0;
+    for (let i = 0; i < s.length; i++) {
+      if (s[i] === "`") {
+        let end2 = i;
+        while (s[end2] === "`") end2++;
+        const count = end2 - i;
+        if (!codeTicks) codeTicks = count;
+        else if (codeTicks === count) codeTicks = 0;
+        source += s.slice(i, end2);
+        i = end2 - 1;
+        continue;
+      }
+      if (s[i] !== "<" || codeTicks || !/^<\/?[a-z][\w-]*\b/i.test(s.slice(i))) {
+        source += s[i];
+        continue;
+      }
+      let end = i + 1, quote = "";
+      for (; end < s.length; end++) {
+        if (quote) {
+          if (s[end] === quote) quote = "";
+        } else if (s[end] === '"' || s[end] === "'") quote = s[end];
+        else if (s[end] === ">") break;
+      }
+      if (end === s.length) {
+        source += s[i];
+        continue;
+      }
+      const raw = s.slice(i, end + 1);
+      const name = raw.match(/^<\/?([a-z][\w-]*)/i)[1].toLowerCase();
+      if (!HTML_TAGS.has(name)) {
+        source += raw;
+        i = end;
+        continue;
+      }
+      const safe = sanitizeHtml(raw.startsWith("</") ? `<${name}></${name}>` : `${raw}${VOID_TAGS.has(name) ? "" : `</${name}>`}`, baseUrl);
+      const tag = raw.startsWith("</") ? `</${name}>` : safe.slice(0, safe.indexOf(">") + 1);
+      htmlTags.push(tag);
+      source += `\uE000${htmlTags.length - 1}\uE001`;
+      i = end;
+    }
+    let out = esc(source);
     out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
     out = out.replace(/!\[([^\]]*)\]\(([^)\s]+?)\)/g, (_m, alt, url) => {
       if (badUrl(url)) return alt;
@@ -1105,7 +1174,7 @@
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
     out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
-    return out;
+    return out.replace(/\uE000(\d+)\uE001/g, (_m, index) => htmlTags[Number(index)]);
   }
   function linkLocalPaths(html) {
     if (!html.includes("/Users/alcatraz627")) return html;
@@ -1192,18 +1261,23 @@
     };
     while (i < lines.length) {
       const line = lines[i];
-      const fence = line.match(/^```(\w*)\s*$/);
+      const fence = line.match(/^( {0,3})(`{3,}|~{3,})([^\r\n]*)$/);
       if (fence) {
         flush();
         const buf = [];
         i++;
-        while (i < lines.length && !/^```\s*$/.test(lines[i])) buf.push(lines[i++]);
-        i++;
+        const marker = fence[2][0], width = fence[2].length, indent = fence[1].length;
+        const close = new RegExp(`^ {0,3}${marker === "`" ? "`" : "~"}{${width},}\\s*$`);
+        while (i < lines.length && !close.test(lines[i])) {
+          buf.push(lines[i++].replace(new RegExp(`^ {0,${indent}}`), ""));
+        }
+        if (i < lines.length) i++;
         const code = buf.join("\n");
-        if (fence[1].toLowerCase() === "mermaid") {
+        const language = fence[3].trim().split(/\s+/)[0] || "";
+        if (language.toLowerCase() === "mermaid") {
           out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view">Rendering diagram\u2026</div></div>`);
         } else {
-          out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(fence[1] || "text")}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre></div>`);
+          out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || "text")}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${language ? highlightCode(code, language) : esc(code)}</pre></div>`);
         }
         continue;
       }
@@ -1254,12 +1328,43 @@
       }
       if (line.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i + 1])) {
         flush();
-        const cells = (l) => l.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map((c) => mdInline(c.trim(), baseUrl));
+        const cells = (l) => {
+          const parts = [];
+          let cell = "";
+          let codeTicks = 0;
+          for (let p = 0; p < l.length; p++) {
+            if (l[p] === "\\" && l[p + 1] === "|") {
+              cell += "|";
+              p++;
+              continue;
+            }
+            if (l[p] === "`") {
+              let end = p;
+              while (l[end] === "`") end++;
+              const ticks = end - p;
+              if (!codeTicks) codeTicks = ticks;
+              else if (codeTicks === ticks) codeTicks = 0;
+              cell += l.slice(p, end);
+              p = end - 1;
+              continue;
+            }
+            if (l[p] === "|" && !codeTicks) {
+              parts.push(cell);
+              cell = "";
+              continue;
+            }
+            cell += l[p];
+          }
+          parts.push(cell);
+          if (/^\s*\|/.test(l)) parts.shift();
+          if (/\|\s*$/.test(l) && !/\\\|\s*$/.test(l)) parts.pop();
+          return parts.map((c) => mdInline(c.trim(), baseUrl));
+        };
         const head = cells(line);
         i += 2;
         const rows = [];
         while (i < lines.length && lines[i].includes("|")) rows.push(cells(lines[i++]));
-        out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+        out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
         continue;
       }
       if (/^\s*$/.test(line)) {
@@ -1424,23 +1529,13 @@
       const fm = text.match(/^---\n([\s\S]*?)\n---/);
       const t = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim().replace(/^["']|["']$/g, "");
       if (t) return t;
-      const h = text.match(/^#\s+(.+)$/m)?.[1].trim();
+      const body = text.replace(/^---\n[\s\S]*?\n---\n?/, "");
+      const h = body.match(/^#\s+(.+)$/m)?.[1].trim();
       if (h) return h;
+      const first = body.split("\n").map((line) => line.trim()).find((line) => line && !/^(#|>)/.test(line));
+      if (first) return first;
     }
     return rel.split("/").pop().replace(/\.md$/i, "").replace(/[-_]+/g, " ");
-  }
-  function newNoteText(title, now = /* @__PURE__ */ new Date()) {
-    const iso = now.toISOString();
-    return `---
-title: ${title}
-tags: []
-created: ${iso}
-updated: ${iso}
----
-
-# ${title}
-
-`;
   }
   function stampUpdated(text, now = /* @__PURE__ */ new Date()) {
     const m = text.match(/^---\n([\s\S]*?)\n---/);
@@ -2031,7 +2126,7 @@ ${body}
     if (edit && edit.dirty) void saveNote();
     currentEntry = null;
     reqSeq++;
-    edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, dirty: false, saving: false, timer: null, onSaved };
+    edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, dirty: false, saving: false, version: 0, timer: null, onSaved };
     currentText = doc.text;
     document.getElementById("fe-ql-icon").innerHTML = "";
     const nameEl = document.getElementById("fe-ql-name");
@@ -2139,6 +2234,7 @@ ${body}
       if (!edit) return;
       edit.text = ta.value;
       edit.dirty = true;
+      edit.version++;
       currentText = ta.value;
       editHeader("unsaved");
       if (viewTimer) clearTimeout(viewTimer);
@@ -2185,19 +2281,21 @@ ${body}
     editHeader("saved");
     ta.focus();
   }
-  async function saveNote() {
-    const st = edit;
+  async function saveNote(st = edit) {
     if (!st || st.saving) return;
     if (st.timer) {
       clearTimeout(st.timer);
       st.timer = null;
     }
     st.saving = true;
+    const version = st.version;
     const text = stampUpdated(st.text);
+    let wrote = false;
     try {
       const r = await notes.write(st.root, st.rel, text, st.mtime);
+      wrote = true;
       st.mtime = r.mtime;
-      st.dirty = false;
+      st.dirty = st.version !== version;
       const want = slugForTitle(noteTitle(st.rel, st.text));
       if (/^untitled-/.test(st.rel.split("/").pop()) && !/^untitled/.test(want)) {
         const to = st.rel.replace(/[^/]+$/, want);
@@ -2207,7 +2305,7 @@ ${body}
         } catch {
         }
       }
-      if (edit === st) editHeader("saved " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      if (edit === st) editHeader(st.dirty ? "unsaved" : "saved " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
       st.onSaved?.(st.rel);
     } catch (err) {
       const e = err;
@@ -2233,9 +2331,10 @@ ${body}
             });
           }
         }
-      }
+      } else deps.saveError?.(`Note save failed: ${e.message}`);
     } finally {
       st.saving = false;
+      if (wrote && st.dirty) void saveNote(st);
     }
   }
   function openPreview(e) {
@@ -2380,19 +2479,19 @@ html:has(#fe[data-theme="light"]){
   --hover:#f3f4f6;--act:#dbeafe;--ac:#0969da;--dir:#0550ae;
 }
 html,body{height:100%;background:var(--bg);color:var(--tx);
-  font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
+  font:calc(13px * var(--ui-text-scale,1))/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
 body{opacity:1!important}
 #fe{display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--tx)}
 #fe-bar{display:flex;align-items:center;gap:6px;padding:8px 14px;
   background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:42px}
 #fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0}
 .fe-crumb{color:var(--mt);text-decoration:none;padding:2px 5px;border-radius:4px;
-  font-size:12px;flex-shrink:0;transition:background .1s,color .1s}
+  font-size:calc(12px * var(--ui-text-scale,1));flex-shrink:0;transition:background .1s,color .1s}
 .fe-crumb:last-of-type{color:var(--tx);font-weight:500}
 .fe-crumb:hover{background:var(--hover);color:var(--tx)}
-.fe-sep{color:var(--dm);font-size:11px;flex-shrink:0;padding:0 1px}
+.fe-sep{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1));flex-shrink:0;padding:0 1px}
 #fe-bar .fe-crumb-dd{background:none;border:none;color:var(--dm);cursor:pointer;
-  padding:0 2px;font-size:9px;border-radius:3px;line-height:1;opacity:0.35;
+  padding:0 2px;font-size:calc(9px * var(--ui-text-scale,1));border-radius:3px;line-height:1;opacity:0.35;
   transition:opacity .1s,color .1s,background .1s;flex-shrink:0;min-width:0}
 #fe-bar .fe-crumb-dd:hover{background:var(--hover);color:var(--ac);opacity:1;border:none}
 #fe-bar .fe-crumb-dd svg{display:block}
@@ -2403,17 +2502,17 @@ body{opacity:1!important}
   box-shadow:0 8px 24px #0009;display:none;padding:4px 0;
 }
 .fe-dd-search-wrap{padding:5px 8px 7px;border-bottom:1px solid var(--bd)}
-.fe-dd-search{width:100%;background:var(--s2);border:1px solid var(--bd);color:var(--tx);
-  padding:4px 8px;border-radius:5px;font-size:12px;outline:none;box-sizing:border-box}
+.fe-dd-search{width:100%;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+  padding:4px 8px;border-radius:5px;font-size:calc(12px * var(--ui-text-scale,1));outline:none;box-sizing:border-box}
 .fe-dd-search:focus{border-color:var(--ac)}
 .fe-dd-items{max-height:288px;overflow-y:auto;padding:2px 0}
 .fe-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;
-  color:var(--tx);text-decoration:none;font-size:12px;white-space:nowrap;
+  color:var(--tx);text-decoration:none;font-size:calc(12px * var(--ui-text-scale,1));white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;transition:background .08s}
 .fe-dd-item:hover{background:var(--hover)}
 .fe-dd-item.dir{color:var(--dir)}
 .fe-dd-item svg{flex-shrink:0}
-.fe-dd-spinner,.fe-dd-empty{padding:10px 14px;font-size:12px;color:var(--dm);font-style:italic}
+.fe-dd-spinner,.fe-dd-empty{padding:10px 14px;font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);font-style:italic}
 #fe-bar button{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;
   padding:4px 8px;border-radius:var(--r);line-height:1;display:flex;align-items:center;
   justify-content:center;gap:5px;transition:all .15s;flex-shrink:0}
@@ -2430,15 +2529,26 @@ body{opacity:1!important}
 #fe-side-rz{width:5px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .12s}
 #fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
 .fe-sec{margin-bottom:4px}
-.fe-sh{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+.fe-sec.fe-collapsed>:not(.fe-sh){display:none!important}
+.fe-sh{font-size:calc(11px * var(--ui-text-scale,1));font-weight:600;text-transform:uppercase;letter-spacing:.08em;
   color:var(--dm);padding:10px 14px 5px;display:flex;align-items:center;gap:6px}
+#fe-side .fe-sh{justify-content:flex-start!important}
+.fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
+.fe-sh-collapse svg{width:12px;height:12px;flex:none;transition:transform .12s}
+.fe-collapsed .fe-sh-collapse svg{transform:rotate(-90deg)}
+.fe-sh-collapse:hover,#fe-notes-root:hover{color:var(--tx)}
+#fe-notes-root{display:grid;place-items:center;width:24px;height:24px;margin-left:auto;color:inherit}
+#fe-notes-root svg{width:14px;height:14px}
+#fe-notes-root:not([href]){opacity:.45;pointer-events:none}
 .fe-si{display:flex;align-items:center;gap:10px;padding:8px 14px;
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
 .fe-si:hover{background:var(--hover);color:var(--tx)}
 .fe-si.active{background:var(--act);color:var(--ac)}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
-.fe-sl{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
-.fe-hint{font-size:12px;color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
+.fe-sl{font-size:calc(13.5px * var(--ui-text-scale,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.fe-hint{font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
+.fe-hint-action{border:0;background:none;color:var(--ac);padding:0;cursor:pointer;font:inherit;font-style:normal;text-decoration:underline;text-underline-offset:2px}
+.fe-hint-action:hover{color:var(--tx)}
 .fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
 .fe-drag-h{padding:7px 4px 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
 .fe-bm-item:hover .fe-drag-h{opacity:1}
@@ -2450,75 +2560,75 @@ body{opacity:1!important}
 .fe-si-link.active{color:var(--ac)}
 .fe-si-link svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-rm-btn{background:none;border:none;color:var(--dm);cursor:pointer;
-  padding:4px 10px 4px 4px;font-size:12px;opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
+  padding:4px 10px 4px 4px;font-size:calc(12px * var(--ui-text-scale,1));opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
 .fe-rm-btn:hover{color:#f85149}
 #fe-sv-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
-  width:18px;height:18px;line-height:1;font-size:13px;padding:0;display:flex;align-items:center;justify-content:center}
+  width:18px;height:18px;line-height:1;font-size:calc(13px * var(--ui-text-scale,1));padding:0;display:flex;align-items:center;justify-content:center}
 #fe-sv-add:hover{border-color:var(--ac);color:var(--ac)}
-#fe-sv-filter{display:block;width:calc(100% - 20px);margin:0 10px 4px;box-sizing:border-box;background:var(--s1);border:1px solid var(--bd);color:var(--tx);
-  padding:3px 8px;border-radius:var(--r);font-size:11px;outline:none;transition:border-color .15s}
+#fe-sv-filter{display:block;width:calc(100% - 20px);margin:0 10px 4px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+  padding:3px 8px;border-radius:var(--r);font-size:calc(11px * var(--ui-text-scale,1));outline:none;transition:border-color .15s}
 #fe-sv-filter:focus{border-color:var(--ac)}
 #fe-sv-filter::placeholder{color:var(--dm)}
 .fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
-.fe-sv-tag{display:flex;align-items:center;gap:7px;padding:8px 14px 3px;font-size:10.5px;font-weight:600;
+.fe-sv-tag{display:flex;align-items:center;gap:7px;padding:8px 14px 3px;font-size:calc(10.5px * var(--ui-text-scale,1));font-weight:600;
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm)}
 .fe-sv-dot{width:9px;height:9px;border-radius:50%;cursor:pointer;flex-shrink:0;box-shadow:0 0 0 1px #0004}
 .fe-sv-dot:hover{transform:scale(1.25)}
 .fe-pl-dots{display:flex;gap:3px;margin-left:auto;padding-right:2px}
 .fe-sv-mini{width:6px;height:6px;border-radius:50%;display:inline-block}
-.fe-pl-tags{display:none;font-size:11px;color:var(--mt);min-width:60px;max-width:110px;white-space:nowrap;overflow:hidden}
+.fe-pl-tags{display:none;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);min-width:60px;max-width:110px;white-space:nowrap;overflow:hidden}
 .fe-pl-tags.show{display:inline-block}
-.fe-tag-btn{background:none;border:none;color:var(--dm);cursor:pointer;padding:4px 4px;font-size:12px;opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
+.fe-tag-btn{background:none;border:none;color:var(--dm);cursor:pointer;padding:4px 4px;font-size:calc(12px * var(--ui-text-scale,1));opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
 .fe-bm-item:hover .fe-tag-btn{opacity:1}
 .fe-tag-btn:hover{color:var(--ac)}
 #fe-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
 #fe-toolbar{display:flex;align-items:center;gap:10px;padding:7px 14px;
   background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
-#fe-count{font-size:11px;color:var(--dm);flex:1;white-space:nowrap}
+#fe-count{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);flex:1;white-space:nowrap}
 #fe-tb-right{display:flex;align-items:center;gap:6px}
 #fe-toolbar button{background:none;border:1px solid var(--bd);color:var(--dm);cursor:pointer;
   padding:4px 8px;border-radius:var(--r);display:flex;align-items:center;gap:4px;
-  font-size:12px;transition:all .15s}
+  font-size:calc(12px * var(--ui-text-scale,1));transition:all .15s}
 #fe-toolbar button:hover{border-color:var(--ac);color:var(--ac)}
 #fe-hidden-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-deep-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-sg-btn.on,#fe-filter-btn.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-zoom-wrap{display:flex;align-items:center;gap:5px;color:var(--dm)}
 #fe-zoom{width:80px;accent-color:var(--ac);cursor:pointer}
-#fe-zoom-val{font-size:10px;color:var(--dm);width:34px;text-align:right}
+#fe-zoom-val{font-size:calc(10px * var(--ui-text-scale,1));color:var(--dm);width:34px;text-align:right}
 #fe-view-group{display:flex;gap:2px}
 .fe-view-btn{background:none;border:1px solid transparent;color:var(--dm);cursor:pointer;
   padding:4px 7px;border-radius:5px;display:flex;align-items:center;transition:all .12s}
 .fe-view-btn:hover{background:var(--hover);color:var(--tx)}
 .fe-view-btn.active{background:var(--s3);border-color:var(--bd);color:var(--tx)}
-#fe-search{background:var(--s1);border:1px solid var(--bd);color:var(--tx);
-  padding:4px 10px;border-radius:var(--r);font-size:12px;width:150px;outline:none;transition:border-color .15s}
+#fe-search{background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+  padding:4px 10px;border-radius:var(--r);font-size:calc(12px * var(--ui-text-scale,1));width:150px;outline:none;transition:border-color .15s}
 #fe-search:focus{border-color:var(--ac)}
 #fe-search::placeholder{color:var(--dm)}
 #fe-sg-panel,#fe-filter-bar{
   padding:8px 14px;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
 .fe-panel-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.fe-panel-lbl{font-size:11px;color:var(--dm);font-weight:500;white-space:nowrap}
+.fe-panel-lbl{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);font-weight:500;white-space:nowrap}
 .fe-btn-group{display:flex;gap:4px;flex-wrap:wrap}
 .fe-pbn{background:none;border:1px solid var(--bd);color:var(--dm);cursor:pointer;
-  padding:3px 9px;border-radius:5px;font-size:11px;transition:all .12s;white-space:nowrap}
+  padding:3px 9px;border-radius:5px;font-size:calc(11px * var(--ui-text-scale,1));transition:all .12s;white-space:nowrap}
 .fe-pbn:hover{border-color:var(--ac);color:var(--ac)}
 .fe-pbn.active{background:var(--act);border-color:var(--ac);color:var(--ac)}
-#fe-filter-q{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
-  padding:3px 8px;border-radius:var(--r);font-size:12px;width:200px;outline:none;transition:border-color .15s}
+#fe-filter-q{background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+  padding:3px 8px;border-radius:var(--r);font-size:calc(12px * var(--ui-text-scale,1));width:200px;outline:none;transition:border-color .15s}
 #fe-filter-q:focus{border-color:var(--ac)}
 #fe-type-filter{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
-  padding:3px 8px;border-radius:var(--r);font-size:12px;outline:none;cursor:pointer}
+  padding:3px 8px;border-radius:var(--r);font-size:calc(12px * var(--ui-text-scale,1));outline:none;cursor:pointer}
 #fe-regex-btn.active{background:var(--act);border-color:var(--ac);color:var(--ac)}
-#fe-find-text{background:var(--s2);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:5px;font-size:12px;width:260px;outline:none}
+#fe-find-text{background:var(--bg);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:5px;font-size:calc(12px * var(--ui-text-scale,1));width:260px;outline:none}
 #fe-find-text:focus{border-color:var(--ac)}
-#fe-find-status{font-size:11px;color:var(--mt);margin-left:4px}
+#fe-find-status{font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);margin-left:4px}
 .fe-view .fe-si-link svg{color:var(--ac);opacity:.9}
 #fe-scroll{flex:1;overflow-y:auto;transform-origin:top left}
 #fe-table{width:100%;border-collapse:collapse;table-layout:fixed}
 thead{position:sticky;top:0;z-index:5;background:var(--s2)}
-thead th{padding:6px 12px;text-align:left;font-size:11px;font-weight:600;
+thead th{padding:6px 12px;text-align:left;font-size:calc(11px * var(--ui-text-scale,1));font-weight:600;
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm);
   border-bottom:1px solid var(--bd);user-select:none;white-space:nowrap}
 thead th{position:relative}
@@ -2526,24 +2636,24 @@ thead th[data-sort]{cursor:pointer}
 thead th[data-sort]:hover{color:var(--tx)}
 .fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;user-select:none}
 .fe-col-rz:hover{background:linear-gradient(90deg,transparent,var(--ac))}
-.si{opacity:.35;font-size:10px}
+.si{opacity:.35;font-size:calc(10px * var(--ui-text-scale,1))}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:46%}.c-tp{width:16%}.c-sz{width:13%;text-align:right}.c-dt{width:25%}
 .c-match{display:none;text-align:right;width:72px;color:var(--dm)}
 #fe.fe-has-find-hits[data-view="details"] .c-match{display:table-cell}
 #fe.fe-has-find-hits[data-view="details"] .c-nm{width:42%}
 #fe.fe-has-find-hits[data-view="details"] .c-dt{width:19%}
-.fe-find-snippet{display:block;color:var(--dm);font-size:11px;margin:3px 0 1px 22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-find-snippet{display:block;color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1));margin:3px 0 1px 22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-find-snippet mark{background:var(--ac);color:var(--bg);border-radius:2px;padding:0 1px}
-.fe-find-badge{display:inline-block;color:var(--ac);border:1px solid var(--bd);border-radius:8px;padding:0 5px;font-size:10px;margin-left:22px}
-#fe-find-error{color:#f85149;font-size:11px}
+.fe-find-badge{display:inline-block;color:var(--ac);border:1px solid var(--bd);border-radius:8px;padding:0 5px;font-size:calc(10px * var(--ui-text-scale,1));margin-left:22px}
+#fe-find-error{color:#f85149;font-size:calc(11px * var(--ui-text-scale,1))}
 #fe[data-view="details"] .fe-row .fe-find-badge{display:none}
 tbody tr{border-bottom:1px solid var(--bg);transition:background .08s}
 tbody tr:hover{background:var(--hover)}
 tbody td{padding:5px 12px;vertical-align:middle}
-td.c-sz{text-align:right;color:var(--dm);font-variant-numeric:tabular-nums;font-size:12px}
-td.c-dt{color:var(--dm);font-size:12px}
-td.c-tp{color:var(--dm);font-size:11px}
+td.c-sz{text-align:right;color:var(--dm);font-variant-numeric:tabular-nums;font-size:calc(12px * var(--ui-text-scale,1))}
+td.c-dt{color:var(--dm);font-size:calc(12px * var(--ui-text-scale,1))}
+td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-lnk{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--tx)}
 .fe-lnk svg{flex-shrink:0}
 .fe-lnk:hover .fe-nm{color:var(--ac);text-decoration:underline}
@@ -2552,10 +2662,10 @@ td.c-tp{color:var(--dm);font-size:11px}
 .par td.c-nm .fe-nm{color:var(--dm)}
 .par:hover .fe-nm{color:var(--mt)}
 .dotfile{opacity:.65}
-.fe-group-hdr td{padding:5px 12px;font-size:10.5px;font-weight:600;
+.fe-group-hdr td{padding:5px 12px;font-size:calc(10.5px * var(--ui-text-scale,1));font-weight:600;
   text-transform:uppercase;letter-spacing:.08em;color:var(--dm);
   background:var(--s2);border-bottom:1px solid var(--bd);border-top:1px solid var(--bd)}
-.fe-group-hdr-tile{width:100%;padding:6px 4px 2px;font-size:10.5px;font-weight:600;
+.fe-group-hdr-tile{width:100%;padding:6px 4px 2px;font-size:calc(10.5px * var(--ui-text-scale,1));font-weight:600;
   text-transform:uppercase;letter-spacing:.08em;color:var(--dm)}
 #fe:not(.show-hidden) .fe-row.dotfile,
 #fe:not(.show-hidden) .fe-tile.dotfile,
@@ -2581,7 +2691,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-tree-link{display:flex;align-items:center;gap:8px;color:var(--tx);text-decoration:none;min-width:0}
 .fe-tree-link svg{flex:none}
 .fe-tree-link:hover .fe-nm{text-decoration:underline;color:var(--ac)}
-.fe-tree-message{padding:4px 12px;color:var(--dm);font-size:11px}
+.fe-tree-message{padding:4px 12px;color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe[data-view="tiles"] #fe-tiles,#fe[data-view="icons"] #fe-tiles{display:flex}
 .fe-tile{display:flex;flex-direction:column;align-items:center;gap:3px;
   padding:8px 6px 7px;border-radius:var(--r);text-decoration:none;
@@ -2590,16 +2700,16 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-tile:hover{background:var(--hover);border-color:var(--bd)}
 .fe-tile-ic{font-size:0;line-height:0}
 .fe-tile-ic svg{display:block}
-.fe-tile-nm{font-size:11px;text-align:center;overflow-wrap:anywhere;word-break:normal;max-width:100%;
+.fe-tile-nm{font-size:calc(11px * var(--ui-text-scale,1));text-align:center;overflow-wrap:anywhere;word-break:normal;max-width:100%;
   overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
   line-height:1.3}
-.fe-tile-sz{font-size:10px;color:var(--dm)}
+.fe-tile-sz{font-size:calc(10px * var(--ui-text-scale,1));color:var(--dm)}
 .fe-tile.dir .fe-tile-nm{color:var(--dir)}
 .fe-tile.par .fe-tile-nm{color:var(--dm)}
 #fe[data-view="tiles"] .fe-tile-ic svg{transform:scale(1.5);margin:4px}
 #fe[data-view="icons"] .fe-tile{width:116px;padding:10px 8px 8px;gap:4px}
 #fe[data-view="icons"] .fe-tile-ic svg{transform:scale(2);margin:8px 10px 6px}
-#fe[data-view="icons"] .fe-tile-nm{font-size:12px}
+#fe[data-view="icons"] .fe-tile-nm{font-size:calc(12px * var(--ui-text-scale,1))}
 .fe-tile-img-wrap{display:block;width:68px;height:56px;border-radius:5px;overflow:hidden;
   box-shadow:0 1px 4px #0005;flex-shrink:0}
 .fe-tile-thumb{width:100%;height:100%;object-fit:cover;display:block;border-radius:5px}
@@ -2634,11 +2744,11 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-act-btn:hover{background:var(--hover);color:var(--ac);border-color:var(--ac)}
 .fe-row td.c-nm{position:relative}
 #fe-statusbar{display:flex;justify-content:space-between;padding:4px 14px;
-  background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:11px;color:var(--dm)}
+  background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
 #fe-tip{
   position:fixed;pointer-events:none;z-index:200;
   background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);
-  padding:9px 12px;font-size:11.5px;line-height:1.7;color:var(--tx);
+  padding:9px 12px;font-size:calc(11.5px * var(--ui-text-scale,1));line-height:1.7;color:var(--tx);
   max-width:380px;overflow-wrap:anywhere;word-break:break-word;
   box-shadow:0 4px 20px #000a;opacity:0;
   transition:opacity .15s ease-out;
@@ -2647,13 +2757,13 @@ td.c-tp{color:var(--dm);font-size:11px}
 .tip-header{display:flex;align-items:center;gap:7px;margin-bottom:4px}
 .tip-icon{flex-shrink:0;display:flex;align-items:center}
 .tip-icon svg{display:block}
-.tip-name{font-weight:600;font-size:12px;word-break:break-all;color:var(--tx)}
-.tip-line{color:var(--mt);font-size:11px;line-height:1.6}
-.tip-warn{color:var(--dm);font-size:10.5px;margin-top:3px;border-top:1px solid var(--bd);padding-top:3px}
+.tip-name{font-weight:600;font-size:calc(12px * var(--ui-text-scale,1));word-break:break-all;color:var(--tx)}
+.tip-line{color:var(--mt);font-size:calc(11px * var(--ui-text-scale,1));line-height:1.6}
+.tip-warn{color:var(--dm);font-size:calc(10.5px * var(--ui-text-scale,1));margin-top:3px;border-top:1px solid var(--bd);padding-top:3px}
 #fe-toast{
   position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(6px);
   background:#1f2937;color:#e5e7eb;padding:8px 18px;border-radius:20px;
-  font-size:12px;opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;
+  font-size:calc(12px * var(--ui-text-scale,1));opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;
   border:1px solid #374151;z-index:200
 }
 #fe-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -2674,59 +2784,66 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;
   background:var(--act);color:var(--ac);border:1px solid var(--ac)}
 .fe-dlg-tx{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
-.fe-dlg-tx b{font-size:14px;font-weight:600;line-height:1.2;color:var(--tx);letter-spacing:-.01em}
-.fe-dlg-tx i{font-size:11px;line-height:1.2;font-style:normal;color:var(--dm)}
-.fe-dlg-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:14px;padding:3px 7px;border-radius:4px;line-height:1;transition:color .1s,background .1s}
+.fe-dlg-tx b{font-size:calc(14px * var(--ui-text-scale,1));font-weight:600;line-height:1.2;color:var(--tx);letter-spacing:-.01em}
+.fe-dlg-tx i{font-size:calc(11px * var(--ui-text-scale,1));line-height:1.2;font-style:normal;color:var(--dm)}
+.fe-dlg-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:calc(14px * var(--ui-text-scale,1));padding:3px 7px;border-radius:4px;line-height:1;transition:color .1s,background .1s}
 .fe-dlg-close:hover{background:var(--hover);color:var(--tx)}
 .fe-dlg-tabs{display:flex;gap:3px;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex:none;align-items:stretch;overflow-x:auto}
 .fe-dlg-tab{display:flex;flex-direction:column;gap:2px;background:none;border:none;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
   padding:9px 13px 8px;color:var(--mt);cursor:pointer;text-align:left;line-height:1;white-space:nowrap;transition:background .1s,color .1s,border-color .1s}
-.fe-dlg-tab b{font-size:12.5px;font-weight:600;color:inherit}
-.fe-dlg-tab i{font-size:10.5px;font-style:normal;color:var(--dm);opacity:.85}
+.fe-dlg-tab-main{display:flex;align-items:center;gap:5px;min-width:0}
+.fe-dlg-tab-main svg{flex:none;width:13px;height:13px}
+#fe-settings-modal .fe-dlg-tabs{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;overflow:visible;padding:0 8px}
+#fe-settings-modal .fe-dlg-tab{min-width:0;padding:9px 7px 8px;white-space:normal}
+#fe-settings-modal .fe-dlg-tab i{line-height:1.15;white-space:normal}
+.fe-dlg-tab b{font-size:calc(12.5px * var(--ui-text-scale,1));font-weight:600;color:inherit}
+.fe-dlg-tab i{font-size:calc(10.5px * var(--ui-text-scale,1));font-style:normal;color:var(--dm);opacity:.85}
 .fe-dlg-tab:hover{color:var(--tx);background:var(--s1)}
 .fe-dlg-tab.on{background:var(--s1);color:var(--tx);border-bottom-color:var(--ac)}
 .fe-dlg-tab.on i{opacity:1}
 .fe-dlg-pane{display:none;padding:18px 22px 22px;overflow:auto;min-height:0}
 .fe-dlg-pane.on{display:flex;flex-direction:column;gap:20px}
+.fe-dlg-pane .fe-pbn{display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.fe-dlg-pane .fe-pbn svg{flex:none;width:13px;height:13px}
 .fe-dlg-pane .fe-md{max-width:none;padding:0}
-.fe-dlg-pane .fe-md h2{font-size:15px;margin-top:6px}
+.fe-dlg-pane .fe-md h2{font-size:calc(15px * var(--ui-text-scale,1));margin-top:6px}
 .fe-dlg-pane .fe-md>:first-child{margin-top:0}
 .fe-st-section{display:flex;flex-direction:column;gap:10px}
-.fe-st-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+.fe-st-title{font-size:calc(11px * var(--ui-text-scale,1));font-weight:600;text-transform:uppercase;letter-spacing:.08em;
   color:var(--dm);padding-bottom:4px;border-bottom:1px solid var(--bd)}
 .fe-st-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.fe-st-lbl{font-size:12px;color:var(--mt);min-width:90px;flex-shrink:0}
-.fe-st-radio{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--tx);cursor:pointer}
+.fe-st-lbl{font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);min-width:90px;flex-shrink:0}
+.fe-st-radio{display:flex;align-items:center;gap:6px;font-size:calc(13px * var(--ui-text-scale,1));color:var(--tx);cursor:pointer}
 .fe-st-radio input{accent-color:var(--ac);cursor:pointer}
-.fe-st-check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--tx);cursor:pointer}
+.fe-st-check{display:flex;align-items:center;gap:7px;font-size:calc(13px * var(--ui-text-scale,1));color:var(--tx);cursor:pointer}
 .fe-st-check input{accent-color:var(--ac);cursor:pointer;width:14px;height:14px}
 .fe-st-select{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
-  padding:4px 8px;border-radius:var(--r);font-size:12px;outline:none;cursor:pointer}
-.fe-st-input{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
-  padding:4px 8px;border-radius:var(--r);font-size:12px;outline:none;width:100%;
+  padding:4px 8px;border-radius:var(--r);font-size:calc(12px * var(--ui-text-scale,1));outline:none;cursor:pointer}
+.fe-st-input{background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+  padding:4px 8px;border-radius:var(--r);font-size:calc(12px * var(--ui-text-scale,1));outline:none;width:100%;
   font-family:inherit;box-sizing:border-box}
 .fe-st-input:focus{border-color:var(--ac)}
-.fe-st-rules-hint{font-size:11px;color:var(--dm);font-style:italic}
+.fe-st-rules-hint{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);font-style:italic}
 .fe-st-rules-cols{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
-  gap:6px;padding:0 2px 4px;align-items:center;font-size:10px;color:var(--dm)}
-.fe-st-col-lbl{font-size:10px;color:var(--dm);font-weight:500}
+  gap:6px;padding:0 2px 4px;align-items:center;font-size:calc(10px * var(--ui-text-scale,1));color:var(--dm)}
+.fe-st-col-lbl{font-size:calc(10px * var(--ui-text-scale,1));color:var(--dm);font-weight:500}
 .fe-st-rule{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
   gap:6px;align-items:center;padding:5px 2px;border-bottom:1px solid var(--bd)}
 .fe-st-rule:last-child{border-bottom:none}
 .fe-st-rule input[type="checkbox"]{accent-color:var(--ac);cursor:pointer;width:13px;height:13px}
 .fe-st-rule-preview{display:flex;align-items:center;justify-content:center;height:20px}
 .fe-st-rule-pattern,.fe-st-rule-label{
-  background:var(--s2);border:1px solid var(--bd);color:var(--tx);
-  padding:3px 6px;border-radius:var(--r);font-size:11px;
+  background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+  padding:3px 6px;border-radius:var(--r);font-size:calc(11px * var(--ui-text-scale,1));
   font-family:'SF Mono',Consolas,monospace;outline:none;transition:border-color .15s;width:100%}
 .fe-st-rule-pattern:focus,.fe-st-rule-label:focus{border-color:var(--ac)}
 .fe-st-rule-label{text-align:center}
 .fe-st-rule-color{border:1px solid var(--bd);background:none;cursor:pointer;
   width:28px;height:24px;padding:1px;border-radius:4px;flex-shrink:0}
 .fe-st-rule-del{background:none;border:none;color:var(--dm);cursor:pointer;
-  padding:3px 5px;font-size:12px;border-radius:3px;line-height:1;transition:color .1s,background .1s;text-align:center}
+  padding:3px 5px;font-size:calc(12px * var(--ui-text-scale,1));border-radius:3px;line-height:1;transition:color .1s,background .1s;text-align:center}
 .fe-st-rule-del:hover{color:#f85149;background:var(--hover)}
-.fe-st-rules-empty{font-size:12px;color:var(--dm);padding:8px 2px;font-style:italic}
+.fe-st-rules-empty{font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);padding:8px 2px;font-style:italic}
 #fe-st-ai-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:11px 13px}
 .fe-st-ai-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
 .fe-st-ai-blink{position:relative;display:inline-flex;width:9px;height:9px;flex-shrink:0}
@@ -2739,18 +2856,18 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-st-ai-head.ready .fe-st-ai-blink::after{background:var(--green);animation:fe-blink 1.6s ease-out infinite}
 .fe-st-ai-head.cold .fe-st-ai-blink::after{background:var(--gold);animation:fe-blink 2.4s ease-out infinite}
 @keyframes fe-blink{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
-.fe-st-ai-state{font-size:12.5px;font-weight:600;color:var(--tx)}
-.fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:11.5px}
+.fe-st-ai-state{font-size:calc(12.5px * var(--ui-text-scale,1));font-weight:600;color:var(--tx)}
+.fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:calc(11.5px * var(--ui-text-scale,1))}
 .fe-st-ai-grid .k{color:var(--dm)}
-.fe-st-ai-grid .v{color:var(--tx);font-family:'SF Mono',Menlo,Consolas,monospace;font-size:11px;
+.fe-st-ai-grid .v{color:var(--tx);font-family:'SF Mono',Menlo,Consolas,monospace;font-size:calc(11px * var(--ui-text-scale,1));
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-st-ai-grid .v.warm-yes{color:var(--green)}
 .fe-st-ai-grid .v.warm-no{color:var(--gold)}
 .fe-st-ai-controls{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
 .fe-st-ai-controls .fe-st-select{flex:1;min-width:120px}
-.fe-st-ai-hint{font-size:11px;color:var(--dm);margin-top:8px;line-height:1.5}
+.fe-st-ai-hint{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);margin-top:8px;line-height:1.5}
 .fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 4px;
-  font-family:'SF Mono',Menlo,Consolas,monospace;font-size:10.5px;color:var(--mt)}
+  font-family:'SF Mono',Menlo,Consolas,monospace;font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--mt)}
 .fe-row.selected td{background:var(--act)}
 .fe-row.selected .fe-nm{color:var(--ac)}
 .fe-tile.selected{background:var(--act);border-color:var(--ac)}
@@ -2775,13 +2892,13 @@ td.c-tp{color:var(--dm);font-size:11px}
   mask-image:linear-gradient(90deg,transparent 0,#000 10px,#000 calc(100% - 10px),transparent)}
 #fe-tabs::-webkit-scrollbar{display:none}
 .fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
-  font-size:11px;padding:2px 6px;border-radius:5px;margin-left:4px}
+  font-size:calc(11px * var(--ui-text-scale,1));padding:2px 6px;border-radius:5px;margin-left:4px}
 .fe-tab-list:hover{border-color:var(--ac);color:var(--ac)}
 .fe-tab-list svg{display:block}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.empty{padding-top:4px}
-.fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;font-size:12px;color:var(--mt);text-decoration:none;
+.fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);text-decoration:none;
   border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;white-space:nowrap;max-width:200px;min-width:64px;flex:0 1 auto;position:relative;top:1px}
 .fe-tab:hover{background:var(--hover);color:var(--tx)}
 .fe-tab.on{background:var(--s2);color:var(--tx);border-color:var(--bd)}
@@ -2790,8 +2907,8 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
 .fe-tab-head{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .fe-tab-tail{white-space:nowrap;flex-shrink:0}
-.fe-tab-x,.fe-tab-more{background:none;border:none;color:var(--dm);cursor:pointer;font-size:10px;padding:1px 4px;border-radius:3px;opacity:0;line-height:1}
-.fe-tab-more{font-size:12px;letter-spacing:1px}
+.fe-tab-x,.fe-tab-more{background:none;border:none;color:var(--dm);cursor:pointer;font-size:calc(10px * var(--ui-text-scale,1));padding:1px 4px;border-radius:3px;opacity:0;line-height:1}
+.fe-tab-more{font-size:calc(12px * var(--ui-text-scale,1));letter-spacing:1px}
 .fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
 .fe-tab-x:hover{background:var(--s3);color:#f85149}
 .fe-tab-more:hover{background:var(--s3);color:var(--tx)}
@@ -2802,53 +2919,61 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
 #fe-fp-bar{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-fp{display:flex;flex:1;min-height:0}
-#fe-toc{width:220px;flex-shrink:0;overflow-y:auto;background:var(--s1);border-right:1px solid var(--bd);padding:10px 0;font-size:12px}
+#fe-toc{width:220px;flex-shrink:0;overflow-y:auto;background:var(--s1);border-right:1px solid var(--bd);padding:10px 0;font-size:calc(12px * var(--ui-text-scale,1))}
 #fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fe-toc a:hover{color:var(--ac);background:var(--hover)}
 #fe-toc a.fe-toc-h2{padding-left:24px}#fe-toc a.fe-toc-h3{padding-left:34px}#fe-toc a.fe-toc-h4{padding-left:44px}
-#fe-page{flex:1;min-width:0;overflow:auto;font-size:12px}
-#fe-page .fe-md{max-width:none;margin:0;padding:28px 48px 80px;font-size:var(--rd-size,15px);line-height:var(--rd-lh,1.65)}
-#fe.fe-column #fe-page .fe-md{max-width:80ch;margin:0 auto}
-#fe-page .fe-md h1{font-size:26px;margin:8px 0 16px;padding-bottom:8px}
-#fe-page .fe-md h2{font-size:21px;margin:32px 0 12px;padding-bottom:6px}
-#fe-page .fe-md h3{font-size:17px;margin:24px 0 8px}
-#fe-page .fe-md h4,#fe-page .fe-md h5,#fe-page .fe-md h6{font-size:15px;margin:18px 0 6px}
+#fe-page{flex:1;min-width:0;overflow:auto;font-size:calc(12px * var(--ui-text-scale,1))}
+#fe-page .fe-md{max-width:none;margin:0;padding:28px 48px 80px;font-size:calc(15px * var(--ui-text-scale,1));line-height:var(--rd-lh,1.65)}
+#fe.fe-column-xl #fe-page .fe-md{max-width:150ch;margin:0 auto}
+#fe.fe-column-lg #fe-page .fe-md{max-width:130ch;margin:0 auto}
+#fe.fe-column-md #fe-page .fe-md{max-width:110ch;margin:0 auto}
+#fe-page .fe-md h1{font-size:calc(26px * var(--ui-text-scale,1));margin:8px 0 16px;padding-bottom:8px}
+#fe-page .fe-md h2{font-size:calc(21px * var(--ui-text-scale,1));margin:32px 0 12px;padding-bottom:6px}
+#fe-page .fe-md h3{font-size:calc(17px * var(--ui-text-scale,1));margin:24px 0 8px}
+#fe-page .fe-md h4,#fe-page .fe-md h5,#fe-page .fe-md h6{font-size:calc(15px * var(--ui-text-scale,1));margin:18px 0 6px}
 #fe-page .fe-md p{margin:12px 0}
 #fe-page .fe-md blockquote > .fe-md{padding:0;margin:0;max-width:none}
 #fe-page .fe-md ul,#fe-page .fe-md ol{margin:10px 0;padding-left:28px}
-#fe-page .fe-md li{margin:5px 0}
-#fe-page .fe-md code{font-size:var(--rd-code,13px)}
-#fe-page .fe-md-pre{font-size:var(--rd-code,13px);line-height:1.5}
+#fe-page .fe-md li{margin:0 0 12px}
+#fe-page .fe-md li:last-child{margin-bottom:0}
+#fe-page .fe-md code{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
+#fe-page .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1));line-height:1.5}
 #fe.fe-notips #fe-tip{display:none!important}
-#fe-page .fe-md-table{font-size:14px}
+#fe-page .fe-md-table{font-size:calc(14px * var(--ui-text-scale,1))}
 #fe-page .fe-md-table th,#fe-page .fe-md-table td{padding:7px 13px}
-#fe-fp-toc,#fe-fp-column{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
+#fe-fp-toc,#fe-fp-column{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:calc(11px * var(--ui-text-scale,1));padding:3px 8px;border-radius:5px}
 #fe-fp-bar button{display:inline-flex;align-items:center;gap:5px}
 #fe-fp-bar button svg{flex-shrink:0}
 #fe-fp-toc:hover,#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
 #fe-fp-toc.on,#fe-fp-column.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-toc a.on{color:var(--ac);border-left:2px solid var(--ac);padding-left:12px}
 .fe-crumb-file{color:var(--tx);font-weight:500}
-#fe-fp-meta{font-size:11px;color:var(--dm);margin-right:auto;white-space:nowrap}
-#fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
+#fe-fp-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);margin-right:auto;white-space:nowrap}
+#fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:calc(11px * var(--ui-text-scale,1));padding:3px 8px;border-radius:5px}
 #fe-fp-raw:hover,#fe-fp-copy:hover{border-color:var(--ac);color:var(--ac)}
 #fe-fp-raw.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
-#fe-fp-reload{font-size:11px;color:var(--dm)}
+#fe-fp-reload{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
 #fe-ed-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
-#fe-ed-bar .fe-pbn{padding:2px 7px;font-size:11px}
-.fe-ed-hint{margin-left:auto;font-size:10.5px;color:var(--dm);white-space:nowrap}
+#fe-ed-bar .fe-pbn{padding:2px 7px;font-size:calc(11px * var(--ui-text-scale,1))}
+.fe-ed-hint{margin-left:auto;font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap}
 #fe-ql-body.fe-editing{display:flex;flex-direction:column}
 .fe-ed{display:flex;flex:1;min-height:0}
 .fe-md img{max-width:100%;border-radius:6px}
 #fe-ed-src{flex:1;min-width:0;resize:none;border:none;border-right:1px solid var(--bd);background:var(--s1);color:var(--tx);
-  font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px 16px;outline:none;tab-size:2}
+  font:calc(12.5px * var(--ui-text-scale,1))/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px 16px;outline:none;tab-size:2}
 #fe-ed-view{flex:1;min-width:0;overflow:auto}
 #fe-qlook.side .fe-ed{flex-direction:column}
 #fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
 #fe-ed-conflict{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd)}
 .fe-nt-item .fe-si-link{padding-left:14px}
+.fe-nt-tab{background:none;border:0;color:var(--dm);cursor:pointer;padding:4px;display:grid;place-items:center;opacity:0;flex:none}
+.fe-nt-item:hover .fe-nt-tab,.fe-nt-tab:focus-visible{opacity:1}
+.fe-nt-tab:hover{color:var(--ac)}
+.fe-nt-tab svg{width:14px;height:14px}
 #fe-nt-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
-  width:18px;height:18px;line-height:1;font-size:13px;padding:0;display:flex;align-items:center;justify-content:center}
+  width:18px;height:18px;line-height:1;font-size:calc(13px * var(--ui-text-scale,1));padding:0;display:flex;align-items:center;justify-content:center}
+#fe-sv-add{margin-left:auto}
 #fe-nt-add:hover{border-color:var(--ac);color:var(--ac)}
 .fe-sh a{color:inherit;text-decoration:none}
 .fe-sh a:hover{color:var(--ac)}
@@ -2857,58 +2982,58 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-ql-dock.on{color:var(--ac);border-color:var(--ac)}
 #fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-ql-icon svg{display:block}
-#fe-ql-name{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
+#fe-ql-name{font-weight:600;font-size:calc(13px * var(--ui-text-scale,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
 #fe-ql-name:hover{color:var(--ac);text-decoration:underline}
-#fe-ql-meta{font-size:11px;color:var(--dm);flex:1;white-space:nowrap}
-#fe-ql-open{font-size:11px;color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
-#fe-ql-go,#fe-ql-tab{font-size:11px;color:var(--mt);background:none;cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
+#fe-ql-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);flex:1;white-space:nowrap}
+#fe-ql-open{font-size:calc(11px * var(--ui-text-scale,1));color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
+#fe-ql-go,#fe-ql-tab{font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);background:none;cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
 #fe-ql-go:hover,#fe-ql-tab:hover{border-color:var(--ac);color:var(--ac)}
 #fe-ql-open:hover{border-color:var(--ac)}
-#fe-ql-copy{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mt);background:none;
+#fe-ql-copy{display:flex;align-items:center;gap:5px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);background:none;
   cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap;line-height:1.4}
 #fe-ql-copy:hover:not(:disabled){border-color:var(--ac);color:var(--ac)}
 #fe-ql-copy:disabled{opacity:.45;cursor:default}
-#fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:13px;padding:3px 7px;border-radius:4px;line-height:1}
+#fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:calc(13px * var(--ui-text-scale,1));padding:3px 7px;border-radius:4px;line-height:1}
 #fe-ql-close:hover{background:var(--hover);color:var(--tx)}
-#fe-ql-body{flex:1;overflow:auto;font-size:12px}
+#fe-ql-body{flex:1;overflow:auto;font-size:calc(12px * var(--ui-text-scale,1))}
 /* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
-#fe-ql-body .fe-md{font-size:var(--rd-size,15px);line-height:var(--rd-lh,1.65)}
-#fe-ql-body .fe-md code{font-size:var(--rd-code,13px)}
-#fe-ql-body .fe-md-pre{font-size:var(--rd-code,13px)}
+#fe-ql-body .fe-md{font-size:calc(15px * var(--ui-text-scale,1));line-height:var(--rd-lh,1.65)}
+#fe-ql-body .fe-md code{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
+#fe-ql-body .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
 #fe-ql-ai{display:flex;align-items:center;gap:6px;padding:7px 14px;
   border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0}
-#fe-ql-ai-chip{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dm);
+#fe-ql-ai-chip{display:flex;align-items:center;gap:5px;font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--dm);
   margin-right:4px;white-space:nowrap}
 #fe-ql-ai-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--dm);flex-shrink:0}
 #fe-ql-ai-chip.ready .dot{background:var(--green)}
 #fe-ql-ai-chip.cold .dot{background:var(--gold)}
 #fe-ql-ai-chip.down .dot{background:#f85149}
 .fe-ql-ai-btn{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;
-  padding:3px 9px;border-radius:5px;font-size:11px;transition:all .12s;white-space:nowrap}
+  padding:3px 9px;border-radius:5px;font-size:calc(11px * var(--ui-text-scale,1));transition:all .12s;white-space:nowrap}
 .fe-ql-ai-btn:hover:not(:disabled){border-color:var(--ac);color:var(--ac)}
 .fe-ql-ai-btn:disabled{opacity:.45;cursor:default}
-#fe-ql-ai-q{flex:1;min-width:80px;background:var(--s1);border:1px solid var(--bd);color:var(--tx);
-  padding:4px 9px;border-radius:5px;font-size:11.5px;outline:none;transition:border-color .15s}
+#fe-ql-ai-q{flex:1;min-width:80px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+  padding:4px 9px;border-radius:5px;font-size:calc(11.5px * var(--ui-text-scale,1));outline:none;transition:border-color .15s}
 #fe-ql-ai-q:focus{border-color:var(--ac)}
 #fe-ql-ai-q:disabled{opacity:.45}
 #fe-ql-ai-q::placeholder{color:var(--dm)}
 #fe-ql-ai-out{border-bottom:1px solid var(--bd);max-height:42%;overflow-y:auto;flex-shrink:0;background:var(--s1)}
-#fe-ql-ai-out-body{padding:10px 16px 4px;font-size:12.5px;line-height:1.6;white-space:pre-wrap}
+#fe-ql-ai-out-body{padding:10px 16px 4px;font-size:calc(12.5px * var(--ui-text-scale,1));line-height:1.6;white-space:pre-wrap}
 #fe-ql-ai-out-body .fe-md{padding:0;white-space:normal}
-#fe-ql-ai-out-meta{padding:2px 16px 8px;font-size:10px;color:var(--dm)}
+#fe-ql-ai-out-meta{padding:2px 16px 8px;font-size:calc(10px * var(--ui-text-scale,1));color:var(--dm)}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
-.fe-ql-note{font-size:11.5px;color:var(--dm);padding:6px 14px}
+.fe-ql-note{font-size:calc(11.5px * var(--ui-text-scale,1));color:var(--dm);padding:6px 14px}
 .fe-ql-note.err{color:#f85149}
 .fe-ql-imgwrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;height:100%;padding:16px}
 .fe-ql-img{max-width:100%;max-height:calc(100% - 22px);object-fit:contain;border-radius:4px}
-.fe-ql-dim{font-size:11px;color:var(--dm);font-variant-numeric:tabular-nums}
+.fe-ql-dim{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);font-variant-numeric:tabular-nums}
 .fe-ql-pdf{width:100%;height:100%;border:none}
 .fe-ql-media-wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
 .fe-ql-media{max-width:100%;max-height:100%;border-radius:4px;background:#000}
 .fe-ql-center audio{width:min(480px,90%)}
 .fe-ql-font{padding:20px 26px;overflow:auto;line-height:1.5}
 .fe-ql-font>div{margin:6px 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:6px}
-.fe-code-wrap{display:flex;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
+.fe-code-wrap{display:flex;font:calc(11.5px * var(--ui-text-scale,1))/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
 .fe-code-gut{padding:10px 8px 14px 12px;text-align:right;color:var(--dm);user-select:none;
   border-right:1px solid var(--bd);background:var(--s2);min-width:34px;flex-shrink:0}
 .fe-code{padding:10px 14px 14px;white-space:pre;flex:1}
@@ -2939,7 +3064,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe[data-theme="light"] .tok-section{color:#8250df}
 #fe[data-theme="light"] .tok-add{color:#1a7f37}
 #fe[data-theme="light"] .tok-del{color:#cf222e}
-.fe-ql-table{border-collapse:collapse;width:100%;font:11.5px 'SF Mono',Menlo,Consolas,monospace}
+.fe-ql-table{border-collapse:collapse;width:100%;font:calc(11.5px * var(--ui-text-scale,1)) 'SF Mono',Menlo,Consolas,monospace}
 .fe-ql-table th{position:sticky;top:0;background:var(--s2);padding:6px 10px;text-align:left;
   border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
 .fe-ql-table th:hover{color:var(--tx)}
@@ -2948,7 +3073,7 @@ td.c-tp{color:var(--dm);font-size:11px}
   max-width:340px;overflow:hidden;text-overflow:ellipsis}
 .fe-ql-table th.num,.fe-ql-table td.num{text-align:right;font-variant-numeric:tabular-nums}
 .fe-ql-table tbody tr:hover{background:var(--hover)}
-.fe-jt-root,.fe-jl-root{padding:10px 14px;font:11.5px/1.6 'SF Mono',Menlo,Consolas,monospace}
+.fe-jt-root,.fe-jl-root{padding:10px 14px;font:calc(11.5px * var(--ui-text-scale,1))/1.6 'SF Mono',Menlo,Consolas,monospace}
 .fe-jt summary,.fe-jl-line summary{cursor:pointer;list-style:none}
 .fe-jt summary::-webkit-details-marker,.fe-jl-line summary::-webkit-details-marker{display:none}
 .fe-jt summary svg,.fe-jl-line summary svg{color:var(--dm);flex-shrink:0;vertical-align:-2px;transform:rotate(-90deg)}
@@ -2959,40 +3084,40 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-jt-key{color:#79c0ff}
 #fe[data-theme="light"] .fe-jt-key{color:#0550ae}
 .fe-jt-colon{color:var(--dm)}
-.fe-jt-badge{color:var(--dm);font-size:10.5px}
+.fe-jt-badge{color:var(--dm);font-size:calc(10.5px * var(--ui-text-scale,1))}
 .fe-jt-row{padding-left:12px}
 .fe-jl-line{border-bottom:1px solid var(--s2);padding:2px 0}
 .fe-jl-line summary{display:flex;gap:8px;align-items:baseline}
-.fe-jl-n{color:var(--dm);min-width:28px;text-align:right;user-select:none;font-size:10.5px;flex-shrink:0}
+.fe-jl-n{color:var(--dm);min-width:28px;text-align:right;user-select:none;font-size:calc(10.5px * var(--ui-text-scale,1));flex-shrink:0}
 .fe-jl-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mt)}
 .fe-jl-line.bad{display:flex;gap:8px;align-items:baseline}
-.fe-jl-err{color:#f85149;font-size:10px;border:1px solid #f8514940;border-radius:3px;padding:0 4px;flex-shrink:0}
-.fe-md{padding:14px 22px 20px;font-size:13px;line-height:1.65;max-width:760px}
-.fe-md h1{font-size:19px;border-bottom:1px solid var(--bd);padding-bottom:6px;margin:16px 0 10px}
-.fe-md h2{font-size:16px;border-bottom:1px solid var(--bd);padding-bottom:4px;margin:14px 0 8px}
-.fe-md h3{font-size:14px;margin:12px 0 6px}
-.fe-md h4,.fe-md h5,.fe-md h6{font-size:13px;margin:10px 0 5px}
+.fe-jl-err{color:#f85149;font-size:calc(10px * var(--ui-text-scale,1));border:1px solid #f8514940;border-radius:3px;padding:0 4px;flex-shrink:0}
+.fe-md{padding:14px 22px 20px;font-size:calc(13px * var(--ui-text-scale,1));line-height:1.65;max-width:760px}
+.fe-md h1{font-size:calc(19px * var(--ui-text-scale,1));border-bottom:1px solid var(--bd);padding-bottom:6px;margin:16px 0 10px}
+.fe-md h2{font-size:calc(16px * var(--ui-text-scale,1));border-bottom:1px solid var(--bd);padding-bottom:4px;margin:14px 0 8px}
+.fe-md h3{font-size:calc(14px * var(--ui-text-scale,1));margin:12px 0 6px}
+.fe-md h4,.fe-md h5,.fe-md h6{font-size:calc(13px * var(--ui-text-scale,1));margin:10px 0 5px}
 .fe-md p{margin:7px 0}
 .fe-md code{background:var(--s2);border:1px solid var(--bd);padding:0 5px;border-radius:4px;
-  font:11.5px 'SF Mono',Menlo,Consolas,monospace}
+  font:calc(11.5px * var(--ui-text-scale,1)) 'SF Mono',Menlo,Consolas,monospace}
 .fe-md-code{margin:10px 0;border:1px solid var(--bd);border-radius:6px;background:var(--s2);overflow:hidden}
 .fe-md-code-bar{display:flex;align-items:center;justify-content:space-between;padding:3px 10px;border-bottom:1px solid var(--bd);background:var(--s1)}
-.fe-md-lang{font:600 10.5px/1 'SF Mono',Menlo,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
-.fe-md-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:10.5px;padding:1px 7px;border-radius:4px}
+.fe-md-lang{font:600 calc(10.5px * var(--ui-text-scale,1))/1 'SF Mono',Menlo,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
+.fe-md-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:calc(10.5px * var(--ui-text-scale,1));padding:1px 7px;border-radius:4px}
 .fe-md-copy:hover{border-color:var(--ac);color:var(--ac)}
 .fe-md-pre{background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:10px 12px;
-  overflow-x:auto;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;margin:10px 0;white-space:pre}
+  overflow-x:auto;font:calc(11.5px * var(--ui-text-scale,1))/1.55 'SF Mono',Menlo,Consolas,monospace;margin:10px 0;white-space:pre}
 .fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0}
 .fe-md-mermaid{margin:10px 0;padding:14px;border:1px solid var(--bd);border-radius:6px;
   background:var(--s1);overflow-x:auto;text-align:center}
 .fe-md-mermaid svg{display:block;max-width:100%;height:auto;margin:auto}
 .fe-md-mermaid-source[hidden]{display:none}
 .fe-md-mermaid-source{margin:8px 0 0;padding:10px;text-align:left;white-space:pre-wrap;
-  background:var(--s2);border-radius:4px;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace}
+  background:var(--s2);border-radius:4px;font:calc(11.5px * var(--ui-text-scale,1))/1.55 'SF Mono',Menlo,Consolas,monospace}
 .fe-md-anchor{margin-left:8px;color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity .1s}
 .fe-md-anchor::before{content:'#'}
 .fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}
-.fe-md-fm{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;margin:0 0 18px;padding:10px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;font-size:12.5px}
+.fe-md-fm{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;margin:0 0 18px;padding:10px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;font-size:calc(12.5px * var(--ui-text-scale,1))}
 .fe-md-fm dt{color:var(--dm);font-weight:600}
 .fe-md-fm dd{margin:0;color:var(--tx)}
 .fe-md li.fe-task{list-style:none;margin-left:-20px!important;padding-left:0}
@@ -3002,28 +3127,60 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-md img{display:block;margin:12px auto;cursor:zoom-in}
 .fe-md blockquote{border-left:3px solid var(--bd);padding:1px 12px;color:var(--mt);margin:8px 0}
 .fe-md blockquote .fe-md{padding:0}
-.fe-md ul,.fe-md ol{padding-left:24px;margin:7px 0}
-.fe-md li{margin:3px 0}
+.fe-md ul,.fe-md ol{padding-left:24px;margin:12px 0}
+.fe-md li{margin:0 0 12px}
+.fe-md li:last-child{margin-bottom:0}
 .fe-md a{color:var(--ac);text-decoration:none}
 .fe-md a:hover{text-decoration:underline}
 .fe-md img{max-width:100%;border-radius:6px}
 .fe-md hr{border:none;border-top:1px solid var(--bd);margin:14px 0}
-.fe-md-table{border-collapse:collapse;margin:0;font-size:12.5px}
+.fe-md-table{border-collapse:collapse;margin:0;font-size:calc(12.5px * var(--ui-text-scale,1))}
 .fe-md-table th,.fe-md-table td{border:1px solid var(--bd);padding:5px 11px;text-align:left}
 .fe-md-table th{background:var(--s2);font-weight:600}
 #fe-ctx,.fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
   min-width:180px;box-shadow:0 8px 24px #0009;display:none;padding:4px 0}
 .fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
-  font-size:12px;cursor:pointer;white-space:nowrap}
+  font-size:calc(12px * var(--ui-text-scale,1));cursor:pointer;white-space:nowrap}
 .fe-ctx-item:hover{background:var(--hover)}
-.fe-ctx-key{margin-left:auto;color:var(--dm);font-size:10px;padding-left:16px}
+.fe-ctx-key{margin-left:auto;color:var(--dm);font-size:calc(10px * var(--ui-text-scale,1));padding-left:16px}
 .fe-ctx-sep{height:1px;background:var(--bd);margin:4px 0}
+#fe-tabs{gap:5px;mask-image:none}
+.fe-tab{background:var(--s2);border-color:var(--bd);padding:6px 9px;border-radius:7px 7px 0 0;min-height:29px}
+.fe-tab.on{background:var(--bg);border-color:var(--bd);box-shadow:none}
+.fe-tab.temp{border-style:dashed}
+.fe-tab-ico svg{width:15px;height:16px}
+.fe-tab-x,.fe-tab-more{opacity:.6}
+.fe-tab:focus-visible,.fe-tab-x:focus-visible,.fe-tab-more:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}
+@media (max-width:900px){
+  #fe-side{width:clamp(120px,22vw,170px)}
+  #fe-toc{width:clamp(120px,22vw,170px)}
+  #fe-page .fe-md{padding:20px 18px 60px}
+  #fe-fp-bar{flex-wrap:wrap;padding:7px 10px}
+  #fe-toolbar{flex-wrap:wrap}
+  #fe-count{flex-basis:100%}
+  #fe-tb-right{width:100%;flex-wrap:wrap;justify-content:flex-start}
+}
+@media (max-width:700px){
+  #fe-settings-modal .fe-dlg-tab{padding:7px 3px 6px;text-align:center}
+  #fe-settings-modal .fe-dlg-tab-main{flex-direction:column;gap:2px}
+  #fe-settings-modal .fe-dlg-tab b{font-size:calc(10.5px * var(--ui-text-scale,1))}
+  #fe-settings-modal .fe-dlg-tab i{display:none}
+}
 `;
 
   // src/file-page.ts
   var SCROLL_KEY = "bfb-page-scroll-v1";
   var TOC_KEY = "bfb-page-toc-v1";
-  var COLUMN_KEY = "bfb-page-column-v1";
+  var COLUMN_KEY = "bfb-page-column-v2";
+  var COLUMN_MODES = ["unset", "xl", "lg", "md"];
+  var COLUMN_WIDTHS = { unset: "full", xl: "150ch", lg: "130ch", md: "110ch" };
+  function columnMode(value) {
+    if (value === true || value === "1") return "md";
+    return COLUMN_MODES.includes(value) ? value : "unset";
+  }
+  function savedColumnMode(fallback) {
+    return columnMode(localStorage.getItem(COLUMN_KEY) ?? localStorage.getItem("bfb-page-column-v1") ?? fallback);
+  }
   var RELOAD_MS = 2e3;
   function parseExcludedExtensions(value) {
     return [...new Set(value.split(/[\s,]+/).map((x) => x.replace(/^\*?\./, "").toLowerCase()).filter((x) => /^[a-z0-9][a-z0-9_-]*$/.test(x)))];
@@ -3090,7 +3247,7 @@ td.c-tp{color:var(--dm);font-size:11px}
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-toc" title="Show or hide the table of contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M2 2h9M2 5h9M2 8h9M2 11h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Contents</button>
-        <button id="fe-fp-column" title="Reading column: narrow the text to 80 characters"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg>Column</button>
+        <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
         <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
       </div>
@@ -3111,13 +3268,15 @@ td.c-tp{color:var(--dm);font-size:11px}
     const isMd = ext2 === "md" || ext2 === "mdx";
     let raw = false;
     let tocOpen = localStorage.getItem(TOC_KEY) !== "0";
-    const columnStored = localStorage.getItem(COLUMN_KEY);
-    let column = columnStored === null ? !!opts.column : columnStored === "1";
+    let column = savedColumnMode(opts.column);
     const fe = document.getElementById("fe");
     meta.textContent = fmtSize(new Blob([text]).size);
     const paint = () => {
-      fe.classList.toggle("fe-column", column);
-      colBtn.classList.toggle("on", column);
+      for (const mode of COLUMN_MODES) fe.classList.toggle(`fe-column-${mode}`, column === mode);
+      colBtn.classList.toggle("on", column !== "unset");
+      colBtn.querySelector(".fe-fp-column-label").textContent = column === "unset" ? "Full width" : `${column.toUpperCase()} width`;
+      const next = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
+      colBtn.title = `Reading width: ${column === "unset" ? "full" : `${column.toUpperCase()} (${COLUMN_WIDTHS[column]})`}. Click for ${next === "unset" ? "full" : `${next.toUpperCase()} (${COLUMN_WIDTHS[next]})`}`;
       tocBtn.classList.toggle("on", tocOpen);
       tocBtn.style.display = isMd && !raw ? "" : "none";
       colBtn.style.display = isMd && !raw ? "" : "none";
@@ -3139,8 +3298,8 @@ td.c-tp{color:var(--dm);font-size:11px}
       render2();
     });
     colBtn.addEventListener("click", () => {
-      column = !column;
-      localStorage.setItem(COLUMN_KEY, column ? "1" : "0");
+      column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
+      localStorage.setItem(COLUMN_KEY, column);
       paint();
     });
     page.addEventListener("scroll", () => {
@@ -3440,10 +3599,10 @@ td.c-tp{color:var(--dm);font-size:11px}
       return `<span class="fe-tab-lbl"><span class="fe-tab-head">${esc(head)}</span>${tail ? `<span class="fe-tab-tail">${esc(tail)}</span>` : ""}</span>`;
     }
     function tabHtml(t, i, on, label) {
-      const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : t.pinned ? `<span class="fe-tab-ico">${icoFolder(t.label)}</span>` : "";
+      const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : `<span class="fe-tab-ico">${icoFolder(t.label)}</span>`;
       const tip = `${t.path}
 ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins)" : "middle-click closes"} \xB7 drag reorders`;
-      return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}" draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
+      return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}"${on ? ' aria-current="page"' : ""} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}${lblHtml(label)}
       <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">\u2026</button>
       ${t.pinned ? "" : `<button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">\u2715</button>`}
@@ -3454,7 +3613,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       const labels = displayLabels(state.list);
       const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i]));
       if (!here) {
-        const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : "";
+        const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
         rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
       }
       if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">${CHEVRON_DOWN}</button>`);
@@ -3628,6 +3787,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
         const btn = document.createElement("button");
         btn.className = "fe-toast-act";
         btn.textContent = action.label;
+        btn.title = action.label;
         btn.addEventListener("click", () => {
           action.run();
           el2.classList.remove("show");
@@ -3746,15 +3906,21 @@ Renders by type:
 
 ## Notes
 
-Set a **Notes folder** in **Settings \u2192 Notes** and a Notes section lists its
-\`.md\` files newest first. **n** or **+** starts a note. The panel becomes an
+The sidebar shows **Notes** even before setup. Choose **Set notes folder** to
+select a local folder in **Settings \u2192 Notes**; its \`.md\` files then appear
+newest first. **n** or **+** starts an empty note. The panel becomes an
 editor with the source on the left and the render on the right: a toolbar for
 bold, italic, code, lists, tasks, tables and images; \u2325\u2191\u2193 moves lines and
 \u2325\u21E7\u2191\u2193 duplicates them; Tab indents; Enter continues a list; a pasted or
-dropped image is saved under \`attachments/\`. **\u2318S** saves, a pause autosaves,
-and an untitled note takes its first heading as its file name. Rename by
-double-click; \u2715 moves the note into \`.trash/\`. The folder is plain markdown
-that Obsidian and any markdown tool can read.
+dropped image is saved under \`attachments/\`. **\u2318S** saves immediately; a
+1.5-second pause autosaves, and closing the editor starts a pending save.
+The name shows an unsaved dot or an error if writing fails. An untitled note
+takes its first heading or first text line as its file name on the first save.
+If another program changed the file, choose **Reload from disk** or
+**Overwrite**. Rename by double-click; \u2715 moves the note into \`.trash/\`.
+The tab button on a note row opens a rendered file page in this page's strip;
+the editor stays in the preview panel. The folder is plain Markdown that
+Obsidian and other Markdown tools can read.
 
 ## AI assistant (optional)
 
@@ -3799,6 +3965,10 @@ tabs sit above browser bookmarks.
 ## Recent, Finder Favorites, System
 
 Folders you visited lately, and quick jumps (Root, Home, \u2026).
+
+Click a sidebar section title to collapse its list. Collapse choices
+survive a reload. **Settings \u2192 Appearance** can hide Recent, Favorites, or
+System altogether.
 ` },
     { key: "how", label: "How it works", hint: "the model, storage, what runs where", md: `
 ## The model
@@ -3949,7 +4119,7 @@ key. **open** and **+ tab** act on the note.
 
 **r** toggles raw, a copy button, and ToC links jump. Backspace or \u2318\u2191 go to the
 folder, and \u2318F uses the browser's find. Two buttons toggle a table-of-contents
-rail and an 80-character reading column. The page reloads itself every couple of
+rail and a reading-width control that cycles through full, XL, LG, and MD. The page reloads itself every couple of
 seconds and re-renders when the file changes on disk.
 
 ## How the parts fit
@@ -3961,8 +4131,8 @@ seconds and re-renders when the file changes on disk.
 - The folder you are in is a temporary (italic) tab until you keep it; opening a
   place from the sidebar keeps that folder as a tab so you do not lose it.
 - A dialog over the preview takes Esc first, then the preview; focus returns.
-- Reader size affects the file page and the preview; Interface size scales the
-  whole interface on top of the list zoom.
+- Text size and Interface size scale the whole interface; list zoom changes the
+  folder listing separately.
 
 ## Good to know
 
@@ -4231,7 +4401,7 @@ seconds and re-renders when the file changes on disk.
       title: "Settings",
       subtitle: "Stored in this browser profile",
       tabs: [
-        { key: "appearance", label: "Appearance", hint: "theme, view, density", body: `
+        { key: "appearance", label: "Appearance", hint: "Theme and layout", icon: UI_ICON.appearance, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Theme</div>
           <div class="fe-st-row">
@@ -4262,6 +4432,10 @@ seconds and re-renders when the file changes on disk.
             </select>
           </div>
           <div class="fe-st-row">
+            <label class="fe-st-lbl" for="fe-st-rd-size">Text size</label>
+            <select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>
+          </div>
+          <div class="fe-st-row">
             <label class="fe-st-check"><input type="checkbox" id="fe-st-compact" title="Tighter rows and tiles"> Compact mode</label>
           </div>
           <div class="fe-st-row">
@@ -4275,7 +4449,7 @@ seconds and re-renders when the file changes on disk.
           </div>
           <div class="fe-st-row">
             <label class="fe-st-check"><input type="checkbox" id="fe-st-tooltips" title="Native tooltips on every control"> Tooltips</label>
-            <button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">Keyboard shortcuts</button>
+            <button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Keyboard shortcuts</button>
           </div>
           <div class="fe-st-row">
             <span class="fe-st-lbl">Date format</span>
@@ -4286,7 +4460,7 @@ seconds and re-renders when the file changes on disk.
           </div>
         </div>
 ` },
-        { key: "preview", label: "Preview", hint: "panel, click, tabs", body: `
+        { key: "preview", label: "Preview", hint: "Panel and tabs", icon: UI_ICON.preview, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Panel</div>
           <div class="fe-st-row">
@@ -4295,7 +4469,7 @@ seconds and re-renders when the file changes on disk.
               <option value="modal">Floating window</option>
               <option value="side">Docked to the side</option>
             </select>
-            <button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">Reset sizes</button>
+            <button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">${UI_ICON.reset}Reset sizes</button>
           </div>
           <div class="fe-st-row">
             <span class="fe-st-lbl">Click on a file</span>
@@ -4311,15 +4485,16 @@ seconds and re-renders when the file changes on disk.
             <label class="fe-st-check"><input type="checkbox" id="fe-st-strip-restore" title="Bring back the strip of a Chrome tab closed within a day"> Restore closed strips</label>
           </div>
         </div>` },
-        { key: "files", label: "Files", hint: "file pages, reader, icon rules", body: `
+        { key: "files", label: "Files", hint: "Reader and icons", icon: UI_ICON.files, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Reader</div>
           <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-rd-column" title="Start file pages in the 80-character reading column"> Reading column by default</label>
+            <label class="fe-st-lbl" for="fe-st-rd-column">Reading width</label>
+            <select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages">
+              <option value="unset">Full width</option><option value="xl">XL width \xB7 150ch</option><option value="lg">LG width \xB7 130ch</option><option value="md">MD width \xB7 110ch</option>
+            </select>
           </div>
           <div class="fe-st-row">
-            <span class="fe-st-lbl">Text size</span>
-            <select id="fe-st-rd-size" class="fe-st-select" title="Body size on file pages">${[13, 14, 15, 16, 17].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>
             <span class="fe-st-lbl">Line height</span>
             <select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${["1.5", "1.65", "1.8"].map((n) => `<option value="${n}">${n}</option>`).join("")}</select>
             <span class="fe-st-lbl">Code size</span>
@@ -4340,7 +4515,7 @@ seconds and re-renders when the file changes on disk.
         <div class="fe-st-section">
           <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
             <span>Custom Icon Rules</span>
-            <button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">+ Add rule</button>
+            <button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">${UI_ICON.add}Add rule</button>
           </div>
           <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
           <div class="fe-st-rules-cols">
@@ -4351,32 +4526,32 @@ seconds and re-renders when the file changes on disk.
             <span></span>
           </div>
           <div id="fe-st-rules-list"></div>
-          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940" title="Replace every rule with the built-in set">Reset to defaults</button>
+          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940" title="Replace every rule with the built-in set">${UI_ICON.reset}Reset to defaults</button>
         </div>
 ` },
-        { key: "exclusions", label: "Exclusions", hint: "native file pages", body: `
+        { key: "exclusions", label: "Exclusions", hint: "Native pages", icon: UI_ICON.exclusions, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Open with Chrome</div>
           <div class="fe-st-hint">These extensions keep their native file page when opened. The preview panel still works.</div>
           <div class="fe-st-row">
             <label class="fe-st-lbl" for="fe-st-excluded-exts">File extensions</label>
             <input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces">
-            <button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default excluded extensions">Restore defaults</button>
+            <button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default excluded extensions">${UI_ICON.reset}Restore defaults</button>
           </div>
           <div class="fe-st-hint">Changes apply when a file is opened next. PDF stays native even if removed here, because it has no text renderer.</div>
         </div>
 ` },
-        { key: "notes", label: "Notes", hint: "the notes folder", body: `
+        { key: "notes", label: "Notes", hint: "Notes folder", icon: UI_ICON.notes, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Notes</div>
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
             <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder">
           </div>
-          <div class="fe-st-hint" id="fe-st-notes-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
+          <div class="fe-st-hint" id="fe-st-notes-hint" style="color:var(--dm);margin-top:-4px"></div>
         </div>
 ` },
-        { key: "terminal", label: "Terminal", hint: "which app opens", body: `
+        { key: "terminal", label: "Terminal", hint: "Open with", icon: UI_ICON.terminal, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Terminal</div>
           <div class="fe-st-row">
@@ -4393,24 +4568,24 @@ seconds and re-renders when the file changes on disk.
           <div class="fe-st-row" id="fe-st-term-custom-row" style="display:none">
             <input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} as placeholder for the folder path.'>
           </div>
-          <div class="fe-st-hint" id="fe-st-term-hint" style="font-size:11px;color:var(--dm);margin-top:-4px"></div>
+          <div class="fe-st-hint" id="fe-st-term-hint" style="color:var(--dm);margin-top:-4px"></div>
         </div>
 ` },
-        { key: "data", label: "Data", hint: "export, import", body: `
+        { key: "data", label: "Data", hint: "Export and import", icon: UI_ICON.data, body: `
         <div class="fe-st-section">
           <div class="fe-st-title">Settings and Saved list</div>
           <div class="fe-st-row">
-            <button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">Export</button>
-            <button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">Import</button>
+            <button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>
+            <button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button>
             <input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">
           </div>
           <textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px 'SF Mono',Menlo,monospace" spellcheck="false" title="The export, also on the clipboard"></textarea>
         </div>` },
-        { key: "ai", label: "AI", hint: "local model", body: `
+        { key: "ai", label: "AI", hint: "Local model", icon: UI_ICON.ai, body: `
         <div class="fe-st-section">
           <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
             <span>Local Model (AI)</span>
-            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">\u21BB Refresh</button>
+            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">${UI_ICON.reset}Refresh</button>
           </div>
           <div id="fe-st-ai-card">
             <div class="fe-st-ai-head">
@@ -4460,26 +4635,26 @@ seconds and re-renders when the file changes on disk.
 
   <div id="fe-body">
     <nav id="fe-side">
-      <div class="fe-sec">
-        <div class="fe-sh" style="justify-content:space-between">Saved
+      <div class="fe-sec" data-collapse="saved">
+        <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
           <button id="fe-sv-add" title="Save this ${fileMode ? "file" : "folder"} and name it">+</button></div>
         <input id="fe-sv-filter" type="text" placeholder="Filter saved" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
       </div>
-      <div class="fe-sec" id="fe-notes-sec" style="display:none">
-        <div class="fe-sh" style="justify-content:space-between"><a id="fe-notes-root" title="Open the notes folder">Notes</a>
+      <div class="fe-sec" id="fe-notes-sec" data-collapse="notes">
+        <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Notes</span><a id="fe-notes-root" title="Open the notes folder" aria-label="Open the notes folder">${PI.folder}</a>
           <button id="fe-nt-add" title="New note (n)">+</button></div>
         <div id="fe-nt-list"></div>
       </div>${recentsHTML}
-      <div class="fe-sec" data-sec="favorites"${settings.hideFavorites ? ' style="display:none"' : ""}>
-        <div class="fe-sh">Finder Favorites</div>
+      <div class="fe-sec" data-sec="favorites" data-collapse="favorites"${settings.hideFavorites ? ' style="display:none"' : ""}>
+        <div class="fe-sh"><span class="fe-sh-label">Finder Favorites</span></div>
         ${FINDER_FAVORITES.map(
       (p2) => `<a href="${p2.href}" class="fe-si${p2.href.replace(/\/$/, "") === "file://" + rawPath.replace(/\/$/, "") ? " active" : ""}" title="${p2.label}
 ${p2.href}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${p2.label}</span></a>`
     ).join("")}
       </div>
-      <div class="fe-sec" data-sec="system"${settings.hideSystem ? ' style="display:none"' : ""}>
-        <div class="fe-sh">System</div>
+      <div class="fe-sec" data-sec="system" data-collapse="system"${settings.hideSystem ? ' style="display:none"' : ""}>
+        <div class="fe-sh"><span class="fe-sh-label">System</span></div>
         <a href="file:///" class="fe-si" title="Root
 file:///">${PI.root}<span class="fe-sl">Root /</span></a>
         <a href="file:///Users/alcatraz627/" class="fe-si" title="Home
@@ -4753,7 +4928,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
   }
 
   // src/sort-filter.ts
-  function applyFilter(entries, config) {
+  function applyFilter(entries, config, regexMatches = /* @__PURE__ */ new Set()) {
     return entries.filter((e) => {
       if (config.type !== "all") {
         if (config.type === "folders" && !e.isDir) return false;
@@ -4764,10 +4939,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       }
       if (config.q) {
         if (config.regex) {
-          try {
-            if (!new RegExp(config.q, "i").test(e.name)) return false;
-          } catch {
-          }
+          if (!regexMatches.has(e.href)) return false;
         } else {
           if (!e.name.toLowerCase().includes(config.q.toLowerCase())) return false;
         }
@@ -4889,6 +5061,43 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       opts.onProgress?.(folders, entries.length);
     }
     return { entries, folders, truncated, cancelled: isCancelled() };
+  }
+
+  // src/name-filter.ts
+  async function filterNames(entries, pattern, signal) {
+    const response = await fetch(chrome.runtime.getURL("search-worker.js"), { signal });
+    if (!response.ok) throw new Error(`Name matching worker HTTP ${response.status}`);
+    const script = await response.text();
+    if (signal.aborted) throw new Error("Name matching stopped");
+    const url = URL.createObjectURL(new Blob([script], { type: "text/javascript" }));
+    let worker;
+    try {
+      worker = new Worker(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (result, error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        signal.removeEventListener("abort", abort);
+        worker.terminate();
+        if (error) reject(error);
+        else resolve(new Set(result));
+      };
+      const abort = () => finish(void 0, new Error("Name matching stopped"));
+      const timer = setTimeout(() => finish(void 0, new Error("Name regex timed out")), 500);
+      signal.addEventListener("abort", abort, { once: true });
+      worker.onerror = () => finish(void 0, new Error("Name matching worker failed"));
+      worker.onmessage = (event) => {
+        if (event.data.type !== "name-result") return;
+        finish(event.data.matched, event.data.error ? new Error(event.data.error) : void 0);
+      };
+      if (signal.aborted) abort();
+      else worker.postMessage({ type: "names", entries, pattern });
+    });
   }
 
   // src/search-session.ts
@@ -5030,9 +5239,14 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const treeChildren = /* @__PURE__ */ new Map();
     const treeLoading = /* @__PURE__ */ new Set();
     const treeErrors = /* @__PURE__ */ new Set();
+    const treeReaders = /* @__PURE__ */ new Map();
     const treeRootUrl = new URL("./", location.href).href;
     let findSession = null;
     let deepReader = null;
+    let nameMatches = null;
+    let nameFilterAbort = null;
+    let nameFilterReady = Promise.resolve();
+    let nameFilterFailure = "";
     ls.baseStatus = `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`;
     function renderTree(entries, parent) {
       const rows = [];
@@ -5058,7 +5272,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         const children = treeChildren.get(en.href);
         if (!children) return;
         if (!children.length) rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Empty folder</div>`);
-        for (const child of applySort(applyFilter(children, ls.filter), ls.sort)) {
+        for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? void 0), ls.sort)) {
           if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
         }
       };
@@ -5069,7 +5283,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     function applyAll() {
       const parent = all.filter((e) => e.isParent);
       let entries = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
-      entries = applyFilter(entries, ls.filter);
+      entries = applyFilter(entries, ls.filter, nameMatches ?? void 0);
       if (ls.contentHits) entries = entries.filter((e) => ls.contentHits.has(e.href));
       entries = applySort(entries, ls.sort);
       const c = ctx();
@@ -5114,6 +5328,35 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       sel.setSel(-1);
     }
     app.applyAll = applyAll;
+    function refreshNameMatches() {
+      nameFilterAbort?.abort();
+      nameFilterAbort = null;
+      nameFilterFailure = "";
+      if (!ls.filter.regex || !ls.filter.q) {
+        nameMatches = null;
+        nameFilterReady = Promise.resolve();
+        applyAll();
+        return;
+      }
+      nameMatches = /* @__PURE__ */ new Set();
+      applyAll();
+      const controller = new AbortController();
+      nameFilterAbort = controller;
+      const entries = [...nonPar, ...ls.deepEntries ?? [], ...[...treeChildren.values()].flat()];
+      nameFilterReady = filterNames(entries, ls.filter.q, controller.signal).then((matches) => {
+        if (nameFilterAbort !== controller) return;
+        nameMatches = matches;
+        nameFilterAbort = null;
+        applyAll();
+      }).catch((error) => {
+        if (nameFilterAbort !== controller) return;
+        nameMatches = /* @__PURE__ */ new Set();
+        nameFilterAbort = null;
+        nameFilterFailure = String(error instanceof Error ? error.message : error);
+        applyAll();
+        el("fe-count").textContent = nameFilterFailure;
+      });
+    }
     const sel = {
       entryShown: (en) => !en.isHidden || fe.classList.contains("show-hidden"),
       selectable: (i) => {
@@ -5220,6 +5463,9 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       e.stopPropagation();
       const url = toggle.dataset.url;
       if (treeExpanded.delete(url)) {
+        treeReaders.get(url)?.close();
+        treeReaders.delete(url);
+        treeLoading.delete(url);
         applyAll();
         return;
       }
@@ -5232,13 +5478,22 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       treeLoading.add(url);
       applyAll();
       const absoluteUrl = new URL(url, location.href).href;
-      fetchFileText(absoluteUrl).then((html) => {
+      const reader = new SearchFileReader();
+      treeReaders.set(url, reader);
+      reader.read(absoluteUrl).then((html) => {
+        if (treeReaders.get(url) !== reader) return;
         const children = parseListing(html, absoluteUrl).map((child) => {
           const rel = child.href.startsWith(treeRootUrl) ? decodeURIComponent(child.href.slice(treeRootUrl.length)).replace(/\/$/, "") : child.name;
           return { ...child, name: rel, isHidden: rel.split("/").some((part) => part.startsWith(".")) };
         });
         treeChildren.set(url, children);
-      }).catch(() => treeErrors.add(url)).finally(() => {
+        if (ls.filter.regex && ls.filter.q) refreshNameMatches();
+      }).catch(() => {
+        if (treeReaders.get(url) === reader) treeErrors.add(url);
+      }).finally(() => {
+        reader.close();
+        if (treeReaders.get(url) !== reader) return;
+        treeReaders.delete(url);
         treeLoading.delete(url);
         if (fe.dataset.view === "tree") applyAll();
       });
@@ -5354,14 +5609,14 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     el("fe-filter-q").addEventListener("input", function() {
       stopFind();
       ls.filter.q = this.value;
-      applyAll();
+      refreshNameMatches();
     });
     el("fe-regex-btn").addEventListener("click", function() {
       stopFind();
       ls.filter.regex = !ls.filter.regex;
       this.classList.toggle("active", ls.filter.regex);
       this.title = ls.filter.regex ? "Regex mode on" : "Toggle regex mode";
-      applyAll();
+      refreshNameMatches();
     });
     el("fe-type-filter").addEventListener("change", function() {
       stopFind();
@@ -5437,8 +5692,17 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         };
         return;
       }
+      if (ls.filter.regex && ls.filter.q) {
+        await nameFilterReady;
+        if (seq !== ls.findSeq) return;
+        if (nameFilterFailure) {
+          findError.textContent = nameFilterFailure;
+          findCancel.style.display = "none";
+          return;
+        }
+      }
       const source = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
-      const candidates = applyFilter(source, ls.filter).filter(isTextCandidate);
+      const candidates = applyFilter(source, ls.filter, nameMatches ?? void 0).filter(isTextCandidate);
       findStatus.textContent = `scanning 0/${candidates.length}`;
       findCancel.style.display = "";
       let session;
@@ -5537,11 +5801,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-filter-btn").classList.add("on");
       if (q.scope === "deep" !== ls.deepOn) deepBtn.click();
       ls.contentHits = null;
+      refreshNameMatches();
       if (q.text) {
         if (ls.deepOn && (ls.deepScanning || !ls.deepEntries)) ls.pendingFindText = q.text;
         else void runFind(q.text);
       }
-      applyAll();
     }
     window.addEventListener("hashchange", applyFindFromHash);
     const deepBtn = el("fe-deep-btn");
@@ -5586,7 +5850,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         ls.deepFolders = r.folders;
         ls.deepTruncated = r.truncated;
         ls.deepScanning = false;
-        applyAll();
+        refreshNameMatches();
         if (r.truncated) toast(`Deep search reached the ${findDepth.value}-level or 5000-item limit`);
         if (ls.pendingFindText !== null) {
           const t = ls.pendingFindText;
@@ -5603,14 +5867,14 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       searchEl.placeholder = ls.deepOn ? "Search subfolders" : "Filter";
       if (ls.deepOn) {
         if (!ls.deepEntries) startDeepCrawl();
-        else applyAll();
+        else refreshNameMatches();
         searchEl.focus();
       } else {
         ls.deepSeq++;
         deepReader?.close();
         deepReader = null;
         ls.deepScanning = false;
-        applyAll();
+        refreshNameMatches();
       }
     });
     findDepth.addEventListener("change", () => {
@@ -5623,7 +5887,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       stopFind();
       ls.filter.q = this.value;
       el("fe-filter-q").value = this.value;
-      applyAll();
+      refreshNameMatches();
     });
     searchEl.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
@@ -5632,13 +5896,16 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         searchEl.value = "";
         ls.filter.q = "";
         el("fe-filter-q").value = "";
-        applyAll();
+        refreshNameMatches();
       }
       searchEl.blur();
     });
     window.addEventListener("pagehide", () => {
+      nameFilterAbort?.abort();
       findSession?.close();
       deepReader?.close();
+      for (const reader of treeReaders.values()) reader.close();
+      treeReaders.clear();
     });
     return { ls, sel, applyAll, applyFindFromHash };
   }
@@ -5905,6 +6172,54 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
   // src/sidebar.ts
   function initSidebar(app) {
     const { rawPath, settings, toast } = app;
+    const collapseKey = "bfb-sidebar-collapsed-v1";
+    const sections = els("#fe-side .fe-sec[data-collapse]");
+    const collapsed = () => {
+      try {
+        const value = JSON.parse(localStorage.getItem(collapseKey) || "[]");
+        return new Set(Array.isArray(value) ? value.filter((v) => typeof v === "string") : []);
+      } catch {
+        return /* @__PURE__ */ new Set();
+      }
+    };
+    const applyCollapsed = (keys) => {
+      for (const section of sections) {
+        const key = section.dataset.collapse;
+        const isCollapsed = keys.has(key);
+        section.classList.toggle("fe-collapsed", isCollapsed);
+        const toggle = section.querySelector(".fe-sh-collapse");
+        const label = toggle.dataset.label;
+        toggle.setAttribute("aria-expanded", String(!isCollapsed));
+        toggle.setAttribute("aria-label", `${isCollapsed ? "Expand" : "Collapse"} ${label}`);
+        if (settings.tooltips !== false) toggle.title = `${isCollapsed ? "Expand" : "Collapse"} ${label}`;
+        else toggle.removeAttribute("title");
+      }
+    };
+    for (const section of sections) {
+      const header = section.querySelector(":scope > .fe-sh");
+      const labelNode = header.querySelector(".fe-sh-label");
+      const label = labelNode.textContent.trim();
+      const key = section.dataset.collapse;
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "fe-sh-collapse";
+      toggle.id = `fe-sec-toggle-${key}`;
+      toggle.dataset.label = label;
+      toggle.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      toggle.append(labelNode);
+      toggle.addEventListener("click", () => {
+        const keys = collapsed();
+        if (section.classList.contains("fe-collapsed")) keys.delete(key);
+        else keys.add(key);
+        localStorage.setItem(collapseKey, JSON.stringify([...keys]));
+        applyCollapsed(keys);
+      });
+      header.prepend(toggle);
+    }
+    applyCollapsed(collapsed());
+    window.addEventListener("storage", (e) => {
+      if (e.key === collapseKey) applyCollapsed(collapsed());
+    });
     const svList = el("fe-sv-list");
     const svFilter = el("fe-sv-filter");
     let dragSrc = null;
@@ -6050,7 +6365,6 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     });
     attachSavedEvents();
     syncStar();
-    const ntSec = el("fe-notes-sec");
     const ntList = el("fe-nt-list");
     const ntHint = el("fe-st-notes-hint");
     function notesRoot() {
@@ -6058,9 +6372,14 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     }
     function refreshNotes() {
       const root = notesRoot();
-      ntSec.style.display = root ? "" : "none";
       if (!root) {
         ntHint.textContent = "";
+        el("fe-notes-root").removeAttribute("href");
+        ntList.innerHTML = '<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-setup" class="fe-hint-action" title="Choose a Notes folder in Settings">Set notes folder</button></div>';
+        el("fe-nt-setup").addEventListener("click", () => {
+          app.openSettings("notes");
+          el("fe-st-notes-root").focus();
+        });
         return;
       }
       el("fe-notes-root").href = "file://" + root + "/";
@@ -6071,6 +6390,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             <a href="file://${esc(root + "/" + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}<span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(noteTitle(n.rel))}</span>
             </a>
+            <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
             <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">\u2715</button>
           </div>`).join("") : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
         attachNoteEvents(root);
@@ -6116,17 +6436,23 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             toast("Moved to .trash");
           }).catch((err) => toast(err.message));
         });
+        item.querySelector(".fe-nt-tab").addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          app.strip.go(root.replace(/\/$/, "") + "/" + rel);
+        });
       });
     }
     app.newNote = () => {
       const root = notesRoot();
       if (!root) {
-        toast("Set a Notes folder in Settings first");
+        app.openSettings("notes");
+        el("fe-st-notes-root").focus();
         return;
       }
       const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[-:T]/g, "").slice(0, 14);
       const rel = `untitled-${stamp}.md`;
-      notes.create(root, rel, newNoteText("Untitled")).then(() => openNoteRel(root, rel)).catch((err) => toast(err.message));
+      notes.create(root, rel, "").then(() => openNoteRel(root, rel)).catch((err) => toast(err.message));
     };
     el("fe-nt-add").addEventListener("click", () => app.newNote());
     refreshNotes();
@@ -6173,7 +6499,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         <input type="text" class="fe-st-rule-pattern" value="${esc(rule.pattern)}" placeholder="Regex" title="Regex (case-insensitive)">
         <input type="text" class="fe-st-rule-label"   value="${esc(rule.label)}"   placeholder="LBL"   maxlength="4" title="Badge text (\u22644 chars)">
         <input type="color" class="fe-st-rule-color"  value="${esc(rule.color)}"        title="Icon color">
-        <button class="fe-st-rule-del" data-idx="${i}" title="Delete">\u2715</button>
+        <button class="fe-st-rule-del" data-idx="${i}" title="Delete" aria-label="Delete icon rule">${UI_ICON.close}</button>
       </div>`).join("");
     }
     function updateTermHint() {
@@ -6184,7 +6510,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       hint.textContent = cmd ? `Command: ${cmd.replace(/\$\{p\}/g, app.folderPath)}` : "";
     }
     const settingsDlg = mountDialog("fe-settings-modal");
-    function openSettings() {
+    function openSettings(tab) {
       els('input[name="bfb-theme"]').forEach((r) => {
         r.checked = r.value === (fe.dataset.theme || "dark");
       });
@@ -6206,7 +6532,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-st-panel").value = getPreviewLayout().mode;
       el("fe-st-click").value = settings.clickOpens || "look";
       el("fe-st-strip-restore").checked = settings.stripRestore !== false;
-      el("fe-st-rd-column").checked = localStorage.getItem(COLUMN_KEY) !== null ? localStorage.getItem(COLUMN_KEY) === "1" : !!settings.readerColumn;
+      el("fe-st-rd-column").value = savedColumnMode(settings.readerColumn);
       el("fe-st-uiscale").value = String(settings.uiScale || 100);
       el("fe-st-rd-size").value = String(settings.readerSize || 15);
       el("fe-st-rd-lh").value = String(settings.readerLineHeight || 1.65);
@@ -6214,7 +6540,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       updateTermHint();
       renderRulesList();
       refreshAiStatus();
-      settingsDlg.open();
+      settingsDlg.open(tab);
     }
     function refreshAiStatus() {
       const head = document.querySelector(".fe-st-ai-head");
@@ -6253,7 +6579,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
           modelSel.innerHTML = s.available_models.map(
             (m) => `<option value="${esc(m)}"${m === chosen ? " selected" : ""}>${esc(m)}${m === s.default_model ? " (default)" : ""}</option>`
           ).join("");
-          warmBtn.textContent = s.warm ? "Unload (warm off)" : "Keep warm";
+          warmBtn.innerHTML = `${s.warm ? UI_ICON.unload : UI_ICON.warm}${s.warm ? "Unload (warm off)" : "Keep warm"}`;
           warmBtn.disabled = false;
           controls.style.display = "";
         }
@@ -6275,7 +6601,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         refreshAiStatus();
       });
     });
-    el("fe-settings-btn").addEventListener("click", openSettings);
+    el("fe-settings-btn").addEventListener("click", () => openSettings());
     const helpDlg = mountDialog("fe-help-modal");
     el("fe-help-btn").addEventListener("click", () => helpDlg.open());
     el("fe-st-keys").addEventListener("click", () => {
@@ -6317,12 +6643,17 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       saveSettings(settings);
     });
     el("fe-st-rd-column").addEventListener("change", function() {
-      settings.readerColumn = this.checked;
+      settings.readerColumn = this.value;
       saveSettings(settings);
       try {
-        localStorage.setItem(COLUMN_KEY, this.checked ? "1" : "0");
+        localStorage.setItem(COLUMN_KEY, this.value);
       } catch {
       }
+    });
+    el("fe-st-rd-size").addEventListener("change", function() {
+      settings.readerSize = Number(this.value);
+      saveSettings(settings);
+      document.documentElement.style.setProperty("--ui-text-scale", String(settings.readerSize / 15));
     });
     const readerVar = (id, key, cssVar, unit) => {
       el(id).addEventListener("change", function() {
@@ -6331,7 +6662,6 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         fe.style.setProperty(cssVar, this.value + unit);
       });
     };
-    readerVar("fe-st-rd-size", "readerSize", "--rd-size", "px");
     readerVar("fe-st-rd-lh", "readerLineHeight", "--rd-lh", "");
     readerVar("fe-st-rd-code", "readerCodeSize", "--rd-code", "px");
     el("fe-st-export").addEventListener("click", () => {
@@ -6515,8 +6845,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
               suppressErrorRendering: true,
               theme: currentTheme === "light" ? "default" : "dark"
             });
-            const { svg } = await mermaid.render(`fe-mermaid-${++sequence}`, source);
-            if (block.isConnected) view.innerHTML = svg;
+            const { svg: svg2 } = await mermaid.render(`fe-mermaid-${++sequence}`, source);
+            if (block.isConnected) view.innerHTML = svg2;
           } catch {
             view.textContent = "Could not render this Mermaid diagram.";
             block.querySelector(".fe-md-mermaid-source")?.removeAttribute("hidden");
@@ -6599,8 +6929,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const recents = getRecents().filter((r) => r.path !== folderPath).slice(0, 6);
     pushRecent(folderPath);
     const recentsHTML = recents.length ? `
-      <div class="fe-sec" data-sec="recent"${settings.hideRecent ? ' style="display:none"' : ""}>
-        <div class="fe-sh">Recent</div>
+      <div class="fe-sec" data-sec="recent" data-collapse="recent"${settings.hideRecent ? ' style="display:none"' : ""}>
+        <div class="fe-sh"><span class="fe-sh-label">Recent</span></div>
         ${recents.map((r) => {
       const lbl = r.path.split("/").filter(Boolean).pop() || "/";
       return `<a href="file://${esc(r.path)}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
@@ -6628,8 +6958,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const dirName = fileMode ? fileName : segments[segments.length - 1] || "/";
     const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + "\u2026" : dirName;
     document.title = `${shortDir} | Better File Browser`;
-    const faviconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="%230d1117"/><path d="M3 12.5A1.5 1.5 0 0 1 4.5 11h5.5l2.5 3H28a1.5 1.5 0 0 1 1.5 1.5V24A1.5 1.5 0 0 1 28 25.5H4.5A1.5 1.5 0 0 1 3 24z" fill="%234a9eff"/><path d="M9 18.5h14M9 22h9" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/></svg>`;
-    document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" href="data:image/svg+xml,${faviconSvg}">`;
+    document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${chrome.runtime.getURL("assets/favicon.svg")}">`;
     document.body.innerHTML = html;
     const styleEl = document.createElement("style");
     styleEl.textContent = CSS;
@@ -6643,7 +6972,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     }
     if (settings.uiScale && settings.uiScale !== 100) fe.style.zoom = String(settings.uiScale / 100);
     if (settings.compactMode) fe.classList.add("compact");
-    fe.style.setProperty("--rd-size", `${settings.readerSize || 15}px`);
+    document.documentElement.style.setProperty("--ui-text-scale", String((settings.readerSize || 15) / 15));
     fe.style.setProperty("--rd-lh", String(settings.readerLineHeight || 1.65));
     fe.style.setProperty("--rd-code", `${settings.readerCodeSize || 13}px`);
     if (settings.tooltips === false) fe.classList.add("fe-notips");
@@ -6685,10 +7014,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: (path) => {
       app.strip.open(path, true);
       app.toast("Kept as a tab");
-    } });
+    }, saveError: (message) => app.toast(message) });
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore !== false });
     if (fileMode) {
-      app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href, column: !!settings.readerColumn });
+      app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href, column: settings.readerColumn });
       if (isHtmlSource) fetchFileText(location.href).then((text) => app.filePage?.setText(text)).catch(() => {
         app.filePage?.setText("Could not load the HTML source.");
       });

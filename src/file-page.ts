@@ -13,7 +13,17 @@ import type { Settings } from './types';
 
 const SCROLL_KEY = 'bfb-page-scroll-v1';
 const TOC_KEY = 'bfb-page-toc-v1';
-export const COLUMN_KEY = 'bfb-page-column-v1';
+export const COLUMN_KEY = 'bfb-page-column-v2';
+type ColumnMode = 'unset' | 'xl' | 'lg' | 'md';
+const COLUMN_MODES: ColumnMode[] = ['unset', 'xl', 'lg', 'md'];
+const COLUMN_WIDTHS: Record<ColumnMode, string> = { unset: 'full', xl: '150ch', lg: '130ch', md: '110ch' };
+export function columnMode(value: unknown): ColumnMode {
+  if (value === true || value === '1') return 'md';
+  return COLUMN_MODES.includes(value as ColumnMode) ? value as ColumnMode : 'unset';
+}
+export function savedColumnMode(fallback: unknown): ColumnMode {
+  return columnMode(localStorage.getItem(COLUMN_KEY) ?? localStorage.getItem('bfb-page-column-v1') ?? fallback);
+}
 const RELOAD_MS = 2000;
 
 export function parseExcludedExtensions(value: string): string[] {
@@ -87,7 +97,7 @@ export function renderFileContent(): string {
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-toc" title="Show or hide the table of contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M2 2h9M2 5h9M2 8h9M2 11h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Contents</button>
-        <button id="fe-fp-column" title="Reading column: narrow the text to 80 characters"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg>Column</button>
+        <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
         <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
       </div>
@@ -99,7 +109,7 @@ export function renderFileContent(): string {
 
 export interface FileContent { toggleRaw(): void; setText(text: string): void }
 
-export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean }): FileContent {
+export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean | ColumnMode }): FileContent {
   const { ext, rawPath, href } = opts;
   let text = opts.text;
   const page = document.getElementById('fe-page')!;
@@ -113,14 +123,16 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   // Two remembered choices: the ToC rail open, and a reading column instead
   // of the full width (full width is the owner's default).
   let tocOpen = localStorage.getItem(TOC_KEY) !== '0';
-  const columnStored = localStorage.getItem(COLUMN_KEY);
-  let column = columnStored === null ? !!opts.column : columnStored === '1';
+  let column = savedColumnMode(opts.column);
   const fe = document.getElementById('fe')!;
 
   meta.textContent = fmtSize(new Blob([text]).size);
   const paint = () => {
-    fe.classList.toggle('fe-column', column);
-    colBtn.classList.toggle('on', column);
+    for (const mode of COLUMN_MODES) fe.classList.toggle(`fe-column-${mode}`, column === mode);
+    colBtn.classList.toggle('on', column !== 'unset');
+    colBtn.querySelector('.fe-fp-column-label')!.textContent = column === 'unset' ? 'Full width' : `${column.toUpperCase()} width`;
+    const next = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
+    colBtn.title = `Reading width: ${column === 'unset' ? 'full' : `${column.toUpperCase()} (${COLUMN_WIDTHS[column]})`}. Click for ${next === 'unset' ? 'full' : `${next.toUpperCase()} (${COLUMN_WIDTHS[next]})`}`;
     tocBtn.classList.toggle('on', tocOpen);
     tocBtn.style.display = isMd && !raw ? '' : 'none';
     colBtn.style.display = isMd && !raw ? '' : 'none';
@@ -136,7 +148,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   };
   render();
   tocBtn.addEventListener('click', () => { tocOpen = !tocOpen; localStorage.setItem(TOC_KEY, tocOpen ? '1' : '0'); render(); });
-  colBtn.addEventListener('click', () => { column = !column; localStorage.setItem(COLUMN_KEY, column ? '1' : '0'); paint(); });
+  colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; localStorage.setItem(COLUMN_KEY, column); paint(); });
   page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
 
   const remembered = scrollMemory()[rawPath];

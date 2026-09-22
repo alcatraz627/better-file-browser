@@ -1,5 +1,8 @@
 # Usability v3 brief
 
+**Historical release brief.** Its checks and release status refer to the
+2026-09-16 build. See [the README](../../README.md) for current behavior.
+
 State of the extension at 2.9.0, written 2026-09-16 for the owner's review. Private
 use only. Everything below is built, bundled into `content.js`, and green under
 `npm run test`, `npm run e2e`, and `npm run e2e:light` at HEAD. The one thing not

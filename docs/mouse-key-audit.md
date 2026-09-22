@@ -24,6 +24,7 @@ Conventions that hold everywhere:
 | click | look: opens the panel, URL unchanged ✓ | go ✓ |
 | double-click | go: the file page in this tab ✓ | go (first click already went) |
 | ⌥-click | keep as a background strip tab ✓ | same ✓ |
+| note row tab button | | open rendered note in this page's strip ✓ |
 | middle-click (name or whitespace) | Chrome tab ✓ | same |
 | ⇧-click, ⌘-click | toggle the row in the selection ✓ | same |
 | ⇧⌘-click | range from the anchor ✓ | same |
@@ -110,6 +111,9 @@ since a tab keyed by a path-plus-query would be odd.
 | drag | reorder ✓ | none |
 | tag heading dot | cycle the colour ✓ | |
 | filter box | narrows by label, path, tag; Esc clears ✓ | |
+
+Each section heading has a collapse button. Its state persists across reloads;
+Settings can still hide Recent, Finder Favorites, or System entirely.
 
 ## Path bar and toolbar
 

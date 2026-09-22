@@ -6,15 +6,59 @@ import type { NotesError } from './notes';
 import { el, els } from './el';
 import { esc } from './utils';
 import { PI } from './icons';
+import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags } from './storage';
 import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, newNoteText, slugForTitle } from './notes';
+import { notes, noteTitle, slugForTitle } from './notes';
 import { openNote } from './preview';
 import { isViewPath } from './find';
 
 export function initSidebar(app: App): void {
   const { rawPath, settings, toast } = app;
+  const collapseKey = 'bfb-sidebar-collapsed-v1';
+  const sections = els<HTMLElement>('#fe-side .fe-sec[data-collapse]');
+  const collapsed = (): Set<string> => {
+    try {
+      const value = JSON.parse(localStorage.getItem(collapseKey) || '[]');
+      return new Set(Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
+    } catch { return new Set(); }
+  };
+  const applyCollapsed = (keys: Set<string>): void => {
+    for (const section of sections) {
+      const key = section.dataset.collapse!;
+      const isCollapsed = keys.has(key);
+      section.classList.toggle('fe-collapsed', isCollapsed);
+      const toggle = section.querySelector<HTMLButtonElement>('.fe-sh-collapse')!;
+      const label = toggle.dataset.label!;
+      toggle.setAttribute('aria-expanded', String(!isCollapsed));
+      toggle.setAttribute('aria-label', `${isCollapsed ? 'Expand' : 'Collapse'} ${label}`);
+      if (settings.tooltips !== false) toggle.title = `${isCollapsed ? 'Expand' : 'Collapse'} ${label}`;
+      else toggle.removeAttribute('title');
+    }
+  };
+  for (const section of sections) {
+    const header = section.querySelector<HTMLElement>(':scope > .fe-sh')!;
+    const labelNode = header.querySelector<HTMLElement>('.fe-sh-label')!;
+    const label = labelNode.textContent!.trim();
+    const key = section.dataset.collapse!;
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'fe-sh-collapse';
+    toggle.id = `fe-sec-toggle-${key}`;
+    toggle.dataset.label = label;
+    toggle.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    toggle.append(labelNode);
+    toggle.addEventListener('click', () => {
+      const keys = collapsed();
+      if (section.classList.contains('fe-collapsed')) keys.delete(key); else keys.add(key);
+      localStorage.setItem(collapseKey, JSON.stringify([...keys]));
+      applyCollapsed(keys);
+    });
+    header.prepend(toggle);
+  }
+  applyCollapsed(collapsed());
+  window.addEventListener('storage', e => { if (e.key === collapseKey) applyCollapsed(collapsed()); });
   const svList = el('fe-sv-list');
   const svFilter = el<HTMLInputElement>('fe-sv-filter');
   let dragSrc: HTMLElement | null = null;
@@ -136,15 +180,22 @@ export function initSidebar(app: App): void {
   syncStar();
 
   // Notes: the folder from Settings, listed newest first, edited in the
-  // preview panel. Hidden until a folder is set.
-  const ntSec  = el('fe-notes-sec');
+  // preview panel.
   const ntList = el('fe-nt-list');
   const ntHint = el('fe-st-notes-hint');
   function notesRoot(): string { return (settings.notesRoot || '').replace(/\/$/, ''); }
   function refreshNotes(): void {
     const root = notesRoot();
-    ntSec.style.display = root ? '' : 'none';
-    if (!root) { ntHint.textContent = ''; return; }
+    if (!root) {
+      ntHint.textContent = '';
+      el<HTMLAnchorElement>('fe-notes-root').removeAttribute('href');
+      ntList.innerHTML = '<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-setup" class="fe-hint-action" title="Choose a Notes folder in Settings">Set notes folder</button></div>';
+      el('fe-nt-setup').addEventListener('click', () => {
+        app.openSettings('notes');
+        el<HTMLInputElement>('fe-st-notes-root').focus();
+      });
+      return;
+    }
     el<HTMLAnchorElement>('fe-notes-root').href = 'file://' + root + '/';
     notes.list(root).then(list => {
       ntHint.textContent = `${list.length} note${list.length !== 1 ? 's' : ''} in ${root}`;
@@ -154,6 +205,7 @@ export function initSidebar(app: App): void {
             <a href="file://${esc(root + '/' + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}<span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(noteTitle(n.rel))}</span>
             </a>
+            <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
             <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">✕</button>
           </div>`).join('')
         : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
@@ -192,14 +244,18 @@ export function initSidebar(app: App): void {
         notes.delete(root, rel).then(() => { refreshNotes(); toast('Moved to .trash'); })
           .catch((err: NotesError) => toast(err.message));
       });
+      item.querySelector('.fe-nt-tab')!.addEventListener('click', e => {
+        e.preventDefault(); e.stopPropagation();
+        app.strip.go(root.replace(/\/$/, '') + '/' + rel);
+      });
     });
   }
   app.newNote = () => {
     const root = notesRoot();
-    if (!root) { toast('Set a Notes folder in Settings first'); return; }
+    if (!root) { app.openSettings('notes'); el<HTMLInputElement>('fe-st-notes-root').focus(); return; }
     const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
     const rel = `untitled-${stamp}.md`;
-    notes.create(root, rel, newNoteText('Untitled'))
+    notes.create(root, rel, '')
       .then(() => openNoteRel(root, rel))
       .catch((err: NotesError) => toast(err.message));
   };

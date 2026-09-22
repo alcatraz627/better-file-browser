@@ -51,6 +51,7 @@ interface PreviewDeps {
   iconRules: () => IconRule[] | null;
   aiModel?:  () => string | undefined;   // chosen -m override, or undefined for default
   keepTab?:  (path: string) => void;     // keep the previewed file as a background strip tab
+  saveError?: (message: string) => void;
 }
 // Scroll position per previewed file, for this page's lifetime.
 const scrollMemo = new Map<string, number>();
@@ -325,7 +326,7 @@ function runAi(intent: string, question?: string): void {
 // ── Note editor: the same panel, a textarea beside the render ─────────
 interface EditState {
   root: string; rel: string; mtime: number; text: string;
-  dirty: boolean; saving: boolean; timer: ReturnType<typeof setTimeout> | null;
+  dirty: boolean; saving: boolean; version: number; timer: ReturnType<typeof setTimeout> | null;
   onSaved?: (rel: string) => void;
 }
 let edit: EditState | null = null;
@@ -344,7 +345,7 @@ const stripFrontMatter = (t: string) => t.replace(/^---\n[\s\S]*?\n---\n?/, '');
 export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => void): void {
   if (edit && edit.dirty) void saveNote();
   currentEntry = null; reqSeq++;
-  edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, dirty: false, saving: false, timer: null, onSaved };
+  edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, dirty: false, saving: false, version: 0, timer: null, onSaved };
   currentText = doc.text;
   document.getElementById('fe-ql-icon')!.innerHTML = '';
   const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
@@ -428,7 +429,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   let viewTimer: ReturnType<typeof setTimeout> | null = null;
   ta.addEventListener('input', () => {
     if (!edit) return;
-    edit.text = ta.value; edit.dirty = true; currentText = ta.value;
+    edit.text = ta.value; edit.dirty = true; edit.version++; currentText = ta.value;
     editHeader('unsaved');
     if (viewTimer) clearTimeout(viewTimer);
     viewTimer = setTimeout(renderView, 120);
@@ -457,22 +458,24 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   editHeader('saved');
   ta.focus();
 }
-async function saveNote(): Promise<void> {
-  const st = edit;
+async function saveNote(st = edit): Promise<void> {
   if (!st || st.saving) return;
   if (st.timer) { clearTimeout(st.timer); st.timer = null; }
   st.saving = true;
+  const version = st.version;
   const text = stampUpdated(st.text);
+  let wrote = false;
   try {
     const r = await notes.write(st.root, st.rel, text, st.mtime);
-    st.mtime = r.mtime; st.dirty = false;
+    wrote = true;
+    st.mtime = r.mtime; st.dirty = st.version !== version;
     // A note created as "untitled-…" takes its title as file name on first save.
     const want = slugForTitle(noteTitle(st.rel, st.text));
     if (/^untitled-/.test(st.rel.split('/').pop()!) && !/^untitled/.test(want)) {
       const to = st.rel.replace(/[^/]+$/, want);
       try { await notes.rename(st.root, st.rel, to); st.rel = to; } catch { /* keep the old name */ }
     }
-    if (edit === st) editHeader('saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    if (edit === st) editHeader(st.dirty ? 'unsaved' : 'saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     st.onSaved?.(st.rel);
   } catch (err) {
     const e = err as NotesError;
@@ -492,9 +495,10 @@ async function saveNote(): Promise<void> {
           });
         }
       }
-    }
+    } else deps.saveError?.(`Note save failed: ${e.message}`);
   } finally {
     st.saving = false;
+    if (wrote && st.dirty) void saveNote(st);
   }
 }
 

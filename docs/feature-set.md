@@ -1,5 +1,8 @@
 # The v2.8 feature set: one model for looking, going and keeping
 
+This records the v2.8 design and later Notes corrections. For current controls,
+use [the README](../README.md) and [the interaction map](interaction-map.md).
+
 Design for the batch the owner asked for on 2026-09-15: Notes, rendered file
 pages, and tabs inside the explorer, built as one set rather than three
 features. The earlier sizing notes are in `docs/explorations.md`; the recon
@@ -62,10 +65,11 @@ already produces the picture; the batch adds the third frame.
 
 ## Notes: a Place you write in
 
-- Settings gains a Notes folder field. When set, a **Notes** section appears
-  in the sidebar listing that folder's notes newest first, with a `+` that
-  starts a new note, and the section's heading is a link to the folder as a
-  normal Place.
+- Settings has a Notes folder field. The **Notes** section stays visible in
+  the sidebar and offers a setup action until a folder is selected. Once set,
+  it lists that folder's notes newest first; `+` starts a new note, and the
+  folder icon beside the title links to the folder as a normal Place. Click any
+  section title to collapse its list; the state survives reload.
 - Opening a note uses the docked panel in an editor layout: a plain textarea
   on the left, the rendered markdown on the right, the same header. Cmd+S
   saves; a 1.5 s pause autosaves; a dot on the name shows unsaved text.
@@ -73,7 +77,9 @@ already produces the picture; the batch adds the third frame.
   survives a re-render, coalesced history, insert at cursor.
 - A new note starts empty with the caret in the body. Its file name is
   slugged from the first line at the first save and does not change after
-  that; the title shown in the sidebar follows the first heading.
+  that. The sidebar label currently follows the filename. The row's tab
+  button opens a rendered reading page in the strip; editing stays in the
+  preview panel.
 - Rename and delete are the row's hover actions, like Saved. Delete moves to
   `.trash/` in the folder, never unlinks.
 - The host refuses any path outside the folder, and a save carries the mtime

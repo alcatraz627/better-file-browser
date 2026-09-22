@@ -373,7 +373,8 @@ const HTML_TAGS = new Set([
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
   'table', 'thead', 'tbody', 'tr', 'th', 'td', 'blockquote',
 ]);
-const HTML_ATTRS = new Set(['src', 'href', 'alt', 'title', 'width', 'height', 'align']);
+const HTML_ATTRS = new Set(['src', 'href', 'alt', 'title', 'width', 'height', 'align', 'colspan', 'rowspan', 'start']);
+const HTML_BOOL_ATTRS = new Set(['open', 'reversed']);
 const VOID_TAGS  = new Set(['br', 'hr', 'img', 'source']);
 
 /** Reduce arbitrary HTML to a whitelisted subset; unknown tags are unwrapped. */
@@ -388,6 +389,7 @@ export function sanitizeHtml(html: string, baseUrl = ''): string {
     if (!HTML_TAGS.has(tag)) return kids;
     let attrs = '';
     for (const a of Array.from(el.attributes)) {
+      if (HTML_BOOL_ATTRS.has(a.name)) { attrs += ` ${a.name}`; continue; }
       if (!HTML_ATTRS.has(a.name)) continue;
       let val = a.value;
       if (a.name === 'src' || a.name === 'href') {
@@ -406,7 +408,38 @@ export function sanitizeHtml(html: string, baseUrl = ''): string {
 
 /** Inline markdown: code spans, images, links, bold, italic, strikethrough. */
 export function mdInline(s: string, baseUrl = ''): string {
-  let out = esc(s);
+  const htmlTags: string[] = [];
+  let source = '';
+  let codeTicks = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '`') {
+      let end = i;
+      while (s[end] === '`') end++;
+      const count = end - i;
+      if (!codeTicks) codeTicks = count;
+      else if (codeTicks === count) codeTicks = 0;
+      source += s.slice(i, end);
+      i = end - 1;
+      continue;
+    }
+    if (s[i] !== '<' || codeTicks || !/^<\/?[a-z][\w-]*\b/i.test(s.slice(i))) { source += s[i]; continue; }
+    let end = i + 1, quote = '';
+    for (; end < s.length; end++) {
+      if (quote) { if (s[end] === quote) quote = ''; }
+      else if (s[end] === '"' || s[end] === "'") quote = s[end];
+      else if (s[end] === '>') break;
+    }
+    if (end === s.length) { source += s[i]; continue; }
+    const raw = s.slice(i, end + 1);
+    const name = raw.match(/^<\/?([a-z][\w-]*)/i)![1].toLowerCase();
+    if (!HTML_TAGS.has(name)) { source += raw; i = end; continue; }
+    const safe = sanitizeHtml(raw.startsWith('</') ? `<${name}></${name}>` : `${raw}${VOID_TAGS.has(name) ? '' : `</${name}>`}`, baseUrl);
+    const tag = raw.startsWith('</') ? `</${name}>` : safe.slice(0, safe.indexOf('>') + 1);
+    htmlTags.push(tag);
+    source += `\uE000${htmlTags.length - 1}\uE001`;
+    i = end;
+  }
+  let out = esc(source);
   out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
   out = out.replace(/!\[([^\]]*)\]\(([^)\s]+?)\)/g, (_m, alt, url) => {
     if (badUrl(url)) return alt;
@@ -420,7 +453,7 @@ export function mdInline(s: string, baseUrl = ''): string {
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
   out = out.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-  return out;
+  return out.replace(/\uE000(\d+)\uE001/g, (_m, index) => htmlTags[Number(index)]);
 }
 
 function linkLocalPaths(html: string): string {
@@ -510,17 +543,22 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
   while (i < lines.length) {
     const line = lines[i];
 
-    const fence = line.match(/^```(\w*)\s*$/);
+    const fence = line.match(/^( {0,3})(`{3,}|~{3,})([^\r\n]*)$/);
     if (fence) {
       flush();
       const buf: string[] = []; i++;
-      while (i < lines.length && !/^```\s*$/.test(lines[i])) buf.push(lines[i++]);
-      i++;
+      const marker = fence[2][0], width = fence[2].length, indent = fence[1].length;
+      const close = new RegExp(`^ {0,3}${marker === '`' ? '`' : '~'}{${width},}\\s*$`);
+      while (i < lines.length && !close.test(lines[i])) {
+        buf.push(lines[i++].replace(new RegExp(`^ {0,${indent}}`), ''));
+      }
+      if (i < lines.length) i++;
       const code = buf.join('\n');
-      if (fence[1].toLowerCase() === 'mermaid') {
+      const language = fence[3].trim().split(/\s+/)[0] || '';
+      if (language.toLowerCase() === 'mermaid') {
         out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view">Rendering diagram…</div></div>`);
       } else {
-        out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(fence[1] || 'text')}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre></div>`);
+        out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || 'text')}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${language ? highlightCode(code, language) : esc(code)}</pre></div>`);
       }
       continue;
     }
@@ -578,8 +616,30 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
 
     if (line.includes('|') && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i + 1])) {
       flush();
-      const cells = (l: string) =>
-        l.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => mdInline(c.trim(), baseUrl));
+      const cells = (l: string) => {
+        const parts: string[] = [];
+        let cell = '';
+        let codeTicks = 0;
+        for (let p = 0; p < l.length; p++) {
+          if (l[p] === '\\' && l[p + 1] === '|') { cell += '|'; p++; continue; }
+          if (l[p] === '`') {
+            let end = p;
+            while (l[end] === '`') end++;
+            const ticks = end - p;
+            if (!codeTicks) codeTicks = ticks;
+            else if (codeTicks === ticks) codeTicks = 0;
+            cell += l.slice(p, end);
+            p = end - 1;
+            continue;
+          }
+          if (l[p] === '|' && !codeTicks) { parts.push(cell); cell = ''; continue; }
+          cell += l[p];
+        }
+        parts.push(cell);
+        if (/^\s*\|/.test(l)) parts.shift();
+        if (/\|\s*$/.test(l) && !/\\\|\s*$/.test(l)) parts.pop();
+        return parts.map(c => mdInline(c.trim(), baseUrl));
+      };
       const head = cells(line);
       i += 2;
       const rows: string[][] = [];
@@ -587,7 +647,7 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
       out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table"><thead><tr>${
         head.map(c => `<th>${c}</th>`).join('')
       }</tr></thead><tbody>${
-        rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')
+        rows.map(r => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ''}</td>`).join('')}</tr>`).join('')
       }</tbody></table></div>`);
       continue;
     }

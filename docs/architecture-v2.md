@@ -64,13 +64,16 @@ pin. A file tab's label is the file name; its icon is the file icon.
 
 A filter box at the top of the Saved section matches label, path and tag
 text; typing collapses the groups to matches. Empty box, full list.
+Every sidebar section has a collapse control. Its choice is stored under
+`bfb-sidebar-collapsed-v1` and synchronizes across open file pages.
 
 ## Dialogs, one chrome
 
 Help and Settings share the kanban board's dialog shape: a title row with a
 mark and a subtitle, a tab strip, one scrolling pane, the chrome never
 scrolls. Help tabs: Keyboard, Explorer, Preview and Notes, Tabs and Saved.
-Settings tabs: Appearance, Files, Notes, Terminal, AI. Esc closes; the same
+Settings tabs: Appearance, Preview, Files, Exclusions, Notes, Terminal, Data,
+AI. Esc closes; the same
 open/close helper manages focus for both and for the preview.
 
 ## The two rendering defects reported

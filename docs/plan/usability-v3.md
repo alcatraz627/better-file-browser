@@ -1,5 +1,8 @@
 # Usability v3: Settings, the markdown viewer, preview and tabs
 
+**Historical implementation plan.** Shipped rows describe the 2026-09-16
+release; current controls are in [the README](../../README.md).
+
 Owner ask, 2026-09-16: "Settings panel is lacking", "md viewer can be
 massively improved in spacing / visual display", "the file preview in all the
 way and tab shenanigans are still pretty primitive, I want this to be up to

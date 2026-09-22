@@ -1,5 +1,9 @@
 # Modal and panel patterns borrowed from the kanban board
 
+**Historical survey.** The preview, Help, and Settings layouts changed after
+this was written. See [the README](../README.md) and
+[the interaction map](interaction-map.md) for current behavior.
+
 Survey for the preview layout work, 2026-09-15. Source:
 `~/.claude/scripts/kanban/shared.css`, `shared.js`, `board.html`.
 

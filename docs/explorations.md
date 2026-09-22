@@ -1,8 +1,12 @@
 # Three explorations, sized before anyone builds
 
+**Historical design record.** The file-page renderer, tab strip, and Notes
+feature described here were built later. See [the README](../README.md) for
+current behavior and [the Notes contract](notes-contract.md) for file rules.
+
 Written 2026-09-15 for the owner to pick from. Each one says what exists,
-what it would cost in this codebase, and one recommended shape. None of it is
-built.
+what it would cost in this codebase, and one recommended shape. The estimates
+and present-tense statements below describe the 2026-09-15 starting point.
 
 ## 1. Skinning the plain file pages (txt, md, sh, py, code)
 

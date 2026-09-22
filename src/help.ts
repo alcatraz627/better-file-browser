@@ -106,15 +106,21 @@ Renders by type:
 
 ## Notes
 
-Set a **Notes folder** in **Settings → Notes** and a Notes section lists its
-\`.md\` files newest first. **n** or **+** starts a note. The panel becomes an
+The sidebar shows **Notes** even before setup. Choose **Set notes folder** to
+select a local folder in **Settings → Notes**; its \`.md\` files then appear
+newest first. **n** or **+** starts an empty note. The panel becomes an
 editor with the source on the left and the render on the right: a toolbar for
 bold, italic, code, lists, tasks, tables and images; ⌥↑↓ moves lines and
 ⌥⇧↑↓ duplicates them; Tab indents; Enter continues a list; a pasted or
-dropped image is saved under \`attachments/\`. **⌘S** saves, a pause autosaves,
-and an untitled note takes its first heading as its file name. Rename by
-double-click; ✕ moves the note into \`.trash/\`. The folder is plain markdown
-that Obsidian and any markdown tool can read.
+dropped image is saved under \`attachments/\`. **⌘S** saves immediately; a
+1.5-second pause autosaves, and closing the editor starts a pending save.
+The name shows an unsaved dot or an error if writing fails. An untitled note
+takes its first heading or first text line as its file name on the first save.
+If another program changed the file, choose **Reload from disk** or
+**Overwrite**. Rename by double-click; ✕ moves the note into \`.trash/\`.
+The tab button on a note row opens a rendered file page in this page's strip;
+the editor stays in the preview panel. The folder is plain Markdown that
+Obsidian and other Markdown tools can read.
 
 ## AI assistant (optional)
 
@@ -159,6 +165,10 @@ tabs sit above browser bookmarks.
 ## Recent, Finder Favorites, System
 
 Folders you visited lately, and quick jumps (Root, Home, …).
+
+Click a sidebar section title to collapse its list. Collapse choices
+survive a reload. **Settings → Appearance** can hide Recent, Favorites, or
+System altogether.
 ` },
   { key: 'how', label: 'How it works', hint: 'the model, storage, what runs where', md: `
 ## The model
@@ -309,7 +319,7 @@ key. **open** and **+ tab** act on the note.
 
 **r** toggles raw, a copy button, and ToC links jump. Backspace or ⌘↑ go to the
 folder, and ⌘F uses the browser's find. Two buttons toggle a table-of-contents
-rail and an 80-character reading column. The page reloads itself every couple of
+rail and a reading-width control that cycles through full, XL, LG, and MD. The page reloads itself every couple of
 seconds and re-renders when the file changes on disk.
 
 ## How the parts fit
@@ -321,8 +331,8 @@ seconds and re-renders when the file changes on disk.
 - The folder you are in is a temporary (italic) tab until you keep it; opening a
   place from the sidebar keeps that folder as a tab so you do not lose it.
 - A dialog over the preview takes Esc first, then the preview; focus returns.
-- Reader size affects the file page and the preview; Interface size scales the
-  whole interface on top of the list zoom.
+- Text size and Interface size scale the whole interface; list zoom changes the
+  folder listing separately.
 
 ## Good to know
 

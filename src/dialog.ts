@@ -4,8 +4,9 @@
 // pane, so the chrome never scrolls. Esc closes, and focus goes back to
 // where it was; the preview shares the focus half through the two helpers.
 import { esc } from './utils';
+import { UI_ICON } from './control-icons';
 
-export interface DialogTab { key: string; label: string; hint?: string; body: string }
+export interface DialogTab { key: string; label: string; hint?: string; icon?: string; body: string }
 export interface DialogSpec { id: string; mark: string; title: string; subtitle: string; tabs: DialogTab[] }
 
 export function renderDialog(d: DialogSpec): string {
@@ -16,10 +17,10 @@ export function renderDialog(d: DialogSpec): string {
       <div class="fe-dlg-title">
         <span class="fe-dlg-mark">${d.mark}</span>
         <span class="fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
-        <button class="fe-dlg-close" title="Close (Esc)">✕</button>
+        <button class="fe-dlg-close" title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div class="fe-dlg-tabs" role="tablist">
-        ${d.tabs.map(t => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} · [ ] switch tabs · Esc closes"><b>${esc(t.label)}</b>${t.hint ? `<i>${esc(t.hint)}</i>` : ''}</button>`).join('')}
+        ${d.tabs.map(t => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} · [ ] switch tabs · Esc closes"><span class="fe-dlg-tab-main">${t.icon ?? ''}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ''}</button>`).join('')}
       </div>
       ${d.tabs.map(t => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.body}</div>`).join('')}
     </div>

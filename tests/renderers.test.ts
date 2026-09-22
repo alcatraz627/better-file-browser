@@ -257,6 +257,14 @@ describe('renderMarkdown', () => {
     expect(html).toContain('fe-md-pre');
     expect(html).toContain('tok-str');   // the "hi" string — language-aware highlighting ran
   });
+  it('keeps indented and longer GFM fences intact', () => {
+    const html = renderMarkdown('  ```yaml\n  title: Weekly plan\n  ```\n\n````md\n``` inside the block\n````\n\n~~~txt\nlast block\n~~~');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect([...doc.querySelectorAll('.fe-md-code .fe-md-pre')].map(el => el.textContent)).toEqual([
+      'title: Weekly plan', '``` inside the block', 'last block',
+    ]);
+    expect(doc.querySelectorAll('.fe-md-code')).toHaveLength(3);
+  });
   it('marks Mermaid fences for diagram rendering and escapes their source', () => {
     const html = renderMarkdown('```mermaid\nflowchart LR\nA[<script>] --> B\n```');
     expect(html).toContain('class="fe-md-mermaid"');
@@ -271,6 +279,24 @@ describe('renderMarkdown', () => {
     const html = renderMarkdown('| h1 | h2 |\n|---|---|\n| a | b |');
     expect(html).toContain('<th>h1</th>');
     expect(html).toContain('<td>b</td>');
+  });
+  it('pads and trims uneven table rows to the header width', () => {
+    const html = renderMarkdown('| A | B | C |\n|---|---|---|\n| one | two |\n| alpha | beta | gamma | extra |');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const rows = [...doc.querySelectorAll('.fe-md-table tr')];
+    expect(rows.map(row => row.children.length)).toEqual([3, 3, 3]);
+    expect(rows[1].children[2].textContent).toBe('');
+    expect(rows[2].textContent).not.toContain('extra');
+  });
+  it('keeps pipes in command code spans and escaped pipes inside their table cells', () => {
+    const html = renderMarkdown('| Command | What | Help |\n|---|---|---|\n| `review <pr#\\|file\\|dir>` | local code review | `review -h` |\n| `warm on\\|off [tier\\|model]` | companion lease | `warm -h` |');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const rows = [...doc.querySelectorAll('.fe-md-table tr')];
+    expect(rows).toHaveLength(3);
+    expect(rows.every(row => row.children.length === 3)).toBe(true);
+    expect(rows[1].children[0].textContent).toBe('review <pr#|file|dir>');
+    expect(rows[1].children[1].textContent).toBe('local code review');
+    expect(rows[2].children[0].textContent).toBe('warm on|off [tier|model]');
   });
   it('renders blockquotes and hr', () => {
     expect(renderMarkdown('> quoted')).toContain('<blockquote>');
@@ -303,6 +329,19 @@ describe('renderMarkdown', () => {
     expect(html).toContain('<div align="center">');
     expect(html).toContain('<img src="logo.svg" width="320">');
     expect(html).toContain('<strong>Tagline</strong>');
+  });
+  it('renders safe inline HTML while keeping code and unsafe tags inert', () => {
+    const html = renderMarkdown('Press <kbd>⌘</kbd><br>then <strong>go</strong> and `<kbd>literal</kbd>`. <img src="logo.svg" onerror="alert(1)"> <script>alert(2)</script>');
+    expect(html).toContain('<kbd>⌘</kbd><br>then <strong>go</strong>');
+    expect(html).toContain('<code>&lt;kbd&gt;literal&lt;/kbd&gt;</code>');
+    expect(html).not.toContain('onerror');
+    expect(html).not.toContain('<script>');
+  });
+  it('keeps safe raw HTML controls and table spans', () => {
+    const html = renderMarkdown('<details open><summary>More</summary><table><tr><td colspan="2">Wide</td></tr></table></details>');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.querySelector('details')?.hasAttribute('open')).toBe(true);
+    expect(doc.querySelector('td')?.colSpan).toBe(2);
   });
   it('strips dangerous HTML even inside raw blocks', () => {
     expect(renderMarkdown('<img src=x onerror=alert(1)>')).not.toContain('onerror');

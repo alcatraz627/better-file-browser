@@ -43,7 +43,7 @@ export interface Settings {
   excludedFileExtensions?: string[];
   hideRecent?: boolean; hideFavorites?: boolean; hideSystem?: boolean;   // sidebar sections off
   clickOpens?: 'look' | 'go';        // a plain click on a file: the panel, or its page
-  readerColumn?: boolean;            // file pages start in the reading column
+  readerColumn?: boolean | 'unset' | 'xl' | 'lg' | 'md';
   readerSize?: number;               // file page body size in px
   readerLineHeight?: number;
   readerCodeSize?: number;

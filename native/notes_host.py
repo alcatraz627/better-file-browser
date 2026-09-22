@@ -92,8 +92,11 @@ def op_write(root, rel, text, expect_mtime=None):
     full = resolve_rel(root, rel)
     if not full.lower().endswith('.md'):
         raise NotesError('notes_bad_path', 'notes are .md files')
-    if expect_mtime is not None and os.path.exists(full) and mtime_ms(full) != int(expect_mtime):
-        raise NotesError('notes_conflict', 'the note changed on disk since it was read')
+    if expect_mtime is not None:
+        if not os.path.exists(full):
+            raise NotesError('notes_missing', 'the note was removed from disk')
+        if mtime_ms(full) != int(expect_mtime):
+            raise NotesError('notes_conflict', 'the note changed on disk since it was read')
     atomic_write(full, text if isinstance(text, str) else '')
     return {'t': 'written', 'rel': rel, 'mtime': mtime_ms(full)}
 

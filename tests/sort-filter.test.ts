@@ -46,13 +46,13 @@ describe('applyFilter', () => {
   });
 
   it('filters by regex query', () => {
-    const result = applyFilter(ENTRIES, { type: 'all', q: '\\.(md|ts)$', regex: true });
+    const result = applyFilter(ENTRIES, { type: 'all', q: '\\.(md|ts)$', regex: true }, new Set(['readme.md', 'build.ts']));
     expect(result).toHaveLength(2);
   });
 
-  it('silently skips invalid regex', () => {
+  it('shows no stale filename matches while a regex is pending', () => {
     const result = applyFilter(ENTRIES, { type: 'all', q: '[invalid', regex: true });
-    expect(result).toHaveLength(ENTRIES.length);
+    expect(result).toHaveLength(0);
   });
 });
 
