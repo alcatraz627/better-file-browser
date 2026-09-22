@@ -395,7 +395,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
   deepBtn.addEventListener('click', () => {
     ls.deepOn = !ls.deepOn;
     deepBtn.classList.toggle('on', ls.deepOn);
-    searchEl.placeholder = ls.deepOn ? 'Search subfolders…' : 'Filter…';
+    searchEl.placeholder = ls.deepOn ? 'Search subfolders' : 'Filter';
     if (ls.deepOn) { if (!ls.deepEntries) startDeepCrawl(); else applyAll(); searchEl.focus(); }
     else { ls.deepSeq++; ls.deepScanning = false; applyAll(); }
   });

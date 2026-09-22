@@ -501,6 +501,7 @@
     lock: "#8b949e"
   };
   var IMG_EXTS = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "avif", "bmp"]);
+  var CHEVRON_DOWN = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3 3.5-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var SPECIAL_FOLDERS = /* @__PURE__ */ new Set([
     "Desktop",
     "Documents",
@@ -923,7 +924,12 @@
   function badUrl(url) {
     return /^\s*(javascript|data|vbscript):/i.test(url);
   }
+  function localFileUrl(path) {
+    const filePath = path.replace(/:\d+(?::\d+)?$/, "");
+    return "file://" + filePath.split("/").map(encodeURIComponent).join("/");
+  }
   function resolveMdUrl(base, url) {
+    if (/^\/Users\/alcatraz627(?:\/|$)/.test(url)) return localFileUrl(url);
     if (!base) return url;
     if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith("//") || url.startsWith("#")) return url;
     try {
@@ -994,7 +1000,7 @@
         }
         attrs += ` ${a.name}="${esc(val)}"`;
       }
-      if (tag === "a" && /^https?:/i.test(resolveMdUrl(baseUrl, el2.getAttribute("href") ?? ""))) {
+      if (tag === "a" && /^(?:https?:|file:\/\/\/Users\/alcatraz627(?:\/|$))/i.test(resolveMdUrl(baseUrl, el2.getAttribute("href") ?? ""))) {
         attrs += ' target="_blank" rel="noopener"';
       }
       return VOID_TAGS.has(tag) ? `<${tag}${attrs}>` : `<${tag}${attrs}>${kids}</${tag}>`;
@@ -1011,12 +1017,68 @@
     out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) => {
       if (badUrl(url)) return t;
       const u = resolveMdUrl(baseUrl, url);
-      return `<a href="${u}"${/^https?:/i.test(u) ? ' target="_blank" rel="noopener"' : ""}>${t}</a>`;
+      return `<a href="${u}"${/^(?:https?:|file:\/\/\/Users\/alcatraz627(?:\/|$))/i.test(u) ? ' target="_blank" rel="noopener"' : ""}>${t}</a>`;
     });
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
     out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
     return out;
+  }
+  function linkLocalPaths(html) {
+    if (!html.includes("/Users/alcatraz627")) return html;
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    for (const node of textNodes) {
+      if (node.parentElement?.closest("a, pre, svg, style, script")) continue;
+      const value = node.textContent || "";
+      const replacement = document.createDocumentFragment();
+      let cursor = 0;
+      while (cursor < value.length) {
+        const start = value.indexOf("/Users/alcatraz627", cursor);
+        if (start < 0) break;
+        const afterHome = value[start + "/Users/alcatraz627".length];
+        if (start && /[\w/:]/.test(value[start - 1]) || afterHome && afterHome !== "/" && !/\s|[),.;!?]/.test(afterHome)) {
+          replacement.append(value.slice(cursor, start + 1));
+          cursor = start + 1;
+          continue;
+        }
+        let end = start + "/Users/alcatraz627".length;
+        let depth = 0;
+        const opener = start ? value[start - 1] : "";
+        const delimiter = opener === '"' || opener === "'" ? opener : opener === "<" ? ">" : "";
+        const delimited = node.parentElement?.tagName === "CODE" || !!delimiter;
+        while (end < value.length) {
+          const char = value[end];
+          if (delimiter && char === delimiter || !delimited && /[\n\r<>"']/.test(char) || !delimited && char === ")" && depth === 0 || !delimited && char === "]") break;
+          if (char === "(") depth++;
+          if (char === ")") depth--;
+          if (!delimited && /\s/.test(char)) {
+            const prefix = value.slice(start, end);
+            const hasLaterPathPart = /\/|\.[a-zA-Z0-9_-]{1,15}(?=:\d+|\s|$|[),;!?])/.test(value.slice(end + 1, end + 100));
+            if (/\/$/.test(prefix) || /(?:\.[a-zA-Z0-9_-]{1,15}|:\d+(?::\d+)?)$/.test(prefix) || !hasLaterPathPart) break;
+          }
+          end++;
+        }
+        let path = value.slice(start, end);
+        if (!delimited) path = path.replace(/[.,;!?]+$/, "");
+        replacement.append(value.slice(cursor, start));
+        const link = document.createElement("a");
+        link.href = localFileUrl(path);
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = path;
+        replacement.append(link);
+        cursor = start + path.length;
+      }
+      if (cursor) {
+        replacement.append(value.slice(cursor));
+        node.parentNode?.replaceChild(replacement, node);
+      }
+    }
+    return template.innerHTML;
   }
   function headingId(text, seen) {
     let id = text.trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "") || "section";
@@ -1055,7 +1117,11 @@
         while (i < lines.length && !/^```\s*$/.test(lines[i])) buf.push(lines[i++]);
         i++;
         const code = buf.join("\n");
-        out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(fence[1] || "text")}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre></div>`);
+        if (fence[1].toLowerCase() === "mermaid") {
+          out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view">Rendering diagram\u2026</div></div>`);
+        } else {
+          out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(fence[1] || "text")}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre></div>`);
+        }
         continue;
       }
       const h = line.match(/^(#{1,6})\s+(.*)$/);
@@ -1122,7 +1188,7 @@
       i++;
     }
     flush();
-    return `<div class="fe-md">${out.join("\n")}</div>`;
+    return linkLocalPaths(`<div class="fe-md">${out.join("\n")}</div>`);
   }
   function jsonLeaf(v) {
     if (v === null) return `<span class="tok-kw">null</span>`;
@@ -1148,7 +1214,7 @@
       const badge = isArr ? `[${entries.length}]` : `{${entries.length}}`;
       if (!entries.length) return `<div class="fe-jt-row">${keyHtml}<span class="fe-jt-badge">${isArr ? "[]" : "{}"}</span></div>`;
       const open = depth < 2 ? " open" : "";
-      return `<details class="fe-jt"${open}><summary>${keyHtml}<span class="fe-jt-badge">${badge}</span></summary><div class="fe-jt-kids">${entries.map(([k, x]) => jsonNode(k, x, depth + 1, budget)).join("")}</div></details>`;
+      return `<details class="fe-jt"${open}><summary>${CHEVRON_DOWN}${keyHtml}<span class="fe-jt-badge">${badge}</span></summary><div class="fe-jt-kids">${entries.map(([k, x]) => jsonNode(k, x, depth + 1, budget)).join("")}</div></details>`;
     }
     return `<div class="fe-jt-row">${keyHtml}${jsonLeaf(v)}</div>`;
   }
@@ -1174,7 +1240,7 @@
         const v = JSON.parse(line);
         const compact = JSON.stringify(v);
         const preview = compact.length > 140 ? compact.slice(0, 140) + "\u2026" : compact;
-        return `<details class="fe-jl-line"><summary><span class="fe-jl-n">${i + 1}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2e3 })}</div></details>`;
+        return `<details class="fe-jl-line"><summary>${CHEVRON_DOWN}<span class="fe-jl-n">${i + 1}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2e3 })}</div></details>`;
       } catch {
         return `<div class="fe-jl-line bad"><span class="fe-jl-n">${i + 1}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line.slice(0, 200))}</span></div>`;
       }
@@ -1674,7 +1740,7 @@ ${body}
         <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
         <button class="fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
         <button class="fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
-        <input id="fe-ql-ai-q" type="text" placeholder="Ask about this file\u2026" autocomplete="off" spellcheck="false">
+        <input id="fe-ql-ai-q" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
         <button class="fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
       </div>
       <div id="fe-ql-ai-out" style="display:none">
@@ -2246,6 +2312,7 @@ body{opacity:1!important}
   padding:0 2px;font-size:9px;border-radius:3px;line-height:1;opacity:0.35;
   transition:opacity .1s,color .1s,background .1s;flex-shrink:0;min-width:0}
 #fe-bar .fe-crumb-dd:hover{background:var(--hover);color:var(--ac);opacity:1;border:none}
+#fe-bar .fe-crumb-dd svg{display:block}
 #fe-crumb-menu{
   position:fixed;z-index:300;
   background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
@@ -2599,6 +2666,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
   font-size:11px;padding:2px 6px;border-radius:5px;margin-left:4px}
 .fe-tab-list:hover{border-color:var(--ac);color:var(--ac)}
+.fe-tab-list svg{display:block}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.empty{padding-top:4px}
@@ -2635,6 +2703,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-page .fe-md h3{font-size:17px;margin:24px 0 8px}
 #fe-page .fe-md h4,#fe-page .fe-md h5,#fe-page .fe-md h6{font-size:15px;margin:18px 0 6px}
 #fe-page .fe-md p{margin:12px 0}
+#fe-page .fe-md blockquote > .fe-md{padding:0;margin:0;max-width:none}
 #fe-page .fe-md ul,#fe-page .fe-md ol{margin:10px 0;padding-left:28px}
 #fe-page .fe-md li{margin:5px 0}
 #fe-page .fe-md code{font-size:var(--rd-code,13px)}
@@ -2643,6 +2712,8 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-page .fe-md-table{font-size:14px}
 #fe-page .fe-md-table th,#fe-page .fe-md-table td{padding:7px 13px}
 #fe-fp-toc,#fe-fp-column{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
+#fe-fp-bar button{display:inline-flex;align-items:center;gap:5px}
+#fe-fp-bar button svg{flex-shrink:0}
 #fe-fp-toc:hover,#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
 #fe-fp-toc.on,#fe-fp-column.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-toc a.on{color:var(--ac);border-left:2px solid var(--ac);padding-left:12px}
@@ -2760,8 +2831,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-jt-root,.fe-jl-root{padding:10px 14px;font:11.5px/1.6 'SF Mono',Menlo,Consolas,monospace}
 .fe-jt summary,.fe-jl-line summary{cursor:pointer;list-style:none}
 .fe-jt summary::-webkit-details-marker,.fe-jl-line summary::-webkit-details-marker{display:none}
-.fe-jt summary::before{content:'\u25B8';display:inline-block;width:12px;color:var(--dm);font-size:9px}
-.fe-jt[open]>summary::before{content:'\u25BE'}
+.fe-jt summary svg,.fe-jl-line summary svg{color:var(--dm);flex-shrink:0;vertical-align:-2px;transform:rotate(-90deg)}
+.fe-jt[open]>summary>svg,.fe-jl-line[open]>summary>svg{transform:none}
+.fe-jt summary svg{margin-right:4px}
 .fe-jt summary:hover{background:var(--hover)}
 .fe-jt-kids{padding-left:16px;border-left:1px solid var(--s3);margin-left:4px}
 .fe-jt-key{color:#79c0ff}
@@ -2771,8 +2843,6 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-jt-row{padding-left:12px}
 .fe-jl-line{border-bottom:1px solid var(--s2);padding:2px 0}
 .fe-jl-line summary{display:flex;gap:8px;align-items:baseline}
-.fe-jl-line summary::before{content:'\u25B8';color:var(--dm);font-size:9px;flex-shrink:0}
-.fe-jl-line[open]>summary::before{content:'\u25BE'}
 .fe-jl-n{color:var(--dm);min-width:28px;text-align:right;user-select:none;font-size:10.5px;flex-shrink:0}
 .fe-jl-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mt)}
 .fe-jl-line.bad{display:flex;gap:8px;align-items:baseline}
@@ -2793,6 +2863,12 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-md-pre{background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:10px 12px;
   overflow-x:auto;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;margin:10px 0;white-space:pre}
 .fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0}
+.fe-md-mermaid{margin:10px 0;padding:14px;border:1px solid var(--bd);border-radius:6px;
+  background:var(--s1);overflow-x:auto;text-align:center}
+.fe-md-mermaid svg{display:block;max-width:100%;height:auto;margin:auto}
+.fe-md-mermaid-source[hidden]{display:none}
+.fe-md-mermaid-source{margin:8px 0 0;padding:10px;text-align:left;white-space:pre-wrap;
+  background:var(--s2);border-radius:4px;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace}
 .fe-md-anchor{margin-left:8px;color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity .1s}
 .fe-md-anchor::before{content:'#'}
 .fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}
@@ -2888,10 +2964,10 @@ td.c-tp{color:var(--dm);font-size:11px}
     return `
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
-        <button id="fe-fp-toc" title="Show or hide the table of contents">toc</button>
-        <button id="fe-fp-column" title="Reading column: narrow the text to 80 characters">column</button>
-        <button id="fe-fp-raw" title="Raw text (r)">raw</button>
-        <button id="fe-fp-copy" title="Copy file contents">copy</button>
+        <button id="fe-fp-toc" title="Show or hide the table of contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M2 2h9M2 5h9M2 8h9M2 11h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Contents</button>
+        <button id="fe-fp-column" title="Reading column: narrow the text to 80 characters"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg>Column</button>
+        <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
+        <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
       </div>
       <div id="fe-fp">
         <nav id="fe-toc" style="display:none"></nav>
@@ -3249,7 +3325,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : "";
         rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
       }
-      if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">\u2304</button>`);
+      if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">${CHEVRON_DOWN}</button>`);
       el2.innerHTML = rows.join("");
       el2.classList.toggle("empty", state.list.length === 0);
       el2.querySelector(".fe-tab.on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
@@ -3470,7 +3546,7 @@ included, set **Interface size** in **Settings \u2192 Appearance**.
 
 ## Finding files
 
-- **Quick filter** \u2014 type in the **Filter\u2026** box (top-right), or press **\u2318F** to jump to it. Press **\u2318F** again to fall through to Chrome's own find.
+- **Quick filter** \u2014 type in the **Filter** box (top-right), or press **\u2318F** to jump to it. Press **\u2318F** again to fall through to Chrome's own find.
 - **Text inside files** \u2014 open the **Filter** panel; the second row reads the text files the name and type fields allow (2 MB each at most) and keeps only the ones containing your words. Enter or **Run** starts it, **Cancel** stops it, and the results stay until you run again or clear the field. **Save view** keeps the folder plus these fields as a Saved row with a funnel icon; opening it brings the search back.
 - **Deep search** \u2014 the folder button beside the filter box includes every subfolder. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 8 levels or 5000 items, and runs once per page.
 - **Sort** \u2014 click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
@@ -3487,7 +3563,7 @@ included, set **Interface size** in **Settings \u2192 Appearance**.
 
 ## Breadcrumbs
 
-Click any path segment to jump there. The **\u25BE** next to a segment opens a
+Click any path segment to jump there. The chevron button next to a segment opens a
 dropdown of that folder's contents with its own filter box \u2014 type to narrow,
 **Enter** opens the first match.
 
@@ -3530,7 +3606,7 @@ Renders by type:
 | Code (\`.sh\`, \`.ts\`, \`.py\`, \`.go\`, \`.rs\`, \`.sql\`, \`.yaml\`, \u2026) | Syntax-highlighted, with line numbers |
 | \`.tsv\` / \`.csv\` | Sortable table (numeric columns detected) |
 | \`.json\` / \`.jsonl\` | Collapsible tree |
-| \`.md\` / \`.mdx\` | Rendered markdown (relative images/links resolved) |
+| \`.md\` / \`.mdx\` | Rendered markdown with Mermaid diagrams (relative images/links resolved) |
 | Images | Fit-to-view, with pixel dimensions |
 | PDF \xB7 audio/video \xB7 fonts | Embedded viewer / player / glyph specimen |
 | Plain text & extensionless (\`.txt\`, \`.log\`, \`LICENSE\`, \`Makefile\`) | Plain text with line numbers |
@@ -3710,7 +3786,7 @@ non-previewable file, or the go setting, navigates. A folder always navigates.
 ## Path bar and toolbar
 
 \u2261 shows or hides the sidebar, and its right edge drags to resize. A crumb goes;
-its \u25BE opens a dropdown you can type to narrow. \u2605 saves the place. The terminal
+its chevron button opens a dropdown you can type to narrow. \u2605 saves the place. The terminal
 button opens here, and \u21E7-click copies the command. The rest: theme, Help, Settings,
 the four views, Sort, Filter, hidden files, and a zoom slider that scales the list.
 
@@ -3933,7 +4009,7 @@ seconds and re-renders when the file changes on disk.
       crumbs.push({ label: seg, href: fileHref(acc) });
     }
     return crumbs.map(
-      (c, i) => `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">\u25BE</button>` + (i < crumbs.length - 1 ? `<span class="fe-sep">\u203A</span>` : "")
+      (c, i) => `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">${CHEVRON_DOWN}</button>` + (i < crumbs.length - 1 ? `<span class="fe-sep">\u203A</span>` : "")
     ).join("");
   }
 
@@ -4194,7 +4270,7 @@ seconds and re-renders when the file changes on disk.
       <div class="fe-sec">
         <div class="fe-sh" style="justify-content:space-between">Saved
           <button id="fe-sv-add" title="Save this ${fileMode ? "file" : "folder"} and name it">+</button></div>
-        <input id="fe-sv-filter" type="text" placeholder="Filter saved\u2026" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
+        <input id="fe-sv-filter" type="text" placeholder="Filter saved" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
       </div>
       <div class="fe-sec" id="fe-notes-sec" style="display:none">
@@ -4244,7 +4320,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
           <button id="fe-deep-btn" title="Deep search: include every subfolder in the filter">
             <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 2.5h4l1 1.2h6v7H1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3.5 6h3l.8 1h2.7v2.5H3.5z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
           </button>
-          <input id="fe-search" type="text" placeholder="Filter\u2026" autocomplete="off" spellcheck="false" title="Quick filter \u2014 Type to filter files by name in any view"/>
+          <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Quick filter \u2014 Type to filter files by name in any view"/>
         </div>
       </div>
 
@@ -4275,7 +4351,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       <div id="fe-filter-bar" style="display:none">
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
-          <input id="fe-filter-q" type="text" placeholder="pattern\u2026" autocomplete="off" spellcheck="false" title="Filter by name \u2014 supports plain text or regex (enable .* button)"/>
+          <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name \u2014 supports plain text or regex (enable .* button)"/>
           <button id="fe-regex-btn" class="fe-pbn" title="Toggle regex mode \u2014 when active, pattern is treated as a regular expression">.*</button>
           <span class="fe-panel-lbl" style="margin-left:12px">Type</span>
           <select id="fe-type-filter" title="Filter by file type \u2014 show only folders, files, or a specific extension">
@@ -4287,7 +4363,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         </div>
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text inside files</span>
-          <input id="fe-find-text" type="text" placeholder="words to look for\u2026" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
+          <input id="fe-find-text" type="text" placeholder="Words to look for" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
           <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
           <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
           <button id="fe-find-cancel" class="fe-pbn" style="display:none" title="Stop scanning">Cancel</button>
@@ -4409,7 +4485,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
           crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>';
           return;
         }
-        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter\u2026" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
+        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
           (en) => `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
         ).join("")}</div>`;
         const ddSearch = crumbMenu.querySelector(".fe-dd-search");
@@ -5042,7 +5118,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     deepBtn.addEventListener("click", () => {
       ls.deepOn = !ls.deepOn;
       deepBtn.classList.toggle("on", ls.deepOn);
-      searchEl.placeholder = ls.deepOn ? "Search subfolders\u2026" : "Filter\u2026";
+      searchEl.placeholder = ls.deepOn ? "Search subfolders" : "Filter";
       if (ls.deepOn) {
         if (!ls.deepEntries) startDeepCrawl();
         else applyAll();
@@ -5599,7 +5675,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       <div class="fe-st-rule" data-idx="${i}">
         <input type="checkbox" class="fe-st-rule-en" title="Enable" ${rule.enabled ? "checked" : ""}>
         <div class="fe-st-rule-preview">${icoCustom(rule.label, rule.color)}</div>
-        <input type="text" class="fe-st-rule-pattern" value="${esc(rule.pattern)}" placeholder="regex\u2026" title="Regex (case-insensitive)">
+        <input type="text" class="fe-st-rule-pattern" value="${esc(rule.pattern)}" placeholder="Regex" title="Regex (case-insensitive)">
         <input type="text" class="fe-st-rule-label"   value="${esc(rule.label)}"   placeholder="LBL"   maxlength="4" title="Badge text (\u22644 chars)">
         <input type="color" class="fe-st-rule-color"  value="${esc(rule.color)}"        title="Icon color">
         <button class="fe-st-rule-del" data-idx="${i}" title="Delete">\u2715</button>
@@ -5908,6 +5984,54 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
 
   // src/md-ui.ts
   function initMarkdownUi(toast) {
+    const rendered = /* @__PURE__ */ new WeakMap();
+    const pending = /* @__PURE__ */ new WeakSet();
+    let sequence = 0;
+    let queue = Promise.resolve();
+    const theme = () => document.getElementById("fe")?.dataset.theme === "light" ? "light" : "dark";
+    const renderDiagrams = () => {
+      document.querySelectorAll(".fe-md-mermaid").forEach((block) => {
+        if (pending.has(block) || rendered.get(block) === theme()) return;
+        pending.add(block);
+        queue = queue.then(async () => {
+          if (!block.isConnected) return;
+          const source = block.querySelector(".fe-md-mermaid-source")?.textContent || "";
+          const view = block.querySelector(".fe-md-mermaid-view");
+          if (!view) return;
+          const currentTheme = theme();
+          try {
+            const { default: mermaid } = await import(chrome.runtime.getURL("vendor-mermaid.js"));
+            mermaid.initialize({
+              startOnLoad: false,
+              securityLevel: "strict",
+              htmlLabels: false,
+              suppressErrorRendering: true,
+              theme: currentTheme === "light" ? "default" : "dark"
+            });
+            const { svg } = await mermaid.render(`fe-mermaid-${++sequence}`, source);
+            if (block.isConnected) view.innerHTML = svg;
+          } catch {
+            view.textContent = "Could not render this Mermaid diagram.";
+            block.querySelector(".fe-md-mermaid-source")?.removeAttribute("hidden");
+          }
+          rendered.set(block, currentTheme);
+        }).catch(() => {
+        }).finally(() => {
+          pending.delete(block);
+          if (block.isConnected && rendered.get(block) !== theme()) renderDiagrams();
+        });
+      });
+    };
+    const fe = document.getElementById("fe");
+    if (fe) {
+      new MutationObserver(renderDiagrams).observe(fe, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["data-theme"]
+      });
+      renderDiagrams();
+    }
     document.addEventListener("click", (e) => {
       const t = e.target;
       const copy = t.closest(".fe-md-copy");

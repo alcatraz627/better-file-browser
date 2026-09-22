@@ -33,6 +33,7 @@ body{opacity:1!important}
   padding:0 2px;font-size:9px;border-radius:3px;line-height:1;opacity:0.35;
   transition:opacity .1s,color .1s,background .1s;flex-shrink:0;min-width:0}
 #fe-bar .fe-crumb-dd:hover{background:var(--hover);color:var(--ac);opacity:1;border:none}
+#fe-bar .fe-crumb-dd svg{display:block}
 #fe-crumb-menu{
   position:fixed;z-index:300;
   background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
@@ -386,6 +387,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
   font-size:11px;padding:2px 6px;border-radius:5px;margin-left:4px}
 .fe-tab-list:hover{border-color:var(--ac);color:var(--ac)}
+.fe-tab-list svg{display:block}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.empty{padding-top:4px}
@@ -422,6 +424,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-page .fe-md h3{font-size:17px;margin:24px 0 8px}
 #fe-page .fe-md h4,#fe-page .fe-md h5,#fe-page .fe-md h6{font-size:15px;margin:18px 0 6px}
 #fe-page .fe-md p{margin:12px 0}
+#fe-page .fe-md blockquote > .fe-md{padding:0;margin:0;max-width:none}
 #fe-page .fe-md ul,#fe-page .fe-md ol{margin:10px 0;padding-left:28px}
 #fe-page .fe-md li{margin:5px 0}
 #fe-page .fe-md code{font-size:var(--rd-code,13px)}
@@ -430,6 +433,8 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe-page .fe-md-table{font-size:14px}
 #fe-page .fe-md-table th,#fe-page .fe-md-table td{padding:7px 13px}
 #fe-fp-toc,#fe-fp-column{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:5px}
+#fe-fp-bar button{display:inline-flex;align-items:center;gap:5px}
+#fe-fp-bar button svg{flex-shrink:0}
 #fe-fp-toc:hover,#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
 #fe-fp-toc.on,#fe-fp-column.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-toc a.on{color:var(--ac);border-left:2px solid var(--ac);padding-left:12px}
@@ -547,8 +552,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-jt-root,.fe-jl-root{padding:10px 14px;font:11.5px/1.6 'SF Mono',Menlo,Consolas,monospace}
 .fe-jt summary,.fe-jl-line summary{cursor:pointer;list-style:none}
 .fe-jt summary::-webkit-details-marker,.fe-jl-line summary::-webkit-details-marker{display:none}
-.fe-jt summary::before{content:'▸';display:inline-block;width:12px;color:var(--dm);font-size:9px}
-.fe-jt[open]>summary::before{content:'▾'}
+.fe-jt summary svg,.fe-jl-line summary svg{color:var(--dm);flex-shrink:0;vertical-align:-2px;transform:rotate(-90deg)}
+.fe-jt[open]>summary>svg,.fe-jl-line[open]>summary>svg{transform:none}
+.fe-jt summary svg{margin-right:4px}
 .fe-jt summary:hover{background:var(--hover)}
 .fe-jt-kids{padding-left:16px;border-left:1px solid var(--s3);margin-left:4px}
 .fe-jt-key{color:#79c0ff}
@@ -558,8 +564,6 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-jt-row{padding-left:12px}
 .fe-jl-line{border-bottom:1px solid var(--s2);padding:2px 0}
 .fe-jl-line summary{display:flex;gap:8px;align-items:baseline}
-.fe-jl-line summary::before{content:'▸';color:var(--dm);font-size:9px;flex-shrink:0}
-.fe-jl-line[open]>summary::before{content:'▾'}
 .fe-jl-n{color:var(--dm);min-width:28px;text-align:right;user-select:none;font-size:10.5px;flex-shrink:0}
 .fe-jl-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mt)}
 .fe-jl-line.bad{display:flex;gap:8px;align-items:baseline}
@@ -580,6 +584,12 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-md-pre{background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:10px 12px;
   overflow-x:auto;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace;margin:10px 0;white-space:pre}
 .fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0}
+.fe-md-mermaid{margin:10px 0;padding:14px;border:1px solid var(--bd);border-radius:6px;
+  background:var(--s1);overflow-x:auto;text-align:center}
+.fe-md-mermaid svg{display:block;max-width:100%;height:auto;margin:auto}
+.fe-md-mermaid-source[hidden]{display:none}
+.fe-md-mermaid-source{margin:8px 0 0;padding:10px;text-align:left;white-space:pre-wrap;
+  background:var(--s2);border-radius:4px;font:11.5px/1.55 'SF Mono',Menlo,Consolas,monospace}
 .fe-md-anchor{margin-left:8px;color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity .1s}
 .fe-md-anchor::before{content:'#'}
 .fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}

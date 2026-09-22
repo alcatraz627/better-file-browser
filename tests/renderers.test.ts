@@ -231,6 +231,12 @@ describe('renderMarkdown', () => {
     expect(html).toContain('fe-md-pre');
     expect(html).toContain('tok-str');   // the "hi" string — language-aware highlighting ran
   });
+  it('marks Mermaid fences for diagram rendering and escapes their source', () => {
+    const html = renderMarkdown('```mermaid\nflowchart LR\nA[<script>] --> B\n```');
+    expect(html).toContain('class="fe-md-mermaid"');
+    expect(html).toContain('A[&lt;script&gt;] --&gt; B');
+    expect(html).not.toContain('class="fe-md-code"');
+  });
   it('renders unordered and ordered lists', () => {
     expect(renderMarkdown('- a\n- b')).toContain('<ul><li');
     expect(renderMarkdown('1. a\n2. b')).toContain('<ol><li');
@@ -243,6 +249,28 @@ describe('renderMarkdown', () => {
   it('renders blockquotes and hr', () => {
     expect(renderMarkdown('> quoted')).toContain('<blockquote>');
     expect(renderMarkdown('above\n\n---\n\nbelow')).toContain('<hr>');
+  });
+  it('links local absolute paths with spaces and line references in a new tab', () => {
+    const html = renderMarkdown('See /Users/alcatraz627/Code/My Project/notes file.md:42, then continue.');
+    expect(html).toContain('href="file:///Users/alcatraz627/Code/My%20Project/notes%20file.md" target="_blank" rel="noopener"');
+    expect(html).toContain('>\/Users/alcatraz627/Code/My Project/notes file.md:42</a>, then continue.');
+  });
+  it('encodes filename characters and links paths in code spans and blockquotes', () => {
+    const html = renderMarkdown('`/Users/alcatraz627/My Docs/a #1?.md:7`\n\n`/Users/alcatraz627/My Docs/a&b[1].md`\n\n> /Users/alcatraz627/Code/a.md:12');
+    expect(html).toContain('href="file:///Users/alcatraz627/My%20Docs/a%20%231%3F.md"');
+    expect(html).toContain('href="file:///Users/alcatraz627/My%20Docs/a%26b%5B1%5D.md"');
+    expect(html).toContain('href="file:///Users/alcatraz627/Code/a.md"');
+  });
+  it('links a quoted extensionless path with spaces', () => {
+    const html = renderMarkdown('Open "/Users/alcatraz627/My Projects/Current Draft" next.');
+    expect(html).toContain('href="file:///Users/alcatraz627/My%20Projects/Current%20Draft"');
+    expect(html).toContain('</a>" next.');
+  });
+  it('does not relink an explicit link or a fenced code sample', () => {
+    const html = renderMarkdown('[file](/Users/alcatraz627/a.md)\n\n```txt\n/Users/alcatraz627/b.md\n```');
+    expect(html.match(/<a /g)?.length).toBe(1);
+    expect(html).toContain('href="file:///Users/alcatraz627/a.md" target="_blank"');
+    expect(html).toContain('/Users/alcatraz627/b.md</pre>');
   });
   it('renders whitelisted raw HTML blocks instead of escaping them', () => {
     const html = renderMarkdown('<div align="center">\n<img src="logo.svg" width="320">\n<strong>Tagline</strong>\n</div>');

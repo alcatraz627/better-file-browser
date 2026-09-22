@@ -46,7 +46,7 @@ export function initChrome(app: App): void {
     else app.openInTerminal(app.folderPath);
   });
 
-  // Crumb dropdown: the ▾ beside a segment lists that folder with a filter box.
+  // The button beside a crumb lists that folder with a filter box.
   const crumbMenu = el('fe-crumb-menu');
   let crumbMenuUrl: string | null = null;
   function closeCrumbMenu(): void { crumbMenu.style.display = 'none'; crumbMenuUrl = null; }
@@ -74,7 +74,7 @@ export function initChrome(app: App): void {
       const entries = parseListing(text, url);
       if (!entries.length) { crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>'; return; }
       crumbMenu.innerHTML =
-        `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false" title="Type to narrow · Enter opens the first match · Esc closes"></div>` +
+        `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow · Enter opens the first match · Esc closes"></div>` +
         `<div class="fe-dd-items">${entries.map(en =>
           `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? ' dir' : ''}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
         ).join('')}</div>`;

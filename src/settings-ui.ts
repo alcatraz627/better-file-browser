@@ -24,7 +24,7 @@ export function initSettingsUi(app: App): void {
       <div class="fe-st-rule" data-idx="${i}">
         <input type="checkbox" class="fe-st-rule-en" title="Enable" ${rule.enabled ? 'checked' : ''}>
         <div class="fe-st-rule-preview">${icoCustom(rule.label, rule.color)}</div>
-        <input type="text" class="fe-st-rule-pattern" value="${esc(rule.pattern)}" placeholder="regex…" title="Regex (case-insensitive)">
+        <input type="text" class="fe-st-rule-pattern" value="${esc(rule.pattern)}" placeholder="Regex" title="Regex (case-insensitive)">
         <input type="text" class="fe-st-rule-label"   value="${esc(rule.label)}"   placeholder="LBL"   maxlength="4" title="Badge text (≤4 chars)">
         <input type="color" class="fe-st-rule-color"  value="${esc(rule.color)}"        title="Icon color">
         <button class="fe-st-rule-del" data-idx="${i}" title="Delete">✕</button>

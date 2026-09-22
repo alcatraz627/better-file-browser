@@ -2,6 +2,7 @@
 // file text and returns an HTML string; nothing here touches the DOM or
 // fetches anything, so every renderer is unit-testable in isolation.
 import { esc } from './utils';
+import { CHEVRON_DOWN } from './icons';
 
 export const CODE_EXTS = new Set([
   'sh', 'bash', 'zsh', 'fish', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
@@ -311,10 +312,16 @@ function badUrl(url: string): boolean {
   return /^\s*(javascript|data|vbscript):/i.test(url);
 }
 
+function localFileUrl(path: string): string {
+  const filePath = path.replace(/:\d+(?::\d+)?$/, '');
+  return 'file://' + filePath.split('/').map(encodeURIComponent).join('/');
+}
+
 // Resolve a markdown image/link target against the file's own URL so relative
 // paths (logo.svg, ./docs/x.md, ../y.png) point at the right file:// location.
 // URLs that already carry a scheme, protocol-relative //, or #anchors pass through.
 export function resolveMdUrl(base: string, url: string): string {
+  if (/^\/Users\/alcatraz627(?:\/|$)/.test(url)) return localFileUrl(url);
   if (!base) return url;
   if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith('//') || url.startsWith('#')) return url;
   try { return new URL(url, base).href; } catch { return url; }
@@ -351,7 +358,7 @@ export function sanitizeHtml(html: string, baseUrl = ''): string {
       }
       attrs += ` ${a.name}="${esc(val)}"`;
     }
-    if (tag === 'a' && /^https?:/i.test(resolveMdUrl(baseUrl, el.getAttribute('href') ?? ''))) {
+    if (tag === 'a' && /^(?:https?:|file:\/\/\/Users\/alcatraz627(?:\/|$))/i.test(resolveMdUrl(baseUrl, el.getAttribute('href') ?? ''))) {
       attrs += ' target="_blank" rel="noopener"';
     }
     return VOID_TAGS.has(tag) ? `<${tag}${attrs}>` : `<${tag}${attrs}>${kids}</${tag}>`;
@@ -370,12 +377,69 @@ export function mdInline(s: string, baseUrl = ''): string {
   out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) => {
     if (badUrl(url)) return t;
     const u = resolveMdUrl(baseUrl, url);
-    return `<a href="${u}"${/^https?:/i.test(u) ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`;
+    return `<a href="${u}"${/^(?:https?:|file:\/\/\/Users\/alcatraz627(?:\/|$))/i.test(u) ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`;
   });
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
   out = out.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   return out;
+}
+
+function linkLocalPaths(html: string): string {
+  if (!html.includes('/Users/alcatraz627')) return html;
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+  for (const node of textNodes) {
+    if (node.parentElement?.closest('a, pre, svg, style, script')) continue;
+    const value = node.textContent || '';
+    const replacement = document.createDocumentFragment();
+    let cursor = 0;
+    while (cursor < value.length) {
+      const start = value.indexOf('/Users/alcatraz627', cursor);
+      if (start < 0) break;
+      const afterHome = value[start + '/Users/alcatraz627'.length];
+      if ((start && /[\w/:]/.test(value[start - 1])) || (afterHome && afterHome !== '/' && !/\s|[),.;!?]/.test(afterHome))) {
+        replacement.append(value.slice(cursor, start + 1));
+        cursor = start + 1;
+        continue;
+      }
+      let end = start + '/Users/alcatraz627'.length;
+      let depth = 0;
+      const opener = start ? value[start - 1] : '';
+      const delimiter = opener === '"' || opener === "'" ? opener : opener === '<' ? '>' : '';
+      const delimited = node.parentElement?.tagName === 'CODE' || !!delimiter;
+      while (end < value.length) {
+        const char = value[end];
+        if ((delimiter && char === delimiter) || (!delimited && /[\n\r<>"']/.test(char)) || (!delimited && char === ')' && depth === 0) || (!delimited && char === ']')) break;
+        if (char === '(') depth++;
+        if (char === ')') depth--;
+        if (!delimited && /\s/.test(char)) {
+          const prefix = value.slice(start, end);
+          const hasLaterPathPart = /\/|\.[a-zA-Z0-9_-]{1,15}(?=:\d+|\s|$|[),;!?])/.test(value.slice(end + 1, end + 100));
+          if (/\/$/.test(prefix) || /(?:\.[a-zA-Z0-9_-]{1,15}|:\d+(?::\d+)?)$/.test(prefix) || !hasLaterPathPart) break;
+        }
+        end++;
+      }
+      let path = value.slice(start, end);
+      if (!delimited) path = path.replace(/[.,;!?]+$/, '');
+      replacement.append(value.slice(cursor, start));
+      const link = document.createElement('a');
+      link.href = localFileUrl(path);
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = path;
+      replacement.append(link);
+      cursor = start + path.length;
+    }
+    if (cursor) {
+      replacement.append(value.slice(cursor));
+      node.parentNode?.replaceChild(replacement, node);
+    }
+  }
+  return template.innerHTML;
 }
 
 // Heading ids come from the text, deduplicated per document, so the file
@@ -415,7 +479,11 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
       while (i < lines.length && !/^```\s*$/.test(lines[i])) buf.push(lines[i++]);
       i++;
       const code = buf.join('\n');
-      out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(fence[1] || 'text')}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre></div>`);
+      if (fence[1].toLowerCase() === 'mermaid') {
+        out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view">Rendering diagram…</div></div>`);
+      } else {
+        out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(fence[1] || 'text')}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${fence[1] ? highlightCode(code, fence[1]) : esc(code)}</pre></div>`);
+      }
       continue;
     }
 
@@ -490,7 +558,7 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
     para.push(line.trim()); i++;
   }
   flush();
-  return `<div class="fe-md">${out.join('\n')}</div>`;
+  return linkLocalPaths(`<div class="fe-md">${out.join('\n')}</div>`);
 }
 
 // ── JSON / JSONL ────────────────────────────────────────────────────
@@ -518,7 +586,7 @@ function jsonNode(key: string | null, v: unknown, depth: number, budget: { n: nu
     const badge = isArr ? `[${entries.length}]` : `{${entries.length}}`;
     if (!entries.length) return `<div class="fe-jt-row">${keyHtml}<span class="fe-jt-badge">${isArr ? '[]' : '{}'}</span></div>`;
     const open = depth < 2 ? ' open' : '';
-    return `<details class="fe-jt"${open}><summary>${keyHtml}<span class="fe-jt-badge">${badge}</span></summary><div class="fe-jt-kids">${
+    return `<details class="fe-jt"${open}><summary>${CHEVRON_DOWN}${keyHtml}<span class="fe-jt-badge">${badge}</span></summary><div class="fe-jt-kids">${
       entries.map(([k, x]) => jsonNode(k, x, depth + 1, budget)).join('')
     }</div></details>`;
   }
@@ -548,7 +616,7 @@ export function renderJsonl(text: string): string {
       const v = JSON.parse(line);
       const compact = JSON.stringify(v);
       const preview = compact.length > 140 ? compact.slice(0, 140) + '…' : compact;
-      return `<details class="fe-jl-line"><summary><span class="fe-jl-n">${i + 1}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2000 })}</div></details>`;
+      return `<details class="fe-jl-line"><summary>${CHEVRON_DOWN}<span class="fe-jl-n">${i + 1}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2000 })}</div></details>`;
     } catch {
       return `<div class="fe-jl-line bad"><span class="fe-jl-n">${i + 1}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line.slice(0, 200))}</span></div>`;
     }

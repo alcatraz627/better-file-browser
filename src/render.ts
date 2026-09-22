@@ -1,6 +1,6 @@
 import type { Entry, IconRule, Place, Settings, Tag, TipData } from './types';
 import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, fileHref } from './utils';
-import { getIcon, IMG_EXTS, PI } from './icons';
+import { getIcon, IMG_EXTS, PI, CHEVRON_DOWN } from './icons';
 import { groupByTag, filterSaved } from './places';
 import { isViewPath } from './find';
 import { canPreview } from './preview';
@@ -121,7 +121,7 @@ export function renderCrumbs(rawPath: string, segments: string[]): string {
   for (const seg of segments) { acc += seg + '/'; crumbs.push({ label: seg, href: fileHref(acc) }); }
   return crumbs.map((c, i) =>
     `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a>` +
-    `<button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">▾</button>` +
+    `<button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">${CHEVRON_DOWN}</button>` +
     (i < crumbs.length - 1 ? `<span class="fe-sep">›</span>` : '')
   ).join('');
 }

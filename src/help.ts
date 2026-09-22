@@ -38,7 +38,7 @@ included, set **Interface size** in **Settings → Appearance**.
 
 ## Finding files
 
-- **Quick filter** — type in the **Filter…** box (top-right), or press **⌘F** to jump to it. Press **⌘F** again to fall through to Chrome's own find.
+- **Quick filter** — type in the **Filter** box (top-right), or press **⌘F** to jump to it. Press **⌘F** again to fall through to Chrome's own find.
 - **Text inside files** — open the **Filter** panel; the second row reads the text files the name and type fields allow (2 MB each at most) and keeps only the ones containing your words. Enter or **Run** starts it, **Cancel** stops it, and the results stay until you run again or clear the field. **Save view** keeps the folder plus these fields as a Saved row with a funnel icon; opening it brings the search back.
 - **Deep search** — the folder button beside the filter box includes every subfolder. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 8 levels or 5000 items, and runs once per page.
 - **Sort** — click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
@@ -55,7 +55,7 @@ included, set **Interface size** in **Settings → Appearance**.
 
 ## Breadcrumbs
 
-Click any path segment to jump there. The **▾** next to a segment opens a
+Click any path segment to jump there. The chevron button next to a segment opens a
 dropdown of that folder's contents with its own filter box — type to narrow,
 **Enter** opens the first match.
 
@@ -98,7 +98,7 @@ Renders by type:
 | Code (\`.sh\`, \`.ts\`, \`.py\`, \`.go\`, \`.rs\`, \`.sql\`, \`.yaml\`, …) | Syntax-highlighted, with line numbers |
 | \`.tsv\` / \`.csv\` | Sortable table (numeric columns detected) |
 | \`.json\` / \`.jsonl\` | Collapsible tree |
-| \`.md\` / \`.mdx\` | Rendered markdown (relative images/links resolved) |
+| \`.md\` / \`.mdx\` | Rendered markdown with Mermaid diagrams (relative images/links resolved) |
 | Images | Fit-to-view, with pixel dimensions |
 | PDF · audio/video · fonts | Embedded viewer / player / glyph specimen |
 | Plain text & extensionless (\`.txt\`, \`.log\`, \`LICENSE\`, \`Makefile\`) | Plain text with line numbers |
@@ -278,7 +278,7 @@ non-previewable file, or the go setting, navigates. A folder always navigates.
 ## Path bar and toolbar
 
 ≡ shows or hides the sidebar, and its right edge drags to resize. A crumb goes;
-its ▾ opens a dropdown you can type to narrow. ★ saves the place. The terminal
+its chevron button opens a dropdown you can type to narrow. ★ saves the place. The terminal
 button opens here, and ⇧-click copies the command. The rest: theme, Help, Settings,
 the four views, Sort, Filter, hidden files, and a zoom slider that scales the list.
 

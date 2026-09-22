@@ -275,7 +275,7 @@ export function renderPage(p: PageParams): string {
       <div class="fe-sec">
         <div class="fe-sh" style="justify-content:space-between">Saved
           <button id="fe-sv-add" title="Save this ${fileMode ? 'file' : 'folder'} and name it">+</button></div>
-        <input id="fe-sv-filter" type="text" placeholder="Filter saved…" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
+        <input id="fe-sv-filter" type="text" placeholder="Filter saved" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
       </div>
       <div class="fe-sec" id="fe-notes-sec" style="display:none">
@@ -322,7 +322,7 @@ export function renderPage(p: PageParams): string {
           <button id="fe-deep-btn" title="Deep search: include every subfolder in the filter">
             <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 2.5h4l1 1.2h6v7H1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3.5 6h3l.8 1h2.7v2.5H3.5z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
           </button>
-          <input id="fe-search" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false" title="Quick filter — Type to filter files by name in any view"/>
+          <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Quick filter — Type to filter files by name in any view"/>
         </div>
       </div>
 
@@ -353,7 +353,7 @@ export function renderPage(p: PageParams): string {
       <div id="fe-filter-bar" style="display:none">
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
-          <input id="fe-filter-q" type="text" placeholder="pattern…" autocomplete="off" spellcheck="false" title="Filter by name — supports plain text or regex (enable .* button)"/>
+          <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name — supports plain text or regex (enable .* button)"/>
           <button id="fe-regex-btn" class="fe-pbn" title="Toggle regex mode — when active, pattern is treated as a regular expression">.*</button>
           <span class="fe-panel-lbl" style="margin-left:12px">Type</span>
           <select id="fe-type-filter" title="Filter by file type — show only folders, files, or a specific extension">
@@ -365,7 +365,7 @@ export function renderPage(p: PageParams): string {
         </div>
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text inside files</span>
-          <input id="fe-find-text" type="text" placeholder="words to look for…" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
+          <input id="fe-find-text" type="text" placeholder="Words to look for" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
           <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
           <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
           <button id="fe-find-cancel" class="fe-pbn" style="display:none" title="Stop scanning">Cancel</button>

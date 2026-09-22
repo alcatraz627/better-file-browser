@@ -31,6 +31,14 @@ try {
   await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
   const h1 = await page.$eval('#fe-ql-body h1', el => el.textContent).catch(() => null);
   check(h1 === 'Fixture', `markdown preview rendered h1 "${h1}"`);
+  await page.waitForSelector('#fe-ql-body .fe-md-mermaid svg', { timeout: 10_000 }).catch(() => null);
+  const previewDiagram = await page.$eval('#fe-ql-body .fe-md-mermaid', el => ({
+    svg: !!el.querySelector('svg'), sourceHidden: el.querySelector('.fe-md-mermaid-source')?.hidden,
+    start: !!el.querySelector('svg')?.textContent?.includes('Start'),
+    finish: !!el.querySelector('svg')?.textContent?.includes('Finish'),
+  }));
+  check(previewDiagram.svg && previewDiagram.sourceHidden && previewDiagram.start && previewDiagram.finish,
+    `Mermaid preview renders a diagram: ${JSON.stringify(previewDiagram)}`);
   await shot(page, 'preview-md');
 
   const hdr = await page.evaluate(() => {
@@ -492,6 +500,8 @@ try {
   }));
   check(mdBits.fm.join() === 'title,tags' && mdBits.tasks.join() === 'true,false' && mdBits.chip === 'js' && mdBits.copy && mdBits.wrap && mdBits.anchor === '#fixture' && mdBits.size === '15px',
     `markdown viewer renders front matter, tasks, code chip, table wrap, anchors at 15px: ${JSON.stringify(mdBits)}`);
+  await fpage.waitForSelector('#fe-page .fe-md-mermaid svg', { timeout: 10_000 }).catch(() => null);
+  check(!!await fpage.$('#fe-page .fe-md-mermaid svg'), 'Mermaid diagram renders on the file page');
   await fpage.click('#fe-fp-column');
   const widths = () => fpage.evaluate(() => ({
     md: Math.round(document.querySelector('#fe-page .fe-md').getBoundingClientRect().width),

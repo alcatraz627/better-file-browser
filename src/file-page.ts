@@ -78,10 +78,10 @@ export function renderFileContent(): string {
   return `
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
-        <button id="fe-fp-toc" title="Show or hide the table of contents">toc</button>
-        <button id="fe-fp-column" title="Reading column: narrow the text to 80 characters">column</button>
-        <button id="fe-fp-raw" title="Raw text (r)">raw</button>
-        <button id="fe-fp-copy" title="Copy file contents">copy</button>
+        <button id="fe-fp-toc" title="Show or hide the table of contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M2 2h9M2 5h9M2 8h9M2 11h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Contents</button>
+        <button id="fe-fp-column" title="Reading column: narrow the text to 80 characters"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg>Column</button>
+        <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
+        <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
       </div>
       <div id="fe-fp">
         <nav id="fe-toc" style="display:none"></nav>

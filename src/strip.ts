@@ -5,7 +5,7 @@
 // Mounted by the explorer and by the file page; the pure list operations
 // are in tabs.ts.
 import { esc, copyToClipboard } from './utils';
-import { icoFile, icoFolder } from './icons';
+import { icoFile, icoFolder, CHEVRON_DOWN } from './icons';
 import { getSaved, saveSaved } from './storage';
 import { upsertPlace, removePlace } from './places';
 import {
@@ -198,7 +198,7 @@ export function mountStrip(host: StripHost): Strip {
       const ico = kindOf(rawPath) === 'file' ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split('.').pop()!.toLowerCase())}</span>` : '';
       rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet · t or double-click keeps · p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
     }
-    if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">⌄</button>`);
+    if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">${CHEVRON_DOWN}</button>`);
     el.innerHTML = rows.join('');
     el.classList.toggle('empty', state.list.length === 0);
     el.querySelector<HTMLElement>('.fe-tab.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });

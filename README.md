@@ -80,7 +80,7 @@ Select a file and press **Space** (or click the eye button on hover, or right-cl
 | `.tsv` / `.csv` | Sortable table; numeric columns detected and right-aligned |
 | `.json` | Collapsible tree |
 | `.jsonl` / `.ndjson` | One collapsible row per line; malformed lines badged |
-| `.md` / `.mdx` | Rendered markdown — headings, code fences, tables, lists, sanitized inline HTML; relative image/link paths resolve against the file |
+| `.md` / `.mdx` | Rendered markdown — headings, code fences, Mermaid diagrams, tables, lists, sanitized inline HTML; relative image/link paths resolve against the file |
 | Images | Fit-to-view, with pixel dimensions (W × H) |
 | `.pdf` | Embedded PDF viewer |
 | Audio / video (`.mp4`, `.webm`, `.mp3`, `.flac`…) | Native player |
@@ -125,7 +125,7 @@ The folder button beside the filter box includes every subfolder. Names show the
 Details-view columns are resizable: drag a header's right edge; widths persist. A plain click on a file opens it in the panel and leaves the address bar alone. A plain click on a folder goes there. Double-click opens a file's page in this tab, ⌥-click keeps the item as a background strip tab, and middle-click opens a Chrome tab. Rows support multi-select (shift-click or ⌘/ctrl-click toggles, ⇧⌘-click ranges, ⌘A), and ⌘C copies the selected paths.
 
 ### Breadcrumbs
-Each path segment has a **▾** dropdown that lists that folder's contents with a focused filter box — type to narrow, Enter opens the first match.
+Each path segment has a chevron button that lists that folder's contents with a focused filter box — type to narrow, Enter opens the first match.
 
 ### File Icons
 30+ file types with distinct SVG icons and per-extension colour coding:

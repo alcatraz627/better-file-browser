@@ -14,13 +14,19 @@ async function main() {
     minify:      false,
     logLevel:    'info',
   });
+  const mermaidCtx = await esbuild.context({
+    entryPoints: ['src/mermaid-runtime.ts'], bundle: true, outfile: 'vendor-mermaid.js',
+    format: 'esm', target: 'chrome100', platform: 'browser', minify: true,
+    logLevel: 'info',
+  });
 
   if (watch) {
-    await ctx.watch();
+    await Promise.all([ctx.watch(), mermaidCtx.watch()]);
     console.log('Watching for changes…');
   } else {
-    await ctx.rebuild();
+    await Promise.all([ctx.rebuild(), mermaidCtx.rebuild()]);
     await ctx.dispose();
+    await mermaidCtx.dispose();
   }
 }
 

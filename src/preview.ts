@@ -110,7 +110,7 @@ export function initPreview(d: PreviewDeps): void {
         <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
         <button class="fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
         <button class="fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
-        <input id="fe-ql-ai-q" type="text" placeholder="Ask about this file…" autocomplete="off" spellcheck="false">
+        <input id="fe-ql-ai-q" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
         <button class="fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
       </div>
       <div id="fe-ql-ai-out" style="display:none">
