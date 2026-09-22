@@ -29,6 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   dateFormat:  'short',
   terminalApp: 'ghostty',
   terminalCmd: '',
+  excludedFileExtensions: ['pdf', 'html', 'htm'],
 };
 
 export const TERMINAL_CMDS: Record<string, string> = {

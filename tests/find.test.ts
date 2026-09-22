@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { EMPTY_FIND, isEmptyFind, parseExts, matchesFind, isTextCandidate, searchContents, findToHash, findFromHash, describeFind, isViewPath } from '../src/find';
+import { EMPTY_FIND, isEmptyFind, parseExts, matchesFind, isTextCandidate, searchContents, scanContent, textPatternError, findToHash, findFromHash, describeFind, isViewPath } from '../src/find';
+import { renderHitSnippet } from '../src/render';
 import type { Entry } from '../src/types';
 
 const f = (name: string, bytes = 10, isDir = false): Entry =>
@@ -37,11 +38,46 @@ describe('searchContents', () => {
   it('counts matches, keeps the first matching line, reports progress and failures', async () => {
     const seen: number[] = [];
     const r = await searchContents([f('a.md'), f('b.txt'), f('c.txt')], read, { ...EMPTY_FIND, text: 'hello' }, d => seen.push(d));
-    expect(r.hits.get('file:///r/a.md')).toEqual({ count: 2, line: 'Hello' });
+    expect(r.hits.get('file:///r/a.md')).toEqual({ count: 2, line: 'Hello', start: 0, end: 5, lineNumber: 1 });
     expect(r.hits.has('file:///r/b.txt')).toBe(false);
     expect(r.failed).toBe(1);
     expect(r.scanned).toBe(3);
     expect(seen[seen.length - 1]).toBe(3);
+  });
+  it('bounds and escapes a first-match snippet without losing its highlighted span', () => {
+    const hit = scanContent('prefix '.repeat(40) + '<script> & "needle" tail', { ...EMPTY_FIND, text: 'needle' })!;
+    expect(hit.line.length).toBeLessThanOrEqual(182);
+    const html = renderHitSnippet(hit);
+    expect(html).toContain('<mark>needle</mark>');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).not.toContain('<script>');
+  });
+  it('keeps a zero-length regex finite and gives old saved views literal semantics', () => {
+    const q = { ...EMPTY_FIND, text: '^|x', textRegex: true };
+    expect(textPatternError(q)).toBeNull();
+    expect(scanContent('x\ny', q)?.count).toBe(2);
+    expect(textPatternError({ ...q, text: '(' })).toBe('Invalid text regex');
+    const old = '#find=' + encodeURIComponent(JSON.stringify({ scope: 'here', text: 'a.b', exts: [] }));
+    const restored = findFromHash(old)!;
+    expect(restored.textRegex).toBe(false);
+    expect(scanContent('a.b axb', restored)?.count).toBe(1);
+  });
+  it('stops scheduling work when a query is cancelled during four reads', async () => {
+    const pending: Array<(text: string) => void> = [];
+    let cancelled = false;
+    const files = Array.from({ length: 12 }, (_, i) => f(`${i}.txt`));
+    const task = searchContents(files, () => new Promise(resolve => pending.push(resolve)),
+      { ...EMPTY_FIND, text: 'hit' }, undefined, () => cancelled);
+    await Promise.resolve();
+    expect(pending).toHaveLength(4);
+    pending[0]('hit');
+    await new Promise(resolve => setTimeout(resolve, 0));
+    cancelled = true;
+    pending.slice(1).forEach(resolve => resolve('hit'));
+    const result = await task;
+    expect(result.cancelled).toBe(true);
+    expect(result.hits.size).toBe(1);
+    expect(pending).toHaveLength(5);
   });
   it('respects case sensitivity and cancellation', async () => {
     const r = await searchContents([f('a.md')], read, { ...EMPTY_FIND, text: 'hello', caseSensitive: true });

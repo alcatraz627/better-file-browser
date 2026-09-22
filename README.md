@@ -1,7 +1,7 @@
 <div align="center">
   <img src="banner.svg" alt="Better File Browser" width="860"/>
   <br/><br/>
-  <img src="chrome-badge.svg" alt="Chrome Extension v2.9" height="48"/>
+  <img src="chrome-badge.svg" alt="Chrome Extension v2.10" height="48"/>
   &nbsp;&nbsp;
   <img src="icon128.png" alt="Extension Icon" width="48" height="48" style="border-radius:10px;vertical-align:middle"/>
 </div>
@@ -37,7 +37,7 @@ Chrome navigates to file:///some/path/
 ┌──────────────┬──────────────────────────────────────────────┐
 │  SIDEBAR     │  PATH BAR   / Users › alcatraz627 › Code     │
 │              ├──────────────────────────────────────────────┤
-│  Finder Favs │  TOOLBAR  [zoom] [Details][List][Tiles][Icons]│
+│  Finder Favs │  TOOLBAR [zoom] [Details][List][Tree][Tiles][Icons]│
 │  ★ Code      ├──────────────────────────────────────────────┤
 │  ★ Downloads │  Name         │ Type   │ Size    │ Modified   │
 │              │  📁 src/      │ Folder │  —      │ Apr 17     │
@@ -65,7 +65,7 @@ Switch with the toolbar buttons. Preference persists across sessions.
 
 ### Toolbar
 - **Zoom slider** — scales the entire file list proportionally (50–320%)
-- **View toggle** — Details / List / Tiles / Large Icons
+- **View toggle** — Details / List / Tree / Tiles / Large Icons. Tree reads a folder when you expand it.
 - **Search** — live filter by filename as you type (covers all view modes)
 - **Hidden files** — show/hide dotfiles with one click
 - **Terminal** — open current folder in Ghostty (or copy path to clipboard)
@@ -114,13 +114,13 @@ The strip above the toolbar is the working set of one Chrome tab: folders and fi
 Set a **Notes folder** in Settings and a Notes section lists its `.md` files newest first. **n** or **+** starts a note. The preview panel becomes an editor with the source on the left and the render on the right. A toolbar covers bold, italic, code, lists, tasks, tables and images. ⌥↑↓ moves lines and ⌥⇧↑↓ duplicates them. Tab indents. Enter continues a list. A pasted or dropped image is saved under `attachments/` and linked by relative path. **⌘S** saves, a 1.5 s pause autosaves, and a note created as untitled takes its first heading as its file name on first save. Rename by double-click; ✕ moves the note into `.trash/` inside the folder. Files are written through a native host that refuses any path outside the folder and detects edits made by other programs. The folder is plain markdown with optional front matter, readable by Obsidian and any markdown tool. The rules are in [`docs/notes-contract.md`](docs/notes-contract.md).
 
 ### File pages
-A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt) renders like the preview instead of Chrome's plain text, inside the same shell as a folder listing, so the sidebar, the strip and the path bar stay put. The main column carries a heading table of contents for markdown, **r** for raw, a remembered scroll position, and a re-render whenever the file changes on disk. Settings can limit this to non-markdown files or turn it off if you keep another markdown extension on file URLs.
+A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt) renders like the preview instead of Chrome's plain text, inside the same shell as a folder listing, so the sidebar, the strip and the path bar stay put. The main column carries a heading table of contents for markdown, **r** for raw, a remembered scroll position, and a re-render whenever the file changes on disk. Settings can limit this to non-markdown files or turn it off if you keep another markdown extension on file URLs. **Settings → Exclusions** lists extensions that Chrome opens natively; `.pdf`, `.html`, and `.htm` are excluded by default. Remove `.html` or `.htm` to show their source in the file page.
 
 ### Find and saved views
-The Filter panel's second row searches **text inside files**: the text files the name and type fields allow (2 MB each at most) are read through the service worker, four at a time, with progress and a Cancel button, and the listing keeps only the ones that contain your words until you run again or clear the field. **Save view** keeps the folder plus the query as a Saved row with a funnel icon; the row is a plain URL with the query in its hash, so opening it brings the search back, and a hash change on an open page applies it in place.
+The Filter panel's second row searches **text inside files**: the text files the name and type fields allow (2 MB each at most) are read through the service worker, with four reads shared across browser tabs. A separate **Text regex** checkbox applies to file contents. Results show the first matching line and the number of matches in each file. The Details view adds a Matches column while content results are shown. Cancel leaves a labelled partial result; changing a query stops its old scan. **Save view** keeps the folder plus the query as a Saved row with a funnel icon; the row is a plain URL with the query in its hash, so opening it brings the search back, and a hash change on an open page applies it in place.
 
 ### Deep search
-The folder button beside the filter box includes every subfolder. Names show their path from the current folder, so `src/main.ts` matches `main`. The scan skips `node_modules`, `.git` and dot-folders, stops at 8 levels or 5000 items, and runs once per page.
+The folder button beside the filter box includes subfolders. Names show their path from the current folder, so `src/main.ts` matches `main`. The scan skips `node_modules`, `.git` and dot-folders, stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8 levels).
 
 Details-view columns are resizable: drag a header's right edge; widths persist. A plain click on a file opens it in the panel and leaves the address bar alone. A plain click on a folder goes there. Double-click opens a file's page in this tab, ⌥-click keeps the item as a background strip tab, and middle-click opens a Chrome tab. Rows support multi-select (shift-click or ⌘/ctrl-click toggles, ⇧⌘-click ranges, ⌘A), and ⌘C copies the selected paths.
 
@@ -275,6 +275,7 @@ _Shipped since v2.2: Quick Look preview (modal or docked), rich renderers, local
 
 | Version | Highlights |
 |---------|------------|
+| **2.10** | Lazy Tree view; HTML/PDF native-page exclusions; more syntax highlighting; Find snippets, counts, content regex and depth limit; cancellable, bounded search across tabs; Markdown Mermaid diagrams and reading controls |
 | **2.9** | One shell for listings and file pages; the strip belongs to the Chrome tab with recovery, file tabs, pins and a hover menu; click model (click looks, double-click goes, alt keeps a tab); sidebar rows open as strip tabs; Saved filter box; Help and Settings on one tabbed dialog; file page fills the width; a written mouse and key contract with a tooltip on every control |
 | **2.8** | Tabs (shared working set), Saved list replacing Bookmarks + My Places (names, tags, colours), Notes editor with a native host and a documented file contract, rendered file pages with ToC and autoreload, deep search, preview docks to the side or floats and resizes, preview links open in new tabs, sort/group persist, relay retry + reloaded-extension message, in-repo e2e harness |
 | **2.7.1** | Image dimensions (W × H) in the preview |

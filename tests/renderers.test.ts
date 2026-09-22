@@ -138,6 +138,32 @@ describe('highlightCode', () => {
     expect(highlightCode('0b1010', 'ts')).toContain('<span class="tok-num">0b1010</span>');
     expect(highlightCode('6.022e23', 'ts')).toContain('<span class="tok-num">6.022e23</span>');
   });
+  it('keeps escaped slashes inside JS regexes while leaving division plain', () => {
+    const html = highlightCode(String.raw`const re = /a\/b/g; const q = a / b; return /ok/;`, 'ts');
+    expect(html).toContain('<span class="tok-regex">/a\\/b/g</span>');
+    expect(html).toContain('q = a / b');
+    expect(html).toContain('<span class="tok-regex">/ok/</span>');
+    expect(highlightCode('function doWork(x: Widget) {}', 'ts')).toContain('<span class="tok-fn">doWork</span>(x: <span class="tok-type">Widget</span>)');
+  });
+  it('separates structural tokens from values in config and patch files', () => {
+    const yaml = highlightCode('name: true\ntext: "a: b"', 'yaml');
+    expect(yaml).toContain('<span class="tok-key">name</span>: <span class="tok-lit">true</span>');
+    expect(yaml).toContain('<span class="tok-str">&quot;a: b&quot;</span>');
+    const toml = highlightCode('[server]\nport = 3000', 'toml');
+    expect(toml).toContain('<span class="tok-section">[server]</span>');
+    expect(toml).toContain('<span class="tok-key">port</span>');
+    const diff = highlightCode('+added\n-removed\n@@ -1 +1 @@', 'diff');
+    expect(diff).toContain('<span class="tok-add">+added</span>');
+    expect(diff).toContain('<span class="tok-del">-removed</span>');
+  });
+  it('renders HTML tags as escaped syntax and recognizes extension-specific commands', () => {
+    const html = highlightCode('<h1 title="x">Hello</h1>', 'html');
+    expect(html).toContain('<span class="tok-type">&lt;h1 title=&quot;x&quot;&gt;</span>');
+    expect(html).not.toContain('<h1');
+    expect(highlightCode('FROM node:22\nRUN echo hi', 'dockerfile')).toContain('<span class="tok-kw">FROM</span>');
+    expect(highlightCode('query GetUser { user(id: 1) { id } }', 'graphql')).toContain('<span class="tok-kw-ctrl">query</span>');
+    expect(highlightCode('syntax = "proto3";\nmessage User {}', 'proto')).toContain('<span class="tok-type">message</span>');
+  });
 });
 
 describe('renderCode', () => {

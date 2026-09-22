@@ -36,7 +36,68 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 // The native port closing (host exit or host-not-found) surfaces to the
 // client as a {t:"native-gone"} frame so it can tell the difference between
 // "stream ended" and "never started".
+const searchQueue = [];
+let searchReads = 0;
+function runSearchReads() {
+  while (searchReads < 4 && searchQueue.length) {
+    const job = searchQueue.shift();
+    if (job.state.closed) continue;
+    const reply = message => { if (!job.state.closed) try { job.port.postMessage(message); } catch { /* tab closed */ } };
+    searchReads++;
+    job.state.active.add(job.controller);
+    fetch(job.url, { signal: job.controller.signal }).then(async response => {
+      if (response.status >= 400) throw new Error(`HTTP ${response.status}`);
+      if (job.url.endsWith('/')) {
+        const listing = await response.text();
+        if (listing.length > 5 * 1024 * 1024) throw new Error('folder listing exceeds 5 MB');
+        return listing;
+      }
+      const limit = 2 * 1024 * 1024;
+      const reader = response.body?.getReader();
+      if (!reader) {
+        const text = await response.text();
+        if (text.length > limit) throw new Error('file exceeds 2 MB');
+        return text;
+      }
+      const parts = [];
+      let size = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > limit) { await reader.cancel(); throw new Error('file exceeds 2 MB'); }
+        parts.push(value);
+      }
+      const bytes = new Uint8Array(size);
+      let at = 0;
+      for (const part of parts) { bytes.set(part, at); at += part.byteLength; }
+      return new TextDecoder().decode(bytes);
+    }).then(text => {
+      reply({ id: job.id, ok: true, text });
+    }).catch(error => {
+      reply({ id: job.id, ok: false, error: String(error) });
+    }).finally(() => {
+      job.state.active.delete(job.controller);
+      searchReads--;
+      runSearchReads();
+    });
+  }
+}
 chrome.runtime.onConnect.addListener(port => {
+  if (port.name === 'bfb-search-fetch') {
+    const state = { closed: false, active: new Set() };
+    port.onMessage.addListener(msg => {
+      if (state.closed || msg?.type !== 'read' || typeof msg.url !== 'string' || !msg.url.startsWith('file://')) return;
+      searchQueue.push({ port, state, id: msg.id, url: msg.url, controller: new AbortController() });
+      runSearchReads();
+    });
+    port.onDisconnect.addListener(() => {
+      state.closed = true;
+      for (const controller of state.active) controller.abort();
+      for (let i = searchQueue.length - 1; i >= 0; i--) if (searchQueue[i].state === state) searchQueue.splice(i, 1);
+    });
+    return;
+  }
   if (port.name !== 'bfb-llm') return;
   let native = null;
   port.onMessage.addListener(msg => {

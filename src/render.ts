@@ -4,6 +4,7 @@ import { getIcon, IMG_EXTS, PI, CHEVRON_DOWN } from './icons';
 import { groupByTag, filterSaved } from './places';
 import { isViewPath } from './find';
 import { canPreview } from './preview';
+import type { ContentHit } from './find';
 
 export interface RenderContext {
   rawPath:   string;
@@ -51,20 +52,25 @@ export function itemActions(e: Entry, rawPath: string): string {
   </span>`;
 }
 
-export function renderRow(e: Entry, ctx: RenderContext, idx = -1): string {
+export function renderHitSnippet(hit: ContentHit): string {
+  return `<span class="fe-find-snippet" title="First match on line ${hit.lineNumber}">${esc(hit.line.slice(0, hit.start))}<mark>${esc(hit.line.slice(hit.start, hit.end))}</mark>${esc(hit.line.slice(hit.end))}</span>`;
+}
+
+export function renderRow(e: Entry, ctx: RenderContext, idx = -1, hit?: ContentHit): string {
   const tipData = buildTipData(e, ctx);
   return `<tr class="fe-row${e.isDir ? ' dir' : ''}${e.isParent ? ' par' : ''}${e.isHidden ? ' dotfile' : ''}"
              data-name="${esc(e.name.toLowerCase())}"
              data-idx="${idx}"
              data-tip="${esc(tipData)}">
-    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
+    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ''}${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-sz">${e.isDir ? '—' : fmtSize(e.rawBytes)}</td>
     <td class="c-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</td>
+    <td class="c-match">${hit ? hit.count : ''}</td>
   </tr>`;
 }
 
-export function renderTile(e: Entry, ctx: RenderContext, idx = -1): string {
+export function renderTile(e: Entry, ctx: RenderContext, idx = -1, hit?: ContentHit): string {
   const tipData = buildTipData(e, ctx);
   const isImg = !e.isDir && !e.isParent && IMG_EXTS.has(getExt(e));
   const iconHtml = isImg
@@ -76,6 +82,7 @@ export function renderTile(e: Entry, ctx: RenderContext, idx = -1): string {
             data-tip="${esc(tipData)}">
     <span class="fe-tile-ic">${iconHtml}</span>
     <span class="fe-tile-nm">${esc(e.isParent ? '..' : e.name)}</span>
+    ${hit ? `<span class="fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ''}
     ${!e.isDir && !e.isParent ? `<span class="fe-tile-sz">${fmtSize(e.rawBytes)}</span>` : ''}
     ${itemActions(e, ctx.rawPath)}
   </a>`;

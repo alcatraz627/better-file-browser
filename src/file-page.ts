@@ -1,8 +1,8 @@
 // A file opened directly in the tab gets the same picture as the preview,
 // inside the explorer's own shell: the main column shows a small bar (size,
 // raw, copy), a table of contents for markdown, and the matching renderer.
-// main.ts builds the shell and calls mountFileContent; the text is already
-// in the document, so no fetch is needed to render.
+// main.ts builds the shell and calls mountFileContent. HTML source is fetched
+// after takeover because the document contains rendered text, not source.
 import { esc, fmtSize, copyToClipboard } from './utils';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
@@ -16,10 +16,17 @@ const TOC_KEY = 'bfb-page-toc-v1';
 export const COLUMN_KEY = 'bfb-page-column-v1';
 const RELOAD_MS = 2000;
 
+export function parseExcludedExtensions(value: string): string[] {
+  return [...new Set(value.split(/[\s,]+/).map(x => x.replace(/^\*?\./, '').toLowerCase())
+    .filter(x => /^[a-z0-9][a-z0-9_-]*$/.test(x)))];
+}
+
 export function filePageExt(pathname: string): string | null {
   if (pathname.endsWith('/')) return null;
   const name = decodeURIComponent(pathname.split('/').pop() || '');
-  const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : '';
+  const bare = name.toLowerCase();
+  const ext = ['dockerfile', 'containerfile', 'makefile', 'gitignore'].includes(bare)
+    ? bare : name.includes('.') ? name.split('.').pop()!.toLowerCase() : '';
   if (!ext) return null;
   if (CODE_EXTS.has(ext) || TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === 'json') return ext;
   return null;
@@ -28,7 +35,8 @@ export function filePageExt(pathname: string): string | null {
 // The Settings choice: every text file, everything but markdown, or none.
 export function filePagesEnabled(ext: string, settings: Settings): boolean {
   const mode = settings.renderFilePages || 'all';
-  return !(mode === 'off' || (mode === 'not-md' && (ext === 'md' || ext === 'mdx')));
+  const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : ['pdf', 'html', 'htm'];
+  return !(excluded.includes(ext.toLowerCase()) || mode === 'off' || (mode === 'not-md' && (ext === 'md' || ext === 'mdx')));
 }
 
 function renderBody(text: string, ext: string, href: string): string {
@@ -89,7 +97,7 @@ export function renderFileContent(): string {
       </div>`;
 }
 
-export interface FileContent { toggleRaw(): void }
+export interface FileContent { toggleRaw(): void; setText(text: string): void }
 
 export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean }): FileContent {
   const { ext, rawPath, href } = opts;
@@ -159,5 +167,12 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     }).catch(() => { reloadEl.textContent = 'not watching (cannot read file)'; });
   }, RELOAD_MS);
 
-  return { toggleRaw };
+  return {
+    toggleRaw,
+    setText(fresh) {
+      text = fresh;
+      meta.textContent = fmtSize(new Blob([text]).size);
+      render();
+    },
+  };
 }

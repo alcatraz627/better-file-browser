@@ -6,7 +6,7 @@ import { launch, shot } from './harness.mjs';
 const h = await launch();
 try {
   const page = await h.open();
-  await page.click('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td:last-child');
+  await page.click('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td.c-nm');
   await page.waitForSelector('#fe-ql-body .fe-md-mermaid svg');
   const diagram = () => page.$eval('#fe-ql-body .fe-md-mermaid', el => ({
     id: el.querySelector('svg')?.id,

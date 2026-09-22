@@ -10,6 +10,7 @@ export const CODE_EXTS = new Set([
   'css', 'scss', 'less', 'html', 'htm', 'xml', 'svg', 'vue', 'svelte',
   'yaml', 'yml', 'toml', 'ini', 'conf', 'env', 'sql',
   'md', 'mdx', 'txt', 'log', 'rst', 'lock', 'gitignore', 'csv',
+  'diff', 'patch', 'dockerfile', 'containerfile', 'makefile', 'jsonc', 'graphql', 'gql', 'proto',
 ]);
 export const TABLE_EXTS = new Set(['tsv', 'csv']);
 export const JSONL_EXTS = new Set(['jsonl', 'ndjson']);
@@ -46,6 +47,9 @@ interface LangDef {
   vars?:    boolean;             // highlight $VAR / ${...} (shell)
   strRules?: string[];           // extra string patterns BEFORE the per-quote ones (triple-quotes, prefixed/raw)
   deco?:    boolean;             // highlight @decorator / @Annotation
+  regexLiterals?: boolean;
+  namedTypes?: boolean;
+  special?: Rule[];
   kw:       string[];            // generic keywords (→ tok-kw)
   kwCats?: {                     // overlays on kw: words here get a richer class
     ctrl?:    string[];          // control flow → tok-kw-ctrl
@@ -78,6 +82,8 @@ const KW_PY = 'def class return if elif else for while break continue pass impor
 const KW_SQL = 'select from where insert into update delete join left right inner outer on group by order having limit offset create table drop alter index view as and or not null primary key foreign references distinct union all values set';
 const KW_GO = 'func package import return if else for range switch case break continue defer go chan select map struct interface type var const nil true false make new len cap append';
 const KW_RS = 'fn let mut pub use mod struct enum impl trait return if else for while loop match break continue ref self Self crate super move async await dyn where unsafe true false Some None Ok Err';
+const KW_GQL = 'query mutation subscription fragment on type interface union enum input scalar directive schema implements extend true false null';
+const KW_PROTO = 'syntax package import message enum service rpc returns option repeated optional required oneof map reserved public weak true false';
 
 const CATS_JS = {
   ctrl: sp('return if else for while do switch case break continue new throw try catch finally yield await delete in of'),
@@ -110,7 +116,7 @@ const CATS_SQL = {
 const LANGS: Record<string, LangDef> = {
   shell:  { line: ['#'],  strings: [`"`, `'`], vars: true,  kw: KW_SH.split(' '),
             kwCats: { ctrl: sp('if then elif else fi for while until do done case esac return exit break continue'), builtin: sp('echo printf read cd test eval exec source'), lit: sp('true false') } },
-  js:     { line: ['//'], block: ['/*', '*/'], strings: [`"`, `'`, '`'], tickML: true, deco: true, kw: KW_JS.split(' '), kwCats: CATS_JS },
+  js:     { line: ['//'], block: ['/*', '*/'], strings: [`"`, `'`, '`'], tickML: true, deco: true, regexLiterals: true, namedTypes: true, kw: KW_JS.split(' '), kwCats: CATS_JS },
   py:     { line: ['#'],  strings: [], deco: true, kw: KW_PY.split(' '), kwCats: CATS_PY,
             strRules: [
               '[rbfuRBFU]{0,2}"""[\\s\\S]*?"""',
@@ -118,13 +124,30 @@ const LANGS: Record<string, LangDef> = {
               '[rbfuRBFU]{0,2}"(?:\\\\.|[^"\\\\\\n])*"',
               "[rbfuRBFU]{0,2}'(?:\\\\.|[^'\\\\\\n])*'",
             ] },
-  go:     { line: ['//'], block: ['/*', '*/'], strings: [`"`, '`'], tickML: true, kw: KW_GO.split(' '), kwCats: CATS_GO },
-  rs:     { line: ['//'], block: ['/*', '*/'], strings: [], kw: KW_RS.split(' '), kwCats: CATS_RS,
+  go:     { line: ['//'], block: ['/*', '*/'], strings: [`"`, '`'], tickML: true, namedTypes: true, kw: KW_GO.split(' '), kwCats: CATS_GO },
+  rs:     { line: ['//'], block: ['/*', '*/'], strings: [], namedTypes: true, kw: KW_RS.split(' '), kwCats: CATS_RS,
             strRules: ['r#+"[\\s\\S]*?"#+', 'r"[^"\\n]*"', 'b?"(?:\\\\.|[^"\\\\\\n])*"'] },
   sql:    { line: ['--'], block: ['/*', '*/'], strings: [`'`, `"`], kw: KW_SQL.split(' '), kwCats: CATS_SQL },
   cfg:    { line: ['#', ';'], strings: [`"`, `'`], vars: true, kw: [] },
-  cstyle: { line: ['//'], block: ['/*', '*/'], strings: [`"`, `'`], deco: true, kw: KW_JS.split(' '), kwCats: CATS_JS },
+  cstyle: { line: ['//'], block: ['/*', '*/'], strings: [`"`, `'`], deco: true, namedTypes: true, kw: KW_JS.split(' '), kwCats: CATS_JS },
   css:    { block: ['/*', '*/'], strings: [`"`, `'`], kw: [] },
+  jsonc:  { line: ['//'], block: ['/*', '*/'], strings: [`"`], kw: [], kwCats: { lit: sp('true false null') } },
+  graphql:{ line: ['#'], strings: [`"`], kw: sp(KW_GQL), kwCats: { ctrl: sp('query mutation subscription fragment on'), type: sp('type interface union enum input scalar'), lit: sp('true false null') } },
+  proto:  { line: ['//'], block: ['/*', '*/'], strings: [`"`], kw: sp(KW_PROTO), namedTypes: true,
+            kwCats: { ctrl: sp('import rpc returns'), type: sp('message enum service oneof map'), lit: sp('true false') } },
+  html:   { block: ['<!--', '-->'], strings: [], kw: [], special: [{ kind: 'tag', pattern: '<\\/?[A-Za-z][^>\\n]*>' }] },
+  yaml:   { line: ['#'], strings: [`"`, `'`], kw: [], kwCats: { lit: sp('true false null yes no') },
+            special: [{ kind: 'key', pattern: '^[ \\t-]*[A-Za-z_][\\w.-]*(?=[ \\t]*:)' }] },
+  toml:   { line: ['#'], strings: [`"`, `'`], kw: [], kwCats: { lit: sp('true false') },
+            special: [{ kind: 'section', pattern: '^\\[[^\\]\\n]+\\]' }, { kind: 'key', pattern: '^[ \\t]*[A-Za-z_][\\w.-]*(?=[ \\t]*=)' }] },
+  diff:   { strings: [], kw: [], special: [
+              { kind: 'meta', pattern: '^(?:@@|diff |index |\\+\\+\\+ |--- )[^\\n]*' },
+              { kind: 'add', pattern: '^\\+[^\\n]*' }, { kind: 'del', pattern: '^-[^\\n]*' },
+            ] },
+  dockerfile: { line: ['#'], strings: [`"`, `'`], vars: true,
+            kw: sp('FROM RUN CMD COPY ADD WORKDIR ENV ARG EXPOSE USER ENTRYPOINT VOLUME LABEL HEALTHCHECK SHELL STOPSIGNAL ONBUILD') },
+  makefile: { line: ['#'], strings: [`"`, `'`], vars: true, kw: sp('include define endef ifeq ifneq ifdef ifndef else endif export override private'),
+            special: [{ kind: 'key', pattern: '^[A-Za-z0-9_./%-]+(?=[ \\t]*:)' }] },
   plain:  { strings: [], kw: [] },
 };
 
@@ -137,18 +160,22 @@ const EXT_LANG: Record<string, string> = {
   java: 'cstyle', kt: 'cstyle', swift: 'cstyle', c: 'cstyle', cpp: 'cstyle',
   h: 'cstyle', cs: 'cstyle', php: 'cstyle',
   css: 'css', scss: 'css', less: 'css',
-  yaml: 'cfg', yml: 'cfg', toml: 'cfg', ini: 'cfg', conf: 'cfg', env: 'cfg',
+  ini: 'cfg', conf: 'cfg', env: 'cfg',
   gitignore: 'cfg',
   sql: 'sql',
+  diff: 'diff', patch: 'diff',
+  dockerfile: 'dockerfile', containerfile: 'dockerfile', makefile: 'makefile',
+  jsonc: 'jsonc', graphql: 'graphql', gql: 'graphql', proto: 'proto',
+  html: 'html', htm: 'html', xml: 'html',
+  yaml: 'yaml', yml: 'yaml', toml: 'toml',
 };
 
 function reEsc(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Token kinds the tokenizer emits. `word` is resolved to keyword-or-plain at
-// match time via the language's keyword set. (P1+ will add more kinds.)
-type TokKind = 'cmt' | 'str' | 'var' | 'num' | 'word' | 'deco';
+// `word` is resolved to keyword-or-plain at match time.
+type TokKind = 'cmt' | 'str' | 'var' | 'num' | 'word' | 'deco' | 'regex' | 'tag' | 'key' | 'section' | 'add' | 'del' | 'meta';
 interface Rule { kind: TokKind; pattern: string; }   // pattern: a regex fragment, no capture groups
 
 // Ordered rules per language. Order IS the greedy guarantee: comments and
@@ -161,6 +188,8 @@ function buildRules(lang: LangDef): Rule[] {
     const starters = lang.line.map(reEsc).join('|');
     rules.push({ kind: 'cmt', pattern: `(?:${starters})[^\\n]*` });
   }
+  if (lang.regexLiterals) rules.push({ kind: 'regex', pattern: String.raw`(?:(?<=^)|(?<=[=(,:;!&|?{}\n][ \t]{0,16})|(?<=\breturn[ \t]{1,16}))/(?:\\.|[^/\\\n])+/[dgimsuvy]*` });
+  rules.push(...(lang.special ?? []));
   for (const p of lang.strRules ?? []) rules.push({ kind: 'str', pattern: p });
   for (const q of lang.strings ?? []) {
     const body = q === '`' && lang.tickML
@@ -178,11 +207,13 @@ function buildRules(lang: LangDef): Rule[] {
 function compile(rules: Rule[]): { re: RegExp; kinds: TokKind[] } {
   const kinds: TokKind[] = [];
   const parts = rules.map((r, i) => { kinds[i] = r.kind; return `(?<g${i}>${r.pattern})`; });
-  return { re: new RegExp(parts.join('|'), 'g'), kinds };
+  return { re: new RegExp(parts.join('|'), 'gm'), kinds };
 }
 
 const KIND_CLASS: Partial<Record<TokKind, string>> = {
   cmt: 'tok-cmt', str: 'tok-str', var: 'tok-var', num: 'tok-num', deco: 'tok-deco',
+  regex: 'tok-regex', tag: 'tok-type', key: 'tok-key', section: 'tok-section',
+  add: 'tok-add', del: 'tok-del', meta: 'tok-cmt',
 };
 
 /**
@@ -205,7 +236,14 @@ export function highlightCode(src: string, ext: string): string {
     let kind: TokKind | undefined;
     for (let i = 0; i < kinds.length; i++) if (g[`g${i}`] !== undefined) { kind = kinds[i]; break; }
     const text = esc(m[0]);
-    if (kind === 'word')   { const cls = wmap.get(m[0]); out += cls ? `<span class="${cls}">${text}</span>` : text; }
+    if (kind === 'word') {
+      const before = src.slice(Math.max(0, m.index - 32), m.index);
+      const declaration = /\b(?:function|def|func|fn)\s+$/.test(before);
+      const call = /^\s*\(/.test(src.slice(last, last + 12));
+      const type = lang.namedTypes && /^[A-Z]/.test(m[0]) && /(?:\bnew|\bextends|\bimplements|[:<,])\s*$/.test(before);
+      const cls = wmap.get(m[0]) ?? (declaration || call ? 'tok-fn' : type ? 'tok-type' : undefined);
+      out += cls ? `<span class="${cls}">${text}</span>` : text;
+    }
     else if (kind)         out += `<span class="${KIND_CLASS[kind]}">${text}</span>`;
     else                   out += text;
     if (m[0].length === 0) re.lastIndex++;   // safety: never stall on a zero-width match

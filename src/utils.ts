@@ -51,6 +51,8 @@ export function fmtType(e: Entry): string {
 
 export function getExt(e: Entry): string {
   if (e.isDir || e.isParent) return '';
+  const bare = e.name.split('/').pop()!.toLowerCase();
+  if (['dockerfile', 'containerfile', 'makefile', 'gitignore'].includes(bare)) return bare;
   return e.name.includes('.') ? e.name.split('.').pop()!.toLowerCase() : '';
 }
 

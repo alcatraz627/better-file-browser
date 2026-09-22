@@ -40,6 +40,7 @@ export interface Settings {
   aiModel?:     string;   // overrides the lm default model for AI queries (-m)
   notesRoot?:   string;   // absolute folder the Notes section reads and writes
   renderFilePages?: 'all' | 'not-md' | 'off';   // take over file:// text pages
+  excludedFileExtensions?: string[];
   hideRecent?: boolean; hideFavorites?: boolean; hideSystem?: boolean;   // sidebar sections off
   clickOpens?: 'look' | 'go';        // a plain click on a file: the panel, or its page
   readerColumn?: boolean;            // file pages start in the reading column

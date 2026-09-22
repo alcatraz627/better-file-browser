@@ -26,6 +26,7 @@ export function renderPage(p: PageParams): string {
   const VIEW_MODES = [
     { id: 'details', label: 'Details',     ico: `<svg width="13" height="11" viewBox="0 0 13 11"><path d="M1 1h11M1 4h11M1 7h11M1 10h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
     { id: 'list',    label: 'List',        ico: `<svg width="13" height="11" viewBox="0 0 13 11"><circle cx="2" cy="2" r="1.1" fill="currentColor"/><path d="M5 2h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2" cy="5.5" r="1.1" fill="currentColor"/><path d="M5 5.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2" cy="9" r="1.1" fill="currentColor"/><path d="M5 9h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
+    { id: 'tree',    label: 'Tree',        ico: `<svg width="13" height="13" viewBox="0 0 13 13"><path d="M2 1.5v8h3M2 5.5h3M6 4.5h6M6 9.5h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="5.5" cy="4.5" r=".8" fill="currentColor"/><circle cx="5.5" cy="9.5" r=".8" fill="currentColor"/></svg>` },
     { id: 'tiles',   label: 'Tiles',       ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="1" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="7.5" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="7.5" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>` },
     { id: 'icons',   label: 'Large Icons', ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/></svg>` },
   ] as const;
@@ -33,6 +34,7 @@ export function renderPage(p: PageParams): string {
   const VIEW_LABELS: Record<string, string> = {
     details: 'Full table — Name, Type, Size, Modified',
     list:    'Compact single-column rows',
+    tree:    'Expand folders without leaving this page',
     tiles:   'Medium icon grid with filename below',
     icons:   'Large icon grid',
   };
@@ -73,6 +75,7 @@ export function renderPage(p: PageParams): string {
             <select id="fe-st-defview" class="fe-st-select" title="View a folder opens in">
               <option value="details">Details</option>
               <option value="list">List</option>
+              <option value="tree">Tree</option>
               <option value="tiles">Tiles</option>
               <option value="icons">Large Icons</option>
             </select>
@@ -178,6 +181,18 @@ export function renderPage(p: PageParams): string {
           </div>
           <div id="fe-st-rules-list"></div>
           <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940" title="Replace every rule with the built-in set">Reset to defaults</button>
+        </div>
+` },
+      { key: 'exclusions', label: 'Exclusions', hint: 'native file pages', body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Open with Chrome</div>
+          <div class="fe-st-hint">These extensions keep their native file page when opened. The preview panel still works.</div>
+          <div class="fe-st-row">
+            <label class="fe-st-lbl" for="fe-st-excluded-exts">File extensions</label>
+            <input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces">
+            <button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default excluded extensions">Restore defaults</button>
+          </div>
+          <div class="fe-st-hint">Changes apply when a file is opened next. PDF stays native even if removed here, because it has no text renderer.</div>
         </div>
 ` },
       { key: 'notes', label: 'Notes', hint: 'the notes folder', body: `
@@ -366,10 +381,15 @@ export function renderPage(p: PageParams): string {
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text inside files</span>
           <input id="fe-find-text" type="text" placeholder="Words to look for" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
+          <label class="fe-st-check" title="Use a regular expression for text inside files (advanced)"><input type="checkbox" id="fe-find-text-regex" title="Text regex"> Text regex</label>
           <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
+          <label id="fe-find-depth-wrap" class="fe-st-check" style="display:none" title="Maximum subfolder depth to scan">Depth
+            <select id="fe-find-depth" title="Maximum subfolder depth"><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="8" selected>8</option></select>
+          </label>
           <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
           <button id="fe-find-cancel" class="fe-pbn" style="display:none" title="Stop scanning">Cancel</button>
           <span id="fe-find-status"></span>
+          <span id="fe-find-error" role="alert"></span>
           <button id="fe-find-save" class="fe-pbn" style="margin-left:auto" title="Keep this search as a Saved view: this folder plus these fields">☆ Save view</button>
         </div>
       </div>
@@ -382,11 +402,13 @@ export function renderPage(p: PageParams): string {
               <th class="c-tp" data-ck="tp" title="Type · drag the edge to resize">Type<span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size · again flips">Size <span class="si">↕</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-dt" data-ck="dt" data-sort="date" title="Sort by modified date · again flips">Modified <span class="si">↕</span></th>
+              <th class="c-match" title="Number of content matches">Matches</th>
             </tr>
           </thead>
           <tbody id="fe-tbody">${renderRows(ALL_ENTRIES, ctx0)}</tbody>
         </table>
         <div id="fe-tiles">${renderTiles(ALL_ENTRIES, ctx0)}</div>
+        <div id="fe-tree"></div>
       </div>
 
       <div id="fe-statusbar">

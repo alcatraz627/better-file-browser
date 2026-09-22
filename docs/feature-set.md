@@ -104,9 +104,9 @@ where Places are kept.
   hash applies the query, including the contents pass; a hash change on an
   already open page applies it in place. Nothing new is stored, and the row
   is also a link you can paste anywhere.
-- **Not in this cut.** Match snippets in the row, a match count column, and
-  regex over contents. The hit map keeps the first matching line per file for
-  when a snippet column is wanted.
+- **Added in v2.10.** Match snippets, a conditional match count column, and
+  regex over contents were later implemented; see the current README for the
+  user-facing behavior.
 
 ## Tabs: the working set
 

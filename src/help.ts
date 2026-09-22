@@ -29,7 +29,7 @@ the tab keys are bare letters.
 ## Views & zoom
 
 Switch layout from the toolbar: **Details** (table), **List** (compact),
-**Tiles**, or **Large Icons**. Your choice is remembered. The **zoom** slider
+**Tree** (expand folders in place), **Tiles**, or **Large Icons**. Your choice is remembered. The **zoom** slider
 (50–320%) scales the whole list.
 
 The **≡** button at the top left shows or hides the sidebar, and dragging the
@@ -39,8 +39,8 @@ included, set **Interface size** in **Settings → Appearance**.
 ## Finding files
 
 - **Quick filter** — type in the **Filter** box (top-right), or press **⌘F** to jump to it. Press **⌘F** again to fall through to Chrome's own find.
-- **Text inside files** — open the **Filter** panel; the second row reads the text files the name and type fields allow (2 MB each at most) and keeps only the ones containing your words. Enter or **Run** starts it, **Cancel** stops it, and the results stay until you run again or clear the field. **Save view** keeps the folder plus these fields as a Saved row with a funnel icon; opening it brings the search back.
-- **Deep search** — the folder button beside the filter box includes every subfolder. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 8 levels or 5000 items, and runs once per page.
+- **Text inside files** — open the **Filter** panel; the second row reads text files allowed by the name and type fields, up to 2 MB each. **Text regex** changes only content matching. Results show a first-match snippet and match count. **Run** or Enter starts a scan; **Cancel** keeps a labelled partial result. Changing the query stops the old scan. **Save view** keeps these fields in a Saved link.
+- **Deep search** — the folder button beside the filter box includes subfolders. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8).
 - **Sort** — click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
 - **Filter** panel — match names by text or regex, or show only folders / files / one extension.
 - **Hidden files** — the eye button toggles dotfiles.
@@ -73,7 +73,8 @@ shell as a folder: the sidebar, the strip and the path bar stay where they
 are. The main column shows a heading table of contents for markdown, **r**
 for raw, a remembered scroll position, and a re-render whenever the file
 changes on disk. **Settings → Files** can limit this to non-markdown files or
-turn it off.
+turn it off. **Settings → Exclusions** opens .pdf, .html, and .htm in
+Chrome's native file page by default. Remove .html or .htm to show source.
 ` },
   { key: 'preview', label: 'Preview and Notes', hint: 'panel, editor, AI', md: `
 ## File preview (Quick Look)

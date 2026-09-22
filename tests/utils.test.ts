@@ -77,6 +77,7 @@ describe('fullPath', () => {
 
 describe('getExt', () => {
   it('extracts lowercase extension', () => { expect(getExt(file('Image.PNG'))).toBe('png'); });
-  it('returns empty string for no extension', () => { expect(getExt(file('Makefile'))).toBe(''); });
+  it('recognizes known extensionless source files', () => { expect(getExt(file('Makefile'))).toBe('makefile'); });
+  it('returns empty string for an ordinary extensionless file', () => { expect(getExt(file('README'))).toBe(''); });
   it('returns empty string for dirs', () => { expect(getExt(dir('src'))).toBe(''); });
 });

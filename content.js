@@ -108,6 +108,8 @@
   }
   function getExt(e) {
     if (e.isDir || e.isParent) return "";
+    const bare = e.name.split("/").pop().toLowerCase();
+    if (["dockerfile", "containerfile", "makefile", "gitignore"].includes(bare)) return bare;
     return e.name.includes(".") ? e.name.split(".").pop().toLowerCase() : "";
   }
   function fullPath(rawPath, e) {
@@ -223,7 +225,8 @@
     showSidebar: true,
     dateFormat: "short",
     terminalApp: "ghostty",
-    terminalCmd: ""
+    terminalCmd: "",
+    excludedFileExtensions: ["pdf", "html", "htm"]
   };
   var TERMINAL_CMDS = {
     ghostty: 'open -a Ghostty "${p}"',
@@ -632,7 +635,16 @@
     "rst",
     "lock",
     "gitignore",
-    "csv"
+    "csv",
+    "diff",
+    "patch",
+    "dockerfile",
+    "containerfile",
+    "makefile",
+    "jsonc",
+    "graphql",
+    "gql",
+    "proto"
   ]);
   var TABLE_EXTS = /* @__PURE__ */ new Set(["tsv", "csv"]);
   var JSONL_EXTS = /* @__PURE__ */ new Set(["jsonl", "ndjson"]);
@@ -671,6 +683,8 @@
   var KW_SQL = "select from where insert into update delete join left right inner outer on group by order having limit offset create table drop alter index view as and or not null primary key foreign references distinct union all values set";
   var KW_GO = "func package import return if else for range switch case break continue defer go chan select map struct interface type var const nil true false make new len cap append";
   var KW_RS = "fn let mut pub use mod struct enum impl trait return if else for while loop match break continue ref self Self crate super move async await dyn where unsafe true false Some None Ok Err";
+  var KW_GQL = "query mutation subscription fragment on type interface union enum input scalar directive schema implements extend true false null";
+  var KW_PROTO = "syntax package import message enum service rpc returns option repeated optional required oneof map reserved public weak true false";
   var CATS_JS = {
     ctrl: sp("return if else for while do switch case break continue new throw try catch finally yield await delete in of"),
     type: sp("interface type enum implements string number boolean object symbol any unknown never void keyof readonly as is namespace"),
@@ -706,7 +720,7 @@
       kw: KW_SH.split(" "),
       kwCats: { ctrl: sp("if then elif else fi for while until do done case esac return exit break continue"), builtin: sp("echo printf read cd test eval exec source"), lit: sp("true false") }
     },
-    js: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`, "`"], tickML: true, deco: true, kw: KW_JS.split(" "), kwCats: CATS_JS },
+    js: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`, "`"], tickML: true, deco: true, regexLiterals: true, namedTypes: true, kw: KW_JS.split(" "), kwCats: CATS_JS },
     py: {
       line: ["#"],
       strings: [],
@@ -720,19 +734,63 @@
         "[rbfuRBFU]{0,2}'(?:\\\\.|[^'\\\\\\n])*'"
       ]
     },
-    go: { line: ["//"], block: ["/*", "*/"], strings: [`"`, "`"], tickML: true, kw: KW_GO.split(" "), kwCats: CATS_GO },
+    go: { line: ["//"], block: ["/*", "*/"], strings: [`"`, "`"], tickML: true, namedTypes: true, kw: KW_GO.split(" "), kwCats: CATS_GO },
     rs: {
       line: ["//"],
       block: ["/*", "*/"],
       strings: [],
+      namedTypes: true,
       kw: KW_RS.split(" "),
       kwCats: CATS_RS,
       strRules: ['r#+"[\\s\\S]*?"#+', 'r"[^"\\n]*"', 'b?"(?:\\\\.|[^"\\\\\\n])*"']
     },
     sql: { line: ["--"], block: ["/*", "*/"], strings: [`'`, `"`], kw: KW_SQL.split(" "), kwCats: CATS_SQL },
     cfg: { line: ["#", ";"], strings: [`"`, `'`], vars: true, kw: [] },
-    cstyle: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`], deco: true, kw: KW_JS.split(" "), kwCats: CATS_JS },
+    cstyle: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`], deco: true, namedTypes: true, kw: KW_JS.split(" "), kwCats: CATS_JS },
     css: { block: ["/*", "*/"], strings: [`"`, `'`], kw: [] },
+    jsonc: { line: ["//"], block: ["/*", "*/"], strings: [`"`], kw: [], kwCats: { lit: sp("true false null") } },
+    graphql: { line: ["#"], strings: [`"`], kw: sp(KW_GQL), kwCats: { ctrl: sp("query mutation subscription fragment on"), type: sp("type interface union enum input scalar"), lit: sp("true false null") } },
+    proto: {
+      line: ["//"],
+      block: ["/*", "*/"],
+      strings: [`"`],
+      kw: sp(KW_PROTO),
+      namedTypes: true,
+      kwCats: { ctrl: sp("import rpc returns"), type: sp("message enum service oneof map"), lit: sp("true false") }
+    },
+    html: { block: ["<!--", "-->"], strings: [], kw: [], special: [{ kind: "tag", pattern: "<\\/?[A-Za-z][^>\\n]*>" }] },
+    yaml: {
+      line: ["#"],
+      strings: [`"`, `'`],
+      kw: [],
+      kwCats: { lit: sp("true false null yes no") },
+      special: [{ kind: "key", pattern: "^[ \\t-]*[A-Za-z_][\\w.-]*(?=[ \\t]*:)" }]
+    },
+    toml: {
+      line: ["#"],
+      strings: [`"`, `'`],
+      kw: [],
+      kwCats: { lit: sp("true false") },
+      special: [{ kind: "section", pattern: "^\\[[^\\]\\n]+\\]" }, { kind: "key", pattern: "^[ \\t]*[A-Za-z_][\\w.-]*(?=[ \\t]*=)" }]
+    },
+    diff: { strings: [], kw: [], special: [
+      { kind: "meta", pattern: "^(?:@@|diff |index |\\+\\+\\+ |--- )[^\\n]*" },
+      { kind: "add", pattern: "^\\+[^\\n]*" },
+      { kind: "del", pattern: "^-[^\\n]*" }
+    ] },
+    dockerfile: {
+      line: ["#"],
+      strings: [`"`, `'`],
+      vars: true,
+      kw: sp("FROM RUN CMD COPY ADD WORKDIR ENV ARG EXPOSE USER ENTRYPOINT VOLUME LABEL HEALTHCHECK SHELL STOPSIGNAL ONBUILD")
+    },
+    makefile: {
+      line: ["#"],
+      strings: [`"`, `'`],
+      vars: true,
+      kw: sp("include define endef ifeq ifneq ifdef ifndef else endif export override private"),
+      special: [{ kind: "key", pattern: "^[A-Za-z0-9_./%-]+(?=[ \\t]*:)" }]
+    },
     plain: { strings: [], kw: [] }
   };
   var EXT_LANG = {
@@ -763,14 +821,26 @@
     css: "css",
     scss: "css",
     less: "css",
-    yaml: "cfg",
-    yml: "cfg",
-    toml: "cfg",
     ini: "cfg",
     conf: "cfg",
     env: "cfg",
     gitignore: "cfg",
-    sql: "sql"
+    sql: "sql",
+    diff: "diff",
+    patch: "diff",
+    dockerfile: "dockerfile",
+    containerfile: "dockerfile",
+    makefile: "makefile",
+    jsonc: "jsonc",
+    graphql: "graphql",
+    gql: "graphql",
+    proto: "proto",
+    html: "html",
+    htm: "html",
+    xml: "html",
+    yaml: "yaml",
+    yml: "yaml",
+    toml: "toml"
   };
   function reEsc(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -782,6 +852,8 @@
       const starters = lang.line.map(reEsc).join("|");
       rules.push({ kind: "cmt", pattern: `(?:${starters})[^\\n]*` });
     }
+    if (lang.regexLiterals) rules.push({ kind: "regex", pattern: String.raw`(?:(?<=^)|(?<=[=(,:;!&|?{}\n][ \t]{0,16})|(?<=\breturn[ \t]{1,16}))/(?:\\.|[^/\\\n])+/[dgimsuvy]*` });
+    rules.push(...lang.special ?? []);
     for (const p of lang.strRules ?? []) rules.push({ kind: "str", pattern: p });
     for (const q of lang.strings ?? []) {
       const body = q === "`" && lang.tickML ? "(?:\\\\.|[^`\\\\])*(?:`|$)" : `(?:\\\\.|[^${reEsc(q)}\\\\\\n])*(?:${reEsc(q)}|\\n|$)`;
@@ -799,14 +871,21 @@
       kinds[i] = r.kind;
       return `(?<g${i}>${r.pattern})`;
     });
-    return { re: new RegExp(parts.join("|"), "g"), kinds };
+    return { re: new RegExp(parts.join("|"), "gm"), kinds };
   }
   var KIND_CLASS = {
     cmt: "tok-cmt",
     str: "tok-str",
     var: "tok-var",
     num: "tok-num",
-    deco: "tok-deco"
+    deco: "tok-deco",
+    regex: "tok-regex",
+    tag: "tok-type",
+    key: "tok-key",
+    section: "tok-section",
+    add: "tok-add",
+    del: "tok-del",
+    meta: "tok-cmt"
   };
   function highlightCode(src, ext2) {
     const langKey = EXT_LANG[ext2.toLowerCase()] ?? "plain";
@@ -828,7 +907,11 @@
       }
       const text = esc(m[0]);
       if (kind === "word") {
-        const cls = wmap.get(m[0]);
+        const before = src.slice(Math.max(0, m.index - 32), m.index);
+        const declaration = /\b(?:function|def|func|fn)\s+$/.test(before);
+        const call2 = /^\s*\(/.test(src.slice(last, last + 12));
+        const type = lang.namedTypes && /^[A-Z]/.test(m[0]) && /(?:\bnew|\bextends|\bimplements|[:<,])\s*$/.test(before);
+        const cls = wmap.get(m[0]) ?? (declaration || call2 ? "tok-fn" : type ? "tok-type" : void 0);
         out += cls ? `<span class="${cls}">${text}</span>` : text;
       } else if (kind) out += `<span class="${KIND_CLASS[kind]}">${text}</span>`;
       else out += text;
@@ -2446,6 +2529,15 @@ thead th[data-sort]:hover{color:var(--tx)}
 .si{opacity:.35;font-size:10px}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:46%}.c-tp{width:16%}.c-sz{width:13%;text-align:right}.c-dt{width:25%}
+.c-match{display:none;text-align:right;width:72px;color:var(--dm)}
+#fe.fe-has-find-hits[data-view="details"] .c-match{display:table-cell}
+#fe.fe-has-find-hits[data-view="details"] .c-nm{width:42%}
+#fe.fe-has-find-hits[data-view="details"] .c-dt{width:19%}
+.fe-find-snippet{display:block;color:var(--dm);font-size:11px;margin:3px 0 1px 22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-find-snippet mark{background:var(--ac);color:var(--bg);border-radius:2px;padding:0 1px}
+.fe-find-badge{display:inline-block;color:var(--ac);border:1px solid var(--bd);border-radius:8px;padding:0 5px;font-size:10px;margin-left:22px}
+#fe-find-error{color:#f85149;font-size:11px}
+#fe[data-view="details"] .fe-row .fe-find-badge{display:none}
 tbody tr{border-bottom:1px solid var(--bg);transition:background .08s}
 tbody tr:hover{background:var(--hover)}
 tbody td{padding:5px 12px;vertical-align:middle}
@@ -2466,12 +2558,30 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-group-hdr-tile{width:100%;padding:6px 4px 2px;font-size:10.5px;font-weight:600;
   text-transform:uppercase;letter-spacing:.08em;color:var(--dm)}
 #fe:not(.show-hidden) .fe-row.dotfile,
-#fe:not(.show-hidden) .fe-tile.dotfile{display:none!important}
+#fe:not(.show-hidden) .fe-tile.dotfile,
+#fe:not(.show-hidden) .fe-tree-row.dotfile{display:none!important}
 #fe[data-view="list"] .c-tp,#fe[data-view="list"] .c-sz,#fe[data-view="list"] .c-dt{display:none}
 #fe[data-view="list"] .c-nm{width:100%}
 #fe[data-view="list"] tbody td{padding:4px 12px}
 #fe-tiles{display:none;flex-wrap:wrap;gap:4px 6px;padding:10px 12px;align-content:flex-start;align-items:flex-start}
 #fe[data-view="tiles"] #fe-table,#fe[data-view="icons"] #fe-table{display:none}
+#fe[data-view="tree"] #fe-table{display:none}
+#fe-tree{display:none;padding:6px 0}
+#fe[data-view="tree"] #fe-tree{display:block}
+#fe[data-view="tree"] #fe-tiles{display:none}
+.fe-tree-row{display:flex;align-items:center;min-height:29px;padding-right:12px;gap:4px}
+.fe-tree-row:hover{background:var(--hover)}
+.fe-tree-row.selected{background:var(--act)}
+.fe-tree-row.selected .fe-nm{color:var(--ac)}
+.fe-tree-toggle,.fe-tree-spacer{width:20px;height:20px;flex:none}
+.fe-tree-toggle{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--dm);cursor:pointer;border-radius:4px}
+.fe-tree-toggle:hover{background:var(--s2);color:var(--tx)}
+.fe-tree-toggle svg{width:12px;height:12px;transform:rotate(-90deg)}
+.fe-tree-toggle[aria-expanded="true"] svg{transform:none}
+.fe-tree-link{display:flex;align-items:center;gap:8px;color:var(--tx);text-decoration:none;min-width:0}
+.fe-tree-link svg{flex:none}
+.fe-tree-link:hover .fe-nm{text-decoration:underline;color:var(--ac)}
+.fe-tree-message{padding:4px 12px;color:var(--dm);font-size:11px}
 #fe[data-view="tiles"] #fe-tiles,#fe[data-view="icons"] #fe-tiles{display:flex}
 .fe-tile{display:flex;flex-direction:column;align-items:center;gap:3px;
   padding:8px 6px 7px;border-radius:var(--r);text-decoration:none;
@@ -2559,6 +2669,7 @@ td.c-tp{color:var(--dm);font-size:11px}
 .fe-dlg-bg{position:absolute;inset:0;background:#00000088;backdrop-filter:blur(2px)}
 .fe-dlg-box{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);border-radius:10px;
   width:min(760px,calc(100vw - 40px));max-height:84vh;display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;outline:none}
+#fe-settings-modal .fe-dlg-box{width:min(900px,calc(100vw - 40px))}
 .fe-dlg-title{display:flex;align-items:center;gap:11px;padding:14px 16px 12px;background:var(--s2);flex:none;border-radius:10px 10px 0 0}
 .fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;
   background:var(--act);color:var(--ac);border:1px solid var(--ac)}
@@ -2811,6 +2922,9 @@ td.c-tp{color:var(--dm);font-size:11px}
 .tok-num{color:#79c0ff}
 .tok-var{color:#d2a8ff}
 .tok-deco{color:#e2b340}
+.tok-fn{color:#d2a8ff}.tok-regex{color:#a5d6a7}
+.tok-key{color:#79c0ff}.tok-section{color:#d2a8ff}
+.tok-add{color:#3fb950}.tok-del{color:#f85149}
 #fe[data-theme="light"] .tok-str{color:#0a7d33}
 #fe[data-theme="light"] .tok-kw,#fe[data-theme="light"] .tok-kw-ctrl{color:#cf222e}
 #fe[data-theme="light"] .tok-type{color:#1b7c83}
@@ -2819,6 +2933,12 @@ td.c-tp{color:var(--dm);font-size:11px}
 #fe[data-theme="light"] .tok-num{color:#0550ae}
 #fe[data-theme="light"] .tok-var{color:#8250df}
 #fe[data-theme="light"] .tok-deco{color:#9a6700}
+#fe[data-theme="light"] .tok-fn{color:#8250df}
+#fe[data-theme="light"] .tok-regex{color:#116329}
+#fe[data-theme="light"] .tok-key{color:#0550ae}
+#fe[data-theme="light"] .tok-section{color:#8250df}
+#fe[data-theme="light"] .tok-add{color:#1a7f37}
+#fe[data-theme="light"] .tok-del{color:#cf222e}
 .fe-ql-table{border-collapse:collapse;width:100%;font:11.5px 'SF Mono',Menlo,Consolas,monospace}
 .fe-ql-table th{position:sticky;top:0;background:var(--s2);padding:6px 10px;text-align:left;
   border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
@@ -2905,17 +3025,22 @@ td.c-tp{color:var(--dm);font-size:11px}
   var TOC_KEY = "bfb-page-toc-v1";
   var COLUMN_KEY = "bfb-page-column-v1";
   var RELOAD_MS = 2e3;
+  function parseExcludedExtensions(value) {
+    return [...new Set(value.split(/[\s,]+/).map((x) => x.replace(/^\*?\./, "").toLowerCase()).filter((x) => /^[a-z0-9][a-z0-9_-]*$/.test(x)))];
+  }
   function filePageExt(pathname) {
     if (pathname.endsWith("/")) return null;
     const name = decodeURIComponent(pathname.split("/").pop() || "");
-    const ext2 = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+    const bare = name.toLowerCase();
+    const ext2 = ["dockerfile", "containerfile", "makefile", "gitignore"].includes(bare) ? bare : name.includes(".") ? name.split(".").pop().toLowerCase() : "";
     if (!ext2) return null;
     if (CODE_EXTS.has(ext2) || TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json") return ext2;
     return null;
   }
   function filePagesEnabled(ext2, settings) {
     const mode = settings.renderFilePages || "all";
-    return !(mode === "off" || mode === "not-md" && (ext2 === "md" || ext2 === "mdx"));
+    const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : ["pdf", "html", "htm"];
+    return !(excluded.includes(ext2.toLowerCase()) || mode === "off" || mode === "not-md" && (ext2 === "md" || ext2 === "mdx"));
   }
   function renderBody(text, ext2, href) {
     if (TABLE_EXTS.has(ext2)) {
@@ -3052,7 +3177,14 @@ td.c-tp{color:var(--dm);font-size:11px}
         reloadEl.textContent = "not watching (cannot read file)";
       });
     }, RELOAD_MS);
-    return { toggleRaw };
+    return {
+      toggleRaw,
+      setText(fresh) {
+        text = fresh;
+        meta.textContent = fmtSize(new Blob([text]).size);
+        render2();
+      }
+    };
   }
 
   // src/tabs.ts
@@ -3537,7 +3669,7 @@ the tab keys are bare letters.
 ## Views & zoom
 
 Switch layout from the toolbar: **Details** (table), **List** (compact),
-**Tiles**, or **Large Icons**. Your choice is remembered. The **zoom** slider
+**Tree** (expand folders in place), **Tiles**, or **Large Icons**. Your choice is remembered. The **zoom** slider
 (50\u2013320%) scales the whole list.
 
 The **\u2261** button at the top left shows or hides the sidebar, and dragging the
@@ -3547,8 +3679,8 @@ included, set **Interface size** in **Settings \u2192 Appearance**.
 ## Finding files
 
 - **Quick filter** \u2014 type in the **Filter** box (top-right), or press **\u2318F** to jump to it. Press **\u2318F** again to fall through to Chrome's own find.
-- **Text inside files** \u2014 open the **Filter** panel; the second row reads the text files the name and type fields allow (2 MB each at most) and keeps only the ones containing your words. Enter or **Run** starts it, **Cancel** stops it, and the results stay until you run again or clear the field. **Save view** keeps the folder plus these fields as a Saved row with a funnel icon; opening it brings the search back.
-- **Deep search** \u2014 the folder button beside the filter box includes every subfolder. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 8 levels or 5000 items, and runs once per page.
+- **Text inside files** \u2014 open the **Filter** panel; the second row reads text files allowed by the name and type fields, up to 2 MB each. **Text regex** changes only content matching. Results show a first-match snippet and match count. **Run** or Enter starts a scan; **Cancel** keeps a labelled partial result. Changing the query stops the old scan. **Save view** keeps these fields in a Saved link.
+- **Deep search** \u2014 the folder button beside the filter box includes subfolders. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8).
 - **Sort** \u2014 click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
 - **Filter** panel \u2014 match names by text or regex, or show only folders / files / one extension.
 - **Hidden files** \u2014 the eye button toggles dotfiles.
@@ -3581,7 +3713,8 @@ shell as a folder: the sidebar, the strip and the path bar stay where they
 are. The main column shows a heading table of contents for markdown, **r**
 for raw, a remembered scroll position, and a re-render whenever the file
 changes on disk. **Settings \u2192 Files** can limit this to non-markdown files or
-turn it off.
+turn it off. **Settings \u2192 Exclusions** opens .pdf, .html, and .htm in
+Chrome's native file page by default. Remove .html or .htm to show source.
 ` },
     { key: "preview", label: "Preview and Notes", hint: "panel, editor, AI", md: `
 ## File preview (Quick Look)
@@ -3843,7 +3976,7 @@ seconds and re-renders when the file changes on disk.
   ];
 
   // src/find.ts
-  var EMPTY_FIND = { scope: "here", name: "", regex: false, exts: [], text: "", caseSensitive: false };
+  var EMPTY_FIND = { scope: "here", name: "", regex: false, exts: [], text: "", caseSensitive: false, textRegex: false, maxDepth: 8 };
   function isEmptyFind(q) {
     return q.scope === "here" && !q.name && !q.exts.length && !q.text;
   }
@@ -3855,31 +3988,71 @@ seconds and re-renders when the file changes on disk.
     if (!(CODE_EXTS.has(x) || TABLE_EXTS.has(x) || JSONL_EXTS.has(x) || x === "json")) return false;
     return e.rawBytes < 0 || e.rawBytes <= TEXT_MAX_BYTES;
   }
-  async function searchContents(files, read, q, onProgress, isCancelled = () => false, concurrency = 4) {
+  function textPatternError(q) {
+    if (!q.textRegex || !q.text) return null;
+    if (q.text.length > 160) return "Text regex is limited to 160 characters";
+    try {
+      new RegExp(q.text, q.caseSensitive ? "gu" : "giu");
+      return null;
+    } catch {
+      return "Invalid text regex";
+    }
+  }
+  function scanContent(text, q) {
+    if (!q.text) return null;
+    const pattern = q.textRegex ? new RegExp(q.text, q.caseSensitive ? "gu" : "giu") : null;
+    const needle = q.caseSensitive ? q.text : q.text.toLowerCase();
+    let count = 0, first = null;
+    let lineStart = 0, lineNumber = 1;
+    while (lineStart <= text.length) {
+      const breakAt = text.indexOf("\n", lineStart);
+      const end = breakAt < 0 ? text.length : breakAt;
+      const line2 = text.slice(lineStart, end);
+      if (pattern) {
+        pattern.lastIndex = 0;
+        let match;
+        while (match = pattern.exec(line2)) {
+          count++;
+          if (!first) first = { line: line2, at: match.index, length: match[0].length, number: lineNumber };
+          if (!match[0].length) {
+            const codePoint = line2.codePointAt(pattern.lastIndex);
+            pattern.lastIndex += codePoint !== void 0 && codePoint > 65535 ? 2 : 1;
+          }
+        }
+      } else {
+        const hay = q.caseSensitive ? line2 : line2.toLowerCase();
+        for (let at = hay.indexOf(needle); at >= 0; at = hay.indexOf(needle, at + Math.max(1, needle.length))) {
+          count++;
+          if (!first) first = { line: line2, at, length: q.text.length, number: lineNumber };
+        }
+      }
+      if (breakAt < 0) break;
+      lineStart = breakAt + 1;
+      lineNumber++;
+    }
+    if (!first) return null;
+    const from = Math.max(0, first.at - 60);
+    const to = Math.min(first.line.length, from + 180);
+    const line = (from ? "\u2026" : "") + first.line.slice(from, to) + (to < first.line.length ? "\u2026" : "");
+    const start = first.at - from + (from ? 1 : 0);
+    return { count, line, start, end: Math.min(line.length, start + first.length), lineNumber: first.number };
+  }
+  async function searchContents(files, read, q, onProgress, isCancelled = () => false, concurrency = 4, match = async (text, query) => scanContent(text, query)) {
     const hits = /* @__PURE__ */ new Map();
     let scanned = 0, failed = 0, next = 0;
-    const needle = q.caseSensitive ? q.text : q.text.toLowerCase();
     const worker = async () => {
       while (next < files.length && !isCancelled()) {
         const f = files[next++];
         try {
           const text = await read(f.href);
-          const hay = q.caseSensitive ? text : text.toLowerCase();
-          let count = 0, at = hay.indexOf(needle);
-          while (at >= 0) {
-            count++;
-            at = hay.indexOf(needle, at + needle.length);
-          }
-          if (count) {
-            const first = hay.indexOf(needle);
-            const ls = text.lastIndexOf("\n", first) + 1;
-            let le = text.indexOf("\n", first);
-            if (le < 0) le = text.length;
-            hits.set(f.href, { count, line: text.slice(ls, le).trim().slice(0, 160) });
-          }
+          if (isCancelled()) break;
+          const hit = await match(text, q);
+          if (isCancelled()) break;
+          if (hit) hits.set(f.href, hit);
         } catch {
           failed++;
         }
+        if (isCancelled()) break;
         scanned++;
         onProgress?.(scanned, files.length);
       }
@@ -3895,7 +4068,7 @@ seconds and re-renders when the file changes on disk.
     if (!m) return null;
     try {
       const q = JSON.parse(decodeURIComponent(m[1]));
-      return { ...EMPTY_FIND, ...q, exts: Array.isArray(q.exts) ? q.exts : [] };
+      return { ...EMPTY_FIND, ...q, exts: Array.isArray(q.exts) ? q.exts : [], maxDepth: [1, 2, 4, 8].includes(q.maxDepth) ? q.maxDepth : 8 };
     } catch {
       return null;
     }
@@ -3907,7 +4080,7 @@ seconds and re-renders when the file changes on disk.
     const bits = [];
     if (q.name) bits.push(q.regex ? `/${q.name}/` : q.name);
     if (q.exts.length) bits.push("." + q.exts.join(" ."));
-    if (q.text) bits.push(`"${q.text}"`);
+    if (q.text) bits.push(q.textRegex ? `/${q.text}/` : `"${q.text}"`);
     const what = bits.join(" ") || "everything";
     return q.scope === "deep" ? `${what} in subfolders` : what;
   }
@@ -3947,19 +4120,23 @@ seconds and re-renders when the file changes on disk.
     </button>
   </span>`;
   }
-  function renderRow(e, ctx, idx = -1) {
+  function renderHitSnippet(hit) {
+    return `<span class="fe-find-snippet" title="First match on line ${hit.lineNumber}">${esc(hit.line.slice(0, hit.start))}<mark>${esc(hit.line.slice(hit.start, hit.end))}</mark>${esc(hit.line.slice(hit.end))}</span>`;
+  }
+  function renderRow(e, ctx, idx = -1, hit) {
     const tipData = buildTipData(e, ctx);
     return `<tr class="fe-row${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
              data-name="${esc(e.name.toLowerCase())}"
              data-idx="${idx}"
              data-tip="${esc(tipData)}">
-    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${itemActions(e, ctx.rawPath)}</td>
+    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ""}${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-sz">${e.isDir ? "\u2014" : fmtSize(e.rawBytes)}</td>
     <td class="c-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</td>
+    <td class="c-match">${hit ? hit.count : ""}</td>
   </tr>`;
   }
-  function renderTile(e, ctx, idx = -1) {
+  function renderTile(e, ctx, idx = -1, hit) {
     const tipData = buildTipData(e, ctx);
     const isImg = !e.isDir && !e.isParent && IMG_EXTS.has(getExt(e));
     const iconHtml = isImg ? `<span class="fe-tile-img-wrap"><img class="fe-tile-thumb" src="${esc(e.href)}" loading="lazy" alt="" onerror="this.closest('.fe-tile-img-wrap').classList.add('err')">${getIcon(e, ctx.iconRules)}</span>` : getIcon(e, ctx.iconRules);
@@ -3969,6 +4146,7 @@ seconds and re-renders when the file changes on disk.
             data-tip="${esc(tipData)}">
     <span class="fe-tile-ic">${iconHtml}</span>
     <span class="fe-tile-nm">${esc(e.isParent ? ".." : e.name)}</span>
+    ${hit ? `<span class="fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
     ${!e.isDir && !e.isParent ? `<span class="fe-tile-sz">${fmtSize(e.rawBytes)}</span>` : ""}
     ${itemActions(e, ctx.rawPath)}
   </a>`;
@@ -4021,12 +4199,14 @@ seconds and re-renders when the file changes on disk.
     const VIEW_MODES = [
       { id: "details", label: "Details", ico: `<svg width="13" height="11" viewBox="0 0 13 11"><path d="M1 1h11M1 4h11M1 7h11M1 10h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
       { id: "list", label: "List", ico: `<svg width="13" height="11" viewBox="0 0 13 11"><circle cx="2" cy="2" r="1.1" fill="currentColor"/><path d="M5 2h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2" cy="5.5" r="1.1" fill="currentColor"/><path d="M5 5.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2" cy="9" r="1.1" fill="currentColor"/><path d="M5 9h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
+      { id: "tree", label: "Tree", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><path d="M2 1.5v8h3M2 5.5h3M6 4.5h6M6 9.5h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="5.5" cy="4.5" r=".8" fill="currentColor"/><circle cx="5.5" cy="9.5" r=".8" fill="currentColor"/></svg>` },
       { id: "tiles", label: "Tiles", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="1" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="7.5" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="7.5" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>` },
       { id: "icons", label: "Large Icons", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/></svg>` }
     ];
     const VIEW_LABELS = {
       details: "Full table \u2014 Name, Type, Size, Modified",
       list: "Compact single-column rows",
+      tree: "Expand folders without leaving this page",
       tiles: "Medium icon grid with filename below",
       icons: "Large icon grid"
     };
@@ -4066,6 +4246,7 @@ seconds and re-renders when the file changes on disk.
             <select id="fe-st-defview" class="fe-st-select" title="View a folder opens in">
               <option value="details">Details</option>
               <option value="list">List</option>
+              <option value="tree">Tree</option>
               <option value="tiles">Tiles</option>
               <option value="icons">Large Icons</option>
             </select>
@@ -4171,6 +4352,18 @@ seconds and re-renders when the file changes on disk.
           </div>
           <div id="fe-st-rules-list"></div>
           <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940" title="Replace every rule with the built-in set">Reset to defaults</button>
+        </div>
+` },
+        { key: "exclusions", label: "Exclusions", hint: "native file pages", body: `
+        <div class="fe-st-section">
+          <div class="fe-st-title">Open with Chrome</div>
+          <div class="fe-st-hint">These extensions keep their native file page when opened. The preview panel still works.</div>
+          <div class="fe-st-row">
+            <label class="fe-st-lbl" for="fe-st-excluded-exts">File extensions</label>
+            <input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces">
+            <button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default excluded extensions">Restore defaults</button>
+          </div>
+          <div class="fe-st-hint">Changes apply when a file is opened next. PDF stays native even if removed here, because it has no text renderer.</div>
         </div>
 ` },
         { key: "notes", label: "Notes", hint: "the notes folder", body: `
@@ -4364,10 +4557,15 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text inside files</span>
           <input id="fe-find-text" type="text" placeholder="Words to look for" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
+          <label class="fe-st-check" title="Use a regular expression for text inside files (advanced)"><input type="checkbox" id="fe-find-text-regex" title="Text regex"> Text regex</label>
           <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
+          <label id="fe-find-depth-wrap" class="fe-st-check" style="display:none" title="Maximum subfolder depth to scan">Depth
+            <select id="fe-find-depth" title="Maximum subfolder depth"><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="8" selected>8</option></select>
+          </label>
           <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
           <button id="fe-find-cancel" class="fe-pbn" style="display:none" title="Stop scanning">Cancel</button>
           <span id="fe-find-status"></span>
+          <span id="fe-find-error" role="alert"></span>
           <button id="fe-find-save" class="fe-pbn" style="margin-left:auto" title="Keep this search as a Saved view: this folder plus these fields">\u2606 Save view</button>
         </div>
       </div>
@@ -4380,11 +4578,13 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
               <th class="c-tp" data-ck="tp" title="Type \xB7 drag the edge to resize">Type<span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size \xB7 again flips">Size <span class="si">\u2195</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-dt" data-ck="dt" data-sort="date" title="Sort by modified date \xB7 again flips">Modified <span class="si">\u2195</span></th>
+              <th class="c-match" title="Number of content matches">Matches</th>
             </tr>
           </thead>
           <tbody id="fe-tbody">${renderRows(ALL_ENTRIES, ctx0)}</tbody>
         </table>
         <div id="fe-tiles">${renderTiles(ALL_ENTRIES, ctx0)}</div>
+        <div id="fe-tree"></div>
       </div>
 
       <div id="fe-statusbar">
@@ -4691,6 +4891,112 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     return { entries, folders, truncated, cancelled: isCancelled() };
   }
 
+  // src/search-session.ts
+  var SearchFileReader = class {
+    constructor() {
+      this.port = chrome.runtime.connect({ name: "bfb-search-fetch" });
+      this.pending = /* @__PURE__ */ new Map();
+      this.next = 0;
+      this.closed = false;
+      this.read = (href) => new Promise((resolve, reject) => {
+        if (this.closed) {
+          reject(new Error("search stopped"));
+          return;
+        }
+        const id = ++this.next;
+        this.pending.set(id, { resolve, reject });
+        try {
+          this.port.postMessage({ type: "read", id, url: new URL(href, location.href).href });
+        } catch (error) {
+          this.pending.delete(id);
+          reject(new Error(String(error)));
+        }
+      });
+      this.port.onMessage.addListener((msg) => {
+        const p = this.pending.get(msg.id);
+        if (!p) return;
+        this.pending.delete(msg.id);
+        if (msg.ok) p.resolve(msg.text ?? "");
+        else p.reject(new Error(msg.error ?? "read failed"));
+      });
+      this.port.onDisconnect.addListener(() => this.close());
+    }
+    close() {
+      if (this.closed) return;
+      this.closed = true;
+      try {
+        this.port.disconnect();
+      } catch {
+      }
+      for (const p of this.pending.values()) p.reject(new Error("search stopped"));
+      this.pending.clear();
+    }
+  };
+  var SearchSession = class _SearchSession extends SearchFileReader {
+    constructor(worker) {
+      super();
+      this.matches = /* @__PURE__ */ new Map();
+      this.matchId = 0;
+      this.dead = false;
+      this.failure = null;
+      this.match = (text, query) => new Promise((resolve, reject) => {
+        if (this.dead) {
+          reject(new Error(this.failure ?? "search stopped"));
+          return;
+        }
+        const id = ++this.matchId;
+        this.matches.set(id, { resolve, reject });
+        try {
+          this.worker.postMessage({ id, text, query });
+        } catch (error) {
+          this.matches.delete(id);
+          reject(new Error(String(error)));
+        }
+      });
+      this.worker = worker;
+      this.worker.onmessage = (event) => {
+        const msg = event.data;
+        const p = this.matches.get(msg.id);
+        if (!p) return;
+        if (msg.started) {
+          p.timer = setTimeout(() => this.failMatches(new Error("Text matching timed out")), 2e3);
+          return;
+        }
+        if (p.timer) clearTimeout(p.timer);
+        this.matches.delete(msg.id);
+        if (msg.error) p.reject(new Error(msg.error));
+        else p.resolve(msg.hit ?? null);
+      };
+      this.worker.onerror = () => this.failMatches(new Error("Text matching worker failed"));
+    }
+    static async open() {
+      const response = await fetch(chrome.runtime.getURL("search-worker.js"));
+      if (!response.ok) throw new Error(`Search worker HTTP ${response.status}`);
+      const script = await response.text();
+      const url = URL.createObjectURL(new Blob([script], { type: "text/javascript" }));
+      try {
+        return new _SearchSession(new Worker(url));
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+    failMatches(error) {
+      if (this.dead) return;
+      this.dead = true;
+      this.failure = error.message;
+      this.worker?.terminate();
+      for (const p of this.matches.values()) {
+        if (p.timer) clearTimeout(p.timer);
+        p.reject(error);
+      }
+      this.matches.clear();
+    }
+    close() {
+      super.close();
+      this.failMatches(new Error("search stopped"));
+    }
+  };
+
   // src/listing.ts
   function initListing(app, all, init) {
     const { fe, toast, rawPath } = app;
@@ -4720,7 +5026,46 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const dirs = nonPar.filter((e) => e.isDir).length;
     const files = nonPar.filter((e) => !e.isDir).length;
     const hidden = nonPar.filter((e) => e.isHidden).length;
+    const treeExpanded = /* @__PURE__ */ new Set();
+    const treeChildren = /* @__PURE__ */ new Map();
+    const treeLoading = /* @__PURE__ */ new Set();
+    const treeErrors = /* @__PURE__ */ new Set();
+    const treeRootUrl = new URL("./", location.href).href;
+    let findSession = null;
+    let deepReader = null;
     ls.baseStatus = `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`;
+    function renderTree(entries, parent) {
+      const rows = [];
+      const add = (en, depth) => {
+        const idx = ls.visible.length;
+        ls.visible.push(en);
+        const name = en.isParent ? "Parent Directory" : en.name.split("/").pop();
+        const expanded = treeExpanded.has(en.href);
+        const hit = ls.contentHits?.get(en.href);
+        rows.push(`<div class="fe-tree-row${en.isHidden ? " dotfile" : ""}${en.isDir ? " dir" : ""}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
+        ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? "Collapse" : "Expand"} ${esc(name)}" aria-expanded="${expanded}">${CHEVRON_DOWN}</button>` : '<span class="fe-tree-spacer"></span>'}
+        <a href="${esc(en.href)}" class="fe-tree-link">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
+      </div>`);
+        if (!en.isDir || !expanded) return;
+        if (treeLoading.has(en.href)) {
+          rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Loading\u2026</div>`);
+          return;
+        }
+        if (treeErrors.has(en.href)) {
+          rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Could not read folder. Collapse and expand to retry.</div>`);
+          return;
+        }
+        const children = treeChildren.get(en.href);
+        if (!children) return;
+        if (!children.length) rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Empty folder</div>`);
+        for (const child of applySort(applyFilter(children, ls.filter), ls.sort)) {
+          if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
+        }
+      };
+      parent.forEach((en) => add(en, 0));
+      entries.forEach((en) => add(en, 0));
+      el("fe-tree").innerHTML = rows.join("");
+    }
     function applyAll() {
       const parent = all.filter((e) => e.isParent);
       let entries = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
@@ -4735,13 +5080,14 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       const pushEntry = (e) => {
         const idx = ls.visible.length;
         ls.visible.push(e);
-        rowParts.push(renderRow(e, c, idx));
-        tileParts.push(renderTile(e, c, idx));
+        const hit = ls.contentHits?.get(e.href);
+        rowParts.push(renderRow(e, c, idx, hit));
+        tileParts.push(renderTile(e, c, idx, hit));
       };
       parent.forEach(pushEntry);
       if (ls.group !== "none") {
         for (const g of buildGroups(entries, ls.group)) {
-          rowParts.push(`<tr class="fe-group-hdr"><td colspan="4">${esc(g.label)}</td></tr>`);
+          rowParts.push(`<tr class="fe-group-hdr"><td colspan="5">${esc(g.label)}</td></tr>`);
           tileParts.push(`<div class="fe-group-hdr-tile">${esc(g.label)}</div>`);
           g.items.forEach(pushEntry);
         }
@@ -4750,7 +5096,12 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       }
       tbody.innerHTML = rowParts.join("");
       tiles.innerHTML = tileParts.join("");
-      const shown = ls.visible.filter((en) => !en.isParent).length;
+      fe.classList.toggle("fe-has-find-hits", !!ls.contentHits);
+      if (fe.dataset.view === "tree") {
+        ls.visible = [];
+        renderTree(entries, parent);
+      }
+      const shown = fe.dataset.view === "tree" ? entries.length : ls.visible.filter((en) => !en.isParent).length;
       const filtered = !!ls.filter.q || ls.filter.type !== "all";
       if (ls.contentHits) {
         ls.baseStatus = `${shown} file${shown !== 1 ? "s" : ""} containing "${ls.contentText}"${ls.deepOn ? ` in ${ls.deepFolders} folders` : ""}`;
@@ -4859,6 +5210,37 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         btn.classList.add("active");
         fe.dataset.view = btn.dataset.view;
         localStorage.setItem(VIEW_KEY, btn.dataset.view);
+        applyAll();
+      });
+    });
+    el("fe-tree").addEventListener("click", (e) => {
+      const toggle = e.target.closest(".fe-tree-toggle");
+      if (!toggle) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const url = toggle.dataset.url;
+      if (treeExpanded.delete(url)) {
+        applyAll();
+        return;
+      }
+      treeExpanded.add(url);
+      if (treeChildren.has(url) || treeLoading.has(url)) {
+        applyAll();
+        return;
+      }
+      treeErrors.delete(url);
+      treeLoading.add(url);
+      applyAll();
+      const absoluteUrl = new URL(url, location.href).href;
+      fetchFileText(absoluteUrl).then((html) => {
+        const children = parseListing(html, absoluteUrl).map((child) => {
+          const rel = child.href.startsWith(treeRootUrl) ? decodeURIComponent(child.href.slice(treeRootUrl.length)).replace(/\/$/, "") : child.name;
+          return { ...child, name: rel, isHidden: rel.split("/").some((part) => part.startsWith(".")) };
+        });
+        treeChildren.set(url, children);
+      }).catch(() => treeErrors.add(url)).finally(() => {
+        treeLoading.delete(url);
+        if (fe.dataset.view === "tree") applyAll();
       });
     });
     const hiddenBtn = el("fe-hidden-btn");
@@ -4970,23 +5352,38 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       if (open) el("fe-filter-q").focus();
     });
     el("fe-filter-q").addEventListener("input", function() {
+      stopFind();
       ls.filter.q = this.value;
       applyAll();
     });
     el("fe-regex-btn").addEventListener("click", function() {
+      stopFind();
       ls.filter.regex = !ls.filter.regex;
       this.classList.toggle("active", ls.filter.regex);
       this.title = ls.filter.regex ? "Regex mode on" : "Toggle regex mode";
       applyAll();
     });
     el("fe-type-filter").addEventListener("change", function() {
+      stopFind();
       ls.filter.type = this.value;
       applyAll();
     });
     const findText = el("fe-find-text");
     const findCase = el("fe-find-case");
+    const findRegex = el("fe-find-text-regex");
+    const findDepth = el("fe-find-depth");
     const findStatus = el("fe-find-status");
+    const findError = el("fe-find-error");
     const findCancel = el("fe-find-cancel");
+    function stopFind() {
+      ls.findSeq++;
+      findSession?.close();
+      findSession = null;
+      ls.pendingFindText = null;
+      ls.contentHits = null;
+      findCancel.style.display = "none";
+      findStatus.textContent = "";
+    }
     function currentFind() {
       const type = ls.filter.type;
       return {
@@ -4995,44 +5392,112 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         regex: ls.filter.regex,
         exts: ["all", "folders", "files"].includes(type) ? [] : [type],
         text: findText.value.trim(),
-        caseSensitive: findCase.checked
+        caseSensitive: findCase.checked,
+        textRegex: findRegex.checked,
+        maxDepth: Number(findDepth.value) || 8
       };
     }
     async function runFind(text) {
+      findSession?.close();
       const seq = ++ls.findSeq;
+      findSession = null;
       ls.contentText = text;
+      findError.textContent = "";
+      ls.contentHits = null;
+      applyAll();
       if (!text) {
-        ls.contentHits = null;
         findStatus.textContent = "";
         findCancel.style.display = "none";
-        applyAll();
+        return;
+      }
+      const query = { ...currentFind(), text };
+      const patternError = textPatternError(query);
+      if (patternError) {
+        findError.textContent = patternError;
+        findStatus.textContent = "";
+        findCancel.style.display = "none";
         return;
       }
       if (ls.deepOn && ls.deepScanning) {
         ls.pendingFindText = text;
         findStatus.textContent = "waiting for the folder scan\u2026";
+        findCancel.style.display = "";
+        findCancel.onclick = () => {
+          ls.pendingFindText = null;
+          ls.deepSeq++;
+          deepReader?.close();
+          deepReader = null;
+          ls.deepScanning = false;
+          ls.deepOn = false;
+          deepBtn.classList.remove("on");
+          el("fe-find-depth-wrap").style.display = "none";
+          findCancel.style.display = "none";
+          findStatus.textContent = "stopped before scanning";
+          applyAll();
+        };
         return;
       }
       const source = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
       const candidates = applyFilter(source, ls.filter).filter(isTextCandidate);
       findStatus.textContent = `scanning 0/${candidates.length}`;
       findCancel.style.display = "";
+      let session;
+      let cancelled = false;
+      findCancel.onclick = () => {
+        cancelled = true;
+        session?.close();
+        findStatus.textContent = "stopping\u2026";
+      };
+      try {
+        session = await SearchSession.open();
+      } catch (error) {
+        if (seq !== ls.findSeq) return;
+        findCancel.style.display = "none";
+        findError.textContent = `Search could not start: ${String(error)}`;
+        return;
+      }
+      if (seq !== ls.findSeq) {
+        session.close();
+        return;
+      }
+      if (cancelled) session.close();
+      findSession = session;
       const r = await searchContents(
         candidates,
-        fetchFileText,
-        { ...currentFind(), text },
+        session.read,
+        query,
         (d, t) => {
           if (seq === ls.findSeq) findStatus.textContent = `scanning ${d}/${t}`;
         },
-        () => seq !== ls.findSeq
+        () => cancelled || session.dead || seq !== ls.findSeq,
+        4,
+        session.match
       );
+      const failure = session.failure;
+      session.close();
+      if (findSession === session) findSession = null;
       if (seq !== ls.findSeq) return;
       findCancel.style.display = "none";
       ls.contentHits = r.hits;
-      findStatus.textContent = `${r.hits.size} of ${r.scanned} files${r.failed ? `, ${r.failed} unreadable` : ""}${r.cancelled ? " (stopped)" : ""}`;
+      findStatus.textContent = `${r.hits.size} matching file${r.hits.size === 1 ? "" : "s"} of ${r.scanned} scanned${r.failed ? `, ${r.failed} unreadable or timed out` : ""}${r.cancelled ? " (partial, stopped)" : ""}`;
+      if (failure && failure !== "search stopped") findError.textContent = failure;
       applyAll();
     }
     el("fe-find-run").addEventListener("click", () => void runFind(findText.value.trim()));
+    findText.addEventListener("input", () => {
+      stopFind();
+      findError.textContent = "";
+      applyAll();
+    });
+    findRegex.addEventListener("change", () => {
+      stopFind();
+      findError.textContent = "";
+      applyAll();
+    });
+    findCase.addEventListener("change", () => {
+      stopFind();
+      applyAll();
+    });
     findText.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -5042,11 +5507,6 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         findText.value = "";
         void runFind("");
       }
-    });
-    findCancel.addEventListener("click", () => {
-      ls.findSeq++;
-      findCancel.style.display = "none";
-      findStatus.textContent = "stopped";
     });
     el("fe-find-save").addEventListener("click", () => {
       const q = currentFind();
@@ -5071,6 +5531,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-type-filter").value = ls.filter.type;
       findText.value = q.text;
       findCase.checked = q.caseSensitive;
+      findRegex.checked = q.textRegex;
+      findDepth.value = String(q.maxDepth);
       filterBar.style.display = "";
       el("fe-filter-btn").classList.add("on");
       if (q.scope === "deep" !== ls.deepOn) deepBtn.click();
@@ -5085,12 +5547,28 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const deepBtn = el("fe-deep-btn");
     const searchEl = el("fe-search");
     function startDeepCrawl() {
+      deepReader?.close();
       const seq = ++ls.deepSeq;
       ls.deepScanning = true;
+      let reader;
+      try {
+        reader = new SearchFileReader();
+      } catch (error) {
+        ls.deepScanning = false;
+        findError.textContent = `Folder scan could not start: ${String(error)}`;
+        return;
+      }
+      deepReader = reader;
+      let scanFailures = 0;
       crawl(
-        new URL(location.href).href,
-        (url) => fetchFileText(url).then((html) => parseListing(html, url)),
+        treeRootUrl,
+        (url) => reader.read(url).then((html) => parseListing(html, url)).catch((error) => {
+          scanFailures++;
+          if (seq === ls.deepSeq) findError.textContent = `Could not read ${scanFailures} folder${scanFailures === 1 ? "" : "s"}: ${String(error)}`;
+          throw error;
+        }),
         {
+          maxDepth: Number(findDepth.value) || 8,
           includeHidden: fe.classList.contains("show-hidden"),
           onProgress: (f) => {
             if (seq === ls.deepSeq) {
@@ -5101,13 +5579,15 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         },
         () => seq !== ls.deepSeq
       ).then((r) => {
+        reader.close();
+        if (deepReader === reader) deepReader = null;
         if (seq !== ls.deepSeq) return;
         ls.deepEntries = r.entries;
         ls.deepFolders = r.folders;
         ls.deepTruncated = r.truncated;
         ls.deepScanning = false;
         applyAll();
-        if (r.truncated) toast("Deep search capped: too many items or folders too deep");
+        if (r.truncated) toast(`Deep search reached the ${findDepth.value}-level or 5000-item limit`);
         if (ls.pendingFindText !== null) {
           const t = ls.pendingFindText;
           ls.pendingFindText = null;
@@ -5116,8 +5596,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       });
     }
     deepBtn.addEventListener("click", () => {
+      stopFind();
       ls.deepOn = !ls.deepOn;
       deepBtn.classList.toggle("on", ls.deepOn);
+      el("fe-find-depth-wrap").style.display = ls.deepOn ? "" : "none";
       searchEl.placeholder = ls.deepOn ? "Search subfolders" : "Filter";
       if (ls.deepOn) {
         if (!ls.deepEntries) startDeepCrawl();
@@ -5125,11 +5607,20 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         searchEl.focus();
       } else {
         ls.deepSeq++;
+        deepReader?.close();
+        deepReader = null;
         ls.deepScanning = false;
         applyAll();
       }
     });
+    findDepth.addEventListener("change", () => {
+      stopFind();
+      ls.deepEntries = null;
+      if (ls.deepOn) startDeepCrawl();
+      else applyAll();
+    });
     searchEl.addEventListener("input", function() {
+      stopFind();
       ls.filter.q = this.value;
       el("fe-filter-q").value = this.value;
       applyAll();
@@ -5144,6 +5635,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         applyAll();
       }
       searchEl.blur();
+    });
+    window.addEventListener("pagehide", () => {
+      findSession?.close();
+      deepReader?.close();
     });
     return { ls, sel, applyAll, applyFindFromHash };
   }
@@ -5702,6 +6197,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-st-term-custom").value = settings.terminalCmd || "";
       el("fe-st-notes-root").value = settings.notesRoot || "";
       el("fe-st-filepages").value = settings.renderFilePages || "all";
+      const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
+      el("fe-st-excluded-exts").value = excluded.map((x) => "." + x).join(", ");
       el("fe-st-sec-recent").checked = !settings.hideRecent;
       el("fe-st-sec-favorites").checked = !settings.hideFavorites;
       el("fe-st-sec-system").checked = !settings.hideSystem;
@@ -5912,6 +6409,16 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       settings.renderFilePages = this.value;
       saveSettings(settings);
     });
+    el("fe-st-excluded-exts").addEventListener("change", function() {
+      settings.excludedFileExtensions = parseExcludedExtensions(this.value);
+      this.value = settings.excludedFileExtensions.map((x) => "." + x).join(", ");
+      saveSettings(settings);
+    });
+    el("fe-st-excluded-reset").addEventListener("click", () => {
+      settings.excludedFileExtensions = [...DEFAULT_SETTINGS.excludedFileExtensions ?? []];
+      el("fe-st-excluded-exts").value = settings.excludedFileExtensions.map((x) => "." + x).join(", ");
+      saveSettings(settings);
+    });
     el("fe-st-notes-root").addEventListener("change", function() {
       settings.notesRoot = this.value.trim() || void 0;
       saveSettings(settings);
@@ -6059,7 +6566,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       preload?.remove();
       return;
     }
-    const fileText = fileMode ? document.body.textContent || "" : "";
+    const isHtmlSource = fileMode && (fileExt === "html" || fileExt === "htm");
+    const fileText = fileMode ? isHtmlSource ? "Loading HTML source\u2026" : document.body.textContent || "" : "";
     const rawPath = decodeURIComponent(window.location.pathname);
     const segments = rawPath.split("/").filter(Boolean);
     const fileName = fileMode ? segments.pop() || "" : "";
@@ -6179,14 +6687,19 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       app.toast("Kept as a tab");
     } });
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore !== false });
-    if (fileMode) app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href, column: !!settings.readerColumn });
+    if (fileMode) {
+      app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href, column: !!settings.readerColumn });
+      if (isHtmlSource) fetchFileText(location.href).then((text) => app.filePage?.setText(text)).catch(() => {
+        app.filePage?.setText("Could not load the HTML source.");
+      });
+    }
     initChrome(app);
     initMarkdownUi(app.toast);
     const listing = initListing(app, entries, { view: initView, zoom: initZoom, hidden: initHidden });
     initListingInput(app, listing);
     initSettingsUi(app);
     initSidebar(app);
-    if (listing.ls.sort.col || listing.ls.group !== "none") listing.applyAll();
+    listing.applyAll();
     listing.applyFindFromHash();
     if (settings.tooltips === false) {
       const strip = () => document.querySelectorAll("[title]").forEach((x) => x.removeAttribute("title"));

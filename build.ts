@@ -19,14 +19,20 @@ async function main() {
     format: 'esm', target: 'chrome100', platform: 'browser', minify: true,
     logLevel: 'info',
   });
+  const searchCtx = await esbuild.context({
+    entryPoints: ['src/search-worker.ts'], bundle: true, outfile: 'search-worker.js',
+    format: 'iife', target: 'chrome100', platform: 'browser', minify: true,
+    logLevel: 'info',
+  });
 
   if (watch) {
-    await Promise.all([ctx.watch(), mermaidCtx.watch()]);
+    await Promise.all([ctx.watch(), mermaidCtx.watch(), searchCtx.watch()]);
     console.log('Watching for changes…');
   } else {
-    await Promise.all([ctx.rebuild(), mermaidCtx.rebuild()]);
+    await Promise.all([ctx.rebuild(), mermaidCtx.rebuild(), searchCtx.rebuild()]);
     await ctx.dispose();
     await mermaidCtx.dispose();
+    await searchCtx.dispose();
   }
 }
 

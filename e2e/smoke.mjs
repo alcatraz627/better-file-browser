@@ -25,7 +25,7 @@ try {
   await shot(page, 'listing');
 
   // A plain click on a file row opens the panel.
-  const row = await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td:last-child');
+  const row = await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td.c-nm');
   check(!!row, 'readme.md row present');
   await row.click();
   await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
@@ -89,7 +89,7 @@ try {
   check(docked.side && docked.parent === 'fe-body' && docked.main < mainBefore - 300, `docked: ${JSON.stringify(docked)}`);
 
   // In side mode a row click previews that file.
-  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="notes.txt"]) td:last-child')).click();
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="notes.txt"]) td.c-nm')).click();
   await page.waitForFunction(() => document.getElementById('fe-ql-name').textContent === 'notes.txt', { timeout: 3_000 }).catch(() => null);
   const followed = await page.$eval('#fe-ql-name', el => el.textContent);
   check(followed === 'notes.txt', `docked preview follows row click: ${followed}`);
@@ -103,7 +103,7 @@ try {
   // Mode and sizes survive a reload.
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
-  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td:last-child')).click();
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td.c-nm')).click();
   await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
   const persisted = await page.evaluate(() => ({
     side: document.getElementById('fe-qlook').classList.contains('side'),
@@ -125,7 +125,7 @@ try {
   const stillOpen = await page.$eval('#fe-qlook', el => el.style.display !== 'none');
   check(!stillOpen, 'Escape closes preview');
   // With the panel open: t keeps the previewed file as a background tab, Enter goes to its page.
-  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td:last-child')).click();
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td.c-nm')).click();
   await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
   await page.keyboard.press('t');
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 1, { timeout: 3_000 }).catch(() => null);
@@ -147,7 +147,7 @@ try {
   const after = (await h.browser.pages()).length;
   check(after === before + 1, `middle-click opened a new tab (${before} → ${after})`);
   check(page.url().endsWith('/'), 'explorer tab stayed on the listing');
-  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="data.json"]) td:last-child')).click({ button: 'middle' });
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="data.json"]) td.c-nm')).click({ button: 'middle' });
   await new Promise(r => setTimeout(r, 800));
   const afterRow = (await h.browser.pages()).length;
   check(afterRow === after + 1 && page.url().endsWith('/'), `middle-click on row whitespace also opens a new tab (${after} → ${afterRow})`);
@@ -162,13 +162,13 @@ try {
   check(looked.name === 'readme.md' && looked.url === urlHere, `plain click on a file name looks in the panel, URL unchanged: ${JSON.stringify(looked)}`);
   await page.keyboard.press('Escape');
   await page.keyboard.down('Shift');
-  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="notes.txt"]) td:last-child')).click();
-  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="data.json"]) td:last-child')).click();
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="notes.txt"]) td.c-nm')).click();
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="data.json"]) td.c-nm')).click();
   await page.keyboard.up('Shift');
   const toggled = await page.$$eval('#fe-tbody tr.selected .fe-nm', els => els.map(e => e.textContent).sort());
   check(toggled.join() === 'data.json,notes.txt,readme.md' && page.url() === urlHere, `⇧ click toggles rows into the selection: ${JSON.stringify(toggled)}`);
   await page.keyboard.down('Shift'); await page.keyboard.down('Meta');
-  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="script.sh"]) td:last-child')).click();
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="script.sh"]) td.c-nm')).click();
   await page.keyboard.up('Meta'); await page.keyboard.up('Shift');
   const ranged = await page.$$eval('#fe-tbody tr.selected .fe-nm', els => els.map(e => e.textContent));
   check(ranged.join() === 'data.json,notes.txt,readme.md,rows.tsv,script.sh' && page.url() === urlHere, `⇧⌘ click selects the range from the anchor: ${JSON.stringify(ranged)}`);
@@ -574,7 +574,7 @@ try {
   // Dialogs: Help and Settings share one chrome. A title row with a mark and
   // a subtitle, a tab strip, one pane shown at a time; the chrome holds still
   // while a pane scrolls; Esc closes.
-  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 6, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 7, 'settings-dialog']]) {
+  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 6, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 8, 'settings-dialog']]) {
     await page.click(btn);
     await page.waitForFunction(i => document.getElementById(i).style.display !== 'none', { timeout: 3_000 }, id).catch(() => null);
     const d = await page.evaluate(i => {
@@ -922,9 +922,9 @@ try {
   await page.click('#fe-find-text');
   await page.type('#fe-find-text', 'second');
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => /^\d+ of \d+ files/.test(document.getElementById('fe-find-status').textContent), { timeout: 10_000 }).catch(() => null);
+  await page.waitForFunction(() => /^\d+ matching files? of \d+ scanned/.test(document.getElementById('fe-find-status').textContent), { timeout: 10_000 }).catch(() => null);
   let found = { status: await page.$eval('#fe-find-status', el => el.textContent), rows: await rowNames(), count: await page.$eval('#fe-count', el => el.textContent) };
-  check(found.rows.join() === 'notes.txt' && /^1 of \d+ files$/.test(found.status) && /1 file containing "second"/.test(found.count), `text search narrows to the file containing it: ${JSON.stringify(found)}`);
+  check(found.rows.join() === 'notes.txt' && /^1 matching file of \d+ scanned$/.test(found.status) && /1 file containing "second"/.test(found.count), `text search narrows to the file containing it: ${JSON.stringify(found)}`);
   await page.click('#fe-find-save');
   const viewRow = await page.$eval('#fe-sv-list .fe-pl-item.fe-view .fe-pl-label', el => el.textContent).catch(() => null);
   check(viewRow === '"second"', `saved view row appears in Saved: ${viewRow}`);
@@ -934,7 +934,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('#fe-tbody tr[data-idx]').length === 9, { timeout: 3_000 }).catch(() => null);
   check((await rowNames()).length === 8, 'Escape in the text field clears the held results');
   await page.click('#fe-sv-list .fe-pl-item.fe-view .fe-si-link');
-  await page.waitForFunction(() => /^\d+ of \d+ files/.test(document.getElementById('fe-find-status').textContent) && document.querySelectorAll('#fe-tbody tr[data-idx]').length === 2, { timeout: 10_000 }).catch(() => null);
+  await page.waitForFunction(() => /^\d+ matching files? of \d+ scanned/.test(document.getElementById('fe-find-status').textContent) && document.querySelectorAll('#fe-tbody tr[data-idx]').length === 2, { timeout: 10_000 }).catch(() => null);
   found = { hash: await page.evaluate(() => location.hash.slice(0, 6)), rows: await rowNames() };
   check(found.hash === '#find=' && found.rows.join() === 'notes.txt', `saved view reopens through the hash: ${JSON.stringify(found)}`);
   await page.evaluate(() => { history.replaceState(null, '', location.pathname); });
@@ -945,7 +945,7 @@ try {
   await page.click('#fe-find-text');
   await page.type('#fe-find-text', 'deep');
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => /^\d+ of \d+ files/.test(document.getElementById('fe-find-status').textContent), { timeout: 10_000 }).catch(() => null);
+  await page.waitForFunction(() => /^\d+ matching files? of \d+ scanned/.test(document.getElementById('fe-find-status').textContent), { timeout: 10_000 }).catch(() => null);
   found = { rows: await rowNames(), status: await page.$eval('#fe-find-status', el => el.textContent) };
   check(found.rows.join() === 'nested/deeper/deepest.md', `deep text search reaches subfolders: ${JSON.stringify(found)}`);
   await page.click('#fe-find-text');
@@ -963,7 +963,7 @@ try {
   check(deepRows.length === 2 && deepRows.includes('nested/deeper/deepest.md') && deepRows.includes('nested/deeper'),
     `deep filter rows: ${JSON.stringify(deepRows)}`);
   await shot(page, 'deep-search');
-  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="deepest.md"]) td:last-child')).click();
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="deepest.md"]) td.c-nm')).click();
   await page.keyboard.press('Space');
   await page.waitForSelector('#fe-ql-body h1', { timeout: 5_000 }).catch(() => null);
   const deepH1 = await page.$eval('#fe-ql-body h1', el => el.textContent).catch(() => null);
@@ -1021,7 +1021,7 @@ try {
   const scrollBack = await page.evaluate(() => document.getElementById('fe-scroll').scrollTop);
   check(scrollBack === 60, `a folder tab remembers its listing scroll: ${scrollBack}`);
   await page.keyboard.down('Alt');
-  for (let i = 2; i <= 21; i++) await page.click(`#fe-tbody tr[data-idx]:nth-child(${i}) td:last-child`);
+  for (let i = 2; i <= 21; i++) await page.click(`#fe-tbody tr[data-idx]:nth-child(${i}) td.c-nm`);
   await page.keyboard.up('Alt');
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 20, { timeout: 5_000 }).catch(() => null);
   const overflow = await page.evaluate(() => {
@@ -1082,7 +1082,7 @@ try {
   const worker = await sw.worker();
   await worker.evaluate(() => chrome.runtime.reload());
   await new Promise(r => setTimeout(r, 1000));
-  const innerRow = await page.$('#fe-tbody tr[data-idx]:has(a[href$="inner.txt"]) td:last-child');
+  const innerRow = await page.$('#fe-tbody tr[data-idx]:has(a[href$="inner.txt"]) td.c-nm');
   await innerRow.click();
   await page.keyboard.press('Space');
   await page.waitForSelector('#fe-ql-retry', { timeout: 5_000 }).catch(() => null);

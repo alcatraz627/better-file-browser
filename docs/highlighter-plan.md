@@ -1,10 +1,12 @@
-# S2.3 — Syntax highlighter upgrade (plan, hand-rolled)
+# S2.3 — Syntax highlighter upgrade (hand-rolled)
+
+P0–P4 shipped through v2.10. The design and test plan below record the original
+scope; the current token rules are in `src/renderers.ts`.
 
 <!-- sessions: catch-proj-3f@2026-06-18 -->
 
-Decision (user): keep it **hand-rolled, no runtime dependency**. Plan first,
-review against existing designs, then implement in reviewed phases. This doc is
-the plan; no code ships from it until approved.
+Decision (user): keep it **hand-rolled, no runtime dependency**. The phases
+below are the original implementation plan.
 
 ---
 

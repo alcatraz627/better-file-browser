@@ -17,8 +17,10 @@ import { applyFilter, applySort, buildGroups } from './sort-filter';
 import { crawl } from './deep-search';
 import { parseListing } from './parse';
 import { fetchFileText } from './file-fetch';
-import { isTextCandidate, searchContents, findToHash, findFromHash, describeFind } from './find';
-import { renderRow, renderTile, type RenderContext } from './render';
+import { isTextCandidate, searchContents, findToHash, findFromHash, describeFind, textPatternError } from './find';
+import { SearchFileReader, SearchSession } from './search-session';
+import { renderRow, renderTile, renderHitSnippet, type RenderContext } from './render';
+import { getIcon, CHEVRON_DOWN } from './icons';
 import { openPreview, canPreview } from './preview';
 
 export interface ListingState {
@@ -62,7 +64,41 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
   const dirs   = nonPar.filter(e => e.isDir).length;
   const files  = nonPar.filter(e => !e.isDir).length;
   const hidden = nonPar.filter(e => e.isHidden).length;
+  const treeExpanded = new Set<string>();
+  const treeChildren = new Map<string, Entry[]>();
+  const treeLoading = new Set<string>();
+  const treeErrors = new Set<string>();
+  const treeRootUrl = new URL('./', location.href).href;
+  let findSession: SearchSession | null = null;
+  let deepReader: SearchFileReader | null = null;
   ls.baseStatus = `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`;
+
+  function renderTree(entries: Entry[], parent: Entry[]): void {
+    const rows: string[] = [];
+    const add = (en: Entry, depth: number) => {
+      const idx = ls.visible.length;
+      ls.visible.push(en);
+      const name = en.isParent ? 'Parent Directory' : en.name.split('/').pop()!;
+      const expanded = treeExpanded.has(en.href);
+      const hit = ls.contentHits?.get(en.href);
+      rows.push(`<div class="fe-tree-row${en.isHidden ? ' dotfile' : ''}${en.isDir ? ' dir' : ''}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
+        ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? 'Collapse' : 'Expand'} ${esc(name)}" aria-expanded="${expanded}">${CHEVRON_DOWN}</button>` : '<span class="fe-tree-spacer"></span>'}
+        <a href="${esc(en.href)}" class="fe-tree-link">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ''}
+      </div>`);
+      if (!en.isDir || !expanded) return;
+      if (treeLoading.has(en.href)) { rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Loading…</div>`); return; }
+      if (treeErrors.has(en.href)) { rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Could not read folder. Collapse and expand to retry.</div>`); return; }
+      const children = treeChildren.get(en.href);
+      if (!children) return;
+      if (!children.length) rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Empty folder</div>`);
+      for (const child of applySort(applyFilter(children, ls.filter), ls.sort)) {
+        if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
+      }
+    };
+    parent.forEach(en => add(en, 0));
+    entries.forEach(en => add(en, 0));
+    el('fe-tree').innerHTML = rows.join('');
+  }
 
   function applyAll(): void {
     const parent  = all.filter(e => e.isParent);
@@ -78,13 +114,14 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     const pushEntry = (e: Entry) => {
       const idx = ls.visible.length;
       ls.visible.push(e);
-      rowParts.push(renderRow(e, c, idx));
-      tileParts.push(renderTile(e, c, idx));
+      const hit = ls.contentHits?.get(e.href);
+      rowParts.push(renderRow(e, c, idx, hit));
+      tileParts.push(renderTile(e, c, idx, hit));
     };
     parent.forEach(pushEntry);
     if (ls.group !== 'none') {
       for (const g of buildGroups(entries, ls.group)) {
-        rowParts.push(`<tr class="fe-group-hdr"><td colspan="4">${esc(g.label)}</td></tr>`);
+        rowParts.push(`<tr class="fe-group-hdr"><td colspan="5">${esc(g.label)}</td></tr>`);
         tileParts.push(`<div class="fe-group-hdr-tile">${esc(g.label)}</div>`);
         g.items.forEach(pushEntry);
       }
@@ -93,8 +130,13 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     }
     tbody.innerHTML = rowParts.join('');
     tiles.innerHTML = tileParts.join('');
+    fe.classList.toggle('fe-has-find-hits', !!ls.contentHits);
+    if (fe.dataset.view === 'tree') {
+      ls.visible = [];
+      renderTree(entries, parent);
+    }
 
-    const shown = ls.visible.filter(en => !en.isParent).length;
+    const shown = fe.dataset.view === 'tree' ? entries.length : ls.visible.filter(en => !en.isParent).length;
     const filtered = !!ls.filter.q || ls.filter.type !== 'all';
     if (ls.contentHits) {
       ls.baseStatus = `${shown} file${shown !== 1 ? 's' : ''} containing "${ls.contentText}"${ls.deepOn ? ` in ${ls.deepFolders} folders` : ''}`;
@@ -194,6 +236,32 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
       btn.classList.add('active');
       fe.dataset.view = btn.dataset.view!;
       localStorage.setItem(VIEW_KEY, btn.dataset.view!);
+      applyAll();
+    });
+  });
+  el('fe-tree').addEventListener('click', e => {
+    const toggle = (e.target as HTMLElement).closest<HTMLButtonElement>('.fe-tree-toggle');
+    if (!toggle) return;
+    e.preventDefault(); e.stopPropagation();
+    const url = toggle.dataset.url!;
+    if (treeExpanded.delete(url)) { applyAll(); return; }
+    treeExpanded.add(url);
+    if (treeChildren.has(url) || treeLoading.has(url)) { applyAll(); return; }
+    treeErrors.delete(url);
+    treeLoading.add(url);
+    applyAll();
+    const absoluteUrl = new URL(url, location.href).href;
+    fetchFileText(absoluteUrl).then(html => {
+      const children = parseListing(html, absoluteUrl).map(child => {
+        const rel = child.href.startsWith(treeRootUrl)
+          ? decodeURIComponent(child.href.slice(treeRootUrl.length)).replace(/\/$/, '')
+          : child.name;
+        return { ...child, name: rel, isHidden: rel.split('/').some(part => part.startsWith('.')) };
+      });
+      treeChildren.set(url, children);
+    }).catch(() => treeErrors.add(url)).finally(() => {
+      treeLoading.delete(url);
+      if (fe.dataset.view === 'tree') applyAll();
     });
   });
   const hiddenBtn = el('fe-hidden-btn');
@@ -295,19 +363,32 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     el('fe-filter-btn').classList.toggle('on', open);
     if (open) el<HTMLInputElement>('fe-filter-q').focus();
   });
-  el<HTMLInputElement>('fe-filter-q').addEventListener('input', function () { ls.filter.q = this.value; applyAll(); });
+  el<HTMLInputElement>('fe-filter-q').addEventListener('input', function () { stopFind(); ls.filter.q = this.value; applyAll(); });
   el('fe-regex-btn').addEventListener('click', function () {
+    stopFind();
     ls.filter.regex = !ls.filter.regex;
     (this as HTMLElement).classList.toggle('active', ls.filter.regex);
     (this as HTMLElement).title = ls.filter.regex ? 'Regex mode on' : 'Toggle regex mode';
     applyAll();
   });
-  el<HTMLSelectElement>('fe-type-filter').addEventListener('change', function () { ls.filter.type = this.value; applyAll(); });
+  el<HTMLSelectElement>('fe-type-filter').addEventListener('change', function () { stopFind(); ls.filter.type = this.value; applyAll(); });
 
   const findText   = el<HTMLInputElement>('fe-find-text');
   const findCase   = el<HTMLInputElement>('fe-find-case');
+  const findRegex  = el<HTMLInputElement>('fe-find-text-regex');
+  const findDepth  = el<HTMLSelectElement>('fe-find-depth');
   const findStatus = el('fe-find-status');
+  const findError  = el('fe-find-error');
   const findCancel = el('fe-find-cancel');
+  function stopFind(): void {
+    ls.findSeq++;
+    findSession?.close();
+    findSession = null;
+    ls.pendingFindText = null;
+    ls.contentHits = null;
+    findCancel.style.display = 'none';
+    findStatus.textContent = '';
+  }
   function currentFind(): FindQuery {
     const type = ls.filter.type;
     return {
@@ -315,32 +396,76 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
       name: ls.filter.q, regex: ls.filter.regex,
       exts: ['all', 'folders', 'files'].includes(type) ? [] : [type],
       text: findText.value.trim(), caseSensitive: findCase.checked,
+      textRegex: findRegex.checked, maxDepth: Number(findDepth.value) || 8,
     };
   }
   async function runFind(text: string): Promise<void> {
+    findSession?.close();
     const seq = ++ls.findSeq;
+    findSession = null;
     ls.contentText = text;
-    if (!text) { ls.contentHits = null; findStatus.textContent = ''; findCancel.style.display = 'none'; applyAll(); return; }
-    if (ls.deepOn && ls.deepScanning) { ls.pendingFindText = text; findStatus.textContent = 'waiting for the folder scan…'; return; }
+    findError.textContent = '';
+    ls.contentHits = null;
+    applyAll();
+    if (!text) { findStatus.textContent = ''; findCancel.style.display = 'none'; return; }
+    const query = { ...currentFind(), text };
+    const patternError = textPatternError(query);
+    if (patternError) { findError.textContent = patternError; findStatus.textContent = ''; findCancel.style.display = 'none'; return; }
+    if (ls.deepOn && ls.deepScanning) {
+      ls.pendingFindText = text;
+      findStatus.textContent = 'waiting for the folder scan…';
+      findCancel.style.display = '';
+      findCancel.onclick = () => {
+        ls.pendingFindText = null;
+        ls.deepSeq++;
+        deepReader?.close(); deepReader = null;
+        ls.deepScanning = false; ls.deepOn = false;
+        deepBtn.classList.remove('on');
+        el('fe-find-depth-wrap').style.display = 'none';
+        findCancel.style.display = 'none';
+        findStatus.textContent = 'stopped before scanning';
+        applyAll();
+      };
+      return;
+    }
     const source = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
     const candidates = applyFilter(source, ls.filter).filter(isTextCandidate);
     findStatus.textContent = `scanning 0/${candidates.length}`;
     findCancel.style.display = '';
-    const r = await searchContents(candidates, fetchFileText, { ...currentFind(), text },
+    let session: SearchSession;
+    let cancelled = false;
+    findCancel.onclick = () => { cancelled = true; session?.close(); findStatus.textContent = 'stopping…'; };
+    try { session = await SearchSession.open(); }
+    catch (error) {
+      if (seq !== ls.findSeq) return;
+      findCancel.style.display = 'none';
+      findError.textContent = `Search could not start: ${String(error)}`;
+      return;
+    }
+    if (seq !== ls.findSeq) { session.close(); return; }
+    if (cancelled) session.close();
+    findSession = session;
+    const r = await searchContents(candidates, session.read, query,
       (d, t) => { if (seq === ls.findSeq) findStatus.textContent = `scanning ${d}/${t}`; },
-      () => seq !== ls.findSeq);
+      () => cancelled || session.dead || seq !== ls.findSeq, 4, session.match);
+    const failure = session.failure;
+    session.close();
+    if (findSession === session) findSession = null;
     if (seq !== ls.findSeq) return;
     findCancel.style.display = 'none';
     ls.contentHits = r.hits;
-    findStatus.textContent = `${r.hits.size} of ${r.scanned} files${r.failed ? `, ${r.failed} unreadable` : ''}${r.cancelled ? ' (stopped)' : ''}`;
+    findStatus.textContent = `${r.hits.size} matching file${r.hits.size === 1 ? '' : 's'} of ${r.scanned} scanned${r.failed ? `, ${r.failed} unreadable or timed out` : ''}${r.cancelled ? ' (partial, stopped)' : ''}`;
+    if (failure && failure !== 'search stopped') findError.textContent = failure;
     applyAll();
   }
   el('fe-find-run').addEventListener('click', () => void runFind(findText.value.trim()));
+  findText.addEventListener('input', () => { stopFind(); findError.textContent = ''; applyAll(); });
+  findRegex.addEventListener('change', () => { stopFind(); findError.textContent = ''; applyAll(); });
+  findCase.addEventListener('change', () => { stopFind(); applyAll(); });
   findText.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); void runFind(findText.value.trim()); }
     else if (e.key === 'Escape') { e.stopPropagation(); findText.value = ''; void runFind(''); }
   });
-  findCancel.addEventListener('click', () => { ls.findSeq++; findCancel.style.display = 'none'; findStatus.textContent = 'stopped'; });
   el('fe-find-save').addEventListener('click', () => {
     const q = currentFind();
     const hash = findToHash(q);
@@ -361,6 +486,8 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     el('fe-regex-btn').classList.toggle('active', q.regex);
     el<HTMLSelectElement>('fe-type-filter').value = ls.filter.type;
     findText.value = q.text; findCase.checked = q.caseSensitive;
+    findRegex.checked = q.textRegex;
+    findDepth.value = String(q.maxDepth);
     filterBar.style.display = ''; el('fe-filter-btn').classList.add('on');
     if ((q.scope === 'deep') !== ls.deepOn) deepBtn.click();
     ls.contentHits = null;
@@ -373,35 +500,57 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
   const deepBtn = el('fe-deep-btn');
   const searchEl = el<HTMLInputElement>('fe-search');
   function startDeepCrawl(): void {
+    deepReader?.close();
     const seq = ++ls.deepSeq;
     ls.deepScanning = true;
+    let reader: SearchFileReader;
+    try { reader = new SearchFileReader(); }
+    catch (error) { ls.deepScanning = false; findError.textContent = `Folder scan could not start: ${String(error)}`; return; }
+    deepReader = reader;
+    let scanFailures = 0;
     crawl(
-      new URL(location.href).href,
-      url => fetchFileText(url).then(html => parseListing(html, url)),
+      treeRootUrl,
+      url => reader.read(url).then(html => parseListing(html, url)).catch(error => {
+        scanFailures++;
+        if (seq === ls.deepSeq) findError.textContent = `Could not read ${scanFailures} folder${scanFailures === 1 ? '' : 's'}: ${String(error)}`;
+        throw error;
+      }),
       {
+        maxDepth: Number(findDepth.value) || 8,
         includeHidden: fe.classList.contains('show-hidden'),
         onProgress: f => { if (seq === ls.deepSeq) { ls.deepFolders = f; applyAll(); } },
       },
       () => seq !== ls.deepSeq,
     ).then(r => {
+      reader.close();
+      if (deepReader === reader) deepReader = null;
       if (seq !== ls.deepSeq) return;
       ls.deepEntries = r.entries; ls.deepFolders = r.folders; ls.deepTruncated = r.truncated;
       ls.deepScanning = false;
       applyAll();
-      if (r.truncated) toast('Deep search capped: too many items or folders too deep');
+      if (r.truncated) toast(`Deep search reached the ${findDepth.value}-level or 5000-item limit`);
       if (ls.pendingFindText !== null) { const t = ls.pendingFindText; ls.pendingFindText = null; void runFind(t); }
     });
   }
   deepBtn.addEventListener('click', () => {
+    stopFind();
     ls.deepOn = !ls.deepOn;
     deepBtn.classList.toggle('on', ls.deepOn);
+    el('fe-find-depth-wrap').style.display = ls.deepOn ? '' : 'none';
     searchEl.placeholder = ls.deepOn ? 'Search subfolders' : 'Filter';
     if (ls.deepOn) { if (!ls.deepEntries) startDeepCrawl(); else applyAll(); searchEl.focus(); }
-    else { ls.deepSeq++; ls.deepScanning = false; applyAll(); }
+    else { ls.deepSeq++; deepReader?.close(); deepReader = null; ls.deepScanning = false; applyAll(); }
+  });
+  findDepth.addEventListener('change', () => {
+    stopFind();
+    ls.deepEntries = null;
+    if (ls.deepOn) startDeepCrawl();
+    else applyAll();
   });
 
   // The quick filter box mirrors the filter bar's name field.
   searchEl.addEventListener('input', function () {
+    stopFind();
     ls.filter.q = this.value;
     el<HTMLInputElement>('fe-filter-q').value = this.value;
     applyAll();
@@ -416,6 +565,10 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
       applyAll();
     }
     searchEl.blur();
+  });
+  window.addEventListener('pagehide', () => {
+    findSession?.close();
+    deepReader?.close();
   });
 
   return { ls, sel, applyAll, applyFindFromHash };

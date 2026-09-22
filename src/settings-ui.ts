@@ -6,10 +6,10 @@ import type { LlmAvailability } from './llm';
 import { el, els } from './el';
 import { esc } from './utils';
 import { icoCustom } from './icons';
-import { VIEW_KEY, THEME_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout } from './storage';
+import { VIEW_KEY, THEME_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout } from './storage';
 import { llmAvailability, llmWarm } from './llm';
 import { mountDialog } from './dialog';
-import { COLUMN_KEY } from './file-page';
+import { COLUMN_KEY, parseExcludedExtensions } from './file-page';
 
 export function initSettingsUi(app: App): void {
   const { fe, settings, toast } = app;
@@ -51,6 +51,8 @@ export function initSettingsUi(app: App): void {
     el<HTMLInputElement>('fe-st-term-custom').value = settings.terminalCmd || '';
     el<HTMLInputElement>('fe-st-notes-root').value = settings.notesRoot || '';
     el<HTMLSelectElement>('fe-st-filepages').value = settings.renderFilePages || 'all';
+    const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
+    el<HTMLInputElement>('fe-st-excluded-exts').value = excluded.map(x => '.' + x).join(', ');
     el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
     el<HTMLInputElement>('fe-st-sec-favorites').checked = !settings.hideFavorites;
     el<HTMLInputElement>('fe-st-sec-system').checked = !settings.hideSystem;
@@ -243,6 +245,16 @@ export function initSettingsUi(app: App): void {
   });
   el<HTMLSelectElement>('fe-st-filepages').addEventListener('change', function () {
     settings.renderFilePages = this.value as 'all' | 'not-md' | 'off'; saveSettings(settings);
+  });
+  el<HTMLInputElement>('fe-st-excluded-exts').addEventListener('change', function () {
+    settings.excludedFileExtensions = parseExcludedExtensions(this.value);
+    this.value = settings.excludedFileExtensions.map(x => '.' + x).join(', ');
+    saveSettings(settings);
+  });
+  el('fe-st-excluded-reset').addEventListener('click', () => {
+    settings.excludedFileExtensions = [...(DEFAULT_SETTINGS.excludedFileExtensions ?? [])];
+    el<HTMLInputElement>('fe-st-excluded-exts').value = settings.excludedFileExtensions.map(x => '.' + x).join(', ');
+    saveSettings(settings);
   });
   el<HTMLInputElement>('fe-st-notes-root').addEventListener('change', function () {
     settings.notesRoot = this.value.trim() || undefined; saveSettings(settings);

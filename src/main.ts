@@ -11,6 +11,7 @@ import { CSS } from './styles';
 import { esc } from './utils';
 import { PI } from './icons';
 import { filePageExt, filePagesEnabled, mountFileContent } from './file-page';
+import { fetchFileText } from './file-fetch';
 import { mountStrip } from './strip';
 import { makeToast } from './toast';
 import { renderPage } from './page';
@@ -32,7 +33,8 @@ import { initMarkdownUi } from './md-ui';
     preload?.remove();
     return;
   }
-  const fileText = fileMode ? (document.body.textContent || '') : '';
+  const isHtmlSource = fileMode && (fileExt === 'html' || fileExt === 'htm');
+  const fileText = fileMode ? (isHtmlSource ? 'Loading HTML source…' : (document.body.textContent || '')) : '';
 
   const rawPath  = decodeURIComponent(window.location.pathname);
   const segments = rawPath.split('/').filter(Boolean);
@@ -123,7 +125,12 @@ import { initMarkdownUi } from './md-ui';
   // The strip: this Chrome tab's working set. Navigation is real, so the
   // address bar is always the active tab's location.
   app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore !== false });
-  if (fileMode) app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href, column: !!settings.readerColumn });
+  if (fileMode) {
+    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href, column: !!settings.readerColumn });
+    if (isHtmlSource) fetchFileText(location.href).then(text => app.filePage?.setText(text)).catch(() => {
+      app.filePage?.setText('Could not load the HTML source.');
+    });
+  }
 
   initChrome(app);
   initMarkdownUi(app.toast);
@@ -132,9 +139,8 @@ import { initMarkdownUi } from './md-ui';
   initSettingsUi(app);
   initSidebar(app);
 
-  // The first render drew the listing raw; apply the persisted sort/group
-  // last, once every handler applyAll touches (selection included) exists.
-  if (listing.ls.sort.col || listing.ls.group !== 'none') listing.applyAll();
+  // Apply the saved view after all listing handlers exist.
+  listing.applyAll();
   listing.applyFindFromHash();
   // Tooltips off: strip every title now and after each listing render.
   if (settings.tooltips === false) {
