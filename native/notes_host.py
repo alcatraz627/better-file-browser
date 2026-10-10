@@ -40,9 +40,16 @@ class NotesError(Exception):
         self.code = code
 
 def resolve_root(root):
+    """The notes folder as typed in Settings: a path, a file:// address, or ~ for home all mean the folder."""
+    if isinstance(root, str):
+        root = root.strip()
+        if root.startswith('file://'):
+            from urllib.parse import unquote, urlparse
+            root = unquote(urlparse(root).path)
+        root = os.path.expanduser(root)
     if not isinstance(root, str) or not root.startswith('/'):
-        raise NotesError('notes_bad_root', 'root must be an absolute folder path')
-    real = os.path.realpath(os.path.expanduser(root))
+        raise NotesError('notes_bad_root', 'root must be an absolute folder path, like /Users/you/Notes')
+    real = os.path.realpath(root)
     if not os.path.isdir(real):
         raise NotesError('notes_bad_root', f'not a folder: {root}')
     return real
