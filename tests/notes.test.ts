@@ -26,6 +26,13 @@ describe('front matter', () => {
     expect(setTitle('---\ncreated: x\n---\nb', 'T')).toBe('---\ntitle: "T"\ncreated: x\n---\nb');
     expect(setTitle('# plain\n', 'T')).toBeNull();
   });
+  it('noteTitle reads back what setTitle writes, and single-quoted YAML titles', () => {
+    const t = 'a "b" c \\ d';
+    expect(noteTitle('x.md', setTitle('---\ntitle: x\n---\nbody', t)!)).toBe(t);
+    expect(noteTitle('x.md', "---\ntitle: 'C:\\Users\\me'\n---\n")).toBe('C:\\Users\\me');
+    expect(noteTitle('x.md', "---\ntitle: 'it''s'\n---\n")).toBe("it's");
+    expect(noteTitle('x.md', '---\ntitle: "   padded   "\n---\n')).toBe('padded');
+  });
   it('stampUpdated refreshes updated, adds it when missing, and leaves notes without front matter alone', () => {
     const later = new Date('2026-09-16T00:00:00.000Z');
     expect(stampUpdated('---\ntitle: x\nupdated: 2026-09-15T10:00:00.000Z\n---\nbody', later)).toContain('updated: 2026-09-16T00:00:00.000Z');

@@ -103,6 +103,8 @@ def note_title(full):
                         value = json.loads(value) if value[0] == '"' else value[1:-1]
                     except ValueError:
                         value = value[1:-1]
+                # a quoted title keeps its padding in YAML; no app shows it padded
+                value = value.strip()
                 if value:
                     return value
     for line in lines[body_start:]:

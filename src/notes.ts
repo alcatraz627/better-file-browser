@@ -63,12 +63,23 @@ export function slugForTitle(title: string): string {
   return (s || 'untitled') + '.md';
 }
 
+// A frontmatter value as written: JSON-quoted (Switchboard, setTitle), YAML single-quoted
+// ('' is a literal quote), or bare. Matches notes_host.py and the Pi.
+function unquoteYaml(v: string): string {
+  if (v.length >= 2 && v[0] === '"' && v.endsWith('"')) {
+    try { return JSON.parse(v) as string; } catch { return v.slice(1, -1); }
+  }
+  if (v.length >= 2 && v[0] === "'" && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
+  return v;
+}
+
 // The title a note shows: front matter title, first heading, first text line,
 // then the file name without its extension and dashes.
 export function noteTitle(rel: string, text?: string): string {
   if (text) {
     const fm = text.match(/^---\n([\s\S]*?)\n---/);
-    const t = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim().replace(/^["']|["']$/g, '');
+    const raw = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim();
+    const t = raw && unquoteYaml(raw).trim();
     if (t) return t;
     const body = text.replace(/^---\n[\s\S]*?\n---\n?/, '');
     const h = body.match(/^#\s+(.+)$/m)?.[1].trim();

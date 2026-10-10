@@ -35,6 +35,11 @@ const expectedTitle = text => {
   return (body.split('\n').map(l => l.trim()).find(Boolean) || '').replace(/^#+\s*/, '');
 };
 const mdFiles = readdirSync(store).filter(f => f.endsWith('.md')).sort();
+// A generated store (fuzz_notes.py) says what each title must read; trust it over this parser.
+const manifest = existsSync(join(store, 'manifest.json'))
+  ? Object.fromEntries(JSON.parse(readFileSync(join(store, 'manifest.json'), 'utf8')).notes.map(n => [n.file, n.expect_title]))
+  : null;
+const titleOf = rel => (manifest && rel in manifest && manifest[rel] !== null ? manifest[rel] : expectedTitle(read(rel)));
 
 const h = await launch();
 try {
@@ -48,7 +53,7 @@ try {
   const rows = await page.$$eval('#fe-nt-list .fe-nt-item', els => els.map(e => ({
     rel: e.getAttribute('data-rel'), label: e.querySelector('.fe-nt-label')?.textContent })));
   check(rows.length === mdFiles.length, `the sidebar lists every note in the store: ${rows.length} of ${mdFiles.length}`);
-  const wrongNames = rows.filter(r => existsSync(join(store, r.rel)) && r.label !== expectedTitle(read(r.rel)));
+  const wrongNames = rows.filter(r => existsSync(join(store, r.rel)) && r.label !== titleOf(r.rel)).map(r => ({ ...r, want: titleOf(r.rel) }));
   check(wrongNames.length === 0, `each row shows the note's title, not its file name: ${JSON.stringify(wrongNames.slice(0, 4))}`);
   const filenameLabels = rows.filter(r => /^\d{8}-\d{6}/.test(r.label || ''));
   check(filenameLabels.length === 0, `no row is labelled with a raw id: ${JSON.stringify(filenameLabels.slice(0, 4))}`);
@@ -164,7 +169,8 @@ try {
     await new Promise(r => setTimeout(r, 1200));
     check(!existsSync(join(store, delTarget)), `delete removes ${delTarget} from the store`);
     const ignored = (() => { try { execFileSync('git', ['-C', store, 'check-ignore', '-q', '.trash/x.md']); return true; } catch { return false; } })();
-    check(ignored, `the store's git ignores .trash, so a deleted note is not synced to the Pi as a file`);
+    // only a Switchboard store carries the .gitignore; a generated one has none
+    if (existsSync(join(store, '.gitignore'))) check(ignored, `the store's git ignores .trash, so a deleted note is not synced to the Pi as a file`);
   }
   await shot(page, 'store-walk-end');
 } finally {

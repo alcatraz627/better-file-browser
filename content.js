@@ -1539,6 +1539,16 @@
     }
     return rel.split("/").pop().replace(/\.md$/i, "").replace(/[-_]+/g, " ");
   }
+  function setTitle(text, title) {
+    const m = text.match(/^---\n([\s\S]*?)\n---/);
+    if (!m) return null;
+    const line = `title: ${JSON.stringify(title)}`;
+    const fm = /^title:.*$/m.test(m[1]) ? m[1].replace(/^title:.*$/m, () => line) : `${line}
+${m[1]}`;
+    return text.replace(m[0], () => `---
+${fm}
+---`);
+  }
   function stampUpdated(text, now = /* @__PURE__ */ new Date()) {
     const m = text.match(/^---\n([\s\S]*?)\n---/);
     if (!m) return text;
@@ -6474,8 +6484,12 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             clickTimer = null;
           }
           inlineEdit(e.currentTarget, (val) => {
-            const to = rel.replace(/[^/]+$/, slugForTitle(val));
-            notes.rename(root, rel, to).then(refreshNotes).catch((err) => toast(err.message));
+            notes.read(root, rel).then((doc) => {
+              const titled = setTitle(doc.text, val);
+              if (titled !== null) return notes.write(root, rel, titled, doc.mtime).then(refreshNotes);
+              const to = rel.replace(/[^/]+$/, slugForTitle(val));
+              return notes.rename(root, rel, to).then(refreshNotes);
+            }).catch((err) => toast(err.message));
           });
         });
         item.querySelector(".fe-rm-btn").addEventListener("click", (e) => {
