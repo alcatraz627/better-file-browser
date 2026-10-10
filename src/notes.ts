@@ -79,6 +79,17 @@ export function noteTitle(rel: string, text?: string): string {
   return rel.split('/').pop()!.replace(/\.md$/i, '').replace(/[-_]+/g, ' ');
 }
 
+// Set the title field inside existing front matter, JSON-quoted as Switchboard
+// writes it. Returns null for a note without front matter: the contract never
+// adds front matter, so such a note is renamed by its file name instead.
+export function setTitle(text: string, title: string): string | null {
+  const m = text.match(/^---\n([\s\S]*?)\n---/);
+  if (!m) return null;
+  const line = `title: ${JSON.stringify(title)}`;
+  const fm = /^title:.*$/m.test(m[1]) ? m[1].replace(/^title:.*$/m, () => line) : `${line}\n${m[1]}`;
+  return text.replace(m[0], () => `---\n${fm}\n---`);
+}
+
 // Refresh `updated` inside existing front matter; a note without front
 // matter is left exactly as written (contract: never add front matter).
 export function stampUpdated(text: string, now = new Date()): string {

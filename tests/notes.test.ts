@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle } from '../src/notes';
 
 const T = new Date('2026-09-15T10:00:00.000Z');
 
@@ -20,6 +20,12 @@ describe('noteTitle', () => {
 });
 
 describe('front matter', () => {
+  it('setTitle replaces or adds the title, keeps the other fields, and refuses a note without front matter', () => {
+    const sb = '---\ntitle: "v6 sor"\ncreated: 2026-09-29T14:24:11Z\ncolor: purple\npinned: true\n---\nbody $1 $&\n';
+    expect(setTitle(sb, 'New: "name" $1')).toBe('---\ntitle: "New: \\"name\\" $1"\ncreated: 2026-09-29T14:24:11Z\ncolor: purple\npinned: true\n---\nbody $1 $&\n');
+    expect(setTitle('---\ncreated: x\n---\nb', 'T')).toBe('---\ntitle: "T"\ncreated: x\n---\nb');
+    expect(setTitle('# plain\n', 'T')).toBeNull();
+  });
   it('stampUpdated refreshes updated, adds it when missing, and leaves notes without front matter alone', () => {
     const later = new Date('2026-09-16T00:00:00.000Z');
     expect(stampUpdated('---\ntitle: x\nupdated: 2026-09-15T10:00:00.000Z\n---\nbody', later)).toContain('updated: 2026-09-16T00:00:00.000Z');

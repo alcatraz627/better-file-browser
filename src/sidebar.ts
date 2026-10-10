@@ -10,7 +10,7 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags } from './storage';
 import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, slugForTitle } from './notes';
+import { notes, noteTitle, slugForTitle, setTitle } from './notes';
 import { openNote } from './preview';
 import { isViewPath } from './find';
 
@@ -235,8 +235,14 @@ export function initSidebar(app: App): void {
         e.preventDefault(); e.stopPropagation();
         if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
         inlineEdit(e.currentTarget as HTMLElement, val => {
-          const to = rel.replace(/[^/]+$/, slugForTitle(val));
-          notes.rename(root, rel, to).then(refreshNotes).catch((err: NotesError) => toast(err.message));
+          // A note with front matter belongs to a shared store whose id is its file
+          // name (Switchboard, the Pi): renaming it sets the title and keeps the file.
+          notes.read(root, rel).then(doc => {
+            const titled = setTitle(doc.text, val);
+            if (titled !== null) return notes.write(root, rel, titled, doc.mtime).then(refreshNotes);
+            const to = rel.replace(/[^/]+$/, slugForTitle(val));
+            return notes.rename(root, rel, to).then(refreshNotes);
+          }).catch((err: NotesError) => toast(err.message));
         });
       });
       item.querySelector('.fe-rm-btn')!.addEventListener('click', e => {
