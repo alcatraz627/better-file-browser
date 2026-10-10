@@ -203,9 +203,9 @@ export function initSidebar(app: App): void {
         ? list.map(n => `
           <div class="fe-bm-item fe-nt-item" data-rel="${esc(n.rel)}">
             <a href="file://${esc(root + '/' + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
-              ${PI.docs ?? PI.folder}<span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(noteTitle(n.rel))}</span>
+              ${PI.docs ?? PI.folder}<span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>
             </a>
-            <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
+            <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
             <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">✕</button>
           </div>`).join('')
         : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;

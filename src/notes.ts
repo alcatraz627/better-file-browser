@@ -2,7 +2,7 @@
 // background worker's one-shot relay (content scripts cannot connectNative).
 // Every call names the notes root the owner picked in Settings.
 
-export interface NoteMeta { rel: string; size: number; mtime: number }
+export interface NoteMeta { rel: string; size: number; mtime: number; title?: string }
 export interface NoteDoc  { rel: string; text: string; mtime: number }
 
 export class NotesError extends Error {

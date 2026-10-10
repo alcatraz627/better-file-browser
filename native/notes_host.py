@@ -78,9 +78,38 @@ def list_notes(root):
             full = os.path.join(dirpath, f)
             st = os.stat(full)
             out.append({'rel': os.path.relpath(full, root), 'size': st.st_size,
-                        'mtime': int(st.st_mtime * 1000)})
+                        'mtime': int(st.st_mtime * 1000), 'title': note_title(full)})
     out.sort(key=lambda n: -n['mtime'])
     return out
+
+def note_title(full):
+    """What the sidebar calls a note: its frontmatter title, else its first heading, else its first line; empty when none."""
+    try:
+        with open(full, 'r', encoding='utf-8', errors='replace') as fh:
+            head = fh.read(4096)
+    except OSError:
+        return ''
+    lines = head.split('\n')
+    body_start = 0
+    if lines and lines[0].strip() == '---':
+        for i in range(1, len(lines)):
+            if lines[i].strip() == '---':
+                body_start = i + 1
+                break
+            if lines[i].startswith('title:'):
+                value = lines[i][6:].strip()
+                if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
+                    try:
+                        value = json.loads(value) if value[0] == '"' else value[1:-1]
+                    except ValueError:
+                        value = value[1:-1]
+                if value:
+                    return value
+    for line in lines[body_start:]:
+        s = line.strip()
+        if s and not s.startswith('>'):
+            return s.lstrip('#').strip()
+    return ''
 
 def op_read(root, rel):
     full = resolve_rel(root, rel)

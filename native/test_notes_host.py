@@ -36,6 +36,10 @@ check(r['t'] == 'error' and r['code'] == 'notes_exists', f'create refuses an exi
 r = call({'op': 'list', 'root': root})
 rels = [n['rel'] for n in r['notes']]
 check(r['t'] == 'list' and rels == ['today.md', 'sub/old.md'], f'list newest first, recursive, md only: {rels}')
+check([n['title'] for n in r['notes']] == ['today', 'old'], f'list carries each note\'s title from its heading: {[n.get("title") for n in r["notes"]]}')
+with open(os.path.join(root, 'fm.md'), 'w') as fh: fh.write('---\ntitle: "Groceries: milk"\ncreated: 2026-10-10T21:40:23Z\n---\n- milk\n')
+r = call({'op': 'list', 'root': root})
+check(next(n['title'] for n in r['notes'] if n['rel'] == 'fm.md') == 'Groceries: milk', 'a frontmatter title names the note, unquoted')
 
 r = call({'op': 'read', 'root': root, 'rel': 'sub/old.md'})
 check(r['t'] == 'note' and r['text'] == '# old\n', f'read: {r}')
