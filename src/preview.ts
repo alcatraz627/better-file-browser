@@ -369,9 +369,11 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       <button class="fe-pbn" data-act="task" title="Task list">☐ task</button>
       <button class="fe-pbn" data-act="table" title="Insert a table">table</button>
       <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">image</button>
+      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">versions</button>
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">⌥↑↓ move line · ⌥⇧↑↓ duplicate · ⇥ indent · Enter continues lists</span>
     </div>
+    <div id="fe-ed-hist" style="display:none"></div>
     <div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
   const ta = document.getElementById('fe-ed-src') as HTMLTextAreaElement;
   const view = document.getElementById('fe-ed-view')!;
@@ -400,6 +402,41 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     if (name === 'task')   prefixLines('- [ ] ');
     if (name === 'table')  buf.insert((ta.value.slice(0, ta.selectionStart).endsWith('\n') || !ta.selectionStart ? '' : '\n') + tableSnippet());
     if (name === 'image')  (document.getElementById('fe-ed-file') as HTMLInputElement).click();
+    if (name === 'versions') void toggleVersions();
+  };
+
+  // Versions: the folder's git log for this file (Switchboard commits every save).
+  // A row shows that version rendered where the preview is; "Use this version"
+  // puts its text in the editor, and the save that follows keeps today's text in the log.
+  const hist = document.getElementById('fe-ed-hist')!;
+  const escHtml = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+  const whenText = (ms: number) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  const toggleVersions = async () => {
+    if (hist.style.display !== 'none') { hist.style.display = 'none'; renderView(); return; }
+    hist.style.display = '';
+    hist.textContent = 'reading versions…';
+    try {
+      const vs = await notes.history(root, doc.rel);
+      if (!vs.length) { hist.textContent = 'No versions yet: the notes folder is not a git repository (Switchboard makes it one on its first save).'; return; }
+      hist.innerHTML = vs.slice(0, 30).map(v =>
+        `<button class="fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join('')
+        + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : '');
+      hist.querySelectorAll<HTMLElement>('.fe-hist-row').forEach(b => b.addEventListener('click', () => void showVersion(b.dataset.sha!)));
+    } catch (err) { hist.textContent = `versions failed: ${(err as NotesError).message}`; }
+  };
+  const showVersion = async (sha: string) => {
+    hist.querySelectorAll<HTMLElement>('.fe-hist-row').forEach(b => b.classList.toggle('active', b.dataset.sha === sha));
+    try {
+      const v = await notes.version(root, doc.rel, sha);
+      view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span>`
+        + `<button class="fe-pbn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button>`
+        + `<button class="fe-pbn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
+      document.getElementById('fe-hist-use')!.addEventListener('click', () => {
+        buf.snap(); ta.value = v.text; ta.dispatchEvent(new Event('input', { bubbles: true }));
+        hist.style.display = 'none'; ta.focus();
+      });
+      document.getElementById('fe-hist-back')!.addEventListener('click', () => renderView());
+    } catch (err) { hist.textContent = `version failed: ${(err as NotesError).message}`; }
   };
   document.getElementById('fe-ed-bar')!.querySelectorAll<HTMLElement>('[data-act]').forEach(b =>
     b.addEventListener('mousedown', e => { e.preventDefault(); act(b.dataset.act!); }));

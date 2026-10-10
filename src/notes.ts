@@ -16,7 +16,12 @@ type Frame =
   | { t: 'written'; rel: string; mtime: number }
   | { t: 'renamed'; rel: string; to: string }
   | { t: 'deleted'; rel: string; trashed: string }
+  | { t: 'history'; rel: string; versions: NoteVersion[] }
+  | { t: 'version'; rel: string; sha: string; text: string }
   | { t: 'error'; code: string; message: string };
+
+/// One saved version of a note, from the folder's git log: short hash, epoch ms, the commit's reason.
+export interface NoteVersion { sha: string; when: number; reason: string }
 
 const HOST = 'com.better_file_browser.notes';
 
@@ -45,6 +50,8 @@ export const notes = {
   writeBinary: (root: string, rel: string, base64: string) =>
             call({ op: 'writeBinary', root, rel, base64 }) as Promise<{ rel: string; mtime: number }>,
   delete: (root: string, rel: string) => call({ op: 'delete', root, rel }),
+  history: (root: string, rel: string) => call({ op: 'history', root, rel }).then(f => (f as { versions: NoteVersion[] }).versions),
+  version: (root: string, rel: string, sha: string) => call({ op: 'version', root, rel, sha }) as Promise<{ rel: string; sha: string; text: string }>,
 };
 
 // A note's file name from its first heading or first line, safe for a path.

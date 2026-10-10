@@ -14,6 +14,8 @@ Ops (request -> reply):
   {op:"rename", root, rel, to}               -> {t:"renamed", rel, to}
   {op:"delete", root, rel}                   -> {t:"deleted", rel, trashed}
   {op:"writeBinary", root, rel, base64}      -> {t:"written", rel, mtime}   (attachments, never overwrites)
+  {op:"history", root, rel}                  -> {t:"history", rel, versions:[{sha,when,reason}]}  (git log; none outside a repo)
+  {op:"version", root, rel, sha}             -> {t:"version", rel, sha, text}
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it.
@@ -146,6 +148,37 @@ def op_delete(root, rel):
     shutil.move(full, dst)
     return {'t': 'deleted', 'rel': rel, 'trashed': os.path.relpath(dst, root)}
 
+def git_out(root, args):
+    """git's output in the notes folder, or None when the folder is not a repository or git says no."""
+    import subprocess
+    if not os.path.isdir(os.path.join(root, '.git')):
+        return None
+    try:
+        r = subprocess.run(['git', '-C', root] + args, capture_output=True, text=True, timeout=10,
+                           env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'})
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+def op_history(root, rel):
+    """Every saved version of a note, newest first. A folder that is not a repository has none."""
+    resolve_rel(root, rel)
+    versions = []
+    for line in (git_out(root, ['log', '--format=%h%x09%ct%x09%s', '--', rel]) or '').splitlines():
+        parts = line.split('\t', 2)
+        if len(parts) == 3 and parts[1].isdigit():
+            versions.append({'sha': parts[0], 'when': int(parts[1]) * 1000, 'reason': parts[2]})
+    return {'t': 'history', 'rel': rel, 'versions': versions}
+
+def op_version(root, rel, sha):
+    resolve_rel(root, rel)
+    if not isinstance(sha, str) or not sha.isalnum():
+        raise NotesError('notes_bad_path', 'a version is named by its commit hash')
+    text = git_out(root, ['show', f'{sha}:{rel}'])
+    if text is None:
+        raise NotesError('notes_missing', f'no version {sha} of {rel}')
+    return {'t': 'version', 'rel': rel, 'sha': sha, 'text': text}
+
 def handle(msg):
     op = msg.get('op')
     root = resolve_root(msg.get('root'))
@@ -157,6 +190,8 @@ def handle(msg):
     if op == 'rename': return op_rename(root, msg.get('rel'), msg.get('to'))
     if op == 'delete': return op_delete(root, msg.get('rel'))
     if op == 'writeBinary': return op_write_binary(root, msg.get('rel'), msg.get('base64'))
+    if op == 'history': return op_history(root, msg.get('rel'))
+    if op == 'version': return op_version(root, msg.get('rel'), msg.get('sha'))
     raise NotesError('notes_bad_op', f'unknown op {op!r}')
 
 def main():

@@ -1518,7 +1518,9 @@
     create: (root, rel, text = "") => call({ op: "create", root, rel, text }),
     rename: (root, rel, to) => call({ op: "rename", root, rel, to }),
     writeBinary: (root, rel, base64) => call({ op: "writeBinary", root, rel, base64 }),
-    delete: (root, rel) => call({ op: "delete", root, rel })
+    delete: (root, rel) => call({ op: "delete", root, rel }),
+    history: (root, rel) => call({ op: "history", root, rel }).then((f) => f.versions),
+    version: (root, rel, sha) => call({ op: "version", root, rel, sha })
   };
   function slugForTitle(title) {
     const s = title.replace(/^#+\s*/, "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
@@ -2150,9 +2152,11 @@ ${body}
       <button class="fe-pbn" data-act="task" title="Task list">\u2610 task</button>
       <button class="fe-pbn" data-act="table" title="Insert a table">table</button>
       <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">image</button>
+      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">versions</button>
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
     </div>
+    <div id="fe-ed-hist" style="display:none"></div>
     <div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
     const ta = document.getElementById("fe-ed-src");
     const view = document.getElementById("fe-ed-view");
@@ -2182,6 +2186,47 @@ ${body}
       if (name === "task") prefixLines("- [ ] ");
       if (name === "table") buf.insert((ta.value.slice(0, ta.selectionStart).endsWith("\n") || !ta.selectionStart ? "" : "\n") + tableSnippet());
       if (name === "image") document.getElementById("fe-ed-file").click();
+      if (name === "versions") void toggleVersions();
+    };
+    const hist = document.getElementById("fe-ed-hist");
+    const escHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    const whenText = (ms) => new Date(ms).toLocaleString(void 0, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    const toggleVersions = async () => {
+      if (hist.style.display !== "none") {
+        hist.style.display = "none";
+        renderView();
+        return;
+      }
+      hist.style.display = "";
+      hist.textContent = "reading versions\u2026";
+      try {
+        const vs = await notes.history(root, doc.rel);
+        if (!vs.length) {
+          hist.textContent = "No versions yet: the notes folder is not a git repository (Switchboard makes it one on its first save).";
+          return;
+        }
+        hist.innerHTML = vs.slice(0, 30).map((v) => `<button class="fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join("") + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : "");
+        hist.querySelectorAll(".fe-hist-row").forEach((b) => b.addEventListener("click", () => void showVersion(b.dataset.sha)));
+      } catch (err) {
+        hist.textContent = `versions failed: ${err.message}`;
+      }
+    };
+    const showVersion = async (sha) => {
+      hist.querySelectorAll(".fe-hist-row").forEach((b) => b.classList.toggle("active", b.dataset.sha === sha));
+      try {
+        const v = await notes.version(root, doc.rel, sha);
+        view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="fe-pbn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button><button class="fe-pbn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
+        document.getElementById("fe-hist-use").addEventListener("click", () => {
+          buf.snap();
+          ta.value = v.text;
+          ta.dispatchEvent(new Event("input", { bubbles: true }));
+          hist.style.display = "none";
+          ta.focus();
+        });
+        document.getElementById("fe-hist-back").addEventListener("click", () => renderView());
+      } catch (err) {
+        hist.textContent = `version failed: ${err.message}`;
+      }
     };
     document.getElementById("fe-ed-bar").querySelectorAll("[data-act]").forEach((b) => b.addEventListener("mousedown", (e) => {
       e.preventDefault();
@@ -2957,6 +3002,11 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-ed-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 #fe-ed-bar .fe-pbn{padding:2px 7px;font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-ed-hint{margin-left:auto;font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap}
+#fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
+.fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
+.fe-hist-row:hover,.fe-hist-row.active{border-color:var(--ac);background:var(--act)}
+.fe-hist-row code{color:var(--dm)}
+.fe-hist-head{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bd);color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-ql-body.fe-editing{display:flex;flex-direction:column}
 .fe-ed{display:flex;flex:1;min-height:0}
 .fe-md img{max-width:100%;border-radius:6px}
