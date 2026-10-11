@@ -41,6 +41,13 @@ with open(os.path.join(root, 'fm.md'), 'w') as fh: fh.write('---\ntitle: "Grocer
 r = call({'op': 'list', 'root': root})
 check(next(n['title'] for n in r['notes'] if n['rel'] == 'fm.md') == 'Groceries: milk', 'a frontmatter title names the note, unquoted')
 
+with open(os.path.join(root, 'tinted.md'), 'w') as fh: fh.write('---\ntitle: "Tinted"\ntags: "ops, later"\npinned: true\ncolor: purple\n---\nbody\n')
+r = call({'op': 'list', 'root': root})
+t = next(n for n in r['notes'] if n['rel'] == 'tinted.md')
+check(t['color'] == 'purple' and t['pinned'] is True and t['tags'] == ['ops', 'later'], f'list carries colour, pin and tags: {t}')
+p = next(n for n in r['notes'] if n['rel'] == 'fm.md')
+check(p['color'] == '' and p['pinned'] is False and p['tags'] == [], f'a plain note has no colour, pin or tags: {p}')
+
 r = call({'op': 'read', 'root': root, 'rel': 'sub/old.md'})
 check(r['t'] == 'note' and r['text'] == '# old\n', f'read: {r}')
 

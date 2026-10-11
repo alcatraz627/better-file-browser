@@ -78,9 +78,40 @@ def list_notes(root):
             full = os.path.join(dirpath, f)
             st = os.stat(full)
             out.append({'rel': os.path.relpath(full, root), 'size': st.st_size,
-                        'mtime': int(st.st_mtime * 1000), 'title': note_title(full)})
+                        'mtime': int(st.st_mtime * 1000), 'title': note_title(full), **note_props(full)})
     out.sort(key=lambda n: -n['mtime'])
     return out
+
+def note_props(full):
+    """The colour, pin and tags a note's frontmatter holds, read the way Switchboard reads them."""
+    props = {'color': '', 'pinned': False, 'tags': []}
+    try:
+        with open(full, 'r', encoding='utf-8', errors='replace') as fh:
+            lines = fh.read(4096).split('\n')
+    except OSError:
+        return props
+    if not lines or lines[0].strip() != '---':
+        return props
+    for line in lines[1:]:
+        if line.strip() == '---':
+            break
+        key, sep, value = line.partition(':')
+        if not sep:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
+            try:
+                value = json.loads(value) if value[0] == '"' else value[1:-1].replace("''", "'")
+            except ValueError:
+                value = value[1:-1]
+        key = key.strip()
+        if key == 'color':
+            props['color'] = value
+        elif key == 'pinned':
+            props['pinned'] = value == 'true'
+        elif key == 'tags':
+            props['tags'] = [t.strip() for t in value.split(',') if t.strip()]
+    return props
 
 def note_title(full):
     """What the sidebar calls a note: its frontmatter title, else its first heading, else its first line; empty when none."""

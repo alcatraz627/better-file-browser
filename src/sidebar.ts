@@ -10,7 +10,8 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags } from './storage';
 import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, slugForTitle, setTitle } from './notes';
+import { notes, noteTitle, slugForTitle, setTitle, pinnedFirst, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
+import { colorDot, openPropsMenu } from './note-meta-ui';
 import { openNote } from './preview';
 import { isViewPath } from './find';
 
@@ -197,14 +198,16 @@ export function initSidebar(app: App): void {
       return;
     }
     el<HTMLAnchorElement>('fe-notes-root').href = 'file://' + root + '/';
-    notes.list(root).then(list => {
+    notes.list(root).then(unsorted => {
+      const list = pinnedFirst(unsorted);
       ntHint.textContent = `${list.length} note${list.length !== 1 ? 's' : ''} in ${root}`;
       ntList.innerHTML = list.length
         ? list.map(n => `
-          <div class="fe-bm-item fe-nt-item" data-rel="${esc(n.rel)}">
+          <div class="fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}" data-rel="${esc(n.rel)}">
             <a href="file://${esc(root + '/' + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
-              ${PI.docs ?? PI.folder}<span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>
+              ${PI.docs ?? PI.folder}${noteRowText(n)}
             </a>
+            <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
             <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
             <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">✕</button>
           </div>`).join('')
@@ -216,6 +219,13 @@ export function initSidebar(app: App): void {
     });
   }
   app.refreshNotes = refreshNotes;
+  // Title, then tags beneath; the colour dot and pin sit after the title.
+  function noteRowText(n: NoteMeta): string {
+    const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags!.map(t => `<span>${UI_ICON.tag}${esc(t)}</span>`).join('')}</span>` : '';
+    const flags = (colorName(n.color) || n.pinned)
+      ? `<span class="fe-nt-flags">${colorName(n.color) ? colorDot(colorName(n.color)) : ''}${n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : ''}</span>` : '';
+    return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>${tags}</span>${flags}`;
+  }
   function openNoteRel(root: string, rel: string): void {
     notes.read(root, rel).then(doc => openNote(root, doc, refreshNotes))
       .catch((err: NotesError) => toast(err.message));
@@ -249,6 +259,18 @@ export function initSidebar(app: App): void {
         e.preventDefault(); e.stopPropagation();
         notes.delete(root, rel).then(() => { refreshNotes(); toast('Moved to .trash'); })
           .catch((err: NotesError) => toast(err.message));
+      });
+      item.querySelector<HTMLElement>('.fe-nt-props')!.addEventListener('click', e => {
+        e.preventDefault(); e.stopPropagation();
+        const anchor = e.currentTarget as HTMLElement;
+        notes.read(root, rel).then(doc => openPropsMenu(anchor, readProps(rel, doc.text), async c => {
+          const cur = await notes.read(root, rel);
+          const next = applyChange(cur.text, c);
+          if (frontmatterDrift(cur.text, next, changedKeys(c)).length) { toast('Not saved: that would change other properties'); return; }
+          try { await notes.write(root, rel, next, cur.mtime); } catch (err) { toast((err as NotesError).message); return; }
+          refreshNotes();
+          return readProps(rel, next);
+        })).catch((err: NotesError) => toast(err.message));
       });
       item.querySelector('.fe-nt-tab')!.addEventListener('click', e => {
         e.preventDefault(); e.stopPropagation();

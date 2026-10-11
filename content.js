@@ -1699,6 +1699,9 @@ ${body}`;
     const a = keep(before), b = keep(after);
     return a.length === b.length && a.every((l, i) => l === b[i]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
   }
+  function pinnedFirst(list) {
+    return [...list].sort((x, y) => Number(!!y.pinned) - Number(!!x.pinned) || y.mtime - x.mtime);
+  }
   function applyChange(text, c) {
     let t = text;
     if (c.color !== void 0) t = setColor(t, c.color);
@@ -6809,13 +6812,15 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         return;
       }
       el("fe-notes-root").href = "file://" + root + "/";
-      notes.list(root).then((list) => {
+      notes.list(root).then((unsorted) => {
+        const list = pinnedFirst(unsorted);
         ntHint.textContent = `${list.length} note${list.length !== 1 ? "s" : ""} in ${root}`;
         ntList.innerHTML = list.length ? list.map((n) => `
-          <div class="fe-bm-item fe-nt-item" data-rel="${esc(n.rel)}">
+          <div class="fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}" data-rel="${esc(n.rel)}">
             <a href="file://${esc(root + "/" + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
-              ${PI.docs ?? PI.folder}<span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>
+              ${PI.docs ?? PI.folder}${noteRowText(n)}
             </a>
+            <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
             <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
             <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">\u2715</button>
           </div>`).join("") : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
@@ -6826,6 +6831,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       });
     }
     app.refreshNotes = refreshNotes;
+    function noteRowText(n) {
+      const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags.map((t) => `<span>${UI_ICON.tag}${esc(t)}</span>`).join("")}</span>` : "";
+      const flags = colorName(n.color) || n.pinned ? `<span class="fe-nt-flags">${colorName(n.color) ? colorDot(colorName(n.color)) : ""}${n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : ""}</span>` : "";
+      return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>${tags}</span>${flags}`;
+    }
     function openNoteRel(root, rel) {
       notes.read(root, rel).then((doc) => openNote(root, doc, refreshNotes)).catch((err) => toast(err.message));
     }
@@ -6865,6 +6875,27 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             refreshNotes();
             toast("Moved to .trash");
           }).catch((err) => toast(err.message));
+        });
+        item.querySelector(".fe-nt-props").addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const anchor = e.currentTarget;
+          notes.read(root, rel).then((doc) => openPropsMenu(anchor, readProps(rel, doc.text), async (c) => {
+            const cur = await notes.read(root, rel);
+            const next = applyChange(cur.text, c);
+            if (frontmatterDrift(cur.text, next, changedKeys(c)).length) {
+              toast("Not saved: that would change other properties");
+              return;
+            }
+            try {
+              await notes.write(root, rel, next, cur.mtime);
+            } catch (err) {
+              toast(err.message);
+              return;
+            }
+            refreshNotes();
+            return readProps(rel, next);
+          })).catch((err) => toast(err.message));
         });
         item.querySelector(".fe-nt-tab").addEventListener("click", (e) => {
           e.preventDefault();
