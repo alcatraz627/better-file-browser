@@ -26,11 +26,17 @@ describe('slugForTitle', () => {
 });
 
 describe('noteTitle', () => {
-  it('prefers front matter, then the first heading, then the file name', () => {
+  it('prefers front matter, then the first body line, then the file name', () => {
     expect(noteTitle('a.md', '---\ntitle: "From FM"\n---\n# Heading\n')).toBe('From FM');
-    expect(noteTitle('a.md', 'intro\n# Heading\n')).toBe('Heading');
+    expect(noteTitle('a.md', 'intro\n# Heading\n')).toBe('intro');
+    expect(noteTitle('a.md', '## Heading\nbody')).toBe('Heading');
     expect(noteTitle('untitled-123.md', 'Weekly plan\n\nDetails')).toBe('Weekly plan');
     expect(noteTitle('sub/weekly-plan_v2.md')).toBe('weekly plan v2');
+  });
+  it('a chips-only block names the note by its first body line, as Switchboard does', () => {
+    expect(noteTitle('a.md', '---\ncolor: red\n---\nplain first line\n# later heading')).toBe('plain first line');
+    expect(noteTitle('a.md', '---\ncolor: red\n---\n\n> quoted\n')).toBe('> quoted');
+    expect(noteTitle('my-note.md', '---\ncolor: red\n---\n')).toBe('my note');
   });
 });
 
@@ -88,7 +94,16 @@ describe('properties', () => {
   it('setField on a note without frontmatter adds a block holding only that field, and removal adds nothing', () => {
     expect(setColor('# plain\n', 'red')).toBe('---\ncolor: red\n---\n# plain\n');
     expect(setColor('# plain\n', null)).toBe('# plain\n');
-    expect(setTags('---\ntags: "a"\n---\nb', [])).toBe('---\n---\nb');
+    expect(setTags('---\ntags: "a"\n---\nb', [])).toBe('b');
+  });
+  it('removing the last property drops the block, but other properties keep it', () => {
+    expect(setColor('---\ncolor: red\n---\n# t\n', null)).toBe('# t\n');
+    expect(setColor('---\ntitle: "T"\ncolor: red\n---\nb', null)).toBe('---\ntitle: "T"\n---\nb');
+  });
+  it('a new known key goes before unknown keys like updated, in KEY_ORDER', () => {
+    const t = '---\ntitle: "T"\ncreated: x\nupdated: y\n---\nb';
+    expect(setTags(t, ['a'])).toBe('---\ntitle: "T"\ncreated: x\ntags: "a"\nupdated: y\n---\nb');
+    expect(setColor(setPinned(t, true), 'red')).toBe('---\ntitle: "T"\ncreated: x\npinned: true\ncolor: red\nupdated: y\n---\nb');
   });
   it('tags with quotes and colons survive the round trip', () => {
     expect(readProps('a.md', setTags(sb, ['say "hi"', 'a:b'])).tags).toEqual(['say "hi"', 'a:b']);

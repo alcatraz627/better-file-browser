@@ -73,18 +73,15 @@ function unquoteYaml(v: string): string {
   return v;
 }
 
-// The title a note shows: front matter title, first heading, first text line,
-// then the file name without its extension and dashes.
+// The title a note shows, derived as Switchboard does: front matter title, else the
+// first body line with its leading # stripped, else the file name without extension.
 export function noteTitle(rel: string, text?: string): string {
   if (text) {
     const fm = text.match(/^---\n([\s\S]*?)\n---/);
     const raw = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim();
     const t = raw && unquoteYaml(raw).trim();
     if (t) return t;
-    const body = text.replace(/^---\n[\s\S]*?\n---\n?/, '');
-    const h = body.match(/^#\s+(.+)$/m)?.[1].trim();
-    if (h) return h;
-    const first = body.split('\n').map(line => line.trim()).find(line => line && !/^(#|>)/.test(line));
+    const first = splitNote(text).body.trim().split('\n')[0].replace(/^#+/, '').trim();
     if (first) return first;
   }
   return rel.split('/').pop()!.replace(/\.md$/i, '').replace(/[-_]+/g, ' ');
@@ -206,11 +203,13 @@ export function setField(text: string, key: string, value: string | null): strin
     const rank = KEY_ORDER.indexOf(key);
     let pos = lines.length;
     if (rank >= 0) {
-      const later = lines.findIndex(l => { const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(':'), 0)).trim()); return r > rank; });
+      // Known keys come in KEY_ORDER, unknown ones (like `updated`) after them all.
+      const later = lines.findIndex(l => { const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(':'), 0)).trim()); return r < 0 || r > rank; });
       if (later >= 0) pos = later;
     }
     lines.splice(pos, 0, line);
   }
+  if (!lines.length && at >= 0) return body;   // the last property went: drop the block with it
   return `---\n${lines.length ? lines.join('\n') + '\n' : ''}---\n${body}`;
 }
 
