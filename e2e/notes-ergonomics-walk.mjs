@@ -7,7 +7,7 @@
 //
 // The source folder is copied, never written.
 import { launch, shot, applyTheme } from './harness.mjs';
-import { cpSync, rmSync, readdirSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { cpSync, rmSync, readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const SRC = process.env.BFB_NOTES_SRC;
@@ -136,6 +136,53 @@ try {
   await page.click('#fe-st-notes-pick');
   await page.waitForFunction(s => document.getElementById('fe-st-notes-root').value === s, { timeout: 5_000 }, store).catch(() => null);
   check(await page.$eval('#fe-st-notes-root', e => e.value) === store, 'the Settings Choose button fills the folder field');
+  // Row 4: long titles stay on one line, cut in the middle; the box shows the whole title.
+  await page.keyboard.press('Escape');
+  const LONG = 'A very long title that keeps going well past the width of the sidebar, then carries on for a good while longer, until the very last words here';
+  writeFileSync(join(store, 'zz-long-title.md'), `---\ntitle: "${LONG}"\npinned: true\n---\nbody of the long note\n`);
+  await page.reload({ waitUntil: 'load' });
+  await applyTheme(page);
+  await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 10_000 });
+  const geo = await page.$$eval('#fe-nt-list .fe-nt-label', els => els.map(e => ({
+    full: e.title.split('\n')[0], h: e.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(e).lineHeight),
+    cut: (() => { const hd = e.querySelector('.fe-mid-h'); return !!hd && hd.scrollWidth > hd.clientWidth + 1; })(),
+    tail: e.querySelector('.fe-mid-t')?.textContent ?? '' })));
+  check(geo.every(g => g.h <= g.lh + 2), `no title wraps: tallest label ${Math.max(...geo.map(g => g.h)).toFixed(1)}px for a ${geo[0].lh.toFixed(1)}px line`);
+  const longest = [...geo].sort((a, b) => b.full.length - a.full.length)[0];
+  check(longest.full === LONG && longest.cut && longest.tail.length === 10 && longest.full.endsWith(longest.tail), `the longest title (${longest.full.length} chars) is cut in the middle and keeps its ending "${longest.tail}"`);
+  const short = geo.find(g => g.full.length < 10 && /^[\x20-\x7e]+$/.test(g.full));
+  check(!short || (!short.cut && short.tail === ''), 'a short title shows whole, without a cut');
+  await shot(page, 'nt-oneline-titles');
+  const longRel = await page.$$eval('#fe-nt-list .fe-nt-item', (els, full) => els.find(e => e.querySelector('.fe-nt-label').title.split('\n')[0] === full)?.getAttribute('data-rel'), longest.full);
+  await page.$eval(`${rowSel(longRel)} .fe-nt-label`, e => e.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true })));
+  await page.waitForSelector('#fe-nt-list .fe-nt-label.editing', { timeout: 3_000 }).catch(() => null);
+  const box = await page.$eval('#fe-nt-list .fe-nt-label.editing', e => ({ text: e.textContent, h: e.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(e).lineHeight) })).catch(() => null);
+  check(box && box.text === longest.full && box.h > box.lh * 1.8, `rename opens a box with the whole title over several lines: ${box && box.h.toFixed(0)}px tall`);
+  await shot(page, 'nt-title-edit-box');
+  await page.keyboard.press('Escape');
+  await sleep(200);
+  const back1 = await page.$eval(`${rowSel(longRel)} .fe-nt-label`, e => e.getBoundingClientRect().height <= parseFloat(getComputedStyle(e).lineHeight) + 2 && !!e.querySelector('.fe-mid-t'));
+  check(back1, 'Escape puts the row back on one line');
+  await page.setViewport({ width: 760, height: 900 });
+  await page.click(`${rowSel(longRel)} .fe-si-link`);
+  await page.waitForSelector('#fe-meta-title', { timeout: 8_000 }).catch(() => null);
+  await sleep(300);
+  const chip = await page.$eval('#fe-meta-title', e => ({ tag: e.tagName, h: e.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(e).lineHeight), icon: !!e.querySelector('svg'), full: e.dataset.title, cut: (() => { const hd = e.querySelector('.fe-mid-h'); return !!hd && hd.scrollWidth > hd.clientWidth + 1; })() }));
+  check(chip.tag === 'BUTTON' && chip.icon && chip.full === longest.full && chip.cut && chip.h < chip.lh * 1.8, `the editor title chip is one line, cut in the middle, with an icon: ${chip.h.toFixed(0)}px tall, cut=${chip.cut}`);
+  await shot(page, 'nt-chip-oneline');
+  await page.click('#fe-meta-title');
+  await page.waitForSelector('#fe-meta-title-edit', { timeout: 3_000 }).catch(() => null);
+  const edBox = await page.$eval('#fe-meta-title-edit', e => ({ v: e.value, h: e.getBoundingClientRect().height, sh: e.scrollHeight, active: document.activeElement === e })).catch(() => null);
+  check(edBox && edBox.v === longest.full && edBox.active && edBox.h > 33, `clicking the chip opens a focused box with the whole title: ${edBox && edBox.h.toFixed(0)}px tall`);
+  await shot(page, 'nt-chip-edit-box');
+  await page.keyboard.press('End');
+  await page.keyboard.type(' (edited)');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.getElementById('fe-meta-title')?.dataset.title.endsWith('(edited)'), { timeout: 5_000 }).catch(() => null);
+  const chipAfter = await page.$eval('#fe-meta-title', e => e.dataset.title).catch(() => null);
+  check(!!chipAfter && chipAfter.endsWith('(edited)'), `after Enter the chip shows the new title: ${chipAfter && chipAfter.slice(-30)}`);
+  await sleep(2500);   // the editor autosaves 1.5 s after a change
+  check(/^title:.*\(edited\)/m.test(readFileSync(join(store, longRel), 'utf8')), 'Enter in the box saves the new title to the note file');
 } finally {
   await h.close();
 }

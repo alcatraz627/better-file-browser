@@ -130,6 +130,15 @@
       }
     });
   }
+  function splitMiddle(text, tail = 10) {
+    const chars = Array.from(text);
+    if (chars.length <= tail + 6) return { head: text, tail: "" };
+    return { head: chars.slice(0, chars.length - tail).join(""), tail: chars.slice(chars.length - tail).join("") };
+  }
+  function midHtml(text) {
+    const { head, tail } = splitMiddle(text);
+    return `<span class="fe-mid"><span class="fe-mid-h">${esc(head)}</span>${tail ? `<span class="fe-mid-t">${esc(tail)}</span>` : ""}</span>`;
+  }
 
   // src/places.ts
   function upsertPlace(list, place) {
@@ -1814,24 +1823,50 @@ ${body}`;
     const draw = () => {
       const p = o.props();
       host.innerHTML = `
-      ${o.titleEditable() ? `<input id="fe-meta-title" class="fe-chip-title" value="${esc(p.title)}" aria-label="Note title" spellcheck="true" maxlength="200">` : `<span class="fe-chip fe-chip-static" title="This note has no properties block yet; its title is its first line">${UI_ICON.notes}<span>${esc(p.title)}</span></span>`}
+      ${o.titleEditable() ? `<button id="fe-meta-title" class="fe-chip-title" data-title="${esc(p.title)}" title="${esc(p.title)}&#10;Click to edit the whole title" aria-label="Note title: ${esc(p.title)}. Click to edit.">${UI_ICON.rename}${midHtml(p.title)}</button>` : `<span class="fe-chip fe-chip-static" title="This note has no properties block yet; its title is its first line">${UI_ICON.notes}<span>${esc(p.title)}</span></span>`}
       <button class="fe-pbn fe-chip-btn${p.pinned ? " active" : ""}" data-m="pin" title="${p.pinned ? "Unpin this note" : "Pin this note to the top of the list"}">${UI_ICON.pin}<span>${p.pinned ? "pinned" : "pin"}</span></button>
       <button class="fe-pbn fe-chip-btn${p.color ? " active" : ""}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ?? "colour"}</span></button>
       ${p.tags.map((t) => `<span class="fe-chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="fe-chip-x" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
       <button class="fe-pbn fe-chip-btn" data-m="tag" title="Add a tag">${UI_ICON.add}<span>tag</span></button>`;
-      const ti = host.querySelector("#fe-meta-title");
-      if (ti) {
-        const commit = () => {
-          const v = ti.value.trim();
-          if (v && v !== p.title) o.setTitle(v);
-          else ti.value = p.title;
+      const btn = host.querySelector("#fe-meta-title");
+      btn?.addEventListener("click", () => {
+        const box = document.createElement("textarea");
+        box.id = "fe-meta-title-edit";
+        box.className = "fe-chip-title";
+        box.value = p.title;
+        box.rows = 1;
+        box.maxLength = 200;
+        box.spellcheck = true;
+        box.setAttribute("aria-label", "Note title");
+        btn.replaceWith(box);
+        const fit = () => {
+          box.style.height = "auto";
+          box.style.height = box.scrollHeight + 2 + "px";
         };
-        ti.addEventListener("change", commit);
-        ti.addEventListener("keydown", (e) => {
+        fit();
+        box.focus();
+        box.select();
+        let done = false;
+        const finish = (save) => {
+          if (done) return;
+          done = true;
+          const v = box.value.replace(/\s*\n\s*/g, " ").trim();
+          if (save && v && v !== p.title) o.setTitle(v);
+          else draw();
+        };
+        box.addEventListener("input", fit);
+        box.addEventListener("blur", () => finish(true));
+        box.addEventListener("keydown", (e) => {
           e.stopPropagation();
-          if (e.key === "Enter") ti.blur();
+          if (e.key === "Enter") {
+            e.preventDefault();
+            finish(true);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            finish(false);
+          }
         });
-      }
+      });
     };
     host.addEventListener("click", async (e) => {
       const b = e.target.closest("[data-m]");
@@ -3534,6 +3569,10 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-ed-meta{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
 .fe-chip-title{flex:1 1 180px;min-width:120px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 8px;font:inherit;font-weight:600}
 .fe-chip-title:focus{outline:none;border-color:var(--ac)}
+button.fe-chip-title{display:flex;align-items:center;gap:6px;text-align:left;cursor:text;min-width:0}
+button.fe-chip-title:hover{border-color:var(--ac)}
+button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
+textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.35;min-height:28px}
 .fe-chip,.fe-chip-btn{display:inline-flex;align-items:center;gap:5px}
 .fe-chip{border:1px solid var(--bd);border-radius:999px;padding:1px 4px 1px 8px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);background:var(--bg)}
 .fe-chip svg,.fe-chip-btn svg{flex:none;width:12px;height:12px}
@@ -3552,7 +3591,11 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-pm-add input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 7px;font:inherit}
 .fe-pm-add input:focus{outline:none;border-color:var(--ac)}
 .fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:1px}
-.fe-nt-label{flex:none;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;line-height:1.3}
+.fe-mid{display:flex;min-width:0;max-width:100%;overflow:hidden}
+.fe-mid-h{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fe-mid-t{white-space:pre;flex:none}
+.fe-nt-label{flex:none;display:flex;min-width:0;white-space:nowrap;overflow:hidden;line-height:1.3}
+.fe-nt-label.editing{display:block;white-space:normal;overflow:visible;overflow-wrap:anywhere}
 .fe-nt-item .fe-nt-acts{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;
   background:var(--hover);border-radius:4px;opacity:0;pointer-events:none;transition:opacity .1s}
 .fe-nt-item:hover .fe-nt-acts,.fe-nt-item:focus-within .fe-nt-acts{opacity:1;pointer-events:auto}
@@ -6853,7 +6896,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         svFilter.blur();
       }
     });
-    function inlineEdit(target, onSave) {
+    function inlineEdit(target, onSave, onCancel) {
       const orig = target.textContent || "";
       target.contentEditable = "true";
       target.classList.add("editing");
@@ -6871,6 +6914,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         target.contentEditable = "false";
         target.classList.remove("editing");
         if (save && val !== orig) onSave(val);
+        else onCancel?.();
         refreshSaved();
       };
       target.addEventListener("keydown", (e) => {
@@ -7035,7 +7079,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     function noteRowText(n) {
       const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags.map((t) => `<span>${UI_ICON.tag}${esc(t)}</span>`).join("")}</span>` : "";
       const flags = colorName(n.color) || n.pinned ? `<span class="fe-nt-flags">${colorName(n.color) ? colorDot(colorName(n.color)) : ""}${n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : ""}</span>` : "";
-      return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>${tags}</span>`;
+      return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>`;
     }
     const noteName = (n) => n.title || noteTitle(n.rel);
     const notePath = (root, rel) => root.replace(/\/$/, "") + "/" + rel;
@@ -7062,6 +7106,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         clickTimer = null;
       }
       row.scrollIntoView({ block: "nearest" });
+      const meta = allNotes.find((n) => n.rel === rel);
+      label.textContent = meta ? noteName(meta) : noteTitle(rel);
       inlineEdit(label, (val) => {
         notes.read(root, rel).then(async (doc) => {
           const titled = setTitle(doc.text, val);
@@ -7074,7 +7120,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
           refreshNotes();
           if (reopen) openNoteRel(root, now);
         }).catch((err) => toast(err.message));
-      });
+      }, () => renderNotes(root));
     }
     function deleteNote(root, rel) {
       if (editingRel() === rel) discardEditor();

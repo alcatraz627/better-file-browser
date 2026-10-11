@@ -518,6 +518,10 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-ed-meta{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
 .fe-chip-title{flex:1 1 180px;min-width:120px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 8px;font:inherit;font-weight:600}
 .fe-chip-title:focus{outline:none;border-color:var(--ac)}
+button.fe-chip-title{display:flex;align-items:center;gap:6px;text-align:left;cursor:text;min-width:0}
+button.fe-chip-title:hover{border-color:var(--ac)}
+button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
+textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.35;min-height:28px}
 .fe-chip,.fe-chip-btn{display:inline-flex;align-items:center;gap:5px}
 .fe-chip{border:1px solid var(--bd);border-radius:999px;padding:1px 4px 1px 8px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);background:var(--bg)}
 .fe-chip svg,.fe-chip-btn svg{flex:none;width:12px;height:12px}
@@ -536,7 +540,11 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-pm-add input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 7px;font:inherit}
 .fe-pm-add input:focus{outline:none;border-color:var(--ac)}
 .fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:1px}
-.fe-nt-label{flex:none;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;line-height:1.3}
+.fe-mid{display:flex;min-width:0;max-width:100%;overflow:hidden}
+.fe-mid-h{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fe-mid-t{white-space:pre;flex:none}
+.fe-nt-label{flex:none;display:flex;min-width:0;white-space:nowrap;overflow:hidden;line-height:1.3}
+.fe-nt-label.editing{display:block;white-space:normal;overflow:visible;overflow-wrap:anywhere}
 .fe-nt-item .fe-nt-acts{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;
   background:var(--hover);border-radius:4px;opacity:0;pointer-events:none;transition:opacity .1s}
 .fe-nt-item:hover .fe-nt-acts,.fe-nt-item:focus-within .fe-nt-acts{opacity:1;pointer-events:auto}

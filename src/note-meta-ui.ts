@@ -2,7 +2,7 @@
 // above the editor, and the small menu that sets colour, pin and tags.
 import { NOTE_COLORS, type NoteColor, type NoteProps, type PropChange } from './notes';
 import { UI_ICON } from './control-icons';
-import { esc } from './utils';
+import { esc, midHtml } from './utils';
 
 export const colorDot = (c: NoteColor | null): string =>
   `<svg class="fe-cdot" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">`
@@ -97,18 +97,37 @@ export function mountMetaBar(host: HTMLElement, o: {
     const p = o.props();
     host.innerHTML = `
       ${o.titleEditable()
-        ? `<input id="fe-meta-title" class="fe-chip-title" value="${esc(p.title)}" aria-label="Note title" spellcheck="true" maxlength="200">`
+        ? `<button id="fe-meta-title" class="fe-chip-title" data-title="${esc(p.title)}" title="${esc(p.title)}&#10;Click to edit the whole title" aria-label="Note title: ${esc(p.title)}. Click to edit.">${UI_ICON.rename}${midHtml(p.title)}</button>`
         : `<span class="fe-chip fe-chip-static" title="This note has no properties block yet; its title is its first line">${UI_ICON.notes}<span>${esc(p.title)}</span></span>`}
       <button class="fe-pbn fe-chip-btn${p.pinned ? ' active' : ''}" data-m="pin" title="${p.pinned ? 'Unpin this note' : 'Pin this note to the top of the list'}">${UI_ICON.pin}<span>${p.pinned ? 'pinned' : 'pin'}</span></button>
       <button class="fe-pbn fe-chip-btn${p.color ? ' active' : ''}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ?? 'colour'}</span></button>
       ${p.tags.map(t => `<span class="fe-chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="fe-chip-x" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join('')}
       <button class="fe-pbn fe-chip-btn" data-m="tag" title="Add a tag">${UI_ICON.add}<span>tag</span></button>`;
-    const ti = host.querySelector<HTMLInputElement>('#fe-meta-title');
-    if (ti) {
-      const commit = () => { const v = ti.value.trim(); if (v && v !== p.title) o.setTitle(v); else ti.value = p.title; };
-      ti.addEventListener('change', commit);
-      ti.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') ti.blur(); });
-    }
+    // The title shows on one line, middle-truncated; a click opens a box holding the whole title.
+    const btn = host.querySelector<HTMLButtonElement>('#fe-meta-title');
+    btn?.addEventListener('click', () => {
+      const box = document.createElement('textarea');
+      box.id = 'fe-meta-title-edit';
+      box.className = 'fe-chip-title';
+      box.value = p.title; box.rows = 1; box.maxLength = 200; box.spellcheck = true;
+      box.setAttribute('aria-label', 'Note title');
+      btn.replaceWith(box);
+      const fit = () => { box.style.height = 'auto'; box.style.height = box.scrollHeight + 2 + 'px'; };
+      fit(); box.focus(); box.select();
+      let done = false;
+      const finish = (save: boolean) => {
+        if (done) return; done = true;
+        const v = box.value.replace(/\s*\n\s*/g, ' ').trim();
+        if (save && v && v !== p.title) o.setTitle(v); else draw();
+      };
+      box.addEventListener('input', fit);
+      box.addEventListener('blur', () => finish(true));
+      box.addEventListener('keydown', e => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+      });
+    });
   };
   host.addEventListener('click', async e => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-m]');

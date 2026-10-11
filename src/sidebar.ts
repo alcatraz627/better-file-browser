@@ -4,7 +4,7 @@
 import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
-import { esc, copyToClipboard } from './utils';
+import { esc, copyToClipboard, midHtml } from './utils';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings } from './storage';
@@ -84,7 +84,7 @@ export function initSidebar(app: App): void {
 
   // Inline edit of a label or a tag list: contentEditable on the span,
   // Enter saves, Esc restores, blur saves.
-  function inlineEdit(target: HTMLElement, onSave: (val: string) => void): void {
+  function inlineEdit(target: HTMLElement, onSave: (val: string) => void, onCancel?: () => void): void {
     const orig = target.textContent || '';
     target.contentEditable = 'true';
     target.classList.add('editing');
@@ -96,7 +96,7 @@ export function initSidebar(app: App): void {
       if (done) return; done = true;
       const val = (target.textContent || '').trim();
       target.contentEditable = 'false'; target.classList.remove('editing');
-      if (save && val !== orig) onSave(val);
+      if (save && val !== orig) onSave(val); else onCancel?.();
       refreshSaved();
     };
     target.addEventListener('keydown', e => {
@@ -242,7 +242,7 @@ export function initSidebar(app: App): void {
     const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags!.map(t => `<span>${UI_ICON.tag}${esc(t)}</span>`).join('')}</span>` : '';
     const flags = (colorName(n.color) || n.pinned)
       ? `<span class="fe-nt-flags">${colorName(n.color) ? colorDot(colorName(n.color)) : ''}${n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : ''}</span>` : '';
-    return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>${tags}</span>`;
+    return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>`;
   }
   const noteName = (n: NoteMeta) => n.title || noteTitle(n.rel);
   const notePath = (root: string, rel: string) => root.replace(/\/$/, '') + '/' + rel;
@@ -262,6 +262,8 @@ export function initSidebar(app: App): void {
     if (!label) { toast('That note is not in the list. Clear the filter first.'); return; }
     if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
     row!.scrollIntoView({ block: 'nearest' });
+    const meta = allNotes.find(n => n.rel === rel);
+    label.textContent = meta ? noteName(meta) : noteTitle(rel);   // the box holds the whole title, every line of it
     inlineEdit(label, val => {
       notes.read(root, rel).then(async doc => {
         const titled = setTitle(doc.text, val);
@@ -271,7 +273,7 @@ export function initSidebar(app: App): void {
         refreshNotes();
         if (reopen) openNoteRel(root, now);
       }).catch((err: NotesError) => toast(err.message));
-    });
+    }, () => renderNotes(root));
   }
   function deleteNote(root: string, rel: string): void {
     if (editingRel() === rel) discardEditor();
