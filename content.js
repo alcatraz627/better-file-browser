@@ -375,7 +375,17 @@
     table: svg('<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><path d="M1.5 5.5h11M5.5 2.5v9M9 2.5v9"/>'),
     image: svg('<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><circle cx="5" cy="5.5" r="1"/><path d="m1.5 10 3.5-3 3 2.5 2-1.5 2.5 2"/>'),
     versions: svg('<path d="M2.5 5A5 5 0 1 1 2 8M2.5 2.5V5H5M7 4.5V7l2 1.5"/>'),
-    external: svg('<path d="M8 2h4v4M12 2 6.5 7.5M10 8.5V12H2V4h3.5"/>')
+    external: svg('<path d="M8 2h4v4M12 2 6.5 7.5M10 8.5V12H2V4h3.5"/>'),
+    // notes properties and the image toolbar
+    pin: svg('<path d="M8.5 1.5 12.5 5.5 10.5 6.5 9 8l.5 2.5L3.5 4.5 6 5l1.5-1.5zM5.5 8.5 2 12"/>'),
+    tag: svg('<path d="M1.5 2.5v4.2L7.8 13l4.7-4.7L6.2 2H2z"/><circle cx="4.4" cy="4.9" r=".8"/>'),
+    palette: svg('<path d="M7 1.5C3.9 1.5 1.5 3.8 1.5 6.8S3.9 12.5 6.5 12.5c1.2 0 1.3-.9.8-1.5-.5-.6-.2-1.5.7-1.5H10.5c1.2 0 2-.9 2-2.1C12.5 4.2 10.2 1.5 7 1.5z"/><circle cx="4.5" cy="6" r=".7"/><circle cx="7" cy="4.3" r=".7"/><circle cx="9.5" cy="6" r=".7"/>'),
+    zoomIn: svg('<circle cx="6" cy="6" r="4"/><path d="m9 9 3.5 3.5M6 4v4M4 6h4"/>'),
+    zoomOut: svg('<circle cx="6" cy="6" r="4"/><path d="m9 9 3.5 3.5M4 6h4"/>'),
+    actualSize: svg('<rect x="2" y="2" width="10" height="10" rx="1"/><path d="M5 5.2 7 4v6M5 10h4"/>'),
+    rotate: svg('<path d="M11.5 7A4.5 4.5 0 1 1 10 3.6M11.5 1.5v2.5H9"/>'),
+    flip: svg('<path d="M7 1.5v11M5 4 1.5 10.5H5zM9 4l3.5 6.5H9z"/>'),
+    copyImage: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>')
   };
 
   // src/dialog.ts
@@ -1604,6 +1614,221 @@ updated: ${iso}`;
 ${fm}
 ---`);
   }
+  var NOTE_COLORS = ["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"];
+  var LEGACY_COLORS = { indigo: "purple", mint: "green", brown: "orange", gray: "blue", cyan: "teal" };
+  function colorName(v) {
+    if (!v) return null;
+    const n = LEGACY_COLORS[v] ?? v;
+    return NOTE_COLORS.includes(n) ? n : null;
+  }
+  var KEY_ORDER = [
+    "title",
+    "created",
+    "tags",
+    "expires",
+    "remind_at",
+    "remind_repeat",
+    "reminder_id",
+    "pinned",
+    "color",
+    "agent",
+    "source",
+    "url"
+  ];
+  var FM_RE = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
+  function splitNote(text) {
+    const m = text.match(FM_RE);
+    if (!m || /^(<{7}|={7}|>{7})/m.test(m[0])) return { head: "", body: text };
+    return { head: m[0], body: text.slice(m[0].length) };
+  }
+  function fmLines(head) {
+    const m = head.match(FM_RE);
+    return m && m[1] !== void 0 ? m[1].split("\n") : [];
+  }
+  function readProps(rel, text) {
+    const { head } = splitNote(text);
+    const f = {};
+    for (const line of fmLines(head)) {
+      const i = line.indexOf(":");
+      if (i > 0) f[line.slice(0, i).trim()] = unquoteYaml(line.slice(i + 1).trim());
+    }
+    return {
+      title: noteTitle(rel, text),
+      color: colorName(f.color),
+      pinned: f.pinned === "true",
+      tags: parseTags2(f.tags)
+    };
+  }
+  function parseTags2(v) {
+    return (v ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+  }
+  function setField(text, key, value) {
+    const line = value === null ? null : `${key}: ${value}`;
+    const { head, body } = splitNote(text);
+    if (!head) return line === null ? text : `---
+${line}
+---
+${text}`;
+    const lines = fmLines(head);
+    const at = lines.findIndex((l) => l.slice(0, Math.max(l.indexOf(":"), 0)).trim() === key);
+    if (at >= 0) {
+      if (line === null) lines.splice(at, 1);
+      else lines[at] = line;
+    } else if (line !== null) {
+      const rank = KEY_ORDER.indexOf(key);
+      let pos = lines.length;
+      if (rank >= 0) {
+        const later = lines.findIndex((l) => {
+          const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(":"), 0)).trim());
+          return r > rank;
+        });
+        if (later >= 0) pos = later;
+      }
+      lines.splice(pos, 0, line);
+    }
+    return `---
+${lines.length ? lines.join("\n") + "\n" : ""}---
+${body}`;
+  }
+  var setPinned = (text, on) => setField(text, "pinned", on ? "true" : null);
+  var setColor = (text, c) => setField(text, "color", c);
+  var setTags2 = (text, tags) => setField(text, "tags", tags.length ? JSON.stringify(tags.join(", ")) : null);
+  function frontmatterDrift(before, after, allowed) {
+    const skip = /* @__PURE__ */ new Set([...allowed, "updated"]);
+    const keep = (t) => fmLines(splitNote(t).head).filter((l) => !skip.has(l.slice(0, Math.max(l.indexOf(":"), 0)).trim()));
+    const a = keep(before), b = keep(after);
+    return a.length === b.length && a.every((l, i) => l === b[i]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
+  }
+  function applyChange(text, c) {
+    let t = text;
+    if (c.color !== void 0) t = setColor(t, c.color);
+    if (c.pinned !== void 0) t = setPinned(t, c.pinned);
+    if (c.tags !== void 0) t = setTags2(t, c.tags);
+    return t;
+  }
+  function changedKeys(c) {
+    return ["color", "pinned", "tags"].filter((k) => c[k] !== void 0);
+  }
+
+  // src/note-meta-ui.ts
+  var colorDot = (c) => `<svg class="fe-cdot" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">` + (c ? `<circle cx="6" cy="6" r="4.5" fill="var(--nc-${c})"/>` : `<circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.2"/>`) + `</svg>`;
+  var openMenu = null;
+  function closePropsMenu() {
+    openMenu?.off();
+    openMenu = null;
+  }
+  function openPropsMenu(anchor, props, apply) {
+    closePropsMenu();
+    const menu = document.createElement("div");
+    menu.className = "fe-pmenu";
+    menu.setAttribute("role", "menu");
+    const host = document.getElementById("fe") ?? document.body;
+    host.appendChild(menu);
+    let cur = props;
+    const render2 = () => {
+      menu.innerHTML = `
+      <button class="fe-pbn fe-pm-pin${cur.pinned ? " active" : ""}" data-pm="pin" role="menuitem">${UI_ICON.pin}<span>${cur.pinned ? "unpin" : "pin to top"}</span></button>
+      <div class="fe-pm-lbl">colour</div>
+      <div class="fe-pm-colors">
+        <button class="fe-pbn${cur.color === null ? " active" : ""}" data-pm="color" data-color="" role="menuitem">${colorDot(null)}<span>none</span></button>
+        ${NOTE_COLORS.map((c) => `<button class="fe-pbn${cur.color === c ? " active" : ""}" data-pm="color" data-color="${c}" role="menuitem">${colorDot(c)}<span>${c}</span></button>`).join("")}
+      </div>
+      <div class="fe-pm-lbl">tags</div>
+      <div class="fe-pm-tags">
+        ${cur.tags.map((t) => `<span class="fe-chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="fe-chip-x" data-pm="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
+      </div>
+      <form class="fe-pm-add"><input type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="40"><button class="fe-pbn" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
+    };
+    const run = async (c) => {
+      const r2 = await apply(c);
+      if (r2) cur = r2;
+      render2();
+      menu.querySelector(".fe-pm-add input")?.focus();
+    };
+    menu.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-pm]");
+      if (!b) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const k = b.dataset.pm;
+      if (k === "pin") void run({ pinned: !cur.pinned });
+      else if (k === "color") void run({ color: b.dataset.color || null });
+      else if (k === "untag") void run({ tags: cur.tags.filter((t) => t !== b.dataset.tag) });
+    });
+    menu.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const inp = menu.querySelector(".fe-pm-add input");
+      const t = inp.value.replace(/,/g, " ").replace(/\s+/g, " ").trim();
+      if (t && !cur.tags.includes(t)) void run({ tags: [...cur.tags, t] });
+      else inp.value = "";
+    });
+    render2();
+    const r = anchor.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`;
+    menu.style.top = `${Math.min(r.bottom + 4, window.innerHeight - menu.offsetHeight - 8)}px`;
+    const onDown = (e) => {
+      if (!menu.contains(e.target) && !anchor.contains(e.target)) closePropsMenu();
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        e.preventDefault();
+        closePropsMenu();
+      }
+    };
+    document.addEventListener("mousedown", onDown, true);
+    document.addEventListener("keydown", onKey, true);
+    openMenu = { el: menu, off: () => {
+      document.removeEventListener("mousedown", onDown, true);
+      document.removeEventListener("keydown", onKey, true);
+      menu.remove();
+    } };
+    menu.querySelector(".fe-pm-add input").focus();
+  }
+  function mountMetaBar(host, o) {
+    const draw = () => {
+      const p = o.props();
+      host.innerHTML = `
+      ${o.titleEditable() ? `<input id="fe-meta-title" class="fe-chip-title" value="${esc(p.title)}" aria-label="Note title" spellcheck="true" maxlength="200">` : `<span class="fe-chip fe-chip-static" title="This note has no properties block yet; its title is its first line">${UI_ICON.notes}<span>${esc(p.title)}</span></span>`}
+      <button class="fe-pbn fe-chip-btn${p.pinned ? " active" : ""}" data-m="pin" title="${p.pinned ? "Unpin this note" : "Pin this note to the top of the list"}">${UI_ICON.pin}<span>${p.pinned ? "pinned" : "pin"}</span></button>
+      <button class="fe-pbn fe-chip-btn${p.color ? " active" : ""}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ?? "colour"}</span></button>
+      ${p.tags.map((t) => `<span class="fe-chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="fe-chip-x" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
+      <button class="fe-pbn fe-chip-btn" data-m="tag" title="Add a tag">${UI_ICON.add}<span>tag</span></button>`;
+      const ti = host.querySelector("#fe-meta-title");
+      if (ti) {
+        const commit = () => {
+          const v = ti.value.trim();
+          if (v && v !== p.title) o.setTitle(v);
+          else ti.value = p.title;
+        };
+        ti.addEventListener("change", commit);
+        ti.addEventListener("keydown", (e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") ti.blur();
+        });
+      }
+    };
+    host.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-m]");
+      if (!b) return;
+      const p = o.props();
+      if (b.dataset.m === "pin") {
+        await o.apply({ pinned: !p.pinned });
+        draw();
+      } else if (b.dataset.m === "untag") {
+        await o.apply({ tags: p.tags.filter((t) => t !== b.dataset.tag) });
+        draw();
+      } else {
+        openPropsMenu(b, p, async (c) => {
+          const r = await o.apply(c);
+          draw();
+          return r;
+        });
+      }
+    });
+    draw();
+    return draw;
+  }
 
   // src/editor.ts
   var BUF_CAP = 60;
@@ -2183,7 +2408,8 @@ ${body}
     if (edit && edit.dirty) void saveNote();
     currentEntry = null;
     reqSeq++;
-    edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, dirty: false, saving: false, version: 0, timer: null, onSaved };
+    const { head, body: noteBody } = splitNote(doc.text);
+    edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: /* @__PURE__ */ new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved };
     currentText = doc.text;
     document.getElementById("fe-ql-icon").innerHTML = "";
     const nameEl = document.getElementById("fe-ql-name");
@@ -2199,6 +2425,7 @@ ${body}
     const body = document.getElementById("fe-ql-body");
     body.classList.add("fe-editing");
     body.innerHTML = `
+    <div id="fe-ed-meta"></div>
     <div id="fe-ed-bar">
       <button class="fe-pbn" data-act="bold" title="Bold (\u2318B)"><b>B</b></button>
       <button class="fe-pbn" data-act="italic" title="Italic (\u2318I)"><i>I</i></button>
@@ -2215,7 +2442,8 @@ ${body}
     <div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
     const ta = document.getElementById("fe-ed-src");
     const view = document.getElementById("fe-ed-view");
-    ta.value = doc.text;
+    ta.value = noteBody;
+    edit.ta = ta;
     const buf = attachBuffer(ta, `note:${root}/${doc.rel}`);
     const apply = (r) => {
       buf.snap();
@@ -2273,7 +2501,7 @@ ${body}
         view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="fe-pbn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button><button class="fe-pbn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
         document.getElementById("fe-hist-use").addEventListener("click", () => {
           buf.snap();
-          ta.value = v.text;
+          ta.value = splitNote(v.text).body;
           ta.dispatchEvent(new Event("input", { bubbles: true }));
           hist.style.display = "none";
           ta.focus();
@@ -2288,10 +2516,10 @@ ${body}
       act(b.dataset.act);
     }));
     const addImage = async (file) => {
-      const st = edit;
-      if (!st || st.root !== root) return;
+      const st2 = edit;
+      if (!st2 || st2.root !== root) return;
       const ext2 = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
-      const rel = `attachments/${slugForTitle(noteTitle(st.rel, st.text)).replace(/\.md$/, "")}-${Date.now().toString(36)}.${ext2}`;
+      const rel = `attachments/${slugForTitle(noteTitle(st2.rel, st2.text)).replace(/\.md$/, "")}-${Date.now().toString(36)}.${ext2}`;
       const b64 = await new Promise((res) => {
         const r = new FileReader();
         r.onload = () => res(String(r.result).split(",")[1] || "");
@@ -2299,7 +2527,7 @@ ${body}
       });
       try {
         await notes.writeBinary(root, rel, b64);
-        const depth = st.rel.split("/").length - 1;
+        const depth = st2.rel.split("/").length - 1;
         buf.insert(`![${file.name.replace(/\.[^.]+$/, "")}](${"../".repeat(depth)}${rel})`);
       } catch (err) {
         editHeader(`image failed: ${err.message}`);
@@ -2326,7 +2554,7 @@ ${body}
       this.value = "";
     });
     const renderView = () => {
-      view.innerHTML = renderMarkdown(stripFrontMatter(ta.value), nameEl.href);
+      view.innerHTML = renderMarkdown(ta.value, nameEl.href);
     };
     renderView();
     const showClash = () => {
@@ -2348,10 +2576,10 @@ ${body}
     ta.addEventListener("input", () => {
       if (!edit) return;
       if (!!document.getElementById("fe-ed-clash") !== !!clashSides(ta.value)) showClash();
-      edit.text = ta.value;
+      edit.text = edit.head + ta.value;
       edit.dirty = true;
       edit.version++;
-      currentText = ta.value;
+      currentText = edit.text;
       editHeader("unsaved");
       if (viewTimer) clearTimeout(viewTimer);
       viewTimer = setTimeout(renderView, 120);
@@ -2394,6 +2622,35 @@ ${body}
         }
       }
     });
+    const st = edit;
+    const change = (fn, keys) => {
+      if (/^<{7} /m.test(st.text)) {
+        editHeader("settle the two versions before changing properties");
+        return false;
+      }
+      st.head = fn(st.head);
+      keys.forEach((k) => st.touched.add(k));
+      st.text = st.head + ta.value;
+      st.dirty = true;
+      st.version++;
+      currentText = st.text;
+      editHeader("unsaved");
+      if (st.timer) clearTimeout(st.timer);
+      st.timer = setTimeout(() => void saveNote(), 1500);
+      return true;
+    };
+    st.redrawMeta = mountMetaBar(document.getElementById("fe-ed-meta"), {
+      props: () => readProps(st.rel, st.text),
+      titleEditable: () => !!st.head,
+      setTitle: (v) => {
+        change((h) => setField(h, "title", JSON.stringify(v)), ["title"]);
+        st.redrawMeta?.();
+      },
+      apply: (c) => {
+        change((h) => applyChange(h, c), changedKeys(c));
+        return readProps(st.rel, st.text);
+      }
+    });
     editHeader("saved");
     ta.focus();
   }
@@ -2405,13 +2662,26 @@ ${body}
     }
     st.saving = true;
     const version = st.version;
-    const text = stampUpdated(st.text);
+    let text = stampUpdated(st.text);
+    if (frontmatterDrift(st.base, text, st.touched).length) {
+      if (st.ta && !st.head) {
+        st.ta.value = "\n" + st.ta.value;
+        st.text = st.head + st.ta.value;
+        text = stampUpdated(st.text);
+      }
+      if (frontmatterDrift(st.base, text, st.touched).length) {
+        st.saving = false;
+        if (edit === st) editHeader("not saved: this would change the note properties");
+        return;
+      }
+    }
     let wrote = false;
     try {
       const r = await notes.write(st.root, st.rel, text, st.mtime);
       wrote = true;
       st.mtime = r.mtime;
       st.dirty = st.version !== version;
+      st.base = text;
       const want = slugForTitle(noteTitle(st.rel, st.text));
       if (/^untitled-/.test(st.rel.split("/").pop()) && !/^untitled/.test(want)) {
         const to = st.rel.replace(/[^/]+$/, want);
@@ -2461,6 +2731,7 @@ ${body}
       edit = null;
     }
     document.getElementById("fe-ql-body").classList.remove("fe-editing");
+    closePropsMenu();
     currentEntry = e;
     const seq = ++reqSeq;
     const ext2 = getExt(e);
@@ -2583,16 +2854,19 @@ ${body}
   --bd:#30363d;--tx:#e6edf3;--mt:#8b949e;--dm:#484f58;
   --ac:#58a6ff;--dir:#79c0ff;--gold:#d29922;--green:#3fb950;
   --hover:#21262d;--act:#1a3a5c;--r:6px;
+  --nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;
 }
 #fe[data-theme="light"]{
   --bg:#ffffff;--s1:#f6f8fa;--s2:#eaeef2;--s3:#e2e8f0;
   --bd:#d0d7de;--tx:#1f2328;--mt:#656d76;--dm:#8c959f;
   --hover:#f3f4f6;--act:#dbeafe;--ac:#0969da;--dir:#0550ae;
+  --nc-red:#d92d2d;--nc-orange:#d9730d;--nc-yellow:#b58900;--nc-green:#2b8a3e;--nc-teal:#0c8f78;--nc-blue:#1971c2;--nc-purple:#7048e8;--nc-pink:#c2255c;
 }
 html:has(#fe[data-theme="light"]){
   --bg:#ffffff;--s1:#f6f8fa;--s2:#eaeef2;--s3:#e2e8f0;
   --bd:#d0d7de;--tx:#1f2328;--mt:#656d76;--dm:#8c959f;
   --hover:#f3f4f6;--act:#dbeafe;--ac:#0969da;--dir:#0550ae;
+  --nc-red:#d92d2d;--nc-orange:#d9730d;--nc-yellow:#b58900;--nc-green:#2b8a3e;--nc-teal:#0c8f78;--nc-blue:#1971c2;--nc-purple:#7048e8;--nc-pink:#c2255c;
 }
 html,body{height:100%;background:var(--bg);color:var(--tx);
   font:calc(13px * var(--ui-text-scale,1))/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
@@ -3087,6 +3361,37 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-qlook.side .fe-ed{flex-direction:column}
 #fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
 #fe-ed-conflict{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd)}
+#fe-ed-meta{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
+.fe-chip-title{flex:1 1 180px;min-width:120px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 8px;font:inherit;font-weight:600}
+.fe-chip-title:focus{outline:none;border-color:var(--ac)}
+.fe-chip,.fe-chip-btn{display:inline-flex;align-items:center;gap:5px}
+.fe-chip{border:1px solid var(--bd);border-radius:999px;padding:1px 4px 1px 8px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);background:var(--bg)}
+.fe-chip svg,.fe-chip-btn svg{flex:none;width:12px;height:12px}
+.fe-chip-static{padding-right:8px}
+.fe-chip-x{background:none;border:0;color:var(--dm);cursor:pointer;display:grid;place-items:center;padding:2px;border-radius:50%}
+.fe-chip-x:hover{color:var(--ac)}
+#fe-ed-meta .fe-pbn{padding:2px 8px;font-size:calc(11px * var(--ui-text-scale,1))}
+.fe-cdot{flex:none}
+.fe-pmenu{position:fixed;z-index:2147483000;width:250px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:6px}
+.fe-pmenu .fe-pbn{display:inline-flex;align-items:center;gap:6px;text-align:left}
+.fe-pmenu .fe-pbn svg{flex:none;width:12px;height:12px}
+.fe-pm-lbl{font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--mt);text-transform:uppercase;letter-spacing:.04em}
+.fe-pm-colors{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.fe-pm-tags{display:flex;flex-wrap:wrap;gap:4px}
+.fe-pm-add{display:flex;gap:4px}
+.fe-pm-add input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 7px;font:inherit}
+.fe-pm-add input:focus{outline:none;border-color:var(--ac)}
+.fe-nt-main{display:flex;flex-direction:column;min-width:0;gap:1px}
+.fe-nt-tags{font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--mt);display:flex;gap:6px;flex-wrap:wrap}
+.fe-nt-tags span{display:inline-flex;align-items:center;gap:3px}
+.fe-nt-tags svg{width:10px;height:10px;flex:none}
+.fe-nt-flags{display:inline-flex;align-items:center;gap:4px;margin-left:6px;flex:none}
+.fe-nt-flags svg{width:12px;height:12px}
+.fe-nt-pin{color:var(--gold)}
+.fe-nt-props{background:none;border:0;color:var(--dm);cursor:pointer;padding:4px;display:grid;place-items:center;opacity:0;flex:none}
+.fe-nt-item:hover .fe-nt-props,.fe-nt-props:focus-visible{opacity:1}
+.fe-nt-props:hover{color:var(--ac)}
+.fe-nt-props svg{width:14px;height:14px}
 .fe-nt-item .fe-si-link{padding-left:14px}
 .fe-nt-tab{background:none;border:0;color:var(--dm);cursor:pointer;padding:4px;display:grid;place-items:center;opacity:0;flex:none}
 .fe-nt-item:hover .fe-nt-tab,.fe-nt-tab:focus-visible{opacity:1}
@@ -3673,7 +3978,7 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
     const closeMenu = () => {
       menu.style.display = "none";
     };
-    function openMenu(t, anchor) {
+    function openMenu2(t, anchor) {
       const saved = getSaved().some((p) => p.path === t.path);
       menu.innerHTML = [
         `<div class="fe-ctx-item" data-act="copy">Copy path</div>`,
@@ -3796,7 +4101,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
           e.preventDefault();
           e.stopPropagation();
           const t = state.list.find((x) => x.id === btn.dataset.id);
-          if (t) openMenu(t, btn);
+          if (t) openMenu2(t, btn);
         });
       });
     }

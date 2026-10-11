@@ -6,16 +6,19 @@ export const CSS = `
   --bd:#30363d;--tx:#e6edf3;--mt:#8b949e;--dm:#484f58;
   --ac:#58a6ff;--dir:#79c0ff;--gold:#d29922;--green:#3fb950;
   --hover:#21262d;--act:#1a3a5c;--r:6px;
+  --nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;
 }
 #fe[data-theme="light"]{
   --bg:#ffffff;--s1:#f6f8fa;--s2:#eaeef2;--s3:#e2e8f0;
   --bd:#d0d7de;--tx:#1f2328;--mt:#656d76;--dm:#8c959f;
   --hover:#f3f4f6;--act:#dbeafe;--ac:#0969da;--dir:#0550ae;
+  --nc-red:#d92d2d;--nc-orange:#d9730d;--nc-yellow:#b58900;--nc-green:#2b8a3e;--nc-teal:#0c8f78;--nc-blue:#1971c2;--nc-purple:#7048e8;--nc-pink:#c2255c;
 }
 html:has(#fe[data-theme="light"]){
   --bg:#ffffff;--s1:#f6f8fa;--s2:#eaeef2;--s3:#e2e8f0;
   --bd:#d0d7de;--tx:#1f2328;--mt:#656d76;--dm:#8c959f;
   --hover:#f3f4f6;--act:#dbeafe;--ac:#0969da;--dir:#0550ae;
+  --nc-red:#d92d2d;--nc-orange:#d9730d;--nc-yellow:#b58900;--nc-green:#2b8a3e;--nc-teal:#0c8f78;--nc-blue:#1971c2;--nc-purple:#7048e8;--nc-pink:#c2255c;
 }
 html,body{height:100%;background:var(--bg);color:var(--tx);
   font:calc(13px * var(--ui-text-scale,1))/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
@@ -510,6 +513,37 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-qlook.side .fe-ed{flex-direction:column}
 #fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
 #fe-ed-conflict{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd)}
+#fe-ed-meta{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
+.fe-chip-title{flex:1 1 180px;min-width:120px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 8px;font:inherit;font-weight:600}
+.fe-chip-title:focus{outline:none;border-color:var(--ac)}
+.fe-chip,.fe-chip-btn{display:inline-flex;align-items:center;gap:5px}
+.fe-chip{border:1px solid var(--bd);border-radius:999px;padding:1px 4px 1px 8px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);background:var(--bg)}
+.fe-chip svg,.fe-chip-btn svg{flex:none;width:12px;height:12px}
+.fe-chip-static{padding-right:8px}
+.fe-chip-x{background:none;border:0;color:var(--dm);cursor:pointer;display:grid;place-items:center;padding:2px;border-radius:50%}
+.fe-chip-x:hover{color:var(--ac)}
+#fe-ed-meta .fe-pbn{padding:2px 8px;font-size:calc(11px * var(--ui-text-scale,1))}
+.fe-cdot{flex:none}
+.fe-pmenu{position:fixed;z-index:2147483000;width:250px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:6px}
+.fe-pmenu .fe-pbn{display:inline-flex;align-items:center;gap:6px;text-align:left}
+.fe-pmenu .fe-pbn svg{flex:none;width:12px;height:12px}
+.fe-pm-lbl{font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--mt);text-transform:uppercase;letter-spacing:.04em}
+.fe-pm-colors{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.fe-pm-tags{display:flex;flex-wrap:wrap;gap:4px}
+.fe-pm-add{display:flex;gap:4px}
+.fe-pm-add input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 7px;font:inherit}
+.fe-pm-add input:focus{outline:none;border-color:var(--ac)}
+.fe-nt-main{display:flex;flex-direction:column;min-width:0;gap:1px}
+.fe-nt-tags{font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--mt);display:flex;gap:6px;flex-wrap:wrap}
+.fe-nt-tags span{display:inline-flex;align-items:center;gap:3px}
+.fe-nt-tags svg{width:10px;height:10px;flex:none}
+.fe-nt-flags{display:inline-flex;align-items:center;gap:4px;margin-left:6px;flex:none}
+.fe-nt-flags svg{width:12px;height:12px}
+.fe-nt-pin{color:var(--gold)}
+.fe-nt-props{background:none;border:0;color:var(--dm);cursor:pointer;padding:4px;display:grid;place-items:center;opacity:0;flex:none}
+.fe-nt-item:hover .fe-nt-props,.fe-nt-props:focus-visible{opacity:1}
+.fe-nt-props:hover{color:var(--ac)}
+.fe-nt-props svg{width:14px;height:14px}
 .fe-nt-item .fe-si-link{padding-left:14px}
 .fe-nt-tab{background:none;border:0;color:var(--dm);cursor:pointer;padding:4px;display:grid;place-items:center;opacity:0;flex:none}
 .fe-nt-item:hover .fe-nt-tab,.fe-nt-tab:focus-visible{opacity:1}

@@ -2,7 +2,7 @@
 // background worker's one-shot relay (content scripts cannot connectNative).
 // Every call names the notes root the owner picked in Settings.
 
-export interface NoteMeta { rel: string; size: number; mtime: number; title?: string }
+export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[] }
 export interface NoteDoc  { rel: string; text: string; mtime: number }
 
 export class NotesError extends Error {
@@ -137,4 +137,114 @@ export function stampUpdated(text: string, now = new Date()): string {
   const iso = now.toISOString();
   const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, `updated: ${iso}`) : m[1] + `\nupdated: ${iso}`;
   return text.replace(m[0], `---\n${fm}\n---`);
+}
+
+// ── Properties: title, colour, pin and tags, read and written the way Switchboard does ──
+
+/// The eight colours Switchboard and the phone offer, in their order.
+export const NOTE_COLORS = ['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink'] as const;
+export type NoteColor = typeof NOTE_COLORS[number];
+const LEGACY_COLORS: Record<string, NoteColor> = { indigo: 'purple', mint: 'green', brown: 'orange', gray: 'blue', cyan: 'teal' };
+
+/// A saved colour name as one of the eight, or null when it is none of them.
+export function colorName(v: string | undefined): NoteColor | null {
+  if (!v) return null;
+  const n = LEGACY_COLORS[v] ?? v;
+  return (NOTE_COLORS as readonly string[]).includes(n) ? n as NoteColor : null;
+}
+
+export interface NoteProps { title: string; color: NoteColor | null; pinned: boolean; tags: string[] }
+
+/// Frontmatter keys in the order Switchboard writes them (csync notes_store.py KEY_ORDER).
+const KEY_ORDER = ['title', 'created', 'tags', 'expires', 'remind_at', 'remind_repeat', 'reminder_id',
+                   'pinned', 'color', 'agent', 'source', 'url'];
+
+// The frontmatter block at the top of a note, closing fence and its newline included.
+// A block holding git clash markers is not frontmatter: it stays visible as text.
+const FM_RE = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
+
+/// Splits a note into its frontmatter block (exactly as written, or '') and the body.
+/// head + body is always the original text.
+export function splitNote(text: string): { head: string; body: string } {
+  const m = text.match(FM_RE);
+  if (!m || /^(<{7}|={7}|>{7})/m.test(m[0])) return { head: '', body: text };
+  return { head: m[0], body: text.slice(m[0].length) };
+}
+
+function fmLines(head: string): string[] {
+  const m = head.match(FM_RE);
+  return m && m[1] !== undefined ? m[1].split('\n') : [];
+}
+
+/// The properties a note's frontmatter holds: title as noteTitle reads it, colour, pin, tags.
+export function readProps(rel: string, text: string): NoteProps {
+  const { head } = splitNote(text);
+  const f: Record<string, string> = {};
+  for (const line of fmLines(head)) {
+    const i = line.indexOf(':');
+    if (i > 0) f[line.slice(0, i).trim()] = unquoteYaml(line.slice(i + 1).trim());
+  }
+  return { title: noteTitle(rel, text), color: colorName(f.color), pinned: f.pinned === 'true',
+           tags: parseTags(f.tags) };
+}
+
+export function parseTags(v: string | undefined): string[] {
+  return (v ?? '').split(',').map(t => t.trim()).filter(Boolean);
+}
+
+/// Set (string) or remove (null) one frontmatter field, touching only that line.
+/// A new line goes where Switchboard would put it; a note with no frontmatter gets
+/// a block holding just that field, so every app still reads its title the same way.
+export function setField(text: string, key: string, value: string | null): string {
+  const line = value === null ? null : `${key}: ${value}`;
+  const { head, body } = splitNote(text);
+  if (!head) return line === null ? text : `---\n${line}\n---\n${text}`;
+  const lines = fmLines(head);
+  const at = lines.findIndex(l => l.slice(0, Math.max(l.indexOf(':'), 0)).trim() === key);
+  if (at >= 0) { if (line === null) lines.splice(at, 1); else lines[at] = line; }
+  else if (line !== null) {
+    const rank = KEY_ORDER.indexOf(key);
+    let pos = lines.length;
+    if (rank >= 0) {
+      const later = lines.findIndex(l => { const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(':'), 0)).trim()); return r > rank; });
+      if (later >= 0) pos = later;
+    }
+    lines.splice(pos, 0, line);
+  }
+  return `---\n${lines.length ? lines.join('\n') + '\n' : ''}---\n${body}`;
+}
+
+export const setPinned = (text: string, on: boolean) => setField(text, 'pinned', on ? 'true' : null);
+export const setColor  = (text: string, c: NoteColor | null) => setField(text, 'color', c);
+export const setTags   = (text: string, tags: string[]) =>
+  setField(text, 'tags', tags.length ? JSON.stringify(tags.join(', ')) : null);
+
+/// The frontmatter lines that differ between two texts, ignoring the named keys and `updated`.
+/// Empty means the block round-trips unchanged except for what the person changed.
+export function frontmatterDrift(before: string, after: string, allowed: Iterable<string>): string[] {
+  const skip = new Set([...allowed, 'updated']);
+  const keep = (t: string) => fmLines(splitNote(t).head).filter(l => !skip.has(l.slice(0, Math.max(l.indexOf(':'), 0)).trim()));
+  const a = keep(before), b = keep(after);
+  return a.length === b.length && a.every((l, i) => l === b[i]) ? [] : [...a.filter(l => !b.includes(l)).map(l => `- ${l}`), ...b.filter(l => !a.includes(l)).map(l => `+ ${l}`)];
+}
+
+/// Pinned notes first, then newest; the sort is stable so equal notes keep the host's order.
+export function pinnedFirst<T extends { pinned?: boolean; mtime: number }>(list: T[]): T[] {
+  return [...list].sort((x, y) => Number(!!y.pinned) - Number(!!x.pinned) || y.mtime - x.mtime);
+}
+
+export interface PropChange { color?: NoteColor | null; pinned?: boolean; tags?: string[] }
+
+/// Applies chip changes to a note's text: only the changed fields' lines are touched.
+export function applyChange(text: string, c: PropChange): string {
+  let t = text;
+  if (c.color !== undefined) t = setColor(t, c.color);
+  if (c.pinned !== undefined) t = setPinned(t, c.pinned);
+  if (c.tags !== undefined) t = setTags(t, c.tags);
+  return t;
+}
+
+/// The frontmatter keys a change writes.
+export function changedKeys(c: PropChange): string[] {
+  return (['color', 'pinned', 'tags'] as const).filter(k => c[k] !== undefined);
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated, setTitle, settleClash, clashSides } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, pinnedFirst } from '../src/notes';
 
 describe('clash', () => {
   const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
@@ -53,5 +53,55 @@ describe('front matter', () => {
     expect(stampUpdated('---\ntitle: x\nupdated: 2026-09-15T10:00:00.000Z\n---\nbody', later)).toContain('updated: 2026-09-16T00:00:00.000Z');
     expect(stampUpdated('---\ntitle: y\n---\nbody', later)).toBe('---\ntitle: y\nupdated: 2026-09-16T00:00:00.000Z\n---\nbody');
     expect(stampUpdated('# plain\n', later)).toBe('# plain\n');
+  });
+});
+
+describe('properties', () => {
+  const sb = '---\ntitle: "v6 sor"\ncreated: 2026-09-29T14:24:11Z\ntags: "ops, later"\npinned: true\ncolor: purple\nsource: "csync"\n---\nbody\n';
+  it('splitNote keeps head + body equal to the original and shows clash markers instead of hiding them', () => {
+    const s = splitNote(sb);
+    expect(s.head + s.body).toBe(sb);
+    expect(s.body).toBe('body\n');
+    expect(splitNote('# plain\n')).toEqual({ head: '', body: '# plain\n' });
+    expect(splitNote('---\n---\nx')).toEqual({ head: '---\n---\n', body: 'x' });
+    const clash = '---\ntitle: a\n<<<<<<< HEAD\ncolor: red\n=======\ncolor: blue\n>>>>>>> pi\n---\nb';
+    expect(splitNote(clash).head).toBe('');
+  });
+  it('readProps reads the title, colour, pin and tags', () => {
+    expect(readProps('a.md', sb)).toEqual({ title: 'v6 sor', color: 'purple', pinned: true, tags: ['ops', 'later'] });
+    expect(readProps('a.md', '---\ncolor: indigo\n---\n').color).toBe('purple');
+    expect(readProps('a.md', '---\ncolor: plaid\n---\n').color).toBeNull();
+    expect(readProps('a.md', '# x').pinned).toBe(false);
+  });
+  it('setField changes one line and leaves every other byte alone', () => {
+    expect(setColor(sb, 'teal')).toBe(sb.replace('color: purple', 'color: teal'));
+    expect(setPinned(sb, false)).toBe(sb.replace('pinned: true\n', ''));
+    expect(setTags(sb, ['a', 'b c'])).toBe(sb.replace('"ops, later"', '"a, b c"'));
+    expect(setColor(setColor(sb, null), 'purple')).toBe(sb);
+  });
+  it('setField puts a new line where Switchboard would', () => {
+    const t = '---\ntitle: "T"\ncreated: x\nsource: "csync"\n---\nb';
+    expect(setTags(t, ['x'])).toBe('---\ntitle: "T"\ncreated: x\ntags: "x"\nsource: "csync"\n---\nb');
+    expect(setPinned(setColor(t, 'red'), true)).toBe('---\ntitle: "T"\ncreated: x\npinned: true\ncolor: red\nsource: "csync"\n---\nb');
+    expect(setField('---\ncreated: x\n---\nb', 'mood', '"ok"')).toBe('---\ncreated: x\nmood: "ok"\n---\nb');
+  });
+  it('setField on a note without frontmatter adds a block holding only that field, and removal adds nothing', () => {
+    expect(setColor('# plain\n', 'red')).toBe('---\ncolor: red\n---\n# plain\n');
+    expect(setColor('# plain\n', null)).toBe('# plain\n');
+    expect(setTags('---\ntags: "a"\n---\nb', [])).toBe('---\n---\nb');
+  });
+  it('tags with quotes and colons survive the round trip', () => {
+    expect(readProps('a.md', setTags(sb, ['say "hi"', 'a:b'])).tags).toEqual(['say "hi"', 'a:b']);
+  });
+  it('frontmatterDrift names a changed line and ignores the keys the person changed and updated', () => {
+    expect(frontmatterDrift(sb, setColor(sb, 'red'), ['color'])).toEqual([]);
+    expect(frontmatterDrift(sb, setColor(sb, 'red'), [])).toEqual(['- color: purple', '+ color: red']);
+    expect(frontmatterDrift(sb, sb.replace('body', '---\nx: 1\n---\nbody'), [])).toEqual([]);
+    expect(frontmatterDrift('# plain\n', '---\nx: 1\n---\n# plain\n', [])).toEqual(['+ x: 1']);
+    expect(frontmatterDrift(sb, stampUpdated(sb), [])).toEqual([]);
+  });
+  it('pinnedFirst puts pinned notes first, then newest', () => {
+    const l = [{ rel: 'a', pinned: false, mtime: 9 }, { rel: 'b', pinned: true, mtime: 1 }, { rel: 'c', mtime: 5 }, { rel: 'd', pinned: true, mtime: 3 }];
+    expect(pinnedFirst(l).map(n => n.rel)).toEqual(['d', 'b', 'a', 'c']);
   });
 });

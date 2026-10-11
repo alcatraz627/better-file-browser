@@ -14,7 +14,8 @@ import {
   sniffBinary,
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
-import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, type Keep, type NoteDoc } from './notes';
+import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
+import { mountMetaBar, closePropsMenu } from './note-meta-ui';
 import {
   attachBuffer, moveLines, duplicateLines, indentLines, continueList, wrapSelection, tableSnippet, type TextEdit,
 } from './editor';
@@ -327,6 +328,8 @@ function runAi(intent: string, question?: string): void {
 // ── Note editor: the same panel, a textarea beside the render ─────────
 interface EditState {
   root: string; rel: string; mtime: number; text: string;
+  // text is always head + the editor's text: the properties block is never in the textarea
+  head: string; base: string; touched: Set<string>; ta?: HTMLTextAreaElement; redrawMeta?: () => void;
   dirty: boolean; saving: boolean; version: number; timer: ReturnType<typeof setTimeout> | null;
   onSaved?: (rel: string) => void;
 }
@@ -346,7 +349,8 @@ const stripFrontMatter = (t: string) => t.replace(/^---\n[\s\S]*?\n---\n?/, '');
 export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => void): void {
   if (edit && edit.dirty) void saveNote();
   currentEntry = null; reqSeq++;
-  edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, dirty: false, saving: false, version: 0, timer: null, onSaved };
+  const { head, body: noteBody } = splitNote(doc.text);
+  edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved };
   currentText = doc.text;
   document.getElementById('fe-ql-icon')!.innerHTML = '';
   const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
@@ -362,6 +366,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   const body = document.getElementById('fe-ql-body')!;
   body.classList.add('fe-editing');
   body.innerHTML = `
+    <div id="fe-ed-meta"></div>
     <div id="fe-ed-bar">
       <button class="fe-pbn" data-act="bold" title="Bold (⌘B)"><b>B</b></button>
       <button class="fe-pbn" data-act="italic" title="Italic (⌘I)"><i>I</i></button>
@@ -378,7 +383,8 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     <div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
   const ta = document.getElementById('fe-ed-src') as HTMLTextAreaElement;
   const view = document.getElementById('fe-ed-view')!;
-  ta.value = doc.text;
+  ta.value = noteBody;
+  edit.ta = ta;
   const buf = attachBuffer(ta, `note:${root}/${doc.rel}`);
   const apply = (r: TextEdit) => {
     buf.snap();
@@ -433,7 +439,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
         + `<button class="fe-pbn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button>`
         + `<button class="fe-pbn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
       document.getElementById('fe-hist-use')!.addEventListener('click', () => {
-        buf.snap(); ta.value = v.text; ta.dispatchEvent(new Event('input', { bubbles: true }));
+        buf.snap(); ta.value = splitNote(v.text).body; ta.dispatchEvent(new Event('input', { bubbles: true }));
         hist.style.display = 'none'; ta.focus();
       });
       document.getElementById('fe-hist-back')!.addEventListener('click', () => renderView());
@@ -462,7 +468,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   (document.getElementById('fe-ed-file') as HTMLInputElement).addEventListener('change', function () {
     [...(this.files ?? [])].forEach(f => void addImage(f)); this.value = '';
   });
-  const renderView = () => { view.innerHTML = renderMarkdown(stripFrontMatter(ta.value), nameEl.href); };
+  const renderView = () => { view.innerHTML = renderMarkdown(ta.value, nameEl.href); };
   renderView();
   // a note edited in two places: keep one side or both (owner ruling N1)
   const showClash = () => {
@@ -485,7 +491,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   ta.addEventListener('input', () => {
     if (!edit) return;
     if (!!document.getElementById('fe-ed-clash') !== !!clashSides(ta.value)) showClash();
-    edit.text = ta.value; edit.dirty = true; edit.version++; currentText = ta.value;
+    edit.text = edit.head + ta.value; edit.dirty = true; edit.version++; currentText = edit.text;
     editHeader('unsaved');
     if (viewTimer) clearTimeout(viewTimer);
     viewTimer = setTimeout(renderView, 120);
@@ -511,6 +517,24 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       if (r) { stop(); apply(r); }
     }
   });
+  // The chip row above the text: title, pin, colour, tags. Each change edits only its own line of the properties block.
+  const st = edit;
+  const change = (fn: (head: string) => string, keys: string[]): boolean => {
+    if (/^<{7} /m.test(st.text)) { editHeader('settle the two versions before changing properties'); return false; }
+    st.head = fn(st.head);
+    keys.forEach(k => st.touched.add(k));
+    st.text = st.head + ta.value; st.dirty = true; st.version++; currentText = st.text;
+    editHeader('unsaved');
+    if (st.timer) clearTimeout(st.timer);
+    st.timer = setTimeout(() => void saveNote(), 1500);
+    return true;
+  };
+  st.redrawMeta = mountMetaBar(document.getElementById('fe-ed-meta')!, {
+    props: () => readProps(st.rel, st.text),
+    titleEditable: () => !!st.head,
+    setTitle: v => { change(h => setField(h, 'title', JSON.stringify(v)), ['title']); st.redrawMeta?.(); },
+    apply: c => { change(h => applyChange(h, c), changedKeys(c)); return readProps(st.rel, st.text); },
+  });
   editHeader('saved');
   ta.focus();
 }
@@ -519,12 +543,26 @@ async function saveNote(st = edit): Promise<void> {
   if (st.timer) { clearTimeout(st.timer); st.timer = null; }
   st.saving = true;
   const version = st.version;
-  const text = stampUpdated(st.text);
+  let text = stampUpdated(st.text);
+  // Guard: the saved properties block must equal what was read, apart from fields set through the chips.
+  // A pasted --- block at the top of a note without properties would otherwise be read as properties.
+  if (frontmatterDrift(st.base, text, st.touched).length) {
+    if (st.ta && !st.head) {
+      st.ta.value = '\n' + st.ta.value;
+      st.text = st.head + st.ta.value;
+      text = stampUpdated(st.text);
+    }
+    if (frontmatterDrift(st.base, text, st.touched).length) {
+      st.saving = false;
+      if (edit === st) editHeader('not saved: this would change the note properties');
+      return;
+    }
+  }
   let wrote = false;
   try {
     const r = await notes.write(st.root, st.rel, text, st.mtime);
     wrote = true;
-    st.mtime = r.mtime; st.dirty = st.version !== version;
+    st.mtime = r.mtime; st.dirty = st.version !== version; st.base = text;
     // A note created as "untitled-…" takes its title as file name on first save.
     const want = slugForTitle(noteTitle(st.rel, st.text));
     if (/^untitled-/.test(st.rel.split('/').pop()!) && !/^untitled/.test(want)) {
@@ -562,6 +600,7 @@ export function openPreview(e: Entry): void {
   if (!canPreview(e)) return;
   if (edit) { if (edit.timer) clearTimeout(edit.timer); if (edit.dirty) void saveNote(); edit = null; }
   document.getElementById('fe-ql-body')!.classList.remove('fe-editing');
+  closePropsMenu();
   currentEntry = e;
   const seq = ++reqSeq;
   const ext = getExt(e);

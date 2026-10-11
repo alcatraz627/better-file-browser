@@ -25,4 +25,14 @@ export const UI_ICON = {
   image: svg('<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><circle cx="5" cy="5.5" r="1"/><path d="m1.5 10 3.5-3 3 2.5 2-1.5 2.5 2"/>'),
   versions: svg('<path d="M2.5 5A5 5 0 1 1 2 8M2.5 2.5V5H5M7 4.5V7l2 1.5"/>'),
   external: svg('<path d="M8 2h4v4M12 2 6.5 7.5M10 8.5V12H2V4h3.5"/>'),
+  // notes properties and the image toolbar
+  pin: svg('<path d="M8.5 1.5 12.5 5.5 10.5 6.5 9 8l.5 2.5L3.5 4.5 6 5l1.5-1.5zM5.5 8.5 2 12"/>'),
+  tag: svg('<path d="M1.5 2.5v4.2L7.8 13l4.7-4.7L6.2 2H2z"/><circle cx="4.4" cy="4.9" r=".8"/>'),
+  palette: svg('<path d="M7 1.5C3.9 1.5 1.5 3.8 1.5 6.8S3.9 12.5 6.5 12.5c1.2 0 1.3-.9.8-1.5-.5-.6-.2-1.5.7-1.5H10.5c1.2 0 2-.9 2-2.1C12.5 4.2 10.2 1.5 7 1.5z"/><circle cx="4.5" cy="6" r=".7"/><circle cx="7" cy="4.3" r=".7"/><circle cx="9.5" cy="6" r=".7"/>'),
+  zoomIn: svg('<circle cx="6" cy="6" r="4"/><path d="m9 9 3.5 3.5M6 4v4M4 6h4"/>'),
+  zoomOut: svg('<circle cx="6" cy="6" r="4"/><path d="m9 9 3.5 3.5M4 6h4"/>'),
+  actualSize: svg('<rect x="2" y="2" width="10" height="10" rx="1"/><path d="M5 5.2 7 4v6M5 10h4"/>'),
+  rotate: svg('<path d="M11.5 7A4.5 4.5 0 1 1 10 3.6M11.5 1.5v2.5H9"/>'),
+  flip: svg('<path d="M7 1.5v11M5 4 1.5 10.5H5zM9 4l3.5 6.5H9z"/>'),
+  copyImage: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>'),
 };
