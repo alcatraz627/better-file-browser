@@ -302,6 +302,7 @@ export function renderPage(p: PageParams): string {
       <div class="fe-sec" id="fe-notes-sec" data-collapse="notes">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Notes</span><a id="fe-notes-root" title="Open the notes folder" aria-label="Open the notes folder">${PI.folder}</a>
           <button id="fe-nt-add" title="New note (n)">+</button></div>
+        <input id="fe-nt-filter" type="text" placeholder="Filter notes" spellcheck="false" autocomplete="off" title="Matches title, file name, colour and tag. #work matches tags only." style="display:none">
         <div id="fe-nt-list"></div>
       </div>${recentsHTML}
       <div class="fe-sec" data-sec="favorites" data-collapse="favorites"${settings.hideFavorites ? ' style="display:none"' : ''}>

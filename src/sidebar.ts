@@ -10,7 +10,7 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags } from './storage';
 import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, slugForTitle, setTitle, pinnedFirst, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
+import { notes, noteTitle, slugForTitle, setTitle, pinnedFirst, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
 import { colorDot, openPropsMenu } from './note-meta-ui';
 import { openNote } from './preview';
 import { isViewPath } from './find';
@@ -185,8 +185,37 @@ export function initSidebar(app: App): void {
   const ntList = el('fe-nt-list');
   const ntHint = el('fe-st-notes-hint');
   function notesRoot(): string { return (settings.notesRoot || '').replace(/\/$/, ''); }
+  const ntFilter = el<HTMLInputElement>('fe-nt-filter');
+  let allNotes: NoteMeta[] = [];
+  function renderNotes(root: string): void {
+    const shown = filterNotes(allNotes, ntFilter.value);
+    ntHint.textContent = ntFilter.value.trim()
+      ? `${shown.length} of ${allNotes.length} notes in ${root}`
+      : `${allNotes.length} note${allNotes.length !== 1 ? 's' : ''} in ${root}`;
+    ntList.innerHTML = shown.length
+      ? shown.map(n => `
+          <div class="fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}" data-rel="${esc(n.rel)}">
+            <a href="file://${esc(root + '/' + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
+              ${PI.docs ?? PI.folder}${noteRowText(n)}
+            </a>
+            <span class="fe-nt-acts">
+              <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
+              <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
+              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">✕</button>
+            </span>
+          </div>`).join('')
+      : allNotes.length
+        ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>`
+        : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
+    attachNoteEvents(root);
+  }
+  ntFilter.addEventListener('input', () => { const root = notesRoot(); if (root) renderNotes(root); });
+  ntFilter.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); ntFilter.value = ''; ntFilter.dispatchEvent(new Event('input')); ntFilter.blur(); }
+  });
   function refreshNotes(): void {
     const root = notesRoot();
+    ntFilter.style.display = root ? '' : 'none';
     if (!root) {
       ntHint.textContent = '';
       el<HTMLAnchorElement>('fe-notes-root').removeAttribute('href');
@@ -199,22 +228,8 @@ export function initSidebar(app: App): void {
     }
     el<HTMLAnchorElement>('fe-notes-root').href = 'file://' + root + '/';
     notes.list(root).then(unsorted => {
-      const list = pinnedFirst(unsorted);
-      ntHint.textContent = `${list.length} note${list.length !== 1 ? 's' : ''} in ${root}`;
-      ntList.innerHTML = list.length
-        ? list.map(n => `
-          <div class="fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}" data-rel="${esc(n.rel)}">
-            <a href="file://${esc(root + '/' + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
-              ${PI.docs ?? PI.folder}${noteRowText(n)}
-            </a>
-            <span class="fe-nt-acts">
-              <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
-              <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
-              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">✕</button>
-            </span>
-          </div>`).join('')
-        : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
-      attachNoteEvents(root);
+      allNotes = pinnedFirst(unsorted);
+      renderNotes(root);
     }).catch((err: NotesError) => {
       ntHint.textContent = err.message;
       ntList.innerHTML = `<div class="fe-hint">${esc(err.code === 'unavailable' ? 'Notes host not installed. Run native/install.sh.' : err.message)}</div>`;

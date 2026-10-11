@@ -232,6 +232,17 @@ export function pinnedFirst<T extends { pinned?: boolean; mtime: number }>(list:
   return [...list].sort((x, y) => Number(!!y.pinned) - Number(!!x.pinned) || y.mtime - x.mtime);
 }
 
+/// Notes whose title, file name, tags or colour contain every word typed; `#work` matches a tag only.
+export function filterNotes<T extends { rel: string; title?: string; color?: string; tags?: string[] }>(list: T[], query: string): T[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return list;
+  return list.filter(n => {
+    const tags = (n.tags ?? []).map(t => t.toLowerCase());
+    const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ''} ${tags.join(' ')}`.toLowerCase();
+    return words.every(w => w.startsWith('#') ? w.length > 1 && tags.some(t => t.includes(w.slice(1))) : hay.includes(w));
+  });
+}
+
 export interface PropChange { color?: NoteColor | null; pinned?: boolean; tags?: string[] }
 
 /// Applies chip changes to a note's text: only the changed fields' lines are touched.

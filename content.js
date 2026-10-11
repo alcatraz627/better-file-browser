@@ -1701,6 +1701,15 @@ ${body}`;
   function pinnedFirst(list) {
     return [...list].sort((x, y) => Number(!!y.pinned) - Number(!!x.pinned) || y.mtime - x.mtime);
   }
+  function filterNotes(list, query) {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return list;
+    return list.filter((n) => {
+      const tags = (n.tags ?? []).map((t) => t.toLowerCase());
+      const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ""} ${tags.join(" ")}`.toLowerCase();
+      return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
+    });
+  }
   function applyChange(text, c) {
     let t = text;
     if (c.color !== void 0) t = setColor(t, c.color);
@@ -3083,10 +3092,10 @@ body{opacity:1!important}
 #fe-sv-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
   width:18px;height:18px;line-height:1;font-size:calc(13px * var(--ui-text-scale,1));padding:0;display:flex;align-items:center;justify-content:center}
 #fe-sv-add:hover{border-color:var(--ac);color:var(--ac)}
-#fe-sv-filter{display:block;width:calc(100% - 20px);margin:0 10px 4px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+#fe-sv-filter,#fe-nt-filter{display:block;width:calc(100% - 20px);margin:0 10px 4px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:3px 8px;border-radius:var(--r);font-size:calc(11px * var(--ui-text-scale,1));outline:none;transition:border-color .15s}
-#fe-sv-filter:focus{border-color:var(--ac)}
-#fe-sv-filter::placeholder{color:var(--dm)}
+#fe-sv-filter:focus,#fe-nt-filter:focus{border-color:var(--ac)}
+#fe-sv-filter::placeholder,#fe-nt-filter::placeholder{color:var(--dm)}
 .fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
 .fe-sv-tag{display:flex;align-items:center;gap:7px;padding:8px 14px 3px;font-size:calc(10.5px * var(--ui-text-scale,1));font-weight:600;
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm)}
@@ -5207,6 +5216,7 @@ seconds and re-renders when the file changes on disk.
       <div class="fe-sec" id="fe-notes-sec" data-collapse="notes">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Notes</span><a id="fe-notes-root" title="Open the notes folder" aria-label="Open the notes folder">${PI.folder}</a>
           <button id="fe-nt-add" title="New note (n)">+</button></div>
+        <input id="fe-nt-filter" type="text" placeholder="Filter notes" spellcheck="false" autocomplete="off" title="Matches title, file name, colour and tag. #work matches tags only." style="display:none">
         <div id="fe-nt-list"></div>
       </div>${recentsHTML}
       <div class="fe-sec" data-sec="favorites" data-collapse="favorites"${settings.hideFavorites ? ' style="display:none"' : ""}>
@@ -6933,8 +6943,39 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     function notesRoot() {
       return (settings.notesRoot || "").replace(/\/$/, "");
     }
+    const ntFilter = el("fe-nt-filter");
+    let allNotes = [];
+    function renderNotes(root) {
+      const shown = filterNotes(allNotes, ntFilter.value);
+      ntHint.textContent = ntFilter.value.trim() ? `${shown.length} of ${allNotes.length} notes in ${root}` : `${allNotes.length} note${allNotes.length !== 1 ? "s" : ""} in ${root}`;
+      ntList.innerHTML = shown.length ? shown.map((n) => `
+          <div class="fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}" data-rel="${esc(n.rel)}">
+            <a href="file://${esc(root + "/" + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
+              ${PI.docs ?? PI.folder}${noteRowText(n)}
+            </a>
+            <span class="fe-nt-acts">
+              <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
+              <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
+              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">\u2715</button>
+            </span>
+          </div>`).join("") : allNotes.length ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>` : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
+      attachNoteEvents(root);
+    }
+    ntFilter.addEventListener("input", () => {
+      const root = notesRoot();
+      if (root) renderNotes(root);
+    });
+    ntFilter.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        ntFilter.value = "";
+        ntFilter.dispatchEvent(new Event("input"));
+        ntFilter.blur();
+      }
+    });
     function refreshNotes() {
       const root = notesRoot();
+      ntFilter.style.display = root ? "" : "none";
       if (!root) {
         ntHint.textContent = "";
         el("fe-notes-root").removeAttribute("href");
@@ -6947,20 +6988,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       }
       el("fe-notes-root").href = "file://" + root + "/";
       notes.list(root).then((unsorted) => {
-        const list = pinnedFirst(unsorted);
-        ntHint.textContent = `${list.length} note${list.length !== 1 ? "s" : ""} in ${root}`;
-        ntList.innerHTML = list.length ? list.map((n) => `
-          <div class="fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}" data-rel="${esc(n.rel)}">
-            <a href="file://${esc(root + "/" + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
-              ${PI.docs ?? PI.folder}${noteRowText(n)}
-            </a>
-            <span class="fe-nt-acts">
-              <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
-              <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
-              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">\u2715</button>
-            </span>
-          </div>`).join("") : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
-        attachNoteEvents(root);
+        allNotes = pinnedFirst(unsorted);
+        renderNotes(root);
       }).catch((err) => {
         ntHint.textContent = err.message;
         ntList.innerHTML = `<div class="fe-hint">${esc(err.code === "unavailable" ? "Notes host not installed. Run native/install.sh." : err.message)}</div>`;
