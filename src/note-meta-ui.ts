@@ -37,7 +37,7 @@ export function openPropsMenu(anchor: HTMLElement, props: NoteProps, apply: Appl
       <div class="fe-pm-tags">
         ${cur.tags.map(t => `<span class="fe-chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="fe-chip-x" data-pm="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join('')}
       </div>
-      <form class="fe-pm-add"><input type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="40"><button class="fe-pbn" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
+      <form class="fe-pm-add"><input type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="fe-pbn" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
   };
   const run = async (c: PropChange) => {
     const r = await apply(c);
@@ -59,6 +59,13 @@ export function openPropsMenu(anchor: HTMLElement, props: NoteProps, apply: Appl
     const inp = menu.querySelector<HTMLInputElement>('.fe-pm-add input')!;
     // a comma would split the tag in the file, so it cannot be part of one
     const t = inp.value.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+    // the same limits the Pi and the phone keep: a "pin" tag would turn the note into a pin and
+    // hide it from every Notes list, and the phone refuses more than 12 tags of 32 characters
+    const why = t.toLowerCase() === 'pin' ? '"pin" is kept for pins; pin the note instead'
+      : t.length > 32 ? 'A tag is at most 32 characters'
+      : cur.tags.length >= 12 && !cur.tags.includes(t) ? 'A note keeps at most 12 tags' : '';
+    inp.setCustomValidity(why);
+    if (why) { inp.reportValidity(); return; }
     if (t && !cur.tags.includes(t)) void run({ tags: [...cur.tags, t] });
     else inp.value = '';
   });
