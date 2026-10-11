@@ -11,6 +11,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch(err => sendResponse({ ok: false, error: String(err) }));
     return true; // keep the message channel open for the async response
   }
+  // An image's bytes for the preview's copy button: a page canvas cannot read a
+  // file:// image back, so the worker fetches it and answers base64 plus its type.
+  if (msg.type === 'bfb-fetch-image') {
+    fetch(msg.url)
+      .then(async r => {
+        const buf = await r.arrayBuffer();
+        if (buf.byteLength > 40 * 1024 * 1024) throw new Error('image exceeds 40 MB');
+        const bytes = new Uint8Array(buf);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        sendResponse({ ok: true, base64: btoa(bin), type: r.headers.get('content-type') || '' });
+      })
+      .catch(err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
   // One-shot native call (terminal button): content scripts cannot use
   // connectNative, so the round-trip happens here.
   if (msg.type === 'bfb-native-oneshot') {

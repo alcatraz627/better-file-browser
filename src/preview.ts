@@ -16,6 +16,7 @@ import {
 import { fetchFileText, FileFetchError } from './file-fetch';
 import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
 import { mountMetaBar, closePropsMenu } from './note-meta-ui';
+import { mountImageTools } from './image-tools';
 import {
   attachBuffer, moveLines, duplicateLines, indentLines, continueList, wrapSelection, tableSnippet, type TextEdit,
 } from './editor';
@@ -54,6 +55,7 @@ interface PreviewDeps {
   aiModel?:  () => string | undefined;   // chosen -m override, or undefined for default
   keepTab?:  (path: string) => void;     // keep the previewed file as a background strip tab
   saveError?: (message: string) => void;
+  toast?: (message: string) => void;
 }
 // Scroll position per previewed file, for this page's lifetime.
 const scrollMemo = new Map<string, number>();
@@ -624,13 +626,16 @@ export function openPreview(e: Entry): void {
   if (IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext)) {
     copyBtn.style.display = 'none';   // binary media: rendered from file://, no text/AI
     if (IMG_EXTS.has(ext)) {
-      body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"><div class="fe-ql-dim"></div></div>`;
-      const img = body.querySelector<HTMLImageElement>('img.fe-ql-img');
-      const dim = body.querySelector<HTMLElement>('.fe-ql-dim');
-      if (img && dim) {
-        const show = () => { if (img.naturalWidth) dim.textContent = `${img.naturalWidth} × ${img.naturalHeight}`; };
-        if (img.complete) show(); else img.addEventListener('load', show, { once: true });
-      }
+      body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
+      mountImageTools(body.querySelector<HTMLElement>('.fe-ql-imgwrap')!, {
+        href: e.href, name: e.name,
+        path: decodeURIComponent(new URL(e.href, location.href).pathname),
+        notify: m => deps.toast?.(m),
+        // the Ghostty host also opens a file in its default app; a missing host answers not-ok
+        openNative: p => new Promise(res => chrome.runtime.sendMessage(
+          { type: 'bfb-native-oneshot', host: 'com.better_file_browser.ghostty', payload: { action: 'open_file', path: p } },
+          r => res(!chrome.runtime.lastError && !!r?.ok && r.response?.success === true))),
+      });
     }
     else if (PDF_EXTS.has(ext))   body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
     else if (VIDEO_EXTS.has(ext)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;

@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-"""Native messaging host — opens Ghostty in the requested directory."""
-import sys, json, struct, subprocess
+"""Native messaging host: opens Ghostty in a directory, or an image in its default app."""
+import sys, os, json, struct, subprocess
+
+# Same set as IMG_EXTS in src/icons.ts: the only files this host will hand to `open`.
+IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', '.avif', '.bmp'}
 
 def read_msg():
     raw = sys.stdin.buffer.read(4)
@@ -27,4 +30,17 @@ if msg and msg.get('action') == 'open_terminal':
         write_msg({'success': True})
     except Exception as e:
         subprocess.Popen(['open', '-a', 'Ghostty'])   # fallback: just open Ghostty
+        write_msg({'success': False, 'error': str(e)})
+elif msg and msg.get('action') == 'open_file':
+    # Only an existing image file: `open` would also launch an app bundle or a script.
+    path = msg.get('path')
+    try:
+        if not isinstance(path, str) or not path.startswith('/'):
+            raise ValueError('path must be an absolute string')
+        real = os.path.realpath(path)
+        if not os.path.isfile(real) or os.path.splitext(real)[1].lower() not in IMAGE_EXTS:
+            raise ValueError('not an image file')
+        subprocess.Popen(['open', real])
+        write_msg({'success': True})
+    except Exception as e:
         write_msg({'success': False, 'error': str(e)})

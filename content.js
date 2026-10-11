@@ -385,6 +385,7 @@
     actualSize: svg('<rect x="2" y="2" width="10" height="10" rx="1"/><path d="M5 5.2 7 4v6M5 10h4"/>'),
     rotate: svg('<path d="M11.5 7A4.5 4.5 0 1 1 10 3.6M11.5 1.5v2.5H9"/>'),
     flip: svg('<path d="M7 1.5v11M5 4 1.5 10.5H5zM9 4l3.5 6.5H9z"/>'),
+    fit: svg('<path d="M1.5 5V1.5H5M9 1.5h3.5V5M12.5 9v3.5H9M5 12.5H1.5V9"/>'),
     copyImage: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>')
   };
 
@@ -1833,6 +1834,123 @@ ${body}`;
     return draw;
   }
 
+  // src/image-tools.ts
+  var START_VIEW = { fit: true, zoom: 1, rot: 0, flip: false };
+  function turnedSize(w, h, rot) {
+    return rot % 180 === 0 ? { w, h } : { w: h, h: w };
+  }
+  function fitZoom(w, h, rot, stageW, stageH) {
+    const t = turnedSize(w, h, rot);
+    if (!t.w || !t.h) return 1;
+    return Math.min(1, Math.max(stageW - 32, 1) / t.w, Math.max(stageH - 32, 1) / t.h);
+  }
+  var STEP = 1.25;
+  var clampZoom = (z) => Math.min(16, Math.max(0.05, z));
+  function viewTransform(v) {
+    return `translate(-50%,-50%) scaleX(${v.flip ? -1 : 1}) rotate(${v.rot}deg)`;
+  }
+  var BTN = (act, icon, text, title) => `<button class="fe-pbn" data-img="${act}" title="${esc(title)}">${icon}<span>${text}</span></button>`;
+  function mountImageTools(wrap, o) {
+    wrap.innerHTML = `
+    <div class="fe-ql-imgbar" role="toolbar" aria-label="Image tools">
+      ${BTN("in", UI_ICON.zoomIn, "zoom in", "Zoom in")}
+      ${BTN("out", UI_ICON.zoomOut, "zoom out", "Zoom out")}
+      ${BTN("fit", UI_ICON.fit, "fit", "Fit the picture in the panel")}
+      ${BTN("actual", UI_ICON.actualSize, "actual size", "Show at 100%")}
+      ${BTN("rotate", UI_ICON.rotate, "rotate", "Turn a quarter clockwise")}
+      ${BTN("flip", UI_ICON.flip, "flip", "Mirror left to right")}
+      ${BTN("copy", UI_ICON.copyImage, "copy image", "Copy the picture as shown")}
+      ${BTN("open", UI_ICON.external, "open in app", "Open in the default app")}
+    </div>
+    <div class="fe-ql-imgstage"><div class="fe-ql-imgsizer"><img class="fe-ql-img" src="${esc(o.href)}" alt="${esc(o.name)}"></div></div>
+    <div class="fe-ql-dim"></div>`;
+    const stage = wrap.querySelector(".fe-ql-imgstage");
+    const sizer = wrap.querySelector(".fe-ql-imgsizer");
+    const img = wrap.querySelector("img.fe-ql-img");
+    const dim = wrap.querySelector(".fe-ql-dim");
+    let v = { ...START_VIEW };
+    const natural = () => ({ w: img.naturalWidth, h: img.naturalHeight });
+    const zoomNow = () => v.fit ? fitZoom(natural().w, natural().h, v.rot, stage.clientWidth, stage.clientHeight) : v.zoom;
+    const draw = () => {
+      const n = natural();
+      if (!n.w) return;
+      const z = zoomNow();
+      const t = turnedSize(n.w * z, n.h * z, v.rot);
+      sizer.style.width = `${t.w}px`;
+      sizer.style.height = `${t.h}px`;
+      img.style.width = `${n.w * z}px`;
+      img.style.height = `${n.h * z}px`;
+      img.style.transform = viewTransform(v);
+      dim.textContent = `${n.w} \xD7 ${n.h} \xB7 ${Math.round(z * 100)}%`;
+      wrap.dataset.zoom = String(Math.round(z * 100));
+      wrap.dataset.rot = String(v.rot);
+      wrap.dataset.flip = v.flip ? "1" : "0";
+    };
+    if (img.complete) draw();
+    else img.addEventListener("load", draw, { once: true });
+    if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => {
+      if (v.fit) draw();
+    }).observe(stage);
+    const copy = async () => {
+      try {
+        const reply = await new Promise((res) => chrome.runtime.sendMessage({ type: "bfb-fetch-image", url: new URL(o.href, location.href).href }, (r) => res(r ?? { ok: false, error: "no reply" })));
+        if (!reply.ok || !reply.base64) throw new Error(reply.error || "could not read the image");
+        const bytes = Uint8Array.from(atob(reply.base64), (c) => c.charCodeAt(0));
+        const src = URL.createObjectURL(new Blob([bytes], { type: reply.type || "image/png" }));
+        const pic = new Image();
+        await new Promise((ok, bad) => {
+          pic.onload = ok;
+          pic.onerror = () => bad(new Error("cannot decode the image"));
+          pic.src = src;
+        });
+        const n = { w: pic.naturalWidth, h: pic.naturalHeight };
+        const t = turnedSize(n.w, n.h, v.rot);
+        const cv = document.createElement("canvas");
+        cv.width = t.w;
+        cv.height = t.h;
+        const ctx = cv.getContext("2d");
+        ctx.translate(t.w / 2, t.h / 2);
+        ctx.scale(v.flip ? -1 : 1, 1);
+        ctx.rotate(v.rot * Math.PI / 180);
+        ctx.drawImage(pic, -n.w / 2, -n.h / 2);
+        URL.revokeObjectURL(src);
+        const png = await new Promise((res) => cv.toBlob(res, "image/png"));
+        if (!png) throw new Error("could not encode the image");
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+        o.notify("Image copied");
+      } catch (e) {
+        o.notify(`Copy failed: ${e.message}`);
+      }
+    };
+    const act = (a) => {
+      if (a === "in" || a === "out") {
+        v = { ...v, zoom: clampZoom(zoomNow() * (a === "in" ? STEP : 1 / STEP)), fit: false };
+      } else if (a === "fit") v = { ...v, fit: true };
+      else if (a === "actual") v = { ...v, zoom: 1, fit: false };
+      else if (a === "rotate") v = { ...v, rot: (v.rot + 90) % 360 };
+      else if (a === "flip") v = { ...v, flip: !v.flip };
+      else if (a === "copy") {
+        void copy();
+        return;
+      } else if (a === "open") {
+        void o.openNative(o.path).then((ok) => {
+          if (!ok) o.notify("Open in app needs the native host: run native/install.sh");
+        });
+        return;
+      }
+      draw();
+    };
+    wrap.querySelector(".fe-ql-imgbar").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-img]");
+      if (b) act(b.dataset.img);
+    });
+    stage.addEventListener("wheel", (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      act(e.deltaY < 0 ? "in" : "out");
+    }, { passive: false });
+  }
+
   // src/editor.ts
   var BUF_CAP = 60;
   var BUF_COALESCE = 600;
@@ -2757,16 +2875,18 @@ ${body}
     if (IMG_EXTS.has(ext2) || PDF_EXTS.has(ext2) || VIDEO_EXTS.has(ext2) || AUDIO_EXTS.has(ext2) || FONT_EXTS.has(ext2)) {
       copyBtn.style.display = "none";
       if (IMG_EXTS.has(ext2)) {
-        body.innerHTML = `<div class="fe-ql-imgwrap"><img class="fe-ql-img" src="${esc(e.href)}" alt="${esc(e.name)}"><div class="fe-ql-dim"></div></div>`;
-        const img = body.querySelector("img.fe-ql-img");
-        const dim = body.querySelector(".fe-ql-dim");
-        if (img && dim) {
-          const show = () => {
-            if (img.naturalWidth) dim.textContent = `${img.naturalWidth} \xD7 ${img.naturalHeight}`;
-          };
-          if (img.complete) show();
-          else img.addEventListener("load", show, { once: true });
-        }
+        body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
+        mountImageTools(body.querySelector(".fe-ql-imgwrap"), {
+          href: e.href,
+          name: e.name,
+          path: decodeURIComponent(new URL(e.href, location.href).pathname),
+          notify: (m) => deps.toast?.(m),
+          // the Ghostty host also opens a file in its default app; a missing host answers not-ok
+          openNative: (p) => new Promise((res) => chrome.runtime.sendMessage(
+            { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_file", path: p } },
+            (r) => res(!chrome.runtime.lastError && !!r?.ok && r.response?.success === true)
+          ))
+        });
       } else if (PDF_EXTS.has(ext2)) body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
       else if (VIDEO_EXTS.has(ext2)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;
       else if (AUDIO_EXTS.has(ext2)) body.innerHTML = `<div class="fe-ql-center"><audio src="${esc(e.href)}" controls></audio></div>`;
@@ -3453,8 +3573,14 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
 .fe-ql-note{font-size:calc(11.5px * var(--ui-text-scale,1));color:var(--dm);padding:6px 14px}
 .fe-ql-note.err{color:#f85149}
-.fe-ql-imgwrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;height:100%;padding:16px}
-.fe-ql-img{max-width:100%;max-height:calc(100% - 22px);object-fit:contain;border-radius:4px}
+.fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
+.fe-ql-imgbar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
+.fe-ql-imgbar .fe-pbn{padding:2px 7px;font-size:calc(11px * var(--ui-text-scale,1));display:inline-flex;align-items:center;gap:5px}
+.fe-ql-imgbar .fe-pbn svg{flex:none;width:13px;height:13px}
+.fe-ql-imgstage{flex:1;min-height:0;overflow:auto;display:flex}
+.fe-ql-imgsizer{position:relative;margin:auto;flex:none}
+.fe-ql-img{position:absolute;left:50%;top:50%;max-width:none;max-height:none;border-radius:4px;transform-origin:center}
+.fe-ql-imgwrap .fe-ql-dim{padding:4px 12px;border-top:1px solid var(--bd);text-align:center;flex-shrink:0}
 .fe-ql-dim{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);font-variant-numeric:tabular-nums}
 .fe-ql-pdf{width:100%;height:100%;border:none}
 .fe-ql-media-wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
@@ -7475,7 +7601,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: (path) => {
       app.strip.open(path, true);
       app.toast("Kept as a tab");
-    }, saveError: (message) => app.toast(message) });
+    }, saveError: (message) => app.toast(message), toast: (message) => app.toast(message) });
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore !== false });
     if (fileMode) {
       app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href, column: settings.readerColumn });
