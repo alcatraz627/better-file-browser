@@ -18,4 +18,11 @@ export const UI_ICON = {
   warm: svg('<path d="M7 1.5c1 2-1 2.7-.5 4 1-1 1.8-1.2 2-2 .5 2 3 3.1 3 5.1A4.5 4.5 0 0 1 7 13a4.5 4.5 0 0 1-4.5-4.4c0-2 1.4-3.8 3-4.8-.2 1.2.2 1.8.6 2.2C7 4.5 6 3.5 7 1.5z"/>'),
   unload: svg('<path d="M7 1v12M2 4l10 6M2 10l10-6M4.5 2.5 7 4l2.5-1.5M4.5 11.5 7 10l2.5 1.5"/>'),
   close: svg('<path d="m3 3 8 8M11 3l-8 8"/>'),
+  // the notes editor's toolbar and header (owner: an icon left of the text on every button)
+  list: svg('<path d="M5 3.5h7M5 7h7M5 10.5h7"/><circle cx="2.5" cy="3.5" r=".6"/><circle cx="2.5" cy="7" r=".6"/><circle cx="2.5" cy="10.5" r=".6"/>'),
+  task: svg('<rect x="1.5" y="2" width="4" height="4" rx=".8"/><path d="m2.5 4 1 1 1.5-2M7.5 4h5M1.5 9h4v3h-4zM7.5 10.5h5"/>'),
+  table: svg('<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><path d="M1.5 5.5h11M5.5 2.5v9M9 2.5v9"/>'),
+  image: svg('<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><circle cx="5" cy="5.5" r="1"/><path d="m1.5 10 3.5-3 3 2.5 2-1.5 2.5 2"/>'),
+  versions: svg('<path d="M2.5 5A5 5 0 1 1 2 8M2.5 2.5V5H5M7 4.5V7l2 1.5"/>'),
+  external: svg('<path d="M8 2h4v4M12 2 6.5 7.5M10 8.5V12H2V4h3.5"/>'),
 };

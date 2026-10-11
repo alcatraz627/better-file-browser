@@ -368,7 +368,14 @@
     import: svg('<path d="M7 9V2m-2.5 2.5L7 2l2.5 2.5M2 10v2h10v-2"/>'),
     warm: svg('<path d="M7 1.5c1 2-1 2.7-.5 4 1-1 1.8-1.2 2-2 .5 2 3 3.1 3 5.1A4.5 4.5 0 0 1 7 13a4.5 4.5 0 0 1-4.5-4.4c0-2 1.4-3.8 3-4.8-.2 1.2.2 1.8.6 2.2C7 4.5 6 3.5 7 1.5z"/>'),
     unload: svg('<path d="M7 1v12M2 4l10 6M2 10l10-6M4.5 2.5 7 4l2.5-1.5M4.5 11.5 7 10l2.5 1.5"/>'),
-    close: svg('<path d="m3 3 8 8M11 3l-8 8"/>')
+    close: svg('<path d="m3 3 8 8M11 3l-8 8"/>'),
+    // the notes editor's toolbar and header (owner: an icon left of the text on every button)
+    list: svg('<path d="M5 3.5h7M5 7h7M5 10.5h7"/><circle cx="2.5" cy="3.5" r=".6"/><circle cx="2.5" cy="7" r=".6"/><circle cx="2.5" cy="10.5" r=".6"/>'),
+    task: svg('<rect x="1.5" y="2" width="4" height="4" rx=".8"/><path d="m2.5 4 1 1 1.5-2M7.5 4h5M1.5 9h4v3h-4zM7.5 10.5h5"/>'),
+    table: svg('<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><path d="M1.5 5.5h11M5.5 2.5v9M9 2.5v9"/>'),
+    image: svg('<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><circle cx="5" cy="5.5" r="1"/><path d="m1.5 10 3.5-3 3 2.5 2-1.5 2.5 2"/>'),
+    versions: svg('<path d="M2.5 5A5 5 0 1 1 2 8M2.5 2.5V5H5M7 4.5V7l2 1.5"/>'),
+    external: svg('<path d="M8 2h4v4M12 2 6.5 7.5M10 8.5V12H2V4h3.5"/>')
   };
 
   // src/dialog.ts
@@ -1526,10 +1533,22 @@
     const s = title.replace(/^#+\s*/, "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
     return (s || "untitled") + ".md";
   }
+  function unquoteYaml(v) {
+    if (v.length >= 2 && v[0] === '"' && v.endsWith('"')) {
+      try {
+        return JSON.parse(v);
+      } catch {
+        return v.slice(1, -1);
+      }
+    }
+    if (v.length >= 2 && v[0] === "'" && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
+    return v;
+  }
   function noteTitle(rel, text) {
     if (text) {
       const fm = text.match(/^---\n([\s\S]*?)\n---/);
-      const t = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim().replace(/^["']|["']$/g, "");
+      const raw = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim();
+      const t = raw && unquoteYaml(raw).trim();
       if (t) return t;
       const body = text.replace(/^---\n[\s\S]*?\n---\n?/, "");
       const h = body.match(/^#\s+(.+)$/m)?.[1].trim();
@@ -1916,9 +1935,9 @@ ${body}
           <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>copy</span>
         </button>
-        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">open raw \u2197</a>
-        <button id="fe-ql-go" title="Open in this tab (Enter)">open</button>
-        <button id="fe-ql-tab" title="Keep as a strip tab (t)">+ tab</button>
+        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">${UI_ICON.external}<span>open raw</span></a>
+        <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>open</span></button>
+        <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>tab</span></button>
         <button id="fe-ql-dock" title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
@@ -2158,11 +2177,11 @@ ${body}
       <button class="fe-pbn" data-act="bold" title="Bold (\u2318B)"><b>B</b></button>
       <button class="fe-pbn" data-act="italic" title="Italic (\u2318I)"><i>I</i></button>
       <button class="fe-pbn" data-act="code" title="Code (\u2318E)">\u2039\u203A</button>
-      <button class="fe-pbn" data-act="list" title="Bullet list">\u2022 list</button>
-      <button class="fe-pbn" data-act="task" title="Task list">\u2610 task</button>
-      <button class="fe-pbn" data-act="table" title="Insert a table">table</button>
-      <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">image</button>
-      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">versions</button>
+      <button class="fe-pbn" data-act="list" title="Bullet list">${UI_ICON.list}<span>list</span></button>
+      <button class="fe-pbn" data-act="task" title="Task list">${UI_ICON.task}<span>task</span></button>
+      <button class="fe-pbn" data-act="table" title="Insert a table">${UI_ICON.table}<span>table</span></button>
+      <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}<span>image</span></button>
+      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>versions</span></button>
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
     </div>
@@ -3010,7 +3029,7 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-fp-raw.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-fp-reload{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
 #fe-ed-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
-#fe-ed-bar .fe-pbn{padding:2px 7px;font-size:calc(11px * var(--ui-text-scale,1))}
+#fe-ed-bar .fe-pbn{padding:2px 7px;font-size:calc(11px * var(--ui-text-scale,1));display:inline-flex;align-items:center;gap:5px}
 .fe-ed-hint{margin-left:auto;font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
 .fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
@@ -3045,8 +3064,8 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-ql-name{font-weight:600;font-size:calc(13px * var(--ui-text-scale,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
 #fe-ql-name:hover{color:var(--ac);text-decoration:underline}
 #fe-ql-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);flex:1;white-space:nowrap}
-#fe-ql-open{font-size:calc(11px * var(--ui-text-scale,1));color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
-#fe-ql-go,#fe-ql-tab{font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);background:none;cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap}
+#fe-ql-open{font-size:calc(11px * var(--ui-text-scale,1));color:var(--ac);text-decoration:none;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+#fe-ql-go,#fe-ql-tab{font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);background:none;cursor:pointer;padding:3px 8px;border:1px solid var(--bd);border-radius:5px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
 #fe-ql-go:hover,#fe-ql-tab:hover{border-color:var(--ac);color:var(--ac)}
 #fe-ql-open:hover{border-color:var(--ac)}
 #fe-ql-copy{display:flex;align-items:center;gap:5px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);background:none;

@@ -6,6 +6,7 @@ import { esc, fmtSize, getExt, copyToClipboard } from './utils';
 import { getPreviewLayout, savePreviewLayout } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
 import { getIcon, IMG_EXTS } from './icons';
+import { UI_ICON } from './control-icons';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
   renderCode, renderJsonTree, renderJsonl, renderMarkdown,
@@ -97,9 +98,9 @@ export function initPreview(d: PreviewDeps): void {
           <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>copy</span>
         </button>
-        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">open raw ↗</a>
-        <button id="fe-ql-go" title="Open in this tab (Enter)">open</button>
-        <button id="fe-ql-tab" title="Keep as a strip tab (t)">+ tab</button>
+        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">${UI_ICON.external}<span>open raw</span></a>
+        <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>open</span></button>
+        <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>tab</span></button>
         <button id="fe-ql-dock" title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
@@ -365,11 +366,11 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       <button class="fe-pbn" data-act="bold" title="Bold (⌘B)"><b>B</b></button>
       <button class="fe-pbn" data-act="italic" title="Italic (⌘I)"><i>I</i></button>
       <button class="fe-pbn" data-act="code" title="Code (⌘E)">‹›</button>
-      <button class="fe-pbn" data-act="list" title="Bullet list">• list</button>
-      <button class="fe-pbn" data-act="task" title="Task list">☐ task</button>
-      <button class="fe-pbn" data-act="table" title="Insert a table">table</button>
-      <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">image</button>
-      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">versions</button>
+      <button class="fe-pbn" data-act="list" title="Bullet list">${UI_ICON.list}<span>list</span></button>
+      <button class="fe-pbn" data-act="task" title="Task list">${UI_ICON.task}<span>task</span></button>
+      <button class="fe-pbn" data-act="table" title="Insert a table">${UI_ICON.table}<span>table</span></button>
+      <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}<span>image</span></button>
+      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>versions</span></button>
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">⌥↑↓ move line · ⌥⇧↑↓ duplicate · ⇥ indent · Enter continues lists</span>
     </div>
