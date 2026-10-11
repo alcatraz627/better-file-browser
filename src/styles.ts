@@ -541,7 +541,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-pm-add input:focus{outline:none;border-color:var(--ac)}
 .fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:1px}
 .fe-mid{display:flex;min-width:0;max-width:100%;overflow:hidden}
-.fe-mid-h{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fe-mid-h{overflow:hidden;text-overflow:ellipsis;white-space:pre;min-width:0}
 .fe-mid-t{white-space:pre;flex:none}
 .fe-nt-label{flex:none;display:flex;min-width:0;white-space:nowrap;overflow:hidden;line-height:1.3}
 .fe-nt-label.editing{display:block;white-space:normal;overflow:visible;overflow-wrap:anywhere}

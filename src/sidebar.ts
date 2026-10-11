@@ -10,7 +10,7 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings } from './storage';
 import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, slugForTitle, setTitle, pinnedFirst, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
+import { notes, noteTitle, slugForTitle, setTitle, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
 import { colorDot, openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
@@ -229,7 +229,7 @@ export function initSidebar(app: App): void {
     }
     el<HTMLAnchorElement>('fe-notes-root').href = 'file://' + root + '/';
     notes.list(root).then(unsorted => {
-      allNotes = pinnedFirst(unsorted);
+      allNotes = sharedOrder(unsorted);
       renderNotes(root);
     }).catch((err: NotesError) => {
       ntHint.textContent = err.message;

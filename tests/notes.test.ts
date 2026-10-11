@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated, setTitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, pinnedFirst, filterNotes } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes } from '../src/notes';
 
 describe('clash', () => {
   const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
@@ -115,9 +115,31 @@ describe('properties', () => {
     expect(frontmatterDrift('# plain\n', '---\nx: 1\n---\n# plain\n', [])).toEqual(['+ x: 1']);
     expect(frontmatterDrift(sb, stampUpdated(sb), [])).toEqual([]);
   });
-  it('pinnedFirst puts pinned notes first, then newest', () => {
-    const l = [{ rel: 'a', pinned: false, mtime: 9 }, { rel: 'b', pinned: true, mtime: 1 }, { rel: 'c', mtime: 5 }, { rel: 'd', pinned: true, mtime: 3 }];
-    expect(pinnedFirst(l).map(n => n.rel)).toEqual(['d', 'b', 'a', 'c']);
+  it('sharedOrder: pinned first, then unarranged newest created, then pos in byte order, then file name', () => {
+    const l = [
+      { rel: 'a', mtime: 1, created: 10 }, { rel: 'b', mtime: 1, created: 30 },
+      { rel: 'c', mtime: 1, pos: 'b' }, { rel: 'd', mtime: 1, pos: 'a' },
+      { rel: 'e', mtime: 1, pinned: true, pos: 'z' }, { rel: 'f', mtime: 1, pinned: true, created: 5 },
+      { rel: 'g', mtime: 1, pos: 'a' },
+    ];
+    expect(sharedOrder(l).map(n => n.rel)).toEqual(['f', 'e', 'b', 'a', 'd', 'g', 'c']);
+  });
+  it('sharedOrder: editing (a newer mtime) does not move a note, and absent created falls back to mtime', () => {
+    const l = [{ rel: 'x', mtime: 100, created: 1 }, { rel: 'y', mtime: 1, created: 2 }];
+    expect(sharedOrder(l).map(n => n.rel)).toEqual(['y', 'x']);
+    expect(sharedOrder([{ rel: 'p', mtime: 1 }, { rel: 'q', mtime: 9 }]).map(n => n.rel)).toEqual(['q', 'p']);
+  });
+  it('pos is read back as the raw text', () => {
+    for (const v of ['no', '1e5', 'null', 'i', '0']) {
+      expect(readProps('n.md', `---\ntitle: T\npos: ${v}\n---\nbody`).pos).toBe(v);
+    }
+    expect(readProps('n.md', '---\ntitle: T\n---\nbody').pos).toBeUndefined();
+  });
+  it('KEY_ORDER puts remind_on after remind_repeat and pos last, and a pin edit keeps pos', () => {
+    const t = '---\ntitle: T\nremind_repeat: daily\nreminder_id: r1\nurl: http://x\npos: i\n---\nb';
+    expect(setField(t, 'remind_on', 'phone')).toBe('---\ntitle: T\nremind_repeat: daily\nremind_on: phone\nreminder_id: r1\nurl: http://x\npos: i\n---\nb');
+    expect(setField('---\ntitle: T\nurl: http://x\n---\nb', 'pos', 'i')).toBe('---\ntitle: T\nurl: http://x\npos: i\n---\nb');
+    expect(setPinned(t, true)).toContain('pinned: true\nurl: http://x\npos: i\n---');
   });
 });
 

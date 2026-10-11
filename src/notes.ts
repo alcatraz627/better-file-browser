@@ -2,7 +2,7 @@
 // background worker's one-shot relay (content scripts cannot connectNative).
 // Every call names the notes root the owner picked in Settings.
 
-export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[] }
+export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number }
 export interface NoteDoc  { rel: string; text: string; mtime: number }
 
 export class NotesError extends Error {
@@ -153,11 +153,12 @@ export function colorName(v: string | undefined): NoteColor | null {
   return (NOTE_COLORS as readonly string[]).includes(n) ? n as NoteColor : null;
 }
 
-export interface NoteProps { title: string; color: NoteColor | null; pinned: boolean; tags: string[] }
+/// `pos` is the shared order key, kept as the raw text on the line (`no`, `1e5` and `null` are all just strings).
+export interface NoteProps { title: string; color: NoteColor | null; pinned: boolean; tags: string[]; pos?: string }
 
 /// Frontmatter keys in the order Switchboard writes them (csync notes_store.py KEY_ORDER).
-const KEY_ORDER = ['title', 'created', 'tags', 'expires', 'remind_at', 'remind_repeat', 'reminder_id',
-                   'pinned', 'color', 'agent', 'source', 'url'];
+const KEY_ORDER = ['title', 'created', 'tags', 'expires', 'remind_at', 'remind_repeat', 'remind_on', 'reminder_id',
+                   'pinned', 'color', 'agent', 'source', 'url', 'pos'];
 
 // The frontmatter block at the top of a note, closing fence and its newline included.
 // A block holding git clash markers is not frontmatter: it stays visible as text.
@@ -185,7 +186,7 @@ export function readProps(rel: string, text: string): NoteProps {
     if (i > 0) f[line.slice(0, i).trim()] = unquoteYaml(line.slice(i + 1).trim());
   }
   return { title: noteTitle(rel, text), color: colorName(f.color), pinned: f.pinned === 'true',
-           tags: parseTags(f.tags) };
+           tags: parseTags(f.tags), ...(f.pos ? { pos: f.pos } : {}) };
 }
 
 export function parseTags(v: string | undefined): string[] {
@@ -230,9 +231,16 @@ export function frontmatterDrift(before: string, after: string, allowed: Iterabl
   return a.length === b.length && a.every((l, i) => l === b[i]) ? [] : [...a.filter(l => !b.includes(l)).map(l => `- ${l}`), ...b.filter(l => !a.includes(l)).map(l => `+ ${l}`)];
 }
 
-/// Pinned notes first, then newest; the sort is stable so equal notes keep the host's order.
-export function pinnedFirst<T extends { pinned?: boolean; mtime: number }>(list: T[]): T[] {
-  return [...list].sort((x, y) => Number(!!y.pinned) - Number(!!x.pinned) || y.mtime - x.mtime);
+/// The shared note order (specs/order.md): pinned first, then notes never arranged (newest created first),
+/// then arranged notes by `pos` in byte order; the file name breaks ties. Editing a note does not move it.
+export function sharedOrder<T extends { rel: string; pinned?: boolean; pos?: string; created?: number; mtime: number }>(list: T[]): T[] {
+  const made = (n: T) => n.created ?? n.mtime;
+  return [...list].sort((x, y) => {
+    if (!!x.pinned !== !!y.pinned) return x.pinned ? -1 : 1;
+    if (!x.pos !== !y.pos) return x.pos ? 1 : -1;
+    if (!x.pos) return made(y) - made(x) || (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
+    return x.pos! < y.pos! ? -1 : x.pos! > y.pos! ? 1 : (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
+  });
 }
 
 /// Notes whose title, file name, tags or colour contain every word typed; `#work` matches a tag only.

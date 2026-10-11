@@ -1643,12 +1643,14 @@ ${fm}
     "expires",
     "remind_at",
     "remind_repeat",
+    "remind_on",
     "reminder_id",
     "pinned",
     "color",
     "agent",
     "source",
-    "url"
+    "url",
+    "pos"
   ];
   var FM_RE = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
   function splitNote(text) {
@@ -1671,7 +1673,8 @@ ${fm}
       title: noteTitle(rel, text),
       color: colorName(f.color),
       pinned: f.pinned === "true",
-      tags: parseTags2(f.tags)
+      tags: parseTags2(f.tags),
+      ...f.pos ? { pos: f.pos } : {}
     };
   }
   function parseTags2(v) {
@@ -1715,8 +1718,14 @@ ${body}`;
     const a = keep(before), b = keep(after);
     return a.length === b.length && a.every((l, i) => l === b[i]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
   }
-  function pinnedFirst(list) {
-    return [...list].sort((x, y) => Number(!!y.pinned) - Number(!!x.pinned) || y.mtime - x.mtime);
+  function sharedOrder(list) {
+    const made = (n) => n.created ?? n.mtime;
+    return [...list].sort((x, y) => {
+      if (!!x.pinned !== !!y.pinned) return x.pinned ? -1 : 1;
+      if (!x.pos !== !y.pos) return x.pos ? 1 : -1;
+      if (!x.pos) return made(y) - made(x) || (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
+      return x.pos < y.pos ? -1 : x.pos > y.pos ? 1 : x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0;
+    });
   }
   function filterNotes(list, query) {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -2583,7 +2592,7 @@ ${body}
   function editHeader(status) {
     if (!edit) return;
     const nameEl = document.getElementById("fe-ql-name");
-    nameEl.textContent = (edit.dirty ? "\u25CF " : "") + noteTitle(edit.rel, edit.text);
+    nameEl.innerHTML = midHtml((edit.dirty ? "\u25CF " : "") + noteTitle(edit.rel, edit.text));
     document.getElementById("fe-ql-meta").textContent = `${edit.rel} \xB7 ${status}`;
   }
   var stripFrontMatter = (t) => t.replace(/^---\n[\s\S]*?\n---\n?/, "");
@@ -3592,7 +3601,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-pm-add input:focus{outline:none;border-color:var(--ac)}
 .fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:1px}
 .fe-mid{display:flex;min-width:0;max-width:100%;overflow:hidden}
-.fe-mid-h{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fe-mid-h{overflow:hidden;text-overflow:ellipsis;white-space:pre;min-width:0}
 .fe-mid-t{white-space:pre;flex:none}
 .fe-nt-label{flex:none;display:flex;min-width:0;white-space:nowrap;overflow:hidden;line-height:1.3}
 .fe-nt-label.editing{display:block;white-space:normal;overflow:visible;overflow-wrap:anywhere}
@@ -7068,7 +7077,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       }
       el("fe-notes-root").href = "file://" + root + "/";
       notes.list(root).then((unsorted) => {
-        allNotes = pinnedFirst(unsorted);
+        allNotes = sharedOrder(unsorted);
         renderNotes(root);
       }).catch((err) => {
         ntHint.textContent = err.message;
