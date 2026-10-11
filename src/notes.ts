@@ -18,6 +18,7 @@ type Frame =
   | { t: 'deleted'; rel: string; trashed: string }
   | { t: 'history'; rel: string; versions: NoteVersion[] }
   | { t: 'version'; rel: string; sha: string; text: string }
+  | { t: 'picked'; root: string }
   | { t: 'error'; code: string; message: string };
 
 /// One saved version of a note, from the folder's git log: short hash, epoch ms, the commit's reason.
@@ -50,6 +51,8 @@ export const notes = {
   writeBinary: (root: string, rel: string, base64: string) =>
             call({ op: 'writeBinary', root, rel, base64 }) as Promise<{ rel: string; mtime: number }>,
   delete: (root: string, rel: string) => call({ op: 'delete', root, rel }),
+  /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
+  pick: (start?: string) => call({ op: 'pick', start }).then(f => (f as { root: string }).root),
   history: (root: string, rel: string) => call({ op: 'history', root, rel }).then(f => (f as { versions: NoteVersion[] }).versions),
   version: (root: string, rel: string, sha: string) => call({ op: 'version', root, rel, sha }) as Promise<{ rel: string; sha: string; text: string }>,
 };
@@ -230,6 +233,17 @@ export function frontmatterDrift(before: string, after: string, allowed: Iterabl
 /// Pinned notes first, then newest; the sort is stable so equal notes keep the host's order.
 export function pinnedFirst<T extends { pinned?: boolean; mtime: number }>(list: T[]): T[] {
   return [...list].sort((x, y) => Number(!!y.pinned) - Number(!!x.pinned) || y.mtime - x.mtime);
+}
+
+/// Notes whose title, file name, tags or colour contain every word typed; `#work` matches a tag only.
+export function filterNotes<T extends { rel: string; title?: string; color?: string; tags?: string[] }>(list: T[], query: string): T[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return list;
+  return list.filter(n => {
+    const tags = (n.tags ?? []).map(t => t.toLowerCase());
+    const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ''} ${tags.join(' ')}`.toLowerCase();
+    return words.every(w => w.startsWith('#') ? w.length > 1 && tags.some(t => t.includes(w.slice(1))) : hay.includes(w));
+  });
 }
 
 export interface PropChange { color?: NoteColor | null; pinned?: boolean; tags?: string[] }

@@ -333,11 +333,15 @@ interface EditState {
   // text is always head + the editor's text: the properties block is never in the textarea
   head: string; base: string; touched: Set<string>; ta?: HTMLTextAreaElement; redrawMeta?: () => void;
   dirty: boolean; saving: boolean; version: number; timer: ReturnType<typeof setTimeout> | null;
-  onSaved?: (rel: string) => void;
+  onSaved?: (rel: string) => void; actions?: NoteActions;
 }
 let edit: EditState | null = null;
 
 export function isEditing(): boolean { return !!edit; }
+/// The note the editor holds right now, or null; it follows the first-save rename.
+export function editingRel(): string | null { return edit ? edit.rel : null; }
+/// Write the editor's pending text to disk and wait for it.
+export function saveEditor(): Promise<void> { return saveNote(); }
 
 function editHeader(status: string): void {
   if (!edit) return;
@@ -348,11 +352,20 @@ function editHeader(status: string): void {
 
 const stripFrontMatter = (t: string) => t.replace(/^---\n[\s\S]*?\n---\n?/, '');
 
-export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => void): void {
+/// What the editor's prev, next, rename and delete buttons do; the sidebar owns the list they act on.
+export interface NoteActions { step(rel: string, dir: 1 | -1): void; rename(rel: string): void; del(rel: string): void }
+
+/// Close the editor without saving: the note is about to be moved away, and an autosave would bring it back.
+export function discardEditor(): void {
+  if (edit) { if (edit.timer) clearTimeout(edit.timer); edit.dirty = false; }
+  closePreview();
+}
+
+export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => void, actions?: NoteActions): void {
   if (edit && edit.dirty) void saveNote();
   currentEntry = null; reqSeq++;
   const { head, body: noteBody } = splitNote(doc.text);
-  edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved };
+  edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved, actions };
   currentText = doc.text;
   document.getElementById('fe-ql-icon')!.innerHTML = '';
   const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
@@ -378,6 +391,10 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       <button class="fe-pbn" data-act="table" title="Insert a table">${UI_ICON.table}<span>table</span></button>
       <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}<span>image</span></button>
       <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>versions</span></button>
+      ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (⌥⌘↑)">${UI_ICON.prev}<span>prev</span></button>
+      <button class="fe-pbn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>next</span></button>
+      <button class="fe-pbn" data-act="rename" title="Rename this note in the sidebar (F2 there)">${UI_ICON.rename}<span>rename</span></button>
+      <button class="fe-pbn" data-act="delete" title="Move this note to .trash">${UI_ICON.trash}<span>delete</span></button>` : ''}
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">⌥↑↓ move line · ⌥⇧↑↓ duplicate · ⇥ indent · Enter continues lists</span>
     </div>
@@ -412,6 +429,10 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     if (name === 'table')  buf.insert((ta.value.slice(0, ta.selectionStart).endsWith('\n') || !ta.selectionStart ? '' : '\n') + tableSnippet());
     if (name === 'image')  (document.getElementById('fe-ed-file') as HTMLInputElement).click();
     if (name === 'versions') void toggleVersions();
+    if (name === 'prev')   actions?.step(edit!.rel, -1);
+    if (name === 'next')   actions?.step(edit!.rel, 1);
+    if (name === 'rename') actions?.rename(edit!.rel);
+    if (name === 'delete') actions?.del(edit!.rel);
   };
 
   // Versions: the folder's git log for this file (Switchboard commits every save).
@@ -509,6 +530,9 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     else if (mod && !e.shiftKey && k === 'b') { stop(); act('bold'); }
     else if (mod && !e.shiftKey && k === 'i') { stop(); act('italic'); }
     else if (mod && !e.shiftKey && k === 'e') { stop(); act('code'); }
+    else if (mod && e.altKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && actions) {
+      stop(); actions.step(edit!.rel, e.key === 'ArrowDown' ? 1 : -1);
+    }
     else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       stop();
       apply(e.shiftKey ? duplicateLines(ta.value, sel()) : moveLines(ta.value, sel(), e.key === 'ArrowDown' ? 1 : -1));
@@ -583,7 +607,7 @@ async function saveNote(st = edit): Promise<void> {
           body.insertAdjacentHTML('afterbegin',
             `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="fe-pbn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="fe-pbn" title="Write the editor text over the disk copy">Overwrite</button></div>`);
           document.getElementById('fe-ed-reload')!.addEventListener('click', () => {
-            notes.read(st.root, st.rel).then(d => openNote(st.root, d, st.onSaved));
+            notes.read(st.root, st.rel).then(d => openNote(st.root, d, st.onSaved, st.actions));
           });
           document.getElementById('fe-ed-force')!.addEventListener('click', () => {
             st.mtime = 0 as unknown as number;

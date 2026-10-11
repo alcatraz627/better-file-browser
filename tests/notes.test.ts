@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated, setTitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, pinnedFirst } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, pinnedFirst, filterNotes } from '../src/notes';
 
 describe('clash', () => {
   const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
@@ -118,5 +118,28 @@ describe('properties', () => {
   it('pinnedFirst puts pinned notes first, then newest', () => {
     const l = [{ rel: 'a', pinned: false, mtime: 9 }, { rel: 'b', pinned: true, mtime: 1 }, { rel: 'c', mtime: 5 }, { rel: 'd', pinned: true, mtime: 3 }];
     expect(pinnedFirst(l).map(n => n.rel)).toEqual(['d', 'b', 'a', 'c']);
+  });
+});
+
+describe('filterNotes', () => {
+  const list = [
+    { rel: 'a.md', title: 'Grocery list', color: 'green', tags: ['home', 'Weekly'] },
+    { rel: 'b.md', title: 'Trip plan', tags: ['work'] },
+    { rel: 'untitled-1.md' },
+  ];
+  it('returns the list untouched for an empty query', () => {
+    expect(filterNotes(list, '  ')).toBe(list);
+  });
+  it('matches title, file name, colour and tag, every word required', () => {
+    expect(filterNotes(list, 'grocery').map(n => n.rel)).toEqual(['a.md']);
+    expect(filterNotes(list, 'B.MD').map(n => n.rel)).toEqual(['b.md']);
+    expect(filterNotes(list, 'green').map(n => n.rel)).toEqual(['a.md']);
+    expect(filterNotes(list, 'list home').map(n => n.rel)).toEqual(['a.md']);
+    expect(filterNotes(list, 'list work')).toEqual([]);
+  });
+  it('treats #word as a tag-only match', () => {
+    expect(filterNotes(list, '#weekly').map(n => n.rel)).toEqual(['a.md']);
+    expect(filterNotes(list, '#grocery')).toEqual([]);
+    expect(filterNotes(list, '#')).toEqual([]);
   });
 });

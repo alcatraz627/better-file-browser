@@ -4,15 +4,15 @@
 import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
-import { esc } from './utils';
+import { esc, copyToClipboard, midHtml } from './utils';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
-import { getSaved, saveSaved, getTags, saveTags } from './storage';
+import { getSaved, saveSaved, getTags, saveTags, saveSettings } from './storage';
 import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, slugForTitle, setTitle, pinnedFirst, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
+import { notes, noteTitle, slugForTitle, setTitle, pinnedFirst, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
 import { colorDot, openPropsMenu } from './note-meta-ui';
-import { openNote } from './preview';
+import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
 
 export function initSidebar(app: App): void {
@@ -84,7 +84,7 @@ export function initSidebar(app: App): void {
 
   // Inline edit of a label or a tag list: contentEditable on the span,
   // Enter saves, Esc restores, blur saves.
-  function inlineEdit(target: HTMLElement, onSave: (val: string) => void): void {
+  function inlineEdit(target: HTMLElement, onSave: (val: string) => void, onCancel?: () => void): void {
     const orig = target.textContent || '';
     target.contentEditable = 'true';
     target.classList.add('editing');
@@ -96,7 +96,7 @@ export function initSidebar(app: App): void {
       if (done) return; done = true;
       const val = (target.textContent || '').trim();
       target.contentEditable = 'false'; target.classList.remove('editing');
-      if (save && val !== orig) onSave(val);
+      if (save && val !== orig) onSave(val); else onCancel?.();
       refreshSaved();
     };
     target.addEventListener('keydown', e => {
@@ -185,24 +185,15 @@ export function initSidebar(app: App): void {
   const ntList = el('fe-nt-list');
   const ntHint = el('fe-st-notes-hint');
   function notesRoot(): string { return (settings.notesRoot || '').replace(/\/$/, ''); }
-  function refreshNotes(): void {
-    const root = notesRoot();
-    if (!root) {
-      ntHint.textContent = '';
-      el<HTMLAnchorElement>('fe-notes-root').removeAttribute('href');
-      ntList.innerHTML = '<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-setup" class="fe-hint-action" title="Choose a Notes folder in Settings">Set notes folder</button></div>';
-      el('fe-nt-setup').addEventListener('click', () => {
-        app.openSettings('notes');
-        el<HTMLInputElement>('fe-st-notes-root').focus();
-      });
-      return;
-    }
-    el<HTMLAnchorElement>('fe-notes-root').href = 'file://' + root + '/';
-    notes.list(root).then(unsorted => {
-      const list = pinnedFirst(unsorted);
-      ntHint.textContent = `${list.length} note${list.length !== 1 ? 's' : ''} in ${root}`;
-      ntList.innerHTML = list.length
-        ? list.map(n => `
+  const ntFilter = el<HTMLInputElement>('fe-nt-filter');
+  let allNotes: NoteMeta[] = [];
+  function renderNotes(root: string): void {
+    const shown = filterNotes(allNotes, ntFilter.value);
+    ntHint.textContent = ntFilter.value.trim()
+      ? `${shown.length} of ${allNotes.length} notes in ${root}`
+      : `${allNotes.length} note${allNotes.length !== 1 ? 's' : ''} in ${root}`;
+    ntList.innerHTML = shown.length
+      ? shown.map(n => `
           <div class="fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}" data-rel="${esc(n.rel)}">
             <a href="file://${esc(root + '/' + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}
@@ -213,8 +204,33 @@ export function initSidebar(app: App): void {
               <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">✕</button>
             </span>
           </div>`).join('')
+      : allNotes.length
+        ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>`
         : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
-      attachNoteEvents(root);
+    attachNoteEvents(root);
+  }
+  ntFilter.addEventListener('input', () => { const root = notesRoot(); if (root) renderNotes(root); });
+  ntFilter.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); ntFilter.value = ''; ntFilter.dispatchEvent(new Event('input')); ntFilter.blur(); }
+  });
+  function refreshNotes(): void {
+    const root = notesRoot();
+    ntFilter.style.display = root ? '' : 'none';
+    if (!root) {
+      ntHint.textContent = '';
+      el<HTMLAnchorElement>('fe-notes-root').removeAttribute('href');
+      ntList.innerHTML = `<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-pick" class="fe-hint-action fe-icon-act" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose folder</span></button><br><button id="fe-nt-setup" class="fe-hint-action" title="Type the notes folder in Settings">Type it in Settings</button></div>`;
+      el('fe-nt-pick').addEventListener('click', () => app.pickNotesFolder());
+      el('fe-nt-setup').addEventListener('click', () => {
+        app.openSettings('notes');
+        el<HTMLInputElement>('fe-st-notes-root').focus();
+      });
+      return;
+    }
+    el<HTMLAnchorElement>('fe-notes-root').href = 'file://' + root + '/';
+    notes.list(root).then(unsorted => {
+      allNotes = pinnedFirst(unsorted);
+      renderNotes(root);
     }).catch((err: NotesError) => {
       ntHint.textContent = err.message;
       ntList.innerHTML = `<div class="fe-hint">${esc(err.code === 'unavailable' ? 'Notes host not installed. Run native/install.sh.' : err.message)}</div>`;
@@ -226,12 +242,130 @@ export function initSidebar(app: App): void {
     const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags!.map(t => `<span>${UI_ICON.tag}${esc(t)}</span>`).join('')}</span>` : '';
     const flags = (colorName(n.color) || n.pinned)
       ? `<span class="fe-nt-flags">${colorName(n.color) ? colorDot(colorName(n.color)) : ''}${n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : ''}</span>` : '';
-    return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>${tags}</span>`;
+    return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>`;
   }
-  function openNoteRel(root: string, rel: string): void {
-    notes.read(root, rel).then(doc => openNote(root, doc, refreshNotes))
+  const noteName = (n: NoteMeta) => n.title || noteTitle(n.rel);
+  const notePath = (root: string, rel: string) => root.replace(/\/$/, '') + '/' + rel;
+  // The editor's arrows walk the list as the sidebar shows it, filter included.
+  function stepNote(root: string, rel: string, dir: 1 | -1): void {
+    const shown = filterNotes(allNotes, ntFilter.value);
+    const pool = shown.some(n => n.rel === rel) ? shown : allNotes;
+    const at = pool.findIndex(n => n.rel === rel);
+    const next = at < 0 ? undefined : pool[at + dir];
+    if (!next) { toast(dir > 0 ? 'That is the last note' : 'That is the first note'); return; }
+    openNoteRel(root, next.rel);
+  }
+  // Rename keeps the file for a shared-store note (the title is a property) and renames the file otherwise.
+  function renameNote(root: string, rel: string, reopen: boolean): void {
+    const row = els<HTMLElement>('.fe-nt-item', ntList).find(i => i.dataset.rel === rel);
+    const label = row?.querySelector<HTMLElement>('.fe-nt-label');
+    if (!label) { toast('That note is not in the list. Clear the filter first.'); return; }
+    if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+    row!.scrollIntoView({ block: 'nearest' });
+    const meta = allNotes.find(n => n.rel === rel);
+    label.textContent = meta ? noteName(meta) : noteTitle(rel);   // the box holds the whole title, every line of it
+    inlineEdit(label, val => {
+      notes.read(root, rel).then(async doc => {
+        const titled = setTitle(doc.text, val);
+        let now = rel;
+        if (titled !== null) await notes.write(root, rel, titled, doc.mtime);
+        else { now = rel.replace(/[^/]+$/, slugForTitle(val)); await notes.rename(root, rel, now); }
+        refreshNotes();
+        if (reopen) openNoteRel(root, now);
+      }).catch((err: NotesError) => toast(err.message));
+    }, () => renderNotes(root));
+  }
+  function deleteNote(root: string, rel: string): void {
+    if (editingRel() === rel) discardEditor();
+    notes.delete(root, rel).then(() => { refreshNotes(); toast('Moved to .trash'); })
       .catch((err: NotesError) => toast(err.message));
   }
+  function openNoteRel(root: string, rel: string): void {
+    const actions: NoteActions = {
+      step: (r, dir) => stepNote(root, r, dir),
+      rename: r => { void saveEditor().then(() => renameNote(root, r, true)); },
+      del: r => deleteNote(root, r),
+    };
+    notes.read(root, rel).then(doc => openNote(root, doc, refreshNotes, actions))
+      .catch((err: NotesError) => toast(err.message));
+  }
+  function openProps(root: string, rel: string, anchor: HTMLElement): void {
+    notes.read(root, rel).then(doc => openPropsMenu(anchor, readProps(rel, doc.text), async c => {
+      const cur = await notes.read(root, rel);
+      const next = applyChange(cur.text, c);
+      if (frontmatterDrift(cur.text, next, changedKeys(c)).length) { toast('Not saved: that would change other properties'); return; }
+      try { await notes.write(root, rel, next, cur.mtime); } catch (err) { toast((err as NotesError).message); return; }
+      refreshNotes();
+      return readProps(rel, next);
+    })).catch((err: NotesError) => toast(err.message));
+  }
+
+  // Right-click menu on a note row; the same actions the keys and the hover buttons carry.
+  const ntMenu = document.createElement('div');
+  ntMenu.id = 'fe-nt-ctx';
+  ntMenu.className = 'fe-ctx';
+  ntMenu.style.display = 'none';
+  (document.getElementById('fe') ?? document.body).appendChild(ntMenu);
+  const closeNtMenu = () => { ntMenu.style.display = 'none'; };
+  function openNtMenu(root: string, item: HTMLElement, x: number, y: number): void {
+    const rel = item.dataset.rel!;
+    ntMenu.innerHTML = [
+      `<div class="fe-ctx-item" data-act="open">${UI_ICON.files}<span>Open</span><span class="fe-ctx-key">Enter</span></div>`,
+      `<div class="fe-ctx-item" data-act="tab">${UI_ICON.tab}<span>Open in a page tab</span></div>`,
+      `<div class="fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
+      `<div class="fe-ctx-item" data-act="props">${UI_ICON.palette}<span>Colour, pin and tags</span></div>`,
+      `<div class="fe-ctx-sep"></div>`,
+      `<div class="fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
+      `<div class="fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
+      `<div class="fe-ctx-sep"></div>`,
+      `<div class="fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`,
+    ].join('');
+    ntMenu.dataset.rel = rel;
+    ntMenu.dataset.root = root;
+    ntMenu.style.display = 'block';
+    ntMenu.style.left = Math.min(x, window.innerWidth - ntMenu.offsetWidth - 8) + 'px';
+    ntMenu.style.top = Math.min(y, window.innerHeight - ntMenu.offsetHeight - 8) + 'px';
+  }
+  ntMenu.addEventListener('click', e => {
+    const item = (e.target as HTMLElement).closest<HTMLElement>('.fe-ctx-item');
+    if (!item) return;
+    const { rel, root } = ntMenu.dataset as { rel: string; root: string };
+    closeNtMenu();
+    const row = els<HTMLElement>('.fe-nt-item', ntList).find(i => i.dataset.rel === rel);
+    const meta = allNotes.find(n => n.rel === rel);
+    switch (item.dataset.act) {
+      case 'open': openNoteRel(root, rel); break;
+      case 'tab': app.strip.go(notePath(root, rel)); break;
+      case 'rename': renameNote(root, rel, false); break;
+      case 'props': if (row) openProps(root, rel, row.querySelector<HTMLElement>('.fe-nt-props')!); break;
+      case 'cp-path': void copyToClipboard(notePath(root, rel)).then(ok => toast(ok ? 'Copied path' : 'Copy failed')); break;
+      case 'cp-title': void copyToClipboard(meta ? noteName(meta) : noteTitle(rel)).then(ok => toast(ok ? 'Copied title' : 'Copy failed')); break;
+      case 'delete': deleteNote(root, rel); break;
+    }
+  });
+  document.addEventListener('click', e => { if (ntMenu.style.display !== 'none' && !ntMenu.contains(e.target as Node)) closeNtMenu(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && ntMenu.style.display !== 'none') closeNtMenu(); });
+
+  // Keys on a focused note row: arrows move between rows, F2 renames, Delete trashes.
+  ntList.addEventListener('keydown', e => {
+    const item = (e.target as HTMLElement).closest<HTMLElement>('.fe-nt-item');
+    if (!item || (e.target as HTMLElement).isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return;
+    const root = notesRoot();
+    const rel = item.dataset.rel!;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const rows = els<HTMLElement>('.fe-nt-item', ntList);
+      const to = rows[rows.indexOf(item) + (e.key === 'ArrowDown' ? 1 : -1)];
+      if (to) { e.preventDefault(); to.querySelector<HTMLElement>('.fe-si-link')!.focus(); }
+    } else if (e.key === 'F2') {
+      e.preventDefault(); renameNote(root, rel, false);
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      const rows = els<HTMLElement>('.fe-nt-item', ntList);
+      const keep = rows[rows.indexOf(item) + 1] ?? rows[rows.indexOf(item) - 1];
+      deleteNote(root, rel);
+      if (keep) { const keepRel = keep.dataset.rel; setTimeout(() => els<HTMLElement>('.fe-nt-item', ntList).find(i => i.dataset.rel === keepRel)?.querySelector<HTMLElement>('.fe-si-link')?.focus(), 400); }
+    }
+  });
   function attachNoteEvents(root: string): void {
     els('.fe-nt-item', ntList).forEach(item => {
       const rel = item.dataset.rel!;
@@ -243,40 +377,25 @@ export function initSidebar(app: App): void {
         if (clickTimer) clearTimeout(clickTimer);
         clickTimer = setTimeout(() => { clickTimer = null; openNoteRel(root, rel); }, 250);
       });
+      item.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        openNtMenu(root, item, e.clientX, e.clientY);
+      });
       item.querySelector<HTMLElement>('.fe-nt-label')!.addEventListener('dblclick', e => {
         e.preventDefault(); e.stopPropagation();
-        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
-        inlineEdit(e.currentTarget as HTMLElement, val => {
-          // A note with front matter belongs to a shared store whose id is its file
-          // name (Switchboard, the Pi): renaming it sets the title and keeps the file.
-          notes.read(root, rel).then(doc => {
-            const titled = setTitle(doc.text, val);
-            if (titled !== null) return notes.write(root, rel, titled, doc.mtime).then(refreshNotes);
-            const to = rel.replace(/[^/]+$/, slugForTitle(val));
-            return notes.rename(root, rel, to).then(refreshNotes);
-          }).catch((err: NotesError) => toast(err.message));
-        });
+        renameNote(root, rel, false);
       });
       item.querySelector('.fe-rm-btn')!.addEventListener('click', e => {
         e.preventDefault(); e.stopPropagation();
-        notes.delete(root, rel).then(() => { refreshNotes(); toast('Moved to .trash'); })
-          .catch((err: NotesError) => toast(err.message));
+        deleteNote(root, rel);
       });
       item.querySelector<HTMLElement>('.fe-nt-props')!.addEventListener('click', e => {
         e.preventDefault(); e.stopPropagation();
-        const anchor = e.currentTarget as HTMLElement;
-        notes.read(root, rel).then(doc => openPropsMenu(anchor, readProps(rel, doc.text), async c => {
-          const cur = await notes.read(root, rel);
-          const next = applyChange(cur.text, c);
-          if (frontmatterDrift(cur.text, next, changedKeys(c)).length) { toast('Not saved: that would change other properties'); return; }
-          try { await notes.write(root, rel, next, cur.mtime); } catch (err) { toast((err as NotesError).message); return; }
-          refreshNotes();
-          return readProps(rel, next);
-        })).catch((err: NotesError) => toast(err.message));
+        openProps(root, rel, e.currentTarget as HTMLElement);
       });
       item.querySelector('.fe-nt-tab')!.addEventListener('click', e => {
         e.preventDefault(); e.stopPropagation();
-        app.strip.go(root.replace(/\/$/, '') + '/' + rel);
+        app.strip.go(notePath(root, rel));
       });
     });
   }
@@ -288,6 +407,15 @@ export function initSidebar(app: App): void {
     notes.create(root, rel, '')
       .then(() => openNoteRel(root, rel))
       .catch((err: NotesError) => toast(err.message));
+  };
+  app.pickNotesFolder = () => {
+    notes.pick(notesRoot() || undefined).then(root => {
+      if (!root) return;   // cancelled
+      settings.notesRoot = root; saveSettings(settings);
+      const field = document.getElementById('fe-st-notes-root') as HTMLInputElement | null;
+      if (field) field.value = root;
+      refreshNotes();
+    }).catch((err: NotesError) => toast(err.code === 'unavailable' ? 'Notes host not installed. Run native/install.sh.' : err.message));
   };
   el('fe-nt-add').addEventListener('click', () => app.newNote());
   refreshNotes();

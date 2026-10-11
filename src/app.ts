@@ -22,6 +22,7 @@ export interface App {
   refreshSaved(): void;
   refreshNotes(): void;
   newNote(): void;
+  pickNotesFolder(): void;
   openInTerminal(path: string): void;
   openHelp(tab?: string): void;
   openSettings(tab?: string): void;

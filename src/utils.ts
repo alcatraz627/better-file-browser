@@ -73,3 +73,16 @@ export function copyToClipboard(text: string): Promise<boolean> {
     } catch { return false; }
   });
 }
+
+/// A long title cut in two so one line can keep both ends: the head takes the ellipsis, the tail stays whole.
+export function splitMiddle(text: string, tail = 10): { head: string; tail: string } {
+  const chars = Array.from(text);
+  if (chars.length <= tail + 6) return { head: text, tail: '' };
+  return { head: chars.slice(0, chars.length - tail).join(''), tail: chars.slice(chars.length - tail).join('') };
+}
+
+/// The one-line, middle-truncated title markup; CSS (.fe-mid) does the cutting at whatever width the row has.
+export function midHtml(text: string): string {
+  const { head, tail } = splitMiddle(text);
+  return `<span class="fe-mid"><span class="fe-mid-h">${esc(head)}</span>${tail ? `<span class="fe-mid-t">${esc(tail)}</span>` : ''}</span>`;
+}

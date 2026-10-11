@@ -257,6 +257,7 @@ export function initSettingsUi(app: App): void {
     el<HTMLInputElement>('fe-st-excluded-exts').value = settings.excludedFileExtensions.map(x => '.' + x).join(', ');
     saveSettings(settings);
   });
+  el('fe-st-notes-pick').addEventListener('click', () => app.pickNotesFolder());
   el<HTMLInputElement>('fe-st-notes-root').addEventListener('change', function () {
     settings.notesRoot = this.value.trim() || undefined; saveSettings(settings);
     app.refreshNotes();

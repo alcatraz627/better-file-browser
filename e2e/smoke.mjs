@@ -337,7 +337,7 @@ try {
   await page.keyboard.press('Escape');
   await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 8_000 }).catch(() => null);
   const noteRows = await page.$$eval('#fe-nt-list .fe-nt-label', els => els.map(e => e.textContent));
-  check(noteRows.length === 1 && noteRows[0] === 'existing note', `Notes section lists the folder: ${JSON.stringify(noteRows)}`);
+  check(noteRows.length === 1 && noteRows[0] === 'Existing note', `Notes section lists the folder: ${JSON.stringify(noteRows)}`);
   const notesFolderHref = await page.$eval('#fe-notes-root', el => el.getAttribute('href'));
   check(notesFolderHref === `file://${h.notesDir}/`, 'Notes folder icon links to the configured folder');
 
@@ -450,7 +450,7 @@ try {
   check(edClosed, 'Esc closes the editor');
   await page.waitForFunction(() => document.querySelectorAll('#fe-nt-list .fe-nt-item').length === 2, { timeout: 8_000 }).catch(() => null);
   const listAfter = await page.$$eval('#fe-nt-list .fe-nt-label', els => els.map(e => e.textContent));
-  check(listAfter[0] === 'grocery list' && listAfter.length === 2, `sidebar lists the new note first: ${JSON.stringify(listAfter)}`);
+  check(listAfter[0] === 'Grocery list' && listAfter.length === 2, `sidebar lists the new note first: ${JSON.stringify(listAfter)}`);
   const notePage = await h.open();
   await notePage.waitForSelector('#fe-nt-list .fe-nt-tab', { timeout: 8_000 }).catch(() => null);
   await notePage.click('#fe-nt-list .fe-nt-item[data-rel="grocery-list.md"] .fe-nt-tab');

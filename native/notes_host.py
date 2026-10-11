@@ -16,11 +16,12 @@ Ops (request -> reply):
   {op:"writeBinary", root, rel, base64}      -> {t:"written", rel, mtime}   (attachments, never overwrites)
   {op:"history", root, rel}                  -> {t:"history", rel, versions:[{sha,when,reason}]}  (git log; none outside a repo)
   {op:"version", root, rel, sha}             -> {t:"version", rel, sha, text}
+  {op:"pick", start?}                        -> {t:"picked", root}   (the system folder chooser; root is "" when cancelled)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it.
 """
-import sys, os, json, struct, time, shutil
+import sys, os, json, struct, time, shutil, subprocess
 
 def read_msg():
     raw = sys.stdin.buffer.read(4)
@@ -248,8 +249,25 @@ def op_version(root, rel, sha):
         raise NotesError('notes_missing', f'no version {sha} of {rel}')
     return {'t': 'version', 'rel': rel, 'sha': sha, 'text': text}
 
+def run_picker(start):
+    """Ask macOS for a folder and return its path; empty text when the person cancels."""
+    where = ''
+    if isinstance(start, str) and os.path.isdir(os.path.expanduser(start)) and not any(c in start for c in '"\\'):
+        where = f' default location (POSIX file "{os.path.realpath(os.path.expanduser(start))}")'
+    script = ['tell application "System Events"', 'activate',
+              f'set p to POSIX path of (choose folder with prompt "Choose your notes folder"{where})',
+              'end tell', 'return p']
+    args = ['osascript']
+    for line in script: args += ['-e', line]
+    r = subprocess.run(args, capture_output=True, text=True)
+    if r.returncode != 0:
+        if 'User canceled' in r.stderr: return ''
+        raise NotesError('notes_io', r.stderr.strip() or 'the folder chooser failed')
+    return r.stdout.strip().rstrip('/') or '/'
+
 def handle(msg):
     op = msg.get('op')
+    if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'))}
     root = resolve_root(msg.get('root'))
     if op == 'stat':   return op_stat(root)
     if op == 'list':   return {'t': 'list', 'notes': list_notes(root)}

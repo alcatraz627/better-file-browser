@@ -207,6 +207,7 @@ export function renderPage(p: PageParams): string {
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
             <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder">
+            <button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>
           </div>
           <div class="fe-st-hint" id="fe-st-notes-hint" style="color:var(--dm);margin-top:-4px"></div>
         </div>
@@ -302,6 +303,7 @@ export function renderPage(p: PageParams): string {
       <div class="fe-sec" id="fe-notes-sec" data-collapse="notes">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Notes</span><a id="fe-notes-root" title="Open the notes folder" aria-label="Open the notes folder">${PI.folder}</a>
           <button id="fe-nt-add" title="New note (n)">+</button></div>
+        <input id="fe-nt-filter" type="text" placeholder="Filter notes" spellcheck="false" autocomplete="off" title="Matches title, file name, colour and tag. #work matches tags only." style="display:none">
         <div id="fe-nt-list"></div>
       </div>${recentsHTML}
       <div class="fe-sec" data-sec="favorites" data-collapse="favorites"${settings.hideFavorites ? ' style="display:none"' : ''}>

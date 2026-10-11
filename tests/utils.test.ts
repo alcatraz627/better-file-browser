@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath } from '../src/utils';
+import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, splitMiddle, midHtml } from '../src/utils';
 import type { Entry } from '../src/types';
 
 const file = (name: string, rawBytes = 0, dateStr = ''): Entry =>
@@ -80,4 +80,23 @@ describe('getExt', () => {
   it('recognizes known extensionless source files', () => { expect(getExt(file('Makefile'))).toBe('makefile'); });
   it('returns empty string for an ordinary extensionless file', () => { expect(getExt(file('README'))).toBe(''); });
   it('returns empty string for dirs', () => { expect(getExt(dir('src'))).toBe(''); });
+});
+
+describe('splitMiddle', () => {
+  it('keeps a short title whole', () => {
+    expect(splitMiddle('Grocery list')).toEqual({ head: 'Grocery list', tail: '' });
+  });
+  it('keeps the last ten characters of a long title in the tail', () => {
+    const t = 'A title that keeps going and going until the end';
+    expect(splitMiddle(t)).toEqual({ head: t.slice(0, -10), tail: 'until the end'.slice(-10) });
+  });
+  it('never cuts an emoji in half', () => {
+    const t = 'x'.repeat(30) + '🍅🍅🍅🍅🍅';
+    const { head, tail } = splitMiddle(t, 3);
+    expect(tail).toBe('🍅🍅🍅');
+    expect(head + tail).toBe(t);
+  });
+  it('escapes both halves', () => {
+    expect(midHtml('<b>' + 'y'.repeat(30) + '</b>')).not.toContain('<b>');
+  });
 });

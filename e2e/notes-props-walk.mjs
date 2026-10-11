@@ -67,7 +67,7 @@ try {
   await sleep(300);
   const ed = await page.evaluate(() => ({
     src: document.getElementById('fe-ed-src').value,
-    title: document.getElementById('fe-meta-title')?.value,
+    title: document.getElementById('fe-meta-title')?.dataset.title,
     chips: document.getElementById('fe-ed-meta').innerText }));
   check(!/^---$/m.test(ed.src.split('\n')[0]) && !/^(title|created|tags|pinned|color|source):/m.test(ed.src.split('\n').slice(0, 8).join('\n')), `the editor text does not start with the properties block: ${JSON.stringify(ed.src.slice(0, 60))}`);
   check(!!ed.title && /pinned/.test(ed.chips) && /\w/.test(ed.chips), `the chip row shows the title, pinned and the rest: ${JSON.stringify(ed.chips)}`);
