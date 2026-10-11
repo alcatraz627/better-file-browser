@@ -35,5 +35,11 @@ export const UI_ICON = {
   rotate: svg('<path d="M11.5 7A4.5 4.5 0 1 1 10 3.6M11.5 1.5v2.5H9"/>'),
   flip: svg('<path d="M7 1.5v11M5 4 1.5 10.5H5zM9 4l3.5 6.5H9z"/>'),
   fit: svg('<path d="M1.5 5V1.5H5M9 1.5h3.5V5M12.5 9v3.5H9M5 12.5H1.5V9"/>'),
+  rename: svg('<path d="M9.5 2 12 4.5 5 11.5 2 12l.5-3z"/><path d="M8 3.5 10.5 6"/>'),
+  trash: svg('<path d="M2 4h10M5.5 4V2.5h3V4M3.5 4l.6 7.5h5.8L10.5 4M5.8 6.2v3.5M8.2 6.2v3.5"/>'),
+  prev: svg('<path d="m8.5 2.5-4.5 4.5 4.5 4.5"/>'),
+  next: svg('<path d="m5.5 2.5 4.5 4.5-4.5 4.5"/>'),
+  folderOpen: svg('<path d="M1.5 3.5h4l1.2 1.5h5.8v6.5h-11z"/>'),
+  copy: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>'),
   copyImage: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>'),
 };

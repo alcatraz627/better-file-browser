@@ -386,6 +386,12 @@
     rotate: svg('<path d="M11.5 7A4.5 4.5 0 1 1 10 3.6M11.5 1.5v2.5H9"/>'),
     flip: svg('<path d="M7 1.5v11M5 4 1.5 10.5H5zM9 4l3.5 6.5H9z"/>'),
     fit: svg('<path d="M1.5 5V1.5H5M9 1.5h3.5V5M12.5 9v3.5H9M5 12.5H1.5V9"/>'),
+    rename: svg('<path d="M9.5 2 12 4.5 5 11.5 2 12l.5-3z"/><path d="M8 3.5 10.5 6"/>'),
+    trash: svg('<path d="M2 4h10M5.5 4V2.5h3V4M3.5 4l.6 7.5h5.8L10.5 4M5.8 6.2v3.5M8.2 6.2v3.5"/>'),
+    prev: svg('<path d="m8.5 2.5-4.5 4.5 4.5 4.5"/>'),
+    next: svg('<path d="m5.5 2.5 4.5 4.5-4.5 4.5"/>'),
+    folderOpen: svg('<path d="M1.5 3.5h4l1.2 1.5h5.8v6.5h-11z"/>'),
+    copy: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>'),
     copyImage: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>')
   };
 
@@ -2531,6 +2537,12 @@ ${body}
     );
   }
   var edit = null;
+  function editingRel() {
+    return edit ? edit.rel : null;
+  }
+  function saveEditor() {
+    return saveNote();
+  }
   function editHeader(status) {
     if (!edit) return;
     const nameEl = document.getElementById("fe-ql-name");
@@ -2538,12 +2550,19 @@ ${body}
     document.getElementById("fe-ql-meta").textContent = `${edit.rel} \xB7 ${status}`;
   }
   var stripFrontMatter = (t) => t.replace(/^---\n[\s\S]*?\n---\n?/, "");
-  function openNote(root, doc, onSaved) {
+  function discardEditor() {
+    if (edit) {
+      if (edit.timer) clearTimeout(edit.timer);
+      edit.dirty = false;
+    }
+    closePreview();
+  }
+  function openNote(root, doc, onSaved, actions) {
     if (edit && edit.dirty) void saveNote();
     currentEntry = null;
     reqSeq++;
     const { head, body: noteBody } = splitNote(doc.text);
-    edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: /* @__PURE__ */ new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved };
+    edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: /* @__PURE__ */ new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved, actions };
     currentText = doc.text;
     document.getElementById("fe-ql-icon").innerHTML = "";
     const nameEl = document.getElementById("fe-ql-name");
@@ -2569,6 +2588,10 @@ ${body}
       <button class="fe-pbn" data-act="table" title="Insert a table">${UI_ICON.table}<span>table</span></button>
       <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}<span>image</span></button>
       <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>versions</span></button>
+      ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>prev</span></button>
+      <button class="fe-pbn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>next</span></button>
+      <button class="fe-pbn" data-act="rename" title="Rename this note in the sidebar (F2 there)">${UI_ICON.rename}<span>rename</span></button>
+      <button class="fe-pbn" data-act="delete" title="Move this note to .trash">${UI_ICON.trash}<span>delete</span></button>` : ""}
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
     </div>
@@ -2604,6 +2627,10 @@ ${body}
       if (name === "table") buf.insert((ta.value.slice(0, ta.selectionStart).endsWith("\n") || !ta.selectionStart ? "" : "\n") + tableSnippet());
       if (name === "image") document.getElementById("fe-ed-file").click();
       if (name === "versions") void toggleVersions();
+      if (name === "prev") actions?.step(edit.rel, -1);
+      if (name === "next") actions?.step(edit.rel, 1);
+      if (name === "rename") actions?.rename(edit.rel);
+      if (name === "delete") actions?.del(edit.rel);
     };
     const hist = document.getElementById("fe-ed-hist");
     const escHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -2742,6 +2769,9 @@ ${body}
       } else if (mod && !e.shiftKey && k === "e") {
         stop();
         act("code");
+      } else if (mod && e.altKey && !e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && actions) {
+        stop();
+        actions.step(edit.rel, e.key === "ArrowDown" ? 1 : -1);
       } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
         stop();
         apply(e.shiftKey ? duplicateLines(ta.value, sel()) : moveLines(ta.value, sel(), e.key === "ArrowDown" ? 1 : -1));
@@ -2839,7 +2869,7 @@ ${body}
               `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="fe-pbn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="fe-pbn" title="Write the editor text over the disk copy">Overwrite</button></div>`
             );
             document.getElementById("fe-ed-reload").addEventListener("click", () => {
-              notes.read(st.root, st.rel).then((d) => openNote(st.root, d, st.onSaved));
+              notes.read(st.root, st.rel).then((d) => openNote(st.root, d, st.onSaved, st.actions));
             });
             document.getElementById("fe-ed-force").addEventListener("click", () => {
               st.mtime = 0;
@@ -7001,9 +7031,170 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       const flags = colorName(n.color) || n.pinned ? `<span class="fe-nt-flags">${colorName(n.color) ? colorDot(colorName(n.color)) : ""}${n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : ""}</span>` : "";
       return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>${tags}</span>`;
     }
-    function openNoteRel(root, rel) {
-      notes.read(root, rel).then((doc) => openNote(root, doc, refreshNotes)).catch((err) => toast(err.message));
+    const noteName = (n) => n.title || noteTitle(n.rel);
+    const notePath = (root, rel) => root.replace(/\/$/, "") + "/" + rel;
+    function stepNote(root, rel, dir) {
+      const shown = filterNotes(allNotes, ntFilter.value);
+      const pool = shown.some((n) => n.rel === rel) ? shown : allNotes;
+      const at = pool.findIndex((n) => n.rel === rel);
+      const next = at < 0 ? void 0 : pool[at + dir];
+      if (!next) {
+        toast(dir > 0 ? "That is the last note" : "That is the first note");
+        return;
+      }
+      openNoteRel(root, next.rel);
     }
+    function renameNote(root, rel, reopen) {
+      const row = els(".fe-nt-item", ntList).find((i) => i.dataset.rel === rel);
+      const label = row?.querySelector(".fe-nt-label");
+      if (!label) {
+        toast("That note is not in the list. Clear the filter first.");
+        return;
+      }
+      if (clickTimer) {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+      }
+      row.scrollIntoView({ block: "nearest" });
+      inlineEdit(label, (val) => {
+        notes.read(root, rel).then(async (doc) => {
+          const titled = setTitle(doc.text, val);
+          let now = rel;
+          if (titled !== null) await notes.write(root, rel, titled, doc.mtime);
+          else {
+            now = rel.replace(/[^/]+$/, slugForTitle(val));
+            await notes.rename(root, rel, now);
+          }
+          refreshNotes();
+          if (reopen) openNoteRel(root, now);
+        }).catch((err) => toast(err.message));
+      });
+    }
+    function deleteNote(root, rel) {
+      if (editingRel() === rel) discardEditor();
+      notes.delete(root, rel).then(() => {
+        refreshNotes();
+        toast("Moved to .trash");
+      }).catch((err) => toast(err.message));
+    }
+    function openNoteRel(root, rel) {
+      const actions = {
+        step: (r, dir) => stepNote(root, r, dir),
+        rename: (r) => {
+          void saveEditor().then(() => renameNote(root, r, true));
+        },
+        del: (r) => deleteNote(root, r)
+      };
+      notes.read(root, rel).then((doc) => openNote(root, doc, refreshNotes, actions)).catch((err) => toast(err.message));
+    }
+    function openProps(root, rel, anchor) {
+      notes.read(root, rel).then((doc) => openPropsMenu(anchor, readProps(rel, doc.text), async (c) => {
+        const cur = await notes.read(root, rel);
+        const next = applyChange(cur.text, c);
+        if (frontmatterDrift(cur.text, next, changedKeys(c)).length) {
+          toast("Not saved: that would change other properties");
+          return;
+        }
+        try {
+          await notes.write(root, rel, next, cur.mtime);
+        } catch (err) {
+          toast(err.message);
+          return;
+        }
+        refreshNotes();
+        return readProps(rel, next);
+      })).catch((err) => toast(err.message));
+    }
+    const ntMenu = document.createElement("div");
+    ntMenu.id = "fe-nt-ctx";
+    ntMenu.className = "fe-ctx";
+    ntMenu.style.display = "none";
+    (document.getElementById("fe") ?? document.body).appendChild(ntMenu);
+    const closeNtMenu = () => {
+      ntMenu.style.display = "none";
+    };
+    function openNtMenu(root, item, x, y) {
+      const rel = item.dataset.rel;
+      ntMenu.innerHTML = [
+        `<div class="fe-ctx-item" data-act="open">${UI_ICON.files}<span>Open</span><span class="fe-ctx-key">Enter</span></div>`,
+        `<div class="fe-ctx-item" data-act="tab">${UI_ICON.tab}<span>Open in a page tab</span></div>`,
+        `<div class="fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
+        `<div class="fe-ctx-item" data-act="props">${UI_ICON.palette}<span>Colour, pin and tags</span></div>`,
+        `<div class="fe-ctx-sep"></div>`,
+        `<div class="fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
+        `<div class="fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
+        `<div class="fe-ctx-sep"></div>`,
+        `<div class="fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`
+      ].join("");
+      ntMenu.dataset.rel = rel;
+      ntMenu.dataset.root = root;
+      ntMenu.style.display = "block";
+      ntMenu.style.left = Math.min(x, window.innerWidth - ntMenu.offsetWidth - 8) + "px";
+      ntMenu.style.top = Math.min(y, window.innerHeight - ntMenu.offsetHeight - 8) + "px";
+    }
+    ntMenu.addEventListener("click", (e) => {
+      const item = e.target.closest(".fe-ctx-item");
+      if (!item) return;
+      const { rel, root } = ntMenu.dataset;
+      closeNtMenu();
+      const row = els(".fe-nt-item", ntList).find((i) => i.dataset.rel === rel);
+      const meta = allNotes.find((n) => n.rel === rel);
+      switch (item.dataset.act) {
+        case "open":
+          openNoteRel(root, rel);
+          break;
+        case "tab":
+          app.strip.go(notePath(root, rel));
+          break;
+        case "rename":
+          renameNote(root, rel, false);
+          break;
+        case "props":
+          if (row) openProps(root, rel, row.querySelector(".fe-nt-props"));
+          break;
+        case "cp-path":
+          void copyToClipboard(notePath(root, rel)).then((ok) => toast(ok ? "Copied path" : "Copy failed"));
+          break;
+        case "cp-title":
+          void copyToClipboard(meta ? noteName(meta) : noteTitle(rel)).then((ok) => toast(ok ? "Copied title" : "Copy failed"));
+          break;
+        case "delete":
+          deleteNote(root, rel);
+          break;
+      }
+    });
+    document.addEventListener("click", (e) => {
+      if (ntMenu.style.display !== "none" && !ntMenu.contains(e.target)) closeNtMenu();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && ntMenu.style.display !== "none") closeNtMenu();
+    });
+    ntList.addEventListener("keydown", (e) => {
+      const item = e.target.closest(".fe-nt-item");
+      if (!item || e.target.isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return;
+      const root = notesRoot();
+      const rel = item.dataset.rel;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        const rows = els(".fe-nt-item", ntList);
+        const to = rows[rows.indexOf(item) + (e.key === "ArrowDown" ? 1 : -1)];
+        if (to) {
+          e.preventDefault();
+          to.querySelector(".fe-si-link").focus();
+        }
+      } else if (e.key === "F2") {
+        e.preventDefault();
+        renameNote(root, rel, false);
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        const rows = els(".fe-nt-item", ntList);
+        const keep = rows[rows.indexOf(item) + 1] ?? rows[rows.indexOf(item) - 1];
+        deleteNote(root, rel);
+        if (keep) {
+          const keepRel = keep.dataset.rel;
+          setTimeout(() => els(".fe-nt-item", ntList).find((i) => i.dataset.rel === keepRel)?.querySelector(".fe-si-link")?.focus(), 400);
+        }
+      }
+    });
     function attachNoteEvents(root) {
       els(".fe-nt-item", ntList).forEach((item) => {
         const rel = item.dataset.rel;
@@ -7017,55 +7208,29 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             openNoteRel(root, rel);
           }, 250);
         });
+        item.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          openNtMenu(root, item, e.clientX, e.clientY);
+        });
         item.querySelector(".fe-nt-label").addEventListener("dblclick", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (clickTimer) {
-            clearTimeout(clickTimer);
-            clickTimer = null;
-          }
-          inlineEdit(e.currentTarget, (val) => {
-            notes.read(root, rel).then((doc) => {
-              const titled = setTitle(doc.text, val);
-              if (titled !== null) return notes.write(root, rel, titled, doc.mtime).then(refreshNotes);
-              const to = rel.replace(/[^/]+$/, slugForTitle(val));
-              return notes.rename(root, rel, to).then(refreshNotes);
-            }).catch((err) => toast(err.message));
-          });
+          renameNote(root, rel, false);
         });
         item.querySelector(".fe-rm-btn").addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          notes.delete(root, rel).then(() => {
-            refreshNotes();
-            toast("Moved to .trash");
-          }).catch((err) => toast(err.message));
+          deleteNote(root, rel);
         });
         item.querySelector(".fe-nt-props").addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const anchor = e.currentTarget;
-          notes.read(root, rel).then((doc) => openPropsMenu(anchor, readProps(rel, doc.text), async (c) => {
-            const cur = await notes.read(root, rel);
-            const next = applyChange(cur.text, c);
-            if (frontmatterDrift(cur.text, next, changedKeys(c)).length) {
-              toast("Not saved: that would change other properties");
-              return;
-            }
-            try {
-              await notes.write(root, rel, next, cur.mtime);
-            } catch (err) {
-              toast(err.message);
-              return;
-            }
-            refreshNotes();
-            return readProps(rel, next);
-          })).catch((err) => toast(err.message));
+          openProps(root, rel, e.currentTarget);
         });
         item.querySelector(".fe-nt-tab").addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          app.strip.go(root.replace(/\/$/, "") + "/" + rel);
+          app.strip.go(notePath(root, rel));
         });
       });
     }
