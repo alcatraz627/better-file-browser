@@ -140,6 +140,15 @@ try {
     const clashSrc = await page.$eval('#fe-ed-src', el => el.value).catch(() => '');
     check(/^<{7} /m.test(clashSrc) && /^>{7} /m.test(clashSrc), `the clashed note ${clash} shows both sides with their markers`);
     await shot(page, 'store-walk-clash');
+    // settle it: Keep both removes the markers and keeps both sides' lines
+    const banner = await page.$('#fe-ed-clash [data-keep="both"]');
+    check(!!banner, 'a two-version note offers Keep this side, the other, or both');
+    if (banner) {
+      await banner.click();
+      for (let i = 0; i < 30 && /^<{7} /m.test(read(clash)); i++) await new Promise(r => setTimeout(r, 200));
+      const settled = read(clash);
+      check(!/^(<{7}|={7}|>{7})/m.test(settled), `Keep both leaves no markers in ${clash}`);
+    }
     await page.keyboard.press('Escape');
   } else console.log('skip no clashed note in this store');
 

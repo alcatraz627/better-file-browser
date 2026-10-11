@@ -1568,6 +1568,32 @@ ${m[1]}`;
 ${fm}
 ---`);
   }
+  function settleClash(text, keep) {
+    const out = [];
+    let first = [], second = [];
+    let part = "out";
+    for (const line of text.split("\n")) {
+      if (part === "out" && (line.startsWith("<<<<<<< ") || line === "<<<<<<<")) {
+        part = "first";
+        first = [];
+        second = [];
+      } else if (part === "out") out.push(line);
+      else if (part === "first" && line === "=======") part = "second";
+      else if (part === "first") first.push(line);
+      else if (line.startsWith(">>>>>>> ") || line === ">>>>>>>") {
+        part = "out";
+        out.push(...keep === "second" ? second : keep === "first" ? first : [...first, ...second]);
+      } else second.push(line);
+    }
+    if (part !== "out") out.push(...first, ...second);
+    return out.join("\n");
+  }
+  function clashSides(text) {
+    const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
+    if (!a || !b) return null;
+    const name = (m) => m === "HEAD" ? "this Mac's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
+    return [name(a.trim()), name(b.trim())];
+  }
   function stampUpdated(text, now = /* @__PURE__ */ new Date()) {
     const m = text.match(/^---\n([\s\S]*?)\n---/);
     if (!m) return text;
@@ -2303,9 +2329,25 @@ ${body}
       view.innerHTML = renderMarkdown(stripFrontMatter(ta.value), nameEl.href);
     };
     renderView();
+    const showClash = () => {
+      document.getElementById("fe-ed-clash")?.remove();
+      const sides = clashSides(ta.value);
+      if (!sides) return;
+      document.getElementById("fe-ql-body").insertAdjacentHTML(
+        "afterbegin",
+        `<div id="fe-ed-clash" class="fe-ql-note">Two versions, keep: <button class="fe-pbn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> <button class="fe-pbn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> <button class="fe-pbn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`
+      );
+      document.querySelectorAll("#fe-ed-clash [data-keep]").forEach((b) => b.addEventListener("click", () => {
+        ta.value = settleClash(ta.value, b.dataset.keep);
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+        void saveNote();
+      }));
+    };
+    showClash();
     let viewTimer = null;
     ta.addEventListener("input", () => {
       if (!edit) return;
+      if (!!document.getElementById("fe-ed-clash") !== !!clashSides(ta.value)) showClash();
       edit.text = ta.value;
       edit.dirty = true;
       edit.version++;

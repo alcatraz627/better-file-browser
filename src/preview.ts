@@ -14,7 +14,7 @@ import {
   sniffBinary,
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
-import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, type NoteDoc } from './notes';
+import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, type Keep, type NoteDoc } from './notes';
 import {
   attachBuffer, moveLines, duplicateLines, indentLines, continueList, wrapSelection, tableSnippet, type TextEdit,
 } from './editor';
@@ -464,9 +464,27 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   });
   const renderView = () => { view.innerHTML = renderMarkdown(stripFrontMatter(ta.value), nameEl.href); };
   renderView();
+  // a note edited in two places: keep one side or both (owner ruling N1)
+  const showClash = () => {
+    document.getElementById('fe-ed-clash')?.remove();
+    const sides = clashSides(ta.value);
+    if (!sides) return;
+    document.getElementById('fe-ql-body')!.insertAdjacentHTML('afterbegin',
+      `<div id="fe-ed-clash" class="fe-ql-note">Two versions, keep: `
+      + `<button class="fe-pbn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> `
+      + `<button class="fe-pbn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> `
+      + `<button class="fe-pbn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`);
+    document.querySelectorAll<HTMLButtonElement>('#fe-ed-clash [data-keep]').forEach(b => b.addEventListener('click', () => {
+      ta.value = settleClash(ta.value, b.dataset.keep as Keep);
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      void saveNote();
+    }));
+  };
+  showClash();
   let viewTimer: ReturnType<typeof setTimeout> | null = null;
   ta.addEventListener('input', () => {
     if (!edit) return;
+    if (!!document.getElementById('fe-ed-clash') !== !!clashSides(ta.value)) showClash();
     edit.text = ta.value; edit.dirty = true; edit.version++; currentText = ta.value;
     editHeader('unsaved');
     if (viewTimer) clearTimeout(viewTimer);

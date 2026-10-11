@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated, setTitle } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle, settleClash, clashSides } from '../src/notes';
+
+describe('clash', () => {
+  const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
+  it('settles to the first side, the second, or both, keeping the rest', () => {
+    expect(settleClash(clash, 'first')).toBe('top\nmac line\nmiddle\nA\nend');
+    expect(settleClash(clash, 'second')).toBe('top\npi line\nmiddle\nB\nend');
+    expect(settleClash(clash, 'both')).toBe('top\nmac line\npi line\nmiddle\nA\nB\nend');
+    expect(settleClash('a\n<<<<<<< x\nb\n=======\nc', 'first')).toBe('a\nb\nc');
+  });
+  it('names the sides', () => {
+    expect(clashSides(clash)).toEqual(["this Mac's", "the Pi's"]);
+    expect(clashSides('<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi')).toEqual(["the phone's", "the Pi's"]);
+    expect(clashSides('no clash here')).toBeNull();
+  });
+});
 
 const T = new Date('2026-09-15T10:00:00.000Z');
 

@@ -101,6 +101,34 @@ export function setTitle(text: string, title: string): string | null {
   return text.replace(m[0], () => `---\n${fm}\n---`);
 }
 
+// A note edited in two places holds both sides between git-style markers. settleClash keeps
+// the first side, the second, or both (first then second); same rules as Switchboard and the Pi.
+export type Keep = 'first' | 'second' | 'both';
+export function settleClash(text: string, keep: Keep): string {
+  const out: string[] = []; let first: string[] = [], second: string[] = [];
+  let part: 'out' | 'first' | 'second' = 'out';
+  for (const line of text.split('\n')) {
+    if (part === 'out' && (line.startsWith('<<<<<<< ') || line === '<<<<<<<')) { part = 'first'; first = []; second = []; }
+    else if (part === 'out') out.push(line);
+    else if (part === 'first' && line === '=======') part = 'second';
+    else if (part === 'first') first.push(line);
+    else if (line.startsWith('>>>>>>> ') || line === '>>>>>>>') {
+      part = 'out';
+      out.push(...(keep === 'second' ? second : keep === 'first' ? first : [...first, ...second]));
+    } else second.push(line);
+  }
+  if (part !== 'out') out.push(...first, ...second);   // an unclosed block loses nothing
+  return out.join('\n');
+}
+
+// The two sides of a note's first clash, named as a person says them; null when there is none.
+export function clashSides(text: string): [string, string] | null {
+  const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
+  if (!a || !b) return null;
+  const name = (m: string) => m === 'HEAD' ? "this Mac's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === 'phone' ? "the phone's" : `${m}'s`;
+  return [name(a.trim()), name(b.trim())];
+}
+
 // Refresh `updated` inside existing front matter; a note without front
 // matter is left exactly as written (contract: never add front matter).
 export function stampUpdated(text: string, now = new Date()): string {
