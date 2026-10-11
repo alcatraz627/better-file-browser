@@ -18,6 +18,7 @@ type Frame =
   | { t: 'deleted'; rel: string; trashed: string }
   | { t: 'history'; rel: string; versions: NoteVersion[] }
   | { t: 'version'; rel: string; sha: string; text: string }
+  | { t: 'picked'; root: string }
   | { t: 'error'; code: string; message: string };
 
 /// One saved version of a note, from the folder's git log: short hash, epoch ms, the commit's reason.
@@ -50,6 +51,8 @@ export const notes = {
   writeBinary: (root: string, rel: string, base64: string) =>
             call({ op: 'writeBinary', root, rel, base64 }) as Promise<{ rel: string; mtime: number }>,
   delete: (root: string, rel: string) => call({ op: 'delete', root, rel }),
+  /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
+  pick: (start?: string) => call({ op: 'pick', start }).then(f => (f as { root: string }).root),
   history: (root: string, rel: string) => call({ op: 'history', root, rel }).then(f => (f as { versions: NoteVersion[] }).versions),
   version: (root: string, rel: string, sha: string) => call({ op: 'version', root, rel, sha }) as Promise<{ rel: string; sha: string; text: string }>,
 };

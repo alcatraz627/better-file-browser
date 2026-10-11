@@ -23,7 +23,7 @@ const check = (ok, msg) => { console.log((ok ? 'ok   ' : 'FAIL ') + msg); if (!o
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rowsOf = page => page.$$eval('#fe-nt-list .fe-nt-item', els => els.map(e => e.getAttribute('data-rel')));
 
-const h = await launch();
+const h = await launch({ pickReply: store });
 try {
   const page = await h.open();
   await page.evaluate(nd => localStorage.setItem('bfb-settings-v1',
@@ -111,6 +111,31 @@ try {
   await page.waitForFunction(() => document.getElementById('fe-qlook').style.display === 'none', { timeout: 5_000 }).catch(() => null);
   await sleep(500);
   check(!existsSync(join(store, list0[1])) && (await rowsOf(page)).length === list0.length - 1, 'Delete in the editor closes it and moves the note to .trash');
+  // Row 3: the notes folder picker, from the sidebar and from Settings (the chooser itself is answered by the harness).
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
+    delete s.notesRoot; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
+  });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe-nt-pick', { timeout: 8_000 }).catch(() => null);
+  const pickBtn = await page.$eval('#fe-nt-pick', e => ({ text: e.textContent.trim(), icon: !!e.querySelector('svg') })).catch(() => null);
+  check(pickBtn && pickBtn.icon && /Choose folder/.test(pickBtn.text), `with no folder set the Notes section offers "Choose folder" with an icon: ${JSON.stringify(pickBtn)}`);
+  await shot(page, 'nt-pick-empty');
+  await page.click('#fe-nt-pick');
+  await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 8_000 }).catch(() => null);
+  const afterPick = await page.evaluate(() => ({ rows: document.querySelectorAll('#fe-nt-list .fe-nt-item').length, saved: JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}').notesRoot }));
+  check(afterPick.rows > 0 && afterPick.saved === store, `choosing a folder lists its notes and remembers it: ${JSON.stringify(afterPick)}`);
+  await page.click('#fe-settings-btn');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="notes"]');
+  const setBtn = await page.$eval('#fe-st-notes-pick', e => ({ text: e.textContent.trim(), icon: !!e.querySelector('svg') }));
+  const fieldVal = await page.$eval('#fe-st-notes-root', e => e.value);
+  check(setBtn.icon && /Choose/.test(setBtn.text) && fieldVal === store, `Settings > Notes has a Choose button with an icon and shows the path: ${JSON.stringify(setBtn)}`);
+  await sleep(300);
+  await shot(page, 'nt-pick-settings');
+  await page.$eval('#fe-st-notes-root', e => { e.value = ''; e.dispatchEvent(new Event('change')); });
+  await page.click('#fe-st-notes-pick');
+  await page.waitForFunction(s => document.getElementById('fe-st-notes-root').value === s, { timeout: 5_000 }, store).catch(() => null);
+  check(await page.$eval('#fe-st-notes-root', e => e.value) === store, 'the Settings Choose button fills the folder field');
 } finally {
   await h.close();
 }

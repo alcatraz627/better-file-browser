@@ -1543,6 +1543,8 @@
     rename: (root, rel, to) => call({ op: "rename", root, rel, to }),
     writeBinary: (root, rel, base64) => call({ op: "writeBinary", root, rel, base64 }),
     delete: (root, rel) => call({ op: "delete", root, rel }),
+    /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
+    pick: (start) => call({ op: "pick", start }).then((f) => f.root),
     history: (root, rel) => call({ op: "history", root, rel }).then((f) => f.versions),
     version: (root, rel, sha) => call({ op: "version", root, rel, sha })
   };
@@ -3105,6 +3107,8 @@ body{opacity:1!important}
 .fe-hint{font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
 .fe-hint-action{border:0;background:none;color:var(--ac);padding:0;cursor:pointer;font:inherit;font-style:normal;text-decoration:underline;text-underline-offset:2px}
 .fe-hint-action:hover{color:var(--tx)}
+.fe-hint-action.fe-icon-act{display:inline-flex;align-items:center;gap:5px;margin-bottom:3px}
+.fe-hint-action.fe-icon-act svg{width:13px;height:13px;flex:none}
 .fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
 .fe-drag-h{padding:7px 4px 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
 .fe-bm-item:hover .fe-drag-h{opacity:1}
@@ -5149,6 +5153,7 @@ seconds and re-renders when the file changes on disk.
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
             <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder">
+            <button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>
           </div>
           <div class="fe-st-hint" id="fe-st-notes-hint" style="color:var(--dm);margin-top:-4px"></div>
         </div>
@@ -7009,7 +7014,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       if (!root) {
         ntHint.textContent = "";
         el("fe-notes-root").removeAttribute("href");
-        ntList.innerHTML = '<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-setup" class="fe-hint-action" title="Choose a Notes folder in Settings">Set notes folder</button></div>';
+        ntList.innerHTML = `<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-pick" class="fe-hint-action fe-icon-act" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose folder</span></button><br><button id="fe-nt-setup" class="fe-hint-action" title="Type the notes folder in Settings">Type it in Settings</button></div>`;
+        el("fe-nt-pick").addEventListener("click", () => app.pickNotesFolder());
         el("fe-nt-setup").addEventListener("click", () => {
           app.openSettings("notes");
           el("fe-st-notes-root").focus();
@@ -7244,6 +7250,16 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[-:T]/g, "").slice(0, 14);
       const rel = `untitled-${stamp}.md`;
       notes.create(root, rel, "").then(() => openNoteRel(root, rel)).catch((err) => toast(err.message));
+    };
+    app.pickNotesFolder = () => {
+      notes.pick(notesRoot() || void 0).then((root) => {
+        if (!root) return;
+        settings.notesRoot = root;
+        saveSettings(settings);
+        const field = document.getElementById("fe-st-notes-root");
+        if (field) field.value = root;
+        refreshNotes();
+      }).catch((err) => toast(err.code === "unavailable" ? "Notes host not installed. Run native/install.sh." : err.message));
     };
     el("fe-nt-add").addEventListener("click", () => app.newNote());
     refreshNotes();
@@ -7540,6 +7556,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-st-excluded-exts").value = settings.excludedFileExtensions.map((x) => "." + x).join(", ");
       saveSettings(settings);
     });
+    el("fe-st-notes-pick").addEventListener("click", () => app.pickNotesFolder());
     el("fe-st-notes-root").addEventListener("change", function() {
       settings.notesRoot = this.value.trim() || void 0;
       saveSettings(settings);
@@ -7785,6 +7802,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       refreshNotes: () => {
       },
       newNote: () => {
+      },
+      pickNotesFolder: () => {
       },
       openInTerminal: () => {
       },

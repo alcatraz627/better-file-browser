@@ -118,5 +118,20 @@ check(r2['code'] == 'notes_missing', 'a version that is not there is notes_missi
 r2 = call({'op': 'version', 'root': repo, 'rel': 'plan.md', 'sha': 'HEAD; rm -rf x'})
 check(r2['code'] == 'notes_bad_path', 'a version name that is not a hash is refused')
 
+# The folder chooser: the system dialog is faked, the framing and the cancel path are real.
+import importlib.util
+from unittest import mock
+spec = importlib.util.spec_from_file_location('notes_host', HOST)
+nh = importlib.util.module_from_spec(spec); spec.loader.exec_module(nh)
+with mock.patch.object(nh, 'run_picker', return_value='/Users/me/Notes'):
+    check(nh.handle({'op': 'pick'}) == {'t': 'picked', 'root': '/Users/me/Notes'}, 'pick answers with the chosen folder and needs no root')
+with mock.patch.object(nh.subprocess, 'run', return_value=mock.Mock(returncode=1, stdout='', stderr='execution error: User canceled. (-128)')) as run:
+    check(nh.run_picker(None) == '', 'cancelling the chooser gives an empty root, not an error')
+with mock.patch.object(nh.subprocess, 'run', return_value=mock.Mock(returncode=0, stdout='/Users/me/Notes/\n', stderr='')) as run:
+    check(nh.run_picker(root) == '/Users/me/Notes' and any(root in a for a in run.call_args[0][0]), 'a picked folder loses its trailing slash and the chooser opens on the current folder')
+with mock.patch.object(nh.subprocess, 'run', return_value=mock.Mock(returncode=1, stdout='', stderr='boom')):
+    try: nh.run_picker(None); check(False, 'a failed chooser raises')
+    except nh.NotesError as e: check(e.code == 'notes_io', 'a failed chooser is notes_io')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

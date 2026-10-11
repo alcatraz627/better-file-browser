@@ -110,7 +110,7 @@ import { initMarkdownUi } from './md-ui';
     toast: makeToast(el('fe-toast')),
     strip: null as unknown as App['strip'],
     filePage: null,
-    applyAll: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {},
+    applyAll: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {}, pickNotesFolder: () => {},
     openInTerminal: () => {}, openHelp: () => {}, openSettings: () => {},
     goUp: () => {
       if (fileMode) { location.href = 'file://' + folderPath; return; }

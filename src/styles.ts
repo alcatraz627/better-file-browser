@@ -91,6 +91,8 @@ body{opacity:1!important}
 .fe-hint{font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
 .fe-hint-action{border:0;background:none;color:var(--ac);padding:0;cursor:pointer;font:inherit;font-style:normal;text-decoration:underline;text-underline-offset:2px}
 .fe-hint-action:hover{color:var(--tx)}
+.fe-hint-action.fe-icon-act{display:inline-flex;align-items:center;gap:5px;margin-bottom:3px}
+.fe-hint-action.fe-icon-act svg{width:13px;height:13px;flex:none}
 .fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
 .fe-drag-h{padding:7px 4px 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
 .fe-bm-item:hover .fe-drag-h{opacity:1}

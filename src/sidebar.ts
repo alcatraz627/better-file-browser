@@ -7,7 +7,7 @@ import { el, els } from './el';
 import { esc, copyToClipboard } from './utils';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
-import { getSaved, saveSaved, getTags, saveTags } from './storage';
+import { getSaved, saveSaved, getTags, saveTags, saveSettings } from './storage';
 import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
 import { notes, noteTitle, slugForTitle, setTitle, pinnedFirst, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
@@ -219,7 +219,8 @@ export function initSidebar(app: App): void {
     if (!root) {
       ntHint.textContent = '';
       el<HTMLAnchorElement>('fe-notes-root').removeAttribute('href');
-      ntList.innerHTML = '<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-setup" class="fe-hint-action" title="Choose a Notes folder in Settings">Set notes folder</button></div>';
+      ntList.innerHTML = `<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-pick" class="fe-hint-action fe-icon-act" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose folder</span></button><br><button id="fe-nt-setup" class="fe-hint-action" title="Type the notes folder in Settings">Type it in Settings</button></div>`;
+      el('fe-nt-pick').addEventListener('click', () => app.pickNotesFolder());
       el('fe-nt-setup').addEventListener('click', () => {
         app.openSettings('notes');
         el<HTMLInputElement>('fe-st-notes-root').focus();
@@ -404,6 +405,15 @@ export function initSidebar(app: App): void {
     notes.create(root, rel, '')
       .then(() => openNoteRel(root, rel))
       .catch((err: NotesError) => toast(err.message));
+  };
+  app.pickNotesFolder = () => {
+    notes.pick(notesRoot() || undefined).then(root => {
+      if (!root) return;   // cancelled
+      settings.notesRoot = root; saveSettings(settings);
+      const field = document.getElementById('fe-st-notes-root') as HTMLInputElement | null;
+      if (field) field.value = root;
+      refreshNotes();
+    }).catch((err: NotesError) => toast(err.code === 'unavailable' ? 'Notes host not installed. Run native/install.sh.' : err.message));
   };
   el('fe-nt-add').addEventListener('click', () => app.newNote());
   refreshNotes();

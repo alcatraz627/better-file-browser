@@ -207,6 +207,7 @@ export function renderPage(p: PageParams): string {
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
             <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder">
+            <button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>
           </div>
           <div class="fe-st-hint" id="fe-st-notes-hint" style="color:var(--dm);margin-top:-4px"></div>
         </div>

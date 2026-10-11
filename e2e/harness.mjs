@@ -18,13 +18,26 @@ function extensionId(dir) {
 }
 
 // Native host manifests live inside the user-data-dir for Chrome for Testing.
-function installNotesHost(profile) {
+// With pickReply, the host runs through a launcher that answers the system folder chooser
+// with that path, since a headless run has no dialog to click.
+function installNotesHost(profile, pickReply) {
   const dir = join(profile, 'NativeMessagingHosts');
   mkdirSync(dir, { recursive: true });
+  let hostPath = join(ROOT, 'native', 'notes_host.py');
+  if (pickReply) {
+    hostPath = join(profile, 'notes_host_pick_stub.py');
+    writeFileSync(hostPath, `#!/usr/bin/env python3
+import importlib.util
+spec = importlib.util.spec_from_file_location('notes_host', ${JSON.stringify(join(ROOT, 'native', 'notes_host.py'))})
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+m.run_picker = lambda start: ${JSON.stringify(pickReply)}
+m.main()
+`, { mode: 0o755 });
+  }
   writeFileSync(join(dir, 'com.better_file_browser.notes.json'), JSON.stringify({
     name: 'com.better_file_browser.notes',
     description: 'notes host (e2e)',
-    path: join(ROOT, 'native', 'notes_host.py'),
+    path: hostPath,
     type: 'stdio',
     allowed_origins: [`chrome-extension://${extensionId(ROOT)}/`],
   }, null, 2));
@@ -73,7 +86,7 @@ export function makeNotesDir() {
   return dir;
 }
 
-export async function launch({ headless = true } = {}) {
+export async function launch({ headless = true, pickReply } = {}) {
   execSync('npm run -s build', { cwd: ROOT, stdio: 'inherit' });
   mkdirSync(SHOTS, { recursive: true });
   const profile = join(tmpdir(), `bfb-profile-${process.pid}`);
@@ -99,7 +112,7 @@ export async function launch({ headless = true } = {}) {
   const fixture = makeFixture();
   // After launch: a pre-existing profile folder makes Chrome skip loading
   // the unpacked extension; the manifest is only read when a port opens.
-  installNotesHost(profile);
+  installNotesHost(profile, pickReply);
 
   async function open(dirPath = fixture) {
     const page = await browser.newPage();
