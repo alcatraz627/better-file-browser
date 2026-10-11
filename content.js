@@ -1741,7 +1741,7 @@ ${body}`;
       <div class="fe-pm-tags">
         ${cur.tags.map((t) => `<span class="fe-chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="fe-chip-x" data-pm="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
       </div>
-      <form class="fe-pm-add"><input type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="40"><button class="fe-pbn" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
+      <form class="fe-pm-add"><input type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="fe-pbn" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
     };
     const run = async (c) => {
       const r2 = await apply(c);
@@ -1763,6 +1763,12 @@ ${body}`;
       e.preventDefault();
       const inp = menu.querySelector(".fe-pm-add input");
       const t = inp.value.replace(/,/g, " ").replace(/\s+/g, " ").trim();
+      const why = t.toLowerCase() === "pin" ? '"pin" is kept for pins; pin the note instead' : t.length > 32 ? "A tag is at most 32 characters" : cur.tags.length >= 12 && !cur.tags.includes(t) ? "A note keeps at most 12 tags" : "";
+      inp.setCustomValidity(why);
+      if (why) {
+        inp.reportValidity();
+        return;
+      }
       if (t && !cur.tags.includes(t)) void run({ tags: [...cur.tags, t] });
       else inp.value = "";
     });
@@ -3504,11 +3510,15 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-pm-add{display:flex;gap:4px}
 .fe-pm-add input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 7px;font:inherit}
 .fe-pm-add input:focus{outline:none;border-color:var(--ac)}
-.fe-nt-main{display:flex;flex-direction:column;min-width:0;gap:1px}
+.fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:1px}
+.fe-nt-label{flex:none;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;line-height:1.3}
+.fe-nt-item .fe-nt-acts{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;
+  background:var(--hover);border-radius:4px;opacity:0;pointer-events:none;transition:opacity .1s}
+.fe-nt-item:hover .fe-nt-acts,.fe-nt-item:focus-within .fe-nt-acts{opacity:1;pointer-events:auto}
 .fe-nt-tags{font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--mt);display:flex;gap:6px;flex-wrap:wrap}
 .fe-nt-tags span{display:inline-flex;align-items:center;gap:3px}
 .fe-nt-tags svg{width:10px;height:10px;flex:none}
-.fe-nt-flags{display:inline-flex;align-items:center;gap:4px;margin-left:6px;flex:none}
+.fe-nt-flags{display:inline-flex;align-items:center;gap:4px;flex:none}
 .fe-nt-flags svg{width:12px;height:12px}
 .fe-nt-pin{color:var(--gold)}
 .fe-nt-props{background:none;border:0;color:var(--dm);cursor:pointer;padding:4px;display:grid;place-items:center;opacity:0;flex:none}
@@ -6946,9 +6956,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             <a href="file://${esc(root + "/" + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}
             </a>
-            <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
-            <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
-            <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">\u2715</button>
+            <span class="fe-nt-acts">
+              <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
+              <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
+              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">\u2715</button>
+            </span>
           </div>`).join("") : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
         attachNoteEvents(root);
       }).catch((err) => {
@@ -6960,7 +6972,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     function noteRowText(n) {
       const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags.map((t) => `<span>${UI_ICON.tag}${esc(t)}</span>`).join("")}</span>` : "";
       const flags = colorName(n.color) || n.pinned ? `<span class="fe-nt-flags">${colorName(n.color) ? colorDot(colorName(n.color)) : ""}${n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : ""}</span>` : "";
-      return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>${tags}</span>${flags}`;
+      return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>${tags}</span>`;
     }
     function openNoteRel(root, rel) {
       notes.read(root, rel).then((doc) => openNote(root, doc, refreshNotes)).catch((err) => toast(err.message));

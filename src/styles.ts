@@ -533,11 +533,15 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-pm-add{display:flex;gap:4px}
 .fe-pm-add input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 7px;font:inherit}
 .fe-pm-add input:focus{outline:none;border-color:var(--ac)}
-.fe-nt-main{display:flex;flex-direction:column;min-width:0;gap:1px}
+.fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:1px}
+.fe-nt-label{flex:none;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;line-height:1.3}
+.fe-nt-item .fe-nt-acts{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;
+  background:var(--hover);border-radius:4px;opacity:0;pointer-events:none;transition:opacity .1s}
+.fe-nt-item:hover .fe-nt-acts,.fe-nt-item:focus-within .fe-nt-acts{opacity:1;pointer-events:auto}
 .fe-nt-tags{font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--mt);display:flex;gap:6px;flex-wrap:wrap}
 .fe-nt-tags span{display:inline-flex;align-items:center;gap:3px}
 .fe-nt-tags svg{width:10px;height:10px;flex:none}
-.fe-nt-flags{display:inline-flex;align-items:center;gap:4px;margin-left:6px;flex:none}
+.fe-nt-flags{display:inline-flex;align-items:center;gap:4px;flex:none}
 .fe-nt-flags svg{width:12px;height:12px}
 .fe-nt-pin{color:var(--gold)}
 .fe-nt-props{background:none;border:0;color:var(--dm);cursor:pointer;padding:4px;display:grid;place-items:center;opacity:0;flex:none}

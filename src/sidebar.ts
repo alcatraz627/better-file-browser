@@ -207,9 +207,11 @@ export function initSidebar(app: App): void {
             <a href="file://${esc(root + '/' + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}
             </a>
-            <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
-            <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
-            <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">✕</button>
+            <span class="fe-nt-acts">
+              <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
+              <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
+              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">✕</button>
+            </span>
           </div>`).join('')
         : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
       attachNoteEvents(root);
@@ -219,12 +221,12 @@ export function initSidebar(app: App): void {
     });
   }
   app.refreshNotes = refreshNotes;
-  // Title, then tags beneath; the colour dot and pin sit after the title.
+  // Colour dot and pin first, then the title with tags beneath.
   function noteRowText(n: NoteMeta): string {
     const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags!.map(t => `<span>${UI_ICON.tag}${esc(t)}</span>`).join('')}</span>` : '';
     const flags = (colorName(n.color) || n.pinned)
       ? `<span class="fe-nt-flags">${colorName(n.color) ? colorDot(colorName(n.color)) : ''}${n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : ''}</span>` : '';
-    return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>${tags}</span>${flags}`;
+    return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="Double-click to rename">${esc(n.title || noteTitle(n.rel))}</span>${tags}</span>`;
   }
   function openNoteRel(root: string, rel: string): void {
     notes.read(root, rel).then(doc => openNote(root, doc, refreshNotes))
