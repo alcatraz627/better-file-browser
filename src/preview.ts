@@ -2,7 +2,7 @@
 // Fetches file:// content over XHR (the same trick the crumb dropdown uses)
 // and hands it to a renderer picked by extension. No new permissions needed.
 import type { Entry, IconRule, PreviewLayout } from './types';
-import { esc, fmtSize, getExt, copyToClipboard } from './utils';
+import { esc, fmtSize, getExt, copyToClipboard, midHtml } from './utils';
 import { getPreviewLayout, savePreviewLayout } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
 import { getIcon, IMG_EXTS } from './icons';
@@ -346,7 +346,7 @@ export function saveEditor(): Promise<void> { return saveNote(); }
 function editHeader(status: string): void {
   if (!edit) return;
   const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
-  nameEl.textContent = (edit.dirty ? '● ' : '') + noteTitle(edit.rel, edit.text);
+  nameEl.innerHTML = midHtml((edit.dirty ? '● ' : '') + noteTitle(edit.rel, edit.text));
   document.getElementById('fe-ql-meta')!.textContent = `${edit.rel} · ${status}`;
 }
 

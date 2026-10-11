@@ -118,6 +118,16 @@ check(r2['code'] == 'notes_missing', 'a version that is not there is notes_missi
 r2 = call({'op': 'version', 'root': repo, 'rel': 'plan.md', 'sha': 'HEAD; rm -rf x'})
 check(r2['code'] == 'notes_bad_path', 'a version name that is not a hash is refused')
 
+with open(os.path.join(root, 'ordered.md'), 'w') as fh: fh.write('---\ntitle: "Ordered"\ncreated: 2026-10-11T08:00:00Z\npos: i\n---\nbody\n')
+for raw in ('no', '1e5', 'null'):
+    with open(os.path.join(root, 'raw.md'), 'w') as fh: fh.write(f'---\ntitle: "Raw"\npos: {raw}\n---\nbody\n')
+    r = call({'op': 'list', 'root': root})
+    check(next(n for n in r['notes'] if n['rel'] == 'raw.md')['pos'] == raw, f'pos: {raw} reads back as that exact string')
+o = next(n for n in r['notes'] if n['rel'] == 'ordered.md')
+check(o['pos'] == 'i' and o['created'] == 1791705600000, f'list carries pos and created in epoch ms: {o}')
+p = next(n for n in r['notes'] if n['rel'] == 'fm.md')
+check(p['pos'] == '' and p['created'] is not None, 'a note with no pos reports an empty one and still its created time')
+
 # The folder chooser: the system dialog is faked, the framing and the cancel path are real.
 import importlib.util
 from unittest import mock

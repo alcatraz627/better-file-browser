@@ -22,6 +22,7 @@ notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it.
 """
 import sys, os, json, struct, time, shutil, subprocess
+from datetime import datetime
 
 def read_msg():
     raw = sys.stdin.buffer.read(4)
@@ -85,7 +86,7 @@ def list_notes(root):
 
 def note_props(full):
     """The colour, pin and tags a note's frontmatter holds, read the way Switchboard reads them."""
-    props = {'color': '', 'pinned': False, 'tags': []}
+    props = {'color': '', 'pinned': False, 'tags': [], 'pos': '', 'created': None}
     try:
         with open(full, 'r', encoding='utf-8', errors='replace') as fh:
             lines = fh.read(4096).split('\n')
@@ -112,6 +113,13 @@ def note_props(full):
             props['pinned'] = value == 'true'
         elif key == 'tags':
             props['tags'] = [t.strip() for t in value.split(',') if t.strip()]
+        elif key == 'pos':
+            props['pos'] = value   # raw text: `no`, `1e5` and `null` stay strings
+        elif key == 'created':
+            try:
+                props['created'] = int(datetime.fromisoformat(value.replace('Z', '+00:00')).timestamp() * 1000)
+            except ValueError:
+                pass
     return props
 
 def note_title(full):
