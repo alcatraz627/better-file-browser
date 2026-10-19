@@ -48,6 +48,12 @@ check(t['color'] == 'purple' and t['pinned'] is True and t['tags'] == ['ops', 'l
 p = next(n for n in r['notes'] if n['rel'] == 'fm.md')
 check(p['color'] == '' and p['pinned'] is False and p['tags'] == [], f'a plain note has no colour, pin or tags: {p}')
 
+# The contract's own examples: a YAML flow list of tags, and '' inside a single-quoted title.
+yroot = tempfile.mkdtemp(prefix='bfb-notes-yaml-')
+with open(os.path.join(yroot, 'y.md'), 'w') as fh: fh.write("---\ntitle: 'it''s mine'\ntags: [work, \"planning\"]\n---\nbody\n")
+y = call({'op': 'list', 'root': yroot})['notes'][0]
+check(y['title'] == "it's mine" and y['tags'] == ['work', 'planning'], f'flow-list tags and a quoted title read as the editor reads them: {y}')
+
 r = call({'op': 'read', 'root': root, 'rel': 'sub/old.md'})
 check(r['t'] == 'note' and r['text'] == '# old\n', f'read: {r}')
 

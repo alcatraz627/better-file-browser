@@ -970,6 +970,11 @@ try {
   await pageB.waitForSelector('#fe');
   await pageB.keyboard.press('t');
   await pageB.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
+  // Restoring a closed tab's strip is opt-in; switch it on for the fresh tab only.
+  await pageB.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
+    s.stripRestore = true; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
+  });
   await pageB.close();
   const pageC = await h.open(h.fixture + '/nested/deeper');
   await pageC.waitForFunction(keptCount(2), { timeout: 5_000 }).catch(() => null);
@@ -981,6 +986,10 @@ try {
   const undone = await tabLabels(pageC);
   check(undone.length === 1 && undone[0] === '~deeper', `undo drops the restored strip: ${JSON.stringify(undone)}`);
   await pageC.close();
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
+    delete s.stripRestore; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
+  });
   await page.bringToFront();
 
   // Find: text inside files, held until re-run, saved as a view, reopened by hash.

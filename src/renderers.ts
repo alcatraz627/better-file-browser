@@ -155,8 +155,15 @@ const LANGS: Record<string, LangDef> = {
   proto:  { line: ['//'], block: ['/*', '*/'], strings: [`"`], kw: sp(KW_PROTO), namedTypes: true,
             kwCats: { ctrl: sp('import rpc returns'), type: sp('message enum service oneof map'), lit: sp('true false') } },
   html:   { block: ['<!--', '-->'], strings: [], kw: [], special: [{ kind: 'tag', pattern: '<\\/?[A-Za-z][^>\\n]*>' }] },
-  yaml:   { line: ['#'], strings: [`"`, `'`], kw: [], kwCats: { lit: sp('true false null yes no') },
-            special: [{ kind: 'key', pattern: '^[ \\t-]*[A-Za-z_][\\w.-]*(?=[ \\t]*:)' }] },
+  // Keys, anchors and plain values each get a colour; indentation and the list
+  // dash stay outside the key, and an unquoted value like it's is one value.
+  yaml:   { line: ['#'], strings: [`"`, `'`], kw: [], kwCats: { lit: sp('true false null yes no True False Null') },
+            special: [
+              { kind: 'meta', pattern: '^(?:---|\\.\\.\\.)[ \\t]*$' },
+              { kind: 'key', pattern: '(?<=^[ \\t]*(?:-[ \\t]+)?)[A-Za-z_][\\w.-]*(?=[ \\t]*:(?:[ \\t]|$))' },
+              { kind: 'deco', pattern: '(?<=[:\\s-][ \\t]*)[&*][A-Za-z_][\\w-]*' },
+              { kind: 'str', pattern: '(?<=:[ \\t]+|^[ \\t]*-[ \\t]+)(?![\'"#&*|>\\[{]|(?:true|false|null|yes|no|True|False|Null|~|[-+]?\\d[\\d_.]*)[ \\t]*(?:#|$))[^\\n#]*[^\\s#]' },
+            ] },
   toml:   { line: ['#'], strings: [`"`, `'`], kw: [], kwCats: { lit: sp('true false') },
             special: [{ kind: 'section', pattern: '^\\[[^\\]\\n]+\\]' }, { kind: 'key', pattern: '^[ \\t]*[A-Za-z_][\\w.-]*(?=[ \\t]*=)' }] },
   diff:   { strings: [], kw: [], special: [
@@ -736,14 +743,14 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
 // ── JSON / JSONL ────────────────────────────────────────────────────
 
 function jsonLeaf(v: unknown): string {
-  if (v === null) return `<span class="tok-kw">null</span>`;
+  if (v === null) return `<span class="tok-lit">null</span>`;
   switch (typeof v) {
     case 'string': {
       const s = v.length > 500 ? v.slice(0, 500) + '…' : v;
       return `<span class="tok-str">"${esc(s)}"</span>`;
     }
     case 'number':  return `<span class="tok-num">${v}</span>`;
-    case 'boolean': return `<span class="tok-kw">${v}</span>`;
+    case 'boolean': return `<span class="tok-lit">${v}</span>`;
     default:        return esc(String(v));
   }
 }
@@ -769,7 +776,8 @@ export function renderJsonTree(text: string): string {
   let v: unknown;
   try { v = JSON.parse(text); }
   catch (err) {
-    return `<div class="fe-ql-note err">Invalid JSON — ${esc((err as Error).message)}</div><div class="fe-code-wrap"><pre class="fe-code">${esc(text.slice(0, RENDER_CAPS.codeChars))}</pre></div>`;
+    // Comments and trailing commas (tsconfig, VS Code settings) still read as JSON text.
+    return `<div class="fe-ql-note">Not strict JSON, shown as text: ${esc((err as Error).message)}</div>${renderCode(text, 'jsonc')}`;
   }
   return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
 }

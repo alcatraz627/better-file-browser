@@ -89,6 +89,18 @@ describe('highlightCode', () => {
     expect(html).toContain('<span class="tok-var">:watermark</span>');
   });
 
+  it('colours YAML keys without their indent, plain values, anchors and documents', () => {
+    const html = highlightCode("---\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - plain item\nkey: it's mine\nn: 3\nbase: &base\nok: true # note", 'yaml');
+    expect(html).toContain('<span class="tok-cmt">---</span>');
+    expect(html).toContain('    <span class="tok-key">runs-on</span>: <span class="tok-str">ubuntu-latest</span>');
+    expect(html).toContain('      - <span class="tok-key">uses</span>: <span class="tok-str">actions/checkout@v4</span>');
+    expect(html).toContain('      - <span class="tok-str">plain item</span>');
+    expect(html).toContain(`<span class="tok-key">key</span>: <span class="tok-str">it's mine</span>`);
+    expect(html).toContain('<span class="tok-num">3</span>');
+    expect(html).toContain('<span class="tok-deco">&amp;base</span>');
+    expect(html).toContain('<span class="tok-lit">true</span> <span class="tok-cmt"># note</span>');
+  });
+
   it('maps common fence labels to their language', () => {
     expect(highlightCode('const a = 1', 'typescript')).toContain('tok-kw');
     expect(highlightCode('def f(): pass', 'python')).toContain('tok-kw');
@@ -453,13 +465,14 @@ describe('renderJsonTree', () => {
     const html = renderJsonTree('{"name":"x","n":42,"ok":true,"nil":null}');
     expect(html).toContain('fe-jt-key');
     expect(html).toContain('<span class="tok-num">42</span>');
-    expect(html).toContain('<span class="tok-kw">true</span>');
-    expect(html).toContain('<span class="tok-kw">null</span>');
+    expect(html).toContain('<span class="tok-lit">true</span>');
+    expect(html).toContain('<span class="tok-lit">null</span>');
   });
   it('reports invalid JSON with a raw fallback', () => {
     const html = renderJsonTree('{nope');
-    expect(html).toContain('Invalid JSON');
+    expect(html).toContain('Not strict JSON');
     expect(html).toContain('{nope');
+    expect(renderJsonTree('{"a": 1, // note\n}')).toContain('<span class="tok-cmt">// note</span>');
   });
   it('escapes string values', () => {
     const html = renderJsonTree('{"x":"<script>"}');

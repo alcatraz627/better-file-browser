@@ -847,12 +847,19 @@
       kwCats: { ctrl: sp("import rpc returns"), type: sp("message enum service oneof map"), lit: sp("true false") }
     },
     html: { block: ["<!--", "-->"], strings: [], kw: [], special: [{ kind: "tag", pattern: "<\\/?[A-Za-z][^>\\n]*>" }] },
+    // Keys, anchors and plain values each get a colour; indentation and the list
+    // dash stay outside the key, and an unquoted value like it's is one value.
     yaml: {
       line: ["#"],
       strings: [`"`, `'`],
       kw: [],
-      kwCats: { lit: sp("true false null yes no") },
-      special: [{ kind: "key", pattern: "^[ \\t-]*[A-Za-z_][\\w.-]*(?=[ \\t]*:)" }]
+      kwCats: { lit: sp("true false null yes no True False Null") },
+      special: [
+        { kind: "meta", pattern: "^(?:---|\\.\\.\\.)[ \\t]*$" },
+        { kind: "key", pattern: "(?<=^[ \\t]*(?:-[ \\t]+)?)[A-Za-z_][\\w.-]*(?=[ \\t]*:(?:[ \\t]|$))" },
+        { kind: "deco", pattern: "(?<=[:\\s-][ \\t]*)[&*][A-Za-z_][\\w-]*" },
+        { kind: "str", pattern: `(?<=:[ \\t]+|^[ \\t]*-[ \\t]+)(?!['"#&*|>\\[{]|(?:true|false|null|yes|no|True|False|Null|~|[-+]?\\d[\\d_.]*)[ \\t]*(?:#|$))[^\\n#]*[^\\s#]` }
+      ]
     },
     toml: {
       line: ["#"],
@@ -1526,7 +1533,7 @@
     return linkLocalPaths(`<div class="fe-md">${out.join("\n")}</div>`);
   }
   function jsonLeaf(v) {
-    if (v === null) return `<span class="tok-kw">null</span>`;
+    if (v === null) return `<span class="tok-lit">null</span>`;
     switch (typeof v) {
       case "string": {
         const s = v.length > 500 ? v.slice(0, 500) + "\u2026" : v;
@@ -1535,7 +1542,7 @@
       case "number":
         return `<span class="tok-num">${v}</span>`;
       case "boolean":
-        return `<span class="tok-kw">${v}</span>`;
+        return `<span class="tok-lit">${v}</span>`;
       default:
         return esc(String(v));
     }
@@ -1558,7 +1565,7 @@
     try {
       v = JSON.parse(text);
     } catch (err) {
-      return `<div class="fe-ql-note err">Invalid JSON \u2014 ${esc(err.message)}</div><div class="fe-code-wrap"><pre class="fe-code">${esc(text.slice(0, RENDER_CAPS.codeChars))}</pre></div>`;
+      return `<div class="fe-ql-note">Not strict JSON, shown as text: ${esc(err.message)}</div>${renderCode(text, "jsonc")}`;
     }
     return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
   }
@@ -1737,9 +1744,9 @@ ${fm}
     const m = text.match(/^---\n([\s\S]*?)\n---/);
     if (!m) return text;
     const iso = now.toISOString();
-    const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, `updated: ${iso}`) : m[1] + `
+    const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, () => `updated: ${iso}`) : m[1] + `
 updated: ${iso}`;
-    return text.replace(m[0], `---
+    return text.replace(m[0], () => `---
 ${fm}
 ---`);
   }
@@ -1792,7 +1799,8 @@ ${fm}
     };
   }
   function parseTags2(v) {
-    return (v ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+    const s = (v ?? "").trim();
+    return (s.startsWith("[") && s.endsWith("]") ? s.slice(1, -1) : s).split(",").map((t) => t.trim().replace(/^(["'])(.*)\1$/, "$2")).filter(Boolean);
   }
   function setField(text, key, value) {
     const line = value === null ? null : `${key}: ${value}`;
@@ -3840,7 +3848,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .tok-type{color:#56d4dd}
 .tok-builtin{color:#ffa657}
 .tok-lit{color:#a5d6ff}
-.tok-num{color:#79c0ff}
+.tok-num{color:#f2cc60}
 .tok-var{color:#d2a8ff}
 .tok-deco{color:#e2b340}
 .tok-fn{color:#d2a8ff}.tok-regex{color:#a5d6a7}
@@ -3850,8 +3858,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe[data-theme="light"] .tok-kw,#fe[data-theme="light"] .tok-kw-ctrl{color:#cf222e}
 #fe[data-theme="light"] .tok-type{color:#1b7c83}
 #fe[data-theme="light"] .tok-builtin{color:#953800}
-#fe[data-theme="light"] .tok-lit{color:#0550ae}
-#fe[data-theme="light"] .tok-num{color:#0550ae}
+#fe[data-theme="light"] .tok-lit{color:#8250df}
+#fe[data-theme="light"] .tok-num{color:#9a6700}
 #fe[data-theme="light"] .tok-var{color:#8250df}
 #fe[data-theme="light"] .tok-deco{color:#9a6700}
 #fe[data-theme="light"] .tok-fn{color:#8250df}
@@ -4557,7 +4565,9 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
         area?.remove(RECOVERY_PREFIX + pick, () => void chrome.runtime.lastError);
       } catch {
       }
-      commit(activateHere(old.state));
+      let merged = old.state;
+      for (const t of state.list) merged = insertTab(merged, t, merged.list.length);
+      commit(activateHere(merged));
       const n = old.state.list.length;
       toast(`Restored ${n} tab${n === 1 ? "" : "s"}`, 6e3, {
         label: "undo",

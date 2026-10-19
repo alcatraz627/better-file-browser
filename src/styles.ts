@@ -651,7 +651,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .tok-type{color:#56d4dd}
 .tok-builtin{color:#ffa657}
 .tok-lit{color:#a5d6ff}
-.tok-num{color:#79c0ff}
+.tok-num{color:#f2cc60}
 .tok-var{color:#d2a8ff}
 .tok-deco{color:#e2b340}
 .tok-fn{color:#d2a8ff}.tok-regex{color:#a5d6a7}
@@ -661,8 +661,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe[data-theme="light"] .tok-kw,#fe[data-theme="light"] .tok-kw-ctrl{color:#cf222e}
 #fe[data-theme="light"] .tok-type{color:#1b7c83}
 #fe[data-theme="light"] .tok-builtin{color:#953800}
-#fe[data-theme="light"] .tok-lit{color:#0550ae}
-#fe[data-theme="light"] .tok-num{color:#0550ae}
+#fe[data-theme="light"] .tok-lit{color:#8250df}
+#fe[data-theme="light"] .tok-num{color:#9a6700}
 #fe[data-theme="light"] .tok-var{color:#8250df}
 #fe[data-theme="light"] .tok-deco{color:#9a6700}
 #fe[data-theme="light"] .tok-fn{color:#8250df}

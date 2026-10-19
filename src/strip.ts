@@ -293,7 +293,10 @@ export function mountStrip(host: StripHost): Strip {
       old = again;
     }
     try { area?.remove(RECOVERY_PREFIX + pick, () => void chrome.runtime.lastError); } catch { /* gone */ }
-    commit(activateHere(old.state));
+    // Merge, never replace: a tab kept while the re-read waited stays.
+    let merged = old.state;
+    for (const t of state.list) merged = insertTab(merged, t, merged.list.length);
+    commit(activateHere(merged));
     const n = old.state.list.length;
     toast(`Restored ${n} tab${n === 1 ? '' : 's'}`, 6000, {
       label: 'undo',

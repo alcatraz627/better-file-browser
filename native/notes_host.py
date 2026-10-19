@@ -112,7 +112,11 @@ def note_props(full):
         elif key == 'pinned':
             props['pinned'] = value == 'true'
         elif key == 'tags':
-            props['tags'] = [t.strip() for t in value.split(',') if t.strip()]
+            # `a, b` and the YAML flow list `[a, b]` read the same
+            if value.startswith('[') and value.endswith(']'):
+                value = value[1:-1]
+            tags = [t.strip() for t in value.split(',')]
+            props['tags'] = [t[1:-1] if len(t) >= 2 and t[0] == t[-1] and t[0] in '"\'' else t for t in tags if t]
         elif key == 'pos':
             props['pos'] = value   # raw text: `no`, `1e5` and `null` stay strings
         elif key == 'created':
@@ -140,7 +144,7 @@ def note_title(full):
                 value = lines[i][6:].strip()
                 if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
                     try:
-                        value = json.loads(value) if value[0] == '"' else value[1:-1]
+                        value = json.loads(value) if value[0] == '"' else value[1:-1].replace("''", "'")
                     except ValueError:
                         value = value[1:-1]
                 # a quoted title keeps its padding in YAML; no app shows it padded

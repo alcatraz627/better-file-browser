@@ -59,6 +59,15 @@ describe('front matter', () => {
     expect(stampUpdated('---\ntitle: x\nupdated: 2026-09-15T10:00:00.000Z\n---\nbody', later)).toContain('updated: 2026-09-16T00:00:00.000Z');
     expect(stampUpdated('---\ntitle: y\n---\nbody', later)).toBe('---\ntitle: y\nupdated: 2026-09-16T00:00:00.000Z\n---\nbody');
     expect(stampUpdated('# plain\n', later)).toBe('# plain\n');
+    const dollars = '---\nurl: https://x.test/?q=$&\nprice: $$5\nupdated: 2026-09-15T10:00:00.000Z\n---\nbody';
+    expect(stampUpdated(dollars, later)).toBe(dollars.replace('2026-09-15T10:00:00.000Z', '2026-09-16T00:00:00.000Z'));
+    expect(frontmatterDrift(dollars, stampUpdated(dollars, later), [])).toEqual([]);
+  });
+
+  it('reads tags written as a list or as a YAML flow list the same way', () => {
+    expect(readProps('a.md', '---\ntags: work, planning\n---\n').tags).toEqual(['work', 'planning']);
+    expect(readProps('a.md', '---\ntags: [work, planning]\n---\n').tags).toEqual(['work', 'planning']);
+    expect(readProps('a.md', `---\ntags: ["work", 'planning']\n---\n`).tags).toEqual(['work', 'planning']);
   });
 });
 

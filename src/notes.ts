@@ -135,8 +135,9 @@ export function stampUpdated(text: string, now = new Date()): string {
   const m = text.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return text;
   const iso = now.toISOString();
-  const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, `updated: ${iso}`) : m[1] + `\nupdated: ${iso}`;
-  return text.replace(m[0], `---\n${fm}\n---`);
+  // Function replacements: a `$&` or `$$` in any property value must stay literal.
+  const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, () => `updated: ${iso}`) : m[1] + `\nupdated: ${iso}`;
+  return text.replace(m[0], () => `---\n${fm}\n---`);
 }
 
 // ── Properties: title, colour, pin and tags, read and written the way Switchboard does ──
@@ -189,8 +190,10 @@ export function readProps(rel: string, text: string): NoteProps {
            tags: parseTags(f.tags), ...(f.pos ? { pos: f.pos } : {}) };
 }
 
+// `a, b` and the YAML flow list `[a, b]` read the same, as in notes_host.py.
 export function parseTags(v: string | undefined): string[] {
-  return (v ?? '').split(',').map(t => t.trim()).filter(Boolean);
+  const s = (v ?? '').trim();
+  return (s.startsWith('[') && s.endsWith(']') ? s.slice(1, -1) : s).split(',').map(t => t.trim().replace(/^(["'])(.*)\1$/, '$2')).filter(Boolean);
 }
 
 /// Set (string) or remove (null) one frontmatter field, touching only that line.
