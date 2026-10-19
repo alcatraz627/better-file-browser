@@ -3928,6 +3928,13 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-ql-dock.on{color:var(--ac);border-color:var(--ac)}
 #fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-ql-icon svg{display:block}
+/* Docked, the header keeps its name readable and its close button inside the panel: buttons go icon-only. */
+#fe-qlook.side #fe-ql-hdr > button > span,#fe-qlook.side #fe-ql-hdr > a:not(#fe-ql-name) > span{display:none}
+#fe-qlook.side #fe-ql-hdr{gap:5px;padding:8px 10px}
+#fe-qlook.side #fe-ql-hdr > *{flex-shrink:0}
+#fe-qlook.side #fe-ql-name,#fe-qlook.side #fe-ql-meta{flex-shrink:1;min-width:0}
+#fe-qlook.side #fe-ed-bar > button > span{display:none}
+#fe-qlook.side .fe-ed-hint{display:none}
 #fe-ql-name{font-weight:600;font-size:calc(13px * var(--ui-text-scale,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
 #fe-ql-name:hover{color:var(--ac);text-decoration:underline}
 #fe-ql-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);flex:1;white-space:nowrap}
@@ -5454,13 +5461,11 @@ seconds and re-renders when the file changes on disk.
     if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
     lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
     if (e.isHidden) lines.push("Hidden file (dotfile)");
-    if (IMG_EXTS.has(getExt(e))) lines.push("Image \u2014 dimensions require native host");
     lines.push(e.isDir ? "Click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab" : "Click looks \xB7 double-click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab");
     const tip = {
       icon: getIcon(e, ctx.iconRules),
       name: e.name,
-      lines,
-      warn: "Permissions/creation date require native host"
+      lines
     };
     return JSON.stringify(tip);
   }
@@ -5755,12 +5760,12 @@ seconds and re-renders when the file changes on disk.
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="Which terminal app to open when clicking the terminal button">Open with</span>
             <select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open current folder in">
-              <option value="ghostty">Ghostty (native host)</option>
+              <option value="ghostty">Ghostty</option>
               <option value="terminal">Terminal.app</option>
               <option value="iterm">iTerm2</option>
               <option value="wezterm">WezTerm</option>
               <option value="kitty">Kitty</option>
-              <option value="custom">Custom command\u2026</option>
+              <option value="custom">Custom command (copied, not run)</option>
             </select>
           </div>
           <div class="fe-st-row" id="fe-st-term-custom-row" style="display:none">
@@ -6007,9 +6012,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       toast(`Copied: ${cmd}`);
     }
     app.openInTerminal = (path) => {
-      if ((settings.terminalApp || "ghostty") === "ghostty") {
+      const term = settings.terminalApp || "ghostty";
+      if (term !== "custom") {
         chrome.runtime.sendMessage(
-          { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_terminal", path } },
+          { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_terminal", path, app: term } },
           (res) => {
             if (chrome.runtime.lastError || !res?.ok) fallbackCopy(path);
           }

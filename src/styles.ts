@@ -598,6 +598,13 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-ql-dock.on{color:var(--ac);border-color:var(--ac)}
 #fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-ql-icon svg{display:block}
+/* Docked, the header keeps its name readable and its close button inside the panel: buttons go icon-only. */
+#fe-qlook.side #fe-ql-hdr > button > span,#fe-qlook.side #fe-ql-hdr > a:not(#fe-ql-name) > span{display:none}
+#fe-qlook.side #fe-ql-hdr{gap:5px;padding:8px 10px}
+#fe-qlook.side #fe-ql-hdr > *{flex-shrink:0}
+#fe-qlook.side #fe-ql-name,#fe-qlook.side #fe-ql-meta{flex-shrink:1;min-width:0}
+#fe-qlook.side #fe-ed-bar > button > span{display:none}
+#fe-qlook.side .fe-ed-hint{display:none}
 #fe-ql-name{font-weight:600;font-size:calc(13px * var(--ui-text-scale,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
 #fe-ql-name:hover{color:var(--ac);text-decoration:underline}
 #fe-ql-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);flex:1;white-space:nowrap}

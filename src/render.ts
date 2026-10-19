@@ -21,7 +21,6 @@ export function buildTipData(e: Entry, ctx: RenderContext): string {
   if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
   lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
   if (e.isHidden) lines.push('Hidden file (dotfile)');
-  if (IMG_EXTS.has(getExt(e))) lines.push('Image — dimensions require native host');
   lines.push(e.isDir
     ? 'Click opens · ⌥-click keeps a tab · middle-click: Chrome tab'
     : 'Click looks · double-click opens · ⌥-click keeps a tab · middle-click: Chrome tab');
@@ -29,7 +28,6 @@ export function buildTipData(e: Entry, ctx: RenderContext): string {
     icon: getIcon(e, ctx.iconRules),
     name: e.name,
     lines,
-    warn: 'Permissions/creation date require native host',
   };
   return JSON.stringify(tip);
 }

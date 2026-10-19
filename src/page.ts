@@ -226,12 +226,12 @@ export function renderPage(p: PageParams): string {
           <div class="fe-st-row">
             <span class="fe-st-lbl" title="Which terminal app to open when clicking the terminal button">Open with</span>
             <select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open current folder in">
-              <option value="ghostty">Ghostty (native host)</option>
+              <option value="ghostty">Ghostty</option>
               <option value="terminal">Terminal.app</option>
               <option value="iterm">iTerm2</option>
               <option value="wezterm">WezTerm</option>
               <option value="kitty">Kitty</option>
-              <option value="custom">Custom command…</option>
+              <option value="custom">Custom command (copied, not run)</option>
             </select>
           </div>
           <div class="fe-st-row" id="fe-st-term-custom-row" style="display:none">

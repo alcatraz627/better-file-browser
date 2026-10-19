@@ -155,7 +155,6 @@ Hover any item for a rich tooltip showing:
 - Modified date
 - Hidden file indicator (if dotfile)
 
-> Permissions, creation date, and image dimensions require the optional native host.
 
 ---
 

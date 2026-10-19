@@ -30,11 +30,14 @@ export function initChrome(app: App): void {
     toast(`Copied: ${cmd}`);
   }
   app.openInTerminal = (path: string) => {
-    if ((settings.terminalApp || 'ghostty') === 'ghostty') {
+    const term = settings.terminalApp || 'ghostty';
+    // A named terminal opens through the launcher host; a custom command is
+    // only copied, because the extension never runs shell text.
+    if (term !== 'custom') {
       // connectNative is unavailable in content scripts; the background
       // worker relays, and a missing host falls back to the clipboard.
       chrome.runtime.sendMessage(
-        { type: 'bfb-native-oneshot', host: 'com.better_file_browser.ghostty', payload: { action: 'open_terminal', path } },
+        { type: 'bfb-native-oneshot', host: 'com.better_file_browser.ghostty', payload: { action: 'open_terminal', path, app: term } },
         res => { if (chrome.runtime.lastError || !res?.ok) fallbackCopy(path); },
       );
       return;

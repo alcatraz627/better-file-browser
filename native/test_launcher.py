@@ -46,5 +46,12 @@ os.symlink(os.path.join(work, 'run.sh'), link)
 r = ask({'action': 'open_file', 'path': link})
 verdict(r.get('success') is False and len(launched()) == before, f'a .png link to a script is refused: {r.get("error")}')
 
+before = len(launched())
+r = ask({'action': 'open_terminal', 'path': work, 'app': 'iterm'})
+verdict(r.get('success') is True and launched()[before:] == [f'-a iTerm {work}'], f'iTerm opens on the folder: {launched()[before:]}')
+before = len(launched())
+r = ask({'action': 'open_terminal', 'path': work, 'app': 'Calculator'})
+verdict(r.get('success') is False and len(launched()) == before, f'an app outside the terminal list is refused: {r.get("error")}')
+
 print('\nall checks passed' if not failed else f'\n{failed} FAILED')
 sys.exit(1 if failed else 0)
