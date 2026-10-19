@@ -187,8 +187,15 @@ export function initSidebar(app: App): void {
   function notesRoot(): string { return (settings.notesRoot || '').replace(/\/$/, ''); }
   const ntFilter = el<HTMLInputElement>('fe-nt-filter');
   let allNotes: NoteMeta[] = [];
+  // Notes whose text (not just title or tags) holds every word typed, with the
+  // first matching line; filled a moment after typing stops.
+  let bodyHits = new Map<string, string>();
+  const shownNotes = () => {
+    const byMeta = filterNotes(allNotes, ntFilter.value);
+    return [...byMeta, ...allNotes.filter(n => bodyHits.has(n.rel) && !byMeta.includes(n))];
+  };
   function renderNotes(root: string): void {
-    const shown = filterNotes(allNotes, ntFilter.value);
+    const shown = shownNotes();
     ntHint.textContent = ntFilter.value.trim()
       ? `${shown.length} of ${allNotes.length} notes in ${root}`
       : `${allNotes.length} note${allNotes.length !== 1 ? 's' : ''} in ${root}`;
@@ -197,7 +204,7 @@ export function initSidebar(app: App): void {
           <div class="fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}" data-rel="${esc(n.rel)}">
             <a href="file://${esc(root + '/' + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}
-            </a>
+            </a>${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel)!)}">${esc(bodyHits.get(n.rel)!)}</span>` : ''}
             <span class="fe-nt-acts">
               <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
               <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
@@ -209,7 +216,23 @@ export function initSidebar(app: App): void {
         : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
     attachNoteEvents(root);
   }
-  ntFilter.addEventListener('input', () => { const root = notesRoot(); if (root) renderNotes(root); });
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  ntFilter.addEventListener('input', () => {
+    const root = notesRoot();
+    if (!root) return;
+    const q = ntFilter.value.trim();
+    bodyHits = new Map();
+    renderNotes(root);
+    if (searchTimer) clearTimeout(searchTimer);
+    if (!q || q.startsWith('#')) return;
+    searchTimer = setTimeout(() => {
+      notes.search(root, q).then(hits => {
+        if (ntFilter.value.trim() !== q) return;
+        bodyHits = new Map(hits.map(h => [h.rel, h.line]));
+        renderNotes(root);
+      }).catch(() => { /* host without search: titles and tags still filter */ });
+    }, 250);
+  });
   ntFilter.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); ntFilter.value = ''; ntFilter.dispatchEvent(new Event('input')); ntFilter.blur(); }
   });
@@ -248,7 +271,7 @@ export function initSidebar(app: App): void {
   const notePath = (root: string, rel: string) => root.replace(/\/$/, '') + '/' + rel;
   // The editor's arrows walk the list as the sidebar shows it, filter included.
   function stepNote(root: string, rel: string, dir: 1 | -1): void {
-    const shown = filterNotes(allNotes, ntFilter.value);
+    const shown = shownNotes();
     const pool = shown.some(n => n.rel === rel) ? shown : allNotes;
     const at = pool.findIndex(n => n.rel === rel);
     const next = at < 0 ? undefined : pool[at + dir];

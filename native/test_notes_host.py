@@ -121,6 +121,10 @@ with open(os.path.join(eroot, 'b.bin'), 'wb') as fh: fh.write(b'\0\1\2')
 rb = call({'op': 'fileRead', 'root': eroot, 'rel': 'b.bin'})
 check(call({'op': 'fileWrite', 'root': eroot, 'rel': 'b.bin', 'text': 'x', 'expectMtime': rb['mtime']})['code'] == 'notes_bad_path', 'a binary file is not overwritten')
 
+s = call({'op': 'search', 'root': yroot, 'query': 'BODY'})
+check(s['t'] == 'search' and [h['rel'] for h in s['hits']] == ['y.md'] and s['hits'][0]['line'] == 'body', f'search finds a word in a note body, any case: {s}')
+check(call({'op': 'search', 'root': yroot, 'query': 'body nowhere'})['hits'] == [], 'search needs every word')
+
 r = call({'op': 'zap', 'root': root})
 check(r['code'] == 'notes_bad_op', 'unknown op')
 

@@ -17,6 +17,7 @@ Ops (request -> reply):
   {op:"history", root, rel}                  -> {t:"history", rel, versions:[{sha,when,reason}], repo}  (git log; none outside a repo)
   {op:"version", root, rel, sha}             -> {t:"version", rel, sha, text}
   {op:"pick", start?}                        -> {t:"picked", root}   (the system folder chooser; root is "" when cancelled)
+  {op:"search", root, query}                 -> {t:"search", hits:[{rel, line}]}   (every word, any case; first matching line)
   {op:"fileRead",  root, rel}                -> {t:"file", rel, text, mtime}   (any text file; root is a folder allowed for editing)
   {op:"fileWrite", root, rel, text, expectMtime} -> {t:"written", rel, mtime, backup}   (existing text files under 2 MB; old text backed up 14 days)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
@@ -236,6 +237,26 @@ def op_file_read(root, rel):
     with open(full, 'r', encoding='utf-8', errors='replace') as fh:
         return {'t': 'file', 'rel': rel, 'text': fh.read(), 'mtime': mtime_ms(full)}
 
+def op_search(root, query):
+    """Notes whose text holds every word of the query (any case), newest first, each with its first matching line."""
+    words = [w for w in (query or '').lower().split() if w]
+    hits = []
+    if not words:
+        return {'t': 'search', 'hits': hits}
+    for n in list_notes(root):
+        try:
+            with open(os.path.join(root, n['rel']), 'r', encoding='utf-8', errors='replace') as fh:
+                text = fh.read(512 * 1024)
+        except OSError:
+            continue
+        low = text.lower()
+        if all(w in low for w in words):
+            line = next((l.strip() for l in text.splitlines() if any(w in l.lower() for w in words)), '')
+            hits.append({'rel': n['rel'], 'line': line[:160]})
+        if len(hits) >= 200:
+            break
+    return {'t': 'search', 'hits': hits}
+
 def op_create(root, rel, text):
     full = resolve_rel(root, rel)
     if os.path.exists(full):
@@ -359,6 +380,7 @@ def handle(msg):
     if op == 'writeBinary': return op_write_binary(root, msg.get('rel'), msg.get('base64'))
     if op == 'history': return op_history(root, msg.get('rel'))
     if op == 'version': return op_version(root, msg.get('rel'), msg.get('sha'))
+    if op == 'search':    return op_search(root, msg.get('query'))
     if op == 'fileRead':  return op_file_read(root, msg.get('rel'))
     if op == 'fileWrite': return op_file_write(root, msg.get('rel'), msg.get('text'), msg.get('expectMtime'))
     raise NotesError('notes_bad_op', f'unknown op {op!r}')

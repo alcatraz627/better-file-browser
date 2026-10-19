@@ -1758,6 +1758,8 @@
     pick: (start) => call({ op: "pick", start }).then((f) => f.root),
     history: (root, rel) => call({ op: "history", root, rel }).then((f) => f),
     version: (root, rel, sha) => call({ op: "version", root, rel, sha }),
+    /// Notes whose text holds every word of the query, each with its first matching line.
+    search: (root, query) => call({ op: "search", root, query }).then((f) => f.hits),
     /// Any text file inside a folder allowed for editing; root is that folder.
     fileRead: (root, rel) => call({ op: "fileRead", root, rel }),
     fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
@@ -2835,6 +2837,11 @@ ${body}
       <button class="fe-pbn" data-act="bold" title="Bold (\u2318B)"><b>B</b></button>
       <button class="fe-pbn" data-act="italic" title="Italic (\u2318I)"><i>I</i></button>
       <button class="fe-pbn" data-act="code" title="Code (\u2318E)">\u2039\u203A</button>
+      <button class="fe-pbn" data-act="strike" title="Strikethrough (\u2318\u21E7X)"><s>S</s></button>
+      <button class="fe-pbn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (\u2318\u21E7H)">H</button>
+      <button class="fe-pbn" data-act="link" title="Link (\u2318K)">\u{1F517}</button>
+      <button class="fe-pbn" data-act="quote" title="Quote (\u2318\u21E7.)">\u275D</button>
+      <button class="fe-pbn" data-act="olist" title="Numbered list (\u2318\u21E77)">1.</button>
       <button class="fe-pbn" data-act="list" title="Bullet list">${UI_ICON.list}<span>list</span></button>
       <button class="fe-pbn" data-act="task" title="Task list">${UI_ICON.task}<span>task</span></button>
       <button class="fe-pbn" data-act="table" title="Insert a table">${UI_ICON.table}<span>table</span></button>
@@ -2874,6 +2881,33 @@ ${body}
       if (name === "bold") apply(wrapSelection(ta.value, sel(), "**"));
       if (name === "italic") apply(wrapSelection(ta.value, sel(), "_"));
       if (name === "code") apply(wrapSelection(ta.value, sel(), "`"));
+      if (name === "strike") apply(wrapSelection(ta.value, sel(), "~~"));
+      if (name === "quote") prefixLines("> ");
+      if (name === "olist") {
+        const s = sel();
+        const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
+        let to = ta.value.indexOf("\n", s.end);
+        if (to < 0) to = ta.value.length;
+        const lines = ta.value.slice(from, to).split("\n").map((l, n) => `${n + 1}. ${l}`).join("\n");
+        apply({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
+      }
+      if (name === "heading") {
+        const s = sel();
+        const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
+        let to = ta.value.indexOf("\n", from);
+        if (to < 0) to = ta.value.length;
+        const line = ta.value.slice(from, to);
+        const level = line.match(/^(#{1,6}) /)?.[1].length ?? 0;
+        const next = level >= 3 ? line.replace(/^#{1,6} /, "") : "#".repeat(level + 1) + " " + line.replace(/^#{1,6} /, "");
+        apply({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
+      }
+      if (name === "link") {
+        const s = sel();
+        const label = ta.value.slice(s.start, s.end) || "text";
+        const t = `[${label}](url)`;
+        const at = s.start + label.length + 3;
+        apply({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
+      }
       if (name === "list") prefixLines("- ");
       if (name === "task") prefixLines("- [ ] ");
       if (name === "table") buf.insert((ta.value.slice(0, ta.selectionStart).endsWith("\n") || !ta.selectionStart ? "" : "\n") + tableSnippet());
@@ -3021,6 +3055,21 @@ ${body}
       } else if (mod && !e.shiftKey && k === "e") {
         stop();
         act("code");
+      } else if (mod && !e.shiftKey && k === "k") {
+        stop();
+        act("link");
+      } else if (mod && e.shiftKey && k === "x") {
+        stop();
+        act("strike");
+      } else if (mod && e.shiftKey && k === "h") {
+        stop();
+        act("heading");
+      } else if (mod && e.shiftKey && (k === "." || k === ">")) {
+        stop();
+        act("quote");
+      } else if (mod && e.shiftKey && (k === "7" || k === "&")) {
+        stop();
+        act("olist");
       } else if (mod && e.altKey && !e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && actions) {
         stop();
         actions.step(edit.rel, e.key === "ArrowDown" ? 1 : -1);
@@ -3791,6 +3840,7 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-side-rest{flex:1;min-height:0;overflow-y:auto;padding:6px 0}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);margin-right:auto;white-space:nowrap}
+#fe-nt-list .fe-nt-hit{display:block;padding:0 10px 4px 32px;font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
 #fe-fe-bar{display:flex;align-items:center;gap:6px;padding:6px 14px;border-bottom:1px solid var(--bd);background:var(--s1)}
 #fe-fe-state{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1));margin-left:6px}
@@ -7525,14 +7575,19 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     }
     const ntFilter = el("fe-nt-filter");
     let allNotes = [];
+    let bodyHits = /* @__PURE__ */ new Map();
+    const shownNotes = () => {
+      const byMeta = filterNotes(allNotes, ntFilter.value);
+      return [...byMeta, ...allNotes.filter((n) => bodyHits.has(n.rel) && !byMeta.includes(n))];
+    };
     function renderNotes(root) {
-      const shown = filterNotes(allNotes, ntFilter.value);
+      const shown = shownNotes();
       ntHint.textContent = ntFilter.value.trim() ? `${shown.length} of ${allNotes.length} notes in ${root}` : `${allNotes.length} note${allNotes.length !== 1 ? "s" : ""} in ${root}`;
       ntList.innerHTML = shown.length ? shown.map((n) => `
           <div class="fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}" data-rel="${esc(n.rel)}">
             <a href="file://${esc(root + "/" + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}
-            </a>
+            </a>${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel))}">${esc(bodyHits.get(n.rel))}</span>` : ""}
             <span class="fe-nt-acts">
               <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
               <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
@@ -7541,9 +7596,23 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
           </div>`).join("") : allNotes.length ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>` : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
       attachNoteEvents(root);
     }
+    let searchTimer = null;
     ntFilter.addEventListener("input", () => {
       const root = notesRoot();
-      if (root) renderNotes(root);
+      if (!root) return;
+      const q = ntFilter.value.trim();
+      bodyHits = /* @__PURE__ */ new Map();
+      renderNotes(root);
+      if (searchTimer) clearTimeout(searchTimer);
+      if (!q || q.startsWith("#")) return;
+      searchTimer = setTimeout(() => {
+        notes.search(root, q).then((hits) => {
+          if (ntFilter.value.trim() !== q) return;
+          bodyHits = new Map(hits.map((h) => [h.rel, h.line]));
+          renderNotes(root);
+        }).catch(() => {
+        });
+      }, 250);
     });
     ntFilter.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
@@ -7585,7 +7654,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const noteName = (n) => n.title || noteTitle(n.rel);
     const notePath = (root, rel) => root.replace(/\/$/, "") + "/" + rel;
     function stepNote(root, rel, dir) {
-      const shown = filterNotes(allNotes, ntFilter.value);
+      const shown = shownNotes();
       const pool = shown.some((n) => n.rel === rel) ? shown : allNotes;
       const at = pool.findIndex((n) => n.rel === rel);
       const next = at < 0 ? void 0 : pool[at + dir];

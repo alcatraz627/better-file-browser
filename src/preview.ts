@@ -386,6 +386,11 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       <button class="fe-pbn" data-act="bold" title="Bold (⌘B)"><b>B</b></button>
       <button class="fe-pbn" data-act="italic" title="Italic (⌘I)"><i>I</i></button>
       <button class="fe-pbn" data-act="code" title="Code (⌘E)">‹›</button>
+      <button class="fe-pbn" data-act="strike" title="Strikethrough (⌘⇧X)"><s>S</s></button>
+      <button class="fe-pbn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (⌘⇧H)">H</button>
+      <button class="fe-pbn" data-act="link" title="Link (⌘K)">🔗</button>
+      <button class="fe-pbn" data-act="quote" title="Quote (⌘⇧.)">❝</button>
+      <button class="fe-pbn" data-act="olist" title="Numbered list (⌘⇧7)">1.</button>
       <button class="fe-pbn" data-act="list" title="Bullet list">${UI_ICON.list}<span>list</span></button>
       <button class="fe-pbn" data-act="task" title="Task list">${UI_ICON.task}<span>task</span></button>
       <button class="fe-pbn" data-act="table" title="Insert a table">${UI_ICON.table}<span>table</span></button>
@@ -424,6 +429,31 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     if (name === 'bold')   apply(wrapSelection(ta.value, sel(), '**'));
     if (name === 'italic') apply(wrapSelection(ta.value, sel(), '_'));
     if (name === 'code')   apply(wrapSelection(ta.value, sel(), '`'));
+    if (name === 'strike') apply(wrapSelection(ta.value, sel(), '~~'));
+    if (name === 'quote')  prefixLines('> ');
+    if (name === 'olist') {
+      const s = sel();
+      const from = ta.value.lastIndexOf('\n', s.start - 1) + 1;
+      let to = ta.value.indexOf('\n', s.end); if (to < 0) to = ta.value.length;
+      const lines = ta.value.slice(from, to).split('\n').map((l, n) => `${n + 1}. ${l}`).join('\n');
+      apply({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
+    }
+    if (name === 'heading') {
+      const s = sel();
+      const from = ta.value.lastIndexOf('\n', s.start - 1) + 1;
+      let to = ta.value.indexOf('\n', from); if (to < 0) to = ta.value.length;
+      const line = ta.value.slice(from, to);
+      const level = line.match(/^(#{1,6}) /)?.[1].length ?? 0;
+      const next = level >= 3 ? line.replace(/^#{1,6} /, '') : '#'.repeat(level + 1) + ' ' + line.replace(/^#{1,6} /, '');
+      apply({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
+    }
+    if (name === 'link') {
+      const s = sel();
+      const label = ta.value.slice(s.start, s.end) || 'text';
+      const t = `[${label}](url)`;
+      const at = s.start + label.length + 3;
+      apply({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
+    }
     if (name === 'list')   prefixLines('- ');
     if (name === 'task')   prefixLines('- [ ] ');
     if (name === 'table')  buf.insert((ta.value.slice(0, ta.selectionStart).endsWith('\n') || !ta.selectionStart ? '' : '\n') + tableSnippet());
@@ -536,6 +566,11 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     else if (mod && !e.shiftKey && k === 'b') { stop(); act('bold'); }
     else if (mod && !e.shiftKey && k === 'i') { stop(); act('italic'); }
     else if (mod && !e.shiftKey && k === 'e') { stop(); act('code'); }
+    else if (mod && !e.shiftKey && k === 'k') { stop(); act('link'); }
+    else if (mod && e.shiftKey && k === 'x') { stop(); act('strike'); }
+    else if (mod && e.shiftKey && k === 'h') { stop(); act('heading'); }
+    else if (mod && e.shiftKey && (k === '.' || k === '>')) { stop(); act('quote'); }
+    else if (mod && e.shiftKey && (k === '7' || k === '&')) { stop(); act('olist'); }
     else if (mod && e.altKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && actions) {
       stop(); actions.step(edit!.rel, e.key === 'ArrowDown' ? 1 : -1);
     }
