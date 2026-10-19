@@ -1676,7 +1676,10 @@
     /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
     pick: (start) => call({ op: "pick", start }).then((f) => f.root),
     history: (root, rel) => call({ op: "history", root, rel }).then((f) => f),
-    version: (root, rel, sha) => call({ op: "version", root, rel, sha })
+    version: (root, rel, sha) => call({ op: "version", root, rel, sha }),
+    /// Any text file inside a folder allowed for editing; root is that folder.
+    fileRead: (root, rel) => call({ op: "fileRead", root, rel }),
+    fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
   };
   function slugForTitle(title) {
     const s = title.replace(/^#+\s*/, "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
@@ -3696,8 +3699,15 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-side-rest{flex:1;min-height:0;overflow-y:auto;padding:6px 0}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);margin-right:auto;white-space:nowrap}
-#fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:calc(11px * var(--ui-text-scale,1));padding:3px 8px;border-radius:5px}
-#fe-fp-raw:hover,#fe-fp-copy:hover{border-color:var(--ac);color:var(--ac)}
+#fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+#fe-fe-bar{display:flex;align-items:center;gap:6px;padding:6px 14px;border-bottom:1px solid var(--bd);background:var(--s1)}
+#fe-fe-state{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1));margin-left:6px}
+#fe-fe-state.dirty{color:var(--ac)}
+#fe-fe-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--act)}
+#fe-fe .fe-ed{flex:1}
+#fe-fp-edit.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
+#fe-fp-edit,#fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:calc(11px * var(--ui-text-scale,1));padding:3px 8px;border-radius:5px}
+#fe-fp-edit:hover,#fe-fp-raw:hover,#fe-fp-copy:hover{border-color:var(--ac);color:var(--ac)}
 #fe-fp-raw.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-fp-reload{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
 #fe-ed-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
@@ -3972,6 +3982,153 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 }
 `;
 
+  // src/file-editor.ts
+  function editableRoot(path, folders, home = "") {
+    for (const raw of folders ?? []) {
+      let f = raw.trim().replace(/\/+$/, "");
+      if (!f) continue;
+      if (f === "~" || f.startsWith("~/")) {
+        if (!home) continue;
+        f = home + f.slice(1);
+      }
+      if (path.startsWith(f + "/")) return f;
+    }
+    return null;
+  }
+  async function openFileEditor(box, host) {
+    let doc;
+    try {
+      doc = await notes.fileRead(host.root, host.rel);
+    } catch (err) {
+      host.status(`cannot edit: ${err.message}`);
+      return null;
+    }
+    const isMd = host.ext === "md" || host.ext === "mdx";
+    box.innerHTML = `
+    <div id="fe-fe-bar">
+      <button class="fe-pbn" data-act="save" title="Save (\u2318S)">Save</button>
+      <button class="fe-pbn" data-act="done" title="Back to reading (Esc)">Done</button>
+      <span id="fe-fe-state"></span>
+    </div>
+    <div id="fe-fe-banner" style="display:none"></div>
+    <div class="fe-ed">
+      <textarea id="fe-ed-src" spellcheck="false" aria-label="File text"></textarea>
+      ${isMd ? '<div id="fe-ed-view"></div>' : ""}
+    </div>`;
+    const ta = box.querySelector("#fe-ed-src");
+    const view = box.querySelector("#fe-ed-view");
+    const state = box.querySelector("#fe-fe-state");
+    const banner = box.querySelector("#fe-fe-banner");
+    ta.value = doc.text;
+    const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`);
+    let base = doc.text;
+    let saving = false;
+    const isDirty = () => ta.value !== base;
+    const paint = () => {
+      state.textContent = saving ? "saving\u2026" : isDirty() ? "\u25CF unsaved" : "saved";
+      state.classList.toggle("dirty", isDirty());
+      if (view) view.innerHTML = `<div class="fe-md">${renderMarkdown(ta.value, host.href)}</div>`;
+    };
+    const write = async (expect) => {
+      saving = true;
+      paint();
+      try {
+        const text = ta.value;
+        const r = await notes.fileWrite(host.root, host.rel, text, expect);
+        doc = { text, mtime: r.mtime };
+        base = text;
+        banner.style.display = "none";
+        host.saved(text);
+      } catch (err) {
+        const e = err;
+        if (e.code === "notes_conflict") showConflict();
+        else host.status(`not saved: ${e.message}`);
+      } finally {
+        saving = false;
+        paint();
+      }
+    };
+    const save = () => {
+      if (!saving && isDirty()) void write(doc.mtime);
+    };
+    function showConflict() {
+      banner.style.display = "";
+      banner.innerHTML = `<span>${esc(host.rel.split("/").pop())} changed on disk since you opened it.</span>
+      <button class="fe-pbn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
+      <button class="fe-pbn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
+    }
+    const external = async () => {
+      try {
+        const now = await notes.fileRead(host.root, host.rel);
+        if (now.mtime === doc.mtime) return;
+        if (!isDirty()) {
+          doc = now;
+          base = now.text;
+          buf.snap();
+          ta.value = now.text;
+          buf.snap();
+          paint();
+        } else showConflict();
+      } catch {
+      }
+    };
+    const close = () => {
+      if (isDirty() && !confirm("Discard unsaved changes?")) return;
+      clearInterval(watch);
+      box.innerHTML = "";
+      host.closed();
+    };
+    box.addEventListener("click", async (e) => {
+      const act = e.target.closest("[data-act]")?.dataset.act;
+      if (act === "save") save();
+      else if (act === "done") close();
+      else if (act === "reload") {
+        const now = await notes.fileRead(host.root, host.rel);
+        doc = now;
+        base = now.text;
+        buf.snap();
+        ta.value = now.text;
+        banner.style.display = "none";
+        paint();
+      } else if (act === "overwrite") {
+        const now = await notes.fileRead(host.root, host.rel);
+        void write(now.mtime);
+      }
+    });
+    ta.addEventListener("input", paint);
+    ta.addEventListener("keydown", (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        save();
+      } else if (mod && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) buf.redo();
+        else buf.undo();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        buf.snap();
+        const r = indentLines(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, e.shiftKey);
+        ta.value = r.text;
+        ta.setSelectionRange(r.start, r.end);
+        paint();
+      }
+      e.stopPropagation();
+    });
+    const watch = setInterval(() => {
+      if (document.visibilityState === "visible" && !saving) void external();
+    }, 2e3);
+    window.addEventListener("beforeunload", (e) => {
+      if (box.isConnected && isDirty()) e.preventDefault();
+    });
+    paint();
+    ta.focus();
+    return { dirty: isDirty, close };
+  }
+
   // src/file-page.ts
   var SCROLL_KEY = "bfb-page-scroll-v1";
   var TOC_KEY = "bfb-page-toc-v1";
@@ -4063,12 +4220,14 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-toc" title="Show or hide the table of contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M2 2h9M2 5h9M2 8h9M2 11h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Contents</button>
         <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
+        <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
         <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
       </div>
       <div id="fe-fp">
         <nav id="fe-toc" style="display:none"></nav>
         <div id="fe-page"></div>
+        <div id="fe-fe" style="display:none"></div>
       </div>`;
   }
   function mountFileContent(opts) {
@@ -4141,9 +4300,62 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       scrollTimer = setTimeout(() => rememberScroll(rawPath, page.scrollTop), 300);
     });
     const toggleRaw = () => {
-      raw = !raw;
-      render2();
+      if (!editor) {
+        raw = !raw;
+        render2();
+      }
     };
+    const editBox = document.getElementById("fe-fe");
+    const editBtn = document.getElementById("fe-fp-edit");
+    const status = (t) => {
+      document.getElementById("fe-status-text").textContent = t;
+    };
+    const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? "";
+    const root = editableRoot(rawPath, opts.editableFolders, home);
+    let editor = null;
+    editBtn.title = root ? "Edit this file (e)" : "Edit (e): add this folder under Settings \u2192 Notes \u2192 Editable folders first";
+    const edit2 = async () => {
+      if (editor) return;
+      if (!root) {
+        status("To edit, add this folder under Settings \u2192 Notes \u2192 Editable folders");
+        return;
+      }
+      page.style.display = "none";
+      toc.style.display = "none";
+      editBox.style.display = "";
+      editBtn.classList.add("on");
+      editor = await openFileEditor(editBox, {
+        root,
+        rel: rawPath.slice(root.length + 1),
+        ext: ext2,
+        href,
+        status,
+        saved: (fresh) => {
+          text = fresh;
+          meta.textContent = fmtSize(new Blob([text]).size);
+          status("saved");
+        },
+        // The file may have changed while editing (a reload from disk), so read it again.
+        closed: () => {
+          editor = null;
+          editBox.style.display = "none";
+          page.style.display = "";
+          editBtn.classList.remove("on");
+          fetchFileText(href).then((fresh) => {
+            text = fresh;
+            meta.textContent = fmtSize(new Blob([text]).size);
+          }).catch(() => {
+          }).finally(render2);
+        }
+      });
+      if (!editor) {
+        editBox.style.display = "none";
+        page.style.display = "";
+        editBtn.classList.remove("on");
+        render2();
+      }
+    };
+    editBtn.addEventListener("click", () => void edit2());
     rawBtn.addEventListener("click", toggleRaw);
     document.getElementById("fe-fp-copy").addEventListener("click", () => {
       copyToClipboard(text).then((ok) => {
@@ -4152,7 +4364,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     });
     const reloadEl = document.getElementById("fe-fp-reload");
     setInterval(() => {
-      if (document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible" || editor) return;
       fetchFileText(href).then((fresh) => {
         if (fresh === text) return;
         text = fresh;
@@ -4165,6 +4377,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     }, RELOAD_MS);
     return {
       toggleRaw,
+      edit: () => void edit2(),
       setText(fresh) {
         text = fresh;
         meta.textContent = fmtSize(new Blob([text]).size);
@@ -5381,6 +5594,14 @@ seconds and re-renders when the file changes on disk.
             <button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>
           </div>
           <div class="fe-st-hint" id="fe-st-notes-hint" style="color:var(--dm);margin-top:-4px"></div>
+        </div>
+        <div class="fe-st-section">
+          <div class="fe-st-title">Editing</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="Text files inside these folders show an Edit button (e) on their page">Editable folders</span>
+            <input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Comma-separated absolute folders; ~ means home">
+          </div>
+          <div class="fe-st-hint" style="color:var(--dm);margin-top:-4px">Every save keeps the previous text for 14 days in ~/Library/Application Support/BetterFileBrowser/backups.</div>
         </div>
 ` },
         { key: "terminal", label: "Terminal", hint: "Open with", icon: UI_ICON.terminal, body: `
@@ -6975,6 +7196,9 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       if (app.filePage && e.key === "r" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         app.filePage.toggleRaw();
+      } else if (app.filePage && e.key === "e" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        app.filePage.edit();
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
         sel.moveSel(1);
@@ -7557,6 +7781,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-st-term-custom-row").style.display = settings.terminalApp === "custom" ? "" : "none";
       el("fe-st-term-custom").value = settings.terminalCmd || "";
       el("fe-st-notes-root").value = settings.notesRoot || "";
+      el("fe-st-edit-roots").value = (settings.editableFolders ?? []).join(", ");
       el("fe-st-filepages").value = settings.renderFilePages || "all";
       const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
       el("fe-st-excluded-exts").value = excluded.map((x) => "." + x).join(", ");
@@ -7789,6 +8014,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       settings.notesRoot = this.value.trim() || void 0;
       saveSettings(settings);
       app.refreshNotes();
+    });
+    el("fe-st-edit-roots").addEventListener("change", function() {
+      const list = this.value.split(",").map((s) => s.trim()).filter(Boolean);
+      settings.editableFolders = list.length ? list : void 0;
+      saveSettings(settings);
     });
     el("fe-st-term-custom").addEventListener("input", function() {
       settings.terminalCmd = this.value;
@@ -8055,7 +8285,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     }, saveError: (message) => app.toast(message), toast: (message) => app.toast(message) });
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore === true });
     if (fileMode) {
-      app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href, column: settings.readerColumn });
+      app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href, column: settings.readerColumn, editableFolders: settings.editableFolders });
       if (isHtmlSource) fetchFileText(location.href).then((text) => app.filePage?.setText(text)).catch(() => {
         app.filePage?.setText("Could not load the HTML source.");
       });

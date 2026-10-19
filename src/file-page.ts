@@ -9,6 +9,7 @@ import {
   renderCode, renderMarkdown, renderJsonTree, renderJsonl, parseDSV, numericCols, renderDSVTable,
 } from './renderers';
 import { fetchFileText } from './file-fetch';
+import { editableRoot, openFileEditor, type FileEditor } from './file-editor';
 import type { Settings } from './types';
 
 const SCROLL_KEY = 'bfb-page-scroll-v1';
@@ -106,18 +107,20 @@ export function renderFileContent(): string {
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-toc" title="Show or hide the table of contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M2 2h9M2 5h9M2 8h9M2 11h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Contents</button>
         <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
+        <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
         <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
       </div>
       <div id="fe-fp">
         <nav id="fe-toc" style="display:none"></nav>
         <div id="fe-page"></div>
+        <div id="fe-fe" style="display:none"></div>
       </div>`;
 }
 
-export interface FileContent { toggleRaw(): void; setText(text: string): void }
+export interface FileContent { toggleRaw(): void; setText(text: string): void; edit(): void }
 
-export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean | ColumnMode }): FileContent {
+export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean | ColumnMode; editableFolders?: string[] }): FileContent {
   const { ext, rawPath, href } = opts;
   let text = opts.text;
   const page = document.getElementById('fe-page')!;
@@ -184,7 +187,35 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     scrollTimer = setTimeout(() => rememberScroll(rawPath, page.scrollTop), 300);
   });
 
-  const toggleRaw = () => { raw = !raw; render(); };
+  const toggleRaw = () => { if (!editor) { raw = !raw; render(); } };
+
+  // Edit in place: the reading view hides while the editor is open, and a
+  // save re-renders it with the new text.
+  const editBox = document.getElementById('fe-fe')!;
+  const editBtn = document.getElementById('fe-fp-edit')!;
+  const status = (t: string) => { document.getElementById('fe-status-text')!.textContent = t; };
+  const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? '';
+  const root = editableRoot(rawPath, opts.editableFolders, home);
+  let editor: FileEditor | null = null;
+  editBtn.title = root ? 'Edit this file (e)' : 'Edit (e): add this folder under Settings → Notes → Editable folders first';
+  const edit = async () => {
+    if (editor) return;
+    if (!root) { status('To edit, add this folder under Settings → Notes → Editable folders'); return; }
+    page.style.display = 'none'; toc.style.display = 'none'; editBox.style.display = '';
+    editBtn.classList.add('on');
+    editor = await openFileEditor(editBox, {
+      root, rel: rawPath.slice(root.length + 1), ext, href,
+      status,
+      saved: fresh => { text = fresh; meta.textContent = fmtSize(new Blob([text]).size); status('saved'); },
+      // The file may have changed while editing (a reload from disk), so read it again.
+      closed: () => {
+        editor = null; editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on');
+        fetchFileText(href).then(fresh => { text = fresh; meta.textContent = fmtSize(new Blob([text]).size); }).catch(() => {}).finally(render);
+      },
+    });
+    if (!editor) { editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); render(); }
+  };
+  editBtn.addEventListener('click', () => void edit());
   rawBtn.addEventListener('click', toggleRaw);
   document.getElementById('fe-fp-copy')!.addEventListener('click', () => {
     copyToClipboard(text).then(ok => { document.getElementById('fe-status-text')!.textContent = ok ? 'copied' : 'copy failed'; });
@@ -193,7 +224,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   // Autoreload: while the tab is visible, poll the file and re-render on change.
   const reloadEl = document.getElementById('fe-fp-reload')!;
   setInterval(() => {
-    if (document.visibilityState !== 'visible') return;
+    if (document.visibilityState !== 'visible' || editor) return;
     fetchFileText(href).then(fresh => {
       if (fresh === text) return;
       text = fresh;
@@ -205,6 +236,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
 
   return {
     toggleRaw,
+    edit: () => void edit(),
     setText(fresh) {
       text = fresh;
       meta.textContent = fmtSize(new Blob([text]).size);

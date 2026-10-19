@@ -17,6 +17,8 @@ Ops (request -> reply):
   {op:"history", root, rel}                  -> {t:"history", rel, versions:[{sha,when,reason}], repo}  (git log; none outside a repo)
   {op:"version", root, rel, sha}             -> {t:"version", rel, sha, text}
   {op:"pick", start?}                        -> {t:"picked", root}   (the system folder chooser; root is "" when cancelled)
+  {op:"fileRead",  root, rel}                -> {t:"file", rel, text, mtime}   (any text file; root is a folder allowed for editing)
+  {op:"fileWrite", root, rel, text, expectMtime} -> {t:"written", rel, mtime, backup}   (existing text files under 2 MB; old text backed up 14 days)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it.
@@ -184,6 +186,56 @@ def op_write(root, rel, text, expect_mtime=None):
     atomic_write(full, text if isinstance(text, str) else '')
     return {'t': 'written', 'rel': rel, 'mtime': mtime_ms(full)}
 
+FILE_MAX = 2 * 1024 * 1024
+BACKUP_DIR = os.path.expanduser('~/Library/Application Support/BetterFileBrowser/backups')
+BACKUP_DAYS = 14
+
+def op_file_write(root, rel, text, expect_mtime):
+    """Save a text file inside a folder the person allowed for editing.
+
+    The previous text is copied to a dated backup folder first (kept 14 days),
+    so an edit outside git can still be undone. Unlike notes, any text file
+    type is fine, but the file must already exist and stay under 2 MB."""
+    full = resolve_rel(root, rel)
+    if not os.path.isfile(full):
+        raise NotesError('notes_missing', f'no such file: {rel}')
+    if expect_mtime is None or mtime_ms(full) != int(expect_mtime):
+        raise NotesError('notes_conflict', 'the file changed on disk since it was read')
+    text = text if isinstance(text, str) else ''
+    if len(text.encode('utf-8')) > FILE_MAX:
+        raise NotesError('notes_bad_path', 'files over 2 MB are not edited here')
+    with open(full, 'rb') as fh:
+        old = fh.read()
+    if b'\0' in old[:8192]:
+        raise NotesError('notes_bad_path', 'binary files are not edited here')
+    day = time.strftime('%Y%m%d')
+    dst = os.path.join(BACKUP_DIR, day, full.lstrip('/') + time.strftime('.%H%M%S'))
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    with open(dst, 'wb') as fh:
+        fh.write(old)
+    prune_backups()
+    atomic_write(full, text)
+    return {'t': 'written', 'rel': rel, 'mtime': mtime_ms(full), 'backup': dst}
+
+def prune_backups():
+    """Drop backup days older than the keep window."""
+    cutoff = time.strftime('%Y%m%d', time.localtime(time.time() - BACKUP_DAYS * 86400))
+    try:
+        for day in os.listdir(BACKUP_DIR):
+            if day.isdigit() and day < cutoff:
+                shutil.rmtree(os.path.join(BACKUP_DIR, day), ignore_errors=True)
+    except OSError:
+        pass
+
+def op_file_read(root, rel):
+    full = resolve_rel(root, rel)
+    if not os.path.isfile(full):
+        raise NotesError('notes_missing', f'no such file: {rel}')
+    if os.path.getsize(full) > FILE_MAX:
+        raise NotesError('notes_bad_path', 'files over 2 MB are not edited here')
+    with open(full, 'r', encoding='utf-8', errors='replace') as fh:
+        return {'t': 'file', 'rel': rel, 'text': fh.read(), 'mtime': mtime_ms(full)}
+
 def op_create(root, rel, text):
     full = resolve_rel(root, rel)
     if os.path.exists(full):
@@ -307,6 +359,8 @@ def handle(msg):
     if op == 'writeBinary': return op_write_binary(root, msg.get('rel'), msg.get('base64'))
     if op == 'history': return op_history(root, msg.get('rel'))
     if op == 'version': return op_version(root, msg.get('rel'), msg.get('sha'))
+    if op == 'fileRead':  return op_file_read(root, msg.get('rel'))
+    if op == 'fileWrite': return op_file_write(root, msg.get('rel'), msg.get('text'), msg.get('expectMtime'))
     raise NotesError('notes_bad_op', f'unknown op {op!r}')
 
 def main():

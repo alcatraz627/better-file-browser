@@ -211,6 +211,14 @@ export function renderPage(p: PageParams): string {
           </div>
           <div class="fe-st-hint" id="fe-st-notes-hint" style="color:var(--dm);margin-top:-4px"></div>
         </div>
+        <div class="fe-st-section">
+          <div class="fe-st-title">Editing</div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl" title="Text files inside these folders show an Edit button (e) on their page">Editable folders</span>
+            <input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Comma-separated absolute folders; ~ means home">
+          </div>
+          <div class="fe-st-hint" style="color:var(--dm);margin-top:-4px">Every save keeps the previous text for 14 days in ~/Library/Application Support/BetterFileBrowser/backups.</div>
+        </div>
 ` },
       { key: 'terminal', label: 'Terminal', hint: 'Open with', icon: UI_ICON.terminal, body: `
         <div class="fe-st-section">

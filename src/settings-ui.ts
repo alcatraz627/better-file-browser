@@ -51,6 +51,7 @@ export function initSettingsUi(app: App): void {
     el('fe-st-term-custom-row').style.display = settings.terminalApp === 'custom' ? '' : 'none';
     el<HTMLInputElement>('fe-st-term-custom').value = settings.terminalCmd || '';
     el<HTMLInputElement>('fe-st-notes-root').value = settings.notesRoot || '';
+    el<HTMLInputElement>('fe-st-edit-roots').value = (settings.editableFolders ?? []).join(', ');
     el<HTMLSelectElement>('fe-st-filepages').value = settings.renderFilePages || 'all';
     const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
     el<HTMLInputElement>('fe-st-excluded-exts').value = excluded.map(x => '.' + x).join(', ');
@@ -261,6 +262,10 @@ export function initSettingsUi(app: App): void {
   el<HTMLInputElement>('fe-st-notes-root').addEventListener('change', function () {
     settings.notesRoot = this.value.trim() || undefined; saveSettings(settings);
     app.refreshNotes();
+  });
+  el<HTMLInputElement>('fe-st-edit-roots').addEventListener('change', function () {
+    const list = this.value.split(',').map(s => s.trim()).filter(Boolean);
+    settings.editableFolders = list.length ? list : undefined; saveSettings(settings);
   });
   el<HTMLInputElement>('fe-st-term-custom').addEventListener('input', function () {
     settings.terminalCmd = this.value; saveSettings(settings); updateTermHint();

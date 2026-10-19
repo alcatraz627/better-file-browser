@@ -126,7 +126,7 @@ import { initMarkdownUi } from './md-ui';
   // address bar is always the active tab's location.
   app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore === true });
   if (fileMode) {
-    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href, column: settings.readerColumn });
+    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href, column: settings.readerColumn, editableFolders: settings.editableFolders });
     if (isHtmlSource) fetchFileText(location.href).then(text => app.filePage?.setText(text)).catch(() => {
       app.filePage?.setText('Could not load the HTML source.');
     });

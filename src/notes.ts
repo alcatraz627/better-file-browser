@@ -13,12 +13,13 @@ type Frame =
   | { t: 'stat'; root: string; count: number }
   | { t: 'list'; notes: NoteMeta[] }
   | { t: 'note'; rel: string; text: string; mtime: number }
-  | { t: 'written'; rel: string; mtime: number }
+  | { t: 'written'; rel: string; mtime: number; backup?: string }
   | { t: 'renamed'; rel: string; to: string }
   | { t: 'deleted'; rel: string; trashed: string }
   | { t: 'history'; rel: string; versions: NoteVersion[]; repo?: boolean }
   | { t: 'version'; rel: string; sha: string; text: string }
   | { t: 'picked'; root: string }
+  | { t: 'file'; rel: string; text: string; mtime: number }
   | { t: 'error'; code: string; message: string };
 
 /// One saved version of a note, from the folder's git log: short hash, epoch ms, the commit's reason.
@@ -55,6 +56,10 @@ export const notes = {
   pick: (start?: string) => call({ op: 'pick', start }).then(f => (f as { root: string }).root),
   history: (root: string, rel: string) => call({ op: 'history', root, rel }).then(f => f as { versions: NoteVersion[]; repo?: boolean }),
   version: (root: string, rel: string, sha: string) => call({ op: 'version', root, rel, sha }) as Promise<{ rel: string; sha: string; text: string }>,
+  /// Any text file inside a folder allowed for editing; root is that folder.
+  fileRead: (root: string, rel: string) => call({ op: 'fileRead', root, rel }) as Promise<{ text: string; mtime: number }>,
+  fileWrite: (root: string, rel: string, text: string, expectMtime: number) =>
+            call({ op: 'fileWrite', root, rel, text, expectMtime }) as Promise<{ mtime: number; backup?: string }>,
 };
 
 // A note's file name from its first heading or first line, safe for a path.

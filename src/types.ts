@@ -39,6 +39,7 @@ export interface Settings {
   terminalCmd:  string;
   aiModel?:     string;   // overrides the lm default model for AI queries (-m)
   notesRoot?:   string;   // absolute folder the Notes section reads and writes
+  editableFolders?: string[];   // folders whose text files can be edited in place
   renderFilePages?: 'all' | 'not-md' | 'off';   // take over file:// text pages
   excludedFileExtensions?: string[];
   hideRecent?: boolean; hideFavorites?: boolean; hideSystem?: boolean;   // sidebar sections off
