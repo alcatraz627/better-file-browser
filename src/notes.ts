@@ -16,7 +16,7 @@ type Frame =
   | { t: 'written'; rel: string; mtime: number }
   | { t: 'renamed'; rel: string; to: string }
   | { t: 'deleted'; rel: string; trashed: string }
-  | { t: 'history'; rel: string; versions: NoteVersion[] }
+  | { t: 'history'; rel: string; versions: NoteVersion[]; repo?: boolean }
   | { t: 'version'; rel: string; sha: string; text: string }
   | { t: 'picked'; root: string }
   | { t: 'error'; code: string; message: string };
@@ -53,7 +53,7 @@ export const notes = {
   delete: (root: string, rel: string) => call({ op: 'delete', root, rel }),
   /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
   pick: (start?: string) => call({ op: 'pick', start }).then(f => (f as { root: string }).root),
-  history: (root: string, rel: string) => call({ op: 'history', root, rel }).then(f => (f as { versions: NoteVersion[] }).versions),
+  history: (root: string, rel: string) => call({ op: 'history', root, rel }).then(f => f as { versions: NoteVersion[]; repo?: boolean }),
   version: (root: string, rel: string, sha: string) => call({ op: 'version', root, rel, sha }) as Promise<{ rel: string; sha: string; text: string }>,
 };
 

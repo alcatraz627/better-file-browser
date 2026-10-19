@@ -100,7 +100,7 @@ check(r['code'] == 'notes_bad_op', 'unknown op')
 
 # Versions come from git when the folder is a repository; a plain folder has none.
 r = call({'op': 'history', 'root': root, 'rel': 'today.md'})
-check(r['t'] == 'history' and r['versions'] == [], f'a plain folder has no versions: {r}')
+check(r['t'] == 'history' and r['versions'] == [] and r['repo'] is False, f'a plain folder has no versions: {r}')
 repo = tempfile.mkdtemp(prefix='bfb-notes-git-')
 def git(*a): subprocess.run(['git', '-C', repo] + list(a), check=True, capture_output=True)
 git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't')
@@ -117,6 +117,13 @@ r2 = call({'op': 'version', 'root': repo, 'rel': 'plan.md', 'sha': 'nope'})
 check(r2['code'] == 'notes_missing', 'a version that is not there is notes_missing')
 r2 = call({'op': 'version', 'root': repo, 'rel': 'plan.md', 'sha': 'HEAD; rm -rf x'})
 check(r2['code'] == 'notes_bad_path', 'a version name that is not a hash is refused')
+check(r.get('repo') is True, f'history says the folder is a repository: {r}')
+git('mv', 'plan.md', 'renamed-plan.md')
+git('commit', '-q', '-m', 'rename')
+r3 = call({'op': 'history', 'root': repo, 'rel': 'renamed-plan.md'})
+check([v['reason'] for v in r3['versions']][-2:] == ['merge: both sides kept', 'save'], f'history follows a rename: {r3}')
+r4 = call({'op': 'version', 'root': repo, 'rel': 'renamed-plan.md', 'sha': r3['versions'][-1]['sha']})
+check(r4['t'] == 'version' and r4['text'] == 'first\n', f'a version from before a rename reads back: {r4}')
 
 with open(os.path.join(root, 'ordered.md'), 'w') as fh: fh.write('---\ntitle: "Ordered"\ncreated: 2026-10-11T08:00:00Z\npos: i\n---\nbody\n')
 for raw in ('no', '1e5', 'null'):

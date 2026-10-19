@@ -14,7 +14,7 @@ Ops (request -> reply):
   {op:"rename", root, rel, to}               -> {t:"renamed", rel, to}
   {op:"delete", root, rel}                   -> {t:"deleted", rel, trashed}
   {op:"writeBinary", root, rel, base64}      -> {t:"written", rel, mtime}   (attachments, never overwrites)
-  {op:"history", root, rel}                  -> {t:"history", rel, versions:[{sha,when,reason}]}  (git log; none outside a repo)
+  {op:"history", root, rel}                  -> {t:"history", rel, versions:[{sha,when,reason}], repo}  (git log; none outside a repo)
   {op:"version", root, rel, sha}             -> {t:"version", rel, sha, text}
   {op:"pick", start?}                        -> {t:"picked", root}   (the system folder chooser; root is "" when cancelled)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
@@ -242,17 +242,33 @@ def op_history(root, rel):
     """Every saved version of a note, newest first. A folder that is not a repository has none."""
     resolve_rel(root, rel)
     versions = []
-    for line in (git_out(root, ['log', '--format=%h%x09%ct%x09%s', '--', rel]) or '').splitlines():
+    # --follow keeps the versions a note had under its earlier file name.
+    for line in (git_out(root, ['log', '--follow', '--format=%h%x09%ct%x09%s', '--', rel]) or '').splitlines():
         parts = line.split('\t', 2)
         if len(parts) == 3 and parts[1].isdigit():
             versions.append({'sha': parts[0], 'when': int(parts[1]) * 1000, 'reason': parts[2]})
-    return {'t': 'history', 'rel': rel, 'versions': versions}
+    return {'t': 'history', 'rel': rel, 'versions': versions, 'repo': os.path.isdir(os.path.join(root, '.git'))}
+
+def renamed_paths(root, rel, sha):
+    """The file names a note had at one commit, found by following its renames."""
+    out = git_out(root, ['log', '--follow', '--format=%x00%h', '--name-only', '--', rel]) or ''
+    for block in out.split('\0'):
+        lines = [l for l in block.splitlines() if l.strip()]
+        if lines and sha.startswith(lines[0]) or (lines and lines[0].startswith(sha)):
+            return lines[1:]
+    return []
 
 def op_version(root, rel, sha):
     resolve_rel(root, rel)
     if not isinstance(sha, str) or not sha.isalnum():
         raise NotesError('notes_bad_path', 'a version is named by its commit hash')
     text = git_out(root, ['show', f'{sha}:{rel}'])
+    if text is None:
+        # A version from before a rename lives under the note's older file name.
+        for old in renamed_paths(root, rel, sha):
+            text = git_out(root, ['show', f'{sha}:{old}'])
+            if text is not None:
+                break
     if text is None:
         raise NotesError('notes_missing', f'no version {sha} of {rel}')
     return {'t': 'version', 'rel': rel, 'sha': sha, 'text': text}

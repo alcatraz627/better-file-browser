@@ -446,8 +446,14 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     hist.style.display = '';
     hist.textContent = 'reading versions…';
     try {
-      const vs = await notes.history(root, doc.rel);
-      if (!vs.length) { hist.textContent = 'No versions yet: the notes folder is not a git repository (Switchboard makes it one on its first save).'; return; }
+      // The note may have been renamed since it opened (a first save names it), so ask under its current name.
+      const { versions: vs, repo } = await notes.history(root, edit?.rel ?? doc.rel);
+      if (!vs.length) {
+        hist.textContent = repo === false
+          ? 'No versions yet: the notes folder is not a git repository (Switchboard makes it one on its first save).'
+          : 'No versions yet: this note has not been committed to the notes folder\'s git history.';
+        return;
+      }
       hist.innerHTML = vs.slice(0, 30).map(v =>
         `<button class="fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join('')
         + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : '');
@@ -457,7 +463,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   const showVersion = async (sha: string) => {
     hist.querySelectorAll<HTMLElement>('.fe-hist-row').forEach(b => b.classList.toggle('active', b.dataset.sha === sha));
     try {
-      const v = await notes.version(root, doc.rel, sha);
+      const v = await notes.version(root, edit?.rel ?? doc.rel, sha);
       view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span>`
         + `<button class="fe-pbn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button>`
         + `<button class="fe-pbn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);

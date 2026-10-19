@@ -1668,7 +1668,7 @@
     delete: (root, rel) => call({ op: "delete", root, rel }),
     /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
     pick: (start) => call({ op: "pick", start }).then((f) => f.root),
-    history: (root, rel) => call({ op: "history", root, rel }).then((f) => f.versions),
+    history: (root, rel) => call({ op: "history", root, rel }).then((f) => f),
     version: (root, rel, sha) => call({ op: "version", root, rel, sha })
   };
   function slugForTitle(title) {
@@ -2804,9 +2804,9 @@ ${body}
       hist.style.display = "";
       hist.textContent = "reading versions\u2026";
       try {
-        const vs = await notes.history(root, doc.rel);
+        const { versions: vs, repo } = await notes.history(root, edit?.rel ?? doc.rel);
         if (!vs.length) {
-          hist.textContent = "No versions yet: the notes folder is not a git repository (Switchboard makes it one on its first save).";
+          hist.textContent = repo === false ? "No versions yet: the notes folder is not a git repository (Switchboard makes it one on its first save)." : "No versions yet: this note has not been committed to the notes folder's git history.";
           return;
         }
         hist.innerHTML = vs.slice(0, 30).map((v) => `<button class="fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join("") + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : "");
@@ -2818,7 +2818,7 @@ ${body}
     const showVersion = async (sha) => {
       hist.querySelectorAll(".fe-hist-row").forEach((b) => b.classList.toggle("active", b.dataset.sha === sha));
       try {
-        const v = await notes.version(root, doc.rel, sha);
+        const v = await notes.version(root, edit?.rel ?? doc.rel, sha);
         view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="fe-pbn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button><button class="fe-pbn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
         document.getElementById("fe-hist-use").addEventListener("click", () => {
           buf.snap();
