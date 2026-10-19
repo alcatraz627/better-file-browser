@@ -42,7 +42,9 @@ enforces and what the editor writes. Sources for the cross-tool part are in
 
   New notes start without front matter. The editor refreshes `updated` on
   save when front matter already exists, adds that key if absent, and leaves
-  unrelated keys alone. It does not add front matter to a plain note. Every key is optional; a
+  unrelated keys alone. Setting a colour, pin or tags on a plain note adds a front-matter block
+  holding just that key, so every app reads it the same way; nothing else adds
+  front matter. Every key is optional; a
   note with no front matter is a valid note. These four keys are the ones
   Obsidian, GitHub, Marked, Typora and iA Writer all tolerate as unknown or
   use natively. Logseq shows them as a literal block; it is the one tool in
@@ -74,10 +76,13 @@ enforces and what the editor writes. Sources for the cross-tool part are in
 ## What another project can rely on
 
 - `ls *.md` (recursively, skipping dot-folders) is the note list.
-- In the editor, `title` front matter takes precedence over the first `#`
-  heading, then the first nonblank text line, then the filename. The sidebar
-  currently labels notes from their filenames.
-- The file modification time determines the sidebar order, newest first.
+- `title` front matter takes precedence over the first `#` heading, then the
+  first nonblank text line, then the filename. The sidebar and the editor use
+  the same rule, as Switchboard and the Pi do.
+- Sidebar order: pinned notes first; then notes carrying a `pos` key, in that
+  key's text order; then the rest, newest `created` first (file time when
+  `created` is missing). Editing a note does not move it.
+- `tags` may be written `a, b` or as a flow list `[a, b]`; both read the same.
 - Writing a `.md` file into the folder with any tool makes it a note the
   extension shows on its next listing. Writing while the extension has the
   note open is detected: the extension carries the mtime it read, and its next

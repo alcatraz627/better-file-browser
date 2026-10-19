@@ -1,7 +1,7 @@
 <div align="center">
   <img src="banner.svg" alt="Better File Browser" width="860"/>
   <br/><br/>
-  <img src="chrome-badge.svg" alt="Chrome Extension v2.11" height="48"/>
+  <img src="chrome-badge.svg" alt="Chrome Extension v2.12" height="48"/>
   &nbsp;&nbsp;
   <img src="icon128.png" alt="Extension Icon" width="48" height="48" style="border-radius:10px;vertical-align:middle"/>
 </div>
@@ -76,7 +76,8 @@ Select a file and press **Space** (or click the eye button on hover, or right-cl
 | `.tsv` / `.csv` | Sortable table; numeric columns detected and right-aligned |
 | `.json` | Collapsible tree |
 | `.jsonl` / `.ndjson` | One collapsible row per line; malformed lines badged |
-| `.md` / `.mdx` | Rendered markdown — headings, code fences, Mermaid diagrams, aligned GFM tables, lists, sanitized inline HTML; relative image/link paths resolve against the file |
+| `.md` / `.mdx` | Rendered markdown: headings, code fences, Mermaid diagrams, aligned GFM tables, nested lists, GitHub alerts, footnotes, sanitized inline HTML, bare URLs as links; relative image/link paths resolve against the file |
+| `.html` / `.htm` | The page itself in a sandbox, with a Page / Source toggle |
 | Images | Fit-to-view, with pixel dimensions (W × H) |
 | `.pdf` | Embedded PDF viewer |
 | Audio / video (`.mp4`, `.webm`, `.mp3`, `.flac`…) | Native player |
@@ -99,18 +100,21 @@ Right-click any row or tile for **Preview · Copy path · Copy name · Open in t
 ### Tabs
 The strip above the toolbar is the working set of one Chrome tab: folders and files, shown on the explorer and on file pages. State lives in `sessionStorage`, so it survives refresh and navigation and ends with the Chrome tab; a copy in `chrome.storage.local` can bring a strip closed within the last day back into a fresh tab when **Restore closed strips** is on in Settings (off by default). The sidebar's **Recent** section lists the files and folders opened lately. Switching tabs from a page you never kept keeps that page as a tab. The place you are in shows as an italic tab until **t** or a double-click keeps it. **w** closes, **p** pins (pinned tabs sit first with no ✕), **[** and **]** step, **1** to **9** jump, drag reorders, middle-click closes, and **…** on hover offers copy path, save, pin, close and close others. Every gesture and key is listed in [`docs/mouse-key-audit.md`](docs/mouse-key-audit.md). Navigation is real, so the address bar is always the active tab's location.
 
+### Editing any text file
+Add folders under **Settings → Notes → Editable folders** (comma-separated, `~` means home). A text file inside one gets an **Edit** button (**e**) on its page: Markdown edits beside a live render, anything else as source. **⌘S** saves through the native host, which refuses paths outside the folder, binary files and files over 2 MB. Each save keeps the previous text for 14 days in `~/Library/Application Support/BetterFileBrowser/backups`. If the file changes on disk while you have unsaved edits, a banner offers **Load from disk** or **Keep mine**. YAML, SQL, CSV and XML files, which Chrome would download, open in their folder's page (`folder/#view=name`) and edit there.
+
 ### Sidebar
 - **Saved**: one list of your folders. The ★ in the path bar saves or unsaves the current folder, and **+** saves it with the name open for editing. Double-click a label to rename, drag to reorder, ✕ to remove. Hover a row and press **#** to type comma-separated tags. Tagged folders group under a coloured heading, and clicking the heading's dot changes the colour. Bookmarks and My Places from earlier versions are merged in on first load.
 - **Notes**: stays in the sidebar and offers folder setup until a Notes folder is selected (see below).
-- **Recent**: the last directories you browsed.
+- **Recent**: the files and folders you opened lately.
 - **Finder Favourites** and **System**: fixed quick jumps.
 - Click a section title to collapse its contents. Collapse choices persist across reloads; Settings can hide Recent, Finder Favourites, or System entirely. The folder icon beside Notes opens its folder.
 - All sidebar state persists in `localStorage`.
 
 ### Notes
-The **Notes** section stays visible in the sidebar. Click **Set notes folder** or its **+** button to select a local folder in Settings. The native messaging host must be installed to read or write it. Notes are ordinary `.md` files in that folder, listed newest first.
+The **Notes** section stays visible in the sidebar. Click **Choose folder** (or **Type it in Settings**) to select a local folder. The native messaging host must be installed to read or write it. Notes are ordinary `.md` files in that folder. Pinned notes come first, then notes with a shared `pos` order key, then the rest newest-created first; editing a note does not move it. The filter box matches titles, file names, colours, `#tags` and the notes' text.
 
-Press **n** or click **+** to create an empty note. Clicking a note opens the editor in the preview panel, with source on the left and rendered Markdown on the right. The toolbar covers bold, italic, code, lists, tasks, tables, and images. ⌥↑↓ moves lines; ⌥⇧↑↓ duplicates them; Tab indents; Enter continues a list. Pasted, dropped, or chosen images are saved under `attachments/` and linked from the note.
+Press **n** or click **+** to create an empty note. Clicking a note opens the editor in the preview panel, with source on the left and rendered Markdown on the right. The toolbar covers bold, italic, code, strikethrough, headings, links, quotes, bullet and numbered lists, tasks, tables, images and versions. ⌥↑↓ moves lines; ⌥⇧↑↓ duplicates them; Tab indents; Enter continues a list. Pasted, dropped, or chosen images are saved under `attachments/` and linked from the note.
 
 **Saving:** A 1.5-second pause saves automatically. **⌘S** saves immediately, and closing a dirty editor starts a save. The header shows an unsaved dot or a save error. A new note gets its filename from its first heading or first nonblank line on the first save. If another tool changes the file, the next save reports a conflict and offers reload or overwrite. A removed file produces a save error without recreating it. Double-click a sidebar label to rename; ✕ moves the note to `.trash/`.
 
@@ -272,6 +276,7 @@ After a build:
 
 | Version | Highlights |
 |---------|------------|
+| **2.12** | Bare URLs link; fence aliases, case-free SQL, YAML values and coloured Raw; YAML/SQL/CSV/XML open in the explorer; edit any text file in folders you allow; HTML page preview; nested lists, alerts, footnotes; contents in the sidebar; no surprise tab restore, files in Recent; Notes text search and toolbar; every listed terminal opens. [Release details](docs/release-2.12.md) |
 | **2.11** | Clickable sidebar titles; Notes reading tabs; Markdown HTML, fences, table and path-link fixes; reading width and text size; interface polish; bounded filename regex matching. [Release details](docs/release-2.11.md) |
 | **2.10** | Lazy Tree view; HTML/PDF native-page exclusions; more syntax highlighting; Find snippets, counts, content regex and depth limit; cancellable, bounded search across tabs; Markdown Mermaid diagrams and reading controls |
 | **2.9** | One shell for listings and file pages; the strip belongs to the Chrome tab with recovery, file tabs, pins and a hover menu; click model (click looks, double-click goes, alt keeps a tab); sidebar rows open as strip tabs; Saved filter box; Help and Settings on one tabbed dialog; file page fills the width; a written mouse and key contract with a tooltip on every control |

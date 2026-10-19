@@ -106,9 +106,9 @@ Renders by type:
 
 ## Notes
 
-The sidebar shows **Notes** even before setup. Choose **Set notes folder** to
-select a local folder in **Settings → Notes**; its \`.md\` files then appear
-newest first. **n** or **+** starts an empty note. The panel becomes an
+The sidebar shows **Notes** even before setup. **Choose folder** picks a local
+folder (or type it in **Settings → Notes**); its \`.md\` files then appear with
+pinned notes first. The filter matches titles, tags and the notes' text. **n** or **+** starts an empty note. The panel becomes an
 editor with the source on the left and the render on the right: a toolbar for
 bold, italic, code, lists, tasks, tables and images; ⌥↑↓ moves lines and
 ⌥⇧↑↓ duplicates them; Tab indents; Enter continues a list; a pasted or

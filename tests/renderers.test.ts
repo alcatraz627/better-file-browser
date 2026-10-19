@@ -467,7 +467,8 @@ describe('sanitizeHtml', () => {
     expect(out).toContain('target="_blank"');
   });
   it('drops scripts and event handlers, unwraps unknown tags', () => {
-    expect(sanitizeHtml('<script>alert(1)</script>')).not.toContain('script');
+    // Inside a body element: a leading <script> parses into <head> and never reaches the walk.
+    expect(sanitizeHtml('<p>x</p><div><script>alert(1)</script></div>')).toBe('<p>x</p><div>alert(1)</div>');
     expect(sanitizeHtml('<img src="x.png" onerror="alert(1)">')).not.toContain('onerror');
     expect(sanitizeHtml('<marquee>hi</marquee>')).toBe('hi');
   });

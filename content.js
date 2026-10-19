@@ -3117,7 +3117,9 @@ ${body}
       }
     });
     editHeader("saved");
+    ta.setSelectionRange(0, 0);
     ta.focus();
+    ta.scrollTop = 0;
   }
   async function saveNote(st = edit) {
     if (!st || st.saving) return;
@@ -5101,9 +5103,9 @@ Renders by type:
 
 ## Notes
 
-The sidebar shows **Notes** even before setup. Choose **Set notes folder** to
-select a local folder in **Settings \u2192 Notes**; its \`.md\` files then appear
-newest first. **n** or **+** starts an empty note. The panel becomes an
+The sidebar shows **Notes** even before setup. **Choose folder** picks a local
+folder (or type it in **Settings \u2192 Notes**); its \`.md\` files then appear with
+pinned notes first. The filter matches titles, tags and the notes' text. **n** or **+** starts an empty note. The panel becomes an
 editor with the source on the left and the render on the right: a toolbar for
 bold, italic, code, lists, tasks, tables and images; \u2325\u2191\u2193 moves lines and
 \u2325\u21E7\u2191\u2193 duplicates them; Tab indents; Enter continues a list; a pasted or
@@ -5461,11 +5463,13 @@ seconds and re-renders when the file changes on disk.
     if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
     lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
     if (e.isHidden) lines.push("Hidden file (dotfile)");
+    if (IMG_EXTS.has(getExt(e))) lines.push("Image \u2014 dimensions require native host");
     lines.push(e.isDir ? "Click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab" : "Click looks \xB7 double-click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab");
     const tip = {
       icon: getIcon(e, ctx.iconRules),
       name: e.name,
-      lines
+      lines,
+      warn: "Permissions/creation date require native host"
     };
     return JSON.stringify(tip);
   }

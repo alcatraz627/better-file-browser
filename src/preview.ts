@@ -603,7 +603,11 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     apply: c => { change(h => applyChange(h, c), changedKeys(c)); return readProps(st.rel, st.text); },
   });
   editHeader('saved');
+  // Open at the top, where the render starts; focusing alone leaves the caret
+  // and the scroll at the end of a long note.
+  ta.setSelectionRange(0, 0);
   ta.focus();
+  ta.scrollTop = 0;
 }
 async function saveNote(st = edit): Promise<void> {
   if (!st || st.saving) return;
