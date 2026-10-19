@@ -154,7 +154,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
         ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? 's' : ''} shown`
         : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`;
     }
-    el('fe-count').textContent = ls.baseStatus;
+    if (!app.fileMode) el('fe-count').textContent = ls.baseStatus;   // a file page shows its line count there
     sel.setSel(-1);
   }
   app.applyAll = applyAll;
@@ -255,7 +255,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
       const en = ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null;
       t.textContent = en && !en.isParent
         ? (en.isDir ? `${en.name}/` : `${en.name} · ${fmtSize(en.rawBytes)}`)
-        : ls.baseStatus;
+        : app.fileMode ? (el('fe-count').textContent || '') : ls.baseStatus;
     }
   }
   function scrollToLead(): void {

@@ -603,14 +603,29 @@ export function headingId(text: string, seen: Map<string, number>): string {
   return id;
 }
 
-export function renderMarkdown(src: string, baseUrl = ''): string {
-  const lines = src.replace(/\r\n/g, '\n').split('\n');
+// GitHub's alert labels: > [!NOTE] and friends open a coloured callout.
+const ALERTS: Record<string, string> = { NOTE: 'Note', TIP: 'Tip', IMPORTANT: 'Important', WARNING: 'Warning', CAUTION: 'Caution' };
+const LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])(?:\s+(.*)|\s*)$/;
+
+export function renderMarkdown(src: string, baseUrl = '', inner = false): string {
+  let lines = src.replace(/\r\n/g, '\n').split('\n');
   const out: string[] = [];
   let para: string[] = [];
   const seenIds = new Map<string, number>();
+  // Footnote definitions ([^id]: text) leave the flow and list at the end.
+  const notes = new Map<string, string>();
+  if (!inner) {
+    let inFence = false;
+    lines = lines.filter(l => {
+      if (/^ {0,3}(`{3,}|~{3,})/.test(l)) inFence = !inFence;
+      const m = !inFence && l.match(/^\[\^([^\]\s]+)\]:\s*(.*)$/);
+      if (m) { notes.set(m[1], m[2]); return false; }
+      return true;
+    });
+  }
   // Front matter: a --- block at the top renders as a key and value list.
   let i = 0;
-  if (lines[0] === '---') {
+  if (!inner && lines[0] === '---') {
     const end = lines.slice(1, 60).findIndex(l => l === '---');
     if (end >= 0) {
       const rows = lines.slice(1, end + 1).map(l => l.match(/^([\w.-]+)\s*:\s*(.*)$/)).filter(Boolean) as RegExpMatchArray[];
@@ -618,8 +633,12 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
       i = end + 2;
     }
   }
+  // Two trailing spaces or a backslash end a line with a hard break.
   const flush = () => {
-    if (para.length) { out.push(`<p>${mdInline(para.join(' '), baseUrl)}</p>`); para = []; }
+    if (!para.length) return;
+    const text = para.map((l, k) => k < para.length - 1 && /( {2,}|\\)$/.test(l) ? l.replace(/( {2,}|\\)$/, '') + '\uE002' : l.trim()).join(' ');
+    out.push(`<p>${mdInline(text, baseUrl).replace(/\uE002 ?/g, '<br>')}</p>`);
+    para = [];
   };
   while (i < lines.length) {
     const line = lines[i];
@@ -670,28 +689,56 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
       flush();
       const buf: string[] = [];
       while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ''));
-      out.push(`<blockquote>${renderMarkdown(buf.join('\n'), baseUrl)}</blockquote>`);
+      const alert = buf[0]?.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i);
+      if (alert) {
+        const kind = alert[1].toUpperCase();
+        out.push(`<div class="fe-md-alert fe-md-alert-${kind.toLowerCase()}"><p class="fe-md-alert-title">${ALERTS[kind]}</p>${renderMarkdown(buf.slice(1).join('\n'), baseUrl, true)}</div>`);
+      } else out.push(`<blockquote>${renderMarkdown(buf.join('\n'), baseUrl)}</blockquote>`);
       continue;
     }
 
-    const li = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
-    if (li) {
+    // Lists nest by indentation. An item owns every following line indented
+    // past its marker, plus unindented lines that continue its paragraph; its
+    // body renders as markdown, so nested lists, code and quotes work inside.
+    const li = line.match(LIST_ITEM);
+    if (li && (li[3] !== undefined || para.length === 0)) {
       flush();
+      const baseIndent = li[1].length;
       const ordered = /\d/.test(li[2]);
       const items: string[] = [];
+      let loose = false;
       while (i < lines.length) {
-        const m = lines[i].match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
-        if (!m) break;
-        // Nesting is rendered as indentation, not nested lists — close enough
-        // for a preview and far simpler than tracking list stacks.
-        const depth = Math.min(Math.floor(m[1].length / 2), 4);
-        const task = m[3].match(/^\[( |x|X)\]\s+(.*)$/);
-        items.push(task
-          ? `<li class="fe-task" style="margin-left:${depth * 18}px"><input type="checkbox" disabled${task[1] === ' ' ? '' : ' checked'}> ${mdInline(task[2], baseUrl)}</li>`
-          : `<li style="margin-left:${depth * 18}px">${mdInline(m[3], baseUrl)}</li>`);
+        const m = lines[i].match(LIST_ITEM);
+        if (!m || m[1].length !== baseIndent || /\d/.test(m[2]) !== ordered) break;
+        const contentIndent = m[1].length + m[2].length + 1;
+        const body: string[] = [m[3] ?? ''];
         i++;
+        while (i < lines.length) {
+          const l = lines[i];
+          if (/^\s*$/.test(l)) {
+            const next = lines.slice(i + 1).find(x => !/^\s*$/.test(x));
+            if (next !== undefined && next.match(/^\s*/)![0].length >= contentIndent) { body.push(''); i++; loose = true; continue; }
+            break;
+          }
+          const ind = l.match(/^\s*/)![0].length;
+          if (ind >= contentIndent || (ind > baseIndent && LIST_ITEM.test(l))) { body.push(l.slice(Math.min(ind, contentIndent))); i++; continue; }
+          // A lazy continuation: plain text right after the item's own text.
+          if (!LIST_ITEM.test(l) && body[body.length - 1] !== '' && !/^\s*(#|>|```|~~~|\|)/.test(l)) { body.push(l.trim()); i++; continue; }
+          break;
+        }
+        const task = body[0].match(/^\[( |x|X)\]\s+(.*)$/);
+        if (task) body[0] = task[2];
+        let html = renderMarkdown(body.join('\n'), baseUrl, true);
+        const tight = html.match(/^<p>([\s\S]*?)<\/p>(\n?[\s\S]*)$/);
+        if (tight && !loose) html = tight[1] + tight[2];
+        items.push(task
+          ? `<li class="fe-task"><input type="checkbox" disabled${task[1] === ' ' ? '' : ' checked'}> ${html}</li>`
+          : `<li>${html}</li>`);
+        // One blank line between siblings keeps the list going.
+        if (i < lines.length && /^\s*$/.test(lines[i]) && lines[i + 1]?.match(LIST_ITEM)?.[1].length === baseIndent) { i++; loose = true; }
       }
-      out.push(`<${ordered ? 'ol' : 'ul'}>${items.join('')}</${ordered ? 'ol' : 'ul'}>`);
+      const start = ordered ? parseInt(li[2], 10) : 1;
+      out.push(ordered ? `<ol${start !== 1 ? ` start="${start}"` : ''}>${items.join('')}</ol>` : `<ul>${items.join('')}</ul>`);
       continue;
     }
 
@@ -734,10 +781,24 @@ export function renderMarkdown(src: string, baseUrl = ''): string {
     }
 
     if (/^\s*$/.test(line)) { flush(); i++; continue; }
-    para.push(line.trim()); i++;
+    para.push(line.replace(/^\s+/, '')); i++;
   }
   flush();
-  return linkLocalPaths(`<div class="fe-md">${out.join('\n')}</div>`);
+  if (inner) return out.join('\n');
+  let html = out.join('\n');
+  if (notes.size) {
+    const order: string[] = [];
+    html = html.replace(/\[\^([^\]\s]+)\]/g, (m, id: string) => {
+      if (!notes.has(id)) return m;
+      if (!order.includes(id)) order.push(id);
+      const n = order.indexOf(id) + 1;
+      return `<sup class="fe-md-fnref"><a href="#fn-${esc(id)}" id="fnref-${esc(id)}">${n}</a></sup>`;
+    });
+    const listed = [...order, ...[...notes.keys()].filter(k => !order.includes(k))];
+    html += `<section class="fe-md-footnotes"><ol>${listed.map(id =>
+      `<li id="fn-${esc(id)}">${mdInline(notes.get(id)!, baseUrl)} <a href="#fnref-${esc(id)}" class="fe-md-fnback" title="Back to the text">↩</a></li>`).join('')}</ol></section>`;
+  }
+  return linkLocalPaths(`<div class="fe-md">${html}</div>`);
 }
 
 // ── JSON / JSONL ────────────────────────────────────────────────────

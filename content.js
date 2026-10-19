@@ -1405,13 +1405,28 @@
     if (n) id += "-" + n;
     return id;
   }
-  function renderMarkdown(src, baseUrl = "") {
-    const lines = src.replace(/\r\n/g, "\n").split("\n");
+  var ALERTS = { NOTE: "Note", TIP: "Tip", IMPORTANT: "Important", WARNING: "Warning", CAUTION: "Caution" };
+  var LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])(?:\s+(.*)|\s*)$/;
+  function renderMarkdown(src, baseUrl = "", inner = false) {
+    let lines = src.replace(/\r\n/g, "\n").split("\n");
     const out = [];
     let para = [];
     const seenIds = /* @__PURE__ */ new Map();
+    const notes2 = /* @__PURE__ */ new Map();
+    if (!inner) {
+      let inFence = false;
+      lines = lines.filter((l) => {
+        if (/^ {0,3}(`{3,}|~{3,})/.test(l)) inFence = !inFence;
+        const m = !inFence && l.match(/^\[\^([^\]\s]+)\]:\s*(.*)$/);
+        if (m) {
+          notes2.set(m[1], m[2]);
+          return false;
+        }
+        return true;
+      });
+    }
     let i = 0;
-    if (lines[0] === "---") {
+    if (!inner && lines[0] === "---") {
       const end = lines.slice(1, 60).findIndex((l) => l === "---");
       if (end >= 0) {
         const rows = lines.slice(1, end + 1).map((l) => l.match(/^([\w.-]+)\s*:\s*(.*)$/)).filter(Boolean);
@@ -1420,10 +1435,10 @@
       }
     }
     const flush = () => {
-      if (para.length) {
-        out.push(`<p>${mdInline(para.join(" "), baseUrl)}</p>`);
-        para = [];
-      }
+      if (!para.length) return;
+      const text = para.map((l, k) => k < para.length - 1 && /( {2,}|\\)$/.test(l) ? l.replace(/( {2,}|\\)$/, "") + "\uE002" : l.trim()).join(" ");
+      out.push(`<p>${mdInline(text, baseUrl).replace(/\uE002 ?/g, "<br>")}</p>`);
+      para = [];
     };
     while (i < lines.length) {
       const line = lines[i];
@@ -1473,23 +1488,64 @@
         flush();
         const buf = [];
         while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ""));
-        out.push(`<blockquote>${renderMarkdown(buf.join("\n"), baseUrl)}</blockquote>`);
+        const alert = buf[0]?.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i);
+        if (alert) {
+          const kind = alert[1].toUpperCase();
+          out.push(`<div class="fe-md-alert fe-md-alert-${kind.toLowerCase()}"><p class="fe-md-alert-title">${ALERTS[kind]}</p>${renderMarkdown(buf.slice(1).join("\n"), baseUrl, true)}</div>`);
+        } else out.push(`<blockquote>${renderMarkdown(buf.join("\n"), baseUrl)}</blockquote>`);
         continue;
       }
-      const li = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
-      if (li) {
+      const li = line.match(LIST_ITEM);
+      if (li && (li[3] !== void 0 || para.length === 0)) {
         flush();
+        const baseIndent = li[1].length;
         const ordered = /\d/.test(li[2]);
         const items = [];
+        let loose = false;
         while (i < lines.length) {
-          const m = lines[i].match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
-          if (!m) break;
-          const depth = Math.min(Math.floor(m[1].length / 2), 4);
-          const task = m[3].match(/^\[( |x|X)\]\s+(.*)$/);
-          items.push(task ? `<li class="fe-task" style="margin-left:${depth * 18}px"><input type="checkbox" disabled${task[1] === " " ? "" : " checked"}> ${mdInline(task[2], baseUrl)}</li>` : `<li style="margin-left:${depth * 18}px">${mdInline(m[3], baseUrl)}</li>`);
+          const m = lines[i].match(LIST_ITEM);
+          if (!m || m[1].length !== baseIndent || /\d/.test(m[2]) !== ordered) break;
+          const contentIndent = m[1].length + m[2].length + 1;
+          const body = [m[3] ?? ""];
           i++;
+          while (i < lines.length) {
+            const l = lines[i];
+            if (/^\s*$/.test(l)) {
+              const next = lines.slice(i + 1).find((x) => !/^\s*$/.test(x));
+              if (next !== void 0 && next.match(/^\s*/)[0].length >= contentIndent) {
+                body.push("");
+                i++;
+                loose = true;
+                continue;
+              }
+              break;
+            }
+            const ind = l.match(/^\s*/)[0].length;
+            if (ind >= contentIndent || ind > baseIndent && LIST_ITEM.test(l)) {
+              body.push(l.slice(Math.min(ind, contentIndent)));
+              i++;
+              continue;
+            }
+            if (!LIST_ITEM.test(l) && body[body.length - 1] !== "" && !/^\s*(#|>|```|~~~|\|)/.test(l)) {
+              body.push(l.trim());
+              i++;
+              continue;
+            }
+            break;
+          }
+          const task = body[0].match(/^\[( |x|X)\]\s+(.*)$/);
+          if (task) body[0] = task[2];
+          let html2 = renderMarkdown(body.join("\n"), baseUrl, true);
+          const tight = html2.match(/^<p>([\s\S]*?)<\/p>(\n?[\s\S]*)$/);
+          if (tight && !loose) html2 = tight[1] + tight[2];
+          items.push(task ? `<li class="fe-task"><input type="checkbox" disabled${task[1] === " " ? "" : " checked"}> ${html2}</li>` : `<li>${html2}</li>`);
+          if (i < lines.length && /^\s*$/.test(lines[i]) && lines[i + 1]?.match(LIST_ITEM)?.[1].length === baseIndent) {
+            i++;
+            loose = true;
+          }
         }
-        out.push(`<${ordered ? "ol" : "ul"}>${items.join("")}</${ordered ? "ol" : "ul"}>`);
+        const start = ordered ? parseInt(li[2], 10) : 1;
+        out.push(ordered ? `<ol${start !== 1 ? ` start="${start}"` : ""}>${items.join("")}</ol>` : `<ul>${items.join("")}</ul>`);
         continue;
       }
       if (line.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i + 1])) {
@@ -1538,11 +1594,24 @@
         i++;
         continue;
       }
-      para.push(line.trim());
+      para.push(line.replace(/^\s+/, ""));
       i++;
     }
     flush();
-    return linkLocalPaths(`<div class="fe-md">${out.join("\n")}</div>`);
+    if (inner) return out.join("\n");
+    let html = out.join("\n");
+    if (notes2.size) {
+      const order = [];
+      html = html.replace(/\[\^([^\]\s]+)\]/g, (m, id) => {
+        if (!notes2.has(id)) return m;
+        if (!order.includes(id)) order.push(id);
+        const n = order.indexOf(id) + 1;
+        return `<sup class="fe-md-fnref"><a href="#fn-${esc(id)}" id="fnref-${esc(id)}">${n}</a></sup>`;
+      });
+      const listed = [...order, ...[...notes2.keys()].filter((k) => !order.includes(k))];
+      html += `<section class="fe-md-footnotes"><ol>${listed.map((id) => `<li id="fn-${esc(id)}">${mdInline(notes2.get(id), baseUrl)} <a href="#fnref-${esc(id)}" class="fe-md-fnback" title="Back to the text">\u21A9</a></li>`).join("")}</ol></section>`;
+    }
+    return linkLocalPaths(`<div class="fe-md">${html}</div>`);
   }
   function jsonLeaf(v) {
     if (v === null) return `<span class="tok-lit">null</span>`;
@@ -3693,6 +3762,17 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-page .fe-md ul,#fe-page .fe-md ol{margin:10px 0;padding-left:28px}
 #fe-page .fe-md li{margin:0 0 12px}
 #fe-page .fe-md li:last-child{margin-bottom:0}
+#fe-page .fe-md li > ul,#fe-page .fe-md li > ol{margin:6px 0 0}
+#fe-page .fe-md li li{margin-bottom:4px}
+.fe-md-alert{--al:#4493f8;border-left:3px solid var(--al);padding:8px 14px;margin:14px 0;border-radius:4px;background:color-mix(in srgb,var(--al) 9%,transparent)}
+#fe .fe-md-alert > :last-child{margin-bottom:0}
+.fe-md-alert-title{font-weight:600;color:var(--al);margin:0 0 4px!important}
+.fe-md-alert-tip{--al:#3fb950}.fe-md-alert-important{--al:#ab7df8}.fe-md-alert-warning{--al:#d29922}.fe-md-alert-caution{--al:#f85149}
+#fe[data-theme="light"] .fe-md-alert{--al:#0969da}
+#fe[data-theme="light"] .fe-md-alert-tip{--al:#1a7f37}#fe[data-theme="light"] .fe-md-alert-important{--al:#8250df}
+#fe[data-theme="light"] .fe-md-alert-warning{--al:#9a6700}#fe[data-theme="light"] .fe-md-alert-caution{--al:#d1242f}
+.fe-md-footnotes{border-top:1px solid var(--bd);margin-top:28px;padding-top:10px;font-size:.88em;color:var(--mt)}
+.fe-md-fnref a,.fe-md-fnback{text-decoration:none}
 #fe-page .fe-md code{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
 #fe-page .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1));line-height:1.5}
 #fe.fe-notips #fe-tip{display:none!important}
@@ -6393,7 +6473,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       } else {
         ls.baseStatus = filtered ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`;
       }
-      el("fe-count").textContent = ls.baseStatus;
+      if (!app.fileMode) el("fe-count").textContent = ls.baseStatus;
       sel.setSel(-1);
     }
     app.applyAll = applyAll;
@@ -6506,7 +6586,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         t.textContent = `${ls.selSet.size} selected`;
       } else {
         const en = ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null;
-        t.textContent = en && !en.isParent ? en.isDir ? `${en.name}/` : `${en.name} \xB7 ${fmtSize(en.rawBytes)}` : ls.baseStatus;
+        t.textContent = en && !en.isParent ? en.isDir ? `${en.name}/` : `${en.name} \xB7 ${fmtSize(en.rawBytes)}` : app.fileMode ? el("fe-count").textContent || "" : ls.baseStatus;
       }
     }
     function scrollToLead() {

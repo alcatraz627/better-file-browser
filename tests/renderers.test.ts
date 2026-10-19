@@ -293,7 +293,7 @@ describe('renderMarkdown', () => {
   it('renders front matter as a key and value block, task items as boxes, fences with a chip', () => {
     const html = renderMarkdown('---\ntitle: T\nn: 2\n---\n# H\n\n- [x] a\n- [ ] b\n\n```py\nx = 1\n```\n');
     expect(html).toContain('<dl class="fe-md-fm"><dt>title</dt><dd>T</dd><dt>n</dt><dd>2</dd></dl>');
-    expect(html).toContain('<li class="fe-task" style="margin-left:0px"><input type="checkbox" disabled checked> a</li>');
+    expect(html).toContain('<li class="fe-task"><input type="checkbox" disabled checked> a</li>');
     expect(html).toContain('<input type="checkbox" disabled> b</li>');
     expect(html).toContain('<span class="fe-md-lang">py</span><button class="fe-md-copy"');
     expect(html).not.toContain('<h1 id="---">');
@@ -385,6 +385,22 @@ describe('renderMarkdown', () => {
   it('leaves bare URLs in fenced code and explicit links alone', () => {
     const html = renderMarkdown('[site](https://a.com)\n\n```\nhttps://b.com\n```');
     expect(html.match(/<a /g)?.length).toBe(1);
+  });
+  it('nests lists by indent and keeps continued items in one list', () => {
+    const html = renderMarkdown('1. First item\n   continued here\n2. Second item\n   - nested bullet\n   - another nested\n3. Third item');
+    expect(html).toContain('<ol><li>First item continued here</li><li>Second item\n<ul><li>nested bullet</li><li>another nested</li></ul></li><li>Third item</li></ol>');
+  });
+  it('keeps an ordered list start number and a lazy continuation line', () => {
+    const html = renderMarkdown('3. three\nstill three\n4. four');
+    expect(html).toContain('<ol start="3"><li>three still three</li><li>four</li></ol>');
+  });
+  it('renders GitHub alerts, footnotes and hard breaks', () => {
+    const html = renderMarkdown('> [!WARNING]\n> Mind the gap.\n\nText with a note[^1].\nline one  \nline two\n\n[^1]: The footnote.');
+    expect(html).toContain('<div class="fe-md-alert fe-md-alert-warning"><p class="fe-md-alert-title">Warning</p><p>Mind the gap.</p></div>');
+    expect(html).toContain('<sup class="fe-md-fnref"><a href="#fn-1" id="fnref-1">1</a></sup>');
+    expect(html).toContain('<li id="fn-1">The footnote. <a href="#fnref-1"');
+    expect(html).toContain('line one<br>line two');
+    expect(html).not.toContain('[^1]:');
   });
   it('renders whitelisted raw HTML blocks instead of escaping them', () => {
     const html = renderMarkdown('<div align="center">\n<img src="logo.svg" width="320">\n<strong>Tagline</strong>\n</div>');
