@@ -78,6 +78,18 @@
   function fileHref(path) {
     return "file://" + path.split("/").map(encodeURIComponent).join("/");
   }
+  var DOWNLOAD_EXTS = /* @__PURE__ */ new Set(["yaml", "yml", "sql", "csv", "xml"]);
+  function pageHref(href) {
+    if (!/^[a-z]+:/i.test(href) && typeof location !== "undefined") {
+      try {
+        href = new URL(href, location.href).href;
+      } catch {
+      }
+    }
+    const m = href.match(/^(file:\/\/[^?#]*\/)([^/?#]+)$/);
+    if (!m || !m[2].includes(".")) return href;
+    return DOWNLOAD_EXTS.has(m[2].split(".").pop().toLowerCase()) ? `${m[1]}#view=${m[2]}` : href;
+  }
   function fmtSize(b) {
     if (b < 0 || b === 0) return "\u2014";
     if (b < 1024) return b + " B";
@@ -2523,8 +2535,8 @@ ${body}
     document.getElementById("fe").appendChild(overlay);
     document.getElementById("fe-ql-close").addEventListener("click", closePreview);
     document.getElementById("fe-ql-go").addEventListener("click", () => {
-      if (currentEntry) location.href = currentEntry.href;
-      else if (edit) location.href = "file://" + edit.root.replace(/\/$/, "") + "/" + edit.rel;
+      if (currentEntry) location.href = pageHref(currentEntry.href);
+      else if (edit) location.href = pageHref("file://" + edit.root.replace(/\/$/, "") + "/" + edit.rel);
     });
     document.getElementById("fe-ql-tab").addEventListener("click", keepPreviewedAsTab);
     const bodyEl = document.getElementById("fe-ql-body");
@@ -4268,6 +4280,9 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       colBtn.style.display = isMd && !raw ? "" : "none";
     };
     const render2 = () => {
+      const lines = text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
+      const count = document.getElementById("fe-count");
+      if (count) count.textContent = `${lines.toLocaleString()} line${lines === 1 ? "" : "s"}`;
       const top = page.scrollTop;
       page.innerHTML = raw ? renderCode(text, JSONL_EXTS.has(ext2) ? "json" : ext2) : renderBody(text, ext2, href);
       if (!raw && isMd) buildToc(page, toc, tocOpen);
@@ -4572,7 +4587,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       if (!t) return;
       const s = t.path !== rawPath && rawPath && !hereIn(state) ? openTab(state, rawPath, true) : state;
       commit(activate(s, id));
-      if (t.path !== rawPath) location.href = hrefFor(t);
+      if (t.path !== rawPath) location.href = pageHref(hrefFor(t));
     }
     function closeHere() {
       const here = hereIn(state);
@@ -4580,7 +4595,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       const next = closeTab(state, here.id);
       commit(next);
       const to = next.list.find((t) => t.id === next.active);
-      if (to && to.path !== rawPath) location.href = hrefFor(to);
+      if (to && to.path !== rawPath) location.href = pageHref(hrefFor(to));
     }
     function closeById(id) {
       if (hereIn(state)?.id === id) closeHere();
@@ -4815,7 +4830,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
         let s = state;
         if (rawPath && !s.list.some((t) => t.path === rawPath)) s = openTab(s, rawPath, true);
         commit(openTab(s, path));
-        if (path !== rawPath) location.href = fileUrl(path);
+        if (path !== rawPath) location.href = pageHref(fileUrl(path));
       },
       state: () => state
     };
@@ -5721,7 +5736,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
       ${fileMode ? renderFileContent() : ""}
       <div id="fe-toolbar">
-        <span id="fe-count">${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}</span>
+        <span id="fe-count">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <div id="fe-tb-right">
           <button id="fe-sg-btn" title="Sort &amp; Group \u2014 Click to toggle sort/group panel">
             <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11M2 5h9M3.5 8h6M5.5 11h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -5931,7 +5946,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             closeCrumbMenu();
           } else if (ke.key === "Enter") {
             const first = [...crumbMenu.querySelectorAll(".fe-dd-item")].find((it) => it.style.display !== "none");
-            if (first) location.href = first.href;
+            if (first) location.href = pageHref(first.href);
           }
         });
       } catch (err) {
@@ -7001,7 +7016,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       const i = ls.visible.indexOf(en);
       e.preventDefault();
       if (en.isParent) {
-        location.href = en.href;
+        location.href = pageHref(en.href);
         return;
       }
       if (e.altKey) {
@@ -7015,13 +7030,13 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         return;
       }
       if (en.isDir) {
-        location.href = en.href;
+        location.href = pageHref(en.href);
         return;
       }
       if (!sel.selectable(i)) return;
       sel.setSel(i);
       if (!canPreview(en) || app.settings.clickOpens === "go") {
-        location.href = en.href;
+        location.href = pageHref(en.href);
         return;
       }
       if (lookTimer) clearTimeout(lookTimer);
@@ -7039,7 +7054,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         clearTimeout(lookTimer);
         lookTimer = null;
       }
-      location.href = en.href;
+      location.href = pageHref(en.href);
     });
     scroll.addEventListener("auxclick", (e) => {
       if (e.button !== 1 || e.target.closest("a")) return;
@@ -7186,7 +7201,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
           sel.previewStep(-1);
         } else if (e.key === "Enter") {
           const en = previewEntry();
-          if (en) location.href = en.href;
+          if (en) location.href = pageHref(en.href);
         } else if (e.key === "t" && !e.metaKey && !e.ctrlKey) {
           e.preventDefault();
           keepPreviewedAsTab();
@@ -7212,7 +7227,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         e.preventDefault();
         sel.copySelection();
       } else if (e.key === "Enter" && ls.selIdx >= 0) {
-        location.href = ls.visible[ls.selIdx].href;
+        location.href = pageHref(ls.visible[ls.selIdx].href);
       } else if (e.key === "Backspace") {
         e.preventDefault();
         app.goUp();
@@ -8156,15 +8171,18 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
   (function() {
     const preload = document.getElementById("bfb-preload");
     const settings = getSettings();
-    const fileExt = filePageExt(location.pathname);
-    const fileMode = !!fileExt && filePagesEnabled(fileExt, settings);
+    const viewName = location.hash.startsWith("#view=") ? location.hash.slice(6) : "";
+    const viewHref = viewName ? location.href.split("#")[0] + viewName : "";
+    const fileExt = filePageExt(viewName ? location.pathname + viewName : location.pathname);
+    const fileMode = !!fileExt && (!!viewName || filePagesEnabled(fileExt, settings));
     if (!fileMode && !document.title.startsWith("Index of")) {
       preload?.remove();
       return;
     }
     const isHtmlSource = fileMode && (fileExt === "html" || fileExt === "htm");
-    const fileText = fileMode ? isHtmlSource ? "Loading HTML source\u2026" : document.body.textContent || "" : "";
-    const rawPath = decodeURIComponent(window.location.pathname);
+    const fetchSource = isHtmlSource || !!viewName;
+    const fileText = fileMode ? fetchSource ? "Loading\u2026" : document.body.textContent || "" : "";
+    const rawPath = decodeURIComponent(window.location.pathname + viewName);
     const segments = rawPath.split("/").filter(Boolean);
     const fileName = fileMode ? segments.pop() || "" : "";
     const folderPath = fileMode ? "/" + segments.join("/") + (segments.length ? "/" : "") : rawPath;
@@ -8285,11 +8303,22 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     }, saveError: (message) => app.toast(message), toast: (message) => app.toast(message) });
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore === true });
     if (fileMode) {
-      app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href, column: settings.readerColumn, editableFolders: settings.editableFolders });
-      if (isHtmlSource) fetchFileText(location.href).then((text) => app.filePage?.setText(text)).catch(() => {
-        app.filePage?.setText("Could not load the HTML source.");
+      const href = viewHref || location.href;
+      app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: settings.editableFolders });
+      if (fetchSource) fetchFileText(href).then((text) => app.filePage?.setText(text)).catch(() => {
+        app.filePage?.setText("Could not read this file.");
       });
     }
+    document.addEventListener("mousedown", (e) => {
+      const a = e.target.closest?.('a[href^="file://"]');
+      if (a) {
+        const v = pageHref(a.href);
+        if (v !== a.href) a.href = v;
+      }
+    }, true);
+    window.addEventListener("hashchange", () => {
+      if (location.hash.startsWith("#view=") || viewName) location.reload();
+    });
     initChrome(app);
     initMarkdownUi(app.toast);
     const listing = initListing(app, entries, { view: initView, zoom: initZoom, hidden: initHidden });

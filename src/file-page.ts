@@ -165,6 +165,10 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     colBtn.style.display = isMd && !raw ? '' : 'none';
   };
   const render = () => {
+    // The status bar counts lines here; folder and file counts belong to listings.
+    const lines = text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
+    const count = document.getElementById('fe-count');
+    if (count) count.textContent = `${lines.toLocaleString()} line${lines === 1 ? '' : 's'}`;
     const top = page.scrollTop;
     page.innerHTML = raw ? renderCode(text, JSONL_EXTS.has(ext) ? 'json' : ext) : renderBody(text, ext, href);
     if (!raw && isMd) buildToc(page, toc, tocOpen); else toc.style.display = 'none';

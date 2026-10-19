@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, splitMiddle, midHtml } from '../src/utils';
+import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, splitMiddle, midHtml, pageHref } from '../src/utils';
 import type { Entry } from '../src/types';
 
 const file = (name: string, rawBytes = 0, dateStr = ''): Entry =>
@@ -98,5 +98,15 @@ describe('splitMiddle', () => {
   });
   it('escapes both halves', () => {
     expect(midHtml('<b>' + 'y'.repeat(30) + '</b>')).not.toContain('<b>');
+  });
+});
+
+describe('pageHref', () => {
+  it('sends download types to their folder view and leaves the rest alone', () => {
+    expect(pageHref('file:///a/b/conf.yaml')).toBe('file:///a/b/#view=conf.yaml');
+    expect(pageHref('file:///a/My%20Dir/q.SQL')).toBe('file:///a/My%20Dir/#view=q.SQL');
+    expect(pageHref('file:///a/b/readme.md')).toBe('file:///a/b/readme.md');
+    expect(pageHref('file:///a/b/')).toBe('file:///a/b/');
+    expect(pageHref('https://x.com/a.yaml')).toBe('https://x.com/a.yaml');
   });
 });

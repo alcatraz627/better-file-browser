@@ -65,6 +65,26 @@ try {
   await page.click('#fe-fp-edit');
   await page.waitForSelector('#fe-ed-src');
   check(!(await page.$('#fe-ed-view')), 'a .txt file edits as source alone');
+
+  // A .yaml file, which Chrome downloads, opens in its folder's view: coloured and editable.
+  const yaml = join(h.fixture, 'conf.yaml');
+  writeFileSync(yaml, 'name: demo\nsteps:\n  - run: make\n');
+  await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
+  await page.waitForSelector('#fe-tbody');
+  const row = await page.$('#fe-tbody tr[data-idx]:has(a[href$="conf.yaml"]) td.c-nm');
+  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }).catch(() => null), row.click({ count: 2 })]);
+  await page.waitForSelector('#fe-page .tok-key', { timeout: 5000 }).catch(() => null);
+  const yv = { url: page.url(), keys: await page.$$eval('#fe-page .tok-key', s => s.map(x => x.textContent)), crumb: await page.title() };
+  check(yv.url.endsWith('/#view=conf.yaml') && yv.keys.includes('name') && /conf\.yaml/.test(yv.crumb), `a .yaml opens in its folder view, coloured: ${JSON.stringify(yv)}`);
+  await page.screenshot({ path: join(SHOTS, 'view-yaml-dark.png') });
+  await page.keyboard.press('e');
+  await page.waitForSelector('#fe-ed-src');
+  await page.focus('#fe-ed-src');
+  await page.keyboard.down('Meta'); await page.keyboard.press('ArrowDown'); await page.keyboard.up('Meta');
+  await page.keyboard.type('done: true\n');
+  await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
+  await page.waitForFunction(() => document.getElementById('fe-fe-state').textContent === 'saved', { timeout: 5000 }).catch(() => null);
+  check(readFileSync(yaml, 'utf8').endsWith('done: true\n'), 'the .yaml saves from its view');
 } finally {
   console.log(results.join('\n'));
   await h.close();

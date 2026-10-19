@@ -2,7 +2,7 @@
 // Fetches file:// content over XHR (the same trick the crumb dropdown uses)
 // and hands it to a renderer picked by extension. No new permissions needed.
 import type { Entry, IconRule, PreviewLayout } from './types';
-import { esc, fmtSize, getExt, copyToClipboard, midHtml } from './utils';
+import { esc, fmtSize, getExt, copyToClipboard, midHtml, pageHref } from './utils';
 import { getPreviewLayout, savePreviewLayout } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
 import { getIcon, IMG_EXTS } from './icons';
@@ -128,8 +128,8 @@ export function initPreview(d: PreviewDeps): void {
 
   document.getElementById('fe-ql-close')!.addEventListener('click', closePreview);
   document.getElementById('fe-ql-go')!.addEventListener('click', () => {
-    if (currentEntry) location.href = currentEntry.href;
-    else if (edit) location.href = 'file://' + edit.root.replace(/\/$/, '') + '/' + edit.rel;
+    if (currentEntry) location.href = pageHref(currentEntry.href);
+    else if (edit) location.href = pageHref('file://' + edit.root.replace(/\/$/, '') + '/' + edit.rel);
   });
   document.getElementById('fe-ql-tab')!.addEventListener('click', keepPreviewedAsTab);
   const bodyEl = document.getElementById('fe-ql-body')!;

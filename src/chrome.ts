@@ -2,7 +2,7 @@
 // dropdown that lists a parent folder in place.
 import type { App } from './app';
 import { el } from './el';
-import { esc } from './utils';
+import { esc, pageHref } from './utils';
 import { getIcon } from './icons';
 import { THEME_KEY, TERMINAL_CMDS, saveSettings } from './storage';
 import { fetchFileText } from './file-fetch';
@@ -91,7 +91,7 @@ export function initChrome(app: App): void {
         else if (ke.key === 'Enter') {
           const first = [...crumbMenu.querySelectorAll<HTMLAnchorElement>('.fe-dd-item')]
             .find(it => it.style.display !== 'none');
-          if (first) location.href = first.href;
+          if (first) location.href = pageHref(first.href);
         }
       });
     } catch (err) {

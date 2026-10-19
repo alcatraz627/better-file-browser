@@ -4,7 +4,7 @@
 // Chrome tab bring back a strip whose tab was closed in the last day.
 // Mounted by the explorer and by the file page; the pure list operations
 // are in tabs.ts.
-import { esc, copyToClipboard } from './utils';
+import { esc, copyToClipboard, pageHref } from './utils';
 import { icoFile, icoFolder, CHEVRON_DOWN } from './icons';
 import { getSaved, saveSaved } from './storage';
 import { upsertPlace, removePlace } from './places';
@@ -120,7 +120,7 @@ export function mountStrip(host: StripHost): Strip {
     if (!t) return;
     const s = t.path !== rawPath && rawPath && !hereIn(state) ? openTab(state, rawPath, true) : state;
     commit(activate(s, id));
-    if (t.path !== rawPath) location.href = hrefFor(t);
+    if (t.path !== rawPath) location.href = pageHref(hrefFor(t));
   }
   function closeHere(): void {
     const here = hereIn(state);
@@ -128,7 +128,7 @@ export function mountStrip(host: StripHost): Strip {
     const next = closeTab(state, here.id);
     commit(next);
     const to = next.list.find(t => t.id === next.active);
-    if (to && to.path !== rawPath) location.href = hrefFor(to);
+    if (to && to.path !== rawPath) location.href = pageHref(hrefFor(to));
   }
   function closeById(id: string): void {
     if (hereIn(state)?.id === id) closeHere();
@@ -335,7 +335,7 @@ export function mountStrip(host: StripHost): Strip {
       let s = state;
       if (rawPath && !s.list.some(t => t.path === rawPath)) s = openTab(s, rawPath, true);
       commit(openTab(s, path));
-      if (path !== rawPath) location.href = fileUrl(path);
+      if (path !== rawPath) location.href = pageHref(fileUrl(path));
     },
     state: () => state,
   };

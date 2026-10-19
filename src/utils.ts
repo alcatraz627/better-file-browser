@@ -14,6 +14,18 @@ export function fileHref(path: string): string {
   return 'file://' + path.split('/').map(encodeURIComponent).join('/');
 }
 
+// Chrome downloads these instead of showing them, so the explorer opens them
+// inside their folder's page (folder/#view=name) and renders them there.
+export const DOWNLOAD_EXTS = new Set(['yaml', 'yml', 'sql', 'csv', 'xml']);
+
+/** The address that shows a file in the explorer: its own URL, or its folder's view route for a download type. */
+export function pageHref(href: string): string {
+  if (!/^[a-z]+:/i.test(href) && typeof location !== 'undefined') { try { href = new URL(href, location.href).href; } catch { /* keep as is */ } }
+  const m = href.match(/^(file:\/\/[^?#]*\/)([^/?#]+)$/);
+  if (!m || !m[2].includes('.')) return href;
+  return DOWNLOAD_EXTS.has(m[2].split('.').pop()!.toLowerCase()) ? `${m[1]}#view=${m[2]}` : href;
+}
+
 export function fmtSize(b: number): string {
   if (b < 0 || b === 0) return '—';
   if (b < 1024)         return b + ' B';

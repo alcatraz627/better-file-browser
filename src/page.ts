@@ -332,7 +332,7 @@ export function renderPage(p: PageParams): string {
       <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
       ${fileMode ? renderFileContent() : ''}
       <div id="fe-toolbar">
-        <span id="fe-count">${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}</span>
+        <span id="fe-count">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <div id="fe-tb-right">
           <button id="fe-sg-btn" title="Sort &amp; Group — Click to toggle sort/group panel">
             <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11M2 5h9M3.5 8h6M5.5 11h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>

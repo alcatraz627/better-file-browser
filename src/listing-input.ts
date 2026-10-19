@@ -4,7 +4,7 @@
 import type { App } from './app';
 import type { Listing } from './listing';
 import { el } from './el';
-import { esc, fullPath, copyToClipboard } from './utils';
+import { esc, fullPath, copyToClipboard, pageHref } from './utils';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab } from './preview';
 
 export function initListingInput(app: App, listing: Listing): void {
@@ -36,17 +36,17 @@ export function initListingInput(app: App, listing: Listing): void {
     if (!en) return;
     const i = ls.visible.indexOf(en);
     e.preventDefault();
-    if (en.isParent) { location.href = en.href; return; }
+    if (en.isParent) { location.href = pageHref(en.href); return; }
     if (e.altKey) { app.strip.open(fullPath(rawPath, en), true); return; }
     if (e.shiftKey || e.metaKey || e.ctrlKey) {
       if (!sel.selectable(i)) return;
       if (e.shiftKey && (e.metaKey || e.ctrlKey)) sel.rangeSel(i); else sel.toggleSel(i);
       return;
     }
-    if (en.isDir) { location.href = en.href; return; }
+    if (en.isDir) { location.href = pageHref(en.href); return; }
     if (!sel.selectable(i)) return;
     sel.setSel(i);
-    if (!canPreview(en) || app.settings.clickOpens === 'go') { location.href = en.href; return; }
+    if (!canPreview(en) || app.settings.clickOpens === 'go') { location.href = pageHref(en.href); return; }
     // The panel waits out the double-click interval, or its scrim would
     // swallow the second click that means go; dblclick below does the going.
     if (lookTimer) clearTimeout(lookTimer);
@@ -58,7 +58,7 @@ export function initListingInput(app: App, listing: Listing): void {
     if (!en || en.isDir || en.isParent || e.altKey || e.shiftKey || e.metaKey || e.ctrlKey) return;
     e.preventDefault();
     if (lookTimer) { clearTimeout(lookTimer); lookTimer = null; }
-    location.href = en.href;
+    location.href = pageHref(en.href);
   });
   // Middle click anywhere on a row opens a Chrome tab; on the name link the
   // anchor already does it natively.
@@ -184,7 +184,7 @@ export function initListingInput(app: App, listing: Listing): void {
       if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); closePreview(); }
       else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); sel.previewStep(1); }
       else if (e.key === 'ArrowUp'   || e.key === 'ArrowLeft')  { e.preventDefault(); sel.previewStep(-1); }
-      else if (e.key === 'Enter') { const en = previewEntry(); if (en) location.href = en.href; }
+      else if (e.key === 'Enter') { const en = previewEntry(); if (en) location.href = pageHref(en.href); }
       else if (e.key === 't' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); keepPreviewedAsTab(); }
       else if (['[', ']', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
       return;
@@ -195,7 +195,7 @@ export function initListingInput(app: App, listing: Listing): void {
     else if (e.key === 'ArrowUp')   { e.preventDefault(); sel.moveSel(-1); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); sel.selectAll(); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c' && ls.selSet.size) { e.preventDefault(); sel.copySelection(); }
-    else if (e.key === 'Enter' && ls.selIdx >= 0) { location.href = ls.visible[ls.selIdx].href; }
+    else if (e.key === 'Enter' && ls.selIdx >= 0) { location.href = pageHref(ls.visible[ls.selIdx].href); }
     else if (e.key === 'Backspace') { e.preventDefault(); app.goUp(); }
     else if (e.key === ' ' && ls.selIdx >= 0) { e.preventDefault(); sel.tryPreview(ls.visible[ls.selIdx]); }
     else if (e.key === 'n' && !e.metaKey && !e.ctrlKey && app.settings.notesRoot) { e.preventDefault(); app.newNote(); }

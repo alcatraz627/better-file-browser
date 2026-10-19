@@ -8,7 +8,7 @@ import {
 } from './storage';
 import { initPreview } from './preview';
 import { CSS } from './styles';
-import { esc } from './utils';
+import { esc, pageHref } from './utils';
 import { PI } from './icons';
 import { filePageExt, filePagesEnabled, mountFileContent } from './file-page';
 import { fetchFileText } from './file-fetch';
@@ -27,16 +27,20 @@ import { initMarkdownUi } from './md-ui';
 (function () {
   const preload = document.getElementById('bfb-preload');
   const settings = getSettings();
-  const fileExt = filePageExt(location.pathname);
-  const fileMode = !!fileExt && filePagesEnabled(fileExt, settings);
+  // folder/#view=name shows a file Chrome would otherwise download (see pageHref).
+  const viewName = location.hash.startsWith('#view=') ? location.hash.slice(6) : '';
+  const viewHref = viewName ? location.href.split('#')[0] + viewName : '';
+  const fileExt = filePageExt(viewName ? location.pathname + viewName : location.pathname);
+  const fileMode = !!fileExt && (!!viewName || filePagesEnabled(fileExt, settings));
   if (!fileMode && !document.title.startsWith('Index of')) {
     preload?.remove();
     return;
   }
   const isHtmlSource = fileMode && (fileExt === 'html' || fileExt === 'htm');
-  const fileText = fileMode ? (isHtmlSource ? 'Loading HTML source…' : (document.body.textContent || '')) : '';
+  const fetchSource = isHtmlSource || !!viewName;
+  const fileText = fileMode ? (fetchSource ? 'Loading…' : (document.body.textContent || '')) : '';
 
-  const rawPath  = decodeURIComponent(window.location.pathname);
+  const rawPath  = decodeURIComponent(window.location.pathname + viewName);
   const segments = rawPath.split('/').filter(Boolean);
   const fileName = fileMode ? (segments.pop() || '') : '';
   // The folder this page belongs to: the path itself for a listing.
@@ -126,11 +130,20 @@ import { initMarkdownUi } from './md-ui';
   // address bar is always the active tab's location.
   app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore === true });
   if (fileMode) {
-    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href, column: settings.readerColumn, editableFolders: settings.editableFolders });
-    if (isHtmlSource) fetchFileText(location.href).then(text => app.filePage?.setText(text)).catch(() => {
-      app.filePage?.setText('Could not load the HTML source.');
+    const href = viewHref || location.href;
+    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: settings.editableFolders });
+    if (fetchSource) fetchFileText(href).then(text => app.filePage?.setText(text)).catch(() => {
+      app.filePage?.setText('Could not read this file.');
     });
   }
+  // Any file link that Chrome would download goes to its folder's view instead,
+  // whichever button or key follows the press.
+  document.addEventListener('mousedown', e => {
+    const a = (e.target as Element).closest?.<HTMLAnchorElement>('a[href^="file://"]');
+    if (a) { const v = pageHref(a.href); if (v !== a.href) a.href = v; }
+  }, true);
+  // On the folder's own page a #view link only changes the hash; load it properly.
+  window.addEventListener('hashchange', () => { if (location.hash.startsWith('#view=') || viewName) location.reload(); });
 
   initChrome(app);
   initMarkdownUi(app.toast);
