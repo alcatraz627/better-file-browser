@@ -22,7 +22,7 @@ export interface StripHost {
   rawPath: string;
   toast: Toast;
   onSavedChange?: () => void;
-  restore?: boolean;   // bring a closed Chrome tab's strip back; default on
+  restore?: boolean;   // bring a closed Chrome tab's strip back; the host decides the default
 }
 export interface Strip {
   // True when the key was a strip key and has been handled.
@@ -112,10 +112,14 @@ export function mountStrip(host: StripHost): Strip {
   // fragment or query and lost.
   const fileUrl = (p: string) => 'file://' + p.split('/').map(encodeURIComponent).join('/');
   function hrefFor(t: Tab): string { return fileUrl(t.path); }
+  // Switching away from a page that was never kept keeps it as a background
+  // tab first, the same as a sidebar click, so the doc you were reading is
+  // never lost by switching.
   function goTab(id: string): void {
     const t = state.list.find(x => x.id === id);
     if (!t) return;
-    commit(activate(state, id));
+    const s = t.path !== rawPath && rawPath && !hereIn(state) ? openTab(state, rawPath, true) : state;
+    commit(activate(s, id));
     if (t.path !== rawPath) location.href = hrefFor(t);
   }
   function closeHere(): void {

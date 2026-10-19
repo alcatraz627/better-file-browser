@@ -299,7 +299,7 @@
   function pushRecent(path) {
     const list = getRecents().filter((r) => r.path !== path);
     list.unshift({ path, ts: Date.now() });
-    localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 8)));
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 20)));
   }
   function getColWidths() {
     try {
@@ -735,7 +735,7 @@
   var KW_SH = "if then elif else fi for while until do done case esac in function select local export readonly declare unset return exit break continue shift eval exec source alias trap set echo printf read cd test true false";
   var KW_JS = "const let var function return if else for while do switch case break continue new class extends super this typeof instanceof in of import export from default async await yield try catch finally throw delete void null undefined true false interface type enum implements private public protected readonly static namespace declare as is keyof never unknown any string number boolean object symbol";
   var KW_PY = "def class return if elif else for while break continue pass import from as with lambda try except finally raise yield global nonlocal assert del in is not and or None True False async await match self";
-  var KW_SQL = "select from where insert into update delete join left right inner outer on group by order having limit offset create table drop alter index view as and or not null primary key foreign references distinct union all values set";
+  var KW_SQL = "select from where insert into update delete join left right inner outer full cross on using group by order having limit offset create table drop alter add column index view as and or not null primary key foreign references distinct union all values set default check constraint unique case when then else end exists between like ilike in is with returning interval asc desc cascade if replace begin commit rollback grant";
   var KW_GO = "func package import return if else for range switch case break continue defer go chan select map struct interface type var const nil true false make new len cap append";
   var KW_RS = "fn let mut pub use mod struct enum impl trait return if else for while loop match break continue ref self Self crate super move async await dyn where unsafe true false Some None Ok Err";
   var KW_GQL = "query mutation subscription fragment on type interface union enum input scalar directive schema implements extend true false null";
@@ -763,8 +763,9 @@
     lit: sp("true false Some None Ok Err self Self")
   };
   var CATS_SQL = {
-    ctrl: sp("select from where insert into update delete join on group by order having limit union"),
-    type: sp("table view index"),
+    ctrl: sp("select from where insert into update delete join on group by order having limit union with returning case when then else end"),
+    type: sp("table view index text varchar char int integer bigint smallint serial bigserial boolean bool numeric decimal real float double precision date time timestamp timestamptz interval json jsonb uuid bytea"),
+    builtin: sp("count sum avg min max coalesce now array_agg jsonb_build_object"),
     lit: sp("null true false")
   };
   var LANGS = {
@@ -799,7 +800,39 @@
       kwCats: CATS_RS,
       strRules: ['r#+"[\\s\\S]*?"#+', 'r"[^"\\n]*"', 'b?"(?:\\\\.|[^"\\\\\\n])*"']
     },
-    sql: { line: ["--"], block: ["/*", "*/"], strings: [`'`, `"`], kw: KW_SQL.split(" "), kwCats: CATS_SQL },
+    sql: {
+      line: ["--"],
+      block: ["/*", "*/"],
+      strings: [`'`, `"`],
+      caseless: true,
+      kw: KW_SQL.split(" "),
+      kwCats: CATS_SQL,
+      special: [{ kind: "var", pattern: "(?<!:):[A-Za-z_]\\w*|\\$\\d+" }]
+    },
+    json: {
+      strings: [`"`],
+      kw: [],
+      kwCats: { lit: sp("true false null") },
+      special: [{ kind: "key", pattern: '"(?:\\\\.|[^"\\\\\\n])*"(?=[ \\t]*:)' }]
+    },
+    http: {
+      line: ["#"],
+      strings: [`"`],
+      kw: sp("GET POST PUT PATCH DELETE HEAD OPTIONS HTTP"),
+      kwCats: { lit: sp("true false null") },
+      special: [{ kind: "key", pattern: "^[A-Za-z][\\w-]*(?=:[ \\t])" }, { kind: "key", pattern: '"(?:\\\\.|[^"\\\\\\n])*"(?=[ \\t]*:)' }]
+    },
+    md: { strings: [], kw: [], prose: true, special: [
+      { kind: "cmt", pattern: "<!--[\\s\\S]*?(?:-->|$)" },
+      { kind: "meta", pattern: "^[ \\t]*(?:```|~~~)[^\\n]*" },
+      { kind: "section", pattern: "^#{1,6}[ \\t][^\\n]*" },
+      { kind: "cmt", pattern: "^>[^\\n]*" },
+      { kind: "tag", pattern: "^[ \\t]*(?:[-*+]|\\d+[.)])(?=[ \\t])" },
+      { kind: "str", pattern: "`[^`\\n]+`" },
+      { kind: "key", pattern: "!?\\[[^\\]\\n]*\\]\\([^)\\n]*\\)" },
+      { kind: "deco", pattern: "\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__" },
+      { kind: "meta", pattern: "^[ \\t]*\\|?(?:[ \\t]*:?-{3,}:?[ \\t]*\\|)+[^\\n]*" }
+    ] },
     cfg: { line: ["#", ";"], strings: [`"`, `'`], vars: true, kw: [] },
     cstyle: { line: ["//"], block: ["/*", "*/"], strings: [`"`, `'`], deco: true, namedTypes: true, kw: KW_JS.split(" "), kwCats: CATS_JS },
     css: { block: ["/*", "*/"], strings: [`"`, `'`], kw: [] },
@@ -895,7 +928,50 @@
     xml: "html",
     yaml: "yaml",
     yml: "yaml",
-    toml: "toml"
+    toml: "toml",
+    json: "json",
+    json5: "json",
+    geojson: "json",
+    http: "http",
+    md: "md",
+    mdx: "md",
+    markdown: "md"
+  };
+  var FENCE_ALIAS = {
+    javascript: "js",
+    typescript: "ts",
+    node: "js",
+    python: "py",
+    python3: "py",
+    py3: "py",
+    ruby: "rb",
+    shell: "sh",
+    shellscript: "sh",
+    console: "sh",
+    terminal: "sh",
+    ps: "sh",
+    golang: "go",
+    rust: "rs",
+    kotlin: "kt",
+    csharp: "cs",
+    "c++": "cpp",
+    "c#": "cs",
+    objc: "c",
+    postgres: "sql",
+    postgresql: "sql",
+    psql: "sql",
+    mysql: "sql",
+    sqlite: "sql",
+    plpgsql: "sql",
+    https: "http",
+    rest: "http",
+    svg: "xml",
+    docker: "dockerfile",
+    make: "makefile",
+    dotenv: "env",
+    properties: "ini",
+    cfg: "ini",
+    patch: "diff"
   };
   function reEsc(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -916,7 +992,7 @@
     }
     if (lang.vars) rules.push({ kind: "var", pattern: "\\$\\{[^}\\n]*\\}?|\\$[\\w@#?!*-]+" });
     if (lang.deco) rules.push({ kind: "deco", pattern: "@[A-Za-z_][\\w.]*" });
-    rules.push({ kind: "num", pattern: "\\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:[eE][+-]?\\d+)?)\\b" });
+    if (!lang.prose) rules.push({ kind: "num", pattern: "\\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:[eE][+-]?\\d+)?)\\b" });
     rules.push({ kind: "word", pattern: "[A-Za-z_$][\\w$]*" });
     return rules;
   }
@@ -943,7 +1019,8 @@
     meta: "tok-cmt"
   };
   function highlightCode(src, ext2) {
-    const langKey = EXT_LANG[ext2.toLowerCase()] ?? "plain";
+    const key = ext2.toLowerCase();
+    const langKey = EXT_LANG[FENCE_ALIAS[key] ?? key] ?? "plain";
     const lang = LANGS[langKey];
     if (langKey === "plain") return esc(src);
     const wmap = wordClasses(lang);
@@ -966,7 +1043,7 @@
         const declaration = /\b(?:function|def|func|fn)\s+$/.test(before);
         const call2 = /^\s*\(/.test(src.slice(last, last + 12));
         const type = lang.namedTypes && /^[A-Z]/.test(m[0]) && /(?:\bnew|\bextends|\bimplements|[:<,])\s*$/.test(before);
-        const cls = wmap.get(m[0]) ?? (declaration || call2 ? "tok-fn" : type ? "tok-type" : void 0);
+        const cls = wmap.get(lang.caseless ? m[0].toLowerCase() : m[0]) ?? (declaration || call2 ? "tok-fn" : type ? "tok-type" : void 0);
         out += cls ? `<span class="${cls}">${text}</span>` : text;
       } else if (kind) out += `<span class="${KIND_CLASS[kind]}">${text}</span>`;
       else out += text;
@@ -1209,10 +1286,47 @@
     out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
     return out.replace(/\uE000(\d+)\uE001/g, (_m, index) => htmlTags[Number(index)]);
   }
+  var BARE_URL = /\b(?:https?|file):\/\/[^\s<>"'`]+/gi;
+  function trimUrl(url) {
+    let u = url.replace(/[.,;:!?*_]+$/, "");
+    for (const [open, close] of [["(", ")"], ["[", "]"]]) {
+      while (u.endsWith(close) && u.split(open).length < u.split(close).length) u = u.slice(0, -1).replace(/[.,;:!?*_]+$/, "");
+    }
+    return u;
+  }
+  function linkBareUrls(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    for (const node of textNodes) {
+      if (node.parentElement?.closest("a, pre, svg, style, script")) continue;
+      const value = node.textContent || "";
+      BARE_URL.lastIndex = 0;
+      if (!BARE_URL.test(value)) continue;
+      BARE_URL.lastIndex = 0;
+      const replacement = document.createDocumentFragment();
+      let cursor = 0;
+      for (const m of value.matchAll(BARE_URL)) {
+        const url = trimUrl(m[0]);
+        const start = m.index ?? 0;
+        replacement.append(value.slice(cursor, start));
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = url;
+        replacement.append(link);
+        cursor = start + url.length;
+      }
+      replacement.append(value.slice(cursor));
+      node.parentNode?.replaceChild(replacement, node);
+    }
+  }
   function linkLocalPaths(html) {
-    if (!html.includes("/Users/alcatraz627")) return html;
+    if (!html.includes("/Users/alcatraz627") && !/(?:https?|file):\/\//i.test(html)) return html;
     const template = document.createElement("template");
     template.innerHTML = html;
+    linkBareUrls(template.content);
     const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_TEXT);
     const textNodes = [];
     while (walker.nextNode()) textNodes.push(walker.currentNode);
@@ -3041,6 +3155,10 @@ ${body}
       body.innerHTML = renderJsonTree(text);
       return;
     }
+    if (ext2 === "html" || ext2 === "htm") {
+      renderHtml(body, text);
+      return;
+    }
     if (ext2 === "md" || ext2 === "mdx") {
       body.innerHTML = renderMarkdown(text, currentEntry?.href ?? "");
       body.querySelectorAll("a[href]:not(.fe-md-anchor)").forEach((a) => {
@@ -3052,6 +3170,17 @@ ${body}
     }
     body.innerHTML = renderCode(text, ext2);
     restoreScroll(body);
+  }
+  var htmlSource = false;
+  function renderHtml(body, text) {
+    const btn = (v, label, on) => `<button class="fe-pbn${on ? " on" : ""}" data-v="${v}" title="${v === "page" ? "Show the rendered page" : "Show the HTML source"}">${label}</button>`;
+    body.innerHTML = `<div class="fe-ql-htmlbar">${btn("page", "Page", !htmlSource)}${btn("src", "Source", htmlSource)}</div>` + (htmlSource ? renderCode(text, "html") : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>');
+    const frame = body.querySelector("iframe.fe-ql-html");
+    if (frame) frame.srcdoc = `<base href="${esc(currentEntry?.href ?? "")}" target="_blank">${text}`;
+    body.querySelectorAll(".fe-ql-htmlbar button").forEach((b) => b.addEventListener("click", () => {
+      htmlSource = b.dataset.v === "src";
+      renderHtml(body, text);
+    }));
   }
   function restoreScroll(body) {
     const top = currentEntry ? scrollMemo.get(currentEntry.href) : void 0;
@@ -3552,6 +3681,11 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-fp-toc:hover,#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
 #fe-fp-toc.on,#fe-fp-column.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-toc a.on{color:var(--ac);border-left:2px solid var(--ac);padding-left:12px}
+#fe-side.fe-side-split{display:flex;flex-direction:column;overflow:hidden;padding:0}
+#fe-side-toc{flex:0 1 auto;max-height:50%;min-height:0;overflow-y:auto;border-bottom:1px solid var(--bd);padding:6px 0;position:relative}
+#fe-side-toc:has(> #fe-toc[style*="none"]){display:none}
+#fe-side-toc #fe-toc{width:auto;border:0;background:none;padding:0;overflow:visible}
+#fe-side-rest{flex:1;min-height:0;overflow-y:auto;padding:6px 0}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);margin-right:auto;white-space:nowrap}
 #fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:calc(11px * var(--ui-text-scale,1));padding:3px 8px;border-radius:5px}
@@ -3648,6 +3782,10 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:calc(13px * var(--ui-text-scale,1));padding:3px 7px;border-radius:4px;line-height:1}
 #fe-ql-close:hover{background:var(--hover);color:var(--tx)}
 #fe-ql-body{flex:1;overflow:auto;font-size:calc(12px * var(--ui-text-scale,1))}
+#fe-ql-body:has(> .fe-ql-htmlbar){display:flex;flex-direction:column}
+.fe-ql-htmlbar{display:flex;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);flex:none}
+.fe-ql-htmlbar .fe-pbn.on{border-color:var(--ac);color:var(--ac)}
+.fe-ql-html{flex:1;min-height:0;width:100%;border:0;background:#fff}
 /* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
 #fe-ql-body .fe-md{font-size:calc(15px * var(--ui-text-scale,1));line-height:var(--rd-lh,1.65)}
 #fe-ql-body .fe-md code{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
@@ -3884,7 +4022,18 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       if (h.getBoundingClientRect().top <= top) current = h;
       else break;
     }
-    toc.querySelectorAll("a").forEach((a) => a.classList.toggle("on", !!current && a.dataset.id === current.id));
+    let on = null;
+    toc.querySelectorAll("a").forEach((a) => {
+      const hit = !!current && a.dataset.id === current.id;
+      a.classList.toggle("on", hit);
+      if (hit) on = a;
+    });
+    const box = toc.closest("#fe-side-toc") ?? toc;
+    const row = on;
+    if (row) {
+      const r = row.getBoundingClientRect(), b = box.getBoundingClientRect();
+      if (r.top < b.top || r.bottom > b.bottom) box.scrollTop += r.top - b.top - box.clientHeight / 3;
+    }
   }
   function scrollMemory() {
     try {
@@ -3928,6 +4077,18 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     let tocOpen = localStorage.getItem(TOC_KEY) !== "0";
     let column = savedColumnMode(opts.column);
     const fe = document.getElementById("fe");
+    const side = document.getElementById("fe-side");
+    if (isMd && side && side.style.display !== "none") {
+      const rest = document.createElement("div");
+      rest.id = "fe-side-rest";
+      while (side.firstChild) rest.appendChild(side.firstChild);
+      const top = document.createElement("div");
+      top.id = "fe-side-toc";
+      top.innerHTML = '<div class="fe-sh"><span class="fe-sh-label">Contents</span></div>';
+      top.appendChild(toc);
+      side.append(top, rest);
+      side.classList.add("fe-side-split");
+    }
     meta.textContent = fmtSize(new Blob([text]).size);
     const paint = () => {
       for (const mode of COLUMN_MODES) fe.classList.toggle(`fe-column-${mode}`, column === mode);
@@ -3941,7 +4102,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     };
     const render2 = () => {
       const top = page.scrollTop;
-      page.innerHTML = raw ? renderCode(text, "txt") : renderBody(text, ext2, href);
+      page.innerHTML = raw ? renderCode(text, JSONL_EXTS.has(ext2) ? "json" : ext2) : renderBody(text, ext2, href);
       if (!raw && isMd) buildToc(page, toc, tocOpen);
       else toc.style.display = "none";
       page.scrollTop = top;
@@ -4188,7 +4349,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     function goTab(id) {
       const t = state.list.find((x) => x.id === id);
       if (!t) return;
-      commit(activate(state, id));
+      const s = t.path !== rawPath && rawPath && !hereIn(state) ? openTab(state, rawPath, true) : state;
+      commit(activate(s, id));
       if (t.path !== rawPath) location.href = hrefFor(t);
     }
     function closeHere() {
@@ -4661,8 +4823,9 @@ Everything is stored on your machine, in the browser, and nothing leaves it.
   JSON file in **Settings \u2192 Data**.
 - **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
   survives refresh and navigation. A copy in \`chrome.storage.local\`, keyed by a
-  per-tab id, lets a fresh Chrome tab bring back a strip closed within the last
-  day, with an undo.
+  per-tab id, can bring back a strip closed within the last day when
+  **Settings \u2192 Restore closed strips** is on (off by default). The sidebar's
+  **Recent** section lists the files and folders you opened lately instead.
 - **Reading choices** (the column toggle, the ToC, a file page's scroll
   position) live in localStorage, so they persist across reloads.
 
@@ -5101,7 +5264,7 @@ seconds and re-renders when the file changes on disk.
           </div>
           <div class="fe-st-row">
             <span class="fe-st-lbl">Sidebar sections</span>
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Folders you visited lately"> Recent</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Files and folders you opened lately"> Recent</label>
             <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-favorites" title="Finder Favorites"> Favorites</label>
             <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-system" title="Root and Home"> System</label>
           </div>
@@ -7393,7 +7556,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-st-tooltips").checked = settings.tooltips !== false;
       el("fe-st-panel").value = getPreviewLayout().mode;
       el("fe-st-click").value = settings.clickOpens || "look";
-      el("fe-st-strip-restore").checked = settings.stripRestore !== false;
+      el("fe-st-strip-restore").checked = settings.stripRestore === true;
       el("fe-st-rd-column").value = savedColumnMode(settings.readerColumn);
       el("fe-st-uiscale").value = String(settings.uiScale || 100);
       el("fe-st-rd-size").value = String(settings.readerSize || 15);
@@ -7789,8 +7952,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const initView = getView();
     const initTheme = getTheme();
     const initHidden = getShowHidden();
-    const recents = getRecents().filter((r) => r.path !== folderPath).slice(0, 6);
-    pushRecent(folderPath);
+    const recents = getRecents().filter((r) => r.path !== rawPath).slice(0, 10);
+    pushRecent(rawPath);
     const recentsHTML = recents.length ? `
       <div class="fe-sec" data-sec="recent" data-collapse="recent"${settings.hideRecent ? ' style="display:none"' : ""}>
         <div class="fe-sh"><span class="fe-sh-label">Recent</span></div>
@@ -7880,7 +8043,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       app.strip.open(path, true);
       app.toast("Kept as a tab");
     }, saveError: (message) => app.toast(message), toast: (message) => app.toast(message) });
-    app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore !== false });
+    app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore === true });
     if (fileMode) {
       app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href: location.href, column: settings.readerColumn });
       if (isHtmlSource) fetchFileText(location.href).then((text) => app.filePage?.setText(text)).catch(() => {

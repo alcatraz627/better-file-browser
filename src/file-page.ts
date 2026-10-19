@@ -77,7 +77,15 @@ function spy(page: HTMLElement, toc: HTMLElement): void {
   const top = page.getBoundingClientRect().top + 40;
   let current: HTMLElement | null = null;
   for (const h of heads) { if (h.getBoundingClientRect().top <= top) current = h; else break; }
-  toc.querySelectorAll<HTMLElement>('a').forEach(a => a.classList.toggle('on', !!current && a.dataset.id === current.id));
+  let on: HTMLElement | null = null;
+  toc.querySelectorAll<HTMLElement>('a').forEach(a => { const hit = !!current && a.dataset.id === current.id; a.classList.toggle('on', hit); if (hit) on = a; });
+  // Keep the marked row in view inside whichever box holds the contents.
+  const box = toc.closest<HTMLElement>('#fe-side-toc') ?? toc;
+  const row = on as HTMLElement | null;
+  if (row) {
+    const r = row.getBoundingClientRect(), b = box.getBoundingClientRect();
+    if (r.top < b.top || r.bottom > b.bottom) box.scrollTop += r.top - b.top - box.clientHeight / 3;
+  }
 }
 
 function scrollMemory(): Record<string, number> {
@@ -126,6 +134,22 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   let column = savedColumnMode(opts.column);
   const fe = document.getElementById('fe')!;
 
+  // A markdown page's contents take the top half of the sidebar, so the
+  // headings and the saved places sit in one column. With the sidebar hidden
+  // the contents stay as a rail beside the page.
+  const side = document.getElementById('fe-side');
+  if (isMd && side && side.style.display !== 'none') {
+    const rest = document.createElement('div');
+    rest.id = 'fe-side-rest';
+    while (side.firstChild) rest.appendChild(side.firstChild);
+    const top = document.createElement('div');
+    top.id = 'fe-side-toc';
+    top.innerHTML = '<div class="fe-sh"><span class="fe-sh-label">Contents</span></div>';
+    top.appendChild(toc);
+    side.append(top, rest);
+    side.classList.add('fe-side-split');
+  }
+
   meta.textContent = fmtSize(new Blob([text]).size);
   const paint = () => {
     for (const mode of COLUMN_MODES) fe.classList.toggle(`fe-column-${mode}`, column === mode);
@@ -139,7 +163,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   };
   const render = () => {
     const top = page.scrollTop;
-    page.innerHTML = raw ? renderCode(text, 'txt') : renderBody(text, ext, href);
+    page.innerHTML = raw ? renderCode(text, JSONL_EXTS.has(ext) ? 'json' : ext) : renderBody(text, ext, href);
     if (!raw && isMd) buildToc(page, toc, tocOpen); else toc.style.display = 'none';
     page.scrollTop = top;
     rawBtn.classList.toggle('on', raw);

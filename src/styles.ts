@@ -492,6 +492,11 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-fp-toc:hover,#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
 #fe-fp-toc.on,#fe-fp-column.on{border-color:var(--ac);color:var(--ac);background:var(--act)}
 #fe-toc a.on{color:var(--ac);border-left:2px solid var(--ac);padding-left:12px}
+#fe-side.fe-side-split{display:flex;flex-direction:column;overflow:hidden;padding:0}
+#fe-side-toc{flex:0 1 auto;max-height:50%;min-height:0;overflow-y:auto;border-bottom:1px solid var(--bd);padding:6px 0;position:relative}
+#fe-side-toc:has(> #fe-toc[style*="none"]){display:none}
+#fe-side-toc #fe-toc{width:auto;border:0;background:none;padding:0;overflow:visible}
+#fe-side-rest{flex:1;min-height:0;overflow-y:auto;padding:6px 0}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);margin-right:auto;white-space:nowrap}
 #fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:calc(11px * var(--ui-text-scale,1));padding:3px 8px;border-radius:5px}
@@ -588,6 +593,10 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-ql-close{background:none;border:none;color:var(--dm);cursor:pointer;font-size:calc(13px * var(--ui-text-scale,1));padding:3px 7px;border-radius:4px;line-height:1}
 #fe-ql-close:hover{background:var(--hover);color:var(--tx)}
 #fe-ql-body{flex:1;overflow:auto;font-size:calc(12px * var(--ui-text-scale,1))}
+#fe-ql-body:has(> .fe-ql-htmlbar){display:flex;flex-direction:column}
+.fe-ql-htmlbar{display:flex;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);flex:none}
+.fe-ql-htmlbar .fe-pbn.on{border-color:var(--ac);color:var(--ac)}
+.fe-ql-html{flex:1;min-height:0;width:100%;border:0;background:#fff}
 /* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
 #fe-ql-body .fe-md{font-size:calc(15px * var(--ui-text-scale,1));line-height:var(--rd-lh,1.65)}
 #fe-ql-body .fe-md code{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}

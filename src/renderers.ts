@@ -49,6 +49,8 @@ interface LangDef {
   deco?:    boolean;             // highlight @decorator / @Annotation
   regexLiterals?: boolean;
   namedTypes?: boolean;
+  caseless?: boolean;            // keywords match in any case (SQL)
+  prose?: boolean;               // running text: leave bare numbers uncoloured
   special?: Rule[];
   kw:       string[];            // generic keywords (→ tok-kw)
   kwCats?: {                     // overlays on kw: words here get a richer class
@@ -79,7 +81,7 @@ function wordClasses(lang: LangDef): Map<string, string> {
 const KW_SH = 'if then elif else fi for while until do done case esac in function select local export readonly declare unset return exit break continue shift eval exec source alias trap set echo printf read cd test true false';
 const KW_JS = 'const let var function return if else for while do switch case break continue new class extends super this typeof instanceof in of import export from default async await yield try catch finally throw delete void null undefined true false interface type enum implements private public protected readonly static namespace declare as is keyof never unknown any string number boolean object symbol';
 const KW_PY = 'def class return if elif else for while break continue pass import from as with lambda try except finally raise yield global nonlocal assert del in is not and or None True False async await match self';
-const KW_SQL = 'select from where insert into update delete join left right inner outer on group by order having limit offset create table drop alter index view as and or not null primary key foreign references distinct union all values set';
+const KW_SQL = 'select from where insert into update delete join left right inner outer full cross on using group by order having limit offset create table drop alter add column index view as and or not null primary key foreign references distinct union all values set default check constraint unique case when then else end exists between like ilike in is with returning interval asc desc cascade if replace begin commit rollback grant';
 const KW_GO = 'func package import return if else for range switch case break continue defer go chan select map struct interface type var const nil true false make new len cap append';
 const KW_RS = 'fn let mut pub use mod struct enum impl trait return if else for while loop match break continue ref self Self crate super move async await dyn where unsafe true false Some None Ok Err';
 const KW_GQL = 'query mutation subscription fragment on type interface union enum input scalar directive schema implements extend true false null';
@@ -108,8 +110,9 @@ const CATS_RS = {
   lit: sp('true false Some None Ok Err self Self'),
 };
 const CATS_SQL = {
-  ctrl: sp('select from where insert into update delete join on group by order having limit union'),
-  type: sp('table view index'),
+  ctrl: sp('select from where insert into update delete join on group by order having limit union with returning case when then else end'),
+  type: sp('table view index text varchar char int integer bigint smallint serial bigserial boolean bool numeric decimal real float double precision date time timestamp timestamptz interval json jsonb uuid bytea'),
+  builtin: sp('count sum avg min max coalesce now array_agg jsonb_build_object'),
   lit: sp('null true false'),
 };
 
@@ -127,7 +130,23 @@ const LANGS: Record<string, LangDef> = {
   go:     { line: ['//'], block: ['/*', '*/'], strings: [`"`, '`'], tickML: true, namedTypes: true, kw: KW_GO.split(' '), kwCats: CATS_GO },
   rs:     { line: ['//'], block: ['/*', '*/'], strings: [], namedTypes: true, kw: KW_RS.split(' '), kwCats: CATS_RS,
             strRules: ['r#+"[\\s\\S]*?"#+', 'r"[^"\\n]*"', 'b?"(?:\\\\.|[^"\\\\\\n])*"'] },
-  sql:    { line: ['--'], block: ['/*', '*/'], strings: [`'`, `"`], kw: KW_SQL.split(' '), kwCats: CATS_SQL },
+  sql:    { line: ['--'], block: ['/*', '*/'], strings: [`'`, `"`], caseless: true, kw: KW_SQL.split(' '), kwCats: CATS_SQL,
+            special: [{ kind: 'var', pattern: '(?<!:):[A-Za-z_]\\w*|\\$\\d+' }] },
+  json:   { strings: [`"`], kw: [], kwCats: { lit: sp('true false null') },
+            special: [{ kind: 'key', pattern: '"(?:\\\\.|[^"\\\\\\n])*"(?=[ \\t]*:)' }] },
+  http:   { line: ['#'], strings: [`"`], kw: sp('GET POST PUT PATCH DELETE HEAD OPTIONS HTTP'), kwCats: { lit: sp('true false null') },
+            special: [{ kind: 'key', pattern: '^[A-Za-z][\\w-]*(?=:[ \\t])' }, { kind: 'key', pattern: '"(?:\\\\.|[^"\\\\\\n])*"(?=[ \\t]*:)' }] },
+  md:     { strings: [], kw: [], prose: true, special: [
+              { kind: 'cmt', pattern: '<!--[\\s\\S]*?(?:-->|$)' },
+              { kind: 'meta', pattern: '^[ \\t]*(?:```|~~~)[^\\n]*' },
+              { kind: 'section', pattern: '^#{1,6}[ \\t][^\\n]*' },
+              { kind: 'cmt', pattern: '^>[^\\n]*' },
+              { kind: 'tag', pattern: '^[ \\t]*(?:[-*+]|\\d+[.)])(?=[ \\t])' },
+              { kind: 'str', pattern: '`[^`\\n]+`' },
+              { kind: 'key', pattern: '!?\\[[^\\]\\n]*\\]\\([^)\\n]*\\)' },
+              { kind: 'deco', pattern: '\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__' },
+              { kind: 'meta', pattern: '^[ \\t]*\\|?(?:[ \\t]*:?-{3,}:?[ \\t]*\\|)+[^\\n]*' },
+            ] },
   cfg:    { line: ['#', ';'], strings: [`"`, `'`], vars: true, kw: [] },
   cstyle: { line: ['//'], block: ['/*', '*/'], strings: [`"`, `'`], deco: true, namedTypes: true, kw: KW_JS.split(' '), kwCats: CATS_JS },
   css:    { block: ['/*', '*/'], strings: [`"`, `'`], kw: [] },
@@ -168,6 +187,17 @@ const EXT_LANG: Record<string, string> = {
   jsonc: 'jsonc', graphql: 'graphql', gql: 'graphql', proto: 'proto',
   html: 'html', htm: 'html', xml: 'html',
   yaml: 'yaml', yml: 'yaml', toml: 'toml',
+  json: 'json', json5: 'json', geojson: 'json', http: 'http', md: 'md', mdx: 'md', markdown: 'md',
+};
+
+// Code-fence labels people actually write, mapped to the extension the
+// table above knows. Unlisted labels fall through to the label itself.
+const FENCE_ALIAS: Record<string, string> = {
+  javascript: 'js', typescript: 'ts', node: 'js', python: 'py', python3: 'py', py3: 'py', ruby: 'rb',
+  shell: 'sh', shellscript: 'sh', console: 'sh', terminal: 'sh', ps: 'sh', golang: 'go', rust: 'rs',
+  kotlin: 'kt', csharp: 'cs', 'c++': 'cpp', 'c#': 'cs', objc: 'c', postgres: 'sql', postgresql: 'sql',
+  psql: 'sql', mysql: 'sql', sqlite: 'sql', plpgsql: 'sql', https: 'http', rest: 'http', svg: 'xml',
+  docker: 'dockerfile', make: 'makefile', dotenv: 'env', properties: 'ini', cfg: 'ini', patch: 'diff',
 };
 
 function reEsc(s: string): string {
@@ -199,7 +229,7 @@ function buildRules(lang: LangDef): Rule[] {
   }
   if (lang.vars) rules.push({ kind: 'var', pattern: '\\$\\{[^}\\n]*\\}?|\\$[\\w@#?!*-]+' });
   if (lang.deco) rules.push({ kind: 'deco', pattern: '@[A-Za-z_][\\w.]*' });
-  rules.push({ kind: 'num',  pattern: '\\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:[eE][+-]?\\d+)?)\\b' });
+  if (!lang.prose) rules.push({ kind: 'num',  pattern: '\\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|\\d[\\d_]*(?:\\.\\d[\\d_]*)?(?:[eE][+-]?\\d+)?)\\b' });
   rules.push({ kind: 'word', pattern: '[A-Za-z_$][\\w$]*' });
   return rules;
 }
@@ -221,7 +251,8 @@ const KIND_CLASS: Partial<Record<TokKind, string>> = {
  * tok-num / tok-var). Unknown extensions come back as escaped plain text.
  */
 export function highlightCode(src: string, ext: string): string {
-  const langKey = EXT_LANG[ext.toLowerCase()] ?? 'plain';
+  const key = ext.toLowerCase();
+  const langKey = EXT_LANG[FENCE_ALIAS[key] ?? key] ?? 'plain';
   const lang = LANGS[langKey];
   if (langKey === 'plain') return esc(src);
   const wmap = wordClasses(lang);
@@ -241,7 +272,7 @@ export function highlightCode(src: string, ext: string): string {
       const declaration = /\b(?:function|def|func|fn)\s+$/.test(before);
       const call = /^\s*\(/.test(src.slice(last, last + 12));
       const type = lang.namedTypes && /^[A-Z]/.test(m[0]) && /(?:\bnew|\bextends|\bimplements|[:<,])\s*$/.test(before);
-      const cls = wmap.get(m[0]) ?? (declaration || call ? 'tok-fn' : type ? 'tok-type' : undefined);
+      const cls = wmap.get(lang.caseless ? m[0].toLowerCase() : m[0]) ?? (declaration || call ? 'tok-fn' : type ? 'tok-type' : undefined);
       out += cls ? `<span class="${cls}">${text}</span>` : text;
     }
     else if (kind)         out += `<span class="${KIND_CLASS[kind]}">${text}</span>`;
@@ -456,10 +487,53 @@ export function mdInline(s: string, baseUrl = ''): string {
   return out.replace(/\uE000(\d+)\uE001/g, (_m, index) => htmlTags[Number(index)]);
 }
 
+// Bare web and file:// addresses in prose become links, the way GitHub and
+// most readers treat them. Trailing sentence punctuation stays outside the
+// link, and a closing bracket only belongs to the URL when it opened one.
+const BARE_URL = /\b(?:https?|file):\/\/[^\s<>"'`]+/gi;
+
+function trimUrl(url: string): string {
+  let u = url.replace(/[.,;:!?*_]+$/, '');
+  for (const [open, close] of [['(', ')'], ['[', ']']]) {
+    while (u.endsWith(close) && u.split(open).length < u.split(close).length) u = u.slice(0, -1).replace(/[.,;:!?*_]+$/, '');
+  }
+  return u;
+}
+
+function linkBareUrls(root: DocumentFragment): void {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+  for (const node of textNodes) {
+    if (node.parentElement?.closest('a, pre, svg, style, script')) continue;
+    const value = node.textContent || '';
+    BARE_URL.lastIndex = 0;
+    if (!BARE_URL.test(value)) continue;
+    BARE_URL.lastIndex = 0;
+    const replacement = document.createDocumentFragment();
+    let cursor = 0;
+    for (const m of value.matchAll(BARE_URL)) {
+      const url = trimUrl(m[0]);
+      const start = m.index ?? 0;
+      replacement.append(value.slice(cursor, start));
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = url;
+      replacement.append(link);
+      cursor = start + url.length;
+    }
+    replacement.append(value.slice(cursor));
+    node.parentNode?.replaceChild(replacement, node);
+  }
+}
+
 function linkLocalPaths(html: string): string {
-  if (!html.includes('/Users/alcatraz627')) return html;
+  if (!html.includes('/Users/alcatraz627') && !/(?:https?|file):\/\//i.test(html)) return html;
   const template = document.createElement('template');
   template.innerHTML = html;
+  linkBareUrls(template.content);
   const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_TEXT);
   const textNodes: Text[] = [];
   while (walker.nextNode()) textNodes.push(walker.currentNode as Text);

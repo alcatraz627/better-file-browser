@@ -89,7 +89,7 @@ export function getRecents(): RecentDir[] {
 export function pushRecent(path: string): void {
   const list = getRecents().filter(r => r.path !== path);
   list.unshift({ path, ts: Date.now() });
-  localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 8)));
+  localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 20)));
 }
 
 export function getColWidths(): Record<string, number> {

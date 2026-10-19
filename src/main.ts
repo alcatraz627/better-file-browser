@@ -67,9 +67,10 @@ import { initMarkdownUi } from './md-ui';
   const initHidden = getShowHidden();
 
   // Snapshot history BEFORE recording this visit so the list shown
-  // excludes the folder we're in.
-  const recents = getRecents().filter(r => r.path !== folderPath).slice(0, 6);
-  pushRecent(folderPath);
+  // excludes the folder or file we're on. Files count as visits too, so a
+  // doc read yesterday is one click away without restoring a whole strip.
+  const recents = getRecents().filter(r => r.path !== rawPath).slice(0, 10);
+  pushRecent(rawPath);
   const recentsHTML = recents.length ? `
       <div class="fe-sec" data-sec="recent" data-collapse="recent"${settings.hideRecent ? ' style="display:none"' : ''}>
         <div class="fe-sh"><span class="fe-sh-label">Recent</span></div>
@@ -123,7 +124,7 @@ import { initMarkdownUi } from './md-ui';
   initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); }, saveError: message => app.toast(message), toast: message => app.toast(message) });
   // The strip: this Chrome tab's working set. Navigation is real, so the
   // address bar is always the active tab's location.
-  app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore !== false });
+  app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore === true });
   if (fileMode) {
     app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href: location.href, column: settings.readerColumn });
     if (isHtmlSource) fetchFileText(location.href).then(text => app.filePage?.setText(text)).catch(() => {

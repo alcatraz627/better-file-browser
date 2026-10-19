@@ -80,6 +80,45 @@ describe('highlightCode', () => {
     expect(html).toContain('<span class="tok-builtin">echo</span>');   // echo is a shell builtin (P1 categories)
   });
 
+  it('colours uppercase SQL keywords, types and bind parameters', () => {
+    const html = highlightCode("SELECT sku FROM parts WHERE updated_at > :watermark - interval '5 minutes';\nCREATE TABLE t (id bigserial PRIMARY KEY, p jsonb NOT NULL);", 'sql');
+    expect(html).toContain('<span class="tok-kw-ctrl">SELECT</span>');
+    expect(html).toContain('<span class="tok-kw">CREATE</span>');
+    expect(html).toContain('<span class="tok-type">bigserial</span>');
+    expect(html).toContain('<span class="tok-type">jsonb</span>');
+    expect(html).toContain('<span class="tok-var">:watermark</span>');
+  });
+
+  it('maps common fence labels to their language', () => {
+    expect(highlightCode('const a = 1', 'typescript')).toContain('tok-kw');
+    expect(highlightCode('def f(): pass', 'python')).toContain('tok-kw');
+    expect(highlightCode('echo $HOME', 'console')).toContain('tok-var');
+    expect(highlightCode('select 1', 'postgres')).toContain('tok-kw-ctrl');
+  });
+
+  it('colours JSON keys apart from string values', () => {
+    const html = highlightCode('{ "url": "https://a.com", "n": 2, "ok": true }', 'json');
+    expect(html).toContain('<span class="tok-key">&quot;url&quot;</span>');
+    expect(html).toContain('<span class="tok-str">&quot;https://a.com&quot;</span>');
+    expect(html).toContain('<span class="tok-num">2</span>');
+    expect(html).toContain('<span class="tok-lit">true</span>');
+  });
+
+  it('colours an HTTP request line, headers and JSON body', () => {
+    const html = highlightCode('POST /v1/x?a=1\nAPI-Token: abc\n{ "Price": 44.99 }', 'http');
+    expect(html).toContain('<span class="tok-kw">POST</span>');
+    expect(html).toContain('<span class="tok-key">API-Token</span>');
+    expect(html).toContain('<span class="tok-key">&quot;Price&quot;</span>');
+  });
+
+  it('colours markdown structure but not bare numbers in prose', () => {
+    const html = highlightCode('# Title\n- item 42 with `code` and [a](b.md)', 'md');
+    expect(html).toContain('<span class="tok-section"># Title</span>');
+    expect(html).toContain('<span class="tok-str">`code`</span>');
+    expect(html).toContain('<span class="tok-key">[a](b.md)</span>');
+    expect(html).not.toContain('tok-num');
+  });
+
   it('does not treat # inside a shell string as a comment', () => {
     const html = highlightCode('echo "a # b"', 'sh');
     expect(html).not.toContain('tok-cmt');
@@ -323,6 +362,17 @@ describe('renderMarkdown', () => {
     expect(html.match(/<a /g)?.length).toBe(1);
     expect(html).toContain('href="file:///Users/alcatraz627/a.md" target="_blank"');
     expect(html).toContain('/Users/alcatraz627/b.md</pre>');
+  });
+  it('links bare web and file:// addresses in prose and table cells', () => {
+    const html = renderMarkdown('Docs: https://docs.devin.ai/integrations/slack.\n\n| A | B |\n|---|---|\n| x | https://a.com/x and (https://en.wikipedia.org/wiki/Foo_(bar)) |\n\nOpen file:///Users/alcatraz627/a%20b.md now');
+    expect(html).toContain('<a href="https://docs.devin.ai/integrations/slack" target="_blank" rel="noopener">https://docs.devin.ai/integrations/slack</a>.');
+    expect(html).toContain('href="https://a.com/x"');
+    expect(html).toContain('>https://en.wikipedia.org/wiki/Foo_(bar)</a>)');
+    expect(html).toContain('href="file:///Users/alcatraz627/a%20b.md"');
+  });
+  it('leaves bare URLs in fenced code and explicit links alone', () => {
+    const html = renderMarkdown('[site](https://a.com)\n\n```\nhttps://b.com\n```');
+    expect(html.match(/<a /g)?.length).toBe(1);
   });
   it('renders whitelisted raw HTML blocks instead of escaping them', () => {
     const html = renderMarkdown('<div align="center">\n<img src="logo.svg" width="320">\n<strong>Tagline</strong>\n</div>');

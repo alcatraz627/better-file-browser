@@ -60,7 +60,7 @@ export function initSettingsUi(app: App): void {
     el<HTMLInputElement>('fe-st-tooltips').checked = settings.tooltips !== false;
     el<HTMLSelectElement>('fe-st-panel').value = getPreviewLayout().mode;
     el<HTMLSelectElement>('fe-st-click').value = settings.clickOpens || 'look';
-    el<HTMLInputElement>('fe-st-strip-restore').checked = settings.stripRestore !== false;
+    el<HTMLInputElement>('fe-st-strip-restore').checked = settings.stripRestore === true;
     el<HTMLSelectElement>('fe-st-rd-column').value = savedColumnMode(settings.readerColumn);
     el<HTMLSelectElement>('fe-st-uiscale').value = String(settings.uiScale || 100);
     el<HTMLSelectElement>('fe-st-rd-size').value = String(settings.readerSize || 15);

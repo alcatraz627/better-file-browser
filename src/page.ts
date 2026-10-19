@@ -103,7 +103,7 @@ export function renderPage(p: PageParams): string {
           </div>
           <div class="fe-st-row">
             <span class="fe-st-lbl">Sidebar sections</span>
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Folders you visited lately"> Recent</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Files and folders you opened lately"> Recent</label>
             <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-favorites" title="Finder Favorites"> Favorites</label>
             <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-system" title="Root and Home"> System</label>
           </div>
