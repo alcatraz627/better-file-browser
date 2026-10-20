@@ -25,6 +25,7 @@ import { initSettingsUi } from './settings-ui';
 import { initMarkdownUi } from './md-ui';
 import { loadKv } from './kv';
 import { initTooltips } from './tooltip';
+import { installColumnResize } from './col-resize';
 
 // Tab sets from Chrome tabs closed in the last day, as rows under Recent. A
 // click adds that set's tabs to this strip; nothing is restored on its own.
@@ -188,6 +189,7 @@ loadKv().catch(() => {}).then(function () {
 
   initChrome(app);
   initMarkdownUi(app.toast);
+  installColumnResize();
   const listing = initListing(app, entries, { view: initView, zoom: initZoom, hidden: initHidden });
   initListingInput(app, listing);
   initSettingsUi(app);

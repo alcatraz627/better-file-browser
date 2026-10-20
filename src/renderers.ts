@@ -4,6 +4,7 @@
 import { esc } from './utils';
 import { CHEVRON_DOWN } from './icons';
 import { UI_ICON } from './control-icons';
+import { COL_HANDLE } from './col-resize';
 
 export const CODE_EXTS = new Set([
   'sh', 'bash', 'zsh', 'fish', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
@@ -373,12 +374,12 @@ export function renderDSVTable(header: string[], dataRows: string[][], numCols: 
   }
   const ths = header.map((h, i) => {
     const arrow = sort?.col === i ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : '';
-    return `<th data-col="${i}" class="${numCols.has(i) ? 'num' : ''}${sort?.col === i ? ' sorted' : ''}" title="Click to sort">${esc(h)}${arrow}</th>`;
+    return `<th data-col="${i}" class="${numCols.has(i) ? 'num' : ''}${sort?.col === i ? ' sorted' : ''}" title="Click to sort">${esc(h)}${arrow}${COL_HANDLE}</th>`;
   }).join('');
   const trs = rows.map(r =>
     `<tr>${header.map((_, i) => `<td class="${numCols.has(i) ? 'num' : ''}">${esc(r[i] ?? '')}</td>`).join('')}</tr>`
   ).join('');
-  return `${truncNote}<table class="fe-ql-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+  return `${truncNote}<table class="fe-ql-table fe-rz"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
 }
 
 // ── Markdown ────────────────────────────────────────────────────────
@@ -773,8 +774,8 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false): string
       i += 2;
       const rows: string[][] = [];
       while (i < lines.length && lines[i].includes('|')) rows.push(cells(lines[i++]));
-      out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table"><thead><tr>${
-        head.map(c => `<th>${c}</th>`).join('')
+      out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table fe-rz"><thead><tr>${
+        head.map(c => `<th>${c}${COL_HANDLE}</th>`).join('')
       }</tr></thead><tbody>${
         rows.map(r => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ''}</td>`).join('')}</tr>`).join('')
       }</tbody></table></div>`);

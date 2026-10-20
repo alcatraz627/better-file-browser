@@ -328,7 +328,8 @@ describe('renderMarkdown', () => {
   });
   it('renders GFM tables', () => {
     const html = renderMarkdown('| h1 | h2 |\n|---|---|\n| a | b |');
-    expect(html).toContain('<th>h1</th>');
+    expect(html).toContain('<th>h1<span class="fe-col-rz"');
+    expect(html).toContain('<table class="fe-md-table fe-rz">');
     expect(html).toContain('<td>b</td>');
   });
   it('pads and trims uneven table rows to the header width', () => {

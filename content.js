@@ -862,6 +862,63 @@
     return m.items.map((i) => `<span class="fe-meta-item" title="${esc(i.label)}">${icon(i.key)}${esc(i.value)}</span>`).join("");
   }
 
+  // src/col-resize.ts
+  var COL_HANDLE = '<span class="fe-col-rz" title="Drag to resize this column \xB7 double-click to reset"></span>';
+  var MIN_W = 40;
+  var installed = false;
+  function installColumnResize() {
+    if (installed) return;
+    installed = true;
+    const handleOf = (e) => e.target?.closest?.("table.fe-rz .fe-col-rz") ?? null;
+    document.addEventListener("click", (e) => {
+      if (handleOf(e)) e.stopPropagation();
+    }, true);
+    document.addEventListener("dblclick", (e) => {
+      const handle = handleOf(e);
+      if (!handle) return;
+      e.stopPropagation();
+      const table = handle.closest("table");
+      table.classList.remove("fe-rz-fixed");
+      table.style.width = "";
+      table.querySelectorAll("thead th").forEach((th) => {
+        th.style.width = "";
+      });
+    }, true);
+    document.addEventListener("pointerdown", (e) => {
+      const handle = handleOf(e);
+      if (!handle || e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const th = handle.closest("th");
+      const table = th.closest("table");
+      const ths = [...table.querySelectorAll("thead th")];
+      if (!table.classList.contains("fe-rz-fixed")) {
+        const widths = ths.map((h) => h.getBoundingClientRect().width);
+        ths.forEach((h, i) => {
+          h.style.width = widths[i] + "px";
+        });
+        table.style.width = widths.reduce((a, b) => a + b, 0) + "px";
+        table.classList.add("fe-rz-fixed");
+      }
+      const startX = e.clientX;
+      const startW = parseFloat(th.style.width);
+      const startTable = parseFloat(table.style.width);
+      document.body.classList.add("fe-col-dragging");
+      const onMove = (ev) => {
+        const w = Math.max(MIN_W, startW + ev.clientX - startX);
+        th.style.width = w + "px";
+        table.style.width = startTable + (w - startW) + "px";
+      };
+      const onUp = () => {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        document.body.classList.remove("fe-col-dragging");
+      };
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    }, true);
+  }
+
   // src/renderers.ts
   var CODE_EXTS = /* @__PURE__ */ new Set([
     "sh",
@@ -1355,12 +1412,12 @@
     }
     const ths = header.map((h, i) => {
       const arrow = sort?.col === i ? sort.dir === "asc" ? " \u2191" : " \u2193" : "";
-      return `<th data-col="${i}" class="${numCols.has(i) ? "num" : ""}${sort?.col === i ? " sorted" : ""}" title="Click to sort">${esc(h)}${arrow}</th>`;
+      return `<th data-col="${i}" class="${numCols.has(i) ? "num" : ""}${sort?.col === i ? " sorted" : ""}" title="Click to sort">${esc(h)}${arrow}${COL_HANDLE}</th>`;
     }).join("");
     const trs = rows.map(
       (r) => `<tr>${header.map((_, i) => `<td class="${numCols.has(i) ? "num" : ""}">${esc(r[i] ?? "")}</td>`).join("")}</tr>`
     ).join("");
-    return `${truncNote}<table class="fe-ql-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+    return `${truncNote}<table class="fe-ql-table fe-rz"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
   }
   function badUrl(url) {
     return /^\s*(javascript|data|vbscript):/i.test(url);
@@ -1793,7 +1850,7 @@
         i += 2;
         const rows = [];
         while (i < lines.length && lines[i].includes("|")) rows.push(cells(lines[i++]));
-        out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+        out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table fe-rz"><thead><tr>${head.map((c) => `<th>${c}${COL_HANDLE}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
         continue;
       }
       if (/^\s*$/.test(line)) {
@@ -3733,6 +3790,13 @@ thead th[data-sort]{cursor:pointer}
 thead th[data-sort]:hover{color:var(--tx)}
 .fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;user-select:none}
 .fe-col-rz:hover{background:linear-gradient(90deg,transparent,var(--ac))}
+/* Rendered tables (markdown, CSV/TSV) share the handle; col-resize.ts fixes
+   the layout on the first drag so one column moves at a time. */
+.fe-md-table th{position:relative}
+table.fe-rz-fixed{table-layout:fixed}
+.fe-ql-table.fe-rz-fixed th,.fe-ql-table.fe-rz-fixed td{overflow:hidden;text-overflow:ellipsis}
+.fe-md-table.fe-rz-fixed td,.fe-md-table.fe-rz-fixed th{overflow-wrap:anywhere}
+body.fe-col-dragging{cursor:col-resize;user-select:none}
 .si{opacity:.35;font-size:calc(10px * var(--ui-text-scale,1))}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:46%}.c-tp{width:16%}.c-sz{width:13%;text-align:right}.c-dt{width:25%}
@@ -9069,6 +9133,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     });
     initChrome(app);
     initMarkdownUi(app.toast);
+    installColumnResize();
     const listing = initListing(app, entries, { view: initView, zoom: initZoom, hidden: initHidden });
     initListingInput(app, listing);
     initSettingsUi(app);

@@ -192,6 +192,13 @@ thead th[data-sort]{cursor:pointer}
 thead th[data-sort]:hover{color:var(--tx)}
 .fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;user-select:none}
 .fe-col-rz:hover{background:linear-gradient(90deg,transparent,var(--ac))}
+/* Rendered tables (markdown, CSV/TSV) share the handle; col-resize.ts fixes
+   the layout on the first drag so one column moves at a time. */
+.fe-md-table th{position:relative}
+table.fe-rz-fixed{table-layout:fixed}
+.fe-ql-table.fe-rz-fixed th,.fe-ql-table.fe-rz-fixed td{overflow:hidden;text-overflow:ellipsis}
+.fe-md-table.fe-rz-fixed td,.fe-md-table.fe-rz-fixed th{overflow-wrap:anywhere}
+body.fe-col-dragging{cursor:col-resize;user-select:none}
 .si{opacity:.35;font-size:calc(10px * var(--ui-text-scale,1))}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:46%}.c-tp{width:16%}.c-sz{width:13%;text-align:right}.c-dt{width:25%}
