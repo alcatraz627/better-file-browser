@@ -84,7 +84,15 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
   let nameFilterAbort: AbortController | null = null;
   let nameFilterReady: Promise<void> = Promise.resolve();
   let nameFilterFailure = '';
-  ls.baseStatus = `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`;
+  // The folder count matches the rows on screen: hidden items count only while
+  // shown, and otherwise are named so an all-hidden folder does not look empty.
+  const countText = () => {
+    const showHidden = fe.classList.contains('show-hidden');
+    const d = showHidden ? dirs : nonPar.filter(e => e.isDir && !e.isHidden).length;
+    const f = showHidden ? files : nonPar.filter(e => !e.isDir && !e.isHidden).length;
+    return `${d} folder${d !== 1 ? 's' : ''}, ${f} file${f !== 1 ? 's' : ''}${!showHidden && hidden ? ` · ${hidden} hidden` : ''}`;
+  };
+  ls.baseStatus = countText();
 
   function renderTree(entries: Entry[], parent: Entry[]): void {
     const rows: string[] = [];
@@ -160,7 +168,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     } else {
       ls.baseStatus = filtered
         ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? 's' : ''} shown`
-        : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`;
+        : countText();
     }
     if (!app.fileMode) el('fe-count').textContent = ls.baseStatus;   // a file page shows its line count there
     sel.setSel(-1);
@@ -328,6 +336,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     hiddenBtn.title = `Hidden files: ${on ? 'showing' : 'hiding'} dotfiles · click to toggle`;
     kvSet(HIDDEN_KEY, String(on));
     toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? 's' : ''}` : 'Hidden files concealed');
+    if (!app.fileMode) el('fe-count').textContent = ls.baseStatus = countText();
   });
   const zoomEl  = el<HTMLInputElement>('fe-zoom');
   const zoomVal = el('fe-zoom-val');

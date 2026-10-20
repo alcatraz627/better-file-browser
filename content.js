@@ -223,12 +223,15 @@
   }
 
   // src/places.ts
+  function samePlace(a, b) {
+    return a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
+  }
   function upsertPlace(list, place) {
-    if (list.some((p) => p.path === place.path)) return list;
+    if (list.some((p) => samePlace(p.path, place.path))) return list;
     return [...list, place];
   }
   function removePlace(list, path) {
-    return list.filter((p) => p.path !== path);
+    return list.filter((p) => !samePlace(p.path, path));
   }
   function renamePlace(list, path, label) {
     return list.map((p) => p.path === path ? { ...p, label } : p);
@@ -3821,8 +3824,9 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm)}
 .fe-sv-dot{width:9px;height:9px;border-radius:50%;cursor:pointer;flex-shrink:0;box-shadow:0 0 0 1px #0004}
 .fe-sv-dot:hover{transform:scale(1.25)}
-.fe-pl-dots{display:flex;gap:3px;margin-left:auto;padding-right:2px}
+.fe-pl-dots{display:flex;align-items:center;gap:3px;margin-left:auto;padding-right:2px;flex:none}
 .fe-sv-mini{width:6px;height:6px;border-radius:50%;display:inline-block}
+.fe-sv-more{font-size:calc(10px * var(--ui-text-scale,1));color:var(--dm);line-height:6px}
 .fe-pl-tags{display:none;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);min-width:60px;max-width:110px;white-space:nowrap;overflow:hidden}
 .fe-pl-tags.show{display:inline-block}
 .fe-tag-btn{background:none;border:none;color:var(--dm);cursor:pointer;padding:4px 4px;font-size:calc(12px * var(--ui-text-scale,1));opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
@@ -3881,6 +3885,10 @@ body.fe-col-dragging{cursor:col-resize;user-select:none}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
 td.c-tg{white-space:nowrap;overflow:hidden}
+/* Named chips give up width (ending in \u2026) before the +N count does. */
+.fe-chips{display:flex;min-width:0;overflow:hidden}
+.fe-chips .fe-chip{display:block;flex:0 1 auto;min-width:28px;overflow:hidden;text-overflow:ellipsis;line-height:16px}
+.fe-chips .fe-chip-more{flex:none;min-width:0}
 .fe-chip{display:inline-flex;align-items:center;height:18px;padding:0 7px;margin-right:4px;border:1px solid color-mix(in srgb,var(--chip,var(--bd2)) 55%,transparent);
   border-radius:9px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);line-height:1}
 .c-match{display:none;text-align:right;width:72px;color:var(--dm)}
@@ -6212,9 +6220,14 @@ seconds and re-renders when the file changes on disk.
   }
 
   // src/render.ts
+  var CHIPS_SHOWN = 2;
   function tagChips(e, ctx) {
     if (e.isParent || !ctx.tagsOf) return "";
-    return ctx.tagsOf(fullPath(ctx.rawPath, e)).map((t) => `<span class="fe-chip" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}">${esc(t.name)}</span>`).join("");
+    const tags = ctx.tagsOf(fullPath(ctx.rawPath, e));
+    const shown = tags.length > CHIPS_SHOWN + 1 ? tags.slice(0, CHIPS_SHOWN) : tags;
+    const rest = tags.slice(shown.length);
+    if (!tags.length) return "";
+    return '<div class="fe-chips">' + shown.map((t) => `<span class="fe-chip" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}">${esc(t.name)}</span>`).join("") + (rest.length ? `<span class="fe-chip fe-chip-more" title="Also tagged: ${esc(rest.map((t) => t.name).join(", "))}">+${rest.length}</span>` : "") + "</div>";
   }
   function buildTipData(e, ctx) {
     if (e.isParent) {
@@ -6286,6 +6299,7 @@ seconds and re-renders when the file changes on disk.
   function renderTiles(entries, ctx, start = 0) {
     return entries.map((e, i) => renderTile(e, ctx, start + i)).join("");
   }
+  var savedFileExt = (path) => path.endsWith("/") ? "" : path.split("/").pop().match(/\.([^.]+)$/)?.[1].toLowerCase() ?? "";
   function renderSavedList(saved, tags, rawPath, filter = "") {
     if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click \u2606 in the path bar, or + to name this folder.</div>`;
     saved = filterSaved(saved, filter);
@@ -6295,9 +6309,9 @@ seconds and re-renders when the file changes on disk.
     const row = (p) => `
     <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h" title="Drag to reorder">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? "file://" + esc(p.path) : fileHref(p.path)}" class="fe-si-link${p.path === rawPath ? " active" : ""}" title="${esc(isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path)}">
-        ${isViewPath(p.path) ? VIEW_ICON : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
-        <span class="fe-pl-dots">${(p.tags ?? []).map((t) => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join("")}</span>
+      <a href="${isViewPath(p.path) ? "file://" + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? " active" : ""}" title="${esc(isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path)}">
+        ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label || p.path.split("/").filter(Boolean).pop() || "/")}</span>
+        <span class="fe-pl-dots">${(p.tags ?? []).slice(0, 4).map((t) => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join("")}${(p.tags?.length ?? 0) > 4 ? `<span class="fe-sv-more" title="${esc(p.tags.slice(4).join(", "))}">+${p.tags.length - 4}</span>` : ""}</span>
       </a>
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
       <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Tags">#</button>
@@ -7277,7 +7291,13 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
     let nameFilterAbort = null;
     let nameFilterReady = Promise.resolve();
     let nameFilterFailure = "";
-    ls.baseStatus = `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`;
+    const countText = () => {
+      const showHidden = fe.classList.contains("show-hidden");
+      const d = showHidden ? dirs : nonPar.filter((e) => e.isDir && !e.isHidden).length;
+      const f = showHidden ? files : nonPar.filter((e) => !e.isDir && !e.isHidden).length;
+      return `${d} folder${d !== 1 ? "s" : ""}, ${f} file${f !== 1 ? "s" : ""}${!showHidden && hidden ? ` \xB7 ${hidden} hidden` : ""}`;
+    };
+    ls.baseStatus = countText();
     function renderTree(entries, parent) {
       const rows = [];
       const add = (en, depth) => {
@@ -7352,7 +7372,7 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
       } else if (ls.deepOn) {
         ls.baseStatus = ls.deepScanning ? `Scanning\u2026 ${ls.deepFolders} folder${ls.deepFolders !== 1 ? "s" : ""}` : `${shown} of ${ls.deepEntries?.length ?? 0} items in ${ls.deepFolders} folders${ls.deepTruncated ? " (capped)" : ""}`;
       } else {
-        ls.baseStatus = filtered ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`;
+        ls.baseStatus = filtered ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : countText();
       }
       if (!app.fileMode) el("fe-count").textContent = ls.baseStatus;
       sel.setSel(-1);
@@ -7542,6 +7562,7 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
       hiddenBtn.title = `Hidden files: ${on ? "showing" : "hiding"} dotfiles \xB7 click to toggle`;
       kvSet(HIDDEN_KEY, String(on));
       toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? "s" : ""}` : "Hidden files concealed");
+      if (!app.fileMode) el("fe-count").textContent = ls.baseStatus = countText();
     });
     const zoomEl = el("fe-zoom");
     const zoomVal = el("fe-zoom-val");
@@ -8305,10 +8326,11 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
     const svFilter = el("fe-sv-filter");
     let dragSrc = null;
     function syncStar() {
-      const on = getSaved().some((p) => p.path === rawPath);
+      const on = getSaved().some((p) => samePlace(p.path, rawPath));
       const btn = el("fe-bm-btn");
       btn.classList.toggle("on", on);
-      btn.title = on ? "Remove this folder from Saved" : "Save this folder (sidebar)";
+      const what = app.fileMode ? "file" : "folder";
+      btn.title = on ? `Remove this ${what} from Saved` : `Save this ${what} (sidebar)`;
       el("fe-bm-path").setAttribute("fill", on ? "currentColor" : "none");
     }
     function refreshSaved() {
@@ -8433,13 +8455,13 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
       refreshSaved();
       toast("Saved");
       if (!rename) return;
-      const fresh = els(".fe-pl-item", svList).find((i) => i.dataset.path === rawPath);
+      const fresh = els(".fe-pl-item", svList).find((i) => samePlace(i.dataset.path, rawPath));
       const lbl = fresh?.querySelector(".fe-pl-label");
       if (lbl) lbl.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     }
     el("fe-sv-add").addEventListener("click", () => addCurrentFolder(true));
     el("fe-bm-btn").addEventListener("click", () => {
-      if (getSaved().some((p) => p.path === rawPath)) {
+      if (getSaved().some((p) => samePlace(p.path, rawPath))) {
         saveSaved(removePlace(getSaved(), rawPath));
         refreshSaved();
         toast("Removed from Saved");
@@ -9373,7 +9395,7 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
       fileName,
       segments,
       settings,
-      curIsBookmarked: getSaved().some((p) => p.path === rawPath),
+      curIsBookmarked: getSaved().some((p) => samePlace(p.path, rawPath)),
       dirs,
       files,
       extOpts,

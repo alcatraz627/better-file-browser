@@ -21,7 +21,7 @@ try {
   check(rows === 9, `renders ${rows} rows (expected 9)`);
 
   const count = await page.$eval('#fe-count', el => el.textContent);
-  check(/1 folder, 7 files/.test(count), `status count reads "${count}"`);
+  check(/1 folder, 6 files · 1 hidden/.test(count), `status count reads "${count}"`);
   await shot(page, 'listing');
 
   // A plain click on a file row opens the panel.
