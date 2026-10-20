@@ -13,7 +13,7 @@ import { renderFileContent } from './file-page';
 import { renderRows, renderTiles, renderSavedList, renderCrumbs, type RenderContext } from './render';
 
 export interface PageParams {
-  initTheme: string; initView: string; initZoom: number; initHidden: boolean;
+  initTheme: string; initPalette: string; initView: string; initZoom: number; initHidden: boolean;
   fileMode: boolean; rawPath: string; folderPath: string; fileName: string; segments: string[];
   settings: Settings; curIsBookmarked: boolean;
   dirs: number; files: number; extOpts: string; recentsHTML: string;
@@ -21,7 +21,7 @@ export interface PageParams {
 }
 
 export function renderPage(p: PageParams): string {
-  const { initTheme, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
+  const { initTheme, initPalette, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
   const ALL_ENTRIES = p.entries;
   const ctx0 = p.ctx;
   const VIEW_MODES = [
@@ -78,6 +78,15 @@ export function renderPage(p: PageParams): string {
           <div class="fe-st-row">
             <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark" title="Dark theme"> Dark</label>
             <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light" title="Light theme"> Light</label>
+          </div>
+        </div>
+        <div class="fe-st-section">
+          <div class="fe-st-title">Palette</div>
+          <div class="fe-st-row">
+            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="slate" title="Slate and teal"><span class="fe-st-swatch" style="--sw:#3cc6c0"></span> Slate</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="violet" title="Violet"><span class="fe-st-swatch" style="--sw:#9d7cff"></span> Violet</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="sand" title="Sand and rose"><span class="fe-st-swatch" style="--sw:#e8789a"></span> Sand</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="ink" title="Ink, black and white"><span class="fe-st-swatch" style="--sw:#86868c"></span> Ink</label>
           </div>
         </div>
         <div class="fe-st-section">
@@ -309,7 +318,7 @@ export function renderPage(p: PageParams): string {
   };
 
   const PAGE_HTML = `
-<div id="fe" data-theme="${initTheme}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ''}>
+<div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ''}>
 
   <div id="fe-bar">
     <button id="fe-side-toggle" data-icon title="Show or hide the sidebar"><svg width="15" height="15" viewBox="0 0 15 15"><path d="M2 4h11M2 7.5h11M2 11h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>

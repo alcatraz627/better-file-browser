@@ -7,7 +7,7 @@ import { el, els } from './el';
 import { esc } from './utils';
 import { kvGet, kvKeys, kvSet } from './kv';
 import { icoCustom } from './icons';
-import { VIEW_KEY, THEME_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
+import { VIEW_KEY, THEME_KEY, PALETTE_KEY,TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
 import type { SortConfig, GroupMode } from './types';
 import { llmAvailability, llmWarm } from './llm';
 import { mountDialog } from './dialog';
@@ -45,6 +45,7 @@ export function initSettingsUi(app: App): void {
   const settingsDlg = mountDialog('fe-settings-modal');
   function openSettings(tab?: string): void {
     els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => { r.checked = r.value === (fe.dataset.theme || 'dark'); });
+    els<HTMLInputElement>('input[name="bfb-palette"]').forEach(r => { r.checked = r.value === (fe.dataset.palette || 'slate'); });
     el<HTMLSelectElement>('fe-st-defview').value   = getView();
     const order = getSortConfig();
     el<HTMLSelectElement>('fe-st-sort').value      = order.col ?? '';
@@ -211,6 +212,9 @@ export function initSettingsUi(app: App): void {
 
   els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => {
     r.addEventListener('change', () => { fe.dataset.theme = r.value; kvSet(THEME_KEY, r.value); });
+  });
+  els<HTMLInputElement>('input[name="bfb-palette"]').forEach(r => {
+    r.addEventListener('change', () => { fe.dataset.palette = r.value; kvSet(PALETTE_KEY, r.value); });
   });
   el<HTMLSelectElement>('fe-st-defview').addEventListener('change', function () {
     kvSet(VIEW_KEY, this.value);

@@ -4,7 +4,7 @@
 import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
-  getView, getTheme, getZoom, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
+  getView, getTheme, getPalette, getZoom, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
 } from './storage';
 import { initPreview } from './preview';
 import { CSS } from './styles';
@@ -106,6 +106,7 @@ loadKv().catch(() => {}).then(function () {
   const initZoom   = getZoom();
   const initView   = getView();
   const initTheme  = getTheme();
+  const initPalette = getPalette();
   const initHidden = getShowHidden();
 
   // Snapshot history BEFORE recording this visit so the list shown
@@ -126,7 +127,7 @@ loadKv().catch(() => {}).then(function () {
       </div>`;
 
   const html = renderPage({
-    initTheme, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings,
+    initTheme, initPalette, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings,
     curIsBookmarked: getSaved().some(p => p.path === rawPath),
     dirs, files, extOpts, recentsHTML, entries, ctx: { rawPath, iconRules, settings },
   });

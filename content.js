@@ -397,6 +397,8 @@
   var TAGS_KEY = "bfb-tags-v1";
   var VIEW_KEY = "bfb-view";
   var THEME_KEY = "bfb-theme";
+  var PALETTE_KEY = "bfb-palette";
+  var PALETTES = ["slate", "violet", "sand", "ink"];
   var ZOOM_KEY = "bfb-zoom";
   var HIDDEN_KEY = "bfb-show-hidden";
   var ICON_RULES_KEY = "bfb-icon-rules-v1";
@@ -538,6 +540,10 @@
   }
   function getTheme() {
     return kvGet(THEME_KEY) ?? "dark";
+  }
+  function getPalette() {
+    const p = kvGet(PALETTE_KEY);
+    return p && PALETTES.includes(p) ? p : "slate";
   }
   function getZoom() {
     const z = parseInt(kvGet(ZOOM_KEY) ?? "100");
@@ -3626,29 +3632,59 @@ ${body}
   // src/styles.ts
   var CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
+/* Palettes (design-system.md, Soft round 2): Slate is the default; Violet,
+   Sand and Ink are picked in Settings. Each palette sets only the surface,
+   text and accent colours below, so every rule reads the same tokens.
+   Selection and hover are washes mixed from the accent, so they follow it. */
 :root{
-  --bg:#0d1117;--s1:#151b23;--s2:#1c232d;--s3:#252e3a;
-  --bd:#2a313c;--bd2:#3a434f;--tx:#e6edf3;--mt:#9aa4af;--dm:#6e7781;
+  --bg:#0f1316;--s1:#151b1f;--s2:#1c2328;--s3:#253039;
+  --bd:#243038;--bd2:#34434d;--tx:#e7eef1;--mt:#a3b2ba;--dm:#7f9099;
+  --ac:#3cc6c0;--on-ac:#0f1316;--dir:#a3b2ba;
   --shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);
-  --ac:#58a6ff;--dir:#79c0ff;--gold:#d29922;--green:#3fb950;
-  --hover:#1c232d;--act:#1a3a5c;--r:6px;
+  --gold:#d29922;--green:#3fb950;
+  --hover:color-mix(in srgb,var(--tx) 6%,transparent);--act:color-mix(in srgb,var(--ac) 18%,transparent);--r:6px;
   --t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);
   --mono:'SF Mono',Menlo,Consolas,monospace;
   --nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;
 }
-#fe[data-theme="light"]{
-  --bg:#ffffff;--s1:#f6f8fa;--s2:#eff2f5;--s3:#e5e9ee;
-  --bd:#dde3e9;--bd2:#c9d1d9;--tx:#1f2328;--mt:#59636e;--dm:#8c959f;
+/* The html:has twin of each rule paints the page behind #fe to match. */
+#fe[data-theme="light"],html:has(#fe[data-theme="light"]){
+  --bg:#eef3f5;--s1:#ffffff;--s2:#eaf0f2;--s3:#dde6ea;
+  --bd:#dbe4e8;--bd2:#c5d2d8;--tx:#17232a;--mt:#4f6370;--dm:#6b7f8a;
+  --ac:#0e8f8a;--on-ac:#ffffff;--dir:#5d717c;
   --shade:rgb(110 119 129 / .10);--shade2:rgb(110 119 129 / .18);
-  --hover:#f3f5f7;--act:#dbeafe;--ac:#0969da;--dir:#0550ae;
+  --hover:color-mix(in srgb,var(--tx) 5%,transparent);--act:color-mix(in srgb,var(--ac) 14%,transparent);
   --nc-red:#d92d2d;--nc-orange:#d9730d;--nc-yellow:#b58900;--nc-green:#2b8a3e;--nc-teal:#0c8f78;--nc-blue:#1971c2;--nc-purple:#7048e8;--nc-pink:#c2255c;
 }
-html:has(#fe[data-theme="light"]){
-  --bg:#ffffff;--s1:#f6f8fa;--s2:#eff2f5;--s3:#e5e9ee;
-  --bd:#dde3e9;--bd2:#c9d1d9;--tx:#1f2328;--mt:#59636e;--dm:#8c959f;
-  --shade:rgb(110 119 129 / .10);--shade2:rgb(110 119 129 / .18);
-  --hover:#f3f5f7;--act:#dbeafe;--ac:#0969da;--dir:#0550ae;
-  --nc-red:#d92d2d;--nc-orange:#d9730d;--nc-yellow:#b58900;--nc-green:#2b8a3e;--nc-teal:#0c8f78;--nc-blue:#1971c2;--nc-purple:#7048e8;--nc-pink:#c2255c;
+#fe[data-palette="violet"],html:has(#fe[data-palette="violet"]){
+  --bg:#101014;--s1:#17171d;--s2:#1f1f27;--s3:#292933;
+  --bd:#2a2a33;--bd2:#3a3a46;--tx:#ececf1;--mt:#a9a9b8;--dm:#85859c;
+  --ac:#9d7cff;--on-ac:#101014;--dir:#a9a9b8;
+}
+#fe[data-palette="violet"][data-theme="light"],html:has(#fe[data-palette="violet"][data-theme="light"]){
+  --bg:#f4f4f7;--s1:#ffffff;--s2:#f0f0f5;--s3:#e6e6ee;
+  --bd:#e3e3ea;--bd2:#cfcfdb;--tx:#1c1c24;--mt:#5d5d70;--dm:#76768c;
+  --ac:#6d4aff;--on-ac:#ffffff;--dir:#6e6e84;
+}
+#fe[data-palette="sand"],html:has(#fe[data-palette="sand"]){
+  --bg:#13110f;--s1:#1b1815;--s2:#24201c;--s3:#2f2a24;
+  --bd:#2f2a25;--bd2:#433b33;--tx:#efe9e2;--mt:#b8ab9c;--dm:#958778;
+  --ac:#e8789a;--on-ac:#13110f;--dir:#b8ab9c;
+}
+#fe[data-palette="sand"][data-theme="light"],html:has(#fe[data-palette="sand"][data-theme="light"]){
+  --bg:#f6f2ec;--s1:#fffdfa;--s2:#f2ece4;--s3:#e8e0d5;
+  --bd:#e6ddd1;--bd2:#d3c6b6;--tx:#2a221b;--mt:#6b5d4f;--dm:#867767;
+  --ac:#c2406b;--on-ac:#ffffff;--dir:#7a6a5a;
+}
+#fe[data-palette="ink"],html:has(#fe[data-palette="ink"]){
+  --bg:#0c0c0d;--s1:#141415;--s2:#1b1b1d;--s3:#252527;
+  --bd:#242426;--bd2:#353538;--tx:#f2f2f3;--mt:#a8a8ad;--dm:#86868c;
+  --ac:#f2f2f3;--on-ac:#0c0c0d;--dir:#a8a8ad;
+}
+#fe[data-palette="ink"][data-theme="light"],html:has(#fe[data-palette="ink"][data-theme="light"]){
+  --bg:#f5f5f5;--s1:#ffffff;--s2:#f0f0f0;--s3:#e5e5e5;
+  --bd:#e4e4e4;--bd2:#cfcfcf;--tx:#141414;--mt:#5c5c5c;--dm:#777777;
+  --ac:#141414;--on-ac:#ffffff;--dir:#666666;
 }
 /* Button: plain by default (design-system.md). data-variant solid|outline|shade,
    data-shade (same as variant shade), data-hover-shade, data-icon (a circle),
@@ -3663,8 +3699,8 @@ html:has(#fe[data-theme="light"]){
 .btn[data-variant="shade"]:hover,#fe-bar button[data-variant="shade"]:hover,#fe-toolbar button[data-variant="shade"]:hover,#fe-fp-bar button[data-variant="shade"]:hover,#fe-ql-hdr button[data-variant="shade"]:hover,#fe-ql-hdr #fe-ql-open[data-variant="shade"]:hover,.fe-ql-ai-btn[data-variant="shade"]:hover,.fe-pbn[data-variant="shade"]:hover,.btn[data-shade]:hover,#fe-bar button[data-shade]:hover,#fe-toolbar button[data-shade]:hover,#fe-fp-bar button[data-shade]:hover,#fe-ql-hdr button[data-shade]:hover,#fe-ql-hdr #fe-ql-open[data-shade]:hover,.fe-ql-ai-btn[data-shade]:hover,.fe-pbn[data-shade]:hover{background:var(--shade2)}
 .btn[data-variant="outline"],#fe-bar button[data-variant="outline"],#fe-toolbar button[data-variant="outline"],#fe-fp-bar button[data-variant="outline"],#fe-ql-hdr button[data-variant="outline"],#fe-ql-hdr #fe-ql-open[data-variant="outline"],.fe-ql-ai-btn[data-variant="outline"],.fe-pbn[data-variant="outline"]{border-color:var(--bd2)}
 .btn[data-variant="outline"]:hover,#fe-bar button[data-variant="outline"]:hover,#fe-toolbar button[data-variant="outline"]:hover,#fe-fp-bar button[data-variant="outline"]:hover,#fe-ql-hdr button[data-variant="outline"]:hover,#fe-ql-hdr #fe-ql-open[data-variant="outline"]:hover,.fe-ql-ai-btn[data-variant="outline"]:hover,.fe-pbn[data-variant="outline"]:hover{border-color:var(--mt)}
-.btn[data-variant="solid"],#fe-bar button[data-variant="solid"],#fe-toolbar button[data-variant="solid"],#fe-fp-bar button[data-variant="solid"],#fe-ql-hdr button[data-variant="solid"],#fe-ql-hdr #fe-ql-open[data-variant="solid"],.fe-ql-ai-btn[data-variant="solid"],.fe-pbn[data-variant="solid"]{background:var(--ac);color:#fff}
-.btn[data-variant="solid"]:hover,#fe-bar button[data-variant="solid"]:hover,#fe-toolbar button[data-variant="solid"]:hover,#fe-fp-bar button[data-variant="solid"]:hover,#fe-ql-hdr button[data-variant="solid"]:hover,#fe-ql-hdr #fe-ql-open[data-variant="solid"]:hover,.fe-ql-ai-btn[data-variant="solid"]:hover,.fe-pbn[data-variant="solid"]:hover{background:var(--ac);color:#fff;filter:brightness(1.1)}
+.btn[data-variant="solid"],#fe-bar button[data-variant="solid"],#fe-toolbar button[data-variant="solid"],#fe-fp-bar button[data-variant="solid"],#fe-ql-hdr button[data-variant="solid"],#fe-ql-hdr #fe-ql-open[data-variant="solid"],.fe-ql-ai-btn[data-variant="solid"],.fe-pbn[data-variant="solid"]{background:var(--ac);color:var(--on-ac)}
+.btn[data-variant="solid"]:hover,#fe-bar button[data-variant="solid"]:hover,#fe-toolbar button[data-variant="solid"]:hover,#fe-fp-bar button[data-variant="solid"]:hover,#fe-ql-hdr button[data-variant="solid"]:hover,#fe-ql-hdr #fe-ql-open[data-variant="solid"]:hover,.fe-ql-ai-btn[data-variant="solid"]:hover,.fe-pbn[data-variant="solid"]:hover{background:var(--ac);color:var(--on-ac);filter:brightness(1.1)}
 .btn[data-icon],#fe-bar button[data-icon],#fe-toolbar button[data-icon],#fe-fp-bar button[data-icon],#fe-ql-hdr button[data-icon],#fe-ql-hdr #fe-ql-open[data-icon],.fe-ql-ai-btn[data-icon],.fe-pbn[data-icon]{width:26px;padding:0;border-radius:50%}
 .btn[data-size="sm"],#fe-bar button[data-size="sm"],#fe-toolbar button[data-size="sm"],#fe-fp-bar button[data-size="sm"],#fe-ql-hdr button[data-size="sm"],#fe-ql-hdr #fe-ql-open[data-size="sm"],.fe-ql-ai-btn[data-size="sm"],.fe-pbn[data-size="sm"]{height:22px;font-size:calc(11px * var(--ui-text-scale,1))}
 .btn[data-size="sm"][data-icon],#fe-bar button[data-size="sm"][data-icon],#fe-toolbar button[data-size="sm"][data-icon],#fe-fp-bar button[data-size="sm"][data-icon],#fe-ql-hdr button[data-size="sm"][data-icon],#fe-ql-hdr #fe-ql-open[data-size="sm"][data-icon],.fe-ql-ai-btn[data-size="sm"][data-icon],.fe-pbn[data-size="sm"][data-icon]{width:22px}
@@ -4040,6 +4076,7 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-st-lbl{font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);min-width:90px;flex-shrink:0}
 .fe-st-radio{display:flex;align-items:center;gap:6px;font-size:calc(13px * var(--ui-text-scale,1));color:var(--tx);cursor:pointer}
 .fe-st-radio input{accent-color:var(--ac);cursor:pointer}
+.fe-st-swatch{width:12px;height:12px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px var(--bd2)}
 .fe-st-check{display:flex;align-items:center;gap:7px;font-size:calc(13px * var(--ui-text-scale,1));color:var(--tx);cursor:pointer}
 .fe-st-check input{accent-color:var(--ac);cursor:pointer;width:14px;height:14px}
 .fe-st-select{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
@@ -6263,7 +6300,7 @@ seconds and re-renders when the file changes on disk.
 
   // src/page.ts
   function renderPage(p) {
-    const { initTheme, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
+    const { initTheme, initPalette, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
     const ALL_ENTRIES = p.entries;
     const ctx0 = p.ctx;
     const VIEW_MODES = [
@@ -6314,6 +6351,15 @@ seconds and re-renders when the file changes on disk.
           <div class="fe-st-row">
             <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark" title="Dark theme"> Dark</label>
             <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light" title="Light theme"> Light</label>
+          </div>
+        </div>
+        <div class="fe-st-section">
+          <div class="fe-st-title">Palette</div>
+          <div class="fe-st-row">
+            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="slate" title="Slate and teal"><span class="fe-st-swatch" style="--sw:#3cc6c0"></span> Slate</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="violet" title="Violet"><span class="fe-st-swatch" style="--sw:#9d7cff"></span> Violet</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="sand" title="Sand and rose"><span class="fe-st-swatch" style="--sw:#e8789a"></span> Sand</label>
+            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="ink" title="Ink, black and white"><span class="fe-st-swatch" style="--sw:#86868c"></span> Ink</label>
           </div>
         </div>
         <div class="fe-st-section">
@@ -6547,7 +6593,7 @@ seconds and re-renders when the file changes on disk.
       tabs: HELP_TABS.map((t) => ({ key: t.key, label: t.label, hint: t.hint, body: `<div class="fe-md">${renderMarkdown(t.md)}</div>` }))
     };
     const PAGE_HTML = `
-<div id="fe" data-theme="${initTheme}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ""}>
+<div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ""}>
 
   <div id="fe-bar">
     <button id="fe-side-toggle" data-icon title="Show or hide the sidebar"><svg width="15" height="15" viewBox="0 0 15 15"><path d="M2 4h11M2 7.5h11M2 11h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
@@ -8748,6 +8794,9 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
       els('input[name="bfb-theme"]').forEach((r) => {
         r.checked = r.value === (fe.dataset.theme || "dark");
       });
+      els('input[name="bfb-palette"]').forEach((r) => {
+        r.checked = r.value === (fe.dataset.palette || "slate");
+      });
       el("fe-st-defview").value = getView();
       const order = getSortConfig();
       el("fe-st-sort").value = order.col ?? "";
@@ -8925,6 +8974,12 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
       r.addEventListener("change", () => {
         fe.dataset.theme = r.value;
         kvSet(THEME_KEY, r.value);
+      });
+    });
+    els('input[name="bfb-palette"]').forEach((r) => {
+      r.addEventListener("change", () => {
+        fe.dataset.palette = r.value;
+        kvSet(PALETTE_KEY, r.value);
       });
     });
     el("fe-st-defview").addEventListener("change", function() {
@@ -9271,6 +9326,7 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
     const initZoom = getZoom();
     const initView = getView();
     const initTheme = getTheme();
+    const initPalette = getPalette();
     const initHidden = getShowHidden();
     const recents = getRecents().filter((r) => r.path !== rawPath).slice(0, 10);
     pushRecent(rawPath);
@@ -9285,6 +9341,7 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
       </div>`;
     const html = renderPage({
       initTheme,
+      initPalette,
       initView,
       initZoom,
       initHidden,

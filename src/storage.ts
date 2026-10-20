@@ -10,6 +10,8 @@ export const SAVED_KEY     = 'bfb-saved-v1';
 export const TAGS_KEY      = 'bfb-tags-v1';
 export const VIEW_KEY      = 'bfb-view';
 export const THEME_KEY     = 'bfb-theme';
+export const PALETTE_KEY   = 'bfb-palette';
+export const PALETTES      = ['slate', 'violet', 'sand', 'ink'];
 export const ZOOM_KEY      = 'bfb-zoom';
 export const HIDDEN_KEY    = 'bfb-show-hidden';
 export const ICON_RULES_KEY = 'bfb-icon-rules-v1';
@@ -152,5 +154,6 @@ export function savePreviewLayout(l: PreviewLayout): void {
 
 export function getView():       string  { return kvGet(VIEW_KEY)   ?? 'details'; }
 export function getTheme():      string  { return kvGet(THEME_KEY)  ?? 'dark'; }
+export function getPalette():    string  { const p = kvGet(PALETTE_KEY); return p && PALETTES.includes(p) ? p : 'slate'; }
 export function getZoom():       number  { const z = parseInt(kvGet(ZOOM_KEY) ?? '100'); return Number.isFinite(z) ? z : 100; }
 export function getShowHidden(): boolean { return kvGet(HIDDEN_KEY) === 'true'; }
