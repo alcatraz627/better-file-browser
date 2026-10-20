@@ -27,10 +27,7 @@ try {
   const refused = await page.$eval('#fe-status-text', el => el.textContent);
   check(/Editable folders/.test(refused) && await page.$eval('#fe-fe', el => el.style.display === 'none'), `outside an allowed folder, Edit explains: "${refused}"`);
 
-  await page.evaluate(dir => {
-    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
-    s.editableFolders = [dir]; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
-  }, h.fixture);
+  await h.store.edit('bfb-settings-v1', s => { s.editableFolders = [h.fixture]; });
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-fp-edit');
   await page.keyboard.press('e');

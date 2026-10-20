@@ -7,6 +7,7 @@ import type { Entry, SortConfig, FilterConfig, GroupMode } from './types';
 import type { FindQuery, ContentHit } from './find';
 import { el, els } from './el';
 import { esc, fmtSize, fullPath, copyToClipboard } from './utils';
+import { kvGet, kvSet } from './kv';
 import {
   VIEW_KEY, ZOOM_KEY, HIDDEN_KEY, getColWidths, saveColWidths, getSaved, saveSaved,
   getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
@@ -270,7 +271,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
       els('.fe-view-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       fe.dataset.view = btn.dataset.view!;
-      localStorage.setItem(VIEW_KEY, btn.dataset.view!);
+      kvSet(VIEW_KEY, btn.dataset.view!);
       applyAll();
     });
   });
@@ -317,7 +318,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     const on = fe.classList.toggle('show-hidden');
     hiddenBtn.classList.toggle('on', on);
     hiddenBtn.title = `Hidden files: ${on ? 'showing' : 'hiding'} dotfiles · click to toggle`;
-    localStorage.setItem(HIDDEN_KEY, String(on));
+    kvSet(HIDDEN_KEY, String(on));
     toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? 's' : ''}` : 'Hidden files concealed');
   });
   const zoomEl  = el<HTMLInputElement>('fe-zoom');
@@ -333,7 +334,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     zoomVal.textContent = z + '%';
     zoomEl.title = `Zoom: ${z}% · drag to scale`;
     el('fe-zoom-wrap').title = `Zoom: ${z}% · drag to scale the list (50 to 320%)`;
-    localStorage.setItem(ZOOM_KEY, String(z));
+    kvSet(ZOOM_KEY, String(z));
   });
 
   // Sort state: panel buttons, header arrows, storage.

@@ -3,6 +3,7 @@
 import type { App } from './app';
 import { el } from './el';
 import { esc, pageHref } from './utils';
+import { kvGet, kvSet } from './kv';
 import { getIcon } from './icons';
 import { THEME_KEY, TERMINAL_CMDS, saveSettings } from './storage';
 import { fetchFileText } from './file-fetch';
@@ -14,7 +15,7 @@ export function initChrome(app: App): void {
   el('fe-theme-btn').addEventListener('click', () => {
     const next = fe.dataset.theme === 'dark' ? 'light' : 'dark';
     fe.dataset.theme = next;
-    localStorage.setItem(THEME_KEY, next);
+    kvSet(THEME_KEY, next);
   });
 
   function getTermCmd(path: string): string {

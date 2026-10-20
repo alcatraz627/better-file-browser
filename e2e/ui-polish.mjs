@@ -9,7 +9,7 @@ try {
   writeFileSync(sample, '# Markdown\n\n  ```yaml\n  title: Weekly plan\n  ```\n\nA <kbd>key</kbd> and <sup>2</sup>.\n\n- First\n- Second\n\nA paragraph.\n');
   const page = await h.open();
   for (const theme of ['dark', 'light']) {
-    await page.evaluate(theme => localStorage.setItem('bfb-theme', theme), theme);
+    await h.store.set('bfb-theme', theme);
     await page.reload({ waitUntil: 'load' });
     await page.waitForSelector('#fe');
     const favicon = await page.evaluate(async () => {
@@ -124,7 +124,7 @@ try {
     `notes contract YAML fence rendered as a block: ${JSON.stringify(contract)}`);
   console.log('notes-contract.md YAML fence rendered as one code block');
   for (const theme of ['dark', 'light']) {
-    await page.evaluate(theme => localStorage.setItem('bfb-theme', theme), theme);
+    await h.store.set('bfb-theme', theme);
     await page.goto('file:///Users/alcatraz627/Code/local-models/docs/STATE.md', { waitUntil: 'load' });
     await page.waitForSelector('#fe.fe-file-page');
     const rows = await page.evaluate(() => [...document.querySelectorAll('#fe-page .fe-md-table tr')]

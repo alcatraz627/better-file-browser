@@ -23,8 +23,10 @@ import { initListingInput } from './listing-input';
 import { initSidebar } from './sidebar';
 import { initSettingsUi } from './settings-ui';
 import { initMarkdownUi } from './md-ui';
+import { loadKv } from './kv';
 
-(function () {
+// Settings must be in memory before the first paint decides anything.
+loadKv().catch(() => {}).then(function () {
   const preload = document.getElementById('bfb-preload');
   const settings = getSettings();
   // folder/#view=name shows a file Chrome would otherwise download (see pageHref).
@@ -161,4 +163,4 @@ import { initMarkdownUi } from './md-ui';
     strip();
     new MutationObserver(strip).observe(fe, { childList: true, subtree: true });
   }
-})();
+});

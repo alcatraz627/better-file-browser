@@ -4,6 +4,7 @@
 // pane, so the chrome never scrolls. Esc closes, and focus goes back to
 // where it was; the preview shares the focus half through the two helpers.
 import { esc } from './utils';
+import { kvGet, kvSet } from './kv';
 import { UI_ICON } from './control-icons';
 
 export interface DialogTab { key: string; label: string; hint?: string; icon?: string; body: string }
@@ -55,13 +56,13 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
     if (!tabs.some(t => t.dataset.tab === tab)) tab = tabs[0]?.dataset.tab ?? '';
     tabs.forEach(t => t.classList.toggle('on', t.dataset.tab === tab));
     panes.forEach(p => { p.classList.toggle('on', p.dataset.tab === tab); if (p.dataset.tab === tab) p.scrollTop = 0; });
-    try { localStorage.setItem(memory, tab); } catch { /* fine */ }
+    try { kvSet(memory, tab); } catch { /* fine */ }
   }
   function open(tab?: string): void {
     rememberFocus();
     hooks.onOpen?.();
     let last = '';
-    try { last = localStorage.getItem(memory) || ''; } catch { /* fine */ }
+    try { last = kvGet(memory) || ''; } catch { /* fine */ }
     show(tab ?? last);
     root.style.display = 'flex';
     box.focus();

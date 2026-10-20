@@ -5,6 +5,7 @@ import type { App } from './app';
 import type { LlmAvailability } from './llm';
 import { el, els } from './el';
 import { esc } from './utils';
+import { kvGet, kvKeys, kvSet } from './kv';
 import { icoCustom } from './icons';
 import { VIEW_KEY, THEME_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout } from './storage';
 import { llmAvailability, llmWarm } from './llm';
@@ -179,7 +180,7 @@ export function initSettingsUi(app: App): void {
   });
   el<HTMLSelectElement>('fe-st-rd-column').addEventListener('change', function () {
     settings.readerColumn = this.value as 'unset' | 'xl' | 'lg' | 'md'; saveSettings(settings);
-    try { localStorage.setItem(COLUMN_KEY, this.value); } catch { /* fine */ }
+    try { kvSet(COLUMN_KEY, this.value); } catch { /* fine */ }
   });
   el<HTMLSelectElement>('fe-st-rd-size').addEventListener('change', function () {
     settings.readerSize = Number(this.value); saveSettings(settings);
@@ -195,10 +196,7 @@ export function initSettingsUi(app: App): void {
   readerVar('fe-st-rd-code', 'readerCodeSize', '--rd-code', 'px');
   el('fe-st-export').addEventListener('click', () => {
     const out: Record<string, unknown> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)!;
-      if (k.startsWith('bfb-')) { try { out[k] = JSON.parse(localStorage.getItem(k)!); } catch { out[k] = localStorage.getItem(k); } }
-    }
+    for (const k of kvKeys().sort()) { try { out[k] = JSON.parse(kvGet(k)!); } catch { out[k] = kvGet(k); } }
     const text = JSON.stringify(out, null, 2);
     const ta = el<HTMLTextAreaElement>('fe-st-export-out');
     ta.value = text; ta.style.display = ''; ta.select();
@@ -211,17 +209,17 @@ export function initSettingsUi(app: App): void {
     f.text().then(text => {
       const data = JSON.parse(text) as Record<string, unknown>;
       let n = 0;
-      for (const [k, v] of Object.entries(data)) if (k.startsWith('bfb-')) { localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)); n++; }
+      for (const [k, v] of Object.entries(data)) if (k.startsWith('bfb-')) { kvSet(k, typeof v === 'string' ? v : JSON.stringify(v)); n++; }
       toast(`Imported ${n} keys, reloading`);
       setTimeout(() => location.reload(), 600);
     }).catch(() => toast('That file is not a JSON export'));
   });
 
   els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => {
-    r.addEventListener('change', () => { fe.dataset.theme = r.value; localStorage.setItem(THEME_KEY, r.value); });
+    r.addEventListener('change', () => { fe.dataset.theme = r.value; kvSet(THEME_KEY, r.value); });
   });
   el<HTMLSelectElement>('fe-st-defview').addEventListener('change', function () {
-    localStorage.setItem(VIEW_KEY, this.value);
+    kvSet(VIEW_KEY, this.value);
   });
   el<HTMLInputElement>('fe-st-compact').addEventListener('change', function () {
     settings.compactMode = this.checked; saveSettings(settings);

@@ -191,11 +191,9 @@ try {
   await page.waitForSelector('#fe');
 
   // Saved folders: legacy keys merge once; star, name, tag, colour, persist.
-  await page.evaluate(fx => {
-    localStorage.removeItem('bfb-saved-v1'); localStorage.removeItem('bfb-tags-v1');
-    localStorage.setItem('bfb-bookmarks-v2', JSON.stringify([{ path: fx + '/nested/', label: 'nested' }, { path: '/tmp/', label: 'tmp' }]));
-    localStorage.setItem('bfb-places-v1', JSON.stringify([{ path: fx + '/nested/', label: 'Nested (named)' }]));
-  }, h.fixture);
+  await h.store.remove('bfb-saved-v1'); await h.store.remove('bfb-tags-v1');
+  await h.store.set('bfb-bookmarks-v2', [{ path: h.fixture + '/nested/', label: 'nested' }, { path: '/tmp/', label: 'tmp' }]);
+  await h.store.set('bfb-places-v1', [{ path: h.fixture + '/nested/', label: 'Nested (named)' }]);
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
   const savedLabels = () => page.$$eval('#fe-sv-list .fe-pl-label', els => els.map(e => e.textContent));
@@ -229,8 +227,8 @@ try {
     heads: [...document.querySelectorAll('#fe-sv-list .fe-sv-tag')].map(h => h.textContent.trim()),
     dotColor: document.querySelector('#fe-sv-list .fe-sv-dot')?.style.background,
     minis: document.querySelectorAll('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-sv-mini').length,
-    stored: JSON.parse(localStorage.getItem('bfb-saved-v1')).find(p => p.path.endsWith('/nested/')).tags,
   }));
+  tagState.stored = (await h.store.json('bfb-saved-v1', [])).find(p => p.path.endsWith('/nested/'))?.tags;
   check(tagState.heads.join() === 'work' && tagState.minis === 2 && JSON.stringify(tagState.stored) === '["work","code"]',
     `tags applied and grouped: ${JSON.stringify(tagState)}`);
   const c1 = tagState.dotColor;
@@ -263,11 +261,7 @@ try {
 
   // Sidebar rows are bookmarks: a click switches to the strip tab that holds
   // the place, or keeps a new one, and goes there; alt keeps a background tab.
-  await page.evaluate(fx => {
-    const l = JSON.parse(localStorage.getItem('bfb-saved-v1') || '[]');
-    l.push({ path: fx + '/readme.md', label: 'Readme file' });
-    localStorage.setItem('bfb-saved-v1', JSON.stringify(l));
-  }, h.fixture);
+  await h.store.edit('bfb-saved-v1', l => { l.push({ path: h.fixture + '/readme.md', label: 'Readme file' }); }, []);
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
   const urlSide = page.url();
@@ -301,10 +295,7 @@ try {
   await page.waitForSelector('#fe.fe-file-page', { timeout: 5_000 }).catch(() => null);
   sideTabs = await stripLabels();
   check(page.url().endsWith('/readme.md') && sideTabs.join('|') === 'nested|readme.md|/|code.py|' + h.fixture.split('/').pop() && await onLabel() === 'readme.md', `click on a saved file opens it as a new kept tab and goes there: ${JSON.stringify(sideTabs)}`);
-  await page.evaluate(() => {
-    const l = JSON.parse(localStorage.getItem('bfb-saved-v1') || '[]').filter(p => !p.path.endsWith('/readme.md'));
-    localStorage.setItem('bfb-saved-v1', JSON.stringify(l));
-  });
+  await h.store.edit('bfb-saved-v1', l => l.filter(p => !p.path.endsWith('/readme.md')), []);
   await page.goto(urlSide, { waitUntil: 'load' });
   await page.waitForSelector('#fe');
   // Close every kept tab so the notes flow starts on a clean strip, however many
@@ -315,10 +306,7 @@ try {
   }
 
   // Notes are visible before setup. The sidebar action opens the Notes setting.
-  await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
-    delete s.notesRoot; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
-  });
+  await h.store.edit('bfb-settings-v1', s => { delete s.notesRoot; });
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
   const notesSetupVisible = await page.evaluate(() => {
@@ -493,10 +481,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('#fe-nt-list .fe-nt-item').length === 1, { timeout: 8_000 }).catch(() => null);
   const trashed = existsSync(join(h.notesDir, '.trash')) ? readdirSync(join(h.notesDir, '.trash')) : [];
   check(trashed.length === 1 && trashed[0].endsWith('grocery-list.md') && !existsSync(join(h.notesDir, 'grocery-list.md')), `delete moved the note to .trash: ${JSON.stringify(trashed)}`);
-  await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
-    delete s.notesRoot; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
-  });
+  await h.store.edit('bfb-settings-v1', s => { delete s.notesRoot; });
 
   // File pages: a file opened directly renders with our shell, ToC, raw
   // toggle, and re-renders when the file changes on disk.
@@ -689,9 +674,9 @@ try {
   await page.select('#fe-st-click', 'go');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="files"]');
   await page.select('#fe-st-rd-column', 'lg');
-  const colKeyOn = await page.evaluate(() => localStorage.getItem('bfb-page-column-v2'));
+  const colKeyOn = await h.store.get('bfb-page-column-v2');
   await page.select('#fe-st-rd-column', 'unset');
-  const colKeyOff = await page.evaluate(() => localStorage.getItem('bfb-page-column-v2'));
+  const colKeyOff = await h.store.get('bfb-page-column-v2');
   check(colKeyOn === 'lg' && colKeyOff === 'unset', `Settings reading width writes the file-page mode: on=${colKeyOn} off=${colKeyOff}`);
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="data"]');
   await page.click('#fe-st-export');
@@ -735,10 +720,8 @@ try {
   const keysOpen = await page.evaluate(() => ({ help: document.getElementById('fe-help-modal').style.display !== 'none', tab: document.querySelector('#fe-help-modal .fe-dlg-tab.on')?.dataset.tab, settings: document.getElementById('fe-settings-modal').style.display === 'none' }));
   check(keysOpen.help && keysOpen.tab === 'keys' && keysOpen.settings, `the Keyboard link opens Help on its Keyboard tab: ${JSON.stringify(keysOpen)}`);
   await page.keyboard.press('Escape');
-  await page.evaluate(fx => {
-    localStorage.setItem('bfb-settings-v1', JSON.stringify({ showSidebar: true, tooltips: true }));
-    localStorage.setItem('bfb-saved-v1', JSON.stringify([{ path: '/tmp/', label: 'tmp' }, { path: fx + '/', label: fx.split('/').pop() }, { path: fx + '/nested/', label: 'Nested (named)', tags: ['work', 'code'] }]));
-  }, h.fixture);
+  await h.store.set('bfb-settings-v1', { showSidebar: true, tooltips: true });
+  await h.store.set('bfb-saved-v1', [{ path: '/tmp/', label: 'tmp' }, { path: h.fixture + '/', label: h.fixture.split('/').pop() }, { path: h.fixture + '/nested/', label: 'Nested (named)', tags: ['work', 'code'] }]);
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
 
@@ -923,7 +906,7 @@ try {
   await page.click('#fe-tabs .fe-tab:nth-child(2) .fe-tab-more');
   await page.waitForSelector('.fe-tab-menu[style*="block"]', { timeout: 3_000 }).catch(() => null);
   const menuItems = await page.$$eval('.fe-tab-menu .fe-ctx-item', els => els.map(e => e.firstChild.textContent));
-  const rootSaved = await page.evaluate(fx => JSON.parse(localStorage.getItem('bfb-saved-v1') || '[]').some(p => p.path === fx + '/'), h.fixture);
+  const rootSaved = (await h.store.json('bfb-saved-v1', [])).some(p => p.path === h.fixture + '/');
   check(menuItems.join('|') === `Copy path|${rootSaved ? 'Unsave' : 'Save'}|Pin|Close|Close others`, `hover menu lists the tab actions and agrees with the star: ${JSON.stringify(menuItems)}`);
   await page.click('.fe-tab-menu [data-act="others"]');
   await page.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
@@ -971,10 +954,7 @@ try {
   await pageB.keyboard.press('t');
   await pageB.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
   // Restoring a closed tab's strip is opt-in; switch it on for the fresh tab only.
-  await pageB.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
-    s.stripRestore = true; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
-  });
+  await h.store.edit('bfb-settings-v1', s => { s.stripRestore = true; });
   await pageB.close();
   const pageC = await h.open(h.fixture + '/nested/deeper');
   await pageC.waitForFunction(keptCount(2), { timeout: 5_000 }).catch(() => null);
@@ -986,10 +966,7 @@ try {
   const undone = await tabLabels(pageC);
   check(undone.length === 1 && undone[0] === '~deeper', `undo drops the restored strip: ${JSON.stringify(undone)}`);
   await pageC.close();
-  await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
-    delete s.stripRestore; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
-  });
+  await h.store.edit('bfb-settings-v1', s => { delete s.stripRestore; });
   await page.bringToFront();
 
   // Find: text inside files, held until re-run, saved as a view, reopened by hash.

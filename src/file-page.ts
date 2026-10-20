@@ -4,6 +4,7 @@
 // main.ts builds the shell and calls mountFileContent. HTML source is fetched
 // after takeover because the document contains rendered text, not source.
 import { esc, fmtSize, copyToClipboard } from './utils';
+import { kvGet, kvSet } from './kv';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
   renderCode, renderMarkdown, renderJsonTree, renderJsonl, parseDSV, numericCols, renderDSVTable,
@@ -23,7 +24,7 @@ export function columnMode(value: unknown): ColumnMode {
   return COLUMN_MODES.includes(value as ColumnMode) ? value as ColumnMode : 'unset';
 }
 export function savedColumnMode(fallback: unknown): ColumnMode {
-  return columnMode(localStorage.getItem(COLUMN_KEY) ?? localStorage.getItem('bfb-page-column-v1') ?? fallback);
+  return columnMode(kvGet(COLUMN_KEY) ?? kvGet('bfb-page-column-v1') ?? fallback);
 }
 const RELOAD_MS = 2000;
 
@@ -90,14 +91,14 @@ function spy(page: HTMLElement, toc: HTMLElement): void {
 }
 
 function scrollMemory(): Record<string, number> {
-  try { return JSON.parse(localStorage.getItem(SCROLL_KEY) || '{}'); } catch { return {}; }
+  try { return JSON.parse(kvGet(SCROLL_KEY) || '{}'); } catch { return {}; }
 }
 function rememberScroll(path: string, top: number): void {
   const m = scrollMemory();
   m[path] = top;
   const keys = Object.keys(m);
   if (keys.length > 200) for (const k of keys.slice(0, keys.length - 200)) delete m[k];
-  localStorage.setItem(SCROLL_KEY, JSON.stringify(m));
+  kvSet(SCROLL_KEY, JSON.stringify(m));
 }
 
 // The markup the shell places in its main column, under the strip.
@@ -133,7 +134,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   let raw = false;
   // Two remembered choices: the ToC rail open, and a reading column instead
   // of the full width (full width is the owner's default).
-  let tocOpen = localStorage.getItem(TOC_KEY) !== '0';
+  let tocOpen = kvGet(TOC_KEY) !== '0';
   let column = savedColumnMode(opts.column);
   const fe = document.getElementById('fe')!;
 
@@ -178,8 +179,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     spy(page, toc);
   };
   render();
-  tocBtn.addEventListener('click', () => { tocOpen = !tocOpen; localStorage.setItem(TOC_KEY, tocOpen ? '1' : '0'); render(); });
-  colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; localStorage.setItem(COLUMN_KEY, column); paint(); });
+  tocBtn.addEventListener('click', () => { tocOpen = !tocOpen; kvSet(TOC_KEY, tocOpen ? '1' : '0'); render(); });
+  colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; kvSet(COLUMN_KEY, column); paint(); });
   page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
 
   const remembered = scrollMemory()[rawPath];

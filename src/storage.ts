@@ -1,5 +1,6 @@
 import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode, PreviewLayout, Tag } from './types';
 import { mergeLegacy, reconcileTags } from './places';
+import { kvGet, kvSet } from './kv';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
 export const RECENTS_KEY   = 'bfb-recents-v1';
@@ -42,62 +43,62 @@ export const TERMINAL_CMDS: Record<string, string> = {
 
 export function getIconRules(): IconRule[] {
   try {
-    const r = JSON.parse(localStorage.getItem(ICON_RULES_KEY) ?? 'null');
+    const r = JSON.parse(kvGet(ICON_RULES_KEY) ?? 'null');
     return Array.isArray(r) && r.length > 0 ? r : DEFAULT_ICON_RULES.map(r => ({ ...r }));
   } catch { return DEFAULT_ICON_RULES.map(r => ({ ...r })); }
 }
 export function saveIconRules(r: IconRule[]): void {
-  localStorage.setItem(ICON_RULES_KEY, JSON.stringify(r));
+  kvSet(ICON_RULES_KEY, JSON.stringify(r));
 }
 
 export function getSettings(): Settings {
-  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') }; }
+  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(kvGet(SETTINGS_KEY) ?? '{}') }; }
   catch { return { ...DEFAULT_SETTINGS }; }
 }
 export function saveSettings(s: Settings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  kvSet(SETTINGS_KEY, JSON.stringify(s));
 }
 
 function readList<T>(key: string): T[] {
-  try { const v = JSON.parse(localStorage.getItem(key) ?? '[]'); return Array.isArray(v) ? v : []; }
+  try { const v = JSON.parse(kvGet(key) ?? '[]'); return Array.isArray(v) ? v : []; }
   catch { return []; }
 }
 
 // Saved folders. The first read after the merge builds the list from the two
 // old keys, which stay in place untouched so nothing is lost if this rolls back.
 export function getSaved(): Place[] {
-  if (localStorage.getItem(SAVED_KEY) !== null) return readList<Place>(SAVED_KEY);
+  if (kvGet(SAVED_KEY) !== null) return readList<Place>(SAVED_KEY);
   const merged = mergeLegacy(readList<Bookmark>(BM_KEY), readList<Place>(PLACES_KEY));
-  localStorage.setItem(SAVED_KEY, JSON.stringify(merged));
+  kvSet(SAVED_KEY, JSON.stringify(merged));
   return merged;
 }
 export function saveSaved(list: Place[]): void {
-  localStorage.setItem(SAVED_KEY, JSON.stringify(list));
-  localStorage.setItem(TAGS_KEY, JSON.stringify(reconcileTags(list, readList<Tag>(TAGS_KEY))));
+  kvSet(SAVED_KEY, JSON.stringify(list));
+  kvSet(TAGS_KEY, JSON.stringify(reconcileTags(list, readList<Tag>(TAGS_KEY))));
 }
 export function getTags(): Tag[] {
   return reconcileTags(getSaved(), readList<Tag>(TAGS_KEY));
 }
 export function saveTags(tags: Tag[]): void {
-  localStorage.setItem(TAGS_KEY, JSON.stringify(tags));
+  kvSet(TAGS_KEY, JSON.stringify(tags));
 }
 
 export function getRecents(): RecentDir[] {
-  try { return JSON.parse(localStorage.getItem(RECENTS_KEY) ?? '[]'); }
+  try { return JSON.parse(kvGet(RECENTS_KEY) ?? '[]'); }
   catch { return []; }
 }
 export function pushRecent(path: string): void {
   const list = getRecents().filter(r => r.path !== path);
   list.unshift({ path, ts: Date.now() });
-  localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 20)));
+  kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 20)));
 }
 
 export function getColWidths(): Record<string, number> {
-  try { return JSON.parse(localStorage.getItem(COL_WIDTHS_KEY) ?? '{}'); }
+  try { return JSON.parse(kvGet(COL_WIDTHS_KEY) ?? '{}'); }
   catch { return {}; }
 }
 export function saveColWidths(w: Record<string, number>): void {
-  localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(w));
+  kvSet(COL_WIDTHS_KEY, JSON.stringify(w));
 }
 
 const SORT_COLS: SortConfig['col'][] = ['name', 'size', 'date', 'type', 'ext'];
@@ -106,20 +107,20 @@ const GROUP_MODES: GroupMode[] = ['none', 'folders-first', 'files-first', 'ext',
 // Sort and group are global, like view: the same order in every folder.
 export function getSortConfig(): SortConfig {
   try {
-    const s = JSON.parse(localStorage.getItem(SORT_KEY) ?? 'null');
+    const s = JSON.parse(kvGet(SORT_KEY) ?? 'null');
     if (s && SORT_COLS.includes(s.col) && (s.dir === 'asc' || s.dir === 'desc')) return { col: s.col, dir: s.dir };
   } catch { /* fall through */ }
   return { col: null, dir: 'asc' };
 }
 export function saveSortConfig(s: SortConfig): void {
-  localStorage.setItem(SORT_KEY, JSON.stringify(s));
+  kvSet(SORT_KEY, JSON.stringify(s));
 }
 export function getGroupMode(): GroupMode {
-  const g = localStorage.getItem(GROUP_KEY) as GroupMode | null;
+  const g = kvGet(GROUP_KEY) as GroupMode | null;
   return g && GROUP_MODES.includes(g) ? g : 'none';
 }
 export function saveGroupMode(g: GroupMode): void {
-  localStorage.setItem(GROUP_KEY, g);
+  kvSet(GROUP_KEY, g);
 }
 
 const px = (v: unknown): number | undefined =>
@@ -127,17 +128,17 @@ const px = (v: unknown): number | undefined =>
 
 export function getPreviewLayout(): PreviewLayout {
   try {
-    const l = JSON.parse(localStorage.getItem(PREVIEW_LAYOUT_KEY) ?? 'null');
+    const l = JSON.parse(kvGet(PREVIEW_LAYOUT_KEY) ?? 'null');
     if (l && (l.mode === 'modal' || l.mode === 'side'))
       return { mode: l.mode, modalW: px(l.modalW), modalH: px(l.modalH), sideW: px(l.sideW) };
   } catch { /* fall through */ }
   return { mode: 'modal' };
 }
 export function savePreviewLayout(l: PreviewLayout): void {
-  localStorage.setItem(PREVIEW_LAYOUT_KEY, JSON.stringify(l));
+  kvSet(PREVIEW_LAYOUT_KEY, JSON.stringify(l));
 }
 
-export function getView():       string  { return localStorage.getItem(VIEW_KEY)   ?? 'details'; }
-export function getTheme():      string  { return localStorage.getItem(THEME_KEY)  ?? 'dark'; }
-export function getZoom():       number  { const z = parseInt(localStorage.getItem(ZOOM_KEY) ?? '100'); return Number.isFinite(z) ? z : 100; }
-export function getShowHidden(): boolean { return localStorage.getItem(HIDDEN_KEY) === 'true'; }
+export function getView():       string  { return kvGet(VIEW_KEY)   ?? 'details'; }
+export function getTheme():      string  { return kvGet(THEME_KEY)  ?? 'dark'; }
+export function getZoom():       number  { const z = parseInt(kvGet(ZOOM_KEY) ?? '100'); return Number.isFinite(z) ? z : 100; }
+export function getShowHidden(): boolean { return kvGet(HIDDEN_KEY) === 'true'; }

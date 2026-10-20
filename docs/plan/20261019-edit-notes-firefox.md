@@ -96,3 +96,17 @@ current doc, restore merges instead of replacing, note Versions after a
 rename, flow-list tags, `''` in titles, `$` in note properties. Verified by
 `e2e/owner-batch-1019.mjs`, `e2e/smoke.mjs`, the vitest suite and
 `native/test_notes_host.py`.
+
+## Done on 2026-10-20
+
+F1: every `bfb-*` value now lives in `chrome.storage.local` through
+`src/kv.ts`, with a synchronous in-memory copy filled before the first render,
+a one-time copy out of localStorage (originals left in place), and updates from
+other tabs. The e2e scripts seed settings through `h.store` in the harness, which
+talks to the extension's service worker. Verified by `tests/kv.test.ts`
+(mutation-checked), `e2e/migrate-walk.mjs`, smoke, owner-batch, edit-walk,
+workflow and the notes order/store walks.
+
+Known stale check, not caused by F1: `e2e/notes-props-walk.mjs` "within pinned
+and unpinned, newest first" expects file-mtime order, but the sidebar orders by
+`created` then `pos` (asserted by `e2e/notes-order-walk.mjs`).

@@ -16,8 +16,7 @@ const h = await launch();
 try {
   // A saved-item sidebar click keeps the current folder as a tab (option 1).
   let page = await h.open();
-  await page.evaluate(fx => localStorage.setItem('bfb-saved-v1',
-    JSON.stringify([{ path: fx + '/readme.md', label: 'readme.md' }])), h.fixture);
+  await h.store.set('bfb-saved-v1', [{ path: h.fixture + '/readme.md', label: 'readme.md' }]);
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-sv-list .fe-si-link');
   const sBefore = await strip(page);
@@ -33,8 +32,7 @@ try {
 
   // The note editor "+ tab" keeps the note as a strip tab.
   page = await h.open();
-  await page.evaluate(nd => localStorage.setItem('bfb-settings-v1',
-    JSON.stringify({ showSidebar: true, tooltips: true, notesRoot: nd })), h.notesDir);
+  await h.store.set('bfb-settings-v1', { showSidebar: true, tooltips: true, notesRoot: h.notesDir });
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-nt-list .fe-si-link', { timeout: 5000 });
   await page.click('#fe-nt-list .fe-si-link');
@@ -47,8 +45,7 @@ try {
 
   // Defect A: note editor "open" navigates to the note's file page.
   page = await h.open();
-  await page.evaluate(nd => localStorage.setItem('bfb-settings-v1',
-    JSON.stringify({ showSidebar: true, tooltips: true, notesRoot: nd })), h.notesDir);
+  await h.store.set('bfb-settings-v1', { showSidebar: true, tooltips: true, notesRoot: h.notesDir });
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-nt-list .fe-si-link', { timeout: 5000 });
   await page.click('#fe-nt-list .fe-si-link');
@@ -61,8 +58,7 @@ try {
   // A double-click renames a saved bookmark; the single click that precedes it
   // must not navigate away first.
   page = await h.open();
-  await page.evaluate(fx => localStorage.setItem('bfb-saved-v1',
-    JSON.stringify([{ path: fx + '/nested/', label: 'nested' }])), h.fixture);
+  await h.store.set('bfb-saved-v1', [{ path: h.fixture + '/nested/', label: 'nested' }]);
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-sv-list .fe-pl-label');
   const box = await (await page.$('#fe-sv-list .fe-pl-label')).boundingBox();
@@ -78,15 +74,14 @@ try {
   });
   await page.keyboard.press('Enter');
   await new Promise(r => setTimeout(r, 400));
-  const renamed = await page.evaluate(() => JSON.parse(localStorage.getItem('bfb-saved-v1'))[0].label);
+  const renamed = (await h.store.json('bfb-saved-v1', []))[0]?.label;
   check(renamed === 'Renamed' && !page.url().endsWith('/nested/'), `double-click renames a saved bookmark without navigating: label=${renamed} url=${page.url().split('/').pop() || '/'}`);
   await page.close();
 
   // A double-click on a note label renames it; the single click must not open
   // the editor first (the sibling of the saved-bookmark rename).
   page = await h.open();
-  await page.evaluate(nd => localStorage.setItem('bfb-settings-v1',
-    JSON.stringify({ showSidebar: true, tooltips: true, notesRoot: nd })), h.notesDir);
+  await h.store.set('bfb-settings-v1', { showSidebar: true, tooltips: true, notesRoot: h.notesDir });
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-nt-list .fe-nt-label', { timeout: 5000 });
   const nbox = await (await page.$('#fe-nt-list .fe-nt-label')).boundingBox();

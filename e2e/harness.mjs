@@ -109,6 +109,19 @@ export async function launch({ headless = true, pickReply } = {}) {
     dumpio: !!process.env.BFB_DUMPIO,
   });
 
+  // Settings live in chrome.storage.local, which only extension contexts can
+  // reach; the service worker is the one that is always there.
+  const swTarget = await browser.waitForTarget(t => t.type() === 'service_worker' && t.url().includes('/background.js'), { timeout: 10_000 });
+  const sw = await swTarget.worker();
+  store = {
+    get: key => sw.evaluate(k => chrome.storage.local.get(k).then(r => r[k] ?? null), key),
+    set: (key, value) => sw.evaluate((k, v) => chrome.storage.local.set({ [k]: v }), key, typeof value === 'string' ? value : JSON.stringify(value)),
+    remove: key => sw.evaluate(k => chrome.storage.local.remove(k), key),
+    json: async (key, fallback) => { const v = await store.get(key); try { return v === null ? fallback : JSON.parse(v); } catch { return fallback; } },
+    // Read, change and write back one JSON value, such as the settings object.
+    edit: async (key, change, fallback = {}) => { const v = await store.json(key, fallback); const out = change(v) ?? v; await store.set(key, out); return out; },
+  };
+
   const fixture = makeFixture();
   // After launch: a pre-existing profile folder makes Chrome skip loading
   // the unpacked extension; the manifest is only read when a port opens.
@@ -136,8 +149,11 @@ export async function launch({ headless = true, pickReply } = {}) {
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, open, close };
+  return { browser, fixture, notesDir, open, close, store };
 }
+
+// The extension's settings store for the running browser; set by launch().
+export let store = null;
 
 // BFB_THEME=light runs the same checks on the light theme; screenshots get
 // a -light suffix so both sets sit side by side.
@@ -145,7 +161,7 @@ export const THEME = process.env.BFB_THEME === 'light' ? 'light' : 'dark';
 
 export async function applyTheme(page) {
   if (THEME === 'dark') return;
-  await page.evaluate(() => localStorage.setItem('bfb-theme', 'light'));
+  await store.set('bfb-theme', 'light');
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
 }

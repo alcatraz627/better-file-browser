@@ -70,7 +70,7 @@ export function keepPreviewedAsTab(): void {
 
 let deps: PreviewDeps;
 let overlay: HTMLElement;
-let layout: PreviewLayout = getPreviewLayout();
+let layout: PreviewLayout = { mode: 'modal' };   // read in initPreview, once settings have loaded
 let currentEntry: Entry | null = null;
 let currentText: string | null = null;   // raw fetched contents, for copy
 let reqSeq = 0;
@@ -87,6 +87,7 @@ let aiSeq = 0;
 
 export function initPreview(d: PreviewDeps): void {
   deps = d;
+  layout = getPreviewLayout();
   overlay = document.createElement('div');
   overlay.id = 'fe-qlook';
   overlay.style.display = 'none';

@@ -199,7 +199,9 @@ tabs sit above browser bookmarks.
 Everything is stored on your machine, in the browser, and nothing leaves it.
 
 - **Settings, the Saved list, tags, view, theme and reader sizes** live in
-  localStorage under \`bfb-\` keys. Settings and Saved export and import as one
+  the extension's own storage (\`chrome.storage.local\`) under \`bfb-\` keys, so
+  every folder and tab sees the same values. Older copies in the page's
+  localStorage are read once and left in place. Settings and Saved export and import as one
   JSON file in **Settings → Data**.
 - **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
   survives refresh and navigation. A copy in \`chrome.storage.local\`, keyed by a
@@ -207,7 +209,7 @@ Everything is stored on your machine, in the browser, and nothing leaves it.
   **Settings → Restore closed strips** is on (off by default). The sidebar's
   **Recent** section lists the files and folders you opened lately instead.
 - **Reading choices** (the column toggle, the ToC, a file page's scroll
-  position) live in localStorage, so they persist across reloads.
+  position) live in the same storage, so they persist across reloads.
 
 ## What runs where
 

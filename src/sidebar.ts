@@ -5,6 +5,7 @@ import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
 import { esc, copyToClipboard, midHtml } from './utils';
+import { kvGet, kvSet } from './kv';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings } from './storage';
@@ -21,7 +22,7 @@ export function initSidebar(app: App): void {
   const sections = els<HTMLElement>('#fe-side .fe-sec[data-collapse]');
   const collapsed = (): Set<string> => {
     try {
-      const value = JSON.parse(localStorage.getItem(collapseKey) || '[]');
+      const value = JSON.parse(kvGet(collapseKey) || '[]');
       return new Set(Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
     } catch { return new Set(); }
   };
@@ -53,7 +54,7 @@ export function initSidebar(app: App): void {
     toggle.addEventListener('click', () => {
       const keys = collapsed();
       if (section.classList.contains('fe-collapsed')) keys.delete(key); else keys.add(key);
-      localStorage.setItem(collapseKey, JSON.stringify([...keys]));
+      kvSet(collapseKey, JSON.stringify([...keys]));
       applyCollapsed(keys);
     });
     header.prepend(toggle);

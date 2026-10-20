@@ -26,8 +26,7 @@ const rowsOf = page => page.$$eval('#fe-nt-list .fe-nt-item', els => els.map(e =
 const h = await launch({ pickReply: store });
 try {
   const page = await h.open();
-  await page.evaluate(nd => localStorage.setItem('bfb-settings-v1',
-    JSON.stringify({ showSidebar: true, tooltips: true, notesRoot: nd })), store);
+  await h.store.set('bfb-settings-v1', { showSidebar: true, tooltips: true, notesRoot: store });
   await page.reload({ waitUntil: 'load' });
   await applyTheme(page);
   await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 10_000 });
@@ -112,10 +111,7 @@ try {
   await sleep(500);
   check(!existsSync(join(store, list0[1])) && (await rowsOf(page)).length === list0.length - 1, 'Delete in the editor closes it and moves the note to .trash');
   // Row 3: the notes folder picker, from the sidebar and from Settings (the chooser itself is answered by the harness).
-  await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}');
-    delete s.notesRoot; localStorage.setItem('bfb-settings-v1', JSON.stringify(s));
-  });
+  await h.store.edit('bfb-settings-v1', s => { delete s.notesRoot; });
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-nt-pick', { timeout: 8_000 }).catch(() => null);
   const pickBtn = await page.$eval('#fe-nt-pick', e => ({ text: e.textContent.trim(), icon: !!e.querySelector('svg') })).catch(() => null);
@@ -123,7 +119,7 @@ try {
   await shot(page, 'nt-pick-empty');
   await page.click('#fe-nt-pick');
   await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 8_000 }).catch(() => null);
-  const afterPick = await page.evaluate(() => ({ rows: document.querySelectorAll('#fe-nt-list .fe-nt-item').length, saved: JSON.parse(localStorage.getItem('bfb-settings-v1') || '{}').notesRoot }));
+  const afterPick = { rows: await page.evaluate(() => document.querySelectorAll('#fe-nt-list .fe-nt-item').length), saved: (await h.store.json('bfb-settings-v1', {})).notesRoot };
   check(afterPick.rows > 0 && afterPick.saved === store, `choosing a folder lists its notes and remembers it: ${JSON.stringify(afterPick)}`);
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="notes"]');

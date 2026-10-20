@@ -26,7 +26,7 @@ try {
   for (const theme of ['dark', 'light']) {
     const page = await h.browser.newPage();
     await page.goto('file://' + join(h.fixture, 'bot-landscape.md'), { waitUntil: 'load' });
-    await page.evaluate(t => localStorage.setItem('bfb-theme', t), theme);
+    await h.store.set('bfb-theme', theme);
     await page.reload({ waitUntil: 'load' });
     await page.waitForSelector('#fe-page .fe-md');
 

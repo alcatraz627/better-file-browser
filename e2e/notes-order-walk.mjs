@@ -32,7 +32,7 @@ const rows = page => page.$$eval('#fe-nt-list .fe-nt-item', els => els.map(e => 
 const h = await launch();
 try {
   const page = await h.open();
-  await page.evaluate(nd => localStorage.setItem('bfb-settings-v1', JSON.stringify({ showSidebar: true, tooltips: true, notesRoot: nd })), store);
+  await h.store.set('bfb-settings-v1', { showSidebar: true, tooltips: true, notesRoot: store });
   await page.reload({ waitUntil: 'load' });
   await applyTheme(page);
   await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 10_000 });

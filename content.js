@@ -220,6 +220,95 @@
     return out;
   }
 
+  // src/kv.ts
+  var MIGRATED = "bfb-kv-migrated";
+  var NOT_KV = "bfb-strip-v2:";
+  var cache = /* @__PURE__ */ new Map();
+  var area = null;
+  var isKvKey = (k) => k.startsWith("bfb-") && !k.startsWith(NOT_KV) && k !== MIGRATED;
+  function chromeArea() {
+    try {
+      return typeof chrome !== "undefined" && chrome.storage?.local || null;
+    } catch {
+      return null;
+    }
+  }
+  function localKeys() {
+    const out = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && isKvKey(k)) out.push(k);
+      }
+    } catch {
+    }
+    return out;
+  }
+  async function loadKv() {
+    const a = chromeArea();
+    if (!a) return;
+    let all;
+    try {
+      all = await a.get(null);
+    } catch {
+      return;
+    }
+    area = a;
+    cache.clear();
+    for (const [k, v] of Object.entries(all)) if (isKvKey(k) && typeof v === "string") cache.set(k, v);
+    if (!all[MIGRATED]) {
+      const moved = { [MIGRATED]: "1" };
+      for (const k of localKeys()) {
+        if (cache.has(k)) continue;
+        const v = localStorage.getItem(k);
+        if (v !== null) {
+          cache.set(k, v);
+          moved[k] = v;
+        }
+      }
+      try {
+        await a.set(moved);
+      } catch {
+      }
+    }
+    chrome.storage.onChanged.addListener((changes, name) => {
+      if (name !== "local") return;
+      for (const [k, c] of Object.entries(changes)) {
+        if (!isKvKey(k)) continue;
+        if (typeof c.newValue === "string") cache.set(k, c.newValue);
+        else cache.delete(k);
+      }
+    });
+  }
+  function kvGet(key) {
+    if (!area) {
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    }
+    return cache.get(key) ?? null;
+  }
+  function kvSet(key, value) {
+    if (!area) {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+      }
+      return;
+    }
+    cache.set(key, value);
+    try {
+      area.set({ [key]: value }).catch(() => {
+      });
+    } catch {
+    }
+  }
+  function kvKeys() {
+    return area ? [...cache.keys()] : localKeys();
+  }
+
   // src/storage.ts
   var BM_KEY = "bfb-bookmarks-v2";
   var RECENTS_KEY = "bfb-recents-v1";
@@ -258,52 +347,52 @@
   };
   function getIconRules() {
     try {
-      const r = JSON.parse(localStorage.getItem(ICON_RULES_KEY) ?? "null");
+      const r = JSON.parse(kvGet(ICON_RULES_KEY) ?? "null");
       return Array.isArray(r) && r.length > 0 ? r : DEFAULT_ICON_RULES.map((r2) => ({ ...r2 }));
     } catch {
       return DEFAULT_ICON_RULES.map((r) => ({ ...r }));
     }
   }
   function saveIconRules(r) {
-    localStorage.setItem(ICON_RULES_KEY, JSON.stringify(r));
+    kvSet(ICON_RULES_KEY, JSON.stringify(r));
   }
   function getSettings() {
     try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") };
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(kvGet(SETTINGS_KEY) ?? "{}") };
     } catch {
       return { ...DEFAULT_SETTINGS };
     }
   }
   function saveSettings(s) {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+    kvSet(SETTINGS_KEY, JSON.stringify(s));
   }
   function readList(key) {
     try {
-      const v = JSON.parse(localStorage.getItem(key) ?? "[]");
+      const v = JSON.parse(kvGet(key) ?? "[]");
       return Array.isArray(v) ? v : [];
     } catch {
       return [];
     }
   }
   function getSaved() {
-    if (localStorage.getItem(SAVED_KEY) !== null) return readList(SAVED_KEY);
+    if (kvGet(SAVED_KEY) !== null) return readList(SAVED_KEY);
     const merged = mergeLegacy(readList(BM_KEY), readList(PLACES_KEY));
-    localStorage.setItem(SAVED_KEY, JSON.stringify(merged));
+    kvSet(SAVED_KEY, JSON.stringify(merged));
     return merged;
   }
   function saveSaved(list) {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(list));
-    localStorage.setItem(TAGS_KEY, JSON.stringify(reconcileTags(list, readList(TAGS_KEY))));
+    kvSet(SAVED_KEY, JSON.stringify(list));
+    kvSet(TAGS_KEY, JSON.stringify(reconcileTags(list, readList(TAGS_KEY))));
   }
   function getTags() {
     return reconcileTags(getSaved(), readList(TAGS_KEY));
   }
   function saveTags(tags) {
-    localStorage.setItem(TAGS_KEY, JSON.stringify(tags));
+    kvSet(TAGS_KEY, JSON.stringify(tags));
   }
   function getRecents() {
     try {
-      return JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "[]");
+      return JSON.parse(kvGet(RECENTS_KEY) ?? "[]");
     } catch {
       return [];
     }
@@ -311,42 +400,42 @@
   function pushRecent(path) {
     const list = getRecents().filter((r) => r.path !== path);
     list.unshift({ path, ts: Date.now() });
-    localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 20)));
+    kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 20)));
   }
   function getColWidths() {
     try {
-      return JSON.parse(localStorage.getItem(COL_WIDTHS_KEY) ?? "{}");
+      return JSON.parse(kvGet(COL_WIDTHS_KEY) ?? "{}");
     } catch {
       return {};
     }
   }
   function saveColWidths(w) {
-    localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(w));
+    kvSet(COL_WIDTHS_KEY, JSON.stringify(w));
   }
   var SORT_COLS = ["name", "size", "date", "type", "ext"];
   var GROUP_MODES = ["none", "folders-first", "files-first", "ext", "type"];
   function getSortConfig() {
     try {
-      const s = JSON.parse(localStorage.getItem(SORT_KEY) ?? "null");
+      const s = JSON.parse(kvGet(SORT_KEY) ?? "null");
       if (s && SORT_COLS.includes(s.col) && (s.dir === "asc" || s.dir === "desc")) return { col: s.col, dir: s.dir };
     } catch {
     }
     return { col: null, dir: "asc" };
   }
   function saveSortConfig(s) {
-    localStorage.setItem(SORT_KEY, JSON.stringify(s));
+    kvSet(SORT_KEY, JSON.stringify(s));
   }
   function getGroupMode() {
-    const g = localStorage.getItem(GROUP_KEY);
+    const g = kvGet(GROUP_KEY);
     return g && GROUP_MODES.includes(g) ? g : "none";
   }
   function saveGroupMode(g) {
-    localStorage.setItem(GROUP_KEY, g);
+    kvSet(GROUP_KEY, g);
   }
   var px = (v) => typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v) : void 0;
   function getPreviewLayout() {
     try {
-      const l = JSON.parse(localStorage.getItem(PREVIEW_LAYOUT_KEY) ?? "null");
+      const l = JSON.parse(kvGet(PREVIEW_LAYOUT_KEY) ?? "null");
       if (l && (l.mode === "modal" || l.mode === "side"))
         return { mode: l.mode, modalW: px(l.modalW), modalH: px(l.modalH), sideW: px(l.sideW) };
     } catch {
@@ -354,20 +443,20 @@
     return { mode: "modal" };
   }
   function savePreviewLayout(l) {
-    localStorage.setItem(PREVIEW_LAYOUT_KEY, JSON.stringify(l));
+    kvSet(PREVIEW_LAYOUT_KEY, JSON.stringify(l));
   }
   function getView() {
-    return localStorage.getItem(VIEW_KEY) ?? "details";
+    return kvGet(VIEW_KEY) ?? "details";
   }
   function getTheme() {
-    return localStorage.getItem(THEME_KEY) ?? "dark";
+    return kvGet(THEME_KEY) ?? "dark";
   }
   function getZoom() {
-    const z = parseInt(localStorage.getItem(ZOOM_KEY) ?? "100");
+    const z = parseInt(kvGet(ZOOM_KEY) ?? "100");
     return Number.isFinite(z) ? z : 100;
   }
   function getShowHidden() {
-    return localStorage.getItem(HIDDEN_KEY) === "true";
+    return kvGet(HIDDEN_KEY) === "true";
   }
 
   // src/control-icons.ts
@@ -457,7 +546,7 @@
         if (p.dataset.tab === tab) p.scrollTop = 0;
       });
       try {
-        localStorage.setItem(memory, tab);
+        kvSet(memory, tab);
       } catch {
       }
     }
@@ -466,7 +555,7 @@
       hooks.onOpen?.();
       let last = "";
       try {
-        last = localStorage.getItem(memory) || "";
+        last = kvGet(memory) || "";
       } catch {
       }
       show(tab ?? last);
@@ -2554,7 +2643,7 @@ ${body}
   }
   var deps;
   var overlay;
-  var layout = getPreviewLayout();
+  var layout = { mode: "modal" };
   var currentEntry = null;
   var currentText = null;
   var reqSeq = 0;
@@ -2566,6 +2655,7 @@ ${body}
   var aiSeq = 0;
   function initPreview(d) {
     deps = d;
+    layout = getPreviewLayout();
     overlay = document.createElement("div");
     overlay.id = "fe-qlook";
     overlay.style.display = "none";
@@ -4291,7 +4381,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     return COLUMN_MODES.includes(value) ? value : "unset";
   }
   function savedColumnMode(fallback) {
-    return columnMode(localStorage.getItem(COLUMN_KEY) ?? localStorage.getItem("bfb-page-column-v1") ?? fallback);
+    return columnMode(kvGet(COLUMN_KEY) ?? kvGet("bfb-page-column-v1") ?? fallback);
   }
   var RELOAD_MS = 2e3;
   function parseExcludedExtensions(value) {
@@ -4353,7 +4443,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   }
   function scrollMemory() {
     try {
-      return JSON.parse(localStorage.getItem(SCROLL_KEY) || "{}");
+      return JSON.parse(kvGet(SCROLL_KEY) || "{}");
     } catch {
       return {};
     }
@@ -4363,7 +4453,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     m[path] = top;
     const keys = Object.keys(m);
     if (keys.length > 200) for (const k of keys.slice(0, keys.length - 200)) delete m[k];
-    localStorage.setItem(SCROLL_KEY, JSON.stringify(m));
+    kvSet(SCROLL_KEY, JSON.stringify(m));
   }
   function renderFileContent() {
     return `
@@ -4392,7 +4482,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     const meta = document.getElementById("fe-fp-meta");
     const isMd = ext2 === "md" || ext2 === "mdx";
     let raw = false;
-    let tocOpen = localStorage.getItem(TOC_KEY) !== "0";
+    let tocOpen = kvGet(TOC_KEY) !== "0";
     let column = savedColumnMode(opts.column);
     const fe = document.getElementById("fe");
     const side = document.getElementById("fe-side");
@@ -4434,12 +4524,12 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     render2();
     tocBtn.addEventListener("click", () => {
       tocOpen = !tocOpen;
-      localStorage.setItem(TOC_KEY, tocOpen ? "1" : "0");
+      kvSet(TOC_KEY, tocOpen ? "1" : "0");
       render2();
     });
     colBtn.addEventListener("click", () => {
       column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
-      localStorage.setItem(COLUMN_KEY, column);
+      kvSet(COLUMN_KEY, column);
       paint();
     });
     page.addEventListener("scroll", () => {
@@ -4657,20 +4747,20 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     }
   }
   function writeRecovery(sid, state, closed) {
-    const area = storageArea();
-    if (!area) return;
+    const area2 = storageArea();
+    if (!area2) return;
     try {
-      if (!state.list.length) area.remove(RECOVERY_PREFIX + sid, () => void chrome.runtime.lastError);
-      else area.set({ [RECOVERY_PREFIX + sid]: { state, at: Date.now(), closed } }, () => void chrome.runtime.lastError);
+      if (!state.list.length) area2.remove(RECOVERY_PREFIX + sid, () => void chrome.runtime.lastError);
+      else area2.set({ [RECOVERY_PREFIX + sid]: { state, at: Date.now(), closed } }, () => void chrome.runtime.lastError);
     } catch {
     }
   }
   function readRecoveries() {
     return new Promise((resolve) => {
-      const area = storageArea();
-      if (!area) return resolve({});
+      const area2 = storageArea();
+      if (!area2) return resolve({});
       try {
-        area.get(null, (all) => {
+        area2.get(null, (all) => {
           const out = {};
           for (const [k, v] of Object.entries(all || {})) {
             if (!k.startsWith(RECOVERY_PREFIX)) continue;
@@ -4911,10 +5001,10 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
     async function recover() {
       const all = await readRecoveries();
       const now = Date.now();
-      const area = storageArea();
+      const area2 = storageArea();
       for (const [k, e] of Object.entries(all)) if (isStale(e, now)) {
         try {
-          area?.remove(RECOVERY_PREFIX + k, () => void chrome.runtime.lastError);
+          area2?.remove(RECOVERY_PREFIX + k, () => void chrome.runtime.lastError);
         } catch {
         }
         delete all[k];
@@ -4929,7 +5019,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
         old = again;
       }
       try {
-        area?.remove(RECOVERY_PREFIX + pick, () => void chrome.runtime.lastError);
+        area2?.remove(RECOVERY_PREFIX + pick, () => void chrome.runtime.lastError);
       } catch {
       }
       let merged = old.state;
@@ -4943,7 +5033,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
           for (const t of old.state.list) back = closeTab(back, t.id);
           commit(back);
           try {
-            area?.set({ [RECOVERY_PREFIX + pick]: old }, () => void chrome.runtime.lastError);
+            area2?.set({ [RECOVERY_PREFIX + pick]: old }, () => void chrome.runtime.lastError);
           } catch {
           }
         }
@@ -5196,7 +5286,9 @@ tabs sit above browser bookmarks.
 Everything is stored on your machine, in the browser, and nothing leaves it.
 
 - **Settings, the Saved list, tags, view, theme and reader sizes** live in
-  localStorage under \`bfb-\` keys. Settings and Saved export and import as one
+  the extension's own storage (\`chrome.storage.local\`) under \`bfb-\` keys, so
+  every folder and tab sees the same values. Older copies in the page's
+  localStorage are read once and left in place. Settings and Saved export and import as one
   JSON file in **Settings \u2192 Data**.
 - **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
   survives refresh and navigation. A copy in \`chrome.storage.local\`, keyed by a
@@ -5204,7 +5296,7 @@ Everything is stored on your machine, in the browser, and nothing leaves it.
   **Settings \u2192 Restore closed strips** is on (off by default). The sidebar's
   **Recent** section lists the files and folders you opened lately instead.
 - **Reading choices** (the column toggle, the ToC, a file page's scroll
-  position) live in localStorage, so they persist across reloads.
+  position) live in the same storage, so they persist across reloads.
 
 ## What runs where
 
@@ -5463,13 +5555,11 @@ seconds and re-renders when the file changes on disk.
     if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
     lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
     if (e.isHidden) lines.push("Hidden file (dotfile)");
-    if (IMG_EXTS.has(getExt(e))) lines.push("Image \u2014 dimensions require native host");
     lines.push(e.isDir ? "Click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab" : "Click looks \xB7 double-click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab");
     const tip = {
       icon: getIcon(e, ctx.iconRules),
       name: e.name,
-      lines,
-      warn: "Permissions/creation date require native host"
+      lines
     };
     return JSON.stringify(tip);
   }
@@ -6002,7 +6092,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     el("fe-theme-btn").addEventListener("click", () => {
       const next = fe.dataset.theme === "dark" ? "light" : "dark";
       fe.dataset.theme = next;
-      localStorage.setItem(THEME_KEY, next);
+      kvSet(THEME_KEY, next);
     });
     function getTermCmd(path) {
       const term = settings.terminalApp || "ghostty";
@@ -6661,7 +6751,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         els(".fe-view-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         fe.dataset.view = btn.dataset.view;
-        localStorage.setItem(VIEW_KEY, btn.dataset.view);
+        kvSet(VIEW_KEY, btn.dataset.view);
         applyAll();
       });
     });
@@ -6713,7 +6803,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       const on = fe.classList.toggle("show-hidden");
       hiddenBtn.classList.toggle("on", on);
       hiddenBtn.title = `Hidden files: ${on ? "showing" : "hiding"} dotfiles \xB7 click to toggle`;
-      localStorage.setItem(HIDDEN_KEY, String(on));
+      kvSet(HIDDEN_KEY, String(on));
       toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? "s" : ""}` : "Hidden files concealed");
     });
     const zoomEl = el("fe-zoom");
@@ -6737,7 +6827,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       zoomVal.textContent = z + "%";
       zoomEl.title = `Zoom: ${z}% \xB7 drag to scale`;
       el("fe-zoom-wrap").title = `Zoom: ${z}% \xB7 drag to scale the list (50 to 320%)`;
-      localStorage.setItem(ZOOM_KEY, String(z));
+      kvSet(ZOOM_KEY, String(z));
     });
     function syncSortUi() {
       const { col, dir } = ls.sort;
@@ -7388,7 +7478,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const sections = els("#fe-side .fe-sec[data-collapse]");
     const collapsed = () => {
       try {
-        const value = JSON.parse(localStorage.getItem(collapseKey) || "[]");
+        const value = JSON.parse(kvGet(collapseKey) || "[]");
         return new Set(Array.isArray(value) ? value.filter((v) => typeof v === "string") : []);
       } catch {
         return /* @__PURE__ */ new Set();
@@ -7423,7 +7513,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         const keys = collapsed();
         if (section.classList.contains("fe-collapsed")) keys.delete(key);
         else keys.add(key);
-        localStorage.setItem(collapseKey, JSON.stringify([...keys]));
+        kvSet(collapseKey, JSON.stringify([...keys]));
         applyCollapsed(keys);
       });
       header.prepend(toggle);
@@ -8080,7 +8170,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       settings.readerColumn = this.value;
       saveSettings(settings);
       try {
-        localStorage.setItem(COLUMN_KEY, this.value);
+        kvSet(COLUMN_KEY, this.value);
       } catch {
       }
     });
@@ -8100,14 +8190,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     readerVar("fe-st-rd-code", "readerCodeSize", "--rd-code", "px");
     el("fe-st-export").addEventListener("click", () => {
       const out = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k.startsWith("bfb-")) {
-          try {
-            out[k] = JSON.parse(localStorage.getItem(k));
-          } catch {
-            out[k] = localStorage.getItem(k);
-          }
+      for (const k of kvKeys().sort()) {
+        try {
+          out[k] = JSON.parse(kvGet(k));
+        } catch {
+          out[k] = kvGet(k);
         }
       }
       const text = JSON.stringify(out, null, 2);
@@ -8125,7 +8212,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         const data = JSON.parse(text);
         let n = 0;
         for (const [k, v] of Object.entries(data)) if (k.startsWith("bfb-")) {
-          localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
+          kvSet(k, typeof v === "string" ? v : JSON.stringify(v));
           n++;
         }
         toast(`Imported ${n} keys, reloading`);
@@ -8135,11 +8222,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     els('input[name="bfb-theme"]').forEach((r) => {
       r.addEventListener("change", () => {
         fe.dataset.theme = r.value;
-        localStorage.setItem(THEME_KEY, r.value);
+        kvSet(THEME_KEY, r.value);
       });
     });
     el("fe-st-defview").addEventListener("change", function() {
-      localStorage.setItem(VIEW_KEY, this.value);
+      kvSet(VIEW_KEY, this.value);
     });
     el("fe-st-compact").addEventListener("change", function() {
       settings.compactMode = this.checked;
@@ -8327,7 +8414,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
   }
 
   // src/main.ts
-  (function() {
+  loadKv().catch(() => {
+  }).then(function() {
     const preload = document.getElementById("bfb-preload");
     const settings = getSettings();
     const viewName = location.hash.startsWith("#view=") ? location.hash.slice(6) : "";
@@ -8491,5 +8579,5 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       strip();
       new MutationObserver(strip).observe(fe, { childList: true, subtree: true });
     }
-  })();
+  });
 })();
