@@ -7120,8 +7120,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const maxDepth = opts.maxDepth ?? 8;
     const maxEntries = opts.maxEntries ?? 5e3;
     const skip = opts.skipDirs ?? DEFAULT_SKIP_DIRS;
+    const perFolderFiles = Math.ceil(maxEntries / 2);
     const entries = [];
-    let folders = 0, truncated = false;
+    let folders = 0, entryCapped = false, depthCapped = false;
     let queue = [{ url: rootUrl, depth: 0 }];
     while (queue.length && !isCancelled() && entries.length < maxEntries) {
       const batch = queue.splice(0, CONCURRENCY);
@@ -7132,13 +7133,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           return { b, kids: [] };
         }
       }));
+      listed.sort((x, y) => x.kids.length - y.kids.length);
       for (const { b, kids } of listed) {
         folders++;
+        let files = 0;
         for (const k of kids) {
           if (k.isParent) continue;
           if (entries.length >= maxEntries) {
-            truncated = true;
+            entryCapped = true;
             break;
+          }
+          if (!k.isDir && ++files > perFolderFiles) {
+            entryCapped = true;
+            continue;
           }
           const name = relativeName(k.href, rootUrl);
           const hiddenSeg = name.split("/").some((s) => s.startsWith("."));
@@ -7146,7 +7153,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           if (!k.isDir) continue;
           if (skip.has(k.name) || !opts.includeHidden && k.name.startsWith(".")) continue;
           if (b.depth + 1 > maxDepth) {
-            truncated = true;
+            depthCapped = true;
             continue;
           }
           queue.push({ url: k.href, depth: b.depth + 1 });
@@ -7154,7 +7161,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
       opts.onProgress?.(folders, entries.length);
     }
-    return { entries, folders, truncated, cancelled: isCancelled() };
+    return { entries, folders, truncated: entryCapped || depthCapped, entryCapped, depthCapped, cancelled: isCancelled() };
   }
 
   // src/name-filter.ts
@@ -7314,6 +7321,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       deepEntries: null,
       deepFolders: 0,
       deepTruncated: false,
+      deepCap: "",
       deepScanning: false,
       deepSeq: 0,
       contentHits: null,
@@ -7429,7 +7437,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (ls.contentHits) {
         ls.baseStatus = `${shown} file${shown !== 1 ? "s" : ""} containing "${ls.contentText}"${ls.deepOn ? ` in ${ls.deepFolders} folders` : ""}`;
       } else if (ls.deepOn) {
-        ls.baseStatus = ls.deepScanning ? `Scanning\u2026 ${ls.deepFolders} folder${ls.deepFolders !== 1 ? "s" : ""}` : `${shown} of ${ls.deepEntries?.length ?? 0} items in ${ls.deepFolders} folders${ls.deepTruncated ? " (capped)" : ""}`;
+        ls.baseStatus = ls.deepScanning ? `Scanning\u2026 ${ls.deepFolders} folder${ls.deepFolders !== 1 ? "s" : ""}` : `${shown} of ${ls.deepEntries?.length ?? 0} items in ${ls.deepFolders} folders${ls.deepTruncated ? ` (${ls.deepCap})` : ""}`;
       } else {
         ls.baseStatus = filtered ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : countText();
       }
@@ -7983,12 +7991,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         reader.close();
         if (deepReader === reader) deepReader = null;
         if (seq !== ls.deepSeq) return;
+        ls.deepCap = [r.entryCapped ? "stopped at 5,000 items" : "", r.depthCapped ? `not deeper than ${findDepth.value} levels` : ""].filter(Boolean).join(", ");
         ls.deepEntries = r.entries;
         ls.deepFolders = r.folders;
         ls.deepTruncated = r.truncated;
         ls.deepScanning = false;
         refreshNameMatches();
-        if (r.truncated) toast(`Deep search reached the ${findDepth.value}-level or 5000-item limit`);
+        if (r.truncated) toast(`Deep search ${ls.deepCap}`);
         if (ls.pendingFindText !== null) {
           const t = ls.pendingFindText;
           ls.pendingFindText = null;

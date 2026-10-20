@@ -29,7 +29,7 @@ export interface ListingState {
   visible: Entry[];      // rendered order; data-idx indexes into it
   baseStatus: string;    // the count line shown when nothing is selected
   sort: SortConfig; group: GroupMode; filter: FilterConfig;
-  deepOn: boolean; deepEntries: Entry[] | null; deepFolders: number; deepTruncated: boolean; deepScanning: boolean; deepSeq: number;
+  deepOn: boolean; deepEntries: Entry[] | null; deepFolders: number; deepTruncated: boolean; deepCap: string; deepScanning: boolean; deepSeq: number;
   contentHits: Map<string, ContentHit> | null; contentText: string; findSeq: number; pendingFindText: string | null;
   selSet: Set<number>;   // every selected visible index
   selIdx: number;        // the lead: last touched, drives scroll and the status line
@@ -56,7 +56,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
   const ls: ListingState = {
     all, visible: all, baseStatus: '',
     sort: getSortConfig(), group: getGroupMode(), filter: { q: '', regex: false, type: 'all' },
-    deepOn: false, deepEntries: null, deepFolders: 0, deepTruncated: false, deepScanning: false, deepSeq: 0,
+    deepOn: false, deepEntries: null, deepFolders: 0, deepTruncated: false, deepCap: '', deepScanning: false, deepSeq: 0,
     contentHits: null, contentText: '', findSeq: 0, pendingFindText: null,
     selSet: new Set(), selIdx: -1, anchor: -1,
   };
@@ -164,7 +164,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     } else if (ls.deepOn) {
       ls.baseStatus = ls.deepScanning
         ? `Scanning… ${ls.deepFolders} folder${ls.deepFolders !== 1 ? 's' : ''}`
-        : `${shown} of ${ls.deepEntries?.length ?? 0} items in ${ls.deepFolders} folders${ls.deepTruncated ? ' (capped)' : ''}`;
+        : `${shown} of ${ls.deepEntries?.length ?? 0} items in ${ls.deepFolders} folders${ls.deepTruncated ? ` (${ls.deepCap})` : ''}`;
     } else {
       ls.baseStatus = filtered
         ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? 's' : ''} shown`
@@ -616,10 +616,12 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
       reader.close();
       if (deepReader === reader) deepReader = null;
       if (seq !== ls.deepSeq) return;
+      // Name the limit that stopped it, so "0 found" is not read as "not there".
+      ls.deepCap = [r.entryCapped ? 'stopped at 5,000 items' : '', r.depthCapped ? `not deeper than ${findDepth.value} levels` : ''].filter(Boolean).join(', ');
       ls.deepEntries = r.entries; ls.deepFolders = r.folders; ls.deepTruncated = r.truncated;
       ls.deepScanning = false;
       refreshNameMatches();
-      if (r.truncated) toast(`Deep search reached the ${findDepth.value}-level or 5000-item limit`);
+      if (r.truncated) toast(`Deep search ${ls.deepCap}`);
       if (ls.pendingFindText !== null) { const t = ls.pendingFindText; ls.pendingFindText = null; void runFind(t); }
     });
   }

@@ -58,12 +58,25 @@ describe('crawl', () => {
     expect(r.entries.some(e => e.name === 'src/lib/x')).toBe(true);
     expect(r.entries.some(e => e.name === 'src/lib/x/y')).toBe(false);
     expect(r.truncated).toBe(true);
+    expect([r.depthCapped, r.entryCapped]).toEqual([true, false]);
   });
 
   it('stops at the entry cap', async () => {
     const r = await crawl(ROOT, listDir, { maxEntries: 3 });
     expect(r.entries.length).toBe(3);
     expect(r.truncated).toBe(true);
+    expect(r.entryCapped).toBe(true);
+  });
+
+  it('a folder of many files cannot keep its siblings from being searched', async () => {
+    const big = Array.from({ length: 50 }, (_, i) => `f${i}.txt`);
+    // The target sits a level below big's sibling, so only big's share of the
+    // budget leaves room to reach it.
+    const tree: Record<string, string[]> = { [ROOT]: ['big/', 'small/'], [ROOT + 'big/']: big, [ROOT + 'small/']: ['inner/'], [ROOT + 'small/inner/']: ['target.md'] };
+    const r = await crawl(ROOT, async url => tree[url].map(n => entry(url, n)), { maxEntries: 20 });
+    expect(r.entries.some(e => e.name === 'small/inner/target.md')).toBe(true);
+    expect(r.entries.filter(e => e.name.startsWith('big/')).length).toBeLessThanOrEqual(10);
+    expect(r.entryCapped).toBe(true);
   });
 
   it('stops when cancelled and says so', async () => {

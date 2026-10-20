@@ -15,6 +15,8 @@ export interface CrawlResult {
   entries:   Entry[];
   folders:   number;      // folders listed, root included
   truncated: boolean;     // hit maxEntries or maxDepth somewhere
+  entryCapped?: boolean;  // stopped collecting at maxEntries, or left files out of a huge folder
+  depthCapped?: boolean;  // did not descend past maxDepth
   cancelled: boolean;
 }
 
@@ -38,11 +40,15 @@ export async function crawl(
   const maxDepth   = opts.maxDepth   ?? 8;
   const maxEntries = opts.maxEntries ?? 5000;
   const skip       = opts.skipDirs   ?? DEFAULT_SKIP_DIRS;
+  // One folder may fill at most half the budget with files, so a folder of
+  // thousands of files cannot keep its siblings from being searched.
+  const perFolderFiles = Math.ceil(maxEntries / 2);
   const entries: Entry[] = [];
-  let folders = 0, truncated = false;
+  let folders = 0, entryCapped = false, depthCapped = false;
 
   // Breadth-first so shallow matches land before deep ones, with a small pool
-  // of folder reads in flight at once.
+  // of folder reads in flight at once. Within a batch the smaller folders go
+  // first, for the same reason as the per-folder share.
   let queue: { url: string; depth: number }[] = [{ url: rootUrl, depth: 0 }];
   while (queue.length && !isCancelled() && entries.length < maxEntries) {
     const batch = queue.splice(0, CONCURRENCY);
@@ -50,21 +56,24 @@ export async function crawl(
       try { return { b, kids: await listDir(b.url) }; }
       catch { return { b, kids: [] as Entry[] }; }
     }));
+    listed.sort((x, y) => x.kids.length - y.kids.length);
     for (const { b, kids } of listed) {
       folders++;
+      let files = 0;
       for (const k of kids) {
         if (k.isParent) continue;
-        if (entries.length >= maxEntries) { truncated = true; break; }
+        if (entries.length >= maxEntries) { entryCapped = true; break; }
+        if (!k.isDir && ++files > perFolderFiles) { entryCapped = true; continue; }
         const name = relativeName(k.href, rootUrl);
         const hiddenSeg = name.split('/').some(s => s.startsWith('.'));
         entries.push({ ...k, name, isHidden: hiddenSeg });
         if (!k.isDir) continue;
         if (skip.has(k.name) || (!opts.includeHidden && k.name.startsWith('.'))) continue;
-        if (b.depth + 1 > maxDepth) { truncated = true; continue; }
+        if (b.depth + 1 > maxDepth) { depthCapped = true; continue; }
         queue.push({ url: k.href, depth: b.depth + 1 });
       }
     }
     opts.onProgress?.(folders, entries.length);
   }
-  return { entries, folders, truncated, cancelled: isCancelled() };
+  return { entries, folders, truncated: entryCapped || depthCapped, entryCapped, depthCapped, cancelled: isCancelled() };
 }
