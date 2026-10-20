@@ -135,4 +135,29 @@ From the decision page `bfb-edit-and-sections` (answer `D1a D2a D3b`):
   note. Settings is not the way in.
 - **Every sidebar section uses the icon, title and subtitle header**, with
   actions on the right, a divider below, collapse on the title and a drag
-  handle on the divider. Dialogs and panels use the same title.
+  handle on the divider. Dialogs and panels use the same title. (The sidebar
+  part is superseded by the lens rail below: a lens has one title and no
+  stacked sections to collapse or resize. Dialogs and panels keep it.)
+
+From the decision page `bfb-design-directions` (answer `D1d D2d D3d D4a`,
+judged against `ui-principles.md`):
+
+- **Visual direction: Soft.** 14px UI, 36px rows, 10px corners, sidebar and
+  main as floating cards, no row lines, status as pills. The owner wants more
+  exploration of its colours, elements and groups before tokens are fixed:
+  "D but need to explore more with colors and elements and groups". A second
+  variants round follows; until then the Soft values above are provisional.
+- **Rows: Type and State are columns, in words.** The column is named "Type",
+  not "Kind". State and tags share one column as chips; a state chip carries a
+  coloured dot so it draws the eye; words stay minimal ("Changed", "Unreadable").
+- **The sidebar is a rail of lenses: Places, Notes, History**, plus Search and
+  Ask when they are built. Places merges Finder Favorites and System with Home
+  derived from the account. Notes holds everything kept: saved folders and
+  files, saved views, notes and tags, with one filter and one tag row. History
+  holds recent folders, files and closed tab sets with ages. Every lens has a
+  title, a one-line subtitle, an empty state that offers the next step, and a
+  filter only above about eight rows.
+- **Contents lives in a right-hand rail on the file page**, "On this page",
+  tracking the reading position. Headings show depth by indent and a small
+  step in text size. A button above the list collapses and expands it. Find
+  in file sits in the file bar on the right, beside Edit and Copy.
