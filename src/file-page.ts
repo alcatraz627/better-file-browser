@@ -49,13 +49,6 @@ export function filePageExt(pathname: string): string | null {
   return null;
 }
 
-// The Settings choice: every text file, everything but markdown, or none.
-export function filePagesEnabled(ext: string, settings: Settings): boolean {
-  const mode = settings.renderFilePages || 'all';
-  const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : ['pdf', 'html', 'htm'];
-  return !(excluded.includes(ext.toLowerCase()) || mode === 'off' || (mode === 'not-md' && (ext === 'md' || ext === 'mdx')));
-}
-
 function renderBody(text: string, ext: string, href: string): string {
   const note = unrenderableNote(text);
   if (note) return note;

@@ -59,6 +59,25 @@ export function getSettings(): Settings {
 }
 export function saveSettings(s: Settings): void {
   kvSet(SETTINGS_KEY, JSON.stringify(s));
+  syncHtmlGuard(s);
+}
+
+// The Settings choice: every text file, everything but markdown, or none.
+export function filePagesEnabled(ext: string, settings: Settings): boolean {
+  const mode = settings.renderFilePages || 'all';
+  const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : ['pdf', 'html', 'htm'];
+  return !(excluded.includes(ext.toLowerCase()) || mode === 'off' || (mode === 'not-md' && (ext === 'md' || ext === 'mdx')));
+}
+
+// An HTML file the explorer takes over must not run its own scripts first.
+// loader.js decides that before Chrome parses the page, too early to read
+// chrome.storage, so it reads this copy from localStorage instead. Chrome
+// shares one localStorage across file:// pages; where it does not, the copy
+// is missing and the page behaves as before.
+export const HTML_GUARD_KEY = 'bfbHtmlTakeover';
+export function syncHtmlGuard(s: Settings): void {
+  try { localStorage.setItem(HTML_GUARD_KEY, ['html', 'htm'].filter(x => filePagesEnabled(x, s)).join(' ')); }
+  catch { /* storage blocked: the guard stays off */ }
 }
 
 function readList<T>(key: string): T[] {
@@ -96,7 +115,7 @@ export function getRecents(): RecentDir[] {
 export function pushRecent(path: string): void {
   const list = getRecents().filter(r => r.path !== path);
   list.unshift({ path, ts: Date.now() });
-  kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 20)));
+  kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 40)));
 }
 
 // Your home folder, read from any page under /Users/<name> and remembered,

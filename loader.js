@@ -5,6 +5,21 @@
   const p = window.location.pathname;
   const fileExt = /\.(md|mdx|txt|log|json|jsonl|ndjson|tsv|csv|sh|bash|zsh|fish|js|mjs|cjs|ts|tsx|jsx|py|rb|go|rs|java|kt|swift|c|cpp|h|cs|php|css|scss|less|html|htm|xml|svg|vue|svelte|yaml|yml|toml|ini|conf|env|sql|rst|lock|gitignore|diff|patch|jsonc|graphql|gql|proto)$/i;
   if (!p.endsWith('/') && !fileExt.test(p) && !/(?:Dockerfile|Containerfile|Makefile)$/i.test(p.split('/').pop() || '')) return;
+  // An HTML file the explorer will take over gets a no-scripts policy before
+  // Chrome parses it, so the file's own scripts never run. The list is a copy
+  // of the Settings choice (src/storage.ts syncHtmlGuard). A policy only
+  // counts inside a <head>, so one is added; the parser adds its own later,
+  // which is harmless because the explorer replaces the page.
+  const htmlExt = (p.match(/\.(html?)$/i) || [])[1];
+  let takeover = '';
+  try { takeover = localStorage.getItem('bfbHtmlTakeover') || ''; } catch (e) { /* storage blocked */ }
+  if (htmlExt && takeover.split(' ').includes(htmlExt.toLowerCase())) {
+    const head = document.head || document.documentElement.appendChild(document.createElement('head'));
+    const csp = document.createElement('meta');
+    csp.httpEquiv = 'Content-Security-Policy';
+    csp.content = "script-src 'none'";
+    head.prepend(csp);
+  }
   const s = document.createElement('style');
   s.id = 'bfb-preload';
   s.textContent = `

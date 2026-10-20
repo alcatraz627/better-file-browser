@@ -14,7 +14,7 @@ try {
   writeFileSync(join(h.fixture, 'broken.json'), '{\n  "name": "demo",\n  "list": [1, 2,\n  "x": 3\n}\n');
   writeFileSync(join(h.fixture, 'tsconfig.json'), '{\n  // strict mode\n  "strict": true,\n}\n');
   writeFileSync(join(h.fixture, 'notes.md'), '# One\n\n### Three\n\n```js\nopen fence\n');
-  writeFileSync(join(h.fixture, 'page.html'), '<html><body>\n<h1>Hello</h1>\n<div><span>a</div>\n<script>document.body.dataset.ran = "yes"</script>\n</body></html>\n');
+  writeFileSync(join(h.fixture, 'page.html'), '<html><body>\n<h1>Hello</h1>\n<div><span>a</div>\n<script>document.body.dataset.ran = "yes"; window.ownRan = 1</script>\n</body></html>\n');
   await h.store.edit('bfb-settings-v1', s => ({ ...s, editableFolders: [h.fixture], excludedFileExtensions: ['pdf'] }));
   const page = await h.browser.newPage();
   await page.setViewport({ width: 1400, height: 900 });
@@ -42,6 +42,8 @@ try {
 
   await page.goto('file://' + join(h.fixture, 'page.html'), { waitUntil: 'load' });
   await page.waitForSelector('#fe-fp-edit', { timeout: 6000 });
+  const own = await page.evaluate(() => ({ ran: window.ownRan ?? null, page: !!document.querySelector('#fe.fe-file-page') }));
+  check(own.ran === null && own.page,`an HTML file the explorer takes over runs none of its own scripts: ${JSON.stringify(own)}`);
   await page.click('#fe-fp-edit');
   await page.waitForSelector('#fe-fe-ta');
   await page.click('#fe-fe-pill [data-mode="split"]');

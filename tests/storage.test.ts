@@ -3,8 +3,36 @@ import {
   getColWidths, saveColWidths, getSettings, saveSettings,
   getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
   getPreviewLayout, savePreviewLayout,
-  getSaved, saveSaved, getTags, saveTags,
+  getSaved, saveSaved, getTags, saveTags, getRecents, pushRecent, HTML_GUARD_KEY,
 } from '../src/storage';
+
+describe('html script guard copy', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('is empty while HTML opens in Chrome, and lists html and htm once the explorer takes them over', () => {
+    saveSettings(getSettings());
+    expect(localStorage.getItem(HTML_GUARD_KEY)).toBe('');
+    saveSettings({ ...getSettings(), excludedFileExtensions: ['pdf', 'htm'] });
+    expect(localStorage.getItem(HTML_GUARD_KEY)).toBe('html');
+    saveSettings({ ...getSettings(), excludedFileExtensions: ['pdf'] });
+    expect(localStorage.getItem(HTML_GUARD_KEY)).toBe('html htm');
+    saveSettings({ ...getSettings(), renderFilePages: 'off' });
+    expect(localStorage.getItem(HTML_GUARD_KEY)).toBe('');
+  });
+});
+
+describe('history storage', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('keeps the 40 most recent visits, newest first, without repeats', () => {
+    for (let i = 0; i < 50; i++) pushRecent(`/d${i}/`);
+    pushRecent('/d45/');
+    const list = getRecents().map(r => r.path);
+    expect(list.length).toBe(40);
+    expect(list[0]).toBe('/d45/');
+    expect(list.filter(p => p === '/d45/').length).toBe(1);
+  });
+});
 
 describe('saved folders storage', () => {
   beforeEach(() => localStorage.clear());

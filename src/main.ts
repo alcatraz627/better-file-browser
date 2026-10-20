@@ -5,7 +5,7 @@ import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
   getView, getTheme, getPalette, getZoom, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
-  homeDir, setHomeDir,
+  homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard,
 } from './storage';
 import { notes } from './notes';
 import { initPreview } from './preview';
@@ -13,7 +13,7 @@ import { CSS } from './styles';
 import { esc, pageHref, fileHref } from './utils';
 import { samePlace } from './places';
 import { PI, icoFile } from './icons';
-import { filePageExt, filePagesEnabled, mountFileContent } from './file-page';
+import { filePageExt, mountFileContent } from './file-page';
 import { fetchFileText } from './file-fetch';
 import { mountStrip, type Strip } from './strip';
 import { makeToast } from './toast';
@@ -69,6 +69,7 @@ async function showClosedSets(strip: Strip, visible: boolean): Promise<void> {
 loadKv().catch(() => {}).then(function () {
   const preload = document.getElementById('bfb-preload');
   const settings = getSettings();
+  syncHtmlGuard(settings);   // a change made in another browser window reaches the loader too
   // folder/#view=name shows a file Chrome would otherwise download (see pageHref).
   const viewName = location.hash.startsWith('#view=') ? location.hash.slice(6) : '';
   const viewHref = viewName ? location.href.split('#')[0] + viewName : '';
@@ -116,7 +117,7 @@ loadKv().catch(() => {}).then(function () {
   // Snapshot history BEFORE recording this visit so the list shown
   // excludes the folder or file we're on. Files count as visits too, so a
   // doc read yesterday is one click away without restoring a whole strip.
-  const recents = getRecents().filter(r => r.path !== rawPath).slice(0, 10);
+  const recents = getRecents().filter(r => r.path !== rawPath);
   pushRecent(rawPath);
   // Closed tab sets are added below the list once the strip has read them; the
   // section stays hidden while it has nothing to show.
@@ -132,8 +133,8 @@ loadKv().catch(() => {}).then(function () {
     const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : 'txt';
     return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago(r.ts)}</span></a>`;
   };
-  const recentDirs = recents.filter(r => r.path.endsWith('/'));
-  const recentFiles = recents.filter(r => !r.path.endsWith('/'));
+  const recentDirs = recents.filter(r => r.path.endsWith('/')).slice(0, 12);
+  const recentFiles = recents.filter(r => !r.path.endsWith('/')).slice(0, 12);
   const recentsHTML = `
       <div class="fe-sec" data-sec="recent" data-collapse="recent">
         <div class="fe-sh"><span class="fe-sh-label">Folders</span></div>

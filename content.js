@@ -467,6 +467,19 @@
   }
   function saveSettings(s) {
     kvSet(SETTINGS_KEY, JSON.stringify(s));
+    syncHtmlGuard(s);
+  }
+  function filePagesEnabled(ext2, settings) {
+    const mode = settings.renderFilePages || "all";
+    const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : ["pdf", "html", "htm"];
+    return !(excluded.includes(ext2.toLowerCase()) || mode === "off" || mode === "not-md" && (ext2 === "md" || ext2 === "mdx"));
+  }
+  var HTML_GUARD_KEY = "bfbHtmlTakeover";
+  function syncHtmlGuard(s) {
+    try {
+      localStorage.setItem(HTML_GUARD_KEY, ["html", "htm"].filter((x) => filePagesEnabled(x, s)).join(" "));
+    } catch {
+    }
   }
   function readList(key) {
     try {
@@ -504,7 +517,7 @@
   function pushRecent(path) {
     const list = getRecents().filter((r) => r.path !== path);
     list.unshift({ path, ts: Date.now() });
-    kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 20)));
+    kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 40)));
   }
   var HOME_KEY = "bfb-home-v1";
   function homeDir(path) {
@@ -11948,11 +11961,6 @@ and ${diags.length - 12} more` : "");
     if (CODE_EXTS.has(ext2) || TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json") return ext2;
     return null;
   }
-  function filePagesEnabled(ext2, settings) {
-    const mode = settings.renderFilePages || "all";
-    const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : ["pdf", "html", "htm"];
-    return !(excluded.includes(ext2.toLowerCase()) || mode === "off" || mode === "not-md" && (ext2 === "md" || ext2 === "mdx"));
-  }
   function renderBody(text, ext2, href) {
     const note = unrenderableNote(text);
     if (note) return note;
@@ -16664,6 +16672,7 @@ ${rows.join("\n")}`, name: subject };
   }).then(function() {
     const preload = document.getElementById("bfb-preload");
     const settings = getSettings();
+    syncHtmlGuard(settings);
     const viewName = location.hash.startsWith("#view=") ? location.hash.slice(6) : "";
     const viewHref = viewName ? location.href.split("#")[0] + viewName : "";
     const fileExt = filePageExt(viewName ? location.pathname + viewName : location.pathname);
@@ -16704,7 +16713,7 @@ ${rows.join("\n")}`, name: subject };
     const initTheme = getTheme();
     const initPalette = getPalette();
     const initHidden = getShowHidden();
-    const recents = getRecents().filter((r) => r.path !== rawPath).slice(0, 10);
+    const recents = getRecents().filter((r) => r.path !== rawPath);
     pushRecent(rawPath);
     const ago = (ts) => {
       if (!ts) return "";
@@ -16717,8 +16726,8 @@ ${rows.join("\n")}`, name: subject };
       const ext2 = name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
       return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago(r.ts)}</span></a>`;
     };
-    const recentDirs = recents.filter((r) => r.path.endsWith("/"));
-    const recentFiles = recents.filter((r) => !r.path.endsWith("/"));
+    const recentDirs = recents.filter((r) => r.path.endsWith("/")).slice(0, 12);
+    const recentFiles = recents.filter((r) => !r.path.endsWith("/")).slice(0, 12);
     const recentsHTML = `
       <div class="fe-sec" data-sec="recent" data-collapse="recent">
         <div class="fe-sh"><span class="fe-sh-label">Folders</span></div>
