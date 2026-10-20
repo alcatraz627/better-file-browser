@@ -7,7 +7,7 @@ import { esc, copyToClipboard } from './utils';
 import { kvGet, kvSet } from './kv';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
-  renderCode, renderMarkdown, renderJsonTree, renderJsonl, parseDSV, numericCols, renderDSVTable,
+  renderCode, renderMarkdown, renderJsonTree, renderJsonl, parseDSV, numericCols, renderDSVTable, unrenderableNote,
 } from './renderers';
 import { fetchFileText } from './file-fetch';
 import { fileMeta, metaChips, metaSummary } from './file-meta';
@@ -56,9 +56,11 @@ export function filePagesEnabled(ext: string, settings: Settings): boolean {
 }
 
 function renderBody(text: string, ext: string, href: string): string {
+  const note = unrenderableNote(text);
+  if (note) return note;
   if (TABLE_EXTS.has(ext)) {
     const rows = parseDSV(text, ext === 'tsv' ? '\t' : ',');
-    return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : '<div class="fe-ql-note">Empty file.</div>';
+    return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : unrenderableNote('');
   }
   if (JSONL_EXTS.has(ext)) return renderJsonl(text);
   if (ext === 'json') return renderJsonTree(text);

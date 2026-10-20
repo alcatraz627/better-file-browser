@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseDSV, numericCols, sortDSVRows, renderDSVTable,
-  highlightCode, renderCode, sniffBinary,
+  highlightCode, renderCode, sniffBinary, unrenderableNote,
   renderJsonl, renderJsonTree, RENDER_CAPS,
   renderMarkdown, mdInline, sanitizeHtml, resolveMdUrl,
 } from '../src/renderers';
@@ -258,6 +258,15 @@ describe('renderJsonl', () => {
   it('notes truncation past the line cap', () => {
     const text = Array.from({ length: RENDER_CAPS.jsonlLines + 5 }, () => '{"x":1}').join('\n');
     expect(renderJsonl(text)).toContain('Showing first');
+  });
+});
+
+describe('unrenderableNote', () => {
+  it('names an empty or blank file, a binary one, and passes text through', () => {
+    expect(unrenderableNote('')).toContain('Empty file');
+    expect(unrenderableNote('  \n\t')).toContain('Empty file');
+    expect(unrenderableNote('PNG\u0000\u0001\u0002')).toContain('Binary file');
+    expect(unrenderableNote('# hi')).toBe('');
   });
 });
 

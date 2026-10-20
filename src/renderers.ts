@@ -24,6 +24,14 @@ export const RENDER_CAPS = {
   treeNodes:  20_000,
 };
 
+/** The one note an empty file or a binary one gets, on the file page and in
+ *  the preview alike; '' when the text is fine to render. */
+export function unrenderableNote(text: string): string {
+  if (!text.trim()) return '<div class="fe-ql-note">Empty file.</div>';
+  if (sniffBinary(text)) return '<div class="fe-ql-note">Binary file, no text to show.</div>';
+  return '';
+}
+
 /** True when the first chunk of a file looks like binary data, not text. */
 export function sniffBinary(text: string): boolean {
   const probe = text.slice(0, 1000);

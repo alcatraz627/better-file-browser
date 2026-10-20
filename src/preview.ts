@@ -12,7 +12,7 @@ import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
   renderCode, renderJsonTree, renderJsonl, renderMarkdown,
   parseDSV, numericCols, sortDSVRows, renderDSVTable,
-  sniffBinary,
+  sniffBinary, unrenderableNote,
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
 import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
@@ -756,9 +756,10 @@ function fetchAndRender(e: Entry, ext: string, seq: number): void {
 
 function render(text: string, ext: string): void {
   const body = document.getElementById('fe-ql-body')!;
-  if (sniffBinary(text)) {
-    document.getElementById('fe-ql-ai')!.style.display = 'none';   // nothing for a model to read
-    body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Binary file — no text preview.</div></div>`;
+  const note = unrenderableNote(text);
+  if (note) {
+    if (sniffBinary(text)) document.getElementById('fe-ql-ai')!.style.display = 'none';   // nothing for a model to read
+    body.innerHTML = `<div class="fe-ql-center">${note}</div>`;
     return;
   }
   if (TABLE_EXTS.has(ext)) {
@@ -770,7 +771,7 @@ function render(text: string, ext: string): void {
       body.innerHTML = renderDSVTable(dsvHeader, dsvRows, dsvNum);
       return;
     }
-    body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Empty file.</div></div>`;
+    body.innerHTML = `<div class="fe-ql-center">${unrenderableNote('')}</div>`;
     return;
   }
   if (JSONL_EXTS.has(ext)) { body.innerHTML = renderJsonl(text); return; }
