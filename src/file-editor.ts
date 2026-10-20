@@ -149,7 +149,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     const errors = diags.filter(d => d.severity === 'error').length;
     diagBtn.hidden = !diags.length;
     diagBtn.className = `btn fe-fe-diag ${errors ? 'error' : 'warn'}`;
-    diagBtn.textContent = diags.length === 1 ? '1 problem' : `${diags.length} problems`;
+    const warns = diags.length - errors;
+    diagBtn.textContent = [errors && `${errors} error${errors > 1 ? 's' : ''}`, warns && `${warns} warning${warns > 1 ? 's' : ''}`].filter(Boolean).join(', ');
     diagBtn.title = diags.slice(0, 12).map(d => `Line ${d.line}: ${d.message}`).join('\n') + (diags.length > 12 ? `\nand ${diags.length - 12} more` : '');
   };
   const check = () => { diags = diagnose(host.ext, ta.value); markProblems(); };

@@ -109,6 +109,7 @@ function initAsk(app: App): void {
   const state = el('fe-ask-state');
   let cancel: (() => void) | null = null;
   let checked = false;
+  let usable = true;
 
   async function checkModel(): Promise<void> {
     checked = true;
@@ -117,6 +118,10 @@ function initAsk(app: App): void {
     statusRow.className = `fe-ask-status ${a.kind === 'ready' ? (a.cold ? 'cold' : 'ready') : a.kind}`;
     state.textContent = a.kind === 'ready' ? (a.cold ? `${a.status.default_model}, will load on first question` : `${a.status.default_model} is ready`)
       : a.kind === 'down' ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+    // Without a model the form stays visible but quiet; the status line says why once.
+    usable = a.kind === 'ready';
+    q.disabled = go.disabled = !usable;
+    box!.querySelectorAll<HTMLButtonElement>('.fe-ask-chip').forEach(b => { b.disabled = !usable; });
   }
 
   // What the model reads: the file's text, or the folder's listing.
@@ -128,6 +133,7 @@ function initAsk(app: App): void {
   }
 
   async function ask(intent: string, question?: string): Promise<void> {
+    if (!usable) return;
     cancel?.();
     const turn = document.createElement('div');
     turn.className = 'fe-ask-turn';

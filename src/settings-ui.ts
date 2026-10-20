@@ -99,8 +99,7 @@ export function initSettingsUi(app: App): void {
       if (av.kind === 'unavailable') {
         head.classList.add('off');
         state.textContent = 'Not installed';
-        hint.innerHTML = `The native host isn't registered (${esc(av.reason)}). ` +
-          `Install it once: run <code>native/install.sh &lt;extension-id&gt;</code> and reload the extension.`;
+        hint.innerHTML = `Local AI is not set up. <details class="fe-st-ai-why"><summary>How to set it up</summary>Run <code>native/install.sh &lt;extension-id&gt;</code> once, then reload the extension. Chrome said: ${esc(av.reason)}</details>`;
         return;
       }
       const s = av.status;

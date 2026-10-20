@@ -12,7 +12,7 @@ export const CSS = `
   --shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);
   --gold:#d29922;--green:#3fb950;
   --hover:color-mix(in srgb,var(--tx) 6%,transparent);--act:color-mix(in srgb,var(--ac) 18%,transparent);--r:6px;
-  --card:color-mix(in srgb,var(--s1),var(--s2) 45%);--side:var(--s1);
+  --card:color-mix(in srgb,var(--s1),var(--s2) 62%);--side:var(--s1);
   --t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);
   --mono:'SF Mono',Menlo,Consolas,monospace;
   --nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;
@@ -1191,6 +1191,39 @@ button.fe-si{width:auto;display:flex}
 .fe-ask-meta{margin-top:6px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
 .fe-ask-form{flex-direction:row;align-items:flex-end}
 .fe-ask-form .btn{flex:none;height:30px}
+/* Review fixes: Settings follows the page order (panel a step below, cards
+   on top), fields share one look, path chevrons show on hover only, and
+   the palette swatch previews the theme in use. */
+.fe-dlg-pane{background:var(--side)}
+.fe-set-card{background:var(--card)}
+.fe-dlg-pane .fe-st-input{background:var(--card);border-color:var(--bd2)}
+.fe-dlg-pane .fe-st-select{min-width:150px}
+.fe-st-ai-why{margin-top:6px}
+.fe-st-ai-why > summary{cursor:pointer;color:var(--ac)}
+#fe-bar .fe-crumb-dd{opacity:0}
+#fe-bc:hover .fe-crumb-dd,#fe-bc:focus-within .fe-crumb-dd{opacity:.45}
+#fe-bar .fe-crumb-dd:hover{opacity:1}
+#fe-statusbar{min-width:0;overflow:hidden;white-space:nowrap}
+#fe[data-theme="light"] .fe-set-sw:nth-child(1) .fe-set-sw-chip{--b:#eaf0f2;--a:#0e8f8a}
+#fe[data-theme="light"] .fe-set-sw:nth-child(2) .fe-set-sw-chip{--b:#f0f0f5;--a:#6d4aff}
+#fe[data-theme="light"] .fe-set-sw:nth-child(3) .fe-set-sw-chip{--b:#f2ece4;--a:#c2406b}
+#fe[data-theme="light"] .fe-set-sw:nth-child(4) .fe-set-sw-chip{--b:#f0f0f0;--a:#141414}
+/* Very narrow: the sidebar shrinks to its rail and a picked lens floats over
+   the page; the path bar keeps its last folder in view. */
+@media (max-width:520px){
+  #fe #fe-side{width:54px!important;max-width:none;overflow:visible;position:relative;z-index:30}
+  #fe-side-rz{display:none}
+  #fe-lenses{display:none}
+  #fe-side.open #fe-lenses{display:block;position:absolute;top:0;bottom:0;left:58px;width:min(260px,calc(100vw - 80px));
+    background:var(--side);border:1px solid var(--pop-bd);border-radius:12px;box-shadow:var(--pop-sh);animation:fe-lens-in var(--t-base) var(--ease)}
+  #fe-rail{border-right:0}
+  #fe-bc{justify-content:flex-end}
+}
+@container fe-main (max-width:480px){
+  #fe-page .fe-md{padding:16px 14px 48px}
+  #fe-page .fe-md h1{font-size:1.45em}
+  #fe-page > .fe-diag{margin:12px 14px 0}
+}
 .fe-st-rule-del:hover{color:var(--nc-red)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){

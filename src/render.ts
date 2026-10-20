@@ -77,7 +77,7 @@ export function renderRow(e: Entry, ctx: RenderContext, idx = -1, hit?: ContentH
   return `<tr class="fe-row${e.isDir ? ' dir' : ''}${e.isParent ? ' par' : ''}${e.isHidden ? ' dotfile' : ''}"
              data-name="${esc(e.name.toLowerCase())}"
              data-idx="${idx}"
-             data-tip="${esc(tipData)}">
+             ${e.isParent ? '' : `data-tip="${esc(tipData)}"`}>
     <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ''}${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-tg">${tagChips(e, ctx)}</td>

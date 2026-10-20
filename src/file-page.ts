@@ -217,6 +217,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     const next = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
     colBtn.title = `Reading width: ${column === 'unset' ? 'full' : `${column.toUpperCase()} (${COLUMN_WIDTHS[column]})`}. Click for ${next === 'unset' ? 'full' : `${next.toUpperCase()} (${COLUMN_WIDTHS[next]})`}`;
     colBtn.style.display = isMd && !raw ? '' : 'none';
+    // While editing, the editor's own Raw / Split / Rich switch is the only view control.
+    rawBtn.style.display = editor ? 'none' : '';
     // The rail shows for a markdown page with at least two headings; folded,
     // it keeps only its button so it can open again.
     rail.hidden = !isMd || raw || headings < 2 || !!editor;

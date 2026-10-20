@@ -53,13 +53,14 @@ try {
       const buttons = [...modal.querySelectorAll('button.fe-pbn')].filter(el => el.offsetParent);
       const input = modal.querySelector('#fe-st-notes-root');
       return { scroll: tabs.scrollWidth - tabs.clientWidth, icons, hints, buttons: buttons.every(el => !!el.querySelector('svg')),
-        bg: getComputedStyle(input).backgroundColor, appBg: getComputedStyle(document.getElementById('fe')).backgroundColor };
+        bg: getComputedStyle(input).backgroundColor, selectBg: getComputedStyle(modal.querySelector('.fe-st-select')).backgroundColor };
     });
     assert.equal(settings.scroll, 0, `${theme} settings tabs overflow`);
     assert.equal(settings.icons, 6);
     assert.ok(settings.hints.every(h => /^[A-Z]/.test(h)));
     assert.equal(settings.buttons, true);
-    assert.equal(settings.bg, settings.appBg, `${theme} input looks disabled`);
+    // Review 2026-10-21: text fields and selects share one field style.
+    assert.equal(settings.bg, settings.selectBg, `${theme} input and select differ`);
     for (const tab of ['look', 'folders', 'files', 'notes', 'ai', 'data']) {
       await page.click(`#fe-settings-modal .fe-dlg-tab[data-tab="${tab}"]`);
       const missing = await page.evaluate(() => [...document.querySelectorAll('#fe-settings-modal button')]

@@ -34,12 +34,29 @@ try {
   await page.waitForFunction(() => !/Not checked|Checking/.test(document.getElementById('fe-ask-state').textContent), { timeout: 8000 }).catch(() => null);
   const st = await page.evaluate(() => ({ state: document.getElementById('fe-ask-state').textContent, cls: document.getElementById('fe-ask-status').className, about: document.querySelector('.fe-ask-about').textContent }));
   check(st.state.length > 5 && !/Checking/.test(st.state) && /this folder/.test(st.about), `Ask checks the model on open and says what it is about: ${JSON.stringify(st)}`);
-  await page.type('#fe-ask-q', 'What is here?');
-  await page.keyboard.press('Enter');
-  await page.waitForFunction(() => { const a = document.querySelector('.fe-ask-a'); return a && !/Thinking/.test(a.textContent); }, { timeout: 15000 }).catch(() => null);
-  const ans = await page.evaluate(() => ({ q: document.querySelector('.fe-ask-q')?.textContent, a: document.querySelector('.fe-ask-a')?.textContent, btn: document.getElementById('fe-ask-go').textContent }));
-  check(ans.q === 'What is here?' && ans.a && ans.a.length > 5 && ans.btn === 'Ask', `a question gets an answer or a plain reason, and the button returns to Ask: ${JSON.stringify(ans)}`);
+  if (/ready|load on first/.test(st.state)) {
+    await page.type('#fe-ask-q', 'What is here?');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => { const a = document.querySelector('.fe-ask-a'); return a && !/Thinking/.test(a.textContent); }, { timeout: 60000 }).catch(() => null);
+    const ans = await page.evaluate(() => ({ a: document.querySelector('.fe-ask-a')?.textContent, btn: document.getElementById('fe-ask-go').textContent }));
+    check(ans.a && ans.a.length > 5 && ans.btn === 'Ask', `a question gets an answer and the button returns to Ask: ${JSON.stringify(ans)}`);
+  } else {
+    const quiet = await page.evaluate(() => ({ q: document.getElementById('fe-ask-q').disabled, go: document.getElementById('fe-ask-go').disabled, chips: [...document.querySelectorAll('.fe-ask-chip')].every(c => c.disabled), turns: document.querySelectorAll('.fe-ask-turn').length }));
+    check(quiet.q && quiet.go && quiet.chips && quiet.turns === 0, `with no model the form is disabled and the reason shows once: ${JSON.stringify(quiet)}`);
+  }
   await page.screenshot({ path: join(SHOTS, 'lens-ask.png'), clip: { x: 0, y: 40, width: 520, height: 520 } });
+
+  // A very narrow window: the sidebar is its rail, a lens opens over the page and Esc closes it.
+  await page.setViewport({ width: 420, height: 800 });
+  await new Promise(r => setTimeout(r, 300));
+  const railW = await page.$eval('#fe-side', e => Math.round(e.getBoundingClientRect().width));
+  await page.click('#fe-rail-notes');
+  await new Promise(r => setTimeout(r, 300));
+  const over = await page.evaluate(() => { const l = document.getElementById('fe-lenses').getBoundingClientRect(); return { shown: l.width > 150, left: Math.round(l.left) }; });
+  await page.screenshot({ path: join(SHOTS, 'lens-narrow-overlay.png') });
+  await page.keyboard.press('Escape');
+  const closed = await page.$eval('#fe-lenses', e => getComputedStyle(e).display === 'none');
+  check(railW <= 60 && over.shown && closed, `at 420px the sidebar is a ${railW}px rail, a lens opens over the page, Esc closes it: ${JSON.stringify(over)}`);
 } finally {
   console.log(results.join('\n'));
   await h.close();

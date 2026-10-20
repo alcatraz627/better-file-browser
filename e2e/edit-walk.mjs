@@ -163,7 +163,7 @@ try {
   await typeAtEnd(page, 'name: again\n');
   await page.waitForFunction(() => !document.getElementById('fe-fe-diag').hidden, { timeout: 3000 }).catch(() => null);
   const bad = await page.evaluate(() => ({ pill: document.getElementById('fe-fe-diag').textContent, rows: [...document.querySelectorAll('#fe-fe-paint .fe-fe-row')].map((r, i) => r.classList.contains('err') ? i + 1 : 0).filter(Boolean) }));
-  check(/1 problem/.test(bad.pill) && bad.rows.includes(5), `a duplicate key marks line 5 and the pill counts it: ${JSON.stringify(bad)}`);
+  check(/1 error/.test(bad.pill) && bad.rows.includes(5), `a duplicate key marks line 5 and the pill counts it: ${JSON.stringify(bad)}`);
   await page.screenshot({ path: join(SHOTS, 'edit-yaml-problem-dark.png') });
   await page.click('#fe-fe-pill [data-mode="rich"]');
   const tree = await page.$$eval('#fe-fe-view .fe-jt-key', s => s.map(x => x.textContent));

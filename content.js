@@ -2887,14 +2887,14 @@ ${body}
     });
   }
   var LLM_ERROR_TEXT = {
-    server_down: "The local model server is down. Run `lm status` in a terminal.",
+    server_down: "The local model is not running. Start it with lm in a terminal.",
     model_missing: "The model is not available on the server.",
     ctx_too_large: "This file is too large for the model.",
     timeout: "The model took too long and was stopped.",
     invalid_args: "Invalid request.",
     cancelled: "Cancelled.",
     host_no_lm: "The lm CLI was not found on this machine.",
-    unavailable: "The AI host is not installed. Run native/install.sh <extension-id>.",
+    unavailable: "Local AI is not set up. Settings, AI shows how.",
     disconnected: "The AI host disconnected unexpectedly."
   };
 
@@ -3721,7 +3721,7 @@ ${body}
   --shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);
   --gold:#d29922;--green:#3fb950;
   --hover:color-mix(in srgb,var(--tx) 6%,transparent);--act:color-mix(in srgb,var(--ac) 18%,transparent);--r:6px;
-  --card:color-mix(in srgb,var(--s1),var(--s2) 45%);--side:var(--s1);
+  --card:color-mix(in srgb,var(--s1),var(--s2) 62%);--side:var(--s1);
   --t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);
   --mono:'SF Mono',Menlo,Consolas,monospace;
   --nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;
@@ -4900,6 +4900,39 @@ button.fe-si{width:auto;display:flex}
 .fe-ask-meta{margin-top:6px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
 .fe-ask-form{flex-direction:row;align-items:flex-end}
 .fe-ask-form .btn{flex:none;height:30px}
+/* Review fixes: Settings follows the page order (panel a step below, cards
+   on top), fields share one look, path chevrons show on hover only, and
+   the palette swatch previews the theme in use. */
+.fe-dlg-pane{background:var(--side)}
+.fe-set-card{background:var(--card)}
+.fe-dlg-pane .fe-st-input{background:var(--card);border-color:var(--bd2)}
+.fe-dlg-pane .fe-st-select{min-width:150px}
+.fe-st-ai-why{margin-top:6px}
+.fe-st-ai-why > summary{cursor:pointer;color:var(--ac)}
+#fe-bar .fe-crumb-dd{opacity:0}
+#fe-bc:hover .fe-crumb-dd,#fe-bc:focus-within .fe-crumb-dd{opacity:.45}
+#fe-bar .fe-crumb-dd:hover{opacity:1}
+#fe-statusbar{min-width:0;overflow:hidden;white-space:nowrap}
+#fe[data-theme="light"] .fe-set-sw:nth-child(1) .fe-set-sw-chip{--b:#eaf0f2;--a:#0e8f8a}
+#fe[data-theme="light"] .fe-set-sw:nth-child(2) .fe-set-sw-chip{--b:#f0f0f5;--a:#6d4aff}
+#fe[data-theme="light"] .fe-set-sw:nth-child(3) .fe-set-sw-chip{--b:#f2ece4;--a:#c2406b}
+#fe[data-theme="light"] .fe-set-sw:nth-child(4) .fe-set-sw-chip{--b:#f0f0f0;--a:#141414}
+/* Very narrow: the sidebar shrinks to its rail and a picked lens floats over
+   the page; the path bar keeps its last folder in view. */
+@media (max-width:520px){
+  #fe #fe-side{width:54px!important;max-width:none;overflow:visible;position:relative;z-index:30}
+  #fe-side-rz{display:none}
+  #fe-lenses{display:none}
+  #fe-side.open #fe-lenses{display:block;position:absolute;top:0;bottom:0;left:58px;width:min(260px,calc(100vw - 80px));
+    background:var(--side);border:1px solid var(--pop-bd);border-radius:12px;box-shadow:var(--pop-sh);animation:fe-lens-in var(--t-base) var(--ease)}
+  #fe-rail{border-right:0}
+  #fe-bc{justify-content:flex-end}
+}
+@container fe-main (max-width:480px){
+  #fe-page .fe-md{padding:16px 14px 48px}
+  #fe-page .fe-md h1{font-size:1.45em}
+  #fe-page > .fe-diag{margin:12px 14px 0}
+}
 .fe-st-rule-del:hover{color:var(--nc-red)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){
@@ -11521,7 +11554,8 @@ ${d.message}` : `Line ${d.line}: ${d.message}`;
       const errors = diags.filter((d) => d.severity === "error").length;
       diagBtn.hidden = !diags.length;
       diagBtn.className = `btn fe-fe-diag ${errors ? "error" : "warn"}`;
-      diagBtn.textContent = diags.length === 1 ? "1 problem" : `${diags.length} problems`;
+      const warns = diags.length - errors;
+      diagBtn.textContent = [errors && `${errors} error${errors > 1 ? "s" : ""}`, warns && `${warns} warning${warns > 1 ? "s" : ""}`].filter(Boolean).join(", ");
       diagBtn.title = diags.slice(0, 12).map((d) => `Line ${d.line}: ${d.message}`).join("\n") + (diags.length > 12 ? `
 and ${diags.length - 12} more` : "");
     };
@@ -12055,6 +12089,7 @@ ${d.message}` : d.message;
       const next = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
       colBtn.title = `Reading width: ${column === "unset" ? "full" : `${column.toUpperCase()} (${COLUMN_WIDTHS[column]})`}. Click for ${next === "unset" ? "full" : `${next.toUpperCase()} (${COLUMN_WIDTHS[next]})`}`;
       colBtn.style.display = isMd && !raw ? "" : "none";
+      rawBtn.style.display = editor ? "none" : "";
       rail.hidden = !isMd || raw || headings < 2 || !!editor;
       const open = tight ? peek : tocOpen;
       rail.classList.toggle("folded", !open);
@@ -13294,7 +13329,7 @@ seconds and re-renders when the file changes on disk.
     return `<tr class="fe-row${e.isDir ? " dir" : ""}${e.isParent ? " par" : ""}${e.isHidden ? " dotfile" : ""}"
              data-name="${esc(e.name.toLowerCase())}"
              data-idx="${idx}"
-             data-tip="${esc(tipData)}">
+             ${e.isParent ? "" : `data-tip="${esc(tipData)}"`}>
     <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ""}${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-tg">${tagChips(e, ctx)}</td>
@@ -13425,34 +13460,34 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           stRow("Mode", "", `<div class="fe-seg"><label><input type="radio" name="bfb-theme" value="dark" title="Dark theme"><span>Dark</span></label><label><input type="radio" name="bfb-theme" value="light" title="Light theme"><span>Light</span></label></div>`) + stRow("Palette", "Accent and surface colours", `<div class="fe-set-sws">${swatch("slate", "Slate", "#3cc6c0", "#1c2328", "Slate and teal") + swatch("violet", "Violet", "#9d7cff", "#1f1f27", "Violet") + swatch("sand", "Sand", "#e8789a", "#24201c", "Sand and rose") + swatch("ink", "Ink", "#f2f2f3", "#1b1b1d", "Ink, black and white")}</div>`)
         ) + stCard(
           "Size",
-          stRow("Interface size", "Scales the whole window, sidebar included", `<select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">${[90, 100, 110, 125, 150].map((n) => `<option value="${n}">${n}%</option>`).join("")}</select>`) + stRow("Text size", "Text throughout the app", `<select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>`) + stRow("Compact rows", "Tighter rows in lists and tiles", stSwitch("fe-st-compact", "Tighter rows and tiles"))
+          stRow("Interface size", "Scales everything", `<select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">${[90, 100, 110, 125, 150].map((n) => `<option value="${n}">${n}%</option>`).join("")}</select>`) + stRow("Text size", "Text throughout the app", `<select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>`) + stRow("Compact rows", "Tighter rows in lists and tiles", stSwitch("fe-st-compact", "Tighter rows and tiles"))
         ) + stCard(
           "Help",
-          stRow("Tooltips", "A short label when you hover a control", stSwitch("fe-st-tooltips", "Native tooltips on every control")) + stRow("Keyboard shortcuts", "Every key on one page", `<button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Show keys</button>`)
+          stRow("Tooltips", "Labels on hover", stSwitch("fe-st-tooltips", "Native tooltips on every control")) + stRow("Keyboard shortcuts", "Every key on one page", `<button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Show keys</button>`)
         ) },
         { key: "folders", label: "Folders", hint: "Views, order and the sidebar", icon: UI_ICON.files, body: stCard(
           "Opening a folder",
-          stRow("View", "How a folder first appears", `<select id="fe-st-defview" class="fe-st-select" title="View a folder opens in"><option value="details">Details</option><option value="list">List</option><option value="tree">Tree</option><option value="tiles">Tiles</option><option value="icons">Large icons</option></select>`) + stRow("Sort", "The column headers and the Sort panel change it too", `<select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in"><option value="">As listed</option><option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option><option value="type">Type</option><option value="ext">Extension</option></select><select id="fe-st-sort-dir" class="fe-st-select" title="Direction"><option value="asc">Ascending</option><option value="desc">Descending</option></select>`) + stRow("Group", "", `<select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with"><option value="none">None</option><option value="folders-first">Folders first</option><option value="files-first">Files first</option><option value="ext">By extension</option><option value="type">By type</option></select>`) + stRow("Dates", "How the Modified column reads", `<select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads"><option value="short">Apr 17</option><option value="full">April 17, 2025</option></select>`)
+          stRow("View", "How a folder first appears", `<select id="fe-st-defview" class="fe-st-select" title="View a folder opens in"><option value="details">Details</option><option value="list">List</option><option value="tree">Tree</option><option value="tiles">Tiles</option><option value="icons">Large icons</option></select>`) + stRow("Sort", "", `<select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in"><option value="">As listed</option><option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option><option value="type">Type</option><option value="ext">Extension</option></select><select id="fe-st-sort-dir" class="fe-st-select" title="Direction"><option value="asc">Ascending</option><option value="desc">Descending</option></select>`) + stRow("Group", "", `<select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with"><option value="none">None</option><option value="folders-first">Folders first</option><option value="files-first">Files first</option><option value="ext">By extension</option><option value="type">By type</option></select>`) + stRow("Dates", "How the Modified column reads", `<select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads"><option value="short">Apr 17</option><option value="full">April 17, 2025</option></select>`)
         ) + stCard(
           "Opening a file",
-          stRow("A click on a file", "Look opens the preview; Go opens the file\u2019s own page", `<select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does"><option value="look">Look</option><option value="go">Go</option></select>`) + stRow("Preview", "Where the preview opens", `<select id="fe-st-panel" class="fe-st-select" title="Where the preview opens"><option value="modal">Floating window</option><option value="side">Docked to the side</option></select><button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">${UI_ICON.reset}Reset sizes</button>`)
+          stRow("A click on a file", "", `<select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does"><option value="look">Preview it</option><option value="go">Open it</option></select>`) + stRow("Preview", "Where the preview opens", `<select id="fe-st-panel" class="fe-st-select" title="Where the preview opens"><option value="modal">Floating window</option><option value="side">Docked to the side</option></select><button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">${UI_ICON.reset}Reset sizes</button>`)
         ) + stCard(
           "Sidebar",
-          stRow("Show the sidebar", "Places, Notes and History on the left", stSwitch("fe-st-sidebar", "Places, Notes and History on the left")) + stRow("History", "Folders and files you opened lately, and closed tabs", stSwitch("fe-st-sec-recent", "Folders and files you opened lately, and closed tabs"))
+          stRow("Show the sidebar", "", stSwitch("fe-st-sidebar", "Places, Notes and History on the left")) + stRow("History lens", "Recent folders, files and closed tabs", stSwitch("fe-st-sec-recent", "Folders and files you opened lately, and closed tabs"))
         ) + stCard(
           "Terminal",
-          stRow("Open folders in", "The terminal button in the path bar", `<select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open the current folder in"><option value="ghostty">Ghostty</option><option value="terminal">Terminal</option><option value="iterm">iTerm2</option><option value="wezterm">WezTerm</option><option value="kitty">Kitty</option><option value="custom">Custom command</option></select>`) + stRow("Command", "Use ${p} for the folder; it is copied, not run", `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} for the folder path.'>`, ' id="fe-st-term-custom-row" style="display:none"') + stNote("", "fe-st-term-hint")
+          stRow("Open folders in", "", `<select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open the current folder in"><option value="ghostty">Ghostty</option><option value="terminal">Terminal</option><option value="iterm">iTerm2</option><option value="wezterm">WezTerm</option><option value="kitty">Kitty</option><option value="custom">Custom command</option></select>`) + stRow("Command", "Use ${p} for the folder; it is copied, not run", `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} for the folder path.'>`, ' id="fe-st-term-custom-row" style="display:none"') + stNote("", "fe-st-term-hint")
         ) },
         { key: "files", label: "Files", hint: "Reading and file pages", icon: UI_ICON.preview, body: stCard(
           "Reading",
-          stRow("Reading width", "Where Markdown pages start; the file bar changes it per page", `<select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages"><option value="unset">Full width</option><option value="xl">Wide, 150 characters</option><option value="lg">Medium, 130 characters</option><option value="md">Narrow, 110 characters</option></select>`) + stRow("Line height", "", `<select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${["1.5", "1.65", "1.8"].map((n) => `<option value="${n}">${n}</option>`).join("")}</select>`) + stRow("Code size", "", `<select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>`) + stRow("Wrap long lines", "Raw text and code wrap instead of scrolling sideways", stSwitch("fe-st-wrap", "Wrap long lines in raw text and code"))
+          stRow("Reading width", "Default for Markdown pages", `<select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages"><option value="unset">Full width</option><option value="xl">Wide, 150 characters</option><option value="lg">Medium, 130 characters</option><option value="md">Narrow, 110 characters</option></select>`) + stRow("Line height", "", `<select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${["1.5", "1.65", "1.8"].map((n) => `<option value="${n}">${n}</option>`).join("")}</select>`) + stRow("Code size", "", `<select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>`) + stRow("Wrap long lines", "Raw text and code", stSwitch("fe-st-wrap", "Wrap long lines in raw text and code"))
         ) + stCard(
           "File pages",
-          stRow("Show files as pages", "A file opened in a tab renders like the preview", `<select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page"><option value="all">All text files</option><option value="not-md">All except Markdown</option><option value="off">Off, Chrome shows plain text</option></select>`) + stRow("Leave to Chrome", "These extensions keep Chrome\u2019s own page; PDF always does", `<input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces"><button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default list">${UI_ICON.reset}Defaults</button>`)
+          stRow("Show files as pages", "", `<select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page"><option value="all">All text files</option><option value="not-md">All except Markdown</option><option value="off">Off, Chrome shows plain text</option></select>`) + stRow("Leave to Chrome", "Open these in Chrome\u2019s own viewer", `<input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces"><button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default list">${UI_ICON.reset}Defaults</button>`)
         ) + stCard(
           "Icon rules",
           `
-          <p class="fe-set-note">A pattern is matched against the file name, ignoring case. Rules win over the built-in icons.</p>
+          <p class="fe-set-note">Matches file names in any case, and wins over the built-in icons.</p>
           <div class="fe-st-rules-cols">
             <span></span><span></span>
             <span class="fe-st-col-lbl">Pattern</span>
@@ -13469,7 +13504,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           stRow("Notes folder", "A folder of Markdown files", `<input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder"><button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>`) + stNote("", "fe-st-notes-hint")
         ) + stCard(
           "Editing",
-          stRow("Editable folders", "Text files inside these get an Edit button (e)", `<input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Folders separated by commas; ~ means home">`) + stNote("Every save keeps the previous text for 14 days in ~/Library/Application Support/BetterFileBrowser/backups.")
+          stRow("Editable folders", "Text files inside these get an Edit button (e)", `<input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Folders separated by commas; ~ means home">`) + stNote("Each save keeps a 14-day backup in ~/Library/Application Support/BetterFileBrowser.")
         ) },
         { key: "ai", label: "AI", hint: "Local model", icon: UI_ICON.ai, body: stCard(
           "Local model",
@@ -13490,8 +13525,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           `<button id="fe-st-ai-refresh" class="fe-pbn" title="Check the model server again">${UI_ICON.reset}Check again</button>`
         ) },
         { key: "data", label: "Data", hint: "Export and import", icon: UI_ICON.data, body: stCard(
-          "Settings and Saved list",
-          stRow("Export", "Copies everything this extension stores, as JSON", `<button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>`) + stRow("Import", "Loads an export and reloads the page", `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">`) + `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`
+          "Your data",
+          stRow("Export", "Settings and Saved list, as JSON", `<button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>`) + stRow("Import", "Loads an export, then reloads", `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">`) + `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`
         ) }
       ]
     };
@@ -15188,11 +15223,21 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (hideHistory !== void 0) el("fe-rail-history").hidden = hideHistory;
       show(lens ?? kvGet(LENS_KEY) ?? "notes");
     };
+    const side = el("fe-side");
+    const narrow = () => matchMedia("(max-width: 520px)").matches;
+    const closeOverlay = () => side.classList.remove("open");
     rail.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-rail-btn");
       if (!b) return;
+      if (narrow()) side.classList.toggle("open", !(b.classList.contains("on") && side.classList.contains("open")));
       kvSet(LENS_KEY, b.dataset.lens);
       show(b.dataset.lens);
+    });
+    document.addEventListener("pointerdown", (e) => {
+      if (side.classList.contains("open") && !side.contains(e.target)) closeOverlay();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && side.classList.contains("open")) closeOverlay();
     });
     rail.addEventListener("keydown", (e) => {
       if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -15897,12 +15942,18 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const state = el("fe-ask-state");
     let cancel = null;
     let checked = false;
+    let usable = true;
     async function checkModel() {
       checked = true;
       state.textContent = "Checking the local model\u2026";
       const a = await llmAvailability();
       statusRow.className = `fe-ask-status ${a.kind === "ready" ? a.cold ? "cold" : "ready" : a.kind}`;
       state.textContent = a.kind === "ready" ? a.cold ? `${a.status.default_model}, will load on first question` : `${a.status.default_model} is ready` : a.kind === "down" ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+      usable = a.kind === "ready";
+      q.disabled = go.disabled = !usable;
+      box.querySelectorAll(".fe-ask-chip").forEach((b) => {
+        b.disabled = !usable;
+      });
     }
     async function context() {
       if (app.fileMode) return { ctx: await fetchFileText(location.href.split("#")[0]), name: app.fileName };
@@ -15912,6 +15963,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 ${rows.join("\n")}`, name: subject };
     }
     async function ask(intent, question) {
+      if (!usable) return;
       cancel?.();
       const turn = document.createElement("div");
       turn.className = "fe-ask-turn";
@@ -16075,7 +16127,7 @@ ${rows.join("\n")}`, name: subject };
         if (av.kind === "unavailable") {
           head.classList.add("off");
           state.textContent = "Not installed";
-          hint.innerHTML = `The native host isn't registered (${esc(av.reason)}). Install it once: run <code>native/install.sh &lt;extension-id&gt;</code> and reload the extension.`;
+          hint.innerHTML = `Local AI is not set up. <details class="fe-st-ai-why"><summary>How to set it up</summary>Run <code>native/install.sh &lt;extension-id&gt;</code> once, then reload the extension. Chrome said: ${esc(av.reason)}</details>`;
           return;
         }
         const s = av.status;

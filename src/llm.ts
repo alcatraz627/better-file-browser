@@ -137,13 +137,13 @@ export function llmWarm(on: boolean): Promise<{ ok: boolean; message?: string }>
 
 /** Human messages keyed by stable error code — never branch on message text. */
 export const LLM_ERROR_TEXT: Record<string, string> = {
-  server_down:   'The local model server is down. Run `lm status` in a terminal.',
+  server_down:   'The local model is not running. Start it with lm in a terminal.',
   model_missing: 'The model is not available on the server.',
   ctx_too_large: 'This file is too large for the model.',
   timeout:       'The model took too long and was stopped.',
   invalid_args:  'Invalid request.',
   cancelled:     'Cancelled.',
   host_no_lm:    'The lm CLI was not found on this machine.',
-  unavailable:   'The AI host is not installed. Run native/install.sh <extension-id>.',
+  unavailable:   'Local AI is not set up. Settings, AI shows how.',
   disconnected:  'The AI host disconnected unexpectedly.',
 };

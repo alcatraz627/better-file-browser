@@ -33,12 +33,20 @@ function initLenses(app: App): void {
     if (hideHistory !== undefined) el('fe-rail-history').hidden = hideHistory;
     show(lens ?? kvGet(LENS_KEY) ?? 'notes');
   };
+  // In a narrow window the sidebar is only its rail; picking a lens opens it
+  // over the page, and picking it again, Esc or a click outside closes it.
+  const side = el('fe-side');
+  const narrow = () => matchMedia('(max-width: 520px)').matches;
+  const closeOverlay = () => side.classList.remove('open');
   rail.addEventListener('click', e => {
     const b = (e.target as Element).closest<HTMLElement>('.fe-rail-btn');
     if (!b) return;
+    if (narrow()) side.classList.toggle('open', !(b.classList.contains('on') && side.classList.contains('open')));
     kvSet(LENS_KEY, b.dataset.lens!);
     show(b.dataset.lens!);
   });
+  document.addEventListener('pointerdown', e => { if (side.classList.contains('open') && !side.contains(e.target as Node)) closeOverlay(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && side.classList.contains('open')) closeOverlay(); });
   // Up and down move between lenses, as in any vertical tab list.
   rail.addEventListener('keydown', e => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;

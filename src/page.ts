@@ -99,39 +99,39 @@ export function renderPage(p: PageParams): string {
             swatch('sand', 'Sand', '#e8789a', '#24201c', 'Sand and rose') +
             swatch('ink', 'Ink', '#f2f2f3', '#1b1b1d', 'Ink, black and white')}</div>`)) +
         stCard('Size',
-          stRow('Interface size', 'Scales the whole window, sidebar included', `<select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">${[90, 100, 110, 125, 150].map(n => `<option value="${n}">${n}%</option>`).join('')}</select>`) +
+          stRow('Interface size', 'Scales everything', `<select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">${[90, 100, 110, 125, 150].map(n => `<option value="${n}">${n}%</option>`).join('')}</select>`) +
           stRow('Text size', 'Text throughout the app', `<select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>`) +
           stRow('Compact rows', 'Tighter rows in lists and tiles', stSwitch('fe-st-compact', 'Tighter rows and tiles'))) +
         stCard('Help',
-          stRow('Tooltips', 'A short label when you hover a control', stSwitch('fe-st-tooltips', 'Native tooltips on every control')) +
+          stRow('Tooltips', 'Labels on hover', stSwitch('fe-st-tooltips', 'Native tooltips on every control')) +
           stRow('Keyboard shortcuts', 'Every key on one page', `<button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Show keys</button>`)) },
       { key: 'folders', label: 'Folders', hint: 'Views, order and the sidebar', icon: UI_ICON.files, body:
         stCard('Opening a folder',
           stRow('View', 'How a folder first appears', `<select id="fe-st-defview" class="fe-st-select" title="View a folder opens in"><option value="details">Details</option><option value="list">List</option><option value="tree">Tree</option><option value="tiles">Tiles</option><option value="icons">Large icons</option></select>`) +
-          stRow('Sort', 'The column headers and the Sort panel change it too', `<select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in"><option value="">As listed</option><option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option><option value="type">Type</option><option value="ext">Extension</option></select><select id="fe-st-sort-dir" class="fe-st-select" title="Direction"><option value="asc">Ascending</option><option value="desc">Descending</option></select>`) +
+          stRow('Sort', '', `<select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in"><option value="">As listed</option><option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option><option value="type">Type</option><option value="ext">Extension</option></select><select id="fe-st-sort-dir" class="fe-st-select" title="Direction"><option value="asc">Ascending</option><option value="desc">Descending</option></select>`) +
           stRow('Group', '', `<select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with"><option value="none">None</option><option value="folders-first">Folders first</option><option value="files-first">Files first</option><option value="ext">By extension</option><option value="type">By type</option></select>`) +
           stRow('Dates', 'How the Modified column reads', `<select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads"><option value="short">Apr 17</option><option value="full">April 17, 2025</option></select>`)) +
         stCard('Opening a file',
-          stRow('A click on a file', 'Look opens the preview; Go opens the file’s own page', `<select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does"><option value="look">Look</option><option value="go">Go</option></select>`) +
+          stRow('A click on a file', '', `<select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does"><option value="look">Preview it</option><option value="go">Open it</option></select>`) +
           stRow('Preview', 'Where the preview opens', `<select id="fe-st-panel" class="fe-st-select" title="Where the preview opens"><option value="modal">Floating window</option><option value="side">Docked to the side</option></select><button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">${UI_ICON.reset}Reset sizes</button>`)) +
         stCard('Sidebar',
-          stRow('Show the sidebar', 'Places, Notes and History on the left', stSwitch('fe-st-sidebar', 'Places, Notes and History on the left')) +
-          stRow('History', 'Folders and files you opened lately, and closed tabs', stSwitch('fe-st-sec-recent', 'Folders and files you opened lately, and closed tabs'))) +
+          stRow('Show the sidebar', '', stSwitch('fe-st-sidebar', 'Places, Notes and History on the left')) +
+          stRow('History lens', 'Recent folders, files and closed tabs', stSwitch('fe-st-sec-recent', 'Folders and files you opened lately, and closed tabs'))) +
         stCard('Terminal',
-          stRow('Open folders in', 'The terminal button in the path bar', `<select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open the current folder in"><option value="ghostty">Ghostty</option><option value="terminal">Terminal</option><option value="iterm">iTerm2</option><option value="wezterm">WezTerm</option><option value="kitty">Kitty</option><option value="custom">Custom command</option></select>`) +
+          stRow('Open folders in', '', `<select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open the current folder in"><option value="ghostty">Ghostty</option><option value="terminal">Terminal</option><option value="iterm">iTerm2</option><option value="wezterm">WezTerm</option><option value="kitty">Kitty</option><option value="custom">Custom command</option></select>`) +
           stRow('Command', 'Use ${p} for the folder; it is copied, not run', `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} for the folder path.'>`, ' id="fe-st-term-custom-row" style="display:none"') +
           stNote('', 'fe-st-term-hint')) },
       { key: 'files', label: 'Files', hint: 'Reading and file pages', icon: UI_ICON.preview, body:
         stCard('Reading',
-          stRow('Reading width', 'Where Markdown pages start; the file bar changes it per page', `<select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages"><option value="unset">Full width</option><option value="xl">Wide, 150 characters</option><option value="lg">Medium, 130 characters</option><option value="md">Narrow, 110 characters</option></select>`) +
+          stRow('Reading width', 'Default for Markdown pages', `<select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages"><option value="unset">Full width</option><option value="xl">Wide, 150 characters</option><option value="lg">Medium, 130 characters</option><option value="md">Narrow, 110 characters</option></select>`) +
           stRow('Line height', '', `<select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${['1.5', '1.65', '1.8'].map(n => `<option value="${n}">${n}</option>`).join('')}</select>`) +
           stRow('Code size', '', `<select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>`) +
-          stRow('Wrap long lines', 'Raw text and code wrap instead of scrolling sideways', stSwitch('fe-st-wrap', 'Wrap long lines in raw text and code'))) +
+          stRow('Wrap long lines', 'Raw text and code', stSwitch('fe-st-wrap', 'Wrap long lines in raw text and code'))) +
         stCard('File pages',
-          stRow('Show files as pages', 'A file opened in a tab renders like the preview', `<select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page"><option value="all">All text files</option><option value="not-md">All except Markdown</option><option value="off">Off, Chrome shows plain text</option></select>`) +
-          stRow('Leave to Chrome', 'These extensions keep Chrome’s own page; PDF always does', `<input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces"><button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default list">${UI_ICON.reset}Defaults</button>`)) +
+          stRow('Show files as pages', '', `<select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page"><option value="all">All text files</option><option value="not-md">All except Markdown</option><option value="off">Off, Chrome shows plain text</option></select>`) +
+          stRow('Leave to Chrome', 'Open these in Chrome’s own viewer', `<input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces"><button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default list">${UI_ICON.reset}Defaults</button>`)) +
         stCard('Icon rules', `
-          <p class="fe-set-note">A pattern is matched against the file name, ignoring case. Rules win over the built-in icons.</p>
+          <p class="fe-set-note">Matches file names in any case, and wins over the built-in icons.</p>
           <div class="fe-st-rules-cols">
             <span></span><span></span>
             <span class="fe-st-col-lbl">Pattern</span>
@@ -148,7 +148,7 @@ export function renderPage(p: PageParams): string {
           stNote('', 'fe-st-notes-hint')) +
         stCard('Editing',
           stRow('Editable folders', 'Text files inside these get an Edit button (e)', `<input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Folders separated by commas; ~ means home">`) +
-          stNote('Every save keeps the previous text for 14 days in ~/Library/Application Support/BetterFileBrowser/backups.')) },
+          stNote('Each save keeps a 14-day backup in ~/Library/Application Support/BetterFileBrowser.')) },
       { key: 'ai', label: 'AI', hint: 'Local model', icon: UI_ICON.ai, body:
         stCard('Local model', `
           <div id="fe-st-ai-card">
@@ -166,9 +166,9 @@ export function renderPage(p: PageParams): string {
           </div>`,
           `<button id="fe-st-ai-refresh" class="fe-pbn" title="Check the model server again">${UI_ICON.reset}Check again</button>`) },
       { key: 'data', label: 'Data', hint: 'Export and import', icon: UI_ICON.data, body:
-        stCard('Settings and Saved list',
-          stRow('Export', 'Copies everything this extension stores, as JSON', `<button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>`) +
-          stRow('Import', 'Loads an export and reloads the page', `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">`) +
+        stCard('Your data',
+          stRow('Export', 'Settings and Saved list, as JSON', `<button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>`) +
+          stRow('Import', 'Loads an export, then reloads', `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">`) +
           `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
     ],
   };

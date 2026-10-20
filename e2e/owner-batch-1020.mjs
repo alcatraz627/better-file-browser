@@ -96,7 +96,7 @@ try {
   await page.click('.fe-md-copy');
   await page.waitForSelector('.fe-md-copy.copied', { timeout: 2_000 }).catch(() => null);
   await new Promise(r => setTimeout(r, 250));
-  const copied = await page.$eval('.fe-md-copy', b => ({ copied: b.classList.contains('copied'), colour: getComputedStyle(b).color, check: !!b.querySelector('path[d^="m2.5 7.5"]') }));
+  const copied = await page.$eval('.fe-md-copy', b => ({ copied: b.classList.contains('copied'), colour: getComputedStyle(b).color, check: !!b.querySelector('path[d^="M20 6 9 17"]') }));
   await shot(page, 'reading-copied');
   await new Promise(r => setTimeout(r, 3200));
   const after = await page.$eval('.fe-md-copy', b => b.classList.contains('copied'));
