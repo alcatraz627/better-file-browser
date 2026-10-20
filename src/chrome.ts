@@ -2,7 +2,7 @@
 // dropdown that lists a parent folder in place.
 import type { App } from './app';
 import { el } from './el';
-import { esc, pageHref } from './utils';
+import { esc, pageHref, copyToClipboard } from './utils';
 import { kvGet, kvSet } from './kv';
 import { getIcon } from './icons';
 import { THEME_KEY, TERMINAL_CMDS, saveSettings } from './storage';
@@ -11,6 +11,10 @@ import { parseListing } from './parse';
 
 export function initChrome(app: App): void {
   const { fe, settings, toast } = app;
+
+  el('fe-status-path').addEventListener('click', () => {
+    void copyToClipboard(app.rawPath).then(ok => toast(ok ? 'Copied the path' : 'Copy failed'));
+  });
 
   el('fe-theme-btn').addEventListener('click', () => {
     const next = fe.dataset.theme === 'dark' ? 'light' : 'dark';

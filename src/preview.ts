@@ -7,6 +7,7 @@ import { getPreviewLayout, savePreviewLayout } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
 import { getIcon, IMG_EXTS } from './icons';
 import { UI_ICON } from './control-icons';
+import { fileMeta, kindName, metaSummary } from './file-meta';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
   renderCode, renderJsonTree, renderJsonl, renderMarkdown,
@@ -682,7 +683,7 @@ export function openPreview(e: Entry): void {
   nameEl.textContent = e.name;
   nameEl.href = e.href;
   document.getElementById('fe-ql-meta')!.textContent =
-    [e.rawBytes >= 0 ? fmtSize(e.rawBytes) : '', ext ? '.' + ext : ''].filter(Boolean).join(' · ');
+    [kindName(ext), e.rawBytes >= 0 ? fmtSize(e.rawBytes) : ''].filter(Boolean).join(' · ');
   (document.getElementById('fe-ql-open') as HTMLAnchorElement).href = e.href;
   const body = document.getElementById('fe-ql-body')!;
   if (overlay.style.display === 'none') rememberFocus();
@@ -737,6 +738,7 @@ function fetchAndRender(e: Entry, ext: string, seq: number): void {
       if (seq !== reqSeq) return;
       currentText = text;
       (document.getElementById('fe-ql-copy') as HTMLButtonElement).disabled = false;
+      document.getElementById('fe-ql-meta')!.textContent = metaSummary(fileMeta(text, ext, e.href, e.rawBytes >= 0 ? e.rawBytes : undefined));
       render(text, ext);
     })
     .catch(err => {

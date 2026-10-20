@@ -129,6 +129,17 @@ try {
   check(mid > 0 && mid < end.top && end.on === 'Part 5' && end.pad === end.sibling && end.hash === '#part-5',
     `a contents click glides to the heading and marks it in place: ${JSON.stringify({ mid, ...end })}`);
   await shot(page, 'reading-toc');
+  // R20, R25: one set of facts in the status bar, and the path copies on click.
+  const bar = await page.evaluate(() => ({
+    chips: [...document.querySelectorAll('#fe-status-meta .fe-meta-item')].map(e => e.textContent.trim()),
+    status: document.getElementById('fe-status-text').textContent.trim(),
+    kind: document.getElementById('fe-fp-meta').textContent.trim(),
+  }));
+  await page.click('#fe-status-path');
+  await page.waitForFunction(() => /Copied the path/.test(document.getElementById('fe-toast').textContent), { timeout: 2_000 }).catch(() => null);
+  const toast = await page.$eval('#fe-toast', t => t.textContent);
+  check(bar.chips.some(c => /lines$/.test(c)) && bar.chips.some(c => /headings$/.test(c)) && bar.status === '' && bar.kind === 'Markdown' && /Copied the path/.test(toast),
+    `status bar carries the file facts once, path copies: ${JSON.stringify({ ...bar, toast })}`);
   await page.close();
 } finally {
   await h.close();

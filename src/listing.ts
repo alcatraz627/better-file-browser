@@ -257,7 +257,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
       const en = ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null;
       t.textContent = en && !en.isParent
         ? (en.isDir ? `${en.name}/` : `${en.name} · ${fmtSize(en.rawBytes)}`)
-        : app.fileMode ? (el('fe-count').textContent || '') : ls.baseStatus;
+        : app.fileMode ? '' : ls.baseStatus;   // a file page's facts live in #fe-status-meta
     }
   }
   function scrollToLead(): void {

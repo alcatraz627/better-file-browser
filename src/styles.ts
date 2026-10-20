@@ -298,8 +298,18 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-act-btn:hover{background:var(--s3);color:var(--tx)}
 .fe-row td.c-nm{position:relative}
-#fe-statusbar{display:flex;justify-content:space-between;padding:4px 14px;
-  background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
+#fe-statusbar{display:flex;align-items:center;gap:14px;min-height:28px;padding:0 6px 0 14px;
+  background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);white-space:nowrap;overflow:hidden}
+#fe-status-meta{display:flex;align-items:center;gap:14px}
+.fe-meta-item{display:inline-flex;align-items:center;gap:5px}
+.fe-meta-item svg{color:var(--dm)}
+.fe-status-grow{flex:1}
+#fe-fp-reload{display:inline-flex;align-items:center;gap:6px;color:var(--dm)}
+.fe-live-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+#fe-status-path{min-width:0;max-width:60%;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;
+  height:22px;padding:0 8px;border:0;border-radius:6px;background:none;color:var(--mt);font:inherit;cursor:copy;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+#fe-status-path:hover{background:var(--shade);color:var(--tx)}
 #fe-tip{
   position:fixed;pointer-events:none;z-index:200;
   background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);
@@ -450,9 +460,8 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
-#fe-tabs{display:flex;align-items:stretch;gap:2px;padding:6px 10px 0;background:var(--s1);border-bottom:1px solid var(--bd);
-  overflow-x:auto;flex-shrink:0;min-height:34px;scrollbar-width:none;
-  mask-image:linear-gradient(90deg,transparent 0,#000 10px,#000 calc(100% - 10px),transparent)}
+#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 8px 0 6px;background:var(--s1);border-bottom:1px solid var(--bd);
+  overflow-x:auto;flex-shrink:0;min-height:34px;scrollbar-width:none}
 #fe-tabs::-webkit-scrollbar{display:none}
 .fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
   font-size:calc(11px * var(--ui-text-scale,1));padding:2px 6px;border-radius:5px;margin-left:4px}
@@ -461,20 +470,23 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.empty{padding-top:4px}
-.fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);text-decoration:none;
-  border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;white-space:nowrap;max-width:200px;min-width:64px;flex:0 1 auto;position:relative;top:1px}
-.fe-tab:hover{background:var(--hover);color:var(--tx)}
-.fe-tab.on{background:var(--s2);color:var(--tx);border-color:var(--bd)}
-.fe-tab.temp .fe-tab-lbl{font-style:italic;color:var(--mt)}
+.fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;min-height:29px;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);text-decoration:none;
+  background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:64px;flex:0 1 auto;position:relative;top:1px;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-tab:hover{background:var(--s3);color:var(--tx)}
+.fe-tab.on{background:var(--bg);color:var(--tx)}
+.fe-tab.temp{background:none;border-color:transparent}
+.fe-tab.temp.on{background:var(--bg);border-color:var(--bd)}
+.fe-tab.temp .fe-tab-lbl{font-style:italic}
 .fe-tab.drag-over{border-left:2px solid var(--ac)}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
 .fe-tab-head{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .fe-tab-tail{white-space:nowrap;flex-shrink:0}
-.fe-tab-x,.fe-tab-more{background:none;border:none;color:var(--dm);cursor:pointer;font-size:calc(10px * var(--ui-text-scale,1));padding:1px 4px;border-radius:3px;opacity:0;line-height:1}
+.fe-tab-x,.fe-tab-more{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;background:none;border:none;color:var(--dm);cursor:pointer;font-size:calc(10px * var(--ui-text-scale,1));border-radius:50%;opacity:0;line-height:1;transition:opacity var(--t-fast),background var(--t-fast)}
 .fe-tab-more{font-size:calc(12px * var(--ui-text-scale,1));letter-spacing:1px}
 .fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
-.fe-tab-x:hover{background:var(--s3);color:#f85149}
-.fe-tab-more:hover{background:var(--s3);color:var(--tx)}
+.fe-tab-x:hover{background:var(--shade2);color:#f85149}
+.fe-tab-more:hover{background:var(--shade2);color:var(--tx)}
 .fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
 .fe-tab-ico{display:flex;flex-shrink:0}
 .fe-tab-ico svg{width:11px;height:12px}
@@ -771,10 +783,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-ctx-item:hover{background:var(--hover)}
 .fe-ctx-key{margin-left:auto;color:var(--dm);font-size:calc(10px * var(--ui-text-scale,1));padding-left:16px}
 .fe-ctx-sep{height:1px;background:var(--bd);margin:4px 0}
-#fe-tabs{gap:5px;mask-image:none}
-.fe-tab{background:var(--s2);border-color:var(--bd);padding:6px 9px;border-radius:7px 7px 0 0;min-height:29px}
-.fe-tab.on{background:var(--bg);border-color:var(--bd);box-shadow:none}
-.fe-tab.temp{border-style:dashed}
 .fe-tab-ico svg{width:15px;height:16px}
 .fe-tab-x,.fe-tab-more{opacity:.6}
 .fe-tab:focus-visible,.fe-tab-x:focus-visible,.fe-tab-more:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}

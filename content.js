@@ -755,6 +755,111 @@
     drag: `<svg width="10" height="14" viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="3" cy="11" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="11" r="1.2" fill="currentColor"/></svg>`
   };
 
+  // src/file-meta.ts
+  var KINDS = {
+    md: "Markdown",
+    mdx: "MDX",
+    txt: "Text",
+    log: "Log",
+    json: "JSON",
+    jsonl: "JSON Lines",
+    ndjson: "JSON Lines",
+    jsonc: "JSON",
+    yaml: "YAML",
+    yml: "YAML",
+    toml: "TOML",
+    xml: "XML",
+    csv: "CSV",
+    tsv: "TSV",
+    sql: "SQL",
+    html: "HTML",
+    htm: "HTML",
+    css: "CSS",
+    scss: "SCSS",
+    js: "JavaScript",
+    mjs: "JavaScript",
+    cjs: "JavaScript",
+    ts: "TypeScript",
+    tsx: "TypeScript",
+    jsx: "JavaScript",
+    py: "Python",
+    rb: "Ruby",
+    go: "Go",
+    rs: "Rust",
+    java: "Java",
+    kt: "Kotlin",
+    swift: "Swift",
+    c: "C",
+    h: "C header",
+    cpp: "C++",
+    cs: "C#",
+    php: "PHP",
+    sh: "Shell",
+    bash: "Shell",
+    zsh: "Shell",
+    fish: "Shell",
+    env: "Env",
+    ini: "INI",
+    conf: "Config",
+    diff: "Diff",
+    patch: "Patch",
+    svg: "SVG",
+    proto: "Protobuf",
+    graphql: "GraphQL"
+  };
+  var kindName = (ext2) => KINDS[ext2.toLowerCase()] ?? (ext2 ? `${ext2.toUpperCase()} file` : "File");
+  var plural = (n, one, many = one + "s") => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+  function fileMeta(text, ext2, path, bytes = new Blob([text]).size) {
+    const e = ext2.toLowerCase();
+    const lines = text ? text.split("\n").length - (text.endsWith("\n") ? 1 : 0) : 0;
+    const words = (text.match(/\S+/g) || []).length;
+    const items = [
+      { key: "size", label: "Size", value: fmtSize(bytes) },
+      { key: "lines", label: "Lines", value: plural(lines, "line") }
+    ];
+    if (e === "md" || e === "mdx" || e === "txt") items.push({ key: "words", label: "Words", value: plural(words, "word") });
+    if (e === "md" || e === "mdx") {
+      let fenced = false, heads = 0;
+      for (const l of text.split("\n")) {
+        if (/^\s*(```|~~~)/.test(l)) fenced = !fenced;
+        else if (!fenced && /^#{1,6}\s/.test(l)) heads++;
+      }
+      items.push({ key: "headings", label: "Headings", value: plural(heads, "heading") });
+    }
+    if (e === "csv" || e === "tsv") {
+      const rows = text.split("\n").filter((l) => l.trim());
+      const cols = rows.length ? rows[0].split(e === "tsv" ? "	" : ",").length : 0;
+      items.push({ key: "rows", label: "Rows", value: plural(Math.max(0, rows.length - 1), "row") }, { key: "cols", label: "Columns", value: plural(cols, "column") });
+    }
+    if (e === "json" || e === "jsonc") {
+      try {
+        const v = JSON.parse(text);
+        if (Array.isArray(v)) items.push({ key: "items", label: "Items", value: plural(v.length, "item") });
+        else if (v && typeof v === "object") items.push({ key: "keys", label: "Keys", value: plural(Object.keys(v).length, "top-level key") });
+      } catch {
+      }
+    }
+    return { kind: kindName(e), path, items };
+  }
+  function metaSummary(m) {
+    const pick = (k) => m.items.find((i) => i.key === k)?.value;
+    return [m.kind, pick("size"), pick("lines")].filter(Boolean).join(" \xB7 ");
+  }
+  var ICONS = {
+    size: '<path d="M2.5 4.5 7 2l4.5 2.5v5L7 12l-4.5-2.5z"/><path d="M2.5 4.5 7 7l4.5-2.5M7 7v5"/>',
+    lines: '<path d="M2 3.5h10M2 7h10M2 10.5h6"/>',
+    words: '<path d="M2 4h4M2 7h7M2 10h5M10 9.5l1.5 1.5 2-3"/>',
+    headings: '<path d="M3 2.5v9M9 2.5v9M3 7h6M11.5 6.5l1.5-1v6"/>',
+    rows: '<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><path d="M1.5 5.5h11M1.5 8.5h11"/>',
+    cols: '<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><path d="M5.2 2.5v9M8.8 2.5v9"/>',
+    items: '<path d="M4 2.5H2.5v9H4M10 2.5h1.5v9H10"/>',
+    keys: '<path d="M4.5 2.5c-1.5 0-1.5 1-1.5 2s-1 2-1.5 2.5c.5.5 1.5 1 1.5 2.5s0 2 1.5 2M9.5 2.5c1.5 0 1.5 1 1.5 2s1 2 1.5 2.5c-.5.5-1.5 1-1.5 2.5s0 2-1.5 2"/>'
+  };
+  var icon = (k) => `<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] ?? ""}</svg>`;
+  function metaChips(m) {
+    return m.items.map((i) => `<span class="fe-meta-item" title="${esc(i.label)}">${icon(i.key)}${esc(i.value)}</span>`).join("");
+  }
+
   // src/renderers.ts
   var CODE_EXTS = /* @__PURE__ */ new Set([
     "sh",
@@ -2222,7 +2327,7 @@ ${body}`;
   function viewTransform(v) {
     return `translate(-50%,-50%) scaleX(${v.flip ? -1 : 1}) rotate(${v.rot}deg)`;
   }
-  var BTN = (act, icon, text, title) => `<button class="fe-pbn" data-img="${act}" title="${esc(title)}">${icon}<span>${text}</span></button>`;
+  var BTN = (act, icon2, text, title) => `<button class="fe-pbn" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
   function mountImageTools(wrap, o) {
     wrap.innerHTML = `
     <div class="fe-ql-imgbar" role="toolbar" aria-label="Image tools">
@@ -3307,7 +3412,7 @@ ${body}
     const nameEl = document.getElementById("fe-ql-name");
     nameEl.textContent = e.name;
     nameEl.href = e.href;
-    document.getElementById("fe-ql-meta").textContent = [e.rawBytes >= 0 ? fmtSize(e.rawBytes) : "", ext2 ? "." + ext2 : ""].filter(Boolean).join(" \xB7 ");
+    document.getElementById("fe-ql-meta").textContent = [kindName(ext2), e.rawBytes >= 0 ? fmtSize(e.rawBytes) : ""].filter(Boolean).join(" \xB7 ");
     document.getElementById("fe-ql-open").href = e.href;
     const body = document.getElementById("fe-ql-body");
     if (overlay.style.display === "none") rememberFocus();
@@ -3360,6 +3465,7 @@ ${body}
       if (seq !== reqSeq) return;
       currentText = text;
       document.getElementById("fe-ql-copy").disabled = false;
+      document.getElementById("fe-ql-meta").textContent = metaSummary(fileMeta(text, ext2, e.href, e.rawBytes >= 0 ? e.rawBytes : void 0));
       render(text, ext2);
     }).catch((err) => {
       if (seq !== reqSeq) return;
@@ -3731,8 +3837,18 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-act-btn:hover{background:var(--s3);color:var(--tx)}
 .fe-row td.c-nm{position:relative}
-#fe-statusbar{display:flex;justify-content:space-between;padding:4px 14px;
-  background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
+#fe-statusbar{display:flex;align-items:center;gap:14px;min-height:28px;padding:0 6px 0 14px;
+  background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);white-space:nowrap;overflow:hidden}
+#fe-status-meta{display:flex;align-items:center;gap:14px}
+.fe-meta-item{display:inline-flex;align-items:center;gap:5px}
+.fe-meta-item svg{color:var(--dm)}
+.fe-status-grow{flex:1}
+#fe-fp-reload{display:inline-flex;align-items:center;gap:6px;color:var(--dm)}
+.fe-live-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+#fe-status-path{min-width:0;max-width:60%;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;
+  height:22px;padding:0 8px;border:0;border-radius:6px;background:none;color:var(--mt);font:inherit;cursor:copy;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+#fe-status-path:hover{background:var(--shade);color:var(--tx)}
 #fe-tip{
   position:fixed;pointer-events:none;z-index:200;
   background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);
@@ -3883,9 +3999,8 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
-#fe-tabs{display:flex;align-items:stretch;gap:2px;padding:6px 10px 0;background:var(--s1);border-bottom:1px solid var(--bd);
-  overflow-x:auto;flex-shrink:0;min-height:34px;scrollbar-width:none;
-  mask-image:linear-gradient(90deg,transparent 0,#000 10px,#000 calc(100% - 10px),transparent)}
+#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 8px 0 6px;background:var(--s1);border-bottom:1px solid var(--bd);
+  overflow-x:auto;flex-shrink:0;min-height:34px;scrollbar-width:none}
 #fe-tabs::-webkit-scrollbar{display:none}
 .fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
   font-size:calc(11px * var(--ui-text-scale,1));padding:2px 6px;border-radius:5px;margin-left:4px}
@@ -3894,20 +4009,23 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.empty{padding-top:4px}
-.fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 12px;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);text-decoration:none;
-  border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;white-space:nowrap;max-width:200px;min-width:64px;flex:0 1 auto;position:relative;top:1px}
-.fe-tab:hover{background:var(--hover);color:var(--tx)}
-.fe-tab.on{background:var(--s2);color:var(--tx);border-color:var(--bd)}
-.fe-tab.temp .fe-tab-lbl{font-style:italic;color:var(--mt)}
+.fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;min-height:29px;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);text-decoration:none;
+  background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:64px;flex:0 1 auto;position:relative;top:1px;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-tab:hover{background:var(--s3);color:var(--tx)}
+.fe-tab.on{background:var(--bg);color:var(--tx)}
+.fe-tab.temp{background:none;border-color:transparent}
+.fe-tab.temp.on{background:var(--bg);border-color:var(--bd)}
+.fe-tab.temp .fe-tab-lbl{font-style:italic}
 .fe-tab.drag-over{border-left:2px solid var(--ac)}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
 .fe-tab-head{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .fe-tab-tail{white-space:nowrap;flex-shrink:0}
-.fe-tab-x,.fe-tab-more{background:none;border:none;color:var(--dm);cursor:pointer;font-size:calc(10px * var(--ui-text-scale,1));padding:1px 4px;border-radius:3px;opacity:0;line-height:1}
+.fe-tab-x,.fe-tab-more{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;background:none;border:none;color:var(--dm);cursor:pointer;font-size:calc(10px * var(--ui-text-scale,1));border-radius:50%;opacity:0;line-height:1;transition:opacity var(--t-fast),background var(--t-fast)}
 .fe-tab-more{font-size:calc(12px * var(--ui-text-scale,1));letter-spacing:1px}
 .fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
-.fe-tab-x:hover{background:var(--s3);color:#f85149}
-.fe-tab-more:hover{background:var(--s3);color:var(--tx)}
+.fe-tab-x:hover{background:var(--shade2);color:#f85149}
+.fe-tab-more:hover{background:var(--shade2);color:var(--tx)}
 .fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
 .fe-tab-ico{display:flex;flex-shrink:0}
 .fe-tab-ico svg{width:11px;height:12px}
@@ -4204,10 +4322,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-ctx-item:hover{background:var(--hover)}
 .fe-ctx-key{margin-left:auto;color:var(--dm);font-size:calc(10px * var(--ui-text-scale,1));padding-left:16px}
 .fe-ctx-sep{height:1px;background:var(--bd);margin:4px 0}
-#fe-tabs{gap:5px;mask-image:none}
-.fe-tab{background:var(--s2);border-color:var(--bd);padding:6px 9px;border-radius:7px 7px 0 0;min-height:29px}
-.fe-tab.on{background:var(--bg);border-color:var(--bd);box-shadow:none}
-.fe-tab.temp{border-style:dashed}
 .fe-tab-ico svg{width:15px;height:16px}
 .fe-tab-x,.fe-tab-more{opacity:.6}
 .fe-tab:focus-visible,.fe-tab-x:focus-visible,.fe-tab-more:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}
@@ -4510,7 +4624,15 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       side.append(top, rest);
       side.classList.add("fe-side-split");
     }
-    meta.textContent = fmtSize(new Blob([text]).size);
+    const paintMeta = () => {
+      const fm = fileMeta(text, ext2, rawPath);
+      meta.textContent = fm.kind;
+      const row = document.getElementById("fe-status-meta");
+      if (row) row.innerHTML = metaChips(fm);
+      const count = document.getElementById("fe-count");
+      if (count) count.textContent = metaSummary(fm);
+    };
+    paintMeta();
     const paint = () => {
       for (const mode of COLUMN_MODES) fe.classList.toggle(`fe-column-${mode}`, column === mode);
       colBtn.classList.toggle("on", column !== "unset");
@@ -4522,9 +4644,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       colBtn.style.display = isMd && !raw ? "" : "none";
     };
     const render2 = () => {
-      const lines = text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
-      const count = document.getElementById("fe-count");
-      if (count) count.textContent = `${lines.toLocaleString()} line${lines === 1 ? "" : "s"}`;
+      paintMeta();
       const top = page.scrollTop;
       page.innerHTML = raw ? renderCode(text, JSONL_EXTS.has(ext2) ? "json" : ext2) : renderBody(text, ext2, href);
       if (!raw && isMd) buildToc(page, toc, tocOpen);
@@ -4606,7 +4726,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         status,
         saved: (fresh) => {
           text = fresh;
-          meta.textContent = fmtSize(new Blob([text]).size);
+          paintMeta();
           status("saved");
         },
         // The file may have changed while editing (a reload from disk), so read it again.
@@ -4617,7 +4737,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
           editBtn.classList.remove("on");
           fetchFileText(href).then((fresh) => {
             text = fresh;
-            meta.textContent = fmtSize(new Blob([text]).size);
+            paintMeta();
           }).catch(() => {
           }).finally(render2);
         }
@@ -4637,24 +4757,25 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       });
     });
     const reloadEl = document.getElementById("fe-fp-reload");
+    const live = (ok, label) => {
+      reloadEl.innerHTML = `<span class="fe-live-dot"${ok ? "" : ' style="background:var(--dm)"'}></span>${label}`;
+    };
     setInterval(() => {
       if (document.visibilityState !== "visible" || editor) return;
       fetchFileText(href).then((fresh) => {
         if (fresh === text) return;
         text = fresh;
-        meta.textContent = fmtSize(new Blob([text]).size);
+        paintMeta();
         render2();
-        reloadEl.textContent = "reloaded " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      }).catch(() => {
-        reloadEl.textContent = "not watching (cannot read file)";
-      });
+        live(true, "reloaded " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      }).catch(() => live(false, "not watching"));
     }, RELOAD_MS);
     return {
       toggleRaw,
       edit: () => void edit2(),
       setText(fresh) {
         text = fresh;
-        meta.textContent = fmtSize(new Blob([text]).size);
+        paintMeta();
         render2();
       }
     };
@@ -6108,9 +6229,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       </div>
 
       <div id="fe-statusbar">
-        <span id="fe-status-text">${fileMode ? esc(fileName) : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
-        ${fileMode ? '<span id="fe-fp-reload" title="Re-rendered when the file changes on disk">watching for changes</span>' : ""}
-        <span id="fe-status-path">${esc(rawPath)}</span>
+        ${fileMode ? '<span id="fe-status-meta"></span>' : ""}
+        <span id="fe-status-text">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
+        <span class="fe-status-grow"></span>
+        ${fileMode ? '<span id="fe-fp-reload" title="Re-rendered when the file changes on disk"><span class="fe-live-dot"></span>live</span>' : ""}
+        <button type="button" id="fe-status-path" title="Click to copy the path"><bdi>${esc(rawPath)}</bdi></button>
       </div>
     </div>
   </div>
@@ -6136,6 +6259,9 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
   // src/chrome.ts
   function initChrome(app) {
     const { fe, settings, toast } = app;
+    el("fe-status-path").addEventListener("click", () => {
+      void copyToClipboard(app.rawPath).then((ok) => toast(ok ? "Copied the path" : "Copy failed"));
+    });
     el("fe-theme-btn").addEventListener("click", () => {
       const next = fe.dataset.theme === "dark" ? "light" : "dark";
       fe.dataset.theme = next;
@@ -6789,7 +6915,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         t.textContent = `${ls.selSet.size} selected`;
       } else {
         const en = ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null;
-        t.textContent = en && !en.isParent ? en.isDir ? `${en.name}/` : `${en.name} \xB7 ${fmtSize(en.rawBytes)}` : app.fileMode ? el("fe-count").textContent || "" : ls.baseStatus;
+        t.textContent = en && !en.isParent ? en.isDir ? `${en.name}/` : `${en.name} \xB7 ${fmtSize(en.rawBytes)}` : app.fileMode ? "" : ls.baseStatus;
       }
     }
     function scrollToLead() {

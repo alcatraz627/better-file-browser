@@ -3,13 +3,14 @@
 // raw, copy), a table of contents for markdown, and the matching renderer.
 // main.ts builds the shell and calls mountFileContent. HTML source is fetched
 // after takeover because the document contains rendered text, not source.
-import { esc, fmtSize, copyToClipboard } from './utils';
+import { esc, copyToClipboard } from './utils';
 import { kvGet, kvSet } from './kv';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
   renderCode, renderMarkdown, renderJsonTree, renderJsonl, parseDSV, numericCols, renderDSVTable,
 } from './renderers';
 import { fetchFileText } from './file-fetch';
+import { fileMeta, metaChips, metaSummary } from './file-meta';
 import { editableRoot, openFileEditor, type FileEditor } from './file-editor';
 import type { Settings } from './types';
 
@@ -164,7 +165,16 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     side.classList.add('fe-side-split');
   }
 
-  meta.textContent = fmtSize(new Blob([text]).size);
+  // One record of the file's facts feeds the file bar, status bar and count.
+  const paintMeta = () => {
+    const fm = fileMeta(text, ext, rawPath);
+    meta.textContent = fm.kind;
+    const row = document.getElementById('fe-status-meta');
+    if (row) row.innerHTML = metaChips(fm);
+    const count = document.getElementById('fe-count');
+    if (count) count.textContent = metaSummary(fm);
+  };
+  paintMeta();
   const paint = () => {
     for (const mode of COLUMN_MODES) fe.classList.toggle(`fe-column-${mode}`, column === mode);
     colBtn.classList.toggle('on', column !== 'unset');
@@ -176,10 +186,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     colBtn.style.display = isMd && !raw ? '' : 'none';
   };
   const render = () => {
-    // The status bar counts lines here; folder and file counts belong to listings.
-    const lines = text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
-    const count = document.getElementById('fe-count');
-    if (count) count.textContent = `${lines.toLocaleString()} line${lines === 1 ? '' : 's'}`;
+    paintMeta();
     const top = page.scrollTop;
     page.innerHTML = raw ? renderCode(text, JSONL_EXTS.has(ext) ? 'json' : ext) : renderBody(text, ext, href);
     if (!raw && isMd) buildToc(page, toc, tocOpen); else toc.style.display = 'none';
@@ -238,11 +245,11 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     editor = await openFileEditor(editBox, {
       root, rel: rawPath.slice(root.length + 1), ext, href,
       status,
-      saved: fresh => { text = fresh; meta.textContent = fmtSize(new Blob([text]).size); status('saved'); },
+      saved: fresh => { text = fresh; paintMeta(); status('saved'); },
       // The file may have changed while editing (a reload from disk), so read it again.
       closed: () => {
         editor = null; editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on');
-        fetchFileText(href).then(fresh => { text = fresh; meta.textContent = fmtSize(new Blob([text]).size); }).catch(() => {}).finally(render);
+        fetchFileText(href).then(fresh => { text = fresh; paintMeta(); }).catch(() => {}).finally(render);
       },
     });
     if (!editor) { editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); render(); }
@@ -255,15 +262,18 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
 
   // Autoreload: while the tab is visible, poll the file and re-render on change.
   const reloadEl = document.getElementById('fe-fp-reload')!;
+  const live = (ok: boolean, label: string) => {
+    reloadEl.innerHTML = `<span class="fe-live-dot"${ok ? '' : ' style="background:var(--dm)"'}></span>${label}`;
+  };
   setInterval(() => {
     if (document.visibilityState !== 'visible' || editor) return;
     fetchFileText(href).then(fresh => {
       if (fresh === text) return;
       text = fresh;
-      meta.textContent = fmtSize(new Blob([text]).size);
+      paintMeta();
       render();
-      reloadEl.textContent = 'reloaded ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }).catch(() => { reloadEl.textContent = 'not watching (cannot read file)'; });
+      live(true, 'reloaded ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    }).catch(() => live(false, 'not watching'));
   }, RELOAD_MS);
 
   return {
@@ -271,7 +281,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     edit: () => void edit(),
     setText(fresh) {
       text = fresh;
-      meta.textContent = fmtSize(new Blob([text]).size);
+      paintMeta();
       render();
     },
   };
