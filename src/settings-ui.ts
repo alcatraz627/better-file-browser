@@ -13,6 +13,7 @@ import { llmAvailability, llmWarm } from './llm';
 import { mountDialog } from './dialog';
 import { COLUMN_KEY, parseExcludedExtensions, savedColumnMode } from './file-page';
 import { UI_ICON } from './control-icons';
+import { setSidebarShown } from './motion';
 
 export function initSettingsUi(app: App): void {
   const { fe, settings, toast } = app;
@@ -235,7 +236,7 @@ export function initSettingsUi(app: App): void {
   });
   el<HTMLInputElement>('fe-st-sidebar').addEventListener('change', function () {
     settings.showSidebar = this.checked; saveSettings(settings);
-    el('fe-side').style.display = el('fe-side-rz').style.display = this.checked ? '' : 'none';
+    setSidebarShown(this.checked);
   });
   el<HTMLSelectElement>('fe-st-datefmt').addEventListener('change', function () {
     settings.dateFormat = this.value as 'short' | 'full'; saveSettings(settings); app.applyAll();

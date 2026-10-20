@@ -1031,6 +1031,27 @@ button.fe-si{width:auto;display:flex}
 .fe-ctx-sep{margin:4px 4px}
 .fe-toast-act{color:var(--ac)}
 
+/* Motion. Things that appear fade and settle from a few pixels away; a
+   folded group's body eases its height; the lens that takes over the
+   sidebar slides in from the side it was picked on. One duration family
+   (--t-fast, --t-base) and one ease. Reduced motion snaps everything. */
+@keyframes fe-rise{from{opacity:0;transform:translateY(-4px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes fe-fade{from{opacity:0}to{opacity:1}}
+@keyframes fe-lens-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+@keyframes fe-dock-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu{animation:fe-rise var(--t-fast) var(--ease);transform-origin:top left}
+.fe-lens:not([hidden]){animation:fe-lens-in var(--t-base) var(--ease)}
+.fe-dlg-bg,#fe-ql-bg{animation:fe-fade var(--t-base) var(--ease)}
+.fe-dlg-box,#fe-qlook:not(.side) #fe-ql-dialog{animation:fe-rise var(--t-base) var(--ease)}
+#fe-qlook.side{animation:fe-dock-in var(--t-base) var(--ease)}
+.fe-grp{interpolate-size:allow-keywords}
+.fe-grp::details-content{block-size:0;overflow:hidden;transition:block-size var(--t-base) var(--ease),content-visibility var(--t-base) allow-discrete}
+.fe-grp[open]::details-content{block-size:auto}
+.fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
+@media (prefers-reduced-motion:reduce){
+  #fe *,#fe *::before,#fe *::after,#fe .fe-grp::details-content{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
+}
+
 /* Narrow windows keep the reading column usable: the listing drops its
    lesser columns, Contents gives way to the text, and the sidebar is held
    to a share of the width (max-width beats a dragged inline width). */

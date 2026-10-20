@@ -766,10 +766,15 @@ try {
   // Sidebar: the hamburger toggles it, the handle resizes it (persisted), and
   // Interface size scales the whole UI; labels ellipsize instead of clipping.
   const sideShown = () => page.evaluate(() => getComputedStyle(document.getElementById('fe-side')).display !== 'none');
+  // The sidebar slides for about 220ms before it is gone.
   await page.click('#fe-side-toggle');
+  const midWidth = await page.evaluate(() => new Promise(r => setTimeout(() => r(document.getElementById('fe-side').getBoundingClientRect().width), 90)));
+  await new Promise(r => setTimeout(r, 300));
   const sideHidden = !(await sideShown());
+  check(midWidth > 0 && midWidth < 260, `the sidebar slides shut rather than popping: ${Math.round(midWidth)}px wide mid-way`);
   await page.click('#fe-side-toggle');
-  const sideBack = await sideShown();
+  await new Promise(r => setTimeout(r, 300));
+  const sideBack = await sideShown() && await page.evaluate(() => document.getElementById('fe-side').getBoundingClientRect().width > 200);
   check(sideHidden && sideBack, `hamburger toggles the sidebar: hidden=${sideHidden} back=${sideBack}`);
 
   const rzBox = await (await page.$('#fe-side-rz')).boundingBox();

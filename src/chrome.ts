@@ -8,6 +8,7 @@ import { getIcon } from './icons';
 import { THEME_KEY, TERMINAL_CMDS, saveSettings } from './storage';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
+import { setSidebarShown } from './motion';
 
 export function initChrome(app: App): void {
   const { fe, settings, toast } = app;
@@ -119,7 +120,7 @@ export function initChrome(app: App): void {
   el('fe-side-toggle').addEventListener('click', () => {
     settings.showSidebar = !settings.showSidebar;
     saveSettings(settings);
-    side.style.display = rz.style.display = settings.showSidebar ? '' : 'none';
+    setSidebarShown(settings.showSidebar);
     const box = document.getElementById('fe-st-sidebar') as HTMLInputElement | null;
     if (box) box.checked = settings.showSidebar;
   });
