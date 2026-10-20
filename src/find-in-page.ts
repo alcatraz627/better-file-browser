@@ -6,8 +6,14 @@ const MAX_HITS = 2000;
 
 export interface FindInPage { refresh(): void; clear(): void; focus(): void }
 
+// Never searched: code, the line-number gutters, and anything not drawn.
+const SKIP = 'script,style,svg,textarea,.fe-code-gut,.fe-jl-n,.fe-fe-ln,[hidden]';
+// A match may run across inline formatting and syntax colours, but not from
+// one of these into the next.
+const BLOCK = 'p,li,dt,dd,h1,h2,h3,h4,h5,h6,td,th,tr,pre,blockquote,div,section,article,summary,figcaption';
+
 export function attachFind(page: HTMLElement, input: HTMLInputElement, count: HTMLElement, prev: HTMLElement, next: HTMLElement): FindInPage {
-  let hits: HTMLElement[] = [];
+  let hits: HTMLElement[][] = [];   // one hit can span several marks
   let cur = -1;
 
   const unmark = () => {
@@ -16,55 +22,81 @@ export function attachFind(page: HTMLElement, input: HTMLInputElement, count: HT
     hits = []; cur = -1;
   };
 
+  // A capped view (first N rows or characters) only holds part of the file.
+  const partial = () => !!page.querySelector('.fe-ql-note');
   const show = () => {
     const q = input.value;
-    count.textContent = !q ? '' : hits.length ? `${cur + 1} of ${hits.length}${hits.length >= MAX_HITS ? '+' : ''}` : 'No match';
+    const where = partial() ? ' in the shown part' : '';
+    count.textContent = !q ? '' : hits.length ? `${cur + 1} of ${hits.length}${hits.length >= MAX_HITS ? '+' : ''}${where}` : `No match${where}`;
     count.classList.toggle('none', !!q && !hits.length);
     prev.toggleAttribute('disabled', hits.length < 2);
     next.toggleAttribute('disabled', hits.length < 2);
-    hits.forEach((h, i) => h.classList.toggle('on', i === cur));
+    hits.forEach((h, i) => h.forEach(m => m.classList.toggle('on', i === cur)));
   };
 
   const go = (i: number) => {
     if (!hits.length) return;
     cur = (i + hits.length) % hits.length;
     show();
-    hits[cur].scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    hits[cur][0].scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   };
 
-  // Case-insensitive plain-text match over the page's visible text nodes.
+  // Case-insensitive plain-text match over the text a reader sees. The text
+  // nodes are joined into one string, with a line break wherever the block
+  // changes, so "bo" in bold followed by "ld" still matches "bold".
   const mark = () => {
     unmark();
     const q = input.value.toLowerCase();
     if (!q) { show(); return; }
+    const drawn = new Map<Element, boolean>();
+    const isDrawn = (el: Element) => {
+      let v = drawn.get(el);
+      if (v === undefined) { v = el.getClientRects().length > 0; drawn.set(el, v); }
+      return v;
+    };
     const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT, {
-      acceptNode: n => (n.parentElement?.closest('script,style,svg,textarea') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      acceptNode: n => {
+        const p = n.parentElement;
+        return !p || p.closest(SKIP) || !isDrawn(p) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      },
     });
-    const nodes: Text[] = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode as Text);
-    for (const node of nodes) {
-      if (hits.length >= MAX_HITS) break;
-      const text = node.data;
-      const lower = text.toLowerCase();
-      let at = lower.indexOf(q);
-      if (at === -1) continue;
-      const frag = document.createDocumentFragment();
-      let from = 0;
-      while (at !== -1 && hits.length < MAX_HITS) {
-        frag.append(text.slice(from, at));
-        const m = document.createElement('mark');
-        m.className = 'fe-ff-hit';
-        m.textContent = text.slice(at, at + q.length);
-        frag.append(m); hits.push(m);
-        from = at + q.length;
-        at = lower.indexOf(q, from);
+    const nodes: Text[] = [], starts: number[] = [];
+    let joined = '', lastBlock: Element | null = null;
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const block = node.parentElement!.closest(BLOCK);
+      if (nodes.length && block !== lastBlock) joined += '\n';
+      lastBlock = block;
+      nodes.push(node); starts.push(joined.length);
+      joined += node.data;
+    }
+    const lower = joined.toLowerCase();
+    // Each match becomes pieces, one per text node it touches.
+    const pieces: { node: number; s: number; e: number; hit: number }[] = [];
+    let n = 0, found = 0;
+    for (let at = lower.indexOf(q); at !== -1 && found < MAX_HITS; at = lower.indexOf(q, at + q.length), found++) {
+      const end = at + q.length;
+      while (starts[n] + nodes[n].data.length <= at) n++;
+      for (let k = n; k < nodes.length && starts[k] < end; k++) {
+        const s = Math.max(at, starts[k]) - starts[k], e = Math.min(end, starts[k] + nodes[k].data.length) - starts[k];
+        if (e > s) pieces.push({ node: k, s, e, hit: found });
       }
-      frag.append(text.slice(from));
-      node.replaceWith(frag);
+    }
+    hits = Array.from({ length: found }, () => []);
+    // Wrap from the last piece back, so earlier offsets in a node stay valid.
+    for (let i = pieces.length - 1; i >= 0; i--) {
+      const { node, s, e, hit } = pieces[i];
+      const t = nodes[node];
+      t.splitText(e);
+      const mid = t.splitText(s);
+      const m = document.createElement('mark');
+      m.className = 'fe-ff-hit';
+      mid.replaceWith(m); m.append(mid);
+      hits[hit].unshift(m);
     }
     // Start at the first match below the top of what is on screen.
     const top = page.getBoundingClientRect().top;
-    const first = hits.findIndex(h => h.getBoundingClientRect().top >= top);
+    const first = hits.findIndex(h => h[0].getBoundingClientRect().top >= top);
     go(first === -1 ? 0 : first);
     if (!hits.length) show();
   };

@@ -4843,6 +4843,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 
   // src/find-in-page.ts
   var MAX_HITS = 2e3;
+  var SKIP = "script,style,svg,textarea,.fe-code-gut,.fe-jl-n,.fe-fe-ln,[hidden]";
+  var BLOCK = "p,li,dt,dd,h1,h2,h3,h4,h5,h6,td,th,tr,pre,blockquote,div,section,article,summary,figcaption";
   function attachFind(page, input, count, prev, next) {
     let hits = [];
     let cur = -1;
@@ -4852,19 +4854,21 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       hits = [];
       cur = -1;
     };
+    const partial = () => !!page.querySelector(".fe-ql-note");
     const show = () => {
       const q = input.value;
-      count.textContent = !q ? "" : hits.length ? `${cur + 1} of ${hits.length}${hits.length >= MAX_HITS ? "+" : ""}` : "No match";
+      const where = partial() ? " in the shown part" : "";
+      count.textContent = !q ? "" : hits.length ? `${cur + 1} of ${hits.length}${hits.length >= MAX_HITS ? "+" : ""}${where}` : `No match${where}`;
       count.classList.toggle("none", !!q && !hits.length);
       prev.toggleAttribute("disabled", hits.length < 2);
       next.toggleAttribute("disabled", hits.length < 2);
-      hits.forEach((h, i) => h.classList.toggle("on", i === cur));
+      hits.forEach((h, i) => h.forEach((m) => m.classList.toggle("on", i === cur)));
     };
     const go = (i) => {
       if (!hits.length) return;
       cur = (i + hits.length) % hits.length;
       show();
-      hits[cur].scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      hits[cur][0].scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     };
     const mark = () => {
       unmark();
@@ -4873,34 +4877,57 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         show();
         return;
       }
-      const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT, {
-        acceptNode: (n) => n.parentElement?.closest("script,style,svg,textarea") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
-      });
-      const nodes = [];
-      while (walker.nextNode()) nodes.push(walker.currentNode);
-      for (const node of nodes) {
-        if (hits.length >= MAX_HITS) break;
-        const text = node.data;
-        const lower = text.toLowerCase();
-        let at = lower.indexOf(q);
-        if (at === -1) continue;
-        const frag = document.createDocumentFragment();
-        let from = 0;
-        while (at !== -1 && hits.length < MAX_HITS) {
-          frag.append(text.slice(from, at));
-          const m = document.createElement("mark");
-          m.className = "fe-ff-hit";
-          m.textContent = text.slice(at, at + q.length);
-          frag.append(m);
-          hits.push(m);
-          from = at + q.length;
-          at = lower.indexOf(q, from);
+      const drawn = /* @__PURE__ */ new Map();
+      const isDrawn = (el2) => {
+        let v = drawn.get(el2);
+        if (v === void 0) {
+          v = el2.getClientRects().length > 0;
+          drawn.set(el2, v);
         }
-        frag.append(text.slice(from));
-        node.replaceWith(frag);
+        return v;
+      };
+      const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT, {
+        acceptNode: (n2) => {
+          const p = n2.parentElement;
+          return !p || p.closest(SKIP) || !isDrawn(p) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      const nodes = [], starts = [];
+      let joined = "", lastBlock = null;
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const block = node.parentElement.closest(BLOCK);
+        if (nodes.length && block !== lastBlock) joined += "\n";
+        lastBlock = block;
+        nodes.push(node);
+        starts.push(joined.length);
+        joined += node.data;
+      }
+      const lower = joined.toLowerCase();
+      const pieces = [];
+      let n = 0, found = 0;
+      for (let at = lower.indexOf(q); at !== -1 && found < MAX_HITS; at = lower.indexOf(q, at + q.length), found++) {
+        const end = at + q.length;
+        while (starts[n] + nodes[n].data.length <= at) n++;
+        for (let k = n; k < nodes.length && starts[k] < end; k++) {
+          const s = Math.max(at, starts[k]) - starts[k], e = Math.min(end, starts[k] + nodes[k].data.length) - starts[k];
+          if (e > s) pieces.push({ node: k, s, e, hit: found });
+        }
+      }
+      hits = Array.from({ length: found }, () => []);
+      for (let i = pieces.length - 1; i >= 0; i--) {
+        const { node, s, e, hit } = pieces[i];
+        const t = nodes[node];
+        t.splitText(e);
+        const mid = t.splitText(s);
+        const m = document.createElement("mark");
+        m.className = "fe-ff-hit";
+        mid.replaceWith(m);
+        m.append(mid);
+        hits[hit].unshift(m);
       }
       const top = page.getBoundingClientRect().top;
-      const first = hits.findIndex((h) => h.getBoundingClientRect().top >= top);
+      const first = hits.findIndex((h) => h[0].getBoundingClientRect().top >= top);
       go(first === -1 ? 0 : first);
       if (!hits.length) show();
     };
