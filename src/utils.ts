@@ -75,11 +75,17 @@ export function fmtType(e: Entry): string {
   return kindName(getExt(e));
 }
 
+const DOTFILE_KINDS = new Set(['env', 'gitignore', 'dockerignore', 'npmrc', 'editorconfig']);
+
 export function getExt(e: Entry): string {
   if (e.isDir || e.isParent) return '';
   const bare = e.name.split('/').pop()!.toLowerCase();
   if (['dockerfile', 'containerfile', 'makefile', 'gitignore'].includes(bare)) return bare;
-  return e.name.includes('.') ? e.name.split('.').pop()!.toLowerCase() : '';
+  // A dotfile's name is not an extension (.DS_Store is not a "DS_STORE file"),
+  // except the few whose name says what they hold.
+  if (bare.startsWith('.') && bare.indexOf('.', 1) === -1) return DOTFILE_KINDS.has(bare.slice(1)) ? bare.slice(1) : '';
+  const ext = bare.includes('.') ? bare.split('.').pop()! : '';
+  return ext.length > 10 ? '' : ext;   // a long tail after a dot is part of the name
 }
 
 /** Absolute path of an entry within rawPath (dirs get a trailing slash). */

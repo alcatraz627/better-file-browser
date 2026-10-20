@@ -490,8 +490,15 @@ export function mdInline(s: string, baseUrl = ''): string {
     const u = resolveMdUrl(baseUrl, url);
     return `<a href="${u}"${/^(?:https?:|file:\/\/\/Users\/alcatraz627(?:\/|$))/i.test(u) ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`;
   });
+  // <https://…> autolinks lose their brackets; the bare-URL pass links them.
+  out = out.replace(/&lt;((?:https?|file):\/\/[^\s<>]+?)&gt;/gi, '$1');
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
+  // Underscores emphasise only at word edges, so snake_case_names stay whole,
+  // and never inside code, a tag (a link's address) or a bare URL.
+  out = out.split(/(<code>[\s\S]*?<\/code>|<[^>]+>|\b(?:https?|file):\/\/\S+)/).map((part, i) => i % 2 ? part : part
+    .replace(/(^|[^\w])__([^_\s][^_]*?)__(?!\w)/g, '$1<strong>$2</strong>')
+    .replace(/(^|[^\w])_([^_\s][^_]*?)_(?!\w)/g, '$1<em>$2</em>')).join('');
   out = out.replace(/~~([^~]+)~~/g, '<del>$1</del>');
   return out.replace(/\uE000(\d+)\uE001/g, (_m, index) => htmlTags[Number(index)]);
 }

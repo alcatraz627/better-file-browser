@@ -83,6 +83,16 @@ describe('getExt', () => {
   it('recognizes known extensionless source files', () => { expect(getExt(file('Makefile'))).toBe('makefile'); });
   it('returns empty string for an ordinary extensionless file', () => { expect(getExt(file('README'))).toBe(''); });
   it('returns empty string for dirs', () => { expect(getExt(dir('src'))).toBe(''); });
+  it('reads a dotfile name as no extension, except known ones', () => {
+    expect(getExt(file('.DS_Store'))).toBe('');
+    expect(getExt(file('.leading-dot'))).toBe('');
+    expect(getExt(file('.env'))).toBe('env');
+    expect(getExt(file('.gitignore'))).toBe('gitignore');
+    expect(getExt(file('.eslintrc.json'))).toBe('json');
+  });
+  it('does not read a long tail after a dot as an extension', () => {
+    expect(getExt(file('report.thisisaverylongnotreallyanextension'))).toBe('');
+  });
 });
 
 describe('splitMiddle', () => {

@@ -281,6 +281,19 @@ describe('mdInline', () => {
   it('escapes HTML before formatting', () => {
     expect(mdInline('<script> **x**')).not.toContain('<script>');
   });
+  it('reads underscore emphasis at word edges only', () => {
+    const html = mdInline('_i_ and __b__ but snake_case_name and a__b__c');
+    expect(html).toContain('<em>i</em>');
+    expect(html).toContain('<strong>b</strong>');
+    expect(html).toContain('snake_case_name');
+    expect(html).toContain('a__b__c');
+    expect(mdInline('[x](https://a.dev/_p_/q)')).toContain('href="https://a.dev/_p_/q"');
+    expect(mdInline('`_x_`')).toBe('<code>_x_</code>');
+    expect(mdInline('go to https://a.dev/_p_ now')).toContain('https://a.dev/_p_ now');
+  });
+  it('drops the brackets of an autolink so it can be linked', () => {
+    expect(mdInline('see <https://x.dev/a> now')).toBe('see https://x.dev/a now');
+  });
 });
 
 describe('renderMarkdown', () => {
