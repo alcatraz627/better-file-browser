@@ -1,20 +1,43 @@
 // Editing a text file in place on its file page. Only files inside a folder
-// the owner listed under Settings → Notes → Editable folders can be edited;
-// the native host enforces that boundary and keeps a backup of the previous
-// text on every save. Markdown gets the source beside a live render; other
-// text gets the source alone. Saving is explicit (⌘S), unlike notes.
+// the owner allowed (or a file allowed on its own) can be edited; the native
+// host enforces that boundary and keeps a backup of the previous text on
+// every save. The reading column becomes coloured, numbered source, a small
+// floating pill holds the save state, a preview toggle and Done, and the text
+// saves itself shortly after you stop typing (⌘S saves at once).
 import { esc } from './utils';
-import { renderMarkdown } from './renderers';
+import { renderMarkdown, highlightCode } from './renderers';
 import { notes, NotesError } from './notes';
 import { attachBuffer, indentLines } from './editor';
+import { UI_ICON } from './control-icons';
 
-/** The allowed folder holding `path`, or null; ~ and trailing slashes are tolerated. */
+const AUTOSAVE_MS = 800;
+
+// Split highlighted HTML into one string per source line, closing the open
+// token spans at each line end and reopening them on the next line.
+export function splitHighlighted(html: string): string[] {
+  const out: string[] = [];
+  const open: string[] = [];
+  let line = '';
+  const re = /<span[^>]*>|<\/span>|\n|[^<\n]+|</g;
+  for (const m of html.match(re) ?? []) {
+    if (m === '\n') { out.push(line + '</span>'.repeat(open.length)); line = open.join(''); }
+    else if (m.startsWith('<span')) { open.push(m); line += m; }
+    else if (m === '</span>') { open.pop(); line += m; }
+    else line += m;
+  }
+  out.push(line);
+  return out;
+}
+
+/** The allowed folder holding `path`, or null; ~ and trailing slashes are tolerated.
+ *  An entry naming the file itself allows that file alone, with its folder as root. */
 export function editableRoot(path: string, folders: string[] | undefined, home = ''): string | null {
   for (const raw of folders ?? []) {
     let f = raw.trim().replace(/\/+$/, '');
     if (!f) continue;
     if (f === '~' || f.startsWith('~/')) { if (!home) continue; f = home + f.slice(1); }
     if (path.startsWith(f + '/')) return f;
+    if (path === f) return f.slice(0, f.lastIndexOf('/'));
   }
   return null;
 }
@@ -36,30 +59,56 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
 
   const isMd = host.ext === 'md' || host.ext === 'mdx';
   box.innerHTML = `
-    <div id="fe-fe-bar">
-      <button class="fe-pbn" data-act="save" title="Save (⌘S)">Save</button>
-      <button class="fe-pbn" data-act="done" title="Back to reading (Esc)">Done</button>
-      <span id="fe-fe-state"></span>
-    </div>
     <div id="fe-fe-banner" style="display:none"></div>
-    <div class="fe-ed">
-      <textarea id="fe-ed-src" spellcheck="false" aria-label="File text"></textarea>
-      ${isMd ? '<div id="fe-ed-view"></div>' : ''}
+    <div id="fe-fe-scroll">
+      <div id="fe-fe-col">
+        <div id="fe-fe-src">
+          <pre id="fe-fe-paint" aria-hidden="true"></pre>
+          <textarea id="fe-fe-ta" spellcheck="false" aria-label="File text"></textarea>
+        </div>
+        ${isMd ? '<div id="fe-fe-view" class="fe-md" hidden></div>' : ''}
+      </div>
+    </div>
+    <div id="fe-fe-pill" role="toolbar" aria-label="Editing">
+      <span id="fe-fe-state"></span>
+      ${isMd ? `<button type="button" class="btn" data-icon data-hover-shade data-act="preview" title="Preview (⌘⇧P)">${UI_ICON.eye}</button>` : ''}
+      <button type="button" class="btn" data-variant="solid" data-act="done" title="Back to reading (Esc)">Done</button>
     </div>`;
-  const ta = box.querySelector<HTMLTextAreaElement>('#fe-ed-src')!;
-  const view = box.querySelector<HTMLElement>('#fe-ed-view');
+  const ta = box.querySelector<HTMLTextAreaElement>('#fe-fe-ta')!;
+  const paintEl = box.querySelector<HTMLElement>('#fe-fe-paint')!;
+  const src = box.querySelector<HTMLElement>('#fe-fe-src')!;
+  const view = box.querySelector<HTMLElement>('#fe-fe-view');
   const state = box.querySelector<HTMLElement>('#fe-fe-state')!;
   const banner = box.querySelector<HTMLElement>('#fe-fe-banner')!;
   ta.value = doc.text;
   const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`);
   let base = doc.text;
   let saving = false;
+  let previewing = false;
+  let timer = 0;
 
   const isDirty = () => ta.value !== base;
+  // The coloured copy behind the textarea: one numbered row per line, so a
+  // wrapped line keeps one number and the caret sits over its own text.
+  const paintSource = () => {
+    const rows = splitHighlighted(highlightCode(ta.value, host.ext));
+    paintEl.innerHTML = rows.map((r, i) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || ' '}</span></div>`).join('');
+    ta.style.height = '0';
+    ta.style.height = paintEl.offsetHeight + 'px';
+  };
   const paint = () => {
-    state.textContent = saving ? 'saving…' : isDirty() ? '● unsaved' : 'saved';
-    state.classList.toggle('dirty', isDirty());
-    if (view) view.innerHTML = `<div class="fe-md">${renderMarkdown(ta.value, host.href)}</div>`;
+    const dirty = isDirty();
+    state.innerHTML = saving ? 'Saving…' : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
+    state.className = saving ? 'busy' : dirty ? 'dirty' : 'saved';
+    if (view && previewing) view.innerHTML = renderMarkdown(ta.value, host.href);
+  };
+  const setPreview = (on: boolean) => {
+    if (!view) return;
+    previewing = on;
+    view.hidden = !on; src.hidden = on;
+    box.querySelector('[data-act="preview"]')?.classList.toggle('on', on);
+    paint();
+    if (!on) ta.focus();
   };
 
   const write = async (expect: number) => {
@@ -76,7 +125,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       else host.status(`not saved: ${e.message}`);
     } finally { saving = false; paint(); }
   };
-  const save = () => { if (!saving && isDirty()) void write(doc.mtime); };
+  const save = () => { clearTimeout(timer); if (!saving && isDirty()) void write(doc.mtime); };
+  const later = () => { clearTimeout(timer); timer = window.setTimeout(save, AUTOSAVE_MS); };
 
   function showConflict(): void {
     banner.style.display = '';
@@ -89,13 +139,16 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     try {
       const now = await notes.fileRead(host.root, host.rel);
       if (now.mtime === doc.mtime) return;
-      if (!isDirty()) { doc = now; base = now.text; buf.snap(); ta.value = now.text; buf.snap(); paint(); }
+      if (!isDirty()) { doc = now; base = now.text; buf.snap(); ta.value = now.text; buf.snap(); paintSource(); paint(); }
       else showConflict();
     } catch { /* host gone; the next save reports it */ }
   };
 
-  const close = () => {
-    if (isDirty() && !confirm('Discard unsaved changes?')) return;
+  // Done saves what is pending first; only a failed or conflicting save asks.
+  const close = async () => {
+    clearTimeout(timer);
+    if (isDirty() && !saving && banner.style.display === 'none') await write(doc.mtime);
+    if (isDirty() && !confirm('Your last changes are not saved. Leave anyway?')) return;
     clearInterval(watch);
     box.innerHTML = '';
     host.closed();
@@ -104,29 +157,36 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   box.addEventListener('click', async e => {
     const act = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
     if (act === 'save') save();
-    else if (act === 'done') close();
-    else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; base = now.text; buf.snap(); ta.value = now.text; banner.style.display = 'none'; paint(); }
+    else if (act === 'done') void close();
+    else if (act === 'preview') setPreview(!previewing);
+    else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; base = now.text; buf.snap(); ta.value = now.text; banner.style.display = 'none'; paintSource(); paint(); }
     else if (act === 'overwrite') { const now = await notes.fileRead(host.root, host.rel); void write(now.mtime); }
   });
-  ta.addEventListener('input', paint);
+  ta.addEventListener('input', () => { paintSource(); paint(); later(); });
+  box.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p') { e.preventDefault(); setPreview(!previewing); }
+    else if (e.key === 'Escape' && previewing) { e.preventDefault(); setPreview(false); }
+  });
   ta.addEventListener('keydown', e => {
     const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.shiftKey && e.key.toLowerCase() === 'p') return;   // the box handles preview
     if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
     else if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) buf.redo(); else buf.undo(); }
-    else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'Escape') { e.preventDefault(); void close(); }
     else if (e.key === 'Tab') {
       e.preventDefault();
       buf.snap();
       const r = indentLines(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, e.shiftKey);
       ta.value = r.text; ta.setSelectionRange(r.start, r.end);
-      paint();
+      paintSource(); paint(); later();
     }
     e.stopPropagation();   // page keys (r, t, w, [ ]) must not fire while typing
   });
   const watch = setInterval(() => { if (document.visibilityState === 'visible' && !saving) void external(); }, 2000);
   window.addEventListener('beforeunload', e => { if (box.isConnected && isDirty()) e.preventDefault(); });
 
+  paintSource();
   paint();
   ta.focus();
-  return { dirty: isDirty, close };
+  return { dirty: isDirty, close: () => void close() };
 }

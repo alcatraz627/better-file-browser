@@ -122,3 +122,17 @@ One record per file, built once and shown by one component:
 
 The preview header shows name, kind and size; the status bar shows the rest
 with icons, at `small` size, and the path copies on click.
+
+## Rulings, 2026-10-20
+
+From the decision page `bfb-edit-and-sections` (answer `D1a D2a D3b`):
+
+- **Editing a file is in place.** Edit turns the reading column into coloured,
+  numbered source. A floating pill at the top right holds the save state, a
+  preview toggle and Done. There is no second bar and no fixed split.
+- **A folder that is not allowed yet asks once, in a popover from the Edit
+  button:** Allow folder, Just this file, or Cancel, with the 14-day backup
+  note. Settings is not the way in.
+- **Every sidebar section uses the icon, title and subtitle header**, with
+  actions on the right, a divider below, collapse on the title and a drag
+  handle on the divider. Dialogs and panels use the same title.

@@ -512,6 +512,8 @@
     folderOpen: svg('<path d="M1.5 3.5h4l1.2 1.5h5.8v6.5h-11z"/>'),
     copy: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>'),
     check: svg('<path d="m2.5 7.5 3 3 6-7"/>'),
+    eye: svg('<path d="M1 7c1.6-3.3 3.8-5 6-5s4.4 1.7 6 5c-1.6 3.3-3.8 5-6 5S2.6 10.3 1 7z"/><circle cx="7" cy="7" r="2"/>'),
+    lock: svg('<rect x="2.5" y="6" width="9" height="6.5" rx="1"/><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6"/>'),
     copyImage: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>')
   };
 
@@ -4063,14 +4065,40 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);margin-right:auto;white-space:nowrap}
 #fe-nt-list .fe-nt-hit{display:block;padding:0 10px 4px 32px;font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
-#fe-fe-bar{display:flex;align-items:center;gap:6px;padding:6px 14px;border-bottom:1px solid var(--bd);background:var(--s1)}
-#fe-fe-state{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1));margin-left:6px}
-#fe-fe-state.dirty{color:var(--ac)}
-#fe-fe-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--act)}
-#fe-fe .fe-ed{flex:1}
-#fe-fp-edit,#fe-fp-raw,#fe-fp-copy{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;font-size:calc(11px * var(--ui-text-scale,1));padding:3px 8px;border-radius:5px}
-#fe-fp-edit:hover,#fe-fp-raw:hover,#fe-fp-copy:hover{border-color:var(--ac);color:var(--ac)}
+/* Editing in place: coloured, numbered source in the reading column. The
+   painted copy (#fe-fe-paint) and the textarea share font, padding and
+   wrapping exactly, so the caret sits over its own text. */
+#fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
+#fe-fe-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--s1)}
+#fe-fe-scroll{flex:1;min-height:0;overflow:auto}
+#fe-fe-col{max-width:980px;margin:0 auto;padding:28px 28px 120px}
+#fe-fe-src{position:relative}
+#fe-fe-src[hidden]{display:none}
+#fe-fe-paint,#fe-fe-ta{margin:0;font-family:var(--mono);font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1));line-height:1.7;
+  white-space:pre-wrap;overflow-wrap:anywhere;tab-size:4;letter-spacing:0}
+#fe-fe-paint{padding:0;color:var(--tx);pointer-events:none}
+.fe-fe-row{display:grid;grid-template-columns:52px minmax(0,1fr)}
+.fe-fe-ln{color:var(--dm);text-align:right;padding-right:16px;user-select:none}
+#fe-fe-ta{position:absolute;top:0;left:0;width:100%;padding:0 0 0 52px;border:0;outline:0;resize:none;overflow:hidden;
+  background:transparent;color:transparent;caret-color:var(--ac)}
+#fe-fe-ta::selection{background:color-mix(in srgb,var(--ac) 28%,transparent);color:transparent}
+#fe-fe-view{padding:0;max-width:none}
+#fe-fe-pill{position:absolute;top:12px;right:18px;z-index:5;display:flex;align-items:center;gap:2px;padding:3px;
+  background:var(--s1);border:1px solid var(--bd);border-radius:999px;box-shadow:0 6px 20px rgb(0 0 0 / .25)}
+#fe-fe-pill .btn[data-variant="solid"]{border-radius:999px;padding:0 12px}
+#fe-fe-state{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 10px;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);
+  transition:color var(--t-fast) var(--ease)}
+#fe-fe-state.saved{color:var(--green)}
+#fe-fe-state svg{width:13px;height:13px}
+.fe-fe-dot{width:6px;height:6px;border-radius:50%;background:var(--ac)}
+#fe-allow{position:fixed;z-index:320;width:340px;padding:14px;background:var(--s1);border:1px solid var(--bd2);border-radius:10px;
+  box-shadow:0 12px 32px rgb(0 0 0 / .3);animation:fe-pop var(--t-base) var(--ease)}
+#fe-allow p{color:var(--mt);font-size:calc(12px * var(--ui-text-scale,1));margin:6px 0 12px;line-height:1.5}
+#fe-allow code{font:calc(11.5px * var(--ui-text-scale,1)) var(--mono);background:var(--s2);padding:1px 4px;border-radius:4px;overflow-wrap:anywhere}
+.fe-allow-title{display:flex;align-items:center;gap:8px;font-weight:600}
+.fe-allow-acts{display:flex;gap:6px;justify-content:flex-end}
+@keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
 #fe-fp-reload{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
 #fe-ed-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 #fe-ed-bar .fe-pbn{padding:2px 7px;font-size:calc(11px * var(--ui-text-scale,1));display:inline-flex;align-items:center;gap:5px}
@@ -4345,6 +4373,27 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 `;
 
   // src/file-editor.ts
+  var AUTOSAVE_MS = 800;
+  function splitHighlighted(html) {
+    const out = [];
+    const open = [];
+    let line = "";
+    const re = /<span[^>]*>|<\/span>|\n|[^<\n]+|</g;
+    for (const m of html.match(re) ?? []) {
+      if (m === "\n") {
+        out.push(line + "</span>".repeat(open.length));
+        line = open.join("");
+      } else if (m.startsWith("<span")) {
+        open.push(m);
+        line += m;
+      } else if (m === "</span>") {
+        open.pop();
+        line += m;
+      } else line += m;
+    }
+    out.push(line);
+    return out;
+  }
   function editableRoot(path, folders, home = "") {
     for (const raw of folders ?? []) {
       let f = raw.trim().replace(/\/+$/, "");
@@ -4354,6 +4403,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         f = home + f.slice(1);
       }
       if (path.startsWith(f + "/")) return f;
+      if (path === f) return f.slice(0, f.lastIndexOf("/"));
     }
     return null;
   }
@@ -4367,29 +4417,54 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     }
     const isMd = host.ext === "md" || host.ext === "mdx";
     box.innerHTML = `
-    <div id="fe-fe-bar">
-      <button class="fe-pbn" data-act="save" title="Save (\u2318S)">Save</button>
-      <button class="fe-pbn" data-act="done" title="Back to reading (Esc)">Done</button>
-      <span id="fe-fe-state"></span>
-    </div>
     <div id="fe-fe-banner" style="display:none"></div>
-    <div class="fe-ed">
-      <textarea id="fe-ed-src" spellcheck="false" aria-label="File text"></textarea>
-      ${isMd ? '<div id="fe-ed-view"></div>' : ""}
+    <div id="fe-fe-scroll">
+      <div id="fe-fe-col">
+        <div id="fe-fe-src">
+          <pre id="fe-fe-paint" aria-hidden="true"></pre>
+          <textarea id="fe-fe-ta" spellcheck="false" aria-label="File text"></textarea>
+        </div>
+        ${isMd ? '<div id="fe-fe-view" class="fe-md" hidden></div>' : ""}
+      </div>
+    </div>
+    <div id="fe-fe-pill" role="toolbar" aria-label="Editing">
+      <span id="fe-fe-state"></span>
+      ${isMd ? `<button type="button" class="btn" data-icon data-hover-shade data-act="preview" title="Preview (\u2318\u21E7P)">${UI_ICON.eye}</button>` : ""}
+      <button type="button" class="btn" data-variant="solid" data-act="done" title="Back to reading (Esc)">Done</button>
     </div>`;
-    const ta = box.querySelector("#fe-ed-src");
-    const view = box.querySelector("#fe-ed-view");
+    const ta = box.querySelector("#fe-fe-ta");
+    const paintEl = box.querySelector("#fe-fe-paint");
+    const src = box.querySelector("#fe-fe-src");
+    const view = box.querySelector("#fe-fe-view");
     const state = box.querySelector("#fe-fe-state");
     const banner = box.querySelector("#fe-fe-banner");
     ta.value = doc.text;
     const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`);
     let base = doc.text;
     let saving = false;
+    let previewing = false;
+    let timer = 0;
     const isDirty = () => ta.value !== base;
+    const paintSource = () => {
+      const rows = splitHighlighted(highlightCode(ta.value, host.ext));
+      paintEl.innerHTML = rows.map((r, i) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || " "}</span></div>`).join("");
+      ta.style.height = "0";
+      ta.style.height = paintEl.offsetHeight + "px";
+    };
     const paint = () => {
-      state.textContent = saving ? "saving\u2026" : isDirty() ? "\u25CF unsaved" : "saved";
-      state.classList.toggle("dirty", isDirty());
-      if (view) view.innerHTML = `<div class="fe-md">${renderMarkdown(ta.value, host.href)}</div>`;
+      const dirty = isDirty();
+      state.innerHTML = saving ? "Saving\u2026" : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
+      state.className = saving ? "busy" : dirty ? "dirty" : "saved";
+      if (view && previewing) view.innerHTML = renderMarkdown(ta.value, host.href);
+    };
+    const setPreview = (on) => {
+      if (!view) return;
+      previewing = on;
+      view.hidden = !on;
+      src.hidden = on;
+      box.querySelector('[data-act="preview"]')?.classList.toggle("on", on);
+      paint();
+      if (!on) ta.focus();
     };
     const write = async (expect) => {
       saving = true;
@@ -4411,7 +4486,12 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       }
     };
     const save = () => {
+      clearTimeout(timer);
       if (!saving && isDirty()) void write(doc.mtime);
+    };
+    const later = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(save, AUTOSAVE_MS);
     };
     function showConflict() {
       banner.style.display = "";
@@ -4429,13 +4509,16 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
           buf.snap();
           ta.value = now.text;
           buf.snap();
+          paintSource();
           paint();
         } else showConflict();
       } catch {
       }
     };
-    const close = () => {
-      if (isDirty() && !confirm("Discard unsaved changes?")) return;
+    const close = async () => {
+      clearTimeout(timer);
+      if (isDirty() && !saving && banner.style.display === "none") await write(doc.mtime);
+      if (isDirty() && !confirm("Your last changes are not saved. Leave anyway?")) return;
       clearInterval(watch);
       box.innerHTML = "";
       host.closed();
@@ -4443,7 +4526,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     box.addEventListener("click", async (e) => {
       const act = e.target.closest("[data-act]")?.dataset.act;
       if (act === "save") save();
-      else if (act === "done") close();
+      else if (act === "done") void close();
+      else if (act === "preview") setPreview(!previewing);
       else if (act === "reload") {
         const now = await notes.fileRead(host.root, host.rel);
         doc = now;
@@ -4451,15 +4535,30 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         buf.snap();
         ta.value = now.text;
         banner.style.display = "none";
+        paintSource();
         paint();
       } else if (act === "overwrite") {
         const now = await notes.fileRead(host.root, host.rel);
         void write(now.mtime);
       }
     });
-    ta.addEventListener("input", paint);
+    ta.addEventListener("input", () => {
+      paintSource();
+      paint();
+      later();
+    });
+    box.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setPreview(!previewing);
+      } else if (e.key === "Escape" && previewing) {
+        e.preventDefault();
+        setPreview(false);
+      }
+    });
     ta.addEventListener("keydown", (e) => {
       const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.shiftKey && e.key.toLowerCase() === "p") return;
       if (mod && e.key.toLowerCase() === "s") {
         e.preventDefault();
         save();
@@ -4469,14 +4568,16 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         else buf.undo();
       } else if (e.key === "Escape") {
         e.preventDefault();
-        close();
+        void close();
       } else if (e.key === "Tab") {
         e.preventDefault();
         buf.snap();
         const r = indentLines(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, e.shiftKey);
         ta.value = r.text;
         ta.setSelectionRange(r.start, r.end);
+        paintSource();
         paint();
+        later();
       }
       e.stopPropagation();
     });
@@ -4486,9 +4587,10 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     window.addEventListener("beforeunload", (e) => {
       if (box.isConnected && isDirty()) e.preventDefault();
     });
+    paintSource();
     paint();
     ta.focus();
-    return { dirty: isDirty, close };
+    return { dirty: isDirty, close: () => void close() };
   }
 
   // src/file-page.ts
@@ -4705,18 +4807,67 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       document.getElementById("fe-status-text").textContent = t;
     };
     const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? "";
-    const root = editableRoot(rawPath, opts.editableFolders, home);
+    let root = editableRoot(rawPath, opts.editableFolders, home);
     let editor = null;
-    editBtn.title = root ? "Edit this file (e)" : "Edit (e): add this folder under Settings \u2192 Notes \u2192 Editable folders first";
+    const folder = rawPath.slice(0, rawPath.lastIndexOf("/"));
+    editBtn.title = "Edit this file (e)";
+    const askToAllow = () => new Promise((resolve) => {
+      document.getElementById("fe-allow")?.remove();
+      const pop = document.createElement("div");
+      pop.id = "fe-allow";
+      pop.setAttribute("role", "dialog");
+      pop.setAttribute("aria-label", "Allow editing");
+      const short = home && folder.startsWith(home + "/") ? "~" + folder.slice(home.length) : folder;
+      pop.innerHTML = `<div class="fe-allow-title">${UI_ICON.lock}Allow editing here?</div>
+      <p>Saves write to <code>${esc(short)}</code>. Each save keeps the old text for 14 days.</p>
+      <div class="fe-allow-acts"><button type="button" class="btn" data-hover-shade data-a="cancel">Cancel</button>
+      <button type="button" class="btn" data-variant="outline" data-a="file">Just this file</button>
+      <button type="button" class="btn" data-variant="solid" data-a="folder">Allow folder</button></div>`;
+      document.getElementById("fe").appendChild(pop);
+      const r = editBtn.getBoundingClientRect();
+      pop.style.top = `${r.bottom + 8}px`;
+      pop.style.left = `${Math.max(8, Math.min(r.right - pop.offsetWidth, innerWidth - pop.offsetWidth - 8))}px`;
+      const done = (ok) => {
+        pop.remove();
+        document.removeEventListener("keydown", onKey, true);
+        document.removeEventListener("pointerdown", onAway, true);
+        resolve(ok);
+      };
+      const onKey = (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          done(false);
+        }
+      };
+      const onAway = (e) => {
+        if (!pop.contains(e.target) && e.target !== editBtn) done(false);
+      };
+      document.addEventListener("keydown", onKey, true);
+      document.addEventListener("pointerdown", onAway, true);
+      pop.addEventListener("click", (e) => {
+        const a = e.target.closest("[data-a]")?.dataset.a;
+        if (!a) return;
+        if (a === "cancel") {
+          done(false);
+          return;
+        }
+        const s = getSettings();
+        s.editableFolders = [.../* @__PURE__ */ new Set([...s.editableFolders ?? [], a === "folder" ? folder : rawPath])];
+        saveSettings(s);
+        root = editableRoot(rawPath, s.editableFolders, home);
+        done(!!root);
+      });
+      pop.querySelector('[data-a="folder"]').focus();
+    });
     const edit2 = async () => {
       if (editor) return;
-      if (!root) {
-        status("To edit, add this folder under Settings \u2192 Notes \u2192 Editable folders");
-        return;
-      }
+      if (!root && !await askToAllow()) return;
+      if (!root) return;
       page.style.display = "none";
       toc.style.display = "none";
       editBox.style.display = "";
+      tocBtn.style.display = "none";
       editBtn.classList.add("on");
       editor = await openFileEditor(editBox, {
         root,
@@ -4727,8 +4878,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         saved: (fresh) => {
           text = fresh;
           paintMeta();
-          status("saved");
         },
+        // the pill shows Saved
         // The file may have changed while editing (a reload from disk), so read it again.
         closed: () => {
           editor = null;

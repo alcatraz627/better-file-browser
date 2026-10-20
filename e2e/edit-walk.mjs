@@ -1,7 +1,8 @@
-// Editing a text file in place: the Edit button saves through the notes host
-// inside an allowed folder, keeps the reading view in step, refuses outside
-// one, and shows the on-disk-change banner instead of overwriting. (.yaml is
-// left out: Chrome downloads it instead of opening a page, tracked in the plan.)
+// Editing a text file in place: a folder not yet allowed asks once in a
+// popover, the reading column becomes coloured numbered source, the text saves
+// itself after a pause, a preview toggle shows the render, a change on disk
+// while edited raises the banner instead of overwriting, and Done goes back
+// to reading.
 import assert from 'node:assert/strict';
 import { writeFileSync, readFileSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
@@ -10,58 +11,97 @@ import { launch, SHOTS } from './harness.mjs';
 const h = await launch();
 const results = [];
 const check = (ok, msg) => { results.push(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if (!ok) process.exitCode = 1; };
+const typeAtEnd = async (page, text) => {
+  await page.focus('#fe-fe-ta');
+  await page.keyboard.down('Meta'); await page.keyboard.press('ArrowDown'); await page.keyboard.up('Meta');
+  await page.keyboard.type(text);
+};
 try {
   const md = join(h.fixture, 'edit-me.md');
   const txt = join(h.fixture, 'plain.txt');
   writeFileSync(md, '# Title\n\nfirst\n');
   writeFileSync(txt, 'a: 1\n');
   const page = await h.browser.newPage();
+  await page.setViewport({ width: 1400, height: 900 });
   page.on('pageerror', e => console.error('[pageerror]', e.message));
   let dialogs = 0;
   page.on('dialog', d => { dialogs++; void d.accept(); });
 
-  // Not allowed yet: the button explains instead of opening an editor.
+  // Not allowed yet: Edit asks next to the button; Cancel leaves the page alone.
   await page.goto('file://' + md, { waitUntil: 'load' });
   await page.waitForSelector('#fe-fp-edit');
   await page.click('#fe-fp-edit');
-  const refused = await page.$eval('#fe-status-text', el => el.textContent);
-  check(/Editable folders/.test(refused) && await page.$eval('#fe-fe', el => el.style.display === 'none'), `outside an allowed folder, Edit explains: "${refused}"`);
+  await page.waitForSelector('#fe-allow', { timeout: 3000 }).catch(() => null);
+  const pop = await page.evaluate(() => {
+    const p = document.getElementById('fe-allow'), b = document.getElementById('fe-fp-edit');
+    if (!p) return null;
+    const r = p.getBoundingClientRect(), br = b.getBoundingClientRect();
+    return { text: p.textContent.replace(/\s+/g, ' ').trim(), below: r.top >= br.bottom, inView: r.left >= 0 && r.right <= innerWidth };
+  });
+  check(!!pop && /Allow editing here/.test(pop.text) && /14 days/.test(pop.text) && pop.below && pop.inView, `outside an allowed folder, Edit asks in a popover: ${JSON.stringify(pop)}`);
+  await page.screenshot({ path: join(SHOTS, 'edit-allow.png') });
+  await page.click('#fe-allow [data-a="cancel"]');
+  check(!(await page.$('#fe-allow')) && await page.$eval('#fe-fe', el => el.style.display === 'none'), 'Cancel closes it and stays reading');
 
-  await h.store.edit('bfb-settings-v1', s => { s.editableFolders = [h.fixture]; });
-  await page.reload({ waitUntil: 'load' });
-  await page.waitForSelector('#fe-fp-edit');
-  await page.keyboard.press('e');
-  await page.waitForSelector('#fe-ed-src', { timeout: 5000 });
-  await page.focus('#fe-ed-src');
-  await page.keyboard.down('Meta'); await page.keyboard.press('ArrowDown'); await page.keyboard.up('Meta');
-  await page.keyboard.type('second line\n');
-  const live = await page.$eval('#fe-ed-view', el => el.textContent);
-  check(/second line/.test(live), 'markdown edits render live beside the source');
-  check(await page.$eval('#fe-fe-state', el => el.textContent) === '● unsaved', 'typing marks the file unsaved');
-  await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
-  await page.waitForFunction(() => document.getElementById('fe-fe-state').textContent === 'saved', { timeout: 5000 }).catch(() => null);
-  check(readFileSync(md, 'utf8').endsWith('second line\n'), `Cmd+S wrote the file: ${JSON.stringify(readFileSync(md, 'utf8'))}`);
+  // Allow folder: remembered in Settings, and the editor opens straight away.
+  await page.click('#fe-fp-edit');
+  await page.waitForSelector('#fe-allow [data-a="folder"]');
+  await page.click('#fe-allow [data-a="folder"]');
+  await page.waitForSelector('#fe-fe-ta', { timeout: 5000 });
+  const allowed = (await h.store.json('bfb-settings-v1', {})).editableFolders ?? [];
+  check(allowed.includes(h.fixture), `Allow folder saves the folder and opens the editor: ${JSON.stringify(allowed)}`);
+
+  const src = await page.evaluate(() => ({
+    lines: [...document.querySelectorAll('#fe-fe-paint .fe-fe-ln')].map(e => e.textContent),
+    tokens: document.querySelectorAll('#fe-fe-paint span[class^="tok-"]').length,
+    toc: getComputedStyle(document.getElementById('fe-fp-toc')).display,
+    pill: !!document.querySelector('#fe-fe-pill [data-act="done"]'),
+    oldBar: !!document.getElementById('fe-fe-bar'),
+  }));
+  check(src.lines.join() === '1,2,3,4' && src.tokens > 0 && src.toc === 'none' && src.pill && !src.oldBar, `source is coloured and numbered, Contents hides, one pill: ${JSON.stringify(src)}`);
+
+  await typeAtEnd(page, 'second line\n');
+  const edited = await page.$eval('#fe-fe-state', el => ({ cls: el.className, text: el.textContent }));
+  check(edited.cls === 'dirty' && /Edited/.test(edited.text), `typing shows Edited: ${JSON.stringify(edited)}`);
+  await page.waitForFunction(() => document.getElementById('fe-fe-state').className === 'saved', { timeout: 5000 }).catch(() => null);
+  check(readFileSync(md, 'utf8').endsWith('second line\n'), `it saves itself after a pause: ${JSON.stringify(readFileSync(md, 'utf8'))}`);
+
+  // The caret sits over its own text: the painted row for line 4 lines up with the textarea's line 4.
+  const aligned = await page.evaluate(() => {
+    const row = document.querySelectorAll('#fe-fe-paint .fe-fe-row')[3].getBoundingClientRect();
+    const ta = document.getElementById('fe-fe-ta').getBoundingClientRect();
+    const lh = parseFloat(getComputedStyle(document.getElementById('fe-fe-ta')).lineHeight);
+    return Math.abs(row.top - (ta.top + 3 * lh));
+  });
+  check(aligned < 1, `painted rows line up with the typed text (off by ${aligned.toFixed(2)}px)`);
   await page.screenshot({ path: join(SHOTS, 'edit-md-dark.png') });
 
-  // A change on disk while unsaved shows the banner and is not overwritten.
-  await page.keyboard.type('mine\n');
+  await page.click('#fe-fe-pill [data-act="preview"]');
+  const preview = await page.evaluate(() => ({ view: !document.getElementById('fe-fe-view').hidden, text: document.getElementById('fe-fe-view').textContent, src: document.getElementById('fe-fe-src').hidden }));
+  check(preview.view && preview.src && /second line/.test(preview.text), `the eye shows the rendered page: ${JSON.stringify(preview)}`);
+  await page.click('#fe-fe-pill [data-act="preview"]');
+
+  // A change on disk while edited raises the banner and keeps the disk copy.
+  await typeAtEnd(page, 'mine\n');
   writeFileSync(md, '# Title\n\nchanged elsewhere\n');
   const later = new Date(Date.now() + 5000); utimesSync(md, later, later);
   await page.waitForFunction(() => document.getElementById('fe-fe-banner').style.display !== 'none', { timeout: 6000 }).catch(() => null);
-  check(await page.$eval('#fe-fe-banner', el => el.style.display !== 'none') && readFileSync(md, 'utf8').includes('changed elsewhere'), 'an on-disk change while unsaved shows the banner, file untouched');
+  check(await page.$eval('#fe-fe-banner', el => el.style.display !== 'none') && readFileSync(md, 'utf8').includes('changed elsewhere'), 'an on-disk change while edited shows the banner, file untouched');
   await page.click('#fe-fe-banner [data-act="reload"]');
-  await page.waitForFunction(() => document.getElementById('fe-ed-src').value.includes('changed elsewhere'), { timeout: 5000 }).catch(() => null);
-  check(await page.$eval('#fe-ed-src', el => el.value.includes('changed elsewhere')), 'Load from disk replaces the editor text');
-  await page.click('#fe-fe-bar [data-act="done"]');
+  await page.waitForFunction(() => document.getElementById('fe-fe-ta').value.includes('changed elsewhere'), { timeout: 5000 }).catch(() => null);
+  check(await page.$eval('#fe-fe-ta', el => el.value.includes('changed elsewhere')), 'Load from disk replaces the editor text');
+  await page.click('#fe-fe-pill [data-act="done"]');
+  await page.waitForFunction(() => document.getElementById('fe-page').style.display !== 'none', { timeout: 3000 }).catch(() => null);
   const back = await page.$eval('#fe-page', el => el.style.display !== 'none' && el.textContent.includes('changed elsewhere'));
-  check(back && dialogs === 0, `Done returns to the reading view with the current text, no discard prompt (${dialogs})`);
+  const tocBack = await page.$eval('#fe-fp-toc', el => getComputedStyle(el).display !== 'none');
+  check(back && tocBack && dialogs === 0, `Done returns to reading with Contents back, no prompt (${dialogs})`);
 
-  // A non-markdown file edits as source alone.
+  // A non-markdown file edits as source alone, with no preview toggle.
   await page.goto('file://' + txt, { waitUntil: 'load' });
   await page.waitForSelector('#fe-fp-edit');
   await page.click('#fe-fp-edit');
-  await page.waitForSelector('#fe-ed-src');
-  check(!(await page.$('#fe-ed-view')), 'a .txt file edits as source alone');
+  await page.waitForSelector('#fe-fe-ta');
+  check(!(await page.$('#fe-fe-view')) && !(await page.$('#fe-fe-pill [data-act="preview"]')), 'a .txt file edits as source alone');
 
   // A .yaml file, which Chrome downloads, opens in its folder's view: coloured and editable.
   const yaml = join(h.fixture, 'conf.yaml');
@@ -73,14 +113,11 @@ try {
   await page.waitForSelector('#fe-page .tok-key', { timeout: 5000 }).catch(() => null);
   const yv = { url: page.url(), keys: await page.$$eval('#fe-page .tok-key', s => s.map(x => x.textContent)), crumb: await page.title() };
   check(yv.url.endsWith('/#view=conf.yaml') && yv.keys.includes('name') && /conf\.yaml/.test(yv.crumb), `a .yaml opens in its folder view, coloured: ${JSON.stringify(yv)}`);
-  await page.screenshot({ path: join(SHOTS, 'view-yaml-dark.png') });
   await page.keyboard.press('e');
-  await page.waitForSelector('#fe-ed-src');
-  await page.focus('#fe-ed-src');
-  await page.keyboard.down('Meta'); await page.keyboard.press('ArrowDown'); await page.keyboard.up('Meta');
-  await page.keyboard.type('done: true\n');
+  await page.waitForSelector('#fe-fe-ta');
+  await typeAtEnd(page, 'done: true\n');
   await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
-  await page.waitForFunction(() => document.getElementById('fe-fe-state').textContent === 'saved', { timeout: 5000 }).catch(() => null);
+  await page.waitForFunction(() => document.getElementById('fe-fe-state').className === 'saved', { timeout: 5000 }).catch(() => null);
   check(readFileSync(yaml, 'utf8').endsWith('done: true\n'), 'the .yaml saves from its view');
 } finally {
   console.log(results.join('\n'));

@@ -42,5 +42,7 @@ export const UI_ICON = {
   folderOpen: svg('<path d="M1.5 3.5h4l1.2 1.5h5.8v6.5h-11z"/>'),
   copy: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>'),
   check: svg('<path d="m2.5 7.5 3 3 6-7"/>'),
+  eye: svg('<path d="M1 7c1.6-3.3 3.8-5 6-5s4.4 1.7 6 5c-1.6 3.3-3.8 5-6 5S2.6 10.3 1 7z"/><circle cx="7" cy="7" r="2"/>'),
+  lock: svg('<rect x="2.5" y="6" width="9" height="6.5" rx="1"/><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6"/>'),
   copyImage: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>'),
 };

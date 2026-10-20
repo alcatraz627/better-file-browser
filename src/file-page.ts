@@ -11,6 +11,8 @@ import {
 } from './renderers';
 import { fetchFileText } from './file-fetch';
 import { fileMeta, metaChips, metaSummary } from './file-meta';
+import { UI_ICON } from './control-icons';
+import { getSettings, saveSettings } from './storage';
 import { editableRoot, openFileEditor, type FileEditor } from './file-editor';
 import type { Settings } from './types';
 
@@ -234,18 +236,57 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   const editBtn = document.getElementById('fe-fp-edit')!;
   const status = (t: string) => { document.getElementById('fe-status-text')!.textContent = t; };
   const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? '';
-  const root = editableRoot(rawPath, opts.editableFolders, home);
+  let root = editableRoot(rawPath, opts.editableFolders, home);
   let editor: FileEditor | null = null;
-  editBtn.title = root ? 'Edit this file (e)' : 'Edit (e): add this folder under Settings → Notes → Editable folders first';
+  const folder = rawPath.slice(0, rawPath.lastIndexOf('/'));
+  editBtn.title = 'Edit this file (e)';
+
+  // A folder not allowed yet asks once, next to the button you pressed.
+  const askToAllow = (): Promise<boolean> => new Promise(resolve => {
+    document.getElementById('fe-allow')?.remove();
+    const pop = document.createElement('div');
+    pop.id = 'fe-allow';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', 'Allow editing');
+    const short = home && folder.startsWith(home + '/') ? '~' + folder.slice(home.length) : folder;
+    pop.innerHTML = `<div class="fe-allow-title">${UI_ICON.lock}Allow editing here?</div>
+      <p>Saves write to <code>${esc(short)}</code>. Each save keeps the old text for 14 days.</p>
+      <div class="fe-allow-acts"><button type="button" class="btn" data-hover-shade data-a="cancel">Cancel</button>
+      <button type="button" class="btn" data-variant="outline" data-a="file">Just this file</button>
+      <button type="button" class="btn" data-variant="solid" data-a="folder">Allow folder</button></div>`;
+    document.getElementById('fe')!.appendChild(pop);
+    const r = editBtn.getBoundingClientRect();
+    pop.style.top = `${r.bottom + 8}px`;
+    pop.style.left = `${Math.max(8, Math.min(r.right - pop.offsetWidth, innerWidth - pop.offsetWidth - 8))}px`;
+    const done = (ok: boolean) => { pop.remove(); document.removeEventListener('keydown', onKey, true); document.removeEventListener('pointerdown', onAway, true); resolve(ok); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); } };
+    const onAway = (e: PointerEvent) => { if (!pop.contains(e.target as Node) && e.target !== editBtn) done(false); };
+    document.addEventListener('keydown', onKey, true);
+    document.addEventListener('pointerdown', onAway, true);
+    pop.addEventListener('click', e => {
+      const a = (e.target as Element).closest<HTMLElement>('[data-a]')?.dataset.a;
+      if (!a) return;
+      if (a === 'cancel') { done(false); return; }
+      const s = getSettings();
+      s.editableFolders = [...new Set([...(s.editableFolders ?? []), a === 'folder' ? folder : rawPath])];
+      saveSettings(s);
+      root = editableRoot(rawPath, s.editableFolders, home);
+      done(!!root);
+    });
+    pop.querySelector<HTMLElement>('[data-a="folder"]')!.focus();
+  });
+
   const edit = async () => {
     if (editor) return;
-    if (!root) { status('To edit, add this folder under Settings → Notes → Editable folders'); return; }
+    if (!root && !(await askToAllow())) return;
+    if (!root) return;
     page.style.display = 'none'; toc.style.display = 'none'; editBox.style.display = '';
+    tocBtn.style.display = 'none';
     editBtn.classList.add('on');
     editor = await openFileEditor(editBox, {
       root, rel: rawPath.slice(root.length + 1), ext, href,
       status,
-      saved: fresh => { text = fresh; paintMeta(); status('saved'); },
+      saved: fresh => { text = fresh; paintMeta(); },   // the pill shows Saved
       // The file may have changed while editing (a reload from disk), so read it again.
       closed: () => {
         editor = null; editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on');
