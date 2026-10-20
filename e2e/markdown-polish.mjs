@@ -35,7 +35,7 @@ try {
     const nested = quote.querySelector(':scope > .fe-md');
     const first = nested.firstElementChild;
     const last = nested.lastElementChild;
-    const buttons = [...document.querySelectorAll('#fe-fp-bar button')];
+    const buttons = [...document.querySelectorAll('#fe-fp-bar button')].filter(b => !b.closest('#fe-ff') && b.offsetParent);
     return {
       top: Math.round(first.getBoundingClientRect().top - quote.getBoundingClientRect().top),
       bottom: Math.round(quote.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom),
@@ -46,7 +46,7 @@ try {
   const dark = await checkPage();
   assert.equal(dark.theme, 'dark');
   assert.ok(dark.top < 35 && dark.bottom < 35, JSON.stringify(dark));
-  assert.deepEqual(dark.controls, ['Contents', 'Column', 'Raw', 'Copy'].map(text => ({ text, icon: true })));
+  assert.deepEqual(dark.controls, ['Full width', 'Edit', 'Wrap', 'Raw', 'Copy'].map(text => ({ text, icon: true })));
   await shot(page, 'markdown-callout-fixture-dark');
   await page.bringToFront();
   await page.evaluate(() => document.getElementById('fe-theme-btn').click());

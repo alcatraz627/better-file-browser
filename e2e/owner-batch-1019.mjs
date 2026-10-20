@@ -33,10 +33,10 @@ try {
     const web = await page.$$eval('#fe-page .fe-md a[href^="http"]', a => a.length);
     const inTables = await page.$$eval('#fe-page .fe-md td a[href^="http"]', a => a.length);
     check(web > 40 && inTables > 10, `${theme}: bare URLs are links (${web} total, ${inTables} in table cells)`);
-    // Ruling 2026-10-20 (D4a): contents live in a rail to the right of the page.
+    // Owner ruling 2026-10-21: contents float over the right side of the page, not in a rail of their own.
     const toc = await page.$$eval('#fe-toc-rail #fe-toc a', a => a.length);
-    const place = await page.evaluate(() => ({ rail: Math.round(document.getElementById('fe-toc-rail').getBoundingClientRect().left), page: Math.round(document.getElementById('fe-page').getBoundingClientRect().right), inSide: !!document.querySelector('#fe-side #fe-toc') }));
-    check(toc > 3 && place.rail >= place.page && !place.inSide, `${theme}: contents sit in a rail right of the page (${toc} rows, ${JSON.stringify(place)})`);
+    const place = await page.evaluate(() => { const r = document.getElementById('fe-toc-rail').getBoundingClientRect(), p = document.getElementById('fe-page').getBoundingClientRect(); return { rail: [Math.round(r.left), Math.round(r.right)], page: [Math.round(p.left), Math.round(p.right)], inSide: !!document.querySelector('#fe-side #fe-toc') }; });
+    check(toc > 3 && place.rail[1] <= place.page[1] && place.rail[0] > (place.page[0] + place.page[1]) / 2 && !place.inSide, `${theme}: contents float over the page's right side (${toc} rows, ${JSON.stringify(place)})`);
     await page.screenshot({ path: join(SHOTS, `owner-links-toc-${theme}.png`) });
 
     await page.goto('file://' + join(h.fixture, 'rithum.md'), { waitUntil: 'load' });
@@ -89,7 +89,7 @@ try {
   await new Promise(r => setTimeout(r, 1500));
   const strip = await b.$$eval('#fe-tabs .fe-tab', t => t.map(x => x.textContent.trim()));
   check(strip.length === 1, `fresh tab shows only the doc opened, no restored strip (${JSON.stringify(strip)})`);
-  const recent = await b.$$eval('#fe-side [data-sec="recent"] .fe-sl', s => s.map(x => x.textContent));
+  const recent = await b.$$eval('#fe-lens-history .fe-sl', s => s.map(x => x.textContent));
   check(recent.includes('notes.txt') && recent.includes('code.py'), `Recent lists files opened lately (${JSON.stringify(recent)})`);
 
   await b.goto('file://' + join(h.fixture, 'script.sh'), { waitUntil: 'load' });

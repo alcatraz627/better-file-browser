@@ -56,11 +56,11 @@ try {
         bg: getComputedStyle(input).backgroundColor, appBg: getComputedStyle(document.getElementById('fe')).backgroundColor };
     });
     assert.equal(settings.scroll, 0, `${theme} settings tabs overflow`);
-    assert.equal(settings.icons, 8);
+    assert.equal(settings.icons, 6);
     assert.ok(settings.hints.every(h => /^[A-Z]/.test(h)));
     assert.equal(settings.buttons, true);
     assert.equal(settings.bg, settings.appBg, `${theme} input looks disabled`);
-    for (const tab of ['appearance', 'preview', 'files', 'exclusions', 'notes', 'terminal', 'data', 'ai']) {
+    for (const tab of ['look', 'folders', 'files', 'notes', 'ai', 'data']) {
       await page.click(`#fe-settings-modal .fe-dlg-tab[data-tab="${tab}"]`);
       const missing = await page.evaluate(() => [...document.querySelectorAll('#fe-settings-modal button')]
         .filter(el => el.getClientRects().length && !el.querySelector('svg'))
@@ -98,7 +98,8 @@ try {
       return { betweenItems: items[1].getBoundingClientRect().top - items[0].getBoundingClientRect().bottom,
         afterList: para.getBoundingClientRect().top - list.getBoundingClientRect().bottom };
     });
-    assert.ok(Math.abs(rhythm.betweenItems - rhythm.afterList) <= 2, `${theme} list spacing ${JSON.stringify(rhythm)}`);
+    // Owner round 2026-10-20 (owner-batch-1020): list items sit close together, a paragraph after the list gets its usual gap.
+    assert.ok(rhythm.betweenItems < 12 && rhythm.afterList >= rhythm.betweenItems, `${theme} list spacing ${JSON.stringify(rhythm)}`);
     await page.setViewport({ width: 2200, height: 900 });
     const measureWidth = () => page.evaluate(() => Math.round(document.querySelector('#fe-page .fe-md').getBoundingClientRect().width));
     const full = await measureWidth();

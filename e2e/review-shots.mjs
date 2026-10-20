@@ -46,4 +46,10 @@ try {
     return { text: Math.round(md.width), gap: Math.round(toc.left - md.right) };
   });
   console.log('contents geometry', JSON.stringify(geo));
+  await page.setViewport({ width: 1700, height: 900 });
+  await sleep(400);
+  await shot(page, 'review-contents-wide');
+  await page.setViewport({ width: 420, height: 800 });
+  await sleep(400);
+  await shot(page, 'review-narrow');
 } finally { await h.close(); }

@@ -1211,6 +1211,10 @@ button.fe-si{width:auto;display:flex}
 }
 @media (max-width:640px){
   #fe-side{max-width:42vw}
+  #fe-side{width:clamp(180px,30vw,220px)}
+  #fe-body{padding:6px}
+  #fe-side-rz{width:6px}
+  #fe-qlook.side{margin-left:6px}
 }
 @media (max-width:700px){
   .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
