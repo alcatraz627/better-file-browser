@@ -18,7 +18,7 @@ export const TABLE_EXTS = new Set(['tsv', 'csv']);
 export const JSONL_EXTS = new Set(['jsonl', 'ndjson']);
 
 export const RENDER_CAPS = {
-  codeChars:  300_000,
+  codeChars:  2_000_000,
   tableRows:  5_000,
   jsonlLines: 2_000,
   treeNodes:  20_000,
@@ -300,6 +300,8 @@ export function highlightCode(src: string, ext: string): string {
   return out;
 }
 
+const CODE_BLOCK = 200;
+
 /** Full code-view HTML: line-number gutter + highlighted <pre>. */
 export function renderCode(src: string, ext: string): string {
   let truncNote = '';
@@ -309,10 +311,17 @@ export function renderCode(src: string, ext: string): string {
   }
   // One row per line, number beside text, so a wrapped line keeps one number
   // (wrapping is a setting: #fe[data-wrap="on"]).
+  // Lines come in blocks the browser skips laying out while they are off
+  // screen, so a long file scrolls as lightly as a short one.
   const rows = splitHighlighted(highlightCode(src, ext));
   const gut = String(rows.length).length + 1;
-  return `${truncNote}<div class="fe-code-wrap" style="--gut:${gut}ch"><div class="fe-code">${rows.map((r, i) =>
-    `<div class="fe-cl"><span class="fe-cl-n">${i + 1}</span><span class="fe-cl-t">${r || ' '}</span></div>`).join('')}</div></div>`;
+  const blocks: string[] = [];
+  for (let s = 0; s < rows.length; s += CODE_BLOCK) {
+    const part = rows.slice(s, s + CODE_BLOCK).map((r, i) =>
+      `<div class="fe-cl"><span class="fe-cl-n">${s + i + 1}</span><span class="fe-cl-t">${r || ' '}</span></div>`).join('');
+    blocks.push(`<div class="fe-cl-blk" style="--n:${Math.min(CODE_BLOCK, rows.length - s)}">${part}</div>`);
+  }
+  return `${truncNote}<div class="fe-code-wrap" style="--gut:${gut}ch"><div class="fe-code">${blocks.join('')}</div></div>`;
 }
 
 // Split highlighted HTML into one string per source line, closing the open

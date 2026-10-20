@@ -1243,7 +1243,7 @@ ${body}`;
   var TABLE_EXTS = /* @__PURE__ */ new Set(["tsv", "csv"]);
   var JSONL_EXTS = /* @__PURE__ */ new Set(["jsonl", "ndjson"]);
   var RENDER_CAPS = {
-    codeChars: 3e5,
+    codeChars: 2e6,
     tableRows: 5e3,
     jsonlLines: 2e3,
     treeNodes: 2e4
@@ -1603,6 +1603,7 @@ ${body}`;
     out += esc(src.slice(last));
     return out;
   }
+  var CODE_BLOCK = 200;
   function renderCode(src, ext2) {
     let truncNote = "";
     if (src.length > RENDER_CAPS.codeChars) {
@@ -1611,7 +1612,12 @@ ${body}`;
     }
     const rows = splitHighlighted(highlightCode(src, ext2));
     const gut = String(rows.length).length + 1;
-    return `${truncNote}<div class="fe-code-wrap" style="--gut:${gut}ch"><div class="fe-code">${rows.map((r, i) => `<div class="fe-cl"><span class="fe-cl-n">${i + 1}</span><span class="fe-cl-t">${r || " "}</span></div>`).join("")}</div></div>`;
+    const blocks = [];
+    for (let s = 0; s < rows.length; s += CODE_BLOCK) {
+      const part = rows.slice(s, s + CODE_BLOCK).map((r, i) => `<div class="fe-cl"><span class="fe-cl-n">${s + i + 1}</span><span class="fe-cl-t">${r || " "}</span></div>`).join("");
+      blocks.push(`<div class="fe-cl-blk" style="--n:${Math.min(CODE_BLOCK, rows.length - s)}">${part}</div>`);
+    }
+    return `${truncNote}<div class="fe-code-wrap" style="--gut:${gut}ch"><div class="fe-code">${blocks.join("")}</div></div>`;
   }
   function splitHighlighted(html) {
     const out = [];
@@ -4520,6 +4526,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-ql-font>div{margin:6px 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:6px}
 .fe-code-wrap{font:calc(11.5px * var(--ui-text-scale,1))/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
 .fe-code{padding:10px 14px 14px 0;width:max-content;min-width:100%}
+.fe-cl-blk{content-visibility:auto;contain-intrinsic-size:auto calc(var(--n) * 1.55em)}
 .fe-cl{display:grid;grid-template-columns:calc(var(--gut,4ch) + 22px) minmax(0,1fr)}
 .fe-cl-n{position:sticky;left:0;padding:0 10px 0 12px;text-align:right;color:var(--dm);user-select:none;background:var(--card)}
 .fe-cl-t{white-space:pre;padding-left:10px}
