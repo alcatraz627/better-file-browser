@@ -54,11 +54,25 @@ export function fmtDate(dateMs: number, settings?: Pick<Settings, 'dateFormat'>,
   );
 }
 
+// A file type's name in words, the one place the listing, the preview header
+// and the file bar all read it from.
+const KINDS: Record<string, string> = {
+  md: 'Markdown', mdx: 'MDX', txt: 'Text', log: 'Log', json: 'JSON', jsonl: 'JSON Lines', ndjson: 'JSON Lines', jsonc: 'JSON',
+  yaml: 'YAML', yml: 'YAML', toml: 'TOML', xml: 'XML', csv: 'CSV', tsv: 'TSV', sql: 'SQL', html: 'HTML', htm: 'HTML',
+  css: 'CSS', scss: 'SCSS', js: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript',
+  jsx: 'JavaScript', py: 'Python', rb: 'Ruby', go: 'Go', rs: 'Rust', java: 'Java', kt: 'Kotlin', swift: 'Swift',
+  c: 'C', h: 'C header', cpp: 'C++', cs: 'C#', php: 'PHP', sh: 'Shell', bash: 'Shell', zsh: 'Shell', fish: 'Shell',
+  env: 'Env', ini: 'INI', conf: 'Config', diff: 'Diff', patch: 'Patch', svg: 'SVG', proto: 'Protobuf', graphql: 'GraphQL',
+  png: 'PNG image', jpg: 'JPEG image', jpeg: 'JPEG image', gif: 'GIF image', webp: 'WebP image', heic: 'HEIC image',
+  ico: 'Icon', pdf: 'PDF', zip: 'ZIP archive', gz: 'Gzip archive', tar: 'Tar archive', dmg: 'Disk image',
+  mp4: 'Video', mov: 'Video', mp3: 'Audio', wav: 'Audio', makefile: 'Makefile', dockerfile: 'Dockerfile', gitignore: 'Git ignore',
+};
+export const kindName = (ext: string): string => KINDS[ext.toLowerCase()] ?? (ext ? `${ext.toUpperCase()} file` : 'File');
+
 export function fmtType(e: Entry): string {
   if (e.isParent) return '';
   if (e.isDir)    return 'Folder';
-  if (!e.name.includes('.')) return 'File';
-  return e.name.split('.').pop()!.toUpperCase() + ' File';
+  return kindName(getExt(e));
 }
 
 export function getExt(e: Entry): string {

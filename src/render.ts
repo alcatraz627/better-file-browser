@@ -10,6 +10,16 @@ export interface RenderContext {
   rawPath:   string;
   iconRules: IconRule[] | null;
   settings:  Settings;
+  // The tags a saved file or folder carries, for the Tags column.
+  tagsOf?:   (path: string) => { name: string; color: string }[];
+}
+
+// Tags as chips. A tag's colour tints its outline, so the eye can group by
+// colour without a dot, which is kept for states that need attention.
+function tagChips(e: Entry, ctx: RenderContext): string {
+  if (e.isParent || !ctx.tagsOf) return '';
+  return ctx.tagsOf(fullPath(ctx.rawPath, e)).map(t =>
+    `<span class="fe-chip" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}">${esc(t.name)}</span>`).join('');
 }
 
 export function buildTipData(e: Entry, ctx: RenderContext): string {
@@ -62,6 +72,7 @@ export function renderRow(e: Entry, ctx: RenderContext, idx = -1, hit?: ContentH
              data-tip="${esc(tipData)}">
     <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ''}${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
+    <td class="c-tg">${tagChips(e, ctx)}</td>
     <td class="c-sz">${e.isDir ? '—' : fmtSize(e.rawBytes)}</td>
     <td class="c-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</td>
     <td class="c-match">${hit ? hit.count : ''}</td>

@@ -57,11 +57,14 @@ describe('fmtDate', () => {
 
 describe('fmtType', () => {
   it('returns Folder for dirs', () => { expect(fmtType(dir('docs'))).toBe('Folder'); });
-  it('returns extension type for files', () => {
-    expect(fmtType(file('readme.md'))).toBe('MD File');
+  it('names the type in words', () => {
+    expect(fmtType(file('readme.md'))).toBe('Markdown');
+    expect(fmtType(file('photo.PNG'))).toBe('PNG image');
   });
-  it('returns File for extensionless files', () => {
-    expect(fmtType(file('Makefile'))).toBe('File');
+  it('falls back to the extension, then File', () => {
+    expect(fmtType(file('data.xyz'))).toBe('XYZ file');
+    expect(fmtType(file('Makefile'))).toBe('Makefile');
+    expect(fmtType(file('LICENSE'))).toBe('File');
   });
 });
 

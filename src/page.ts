@@ -440,6 +440,7 @@ export function renderPage(p: PageParams): string {
             <tr>
               <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name · again flips · drag the edge to resize">Name <span class="si">↕</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-tp" data-ck="tp" title="Type · drag the edge to resize">Type<span class="fe-col-rz" title="Drag to resize this column"></span></th>
+              <th class="c-tg" data-ck="tg" title="Tags of saved files and folders · drag the edge to resize">Tags<span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size · again flips">Size <span class="si">↕</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-dt" data-ck="dt" data-sort="date" title="Sort by modified date · again flips">Modified <span class="si">↕</span></th>
               <th class="c-match" title="Number of content matches">Matches</th>

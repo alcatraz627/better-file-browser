@@ -112,11 +112,81 @@
       fmt === "full" ? { month: "long", day: "numeric", year: "numeric" } : { month: "short", day: "numeric", year: "numeric" }
     );
   }
+  var KINDS = {
+    md: "Markdown",
+    mdx: "MDX",
+    txt: "Text",
+    log: "Log",
+    json: "JSON",
+    jsonl: "JSON Lines",
+    ndjson: "JSON Lines",
+    jsonc: "JSON",
+    yaml: "YAML",
+    yml: "YAML",
+    toml: "TOML",
+    xml: "XML",
+    csv: "CSV",
+    tsv: "TSV",
+    sql: "SQL",
+    html: "HTML",
+    htm: "HTML",
+    css: "CSS",
+    scss: "SCSS",
+    js: "JavaScript",
+    mjs: "JavaScript",
+    cjs: "JavaScript",
+    ts: "TypeScript",
+    tsx: "TypeScript",
+    jsx: "JavaScript",
+    py: "Python",
+    rb: "Ruby",
+    go: "Go",
+    rs: "Rust",
+    java: "Java",
+    kt: "Kotlin",
+    swift: "Swift",
+    c: "C",
+    h: "C header",
+    cpp: "C++",
+    cs: "C#",
+    php: "PHP",
+    sh: "Shell",
+    bash: "Shell",
+    zsh: "Shell",
+    fish: "Shell",
+    env: "Env",
+    ini: "INI",
+    conf: "Config",
+    diff: "Diff",
+    patch: "Patch",
+    svg: "SVG",
+    proto: "Protobuf",
+    graphql: "GraphQL",
+    png: "PNG image",
+    jpg: "JPEG image",
+    jpeg: "JPEG image",
+    gif: "GIF image",
+    webp: "WebP image",
+    heic: "HEIC image",
+    ico: "Icon",
+    pdf: "PDF",
+    zip: "ZIP archive",
+    gz: "Gzip archive",
+    tar: "Tar archive",
+    dmg: "Disk image",
+    mp4: "Video",
+    mov: "Video",
+    mp3: "Audio",
+    wav: "Audio",
+    makefile: "Makefile",
+    dockerfile: "Dockerfile",
+    gitignore: "Git ignore"
+  };
+  var kindName = (ext2) => KINDS[ext2.toLowerCase()] ?? (ext2 ? `${ext2.toUpperCase()} file` : "File");
   function fmtType(e) {
     if (e.isParent) return "";
     if (e.isDir) return "Folder";
-    if (!e.name.includes(".")) return "File";
-    return e.name.split(".").pop().toUpperCase() + " File";
+    return kindName(getExt(e));
   }
   function getExt(e) {
     if (e.isDir || e.isParent) return "";
@@ -758,58 +828,6 @@
   };
 
   // src/file-meta.ts
-  var KINDS = {
-    md: "Markdown",
-    mdx: "MDX",
-    txt: "Text",
-    log: "Log",
-    json: "JSON",
-    jsonl: "JSON Lines",
-    ndjson: "JSON Lines",
-    jsonc: "JSON",
-    yaml: "YAML",
-    yml: "YAML",
-    toml: "TOML",
-    xml: "XML",
-    csv: "CSV",
-    tsv: "TSV",
-    sql: "SQL",
-    html: "HTML",
-    htm: "HTML",
-    css: "CSS",
-    scss: "SCSS",
-    js: "JavaScript",
-    mjs: "JavaScript",
-    cjs: "JavaScript",
-    ts: "TypeScript",
-    tsx: "TypeScript",
-    jsx: "JavaScript",
-    py: "Python",
-    rb: "Ruby",
-    go: "Go",
-    rs: "Rust",
-    java: "Java",
-    kt: "Kotlin",
-    swift: "Swift",
-    c: "C",
-    h: "C header",
-    cpp: "C++",
-    cs: "C#",
-    php: "PHP",
-    sh: "Shell",
-    bash: "Shell",
-    zsh: "Shell",
-    fish: "Shell",
-    env: "Env",
-    ini: "INI",
-    conf: "Config",
-    diff: "Diff",
-    patch: "Patch",
-    svg: "SVG",
-    proto: "Protobuf",
-    graphql: "GraphQL"
-  };
-  var kindName = (ext2) => KINDS[ext2.toLowerCase()] ?? (ext2 ? `${ext2.toUpperCase()} file` : "File");
   var plural = (n, one, many = one + "s") => `${n.toLocaleString()} ${n === 1 ? one : many}`;
   function fileMeta(text, ext2, path, bytes = new Blob([text]).size) {
     const e = ext2.toLowerCase();
@@ -3799,7 +3817,10 @@ table.fe-rz-fixed{table-layout:fixed}
 body.fe-col-dragging{cursor:col-resize;user-select:none}
 .si{opacity:.35;font-size:calc(10px * var(--ui-text-scale,1))}
 th.sorted .si{opacity:1;color:var(--ac)}
-.c-nm{width:46%}.c-tp{width:16%}.c-sz{width:13%;text-align:right}.c-dt{width:25%}
+.c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
+td.c-tg{white-space:nowrap;overflow:hidden}
+.fe-chip{display:inline-flex;align-items:center;height:18px;padding:0 7px;margin-right:4px;border:1px solid color-mix(in srgb,var(--chip,var(--bd2)) 55%,transparent);
+  border-radius:9px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);line-height:1}
 .c-match{display:none;text-align:right;width:72px;color:var(--dm)}
 #fe.fe-has-find-hits[data-view="details"] .c-match{display:table-cell}
 #fe.fe-has-find-hits[data-view="details"] .c-nm{width:42%}
@@ -3831,7 +3852,7 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe:not(.show-hidden) .fe-row.dotfile,
 #fe:not(.show-hidden) .fe-tile.dotfile,
 #fe:not(.show-hidden) .fe-tree-row.dotfile{display:none!important}
-#fe[data-view="list"] .c-tp,#fe[data-view="list"] .c-sz,#fe[data-view="list"] .c-dt{display:none}
+#fe[data-view="list"] .c-tp,#fe[data-view="list"] .c-tg,#fe[data-view="list"] .c-sz,#fe[data-view="list"] .c-dt{display:none}
 #fe[data-view="list"] .c-nm{width:100%}
 #fe[data-view="list"] tbody td{padding:4px 12px}
 #fe-tiles{display:none;flex-wrap:wrap;gap:4px 6px;padding:10px 12px;align-content:flex-start;align-items:flex-start}
@@ -5967,6 +5988,10 @@ seconds and re-renders when the file changes on disk.
   }
 
   // src/render.ts
+  function tagChips(e, ctx) {
+    if (e.isParent || !ctx.tagsOf) return "";
+    return ctx.tagsOf(fullPath(ctx.rawPath, e)).map((t) => `<span class="fe-chip" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}">${esc(t.name)}</span>`).join("");
+  }
   function buildTipData(e, ctx) {
     if (e.isParent) {
       return JSON.stringify({ icon: "", name: "Parent Directory", lines: ["Navigate up one level"] });
@@ -6010,6 +6035,7 @@ seconds and re-renders when the file changes on disk.
              data-tip="${esc(tipData)}">
     <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ""}${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
+    <td class="c-tg">${tagChips(e, ctx)}</td>
     <td class="c-sz">${e.isDir ? "\u2014" : fmtSize(e.rawBytes)}</td>
     <td class="c-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</td>
     <td class="c-match">${hit ? hit.count : ""}</td>
@@ -6494,6 +6520,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
             <tr>
               <th class="c-nm" data-ck="nm" data-sort="name" title="Sort by name \xB7 again flips \xB7 drag the edge to resize">Name <span class="si">\u2195</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-tp" data-ck="tp" title="Type \xB7 drag the edge to resize">Type<span class="fe-col-rz" title="Drag to resize this column"></span></th>
+              <th class="c-tg" data-ck="tg" title="Tags of saved files and folders \xB7 drag the edge to resize">Tags<span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-sz" data-ck="sz" data-sort="size" title="Sort by size \xB7 again flips">Size <span class="si">\u2195</span><span class="fe-col-rz" title="Drag to resize this column"></span></th>
               <th class="c-dt" data-ck="dt" data-sort="date" title="Sort by modified date \xB7 again flips">Modified <span class="si">\u2195</span></th>
               <th class="c-match" title="Number of content matches">Matches</th>
@@ -6979,7 +7006,16 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       selIdx: -1,
       anchor: -1
     };
-    const ctx = () => ({ rawPath, iconRules: app.iconRules, settings: app.settings });
+    const ctx = () => {
+      const colour = new Map(getTags().map((t) => [t.name, t.color]));
+      const byPath = new Map(getSaved().filter((p) => p.tags?.length).map((p) => [p.path.replace(/\/+$/, ""), p.tags]));
+      return {
+        rawPath,
+        iconRules: app.iconRules,
+        settings: app.settings,
+        tagsOf: (path) => (byPath.get(path.replace(/\/+$/, "")) ?? []).map((name) => ({ name, color: colour.get(name) ?? "#8b949e" }))
+      };
+    };
     const nonPar = all.filter((e) => !e.isParent);
     const dirs = nonPar.filter((e) => e.isDir).length;
     const files = nonPar.filter((e) => !e.isDir).length;
@@ -7050,7 +7086,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       parent.forEach(pushEntry);
       if (ls.group !== "none") {
         for (const g of buildGroups(entries, ls.group)) {
-          rowParts.push(`<tr class="fe-group-hdr"><td colspan="5">${esc(g.label)}</td></tr>`);
+          rowParts.push(`<tr class="fe-group-hdr"><td colspan="6">${esc(g.label)}</td></tr>`);
           tileParts.push(`<div class="fe-group-hdr-tile">${esc(g.label)}</div>`);
           g.items.forEach(pushEntry);
         }
@@ -8895,13 +8931,16 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     root.appendChild(tip);
     let target = null;
     let lifted = "";
+    let labelled = false;
     let timer = 0;
     function hide() {
       clearTimeout(timer);
       tip.classList.remove("on");
       if (target && lifted && !target.hasAttribute("title")) target.setAttribute("title", lifted);
+      if (target && labelled) target.removeAttribute("aria-label");
       target = null;
       lifted = "";
+      labelled = false;
     }
     function place() {
       if (!target) return;
@@ -8922,6 +8961,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       target = el2;
       lifted = text;
       el2.removeAttribute("title");
+      if (!el2.hasAttribute("aria-label")) {
+        el2.setAttribute("aria-label", text);
+        labelled = true;
+      }
       timer = window.setTimeout(() => {
         if (target !== el2) return;
         tip.textContent = text;

@@ -201,7 +201,10 @@ table.fe-rz-fixed{table-layout:fixed}
 body.fe-col-dragging{cursor:col-resize;user-select:none}
 .si{opacity:.35;font-size:calc(10px * var(--ui-text-scale,1))}
 th.sorted .si{opacity:1;color:var(--ac)}
-.c-nm{width:46%}.c-tp{width:16%}.c-sz{width:13%;text-align:right}.c-dt{width:25%}
+.c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
+td.c-tg{white-space:nowrap;overflow:hidden}
+.fe-chip{display:inline-flex;align-items:center;height:18px;padding:0 7px;margin-right:4px;border:1px solid color-mix(in srgb,var(--chip,var(--bd2)) 55%,transparent);
+  border-radius:9px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);line-height:1}
 .c-match{display:none;text-align:right;width:72px;color:var(--dm)}
 #fe.fe-has-find-hits[data-view="details"] .c-match{display:table-cell}
 #fe.fe-has-find-hits[data-view="details"] .c-nm{width:42%}
@@ -233,7 +236,7 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe:not(.show-hidden) .fe-row.dotfile,
 #fe:not(.show-hidden) .fe-tile.dotfile,
 #fe:not(.show-hidden) .fe-tree-row.dotfile{display:none!important}
-#fe[data-view="list"] .c-tp,#fe[data-view="list"] .c-sz,#fe[data-view="list"] .c-dt{display:none}
+#fe[data-view="list"] .c-tp,#fe[data-view="list"] .c-tg,#fe[data-view="list"] .c-sz,#fe[data-view="list"] .c-dt{display:none}
 #fe[data-view="list"] .c-nm{width:100%}
 #fe[data-view="list"] tbody td{padding:4px 12px}
 #fe-tiles{display:none;flex-wrap:wrap;gap:4px 6px;padding:10px 12px;align-content:flex-start;align-items:flex-start}

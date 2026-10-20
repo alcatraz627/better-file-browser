@@ -9,7 +9,7 @@ import { el, els } from './el';
 import { esc, fmtSize, fullPath, copyToClipboard } from './utils';
 import { kvGet, kvSet } from './kv';
 import {
-  VIEW_KEY, ZOOM_KEY, HIDDEN_KEY, getColWidths, saveColWidths, getSaved, saveSaved,
+  VIEW_KEY, ZOOM_KEY, HIDDEN_KEY, getColWidths, saveColWidths, getSaved, getTags, saveSaved,
   getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
 } from './storage';
 import { upsertPlace } from './places';
@@ -60,7 +60,14 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     contentHits: null, contentText: '', findSeq: 0, pendingFindText: null,
     selSet: new Set(), selIdx: -1, anchor: -1,
   };
-  const ctx = (): RenderContext => ({ rawPath, iconRules: app.iconRules, settings: app.settings });
+  const ctx = (): RenderContext => {
+    const colour = new Map(getTags().map(t => [t.name, t.color]));
+    const byPath = new Map(getSaved().filter(p => p.tags?.length).map(p => [p.path.replace(/\/+$/, ''), p.tags!]));
+    return {
+      rawPath, iconRules: app.iconRules, settings: app.settings,
+      tagsOf: path => (byPath.get(path.replace(/\/+$/, '')) ?? []).map(name => ({ name, color: colour.get(name) ?? '#8b949e' })),
+    };
+  };
   const nonPar = all.filter(e => !e.isParent);
   const dirs   = nonPar.filter(e => e.isDir).length;
   const files  = nonPar.filter(e => !e.isDir).length;
@@ -127,7 +134,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     parent.forEach(pushEntry);
     if (ls.group !== 'none') {
       for (const g of buildGroups(entries, ls.group)) {
-        rowParts.push(`<tr class="fe-group-hdr"><td colspan="5">${esc(g.label)}</td></tr>`);
+        rowParts.push(`<tr class="fe-group-hdr"><td colspan="6">${esc(g.label)}</td></tr>`);
         tileParts.push(`<div class="fe-group-hdr-tile">${esc(g.label)}</div>`);
         g.items.forEach(pushEntry);
       }

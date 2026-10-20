@@ -2,20 +2,11 @@
 // the preview header, the file bar and the status bar: generic facts for any
 // file (kind, size, lines, words, path) plus a few that only make sense for
 // its type (headings in markdown, rows and columns in a table, keys in JSON).
-import { esc, fmtSize } from './utils';
+import { esc, fmtSize, kindName } from './utils';
 
+export { kindName };
 export interface MetaItem { key: string; label: string; value: string }
 export interface FileMeta { kind: string; path: string; items: MetaItem[] }
-
-const KINDS: Record<string, string> = {
-  md: 'Markdown', mdx: 'MDX', txt: 'Text', log: 'Log', json: 'JSON', jsonl: 'JSON Lines', ndjson: 'JSON Lines', jsonc: 'JSON',
-  yaml: 'YAML', yml: 'YAML', toml: 'TOML', xml: 'XML', csv: 'CSV', tsv: 'TSV', sql: 'SQL', html: 'HTML', htm: 'HTML',
-  css: 'CSS', scss: 'SCSS', js: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript',
-  jsx: 'JavaScript', py: 'Python', rb: 'Ruby', go: 'Go', rs: 'Rust', java: 'Java', kt: 'Kotlin', swift: 'Swift',
-  c: 'C', h: 'C header', cpp: 'C++', cs: 'C#', php: 'PHP', sh: 'Shell', bash: 'Shell', zsh: 'Shell', fish: 'Shell',
-  env: 'Env', ini: 'INI', conf: 'Config', diff: 'Diff', patch: 'Patch', svg: 'SVG', proto: 'Protobuf', graphql: 'GraphQL',
-};
-export const kindName = (ext: string): string => KINDS[ext.toLowerCase()] ?? (ext ? `${ext.toUpperCase()} file` : 'File');
 
 const plural = (n: number, one: string, many = one + 's') => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
