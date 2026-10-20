@@ -529,7 +529,7 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
    wrapping exactly, so the caret sits over its own text. */
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
 #fe-fe-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--s1)}
-#fe-fe-scroll{flex:1;min-height:0;overflow:auto}
+#fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
 #fe-fe-col{max-width:980px;margin:0 auto;padding:28px 28px 120px}
 #fe-fe-src{position:relative}
 #fe-fe-src[hidden]{display:none}
@@ -538,9 +538,12 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-fe-paint{padding:0;color:var(--tx);pointer-events:none}
 .fe-fe-row{display:grid;grid-template-columns:52px minmax(0,1fr)}
 .fe-fe-ln{color:var(--dm);text-align:right;padding-right:16px;user-select:none}
+/* The caret's line, so every click shows where it landed. */
+.fe-fe-row.cur{background:color-mix(in srgb,var(--ac) 8%,transparent);border-radius:3px}
+.fe-fe-row.cur .fe-fe-ln{color:var(--tx)}
 #fe-fe-ta{position:absolute;top:0;left:0;width:100%;padding:0 0 0 52px;border:0;outline:0;resize:none;overflow:hidden;
   background:transparent;color:transparent;caret-color:var(--ac)}
-#fe-fe-ta::selection{background:color-mix(in srgb,var(--ac) 28%,transparent);color:transparent}
+#fe-fe-ta::selection{background:color-mix(in srgb,var(--ac) 40%,transparent);color:transparent}
 #fe-fe-view{padding:0;max-width:none}
 #fe-fe-pill{position:absolute;top:12px;right:18px;z-index:5;display:flex;align-items:center;gap:2px;padding:3px;
   background:var(--s1);border:1px solid var(--bd);border-radius:999px;box-shadow:0 6px 20px rgb(0 0 0 / .25)}
@@ -556,6 +559,8 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-allow code{font:calc(11.5px * var(--ui-text-scale,1)) var(--mono);background:var(--s2);padding:1px 4px;border-radius:4px;overflow-wrap:anywhere}
 .fe-allow-title{display:flex;align-items:center;gap:8px;font-weight:600}
 .fe-allow-acts{display:flex;gap:6px;justify-content:flex-end}
+#fe-allow.fe-allow-note{border-color:color-mix(in srgb,var(--nc-red) 50%,var(--bd2))}
+#fe-fp-edit.busy{opacity:.6;cursor:progress}
 @keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
 #fe-fp-reload{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}

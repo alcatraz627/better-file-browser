@@ -74,6 +74,28 @@ try {
     return Math.abs(row.top - (ta.top + 3 * lh));
   });
   check(aligned < 1, `painted rows line up with the typed text (off by ${aligned.toFixed(2)}px)`);
+
+  // Mouse: a click on line 1 marks that line; a click on the blank space
+  // below the text puts the caret at the end; a double-click selects a word.
+  await page.evaluate(() => document.activeElement.blur());
+  const at = await page.evaluate(() => {
+    const r = document.querySelectorAll('#fe-fe-paint .fe-fe-code')[0].getBoundingClientRect();
+    const col = document.getElementById('fe-fe-scroll').getBoundingClientRect();
+    return { x: r.left + 30, y: r.top + r.height / 2, belowY: col.bottom - 40, sideX: col.right - 10 };
+  });
+  await page.mouse.click(at.x, at.y);
+  const cur1 = await page.evaluate(() => ({ focus: document.activeElement.id, cur: [...document.querySelectorAll('#fe-fe-paint .fe-fe-row')].findIndex(r => r.classList.contains('cur')) }));
+  check(cur1.focus === 'fe-fe-ta' && cur1.cur === 0, `a click in the text focuses it and marks its line: ${JSON.stringify(cur1)}`);
+  await page.mouse.click(at.x, at.belowY);
+  const end = await page.evaluate(() => { const t = document.getElementById('fe-fe-ta'); return { focus: document.activeElement.id, atEnd: t.selectionStart === t.value.length, cur: [...document.querySelectorAll('#fe-fe-paint .fe-fe-row')].findIndex(r => r.classList.contains('cur')), rows: document.querySelectorAll('#fe-fe-paint .fe-fe-row').length }; });
+  check(end.focus === 'fe-fe-ta' && end.atEnd && end.cur === end.rows - 1, `a click below the text puts the caret at the end: ${JSON.stringify(end)}`);
+  await page.mouse.click(at.sideX, at.y);
+  const side = await page.evaluate(() => { const t = document.getElementById('fe-fe-ta'); return { pos: t.selectionStart, lineEnd: t.value.indexOf('\n') }; });
+  check(side.pos === side.lineEnd, `a click beside a line puts the caret at that line's end: ${JSON.stringify(side)}`);
+  await page.mouse.click(at.x + 20, at.y, { count: 2 });
+  const word = await page.evaluate(() => { const t = document.getElementById('fe-fe-ta'); return t.value.slice(t.selectionStart, t.selectionEnd); });
+  check(word === 'Title', `a double-click selects the word: ${JSON.stringify(word)}`);
+  await page.screenshot({ path: join(SHOTS, 'edit-select-dark.png'), clip: { x: 0, y: 0, width: 1400, height: 360 } });
   await page.screenshot({ path: join(SHOTS, 'edit-md-dark.png') });
 
   await page.click('#fe-fe-pill [data-act="preview"]');

@@ -276,16 +276,34 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     pop.querySelector<HTMLElement>('[data-a="folder"]')!.focus();
   });
 
+  // A failure to open says so next to the button, where the eye already is.
+  const noteAtButton = (msg: string) => {
+    document.getElementById('fe-allow')?.remove();
+    const pop = document.createElement('div');
+    pop.id = 'fe-allow';
+    pop.className = 'fe-allow-note';
+    pop.setAttribute('role', 'alert');
+    pop.innerHTML = `<div class="fe-allow-title">${UI_ICON.lock}Cannot edit this file</div><p>${esc(msg)}</p>`;
+    document.getElementById('fe')!.appendChild(pop);
+    const r = editBtn.getBoundingClientRect();
+    pop.style.top = `${r.bottom + 8}px`;
+    pop.style.left = `${Math.max(8, Math.min(r.right - pop.offsetWidth, innerWidth - pop.offsetWidth - 8))}px`;
+    const away = () => { pop.remove(); document.removeEventListener('pointerdown', away, true); };
+    document.addEventListener('pointerdown', away, true);
+    setTimeout(away, 8000);
+  };
+
   const edit = async () => {
-    if (editor) return;
+    if (editor || editBtn.classList.contains('busy')) return;
     if (!root && !(await askToAllow())) return;
     if (!root) return;
+    editBtn.classList.add('busy');
     page.style.display = 'none'; toc.style.display = 'none'; editBox.style.display = '';
     tocBtn.style.display = 'none';
     editBtn.classList.add('on');
     editor = await openFileEditor(editBox, {
       root, rel: rawPath.slice(root.length + 1), ext, href,
-      status,
+      status: t => { status(t); if (t.startsWith('cannot edit: ')) noteAtButton(t.slice(13)); },
       saved: fresh => { text = fresh; paintMeta(); },   // the pill shows Saved
       // The file may have changed while editing (a reload from disk), so read it again.
       closed: () => {
@@ -293,6 +311,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
         fetchFileText(href).then(fresh => { text = fresh; paintMeta(); }).catch(() => {}).finally(render);
       },
     });
+    editBtn.classList.remove('busy');
     if (!editor) { editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); render(); }
   };
   editBtn.addEventListener('click', () => void edit());

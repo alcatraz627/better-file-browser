@@ -90,11 +90,21 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const isDirty = () => ta.value !== base;
   // The coloured copy behind the textarea: one numbered row per line, so a
   // wrapped line keeps one number and the caret sits over its own text.
+  let curRow = -1;
+  const markLine = () => {
+    let i = 0;
+    for (let p = ta.value.indexOf('\n'); p !== -1 && p < ta.selectionStart; p = ta.value.indexOf('\n', p + 1)) i++;
+    if (i === curRow) return;
+    paintEl.children[curRow]?.classList.remove('cur');
+    paintEl.children[i]?.classList.add('cur');
+    curRow = i;
+  };
   const paintSource = () => {
     const rows = splitHighlighted(highlightCode(ta.value, host.ext));
     paintEl.innerHTML = rows.map((r, i) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || ' '}</span></div>`).join('');
     ta.style.height = '0';
     ta.style.height = paintEl.offsetHeight + 'px';
+    curRow = -1; markLine();
   };
   const paint = () => {
     const dirty = isDirty();
@@ -150,6 +160,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     if (isDirty() && !saving && banner.style.display === 'none') await write(doc.mtime);
     if (isDirty() && !confirm('Your last changes are not saved. Leave anyway?')) return;
     clearInterval(watch);
+    document.removeEventListener('selectionchange', onSelection);
     box.innerHTML = '';
     host.closed();
   };
@@ -163,6 +174,29 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     else if (act === 'overwrite') { const now = await notes.fileRead(host.root, host.rel); void write(now.mtime); }
   });
   ta.addEventListener('input', () => { paintSource(); paint(); later(); });
+  const onSelection = () => { if (document.activeElement === ta) markLine(); };
+  document.addEventListener('selectionchange', onSelection);
+  for (const ev of ['selectionchange', 'mouseup', 'keyup', 'focus']) ta.addEventListener(ev, markLine);
+  // The textarea only covers the text itself, so a click on the blank space
+  // below a short file or beside the column would otherwise do nothing. Put
+  // the caret at the end of the line level with the click, or at the end.
+  box.querySelector('#fe-fe-scroll')!.addEventListener('mousedown', e => {
+    const me = e as MouseEvent;
+    if (me.button !== 0 || previewing || me.target === ta) return;
+    me.preventDefault();
+    const rows = [...paintEl.children];
+    let line = rows.findIndex(r => r.getBoundingClientRect().bottom > me.clientY);
+    const lines = ta.value.split('\n');
+    let pos = ta.value.length;
+    if (line !== -1) {
+      pos = 0;
+      for (let i = 0; i < line; i++) pos += lines[i].length + 1;
+      pos += lines[line]?.length ?? 0;
+    }
+    ta.focus({ preventScroll: true });
+    ta.setSelectionRange(pos, pos);
+    markLine();
+  });
   box.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p') { e.preventDefault(); setPreview(!previewing); }
     else if (e.key === 'Escape' && previewing) { e.preventDefault(); setPreview(false); }

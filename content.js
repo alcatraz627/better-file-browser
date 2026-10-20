@@ -4070,7 +4070,7 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
    wrapping exactly, so the caret sits over its own text. */
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
 #fe-fe-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--s1)}
-#fe-fe-scroll{flex:1;min-height:0;overflow:auto}
+#fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
 #fe-fe-col{max-width:980px;margin:0 auto;padding:28px 28px 120px}
 #fe-fe-src{position:relative}
 #fe-fe-src[hidden]{display:none}
@@ -4079,9 +4079,12 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-fe-paint{padding:0;color:var(--tx);pointer-events:none}
 .fe-fe-row{display:grid;grid-template-columns:52px minmax(0,1fr)}
 .fe-fe-ln{color:var(--dm);text-align:right;padding-right:16px;user-select:none}
+/* The caret's line, so every click shows where it landed. */
+.fe-fe-row.cur{background:color-mix(in srgb,var(--ac) 8%,transparent);border-radius:3px}
+.fe-fe-row.cur .fe-fe-ln{color:var(--tx)}
 #fe-fe-ta{position:absolute;top:0;left:0;width:100%;padding:0 0 0 52px;border:0;outline:0;resize:none;overflow:hidden;
   background:transparent;color:transparent;caret-color:var(--ac)}
-#fe-fe-ta::selection{background:color-mix(in srgb,var(--ac) 28%,transparent);color:transparent}
+#fe-fe-ta::selection{background:color-mix(in srgb,var(--ac) 40%,transparent);color:transparent}
 #fe-fe-view{padding:0;max-width:none}
 #fe-fe-pill{position:absolute;top:12px;right:18px;z-index:5;display:flex;align-items:center;gap:2px;padding:3px;
   background:var(--s1);border:1px solid var(--bd);border-radius:999px;box-shadow:0 6px 20px rgb(0 0 0 / .25)}
@@ -4097,6 +4100,8 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-allow code{font:calc(11.5px * var(--ui-text-scale,1)) var(--mono);background:var(--s2);padding:1px 4px;border-radius:4px;overflow-wrap:anywhere}
 .fe-allow-title{display:flex;align-items:center;gap:8px;font-weight:600}
 .fe-allow-acts{display:flex;gap:6px;justify-content:flex-end}
+#fe-allow.fe-allow-note{border-color:color-mix(in srgb,var(--nc-red) 50%,var(--bd2))}
+#fe-fp-edit.busy{opacity:.6;cursor:progress}
 @keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
 #fe-fp-reload{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm)}
@@ -4445,11 +4450,22 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     let previewing = false;
     let timer = 0;
     const isDirty = () => ta.value !== base;
+    let curRow = -1;
+    const markLine = () => {
+      let i = 0;
+      for (let p = ta.value.indexOf("\n"); p !== -1 && p < ta.selectionStart; p = ta.value.indexOf("\n", p + 1)) i++;
+      if (i === curRow) return;
+      paintEl.children[curRow]?.classList.remove("cur");
+      paintEl.children[i]?.classList.add("cur");
+      curRow = i;
+    };
     const paintSource = () => {
       const rows = splitHighlighted(highlightCode(ta.value, host.ext));
       paintEl.innerHTML = rows.map((r, i) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || " "}</span></div>`).join("");
       ta.style.height = "0";
       ta.style.height = paintEl.offsetHeight + "px";
+      curRow = -1;
+      markLine();
     };
     const paint = () => {
       const dirty = isDirty();
@@ -4520,6 +4536,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       if (isDirty() && !saving && banner.style.display === "none") await write(doc.mtime);
       if (isDirty() && !confirm("Your last changes are not saved. Leave anyway?")) return;
       clearInterval(watch);
+      document.removeEventListener("selectionchange", onSelection);
       box.innerHTML = "";
       host.closed();
     };
@@ -4546,6 +4563,28 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       paintSource();
       paint();
       later();
+    });
+    const onSelection = () => {
+      if (document.activeElement === ta) markLine();
+    };
+    document.addEventListener("selectionchange", onSelection);
+    for (const ev of ["selectionchange", "mouseup", "keyup", "focus"]) ta.addEventListener(ev, markLine);
+    box.querySelector("#fe-fe-scroll").addEventListener("mousedown", (e) => {
+      const me = e;
+      if (me.button !== 0 || previewing || me.target === ta) return;
+      me.preventDefault();
+      const rows = [...paintEl.children];
+      let line = rows.findIndex((r) => r.getBoundingClientRect().bottom > me.clientY);
+      const lines = ta.value.split("\n");
+      let pos = ta.value.length;
+      if (line !== -1) {
+        pos = 0;
+        for (let i = 0; i < line; i++) pos += lines[i].length + 1;
+        pos += lines[line]?.length ?? 0;
+      }
+      ta.focus({ preventScroll: true });
+      ta.setSelectionRange(pos, pos);
+      markLine();
     });
     box.addEventListener("keydown", (e) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "p") {
@@ -4860,10 +4899,29 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       });
       pop.querySelector('[data-a="folder"]').focus();
     });
+    const noteAtButton = (msg) => {
+      document.getElementById("fe-allow")?.remove();
+      const pop = document.createElement("div");
+      pop.id = "fe-allow";
+      pop.className = "fe-allow-note";
+      pop.setAttribute("role", "alert");
+      pop.innerHTML = `<div class="fe-allow-title">${UI_ICON.lock}Cannot edit this file</div><p>${esc(msg)}</p>`;
+      document.getElementById("fe").appendChild(pop);
+      const r = editBtn.getBoundingClientRect();
+      pop.style.top = `${r.bottom + 8}px`;
+      pop.style.left = `${Math.max(8, Math.min(r.right - pop.offsetWidth, innerWidth - pop.offsetWidth - 8))}px`;
+      const away = () => {
+        pop.remove();
+        document.removeEventListener("pointerdown", away, true);
+      };
+      document.addEventListener("pointerdown", away, true);
+      setTimeout(away, 8e3);
+    };
     const edit2 = async () => {
-      if (editor) return;
+      if (editor || editBtn.classList.contains("busy")) return;
       if (!root && !await askToAllow()) return;
       if (!root) return;
+      editBtn.classList.add("busy");
       page.style.display = "none";
       toc.style.display = "none";
       editBox.style.display = "";
@@ -4874,7 +4932,10 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         rel: rawPath.slice(root.length + 1),
         ext: ext2,
         href,
-        status,
+        status: (t) => {
+          status(t);
+          if (t.startsWith("cannot edit: ")) noteAtButton(t.slice(13));
+        },
         saved: (fresh) => {
           text = fresh;
           paintMeta();
@@ -4893,6 +4954,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
           }).finally(render2);
         }
       });
+      editBtn.classList.remove("busy");
       if (!editor) {
         editBox.style.display = "none";
         page.style.display = "";
