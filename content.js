@@ -1,6 +1,14 @@
 "use strict";
 (() => {
   // src/parse.ts
+  function nameOf(href, text) {
+    const last = href.replace(/[?#].*$/, "").replace(/\/$/, "").split("/").pop() ?? "";
+    try {
+      return decodeURIComponent(last) || text;
+    } catch {
+      return text;
+    }
+  }
   function parseEntries() {
     const table = document.querySelector("table") || document.getElementById("listing-table");
     if (!table) return [];
@@ -17,7 +25,7 @@
       const dateStr = cells[2]?.textContent?.trim() ?? "";
       const isParent = href === "../";
       const isDir = !isParent && (href?.endsWith("/") ?? false);
-      const name = isParent ? ".." : isDir ? rawName.replace(/\/$/, "") : rawName;
+      const name = isParent ? ".." : nameOf(href, isDir ? rawName.replace(/\/$/, "") : rawName);
       const isHidden = !isParent && name.startsWith(".");
       return [{ name, href, isDir, isParent, isHidden, rawBytes, dateMs, dateStr }];
     });
@@ -65,7 +73,7 @@
       if (rel === "../") return [];
       const href = new URL(rel, baseUrl).href;
       const isDir = rel?.endsWith("/") ?? false;
-      const name = isDir ? rawName.replace(/\/$/, "") : rawName;
+      const name = nameOf(rel, isDir ? rawName.replace(/\/$/, "") : rawName);
       const isHidden = name.startsWith(".");
       return [{ name, href, isDir, isParent: false, isHidden, rawBytes: -1, dateMs: NaN, dateStr: "" }];
     });
@@ -188,11 +196,14 @@
     if (e.isDir) return "Folder";
     return kindName(getExt(e));
   }
+  var DOTFILE_KINDS = /* @__PURE__ */ new Set(["env", "gitignore", "dockerignore", "npmrc", "editorconfig"]);
   function getExt(e) {
     if (e.isDir || e.isParent) return "";
     const bare = e.name.split("/").pop().toLowerCase();
     if (["dockerfile", "containerfile", "makefile", "gitignore"].includes(bare)) return bare;
-    return e.name.includes(".") ? e.name.split(".").pop().toLowerCase() : "";
+    if (bare.startsWith(".") && bare.indexOf(".", 1) === -1) return DOTFILE_KINDS.has(bare.slice(1)) ? bare.slice(1) : "";
+    const ext2 = bare.includes(".") ? bare.split(".").pop() : "";
+    return ext2.length > 10 ? "" : ext2;
   }
   function fullPath(rawPath, e) {
     return rawPath.replace(/\/$/, "") + "/" + e.name + (e.isDir ? "/" : "");
@@ -1086,59 +1097,6 @@ ${body}`;
     drag: `<svg width="10" height="14" viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="3" cy="11" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="11" r="1.2" fill="currentColor"/></svg>`
   };
 
-  // src/file-meta.ts
-  var plural = (n, one, many = one + "s") => `${n.toLocaleString()} ${n === 1 ? one : many}`;
-  function fileMeta(text, ext2, path, bytes = new Blob([text]).size) {
-    const e = ext2.toLowerCase();
-    const lines = text ? text.split("\n").length - (text.endsWith("\n") ? 1 : 0) : 0;
-    const words = (text.match(/\S+/g) || []).length;
-    const items = [
-      { key: "size", label: "Size", value: fmtSize(bytes) },
-      { key: "lines", label: "Lines", value: plural(lines, "line") }
-    ];
-    if (e === "md" || e === "mdx" || e === "txt") items.push({ key: "words", label: "Words", value: plural(words, "word") });
-    if (e === "md" || e === "mdx") {
-      let fenced = false, heads = 0;
-      for (const l of text.split("\n")) {
-        if (/^\s*(```|~~~)/.test(l)) fenced = !fenced;
-        else if (!fenced && /^#{1,6}\s/.test(l)) heads++;
-      }
-      items.push({ key: "headings", label: "Headings", value: plural(heads, "heading") });
-    }
-    if (e === "csv" || e === "tsv") {
-      const rows = text.split("\n").filter((l) => l.trim());
-      const cols = rows.length ? rows[0].split(e === "tsv" ? "	" : ",").length : 0;
-      items.push({ key: "rows", label: "Rows", value: plural(Math.max(0, rows.length - 1), "row") }, { key: "cols", label: "Columns", value: plural(cols, "column") });
-    }
-    if (e === "json" || e === "jsonc") {
-      try {
-        const v = JSON.parse(text);
-        if (Array.isArray(v)) items.push({ key: "items", label: "Items", value: plural(v.length, "item") });
-        else if (v && typeof v === "object") items.push({ key: "keys", label: "Keys", value: plural(Object.keys(v).length, "top-level key") });
-      } catch {
-      }
-    }
-    return { kind: kindName(e), path, items };
-  }
-  function metaSummary(m) {
-    const pick = (k) => m.items.find((i) => i.key === k)?.value;
-    return [m.kind, pick("size"), pick("lines")].filter(Boolean).join(" \xB7 ");
-  }
-  var ICONS = {
-    size: '<path d="M2.5 4.5 7 2l4.5 2.5v5L7 12l-4.5-2.5z"/><path d="M2.5 4.5 7 7l4.5-2.5M7 7v5"/>',
-    lines: '<path d="M2 3.5h10M2 7h10M2 10.5h6"/>',
-    words: '<path d="M2 4h4M2 7h7M2 10h5M10 9.5l1.5 1.5 2-3"/>',
-    headings: '<path d="M3 2.5v9M9 2.5v9M3 7h6M11.5 6.5l1.5-1v6"/>',
-    rows: '<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><path d="M1.5 5.5h11M1.5 8.5h11"/>',
-    cols: '<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><path d="M5.2 2.5v9M8.8 2.5v9"/>',
-    items: '<path d="M4 2.5H2.5v9H4M10 2.5h1.5v9H10"/>',
-    keys: '<path d="M4.5 2.5c-1.5 0-1.5 1-1.5 2s-1 2-1.5 2.5c.5.5 1.5 1 1.5 2.5s0 2 1.5 2M9.5 2.5c1.5 0 1.5 1 1.5 2s1 2 1.5 2.5c-.5.5-1.5 1-1.5 2.5s0 2-1.5 2"/>'
-  };
-  var icon = (k) => `<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] ?? ""}</svg>`;
-  function metaChips(m) {
-    return m.items.map((i) => `<span class="fe-meta-item" title="${esc(i.label)}">${icon(i.key)}${esc(i.value)}</span>`).join("");
-  }
-
   // src/col-resize.ts
   var COL_HANDLE = '<span class="fe-col-rz" title="Drag to resize this column \xB7 double-click to reset"></span>';
   var MIN_W = 40;
@@ -1262,6 +1220,11 @@ ${body}`;
     jsonlLines: 2e3,
     treeNodes: 2e4
   };
+  function unrenderableNote(text) {
+    if (!text.trim()) return '<div class="fe-ql-note">Empty file.</div>';
+    if (sniffBinary(text)) return '<div class="fe-ql-note">Binary file, no text to show.</div>';
+    return "";
+  }
   function sniffBinary(text) {
     const probe = text.slice(0, 1e3);
     if (probe.includes("\0")) return true;
@@ -1687,12 +1650,14 @@ ${body}`;
       rows = rows.slice(0, RENDER_CAPS.tableRows);
       truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.tableRows.toLocaleString()} of ${dataRows.length.toLocaleString()} rows.</div>`;
     }
-    const ths = header.map((h, i) => {
+    const width = rows.reduce((w, r) => Math.max(w, r.length), header.length);
+    const cols = Array.from({ length: width }, (_, i) => header[i] ?? `(${i + 1})`);
+    const ths = cols.map((h, i) => {
       const arrow = sort?.col === i ? sort.dir === "asc" ? " \u2191" : " \u2193" : "";
       return `<th data-col="${i}" class="${numCols.has(i) ? "num" : ""}${sort?.col === i ? " sorted" : ""}" title="Click to sort">${esc(h)}${arrow}${COL_HANDLE}</th>`;
     }).join("");
     const trs = rows.map(
-      (r) => `<tr>${header.map((_, i) => `<td class="${numCols.has(i) ? "num" : ""}">${esc(r[i] ?? "")}</td>`).join("")}</tr>`
+      (r) => `<tr>${cols.map((_, i) => `<td class="${numCols.has(i) ? "num" : ""}">${esc(r[i] ?? "")}</td>`).join("")}</tr>`
     ).join("");
     return `${truncNote}<table class="fe-ql-table fe-rz"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
   }
@@ -1841,8 +1806,10 @@ ${body}`;
       const u = resolveMdUrl(baseUrl, url);
       return `<a href="${u}"${/^(?:https?:|file:\/\/\/Users\/alcatraz627(?:\/|$))/i.test(u) ? ' target="_blank" rel="noopener"' : ""}>${t}</a>`;
     });
+    out = out.replace(/&lt;((?:https?|file):\/\/[^\s<>]+?)&gt;/gi, "$1");
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+    out = out.split(/(<code>[\s\S]*?<\/code>|<[^>]+>|\b(?:https?|file):\/\/\S+)/).map((part, i) => i % 2 ? part : part.replace(/(^|[^\w])__([^_\s][^_]*?)__(?!\w)/g, "$1<strong>$2</strong>").replace(/(^|[^\w])_([^_\s][^_]*?)_(?!\w)/g, "$1<em>$2</em>")).join("");
     out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
     return out.replace(/\uE000(\d+)\uE001/g, (_m, index) => htmlTags[Number(index)]);
   }
@@ -2192,24 +2159,77 @@ ${body}`;
     return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
   }
   function renderJsonl(text) {
-    const lines = text.split("\n").filter((l) => l.trim() !== "");
+    const lines = text.split("\n").map((l, i) => ({ l, n: i + 1 })).filter((x) => x.l.trim() !== "");
     let truncNote = "";
     let shown = lines;
     if (lines.length > RENDER_CAPS.jsonlLines) {
       shown = lines.slice(0, RENDER_CAPS.jsonlLines);
       truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.jsonlLines.toLocaleString()} of ${lines.length.toLocaleString()} lines.</div>`;
     }
-    const body = shown.map((line, i) => {
+    const body = shown.map(({ l: line, n }) => {
       try {
         const v = JSON.parse(line);
         const compact = JSON.stringify(v);
         const preview = compact.length > 140 ? compact.slice(0, 140) + "\u2026" : compact;
-        return `<details class="fe-jl-line"><summary>${CHEVRON_DOWN}<span class="fe-jl-n">${i + 1}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2e3 })}</div></details>`;
+        return `<details class="fe-jl-line"><summary>${CHEVRON_DOWN}<span class="fe-jl-n">${n}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2e3 })}</div></details>`;
       } catch {
-        return `<div class="fe-jl-line bad"><span class="fe-jl-n">${i + 1}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line.slice(0, 200))}</span></div>`;
+        return `<div class="fe-jl-line bad"><span class="fe-jl-n">${n}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line.slice(0, 200))}</span></div>`;
       }
     }).join("");
     return `${truncNote}<div class="fe-jl-root">${body}</div>`;
+  }
+
+  // src/file-meta.ts
+  var plural = (n, one, many = one + "s") => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+  function fileMeta(text, ext2, path, bytes = new Blob([text]).size) {
+    const e = ext2.toLowerCase();
+    const lines = text ? text.split("\n").length - (text.endsWith("\n") ? 1 : 0) : 0;
+    const words = (text.match(/\S+/g) || []).length;
+    const items = [
+      { key: "size", label: "Size", value: fmtSize(bytes) },
+      { key: "lines", label: "Lines", value: plural(lines, "line") }
+    ];
+    if (e === "md" || e === "mdx" || e === "txt") items.push({ key: "words", label: "Words", value: plural(words, "word") });
+    if (e === "md" || e === "mdx") {
+      let fenced = false, heads = 0;
+      for (const l of text.split("\n")) {
+        if (/^\s*(```|~~~)/.test(l)) fenced = !fenced;
+        else if (!fenced && /^#{1,6}\s/.test(l)) heads++;
+      }
+      items.push({ key: "headings", label: "Headings", value: plural(heads, "heading") });
+    }
+    if (e === "csv" || e === "tsv") {
+      const rows = parseDSV(text, e === "tsv" ? "	" : ",").filter((r) => r.some((c) => c.trim()));
+      const cols = rows.reduce((w, r) => Math.max(w, r.length), 0);
+      items.push({ key: "rows", label: "Rows", value: plural(Math.max(0, rows.length - 1), "row") }, { key: "cols", label: "Columns", value: plural(cols, "column") });
+    }
+    if (e === "json" || e === "jsonc") {
+      try {
+        const v = JSON.parse(text);
+        if (Array.isArray(v)) items.push({ key: "items", label: "Items", value: plural(v.length, "item") });
+        else if (v && typeof v === "object") items.push({ key: "keys", label: "Keys", value: plural(Object.keys(v).length, "top-level key") });
+      } catch {
+      }
+    }
+    return { kind: kindName(e), path, items };
+  }
+  function metaSummary(m) {
+    const pick = (k) => m.items.find((i) => i.key === k)?.value;
+    return [m.kind, pick("size"), pick("lines")].filter(Boolean).join(" \xB7 ");
+  }
+  var ICONS = {
+    size: '<path d="M2.5 4.5 7 2l4.5 2.5v5L7 12l-4.5-2.5z"/><path d="M2.5 4.5 7 7l4.5-2.5M7 7v5"/>',
+    lines: '<path d="M2 3.5h10M2 7h10M2 10.5h6"/>',
+    words: '<path d="M2 4h4M2 7h7M2 10h5M10 9.5l1.5 1.5 2-3"/>',
+    headings: '<path d="M3 2.5v9M9 2.5v9M3 7h6M11.5 6.5l1.5-1v6"/>',
+    rows: '<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><path d="M1.5 5.5h11M1.5 8.5h11"/>',
+    cols: '<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><path d="M5.2 2.5v9M8.8 2.5v9"/>',
+    items: '<path d="M4 2.5H2.5v9H4M10 2.5h1.5v9H10"/>',
+    keys: '<path d="M4.5 2.5c-1.5 0-1.5 1-1.5 2s-1 2-1.5 2.5c.5.5 1.5 1 1.5 2.5s0 2 1.5 2M9.5 2.5c1.5 0 1.5 1 1.5 2s1 2 1.5 2.5c-.5.5-1.5 1-1.5 2.5s0 2-1.5 2"/>'
+  };
+  var icon = (k) => `<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] ?? ""}</svg>`;
+  function metaChips(m) {
+    return m.items.map((i) => `<span class="fe-meta-item" title="${esc(i.label)}">${icon(i.key)}${esc(i.value)}</span>`).join("");
   }
 
   // src/file-fetch.ts
@@ -3582,9 +3602,10 @@ ${body}
   }
   function render(text, ext2) {
     const body = document.getElementById("fe-ql-body");
-    if (sniffBinary(text)) {
-      document.getElementById("fe-ql-ai").style.display = "none";
-      body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Binary file \u2014 no text preview.</div></div>`;
+    const note = unrenderableNote(text);
+    if (note) {
+      if (sniffBinary(text)) document.getElementById("fe-ql-ai").style.display = "none";
+      body.innerHTML = `<div class="fe-ql-center">${note}</div>`;
       return;
     }
     if (TABLE_EXTS.has(ext2)) {
@@ -3596,7 +3617,7 @@ ${body}
         body.innerHTML = renderDSVTable(dsvHeader, dsvRows, dsvNum);
         return;
       }
-      body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Empty file.</div></div>`;
+      body.innerHTML = `<div class="fe-ql-center">${unrenderableNote("")}</div>`;
       return;
     }
     if (JSONL_EXTS.has(ext2)) {
@@ -4230,7 +4251,7 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 mark.fe-ff-hit{background:color-mix(in srgb,var(--gold) 35%,transparent);color:inherit;border-radius:2px}
 mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-page{flex:1;min-width:0;overflow:auto;font-size:calc(12px * var(--ui-text-scale,1))}
-#fe-page .fe-md{max-width:none;margin:0;padding:28px 48px 80px;font-size:calc(15px * var(--ui-text-scale,1));line-height:var(--rd-lh,1.65)}
+#fe-page .fe-md{overflow-wrap:break-word;max-width:none;margin:0;padding:28px 48px 80px;font-size:calc(15px * var(--ui-text-scale,1));line-height:var(--rd-lh,1.65)}
 #fe.fe-column-xl #fe-page .fe-md{max-width:150ch;margin:0 auto}
 #fe.fe-column-lg #fe-page .fe-md{max-width:130ch;margin:0 auto}
 #fe.fe-column-md #fe-page .fe-md{max-width:110ch;margin:0 auto}
@@ -4454,7 +4475,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
 .fe-ql-table th:hover{color:var(--tx)}
 .fe-ql-table th.sorted{color:var(--ac)}
-.fe-ql-table td{padding:4px 10px;border-bottom:1px solid var(--s2);white-space:nowrap;
+.fe-ql-table td{padding:4px 10px;border-bottom:1px solid var(--s2);white-space:pre;
   max-width:340px;overflow:hidden;text-overflow:ellipsis}
 .fe-ql-table th.num,.fe-ql-table td.num{text-align:right;font-variant-numeric:tabular-nums}
 .fe-ql-table tbody tr:hover{background:var(--hover)}
@@ -4557,6 +4578,29 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   #fe-count{flex-basis:100%}
   #fe-tb-right{width:100%;flex-wrap:wrap;justify-content:flex-start}
 }
+/* Soft (design-system.md): the sidebar, the main pane and a docked preview
+   float as cards on the page background; rows are 36px with no lines, and
+   selection is a wash with rounded ends, never a ring. The sidebar's resize
+   handle is the 10px gutter between cards and shows a thin line on hover. */
+#fe-body{padding:10px;background:var(--bg)}
+#fe-side,#fe-main,#fe-qlook.side{border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+#fe-main{background:var(--bg)}
+#fe-qlook.side{margin-left:10px}
+#fe-side-rz{width:10px;background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
+#fe-side-rz:hover,#fe-side-rz.drag{background:linear-gradient(var(--ac),var(--ac)) center/2px 100% no-repeat}
+#fe-table{border-collapse:separate;border-spacing:0}
+#fe-table tbody tr{border-bottom:0}
+#fe-table tbody tr:hover{background:none}
+#fe-table tbody tr:hover td{background:var(--hover)}
+#fe-table tbody td{height:36px}
+#fe.compact #fe-table tbody td{height:28px}
+#fe-table tbody td:first-child{border-radius:8px 0 0 8px}
+#fe-table tbody td:last-child{border-radius:0 8px 8px 0}
+#fe-scroll{padding:0 6px}
+.fe-row.selected .fe-nm{color:var(--tx)}
+.fe-tile.selected{border-color:transparent}
+.fe-hist-row.active{border-color:transparent}
+
 /* Narrow windows keep the reading column usable: the listing drops its
    lesser columns, Contents gives way to the text, and the sidebar is held
    to a share of the width (max-width beats a dragged inline width). */
@@ -4712,6 +4756,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     const write = async (expect) => {
       saving = true;
       paint();
+      let retryAt = 0;
       try {
         const text = ta.value;
         const r = await notes.fileWrite(host.root, host.rel, text, expect);
@@ -4722,8 +4767,13 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         host.saved(text);
       } catch (err) {
         const e = err;
-        if (e.code === "notes_conflict") showConflict();
-        else {
+        if (e.code === "notes_conflict") {
+          const now = await notes.fileRead(host.root, host.rel).catch(() => null);
+          if (now && now.text === doc.text && expect !== now.mtime) {
+            doc = now;
+            retryAt = now.mtime;
+          } else showConflict();
+        } else {
           failed = `Not saved: ${e.message}`;
           host.status(`not saved: ${e.message}`);
         }
@@ -4731,6 +4781,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         saving = false;
         paint();
       }
+      if (retryAt) await write(retryAt);
     };
     const save = () => {
       clearTimeout(timer);
@@ -4750,6 +4801,10 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       try {
         const now = await notes.fileRead(host.root, host.rel);
         if (now.mtime === doc.mtime) return;
+        if (now.text === doc.text) {
+          doc = now;
+          return;
+        }
         if (!isDirty()) {
           doc = now;
           base = now.text;
@@ -5016,9 +5071,11 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     return !(excluded.includes(ext2.toLowerCase()) || mode === "off" || mode === "not-md" && (ext2 === "md" || ext2 === "mdx"));
   }
   function renderBody(text, ext2, href) {
+    const note = unrenderableNote(text);
+    if (note) return note;
     if (TABLE_EXTS.has(ext2)) {
       const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
-      return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : '<div class="fe-ql-note">Empty file.</div>';
+      return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : unrenderableNote("");
     }
     if (JSONL_EXTS.has(ext2)) return renderJsonl(text);
     if (ext2 === "json") return renderJsonTree(text);
@@ -7375,7 +7432,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const hit = ls.contentHits?.get(en.href);
         rows.push(`<div class="fe-tree-row${en.isHidden ? " dotfile" : ""}${en.isDir ? " dir" : ""}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
         ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? "Collapse" : "Expand"} ${esc(name)}" aria-expanded="${expanded}">${CHEVRON_DOWN}</button>` : '<span class="fe-tree-spacer"></span>'}
-        <a href="${esc(en.href)}" class="fe-tree-link">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
+        <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
       </div>`);
         if (!en.isDir || !expanded) return;
         if (treeLoading.has(en.href)) {

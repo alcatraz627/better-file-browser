@@ -916,6 +916,29 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   #fe-count{flex-basis:100%}
   #fe-tb-right{width:100%;flex-wrap:wrap;justify-content:flex-start}
 }
+/* Soft (design-system.md): the sidebar, the main pane and a docked preview
+   float as cards on the page background; rows are 36px with no lines, and
+   selection is a wash with rounded ends, never a ring. The sidebar's resize
+   handle is the 10px gutter between cards and shows a thin line on hover. */
+#fe-body{padding:10px;background:var(--bg)}
+#fe-side,#fe-main,#fe-qlook.side{border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+#fe-main{background:var(--bg)}
+#fe-qlook.side{margin-left:10px}
+#fe-side-rz{width:10px;background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
+#fe-side-rz:hover,#fe-side-rz.drag{background:linear-gradient(var(--ac),var(--ac)) center/2px 100% no-repeat}
+#fe-table{border-collapse:separate;border-spacing:0}
+#fe-table tbody tr{border-bottom:0}
+#fe-table tbody tr:hover{background:none}
+#fe-table tbody tr:hover td{background:var(--hover)}
+#fe-table tbody td{height:36px}
+#fe.compact #fe-table tbody td{height:28px}
+#fe-table tbody td:first-child{border-radius:8px 0 0 8px}
+#fe-table tbody td:last-child{border-radius:0 8px 8px 0}
+#fe-scroll{padding:0 6px}
+.fe-row.selected .fe-nm{color:var(--tx)}
+.fe-tile.selected{border-color:transparent}
+.fe-hist-row.active{border-color:transparent}
+
 /* Narrow windows keep the reading column usable: the listing drops its
    lesser columns, Contents gives way to the text, and the sidebar is held
    to a share of the width (max-width beats a dragged inline width). */
