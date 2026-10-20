@@ -24,10 +24,11 @@ try {
     const rail = await page.evaluate(() => {
       const r = document.getElementById('fe-toc-rail').getBoundingClientRect(), p = document.getElementById('fe-page').getBoundingClientRect();
       const rows = [...document.querySelectorAll('#fe-toc a')].map(a => { const s = getComputedStyle(a); return { t: a.textContent, pad: parseFloat(s.paddingLeft), size: parseFloat(s.fontSize) }; });
-      return { right: r.left >= p.right - 1, title: document.querySelector('.fe-toc-title')?.textContent, rows };
+      const el = document.getElementById('fe-toc-rail');
+      return { floats: getComputedStyle(el).position === 'absolute' && r.left > p.left && r.right <= p.right + 1, title: document.querySelector('.fe-toc-title')?.textContent, rows };
     });
     const pads = rail.rows.map(r => r.pad), sizes = rail.rows.map(r => r.size);
-    check(rail.right && rail.title === 'On this page' && rail.rows.length === 5, `${theme}: contents rail sits right of the page: ${JSON.stringify({ right: rail.right, title: rail.title, n: rail.rows.length })}`);
+    check(rail.floats && rail.title === 'On this page' && rail.rows.length === 5, `${theme}: contents floats over the page's right side: ${JSON.stringify({ floats: rail.floats, title: rail.title, n: rail.rows.length })}`);
     // Order: h1, h2, h3, h4, h2. Deeper means more indent and no larger text.
     check(pads[0] < pads[1] && pads[1] < pads[2] && pads[2] < pads[3] && pads[4] === pads[1] && sizes[0] >= sizes[1] && sizes[1] >= sizes[2] && sizes[2] >= sizes[3] && sizes[0] > sizes[3],
       `${theme}: depth shows by indent and a small size step: ${JSON.stringify({ pads, sizes })}`);
@@ -58,6 +59,7 @@ try {
 
     if (theme === 'dark') {
       await page.click('#fe-toc-fold');
+      await new Promise(r => setTimeout(r, 350));   // the card eases to its folded size
       const folded = await page.evaluate(() => ({ folded: document.getElementById('fe-toc-rail').classList.contains('folded'), w: Math.round(document.getElementById('fe-toc-rail').getBoundingClientRect().width), list: getComputedStyle(document.getElementById('fe-toc')).display }));
       await page.reload({ waitUntil: 'load' });
       await page.waitForSelector('#fe-toc-rail');

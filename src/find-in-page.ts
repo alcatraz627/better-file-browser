@@ -26,8 +26,12 @@ export function attachFind(page: HTMLElement, input: HTMLInputElement, count: HT
   const partial = () => !!page.querySelector('.fe-ql-note');
   const show = () => {
     const q = input.value;
-    const where = partial() ? ' in the shown part' : '';
-    count.textContent = !q ? '' : hits.length ? `${cur + 1} of ${hits.length}${hits.length >= MAX_HITS ? '+' : ''}${where}` : `No match${where}`;
+    // The count keeps a fixed width so the box never resizes as it changes; a
+    // capped view says so on hover rather than in a longer label.
+    const part = !!q && partial();
+    count.textContent = !q ? '' : hits.length ? `${cur + 1} of ${hits.length}${hits.length >= MAX_HITS ? '+' : ''}` : 'No match';
+    count.title = part ? 'Searched only the part of the file shown here' : '';
+    count.classList.toggle('part', part);
     count.classList.toggle('none', !!q && !hits.length);
     prev.toggleAttribute('disabled', hits.length < 2);
     next.toggleAttribute('disabled', hits.length < 2);

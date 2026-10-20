@@ -12,6 +12,7 @@ export const CSS = `
   --shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);
   --gold:#d29922;--green:#3fb950;
   --hover:color-mix(in srgb,var(--tx) 6%,transparent);--act:color-mix(in srgb,var(--ac) 18%,transparent);--r:6px;
+  --card:color-mix(in srgb,var(--s1),var(--s2) 45%);--side:var(--s1);
   --t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);
   --mono:'SF Mono',Menlo,Consolas,monospace;
   --nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;
@@ -23,6 +24,7 @@ export const CSS = `
   --ac:#0e8f8a;--on-ac:#ffffff;--dir:#5d717c;
   --shade:rgb(110 119 129 / .10);--shade2:rgb(110 119 129 / .18);
   --hover:color-mix(in srgb,var(--tx) 5%,transparent);--act:color-mix(in srgb,var(--ac) 14%,transparent);
+  --card:var(--s1);--side:color-mix(in srgb,var(--s1),var(--bg) 45%);
   --nc-red:#d92d2d;--nc-orange:#d9730d;--nc-yellow:#b58900;--nc-green:#2b8a3e;--nc-teal:#0c8f78;--nc-blue:#1971c2;--nc-purple:#7048e8;--nc-pink:#c2255c;
 }
 #fe[data-palette="violet"],html:has(#fe[data-palette="violet"]){
@@ -573,32 +575,41 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-fp{display:flex;flex:1;min-height:0}
 /* Contents: a rail on the right of the page. Depth shows as indent plus a
    small step in size and ink; folded, only its button remains. */
-#fe-toc-rail{width:230px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--bd);background:var(--bg)}
+/* Contents floats over the page as a translucent card with its toggle on top;
+   folded, only the round toggle stays. The text keeps clear of the open card. */
+#fe-fp{position:relative}
+#fe-toc-rail{position:absolute;top:12px;right:16px;z-index:4;width:240px;max-height:calc(100% - 24px);display:flex;flex-direction:column;min-height:0;
+  border:1px solid color-mix(in srgb,var(--bd) 80%,transparent);border-radius:12px;
+  background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
+  box-shadow:0 8px 24px rgb(0 0 0 / .12),0 1px 3px rgb(0 0 0 / .08);transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
 #fe-toc-rail[hidden]{display:none}
+#fe-fp:has(#fe-toc-rail:not([hidden]):not(.folded)) #fe-page .fe-md{padding-right:290px}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
 .fe-toc-title{flex:1;font-size:calc(11px * var(--ui-text-scale,1));font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 #fe-toc-fold{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer}
 #fe-toc-fold:hover{background:var(--shade);color:var(--tx)}
 #fe-toc-fold svg{transition:transform var(--t-base) var(--ease)}
-#fe-toc-rail.folded{width:40px}
+#fe-toc-rail.folded{width:34px;border-radius:17px}
 #fe-toc-rail.folded .fe-toc-title,#fe-toc-rail.folded #fe-toc{display:none}
-#fe-toc-rail.folded .fe-toc-head{padding:10px 8px;justify-content:center}
+#fe-toc-rail.folded .fe-toc-head{padding:4px;justify-content:center}
 #fe-toc-rail.folded #fe-toc-fold svg{transform:rotate(180deg)}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
-#fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px 3px 16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid transparent;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+#fe-toc a{display:block;margin:1px 6px;border-radius:6px;color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
 #fe-toc a:hover{color:var(--tx);background:var(--hover)}
 #fe-toc a.fe-toc-h1{font-size:calc(13px * var(--ui-text-scale,1));font-weight:600;color:var(--tx)}
-#fe-toc a.fe-toc-h2{font-size:calc(12.5px * var(--ui-text-scale,1));padding-left:28px}
-#fe-toc a.fe-toc-h3{font-size:calc(12px * var(--ui-text-scale,1));padding-left:40px}
-#fe-toc a.fe-toc-h4{font-size:calc(11.5px * var(--ui-text-scale,1));padding-left:52px;color:var(--dm)}
+#fe-toc a.fe-toc-h2{font-size:calc(12.5px * var(--ui-text-scale,1));padding-left:22px}
+#fe-toc a.fe-toc-h3{font-size:calc(12px * var(--ui-text-scale,1));padding-left:34px}
+#fe-toc a.fe-toc-h4{font-size:calc(11.5px * var(--ui-text-scale,1));padding-left:46px;color:var(--dm)}
 @media (prefers-reduced-motion:reduce){#fe-toc-fold svg{transition:none}}
 /* Find in file, at the right end of the file bar. */
-#fe-ff{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 3px 0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--dm)}
-#fe-ff:focus-within{border-color:var(--ac)}
+#fe-ff{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 3px 0 9px;border:1px solid var(--bd);border-radius:8px;
+  background:color-mix(in srgb,var(--tx) 3%,var(--card));color:var(--dm);transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+#fe-ff:focus-within{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));background:var(--card)}
 #fe-ff[hidden]{display:none}
 #fe-ff-q{width:150px;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:calc(12px * var(--ui-text-scale,1))}
-#fe-ff-n{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap;font-variant-numeric:tabular-nums}
-#fe-ff-n.none{color:var(--nc-red)}
+#fe-ff-n{flex:none;width:7.5ch;text-align:right;font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap;font-variant-numeric:tabular-nums}
+#fe-ff-n.none{color:var(--mt);font-style:italic}
+#fe-ff-n.part{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
 #fe-fp-bar #fe-ff button{height:20px;width:20px}
 mark.fe-ff-hit{background:color-mix(in srgb,var(--gold) 35%,transparent);color:inherit;border-radius:2px}
 mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
@@ -619,7 +630,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
 #fe.fe-notips #fe-tip{display:none!important}
 #fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
-#fe-toc a.on{color:var(--ac);background:var(--shade);border-left-color:var(--ac)}
+#fe-toc a.on{color:var(--tx);background:var(--act)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);margin-right:auto;white-space:nowrap}
 #fe-nt-list .fe-nt-hit{display:block;padding:0 10px 4px 32px;font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -936,7 +947,13 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
    handle is the 10px gutter between cards and shows a thin line on hover. */
 #fe-body{padding:10px;background:var(--bg)}
 #fe-side,#fe-main,#fe-qlook.side{border:1px solid var(--bd);border-radius:12px;overflow:hidden}
-#fe-main{background:var(--bg)}
+/* The page is the lightest surface, the sidebar one step below it, and the
+   page background the deepest; bars inside the page share its colour and are
+   set apart by a hairline, not a grey band. */
+#fe-side{background:var(--side)}
+#fe-main,#fe-toolbar,#fe-fp-bar,#fe-statusbar,thead{background:var(--card)}
+#fe-tabs{background:var(--side)}
+.fe-tab.on{background:var(--card)}
 #fe-qlook.side{margin-left:10px}
 #fe-side-rz{width:10px;background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
 #fe-side-rz:hover,#fe-side-rz.drag{background:linear-gradient(var(--ac),var(--ac)) center/2px 100% no-repeat}
