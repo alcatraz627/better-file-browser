@@ -45,6 +45,16 @@ reproduces it and an e2e check that stays in the suite.
 | R12 | Tab restore "keeps false restoring"; offer restore from Recents instead; same Chrome tab keeps its strip | No automatic restore into a fresh Chrome tab; closed strips appear in Recent |
 | R13 | Deep search "so primitive", no progress, cannot specify properly | Deep search spec in phase E: scope, depth, filters, live progress, cancel |
 | R15 | "smooth animations for various actions, the sidebars and browsing and buttons and all" | Motion tokens in the spec (durations, easing, reduced motion); census flags any state change with no transition |
+| R16 | Code block "bg needs to be lighter"; colour plain-text blocks too; copy is "just an icon as a plain button", turning into a green check for 3s | Light and dark code block surface one step off the page; copy is an icon button; `copied` state lasts 3s |
+| R17 | "the chip color bg needs to be lighter" (inline `code`) | Inline code surface matches the token set; contrast measured |
+| R18 | "revisit and tune the entire color palette of blacks and grays for text, `code`, code blocks and the spacing; same for tables" | One neutral ramp in the spec; every text, code and table colour maps to it |
+| R19 | "extra left spacing against sidebar + the dashed tab border looks weird" | Strip starts flush with the content gutter; an unkept tab is shown without a dashed border |
+| R20 | Footer "too small", could carry more, path "isn't even clickable to copy" | Status bar at body size with file metadata; path click copies |
+| R21 | ToC "inconsistent in showing the selected element + no tooltip for truncated items + no smooth scroll" | One active style that follows scroll; truncated rows have a tooltip; clicks scroll smoothly |
+| R22 | "all the titles in the sidebar and modals and else need a icon + title + subtitle (optional) pattern with proper spacing" | One SectionTitle primitive used by sidebar sections, dialogs and panels |
+| R23 | "bullet and para spacing is inconsistent ... it is the job of the markdown engine to make it pleasant to read" | Loose and tight lists render with the same rhythm; paragraph, list and heading spacing come from one scale |
+| R24 | "the bottom border under titles is fine sometimes and not fine otherwise" | Heading rule rules decided once in the spec (which levels, what weight) |
+| R25 | "3.8kb in the top bar but 37 lines in the bottom": standardise file metadata in data and display, with icons, generic plus type-specific | One FileMeta record (generic + per-type fields) rendered by one component in the preview header, file bar and status bar |
 | R14 | "look at all the capabilities ... make these consistent within themselves and with the whole plugin" | Phases B to G complete |
 
 ## Constraints

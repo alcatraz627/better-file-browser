@@ -1,5 +1,7 @@
 // Owner review 2026-10-20: default sort in Settings, and tooltips on icon-only
 // buttons. Each check maps to a row in docs/plan/20261020-consistency-pass.md.
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { launch, shot } from './harness.mjs';
 
 const h = await launch();
@@ -56,6 +58,78 @@ try {
     }
     await page.close();
   }
+
+  // R16, R21, R23: reading a markdown page.
+  const doc = [
+    '# Reading walk', '', 'Intro paragraph.', '',
+    '## A section whose heading is long enough that the sidebar contents has to cut it off', '',
+    '- tight one', '- tight two', '- tight three', '',
+    '## Loose list', '',
+    '- loose one', '', '- loose two', '', '- loose three', '',
+    '```', '## a heading inside text', '- item', '```', '',
+    ...Array.from({ length: 6 }, (_, i) => [`## Part ${i + 1}`, '', 'Body text. '.repeat(60), '']).flat(),
+  ].join('\n');
+  writeFileSync(join(h.fixture, 'reading.md'), doc);
+  await h.store.set('bfb-theme', 'light');
+  page = await h.browser.newPage();
+  await page.setViewport({ width: 1440, height: 900 });
+  await page.goto('file://' + h.fixture + '/reading.md', { waitUntil: 'load' });
+  await page.waitForSelector('#fe-toc a');
+
+  const gaps = await page.evaluate(() => {
+    const gap = ul => { const li = [...ul.children].map(e => e.getBoundingClientRect()); return Math.round(li[1].top - li[0].bottom); };
+    const lists = [...document.querySelectorAll('#fe-page .fe-md > ul')];
+    return { tight: gap(lists[0]), loose: gap(lists[1]) };
+  });
+  check(gaps.tight === gaps.loose && gaps.tight > 0 && gaps.tight < 12, `loose and tight lists space their items the same: ${JSON.stringify(gaps)}`);
+
+  const colours = await page.evaluate(() => {
+    const bg = getComputedStyle(document.querySelector('.fe-md-code')).backgroundColor;
+    const tokens = document.querySelectorAll('.fe-md-code .fe-md-pre span').length;
+    return { bg, tokens };
+  });
+  check(colours.bg === 'rgb(246, 248, 250)' && colours.tokens > 0, `unlabelled code block is light and coloured: ${JSON.stringify(colours)}`);
+
+  await page.click('.fe-md-copy');
+  await page.waitForSelector('.fe-md-copy.copied', { timeout: 2_000 }).catch(() => null);
+  await new Promise(r => setTimeout(r, 250));
+  const copied = await page.$eval('.fe-md-copy', b => ({ copied: b.classList.contains('copied'), colour: getComputedStyle(b).color, check: !!b.querySelector('path[d^="m2.5 7.5"]') }));
+  await shot(page, 'reading-copied');
+  await new Promise(r => setTimeout(r, 3200));
+  const after = await page.$eval('.fe-md-copy', b => b.classList.contains('copied'));
+  check(copied.copied && copied.check && copied.colour === 'rgb(63, 185, 80)' && !after, `copy turns into a check, then back after 3s: ${JSON.stringify({ ...copied, after })}`);
+
+  const tocTop = await page.evaluate(() => {
+    const on = document.querySelector('#fe-toc a.on');
+    const h2s = [...document.querySelectorAll('#fe-toc a.fe-toc-h2')].map(a => getComputedStyle(a).paddingLeft);
+    return { on: on?.textContent, pads: [...new Set(h2s)] };
+  });
+  check(tocTop.on === 'Reading walk', `at the top the first heading is marked: ${JSON.stringify(tocTop)}`);
+
+  await page.hover('#fe-toc a.fe-toc-h2');
+  await page.waitForSelector('#fe-hint.on', { timeout: 1_500 }).catch(() => null);
+  const longTip = await page.$eval('#fe-hint', t => t.classList.contains('on') ? t.textContent : '');
+  await page.mouse.move(700, 500);
+  await new Promise(r => setTimeout(r, 200));
+  await page.hover('#fe-toc a.fe-toc-h1');
+  await new Promise(r => setTimeout(r, 600));
+  const shortTip = await page.$eval('#fe-hint', t => t.classList.contains('on'));
+  check(/cut it off/.test(longTip) && !shortTip, `a cut-off entry shows its full text; a short one shows nothing: ${JSON.stringify({ longTip, shortTip })}`);
+
+  const target = await page.$$('#fe-toc a.fe-toc-h2');
+  await target[target.length - 2].click();
+  await new Promise(r => setTimeout(r, 60));
+  const mid = await page.$eval('#fe-page', p => p.scrollTop);
+  await new Promise(r => setTimeout(r, 900));
+  const end = await page.evaluate(() => {
+    const p = document.getElementById('fe-page');
+    const on = document.querySelector('#fe-toc a.on');
+    return { top: p.scrollTop, on: on?.textContent, pad: on && getComputedStyle(on).paddingLeft, sibling: getComputedStyle(document.querySelector('#fe-toc a.fe-toc-h2:not(.on)')).paddingLeft, hash: location.hash };
+  });
+  check(mid > 0 && mid < end.top && end.on === 'Part 5' && end.pad === end.sibling && end.hash === '#part-5',
+    `a contents click glides to the heading and marks it in place: ${JSON.stringify({ mid, ...end })}`);
+  await shot(page, 'reading-toc');
+  await page.close();
 } finally {
   await h.close();
 }

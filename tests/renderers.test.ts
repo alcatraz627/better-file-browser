@@ -295,7 +295,7 @@ describe('renderMarkdown', () => {
     expect(html).toContain('<dl class="fe-md-fm"><dt>title</dt><dd>T</dd><dt>n</dt><dd>2</dd></dl>');
     expect(html).toContain('<li class="fe-task"><input type="checkbox" disabled checked> a</li>');
     expect(html).toContain('<input type="checkbox" disabled> b</li>');
-    expect(html).toContain('<span class="fe-md-lang">py</span><button class="fe-md-copy"');
+    expect(html).toMatch(/<span class="fe-md-lang">py<\/span><button type="button" class="fe-md-copy" title="Copy this block" aria-label="Copy this block"><svg/);
     expect(html).not.toContain('<h1 id="---">');
   });
   it('joins consecutive lines into one paragraph, splits on blanks', () => {

@@ -67,7 +67,7 @@ function buildToc(page: HTMLElement, toc: HTMLElement, open: boolean): void {
   const heads = [...page.querySelectorAll<HTMLElement>('.fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4')];
   const items = heads.map(h => {
     const text = (h.textContent || '').replace(/#$/, '').trim();
-    return `<a href="#${esc(h.id)}" class="fe-toc-${h.tagName.toLowerCase()}" data-id="${esc(h.id)}" title="Jump to this heading">${esc(text)}</a>`;
+    return `<a href="#${esc(h.id)}" class="fe-toc-${h.tagName.toLowerCase()}" data-id="${esc(h.id)}" title="${esc(text)}">${esc(text)}</a>`;
   });
   toc.innerHTML = items.join('');
   toc.style.display = items.length > 1 && open ? '' : 'none';
@@ -77,8 +77,18 @@ function buildToc(page: HTMLElement, toc: HTMLElement, open: boolean): void {
 function spy(page: HTMLElement, toc: HTMLElement): void {
   const heads = [...page.querySelectorAll<HTMLElement>('.fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4')];
   const top = page.getBoundingClientRect().top + 40;
-  let current: HTMLElement | null = null;
+  // The section you are reading: the last heading above the line, the first
+  // one before any is reached, and the last one once the page bottoms out.
+  let current: HTMLElement | null = heads[0] ?? null;
   for (const h of heads) { if (h.getBoundingClientRect().top <= top) current = h; else break; }
+  if (heads.length && page.scrollTop + page.clientHeight >= page.scrollHeight - 2) current = heads[heads.length - 1];
+  // A heading picked from the contents stays marked while it is on screen,
+  // even when the page cannot scroll it to the top.
+  const picked = toc.dataset.pin ? document.getElementById(toc.dataset.pin) : null;
+  if (picked) {
+    const r = picked.getBoundingClientRect(), p = page.getBoundingClientRect();
+    if (r.top >= p.top - 1 && r.top < p.bottom) current = picked;
+  }
   let on: HTMLElement | null = null;
   toc.querySelectorAll<HTMLElement>('a').forEach(a => { const hit = !!current && a.dataset.id === current.id; a.classList.toggle('on', hit); if (hit) on = a; });
   // Keep the marked row in view inside whichever box holds the contents.
@@ -182,6 +192,23 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   tocBtn.addEventListener('click', () => { tocOpen = !tocOpen; kvSet(TOC_KEY, tocOpen ? '1' : '0'); render(); });
   colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; kvSet(COLUMN_KEY, column); paint(); });
   page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
+  // A contents click glides to the heading and keeps the address in step.
+  toc.addEventListener('click', e => {
+    const a = (e.target as Element).closest<HTMLAnchorElement>('a[data-id]');
+    const target = a && document.getElementById(a.dataset.id!);
+    if (!target) return;
+    e.preventDefault();
+    const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    toc.dataset.pin = a.dataset.id!;
+    target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+    history.replaceState(null, '', '#' + encodeURIComponent(a.dataset.id!));
+    spy(page, toc);
+  });
+  // Scrolling by hand hands the marker back to the scroll position.
+  const unpin = () => { delete toc.dataset.pin; };
+  page.addEventListener('wheel', unpin, { passive: true });
+  page.addEventListener('pointerdown', unpin);
+  page.addEventListener('keydown', unpin);
 
   const remembered = scrollMemory()[rawPath];
   if (remembered) page.scrollTop = remembered;

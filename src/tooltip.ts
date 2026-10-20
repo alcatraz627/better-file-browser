@@ -36,6 +36,9 @@ export function initTooltips(root: HTMLElement): void {
     hide();
     const text = el.getAttribute('title')?.trim();
     if (!text) return;
+    // A label that only repeats text already shown in full adds nothing; it
+    // shows only when the text is cut off.
+    if (text === el.textContent?.trim() && el.scrollWidth <= el.clientWidth) return;
     target = el; lifted = text;
     el.removeAttribute('title');
     timer = window.setTimeout(() => {

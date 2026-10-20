@@ -3,6 +3,7 @@
 // fetches anything, so every renderer is unit-testable in isolation.
 import { esc } from './utils';
 import { CHEVRON_DOWN } from './icons';
+import { UI_ICON } from './control-icons';
 
 export const CODE_EXTS = new Set([
   'sh', 'bash', 'zsh', 'fish', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
@@ -658,7 +659,7 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false): string
       if (language.toLowerCase() === 'mermaid') {
         out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view">Rendering diagram…</div></div>`);
       } else {
-        out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || 'text')}</span><button class="fe-md-copy" title="Copy this block">copy</button></div><pre class="fe-md-pre">${language ? highlightCode(code, language) : esc(code)}</pre></div>`);
+        out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || 'text')}</span><button type="button" class="fe-md-copy" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre">${highlightCode(code, language || 'md')}</pre></div>`);
       }
       continue;
     }

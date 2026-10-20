@@ -41,5 +41,6 @@ export const UI_ICON = {
   next: svg('<path d="m5.5 2.5 4.5 4.5-4.5 4.5"/>'),
   folderOpen: svg('<path d="M1.5 3.5h4l1.2 1.5h5.8v6.5h-11z"/>'),
   copy: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>'),
+  check: svg('<path d="m2.5 7.5 3 3 6-7"/>'),
   copyImage: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>'),
 };

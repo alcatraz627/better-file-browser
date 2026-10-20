@@ -1,6 +1,7 @@
 // Behaviour inside rendered markdown, wherever it appears (file page, panel,
 // help): the copy button on a code block, and an image that opens natively.
 import { copyToClipboard } from './utils';
+import { UI_ICON } from './control-icons';
 import type { Toast } from './toast';
 
 export function initMarkdownUi(toast: Toast): void {
@@ -49,7 +50,14 @@ export function initMarkdownUi(toast: Toast): void {
     if (copy) {
       e.preventDefault();
       const pre = copy.closest('.fe-md-code')?.querySelector('pre');
-      copyToClipboard(pre?.textContent || '').then(ok => toast(ok ? 'Copied the block' : 'Copy failed'));
+      copyToClipboard(pre?.textContent || '').then(ok => {
+        if (!ok) { toast('Copy failed'); return; }
+        // A green check stands in for the icon for 3s; a second copy restarts it.
+        clearTimeout(Number(copy.dataset.timer));
+        copy.classList.add('copied');
+        copy.innerHTML = UI_ICON.check;
+        copy.dataset.timer = String(window.setTimeout(() => { copy.classList.remove('copied'); copy.innerHTML = UI_ICON.copy; }, 3000));
+      });
       return;
     }
     const img = t.closest<HTMLImageElement>('.fe-md img');
