@@ -2905,7 +2905,7 @@ ${body}
     document.getElementById("fe-ql-close").addEventListener("click", closePreview);
     document.getElementById("fe-ql-go").addEventListener("click", () => {
       if (currentEntry) location.href = pageHref(currentEntry.href);
-      else if (edit) location.href = pageHref("file://" + edit.root.replace(/\/$/, "") + "/" + edit.rel);
+      else if (edit) location.href = pageHref(fileHref(edit.root.replace(/\/$/, "") + "/" + edit.rel));
     });
     document.getElementById("fe-ql-tab").addEventListener("click", keepPreviewedAsTab);
     const bodyEl = document.getElementById("fe-ql-body");
@@ -3118,7 +3118,7 @@ ${body}
     currentText = doc.text;
     document.getElementById("fe-ql-icon").innerHTML = "";
     const nameEl = document.getElementById("fe-ql-name");
-    nameEl.href = "file://" + root.replace(/\/$/, "") + "/" + doc.rel;
+    nameEl.href = fileHref(root.replace(/\/$/, "") + "/" + doc.rel);
     document.getElementById("fe-ql-open").href = nameEl.href;
     resetAiUi();
     document.getElementById("fe-ql-ai").style.display = "none";
@@ -5560,7 +5560,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i]));
       if (!here) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
-        rows.push(`<a class="fe-tab on temp" data-id="" href="file://${esc(rawPath)}" title="Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
+        rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
       }
       if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">${CHEVRON_DOWN}</button>`);
       el2.innerHTML = rows.join("");
@@ -8464,7 +8464,7 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
       ntHint.textContent = ntFilter.value.trim() ? `${shown.length} of ${allNotes.length} notes in ${root}` : `${allNotes.length} note${allNotes.length !== 1 ? "s" : ""} in ${root}`;
       ntList.innerHTML = shown.length ? shown.map((n) => `
           <div class="fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}" data-rel="${esc(n.rel)}">
-            <a href="file://${esc(root + "/" + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
+            <a href="${esc(fileHref(root + "/" + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}
             </a>${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel))}">${esc(bodyHits.get(n.rel))}</span>` : ""}
             <span class="fe-nt-acts">
@@ -8515,7 +8515,7 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
         });
         return;
       }
-      el("fe-notes-root").href = "file://" + root + "/";
+      el("fe-notes-root").href = fileHref(root + "/");
       notes.list(root).then((unsorted) => {
         allNotes = sharedOrder(unsorted);
         renderNotes(root);
@@ -9357,7 +9357,7 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
         <div class="fe-sh"><span class="fe-sh-label">Opened lately</span></div>
         ${recents.length ? recents.map((r) => {
       const lbl = r.path.split("/").filter(Boolean).pop() || "/";
-      return `<a href="file://${esc(r.path)}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
+      return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
     }).join("") : '<div class="fe-hint">Nothing yet. Folders and files you open show up here.</div>'}
         <div id="fe-rc-sets"></div>
       </div>`;
@@ -9438,7 +9438,7 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
       },
       goUp: () => {
         if (fileMode) {
-          location.href = "file://" + folderPath;
+          location.href = fileHref(folderPath);
           return;
         }
         const up = entries.find((x) => x.isParent);

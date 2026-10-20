@@ -4,7 +4,7 @@
 import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
-import { esc, copyToClipboard, midHtml } from './utils';
+import { esc, copyToClipboard, midHtml, fileHref } from './utils';
 import { kvGet, kvSet, onKvChange } from './kv';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
@@ -241,7 +241,7 @@ export function initSidebar(app: App): void {
     ntList.innerHTML = shown.length
       ? shown.map(n => `
           <div class="fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}" data-rel="${esc(n.rel)}">
-            <a href="file://${esc(root + '/' + n.rel)}" class="fe-si-link" title="${esc(n.rel)}">
+            <a href="${esc(fileHref(root + '/' + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}
             </a>${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel)!)}">${esc(bodyHits.get(n.rel)!)}</span>` : ''}
             <span class="fe-nt-acts">
@@ -289,7 +289,7 @@ export function initSidebar(app: App): void {
       });
       return;
     }
-    el<HTMLAnchorElement>('fe-notes-root').href = 'file://' + root + '/';
+    el<HTMLAnchorElement>('fe-notes-root').href = fileHref(root + '/');
     notes.list(root).then(unsorted => {
       allNotes = sharedOrder(unsorted);
       renderNotes(root);

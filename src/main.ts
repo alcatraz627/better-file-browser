@@ -8,7 +8,7 @@ import {
 } from './storage';
 import { initPreview } from './preview';
 import { CSS } from './styles';
-import { esc, pageHref } from './utils';
+import { esc, pageHref, fileHref } from './utils';
 import { PI } from './icons';
 import { filePageExt, filePagesEnabled, mountFileContent } from './file-page';
 import { fetchFileText } from './file-fetch';
@@ -121,7 +121,7 @@ loadKv().catch(() => {}).then(function () {
         <div class="fe-sh"><span class="fe-sh-label">Opened lately</span></div>
         ${recents.length ? recents.map(r => {
           const lbl = r.path.split('/').filter(Boolean).pop() || '/';
-          return `<a href="file://${esc(r.path)}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
+          return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
         }).join('') : '<div class="fe-hint">Nothing yet. Folders and files you open show up here.</div>'}
         <div id="fe-rc-sets"></div>
       </div>`;
@@ -163,7 +163,7 @@ loadKv().catch(() => {}).then(function () {
     applyAll: () => {}, setOrder: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {}, pickNotesFolder: () => {},
     openInTerminal: () => {}, openHelp: () => {}, openSettings: () => {},
     goUp: () => {
-      if (fileMode) { location.href = 'file://' + folderPath; return; }
+      if (fileMode) { location.href = fileHref(folderPath); return; }
       const up = entries.find(x => x.isParent);
       if (up) location.href = up.href;
       else if (rawPath !== '/') location.href = 'file:///';

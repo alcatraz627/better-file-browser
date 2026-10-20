@@ -2,7 +2,7 @@
 // Fetches file:// content over XHR (the same trick the crumb dropdown uses)
 // and hands it to a renderer picked by extension. No new permissions needed.
 import type { Entry, IconRule, PreviewLayout } from './types';
-import { esc, fmtSize, getExt, copyToClipboard, midHtml, pageHref } from './utils';
+import { esc, fmtSize, getExt, copyToClipboard, midHtml, pageHref, fileHref } from './utils';
 import { getPreviewLayout, savePreviewLayout } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
 import { getIcon, IMG_EXTS } from './icons';
@@ -131,7 +131,7 @@ export function initPreview(d: PreviewDeps): void {
   document.getElementById('fe-ql-close')!.addEventListener('click', closePreview);
   document.getElementById('fe-ql-go')!.addEventListener('click', () => {
     if (currentEntry) location.href = pageHref(currentEntry.href);
-    else if (edit) location.href = pageHref('file://' + edit.root.replace(/\/$/, '') + '/' + edit.rel);
+    else if (edit) location.href = pageHref(fileHref(edit.root.replace(/\/$/, '') + '/' + edit.rel));
   });
   document.getElementById('fe-ql-tab')!.addEventListener('click', keepPreviewedAsTab);
   const bodyEl = document.getElementById('fe-ql-body')!;
@@ -371,7 +371,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   currentText = doc.text;
   document.getElementById('fe-ql-icon')!.innerHTML = '';
   const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
-  nameEl.href = 'file://' + root.replace(/\/$/, '') + '/' + doc.rel;
+  nameEl.href = fileHref(root.replace(/\/$/, '') + '/' + doc.rel);
   (document.getElementById('fe-ql-open') as HTMLAnchorElement).href = nameEl.href;
   resetAiUi();
   document.getElementById('fe-ql-ai')!.style.display = 'none';
