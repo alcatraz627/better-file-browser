@@ -54,7 +54,7 @@ try {
   const src = await page.evaluate(() => ({
     lines: [...document.querySelectorAll('#fe-fe-paint .fe-fe-ln')].map(e => e.textContent),
     tokens: document.querySelectorAll('#fe-fe-paint span[class^="tok-"]').length,
-    toc: getComputedStyle(document.getElementById('fe-fp-toc')).display,
+    toc: document.getElementById('fe-toc-rail').hidden ? 'none' : 'shown',
     pill: !!document.querySelector('#fe-fe-pill [data-act="done"]'),
     oldBar: !!document.getElementById('fe-fe-bar'),
   }));
@@ -105,7 +105,7 @@ try {
 
   // A change on disk while edited raises the banner and keeps the disk copy.
   await typeAtEnd(page, 'mine\n');
-  writeFileSync(md, '# Title\n\nchanged elsewhere\n');
+  writeFileSync(md, '# Title\n\n## Section\n\nchanged elsewhere\n');
   const later = new Date(Date.now() + 5000); utimesSync(md, later, later);
   await page.waitForFunction(() => document.getElementById('fe-fe-banner').style.display !== 'none', { timeout: 6000 }).catch(() => null);
   check(await page.$eval('#fe-fe-banner', el => el.style.display !== 'none') && readFileSync(md, 'utf8').includes('changed elsewhere'), 'an on-disk change while edited shows the banner, file untouched');
@@ -115,7 +115,7 @@ try {
   await page.click('#fe-fe-pill [data-act="done"]');
   await page.waitForFunction(() => document.getElementById('fe-page').style.display !== 'none', { timeout: 3000 }).catch(() => null);
   const back = await page.$eval('#fe-page', el => el.style.display !== 'none' && el.textContent.includes('changed elsewhere'));
-  const tocBack = await page.$eval('#fe-fp-toc', el => getComputedStyle(el).display !== 'none');
+  const tocBack = await page.$eval('#fe-toc-rail', el => !el.hidden && el.querySelectorAll('#fe-toc a').length === 2);
   check(back && tocBack && dialogs === 0, `Done returns to reading with Contents back, no prompt (${dialogs})`);
 
   // A non-markdown file edits as source alone, with no preview toggle.

@@ -4120,10 +4120,37 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
 #fe-fp-bar{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-fp{display:flex;flex:1;min-height:0}
-#fe-toc{width:220px;flex-shrink:0;overflow-y:auto;background:var(--s1);border-right:1px solid var(--bd);padding:10px 0;font-size:calc(12px * var(--ui-text-scale,1))}
-#fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
-#fe-toc a:hover{color:var(--ac);background:var(--hover)}
-#fe-toc a.fe-toc-h2{padding-left:24px}#fe-toc a.fe-toc-h3{padding-left:34px}#fe-toc a.fe-toc-h4{padding-left:44px}
+/* Contents: a rail on the right of the page. Depth shows as indent plus a
+   small step in size and ink; folded, only its button remains. */
+#fe-toc-rail{width:230px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--bd);background:var(--bg)}
+#fe-toc-rail[hidden]{display:none}
+.fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
+.fe-toc-title{flex:1;font-size:calc(11px * var(--ui-text-scale,1));font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
+#fe-toc-fold{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer}
+#fe-toc-fold:hover{background:var(--shade);color:var(--tx)}
+#fe-toc-fold svg{transition:transform var(--t-base) var(--ease)}
+#fe-toc-rail.folded{width:40px}
+#fe-toc-rail.folded .fe-toc-title,#fe-toc-rail.folded #fe-toc{display:none}
+#fe-toc-rail.folded .fe-toc-head{padding:10px 8px;justify-content:center}
+#fe-toc-rail.folded #fe-toc-fold svg{transform:rotate(180deg)}
+#fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
+#fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px 3px 16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid transparent;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+#fe-toc a:hover{color:var(--tx);background:var(--hover)}
+#fe-toc a.fe-toc-h1{font-size:calc(13px * var(--ui-text-scale,1));font-weight:600;color:var(--tx)}
+#fe-toc a.fe-toc-h2{font-size:calc(12.5px * var(--ui-text-scale,1));padding-left:28px}
+#fe-toc a.fe-toc-h3{font-size:calc(12px * var(--ui-text-scale,1));padding-left:40px}
+#fe-toc a.fe-toc-h4{font-size:calc(11.5px * var(--ui-text-scale,1));padding-left:52px;color:var(--dm)}
+@media (prefers-reduced-motion:reduce){#fe-toc-fold svg{transition:none}}
+/* Find in file, at the right end of the file bar. */
+#fe-ff{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 3px 0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--dm)}
+#fe-ff:focus-within{border-color:var(--ac)}
+#fe-ff[hidden]{display:none}
+#fe-ff-q{width:150px;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:calc(12px * var(--ui-text-scale,1))}
+#fe-ff-n{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap;font-variant-numeric:tabular-nums}
+#fe-ff-n.none{color:var(--nc-red)}
+#fe-fp-bar #fe-ff button{height:20px;width:20px}
+mark.fe-ff-hit{background:color-mix(in srgb,var(--gold) 35%,transparent);color:inherit;border-radius:2px}
+mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-page{flex:1;min-width:0;overflow:auto;font-size:calc(12px * var(--ui-text-scale,1))}
 #fe-page .fe-md{max-width:none;margin:0;padding:28px 48px 80px;font-size:calc(15px * var(--ui-text-scale,1));line-height:var(--rd-lh,1.65)}
 #fe.fe-column-xl #fe-page .fe-md{max-width:150ch;margin:0 auto}
@@ -4140,13 +4167,8 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 .fe-md-fnref a,.fe-md-fnback{text-decoration:none}
 #fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
 #fe.fe-notips #fe-tip{display:none!important}
-#fe-fp-toc:hover,#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
-#fe-toc a.on{color:var(--ac);background:var(--shade);box-shadow:inset 2px 0 0 var(--ac)}
-#fe-side.fe-side-split{display:flex;flex-direction:column;overflow:hidden;padding:0}
-#fe-side-toc{flex:0 1 auto;max-height:50%;min-height:0;overflow-y:auto;border-bottom:1px solid var(--bd);padding:6px 0;position:relative}
-#fe-side-toc:has(> #fe-toc[style*="none"]){display:none}
-#fe-side-toc #fe-toc{width:auto;border:0;background:none;padding:0;overflow:visible}
-#fe-side-rest{flex:1;min-height:0;overflow-y:auto;padding:6px 0}
+#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
+#fe-toc a.on{color:var(--ac);background:var(--shade);border-left-color:var(--ac)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);margin-right:auto;white-space:nowrap}
 #fe-nt-list .fe-nt-hit{display:block;padding:0 10px 4px 32px;font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -4445,7 +4467,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-tab:focus-visible,.fe-tab-x:focus-visible,.fe-tab-more:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}
 @media (max-width:900px){
   #fe-side{width:clamp(120px,22vw,170px)}
-  #fe-toc{width:clamp(120px,22vw,170px)}
+  #fe-toc-rail:not(.folded){width:clamp(150px,22vw,190px)}
+  #fe-ff-q{width:110px}
   #fe-page .fe-md{padding:20px 18px 60px}
   #fe-fp-bar{flex-wrap:wrap;padding:7px 10px}
 }
@@ -4717,6 +4740,100 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     return { dirty: isDirty, close: () => void close() };
   }
 
+  // src/find-in-page.ts
+  var MAX_HITS = 2e3;
+  function attachFind(page, input, count, prev, next) {
+    let hits = [];
+    let cur = -1;
+    const unmark = () => {
+      for (const m of page.querySelectorAll("mark.fe-ff-hit")) m.replaceWith(document.createTextNode(m.textContent || ""));
+      page.normalize();
+      hits = [];
+      cur = -1;
+    };
+    const show = () => {
+      const q = input.value;
+      count.textContent = !q ? "" : hits.length ? `${cur + 1} of ${hits.length}${hits.length >= MAX_HITS ? "+" : ""}` : "No match";
+      count.classList.toggle("none", !!q && !hits.length);
+      prev.toggleAttribute("disabled", hits.length < 2);
+      next.toggleAttribute("disabled", hits.length < 2);
+      hits.forEach((h, i) => h.classList.toggle("on", i === cur));
+    };
+    const go = (i) => {
+      if (!hits.length) return;
+      cur = (i + hits.length) % hits.length;
+      show();
+      hits[cur].scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    };
+    const mark = () => {
+      unmark();
+      const q = input.value.toLowerCase();
+      if (!q) {
+        show();
+        return;
+      }
+      const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT, {
+        acceptNode: (n) => n.parentElement?.closest("script,style,svg,textarea") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+      });
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      for (const node of nodes) {
+        if (hits.length >= MAX_HITS) break;
+        const text = node.data;
+        const lower = text.toLowerCase();
+        let at = lower.indexOf(q);
+        if (at === -1) continue;
+        const frag = document.createDocumentFragment();
+        let from = 0;
+        while (at !== -1 && hits.length < MAX_HITS) {
+          frag.append(text.slice(from, at));
+          const m = document.createElement("mark");
+          m.className = "fe-ff-hit";
+          m.textContent = text.slice(at, at + q.length);
+          frag.append(m);
+          hits.push(m);
+          from = at + q.length;
+          at = lower.indexOf(q, from);
+        }
+        frag.append(text.slice(from));
+        node.replaceWith(frag);
+      }
+      const top = page.getBoundingClientRect().top;
+      const first = hits.findIndex((h) => h.getBoundingClientRect().top >= top);
+      go(first === -1 ? 0 : first);
+      if (!hits.length) show();
+    };
+    input.addEventListener("input", mark);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        go(cur + (e.shiftKey ? -1 : 1));
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        input.value = "";
+        mark();
+        input.blur();
+      }
+      e.stopPropagation();
+    });
+    prev.addEventListener("click", () => go(cur - 1));
+    next.addEventListener("click", () => go(cur + 1));
+    return {
+      refresh: () => {
+        if (input.value) mark();
+      },
+      clear: () => {
+        input.value = "";
+        unmark();
+        show();
+      },
+      focus: () => {
+        input.focus();
+        input.select();
+      }
+    };
+  }
+
   // src/file-page.ts
   var SCROLL_KEY = "bfb-page-scroll-v1";
   var TOC_KEY = "bfb-page-toc-v1";
@@ -4758,14 +4875,13 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     if (ext2 === "md" || ext2 === "mdx") return `<div class="fe-md">${renderMarkdown(text, href)}</div>`;
     return renderCode(text, ext2);
   }
-  function buildToc(page, toc, open) {
+  function buildToc(page, toc) {
     const heads = [...page.querySelectorAll(".fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4")];
-    const items = heads.map((h) => {
+    toc.innerHTML = heads.map((h) => {
       const text = (h.textContent || "").replace(/#$/, "").trim();
       return `<a href="#${esc(h.id)}" class="fe-toc-${h.tagName.toLowerCase()}" data-id="${esc(h.id)}" title="${esc(text)}">${esc(text)}</a>`;
-    });
-    toc.innerHTML = items.join("");
-    toc.style.display = items.length > 1 && open ? "" : "none";
+    }).join("");
+    return heads.length;
   }
   function spy(page, toc) {
     const heads = [...page.querySelectorAll(".fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4")];
@@ -4787,7 +4903,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       a.classList.toggle("on", hit);
       if (hit) on = a;
     });
-    const box = toc.closest("#fe-side-toc") ?? toc;
+    const box = toc;
     const row = on;
     if (row) {
       const r = row.getBoundingClientRect(), b = box.getBoundingClientRect();
@@ -4812,16 +4928,26 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     return `
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
-        <button id="fe-fp-toc" title="Show or hide the table of contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M2 2h9M2 5h9M2 8h9M2 11h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Contents</button>
         <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
         <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
         <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
+        <span id="fe-ff" title="Find in this file (/) \xB7 Enter next \xB7 Shift+Enter previous \xB7 Esc clears">
+          <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><circle cx="5.5" cy="5.5" r="3.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8.4 8.4 11.5 11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <input id="fe-ff-q" type="text" placeholder="Find in file" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
+          <span id="fe-ff-n" aria-live="polite"></span>
+          <button id="fe-ff-prev" data-icon data-size="sm" title="Previous match (Shift+Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="fe-ff-next" data-icon data-size="sm" title="Next match (Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </span>
       </div>
       <div id="fe-fp">
-        <nav id="fe-toc" style="display:none"></nav>
         <div id="fe-page"></div>
         <div id="fe-fe" style="display:none"></div>
+        <aside id="fe-toc-rail" hidden>
+          <div class="fe-toc-head"><span class="fe-toc-title">On this page</span>
+            <button id="fe-toc-fold" type="button" title="Collapse the contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M5 3l3.5 3.5L5 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+          <nav id="fe-toc"></nav>
+        </aside>
       </div>`;
   }
   function mountFileContent(opts) {
@@ -4829,27 +4955,25 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     let text = opts.text;
     const page = document.getElementById("fe-page");
     const toc = document.getElementById("fe-toc");
+    const rail = document.getElementById("fe-toc-rail");
+    const foldBtn = document.getElementById("fe-toc-fold");
     const rawBtn = document.getElementById("fe-fp-raw");
-    const tocBtn = document.getElementById("fe-fp-toc");
     const colBtn = document.getElementById("fe-fp-column");
     const meta = document.getElementById("fe-fp-meta");
+    const findBox = document.getElementById("fe-ff");
+    const find = attachFind(
+      page,
+      document.getElementById("fe-ff-q"),
+      document.getElementById("fe-ff-n"),
+      document.getElementById("fe-ff-prev"),
+      document.getElementById("fe-ff-next")
+    );
     const isMd = ext2 === "md" || ext2 === "mdx";
     let raw = false;
+    let headings = 0;
     let tocOpen = kvGet(TOC_KEY) !== "0";
     let column = savedColumnMode(opts.column);
     const fe = document.getElementById("fe");
-    const side = document.getElementById("fe-side");
-    if (isMd && side && side.style.display !== "none") {
-      const rest = document.createElement("div");
-      rest.id = "fe-side-rest";
-      while (side.firstChild) rest.appendChild(side.firstChild);
-      const top = document.createElement("div");
-      top.id = "fe-side-toc";
-      top.innerHTML = '<div class="fe-sh"><span class="fe-sh-label">Contents</span></div>';
-      top.appendChild(toc);
-      side.append(top, rest);
-      side.classList.add("fe-side-split");
-    }
     const paintMeta = () => {
       const fm = fileMeta(text, ext2, rawPath);
       meta.textContent = fm.kind;
@@ -4865,26 +4989,38 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       colBtn.querySelector(".fe-fp-column-label").textContent = column === "unset" ? "Full width" : `${column.toUpperCase()} width`;
       const next = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
       colBtn.title = `Reading width: ${column === "unset" ? "full" : `${column.toUpperCase()} (${COLUMN_WIDTHS[column]})`}. Click for ${next === "unset" ? "full" : `${next.toUpperCase()} (${COLUMN_WIDTHS[next]})`}`;
-      tocBtn.classList.toggle("on", tocOpen);
-      tocBtn.style.display = isMd && !raw ? "" : "none";
       colBtn.style.display = isMd && !raw ? "" : "none";
+      rail.hidden = !isMd || raw || headings < 2 || !!editor;
+      rail.classList.toggle("folded", !tocOpen);
+      foldBtn.title = tocOpen ? "Collapse the contents" : "Show the contents";
+      foldBtn.setAttribute("aria-expanded", String(tocOpen));
+      findBox.hidden = !!editor;
     };
     const render2 = () => {
       paintMeta();
       const top = page.scrollTop;
       page.innerHTML = raw ? renderCode(text, JSONL_EXTS.has(ext2) ? "json" : ext2) : renderBody(text, ext2, href);
-      if (!raw && isMd) buildToc(page, toc, tocOpen);
-      else toc.style.display = "none";
+      headings = !raw && isMd ? buildToc(page, toc) : 0;
       page.scrollTop = top;
       rawBtn.classList.toggle("on", raw);
       paint();
       spy(page, toc);
+      find.refresh();
     };
+    let editor = null;
     render2();
-    tocBtn.addEventListener("click", () => {
+    foldBtn.addEventListener("click", () => {
       tocOpen = !tocOpen;
       kvSet(TOC_KEY, tocOpen ? "1" : "0");
-      render2();
+      paint();
+      if (tocOpen) spy(page, toc);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey || editor) return;
+      const ae = document.activeElement;
+      if (ae && ["INPUT", "TEXTAREA", "SELECT"].includes(ae.tagName)) return;
+      e.preventDefault();
+      find.focus();
     });
     colBtn.addEventListener("click", () => {
       column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
@@ -4932,7 +5068,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     };
     const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? "";
     let root = editableRoot(rawPath, opts.editableFolders, home);
-    let editor = null;
     const folder = rawPath.slice(0, rawPath.lastIndexOf("/"));
     editBtn.title = "Edit this file (e)";
     const askToAllow = () => new Promise((resolve) => {
@@ -5008,9 +5143,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       if (!root) return;
       editBtn.classList.add("busy");
       page.style.display = "none";
-      toc.style.display = "none";
       editBox.style.display = "";
-      tocBtn.style.display = "none";
+      find.clear();
       editBtn.classList.add("on");
       editor = await openFileEditor(editBox, {
         root,
@@ -5040,6 +5174,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         }
       });
       editBtn.classList.remove("busy");
+      paint();
       if (!editor) {
         editBox.style.display = "none";
         page.style.display = "";

@@ -33,9 +33,10 @@ try {
     const web = await page.$$eval('#fe-page .fe-md a[href^="http"]', a => a.length);
     const inTables = await page.$$eval('#fe-page .fe-md td a[href^="http"]', a => a.length);
     check(web > 40 && inTables > 10, `${theme}: bare URLs are links (${web} total, ${inTables} in table cells)`);
-    const toc = await page.$$eval('#fe-side-toc #fe-toc a', a => a.length);
-    const tocBox = await page.$eval('#fe-side-toc', el => { const r = el.getBoundingClientRect(); return { h: Math.round(r.height), side: Math.round(el.parentElement.getBoundingClientRect().height) }; });
-    check(toc > 3 && tocBox.h <= tocBox.side / 2 + 2, `${theme}: contents sit in the sidebar's top half (${toc} rows, ${tocBox.h}px of ${tocBox.side}px)`);
+    // Ruling 2026-10-20 (D4a): contents live in a rail to the right of the page.
+    const toc = await page.$$eval('#fe-toc-rail #fe-toc a', a => a.length);
+    const place = await page.evaluate(() => ({ rail: Math.round(document.getElementById('fe-toc-rail').getBoundingClientRect().left), page: Math.round(document.getElementById('fe-page').getBoundingClientRect().right), inSide: !!document.querySelector('#fe-side #fe-toc') }));
+    check(toc > 3 && place.rail >= place.page && !place.inSide, `${theme}: contents sit in a rail right of the page (${toc} rows, ${JSON.stringify(place)})`);
     await page.screenshot({ path: join(SHOTS, `owner-links-toc-${theme}.png`) });
 
     await page.goto('file://' + join(h.fixture, 'rithum.md'), { waitUntil: 'load' });

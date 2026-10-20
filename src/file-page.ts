@@ -14,6 +14,7 @@ import { fileMeta, metaChips, metaSummary } from './file-meta';
 import { UI_ICON } from './control-icons';
 import { getSettings, saveSettings } from './storage';
 import { editableRoot, openFileEditor, type FileEditor } from './file-editor';
+import { attachFind } from './find-in-page';
 import type { Settings } from './types';
 
 const SCROLL_KEY = 'bfb-page-scroll-v1';
@@ -65,15 +66,14 @@ function renderBody(text: string, ext: string, href: string): string {
   return renderCode(text, ext);
 }
 
-// List the headings (the renderer gave them ids) in the rail.
-function buildToc(page: HTMLElement, toc: HTMLElement, open: boolean): void {
+// List the headings (the renderer gave them ids) in the rail; returns how many.
+function buildToc(page: HTMLElement, toc: HTMLElement): number {
   const heads = [...page.querySelectorAll<HTMLElement>('.fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4')];
-  const items = heads.map(h => {
+  toc.innerHTML = heads.map(h => {
     const text = (h.textContent || '').replace(/#$/, '').trim();
     return `<a href="#${esc(h.id)}" class="fe-toc-${h.tagName.toLowerCase()}" data-id="${esc(h.id)}" title="${esc(text)}">${esc(text)}</a>`;
-  });
-  toc.innerHTML = items.join('');
-  toc.style.display = items.length > 1 && open ? '' : 'none';
+  }).join('');
+  return heads.length;
 }
 
 // Mark the ToC row of the heading in view, on every scroll of the page.
@@ -94,8 +94,8 @@ function spy(page: HTMLElement, toc: HTMLElement): void {
   }
   let on: HTMLElement | null = null;
   toc.querySelectorAll<HTMLElement>('a').forEach(a => { const hit = !!current && a.dataset.id === current.id; a.classList.toggle('on', hit); if (hit) on = a; });
-  // Keep the marked row in view inside whichever box holds the contents.
-  const box = toc.closest<HTMLElement>('#fe-side-toc') ?? toc;
+  // Keep the marked row in view inside the rail.
+  const box = toc;
   const row = on as HTMLElement | null;
   if (row) {
     const r = row.getBoundingClientRect(), b = box.getBoundingClientRect();
@@ -119,16 +119,26 @@ export function renderFileContent(): string {
   return `
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
-        <button id="fe-fp-toc" title="Show or hide the table of contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M2 2h9M2 5h9M2 8h9M2 11h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Contents</button>
         <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
         <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
         <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
+        <span id="fe-ff" title="Find in this file (/) · Enter next · Shift+Enter previous · Esc clears">
+          <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><circle cx="5.5" cy="5.5" r="3.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8.4 8.4 11.5 11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <input id="fe-ff-q" type="text" placeholder="Find in file" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
+          <span id="fe-ff-n" aria-live="polite"></span>
+          <button id="fe-ff-prev" data-icon data-size="sm" title="Previous match (Shift+Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="fe-ff-next" data-icon data-size="sm" title="Next match (Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </span>
       </div>
       <div id="fe-fp">
-        <nav id="fe-toc" style="display:none"></nav>
         <div id="fe-page"></div>
         <div id="fe-fe" style="display:none"></div>
+        <aside id="fe-toc-rail" hidden>
+          <div class="fe-toc-head"><span class="fe-toc-title">On this page</span>
+            <button id="fe-toc-fold" type="button" title="Collapse the contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M5 3l3.5 3.5L5 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+          <nav id="fe-toc"></nav>
+        </aside>
       </div>`;
 }
 
@@ -139,33 +149,22 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   let text = opts.text;
   const page = document.getElementById('fe-page')!;
   const toc = document.getElementById('fe-toc')!;
+  const rail = document.getElementById('fe-toc-rail')!;
+  const foldBtn = document.getElementById('fe-toc-fold')!;
   const rawBtn = document.getElementById('fe-fp-raw')!;
-  const tocBtn = document.getElementById('fe-fp-toc')!;
   const colBtn = document.getElementById('fe-fp-column')!;
   const meta = document.getElementById('fe-fp-meta')!;
+  const findBox = document.getElementById('fe-ff')!;
+  const find = attachFind(page, document.getElementById('fe-ff-q') as HTMLInputElement, document.getElementById('fe-ff-n')!,
+    document.getElementById('fe-ff-prev')!, document.getElementById('fe-ff-next')!);
   const isMd = ext === 'md' || ext === 'mdx';
   let raw = false;
-  // Two remembered choices: the ToC rail open, and a reading column instead
-  // of the full width (full width is the owner's default).
+  let headings = 0;
+  // Two remembered choices: the contents rail open or folded, and a reading
+  // column instead of the full width (full width is the owner's default).
   let tocOpen = kvGet(TOC_KEY) !== '0';
   let column = savedColumnMode(opts.column);
   const fe = document.getElementById('fe')!;
-
-  // A markdown page's contents take the top half of the sidebar, so the
-  // headings and the saved places sit in one column. With the sidebar hidden
-  // the contents stay as a rail beside the page.
-  const side = document.getElementById('fe-side');
-  if (isMd && side && side.style.display !== 'none') {
-    const rest = document.createElement('div');
-    rest.id = 'fe-side-rest';
-    while (side.firstChild) rest.appendChild(side.firstChild);
-    const top = document.createElement('div');
-    top.id = 'fe-side-toc';
-    top.innerHTML = '<div class="fe-sh"><span class="fe-sh-label">Contents</span></div>';
-    top.appendChild(toc);
-    side.append(top, rest);
-    side.classList.add('fe-side-split');
-  }
 
   // One record of the file's facts feeds the file bar, status bar and count.
   const paintMeta = () => {
@@ -183,22 +182,37 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     colBtn.querySelector('.fe-fp-column-label')!.textContent = column === 'unset' ? 'Full width' : `${column.toUpperCase()} width`;
     const next = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
     colBtn.title = `Reading width: ${column === 'unset' ? 'full' : `${column.toUpperCase()} (${COLUMN_WIDTHS[column]})`}. Click for ${next === 'unset' ? 'full' : `${next.toUpperCase()} (${COLUMN_WIDTHS[next]})`}`;
-    tocBtn.classList.toggle('on', tocOpen);
-    tocBtn.style.display = isMd && !raw ? '' : 'none';
     colBtn.style.display = isMd && !raw ? '' : 'none';
+    // The rail shows for a markdown page with at least two headings; folded,
+    // it keeps only its button so it can open again.
+    rail.hidden = !isMd || raw || headings < 2 || !!editor;
+    rail.classList.toggle('folded', !tocOpen);
+    foldBtn.title = tocOpen ? 'Collapse the contents' : 'Show the contents';
+    foldBtn.setAttribute('aria-expanded', String(tocOpen));
+    findBox.hidden = !!editor;
   };
   const render = () => {
     paintMeta();
     const top = page.scrollTop;
     page.innerHTML = raw ? renderCode(text, JSONL_EXTS.has(ext) ? 'json' : ext) : renderBody(text, ext, href);
-    if (!raw && isMd) buildToc(page, toc, tocOpen); else toc.style.display = 'none';
+    headings = !raw && isMd ? buildToc(page, toc) : 0;
     page.scrollTop = top;
     rawBtn.classList.toggle('on', raw);
     paint();
     spy(page, toc);
+    find.refresh();
   };
+  // `editor` is declared below; render runs before any editor exists.
+  let editor: FileEditor | null = null;
   render();
-  tocBtn.addEventListener('click', () => { tocOpen = !tocOpen; kvSet(TOC_KEY, tocOpen ? '1' : '0'); render(); });
+  foldBtn.addEventListener('click', () => { tocOpen = !tocOpen; kvSet(TOC_KEY, tocOpen ? '1' : '0'); paint(); if (tocOpen) spy(page, toc); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || editor) return;
+    const ae = document.activeElement;
+    if (ae && ['INPUT', 'TEXTAREA', 'SELECT'].includes(ae.tagName)) return;
+    e.preventDefault();
+    find.focus();
+  });
   colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; kvSet(COLUMN_KEY, column); paint(); });
   page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
   // A contents click glides to the heading and keeps the address in step.
@@ -237,7 +251,6 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   const status = (t: string) => { document.getElementById('fe-status-text')!.textContent = t; };
   const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? '';
   let root = editableRoot(rawPath, opts.editableFolders, home);
-  let editor: FileEditor | null = null;
   const folder = rawPath.slice(0, rawPath.lastIndexOf('/'));
   editBtn.title = 'Edit this file (e)';
 
@@ -298,8 +311,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     if (!root && !(await askToAllow())) return;
     if (!root) return;
     editBtn.classList.add('busy');
-    page.style.display = 'none'; toc.style.display = 'none'; editBox.style.display = '';
-    tocBtn.style.display = 'none';
+    page.style.display = 'none'; editBox.style.display = '';
+    find.clear();
     editBtn.classList.add('on');
     editor = await openFileEditor(editBox, {
       root, rel: rawPath.slice(root.length + 1), ext, href,
@@ -312,6 +325,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
       },
     });
     editBtn.classList.remove('busy');
+    paint();
     if (!editor) { editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); render(); }
   };
   editBtn.addEventListener('click', () => void edit());
