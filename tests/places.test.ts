@@ -15,11 +15,18 @@ describe('upsertPlace', () => {
     const list = [P('/a', 'A')];
     expect(upsertPlace(list, P('/a', 'different'))).toBe(list);   // unchanged ref
   });
+  it('treats a trailing slash as the same folder', () => {
+    const list = [P('/a/b')];
+    expect(upsertPlace(list, P('/a/b/'))).toBe(list);
+  });
 });
 
 describe('removePlace', () => {
   it('removes by path', () => {
     expect(removePlace([P('/a'), P('/b')], '/a').map(p => p.path)).toEqual(['/b']);
+  });
+  it('removes a folder saved without its trailing slash', () => {
+    expect(removePlace([P('/a/b'), P('/c')], '/a/b/').map(p => p.path)).toEqual(['/c']);
   });
 });
 

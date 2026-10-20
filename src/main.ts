@@ -9,6 +9,7 @@ import {
 import { initPreview } from './preview';
 import { CSS } from './styles';
 import { esc, pageHref, fileHref } from './utils';
+import { samePlace } from './places';
 import { PI } from './icons';
 import { filePageExt, filePagesEnabled, mountFileContent } from './file-page';
 import { fetchFileText } from './file-fetch';
@@ -128,7 +129,7 @@ loadKv().catch(() => {}).then(function () {
 
   const html = renderPage({
     initTheme, initPalette, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings,
-    curIsBookmarked: getSaved().some(p => p.path === rawPath),
+    curIsBookmarked: getSaved().some(p => samePlace(p.path, rawPath)),
     dirs, files, extOpts, recentsHTML, entries, ctx: { rawPath, iconRules, settings },
   });
 

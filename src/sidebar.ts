@@ -9,7 +9,7 @@ import { kvGet, kvSet, onKvChange } from './kv';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings } from './storage';
-import { upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
+import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
 import { notes, noteTitle, slugForTitle, setTitle, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
 import { colorDot, openPropsMenu } from './note-meta-ui';
@@ -104,10 +104,11 @@ export function initSidebar(app: App): void {
   let dragSrc: HTMLElement | null = null;
 
   function syncStar(): void {
-    const on = getSaved().some(p => p.path === rawPath);
+    const on = getSaved().some(p => samePlace(p.path, rawPath));
     const btn = el('fe-bm-btn');
     btn.classList.toggle('on', on);
-    btn.title = on ? 'Remove this folder from Saved' : 'Save this folder (sidebar)';
+    const what = app.fileMode ? 'file' : 'folder';
+    btn.title = on ? `Remove this ${what} from Saved` : `Save this ${what} (sidebar)`;
     el('fe-bm-path').setAttribute('fill', on ? 'currentColor' : 'none');
   }
   function refreshSaved(): void {
@@ -205,13 +206,13 @@ export function initSidebar(app: App): void {
     refreshSaved();
     toast('Saved');
     if (!rename) return;
-    const fresh = els('.fe-pl-item', svList).find(i => i.dataset.path === rawPath);
+    const fresh = els('.fe-pl-item', svList).find(i => samePlace(i.dataset.path!, rawPath));
     const lbl = fresh?.querySelector<HTMLElement>('.fe-pl-label');
     if (lbl) lbl.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
   }
   el('fe-sv-add').addEventListener('click', () => addCurrentFolder(true));
   el('fe-bm-btn').addEventListener('click', () => {
-    if (getSaved().some(p => p.path === rawPath)) {
+    if (getSaved().some(p => samePlace(p.path, rawPath))) {
       saveSaved(removePlace(getSaved(), rawPath));
       refreshSaved(); toast('Removed from Saved');
     } else addCurrentFolder(false);

@@ -1,7 +1,7 @@
 import type { Entry, IconRule, Place, Settings, Tag, TipData } from './types';
 import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, fileHref } from './utils';
-import { getIcon, IMG_EXTS, PI, CHEVRON_DOWN } from './icons';
-import { groupByTag, filterSaved } from './places';
+import { getIcon, icoFile, IMG_EXTS, PI, CHEVRON_DOWN } from './icons';
+import { groupByTag, filterSaved, samePlace } from './places';
 import { isViewPath } from './find';
 import { canPreview } from './preview';
 import type { ContentHit } from './find';
@@ -16,10 +16,18 @@ export interface RenderContext {
 
 // Tags as chips. A tag's colour tints its outline, so the eye can group by
 // colour without a dot, which is kept for states that need attention.
+// Past two, the rest fold into one "+N" chip that names them on hover, so a
+// long tag list never ends in a chip cut in half.
+const CHIPS_SHOWN = 2;
 function tagChips(e: Entry, ctx: RenderContext): string {
   if (e.isParent || !ctx.tagsOf) return '';
-  return ctx.tagsOf(fullPath(ctx.rawPath, e)).map(t =>
-    `<span class="fe-chip" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}">${esc(t.name)}</span>`).join('');
+  const tags = ctx.tagsOf(fullPath(ctx.rawPath, e));
+  const shown = tags.length > CHIPS_SHOWN + 1 ? tags.slice(0, CHIPS_SHOWN) : tags;
+  const rest = tags.slice(shown.length);
+  if (!tags.length) return '';
+  return '<div class="fe-chips">' + shown.map(t =>
+    `<span class="fe-chip" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}">${esc(t.name)}</span>`).join('')
+    + (rest.length ? `<span class="fe-chip fe-chip-more" title="Also tagged: ${esc(rest.map(t => t.name).join(', '))}">+${rest.length}</span>` : '') + '</div>';
 }
 
 export function buildTipData(e: Entry, ctx: RenderContext): string {
@@ -106,6 +114,9 @@ export function renderTiles(entries: Entry[], ctx: RenderContext, start = 0): st
 
 // Saved folders, untagged first, then one sub-heading per tag. Each row has
 // a drag grip, the label (double-click renames), a tag button and a remove.
+// A saved file keeps its path without a trailing slash; a folder ends in one.
+const savedFileExt = (path: string) => path.endsWith('/') ? '' : (path.split('/').pop()!.match(/\.([^.]+)$/)?.[1].toLowerCase() ?? '');
+
 export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, filter = ''): string {
   if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click ☆ in the path bar, or + to name this folder.</div>`;
   saved = filterSaved(saved, filter);
@@ -115,9 +126,9 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
   const row = (p: Place) => `
     <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? ' fe-view' : ''}" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h" title="Drag to reorder">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? 'file://' + esc(p.path) : fileHref(p.path)}" class="fe-si-link${p.path === rawPath ? ' active' : ''}" title="${esc(isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path)}">
-        ${isViewPath(p.path) ? VIEW_ICON : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label)}</span>
-        <span class="fe-pl-dots">${(p.tags ?? []).map(t => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join('')}</span>
+      <a href="${isViewPath(p.path) ? 'file://' + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active' : ''}" title="${esc(isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path)}">
+        ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label || p.path.split('/').filter(Boolean).pop() || '/')}</span>
+        <span class="fe-pl-dots">${(p.tags ?? []).slice(0, 4).map(t => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join('')}${(p.tags?.length ?? 0) > 4 ? `<span class="fe-sv-more" title="${esc(p.tags!.slice(4).join(', '))}">+${p.tags!.length - 4}</span>` : ''}</span>
       </a>
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
       <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Tags">#</button>

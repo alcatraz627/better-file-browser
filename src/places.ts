@@ -3,13 +3,18 @@
 // result and re-renders. Identity is the path (one entry per folder).
 import type { Bookmark, Place, Tag } from './types';
 
+/** Whether two saved paths name the same place: a folder saved as /a/b and /a/b/ is one place. */
+export function samePlace(a: string, b: string): boolean {
+  return a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
+}
+
 export function upsertPlace(list: Place[], place: Place): Place[] {
-  if (list.some(p => p.path === place.path)) return list;   // dedupe by path
+  if (list.some(p => samePlace(p.path, place.path))) return list;   // dedupe by path
   return [...list, place];
 }
 
 export function removePlace(list: Place[], path: string): Place[] {
-  return list.filter(p => p.path !== path);
+  return list.filter(p => !samePlace(p.path, path));
 }
 
 export function renamePlace(list: Place[], path: string, label: string): Place[] {

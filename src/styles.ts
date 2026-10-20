@@ -190,8 +190,9 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm)}
 .fe-sv-dot{width:9px;height:9px;border-radius:50%;cursor:pointer;flex-shrink:0;box-shadow:0 0 0 1px #0004}
 .fe-sv-dot:hover{transform:scale(1.25)}
-.fe-pl-dots{display:flex;gap:3px;margin-left:auto;padding-right:2px}
+.fe-pl-dots{display:flex;align-items:center;gap:3px;margin-left:auto;padding-right:2px;flex:none}
 .fe-sv-mini{width:6px;height:6px;border-radius:50%;display:inline-block}
+.fe-sv-more{font-size:calc(10px * var(--ui-text-scale,1));color:var(--dm);line-height:6px}
 .fe-pl-tags{display:none;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);min-width:60px;max-width:110px;white-space:nowrap;overflow:hidden}
 .fe-pl-tags.show{display:inline-block}
 .fe-tag-btn{background:none;border:none;color:var(--dm);cursor:pointer;padding:4px 4px;font-size:calc(12px * var(--ui-text-scale,1));opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
@@ -250,6 +251,10 @@ body.fe-col-dragging{cursor:col-resize;user-select:none}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
 td.c-tg{white-space:nowrap;overflow:hidden}
+/* Named chips give up width (ending in …) before the +N count does. */
+.fe-chips{display:flex;min-width:0;overflow:hidden}
+.fe-chips .fe-chip{display:block;flex:0 1 auto;min-width:28px;overflow:hidden;text-overflow:ellipsis;line-height:16px}
+.fe-chips .fe-chip-more{flex:none;min-width:0}
 .fe-chip{display:inline-flex;align-items:center;height:18px;padding:0 7px;margin-right:4px;border:1px solid color-mix(in srgb,var(--chip,var(--bd2)) 55%,transparent);
   border-radius:9px;font-size:calc(11px * var(--ui-text-scale,1));color:var(--mt);line-height:1}
 .c-match{display:none;text-align:right;width:72px;color:var(--dm)}
