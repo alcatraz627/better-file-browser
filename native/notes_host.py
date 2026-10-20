@@ -169,11 +169,25 @@ def op_read(root, rel):
     return {'t': 'note', 'rel': rel, 'text': text, 'mtime': mtime_ms(full)}
 
 def atomic_write(full, text):
+    """Replace a file's text in one step, keeping its permission bits (an
+    executable script stays executable)."""
     os.makedirs(os.path.dirname(full), exist_ok=True)
     tmp = full + '.tmp-' + str(os.getpid())
-    with open(tmp, 'w', encoding='utf-8') as fh:
+    with open(tmp, 'w', encoding='utf-8', newline='') as fh:
         fh.write(text)
+    if os.path.exists(full):
+        os.chmod(tmp, os.stat(full).st_mode & 0o7777)
     os.replace(tmp, full)
+
+def check_editable(full, raw):
+    """Refuse files an edit would damage: read-only ones, and ones that are not
+    valid UTF-8 (saving would replace the bad bytes for good)."""
+    if not os.access(full, os.W_OK):
+        raise NotesError('notes_bad_path', 'this file is read-only, so it is not edited here')
+    try:
+        raw.decode('utf-8')
+    except UnicodeDecodeError:
+        raise NotesError('notes_bad_path', 'this file is not UTF-8 text, so it is not edited here')
 
 def op_write(root, rel, text, expect_mtime=None):
     full = resolve_rel(root, rel)
@@ -209,6 +223,10 @@ def op_file_write(root, rel, text, expect_mtime):
         old = fh.read()
     if b'\0' in old[:8192]:
         raise NotesError('notes_bad_path', 'binary files are not edited here')
+    check_editable(full, old)
+    # The editor works in \n; a file that used CRLF is written back with CRLF.
+    if b'\r\n' in old:
+        text = text.replace('\r\n', '\n').replace('\n', '\r\n')
     day = time.strftime('%Y%m%d')
     dst = os.path.join(BACKUP_DIR, day, full.lstrip('/') + time.strftime('.%H%M%S'))
     os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -234,8 +252,11 @@ def op_file_read(root, rel):
         raise NotesError('notes_missing', f'no such file: {rel}')
     if os.path.getsize(full) > FILE_MAX:
         raise NotesError('notes_bad_path', 'files over 2 MB are not edited here')
-    with open(full, 'r', encoding='utf-8', errors='replace') as fh:
-        return {'t': 'file', 'rel': rel, 'text': fh.read(), 'mtime': mtime_ms(full)}
+    with open(full, 'rb') as fh:
+        raw = fh.read()
+    check_editable(full, raw)
+    text = raw.decode('utf-8').replace('\r\n', '\n')
+    return {'t': 'file', 'rel': rel, 'text': text, 'mtime': mtime_ms(full)}
 
 def op_search(root, query):
     """Notes whose text holds every word of the query (any case), newest first, each with its first matching line."""

@@ -180,5 +180,35 @@ with mock.patch.object(nh.subprocess, 'run', return_value=mock.Mock(returncode=1
     try: nh.run_picker(None); check(False, 'a failed chooser raises')
     except nh.NotesError as e: check(e.code == 'notes_io', 'a failed chooser is notes_io')
 
+# Saving an edited file keeps what the editor cannot see: line endings, the
+# executable bit. Files a save would damage are refused before editing starts.
+ed = tempfile.mkdtemp(prefix='bfb-edit-')
+def put(name, data, mode=0o644):
+    p = os.path.join(ed, name)
+    with open(p, 'wb') as fh: fh.write(data)
+    os.chmod(p, mode)
+    return p
+def save(name, text):
+    r = nh.handle({'op': 'fileRead', 'root': ed, 'rel': name})
+    return nh.handle({'op': 'fileWrite', 'root': ed, 'rel': name, 'text': text, 'expectMtime': r['mtime']})
+with mock.patch.object(nh, 'BACKUP_DIR', os.path.join(ed, '.backups')):
+    p = put('crlf.txt', b'one\r\ntwo\r\n')
+    r = nh.handle({'op': 'fileRead', 'root': ed, 'rel': 'crlf.txt'})
+    check(r['text'] == 'one\ntwo\n', f'a CRLF file reaches the editor with plain newlines: {r["text"]!r}')
+    save('crlf.txt', 'one\ntwo\nthree\n')
+    check(open(p, 'rb').read() == b'one\r\ntwo\r\nthree\r\n', f'a CRLF file is saved with CRLF: {open(p, "rb").read()!r}')
+    p = put('lf.txt', b'a\nb\n')
+    save('lf.txt', 'a\nb\nc\n')
+    check(open(p, 'rb').read() == b'a\nb\nc\n', 'an LF file stays LF')
+    p = put('run.sh', b'echo hi\n', 0o755)
+    save('run.sh', 'echo bye\n')
+    check(os.stat(p).st_mode & 0o777 == 0o755, f'an executable script stays executable: {oct(os.stat(p).st_mode & 0o777)}')
+    put('bad.txt', b'hi\xff\xfe (\n')
+    r = call({'op': 'fileRead', 'root': ed, 'rel': 'bad.txt'})
+    check(r['t'] == 'error' and 'UTF-8' in r['message'], f'a file that is not UTF-8 is refused before editing: {r}')
+    p = put('ro.md', b'# ro\n', 0o444)
+    r = call({'op': 'fileRead', 'root': ed, 'rel': 'ro.md'})
+    check(r['t'] == 'error' and 'read-only' in r['message'] and os.stat(p).st_mode & 0o777 == 0o444, f'a read-only file is refused and keeps its mode: {r}')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)
