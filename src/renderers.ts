@@ -305,11 +305,31 @@ export function renderCode(src: string, ext: string): string {
   let truncNote = '';
   if (src.length > RENDER_CAPS.codeChars) {
     src = src.slice(0, RENDER_CAPS.codeChars);
-    truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.codeChars.toLocaleString()} characters — open the raw file for the rest.</div>`;
+    truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.codeChars.toLocaleString()} characters. Open the raw file for the rest.</div>`;
   }
-  const lines = src.split('\n').length;
-  const gutter = Array.from({ length: lines }, (_, i) => i + 1).join('\n');
-  return `${truncNote}<div class="fe-code-wrap"><pre class="fe-code-gut">${gutter}</pre><pre class="fe-code">${highlightCode(src, ext)}</pre></div>`;
+  // One row per line, number beside text, so a wrapped line keeps one number
+  // (wrapping is a setting: #fe[data-wrap="on"]).
+  const rows = splitHighlighted(highlightCode(src, ext));
+  const gut = String(rows.length).length + 1;
+  return `${truncNote}<div class="fe-code-wrap" style="--gut:${gut}ch"><div class="fe-code">${rows.map((r, i) =>
+    `<div class="fe-cl"><span class="fe-cl-n">${i + 1}</span><span class="fe-cl-t">${r || ' '}</span></div>`).join('')}</div></div>`;
+}
+
+// Split highlighted HTML into one string per source line, closing the open
+// token spans at each line end and reopening them on the next line.
+export function splitHighlighted(html: string): string[] {
+  const out: string[] = [];
+  const open: string[] = [];
+  let line = '';
+  const re = /<span[^>]*>|<\/span>|\n|[^<\n]+|</g;
+  for (const m of html.match(re) ?? []) {
+    if (m === '\n') { out.push(line + '</span>'.repeat(open.length)); line = open.join(''); }
+    else if (m.startsWith('<span')) { open.push(m); line += m; }
+    else if (m === '</span>') { open.pop(); line += m; }
+    else line += m;
+  }
+  out.push(line);
+  return out;
 }
 
 // ── Delimiter-separated values (.tsv / .csv) ────────────────────────

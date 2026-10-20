@@ -123,6 +123,7 @@ export function renderFileContent(): string {
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
         <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
+        <button id="fe-fp-wrap" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
         <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
         <span id="fe-ff" title="Find in this file (/) · Enter next · Shift+Enter previous · Esc clears">
@@ -332,14 +333,33 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   };
   editBtn.addEventListener('click', () => void edit());
   rawBtn.addEventListener('click', toggleRaw);
+  // Wrap applies to every code view, here and in previews, and is remembered.
+  const wrapBtn = document.getElementById('fe-fp-wrap')!;
+
+  const syncWrap = () => wrapBtn.classList.toggle('on', fe.dataset.wrap === 'on');
+  syncWrap();
+  wrapBtn.addEventListener('click', () => {
+    const s = getSettings();
+    s.wrapLines = fe.dataset.wrap !== 'on';
+    fe.dataset.wrap = s.wrapLines ? 'on' : 'off';
+    saveSettings(s); syncWrap();
+  });
   document.getElementById('fe-fp-copy')!.addEventListener('click', () => {
     copyToClipboard(text).then(ok => { document.getElementById('fe-status-text')!.textContent = ok ? 'copied' : 'copy failed'; });
   });
 
   // Autoreload: while the tab is visible, poll the file and re-render on change.
   const reloadEl = document.getElementById('fe-fp-reload')!;
+  // Silent while all is well: it says "Updated from disk" for a moment after
+  // a reload, and stays only while the file cannot be watched.
+  let liveTimer = 0;
   const live = (ok: boolean, label: string) => {
-    reloadEl.innerHTML = `<span class="fe-live-dot"${ok ? '' : ' style="background:var(--dm)"'}></span>${label}`;
+    clearTimeout(liveTimer);
+    reloadEl.hidden = false;
+    reloadEl.classList.toggle('off', !ok);
+    reloadEl.textContent = ok ? 'Updated from disk' : 'Not watching for changes';
+    reloadEl.title = label;
+    if (ok) liveTimer = window.setTimeout(() => { reloadEl.hidden = true; }, 4000);
   };
   setInterval(() => {
     if (document.visibilityState !== 'visible' || editor) return;

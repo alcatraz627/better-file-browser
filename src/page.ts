@@ -488,7 +488,7 @@ export function renderPage(p: PageParams): string {
         ${fileMode ? '<span id="fe-status-meta"></span>' : ''}
         <span id="fe-status-text">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <span class="fe-status-grow"></span>
-        ${fileMode ? '<span id="fe-fp-reload" title="Re-rendered when the file changes on disk"><span class="fe-live-dot"></span>live</span>' : ''}
+        ${fileMode ? '<span id="fe-fp-reload" hidden></span>' : ''}
         <button type="button" id="fe-status-path" title="Click to copy the path"><bdi>${esc(rawPath)}</bdi></button>
       </div>
     </div>

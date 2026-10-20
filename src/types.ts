@@ -45,6 +45,7 @@ export interface Settings {
   hideRecent?: boolean;              // the History lens off
   hideFavorites?: boolean; hideSystem?: boolean;   // no longer read: Places replaced both sections
   sidebarRail?: boolean;             // sidebarWidth already includes the lens rail
+  wrapLines?: boolean;               // fold long lines in raw, code and previews (default on)
   clickOpens?: 'look' | 'go';        // a plain click on a file: the panel, or its page
   readerColumn?: boolean | 'unset' | 'xl' | 'lg' | 'md';
   readerSize?: number;               // file page body size in px

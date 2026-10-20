@@ -229,7 +229,7 @@ describe('highlightCode', () => {
 describe('renderCode', () => {
   it('renders a line-number gutter matching the line count', () => {
     const html = renderCode('a\nb\nc', 'txt');
-    expect(html).toContain('>1\n2\n3</pre>');
+    expect([...html.matchAll(/class="fe-cl-n">(\d+)</g)].map(m => m[1])).toEqual(['1', '2', '3']);   // one number per line row
   });
   it('notes truncation past the char cap', () => {
     const html = renderCode('x'.repeat(RENDER_CAPS.codeChars + 1), 'txt');

@@ -7,7 +7,7 @@ const MAX_HITS = 2000;
 export interface FindInPage { refresh(): void; clear(): void; focus(): void }
 
 // Never searched: code, the line-number gutters, and anything not drawn.
-const SKIP = 'script,style,svg,textarea,.fe-code-gut,.fe-jl-n,.fe-fe-ln,[hidden]';
+const SKIP = 'script,style,svg,textarea,.fe-cl-n,.fe-jl-n,.fe-fe-ln,[hidden]';
 // A match may run across inline formatting and syntax colours, but not from
 // one of these into the next.
 const BLOCK = 'p,li,dt,dd,h1,h2,h3,h4,h5,h6,td,th,tr,pre,blockquote,div,section,article,summary,figcaption';

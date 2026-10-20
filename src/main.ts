@@ -146,6 +146,7 @@ loadKv().catch(() => {}).then(function () {
   preload?.remove();
 
   const fe = el('fe');
+  fe.dataset.wrap = settings.wrapLines === false ? 'off' : 'on';
   // A width saved before the lens rail existed is widened once by the rail's
   // 52px, so the lists keep the room they had.
   if (settings.sidebarWidth && !settings.sidebarRail) { settings.sidebarWidth += 52; settings.sidebarRail = true; saveSettings(settings); }

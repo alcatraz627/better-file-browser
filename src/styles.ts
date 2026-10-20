@@ -376,18 +376,21 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-act-btn:hover{background:var(--s3);color:var(--tx)}
 .fe-row td.c-nm{position:relative}
-#fe-statusbar{display:flex;align-items:center;gap:14px;min-height:28px;padding:0 6px 0 14px;
+#fe-statusbar{display:flex;align-items:center;gap:14px;min-height:30px;padding:0 14px;
   background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);white-space:nowrap;overflow:hidden}
 #fe-status-meta{display:flex;align-items:center;gap:14px}
 .fe-meta-item{display:inline-flex;align-items:center;gap:5px}
 .fe-meta-item svg{color:var(--dm)}
 .fe-status-grow{flex:1}
-#fe-fp-reload{display:inline-flex;align-items:center;gap:6px;color:var(--dm)}
-.fe-live-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+#fe-fp-reload{color:var(--green);animation:fe-fade-in var(--t-base) var(--ease)}
+#fe-fp-reload[hidden]{display:none}
+#fe-fp-reload.off{color:var(--dm)}
+@keyframes fe-fade-in{from{opacity:0}to{opacity:1}}
+/* The path reads as a link: pointer, accent and underline on hover; a click copies it. */
 #fe-status-path{min-width:0;max-width:60%;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;
-  height:22px;padding:0 8px;border:0;border-radius:6px;background:none;color:var(--mt);font:inherit;cursor:copy;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-#fe-status-path:hover{background:var(--shade);color:var(--tx)}
+  height:22px;padding:0;border:0;background:none;color:var(--mt);font:inherit;cursor:pointer;
+  text-decoration:underline transparent;text-underline-offset:3px;transition:color var(--t-fast) var(--ease),text-decoration-color var(--t-fast) var(--ease)}
+#fe-status-path:hover{color:var(--ac);text-decoration-color:currentColor}
 #fe-tip{
   position:fixed;pointer-events:none;z-index:200;
   background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);
@@ -802,10 +805,14 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-ql-center audio{width:min(480px,90%)}
 .fe-ql-font{padding:20px 26px;overflow:auto;line-height:1.5}
 .fe-ql-font>div{margin:6px 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:6px}
-.fe-code-wrap{display:flex;font:calc(11.5px * var(--ui-text-scale,1))/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
-.fe-code-gut{padding:10px 8px 14px 12px;text-align:right;color:var(--dm);user-select:none;
-  border-right:1px solid var(--bd);background:var(--s2);min-width:34px;flex-shrink:0}
-.fe-code{padding:10px 14px 14px;white-space:pre;flex:1}
+.fe-code-wrap{font:calc(11.5px * var(--ui-text-scale,1))/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
+.fe-code{padding:10px 14px 14px 0;width:max-content;min-width:100%}
+.fe-cl{display:grid;grid-template-columns:calc(var(--gut,4ch) + 22px) minmax(0,1fr)}
+.fe-cl-n{position:sticky;left:0;padding:0 10px 0 12px;text-align:right;color:var(--dm);user-select:none;background:var(--card)}
+.fe-cl-t{white-space:pre;padding-left:10px}
+/* Wrap (Settings, and the file bar toggle): long lines fold inside the page. */
+#fe[data-wrap="on"] .fe-code{width:auto}
+#fe[data-wrap="on"] .fe-cl-t{white-space:pre-wrap;overflow-wrap:anywhere}
 .tok-cmt{color:var(--mt);font-style:italic}
 .tok-str{color:#7ee787}
 .tok-kw{color:#ff7b72}

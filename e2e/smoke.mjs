@@ -589,13 +589,13 @@ try {
     tocShown: getComputedStyle(document.getElementById('fe-toc')).display !== 'none',
     status: document.getElementById('fe-fp-reload').textContent,
   }));
-  check(reloaded.h2 === 'Added later' && reloaded.tocShown && reloaded.tocLinks.join() === 'Fixture,Added later' && /reloaded/.test(reloaded.status),
+  check(reloaded.h2 === 'Added later' && reloaded.tocShown && reloaded.tocLinks.join() === 'Fixture,Added later' && /Updated from disk/.test(reloaded.status),
     `autoreload re-rendered with a ToC: ${JSON.stringify(reloaded)}`);
   await shot(fpage, 'file-page-md');
   await fpage.goto('file://' + h.fixture + '/code.py', { waitUntil: 'load' });
   await fpage.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);
   const codePage = await fpage.evaluate(() => ({
-    gutter: document.querySelector('#fe-page .fe-code-gut')?.textContent.trim().split('\n').length,
+    gutter: document.querySelectorAll('#fe-page .fe-cl-n').length,
     kw: !!document.querySelector('#fe-page .fe-code span'),
   }));
   check(codePage.gutter === 3 && codePage.kw, `code page has a gutter and highlighting: ${JSON.stringify(codePage)}`);

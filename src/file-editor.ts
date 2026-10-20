@@ -5,7 +5,7 @@
 // floating pill holds the save state, a preview toggle and Done, and the text
 // saves itself shortly after you stop typing (⌘S saves at once).
 import { esc } from './utils';
-import { renderMarkdown, highlightCode } from './renderers';
+import { renderMarkdown, highlightCode, splitHighlighted } from './renderers';
 import { notes, NotesError } from './notes';
 import { attachBuffer, indentLines } from './editor';
 import { UI_ICON } from './control-icons';
@@ -15,22 +15,7 @@ const AUTOSAVE_MS = 800;
 // at 14,000 lines and 20 s at 40,000, so longer files are refused for now.
 const EDIT_MAX_LINES = 15000;
 
-// Split highlighted HTML into one string per source line, closing the open
-// token spans at each line end and reopening them on the next line.
-export function splitHighlighted(html: string): string[] {
-  const out: string[] = [];
-  const open: string[] = [];
-  let line = '';
-  const re = /<span[^>]*>|<\/span>|\n|[^<\n]+|</g;
-  for (const m of html.match(re) ?? []) {
-    if (m === '\n') { out.push(line + '</span>'.repeat(open.length)); line = open.join(''); }
-    else if (m.startsWith('<span')) { open.push(m); line += m; }
-    else if (m === '</span>') { open.pop(); line += m; }
-    else line += m;
-  }
-  out.push(line);
-  return out;
-}
+export { splitHighlighted };
 
 /** The allowed folder holding `path`, or null; ~ and trailing slashes are tolerated.
  *  An entry naming the file itself allows that file alone, with its folder as root. */
