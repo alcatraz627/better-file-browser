@@ -41,7 +41,7 @@ export function renderPage(p: PageParams): string {
   };
 
   const viewBtnsHTML = VIEW_MODES.map(v =>
-    `<button class="fe-view-btn" data-view="${v.id}" title="${v.label} view — ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
+    `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view — ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
   ).join('');
 
   const FINDER_FAVORITES = [
@@ -306,20 +306,20 @@ export function renderPage(p: PageParams): string {
 <div id="fe" data-theme="${initTheme}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ''}>
 
   <div id="fe-bar">
-    <button id="fe-side-toggle" title="Show or hide the sidebar"><svg width="15" height="15" viewBox="0 0 15 15"><path d="M2 4h11M2 7.5h11M2 11h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+    <button id="fe-side-toggle" data-icon title="Show or hide the sidebar"><svg width="15" height="15" viewBox="0 0 15 15"><path d="M2 4h11M2 7.5h11M2 11h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
     <div id="fe-bc">${renderCrumbs(folderPath, segments)}${fileMode ? `<span class="fe-sep">›</span><span class="fe-crumb fe-crumb-file">${esc(fileName)}</span>` : ''}</div>
-    <button id="fe-term-btn" title="Open in terminal (${settings.terminalApp || 'ghostty'}), click opens the current folder, shift-click copies the command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    <button id="fe-bm-btn" class="${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? `Remove this ${fileMode ? 'file' : 'folder'} from Saved` : `Save this ${fileMode ? 'file' : 'folder'} (sidebar)`}">
+    <button id="fe-term-btn" data-icon title="Open in terminal (${settings.terminalApp || 'ghostty'}), click opens the current folder, shift-click copies the command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button id="fe-bm-btn" data-icon class="${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? `Remove this ${fileMode ? 'file' : 'folder'} from Saved` : `Save this ${fileMode ? 'file' : 'folder'} (sidebar)`}">
       <svg width="13" height="13" viewBox="0 0 13 13"><path id="fe-bm-path" d="M2.5 1h8v11l-4-2.8L2.5 12z" fill="${curIsBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
     </button>
-    <button id="fe-theme-btn" title="Toggle theme — currently ${initTheme === 'light' ? 'Light' : 'Dark'}">
+    <button id="fe-theme-btn" data-icon title="Toggle theme — currently ${initTheme === 'light' ? 'Light' : 'Dark'}">
       <svg id="fe-sun" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M10.1 2.9l-1 1M3.9 10.1l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
       <svg id="fe-moon" width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 8.5A5 5 0 0 1 5.5 2.5a5 5 0 1 0 6 6z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
     </button>
-    <button id="fe-help-btn" title="Help (press ?), what's here and how to use it">
+    <button id="fe-help-btn" data-icon title="Help (press ?), what's here and how to use it">
       <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.2 5.2a1.9 1.9 0 1 1 2.6 1.8c-.6.3-.8.6-.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="10.3" r="0.9" fill="currentColor"/></svg>
     </button>
-    <button id="fe-settings-btn" title="Settings (press ,), theme, views, terminal, icon rules">
+    <button id="fe-settings-btn" data-icon title="Settings (press ,), theme, views, terminal, icon rules">
       <svg width="14" height="14" viewBox="0 0 14 14"><path d="M8.5 1H5.5L4.5 2.8 2.5 4 1 5.5v3L2.5 10l2 1.2L5.5 13h3l1-1.8 2-1.2L13 8.5v-3L11.5 4l-2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
     </button>
   </div>
@@ -362,10 +362,10 @@ export function renderPage(p: PageParams): string {
             <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11M2 5h9M3.5 8h6M5.5 11h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
             Sort
           </button>
-          <button id="fe-filter-btn" title="Filter — Filter by filename pattern or file type">
+          <button id="fe-filter-btn" data-icon title="Filter — Filter by filename pattern or file type">
             <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11l-4.5 5v4l-2-1V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
           </button>
-          <button id="fe-hidden-btn" class="${initHidden ? 'on' : ''}" title="Hidden files: ${initHidden ? 'showing' : 'hiding'} dotfiles · click to toggle">
+          <button id="fe-hidden-btn" data-icon class="${initHidden ? 'on' : ''}" title="Hidden files: ${initHidden ? 'showing' : 'hiding'} dotfiles · click to toggle">
             <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="6.5" cy="6.5" r="2" fill="${initHidden ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.3"/></svg>
           </button>
           <div id="fe-zoom-wrap" title="Zoom: ${initZoom}% · drag to scale the list (50 to 320%)">
@@ -374,7 +374,7 @@ export function renderPage(p: PageParams): string {
             <span id="fe-zoom-val">${initZoom}%</span>
           </div>
           <div id="fe-view-group">${viewBtnsHTML}</div>
-          <button id="fe-deep-btn" title="Deep search: include every subfolder in the filter">
+          <button id="fe-deep-btn" data-icon title="Deep search: include every subfolder in the filter">
             <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 2.5h4l1 1.2h6v7H1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3.5 6h3l.8 1h2.7v2.5H3.5z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
           </button>
           <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Quick filter — Type to filter files by name in any view"/>

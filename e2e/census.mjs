@@ -28,7 +28,7 @@ function collect(surface) {
         iconOnly: hasIcon && !text, text: text.slice(0, 24),
         label: e.getAttribute('title') || e.getAttribute('aria-label') || '',
         w: Math.round(r.width), h: Math.round(r.height),
-        radius: s.borderTopLeftRadius, border: s.borderTopWidth !== '0px' && s.borderTopStyle !== 'none' ? s.borderTopWidth : '0',
+        radius: s.borderTopLeftRadius, border: s.borderTopWidth !== '0px' && s.borderTopStyle !== 'none' && !/rgba\(0, 0, 0, 0\)|transparent/.test(s.borderTopColor) ? s.borderTopWidth : '0',
         bg: s.backgroundColor, font: s.fontSize, weight: s.fontWeight, transition: s.transitionDuration,
       };
     });

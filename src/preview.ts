@@ -105,10 +105,10 @@ export function initPreview(d: PreviewDeps): void {
         <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">${UI_ICON.external}<span>open raw</span></a>
         <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>open</span></button>
         <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>tab</span></button>
-        <button id="fe-ql-dock" title="Dock the preview to the side">
+        <button id="fe-ql-dock" data-icon title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
-        <button id="fe-ql-close" title="Close (Esc)">✕</button>
+        <button id="fe-ql-close" data-icon title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div id="fe-ql-rz" title="Drag to resize"></div>
       <div id="fe-ql-rz-side" title="Drag to resize"></div>
