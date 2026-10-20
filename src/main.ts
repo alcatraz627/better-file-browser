@@ -5,7 +5,9 @@ import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
   getView, getTheme, getPalette, getZoom, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
+  homeDir, setHomeDir,
 } from './storage';
+import { notes } from './notes';
 import { initPreview } from './preview';
 import { CSS } from './styles';
 import { esc, pageHref, fileHref } from './utils';
@@ -15,7 +17,7 @@ import { filePageExt, filePagesEnabled, mountFileContent } from './file-page';
 import { fetchFileText } from './file-fetch';
 import { mountStrip, type Strip } from './strip';
 import { makeToast } from './toast';
-import { renderPage } from './page';
+import { renderPage, placesHTML } from './page';
 import { el } from './el';
 import type { App } from './app';
 import { initChrome } from './chrome';
@@ -199,6 +201,15 @@ loadKv().catch(() => {}).then(function () {
   initListingInput(app, listing);
   initSettingsUi(app);
   initSidebar(app);
+  // Before any visit under home, ask the native host where home is, so Places
+  // offers Home, Desktop and the rest from the first page.
+  if (!homeDir(rawPath)) {
+    notes.home().then(home => {
+      if (!setHomeDir(home)) return;
+      const list = document.querySelector('#fe-lens-places .fe-sec[data-sec="places"]');
+      if (list) list.innerHTML = placesHTML(home, rawPath);
+    }).catch(() => { /* no host installed: Places waits for a visit under home */ });
+  }
 
   // Apply the saved view after all listing handlers exist.
   listing.applyAll();

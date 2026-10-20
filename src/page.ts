@@ -20,6 +20,31 @@ export interface PageParams {
   entries: Entry[]; ctx: RenderContext;
 }
 
+/** The Places list: Home and the Finder favourites under it, then
+ *  Applications and Root. Paths under Home are relative, so nothing names one
+ *  account; with no home known yet, only Applications and Root show. */
+export function placesHTML(home: string, rawPath: string): string {
+  const places = [
+    ...(home ? [
+      { label: 'Home',                icon: 'home',   sub: '' },
+      { label: 'Desktop',             icon: 'desk',   sub: 'Desktop/' },
+      { label: 'Documents',           icon: 'docs',   sub: 'Documents/' },
+      { label: 'Downloads',           icon: 'down',   sub: 'Downloads/' },
+      { label: 'Pictures',            icon: 'pics',   sub: 'Pictures/' },
+      { label: 'Screenshots',         icon: 'scrnsh', sub: 'Pictures/Screenshots/' },
+      { label: 'Code',                icon: 'code',   sub: 'Code/' },
+      { label: 'Versable',            icon: 'folder', sub: 'Code/Versable/' },
+      { label: 'enhancement-product', icon: 'folder', sub: 'Code/Versable/enhancement-product/' },
+      { label: 'resumes',             icon: 'docs',   sub: 'Code/Claude/resumes/' },
+    ].map(p => ({ label: p.label, icon: p.icon, href: fileHref(home + '/' + p.sub) })) : []),
+    { label: 'Applications', icon: 'apps', href: 'file:///Applications/' },
+    { label: 'Root /',       icon: 'root', href: 'file:///' },
+  ];
+  return places.map(p =>
+    `<a href="${p.href}" class="fe-si${p.href.replace(/\/$/, '') === fileHref(rawPath).replace(/\/$/, '') ? ' active' : ''}" title="${esc(p.label)}\n${esc(p.href)}">${(PI[p.icon] ?? PI.folder)}<span class="fe-sl">${esc(p.label)}</span></a>`
+  ).join('');
+}
+
 export function renderPage(p: PageParams): string {
   const { initTheme, initPalette, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
   const ALL_ENTRIES = p.entries;
@@ -44,25 +69,6 @@ export function renderPage(p: PageParams): string {
     `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view — ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
   ).join('');
 
-  // Places: Home and the Finder favourites under it, then Applications and
-  // Root. Paths under Home are relative, so nothing names one account.
-  const home = homeDir(rawPath);
-  const PLACES = [
-    ...(home ? [
-      { label: 'Home',                icon: 'home',   sub: '' },
-      { label: 'Desktop',             icon: 'desk',   sub: 'Desktop/' },
-      { label: 'Documents',           icon: 'docs',   sub: 'Documents/' },
-      { label: 'Downloads',           icon: 'down',   sub: 'Downloads/' },
-      { label: 'Pictures',            icon: 'pics',   sub: 'Pictures/' },
-      { label: 'Screenshots',         icon: 'scrnsh', sub: 'Pictures/Screenshots/' },
-      { label: 'Code',                icon: 'code',   sub: 'Code/' },
-      { label: 'Versable',            icon: 'folder', sub: 'Code/Versable/' },
-      { label: 'enhancement-product', icon: 'folder', sub: 'Code/Versable/enhancement-product/' },
-      { label: 'resumes',             icon: 'docs',   sub: 'Code/Claude/resumes/' },
-    ].map(p => ({ label: p.label, icon: p.icon, href: fileHref(home + '/' + p.sub) })) : []),
-    { label: 'Applications', icon: 'apps', href: 'file:///Applications/' },
-    { label: 'Root /',       icon: 'root', href: 'file:///' },
-  ];
   const lensHead = (title: string, sub: string, actions = '') =>
     `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b><i>${sub}</i></span>${actions}</div>`;
   const railBtn = (lens: string, label: string, icon: string, hint: string, hidden = false) =>
@@ -350,9 +356,7 @@ export function renderPage(p: PageParams): string {
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
         ${lensHead('Places', 'Where you can go')}
         <div class="fe-sec" data-sec="places">
-        ${PLACES.map(p =>
-          `<a href="${p.href}" class="fe-si${p.href.replace(/\/$/, '') === 'file://' + rawPath.replace(/\/$/, '') ? ' active' : ''}" title="${esc(p.label)}\n${esc(p.href)}">${(PI[p.icon] ?? PI.folder)}<span class="fe-sl">${esc(p.label)}</span></a>`
-        ).join('')}
+        ${placesHTML(homeDir(rawPath), rawPath)}
         </div>
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>

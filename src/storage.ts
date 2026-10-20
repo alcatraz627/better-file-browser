@@ -106,6 +106,12 @@ export function homeDir(path: string): string {
   }
   return kvGet(HOME_KEY) ?? '';
 }
+/** Remember a home folder reported by the native host; returns whether it was taken. */
+export function setHomeDir(home: string): boolean {
+  if (!/^\/Users\/[^/]+$/.test(home) || home === '/Users/Shared') return false;
+  kvSet(HOME_KEY, home);
+  return true;
+}
 
 export function getColWidths(): Record<string, number> {
   try { return JSON.parse(kvGet(COL_WIDTHS_KEY) ?? '{}'); }

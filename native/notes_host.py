@@ -390,6 +390,7 @@ def run_picker(start):
 def handle(msg):
     op = msg.get('op')
     if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'))}
+    if op == 'home': return {'t': 'home', 'home': os.path.expanduser('~')}
     root = resolve_root(msg.get('root'))
     if op == 'stat':   return op_stat(root)
     if op == 'list':   return {'t': 'list', 'notes': list_notes(root)}

@@ -180,6 +180,9 @@ with mock.patch.object(nh.subprocess, 'run', return_value=mock.Mock(returncode=1
     try: nh.run_picker(None); check(False, 'a failed chooser raises')
     except nh.NotesError as e: check(e.code == 'notes_io', 'a failed chooser is notes_io')
 
+r = call({'op': 'home'})
+check(r == {'t': 'home', 'home': os.path.expanduser('~')}, f'home reports the account folder and needs no root: {r}')
+
 # Saving an edited file keeps what the editor cannot see: line endings, the
 # executable bit. Files a save would damage are refused before editing starts.
 ed = tempfile.mkdtemp(prefix='bfb-edit-')
