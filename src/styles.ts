@@ -977,6 +977,60 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-tile.selected{border-color:transparent}
 .fe-hist-row.active{border-color:transparent}
 
+/* One row and one floating surface. Every list row (Places, Saved, Notes,
+   History, the path menu, context menus) shares a height, inset, corner,
+   icon size, text size and hover wash; in the sidebar a row sits 6px in from
+   the card edge, in a menu the menu's own 6px padding gives the same inset.
+   Every popover, menu, tip and the Contents card share one surface. Notes
+   rows grow to fit a tag line but keep the inset and corners. */
+:root{--row-h:32px;--row-r:8px;--row-px:10px;--row-gap:10px;--row-ic:16px;--row-fs:calc(13px * var(--ui-text-scale,1));
+  --pop-r:12px;--pop-pad:6px;--pop-bg:color-mix(in srgb,var(--card) 90%,transparent);--pop-bd:var(--bd2);
+  --pop-sh:0 12px 32px rgb(0 0 0 / .34),0 1px 3px rgb(0 0 0 / .2);--pop-blur:blur(16px) saturate(1.2)}
+#fe[data-theme="light"],html:has(#fe[data-theme="light"]){--pop-bg:color-mix(in srgb,var(--card) 94%,transparent);--pop-bd:var(--bd);
+  --pop-sh:0 10px 28px rgb(16 24 32 / .12),0 1px 3px rgb(16 24 32 / .08)}
+.fe-si,.fe-bm-item,.fe-dd-item,.fe-ctx-item{min-height:var(--row-h);margin:0 6px;padding:0 var(--row-px);gap:var(--row-gap);
+  border-radius:var(--row-r);font-size:var(--row-fs);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-dd-item,.fe-ctx-item{margin:0}
+button.fe-si{width:auto;display:flex}
+.fe-si:hover,.fe-bm-item:hover,.fe-dd-item:hover,.fe-ctx-item:hover{background:var(--hover)}
+.fe-bm-item:has(> .fe-si-link.active){background:var(--act)}
+.fe-si > svg,.fe-si-link > svg,.fe-dd-item > svg,.fe-ctx-item > svg{width:var(--row-ic);height:var(--row-ic);flex:none}
+.fe-sl{font-size:var(--row-fs)}
+.fe-si-link{padding:0;gap:var(--row-gap);min-height:var(--row-h)}
+.fe-nt-item .fe-si-link{padding:6px 0}
+.fe-pl-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
+.fe-pl-item .fe-rm-btn{padding:4px 0 4px 4px}
+/* A note row's actions float over the end of the title on a solid fade, so
+   nothing moves under the pointer on hover. In a narrow sidebar only delete
+   shows; colour and open-in-tab stay in the right-click menu. */
+.fe-nt-item .fe-nt-acts{right:4px;border-radius:0 var(--row-r) var(--row-r) 0;padding-left:14px;
+  background:linear-gradient(to right,transparent,color-mix(in srgb,var(--side),var(--tx) 6%) 14px)}
+.fe-nt-item:has(> .fe-si-link.active) .fe-nt-acts{background:linear-gradient(to right,transparent,color-mix(in srgb,var(--side),var(--ac) 18%) 14px)}
+.fe-nt-item:has(.editing) .fe-nt-acts{display:none}
+.fe-nt-item .fe-rm-btn{padding:4px 6px}
+#fe-lenses{container:lens/inline-size}
+@container lens (max-width:200px){.fe-nt-props,.fe-nt-tab{display:none!important}}
+.fe-grp{margin:4px 6px}
+.fe-grp .fe-bm-item{margin:0 4px}
+.fe-grp > summary{border-radius:var(--row-r);margin:2px 2px 0;transition:background var(--t-fast) var(--ease)}
+.fe-grp > summary:hover{background:var(--hover)}
+.fe-sh{padding:10px 16px 4px}
+.fe-lens-h{padding:6px 12px 8px 16px}
+.fe-hint{padding:6px 16px}
+#fe-lens-filter{width:calc(100% - 12px);margin:2px 6px 8px;height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
+.fe-lens-tags{padding:0 6px 8px}
+#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);
+  backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);color:var(--tx)}
+#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-allow,#fe-toc-rail{border-radius:var(--pop-r)}
+#fe-crumb-menu,#fe-ctx,.fe-ctx{padding:var(--pop-pad)}
+#fe-hint{border-radius:var(--row-r);padding:5px 10px}
+.fe-dd-search-wrap{padding:0 0 6px;margin-bottom:4px}
+.fe-dd-search{height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
+.fe-dd-items{padding:0}
+.fe-ctx-sep{margin:4px 4px}
+.fe-toast-act{color:var(--ac)}
+
 /* Narrow windows keep the reading column usable: the listing drops its
    lesser columns, Contents gives way to the text, and the sidebar is held
    to a share of the width (max-width beats a dragged inline width). */

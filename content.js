@@ -286,9 +286,13 @@
     });
   }
   function filterSaved(list, text) {
-    const q = text.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((p) => p.label.toLowerCase().includes(q) || p.path.toLowerCase().includes(q) || (p.tags ?? []).some((t) => t.includes(q)));
+    const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return list;
+    return list.filter((p) => {
+      const tags = (p.tags ?? []).map((t) => t.toLowerCase());
+      const hay = `${p.label} ${p.path} ${tags.join(" ")}`.toLowerCase();
+      return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
+    });
   }
   function groupByTag(list, tags) {
     const groups = [{ tag: null, items: list.filter((p) => !p.tags?.length) }];
@@ -487,7 +491,8 @@
   }
   function getRecents() {
     try {
-      return JSON.parse(kvGet(RECENTS_KEY) ?? "[]");
+      const list = JSON.parse(kvGet(RECENTS_KEY) ?? "[]");
+      return Array.isArray(list) ? list.filter((r) => typeof r?.path === "string") : [];
     } catch {
       return [];
     }
@@ -505,6 +510,17 @@
       return seen;
     }
     return kvGet(HOME_KEY) ?? "";
+  }
+  var FOLDED_KEY = "bfb-saved-folded-v1";
+  function getFoldedGroups() {
+    try {
+      return new Set(JSON.parse(kvGet(FOLDED_KEY) ?? "[]"));
+    } catch {
+      return /* @__PURE__ */ new Set();
+    }
+  }
+  function saveFoldedGroups(s) {
+    kvSet(FOLDED_KEY, JSON.stringify([...s]));
   }
   function setHomeDir(home) {
     if (!/^\/Users\/[^/]+$/.test(home) || home === "/Users/Shared") return false;
@@ -1579,11 +1595,31 @@ ${body}`;
     let truncNote = "";
     if (src.length > RENDER_CAPS.codeChars) {
       src = src.slice(0, RENDER_CAPS.codeChars);
-      truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.codeChars.toLocaleString()} characters \u2014 open the raw file for the rest.</div>`;
+      truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.codeChars.toLocaleString()} characters. Open the raw file for the rest.</div>`;
     }
-    const lines = src.split("\n").length;
-    const gutter = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
-    return `${truncNote}<div class="fe-code-wrap"><pre class="fe-code-gut">${gutter}</pre><pre class="fe-code">${highlightCode(src, ext2)}</pre></div>`;
+    const rows = splitHighlighted(highlightCode(src, ext2));
+    const gut = String(rows.length).length + 1;
+    return `${truncNote}<div class="fe-code-wrap" style="--gut:${gut}ch"><div class="fe-code">${rows.map((r, i) => `<div class="fe-cl"><span class="fe-cl-n">${i + 1}</span><span class="fe-cl-t">${r || " "}</span></div>`).join("")}</div></div>`;
+  }
+  function splitHighlighted(html) {
+    const out = [];
+    const open = [];
+    let line = "";
+    const re = /<span[^>]*>|<\/span>|\n|[^<\n]+|</g;
+    for (const m of html.match(re) ?? []) {
+      if (m === "\n") {
+        out.push(line + "</span>".repeat(open.length));
+        line = open.join("");
+      } else if (m.startsWith("<span")) {
+        open.push(m);
+        line += m;
+      } else if (m === "</span>") {
+        open.pop();
+        line += m;
+      } else line += m;
+    }
+    out.push(line);
+    return out;
   }
   function parseDSV(text, delim) {
     const rows = [];
@@ -3674,6 +3710,7 @@ ${body}
   --shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);
   --gold:#d29922;--green:#3fb950;
   --hover:color-mix(in srgb,var(--tx) 6%,transparent);--act:color-mix(in srgb,var(--ac) 18%,transparent);--r:6px;
+  --card:color-mix(in srgb,var(--s1),var(--s2) 45%);--side:var(--s1);
   --t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);
   --mono:'SF Mono',Menlo,Consolas,monospace;
   --nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;
@@ -3685,6 +3722,7 @@ ${body}
   --ac:#0e8f8a;--on-ac:#ffffff;--dir:#5d717c;
   --shade:rgb(110 119 129 / .10);--shade2:rgb(110 119 129 / .18);
   --hover:color-mix(in srgb,var(--tx) 5%,transparent);--act:color-mix(in srgb,var(--ac) 14%,transparent);
+  --card:var(--s1);--side:color-mix(in srgb,var(--s1),var(--bg) 45%);
   --nc-red:#d92d2d;--nc-orange:#d9730d;--nc-yellow:#b58900;--nc-green:#2b8a3e;--nc-teal:#0c8f78;--nc-blue:#1971c2;--nc-purple:#7048e8;--nc-pink:#c2255c;
 }
 #fe[data-palette="violet"],html:has(#fe[data-palette="violet"]){
@@ -3843,14 +3881,28 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-sv-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
   width:18px;height:18px;line-height:1;font-size:calc(13px * var(--ui-text-scale,1));padding:0;display:flex;align-items:center;justify-content:center}
 #fe-sv-add:hover{border-color:var(--ac);color:var(--ac)}
-#fe-sv-filter,#fe-nt-filter{display:block;width:calc(100% - 20px);margin:0 10px 4px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+#fe-lens-filter{display:block;width:calc(100% - 20px);margin:2px 10px 6px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:3px 8px;border-radius:var(--r);font-size:calc(11px * var(--ui-text-scale,1));outline:none;transition:border-color .15s}
-#fe-sv-filter:focus,#fe-nt-filter:focus{border-color:var(--ac)}
-#fe-sv-filter::placeholder,#fe-nt-filter::placeholder{color:var(--dm)}
+#fe-lens-filter:focus{border-color:var(--ac)}
+#fe-lens-filter::placeholder{color:var(--dm)}
 .fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
 .fe-sv-tag{display:flex;align-items:center;gap:7px;padding:8px 14px 3px;font-size:calc(10.5px * var(--ui-text-scale,1));font-weight:600;
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm)}
 .fe-sv-dot{width:9px;height:9px;border-radius:50%;cursor:pointer;flex-shrink:0;box-shadow:0 0 0 1px #0004}
+#fe-lens-filter[hidden],.fe-lens-tags[hidden]{display:none}
+.fe-proxy-filter{display:none!important}
+.fe-lens-tags{display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 8px}
+.fe-lens-tag{cursor:pointer;background:none;font:inherit;font-size:calc(11px * var(--ui-text-scale,1))}
+.fe-lens-tag:hover{background:var(--hover)}
+.fe-lens-tag.on{background:color-mix(in srgb,var(--chip) 22%,transparent);color:var(--tx)}
+.fe-grp{margin:4px 8px;background:var(--s2);border-radius:10px;padding:0 0 4px}
+.fe-grp:not([open]){padding-bottom:0}
+.fe-grp > summary{list-style:none;cursor:pointer;padding:7px 8px 5px}
+.fe-grp > summary::-webkit-details-marker{display:none}
+.fe-grp > summary svg{width:10px;height:10px;flex:none;transition:transform var(--t-fast) var(--ease)}
+.fe-grp:not([open]) > summary svg{transform:rotate(-90deg)}
+.fe-grp-n{margin-left:auto;font-weight:500;color:var(--dm)}
+@media (prefers-reduced-motion:reduce){.fe-grp > summary svg{transition:none}}
 .fe-sv-dot:hover{transform:scale(1.25)}
 .fe-pl-dots{display:flex;align-items:center;gap:3px;margin-left:auto;padding-right:2px;flex:none}
 .fe-sv-mini{width:6px;height:6px;border-radius:50%;display:inline-block}
@@ -4022,18 +4074,21 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-act-btn:hover{background:var(--s3);color:var(--tx)}
 .fe-row td.c-nm{position:relative}
-#fe-statusbar{display:flex;align-items:center;gap:14px;min-height:28px;padding:0 6px 0 14px;
+#fe-statusbar{display:flex;align-items:center;gap:14px;min-height:30px;padding:0 14px;
   background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);white-space:nowrap;overflow:hidden}
 #fe-status-meta{display:flex;align-items:center;gap:14px}
 .fe-meta-item{display:inline-flex;align-items:center;gap:5px}
 .fe-meta-item svg{color:var(--dm)}
 .fe-status-grow{flex:1}
-#fe-fp-reload{display:inline-flex;align-items:center;gap:6px;color:var(--dm)}
-.fe-live-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+#fe-fp-reload{color:var(--green);animation:fe-fade-in var(--t-base) var(--ease)}
+#fe-fp-reload[hidden]{display:none}
+#fe-fp-reload.off{color:var(--dm)}
+@keyframes fe-fade-in{from{opacity:0}to{opacity:1}}
+/* The path reads as a link: pointer, accent and underline on hover; a click copies it. */
 #fe-status-path{min-width:0;max-width:60%;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;
-  height:22px;padding:0 8px;border:0;border-radius:6px;background:none;color:var(--mt);font:inherit;cursor:copy;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-#fe-status-path:hover{background:var(--shade);color:var(--tx)}
+  height:22px;padding:0;border:0;background:none;color:var(--mt);font:inherit;cursor:pointer;
+  text-decoration:underline transparent;text-underline-offset:3px;transition:color var(--t-fast) var(--ease),text-decoration-color var(--t-fast) var(--ease)}
+#fe-status-path:hover{color:var(--ac);text-decoration-color:currentColor}
 #fe-tip{
   position:fixed;pointer-events:none;z-index:200;
   background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);
@@ -4221,32 +4276,41 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
 #fe-fp{display:flex;flex:1;min-height:0}
 /* Contents: a rail on the right of the page. Depth shows as indent plus a
    small step in size and ink; folded, only its button remains. */
-#fe-toc-rail{width:230px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--bd);background:var(--bg)}
+/* Contents floats over the page as a translucent card with its toggle on top;
+   folded, only the round toggle stays. The text keeps clear of the open card. */
+#fe-fp{position:relative}
+#fe-toc-rail{position:absolute;top:12px;right:16px;z-index:4;width:240px;max-height:calc(100% - 24px);display:flex;flex-direction:column;min-height:0;
+  border:1px solid color-mix(in srgb,var(--bd) 80%,transparent);border-radius:12px;
+  background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
+  box-shadow:0 8px 24px rgb(0 0 0 / .12),0 1px 3px rgb(0 0 0 / .08);transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
 #fe-toc-rail[hidden]{display:none}
+#fe-fp:has(#fe-toc-rail:not([hidden]):not(.folded)) #fe-page .fe-md{padding-right:290px}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
 .fe-toc-title{flex:1;font-size:calc(11px * var(--ui-text-scale,1));font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 #fe-toc-fold{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer}
 #fe-toc-fold:hover{background:var(--shade);color:var(--tx)}
 #fe-toc-fold svg{transition:transform var(--t-base) var(--ease)}
-#fe-toc-rail.folded{width:40px}
+#fe-toc-rail.folded{width:34px;border-radius:17px}
 #fe-toc-rail.folded .fe-toc-title,#fe-toc-rail.folded #fe-toc{display:none}
-#fe-toc-rail.folded .fe-toc-head{padding:10px 8px;justify-content:center}
+#fe-toc-rail.folded .fe-toc-head{padding:4px;justify-content:center}
 #fe-toc-rail.folded #fe-toc-fold svg{transform:rotate(180deg)}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
-#fe-toc a{display:block;color:var(--mt);text-decoration:none;padding:3px 14px 3px 16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid transparent;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+#fe-toc a{display:block;margin:1px 6px;border-radius:6px;color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
 #fe-toc a:hover{color:var(--tx);background:var(--hover)}
 #fe-toc a.fe-toc-h1{font-size:calc(13px * var(--ui-text-scale,1));font-weight:600;color:var(--tx)}
-#fe-toc a.fe-toc-h2{font-size:calc(12.5px * var(--ui-text-scale,1));padding-left:28px}
-#fe-toc a.fe-toc-h3{font-size:calc(12px * var(--ui-text-scale,1));padding-left:40px}
-#fe-toc a.fe-toc-h4{font-size:calc(11.5px * var(--ui-text-scale,1));padding-left:52px;color:var(--dm)}
+#fe-toc a.fe-toc-h2{font-size:calc(12.5px * var(--ui-text-scale,1));padding-left:22px}
+#fe-toc a.fe-toc-h3{font-size:calc(12px * var(--ui-text-scale,1));padding-left:34px}
+#fe-toc a.fe-toc-h4{font-size:calc(11.5px * var(--ui-text-scale,1));padding-left:46px;color:var(--dm)}
 @media (prefers-reduced-motion:reduce){#fe-toc-fold svg{transition:none}}
 /* Find in file, at the right end of the file bar. */
-#fe-ff{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 3px 0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--dm)}
-#fe-ff:focus-within{border-color:var(--ac)}
+#fe-ff{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 3px 0 9px;border:1px solid var(--bd);border-radius:8px;
+  background:color-mix(in srgb,var(--tx) 3%,var(--card));color:var(--dm);transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+#fe-ff:focus-within{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));background:var(--card)}
 #fe-ff[hidden]{display:none}
 #fe-ff-q{width:150px;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:calc(12px * var(--ui-text-scale,1))}
-#fe-ff-n{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap;font-variant-numeric:tabular-nums}
-#fe-ff-n.none{color:var(--nc-red)}
+#fe-ff-n{flex:none;width:7.5ch;text-align:right;font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap;font-variant-numeric:tabular-nums}
+#fe-ff-n.none{color:var(--mt);font-style:italic}
+#fe-ff-n.part{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
 #fe-fp-bar #fe-ff button{height:20px;width:20px}
 mark.fe-ff-hit{background:color-mix(in srgb,var(--gold) 35%,transparent);color:inherit;border-radius:2px}
 mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
@@ -4267,7 +4331,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
 #fe.fe-notips #fe-tip{display:none!important}
 #fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
-#fe-toc a.on{color:var(--ac);background:var(--shade);border-left-color:var(--ac)}
+#fe-toc a.on{color:var(--tx);background:var(--act)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);margin-right:auto;white-space:nowrap}
 #fe-nt-list .fe-nt-hit{display:block;padding:0 10px 4px 32px;font-size:calc(10.5px * var(--ui-text-scale,1));color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -4439,10 +4503,14 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-ql-center audio{width:min(480px,90%)}
 .fe-ql-font{padding:20px 26px;overflow:auto;line-height:1.5}
 .fe-ql-font>div{margin:6px 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:6px}
-.fe-code-wrap{display:flex;font:calc(11.5px * var(--ui-text-scale,1))/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
-.fe-code-gut{padding:10px 8px 14px 12px;text-align:right;color:var(--dm);user-select:none;
-  border-right:1px solid var(--bd);background:var(--s2);min-width:34px;flex-shrink:0}
-.fe-code{padding:10px 14px 14px;white-space:pre;flex:1}
+.fe-code-wrap{font:calc(11.5px * var(--ui-text-scale,1))/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
+.fe-code{padding:10px 14px 14px 0;width:max-content;min-width:100%}
+.fe-cl{display:grid;grid-template-columns:calc(var(--gut,4ch) + 22px) minmax(0,1fr)}
+.fe-cl-n{position:sticky;left:0;padding:0 10px 0 12px;text-align:right;color:var(--dm);user-select:none;background:var(--card)}
+.fe-cl-t{white-space:pre;padding-left:10px}
+/* Wrap (Settings, and the file bar toggle): long lines fold inside the page. */
+#fe[data-wrap="on"] .fe-code{width:auto}
+#fe[data-wrap="on"] .fe-cl-t{white-space:pre-wrap;overflow-wrap:anywhere}
 .tok-cmt{color:var(--mt);font-style:italic}
 .tok-str{color:#7ee787}
 .tok-kw{color:#ff7b72}
@@ -4584,7 +4652,13 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
    handle is the 10px gutter between cards and shows a thin line on hover. */
 #fe-body{padding:10px;background:var(--bg)}
 #fe-side,#fe-main,#fe-qlook.side{border:1px solid var(--bd);border-radius:12px;overflow:hidden}
-#fe-main{background:var(--bg)}
+/* The page is the lightest surface, the sidebar one step below it, and the
+   page background the deepest; bars inside the page share its colour and are
+   set apart by a hairline, not a grey band. */
+#fe-side{background:var(--side)}
+#fe-main,#fe-toolbar,#fe-fp-bar,#fe-statusbar,thead{background:var(--card)}
+#fe-tabs{background:var(--side)}
+.fe-tab.on{background:var(--card)}
 #fe-qlook.side{margin-left:10px}
 #fe-side-rz{width:10px;background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
 #fe-side-rz:hover,#fe-side-rz.drag{background:linear-gradient(var(--ac),var(--ac)) center/2px 100% no-repeat}
@@ -4600,6 +4674,60 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-row.selected .fe-nm{color:var(--tx)}
 .fe-tile.selected{border-color:transparent}
 .fe-hist-row.active{border-color:transparent}
+
+/* One row and one floating surface. Every list row (Places, Saved, Notes,
+   History, the path menu, context menus) shares a height, inset, corner,
+   icon size, text size and hover wash; in the sidebar a row sits 6px in from
+   the card edge, in a menu the menu's own 6px padding gives the same inset.
+   Every popover, menu, tip and the Contents card share one surface. Notes
+   rows grow to fit a tag line but keep the inset and corners. */
+:root{--row-h:32px;--row-r:8px;--row-px:10px;--row-gap:10px;--row-ic:16px;--row-fs:calc(13px * var(--ui-text-scale,1));
+  --pop-r:12px;--pop-pad:6px;--pop-bg:color-mix(in srgb,var(--card) 90%,transparent);--pop-bd:var(--bd2);
+  --pop-sh:0 12px 32px rgb(0 0 0 / .34),0 1px 3px rgb(0 0 0 / .2);--pop-blur:blur(16px) saturate(1.2)}
+#fe[data-theme="light"],html:has(#fe[data-theme="light"]){--pop-bg:color-mix(in srgb,var(--card) 94%,transparent);--pop-bd:var(--bd);
+  --pop-sh:0 10px 28px rgb(16 24 32 / .12),0 1px 3px rgb(16 24 32 / .08)}
+.fe-si,.fe-bm-item,.fe-dd-item,.fe-ctx-item{min-height:var(--row-h);margin:0 6px;padding:0 var(--row-px);gap:var(--row-gap);
+  border-radius:var(--row-r);font-size:var(--row-fs);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-dd-item,.fe-ctx-item{margin:0}
+button.fe-si{width:auto;display:flex}
+.fe-si:hover,.fe-bm-item:hover,.fe-dd-item:hover,.fe-ctx-item:hover{background:var(--hover)}
+.fe-bm-item:has(> .fe-si-link.active){background:var(--act)}
+.fe-si > svg,.fe-si-link > svg,.fe-dd-item > svg,.fe-ctx-item > svg{width:var(--row-ic);height:var(--row-ic);flex:none}
+.fe-sl{font-size:var(--row-fs)}
+.fe-si-link{padding:0;gap:var(--row-gap);min-height:var(--row-h)}
+.fe-nt-item .fe-si-link{padding:6px 0}
+.fe-pl-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
+.fe-pl-item .fe-rm-btn{padding:4px 0 4px 4px}
+/* A note row's actions float over the end of the title on a solid fade, so
+   nothing moves under the pointer on hover. In a narrow sidebar only delete
+   shows; colour and open-in-tab stay in the right-click menu. */
+.fe-nt-item .fe-nt-acts{right:4px;border-radius:0 var(--row-r) var(--row-r) 0;padding-left:14px;
+  background:linear-gradient(to right,transparent,color-mix(in srgb,var(--side),var(--tx) 6%) 14px)}
+.fe-nt-item:has(> .fe-si-link.active) .fe-nt-acts{background:linear-gradient(to right,transparent,color-mix(in srgb,var(--side),var(--ac) 18%) 14px)}
+.fe-nt-item:has(.editing) .fe-nt-acts{display:none}
+.fe-nt-item .fe-rm-btn{padding:4px 6px}
+#fe-lenses{container:lens/inline-size}
+@container lens (max-width:200px){.fe-nt-props,.fe-nt-tab{display:none!important}}
+.fe-grp{margin:4px 6px}
+.fe-grp .fe-bm-item{margin:0 4px}
+.fe-grp > summary{border-radius:var(--row-r);margin:2px 2px 0;transition:background var(--t-fast) var(--ease)}
+.fe-grp > summary:hover{background:var(--hover)}
+.fe-sh{padding:10px 16px 4px}
+.fe-lens-h{padding:6px 12px 8px 16px}
+.fe-hint{padding:6px 16px}
+#fe-lens-filter{width:calc(100% - 12px);margin:2px 6px 8px;height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
+.fe-lens-tags{padding:0 6px 8px}
+#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);
+  backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);color:var(--tx)}
+#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-allow,#fe-toc-rail{border-radius:var(--pop-r)}
+#fe-crumb-menu,#fe-ctx,.fe-ctx{padding:var(--pop-pad)}
+#fe-hint{border-radius:var(--row-r);padding:5px 10px}
+.fe-dd-search-wrap{padding:0 0 6px;margin-bottom:4px}
+.fe-dd-search{height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
+.fe-dd-items{padding:0}
+.fe-ctx-sep{margin:4px 4px}
+.fe-toast-act{color:var(--ac)}
 
 /* Narrow windows keep the reading column usable: the listing drops its
    lesser columns, Contents gives way to the text, and the sidebar is held
@@ -4627,26 +4755,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   // src/file-editor.ts
   var AUTOSAVE_MS = 800;
   var EDIT_MAX_LINES = 15e3;
-  function splitHighlighted(html) {
-    const out = [];
-    const open = [];
-    let line = "";
-    const re = /<span[^>]*>|<\/span>|\n|[^<\n]+|</g;
-    for (const m of html.match(re) ?? []) {
-      if (m === "\n") {
-        out.push(line + "</span>".repeat(open.length));
-        line = open.join("");
-      } else if (m.startsWith("<span")) {
-        open.push(m);
-        line += m;
-      } else if (m === "</span>") {
-        open.pop();
-        line += m;
-      } else line += m;
-    }
-    out.push(line);
-    return out;
-  }
   function editableRoot(path, folders, home = "") {
     for (const raw of folders ?? []) {
       let f = raw.trim().replace(/\/+$/, "");
@@ -4920,7 +5028,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 
   // src/find-in-page.ts
   var MAX_HITS = 2e3;
-  var SKIP = "script,style,svg,textarea,.fe-code-gut,.fe-jl-n,.fe-fe-ln,[hidden]";
+  var SKIP = "script,style,svg,textarea,.fe-cl-n,.fe-jl-n,.fe-fe-ln,[hidden]";
   var BLOCK = "p,li,dt,dd,h1,h2,h3,h4,h5,h6,td,th,tr,pre,blockquote,div,section,article,summary,figcaption";
   function attachFind(page, input, count, prev, next) {
     let hits = [];
@@ -4934,8 +5042,10 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     const partial = () => !!page.querySelector(".fe-ql-note");
     const show = () => {
       const q = input.value;
-      const where = partial() ? " in the shown part" : "";
-      count.textContent = !q ? "" : hits.length ? `${cur + 1} of ${hits.length}${hits.length >= MAX_HITS ? "+" : ""}${where}` : `No match${where}`;
+      const part = !!q && partial();
+      count.textContent = !q ? "" : hits.length ? `${cur + 1} of ${hits.length}${hits.length >= MAX_HITS ? "+" : ""}` : "No match";
+      count.title = part ? "Searched only the part of the file shown here" : "";
+      count.classList.toggle("part", part);
       count.classList.toggle("none", !!q && !hits.length);
       prev.toggleAttribute("disabled", hits.length < 2);
       next.toggleAttribute("disabled", hits.length < 2);
@@ -5137,6 +5247,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
         <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
+        <button id="fe-fp-wrap" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
         <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
         <span id="fe-ff" title="Find in this file (/) \xB7 Enter next \xB7 Shift+Enter previous \xB7 Esc clears">
@@ -5391,14 +5502,32 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     };
     editBtn.addEventListener("click", () => void edit2());
     rawBtn.addEventListener("click", toggleRaw);
+    const wrapBtn = document.getElementById("fe-fp-wrap");
+    const syncWrap = () => wrapBtn.classList.toggle("on", fe.dataset.wrap === "on");
+    syncWrap();
+    wrapBtn.addEventListener("click", () => {
+      const s = getSettings();
+      s.wrapLines = fe.dataset.wrap !== "on";
+      fe.dataset.wrap = s.wrapLines ? "on" : "off";
+      saveSettings(s);
+      syncWrap();
+    });
     document.getElementById("fe-fp-copy").addEventListener("click", () => {
       copyToClipboard(text).then((ok) => {
         document.getElementById("fe-status-text").textContent = ok ? "copied" : "copy failed";
       });
     });
     const reloadEl = document.getElementById("fe-fp-reload");
+    let liveTimer = 0;
     const live = (ok, label) => {
-      reloadEl.innerHTML = `<span class="fe-live-dot"${ok ? "" : ' style="background:var(--dm)"'}></span>${label}`;
+      clearTimeout(liveTimer);
+      reloadEl.hidden = false;
+      reloadEl.classList.toggle("off", !ok);
+      reloadEl.textContent = ok ? "Updated from disk" : "Not watching for changes";
+      reloadEl.title = label;
+      if (ok) liveTimer = window.setTimeout(() => {
+        reloadEl.hidden = true;
+      }, 4e3);
     };
     setInterval(() => {
       if (document.visibilityState !== "visible" || editor) return;
@@ -6414,7 +6543,7 @@ seconds and re-renders when the file changes on disk.
     return entries.map((e, i) => renderTile(e, ctx, start + i)).join("");
   }
   var savedFileExt = (path) => path.endsWith("/") ? "" : path.split("/").pop().match(/\.([^.]+)$/)?.[1].toLowerCase() ?? "";
-  function renderSavedList(saved, tags, rawPath, filter = "") {
+  function renderSavedList(saved, tags, rawPath, filter = "", folded = /* @__PURE__ */ new Set()) {
     if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click \u2606 in the path bar, or + to name this folder.</div>`;
     saved = filterSaved(saved, filter);
     if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
@@ -6432,8 +6561,12 @@ seconds and re-renders when the file changes on disk.
       <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove">\u2715</button>
     </div>`;
     return groupByTag(saved, tags).map((g) => {
-      const head = g.tag ? `<div class="fe-sv-tag"><i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}</div>` : "";
-      return head + g.items.map(row).join("");
+      if (!g.tag) return g.items.map(row).join("");
+      const open = filter.trim() || !folded.has(g.tag.name) ? " open" : "";
+      return `<details class="fe-grp" data-tag="${esc(g.tag.name)}"${open}>
+      <summary class="fe-sv-tag">${CHEVRON_DOWN}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
+      ${g.items.map(row).join("")}
+    </details>`;
     }).join("");
   }
   function renderCrumbs(rawPath, segments) {
@@ -6785,16 +6918,18 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
       ${lensHead("Notes", "Saved places, views and notes")}
+      <input id="fe-lens-filter" type="text" placeholder="Filter saved and notes" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
+      <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
       <div class="fe-sec" data-collapse="saved">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
           <button id="fe-sv-add" title="Save this ${fileMode ? "file" : "folder"} and name it">+</button></div>
-        <input id="fe-sv-filter" type="text" placeholder="Filter saved" spellcheck="false" autocomplete="off" title="Matches label, path and tag">
-        <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath)}</div>
+        <input id="fe-sv-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
+        <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath, "", getFoldedGroups())}</div>
       </div>
       <div class="fe-sec" id="fe-notes-sec" data-collapse="notes">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Notes</span><a id="fe-notes-root" title="Open the notes folder" aria-label="Open the notes folder">${PI.folder}</a>
           <button id="fe-nt-add" title="New note (n)">+</button></div>
-        <input id="fe-nt-filter" type="text" placeholder="Filter notes" spellcheck="false" autocomplete="off" title="Matches title, file name, colour and tag. #work matches tags only." style="display:none">
+        <input id="fe-nt-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
         <div id="fe-nt-list"></div>
       </div>
       </div>
@@ -6910,7 +7045,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         ${fileMode ? '<span id="fe-status-meta"></span>' : ""}
         <span id="fe-status-text">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <span class="fe-status-grow"></span>
-        ${fileMode ? '<span id="fe-fp-reload" title="Re-rendered when the file changes on disk"><span class="fe-live-dot"></span>live</span>' : ""}
+        ${fileMode ? '<span id="fe-fp-reload" hidden></span>' : ""}
         <button type="button" id="fe-status-path" title="Click to copy the path"><bdi>${esc(rawPath)}</bdi></button>
       </div>
     </div>
@@ -8471,6 +8606,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const svList = el("fe-sv-list");
     const svFilter = el("fe-sv-filter");
     let dragSrc = null;
+    const lensNotes = { count: 0, tags: [] };
     function syncStar() {
       const on = getSaved().some((p) => samePlace(p.path, rawPath));
       const btn = el("fe-bm-btn");
@@ -8480,10 +8616,23 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       el("fe-bm-path").setAttribute("fill", on ? "currentColor" : "none");
     }
     function refreshSaved() {
-      svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath, svFilter.value);
+      svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath, svFilter.value, foldedGroups());
       attachSavedEvents();
       syncStar();
+      syncLens();
     }
+    function syncLens() {
+      const box = document.getElementById("fe-lens-filter");
+      const row = document.getElementById("fe-lens-tags");
+      if (!box || !row) return;
+      box.hidden = getSaved().length + lensNotes.count <= 8 && !box.value;
+      const colour = new Map(getTags().map((t) => [t.name, t.color]));
+      const names = [.../* @__PURE__ */ new Set([...getSaved().flatMap((p) => p.tags ?? []), ...lensNotes.tags])].sort();
+      const on = box.value.trim().toLowerCase();
+      row.hidden = !names.length;
+      row.innerHTML = names.map((n) => `<button type="button" class="fe-chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}">${esc(n)}</button>`).join("");
+    }
+    const foldedGroups = getFoldedGroups;
     app.refreshSaved = refreshSaved;
     svFilter.addEventListener("input", refreshSaved);
     svFilter.addEventListener("keydown", (e) => {
@@ -8530,6 +8679,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     let clickTimer = null;
     function attachSavedEvents() {
+      els("details.fe-grp", svList).forEach((d) => d.addEventListener("toggle", () => {
+        if (svFilter.value.trim()) return;
+        const folded = foldedGroups();
+        if (d.open) folded.delete(d.dataset.tag);
+        else folded.add(d.dataset.tag);
+        saveFoldedGroups(folded);
+      }));
       els(".fe-rm-btn", svList).forEach((btn) => {
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -8628,6 +8784,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return [...byMeta, ...allNotes.filter((n) => bodyHits.has(n.rel) && !byMeta.includes(n))];
     };
     function renderNotes(root) {
+      lensNotes.count = allNotes.length;
+      lensNotes.tags = [...new Set(allNotes.flatMap((n) => n.tags ?? []))];
+      syncLens();
       const shown = shownNotes();
       ntHint.textContent = ntFilter.value.trim() ? `${shown.length} of ${allNotes.length} notes in ${root}` : `${allNotes.length} note${allNotes.length !== 1 ? "s" : ""} in ${root}`;
       ntList.innerHTML = shown.length ? shown.map((n) => `
@@ -8669,10 +8828,35 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         ntFilter.blur();
       }
     });
+    const lensFilter = el("fe-lens-filter");
+    const applyLensFilter = () => {
+      svFilter.value = ntFilter.value = lensFilter.value;
+      refreshSaved();
+      ntFilter.dispatchEvent(new Event("input"));
+    };
+    lensFilter.addEventListener("input", applyLensFilter);
+    lensFilter.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        lensFilter.value = "";
+        applyLensFilter();
+        lensFilter.blur();
+      }
+      e.stopPropagation();
+    });
+    el("fe-lens-tags").addEventListener("click", (e) => {
+      const chip = e.target.closest(".fe-lens-tag");
+      if (!chip) return;
+      const q = "#" + chip.dataset.tag;
+      lensFilter.value = lensFilter.value.trim().toLowerCase() === q.toLowerCase() ? "" : q;
+      applyLensFilter();
+    });
     function refreshNotes() {
       const root = notesRoot();
-      ntFilter.style.display = root ? "" : "none";
       if (!root) {
+        lensNotes.count = 0;
+        lensNotes.tags = [];
+        syncLens();
         ntHint.textContent = "";
         el("fe-notes-root").removeAttribute("href");
         ntList.innerHTML = `<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-pick" class="fe-hint-action fe-icon-act" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose folder</span></button><br><button id="fe-nt-setup" class="fe-hint-action" title="Type the notes folder in Settings">Type it in Settings</button></div>`;
@@ -9559,6 +9743,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     document.head.appendChild(styleEl);
     preload?.remove();
     const fe = el("fe");
+    fe.dataset.wrap = settings.wrapLines === false ? "off" : "on";
     if (settings.sidebarWidth && !settings.sidebarRail) {
       settings.sidebarWidth += 52;
       settings.sidebarRail = true;

@@ -86,8 +86,11 @@ export function saveTags(tags: Tag[]): void {
 }
 
 export function getRecents(): RecentDir[] {
-  try { return JSON.parse(kvGet(RECENTS_KEY) ?? '[]'); }
-  catch { return []; }
+  // A damaged entry is dropped rather than taking the whole page down with it.
+  try {
+    const list = JSON.parse(kvGet(RECENTS_KEY) ?? '[]');
+    return Array.isArray(list) ? list.filter(r => typeof r?.path === 'string') : [];
+  } catch { return []; }
 }
 export function pushRecent(path: string): void {
   const list = getRecents().filter(r => r.path !== path);

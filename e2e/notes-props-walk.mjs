@@ -52,8 +52,16 @@ try {
   const firstUnpinned = expect.findIndex(r => !r.pinned);
   check(expect.slice(0, firstUnpinned < 0 ? expect.length : firstUnpinned).every(r => r.pinned)
     && expect.slice(firstUnpinned < 0 ? expect.length : firstUnpinned).every(r => !r.pinned), 'pinned notes come first in the sidebar');
-  const sorted = (xs) => xs.every((r, i) => i === 0 || xs[i - 1].mtime >= r.mtime);
-  check(sorted(expect.filter(r => r.pinned)) && sorted(expect.filter(r => !r.pinned)), 'within pinned and unpinned, newest first');
+  // specs/order.md: within pinned and unpinned, notes never arranged come first,
+  // newest created first; arranged notes follow by pos. Editing never moves a note.
+  const fmOf = rel => { const t = read(rel); return { pos: t.match(/^pos: (.+)$/m)?.[1], made: Date.parse(t.match(/^created: (.+)$/m)?.[1] ?? '') || statSync(join(store, rel)).mtimeMs }; };
+  const ordered = xs => xs.every((r, i) => {
+    if (i === 0) return true;
+    const a = fmOf(xs[i - 1].rel), b = fmOf(r.rel);
+    if (!a.pos !== !b.pos) return !a.pos;
+    return a.pos ? a.pos <= b.pos : a.made >= b.made;
+  });
+  check(ordered(expect.filter(r => r.pinned)) && ordered(expect.filter(r => !r.pinned)), 'within pinned and unpinned, the shared order holds (new first, then arranged by pos)');
   const row = rows.find(r => r.rel === withProps);
   check(row && row.pinned && row.dot && row.tags.length > 0, `the tagged, pinned, coloured note shows all three on its row: ${JSON.stringify(row)}`);
   await shot(page, 'props-sidebar');
