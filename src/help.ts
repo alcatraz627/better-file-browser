@@ -162,13 +162,17 @@ Bookmarks and My Places entries were merged in.
 Tabs are what is open right now; Saved is the long-term list, the way browser
 tabs sit above browser bookmarks.
 
-## Recent, Finder Favorites, System
+## The sidebar: Places, Notes, History
 
-Folders you visited lately, and quick jumps (Root, Home, …).
+The thin rail on the left picks what the sidebar shows; ↑ and ↓ move between
+them when the rail has focus, and the choice is remembered.
 
-Click a sidebar section title to collapse its list. Collapse choices
-survive a reload. **Settings → Appearance** can hide Recent, Favorites, or
-System altogether.
+- **Places**: where you can go. Home, the folders under it, Applications and Root.
+- **Notes**: what you kept. Saved folders and files, saved views, and your notes.
+- **History**: what you opened lately, and tabs from Chrome tabs you closed.
+
+Click a list's title to collapse it. Collapse choices survive a reload.
+**Settings → Appearance** can switch History off.
 ` },
   { key: 'how', label: 'How it works', hint: 'the model, storage, what runs where', md: `
 ## The model
@@ -176,8 +180,8 @@ System altogether.
 Four things, three actions, one key each. Learn the three actions once and
 every surface behaves the same way.
 
-- **Place** is a folder. It lives in tabs (open now), in Saved (kept), and in
-  Recent, Finder Favorites and System.
+- **Place** is a folder. It lives in tabs (open now), in Saved (kept), in
+  History, and in the sidebar's Places.
 - **File** is something inside a folder, shown in the listing and in search
   results.
 - **Note** is a file you write here, in the Notes section, which is a Place you
@@ -205,8 +209,8 @@ Everything is stored on your machine, in the browser, and nothing leaves it.
   JSON file in **Settings → Data**.
 - **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
   survives refresh and navigation. When a Chrome tab closes, its tabs are kept
-  for a day and listed under **Recent** as "3 tabs: …"; a click adds them to the
-  strip you are in. Nothing comes back on its own. **Recent** also lists the
+  for a day and listed under **History** as "3 tabs: …"; a click adds them to the
+  strip you are in. Nothing comes back on its own. **History** also lists the
   files and folders you opened lately.
 - **Reading choices** (the column toggle, the ToC, a file page's scroll
   position) live in the same storage, so they persist across reloads.

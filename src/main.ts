@@ -4,7 +4,7 @@
 import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
-  getView, getTheme, getZoom, getShowHidden, getIconRules, getSettings, getRecents, pushRecent, getSaved,
+  getView, getTheme, getZoom, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
 } from './storage';
 import { initPreview } from './preview';
 import { CSS } from './styles';
@@ -116,12 +116,12 @@ loadKv().catch(() => {}).then(function () {
   // Closed tab sets are added below the list once the strip has read them; the
   // section stays hidden while it has nothing to show.
   const recentsHTML = `
-      <div class="fe-sec" data-sec="recent" data-collapse="recent"${settings.hideRecent || !recents.length ? ' style="display:none"' : ''}>
-        <div class="fe-sh"><span class="fe-sh-label">Recent</span></div>
-        ${recents.map(r => {
+      <div class="fe-sec" data-sec="recent" data-collapse="recent">
+        <div class="fe-sh"><span class="fe-sh-label">Opened lately</span></div>
+        ${recents.length ? recents.map(r => {
           const lbl = r.path.split('/').filter(Boolean).pop() || '/';
           return `<a href="file://${esc(r.path)}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
-        }).join('')}
+        }).join('') : '<div class="fe-hint">Nothing yet. Folders and files you open show up here.</div>'}
         <div id="fe-rc-sets"></div>
       </div>`;
 
@@ -142,6 +142,9 @@ loadKv().catch(() => {}).then(function () {
   preload?.remove();
 
   const fe = el('fe');
+  // A width saved before the lens rail existed is widened once by the rail's
+  // 52px, so the lists keep the room they had.
+  if (settings.sidebarWidth && !settings.sidebarRail) { settings.sidebarWidth += 52; settings.sidebarRail = true; saveSettings(settings); }
   if (settings.sidebarWidth) el('fe-side').style.width = settings.sidebarWidth + 'px';
   if (!settings.showSidebar) { el('fe-side').style.display = 'none'; el('fe-side-rz').style.display = 'none'; }
   if (settings.uiScale && settings.uiScale !== 100) (fe.style as CSSStyleDeclaration & { zoom: string }).zoom = String(settings.uiScale / 100);

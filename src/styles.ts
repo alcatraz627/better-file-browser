@@ -89,7 +89,24 @@ body{opacity:1!important}
 #fe[data-theme="light"] #fe-theme-btn #fe-sun{display:block}
 #fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
 #fe-body{display:flex;flex:1;overflow:hidden}
-#fe-side{width:220px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);overflow-y:auto;padding:6px 0}
+#fe-side{width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;min-height:0;overflow:hidden}
+/* The rail picks one lens; the lens fills the rest of the sidebar. */
+#fe-rail{width:52px;flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-right:1px solid var(--bd)}
+.fe-rail-btn{width:44px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
+  font:inherit;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-rail-btn[hidden]{display:none}
+.fe-rail-btn svg{width:17px;height:17px}
+.fe-rail-btn em{font-style:normal;font-size:calc(10px * var(--ui-text-scale,1));letter-spacing:.01em}
+.fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
+.fe-rail-btn.on{background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx)}
+.fe-rail-btn.on:hover{background:color-mix(in srgb,var(--ac) 22%,transparent)}
+.fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+#fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
+.fe-lens[hidden]{display:none}
+.fe-lens-h{display:flex;align-items:flex-start;gap:6px;padding:6px 12px 8px 14px}
+.fe-lens-t{flex:1;display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.fe-lens-t b{font-size:calc(14px * var(--ui-text-scale,1));font-weight:600;color:var(--tx)}
+.fe-lens-t i{font-style:normal;font-size:calc(11.5px * var(--ui-text-scale,1));color:var(--dm)}
 #fe-side-rz{width:5px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .12s}
 #fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
 .fe-sec{margin-bottom:4px}
@@ -850,7 +867,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-tab-x,.fe-tab-more{opacity:.6}
 .fe-tab:focus-visible,.fe-tab-x:focus-visible,.fe-tab-more:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}
 @media (max-width:900px){
-  #fe-side{width:clamp(120px,22vw,170px)}
+  #fe-side{width:clamp(200px,26vw,240px)}
   #fe-toc-rail:not(.folded){width:clamp(150px,22vw,190px)}
   #fe-ff-q{width:110px}
   #fe-page .fe-md{padding:20px 18px 60px}

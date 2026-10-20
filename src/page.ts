@@ -2,10 +2,10 @@
 // HTML string. main.ts renders it once for a listing or a file page; the
 // modules then wire the elements by id.
 import type { Entry, Settings } from './types';
-import { esc } from './utils';
+import { esc, fileHref } from './utils';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
-import { getSaved, getTags } from './storage';
+import { getSaved, getTags, homeDir } from './storage';
 import { renderMarkdown } from './renderers';
 import { HELP_TABS } from './help';
 import { renderDialog, type DialogSpec } from './dialog';
@@ -44,18 +44,29 @@ export function renderPage(p: PageParams): string {
     `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view — ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
   ).join('');
 
-  const FINDER_FAVORITES = [
-    { label: 'Screenshots',         icon: 'scrnsh', href: 'file:///Users/alcatraz627/Pictures/Screenshots/' },
-    { label: 'Downloads',           icon: 'down',   href: 'file:///Users/alcatraz627/Downloads/' },
-    { label: 'Documents',           icon: 'docs',   href: 'file:///Users/alcatraz627/Documents/' },
-    { label: 'Code',                icon: 'code',   href: 'file:///Users/alcatraz627/Code/' },
-    { label: 'Versable',            icon: 'folder', href: 'file:///Users/alcatraz627/Code/Versable/' },
-    { label: 'enhancement-product', icon: 'folder', href: 'file:///Users/alcatraz627/Code/Versable/enhancement-product/' },
-    { label: 'Applications',        icon: 'apps',   href: 'file:///Applications/' },
-    { label: 'Pictures',            icon: 'pics',   href: 'file:///Users/alcatraz627/Pictures/' },
-    { label: 'Desktop',             icon: 'desk',   href: 'file:///Users/alcatraz627/Desktop/' },
-    { label: 'resumes',             icon: 'docs',   href: 'file:///Users/alcatraz627/Code/Claude/resumes/' },
+  // Places: Home and the Finder favourites under it, then Applications and
+  // Root. Paths under Home are relative, so nothing names one account.
+  const home = homeDir(rawPath);
+  const PLACES = [
+    ...(home ? [
+      { label: 'Home',                icon: 'home',   sub: '' },
+      { label: 'Desktop',             icon: 'desk',   sub: 'Desktop/' },
+      { label: 'Documents',           icon: 'docs',   sub: 'Documents/' },
+      { label: 'Downloads',           icon: 'down',   sub: 'Downloads/' },
+      { label: 'Pictures',            icon: 'pics',   sub: 'Pictures/' },
+      { label: 'Screenshots',         icon: 'scrnsh', sub: 'Pictures/Screenshots/' },
+      { label: 'Code',                icon: 'code',   sub: 'Code/' },
+      { label: 'Versable',            icon: 'folder', sub: 'Code/Versable/' },
+      { label: 'enhancement-product', icon: 'folder', sub: 'Code/Versable/enhancement-product/' },
+      { label: 'resumes',             icon: 'docs',   sub: 'Code/Claude/resumes/' },
+    ].map(p => ({ label: p.label, icon: p.icon, href: fileHref(home + '/' + p.sub) })) : []),
+    { label: 'Applications', icon: 'apps', href: 'file:///Applications/' },
+    { label: 'Root /',       icon: 'root', href: 'file:///' },
   ];
+  const lensHead = (title: string, sub: string, actions = '') =>
+    `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b><i>${sub}</i></span>${actions}</div>`;
+  const railBtn = (lens: string, label: string, icon: string, hint: string, hidden = false) =>
+    `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}"${hidden ? ' hidden' : ''}>${icon}<em>${label}</em></button>`;
 
 
   const SETTINGS_DIALOG: DialogSpec = {
@@ -124,13 +135,8 @@ export function renderPage(p: PageParams): string {
             <label class="fe-st-check"><input type="checkbox" id="fe-st-compact" title="Tighter rows and tiles"> Compact mode</label>
           </div>
           <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar" title="Saved, Notes, Recent and Favorites on the left"> Show sidebar</label>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Sidebar sections</span>
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Files and folders you opened lately"> Recent</label>
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-favorites" title="Finder Favorites"> Favorites</label>
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-system" title="Root and Home"> System</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar" title="Places, Notes and History on the left"> Show sidebar</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Folders and files you opened lately, and closed tabs"> History</label>
           </div>
           <div class="fe-st-row">
             <label class="fe-st-check"><input type="checkbox" id="fe-st-tooltips" title="Native tooltips on every control"> Tooltips</label>
@@ -326,6 +332,22 @@ export function renderPage(p: PageParams): string {
 
   <div id="fe-body">
     <nav id="fe-side">
+      <div id="fe-rail" role="tablist" aria-label="Sidebar" aria-orientation="vertical">
+        ${railBtn('places', 'Places', PI.home, 'Places: Home, your folders, Applications and Root')}
+        ${railBtn('notes', 'Notes', PI.docs, 'Notes: saved places, saved views and your notes')}
+        ${railBtn('history', 'History', PI.recent, 'History: folders and files you opened lately, and closed tabs', !!settings.hideRecent)}
+      </div>
+      <div id="fe-lenses">
+      <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
+        ${lensHead('Places', 'Where you can go')}
+        <div class="fe-sec" data-sec="places">
+        ${PLACES.map(p =>
+          `<a href="${p.href}" class="fe-si${p.href.replace(/\/$/, '') === 'file://' + rawPath.replace(/\/$/, '') ? ' active' : ''}" title="${esc(p.label)}\n${esc(p.href)}">${(PI[p.icon] ?? PI.folder)}<span class="fe-sl">${esc(p.label)}</span></a>`
+        ).join('')}
+        </div>
+      </div>
+      <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
+      ${lensHead('Notes', 'Saved places, views and notes')}
       <div class="fe-sec" data-collapse="saved">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
           <button id="fe-sv-add" title="Save this ${fileMode ? 'file' : 'folder'} and name it">+</button></div>
@@ -337,17 +359,12 @@ export function renderPage(p: PageParams): string {
           <button id="fe-nt-add" title="New note (n)">+</button></div>
         <input id="fe-nt-filter" type="text" placeholder="Filter notes" spellcheck="false" autocomplete="off" title="Matches title, file name, colour and tag. #work matches tags only." style="display:none">
         <div id="fe-nt-list"></div>
-      </div>${recentsHTML}
-      <div class="fe-sec" data-sec="favorites" data-collapse="favorites"${settings.hideFavorites ? ' style="display:none"' : ''}>
-        <div class="fe-sh"><span class="fe-sh-label">Finder Favorites</span></div>
-        ${FINDER_FAVORITES.map(p =>
-          `<a href="${p.href}" class="fe-si${p.href.replace(/\/$/, '') === 'file://' + rawPath.replace(/\/$/, '') ? ' active' : ''}" title="${p.label}\n${p.href}">${(PI[p.icon] ?? PI.folder)}<span class="fe-sl">${p.label}</span></a>`
-        ).join('')}
       </div>
-      <div class="fe-sec" data-sec="system" data-collapse="system"${settings.hideSystem ? ' style="display:none"' : ''}>
-        <div class="fe-sh"><span class="fe-sh-label">System</span></div>
-        <a href="file:///" class="fe-si" title="Root\nfile:///">${PI.root}<span class="fe-sl">Root /</span></a>
-        <a href="file:///Users/alcatraz627/" class="fe-si" title="Home\nfile:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
+      </div>
+      <div class="fe-lens" id="fe-lens-history" data-lens="history" role="tabpanel" aria-labelledby="fe-rail-history" hidden>
+        ${lensHead('History', 'Recent folders, files and closed tabs')}
+        ${recentsHTML}
+      </div>
       </div>
     </nav>
     <div id="fe-side-rz" title="Drag to resize the sidebar"></div>

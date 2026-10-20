@@ -669,7 +669,7 @@ try {
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
   await page.click('#fe-st-sec-recent');
   await page.select('#fe-st-rd-size', '17');
-  const recentHidden = await page.evaluate(() => getComputedStyle(document.querySelector('#fe-side .fe-sec[data-sec="recent"]')).display === 'none');
+  const recentHidden = await page.evaluate(() => document.getElementById('fe-rail-history').hidden);
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="preview"]');
   await page.select('#fe-st-click', 'go');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="files"]');
@@ -690,7 +690,7 @@ try {
   await page.waitForSelector('#fe');
 
   const afterSettings = await page.evaluate(() => ({
-    recent: getComputedStyle(document.querySelector('#fe-side .fe-sec[data-sec="recent"]')).display,
+    recent: document.getElementById('fe-rail-history').hidden ? 'none' : 'block',
     size: getComputedStyle(document.documentElement).getPropertyValue('--ui-text-scale').trim(),
   }));
   await (await page.$('#fe-tbody a[href$="readme.md"]')).click();
@@ -709,7 +709,7 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].some(e => e.textContent === 'Imported root'), { timeout: 8_000 }).catch(() => null);
   const imported = await page.evaluate(() => ({
     labels: [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].map(e => e.textContent),
-    recent: getComputedStyle(document.querySelector('#fe-side .fe-sec[data-sec="recent"]')).display,
+    recent: document.getElementById('fe-rail-history').hidden ? 'none' : 'block',
     titles: document.querySelectorAll('#fe-bar [title]').length,
   }));
   check(imported.labels.join() === 'tmp,Imported root' && imported.recent !== 'none' && imported.titles === 0, `import restores Saved and settings, and tooltips off strips titles: ${JSON.stringify(imported)}`);
@@ -725,17 +725,23 @@ try {
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
 
-  // Every visible sidebar section collapses and restores its state on reload.
-  const sectionKeys = ['saved', 'notes', 'recent', 'favorites', 'system'];
+  // Every list in a lens collapses and restores its state on reload. A list
+  // is clickable only while its lens shows.
+  const sectionKeys = ['saved', 'notes', 'recent'];
+  const lensOf = key => key === 'recent' ? 'history' : 'notes';
+  const toggleAll = async () => {
+    for (const key of sectionKeys) { await page.click(`#fe-rail-${lensOf(key)}`); await page.click(`#fe-sec-toggle-${key} .fe-sh-label`); }
+    await page.click('#fe-rail-notes');
+  };
   const availableSections = await page.$$eval('#fe-side .fe-sec[data-collapse]', els => els.map(e => e.dataset.collapse));
   check(sectionKeys.every(k => availableSections.includes(k)), `all sidebar sections have collapse controls: ${JSON.stringify(availableSections)}`);
-  for (const key of sectionKeys) await page.click(`#fe-sec-toggle-${key} .fe-sh-label`);
+  await toggleAll();
   const allCollapsed = await page.evaluate(keys => keys.every(key => {
     const section = document.querySelector(`#fe-side .fe-sec[data-collapse="${key}"]`);
     return section.classList.contains('fe-collapsed') && section.querySelector('.fe-sh-collapse').getAttribute('aria-expanded') === 'false'
       && getComputedStyle(section.children[1]).display === 'none';
   }), sectionKeys);
-  check(allCollapsed, 'all five sidebar lists collapse while their headings remain');
+  check(allCollapsed, 'every sidebar list collapses while its heading remains');
   const notesFolderAction = await page.$eval('#fe-notes-root', el => ({ label: el.getAttribute('aria-label'), hasTitle: !!el.textContent?.trim(), separate: !el.closest('.fe-sh-collapse') }));
   check(notesFolderAction.label === 'Open the notes folder' && !notesFolderAction.hasTitle && notesFolderAction.separate,
     'Notes folder action stays separate from the collapse title');
@@ -745,7 +751,7 @@ try {
   const collapseKept = await page.evaluate(keys => keys.every(key =>
     document.querySelector(`#fe-side .fe-sec[data-collapse="${key}"]`)?.classList.contains('fe-collapsed')), sectionKeys);
   check(collapseKept, 'sidebar collapse choices persist after reload');
-  for (const key of sectionKeys) await page.click(`#fe-sec-toggle-${key} .fe-sh-label`);
+  await toggleAll();
 
   // Terminal shift-click copies the command instead of opening the app. The
   // e2e has no native host, so we assert the shift path reaches the copy toast.
@@ -963,7 +969,7 @@ try {
   const setRow = (await pageC.waitForFunction(() => [...document.querySelectorAll('#fe-rc-sets .fe-rc-set')].find(b => /nested, deeper/.test(b.textContent)), { timeout: 8_000 }).catch(() => null))?.asElement() ?? null;
   const rowText = setRow ? await setRow.evaluate(e => e.textContent) : '';
   check(!!setRow && /2 tabs: nested, deeper/.test(rowText), `Recent offers the closed tab's set: ${JSON.stringify(rowText)}`);
-  if (setRow) { await shot(pageC, 'recent-closed-set'); await setRow.click(); }
+  if (setRow) { await pageC.click('#fe-rail-history'); await shot(pageC, 'recent-closed-set'); await setRow.click(); }
   await pageC.waitForFunction(keptCount(2), { timeout: 5_000 }).catch(() => null);
   const restored = { tabs: await tabLabels(pageC), toast: await pageC.$eval('#fe-toast', el => el.textContent), bar: await barIsActiveTab(pageC), rowGone: !(await pageC.evaluate(() => [...document.querySelectorAll('#fe-rc-sets .fe-rc-set')].some(b => /nested, deeper/.test(b.textContent)))) };
   check(restored.tabs.join('|') === 'nested|deeper' && /Restored 2 tabs/.test(restored.toast) && restored.bar && restored.rowGone, `clicking it adds the set's tabs: ${JSON.stringify(restored)}`);
@@ -987,6 +993,7 @@ try {
   await page.click('#fe-find-save');
   const viewRow = await page.$eval('#fe-sv-list .fe-pl-item.fe-view .fe-pl-label', el => el.textContent).catch(() => null);
   check(viewRow === '"second"', `saved view row appears in Saved: ${viewRow}`);
+  await page.click('#fe-rail-notes');   // the lens is shared, and another tab left History open
   await shot(page, 'find-saved-view');
   await page.click('#fe-find-text');
   await page.keyboard.press('Escape');

@@ -481,6 +481,15 @@
     list.unshift({ path, ts: Date.now() });
     kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 20)));
   }
+  var HOME_KEY = "bfb-home-v1";
+  function homeDir(path) {
+    const seen = path.match(/^\/Users\/[^/]+/)?.[0];
+    if (seen && seen !== "/Users/Shared") {
+      if (kvGet(HOME_KEY) !== seen) kvSet(HOME_KEY, seen);
+      return seen;
+    }
+    return kvGet(HOME_KEY) ?? "";
+  }
   function getColWidths() {
     try {
       return JSON.parse(kvGet(COL_WIDTHS_KEY) ?? "{}");
@@ -3705,7 +3714,24 @@ body{opacity:1!important}
 #fe[data-theme="light"] #fe-theme-btn #fe-sun{display:block}
 #fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
 #fe-body{display:flex;flex:1;overflow:hidden}
-#fe-side{width:220px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);overflow-y:auto;padding:6px 0}
+#fe-side{width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;min-height:0;overflow:hidden}
+/* The rail picks one lens; the lens fills the rest of the sidebar. */
+#fe-rail{width:52px;flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-right:1px solid var(--bd)}
+.fe-rail-btn{width:44px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
+  font:inherit;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-rail-btn[hidden]{display:none}
+.fe-rail-btn svg{width:17px;height:17px}
+.fe-rail-btn em{font-style:normal;font-size:calc(10px * var(--ui-text-scale,1));letter-spacing:.01em}
+.fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
+.fe-rail-btn.on{background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx)}
+.fe-rail-btn.on:hover{background:color-mix(in srgb,var(--ac) 22%,transparent)}
+.fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+#fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
+.fe-lens[hidden]{display:none}
+.fe-lens-h{display:flex;align-items:flex-start;gap:6px;padding:6px 12px 8px 14px}
+.fe-lens-t{flex:1;display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.fe-lens-t b{font-size:calc(14px * var(--ui-text-scale,1));font-weight:600;color:var(--tx)}
+.fe-lens-t i{font-style:normal;font-size:calc(11.5px * var(--ui-text-scale,1));color:var(--dm)}
 #fe-side-rz{width:5px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .12s}
 #fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
 .fe-sec{margin-bottom:4px}
@@ -4466,7 +4492,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-tab-x,.fe-tab-more{opacity:.6}
 .fe-tab:focus-visible,.fe-tab-x:focus-visible,.fe-tab-more:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}
 @media (max-width:900px){
-  #fe-side{width:clamp(120px,22vw,170px)}
+  #fe-side{width:clamp(200px,26vw,240px)}
   #fe-toc-rail:not(.folded){width:clamp(150px,22vw,190px)}
   #fe-ff-q{width:110px}
   #fe-page .fe-md{padding:20px 18px 60px}
@@ -5826,13 +5852,17 @@ Bookmarks and My Places entries were merged in.
 Tabs are what is open right now; Saved is the long-term list, the way browser
 tabs sit above browser bookmarks.
 
-## Recent, Finder Favorites, System
+## The sidebar: Places, Notes, History
 
-Folders you visited lately, and quick jumps (Root, Home, \u2026).
+The thin rail on the left picks what the sidebar shows; \u2191 and \u2193 move between
+them when the rail has focus, and the choice is remembered.
 
-Click a sidebar section title to collapse its list. Collapse choices
-survive a reload. **Settings \u2192 Appearance** can hide Recent, Favorites, or
-System altogether.
+- **Places**: where you can go. Home, the folders under it, Applications and Root.
+- **Notes**: what you kept. Saved folders and files, saved views, and your notes.
+- **History**: what you opened lately, and tabs from Chrome tabs you closed.
+
+Click a list's title to collapse it. Collapse choices survive a reload.
+**Settings \u2192 Appearance** can switch History off.
 ` },
     { key: "how", label: "How it works", hint: "the model, storage, what runs where", md: `
 ## The model
@@ -5840,8 +5870,8 @@ System altogether.
 Four things, three actions, one key each. Learn the three actions once and
 every surface behaves the same way.
 
-- **Place** is a folder. It lives in tabs (open now), in Saved (kept), and in
-  Recent, Finder Favorites and System.
+- **Place** is a folder. It lives in tabs (open now), in Saved (kept), in
+  History, and in the sidebar's Places.
 - **File** is something inside a folder, shown in the listing and in search
   results.
 - **Note** is a file you write here, in the Notes section, which is a Place you
@@ -5869,8 +5899,8 @@ Everything is stored on your machine, in the browser, and nothing leaves it.
   JSON file in **Settings \u2192 Data**.
 - **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
   survives refresh and navigation. When a Chrome tab closes, its tabs are kept
-  for a day and listed under **Recent** as "3 tabs: \u2026"; a click adds them to the
-  strip you are in. Nothing comes back on its own. **Recent** also lists the
+  for a day and listed under **History** as "3 tabs: \u2026"; a click adds them to the
+  strip you are in. Nothing comes back on its own. **History** also lists the
   files and folders you opened lately.
 - **Reading choices** (the column toggle, the ToC, a file page's scroll
   position) live in the same storage, so they persist across reloads.
@@ -6253,18 +6283,25 @@ seconds and re-renders when the file changes on disk.
     const viewBtnsHTML = VIEW_MODES.map(
       (v) => `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view \u2014 ${VIEW_LABELS[v.id]}${v.id === initView ? " (active)" : ""}">${v.ico}</button>`
     ).join("");
-    const FINDER_FAVORITES = [
-      { label: "Screenshots", icon: "scrnsh", href: "file:///Users/alcatraz627/Pictures/Screenshots/" },
-      { label: "Downloads", icon: "down", href: "file:///Users/alcatraz627/Downloads/" },
-      { label: "Documents", icon: "docs", href: "file:///Users/alcatraz627/Documents/" },
-      { label: "Code", icon: "code", href: "file:///Users/alcatraz627/Code/" },
-      { label: "Versable", icon: "folder", href: "file:///Users/alcatraz627/Code/Versable/" },
-      { label: "enhancement-product", icon: "folder", href: "file:///Users/alcatraz627/Code/Versable/enhancement-product/" },
+    const home = homeDir(rawPath);
+    const PLACES = [
+      ...home ? [
+        { label: "Home", icon: "home", sub: "" },
+        { label: "Desktop", icon: "desk", sub: "Desktop/" },
+        { label: "Documents", icon: "docs", sub: "Documents/" },
+        { label: "Downloads", icon: "down", sub: "Downloads/" },
+        { label: "Pictures", icon: "pics", sub: "Pictures/" },
+        { label: "Screenshots", icon: "scrnsh", sub: "Pictures/Screenshots/" },
+        { label: "Code", icon: "code", sub: "Code/" },
+        { label: "Versable", icon: "folder", sub: "Code/Versable/" },
+        { label: "enhancement-product", icon: "folder", sub: "Code/Versable/enhancement-product/" },
+        { label: "resumes", icon: "docs", sub: "Code/Claude/resumes/" }
+      ].map((p2) => ({ label: p2.label, icon: p2.icon, href: fileHref(home + "/" + p2.sub) })) : [],
       { label: "Applications", icon: "apps", href: "file:///Applications/" },
-      { label: "Pictures", icon: "pics", href: "file:///Users/alcatraz627/Pictures/" },
-      { label: "Desktop", icon: "desk", href: "file:///Users/alcatraz627/Desktop/" },
-      { label: "resumes", icon: "docs", href: "file:///Users/alcatraz627/Code/Claude/resumes/" }
+      { label: "Root /", icon: "root", href: "file:///" }
     ];
+    const lensHead = (title, sub, actions = "") => `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b><i>${sub}</i></span>${actions}</div>`;
+    const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
     const SETTINGS_DIALOG = {
       id: "fe-settings-modal",
       mark: PI.gear,
@@ -6334,13 +6371,8 @@ seconds and re-renders when the file changes on disk.
             <label class="fe-st-check"><input type="checkbox" id="fe-st-compact" title="Tighter rows and tiles"> Compact mode</label>
           </div>
           <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar" title="Saved, Notes, Recent and Favorites on the left"> Show sidebar</label>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Sidebar sections</span>
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Files and folders you opened lately"> Recent</label>
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-favorites" title="Finder Favorites"> Favorites</label>
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-system" title="Root and Home"> System</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar" title="Places, Notes and History on the left"> Show sidebar</label>
+            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Folders and files you opened lately, and closed tabs"> History</label>
           </div>
           <div class="fe-st-row">
             <label class="fe-st-check"><input type="checkbox" id="fe-st-tooltips" title="Native tooltips on every control"> Tooltips</label>
@@ -6538,6 +6570,23 @@ seconds and re-renders when the file changes on disk.
 
   <div id="fe-body">
     <nav id="fe-side">
+      <div id="fe-rail" role="tablist" aria-label="Sidebar" aria-orientation="vertical">
+        ${railBtn("places", "Places", PI.home, "Places: Home, your folders, Applications and Root")}
+        ${railBtn("notes", "Notes", PI.docs, "Notes: saved places, saved views and your notes")}
+        ${railBtn("history", "History", PI.recent, "History: folders and files you opened lately, and closed tabs", !!settings.hideRecent)}
+      </div>
+      <div id="fe-lenses">
+      <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
+        ${lensHead("Places", "Where you can go")}
+        <div class="fe-sec" data-sec="places">
+        ${PLACES.map(
+      (p2) => `<a href="${p2.href}" class="fe-si${p2.href.replace(/\/$/, "") === "file://" + rawPath.replace(/\/$/, "") ? " active" : ""}" title="${esc(p2.label)}
+${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}</span></a>`
+    ).join("")}
+        </div>
+      </div>
+      <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
+      ${lensHead("Notes", "Saved places, views and notes")}
       <div class="fe-sec" data-collapse="saved">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
           <button id="fe-sv-add" title="Save this ${fileMode ? "file" : "folder"} and name it">+</button></div>
@@ -6549,20 +6598,12 @@ seconds and re-renders when the file changes on disk.
           <button id="fe-nt-add" title="New note (n)">+</button></div>
         <input id="fe-nt-filter" type="text" placeholder="Filter notes" spellcheck="false" autocomplete="off" title="Matches title, file name, colour and tag. #work matches tags only." style="display:none">
         <div id="fe-nt-list"></div>
-      </div>${recentsHTML}
-      <div class="fe-sec" data-sec="favorites" data-collapse="favorites"${settings.hideFavorites ? ' style="display:none"' : ""}>
-        <div class="fe-sh"><span class="fe-sh-label">Finder Favorites</span></div>
-        ${FINDER_FAVORITES.map(
-      (p2) => `<a href="${p2.href}" class="fe-si${p2.href.replace(/\/$/, "") === "file://" + rawPath.replace(/\/$/, "") ? " active" : ""}" title="${p2.label}
-${p2.href}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${p2.label}</span></a>`
-    ).join("")}
       </div>
-      <div class="fe-sec" data-sec="system" data-collapse="system"${settings.hideSystem ? ' style="display:none"' : ""}>
-        <div class="fe-sh"><span class="fe-sh-label">System</span></div>
-        <a href="file:///" class="fe-si" title="Root
-file:///">${PI.root}<span class="fe-sl">Root /</span></a>
-        <a href="file:///Users/alcatraz627/" class="fe-si" title="Home
-file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
+      </div>
+      <div class="fe-lens" id="fe-lens-history" data-lens="history" role="tabpanel" aria-labelledby="fe-rail-history" hidden>
+        ${lensHead("History", "Recent folders, files and closed tabs")}
+        ${recentsHTML}
+      </div>
       </div>
     </nav>
     <div id="fe-side-rz" title="Drag to resize the sidebar"></div>
@@ -6815,13 +6856,14 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       const startX = e.clientX;
       const startW = side.getBoundingClientRect().width;
       const move = (m) => {
-        side.style.width = Math.max(150, Math.min(460, startW + m.clientX - startX)) + "px";
+        side.style.width = Math.max(210, Math.min(520, startW + m.clientX - startX)) + "px";
       };
       const up = () => {
         rz.classList.remove("drag");
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
         settings.sidebarWidth = Math.round(side.getBoundingClientRect().width);
+        settings.sidebarRail = true;
         saveSettings(settings);
       };
       document.addEventListener("pointermove", move);
@@ -8099,8 +8141,50 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
   }
 
   // src/sidebar.ts
+  var LENS_KEY = "bfb-lens-v1";
+  function initLenses(app) {
+    const rail = el("fe-rail");
+    const btns = els("#fe-rail .fe-rail-btn");
+    const lenses = els("#fe-lenses .fe-lens");
+    const show = (lens) => {
+      const usable = btns.filter((b) => !b.hidden).map((b) => b.dataset.lens);
+      const pick = usable.includes(lens) ? lens : "notes";
+      for (const b of btns) {
+        const on = b.dataset.lens === pick;
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-selected", String(on));
+        b.tabIndex = on ? 0 : -1;
+      }
+      for (const l of lenses) l.hidden = l.dataset.lens !== pick;
+    };
+    app.showLens = (lens, hideHistory) => {
+      if (hideHistory !== void 0) el("fe-rail-history").hidden = hideHistory;
+      show(lens ?? kvGet(LENS_KEY) ?? "notes");
+    };
+    rail.addEventListener("click", (e) => {
+      const b = e.target.closest(".fe-rail-btn");
+      if (!b) return;
+      kvSet(LENS_KEY, b.dataset.lens);
+      show(b.dataset.lens);
+    });
+    rail.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      const usable = btns.filter((b) => !b.hidden);
+      const i = usable.findIndex((b) => b.classList.contains("on"));
+      const next = usable[(i + (e.key === "ArrowDown" ? 1 : -1) + usable.length) % usable.length];
+      e.preventDefault();
+      kvSet(LENS_KEY, next.dataset.lens);
+      show(next.dataset.lens);
+      next.focus();
+    });
+    onKvChange((key) => {
+      if (key === LENS_KEY) show(kvGet(LENS_KEY) ?? "notes");
+    });
+    show(kvGet(LENS_KEY) ?? "notes");
+  }
   function initSidebar(app) {
     const { rawPath, settings, toast } = app;
+    initLenses(app);
     const collapseKey = "bfb-sidebar-collapsed-v1";
     const sections = els("#fe-side .fe-sec[data-collapse]");
     const collapsed = () => {
@@ -8681,8 +8765,6 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
       el("fe-st-excluded-exts").value = excluded.map((x) => "." + x).join(", ");
       el("fe-st-sec-recent").checked = !settings.hideRecent;
-      el("fe-st-sec-favorites").checked = !settings.hideFavorites;
-      el("fe-st-sec-system").checked = !settings.hideSystem;
       el("fe-st-tooltips").checked = settings.tooltips !== false;
       el("fe-st-panel").value = getPreviewLayout().mode;
       el("fe-st-click").value = settings.clickOpens || "look";
@@ -8764,17 +8846,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     });
     app.openHelp = (tab) => helpDlg.open(tab);
     app.openSettings = openSettings;
-    const secToggle = (id, key, sec) => {
-      el(id).addEventListener("change", function() {
-        settings[key] = !this.checked;
-        saveSettings(settings);
-        const node = document.querySelector(`#fe-side .fe-sec[data-sec="${sec}"]`);
-        if (node) node.style.display = this.checked ? "" : "none";
-      });
-    };
-    secToggle("fe-st-sec-recent", "hideRecent", "recent");
-    secToggle("fe-st-sec-favorites", "hideFavorites", "favorites");
-    secToggle("fe-st-sec-system", "hideSystem", "system");
+    el("fe-st-sec-recent").addEventListener("change", function() {
+      settings.hideRecent = !this.checked;
+      saveSettings(settings);
+      app.showLens?.(this.checked ? null : "notes", !this.checked);
+    });
     el("fe-st-tooltips").addEventListener("change", function() {
       settings.tooltips = this.checked;
       saveSettings(settings);
@@ -9199,12 +9275,12 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const recents = getRecents().filter((r) => r.path !== rawPath).slice(0, 10);
     pushRecent(rawPath);
     const recentsHTML = `
-      <div class="fe-sec" data-sec="recent" data-collapse="recent"${settings.hideRecent || !recents.length ? ' style="display:none"' : ""}>
-        <div class="fe-sh"><span class="fe-sh-label">Recent</span></div>
-        ${recents.map((r) => {
+      <div class="fe-sec" data-sec="recent" data-collapse="recent">
+        <div class="fe-sh"><span class="fe-sh-label">Opened lately</span></div>
+        ${recents.length ? recents.map((r) => {
       const lbl = r.path.split("/").filter(Boolean).pop() || "/";
       return `<a href="file://${esc(r.path)}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
-    }).join("")}
+    }).join("") : '<div class="fe-hint">Nothing yet. Folders and files you open show up here.</div>'}
         <div id="fe-rc-sets"></div>
       </div>`;
     const html = renderPage({
@@ -9236,6 +9312,11 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     document.head.appendChild(styleEl);
     preload?.remove();
     const fe = el("fe");
+    if (settings.sidebarWidth && !settings.sidebarRail) {
+      settings.sidebarWidth += 52;
+      settings.sidebarRail = true;
+      saveSettings(settings);
+    }
     if (settings.sidebarWidth) el("fe-side").style.width = settings.sidebarWidth + "px";
     if (!settings.showSidebar) {
       el("fe-side").style.display = "none";

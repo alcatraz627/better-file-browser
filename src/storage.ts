@@ -93,6 +93,18 @@ export function pushRecent(path: string): void {
   kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 20)));
 }
 
+// Your home folder, read from any page under /Users/<name> and remembered,
+// so Places can offer Home, Desktop and the rest from a page outside it too.
+const HOME_KEY = 'bfb-home-v1';
+export function homeDir(path: string): string {
+  const seen = path.match(/^\/Users\/[^/]+/)?.[0];
+  if (seen && seen !== '/Users/Shared') {
+    if (kvGet(HOME_KEY) !== seen) kvSet(HOME_KEY, seen);
+    return seen;
+  }
+  return kvGet(HOME_KEY) ?? '';
+}
+
 export function getColWidths(): Record<string, number> {
   try { return JSON.parse(kvGet(COL_WIDTHS_KEY) ?? '{}'); }
   catch { return {}; }

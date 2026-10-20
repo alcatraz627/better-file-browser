@@ -62,8 +62,6 @@ export function initSettingsUi(app: App): void {
     const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
     el<HTMLInputElement>('fe-st-excluded-exts').value = excluded.map(x => '.' + x).join(', ');
     el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
-    el<HTMLInputElement>('fe-st-sec-favorites').checked = !settings.hideFavorites;
-    el<HTMLInputElement>('fe-st-sec-system').checked = !settings.hideSystem;
     el<HTMLInputElement>('fe-st-tooltips').checked = settings.tooltips !== false;
     el<HTMLSelectElement>('fe-st-panel').value = getPreviewLayout().mode;
     el<HTMLSelectElement>('fe-st-click').value = settings.clickOpens || 'look';
@@ -154,16 +152,11 @@ export function initSettingsUi(app: App): void {
   app.openSettings = openSettings;
 
   // Sidebar sections, tooltips, panel, click, tabs, reader, data.
-  const secToggle = (id: string, key: 'hideRecent' | 'hideFavorites' | 'hideSystem', sec: string) => {
-    el<HTMLInputElement>(id).addEventListener('change', function () {
-      settings[key] = !this.checked; saveSettings(settings);
-      const node = document.querySelector<HTMLElement>(`#fe-side .fe-sec[data-sec="${sec}"]`);
-      if (node) node.style.display = this.checked ? '' : 'none';
-    });
-  };
-  secToggle('fe-st-sec-recent', 'hideRecent', 'recent');
-  secToggle('fe-st-sec-favorites', 'hideFavorites', 'favorites');
-  secToggle('fe-st-sec-system', 'hideSystem', 'system');
+  // History can be switched off; its rail button goes and Notes takes over.
+  el<HTMLInputElement>('fe-st-sec-recent').addEventListener('change', function () {
+    settings.hideRecent = !this.checked; saveSettings(settings);
+    app.showLens?.(this.checked ? null : 'notes', !this.checked);
+  });
   el<HTMLInputElement>('fe-st-tooltips').addEventListener('change', function () {
     settings.tooltips = this.checked; saveSettings(settings);
     toast(this.checked ? 'Tooltips back after a reload' : 'Tooltips off after a reload');

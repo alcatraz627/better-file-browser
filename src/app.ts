@@ -28,5 +28,8 @@ export interface App {
   openInTerminal(path: string): void;
   openHelp(tab?: string): void;
   openSettings(tab?: string): void;
+  // Switch the sidebar to a lens (null keeps the current one); hideHistory
+  // removes or restores the History lens's rail button.
+  showLens?(lens: string | null, hideHistory?: boolean): void;
   goUp(): void;
 }

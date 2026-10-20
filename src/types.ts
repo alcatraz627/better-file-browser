@@ -42,7 +42,9 @@ export interface Settings {
   editableFolders?: string[];   // folders whose text files can be edited in place
   renderFilePages?: 'all' | 'not-md' | 'off';   // take over file:// text pages
   excludedFileExtensions?: string[];
-  hideRecent?: boolean; hideFavorites?: boolean; hideSystem?: boolean;   // sidebar sections off
+  hideRecent?: boolean;              // the History lens off
+  hideFavorites?: boolean; hideSystem?: boolean;   // no longer read: Places replaced both sections
+  sidebarRail?: boolean;             // sidebarWidth already includes the lens rail
   clickOpens?: 'look' | 'go';        // a plain click on a file: the panel, or its page
   readerColumn?: boolean | 'unset' | 'xl' | 'lg' | 'md';
   readerSize?: number;               // file page body size in px

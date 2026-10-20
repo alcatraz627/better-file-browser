@@ -130,12 +130,13 @@ export function initChrome(app: App): void {
     rz.classList.add('drag');
     const startX = e.clientX;
     const startW = side.getBoundingClientRect().width;
-    const move = (m: PointerEvent) => { side.style.width = Math.max(150, Math.min(460, startW + m.clientX - startX)) + 'px'; };
+    const move = (m: PointerEvent) => { side.style.width = Math.max(210, Math.min(520, startW + m.clientX - startX)) + 'px'; };
     const up = () => {
       rz.classList.remove('drag');
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', up);
       settings.sidebarWidth = Math.round(side.getBoundingClientRect().width);
+      settings.sidebarRail = true;
       saveSettings(settings);
     };
     document.addEventListener('pointermove', move);

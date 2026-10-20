@@ -16,8 +16,46 @@ import { colorDot, openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
 
+// The rail of lenses: one panel at a time, the choice remembered across tabs.
+const LENS_KEY = 'bfb-lens-v1';
+function initLenses(app: App): void {
+  const rail = el('fe-rail');
+  const btns = els<HTMLButtonElement>('#fe-rail .fe-rail-btn');
+  const lenses = els<HTMLElement>('#fe-lenses .fe-lens');
+  const show = (lens: string) => {
+    const usable = btns.filter(b => !b.hidden).map(b => b.dataset.lens!);
+    const pick = usable.includes(lens) ? lens : 'notes';
+    for (const b of btns) { const on = b.dataset.lens === pick; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; }
+    for (const l of lenses) l.hidden = l.dataset.lens !== pick;
+  };
+  app.showLens = (lens, hideHistory) => {
+    if (hideHistory !== undefined) el('fe-rail-history').hidden = hideHistory;
+    show(lens ?? kvGet(LENS_KEY) ?? 'notes');
+  };
+  rail.addEventListener('click', e => {
+    const b = (e.target as Element).closest<HTMLElement>('.fe-rail-btn');
+    if (!b) return;
+    kvSet(LENS_KEY, b.dataset.lens!);
+    show(b.dataset.lens!);
+  });
+  // Up and down move between lenses, as in any vertical tab list.
+  rail.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const usable = btns.filter(b => !b.hidden);
+    const i = usable.findIndex(b => b.classList.contains('on'));
+    const next = usable[(i + (e.key === 'ArrowDown' ? 1 : -1) + usable.length) % usable.length];
+    e.preventDefault();
+    kvSet(LENS_KEY, next.dataset.lens!);
+    show(next.dataset.lens!);
+    next.focus();
+  });
+  onKvChange(key => { if (key === LENS_KEY) show(kvGet(LENS_KEY) ?? 'notes'); });
+  show(kvGet(LENS_KEY) ?? 'notes');
+}
+
 export function initSidebar(app: App): void {
   const { rawPath, settings, toast } = app;
+  initLenses(app);
   const collapseKey = 'bfb-sidebar-collapsed-v1';
   const sections = els<HTMLElement>('#fe-side .fe-sec[data-collapse]');
   const collapsed = (): Set<string> => {
