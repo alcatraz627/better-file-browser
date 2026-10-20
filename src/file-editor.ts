@@ -93,6 +93,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`);
   let base = doc.text;
   let saving = false;
+  let failed = '';   // why the last save failed, until one succeeds
   let previewing = false;
   let timer = 0;
 
@@ -132,8 +133,9 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   };
   const paint = () => {
     const dirty = isDirty();
-    state.innerHTML = saving ? 'Saving…' : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
-    state.className = saving ? 'busy' : dirty ? 'dirty' : 'saved';
+    state.innerHTML = saving ? 'Saving…' : failed && dirty ? '<span class="fe-fe-dot"></span>Not saved' : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
+    state.className = saving ? 'busy' : failed && dirty ? 'failed' : dirty ? 'dirty' : 'saved';
+    state.title = failed && dirty ? failed : '';
     if (view && previewing) view.innerHTML = renderMarkdown(ta.value, host.href);
   };
   const setPreview = (on: boolean) => {
@@ -150,13 +152,13 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     try {
       const text = ta.value;
       const r = await notes.fileWrite(host.root, host.rel, text, expect);
-      doc = { text, mtime: r.mtime }; base = text;
+      doc = { text, mtime: r.mtime }; base = text; failed = '';
       banner.style.display = 'none';
       host.saved(text);
     } catch (err) {
       const e = err as NotesError;
       if (e.code === 'notes_conflict') showConflict();
-      else host.status(`not saved: ${e.message}`);
+      else { failed = `Not saved: ${e.message}`; host.status(`not saved: ${e.message}`); }
     } finally { saving = false; paint(); }
   };
   const save = () => { clearTimeout(timer); if (!saving && isDirty()) void write(doc.mtime); };

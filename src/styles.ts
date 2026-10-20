@@ -636,6 +636,8 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fe-state{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 10px;font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);
   transition:color var(--t-fast) var(--ease)}
 #fe-fe-state.saved{color:var(--green)}
+#fe-fe-state.failed{color:var(--nc-red)}
+#fe-fe-state.failed .fe-fe-dot{background:var(--nc-red)}
 #fe-fe-state svg{width:13px;height:13px}
 .fe-fe-dot{width:6px;height:6px;border-radius:50%;background:var(--ac)}
 #fe-allow{position:fixed;z-index:320;width:340px;padding:14px;background:var(--s1);border:1px solid var(--bd2);border-radius:10px;
