@@ -24,6 +24,7 @@ import { initChrome } from './chrome';
 import { initListing } from './listing';
 import { initListingInput } from './listing-input';
 import { initSidebar } from './sidebar';
+import { initToolLenses } from './tool-lenses';
 import { initSettingsUi } from './settings-ui';
 import { initMarkdownUi } from './md-ui';
 import { loadKv } from './kv';
@@ -219,6 +220,7 @@ loadKv().catch(() => {}).then(function () {
   const listing = initListing(app, entries, { view: initView, zoom: initZoom, hidden: initHidden });
   initListingInput(app, listing);
   initSettingsUi(app);
+  initToolLenses(app);
   initSidebar(app);
   // Before any visit under home, ask the native host where home is, so Places
   // offers Home, Desktop and the rest from the first page.

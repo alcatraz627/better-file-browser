@@ -4,6 +4,7 @@
 import type { Entry, Settings } from './types';
 import { esc, fileHref } from './utils';
 import { PI } from './icons';
+import { TOOL_LENS_ICONS } from './tool-lenses';
 import { UI_ICON } from './control-icons';
 import { getSaved, getTags, homeDir, getFoldedGroups } from './storage';
 import { renderMarkdown } from './renderers';
@@ -205,6 +206,8 @@ export function renderPage(p: PageParams): string {
         ${railBtn('places', 'Places', PI.home, 'Places: Home, your folders, Applications and Root')}
         ${railBtn('notes', 'Notes', PI.docs, 'Notes: saved places, saved views and your notes')}
         ${railBtn('history', 'History', PI.recent, 'History: folders and files you opened lately, and closed tabs', !!settings.hideRecent)}
+        ${railBtn('search', 'Search', TOOL_LENS_ICONS.search, 'Search: find text in the files of this folder')}
+        ${railBtn('ask', 'Ask', TOOL_LENS_ICONS.ask, 'Ask: put a question about this file or folder to the local model')}
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
@@ -233,6 +236,14 @@ export function renderPage(p: PageParams): string {
       <div class="fe-lens" id="fe-lens-history" data-lens="history" role="tabpanel" aria-labelledby="fe-rail-history" hidden>
         ${lensHead('History')}
         ${recentsHTML}
+      </div>
+      <div class="fe-lens" id="fe-lens-search" data-lens="search" role="tabpanel" aria-labelledby="fe-rail-search" hidden>
+        ${lensHead('Search')}
+        <div id="fe-srch"></div>
+      </div>
+      <div class="fe-lens" id="fe-lens-ask" data-lens="ask" role="tabpanel" aria-labelledby="fe-rail-ask" hidden>
+        ${lensHead('Ask')}
+        <div id="fe-ask"></div>
       </div>
       </div>
     </nav>

@@ -27,6 +27,7 @@ function initLenses(app: App): void {
     const pick = usable.includes(lens) ? lens : 'notes';
     for (const b of btns) { const on = b.dataset.lens === pick; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; }
     for (const l of lenses) l.hidden = l.dataset.lens !== pick;
+    document.dispatchEvent(new CustomEvent('bfb-lens', { detail: pick }));
   };
   app.showLens = (lens, hideHistory) => {
     if (hideHistory !== undefined) el('fe-rail-history').hidden = hideHistory;
