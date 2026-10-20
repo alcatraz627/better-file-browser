@@ -166,7 +166,7 @@ export function initListingInput(app: App, listing: Listing): void {
     if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'f') {
       if (app.fileMode) return;   // Chrome's find is the right one on a file page
       const s = el<HTMLInputElement>('fe-search');
-      if (document.activeElement !== s) { e.preventDefault(); s.focus(); s.select(); }
+      if (document.activeElement !== s) { e.preventDefault(); s.focus({ preventScroll: true }); s.select(); }
       return;
     }
     const ae = document.activeElement;

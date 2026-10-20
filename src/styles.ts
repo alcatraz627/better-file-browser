@@ -86,6 +86,8 @@ body{opacity:1!important}
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
 .fe-si:hover{background:var(--hover);color:var(--tx)}
 .fe-si.active{background:var(--act);color:var(--ac)}
+button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer}
+.fe-rc-ago{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);flex-shrink:0}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-sl{font-size:calc(13.5px * var(--ui-text-scale,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .fe-hint{font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
@@ -126,7 +128,10 @@ body{opacity:1!important}
 .fe-tag-btn{background:none;border:none;color:var(--dm);cursor:pointer;padding:4px 4px;font-size:calc(12px * var(--ui-text-scale,1));opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
 .fe-bm-item:hover .fe-tag-btn{opacity:1}
 .fe-tag-btn:hover{color:var(--ac)}
-#fe-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+/* clip, not hidden: focusing a control past the edge must not scroll the pane sideways.
+   The pane is a size container so its toolbar wraps by the pane's width, which a
+   docked preview can make narrow in a wide window. */
+#fe-main{flex:1;display:flex;flex-direction:column;overflow:clip;container:fe-main / inline-size;min-width:0}
 #fe-toolbar{display:flex;align-items:center;gap:10px;padding:7px 14px;
   background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-count{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);flex:1;white-space:nowrap}
@@ -311,6 +316,14 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
   border:1px solid #374151;z-index:200
 }
 #fe-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* The label for anything with a title (tooltip.ts); same surface as the row card #fe-tip. */
+#fe-hint{position:fixed;top:0;left:0;z-index:300;max-width:320px;pointer-events:none;
+  background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-radius:var(--r);
+  box-shadow:0 4px 14px #0006;padding:4px 8px;
+  font-size:calc(12px * var(--ui-text-scale,1));line-height:1.4;white-space:pre-line;
+  opacity:0;transition:opacity .12s ease-out}
+#fe-hint.on{opacity:1}
+@media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
 #fe-toast.act{pointer-events:auto}
 .fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
 ::-webkit-scrollbar{width:5px;height:5px}
@@ -789,6 +802,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   #fe-toc{width:clamp(120px,22vw,170px)}
   #fe-page .fe-md{padding:20px 18px 60px}
   #fe-fp-bar{flex-wrap:wrap;padding:7px 10px}
+}
+@container fe-main (max-width:760px){
   #fe-toolbar{flex-wrap:wrap}
   #fe-count{flex-basis:100%}
   #fe-tb-right{width:100%;flex-wrap:wrap;justify-content:flex-start}

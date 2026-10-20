@@ -82,6 +82,31 @@ export function renderPage(p: PageParams): string {
             </select>
           </div>
           <div class="fe-st-row">
+            <span class="fe-st-lbl">Sort</span>
+            <select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in; the Sort panel and column headers change it too">
+              <option value="">As listed</option>
+              <option value="name">Name</option>
+              <option value="date">Modified</option>
+              <option value="size">Size</option>
+              <option value="type">Type</option>
+              <option value="ext">Extension</option>
+            </select>
+            <select id="fe-st-sort-dir" class="fe-st-select" title="Direction">
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Group</span>
+            <select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with">
+              <option value="none">None</option>
+              <option value="folders-first">Folders first</option>
+              <option value="files-first">Files first</option>
+              <option value="ext">By extension</option>
+              <option value="type">By type</option>
+            </select>
+          </div>
+          <div class="fe-st-row">
             <span class="fe-st-lbl">Interface size</span>
             <select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">
               <option value="90">90%</option>
@@ -142,7 +167,6 @@ export function renderPage(p: PageParams): string {
         <div class="fe-st-section">
           <div class="fe-st-title">Tabs</div>
           <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-strip-restore" title="Bring back the strip of a Chrome tab closed within a day"> Restore closed strips</label>
           </div>
         </div>` },
       { key: 'files', label: 'Files', hint: 'Reader and icons', icon: UI_ICON.files, body: `

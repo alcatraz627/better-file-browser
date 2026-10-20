@@ -953,20 +953,26 @@ try {
   await pageB.waitForSelector('#fe');
   await pageB.keyboard.press('t');
   await pageB.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
-  // Restoring a closed tab's strip is opt-in; switch it on for the fresh tab only.
-  await h.store.edit('bfb-settings-v1', s => { s.stripRestore = true; });
   await pageB.close();
+  // A fresh Chrome tab never takes another tab's strip on its own.
   const pageC = await h.open(h.fixture + '/nested/deeper');
+  await new Promise(r => setTimeout(r, 1500));
+  const fresh = await tabLabels(pageC);
+  check(fresh.length === 1 && fresh[0] === '~deeper', `a fresh Chrome tab starts with only its own page: ${JSON.stringify(fresh)}`);
+  // The closed tab's set is offered under Recent, and a click brings it in.
+  const setRow = (await pageC.waitForFunction(() => [...document.querySelectorAll('#fe-rc-sets .fe-rc-set')].find(b => /nested, deeper/.test(b.textContent)), { timeout: 8_000 }).catch(() => null))?.asElement() ?? null;
+  const rowText = setRow ? await setRow.evaluate(e => e.textContent) : '';
+  check(!!setRow && /2 tabs: nested, deeper/.test(rowText), `Recent offers the closed tab's set: ${JSON.stringify(rowText)}`);
+  if (setRow) { await shot(pageC, 'recent-closed-set'); await setRow.click(); }
   await pageC.waitForFunction(keptCount(2), { timeout: 5_000 }).catch(() => null);
-  const restored = { tabs: await tabLabels(pageC), toast: await pageC.$eval('#fe-toast', el => el.textContent), bar: await barIsActiveTab(pageC) };
-  check(restored.tabs.join('|') === 'nested|deeper' && /Restored 2 tabs/.test(restored.toast) && restored.bar, `a closed Chrome tab's strip comes back in a fresh one: ${JSON.stringify(restored)}`);
+  const restored = { tabs: await tabLabels(pageC), toast: await pageC.$eval('#fe-toast', el => el.textContent), bar: await barIsActiveTab(pageC), rowGone: !(await pageC.evaluate(() => [...document.querySelectorAll('#fe-rc-sets .fe-rc-set')].some(b => /nested, deeper/.test(b.textContent)))) };
+  check(restored.tabs.join('|') === 'nested|deeper' && /Restored 2 tabs/.test(restored.toast) && restored.bar && restored.rowGone, `clicking it adds the set's tabs: ${JSON.stringify(restored)}`);
   await shot(pageC, 'tabs-restored');
   await pageC.click('#fe-toast .fe-toast-act');
   await pageC.waitForFunction(keptCount(0), { timeout: 3_000 }).catch(() => null);
   const undone = await tabLabels(pageC);
   check(undone.length === 1 && undone[0] === '~deeper', `undo drops the restored strip: ${JSON.stringify(undone)}`);
   await pageC.close();
-  await h.store.edit('bfb-settings-v1', s => { delete s.stripRestore; });
   await page.bringToFront();
 
   // Find: text inside files, held until re-run, saved as a view, reopened by hash.

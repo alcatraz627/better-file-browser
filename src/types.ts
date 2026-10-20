@@ -48,7 +48,6 @@ export interface Settings {
   readerSize?: number;               // file page body size in px
   readerLineHeight?: number;
   readerCodeSize?: number;
-  stripRestore?: boolean;            // bring a closed Chrome tab's strip back (default off; Recent covers it)
   tooltips?: boolean;                // native title tooltips (default on)
   uiScale?: number;                  // whole-interface zoom in percent (default 100)
   sidebarWidth?: number;             // sidebar width in px (default 220), set by dragging its edge

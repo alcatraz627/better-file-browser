@@ -98,17 +98,6 @@ export interface RecoveryEntry { state: TabState; at: number; closed: boolean }
 
 export const RECOVERY_MAX_AGE = 24 * 60 * 60 * 1000;
 
-// The newest strip whose Chrome tab closed within the window; null when
-// every candidate is live, empty or too old.
-export function pickRecovery(entries: Record<string, RecoveryEntry>, now: number, maxAge = RECOVERY_MAX_AGE): string | null {
-  let best: string | null = null;
-  for (const [sid, e] of Object.entries(entries)) {
-    if (!e.closed || !e.state.list.length || now - e.at > maxAge) continue;
-    if (best === null || e.at > entries[best].at) best = sid;
-  }
-  return best;
-}
-
 export function isStale(e: RecoveryEntry, now: number, maxAge = RECOVERY_MAX_AGE): boolean {
   return now - e.at > maxAge || !e.state.list.length;
 }

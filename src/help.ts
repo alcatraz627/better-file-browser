@@ -204,10 +204,10 @@ Everything is stored on your machine, in the browser, and nothing leaves it.
   localStorage are read once and left in place. Settings and Saved export and import as one
   JSON file in **Settings → Data**.
 - **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
-  survives refresh and navigation. A copy in \`chrome.storage.local\`, keyed by a
-  per-tab id, can bring back a strip closed within the last day when
-  **Settings → Restore closed strips** is on (off by default). The sidebar's
-  **Recent** section lists the files and folders you opened lately instead.
+  survives refresh and navigation. When a Chrome tab closes, its tabs are kept
+  for a day and listed under **Recent** as "3 tabs: …"; a click adds them to the
+  strip you are in. Nothing comes back on its own. **Recent** also lists the
+  files and folders you opened lately.
 - **Reading choices** (the column toggle, the ToC, a file page's scroll
   position) live in the same storage, so they persist across reloads.
 

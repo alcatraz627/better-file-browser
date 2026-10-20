@@ -159,6 +159,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     sel.setSel(-1);
   }
   app.applyAll = applyAll;
+  app.setOrder = (sort, group) => { ls.sort = { ...sort }; ls.group = group; syncSortUi(); applyAll(); };
 
   function refreshNameMatches(): void {
     nameFilterAbort?.abort();

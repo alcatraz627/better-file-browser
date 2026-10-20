@@ -5,7 +5,7 @@ import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
 import { esc, copyToClipboard, midHtml } from './utils';
-import { kvGet, kvSet } from './kv';
+import { kvGet, kvSet, onKvChange } from './kv';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings } from './storage';
@@ -60,7 +60,7 @@ export function initSidebar(app: App): void {
     header.prepend(toggle);
   }
   applyCollapsed(collapsed());
-  window.addEventListener('storage', e => { if (e.key === collapseKey) applyCollapsed(collapsed()); });
+  onKvChange(key => { if (key === collapseKey) applyCollapsed(collapsed()); });
   const svList = el('fe-sv-list');
   const svFilter = el<HTMLInputElement>('fe-sv-filter');
   let dragSrc: HTMLElement | null = null;

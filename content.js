@@ -225,6 +225,13 @@
   var NOT_KV = "bfb-strip-v2:";
   var cache = /* @__PURE__ */ new Map();
   var area = null;
+  var watchers = [];
+  function onKvChange(fn) {
+    watchers.push(fn);
+    if (!area) window.addEventListener("storage", (e) => {
+      if (e.key && isKvKey(e.key)) fn(e.key);
+    });
+  }
   var isKvKey = (k) => k.startsWith("bfb-") && !k.startsWith(NOT_KV) && k !== MIGRATED;
   function chromeArea() {
     try {
@@ -275,8 +282,10 @@
       if (name !== "local") return;
       for (const [k, c] of Object.entries(changes)) {
         if (!isKvKey(k)) continue;
+        if (cache.get(k) === c.newValue) continue;
         if (typeof c.newValue === "string") cache.set(k, c.newValue);
         else cache.delete(k);
+        watchers.forEach((fn) => fn(k));
       }
     });
   }
@@ -727,6 +736,7 @@
     return icoFile(ext2 || "\u2014");
   }
   var PI = {
+    tabset: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 5h11v7.5h-11z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 5V2.5h4l1 2.5M6.5 5V3h3.5l1 2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
     root: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1 5h12" stroke="currentColor" stroke-width="1.3"/><circle cx="3.5" cy="3.5" r=".9" fill="currentColor"/><circle cx="5.8" cy="3.5" r=".9" fill="currentColor"/><path d="M3 13h8M7 11v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
     home: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 7L7 2l6 5v6H9.5V9.5h-5V13H1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
     desk: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1.5" width="12" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 12.5h5M7 9.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
@@ -3508,6 +3518,8 @@ body{opacity:1!important}
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
 .fe-si:hover{background:var(--hover);color:var(--tx)}
 .fe-si.active{background:var(--act);color:var(--ac)}
+button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer}
+.fe-rc-ago{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);flex-shrink:0}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-sl{font-size:calc(13.5px * var(--ui-text-scale,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .fe-hint{font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
@@ -3548,7 +3560,10 @@ body{opacity:1!important}
 .fe-tag-btn{background:none;border:none;color:var(--dm);cursor:pointer;padding:4px 4px;font-size:calc(12px * var(--ui-text-scale,1));opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
 .fe-bm-item:hover .fe-tag-btn{opacity:1}
 .fe-tag-btn:hover{color:var(--ac)}
-#fe-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+/* clip, not hidden: focusing a control past the edge must not scroll the pane sideways.
+   The pane is a size container so its toolbar wraps by the pane's width, which a
+   docked preview can make narrow in a wide window. */
+#fe-main{flex:1;display:flex;flex-direction:column;overflow:clip;container:fe-main / inline-size;min-width:0}
 #fe-toolbar{display:flex;align-items:center;gap:10px;padding:7px 14px;
   background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-count{font-size:calc(11px * var(--ui-text-scale,1));color:var(--dm);flex:1;white-space:nowrap}
@@ -3733,6 +3748,14 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
   border:1px solid #374151;z-index:200
 }
 #fe-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* The label for anything with a title (tooltip.ts); same surface as the row card #fe-tip. */
+#fe-hint{position:fixed;top:0;left:0;z-index:300;max-width:320px;pointer-events:none;
+  background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-radius:var(--r);
+  box-shadow:0 4px 14px #0006;padding:4px 8px;
+  font-size:calc(12px * var(--ui-text-scale,1));line-height:1.4;white-space:pre-line;
+  opacity:0;transition:opacity .12s ease-out}
+#fe-hint.on{opacity:1}
+@media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
 #fe-toast.act{pointer-events:auto}
 .fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
 ::-webkit-scrollbar{width:5px;height:5px}
@@ -4211,6 +4234,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   #fe-toc{width:clamp(120px,22vw,170px)}
   #fe-page .fe-md{padding:20px 18px 60px}
   #fe-fp-bar{flex-wrap:wrap;padding:7px 10px}
+}
+@container fe-main (max-width:760px){
   #fe-toolbar{flex-wrap:wrap}
   #fe-count{flex-basis:100%}
   #fe-tb-right{width:100%;flex-wrap:wrap;justify-content:flex-start}
@@ -4695,14 +4720,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
     return { active: s.active, list: s.list.map((t) => ({ ...t, kind: t.kind ?? kindOf(t.path), label: t.label ?? labelFor(t.path), pinned: !!t.pinned })) };
   }
   var RECOVERY_MAX_AGE = 24 * 60 * 60 * 1e3;
-  function pickRecovery(entries, now, maxAge = RECOVERY_MAX_AGE) {
-    let best = null;
-    for (const [sid, e] of Object.entries(entries)) {
-      if (!e.closed || !e.state.list.length || now - e.at > maxAge) continue;
-      if (best === null || e.at > entries[best].at) best = sid;
-    }
-    return best;
-  }
   function isStale(e, now, maxAge = RECOVERY_MAX_AGE) {
     return now - e.at > maxAge || !e.state.list.length;
   }
@@ -4998,7 +5015,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       }
       return false;
     }
-    async function recover() {
+    async function closedSets() {
       const all = await readRecoveries();
       const now = Date.now();
       const area2 = storageArea();
@@ -5009,17 +5026,17 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
         }
         delete all[k];
       }
-      const pick = pickRecovery(all, now);
-      if (!pick) return;
-      let old = all[pick];
-      if (now - old.at < 2500) {
-        await new Promise((r) => setTimeout(r, 700));
-        const again = (await readRecoveries())[pick];
-        if (!again || !again.closed || again.at !== old.at) return;
-        old = again;
+      return Object.entries(all).filter(([k, e]) => k !== sid && e.closed).sort((a, b) => b[1].at - a[1].at).map(([k, e]) => ({ id: k, at: e.at, labels: e.state.list.map((t) => labelFor(t.path)) }));
+    }
+    async function restoreSet(id) {
+      const old = (await readRecoveries())[id];
+      if (!old) {
+        toast("That tab set is gone");
+        return;
       }
+      const area2 = storageArea();
       try {
-        area2?.remove(RECOVERY_PREFIX + pick, () => void chrome.runtime.lastError);
+        area2?.remove(RECOVERY_PREFIX + id, () => void chrome.runtime.lastError);
       } catch {
       }
       let merged = old.state;
@@ -5033,7 +5050,7 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
           for (const t of old.state.list) back = closeTab(back, t.id);
           commit(back);
           try {
-            area2?.set({ [RECOVERY_PREFIX + pick]: old }, () => void chrome.runtime.lastError);
+            area2?.set({ [RECOVERY_PREFIX + id]: old }, () => void chrome.runtime.lastError);
           } catch {
           }
         }
@@ -5049,7 +5066,6 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       sid = Math.random().toString(36).slice(2, 12);
       writeSession(sid, state, closed);
       render2();
-      if (host.restore !== false) void recover();
     }
     window.addEventListener("pagehide", () => writeRecovery(sid, state, true));
     return {
@@ -5061,7 +5077,9 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
         commit(openTab(s, path));
         if (path !== rawPath) location.href = pageHref(fileUrl(path));
       },
-      state: () => state
+      state: () => state,
+      closedSets,
+      restoreSet
     };
   }
 
@@ -5291,10 +5309,10 @@ Everything is stored on your machine, in the browser, and nothing leaves it.
   localStorage are read once and left in place. Settings and Saved export and import as one
   JSON file in **Settings \u2192 Data**.
 - **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
-  survives refresh and navigation. A copy in \`chrome.storage.local\`, keyed by a
-  per-tab id, can bring back a strip closed within the last day when
-  **Settings \u2192 Restore closed strips** is on (off by default). The sidebar's
-  **Recent** section lists the files and folders you opened lately instead.
+  survives refresh and navigation. When a Chrome tab closes, its tabs are kept
+  for a day and listed under **Recent** as "3 tabs: \u2026"; a click adds them to the
+  strip you are in. Nothing comes back on its own. **Recent** also lists the
+  files and folders you opened lately.
 - **Reading choices** (the column toggle, the ToC, a file page's scroll
   position) live in the same storage, so they persist across reloads.
 
@@ -5710,6 +5728,31 @@ seconds and re-renders when the file changes on disk.
             </select>
           </div>
           <div class="fe-st-row">
+            <span class="fe-st-lbl">Sort</span>
+            <select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in; the Sort panel and column headers change it too">
+              <option value="">As listed</option>
+              <option value="name">Name</option>
+              <option value="date">Modified</option>
+              <option value="size">Size</option>
+              <option value="type">Type</option>
+              <option value="ext">Extension</option>
+            </select>
+            <select id="fe-st-sort-dir" class="fe-st-select" title="Direction">
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </div>
+          <div class="fe-st-row">
+            <span class="fe-st-lbl">Group</span>
+            <select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with">
+              <option value="none">None</option>
+              <option value="folders-first">Folders first</option>
+              <option value="files-first">Files first</option>
+              <option value="ext">By extension</option>
+              <option value="type">By type</option>
+            </select>
+          </div>
+          <div class="fe-st-row">
             <span class="fe-st-lbl">Interface size</span>
             <select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">
               <option value="90">90%</option>
@@ -5770,7 +5813,6 @@ seconds and re-renders when the file changes on disk.
         <div class="fe-st-section">
           <div class="fe-st-title">Tabs</div>
           <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-strip-restore" title="Bring back the strip of a Chrome tab closed within a day"> Restore closed strips</label>
           </div>
         </div>` },
         { key: "files", label: "Files", hint: "Reader and icons", icon: UI_ICON.files, body: `
@@ -6627,6 +6669,12 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       sel.setSel(-1);
     }
     app.applyAll = applyAll;
+    app.setOrder = (sort, group) => {
+      ls.sort = { ...sort };
+      ls.group = group;
+      syncSortUi();
+      applyAll();
+    };
     function refreshNameMatches() {
       nameFilterAbort?.abort();
       nameFilterAbort = null;
@@ -7391,7 +7439,7 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         const s = el("fe-search");
         if (document.activeElement !== s) {
           e.preventDefault();
-          s.focus();
+          s.focus({ preventScroll: true });
           s.select();
         }
         return;
@@ -7519,8 +7567,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       header.prepend(toggle);
     }
     applyCollapsed(collapsed());
-    window.addEventListener("storage", (e) => {
-      if (e.key === collapseKey) applyCollapsed(collapsed());
+    onKvChange((key) => {
+      if (key === collapseKey) applyCollapsed(collapsed());
     });
     const svList = el("fe-sv-list");
     const svFilter = el("fe-sv-filter");
@@ -8038,6 +8086,10 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
         r.checked = r.value === (fe.dataset.theme || "dark");
       });
       el("fe-st-defview").value = getView();
+      const order = getSortConfig();
+      el("fe-st-sort").value = order.col ?? "";
+      el("fe-st-sort-dir").value = order.dir;
+      el("fe-st-group").value = getGroupMode();
       el("fe-st-compact").checked = !!settings.compactMode;
       el("fe-st-sidebar").checked = settings.showSidebar !== false;
       el("fe-st-datefmt").value = settings.dateFormat || "short";
@@ -8055,7 +8107,6 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       el("fe-st-tooltips").checked = settings.tooltips !== false;
       el("fe-st-panel").value = getPreviewLayout().mode;
       el("fe-st-click").value = settings.clickOpens || "look";
-      el("fe-st-strip-restore").checked = settings.stripRestore === true;
       el("fe-st-rd-column").value = savedColumnMode(settings.readerColumn);
       el("fe-st-uiscale").value = String(settings.uiScale || 100);
       el("fe-st-rd-size").value = String(settings.readerSize || 15);
@@ -8162,10 +8213,6 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       settings.clickOpens = this.value;
       saveSettings(settings);
     });
-    el("fe-st-strip-restore").addEventListener("change", function() {
-      settings.stripRestore = this.checked;
-      saveSettings(settings);
-    });
     el("fe-st-rd-column").addEventListener("change", function() {
       settings.readerColumn = this.value;
       saveSettings(settings);
@@ -8228,6 +8275,12 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     el("fe-st-defview").addEventListener("change", function() {
       kvSet(VIEW_KEY, this.value);
     });
+    const applyOrder = () => {
+      const col = el("fe-st-sort").value || null;
+      const dir = el("fe-st-sort-dir").value;
+      app.setOrder({ col, dir }, el("fe-st-group").value);
+    };
+    ["fe-st-sort", "fe-st-sort-dir", "fe-st-group"].forEach((id) => el(id).addEventListener("change", applyOrder));
     el("fe-st-compact").addEventListener("change", function() {
       settings.compactMode = this.checked;
       saveSettings(settings);
@@ -8413,7 +8466,94 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     });
   }
 
+  // src/tooltip.ts
+  var DELAY = 350;
+  function initTooltips(root) {
+    const tip = document.createElement("div");
+    tip.id = "fe-hint";
+    tip.setAttribute("role", "tooltip");
+    root.appendChild(tip);
+    let target = null;
+    let lifted = "";
+    let timer = 0;
+    function hide() {
+      clearTimeout(timer);
+      tip.classList.remove("on");
+      if (target && lifted && !target.hasAttribute("title")) target.setAttribute("title", lifted);
+      target = null;
+      lifted = "";
+    }
+    function place() {
+      if (!target) return;
+      const r = target.getBoundingClientRect();
+      const t = tip.getBoundingClientRect();
+      let top = r.bottom + 6;
+      if (top + t.height > innerHeight - 4) top = r.top - t.height - 6;
+      const left = Math.min(Math.max(4, r.left + r.width / 2 - t.width / 2), innerWidth - t.width - 4);
+      tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+    }
+    root.addEventListener("pointerover", (e) => {
+      const el2 = e.target.closest("[title]");
+      if (!el2 || el2 === target || !root.contains(el2)) return;
+      hide();
+      const text = el2.getAttribute("title")?.trim();
+      if (!text) return;
+      target = el2;
+      lifted = text;
+      el2.removeAttribute("title");
+      timer = window.setTimeout(() => {
+        if (target !== el2) return;
+        tip.textContent = text;
+        tip.classList.add("on");
+        place();
+      }, DELAY);
+    });
+    root.addEventListener("pointerout", (e) => {
+      if (target && !target.contains(e.relatedTarget)) hide();
+    });
+    root.addEventListener("pointerdown", hide, true);
+    root.addEventListener("scroll", hide, true);
+    document.addEventListener("keydown", hide, true);
+  }
+
   // src/main.ts
+  async function showClosedSets(strip, visible) {
+    const box = document.getElementById("fe-rc-sets");
+    if (!box) return;
+    const section = box.closest(".fe-sec");
+    const ago = (at) => {
+      const m = Math.round((Date.now() - at) / 6e4);
+      return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
+    };
+    let timer = 0;
+    const later = (ms) => {
+      clearTimeout(timer);
+      timer = window.setTimeout(() => void paint(), ms);
+    };
+    async function paint() {
+      const all = await strip.closedSets();
+      const settle = 2500;
+      const young = all.filter((s) => Date.now() - s.at < settle);
+      if (young.length) later(settle - (Date.now() - Math.min(...young.map((s) => s.at))) + 100);
+      const sets = all.filter((s) => !young.includes(s)).slice(0, 3);
+      box.innerHTML = sets.map((s) => {
+        const n = s.labels.length;
+        return `<button type="button" class="fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago(s.at)}</span></button>`;
+      }).join("");
+      if (visible && (sets.length || section.querySelector("a.fe-si"))) section.style.display = "";
+    }
+    box.addEventListener("click", (e) => {
+      const b = e.target.closest(".fe-rc-set");
+      if (b) void strip.restoreSet(b.dataset.set).then(paint);
+    });
+    try {
+      chrome.storage.onChanged.addListener((changes, name) => {
+        if (name === "local" && Object.keys(changes).some((k) => k.startsWith("bfb-strip-v2:"))) later(300);
+      });
+    } catch {
+    }
+    await paint();
+  }
   loadKv().catch(() => {
   }).then(function() {
     const preload = document.getElementById("bfb-preload");
@@ -8459,14 +8599,15 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
     const initHidden = getShowHidden();
     const recents = getRecents().filter((r) => r.path !== rawPath).slice(0, 10);
     pushRecent(rawPath);
-    const recentsHTML = recents.length ? `
-      <div class="fe-sec" data-sec="recent" data-collapse="recent"${settings.hideRecent ? ' style="display:none"' : ""}>
+    const recentsHTML = `
+      <div class="fe-sec" data-sec="recent" data-collapse="recent"${settings.hideRecent || !recents.length ? ' style="display:none"' : ""}>
         <div class="fe-sh"><span class="fe-sh-label">Recent</span></div>
         ${recents.map((r) => {
       const lbl = r.path.split("/").filter(Boolean).pop() || "/";
       return `<a href="file://${esc(r.path)}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
     }).join("")}
-      </div>` : "";
+        <div id="fe-rc-sets"></div>
+      </div>`;
     const html = renderPage({
       initTheme,
       initView,
@@ -8520,6 +8661,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       filePage: null,
       applyAll: () => {
       },
+      setOrder: () => {
+      },
       refreshSaved: () => {
       },
       refreshNotes: () => {
@@ -8548,7 +8691,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       app.strip.open(path, true);
       app.toast("Kept as a tab");
     }, saveError: (message) => app.toast(message), toast: (message) => app.toast(message) });
-    app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore === true });
+    app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
+    void showClosedSets(app.strip, !settings.hideRecent);
     if (fileMode) {
       const href = viewHref || location.href;
       app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: settings.editableFolders });
@@ -8578,6 +8722,8 @@ file:///Users/alcatraz627/">${PI.home}<span class="fe-sl">Home</span></a>
       const strip = () => document.querySelectorAll("[title]").forEach((x) => x.removeAttribute("title"));
       strip();
       new MutationObserver(strip).observe(fe, { childList: true, subtree: true });
+    } else {
+      initTooltips(document.body);
     }
   });
 })();

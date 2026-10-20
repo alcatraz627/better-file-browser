@@ -14,6 +14,13 @@ const NOT_KV = 'bfb-strip-v2:';
 
 const cache = new Map<string, string>();
 let area: chrome.storage.StorageArea | null = null;
+const watchers: ((key: string) => void)[] = [];
+
+// Call fn with the key whenever another tab changes a value.
+export function onKvChange(fn: (key: string) => void): void {
+  watchers.push(fn);
+  if (!area) window.addEventListener('storage', e => { if (e.key && isKvKey(e.key)) fn(e.key); });
+}
 
 const isKvKey = (k: string) => k.startsWith('bfb-') && !k.startsWith(NOT_KV) && k !== MIGRATED;
 
@@ -53,8 +60,10 @@ export async function loadKv(): Promise<void> {
     if (name !== 'local') return;
     for (const [k, c] of Object.entries(changes)) {
       if (!isKvKey(k)) continue;
+      if (cache.get(k) === c.newValue) continue;   // this tab's own write
       if (typeof c.newValue === 'string') cache.set(k, c.newValue);
       else cache.delete(k);
+      watchers.forEach(fn => fn(k));
     }
   });
 }

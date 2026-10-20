@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, isTabState, normalize,
-  pickRecovery, isStale, insertTab, displayLabels, splitLabel, type RecoveryEntry,
+  isStale, insertTab, displayLabels, splitLabel, type RecoveryEntry,
 } from '../src/tabs';
 
 describe('tabs', () => {
@@ -123,18 +123,14 @@ describe('tabs', () => {
     expect(head.startsWith('components/')).toBe(true);
   });
 
-  it('recovery picks the newest closed strip inside the window and prunes the rest', () => {
+  it('a closed strip expires after a day or when empty', () => {
     const at = 1_000_000;
     const strip = (label: string): RecoveryEntry['state'] => openTab(EMPTY, `/${label}/`);
     const entries: Record<string, RecoveryEntry> = {
       live:  { state: strip('live'),  at: at - 10, closed: false },
-      older: { state: strip('older'), at: at - 5000, closed: true },
-      newer: { state: strip('newer'), at: at - 100, closed: true },
       empty: { state: EMPTY, at: at - 1, closed: true },
       stale: { state: strip('stale'), at: at - 25 * 3600e3, closed: true },
     };
-    expect(pickRecovery(entries, at)).toBe('newer');
-    expect(pickRecovery({ live: entries.live }, at)).toBeNull();
     expect(isStale(entries.stale, at)).toBe(true);
     expect(isStale(entries.empty, at)).toBe(true);
     expect(isStale(entries.live, at)).toBe(false);

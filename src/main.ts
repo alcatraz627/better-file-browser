@@ -12,7 +12,7 @@ import { esc, pageHref } from './utils';
 import { PI } from './icons';
 import { filePageExt, filePagesEnabled, mountFileContent } from './file-page';
 import { fetchFileText } from './file-fetch';
-import { mountStrip } from './strip';
+import { mountStrip, type Strip } from './strip';
 import { makeToast } from './toast';
 import { renderPage } from './page';
 import { el } from './el';
@@ -24,6 +24,41 @@ import { initSidebar } from './sidebar';
 import { initSettingsUi } from './settings-ui';
 import { initMarkdownUi } from './md-ui';
 import { loadKv } from './kv';
+import { initTooltips } from './tooltip';
+
+// Tab sets from Chrome tabs closed in the last day, as rows under Recent. A
+// click adds that set's tabs to this strip; nothing is restored on its own.
+async function showClosedSets(strip: Strip, visible: boolean): Promise<void> {
+  const box = document.getElementById('fe-rc-sets');
+  if (!box) return;
+  const section = box.closest('.fe-sec') as HTMLElement;
+  const ago = (at: number) => { const m = Math.round((Date.now() - at) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`; };
+  let timer = 0;
+  const later = (ms: number) => { clearTimeout(timer); timer = window.setTimeout(() => void paint(), ms); };
+  async function paint(): Promise<void> {
+    const all = await strip.closedSets();
+    const settle = 2500;
+    const young = all.filter(s => Date.now() - s.at < settle);
+    if (young.length) later(settle - (Date.now() - Math.min(...young.map(s => s.at))) + 100);
+    const sets = all.filter(s => !young.includes(s)).slice(0, 3);
+    box!.innerHTML = sets.map(s => {
+      const n = s.labels.length;
+      return `<button type="button" class="fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(', '))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? '' : 's'}: ${esc(s.labels.slice(0, 3).join(', '))}${n > 3 ? '…' : ''}</span><span class="fe-rc-ago">${ago(s.at)}</span></button>`;
+    }).join('');
+    if (visible && (sets.length || section.querySelector('a.fe-si'))) section.style.display = '';
+  }
+  box.addEventListener('click', e => {
+    const b = (e.target as Element).closest<HTMLElement>('.fe-rc-set');
+    if (b) void strip.restoreSet(b.dataset.set!).then(paint);
+  });
+  // Another Chrome tab closing changes the list; paint picks it up once settled.
+  try {
+    chrome.storage.onChanged.addListener((changes, name) => {
+      if (name === 'local' && Object.keys(changes).some(k => k.startsWith('bfb-strip-v2:'))) later(300);
+    });
+  } catch { /* extension reloaded under the page */ }
+  await paint();
+}
 
 // Settings must be in memory before the first paint decides anything.
 loadKv().catch(() => {}).then(function () {
@@ -77,14 +112,17 @@ loadKv().catch(() => {}).then(function () {
   // doc read yesterday is one click away without restoring a whole strip.
   const recents = getRecents().filter(r => r.path !== rawPath).slice(0, 10);
   pushRecent(rawPath);
-  const recentsHTML = recents.length ? `
-      <div class="fe-sec" data-sec="recent" data-collapse="recent"${settings.hideRecent ? ' style="display:none"' : ''}>
+  // Closed tab sets are added below the list once the strip has read them; the
+  // section stays hidden while it has nothing to show.
+  const recentsHTML = `
+      <div class="fe-sec" data-sec="recent" data-collapse="recent"${settings.hideRecent || !recents.length ? ' style="display:none"' : ''}>
         <div class="fe-sh"><span class="fe-sh-label">Recent</span></div>
         ${recents.map(r => {
           const lbl = r.path.split('/').filter(Boolean).pop() || '/';
           return `<a href="file://${esc(r.path)}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
         }).join('')}
-      </div>` : '';
+        <div id="fe-rc-sets"></div>
+      </div>`;
 
   const html = renderPage({
     initTheme, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings,
@@ -117,7 +155,7 @@ loadKv().catch(() => {}).then(function () {
     toast: makeToast(el('fe-toast')),
     strip: null as unknown as App['strip'],
     filePage: null,
-    applyAll: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {}, pickNotesFolder: () => {},
+    applyAll: () => {}, setOrder: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {}, pickNotesFolder: () => {},
     openInTerminal: () => {}, openHelp: () => {}, openSettings: () => {},
     goUp: () => {
       if (fileMode) { location.href = 'file://' + folderPath; return; }
@@ -130,7 +168,8 @@ loadKv().catch(() => {}).then(function () {
   initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); }, saveError: message => app.toast(message), toast: message => app.toast(message) });
   // The strip: this Chrome tab's working set. Navigation is real, so the
   // address bar is always the active tab's location.
-  app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), restore: settings.stripRestore === true });
+  app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
+  void showClosedSets(app.strip, !settings.hideRecent);
   if (fileMode) {
     const href = viewHref || location.href;
     app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: settings.editableFolders });
@@ -162,5 +201,7 @@ loadKv().catch(() => {}).then(function () {
     const strip = () => document.querySelectorAll('[title]').forEach(x => x.removeAttribute('title'));
     strip();
     new MutationObserver(strip).observe(fe, { childList: true, subtree: true });
+  } else {
+    initTooltips(document.body);
   }
 });

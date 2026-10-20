@@ -10,7 +10,7 @@ import { getSaved, saveSaved } from './storage';
 import { upsertPlace, removePlace } from './places';
 import {
   EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, displayLabels, splitLabel,
-  isTabState, normalize, pickRecovery, isStale, type TabState, type Tab, type RecoveryEntry,
+  isTabState, normalize, isStale, type TabState, type Tab, type RecoveryEntry,
 } from './tabs';
 import type { Toast } from './toast';
 
@@ -22,8 +22,9 @@ export interface StripHost {
   rawPath: string;
   toast: Toast;
   onSavedChange?: () => void;
-  restore?: boolean;   // bring a closed Chrome tab's strip back; the host decides the default
 }
+// The tabs of a Chrome tab that was closed, offered in Recent.
+export interface ClosedSet { id: string; at: number; labels: string[] }
 export interface Strip {
   // True when the key was a strip key and has been handled.
   handleKey(e: KeyboardEvent): boolean;
@@ -33,6 +34,9 @@ export interface Strip {
   // keep a new one, then navigate there.
   go(path: string): void;
   state(): TabState;
+  closedSets(): Promise<ClosedSet[]>;
+  // Add a closed set's tabs to this strip, with undo.
+  restoreSet(id: string): Promise<void>;
 }
 
 const storageArea = () => (typeof chrome !== 'undefined' && chrome.storage?.local) || null;
@@ -275,24 +279,25 @@ export function mountStrip(host: StripHost): Strip {
     return false;
   }
 
-  // ── Load, or recover ──────────────────────────────────────────────
-  async function recover(): Promise<void> {
+  // ── Closed tab sets, restored only on request ─────────────────────
+  // Tab sets of Chrome tabs closed in the last day, newest first. A set seen
+  // closed for under 2.5s may be a live tab mid-navigation; the caller waits
+  // until it is older before showing it.
+  async function closedSets(): Promise<ClosedSet[]> {
     const all = await readRecoveries();
     const now = Date.now();
     const area = storageArea();
     for (const [k, e] of Object.entries(all)) if (isStale(e, now)) { try { area?.remove(RECOVERY_PREFIX + k, () => void chrome.runtime.lastError); } catch { /* gone */ } delete all[k]; }
-    const pick = pickRecovery(all, now);
-    if (!pick) return;
-    let old = all[pick];
-    // pagehide fires on navigation too, so a just-closed entry may be a live tab
-    // mid-nav about to re-claim it; re-read after a beat before taking a fresh one.
-    if (now - old.at < 2500) {
-      await new Promise(r => setTimeout(r, 700));
-      const again = (await readRecoveries())[pick];
-      if (!again || !again.closed || again.at !== old.at) return;
-      old = again;
-    }
-    try { area?.remove(RECOVERY_PREFIX + pick, () => void chrome.runtime.lastError); } catch { /* gone */ }
+    return Object.entries(all)
+      .filter(([k, e]) => k !== sid && e.closed)
+      .sort((a, b) => b[1].at - a[1].at)
+      .map(([k, e]) => ({ id: k, at: e.at, labels: e.state.list.map(t => labelFor(t.path)) }));
+  }
+  async function restoreSet(id: string): Promise<void> {
+    const old = (await readRecoveries())[id];
+    if (!old) { toast('That tab set is gone'); return; }
+    const area = storageArea();
+    try { area?.remove(RECOVERY_PREFIX + id, () => void chrome.runtime.lastError); } catch { /* gone */ }
     // Merge, never replace: a tab kept while the re-read waited stays.
     let merged = old.state;
     for (const t of state.list) merged = insertTab(merged, t, merged.list.length);
@@ -306,7 +311,7 @@ export function mountStrip(host: StripHost): Strip {
         let back = state;
         for (const t of old.state.list) back = closeTab(back, t.id);
         commit(back);
-        try { area?.set({ [RECOVERY_PREFIX + pick]: old }, () => void chrome.runtime.lastError); } catch { /* gone */ }
+        try { area?.set({ [RECOVERY_PREFIX + id]: old }, () => void chrome.runtime.lastError); } catch { /* gone */ }
       },
     });
   }
@@ -321,7 +326,6 @@ export function mountStrip(host: StripHost): Strip {
     sid = Math.random().toString(36).slice(2, 12);
     writeSession(sid, state, closed);
     render();
-    if (host.restore !== false) void recover();
   }
   window.addEventListener('pagehide', () => writeRecovery(sid, state, true));
 
@@ -338,5 +342,7 @@ export function mountStrip(host: StripHost): Strip {
       if (path !== rawPath) location.href = pageHref(fileUrl(path));
     },
     state: () => state,
+    closedSets,
+    restoreSet,
   };
 }

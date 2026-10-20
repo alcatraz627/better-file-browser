@@ -7,7 +7,8 @@ import { el, els } from './el';
 import { esc } from './utils';
 import { kvGet, kvKeys, kvSet } from './kv';
 import { icoCustom } from './icons';
-import { VIEW_KEY, THEME_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout } from './storage';
+import { VIEW_KEY, THEME_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
+import type { SortConfig, GroupMode } from './types';
 import { llmAvailability, llmWarm } from './llm';
 import { mountDialog } from './dialog';
 import { COLUMN_KEY, parseExcludedExtensions, savedColumnMode } from './file-page';
@@ -45,6 +46,10 @@ export function initSettingsUi(app: App): void {
   function openSettings(tab?: string): void {
     els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => { r.checked = r.value === (fe.dataset.theme || 'dark'); });
     el<HTMLSelectElement>('fe-st-defview').value   = getView();
+    const order = getSortConfig();
+    el<HTMLSelectElement>('fe-st-sort').value      = order.col ?? '';
+    el<HTMLSelectElement>('fe-st-sort-dir').value  = order.dir;
+    el<HTMLSelectElement>('fe-st-group').value     = getGroupMode();
     el<HTMLInputElement>('fe-st-compact').checked  = !!settings.compactMode;
     el<HTMLInputElement>('fe-st-sidebar').checked  = settings.showSidebar !== false;
     el<HTMLSelectElement>('fe-st-datefmt').value   = settings.dateFormat || 'short';
@@ -62,7 +67,6 @@ export function initSettingsUi(app: App): void {
     el<HTMLInputElement>('fe-st-tooltips').checked = settings.tooltips !== false;
     el<HTMLSelectElement>('fe-st-panel').value = getPreviewLayout().mode;
     el<HTMLSelectElement>('fe-st-click').value = settings.clickOpens || 'look';
-    el<HTMLInputElement>('fe-st-strip-restore').checked = settings.stripRestore === true;
     el<HTMLSelectElement>('fe-st-rd-column').value = savedColumnMode(settings.readerColumn);
     el<HTMLSelectElement>('fe-st-uiscale').value = String(settings.uiScale || 100);
     el<HTMLSelectElement>('fe-st-rd-size').value = String(settings.readerSize || 15);
@@ -175,9 +179,6 @@ export function initSettingsUi(app: App): void {
   el<HTMLSelectElement>('fe-st-click').addEventListener('change', function () {
     settings.clickOpens = this.value as 'look' | 'go'; saveSettings(settings);
   });
-  el<HTMLInputElement>('fe-st-strip-restore').addEventListener('change', function () {
-    settings.stripRestore = this.checked; saveSettings(settings);
-  });
   el<HTMLSelectElement>('fe-st-rd-column').addEventListener('change', function () {
     settings.readerColumn = this.value as 'unset' | 'xl' | 'lg' | 'md'; saveSettings(settings);
     try { kvSet(COLUMN_KEY, this.value); } catch { /* fine */ }
@@ -221,6 +222,12 @@ export function initSettingsUi(app: App): void {
   el<HTMLSelectElement>('fe-st-defview').addEventListener('change', function () {
     kvSet(VIEW_KEY, this.value);
   });
+  const applyOrder = () => {
+    const col = (el<HTMLSelectElement>('fe-st-sort').value || null) as SortConfig['col'];
+    const dir = el<HTMLSelectElement>('fe-st-sort-dir').value as SortConfig['dir'];
+    app.setOrder({ col, dir }, el<HTMLSelectElement>('fe-st-group').value as GroupMode);
+  };
+  ['fe-st-sort', 'fe-st-sort-dir', 'fe-st-group'].forEach(id => el(id).addEventListener('change', applyOrder));
   el<HTMLInputElement>('fe-st-compact').addEventListener('change', function () {
     settings.compactMode = this.checked; saveSettings(settings);
     fe.classList.toggle('compact', this.checked);

@@ -2,7 +2,7 @@
 // settings, and the hooks modules hand each other once they are mounted.
 // main.ts creates it; the hooks start as no-ops and are replaced by the
 // module that owns them.
-import type { Settings, IconRule } from './types';
+import type { Settings, IconRule, SortConfig, GroupMode } from './types';
 import type { Toast } from './toast';
 import type { Strip } from './strip';
 import type { FileContent } from './file-page';
@@ -19,6 +19,8 @@ export interface App {
   strip: Strip;
   filePage: FileContent | null;
   applyAll(): void;
+  // Change the order every folder uses, and re-sort this one.
+  setOrder(sort: SortConfig, group: GroupMode): void;
   refreshSaved(): void;
   refreshNotes(): void;
   newNote(): void;
