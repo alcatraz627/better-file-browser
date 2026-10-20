@@ -3,6 +3,7 @@
 // file (kind, size, lines, words, path) plus a few that only make sense for
 // its type (headings in markdown, rows and columns in a table, keys in JSON).
 import { esc, fmtSize, kindName } from './utils';
+import { parseDSV } from './renderers';
 
 export { kindName };
 export interface MetaItem { key: string; label: string; value: string }
@@ -29,8 +30,9 @@ export function fileMeta(text: string, ext: string, path: string, bytes = new Bl
     items.push({ key: 'headings', label: 'Headings', value: plural(heads, 'heading') });
   }
   if (e === 'csv' || e === 'tsv') {
-    const rows = text.split('\n').filter(l => l.trim());
-    const cols = rows.length ? rows[0].split(e === 'tsv' ? '\t' : ',').length : 0;
+    // The table's own parse, so a quoted comma or line break counts as the table shows it.
+    const rows = parseDSV(text, e === 'tsv' ? '\t' : ',').filter(r => r.some(c => c.trim()));
+    const cols = rows.reduce((w, r) => Math.max(w, r.length), 0);
     items.push({ key: 'rows', label: 'Rows', value: plural(Math.max(0, rows.length - 1), 'row') }, { key: 'cols', label: 'Columns', value: plural(cols, 'column') });
   }
   if (e === 'json' || e === 'jsonc') {

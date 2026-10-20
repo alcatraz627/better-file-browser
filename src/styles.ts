@@ -813,7 +813,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
 .fe-ql-table th:hover{color:var(--tx)}
 .fe-ql-table th.sorted{color:var(--ac)}
-.fe-ql-table td{padding:4px 10px;border-bottom:1px solid var(--s2);white-space:nowrap;
+.fe-ql-table td{padding:4px 10px;border-bottom:1px solid var(--s2);white-space:pre;
   max-width:340px;overflow:hidden;text-overflow:ellipsis}
 .fe-ql-table th.num,.fe-ql-table td.num{text-align:right;font-variant-numeric:tabular-nums}
 .fe-ql-table tbody tr:hover{background:var(--hover)}

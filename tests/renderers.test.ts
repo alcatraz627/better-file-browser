@@ -57,6 +57,15 @@ describe('sortDSVRows', () => {
   });
 });
 
+describe('renderDSVTable, ragged rows', () => {
+  it('shows every cell of a row longer than the header, under numbered columns', () => {
+    const html = renderDSVTable(['a', 'b'], [['1', '2', '3', '4']], new Set());
+    expect(html.match(/<th /g)?.length).toBe(4);
+    expect(html).toContain('(4)');
+    expect(html).toContain('<td class="">4</td>');
+  });
+});
+
 describe('renderDSVTable', () => {
   it('renders header and escaped cells', () => {
     const html = renderDSVTable(['a<b'], [['<script>']], new Set());

@@ -380,12 +380,16 @@ export function renderDSVTable(header: string[], dataRows: string[][], numCols: 
     rows = rows.slice(0, RENDER_CAPS.tableRows);
     truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.tableRows.toLocaleString()} of ${dataRows.length.toLocaleString()} rows.</div>`;
   }
-  const ths = header.map((h, i) => {
+  // A row longer than the header still shows every cell, under a numbered
+  // column, rather than silently losing the extra ones.
+  const width = rows.reduce((w, r) => Math.max(w, r.length), header.length);
+  const cols = Array.from({ length: width }, (_, i) => header[i] ?? `(${i + 1})`);
+  const ths = cols.map((h, i) => {
     const arrow = sort?.col === i ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : '';
     return `<th data-col="${i}" class="${numCols.has(i) ? 'num' : ''}${sort?.col === i ? ' sorted' : ''}" title="Click to sort">${esc(h)}${arrow}${COL_HANDLE}</th>`;
   }).join('');
   const trs = rows.map(r =>
-    `<tr>${header.map((_, i) => `<td class="${numCols.has(i) ? 'num' : ''}">${esc(r[i] ?? '')}</td>`).join('')}</tr>`
+    `<tr>${cols.map((_, i) => `<td class="${numCols.has(i) ? 'num' : ''}">${esc(r[i] ?? '')}</td>`).join('')}</tr>`
   ).join('');
   return `${truncNote}<table class="fe-ql-table fe-rz"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
 }
