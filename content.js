@@ -7645,27 +7645,48 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
       applyAll();
     }
     els("th[data-sort]").forEach((th) => th.addEventListener("click", () => setSortCol(th.dataset.sort)));
-    const w0 = getColWidths();
-    els("thead th[data-ck]").forEach((th) => {
-      const px2 = w0[th.dataset.ck];
-      if (px2) th.style.width = px2 + "px";
-    });
+    const MIN_W2 = 48, LAST_MIN = 110;
+    const lastTh = el("fe-table").querySelector("thead th.c-dt");
+    const applyWidths = () => {
+      const w = getColWidths();
+      els("thead th[data-ck]").forEach((th) => {
+        const px2 = w[th.dataset.ck];
+        th.style.width = px2 ? px2 + "px" : "";
+      });
+      lastTh.style.width = Object.keys(w).length ? "auto" : "";
+    };
+    applyWidths();
+    if (el("fe-table").offsetWidth && lastTh.offsetWidth < LAST_MIN) {
+      saveColWidths({});
+      applyWidths();
+    }
     els(".fe-col-rz").forEach((handle) => {
+      handle.title = "Drag to resize this column \xB7 double-click to reset";
       handle.addEventListener("click", (e) => e.stopPropagation());
+      handle.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        const widths = getColWidths();
+        delete widths[handle.closest("th").dataset.ck];
+        saveColWidths(widths);
+        applyWidths();
+      });
       handle.addEventListener("mousedown", (e) => {
         e.preventDefault();
         e.stopPropagation();
         const th = handle.closest("th");
         const key = th.dataset.ck;
         const startX = e.clientX, startW = th.offsetWidth;
+        const maxW = startW + Math.max(0, lastTh.offsetWidth - LAST_MIN);
+        const widthAt = (x) => Math.min(maxW, Math.max(MIN_W2, startW + x - startX));
+        lastTh.style.width = "auto";
         const onMove = (ev) => {
-          th.style.width = Math.max(48, startW + ev.clientX - startX) + "px";
+          th.style.width = widthAt(ev.clientX) + "px";
         };
         const onUp = (ev) => {
           document.removeEventListener("mousemove", onMove);
           document.removeEventListener("mouseup", onUp);
           const widths = getColWidths();
-          widths[key] = Math.max(48, startW + ev.clientX - startX);
+          widths[key] = widthAt(ev.clientX);
           saveColWidths(widths);
         };
         document.addEventListener("mousemove", onMove);
