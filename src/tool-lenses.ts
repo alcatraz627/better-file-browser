@@ -178,8 +178,3 @@ function initAsk(app: App): void {
     q.focus({ preventScroll: true });
   });
 }
-
-export const TOOL_LENS_ICONS = {
-  search: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="6" cy="6" r="4.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M9.3 9.3 12.6 12.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
-  ask: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 1.5 8.2 5.8 12.5 7l-4.3 1.2L7 12.5 5.8 8.2 1.5 7l4.3-1.2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`,
-};

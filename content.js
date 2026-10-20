@@ -662,8 +662,8 @@
   function setTitle(text, title) {
     const m = text.match(/^---\n([\s\S]*?)\n---/);
     if (!m) return null;
-    const line = `title: ${JSON.stringify(title)}`;
-    const fm = /^title:.*$/m.test(m[1]) ? m[1].replace(/^title:.*$/m, () => line) : `${line}
+    const line2 = `title: ${JSON.stringify(title)}`;
+    const fm = /^title:.*$/m.test(m[1]) ? m[1].replace(/^title:.*$/m, () => line2) : `${line2}
 ${m[1]}`;
     return text.replace(m[0], () => `---
 ${fm}
@@ -673,18 +673,18 @@ ${fm}
     const out = [];
     let first = [], second = [];
     let part = "out";
-    for (const line of text.split("\n")) {
-      if (part === "out" && (line.startsWith("<<<<<<< ") || line === "<<<<<<<")) {
+    for (const line2 of text.split("\n")) {
+      if (part === "out" && (line2.startsWith("<<<<<<< ") || line2 === "<<<<<<<")) {
         part = "first";
         first = [];
         second = [];
-      } else if (part === "out") out.push(line);
-      else if (part === "first" && line === "=======") part = "second";
-      else if (part === "first") first.push(line);
-      else if (line.startsWith(">>>>>>> ") || line === ">>>>>>>") {
+      } else if (part === "out") out.push(line2);
+      else if (part === "first" && line2 === "=======") part = "second";
+      else if (part === "first") first.push(line2);
+      else if (line2.startsWith(">>>>>>> ") || line2 === ">>>>>>>") {
         part = "out";
         out.push(...keep === "second" ? second : keep === "first" ? first : [...first, ...second]);
-      } else second.push(line);
+      } else second.push(line2);
     }
     if (part !== "out") out.push(...first, ...second);
     return out.join("\n");
@@ -741,9 +741,9 @@ ${fm}
   function readProps(rel, text) {
     const { head } = splitNote(text);
     const f = {};
-    for (const line of fmLines(head)) {
-      const i = line.indexOf(":");
-      if (i > 0) f[line.slice(0, i).trim()] = unquoteYaml(line.slice(i + 1).trim());
+    for (const line2 of fmLines(head)) {
+      const i = line2.indexOf(":");
+      if (i > 0) f[line2.slice(0, i).trim()] = unquoteYaml(line2.slice(i + 1).trim());
     }
     return {
       title: noteTitle(rel, text),
@@ -758,18 +758,18 @@ ${fm}
     return (s.startsWith("[") && s.endsWith("]") ? s.slice(1, -1) : s).split(",").map((t) => t.trim().replace(/^(["'])(.*)\1$/, "$2")).filter(Boolean);
   }
   function setField(text, key, value) {
-    const line = value === null ? null : `${key}: ${value}`;
+    const line2 = value === null ? null : `${key}: ${value}`;
     const { head, body } = splitNote(text);
-    if (!head) return line === null ? text : `---
-${line}
+    if (!head) return line2 === null ? text : `---
+${line2}
 ---
 ${text}`;
     const lines = fmLines(head);
     const at = lines.findIndex((l) => l.slice(0, Math.max(l.indexOf(":"), 0)).trim() === key);
     if (at >= 0) {
-      if (line === null) lines.splice(at, 1);
-      else lines[at] = line;
-    } else if (line !== null) {
+      if (line2 === null) lines.splice(at, 1);
+      else lines[at] = line2;
+    } else if (line2 !== null) {
       const rank = KEY_ORDER.indexOf(key);
       let pos = lines.length;
       if (rank >= 0) {
@@ -779,7 +779,7 @@ ${text}`;
         });
         if (later >= 0) pos = later;
       }
-      lines.splice(pos, 0, line);
+      lines.splice(pos, 0, line2);
     }
     if (!lines.length && at >= 0) return body;
     return `---
@@ -825,52 +825,74 @@ ${body}`;
   }
 
   // src/control-icons.ts
-  var svg = (body) => `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+  var line = (body, size = 14) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+  var svg = (body) => line(body);
+  var SPARKLE = '<path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/><path d="M20 3v4M22 5h-4"/>';
+  var COPY = '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>';
+  var HISTORY = '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>';
+  var FILE_TEXT = '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M16 13H8M16 17H8M10 9H8"/>';
   var UI_ICON = {
-    appearance: svg('<circle cx="7" cy="7" r="2.5"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.8 2.8l1.1 1.1m6.2 6.2 1.1 1.1m0-8.4-1.1 1.1m-6.2 6.2-1.1 1.1"/>'),
-    preview: svg('<rect x="1.5" y="2" width="11" height="10" rx="1.5"/><path d="M8 2v10"/>'),
-    files: svg('<path d="M3 1.5h5l3 3V12H3z"/><path d="M8 1.5v3h3M5 7h4M5 9h4"/>'),
-    exclusions: svg('<path d="M7 1l5 2v3.5c0 3-2 5-5 6.5-3-1.5-5-3.5-5-6.5V3z"/><path d="M5 7h4"/>'),
-    notes: svg('<path d="M2 2h10v10H2zM4 5h6M4 7h6M4 9h4"/>'),
-    tab: svg('<path d="M1.5 3h4l1.2 1.5h5.8v7H1.5z"/><path d="M8.5 7.5v3M7 9h3"/>'),
-    terminal: svg('<rect x="1" y="2" width="12" height="10" rx="1.5"/><path d="m3.5 5 2 2-2 2M7 9h3"/>'),
-    data: svg('<ellipse cx="7" cy="3" rx="5" ry="2"/><path d="M2 3v7c0 1.1 2.2 2 5 2s5-.9 5-2V3M2 6.5c0 1.1 2.2 2 5 2s5-.9 5-2"/>'),
-    ai: svg('<path d="M7 1.5 8.2 5.8 12.5 7l-4.3 1.2L7 12.5 5.8 8.2 1.5 7l4.3-1.2z"/>'),
-    keyboard: svg('<rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M3 5h.5M5.5 5H6M8 5h.5M10.5 5h.5M3 7.5h.5M5.5 7.5H6M8 7.5h.5M10.5 7.5h.5M4.5 9h5"/>'),
-    reset: svg('<path d="M2.5 5A5 5 0 1 1 2 8M2.5 2.5V5H5"/>'),
-    add: svg('<path d="M7 2v10M2 7h10"/>'),
-    export: svg('<path d="M7 1.5v7m-2.5-2.5L7 8.5 9.5 6M2 10v2h10v-2"/>'),
-    import: svg('<path d="M7 9V2m-2.5 2.5L7 2l2.5 2.5M2 10v2h10v-2"/>'),
-    warm: svg('<path d="M7 1.5c1 2-1 2.7-.5 4 1-1 1.8-1.2 2-2 .5 2 3 3.1 3 5.1A4.5 4.5 0 0 1 7 13a4.5 4.5 0 0 1-4.5-4.4c0-2 1.4-3.8 3-4.8-.2 1.2.2 1.8.6 2.2C7 4.5 6 3.5 7 1.5z"/>'),
-    unload: svg('<path d="M7 1v12M2 4l10 6M2 10l10-6M4.5 2.5 7 4l2.5-1.5M4.5 11.5 7 10l2.5 1.5"/>'),
-    close: svg('<path d="m3 3 8 8M11 3l-8 8"/>'),
-    // the notes editor's toolbar and header (owner: an icon left of the text on every button)
-    list: svg('<path d="M5 3.5h7M5 7h7M5 10.5h7"/><circle cx="2.5" cy="3.5" r=".6"/><circle cx="2.5" cy="7" r=".6"/><circle cx="2.5" cy="10.5" r=".6"/>'),
-    task: svg('<rect x="1.5" y="2" width="4" height="4" rx=".8"/><path d="m2.5 4 1 1 1.5-2M7.5 4h5M1.5 9h4v3h-4zM7.5 10.5h5"/>'),
-    table: svg('<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><path d="M1.5 5.5h11M5.5 2.5v9M9 2.5v9"/>'),
-    image: svg('<rect x="1.5" y="2.5" width="11" height="9" rx="1"/><circle cx="5" cy="5.5" r="1"/><path d="m1.5 10 3.5-3 3 2.5 2-1.5 2.5 2"/>'),
-    versions: svg('<path d="M2.5 5A5 5 0 1 1 2 8M2.5 2.5V5H5M7 4.5V7l2 1.5"/>'),
-    external: svg('<path d="M8 2h4v4M12 2 6.5 7.5M10 8.5V12H2V4h3.5"/>'),
-    // notes properties and the image toolbar
-    pin: svg('<path d="M8.5 1.5 12.5 5.5 10.5 6.5 9 8l.5 2.5L3.5 4.5 6 5l1.5-1.5zM5.5 8.5 2 12"/>'),
-    tag: svg('<path d="M1.5 2.5v4.2L7.8 13l4.7-4.7L6.2 2H2z"/><circle cx="4.4" cy="4.9" r=".8"/>'),
-    palette: svg('<path d="M7 1.5C3.9 1.5 1.5 3.8 1.5 6.8S3.9 12.5 6.5 12.5c1.2 0 1.3-.9.8-1.5-.5-.6-.2-1.5.7-1.5H10.5c1.2 0 2-.9 2-2.1C12.5 4.2 10.2 1.5 7 1.5z"/><circle cx="4.5" cy="6" r=".7"/><circle cx="7" cy="4.3" r=".7"/><circle cx="9.5" cy="6" r=".7"/>'),
-    zoomIn: svg('<circle cx="6" cy="6" r="4"/><path d="m9 9 3.5 3.5M6 4v4M4 6h4"/>'),
-    zoomOut: svg('<circle cx="6" cy="6" r="4"/><path d="m9 9 3.5 3.5M4 6h4"/>'),
-    actualSize: svg('<rect x="2" y="2" width="10" height="10" rx="1"/><path d="M5 5.2 7 4v6M5 10h4"/>'),
-    rotate: svg('<path d="M11.5 7A4.5 4.5 0 1 1 10 3.6M11.5 1.5v2.5H9"/>'),
-    flip: svg('<path d="M7 1.5v11M5 4 1.5 10.5H5zM9 4l3.5 6.5H9z"/>'),
-    fit: svg('<path d="M1.5 5V1.5H5M9 1.5h3.5V5M12.5 9v3.5H9M5 12.5H1.5V9"/>'),
-    rename: svg('<path d="M9.5 2 12 4.5 5 11.5 2 12l.5-3z"/><path d="M8 3.5 10.5 6"/>'),
-    trash: svg('<path d="M2 4h10M5.5 4V2.5h3V4M3.5 4l.6 7.5h5.8L10.5 4M5.8 6.2v3.5M8.2 6.2v3.5"/>'),
-    prev: svg('<path d="m8.5 2.5-4.5 4.5 4.5 4.5"/>'),
-    next: svg('<path d="m5.5 2.5 4.5 4.5-4.5 4.5"/>'),
-    folderOpen: svg('<path d="M1.5 3.5h4l1.2 1.5h5.8v6.5h-11z"/>'),
-    copy: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>'),
-    check: svg('<path d="m2.5 7.5 3 3 6-7"/>'),
-    eye: svg('<path d="M1 7c1.6-3.3 3.8-5 6-5s4.4 1.7 6 5c-1.6 3.3-3.8 5-6 5S2.6 10.3 1 7z"/><circle cx="7" cy="7" r="2"/>'),
-    lock: svg('<rect x="2.5" y="6" width="9" height="6.5" rx="1"/><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6"/>'),
-    copyImage: svg('<rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/>')
+    appearance: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>'),
+    preview: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>'),
+    files: svg(FILE_TEXT),
+    exclusions: svg('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/>'),
+    notes: svg('<path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/>'),
+    tab: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M12 13v5M9.5 15.5h5"/>'),
+    terminal: svg('<path d="m7 11 2-2-2-2M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2"/>'),
+    data: svg('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/>'),
+    ai: svg(SPARKLE),
+    keyboard: svg('<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>'),
+    reset: svg(HISTORY),
+    add: svg('<path d="M5 12h14M12 5v14"/>'),
+    export: svg('<path d="M12 15V3M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>'),
+    import: svg('<path d="M12 3v12M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/>'),
+    warm: svg('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>'),
+    unload: svg('<path d="M2 12h20M12 2v20m-8.5-15L20.5 17M20.5 7 3.5 17M9 4l3 2 3-2M9 20l3-2 3 2"/>'),
+    close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
+    list: svg('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
+    task: svg('<path d="m3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8"/>'),
+    table: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M12 3v18"/>'),
+    image: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>'),
+    versions: svg(HISTORY + '<path d="M12 7v5l4 2"/>'),
+    external: svg('<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'),
+    pin: svg('<path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>'),
+    tag: svg('<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1" fill="currentColor"/>'),
+    palette: svg('<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.55-2.5 5.55-5.55C21.97 6.01 17.46 2 12 2z"/><circle cx="13.5" cy="6.5" r="1" fill="currentColor"/><circle cx="17.5" cy="10.5" r="1" fill="currentColor"/><circle cx="8.5" cy="7.5" r="1" fill="currentColor"/><circle cx="6.5" cy="12.5" r="1" fill="currentColor"/>'),
+    zoomIn: svg('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 8v6M8 11h6"/>'),
+    zoomOut: svg('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M8 11h6"/>'),
+    actualSize: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="m7.5 9 1.5-1v8M15 9l1.5-1v8M12 10.5v.01M12 14.5v.01"/>'),
+    rotate: svg('<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>'),
+    flip: svg('<path d="m3 7 5 5-5 5zM21 7l-5 5 5 5zM12 2v2M12 8v2M12 14v2M12 20v2"/>'),
+    fit: svg('<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>'),
+    rename: svg('<path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>'),
+    trash: svg('<path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/>'),
+    prev: svg('<path d="m15 18-6-6 6-6"/>'),
+    next: svg('<path d="m9 18 6-6-6-6"/>'),
+    folderOpen: svg('<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>'),
+    copy: svg(COPY),
+    check: svg('<path d="M20 6 9 17l-5-5"/>'),
+    eye: svg('<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'),
+    lock: svg('<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
+    copyImage: svg(COPY)
+  };
+  var LINE_ICON = {
+    home: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>',
+    docs: FILE_TEXT,
+    recent: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    ask: SPARKLE,
+    desk: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/>',
+    down: '<path d="M12 15V3M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+    code: '<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>',
+    pics: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
+    apps: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+    root: '<path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11zM6 16h.01M10 16h.01"/>',
+    scrnsh: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="m8 12 3 3 5-6"/>',
+    bm: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+    tabset: '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65M22 12.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+    help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
+    gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'
   };
 
   // src/dialog.ts
@@ -1095,21 +1117,7 @@ ${body}`;
     return icoFile(ext2 || "\u2014");
   }
   var PI = {
-    tabset: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 5h11v7.5h-11z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 5V2.5h4l1 2.5M6.5 5V3h3.5l1 2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
-    root: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1 5h12" stroke="currentColor" stroke-width="1.3"/><circle cx="3.5" cy="3.5" r=".9" fill="currentColor"/><circle cx="5.8" cy="3.5" r=".9" fill="currentColor"/><path d="M3 13h8M7 11v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
-    home: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 7L7 2l6 5v6H9.5V9.5h-5V13H1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
-    desk: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1.5" width="12" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 12.5h5M7 9.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
-    docs: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M3.5 1h5l3 3v9h-8z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8.5 1v3.5H11.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5 7h4M5 9h4M5 11h2.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`,
-    down: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 1v9M4 7.5l3 3.5 3-3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12.5h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
-    code: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M4.5 4.5L2 7l2.5 2.5M9.5 4.5L12 7l-2.5 2.5M8 3l-2 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-    pics: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="4.5" cy="5.5" r="1.2" fill="currentColor" opacity=".7"/><path d="M1 10l3.5-3.5L7 9l2.5-2.5L13 10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-    apps: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="5.2" height="5.2" rx="1" fill="currentColor" opacity=".5"/><rect x="7.8" y="1" width="5.2" height="5.2" rx="1" fill="currentColor" opacity=".5"/><rect x="1" y="7.8" width="5.2" height="5.2" rx="1" fill="currentColor" opacity=".5"/><rect x="7.8" y="7.8" width="5.2" height="5.2" rx="1" fill="currentColor" opacity=".5"/></svg>`,
-    folder: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 3.5a.8.8 0 0 1 .8-.8h3l1.4 1.5H13.2a.8.8 0 0 1 .8.8V11a.8.8 0 0 1-.8.8H1.8A.8.8 0 0 1 1 11z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`,
-    scrnsh: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="2" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4 5.5l2.5 2.5L9 4.5M5 9.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-    bm: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 1h8v12l-4-3-4 3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`,
-    recent: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 4v3l2 1.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-    help: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.2 5.2a1.9 1.9 0 1 1 2.6 1.8c-.6.3-.8.6-.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="10.3" r="0.9" fill="currentColor"/></svg>`,
-    gear: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M8.5 1H5.5L4.5 2.8 2.5 4 1 5.5v3L2.5 10l2 1.2L5.5 13h3l1-1.8 2-1.2L13 8.5v-3L11.5 4l-2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`,
+    ...Object.fromEntries(Object.entries(LINE_ICON).map(([k, body]) => [k, line(body)])),
     drag: `<svg width="10" height="14" viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="3" cy="11" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="11" r="1.2" fill="currentColor"/></svg>`
   };
 
@@ -1604,21 +1612,21 @@ ${body}`;
   function splitHighlighted(html) {
     const out = [];
     const open = [];
-    let line = "";
+    let line2 = "";
     const re = /<span[^>]*>|<\/span>|\n|[^<\n]+|</g;
     for (const m of html.match(re) ?? []) {
       if (m === "\n") {
-        out.push(line + "</span>".repeat(open.length));
-        line = open.join("");
+        out.push(line2 + "</span>".repeat(open.length));
+        line2 = open.join("");
       } else if (m.startsWith("<span")) {
         open.push(m);
-        line += m;
+        line2 += m;
       } else if (m === "</span>") {
         open.pop();
-        line += m;
-      } else line += m;
+        line2 += m;
+      } else line2 += m;
     }
-    out.push(line);
+    out.push(line2);
     return out;
   }
   function parseDSV(text, delim) {
@@ -1985,8 +1993,8 @@ ${body}`;
       para = [];
     };
     while (i < lines.length) {
-      const line = lines[i];
-      const fence = line.match(/^( {0,3})(`{3,}|~{3,})([^\r\n]*)$/);
+      const line2 = lines[i];
+      const fence = line2.match(/^( {0,3})(`{3,}|~{3,})([^\r\n]*)$/);
       if (fence) {
         flush();
         const buf = [];
@@ -2006,7 +2014,7 @@ ${body}`;
         }
         continue;
       }
-      const h = line.match(/^(#{1,6})\s+(.*)$/);
+      const h = line2.match(/^(#{1,6})\s+(.*)$/);
       if (h) {
         flush();
         const n = h[1].length;
@@ -2015,20 +2023,20 @@ ${body}`;
         i++;
         continue;
       }
-      if (/^\s*<[a-zA-Z!/]/.test(line)) {
+      if (/^\s*<[a-zA-Z!/]/.test(line2)) {
         flush();
         const buf = [];
         while (i < lines.length && !/^\s*$/.test(lines[i])) buf.push(lines[i++]);
         out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join("\n"), baseUrl)}</div>`);
         continue;
       }
-      if (para.length === 0 && /^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/.test(line)) {
+      if (para.length === 0 && /^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/.test(line2)) {
         flush();
         out.push("<hr>");
         i++;
         continue;
       }
-      if (/^\s*>/.test(line)) {
+      if (/^\s*>/.test(line2)) {
         flush();
         const buf = [];
         while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ""));
@@ -2039,7 +2047,7 @@ ${body}`;
         } else out.push(`<blockquote>${renderMarkdown(buf.join("\n"), baseUrl)}</blockquote>`);
         continue;
       }
-      const li = line.match(LIST_ITEM);
+      const li = line2.match(LIST_ITEM);
       if (li && (li[3] !== void 0 || para.length === 0)) {
         flush();
         const baseIndent = li[1].length;
@@ -2092,7 +2100,7 @@ ${body}`;
         out.push(ordered ? `<ol${start !== 1 ? ` start="${start}"` : ""}>${items.join("")}</ol>` : `<ul>${items.join("")}</ul>`);
         continue;
       }
-      if (line.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i + 1])) {
+      if (line2.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i + 1])) {
         flush();
         const cells = (l) => {
           const parts = [];
@@ -2126,19 +2134,19 @@ ${body}`;
           if (/\|\s*$/.test(l) && !/\\\|\s*$/.test(l)) parts.pop();
           return parts.map((c) => mdInline(c.trim(), baseUrl));
         };
-        const head = cells(line);
+        const head = cells(line2);
         i += 2;
         const rows = [];
         while (i < lines.length && lines[i].includes("|")) rows.push(cells(lines[i++]));
         out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table fe-rz"><thead><tr>${head.map((c) => `<th>${c}${COL_HANDLE}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
         continue;
       }
-      if (/^\s*$/.test(line)) {
+      if (/^\s*$/.test(line2)) {
         flush();
         i++;
         continue;
       }
-      para.push(line.replace(/^\s+/, ""));
+      para.push(line2.replace(/^\s+/, ""));
       i++;
     }
     flush();
@@ -2205,14 +2213,14 @@ ${body}`;
       shown = lines.slice(0, RENDER_CAPS.jsonlLines);
       truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.jsonlLines.toLocaleString()} of ${lines.length.toLocaleString()} lines.</div>`;
     }
-    const body = shown.map(({ l: line, n }) => {
+    const body = shown.map(({ l: line2, n }) => {
       try {
-        const v = JSON.parse(line);
+        const v = JSON.parse(line2);
         const compact = JSON.stringify(v);
         const preview = compact.length > 140 ? compact.slice(0, 140) + "\u2026" : compact;
         return `<details class="fe-jl-line"><summary>${CHEVRON_DOWN}<span class="fe-jl-n">${n}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2e3 })}</div></details>`;
       } catch {
-        return `<div class="fe-jl-line bad"><span class="fe-jl-n">${n}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line.slice(0, 200))}</span></div>`;
+        return `<div class="fe-jl-line bad"><span class="fe-jl-n">${n}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line2.slice(0, 200))}</span></div>`;
       }
     }).join("");
     return `${truncNote}<div class="fe-jl-root">${body}</div>`;
@@ -2657,8 +2665,8 @@ ${body}`;
   }
   function continueList(text, sel) {
     const from = text.lastIndexOf("\n", sel.start - 1) + 1;
-    const line = text.slice(from, sel.start);
-    const m = line.match(/^(\s*)([-*+]|\d+[.)])\s(\[[ xX]\]\s)?(.*)$/);
+    const line2 = text.slice(from, sel.start);
+    const m = line2.match(/^(\s*)([-*+]|\d+[.)])\s(\[[ xX]\]\s)?(.*)$/);
     if (!m) return null;
     const [, ind, marker, box, rest] = m;
     if (!rest.trim() && !box) {
@@ -3263,9 +3271,9 @@ ${body}
         const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
         let to = ta.value.indexOf("\n", from);
         if (to < 0) to = ta.value.length;
-        const line = ta.value.slice(from, to);
-        const level = line.match(/^(#{1,6}) /)?.[1].length ?? 0;
-        const next = level >= 3 ? line.replace(/^#{1,6} /, "") : "#".repeat(level + 1) + " " + line.replace(/^#{1,6} /, "");
+        const line2 = ta.value.slice(from, to);
+        const level = line2.match(/^(#{1,6}) /)?.[1].length ?? 0;
+        const next = level >= 3 ? line2.replace(/^#{1,6} /, "") : "#".repeat(level + 1) + " " + line2.replace(/^#{1,6} /, "");
         apply({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
       }
       if (name === "link") {
@@ -5156,13 +5164,13 @@ button.fe-si{width:auto;display:flex}
      * @param onError - May be called even if the action was successful
      * @returns `true` on success
      */
-    add(line, onError) {
+    add(line2, onError) {
       if (this.atNextDocument) {
         this.yaml = { explicit: _Directives.defaultYaml.explicit, version: "1.1" };
         this.tags = Object.assign({}, _Directives.defaultTags);
         this.atNextDocument = false;
       }
-      const parts = line.trim().split(/[ \t]+/);
+      const parts = line2.trim().split(/[ \t]+/);
       const name = parts.shift();
       switch (name) {
         case "%TAG": {
@@ -6569,9 +6577,9 @@ ${ctx.indent}`;
     } else {
       str = lines[0];
       for (let i = 1; i < lines.length; ++i) {
-        const line = lines[i];
-        str += line ? `
-${indent}${line}` : "\n";
+        const line2 = lines[i];
+        str += line2 ? `
+${indent}${line2}` : "\n";
       }
     }
     if (comment) {
@@ -6638,14 +6646,14 @@ ${indent}${line}` : "\n";
       return start + end;
     } else {
       if (!reqNewline) {
-        const len = lines.reduce((sum, line) => sum + line.length + 2, 2);
+        const len = lines.reduce((sum, line2) => sum + line2.length + 2, 2);
         reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
       }
       if (reqNewline) {
         let str = start;
-        for (const line of lines)
-          str += line ? `
-${indentStep}${indent}${line}` : "\n";
+        for (const line2 of lines)
+          str += line2 ? `
+${indentStep}${indent}${line2}` : "\n";
         return `${str}
 ${indent}${end}`;
       } else {
@@ -8113,10 +8121,10 @@ ${cn.comment}` : item.comment;
     if (error.pos[0] === -1)
       return;
     error.linePos = error.pos.map((pos) => lc.linePos(pos));
-    const { line, col } = error.linePos[0];
-    error.message += ` at line ${line}, column ${col}`;
+    const { line: line2, col } = error.linePos[0];
+    error.message += ` at line ${line2}, column ${col}`;
     let ci = col - 1;
-    let lineStr = src.substring(lc.lineStarts[line - 1], lc.lineStarts[line]).replace(/[\n\r]+$/, "");
+    let lineStr = src.substring(lc.lineStarts[line2 - 1], lc.lineStarts[line2]).replace(/[\n\r]+$/, "");
     if (ci >= 60 && lineStr.length > 80) {
       const trimStart = Math.min(ci - 39, lineStr.length - 79);
       lineStr = "\u2026" + lineStr.substring(trimStart);
@@ -8124,8 +8132,8 @@ ${cn.comment}` : item.comment;
     }
     if (lineStr.length > 80)
       lineStr = lineStr.substring(0, 79) + "\u2026";
-    if (line > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
-      let prev = src.substring(lc.lineStarts[line - 2], lc.lineStarts[line - 1]);
+    if (line2 > 1 && /^ *$/.test(lineStr.substring(0, ci))) {
+      let prev = src.substring(lc.lineStarts[line2 - 2], lc.lineStarts[line2 - 1]);
       if (prev.length > 80)
         prev = prev.substring(0, 79) + "\u2026\n";
       lineStr = prev + lineStr;
@@ -8133,7 +8141,7 @@ ${cn.comment}` : item.comment;
     if (/[^ ]/.test(lineStr)) {
       let count = 1;
       const end = error.linePos[1];
-      if (end && end.line === line && end.col > col) {
+      if (end && end.line === line2 && end.col > col) {
         count = Math.max(1, Math.min(end.col - col, 80 - ci));
       }
       const pointer = " ".repeat(ci) + "^".repeat(count);
@@ -8986,13 +8994,13 @@ ${pointer}
     return foldLines(source.slice(1, -1)).replace(/''/g, "'");
   }
   function foldLines(source) {
-    let first, line;
+    let first, line2;
     try {
       first = new RegExp("(.*?)(?<![ 	])[ 	]*\r?\n", "sy");
-      line = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
+      line2 = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
     } catch {
       first = /(.*?)[ \t]*\r?\n/sy;
-      line = /[ \t]*(.*?)[ \t]*\r?\n/sy;
+      line2 = /[ \t]*(.*?)[ \t]*\r?\n/sy;
     }
     let match = first.exec(source);
     if (!match)
@@ -9000,8 +9008,8 @@ ${pointer}
     let res = match[1];
     let sep = " ";
     let pos = first.lastIndex;
-    line.lastIndex = pos;
-    while (match = line.exec(source)) {
+    line2.lastIndex = pos;
+    while (match = line2.exec(source)) {
       if (match[1] === "") {
         if (sep === "\n")
           res += sep;
@@ -9011,7 +9019,7 @@ ${pointer}
         res += sep + match[1];
         sep = " ";
       }
-      pos = line.lastIndex;
+      pos = line2.lastIndex;
     }
     const last = /[ \t]*(.*)/sy;
     last.lastIndex = pos;
@@ -9784,40 +9792,40 @@ ${end.comment}` : end.comment;
       }
     }
     *parseStream() {
-      let line = this.getLine();
-      if (line === null)
+      let line2 = this.getLine();
+      if (line2 === null)
         return this.setNext("stream");
-      if (line[0] === BOM) {
+      if (line2[0] === BOM) {
         yield* this.pushCount(1);
-        line = line.substring(1);
+        line2 = line2.substring(1);
       }
-      if (line[0] === "%") {
-        let dirEnd = line.length;
-        let cs = line.indexOf("#");
+      if (line2[0] === "%") {
+        let dirEnd = line2.length;
+        let cs = line2.indexOf("#");
         while (cs !== -1) {
-          const ch = line[cs - 1];
+          const ch = line2[cs - 1];
           if (ch === " " || ch === "	") {
             dirEnd = cs - 1;
             break;
           } else {
-            cs = line.indexOf("#", cs + 1);
+            cs = line2.indexOf("#", cs + 1);
           }
         }
         while (true) {
-          const ch = line[dirEnd - 1];
+          const ch = line2[dirEnd - 1];
           if (ch === " " || ch === "	")
             dirEnd -= 1;
           else
             break;
         }
         const n = (yield* this.pushCount(dirEnd)) + (yield* this.pushSpaces(true));
-        yield* this.pushCount(line.length - n);
+        yield* this.pushCount(line2.length - n);
         this.pushNewline();
         return "stream";
       }
       if (this.atLineEnd()) {
         const sp2 = yield* this.pushSpaces(true);
-        yield* this.pushCount(line.length - sp2);
+        yield* this.pushCount(line2.length - sp2);
         yield* this.pushNewline();
         return "stream";
       }
@@ -9858,13 +9866,13 @@ ${end.comment}` : end.comment;
     }
     *parseDocument() {
       yield* this.pushSpaces(true);
-      const line = this.getLine();
-      if (line === null)
+      const line2 = this.getLine();
+      if (line2 === null)
         return this.setNext("doc");
       let n = yield* this.pushIndicators();
-      switch (line[n]) {
+      switch (line2[n]) {
         case "#":
-          yield* this.pushCount(line.length - n);
+          yield* this.pushCount(line2.length - n);
         // fallthrough
         case void 0:
           yield* this.pushNewline();
@@ -9889,7 +9897,7 @@ ${end.comment}` : end.comment;
         case ">":
           n += yield* this.parseBlockScalarHeader();
           n += yield* this.pushSpaces(true);
-          yield* this.pushCount(line.length - n);
+          yield* this.pushCount(line2.length - n);
           yield* this.pushNewline();
           return yield* this.parseBlockScalar();
         default:
@@ -9909,11 +9917,11 @@ ${end.comment}` : end.comment;
         }
         sp2 += yield* this.pushSpaces(true);
       } while (nl + sp2 > 0);
-      const line = this.getLine();
-      if (line === null)
+      const line2 = this.getLine();
+      if (line2 === null)
         return this.setNext("flow");
-      if (indent !== -1 && indent < this.indentNext && line[0] !== "#" || indent === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
-        const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
+      if (indent !== -1 && indent < this.indentNext && line2[0] !== "#" || indent === 0 && (line2.startsWith("---") || line2.startsWith("...")) && isEmpty(line2[3])) {
+        const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line2[0] === "]" || line2[0] === "}");
         if (!atFlowEndMarker) {
           this.flowLevel = 0;
           yield FLOW_END;
@@ -9921,17 +9929,17 @@ ${end.comment}` : end.comment;
         }
       }
       let n = 0;
-      while (line[n] === ",") {
+      while (line2[n] === ",") {
         n += yield* this.pushCount(1);
         n += yield* this.pushSpaces(true);
         this.flowKey = false;
       }
       n += yield* this.pushIndicators();
-      switch (line[n]) {
+      switch (line2[n]) {
         case void 0:
           return "flow";
         case "#":
-          yield* this.pushCount(line.length - n);
+          yield* this.pushCount(line2.length - n);
           return "flow";
         case "{":
         case "[":
@@ -11120,12 +11128,12 @@ ${end.comment}` : end.comment;
 
   // src/formats.ts
   function lineCol(text, offset) {
-    let line = 1, last = -1;
+    let line2 = 1, last = -1;
     for (let i = text.indexOf("\n"); i !== -1 && i < offset; i = text.indexOf("\n", i + 1)) {
-      line++;
+      line2++;
       last = i;
     }
-    return { line, col: offset - last };
+    return { line: line2, col: offset - last };
   }
   function jsonFaultAt(s) {
     let i = 0;
@@ -11632,14 +11640,14 @@ and ${diags.length - 12} more` : "");
       box.innerHTML = "";
       host.closed();
     };
-    const goToLine = (line) => {
+    const goToLine = (line2) => {
       if (mode === "rich") setMode("split");
       const lines2 = ta.value.split("\n");
       let pos = 0;
-      for (let i = 0; i < line - 1 && i < lines2.length; i++) pos += lines2[i].length + 1;
+      for (let i = 0; i < line2 - 1 && i < lines2.length; i++) pos += lines2[i].length + 1;
       ta.focus({ preventScroll: true });
-      ta.setSelectionRange(pos, pos + (lines2[line - 1]?.length ?? 0));
-      paintEl.children[line - 1]?.scrollIntoView({ block: "center" });
+      ta.setSelectionRange(pos, pos + (lines2[line2 - 1]?.length ?? 0));
+      paintEl.children[line2 - 1]?.scrollIntoView({ block: "center" });
       markLine();
     };
     box.addEventListener("click", (e) => {
@@ -11681,13 +11689,13 @@ and ${diags.length - 12} more` : "");
       if (me.button !== 0 || mode === "rich" || me.target === ta || view?.contains(me.target)) return;
       me.preventDefault();
       const rows = [...paintEl.children];
-      let line = rows.findIndex((r) => r.getBoundingClientRect().bottom > me.clientY);
+      let line2 = rows.findIndex((r) => r.getBoundingClientRect().bottom > me.clientY);
       const lines2 = ta.value.split("\n");
       let pos = ta.value.length;
-      if (line !== -1) {
+      if (line2 !== -1) {
         pos = 0;
-        for (let i = 0; i < line; i++) pos += lines2[i].length + 1;
-        pos += lines2[line]?.length ?? 0;
+        for (let i = 0; i < line2; i++) pos += lines2[i].length + 1;
+        pos += lines2[line2]?.length ?? 0;
       }
       ta.focus({ preventScroll: true });
       ta.setSelectionRange(pos, pos);
@@ -12112,11 +12120,11 @@ ${d.message}` : d.message;
         raw = true;
         render2();
       }
-      const line = page.querySelectorAll(".fe-cl")[Number(row.dataset.line) - 1];
-      if (!line) return;
-      line.scrollIntoView({ block: "center" });
-      line.classList.add("flash");
-      setTimeout(() => line.classList.remove("flash"), 1200);
+      const line2 = page.querySelectorAll(".fe-cl")[Number(row.dataset.line) - 1];
+      if (!line2) return;
+      line2.scrollIntoView({ block: "center" });
+      line2.classList.add("flash");
+      setTimeout(() => line2.classList.remove("flash"), 1200);
     });
     toc.addEventListener("click", (e) => {
       const a = e.target.closest("a[data-id]");
@@ -12772,387 +12780,6 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
     };
   }
 
-  // src/el.ts
-  function el(id) {
-    return document.getElementById(id);
-  }
-  function els(selector, root = document) {
-    return [...root.querySelectorAll(selector)];
-  }
-
-  // src/deep-search.ts
-  var DEFAULT_SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", ".svn", ".hg", "__pycache__", ".venv", "venv"]);
-  var CONCURRENCY = 4;
-  function relativeName(href, rootUrl) {
-    const rel = href.startsWith(rootUrl) ? href.slice(rootUrl.length) : href;
-    let out;
-    try {
-      out = decodeURIComponent(rel);
-    } catch {
-      out = rel;
-    }
-    return out.replace(/\/$/, "");
-  }
-  async function crawl(rootUrl, listDir2, opts = {}, isCancelled = () => false) {
-    const maxDepth = opts.maxDepth ?? 8;
-    const maxEntries = opts.maxEntries ?? 5e3;
-    const skip = opts.skipDirs ?? DEFAULT_SKIP_DIRS;
-    const perFolderFiles = Math.ceil(maxEntries / 2);
-    const entries = [];
-    let folders = 0, entryCapped = false, depthCapped = false;
-    let queue = [{ url: rootUrl, depth: 0 }];
-    while (queue.length && !isCancelled() && entries.length < maxEntries) {
-      const batch = queue.splice(0, CONCURRENCY);
-      const listed = await Promise.all(batch.map(async (b) => {
-        try {
-          return { b, kids: await listDir2(b.url) };
-        } catch {
-          return { b, kids: [] };
-        }
-      }));
-      listed.sort((x, y) => x.kids.length - y.kids.length);
-      for (const { b, kids } of listed) {
-        folders++;
-        let files = 0;
-        for (const k of kids) {
-          if (k.isParent) continue;
-          if (entries.length >= maxEntries) {
-            entryCapped = true;
-            break;
-          }
-          if (!k.isDir && ++files > perFolderFiles) {
-            entryCapped = true;
-            continue;
-          }
-          const name = relativeName(k.href, rootUrl);
-          const hiddenSeg = name.split("/").some((s) => s.startsWith("."));
-          entries.push({ ...k, name, isHidden: hiddenSeg });
-          if (!k.isDir) continue;
-          if (skip.has(k.name) || !opts.includeHidden && k.name.startsWith(".")) continue;
-          if (b.depth + 1 > maxDepth) {
-            depthCapped = true;
-            continue;
-          }
-          queue.push({ url: k.href, depth: b.depth + 1 });
-        }
-      }
-      opts.onProgress?.(folders, entries.length);
-    }
-    return { entries, folders, truncated: entryCapped || depthCapped, entryCapped, depthCapped, cancelled: isCancelled() };
-  }
-
-  // src/find.ts
-  var EMPTY_FIND = { scope: "here", name: "", regex: false, exts: [], text: "", caseSensitive: false, textRegex: false, maxDepth: 8 };
-  function isEmptyFind(q) {
-    return q.scope === "here" && !q.name && !q.exts.length && !q.text;
-  }
-  var ext = (e) => e.isDir ? "" : e.name.includes(".") ? e.name.split(".").pop().toLowerCase() : "";
-  var TEXT_MAX_BYTES = 2 * 1024 * 1024;
-  function isTextCandidate(e) {
-    if (e.isDir || e.isParent) return false;
-    const x = ext(e);
-    if (!(CODE_EXTS.has(x) || TABLE_EXTS.has(x) || JSONL_EXTS.has(x) || x === "json")) return false;
-    return e.rawBytes < 0 || e.rawBytes <= TEXT_MAX_BYTES;
-  }
-  function textPatternError(q) {
-    if (!q.textRegex || !q.text) return null;
-    if (q.text.length > 160) return "Text regex is limited to 160 characters";
-    try {
-      new RegExp(q.text, q.caseSensitive ? "gu" : "giu");
-      return null;
-    } catch {
-      return "Invalid text regex";
-    }
-  }
-  function scanContent(text, q) {
-    if (!q.text) return null;
-    const pattern = q.textRegex ? new RegExp(q.text, q.caseSensitive ? "gu" : "giu") : null;
-    const needle = q.caseSensitive ? q.text : q.text.toLowerCase();
-    let count = 0, first = null;
-    let lineStart = 0, lineNumber = 1;
-    while (lineStart <= text.length) {
-      const breakAt = text.indexOf("\n", lineStart);
-      const end = breakAt < 0 ? text.length : breakAt;
-      const line2 = text.slice(lineStart, end);
-      if (pattern) {
-        pattern.lastIndex = 0;
-        let match;
-        while (match = pattern.exec(line2)) {
-          count++;
-          if (!first) first = { line: line2, at: match.index, length: match[0].length, number: lineNumber };
-          if (!match[0].length) {
-            const codePoint = line2.codePointAt(pattern.lastIndex);
-            pattern.lastIndex += codePoint !== void 0 && codePoint > 65535 ? 2 : 1;
-          }
-        }
-      } else {
-        const hay = q.caseSensitive ? line2 : line2.toLowerCase();
-        for (let at = hay.indexOf(needle); at >= 0; at = hay.indexOf(needle, at + Math.max(1, needle.length))) {
-          count++;
-          if (!first) first = { line: line2, at, length: q.text.length, number: lineNumber };
-        }
-      }
-      if (breakAt < 0) break;
-      lineStart = breakAt + 1;
-      lineNumber++;
-    }
-    if (!first) return null;
-    const from = Math.max(0, first.at - 60);
-    const to = Math.min(first.line.length, from + 180);
-    const line = (from ? "\u2026" : "") + first.line.slice(from, to) + (to < first.line.length ? "\u2026" : "");
-    const start = first.at - from + (from ? 1 : 0);
-    return { count, line, start, end: Math.min(line.length, start + first.length), lineNumber: first.number };
-  }
-  async function searchContents(files, read, q, onProgress, isCancelled = () => false, concurrency = 4, match = async (text, query) => scanContent(text, query)) {
-    const hits = /* @__PURE__ */ new Map();
-    let scanned = 0, failed = 0, next = 0;
-    const worker = async () => {
-      while (next < files.length && !isCancelled()) {
-        const f = files[next++];
-        try {
-          const text = await read(f.href);
-          if (isCancelled()) break;
-          const hit = await match(text, q);
-          if (isCancelled()) break;
-          if (hit) hits.set(f.href, hit);
-        } catch {
-          failed++;
-        }
-        if (isCancelled()) break;
-        scanned++;
-        onProgress?.(scanned, files.length);
-      }
-    };
-    await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
-    return { hits, scanned, failed, cancelled: isCancelled() };
-  }
-  function findToHash(q) {
-    return isEmptyFind(q) ? "" : "#find=" + encodeURIComponent(JSON.stringify(q));
-  }
-  function findFromHash(hash) {
-    const m = hash.match(/^#find=(.+)$/);
-    if (!m) return null;
-    try {
-      const q = JSON.parse(decodeURIComponent(m[1]));
-      return { ...EMPTY_FIND, ...q, exts: Array.isArray(q.exts) ? q.exts : [], maxDepth: [1, 2, 4, 8].includes(q.maxDepth) ? q.maxDepth : 8 };
-    } catch {
-      return null;
-    }
-  }
-  function isViewPath(path) {
-    return path.includes("#find=");
-  }
-  function describeFind(q) {
-    const bits = [];
-    if (q.name) bits.push(q.regex ? `/${q.name}/` : q.name);
-    if (q.exts.length) bits.push("." + q.exts.join(" ."));
-    if (q.text) bits.push(q.textRegex ? `/${q.text}/` : `"${q.text}"`);
-    const what = bits.join(" ") || "everything";
-    return q.scope === "deep" ? `${what} in subfolders` : what;
-  }
-
-  // src/tool-lenses.ts
-  var listDir = async (url) => parseListing(await fetchFileText(url), url);
-  var extOf = (name) => name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
-  function initToolLenses(app) {
-    initSearch(app);
-    initAsk(app);
-  }
-  var SEARCH_MAX_FILES = 2e3;
-  function initSearch(app) {
-    const box = document.getElementById("fe-srch");
-    if (!box) return;
-    box.innerHTML = `
-    <div class="fe-tl-form">
-      <input id="fe-srch-q" class="fe-tl-input" type="search" placeholder="Text in this folder" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
-      <div class="fe-tl-opts">
-        <label class="fe-tl-opt" title="Look inside subfolders too"><input type="checkbox" id="fe-srch-deep" checked>Subfolders</label>
-        <label class="fe-tl-opt" title="Match upper and lower case exactly"><input type="checkbox" id="fe-srch-case">Match case</label>
-      </div>
-    </div>
-    <div id="fe-srch-status" class="fe-hint">Type a word and press Enter.</div>
-    <div id="fe-srch-list"></div>`;
-    const q = el("fe-srch-q");
-    const status = el("fe-srch-status");
-    const list = el("fe-srch-list");
-    let run = 0;
-    async function search() {
-      const term = q.value.trim();
-      const mine = ++run;
-      const cancelled = () => mine !== run;
-      list.innerHTML = "";
-      if (!term) {
-        status.textContent = "Type a word and press Enter.";
-        return;
-      }
-      const root = fileHref(app.folderPath.replace(/\/?$/, "/"));
-      const deep = el("fe-srch-deep").checked;
-      status.textContent = deep ? "Listing folders\u2026" : "Searching\u2026";
-      let files;
-      try {
-        files = deep ? (await crawl(root, listDir, { maxEntries: SEARCH_MAX_FILES }, cancelled)).entries : await listDir(root);
-      } catch {
-        if (!cancelled()) status.textContent = "Could not list this folder.";
-        return;
-      }
-      if (cancelled()) return;
-      files = files.filter((f) => !f.isDir && !f.isParent && isTextCandidate(f));
-      const query = { ...EMPTY_FIND, text: term, caseSensitive: el("fe-srch-case").checked };
-      const res = await searchContents(
-        files,
-        fetchFileText,
-        query,
-        (done, total2) => {
-          if (!cancelled()) status.textContent = `Searching ${done} of ${total2} files\u2026`;
-        },
-        cancelled
-      );
-      if (cancelled()) return;
-      const hits = [...res.hits].sort((a, b) => b[1].count - a[1].count);
-      const total = hits.reduce((n, [, h]) => n + h.count, 0);
-      status.textContent = hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`;
-      list.innerHTML = hits.map(([href, h]) => {
-        const name = relativeName(href, root);
-        const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
-        return `<a class="fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
-      }).join("");
-    }
-    q.addEventListener("keydown", (e) => {
-      e.stopPropagation();
-      if (e.key === "Enter") {
-        e.preventDefault();
-        void search();
-      } else if (e.key === "Escape") {
-        q.value = "";
-        run++;
-        list.innerHTML = "";
-        status.textContent = "Type a word and press Enter.";
-      }
-    });
-    document.addEventListener("bfb-lens", (e) => {
-      if (e.detail === "search") q.focus({ preventScroll: true });
-    });
-  }
-  function initAsk(app) {
-    const box = document.getElementById("fe-ask");
-    if (!box) return;
-    const subject = app.fileMode ? app.fileName : app.folderPath.split("/").filter(Boolean).pop() || "/";
-    const quick = app.fileMode ? [["summarize", "Summarize"], ["explain", "Explain"]] : [["folder", "What is in here?"]];
-    box.innerHTML = `
-    <div class="fe-ask-status" id="fe-ask-status"><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
-    <div class="fe-ask-about">About ${app.fileMode ? "this file" : "this folder"}: <b>${esc(subject)}</b></div>
-    <div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="fe-chip fe-ask-chip" data-intent="${k}">${l}</button>`).join("")}</div>
-    <div id="fe-ask-thread"></div>
-    <div class="fe-tl-form fe-ask-form">
-      <textarea id="fe-ask-q" class="fe-tl-input" rows="2" placeholder="Ask about ${app.fileMode ? "this file" : "this folder"}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
-      <button type="button" class="btn" data-variant="solid" id="fe-ask-go" title="Ask the local model">Ask</button>
-    </div>`;
-    const thread = el("fe-ask-thread");
-    const q = el("fe-ask-q");
-    const go = el("fe-ask-go");
-    const statusRow = el("fe-ask-status");
-    const state = el("fe-ask-state");
-    let cancel = null;
-    let checked = false;
-    async function checkModel() {
-      checked = true;
-      state.textContent = "Checking the local model\u2026";
-      const a = await llmAvailability();
-      statusRow.className = `fe-ask-status ${a.kind === "ready" ? a.cold ? "cold" : "ready" : a.kind}`;
-      state.textContent = a.kind === "ready" ? a.cold ? `${a.status.default_model}, will load on first question` : `${a.status.default_model} is ready` : a.kind === "down" ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
-    }
-    async function context() {
-      if (app.fileMode) return { ctx: await fetchFileText(location.href.split("#")[0]), name: app.fileName };
-      const url = fileHref(app.folderPath.replace(/\/?$/, "/"));
-      const rows = (await listDir(url)).filter((e) => !e.isParent).map((e) => `${e.name}${e.isDir ? "/" : ""}	${e.isDir ? "" : e.rawBytes + " bytes"}`);
-      return { ctx: `Folder ${app.folderPath}
-${rows.join("\n")}`, name: subject };
-    }
-    async function ask(intent, question) {
-      cancel?.();
-      const turn = document.createElement("div");
-      turn.className = "fe-ask-turn";
-      turn.innerHTML = `<div class="fe-ask-q">${esc(question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain"))}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking\u2026</span></div><div class="fe-ask-meta"></div>`;
-      thread.appendChild(turn);
-      turn.scrollIntoView({ block: "end" });
-      const out = turn.querySelector(".fe-ask-a");
-      const meta = turn.querySelector(".fe-ask-meta");
-      let c;
-      try {
-        c = await context();
-      } catch {
-        out.textContent = "Could not read this to send it.";
-        return;
-      }
-      let full = "";
-      go.textContent = "Stop";
-      const done = () => {
-        cancel = null;
-        go.textContent = "Ask";
-      };
-      cancel = llmQuery(
-        {
-          ctx: c.ctx,
-          ctxName: c.name,
-          // The host knows summarize, explain-code and qa; a folder question is a qa.
-          intent: intent === "explain" ? "explain-code" : intent === "summarize" ? "summarize" : "qa",
-          question: intent === "folder" ? "What is in this folder? Group the files by purpose in a few short lines." : question,
-          model: app.settings.aiModel
-        },
-        {
-          onChunk: (t) => {
-            full += t;
-            out.textContent = full;
-          },
-          onDone: (info) => {
-            done();
-            out.innerHTML = renderMarkdown(full);
-            meta.textContent = `${info.model} \xB7 ${(info.ms / 1e3).toFixed(1)}s${info.truncated ? " \xB7 shortened to fit" : ""}`;
-          },
-          onError: (code, message) => {
-            done();
-            if (code !== "cancelled") out.textContent = LLM_ERROR_TEXT[code] ?? message;
-          }
-        }
-      );
-    }
-    box.addEventListener("click", (e) => {
-      const chip = e.target.closest(".fe-ask-chip");
-      if (chip) void ask(chip.dataset.intent);
-    });
-    go.addEventListener("click", () => {
-      if (cancel) {
-        cancel();
-        cancel = null;
-        go.textContent = "Ask";
-        return;
-      }
-      const text = q.value.trim();
-      if (!text) {
-        q.focus();
-        return;
-      }
-      q.value = "";
-      void ask("qa", text);
-    });
-    q.addEventListener("keydown", (e) => {
-      e.stopPropagation();
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        go.click();
-      }
-    });
-    document.addEventListener("bfb-lens", (e) => {
-      if (e.detail !== "ask") return;
-      if (!checked) void checkModel();
-      q.focus({ preventScroll: true });
-    });
-  }
-  var TOOL_LENS_ICONS = {
-    search: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="6" cy="6" r="4.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M9.3 9.3 12.6 12.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
-    ask: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 1.5 8.2 5.8 12.5 7l-4.3 1.2L7 12.5 5.8 8.2 1.5 7l4.3-1.2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`
-  };
-
   // src/help.ts
   var HELP_TABS = [
     { key: "keys", label: "Keyboard", hint: "every shortcut", md: `
@@ -13503,6 +13130,116 @@ seconds and re-renders when the file changes on disk.
 ` }
   ];
 
+  // src/find.ts
+  var EMPTY_FIND = { scope: "here", name: "", regex: false, exts: [], text: "", caseSensitive: false, textRegex: false, maxDepth: 8 };
+  function isEmptyFind(q) {
+    return q.scope === "here" && !q.name && !q.exts.length && !q.text;
+  }
+  var ext = (e) => e.isDir ? "" : e.name.includes(".") ? e.name.split(".").pop().toLowerCase() : "";
+  var TEXT_MAX_BYTES = 2 * 1024 * 1024;
+  function isTextCandidate(e) {
+    if (e.isDir || e.isParent) return false;
+    const x = ext(e);
+    if (!(CODE_EXTS.has(x) || TABLE_EXTS.has(x) || JSONL_EXTS.has(x) || x === "json")) return false;
+    return e.rawBytes < 0 || e.rawBytes <= TEXT_MAX_BYTES;
+  }
+  function textPatternError(q) {
+    if (!q.textRegex || !q.text) return null;
+    if (q.text.length > 160) return "Text regex is limited to 160 characters";
+    try {
+      new RegExp(q.text, q.caseSensitive ? "gu" : "giu");
+      return null;
+    } catch {
+      return "Invalid text regex";
+    }
+  }
+  function scanContent(text, q) {
+    if (!q.text) return null;
+    const pattern = q.textRegex ? new RegExp(q.text, q.caseSensitive ? "gu" : "giu") : null;
+    const needle = q.caseSensitive ? q.text : q.text.toLowerCase();
+    let count = 0, first = null;
+    let lineStart = 0, lineNumber = 1;
+    while (lineStart <= text.length) {
+      const breakAt = text.indexOf("\n", lineStart);
+      const end = breakAt < 0 ? text.length : breakAt;
+      const line3 = text.slice(lineStart, end);
+      if (pattern) {
+        pattern.lastIndex = 0;
+        let match;
+        while (match = pattern.exec(line3)) {
+          count++;
+          if (!first) first = { line: line3, at: match.index, length: match[0].length, number: lineNumber };
+          if (!match[0].length) {
+            const codePoint = line3.codePointAt(pattern.lastIndex);
+            pattern.lastIndex += codePoint !== void 0 && codePoint > 65535 ? 2 : 1;
+          }
+        }
+      } else {
+        const hay = q.caseSensitive ? line3 : line3.toLowerCase();
+        for (let at = hay.indexOf(needle); at >= 0; at = hay.indexOf(needle, at + Math.max(1, needle.length))) {
+          count++;
+          if (!first) first = { line: line3, at, length: q.text.length, number: lineNumber };
+        }
+      }
+      if (breakAt < 0) break;
+      lineStart = breakAt + 1;
+      lineNumber++;
+    }
+    if (!first) return null;
+    const from = Math.max(0, first.at - 60);
+    const to = Math.min(first.line.length, from + 180);
+    const line2 = (from ? "\u2026" : "") + first.line.slice(from, to) + (to < first.line.length ? "\u2026" : "");
+    const start = first.at - from + (from ? 1 : 0);
+    return { count, line: line2, start, end: Math.min(line2.length, start + first.length), lineNumber: first.number };
+  }
+  async function searchContents(files, read, q, onProgress, isCancelled = () => false, concurrency = 4, match = async (text, query) => scanContent(text, query)) {
+    const hits = /* @__PURE__ */ new Map();
+    let scanned = 0, failed = 0, next = 0;
+    const worker = async () => {
+      while (next < files.length && !isCancelled()) {
+        const f = files[next++];
+        try {
+          const text = await read(f.href);
+          if (isCancelled()) break;
+          const hit = await match(text, q);
+          if (isCancelled()) break;
+          if (hit) hits.set(f.href, hit);
+        } catch {
+          failed++;
+        }
+        if (isCancelled()) break;
+        scanned++;
+        onProgress?.(scanned, files.length);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, files.length) }, worker));
+    return { hits, scanned, failed, cancelled: isCancelled() };
+  }
+  function findToHash(q) {
+    return isEmptyFind(q) ? "" : "#find=" + encodeURIComponent(JSON.stringify(q));
+  }
+  function findFromHash(hash) {
+    const m = hash.match(/^#find=(.+)$/);
+    if (!m) return null;
+    try {
+      const q = JSON.parse(decodeURIComponent(m[1]));
+      return { ...EMPTY_FIND, ...q, exts: Array.isArray(q.exts) ? q.exts : [], maxDepth: [1, 2, 4, 8].includes(q.maxDepth) ? q.maxDepth : 8 };
+    } catch {
+      return null;
+    }
+  }
+  function isViewPath(path) {
+    return path.includes("#find=");
+  }
+  function describeFind(q) {
+    const bits = [];
+    if (q.name) bits.push(q.regex ? `/${q.name}/` : q.name);
+    if (q.exts.length) bits.push("." + q.exts.join(" ."));
+    if (q.text) bits.push(q.textRegex ? `/${q.text}/` : `"${q.text}"`);
+    const what = bits.join(" ") || "everything";
+    return q.scope === "deep" ? `${what} in subfolders` : what;
+  }
+
   // src/render.ts
   var CHIPS_SHOWN = 2;
   function tagChips(e, ctx) {
@@ -13765,21 +13502,21 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 <div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ""}>
 
   <div id="fe-bar">
-    <button id="fe-side-toggle" data-icon title="Show or hide the sidebar"><svg width="15" height="15" viewBox="0 0 15 15"><path d="M2 4h11M2 7.5h11M2 11h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+    <button id="fe-side-toggle" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
     <div id="fe-bc">${renderCrumbs(folderPath, segments)}${fileMode ? `<span class="fe-sep">\u203A</span><span class="fe-crumb fe-crumb-file">${esc(fileName)}</span>` : ""}</div>
-    <button id="fe-term-btn" data-icon title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 5l3 2-3 2M8 9h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button id="fe-term-btn" data-icon title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
     <button id="fe-bm-btn" data-icon class="${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
-      <svg width="13" height="13" viewBox="0 0 13 13"><path id="fe-bm-path" d="M2.5 1h8v11l-4-2.8L2.5 12z" fill="${curIsBookmarked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? "currentColor" : "none"}"/>`)}
     </button>
     <button id="fe-theme-btn" data-icon title="Switch between dark and light">
-      <svg id="fe-sun" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M10.1 2.9l-1 1M3.9 10.1l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-      <svg id="fe-moon" width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 8.5A5 5 0 0 1 5.5 2.5a5 5 0 1 0 6 6z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+      ${UI_ICON.appearance.replace("<svg ", '<svg id="fe-sun" ')}
+      ${line('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>').replace("<svg ", '<svg id="fe-moon" ')}
     </button>
     <button id="fe-help-btn" data-icon title="Help (press ?), what's here and how to use it">
-      <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.2 5.2a1.9 1.9 0 1 1 2.6 1.8c-.6.3-.8.6-.8 1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="10.3" r="0.9" fill="currentColor"/></svg>
+      ${PI.help}
     </button>
     <button id="fe-settings-btn" data-icon title="Settings (press ,), theme, views, terminal, icon rules">
-      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M8.5 1H5.5L4.5 2.8 2.5 4 1 5.5v3L2.5 10l2 1.2L5.5 13h3l1-1.8 2-1.2L13 8.5v-3L11.5 4l-2-1.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+      ${PI.gear}
     </button>
   </div>
 
@@ -13789,8 +13526,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         ${railBtn("places", "Places", PI.home, "Places: Home, your folders, Applications and Root")}
         ${railBtn("notes", "Notes", PI.docs, "Notes: saved places, saved views and your notes")}
         ${railBtn("history", "History", PI.recent, "History: folders and files you opened lately, and closed tabs", !!settings.hideRecent)}
-        ${railBtn("search", "Search", TOOL_LENS_ICONS.search, "Search: find text in the files of this folder")}
-        ${railBtn("ask", "Ask", TOOL_LENS_ICONS.ask, "Ask: put a question about this file or folder to the local model")}
+        ${railBtn("search", "Search", PI.search, "Search: find text in the files of this folder")}
+        ${railBtn("ask", "Ask", PI.ask, "Ask: put a question about this file or folder to the local model")}
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
@@ -13839,23 +13576,23 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <span id="fe-count">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <div id="fe-tb-right">
           <button id="fe-sg-btn" title="Sort and group">
-            <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11M2 5h9M3.5 8h6M5.5 11h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            ${line('<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>', 13)}
             Sort
           </button>
           <button id="fe-filter-btn" data-icon title="Filter by name or type">
-            <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11l-4.5 5v4l-2-1V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+            ${line('<path d="M10 20a1 1 0 0 0 .55.9l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .52-1.34L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.22 7.99A2 2 0 0 1 10 14z"/>', 13)}
           </button>
           <button id="fe-hidden-btn" data-icon class="${initHidden ? "on" : ""}" title="Hidden files: ${initHidden ? "showing" : "hiding"} dotfiles \xB7 click to toggle">
-            <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="6.5" cy="6.5" r="2" fill="${initHidden ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.3"/></svg>
+            ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? "currentColor" : "none"}"/>`, 13)}
           </button>
           <div id="fe-zoom-wrap" title="Zoom: ${initZoom}% \xB7 drag to scale the list (50 to 320%)">
-            <svg width="11" height="11" viewBox="0 0 11 11"><circle cx="4.5" cy="4.5" r="3.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 7.5L10 10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            ${line('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 11)}
             <input type="range" id="fe-zoom" min="50" max="320" value="${initZoom}" step="5" title="Zoom: ${initZoom}% \xB7 drag to scale">
             <span id="fe-zoom-val">${initZoom}%</span>
           </div>
           <div id="fe-view-group">${viewBtnsHTML}</div>
           <button id="fe-deep-btn" data-icon title="Deep search: include every subfolder in the filter">
-            <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 2.5h4l1 1.2h6v7H1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3.5 6h3l.8 1h2.7v2.5H3.5z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+            ${line('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/><path d="M2 10h20"/>', 13)}
           </button>
           <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/>
         </div>
@@ -13950,6 +13687,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   ${renderDialog(HELP_DIALOG)}
 </div>`;
     return PAGE_HTML;
+  }
+
+  // src/el.ts
+  function el(id) {
+    return document.getElementById(id);
+  }
+  function els(selector, root = document) {
+    return [...root.querySelectorAll(selector)];
   }
 
   // src/motion.ts
@@ -14200,6 +13945,67 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return Array.from(map2.entries()).map(([label, items]) => ({ label, items }));
     }
     return [{ label: "All", items: entries }];
+  }
+
+  // src/deep-search.ts
+  var DEFAULT_SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", ".svn", ".hg", "__pycache__", ".venv", "venv"]);
+  var CONCURRENCY = 4;
+  function relativeName(href, rootUrl) {
+    const rel = href.startsWith(rootUrl) ? href.slice(rootUrl.length) : href;
+    let out;
+    try {
+      out = decodeURIComponent(rel);
+    } catch {
+      out = rel;
+    }
+    return out.replace(/\/$/, "");
+  }
+  async function crawl(rootUrl, listDir2, opts = {}, isCancelled = () => false) {
+    const maxDepth = opts.maxDepth ?? 8;
+    const maxEntries = opts.maxEntries ?? 5e3;
+    const skip = opts.skipDirs ?? DEFAULT_SKIP_DIRS;
+    const perFolderFiles = Math.ceil(maxEntries / 2);
+    const entries = [];
+    let folders = 0, entryCapped = false, depthCapped = false;
+    let queue = [{ url: rootUrl, depth: 0 }];
+    while (queue.length && !isCancelled() && entries.length < maxEntries) {
+      const batch = queue.splice(0, CONCURRENCY);
+      const listed = await Promise.all(batch.map(async (b) => {
+        try {
+          return { b, kids: await listDir2(b.url) };
+        } catch {
+          return { b, kids: [] };
+        }
+      }));
+      listed.sort((x, y) => x.kids.length - y.kids.length);
+      for (const { b, kids } of listed) {
+        folders++;
+        let files = 0;
+        for (const k of kids) {
+          if (k.isParent) continue;
+          if (entries.length >= maxEntries) {
+            entryCapped = true;
+            break;
+          }
+          if (!k.isDir && ++files > perFolderFiles) {
+            entryCapped = true;
+            continue;
+          }
+          const name = relativeName(k.href, rootUrl);
+          const hiddenSeg = name.split("/").some((s) => s.startsWith("."));
+          entries.push({ ...k, name, isHidden: hiddenSeg });
+          if (!k.isDir) continue;
+          if (skip.has(k.name) || !opts.includeHidden && k.name.startsWith(".")) continue;
+          if (b.depth + 1 > maxDepth) {
+            depthCapped = true;
+            continue;
+          }
+          queue.push({ url: k.href, depth: b.depth + 1 });
+        }
+      }
+      opts.onProgress?.(folders, entries.length);
+    }
+    return { entries, folders, truncated: entryCapped || depthCapped, entryCapped, depthCapped, cancelled: isCancelled() };
   }
 
   // src/name-filter.ts
@@ -15982,6 +15788,204 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         }
       });
     }
+  }
+
+  // src/tool-lenses.ts
+  var listDir = async (url) => parseListing(await fetchFileText(url), url);
+  var extOf = (name) => name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
+  function initToolLenses(app) {
+    initSearch(app);
+    initAsk(app);
+  }
+  var SEARCH_MAX_FILES = 2e3;
+  function initSearch(app) {
+    const box = document.getElementById("fe-srch");
+    if (!box) return;
+    box.innerHTML = `
+    <div class="fe-tl-form">
+      <input id="fe-srch-q" class="fe-tl-input" type="search" placeholder="Text in this folder" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
+      <div class="fe-tl-opts">
+        <label class="fe-tl-opt" title="Look inside subfolders too"><input type="checkbox" id="fe-srch-deep" checked>Subfolders</label>
+        <label class="fe-tl-opt" title="Match upper and lower case exactly"><input type="checkbox" id="fe-srch-case">Match case</label>
+      </div>
+    </div>
+    <div id="fe-srch-status" class="fe-hint">Type a word and press Enter.</div>
+    <div id="fe-srch-list"></div>`;
+    const q = el("fe-srch-q");
+    const status = el("fe-srch-status");
+    const list = el("fe-srch-list");
+    let run = 0;
+    async function search() {
+      const term = q.value.trim();
+      const mine = ++run;
+      const cancelled = () => mine !== run;
+      list.innerHTML = "";
+      if (!term) {
+        status.textContent = "Type a word and press Enter.";
+        return;
+      }
+      const root = fileHref(app.folderPath.replace(/\/?$/, "/"));
+      const deep = el("fe-srch-deep").checked;
+      status.textContent = deep ? "Listing folders\u2026" : "Searching\u2026";
+      let files;
+      try {
+        files = deep ? (await crawl(root, listDir, { maxEntries: SEARCH_MAX_FILES }, cancelled)).entries : await listDir(root);
+      } catch {
+        if (!cancelled()) status.textContent = "Could not list this folder.";
+        return;
+      }
+      if (cancelled()) return;
+      files = files.filter((f) => !f.isDir && !f.isParent && isTextCandidate(f));
+      const query = { ...EMPTY_FIND, text: term, caseSensitive: el("fe-srch-case").checked };
+      const res = await searchContents(
+        files,
+        fetchFileText,
+        query,
+        (done, total2) => {
+          if (!cancelled()) status.textContent = `Searching ${done} of ${total2} files\u2026`;
+        },
+        cancelled
+      );
+      if (cancelled()) return;
+      const hits = [...res.hits].sort((a, b) => b[1].count - a[1].count);
+      const total = hits.reduce((n, [, h]) => n + h.count, 0);
+      status.textContent = hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`;
+      list.innerHTML = hits.map(([href, h]) => {
+        const name = relativeName(href, root);
+        const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
+        return `<a class="fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
+      }).join("");
+    }
+    q.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        void search();
+      } else if (e.key === "Escape") {
+        q.value = "";
+        run++;
+        list.innerHTML = "";
+        status.textContent = "Type a word and press Enter.";
+      }
+    });
+    document.addEventListener("bfb-lens", (e) => {
+      if (e.detail === "search") q.focus({ preventScroll: true });
+    });
+  }
+  function initAsk(app) {
+    const box = document.getElementById("fe-ask");
+    if (!box) return;
+    const subject = app.fileMode ? app.fileName : app.folderPath.split("/").filter(Boolean).pop() || "/";
+    const quick = app.fileMode ? [["summarize", "Summarize"], ["explain", "Explain"]] : [["folder", "What is in here?"]];
+    box.innerHTML = `
+    <div class="fe-ask-status" id="fe-ask-status"><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
+    <div class="fe-ask-about">About ${app.fileMode ? "this file" : "this folder"}: <b>${esc(subject)}</b></div>
+    <div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="fe-chip fe-ask-chip" data-intent="${k}">${l}</button>`).join("")}</div>
+    <div id="fe-ask-thread"></div>
+    <div class="fe-tl-form fe-ask-form">
+      <textarea id="fe-ask-q" class="fe-tl-input" rows="2" placeholder="Ask about ${app.fileMode ? "this file" : "this folder"}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
+      <button type="button" class="btn" data-variant="solid" id="fe-ask-go" title="Ask the local model">Ask</button>
+    </div>`;
+    const thread = el("fe-ask-thread");
+    const q = el("fe-ask-q");
+    const go = el("fe-ask-go");
+    const statusRow = el("fe-ask-status");
+    const state = el("fe-ask-state");
+    let cancel = null;
+    let checked = false;
+    async function checkModel() {
+      checked = true;
+      state.textContent = "Checking the local model\u2026";
+      const a = await llmAvailability();
+      statusRow.className = `fe-ask-status ${a.kind === "ready" ? a.cold ? "cold" : "ready" : a.kind}`;
+      state.textContent = a.kind === "ready" ? a.cold ? `${a.status.default_model}, will load on first question` : `${a.status.default_model} is ready` : a.kind === "down" ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+    }
+    async function context() {
+      if (app.fileMode) return { ctx: await fetchFileText(location.href.split("#")[0]), name: app.fileName };
+      const url = fileHref(app.folderPath.replace(/\/?$/, "/"));
+      const rows = (await listDir(url)).filter((e) => !e.isParent).map((e) => `${e.name}${e.isDir ? "/" : ""}	${e.isDir ? "" : e.rawBytes + " bytes"}`);
+      return { ctx: `Folder ${app.folderPath}
+${rows.join("\n")}`, name: subject };
+    }
+    async function ask(intent, question) {
+      cancel?.();
+      const turn = document.createElement("div");
+      turn.className = "fe-ask-turn";
+      turn.innerHTML = `<div class="fe-ask-q">${esc(question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain"))}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking\u2026</span></div><div class="fe-ask-meta"></div>`;
+      thread.appendChild(turn);
+      turn.scrollIntoView({ block: "end" });
+      const out = turn.querySelector(".fe-ask-a");
+      const meta = turn.querySelector(".fe-ask-meta");
+      let c;
+      try {
+        c = await context();
+      } catch {
+        out.textContent = "Could not read this to send it.";
+        return;
+      }
+      let full = "";
+      go.textContent = "Stop";
+      const done = () => {
+        cancel = null;
+        go.textContent = "Ask";
+      };
+      cancel = llmQuery(
+        {
+          ctx: c.ctx,
+          ctxName: c.name,
+          // The host knows summarize, explain-code and qa; a folder question is a qa.
+          intent: intent === "explain" ? "explain-code" : intent === "summarize" ? "summarize" : "qa",
+          question: intent === "folder" ? "What is in this folder? Group the files by purpose in a few short lines." : question,
+          model: app.settings.aiModel
+        },
+        {
+          onChunk: (t) => {
+            full += t;
+            out.textContent = full;
+          },
+          onDone: (info) => {
+            done();
+            out.innerHTML = renderMarkdown(full);
+            meta.textContent = `${info.model} \xB7 ${(info.ms / 1e3).toFixed(1)}s${info.truncated ? " \xB7 shortened to fit" : ""}`;
+          },
+          onError: (code, message) => {
+            done();
+            if (code !== "cancelled") out.textContent = LLM_ERROR_TEXT[code] ?? message;
+          }
+        }
+      );
+    }
+    box.addEventListener("click", (e) => {
+      const chip = e.target.closest(".fe-ask-chip");
+      if (chip) void ask(chip.dataset.intent);
+    });
+    go.addEventListener("click", () => {
+      if (cancel) {
+        cancel();
+        cancel = null;
+        go.textContent = "Ask";
+        return;
+      }
+      const text = q.value.trim();
+      if (!text) {
+        q.focus();
+        return;
+      }
+      q.value = "";
+      void ask("qa", text);
+    });
+    q.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        go.click();
+      }
+    });
+    document.addEventListener("bfb-lens", (e) => {
+      if (e.detail !== "ask") return;
+      if (!checked) void checkModel();
+      q.focus({ preventScroll: true });
+    });
   }
 
   // src/settings-ui.ts
