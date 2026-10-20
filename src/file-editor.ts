@@ -11,6 +11,9 @@ import { attachBuffer, indentLines } from './editor';
 import { UI_ICON } from './control-icons';
 
 const AUTOSAVE_MS = 800;
+// Opening cost grows with line count (every line is a painted row): about 3 s
+// at 14,000 lines and 20 s at 40,000, so longer files are refused for now.
+const EDIT_MAX_LINES = 15000;
 
 // Split highlighted HTML into one string per source line, closing the open
 // token spans at each line end and reopening them on the next line.
@@ -56,6 +59,12 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   let doc: { text: string; mtime: number };
   try { doc = await notes.fileRead(host.root, host.rel); }
   catch (err) { host.status(`cannot edit: ${(err as NotesError).message}`); return null; }
+  let lines = 1;
+  for (let p = doc.text.indexOf('\n'); p !== -1 && lines <= EDIT_MAX_LINES; p = doc.text.indexOf('\n', p + 1)) lines++;
+  if (lines > EDIT_MAX_LINES) {
+    host.status(`cannot edit: files over ${EDIT_MAX_LINES.toLocaleString('en-US')} lines are too slow to edit here`);
+    return null;
+  }
 
   const isMd = host.ext === 'md' || host.ext === 'mdx';
   box.innerHTML = `
@@ -99,11 +108,26 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     paintEl.children[i]?.classList.add('cur');
     curRow = i;
   };
+  // A keystroke usually changes one row, so only the rows between the first
+  // and last difference are rebuilt; a large file would otherwise rebuild and
+  // lay out every row per key. The textarea is absolutely placed, so its
+  // height follows the painted copy without being reset first.
+  let painted: string[] = [];
+  const rowHtml = (r: string, i: number) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || ' '}</span></div>`;
   const paintSource = () => {
     const rows = splitHighlighted(highlightCode(ta.value, host.ext));
-    paintEl.innerHTML = rows.map((r, i) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || ' '}</span></div>`).join('');
-    ta.style.height = '0';
+    let a = 0;
+    while (a < rows.length && a < painted.length && rows[a] === painted[a]) a++;
+    let b = painted.length, c = rows.length;
+    while (b > a && c > a && rows[c - 1] === painted[b - 1]) { b--; c--; }
+    for (let i = b - 1; i >= a; i--) paintEl.children[i].remove();
+    const html = rows.slice(a, c).map((r, k) => rowHtml(r, a + k)).join('');
+    const next = paintEl.children[a];
+    if (next) next.insertAdjacentHTML('beforebegin', html); else paintEl.insertAdjacentHTML('beforeend', html);
+    if (rows.length !== painted.length) for (let i = c; i < rows.length; i++) paintEl.children[i].firstChild!.textContent = String(i + 1);
+    painted = rows;
     ta.style.height = paintEl.offsetHeight + 'px';
+    paintEl.querySelector('.cur')?.classList.remove('cur');   // kept rows keep their old mark
     curRow = -1; markLine();
   };
   const paint = () => {

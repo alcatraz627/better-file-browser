@@ -4550,6 +4550,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 
   // src/file-editor.ts
   var AUTOSAVE_MS = 800;
+  var EDIT_MAX_LINES = 15e3;
   function splitHighlighted(html) {
     const out = [];
     const open = [];
@@ -4591,6 +4592,12 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       host.status(`cannot edit: ${err.message}`);
       return null;
     }
+    let lines = 1;
+    for (let p = doc.text.indexOf("\n"); p !== -1 && lines <= EDIT_MAX_LINES; p = doc.text.indexOf("\n", p + 1)) lines++;
+    if (lines > EDIT_MAX_LINES) {
+      host.status(`cannot edit: files over ${EDIT_MAX_LINES.toLocaleString("en-US")} lines are too slow to edit here`);
+      return null;
+    }
     const isMd = host.ext === "md" || host.ext === "mdx";
     box.innerHTML = `
     <div id="fe-fe-banner" style="display:none"></div>
@@ -4630,11 +4637,26 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       paintEl.children[i]?.classList.add("cur");
       curRow = i;
     };
+    let painted = [];
+    const rowHtml = (r, i) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || " "}</span></div>`;
     const paintSource = () => {
       const rows = splitHighlighted(highlightCode(ta.value, host.ext));
-      paintEl.innerHTML = rows.map((r, i) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || " "}</span></div>`).join("");
-      ta.style.height = "0";
+      let a = 0;
+      while (a < rows.length && a < painted.length && rows[a] === painted[a]) a++;
+      let b = painted.length, c = rows.length;
+      while (b > a && c > a && rows[c - 1] === painted[b - 1]) {
+        b--;
+        c--;
+      }
+      for (let i = b - 1; i >= a; i--) paintEl.children[i].remove();
+      const html = rows.slice(a, c).map((r, k) => rowHtml(r, a + k)).join("");
+      const next = paintEl.children[a];
+      if (next) next.insertAdjacentHTML("beforebegin", html);
+      else paintEl.insertAdjacentHTML("beforeend", html);
+      if (rows.length !== painted.length) for (let i = c; i < rows.length; i++) paintEl.children[i].firstChild.textContent = String(i + 1);
+      painted = rows;
       ta.style.height = paintEl.offsetHeight + "px";
+      paintEl.querySelector(".cur")?.classList.remove("cur");
       curRow = -1;
       markLine();
     };
@@ -4746,12 +4768,12 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
       me.preventDefault();
       const rows = [...paintEl.children];
       let line = rows.findIndex((r) => r.getBoundingClientRect().bottom > me.clientY);
-      const lines = ta.value.split("\n");
+      const lines2 = ta.value.split("\n");
       let pos = ta.value.length;
       if (line !== -1) {
         pos = 0;
-        for (let i = 0; i < line; i++) pos += lines[i].length + 1;
-        pos += lines[line]?.length ?? 0;
+        for (let i = 0; i < line; i++) pos += lines2[i].length + 1;
+        pos += lines2[line]?.length ?? 0;
       }
       ta.focus({ preventScroll: true });
       ta.setSelectionRange(pos, pos);
