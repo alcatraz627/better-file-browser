@@ -495,6 +495,11 @@
     }
     return kvGet(HOME_KEY) ?? "";
   }
+  function setHomeDir(home) {
+    if (!/^\/Users\/[^/]+$/.test(home) || home === "/Users/Shared") return false;
+    kvSet(HOME_KEY, home);
+    return true;
+  }
   function getColWidths() {
     try {
       return JSON.parse(kvGet(COL_WIDTHS_KEY) ?? "{}");
@@ -554,6 +559,242 @@
   }
   function getShowHidden() {
     return kvGet(HIDDEN_KEY) === "true";
+  }
+
+  // src/notes.ts
+  var NotesError = class extends Error {
+    constructor(code, message) {
+      super(message);
+      this.code = code;
+      this.name = "NotesError";
+    }
+  };
+  var HOST = "com.better_file_browser.notes";
+  function call(payload) {
+    return new Promise((resolve, reject) => {
+      try {
+        chrome.runtime.sendMessage({ type: "bfb-native-oneshot", host: HOST, payload }, (res) => {
+          if (chrome.runtime.lastError || !res) return reject(new NotesError("unavailable", chrome.runtime.lastError?.message || "no reply"));
+          if (!res.ok) return reject(new NotesError("unavailable", res.error || "notes host not installed"));
+          const f = res.response;
+          if (f.t === "error") return reject(new NotesError(f.code, f.message));
+          resolve(f);
+        });
+      } catch (e) {
+        reject(new NotesError("unavailable", String(e)));
+      }
+    });
+  }
+  var notes = {
+    stat: (root) => call({ op: "stat", root }),
+    list: (root) => call({ op: "list", root }).then((f) => f.notes),
+    read: (root, rel) => call({ op: "read", root, rel }),
+    write: (root, rel, text, expectMtime) => call({ op: "write", root, rel, text, expectMtime }),
+    create: (root, rel, text = "") => call({ op: "create", root, rel, text }),
+    rename: (root, rel, to) => call({ op: "rename", root, rel, to }),
+    writeBinary: (root, rel, base64) => call({ op: "writeBinary", root, rel, base64 }),
+    delete: (root, rel) => call({ op: "delete", root, rel }),
+    /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
+    pick: (start) => call({ op: "pick", start }).then((f) => f.root),
+    /// The account's home folder, so Places can offer Home before any visit under it.
+    home: () => call({ op: "home" }).then((f) => f.home),
+    history: (root, rel) => call({ op: "history", root, rel }).then((f) => f),
+    version: (root, rel, sha) => call({ op: "version", root, rel, sha }),
+    /// Notes whose text holds every word of the query, each with its first matching line.
+    search: (root, query) => call({ op: "search", root, query }).then((f) => f.hits),
+    /// Any text file inside a folder allowed for editing; root is that folder.
+    fileRead: (root, rel) => call({ op: "fileRead", root, rel }),
+    fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
+  };
+  function slugForTitle(title) {
+    const s = title.replace(/^#+\s*/, "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+    return (s || "untitled") + ".md";
+  }
+  function unquoteYaml(v) {
+    if (v.length >= 2 && v[0] === '"' && v.endsWith('"')) {
+      try {
+        return JSON.parse(v);
+      } catch {
+        return v.slice(1, -1);
+      }
+    }
+    if (v.length >= 2 && v[0] === "'" && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
+    return v;
+  }
+  function noteTitle(rel, text) {
+    if (text) {
+      const fm = text.match(/^---\n([\s\S]*?)\n---/);
+      const raw = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim();
+      const t = raw && unquoteYaml(raw).trim();
+      if (t) return t;
+      const first = splitNote(text).body.trim().split("\n")[0].replace(/^#+/, "").trim();
+      if (first) return first;
+    }
+    return rel.split("/").pop().replace(/\.md$/i, "").replace(/[-_]+/g, " ");
+  }
+  function setTitle(text, title) {
+    const m = text.match(/^---\n([\s\S]*?)\n---/);
+    if (!m) return null;
+    const line = `title: ${JSON.stringify(title)}`;
+    const fm = /^title:.*$/m.test(m[1]) ? m[1].replace(/^title:.*$/m, () => line) : `${line}
+${m[1]}`;
+    return text.replace(m[0], () => `---
+${fm}
+---`);
+  }
+  function settleClash(text, keep) {
+    const out = [];
+    let first = [], second = [];
+    let part = "out";
+    for (const line of text.split("\n")) {
+      if (part === "out" && (line.startsWith("<<<<<<< ") || line === "<<<<<<<")) {
+        part = "first";
+        first = [];
+        second = [];
+      } else if (part === "out") out.push(line);
+      else if (part === "first" && line === "=======") part = "second";
+      else if (part === "first") first.push(line);
+      else if (line.startsWith(">>>>>>> ") || line === ">>>>>>>") {
+        part = "out";
+        out.push(...keep === "second" ? second : keep === "first" ? first : [...first, ...second]);
+      } else second.push(line);
+    }
+    if (part !== "out") out.push(...first, ...second);
+    return out.join("\n");
+  }
+  function clashSides(text) {
+    const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
+    if (!a || !b) return null;
+    const name = (m) => m === "HEAD" ? "this Mac's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
+    return [name(a.trim()), name(b.trim())];
+  }
+  function stampUpdated(text, now = /* @__PURE__ */ new Date()) {
+    const m = text.match(/^---\n([\s\S]*?)\n---/);
+    if (!m) return text;
+    const iso = now.toISOString();
+    const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, () => `updated: ${iso}`) : m[1] + `
+updated: ${iso}`;
+    return text.replace(m[0], () => `---
+${fm}
+---`);
+  }
+  var NOTE_COLORS = ["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"];
+  var LEGACY_COLORS = { indigo: "purple", mint: "green", brown: "orange", gray: "blue", cyan: "teal" };
+  function colorName(v) {
+    if (!v) return null;
+    const n = LEGACY_COLORS[v] ?? v;
+    return NOTE_COLORS.includes(n) ? n : null;
+  }
+  var KEY_ORDER = [
+    "title",
+    "created",
+    "tags",
+    "expires",
+    "remind_at",
+    "remind_repeat",
+    "remind_on",
+    "reminder_id",
+    "pinned",
+    "color",
+    "agent",
+    "source",
+    "url",
+    "pos"
+  ];
+  var FM_RE = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
+  function splitNote(text) {
+    const m = text.match(FM_RE);
+    if (!m || /^(<{7}|={7}|>{7})/m.test(m[0])) return { head: "", body: text };
+    return { head: m[0], body: text.slice(m[0].length) };
+  }
+  function fmLines(head) {
+    const m = head.match(FM_RE);
+    return m && m[1] !== void 0 ? m[1].split("\n") : [];
+  }
+  function readProps(rel, text) {
+    const { head } = splitNote(text);
+    const f = {};
+    for (const line of fmLines(head)) {
+      const i = line.indexOf(":");
+      if (i > 0) f[line.slice(0, i).trim()] = unquoteYaml(line.slice(i + 1).trim());
+    }
+    return {
+      title: noteTitle(rel, text),
+      color: colorName(f.color),
+      pinned: f.pinned === "true",
+      tags: parseTags2(f.tags),
+      ...f.pos ? { pos: f.pos } : {}
+    };
+  }
+  function parseTags2(v) {
+    const s = (v ?? "").trim();
+    return (s.startsWith("[") && s.endsWith("]") ? s.slice(1, -1) : s).split(",").map((t) => t.trim().replace(/^(["'])(.*)\1$/, "$2")).filter(Boolean);
+  }
+  function setField(text, key, value) {
+    const line = value === null ? null : `${key}: ${value}`;
+    const { head, body } = splitNote(text);
+    if (!head) return line === null ? text : `---
+${line}
+---
+${text}`;
+    const lines = fmLines(head);
+    const at = lines.findIndex((l) => l.slice(0, Math.max(l.indexOf(":"), 0)).trim() === key);
+    if (at >= 0) {
+      if (line === null) lines.splice(at, 1);
+      else lines[at] = line;
+    } else if (line !== null) {
+      const rank = KEY_ORDER.indexOf(key);
+      let pos = lines.length;
+      if (rank >= 0) {
+        const later = lines.findIndex((l) => {
+          const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(":"), 0)).trim());
+          return r < 0 || r > rank;
+        });
+        if (later >= 0) pos = later;
+      }
+      lines.splice(pos, 0, line);
+    }
+    if (!lines.length && at >= 0) return body;
+    return `---
+${lines.length ? lines.join("\n") + "\n" : ""}---
+${body}`;
+  }
+  var setPinned = (text, on) => setField(text, "pinned", on ? "true" : null);
+  var setColor = (text, c) => setField(text, "color", c);
+  var setTags2 = (text, tags) => setField(text, "tags", tags.length ? JSON.stringify(tags.join(", ")) : null);
+  function frontmatterDrift(before, after, allowed) {
+    const skip = /* @__PURE__ */ new Set([...allowed, "updated"]);
+    const keep = (t) => fmLines(splitNote(t).head).filter((l) => !skip.has(l.slice(0, Math.max(l.indexOf(":"), 0)).trim()));
+    const a = keep(before), b = keep(after);
+    return a.length === b.length && a.every((l, i) => l === b[i]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
+  }
+  function sharedOrder(list) {
+    const made = (n) => n.created ?? n.mtime;
+    return [...list].sort((x, y) => {
+      if (!!x.pinned !== !!y.pinned) return x.pinned ? -1 : 1;
+      if (!x.pos !== !y.pos) return x.pos ? 1 : -1;
+      if (!x.pos) return made(y) - made(x) || (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
+      return x.pos < y.pos ? -1 : x.pos > y.pos ? 1 : x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0;
+    });
+  }
+  function filterNotes(list, query) {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return list;
+    return list.filter((n) => {
+      const tags = (n.tags ?? []).map((t) => t.toLowerCase());
+      const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ""} ${tags.join(" ")}`.toLowerCase();
+      return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
+    });
+  }
+  function applyChange(text, c) {
+    let t = text;
+    if (c.color !== void 0) t = setColor(t, c.color);
+    if (c.pinned !== void 0) t = setPinned(t, c.pinned);
+    if (c.tags !== void 0) t = setTags2(t, c.tags);
+    return t;
+  }
+  function changedKeys(c) {
+    return ["color", "pinned", "tags"].filter((k) => c[k] !== void 0);
   }
 
   // src/control-icons.ts
@@ -2019,240 +2260,6 @@
     return xhrDirect(url).catch(() => {
       throw new FileFetchError("read-failed", "no reply from the extension worker");
     });
-  }
-
-  // src/notes.ts
-  var NotesError = class extends Error {
-    constructor(code, message) {
-      super(message);
-      this.code = code;
-      this.name = "NotesError";
-    }
-  };
-  var HOST = "com.better_file_browser.notes";
-  function call(payload) {
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.runtime.sendMessage({ type: "bfb-native-oneshot", host: HOST, payload }, (res) => {
-          if (chrome.runtime.lastError || !res) return reject(new NotesError("unavailable", chrome.runtime.lastError?.message || "no reply"));
-          if (!res.ok) return reject(new NotesError("unavailable", res.error || "notes host not installed"));
-          const f = res.response;
-          if (f.t === "error") return reject(new NotesError(f.code, f.message));
-          resolve(f);
-        });
-      } catch (e) {
-        reject(new NotesError("unavailable", String(e)));
-      }
-    });
-  }
-  var notes = {
-    stat: (root) => call({ op: "stat", root }),
-    list: (root) => call({ op: "list", root }).then((f) => f.notes),
-    read: (root, rel) => call({ op: "read", root, rel }),
-    write: (root, rel, text, expectMtime) => call({ op: "write", root, rel, text, expectMtime }),
-    create: (root, rel, text = "") => call({ op: "create", root, rel, text }),
-    rename: (root, rel, to) => call({ op: "rename", root, rel, to }),
-    writeBinary: (root, rel, base64) => call({ op: "writeBinary", root, rel, base64 }),
-    delete: (root, rel) => call({ op: "delete", root, rel }),
-    /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
-    pick: (start) => call({ op: "pick", start }).then((f) => f.root),
-    history: (root, rel) => call({ op: "history", root, rel }).then((f) => f),
-    version: (root, rel, sha) => call({ op: "version", root, rel, sha }),
-    /// Notes whose text holds every word of the query, each with its first matching line.
-    search: (root, query) => call({ op: "search", root, query }).then((f) => f.hits),
-    /// Any text file inside a folder allowed for editing; root is that folder.
-    fileRead: (root, rel) => call({ op: "fileRead", root, rel }),
-    fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
-  };
-  function slugForTitle(title) {
-    const s = title.replace(/^#+\s*/, "").trim().toLowerCase().replace(/[^a-z0-9À-ɏͰ-﷏]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
-    return (s || "untitled") + ".md";
-  }
-  function unquoteYaml(v) {
-    if (v.length >= 2 && v[0] === '"' && v.endsWith('"')) {
-      try {
-        return JSON.parse(v);
-      } catch {
-        return v.slice(1, -1);
-      }
-    }
-    if (v.length >= 2 && v[0] === "'" && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
-    return v;
-  }
-  function noteTitle(rel, text) {
-    if (text) {
-      const fm = text.match(/^---\n([\s\S]*?)\n---/);
-      const raw = fm?.[1].match(/^title:\s*(.+)$/m)?.[1].trim();
-      const t = raw && unquoteYaml(raw).trim();
-      if (t) return t;
-      const first = splitNote(text).body.trim().split("\n")[0].replace(/^#+/, "").trim();
-      if (first) return first;
-    }
-    return rel.split("/").pop().replace(/\.md$/i, "").replace(/[-_]+/g, " ");
-  }
-  function setTitle(text, title) {
-    const m = text.match(/^---\n([\s\S]*?)\n---/);
-    if (!m) return null;
-    const line = `title: ${JSON.stringify(title)}`;
-    const fm = /^title:.*$/m.test(m[1]) ? m[1].replace(/^title:.*$/m, () => line) : `${line}
-${m[1]}`;
-    return text.replace(m[0], () => `---
-${fm}
----`);
-  }
-  function settleClash(text, keep) {
-    const out = [];
-    let first = [], second = [];
-    let part = "out";
-    for (const line of text.split("\n")) {
-      if (part === "out" && (line.startsWith("<<<<<<< ") || line === "<<<<<<<")) {
-        part = "first";
-        first = [];
-        second = [];
-      } else if (part === "out") out.push(line);
-      else if (part === "first" && line === "=======") part = "second";
-      else if (part === "first") first.push(line);
-      else if (line.startsWith(">>>>>>> ") || line === ">>>>>>>") {
-        part = "out";
-        out.push(...keep === "second" ? second : keep === "first" ? first : [...first, ...second]);
-      } else second.push(line);
-    }
-    if (part !== "out") out.push(...first, ...second);
-    return out.join("\n");
-  }
-  function clashSides(text) {
-    const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
-    if (!a || !b) return null;
-    const name = (m) => m === "HEAD" ? "this Mac's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
-    return [name(a.trim()), name(b.trim())];
-  }
-  function stampUpdated(text, now = /* @__PURE__ */ new Date()) {
-    const m = text.match(/^---\n([\s\S]*?)\n---/);
-    if (!m) return text;
-    const iso = now.toISOString();
-    const fm = /^updated:.*$/m.test(m[1]) ? m[1].replace(/^updated:.*$/m, () => `updated: ${iso}`) : m[1] + `
-updated: ${iso}`;
-    return text.replace(m[0], () => `---
-${fm}
----`);
-  }
-  var NOTE_COLORS = ["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink"];
-  var LEGACY_COLORS = { indigo: "purple", mint: "green", brown: "orange", gray: "blue", cyan: "teal" };
-  function colorName(v) {
-    if (!v) return null;
-    const n = LEGACY_COLORS[v] ?? v;
-    return NOTE_COLORS.includes(n) ? n : null;
-  }
-  var KEY_ORDER = [
-    "title",
-    "created",
-    "tags",
-    "expires",
-    "remind_at",
-    "remind_repeat",
-    "remind_on",
-    "reminder_id",
-    "pinned",
-    "color",
-    "agent",
-    "source",
-    "url",
-    "pos"
-  ];
-  var FM_RE = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
-  function splitNote(text) {
-    const m = text.match(FM_RE);
-    if (!m || /^(<{7}|={7}|>{7})/m.test(m[0])) return { head: "", body: text };
-    return { head: m[0], body: text.slice(m[0].length) };
-  }
-  function fmLines(head) {
-    const m = head.match(FM_RE);
-    return m && m[1] !== void 0 ? m[1].split("\n") : [];
-  }
-  function readProps(rel, text) {
-    const { head } = splitNote(text);
-    const f = {};
-    for (const line of fmLines(head)) {
-      const i = line.indexOf(":");
-      if (i > 0) f[line.slice(0, i).trim()] = unquoteYaml(line.slice(i + 1).trim());
-    }
-    return {
-      title: noteTitle(rel, text),
-      color: colorName(f.color),
-      pinned: f.pinned === "true",
-      tags: parseTags2(f.tags),
-      ...f.pos ? { pos: f.pos } : {}
-    };
-  }
-  function parseTags2(v) {
-    const s = (v ?? "").trim();
-    return (s.startsWith("[") && s.endsWith("]") ? s.slice(1, -1) : s).split(",").map((t) => t.trim().replace(/^(["'])(.*)\1$/, "$2")).filter(Boolean);
-  }
-  function setField(text, key, value) {
-    const line = value === null ? null : `${key}: ${value}`;
-    const { head, body } = splitNote(text);
-    if (!head) return line === null ? text : `---
-${line}
----
-${text}`;
-    const lines = fmLines(head);
-    const at = lines.findIndex((l) => l.slice(0, Math.max(l.indexOf(":"), 0)).trim() === key);
-    if (at >= 0) {
-      if (line === null) lines.splice(at, 1);
-      else lines[at] = line;
-    } else if (line !== null) {
-      const rank = KEY_ORDER.indexOf(key);
-      let pos = lines.length;
-      if (rank >= 0) {
-        const later = lines.findIndex((l) => {
-          const r = KEY_ORDER.indexOf(l.slice(0, Math.max(l.indexOf(":"), 0)).trim());
-          return r < 0 || r > rank;
-        });
-        if (later >= 0) pos = later;
-      }
-      lines.splice(pos, 0, line);
-    }
-    if (!lines.length && at >= 0) return body;
-    return `---
-${lines.length ? lines.join("\n") + "\n" : ""}---
-${body}`;
-  }
-  var setPinned = (text, on) => setField(text, "pinned", on ? "true" : null);
-  var setColor = (text, c) => setField(text, "color", c);
-  var setTags2 = (text, tags) => setField(text, "tags", tags.length ? JSON.stringify(tags.join(", ")) : null);
-  function frontmatterDrift(before, after, allowed) {
-    const skip = /* @__PURE__ */ new Set([...allowed, "updated"]);
-    const keep = (t) => fmLines(splitNote(t).head).filter((l) => !skip.has(l.slice(0, Math.max(l.indexOf(":"), 0)).trim()));
-    const a = keep(before), b = keep(after);
-    return a.length === b.length && a.every((l, i) => l === b[i]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
-  }
-  function sharedOrder(list) {
-    const made = (n) => n.created ?? n.mtime;
-    return [...list].sort((x, y) => {
-      if (!!x.pinned !== !!y.pinned) return x.pinned ? -1 : 1;
-      if (!x.pos !== !y.pos) return x.pos ? 1 : -1;
-      if (!x.pos) return made(y) - made(x) || (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
-      return x.pos < y.pos ? -1 : x.pos > y.pos ? 1 : x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0;
-    });
-  }
-  function filterNotes(list, query) {
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!words.length) return list;
-    return list.filter((n) => {
-      const tags = (n.tags ?? []).map((t) => t.toLowerCase());
-      const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ""} ${tags.join(" ")}`.toLowerCase();
-      return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
-    });
-  }
-  function applyChange(text, c) {
-    let t = text;
-    if (c.color !== void 0) t = setColor(t, c.color);
-    if (c.pinned !== void 0) t = setPinned(t, c.pinned);
-    if (c.tags !== void 0) t = setTags2(t, c.tags);
-    return t;
-  }
-  function changedKeys(c) {
-    return ["color", "pinned", "tags"].filter((k) => c[k] !== void 0);
   }
 
   // src/note-meta-ui.ts
@@ -4550,6 +4557,21 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   #fe-count{flex-basis:100%}
   #fe-tb-right{width:100%;flex-wrap:wrap;justify-content:flex-start}
 }
+/* Narrow windows keep the reading column usable: the listing drops its
+   lesser columns, Contents gives way to the text, and the sidebar is held
+   to a share of the width (max-width beats a dragged inline width). */
+@container fe-main (max-width:560px){
+  .c-tp,.c-tg{display:none}
+}
+@container fe-main (max-width:400px){
+  .c-dt{display:none}
+}
+@media (max-width:760px){
+  #fe-toc-rail{display:none}
+}
+@media (max-width:640px){
+  #fe-side{max-width:42vw}
+}
 @media (max-width:700px){
   #fe-settings-modal .fe-dlg-tab{padding:7px 3px 6px;text-align:center}
   #fe-settings-modal .fe-dlg-tab-main{flex-direction:column;gap:2px}
@@ -6370,6 +6392,28 @@ seconds and re-renders when the file changes on disk.
   }
 
   // src/page.ts
+  function placesHTML(home, rawPath) {
+    const places = [
+      ...home ? [
+        { label: "Home", icon: "home", sub: "" },
+        { label: "Desktop", icon: "desk", sub: "Desktop/" },
+        { label: "Documents", icon: "docs", sub: "Documents/" },
+        { label: "Downloads", icon: "down", sub: "Downloads/" },
+        { label: "Pictures", icon: "pics", sub: "Pictures/" },
+        { label: "Screenshots", icon: "scrnsh", sub: "Pictures/Screenshots/" },
+        { label: "Code", icon: "code", sub: "Code/" },
+        { label: "Versable", icon: "folder", sub: "Code/Versable/" },
+        { label: "enhancement-product", icon: "folder", sub: "Code/Versable/enhancement-product/" },
+        { label: "resumes", icon: "docs", sub: "Code/Claude/resumes/" }
+      ].map((p) => ({ label: p.label, icon: p.icon, href: fileHref(home + "/" + p.sub) })) : [],
+      { label: "Applications", icon: "apps", href: "file:///Applications/" },
+      { label: "Root /", icon: "root", href: "file:///" }
+    ];
+    return places.map(
+      (p) => `<a href="${p.href}" class="fe-si${p.href.replace(/\/$/, "") === fileHref(rawPath).replace(/\/$/, "") ? " active" : ""}" title="${esc(p.label)}
+${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</span></a>`
+    ).join("");
+  }
   function renderPage(p) {
     const { initTheme, initPalette, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
     const ALL_ENTRIES = p.entries;
@@ -6391,23 +6435,6 @@ seconds and re-renders when the file changes on disk.
     const viewBtnsHTML = VIEW_MODES.map(
       (v) => `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view \u2014 ${VIEW_LABELS[v.id]}${v.id === initView ? " (active)" : ""}">${v.ico}</button>`
     ).join("");
-    const home = homeDir(rawPath);
-    const PLACES = [
-      ...home ? [
-        { label: "Home", icon: "home", sub: "" },
-        { label: "Desktop", icon: "desk", sub: "Desktop/" },
-        { label: "Documents", icon: "docs", sub: "Documents/" },
-        { label: "Downloads", icon: "down", sub: "Downloads/" },
-        { label: "Pictures", icon: "pics", sub: "Pictures/" },
-        { label: "Screenshots", icon: "scrnsh", sub: "Pictures/Screenshots/" },
-        { label: "Code", icon: "code", sub: "Code/" },
-        { label: "Versable", icon: "folder", sub: "Code/Versable/" },
-        { label: "enhancement-product", icon: "folder", sub: "Code/Versable/enhancement-product/" },
-        { label: "resumes", icon: "docs", sub: "Code/Claude/resumes/" }
-      ].map((p2) => ({ label: p2.label, icon: p2.icon, href: fileHref(home + "/" + p2.sub) })) : [],
-      { label: "Applications", icon: "apps", href: "file:///Applications/" },
-      { label: "Root /", icon: "root", href: "file:///" }
-    ];
     const lensHead = (title, sub, actions = "") => `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b><i>${sub}</i></span>${actions}</div>`;
     const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
     const SETTINGS_DIALOG = {
@@ -6696,10 +6723,7 @@ seconds and re-renders when the file changes on disk.
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
         ${lensHead("Places", "Where you can go")}
         <div class="fe-sec" data-sec="places">
-        ${PLACES.map(
-      (p2) => `<a href="${p2.href}" class="fe-si${p2.href.replace(/\/$/, "") === "file://" + rawPath.replace(/\/$/, "") ? " active" : ""}" title="${esc(p2.label)}
-${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}</span></a>`
-    ).join("")}
+        ${placesHTML(homeDir(rawPath), rawPath)}
         </div>
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
@@ -9554,6 +9578,14 @@ ${esc(p2.href)}">${PI[p2.icon] ?? PI.folder}<span class="fe-sl">${esc(p2.label)}
     initListingInput(app, listing);
     initSettingsUi(app);
     initSidebar(app);
+    if (!homeDir(rawPath)) {
+      notes.home().then((home) => {
+        if (!setHomeDir(home)) return;
+        const list = document.querySelector('#fe-lens-places .fe-sec[data-sec="places"]');
+        if (list) list.innerHTML = placesHTML(home, rawPath);
+      }).catch(() => {
+      });
+    }
     listing.applyAll();
     listing.applyFindFromHash();
     if (settings.tooltips === false) {

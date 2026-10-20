@@ -916,6 +916,21 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   #fe-count{flex-basis:100%}
   #fe-tb-right{width:100%;flex-wrap:wrap;justify-content:flex-start}
 }
+/* Narrow windows keep the reading column usable: the listing drops its
+   lesser columns, Contents gives way to the text, and the sidebar is held
+   to a share of the width (max-width beats a dragged inline width). */
+@container fe-main (max-width:560px){
+  .c-tp,.c-tg{display:none}
+}
+@container fe-main (max-width:400px){
+  .c-dt{display:none}
+}
+@media (max-width:760px){
+  #fe-toc-rail{display:none}
+}
+@media (max-width:640px){
+  #fe-side{max-width:42vw}
+}
 @media (max-width:700px){
   #fe-settings-modal .fe-dlg-tab{padding:7px 3px 6px;text-align:center}
   #fe-settings-modal .fe-dlg-tab-main{flex-direction:column;gap:2px}
