@@ -12,4 +12,17 @@
     body { opacity: 0 !important; transition: opacity 0.15s ease; }
   `;
   document.documentElement.appendChild(s);
+  // Chrome never finishes listing a folder it may not read, so the explorer
+  // never starts and the cover would stay up for good. After a wait, show
+  // Chrome's page with a note; the explorer replaces both if it starts later.
+  if (!p.endsWith('/')) return;
+  setTimeout(function () {
+    if (document.readyState !== 'loading' || document.getElementById('fe')) return;
+    s.remove();
+    const note = document.createElement('div');
+    note.id = 'bfb-slow-note';
+    note.style.cssText = 'margin:16px 0;padding:10px 14px;border-radius:8px;background:#fff4e5;color:#5c3b00;font:14px -apple-system,system-ui,sans-serif';
+    note.textContent = 'This folder is still listing. If nothing appears, macOS may not allow reading it: check the folder’s permissions in Finder (Get Info).';
+    (document.body || document.documentElement).prepend(note);
+  }, 3000);
 })();
