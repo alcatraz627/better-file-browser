@@ -22,7 +22,7 @@ try {
   await h.store.set('bfb-tags-v1', [{ name: 'work', color: '#3fb950' }]);
   // The second entry is damaged on purpose: History must skip it, not crash.
   await h.store.set('bfb-recents-v1', [{ path: h.fixture + '/nested/', ts: Date.now() - 60000 }, { url: 'x' }]);
-  const page = await h.open();
+  let page = await h.open();
   await applyTheme(page);
   await page.waitForSelector('#fe-rail-places');
 
@@ -104,6 +104,44 @@ try {
   await rows('context menu', '#fe-ctx .fe-ctx-item');
   await surface('context menu', '#fe-ctx');
   await page.keyboard.press('Escape');
+
+  // Type scale: every visible piece of shell text, file page included, sits on
+  // one of the five steps. Reading text (markdown, code) has its own sizes.
+  const SCALE = [10, 11, 12, 13, 15];
+  async function typeScale(where) {
+    const off = await page.evaluate(scale => {
+      const seen = new Map();
+      for (const el of document.querySelectorAll('#fe *, #fe-settings-modal *')) {
+        if (el.closest('.fe-md, .fe-code-wrap, .fe-ql-font, svg, iframe, #fe-fe-paint, #fe-fe-ta')) continue;
+        if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        const px = parseFloat(getComputedStyle(el).fontSize);
+        if (!scale.includes(px)) seen.set(`${px}px`, (seen.get(`${px}px`) || []).concat(el.id ? '#' + el.id : '.' + [...el.classList].join('.')));
+      }
+      return [...seen].map(([px, els]) => `${px} on ${[...new Set(els)].slice(0, 4).join(' ')}`);
+    }, SCALE);
+    report.push(`type scale (${where}): ${off.length ? off.join('; ') : 'all on 10/11/12/13/15'}`);
+    if (off.length) fails.push(`type scale (${where}): ${off.join('; ')}`);
+  }
+  await typeScale('listing');
+  await page.click('#fe-rail-notes'); await new Promise(r => setTimeout(r, 300));
+  await typeScale('notes lens');
+  await page.click('#fe-settings-btn');
+  await page.waitForSelector('#fe-settings-modal .fe-dlg-tab');
+  for (const tab of await page.$$('#fe-settings-modal .fe-dlg-tab')) {
+    await tab.click(); await new Promise(r => setTimeout(r, 150));
+    await typeScale(`settings ${await tab.evaluate(t => t.querySelector('b')?.textContent || t.textContent.trim())}`);
+  }
+  await page.keyboard.press('Escape');
+  const fp = await h.open();
+  await fp.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
+  await fp.waitForSelector('#fe.fe-file-page');
+  await applyTheme(fp);
+  const listing = page;
+  page = fp;
+  await typeScale('file page');
+  page = listing;
 
   console.log(report.join('\n'));
   console.log(fails.length ? 'FAIL\n  ' + fails.join('\n  ') : 'PASS every row and surface is on spec');

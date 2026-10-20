@@ -169,7 +169,7 @@ export function renderPage(p: PageParams): string {
         stCard('Your data',
           stRow('Export', 'Settings and Saved list, as JSON', `<button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>`) +
           stRow('Import', 'Loads an export, then reloads', `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">`) +
-          `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
+          `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
     ],
   };
   const HELP_DIALOG: DialogSpec = {
