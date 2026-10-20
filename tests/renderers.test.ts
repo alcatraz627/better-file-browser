@@ -254,6 +254,7 @@ describe('renderJsonl', () => {
   it('skips blank lines', () => {
     const html = renderJsonl('{"a":1}\n\n\n{"b":2}\n');
     expect(html.match(/class="fe-jl-line"/g)?.length).toBe(2);
+    expect([...html.matchAll(/class="fe-jl-n">(\d+)</g)].map(m => m[1])).toEqual(['1', '4']);   // file line numbers
   });
   it('notes truncation past the line cap', () => {
     const text = Array.from({ length: RENDER_CAPS.jsonlLines + 5 }, () => '{"x":1}').join('\n');

@@ -862,21 +862,23 @@ export function renderJsonTree(text: string): string {
 
 /** One collapsible row per JSONL line; malformed lines render raw with a badge. */
 export function renderJsonl(text: string): string {
-  const lines = text.split('\n').filter(l => l.trim() !== '');
+  // Each record keeps its line number in the file, blank lines included,
+  // so "line 6" here is line 6 in an editor.
+  const lines = text.split('\n').map((l, i) => ({ l, n: i + 1 })).filter(x => x.l.trim() !== '');
   let truncNote = '';
   let shown = lines;
   if (lines.length > RENDER_CAPS.jsonlLines) {
     shown = lines.slice(0, RENDER_CAPS.jsonlLines);
     truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.jsonlLines.toLocaleString()} of ${lines.length.toLocaleString()} lines.</div>`;
   }
-  const body = shown.map((line, i) => {
+  const body = shown.map(({ l: line, n }) => {
     try {
       const v = JSON.parse(line);
       const compact = JSON.stringify(v);
       const preview = compact.length > 140 ? compact.slice(0, 140) + '…' : compact;
-      return `<details class="fe-jl-line"><summary>${CHEVRON_DOWN}<span class="fe-jl-n">${i + 1}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2000 })}</div></details>`;
+      return `<details class="fe-jl-line"><summary>${CHEVRON_DOWN}<span class="fe-jl-n">${n}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2000 })}</div></details>`;
     } catch {
-      return `<div class="fe-jl-line bad"><span class="fe-jl-n">${i + 1}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line.slice(0, 200))}</span></div>`;
+      return `<div class="fe-jl-line bad"><span class="fe-jl-n">${n}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line.slice(0, 200))}</span></div>`;
     }
   }).join('');
   return `${truncNote}<div class="fe-jl-root">${body}</div>`;
