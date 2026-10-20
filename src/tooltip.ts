@@ -12,13 +12,15 @@ export function initTooltips(root: HTMLElement): void {
   root.appendChild(tip);
   let target: HTMLElement | null = null;
   let lifted = '';
+  let labelled = false;   // we gave the target an aria-label while its title is lifted
   let timer = 0;
 
   function hide(): void {
     clearTimeout(timer);
     tip.classList.remove('on');
     if (target && lifted && !target.hasAttribute('title')) target.setAttribute('title', lifted);
-    target = null; lifted = '';
+    if (target && labelled) target.removeAttribute('aria-label');
+    target = null; lifted = ''; labelled = false;
   }
   function place(): void {
     if (!target) return;
@@ -41,6 +43,9 @@ export function initTooltips(root: HTMLElement): void {
     if (text === el.textContent?.trim() && el.scrollWidth <= el.clientWidth) return;
     target = el; lifted = text;
     el.removeAttribute('title');
+    // Keep the control's name while the title is off, so a screen reader (and
+    // anything else that reads names) still has it during the hover.
+    if (!el.hasAttribute('aria-label')) { el.setAttribute('aria-label', text); labelled = true; }
     timer = window.setTimeout(() => {
       if (target !== el) return;
       tip.textContent = text;
