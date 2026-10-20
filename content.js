@@ -2876,14 +2876,14 @@ ${body}
     });
   }
   var LLM_ERROR_TEXT = {
-    server_down: "Local model server is down \u2014 run `lm status` in a terminal.",
+    server_down: "The local model server is down. Run `lm status` in a terminal.",
     model_missing: "The model is not available on the server.",
     ctx_too_large: "This file is too large for the model.",
     timeout: "The model took too long and was stopped.",
     invalid_args: "Invalid request.",
     cancelled: "Cancelled.",
     host_no_lm: "The lm CLI was not found on this machine.",
-    unavailable: "AI host not installed \u2014 run native/install.sh <extension-id>.",
+    unavailable: "The AI host is not installed. Run native/install.sh <extension-id>.",
     disconnected: "The AI host disconnected unexpectedly."
   };
 
@@ -3608,7 +3608,7 @@ ${body}
     if (e.rawBytes > FETCH_WARN_BYTES) {
       body.innerHTML = `
       <div class="fe-ql-center">
-        <div class="fe-ql-note">File is ${fmtSize(e.rawBytes)} \u2014 large files can be slow to render.</div>
+        <div class="fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
         <button id="fe-ql-force" class="fe-pbn" title="Render despite the size">Load anyway</button>
       </div>`;
       document.getElementById("fe-ql-force").addEventListener("click", () => fetchAndRender(e, ext2, seq));
@@ -4145,9 +4145,6 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
   padding:9px 13px 8px;color:var(--mt);cursor:pointer;text-align:left;line-height:1;white-space:nowrap;transition:background .1s,color .1s,border-color .1s}
 .fe-dlg-tab-main{display:flex;align-items:center;gap:5px;min-width:0}
 .fe-dlg-tab-main svg{flex:none;width:13px;height:13px}
-#fe-settings-modal .fe-dlg-tabs{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;overflow:visible;padding:0 8px}
-#fe-settings-modal .fe-dlg-tab{min-width:0;padding:9px 7px 8px;white-space:normal}
-#fe-settings-modal .fe-dlg-tab i{line-height:1.15;white-space:normal}
 .fe-dlg-tab b{font-size:calc(12.5px * var(--ui-text-scale,1));font-weight:600;color:inherit}
 .fe-dlg-tab i{font-size:calc(10.5px * var(--ui-text-scale,1));font-style:normal;color:var(--dm);opacity:.85}
 .fe-dlg-tab:hover{color:var(--tx);background:var(--s1)}
@@ -4284,7 +4281,10 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
   background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
   box-shadow:0 8px 24px rgb(0 0 0 / .12),0 1px 3px rgb(0 0 0 / .08);transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
 #fe-toc-rail[hidden]{display:none}
-#fe-fp:has(#fe-toc-rail:not([hidden]):not(.folded)) #fe-page .fe-md{padding-right:290px}
+/* The open card reserves its room beside the page, not inside the text, so
+   the column keeps its chosen width and only gives way when space runs out. */
+#fe-fp:has(#fe-toc-rail:not([hidden]):not(.folded):not(.peek)) #fe-page{padding-right:256px}
+#fe-toc-rail.peek{box-shadow:var(--pop-sh)}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
 .fe-toc-title{flex:1;font-size:calc(11px * var(--ui-text-scale,1));font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 #fe-toc-fold{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer}
@@ -4586,7 +4586,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md li::marker{color:var(--mt)}
 .fe-md code{background:var(--s2);border:0;padding:.12em .4em;border-radius:4px;font-family:var(--mono);font-size:.86em}
 .fe-md a code{color:inherit}
-.fe-md-code{border:1px solid var(--bd);border-radius:6px;background:var(--s1);overflow:hidden}
+.fe-md-code{border:1px solid var(--bd);border-radius:8px;background:color-mix(in srgb,var(--card),var(--tx) 3.5%);overflow:hidden}
 .fe-md-code-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px 0 12px;background:none}
 .fe-md-lang{font:600 calc(10.5px * var(--ui-text-scale,1))/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 .fe-md-copy{position:relative;display:inline-grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:50%;
@@ -4708,10 +4708,15 @@ button.fe-si{width:auto;display:flex}
 .fe-nt-item .fe-rm-btn{padding:4px 6px}
 #fe-lenses{container:lens/inline-size}
 @container lens (max-width:200px){.fe-nt-props,.fe-nt-tab{display:none!important}}
-.fe-grp{margin:4px 6px}
-.fe-grp .fe-bm-item{margin:0 4px}
-.fe-grp > summary{border-radius:var(--row-r);margin:2px 2px 0;transition:background var(--t-fast) var(--ease)}
-.fe-grp > summary:hover{background:var(--hover)}
+/* A tag group is a plain section: one header row (chevron, colour, name,
+   count) at the row inset, and its rows exactly like every other row. */
+.fe-grp{margin:6px 0 0;padding:0;background:none;border-radius:0}
+.fe-grp:not([open]){padding:0}
+.fe-grp .fe-bm-item{margin:0 6px}
+.fe-grp > summary{min-height:28px;margin:0 6px;padding:0 var(--row-px);border-radius:var(--row-r);gap:8px;
+  font-size:calc(11px * var(--ui-text-scale,1));letter-spacing:.06em;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-grp > summary:hover{background:var(--hover);color:var(--tx)}
+.fe-grp > summary svg{width:12px;height:12px;opacity:.8}
 .fe-sh{padding:10px 16px 4px}
 .fe-lens-h{padding:6px 12px 8px 16px}
 .fe-hint{padding:6px 16px}
@@ -4728,6 +4733,15 @@ button.fe-si{width:auto;display:flex}
 .fe-dd-items{padding:0}
 .fe-ctx-sep{margin:4px 4px}
 .fe-toast-act{color:var(--ac)}
+/* Contents is a quiet card, with a faint rail per heading level so the
+   hierarchy reads at a glance. */
+#fe-toc-rail{box-shadow:0 1px 2px rgb(0 0 0 / .05),0 4px 14px rgb(0 0 0 / .06)}
+#fe-toc a{margin:0 6px;position:relative}
+#fe-toc a.fe-toc-h2,#fe-toc a.fe-toc-h3,#fe-toc a.fe-toc-h4{--rail:color-mix(in srgb,var(--bd2) 55%,transparent)}
+#fe-toc a.fe-toc-h2::before,#fe-toc a.fe-toc-h3::before,#fe-toc a.fe-toc-h4::before{content:'';position:absolute;inset:0 auto 0 0;width:44px;pointer-events:none;
+  background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat}
+#fe-toc a.fe-toc-h3::before,#fe-toc a.fe-toc-h4::before{background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 25px 0/1px 100% no-repeat}
+#fe-toc a.fe-toc-h4::before{background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 25px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 37px 0/1px 100% no-repeat}
 
 /* Motion. Things that appear fade and settle from a few pixels away; a
    folded group's body eases its height; the lens that takes over the
@@ -4746,6 +4760,66 @@ button.fe-si{width:auto;display:flex}
 .fe-grp::details-content{block-size:0;overflow:hidden;transition:block-size var(--t-base) var(--ease),content-visibility var(--t-base) allow-discrete}
 .fe-grp[open]::details-content{block-size:auto}
 .fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
+/* Settings and Help read as a page: the title across the top, the sections
+   listed on the left the way the sidebar lists lenses, the pane on the right.
+   In Settings each row names the setting, says what it changes and keeps its
+   control on the right; rows sit in cards by subject. */
+.fe-dlg-box{display:grid;grid-template-columns:200px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+  width:min(920px,calc(100vw - 40px));height:min(640px,86vh);border-radius:14px;background:var(--card);border-color:var(--pop-bd);box-shadow:var(--pop-sh)}
+#fe-settings-modal .fe-dlg-box{width:min(920px,calc(100vw - 40px))}
+.fe-dlg-title{grid-column:1/-1;background:none;border-bottom:1px solid var(--bd);border-radius:14px 14px 0 0}
+.fe-dlg-mark{border:0;border-radius:8px}
+.fe-dlg-tabs{flex-direction:column;gap:2px;padding:10px 6px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);overflow-y:auto;border-radius:0 0 0 14px}
+.fe-dlg-tab{border:0;border-radius:var(--row-r);padding:8px 10px;gap:3px;white-space:normal;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-dlg-tab:hover{background:var(--hover)}
+.fe-dlg-tab.on{background:var(--act);color:var(--tx)}
+.fe-dlg-tab-main{gap:var(--row-gap)}
+.fe-dlg-tab-main svg{width:15px;height:15px}
+.fe-dlg-tab b{font-size:var(--row-fs);font-weight:500}
+.fe-dlg-tab i{padding-left:25px;line-height:1.3}
+.fe-dlg-pane{padding:20px 24px 24px}
+.fe-dlg-pane.on{gap:16px}
+.fe-dlg-pane .fe-pbn{height:30px;padding:0 12px;border-radius:var(--row-r);font-size:var(--row-fs)}
+.fe-set-card{background:var(--side);border:1px solid var(--bd);border-radius:12px;padding:2px 0 4px}
+.fe-set-h{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:8px 16px 4px;
+  font-size:calc(12.5px * var(--ui-text-scale,1));font-weight:600;color:var(--tx)}
+.fe-set{display:flex;align-items:center;gap:16px;min-height:52px;padding:8px 16px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+.fe-set-h + .fe-set{border-top:0}
+.fe-set-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fe-set-l{font-size:var(--row-fs);color:var(--tx)}
+.fe-set-d{font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);line-height:1.35}
+.fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none;max-width:62%}
+.fe-set-c .fe-st-input{width:260px;max-width:100%}
+.fe-set-note{padding:2px 16px 10px;font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);line-height:1.5}
+.fe-set-note:empty{display:none}
+.fe-set-card .fe-st-rules-cols,.fe-set-card #fe-st-rules-list{margin:0 16px}
+.fe-set-card #fe-st-reset-rules{margin:10px 16px 8px}
+.fe-set-danger{color:var(--nc-red)}
+.fe-dlg-pane .fe-st-select{height:30px;padding:0 28px 0 10px;border-radius:var(--row-r);font-size:var(--row-fs);background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238b949e' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  border-color:var(--bd2);appearance:none;-webkit-appearance:none}
+.fe-dlg-pane .fe-st-input{height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
+.fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
+  background:var(--s3);cursor:pointer;transition:background var(--t-fast) var(--ease)}
+.fe-switch::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 2px rgb(0 0 0 / .3);transition:transform var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+.fe-switch:checked{background:var(--ac)}
+.fe-switch:checked::after{transform:translateX(14px);background:var(--on-ac)}
+.fe-switch:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.fe-seg{display:inline-flex;padding:2px;border-radius:10px;background:var(--bg);border:1px solid var(--bd)}
+.fe-seg label{position:relative;cursor:pointer}
+.fe-seg input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.fe-seg span{display:block;padding:0 16px;line-height:26px;border-radius:8px;font-size:var(--row-fs);color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-seg input:checked + span{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
+.fe-seg input:focus-visible + span{outline:2px solid var(--ac);outline-offset:1px}
+.fe-set-sws{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.fe-set-sw{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 8px;border-radius:10px;cursor:pointer;
+  font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-set-sw:hover{background:var(--hover)}
+.fe-set-sw:has(input:checked){background:var(--act);color:var(--tx)}
+.fe-set-sw input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.fe-set-sw-chip{width:40px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--b) 55%,var(--a) 55%);box-shadow:inset 0 0 0 1px var(--bd2)}
+.fe-st-rule-del:hover{color:var(--nc-red)}
+.fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){
   #fe *,#fe *::before,#fe *::after,#fe .fe-grp::details-content{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
 }
@@ -4766,10 +4840,12 @@ button.fe-si{width:auto;display:flex}
   #fe-side{max-width:42vw}
 }
 @media (max-width:700px){
-  #fe-settings-modal .fe-dlg-tab{padding:7px 3px 6px;text-align:center}
-  #fe-settings-modal .fe-dlg-tab-main{flex-direction:column;gap:2px}
-  #fe-settings-modal .fe-dlg-tab b{font-size:calc(10.5px * var(--ui-text-scale,1))}
-  #fe-settings-modal .fe-dlg-tab i{display:none}
+  .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
+  .fe-dlg-tabs{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--bd);border-radius:0}
+  .fe-dlg-tab{flex:none}
+  .fe-dlg-tab i{display:none}
+  .fe-set{flex-wrap:wrap}
+  .fe-set-c{max-width:100%}
 }
 `;
 
@@ -5289,6 +5365,7 @@ button.fe-si{width:auto;display:flex}
         </aside>
       </div>`;
   }
+  var TOC_ROOMY = 1e3;
   function mountFileContent(opts) {
     const { ext: ext2, rawPath, href } = opts;
     let text = opts.text;
@@ -5311,6 +5388,7 @@ button.fe-si{width:auto;display:flex}
     let raw = false;
     let headings = 0;
     let tocOpen = kvGet(TOC_KEY) !== "0";
+    let tight = false, peek = false;
     let column = savedColumnMode(opts.column);
     const fe = document.getElementById("fe");
     const paintMeta = () => {
@@ -5330,9 +5408,11 @@ button.fe-si{width:auto;display:flex}
       colBtn.title = `Reading width: ${column === "unset" ? "full" : `${column.toUpperCase()} (${COLUMN_WIDTHS[column]})`}. Click for ${next === "unset" ? "full" : `${next.toUpperCase()} (${COLUMN_WIDTHS[next]})`}`;
       colBtn.style.display = isMd && !raw ? "" : "none";
       rail.hidden = !isMd || raw || headings < 2 || !!editor;
-      rail.classList.toggle("folded", !tocOpen);
-      foldBtn.title = tocOpen ? "Collapse the contents" : "Show the contents";
-      foldBtn.setAttribute("aria-expanded", String(tocOpen));
+      const open = tight ? peek : tocOpen;
+      rail.classList.toggle("folded", !open);
+      rail.classList.toggle("peek", tight && peek);
+      foldBtn.title = open ? "Collapse the contents" : "Show the contents";
+      foldBtn.setAttribute("aria-expanded", String(open));
       findBox.hidden = !!editor;
     };
     const render2 = () => {
@@ -5349,10 +5429,28 @@ button.fe-si{width:auto;display:flex}
     let editor = null;
     render2();
     foldBtn.addEventListener("click", () => {
-      tocOpen = !tocOpen;
-      kvSet(TOC_KEY, tocOpen ? "1" : "0");
+      if (tight) peek = !peek;
+      else {
+        tocOpen = !tocOpen;
+        kvSet(TOC_KEY, tocOpen ? "1" : "0");
+      }
       paint();
-      if (tocOpen) spy(page, toc);
+      if (!rail.classList.contains("folded")) spy(page, toc);
+    });
+    const fp = document.getElementById("fe-fp");
+    if (fp) new ResizeObserver(() => {
+      const was = tight;
+      tight = fp.clientWidth < TOC_ROOMY;
+      if (tight !== was) {
+        peek = false;
+        paint();
+      }
+    }).observe(fp);
+    toc.addEventListener("click", (e) => {
+      if (tight && e.target.closest("a")) {
+        peek = false;
+        paint();
+      }
     });
     document.addEventListener("keydown", (e) => {
       if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey || editor) return;
@@ -6637,246 +6735,82 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       { id: "icons", label: "Large Icons", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/></svg>` }
     ];
     const VIEW_LABELS = {
-      details: "Full table \u2014 Name, Type, Size, Modified",
+      details: "Full table: name, type, size, modified",
       list: "Compact single-column rows",
       tree: "Expand folders without leaving this page",
       tiles: "Medium icon grid with filename below",
       icons: "Large icon grid"
     };
     const viewBtnsHTML = VIEW_MODES.map(
-      (v) => `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view \u2014 ${VIEW_LABELS[v.id]}${v.id === initView ? " (active)" : ""}">${v.ico}</button>`
+      (v) => `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? " (active)" : ""}">${v.ico}</button>`
     ).join("");
-    const lensHead = (title, sub, actions = "") => `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b><i>${sub}</i></span>${actions}</div>`;
+    const lensHead = (title, actions = "") => `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b></span>${actions}</div>`;
     const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
+    const stRow = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
+    const stCard = (title, rows, action = "") => `<section class="fe-set-card"><h3 class="fe-set-h"><span>${title}</span>${action}</h3>${rows}</section>`;
+    const stSwitch = (id, title) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
+    const stNote = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
+    const swatch = (value, name, accent, surface, title) => `<label class="fe-set-sw" title="${title}"><input type="radio" name="bfb-palette" value="${value}" title="${title}"><span class="fe-set-sw-chip" style="--a:${accent};--b:${surface}"></span><span>${name}</span></label>`;
     const SETTINGS_DIALOG = {
       id: "fe-settings-modal",
       mark: PI.gear,
       title: "Settings",
-      subtitle: "Stored in this browser profile",
+      subtitle: "Saved in this browser profile",
       tabs: [
-        { key: "appearance", label: "Appearance", hint: "Theme and layout", icon: UI_ICON.appearance, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Theme</div>
-          <div class="fe-st-row">
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark" title="Dark theme"> Dark</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light" title="Light theme"> Light</label>
-          </div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title">Palette</div>
-          <div class="fe-st-row">
-            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="slate" title="Slate and teal"><span class="fe-st-swatch" style="--sw:#3cc6c0"></span> Slate</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="violet" title="Violet"><span class="fe-st-swatch" style="--sw:#9d7cff"></span> Violet</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="sand" title="Sand and rose"><span class="fe-st-swatch" style="--sw:#e8789a"></span> Sand</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="ink" title="Ink, black and white"><span class="fe-st-swatch" style="--sw:#86868c"></span> Ink</label>
-          </div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title">Appearance</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Default view</span>
-            <select id="fe-st-defview" class="fe-st-select" title="View a folder opens in">
-              <option value="details">Details</option>
-              <option value="list">List</option>
-              <option value="tree">Tree</option>
-              <option value="tiles">Tiles</option>
-              <option value="icons">Large Icons</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Sort</span>
-            <select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in; the Sort panel and column headers change it too">
-              <option value="">As listed</option>
-              <option value="name">Name</option>
-              <option value="date">Modified</option>
-              <option value="size">Size</option>
-              <option value="type">Type</option>
-              <option value="ext">Extension</option>
-            </select>
-            <select id="fe-st-sort-dir" class="fe-st-select" title="Direction">
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Group</span>
-            <select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with">
-              <option value="none">None</option>
-              <option value="folders-first">Folders first</option>
-              <option value="files-first">Files first</option>
-              <option value="ext">By extension</option>
-              <option value="type">By type</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Interface size</span>
-            <select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">
-              <option value="90">90%</option>
-              <option value="100">100%</option>
-              <option value="110">110%</option>
-              <option value="125">125%</option>
-              <option value="150">150%</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-lbl" for="fe-st-rd-size">Text size</label>
-            <select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact" title="Tighter rows and tiles"> Compact mode</label>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar" title="Places, Notes and History on the left"> Show sidebar</label>
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Folders and files you opened lately, and closed tabs"> History</label>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-tooltips" title="Native tooltips on every control"> Tooltips</label>
-            <button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Keyboard shortcuts</button>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Date format</span>
-            <select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads">
-              <option value="short">Short \u2014 Apr 17</option>
-              <option value="full">Full \u2014 April 17, 2025</option>
-            </select>
-          </div>
-        </div>
-` },
-        { key: "preview", label: "Preview", hint: "Panel and tabs", icon: UI_ICON.preview, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Panel</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Placement</span>
-            <select id="fe-st-panel" class="fe-st-select" title="Where the preview opens">
-              <option value="modal">Floating window</option>
-              <option value="side">Docked to the side</option>
-            </select>
-            <button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">${UI_ICON.reset}Reset sizes</button>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Click on a file</span>
-            <select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does">
-              <option value="look">Look: open the panel</option>
-              <option value="go">Go: open its page</option>
-            </select>
-          </div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title">Tabs</div>
-          <div class="fe-st-row">
-          </div>
-        </div>` },
-        { key: "files", label: "Files", hint: "Reader and icons", icon: UI_ICON.files, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Reader</div>
-          <div class="fe-st-row">
-            <label class="fe-st-lbl" for="fe-st-rd-column">Reading width</label>
-            <select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages">
-              <option value="unset">Full width</option><option value="xl">XL width \xB7 150ch</option><option value="lg">LG width \xB7 130ch</option><option value="md">MD width \xB7 110ch</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Line height</span>
-            <select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${["1.5", "1.65", "1.8"].map((n) => `<option value="${n}">${n}</option>`).join("")}</select>
-            <span class="fe-st-lbl">Code size</span>
-            <select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>
-          </div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title">File pages</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="A file opened directly in the tab renders like the preview">Render file pages</span>
-            <select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page">
-              <option value="all">All text files</option>
-              <option value="not-md">All except markdown</option>
-              <option value="off">Off (Chrome's plain text)</option>
-            </select>
-          </div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>Custom Icon Rules</span>
-            <button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">${UI_ICON.add}Add rule</button>
-          </div>
-          <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
+        { key: "look", label: "Look", hint: "Theme, colour and size", icon: UI_ICON.appearance, body: stCard(
+          "Theme",
+          stRow("Mode", "", `<div class="fe-seg"><label><input type="radio" name="bfb-theme" value="dark" title="Dark theme"><span>Dark</span></label><label><input type="radio" name="bfb-theme" value="light" title="Light theme"><span>Light</span></label></div>`) + stRow("Palette", "Accent and surface colours", `<div class="fe-set-sws">${swatch("slate", "Slate", "#3cc6c0", "#1c2328", "Slate and teal") + swatch("violet", "Violet", "#9d7cff", "#1f1f27", "Violet") + swatch("sand", "Sand", "#e8789a", "#24201c", "Sand and rose") + swatch("ink", "Ink", "#f2f2f3", "#1b1b1d", "Ink, black and white")}</div>`)
+        ) + stCard(
+          "Size",
+          stRow("Interface size", "Scales the whole window, sidebar included", `<select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">${[90, 100, 110, 125, 150].map((n) => `<option value="${n}">${n}%</option>`).join("")}</select>`) + stRow("Text size", "Text throughout the app", `<select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>`) + stRow("Compact rows", "Tighter rows in lists and tiles", stSwitch("fe-st-compact", "Tighter rows and tiles"))
+        ) + stCard(
+          "Help",
+          stRow("Tooltips", "A short label when you hover a control", stSwitch("fe-st-tooltips", "Native tooltips on every control")) + stRow("Keyboard shortcuts", "Every key on one page", `<button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Show keys</button>`)
+        ) },
+        { key: "folders", label: "Folders", hint: "Views, order and the sidebar", icon: UI_ICON.files, body: stCard(
+          "Opening a folder",
+          stRow("View", "How a folder first appears", `<select id="fe-st-defview" class="fe-st-select" title="View a folder opens in"><option value="details">Details</option><option value="list">List</option><option value="tree">Tree</option><option value="tiles">Tiles</option><option value="icons">Large icons</option></select>`) + stRow("Sort", "The column headers and the Sort panel change it too", `<select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in"><option value="">As listed</option><option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option><option value="type">Type</option><option value="ext">Extension</option></select><select id="fe-st-sort-dir" class="fe-st-select" title="Direction"><option value="asc">Ascending</option><option value="desc">Descending</option></select>`) + stRow("Group", "", `<select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with"><option value="none">None</option><option value="folders-first">Folders first</option><option value="files-first">Files first</option><option value="ext">By extension</option><option value="type">By type</option></select>`) + stRow("Dates", "How the Modified column reads", `<select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads"><option value="short">Apr 17</option><option value="full">April 17, 2025</option></select>`)
+        ) + stCard(
+          "Opening a file",
+          stRow("A click on a file", "Look opens the preview; Go opens the file\u2019s own page", `<select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does"><option value="look">Look</option><option value="go">Go</option></select>`) + stRow("Preview", "Where the preview opens", `<select id="fe-st-panel" class="fe-st-select" title="Where the preview opens"><option value="modal">Floating window</option><option value="side">Docked to the side</option></select><button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">${UI_ICON.reset}Reset sizes</button>`)
+        ) + stCard(
+          "Sidebar",
+          stRow("Show the sidebar", "Places, Notes and History on the left", stSwitch("fe-st-sidebar", "Places, Notes and History on the left")) + stRow("History", "Folders and files you opened lately, and closed tabs", stSwitch("fe-st-sec-recent", "Folders and files you opened lately, and closed tabs"))
+        ) + stCard(
+          "Terminal",
+          stRow("Open folders in", "The terminal button in the path bar", `<select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open the current folder in"><option value="ghostty">Ghostty</option><option value="terminal">Terminal</option><option value="iterm">iTerm2</option><option value="wezterm">WezTerm</option><option value="kitty">Kitty</option><option value="custom">Custom command</option></select>`) + stRow("Command", "Use ${p} for the folder; it is copied, not run", `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} for the folder path.'>`, ' id="fe-st-term-custom-row" style="display:none"') + stNote("", "fe-st-term-hint")
+        ) },
+        { key: "files", label: "Files", hint: "Reading and file pages", icon: UI_ICON.preview, body: stCard(
+          "Reading",
+          stRow("Reading width", "Where Markdown pages start; the file bar changes it per page", `<select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages"><option value="unset">Full width</option><option value="xl">Wide, 150 characters</option><option value="lg">Medium, 130 characters</option><option value="md">Narrow, 110 characters</option></select>`) + stRow("Line height", "", `<select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${["1.5", "1.65", "1.8"].map((n) => `<option value="${n}">${n}</option>`).join("")}</select>`) + stRow("Code size", "", `<select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>`) + stRow("Wrap long lines", "Raw text and code wrap instead of scrolling sideways", stSwitch("fe-st-wrap", "Wrap long lines in raw text and code"))
+        ) + stCard(
+          "File pages",
+          stRow("Show files as pages", "A file opened in a tab renders like the preview", `<select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page"><option value="all">All text files</option><option value="not-md">All except Markdown</option><option value="off">Off, Chrome shows plain text</option></select>`) + stRow("Leave to Chrome", "These extensions keep Chrome\u2019s own page; PDF always does", `<input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces"><button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default list">${UI_ICON.reset}Defaults</button>`)
+        ) + stCard(
+          "Icon rules",
+          `
+          <p class="fe-set-note">A pattern is matched against the file name, ignoring case. Rules win over the built-in icons.</p>
           <div class="fe-st-rules-cols">
             <span></span><span></span>
-            <span class="fe-st-col-lbl">Pattern (regex)</span>
+            <span class="fe-st-col-lbl">Pattern</span>
             <span class="fe-st-col-lbl">Label</span>
-            <span class="fe-st-col-lbl">Color</span>
+            <span class="fe-st-col-lbl">Colour</span>
             <span></span>
           </div>
           <div id="fe-st-rules-list"></div>
-          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940" title="Replace every rule with the built-in set">${UI_ICON.reset}Reset to defaults</button>
-        </div>
-` },
-        { key: "exclusions", label: "Exclusions", hint: "Native pages", icon: UI_ICON.exclusions, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Open with Chrome</div>
-          <div class="fe-st-hint">These extensions keep their native file page when opened. The preview panel still works.</div>
-          <div class="fe-st-row">
-            <label class="fe-st-lbl" for="fe-st-excluded-exts">File extensions</label>
-            <input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces">
-            <button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default excluded extensions">${UI_ICON.reset}Restore defaults</button>
-          </div>
-          <div class="fe-st-hint">Changes apply when a file is opened next. PDF stays native even if removed here, because it has no text renderer.</div>
-        </div>
-` },
-        { key: "notes", label: "Notes", hint: "Notes folder", icon: UI_ICON.notes, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Notes</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
-            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder">
-            <button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>
-          </div>
-          <div class="fe-st-hint" id="fe-st-notes-hint" style="color:var(--dm);margin-top:-4px"></div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title">Editing</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="Text files inside these folders show an Edit button (e) on their page">Editable folders</span>
-            <input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Comma-separated absolute folders; ~ means home">
-          </div>
-          <div class="fe-st-hint" style="color:var(--dm);margin-top:-4px">Every save keeps the previous text for 14 days in ~/Library/Application Support/BetterFileBrowser/backups.</div>
-        </div>
-` },
-        { key: "terminal", label: "Terminal", hint: "Open with", icon: UI_ICON.terminal, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Terminal</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="Which terminal app to open when clicking the terminal button">Open with</span>
-            <select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open current folder in">
-              <option value="ghostty">Ghostty</option>
-              <option value="terminal">Terminal.app</option>
-              <option value="iterm">iTerm2</option>
-              <option value="wezterm">WezTerm</option>
-              <option value="kitty">Kitty</option>
-              <option value="custom">Custom command (copied, not run)</option>
-            </select>
-          </div>
-          <div class="fe-st-row" id="fe-st-term-custom-row" style="display:none">
-            <input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} as placeholder for the folder path.'>
-          </div>
-          <div class="fe-st-hint" id="fe-st-term-hint" style="color:var(--dm);margin-top:-4px"></div>
-        </div>
-` },
-        { key: "data", label: "Data", hint: "Export and import", icon: UI_ICON.data, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Settings and Saved list</div>
-          <div class="fe-st-row">
-            <button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>
-            <button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button>
-            <input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">
-          </div>
-          <textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px 'SF Mono',Menlo,monospace" spellcheck="false" title="The export, also on the clipboard"></textarea>
-        </div>` },
-        { key: "ai", label: "AI", hint: "Local model", icon: UI_ICON.ai, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>Local Model (AI)</span>
-            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">${UI_ICON.reset}Refresh</button>
-          </div>
+          <button id="fe-st-reset-rules" class="fe-pbn fe-set-danger" title="Replace every rule with the built-in set">${UI_ICON.reset}Reset to built-in rules</button>`,
+          `<button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">${UI_ICON.add}Add rule</button>`
+        ) },
+        { key: "notes", label: "Notes", hint: "Notes and editing", icon: UI_ICON.notes, body: stCard(
+          "Notes",
+          stRow("Notes folder", "A folder of Markdown files", `<input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder"><button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>`) + stNote("", "fe-st-notes-hint")
+        ) + stCard(
+          "Editing",
+          stRow("Editable folders", "Text files inside these get an Edit button (e)", `<input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Folders separated by commas; ~ means home">`) + stNote("Every save keeps the previous text for 14 days in ~/Library/Application Support/BetterFileBrowser/backups.")
+        ) },
+        { key: "ai", label: "AI", hint: "Local model", icon: UI_ICON.ai, body: stCard(
+          "Local model",
+          `
           <div id="fe-st-ai-card">
             <div class="fe-st-ai-head">
               <span class="fe-st-ai-blink"><span class="dot"></span></span>
@@ -6884,14 +6818,18 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             </div>
             <div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>
             <div class="fe-st-ai-controls" id="fe-st-ai-controls" style="display:none">
-              <span class="fe-st-lbl">Model</span>
-              <select id="fe-st-ai-model" class="fe-st-select" title="Model used for AI queries (-m)"></select>
-              <button id="fe-st-ai-warm" class="fe-pbn" title="Keep the model resident (lm warm)"></button>
+              <span class="fe-set-l">Model</span>
+              <select id="fe-st-ai-model" class="fe-st-select" title="Model used for questions"></select>
+              <button id="fe-st-ai-warm" class="fe-pbn" title="Keep the model loaded"></button>
             </div>
             <div class="fe-st-ai-hint" id="fe-st-ai-hint"></div>
-          </div>
-        </div>
-` }
+          </div>`,
+          `<button id="fe-st-ai-refresh" class="fe-pbn" title="Check the model server again">${UI_ICON.reset}Check again</button>`
+        ) },
+        { key: "data", label: "Data", hint: "Export and import", icon: UI_ICON.data, body: stCard(
+          "Settings and Saved list",
+          stRow("Export", "Copies everything this extension stores, as JSON", `<button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>`) + stRow("Import", "Loads an export and reloads the page", `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">`) + `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`
+        ) }
       ]
     };
     const HELP_DIALOG = {
@@ -6911,7 +6849,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     <button id="fe-bm-btn" data-icon class="${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
       <svg width="13" height="13" viewBox="0 0 13 13"><path id="fe-bm-path" d="M2.5 1h8v11l-4-2.8L2.5 12z" fill="${curIsBookmarked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
     </button>
-    <button id="fe-theme-btn" data-icon title="Toggle theme \u2014 currently ${initTheme === "light" ? "Light" : "Dark"}">
+    <button id="fe-theme-btn" data-icon title="Switch between dark and light">
       <svg id="fe-sun" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M10.1 2.9l-1 1M3.9 10.1l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
       <svg id="fe-moon" width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 8.5A5 5 0 0 1 5.5 2.5a5 5 0 1 0 6 6z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
     </button>
@@ -6932,13 +6870,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
-        ${lensHead("Places", "Where you can go")}
+        ${lensHead("Places")}
         <div class="fe-sec" data-sec="places">
         ${placesHTML(homeDir(rawPath), rawPath)}
         </div>
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
-      ${lensHead("Notes", "Saved places, views and notes")}
+      ${lensHead("Notes")}
       <input id="fe-lens-filter" type="text" placeholder="Filter saved and notes" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
       <div class="fe-sec" data-collapse="saved">
@@ -6955,7 +6893,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       </div>
       <div class="fe-lens" id="fe-lens-history" data-lens="history" role="tabpanel" aria-labelledby="fe-rail-history" hidden>
-        ${lensHead("History", "Recent folders, files and closed tabs")}
+        ${lensHead("History")}
         ${recentsHTML}
       </div>
       </div>
@@ -6968,11 +6906,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <div id="fe-toolbar">
         <span id="fe-count">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <div id="fe-tb-right">
-          <button id="fe-sg-btn" title="Sort &amp; Group \u2014 Click to toggle sort/group panel">
+          <button id="fe-sg-btn" title="Sort and group">
             <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11M2 5h9M3.5 8h6M5.5 11h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
             Sort
           </button>
-          <button id="fe-filter-btn" data-icon title="Filter \u2014 Filter by filename pattern or file type">
+          <button id="fe-filter-btn" data-icon title="Filter by name or type">
             <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11l-4.5 5v4l-2-1V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
           </button>
           <button id="fe-hidden-btn" data-icon class="${initHidden ? "on" : ""}" title="Hidden files: ${initHidden ? "showing" : "hiding"} dotfiles \xB7 click to toggle">
@@ -6987,7 +6925,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <button id="fe-deep-btn" data-icon title="Deep search: include every subfolder in the filter">
             <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 2.5h4l1 1.2h6v7H1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3.5 6h3l.8 1h2.7v2.5H3.5z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
           </button>
-          <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Quick filter \u2014 Type to filter files by name in any view"/>
+          <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/>
         </div>
       </div>
 
@@ -7006,7 +6944,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Group by</span>
           <div class="fe-btn-group" id="fe-group-btns">
-            <button class="fe-pbn active" data-group="none" title="No grouping \u2014 flat list">None</button>
+            <button class="fe-pbn active" data-group="none" title="No grouping">None</button>
             <button class="fe-pbn" data-group="folders-first" title="Show all folders above files">Folders first</button>
             <button class="fe-pbn" data-group="files-first" title="Show all files above folders">Files first</button>
             <button class="fe-pbn" data-group="ext" title="Group items by file extension">Extension</button>
@@ -7018,10 +6956,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <div id="fe-filter-bar" style="display:none">
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
-          <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name \u2014 supports plain text or regex (enable .* button)"/>
-          <button id="fe-regex-btn" class="fe-pbn" title="Toggle regex mode \u2014 when active, pattern is treated as a regular expression">.*</button>
+          <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
+          <button id="fe-regex-btn" class="fe-pbn" title="Treat the pattern as a regular expression">.*</button>
           <span class="fe-panel-lbl" style="margin-left:12px">Type</span>
-          <select id="fe-type-filter" title="Filter by file type \u2014 show only folders, files, or a specific extension">
+          <select id="fe-type-filter" title="Show only folders, files or one extension">
             <option value="all">All types</option>
             <option value="folders">Folders only</option>
             <option value="files">Files only</option>
@@ -9222,6 +9160,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       el("fe-st-sort-dir").value = order.dir;
       el("fe-st-group").value = getGroupMode();
       el("fe-st-compact").checked = !!settings.compactMode;
+      el("fe-st-wrap").checked = settings.wrapLines !== false;
       el("fe-st-sidebar").checked = settings.showSidebar !== false;
       el("fe-st-datefmt").value = settings.dateFormat || "short";
       el("fe-st-terminal").value = settings.terminalApp || "ghostty";
@@ -9414,6 +9353,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       settings.compactMode = this.checked;
       saveSettings(settings);
       fe.classList.toggle("compact", this.checked);
+    });
+    el("fe-st-wrap").addEventListener("change", function() {
+      settings.wrapLines = this.checked;
+      saveSettings(settings);
+      fe.dataset.wrap = this.checked ? "on" : "off";
     });
     el("fe-st-uiscale").addEventListener("change", function() {
       settings.uiScale = Number(this.value);
@@ -9689,7 +9633,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const n = s.labels.length;
         return `<button type="button" class="fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago(s.at)}</span></button>`;
       }).join("");
-      if (visible && (sets.length || section.querySelector("a.fe-si"))) section.style.display = "";
+      section.style.display = visible && sets.length ? "" : "none";
     }
     box.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-rc-set");
@@ -9749,13 +9693,30 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const initHidden = getShowHidden();
     const recents = getRecents().filter((r) => r.path !== rawPath).slice(0, 10);
     pushRecent(rawPath);
+    const ago = (ts) => {
+      if (!ts) return "";
+      const m = Math.round((Date.now() - ts) / 6e4);
+      return m < 1 ? "now" : m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
+    };
+    const recentRow = (r) => {
+      const name = r.path.split("/").filter(Boolean).pop() || "/";
+      const isDir = r.path.endsWith("/");
+      const ext2 = name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
+      return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago(r.ts)}</span></a>`;
+    };
+    const recentDirs = recents.filter((r) => r.path.endsWith("/"));
+    const recentFiles = recents.filter((r) => !r.path.endsWith("/"));
     const recentsHTML = `
       <div class="fe-sec" data-sec="recent" data-collapse="recent">
-        <div class="fe-sh"><span class="fe-sh-label">Opened lately</span></div>
-        ${recents.length ? recents.map((r) => {
-      const lbl = r.path.split("/").filter(Boolean).pop() || "/";
-      return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
-    }).join("") : '<div class="fe-hint">Nothing yet. Folders and files you open show up here.</div>'}
+        <div class="fe-sh"><span class="fe-sh-label">Folders</span></div>
+        ${recentDirs.length ? recentDirs.map(recentRow).join("") : '<div class="fe-hint">Folders you open show up here.</div>'}
+      </div>
+      <div class="fe-sec" data-collapse="recent-files">
+        <div class="fe-sh"><span class="fe-sh-label">Files</span></div>
+        ${recentFiles.length ? recentFiles.map(recentRow).join("") : '<div class="fe-hint">Files you open show up here.</div>'}
+      </div>
+      <div class="fe-sec" data-collapse="recent-tabs" id="fe-rc-tabs-sec" style="display:none">
+        <div class="fe-sh"><span class="fe-sh-label">Closed tabs</span></div>
         <div id="fe-rc-sets"></div>
       </div>`;
     const html = renderPage({

@@ -606,7 +606,7 @@ try {
   // Dialogs: Help and Settings share one chrome. A title row with a mark and
   // a subtitle, a tab strip, one pane shown at a time; the chrome holds still
   // while a pane scrolls; Esc closes.
-  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 6, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 8, 'settings-dialog']]) {
+  for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 6, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 6, 'settings-dialog']]) {
     await page.click(btn);
     await page.waitForFunction(i => document.getElementById(i).style.display !== 'none', { timeout: 3_000 }, id).catch(() => null);
     const d = await page.evaluate(i => {
@@ -667,12 +667,12 @@ try {
   // Settings: sidebar sections off, click goes, reader size, export and
   // import, tooltips off, the Keyboard link.
   await page.click('#fe-settings-btn');
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]');
   await page.click('#fe-st-sec-recent');
-  await page.select('#fe-st-rd-size', '17');
   const recentHidden = await page.evaluate(() => document.getElementById('fe-rail-history').hidden);
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="preview"]');
   await page.select('#fe-st-click', 'go');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
+  await page.select('#fe-st-rd-size', '17');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="files"]');
   await page.select('#fe-st-rd-column', 'lg');
   const colKeyOn = await h.store.get('bfb-page-column-v2');
@@ -715,7 +715,7 @@ try {
   }));
   check(imported.labels.join() === 'tmp,Imported root' && imported.recent !== 'none' && imported.titles === 0, `import restores Saved and settings, and tooltips off strips titles: ${JSON.stringify(imported)}`);
   await page.click('#fe-settings-btn');
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
   await page.click('#fe-st-tooltips');
   await page.click('#fe-st-keys');
   const keysOpen = await page.evaluate(() => ({ help: document.getElementById('fe-help-modal').style.display !== 'none', tab: document.querySelector('#fe-help-modal .fe-dlg-tab.on')?.dataset.tab, settings: document.getElementById('fe-settings-modal').style.display === 'none' }));
@@ -789,7 +789,7 @@ try {
   check(wDragged > 240 && Math.abs(wKept - wDragged) <= 2, `sidebar resize persists across reload: dragged=${wDragged} kept=${wKept}`);
 
   await page.click('#fe-settings-btn');
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
   await page.select('#fe-st-uiscale', '125');
   const zoomed = await page.evaluate(() => document.getElementById('fe').style.zoom);
   await page.select('#fe-st-uiscale', '100');
@@ -832,7 +832,7 @@ try {
   await page.click('#fe-bc .fe-crumb-dd'); await new Promise(r => setTimeout(r, 400)); missing.push(...await sweep('crumb dropdown')); await page.keyboard.press('Escape');
   await page.click('#fe-help-btn'); missing.push(...await sweep('help')); await page.keyboard.press('Escape');
   await page.click('#fe-settings-btn');
-  for (let i = 1; i <= 7; i++) { await page.click(`#fe-settings-modal .fe-dlg-tab:nth-child(${i})`); missing.push(...await sweep(`settings ${i}`)); }
+  for (let i = 1; i <= await page.$$eval("#fe-settings-modal .fe-dlg-tab", t => t.length); i++) { await page.click(`#fe-settings-modal .fe-dlg-tab:nth-child(${i})`); missing.push(...await sweep(`settings ${i}`)); }
   await page.keyboard.press('Escape');
   const fpage2 = await h.browser.newPage();
   await fpage2.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });

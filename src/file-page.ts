@@ -147,6 +147,9 @@ export function renderFileContent(): string {
 
 export interface FileContent { toggleRaw(): void; setText(text: string): void; edit(): void }
 
+/// The pane width at which the open Contents card fits beside a full text column.
+const TOC_ROOMY = 1000;
+
 export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean | ColumnMode; editableFolders?: string[] }): FileContent {
   const { ext, rawPath, href } = opts;
   let text = opts.text;
@@ -166,6 +169,10 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   // Two remembered choices: the contents rail open or folded, and a reading
   // column instead of the full width (full width is the owner's default).
   let tocOpen = kvGet(TOC_KEY) !== '0';
+  // A pane too narrow for a full text column beside the card folds the card
+  // to its button; opening it then lays it over the text for a moment
+  // instead of squeezing the column.
+  let tight = false, peek = false;
   let column = savedColumnMode(opts.column);
   const fe = document.getElementById('fe')!;
 
@@ -189,9 +196,11 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     // The rail shows for a markdown page with at least two headings; folded,
     // it keeps only its button so it can open again.
     rail.hidden = !isMd || raw || headings < 2 || !!editor;
-    rail.classList.toggle('folded', !tocOpen);
-    foldBtn.title = tocOpen ? 'Collapse the contents' : 'Show the contents';
-    foldBtn.setAttribute('aria-expanded', String(tocOpen));
+    const open = tight ? peek : tocOpen;
+    rail.classList.toggle('folded', !open);
+    rail.classList.toggle('peek', tight && peek);
+    foldBtn.title = open ? 'Collapse the contents' : 'Show the contents';
+    foldBtn.setAttribute('aria-expanded', String(open));
     findBox.hidden = !!editor;
   };
   const render = () => {
@@ -208,7 +217,19 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   // `editor` is declared below; render runs before any editor exists.
   let editor: FileEditor | null = null;
   render();
-  foldBtn.addEventListener('click', () => { tocOpen = !tocOpen; kvSet(TOC_KEY, tocOpen ? '1' : '0'); paint(); if (tocOpen) spy(page, toc); });
+  foldBtn.addEventListener('click', () => {
+    if (tight) peek = !peek;
+    else { tocOpen = !tocOpen; kvSet(TOC_KEY, tocOpen ? '1' : '0'); }
+    paint();
+    if (!rail.classList.contains('folded')) spy(page, toc);
+  });
+  const fp = document.getElementById('fe-fp');
+  if (fp) new ResizeObserver(() => {
+    const was = tight;
+    tight = fp.clientWidth < TOC_ROOMY;
+    if (tight !== was) { peek = false; paint(); }
+  }).observe(fp);
+  toc.addEventListener('click', e => { if (tight && (e.target as Element).closest('a')) { peek = false; paint(); } });
   document.addEventListener('keydown', e => {
     if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || editor) return;
     const ae = document.activeElement;

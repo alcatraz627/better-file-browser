@@ -53,6 +53,7 @@ export function initSettingsUi(app: App): void {
     el<HTMLSelectElement>('fe-st-sort-dir').value  = order.dir;
     el<HTMLSelectElement>('fe-st-group').value     = getGroupMode();
     el<HTMLInputElement>('fe-st-compact').checked  = !!settings.compactMode;
+    el<HTMLInputElement>('fe-st-wrap').checked     = settings.wrapLines !== false;
     el<HTMLInputElement>('fe-st-sidebar').checked  = settings.showSidebar !== false;
     el<HTMLSelectElement>('fe-st-datefmt').value   = settings.dateFormat || 'short';
     el<HTMLSelectElement>('fe-st-terminal').value  = settings.terminalApp || 'ghostty';
@@ -229,6 +230,10 @@ export function initSettingsUi(app: App): void {
   el<HTMLInputElement>('fe-st-compact').addEventListener('change', function () {
     settings.compactMode = this.checked; saveSettings(settings);
     fe.classList.toggle('compact', this.checked);
+  });
+  el<HTMLInputElement>('fe-st-wrap').addEventListener('change', function () {
+    settings.wrapLines = this.checked; saveSettings(settings);
+    fe.dataset.wrap = this.checked ? 'on' : 'off';
   });
   el<HTMLSelectElement>('fe-st-uiscale').addEventListener('change', function () {
     settings.uiScale = Number(this.value); saveSettings(settings);

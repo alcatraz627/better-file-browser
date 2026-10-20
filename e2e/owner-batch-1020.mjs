@@ -15,7 +15,7 @@ try {
   // opened later uses it too.
   let page = await h.open();
   await page.click('#fe-settings-btn');
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]').catch(() => null);
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]').catch(() => null);
   await page.select('#fe-st-sort', 'size');
   await page.select('#fe-st-sort-dir', 'desc');
   await page.select('#fe-st-group', 'none');
@@ -86,10 +86,12 @@ try {
 
   const colours = await page.evaluate(() => {
     const bg = getComputedStyle(document.querySelector('.fe-md-code')).backgroundColor;
+    const page = getComputedStyle(document.getElementById('fe-main')).backgroundColor;
     const tokens = document.querySelectorAll('.fe-md-code .fe-md-pre span').length;
-    return { bg, tokens };
+    return { bg, page, tokens };
   });
-  check(colours.bg === 'rgb(246, 248, 250)' && colours.tokens > 0, `unlabelled code block is light and coloured: ${JSON.stringify(colours)}`);
+  // A code block sits one quiet step off the page, never the page colour itself.
+  check(colours.bg !== colours.page && colours.tokens > 0, `unlabelled code block stands a step off the page and is coloured: ${JSON.stringify(colours)}`);
 
   await page.click('.fe-md-copy');
   await page.waitForSelector('.fe-md-copy.copied', { timeout: 2_000 }).catch(() => null);

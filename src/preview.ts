@@ -720,7 +720,7 @@ export function openPreview(e: Entry): void {
   if (e.rawBytes > FETCH_WARN_BYTES) {
     body.innerHTML = `
       <div class="fe-ql-center">
-        <div class="fe-ql-note">File is ${fmtSize(e.rawBytes)} — large files can be slow to render.</div>
+        <div class="fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
         <button id="fe-ql-force" class="fe-pbn" title="Render despite the size">Load anyway</button>
       </div>`;
     document.getElementById('fe-ql-force')!.addEventListener('click', () => fetchAndRender(e, ext, seq));

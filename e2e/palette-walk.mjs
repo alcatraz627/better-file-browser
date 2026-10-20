@@ -26,7 +26,7 @@ const read = p => p.evaluate(() => {
 });
 const pick = async (p, name) => {
   await p.click('#fe-settings-btn');
-  await p.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+  await p.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
   await p.click(`#fe-settings-modal input[name="bfb-palette"][value="${name}"]`);
   await p.keyboard.press('Escape');
 };
@@ -61,7 +61,7 @@ try {
   const kept = await read(page);
   check(kept.palette === 'sand', `the palette survives a reload: ${kept.palette}`);
   await page.click('#fe-settings-btn');
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
   const radios = await page.evaluate(() => ({
     palette: document.querySelector('input[name="bfb-palette"]:checked')?.value,
     theme: document.querySelector('input[name="bfb-theme"]:checked')?.value,

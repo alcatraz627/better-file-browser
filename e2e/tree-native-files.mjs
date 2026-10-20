@@ -15,7 +15,7 @@ try {
 
   const page = await h.open();
   await page.click('#fe-settings-btn');
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="exclusions"]');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="files"]');
   const original = await page.$eval('#fe-st-excluded-exts', input => input.value);
   assert.match(original, /\.html/);
   assert.match(original, /\.pdf/);

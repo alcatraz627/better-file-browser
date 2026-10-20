@@ -63,13 +63,13 @@ try {
   check(up.on === 'Notes', `ArrowUp moves to the lens above: ${up.on}`);
 
   await page.click('#fe-settings-btn');
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]');
   await page.click('#fe-st-sec-recent');
   await page.keyboard.press('Escape');
   const off = await state(page);
   check(off.rail.join() === 'Places,Notes', `switching History off removes its lens: ${JSON.stringify(off.rail)}`);
   await page.click('#fe-settings-btn');
-  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+  await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]');
   await page.click('#fe-st-sec-recent');
   await page.keyboard.press('Escape');
   check((await state(page)).rail.join() === 'Places,Notes,History', 'switching it back on returns it');

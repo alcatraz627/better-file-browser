@@ -447,9 +447,6 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
   padding:9px 13px 8px;color:var(--mt);cursor:pointer;text-align:left;line-height:1;white-space:nowrap;transition:background .1s,color .1s,border-color .1s}
 .fe-dlg-tab-main{display:flex;align-items:center;gap:5px;min-width:0}
 .fe-dlg-tab-main svg{flex:none;width:13px;height:13px}
-#fe-settings-modal .fe-dlg-tabs{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;overflow:visible;padding:0 8px}
-#fe-settings-modal .fe-dlg-tab{min-width:0;padding:9px 7px 8px;white-space:normal}
-#fe-settings-modal .fe-dlg-tab i{line-height:1.15;white-space:normal}
 .fe-dlg-tab b{font-size:calc(12.5px * var(--ui-text-scale,1));font-weight:600;color:inherit}
 .fe-dlg-tab i{font-size:calc(10.5px * var(--ui-text-scale,1));font-style:normal;color:var(--dm);opacity:.85}
 .fe-dlg-tab:hover{color:var(--tx);background:var(--s1)}
@@ -586,7 +583,10 @@ td.c-tp{color:var(--dm);font-size:calc(11px * var(--ui-text-scale,1))}
   background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
   box-shadow:0 8px 24px rgb(0 0 0 / .12),0 1px 3px rgb(0 0 0 / .08);transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
 #fe-toc-rail[hidden]{display:none}
-#fe-fp:has(#fe-toc-rail:not([hidden]):not(.folded)) #fe-page .fe-md{padding-right:290px}
+/* The open card reserves its room beside the page, not inside the text, so
+   the column keeps its chosen width and only gives way when space runs out. */
+#fe-fp:has(#fe-toc-rail:not([hidden]):not(.folded):not(.peek)) #fe-page{padding-right:256px}
+#fe-toc-rail.peek{box-shadow:var(--pop-sh)}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
 .fe-toc-title{flex:1;font-size:calc(11px * var(--ui-text-scale,1));font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 #fe-toc-fold{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer}
@@ -888,7 +888,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md li::marker{color:var(--mt)}
 .fe-md code{background:var(--s2);border:0;padding:.12em .4em;border-radius:4px;font-family:var(--mono);font-size:.86em}
 .fe-md a code{color:inherit}
-.fe-md-code{border:1px solid var(--bd);border-radius:6px;background:var(--s1);overflow:hidden}
+.fe-md-code{border:1px solid var(--bd);border-radius:8px;background:color-mix(in srgb,var(--card),var(--tx) 3.5%);overflow:hidden}
 .fe-md-code-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px 0 12px;background:none}
 .fe-md-lang{font:600 calc(10.5px * var(--ui-text-scale,1))/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 .fe-md-copy{position:relative;display:inline-grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:50%;
@@ -1010,10 +1010,15 @@ button.fe-si{width:auto;display:flex}
 .fe-nt-item .fe-rm-btn{padding:4px 6px}
 #fe-lenses{container:lens/inline-size}
 @container lens (max-width:200px){.fe-nt-props,.fe-nt-tab{display:none!important}}
-.fe-grp{margin:4px 6px}
-.fe-grp .fe-bm-item{margin:0 4px}
-.fe-grp > summary{border-radius:var(--row-r);margin:2px 2px 0;transition:background var(--t-fast) var(--ease)}
-.fe-grp > summary:hover{background:var(--hover)}
+/* A tag group is a plain section: one header row (chevron, colour, name,
+   count) at the row inset, and its rows exactly like every other row. */
+.fe-grp{margin:6px 0 0;padding:0;background:none;border-radius:0}
+.fe-grp:not([open]){padding:0}
+.fe-grp .fe-bm-item{margin:0 6px}
+.fe-grp > summary{min-height:28px;margin:0 6px;padding:0 var(--row-px);border-radius:var(--row-r);gap:8px;
+  font-size:calc(11px * var(--ui-text-scale,1));letter-spacing:.06em;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-grp > summary:hover{background:var(--hover);color:var(--tx)}
+.fe-grp > summary svg{width:12px;height:12px;opacity:.8}
 .fe-sh{padding:10px 16px 4px}
 .fe-lens-h{padding:6px 12px 8px 16px}
 .fe-hint{padding:6px 16px}
@@ -1030,6 +1035,15 @@ button.fe-si{width:auto;display:flex}
 .fe-dd-items{padding:0}
 .fe-ctx-sep{margin:4px 4px}
 .fe-toast-act{color:var(--ac)}
+/* Contents is a quiet card, with a faint rail per heading level so the
+   hierarchy reads at a glance. */
+#fe-toc-rail{box-shadow:0 1px 2px rgb(0 0 0 / .05),0 4px 14px rgb(0 0 0 / .06)}
+#fe-toc a{margin:0 6px;position:relative}
+#fe-toc a.fe-toc-h2,#fe-toc a.fe-toc-h3,#fe-toc a.fe-toc-h4{--rail:color-mix(in srgb,var(--bd2) 55%,transparent)}
+#fe-toc a.fe-toc-h2::before,#fe-toc a.fe-toc-h3::before,#fe-toc a.fe-toc-h4::before{content:'';position:absolute;inset:0 auto 0 0;width:44px;pointer-events:none;
+  background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat}
+#fe-toc a.fe-toc-h3::before,#fe-toc a.fe-toc-h4::before{background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 25px 0/1px 100% no-repeat}
+#fe-toc a.fe-toc-h4::before{background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 25px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 37px 0/1px 100% no-repeat}
 
 /* Motion. Things that appear fade and settle from a few pixels away; a
    folded group's body eases its height; the lens that takes over the
@@ -1048,6 +1062,66 @@ button.fe-si{width:auto;display:flex}
 .fe-grp::details-content{block-size:0;overflow:hidden;transition:block-size var(--t-base) var(--ease),content-visibility var(--t-base) allow-discrete}
 .fe-grp[open]::details-content{block-size:auto}
 .fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
+/* Settings and Help read as a page: the title across the top, the sections
+   listed on the left the way the sidebar lists lenses, the pane on the right.
+   In Settings each row names the setting, says what it changes and keeps its
+   control on the right; rows sit in cards by subject. */
+.fe-dlg-box{display:grid;grid-template-columns:200px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+  width:min(920px,calc(100vw - 40px));height:min(640px,86vh);border-radius:14px;background:var(--card);border-color:var(--pop-bd);box-shadow:var(--pop-sh)}
+#fe-settings-modal .fe-dlg-box{width:min(920px,calc(100vw - 40px))}
+.fe-dlg-title{grid-column:1/-1;background:none;border-bottom:1px solid var(--bd);border-radius:14px 14px 0 0}
+.fe-dlg-mark{border:0;border-radius:8px}
+.fe-dlg-tabs{flex-direction:column;gap:2px;padding:10px 6px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);overflow-y:auto;border-radius:0 0 0 14px}
+.fe-dlg-tab{border:0;border-radius:var(--row-r);padding:8px 10px;gap:3px;white-space:normal;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-dlg-tab:hover{background:var(--hover)}
+.fe-dlg-tab.on{background:var(--act);color:var(--tx)}
+.fe-dlg-tab-main{gap:var(--row-gap)}
+.fe-dlg-tab-main svg{width:15px;height:15px}
+.fe-dlg-tab b{font-size:var(--row-fs);font-weight:500}
+.fe-dlg-tab i{padding-left:25px;line-height:1.3}
+.fe-dlg-pane{padding:20px 24px 24px}
+.fe-dlg-pane.on{gap:16px}
+.fe-dlg-pane .fe-pbn{height:30px;padding:0 12px;border-radius:var(--row-r);font-size:var(--row-fs)}
+.fe-set-card{background:var(--side);border:1px solid var(--bd);border-radius:12px;padding:2px 0 4px}
+.fe-set-h{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:8px 16px 4px;
+  font-size:calc(12.5px * var(--ui-text-scale,1));font-weight:600;color:var(--tx)}
+.fe-set{display:flex;align-items:center;gap:16px;min-height:52px;padding:8px 16px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+.fe-set-h + .fe-set{border-top:0}
+.fe-set-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fe-set-l{font-size:var(--row-fs);color:var(--tx)}
+.fe-set-d{font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);line-height:1.35}
+.fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none;max-width:62%}
+.fe-set-c .fe-st-input{width:260px;max-width:100%}
+.fe-set-note{padding:2px 16px 10px;font-size:calc(12px * var(--ui-text-scale,1));color:var(--dm);line-height:1.5}
+.fe-set-note:empty{display:none}
+.fe-set-card .fe-st-rules-cols,.fe-set-card #fe-st-rules-list{margin:0 16px}
+.fe-set-card #fe-st-reset-rules{margin:10px 16px 8px}
+.fe-set-danger{color:var(--nc-red)}
+.fe-dlg-pane .fe-st-select{height:30px;padding:0 28px 0 10px;border-radius:var(--row-r);font-size:var(--row-fs);background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238b949e' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  border-color:var(--bd2);appearance:none;-webkit-appearance:none}
+.fe-dlg-pane .fe-st-input{height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
+.fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
+  background:var(--s3);cursor:pointer;transition:background var(--t-fast) var(--ease)}
+.fe-switch::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 2px rgb(0 0 0 / .3);transition:transform var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+.fe-switch:checked{background:var(--ac)}
+.fe-switch:checked::after{transform:translateX(14px);background:var(--on-ac)}
+.fe-switch:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.fe-seg{display:inline-flex;padding:2px;border-radius:10px;background:var(--bg);border:1px solid var(--bd)}
+.fe-seg label{position:relative;cursor:pointer}
+.fe-seg input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.fe-seg span{display:block;padding:0 16px;line-height:26px;border-radius:8px;font-size:var(--row-fs);color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-seg input:checked + span{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
+.fe-seg input:focus-visible + span{outline:2px solid var(--ac);outline-offset:1px}
+.fe-set-sws{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.fe-set-sw{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 8px;border-radius:10px;cursor:pointer;
+  font-size:calc(12px * var(--ui-text-scale,1));color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-set-sw:hover{background:var(--hover)}
+.fe-set-sw:has(input:checked){background:var(--act);color:var(--tx)}
+.fe-set-sw input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.fe-set-sw-chip{width:40px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--b) 55%,var(--a) 55%);box-shadow:inset 0 0 0 1px var(--bd2)}
+.fe-st-rule-del:hover{color:var(--nc-red)}
+.fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){
   #fe *,#fe *::before,#fe *::after,#fe .fe-grp::details-content{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
 }
@@ -1068,9 +1142,11 @@ button.fe-si{width:auto;display:flex}
   #fe-side{max-width:42vw}
 }
 @media (max-width:700px){
-  #fe-settings-modal .fe-dlg-tab{padding:7px 3px 6px;text-align:center}
-  #fe-settings-modal .fe-dlg-tab-main{flex-direction:column;gap:2px}
-  #fe-settings-modal .fe-dlg-tab b{font-size:calc(10.5px * var(--ui-text-scale,1))}
-  #fe-settings-modal .fe-dlg-tab i{display:none}
+  .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
+  .fe-dlg-tabs{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--bd);border-radius:0}
+  .fe-dlg-tab{flex:none}
+  .fe-dlg-tab i{display:none}
+  .fe-set{flex-wrap:wrap}
+  .fe-set-c{max-width:100%}
 }
 `;

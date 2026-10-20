@@ -12,7 +12,7 @@ import { initPreview } from './preview';
 import { CSS } from './styles';
 import { esc, pageHref, fileHref } from './utils';
 import { samePlace } from './places';
-import { PI } from './icons';
+import { PI, icoFile } from './icons';
 import { filePageExt, filePagesEnabled, mountFileContent } from './file-page';
 import { fetchFileText } from './file-fetch';
 import { mountStrip, type Strip } from './strip';
@@ -49,7 +49,7 @@ async function showClosedSets(strip: Strip, visible: boolean): Promise<void> {
       const n = s.labels.length;
       return `<button type="button" class="fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(', '))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? '' : 's'}: ${esc(s.labels.slice(0, 3).join(', '))}${n > 3 ? '…' : ''}</span><span class="fe-rc-ago">${ago(s.at)}</span></button>`;
     }).join('');
-    if (visible && (sets.length || section.querySelector('a.fe-si'))) section.style.display = '';
+    section.style.display = visible && sets.length ? '' : 'none';
   }
   box.addEventListener('click', e => {
     const b = (e.target as Element).closest<HTMLElement>('.fe-rc-set');
@@ -119,13 +119,31 @@ loadKv().catch(() => {}).then(function () {
   pushRecent(rawPath);
   // Closed tab sets are added below the list once the strip has read them; the
   // section stays hidden while it has nothing to show.
+  // History reads as three short lists: folders, files, closed tabs.
+  const ago = (ts?: number) => {
+    if (!ts) return '';
+    const m = Math.round((Date.now() - ts) / 60000);
+    return m < 1 ? 'now' : m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
+  };
+  const recentRow = (r: { path: string; ts?: number }) => {
+    const name = r.path.split('/').filter(Boolean).pop() || '/';
+    const isDir = r.path.endsWith('/');
+    const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : 'txt';
+    return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago(r.ts)}</span></a>`;
+  };
+  const recentDirs = recents.filter(r => r.path.endsWith('/'));
+  const recentFiles = recents.filter(r => !r.path.endsWith('/'));
   const recentsHTML = `
       <div class="fe-sec" data-sec="recent" data-collapse="recent">
-        <div class="fe-sh"><span class="fe-sh-label">Opened lately</span></div>
-        ${recents.length ? recents.map(r => {
-          const lbl = r.path.split('/').filter(Boolean).pop() || '/';
-          return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${PI.recent}<span class="fe-sl">${esc(lbl)}</span></a>`;
-        }).join('') : '<div class="fe-hint">Nothing yet. Folders and files you open show up here.</div>'}
+        <div class="fe-sh"><span class="fe-sh-label">Folders</span></div>
+        ${recentDirs.length ? recentDirs.map(recentRow).join('') : '<div class="fe-hint">Folders you open show up here.</div>'}
+      </div>
+      <div class="fe-sec" data-collapse="recent-files">
+        <div class="fe-sh"><span class="fe-sh-label">Files</span></div>
+        ${recentFiles.length ? recentFiles.map(recentRow).join('') : '<div class="fe-hint">Files you open show up here.</div>'}
+      </div>
+      <div class="fe-sec" data-collapse="recent-tabs" id="fe-rc-tabs-sec" style="display:none">
+        <div class="fe-sh"><span class="fe-sh-label">Closed tabs</span></div>
         <div id="fe-rc-sets"></div>
       </div>`;
 

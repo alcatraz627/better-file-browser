@@ -67,9 +67,9 @@ try {
         .map(el => el.id || el.className));
       assert.deepEqual(missing, [], `${theme} ${tab} settings buttons missing icons`);
     }
-    await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+    await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
     await page.screenshot({ path: join(process.cwd(), '.claude', 'output', '20260922-adversarial-ui', `settings-${theme}.png`) });
-    await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="appearance"]');
+    await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
     await page.select('#fe-st-rd-size', '15');
     const before = await page.evaluate(() => ({ side: getComputedStyle(document.querySelector('.fe-sl')).fontSize,
       nav: getComputedStyle(document.querySelector('.fe-crumb')).fontSize,

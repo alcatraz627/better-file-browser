@@ -58,7 +58,7 @@ export function renderPage(p: PageParams): string {
   ] as const;
 
   const VIEW_LABELS: Record<string, string> = {
-    details: 'Full table — Name, Type, Size, Modified',
+    details: 'Full table: name, type, size, modified',
     list:    'Compact single-column rows',
     tree:    'Expand folders without leaving this page',
     tiles:   'Medium icon grid with filename below',
@@ -66,241 +66,91 @@ export function renderPage(p: PageParams): string {
   };
 
   const viewBtnsHTML = VIEW_MODES.map(v =>
-    `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view — ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
+    `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
   ).join('');
 
-  const lensHead = (title: string, sub: string, actions = '') =>
-    `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b><i>${sub}</i></span>${actions}</div>`;
+  const lensHead = (title: string, actions = '') =>
+    `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b></span>${actions}</div>`;
   const railBtn = (lens: string, label: string, icon: string, hint: string, hidden = false) =>
     `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}"${hidden ? ' hidden' : ''}>${icon}<em>${label}</em></button>`;
 
 
+  // Settings reads as a list of plain sentences: each row names the setting,
+  // says what it changes, and keeps its control on the right. Rows sit in
+  // cards by subject; on/off settings are switches. Control ids are what
+  // settings-ui.ts binds to, so they stay stable.
+  const stRow = (label: string, desc: string, ctl: string, attrs = '') =>
+    `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ''}</div><div class="fe-set-c">${ctl}</div></div>`;
+  const stCard = (title: string, rows: string, action = '') =>
+    `<section class="fe-set-card"><h3 class="fe-set-h"><span>${title}</span>${action}</h3>${rows}</section>`;
+  const stSwitch = (id: string, title: string) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
+  const stNote = (text: string, id = '') => `<p class="fe-set-note"${id ? ` id="${id}"` : ''}>${text}</p>`;
+  const swatch = (value: string, name: string, accent: string, surface: string, title: string) =>
+    `<label class="fe-set-sw" title="${title}"><input type="radio" name="bfb-palette" value="${value}" title="${title}"><span class="fe-set-sw-chip" style="--a:${accent};--b:${surface}"></span><span>${name}</span></label>`;
   const SETTINGS_DIALOG: DialogSpec = {
-    id: 'fe-settings-modal', mark: PI.gear, title: 'Settings', subtitle: 'Stored in this browser profile',
+    id: 'fe-settings-modal', mark: PI.gear, title: 'Settings', subtitle: 'Saved in this browser profile',
     tabs: [
-      { key: 'appearance', label: 'Appearance', hint: 'Theme and layout', icon: UI_ICON.appearance, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Theme</div>
-          <div class="fe-st-row">
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="dark" title="Dark theme"> Dark</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-theme" value="light" title="Light theme"> Light</label>
-          </div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title">Palette</div>
-          <div class="fe-st-row">
-            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="slate" title="Slate and teal"><span class="fe-st-swatch" style="--sw:#3cc6c0"></span> Slate</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="violet" title="Violet"><span class="fe-st-swatch" style="--sw:#9d7cff"></span> Violet</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="sand" title="Sand and rose"><span class="fe-st-swatch" style="--sw:#e8789a"></span> Sand</label>
-            <label class="fe-st-radio"><input type="radio" name="bfb-palette" value="ink" title="Ink, black and white"><span class="fe-st-swatch" style="--sw:#86868c"></span> Ink</label>
-          </div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title">Appearance</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Default view</span>
-            <select id="fe-st-defview" class="fe-st-select" title="View a folder opens in">
-              <option value="details">Details</option>
-              <option value="list">List</option>
-              <option value="tree">Tree</option>
-              <option value="tiles">Tiles</option>
-              <option value="icons">Large Icons</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Sort</span>
-            <select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in; the Sort panel and column headers change it too">
-              <option value="">As listed</option>
-              <option value="name">Name</option>
-              <option value="date">Modified</option>
-              <option value="size">Size</option>
-              <option value="type">Type</option>
-              <option value="ext">Extension</option>
-            </select>
-            <select id="fe-st-sort-dir" class="fe-st-select" title="Direction">
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Group</span>
-            <select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with">
-              <option value="none">None</option>
-              <option value="folders-first">Folders first</option>
-              <option value="files-first">Files first</option>
-              <option value="ext">By extension</option>
-              <option value="type">By type</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Interface size</span>
-            <select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">
-              <option value="90">90%</option>
-              <option value="100">100%</option>
-              <option value="110">110%</option>
-              <option value="125">125%</option>
-              <option value="150">150%</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-lbl" for="fe-st-rd-size">Text size</label>
-            <select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-compact" title="Tighter rows and tiles"> Compact mode</label>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sidebar" title="Places, Notes and History on the left"> Show sidebar</label>
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-sec-recent" title="Folders and files you opened lately, and closed tabs"> History</label>
-          </div>
-          <div class="fe-st-row">
-            <label class="fe-st-check"><input type="checkbox" id="fe-st-tooltips" title="Native tooltips on every control"> Tooltips</label>
-            <button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Keyboard shortcuts</button>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Date format</span>
-            <select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads">
-              <option value="short">Short — Apr 17</option>
-              <option value="full">Full — April 17, 2025</option>
-            </select>
-          </div>
-        </div>
-` },
-      { key: 'preview', label: 'Preview', hint: 'Panel and tabs', icon: UI_ICON.preview, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Panel</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Placement</span>
-            <select id="fe-st-panel" class="fe-st-select" title="Where the preview opens">
-              <option value="modal">Floating window</option>
-              <option value="side">Docked to the side</option>
-            </select>
-            <button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">${UI_ICON.reset}Reset sizes</button>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Click on a file</span>
-            <select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does">
-              <option value="look">Look: open the panel</option>
-              <option value="go">Go: open its page</option>
-            </select>
-          </div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title">Tabs</div>
-          <div class="fe-st-row">
-          </div>
-        </div>` },
-      { key: 'files', label: 'Files', hint: 'Reader and icons', icon: UI_ICON.files, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Reader</div>
-          <div class="fe-st-row">
-            <label class="fe-st-lbl" for="fe-st-rd-column">Reading width</label>
-            <select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages">
-              <option value="unset">Full width</option><option value="xl">XL width · 150ch</option><option value="lg">LG width · 130ch</option><option value="md">MD width · 110ch</option>
-            </select>
-          </div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl">Line height</span>
-            <select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${['1.5', '1.65', '1.8'].map(n => `<option value="${n}">${n}</option>`).join('')}</select>
-            <span class="fe-st-lbl">Code size</span>
-            <select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>
-          </div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title">File pages</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="A file opened directly in the tab renders like the preview">Render file pages</span>
-            <select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page">
-              <option value="all">All text files</option>
-              <option value="not-md">All except markdown</option>
-              <option value="off">Off (Chrome's plain text)</option>
-            </select>
-          </div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>Custom Icon Rules</span>
-            <button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">${UI_ICON.add}Add rule</button>
-          </div>
-          <div class="fe-st-rules-hint">Regex matched against filename (case-insensitive). Rules override built-in icons.</div>
+      { key: 'look', label: 'Look', hint: 'Theme, colour and size', icon: UI_ICON.appearance, body:
+        stCard('Theme',
+          stRow('Mode', '', `<div class="fe-seg"><label><input type="radio" name="bfb-theme" value="dark" title="Dark theme"><span>Dark</span></label><label><input type="radio" name="bfb-theme" value="light" title="Light theme"><span>Light</span></label></div>`) +
+          stRow('Palette', 'Accent and surface colours', `<div class="fe-set-sws">${
+            swatch('slate', 'Slate', '#3cc6c0', '#1c2328', 'Slate and teal') +
+            swatch('violet', 'Violet', '#9d7cff', '#1f1f27', 'Violet') +
+            swatch('sand', 'Sand', '#e8789a', '#24201c', 'Sand and rose') +
+            swatch('ink', 'Ink', '#f2f2f3', '#1b1b1d', 'Ink, black and white')}</div>`)) +
+        stCard('Size',
+          stRow('Interface size', 'Scales the whole window, sidebar included', `<select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">${[90, 100, 110, 125, 150].map(n => `<option value="${n}">${n}%</option>`).join('')}</select>`) +
+          stRow('Text size', 'Text throughout the app', `<select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>`) +
+          stRow('Compact rows', 'Tighter rows in lists and tiles', stSwitch('fe-st-compact', 'Tighter rows and tiles'))) +
+        stCard('Help',
+          stRow('Tooltips', 'A short label when you hover a control', stSwitch('fe-st-tooltips', 'Native tooltips on every control')) +
+          stRow('Keyboard shortcuts', 'Every key on one page', `<button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Show keys</button>`)) },
+      { key: 'folders', label: 'Folders', hint: 'Views, order and the sidebar', icon: UI_ICON.files, body:
+        stCard('Opening a folder',
+          stRow('View', 'How a folder first appears', `<select id="fe-st-defview" class="fe-st-select" title="View a folder opens in"><option value="details">Details</option><option value="list">List</option><option value="tree">Tree</option><option value="tiles">Tiles</option><option value="icons">Large icons</option></select>`) +
+          stRow('Sort', 'The column headers and the Sort panel change it too', `<select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in"><option value="">As listed</option><option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option><option value="type">Type</option><option value="ext">Extension</option></select><select id="fe-st-sort-dir" class="fe-st-select" title="Direction"><option value="asc">Ascending</option><option value="desc">Descending</option></select>`) +
+          stRow('Group', '', `<select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with"><option value="none">None</option><option value="folders-first">Folders first</option><option value="files-first">Files first</option><option value="ext">By extension</option><option value="type">By type</option></select>`) +
+          stRow('Dates', 'How the Modified column reads', `<select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads"><option value="short">Apr 17</option><option value="full">April 17, 2025</option></select>`)) +
+        stCard('Opening a file',
+          stRow('A click on a file', 'Look opens the preview; Go opens the file’s own page', `<select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does"><option value="look">Look</option><option value="go">Go</option></select>`) +
+          stRow('Preview', 'Where the preview opens', `<select id="fe-st-panel" class="fe-st-select" title="Where the preview opens"><option value="modal">Floating window</option><option value="side">Docked to the side</option></select><button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">${UI_ICON.reset}Reset sizes</button>`)) +
+        stCard('Sidebar',
+          stRow('Show the sidebar', 'Places, Notes and History on the left', stSwitch('fe-st-sidebar', 'Places, Notes and History on the left')) +
+          stRow('History', 'Folders and files you opened lately, and closed tabs', stSwitch('fe-st-sec-recent', 'Folders and files you opened lately, and closed tabs'))) +
+        stCard('Terminal',
+          stRow('Open folders in', 'The terminal button in the path bar', `<select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open the current folder in"><option value="ghostty">Ghostty</option><option value="terminal">Terminal</option><option value="iterm">iTerm2</option><option value="wezterm">WezTerm</option><option value="kitty">Kitty</option><option value="custom">Custom command</option></select>`) +
+          stRow('Command', 'Use ${p} for the folder; it is copied, not run', `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} for the folder path.'>`, ' id="fe-st-term-custom-row" style="display:none"') +
+          stNote('', 'fe-st-term-hint')) },
+      { key: 'files', label: 'Files', hint: 'Reading and file pages', icon: UI_ICON.preview, body:
+        stCard('Reading',
+          stRow('Reading width', 'Where Markdown pages start; the file bar changes it per page', `<select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages"><option value="unset">Full width</option><option value="xl">Wide, 150 characters</option><option value="lg">Medium, 130 characters</option><option value="md">Narrow, 110 characters</option></select>`) +
+          stRow('Line height', '', `<select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${['1.5', '1.65', '1.8'].map(n => `<option value="${n}">${n}</option>`).join('')}</select>`) +
+          stRow('Code size', '', `<select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>`) +
+          stRow('Wrap long lines', 'Raw text and code wrap instead of scrolling sideways', stSwitch('fe-st-wrap', 'Wrap long lines in raw text and code'))) +
+        stCard('File pages',
+          stRow('Show files as pages', 'A file opened in a tab renders like the preview', `<select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page"><option value="all">All text files</option><option value="not-md">All except Markdown</option><option value="off">Off, Chrome shows plain text</option></select>`) +
+          stRow('Leave to Chrome', 'These extensions keep Chrome’s own page; PDF always does', `<input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces"><button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default list">${UI_ICON.reset}Defaults</button>`)) +
+        stCard('Icon rules', `
+          <p class="fe-set-note">A pattern is matched against the file name, ignoring case. Rules win over the built-in icons.</p>
           <div class="fe-st-rules-cols">
             <span></span><span></span>
-            <span class="fe-st-col-lbl">Pattern (regex)</span>
+            <span class="fe-st-col-lbl">Pattern</span>
             <span class="fe-st-col-lbl">Label</span>
-            <span class="fe-st-col-lbl">Color</span>
+            <span class="fe-st-col-lbl">Colour</span>
             <span></span>
           </div>
           <div id="fe-st-rules-list"></div>
-          <button id="fe-st-reset-rules" class="fe-pbn" style="margin-top:8px;align-self:flex-start;color:#f85149;border-color:#f8514940" title="Replace every rule with the built-in set">${UI_ICON.reset}Reset to defaults</button>
-        </div>
-` },
-      { key: 'exclusions', label: 'Exclusions', hint: 'Native pages', icon: UI_ICON.exclusions, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Open with Chrome</div>
-          <div class="fe-st-hint">These extensions keep their native file page when opened. The preview panel still works.</div>
-          <div class="fe-st-row">
-            <label class="fe-st-lbl" for="fe-st-excluded-exts">File extensions</label>
-            <input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces">
-            <button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default excluded extensions">${UI_ICON.reset}Restore defaults</button>
-          </div>
-          <div class="fe-st-hint">Changes apply when a file is opened next. PDF stays native even if removed here, because it has no text renderer.</div>
-        </div>
-` },
-      { key: 'notes', label: 'Notes', hint: 'Notes folder', icon: UI_ICON.notes, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Notes</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="A folder of .md files. See docs/notes-contract.md">Notes folder</span>
-            <input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder">
-            <button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>
-          </div>
-          <div class="fe-st-hint" id="fe-st-notes-hint" style="color:var(--dm);margin-top:-4px"></div>
-        </div>
-        <div class="fe-st-section">
-          <div class="fe-st-title">Editing</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="Text files inside these folders show an Edit button (e) on their page">Editable folders</span>
-            <input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Comma-separated absolute folders; ~ means home">
-          </div>
-          <div class="fe-st-hint" style="color:var(--dm);margin-top:-4px">Every save keeps the previous text for 14 days in ~/Library/Application Support/BetterFileBrowser/backups.</div>
-        </div>
-` },
-      { key: 'terminal', label: 'Terminal', hint: 'Open with', icon: UI_ICON.terminal, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Terminal</div>
-          <div class="fe-st-row">
-            <span class="fe-st-lbl" title="Which terminal app to open when clicking the terminal button">Open with</span>
-            <select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open current folder in">
-              <option value="ghostty">Ghostty</option>
-              <option value="terminal">Terminal.app</option>
-              <option value="iterm">iTerm2</option>
-              <option value="wezterm">WezTerm</option>
-              <option value="kitty">Kitty</option>
-              <option value="custom">Custom command (copied, not run)</option>
-            </select>
-          </div>
-          <div class="fe-st-row" id="fe-st-term-custom-row" style="display:none">
-            <input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} as placeholder for the folder path.'>
-          </div>
-          <div class="fe-st-hint" id="fe-st-term-hint" style="color:var(--dm);margin-top:-4px"></div>
-        </div>
-` },
-      { key: 'data', label: 'Data', hint: 'Export and import', icon: UI_ICON.data, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title">Settings and Saved list</div>
-          <div class="fe-st-row">
-            <button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>
-            <button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button>
-            <input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">
-          </div>
-          <textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px 'SF Mono',Menlo,monospace" spellcheck="false" title="The export, also on the clipboard"></textarea>
-        </div>` },
-      { key: 'ai', label: 'AI', hint: 'Local model', icon: UI_ICON.ai, body: `
-        <div class="fe-st-section">
-          <div class="fe-st-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>Local Model (AI)</span>
-            <button id="fe-st-ai-refresh" class="fe-pbn" title="Re-check the lm server status">${UI_ICON.reset}Refresh</button>
-          </div>
+          <button id="fe-st-reset-rules" class="fe-pbn fe-set-danger" title="Replace every rule with the built-in set">${UI_ICON.reset}Reset to built-in rules</button>`,
+          `<button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">${UI_ICON.add}Add rule</button>`) },
+      { key: 'notes', label: 'Notes', hint: 'Notes and editing', icon: UI_ICON.notes, body:
+        stCard('Notes',
+          stRow('Notes folder', 'A folder of Markdown files', `<input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder"><button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>`) +
+          stNote('', 'fe-st-notes-hint')) +
+        stCard('Editing',
+          stRow('Editable folders', 'Text files inside these get an Edit button (e)', `<input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Folders separated by commas; ~ means home">`) +
+          stNote('Every save keeps the previous text for 14 days in ~/Library/Application Support/BetterFileBrowser/backups.')) },
+      { key: 'ai', label: 'AI', hint: 'Local model', icon: UI_ICON.ai, body:
+        stCard('Local model', `
           <div id="fe-st-ai-card">
             <div class="fe-st-ai-head">
               <span class="fe-st-ai-blink"><span class="dot"></span></span>
@@ -308,14 +158,18 @@ export function renderPage(p: PageParams): string {
             </div>
             <div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>
             <div class="fe-st-ai-controls" id="fe-st-ai-controls" style="display:none">
-              <span class="fe-st-lbl">Model</span>
-              <select id="fe-st-ai-model" class="fe-st-select" title="Model used for AI queries (-m)"></select>
-              <button id="fe-st-ai-warm" class="fe-pbn" title="Keep the model resident (lm warm)"></button>
+              <span class="fe-set-l">Model</span>
+              <select id="fe-st-ai-model" class="fe-st-select" title="Model used for questions"></select>
+              <button id="fe-st-ai-warm" class="fe-pbn" title="Keep the model loaded"></button>
             </div>
             <div class="fe-st-ai-hint" id="fe-st-ai-hint"></div>
-          </div>
-        </div>
-` },
+          </div>`,
+          `<button id="fe-st-ai-refresh" class="fe-pbn" title="Check the model server again">${UI_ICON.reset}Check again</button>`) },
+      { key: 'data', label: 'Data', hint: 'Export and import', icon: UI_ICON.data, body:
+        stCard('Settings and Saved list',
+          stRow('Export', 'Copies everything this extension stores, as JSON', `<button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>`) +
+          stRow('Import', 'Loads an export and reloads the page', `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">`) +
+          `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:11px var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
     ],
   };
   const HELP_DIALOG: DialogSpec = {
@@ -333,7 +187,7 @@ export function renderPage(p: PageParams): string {
     <button id="fe-bm-btn" data-icon class="${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? `Remove this ${fileMode ? 'file' : 'folder'} from Saved` : `Save this ${fileMode ? 'file' : 'folder'} (sidebar)`}">
       <svg width="13" height="13" viewBox="0 0 13 13"><path id="fe-bm-path" d="M2.5 1h8v11l-4-2.8L2.5 12z" fill="${curIsBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
     </button>
-    <button id="fe-theme-btn" data-icon title="Toggle theme — currently ${initTheme === 'light' ? 'Light' : 'Dark'}">
+    <button id="fe-theme-btn" data-icon title="Switch between dark and light">
       <svg id="fe-sun" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M10.1 2.9l-1 1M3.9 10.1l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
       <svg id="fe-moon" width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 8.5A5 5 0 0 1 5.5 2.5a5 5 0 1 0 6 6z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
     </button>
@@ -354,13 +208,13 @@ export function renderPage(p: PageParams): string {
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
-        ${lensHead('Places', 'Where you can go')}
+        ${lensHead('Places')}
         <div class="fe-sec" data-sec="places">
         ${placesHTML(homeDir(rawPath), rawPath)}
         </div>
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
-      ${lensHead('Notes', 'Saved places, views and notes')}
+      ${lensHead('Notes')}
       <input id="fe-lens-filter" type="text" placeholder="Filter saved and notes" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
       <div class="fe-sec" data-collapse="saved">
@@ -377,7 +231,7 @@ export function renderPage(p: PageParams): string {
       </div>
       </div>
       <div class="fe-lens" id="fe-lens-history" data-lens="history" role="tabpanel" aria-labelledby="fe-rail-history" hidden>
-        ${lensHead('History', 'Recent folders, files and closed tabs')}
+        ${lensHead('History')}
         ${recentsHTML}
       </div>
       </div>
@@ -390,11 +244,11 @@ export function renderPage(p: PageParams): string {
       <div id="fe-toolbar">
         <span id="fe-count">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <div id="fe-tb-right">
-          <button id="fe-sg-btn" title="Sort &amp; Group — Click to toggle sort/group panel">
+          <button id="fe-sg-btn" title="Sort and group">
             <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11M2 5h9M3.5 8h6M5.5 11h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
             Sort
           </button>
-          <button id="fe-filter-btn" data-icon title="Filter — Filter by filename pattern or file type">
+          <button id="fe-filter-btn" data-icon title="Filter by name or type">
             <svg width="13" height="12" viewBox="0 0 13 12"><path d="M1 2h11l-4.5 5v4l-2-1V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
           </button>
           <button id="fe-hidden-btn" data-icon class="${initHidden ? 'on' : ''}" title="Hidden files: ${initHidden ? 'showing' : 'hiding'} dotfiles · click to toggle">
@@ -409,7 +263,7 @@ export function renderPage(p: PageParams): string {
           <button id="fe-deep-btn" data-icon title="Deep search: include every subfolder in the filter">
             <svg width="13" height="13" viewBox="0 0 13 13"><path d="M1 2.5h4l1 1.2h6v7H1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3.5 6h3l.8 1h2.7v2.5H3.5z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
           </button>
-          <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Quick filter — Type to filter files by name in any view"/>
+          <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/>
         </div>
       </div>
 
@@ -428,7 +282,7 @@ export function renderPage(p: PageParams): string {
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Group by</span>
           <div class="fe-btn-group" id="fe-group-btns">
-            <button class="fe-pbn active" data-group="none" title="No grouping — flat list">None</button>
+            <button class="fe-pbn active" data-group="none" title="No grouping">None</button>
             <button class="fe-pbn" data-group="folders-first" title="Show all folders above files">Folders first</button>
             <button class="fe-pbn" data-group="files-first" title="Show all files above folders">Files first</button>
             <button class="fe-pbn" data-group="ext" title="Group items by file extension">Extension</button>
@@ -440,10 +294,10 @@ export function renderPage(p: PageParams): string {
       <div id="fe-filter-bar" style="display:none">
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
-          <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name — supports plain text or regex (enable .* button)"/>
-          <button id="fe-regex-btn" class="fe-pbn" title="Toggle regex mode — when active, pattern is treated as a regular expression">.*</button>
+          <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
+          <button id="fe-regex-btn" class="fe-pbn" title="Treat the pattern as a regular expression">.*</button>
           <span class="fe-panel-lbl" style="margin-left:12px">Type</span>
-          <select id="fe-type-filter" title="Filter by file type — show only folders, files, or a specific extension">
+          <select id="fe-type-filter" title="Show only folders, files or one extension">
             <option value="all">All types</option>
             <option value="folders">Folders only</option>
             <option value="files">Files only</option>
