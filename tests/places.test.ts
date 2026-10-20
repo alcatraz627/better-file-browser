@@ -1,11 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import {
-  upsertPlace, removePlace, renamePlace, movePlace, togglePlace,
+  upsertPlace, dedupePlaces, removePlace, renamePlace, movePlace, togglePlace,
   parseTags, setTags, reconcileTags, cycleTagColor, groupByTag, filterSaved, mergeLegacy, TAG_COLORS,
 } from '../src/places';
 import type { Place } from '../src/types';
 
 const P = (path: string, label = path, tags?: string[]): Place => (tags ? { path, label, tags } : { path, label });
+
+describe('dedupePlaces', () => {
+  it('keeps the first copy of a path, with or without a trailing slash', () => {
+    const out = dedupePlaces([P('/a/', 'first'), P('/b/'), P('/a', 'second'), P('/b/')]);
+    expect(out.map(p => p.label)).toEqual(['first', '/b/']);
+  });
+});
 
 describe('upsertPlace', () => {
   it('appends a new place', () => {

@@ -8,6 +8,11 @@ export function samePlace(a: string, b: string): boolean {
   return a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
 }
 
+/** The list with each place kept once (the first copy wins), however it arrived: an import, an old list, a hand edit. */
+export function dedupePlaces(list: Place[]): Place[] {
+  return list.filter((p, i) => list.findIndex(q => samePlace(q.path, p.path)) === i);
+}
+
 export function upsertPlace(list: Place[], place: Place): Place[] {
   if (list.some(p => samePlace(p.path, place.path))) return list;   // dedupe by path
   return [...list, place];

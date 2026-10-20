@@ -1,5 +1,5 @@
 import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode, PreviewLayout, Tag } from './types';
-import { mergeLegacy, reconcileTags } from './places';
+import { dedupePlaces, mergeLegacy, reconcileTags } from './places';
 import { kvGet, kvSet } from './kv';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
@@ -69,12 +69,13 @@ function readList<T>(key: string): T[] {
 // Saved folders. The first read after the merge builds the list from the two
 // old keys, which stay in place untouched so nothing is lost if this rolls back.
 export function getSaved(): Place[] {
-  if (kvGet(SAVED_KEY) !== null) return readList<Place>(SAVED_KEY);
+  if (kvGet(SAVED_KEY) !== null) return dedupePlaces(readList<Place>(SAVED_KEY));
   const merged = mergeLegacy(readList<Bookmark>(BM_KEY), readList<Place>(PLACES_KEY));
   kvSet(SAVED_KEY, JSON.stringify(merged));
   return merged;
 }
 export function saveSaved(list: Place[]): void {
+  list = dedupePlaces(list);
   kvSet(SAVED_KEY, JSON.stringify(list));
   kvSet(TAGS_KEY, JSON.stringify(reconcileTags(list, readList<Tag>(TAGS_KEY))));
 }

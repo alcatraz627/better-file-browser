@@ -569,7 +569,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
   // when only the hash changes on an already open page.
   function applyFindFromHash(): void {
     const q = findFromHash(location.hash);
-    if (!q) return;
+    if (!q) { if (location.hash.startsWith('#find=')) toast('This saved view link is damaged, so the folder shows unfiltered'); return; }
     ls.filter.q = q.name; ls.filter.regex = q.regex;
     ls.filter.type = q.exts.length === 1 ? q.exts[0] : 'all';
     el<HTMLInputElement>('fe-filter-q').value = q.name;

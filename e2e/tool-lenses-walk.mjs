@@ -56,7 +56,12 @@ try {
   await page.screenshot({ path: join(SHOTS, 'lens-narrow-overlay.png') });
   await page.keyboard.press('Escape');
   const closed = await page.$eval('#fe-lenses', e => getComputedStyle(e).display === 'none');
-  check(railW <= 60 && over.shown && closed, `at 420px the sidebar is a ${railW}px rail, a lens opens over the page, Esc closes it: ${JSON.stringify(over)}`);
+  await page.setViewport({ width: 1400, height: 900 });
+  await page.goto('file://' + h.fixture + '/#find=%7Bnot-json', { waitUntil: 'load' });
+  await page.waitForFunction(() => /damaged/.test(document.getElementById('fe-toast')?.textContent || ''), { timeout: 4000 }).catch(() => null);
+  const toast = await page.$eval('#fe-toast', e => e.textContent);
+  check(/saved view link is damaged/.test(toast), `a damaged saved-view link says so instead of failing silently: ${toast}`);
+  check(railW <= 60 && over.shown && closed,`at 420px the sidebar is a ${railW}px rail, a lens opens over the page, Esc closes it: ${JSON.stringify(over)}`);
 } finally {
   console.log(results.join('\n'));
   await h.close();

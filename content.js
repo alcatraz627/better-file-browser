@@ -237,6 +237,9 @@
   function samePlace(a, b) {
     return a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
   }
+  function dedupePlaces(list) {
+    return list.filter((p, i) => list.findIndex((q) => samePlace(q.path, p.path)) === i);
+  }
   function upsertPlace(list, place) {
     if (list.some((p) => samePlace(p.path, place.path))) return list;
     return [...list, place];
@@ -474,12 +477,13 @@
     }
   }
   function getSaved() {
-    if (kvGet(SAVED_KEY) !== null) return readList(SAVED_KEY);
+    if (kvGet(SAVED_KEY) !== null) return dedupePlaces(readList(SAVED_KEY));
     const merged = mergeLegacy(readList(BM_KEY), readList(PLACES_KEY));
     kvSet(SAVED_KEY, JSON.stringify(merged));
     return merged;
   }
   function saveSaved(list) {
+    list = dedupePlaces(list);
     kvSet(SAVED_KEY, JSON.stringify(list));
     kvSet(TAGS_KEY, JSON.stringify(reconcileTags(list, readList(TAGS_KEY))));
   }
@@ -14813,7 +14817,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     function applyFindFromHash() {
       const q = findFromHash(location.hash);
-      if (!q) return;
+      if (!q) {
+        if (location.hash.startsWith("#find=")) toast("This saved view link is damaged, so the folder shows unfiltered");
+        return;
+      }
       ls.filter.q = q.name;
       ls.filter.regex = q.regex;
       ls.filter.type = q.exts.length === 1 ? q.exts[0] : "all";
