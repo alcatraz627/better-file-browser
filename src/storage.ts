@@ -106,6 +106,13 @@ export function homeDir(path: string): string {
   }
   return kvGet(HOME_KEY) ?? '';
 }
+// Saved tag groups the person folded, by tag name.
+const FOLDED_KEY = 'bfb-saved-folded-v1';
+export function getFoldedGroups(): Set<string> {
+  try { return new Set(JSON.parse(kvGet(FOLDED_KEY) ?? '[]')); } catch { return new Set(); }
+}
+export function saveFoldedGroups(s: Set<string>): void { kvSet(FOLDED_KEY, JSON.stringify([...s])); }
+
 /** Remember a home folder reported by the native host; returns whether it was taken. */
 export function setHomeDir(home: string): boolean {
   if (!/^\/Users\/[^/]+$/.test(home) || home === '/Users/Shared') return false;

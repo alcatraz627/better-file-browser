@@ -34,19 +34,19 @@ try {
   // Row 1: the filter box.
   const all = await rowsOf(page);
   check(all.length > 10, `the sidebar lists the store: ${all.length} notes`);
-  check(await page.$eval('#fe-nt-filter', e => getComputedStyle(e).display !== 'none'), 'the filter box is visible once a notes folder is set');
+  check(await page.$eval('#fe-lens-filter', e => getComputedStyle(e).display !== 'none'), 'the filter box is visible once a notes folder is set');
   const firstRel = all[0];
   const probeWord = await page.$eval(`#fe-nt-list .fe-nt-item[data-rel="${firstRel}"] .fe-nt-label`, e => e.textContent.trim().split(/\s+/)[0]);
-  await page.click('#fe-nt-filter');
-  await page.type('#fe-nt-filter', probeWord);
+  await page.click('#fe-lens-filter');
+  await page.type('#fe-lens-filter', probeWord);
   await sleep(150);
   const narrowed = await rowsOf(page);
   check(narrowed.length >= 1 && narrowed.length < all.length && narrowed.includes(firstRel), `typing "${probeWord}" narrows ${all.length} to ${narrowed.length} and keeps ${firstRel}`);
   const hint = await page.$eval('#fe-st-notes-hint', e => e.textContent);
   check(new RegExp(`^${narrowed.length} of ${all.length} notes`).test(hint), `the count line reads "${hint}"`);
   await shot(page, 'nt-filter-narrow');
-  await page.$eval('#fe-nt-filter', e => { e.value = ''; });
-  await page.type('#fe-nt-filter', 'zzzzqqq');
+  await page.$eval('#fe-lens-filter', e => { e.value = ''; });
+  await page.type('#fe-lens-filter', 'zzzzqqq');
   await sleep(150);
   const none = await page.$eval('#fe-nt-list', e => e.textContent.trim());
   check(/No note matches/.test(none), `no match says so: "${none}"`);
@@ -54,7 +54,7 @@ try {
   await page.keyboard.press('Escape');
   await sleep(150);
   const back = await rowsOf(page);
-  check(back.length === all.length && await page.$eval('#fe-nt-filter', e => e.value === ''), 'Escape clears the box and the whole list returns');
+  check(back.length === all.length && await page.$eval('#fe-lens-filter', e => e.value === ''), 'Escape clears the box and the whole list returns');
   // Row 2: right-click menu, keys on a focused row, previous and next, delete from the editor.
   const rowSel = rel => `#fe-nt-list .fe-nt-item[data-rel="${rel}"]`;
   const trashed = () => existsSync(join(store, '.trash')) ? readdirSync(join(store, '.trash')) : [];

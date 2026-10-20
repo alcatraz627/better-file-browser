@@ -74,10 +74,16 @@ export function cycleTagColor(tags: Tag[], name: string): Tag[] {
 
 // The Saved filter box: typed text matches label, path or any tag, case
 // blind. Empty text keeps the whole list.
+// Same rules as the notes filter, since one box filters both: every word must
+// match the label, path or a tag, and a #word matches tags only.
 export function filterSaved(list: Place[], text: string): Place[] {
-  const q = text.trim().toLowerCase();
-  if (!q) return list;
-  return list.filter(p => p.label.toLowerCase().includes(q) || p.path.toLowerCase().includes(q) || (p.tags ?? []).some(t => t.includes(q)));
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return list;
+  return list.filter(p => {
+    const tags = (p.tags ?? []).map(t => t.toLowerCase());
+    const hay = `${p.label} ${p.path} ${tags.join(' ')}`.toLowerCase();
+    return words.every(w => w.startsWith('#') ? w.length > 1 && tags.some(t => t.includes(w.slice(1))) : hay.includes(w));
+  });
 }
 
 export interface SavedGroup { tag: Tag | null; items: Place[] }

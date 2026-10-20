@@ -88,6 +88,8 @@ describe('tags', () => {
     expect(filterSaved(list, 'users').map(p => p.path)).toEqual(['/Users/me/Code']);
     expect(filterSaved(list, 'hom').map(p => p.path)).toEqual(['/h']);
     expect(filterSaved(list, 'zzz')).toEqual([]);
+    expect(filterSaved(list, '#work').map(p => p.path)).toEqual(['/tmp/w']);   // tags only
+    expect(filterSaved(list, '#tmp')).toEqual([]);                              // a path word is not a tag
   });
   it('groups untagged first, then by first tag in registry order', () => {
     const list = [P('/u'), P('/w', 'w', ['work']), P('/h', 'h', ['home', 'work'])];

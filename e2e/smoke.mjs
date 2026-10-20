@@ -224,7 +224,7 @@ try {
   await page.keyboard.type('Work, code');
   await page.keyboard.press('Enter');
   const tagState = await page.evaluate(() => ({
-    heads: [...document.querySelectorAll('#fe-sv-list .fe-sv-tag')].map(h => h.textContent.trim()),
+    heads: [...document.querySelectorAll('#fe-sv-list .fe-grp')].map(g => g.dataset.tag),
     dotColor: document.querySelector('#fe-sv-list .fe-sv-dot')?.style.background,
     minis: document.querySelectorAll('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-sv-mini').length,
   }));
@@ -236,25 +236,26 @@ try {
   const c2 = await page.$eval('#fe-sv-list .fe-sv-dot', el => el.style.background);
   check(c1 && c2 && c1 !== c2, `tag colour cycles ${c1} → ${c2}`);
 
-  // The filter box narrows the list to matches; a tag name leaves only its group.
-  await page.click('#fe-sv-filter');
-  await page.type('#fe-sv-filter', 'work');
+  // A chip in the lens tag row filters to that tag; with few rows the filter
+  // box itself stays hidden, and the chip writes #work into it.
+  check(await page.$eval('#fe-lens-filter', el => el.hidden), 'with three saved items the lens filter box stays hidden');
+  await page.click('#fe-lens-tags .fe-lens-tag[data-tag="work"]');
   const narrowed = await page.evaluate(() => ({
     labels: [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].map(e => e.textContent),
-    heads: [...document.querySelectorAll('#fe-sv-list .fe-sv-tag')].map(h => h.textContent.trim()),
+    heads: [...document.querySelectorAll('#fe-sv-list .fe-grp')].map(g => g.dataset.tag),
   }));
   check(narrowed.labels.join() === 'Nested (named)' && narrowed.heads.join() === 'work', `typing a tag name shows only that group: ${JSON.stringify(narrowed)}`);
   await shot(page, 'saved-filtered');
-  await page.keyboard.press('Escape');
+  await page.click('#fe-lens-tags .fe-lens-tag[data-tag="work"]');
   const widened = await savedLabels();
-  check(widened.length === 3 && await page.$eval('#fe-sv-filter', el => el.value) === '', `Escape clears the box and the full list returns: ${JSON.stringify(widened)}`);
+  check(widened.length === 3 && await page.$eval('#fe-lens-filter', el => el.value) === '', `clicking the chip again clears it and the full list returns: ${JSON.stringify(widened)}`);
   await shot(page, 'saved-sidebar');
 
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
   const savedAfter = await page.evaluate(() => ({
     labels: [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].map(e => e.textContent),
-    heads: [...document.querySelectorAll('#fe-sv-list .fe-sv-tag')].map(h => h.textContent.trim()),
+    heads: [...document.querySelectorAll('#fe-sv-list .fe-grp')].map(g => g.dataset.tag),
     dot: document.querySelector('#fe-sv-list .fe-sv-dot')?.style.background,
   }));
   check(savedAfter.labels.length === 3 && savedAfter.heads.join() === 'work' && savedAfter.dot === c2, `saved state persists: ${JSON.stringify(savedAfter)}`);

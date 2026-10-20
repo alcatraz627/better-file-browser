@@ -8,7 +8,7 @@ import { esc, copyToClipboard, midHtml, fileHref } from './utils';
 import { kvGet, kvSet, onKvChange } from './kv';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
-import { getSaved, saveSaved, getTags, saveTags, saveSettings } from './storage';
+import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
 import { notes, noteTitle, slugForTitle, setTitle, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
@@ -102,6 +102,9 @@ export function initSidebar(app: App): void {
   const svList = el('fe-sv-list');
   const svFilter = el<HTMLInputElement>('fe-sv-filter');
   let dragSrc: HTMLElement | null = null;
+  // What the lens filter and tag row need from the notes list, filled when
+  // notes load; declared here because the saved list renders first.
+  const lensNotes = { count: 0, tags: [] as string[] };
 
   function syncStar(): void {
     const on = getSaved().some(p => samePlace(p.path, rawPath));
@@ -112,10 +115,28 @@ export function initSidebar(app: App): void {
     el('fe-bm-path').setAttribute('fill', on ? 'currentColor' : 'none');
   }
   function refreshSaved(): void {
-    svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath, svFilter.value);
+    svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath, svFilter.value, foldedGroups());
     attachSavedEvents();
     syncStar();
+    syncLens();
   }
+
+  // One filter and one tag row for the whole lens (design-system.md, D3d).
+  // The box writes into each list's own filter, so Saved keeps its label, path
+  // and tag match and Notes keeps its tag and full-text search. It shows only
+  // once the lens holds more than eight rows, or while it has text.
+  function syncLens(): void {
+    const box = document.getElementById('fe-lens-filter') as HTMLInputElement | null;
+    const row = document.getElementById('fe-lens-tags');
+    if (!box || !row) return;
+    box.hidden = getSaved().length + lensNotes.count <= 8 && !box.value;
+    const colour = new Map(getTags().map(t => [t.name, t.color]));
+    const names = [...new Set([...getSaved().flatMap(p => p.tags ?? []), ...lensNotes.tags])].sort();
+    const on = box.value.trim().toLowerCase();
+    row.hidden = !names.length;
+    row.innerHTML = names.map(n => `<button type="button" class="fe-chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}">${esc(n)}</button>`).join('');
+  }
+  const foldedGroups = getFoldedGroups;
   app.refreshSaved = refreshSaved;
   svFilter.addEventListener('input', refreshSaved);
   svFilter.addEventListener('keydown', e => {
@@ -150,6 +171,14 @@ export function initSidebar(app: App): void {
   // navigation so the double-click can cancel it and rename instead.
   let clickTimer: ReturnType<typeof setTimeout> | null = null;
   function attachSavedEvents(): void {
+    // A folded tag group stays folded across pages.
+    // A filter opens every group on its own; those opens are not the person's.
+    els<HTMLDetailsElement>('details.fe-grp', svList).forEach(d => d.addEventListener('toggle', () => {
+      if (svFilter.value.trim()) return;
+      const folded = foldedGroups();
+      if (d.open) folded.delete(d.dataset.tag!); else folded.add(d.dataset.tag!);
+      saveFoldedGroups(folded);
+    }));
     els('.fe-rm-btn', svList).forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation(); e.preventDefault();
@@ -235,6 +264,9 @@ export function initSidebar(app: App): void {
     return [...byMeta, ...allNotes.filter(n => bodyHits.has(n.rel) && !byMeta.includes(n))];
   };
   function renderNotes(root: string): void {
+    lensNotes.count = allNotes.length;
+    lensNotes.tags = [...new Set(allNotes.flatMap(n => n.tags ?? []))];
+    syncLens();
     const shown = shownNotes();
     ntHint.textContent = ntFilter.value.trim()
       ? `${shown.length} of ${allNotes.length} notes in ${root}`
@@ -276,10 +308,29 @@ export function initSidebar(app: App): void {
   ntFilter.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); ntFilter.value = ''; ntFilter.dispatchEvent(new Event('input')); ntFilter.blur(); }
   });
+
+  const lensFilter = el<HTMLInputElement>('fe-lens-filter');
+  const applyLensFilter = () => {
+    svFilter.value = ntFilter.value = lensFilter.value;
+    refreshSaved();
+    ntFilter.dispatchEvent(new Event('input'));
+  };
+  lensFilter.addEventListener('input', applyLensFilter);
+  lensFilter.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); lensFilter.value = ''; applyLensFilter(); lensFilter.blur(); }
+    e.stopPropagation();   // page keys must not fire while typing
+  });
+  el('fe-lens-tags').addEventListener('click', e => {
+    const chip = (e.target as Element).closest<HTMLElement>('.fe-lens-tag');
+    if (!chip) return;
+    const q = '#' + chip.dataset.tag;
+    lensFilter.value = lensFilter.value.trim().toLowerCase() === q.toLowerCase() ? '' : q;
+    applyLensFilter();
+  });
   function refreshNotes(): void {
     const root = notesRoot();
-    ntFilter.style.display = root ? '' : 'none';
     if (!root) {
+      lensNotes.count = 0; lensNotes.tags = []; syncLens();
       ntHint.textContent = '';
       el<HTMLAnchorElement>('fe-notes-root').removeAttribute('href');
       ntList.innerHTML = `<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-pick" class="fe-hint-action fe-icon-act" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose folder</span></button><br><button id="fe-nt-setup" class="fe-hint-action" title="Type the notes folder in Settings">Type it in Settings</button></div>`;

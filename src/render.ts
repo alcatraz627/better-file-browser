@@ -117,7 +117,7 @@ export function renderTiles(entries: Entry[], ctx: RenderContext, start = 0): st
 // A saved file keeps its path without a trailing slash; a folder ends in one.
 const savedFileExt = (path: string) => path.endsWith('/') ? '' : (path.split('/').pop()!.match(/\.([^.]+)$/)?.[1].toLowerCase() ?? '');
 
-export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, filter = ''): string {
+export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, filter = '', folded: Set<string> = new Set()): string {
   if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click ☆ in the path bar, or + to name this folder.</div>`;
   saved = filterSaved(saved, filter);
   if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
@@ -134,11 +134,15 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
       <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Tags">#</button>
       <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove">✕</button>
     </div>`;
+  // Each tag group folds on a soft card (Soft round 2, D3d); a filter opens
+  // every group so no match hides inside a folded one.
   return groupByTag(saved, tags).map(g => {
-    const head = g.tag
-      ? `<div class="fe-sv-tag"><i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}</div>`
-      : '';
-    return head + g.items.map(row).join('');
+    if (!g.tag) return g.items.map(row).join('');
+    const open = filter.trim() || !folded.has(g.tag.name) ? ' open' : '';
+    return `<details class="fe-grp" data-tag="${esc(g.tag.name)}"${open}>
+      <summary class="fe-sv-tag">${CHEVRON_DOWN}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
+      ${g.items.map(row).join('')}
+    </details>`;
   }).join('');
 }
 
