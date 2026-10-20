@@ -31,7 +31,12 @@ const save = async page => {
 };
 
 // A pinned, coloured, tagged note to open; a plain note without frontmatter for the guard.
-const withProps = readdirSync(store).filter(f => f.endsWith('.md')).find(f => /^tags:/m.test(read(f)) && /^pinned: true/m.test(read(f)) && /^color:/m.test(read(f)));
+// The source store may have none, so the scratch copy gets one of its own.
+const hasProps = f => /^tags:/m.test(read(f)) && /^pinned: true/m.test(read(f)) && /^color:/m.test(read(f));
+if (!readdirSync(store).some(f => f.endsWith('.md') && hasProps(f))) {
+  writeFileSync(join(store, 'props-sample.md'), '---\ntitle: Props sample\ntags: [walk, sample]\npinned: true\ncolor: blue\n---\n# Props sample\n\nA note with every property.\n');
+}
+const withProps = readdirSync(store).filter(f => f.endsWith('.md')).find(hasProps);
 writeFileSync(join(store, 'plain-guard.md'), '# Plain guard\n\nno properties here\n');
 check(!!withProps, `the store has a note with tags, pin and colour: ${withProps}`);
 

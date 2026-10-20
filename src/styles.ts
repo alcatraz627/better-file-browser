@@ -1224,6 +1224,7 @@ button.fe-si{width:auto;display:flex}
   #fe-page .fe-md h1{font-size:1.45em}
   #fe-page > .fe-diag{margin:12px 14px 0}
 }
+#fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none!important}
 .fe-st-rule-del:hover{color:var(--nc-red)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){

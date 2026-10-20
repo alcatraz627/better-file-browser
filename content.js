@@ -4937,6 +4937,7 @@ button.fe-si{width:auto;display:flex}
   #fe-page .fe-md h1{font-size:1.45em}
   #fe-page > .fe-diag{margin:12px 14px 0}
 }
+#fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none!important}
 .fe-st-rule-del:hover{color:var(--nc-red)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){
@@ -14284,6 +14285,57 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       entries.forEach((en) => add(en, 0));
       el("fe-tree").innerHTML = rows.join("");
     }
+    const WINDOW_MIN = 300, OVERSCAN = 40;
+    let win = null;
+    const firstAtOrAfter = (tops, y) => {
+      let lo = 0, hi = tops.length;
+      while (lo < hi) {
+        const mid = lo + hi >> 1;
+        if (tops[mid] < y) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    };
+    function paintWindow(force = false) {
+      if (!win) return;
+      const scroller = el("fe-scroll"), tbody = el("fe-tbody");
+      const offset = tbody.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+      const top = scroller.scrollTop - offset;
+      const n = win.parts.length;
+      const a = Math.max(0, firstAtOrAfter(win.tops, top) - OVERSCAN);
+      const b = Math.min(n, firstAtOrAfter(win.tops, top + scroller.clientHeight) + OVERSCAN);
+      if (!force && a >= win.a && b <= win.b) return;
+      win.a = Math.max(0, a - OVERSCAN);
+      win.b = Math.min(n, b + OVERSCAN);
+      const above = win.tops[win.a] ?? 0, below = win.total - (win.b < n ? win.tops[win.b] : win.total);
+      const spacer = (h) => h > 0 ? `<tr class="fe-spacer" aria-hidden="true"><td colspan="6" style="height:${h}px"></td></tr>` : "";
+      tbody.innerHTML = spacer(above) + win.parts.slice(win.a, win.b).join("") + spacer(below);
+      paintSel();
+    }
+    function measureWindow() {
+      if (!win) return;
+      const tbody = el("fe-tbody");
+      tbody.innerHTML = win.parts.slice(0, 60).join("");
+      const row = tbody.querySelector("tr[data-idx]")?.offsetHeight || 36;
+      const hdr = tbody.querySelector(".fe-group-hdr")?.offsetHeight || row;
+      let y = 0;
+      win.tops = win.parts.map((part, i) => {
+        const t = y;
+        y += win.idxOf[i] < 0 ? hdr : row;
+        return t;
+      });
+      win.total = y;
+      win.a = win.b = 0;
+      paintWindow(true);
+    }
+    let windowFrame = 0;
+    el("fe-scroll").addEventListener("scroll", () => {
+      if (!win || windowFrame) return;
+      windowFrame = requestAnimationFrame(() => {
+        windowFrame = 0;
+        paintWindow();
+      });
+    }, { passive: true });
     function applyAll() {
       const parent = all.filter((e) => e.isParent);
       let entries = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
@@ -14294,25 +14346,39 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const tbody = el("fe-tbody");
       const tiles = el("fe-tiles");
       ls.visible = [];
-      const rowParts = [], tileParts = [];
+      const view = fe.dataset.view ?? "details";
+      const wantTiles = view === "tiles" || view === "icons", wantRows = !wantTiles && view !== "tree";
+      const showHidden = fe.classList.contains("show-hidden");
+      const rowParts = [], tileParts = [], idxOf = [], hiddenRow = [];
       const pushEntry = (e) => {
         const idx = ls.visible.length;
         ls.visible.push(e);
         const hit = ls.contentHits?.get(e.href);
-        rowParts.push(renderRow(e, c, idx, hit));
-        tileParts.push(renderTile(e, c, idx, hit));
+        if (wantRows) {
+          rowParts.push(renderRow(e, c, idx, hit));
+          idxOf.push(idx);
+          hiddenRow.push(e.isHidden);
+        }
+        if (wantTiles) tileParts.push(renderTile(e, c, idx, hit));
       };
       parent.forEach(pushEntry);
       if (ls.group !== "none") {
         for (const g of buildGroups(entries, ls.group)) {
-          rowParts.push(`<tr class="fe-group-hdr"><td colspan="6">${esc(g.label)}</td></tr>`);
-          tileParts.push(`<div class="fe-group-hdr-tile">${esc(g.label)}</div>`);
+          if (wantRows) {
+            rowParts.push(`<tr class="fe-group-hdr"><td colspan="6">${esc(g.label)}</td></tr>`);
+            idxOf.push(-1);
+            hiddenRow.push(false);
+          }
+          if (wantTiles) tileParts.push(`<div class="fe-group-hdr-tile">${esc(g.label)}</div>`);
           g.items.forEach(pushEntry);
         }
       } else {
         entries.forEach(pushEntry);
       }
-      tbody.innerHTML = rowParts.join("");
+      const kept = rowParts.map((p, i) => showHidden || !hiddenRow[i] ? i : -1).filter((i) => i >= 0);
+      win = rowParts.length > WINDOW_MIN ? { parts: kept.map((i) => rowParts[i]), idxOf: kept.map((i) => idxOf[i]), tops: [], total: 0, a: 0, b: 0 } : null;
+      if (win) measureWindow();
+      else tbody.innerHTML = rowParts.join("");
       tiles.innerHTML = tileParts.join("");
       fe.classList.toggle("fe-has-find-hits", !!ls.contentHits);
       if (fe.dataset.view === "tree") {
@@ -14440,8 +14506,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
     };
     function paintSel() {
-      els("#fe-scroll .selected").forEach((x) => x.classList.remove("selected"));
-      ls.selSet.forEach((i) => els(`#fe-scroll [data-idx="${i}"]`).forEach((x) => x.classList.add("selected")));
+      els("#fe-scroll [data-idx]").forEach((x) => x.classList.toggle("selected", ls.selSet.has(Number(x.dataset.idx))));
       const t = el("fe-status-text");
       if (ls.selSet.size > 1) {
         t.textContent = `${ls.selSet.size} selected`;
@@ -14452,6 +14517,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     function scrollToLead() {
       if (ls.selIdx < 0) return;
+      if (win && !el("fe-tbody").querySelector(`[data-idx="${ls.selIdx}"]`)) {
+        const part = win.idxOf.indexOf(ls.selIdx);
+        if (part >= 0) {
+          const scroller = el("fe-scroll"), tbody = el("fe-tbody");
+          const offset = tbody.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+          scroller.scrollTop = Math.max(0, offset + win.tops[part] - scroller.clientHeight / 2);
+          paintWindow(true);
+        }
+      }
       els(`#fe-scroll [data-idx="${ls.selIdx}"]`).forEach((x) => {
         if (x.offsetParent) x.scrollIntoView({ block: "nearest" });
       });
@@ -14517,6 +14591,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       kvSet(HIDDEN_KEY, String(on));
       toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? "s" : ""}` : "Hidden files concealed");
       if (!app.fileMode) el("fe-count").textContent = ls.baseStatus = countText();
+      if (win) applyAll();
     });
     const zoomEl = el("fe-zoom");
     const zoomVal = el("fe-zoom-val");
