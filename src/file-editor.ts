@@ -149,6 +149,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
 
   const write = async (expect: number) => {
     saving = true; paint();
+    let retryAt = 0;
     try {
       const text = ta.value;
       const r = await notes.fileWrite(host.root, host.rel, text, expect);
@@ -157,9 +158,15 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       host.saved(text);
     } catch (err) {
       const e = err as NotesError;
-      if (e.code === 'notes_conflict') showConflict();
+      if (e.code === 'notes_conflict') {
+        // Only the time moved (touched, same bytes): save over it once.
+        const now = await notes.fileRead(host.root, host.rel).catch(() => null);
+        if (now && now.text === doc.text && expect !== now.mtime) { doc = now; retryAt = now.mtime; }
+        else showConflict();
+      }
       else { failed = `Not saved: ${e.message}`; host.status(`not saved: ${e.message}`); }
     } finally { saving = false; paint(); }
+    if (retryAt) await write(retryAt);
   };
   const save = () => { clearTimeout(timer); if (!saving && isDirty()) void write(doc.mtime); };
   const later = () => { clearTimeout(timer); timer = window.setTimeout(save, AUTOSAVE_MS); };
@@ -175,6 +182,9 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     try {
       const now = await notes.fileRead(host.root, host.rel);
       if (now.mtime === doc.mtime) return;
+      // Touched but unchanged (a sync tool, a formatter that wrote the same
+      // bytes): take the new time quietly, there is nothing to choose between.
+      if (now.text === doc.text) { doc = now; return; }
       if (!isDirty()) { doc = now; base = now.text; buf.snap(); ta.value = now.text; buf.snap(); paintSource(); paint(); }
       else showConflict();
     } catch { /* host gone; the next save reports it */ }

@@ -54,4 +54,11 @@ describe('parseListing', () => {
     const entries = parseListing(html, BASE);
     expect(entries.map(e => e.name)).toEqual(['x.txt']);
   });
+
+  it('keeps the spaces a name starts or ends with, read from its address', () => {
+    const html = `<table><tr><th>h</th><th>h</th><th>h</th></tr>
+      <tr><td><a href="%20lead.txt"> lead.txt</a></td><td data-value="9">9</td><td>d</td></tr>
+      <tr><td><a href="dir%20/">dir /</a></td><td data-value="0">0</td><td>d</td></tr></table>`;
+    expect(parseListing(html, BASE).map(e => e.name)).toEqual([' lead.txt', 'dir ']);
+  });
 });

@@ -1,5 +1,12 @@
 import type { Entry } from './types';
 
+// A name read from its link's address keeps leading and trailing spaces that
+// the link text loses; the text is the fallback for an address that will not decode.
+function nameOf(href: string, text: string): string {
+  const last = href.replace(/[?#].*$/, '').replace(/\/$/, '').split('/').pop() ?? '';
+  try { return decodeURIComponent(last) || text; } catch { return text; }
+}
+
 export function parseEntries(): Entry[] {
   const table = document.querySelector('table') || document.getElementById('listing-table');
   if (!table) return [];
@@ -16,7 +23,7 @@ export function parseEntries(): Entry[] {
     const dateStr  = cells[2]?.textContent?.trim() ?? '';
     const isParent = href === '../';
     const isDir    = !isParent && (href?.endsWith('/') ?? false);
-    const name     = isParent ? '..' : (isDir ? rawName.replace(/\/$/, '') : rawName);
+    const name     = isParent ? '..' : nameOf(href, isDir ? rawName.replace(/\/$/, '') : rawName);
     const isHidden = !isParent && name.startsWith('.');
     return [{ name, href, isDir, isParent, isHidden, rawBytes, dateMs, dateStr }];
   });
@@ -73,7 +80,7 @@ export function parseFetchedDoc(doc: Document, baseUrl: string): Entry[] {
     if (rel === '../') return [];
     const href     = new URL(rel, baseUrl).href;
     const isDir    = rel?.endsWith('/') ?? false;
-    const name     = isDir ? rawName.replace(/\/$/, '') : rawName;
+    const name     = nameOf(rel, isDir ? rawName.replace(/\/$/, '') : rawName);
     const isHidden = name.startsWith('.');
     return [{ name, href, isDir, isParent: false, isHidden, rawBytes: -1, dateMs: NaN, dateStr: '' }];
   });
