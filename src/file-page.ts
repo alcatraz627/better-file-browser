@@ -7,8 +7,9 @@ import { esc, copyToClipboard } from './utils';
 import { kvGet, kvSet } from './kv';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
-  renderCode, renderMarkdown, renderJsonTree, renderJsonl, parseDSV, numericCols, renderDSVTable, unrenderableNote,
+  renderCode, parseDSV, numericCols, renderDSVTable, unrenderableNote,
 } from './renderers';
+import { formatFor, diagnose, type Diagnostic } from './formats';
 import { fetchFileText } from './file-fetch';
 import { fileMeta, metaChips, metaSummary } from './file-meta';
 import { UI_ICON } from './control-icons';
@@ -62,10 +63,33 @@ function renderBody(text: string, ext: string, href: string): string {
     const rows = parseDSV(text, ext === 'tsv' ? '\t' : ',');
     return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : unrenderableNote('');
   }
-  if (JSONL_EXTS.has(ext)) return renderJsonl(text);
-  if (ext === 'json') return renderJsonTree(text);
-  if (ext === 'md' || ext === 'mdx') return `<div class="fe-md">${renderMarkdown(text, href)}</div>`;
+  // HTML reads as its source here; its rendered page is Chrome's own, or the editor's Rich view.
+  const fmt = formatFor(ext);
+  if (fmt && fmt.id !== 'html') return fmt.rich(text, href);
   return renderCode(text, ext);
+}
+
+/** The problems a checker found, as one quiet strip; each line number jumps to the source. */
+function diagStrip(diags: Diagnostic[]): string {
+  if (!diags.length) return '';
+  const errors = diags.filter(d => d.severity === 'error').length;
+  const warns = diags.length - errors;
+  const head = [errors && `${errors} error${errors > 1 ? 's' : ''}`, warns && `${warns} warning${warns > 1 ? 's' : ''}`].filter(Boolean).join(', ');
+  const rows = diags.slice(0, 8).map(d =>
+    `<button type="button" class="fe-diag-row ${d.severity}" data-line="${d.line}" title="Show line ${d.line} in the source"><span class="fe-diag-ln">${d.line}</span><span>${esc(d.message)}</span></button>`).join('');
+  const more = diags.length > 8 ? `<span class="fe-diag-more">and ${diags.length - 8} more</span>` : '';
+  return `<details class="fe-diag ${errors ? 'error' : 'warn'}"${errors ? ' open' : ''}><summary>${head}</summary>${rows}${more}</details>`;
+}
+
+/** Marks the source rows that have a problem, with the message on hover. */
+export function markRows(rows: ArrayLike<Element>, diags: Diagnostic[]): void {
+  for (const d of diags) {
+    const row = rows[d.line - 1] as HTMLElement | undefined;
+    if (!row) continue;
+    if (!row.classList.contains('err')) row.classList.add(d.severity === 'error' ? 'err' : 'warn');
+    if (d.severity === 'error') row.classList.replace('warn', 'err');
+    row.title = row.title ? `${row.title}\n${d.message}` : d.message;
+  }
 }
 
 // List the headings (the renderer gave them ids) in the rail; returns how many.
@@ -206,7 +230,9 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   const render = () => {
     paintMeta();
     const top = page.scrollTop;
-    page.innerHTML = raw ? renderCode(text, JSONL_EXTS.has(ext) ? 'json' : ext) : renderBody(text, ext, href);
+    const diags = diagnose(ext, text);
+    page.innerHTML = diagStrip(diags) + (raw ? renderCode(text, JSONL_EXTS.has(ext) ? 'json' : ext) : renderBody(text, ext, href));
+    markRows(page.querySelectorAll('.fe-cl'), diags);
     headings = !raw && isMd ? buildToc(page, toc) : 0;
     page.scrollTop = top;
     rawBtn.classList.toggle('on', raw);
@@ -239,6 +265,17 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   });
   colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; kvSet(COLUMN_KEY, column); paint(); });
   page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
+  // A problem's line number opens the source at that line.
+  page.addEventListener('click', e => {
+    const row = (e.target as Element).closest<HTMLElement>('.fe-diag-row');
+    if (!row) return;
+    if (!raw) { raw = true; render(); }
+    const line = page.querySelectorAll<HTMLElement>('.fe-cl')[Number(row.dataset.line) - 1];
+    if (!line) return;
+    line.scrollIntoView({ block: 'center' });
+    line.classList.add('flash');
+    setTimeout(() => line.classList.remove('flash'), 1200);
+  });
   // A contents click glides to the heading and keeps the address in step.
   toc.addEventListener('click', e => {
     const a = (e.target as Element).closest<HTMLAnchorElement>('a[data-id]');

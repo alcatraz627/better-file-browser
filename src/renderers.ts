@@ -884,6 +884,11 @@ export function renderJsonTree(text: string): string {
   return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
 }
 
+/** A parsed value (from JSON or YAML) as the same foldable tree. */
+export function renderValueTree(v: unknown): string {
+  return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
+}
+
 /** One collapsible row per JSONL line; malformed lines render raw with a badge. */
 export function renderJsonl(text: string): string {
   // Each record keeps its line number in the file, blank lines included,

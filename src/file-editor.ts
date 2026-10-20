@@ -2,15 +2,26 @@
 // the owner allowed (or a file allowed on its own) can be edited; the native
 // host enforces that boundary and keeps a backup of the previous text on
 // every save. The reading column becomes coloured, numbered source, a small
-// floating pill holds the save state, a preview toggle and Done, and the text
+// floating pill holds the save state, the Raw / Split / Rich switch for
+// formats with a rendered view, the problem count and Done, and the text
 // saves itself shortly after you stop typing (⌘S saves at once).
 import { esc } from './utils';
-import { renderMarkdown, highlightCode, splitHighlighted } from './renderers';
+import { highlightCode, splitHighlighted } from './renderers';
+import { formatFor, diagnose, type Diagnostic } from './formats';
+import { kvGet, kvSet } from './kv';
 import { notes, NotesError } from './notes';
 import { attachBuffer, indentLines } from './editor';
 import { UI_ICON } from './control-icons';
 
 const AUTOSAVE_MS = 800;
+const CHECK_MS = 300;
+const MODE_KEY = 'bfb-edit-mode-v1';
+type Mode = 'raw' | 'split' | 'rich';
+const MODES: { id: Mode; label: string; hint: string }[] = [
+  { id: 'raw', label: 'Raw', hint: 'The text alone' },
+  { id: 'split', label: 'Split', hint: 'Text and rendered view side by side' },
+  { id: 'rich', label: 'Rich', hint: 'The rendered view alone' },
+];
 // Opening cost grows with line count (every line is a painted row): about 3 s
 // at 14,000 lines and 20 s at 40,000, so longer files are refused for now.
 const EDIT_MAX_LINES = 15000;
@@ -51,7 +62,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     return null;
   }
 
-  const isMd = host.ext === 'md' || host.ext === 'mdx';
+  const fmt = formatFor(host.ext);
+  const isMd = fmt?.id === 'markdown';
   box.innerHTML = `
     <div id="fe-fe-banner" style="display:none"></div>
     <div id="fe-fe-scroll">
@@ -60,12 +72,14 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
           <pre id="fe-fe-paint" aria-hidden="true"></pre>
           <textarea id="fe-fe-ta" spellcheck="false" aria-label="File text"></textarea>
         </div>
-        ${isMd ? '<div id="fe-fe-view" class="fe-md" hidden></div>' : ''}
+        ${fmt ? `<div id="fe-fe-view" class="${isMd ? 'fe-md' : 'fe-fe-rich'}" hidden></div>` : ''}
       </div>
     </div>
     <div id="fe-fe-pill" role="toolbar" aria-label="Editing">
       <span id="fe-fe-state"></span>
-      ${isMd ? `<button type="button" class="btn" data-icon data-hover-shade data-act="preview" title="Preview (⌘⇧P)">${UI_ICON.eye}</button>` : ''}
+      <button type="button" class="btn" id="fe-fe-diag" data-act="diag" hidden></button>
+      ${fmt ? `<span class="fe-seg fe-fe-modes" role="group" aria-label="View">${MODES.map(m =>
+        `<button type="button" data-mode="${m.id}" title="${m.hint} (⌘⇧P cycles)">${m.label}</button>`).join('')}</span>` : ''}
       <button type="button" class="btn" data-variant="solid" data-act="done" title="Back to reading (Esc)">Done</button>
     </div>`;
   const ta = box.querySelector<HTMLTextAreaElement>('#fe-fe-ta')!;
@@ -74,12 +88,16 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const view = box.querySelector<HTMLElement>('#fe-fe-view');
   const state = box.querySelector<HTMLElement>('#fe-fe-state')!;
   const banner = box.querySelector<HTMLElement>('#fe-fe-banner')!;
+  const diagBtn = box.querySelector<HTMLElement>('#fe-fe-diag')!;
   ta.value = doc.text;
   const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`);
   let base = doc.text;
   let saving = false;
   let failed = '';   // why the last save failed, until one succeeds
-  let previewing = false;
+  const saved = kvGet(MODE_KEY) as Mode | null;
+  let mode: Mode = fmt && saved && MODES.some(m => m.id === saved) ? saved : 'raw';
+  let diags: Diagnostic[] = [];
+  let checkTimer = 0;
   let timer = 0;
 
   const isDirty = () => ta.value !== base;
@@ -115,22 +133,62 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     ta.style.height = paintEl.offsetHeight + 'px';
     paintEl.querySelector('.cur')?.classList.remove('cur');   // kept rows keep their old mark
     curRow = -1; markLine();
+    markProblems();
   };
+  // Problem rows: the gutter number turns red or amber and the message shows
+  // on hover; the pill counts them and a click goes to the first.
+  const markProblems = () => {
+    for (const r of paintEl.querySelectorAll('.fe-fe-row.err, .fe-fe-row.warn')) { r.classList.remove('err', 'warn'); r.removeAttribute('title'); }
+    for (const d of diags) {
+      const row = paintEl.children[d.line - 1] as HTMLElement | undefined;
+      if (!row) continue;
+      row.classList.add(d.severity === 'error' || row.classList.contains('err') ? 'err' : 'warn');
+      if (row.classList.contains('err')) row.classList.remove('warn');
+      row.title = row.title ? `${row.title}\n${d.message}` : `Line ${d.line}: ${d.message}`;
+    }
+    const errors = diags.filter(d => d.severity === 'error').length;
+    diagBtn.hidden = !diags.length;
+    diagBtn.className = `btn fe-fe-diag ${errors ? 'error' : 'warn'}`;
+    diagBtn.textContent = diags.length === 1 ? '1 problem' : `${diags.length} problems`;
+    diagBtn.title = diags.slice(0, 12).map(d => `Line ${d.line}: ${d.message}`).join('\n') + (diags.length > 12 ? `\nand ${diags.length - 12} more` : '');
+  };
+  const check = () => { diags = diagnose(host.ext, ta.value); markProblems(); };
+  const checkLater = () => { clearTimeout(checkTimer); checkTimer = window.setTimeout(check, CHECK_MS); };
   const paint = () => {
     const dirty = isDirty();
     state.innerHTML = saving ? 'Saving…' : failed && dirty ? '<span class="fe-fe-dot"></span>Not saved' : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
     state.className = saving ? 'busy' : failed && dirty ? 'failed' : dirty ? 'dirty' : 'saved';
     state.title = failed && dirty ? failed : '';
-    if (view && previewing) view.innerHTML = renderMarkdown(ta.value, host.href);
+    renderView();
   };
-  const setPreview = (on: boolean) => {
+  // The rendered view follows the text; an HTML frame is only rebuilt when
+  // the text changed, so typing elsewhere does not reload the page in it.
+  let shown = '';
+  const renderView = () => {
+    if (!view || !fmt || mode === 'raw' || shown === ta.value) return;
+    const top = view.scrollTop;
+    view.innerHTML = fmt.rich(ta.value, host.href);
+    view.scrollTop = top;
+    shown = ta.value;
+  };
+  const setMode = (m: Mode) => {
     if (!view) return;
-    previewing = on;
-    view.hidden = !on; src.hidden = on;
-    box.querySelector('[data-act="preview"]')?.classList.toggle('on', on);
-    paint();
-    if (!on) ta.focus();
+    mode = m;
+    kvSet(MODE_KEY, m);
+    box.dataset.mode = m;
+    view.hidden = m === 'raw'; src.hidden = m === 'rich';
+    box.querySelectorAll<HTMLElement>('[data-mode]').forEach(b => { b.classList.toggle('on', b.dataset.mode === m); b.setAttribute('aria-pressed', String(b.dataset.mode === m)); });
+    renderView();
+    if (m !== 'rich') ta.focus({ preventScroll: true });
   };
+  const nextMode = () => setMode(MODES[(MODES.findIndex(x => x.id === mode) + 1) % MODES.length].id);
+  // In Split the rendered side keeps pace with the text side.
+  box.addEventListener('scroll', e => {
+    if (mode !== 'split' || !view || e.target !== src) return;
+    const sc = src;
+    const ratio = sc.scrollTop / Math.max(1, sc.scrollHeight - sc.clientHeight);
+    view.scrollTop = ratio * (view.scrollHeight - view.clientHeight);
+  }, true);
 
   const write = async (expect: number) => {
     saving = true; paint();
@@ -170,7 +228,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       // Touched but unchanged (a sync tool, a formatter that wrote the same
       // bytes): take the new time quietly, there is nothing to choose between.
       if (now.text === doc.text) { doc = now; return; }
-      if (!isDirty()) { doc = now; base = now.text; buf.snap(); ta.value = now.text; buf.snap(); paintSource(); paint(); }
+      if (!isDirty()) { doc = now; base = now.text; buf.snap(); ta.value = now.text; buf.snap(); check(); paintSource(); paint(); }
       else showConflict();
     } catch { /* host gone; the next save reports it */ }
   };
@@ -181,20 +239,35 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     if (isDirty() && !saving && banner.style.display === 'none') await write(doc.mtime);
     if (isDirty() && !confirm('Your last changes are not saved. Leave anyway?')) return;
     clearInterval(watch);
+    clearTimeout(checkTimer);
     document.removeEventListener('selectionchange', onSelection);
     box.innerHTML = '';
     host.closed();
   };
 
+  const goToLine = (line: number) => {
+    if (mode === 'rich') setMode('split');
+    const lines = ta.value.split('\n');
+    let pos = 0;
+    for (let i = 0; i < line - 1 && i < lines.length; i++) pos += lines[i].length + 1;
+    ta.focus({ preventScroll: true });
+    ta.setSelectionRange(pos, pos + (lines[line - 1]?.length ?? 0));
+    (paintEl.children[line - 1] as HTMLElement | undefined)?.scrollIntoView({ block: 'center' });
+    markLine();
+  };
+  box.addEventListener('click', e => {
+    const m = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]')?.dataset.mode as Mode | undefined;
+    if (m) setMode(m);
+  });
   box.addEventListener('click', async e => {
     const act = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
     if (act === 'save') save();
     else if (act === 'done') void close();
-    else if (act === 'preview') setPreview(!previewing);
+    else if (act === 'diag' && diags.length) goToLine(diags[0].line);
     else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; base = now.text; buf.snap(); ta.value = now.text; banner.style.display = 'none'; paintSource(); paint(); }
     else if (act === 'overwrite') { const now = await notes.fileRead(host.root, host.rel); void write(now.mtime); }
   });
-  ta.addEventListener('input', () => { paintSource(); paint(); later(); });
+  ta.addEventListener('input', () => { paintSource(); paint(); later(); checkLater(); });
   const onSelection = () => { if (document.activeElement === ta) markLine(); };
   document.addEventListener('selectionchange', onSelection);
   for (const ev of ['selectionchange', 'mouseup', 'keyup', 'focus']) ta.addEventListener(ev, markLine);
@@ -203,7 +276,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   // the caret at the end of the line level with the click, or at the end.
   box.querySelector('#fe-fe-scroll')!.addEventListener('mousedown', e => {
     const me = e as MouseEvent;
-    if (me.button !== 0 || previewing || me.target === ta) return;
+    if (me.button !== 0 || mode === 'rich' || me.target === ta || view?.contains(me.target as Node)) return;
     me.preventDefault();
     const rows = [...paintEl.children];
     let line = rows.findIndex(r => r.getBoundingClientRect().bottom > me.clientY);
@@ -219,12 +292,12 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     markLine();
   });
   box.addEventListener('keydown', e => {
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p') { e.preventDefault(); setPreview(!previewing); }
-    else if (e.key === 'Escape' && previewing) { e.preventDefault(); setPreview(false); }
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p' && fmt) { e.preventDefault(); nextMode(); }
+    else if (e.key === 'Escape' && mode === 'rich') { e.preventDefault(); setMode('raw'); }
   });
   ta.addEventListener('keydown', e => {
     const mod = e.metaKey || e.ctrlKey;
-    if (mod && e.shiftKey && e.key.toLowerCase() === 'p') return;   // the box handles preview
+    if (mod && e.shiftKey && e.key.toLowerCase() === 'p') return;   // the box cycles the view
     if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
     else if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) buf.redo(); else buf.undo(); }
     else if (e.key === 'Escape') { e.preventDefault(); void close(); }
@@ -240,8 +313,10 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const watch = setInterval(() => { if (document.visibilityState === 'visible' && !saving) void external(); }, 2000);
   window.addEventListener('beforeunload', e => { if (box.isConnected && isDirty()) e.preventDefault(); });
 
+  diags = diagnose(host.ext, ta.value);
   paintSource();
   paint();
+  if (fmt) setMode(mode);
   ta.focus();
   return { dirty: isDirty, close: () => void close() };
 }

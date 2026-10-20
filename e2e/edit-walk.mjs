@@ -98,10 +98,28 @@ try {
   await page.screenshot({ path: join(SHOTS, 'edit-select-dark.png'), clip: { x: 0, y: 0, width: 1400, height: 360 } });
   await page.screenshot({ path: join(SHOTS, 'edit-md-dark.png') });
 
-  await page.click('#fe-fe-pill [data-act="preview"]');
+  // Raw, Split and Rich: Rich shows the rendered page alone, Split shows both
+  // side by side, and the reading width narrows Raw and Rich.
+  await page.click('#fe-fe-pill [data-mode="rich"]');
   const preview = await page.evaluate(() => ({ view: !document.getElementById('fe-fe-view').hidden, text: document.getElementById('fe-fe-view').textContent, src: document.getElementById('fe-fe-src').hidden }));
-  check(preview.view && preview.src && /second line/.test(preview.text), `the eye shows the rendered page: ${JSON.stringify(preview)}`);
-  await page.click('#fe-fe-pill [data-act="preview"]');
+  check(preview.view && preview.src && /second line/.test(preview.text), `Rich shows the rendered page alone: ${JSON.stringify(preview)}`);
+  await page.click('#fe-fe-pill [data-mode="split"]');
+  const split = await page.evaluate(() => { const s = document.getElementById('fe-fe-src').getBoundingClientRect(), v = document.getElementById('fe-fe-view').getBoundingClientRect(); return { both: s.width > 100 && v.width > 100, sideBySide: Math.abs(s.top - v.top) < 2 && v.left >= s.right - 1 }; });
+  check(split.both && split.sideBySide, `Split shows text and rendered view side by side: ${JSON.stringify(split)}`);
+  const splitAlign = await page.evaluate(() => {
+    const row = document.querySelectorAll('#fe-fe-paint .fe-fe-row')[2].getBoundingClientRect();
+    const ta = document.getElementById('fe-fe-ta').getBoundingClientRect();
+    const lh = parseFloat(getComputedStyle(document.getElementById('fe-fe-ta')).lineHeight);
+    return { off: Math.abs(row.top - (ta.top + 2 * lh)), diagShown: getComputedStyle(document.getElementById('fe-fe-diag')).display !== 'none' };
+  });
+  check(splitAlign.off < 1 && !splitAlign.diagShown, `in Split the typed text sits on its painted row and no empty problem count shows: ${JSON.stringify(splitAlign)}`);
+  await page.screenshot({ path: join(SHOTS, 'edit-split-dark.png') });
+  await page.click('#fe-fe-pill [data-mode="raw"]');
+  const fullW = await page.$eval('#fe-fe-col', el => el.getBoundingClientRect().width);
+  for (let i = 0; i < 4 && !(await page.$eval('#fe-fp-column', b => /MD/.test(b.textContent))); i++) await page.click('#fe-fp-column');
+  const mdW = await page.$eval('#fe-fe-col', el => el.getBoundingClientRect().width);
+  check(mdW < fullW - 100, `the reading width narrows the editor too: ${Math.round(fullW)} → ${Math.round(mdW)}px`);
+  for (let i = 0; i < 4 && !(await page.$eval('#fe-fp-column', b => /Full/.test(b.textContent))); i++) await page.click('#fe-fp-column');
 
   // A change on disk while edited raises the banner and keeps the disk copy.
   await typeAtEnd(page, 'mine\n');
@@ -123,7 +141,7 @@ try {
   await page.waitForSelector('#fe-fp-edit');
   await page.click('#fe-fp-edit');
   await page.waitForSelector('#fe-fe-ta');
-  check(!(await page.$('#fe-fe-view')) && !(await page.$('#fe-fe-pill [data-act="preview"]')), 'a .txt file edits as source alone');
+  check(!(await page.$('#fe-fe-view')) && !(await page.$('#fe-fe-pill [data-mode]')), 'a .txt file edits as source alone');
 
   // A .yaml file, which Chrome downloads, opens in its folder's view: coloured and editable.
   const yaml = join(h.fixture, 'conf.yaml');
@@ -132,15 +150,28 @@ try {
   await page.waitForSelector('#fe-tbody');
   const row = await page.$('#fe-tbody tr[data-idx]:has(a[href$="conf.yaml"]) td.c-nm');
   await Promise.all([page.waitForNavigation({ waitUntil: 'load' }).catch(() => null), row.click({ count: 2 })]);
-  await page.waitForSelector('#fe-page .tok-key', { timeout: 5000 }).catch(() => null);
-  const yv = { url: page.url(), keys: await page.$$eval('#fe-page .tok-key', s => s.map(x => x.textContent)), crumb: await page.title() };
-  check(yv.url.endsWith('/#view=conf.yaml') && yv.keys.includes('name') && /conf\.yaml/.test(yv.crumb), `a .yaml opens in its folder view, coloured: ${JSON.stringify(yv)}`);
+  await page.waitForSelector('#fe-page .fe-jt-key', { timeout: 5000 }).catch(() => null);
+  const yv = { url: page.url(), keys: await page.$$eval('#fe-page .fe-jt-key', s => s.map(x => x.textContent)), crumb: await page.title() };
+  check(yv.url.endsWith('/#view=conf.yaml') && yv.keys.includes('name') && /conf\.yaml/.test(yv.crumb), `a .yaml opens in its folder view as a tree: ${JSON.stringify(yv)}`);
   await page.keyboard.press('e');
   await page.waitForSelector('#fe-fe-ta');
   await typeAtEnd(page, 'done: true\n');
   await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
   await page.waitForFunction(() => document.getElementById('fe-fe-state').className === 'saved', { timeout: 5000 }).catch(() => null);
   check(readFileSync(yaml, 'utf8').endsWith('done: true\n'), 'the .yaml saves from its view');
+  // A duplicate key marks its row and the pill counts it; the fix clears both.
+  await typeAtEnd(page, 'name: again\n');
+  await page.waitForFunction(() => !document.getElementById('fe-fe-diag').hidden, { timeout: 3000 }).catch(() => null);
+  const bad = await page.evaluate(() => ({ pill: document.getElementById('fe-fe-diag').textContent, rows: [...document.querySelectorAll('#fe-fe-paint .fe-fe-row')].map((r, i) => r.classList.contains('err') ? i + 1 : 0).filter(Boolean) }));
+  check(/1 problem/.test(bad.pill) && bad.rows.includes(5), `a duplicate key marks line 5 and the pill counts it: ${JSON.stringify(bad)}`);
+  await page.screenshot({ path: join(SHOTS, 'edit-yaml-problem-dark.png') });
+  await page.click('#fe-fe-pill [data-mode="rich"]');
+  const tree = await page.$$eval('#fe-fe-view .fe-jt-key', s => s.map(x => x.textContent));
+  check(tree.includes('steps') && tree.includes('done'), `YAML Rich still draws the tree with the mistake in it: ${JSON.stringify(tree)}`);
+  await page.click('#fe-fe-pill [data-mode="raw"]');
+  await page.evaluate(() => { const t = document.getElementById('fe-fe-ta'); t.value = t.value.replace('name: again\n', ''); t.dispatchEvent(new Event('input')); });
+  await page.waitForFunction(() => document.getElementById('fe-fe-diag').hidden, { timeout: 3000 }).catch(() => null);
+  check(await page.$eval('#fe-fe-diag', el => el.hidden) && !(await page.$('#fe-fe-paint .fe-fe-row.err')), 'removing the duplicate clears the mark and the count');
 } finally {
   console.log(results.join('\n'));
   await h.close();

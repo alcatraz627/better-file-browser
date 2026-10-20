@@ -1120,6 +1120,47 @@ button.fe-si{width:auto;display:flex}
 .fe-set-sw:has(input:checked){background:var(--act);color:var(--tx)}
 .fe-set-sw input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
 .fe-set-sw-chip{width:40px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--b) 55%,var(--a) 55%);box-shadow:inset 0 0 0 1px var(--bd2)}
+/* Editing: the reading width applies to Raw and Rich; Split gives each side
+   half the pane and its own scroll. Problems mark their row in the gutter. */
+#fe-fe-col{max-width:none}
+#fe.fe-column-xl #fe-fe-col{max-width:150ch}
+#fe.fe-column-lg #fe-fe-col{max-width:130ch}
+#fe.fe-column-md #fe-fe-col{max-width:110ch}
+[data-mode="split"] #fe-fe-scroll{overflow:hidden}
+#fe [data-mode="split"] #fe-fe-col{max-width:none;height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:0}
+/* Spacing on the text side is border, not padding: the typing layer is placed
+   against the padding box, so padding would shift it off the painted text. */
+[data-mode="split"] #fe-fe-src{overflow:auto;padding:0 20px 120px 0;border-top:24px solid transparent;border-left:12px solid transparent}
+[data-mode="split"] #fe-fe-view{overflow:auto;padding:60px 28px 120px;border-left:1px solid var(--bd)}
+#fe-fe-diag[hidden]{display:none}
+.fe-fe-rich{padding:0}
+[data-mode="rich"] #fe-fe-view,[data-mode="split"] #fe-fe-view{animation:fe-fade var(--t-base) var(--ease)}
+.fe-html-frame{display:block;width:100%;height:calc(100vh - 210px);min-height:320px;border:1px solid var(--bd);border-radius:8px;background:#fff}
+.fe-yaml-sep{border:0;border-top:1px dashed var(--bd);margin:12px 0}
+.fe-fe-row.err,.fe-cl.err{background:color-mix(in srgb,var(--nc-red) 8%,transparent)}
+.fe-fe-row.warn,.fe-cl.warn{background:color-mix(in srgb,var(--nc-orange) 7%,transparent)}
+.fe-fe-row.err .fe-fe-ln,.fe-cl.err .fe-cl-n{color:var(--nc-red);font-weight:600}
+.fe-fe-row.warn .fe-fe-ln,.fe-cl.warn .fe-cl-n{color:var(--nc-orange);font-weight:600}
+.fe-fe-row.err .fe-fe-code,.fe-cl.err .fe-cl-t{text-decoration:underline wavy color-mix(in srgb,var(--nc-red) 70%,transparent);text-underline-offset:3px}
+.fe-cl.flash{background:var(--act);transition:background 1s var(--ease)}
+.fe-fe-modes{padding:2px;border-radius:999px}
+.fe-fe-modes button{height:24px;padding:0 10px;border:0;border-radius:999px;background:none;color:var(--mt);font:inherit;font-size:calc(12px * var(--ui-text-scale,1));cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-fe-modes button:hover{color:var(--tx)}
+.fe-fe-modes button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
+#fe-fe-pill .fe-fe-diag{border-radius:999px;padding:0 10px;font-size:calc(12px * var(--ui-text-scale,1))}
+.fe-fe-diag.error{color:var(--nc-red)}
+.fe-fe-diag.warn{color:var(--nc-orange)}
+.fe-diag{margin:0 0 14px;border:1px solid var(--bd);border-radius:10px;background:var(--side);font-size:calc(12.5px * var(--ui-text-scale,1))}
+.fe-diag > summary{cursor:pointer;padding:8px 12px;font-weight:600;list-style:none}
+.fe-diag.error > summary{color:var(--nc-red)}
+.fe-diag.warn > summary{color:var(--nc-orange)}
+.fe-diag-row{display:flex;gap:10px;width:100%;padding:5px 12px;border:0;background:none;color:var(--mt);font:inherit;text-align:left;cursor:pointer;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+.fe-diag-row:hover{background:var(--hover);color:var(--tx)}
+.fe-diag-ln{flex:none;min-width:3ch;text-align:right;font-family:var(--mono);color:var(--dm)}
+.fe-diag-row.error .fe-diag-ln{color:var(--nc-red)}
+.fe-diag-row.warn .fe-diag-ln{color:var(--nc-orange)}
+.fe-diag-more{display:block;padding:5px 12px 8px;color:var(--dm)}
+#fe-page > .fe-diag{margin:16px 48px 0}
 .fe-st-rule-del:hover{color:var(--nc-red)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){
