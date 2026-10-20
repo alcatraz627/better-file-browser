@@ -786,17 +786,20 @@ function render(text: string, ext: string): void {
   body.innerHTML = renderCode(text, ext);
   restoreScroll(body);
 }
-// HTML previews as the page it describes, in a sandbox that cannot reach the
-// explorer or the file system beyond what the page itself links. Source flips
-// to the highlighted markup, and the choice holds for the next HTML file.
+// HTML previews as the page it describes: the frame loads the file itself, so
+// its relative images, styles and scripts resolve as they would opened
+// directly. A sandboxed srcdoc copy cannot do that: its opaque origin is
+// refused every file:// image. Each file:// file is its own origin in Chrome,
+// so the page still cannot reach the explorer around it. Source flips to the
+// highlighted markup, and the choice holds for the next HTML file.
 let htmlSource = false;
 function renderHtml(body: HTMLElement, text: string): void {
   const btn = (v: 'page' | 'src', label: string, on: boolean) =>
     `<button class="fe-pbn${on ? ' on' : ''}" data-v="${v}" title="${v === 'page' ? 'Show the rendered page' : 'Show the HTML source'}">${label}</button>`;
   body.innerHTML = `<div class="fe-ql-htmlbar">${btn('page', 'Page', !htmlSource)}${btn('src', 'Source', htmlSource)}</div>`
-    + (htmlSource ? renderCode(text, 'html') : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>');
+    + (htmlSource ? renderCode(text, 'html') : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
   const frame = body.querySelector<HTMLIFrameElement>('iframe.fe-ql-html');
-  if (frame) frame.srcdoc = `<base href="${esc(currentEntry?.href ?? '')}" target="_blank">${text}`;
+  if (frame && currentEntry) frame.src = currentEntry.href;
   body.querySelectorAll<HTMLButtonElement>('.fe-ql-htmlbar button').forEach(b => b.addEventListener('click', () => {
     htmlSource = b.dataset.v === 'src';
     renderHtml(body, text);

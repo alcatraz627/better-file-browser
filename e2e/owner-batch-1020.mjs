@@ -1,7 +1,8 @@
 // Owner review 2026-10-20: default sort in Settings, and tooltips on icon-only
 // buttons. Each check maps to a row in docs/plan/20261020-consistency-pass.md.
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { launch, shot } from './harness.mjs';
 
 const h = await launch();
@@ -140,6 +141,21 @@ try {
   const toast = await page.$eval('#fe-toast', t => t.textContent);
   check(bar.chips.some(c => /lines$/.test(c)) && bar.chips.some(c => /headings$/.test(c)) && bar.status === '' && bar.kind === 'Markdown' && /Copied the path/.test(toast),
     `status bar carries the file facts once, path copies: ${JSON.stringify({ ...bar, toast })}`);
+  await page.close();
+
+  // HTML preview: the page loads its own relative images and keeps standards mode.
+  const site = join(h.fixture, 'site');
+  mkdirSync(join(site, 'img'), { recursive: true });
+  copyFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'icon48.png'), join(site, 'img', 'a.png'));
+  writeFileSync(join(site, 'index.html'), '<!doctype html><html><head><style>h1{margin:0}</style></head><body><h1>Sheet</h1><img id="i" src="img/a.png"></body></html>');
+  await h.store.set('bfb-preview-layout-v1', { mode: 'side', sideW: 700 });
+  page = await h.open(site);
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="index.html"]) td.c-nm')).click();
+  await page.waitForSelector('#fe-ql-body iframe.fe-ql-html', { timeout: 5_000 });
+  const hf = await (await page.$('#fe-ql-body iframe.fe-ql-html')).contentFrame();
+  await hf.waitForFunction(() => document.getElementById('i')?.complete, { timeout: 5_000 }).catch(() => null);
+  const htmlPv = await hf.evaluate(() => ({ img: document.getElementById('i').naturalWidth, mode: document.compatMode }));
+  check(htmlPv.img === 48 && htmlPv.mode === 'CSS1Compat', `an HTML preview loads its relative images in standards mode: ${JSON.stringify(htmlPv)}`);
   await page.close();
 } finally {
   await h.close();

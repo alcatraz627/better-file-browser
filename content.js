@@ -3526,9 +3526,9 @@ ${body}
   var htmlSource = false;
   function renderHtml(body, text) {
     const btn = (v, label, on) => `<button class="fe-pbn${on ? " on" : ""}" data-v="${v}" title="${v === "page" ? "Show the rendered page" : "Show the HTML source"}">${label}</button>`;
-    body.innerHTML = `<div class="fe-ql-htmlbar">${btn("page", "Page", !htmlSource)}${btn("src", "Source", htmlSource)}</div>` + (htmlSource ? renderCode(text, "html") : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>');
+    body.innerHTML = `<div class="fe-ql-htmlbar">${btn("page", "Page", !htmlSource)}${btn("src", "Source", htmlSource)}</div>` + (htmlSource ? renderCode(text, "html") : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
     const frame = body.querySelector("iframe.fe-ql-html");
-    if (frame) frame.srcdoc = `<base href="${esc(currentEntry?.href ?? "")}" target="_blank">${text}`;
+    if (frame && currentEntry) frame.src = currentEntry.href;
     body.querySelectorAll(".fe-ql-htmlbar button").forEach((b) => b.addEventListener("click", () => {
       htmlSource = b.dataset.v === "src";
       renderHtml(body, text);
