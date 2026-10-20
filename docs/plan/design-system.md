@@ -157,6 +157,17 @@ judged against `ui-principles.md`):
   holds recent folders, files and closed tab sets with ages. Every lens has a
   title, a one-line subtitle, an empty state that offers the next step, and a
   filter only above about eight rows.
+- **Soft, round 2** (decision page `bfb-soft-round2`, answer `D1b D2a D3d`):
+  - Colour: Slate and teal is the default palette. Violet, Sand and rose, and
+    Ink are offered in Settings, so every palette must work with the same
+    tokens: "b default, but keep the design system coherent enough that I can
+    pick any of these 4 from the settings".
+  - Elements: selection and the active lens are a soft wash, never a ring or
+    a thick curved border, and the selected wash is distinct from hover yet of
+    the same family: "keep it soft, thick curved borders look bad, a light bg
+    is often the best; different and compatible with the hover bg".
+  - Groups: foldable with a chevron and count, on a soft card background:
+    "d. but you can give them a soft card bg like c".
 - **Contents lives in a right-hand rail on the file page**, "On this page",
   tracking the reading position. Headings show depth by indent and a small
   step in text size. A button above the list collapses and expands it. Find
