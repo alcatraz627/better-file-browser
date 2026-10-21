@@ -194,9 +194,17 @@ export function initSidebar(app: App): void {
       + `<span class="fe-svc-hint">Double-click to rename · drag to reorder</span>`;
     const r = item.getBoundingClientRect();
     card.hidden = false;
-    const h = card.offsetHeight;
-    card.style.left = `${Math.round(r.left + 24)}px`;
-    card.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
+    const h = card.offsetHeight, w = card.offsetWidth;
+    // Beside the sidebar, level with the row, so it never covers the rows a
+    // person moves on to; below the row only when the window is too narrow.
+    const sideRight = el('fe-side').getBoundingClientRect().right;
+    if (sideRight + 8 + w <= innerWidth - 8) {
+      card.style.left = `${Math.round(sideRight + 8)}px`;
+      card.style.top = `${Math.round(Math.max(8, Math.min(r.top - 4, innerHeight - h - 8)))}px`;
+    } else {
+      card.style.left = `${Math.round(r.left + 24)}px`;
+      card.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
+    }
     cardFor = item;
   }
   svList.addEventListener('pointerover', e => {
@@ -409,8 +417,8 @@ export function initSidebar(app: App): void {
       return `
           <div class="fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}${c ? ' coloured' : ''}${(n.tags ?? []).length ? ' two' : ''}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ''}>
             <a href="${esc(fileHref(root + '/' + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
-              ${PI.docs ?? PI.folder}${noteRowText(n)}
-            </a>${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel)!)}">${esc(bodyHits.get(n.rel)!)}</span>` : ''}
+              ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel)!)}">${esc(bodyHits.get(n.rel)!)}</span>` : ''}
+            </a>
             <span class="fe-nt-acts">
               <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
               <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
@@ -584,7 +592,10 @@ export function initSidebar(app: App): void {
     row!.scrollIntoView({ block: 'nearest' });
     const meta = allNotes.find(n => n.rel === rel);
     label.textContent = meta ? noteName(meta) : noteTitle(rel);   // the box holds the whole title, every line of it
+    const back = () => { renderNotes(root); if (reopen) openNoteRel(root, rel); };
     inlineEdit(label, val => {
+      // An emptied box means "never mind", not "call it untitled".
+      if (!val.trim()) { back(); return; }
       notes.read(root, rel).then(async doc => {
         const titled = setTitle(doc.text, val);
         let now = rel;
@@ -595,7 +606,7 @@ export function initSidebar(app: App): void {
           const to = rel.replace(/[^/]+$/, slugForTitle(val));
           if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some(n => n.rel.toLowerCase() === to.toLowerCase())) {
             toast(`A note named ${to.split('/').pop()} already exists. Pick another title.`);
-            renderNotes(root);
+            back();
             return;
           }
           if (to !== rel) { await notes.rename(root, rel, to); now = to; }
@@ -605,7 +616,7 @@ export function initSidebar(app: App): void {
         refreshNotes();
         if (reopen) openNoteRel(root, now);
       }).catch((err: NotesError) => toast(err.message));
-    }, () => { renderNotes(root); if (reopen) openNoteRel(root, rel); });
+    }, back);
   }
   function deleteNote(root: string, rel: string): void {
     if (editingRel() === rel) discardEditor();

@@ -215,18 +215,21 @@ export function mountComments(o: {
   // Accepting a suggestion is the one comment action that writes the
   // document: it replaces only the anchored words, against the file as the
   // page last read it, so a file changed meanwhile is refused, not merged.
+  // Why an Accept did not apply, shown under that suggestion's own buttons.
+  const sugSay = (commentId: string, text: string) => { sugMsg = { id: commentId, text }; o.status(text); paint(); };
   const accept = async (t: DocThread, commentId: string) => {
     const root = o.root();
     const c = t.comments.find(x => x.id === commentId);
     if (!root || busy || !c?.suggestion || t.place.offset === null) return;
-    if (o.editing?.()) { o.status('Close the editor first, then accept the suggestion'); return; }
+    sugMsg = null;
+    if (o.editing?.()) { sugSay(commentId, 'The file is open in the editor. Press Done there, then accept.'); return; }
     const shown = o.text();
     let cur: { text: string; mtime: number };
-    try { cur = await notes.fileRead(root, o.rel()); } catch (e) { o.status(`Not applied: ${(e as Error).message}`); return; }
-    if (cur.text !== shown) { o.status('The file changed on disk since this page loaded it. Reload, then accept again.'); return; }
+    try { cur = await notes.fileRead(root, o.rel()); } catch (e) { sugSay(commentId, `Not applied: ${(e as Error).message}`); return; }
+    if (cur.text !== shown) { sugSay(commentId, 'The file changed on disk since this page loaded it. Reload, then accept again.'); return; }
     const start = t.place.offset, end = start + t.place.length;
     const next = cur.text.slice(0, start) + c.suggestion.replace + cur.text.slice(end);
-    try { await notes.fileWrite(root, o.rel(), next, cur.mtime); } catch (e) { o.status(`Not applied: ${(e as Error).message}`); return; }
+    try { await notes.fileWrite(root, o.rel(), next, cur.mtime); } catch (e) { sugSay(commentId, `Not applied: ${(e as Error).message}`); return; }
     o.edited?.(next);
     const r = await write([{ op: 'decide', thread: t.id, comment: commentId, state: 'accepted', start, end: start + c.suggestion.replace.length, was: cur.text.slice(start, end) }], 'Accept');
     if (r) o.status('Suggestion applied; the old text is in the backups');
@@ -257,6 +260,7 @@ export function mountComments(o: {
 
   // A suggested edit reads as a small diff: the words now, struck through, and
   // what would replace them. A pending one can be accepted or rejected here.
+  let sugMsg: { id: string; text: string } | null = null;
   const sugHtml = (t: DocThread, c: DocThread['comments'][number], on: boolean) => {
     const s = c.suggestion!;
     const placed = t.place.offset !== null;
@@ -269,7 +273,8 @@ export function mountComments(o: {
     const tools = on ? `<div class="fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-hover-shade data-a="reject" data-v="${esc(c.id)}" title="Keep the text as it is">${UI_ICON.close}Reject</button>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="accept" data-v="${esc(c.id)}"${can ? '' : ' disabled'} title="${can ? 'Replace the words in the file (a backup is kept)' : 'The words are no longer in the file, so this cannot be applied'}">${UI_ICON.check}Accept</button></div>` : '';
-    return `<div class="fe-cm-sug pending">${diff}${tools}</div>`;
+    const said = on && sugMsg?.id === c.id ? `<p class="fe-cm-sug-msg" role="status">${UI_ICON.info}<span>${esc(sugMsg.text)}</span></p>` : '';
+    return `<div class="fe-cm-sug pending">${diff}${tools}${said}</div>`;
   };
 
   const threadHtml = (t: DocThread) => {
@@ -453,8 +458,13 @@ export function mountComments(o: {
       loaded = false; void load();
     }
     const src = o.text().slice(span.start, span.end);
-    // A new selection is a new comment: nothing typed for an earlier one carries over.
-    if (!draft || draft.start !== span.start || draft.end !== span.end) typed.delete('new');
+    // A new selection is a new comment: nothing typed for an earlier one
+    // carries over, except a draft put away with Esc on these same words.
+    if (!draft || draft.start !== span.start || draft.end !== span.end) {
+      typed.delete('new');
+      if (parked && parked.start === span.start && parked.end === span.end) typed.set('new', parked.text);
+    }
+    parked = null;
     draft = { ...span, quote: visibleOf(src) || src, attach };
     if (!attach) active = '';
     window.getSelection()?.removeAllRanges();
@@ -464,7 +474,16 @@ export function mountComments(o: {
     o.box.querySelector<HTMLElement>('.fe-cm-new')?.scrollIntoView({ block: 'nearest' });
     (o.box.querySelector<HTMLElement>('textarea[data-for="new"]') ?? o.box.querySelector<HTMLElement>('[data-a="post"]'))?.focus();
   };
-  const cancelDraft = () => { draft = null; typed.delete('new'); paint(); redraw(); };
+  // Esc puts a typed comment away rather than throwing it out; selecting the
+  // same words again brings it back. Cancel discards it.
+  let parked: { start: number; end: number; text: string } | null = null;
+  const cancelDraft = (keep = false) => {
+    // The box's own value: what was typed may not have been copied out yet.
+    const raw = o.box.querySelector<HTMLTextAreaElement>('textarea[data-for="new"]')?.value ?? typed.get('new') ?? '';
+    parked = keep && draft && !draft.attach && raw.trim() ? { start: draft.start, end: draft.end, text: raw } : null;
+    if (parked) o.status('Comment put away. Select the same words and press c to pick it up');
+    draft = null; typed.delete('new'); paint(); redraw();
+  };
   const post = async () => {
     if (!draft) return;
     const d = draft;
@@ -601,14 +620,14 @@ export function mountComments(o: {
       }
       if (e.key === 'Escape') {
         e.preventDefault(); e.stopPropagation();
-        if (id === 'new') cancelDraft();
+        if (id === 'new') cancelDraft(true);
         else if (id.startsWith('edit:')) cancelEdit();
         else { ta.blur(); o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true }); }
       }
       return;
     }
     if (el.closest('.fe-cm-new')) {
-      if (e.key === 'Escape') { e.preventDefault(); cancelDraft(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancelDraft(true); }
       else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void post(); }
       return;
     }

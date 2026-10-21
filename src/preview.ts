@@ -144,6 +144,20 @@ export function initPreview(d: PreviewDeps): void {
   });
   applyLayout();
 
+  // While the floating preview is open, Tab moves through its own controls
+  // and wraps, rather than walking the listing hidden behind its scrim.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || overlay.style.display === 'none' || !overlay.style.display || layout.mode === 'side') return;
+    if ((document.activeElement as HTMLElement | null)?.closest('textarea, [contenteditable="true"]')) return;   // the note editor indents with Tab
+    const all = [...overlay.querySelectorAll<HTMLElement>('button, a[href], input:not([type="file"]), textarea, select, [tabindex]:not([tabindex="-1"])')]
+      .filter(x => x.offsetParent !== null && !(x as HTMLButtonElement).disabled);
+    if (!all.length) return;
+    const at = all.indexOf(document.activeElement as HTMLElement);
+    const next = at < 0 ? (e.shiftKey ? all.length - 1 : 0) : (at + (e.shiftKey ? -1 : 1) + all.length) % all.length;
+    e.preventDefault();
+    all[next].focus();
+  }, true);
+
   // Corner grip (modal) sets the dialog's size; left-edge grip (side) sets
   // the panel width. Same mousedown/move/up shape as the column resizers.
   const dialog = document.getElementById('fe-ql-dialog')!;
@@ -231,9 +245,11 @@ function applyLayout(): void {
   overlay.classList.toggle('side', side);
   const host = side ? document.getElementById('fe-body') : document.getElementById('fe');
   if (host && overlay.parentElement !== host) host.appendChild(overlay);
-  overlay.style.width = side && layout.sideW ? layout.sideW + 'px' : '';
-  dialog.style.width  = !side && layout.modalW ? layout.modalW + 'px' : '';
-  dialog.style.height = !side && layout.modalH ? layout.modalH + 'px' : '';
+  // Remembered sizes are pixels from a wider window; cap them by the window
+  // now, so a narrower window keeps room for the listing and the close button.
+  overlay.style.width = side && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : '';
+  dialog.style.width  = !side && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : '';
+  dialog.style.height = !side && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : '';
   const dock = document.getElementById('fe-ql-dock')!;
   dock.title = side ? 'Float the preview as a window' : 'Dock the preview to the side';
   dock.classList.toggle('on', side);

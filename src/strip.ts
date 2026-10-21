@@ -183,9 +183,9 @@ export function mountStrip(host: StripHost): Strip {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 
   // ── Render ────────────────────────────────────────────────────────
-  // A cut-off name loses its middle: the head is trimmed to the room left
-  // and ends in an ellipsis, measured so no gap opens between it and the tail
-  // (a CSS ellipsis stops a part-character short of the edge).
+  // A cut-off name keeps its start and any extension: the head is trimmed to
+  // the room left and ends in an ellipsis, measured so no gap opens before
+  // the extension (a CSS ellipsis stops a part-character short of the edge).
   function fitHeads(): void {
     for (const head of el.querySelectorAll<HTMLElement>('.fe-tab-head')) {
       const full = head.dataset.full ?? head.textContent ?? '';

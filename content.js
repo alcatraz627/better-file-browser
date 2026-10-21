@@ -722,7 +722,7 @@ ${fm}
   function setFirstLine(text, title) {
     const m = text.match(/^(\s*)([^\n]*)/);
     if (!m || !m[2].trim()) return null;
-    const marks = m[2].match(/^#+\s*/)?.[0];
+    const marks = m[2].match(/^#{1,6}[ \t]+/)?.[0];
     if (marks) return m[1] + marks + title + text.slice(m[0].length);
     return `# ${title}
 
@@ -3163,6 +3163,16 @@ ${body}
       applyLayout();
     });
     applyLayout();
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Tab" || overlay.style.display === "none" || !overlay.style.display || layout.mode === "side") return;
+      if (document.activeElement?.closest('textarea, [contenteditable="true"]')) return;
+      const all = [...overlay.querySelectorAll('button, a[href], input:not([type="file"]), textarea, select, [tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null && !x.disabled);
+      if (!all.length) return;
+      const at = all.indexOf(document.activeElement);
+      const next = at < 0 ? e.shiftKey ? all.length - 1 : 0 : (at + (e.shiftKey ? -1 : 1) + all.length) % all.length;
+      e.preventDefault();
+      all[next].focus();
+    }, true);
     const dialog = document.getElementById("fe-ql-dialog");
     const drag = (grip, onMove, onUp) => {
       grip.addEventListener("mousedown", (e) => {
@@ -3244,9 +3254,9 @@ ${body}
     overlay.classList.toggle("side", side);
     const host = side ? document.getElementById("fe-body") : document.getElementById("fe");
     if (host && overlay.parentElement !== host) host.appendChild(overlay);
-    overlay.style.width = side && layout.sideW ? layout.sideW + "px" : "";
-    dialog.style.width = !side && layout.modalW ? layout.modalW + "px" : "";
-    dialog.style.height = !side && layout.modalH ? layout.modalH + "px" : "";
+    overlay.style.width = side && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : "";
+    dialog.style.width = !side && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : "";
+    dialog.style.height = !side && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : "";
     const dock = document.getElementById("fe-ql-dock");
     dock.title = side ? "Float the preview as a window" : "Dock the preview to the side";
     dock.classList.toggle("on", side);
@@ -4490,6 +4500,12 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-more{font-size:var(--fs-md);letter-spacing:1px}
 .fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
 .fe-tab-x:hover{background:var(--shade2);color:#f85149}
+/* A tab you are not on gives its name the whole width: its menu and close
+   buttons float over the end of the name, and only while it is hovered. */
+.fe-tab:not(.on) .fe-tab-x,.fe-tab:not(.on) .fe-tab-more{position:absolute;top:50%;margin-top:-9px;background:var(--s3)}
+.fe-tab:not(.on) .fe-tab-x{right:6px}
+.fe-tab:not(.on) .fe-tab-more{right:26px}
+.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-x,.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-more{visibility:hidden}
 .fe-tab-more:hover{background:var(--shade2);color:var(--tx)}
 .fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
 .fe-tab-ico{display:flex;flex-shrink:0}
@@ -4590,6 +4606,8 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-sug-state{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:var(--fs-xs);color:var(--dm)}
 .fe-cm-sug-state svg{width:12px;height:12px}
 .fe-cm-sug.rejected .fe-cm-diff{opacity:.6}
+.fe-cm-sug-msg{display:flex;gap:6px;align-items:flex-start;margin:6px 0 0;font-size:var(--fs-sm);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));line-height:1.4}
+.fe-cm-sug-msg svg{flex:none;width:13px;height:13px;margin-top:2px}
 .fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
 .fe-cm-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;font-size:var(--fs-sm);background:var(--s2);color:var(--mt)}
 .fe-cm-chip svg{width:11px;height:11px}
@@ -4675,14 +4693,17 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-toc a.on{color:var(--tx);background:var(--act)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:var(--fs-sm);color:var(--dm);margin-right:auto;white-space:nowrap}
-#fe-nt-list .fe-nt-hit{display:block;padding:0 10px 4px 32px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* A text match sits on its own line under the title, inside the link, so the title keeps its width and the whole row opens the note. */
+#fe-nt-list .fe-si-link:has(.fe-nt-hit){flex-wrap:wrap;row-gap:1px}
+#fe-nt-list .fe-nt-hit{flex:1 0 100%;min-width:0;padding:0 0 2px 24px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Editing in place: coloured, numbered source in the reading column. The
    painted copy (#fe-fe-paint) and the textarea share font, padding and
    wrapping exactly, so the caret sits over its own text. */
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
 #fe-fe-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--s1)}
 #fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
-#fe-fe-col{max-width:980px;margin:0 auto;padding:28px 28px 120px}
+/* The top padding clears the floating pill, so a long first line is never under it. */
+#fe-fe-col{max-width:980px;margin:0 auto;padding:62px 28px 120px}
 #fe-fe-src{position:relative}
 #fe-fe-src[hidden]{display:none}
 #fe-fe-paint,#fe-fe-ta{margin:0;font-family:var(--mono);font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1));line-height:1.7;
@@ -5339,7 +5360,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-send svg{width:15px;height:15px}
 .fe-ask-send.stop svg{display:none}
 .fe-ask-send.stop::before{content:'';width:9px;height:9px;border-radius:2px;background:currentColor}
-.fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh)}
+.fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
 .fe-ask-hist[hidden]{display:none}
 .fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
 .fe-ask-h:hover,.fe-ask-h.on{background:var(--hover)}
@@ -13124,12 +13145,18 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         o.changed();
       }
     };
+    const sugSay = (commentId, text) => {
+      sugMsg = { id: commentId, text };
+      o.status(text);
+      paint();
+    };
     const accept = async (t, commentId) => {
       const root = o.root();
       const c = t.comments.find((x) => x.id === commentId);
       if (!root || busy || !c?.suggestion || t.place.offset === null) return;
+      sugMsg = null;
       if (o.editing?.()) {
-        o.status("Close the editor first, then accept the suggestion");
+        sugSay(commentId, "The file is open in the editor. Press Done there, then accept.");
         return;
       }
       const shown = o.text();
@@ -13137,11 +13164,11 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       try {
         cur = await notes.fileRead(root, o.rel());
       } catch (e) {
-        o.status(`Not applied: ${e.message}`);
+        sugSay(commentId, `Not applied: ${e.message}`);
         return;
       }
       if (cur.text !== shown) {
-        o.status("The file changed on disk since this page loaded it. Reload, then accept again.");
+        sugSay(commentId, "The file changed on disk since this page loaded it. Reload, then accept again.");
         return;
       }
       const start = t.place.offset, end = start + t.place.length;
@@ -13149,7 +13176,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       try {
         await notes.fileWrite(root, o.rel(), next, cur.mtime);
       } catch (e) {
-        o.status(`Not applied: ${e.message}`);
+        sugSay(commentId, `Not applied: ${e.message}`);
         return;
       }
       o.edited?.(next);
@@ -13177,6 +13204,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
     </div>`;
     const notice = (text, why = "") => `<div class="fe-cm-state"${why ? ` title="${esc(why)}"` : ""}>${UI_ICON.info}<span>${esc(text)}</span></div>`;
     const iconBtn = (a, icon2, title, v = "") => `<button type="button" class="fe-cm-ib" data-a="${a}"${v ? ` data-v="${esc(v)}"` : ""} title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
+    let sugMsg = null;
     const sugHtml = (t, c, on) => {
       const s = c.suggestion;
       const placed2 = t.place.offset !== null;
@@ -13188,7 +13216,8 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       const tools = on ? `<div class="fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-hover-shade data-a="reject" data-v="${esc(c.id)}" title="Keep the text as it is">${UI_ICON.close}Reject</button>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="accept" data-v="${esc(c.id)}"${can ? "" : " disabled"} title="${can ? "Replace the words in the file (a backup is kept)" : "The words are no longer in the file, so this cannot be applied"}">${UI_ICON.check}Accept</button></div>` : "";
-      return `<div class="fe-cm-sug pending">${diff}${tools}</div>`;
+      const said = on && sugMsg?.id === c.id ? `<p class="fe-cm-sug-msg" role="status">${UI_ICON.info}<span>${esc(sugMsg.text)}</span></p>` : "";
+      return `<div class="fe-cm-sug pending">${diff}${tools}${said}</div>`;
     };
     const threadHtml = (t) => {
       const on = t.id === active;
@@ -13372,7 +13401,11 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         void load();
       }
       const src = o.text().slice(span.start, span.end);
-      if (!draft || draft.start !== span.start || draft.end !== span.end) typed.delete("new");
+      if (!draft || draft.start !== span.start || draft.end !== span.end) {
+        typed.delete("new");
+        if (parked && parked.start === span.start && parked.end === span.end) typed.set("new", parked.text);
+      }
+      parked = null;
       draft = { ...span, quote: visibleOf(src) || src, attach };
       if (!attach) active = "";
       window.getSelection()?.removeAllRanges();
@@ -13383,7 +13416,11 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       o.box.querySelector(".fe-cm-new")?.scrollIntoView({ block: "nearest" });
       (o.box.querySelector('textarea[data-for="new"]') ?? o.box.querySelector('[data-a="post"]'))?.focus();
     };
-    const cancelDraft = () => {
+    let parked = null;
+    const cancelDraft = (keep = false) => {
+      const raw = o.box.querySelector('textarea[data-for="new"]')?.value ?? typed.get("new") ?? "";
+      parked = keep && draft && !draft.attach && raw.trim() ? { start: draft.start, end: draft.end, text: raw } : null;
+      if (parked) o.status("Comment put away. Select the same words and press c to pick it up");
       draft = null;
       typed.delete("new");
       paint();
@@ -13586,7 +13623,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         if (e.key === "Escape") {
           e.preventDefault();
           e.stopPropagation();
-          if (id === "new") cancelDraft();
+          if (id === "new") cancelDraft(true);
           else if (id.startsWith("edit:")) cancelEdit();
           else {
             ta.blur();
@@ -13598,7 +13635,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       if (el2.closest(".fe-cm-new")) {
         if (e.key === "Escape") {
           e.preventDefault();
-          cancelDraft();
+          cancelDraft(true);
         } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
           void post();
@@ -14457,8 +14494,8 @@ ${d.message}` : d.message;
   }
   function splitLabel(label) {
     if (label.length <= 12) return { head: label, tail: "" };
-    const n = Math.min(7, label.length);
-    return { head: label.slice(0, label.length - n), tail: label.slice(label.length - n) };
+    const ext2 = label.match(/\.[A-Za-z0-9]{1,6}$/)?.[0] ?? "";
+    return { head: label.slice(0, label.length - ext2.length), tail: ext2 };
   }
   function displayLabels(list) {
     const count = /* @__PURE__ */ new Map();
@@ -14927,7 +14964,10 @@ renders like the preview instead of Chrome's plain text, inside the same
 shell as a folder: the sidebar, the strip and the path bar stay where they
 are. The main column shows a heading table of contents for markdown, **r**
 for raw, a remembered scroll position, and a re-render whenever the file
-changes on disk. **Settings \u2192 Files** can limit this to non-markdown files or
+changes on disk. In a folder you allowed for editing, **Edit** opens the file
+in place: **Raw** shows the source, **Split** puts the source beside the
+render, **Rich** shows the render alone, and **Done** goes back to reading.
+**Settings \u2192 Files** can limit this to non-markdown files or
 turn it off. **Settings \u2192 Exclusions** opens .pdf, .html, and .htm in
 Chrome's native file page by default. Remove .html or .htm to show source.
 
@@ -14974,7 +15014,10 @@ Renders by type:
 
 The sidebar shows **Notes** even before setup. **Choose folder** picks a local
 folder (or type it in **Settings \u2192 Notes**); its \`.md\` files then appear with
-pinned notes first. The filter matches titles, tags and the notes' text. **n** or **+** starts an empty note. The panel becomes an
+pinned notes first. The filter matches titles and tags; switch **Names** to
+**Deep** inside the box to search the notes' text too, and each match shows its
+line under the title. Saved has the same switch, which also looks inside saved
+folders. **n** or **+** starts an empty note. The panel becomes an
 editor with the source on the left and the render on the right: a toolbar for
 bold, italic, code, lists, tasks, tables and images; \u2325\u2191\u2193 moves lines and
 \u2325\u21E7\u2191\u2193 duplicates them; Tab indents; Enter continues a list; a pasted or
@@ -14994,9 +15037,18 @@ If you have the local-models **\`lm\`** CLI and its native host installed, the
 preview gains an **AI bar**: **Summarize**, **Explain** (**Describe** for tables),
 and an **Ask** box. Answers stream in; closing the overlay cancels them.
 
-Pick the model and toggle **Keep warm** in **Settings \u2192 AI**. It's fully local \u2014
-nothing is sent anywhere. Without the CLI installed, the bar simply doesn't
-appear and everything else works normally.
+Pick the model and toggle **Keep warm** in **Settings \u2192 AI**. Local models run
+on this Mac and nothing leaves it. The **Ask** lens can also use Gemini models,
+listed under "Gemini, on Google's servers": those send the question and the
+file or folder listing to Google. Without the CLI installed, the bar simply
+doesn't appear and everything else works normally.
+
+## Ask
+
+The **Ask** lens puts a question about the open file or folder to the model you
+pick. Chats are kept per file and folder: the clock button lists earlier chats
+to reopen or delete, and **New chat** starts over. **Stop** ends an answer and
+keeps what arrived, marked as stopped.
 ` },
     { key: "tabs", label: "Tabs and Saved", hint: "open now, kept for later", md: `
 ## Tabs
@@ -15028,14 +15080,18 @@ Bookmarks and My Places entries were merged in.
 Tabs are what is open right now; Saved is the long-term list, the way browser
 tabs sit above browser bookmarks.
 
-## The sidebar: Places, Notes, History
+## The sidebar lenses
 
-The thin rail on the left picks what the sidebar shows; \u2191 and \u2193 move between
-them when the rail has focus, and the choice is remembered.
+The row of icons at the top of the sidebar picks what it shows; the open one
+grows to show its name. \u2190 and \u2192 move between them when the row has focus, the
+mouse wheel over the row steps through them, and the choice is remembered.
 
 - **Places**: where you can go. Home, the folders under it, Applications and Root.
-- **Notes**: what you kept. Saved folders and files, saved views, and your notes.
+- **Saved**: folders, files and saved views you kept, with tags.
+- **Notes**: your notes folder.
 - **History**: what you opened lately, and tabs from Chrome tabs you closed.
+- **Search**, **Ask** and **Comments**: search here, ask a model, and every
+  document with comments.
 
 Click a list's title to collapse it. Collapse choices survive a reload.
 **Settings \u2192 Appearance** can switch History off.
@@ -15097,8 +15153,8 @@ Browse and open in four views with zoom. Preview any file type in a floating or
 docked panel, or open a file directly as a rendered page with a table of
 contents. Keep folders and files as tabs and as Saved bookmarks with tags.
 Write notes in a live editor. Filter by name or regex, search the text inside
-files, and search every subfolder. Save a search as a reusable view. Every
-action is on the keyboard; press **?** for the full list.
+files, and search every subfolder. Save a search as a reusable view. Most
+actions have a key; press **?** for the full list.
 ` },
     { key: "reference", label: "Reference", hint: "keys, gestures, how it fits", md: `
 Single-letter keys work only when no text field is focused and no dialog is open.
@@ -15829,7 +15885,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     return p.startsWith("/") ? p.replace(/\/{2,}/g, "/") : null;
   }
-  async function readable(path, waitMs = 2500) {
+  async function readable(path, waitMs = 9e3) {
     if (!path.endsWith("/")) return true;
     const timeout = new Promise((r) => setTimeout(() => r(false), waitMs));
     const read2 = fetchFileText(fileHref(path)).then(() => true, () => false);
@@ -15900,8 +15956,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
           return;
         }
-        if (!await readable(found)) {
-          say(`The browser cannot open ${found}: it has no permission to read that folder.`);
+        const slow = setTimeout(() => say("Checking that folder\u2026"), 600);
+        const ok = await readable(found);
+        clearTimeout(slow);
+        if (!ok) {
+          say(`The browser could not open ${found}. It may not have permission to read that folder.`);
           return;
         }
         close();
@@ -16074,9 +16133,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           toast(`Nothing at ${path}`);
           return;
         }
-        if (!await readable(found)) {
+        const slow = setTimeout(() => toast("Checking that folder\u2026"), 600);
+        const ok = await readable(found);
+        clearTimeout(slow);
+        if (!ok) {
           input.setAttribute("aria-invalid", "true");
-          toast(`The browser cannot open ${found}: no permission to read it`);
+          toast(`The browser could not open ${found}. It may not have permission to read it.`);
           return;
         }
         if (found.replace(/\/$/, "") === app.rawPath.replace(/\/$/, "")) {
@@ -17788,9 +17850,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       card.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<button type="button" class="fe-chip fe-lens-tag" data-tag="${esc(t)}" title="Show only items tagged ${esc(t)}"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</button>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
       const r = item.getBoundingClientRect();
       card.hidden = false;
-      const h = card.offsetHeight;
-      card.style.left = `${Math.round(r.left + 24)}px`;
-      card.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
+      const h = card.offsetHeight, w = card.offsetWidth;
+      const sideRight = el("fe-side").getBoundingClientRect().right;
+      if (sideRight + 8 + w <= innerWidth - 8) {
+        card.style.left = `${Math.round(sideRight + 8)}px`;
+        card.style.top = `${Math.round(Math.max(8, Math.min(r.top - 4, innerHeight - h - 8)))}px`;
+      } else {
+        card.style.left = `${Math.round(r.left + 24)}px`;
+        card.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
+      }
       cardFor = item;
     }
     svList.addEventListener("pointerover", (e) => {
@@ -18043,8 +18111,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         return `
           <div class="fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}>
             <a href="${esc(fileHref(root + "/" + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
-              ${PI.docs ?? PI.folder}${noteRowText(n)}
-            </a>${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel))}">${esc(bodyHits.get(n.rel))}</span>` : ""}
+              ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel))}">${esc(bodyHits.get(n.rel))}</span>` : ""}
+            </a>
             <span class="fe-nt-acts">
               <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
               <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
@@ -18227,7 +18295,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       row.scrollIntoView({ block: "nearest" });
       const meta = allNotes.find((n) => n.rel === rel);
       label.textContent = meta ? noteName(meta) : noteTitle(rel);
+      const back = () => {
+        renderNotes(root);
+        if (reopen) openNoteRel(root, rel);
+      };
       inlineEdit(label, (val) => {
+        if (!val.trim()) {
+          back();
+          return;
+        }
         notes.read(root, rel).then(async (doc) => {
           const titled = setTitle(doc.text, val);
           let now = rel;
@@ -18236,7 +18312,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             const to = rel.replace(/[^/]+$/, slugForTitle(val));
             if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some((n) => n.rel.toLowerCase() === to.toLowerCase())) {
               toast(`A note named ${to.split("/").pop()} already exists. Pick another title.`);
-              renderNotes(root);
+              back();
               return;
             }
             if (to !== rel) {
@@ -18249,10 +18325,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           refreshNotes();
           if (reopen) openNoteRel(root, now);
         }).catch((err) => toast(err.message));
-      }, () => {
-        renderNotes(root);
-        if (reopen) openNoteRel(root, rel);
-      });
+      }, back);
     }
     function deleteNote(root, rel) {
       if (editingRel() === rel) discardEditor();
@@ -18743,7 +18816,7 @@ ${rows.join("\n")}`, name: subject };
       for (const t of turns) {
         const el2 = turnEl(t.q);
         el2.querySelector(".fe-ask-a").innerHTML = renderMarkdown(t.a);
-        el2.querySelector(".fe-ask-meta").textContent = metaText(t.model, t.ms);
+        el2.querySelector(".fe-ask-meta").textContent = t.model === "stopped" ? "Stopped" : metaText(t.model, t.ms);
       }
       syncEmpty();
       showHist(false);
@@ -18787,7 +18860,24 @@ ${rows.join("\n")}`, name: subject };
         go.setAttribute("aria-label", "Ask");
       };
       const asked = intent === "folder" ? "What is in this folder? Group the files by purpose in a few short lines." : question;
-      cancel = llmQuery(
+      let over = false;
+      const stopped = () => {
+        if (over) return;
+        over = true;
+        done();
+        if (!full.trim()) {
+          out.textContent = "Stopped before an answer came.";
+          return;
+        }
+        out.innerHTML = renderMarkdown(full);
+        meta.textContent = "Stopped";
+        if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const t = { q: shown, a: full + "\n\n*(stopped)*", model: "stopped", ms: 0, at: Date.now() };
+        turns.push(t);
+        addTurn(key, chatId, t);
+        syncHistN();
+      };
+      const stop = llmQuery(
         {
           ctx: c.ctx,
           ctxName: c.name,
@@ -18804,6 +18894,7 @@ ${rows.join("\n")}`, name: subject };
             out.textContent = full;
           },
           onDone: (info) => {
+            over = true;
             done();
             out.innerHTML = renderMarkdown(full);
             meta.textContent = metaText(info.model, info.ms, info.truncated);
@@ -18814,11 +18905,16 @@ ${rows.join("\n")}`, name: subject };
             syncHistN();
           },
           onError: (code, message) => {
+            over = true;
             done();
             if (code !== "cancelled") out.textContent = LLM_ERROR_TEXT[code] ?? message;
           }
         }
       );
+      cancel = () => {
+        stop();
+        stopped();
+      };
     }
     box.addEventListener("click", (e) => {
       const t = e.target;
@@ -18848,11 +18944,16 @@ ${rows.join("\n")}`, name: subject };
     document.addEventListener("pointerdown", (e) => {
       if (!hist.hidden && !hist.contains(e.target) && !histBtn.contains(e.target)) showHist(false);
     });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !hist.hidden) {
+        e.stopPropagation();
+        showHist(false);
+        histBtn.focus();
+      }
+    }, true);
     go.addEventListener("click", () => {
       if (cancel) {
         cancel();
-        cancel = null;
-        go.classList.remove("stop");
         return;
       }
       const text = q.value.trim();

@@ -52,6 +52,7 @@ describe('front matter', () => {
     expect(setFirstLine('\n## Old\nx', 'N')).toBe('\n## N\nx');
     expect(setFirstLine('plain first line\nmore', 'N')).toBe('# N\n\nplain first line\nmore');
     expect(setFirstLine('- [ ] buy milk\n- [ ] eggs', 'Groceries')).toBe('# Groceries\n\n- [ ] buy milk\n- [ ] eggs');
+    expect(setFirstLine('#work Call the bank\n\nMore', 'Bank call')).toBe('# Bank call\n\n#work Call the bank\n\nMore');
     expect(setFirstLine('', 'N')).toBeNull();
     expect(setFirstLine('  \n', 'N')).toBeNull();
     expect(noteTitle('a.md', setFirstLine('# Old\nbody', 'Fresh title')!)).toBe('Fresh title');

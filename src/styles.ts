@@ -613,6 +613,12 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-more{font-size:var(--fs-md);letter-spacing:1px}
 .fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
 .fe-tab-x:hover{background:var(--shade2);color:#f85149}
+/* A tab you are not on gives its name the whole width: its menu and close
+   buttons float over the end of the name, and only while it is hovered. */
+.fe-tab:not(.on) .fe-tab-x,.fe-tab:not(.on) .fe-tab-more{position:absolute;top:50%;margin-top:-9px;background:var(--s3)}
+.fe-tab:not(.on) .fe-tab-x{right:6px}
+.fe-tab:not(.on) .fe-tab-more{right:26px}
+.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-x,.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-more{visibility:hidden}
 .fe-tab-more:hover{background:var(--shade2);color:var(--tx)}
 .fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
 .fe-tab-ico{display:flex;flex-shrink:0}
@@ -713,6 +719,8 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-sug-state{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:var(--fs-xs);color:var(--dm)}
 .fe-cm-sug-state svg{width:12px;height:12px}
 .fe-cm-sug.rejected .fe-cm-diff{opacity:.6}
+.fe-cm-sug-msg{display:flex;gap:6px;align-items:flex-start;margin:6px 0 0;font-size:var(--fs-sm);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));line-height:1.4}
+.fe-cm-sug-msg svg{flex:none;width:13px;height:13px;margin-top:2px}
 .fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
 .fe-cm-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;font-size:var(--fs-sm);background:var(--s2);color:var(--mt)}
 .fe-cm-chip svg{width:11px;height:11px}
@@ -798,14 +806,17 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-toc a.on{color:var(--tx);background:var(--act)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:var(--fs-sm);color:var(--dm);margin-right:auto;white-space:nowrap}
-#fe-nt-list .fe-nt-hit{display:block;padding:0 10px 4px 32px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* A text match sits on its own line under the title, inside the link, so the title keeps its width and the whole row opens the note. */
+#fe-nt-list .fe-si-link:has(.fe-nt-hit){flex-wrap:wrap;row-gap:1px}
+#fe-nt-list .fe-nt-hit{flex:1 0 100%;min-width:0;padding:0 0 2px 24px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Editing in place: coloured, numbered source in the reading column. The
    painted copy (#fe-fe-paint) and the textarea share font, padding and
    wrapping exactly, so the caret sits over its own text. */
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
 #fe-fe-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--s1)}
 #fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
-#fe-fe-col{max-width:980px;margin:0 auto;padding:28px 28px 120px}
+/* The top padding clears the floating pill, so a long first line is never under it. */
+#fe-fe-col{max-width:980px;margin:0 auto;padding:62px 28px 120px}
 #fe-fe-src{position:relative}
 #fe-fe-src[hidden]{display:none}
 #fe-fe-paint,#fe-fe-ta{margin:0;font-family:var(--mono);font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1));line-height:1.7;
@@ -1462,7 +1473,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-send svg{width:15px;height:15px}
 .fe-ask-send.stop svg{display:none}
 .fe-ask-send.stop::before{content:'';width:9px;height:9px;border-radius:2px;background:currentColor}
-.fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh)}
+.fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
 .fe-ask-hist[hidden]{display:none}
 .fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
 .fe-ask-h:hover,.fe-ask-h.on{background:var(--hover)}

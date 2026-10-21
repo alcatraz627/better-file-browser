@@ -199,7 +199,7 @@ function initAsk(app: App): void {
     for (const t of turns) {
       const el = turnEl(t.q);
       el.querySelector('.fe-ask-a')!.innerHTML = renderMarkdown(t.a);
-      el.querySelector('.fe-ask-meta')!.textContent = metaText(t.model, t.ms);
+      el.querySelector('.fe-ask-meta')!.textContent = t.model === 'stopped' ? 'Stopped' : metaText(t.model, t.ms);
     }
     syncEmpty();
     showHist(false);
@@ -228,7 +228,22 @@ function initAsk(app: App): void {
     go.classList.add('stop'); go.title = 'Stop'; go.setAttribute('aria-label', 'Stop');
     const done = () => { cancel = null; go.classList.remove('stop'); go.title = 'Ask (Enter)'; go.setAttribute('aria-label', 'Ask'); };
     const asked = intent === 'folder' ? 'What is in this folder? Group the files by purpose in a few short lines.' : question;
-    cancel = llmQuery(
+    // Stopping, a new chat or opening another chat all end the answer here:
+    // the button returns to Ask and what arrived is kept, marked as stopped.
+    let over = false;
+    const stopped = () => {
+      if (over) return;
+      over = true; done();
+      if (!full.trim()) { out.textContent = 'Stopped before an answer came.'; return; }
+      out.innerHTML = renderMarkdown(full);
+      meta.textContent = 'Stopped';
+      if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const t: AskTurn = { q: shown, a: full + '\n\n*(stopped)*', model: 'stopped', ms: 0, at: Date.now() };
+      turns.push(t);
+      addTurn(key, chatId, t);
+      syncHistN();
+    };
+    const stop = llmQuery(
       {
         ctx: c.ctx, ctxName: c.name,
         // The host knows summarize, explain-code and qa; a folder question is a qa.
@@ -241,7 +256,7 @@ function initAsk(app: App): void {
       {
         onChunk: t => { full += t; out.textContent = full; },
         onDone: info => {
-          done();
+          over = true; done();
           out.innerHTML = renderMarkdown(full);
           meta.textContent = metaText(info.model, info.ms, info.truncated);
           if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -250,8 +265,9 @@ function initAsk(app: App): void {
           addTurn(key, chatId, t);
           syncHistN();
         },
-        onError: (code, message) => { done(); if (code !== 'cancelled') out.textContent = LLM_ERROR_TEXT[code] ?? message; },
+        onError: (code, message) => { over = true; done(); if (code !== 'cancelled') out.textContent = LLM_ERROR_TEXT[code] ?? message; },
       });
+    cancel = () => { stop(); stopped(); };
   }
 
   box.addEventListener('click', e => {
@@ -265,8 +281,9 @@ function initAsk(app: App): void {
   el('fe-ask-new').addEventListener('click', () => { showHist(false); newChat(); });
   histBtn.addEventListener('click', () => showHist(hist.hidden));
   document.addEventListener('pointerdown', e => { if (!hist.hidden && !hist.contains(e.target as Node) && !histBtn.contains(e.target as Node)) showHist(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !hist.hidden) { e.stopPropagation(); showHist(false); histBtn.focus(); } }, true);
   go.addEventListener('click', () => {
-    if (cancel) { cancel(); cancel = null; go.classList.remove('stop'); return; }
+    if (cancel) { cancel(); return; }
     const text = q.value.trim();
     if (!text) { q.focus(); return; }
     q.value = ''; grow();

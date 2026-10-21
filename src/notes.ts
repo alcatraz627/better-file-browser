@@ -160,7 +160,8 @@ export function setTitle(text: string, title: string): string | null {
 export function setFirstLine(text: string, title: string): string | null {
   const m = text.match(/^(\s*)([^\n]*)/);
   if (!m || !m[2].trim()) return null;
-  const marks = m[2].match(/^#+\s*/)?.[0];
+  // Only a real markdown heading (#, then a space) is a title line; "#work" is a tag.
+  const marks = m[2].match(/^#{1,6}[ \t]+/)?.[0];
   if (marks) return m[1] + marks + title + text.slice(m[0].length);
   return `# ${title}\n\n` + text;
 }

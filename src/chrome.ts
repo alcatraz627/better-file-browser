@@ -127,7 +127,10 @@ export function initChrome(app: App): void {
       if (!path) { input.setAttribute('aria-invalid', 'true'); toast('Type a full path, such as ~/Code or /Users/you/notes.md'); return; }
       const found = await resolvePath(path);
       if (!found) { input.setAttribute('aria-invalid', 'true'); toast(`Nothing at ${path}`); return; }
-      if (!(await readable(found))) { input.setAttribute('aria-invalid', 'true'); toast(`The browser cannot open ${found}: no permission to read it`); return; }
+      const slow = setTimeout(() => toast('Checking that folder…'), 600);
+      const ok = await readable(found);
+      clearTimeout(slow);
+      if (!ok) { input.setAttribute('aria-invalid', 'true'); toast(`The browser could not open ${found}. It may not have permission to read it.`); return; }
       if (found.replace(/\/$/, '') === app.rawPath.replace(/\/$/, '')) { endEdit(); return; }
       location.href = pageHref(fileHref(found));
     });

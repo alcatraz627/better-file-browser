@@ -115,9 +115,10 @@ describe('tabs', () => {
   it('splits long labels for middle truncation, keeping the end whole', () => {
     // Short labels stay whole (no tail span).
     expect(splitLabel('readme.md')).toEqual({ head: 'readme.md', tail: '' });
-    // Long labels keep the last 7 chars, so the extension always shows.
+    // A long file name keeps its extension; a long folder name keeps its start.
     const { head, tail } = splitLabel('components/very-long-name.tsx');
-    expect(tail).toBe('ame.tsx');
+    expect(tail).toBe('.tsx');
+    expect(splitLabel('photos-from-trip')).toEqual({ head: 'photos-from-trip', tail: '' });
     expect(head + tail).toBe('components/very-long-name.tsx');
     // The disambiguating folder prefix stays at the head's start.
     expect(head.startsWith('components/')).toBe(true);

@@ -201,9 +201,10 @@ itself every couple of seconds and re-renders when the file changes on disk.
 
 ## Good to know
 
-- Many controls are mouse-only. There is no key for the sort, filter, view, hidden,
-  zoom, theme, or terminal controls, the sidebar and its rows, the breadcrumb
-  dropdown, or renaming a saved item, and the context menu is right-click only.
+- Some controls have no single key: sort, filter, view, hidden, zoom, theme,
+  terminal, and the breadcrumb dropdown. Tab reaches them, the sidebar's lens
+  row, filters and rows, and the floating preview's buttons (Tab stays inside
+  the preview while it is open). The context menu is right-click only.
 - The toast message is always dark, in both themes.
 - A saved bookmark to a file whose name contains a `#` may be read as a search
   view rather than opened.

@@ -30,10 +30,11 @@ export function absPath(input: string, home: string): string | null {
 /** Whether the browser can list a folder (a path ending in /); a file always
  *  counts. A folder that exists but cannot be read would throw the tab out to
  *  Chrome's error page, so it is refused before going there. */
-export async function readable(path: string, waitMs = 2500): Promise<boolean> {
+export async function readable(path: string, waitMs = 9000): Promise<boolean> {
   if (!path.endsWith('/')) return true;
   // Reading a folder the browser has no permission for never answers, so
-  // silence past a short wait counts as unreadable.
+  // silence counts as unreadable; the wait is long enough for a folder with
+  // a hundred thousand files to list.
   const timeout = new Promise<boolean>(r => setTimeout(() => r(false), waitMs));
   const read = fetchFileText(fileHref(path)).then(() => true, () => false);
   return Promise.race([read, timeout]);
@@ -95,7 +96,10 @@ export function mountGoto(btn: HTMLElement, home: () => string, go: (path: strin
       kvSet(LAST_KEY, input.value);
       const found = await resolvePath(path);
       if (!found) { say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`); return; }
-      if (!(await readable(found))) { say(`The browser cannot open ${found}: it has no permission to read that folder.`); return; }
+      const slow = setTimeout(() => say('Checking that folder…'), 600);
+      const ok = await readable(found);
+      clearTimeout(slow);
+      if (!ok) { say(`The browser could not open ${found}. It may not have permission to read that folder.`); return; }
       close();
       go(found);
     });

@@ -78,7 +78,10 @@ renders like the preview instead of Chrome's plain text, inside the same
 shell as a folder: the sidebar, the strip and the path bar stay where they
 are. The main column shows a heading table of contents for markdown, **r**
 for raw, a remembered scroll position, and a re-render whenever the file
-changes on disk. **Settings → Files** can limit this to non-markdown files or
+changes on disk. In a folder you allowed for editing, **Edit** opens the file
+in place: **Raw** shows the source, **Split** puts the source beside the
+render, **Rich** shows the render alone, and **Done** goes back to reading.
+**Settings → Files** can limit this to non-markdown files or
 turn it off. **Settings → Exclusions** opens .pdf, .html, and .htm in
 Chrome's native file page by default. Remove .html or .htm to show source.
 
@@ -125,7 +128,10 @@ Renders by type:
 
 The sidebar shows **Notes** even before setup. **Choose folder** picks a local
 folder (or type it in **Settings → Notes**); its \`.md\` files then appear with
-pinned notes first. The filter matches titles, tags and the notes' text. **n** or **+** starts an empty note. The panel becomes an
+pinned notes first. The filter matches titles and tags; switch **Names** to
+**Deep** inside the box to search the notes' text too, and each match shows its
+line under the title. Saved has the same switch, which also looks inside saved
+folders. **n** or **+** starts an empty note. The panel becomes an
 editor with the source on the left and the render on the right: a toolbar for
 bold, italic, code, lists, tasks, tables and images; ⌥↑↓ moves lines and
 ⌥⇧↑↓ duplicates them; Tab indents; Enter continues a list; a pasted or
@@ -145,9 +151,18 @@ If you have the local-models **\`lm\`** CLI and its native host installed, the
 preview gains an **AI bar**: **Summarize**, **Explain** (**Describe** for tables),
 and an **Ask** box. Answers stream in; closing the overlay cancels them.
 
-Pick the model and toggle **Keep warm** in **Settings → AI**. It's fully local —
-nothing is sent anywhere. Without the CLI installed, the bar simply doesn't
-appear and everything else works normally.
+Pick the model and toggle **Keep warm** in **Settings → AI**. Local models run
+on this Mac and nothing leaves it. The **Ask** lens can also use Gemini models,
+listed under "Gemini, on Google's servers": those send the question and the
+file or folder listing to Google. Without the CLI installed, the bar simply
+doesn't appear and everything else works normally.
+
+## Ask
+
+The **Ask** lens puts a question about the open file or folder to the model you
+pick. Chats are kept per file and folder: the clock button lists earlier chats
+to reopen or delete, and **New chat** starts over. **Stop** ends an answer and
+keeps what arrived, marked as stopped.
 ` },
   { key: 'tabs', label: 'Tabs and Saved', hint: 'open now, kept for later', md: `
 ## Tabs
@@ -179,14 +194,18 @@ Bookmarks and My Places entries were merged in.
 Tabs are what is open right now; Saved is the long-term list, the way browser
 tabs sit above browser bookmarks.
 
-## The sidebar: Places, Notes, History
+## The sidebar lenses
 
-The thin rail on the left picks what the sidebar shows; ↑ and ↓ move between
-them when the rail has focus, and the choice is remembered.
+The row of icons at the top of the sidebar picks what it shows; the open one
+grows to show its name. ← and → move between them when the row has focus, the
+mouse wheel over the row steps through them, and the choice is remembered.
 
 - **Places**: where you can go. Home, the folders under it, Applications and Root.
-- **Notes**: what you kept. Saved folders and files, saved views, and your notes.
+- **Saved**: folders, files and saved views you kept, with tags.
+- **Notes**: your notes folder.
 - **History**: what you opened lately, and tabs from Chrome tabs you closed.
+- **Search**, **Ask** and **Comments**: search here, ask a model, and every
+  document with comments.
 
 Click a list's title to collapse it. Collapse choices survive a reload.
 **Settings → Appearance** can switch History off.
@@ -248,8 +267,8 @@ Browse and open in four views with zoom. Preview any file type in a floating or
 docked panel, or open a file directly as a rendered page with a table of
 contents. Keep folders and files as tabs and as Saved bookmarks with tags.
 Write notes in a live editor. Filter by name or regex, search the text inside
-files, and search every subfolder. Save a search as a reusable view. Every
-action is on the keyboard; press **?** for the full list.
+files, and search every subfolder. Save a search as a reusable view. Most
+actions have a key; press **?** for the full list.
 ` },
   { key: 'reference', label: 'Reference', hint: 'keys, gestures, how it fits', md: `
 Single-letter keys work only when no text field is focused and no dialog is open.

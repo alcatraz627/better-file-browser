@@ -115,10 +115,13 @@ export function insertTab(s: TabState, tab: Tab, index: number): TabState {
 // Split a label for middle truncation: the tail (the name's end, with its
 // extension) always shows, the head shrinks with an ellipsis. Short labels
 // are left whole. strip.ts renders head and tail as two flex spans.
+// A cut-off tab name keeps its start, which is how people recognise a name,
+// and a file keeps its extension: "photos-fr…" and "a-long-na….md", never the
+// middle fragments a fixed-length tail leaves ("ph…om-trip").
 export function splitLabel(label: string): { head: string; tail: string } {
   if (label.length <= 12) return { head: label, tail: '' };
-  const n = Math.min(7, label.length);
-  return { head: label.slice(0, label.length - n), tail: label.slice(label.length - n) };
+  const ext = label.match(/\.[A-Za-z0-9]{1,6}$/)?.[0] ?? '';
+  return { head: label.slice(0, label.length - ext.length), tail: ext };
 }
 
 // Labels as shown: two tabs with the same file name carry their folder too.
