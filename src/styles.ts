@@ -1352,43 +1352,65 @@ button.fe-si{width:auto;display:flex}
 .fe-srch-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .fe-srch-snip{font-size:var(--fs-md);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-srch-snip mark{background:color-mix(in srgb,var(--ac) 28%,transparent);color:var(--tx);border-radius:3px;padding:0 1px}
-.fe-ask-status{display:flex;align-items:flex-start;gap:8px;line-height:1.4;margin:0 16px 6px;font-size:var(--fs-md);color:var(--mt)}
-.fe-ask-status .dot{width:8px;height:8px;margin-top:4px;border-radius:50%;background:var(--dm);flex:none}
-.fe-ask-status.ready .dot{background:var(--green)}
-.fe-ask-status.cold .dot{background:var(--gold)}
-.fe-ask-status.down .dot,.fe-ask-status.unavailable .dot{background:var(--nc-red)}
-.fe-ask-about{margin:0 16px 8px;font-size:var(--fs-md);color:var(--dm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-ask-about b{color:var(--tx);font-weight:500}
-.fe-ask-quick{display:flex;flex-wrap:wrap;gap:4px;margin:0 16px 10px}
-.fe-ask-chip{cursor:pointer;background:none;font:inherit;font-size:var(--fs-md)}
-.fe-ask-chip:hover{background:var(--hover)}
-.fe-ask-turn{margin:0 6px 10px;padding:10px;border-radius:10px;background:var(--hover)}
-.fe-ask-q{font-weight:600;font-size:var(--row-fs);margin-bottom:6px;color:var(--tx)}
-.fe-ask-a.fe-md{padding:0;font-size:var(--fs-md);max-width:none}
+/* Ask: a top row (model chip, new chat, history), the chat, and a composer
+   pinned to the bottom of the lens. */
+#fe-lens-ask:not([hidden]){display:flex;flex-direction:column;min-height:100%}
+#fe-ask{flex:1;display:flex;flex-direction:column}
+.fe-ask-top{position:relative;display:flex;align-items:center;gap:2px;margin:0 10px 8px 14px}
+.fe-ask-sp{flex:1}
+.fe-ask-model{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;height:26px;padding:0 4px 0 9px;border:1px solid var(--bd);border-radius:999px;color:var(--mt);font-size:var(--fs-sm)}
+.fe-ask-model:hover{border-color:var(--bd2);color:var(--tx)}
+.fe-ask-model select{min-width:0;max-width:150px;border:0;background:none;color:inherit;font:inherit;outline:0;cursor:pointer;text-overflow:ellipsis}
+.fe-ask-model .dot,.fe-ask-status .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dm)}
+.dot.ready{background:var(--green)}
+.dot.cold{background:var(--gold)}
+.dot.down,.dot.unavailable{background:var(--nc-red)}
+.fe-ask-ib{position:relative;display:inline-grid;place-items:center;width:28px;height:28px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer}
+.fe-ask-ib:hover,.fe-ask-ib[aria-expanded="true"]{background:var(--hover);color:var(--tx)}
+.fe-ask-ib svg{width:15px;height:15px}
+.fe-ask-n{position:absolute;top:1px;right:0;min-width:14px;height:14px;padding:0 3px;border-radius:999px;font-size:10px;line-height:14px;text-align:center;background:var(--ac);color:var(--on-ac)}
+.fe-ask-n:empty{display:none}
+.fe-ask-status{display:flex;align-items:center;gap:8px;margin:0 16px 8px;font-size:var(--fs-sm);line-height:1.4;color:var(--mt)}
+.fe-ask-status[hidden]{display:none}
+.fe-ask-cloud{display:flex;align-items:center;gap:6px;margin:0 16px 8px;font-size:var(--fs-sm);color:var(--mt)}
+.fe-ask-cloud[hidden]{display:none}
+.fe-ask-cloud svg{width:12px;height:12px;flex:none;color:var(--gold)}
+#fe-ask-thread{display:flex;flex-direction:column;gap:14px;padding:4px 12px 12px 14px}
+.fe-ask-turn{display:flex;flex-direction:column;gap:6px}
+.fe-ask-q{align-self:flex-end;max-width:88%;padding:6px 10px;border-radius:12px 12px 4px 12px;background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx);font-size:var(--fs-md);line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.fe-ask-a.fe-md{padding:0;font-size:var(--fs-md);line-height:1.55;max-width:none}
 /* renderMarkdown wraps its output in its own .fe-md, which must not pad again. */
 .fe-ask-a .fe-md{padding:0;font-size:inherit;max-width:none}
-.fe-ask-wait{color:var(--dm);font-style:italic}
-.fe-ask-meta{margin-top:6px;font-size:var(--fs-sm);color:var(--dm)}
-.fe-ask-form{flex-direction:row;align-items:flex-end}
-.fe-ask-form .btn{flex:none;height:30px}
-.fe-ask-model{display:flex;align-items:center;gap:8px;margin:0 16px 6px;font-size:var(--fs-md);color:var(--mt)}
-.fe-ask-model select{flex:1;min-width:0;height:28px;padding:0 6px;border-radius:var(--row-r);border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md)}
-.fe-ask-cloud{display:flex;align-items:flex-start;gap:6px;margin:0 16px 8px;padding:6px 8px;border-radius:8px;font-size:var(--fs-sm);line-height:1.4;color:var(--tx);background:color-mix(in srgb,var(--gold) 14%,transparent)}
-.fe-ask-cloud[hidden]{display:none}
-.fe-ask-cloud svg{width:13px;height:13px;flex:none;margin-top:2px;color:var(--gold)}
-.fe-ask-bar{display:flex;gap:4px;margin:0 12px 6px}
-.fe-ask-bar .btn{gap:5px}
-.fe-ask-bar .btn svg{width:13px;height:13px}
-.fe-ask-bar .btn.on{background:var(--hover)}
-.fe-ask-n{min-width:16px;height:16px;padding:0 4px;border-radius:999px;font-size:var(--fs-xs);display:inline-grid;place-items:center;background:var(--s2);color:var(--mt)}
-.fe-ask-n:empty{display:none}
-.fe-ask-hist{margin:0 6px 10px;padding:4px;border:1px solid var(--bd);border-radius:10px;background:var(--card,var(--s1))}
+.fe-ask-wait{color:var(--dm)}
+.fe-ask-meta{font-size:var(--fs-xs);color:var(--dm)}
+.fe-ask-meta:empty{display:none}
+.fe-ask-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;color:var(--dm);font-size:var(--fs-md);text-align:center}
+.fe-ask-empty[hidden]{display:none}
+.fe-ask-empty p{margin:0}
+.fe-ask-quick{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.fe-ask-chip{cursor:pointer;background:none;font:inherit;font-size:var(--fs-md)}
+.fe-ask-chip:hover{background:var(--hover)}
+.fe-ask-form{position:sticky;bottom:0;margin-top:auto;padding:8px 10px 10px;background:linear-gradient(to bottom,transparent,var(--side) 14px)}
+.fe-ask-box{display:flex;flex-direction:column;gap:4px;padding:8px 8px 6px 10px;border:1px solid var(--bd2);border-radius:14px;background:var(--bg);transition:border-color var(--t-fast) var(--ease)}
+.fe-ask-box:focus-within{border-color:var(--ac)}
+#fe-ask-q{width:100%;min-height:22px;max-height:140px;padding:0;border:0;outline:0;resize:none;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md);line-height:1.45}
+#fe-ask-q::placeholder{color:var(--dm)}
+.fe-ask-foot{display:flex;align-items:center;gap:8px}
+.fe-ask-ctx{flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--dm)}
+.fe-ask-ctx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-ask-ctx svg{width:11px;height:11px;flex:none}
+.fe-ask-send{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border:0;border-radius:50%;background:var(--ac);color:var(--on-ac);cursor:pointer}
+.fe-ask-send:disabled{opacity:.4;cursor:default}
+.fe-ask-send svg{width:15px;height:15px}
+.fe-ask-send.stop svg{display:none}
+.fe-ask-send.stop::before{content:'';width:9px;height:9px;border-radius:2px;background:currentColor}
+.fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh)}
 .fe-ask-hist[hidden]{display:none}
 .fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
 .fe-ask-h:hover,.fe-ask-h.on{background:var(--hover)}
 .fe-ask-h-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:0;background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--row-fs)}
-.fe-ask-h-m{font-size:var(--fs-sm);color:var(--dm)}
+.fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md)}
+.fe-ask-h-m{font-size:var(--fs-xs);color:var(--dm)}
 .fe-ask-h-del{flex:none;border:0;background:none;color:var(--dm);cursor:pointer;padding:6px;border-radius:6px;opacity:0}
 .fe-ask-h:hover .fe-ask-h-del,.fe-ask-h-del:focus-visible{opacity:1}
 .fe-ask-h-del:hover{color:var(--nc-red);background:var(--hover)}

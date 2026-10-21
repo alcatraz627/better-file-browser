@@ -32,8 +32,8 @@ try {
 
   await page.click('#fe-rail-ask');
   await page.waitForFunction(() => !/Not checked|Checking/.test(document.getElementById('fe-ask-state').textContent), { timeout: 8000 }).catch(() => null);
-  const st = await page.evaluate(() => ({ state: document.getElementById('fe-ask-state').textContent, cls: document.getElementById('fe-ask-status').className, about: document.querySelector('.fe-ask-about').textContent }));
-  check(st.state.length > 5 && !/Checking/.test(st.state) && /this folder/.test(st.about), `Ask checks the model on open and says what it is about: ${JSON.stringify(st)}`);
+  const st = await page.evaluate(() => ({ state: document.getElementById('fe-ask-state').textContent, cls: document.getElementById('fe-ask-status').className, about: document.querySelector('.fe-ask-ctx').textContent, shown: !document.getElementById('fe-ask-status').hidden }));
+  check(st.state.length > 5 && !/Checking/.test(st.state) && st.shown && /bfb-fixture/.test(st.about), `Ask checks the model on open and says what it is about: ${JSON.stringify(st)}`);
   if (/ready|load on first/.test(st.state)) {
     await page.type('#fe-ask-q', 'What is here?');
     await page.keyboard.press('Enter');

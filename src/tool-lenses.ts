@@ -101,21 +101,25 @@ function initAsk(app: App): void {
   const quick = app.fileMode
     ? [['summarize', 'Summarize'], ['explain', 'Explain']]
     : [['folder', 'What is in here?']];
+  const what = app.fileMode ? 'this file' : 'this folder';
   box.innerHTML = `
-    <div class="fe-ask-status" id="fe-ask-status"><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
-    <label class="fe-ask-model"><span>Model</span><select id="fe-ask-model" title="Which model answers. Local models run on this machine; Gemini runs on Google's servers."><option value="">Default</option></select></label>
-    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Gemini reads this ${app.fileMode ? "file's text" : "folder's listing"} on Google's servers.</span></p>
-    <div class="fe-ask-about">About ${app.fileMode ? 'this file' : 'this folder'}: <b>${esc(subject)}</b></div>
-    <div class="fe-ask-bar">
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-ask-new" title="Start a new chat about ${app.fileMode ? 'this file' : 'this folder'}">${UI_ICON.add}<span>New chat</span></button>
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-ask-hist-btn" title="Earlier chats about ${app.fileMode ? 'this file' : 'this folder'}" aria-expanded="false">${UI_ICON.clock}<span>History</span><span class="fe-ask-n" id="fe-ask-hist-n"></span></button>
+    <div class="fe-ask-top">
+      <label class="fe-ask-model" title="Which model answers. Local models run on this machine; Gemini runs on Google's servers."><span class="dot"></span><select id="fe-ask-model"><option value="">Default</option></select></label>
+      <span class="fe-ask-sp"></span>
+      <button type="button" class="fe-ask-ib" id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
+      <button type="button" class="fe-ask-ib" id="fe-ask-hist-btn" title="Earlier chats about ${what}" aria-expanded="false">${UI_ICON.clock}<span class="fe-ask-n" id="fe-ask-hist-n"></span></button>
+      <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
-    <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
-    <div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="fe-chip fe-ask-chip" data-intent="${k}">${l}</button>`).join('')}</div>
+    <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
+    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? 'the text' : 'the listing'} to Google</span></p>
     <div id="fe-ask-thread"></div>
-    <div class="fe-tl-form fe-ask-form">
-      <textarea id="fe-ask-q" class="fe-tl-input" rows="2" placeholder="Ask about ${app.fileMode ? 'this file' : 'this folder'}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
-      <button type="button" class="btn" data-variant="solid" id="fe-ask-go" title="Ask the chosen model">Ask</button>
+    <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="fe-chip fe-ask-chip" data-intent="${k}">${l}</button>`).join('')}</div></div>
+    <div class="fe-ask-form">
+      <div class="fe-ask-box">
+        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
+        <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(app.fileMode ? decodeURIComponent(location.pathname) : app.folderPath)}">${app.fileMode ? UI_ICON.file ?? '' : ''}<span>${esc(subject)}</span></span>
+          <button type="button" class="fe-ask-send" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? '↑'}</button></div>
+      </div>
     </div>`;
   const thread = el('fe-ask-thread');
   const q = el<HTMLTextAreaElement>('fe-ask-q');
@@ -127,6 +131,12 @@ function initAsk(app: App): void {
   const hist = el('fe-ask-hist');
   const histBtn = el('fe-ask-hist-btn');
   const histN = el('fe-ask-hist-n');
+  const emptyBox = el('fe-ask-empty');
+  const chipDot = box.querySelector<HTMLElement>('.fe-ask-model .dot')!;
+  const syncEmpty = () => { emptyBox.hidden = thread.children.length > 0; };
+  // The box grows with what is typed, up to a few lines, then scrolls.
+  const grow = () => { q.style.height = 'auto'; q.style.height = Math.min(q.scrollHeight, 140) + 'px'; };
+  q.addEventListener('input', grow);
   let cancel: (() => void) | null = null;
   let checked = false;
   let localReady = false;
@@ -147,12 +157,15 @@ function initAsk(app: App): void {
     checked = true;
     state.textContent = 'Checking the local model…';
     const [a, models] = await Promise.all([llmAvailability(), llmModels()]);
-    statusRow.className = `fe-ask-status ${a.kind === 'ready' ? (a.cold ? 'cold' : 'ready') : a.kind}`;
-    state.textContent = a.kind === 'ready' ? (a.cold ? `${a.status.default_model}, will load on first question` : `${a.status.default_model} is ready`)
-      : a.kind === 'down' ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+    const kind = a.kind === 'ready' ? (a.cold ? 'cold' : 'ready') : a.kind;
+    statusRow.className = `fe-ask-status ${kind}`;
+    statusRow.hidden = a.kind === 'ready';
+    state.textContent = a.kind === 'ready' ? '' : a.kind === 'down' ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+    chipDot.className = `dot ${kind}`;
+    chipDot.title = a.kind === 'ready' ? (a.cold ? 'Loads on the first question' : 'Ready') : state.textContent;
     localReady = a.kind === 'ready';
     const saved = kvGet(ASK_MODEL_KEY) ?? '';
-    pick.innerHTML = `<option value="">Default${a.kind === 'ready' ? ` · ${esc(a.status.default_model)}` : ''}</option>`
+    pick.innerHTML = `<option value="">${a.kind === 'ready' ? esc(a.status.default_model.replace(/:latest$/, '')) : 'Default'}</option>`
       + (models.tiers.length ? `<optgroup label="On this machine">${models.tiers.map(t => `<option value="${esc(t.alias)}">${esc(t.alias)} · ${esc(t.model)}</option>`).join('')}</optgroup>` : '')
       + (models.gemini.length ? `<optgroup label="Gemini, on Google's servers">${models.gemini.map(g => `<option value="gemini:${esc(g.name)}">${esc(g.name)}${g.default ? ' (default)' : ''}</option>`).join('')}</optgroup>` : '');
     pick.value = [...pick.options].some(o => o.value === saved) ? saved : '';
@@ -173,11 +186,12 @@ function initAsk(app: App): void {
     turn.className = 'fe-ask-turn';
     turn.innerHTML = `<div class="fe-ask-q">${esc(question)}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking…</span></div><div class="fe-ask-meta"></div>`;
     thread.appendChild(turn);
+    syncEmpty();
     return turn;
   };
   const metaText = (m: string, ms: number, truncated = false) => `${m} · ${(ms / 1000).toFixed(1)}s${truncated ? ' · shortened to fit' : ''}`;
   const syncHistN = () => { const n = chatsFor(key).length; histN.textContent = n ? String(n) : ''; };
-  const newChat = () => { cancel?.(); chatId = ''; turns = []; thread.innerHTML = ''; q.focus(); };
+  const newChat = () => { cancel?.(); chatId = ''; turns = []; thread.innerHTML = ''; syncEmpty(); q.focus(); };
   const openChat = (c: AskChat) => {
     cancel?.();
     chatId = c.id; turns = c.turns.slice();
@@ -187,6 +201,7 @@ function initAsk(app: App): void {
       el.querySelector('.fe-ask-a')!.innerHTML = renderMarkdown(t.a);
       el.querySelector('.fe-ask-meta')!.textContent = metaText(t.model, t.ms);
     }
+    syncEmpty();
     showHist(false);
   };
   const paintHist = () => {
@@ -210,8 +225,8 @@ function initAsk(app: App): void {
     try { c = await context(); }
     catch { out.textContent = 'Could not read this to send it.'; return; }
     let full = '';
-    go.textContent = 'Stop';
-    const done = () => { cancel = null; go.textContent = 'Ask'; };
+    go.classList.add('stop'); go.title = 'Stop'; go.setAttribute('aria-label', 'Stop');
+    const done = () => { cancel = null; go.classList.remove('stop'); go.title = 'Ask (Enter)'; go.setAttribute('aria-label', 'Ask'); };
     const asked = intent === 'folder' ? 'What is in this folder? Group the files by purpose in a few short lines.' : question;
     cancel = llmQuery(
       {
@@ -249,11 +264,12 @@ function initAsk(app: App): void {
   });
   el('fe-ask-new').addEventListener('click', () => { showHist(false); newChat(); });
   histBtn.addEventListener('click', () => showHist(hist.hidden));
+  document.addEventListener('pointerdown', e => { if (!hist.hidden && !hist.contains(e.target as Node) && !histBtn.contains(e.target as Node)) showHist(false); });
   go.addEventListener('click', () => {
-    if (cancel) { cancel(); cancel = null; go.textContent = 'Ask'; return; }
+    if (cancel) { cancel(); cancel = null; go.classList.remove('stop'); return; }
     const text = q.value.trim();
     if (!text) { q.focus(); return; }
-    q.value = '';
+    q.value = ''; grow();
     void ask('qa', text);
   });
   q.addEventListener('keydown', e => {

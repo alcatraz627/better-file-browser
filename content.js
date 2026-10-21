@@ -924,6 +924,8 @@ ${body}`;
     eye: svg('<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'),
     lock: svg('<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
     clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    send: svg('<path d="M12 19V5M5 12l7-7 7 7"/>'),
+    file: svg('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'),
     comment: svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
     contents: svg('<path d="M15 12H3M17 18H3M21 6H3"/>'),
     info: svg('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'),
@@ -5209,43 +5211,65 @@ button.fe-si{width:auto;display:flex}
 .fe-srch-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .fe-srch-snip{font-size:var(--fs-md);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-srch-snip mark{background:color-mix(in srgb,var(--ac) 28%,transparent);color:var(--tx);border-radius:3px;padding:0 1px}
-.fe-ask-status{display:flex;align-items:flex-start;gap:8px;line-height:1.4;margin:0 16px 6px;font-size:var(--fs-md);color:var(--mt)}
-.fe-ask-status .dot{width:8px;height:8px;margin-top:4px;border-radius:50%;background:var(--dm);flex:none}
-.fe-ask-status.ready .dot{background:var(--green)}
-.fe-ask-status.cold .dot{background:var(--gold)}
-.fe-ask-status.down .dot,.fe-ask-status.unavailable .dot{background:var(--nc-red)}
-.fe-ask-about{margin:0 16px 8px;font-size:var(--fs-md);color:var(--dm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-ask-about b{color:var(--tx);font-weight:500}
-.fe-ask-quick{display:flex;flex-wrap:wrap;gap:4px;margin:0 16px 10px}
-.fe-ask-chip{cursor:pointer;background:none;font:inherit;font-size:var(--fs-md)}
-.fe-ask-chip:hover{background:var(--hover)}
-.fe-ask-turn{margin:0 6px 10px;padding:10px;border-radius:10px;background:var(--hover)}
-.fe-ask-q{font-weight:600;font-size:var(--row-fs);margin-bottom:6px;color:var(--tx)}
-.fe-ask-a.fe-md{padding:0;font-size:var(--fs-md);max-width:none}
+/* Ask: a top row (model chip, new chat, history), the chat, and a composer
+   pinned to the bottom of the lens. */
+#fe-lens-ask:not([hidden]){display:flex;flex-direction:column;min-height:100%}
+#fe-ask{flex:1;display:flex;flex-direction:column}
+.fe-ask-top{position:relative;display:flex;align-items:center;gap:2px;margin:0 10px 8px 14px}
+.fe-ask-sp{flex:1}
+.fe-ask-model{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;height:26px;padding:0 4px 0 9px;border:1px solid var(--bd);border-radius:999px;color:var(--mt);font-size:var(--fs-sm)}
+.fe-ask-model:hover{border-color:var(--bd2);color:var(--tx)}
+.fe-ask-model select{min-width:0;max-width:150px;border:0;background:none;color:inherit;font:inherit;outline:0;cursor:pointer;text-overflow:ellipsis}
+.fe-ask-model .dot,.fe-ask-status .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dm)}
+.dot.ready{background:var(--green)}
+.dot.cold{background:var(--gold)}
+.dot.down,.dot.unavailable{background:var(--nc-red)}
+.fe-ask-ib{position:relative;display:inline-grid;place-items:center;width:28px;height:28px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer}
+.fe-ask-ib:hover,.fe-ask-ib[aria-expanded="true"]{background:var(--hover);color:var(--tx)}
+.fe-ask-ib svg{width:15px;height:15px}
+.fe-ask-n{position:absolute;top:1px;right:0;min-width:14px;height:14px;padding:0 3px;border-radius:999px;font-size:10px;line-height:14px;text-align:center;background:var(--ac);color:var(--on-ac)}
+.fe-ask-n:empty{display:none}
+.fe-ask-status{display:flex;align-items:center;gap:8px;margin:0 16px 8px;font-size:var(--fs-sm);line-height:1.4;color:var(--mt)}
+.fe-ask-status[hidden]{display:none}
+.fe-ask-cloud{display:flex;align-items:center;gap:6px;margin:0 16px 8px;font-size:var(--fs-sm);color:var(--mt)}
+.fe-ask-cloud[hidden]{display:none}
+.fe-ask-cloud svg{width:12px;height:12px;flex:none;color:var(--gold)}
+#fe-ask-thread{display:flex;flex-direction:column;gap:14px;padding:4px 12px 12px 14px}
+.fe-ask-turn{display:flex;flex-direction:column;gap:6px}
+.fe-ask-q{align-self:flex-end;max-width:88%;padding:6px 10px;border-radius:12px 12px 4px 12px;background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx);font-size:var(--fs-md);line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.fe-ask-a.fe-md{padding:0;font-size:var(--fs-md);line-height:1.55;max-width:none}
 /* renderMarkdown wraps its output in its own .fe-md, which must not pad again. */
 .fe-ask-a .fe-md{padding:0;font-size:inherit;max-width:none}
-.fe-ask-wait{color:var(--dm);font-style:italic}
-.fe-ask-meta{margin-top:6px;font-size:var(--fs-sm);color:var(--dm)}
-.fe-ask-form{flex-direction:row;align-items:flex-end}
-.fe-ask-form .btn{flex:none;height:30px}
-.fe-ask-model{display:flex;align-items:center;gap:8px;margin:0 16px 6px;font-size:var(--fs-md);color:var(--mt)}
-.fe-ask-model select{flex:1;min-width:0;height:28px;padding:0 6px;border-radius:var(--row-r);border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md)}
-.fe-ask-cloud{display:flex;align-items:flex-start;gap:6px;margin:0 16px 8px;padding:6px 8px;border-radius:8px;font-size:var(--fs-sm);line-height:1.4;color:var(--tx);background:color-mix(in srgb,var(--gold) 14%,transparent)}
-.fe-ask-cloud[hidden]{display:none}
-.fe-ask-cloud svg{width:13px;height:13px;flex:none;margin-top:2px;color:var(--gold)}
-.fe-ask-bar{display:flex;gap:4px;margin:0 12px 6px}
-.fe-ask-bar .btn{gap:5px}
-.fe-ask-bar .btn svg{width:13px;height:13px}
-.fe-ask-bar .btn.on{background:var(--hover)}
-.fe-ask-n{min-width:16px;height:16px;padding:0 4px;border-radius:999px;font-size:var(--fs-xs);display:inline-grid;place-items:center;background:var(--s2);color:var(--mt)}
-.fe-ask-n:empty{display:none}
-.fe-ask-hist{margin:0 6px 10px;padding:4px;border:1px solid var(--bd);border-radius:10px;background:var(--card,var(--s1))}
+.fe-ask-wait{color:var(--dm)}
+.fe-ask-meta{font-size:var(--fs-xs);color:var(--dm)}
+.fe-ask-meta:empty{display:none}
+.fe-ask-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;color:var(--dm);font-size:var(--fs-md);text-align:center}
+.fe-ask-empty[hidden]{display:none}
+.fe-ask-empty p{margin:0}
+.fe-ask-quick{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.fe-ask-chip{cursor:pointer;background:none;font:inherit;font-size:var(--fs-md)}
+.fe-ask-chip:hover{background:var(--hover)}
+.fe-ask-form{position:sticky;bottom:0;margin-top:auto;padding:8px 10px 10px;background:linear-gradient(to bottom,transparent,var(--side) 14px)}
+.fe-ask-box{display:flex;flex-direction:column;gap:4px;padding:8px 8px 6px 10px;border:1px solid var(--bd2);border-radius:14px;background:var(--bg);transition:border-color var(--t-fast) var(--ease)}
+.fe-ask-box:focus-within{border-color:var(--ac)}
+#fe-ask-q{width:100%;min-height:22px;max-height:140px;padding:0;border:0;outline:0;resize:none;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md);line-height:1.45}
+#fe-ask-q::placeholder{color:var(--dm)}
+.fe-ask-foot{display:flex;align-items:center;gap:8px}
+.fe-ask-ctx{flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--dm)}
+.fe-ask-ctx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-ask-ctx svg{width:11px;height:11px;flex:none}
+.fe-ask-send{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border:0;border-radius:50%;background:var(--ac);color:var(--on-ac);cursor:pointer}
+.fe-ask-send:disabled{opacity:.4;cursor:default}
+.fe-ask-send svg{width:15px;height:15px}
+.fe-ask-send.stop svg{display:none}
+.fe-ask-send.stop::before{content:'';width:9px;height:9px;border-radius:2px;background:currentColor}
+.fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh)}
 .fe-ask-hist[hidden]{display:none}
 .fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
 .fe-ask-h:hover,.fe-ask-h.on{background:var(--hover)}
 .fe-ask-h-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:0;background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--row-fs)}
-.fe-ask-h-m{font-size:var(--fs-sm);color:var(--dm)}
+.fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md)}
+.fe-ask-h-m{font-size:var(--fs-xs);color:var(--dm)}
 .fe-ask-h-del{flex:none;border:0;background:none;color:var(--dm);cursor:pointer;padding:6px;border-radius:6px;opacity:0}
 .fe-ask-h:hover .fe-ask-h-del,.fe-ask-h-del:focus-visible{opacity:1}
 .fe-ask-h-del:hover{color:var(--nc-red);background:var(--hover)}
@@ -18093,21 +18117,25 @@ Now: ${question}` : question;
     const subject = app.fileMode ? app.fileName : app.folderPath.split("/").filter(Boolean).pop() || "/";
     const key = app.fileMode ? decodeURIComponent(location.pathname) : app.folderPath;
     const quick = app.fileMode ? [["summarize", "Summarize"], ["explain", "Explain"]] : [["folder", "What is in here?"]];
+    const what = app.fileMode ? "this file" : "this folder";
     box.innerHTML = `
-    <div class="fe-ask-status" id="fe-ask-status"><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
-    <label class="fe-ask-model"><span>Model</span><select id="fe-ask-model" title="Which model answers. Local models run on this machine; Gemini runs on Google's servers."><option value="">Default</option></select></label>
-    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Gemini reads this ${app.fileMode ? "file's text" : "folder's listing"} on Google's servers.</span></p>
-    <div class="fe-ask-about">About ${app.fileMode ? "this file" : "this folder"}: <b>${esc(subject)}</b></div>
-    <div class="fe-ask-bar">
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-ask-new" title="Start a new chat about ${app.fileMode ? "this file" : "this folder"}">${UI_ICON.add}<span>New chat</span></button>
-      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-ask-hist-btn" title="Earlier chats about ${app.fileMode ? "this file" : "this folder"}" aria-expanded="false">${UI_ICON.clock}<span>History</span><span class="fe-ask-n" id="fe-ask-hist-n"></span></button>
+    <div class="fe-ask-top">
+      <label class="fe-ask-model" title="Which model answers. Local models run on this machine; Gemini runs on Google's servers."><span class="dot"></span><select id="fe-ask-model"><option value="">Default</option></select></label>
+      <span class="fe-ask-sp"></span>
+      <button type="button" class="fe-ask-ib" id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
+      <button type="button" class="fe-ask-ib" id="fe-ask-hist-btn" title="Earlier chats about ${what}" aria-expanded="false">${UI_ICON.clock}<span class="fe-ask-n" id="fe-ask-hist-n"></span></button>
+      <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
-    <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
-    <div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="fe-chip fe-ask-chip" data-intent="${k}">${l}</button>`).join("")}</div>
+    <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
+    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? "the text" : "the listing"} to Google</span></p>
     <div id="fe-ask-thread"></div>
-    <div class="fe-tl-form fe-ask-form">
-      <textarea id="fe-ask-q" class="fe-tl-input" rows="2" placeholder="Ask about ${app.fileMode ? "this file" : "this folder"}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
-      <button type="button" class="btn" data-variant="solid" id="fe-ask-go" title="Ask the chosen model">Ask</button>
+    <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="fe-chip fe-ask-chip" data-intent="${k}">${l}</button>`).join("")}</div></div>
+    <div class="fe-ask-form">
+      <div class="fe-ask-box">
+        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
+        <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(app.fileMode ? decodeURIComponent(location.pathname) : app.folderPath)}">${app.fileMode ? UI_ICON.file ?? "" : ""}<span>${esc(subject)}</span></span>
+          <button type="button" class="fe-ask-send" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? "\u2191"}</button></div>
+      </div>
     </div>`;
     const thread = el("fe-ask-thread");
     const q = el("fe-ask-q");
@@ -18119,6 +18147,16 @@ Now: ${question}` : question;
     const hist = el("fe-ask-hist");
     const histBtn = el("fe-ask-hist-btn");
     const histN = el("fe-ask-hist-n");
+    const emptyBox = el("fe-ask-empty");
+    const chipDot = box.querySelector(".fe-ask-model .dot");
+    const syncEmpty = () => {
+      emptyBox.hidden = thread.children.length > 0;
+    };
+    const grow = () => {
+      q.style.height = "auto";
+      q.style.height = Math.min(q.scrollHeight, 140) + "px";
+    };
+    q.addEventListener("input", grow);
     let cancel = null;
     let checked = false;
     let localReady = false;
@@ -18138,11 +18176,15 @@ Now: ${question}` : question;
       checked = true;
       state.textContent = "Checking the local model\u2026";
       const [a, models] = await Promise.all([llmAvailability(), llmModels()]);
-      statusRow.className = `fe-ask-status ${a.kind === "ready" ? a.cold ? "cold" : "ready" : a.kind}`;
-      state.textContent = a.kind === "ready" ? a.cold ? `${a.status.default_model}, will load on first question` : `${a.status.default_model} is ready` : a.kind === "down" ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+      const kind = a.kind === "ready" ? a.cold ? "cold" : "ready" : a.kind;
+      statusRow.className = `fe-ask-status ${kind}`;
+      statusRow.hidden = a.kind === "ready";
+      state.textContent = a.kind === "ready" ? "" : a.kind === "down" ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+      chipDot.className = `dot ${kind}`;
+      chipDot.title = a.kind === "ready" ? a.cold ? "Loads on the first question" : "Ready" : state.textContent;
       localReady = a.kind === "ready";
       const saved = kvGet(ASK_MODEL_KEY) ?? "";
-      pick.innerHTML = `<option value="">Default${a.kind === "ready" ? ` \xB7 ${esc(a.status.default_model)}` : ""}</option>` + (models.tiers.length ? `<optgroup label="On this machine">${models.tiers.map((t) => `<option value="${esc(t.alias)}">${esc(t.alias)} \xB7 ${esc(t.model)}</option>`).join("")}</optgroup>` : "") + (models.gemini.length ? `<optgroup label="Gemini, on Google's servers">${models.gemini.map((g) => `<option value="gemini:${esc(g.name)}">${esc(g.name)}${g.default ? " (default)" : ""}</option>`).join("")}</optgroup>` : "");
+      pick.innerHTML = `<option value="">${a.kind === "ready" ? esc(a.status.default_model.replace(/:latest$/, "")) : "Default"}</option>` + (models.tiers.length ? `<optgroup label="On this machine">${models.tiers.map((t) => `<option value="${esc(t.alias)}">${esc(t.alias)} \xB7 ${esc(t.model)}</option>`).join("")}</optgroup>` : "") + (models.gemini.length ? `<optgroup label="Gemini, on Google's servers">${models.gemini.map((g) => `<option value="gemini:${esc(g.name)}">${esc(g.name)}${g.default ? " (default)" : ""}</option>`).join("")}</optgroup>` : "");
       pick.value = [...pick.options].some((o) => o.value === saved) ? saved : "";
       syncUsable();
     }
@@ -18162,6 +18204,7 @@ ${rows.join("\n")}`, name: subject };
       turn.className = "fe-ask-turn";
       turn.innerHTML = `<div class="fe-ask-q">${esc(question)}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking\u2026</span></div><div class="fe-ask-meta"></div>`;
       thread.appendChild(turn);
+      syncEmpty();
       return turn;
     };
     const metaText = (m, ms, truncated = false) => `${m} \xB7 ${(ms / 1e3).toFixed(1)}s${truncated ? " \xB7 shortened to fit" : ""}`;
@@ -18174,6 +18217,7 @@ ${rows.join("\n")}`, name: subject };
       chatId = "";
       turns = [];
       thread.innerHTML = "";
+      syncEmpty();
       q.focus();
     };
     const openChat = (c) => {
@@ -18186,6 +18230,7 @@ ${rows.join("\n")}`, name: subject };
         el2.querySelector(".fe-ask-a").innerHTML = renderMarkdown(t.a);
         el2.querySelector(".fe-ask-meta").textContent = metaText(t.model, t.ms);
       }
+      syncEmpty();
       showHist(false);
     };
     const paintHist = () => {
@@ -18217,10 +18262,14 @@ ${rows.join("\n")}`, name: subject };
         return;
       }
       let full = "";
-      go.textContent = "Stop";
+      go.classList.add("stop");
+      go.title = "Stop";
+      go.setAttribute("aria-label", "Stop");
       const done = () => {
         cancel = null;
-        go.textContent = "Ask";
+        go.classList.remove("stop");
+        go.title = "Ask (Enter)";
+        go.setAttribute("aria-label", "Ask");
       };
       const asked = intent === "folder" ? "What is in this folder? Group the files by purpose in a few short lines." : question;
       cancel = llmQuery(
@@ -18281,11 +18330,14 @@ ${rows.join("\n")}`, name: subject };
       newChat();
     });
     histBtn.addEventListener("click", () => showHist(hist.hidden));
+    document.addEventListener("pointerdown", (e) => {
+      if (!hist.hidden && !hist.contains(e.target) && !histBtn.contains(e.target)) showHist(false);
+    });
     go.addEventListener("click", () => {
       if (cancel) {
         cancel();
         cancel = null;
-        go.textContent = "Ask";
+        go.classList.remove("stop");
         return;
       }
       const text = q.value.trim();
@@ -18294,6 +18346,7 @@ ${rows.join("\n")}`, name: subject };
         return;
       }
       q.value = "";
+      grow();
       void ask("qa", text);
     });
     q.addEventListener("keydown", (e) => {
