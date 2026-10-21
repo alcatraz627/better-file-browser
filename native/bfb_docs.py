@@ -77,6 +77,9 @@ def _for(t, who):
 
 
 def cmd_list(args):
+    # A mistyped path must not read as "No comments."
+    if not os.path.exists(args.target):
+        raise FileNotFoundError(2, 'no such file', os.path.abspath(args.target))
     rows, out = [], []
     me = S.author_key(_who(args)) if args.for_ == 'me' else args.for_
     for doc in _docs_under(args.target):

@@ -218,6 +218,8 @@ check(bad_state == 'docs_bad_args' and got['state'] == 'rejected' and got.get('d
 second = put(os.path.join(repo, 'other.md'), 'Another doc with words.\n')
 jcli('comments', 'new', second, '--quote', 'Another doc', 'hi')
 check(open(os.path.join(repo, '.git', 'info', 'exclude')).read().count('*.bfb*.json') == 1, 'a second companion does not add the line again')
+r = cli('comments', 'list', os.path.join(repo, 'no-such.md'), ok=False)
+check(r.returncode == 1 and 'no such file' in r.stderr, f'list on a missing file says so instead of "No comments": {r.stderr.strip()}')
 r = jcli('comments', 'show', plan, tid[:10])
 check(r and r['id'] == tid, 'show finds a thread by a short id')
 
