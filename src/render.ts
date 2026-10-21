@@ -5,6 +5,7 @@ import { groupByTag, filterSaved, samePlace } from './places';
 import { isViewPath } from './find';
 import { canPreview } from './preview';
 import type { ContentHit } from './find';
+import { UI_ICON } from './control-icons';
 
 export interface RenderContext {
   rawPath:   string;
@@ -12,6 +13,13 @@ export interface RenderContext {
   settings:  Settings;
   // The tags a saved file or folder carries, for the Tags column.
   tagsOf?:   (path: string) => { name: string; color: string }[];
+  // Open comment threads on a document in this folder, by its name.
+  openComments?: (name: string) => number;
+}
+
+function commentBadge(e: Entry, ctx: RenderContext): string {
+  const n = e.isDir || e.isParent ? 0 : ctx.openComments?.(e.name) ?? 0;
+  return n ? `<span class="fe-row-cm" title="${n} open comment${n === 1 ? '' : 's'}">${UI_ICON.comment}${n}</span>` : '';
 }
 
 // Tags as chips. A tag's colour tints its outline, so the eye can group by
@@ -38,7 +46,7 @@ export function buildTipData(e: Entry, ctx: RenderContext): string {
   const lines = [`Path: ${fp}`, `Type: ${fmtType(e)}`];
   if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
   lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
-  if (e.isHidden) lines.push('Hidden file (dotfile)');
+  if (e.isHidden) lines.push(e.name.startsWith('.') ? 'Hidden file (dotfile)' : 'Comments on ' + e.name.replace(/\.bfb[^./]*\.json$/, ''));
   lines.push(e.isDir
     ? 'Click opens · ⌥-click keeps a tab · middle-click: Chrome tab'
     : 'Click looks · double-click opens · ⌥-click keeps a tab · middle-click: Chrome tab');
@@ -78,7 +86,7 @@ export function renderRow(e: Entry, ctx: RenderContext, idx = -1, hit?: ContentH
              data-name="${esc(e.name.toLowerCase())}"
              data-idx="${idx}"
              ${e.isParent ? '' : `data-tip="${esc(tipData)}"`}>
-    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span></a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ''}${itemActions(e, ctx.rawPath)}</td>
+    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span>${commentBadge(e, ctx)}</a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ''}${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-tg">${tagChips(e, ctx)}</td>
     <td class="c-sz">${e.isDir ? '—' : fmtSize(e.rawBytes)}</td>

@@ -155,6 +155,9 @@ body{opacity:1!important}
 .fe-doc-n{min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;display:inline-grid;place-items:center;font-size:var(--fs-xs);background:var(--ac);color:var(--on-ac)}
 .fe-doc-n.done{background:var(--s2);color:var(--dm)}
 .fe-doc-n svg{width:10px;height:10px}
+.fe-row-cm{flex:none;display:inline-flex;align-items:center;gap:3px;padding:0 6px;height:18px;border-radius:999px;vertical-align:middle;
+  font-size:var(--fs-xs);color:var(--tx);background:color-mix(in srgb,var(--ac) 16%,transparent)}
+.fe-row-cm svg{width:11px;height:11px}
 .fe-lens-t{flex:1;display:flex;flex-direction:column;line-height:1.25;min-width:0}
 .fe-lens-t b{font-size:var(--fs-xl);font-weight:600;color:var(--tx)}
 .fe-lens-t i{font-style:normal;font-size:var(--fs-md);color:var(--dm)}

@@ -7,6 +7,13 @@ function nameOf(href: string, text: string): string {
   try { return decodeURIComponent(last) || text; } catch { return text; }
 }
 
+// Dot files, and the comment companions bfb writes beside a document
+// (plan.md.bfb.json and its conflict copies), are hidden until hidden files are shown.
+const COMPANION = /\.bfb[^./]*\.json$/;
+export function isHiddenName(name: string, isDir: boolean): boolean {
+  return name.startsWith('.') || (!isDir && COMPANION.test(name));
+}
+
 export function parseEntries(): Entry[] {
   const table = document.querySelector('table') || document.getElementById('listing-table');
   if (!table) return [];
@@ -24,7 +31,7 @@ export function parseEntries(): Entry[] {
     const isParent = href === '../';
     const isDir    = !isParent && (href?.endsWith('/') ?? false);
     const name     = isParent ? '..' : nameOf(href, isDir ? rawName.replace(/\/$/, '') : rawName);
-    const isHidden = !isParent && name.startsWith('.');
+    const isHidden = !isParent && isHiddenName(name, isDir);
     return [{ name, href, isDir, isParent, isHidden, rawBytes, dateMs, dateStr }];
   });
 }
@@ -57,7 +64,7 @@ export function parseAddRows(html: string, baseUrl: string): Entry[] {
         href:     new URL(url + (isDir ? '/' : ''), baseUrl).href,
         isDir,
         isParent: false,
-        isHidden: name.startsWith('.'),
+        isHidden: isHiddenName(name, isDir),
         rawBytes: typeof a[3] === 'number' ? a[3] : -1,
         dateMs:   Number.isFinite(epoch) ? epoch * 1000 : NaN,
         dateStr:  typeof a[6] === 'string' ? a[6] : '',
@@ -81,7 +88,7 @@ export function parseFetchedDoc(doc: Document, baseUrl: string): Entry[] {
     const href     = new URL(rel, baseUrl).href;
     const isDir    = rel?.endsWith('/') ?? false;
     const name     = nameOf(rel, isDir ? rawName.replace(/\/$/, '') : rawName);
-    const isHidden = name.startsWith('.');
+    const isHidden = isHiddenName(name, isDir);
     return [{ name, href, isDir, isParent: false, isHidden, rawBytes: -1, dateMs: NaN, dateStr: '' }];
   });
 }

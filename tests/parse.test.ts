@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseAddRows, parseListing } from '../src/parse';
+import { isHiddenName, parseAddRows, parseListing } from '../src/parse';
 
 const BASE = 'file:///tmp/bfb-fixtures/';
 const TEMPLATE = `
@@ -60,5 +60,15 @@ describe('parseListing', () => {
       <tr><td><a href="%20lead.txt"> lead.txt</a></td><td data-value="9">9</td><td>d</td></tr>
       <tr><td><a href="dir%20/">dir /</a></td><td data-value="0">0</td><td>d</td></tr></table>`;
     expect(parseListing(html, BASE).map(e => e.name)).toEqual([' lead.txt', 'dir ']);
+  });
+});
+
+describe('isHiddenName', () => {
+  it('hides dot files and comment companions, including conflict copies', () => {
+    for (const n of ['.git', 'plan.md.bfb.json', 'plan.md.bfb 2.json', 'plan.md 2.bfb.json']) expect(isHiddenName(n, false)).toBe(true);
+  });
+  it('keeps ordinary json, and a folder that happens to share the name', () => {
+    for (const n of ['data.json', 'bfb.json', 'plan.bfb.json.bak']) expect(isHiddenName(n, false)).toBe(false);
+    expect(isHiddenName('x.bfb.json', true)).toBe(false);
   });
 });

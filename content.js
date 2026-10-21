@@ -9,6 +9,10 @@
       return text;
     }
   }
+  var COMPANION = /\.bfb[^./]*\.json$/;
+  function isHiddenName(name, isDir) {
+    return name.startsWith(".") || !isDir && COMPANION.test(name);
+  }
   function parseEntries() {
     const table = document.querySelector("table") || document.getElementById("listing-table");
     if (!table) return [];
@@ -26,7 +30,7 @@
       const isParent = href === "../";
       const isDir = !isParent && (href?.endsWith("/") ?? false);
       const name = isParent ? ".." : nameOf(href, isDir ? rawName.replace(/\/$/, "") : rawName);
-      const isHidden = !isParent && name.startsWith(".");
+      const isHidden = !isParent && isHiddenName(name, isDir);
       return [{ name, href, isDir, isParent, isHidden, rawBytes, dateMs, dateStr }];
     });
   }
@@ -50,7 +54,7 @@
           href: new URL(url + (isDir ? "/" : ""), baseUrl).href,
           isDir,
           isParent: false,
-          isHidden: name.startsWith("."),
+          isHidden: isHiddenName(name, isDir),
           rawBytes: typeof a[3] === "number" ? a[3] : -1,
           dateMs: Number.isFinite(epoch) ? epoch * 1e3 : NaN,
           dateStr: typeof a[6] === "string" ? a[6] : ""
@@ -74,7 +78,7 @@
       const href = new URL(rel, baseUrl).href;
       const isDir = rel?.endsWith("/") ?? false;
       const name = nameOf(rel, isDir ? rawName.replace(/\/$/, "") : rawName);
-      const isHidden = name.startsWith(".");
+      const isHidden = isHiddenName(name, isDir);
       return [{ name, href, isDir, isParent: false, isHidden, rawBytes: -1, dateMs: NaN, dateStr: "" }];
     });
   }
@@ -3969,6 +3973,9 @@ body{opacity:1!important}
 .fe-doc-n{min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;display:inline-grid;place-items:center;font-size:var(--fs-xs);background:var(--ac);color:var(--on-ac)}
 .fe-doc-n.done{background:var(--s2);color:var(--dm)}
 .fe-doc-n svg{width:10px;height:10px}
+.fe-row-cm{flex:none;display:inline-flex;align-items:center;gap:3px;padding:0 6px;height:18px;border-radius:999px;vertical-align:middle;
+  font-size:var(--fs-xs);color:var(--tx);background:color-mix(in srgb,var(--ac) 16%,transparent)}
+.fe-row-cm svg{width:11px;height:11px}
 .fe-lens-t{flex:1;display:flex;flex-direction:column;line-height:1.25;min-width:0}
 .fe-lens-t b{font-size:var(--fs-xl);font-weight:600;color:var(--tx)}
 .fe-lens-t i{font-style:normal;font-size:var(--fs-md);color:var(--dm)}
@@ -14596,7 +14603,7 @@ included, set **Interface size** in **Settings \u2192 Appearance**.
 - **Deep search** \u2014 the folder button beside the filter box includes subfolders. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8).
 - **Sort** \u2014 click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
 - **Filter** panel \u2014 match names by text or regex, or show only folders / files / one extension.
-- **Hidden files** \u2014 the eye button toggles dotfiles.
+- **Hidden files** \u2014 the eye button toggles dotfiles and the .bfb.json comment files beside documents. A document with open comments shows their count on its row.
 
 ## Selecting & opening
 
@@ -15016,6 +15023,10 @@ seconds and re-renders when the file changes on disk.
   }
 
   // src/render.ts
+  function commentBadge(e, ctx) {
+    const n = e.isDir || e.isParent ? 0 : ctx.openComments?.(e.name) ?? 0;
+    return n ? `<span class="fe-row-cm" title="${n} open comment${n === 1 ? "" : "s"}">${UI_ICON.comment}${n}</span>` : "";
+  }
   var CHIPS_SHOWN = 2;
   function tagChips(e, ctx) {
     if (e.isParent || !ctx.tagsOf) return "";
@@ -15033,7 +15044,7 @@ seconds and re-renders when the file changes on disk.
     const lines = [`Path: ${fp}`, `Type: ${fmtType(e)}`];
     if (!e.isDir) lines.push(`Size: ${fmtSize(e.rawBytes)}`);
     lines.push(`Modified: ${fmtDate(e.dateMs, ctx.settings, e.dateStr)}`);
-    if (e.isHidden) lines.push("Hidden file (dotfile)");
+    if (e.isHidden) lines.push(e.name.startsWith(".") ? "Hidden file (dotfile)" : "Comments on " + e.name.replace(/\.bfb[^./]*\.json$/, ""));
     lines.push(e.isDir ? "Click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab" : "Click looks \xB7 double-click opens \xB7 \u2325-click keeps a tab \xB7 middle-click: Chrome tab");
     const tip = {
       icon: getIcon(e, ctx.iconRules),
@@ -15066,7 +15077,7 @@ seconds and re-renders when the file changes on disk.
              data-name="${esc(e.name.toLowerCase())}"
              data-idx="${idx}"
              ${e.isParent ? "" : `data-tip="${esc(tipData)}"`}>
-    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span></a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ""}${itemActions(e, ctx.rawPath)}</td>
+    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? "Parent Directory" : e.name)}</span>${commentBadge(e, ctx)}</a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ""}${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-tg">${tagChips(e, ctx)}</td>
     <td class="c-sz">${e.isDir ? "\u2014" : fmtSize(e.rawBytes)}</td>
@@ -15374,7 +15385,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <button id="fe-filter-btn" data-icon title="Filter by name or type">
             ${line('<path d="M10 20a1 1 0 0 0 .55.9l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .52-1.34L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.22 7.99A2 2 0 0 1 10 14z"/>', 13)}
           </button>
-          <button id="fe-hidden-btn" data-icon class="${initHidden ? "on" : ""}" title="Hidden files: ${initHidden ? "showing" : "hiding"} dotfiles \xB7 click to toggle">
+          <button id="fe-hidden-btn" data-icon class="${initHidden ? "on" : ""}" title="Hidden files: ${initHidden ? "showing" : "hiding"} dotfiles and comment files \xB7 click to toggle">
             ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? "currentColor" : "none"}"/>`, 13)}
           </button>
           <div id="fe-zoom-wrap" title="Zoom: ${initZoom}% \xB7 drag to scale the list (50 to 320%)">
@@ -15800,6 +15811,29 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     return { entries, folders, truncated: entryCapped || depthCapped, entryCapped, depthCapped, cancelled: isCancelled() };
   }
 
+  // src/doc-comments.ts
+  var SUFFIX = ".bfb.json";
+  function openThreads(text) {
+    try {
+      const threads = JSON.parse(text)?.comments?.threads;
+      return Array.isArray(threads) ? threads.filter((t) => !t?.deleted && t?.status !== "done").length : 0;
+    } catch {
+      return 0;
+    }
+  }
+  function commentedDocs(all) {
+    const names = new Set(all.filter((e) => !e.isDir).map((e) => e.name));
+    return all.filter((e) => !e.isDir && e.name.endsWith(SUFFIX) && names.has(e.name.slice(0, -SUFFIX.length))).map((e) => ({ doc: e.name.slice(0, -SUFFIX.length), href: e.href }));
+  }
+  async function loadOpenCounts(all) {
+    const out = /* @__PURE__ */ new Map();
+    await Promise.all(commentedDocs(all).map(async ({ doc, href }) => {
+      const n = openThreads(await fetchFileText(href, 1).catch(() => ""));
+      if (n) out.set(doc, n);
+    }));
+    return out;
+  }
+
   // src/name-filter.ts
   async function filterNames(entries, pattern, signal) {
     const response = await fetch(chrome.runtime.getURL("search-worker.js"), { signal });
@@ -15968,6 +16002,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       selIdx: -1,
       anchor: -1
     };
+    let openComments = /* @__PURE__ */ new Map();
     const ctx = () => {
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const byPath = new Map(getSaved().filter((p) => p.tags?.length).map((p) => [p.path.replace(/\/+$/, ""), p.tags]));
@@ -15975,7 +16010,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         rawPath,
         iconRules: app.iconRules,
         settings: app.settings,
-        tagsOf: (path) => (byPath.get(path.replace(/\/+$/, "")) ?? []).map((name) => ({ name, color: colour.get(name) ?? "#8b949e" }))
+        tagsOf: (path) => (byPath.get(path.replace(/\/+$/, "")) ?? []).map((name) => ({ name, color: colour.get(name) ?? "#8b949e" })),
+        openComments: (name) => openComments.get(name) ?? 0
       };
     };
     const nonPar = all.filter((e) => !e.isParent);
@@ -16146,6 +16182,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       sel.setSel(-1);
     }
     app.applyAll = applyAll;
+    void loadOpenCounts(all).then((m) => {
+      if (m.size) {
+        openComments = m;
+        applyAll();
+      }
+    });
     app.setOrder = (sort, group) => {
       ls.sort = { ...sort };
       ls.group = group;
@@ -16335,7 +16377,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     hiddenBtn.addEventListener("click", () => {
       const on = fe.classList.toggle("show-hidden");
       hiddenBtn.classList.toggle("on", on);
-      hiddenBtn.title = `Hidden files: ${on ? "showing" : "hiding"} dotfiles \xB7 click to toggle`;
+      hiddenBtn.title = `Hidden files: ${on ? "showing" : "hiding"} dotfiles and comment files \xB7 click to toggle`;
       kvSet(HIDDEN_KEY, String(on));
       toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? "s" : ""}` : "Hidden files concealed");
       if (!app.fileMode) el("fe-count").textContent = ls.baseStatus = countText();

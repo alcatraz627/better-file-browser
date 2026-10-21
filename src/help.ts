@@ -43,7 +43,7 @@ included, set **Interface size** in **Settings → Appearance**.
 - **Deep search** — the folder button beside the filter box includes subfolders. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8).
 - **Sort** — click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
 - **Filter** panel — match names by text or regex, or show only folders / files / one extension.
-- **Hidden files** — the eye button toggles dotfiles.
+- **Hidden files** — the eye button toggles dotfiles and the .bfb.json comment files beside documents. A document with open comments shows their count on its row.
 
 ## Selecting & opening
 

@@ -17,6 +17,7 @@ import { selectionRange } from './selection';
 import { applyFilter, applySort, buildGroups } from './sort-filter';
 import { crawl } from './deep-search';
 import { parseListing } from './parse';
+import { loadOpenCounts } from './doc-comments';
 import { isTextCandidate, searchContents, findToHash, findFromHash, describeFind, textPatternError } from './find';
 import { filterNames } from './name-filter';
 import { SearchFileReader, SearchSession } from './search-session';
@@ -60,12 +61,14 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     contentHits: null, contentText: '', findSeq: 0, pendingFindText: null,
     selSet: new Set(), selIdx: -1, anchor: -1,
   };
+  let openComments = new Map<string, number>();
   const ctx = (): RenderContext => {
     const colour = new Map(getTags().map(t => [t.name, t.color]));
     const byPath = new Map(getSaved().filter(p => p.tags?.length).map(p => [p.path.replace(/\/+$/, ''), p.tags!]));
     return {
       rawPath, iconRules: app.iconRules, settings: app.settings,
       tagsOf: path => (byPath.get(path.replace(/\/+$/, '')) ?? []).map(name => ({ name, color: colour.get(name) ?? '#8b949e' })),
+      openComments: name => openComments.get(name) ?? 0,
     };
   };
   const nonPar = all.filter(e => !e.isParent);
@@ -227,6 +230,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     sel.setSel(-1);
   }
   app.applyAll = applyAll;
+  void loadOpenCounts(all).then(m => { if (m.size) { openComments = m; applyAll(); } });
   app.setOrder = (sort, group) => { ls.sort = { ...sort }; ls.group = group; syncSortUi(); applyAll(); };
 
   function refreshNameMatches(): void {
@@ -397,7 +401,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
   hiddenBtn.addEventListener('click', () => {
     const on = fe.classList.toggle('show-hidden');
     hiddenBtn.classList.toggle('on', on);
-    hiddenBtn.title = `Hidden files: ${on ? 'showing' : 'hiding'} dotfiles · click to toggle`;
+    hiddenBtn.title = `Hidden files: ${on ? 'showing' : 'hiding'} dotfiles and comment files · click to toggle`;
     kvSet(HIDDEN_KEY, String(on));
     toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? 's' : ''}` : 'Hidden files concealed');
     if (!app.fileMode) el('fe-count').textContent = ls.baseStatus = countText();
