@@ -1,14 +1,18 @@
-// One dialog chrome for Help and Settings, the shape of the kanban board's
-// help modal: a title row with a mark and a subtitle, a tab strip, and one
-// scrolling pane at a time. Title and tabs are flex:none siblings of the
-// pane, so the chrome never scrolls. Esc closes, and focus goes back to
-// where it was; the preview shares the focus half through the two helpers.
+// One dialog chrome for Help and Settings: the title and the list of tabs
+// down the left, one scrolling pane at a time on the right. A tab with an
+// icon gets a coloured tile in the list and a page header (tile, title, a
+// line on what the page covers) at the top of its pane. Esc closes, and
+// focus goes back to where it was; the preview shares the focus half
+// through the two helpers.
 import { esc } from './utils';
 import { kvGet, kvSet } from './kv';
 import { UI_ICON } from './control-icons';
 
-export interface DialogTab { key: string; label: string; hint?: string; icon?: string; body: string }
+export interface DialogTab { key: string; label: string; hint?: string; icon?: string; tone?: string; desc?: string; body: string }
 export interface DialogSpec { id: string; mark: string; title: string; subtitle: string; tabs: DialogTab[] }
+
+const tile = (t: DialogTab, size = '') =>
+  `<span class="fe-dlg-tile ${size}" style="--tone:${t.tone ?? 'var(--ac)'}" aria-hidden="true">${t.icon}</span>`;
 
 export function renderDialog(d: DialogSpec): string {
   return `
@@ -21,9 +25,9 @@ export function renderDialog(d: DialogSpec): string {
         <button class="fe-dlg-close" title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div class="fe-dlg-tabs" role="tablist">
-        ${d.tabs.map(t => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} · [ ] switch tabs · Esc closes"><span class="fe-dlg-tab-main">${t.icon ?? ''}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ''}</button>`).join('')}
+        ${d.tabs.map(t => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} · [ ] switch tabs · Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ''}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ''}</button>`).join('')}
       </div>
-      ${d.tabs.map(t => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.body}</div>`).join('')}
+      ${d.tabs.map(t => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.icon ? `<header class="fe-dlg-ph">${tile(t, 'lg')}<div class="fe-dlg-ph-tx"><h2>${esc(t.label)}</h2>${t.desc || t.hint ? `<p>${esc(t.desc || t.hint!)}</p>` : ''}</div></header>` : ''}${t.body}</div>`).join('')}
     </div>
   </div>`;
 }

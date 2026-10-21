@@ -933,6 +933,7 @@ ${body}`;
   };
 
   // src/dialog.ts
+  var tile = (t, size = "") => `<span class="fe-dlg-tile ${size}" style="--tone:${t.tone ?? "var(--ac)"}" aria-hidden="true">${t.icon}</span>`;
   function renderDialog(d) {
     return `
   <div id="${esc(d.id)}" class="fe-dlg" style="display:none">
@@ -944,9 +945,9 @@ ${body}`;
         <button class="fe-dlg-close" title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div class="fe-dlg-tabs" role="tablist">
-        ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><span class="fe-dlg-tab-main">${t.icon ?? ""}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
+        ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ""}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
       </div>
-      ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.body}</div>`).join("")}
+      ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.icon ? `<header class="fe-dlg-ph">${tile(t, "lg")}<div class="fe-dlg-ph-tx"><h2>${esc(t.label)}</h2>${t.desc || t.hint ? `<p>${esc(t.desc || t.hint)}</p>` : ""}</div></header>` : ""}${t.body}</div>`).join("")}
     </div>
   </div>`;
   }
@@ -4983,6 +4984,69 @@ button.fe-si{width:auto;display:flex}
 #fe[data-theme="light"] .fe-set-sw:nth-child(2) .fe-set-sw-chip{--b:#f0f0f5;--a:#6d4aff}
 #fe[data-theme="light"] .fe-set-sw:nth-child(3) .fe-set-sw-chip{--b:#f2ece4;--a:#c2406b}
 #fe[data-theme="light"] .fe-set-sw:nth-child(4) .fe-set-sw-chip{--b:#f0f0f0;--a:#141414}
+/* Settings and Help as a desktop settings window: the title and the tabs
+   down the left, each tab a coloured tile; each page opens with a header
+   (large tile, title, what the page covers) that stays put while the page
+   scrolls; sections are small headings over grouped cards. Hierarchy comes
+   from weight, colour, case and space, inside the five-step type scale. */
+.fe-dlg-box{grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);border-radius:14px 0 0 0;align-items:flex-start}
+.fe-dlg-tx i{line-height:1.35}
+.fe-dlg-close{position:absolute;top:14px;right:14px;z-index:5}
+.fe-dlg-tabs{grid-column:1;grid-row:2;padding:4px 8px 12px}
+.fe-dlg-pane{grid-column:2;grid-row:1/span 2;border-radius:0 14px 14px 0}
+.fe-dlg-pane .fe-md>:first-child{padding-right:36px}
+.fe-dlg-tile{flex:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:#fff;
+  background:linear-gradient(165deg,color-mix(in srgb,var(--tone) 88%,#fff),color-mix(in srgb,var(--tone) 80%,#000));
+  box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .2),0 1px 2px rgb(0 0 0 / .22)}
+.fe-dlg-tab-main .fe-dlg-tile svg{width:13px;height:13px}
+.fe-dlg-tile.lg{width:40px;height:40px;border-radius:11px;box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .22),0 4px 12px color-mix(in srgb,var(--tone) 30%,transparent)}
+.fe-dlg-tile.lg svg{width:22px;height:22px}
+.fe-dlg-tab i{padding-left:calc(22px + var(--row-gap))}
+.fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
+.fe-dlg-ph{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:14px;margin:0 -24px;padding:22px 60px 18px 24px;
+  background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
+.fe-dlg-ph-tx{min-width:0}
+.fe-dlg-ph h2{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
+.fe-dlg-ph p{margin:3px 0 0;font-size:var(--fs-md);line-height:1.4;color:var(--dm)}
+.fe-set-group{display:flex;flex-direction:column;gap:8px}
+.fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-set-group > .fe-set-h .fe-pbn{height:24px;padding:0 9px;font-size:var(--fs-sm);font-weight:500;letter-spacing:0;text-transform:none}
+.fe-set-card{padding:0;overflow:hidden}
+.fe-set-card > .fe-set:first-child{border-top:0}
+.fe-set-card > .fe-set-note:first-child{padding-top:12px}
+.fe-set-card #fe-st-reset-rules{margin:10px 16px 12px}
+#fe-st-ai-card{background:none;border:0;border-radius:0;padding:14px 16px}
+/* Theme and palette pickers: a small window drawn in the colours each one
+   picks. Palette windows follow the current mode; mode windows show both. */
+.fe-set-sws{gap:6px}
+.fe-set-sw{gap:6px;padding:6px}
+.fe-set-thumb{position:relative;display:block;width:68px;height:46px;border-radius:8px;overflow:hidden;background:var(--b);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t) 14%,transparent),0 1px 3px rgb(0 0 0 / .18);
+  --t:#fff;--c:color-mix(in srgb,var(--b) 78%,#000);transition:box-shadow var(--t-fast) var(--ease)}
+.fe-set-thumb i{position:absolute;display:block}
+.fe-set-thumb .sb{left:0;top:0;bottom:0;width:18px;background:var(--c)}
+.fe-set-thumb .r1,.fe-set-thumb .r2{left:25px;height:4px;border-radius:2px;background:var(--t);opacity:.42}
+.fe-set-thumb .r1{top:11px;width:32px}
+.fe-set-thumb .r2{top:20px;width:22px;opacity:.26}
+.fe-set-thumb .pill{left:25px;bottom:9px;width:20px;height:7px;border-radius:4px;background:var(--a)}
+.fe-set-sw:has(input:checked) .fe-set-thumb{box-shadow:0 0 0 2px var(--ac),0 1px 3px rgb(0 0 0 / .18)}
+.fe-set-sw:has(.fe-set-thumb):has(input:checked){background:none}
+.fe-set-sw:has(.fe-set-thumb):hover{background:none}
+.fe-set-sw:has(.fe-set-thumb):hover .fe-set-thumb{box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 45%,transparent),0 1px 3px rgb(0 0 0 / .18)}
+.fe-set-sw:has(.fe-set-thumb):has(input:checked):hover .fe-set-thumb{box-shadow:0 0 0 2px var(--ac),0 1px 3px rgb(0 0 0 / .18)}
+.fe-set-sw:has(input:focus-visible) .fe-set-thumb{outline:2px solid var(--ac);outline-offset:3px}
+.fe-set-thumb[data-p="slate"]{--a:#3cc6c0;--b:#1c2328}
+.fe-set-thumb[data-p="violet"]{--a:#9d7cff;--b:#1f1f27}
+.fe-set-thumb[data-p="sand"]{--a:#e8789a;--b:#24201c}
+.fe-set-thumb[data-p="ink"]{--a:#f2f2f3;--b:#1b1b1d}
+#fe[data-theme="light"] .fe-set-thumb[data-p]{--t:#000;--c:color-mix(in srgb,var(--b) 90%,#000)}
+#fe[data-theme="light"] .fe-set-thumb[data-p="slate"]{--a:#0e8f8a;--b:#eef3f5}
+#fe[data-theme="light"] .fe-set-thumb[data-p="violet"]{--a:#6d4aff;--b:#f3f3f8}
+#fe[data-theme="light"] .fe-set-thumb[data-p="sand"]{--a:#c2406b;--b:#f5efe7}
+#fe[data-theme="light"] .fe-set-thumb[data-p="ink"]{--a:#141414;--b:#f4f4f4}
+#fe .fe-set-thumb[data-mode="dark"]{--a:var(--ac);--b:#1c2328;--t:#fff;--c:#131a1e}
+#fe .fe-set-thumb[data-mode="light"]{--a:var(--ac);--b:#f4f6f8;--t:#000;--c:#e2e7eb}
 /* Very narrow: the sidebar shrinks to its rail and a picked lens floats over
    the page; the path bar keeps its last folder in view. */
 @media (max-width:520px){
@@ -5027,7 +5091,9 @@ button.fe-si{width:auto;display:flex}
 }
 @media (max-width:700px){
   .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
-  .fe-dlg-tabs{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--bd);border-radius:0}
+  .fe-dlg-title{grid-row:1;border-right:0;border-radius:14px 14px 0 0}
+  .fe-dlg-pane{grid-column:1;grid-row:3;border-radius:0 0 14px 14px}
+  .fe-dlg-tabs{grid-row:2;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--bd);border-radius:0}
   .fe-dlg-tab{flex:none}
   .fe-dlg-tab i{display:none}
   .fe-set{flex-wrap:wrap}
@@ -13754,19 +13820,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const lensHead = (title, actions = "") => `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b></span>${actions}</div>`;
     const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
     const stRow = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
-    const stCard = (title, rows, action = "") => `<section class="fe-set-card"><h3 class="fe-set-h"><span>${title}</span>${action}</h3>${rows}</section>`;
+    const stCard = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
     const stSwitch = (id, title) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
     const stNote = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
-    const swatch = (value, name, accent, surface, title) => `<label class="fe-set-sw" title="${title}"><input type="radio" name="bfb-palette" value="${value}" title="${title}"><span class="fe-set-sw-chip" style="--a:${accent};--b:${surface}"></span><span>${name}</span></label>`;
+    const thumb = (group, value, name, title) => `<label class="fe-set-sw" title="${title}"><input type="radio" name="${group}" value="${value}" title="${title}"><span class="fe-set-thumb" data-${group === "bfb-theme" ? "mode" : "p"}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
     const SETTINGS_DIALOG = {
       id: "fe-settings-modal",
       mark: PI.gear,
       title: "Settings",
       subtitle: "Saved in this browser profile",
       tabs: [
-        { key: "look", label: "Look", hint: "Theme, colour and size", icon: UI_ICON.appearance, body: stCard(
+        { key: "look", label: "Look", hint: "Theme, colour and size", icon: UI_ICON.appearance, tone: "var(--nc-pink)", desc: "How bfb looks: the theme, its colours, and the size of everything.", body: stCard(
           "Theme",
-          stRow("Mode", "", `<div class="fe-seg"><label><input type="radio" name="bfb-theme" value="dark" title="Dark theme"><span>Dark</span></label><label><input type="radio" name="bfb-theme" value="light" title="Light theme"><span>Light</span></label></div>`) + stRow("Palette", "Accent and surface colours", `<div class="fe-set-sws">${swatch("slate", "Slate", "#3cc6c0", "#1c2328", "Slate and teal") + swatch("violet", "Violet", "#9d7cff", "#1f1f27", "Violet") + swatch("sand", "Sand", "#e8789a", "#24201c", "Sand and rose") + swatch("ink", "Ink", "#f2f2f3", "#1b1b1d", "Ink, black and white")}</div>`)
+          stRow("Mode", "Dark or light surfaces", `<div class="fe-set-sws">${thumb("bfb-theme", "dark", "Dark", "Dark theme") + thumb("bfb-theme", "light", "Light", "Light theme")}</div>`) + stRow("Palette", "Accent and surface colours", `<div class="fe-set-sws">${thumb("bfb-palette", "slate", "Slate", "Slate and teal") + thumb("bfb-palette", "violet", "Violet", "Violet") + thumb("bfb-palette", "sand", "Sand", "Sand and rose") + thumb("bfb-palette", "ink", "Ink", "Ink, black and white")}</div>`)
         ) + stCard(
           "Size",
           stRow("Interface size", "Scales everything", `<select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">${[90, 100, 110, 125, 150].map((n) => `<option value="${n}">${n}%</option>`).join("")}</select>`) + stRow("Text size", "Text throughout the app", `<select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>`) + stRow("Compact rows", "Tighter rows in lists and tiles", stSwitch("fe-st-compact", "Tighter rows and tiles"))
@@ -13774,7 +13840,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           "Help",
           stRow("Tooltips", "Labels on hover", stSwitch("fe-st-tooltips", "Native tooltips on every control")) + stRow("Keyboard shortcuts", "Every key on one page", `<button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Show keys</button>`)
         ) },
-        { key: "folders", label: "Folders", hint: "Views, order and the sidebar", icon: UI_ICON.files, body: stCard(
+        { key: "folders", label: "Folders", hint: "Views, order and the sidebar", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "What a folder shows when it opens, and what a click on a file does.", body: stCard(
           "Opening a folder",
           stRow("View", "How a folder first appears", `<select id="fe-st-defview" class="fe-st-select" title="View a folder opens in"><option value="details">Details</option><option value="list">List</option><option value="tree">Tree</option><option value="tiles">Tiles</option><option value="icons">Large icons</option></select>`) + stRow("Sort", "", `<select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in"><option value="">As listed</option><option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option><option value="type">Type</option><option value="ext">Extension</option></select><select id="fe-st-sort-dir" class="fe-st-select" title="Direction"><option value="asc">Ascending</option><option value="desc">Descending</option></select>`) + stRow("Group", "", `<select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with"><option value="none">None</option><option value="folders-first">Folders first</option><option value="files-first">Files first</option><option value="ext">By extension</option><option value="type">By type</option></select>`) + stRow("Dates", "How the Modified column reads", `<select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads"><option value="short">Apr 17</option><option value="full">April 17, 2025</option></select>`)
         ) + stCard(
@@ -13787,7 +13853,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           "Terminal",
           stRow("Open folders in", "", `<select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open the current folder in"><option value="ghostty">Ghostty</option><option value="terminal">Terminal</option><option value="iterm">iTerm2</option><option value="wezterm">WezTerm</option><option value="kitty">Kitty</option><option value="custom">Custom command</option></select>`) + stRow("Command", "Use ${p} for the folder; it is copied, not run", `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} for the folder path.'>`, ' id="fe-st-term-custom-row" style="display:none"') + stNote("", "fe-st-term-hint")
         ) },
-        { key: "files", label: "Files", hint: "Reading and file pages", icon: UI_ICON.preview, body: stCard(
+        { key: "files", label: "Files", hint: "Reading and file pages", icon: UI_ICON.files, tone: "var(--nc-teal)", desc: "How files read as pages, which ones Chrome keeps, and their icons.", body: stCard(
           "Reading",
           stRow("Reading width", "Default for Markdown pages", `<select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages"><option value="unset">Full width</option><option value="xl">Wide, 150 characters</option><option value="lg">Medium, 130 characters</option><option value="md">Narrow, 110 characters</option></select>`) + stRow("Line height", "", `<select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${["1.5", "1.65", "1.8"].map((n) => `<option value="${n}">${n}</option>`).join("")}</select>`) + stRow("Code size", "", `<select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>`) + stRow("Wrap long lines", "Raw text and code", stSwitch("fe-st-wrap", "Wrap long lines in raw text and code"))
         ) + stCard(
@@ -13808,14 +13874,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <button id="fe-st-reset-rules" class="fe-pbn fe-set-danger" title="Replace every rule with the built-in set">${UI_ICON.reset}Reset to built-in rules</button>`,
           `<button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">${UI_ICON.add}Add rule</button>`
         ) },
-        { key: "notes", label: "Notes", hint: "Notes and editing", icon: UI_ICON.notes, body: stCard(
+        { key: "notes", label: "Notes", hint: "Notes and editing", icon: UI_ICON.notes, tone: "var(--nc-orange)", desc: "Where your notes live, and the folders you can edit files in.", body: stCard(
           "Notes",
           stRow("Notes folder", "A folder of Markdown files", `<input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder"><button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>`) + stNote("", "fe-st-notes-hint")
         ) + stCard(
           "Editing",
           stRow("Editable folders", "Text files inside these get an Edit button (e)", `<input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Folders separated by commas; ~ means home">`) + stNote("Each save keeps a 14-day backup in ~/Library/Application Support/BetterFileBrowser.")
         ) },
-        { key: "ai", label: "AI", hint: "Local model", icon: UI_ICON.ai, body: stCard(
+        { key: "ai", label: "AI", hint: "Local model", icon: UI_ICON.ai, tone: "var(--nc-purple)", desc: "The model on this Mac that answers questions in Ask.", body: stCard(
           "Local model",
           `
           <div id="fe-st-ai-card">
@@ -13833,7 +13899,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           </div>`,
           `<button id="fe-st-ai-refresh" class="fe-pbn" title="Check the model server again">${UI_ICON.reset}Check again</button>`
         ) },
-        { key: "data", label: "Data", hint: "Export and import", icon: UI_ICON.data, body: stCard(
+        { key: "data", label: "Data", hint: "Export and import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Take your settings and saved places to another browser.", body: stCard(
           "Your data",
           stRow("Export", "Settings and Saved list, as JSON", `<button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>`) + stRow("Import", "Loads an export, then reloads", `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">`) + `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`
         ) }
@@ -13843,7 +13909,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       id: "fe-help-modal",
       mark: PI.help,
       title: "Help",
-      subtitle: "Better File Browser \xB7 everything runs on your machine",
+      subtitle: "Everything runs on your machine",
       tabs: HELP_TABS.map((t) => ({ key: t.key, label: t.label, hint: t.hint, body: `<div class="fe-md">${renderMarkdown(t.md)}</div>` }))
     };
     const PAGE_HTML = `

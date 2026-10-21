@@ -77,27 +77,32 @@ export function renderPage(p: PageParams): string {
 
   // Settings reads as a list of plain sentences: each row names the setting,
   // says what it changes, and keeps its control on the right. Rows sit in
-  // cards by subject; on/off settings are switches. Control ids are what
-  // settings-ui.ts binds to, so they stay stable.
+  // cards by subject, each card under a small heading of its own; on/off
+  // settings are switches. Control ids are what settings-ui.ts binds to, so
+  // they stay stable.
   const stRow = (label: string, desc: string, ctl: string, attrs = '') =>
     `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ''}</div><div class="fe-set-c">${ctl}</div></div>`;
   const stCard = (title: string, rows: string, action = '') =>
-    `<section class="fe-set-card"><h3 class="fe-set-h"><span>${title}</span>${action}</h3>${rows}</section>`;
+    `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
   const stSwitch = (id: string, title: string) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
   const stNote = (text: string, id = '') => `<p class="fe-set-note"${id ? ` id="${id}"` : ''}>${text}</p>`;
-  const swatch = (value: string, name: string, accent: string, surface: string, title: string) =>
-    `<label class="fe-set-sw" title="${title}"><input type="radio" name="bfb-palette" value="${value}" title="${title}"><span class="fe-set-sw-chip" style="--a:${accent};--b:${surface}"></span><span>${name}</span></label>`;
+  // A small window drawn in the colours it picks: a sidebar, two lines of
+  // text and an accent pill, so the choice shows what it will look like.
+  const thumb = (group: string, value: string, name: string, title: string) =>
+    `<label class="fe-set-sw" title="${title}"><input type="radio" name="${group}" value="${value}" title="${title}"><span class="fe-set-thumb" data-${group === 'bfb-theme' ? 'mode' : 'p'}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
   const SETTINGS_DIALOG: DialogSpec = {
     id: 'fe-settings-modal', mark: PI.gear, title: 'Settings', subtitle: 'Saved in this browser profile',
     tabs: [
-      { key: 'look', label: 'Look', hint: 'Theme, colour and size', icon: UI_ICON.appearance, body:
+      { key: 'look', label: 'Look', hint: 'Theme, colour and size', icon: UI_ICON.appearance, tone: 'var(--nc-pink)', desc: 'How bfb looks: the theme, its colours, and the size of everything.', body:
         stCard('Theme',
-          stRow('Mode', '', `<div class="fe-seg"><label><input type="radio" name="bfb-theme" value="dark" title="Dark theme"><span>Dark</span></label><label><input type="radio" name="bfb-theme" value="light" title="Light theme"><span>Light</span></label></div>`) +
+          stRow('Mode', 'Dark or light surfaces', `<div class="fe-set-sws">${
+            thumb('bfb-theme', 'dark', 'Dark', 'Dark theme') +
+            thumb('bfb-theme', 'light', 'Light', 'Light theme')}</div>`) +
           stRow('Palette', 'Accent and surface colours', `<div class="fe-set-sws">${
-            swatch('slate', 'Slate', '#3cc6c0', '#1c2328', 'Slate and teal') +
-            swatch('violet', 'Violet', '#9d7cff', '#1f1f27', 'Violet') +
-            swatch('sand', 'Sand', '#e8789a', '#24201c', 'Sand and rose') +
-            swatch('ink', 'Ink', '#f2f2f3', '#1b1b1d', 'Ink, black and white')}</div>`)) +
+            thumb('bfb-palette', 'slate', 'Slate', 'Slate and teal') +
+            thumb('bfb-palette', 'violet', 'Violet', 'Violet') +
+            thumb('bfb-palette', 'sand', 'Sand', 'Sand and rose') +
+            thumb('bfb-palette', 'ink', 'Ink', 'Ink, black and white')}</div>`)) +
         stCard('Size',
           stRow('Interface size', 'Scales everything', `<select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">${[90, 100, 110, 125, 150].map(n => `<option value="${n}">${n}%</option>`).join('')}</select>`) +
           stRow('Text size', 'Text throughout the app', `<select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map(n => `<option value="${n}">${n} px</option>`).join('')}</select>`) +
@@ -105,7 +110,7 @@ export function renderPage(p: PageParams): string {
         stCard('Help',
           stRow('Tooltips', 'Labels on hover', stSwitch('fe-st-tooltips', 'Native tooltips on every control')) +
           stRow('Keyboard shortcuts', 'Every key on one page', `<button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Show keys</button>`)) },
-      { key: 'folders', label: 'Folders', hint: 'Views, order and the sidebar', icon: UI_ICON.files, body:
+      { key: 'folders', label: 'Folders', hint: 'Views, order and the sidebar', icon: UI_ICON.folderOpen, tone: 'var(--nc-blue)', desc: 'What a folder shows when it opens, and what a click on a file does.', body:
         stCard('Opening a folder',
           stRow('View', 'How a folder first appears', `<select id="fe-st-defview" class="fe-st-select" title="View a folder opens in"><option value="details">Details</option><option value="list">List</option><option value="tree">Tree</option><option value="tiles">Tiles</option><option value="icons">Large icons</option></select>`) +
           stRow('Sort', '', `<select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in"><option value="">As listed</option><option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option><option value="type">Type</option><option value="ext">Extension</option></select><select id="fe-st-sort-dir" class="fe-st-select" title="Direction"><option value="asc">Ascending</option><option value="desc">Descending</option></select>`) +
@@ -121,7 +126,7 @@ export function renderPage(p: PageParams): string {
           stRow('Open folders in', '', `<select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open the current folder in"><option value="ghostty">Ghostty</option><option value="terminal">Terminal</option><option value="iterm">iTerm2</option><option value="wezterm">WezTerm</option><option value="kitty">Kitty</option><option value="custom">Custom command</option></select>`) +
           stRow('Command', 'Use ${p} for the folder; it is copied, not run', `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} for the folder path.'>`, ' id="fe-st-term-custom-row" style="display:none"') +
           stNote('', 'fe-st-term-hint')) },
-      { key: 'files', label: 'Files', hint: 'Reading and file pages', icon: UI_ICON.preview, body:
+      { key: 'files', label: 'Files', hint: 'Reading and file pages', icon: UI_ICON.files, tone: 'var(--nc-teal)', desc: 'How files read as pages, which ones Chrome keeps, and their icons.', body:
         stCard('Reading',
           stRow('Reading width', 'Default for Markdown pages', `<select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages"><option value="unset">Full width</option><option value="xl">Wide, 150 characters</option><option value="lg">Medium, 130 characters</option><option value="md">Narrow, 110 characters</option></select>`) +
           stRow('Line height', '', `<select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${['1.5', '1.65', '1.8'].map(n => `<option value="${n}">${n}</option>`).join('')}</select>`) +
@@ -142,14 +147,14 @@ export function renderPage(p: PageParams): string {
           <div id="fe-st-rules-list"></div>
           <button id="fe-st-reset-rules" class="fe-pbn fe-set-danger" title="Replace every rule with the built-in set">${UI_ICON.reset}Reset to built-in rules</button>`,
           `<button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">${UI_ICON.add}Add rule</button>`) },
-      { key: 'notes', label: 'Notes', hint: 'Notes and editing', icon: UI_ICON.notes, body:
+      { key: 'notes', label: 'Notes', hint: 'Notes and editing', icon: UI_ICON.notes, tone: 'var(--nc-orange)', desc: 'Where your notes live, and the folders you can edit files in.', body:
         stCard('Notes',
           stRow('Notes folder', 'A folder of Markdown files', `<input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder"><button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>`) +
           stNote('', 'fe-st-notes-hint')) +
         stCard('Editing',
           stRow('Editable folders', 'Text files inside these get an Edit button (e)', `<input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Folders separated by commas; ~ means home">`) +
           stNote('Each save keeps a 14-day backup in ~/Library/Application Support/BetterFileBrowser.')) },
-      { key: 'ai', label: 'AI', hint: 'Local model', icon: UI_ICON.ai, body:
+      { key: 'ai', label: 'AI', hint: 'Local model', icon: UI_ICON.ai, tone: 'var(--nc-purple)', desc: 'The model on this Mac that answers questions in Ask.', body:
         stCard('Local model', `
           <div id="fe-st-ai-card">
             <div class="fe-st-ai-head">
@@ -165,7 +170,7 @@ export function renderPage(p: PageParams): string {
             <div class="fe-st-ai-hint" id="fe-st-ai-hint"></div>
           </div>`,
           `<button id="fe-st-ai-refresh" class="fe-pbn" title="Check the model server again">${UI_ICON.reset}Check again</button>`) },
-      { key: 'data', label: 'Data', hint: 'Export and import', icon: UI_ICON.data, body:
+      { key: 'data', label: 'Data', hint: 'Export and import', icon: UI_ICON.data, tone: 'var(--nc-green)', desc: 'Take your settings and saved places to another browser.', body:
         stCard('Your data',
           stRow('Export', 'Settings and Saved list, as JSON', `<button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>`) +
           stRow('Import', 'Loads an export, then reloads', `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">`) +
@@ -173,7 +178,7 @@ export function renderPage(p: PageParams): string {
     ],
   };
   const HELP_DIALOG: DialogSpec = {
-    id: 'fe-help-modal', mark: PI.help, title: 'Help', subtitle: 'Better File Browser · everything runs on your machine',
+    id: 'fe-help-modal', mark: PI.help, title: 'Help', subtitle: 'Everything runs on your machine',
     tabs: HELP_TABS.map(t => ({ key: t.key, label: t.label, hint: t.hint, body: `<div class="fe-md">${renderMarkdown(t.md)}</div>` })),
   };
 

@@ -1213,6 +1213,69 @@ button.fe-si{width:auto;display:flex}
 #fe[data-theme="light"] .fe-set-sw:nth-child(2) .fe-set-sw-chip{--b:#f0f0f5;--a:#6d4aff}
 #fe[data-theme="light"] .fe-set-sw:nth-child(3) .fe-set-sw-chip{--b:#f2ece4;--a:#c2406b}
 #fe[data-theme="light"] .fe-set-sw:nth-child(4) .fe-set-sw-chip{--b:#f0f0f0;--a:#141414}
+/* Settings and Help as a desktop settings window: the title and the tabs
+   down the left, each tab a coloured tile; each page opens with a header
+   (large tile, title, what the page covers) that stays put while the page
+   scrolls; sections are small headings over grouped cards. Hierarchy comes
+   from weight, colour, case and space, inside the five-step type scale. */
+.fe-dlg-box{grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);border-radius:14px 0 0 0;align-items:flex-start}
+.fe-dlg-tx i{line-height:1.35}
+.fe-dlg-close{position:absolute;top:14px;right:14px;z-index:5}
+.fe-dlg-tabs{grid-column:1;grid-row:2;padding:4px 8px 12px}
+.fe-dlg-pane{grid-column:2;grid-row:1/span 2;border-radius:0 14px 14px 0}
+.fe-dlg-pane .fe-md>:first-child{padding-right:36px}
+.fe-dlg-tile{flex:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:#fff;
+  background:linear-gradient(165deg,color-mix(in srgb,var(--tone) 88%,#fff),color-mix(in srgb,var(--tone) 80%,#000));
+  box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .2),0 1px 2px rgb(0 0 0 / .22)}
+.fe-dlg-tab-main .fe-dlg-tile svg{width:13px;height:13px}
+.fe-dlg-tile.lg{width:40px;height:40px;border-radius:11px;box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .22),0 4px 12px color-mix(in srgb,var(--tone) 30%,transparent)}
+.fe-dlg-tile.lg svg{width:22px;height:22px}
+.fe-dlg-tab i{padding-left:calc(22px + var(--row-gap))}
+.fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
+.fe-dlg-ph{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:14px;margin:0 -24px;padding:22px 60px 18px 24px;
+  background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
+.fe-dlg-ph-tx{min-width:0}
+.fe-dlg-ph h2{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
+.fe-dlg-ph p{margin:3px 0 0;font-size:var(--fs-md);line-height:1.4;color:var(--dm)}
+.fe-set-group{display:flex;flex-direction:column;gap:8px}
+.fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-set-group > .fe-set-h .fe-pbn{height:24px;padding:0 9px;font-size:var(--fs-sm);font-weight:500;letter-spacing:0;text-transform:none}
+.fe-set-card{padding:0;overflow:hidden}
+.fe-set-card > .fe-set:first-child{border-top:0}
+.fe-set-card > .fe-set-note:first-child{padding-top:12px}
+.fe-set-card #fe-st-reset-rules{margin:10px 16px 12px}
+#fe-st-ai-card{background:none;border:0;border-radius:0;padding:14px 16px}
+/* Theme and palette pickers: a small window drawn in the colours each one
+   picks. Palette windows follow the current mode; mode windows show both. */
+.fe-set-sws{gap:6px}
+.fe-set-sw{gap:6px;padding:6px}
+.fe-set-thumb{position:relative;display:block;width:68px;height:46px;border-radius:8px;overflow:hidden;background:var(--b);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t) 14%,transparent),0 1px 3px rgb(0 0 0 / .18);
+  --t:#fff;--c:color-mix(in srgb,var(--b) 78%,#000);transition:box-shadow var(--t-fast) var(--ease)}
+.fe-set-thumb i{position:absolute;display:block}
+.fe-set-thumb .sb{left:0;top:0;bottom:0;width:18px;background:var(--c)}
+.fe-set-thumb .r1,.fe-set-thumb .r2{left:25px;height:4px;border-radius:2px;background:var(--t);opacity:.42}
+.fe-set-thumb .r1{top:11px;width:32px}
+.fe-set-thumb .r2{top:20px;width:22px;opacity:.26}
+.fe-set-thumb .pill{left:25px;bottom:9px;width:20px;height:7px;border-radius:4px;background:var(--a)}
+.fe-set-sw:has(input:checked) .fe-set-thumb{box-shadow:0 0 0 2px var(--ac),0 1px 3px rgb(0 0 0 / .18)}
+.fe-set-sw:has(.fe-set-thumb):has(input:checked){background:none}
+.fe-set-sw:has(.fe-set-thumb):hover{background:none}
+.fe-set-sw:has(.fe-set-thumb):hover .fe-set-thumb{box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 45%,transparent),0 1px 3px rgb(0 0 0 / .18)}
+.fe-set-sw:has(.fe-set-thumb):has(input:checked):hover .fe-set-thumb{box-shadow:0 0 0 2px var(--ac),0 1px 3px rgb(0 0 0 / .18)}
+.fe-set-sw:has(input:focus-visible) .fe-set-thumb{outline:2px solid var(--ac);outline-offset:3px}
+.fe-set-thumb[data-p="slate"]{--a:#3cc6c0;--b:#1c2328}
+.fe-set-thumb[data-p="violet"]{--a:#9d7cff;--b:#1f1f27}
+.fe-set-thumb[data-p="sand"]{--a:#e8789a;--b:#24201c}
+.fe-set-thumb[data-p="ink"]{--a:#f2f2f3;--b:#1b1b1d}
+#fe[data-theme="light"] .fe-set-thumb[data-p]{--t:#000;--c:color-mix(in srgb,var(--b) 90%,#000)}
+#fe[data-theme="light"] .fe-set-thumb[data-p="slate"]{--a:#0e8f8a;--b:#eef3f5}
+#fe[data-theme="light"] .fe-set-thumb[data-p="violet"]{--a:#6d4aff;--b:#f3f3f8}
+#fe[data-theme="light"] .fe-set-thumb[data-p="sand"]{--a:#c2406b;--b:#f5efe7}
+#fe[data-theme="light"] .fe-set-thumb[data-p="ink"]{--a:#141414;--b:#f4f4f4}
+#fe .fe-set-thumb[data-mode="dark"]{--a:var(--ac);--b:#1c2328;--t:#fff;--c:#131a1e}
+#fe .fe-set-thumb[data-mode="light"]{--a:var(--ac);--b:#f4f6f8;--t:#000;--c:#e2e7eb}
 /* Very narrow: the sidebar shrinks to its rail and a picked lens floats over
    the page; the path bar keeps its last folder in view. */
 @media (max-width:520px){
@@ -1257,7 +1320,9 @@ button.fe-si{width:auto;display:flex}
 }
 @media (max-width:700px){
   .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
-  .fe-dlg-tabs{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--bd);border-radius:0}
+  .fe-dlg-title{grid-row:1;border-right:0;border-radius:14px 14px 0 0}
+  .fe-dlg-pane{grid-column:1;grid-row:3;border-radius:0 0 14px 14px}
+  .fe-dlg-tabs{grid-row:2;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--bd);border-radius:0}
   .fe-dlg-tab{flex:none}
   .fe-dlg-tab i{display:none}
   .fe-set{flex-wrap:wrap}
