@@ -188,10 +188,7 @@ body{opacity:1!important}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
 .fe-sh-collapse svg{width:12px;height:12px;flex:none;transition:transform .12s}
 .fe-collapsed .fe-sh-collapse svg{transform:rotate(-90deg)}
-.fe-sh-collapse:hover,#fe-notes-root:hover{color:var(--tx)}
-#fe-notes-root{display:grid;place-items:center;width:24px;height:24px;margin-left:auto;color:inherit}
-#fe-notes-root svg{width:14px;height:14px}
-#fe-notes-root:not([href]){opacity:.45;pointer-events:none}
+.fe-sh-collapse:hover{color:var(--tx)}
 .fe-si{display:flex;align-items:center;gap:10px;padding:8px 14px;
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
 .fe-si:hover{background:var(--hover);color:var(--tx)}
@@ -219,9 +216,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
   padding:4px 10px 4px 4px;font-size:var(--fs-md);opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
 .fe-rm-btn:hover{color:#f85149}
-#fe-sv-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
-  width:18px;height:18px;line-height:1;font-size:var(--fs-lg);padding:0;display:flex;align-items:center;justify-content:center}
-#fe-sv-add:hover{border-color:var(--ac);color:var(--ac)}
 #fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 20px);margin:2px 10px 6px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:3px 8px;border-radius:var(--r);font-size:var(--fs-sm);outline:none;transition:border-color .15s}
 #fe-lens-filter:focus,#fe-docs-q:focus{border-color:var(--ac)}
@@ -906,10 +900,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-nt-item:hover .fe-nt-tab,.fe-nt-tab:focus-visible{opacity:1}
 .fe-nt-tab:hover{color:var(--ac)}
 .fe-nt-tab svg{width:14px;height:14px}
-#fe-nt-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
-  width:18px;height:18px;line-height:1;font-size:var(--fs-lg);padding:0;display:flex;align-items:center;justify-content:center}
-#fe-sv-add{margin-left:auto}
-#fe-nt-add:hover{border-color:var(--ac);color:var(--ac)}
 .fe-sh a{color:inherit;text-decoration:none}
 .fe-sh a:hover{color:var(--ac)}
 #fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
@@ -1197,6 +1187,68 @@ button.fe-si{width:auto;display:flex}
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:9px 50%}
 .fe-lens-tags{padding:0 6px 8px}
+/* Saved and Notes: the lens's own buttons, icon only, left of one search
+   box that carries a Names/Deep switch; the tag chips scroll in a row below. */
+.fe-lens-tools{display:flex;align-items:center;gap:2px;padding:2px 6px 8px}
+.fe-lens-ib{flex:none;display:inline-grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:var(--row-r);background:none;color:var(--mt);cursor:pointer;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-lens-ib svg{width:16px;height:16px}
+.fe-lens-ib:hover{background:var(--hover);color:var(--tx)}
+.fe-lens-ib.accent{color:var(--ac)}
+a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
+.fe-lens-box{position:relative;flex:1;min-width:0;margin-left:4px}
+.fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
+.fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%);height:22px;padding:0 7px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);
+  color:var(--dm);font:inherit;font-size:var(--fs-xs);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+.fe-lens-depth:hover{color:var(--tx)}
+.fe-lens-depth.on{color:var(--ac);border-color:color-mix(in srgb,var(--ac) 45%,transparent);background:color-mix(in srgb,var(--ac) 12%,var(--bg))}
+#fe-lens-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#fe-lens-tags .fe-lens-tag{flex:none;white-space:nowrap}
+.fe-lens-tag{display:inline-flex;align-items:center;gap:5px}
+.fe-lens-tag i{width:6px;height:6px;border-radius:50%;flex:none}
+/* A saved row is one quiet line: the name, then a tag count that gives way to
+   the row's icon buttons on hover. Path and tags live in the hover card. */
+.fe-pl-meta{display:inline-flex;align-items:center;gap:2px;margin-left:auto;padding-right:2px;flex:none;font-size:var(--fs-xs);color:var(--dm)}
+.fe-pl-meta svg{width:11px!important;height:11px!important;opacity:1}
+.fe-pl-item:hover .fe-pl-meta,.fe-pl-item:focus-within .fe-pl-meta{display:none}
+.fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{display:none;place-items:center;width:24px;height:24px;padding:0;border-radius:6px;opacity:1}
+.fe-pl-item:hover .fe-tag-btn,.fe-pl-item:hover .fe-rm-btn,.fe-pl-item:focus-within .fe-tag-btn,.fe-pl-item:focus-within .fe-rm-btn{display:inline-grid}
+.fe-pl-item .fe-tag-btn svg,.fe-pl-item .fe-rm-btn svg{width:13px;height:13px}
+.fe-pl-item .fe-tag-btn:hover,.fe-pl-item .fe-rm-btn:hover{background:color-mix(in srgb,var(--tx) 10%,transparent)}
+.fe-pl-item .fe-rm-btn:hover{color:var(--nc-red)}
+.fe-pl-item:has(.fe-pl-hit){flex-wrap:wrap}
+.fe-pl-hit{flex-basis:100%;padding:0 0 5px 29px;margin-top:-4px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#fe-sv-card{position:fixed;z-index:60;width:230px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--pop-bd);border-radius:10px;
+  background:var(--pop-bg);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);font-size:var(--fs-sm);color:var(--mt);line-height:1.45;animation:fe-rise var(--t-fast) var(--ease)}
+#fe-sv-card[hidden]{display:none}
+#fe-sv-card b{color:var(--tx);font-size:var(--fs-md);font-weight:600;overflow-wrap:anywhere}
+.fe-svc-path{overflow-wrap:anywhere}
+.fe-svc-tags{display:flex;flex-wrap:wrap;gap:4px;padding-top:2px}
+.fe-svc-hint{color:var(--dm);font-size:var(--fs-xs)}
+/* A note row: a colour bar and tinted icon for a coloured note, the title with
+   its tags as small chips beneath, and the pin in the end slot until hover. */
+.fe-nt-item.coloured::before{content:'';position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--c)}
+.fe-nt-item.coloured .fe-si-link > svg{color:var(--c);opacity:1}
+.fe-nt-item.two .fe-si-link{align-items:flex-start}
+.fe-nt-item.two .fe-si-link > svg{margin-top:1px}
+.fe-nt-main{gap:4px}
+.fe-nt-tags{gap:4px;flex-wrap:nowrap;overflow:hidden}
+.fe-nt-tag{display:inline-flex;align-items:center;gap:4px;height:17px;padding:0 6px;border:1px solid var(--bd2);border-radius:999px;font-size:var(--fs-xs);color:var(--mt);white-space:nowrap;flex:none}
+.fe-nt-tag i{width:6px;height:6px;border-radius:50%;flex:none}
+.fe-nt-item .fe-nt-pin{display:inline-flex;margin-left:auto;padding-right:4px;color:var(--gold);flex:none}
+.fe-nt-item .fe-nt-pin svg{width:12px!important;height:12px!important;opacity:1}
+.fe-nt-item:hover .fe-nt-pin,.fe-nt-item:focus-within .fe-nt-pin{visibility:hidden}
+.fe-nt-item .fe-rm-btn svg{width:13px;height:13px}
+.fe-nt-item .fe-rm-btn:hover{color:var(--nc-red)}
+.fe-nt-grp{display:flex;align-items:center;gap:7px;width:calc(100% - 12px);height:26px;margin:8px 6px 2px;padding:0 var(--row-px);border:0;border-radius:var(--row-r);background:none;cursor:pointer;
+  font:inherit;font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm);text-align:left}
+.fe-nt-grp:first-child{margin-top:0}
+.fe-nt-grp:hover{background:var(--hover);color:var(--tx)}
+.fe-nt-grp .fe-grp-n{letter-spacing:0}
+.fe-nt-grp svg{width:12px;height:12px;flex:none;transition:transform var(--t-fast) var(--ease)}
+.fe-nt-grp[aria-expanded="false"] > svg:last-child{transform:rotate(-90deg)}
+.fe-nt-grp-pin{display:inline-flex;color:var(--gold)}
+.fe-nt-grp-pin svg{width:12px;height:12px}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);
   backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);color:var(--tx)}

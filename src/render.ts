@@ -125,25 +125,30 @@ export function renderTiles(entries: Entry[], ctx: RenderContext, start = 0): st
 // A saved file keeps its path without a trailing slash; a folder ends in one.
 const savedFileExt = (path: string) => path.endsWith('/') ? '' : (path.split('/').pop()!.match(/\.([^.]+)$/)?.[1].toLowerCase() ?? '');
 
-export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, filter = '', folded: Set<string> = new Set()): string {
+/** The Saved list: one quiet line per place, grouped under its first tag.
+ *  `hits` holds places found by looking inside them (a deep search), each with
+ *  the name that matched; they show even when their own name does not match. */
+export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, filter = '', folded: Set<string> = new Set(), hits: Map<string, string> = new Map()): string {
   if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click ☆ in the path bar, or + to name this folder.</div>`;
-  saved = filterSaved(saved, filter);
+  const byName = filterSaved(saved, filter);
+  saved = saved.filter(p => byName.includes(p) || hits.has(p.path));
   if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
-  const color = (name: string) => tags.find(t => t.name === name)?.color ?? '#8b949e';
   const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
-  const row = (p: Place) => `
+  const row = (p: Place) => {
+    const n = p.tags?.length ?? 0, hit = hits.get(p.path);
+    return `
     <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? ' fe-view' : ''}" draggable="true" data-path="${esc(p.path)}">
-      <span class="fe-drag-h" title="Drag to reorder">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? 'file://' + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active' : ''}" title="${esc(isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path)}">
-        ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label || p.path.split('/').filter(Boolean).pop() || '/')}</span>
-        <span class="fe-pl-dots">${(p.tags ?? []).slice(0, 4).map(t => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join('')}${(p.tags?.length ?? 0) > 4 ? `<span class="fe-sv-more" title="${esc(p.tags!.slice(4).join(', '))}">+${p.tags!.length - 4}</span>` : ''}</span>
-      </a>
+      <span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>
+      <a href="${isViewPath(p.path) ? 'file://' + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active' : ''}">
+        ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label">${esc(p.label || p.path.split('/').filter(Boolean).pop() || '/')}</span>
+        ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ''}
+      </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ''}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
-      <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Tags">#</button>
-      <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove">✕</button>
+      <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
+      <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;
-  // Each tag group folds on a soft card (Soft round 2, D3d); a filter opens
-  // every group so no match hides inside a folded one.
+  };
+  // A filter opens every group so no match hides inside a folded one.
   return groupByTag(saved, tags).map(g => {
     if (!g.tag) return g.items.map(row).join('');
     const open = filter.trim() || !folded.has(g.tag.name) ? ' open' : '';

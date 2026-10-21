@@ -4047,10 +4047,7 @@ body{opacity:1!important}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
 .fe-sh-collapse svg{width:12px;height:12px;flex:none;transition:transform .12s}
 .fe-collapsed .fe-sh-collapse svg{transform:rotate(-90deg)}
-.fe-sh-collapse:hover,#fe-notes-root:hover{color:var(--tx)}
-#fe-notes-root{display:grid;place-items:center;width:24px;height:24px;margin-left:auto;color:inherit}
-#fe-notes-root svg{width:14px;height:14px}
-#fe-notes-root:not([href]){opacity:.45;pointer-events:none}
+.fe-sh-collapse:hover{color:var(--tx)}
 .fe-si{display:flex;align-items:center;gap:10px;padding:8px 14px;
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
 .fe-si:hover{background:var(--hover);color:var(--tx)}
@@ -4078,9 +4075,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
   padding:4px 10px 4px 4px;font-size:var(--fs-md);opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
 .fe-rm-btn:hover{color:#f85149}
-#fe-sv-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
-  width:18px;height:18px;line-height:1;font-size:var(--fs-lg);padding:0;display:flex;align-items:center;justify-content:center}
-#fe-sv-add:hover{border-color:var(--ac);color:var(--ac)}
 #fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 20px);margin:2px 10px 6px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:3px 8px;border-radius:var(--r);font-size:var(--fs-sm);outline:none;transition:border-color .15s}
 #fe-lens-filter:focus,#fe-docs-q:focus{border-color:var(--ac)}
@@ -4765,10 +4759,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-nt-item:hover .fe-nt-tab,.fe-nt-tab:focus-visible{opacity:1}
 .fe-nt-tab:hover{color:var(--ac)}
 .fe-nt-tab svg{width:14px;height:14px}
-#fe-nt-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
-  width:18px;height:18px;line-height:1;font-size:var(--fs-lg);padding:0;display:flex;align-items:center;justify-content:center}
-#fe-sv-add{margin-left:auto}
-#fe-nt-add:hover{border-color:var(--ac);color:var(--ac)}
 .fe-sh a{color:inherit;text-decoration:none}
 .fe-sh a:hover{color:var(--ac)}
 #fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
@@ -5056,6 +5046,68 @@ button.fe-si{width:auto;display:flex}
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:9px 50%}
 .fe-lens-tags{padding:0 6px 8px}
+/* Saved and Notes: the lens's own buttons, icon only, left of one search
+   box that carries a Names/Deep switch; the tag chips scroll in a row below. */
+.fe-lens-tools{display:flex;align-items:center;gap:2px;padding:2px 6px 8px}
+.fe-lens-ib{flex:none;display:inline-grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:var(--row-r);background:none;color:var(--mt);cursor:pointer;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-lens-ib svg{width:16px;height:16px}
+.fe-lens-ib:hover{background:var(--hover);color:var(--tx)}
+.fe-lens-ib.accent{color:var(--ac)}
+a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
+.fe-lens-box{position:relative;flex:1;min-width:0;margin-left:4px}
+.fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
+.fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%);height:22px;padding:0 7px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);
+  color:var(--dm);font:inherit;font-size:var(--fs-xs);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+.fe-lens-depth:hover{color:var(--tx)}
+.fe-lens-depth.on{color:var(--ac);border-color:color-mix(in srgb,var(--ac) 45%,transparent);background:color-mix(in srgb,var(--ac) 12%,var(--bg))}
+#fe-lens-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#fe-lens-tags .fe-lens-tag{flex:none;white-space:nowrap}
+.fe-lens-tag{display:inline-flex;align-items:center;gap:5px}
+.fe-lens-tag i{width:6px;height:6px;border-radius:50%;flex:none}
+/* A saved row is one quiet line: the name, then a tag count that gives way to
+   the row's icon buttons on hover. Path and tags live in the hover card. */
+.fe-pl-meta{display:inline-flex;align-items:center;gap:2px;margin-left:auto;padding-right:2px;flex:none;font-size:var(--fs-xs);color:var(--dm)}
+.fe-pl-meta svg{width:11px!important;height:11px!important;opacity:1}
+.fe-pl-item:hover .fe-pl-meta,.fe-pl-item:focus-within .fe-pl-meta{display:none}
+.fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{display:none;place-items:center;width:24px;height:24px;padding:0;border-radius:6px;opacity:1}
+.fe-pl-item:hover .fe-tag-btn,.fe-pl-item:hover .fe-rm-btn,.fe-pl-item:focus-within .fe-tag-btn,.fe-pl-item:focus-within .fe-rm-btn{display:inline-grid}
+.fe-pl-item .fe-tag-btn svg,.fe-pl-item .fe-rm-btn svg{width:13px;height:13px}
+.fe-pl-item .fe-tag-btn:hover,.fe-pl-item .fe-rm-btn:hover{background:color-mix(in srgb,var(--tx) 10%,transparent)}
+.fe-pl-item .fe-rm-btn:hover{color:var(--nc-red)}
+.fe-pl-item:has(.fe-pl-hit){flex-wrap:wrap}
+.fe-pl-hit{flex-basis:100%;padding:0 0 5px 29px;margin-top:-4px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#fe-sv-card{position:fixed;z-index:60;width:230px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--pop-bd);border-radius:10px;
+  background:var(--pop-bg);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);font-size:var(--fs-sm);color:var(--mt);line-height:1.45;animation:fe-rise var(--t-fast) var(--ease)}
+#fe-sv-card[hidden]{display:none}
+#fe-sv-card b{color:var(--tx);font-size:var(--fs-md);font-weight:600;overflow-wrap:anywhere}
+.fe-svc-path{overflow-wrap:anywhere}
+.fe-svc-tags{display:flex;flex-wrap:wrap;gap:4px;padding-top:2px}
+.fe-svc-hint{color:var(--dm);font-size:var(--fs-xs)}
+/* A note row: a colour bar and tinted icon for a coloured note, the title with
+   its tags as small chips beneath, and the pin in the end slot until hover. */
+.fe-nt-item.coloured::before{content:'';position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--c)}
+.fe-nt-item.coloured .fe-si-link > svg{color:var(--c);opacity:1}
+.fe-nt-item.two .fe-si-link{align-items:flex-start}
+.fe-nt-item.two .fe-si-link > svg{margin-top:1px}
+.fe-nt-main{gap:4px}
+.fe-nt-tags{gap:4px;flex-wrap:nowrap;overflow:hidden}
+.fe-nt-tag{display:inline-flex;align-items:center;gap:4px;height:17px;padding:0 6px;border:1px solid var(--bd2);border-radius:999px;font-size:var(--fs-xs);color:var(--mt);white-space:nowrap;flex:none}
+.fe-nt-tag i{width:6px;height:6px;border-radius:50%;flex:none}
+.fe-nt-item .fe-nt-pin{display:inline-flex;margin-left:auto;padding-right:4px;color:var(--gold);flex:none}
+.fe-nt-item .fe-nt-pin svg{width:12px!important;height:12px!important;opacity:1}
+.fe-nt-item:hover .fe-nt-pin,.fe-nt-item:focus-within .fe-nt-pin{visibility:hidden}
+.fe-nt-item .fe-rm-btn svg{width:13px;height:13px}
+.fe-nt-item .fe-rm-btn:hover{color:var(--nc-red)}
+.fe-nt-grp{display:flex;align-items:center;gap:7px;width:calc(100% - 12px);height:26px;margin:8px 6px 2px;padding:0 var(--row-px);border:0;border-radius:var(--row-r);background:none;cursor:pointer;
+  font:inherit;font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm);text-align:left}
+.fe-nt-grp:first-child{margin-top:0}
+.fe-nt-grp:hover{background:var(--hover);color:var(--tx)}
+.fe-nt-grp .fe-grp-n{letter-spacing:0}
+.fe-nt-grp svg{width:12px;height:12px;flex:none;transition:transform var(--t-fast) var(--ease)}
+.fe-nt-grp[aria-expanded="false"] > svg:last-child{transform:rotate(-90deg)}
+.fe-nt-grp-pin{display:inline-flex;color:var(--gold)}
+.fe-nt-grp-pin svg{width:12px;height:12px}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);
   backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);color:var(--tx)}
@@ -15255,23 +15307,26 @@ seconds and re-renders when the file changes on disk.
     return entries.map((e, i) => renderTile(e, ctx, start + i)).join("");
   }
   var savedFileExt = (path) => path.endsWith("/") ? "" : path.split("/").pop().match(/\.([^.]+)$/)?.[1].toLowerCase() ?? "";
-  function renderSavedList(saved, tags, rawPath, filter = "", folded = /* @__PURE__ */ new Set()) {
+  function renderSavedList(saved, tags, rawPath, filter = "", folded = /* @__PURE__ */ new Set(), hits = /* @__PURE__ */ new Map()) {
     if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click \u2606 in the path bar, or + to name this folder.</div>`;
-    saved = filterSaved(saved, filter);
+    const byName = filterSaved(saved, filter);
+    saved = saved.filter((p) => byName.includes(p) || hits.has(p.path));
     if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
-    const color = (name) => tags.find((t) => t.name === name)?.color ?? "#8b949e";
     const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
-    const row = (p) => `
+    const row = (p) => {
+      const n = p.tags?.length ?? 0, hit = hits.get(p.path);
+      return `
     <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
-      <span class="fe-drag-h" title="Drag to reorder">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? "file://" + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? " active" : ""}" title="${esc(isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path)}">
-        ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label" title="Double-click to rename">${esc(p.label || p.path.split("/").filter(Boolean).pop() || "/")}</span>
-        <span class="fe-pl-dots">${(p.tags ?? []).slice(0, 4).map((t) => `<i class="fe-sv-mini" style="background:${esc(color(t))}" title="${esc(t)}"></i>`).join("")}${(p.tags?.length ?? 0) > 4 ? `<span class="fe-sv-more" title="${esc(p.tags.slice(4).join(", "))}">+${p.tags.length - 4}</span>` : ""}</span>
-      </a>
+      <span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>
+      <a href="${isViewPath(p.path) ? "file://" + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? " active" : ""}">
+        ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label">${esc(p.label || p.path.split("/").filter(Boolean).pop() || "/")}</span>
+        ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ""}
+      </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ""}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
-      <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Tags">#</button>
-      <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove">\u2715</button>
+      <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
+      <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;
+    };
     return groupByTag(saved, tags).map((g) => {
       if (!g.tag) return g.items.map(row).join("");
       const open = filter.trim() || !folded.has(g.tag.name) ? " open" : "";
@@ -15475,23 +15530,25 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         </div>
       </div>
       <div class="fe-lens" id="fe-lens-saved" data-lens="saved" role="tabpanel" aria-labelledby="fe-rail-saved" hidden>
-      ${lensHead("Saved", PI.bm)}
-      <div class="fe-lens-find">
-        <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
-        <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      <div class="fe-lens-tools">
+        <button id="fe-sv-add" class="fe-lens-ib accent" title="Save this ${fileMode ? "file" : "folder"} and name it" aria-label="Save this ${fileMode ? "file" : "folder"}">${UI_ICON.add}</button>
+        <label class="fe-lens-box">
+          <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
+          <button type="button" id="fe-lens-depth" class="fe-lens-depth" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
+        </label>
       </div>
-      <div class="fe-sec" data-collapse="saved">
-        <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
-          <button id="fe-sv-add" title="Save this ${fileMode ? "file" : "folder"} and name it">+</button></div>
+      <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      <div class="fe-sec" data-sec="saved">
         <input id="fe-sv-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath, "", getFoldedGroups())}</div>
       </div>
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
-      ${lensHead("Notes", PI.docs)}
-      <div class="fe-sec" id="fe-notes-sec" data-collapse="notes">
-        <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Notes</span><a id="fe-notes-root" title="Open the notes folder" aria-label="Open the notes folder">${PI.folder}</a>
-          <button id="fe-nt-add" title="New note (n)">+</button></div>
+      <div class="fe-lens-tools">
+        <button id="fe-nt-add" class="fe-lens-ib accent" title="New note (n)" aria-label="New note">${UI_ICON.add}</button>
+        <a id="fe-notes-root" class="fe-lens-ib" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
+      </div>
+      <div class="fe-sec" id="fe-notes-sec" data-sec="notes">
         <input id="fe-nt-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
         <div id="fe-nt-list"></div>
       </div>
@@ -17350,10 +17407,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       steppedAt = e.timeStamp;
       step2(d > 0 ? 1 : -1);
     }, { passive: false });
-    const find = document.querySelector(".fe-lens-find");
+    const box = document.querySelector(".fe-lens-box");
+    const tagRow = document.getElementById("fe-lens-tags");
     document.addEventListener("bfb-lens", (e) => {
       const lens = e.detail;
-      if (find && (lens === "saved" || lens === "notes")) document.querySelector(`#fe-lens-${lens} .fe-lens-h`)?.after(find);
+      const tools = document.querySelector(`#fe-lens-${lens} .fe-lens-tools`);
+      if (!box || !tagRow || !tools || lens !== "saved" && lens !== "notes") return;
+      tools.append(box);
+      tools.after(tagRow);
     });
     onKvChange((key) => {
       if (key === LENS_KEY) show(kvGet(LENS_KEY) ?? "notes");
@@ -17413,6 +17474,74 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     const svList = el("fe-sv-list");
     const svFilter = el("fe-sv-filter");
+    let svHits = /* @__PURE__ */ new Map();
+    const card = document.createElement("div");
+    card.id = "fe-sv-card";
+    card.hidden = true;
+    el("fe").append(card);
+    let cardTimer = null, cardFor = null;
+    function hideCard() {
+      if (cardTimer) {
+        clearTimeout(cardTimer);
+        cardTimer = null;
+      }
+      card.hidden = true;
+      cardFor = null;
+    }
+    function showCard(item) {
+      const p = getSaved().find((x) => x.path === item.dataset.path);
+      if (!p) return;
+      const colour = new Map(getTags().map((t) => [t.name, t.color]));
+      const home = homeDir(rawPath);
+      const where = isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path;
+      card.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<button type="button" class="fe-chip fe-lens-tag" data-tag="${esc(t)}" title="Show only items tagged ${esc(t)}"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</button>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
+      const r = item.getBoundingClientRect();
+      card.hidden = false;
+      const h = card.offsetHeight;
+      card.style.left = `${Math.round(r.left + 24)}px`;
+      card.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
+      cardFor = item;
+    }
+    svList.addEventListener("pointerover", (e) => {
+      const item = e.target.closest(".fe-pl-item");
+      if (item === cardFor) {
+        if (cardTimer) {
+          clearTimeout(cardTimer);
+          cardTimer = null;
+        }
+        return;
+      }
+      if (cardTimer) clearTimeout(cardTimer);
+      if (!item || item.classList.contains("dragging") || item.querySelector(".editing")) {
+        cardTimer = setTimeout(hideCard, 150);
+        return;
+      }
+      cardTimer = setTimeout(() => {
+        cardTimer = null;
+        hideCard();
+        showCard(item);
+      }, card.hidden ? 450 : 120);
+    });
+    svList.addEventListener("pointerleave", () => {
+      if (cardTimer) clearTimeout(cardTimer);
+      cardTimer = setTimeout(hideCard, 200);
+    });
+    card.addEventListener("pointerenter", () => {
+      if (cardTimer) {
+        clearTimeout(cardTimer);
+        cardTimer = null;
+      }
+    });
+    card.addEventListener("pointerleave", () => {
+      cardTimer = setTimeout(hideCard, 150);
+    });
+    card.addEventListener("click", (e) => {
+      const chip = e.target.closest(".fe-lens-tag");
+      if (chip) toggleTagFilter(chip.dataset.tag);
+    });
+    svList.addEventListener("scroll", hideCard, true);
+    svList.addEventListener("pointerdown", hideCard);
+    svList.addEventListener("dragstart", hideCard);
     let dragSrc = null;
     const lensNotes = { count: 0, tags: [] };
     function syncStar() {
@@ -17424,7 +17553,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       el("fe-bm-path").setAttribute("fill", on ? "currentColor" : "none");
     }
     function refreshSaved() {
-      svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath, svFilter.value, foldedGroups());
+      hideCard();
+      svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath, svFilter.value, foldedGroups(), svHits);
       attachSavedEvents();
       syncStar();
       syncLens();
@@ -17435,12 +17565,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const row = document.getElementById("fe-lens-tags");
       if (!box || !row) return;
       const inNotes = openLens() === "notes";
-      box.hidden = (inNotes ? lensNotes.count : getSaved().length) <= 8 && !box.value;
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap((p) => p.tags ?? []))].sort();
       const on = box.value.trim().toLowerCase();
       row.hidden = !names.length;
-      row.innerHTML = names.map((n) => `<button type="button" class="fe-chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}">${esc(n)}</button>`).join("");
+      row.innerHTML = names.map((n) => `<button type="button" class="fe-chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? "#8b949e")}"></i>${esc(n)}</button>`).join("");
     }
     const foldedGroups = getFoldedGroups;
     app.refreshSaved = refreshSaved;
@@ -17588,6 +17717,24 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     const ntFilter = el("fe-nt-filter");
     let allNotes = [];
+    const NOTE_FOLDS_KEY = "bfb-notes-folded-v1";
+    const noteFolds = () => {
+      try {
+        return new Set(JSON.parse(kvGet(NOTE_FOLDS_KEY) || "[]"));
+      } catch {
+        return /* @__PURE__ */ new Set();
+      }
+    };
+    ntList.addEventListener("click", (e) => {
+      const g = e.target.closest(".fe-nt-grp");
+      if (!g) return;
+      const folds = noteFolds(), key = g.dataset.grp;
+      if (folds.has(key)) folds.delete(key);
+      else folds.add(key);
+      kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds]));
+      const root = notesRoot();
+      if (root) renderNotes(root);
+    });
     let bodyHits = /* @__PURE__ */ new Map();
     const shownNotes = () => {
       const byMeta = filterNotes(allNotes, ntFilter.value);
@@ -17599,17 +17746,27 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       syncLens();
       const shown = shownNotes();
       ntHint.textContent = ntFilter.value.trim() ? `${shown.length} of ${allNotes.length} notes in ${root}` : `${allNotes.length} note${allNotes.length !== 1 ? "s" : ""} in ${root}`;
-      ntList.innerHTML = shown.length ? shown.map((n) => `
-          <div class="fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}" data-rel="${esc(n.rel)}">
+      const row = (n) => {
+        const c = colorName(n.color);
+        return `
+          <div class="fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}>
             <a href="${esc(fileHref(root + "/" + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}
             </a>${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel))}">${esc(bodyHits.get(n.rel))}</span>` : ""}
             <span class="fe-nt-acts">
               <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
               <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
-              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">\u2715</button>
+              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash" aria-label="Move ${esc(n.title || noteTitle(n.rel))} to .trash">${UI_ICON.trash}</button>
             </span>
-          </div>`).join("") : allNotes.length ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>` : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
+          </div>`;
+      };
+      const pinned = shown.filter((n) => n.pinned), rest = shown.filter((n) => !n.pinned);
+      const folded = noteFolds();
+      const group = (key, label, list) => {
+        const open = !folded.has(key) || !!ntFilter.value.trim();
+        return `<button type="button" class="fe-nt-grp" data-grp="${key}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list.length}</span>${CHEVRON_DOWN}</button>` + (open ? list.map(row).join("") : "");
+      };
+      ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row).join("") : allNotes.length ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>` : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
       attachNoteEvents(root);
     }
     let searchTimer = null;
@@ -17620,7 +17777,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       bodyHits = /* @__PURE__ */ new Map();
       renderNotes(root);
       if (searchTimer) clearTimeout(searchTimer);
-      if (!q || q.startsWith("#")) return;
+      if (!q || q.startsWith("#") || !deep()) return;
       searchTimer = setTimeout(() => {
         notes.search(root, q).then((hits) => {
           if (ntFilter.value.trim() !== q) return;
@@ -17639,11 +17796,62 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
     });
     const lensFilter = el("fe-lens-filter");
+    function toggleTagFilter(tag) {
+      const q = "#" + tag;
+      lensFilter.value = lensFilter.value.trim().toLowerCase() === q.toLowerCase() ? "" : q;
+      applyLensFilter();
+    }
+    const DEEP_KEY = "bfb-lens-deep-v1";
+    const depthBtn = el("fe-lens-depth");
+    const deep = () => kvGet(DEEP_KEY) === "1";
+    function syncDepth() {
+      const on = deep(), inNotes = openLens() === "notes";
+      depthBtn.textContent = on ? "Deep" : "Names";
+      depthBtn.classList.toggle("on", on);
+      depthBtn.setAttribute("aria-pressed", String(on));
+      depthBtn.title = on ? `Deep: also matches ${inNotes ? "the text inside notes" : "the names inside saved folders"}. Click for names only` : "Names only. Click to search inside too";
+      lensFilter.placeholder = on ? inNotes ? "Search inside notes" : "Search inside folders" : "Filter";
+    }
+    depthBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      kvSet(DEEP_KEY, deep() ? "0" : "1");
+      syncDepth();
+      applyLensFilter();
+      lensFilter.focus();
+    });
     const applyLensFilter = () => {
       svFilter.value = ntFilter.value = lensFilter.value;
+      svHits = /* @__PURE__ */ new Map();
       refreshSaved();
+      searchInsideSaved();
       ntFilter.dispatchEvent(new Event("input"));
     };
+    const listings = /* @__PURE__ */ new Map();
+    const namesIn = (path) => {
+      const hit = listings.get(path);
+      if (hit && Date.now() - hit.at < 6e4) return hit.names;
+      const href = fileHref(path);
+      const names = fetchFileText(href).then((t) => parseListing(t, href).map((e) => e.name)).catch(() => []);
+      listings.set(path, { at: Date.now(), names });
+      return names;
+    };
+    let insideTimer = null;
+    function searchInsideSaved() {
+      if (insideTimer) clearTimeout(insideTimer);
+      const q = svFilter.value.trim().toLowerCase();
+      if (!q || q.startsWith("#") || !deep()) return;
+      const words = q.split(/\s+/);
+      insideTimer = setTimeout(async () => {
+        const found = /* @__PURE__ */ new Map();
+        await Promise.all(getSaved().filter((p) => p.path.endsWith("/") && !isViewPath(p.path)).map(async (p) => {
+          const name = (await namesIn(p.path)).find((n) => words.every((w) => n.toLowerCase().includes(w)));
+          if (name) found.set(p.path, name);
+        }));
+        if (svFilter.value.trim().toLowerCase() !== q || !deep()) return;
+        svHits = found;
+        refreshSaved();
+      }, 250);
+    }
     lensFilter.addEventListener("input", applyLensFilter);
     lensFilter.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
@@ -17657,17 +17865,16 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     document.addEventListener("bfb-lens", (e) => {
       const lens = e.detail;
       if (lens !== "saved" && lens !== "notes") return;
+      syncDepth();
       if (lensFilter.value) {
         lensFilter.value = "";
         applyLensFilter();
       } else syncLens();
     });
+    syncDepth();
     el("fe-lens-tags").addEventListener("click", (e) => {
       const chip = e.target.closest(".fe-lens-tag");
-      if (!chip) return;
-      const q = "#" + chip.dataset.tag;
-      lensFilter.value = lensFilter.value.trim().toLowerCase() === q.toLowerCase() ? "" : q;
-      applyLensFilter();
+      if (chip) toggleTagFilter(chip.dataset.tag);
     });
     function refreshNotes() {
       const root = notesRoot();
@@ -17696,9 +17903,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     app.refreshNotes = refreshNotes;
     function noteRowText(n) {
-      const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags.map((t) => `<span>${UI_ICON.tag}${esc(t)}</span>`).join("")}</span>` : "";
-      const flags = colorName(n.color) || n.pinned ? `<span class="fe-nt-flags">${colorName(n.color) ? colorDot(colorName(n.color)) : ""}${n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : ""}</span>` : "";
-      return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>`;
+      const colour = new Map(getTags().map((t) => [t.name, t.color]));
+      const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags.map((t) => `<span class="fe-nt-tag"><i style="background:${esc(colour.get(t) ?? "var(--dm)")}"></i>${esc(t)}</span>`).join("")}</span>` : "";
+      const pin = n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : "";
+      return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>${pin}`;
     }
     const noteName = (n) => n.title || noteTitle(n.rel);
     const notePath = (root, rel) => root.replace(/\/$/, "") + "/" + rel;

@@ -223,23 +223,25 @@ export function renderPage(p: PageParams): string {
         </div>
       </div>
       <div class="fe-lens" id="fe-lens-saved" data-lens="saved" role="tabpanel" aria-labelledby="fe-rail-saved" hidden>
-      ${lensHead('Saved', PI.bm)}
-      <div class="fe-lens-find">
-        <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
-        <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      <div class="fe-lens-tools">
+        <button id="fe-sv-add" class="fe-lens-ib accent" title="Save this ${fileMode ? 'file' : 'folder'} and name it" aria-label="Save this ${fileMode ? 'file' : 'folder'}">${UI_ICON.add}</button>
+        <label class="fe-lens-box">
+          <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
+          <button type="button" id="fe-lens-depth" class="fe-lens-depth" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
+        </label>
       </div>
-      <div class="fe-sec" data-collapse="saved">
-        <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
-          <button id="fe-sv-add" title="Save this ${fileMode ? 'file' : 'folder'} and name it">+</button></div>
+      <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      <div class="fe-sec" data-sec="saved">
         <input id="fe-sv-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath, '', getFoldedGroups())}</div>
       </div>
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
-      ${lensHead('Notes', PI.docs)}
-      <div class="fe-sec" id="fe-notes-sec" data-collapse="notes">
-        <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Notes</span><a id="fe-notes-root" title="Open the notes folder" aria-label="Open the notes folder">${PI.folder}</a>
-          <button id="fe-nt-add" title="New note (n)">+</button></div>
+      <div class="fe-lens-tools">
+        <button id="fe-nt-add" class="fe-lens-ib accent" title="New note (n)" aria-label="New note">${UI_ICON.add}</button>
+        <a id="fe-notes-root" class="fe-lens-ib" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
+      </div>
+      <div class="fe-sec" id="fe-notes-sec" data-sec="notes">
         <input id="fe-nt-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
         <div id="fe-nt-list"></div>
       </div>

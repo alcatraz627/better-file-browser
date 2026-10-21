@@ -16,7 +16,7 @@ const state = p => p.evaluate(() => ({
   rail: [...document.querySelectorAll('#fe-rail .fe-rail-btn')].filter(b => !b.hidden).map(b => b.textContent.trim()),
   on: document.querySelector('#fe-rail .fe-rail-btn.on')?.textContent.trim(),
   shown: [...document.querySelectorAll('#fe-lenses .fe-lens')].filter(l => !l.hidden).map(l => l.dataset.lens),
-  head: document.querySelector('#fe-lenses .fe-lens:not([hidden]) .fe-lens-t b')?.textContent,
+  head: document.querySelector('#fe-lenses .fe-lens:not([hidden]) .fe-lens-t b')?.textContent ?? null,
 }));
 try {
   const page = await h.browser.newPage();
@@ -29,7 +29,7 @@ try {
   await page.waitForSelector('#fe-rail');
 
   const first = await state(page);
-  check(first.rail.join() === 'Places,Saved,Notes,History,Search,Ask,Comments' && first.on === 'Notes' && first.shown.join() === 'notes' && first.head === 'Notes',
+  check(first.rail.join() === 'Places,Saved,Notes,History,Search,Ask,Comments' && first.on === 'Notes' && first.shown.join() === 'notes' && first.head === null,
     `the bar shows seven lenses, Notes first: ${JSON.stringify(first)}`);
   const notes = await page.evaluate(() => ({ saved: !!document.querySelector('#fe-lens-saved #fe-sv-list'), list: !!document.querySelector('#fe-lens-notes #fe-nt-list') }));
   check(notes.saved && notes.list, `Saved and the notes list sit in lenses of their own: ${JSON.stringify(notes)}`);

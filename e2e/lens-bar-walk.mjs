@@ -77,7 +77,7 @@ try {
   await sleep(300);
   const swipe = await page.$eval('#fe-rail .fe-rail-btn.on', b => b.dataset.lens);
   check(swipe === 'saved', `a trackpad swipe moves one lens: ${swipe}`);
-  const filterIn = async lens => page.evaluate(l => !!document.querySelector(`#fe-lens-${l} .fe-lens-find`), lens);
+  const filterIn = async lens => page.evaluate(l => !!document.querySelector(`#fe-lens-${l} .fe-lens-tools #fe-lens-filter`), lens);
   const inSaved = await filterIn('saved');
   await page.click('#fe-rail-notes');
   check(inSaved && await filterIn('notes'), 'the filter moves to whichever of Saved and Notes is open');

@@ -199,8 +199,9 @@ try {
   const savedLabels = () => page.$$eval('#fe-sv-list .fe-pl-label', els => els.map(e => e.textContent));
   let labels = await savedLabels();
   check(labels.length === 2 && labels[0] === 'Nested (named)' && labels[1] === 'tmp', `legacy merged into Saved: ${JSON.stringify(labels)}`);
+  // Saved and Notes carry no heading of their own: the lens bar names them.
   const sections = await page.$$eval('#fe-side .fe-sh', els => els.map(e => e.textContent.trim().split('\n')[0].trim()));
-  check(!sections.some(s => /Bookmarks|My Places/.test(s)) && sections.some(s => s.startsWith('Saved')), `sidebar sections: ${JSON.stringify(sections)}`);
+  check(!sections.some(s => /Bookmarks|My Places|Saved|Notes/.test(s)) && !!(await page.$('#fe-lens-saved .fe-lens-tools #fe-sv-add')), `sidebar sections: ${JSON.stringify(sections)}`);
 
   await page.click('#fe-bm-btn');
   labels = await savedLabels();
@@ -227,7 +228,7 @@ try {
   const tagState = await page.evaluate(() => ({
     heads: [...document.querySelectorAll('#fe-sv-list .fe-grp')].map(g => g.dataset.tag),
     dotColor: document.querySelector('#fe-sv-list .fe-sv-dot')?.style.background,
-    minis: document.querySelectorAll('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-sv-mini').length,
+    minis: Number(document.querySelector('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-pl-meta')?.textContent),
   }));
   tagState.stored = (await h.store.json('bfb-saved-v1', [])).find(p => p.path.endsWith('/nested/'))?.tags;
   check(tagState.heads.join() === 'work' && tagState.minis === 2 && JSON.stringify(tagState.stored) === '["work","code"]',
@@ -237,9 +238,9 @@ try {
   const c2 = await page.$eval('#fe-sv-list .fe-sv-dot', el => el.style.background);
   check(c1 && c2 && c1 !== c2, `tag colour cycles ${c1} → ${c2}`);
 
-  // A chip in the lens tag row filters to that tag; with few rows the filter
-  // box itself stays hidden, and the chip writes #work into it.
-  check(await page.$eval('#fe-lens-filter', el => el.hidden), 'with three saved items the lens filter box stays hidden');
+  // A chip in the lens tag row filters to that tag by writing #work into the
+  // search box, which always shows beside the lens's buttons.
+  check(await page.$eval('#fe-lens-filter', el => !el.hidden && !!el.closest('#fe-lens-saved .fe-lens-tools')), 'the search box sits in the Saved tools row');
   await page.click('#fe-lens-tags .fe-lens-tag[data-tag="work"]');
   const narrowed = await page.evaluate(() => ({
     labels: [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].map(e => e.textContent),
@@ -731,7 +732,7 @@ try {
 
   // Every list in a lens collapses and restores its state on reload. A list
   // is clickable only while its lens shows.
-  const sectionKeys = ['saved', 'notes', 'recent'];
+  const sectionKeys = ['recent'];
   const lensOf = key => key === 'recent' ? 'history' : key;
   const toggleAll = async () => {
     for (const key of sectionKeys) { await page.click(`#fe-rail-${lensOf(key)}`); await page.click(`#fe-sec-toggle-${key} .fe-sh-label`); }
@@ -746,9 +747,9 @@ try {
       && getComputedStyle(section.children[1]).display === 'none';
   }), sectionKeys);
   check(allCollapsed, 'every sidebar list collapses while its heading remains');
-  const notesFolderAction = await page.$eval('#fe-notes-root', el => ({ label: el.getAttribute('aria-label'), hasTitle: !!el.textContent?.trim(), separate: !el.closest('.fe-sh-collapse') }));
-  check(notesFolderAction.label === 'Open the notes folder' && !notesFolderAction.hasTitle && notesFolderAction.separate,
-    'Notes folder action stays separate from the collapse title');
+  const notesFolderAction = await page.$eval('#fe-notes-root', el => ({ label: el.getAttribute('aria-label'), hasTitle: !!el.textContent?.trim(), tools: !!el.closest('.fe-lens-tools') }));
+  check(notesFolderAction.label === 'Open the notes folder' && !notesFolderAction.hasTitle && notesFolderAction.tools,
+    'the Notes folder action is an icon button in the Notes tools row');
   await shot(page, 'sidebar-collapsed');
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');

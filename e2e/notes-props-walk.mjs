@@ -51,7 +51,7 @@ try {
   // 1. Sidebar: pinned notes first, then newest; colour dot, pin and tags on the rows.
   const rows = await page.$$eval('#fe-nt-list .fe-nt-item', els => els.map(e => ({
     rel: e.getAttribute('data-rel'), pinned: e.classList.contains('pinned'),
-    dot: !!e.querySelector('.fe-cdot'), tags: [...e.querySelectorAll('.fe-nt-tags span')].map(s => s.textContent) })));
+    dot: e.classList.contains('coloured'), tags: [...e.querySelectorAll('.fe-nt-tags span')].map(s => s.textContent) })));
   const onDisk = rel => ({ pinned: /^pinned: true$/m.test(read(rel)), mtime: statSync(join(store, rel)).mtimeMs });
   const expect = rows.map(r => ({ ...r, ...onDisk(r.rel) }));
   const firstUnpinned = expect.findIndex(r => !r.pinned);

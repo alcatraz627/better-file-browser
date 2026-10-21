@@ -17,6 +17,7 @@ try {
   // A saved-item sidebar click keeps the current folder as a tab (option 1).
   let page = await h.open();
   await h.store.set('bfb-saved-v1', [{ path: h.fixture + '/readme.md', label: 'readme.md' }]);
+  await h.store.set('bfb-lens-v1', 'saved');
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-sv-list .fe-si-link');
   const sBefore = await strip(page);
@@ -33,6 +34,7 @@ try {
   // The note editor "+ tab" keeps the note as a strip tab.
   page = await h.open();
   await h.store.set('bfb-settings-v1', { showSidebar: true, tooltips: true, notesRoot: h.notesDir });
+  await h.store.set('bfb-lens-v1', 'notes');
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-nt-list .fe-si-link', { timeout: 5000 });
   await page.click('#fe-nt-list .fe-si-link');
@@ -46,6 +48,7 @@ try {
   // Defect A: note editor "open" navigates to the note's file page.
   page = await h.open();
   await h.store.set('bfb-settings-v1', { showSidebar: true, tooltips: true, notesRoot: h.notesDir });
+  await h.store.set('bfb-lens-v1', 'notes');
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-nt-list .fe-si-link', { timeout: 5000 });
   await page.click('#fe-nt-list .fe-si-link');
@@ -59,6 +62,7 @@ try {
   // must not navigate away first.
   page = await h.open();
   await h.store.set('bfb-saved-v1', [{ path: h.fixture + '/nested/', label: 'nested' }]);
+  await h.store.set('bfb-lens-v1', 'saved');
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-sv-list .fe-pl-label');
   const box = await (await page.$('#fe-sv-list .fe-pl-label')).boundingBox();
@@ -82,6 +86,7 @@ try {
   // the editor first (the sibling of the saved-bookmark rename).
   page = await h.open();
   await h.store.set('bfb-settings-v1', { showSidebar: true, tooltips: true, notesRoot: h.notesDir });
+  await h.store.set('bfb-lens-v1', 'notes');
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-nt-list .fe-nt-label', { timeout: 5000 });
   const nbox = await (await page.$('#fe-nt-list .fe-nt-label')).boundingBox();

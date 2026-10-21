@@ -6,15 +6,17 @@ import type { NotesError } from './notes';
 import { el, els } from './el';
 import { esc, copyToClipboard, midHtml, fileHref } from './utils';
 import { kvGet, kvSet, onKvChange } from './kv';
-import { PI } from './icons';
+import { PI, CHEVRON_DOWN } from './icons';
 import { UI_ICON } from './control-icons';
-import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups } from './storage';
+import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
 import { notes, noteTitle, slugForTitle, setTitle, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
-import { colorDot, openPropsMenu } from './note-meta-ui';
+import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
+import { fetchFileText } from './file-fetch';
+import { parseListing } from './parse';
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
 const LENS_KEY = 'bfb-lens-v1';
@@ -100,12 +102,17 @@ function initLenses(app: App): void {
     steppedAt = e.timeStamp;
     step(d > 0 ? 1 : -1);
   }, { passive: false });
-  // Saved and Notes use one filter box, moved to whichever of the two is open;
-  // initSidebar empties it on the move so a query never follows you across.
-  const find = document.querySelector<HTMLElement>('.fe-lens-find');
+  // Saved and Notes use one search box and one tag row, moved to whichever of
+  // the two is open: the box sits right of that lens's buttons, the tags below.
+  // initSidebar empties the box on the move so a query never follows you across.
+  const box = document.querySelector<HTMLElement>('.fe-lens-box');
+  const tagRow = document.getElementById('fe-lens-tags');
   document.addEventListener('bfb-lens', e => {
     const lens = (e as CustomEvent).detail;
-    if (find && (lens === 'saved' || lens === 'notes')) document.querySelector(`#fe-lens-${lens} .fe-lens-h`)?.after(find);
+    const tools = document.querySelector(`#fe-lens-${lens} .fe-lens-tools`);
+    if (!box || !tagRow || !tools || (lens !== 'saved' && lens !== 'notes')) return;
+    tools.append(box);
+    tools.after(tagRow);
   });
   onKvChange(key => { if (key === LENS_KEY) show(kvGet(LENS_KEY) ?? 'notes'); });
   show(kvGet(LENS_KEY) ?? 'notes');
@@ -159,6 +166,53 @@ export function initSidebar(app: App): void {
   onKvChange(key => { if (key === collapseKey) applyCollapsed(collapsed()); });
   const svList = el('fe-sv-list');
   const svFilter = el<HTMLInputElement>('fe-sv-filter');
+  // Saved places found by looking inside them, with the name that matched.
+  let svHits = new Map<string, string>();
+  // Resting on a saved row shows a card with its path and tags. The card stays
+  // while the pointer is on it, and its tags are buttons that filter the list.
+  const card = document.createElement('div');
+  card.id = 'fe-sv-card';
+  card.hidden = true;
+  el('fe').append(card);
+  let cardTimer: ReturnType<typeof setTimeout> | null = null, cardFor: HTMLElement | null = null;
+  function hideCard(): void {
+    if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; }
+    card.hidden = true; cardFor = null;
+  }
+  function showCard(item: HTMLElement): void {
+    const p = getSaved().find(x => x.path === item.dataset.path);
+    if (!p) return;
+    const colour = new Map(getTags().map(t => [t.name, t.color]));
+    const home = homeDir(rawPath);
+    const where = isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path;
+    card.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? '~' + where.slice(home.length) : where)}</span>`
+      + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags!.map(t => `<button type="button" class="fe-chip fe-lens-tag" data-tag="${esc(t)}" title="Show only items tagged ${esc(t)}"><i style="background:${esc(colour.get(t) ?? '#8b949e')}"></i>${esc(t)}</button>`).join('')}</span>` : '')
+      + `<span class="fe-svc-hint">Double-click to rename · drag to reorder</span>`;
+    const r = item.getBoundingClientRect();
+    card.hidden = false;
+    const h = card.offsetHeight;
+    card.style.left = `${Math.round(r.left + 24)}px`;
+    card.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
+    cardFor = item;
+  }
+  svList.addEventListener('pointerover', e => {
+    const item = (e.target as Element).closest<HTMLElement>('.fe-pl-item');
+    if (item === cardFor) { if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; } return; }
+    if (cardTimer) clearTimeout(cardTimer);
+    if (!item || item.classList.contains('dragging') || item.querySelector('.editing')) { cardTimer = setTimeout(hideCard, 150); return; }
+    cardTimer = setTimeout(() => { cardTimer = null; hideCard(); showCard(item); }, card.hidden ? 450 : 120);
+  });
+  svList.addEventListener('pointerleave', () => { if (cardTimer) clearTimeout(cardTimer); cardTimer = setTimeout(hideCard, 200); });
+  card.addEventListener('pointerenter', () => { if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; } });
+  card.addEventListener('pointerleave', () => { cardTimer = setTimeout(hideCard, 150); });
+  card.addEventListener('click', e => {
+    const chip = (e.target as Element).closest<HTMLElement>('.fe-lens-tag');
+    if (chip) toggleTagFilter(chip.dataset.tag!);
+  });
+  svList.addEventListener('scroll', hideCard, true);
+  svList.addEventListener('pointerdown', hideCard);
+  svList.addEventListener('dragstart', hideCard);
+
   let dragSrc: HTMLElement | null = null;
   // What the lens filter and tag row need from the notes list, filled when
   // notes load; declared here because the saved list renders first.
@@ -173,7 +227,8 @@ export function initSidebar(app: App): void {
     el('fe-bm-path').setAttribute('fill', on ? 'currentColor' : 'none');
   }
   function refreshSaved(): void {
-    svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath, svFilter.value, foldedGroups());
+    hideCard();
+    svList.innerHTML = renderSavedList(getSaved(), getTags(), rawPath, svFilter.value, foldedGroups(), svHits);
     attachSavedEvents();
     syncStar();
     syncLens();
@@ -190,12 +245,11 @@ export function initSidebar(app: App): void {
     const row = document.getElementById('fe-lens-tags');
     if (!box || !row) return;
     const inNotes = openLens() === 'notes';
-    box.hidden = (inNotes ? lensNotes.count : getSaved().length) <= 8 && !box.value;
     const colour = new Map(getTags().map(t => [t.name, t.color]));
     const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap(p => p.tags ?? []))].sort();
     const on = box.value.trim().toLowerCase();
     row.hidden = !names.length;
-    row.innerHTML = names.map(n => `<button type="button" class="fe-chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}">${esc(n)}</button>`).join('');
+    row.innerHTML = names.map(n => `<button type="button" class="fe-chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? '#8b949e')}"></i>${esc(n)}</button>`).join('');
   }
   const foldedGroups = getFoldedGroups;
   app.refreshSaved = refreshSaved;
@@ -317,6 +371,17 @@ export function initSidebar(app: App): void {
   function notesRoot(): string { return (settings.notesRoot || '').replace(/\/$/, ''); }
   const ntFilter = el<HTMLInputElement>('fe-nt-filter');
   let allNotes: NoteMeta[] = [];
+  const NOTE_FOLDS_KEY = 'bfb-notes-folded-v1';
+  const noteFolds = (): Set<string> => { try { return new Set(JSON.parse(kvGet(NOTE_FOLDS_KEY) || '[]')); } catch { return new Set(); } };
+  ntList.addEventListener('click', e => {
+    const g = (e.target as Element).closest<HTMLElement>('.fe-nt-grp');
+    if (!g) return;
+    const folds = noteFolds(), key = g.dataset.grp!;
+    if (folds.has(key)) folds.delete(key); else folds.add(key);
+    kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds]));
+    const root = notesRoot();
+    if (root) renderNotes(root);
+  });
   // Notes whose text (not just title or tags) holds every word typed, with the
   // first matching line; filled a moment after typing stops.
   let bodyHits = new Map<string, string>();
@@ -332,18 +397,32 @@ export function initSidebar(app: App): void {
     ntHint.textContent = ntFilter.value.trim()
       ? `${shown.length} of ${allNotes.length} notes in ${root}`
       : `${allNotes.length} note${allNotes.length !== 1 ? 's' : ''} in ${root}`;
-    ntList.innerHTML = shown.length
-      ? shown.map(n => `
-          <div class="fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}" data-rel="${esc(n.rel)}">
+    const row = (n: NoteMeta) => {
+      const c = colorName(n.color);
+      return `
+          <div class="fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}${c ? ' coloured' : ''}${(n.tags ?? []).length ? ' two' : ''}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ''}>
             <a href="${esc(fileHref(root + '/' + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}
             </a>${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel)!)}">${esc(bodyHits.get(n.rel)!)}</span>` : ''}
             <span class="fe-nt-acts">
               <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
               <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
-              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash">✕</button>
+              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash" aria-label="Move ${esc(n.title || noteTitle(n.rel))} to .trash">${UI_ICON.trash}</button>
             </span>
-          </div>`).join('')
+          </div>`;
+    };
+    // With any pinned note in view the list splits into Pinned and All notes,
+    // each folding on its header; with none it is one plain list.
+    const pinned = shown.filter(n => n.pinned), rest = shown.filter(n => !n.pinned);
+    const folded = noteFolds();
+    const group = (key: string, label: string, list: NoteMeta[]) => {
+      const open = !folded.has(key) || !!ntFilter.value.trim();
+      return `<button type="button" class="fe-nt-grp" data-grp="${key}" aria-expanded="${open}" title="${open ? 'Fold' : 'Show'} ${esc(label.toLowerCase())}">`
+        + `${key === 'pinned' ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ''}${label}<span class="fe-grp-n">${list.length}</span>${CHEVRON_DOWN}</button>`
+        + (open ? list.map(row).join('') : '');
+    };
+    ntList.innerHTML = shown.length
+      ? (pinned.length ? group('pinned', 'Pinned', pinned) + group('all', 'All notes', rest) : shown.map(row).join(''))
       : allNotes.length
         ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>`
         : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
@@ -357,7 +436,7 @@ export function initSidebar(app: App): void {
     bodyHits = new Map();
     renderNotes(root);
     if (searchTimer) clearTimeout(searchTimer);
-    if (!q || q.startsWith('#')) return;
+    if (!q || q.startsWith('#') || !deep()) return;
     searchTimer = setTimeout(() => {
       notes.search(root, q).then(hits => {
         if (ntFilter.value.trim() !== q) return;
@@ -371,11 +450,66 @@ export function initSidebar(app: App): void {
   });
 
   const lensFilter = el<HTMLInputElement>('fe-lens-filter');
+  function toggleTagFilter(tag: string): void {
+    const q = '#' + tag;
+    lensFilter.value = lensFilter.value.trim().toLowerCase() === q.toLowerCase() ? '' : q;
+    applyLensFilter();
+  }
+  // Names matches names and tags; Deep also looks inside: the text of each
+  // note, and the names in each saved folder. The choice is kept.
+  const DEEP_KEY = 'bfb-lens-deep-v1';
+  const depthBtn = el<HTMLButtonElement>('fe-lens-depth');
+  const deep = () => kvGet(DEEP_KEY) === '1';
+  function syncDepth(): void {
+    const on = deep(), inNotes = openLens() === 'notes';
+    depthBtn.textContent = on ? 'Deep' : 'Names';
+    depthBtn.classList.toggle('on', on);
+    depthBtn.setAttribute('aria-pressed', String(on));
+    depthBtn.title = on ? `Deep: also matches ${inNotes ? 'the text inside notes' : 'the names inside saved folders'}. Click for names only` : 'Names only. Click to search inside too';
+    lensFilter.placeholder = on ? (inNotes ? 'Search inside notes' : 'Search inside folders') : 'Filter';
+  }
+  depthBtn.addEventListener('click', e => {
+    e.preventDefault();
+    kvSet(DEEP_KEY, deep() ? '0' : '1');
+    syncDepth();
+    applyLensFilter();
+    lensFilter.focus();
+  });
   const applyLensFilter = () => {
     svFilter.value = ntFilter.value = lensFilter.value;
+    svHits = new Map();
     refreshSaved();
+    searchInsideSaved();
     ntFilter.dispatchEvent(new Event('input'));
   };
+  // Deep search in Saved reads each saved folder's listing (one level, kept for
+  // a minute) and shows the folders holding a name with every typed word.
+  const listings = new Map<string, { at: number; names: Promise<string[]> }>();
+  const namesIn = (path: string): Promise<string[]> => {
+    const hit = listings.get(path);
+    if (hit && Date.now() - hit.at < 60_000) return hit.names;
+    const href = fileHref(path);
+    const names = fetchFileText(href).then(t => parseListing(t, href).map(e => e.name)).catch(() => [] as string[]);
+    listings.set(path, { at: Date.now(), names });
+    return names;
+  };
+  let insideTimer: ReturnType<typeof setTimeout> | null = null;
+  function searchInsideSaved(): void {
+    if (insideTimer) clearTimeout(insideTimer);
+    const q = svFilter.value.trim().toLowerCase();
+    if (!q || q.startsWith('#') || !deep()) return;
+    const words = q.split(/\s+/);
+    insideTimer = setTimeout(async () => {
+      const found = new Map<string, string>();
+      await Promise.all(getSaved().filter(p => p.path.endsWith('/') && !isViewPath(p.path)).map(async p => {
+        const name = (await namesIn(p.path)).find(n => words.every(w => n.toLowerCase().includes(w)));
+        if (name) found.set(p.path, name);
+      }));
+      if (svFilter.value.trim().toLowerCase() !== q || !deep()) return;
+      svHits = found;
+      refreshSaved();
+    }, 250);
+  }
   lensFilter.addEventListener('input', applyLensFilter);
   lensFilter.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); lensFilter.value = ''; applyLensFilter(); lensFilter.blur(); }
@@ -384,14 +518,13 @@ export function initSidebar(app: App): void {
   document.addEventListener('bfb-lens', e => {
     const lens = (e as CustomEvent).detail;
     if (lens !== 'saved' && lens !== 'notes') return;
+    syncDepth();
     if (lensFilter.value) { lensFilter.value = ''; applyLensFilter(); } else syncLens();
   });
+  syncDepth();
   el('fe-lens-tags').addEventListener('click', e => {
     const chip = (e.target as Element).closest<HTMLElement>('.fe-lens-tag');
-    if (!chip) return;
-    const q = '#' + chip.dataset.tag;
-    lensFilter.value = lensFilter.value.trim().toLowerCase() === q.toLowerCase() ? '' : q;
-    applyLensFilter();
+    if (chip) toggleTagFilter(chip.dataset.tag!);
   });
   function refreshNotes(): void {
     const root = notesRoot();
@@ -419,10 +552,10 @@ export function initSidebar(app: App): void {
   app.refreshNotes = refreshNotes;
   // Colour dot and pin first, then the title with tags beneath.
   function noteRowText(n: NoteMeta): string {
-    const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags!.map(t => `<span>${UI_ICON.tag}${esc(t)}</span>`).join('')}</span>` : '';
-    const flags = (colorName(n.color) || n.pinned)
-      ? `<span class="fe-nt-flags">${colorName(n.color) ? colorDot(colorName(n.color)) : ''}${n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : ''}</span>` : '';
-    return `${flags}<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>`;
+    const colour = new Map(getTags().map(t => [t.name, t.color]));
+    const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags!.map(t => `<span class="fe-nt-tag"><i style="background:${esc(colour.get(t) ?? 'var(--dm)')}"></i>${esc(t)}</span>`).join('')}</span>` : '';
+    const pin = n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : '';
+    return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>${pin}`;
   }
   const noteName = (n: NoteMeta) => n.title || noteTitle(n.rel);
   const notePath = (root: string, rel: string) => root.replace(/\/$/, '') + '/' + rel;
