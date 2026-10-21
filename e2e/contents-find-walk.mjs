@@ -58,16 +58,15 @@ try {
     check(cleared.marks === 0 && cleared.q === '' && cleared.text === 'Intro about apples.', `${theme}: Esc clears the marks and leaves the text whole: ${JSON.stringify(cleared)}`);
 
     if (theme === 'dark') {
-      await page.click('#fe-toc-fold');
-      await new Promise(r => setTimeout(r, 350));   // the card eases to its folded size
-      const folded = await page.evaluate(() => ({ folded: document.getElementById('fe-toc-rail').classList.contains('folded'), w: Math.round(document.getElementById('fe-toc-rail').getBoundingClientRect().width), list: getComputedStyle(document.getElementById('fe-toc')).display }));
+      await page.click('#fe-fp-toc');
+      const hidden = await page.evaluate(() => ({ rail: document.getElementById('fe-toc-rail').hidden, pressed: document.getElementById('fe-fp-toc').getAttribute('aria-pressed') }));
       await page.reload({ waitUntil: 'load' });
-      await page.waitForSelector('#fe-toc-rail');
-      const kept = await page.$eval('#fe-toc-rail', el => el.classList.contains('folded'));
-      await page.screenshot({ path: join(SHOTS, 'contents-folded-dark.png'), clip: { x: 0, y: 0, width: 1400, height: 300 } });
-      await page.click('#fe-toc-fold');
-      const open = await page.$eval('#fe-toc-rail', el => !el.classList.contains('folded'));
-      check(folded.folded && folded.w <= 44 && folded.list === 'none' && kept && open, `fold button folds the rail to its button, remembered across reload, and unfolds: ${JSON.stringify({ ...folded, kept, open })}`);
+      await page.waitForSelector('#fe-fp-toc');
+      const kept = await page.$eval('#fe-toc-rail', el => el.hidden);
+      await page.screenshot({ path: join(SHOTS, 'contents-hidden-dark.png'), clip: { x: 0, y: 0, width: 1400, height: 300 } });
+      await page.click('#fe-fp-toc');
+      const open = await page.$eval('#fe-toc-rail', el => !el.hidden && el.dataset.tab === 'toc');
+      check(hidden.rail && hidden.pressed === 'false' && kept && open, `the contents button right of find hides the rail, remembered across reload, and shows it again: ${JSON.stringify({ ...hidden, kept, open })}`);
     }
     await page.close();
   }

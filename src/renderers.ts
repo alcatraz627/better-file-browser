@@ -341,6 +341,14 @@ export function splitHighlighted(html: string): string[] {
   return out;
 }
 
+/** A highlighted code block as one element per line, so each line can carry a
+ *  number (drawn by CSS, never copied) and a hover. Every line but the last
+ *  keeps its newline inside it, so the block's text and a copy read as before. */
+function codeLines(html: string): string {
+  const rows = splitHighlighted(html);
+  return rows.map((r, i) => `<span class="fe-md-l">${r}${i < rows.length - 1 ? '\n' : ''}</span>`).join('');
+}
+
 // ── Delimiter-separated values (.tsv / .csv) ────────────────────────
 
 /** Parse TSV/CSV into rows of cells. Quote-aware ("" escapes, embedded newlines). */
@@ -725,7 +733,7 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false, nested 
       if (language.toLowerCase() === 'mermaid') {
         out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view">Rendering diagram…</div></div>`);
       } else {
-        out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || 'text')}</span><button type="button" class="fe-md-copy" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre">${highlightCode(code, language || 'md')}</pre></div>`);
+        out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || 'text')}</span><button type="button" class="fe-md-copy" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || 'md'))}</pre></div>`);
       }
       mark(from, outAt);
       continue;

@@ -37,6 +37,15 @@ The lens rail landed yesterday and looks good.
 ## Risks
 
 Parsing large files could still be slow on old machines.
+
+| Typed in a comment | Effect |
+|---|---|
+| a tag | adds it |
+
+\`\`\`js
+const alpha = 1;
+const beta = 2;
+\`\`\`
 `);
   await h.store.edit('bfb-settings-v1', s => ({ ...s, editableFolders: [h.fixture] }));
   await h.store.set('bfb-theme', THEME);
@@ -85,11 +94,13 @@ Parsing large files could still be slow on old machines.
 
   // Completion for @ and #.
   await page.keyboard.type('Is this firm? @b');
-  const ac1 = await page.$$eval('.fe-cm-new .fe-cm-ac [data-v]', els => els.map(e => e.dataset.v));
+  const ac1 = await page.$$eval('.fe-cm-ac [data-v]', els => els.map(e => e.dataset.v));
   check(ac1.includes('bfb'), `typing @b offers the agent who commented here: ${ac1.join(',')}`);
+  const acBox = await page.evaluate(() => { const l = document.querySelector('.fe-cm-ac').getBoundingClientRect(), t = document.querySelector('.fe-cm-new textarea').getBoundingClientRect(); return { below: l.top >= t.bottom - 1, left: Math.abs(l.left - t.left) < 2 }; });
+  check(acBox.below && acBox.left, `the suggestions sit right under the box: ${JSON.stringify(acBox)}`);
   await page.keyboard.press('Enter');
   await page.keyboard.type('please check #sch');
-  const ac2 = await page.$$eval('.fe-cm-new .fe-cm-ac [data-v]', els => els.map(e => e.dataset.v));
+  const ac2 = await page.$$eval('.fe-cm-ac [data-v]', els => els.map(e => e.dataset.v));
   check(ac2.join(',') === 'schedule', `typing #sch offers the file's tag: ${ac2.join(',')}`);
   await page.keyboard.press('Tab');
   await page.keyboard.type('@due 2026-11-03');
@@ -107,16 +118,31 @@ Parsing large files could still be slow on old machines.
 
   // Reply, done, reopen, untag, clear the date.
   await page.click(`#fe-cm .fe-cm-th.on textarea`);
+  await page.keyboard.type('- first point');
+  await page.keyboard.down('Shift'); await page.keyboard.press('Enter'); await page.keyboard.up('Shift');
+  await page.keyboard.type('- second point');
+  await page.keyboard.press('Enter');
   await page.keyboard.type('Following up.');
   await cmd('Enter');
   await page.waitForFunction(i => document.querySelectorAll(`#fe-cm .fe-cm-th[data-id="${i}"] .fe-cm-c`).length === 2, { timeout: 6000 }, id).catch(() => null);
   check(byText('Following up.')?.comments.length === 2, 'a reply from the page lands on the thread');
+  const shape = await page.evaluate(i => { const c = [...document.querySelectorAll(`#fe-cm .fe-cm-th[data-id="${i}"] .fe-cm-tx`)].pop(); return { li: c?.querySelectorAll('li').length, p: c?.querySelector('p')?.textContent }; }, id);
+  check(shape.li === 2 && shape.p === 'Following up.', `a reply keeps its lines and its list: ${JSON.stringify(shape)}`);
+  // Edit the owner's own comment.
+  await page.hover(`#fe-cm .fe-cm-th.on .fe-cm-c`);
+  await page.click(`#fe-cm .fe-cm-th.on .fe-cm-c [data-a="edit"]`);
+  await page.waitForSelector('#fe-cm textarea[data-for^="edit:"]', { timeout: 3000 }).catch(() => null);
+  await page.$eval('#fe-cm textarea[data-for^="edit:"]', t => { t.value = 'Is this firm? Edited. @bfb #schedule @due 2026-11-03'; });
+  await cmd('Enter');
+  await page.waitForFunction(() => document.querySelector('#fe-cm .fe-cm-th.on')?.textContent.includes('Edited.'), { timeout: 6000 }).catch(() => null);
+  t = all().find(x => x.id === id);
+  check(t?.comments[0].text.includes('Edited.') && !!t.comments[0].edited, `the owner can edit their own comment and it is marked edited: ${JSON.stringify(t?.comments[0].text)}`);
   await page.screenshot({ path: join(SHOTS, `comment-thread${sfx}.png`) });
   await page.click(`#fe-cm .fe-cm-th.on [data-a="done"]`);
   await page.waitForFunction(i => document.querySelector(`#fe-cm details.fe-cm-done .fe-cm-th[data-id="${i}"]`), { timeout: 6000 }, id).catch(() => null);
   check(all().find(x => x.id === id)?.status === 'done', 'Done closes the thread and it moves to the Done group');
   await page.click(`#fe-cm .fe-cm-th.on [data-a="reopen"]`);
-  await page.waitForFunction(i => document.querySelector(`#fe-cm > .fe-cm-th[data-id="${i}"]`), { timeout: 6000 }, id).catch(() => null);
+  await page.waitForFunction(i => document.querySelector(`#fe-cm .fe-cm-list > .fe-cm-th[data-id="${i}"]`), { timeout: 6000 }, id).catch(() => null);
   check(all().find(x => x.id === id)?.status === 'open', 'Reopen brings it back');
   await page.click(`#fe-cm .fe-cm-th.on [data-a="untag"][data-v="schedule"]`);
   await page.waitForFunction(() => !document.querySelector('#fe-cm .fe-cm-th.on [data-a="untag"]'), { timeout: 6000 }).catch(() => null);
@@ -145,11 +171,51 @@ Parsing large files could still be slow on old machines.
   check(folded && back, `Shift+C hides and shows the comments: ${folded} ${back}`);
   await select('Parsing large files');
   await page.keyboard.press('c');
+  const fresh = await page.$eval('.fe-cm-new textarea', t => t.value).catch(() => null);
+  check(fresh === '', `a second comment starts with an empty box: ${JSON.stringify(fresh)}`);
+  await page.keyboard.type('@cl');
+  const ac3 = await page.$$eval('.fe-cm-ac [data-v]', els => els.map(e => e.dataset.v));
+  check(ac3[0] === 'claude', `@cl offers the generic @claude first: ${ac3.slice(0, 4).join(',')}`);
+  await page.keyboard.press('Escape');
   await page.waitForSelector('#fe-cm .fe-cm-new textarea', { timeout: 3000 }).catch(() => null);
   const viaKey = await page.evaluate(() => document.querySelector('.fe-cm-new .fe-cm-q')?.textContent);
   await page.keyboard.press('Escape');
   const gone = await page.evaluate(() => !document.querySelector('.fe-cm-new'));
   check(viaKey === 'Parsing large files' && gone, `c comments on the selection and Esc cancels: ${viaKey} ${gone}`);
+
+  // The pane buttons right of find, hover on commented words, table headers, code lines.
+  const panes = await page.evaluate(() => {
+    const ff = document.getElementById('fe-ff').getBoundingClientRect(), cm = document.getElementById('fe-fp-cm').getBoundingClientRect(), toc = document.getElementById('fe-fp-toc').getBoundingClientRect();
+    return { right: toc.left >= ff.right && cm.left > toc.left, iconOnly: !document.getElementById('fe-fp-cm').textContent.replace(/\d/g, '').trim(), fold: !!document.getElementById('fe-toc-fold') };
+  });
+  check(panes.right && panes.iconOnly && !panes.fold, `Contents and Comments are icon buttons right of find, and the rail has no fold button: ${JSON.stringify(panes)}`);
+  await page.click('#fe-fp-toc');
+  const tocTab = await page.evaluate(() => document.getElementById('fe-toc-rail').dataset.tab);
+  await page.click('#fe-fp-cm');
+  check(tocTab === 'toc' && await page.evaluate(() => document.getElementById('fe-toc-rail').dataset.tab === 'cm'), 'each button shows its own pane');
+  const hov = await page.evaluate(() => { const r = [...CSS.highlights.get('bfb-cm')].find(x => x.toString().includes('lens rail')); const b = r.getBoundingClientRect(); return { x: b.left + 8, y: b.top + b.height / 2 }; });
+  await page.mouse.move(hov.x, hov.y);
+  await sleep(150);
+  check(await page.evaluate(() => (CSS.highlights.get('bfb-cm-hover')?.size ?? 0) === 1), 'commented words darken under the pointer');
+  await page.mouse.move(5, 5);
+  check(await select('Typed in a comment'), 'a table header can be selected');
+  await page.keyboard.press('c');
+  await page.waitForSelector('.fe-cm-new', { timeout: 3000 }).catch(() => null);
+  const thQuote = await page.evaluate(() => document.querySelector('.fe-cm-new .fe-cm-q')?.textContent);
+  await page.keyboard.press('Escape');
+  check(thQuote === 'Typed in a comment', `a table header can be commented on: ${JSON.stringify(thQuote)}`);
+  const th = await page.evaluate(() => { const h = document.querySelector('.fe-md-table th').getBoundingClientRect().height, d = document.querySelector('.fe-md-table td').getBoundingClientRect().height; return { h, d, upper: getComputedStyle(document.querySelector('.fe-md-table th')).textTransform }; });
+  check(Math.abs(th.h - th.d) <= 2 && th.upper === 'none', `table headers are as tall as the rows and not in capitals: ${JSON.stringify(th)}`);
+  const code = await page.evaluate(() => {
+    const pre = document.querySelector('.fe-md-code .fe-md-pre');
+    const r = document.createRange(); r.selectNodeContents(pre);
+    getSelection().removeAllRanges(); getSelection().addRange(r);
+    const out = { lines: pre.querySelectorAll('.fe-md-l').length, sel: getSelection().toString(), num: getComputedStyle(pre.querySelector('.fe-md-l'), '::before').content };
+    getSelection().removeAllRanges();
+    return out;
+  });
+  check(code.lines === 2 && code.sel === 'const alpha = 1;\nconst beta = 2;' && code.num.includes('counter'), `code lines are numbered and a selection copies only the code: ${JSON.stringify(code)}`);
+  await page.screenshot({ path: join(SHOTS, `comment-code-table${sfx}.png`) });
 
   // A #c= link opens its thread.
   const linked = await h.open();

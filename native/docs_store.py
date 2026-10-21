@@ -12,6 +12,7 @@ The document itself is only ever read. Spec: .claude/specs/bfb-docs.md.
 Environment, all optional: BFB_DOCS_HOME overrides where bfb keeps its
 state (tests point it at a scratch folder). CLAUDE_CODE_SESSION_ID,
 CLAUDE_IPC_ALIAS and CLAUDE_IPC_HOME are read only to tell who is writing.
+BFB_CLAUDE_IPC overrides where the claude-ipc binary is found.
 """
 import datetime
 import fcntl
@@ -116,6 +117,19 @@ def whoami(as_=None, role=None):
     if role and a['kind'] == 'agent':
         a['role'] = role
     return a, why
+
+
+def ipc_peers():
+    """Agent sessions claude-ipc sees as live or idle, as {alias, cwd, status},
+    for offering `@claude:<alias>`. Empty when claude-ipc is missing or slow."""
+    exe = os.environ.get('BFB_CLAUDE_IPC') or shutil.which('claude-ipc') or os.path.expanduser('~/.local/bin/claude-ipc')
+    try:
+        r = subprocess.run([exe, 'peers'], capture_output=True, text=True, timeout=4)
+        peers = json.loads(r.stdout).get('peers', [])
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        return []
+    return [{'alias': p['alias'], 'cwd': p.get('cwd') or '', 'status': p['status']}
+            for p in peers if p.get('alias') and not p.get('service') and p.get('status') in ('live', 'idle')]
 
 
 def _owner_name():

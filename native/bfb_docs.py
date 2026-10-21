@@ -64,7 +64,8 @@ def _for(t, who):
     the other side spoke last (for the owner: an agent spoke last)."""
     if t.get('status') == 'done':
         return False
-    names = {who.lower()} | ({'user', 'owner'} if who == 'user' else set())
+    # An agent answers to its alias, to `claude:<alias>`, and to the generic `claude`.
+    names = {who.lower()} | ({'user', 'owner'} if who == 'user' else {'claude', f'claude:{who.lower()}'})
     mine = [i for i, c in enumerate(t['comments']) if S.author_key(c.get('author', {})) == who]
     after = t['comments'][(mine[-1] + 1) if mine else 0:]
     if any(names & {m.lower() for m in C.parse(c.get('text') or '')['mentions']} for c in after):

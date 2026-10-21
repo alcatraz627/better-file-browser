@@ -561,10 +561,11 @@ try {
     return { on: document.querySelector('#fe-toc a.on')?.dataset.id, rows: document.querySelectorAll('#fe-toc a').length, tocShown: getComputedStyle(document.getElementById('fe-toc')).display !== 'none' };
   });
   check(spied.on === 'section-12' && spied.rows === 30 && spied.tocShown, `ToC follows the scroll: ${JSON.stringify(spied)}`);
-  await fpage.click('#fe-toc-fold');
-  const tocHidden = await fpage.evaluate(() => getComputedStyle(document.getElementById('fe-toc')).display === 'none' && document.getElementById('fe-toc-rail').classList.contains('folded'));
-  await fpage.click('#fe-toc-fold');
-  check(tocHidden, 'the fold button above the contents folds the rail');
+  await fpage.click('#fe-fp-toc');
+  const tocHidden = await fpage.evaluate(() => document.getElementById('fe-toc-rail').hidden && document.getElementById('fe-fp-toc').getAttribute('aria-pressed') === 'false');
+  await fpage.click('#fe-fp-toc');
+  const tocBack = await fpage.evaluate(() => !document.getElementById('fe-toc-rail').hidden);
+  check(tocHidden && tocBack, 'the contents button right of find hides and shows the rail');
   await shot(fpage, 'file-page-long');
   await fpage.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
   await fpage.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);

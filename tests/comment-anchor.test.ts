@@ -2,7 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import { renderMarkdown } from '../src/renderers';
 import { visibleMap, visibleOf, sourceSpan, widen, rangeFor, carrier } from '../src/comment-anchor';
-import { completions } from '../src/comments-ui';
+import { completions, commentHtml, agentBrief } from '../src/comments-ui';
+import type { DocThread } from '../src/notes';
 
 /** Render `src` as the file page does and select the `nth` occurrence of `words` on it. */
 function pick(src: string, words: string, nth = 0) {
@@ -142,4 +143,33 @@ describe('completions', () => {
     expect(completions('a#s', 3, people, ['schedule'])).toBeNull();
   });
   it('nothing once the word is complete', () => expect(completions('@bfb', 4, people, [])).toBeNull());
+});
+
+describe('claude mentions', () => {
+  it('offers the generic agent and each live one', () =>
+    expect(completions('ask @cl', 7, ['user', 'claude', 'claude:bfb', 'claude:enh-scrape'], [])?.items).toEqual(['claude', 'claude:bfb', 'claude:enh-scrape']));
+  it('narrows after the colon', () => expect(completions('@claude:b', 9, ['claude', 'claude:bfb', 'claude:x'], [])?.items).toEqual(['claude:bfb']));
+});
+
+describe('commentHtml', () => {
+  it('keeps line breaks and draws dash lines as a list', () => {
+    expect(commentHtml('- one\n- two\nOh also\nthis')).toBe('<ul><li>one</li><li>two</li></ul><p>Oh also<br>this</p>');
+  });
+  it('a blank line starts a new paragraph', () => expect(commentHtml('a\n\nb')).toBe('<p>a</p><p>b</p>'));
+});
+
+describe('agentBrief', () => {
+  const t: DocThread = {
+    id: 't-abc', status: 'open', tags: ['schedule'], due: '2026-11-03', created: '',
+    anchor: { exact: 'ship on **Friday**', line: 5, offset: 40 }, place: { state: 'anchored', offset: 40, length: 18, line: 5 },
+    comments: [{ id: 'c-1', author: { kind: 'human', name: 'Aakarsh' }, created: '2026-10-21T11:18:00Z', text: '@claude is this firm?\nsecond line' }],
+  };
+  const b = agentBrief('/x/plan.md', 'file:///x/plan.md#c=old', [t]);
+  it('names the file, the commands and the thread', () => {
+    expect(b).toContain('bfb-docs comments reply /x/plan.md <thread>');
+    expect(b).toContain('## Thread t-abc (open, line 5, #schedule, due 2026-11-03)');
+    expect(b).toContain('> ship on **Friday**');
+    expect(b).toContain('- Aakarsh, 2026-10-21 11:18:\n    @claude is this firm?\n    second line');
+    expect(b).toContain('Link: file:///x/plan.md#c=t-abc');
+  });
 });

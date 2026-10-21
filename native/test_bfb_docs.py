@@ -115,6 +115,7 @@ cases = [
     ('```\n#notatag @nobody\n```\n#real', {'tags': ['real'], 'mentions': []}),
     ('mail me at me@example.com', {'mentions': []}),
     ('@bfb can you check? cc @user', {'mentions': ['bfb', 'user']}),
+    ('@claude look, and @claude:bfb too.', {'mentions': ['claude', 'claude:bfb']}),
     ('@due 2026-10-25 please', {'due': '2026-10-25', 'mentions': []}),
     ('@tomorrow works', {'due': '2026-10-22', 'mentions': []}),
     ('Fixed it.\n/done', {'done': True}),
@@ -166,6 +167,15 @@ jcli('comments', 'reply', plan, tid[:10], '@bfb one more question')
 r = jcli('comments', 'list', repo, '--for', 'bfb')
 check(r and len(r) == 1, 'mentioned again after its reply, the thread waits on the agent again')
 jcli('comments', 'reply', plan, tid[:10], 'answered', sid=SID)
+jcli('comments', 'reply', plan, tid[:10], '@claude:bfb and one for you')
+r = jcli('comments', 'list', repo, '--for', 'bfb')
+check(r and len(r) == 1, '@claude:bfb puts the thread in bfb\'s inbox')
+jcli('comments', 'reply', plan, tid[:10], 'answered again', sid=SID)
+jcli('comments', 'reply', plan, tid[:10], '@claude anyone?')
+r1 = jcli('comments', 'list', repo, '--for', 'bfb')
+r2 = jcli('comments', 'list', repo, '--for', 'other-agent')
+check(r1 and len(r1) == 1 and r2 and len(r2) == 1, 'a bare @claude reaches every agent\'s inbox')
+jcli('comments', 'reply', plan, tid[:10], 'answered once more', sid=SID)
 jcli('comments', 'done', plan, tid[:10], 'Moved to Thursday.')
 r = jcli('comments', 'list', plan, '--all')
 check(r and r[0]['status'] == 'done' and r[0]['doneBy']['kind'] == 'human', 'done closes the thread and records who')

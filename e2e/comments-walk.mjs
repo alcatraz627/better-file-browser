@@ -54,7 +54,7 @@ This sentence will be removed before the page opens.
   await page.waitForSelector('#fe-cm .fe-cm-th', { timeout: 8000 }).catch(() => null);
   const panel = await page.evaluate(() => ({
     shown: !document.getElementById('fe-toc-rail').hidden && document.getElementById('fe-toc-rail').dataset.tab === 'cm',
-    open: document.querySelectorAll('#fe-cm > .fe-cm-th').length,
+    open: document.querySelectorAll('#fe-cm .fe-cm-list > .fe-cm-th').length,
     groups: [...document.querySelectorAll('#fe-cm .fe-cm-group')].map(g => g.textContent.replace(/\s+/g, ' ').trim()),
     badge: document.getElementById('fe-fp-cm-n').textContent,
     authors: [...document.querySelectorAll('#fe-cm .fe-cm-who b')].map(b => b.textContent.trim()),

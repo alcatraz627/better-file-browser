@@ -408,7 +408,7 @@ describe('renderMarkdown', () => {
     const html = renderMarkdown('[file](/Users/alcatraz627/a.md)\n\n```txt\n/Users/alcatraz627/b.md\n```');
     expect(html.match(/<a /g)?.length).toBe(1);
     expect(html).toContain('href="file:///Users/alcatraz627/a.md" target="_blank"');
-    expect(html).toContain('/Users/alcatraz627/b.md</pre>');
+    expect(html).toContain('/Users/alcatraz627/b.md</span></pre>');
   });
   it('links bare web and file:// addresses in prose and table cells', () => {
     const html = renderMarkdown('Docs: https://docs.devin.ai/integrations/slack.\n\n| A | B |\n|---|---|\n| x | https://a.com/x and (https://en.wikipedia.org/wiki/Foo_(bar)) |\n\nOpen file:///Users/alcatraz627/a%20b.md now');
@@ -529,5 +529,14 @@ describe('renderJsonTree', () => {
   it('escapes string values', () => {
     const html = renderJsonTree('{"x":"<script>"}');
     expect(html).not.toContain('<script>');
+  });
+});
+
+describe('numbered code lines', () => {
+  it('each line is its own element and the block text is unchanged', () => {
+    const doc = new DOMParser().parseFromString(renderMarkdown('```js\nconst a = 1;\n/* two\nlines */\n```'), 'text/html');
+    const pre = doc.querySelector('.fe-md-pre')!;
+    expect(pre.querySelectorAll('.fe-md-l').length).toBe(3);
+    expect(pre.textContent).toBe('const a = 1;\n/* two\nlines */');
   });
 });

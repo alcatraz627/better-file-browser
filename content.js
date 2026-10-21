@@ -672,6 +672,8 @@
     commentsRead: (root, rel) => call({ op: "commentsRead", root, rel }),
     /// Apply comment operations as the owner; the document itself is never written.
     commentsWrite: (root, rel, ops) => call({ op: "commentsWrite", root, rel, ops }),
+    /// Agent sessions claude-ipc sees as live or idle, for offering @claude:<alias>.
+    people: () => call({ op: "people" }).then((f) => f.peers ?? []),
     fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
   };
   function slugForTitle(title) {
@@ -916,6 +918,13 @@ ${body}`;
     lock: svg('<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
     clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
     comment: svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
+    contents: svg('<path d="M15 12H3M17 18H3M21 6H3"/>'),
+    info: svg('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'),
+    circle: svg('<circle cx="12" cy="12" r="9"/>'),
+    at: svg('<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>'),
+    stack: svg('<path d="m12.83 2.18 8.58 3.9a1 1 0 0 1 0 1.83l-8.58 3.9a2 2 0 0 1-1.66 0L2.6 7.91a1 1 0 0 1 0-1.83l8.58-3.9a2 2 0 0 1 1.66 0z"/><path d="m22 12.5-9.17 4.16a2 2 0 0 1-1.66 0L2 12.5"/>'),
+    link: svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
+    bot: svg('<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/>'),
     copyImage: svg(COPY)
   };
   var LINE_ICON = {
@@ -1679,6 +1688,10 @@ ${body}`;
     out.push(line2);
     return out;
   }
+  function codeLines(html) {
+    const rows = splitHighlighted(html);
+    return rows.map((r, i) => `<span class="fe-md-l">${r}${i < rows.length - 1 ? "\n" : ""}</span>`).join("");
+  }
   function parseDSV(text, delim) {
     const rows = [];
     let row = [];
@@ -2072,7 +2085,7 @@ ${body}`;
         if (language.toLowerCase() === "mermaid") {
           out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view">Rendering diagram\u2026</div></div>`);
         } else {
-          out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || "text")}</span><button type="button" class="fe-md-copy" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre">${highlightCode(code, language || "md")}</pre></div>`);
+          out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || "text")}</span><button type="button" class="fe-md-copy" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || "md"))}</pre></div>`);
         }
         mark(from, outAt);
         continue;
@@ -4371,10 +4384,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
 #fe-fp-bar{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-fp{display:flex;flex:1;min-height:0}
-/* Contents: a rail on the right of the page. Depth shows as indent plus a
-   small step in size and ink; folded, only its button remains. */
-/* Contents floats over the page as a translucent card with its toggle on top;
-   folded, only the round toggle stays. The text keeps clear of the open card. */
+/* Contents and Comments float over the page as a translucent card, shown and
+   hidden by the two buttons right of find. The text keeps clear of the card. */
 #fe-fp{position:relative}
 #fe-toc-rail{position:absolute;top:12px;right:16px;z-index:4;width:240px;max-height:calc(100% - 24px);display:flex;flex-direction:column;min-height:0;
   border:1px solid color-mix(in srgb,var(--bd) 80%,transparent);border-radius:12px;
@@ -4383,17 +4394,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc-rail[hidden]{display:none}
 /* The open card reserves its room beside the page, not inside the text, so
    the column keeps its chosen width and only gives way when space runs out. */
-#fe-fp:has(#fe-toc-rail:not([hidden]):not(.folded):not(.peek)) #fe-page{padding-right:256px}
+#fe-fp:has(#fe-toc-rail:not([hidden]):not(.peek)) #fe-page{padding-right:256px}
 #fe-toc-rail.peek{box-shadow:var(--pop-sh)}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
 .fe-toc-title{flex:1;font-size:var(--fs-sm);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
-#fe-toc-fold{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer}
-#fe-toc-fold:hover{background:var(--shade);color:var(--tx)}
-#fe-toc-fold svg{transition:transform var(--t-base) var(--ease)}
-#fe-toc-rail.folded{width:34px;border-radius:17px}
-#fe-toc-rail.folded .fe-toc-title,#fe-toc-rail.folded #fe-toc{display:none}
-#fe-toc-rail.folded .fe-toc-head{padding:4px;justify-content:center}
-#fe-toc-rail.folded #fe-toc-fold svg{transform:rotate(180deg)}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
 #fe-toc a{display:block;margin:1px 6px;border-radius:6px;color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
 #fe-toc a:hover{color:var(--tx);background:var(--hover)}
@@ -4401,32 +4405,42 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc a.fe-toc-h2{font-size:var(--fs-md);padding-left:22px}
 #fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
 #fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
-@media (prefers-reduced-motion:reduce){#fe-toc-fold svg{transition:none}}
 /* The rail's two tabs, Contents and Comments. Comments needs more room, so
    the rail and the text column's right padding widen while it shows. */
 .fe-rail-tabs{flex:1;display:flex;gap:2px;min-width:0}
-.fe-rt{border:0;background:none;padding:3px 8px;border-radius:999px;font-size:var(--fs-sm);font-weight:600;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--dm);cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.fe-rt{border:0;background:none;padding:3px 9px;border-radius:999px;font-size:var(--fs-md);font-weight:500;
+  color:var(--mt);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.fe-rt svg{width:13px;height:13px;opacity:.85}
 .fe-rt:hover{color:var(--tx);background:var(--hover)}
 .fe-rt.on{color:var(--tx);background:var(--act)}
 .fe-rt[hidden]{display:none}
 .fe-rt-n:empty{display:none}
 .fe-rt-n{min-width:16px;padding:0 5px;border-radius:999px;background:var(--ac);color:var(--on-ac);font-size:var(--fs-xs);letter-spacing:0;line-height:16px;text-align:center}
-#fe-toc-rail.folded .fe-rail-tabs,#fe-toc-rail.folded #fe-cm{display:none}
-#fe-toc-rail[data-tab="cm"]:not(.folded){width:320px}
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.folded):not(.peek)) #fe-page{padding-right:336px}
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.folded):not(.peek)) #fe-fe{padding-right:336px}
+#fe-toc-rail[data-tab="cm"]{width:320px}
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.peek)) #fe-page{padding-right:336px}
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.peek)) #fe-fe{padding-right:336px}
 /* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.folded)) #fe-fe-pill{right:352px}
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]).folded) #fe-fe-pill{right:66px}
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
+/* The pane buttons right of find: icons only, the comment count as a small badge. */
+.fe-fp-panes{display:inline-flex;gap:2px;flex:none}
+#fe-fp-bar .fe-fp-panes button[hidden]{display:none}
+#fe-fp-cm{position:relative}
 #fe-fp-cm-n:empty{display:none}
-#fe-fp-cm-n{margin-left:4px;min-width:16px;padding:0 5px;border-radius:999px;background:var(--ac);color:var(--on-ac);font-size:var(--fs-xs);line-height:16px}
+#fe-fp-cm-n{position:absolute;top:-3px;right:-4px;min-width:14px;padding:0 4px;border-radius:999px;background:var(--ac);color:var(--on-ac);font-size:10px;line-height:14px;text-align:center}
 /* Comment threads: a quote, then each comment with who and when, then chips. */
-#fe-cm{flex:1;min-height:0;overflow-y:auto;padding:0 10px 14px}
+#fe-cm{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
+.fe-cm-top{flex:none;display:flex;align-items:center;gap:4px;padding:0 10px 8px}
+.fe-cm-list{flex:1;min-height:0;overflow-y:auto;padding:2px 10px 14px}
 #fe-cm[hidden]{display:none}
-.fe-cm-filters{display:flex;gap:2px;padding:2px;margin:0 0 10px;border-radius:10px;background:var(--bg);border:1px solid var(--bd);position:sticky;top:0;z-index:1}
-.fe-cm-filters button{flex:1;border:0;background:none;border-radius:8px;padding:3px 4px;font-size:var(--fs-sm);color:var(--mt);cursor:pointer;display:inline-flex;justify-content:center;gap:4px}
-.fe-cm-filters button span{color:var(--dm)}
+.fe-cm-filters{flex:1;display:flex;gap:2px;padding:2px;border-radius:10px;background:var(--bg);border:1px solid var(--bd)}
+.fe-cm-filters button{flex:1;border:0;background:none;border-radius:8px;padding:3px 4px;font-size:var(--fs-sm);color:var(--mt);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
+.fe-cm-filters button svg{width:11px;height:11px;opacity:.75}
+.fe-cm-fn{color:var(--dm)}
+.fe-cm-ib{display:inline-grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer;flex:none;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-cm-ib:hover{background:var(--shade);color:var(--tx)}
+.fe-cm-ib:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-cm-ib svg{width:13px;height:13px}
 .fe-cm-filters button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
 .fe-cm-group{display:flex;align-items:center;gap:6px;margin:14px 2px 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm);cursor:default}
 .fe-cm-group span{font-weight:500;letter-spacing:0}
@@ -4439,7 +4453,8 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-th:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 .fe-cm-q{margin:0 0 8px;padding:0 0 0 9px;border-left:2px solid color-mix(in srgb,var(--ac) 55%,transparent);font-size:var(--fs-sm);line-height:1.45;color:var(--mt);
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.fe-cm-state{margin:-2px 0 8px;font-size:var(--fs-sm);color:var(--nc-orange)}
+.fe-cm-state{display:flex;align-items:center;gap:5px;margin:-2px 0 8px;font-size:var(--fs-xs);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));cursor:default}
+.fe-cm-state svg{width:12px;height:12px;flex:none}
 .fe-cm-c + .fe-cm-c{margin-top:9px;padding-top:9px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
 .fe-cm-who{display:flex;align-items:center;gap:6px;margin-bottom:3px}
 .fe-cm-who b{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-md);font-weight:600;color:var(--tx)}
@@ -4448,6 +4463,13 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-who time{font-size:var(--fs-sm);color:var(--dm)}
 .fe-cm-tx{font-size:var(--fs-md);line-height:1.5;color:var(--tx);overflow-wrap:anywhere}
 .fe-cm-tx code{font-size:.92em}
+.fe-cm-tx p{margin:0}
+.fe-cm-tx p + p,.fe-cm-tx ul + p,.fe-cm-tx p + ul{margin-top:.45em}
+.fe-cm-tx ul{margin:.15em 0;padding-left:1.15em}
+.fe-cm-own{margin-left:auto;display:inline-flex;opacity:0;transition:opacity var(--t-fast) var(--ease)}
+.fe-cm-c:hover .fe-cm-own,.fe-cm-own:focus-within{opacity:1}
+.fe-cm-own .fe-cm-ib{width:20px;height:20px}
+.fe-cm-own .fe-cm-ib svg{width:12px;height:12px}
 .fe-cm-c.gone .fe-cm-tx{color:var(--dm)}
 .fe-cm-sug{margin-top:6px;font-size:var(--fs-sm);color:var(--mt)}
 .fe-cm-sug ins{text-decoration:none;background:color-mix(in srgb,var(--nc-green) 18%,transparent);padding:0 3px;border-radius:3px;color:var(--tx)}
@@ -4457,23 +4479,26 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-chip.due{background:color-mix(in srgb,var(--nc-orange) 16%,transparent);color:var(--tx)}
 .fe-cm-chip.done{background:color-mix(in srgb,var(--nc-green) 16%,transparent);color:var(--tx)}
 .fe-cm-note{margin:0 2px 8px;font-size:var(--fs-sm);color:var(--dm);line-height:1.4}
-.fe-cm-empty{padding:18px 6px;text-align:center;color:var(--mt);font-size:var(--fs-md);line-height:1.5}
-.fe-cm-empty .btn{margin-top:8px;display:inline-flex;align-items:center;gap:6px}
-.fe-cm-empty .btn svg{width:13px;height:13px}
+.fe-cm-empty{padding:22px 6px 18px;text-align:center;color:var(--tx);font-size:var(--fs-md);line-height:1.5}
+.fe-cm-empty p{margin:0}
+.fe-cm-empty .fe-cm-hint{margin-top:4px}
+.fe-cm-empty-ico{display:inline-grid;place-items:center;width:34px;height:34px;margin-bottom:8px;border-radius:50%;background:var(--s2);color:var(--dm)}
+.fe-cm-empty-ico svg{width:16px;height:16px}
+.fe-cm-empty .btn{margin-top:10px}
 .fe-cm-hint{color:var(--dm);font-size:var(--fs-sm)}
 .fe-cm-hint kbd{font:inherit;font-family:var(--mono);padding:0 4px;border:1px solid var(--bd2);border-radius:4px}
 /* Writing: the composer card, the reply box on the open thread, its tools. */
 .fe-cm-new{cursor:default}
-.fe-cm-box{position:relative;margin-top:10px}
+.fe-cm-box{margin-top:10px}
 .fe-cm-new .fe-cm-box{margin-top:0}
 .fe-cm-box textarea{display:block;width:100%;box-sizing:border-box;min-height:52px;max-height:220px;resize:vertical;padding:6px 8px;border:1px solid var(--bd2);border-radius:8px;
   background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md);line-height:1.45;outline:0;transition:border-color var(--t-fast) var(--ease)}
 .fe-cm-box textarea:focus{border-color:color-mix(in srgb,var(--ac) 70%,var(--bd2))}
 .fe-cm-box textarea::placeholder{color:var(--dm)}
-.fe-cm-ac{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:3;padding:4px;border-radius:10px;
+.fe-cm-ac{position:absolute;z-index:10;max-width:calc(100% - 20px);box-sizing:border-box;padding:4px;border-radius:10px;
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
 .fe-cm-ac[hidden]{display:none}
-.fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer}
+.fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
 .fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--act)}
 .fe-cm-tools{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin-top:6px}
@@ -4483,10 +4508,6 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-x{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin:0 -3px 0 1px;padding:0;border:0;border-radius:50%;background:none;color:var(--dm);cursor:pointer}
 .fe-cm-x:hover{background:var(--shade);color:var(--tx)}
 .fe-cm-x svg{width:9px;height:9px}
-.fe-cm-del{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:0;border-radius:6px;background:none;color:var(--dm);cursor:pointer;opacity:0;transition:opacity var(--t-fast) var(--ease)}
-.fe-cm-c:hover .fe-cm-del,.fe-cm-del:focus-visible{opacity:1}
-.fe-cm-del:hover{background:var(--shade);color:var(--nc-red)}
-.fe-cm-del svg{width:12px;height:12px}
 /* The floating Comment button above a selection on the page. */
 #fe-cm-add{position:fixed;z-index:30;height:28px;padding:0 10px;border-radius:999px;color:var(--tx);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
@@ -4498,8 +4519,10 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-fe-row.cm .fe-fe-ln::before{content:'';position:absolute;left:6px;top:.55em;width:9px;height:8px;border-radius:3px 3px 3px 0;background:var(--ac);cursor:pointer}
 /* In the text: commented words get a wash, the open thread a stronger one,
    and each block with comments a count in the right margin. */
-::highlight(bfb-cm){background-color:color-mix(in srgb,var(--ac) 20%,transparent)}
-::highlight(bfb-cm-on){background-color:color-mix(in srgb,var(--ac) 42%,transparent)}
+::highlight(bfb-cm){background-color:color-mix(in srgb,var(--ac) 9%,transparent)}
+::highlight(bfb-cm-hover){background-color:color-mix(in srgb,var(--ac) 17%,transparent)}
+::highlight(bfb-cm-on){background-color:color-mix(in srgb,var(--ac) 24%,transparent)}
+#fe-page.fe-cm-pointing{cursor:pointer}
 .fe-md [data-cm]{position:relative}
 .fe-md [data-cm]::after{content:attr(data-cm);position:absolute;top:2px;right:-30px;min-width:20px;height:18px;padding:0 5px;border-radius:9px 9px 9px 2px;
   background:color-mix(in srgb,var(--ac) 22%,var(--card));color:var(--tx);font-size:var(--fs-xs);font-weight:600;line-height:18px;text-align:center;cursor:pointer}
@@ -4803,7 +4826,12 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md-copy.copied{color:var(--green)}
 .fe-md-pre{background:var(--s1);border:1px solid var(--bd);border-radius:6px;padding:.75em 1em;
   overflow-x:auto;font-family:var(--mono);font-size:.86em;line-height:1.55;white-space:pre;color:var(--tx)}
-.fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0;padding-top:.4em}
+.fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0;padding-top:.4em;background:none}
+.fe-md-code{background:color-mix(in srgb,var(--s1),#000 6%)}
+.fe-md-lines{counter-reset:ln;padding-left:.2em}
+.fe-md-l{display:block;width:max-content;min-width:100%;box-sizing:border-box;padding-right:1em;border-radius:3px;counter-increment:ln}
+.fe-md-l::before{content:counter(ln);display:inline-block;width:2.2em;margin-right:1em;text-align:right;color:var(--dm);opacity:.6;user-select:none}
+.fe-md-l:hover{background:color-mix(in srgb,var(--tx) 6%,transparent)}
 .fe-md-mermaid{padding:14px;border:1px solid var(--bd);border-radius:6px;
   background:var(--s1);overflow-x:auto;text-align:center}
 .fe-md-mermaid svg{display:block;max-width:100%;height:auto;margin:auto}
@@ -4829,7 +4857,9 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md-table{border-collapse:separate;border-spacing:0;margin:0;font-size:.93em;border:1px solid var(--bd);border-radius:6px;overflow:hidden}
 .fe-md-table th,.fe-md-table td{border:0;border-bottom:1px solid var(--bd);padding:.55em .9em;text-align:left;vertical-align:top}
 .fe-md-table tbody tr:last-child td{border-bottom:0}
-.fe-md-table th{background:var(--s1);font-weight:600;font-size:.8em;letter-spacing:.05em;text-transform:uppercase;color:var(--mt)}
+.fe-md-table thead{position:static;background:none}
+.fe-md-table thead th{background:color-mix(in srgb,var(--s1),var(--tx) 5%);font-weight:600;font-size:inherit;letter-spacing:0;text-transform:none;color:var(--tx);
+  white-space:normal;user-select:text;padding:.55em .9em}
 #fe-ctx,.fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
   min-width:180px;box-shadow:0 8px 24px #0009;display:none;padding:4px 0}
 .fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
@@ -4842,7 +4872,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-tab:focus-visible,.fe-tab-x:focus-visible,.fe-tab-more:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}
 @media (max-width:900px){
   #fe-side{width:clamp(200px,26vw,240px)}
-  #fe-toc-rail:not(.folded){width:clamp(150px,22vw,190px)}
+  #fe-toc-rail{width:clamp(150px,22vw,190px)}
   #fe-ff-q{width:110px}
   #fe-page .fe-md{padding:20px 18px 60px}
   #fe-fp-bar{flex-wrap:wrap;padding:7px 10px}
@@ -12661,10 +12691,10 @@ and ${diags.length - 12} more` : "");
   var FILTER_KEY = "bfb-comments-filter-v1";
   var POLL_MS = 2e3;
   var FILTERS = [
-    { id: "open", label: "Open" },
-    { id: "me", label: "For me" },
-    { id: "done", label: "Done" },
-    { id: "all", label: "All" }
+    { id: "open", label: "Open", icon: UI_ICON.circle, hint: "Threads still open" },
+    { id: "me", label: "For me", icon: UI_ICON.at, hint: "Threads waiting on you" },
+    { id: "done", label: "Done", icon: UI_ICON.check, hint: "Closed threads" },
+    { id: "all", label: "All", icon: UI_ICON.stack, hint: "Every thread" }
   ];
   var DATE_WORDS = ["due", "today", "tomorrow"];
   var who = (a) => a.kind === "human" ? "You" : (a.alias || "agent") + (a.role ? ` \xB7 ${a.role}` : "");
@@ -12692,13 +12722,76 @@ and ${diags.length - 12} more` : "");
     });
     return t.comments.slice(mine + 1).some((c) => /(^|\s)@(user|owner)\b/i.test(c.text || ""));
   }
+  function commentHtml(text) {
+    const out = [];
+    let list = [];
+    const flush = () => {
+      if (list.length) {
+        out.push(`<ul>${list.map((l) => `<li>${l}</li>`).join("")}</ul>`);
+        list = [];
+      }
+    };
+    let para = [];
+    const end = () => {
+      if (para.length) {
+        out.push(`<p>${para.join("<br>")}</p>`);
+        para = [];
+      }
+    };
+    for (const line2 of text.split("\n")) {
+      const item = /^\s*[-*]\s+(.*)$/.exec(line2);
+      if (item) {
+        end();
+        list.push(mdInline(item[1]));
+        continue;
+      }
+      flush();
+      if (!line2.trim()) {
+        end();
+        continue;
+      }
+      para.push(mdInline(line2));
+    }
+    flush();
+    end();
+    return out.join("");
+  }
   function completions(value, caret, people, tags) {
-    const m = /(^|\s)([@#])([\w-]*)$/.exec(value.slice(0, caret));
+    const m = /(^|\s)([@#])([\w:.-]*)$/.exec(value.slice(0, caret));
     if (!m) return null;
     const q = m[3].toLowerCase();
     const pool = m[2] === "@" ? [...people, ...DATE_WORDS] : tags;
-    const items = [...new Set(pool)].filter((x) => x.toLowerCase().startsWith(q) && x.toLowerCase() !== q).slice(0, 6);
+    const items = [...new Set(pool)].filter((x) => x.toLowerCase().startsWith(q) && x.toLowerCase() !== q).slice(0, 8);
     return items.length ? { from: caret - m[3].length - 1, sigil: m[2], items } : null;
+  }
+  function agentBrief(path, href, threads) {
+    const name = (a) => a.kind === "human" ? a.name || "the owner" : a.alias || "agent";
+    const when = (iso) => iso.slice(0, 16).replace("T", " ");
+    const one = threads.length === 1;
+    const head = [
+      `# ${one ? "A comment" : `${threads.length} comments`} on ${path}`,
+      "",
+      "Each thread is anchored to the quoted words of the file. Answer with bfb-docs, which signs you in as your claude-ipc alias:",
+      `  bfb-docs comments reply ${path} <thread> "your reply"`,
+      `  bfb-docs comments done ${path} <thread> "what you changed"`,
+      `  bfb-docs comments show ${path} <thread>    (the full thread)`,
+      "Edit the file itself with your usual tools; the comments follow the text."
+    ];
+    const body = threads.map((t) => {
+      const meta = [t.status, t.place.line !== null ? `line ${t.place.line}` : "no longer found in the file", ...(t.tags ?? []).map((g) => "#" + g), t.due ? `due ${t.due}` : ""].filter(Boolean).join(", ");
+      const quote = t.anchor.exact.length > 400 ? t.anchor.exact.slice(0, 399) + "\u2026" : t.anchor.exact;
+      return [
+        "",
+        `## Thread ${t.id} (${meta})`,
+        ...quote.split("\n").map((l) => "> " + l),
+        "",
+        ...t.comments.filter((c) => !c.deleted).map((c) => `- ${name(c.author)}, ${when(c.created)}:
+${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
+        "",
+        `Link: ${href.split("#")[0]}#c=${t.id}`
+      ].join("\n");
+    });
+    return [...head, ...body].join("\n") + "\n";
   }
   function mountComments(o) {
     let threads = [];
@@ -12708,12 +12801,23 @@ and ${diags.length - 12} more` : "");
     let loaded = false, failed = "";
     let lastCompanion = null, lastText = "";
     let draft = null;
+    let editing = "";
     let busy = false;
     let dueOpen = "";
     const seen = /* @__PURE__ */ new Set();
     const ranges = /* @__PURE__ */ new Map();
     const typed = /* @__PURE__ */ new Map();
     let linked = location.hash.startsWith("#c=") ? decodeURIComponent(location.hash.slice(3)) : "";
+    let peers = null;
+    const loadPeers = () => {
+      if (peers === null) {
+        peers = [];
+        notes.people().then((p) => {
+          peers = p;
+        }).catch(() => {
+        });
+      }
+    };
     const readCompanion = () => fetchFileText(o.href + ".bfb.json").catch(() => "");
     const take = (r) => {
       const fresh = r.threads.flatMap((t) => t.comments.filter((c) => !seen.has(c.id) && c.author.kind === "agent").map((c) => c.author));
@@ -12772,14 +12876,27 @@ and ${diags.length - 12} more` : "");
         o.changed();
       }
     };
-    const people = () => ["user", ...threads.flatMap((t) => [...t.mentions ?? [], ...t.comments.map((c) => c.author.kind === "agent" ? c.author.alias ?? "" : "")])].filter(Boolean);
+    const people = () => [
+      "user",
+      "claude",
+      ...(peers ?? []).map((p) => "claude:" + p.alias),
+      ...threads.flatMap((t) => [...t.mentions ?? [], ...t.comments.map((c) => c.author.kind === "agent" ? c.author.alias ?? "" : "")])
+    ].filter(Boolean);
+    const hintFor = (x) => {
+      if (x === "user") return "you";
+      if (x === "claude") return "any agent";
+      if (DATE_WORDS.includes(x)) return "due date";
+      const p = x.startsWith("claude:") && peers?.find((q) => q.alias === x.slice(7));
+      return p ? `${p.cwd.split("/").pop() || p.cwd} \xB7 ${p.status}` : "";
+    };
     const allTags = () => threads.flatMap((t) => t.tags ?? []);
     const visible = () => threads.filter((t) => filter === "all" ? true : filter === "done" ? t.status === "done" : filter === "me" ? forOwner(t) : t.status !== "done");
-    const box = (id, label, place) => `
+    const box = (id, label, place, start = "") => `
     <div class="fe-cm-box">
-      <textarea data-for="${esc(id)}" rows="2" aria-label="${esc(label)}" placeholder="${esc(place)}">${esc(typed.get(id) ?? "")}</textarea>
-      <div class="fe-cm-ac" role="listbox" hidden></div>
+      <textarea data-for="${esc(id)}" rows="2" aria-label="${esc(label)}" placeholder="${esc(place)}">${esc(typed.get(id) ?? start)}</textarea>
     </div>`;
+    const notice = (text, why = "") => `<div class="fe-cm-state"${why ? ` title="${esc(why)}"` : ""}>${UI_ICON.info}<span>${esc(text)}</span></div>`;
+    const iconBtn = (a, icon2, title, v = "") => `<button type="button" class="fe-cm-ib" data-a="${a}"${v ? ` data-v="${esc(v)}"` : ""} title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
     const threadHtml = (t) => {
       const on = t.id === active;
       const quote = visibleOf(t.place.state === "moved" && t.place.offset !== null ? o.text().slice(t.place.offset, t.place.offset + t.place.length) : t.anchor.exact);
@@ -12789,21 +12906,28 @@ and ${diags.length - 12} more` : "");
         t.due ? `<span class="fe-cm-chip due">${UI_ICON.clock}${esc(dueLabel(t.due))}${x("undue", "", "Clear the due date")}</span>` : "",
         t.status === "done" ? `<span class="fe-cm-chip done">Done</span>` : ""
       ].join("");
-      const cs = t.comments.map((c) => `
+      const cs = t.comments.map((c) => {
+        const mine = on && c.author.kind === "human" && !c.deleted;
+        const body = editing === c.id ? `${box("edit:" + c.id, "Edit comment", "", c.text || "")}<div class="fe-cm-tools"><span class="fe-cm-grow"></span>
+            <button type="button" class="btn" data-size="sm" data-hover-shade data-a="edit-cancel" title="Cancel (Esc)">Cancel</button>
+            <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="edit-save" data-v="${esc(c.id)}" title="Save (\u2318\u21B5)">Save</button></div>` : `<div class="fe-cm-tx">${c.deleted ? "<i>Deleted</i>" : commentHtml(c.text || "")}</div>`;
+        return `
       <div class="fe-cm-c${c.deleted ? " gone" : ""}">
-        <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(c.author))}</b><time title="${esc(c.created)}">${esc(ago(c.created))}</time>
-          ${on && c.author.kind === "human" && !c.deleted ? `<button type="button" class="fe-cm-del" data-a="del" data-v="${esc(c.id)}" title="Delete this comment" aria-label="Delete this comment">${UI_ICON.trash}</button>` : ""}</div>
-        <div class="fe-cm-tx">${c.deleted ? "<i>Deleted</i>" : mdInline(c.text || "")}</div>
+        <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(c.author))}</b><time title="${esc(c.created)}">${esc(ago(c.created))}${c.edited ? " \xB7 edited" : ""}</time>
+          ${mine && editing !== c.id ? `<span class="fe-cm-own">${iconBtn("edit", UI_ICON.rename, "Edit this comment", c.id)}${iconBtn("del", UI_ICON.trash, "Delete this comment", c.id)}</span>` : ""}</div>
+        ${body}
         ${c.suggestion ? `<div class="fe-cm-sug">Suggests <ins>${esc(c.suggestion.replace)}</ins> <span>${esc(c.suggestion.state)}</span></div>` : ""}
-      </div>`).join("");
-      const where = t.place.state === "moved" ? '<div class="fe-cm-state">Moved: the quoted words changed</div>' : t.place.state === "ambiguous" ? '<div class="fe-cm-state">The quoted words appear more than once</div>' : t.place.state === "detached" ? '<div class="fe-cm-state">The quoted text is no longer in the file</div>' : "";
+      </div>`;
+      }).join("");
+      const where = t.place.state === "moved" ? notice("Moved: the words changed", "The quoted words were edited; this is where they seem to be now.") : t.place.state === "ambiguous" ? notice("These words appear more than once") : t.place.state === "detached" ? notice("No longer in the file", "The quoted words were removed. Select new words and press Attach to selection to move the thread.") : "";
       const done = t.status === "done";
       const tools = on ? `
       ${box(t.id, "Reply", done ? "Reply to reopen\u2026" : "Reply\u2026 @ to mention, # to tag")}
       <div class="fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-hover-shade data-a="${done ? "reopen" : "done"}" title="${done ? "Reopen this thread" : "Mark done"} (\u2318\u21E7\u21B5)">${done ? UI_ICON.reset + "Reopen" : UI_ICON.check + "Done"}</button>
-        ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : `<button type="button" class="btn" data-size="sm" data-hover-shade data-a="due" title="Set a due date">${UI_ICON.clock}Due</button>`}
-        <button type="button" class="btn" data-size="sm" data-hover-shade data-a="link" title="Copy a link that opens this thread">${UI_ICON.copy}Link</button>
+        ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : iconBtn("due", UI_ICON.clock, "Set a due date")}
+        ${iconBtn("link", UI_ICON.link, "Copy a link that opens this thread")}
+        ${iconBtn("brief", UI_ICON.bot, "Copy this thread as a brief for an agent")}
         ${t.place.state !== "anchored" ? `<button type="button" class="btn" data-size="sm" data-hover-shade data-a="attach" title="Select words on the page first">Attach to selection</button>` : ""}
         <span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="reply" title="Reply (\u2318\u21B5)">Reply</button>
@@ -12814,23 +12938,31 @@ and ${diags.length - 12} more` : "");
     };
     const draftHtml = () => draft ? `<form class="fe-cm-th fe-cm-new on" data-new aria-label="${draft.attach ? "Attach the thread here" : "New comment"}">
       <blockquote class="fe-cm-q">${esc(draft.quote.length > 140 ? draft.quote.slice(0, 139) + "\u2026" : draft.quote)}</blockquote>
-      ${draft.block ? '<div class="fe-cm-state">These words could not be placed exactly, so the comment goes on the whole block.</div>' : ""}
-      ${draft.attach ? '<p class="fe-cm-hint">The thread moves to these words.</p>' : box("new", "New comment", "Comment\u2026 @ to mention, # to tag, @due 2026-10-30")}
+      ${draft.block ? notice("On the whole block", "These words could not be placed exactly, so the comment covers the whole block.") : ""}
+      ${draft.attach ? '<p class="fe-cm-hint">The thread moves to these words.</p>' : box("new", "New comment", "Comment\u2026 @ to mention, # to tag")}
       <div class="fe-cm-tools"><span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-size="sm" data-hover-shade data-a="cancel" title="Cancel (Esc)">Cancel</button>
         <button type="submit" class="btn" data-size="sm" data-variant="solid" data-a="post" title="${draft.attach ? "Attach" : "Comment"} (\u2318\u21B5)">${draft.attach ? "Attach here" : "Comment"}</button></div>
     </form>` : "";
+    const emptyHtml = () => `<div class="fe-cm-empty">
+      <span class="fe-cm-empty-ico">${UI_ICON.comment}</span>
+      <p>${threads.length ? "Nothing here" : "No comments yet"}</p>
+      <p class="fe-cm-hint">Select some text,<br>then press <kbd>c</kbd></p>
+    </div>`;
+    const wanted = (id) => id === "new" ? !!draft && !draft.attach : id.startsWith("edit:") ? editing === id.slice(5) : id === active;
     const paint = () => {
       const ae = document.activeElement;
       const focus = ae && o.box.contains(ae) && ae.dataset.for ? { id: ae.dataset.for, s: ae.selectionStart, e: ae.selectionEnd } : null;
       o.box.querySelectorAll("textarea[data-for]").forEach((ta) => {
-        if (ta.value) typed.set(ta.dataset.for, ta.value);
-        else typed.delete(ta.dataset.for);
+        const id = ta.dataset.for;
+        if (ta.value && wanted(id)) typed.set(id, ta.value);
+        else typed.delete(id);
       });
+      const listTop = o.box.querySelector(".fe-cm-list")?.scrollTop ?? 0;
       const root = o.root();
       if (!root) {
-        o.box.innerHTML = `<div class="fe-cm-empty"><p>Comments are saved beside this file, so this folder needs to be allowed first.</p>
-        <button type="button" class="btn" data-variant="outline" data-a="allow">${UI_ICON.lock}Allow this folder</button></div>`;
+        o.box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.lock}</span><p>Comments are saved beside this file.</p>
+        <button type="button" class="btn" data-variant="outline" data-a="allow">Allow this folder</button></div>`;
         return;
       }
       if (!loaded) {
@@ -12838,7 +12970,7 @@ and ${diags.length - 12} more` : "");
         return;
       }
       if (failed) {
-        o.box.innerHTML = `<div class="fe-cm-empty"><p>Comments could not be read: ${esc(failed)}</p></div>`;
+        o.box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.info}</span><p>Comments could not be read</p><p class="fe-cm-hint">${esc(failed)}</p></div>`;
         return;
       }
       const list = visible();
@@ -12850,12 +12982,20 @@ and ${diags.length - 12} more` : "");
       const done = filter === "open" ? threads.filter((t) => t.status === "done") : [];
       const count = (f) => threads.filter((t) => f === "all" ? true : f === "done" ? t.status === "done" : f === "me" ? forOwner(t) : t.status !== "done").length;
       o.box.innerHTML = `
-      <div class="fe-cm-filters" role="tablist">${FILTERS.map((f) => `<button type="button" role="tab" data-f="${f.id}" class="${f.id === filter ? "on" : ""}" aria-selected="${f.id === filter}">${f.label}<span>${count(f.id) || ""}</span></button>`).join("")}</div>
-      ${draftHtml()}
-      ${notesLine.map((n) => `<p class="fe-cm-note">${esc(n)}</p>`).join("")}
-      ${list.length || draft ? "" : `<div class="fe-cm-empty"><p>${threads.length ? "Nothing here." : "No comments yet."}</p><p class="fe-cm-hint">Select words on the page and press <kbd>c</kbd> to comment. Agents use <code>bfb-docs comments new</code>.</p></div>`}
-      ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="fe-cm-group">${name} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
-      ${done.length ? `<details class="fe-cm-done"${done.some((t) => t.id === active) ? " open" : ""}><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}`;
+      <div class="fe-cm-top">
+        <div class="fe-cm-filters" role="tablist">${FILTERS.map((f) => `<button type="button" role="tab" data-f="${f.id}" class="${f.id === filter ? "on" : ""}" aria-selected="${f.id === filter}" title="${f.hint}">${f.icon}<span class="fe-cm-fl">${f.label}</span><span class="fe-cm-fn">${count(f.id) || ""}</span></button>`).join("")}</div>
+        ${list.length ? iconBtn("brief-all", UI_ICON.bot, "Copy the threads shown as a brief for an agent, with links") : ""}
+      </div>
+      <div class="fe-cm-list">
+        ${draftHtml()}
+        ${notesLine.map((n) => `<p class="fe-cm-note">${esc(n)}</p>`).join("")}
+        ${list.length || draft ? "" : emptyHtml()}
+        ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="fe-cm-group">${name} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
+        ${done.length ? `<details class="fe-cm-done"${done.some((t) => t.id === active) ? " open" : ""}><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}
+      </div>
+      <div class="fe-cm-ac" role="listbox" hidden></div>`;
+      o.box.querySelector(".fe-cm-list").scrollTop = listTop;
+      acFor = null;
       if (focus) {
         const ta = o.box.querySelector(`textarea[data-for="${CSS.escape(focus.id)}"]`);
         if (ta) {
@@ -12875,6 +13015,8 @@ and ${diags.length - 12} more` : "");
       const line2 = lineOf(text, offset);
       return rangeFor(o.page, line2, line2 + (src.match(/\n/g)?.length ?? 0), visibleOf(src));
     };
+    const reg = CSS.highlights;
+    const H = window.Highlight;
     const redraw = () => {
       ranges.clear();
       o.page.querySelectorAll("[data-cm]").forEach((b) => b.removeAttribute("data-cm"));
@@ -12888,18 +13030,19 @@ and ${diags.length - 12} more` : "");
         const block = (r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement)?.closest("[data-sl]");
         if (block) block.dataset.cm = String(Number(block.dataset.cm || 0) + 1);
       }
-      const reg = CSS.highlights;
-      const H = window.Highlight;
       if (reg && H) {
         reg.set("bfb-cm", new H(...all));
         const on = draft ? rangeOfSpan(draft.start, draft.end - draft.start) : ranges.get(active);
         if (on) reg.set("bfb-cm-on", new H(on));
         else reg.delete("bfb-cm-on");
+        reg.delete("bfb-cm-hover");
+        hovered = "";
       }
     };
     const focusThread = (id, scroll = true) => {
       active = id;
       dueOpen = "";
+      editing = "";
       paint();
       redraw();
       const card = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
@@ -12933,6 +13076,7 @@ and ${diags.length - 12} more` : "");
         void load();
       }
       const src = o.text().slice(span.start, span.end);
+      if (!draft || draft.start !== span.start || draft.end !== span.end) typed.delete("new");
       draft = { ...span, quote: visibleOf(src) || src, attach };
       if (!attach) active = "";
       window.getSelection()?.removeAllRanges();
@@ -12973,7 +13117,7 @@ and ${diags.length - 12} more` : "");
       if (id) {
         if (filter === "done") filter = "open";
         focusThread(id);
-      }
+      } else paint();
     };
     const reply = async (id, close = false) => {
       const t = threads.find((x) => x.id === id);
@@ -12990,12 +13134,40 @@ and ${diags.length - 12} more` : "");
       if (ta) ta.value = "";
       typed.delete(id);
       if (!await write(ops, "Reply")) {
-        typed.set(id, ta?.value || text);
+        typed.set(id, text);
         paint();
         return;
       }
       o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
     };
+    const startEdit = (cid) => {
+      editing = cid;
+      paint();
+      const ta = o.box.querySelector(`textarea[data-for="edit:${CSS.escape(cid)}"]`);
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      }
+    };
+    const cancelEdit = () => {
+      typed.delete("edit:" + editing);
+      editing = "";
+      paint();
+    };
+    const saveEdit = async (cid) => {
+      const ta = o.box.querySelector(`textarea[data-for="edit:${CSS.escape(cid)}"]`);
+      const text = (ta?.value ?? "").trim();
+      if (!text) {
+        ta?.focus();
+        return;
+      }
+      if (await write([{ op: "edit", thread: active, comment: cid, text }], "Edit")) {
+        typed.delete("edit:" + cid);
+        editing = "";
+        paint();
+      }
+    };
+    const copy = (text, said) => copyToClipboard(text).then((ok) => o.status(ok ? said : "copy failed"));
     const addBtn = document.createElement("button");
     addBtn.type = "button";
     addBtn.id = "fe-cm-add";
@@ -13029,24 +13201,34 @@ and ${diags.length - 12} more` : "");
       addBtn.hidden = true;
     }, { passive: true });
     let acFor = null, acAt = 0;
+    const acList = () => o.box.querySelector(".fe-cm-ac");
     const acClose = () => {
-      o.box.querySelectorAll(".fe-cm-ac").forEach((l) => {
+      const l = acList();
+      if (l) {
         l.hidden = true;
         l.innerHTML = "";
-      });
+      }
       acFor = null;
     };
     const acShow = (ta) => {
-      const list = ta.parentElement.querySelector(".fe-cm-ac");
+      const list = acList();
       const c = completions(ta.value, ta.selectionStart, people(), allTags());
-      if (!c) {
+      if (!list || !c) {
         acClose();
         return;
       }
       acFor = ta;
       acAt = Math.min(acAt, c.items.length - 1);
       list.hidden = false;
-      list.innerHTML = c.items.map((x, i) => `<div role="option" data-v="${esc(x)}" class="${i === acAt ? "on" : ""}" aria-selected="${i === acAt}">${esc(c.sigil + x)}${x === "user" ? " <span>you</span>" : DATE_WORDS.includes(x) ? " <span>due date</span>" : ""}</div>`).join("");
+      list.innerHTML = c.items.map((x, i) => {
+        const hint = hintFor(x);
+        return `<div role="option" data-v="${esc(x)}" class="${i === acAt ? "on" : ""}" aria-selected="${i === acAt}">${esc(c.sigil + x)}${hint ? ` <span>${esc(hint)}</span>` : ""}</div>`;
+      }).join("");
+      const t = ta.getBoundingClientRect(), b = o.box.getBoundingClientRect();
+      list.style.left = `${t.left - b.left}px`;
+      list.style.width = `${t.width}px`;
+      const below = t.bottom + list.offsetHeight + 8 < innerHeight;
+      list.style.top = `${below ? t.bottom - b.top + 4 : t.top - b.top - list.offsetHeight - 4}px`;
     };
     const acPick = (ta, v) => {
       const c = completions(ta.value, ta.selectionStart, people(), allTags());
@@ -13057,11 +13239,12 @@ and ${diags.length - 12} more` : "");
     };
     o.box.addEventListener("input", (e) => {
       const ta = e.target;
-      if (ta.dataset?.for) {
-        acAt = 0;
-        acShow(ta);
-      }
+      if (!ta.dataset?.for) return;
+      if (ta.value.includes("@")) loadPeers();
+      acAt = 0;
+      acShow(ta);
     });
+    o.box.addEventListener("scroll", acClose, true);
     o.box.addEventListener("pointerdown", (e) => {
       const s = selected();
       if (s) held = s.span;
@@ -13075,8 +13258,8 @@ and ${diags.length - 12} more` : "");
       const el2 = e.target;
       const ta = el2.closest("textarea[data-for]");
       if (ta) {
-        const list = ta.parentElement.querySelector(".fe-cm-ac");
-        if (!list.hidden && acFor === ta) {
+        const list = acList();
+        if (list && !list.hidden && acFor === ta) {
           const n = list.children.length;
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
@@ -13096,19 +13279,22 @@ and ${diags.length - 12} more` : "");
             return;
           }
         }
+        const id = ta.dataset.for;
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
-          if (ta.dataset.for === "new") void post();
-          else void reply(ta.dataset.for, e.shiftKey);
+          if (id === "new") void post();
+          else if (id.startsWith("edit:")) void saveEdit(id.slice(5));
+          else void reply(id, e.shiftKey);
           return;
         }
         if (e.key === "Escape") {
           e.preventDefault();
           e.stopPropagation();
-          if (ta.dataset.for === "new") cancelDraft();
+          if (id === "new") cancelDraft();
+          else if (id.startsWith("edit:")) cancelEdit();
           else {
             ta.blur();
-            o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(ta.dataset.for)}"]`)?.focus({ preventScroll: true });
+            o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
           }
         }
         return;
@@ -13184,8 +13370,14 @@ and ${diags.length - 12} more` : "");
         void post();
         return;
       }
+      if (a === "brief-all") {
+        const ts = visible();
+        void copy(agentBrief(o.path, o.href, ts), `${ts.length} thread${ts.length === 1 ? "" : "s"} copied as a brief for an agent`);
+        return;
+      }
       if (a && active) {
         const v = act.dataset.v ?? "";
+        const t = threads.find((x) => x.id === active);
         if (a === "reply") {
           void reply(active);
           return;
@@ -13206,6 +13398,18 @@ and ${diags.length - 12} more` : "");
           void write([{ op: "delete", thread: active, comment: v }], "Delete");
           return;
         }
+        if (a === "edit") {
+          startEdit(v);
+          return;
+        }
+        if (a === "edit-cancel") {
+          cancelEdit();
+          return;
+        }
+        if (a === "edit-save") {
+          void saveEdit(v);
+          return;
+        }
         if (a === "due") {
           dueOpen = active;
           paint();
@@ -13218,8 +13422,11 @@ and ${diags.length - 12} more` : "");
           return;
         }
         if (a === "link") {
-          const url = location.href.split("#")[0] + "#c=" + encodeURIComponent(active);
-          copyToClipboard(url).then((ok) => o.status(ok ? "Link to this thread copied" : "copy failed"));
+          void copy(location.href.split("#")[0] + "#c=" + encodeURIComponent(active), "Link to this thread copied");
+          return;
+        }
+        if (a === "brief" && t) {
+          void copy(agentBrief(o.path, o.href, [t]), "Thread copied as a brief for an agent");
           return;
         }
         if (a === "attach") {
@@ -13233,34 +13440,58 @@ and ${diags.length - 12} more` : "");
           return;
         }
       }
-      if (el2.closest("a, textarea, input, .fe-cm-tools, .fe-cm-ac, .fe-cm-new")) return;
+      if (el2.closest("a, textarea, input, .fe-cm-tools, .fe-cm-ac, .fe-cm-new, button")) return;
       const th = el2.closest(".fe-cm-th[data-id]");
       if (th && th.dataset.id !== active) focusThread(th.dataset.id);
+    });
+    const threadAt = (x, y) => {
+      const pos = document.caretRangeFromPoint?.(x, y);
+      if (!pos) return "";
+      for (const [id, r] of ranges) {
+        try {
+          if (r.isPointInRange(pos.startContainer, pos.startOffset)) return id;
+        } catch {
+        }
+      }
+      return "";
+    };
+    let hovered = "", hoverFrame = 0;
+    o.page.addEventListener("mousemove", (e) => {
+      if (hoverFrame || !ranges.size) return;
+      hoverFrame = requestAnimationFrame(() => {
+        hoverFrame = 0;
+        const id = threadAt(e.clientX, e.clientY);
+        if (id === hovered || !reg || !H) return;
+        hovered = id;
+        const r = id && id !== active ? ranges.get(id) : void 0;
+        if (r) reg.set("bfb-cm-hover", new H(r));
+        else reg.delete("bfb-cm-hover");
+        o.page.classList.toggle("fe-cm-pointing", !!id);
+      });
+    });
+    o.page.addEventListener("mouseleave", () => {
+      hovered = "";
+      reg?.delete("bfb-cm-hover");
+      o.page.classList.remove("fe-cm-pointing");
     });
     o.page.addEventListener("click", (e) => {
       const me = e;
       const block = me.target.closest("[data-cm]");
       if (block && me.clientX > block.getBoundingClientRect().right - 4) {
-        const id = [...ranges].find(([, r]) => block.contains(r.startContainer))?.[0];
-        if (id) {
+        const id2 = [...ranges].find(([, r]) => block.contains(r.startContainer))?.[0];
+        if (id2) {
           o.reveal();
-          focusThread(id, false);
+          focusThread(id2, false);
           o.changed();
           return;
         }
       }
-      const pos = document.caretRangeFromPoint?.(me.clientX, me.clientY);
-      if (!pos || window.getSelection()?.toString()) return;
-      for (const [id, r] of ranges) {
-        try {
-          if (r.isPointInRange(pos.startContainer, pos.startOffset)) {
-            o.reveal();
-            focusThread(id, false);
-            o.changed();
-            return;
-          }
-        } catch {
-        }
+      if (window.getSelection()?.toString()) return;
+      const id = threadAt(me.clientX, me.clientY);
+      if (id) {
+        o.reveal();
+        focusThread(id, false);
+        o.changed();
       }
     });
     setInterval(async () => {
@@ -13429,7 +13660,6 @@ ${d.message}` : d.message;
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
-        <button id="fe-fp-cm" title="Comments on this file" hidden>${UI_ICON.comment}Comments<span id="fe-fp-cm-n"></span></button>
         <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
         <button id="fe-fp-wrap" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
@@ -13441,15 +13671,18 @@ ${d.message}` : d.message;
           <button id="fe-ff-prev" data-icon data-size="sm" title="Previous match (Shift+Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <button id="fe-ff-next" data-icon data-size="sm" title="Next match (Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </span>
+        <span class="fe-fp-panes">
+          <button id="fe-fp-toc" data-icon title="On this page: the headings" aria-label="On this page" hidden>${UI_ICON.contents}</button>
+          <button id="fe-fp-cm" data-icon title="Comments (\u21E7C)" aria-label="Comments" hidden>${UI_ICON.comment}<span id="fe-fp-cm-n"></span></button>
+        </span>
       </div>
       <div id="fe-fp">
         <div id="fe-page"></div>
         <div id="fe-fe" style="display:none"></div>
         <aside id="fe-toc-rail" hidden>
           <div class="fe-toc-head"><div class="fe-rail-tabs" role="tablist" aria-label="Side panel">
-            <button type="button" role="tab" class="fe-rt" data-rt="toc" title="Headings on this page">On this page</button>
-            <button type="button" role="tab" class="fe-rt" data-rt="cm" title="Comments on this file">Comments<span class="fe-rt-n" id="fe-cm-n"></span></button></div>
-            <button id="fe-toc-fold" type="button" title="Collapse the contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M5 3l3.5 3.5L5 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+            <button type="button" role="tab" class="fe-rt" data-rt="toc" title="Headings on this page">${UI_ICON.contents}On this page</button>
+            <button type="button" role="tab" class="fe-rt" data-rt="cm" title="Comments on this file">${UI_ICON.comment}Comments<span class="fe-rt-n" id="fe-cm-n"></span></button></div></div>
           <nav id="fe-toc"></nav>
           <div id="fe-cm" role="tabpanel" aria-label="Comments" hidden></div>
         </aside>
@@ -13462,7 +13695,7 @@ ${d.message}` : d.message;
     const page = document.getElementById("fe-page");
     const toc = document.getElementById("fe-toc");
     const rail = document.getElementById("fe-toc-rail");
-    const foldBtn = document.getElementById("fe-toc-fold");
+    const tocBtn = document.getElementById("fe-fp-toc");
     const rawBtn = document.getElementById("fe-fp-raw");
     const colBtn = document.getElementById("fe-fp-column");
     const meta = document.getElementById("fe-fp-meta");
@@ -13501,7 +13734,8 @@ ${d.message}` : d.message;
       const cmOpen = comments?.open() ?? 0;
       const hasToc = headings >= 2 && !editor;
       const tab = railTab === "toc" && !hasToc ? "cm" : railTab;
-      rail.hidden = !isMd || raw || (tab === "cm" ? !cmWanted && !cmOpen : !hasToc);
+      const open = tight ? peek : tocOpen;
+      rail.hidden = !isMd || raw || !open || (tab === "cm" ? railTab !== "cm" && !cmOpen : !hasToc);
       rail.dataset.tab = tab;
       toc.hidden = tab !== "toc";
       cmBox.hidden = tab !== "cm";
@@ -13512,13 +13746,14 @@ ${d.message}` : d.message;
       });
       cmN.textContent = cmOpen ? String(cmOpen) : "";
       cmBtn.hidden = !isMd || raw;
-      cmBtn.classList.toggle("on", !rail.hidden && tab === "cm");
+      tocBtn.hidden = !hasToc || raw;
+      for (const [b, t] of [[tocBtn, "toc"], [cmBtn, "cm"]]) {
+        const on = !rail.hidden && tab === t;
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-pressed", String(on));
+      }
       cmBtnN.textContent = cmOpen ? String(cmOpen) : "";
-      const open = tight ? peek : tocOpen;
-      rail.classList.toggle("folded", !open);
       rail.classList.toggle("peek", tight && peek);
-      foldBtn.title = open ? "Collapse the contents" : "Show the contents";
-      foldBtn.setAttribute("aria-expanded", String(open));
       findBox.hidden = !!editor;
     };
     const render2 = () => {
@@ -13542,13 +13777,8 @@ ${d.message}` : d.message;
     const cmBtnN = document.getElementById("fe-fp-cm-n");
     let comments = null;
     let railTab = kvGet(RAIL_TAB_KEY) === "cm" ? "cm" : "toc";
-    let cmWanted = railTab === "cm";
-    render2();
-    rail.querySelector(".fe-rail-tabs").addEventListener("click", (e) => {
-      const t = e.target.closest("[data-rt]")?.dataset.rt;
-      if (!t) return;
+    const showPane = (t) => {
       railTab = t;
-      cmWanted = t === "cm";
       kvSet(RAIL_TAB_KEY, t);
       if (tight) peek = true;
       else if (!tocOpen) {
@@ -13557,15 +13787,24 @@ ${d.message}` : d.message;
       }
       paint();
       if (t === "toc") spy(page, toc);
-    });
-    foldBtn.addEventListener("click", () => {
-      if (tight) peek = !peek;
+    };
+    const togglePane = (t) => {
+      if (rail.hidden || rail.dataset.tab !== t) {
+        showPane(t);
+        return;
+      }
+      if (tight) peek = false;
       else {
-        tocOpen = !tocOpen;
-        kvSet(TOC_KEY, tocOpen ? "1" : "0");
+        tocOpen = false;
+        kvSet(TOC_KEY, "0");
       }
       paint();
-      if (!rail.classList.contains("folded")) spy(page, toc);
+    };
+    render2();
+    rail.querySelector(".fe-rail-tabs").addEventListener("click", (e) => {
+      const t = e.target.closest("[data-rt]")?.dataset.rt;
+      if (!t) return;
+      showPane(t);
     });
     const fp = document.getElementById("fe-fp");
     if (fp) new ResizeObserver(() => {
@@ -13767,32 +14006,13 @@ ${d.message}` : d.message;
       }
     };
     editBtn.addEventListener("click", () => void edit2());
-    const showComments = () => {
-      railTab = "cm";
-      cmWanted = true;
-      kvSet(RAIL_TAB_KEY, "cm");
-      if (tight) peek = true;
-      else if (!tocOpen) {
-        tocOpen = true;
-        kvSet(TOC_KEY, "1");
-      }
-      paint();
-    };
-    const toggleComments = () => {
-      const showing = !rail.hidden && rail.dataset.tab === "cm" && !rail.classList.contains("folded");
-      if (!showing) {
-        showComments();
-        return;
-      }
-      cmWanted = false;
-      railTab = "toc";
-      kvSet(RAIL_TAB_KEY, "toc");
-      paint();
-    };
+    const showComments = () => showPane("cm");
+    const toggleComments = () => togglePane("cm");
     if (isMd) comments = mountComments({
       page,
       box: cmBox,
       href,
+      path: rawPath,
       root: () => root,
       rel: () => rawPath.slice((root ?? "").length + 1),
       text: () => text,
@@ -13807,6 +14027,7 @@ ${d.message}` : d.message;
       picked: (span) => editor?.select(span.offset, span.offset + span.length)
     });
     cmBtn.addEventListener("click", toggleComments);
+    tocBtn.addEventListener("click", () => togglePane("toc"));
     document.getElementById("fe-ff-q").addEventListener("input", () => setTimeout(() => comments?.redraw(), 0));
     rawBtn.addEventListener("click", toggleRaw);
     const wrapBtn = document.getElementById("fe-fp-wrap");

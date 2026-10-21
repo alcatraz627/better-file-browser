@@ -23,6 +23,7 @@ Ops (request -> reply):
   {op:"commentsRead",  root, rel}            -> {t:"comments", rel, threads, where, companion, notes, doc}   (bfb-docs comments; spec .claude/specs/bfb-docs.md)
   {op:"commentsWrite", root, rel, ops}       -> the same, plus results   (writes the companion only, as the owner)
   {op:"docsIndex"}                           -> {t:"docsIndex", docs}   (every document with comments)
+  {op:"people"}                              -> {t:"people", peers}   (live and idle claude-ipc agents, for @claude:<alias>)
   {op:"fileWrite", root, rel, text, expectMtime} -> {t:"written", rel, mtime, backup}   (existing text files under 20 MB; old text backed up 14 days)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
@@ -477,6 +478,7 @@ def op_docs_index():
 
 def handle(msg):
     op = msg.get('op')
+    if op == 'people': return {'t': 'people', 'peers': _docs().ipc_peers()}
     if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'))}
     if op == 'home': return {'t': 'home', 'home': os.path.expanduser('~')}
     if op == 'docsIndex': return op_docs_index()
