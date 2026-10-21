@@ -657,22 +657,37 @@ export function headingId(text: string, seen: Map<string, number>): string {
 const ALERTS: Record<string, string> = { NOTE: 'Note', TIP: 'Tip', IMPORTANT: 'Important', WARNING: 'Warning', CAUTION: 'Caution' };
 const LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])(?:\s+(.*)|\s*)$/;
 
-export function renderMarkdown(src: string, baseUrl = '', inner = false): string {
+export function renderMarkdown(src: string, baseUrl = '', inner = false, nested = false): string {
   let lines = src.replace(/\r\n/g, '\n').split('\n');
   const out: string[] = [];
   let para: string[] = [];
   const seenIds = new Map<string, number>();
   // Footnote definitions ([^id]: text) leave the flow and list at the end.
   const notes = new Map<string, string>();
+  // Each top-level block carries data-sl="first-last", its 1-based source
+  // lines, so a comment anchored to source text can find its place on the
+  // page. `srcLine` maps a line index here back to the file's own numbering
+  // once footnote definitions are taken out.
+  let srcLine = lines.map((_, k) => k + 1);
   if (!inner) {
     let inFence = false;
-    lines = lines.filter(l => {
+    const keep: number[] = [];
+    lines = lines.filter((l, k) => {
       if (/^ {0,3}(`{3,}|~{3,})/.test(l)) inFence = !inFence;
       const m = !inFence && l.match(/^\[\^([^\]\s]+)\]:\s*(.*)$/);
       if (m) { notes.set(m[1], m[2]); return false; }
+      keep.push(k + 1);
       return true;
     });
+    srcLine = keep;
   }
+  const marking = !inner && !nested;
+  const mark = (from: number, start: number) => {
+    if (!marking) return;
+    const a = srcLine[from] ?? from + 1, b = srcLine[Math.max(from, i - 1)] ?? i;
+    // A paragraph flushed by this block already carries its own lines.
+    for (let k = start; k < out.length; k++) if (!/^<[^>]* data-sl=/.test(out[k])) out[k] = out[k].replace(/^(<[a-z][a-z0-9]*\b[^>]*?)>/, `$1 data-sl="${a}-${b}">`);
+  };
   // Front matter: a --- block at the top renders as a key and value list.
   let i = 0;
   if (!inner && lines[0] === '---') {
@@ -684,14 +699,16 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false): string
     }
   }
   // Two trailing spaces or a backslash end a line with a hard break.
+  let paraFrom = 0, paraTo = 0;
   const flush = () => {
     if (!para.length) return;
     const text = para.map((l, k) => k < para.length - 1 && /( {2,}|\\)$/.test(l) ? l.replace(/( {2,}|\\)$/, '') + '\uE002' : l.trim()).join(' ');
-    out.push(`<p>${mdInline(text, baseUrl).replace(/\uE002 ?/g, '<br>')}</p>`);
+    out.push(`<p${marking ? ` data-sl="${srcLine[paraFrom]}-${srcLine[paraTo]}"` : ''}>${mdInline(text, baseUrl).replace(/\uE002 ?/g, '<br>')}</p>`);
     para = [];
   };
   while (i < lines.length) {
     const line = lines[i];
+    const from = i, outAt = out.length;
 
     const fence = line.match(/^( {0,3})(`{3,}|~{3,})([^\r\n]*)$/);
     if (fence) {
@@ -710,6 +727,7 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false): string
       } else {
         out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || 'text')}</span><button type="button" class="fe-md-copy" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre">${highlightCode(code, language || 'md')}</pre></div>`);
       }
+      mark(from, outAt);
       continue;
     }
 
@@ -719,7 +737,7 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false): string
       const n = h[1].length;
       const id = headingId(h[2].replace(/[*_`]/g, ''), seenIds);
       out.push(`<h${n} id="${esc(id)}">${mdInline(h[2], baseUrl)}<a class="fe-md-anchor" href="#${esc(id)}" title="Link to this heading"></a></h${n}>`);
-      i++; continue;
+      i++; mark(from, outAt); continue;
     }
 
     // Raw HTML block: consume until the next blank line, keep a safe subset
@@ -728,11 +746,12 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false): string
       const buf: string[] = [];
       while (i < lines.length && !/^\s*$/.test(lines[i])) buf.push(lines[i++]);
       out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join('\n'), baseUrl)}</div>`);
+      mark(from, outAt);
       continue;
     }
 
     if (para.length === 0 && /^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/.test(line)) {
-      flush(); out.push('<hr>'); i++; continue;
+      flush(); out.push('<hr>'); i++; mark(from, outAt); continue;
     }
 
     if (/^\s*>/.test(line)) {
@@ -743,7 +762,8 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false): string
       if (alert) {
         const kind = alert[1].toUpperCase();
         out.push(`<div class="fe-md-alert fe-md-alert-${kind.toLowerCase()}"><p class="fe-md-alert-title">${ALERTS[kind]}</p>${renderMarkdown(buf.slice(1).join('\n'), baseUrl, true)}</div>`);
-      } else out.push(`<blockquote>${renderMarkdown(buf.join('\n'), baseUrl)}</blockquote>`);
+      } else out.push(`<blockquote>${renderMarkdown(buf.join('\n'), baseUrl, false, true)}</blockquote>`);
+      mark(from, outAt);
       continue;
     }
 
@@ -789,6 +809,7 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false): string
       }
       const start = ordered ? parseInt(li[2], 10) : 1;
       out.push(ordered ? `<ol${start !== 1 ? ` start="${start}"` : ''}>${items.join('')}</ol>` : `<ul>${items.join('')}</ul>`);
+      mark(from, outAt);
       continue;
     }
 
@@ -827,10 +848,13 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false): string
       }</tr></thead><tbody>${
         rows.map(r => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ''}</td>`).join('')}</tr>`).join('')
       }</tbody></table></div>`);
+      mark(from, outAt);
       continue;
     }
 
     if (/^\s*$/.test(line)) { flush(); i++; continue; }
+    if (!para.length) paraFrom = i;
+    paraTo = i;
     para.push(line.replace(/^\s+/, '')); i++;
   }
   flush();
