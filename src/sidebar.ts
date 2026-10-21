@@ -47,16 +47,36 @@ function initLenses(app: App): void {
   });
   document.addEventListener('pointerdown', e => { if (side.classList.contains('open') && !side.contains(e.target as Node)) closeOverlay(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && side.classList.contains('open')) closeOverlay(); });
-  // Up and down move between lenses, as in any vertical tab list.
-  rail.addEventListener('keydown', e => {
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  const step = (dir: 1 | -1, focus = false) => {
     const usable = btns.filter(b => !b.hidden);
     const i = usable.findIndex(b => b.classList.contains('on'));
-    const next = usable[(i + (e.key === 'ArrowDown' ? 1 : -1) + usable.length) % usable.length];
-    e.preventDefault();
+    const next = usable[(i + dir + usable.length) % usable.length];
     kvSet(LENS_KEY, next.dataset.lens!);
     show(next.dataset.lens!);
-    next.focus();
+    if (focus) next.focus();
+  };
+  // The arrow keys move between lenses, and so does the wheel over the bar:
+  // one step per notch, with a pause so a trackpad swipe moves one lens.
+  rail.addEventListener('keydown', e => {
+    const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!dir) return;
+    e.preventDefault();
+    step(dir, true);
+  });
+  let wheelAt = 0;
+  rail.addEventListener('wheel', e => {
+    const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    if (!d) return;
+    e.preventDefault();
+    if (e.timeStamp - wheelAt < 220) return;
+    wheelAt = e.timeStamp;
+    step(d > 0 ? 1 : -1);
+  }, { passive: false });
+  // Saved and Notes share one filter and tag row, which moves to whichever of the two is open.
+  const find = document.querySelector<HTMLElement>('.fe-lens-find');
+  document.addEventListener('bfb-lens', e => {
+    const lens = (e as CustomEvent).detail;
+    if (find && (lens === 'saved' || lens === 'notes')) document.querySelector(`#fe-lens-${lens} .fe-lens-h`)?.after(find);
   });
   onKvChange(key => { if (key === LENS_KEY) show(kvGet(LENS_KEY) ?? 'notes'); });
   show(kvGet(LENS_KEY) ?? 'notes');

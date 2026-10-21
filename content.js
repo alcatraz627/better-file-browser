@@ -673,6 +673,8 @@
     commentsRead: (root, rel) => call({ op: "commentsRead", root, rel }),
     /// Apply comment operations as the owner; the document itself is never written.
     commentsWrite: (root, rel, ops) => call({ op: "commentsWrite", root, rel, ops }),
+    /// Every document with comments, from the bfb-docs index.
+    docsIndex: () => call({ op: "docsIndex" }).then((f) => f.docs ?? []),
     /// Agent sessions claude-ipc sees as live or idle, for offering @claude:<alias>.
     people: () => call({ op: "people" }).then((f) => f.peers ?? []),
     fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
@@ -3933,21 +3935,40 @@ body{opacity:1!important}
 #fe[data-theme="light"] #fe-theme-btn #fe-sun{display:block}
 #fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
 #fe-body{display:flex;flex:1;overflow:hidden}
-#fe-side{width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;min-height:0;overflow:hidden}
-/* The rail picks one lens; the lens fills the rest of the sidebar. */
-#fe-rail{width:52px;flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-right:1px solid var(--bd)}
-.fe-rail-btn{width:44px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
-  font:inherit;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+#fe-side{width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+/* The lens bar sits on top: icons in a row, the open lens grown to show its
+   name; the wheel over the bar moves between lenses. The lens fills the rest. */
+#fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:6px 6px;border-bottom:1px solid var(--bd);overflow:hidden}
+.fe-rail-btn{flex:0 1 auto;min-width:26px;height:30px;display:flex;align-items:center;justify-content:center;gap:0;padding:0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
+  font:inherit;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),flex-grow var(--t-base) var(--ease),gap var(--t-base) var(--ease)}
 .fe-rail-btn[hidden]{display:none}
-.fe-rail-btn svg{width:17px;height:17px}
-.fe-rail-btn em{font-style:normal;font-size:var(--fs-xs);letter-spacing:.01em}
+.fe-rail-btn svg{width:16px;height:16px;flex:none}
+.fe-rail-btn em{font-style:normal;font-size:var(--fs-md);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;opacity:0;
+  transition:max-width var(--t-base) var(--ease),opacity var(--t-base) var(--ease)}
+.fe-rail-btn.on{flex:1 0 auto;gap:6px;padding:0 9px}
+.fe-rail-btn.on em{max-width:110px;opacity:1}
+@media (prefers-reduced-motion:reduce){.fe-rail-btn,.fe-rail-btn em{transition:none}}
 .fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
 .fe-rail-btn.on{background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx)}
 .fe-rail-btn.on:hover{background:color-mix(in srgb,var(--ac) 22%,transparent)}
 .fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 #fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
 .fe-lens[hidden]{display:none}
-.fe-lens-h{display:flex;align-items:flex-start;gap:6px;padding:6px 12px 8px 14px}
+.fe-lens-h{display:flex;align-items:center;gap:8px;padding:6px 12px 8px 14px}
+.fe-lens-ico{display:inline-flex;color:var(--mt)}
+.fe-lens-ico svg{width:16px;height:16px}
+.fe-doc-row{display:flex;align-items:center;gap:10px;width:calc(100% - 12px);margin:1px 6px;padding:6px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-doc-row:hover{background:var(--hover)}
+.fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-doc-name{font-size:var(--row-fs)}
+.fe-doc-dir{font-size:var(--fs-sm);color:var(--dm)}
+.fe-doc-me{display:inline-flex;color:var(--ac)}
+.fe-doc-me svg{width:13px;height:13px}
+.fe-doc-due{font-size:var(--fs-sm);color:var(--tx);padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--nc-orange) 16%,transparent)}
+.fe-doc-n{min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;display:inline-grid;place-items:center;font-size:var(--fs-xs);background:var(--ac);color:var(--on-ac)}
+.fe-doc-n.done{background:var(--s2);color:var(--dm)}
+.fe-doc-n svg{width:10px;height:10px}
 .fe-lens-t{flex:1;display:flex;flex-direction:column;line-height:1.25;min-width:0}
 .fe-lens-t b{font-size:var(--fs-xl);font-weight:600;color:var(--tx)}
 .fe-lens-t i{font-style:normal;font-size:var(--fs-md);color:var(--dm)}
@@ -5217,7 +5238,10 @@ button.fe-si{width:auto;display:flex}
 /* Very narrow: the sidebar shrinks to its rail and a picked lens floats over
    the page; the path bar keeps its last folder in view. */
 @media (max-width:520px){
-  #fe #fe-side{width:54px!important;max-width:none;overflow:visible;position:relative;z-index:30}
+  #fe #fe-side{width:54px!important;max-width:none;overflow:visible;position:relative;z-index:30;flex-direction:row}
+  #fe-rail{flex-direction:column;padding:8px 0;border-bottom:0}
+  .fe-rail-btn.on{flex-grow:0}
+  .fe-rail-btn em{display:none}
   #fe-side-rz{display:none}
   #fe-lenses{display:none}
   #fe-side.open #fe-lenses{display:block;position:absolute;top:0;bottom:0;left:58px;width:min(260px,calc(100vw - 80px));
@@ -12817,6 +12841,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
     const ranges = /* @__PURE__ */ new Map();
     const typed = /* @__PURE__ */ new Map();
     let linked = location.hash.startsWith("#c=") ? decodeURIComponent(location.hash.slice(3)) : "";
+    if (location.hash === "#comments") setTimeout(() => o.reveal(), 0);
     let peers = null;
     const loadPeers = () => {
       if (peers === null) {
@@ -15153,7 +15178,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const viewBtnsHTML = VIEW_MODES.map(
       (v) => `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? " (active)" : ""}">${v.ico}</button>`
     ).join("");
-    const lensHead = (title, actions = "") => `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b></span>${actions}</div>`;
+    const lensHead = (title, icon2, actions = "") => `<div class="fe-lens-h"><span class="fe-lens-ico">${icon2}</span><span class="fe-lens-t"><b>${title}</b></span>${actions}</div>`;
     const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
     const stRow = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
     const stCard = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
@@ -15272,30 +15297,37 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 
   <div id="fe-body">
     <nav id="fe-side">
-      <div id="fe-rail" role="tablist" aria-label="Sidebar" aria-orientation="vertical">
+      <div id="fe-rail" role="tablist" aria-label="Sidebar" aria-orientation="horizontal">
         ${railBtn("places", "Places", PI.home, "Places: Home, your folders, Applications and Root")}
-        ${railBtn("notes", "Notes", PI.docs, "Notes: saved places, saved views and your notes")}
+        ${railBtn("saved", "Saved", PI.bm, "Saved: places and views you kept")}
+        ${railBtn("notes", "Notes", PI.docs, "Notes: your notes folder")}
         ${railBtn("history", "History", PI.recent, "History: folders and files you opened lately, and closed tabs", !!settings.hideRecent)}
         ${railBtn("search", "Search", PI.search, "Search: find text in the files of this folder")}
         ${railBtn("ask", "Ask", PI.ask, "Ask: put a question about this file or folder to the local model")}
+        ${railBtn("comments", "Comments", UI_ICON.comment, "Comments: every document with comments")}
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
-        ${lensHead("Places")}
+        ${lensHead("Places", PI.home)}
         <div class="fe-sec" data-sec="places">
         ${placesHTML(homeDir(rawPath), rawPath)}
         </div>
       </div>
-      <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
-      ${lensHead("Notes")}
-      <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
-      <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      <div class="fe-lens" id="fe-lens-saved" data-lens="saved" role="tabpanel" aria-labelledby="fe-rail-saved" hidden>
+      ${lensHead("Saved", PI.bm)}
+      <div class="fe-lens-find">
+        <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
+        <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      </div>
       <div class="fe-sec" data-collapse="saved">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
           <button id="fe-sv-add" title="Save this ${fileMode ? "file" : "folder"} and name it">+</button></div>
         <input id="fe-sv-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath, "", getFoldedGroups())}</div>
       </div>
+      </div>
+      <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
+      ${lensHead("Notes", PI.docs)}
       <div class="fe-sec" id="fe-notes-sec" data-collapse="notes">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Notes</span><a id="fe-notes-root" title="Open the notes folder" aria-label="Open the notes folder">${PI.folder}</a>
           <button id="fe-nt-add" title="New note (n)">+</button></div>
@@ -15304,16 +15336,20 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       </div>
       <div class="fe-lens" id="fe-lens-history" data-lens="history" role="tabpanel" aria-labelledby="fe-rail-history" hidden>
-        ${lensHead("History")}
+        ${lensHead("History", PI.recent)}
         ${recentsHTML}
       </div>
       <div class="fe-lens" id="fe-lens-search" data-lens="search" role="tabpanel" aria-labelledby="fe-rail-search" hidden>
-        ${lensHead("Search")}
+        ${lensHead("Search", PI.search)}
         <div id="fe-srch"></div>
       </div>
       <div class="fe-lens" id="fe-lens-ask" data-lens="ask" role="tabpanel" aria-labelledby="fe-rail-ask" hidden>
-        ${lensHead("Ask")}
+        ${lensHead("Ask", PI.ask)}
         <div id="fe-ask"></div>
+      </div>
+      <div class="fe-lens" id="fe-lens-comments" data-lens="comments" role="tabpanel" aria-labelledby="fe-rail-comments" hidden>
+        ${lensHead("Comments", UI_ICON.comment)}
+        <div id="fe-docs-list"></div>
       </div>
       </div>
     </nav>
@@ -17034,15 +17070,33 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && side.classList.contains("open")) closeOverlay();
     });
-    rail.addEventListener("keydown", (e) => {
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const step2 = (dir, focus = false) => {
       const usable = btns.filter((b) => !b.hidden);
       const i = usable.findIndex((b) => b.classList.contains("on"));
-      const next = usable[(i + (e.key === "ArrowDown" ? 1 : -1) + usable.length) % usable.length];
-      e.preventDefault();
+      const next = usable[(i + dir + usable.length) % usable.length];
       kvSet(LENS_KEY, next.dataset.lens);
       show(next.dataset.lens);
-      next.focus();
+      if (focus) next.focus();
+    };
+    rail.addEventListener("keydown", (e) => {
+      const dir = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+      if (!dir) return;
+      e.preventDefault();
+      step2(dir, true);
+    });
+    let wheelAt = 0;
+    rail.addEventListener("wheel", (e) => {
+      const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (!d) return;
+      e.preventDefault();
+      if (e.timeStamp - wheelAt < 220) return;
+      wheelAt = e.timeStamp;
+      step2(d > 0 ? 1 : -1);
+    }, { passive: false });
+    const find = document.querySelector(".fe-lens-find");
+    document.addEventListener("bfb-lens", (e) => {
+      const lens = e.detail;
+      if (find && (lens === "saved" || lens === "notes")) document.querySelector(`#fe-lens-${lens} .fe-lens-h`)?.after(find);
     });
     onKvChange((key) => {
       if (key === LENS_KEY) show(kvGet(LENS_KEY) ?? "notes");
@@ -18408,6 +18462,46 @@ ${rows.join("\n")}`, name: subject };
     });
   }
 
+  // src/docs-lens.ts
+  function docRows(rows) {
+    return rows.filter((r) => r.exists !== false && r.open + r.done > 0).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
+  }
+  function initDocsLens(box, home) {
+    let loaded = false;
+    const short = (p) => (home && p.startsWith(home + "/") ? "~" + p.slice(home.length) : p).replace(/\/[^/]+$/, "") || "/";
+    const due = (d) => (/* @__PURE__ */ new Date(d + "T00:00:00")).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const paint = (rows) => {
+      const list = docRows(rows);
+      if (!list.length) {
+        box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
+        return;
+      }
+      box.innerHTML = list.map((r) => {
+        const mine = (r.mentions ?? []).some((m) => m === "user" || m === "owner");
+        return `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
+        <span class="fe-row-ico">${icoFile(r.name.split(".").pop().toLowerCase())}</span>
+        <span class="fe-doc-tx"><span class="fe-doc-name">${esc(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
+        ${mine ? `<span class="fe-doc-me" title="Mentions you">${UI_ICON.at}</span>` : ""}
+        ${r.due?.length ? `<span class="fe-doc-due" title="Due ${esc(r.due[0])}">${esc(due(r.due[0]))}</span>` : ""}
+        <span class="fe-doc-n${r.open ? "" : " done"}" title="${r.open} open, ${r.done} done">${r.open || UI_ICON.check}</span>
+      </button>`;
+      }).join("");
+    };
+    const load = () => notes.docsIndex().then(paint).catch((err) => {
+      box.innerHTML = `<div class="fe-cm-empty"><p>Comments could not be listed</p><p class="fe-cm-hint">${esc(err.message)}</p></div>`;
+    });
+    box.addEventListener("click", (e) => {
+      const b = e.target.closest(".fe-doc-row");
+      if (b) location.href = fileHref(b.dataset.doc) + "#comments";
+    });
+    document.addEventListener("bfb-lens", (e) => {
+      if (e.detail !== "comments") return;
+      if (!loaded) box.innerHTML = '<div class="fe-cm-empty"><p>Loading\u2026</p></div>';
+      loaded = true;
+      void load();
+    });
+  }
+
   // src/main.ts
   async function showClosedSets(strip, visible) {
     const box = document.getElementById("fe-rc-sets");
@@ -18611,6 +18705,7 @@ ${rows.join("\n")}`, name: subject };
     }, saveError: (message) => app.toast(message), toast: (message) => app.toast(message) });
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
     void showClosedSets(app.strip, !settings.hideRecent);
+    initDocsLens(el("fe-docs-list"), homeDir(rawPath));
     mountGoto(el("fe-open-path"), () => homeDir(rawPath));
     el("fe-open-pick").addEventListener("click", () => {
       notes.pick(rawPath, "any").then((p) => {

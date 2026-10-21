@@ -219,6 +219,7 @@ try {
   labels = await savedLabels();
   check(labels[0] === 'tmp' && labels.length === 3, `drag reorders the Saved list: ${JSON.stringify(labels)}`);
 
+  await page.click('#fe-rail-saved');
   const tagBtn = await page.$('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-tag-btn');
   await tagBtn.evaluate(el => el.click());
   await page.keyboard.type('Work, code');
@@ -310,6 +311,7 @@ try {
   await h.store.edit('bfb-settings-v1', s => { delete s.notesRoot; });
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');
+  await page.click('#fe-rail-notes');
   const notesSetupVisible = await page.evaluate(() => {
     const section = document.getElementById('fe-notes-sec');
     return getComputedStyle(section).display !== 'none' && !!section.querySelector('#fe-nt-setup');
@@ -730,7 +732,7 @@ try {
   // Every list in a lens collapses and restores its state on reload. A list
   // is clickable only while its lens shows.
   const sectionKeys = ['saved', 'notes', 'recent'];
-  const lensOf = key => key === 'recent' ? 'history' : 'notes';
+  const lensOf = key => key === 'recent' ? 'history' : key;
   const toggleAll = async () => {
     for (const key of sectionKeys) { await page.click(`#fe-rail-${lensOf(key)}`); await page.click(`#fe-sec-toggle-${key} .fe-sh-label`); }
     await page.click('#fe-rail-notes');
@@ -1000,7 +1002,7 @@ try {
   await page.click('#fe-find-save');
   const viewRow = await page.$eval('#fe-sv-list .fe-pl-item.fe-view .fe-pl-label', el => el.textContent).catch(() => null);
   check(viewRow === '"second"', `saved view row appears in Saved: ${viewRow}`);
-  await page.click('#fe-rail-notes');   // the lens is shared, and another tab left History open
+  await page.click('#fe-rail-saved');   // the lens is shared, and another tab left History open
   await shot(page, 'find-saved-view');
   await page.click('#fe-find-text');
   await page.keyboard.press('Escape');

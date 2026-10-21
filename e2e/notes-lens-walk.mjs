@@ -1,4 +1,4 @@
-// The Notes lens has one filter and one tag row. The filter shows once the
+// The Saved lens has one filter and one tag row (shared with Notes). The filter shows once the
 // lens holds more than eight rows; #tag matches tags only and Esc clears it.
 // Tag groups fold on a card and stay folded after a reload.
 import assert from 'node:assert/strict';
@@ -12,6 +12,7 @@ const labels = p => p.$$eval('#fe-sv-list .fe-pl-label', es => es.map(e => e.tex
 try {
   const saved = Array.from({ length: 10 }, (_, i) => ({ path: `/tmp/place-${i}/`, label: `Place ${i}`, tags: i < 3 ? ['alpha'] : i < 5 ? ['beta'] : [] }));
   await h.store.set('bfb-saved-v1', saved);
+  await h.store.set('bfb-lens-v1', 'saved');
   await h.store.set('bfb-tags-v1', [{ name: 'alpha', color: '#3fb950' }, { name: 'beta', color: '#d29922' }]);
   const page = await h.browser.newPage();
   await page.setViewport({ width: 1400, height: 900 });

@@ -69,8 +69,8 @@ export function renderPage(p: PageParams): string {
     `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
   ).join('');
 
-  const lensHead = (title: string, actions = '') =>
-    `<div class="fe-lens-h"><span class="fe-lens-t"><b>${title}</b></span>${actions}</div>`;
+  const lensHead = (title: string, icon: string, actions = '') =>
+    `<div class="fe-lens-h"><span class="fe-lens-ico">${icon}</span><span class="fe-lens-t"><b>${title}</b></span>${actions}</div>`;
   const railBtn = (lens: string, label: string, icon: string, hint: string, hidden = false) =>
     `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}"${hidden ? ' hidden' : ''}>${icon}<em>${label}</em></button>`;
 
@@ -206,30 +206,37 @@ export function renderPage(p: PageParams): string {
 
   <div id="fe-body">
     <nav id="fe-side">
-      <div id="fe-rail" role="tablist" aria-label="Sidebar" aria-orientation="vertical">
+      <div id="fe-rail" role="tablist" aria-label="Sidebar" aria-orientation="horizontal">
         ${railBtn('places', 'Places', PI.home, 'Places: Home, your folders, Applications and Root')}
-        ${railBtn('notes', 'Notes', PI.docs, 'Notes: saved places, saved views and your notes')}
+        ${railBtn('saved', 'Saved', PI.bm, 'Saved: places and views you kept')}
+        ${railBtn('notes', 'Notes', PI.docs, 'Notes: your notes folder')}
         ${railBtn('history', 'History', PI.recent, 'History: folders and files you opened lately, and closed tabs', !!settings.hideRecent)}
         ${railBtn('search', 'Search', PI.search, 'Search: find text in the files of this folder')}
         ${railBtn('ask', 'Ask', PI.ask, 'Ask: put a question about this file or folder to the local model')}
+        ${railBtn('comments', 'Comments', UI_ICON.comment, 'Comments: every document with comments')}
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
-        ${lensHead('Places')}
+        ${lensHead('Places', PI.home)}
         <div class="fe-sec" data-sec="places">
         ${placesHTML(homeDir(rawPath), rawPath)}
         </div>
       </div>
-      <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
-      ${lensHead('Notes')}
-      <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
-      <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      <div class="fe-lens" id="fe-lens-saved" data-lens="saved" role="tabpanel" aria-labelledby="fe-rail-saved" hidden>
+      ${lensHead('Saved', PI.bm)}
+      <div class="fe-lens-find">
+        <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
+        <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
+      </div>
       <div class="fe-sec" data-collapse="saved">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
           <button id="fe-sv-add" title="Save this ${fileMode ? 'file' : 'folder'} and name it">+</button></div>
         <input id="fe-sv-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
         <div id="fe-sv-list">${renderSavedList(getSaved(), getTags(), rawPath, '', getFoldedGroups())}</div>
       </div>
+      </div>
+      <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
+      ${lensHead('Notes', PI.docs)}
       <div class="fe-sec" id="fe-notes-sec" data-collapse="notes">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Notes</span><a id="fe-notes-root" title="Open the notes folder" aria-label="Open the notes folder">${PI.folder}</a>
           <button id="fe-nt-add" title="New note (n)">+</button></div>
@@ -238,16 +245,20 @@ export function renderPage(p: PageParams): string {
       </div>
       </div>
       <div class="fe-lens" id="fe-lens-history" data-lens="history" role="tabpanel" aria-labelledby="fe-rail-history" hidden>
-        ${lensHead('History')}
+        ${lensHead('History', PI.recent)}
         ${recentsHTML}
       </div>
       <div class="fe-lens" id="fe-lens-search" data-lens="search" role="tabpanel" aria-labelledby="fe-rail-search" hidden>
-        ${lensHead('Search')}
+        ${lensHead('Search', PI.search)}
         <div id="fe-srch"></div>
       </div>
       <div class="fe-lens" id="fe-lens-ask" data-lens="ask" role="tabpanel" aria-labelledby="fe-rail-ask" hidden>
-        ${lensHead('Ask')}
+        ${lensHead('Ask', PI.ask)}
         <div id="fe-ask"></div>
+      </div>
+      <div class="fe-lens" id="fe-lens-comments" data-lens="comments" role="tabpanel" aria-labelledby="fe-rail-comments" hidden>
+        ${lensHead('Comments', UI_ICON.comment)}
+        <div id="fe-docs-list"></div>
       </div>
       </div>
     </nav>

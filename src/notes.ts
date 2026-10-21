@@ -101,6 +101,8 @@ export const notes = {
   commentsRead: (root: string, rel: string) => call({ op: 'commentsRead', root, rel }) as unknown as Promise<CommentsReply>,
   /// Apply comment operations as the owner; the document itself is never written.
   commentsWrite: (root: string, rel: string, ops: CommentOp[]) => call({ op: 'commentsWrite', root, rel, ops }) as unknown as Promise<CommentsReply>,
+  /// Every document with comments, from the bfb-docs index.
+  docsIndex: () => call({ op: 'docsIndex' }).then(f => (f as unknown as { docs: import('./docs-lens').DocRow[] }).docs ?? []),
   /// Agent sessions claude-ipc sees as live or idle, for offering @claude:<alias>.
   people: () => call({ op: 'people' }).then(f => (f as unknown as { peers: { alias: string; cwd: string; status: string }[] }).peers ?? []),
   fileWrite: (root: string, rel: string, text: string, expectMtime: number) =>

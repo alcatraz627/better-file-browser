@@ -148,6 +148,8 @@ export function mountComments(o: {
   // Unsent text per box ('new' for the composer, 'edit:<id>' for an edit), kept across repaints.
   const typed = new Map<string, string>();
   let linked = location.hash.startsWith('#c=') ? decodeURIComponent(location.hash.slice(3)) : '';
+  // Opened from the Comments lens: show the panel straight away.
+  if (location.hash === '#comments') setTimeout(() => o.reveal(), 0);
   // Agents claude-ipc sees, asked for once the first time someone types @.
   let peers: { alias: string; cwd: string; status: string }[] | null = null;
   const loadPeers = () => { if (peers === null) { peers = []; notes.people().then(p => { peers = p; }).catch(() => {}); } };

@@ -31,6 +31,7 @@ import { loadKv } from './kv';
 import { initTooltips } from './tooltip';
 import { installColumnResize } from './col-resize';
 import { mountGoto, pathToHref } from './goto';
+import { initDocsLens } from './docs-lens';
 
 // Tab sets from Chrome tabs closed in the last day, as rows under Recent. A
 // click adds that set's tabs to this strip; nothing is restored on its own.
@@ -200,6 +201,7 @@ loadKv().catch(() => {}).then(function () {
   // address bar is always the active tab's location.
   app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
   void showClosedSets(app.strip, !settings.hideRecent);
+  initDocsLens(el('fe-docs-list'), homeDir(rawPath));
   // Beside the strip: open a file or folder from the system chooser, or go to a pasted path.
   mountGoto(el('fe-open-path'), () => homeDir(rawPath));
   el('fe-open-pick').addEventListener('click', () => {

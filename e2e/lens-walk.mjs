@@ -1,5 +1,5 @@
-// The sidebar is a rail of five lenses. Notes (saved items and notes) shows
-// first; Places lists Home and the folders under it, read from a page under
+// The sidebar is a bar of seven lenses. Notes shows first; Saved is a lens
+// of its own; Places lists Home and the folders under it, read from a page under
 // your home; History lists what you opened lately. The choice survives a
 // reload, arrow keys move between lenses, and History can be switched off.
 import assert from 'node:assert/strict';
@@ -29,10 +29,10 @@ try {
   await page.waitForSelector('#fe-rail');
 
   const first = await state(page);
-  check(first.rail.join() === 'Places,Notes,History,Search,Ask' && first.on === 'Notes' && first.shown.join() === 'notes' && first.head === 'Notes',
-    `rail shows five lenses, Notes first: ${JSON.stringify(first)}`);
-  const notes = await page.evaluate(() => ({ saved: !!document.querySelector('#fe-lens-notes #fe-sv-list'), list: !!document.querySelector('#fe-lens-notes #fe-nt-list') }));
-  check(notes.saved && notes.list, `Notes holds Saved and the notes list: ${JSON.stringify(notes)}`);
+  check(first.rail.join() === 'Places,Saved,Notes,History,Search,Ask,Comments' && first.on === 'Notes' && first.shown.join() === 'notes' && first.head === 'Notes',
+    `the bar shows seven lenses, Notes first: ${JSON.stringify(first)}`);
+  const notes = await page.evaluate(() => ({ saved: !!document.querySelector('#fe-lens-saved #fe-sv-list'), list: !!document.querySelector('#fe-lens-notes #fe-nt-list') }));
+  check(notes.saved && notes.list, `Saved and the notes list sit in lenses of their own: ${JSON.stringify(notes)}`);
   for (const theme of ['dark', 'light']) {
     if (theme === 'light') { await page.click('#fe-theme-btn'); await page.mouse.move(700, 700); await new Promise(r => setTimeout(r, 400)); }
     await page.screenshot({ path: join(SHOTS, `lens-notes-${theme}.png`), clip: { x: 0, y: 0, width: 700, height: 520 } });
@@ -67,12 +67,12 @@ try {
   await page.click('#fe-st-sec-recent');
   await page.keyboard.press('Escape');
   const off = await state(page);
-  check(off.rail.join() === 'Places,Notes,Search,Ask', `switching History off removes its lens: ${JSON.stringify(off.rail)}`);
+  check(off.rail.join() === 'Places,Saved,Notes,Search,Ask,Comments', `switching History off removes its lens: ${JSON.stringify(off.rail)}`);
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]');
   await page.click('#fe-st-sec-recent');
   await page.keyboard.press('Escape');
-  check((await state(page)).rail.join() === 'Places,Notes,History,Search,Ask', 'switching it back on returns it');
+  check((await state(page)).rail.join() === 'Places,Saved,Notes,History,Search,Ask,Comments', 'switching it back on returns it');
 } finally {
   console.log(results.join('\n'));
   await h.close();

@@ -121,21 +121,40 @@ body{opacity:1!important}
 #fe[data-theme="light"] #fe-theme-btn #fe-sun{display:block}
 #fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
 #fe-body{display:flex;flex:1;overflow:hidden}
-#fe-side{width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;min-height:0;overflow:hidden}
-/* The rail picks one lens; the lens fills the rest of the sidebar. */
-#fe-rail{width:52px;flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;border-right:1px solid var(--bd)}
-.fe-rail-btn{width:44px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
-  font:inherit;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+#fe-side{width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+/* The lens bar sits on top: icons in a row, the open lens grown to show its
+   name; the wheel over the bar moves between lenses. The lens fills the rest. */
+#fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:6px 6px;border-bottom:1px solid var(--bd);overflow:hidden}
+.fe-rail-btn{flex:0 1 auto;min-width:26px;height:30px;display:flex;align-items:center;justify-content:center;gap:0;padding:0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
+  font:inherit;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),flex-grow var(--t-base) var(--ease),gap var(--t-base) var(--ease)}
 .fe-rail-btn[hidden]{display:none}
-.fe-rail-btn svg{width:17px;height:17px}
-.fe-rail-btn em{font-style:normal;font-size:var(--fs-xs);letter-spacing:.01em}
+.fe-rail-btn svg{width:16px;height:16px;flex:none}
+.fe-rail-btn em{font-style:normal;font-size:var(--fs-md);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;opacity:0;
+  transition:max-width var(--t-base) var(--ease),opacity var(--t-base) var(--ease)}
+.fe-rail-btn.on{flex:1 0 auto;gap:6px;padding:0 9px}
+.fe-rail-btn.on em{max-width:110px;opacity:1}
+@media (prefers-reduced-motion:reduce){.fe-rail-btn,.fe-rail-btn em{transition:none}}
 .fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
 .fe-rail-btn.on{background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx)}
 .fe-rail-btn.on:hover{background:color-mix(in srgb,var(--ac) 22%,transparent)}
 .fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 #fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
 .fe-lens[hidden]{display:none}
-.fe-lens-h{display:flex;align-items:flex-start;gap:6px;padding:6px 12px 8px 14px}
+.fe-lens-h{display:flex;align-items:center;gap:8px;padding:6px 12px 8px 14px}
+.fe-lens-ico{display:inline-flex;color:var(--mt)}
+.fe-lens-ico svg{width:16px;height:16px}
+.fe-doc-row{display:flex;align-items:center;gap:10px;width:calc(100% - 12px);margin:1px 6px;padding:6px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-doc-row:hover{background:var(--hover)}
+.fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-doc-name{font-size:var(--row-fs)}
+.fe-doc-dir{font-size:var(--fs-sm);color:var(--dm)}
+.fe-doc-me{display:inline-flex;color:var(--ac)}
+.fe-doc-me svg{width:13px;height:13px}
+.fe-doc-due{font-size:var(--fs-sm);color:var(--tx);padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--nc-orange) 16%,transparent)}
+.fe-doc-n{min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;display:inline-grid;place-items:center;font-size:var(--fs-xs);background:var(--ac);color:var(--on-ac)}
+.fe-doc-n.done{background:var(--s2);color:var(--dm)}
+.fe-doc-n svg{width:10px;height:10px}
 .fe-lens-t{flex:1;display:flex;flex-direction:column;line-height:1.25;min-width:0}
 .fe-lens-t b{font-size:var(--fs-xl);font-weight:600;color:var(--tx)}
 .fe-lens-t i{font-style:normal;font-size:var(--fs-md);color:var(--dm)}
@@ -1405,7 +1424,10 @@ button.fe-si{width:auto;display:flex}
 /* Very narrow: the sidebar shrinks to its rail and a picked lens floats over
    the page; the path bar keeps its last folder in view. */
 @media (max-width:520px){
-  #fe #fe-side{width:54px!important;max-width:none;overflow:visible;position:relative;z-index:30}
+  #fe #fe-side{width:54px!important;max-width:none;overflow:visible;position:relative;z-index:30;flex-direction:row}
+  #fe-rail{flex-direction:column;padding:8px 0;border-bottom:0}
+  .fe-rail-btn.on{flex-grow:0}
+  .fe-rail-btn em{display:none}
   #fe-side-rz{display:none}
   #fe-lenses{display:none}
   #fe-side.open #fe-lenses{display:block;position:absolute;top:0;bottom:0;left:58px;width:min(260px,calc(100vw - 80px));
