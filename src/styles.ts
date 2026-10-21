@@ -663,6 +663,41 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-empty .btn{margin-top:8px;display:inline-flex;align-items:center;gap:6px}
 .fe-cm-empty .btn svg{width:13px;height:13px}
 .fe-cm-hint{color:var(--dm);font-size:var(--fs-sm)}
+.fe-cm-hint kbd{font:inherit;font-family:var(--mono);padding:0 4px;border:1px solid var(--bd2);border-radius:4px}
+/* Writing: the composer card, the reply box on the open thread, its tools. */
+.fe-cm-new{cursor:default}
+.fe-cm-box{position:relative;margin-top:10px}
+.fe-cm-new .fe-cm-box{margin-top:0}
+.fe-cm-box textarea{display:block;width:100%;box-sizing:border-box;min-height:52px;max-height:220px;resize:vertical;padding:6px 8px;border:1px solid var(--bd2);border-radius:8px;
+  background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md);line-height:1.45;outline:0;transition:border-color var(--t-fast) var(--ease)}
+.fe-cm-box textarea:focus{border-color:color-mix(in srgb,var(--ac) 70%,var(--bd2))}
+.fe-cm-box textarea::placeholder{color:var(--dm)}
+.fe-cm-ac{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:3;padding:4px;border-radius:10px;
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+.fe-cm-ac[hidden]{display:none}
+.fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer}
+.fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
+.fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--act)}
+.fe-cm-tools{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin-top:6px}
+.fe-cm-tools .btn svg{width:12px;height:12px}
+.fe-cm-grow{flex:1}
+.fe-cm-date{height:22px;padding:0 6px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-sm);color-scheme:light dark}
+.fe-cm-x{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin:0 -3px 0 1px;padding:0;border:0;border-radius:50%;background:none;color:var(--dm);cursor:pointer}
+.fe-cm-x:hover{background:var(--shade);color:var(--tx)}
+.fe-cm-x svg{width:9px;height:9px}
+.fe-cm-del{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:0;border-radius:6px;background:none;color:var(--dm);cursor:pointer;opacity:0;transition:opacity var(--t-fast) var(--ease)}
+.fe-cm-c:hover .fe-cm-del,.fe-cm-del:focus-visible{opacity:1}
+.fe-cm-del:hover{background:var(--shade);color:var(--nc-red)}
+.fe-cm-del svg{width:12px;height:12px}
+/* The floating Comment button above a selection on the page. */
+#fe-cm-add{position:fixed;z-index:30;height:28px;padding:0 10px;border-radius:999px;color:var(--tx);
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+#fe-cm-add:hover{color:var(--ac)}
+#fe-cm-add[hidden]{display:none}
+#fe-cm-add svg{width:13px;height:13px}
+/* In the editor, a row where an open comment starts carries a mark in the gutter. */
+.fe-fe-row.cm .fe-fe-ln{position:relative}
+.fe-fe-row.cm .fe-fe-ln::before{content:'';position:absolute;left:6px;top:.55em;width:9px;height:8px;border-radius:3px 3px 3px 0;background:var(--ac);cursor:pointer}
 /* In the text: commented words get a wash, the open thread a stronger one,
    and each block with comments a count in the right margin. */
 ::highlight(bfb-cm){background-color:color-mix(in srgb,var(--ac) 20%,transparent)}

@@ -189,7 +189,8 @@ export function initListingInput(app: App, listing: Listing): void {
       else if (['[', ']', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
       return;
     }
-    if (app.filePage && e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.filePage.toggleRaw(); }
+    if (app.filePage?.key(e)) e.preventDefault();
+    else if (app.filePage && e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.filePage.toggleRaw(); }
     else if (app.filePage && e.key === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.filePage.edit(); }
     else if (e.key === 'ArrowDown') { e.preventDefault(); sel.moveSel(1); }
     else if (e.key === 'ArrowUp')   { e.preventDefault(); sel.moveSel(-1); }

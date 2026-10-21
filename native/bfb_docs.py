@@ -170,6 +170,11 @@ def cmd_tag(args):
     _write(args, [{'op': args.cmd, 'thread': args.thread, 'tags': args.tags}], lambda r: f"{args.cmd}ged {r[0]['thread'][:10]}")
 
 
+def cmd_due(args):
+    d = None if args.date == 'none' else args.date
+    _write(args, [{'op': 'due', 'thread': args.thread, 'due': d}], lambda r: f"due {args.date} on {r[0]['thread'][:10]}")
+
+
 def cmd_attach(args):
     s, e = _span(S.read_doc(args.file), args.quote, args.nth)
     _write(args, [{'op': 'attach', 'thread': args.thread, 'start': s, 'end': e}], lambda r: f"attached {r[0]['thread'][:10]} at line {C.line_of(S.read_doc(args.file), s)}")
@@ -258,6 +263,7 @@ def main(argv=None):
         x = cm.add_parser(name); x.add_argument('file'); x.add_argument('thread'); x.add_argument('text', nargs='?', default=''); x.set_defaults(func=fn)
     for name in ('tag', 'untag'):
         x = cm.add_parser(name); x.add_argument('file'); x.add_argument('thread'); x.add_argument('tags', nargs='+'); x.set_defaults(func=cmd_tag)
+    x = cm.add_parser('due', help='set a due date (YYYY-MM-DD) or clear it (none)'); x.add_argument('file'); x.add_argument('thread'); x.add_argument('date'); x.set_defaults(func=cmd_due)
     x = cm.add_parser('attach'); x.add_argument('file'); x.add_argument('thread'); x.add_argument('--quote', required=True); x.add_argument('--nth', type=int); x.set_defaults(func=cmd_attach)
     x = cm.add_parser('suggest'); x.add_argument('file'); x.add_argument('--thread'); x.add_argument('--quote'); x.add_argument('--nth', type=int)
     x.add_argument('--replace', required=True); x.add_argument('text', nargs='?', default=''); x.set_defaults(func=cmd_suggest)

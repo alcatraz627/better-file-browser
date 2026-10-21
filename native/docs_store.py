@@ -505,6 +505,14 @@ def apply(data, op, text, author, base_text):
         t['tags'] = [g for g in t.get('tags', []) if g not in drop]
         t['updated'] = ts
         return {'thread': t['id']}
+    if kind == 'due':
+        d = op.get('due') or None
+        if d is not None and not (isinstance(d, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', d)):
+            raise DocsError('docs_bad_args', 'a due date is YYYY-MM-DD, or none to clear it')
+        if d: t['due'] = d
+        else: t.pop('due', None)
+        t['updated'] = ts
+        return {'thread': t['id']}
     if kind == 'attach':
         t['anchor'] = {**C.make_anchor(text, op['start'], op['end']), 'confirmedAt': ts}
         t['updated'] = ts

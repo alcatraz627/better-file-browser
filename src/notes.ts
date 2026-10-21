@@ -36,7 +36,7 @@ export interface DocThread {
   comments: DocComment[]; place: ThreadPlace; doneBy?: CommentAuthor; doneAt?: string;
 }
 export interface CommentsReply { rel: string; threads: DocThread[]; where: string; companion: string; notes: string[]; doc: { id: string } | null; results?: { thread?: string; comment?: string }[] }
-export type CommentOp = { op: string; thread?: string; comment?: string; text?: string; start?: number; end?: number; tags?: string[]; replace?: string };
+export type CommentOp = { op: string; thread?: string; comment?: string; text?: string; start?: number; end?: number; tags?: string[]; replace?: string; due?: string };
 
 /// One saved version of a note, from the folder's git log: short hash, epoch ms, the commit's reason.
 export interface NoteVersion { sha: string; when: number; reason: string }

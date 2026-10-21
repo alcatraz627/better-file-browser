@@ -13,6 +13,7 @@ import { notes, NotesError } from './notes';
 import { attachBuffer, indentLines } from './editor';
 import { wholeText, windowedText, lineStart, type TextWindow } from './text-window';
 import { UI_ICON } from './control-icons';
+import { carrier } from './comment-anchor';
 
 const AUTOSAVE_MS = 800;
 const CHECK_MS = 300;
@@ -56,9 +57,17 @@ export interface FileEditorHost {
   // The saved text, so the reading view shows it when the editor closes.
   saved(text: string): void;
   closed(): void;
+  /** Comment threads on the file, marked in the gutter; offsets are in the text as last saved. */
+  comments?: { marks(): { id: string; offset: number; length: number }[]; open(id: string): void };
 }
 
-export interface FileEditor { dirty(): boolean; close(): void }
+export interface FileEditor {
+  dirty(): boolean; close(): void;
+  /** Select a span given in the text as last saved, carried over unsaved edits. */
+  select(start: number, end: number): void;
+  /** The comment threads changed: mark the gutter again. */
+  marks(): void;
+}
 
 export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Promise<FileEditor | null> {
   let doc: { text: string; mtime: number };
@@ -174,6 +183,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     winFirst = first; winLast = last;
     rowEl(curRow)?.classList.add('cur');
     markProblems();
+    markComments();
   };
   let widest = 0, charW = 0;
   // The textarea sits over the lines it holds.
@@ -224,6 +234,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     paintEl.querySelector('.cur')?.classList.remove('cur');   // kept rows keep their old mark
     curRow = -1; markLine();
     markProblems();
+    markComments();
   };
   // Problem rows: the gutter number turns red or amber and the message shows
   // on hover; the pill counts them and a click goes to the first.
@@ -242,6 +253,23 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     const warns = diags.length - errors;
     diagBtn.textContent = [errors && `${errors} error${errors > 1 ? 's' : ''}`, warns && `${warns} warning${warns > 1 ? 's' : ''}`].filter(Boolean).join(', ');
     diagBtn.title = diags.slice(0, 12).map(d => `Line ${d.line}: ${d.message}`).join('\n') + (diags.length > 12 ? `\nand ${diags.length - 12} more` : '');
+  };
+  // Rows holding the start of an open comment get a marker in the gutter;
+  // while typing they follow the edit without anything being saved.
+  let cmRows = new Map<number, string>();
+  const markComments = () => {
+    for (const r of paintEl.querySelectorAll('.fe-fe-row.cm')) { r.classList.remove('cm'); r.removeAttribute('data-cm'); }
+    cmRows = new Map();
+    const ms = host.comments?.marks() ?? [];
+    if (!ms.length) return;
+    const t = tw.text();
+    const at = carrier(base, t);
+    let line = 0, p = -1;
+    for (const m of ms.map(m => ({ id: m.id, o: at(m.offset) })).sort((a, b) => a.o - b.o)) {
+      for (let nl = t.indexOf('\n', p + 1); nl !== -1 && nl < m.o; nl = t.indexOf('\n', p + 1)) { p = nl; line++; }
+      cmRows.set(line, cmRows.has(line) ? cmRows.get(line)! : m.id);
+    }
+    for (const l of cmRows.keys()) rowEl(l)?.classList.add('cm');
   };
   const check = () => { const t = tw.text(); diags = t.length > CHECK_MAX ? [] : diagnose(host.ext, t); markProblems(); };
   const checkLater = () => { clearTimeout(checkTimer); checkTimer = window.setTimeout(check, CHECK_MS); };
@@ -347,17 +375,32 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     host.closed();
   };
 
-  const goToLine = (line: number) => {
+  const selectSpan = (pos: number, end: number) => {
     if (mode === 'rich') setMode('split');
+    const t = tw.text();
+    let line = 0;
+    for (let p = t.indexOf('\n'); p !== -1 && p < pos; p = t.indexOf('\n', p + 1)) line++;
+    ta.focus({ preventScroll: true });
+    tw.select(pos, end);
+    if (big) { placeTa(); const vp = viewport(); vp.scrollTop += line * lh - (vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top) - vp.clientHeight / 2; paintWindow(true); }
+    else rowEl(line)?.scrollIntoView({ block: 'center' });
+    markLine();
+  };
+  const goToLine = (line: number) => {
     const t = tw.text();
     const pos = lineStart(t, line - 1);
     const end = t.indexOf('\n', pos);
-    ta.focus({ preventScroll: true });
-    tw.select(pos, end === -1 ? t.length : end);
-    if (big) { placeTa(); const vp = viewport(); vp.scrollTop += (line - 1) * lh - (vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top) - vp.clientHeight / 2; paintWindow(true); }
-    else rowEl(line - 1)?.scrollIntoView({ block: 'center' });
-    markLine();
+    selectSpan(pos, end === -1 ? t.length : end);
   };
+  // The textarea covers the gutter too, so a click on a comment marker lands on it.
+  ta.addEventListener('mousedown', e => {
+    if (!cmRows.size || e.button !== 0 || e.offsetX > parseFloat(getComputedStyle(ta).paddingLeft)) return;
+    const line = big ? lineAtY(e.clientY) : [...paintEl.children].findIndex(r => r.getBoundingClientRect().bottom > e.clientY);
+    const id = cmRows.get(line);
+    if (!id) return;
+    e.preventDefault();
+    host.comments?.open(id);
+  });
   box.addEventListener('click', e => {
     const m = (e.target as HTMLElement).closest<HTMLElement>('[data-mode]')?.dataset.mode as Mode | undefined;
     if (m) setMode(m);
@@ -437,5 +480,9 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   paint();
   if (fmt) setMode(mode);
   ta.focus();
-  return { dirty: isDirty, close: () => void close() };
+  return {
+    dirty: isDirty, close: () => void close(),
+    select: (start, end) => { const at = carrier(base, tw.text()); selectSpan(at(start), at(end)); },
+    marks: markComments,
+  };
 }

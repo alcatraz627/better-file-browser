@@ -169,7 +169,11 @@ export function renderFileContent(): string {
       </div>`;
 }
 
-export interface FileContent { toggleRaw(): void; setText(text: string): void; edit(): void }
+export interface FileContent {
+  toggleRaw(): void; setText(text: string): void; edit(): void;
+  /** A key the file page's comments handle; true when it was used. */
+  key(e: KeyboardEvent): boolean;
+}
 
 /// The pane width at which the open Contents card fits beside a full text column.
 const TOC_ROOMY = 1000;
@@ -419,27 +423,33 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
         editor = null; editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on');
         fetchFileText(href).then(fresh => { text = fresh; paintMeta(); }).catch(() => {}).finally(render);
       },
+      comments: comments ? { marks: () => comments!.marks(), open: id => { showComments(); comments!.show(id); } } : undefined,
     });
     editBtn.classList.remove('busy');
     paint();
     if (!editor) { editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); render(); }
   };
   editBtn.addEventListener('click', () => void edit());
+  const showComments = () => {
+    railTab = 'cm'; cmWanted = true; kvSet(RAIL_TAB_KEY, 'cm');
+    if (tight) peek = true; else if (!tocOpen) { tocOpen = true; kvSet(TOC_KEY, '1'); }
+    paint();
+  };
+  // The file bar's Comments button opens the rail on Comments, or folds it.
+  const toggleComments = () => {
+    const showing = !rail.hidden && rail.dataset.tab === 'cm' && !rail.classList.contains('folded');
+    if (!showing) { showComments(); return; }
+    cmWanted = false; railTab = 'toc'; kvSet(RAIL_TAB_KEY, 'toc');
+    paint();
+  };
   if (isMd) comments = mountComments({
     page, box: cmBox, href,
     root: () => root, rel: () => rawPath.slice((root ?? '').length + 1), text: () => text,
-    allow: askToAllow, status, changed: paint,
+    allow: askToAllow, status, changed: () => { paint(); editor?.marks(); },
+    reveal: showComments, toggle: toggleComments,
+    picked: span => editor?.select(span.offset, span.offset + span.length),
   });
-  // The file bar's Comments button opens the rail on Comments, or folds it.
-  cmBtn.addEventListener('click', () => {
-    const showing = !rail.hidden && rail.dataset.tab === 'cm' && !rail.classList.contains('folded');
-    if (showing) { cmWanted = false; railTab = 'toc'; kvSet(RAIL_TAB_KEY, 'toc'); }
-    else {
-      railTab = 'cm'; cmWanted = true; kvSet(RAIL_TAB_KEY, 'cm');
-      if (tight) peek = true; else if (!tocOpen) { tocOpen = true; kvSet(TOC_KEY, '1'); }
-    }
-    paint();
-  });
+  cmBtn.addEventListener('click', toggleComments);
   // Find splits text into marks, which moves the highlights' text; draw them again.
   document.getElementById('fe-ff-q')!.addEventListener('input', () => setTimeout(() => comments?.redraw(), 0));
   rawBtn.addEventListener('click', toggleRaw);
@@ -485,6 +495,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   return {
     toggleRaw,
     edit: () => void edit(),
+    key: e => !editor && !raw && !!comments?.key(e),
     setText(fresh) {
       text = fresh;
       paintMeta();

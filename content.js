@@ -4461,6 +4461,41 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-empty .btn{margin-top:8px;display:inline-flex;align-items:center;gap:6px}
 .fe-cm-empty .btn svg{width:13px;height:13px}
 .fe-cm-hint{color:var(--dm);font-size:var(--fs-sm)}
+.fe-cm-hint kbd{font:inherit;font-family:var(--mono);padding:0 4px;border:1px solid var(--bd2);border-radius:4px}
+/* Writing: the composer card, the reply box on the open thread, its tools. */
+.fe-cm-new{cursor:default}
+.fe-cm-box{position:relative;margin-top:10px}
+.fe-cm-new .fe-cm-box{margin-top:0}
+.fe-cm-box textarea{display:block;width:100%;box-sizing:border-box;min-height:52px;max-height:220px;resize:vertical;padding:6px 8px;border:1px solid var(--bd2);border-radius:8px;
+  background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md);line-height:1.45;outline:0;transition:border-color var(--t-fast) var(--ease)}
+.fe-cm-box textarea:focus{border-color:color-mix(in srgb,var(--ac) 70%,var(--bd2))}
+.fe-cm-box textarea::placeholder{color:var(--dm)}
+.fe-cm-ac{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:3;padding:4px;border-radius:10px;
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+.fe-cm-ac[hidden]{display:none}
+.fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer}
+.fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
+.fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--act)}
+.fe-cm-tools{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin-top:6px}
+.fe-cm-tools .btn svg{width:12px;height:12px}
+.fe-cm-grow{flex:1}
+.fe-cm-date{height:22px;padding:0 6px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-sm);color-scheme:light dark}
+.fe-cm-x{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin:0 -3px 0 1px;padding:0;border:0;border-radius:50%;background:none;color:var(--dm);cursor:pointer}
+.fe-cm-x:hover{background:var(--shade);color:var(--tx)}
+.fe-cm-x svg{width:9px;height:9px}
+.fe-cm-del{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:0;border-radius:6px;background:none;color:var(--dm);cursor:pointer;opacity:0;transition:opacity var(--t-fast) var(--ease)}
+.fe-cm-c:hover .fe-cm-del,.fe-cm-del:focus-visible{opacity:1}
+.fe-cm-del:hover{background:var(--shade);color:var(--nc-red)}
+.fe-cm-del svg{width:12px;height:12px}
+/* The floating Comment button above a selection on the page. */
+#fe-cm-add{position:fixed;z-index:30;height:28px;padding:0 10px;border-radius:999px;color:var(--tx);
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+#fe-cm-add:hover{color:var(--ac)}
+#fe-cm-add[hidden]{display:none}
+#fe-cm-add svg{width:13px;height:13px}
+/* In the editor, a row where an open comment starts carries a mark in the gutter. */
+.fe-fe-row.cm .fe-fe-ln{position:relative}
+.fe-fe-row.cm .fe-fe-ln::before{content:'';position:absolute;left:6px;top:.55em;width:9px;height:8px;border-radius:3px 3px 3px 0;background:var(--ac);cursor:pointer}
 /* In the text: commented words get a wash, the open thread a stronger one,
    and each block with comments a count in the right margin. */
 ::highlight(bfb-cm){background-color:color-mix(in srgb,var(--ac) 20%,transparent)}
@@ -11776,6 +11811,200 @@ ${end.comment}` : end.comment;
     };
   }
 
+  // src/comment-anchor.ts
+  function pass(t, re, pieces) {
+    const out = { s: "", o: [] };
+    let at = 0;
+    const flags = re.flags.includes("d") ? re.flags : re.flags + "d";
+    for (const m of t.s.matchAll(new RegExp(re.source, flags))) {
+      out.s += t.s.slice(at, m.index);
+      out.o.push(...t.o.slice(at, m.index));
+      const here = t.o[m.index] ?? t.o[t.o.length - 1] ?? 0;
+      for (const p of pieces) {
+        if (typeof p === "string") {
+          out.s += p;
+          for (let i = 0; i < p.length; i++) out.o.push(here);
+          continue;
+        }
+        const span = m.indices[p];
+        if (!span) continue;
+        out.s += t.s.slice(span[0], span[1]);
+        out.o.push(...t.o.slice(span[0], span[1]));
+      }
+      at = m.index + m[0].length;
+    }
+    out.s += t.s.slice(at);
+    out.o.push(...t.o.slice(at));
+    return out;
+  }
+  var PASSES = [
+    [/^[^\S\n]*#{1,6}[^\S\n]+/gm, []],
+    [/^[^\S\n]*>[^\S\n]?/gm, []],
+    [/^[^\S\n]*(?:[-*+]|\d+[.)])[^\S\n]+(?:\[[ xX]\][^\S\n]+)?/gm, []],
+    [/\|/g, [" "]],
+    [/\n/g, [" "]],
+    [/!\[([^\]]*)\]\([^)]*\)/g, [1]],
+    [/\[([^\]]*)\]\([^)]*\)/g, [1]],
+    [/<(https?:\/\/[^>]+)>/g, [1]],
+    [/\[\^[^\]]+\]/g, []],
+    [/<[^>]+>/g, []],
+    [/`+/g, []],
+    [/\*\*|__|~~/g, []],
+    [/(^|[^\w*])[*_](?=\S)/g, [1]],
+    [/(\S)[*_](?=[^\w*]|$)/g, [1]],
+    [/\s+/g, [" "]]
+  ];
+  function visibleMap(src) {
+    let t = { s: src, o: Array.from({ length: src.length }, (_v, i) => i) };
+    for (const [re, pieces] of PASSES) t = pass(t, re, pieces);
+    const lead = t.s.length - t.s.trimStart().length;
+    const keep = t.s.trim().length;
+    return { s: t.s.slice(lead, lead + keep), o: t.o.slice(lead, lead + keep) };
+  }
+  var visibleOf = (src) => visibleMap(src).s;
+  var SKIP3 = "script,style,svg,textarea,.fe-md-anchor,.fe-md-code-bar,[hidden]";
+  var blocksFor = (page, first, last) => [...page.querySelectorAll("[data-sl]")].filter((b) => {
+    const [a, z] = b.dataset.sl.split("-").map(Number);
+    return z >= first && a <= last;
+  });
+  function flatText(blocks) {
+    let flat = "";
+    const at = [];
+    let ws = true;
+    for (const b of blocks) {
+      const walker = document.createTreeWalker(b, NodeFilter.SHOW_TEXT, {
+        acceptNode: (n) => n.parentElement?.closest(SKIP3) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+      });
+      while (walker.nextNode()) {
+        const t = walker.currentNode;
+        for (let i = 0; i < t.data.length; i++) {
+          const sp2 = /\s/.test(t.data[i]);
+          if (sp2 && ws) continue;
+          flat += sp2 ? " " : t.data[i];
+          at.push([t, i]);
+          ws = sp2;
+        }
+      }
+      if (!ws && at.length) {
+        flat += " ";
+        at.push(at[at.length - 1]);
+        ws = true;
+      }
+    }
+    return { flat, at };
+  }
+  function rangeFor(page, first, last, needle) {
+    const blocks = blocksFor(page, first, last);
+    if (!blocks.length) return null;
+    const { flat, at } = flatText(blocks);
+    const range = document.createRange();
+    let s = needle ? flat.indexOf(needle) : -1;
+    if (s === -1 && needle) s = flat.toLowerCase().indexOf(needle.toLowerCase());
+    if (s === -1) {
+      range.selectNodeContents(blocks[0]);
+      return range;
+    }
+    const [sn, so] = at[s], [en, eo] = at[s + needle.length - 1];
+    range.setStart(sn, so);
+    range.setEnd(en, eo + 1);
+    return range;
+  }
+  function carrier(before, after) {
+    if (before === after) return (o) => o;
+    let p = 0;
+    const n = Math.min(before.length, after.length);
+    while (p < n && before.charCodeAt(p) === after.charCodeAt(p)) p++;
+    let q = 0;
+    while (q < n - p && before.charCodeAt(before.length - 1 - q) === after.charCodeAt(after.length - 1 - q)) q++;
+    const tail = before.length - q, shift = after.length - before.length;
+    return (o) => o < p ? o : o >= tail ? o + shift : p;
+  }
+  var MARKS = "*_~`";
+  var runs = (s, c) => s.match(new RegExp(`\\${c}+`, "g"))?.length ?? 0;
+  function widen(text, start, end) {
+    for (let guard = 0; guard < 50; guard++) {
+      const span = text.slice(start, end);
+      if (text.startsWith("](", end)) {
+        const close = text.indexOf(")", end);
+        if (close !== -1) {
+          end = close + 1;
+          continue;
+        }
+      }
+      const cut = span.indexOf("](");
+      const lb = text.lastIndexOf("[", start - 1), nl = text.lastIndexOf("\n", start - 1);
+      if (cut !== -1 && !span.slice(0, cut).includes("[") && lb > nl) {
+        start = lb;
+        continue;
+      }
+      const mark = (i) => MARKS.includes(text[i] ?? "\0") && !(text[i] === "_" && /\w/.test(text[i - 1] ?? "") && /\w/.test(text[i + 1] ?? ""));
+      const after = text[end], before = text[start - 1];
+      if (mark(end) && runs(span, after) % 2) {
+        while (text[end] === after) end++;
+        continue;
+      }
+      if (mark(start - 1) && runs(span, before) % 2) {
+        while (text[start - 1] === before) start--;
+        continue;
+      }
+      if (mark(start - 1) && before === after) {
+        start--;
+        end++;
+        continue;
+      }
+      break;
+    }
+    return [start, end];
+  }
+  function sourceSpan(page, text, range) {
+    if (range.collapsed) return null;
+    const holder = (n) => n.nodeType === 1 ? n : n.parentElement;
+    if (holder(range.startContainer)?.closest(".fe-md-fm") || holder(range.endContainer)?.closest(".fe-md-fm")) return null;
+    const touched = [...page.querySelectorAll("[data-sl]")].filter((b) => range.intersectsNode(b));
+    const a = touched[0], z = touched[touched.length - 1];
+    if (!a || !z) return null;
+    const first = Number(a.dataset.sl.split("-")[0]);
+    const last = Number(z.dataset.sl.split("-")[1]);
+    const from = lineStart(text, first - 1);
+    let to = lineStart(text, last);
+    if (to > from && text[to - 1] === "\n") to--;
+    const block = { start: from, end: to, block: true };
+    const { flat, at } = flatText(blocksFor(page, first, last));
+    let s = at.findIndex(([n, o]) => {
+      try {
+        return range.comparePoint(n, o) >= 0;
+      } catch {
+        return false;
+      }
+    });
+    let e = -1;
+    for (let i = at.length - 1; i >= 0; i--) {
+      try {
+        if (range.comparePoint(at[i][0], at[i][1]) === 0) {
+          e = i + 1;
+          break;
+        }
+      } catch {
+      }
+    }
+    if (s === -1 || e <= s) return block;
+    while (s < e && flat[s] === " ") s++;
+    while (e > s && flat[e - 1] === " ") e--;
+    const needle = flat.slice(s, e);
+    if (!needle) return null;
+    const vis = visibleMap(text.slice(from, to));
+    const hits = [];
+    for (const hay of [vis.s, vis.s.toLowerCase()]) {
+      const n = hay === vis.s ? needle : needle.toLowerCase();
+      for (let i = hay.indexOf(n); i !== -1; i = hay.indexOf(n, i + 1)) hits.push(i);
+      if (hits.length) break;
+    }
+    if (!hits.length) return block;
+    const v = hits.reduce((best, i) => Math.abs(i - s) < Math.abs(best - s) ? i : best, hits[0]);
+    const [ws, we] = widen(text, from + vis.o[v], from + vis.o[v + needle.length - 1] + 1);
+    return { start: ws, end: we, block: false };
+  }
+
   // src/file-editor.ts
   var AUTOSAVE_MS = 800;
   var CHECK_MS = 300;
@@ -11904,6 +12133,7 @@ ${end.comment}` : end.comment;
       winLast = last;
       rowEl(curRow)?.classList.add("cur");
       markProblems();
+      markComments();
     };
     let widest = 0, charW = 0;
     const placeTa = () => {
@@ -11971,6 +12201,7 @@ ${end.comment}` : end.comment;
       curRow = -1;
       markLine();
       markProblems();
+      markComments();
     };
     const markProblems = () => {
       for (const r of paintEl.querySelectorAll(".fe-fe-row.err, .fe-fe-row.warn")) {
@@ -11992,6 +12223,27 @@ ${d.message}` : `Line ${d.line}: ${d.message}`;
       diagBtn.textContent = [errors && `${errors} error${errors > 1 ? "s" : ""}`, warns && `${warns} warning${warns > 1 ? "s" : ""}`].filter(Boolean).join(", ");
       diagBtn.title = diags.slice(0, 12).map((d) => `Line ${d.line}: ${d.message}`).join("\n") + (diags.length > 12 ? `
 and ${diags.length - 12} more` : "");
+    };
+    let cmRows = /* @__PURE__ */ new Map();
+    const markComments = () => {
+      for (const r of paintEl.querySelectorAll(".fe-fe-row.cm")) {
+        r.classList.remove("cm");
+        r.removeAttribute("data-cm");
+      }
+      cmRows = /* @__PURE__ */ new Map();
+      const ms = host.comments?.marks() ?? [];
+      if (!ms.length) return;
+      const t = tw.text();
+      const at = carrier(base, t);
+      let line2 = 0, p = -1;
+      for (const m of ms.map((m2) => ({ id: m2.id, o: at(m2.offset) })).sort((a, b) => a.o - b.o)) {
+        for (let nl = t.indexOf("\n", p + 1); nl !== -1 && nl < m.o; nl = t.indexOf("\n", p + 1)) {
+          p = nl;
+          line2++;
+        }
+        cmRows.set(line2, cmRows.has(line2) ? cmRows.get(line2) : m.id);
+      }
+      for (const l of cmRows.keys()) rowEl(l)?.classList.add("cm");
     };
     const check = () => {
       const t = tw.text();
@@ -12127,21 +12379,35 @@ and ${diags.length - 12} more` : "");
       box.innerHTML = "";
       host.closed();
     };
-    const goToLine = (line2) => {
+    const selectSpan = (pos, end) => {
       if (mode === "rich") setMode("split");
       const t = tw.text();
-      const pos = lineStart(t, line2 - 1);
-      const end = t.indexOf("\n", pos);
+      let line2 = 0;
+      for (let p = t.indexOf("\n"); p !== -1 && p < pos; p = t.indexOf("\n", p + 1)) line2++;
       ta.focus({ preventScroll: true });
-      tw.select(pos, end === -1 ? t.length : end);
+      tw.select(pos, end);
       if (big) {
         placeTa();
         const vp = viewport();
-        vp.scrollTop += (line2 - 1) * lh - (vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top) - vp.clientHeight / 2;
+        vp.scrollTop += line2 * lh - (vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top) - vp.clientHeight / 2;
         paintWindow(true);
-      } else rowEl(line2 - 1)?.scrollIntoView({ block: "center" });
+      } else rowEl(line2)?.scrollIntoView({ block: "center" });
       markLine();
     };
+    const goToLine = (line2) => {
+      const t = tw.text();
+      const pos = lineStart(t, line2 - 1);
+      const end = t.indexOf("\n", pos);
+      selectSpan(pos, end === -1 ? t.length : end);
+    };
+    ta.addEventListener("mousedown", (e) => {
+      if (!cmRows.size || e.button !== 0 || e.offsetX > parseFloat(getComputedStyle(ta).paddingLeft)) return;
+      const line2 = big ? lineAtY(e.clientY) : [...paintEl.children].findIndex((r) => r.getBoundingClientRect().bottom > e.clientY);
+      const id = cmRows.get(line2);
+      if (!id) return;
+      e.preventDefault();
+      host.comments?.open(id);
+    });
     box.addEventListener("click", (e) => {
       const m = e.target.closest("[data-mode]")?.dataset.mode;
       if (m) setMode(m);
@@ -12257,12 +12523,20 @@ and ${diags.length - 12} more` : "");
     paint();
     if (fmt) setMode(mode);
     ta.focus();
-    return { dirty: isDirty, close: () => void close() };
+    return {
+      dirty: isDirty,
+      close: () => void close(),
+      select: (start, end) => {
+        const at = carrier(base, tw.text());
+        selectSpan(at(start), at(end));
+      },
+      marks: markComments
+    };
   }
 
   // src/find-in-page.ts
   var MAX_HITS = 2e3;
-  var SKIP3 = "script,style,svg,textarea,.fe-cl-n,.fe-jl-n,.fe-fe-ln,[hidden]";
+  var SKIP4 = "script,style,svg,textarea,.fe-cl-n,.fe-jl-n,.fe-fe-ln,[hidden]";
   var BLOCK2 = "p,li,dt,dd,h1,h2,h3,h4,h5,h6,td,th,tr,pre,blockquote,div,section,article,summary,figcaption";
   function attachFind(page, input, count, prev, next) {
     let hits = [];
@@ -12310,7 +12584,7 @@ and ${diags.length - 12} more` : "");
       const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT, {
         acceptNode: (n2) => {
           const p = n2.parentElement;
-          return !p || p.closest(SKIP3) || !isDrawn(p) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+          return !p || p.closest(SKIP4) || !isDrawn(p) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
         }
       });
       const nodes = [], starts = [];
@@ -12392,52 +12666,7 @@ and ${diags.length - 12} more` : "");
     { id: "done", label: "Done" },
     { id: "all", label: "All" }
   ];
-  function visibleOf(src) {
-    const lines = src.split("\n").map((l) => l.replace(/^\s*#{1,6}\s+/, "").replace(/^\s*>\s?/, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, "").replace(/\|/g, " "));
-    return lines.join(" ").replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/<(https?:\/\/[^>]+)>/g, "$1").replace(/\[\^[^\]]+\]/g, "").replace(/<[^>]+>/g, "").replace(/`+/g, "").replace(/\*\*|__|~~/g, "").replace(/(^|[^\w*])[*_](?=\S)/g, "$1").replace(/(\S)[*_](?=[^\w*]|$)/g, "$1").replace(/\s+/g, " ").trim();
-  }
-  var SKIP4 = "script,style,svg,textarea,.fe-md-anchor,.fe-md-code-bar,[hidden]";
-  function rangeFor(page, first, last, needle) {
-    const blocks = [...page.querySelectorAll("[data-sl]")].filter((b) => {
-      const [a, z] = b.dataset.sl.split("-").map(Number);
-      return z >= first && a <= last;
-    });
-    if (!blocks.length) return null;
-    let flat = "";
-    const at = [];
-    let ws = true;
-    for (const b of blocks) {
-      const walker = document.createTreeWalker(b, NodeFilter.SHOW_TEXT, {
-        acceptNode: (n) => n.parentElement?.closest(SKIP4) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
-      });
-      while (walker.nextNode()) {
-        const t = walker.currentNode;
-        for (let i = 0; i < t.data.length; i++) {
-          const sp2 = /\s/.test(t.data[i]);
-          if (sp2 && ws) continue;
-          flat += sp2 ? " " : t.data[i];
-          at.push([t, i]);
-          ws = sp2;
-        }
-      }
-      if (!ws) {
-        flat += " ";
-        at.push(at[at.length - 1]);
-        ws = true;
-      }
-    }
-    const range = document.createRange();
-    let s = needle ? flat.indexOf(needle) : -1;
-    if (s === -1 && needle) s = flat.toLowerCase().indexOf(needle.toLowerCase());
-    if (s === -1) {
-      range.selectNodeContents(blocks[0]);
-      return range;
-    }
-    const [sn, so] = at[s], [en, eo] = at[s + needle.length - 1];
-    range.setStart(sn, so);
-    range.setEnd(en, eo + 1);
-    return range;
-  }
+  var DATE_WORDS = ["due", "today", "tomorrow"];
   var who = (a) => a.kind === "human" ? "You" : (a.alias || "agent") + (a.role ? ` \xB7 ${a.role}` : "");
   function ago(iso) {
     const t = Date.parse(iso);
@@ -12463,6 +12692,14 @@ and ${diags.length - 12} more` : "");
     });
     return t.comments.slice(mine + 1).some((c) => /(^|\s)@(user|owner)\b/i.test(c.text || ""));
   }
+  function completions(value, caret, people, tags) {
+    const m = /(^|\s)([@#])([\w-]*)$/.exec(value.slice(0, caret));
+    if (!m) return null;
+    const q = m[3].toLowerCase();
+    const pool = m[2] === "@" ? [...people, ...DATE_WORDS] : tags;
+    const items = [...new Set(pool)].filter((x) => x.toLowerCase().startsWith(q) && x.toLowerCase() !== q).slice(0, 6);
+    return items.length ? { from: caret - m[3].length - 1, sigil: m[2], items } : null;
+  }
   function mountComments(o) {
     let threads = [];
     let notesLine = [];
@@ -12470,9 +12707,22 @@ and ${diags.length - 12} more` : "");
     let active = "";
     let loaded = false, failed = "";
     let lastCompanion = null, lastText = "";
+    let draft = null;
+    let busy = false;
+    let dueOpen = "";
     const seen = /* @__PURE__ */ new Set();
     const ranges = /* @__PURE__ */ new Map();
+    const typed = /* @__PURE__ */ new Map();
+    let linked = location.hash.startsWith("#c=") ? decodeURIComponent(location.hash.slice(3)) : "";
     const readCompanion = () => fetchFileText(o.href + ".bfb.json").catch(() => "");
+    const take = (r) => {
+      const fresh = r.threads.flatMap((t) => t.comments.filter((c) => !seen.has(c.id) && c.author.kind === "agent").map((c) => c.author));
+      if (loaded && fresh.length) o.status(`New reply from ${fresh[fresh.length - 1].alias}`);
+      r.threads.forEach((t) => t.comments.forEach((c) => seen.add(c.id)));
+      threads = r.threads;
+      failed = "";
+      loaded = true;
+    };
     const load = async () => {
       const root = o.root();
       if (!root) {
@@ -12484,13 +12734,8 @@ and ${diags.length - 12} more` : "");
       lastText = o.text();
       try {
         const r = await notes.commentsRead(root, o.rel());
-        const fresh = r.threads.flatMap((t) => t.comments.filter((c) => !seen.has(c.id) && c.author.kind === "agent").map((c) => c.author));
-        if (loaded && fresh.length) o.status(`New reply from ${fresh[fresh.length - 1].alias}`);
-        r.threads.forEach((t) => t.comments.forEach((c) => seen.add(c.id)));
-        threads = r.threads;
+        take(r);
         notesLine = r.notes;
-        failed = "";
-        loaded = true;
       } catch (e) {
         failed = e.message;
         loaded = true;
@@ -12498,27 +12743,90 @@ and ${diags.length - 12} more` : "");
       paint();
       redraw();
       o.changed();
+      const hit = linked && threads.find((t) => t.id.startsWith(linked));
+      if (hit) {
+        linked = "";
+        o.reveal();
+        focusThread(hit.id);
+      }
     };
+    const write = async (ops, what) => {
+      const root = o.root();
+      if (!root || busy) return null;
+      busy = true;
+      try {
+        const r = await notes.commentsWrite(root, o.rel(), ops);
+        take(r);
+        const said = r.notes.filter((n) => !notesLine.includes(n));
+        if (said.length) o.status(said.join("; "));
+        lastCompanion = await readCompanion();
+        lastText = o.text();
+        return r;
+      } catch (e) {
+        o.status(`${what} not saved: ${e.message}`);
+        return null;
+      } finally {
+        busy = false;
+        paint();
+        redraw();
+        o.changed();
+      }
+    };
+    const people = () => ["user", ...threads.flatMap((t) => [...t.mentions ?? [], ...t.comments.map((c) => c.author.kind === "agent" ? c.author.alias ?? "" : "")])].filter(Boolean);
+    const allTags = () => threads.flatMap((t) => t.tags ?? []);
     const visible = () => threads.filter((t) => filter === "all" ? true : filter === "done" ? t.status === "done" : filter === "me" ? forOwner(t) : t.status !== "done");
+    const box = (id, label, place) => `
+    <div class="fe-cm-box">
+      <textarea data-for="${esc(id)}" rows="2" aria-label="${esc(label)}" placeholder="${esc(place)}">${esc(typed.get(id) ?? "")}</textarea>
+      <div class="fe-cm-ac" role="listbox" hidden></div>
+    </div>`;
     const threadHtml = (t) => {
+      const on = t.id === active;
       const quote = visibleOf(t.place.state === "moved" && t.place.offset !== null ? o.text().slice(t.place.offset, t.place.offset + t.place.length) : t.anchor.exact);
+      const x = (a, v, label) => on ? `<button type="button" class="fe-cm-x" data-a="${a}" data-v="${esc(v)}" aria-label="${esc(label)}" title="${esc(label)}">${UI_ICON.close}</button>` : "";
       const chips = [
-        ...(t.tags ?? []).map((g) => `<span class="fe-cm-chip">#${esc(g)}</span>`),
-        t.due ? `<span class="fe-cm-chip due">${UI_ICON.clock}${esc(dueLabel(t.due))}</span>` : "",
+        ...(t.tags ?? []).map((g) => `<span class="fe-cm-chip">#${esc(g)}${x("untag", g, `Remove tag ${g}`)}</span>`),
+        t.due ? `<span class="fe-cm-chip due">${UI_ICON.clock}${esc(dueLabel(t.due))}${x("undue", "", "Clear the due date")}</span>` : "",
         t.status === "done" ? `<span class="fe-cm-chip done">Done</span>` : ""
       ].join("");
       const cs = t.comments.map((c) => `
       <div class="fe-cm-c${c.deleted ? " gone" : ""}">
-        <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(c.author))}</b><time title="${esc(c.created)}">${esc(ago(c.created))}</time></div>
+        <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(c.author))}</b><time title="${esc(c.created)}">${esc(ago(c.created))}</time>
+          ${on && c.author.kind === "human" && !c.deleted ? `<button type="button" class="fe-cm-del" data-a="del" data-v="${esc(c.id)}" title="Delete this comment" aria-label="Delete this comment">${UI_ICON.trash}</button>` : ""}</div>
         <div class="fe-cm-tx">${c.deleted ? "<i>Deleted</i>" : mdInline(c.text || "")}</div>
         ${c.suggestion ? `<div class="fe-cm-sug">Suggests <ins>${esc(c.suggestion.replace)}</ins> <span>${esc(c.suggestion.state)}</span></div>` : ""}
       </div>`).join("");
       const where = t.place.state === "moved" ? '<div class="fe-cm-state">Moved: the quoted words changed</div>' : t.place.state === "ambiguous" ? '<div class="fe-cm-state">The quoted words appear more than once</div>' : t.place.state === "detached" ? '<div class="fe-cm-state">The quoted text is no longer in the file</div>' : "";
-      return `<article class="fe-cm-th${t.id === active ? " on" : ""}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
+      const done = t.status === "done";
+      const tools = on ? `
+      ${box(t.id, "Reply", done ? "Reply to reopen\u2026" : "Reply\u2026 @ to mention, # to tag")}
+      <div class="fe-cm-tools">
+        <button type="button" class="btn" data-size="sm" data-hover-shade data-a="${done ? "reopen" : "done"}" title="${done ? "Reopen this thread" : "Mark done"} (\u2318\u21E7\u21B5)">${done ? UI_ICON.reset + "Reopen" : UI_ICON.check + "Done"}</button>
+        ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : `<button type="button" class="btn" data-size="sm" data-hover-shade data-a="due" title="Set a due date">${UI_ICON.clock}Due</button>`}
+        <button type="button" class="btn" data-size="sm" data-hover-shade data-a="link" title="Copy a link that opens this thread">${UI_ICON.copy}Link</button>
+        ${t.place.state !== "anchored" ? `<button type="button" class="btn" data-size="sm" data-hover-shade data-a="attach" title="Select words on the page first">Attach to selection</button>` : ""}
+        <span class="fe-cm-grow"></span>
+        <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="reply" title="Reply (\u2318\u21B5)">Reply</button>
+      </div>` : "";
+      return `<article class="fe-cm-th${on ? " on" : ""}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
       <blockquote class="fe-cm-q">${esc(quote.length > 140 ? quote.slice(0, 139) + "\u2026" : quote)}</blockquote>${where}${cs}
-      ${chips ? `<div class="fe-cm-chips">${chips}</div>` : ""}</article>`;
+      ${chips ? `<div class="fe-cm-chips">${chips}</div>` : ""}${tools}</article>`;
     };
+    const draftHtml = () => draft ? `<form class="fe-cm-th fe-cm-new on" data-new aria-label="${draft.attach ? "Attach the thread here" : "New comment"}">
+      <blockquote class="fe-cm-q">${esc(draft.quote.length > 140 ? draft.quote.slice(0, 139) + "\u2026" : draft.quote)}</blockquote>
+      ${draft.block ? '<div class="fe-cm-state">These words could not be placed exactly, so the comment goes on the whole block.</div>' : ""}
+      ${draft.attach ? '<p class="fe-cm-hint">The thread moves to these words.</p>' : box("new", "New comment", "Comment\u2026 @ to mention, # to tag, @due 2026-10-30")}
+      <div class="fe-cm-tools"><span class="fe-cm-grow"></span>
+        <button type="button" class="btn" data-size="sm" data-hover-shade data-a="cancel" title="Cancel (Esc)">Cancel</button>
+        <button type="submit" class="btn" data-size="sm" data-variant="solid" data-a="post" title="${draft.attach ? "Attach" : "Comment"} (\u2318\u21B5)">${draft.attach ? "Attach here" : "Comment"}</button></div>
+    </form>` : "";
     const paint = () => {
+      const ae = document.activeElement;
+      const focus = ae && o.box.contains(ae) && ae.dataset.for ? { id: ae.dataset.for, s: ae.selectionStart, e: ae.selectionEnd } : null;
+      o.box.querySelectorAll("textarea[data-for]").forEach((ta) => {
+        if (ta.value) typed.set(ta.dataset.for, ta.value);
+        else typed.delete(ta.dataset.for);
+      });
       const root = o.root();
       if (!root) {
         o.box.innerHTML = `<div class="fe-cm-empty"><p>Comments are saved beside this file, so this folder needs to be allowed first.</p>
@@ -12543,21 +12851,37 @@ and ${diags.length - 12} more` : "");
       const count = (f) => threads.filter((t) => f === "all" ? true : f === "done" ? t.status === "done" : f === "me" ? forOwner(t) : t.status !== "done").length;
       o.box.innerHTML = `
       <div class="fe-cm-filters" role="tablist">${FILTERS.map((f) => `<button type="button" role="tab" data-f="${f.id}" class="${f.id === filter ? "on" : ""}" aria-selected="${f.id === filter}">${f.label}<span>${count(f.id) || ""}</span></button>`).join("")}</div>
+      ${draftHtml()}
       ${notesLine.map((n) => `<p class="fe-cm-note">${esc(n)}</p>`).join("")}
-      ${list.length ? "" : `<div class="fe-cm-empty"><p>${threads.length ? "Nothing here." : "No comments yet."}</p><p class="fe-cm-hint">Agents and the terminal add them with <code>bfb-docs comments new</code>.</p></div>`}
+      ${list.length || draft ? "" : `<div class="fe-cm-empty"><p>${threads.length ? "Nothing here." : "No comments yet."}</p><p class="fe-cm-hint">Select words on the page and press <kbd>c</kbd> to comment. Agents use <code>bfb-docs comments new</code>.</p></div>`}
       ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="fe-cm-group">${name} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
-      ${done.length ? `<details class="fe-cm-done"><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}`;
+      ${done.length ? `<details class="fe-cm-done"${done.some((t) => t.id === active) ? " open" : ""}><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}`;
+      if (focus) {
+        const ta = o.box.querySelector(`textarea[data-for="${CSS.escape(focus.id)}"]`);
+        if (ta) {
+          ta.focus({ preventScroll: true });
+          ta.setSelectionRange(focus.s, focus.e);
+        }
+      }
+    };
+    const lineOf = (text, off) => {
+      let n = 1;
+      for (let p = text.indexOf("\n"); p !== -1 && p < off; p = text.indexOf("\n", p + 1)) n++;
+      return n;
+    };
+    const rangeOfSpan = (offset, length) => {
+      const text = o.text();
+      const src = text.slice(offset, offset + length);
+      const line2 = lineOf(text, offset);
+      return rangeFor(o.page, line2, line2 + (src.match(/\n/g)?.length ?? 0), visibleOf(src));
     };
     const redraw = () => {
       ranges.clear();
       o.page.querySelectorAll("[data-cm]").forEach((b) => b.removeAttribute("data-cm"));
       const all = [];
-      const text = o.text();
       for (const t of threads) {
         if (t.status === "done" || t.place.offset === null || t.place.line === null) continue;
-        const src = text.slice(t.place.offset, t.place.offset + t.place.length);
-        const last = t.place.line + (src.match(/\n/g)?.length ?? 0);
-        const r = rangeFor(o.page, t.place.line, last, visibleOf(src));
+        const r = rangeOfSpan(t.place.offset, t.place.length);
         if (!r) continue;
         ranges.set(t.id, r);
         all.push(r);
@@ -12568,13 +12892,14 @@ and ${diags.length - 12} more` : "");
       const H = window.Highlight;
       if (reg && H) {
         reg.set("bfb-cm", new H(...all));
-        const on = ranges.get(active);
+        const on = draft ? rangeOfSpan(draft.start, draft.end - draft.start) : ranges.get(active);
         if (on) reg.set("bfb-cm-on", new H(on));
         else reg.delete("bfb-cm-on");
       }
     };
     const focusThread = (id, scroll = true) => {
       active = id;
+      dueOpen = "";
       paint();
       redraw();
       const card = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
@@ -12586,10 +12911,250 @@ and ${diags.length - 12} more` : "");
       o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" });
       const r = ranges.get(id);
       if (scroll && r) {
-        const box = r.getBoundingClientRect(), pg = o.page.getBoundingClientRect();
-        if (box.top < pg.top + 40 || box.bottom > pg.bottom - 40) o.page.scrollTop += box.top - pg.top - pg.height / 3;
+        const box2 = r.getBoundingClientRect(), pg = o.page.getBoundingClientRect();
+        if (box2.top < pg.top + 40 || box2.bottom > pg.bottom - 40) o.page.scrollTop += box2.top - pg.top - pg.height / 3;
+      }
+      const t = threads.find((x) => x.id === id);
+      if (t && t.place.offset !== null) o.picked?.({ offset: t.place.offset, length: t.place.length });
+    };
+    const selected = () => {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount || sel.isCollapsed || o.page.style.display === "none") return null;
+      const range = sel.getRangeAt(0);
+      if (!o.page.contains(range.commonAncestorContainer)) return null;
+      const span = sourceSpan(o.page, o.text(), range);
+      return span ? { span, range } : null;
+    };
+    let held = null;
+    const startDraft = async (span, attach) => {
+      if (!o.root()) {
+        if (!await o.allow()) return;
+        loaded = false;
+        void load();
+      }
+      const src = o.text().slice(span.start, span.end);
+      draft = { ...span, quote: visibleOf(src) || src, attach };
+      if (!attach) active = "";
+      window.getSelection()?.removeAllRanges();
+      addBtn.hidden = true;
+      o.reveal();
+      paint();
+      redraw();
+      o.box.querySelector(".fe-cm-new")?.scrollIntoView({ block: "nearest" });
+      (o.box.querySelector('textarea[data-for="new"]') ?? o.box.querySelector('[data-a="post"]'))?.focus();
+    };
+    const cancelDraft = () => {
+      draft = null;
+      typed.delete("new");
+      paint();
+      redraw();
+    };
+    const post = async () => {
+      if (!draft) return;
+      const d = draft;
+      if (d.attach) {
+        if (await write([{ op: "attach", thread: d.attach, start: d.start, end: d.end }], "Attach")) {
+          draft = null;
+          focusThread(d.attach);
+        }
+        return;
+      }
+      const ta = o.box.querySelector('textarea[data-for="new"]');
+      const text = (ta?.value ?? "").trim();
+      if (!text) {
+        ta?.focus();
+        return;
+      }
+      const r = await write([{ op: "new", start: d.start, end: d.end, text }], "Comment");
+      if (!r) return;
+      draft = null;
+      typed.delete("new");
+      const id = r.results?.[0]?.thread;
+      if (id) {
+        if (filter === "done") filter = "open";
+        focusThread(id);
       }
     };
+    const reply = async (id, close = false) => {
+      const t = threads.find((x) => x.id === id);
+      if (!t) return;
+      const ta = o.box.querySelector(`textarea[data-for="${CSS.escape(id)}"]`);
+      const text = (ta?.value ?? "").trim();
+      const ops = [];
+      if (close) ops.push({ op: t.status === "done" ? "reopen" : "done", thread: id, text });
+      else if (text) ops.push({ op: t.status === "done" ? "reopen" : "reply", thread: id, text });
+      if (!ops.length) {
+        ta?.focus();
+        return;
+      }
+      if (ta) ta.value = "";
+      typed.delete(id);
+      if (!await write(ops, "Reply")) {
+        typed.set(id, ta?.value || text);
+        paint();
+        return;
+      }
+      o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+    };
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.id = "fe-cm-add";
+    addBtn.className = "btn";
+    addBtn.hidden = true;
+    addBtn.title = "Comment on the selection (c)";
+    addBtn.innerHTML = `${UI_ICON.comment}Comment`;
+    (document.getElementById("fe") ?? document.body).appendChild(addBtn);
+    addBtn.addEventListener("pointerdown", (e) => e.preventDefault());
+    addBtn.addEventListener("click", () => {
+      const s = selected();
+      if (s) void startDraft(s.span);
+    });
+    let selTimer = 0;
+    document.addEventListener("selectionchange", () => {
+      clearTimeout(selTimer);
+      selTimer = window.setTimeout(() => {
+        const s = selected();
+        if (!s) {
+          addBtn.hidden = true;
+          return;
+        }
+        const rects = s.range.getClientRects();
+        const r = rects[rects.length - 1] ?? s.range.getBoundingClientRect();
+        addBtn.hidden = false;
+        addBtn.style.top = `${Math.max(8, r.top - addBtn.offsetHeight - 6)}px`;
+        addBtn.style.left = `${Math.min(innerWidth - addBtn.offsetWidth - 8, Math.max(8, r.right - addBtn.offsetWidth / 2))}px`;
+      }, 120);
+    });
+    o.page.addEventListener("scroll", () => {
+      addBtn.hidden = true;
+    }, { passive: true });
+    let acFor = null, acAt = 0;
+    const acClose = () => {
+      o.box.querySelectorAll(".fe-cm-ac").forEach((l) => {
+        l.hidden = true;
+        l.innerHTML = "";
+      });
+      acFor = null;
+    };
+    const acShow = (ta) => {
+      const list = ta.parentElement.querySelector(".fe-cm-ac");
+      const c = completions(ta.value, ta.selectionStart, people(), allTags());
+      if (!c) {
+        acClose();
+        return;
+      }
+      acFor = ta;
+      acAt = Math.min(acAt, c.items.length - 1);
+      list.hidden = false;
+      list.innerHTML = c.items.map((x, i) => `<div role="option" data-v="${esc(x)}" class="${i === acAt ? "on" : ""}" aria-selected="${i === acAt}">${esc(c.sigil + x)}${x === "user" ? " <span>you</span>" : DATE_WORDS.includes(x) ? " <span>due date</span>" : ""}</div>`).join("");
+    };
+    const acPick = (ta, v) => {
+      const c = completions(ta.value, ta.selectionStart, people(), allTags());
+      if (!c) return;
+      ta.setRangeText(c.sigil + v + " ", c.from, ta.selectionStart, "end");
+      acClose();
+      ta.focus();
+    };
+    o.box.addEventListener("input", (e) => {
+      const ta = e.target;
+      if (ta.dataset?.for) {
+        acAt = 0;
+        acShow(ta);
+      }
+    });
+    o.box.addEventListener("pointerdown", (e) => {
+      const s = selected();
+      if (s) held = s.span;
+      const opt = e.target.closest(".fe-cm-ac [data-v]");
+      if (opt && acFor) {
+        e.preventDefault();
+        acPick(acFor, opt.dataset.v);
+      }
+    });
+    o.box.addEventListener("keydown", (e) => {
+      const el2 = e.target;
+      const ta = el2.closest("textarea[data-for]");
+      if (ta) {
+        const list = ta.parentElement.querySelector(".fe-cm-ac");
+        if (!list.hidden && acFor === ta) {
+          const n = list.children.length;
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            acAt = (acAt + (e.key === "ArrowDown" ? 1 : n - 1)) % n;
+            acShow(ta);
+            return;
+          }
+          if (e.key === "Enter" || e.key === "Tab") {
+            e.preventDefault();
+            acPick(ta, list.children[acAt].dataset.v);
+            return;
+          }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            acClose();
+            return;
+          }
+        }
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          if (ta.dataset.for === "new") void post();
+          else void reply(ta.dataset.for, e.shiftKey);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          if (ta.dataset.for === "new") cancelDraft();
+          else {
+            ta.blur();
+            o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(ta.dataset.for)}"]`)?.focus({ preventScroll: true });
+          }
+        }
+        return;
+      }
+      if (el2.closest(".fe-cm-new")) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          cancelDraft();
+        } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          void post();
+        }
+        return;
+      }
+      const th = el2.closest(".fe-cm-th[data-id]");
+      if (!th) return;
+      if (el2 === th && (e.key === "Enter" || e.key === " ") && !e.metaKey) {
+        e.preventDefault();
+        focusThread(th.dataset.id);
+        return;
+      }
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+        e.preventDefault();
+        void reply(th.dataset.id, true);
+        return;
+      }
+      if (e.key === "Escape" && active) {
+        e.preventDefault();
+        e.stopPropagation();
+        active = "";
+        paint();
+        redraw();
+        o.page.focus({ preventScroll: true });
+      }
+    });
+    o.box.addEventListener("submit", (e) => {
+      e.preventDefault();
+      void post();
+    });
+    o.box.addEventListener("change", (e) => {
+      const inp = e.target;
+      if (inp.dataset.a === "due-in" && active) {
+        dueOpen = "";
+        void write([{ op: "due", thread: active, due: inp.value || void 0 }], "Due date");
+      }
+    });
     o.box.addEventListener("click", async (e) => {
       const el2 = e.target;
       const f = el2.closest("[data-f]")?.dataset.f;
@@ -12597,9 +13162,12 @@ and ${diags.length - 12} more` : "");
         filter = f;
         kvSet(FILTER_KEY, f);
         paint();
+        redraw();
         return;
       }
-      if (el2.closest('[data-a="allow"]')) {
+      const act = el2.closest("[data-a]");
+      const a = act?.dataset.a;
+      if (a === "allow") {
         if (await o.allow()) {
           loaded = false;
           paint();
@@ -12607,16 +13175,67 @@ and ${diags.length - 12} more` : "");
         }
         return;
       }
-      if (el2.closest("a")) return;
-      const th = el2.closest(".fe-cm-th");
-      if (th) focusThread(th.dataset.id);
-    });
-    o.box.addEventListener("keydown", (e) => {
-      const th = e.target.closest(".fe-cm-th");
-      if (th && (e.key === "Enter" || e.key === " ")) {
-        e.preventDefault();
-        focusThread(th.dataset.id);
+      if (a === "cancel") {
+        cancelDraft();
+        return;
       }
+      if (a === "post") {
+        e.preventDefault();
+        void post();
+        return;
+      }
+      if (a && active) {
+        const v = act.dataset.v ?? "";
+        if (a === "reply") {
+          void reply(active);
+          return;
+        }
+        if (a === "done" || a === "reopen") {
+          void reply(active, true);
+          return;
+        }
+        if (a === "untag") {
+          void write([{ op: "untag", thread: active, tags: [v] }], "Tag");
+          return;
+        }
+        if (a === "undue") {
+          void write([{ op: "due", thread: active }], "Due date");
+          return;
+        }
+        if (a === "del") {
+          void write([{ op: "delete", thread: active, comment: v }], "Delete");
+          return;
+        }
+        if (a === "due") {
+          dueOpen = active;
+          paint();
+          const inp = o.box.querySelector(".fe-cm-date");
+          inp?.focus();
+          try {
+            inp?.showPicker();
+          } catch {
+          }
+          return;
+        }
+        if (a === "link") {
+          const url = location.href.split("#")[0] + "#c=" + encodeURIComponent(active);
+          copyToClipboard(url).then((ok) => o.status(ok ? "Link to this thread copied" : "copy failed"));
+          return;
+        }
+        if (a === "attach") {
+          const span = held ?? selected()?.span;
+          if (!span) {
+            o.status("Select the words on the page first, then press Attach to selection");
+            return;
+          }
+          held = null;
+          void startDraft(span, active);
+          return;
+        }
+      }
+      if (el2.closest("a, textarea, input, .fe-cm-tools, .fe-cm-ac, .fe-cm-new")) return;
+      const th = el2.closest(".fe-cm-th[data-id]");
+      if (th && th.dataset.id !== active) focusThread(th.dataset.id);
     });
     o.page.addEventListener("click", (e) => {
       const me = e;
@@ -12624,6 +13243,7 @@ and ${diags.length - 12} more` : "");
       if (block && me.clientX > block.getBoundingClientRect().right - 4) {
         const id = [...ranges].find(([, r]) => block.contains(r.startContainer))?.[0];
         if (id) {
+          o.reveal();
           focusThread(id, false);
           o.changed();
           return;
@@ -12634,6 +13254,7 @@ and ${diags.length - 12} more` : "");
       for (const [id, r] of ranges) {
         try {
           if (r.isPointInRange(pos.startContainer, pos.startOffset)) {
+            o.reveal();
             focusThread(id, false);
             o.changed();
             return;
@@ -12643,11 +13264,21 @@ and ${diags.length - 12} more` : "");
       }
     });
     setInterval(async () => {
-      if (document.visibilityState !== "visible" || !o.root() || lastCompanion === null) return;
+      if (document.visibilityState !== "visible" || !o.root() || lastCompanion === null || busy) return;
       const comp = await readCompanion();
       if (comp === lastCompanion && o.text() === lastText) return;
       void load();
     }, POLL_MS);
+    const placed = () => threads.filter((t) => t.status !== "done" && t.place.offset !== null);
+    const step2 = (dir) => {
+      const list = placed();
+      if (!list.length) return;
+      const i = list.findIndex((t) => t.id === active);
+      const next = list[i === -1 ? dir === 1 ? 0 : list.length - 1 : (i + dir + list.length) % list.length];
+      o.reveal();
+      focusThread(next.id);
+      o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(next.id)}"]`)?.focus({ preventScroll: true });
+    };
     paint();
     void load();
     return {
@@ -12656,6 +13287,33 @@ and ${diags.length - 12} more` : "");
       show: (id) => {
         if (id) focusThread(id);
         else paint();
+      },
+      marks: () => placed().map((t) => ({ id: t.id, offset: t.place.offset, length: t.place.length })),
+      key: (e) => {
+        if (e.metaKey || e.ctrlKey) return false;
+        if (e.altKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+          step2(e.key === "ArrowDown" ? 1 : -1);
+          return true;
+        }
+        if (e.altKey) return false;
+        if (e.key === "c") {
+          const s = selected();
+          if (!s) return false;
+          void startDraft(s.span);
+          return true;
+        }
+        if (e.key === "C") {
+          o.toggle();
+          return true;
+        }
+        if (e.key === "Escape" && (active || draft)) {
+          draft = null;
+          active = "";
+          paint();
+          redraw();
+          return true;
+        }
+        return false;
       }
     };
   }
@@ -13093,7 +13751,11 @@ ${d.message}` : d.message;
             paintMeta();
           }).catch(() => {
           }).finally(render2);
-        }
+        },
+        comments: comments ? { marks: () => comments.marks(), open: (id) => {
+          showComments();
+          comments.show(id);
+        } } : void 0
       });
       editBtn.classList.remove("busy");
       paint();
@@ -13105,6 +13767,28 @@ ${d.message}` : d.message;
       }
     };
     editBtn.addEventListener("click", () => void edit2());
+    const showComments = () => {
+      railTab = "cm";
+      cmWanted = true;
+      kvSet(RAIL_TAB_KEY, "cm");
+      if (tight) peek = true;
+      else if (!tocOpen) {
+        tocOpen = true;
+        kvSet(TOC_KEY, "1");
+      }
+      paint();
+    };
+    const toggleComments = () => {
+      const showing = !rail.hidden && rail.dataset.tab === "cm" && !rail.classList.contains("folded");
+      if (!showing) {
+        showComments();
+        return;
+      }
+      cmWanted = false;
+      railTab = "toc";
+      kvSet(RAIL_TAB_KEY, "toc");
+      paint();
+    };
     if (isMd) comments = mountComments({
       page,
       box: cmBox,
@@ -13114,26 +13798,15 @@ ${d.message}` : d.message;
       text: () => text,
       allow: askToAllow,
       status,
-      changed: paint
+      changed: () => {
+        paint();
+        editor?.marks();
+      },
+      reveal: showComments,
+      toggle: toggleComments,
+      picked: (span) => editor?.select(span.offset, span.offset + span.length)
     });
-    cmBtn.addEventListener("click", () => {
-      const showing = !rail.hidden && rail.dataset.tab === "cm" && !rail.classList.contains("folded");
-      if (showing) {
-        cmWanted = false;
-        railTab = "toc";
-        kvSet(RAIL_TAB_KEY, "toc");
-      } else {
-        railTab = "cm";
-        cmWanted = true;
-        kvSet(RAIL_TAB_KEY, "cm");
-        if (tight) peek = true;
-        else if (!tocOpen) {
-          tocOpen = true;
-          kvSet(TOC_KEY, "1");
-        }
-      }
-      paint();
-    });
+    cmBtn.addEventListener("click", toggleComments);
     document.getElementById("fe-ff-q").addEventListener("input", () => setTimeout(() => comments?.redraw(), 0));
     rawBtn.addEventListener("click", toggleRaw);
     const wrapBtn = document.getElementById("fe-fp-wrap");
@@ -13176,6 +13849,7 @@ ${d.message}` : d.message;
     return {
       toggleRaw,
       edit: () => void edit2(),
+      key: (e) => !editor && !raw && !!comments?.key(e),
       setText(fresh) {
         text = fresh;
         paintMeta();
@@ -16062,7 +16736,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         } else if (["[", "]", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
         return;
       }
-      if (app.filePage && e.key === "r" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (app.filePage?.key(e)) e.preventDefault();
+      else if (app.filePage && e.key === "r" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         app.filePage.toggleRaw();
       } else if (app.filePage && e.key === "e" && !e.metaKey && !e.ctrlKey && !e.altKey) {

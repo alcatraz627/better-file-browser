@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { visibleOf, forOwner } from '../src/comments-ui';
+import { forOwner } from '../src/comments-ui';
+import { visibleOf } from '../src/comment-anchor';
 import type { DocThread } from '../src/notes';
 
 describe('visibleOf', () => {
