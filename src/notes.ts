@@ -85,7 +85,8 @@ export const notes = {
             call({ op: 'writeBinary', root, rel, base64 }) as Promise<{ rel: string; mtime: number }>,
   delete: (root: string, rel: string) => call({ op: 'delete', root, rel }),
   /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
-  pick: (start?: string) => call({ op: 'pick', start }).then(f => (f as { root: string }).root),
+  /// The system chooser: a folder, or with kind 'any' a file or a folder (a folder ends in /). Empty when cancelled.
+  pick: (start?: string, kind?: 'any') => call({ op: 'pick', start, kind }).then(f => (f as { root: string }).root),
   /// The account's home folder, so Places can offer Home before any visit under it.
   home: () => call({ op: 'home' }).then(f => (f as { home: string }).home),
   history: (root: string, rel: string) => call({ op: 'history', root, rel }).then(f => f as { versions: NoteVersion[]; repo?: boolean }),

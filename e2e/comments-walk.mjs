@@ -104,7 +104,7 @@ This sentence will be removed before the page opens.
   await sleep(500);
 
   // Contents is still one tab away and works.
-  const toc = await page.evaluate(() => { document.querySelector('.fe-rt[data-rt="toc"]').click(); return { links: document.querySelectorAll('#fe-toc a').length, cmHidden: document.getElementById('fe-cm').hidden }; });
+  const toc = await page.evaluate(() => { document.getElementById('fe-fp-toc').click(); return { links: document.querySelectorAll('#fe-toc a').length, cmHidden: document.getElementById('fe-cm').hidden }; });
   check(toc.links === 3 && toc.cmHidden, `Contents is the other tab and still lists the headings: ${JSON.stringify(toc)}`);
 } finally {
   console.log(results.join('\n'));

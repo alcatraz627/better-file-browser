@@ -539,8 +539,16 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
-#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 8px 0 6px;background:var(--s1);border-bottom:1px solid var(--bd);
-  overflow-x:auto;flex-shrink:0;min-height:34px;scrollbar-width:none}
+#fe-tabbar{display:flex;align-items:stretch;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:34px}
+#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 4px 0 6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+#fe-tabs-end{display:flex;align-items:center;gap:2px;padding:4px 8px 0 2px;flex:none}
+#fe-tabs-end button{color:var(--mt)}
+#fe-tabs-end button svg{width:13px;height:13px}
+#fe-goto{position:fixed;z-index:60;width:min(460px,calc(100vw - 16px));padding:8px;border-radius:var(--pop-r);
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+#fe-goto input{width:100%;box-sizing:border-box;height:30px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md);outline:0}
+#fe-goto input:focus{border-color:color-mix(in srgb,var(--ac) 70%,var(--bd2))}
+.fe-goto-msg{margin:6px 2px 0;font-size:var(--fs-sm);color:var(--dm)}
 #fe-tabs::-webkit-scrollbar{display:none}
 .fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
   font-size:var(--fs-sm);padding:2px 6px;border-radius:5px;margin-left:4px}
@@ -556,7 +564,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab.on{background:var(--bg);color:var(--tx)}
 .fe-tab.temp{background:none;border-color:transparent}
 .fe-tab.temp.on{background:var(--bg);border-color:var(--bd)}
-.fe-tab.temp .fe-tab-lbl{font-style:italic}
+.fe-tab.temp.on{color:var(--mt);border-style:dashed}
 .fe-tab.drag-over{border-left:2px solid var(--ac)}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
 .fe-tab-head{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
@@ -581,9 +589,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
   box-shadow:0 8px 24px rgb(0 0 0 / .12),0 1px 3px rgb(0 0 0 / .08);transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
 #fe-toc-rail[hidden]{display:none}
-/* The open card reserves its room beside the page, not inside the text, so
-   the column keeps its chosen width and only gives way when space runs out. */
-#fe-fp:has(#fe-toc-rail:not([hidden]):not(.peek)) #fe-page{padding-right:256px}
 #fe-toc-rail.peek{box-shadow:var(--pop-sh)}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
 .fe-toc-title{flex:1;font-size:var(--fs-sm);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
@@ -596,7 +601,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
 /* The rail's two tabs, Contents and Comments. Comments needs more room, so
    the rail and the text column's right padding widen while it shows. */
-.fe-rail-tabs{flex:1;display:flex;gap:2px;min-width:0}
+.fe-rail-title{flex:1;display:flex;align-items:center;gap:7px;margin:0;font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-rail-ico{display:inline-flex;color:var(--mt)}
+.fe-rail-ico svg{width:14px;height:14px}
 .fe-rt{border:0;background:none;padding:3px 9px;border-radius:999px;font-size:var(--fs-md);font-weight:500;
   color:var(--mt);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .fe-rt svg{width:13px;height:13px;opacity:.85}
@@ -606,8 +613,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-rt-n:empty{display:none}
 .fe-rt-n{min-width:16px;padding:0 5px;border-radius:999px;background:var(--ac);color:var(--on-ac);font-size:var(--fs-xs);letter-spacing:0;line-height:16px;text-align:center}
 #fe-toc-rail[data-tab="cm"]{width:320px}
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.peek)) #fe-page{padding-right:336px}
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.peek)) #fe-fe{padding-right:336px}
 /* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
 #fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
 /* The pane buttons right of find: icons only, the comment count as a small badge. */
@@ -1146,6 +1151,9 @@ button.fe-si{width:auto;display:flex}
 .fe-lens-h{padding:6px 12px 8px 16px}
 .fe-hint{padding:6px 16px}
 #fe-lens-filter{width:calc(100% - 12px);margin:2px 6px 8px;height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
+#fe-lens-filter,#fe-search,#fe-srch-q,#fe-find-text,.fe-dd-search{padding-left:28px!important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:9px 50%}
 .fe-lens-tags{padding:0 6px 8px}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);

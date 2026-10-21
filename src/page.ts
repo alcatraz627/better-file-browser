@@ -222,7 +222,7 @@ export function renderPage(p: PageParams): string {
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
       ${lensHead('Notes')}
-      <input id="fe-lens-filter" type="text" placeholder="Filter saved and notes" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
+      <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
       <div class="fe-sec" data-collapse="saved">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
@@ -254,7 +254,13 @@ export function renderPage(p: PageParams): string {
     <div id="fe-side-rz" title="Drag to resize the sidebar"></div>
 
     <div id="fe-main">
-      <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
+      <div id="fe-tabbar">
+        <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
+        <div id="fe-tabs-end">
+          <button id="fe-open-pick" class="btn" data-hover-shade data-icon data-size="sm" title="Open a file or folder" aria-label="Open a file or folder">${UI_ICON.add}</button>
+          <button id="fe-open-path" class="btn" data-hover-shade data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
+        </div>
+      </div>
       ${fileMode ? renderFileContent() : ''}
       <div id="fe-toolbar">
         <span id="fe-count">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
@@ -321,7 +327,7 @@ export function renderPage(p: PageParams): string {
         </div>
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text inside files</span>
-          <input id="fe-find-text" type="text" placeholder="Words to look for" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
+          <input id="fe-find-text" type="text" placeholder="Search text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
           <label class="fe-st-check" title="Use a regular expression for text inside files (advanced)"><input type="checkbox" id="fe-find-text-regex" title="Text regex"> Text regex</label>
           <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
           <label id="fe-find-depth-wrap" class="fe-st-check" style="display:none" title="Maximum subfolder depth to scan">Depth

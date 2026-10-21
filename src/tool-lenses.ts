@@ -31,7 +31,7 @@ function initSearch(app: App): void {
   if (!box) return;
   box.innerHTML = `
     <div class="fe-tl-form">
-      <input id="fe-srch-q" class="fe-tl-input" type="search" placeholder="Text in this folder" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
+      <input id="fe-srch-q" class="fe-tl-input" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
       <div class="fe-tl-opts">
         <label class="fe-tl-opt" title="Look inside subfolders too"><input type="checkbox" id="fe-srch-deep" checked>Subfolders</label>
         <label class="fe-tl-opt" title="Match upper and lower case exactly"><input type="checkbox" id="fe-srch-case">Match case</label>

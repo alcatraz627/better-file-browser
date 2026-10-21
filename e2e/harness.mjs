@@ -31,7 +31,7 @@ import importlib.util, os
 os.environ['BFB_DOCS_HOME'] = ${JSON.stringify(docsHome(profile))}
 spec = importlib.util.spec_from_file_location('notes_host', ${JSON.stringify(join(ROOT, 'native', 'notes_host.py'))})
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-${pickReply ? `m.run_picker = lambda start: ${JSON.stringify(pickReply)}` : ''}
+${pickReply ? `m.run_picker = lambda start, kind=None: ${JSON.stringify(pickReply)}` : ''}
 m.main()
 `, { mode: 0o755 });
   writeFileSync(join(dir, 'com.better_file_browser.notes.json'), JSON.stringify({

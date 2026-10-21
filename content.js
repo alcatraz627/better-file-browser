@@ -657,7 +657,8 @@
     writeBinary: (root, rel, base64) => call({ op: "writeBinary", root, rel, base64 }),
     delete: (root, rel) => call({ op: "delete", root, rel }),
     /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
-    pick: (start) => call({ op: "pick", start }).then((f) => f.root),
+    /// The system chooser: a folder, or with kind 'any' a file or a folder (a folder ends in /). Empty when cancelled.
+    pick: (start, kind) => call({ op: "pick", start, kind }).then((f) => f.root),
     /// The account's home folder, so Places can offer Home before any visit under it.
     home: () => call({ op: "home" }).then((f) => f.home),
     history: (root, rel) => call({ op: "history", root, rel }).then((f) => f),
@@ -4350,8 +4351,16 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
-#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 8px 0 6px;background:var(--s1);border-bottom:1px solid var(--bd);
-  overflow-x:auto;flex-shrink:0;min-height:34px;scrollbar-width:none}
+#fe-tabbar{display:flex;align-items:stretch;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:34px}
+#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 4px 0 6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+#fe-tabs-end{display:flex;align-items:center;gap:2px;padding:4px 8px 0 2px;flex:none}
+#fe-tabs-end button{color:var(--mt)}
+#fe-tabs-end button svg{width:13px;height:13px}
+#fe-goto{position:fixed;z-index:60;width:min(460px,calc(100vw - 16px));padding:8px;border-radius:var(--pop-r);
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+#fe-goto input{width:100%;box-sizing:border-box;height:30px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md);outline:0}
+#fe-goto input:focus{border-color:color-mix(in srgb,var(--ac) 70%,var(--bd2))}
+.fe-goto-msg{margin:6px 2px 0;font-size:var(--fs-sm);color:var(--dm)}
 #fe-tabs::-webkit-scrollbar{display:none}
 .fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
   font-size:var(--fs-sm);padding:2px 6px;border-radius:5px;margin-left:4px}
@@ -4367,7 +4376,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab.on{background:var(--bg);color:var(--tx)}
 .fe-tab.temp{background:none;border-color:transparent}
 .fe-tab.temp.on{background:var(--bg);border-color:var(--bd)}
-.fe-tab.temp .fe-tab-lbl{font-style:italic}
+.fe-tab.temp.on{color:var(--mt);border-style:dashed}
 .fe-tab.drag-over{border-left:2px solid var(--ac)}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
 .fe-tab-head{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
@@ -4392,9 +4401,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
   box-shadow:0 8px 24px rgb(0 0 0 / .12),0 1px 3px rgb(0 0 0 / .08);transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
 #fe-toc-rail[hidden]{display:none}
-/* The open card reserves its room beside the page, not inside the text, so
-   the column keeps its chosen width and only gives way when space runs out. */
-#fe-fp:has(#fe-toc-rail:not([hidden]):not(.peek)) #fe-page{padding-right:256px}
 #fe-toc-rail.peek{box-shadow:var(--pop-sh)}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
 .fe-toc-title{flex:1;font-size:var(--fs-sm);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
@@ -4407,7 +4413,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
 /* The rail's two tabs, Contents and Comments. Comments needs more room, so
    the rail and the text column's right padding widen while it shows. */
-.fe-rail-tabs{flex:1;display:flex;gap:2px;min-width:0}
+.fe-rail-title{flex:1;display:flex;align-items:center;gap:7px;margin:0;font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-rail-ico{display:inline-flex;color:var(--mt)}
+.fe-rail-ico svg{width:14px;height:14px}
 .fe-rt{border:0;background:none;padding:3px 9px;border-radius:999px;font-size:var(--fs-md);font-weight:500;
   color:var(--mt);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .fe-rt svg{width:13px;height:13px;opacity:.85}
@@ -4417,8 +4425,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-rt-n:empty{display:none}
 .fe-rt-n{min-width:16px;padding:0 5px;border-radius:999px;background:var(--ac);color:var(--on-ac);font-size:var(--fs-xs);letter-spacing:0;line-height:16px;text-align:center}
 #fe-toc-rail[data-tab="cm"]{width:320px}
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.peek)) #fe-page{padding-right:336px}
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.peek)) #fe-fe{padding-right:336px}
 /* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
 #fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
 /* The pane buttons right of find: icons only, the comment count as a small badge. */
@@ -4957,6 +4963,9 @@ button.fe-si{width:auto;display:flex}
 .fe-lens-h{padding:6px 12px 8px 16px}
 .fe-hint{padding:6px 16px}
 #fe-lens-filter{width:calc(100% - 12px);margin:2px 6px 8px;height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
+#fe-lens-filter,#fe-search,#fe-srch-q,#fe-find-text,.fe-dd-search{padding-left:28px!important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:9px 50%}
 .fe-lens-tags{padding:0 6px 8px}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);
@@ -13666,7 +13675,7 @@ ${d.message}` : d.message;
         <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
         <span id="fe-ff" title="Find in this file (/) \xB7 Enter next \xB7 Shift+Enter previous \xB7 Esc clears">
           <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><circle cx="5.5" cy="5.5" r="3.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8.4 8.4 11.5 11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-          <input id="fe-ff-q" type="text" placeholder="Find in file" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
+          <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
           <span id="fe-ff-n" aria-live="polite"></span>
           <button id="fe-ff-prev" data-icon data-size="sm" title="Previous match (Shift+Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <button id="fe-ff-next" data-icon data-size="sm" title="Next match (Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -13680,9 +13689,7 @@ ${d.message}` : d.message;
         <div id="fe-page"></div>
         <div id="fe-fe" style="display:none"></div>
         <aside id="fe-toc-rail" hidden>
-          <div class="fe-toc-head"><div class="fe-rail-tabs" role="tablist" aria-label="Side panel">
-            <button type="button" role="tab" class="fe-rt" data-rt="toc" title="Headings on this page">${UI_ICON.contents}On this page</button>
-            <button type="button" role="tab" class="fe-rt" data-rt="cm" title="Comments on this file">${UI_ICON.comment}Comments<span class="fe-rt-n" id="fe-cm-n"></span></button></div></div>
+          <div class="fe-toc-head"><h3 class="fe-rail-title"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="fe-rt-n" id="fe-cm-n"></span></h3></div>
           <nav id="fe-toc"></nav>
           <div id="fe-cm" role="tabpanel" aria-label="Comments" hidden></div>
         </aside>
@@ -13739,12 +13746,9 @@ ${d.message}` : d.message;
       rail.dataset.tab = tab;
       toc.hidden = tab !== "toc";
       cmBox.hidden = tab !== "cm";
-      rail.querySelectorAll(".fe-rt").forEach((b) => {
-        b.classList.toggle("on", b.dataset.rt === tab);
-        b.setAttribute("aria-selected", String(b.dataset.rt === tab));
-        if (b.dataset.rt === "toc") b.hidden = !hasToc;
-      });
-      cmN.textContent = cmOpen ? String(cmOpen) : "";
+      rail.querySelector(".fe-rail-ico").innerHTML = tab === "cm" ? UI_ICON.comment : UI_ICON.contents;
+      rail.querySelector(".fe-rail-name").textContent = tab === "cm" ? "Comments" : "On this page";
+      cmN.textContent = tab === "cm" && cmOpen ? String(cmOpen) : "";
       cmBtn.hidden = !isMd || raw;
       tocBtn.hidden = !hasToc || raw;
       for (const [b, t] of [[tocBtn, "toc"], [cmBtn, "cm"]]) {
@@ -13801,11 +13805,6 @@ ${d.message}` : d.message;
       paint();
     };
     render2();
-    rail.querySelector(".fe-rail-tabs").addEventListener("click", (e) => {
-      const t = e.target.closest("[data-rt]")?.dataset.rt;
-      if (!t) return;
-      showPane(t);
-    });
     const fp = document.getElementById("fe-fp");
     if (fp) new ResizeObserver(() => {
       const was = tight;
@@ -15289,7 +15288,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
       ${lensHead("Notes")}
-      <input id="fe-lens-filter" type="text" placeholder="Filter saved and notes" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
+      <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches label, path, title and tag, and words inside notes. #work matches tags only. Esc clears." hidden>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
       <div class="fe-sec" data-collapse="saved">
         <div class="fe-sh" style="justify-content:space-between"><span class="fe-sh-label">Saved</span>
@@ -15321,7 +15320,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     <div id="fe-side-rz" title="Drag to resize the sidebar"></div>
 
     <div id="fe-main">
-      <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
+      <div id="fe-tabbar">
+        <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
+        <div id="fe-tabs-end">
+          <button id="fe-open-pick" class="btn" data-hover-shade data-icon data-size="sm" title="Open a file or folder" aria-label="Open a file or folder">${UI_ICON.add}</button>
+          <button id="fe-open-path" class="btn" data-hover-shade data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
+        </div>
+      </div>
       ${fileMode ? renderFileContent() : ""}
       <div id="fe-toolbar">
         <span id="fe-count">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
@@ -15388,7 +15393,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         </div>
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text inside files</span>
-          <input id="fe-find-text" type="text" placeholder="Words to look for" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
+          <input id="fe-find-text" type="text" placeholder="Search text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
           <label class="fe-st-check" title="Use a regular expression for text inside files (advanced)"><input type="checkbox" id="fe-find-text-regex" title="Text regex"> Text regex</label>
           <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
           <label id="fe-find-depth-wrap" class="fe-st-check" style="display:none" title="Maximum subfolder depth to scan">Depth
@@ -17642,7 +17647,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     if (!box) return;
     box.innerHTML = `
     <div class="fe-tl-form">
-      <input id="fe-srch-q" class="fe-tl-input" type="search" placeholder="Text in this folder" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
+      <input id="fe-srch-q" class="fe-tl-input" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
       <div class="fe-tl-opts">
         <label class="fe-tl-opt" title="Look inside subfolders too"><input type="checkbox" id="fe-srch-deep" checked>Subfolders</label>
         <label class="fe-tl-opt" title="Match upper and lower case exactly"><input type="checkbox" id="fe-srch-case">Match case</label>
@@ -18323,6 +18328,86 @@ ${rows.join("\n")}`, name: subject };
     document.addEventListener("keydown", hide, true);
   }
 
+  // src/goto.ts
+  var LAST_KEY = "bfb-goto-last-v1";
+  function pathToHref(input, home) {
+    let p = input.trim().replace(/^['"]|['"]$/g, "");
+    if (!p) return null;
+    if (/^file:\/\//i.test(p)) {
+      try {
+        p = decodeURIComponent(new URL(p).pathname);
+      } catch {
+        return null;
+      }
+    }
+    if (p === "~" || p.startsWith("~/")) {
+      if (!home) return null;
+      p = home + p.slice(1);
+    }
+    if (!p.startsWith("/")) return null;
+    return pageHref(fileHref(p));
+  }
+  function mountGoto(btn, home) {
+    let box = null;
+    const close = () => {
+      if (!box) return;
+      kvSet(LAST_KEY, box.querySelector("input").value);
+      box.remove();
+      box = null;
+      document.removeEventListener("pointerdown", away, true);
+      btn.classList.remove("on");
+    };
+    const away = (e) => {
+      if (box && !box.contains(e.target) && !btn.contains(e.target)) close();
+    };
+    const open = () => {
+      box = document.createElement("form");
+      box.id = "fe-goto";
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-label", "Go to a path");
+      const recents = getRecents().slice(0, 30);
+      box.innerHTML = `<input type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
+      <datalist id="fe-goto-list">${recents.map((r2) => `<option value="${esc(r2.path)}"></option>`).join("")}</datalist>
+      <p class="fe-goto-msg" hidden></p>`;
+      document.getElementById("fe").appendChild(box);
+      const r = btn.getBoundingClientRect();
+      box.style.top = `${r.bottom + 6}px`;
+      box.style.left = `${Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8))}px`;
+      const input = box.querySelector("input");
+      input.value = kvGet(LAST_KEY) ?? "";
+      input.focus();
+      input.select();
+      btn.classList.add("on");
+      box.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const href = pathToHref(input.value, home());
+        if (!href) {
+          const msg = box.querySelector(".fe-goto-msg");
+          msg.hidden = false;
+          msg.textContent = "Paste a full path, such as ~/Code or /Users/you/notes.md";
+          return;
+        }
+        kvSet(LAST_KEY, input.value);
+        location.href = href;
+      });
+      box.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          close();
+          btn.focus();
+        }
+      });
+      input.addEventListener("input", () => kvSet(LAST_KEY, input.value));
+      document.addEventListener("pointerdown", away, true);
+    };
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (box) close();
+      else open();
+    });
+  }
+
   // src/main.ts
   async function showClosedSets(strip, visible) {
     const box = document.getElementById("fe-rc-sets");
@@ -18526,6 +18611,13 @@ ${rows.join("\n")}`, name: subject };
     }, saveError: (message) => app.toast(message), toast: (message) => app.toast(message) });
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
     void showClosedSets(app.strip, !settings.hideRecent);
+    mountGoto(el("fe-open-path"), () => homeDir(rawPath));
+    el("fe-open-pick").addEventListener("click", () => {
+      notes.pick(rawPath, "any").then((p) => {
+        const href = p && pathToHref(p, "");
+        if (href) location.href = href;
+      }).catch((err) => app.toast(`Could not open the chooser: ${err.message}`));
+    });
     if (fileMode) {
       const href = viewHref || location.href;
       app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: settings.editableFolders });

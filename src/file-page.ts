@@ -148,7 +148,7 @@ export function renderFileContent(): string {
         <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
         <span id="fe-ff" title="Find in this file (/) · Enter next · Shift+Enter previous · Esc clears">
           <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><circle cx="5.5" cy="5.5" r="3.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8.4 8.4 11.5 11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-          <input id="fe-ff-q" type="text" placeholder="Find in file" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
+          <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
           <span id="fe-ff-n" aria-live="polite"></span>
           <button id="fe-ff-prev" data-icon data-size="sm" title="Previous match (Shift+Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <button id="fe-ff-next" data-icon data-size="sm" title="Next match (Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -162,9 +162,7 @@ export function renderFileContent(): string {
         <div id="fe-page"></div>
         <div id="fe-fe" style="display:none"></div>
         <aside id="fe-toc-rail" hidden>
-          <div class="fe-toc-head"><div class="fe-rail-tabs" role="tablist" aria-label="Side panel">
-            <button type="button" role="tab" class="fe-rt" data-rt="toc" title="Headings on this page">${UI_ICON.contents}On this page</button>
-            <button type="button" role="tab" class="fe-rt" data-rt="cm" title="Comments on this file">${UI_ICON.comment}Comments<span class="fe-rt-n" id="fe-cm-n"></span></button></div></div>
+          <div class="fe-toc-head"><h3 class="fe-rail-title"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="fe-rt-n" id="fe-cm-n"></span></h3></div>
           <nav id="fe-toc"></nav>
           <div id="fe-cm" role="tabpanel" aria-label="Comments" hidden></div>
         </aside>
@@ -236,12 +234,9 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     rail.dataset.tab = tab;
     toc.hidden = tab !== 'toc';
     cmBox.hidden = tab !== 'cm';
-    rail.querySelectorAll<HTMLElement>('.fe-rt').forEach(b => {
-      b.classList.toggle('on', b.dataset.rt === tab);
-      b.setAttribute('aria-selected', String(b.dataset.rt === tab));
-      if (b.dataset.rt === 'toc') b.hidden = !hasToc;
-    });
-    cmN.textContent = cmOpen ? String(cmOpen) : '';
+    rail.querySelector('.fe-rail-ico')!.innerHTML = tab === 'cm' ? UI_ICON.comment : UI_ICON.contents;
+    rail.querySelector('.fe-rail-name')!.textContent = tab === 'cm' ? 'Comments' : 'On this page';
+    cmN.textContent = tab === 'cm' && cmOpen ? String(cmOpen) : '';
     cmBtn.hidden = !isMd || raw;
     tocBtn.hidden = !hasToc || raw;
     for (const [b, t] of [[tocBtn, 'toc'], [cmBtn, 'cm']] as const) {
@@ -290,11 +285,6 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     paint();
   };
   render();
-  rail.querySelector('.fe-rail-tabs')!.addEventListener('click', e => {
-    const t = (e.target as Element).closest<HTMLElement>('[data-rt]')?.dataset.rt;
-    if (!t) return;
-    showPane(t as 'toc' | 'cm');
-  });
   const fp = document.getElementById('fe-fp');
   if (fp) new ResizeObserver(() => {
     const was = tight;

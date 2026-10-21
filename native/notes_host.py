@@ -406,8 +406,29 @@ def op_version(root, rel, sha):
         raise NotesError('notes_missing', f'no version {sha} of {rel}')
     return {'t': 'version', 'rel': rel, 'sha': sha, 'text': text}
 
-def run_picker(start):
-    """Ask macOS for a folder and return its path; empty text when the person cancels."""
+# A file or a folder from one chooser. AppleScript's own choosers take one or
+# the other, so this asks AppKit through JavaScript for Automation.
+PICK_ANY = """
+ObjC.import('AppKit');
+var p = $.NSOpenPanel.openPanel;
+p.canChooseFiles = true; p.canChooseDirectories = true; p.allowsMultipleSelection = false;
+p.message = 'Open a file or folder';
+if (START) p.directoryURL = $.NSURL.fileURLWithPath(START);
+$.NSApplication.sharedApplication.activateIgnoringOtherApps(true);
+p.runModal == $.NSModalResponseOK ? ObjC.unwrap(p.URLs.objectAtIndex(0).path) : '';
+"""
+
+def run_picker(start, kind=None):
+    """Ask macOS for a folder (or, with kind 'any', a file or a folder) and
+    return its path, a folder ending in /; empty text when the person cancels."""
+    if kind == 'any':
+        here = os.path.realpath(os.path.expanduser(start)) if isinstance(start, str) and start else ''
+        if here and not os.path.isdir(here): here = os.path.dirname(here)
+        r = subprocess.run(['osascript', '-l', 'JavaScript', '-e', PICK_ANY.replace('START', json.dumps(here))], capture_output=True, text=True)
+        if r.returncode != 0:
+            raise NotesError('notes_io', r.stderr.strip() or 'the chooser failed')
+        p = r.stdout.strip()
+        return (p.rstrip('/') + '/') if p and os.path.isdir(p) else p
     where = ''
     if isinstance(start, str) and os.path.isdir(os.path.expanduser(start)) and not any(c in start for c in '"\\'):
         where = f' default location (POSIX file "{os.path.realpath(os.path.expanduser(start))}")'
@@ -479,7 +500,7 @@ def op_docs_index():
 def handle(msg):
     op = msg.get('op')
     if op == 'people': return {'t': 'people', 'peers': _docs().ipc_peers()}
-    if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'))}
+    if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'), msg.get('kind'))}
     if op == 'home': return {'t': 'home', 'home': os.path.expanduser('~')}
     if op == 'docsIndex': return op_docs_index()
     root = resolve_root(msg.get('root'))
