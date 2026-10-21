@@ -3962,6 +3962,10 @@ body{opacity:1!important}
   transition:max-width var(--t-base) var(--ease),opacity var(--t-base) var(--ease)}
 .fe-rail-btn.on{flex:1 0 auto;gap:6px;padding:0 9px}
 .fe-rail-btn.on em{max-width:110px;opacity:1}
+#fe-rail.measuring .fe-rail-btn,#fe-rail.measuring .fe-rail-btn em{transition:none}
+#fe-rail.tight .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 3px}
+#fe-rail.tight .fe-rail-btn.on{gap:0}
+#fe-rail.tight .fe-rail-btn em{display:none}
 @media (prefers-reduced-motion:reduce){.fe-rail-btn,.fe-rail-btn em{transition:none}}
 .fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
 .fe-rail-btn.on{background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx)}
@@ -3977,6 +3981,7 @@ body{opacity:1!important}
 .fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
 .fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-doc-name{font-size:var(--row-fs)}
+.fe-docs-top[hidden]{display:none}
 .fe-doc-dir{font-size:var(--fs-sm);color:var(--dm)}
 .fe-doc-me{display:inline-flex;color:var(--ac)}
 .fe-doc-me svg{width:13px;height:13px}
@@ -4034,10 +4039,10 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-sv-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
   width:18px;height:18px;line-height:1;font-size:var(--fs-lg);padding:0;display:flex;align-items:center;justify-content:center}
 #fe-sv-add:hover{border-color:var(--ac);color:var(--ac)}
-#fe-lens-filter{display:block;width:calc(100% - 20px);margin:2px 10px 6px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+#fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 20px);margin:2px 10px 6px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:3px 8px;border-radius:var(--r);font-size:var(--fs-sm);outline:none;transition:border-color .15s}
-#fe-lens-filter:focus{border-color:var(--ac)}
-#fe-lens-filter::placeholder{color:var(--dm)}
+#fe-lens-filter:focus,#fe-docs-q:focus{border-color:var(--ac)}
+#fe-lens-filter::placeholder,#fe-docs-q::placeholder{color:var(--dm)}
 .fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
 .fe-sv-tag{display:flex;align-items:center;gap:7px;padding:8px 14px 3px;font-size:var(--fs-sm);font-weight:600;
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm)}
@@ -5001,8 +5006,8 @@ button.fe-si{width:auto;display:flex}
 .fe-sh{padding:10px 16px 4px}
 .fe-lens-h{padding:6px 12px 8px 16px}
 .fe-hint{padding:6px 16px}
-#fe-lens-filter{width:calc(100% - 12px);margin:2px 6px 8px;height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
-#fe-lens-filter,#fe-search,#fe-srch-q,#fe-find-text,.fe-dd-search{padding-left:28px!important;
+#fe-lens-filter,#fe-docs-q{width:calc(100% - 12px);margin:2px 6px 8px;height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
+#fe-lens-filter,#fe-search,#fe-srch-q,#fe-find-text,#fe-filter-q,#fe-docs-q,.fe-dd-search{padding-left:28px!important;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:9px 50%}
 .fe-lens-tags{padding:0 6px 8px}
@@ -5287,8 +5292,11 @@ button.fe-si{width:auto;display:flex}
 @container fe-main (max-width:400px){
   .c-dt{display:none}
 }
+/* A narrow window keeps the card out of the text until it is asked for;
+   then it floats over the right side (the peek state, set in file-page.ts). */
 @media (max-width:760px){
-  #fe-toc-rail{display:none}
+  #fe-toc-rail:not(.peek){display:none}
+  #fe-toc-rail.peek{width:min(300px,calc(100% - 24px));right:12px}
 }
 @media (max-width:640px){
   #fe-side{max-width:42vw}
@@ -12858,7 +12866,18 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
     const ranges = /* @__PURE__ */ new Map();
     const typed = /* @__PURE__ */ new Map();
     let linked = location.hash.startsWith("#c=") ? decodeURIComponent(location.hash.slice(3)) : "";
-    if (location.hash === "#comments") setTimeout(() => o.reveal(), 0);
+    let fromLens = location.hash === "#comments";
+    if (fromLens) setTimeout(() => o.reveal(), 0);
+    addEventListener("hashchange", () => {
+      if (location.hash === "#comments") {
+        fromLens = true;
+        o.reveal();
+        void load();
+      } else if (location.hash.startsWith("#c=")) {
+        linked = decodeURIComponent(location.hash.slice(3));
+        void load();
+      }
+    });
     let peers = null;
     const loadPeers = () => {
       if (peers === null) {
@@ -12903,6 +12922,11 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         linked = "";
         o.reveal();
         focusThread(hit.id);
+      }
+      const first = fromLens && (threads.find((t) => t.status !== "done" && t.place.offset !== null) ?? threads.find((t) => t.status !== "done"));
+      if (first) {
+        fromLens = false;
+        focusThread(first.id);
       }
     };
     const write = async (ops, what) => {
@@ -13102,7 +13126,9 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         paint();
         redraw();
       }
-      o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" });
+      const th = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
+      th?.scrollIntoView({ block: "nearest" });
+      th?.querySelector(`textarea[data-for="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" });
       const r = ranges.get(id);
       if (scroll && r) {
         const box2 = r.getBoundingClientRect(), pg = o.page.getBoundingClientRect();
@@ -13846,8 +13872,9 @@ ${d.message}` : d.message;
       }
       paint();
     };
-    render2();
     const fp = document.getElementById("fe-fp");
+    if (fp) tight = fp.clientWidth < TOC_ROOMY;
+    render2();
     if (fp) new ResizeObserver(() => {
       const was = tight;
       tight = fp.clientWidth < TOC_ROOMY;
@@ -17143,8 +17170,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         b.tabIndex = on ? 0 : -1;
       }
       for (const l of lenses) l.hidden = l.dataset.lens !== pick;
+      fitBar();
       document.dispatchEvent(new CustomEvent("bfb-lens", { detail: pick }));
     };
+    function fitBar() {
+      rail.classList.remove("tight");
+      rail.classList.add("measuring");
+      const over = rail.scrollWidth > rail.clientWidth + 1;
+      rail.classList.remove("measuring");
+      rail.classList.toggle("tight", over);
+    }
+    new ResizeObserver(fitBar).observe(rail);
     app.showLens = (lens, hideHistory) => {
       if (hideHistory !== void 0) el("fe-rail-history").hidden = hideHistory;
       show(lens ?? kvGet(LENS_KEY) ?? "notes");
@@ -17179,13 +17215,16 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       e.preventDefault();
       step2(dir, true);
     });
-    let wheelAt = 0;
+    let wheelAt = 0, steppedAt = 0;
     rail.addEventListener("wheel", (e) => {
       const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
       if (!d) return;
       e.preventDefault();
-      if (e.timeStamp - wheelAt < 220) return;
+      const notch = e.deltaMode !== 0 || Math.abs(d) >= 40;
+      const quiet = e.timeStamp - wheelAt;
       wheelAt = e.timeStamp;
+      if (notch ? e.timeStamp - steppedAt < 120 : quiet < 220) return;
+      steppedAt = e.timeStamp;
       step2(d > 0 ? 1 : -1);
     }, { passive: false });
     const find = document.querySelector(".fe-lens-find");
@@ -17267,13 +17306,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       syncStar();
       syncLens();
     }
+    const openLens = () => document.querySelector("#fe-rail .fe-rail-btn.on")?.dataset.lens;
     function syncLens() {
       const box = document.getElementById("fe-lens-filter");
       const row = document.getElementById("fe-lens-tags");
       if (!box || !row) return;
-      box.hidden = getSaved().length + lensNotes.count <= 8 && !box.value;
+      const inNotes = openLens() === "notes";
+      box.hidden = (inNotes ? lensNotes.count : getSaved().length) <= 8 && !box.value;
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
-      const names = [.../* @__PURE__ */ new Set([...getSaved().flatMap((p) => p.tags ?? []), ...lensNotes.tags])].sort();
+      const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap((p) => p.tags ?? []))].sort();
       const on = box.value.trim().toLowerCase();
       row.hidden = !names.length;
       row.innerHTML = names.map((n) => `<button type="button" class="fe-chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}">${esc(n)}</button>`).join("");
@@ -17489,6 +17530,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         lensFilter.blur();
       }
       e.stopPropagation();
+    });
+    document.addEventListener("bfb-lens", (e) => {
+      const lens = e.detail;
+      if (lens !== "saved" && lens !== "notes") return;
+      if (lensFilter.value) {
+        lensFilter.value = "";
+        applyLensFilter();
+      } else syncLens();
     });
     el("fe-lens-tags").addEventListener("click", (e) => {
       const chip = e.target.closest(".fe-lens-tag");
@@ -18480,6 +18529,10 @@ ${rows.join("\n")}`, name: subject };
   // src/goto.ts
   var LAST_KEY = "bfb-goto-last-v1";
   function pathToHref(input, home) {
+    const p = absPath(input, home);
+    return p ? pageHref(fileHref(p)) : null;
+  }
+  function absPath(input, home) {
     let p = input.trim().replace(/^['"]|['"]$/g, "");
     if (!p) return null;
     if (/^file:\/\//i.test(p)) {
@@ -18493,8 +18546,19 @@ ${rows.join("\n")}`, name: subject };
       if (!home) return null;
       p = home + p.slice(1);
     }
-    if (!p.startsWith("/")) return null;
-    return pageHref(fileHref(p));
+    return p.startsWith("/") ? p : null;
+  }
+  async function exists(path) {
+    const clean = path.replace(/\/+$/, "");
+    if (!clean) return true;
+    const parent = clean.slice(0, clean.lastIndexOf("/") + 1) || "/";
+    const name = clean.slice(clean.lastIndexOf("/") + 1);
+    try {
+      const dir = fileHref(parent);
+      return parseListing(await fetchFileText(dir, 1), dir).some((e) => e.name === name);
+    } catch {
+      return false;
+    }
   }
   function mountGoto(btn, home) {
     let box = null;
@@ -18527,17 +18591,24 @@ ${rows.join("\n")}`, name: subject };
       input.focus();
       input.select();
       btn.classList.add("on");
-      box.addEventListener("submit", (e) => {
+      const say = (text) => {
+        const msg = box.querySelector(".fe-goto-msg");
+        msg.hidden = false;
+        msg.textContent = text;
+      };
+      box.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const href = pathToHref(input.value, home());
-        if (!href) {
-          const msg = box.querySelector(".fe-goto-msg");
-          msg.hidden = false;
-          msg.textContent = "Paste a full path, such as ~/Code or /Users/you/notes.md";
+        const path = absPath(input.value, home());
+        if (!path) {
+          say("Paste a full path, such as ~/Code or /Users/you/notes.md");
           return;
         }
         kvSet(LAST_KEY, input.value);
-        location.href = href;
+        if (!await exists(path)) {
+          say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
+          return;
+        }
+        location.href = pageHref(fileHref(path));
       });
       box.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
@@ -18558,40 +18629,77 @@ ${rows.join("\n")}`, name: subject };
   }
 
   // src/docs-lens.ts
-  function docRows(rows) {
-    return rows.filter((r) => r.exists !== false && r.open + r.done > 0).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
+  var forMe = (r) => (r.mentions ?? []).some((m) => m === "user" || m === "owner");
+  function docRows(rows, f = { q: "", me: false, due: false }) {
+    const q = f.q.trim().toLowerCase();
+    return rows.filter((r) => r.exists !== false && r.open + r.done > 0).filter((r) => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length)).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
   }
   function initDocsLens(box, home) {
-    let loaded = false;
+    let loaded = false, all = [];
+    const f = { q: "", me: false, due: false };
+    box.innerHTML = `<div class="fe-docs-top" hidden>
+      <input id="fe-docs-q" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
+      <div class="fe-lens-tags"><button type="button" class="fe-chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="fe-chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button></div>
+    </div><div class="fe-docs-rows"></div>`;
+    const top = box.querySelector(".fe-docs-top"), rowsBox = box.querySelector(".fe-docs-rows");
+    const input = box.querySelector("#fe-docs-q");
     const short = (p) => (home && p.startsWith(home + "/") ? "~" + p.slice(home.length) : p).replace(/\/[^/]+$/, "") || "/";
     const due = (d) => (/* @__PURE__ */ new Date(d + "T00:00:00")).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const paint = (rows) => {
-      const list = docRows(rows);
-      if (!list.length) {
-        box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
+    const paint = () => {
+      const usable = docRows(all);
+      top.hidden = !usable.length;
+      for (const c of top.querySelectorAll("[data-f]")) c.classList.toggle("on", f[c.dataset.f]);
+      const list = docRows(all, f);
+      if (!usable.length) {
+        rowsBox.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
         return;
       }
-      box.innerHTML = list.map((r) => {
-        const mine = (r.mentions ?? []).some((m) => m === "user" || m === "owner");
-        return `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
+      if (!list.length) {
+        rowsBox.innerHTML = '<div class="fe-cm-empty"><p>No document matches</p></div>';
+        return;
+      }
+      rowsBox.innerHTML = list.map((r) => `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
         <span class="fe-row-ico">${icoFile(r.name.split(".").pop().toLowerCase())}</span>
-        <span class="fe-doc-tx"><span class="fe-doc-name">${esc(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
-        ${mine ? `<span class="fe-doc-me" title="Mentions you">${UI_ICON.at}</span>` : ""}
+        <span class="fe-doc-tx"><span class="fe-doc-name">${midHtml(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
+        ${forMe(r) ? `<span class="fe-doc-me" title="Mentions you">${UI_ICON.at}</span>` : ""}
         ${r.due?.length ? `<span class="fe-doc-due" title="Due ${esc(r.due[0])}">${esc(due(r.due[0]))}</span>` : ""}
         <span class="fe-doc-n${r.open ? "" : " done"}" title="${r.open} open, ${r.done} done">${r.open || UI_ICON.check}</span>
-      </button>`;
-      }).join("");
+      </button>`).join("");
     };
-    const load = () => notes.docsIndex().then(paint).catch((err) => {
-      box.innerHTML = `<div class="fe-cm-empty"><p>Comments could not be listed</p><p class="fe-cm-hint">${esc(err.message)}</p></div>`;
+    const load = () => notes.docsIndex().then((rows) => {
+      all = rows;
+      paint();
+    }).catch((err) => {
+      top.hidden = true;
+      rowsBox.innerHTML = `<div class="fe-cm-empty"><p>Comments could not be listed</p><p class="fe-cm-hint">${esc(err.message)}</p></div>`;
     });
-    box.addEventListener("click", (e) => {
+    input.addEventListener("input", () => {
+      f.q = input.value;
+      paint();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && input.value) {
+        e.preventDefault();
+        input.value = "";
+        f.q = "";
+        paint();
+      }
+      e.stopPropagation();
+    });
+    top.addEventListener("click", (e) => {
+      const c = e.target.closest("[data-f]");
+      if (!c) return;
+      const k = c.dataset.f;
+      f[k] = !f[k];
+      paint();
+    });
+    rowsBox.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-doc-row");
       if (b) location.href = fileHref(b.dataset.doc) + "#comments";
     });
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "comments") return;
-      if (!loaded) box.innerHTML = '<div class="fe-cm-empty"><p>Loading\u2026</p></div>';
+      if (!loaded) rowsBox.innerHTML = '<div class="fe-cm-empty"><p>Loading\u2026</p></div>';
       loaded = true;
       void load();
     });

@@ -5,6 +5,8 @@
 import { esc, fileHref, pageHref } from './utils';
 import { getRecents } from './storage';
 import { kvGet, kvSet } from './kv';
+import { fetchFileText } from './file-fetch';
+import { parseListing } from './parse';
 
 const LAST_KEY = 'bfb-goto-last-v1';
 
@@ -12,12 +14,29 @@ const LAST_KEY = 'bfb-goto-last-v1';
  *  quotes and a trailing newline from a copied path are dropped. Null when it
  *  is not an absolute path. */
 export function pathToHref(input: string, home: string): string | null {
+  const p = absPath(input, home);
+  return p ? pageHref(fileHref(p)) : null;
+}
+
+/** The absolute path a typed or pasted entry names, or null (see pathToHref). */
+export function absPath(input: string, home: string): string | null {
   let p = input.trim().replace(/^['"]|['"]$/g, '');
   if (!p) return null;
   if (/^file:\/\//i.test(p)) { try { p = decodeURIComponent(new URL(p).pathname); } catch { return null; } }
   if (p === '~' || p.startsWith('~/')) { if (!home) return null; p = home + p.slice(1); }
-  if (!p.startsWith('/')) return null;
-  return pageHref(fileHref(p));
+  return p.startsWith('/') ? p : null;
+}
+
+/** Whether a path is there, read from its folder's listing so a large file is never read. */
+async function exists(path: string): Promise<boolean> {
+  const clean = path.replace(/\/+$/, '');
+  if (!clean) return true;
+  const parent = clean.slice(0, clean.lastIndexOf('/') + 1) || '/';
+  const name = clean.slice(clean.lastIndexOf('/') + 1);
+  try {
+    const dir = fileHref(parent);
+    return parseListing(await fetchFileText(dir, 1), dir).some(e => e.name === name);
+  } catch { return false; }
 }
 
 export function mountGoto(btn: HTMLElement, home: () => string): void {
@@ -47,16 +66,14 @@ export function mountGoto(btn: HTMLElement, home: () => string): void {
     input.value = kvGet(LAST_KEY) ?? '';
     input.focus(); input.select();
     btn.classList.add('on');
-    box.addEventListener('submit', e => {
+    const say = (text: string) => { const msg = box!.querySelector<HTMLElement>('.fe-goto-msg')!; msg.hidden = false; msg.textContent = text; };
+    box.addEventListener('submit', async e => {
       e.preventDefault();
-      const href = pathToHref(input.value, home());
-      if (!href) {
-        const msg = box!.querySelector<HTMLElement>('.fe-goto-msg')!;
-        msg.hidden = false; msg.textContent = 'Paste a full path, such as ~/Code or /Users/you/notes.md';
-        return;
-      }
+      const path = absPath(input.value, home());
+      if (!path) { say('Paste a full path, such as ~/Code or /Users/you/notes.md'); return; }
       kvSet(LAST_KEY, input.value);
-      location.href = href;
+      if (!await exists(path)) { say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`); return; }
+      location.href = pageHref(fileHref(path));
     });
     box.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); btn.focus(); } });
     input.addEventListener('input', () => kvSet(LAST_KEY, input.value));

@@ -27,8 +27,20 @@ function initLenses(app: App): void {
     const pick = usable.includes(lens) ? lens : 'notes';
     for (const b of btns) { const on = b.dataset.lens === pick; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; }
     for (const l of lenses) l.hidden = l.dataset.lens !== pick;
+    fitBar();
     document.dispatchEvent(new CustomEvent('bfb-lens', { detail: pick }));
   };
+  // A narrow sidebar cannot hold every icon and the open lens's name, so the
+  // name goes first; the lens title below still says which lens is open.
+  // Measured with transitions held, so a name still growing is read at full size.
+  function fitBar(): void {
+    rail.classList.remove('tight');
+    rail.classList.add('measuring');
+    const over = rail.scrollWidth > rail.clientWidth + 1;
+    rail.classList.remove('measuring');
+    rail.classList.toggle('tight', over);
+  }
+  new ResizeObserver(fitBar).observe(rail);
   app.showLens = (lens, hideHistory) => {
     if (hideHistory !== undefined) el('fe-rail-history').hidden = hideHistory;
     show(lens ?? kvGet(LENS_KEY) ?? 'notes');
@@ -56,23 +68,28 @@ function initLenses(app: App): void {
     if (focus) next.focus();
   };
   // The arrow keys move between lenses, and so does the wheel over the bar:
-  // one step per notch, with a pause so a trackpad swipe moves one lens.
+  // one step per mouse notch, and one per trackpad swipe, which arrives as a
+  // stream of small deltas and counts as one gesture until it pauses.
   rail.addEventListener('keydown', e => {
     const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
     if (!dir) return;
     e.preventDefault();
     step(dir, true);
   });
-  let wheelAt = 0;
+  let wheelAt = 0, steppedAt = 0;
   rail.addEventListener('wheel', e => {
     const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
     if (!d) return;
     e.preventDefault();
-    if (e.timeStamp - wheelAt < 220) return;
+    const notch = e.deltaMode !== 0 || Math.abs(d) >= 40;
+    const quiet = e.timeStamp - wheelAt;
     wheelAt = e.timeStamp;
+    if (notch ? e.timeStamp - steppedAt < 120 : quiet < 220) return;
+    steppedAt = e.timeStamp;
     step(d > 0 ? 1 : -1);
   }, { passive: false });
-  // Saved and Notes share one filter and tag row, which moves to whichever of the two is open.
+  // Saved and Notes use one filter box, moved to whichever of the two is open;
+  // initSidebar empties it on the move so a query never follows you across.
   const find = document.querySelector<HTMLElement>('.fe-lens-find');
   document.addEventListener('bfb-lens', e => {
     const lens = (e as CustomEvent).detail;
@@ -150,17 +167,20 @@ export function initSidebar(app: App): void {
     syncLens();
   }
 
-  // One filter and one tag row for the whole lens (design-system.md, D3d).
-  // The box writes into each list's own filter, so Saved keeps its label, path
-  // and tag match and Notes keeps its tag and full-text search. It shows only
-  // once the lens holds more than eight rows, or while it has text.
+  // One filter and one tag row, in whichever of Saved and Notes is open. The
+  // box writes into each list's own filter, so Saved keeps its label, path and
+  // tag match and Notes keeps its tag and full-text search. It shows only once
+  // the open lens holds more than eight rows, or while it has text, and the
+  // tag row offers only that lens's tags.
+  const openLens = () => document.querySelector<HTMLElement>('#fe-rail .fe-rail-btn.on')?.dataset.lens;
   function syncLens(): void {
     const box = document.getElementById('fe-lens-filter') as HTMLInputElement | null;
     const row = document.getElementById('fe-lens-tags');
     if (!box || !row) return;
-    box.hidden = getSaved().length + lensNotes.count <= 8 && !box.value;
+    const inNotes = openLens() === 'notes';
+    box.hidden = (inNotes ? lensNotes.count : getSaved().length) <= 8 && !box.value;
     const colour = new Map(getTags().map(t => [t.name, t.color]));
-    const names = [...new Set([...getSaved().flatMap(p => p.tags ?? []), ...lensNotes.tags])].sort();
+    const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap(p => p.tags ?? []))].sort();
     const on = box.value.trim().toLowerCase();
     row.hidden = !names.length;
     row.innerHTML = names.map(n => `<button type="button" class="fe-chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}">${esc(n)}</button>`).join('');
@@ -348,6 +368,11 @@ export function initSidebar(app: App): void {
   lensFilter.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); lensFilter.value = ''; applyLensFilter(); lensFilter.blur(); }
     e.stopPropagation();   // page keys must not fire while typing
+  });
+  document.addEventListener('bfb-lens', e => {
+    const lens = (e as CustomEvent).detail;
+    if (lens !== 'saved' && lens !== 'notes') return;
+    if (lensFilter.value) { lensFilter.value = ''; applyLensFilter(); } else syncLens();
   });
   el('fe-lens-tags').addEventListener('click', e => {
     const chip = (e.target as Element).closest<HTMLElement>('.fe-lens-tag');

@@ -143,6 +143,10 @@ body{opacity:1!important}
   transition:max-width var(--t-base) var(--ease),opacity var(--t-base) var(--ease)}
 .fe-rail-btn.on{flex:1 0 auto;gap:6px;padding:0 9px}
 .fe-rail-btn.on em{max-width:110px;opacity:1}
+#fe-rail.measuring .fe-rail-btn,#fe-rail.measuring .fe-rail-btn em{transition:none}
+#fe-rail.tight .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 3px}
+#fe-rail.tight .fe-rail-btn.on{gap:0}
+#fe-rail.tight .fe-rail-btn em{display:none}
 @media (prefers-reduced-motion:reduce){.fe-rail-btn,.fe-rail-btn em{transition:none}}
 .fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
 .fe-rail-btn.on{background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx)}
@@ -158,6 +162,7 @@ body{opacity:1!important}
 .fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
 .fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-doc-name{font-size:var(--row-fs)}
+.fe-docs-top[hidden]{display:none}
 .fe-doc-dir{font-size:var(--fs-sm);color:var(--dm)}
 .fe-doc-me{display:inline-flex;color:var(--ac)}
 .fe-doc-me svg{width:13px;height:13px}
@@ -215,10 +220,10 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-sv-add{background:none;border:1px solid var(--bd);color:var(--mt);cursor:pointer;border-radius:4px;
   width:18px;height:18px;line-height:1;font-size:var(--fs-lg);padding:0;display:flex;align-items:center;justify-content:center}
 #fe-sv-add:hover{border-color:var(--ac);color:var(--ac)}
-#fe-lens-filter{display:block;width:calc(100% - 20px);margin:2px 10px 6px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+#fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 20px);margin:2px 10px 6px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:3px 8px;border-radius:var(--r);font-size:var(--fs-sm);outline:none;transition:border-color .15s}
-#fe-lens-filter:focus{border-color:var(--ac)}
-#fe-lens-filter::placeholder{color:var(--dm)}
+#fe-lens-filter:focus,#fe-docs-q:focus{border-color:var(--ac)}
+#fe-lens-filter::placeholder,#fe-docs-q::placeholder{color:var(--dm)}
 .fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
 .fe-sv-tag{display:flex;align-items:center;gap:7px;padding:8px 14px 3px;font-size:var(--fs-sm);font-weight:600;
   text-transform:uppercase;letter-spacing:.07em;color:var(--dm)}
@@ -1182,8 +1187,8 @@ button.fe-si{width:auto;display:flex}
 .fe-sh{padding:10px 16px 4px}
 .fe-lens-h{padding:6px 12px 8px 16px}
 .fe-hint{padding:6px 16px}
-#fe-lens-filter{width:calc(100% - 12px);margin:2px 6px 8px;height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
-#fe-lens-filter,#fe-search,#fe-srch-q,#fe-find-text,.fe-dd-search{padding-left:28px!important;
+#fe-lens-filter,#fe-docs-q{width:calc(100% - 12px);margin:2px 6px 8px;height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
+#fe-lens-filter,#fe-search,#fe-srch-q,#fe-find-text,#fe-filter-q,#fe-docs-q,.fe-dd-search{padding-left:28px!important;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:9px 50%}
 .fe-lens-tags{padding:0 6px 8px}
@@ -1468,8 +1473,11 @@ button.fe-si{width:auto;display:flex}
 @container fe-main (max-width:400px){
   .c-dt{display:none}
 }
+/* A narrow window keeps the card out of the text until it is asked for;
+   then it floats over the right side (the peek state, set in file-page.ts). */
 @media (max-width:760px){
-  #fe-toc-rail{display:none}
+  #fe-toc-rail:not(.peek){display:none}
+  #fe-toc-rail.peek{width:min(300px,calc(100% - 24px));right:12px}
 }
 @media (max-width:640px){
   #fe-side{max-width:42vw}

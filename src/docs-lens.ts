@@ -1,53 +1,80 @@
 // The Comments lens: every markdown document that has comments, from the
 // bfb-docs index (written by the page and by the CLI alike), with how many
 // threads are open, the nearest due date and whether one waits on you. A
-// click opens the document with its comments showing.
+// filter narrows by name or folder, and two chips keep only what mentions
+// you or has a due date. A click opens the document with its comments showing.
 import { notes } from './notes';
-import { esc, fileHref } from './utils';
+import { esc, fileHref, midHtml } from './utils';
 import { icoFile } from './icons';
 import { UI_ICON } from './control-icons';
 
 export interface DocRow { doc: string; name: string; open: number; done: number; due?: string[]; mentions?: string[]; exists?: boolean; updated?: string }
+export interface DocFilter { q: string; me: boolean; due: boolean }
 
-/** The rows the lens shows: documents still on disk, open ones first, then by name. */
-export function docRows(rows: DocRow[]): DocRow[] {
+const forMe = (r: DocRow) => (r.mentions ?? []).some(m => m === 'user' || m === 'owner');
+
+/** The rows the lens shows: documents still on disk that match the filter, open ones first, then by name. */
+export function docRows(rows: DocRow[], f: DocFilter = { q: '', me: false, due: false }): DocRow[] {
+  const q = f.q.trim().toLowerCase();
   return rows.filter(r => r.exists !== false && r.open + r.done > 0)
+    .filter(r => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length))
     .sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
 }
 
 export function initDocsLens(box: HTMLElement, home: string): void {
-  let loaded = false;
+  let loaded = false, all: DocRow[] = [];
+  const f: DocFilter = { q: '', me: false, due: false };
+  box.innerHTML = `<div class="fe-docs-top" hidden>
+      <input id="fe-docs-q" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
+      <div class="fe-lens-tags"><button type="button" class="fe-chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="fe-chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button></div>
+    </div><div class="fe-docs-rows"></div>`;
+  const top = box.querySelector<HTMLElement>('.fe-docs-top')!, rowsBox = box.querySelector<HTMLElement>('.fe-docs-rows')!;
+  const input = box.querySelector<HTMLInputElement>('#fe-docs-q')!;
   const short = (p: string) => (home && p.startsWith(home + '/') ? '~' + p.slice(home.length) : p).replace(/\/[^/]+$/, '') || '/';
   const due = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const paint = (rows: DocRow[]) => {
-    const list = docRows(rows);
-    if (!list.length) {
-      box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
+  const paint = () => {
+    const usable = docRows(all);
+    top.hidden = !usable.length;
+    for (const c of top.querySelectorAll<HTMLElement>('[data-f]')) c.classList.toggle('on', f[c.dataset.f as 'me' | 'due']);
+    const list = docRows(all, f);
+    if (!usable.length) {
+      rowsBox.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
       return;
     }
-    box.innerHTML = list.map(r => {
-      const mine = (r.mentions ?? []).some(m => m === 'user' || m === 'owner');
-      return `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
+    if (!list.length) { rowsBox.innerHTML = '<div class="fe-cm-empty"><p>No document matches</p></div>'; return; }
+    rowsBox.innerHTML = list.map(r => `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
         <span class="fe-row-ico">${icoFile(r.name.split('.').pop()!.toLowerCase())}</span>
-        <span class="fe-doc-tx"><span class="fe-doc-name">${esc(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
-        ${mine ? `<span class="fe-doc-me" title="Mentions you">${UI_ICON.at}</span>` : ''}
+        <span class="fe-doc-tx"><span class="fe-doc-name">${midHtml(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
+        ${forMe(r) ? `<span class="fe-doc-me" title="Mentions you">${UI_ICON.at}</span>` : ''}
         ${r.due?.length ? `<span class="fe-doc-due" title="Due ${esc(r.due[0])}">${esc(due(r.due[0]))}</span>` : ''}
         <span class="fe-doc-n${r.open ? '' : ' done'}" title="${r.open} open, ${r.done} done">${r.open || UI_ICON.check}</span>
-      </button>`;
-    }).join('');
+      </button>`).join('');
   };
-  const load = () => notes.docsIndex().then(paint).catch(err => {
-    box.innerHTML = `<div class="fe-cm-empty"><p>Comments could not be listed</p><p class="fe-cm-hint">${esc((err as Error).message)}</p></div>`;
+  const load = () => notes.docsIndex().then(rows => { all = rows; paint(); }).catch(err => {
+    top.hidden = true;
+    rowsBox.innerHTML = `<div class="fe-cm-empty"><p>Comments could not be listed</p><p class="fe-cm-hint">${esc((err as Error).message)}</p></div>`;
+  });
+  input.addEventListener('input', () => { f.q = input.value; paint(); });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && input.value) { e.preventDefault(); input.value = ''; f.q = ''; paint(); }
+    e.stopPropagation();   // page keys must not fire while typing
+  });
+  top.addEventListener('click', e => {
+    const c = (e.target as Element).closest<HTMLElement>('[data-f]');
+    if (!c) return;
+    const k = c.dataset.f as 'me' | 'due';
+    f[k] = !f[k];
+    paint();
   });
   // Rows are buttons, not links: the page's link handlers rebuild a file
   // link from its path and would encode the #comments into the file name.
-  box.addEventListener('click', e => {
+  rowsBox.addEventListener('click', e => {
     const b = (e.target as Element).closest<HTMLElement>('.fe-doc-row');
     if (b) location.href = fileHref(b.dataset.doc!) + '#comments';
   });
   document.addEventListener('bfb-lens', e => {
     if ((e as CustomEvent).detail !== 'comments') return;
-    if (!loaded) box.innerHTML = '<div class="fe-cm-empty"><p>Loading…</p></div>';
+    if (!loaded) rowsBox.innerHTML = '<div class="fe-cm-empty"><p>Loading…</p></div>';
     loaded = true;
     void load();
   });

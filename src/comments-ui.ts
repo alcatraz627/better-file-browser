@@ -148,8 +148,15 @@ export function mountComments(o: {
   // Unsent text per box ('new' for the composer, 'edit:<id>' for an edit), kept across repaints.
   const typed = new Map<string, string>();
   let linked = location.hash.startsWith('#c=') ? decodeURIComponent(location.hash.slice(3)) : '';
-  // Opened from the Comments lens: show the panel straight away.
-  if (location.hash === '#comments') setTimeout(() => o.reveal(), 0);
+  // Opened from the Comments lens: show the panel straight away, and open
+  // the first open thread once the threads are in.
+  let fromLens = location.hash === '#comments';
+  if (fromLens) setTimeout(() => o.reveal(), 0);
+  // The same links followed while already on this page change only the hash.
+  addEventListener('hashchange', () => {
+    if (location.hash === '#comments') { fromLens = true; o.reveal(); void load(); }
+    else if (location.hash.startsWith('#c=')) { linked = decodeURIComponent(location.hash.slice(3)); void load(); }
+  });
   // Agents claude-ipc sees, asked for once the first time someone types @.
   let peers: { alias: string; cwd: string; status: string }[] | null = null;
   const loadPeers = () => { if (peers === null) { peers = []; notes.people().then(p => { peers = p; }).catch(() => {}); } };
@@ -176,6 +183,8 @@ export function mountComments(o: {
     // A #c= link opens its thread once the threads are in.
     const hit = linked && threads.find(t => t.id.startsWith(linked));
     if (hit) { linked = ''; o.reveal(); focusThread(hit.id); }
+    const first = fromLens && (threads.find(t => t.status !== 'done' && t.place.offset !== null) ?? threads.find(t => t.status !== 'done'));
+    if (first) { fromLens = false; focusThread(first.id); }
   };
 
   // Every change goes through the host as the owner; the reply carries the threads after it.
@@ -369,7 +378,10 @@ export function mountComments(o: {
     if (!card) {   // filtered out: show everything so the thread is there
       filter = 'all'; paint(); redraw();
     }
-    o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' });
+    const th = o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
+    th?.scrollIntoView({ block: 'nearest' });
+    // A long thread can run past the card: keep its reply box in sight.
+    th?.querySelector<HTMLElement>(`textarea[data-for="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' });
     const r = ranges.get(id);
     if (scroll && r) {
       const box = r.getBoundingClientRect(), pg = o.page.getBoundingClientRect();

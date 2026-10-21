@@ -73,11 +73,11 @@ try {
 
   // Search boxes in the listing and the sidebar.
   await page.waitForSelector('#fe-search', { timeout: 6000 });
-  const boxes = await page.evaluate(() => ['fe-search', 'fe-lens-filter', 'fe-find-text'].map(id => {
+  const boxes = await page.evaluate(() => ['fe-search', 'fe-lens-filter', 'fe-find-text', 'fe-filter-q'].map(id => {
     const el = document.getElementById(id);
     return el ? { id, ph: el.placeholder, icon: getComputedStyle(el).backgroundImage.includes('svg') } : { id, missing: true };
   }));
-  check(boxes.every(b => b.missing || (b.icon && b.ph.length <= 12)), `search boxes carry the magnifier and short placeholders: ${JSON.stringify(boxes)}`);
+  check(boxes.every(b => !b.missing && b.icon && b.ph.length <= 12), `search boxes carry the magnifier and short placeholders: ${JSON.stringify(boxes)}`);
   await page.screenshot({ path: join(SHOTS, `r3a-listing${sfx}.png`) });
 } finally {
   console.log(results.join('\n'));

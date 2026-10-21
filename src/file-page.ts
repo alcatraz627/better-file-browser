@@ -284,8 +284,11 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     if (tight) peek = false; else { tocOpen = false; kvSet(TOC_KEY, '0'); }
     paint();
   };
-  render();
   const fp = document.getElementById('fe-fp');
+  // Measured before the first paint, so a #comments link opening the card at
+  // load is not undone when the observer first reports the width.
+  if (fp) tight = fp.clientWidth < TOC_ROOMY;
+  render();
   if (fp) new ResizeObserver(() => {
     const was = tight;
     tight = fp.clientWidth < TOC_ROOMY;
