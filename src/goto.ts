@@ -28,17 +28,19 @@ export function absPath(input: string, home: string): string | null {
 }
 
 /** The path as the strip names it (a folder ends in /), or null when nothing
- *  is there. Read from the parent folder's listing, so a large file is never read. */
+ *  is there. Read from the parent folder's listing, so a large file is never
+ *  read. When the listing cannot be read at all, the path is kept as typed:
+ *  "nothing there" is only said after looking. */
 export async function resolvePath(path: string): Promise<string | null> {
   const clean = path.replace(/\/+$/, '');
   if (!clean) return '/';
   const parent = clean.slice(0, clean.lastIndexOf('/') + 1) || '/';
   const name = clean.slice(clean.lastIndexOf('/') + 1);
-  try {
-    const dir = fileHref(parent);
-    const hit = parseListing(await fetchFileText(dir, 1), dir).find(e => e.name === name);
-    return hit ? clean + (hit.isDir ? '/' : '') : null;
-  } catch { return null; }
+  let listing: string;
+  const dir = fileHref(parent);
+  try { listing = await fetchFileText(dir); } catch { return path; }
+  const hit = parseListing(listing, dir).find(e => e.name === name);
+  return hit ? clean + (hit.isDir ? '/' : '') : null;
 }
 
 export function mountGoto(btn: HTMLElement, home: () => string, go: (path: string) => void): void {

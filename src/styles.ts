@@ -136,28 +136,23 @@ body{opacity:1!important}
    name; the wheel over the bar moves between lenses. The lens fills the rest. */
 #fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:6px 6px;border-bottom:1px solid var(--bd);overflow:hidden}
 .fe-rail-btn{flex:0 1 auto;min-width:26px;height:30px;display:flex;align-items:center;justify-content:center;gap:0;padding:0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
-  font:inherit;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),flex-grow var(--t-base) var(--ease),gap var(--t-base) var(--ease)}
+  font:inherit;position:relative;z-index:1;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-rail-btn[hidden]{display:none}
 .fe-rail-btn svg{width:16px;height:16px;flex:none}
-.fe-rail-btn em{font-style:normal;font-size:var(--fs-md);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;opacity:0;
-  transition:max-width var(--t-base) var(--ease),opacity var(--t-base) var(--ease)}
+.fe-rail-btn em{font-style:normal;font-size:var(--fs-md);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;opacity:0}
 .fe-rail-btn.on{flex:1 0 auto;gap:6px;padding:0 9px}
 .fe-rail-btn.on em{max-width:110px;opacity:1}
-#fe-rail.measuring .fe-rail-btn,#fe-rail.measuring .fe-rail-btn em{transition:none}
-#fe-rail{position:relative}
-.fe-rail-btn{position:relative;z-index:1}
-.fe-rail-pill{position:absolute;left:0;top:0;z-index:0;border-radius:8px;pointer-events:none;background:color-mix(in srgb,var(--ac) 16%,transparent);
-  transition:transform var(--t-base) var(--ease),width var(--t-base) var(--ease),height var(--t-base) var(--ease)}
-.fe-rail-pill.still{transition:none}
-#fe-rail .fe-rail-btn.on,#fe-rail .fe-rail-btn.on:hover{background:none}
-@media (prefers-reduced-motion:reduce){.fe-rail-pill{transition:none}}
+/* The open lens's highlight. It sits inside its button, so it always fits it;
+   a lens switch slides it over from the old button. */
+.fe-rail-hl{position:absolute;inset:0;z-index:-1;border-radius:8px;pointer-events:none;transform-origin:0 0}
+.fe-rail-btn.on .fe-rail-hl{background:color-mix(in srgb,var(--ac) 16%,transparent)}
+.fe-rail-btn.on:hover .fe-rail-hl{background:color-mix(in srgb,var(--ac) 22%,transparent)}
 #fe-rail.tight .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 3px}
 #fe-rail.tight .fe-rail-btn.on{gap:0}
 #fe-rail.tight .fe-rail-btn em{display:none}
-@media (prefers-reduced-motion:reduce){.fe-rail-btn,.fe-rail-btn em{transition:none}}
+@media (prefers-reduced-motion:reduce){.fe-rail-btn{transition:none}}
 .fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
-.fe-rail-btn.on{background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx)}
-.fe-rail-btn.on:hover{background:color-mix(in srgb,var(--ac) 22%,transparent)}
+.fe-rail-btn.on,.fe-rail-btn.on:hover{background:none;color:var(--tx)}
 .fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 #fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
 .fe-lens[hidden]{display:none}

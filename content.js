@@ -3995,28 +3995,23 @@ body{opacity:1!important}
    name; the wheel over the bar moves between lenses. The lens fills the rest. */
 #fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:6px 6px;border-bottom:1px solid var(--bd);overflow:hidden}
 .fe-rail-btn{flex:0 1 auto;min-width:26px;height:30px;display:flex;align-items:center;justify-content:center;gap:0;padding:0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
-  font:inherit;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),flex-grow var(--t-base) var(--ease),gap var(--t-base) var(--ease)}
+  font:inherit;position:relative;z-index:1;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-rail-btn[hidden]{display:none}
 .fe-rail-btn svg{width:16px;height:16px;flex:none}
-.fe-rail-btn em{font-style:normal;font-size:var(--fs-md);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;opacity:0;
-  transition:max-width var(--t-base) var(--ease),opacity var(--t-base) var(--ease)}
+.fe-rail-btn em{font-style:normal;font-size:var(--fs-md);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;opacity:0}
 .fe-rail-btn.on{flex:1 0 auto;gap:6px;padding:0 9px}
 .fe-rail-btn.on em{max-width:110px;opacity:1}
-#fe-rail.measuring .fe-rail-btn,#fe-rail.measuring .fe-rail-btn em{transition:none}
-#fe-rail{position:relative}
-.fe-rail-btn{position:relative;z-index:1}
-.fe-rail-pill{position:absolute;left:0;top:0;z-index:0;border-radius:8px;pointer-events:none;background:color-mix(in srgb,var(--ac) 16%,transparent);
-  transition:transform var(--t-base) var(--ease),width var(--t-base) var(--ease),height var(--t-base) var(--ease)}
-.fe-rail-pill.still{transition:none}
-#fe-rail .fe-rail-btn.on,#fe-rail .fe-rail-btn.on:hover{background:none}
-@media (prefers-reduced-motion:reduce){.fe-rail-pill{transition:none}}
+/* The open lens's highlight. It sits inside its button, so it always fits it;
+   a lens switch slides it over from the old button. */
+.fe-rail-hl{position:absolute;inset:0;z-index:-1;border-radius:8px;pointer-events:none;transform-origin:0 0}
+.fe-rail-btn.on .fe-rail-hl{background:color-mix(in srgb,var(--ac) 16%,transparent)}
+.fe-rail-btn.on:hover .fe-rail-hl{background:color-mix(in srgb,var(--ac) 22%,transparent)}
 #fe-rail.tight .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 3px}
 #fe-rail.tight .fe-rail-btn.on{gap:0}
 #fe-rail.tight .fe-rail-btn em{display:none}
-@media (prefers-reduced-motion:reduce){.fe-rail-btn,.fe-rail-btn em{transition:none}}
+@media (prefers-reduced-motion:reduce){.fe-rail-btn{transition:none}}
 .fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
-.fe-rail-btn.on{background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx)}
-.fe-rail-btn.on:hover{background:color-mix(in srgb,var(--ac) 22%,transparent)}
+.fe-rail-btn.on,.fe-rail-btn.on:hover{background:none;color:var(--tx)}
 .fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 #fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
 .fe-lens[hidden]{display:none}
@@ -17276,46 +17271,39 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const rail = el("fe-rail");
     const btns = els("#fe-rail .fe-rail-btn");
     const lenses = els("#fe-lenses .fe-lens");
-    const show = (lens) => {
+    const show = (lens, paint = (f) => f()) => {
       const usable = btns.filter((b) => !b.hidden).map((b) => b.dataset.lens);
       const pick = usable.includes(lens) ? lens : "notes";
       for (const b of btns) {
         const on = b.dataset.lens === pick;
-        b.classList.toggle("on", on);
         b.setAttribute("aria-selected", String(on));
         b.tabIndex = on ? 0 : -1;
       }
       for (const l of lenses) l.hidden = l.dataset.lens !== pick;
-      fitBar();
-      placePill();
+      paint(() => {
+        for (const b of btns) b.classList.toggle("on", b.dataset.lens === pick);
+        fitBar();
+      });
       document.dispatchEvent(new CustomEvent("bfb-lens", { detail: pick }));
     };
     function fitBar() {
       rail.classList.remove("tight");
-      rail.classList.add("measuring");
       const over = rail.scrollWidth > rail.clientWidth + 1;
-      rail.classList.remove("measuring");
       rail.classList.toggle("tight", over);
     }
-    const pill = document.createElement("span");
-    pill.className = "fe-rail-pill";
-    rail.prepend(pill);
-    function placePill() {
-      const on = rail.querySelector(".fe-rail-btn.on");
-      if (!on) return;
-      rail.classList.add("measuring");
-      const r = on.getBoundingClientRect(), box = rail.getBoundingClientRect();
-      rail.classList.remove("measuring");
-      pill.style.transform = `translate(${r.left - box.left}px, ${r.top - box.top}px)`;
-      pill.style.width = `${r.width}px`;
-      pill.style.height = `${r.height}px`;
-    }
-    new ResizeObserver(() => {
-      fitBar();
-      pill.classList.add("still");
-      placePill();
-      requestAnimationFrame(() => pill.classList.remove("still"));
-    }).observe(rail);
+    new ResizeObserver(fitBar).observe(rail);
+    for (const b of btns) b.prepend(Object.assign(document.createElement("span"), { className: "fe-rail-hl" }));
+    const hlRect = () => rail.querySelector(".fe-rail-btn.on .fe-rail-hl")?.getBoundingClientRect();
+    const switchTo = (lens) => show(lens, (f) => {
+      const from = hlRect();
+      f();
+      const to = hlRect(), hl = rail.querySelector(".fe-rail-btn.on .fe-rail-hl");
+      if (!from || !to || !hl || !to.width || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      hl.animate(
+        [{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})` }, { transform: "none" }],
+        { duration: 180, easing: "cubic-bezier(.2, .8, .2, 1)" }
+      );
+    });
     app.showLens = (lens, hideHistory) => {
       if (hideHistory !== void 0) el("fe-rail-history").hidden = hideHistory;
       show(lens ?? kvGet(LENS_KEY) ?? "notes");
@@ -17328,7 +17316,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!b) return;
       if (narrow()) side.classList.toggle("open", !(b.classList.contains("on") && side.classList.contains("open")));
       kvSet(LENS_KEY, b.dataset.lens);
-      show(b.dataset.lens);
+      switchTo(b.dataset.lens);
     });
     document.addEventListener("pointerdown", (e) => {
       if (side.classList.contains("open") && !side.contains(e.target)) closeOverlay();
@@ -17341,7 +17329,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const i = usable.findIndex((b) => b.classList.contains("on"));
       const next = usable[(i + dir + usable.length) % usable.length];
       kvSet(LENS_KEY, next.dataset.lens);
-      show(next.dataset.lens);
+      switchTo(next.dataset.lens);
       if (focus) next.focus();
     };
     rail.addEventListener("keydown", (e) => {
@@ -18877,13 +18865,15 @@ ${rows.join("\n")}`, name: subject };
     if (!clean) return "/";
     const parent = clean.slice(0, clean.lastIndexOf("/") + 1) || "/";
     const name = clean.slice(clean.lastIndexOf("/") + 1);
+    let listing;
+    const dir = fileHref(parent);
     try {
-      const dir = fileHref(parent);
-      const hit = parseListing(await fetchFileText(dir, 1), dir).find((e) => e.name === name);
-      return hit ? clean + (hit.isDir ? "/" : "") : null;
+      listing = await fetchFileText(dir);
     } catch {
-      return null;
+      return path;
     }
+    const hit = parseListing(listing, dir).find((e) => e.name === name);
+    return hit ? clean + (hit.isDir ? "/" : "") : null;
   }
   function mountGoto(btn, home, go) {
     let box = null;

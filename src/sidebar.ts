@@ -22,42 +22,37 @@ function initLenses(app: App): void {
   const rail = el('fe-rail');
   const btns = els<HTMLButtonElement>('#fe-rail .fe-rail-btn');
   const lenses = els<HTMLElement>('#fe-lenses .fe-lens');
-  const show = (lens: string) => {
+  // The lens itself switches at once; the bar's look (which button is wide and
+  // lit) goes through `paint`, so a switch can hand it to a view transition.
+  const show = (lens: string, paint: (f: () => void) => void = f => f()) => {
     const usable = btns.filter(b => !b.hidden).map(b => b.dataset.lens!);
     const pick = usable.includes(lens) ? lens : 'notes';
-    for (const b of btns) { const on = b.dataset.lens === pick; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; }
+    for (const b of btns) { const on = b.dataset.lens === pick; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; }
     for (const l of lenses) l.hidden = l.dataset.lens !== pick;
-    fitBar();
-    placePill();
+    paint(() => { for (const b of btns) b.classList.toggle('on', b.dataset.lens === pick); fitBar(); });
     document.dispatchEvent(new CustomEvent('bfb-lens', { detail: pick }));
   };
   // A narrow sidebar cannot hold every icon and the open lens's name, so the
   // name goes first; the lens title below still says which lens is open.
-  // Measured with transitions held, so a name still growing is read at full size.
   function fitBar(): void {
     rail.classList.remove('tight');
-    rail.classList.add('measuring');
     const over = rail.scrollWidth > rail.clientWidth + 1;
-    rail.classList.remove('measuring');
     rail.classList.toggle('tight', over);
   }
-  // One pill behind the bar slides to the open lens, rather than each button
-  // lighting up in place. Its target is read with transitions held, then the
-  // pill eases there while the buttons grow and shrink around it.
-  const pill = document.createElement('span');
-  pill.className = 'fe-rail-pill';
-  rail.prepend(pill);
-  function placePill(): void {
-    const on = rail.querySelector<HTMLElement>('.fe-rail-btn.on');
-    if (!on) return;
-    rail.classList.add('measuring');
-    const r = on.getBoundingClientRect(), box = rail.getBoundingClientRect();
-    rail.classList.remove('measuring');
-    pill.style.transform = `translate(${r.left - box.left}px, ${r.top - box.top}px)`;
-    pill.style.width = `${r.width}px`;
-    pill.style.height = `${r.height}px`;
-  }
-  new ResizeObserver(() => { fitBar(); pill.classList.add('still'); placePill(); requestAnimationFrame(() => pill.classList.remove('still')); }).observe(rail);
+  new ResizeObserver(fitBar).observe(rail);
+  // Each button holds its own highlight and only the open one shows it, so at
+  // rest it always fits its button. A switch plays one slide from where the
+  // old highlight was; nothing is measured or kept between switches.
+  for (const b of btns) b.prepend(Object.assign(document.createElement('span'), { className: 'fe-rail-hl' }));
+  const hlRect = () => rail.querySelector('.fe-rail-btn.on .fe-rail-hl')?.getBoundingClientRect();
+  const switchTo = (lens: string) => show(lens, f => {
+    const from = hlRect();
+    f();
+    const to = hlRect(), hl = rail.querySelector<HTMLElement>('.fe-rail-btn.on .fe-rail-hl');
+    if (!from || !to || !hl || !to.width || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    hl.animate([{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})` }, { transform: 'none' }],
+      { duration: 180, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+  });
   app.showLens = (lens, hideHistory) => {
     if (hideHistory !== undefined) el('fe-rail-history').hidden = hideHistory;
     show(lens ?? kvGet(LENS_KEY) ?? 'notes');
@@ -72,7 +67,7 @@ function initLenses(app: App): void {
     if (!b) return;
     if (narrow()) side.classList.toggle('open', !(b.classList.contains('on') && side.classList.contains('open')));
     kvSet(LENS_KEY, b.dataset.lens!);
-    show(b.dataset.lens!);
+    switchTo(b.dataset.lens!);
   });
   document.addEventListener('pointerdown', e => { if (side.classList.contains('open') && !side.contains(e.target as Node)) closeOverlay(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && side.classList.contains('open')) closeOverlay(); });
@@ -81,7 +76,7 @@ function initLenses(app: App): void {
     const i = usable.findIndex(b => b.classList.contains('on'));
     const next = usable[(i + dir + usable.length) % usable.length];
     kvSet(LENS_KEY, next.dataset.lens!);
-    show(next.dataset.lens!);
+    switchTo(next.dataset.lens!);
     if (focus) next.focus();
   };
   // The arrow keys move between lenses, and so does the wheel over the bar:
