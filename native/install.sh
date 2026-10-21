@@ -53,7 +53,13 @@ cat > "$MANIFEST_DIR/com.better_file_browser.notes.json" <<EOF
 }
 EOF
 
+# bfb-docs, the comments command line, on PATH for people and agents.
+chmod +x "$SCRIPT_DIR/bfb_docs.py"
+mkdir -p "$HOME/.local/bin"
+ln -sf "$SCRIPT_DIR/bfb_docs.py" "$HOME/.local/bin/bfb-docs"
+
 echo "✓ Native messaging hosts installed"
+echo "  Command:  $HOME/.local/bin/bfb-docs -> $SCRIPT_DIR/bfb_docs.py"
 echo "  Manifest: $MANIFEST_DIR/com.better_file_browser.ghostty.json"
 echo "  Manifest: $MANIFEST_DIR/com.better_file_browser.llm.json"
 echo "  Manifest: $MANIFEST_DIR/com.better_file_browser.notes.json"
