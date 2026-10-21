@@ -18,7 +18,7 @@ const env = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => 
 try {
   const doc = join(h.fixture, 'plan.md');
   writeFileSync(doc, '# Plan\n\nShip on Friday.\n');
-  const r = spawnSync('python3', [CLI, 'comments', 'new', doc, '--quote', 'Ship on Friday', 'Is this firm? @user @due 2026-11-03'], { env, encoding: 'utf8' });
+  const r = spawnSync('python3', [CLI, 'comments', 'new', doc, '--quote', 'Ship on Friday', 'Is this firm? @user @due 2026-11-03 #schedule'], { env, encoding: 'utf8' });
   check(r.status === 0, `a comment is written from the terminal: ${r.stderr.trim()}`);
   const long = join(h.fixture, 'design-review-for-the-lens-bar-final.md');
   writeFileSync(long, '# Review\n\nLooks fine.\n');
@@ -119,6 +119,11 @@ try {
   const typed = await names();
   await page.$eval('#fe-docs-q', i => { i.value = ''; i.dispatchEvent(new Event('input')); });
   check(me.join() === 'plan.md' && typed.join() === 'design-review-for-the-lens-bar-final.md', `For me and the filter narrow the list: ${me} / ${typed}`);
+  await page.click('#fe-docs-list [data-tag="schedule"]');
+  const tagged = await names();
+  await page.click('#fe-docs-list [data-tag="schedule"]');
+  const untagged = await names();
+  check(tagged.join() === 'plan.md' && untagged.length === 2, `a tag chip keeps the documents tagged with it, and a second click clears it: ${tagged} / ${untagged.length}`);
   await page.screenshot({ path: join(SHOTS, `lens-comments${sfx}.png`), clip: { x: 0, y: 0, width: 420, height: 500 } });
   await sleep(600);   // the list reloads each time the lens opens
   await Promise.all([page.waitForNavigation({ timeout: 6000 }).catch(() => null), page.click('#fe-docs-list .fe-doc-row[data-doc$="plan.md"]')]);

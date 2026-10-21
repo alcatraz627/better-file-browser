@@ -27,7 +27,7 @@ type Frame =
 
 /// Who wrote a comment: the owner, or an agent by its claude-ipc alias.
 export interface CommentAuthor { kind: 'human' | 'agent'; name?: string; ipc?: string; alias?: string; session?: string; role?: string }
-export interface DocComment { id: string; author: CommentAuthor; created: string; updated?: string; text: string; edited?: string; deleted?: boolean; suggestion?: { replace: string; state: string } }
+export interface DocComment { id: string; author: CommentAuthor; created: string; updated?: string; text: string; edited?: string; deleted?: boolean; suggestion?: { replace: string; state: string; decidedAt?: string; was?: string } }
 /// Where a thread sits now: anchored where it was, moved (found by its words), ambiguous, or detached.
 export interface ThreadPlace { state: 'anchored' | 'moved' | 'ambiguous' | 'detached'; offset: number | null; length: number; line: number | null }
 export interface DocThread {
@@ -36,7 +36,7 @@ export interface DocThread {
   comments: DocComment[]; place: ThreadPlace; doneBy?: CommentAuthor; doneAt?: string;
 }
 export interface CommentsReply { rel: string; threads: DocThread[]; where: string; companion: string; notes: string[]; doc: { id: string } | null; results?: { thread?: string; comment?: string }[] }
-export type CommentOp = { op: string; thread?: string; comment?: string; text?: string; start?: number; end?: number; tags?: string[]; replace?: string; due?: string };
+export type CommentOp = { op: string; thread?: string; comment?: string; text?: string; start?: number; end?: number; tags?: string[]; replace?: string; due?: string; state?: 'accepted' | 'rejected'; was?: string };
 
 /// One saved version of a note, from the folder's git log: short hash, epoch ms, the commit's reason.
 export interface NoteVersion { sha: string; when: number; reason: string }

@@ -710,7 +710,13 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-own .fe-cm-ib svg{width:12px;height:12px}
 .fe-cm-c.gone .fe-cm-tx{color:var(--dm)}
 .fe-cm-sug{margin-top:6px;font-size:var(--fs-sm);color:var(--mt)}
+.fe-cm-diff{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;border-radius:var(--row-r);background:var(--shade);line-height:1.5;overflow-wrap:anywhere}
+.fe-cm-diff del{background:color-mix(in srgb,var(--nc-red) 14%,transparent);color:var(--mt);padding:0 3px;border-radius:3px}
 .fe-cm-sug ins{text-decoration:none;background:color-mix(in srgb,var(--nc-green) 18%,transparent);padding:0 3px;border-radius:3px;color:var(--tx)}
+.fe-cm-sug .fe-cm-tools{margin-top:6px}
+.fe-cm-sug-state{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:var(--fs-xs);color:var(--dm)}
+.fe-cm-sug-state svg{width:12px;height:12px}
+.fe-cm-sug.rejected .fe-cm-diff{opacity:.6}
 .fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
 .fe-cm-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;font-size:var(--fs-sm);background:var(--s2);color:var(--mt)}
 .fe-cm-chip svg{width:11px;height:11px}

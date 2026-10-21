@@ -532,10 +532,37 @@ def apply(data, op, text, author, base_text):
         t['updated'] = ts
         return {'thread': t['id']}
     if kind == 'suggest':
-        c = _comment(author, op.get('text') or '')
+        # A suggestion with no words of its own rides on the comment its author
+        # just opened the thread with, so it reads as one comment, not two.
+        last = t['comments'][-1] if t['comments'] else None
+        if not op.get('text') and last and last['author'] == author and not last.get('suggestion') and len(t['comments']) == 1:
+            c = last
+        else:
+            c = _comment(author, op.get('text') or '')
+            t['comments'].append(c)
         c['suggestion'] = {'replace': op['replace'], 'state': 'pending'}
-        t['comments'].append(c)
+        c['updated'] = ts
         t['updated'] = ts
+        return {'thread': t['id'], 'comment': c['id']}
+    if kind == 'decide':
+        # Accept or reject a suggested edit. Accepting is decided after the
+        # document was written, so the thread moves onto the new words and is
+        # done: the edit was what it asked for.
+        c = next((c for c in t['comments'] if c['id'] == op['comment'] or c['id'].startswith(op['comment'])), None)
+        if not c or not c.get('suggestion'):
+            raise DocsError('docs_missing_comment', f'no suggestion {op["comment"]}')
+        state = op.get('state')
+        if state not in ('accepted', 'rejected'):
+            raise DocsError('docs_bad_args', 'a suggestion is accepted or rejected')
+        if c['suggestion'].get('state') != 'pending':
+            raise DocsError('docs_bad_args', f'that suggestion was already {c["suggestion"].get("state")}')
+        c['suggestion'].update(state=state, decidedBy=author, decidedAt=ts)
+        if state == 'accepted':
+            if isinstance(op.get('was'), str): c['suggestion']['was'] = op['was']
+            if op.get('end', 0) > op.get('start', 0):
+                t['anchor'] = {**C.make_anchor(text, op['start'], op['end']), 'confirmedAt': ts}
+            t.update(status='done', doneBy=author, doneAt=ts)
+        c['updated'] = t['updated'] = ts
         return {'thread': t['id'], 'comment': c['id']}
     if kind in ('edit', 'delete'):
         c = next((c for c in t['comments'] if c['id'] == op['comment'] or c['id'].startswith(op['comment'])), None)

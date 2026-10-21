@@ -438,6 +438,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     allow: askToAllow, status, changed: () => { paint(); editor?.marks(); },
     reveal: showComments, toggle: toggleComments,
     picked: span => editor?.select(span.offset, span.offset + span.length),
+    editing: () => !!editor,
+    edited: fresh => { text = fresh; paintMeta(); render(); },
   });
   cmBtn.addEventListener('click', toggleComments);
   tocBtn.addEventListener('click', () => togglePane('toc'));

@@ -199,6 +199,22 @@ v = jcli('comments', 'list', plan)
 sug = [c for t in (v or []) for c in t['comments'] if c.get('suggestion')]
 check(len(sug) == 1 and sug[0]['suggestion'] == {'replace': 'might slip', 'state': 'pending'}, 'suggest makes a thread with a pending suggestion')
 check(stamp(plan) == before, 'the document is byte-for-byte and mtime unchanged after every command')
+# Deciding a suggestion is the page's job (the owner's); the store records it and never touches the document.
+os.environ['BFB_DOCS_HOME'] = STATE
+import docs_store as S  # noqa: E402
+sug_t = next(t for t in v if any(c.get('suggestion') for c in t['comments']))
+sug_c = next(c for c in sug_t['comments'] if c.get('suggestion'))
+owner = {'kind': 'human', 'id': 'owner'}
+try:
+    S.write(plan, [{'op': 'decide', 'thread': sug_t['id'], 'comment': sug_c['id'], 'state': 'maybe'}], owner); bad_state = None
+except S.DocsError as e: bad_state = e.code
+S.write(plan, [{'op': 'decide', 'thread': sug_t['id'], 'comment': sug_c['id'], 'state': 'rejected'}], owner)
+got = next(c for t in jcli('comments', 'list', plan, '--all') for c in t['comments'] if c['id'] == sug_c['id'])['suggestion']
+try:
+    S.write(plan, [{'op': 'decide', 'thread': sug_t['id'], 'comment': sug_c['id'], 'state': 'accepted'}], owner); again = None
+except S.DocsError as e: again = e.code
+check(bad_state == 'docs_bad_args' and got['state'] == 'rejected' and got.get('decidedAt') and again == 'docs_bad_args' and stamp(plan) == before,
+      f'decide records a rejection once, refuses a second decision and an unknown state, and leaves the document alone: {got}')
 second = put(os.path.join(repo, 'other.md'), 'Another doc with words.\n')
 jcli('comments', 'new', second, '--quote', 'Another doc', 'hi')
 check(open(os.path.join(repo, '.git', 'info', 'exclude')).read().count('*.bfb*.json') == 1, 'a second companion does not add the line again')

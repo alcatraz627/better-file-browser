@@ -4575,7 +4575,13 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-own .fe-cm-ib svg{width:12px;height:12px}
 .fe-cm-c.gone .fe-cm-tx{color:var(--dm)}
 .fe-cm-sug{margin-top:6px;font-size:var(--fs-sm);color:var(--mt)}
+.fe-cm-diff{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;border-radius:var(--row-r);background:var(--shade);line-height:1.5;overflow-wrap:anywhere}
+.fe-cm-diff del{background:color-mix(in srgb,var(--nc-red) 14%,transparent);color:var(--mt);padding:0 3px;border-radius:3px}
 .fe-cm-sug ins{text-decoration:none;background:color-mix(in srgb,var(--nc-green) 18%,transparent);padding:0 3px;border-radius:3px;color:var(--tx)}
+.fe-cm-sug .fe-cm-tools{margin-top:6px}
+.fe-cm-sug-state{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:var(--fs-xs);color:var(--dm)}
+.fe-cm-sug-state svg{width:12px;height:12px}
+.fe-cm-sug.rejected .fe-cm-diff{opacity:.6}
 .fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
 .fe-cm-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;font-size:var(--fs-sm);background:var(--s2);color:var(--mt)}
 .fe-cm-chip svg{width:11px;height:11px}
@@ -13109,6 +13115,38 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         o.changed();
       }
     };
+    const accept = async (t, commentId) => {
+      const root = o.root();
+      const c = t.comments.find((x) => x.id === commentId);
+      if (!root || busy || !c?.suggestion || t.place.offset === null) return;
+      if (o.editing?.()) {
+        o.status("Close the editor first, then accept the suggestion");
+        return;
+      }
+      const shown = o.text();
+      let cur;
+      try {
+        cur = await notes.fileRead(root, o.rel());
+      } catch (e) {
+        o.status(`Not applied: ${e.message}`);
+        return;
+      }
+      if (cur.text !== shown) {
+        o.status("The file changed on disk since this page loaded it. Reload, then accept again.");
+        return;
+      }
+      const start = t.place.offset, end = start + t.place.length;
+      const next = cur.text.slice(0, start) + c.suggestion.replace + cur.text.slice(end);
+      try {
+        await notes.fileWrite(root, o.rel(), next, cur.mtime);
+      } catch (e) {
+        o.status(`Not applied: ${e.message}`);
+        return;
+      }
+      o.edited?.(next);
+      const r = await write([{ op: "decide", thread: t.id, comment: commentId, state: "accepted", start, end: start + c.suggestion.replace.length, was: cur.text.slice(start, end) }], "Accept");
+      if (r) o.status("Suggestion applied; the old text is in the backups");
+    };
     const people = () => [
       "user",
       "claude",
@@ -13130,6 +13168,19 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
     </div>`;
     const notice = (text, why = "") => `<div class="fe-cm-state"${why ? ` title="${esc(why)}"` : ""}>${UI_ICON.info}<span>${esc(text)}</span></div>`;
     const iconBtn = (a, icon2, title, v = "") => `<button type="button" class="fe-cm-ib" data-a="${a}"${v ? ` data-v="${esc(v)}"` : ""} title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
+    const sugHtml = (t, c, on) => {
+      const s = c.suggestion;
+      const placed2 = t.place.offset !== null;
+      const now = s.state === "accepted" ? s.was ?? "" : placed2 ? o.text().slice(t.place.offset, t.place.offset + t.place.length) : t.anchor.exact;
+      const cut = (x) => x.length > 200 ? x.slice(0, 199) + "\u2026" : x;
+      const diff = `<div class="fe-cm-diff">${now ? `<del>${esc(cut(now))}</del>` : ""}${s.replace ? `<ins>${esc(cut(s.replace))}</ins>` : "<i>remove these words</i>"}</div>`;
+      if (s.state !== "pending") return `<div class="fe-cm-sug ${esc(s.state)}">${diff}<span class="fe-cm-sug-state">${s.state === "accepted" ? UI_ICON.check + "Accepted" : UI_ICON.close + "Rejected"}</span></div>`;
+      const can = placed2 && t.place.state !== "ambiguous";
+      const tools = on ? `<div class="fe-cm-tools">
+        <button type="button" class="btn" data-size="sm" data-hover-shade data-a="reject" data-v="${esc(c.id)}" title="Keep the text as it is">${UI_ICON.close}Reject</button>
+        <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="accept" data-v="${esc(c.id)}"${can ? "" : " disabled"} title="${can ? "Replace the words in the file (a backup is kept)" : "The words are no longer in the file, so this cannot be applied"}">${UI_ICON.check}Accept</button></div>` : "";
+      return `<div class="fe-cm-sug pending">${diff}${tools}</div>`;
+    };
     const threadHtml = (t) => {
       const on = t.id === active;
       const quote = visibleOf(t.place.state === "moved" && t.place.offset !== null ? o.text().slice(t.place.offset, t.place.offset + t.place.length) : t.anchor.exact);
@@ -13149,7 +13200,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(c.author))}</b><time title="${esc(c.created)}">${esc(ago(c.created))}${c.edited ? " \xB7 edited" : ""}</time>
           ${mine && editing !== c.id ? `<span class="fe-cm-own">${iconBtn("edit", UI_ICON.rename, "Edit this comment", c.id)}${iconBtn("del", UI_ICON.trash, "Delete this comment", c.id)}</span>` : ""}</div>
         ${body}
-        ${c.suggestion ? `<div class="fe-cm-sug">Suggests <ins>${esc(c.suggestion.replace)}</ins> <span>${esc(c.suggestion.state)}</span></div>` : ""}
+        ${c.suggestion ? sugHtml(t, c, on) : ""}
       </div>`;
       }).join("");
       const where = t.place.state === "moved" ? notice("Moved: the words changed", "The quoted words were edited; this is where they seem to be now.") : t.place.state === "ambiguous" ? notice("These words appear more than once") : t.place.state === "detached" ? notice("No longer in the file", "The quoted words were removed. Select new words and press Attach to selection to move the thread.") : "";
@@ -13654,6 +13705,14 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
             inp?.showPicker();
           } catch {
           }
+          return;
+        }
+        if (a === "reject") {
+          void write([{ op: "decide", thread: active, comment: v, state: "rejected" }], "Reject");
+          return;
+        }
+        if (a === "accept" && t) {
+          void accept(t, v);
           return;
         }
         if (a === "link") {
@@ -14250,7 +14309,13 @@ ${d.message}` : d.message;
       },
       reveal: showComments,
       toggle: toggleComments,
-      picked: (span) => editor?.select(span.offset, span.offset + span.length)
+      picked: (span) => editor?.select(span.offset, span.offset + span.length),
+      editing: () => !!editor,
+      edited: (fresh) => {
+        text = fresh;
+        paintMeta();
+        render2();
+      }
     });
     cmBtn.addEventListener("click", toggleComments);
     tocBtn.addEventListener("click", () => togglePane("toc"));
@@ -19240,14 +19305,14 @@ ${rows.join("\n")}`, name: subject };
   var forMe = (r) => (r.mentions ?? []).some((m) => m === "user" || m === "owner");
   function docRows(rows, f = { q: "", me: false, due: false }) {
     const q = f.q.trim().toLowerCase();
-    return rows.filter((r) => r.exists !== false && r.open + r.done > 0).filter((r) => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length)).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
+    return rows.filter((r) => r.exists !== false && r.open + r.done > 0).filter((r) => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length) && (!f.tag || (r.tags ?? []).includes(f.tag))).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
   }
   function initDocsLens(box, home, go) {
     let loaded = false, all = [];
-    const f = { q: "", me: false, due: false };
+    const f = { q: "", me: false, due: false, tag: "" };
     box.innerHTML = `<div class="fe-docs-top" hidden>
       <input id="fe-docs-q" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
-      <div class="fe-lens-tags"><button type="button" class="fe-chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="fe-chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button></div>
+      <div class="fe-lens-tags"><button type="button" class="fe-chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="fe-chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
     </div><div class="fe-docs-rows"></div>`;
     const top = box.querySelector(".fe-docs-top"), rowsBox = box.querySelector(".fe-docs-rows");
     const input = box.querySelector("#fe-docs-q");
@@ -19257,6 +19322,13 @@ ${rows.join("\n")}`, name: subject };
       const usable = docRows(all);
       top.hidden = !usable.length;
       for (const c of top.querySelectorAll("[data-f]")) c.classList.toggle("on", f[c.dataset.f]);
+      const counts = /* @__PURE__ */ new Map();
+      for (const r of usable) for (const g of r.tags ?? []) counts.set(g, (counts.get(g) ?? 0) + 1);
+      const tags = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([g]) => g);
+      if (f.tag && !tags.includes(f.tag)) tags.push(f.tag);
+      const tagBox = top.querySelector(".fe-docs-tags");
+      const tagHtml = tags.map((g) => `<button type="button" class="fe-chip fe-lens-tag${f.tag === g ? " on" : ""}" data-tag="${esc(g)}" title="Only documents with a thread tagged #${esc(g)}">#${esc(g)}</button>`).join("");
+      if (tagBox.innerHTML !== tagHtml) tagBox.innerHTML = tagHtml;
       const list = docRows(all, f);
       if (!usable.length) {
         rowsBox.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
@@ -19295,6 +19367,12 @@ ${rows.join("\n")}`, name: subject };
       e.stopPropagation();
     });
     top.addEventListener("click", (e) => {
+      const tg = e.target.closest("[data-tag]");
+      if (tg) {
+        f.tag = f.tag === tg.dataset.tag ? "" : tg.dataset.tag;
+        paint();
+        return;
+      }
       const c = e.target.closest("[data-f]");
       if (!c) return;
       const k = c.dataset.f;

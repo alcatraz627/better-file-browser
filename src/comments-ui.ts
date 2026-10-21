@@ -132,6 +132,10 @@ export function mountComments(o: {
   reveal: () => void; toggle: () => void;
   /** A thread was opened from the panel (the editor selects its words). */
   picked?: (span: { offset: number; length: number }) => void;
+  /** Whether the file is open in the editor, where an accepted edit would clash. */
+  editing?: () => boolean;
+  /** The file was rewritten by an accepted suggestion; show the new text. */
+  edited?: (text: string) => void;
 }): CommentsPanel {
   let threads: DocThread[] = [];
   let notesLine: string[] = [];
@@ -208,6 +212,26 @@ export function mountComments(o: {
     }
   };
 
+  // Accepting a suggestion is the one comment action that writes the
+  // document: it replaces only the anchored words, against the file as the
+  // page last read it, so a file changed meanwhile is refused, not merged.
+  const accept = async (t: DocThread, commentId: string) => {
+    const root = o.root();
+    const c = t.comments.find(x => x.id === commentId);
+    if (!root || busy || !c?.suggestion || t.place.offset === null) return;
+    if (o.editing?.()) { o.status('Close the editor first, then accept the suggestion'); return; }
+    const shown = o.text();
+    let cur: { text: string; mtime: number };
+    try { cur = await notes.fileRead(root, o.rel()); } catch (e) { o.status(`Not applied: ${(e as Error).message}`); return; }
+    if (cur.text !== shown) { o.status('The file changed on disk since this page loaded it. Reload, then accept again.'); return; }
+    const start = t.place.offset, end = start + t.place.length;
+    const next = cur.text.slice(0, start) + c.suggestion.replace + cur.text.slice(end);
+    try { await notes.fileWrite(root, o.rel(), next, cur.mtime); } catch (e) { o.status(`Not applied: ${(e as Error).message}`); return; }
+    o.edited?.(next);
+    const r = await write([{ op: 'decide', thread: t.id, comment: commentId, state: 'accepted', start, end: start + c.suggestion.replace.length, was: cur.text.slice(start, end) }], 'Accept');
+    if (r) o.status('Suggestion applied; the old text is in the backups');
+  };
+
   // Who can be mentioned: the owner, any agent (`claude`), each live agent by
   // `claude:<alias>`, and whoever already took part here.
   const people = () => ['user', 'claude', ...(peers ?? []).map(p => 'claude:' + p.alias),
@@ -231,6 +255,23 @@ export function mountComments(o: {
   const notice = (text: string, why = '') => `<div class="fe-cm-state"${why ? ` title="${esc(why)}"` : ''}>${UI_ICON.info}<span>${esc(text)}</span></div>`;
   const iconBtn = (a: string, icon: string, title: string, v = '') => `<button type="button" class="fe-cm-ib" data-a="${a}"${v ? ` data-v="${esc(v)}"` : ''} title="${esc(title)}" aria-label="${esc(title)}">${icon}</button>`;
 
+  // A suggested edit reads as a small diff: the words now, struck through, and
+  // what would replace them. A pending one can be accepted or rejected here.
+  const sugHtml = (t: DocThread, c: DocThread['comments'][number], on: boolean) => {
+    const s = c.suggestion!;
+    const placed = t.place.offset !== null;
+    // Once accepted, the thread sits on the new words; the old ones were kept with the decision.
+    const now = s.state === 'accepted' ? s.was ?? '' : placed ? o.text().slice(t.place.offset!, t.place.offset! + t.place.length) : t.anchor.exact;
+    const cut = (x: string) => x.length > 200 ? x.slice(0, 199) + '…' : x;
+    const diff = `<div class="fe-cm-diff">${now ? `<del>${esc(cut(now))}</del>` : ''}${s.replace ? `<ins>${esc(cut(s.replace))}</ins>` : '<i>remove these words</i>'}</div>`;
+    if (s.state !== 'pending') return `<div class="fe-cm-sug ${esc(s.state)}">${diff}<span class="fe-cm-sug-state">${s.state === 'accepted' ? UI_ICON.check + 'Accepted' : UI_ICON.close + 'Rejected'}</span></div>`;
+    const can = placed && t.place.state !== 'ambiguous';
+    const tools = on ? `<div class="fe-cm-tools">
+        <button type="button" class="btn" data-size="sm" data-hover-shade data-a="reject" data-v="${esc(c.id)}" title="Keep the text as it is">${UI_ICON.close}Reject</button>
+        <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="accept" data-v="${esc(c.id)}"${can ? '' : ' disabled'} title="${can ? 'Replace the words in the file (a backup is kept)' : 'The words are no longer in the file, so this cannot be applied'}">${UI_ICON.check}Accept</button></div>` : '';
+    return `<div class="fe-cm-sug pending">${diff}${tools}</div>`;
+  };
+
   const threadHtml = (t: DocThread) => {
     const on = t.id === active;
     const quote = visibleOf(t.place.state === 'moved' && t.place.offset !== null ? o.text().slice(t.place.offset, t.place.offset + t.place.length) : t.anchor.exact);
@@ -252,7 +293,7 @@ export function mountComments(o: {
         <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === 'agent' ? UI_ICON.ai : ''}${esc(who(c.author))}</b><time title="${esc(c.created)}">${esc(ago(c.created))}${c.edited ? ' · edited' : ''}</time>
           ${mine && editing !== c.id ? `<span class="fe-cm-own">${iconBtn('edit', UI_ICON.rename, 'Edit this comment', c.id)}${iconBtn('del', UI_ICON.trash, 'Delete this comment', c.id)}</span>` : ''}</div>
         ${body}
-        ${c.suggestion ? `<div class="fe-cm-sug">Suggests <ins>${esc(c.suggestion.replace)}</ins> <span>${esc(c.suggestion.state)}</span></div>` : ''}
+        ${c.suggestion ? sugHtml(t, c, on) : ''}
       </div>`;
     }).join('');
     const where = t.place.state === 'moved' ? notice('Moved: the words changed', 'The quoted words were edited; this is where they seem to be now.')
@@ -613,6 +654,8 @@ export function mountComments(o: {
         try { inp?.showPicker(); } catch { /* not allowed here; the field still takes typing */ }
         return;
       }
+      if (a === 'reject') { void write([{ op: 'decide', thread: active, comment: v, state: 'rejected' }], 'Reject'); return; }
+      if (a === 'accept' && t) { void accept(t, v); return; }
       if (a === 'link') { void copy(location.href.split('#')[0] + '#c=' + encodeURIComponent(active), 'Link to this thread copied'); return; }
       if (a === 'brief' && t) { void copy(agentBrief(o.path, o.href, [t]), 'Thread copied as a brief for an agent'); return; }
       if (a === 'attach') {

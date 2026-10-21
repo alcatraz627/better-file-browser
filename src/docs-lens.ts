@@ -8,8 +8,8 @@ import { esc, midHtml } from './utils';
 import { icoFile } from './icons';
 import { UI_ICON } from './control-icons';
 
-export interface DocRow { doc: string; name: string; open: number; done: number; due?: string[]; mentions?: string[]; exists?: boolean; updated?: string }
-export interface DocFilter { q: string; me: boolean; due: boolean }
+export interface DocRow { doc: string; name: string; open: number; done: number; due?: string[]; mentions?: string[]; tags?: string[]; exists?: boolean; updated?: string }
+export interface DocFilter { q: string; me: boolean; due: boolean; tag?: string }
 
 const forMe = (r: DocRow) => (r.mentions ?? []).some(m => m === 'user' || m === 'owner');
 
@@ -17,16 +17,16 @@ const forMe = (r: DocRow) => (r.mentions ?? []).some(m => m === 'user' || m === 
 export function docRows(rows: DocRow[], f: DocFilter = { q: '', me: false, due: false }): DocRow[] {
   const q = f.q.trim().toLowerCase();
   return rows.filter(r => r.exists !== false && r.open + r.done > 0)
-    .filter(r => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length))
+    .filter(r => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length) && (!f.tag || (r.tags ?? []).includes(f.tag)))
     .sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
 }
 
 export function initDocsLens(box: HTMLElement, home: string, go: (path: string, hash: string) => void): void {
   let loaded = false, all: DocRow[] = [];
-  const f: DocFilter = { q: '', me: false, due: false };
+  const f: DocFilter = { q: '', me: false, due: false, tag: '' };
   box.innerHTML = `<div class="fe-docs-top" hidden>
       <input id="fe-docs-q" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
-      <div class="fe-lens-tags"><button type="button" class="fe-chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="fe-chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button></div>
+      <div class="fe-lens-tags"><button type="button" class="fe-chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="fe-chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
     </div><div class="fe-docs-rows"></div>`;
   const top = box.querySelector<HTMLElement>('.fe-docs-top')!, rowsBox = box.querySelector<HTMLElement>('.fe-docs-rows')!;
   const input = box.querySelector<HTMLInputElement>('#fe-docs-q')!;
@@ -36,6 +36,14 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
     const usable = docRows(all);
     top.hidden = !usable.length;
     for (const c of top.querySelectorAll<HTMLElement>('[data-f]')) c.classList.toggle('on', f[c.dataset.f as 'me' | 'due']);
+    // Tags in use across the listed documents, most used first; a chip filters to that tag.
+    const counts = new Map<string, number>();
+    for (const r of usable) for (const g of r.tags ?? []) counts.set(g, (counts.get(g) ?? 0) + 1);
+    const tags = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([g]) => g);
+    if (f.tag && !tags.includes(f.tag)) tags.push(f.tag);
+    const tagBox = top.querySelector<HTMLElement>('.fe-docs-tags')!;
+    const tagHtml = tags.map(g => `<button type="button" class="fe-chip fe-lens-tag${f.tag === g ? ' on' : ''}" data-tag="${esc(g)}" title="Only documents with a thread tagged #${esc(g)}">#${esc(g)}</button>`).join('');
+    if (tagBox.innerHTML !== tagHtml) tagBox.innerHTML = tagHtml;   // a chip under the pointer stays the same node
     const list = docRows(all, f);
     if (!usable.length) {
       rowsBox.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
@@ -60,6 +68,8 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
     e.stopPropagation();   // page keys must not fire while typing
   });
   top.addEventListener('click', e => {
+    const tg = (e.target as Element).closest<HTMLElement>('[data-tag]');
+    if (tg) { f.tag = f.tag === tg.dataset.tag ? '' : tg.dataset.tag!; paint(); return; }
     const c = (e.target as Element).closest<HTMLElement>('[data-f]');
     if (!c) return;
     const k = c.dataset.f as 'me' | 'due';
