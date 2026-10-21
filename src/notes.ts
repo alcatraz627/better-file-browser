@@ -25,6 +25,19 @@ type Frame =
   | { t: 'search'; hits: { rel: string; line: string }[] }
   | { t: 'error'; code: string; message: string };
 
+/// Who wrote a comment: the owner, or an agent by its claude-ipc alias.
+export interface CommentAuthor { kind: 'human' | 'agent'; name?: string; ipc?: string; alias?: string; session?: string; role?: string }
+export interface DocComment { id: string; author: CommentAuthor; created: string; updated?: string; text: string; edited?: string; deleted?: boolean; suggestion?: { replace: string; state: string } }
+/// Where a thread sits now: anchored where it was, moved (found by its words), ambiguous, or detached.
+export interface ThreadPlace { state: 'anchored' | 'moved' | 'ambiguous' | 'detached'; offset: number | null; length: number; line: number | null }
+export interface DocThread {
+  id: string; status: 'open' | 'done'; tags?: string[]; mentions?: string[]; due?: string; created: string; updated?: string;
+  anchor: { exact: string; line: number; offset: number; headings?: string[] };
+  comments: DocComment[]; place: ThreadPlace; doneBy?: CommentAuthor; doneAt?: string;
+}
+export interface CommentsReply { rel: string; threads: DocThread[]; where: string; companion: string; notes: string[]; doc: { id: string } | null; results?: { thread?: string; comment?: string }[] }
+export type CommentOp = { op: string; thread?: string; comment?: string; text?: string; start?: number; end?: number; tags?: string[]; replace?: string };
+
 /// One saved version of a note, from the folder's git log: short hash, epoch ms, the commit's reason.
 export interface NoteVersion { sha: string; when: number; reason: string }
 
@@ -83,6 +96,10 @@ export const notes = {
   fileRead,
   /// A file's modified time and size, without reading it.
   fileStat: (root: string, rel: string) => call({ op: 'fileStat', root, rel }) as Promise<{ mtime: number; size: number }>,
+  /// Every comment thread on a document, each with where it sits in the text now (bfb-docs).
+  commentsRead: (root: string, rel: string) => call({ op: 'commentsRead', root, rel }) as unknown as Promise<CommentsReply>,
+  /// Apply comment operations as the owner; the document itself is never written.
+  commentsWrite: (root: string, rel: string, ops: CommentOp[]) => call({ op: 'commentsWrite', root, rel, ops }) as unknown as Promise<CommentsReply>,
   fileWrite: (root: string, rel: string, text: string, expectMtime: number) =>
             call({ op: 'fileWrite', root, rel, text, expectMtime }) as Promise<{ mtime: number; backup?: string }>,
 };

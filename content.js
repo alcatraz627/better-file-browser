@@ -668,6 +668,10 @@
     fileRead,
     /// A file's modified time and size, without reading it.
     fileStat: (root, rel) => call({ op: "fileStat", root, rel }),
+    /// Every comment thread on a document, each with where it sits in the text now (bfb-docs).
+    commentsRead: (root, rel) => call({ op: "commentsRead", root, rel }),
+    /// Apply comment operations as the owner; the document itself is never written.
+    commentsWrite: (root, rel, ops) => call({ op: "commentsWrite", root, rel, ops }),
     fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
   };
   function slugForTitle(title) {
@@ -910,6 +914,8 @@ ${body}`;
     check: svg('<path d="M20 6 9 17l-5-5"/>'),
     eye: svg('<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'),
     lock: svg('<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
+    clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    comment: svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
     copyImage: svg(COPY)
   };
   var LINE_ICON = {
@@ -2003,24 +2009,34 @@ ${body}`;
   }
   var ALERTS = { NOTE: "Note", TIP: "Tip", IMPORTANT: "Important", WARNING: "Warning", CAUTION: "Caution" };
   var LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])(?:\s+(.*)|\s*)$/;
-  function renderMarkdown(src, baseUrl = "", inner = false) {
+  function renderMarkdown(src, baseUrl = "", inner = false, nested = false) {
     let lines = src.replace(/\r\n/g, "\n").split("\n");
     const out = [];
     let para = [];
     const seenIds = /* @__PURE__ */ new Map();
     const notes2 = /* @__PURE__ */ new Map();
+    let srcLine = lines.map((_, k) => k + 1);
     if (!inner) {
       let inFence = false;
-      lines = lines.filter((l) => {
+      const keep = [];
+      lines = lines.filter((l, k) => {
         if (/^ {0,3}(`{3,}|~{3,})/.test(l)) inFence = !inFence;
         const m = !inFence && l.match(/^\[\^([^\]\s]+)\]:\s*(.*)$/);
         if (m) {
           notes2.set(m[1], m[2]);
           return false;
         }
+        keep.push(k + 1);
         return true;
       });
+      srcLine = keep;
     }
+    const marking = !inner && !nested;
+    const mark = (from, start) => {
+      if (!marking) return;
+      const a = srcLine[from] ?? from + 1, b = srcLine[Math.max(from, i - 1)] ?? i;
+      for (let k = start; k < out.length; k++) if (!/^<[^>]* data-sl=/.test(out[k])) out[k] = out[k].replace(/^(<[a-z][a-z0-9]*\b[^>]*?)>/, `$1 data-sl="${a}-${b}">`);
+    };
     let i = 0;
     if (!inner && lines[0] === "---") {
       const end = lines.slice(1, 60).findIndex((l) => l === "---");
@@ -2030,14 +2046,16 @@ ${body}`;
         i = end + 2;
       }
     }
+    let paraFrom = 0, paraTo = 0;
     const flush = () => {
       if (!para.length) return;
       const text = para.map((l, k) => k < para.length - 1 && /( {2,}|\\)$/.test(l) ? l.replace(/( {2,}|\\)$/, "") + "\uE002" : l.trim()).join(" ");
-      out.push(`<p>${mdInline(text, baseUrl).replace(/\uE002 ?/g, "<br>")}</p>`);
+      out.push(`<p${marking ? ` data-sl="${srcLine[paraFrom]}-${srcLine[paraTo]}"` : ""}>${mdInline(text, baseUrl).replace(/\uE002 ?/g, "<br>")}</p>`);
       para = [];
     };
     while (i < lines.length) {
       const line2 = lines[i];
+      const from = i, outAt = out.length;
       const fence = line2.match(/^( {0,3})(`{3,}|~{3,})([^\r\n]*)$/);
       if (fence) {
         flush();
@@ -2056,6 +2074,7 @@ ${body}`;
         } else {
           out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || "text")}</span><button type="button" class="fe-md-copy" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre">${highlightCode(code, language || "md")}</pre></div>`);
         }
+        mark(from, outAt);
         continue;
       }
       const h = line2.match(/^(#{1,6})\s+(.*)$/);
@@ -2065,6 +2084,7 @@ ${body}`;
         const id = headingId(h[2].replace(/[*_`]/g, ""), seenIds);
         out.push(`<h${n} id="${esc(id)}">${mdInline(h[2], baseUrl)}<a class="fe-md-anchor" href="#${esc(id)}" title="Link to this heading"></a></h${n}>`);
         i++;
+        mark(from, outAt);
         continue;
       }
       if (/^\s*<[a-zA-Z!/]/.test(line2)) {
@@ -2072,12 +2092,14 @@ ${body}`;
         const buf = [];
         while (i < lines.length && !/^\s*$/.test(lines[i])) buf.push(lines[i++]);
         out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join("\n"), baseUrl)}</div>`);
+        mark(from, outAt);
         continue;
       }
       if (para.length === 0 && /^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/.test(line2)) {
         flush();
         out.push("<hr>");
         i++;
+        mark(from, outAt);
         continue;
       }
       if (/^\s*>/.test(line2)) {
@@ -2088,7 +2110,8 @@ ${body}`;
         if (alert) {
           const kind = alert[1].toUpperCase();
           out.push(`<div class="fe-md-alert fe-md-alert-${kind.toLowerCase()}"><p class="fe-md-alert-title">${ALERTS[kind]}</p>${renderMarkdown(buf.slice(1).join("\n"), baseUrl, true)}</div>`);
-        } else out.push(`<blockquote>${renderMarkdown(buf.join("\n"), baseUrl)}</blockquote>`);
+        } else out.push(`<blockquote>${renderMarkdown(buf.join("\n"), baseUrl, false, true)}</blockquote>`);
+        mark(from, outAt);
         continue;
       }
       const li = line2.match(LIST_ITEM);
@@ -2142,6 +2165,7 @@ ${body}`;
         }
         const start = ordered ? parseInt(li[2], 10) : 1;
         out.push(ordered ? `<ol${start !== 1 ? ` start="${start}"` : ""}>${items.join("")}</ol>` : `<ul>${items.join("")}</ul>`);
+        mark(from, outAt);
         continue;
       }
       if (line2.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i + 1])) {
@@ -2183,6 +2207,7 @@ ${body}`;
         const rows = [];
         while (i < lines.length && lines[i].includes("|")) rows.push(cells(lines[i++]));
         out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table fe-rz"><thead><tr>${head.map((c) => `<th>${c}${COL_HANDLE}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+        mark(from, outAt);
         continue;
       }
       if (/^\s*$/.test(line2)) {
@@ -2190,6 +2215,8 @@ ${body}`;
         i++;
         continue;
       }
+      if (!para.length) paraFrom = i;
+      paraTo = i;
       para.push(line2.replace(/^\s+/, ""));
       i++;
     }
@@ -3770,7 +3797,7 @@ ${body}
   }
 
   // src/styles.ts
-  var CSS = `
+  var CSS2 = `
 *{box-sizing:border-box;margin:0;padding:0}
 /* Palettes (design-system.md, Soft round 2): Slate is the default; Violet,
    Sand and Ink are picked in Settings. Each palette sets only the surface,
@@ -4375,6 +4402,72 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
 #fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
 @media (prefers-reduced-motion:reduce){#fe-toc-fold svg{transition:none}}
+/* The rail's two tabs, Contents and Comments. Comments needs more room, so
+   the rail and the text column's right padding widen while it shows. */
+.fe-rail-tabs{flex:1;display:flex;gap:2px;min-width:0}
+.fe-rt{border:0;background:none;padding:3px 8px;border-radius:999px;font-size:var(--fs-sm);font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dm);cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.fe-rt:hover{color:var(--tx);background:var(--hover)}
+.fe-rt.on{color:var(--tx);background:var(--act)}
+.fe-rt[hidden]{display:none}
+.fe-rt-n:empty{display:none}
+.fe-rt-n{min-width:16px;padding:0 5px;border-radius:999px;background:var(--ac);color:var(--on-ac);font-size:var(--fs-xs);letter-spacing:0;line-height:16px;text-align:center}
+#fe-toc-rail.folded .fe-rail-tabs,#fe-toc-rail.folded #fe-cm{display:none}
+#fe-toc-rail[data-tab="cm"]:not(.folded){width:320px}
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.folded):not(.peek)) #fe-page{padding-right:336px}
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.folded):not(.peek)) #fe-fe{padding-right:336px}
+/* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.folded)) #fe-fe-pill{right:352px}
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]).folded) #fe-fe-pill{right:66px}
+#fe-fp-cm-n:empty{display:none}
+#fe-fp-cm-n{margin-left:4px;min-width:16px;padding:0 5px;border-radius:999px;background:var(--ac);color:var(--on-ac);font-size:var(--fs-xs);line-height:16px}
+/* Comment threads: a quote, then each comment with who and when, then chips. */
+#fe-cm{flex:1;min-height:0;overflow-y:auto;padding:0 10px 14px}
+#fe-cm[hidden]{display:none}
+.fe-cm-filters{display:flex;gap:2px;padding:2px;margin:0 0 10px;border-radius:10px;background:var(--bg);border:1px solid var(--bd);position:sticky;top:0;z-index:1}
+.fe-cm-filters button{flex:1;border:0;background:none;border-radius:8px;padding:3px 4px;font-size:var(--fs-sm);color:var(--mt);cursor:pointer;display:inline-flex;justify-content:center;gap:4px}
+.fe-cm-filters button span{color:var(--dm)}
+.fe-cm-filters button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
+.fe-cm-group{display:flex;align-items:center;gap:6px;margin:14px 2px 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm);cursor:default}
+.fe-cm-group span{font-weight:500;letter-spacing:0}
+details.fe-cm-done > summary{cursor:pointer;list-style:none}
+details.fe-cm-done > summary::-webkit-details-marker{display:none}
+.fe-cm-th{position:relative;margin:0 0 8px;padding:10px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--card);cursor:pointer;
+  transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-cm-th:hover{border-color:var(--bd2)}
+.fe-cm-th.on{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 14%,transparent)}
+.fe-cm-th:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.fe-cm-q{margin:0 0 8px;padding:0 0 0 9px;border-left:2px solid color-mix(in srgb,var(--ac) 55%,transparent);font-size:var(--fs-sm);line-height:1.45;color:var(--mt);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.fe-cm-state{margin:-2px 0 8px;font-size:var(--fs-sm);color:var(--nc-orange)}
+.fe-cm-c + .fe-cm-c{margin-top:9px;padding-top:9px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+.fe-cm-who{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.fe-cm-who b{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-cm-who b.agent{color:var(--nc-purple)}
+.fe-cm-who b svg{width:12px;height:12px}
+.fe-cm-who time{font-size:var(--fs-sm);color:var(--dm)}
+.fe-cm-tx{font-size:var(--fs-md);line-height:1.5;color:var(--tx);overflow-wrap:anywhere}
+.fe-cm-tx code{font-size:.92em}
+.fe-cm-c.gone .fe-cm-tx{color:var(--dm)}
+.fe-cm-sug{margin-top:6px;font-size:var(--fs-sm);color:var(--mt)}
+.fe-cm-sug ins{text-decoration:none;background:color-mix(in srgb,var(--nc-green) 18%,transparent);padding:0 3px;border-radius:3px;color:var(--tx)}
+.fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.fe-cm-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;font-size:var(--fs-sm);background:var(--s2);color:var(--mt)}
+.fe-cm-chip svg{width:11px;height:11px}
+.fe-cm-chip.due{background:color-mix(in srgb,var(--nc-orange) 16%,transparent);color:var(--tx)}
+.fe-cm-chip.done{background:color-mix(in srgb,var(--nc-green) 16%,transparent);color:var(--tx)}
+.fe-cm-note{margin:0 2px 8px;font-size:var(--fs-sm);color:var(--dm);line-height:1.4}
+.fe-cm-empty{padding:18px 6px;text-align:center;color:var(--mt);font-size:var(--fs-md);line-height:1.5}
+.fe-cm-empty .btn{margin-top:8px;display:inline-flex;align-items:center;gap:6px}
+.fe-cm-empty .btn svg{width:13px;height:13px}
+.fe-cm-hint{color:var(--dm);font-size:var(--fs-sm)}
+/* In the text: commented words get a wash, the open thread a stronger one,
+   and each block with comments a count in the right margin. */
+::highlight(bfb-cm){background-color:color-mix(in srgb,var(--ac) 20%,transparent)}
+::highlight(bfb-cm-on){background-color:color-mix(in srgb,var(--ac) 42%,transparent)}
+.fe-md [data-cm]{position:relative}
+.fe-md [data-cm]::after{content:attr(data-cm);position:absolute;top:2px;right:-30px;min-width:20px;height:18px;padding:0 5px;border-radius:9px 9px 9px 2px;
+  background:color-mix(in srgb,var(--ac) 22%,var(--card));color:var(--tx);font-size:var(--fs-xs);font-weight:600;line-height:18px;text-align:center;cursor:pointer}
 /* Find in file, at the right end of the file bar. */
 #fe-ff{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 3px 0 9px;border:1px solid var(--bd);border-radius:8px;
   background:color-mix(in srgb,var(--tx) 3%,var(--card));color:var(--dm);transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
@@ -12290,9 +12383,287 @@ and ${diags.length - 12} more` : "");
     };
   }
 
+  // src/comments-ui.ts
+  var FILTER_KEY = "bfb-comments-filter-v1";
+  var POLL_MS = 2e3;
+  var FILTERS = [
+    { id: "open", label: "Open" },
+    { id: "me", label: "For me" },
+    { id: "done", label: "Done" },
+    { id: "all", label: "All" }
+  ];
+  function visibleOf(src) {
+    const lines = src.split("\n").map((l) => l.replace(/^\s*#{1,6}\s+/, "").replace(/^\s*>\s?/, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, "").replace(/\|/g, " "));
+    return lines.join(" ").replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/<(https?:\/\/[^>]+)>/g, "$1").replace(/\[\^[^\]]+\]/g, "").replace(/<[^>]+>/g, "").replace(/`+/g, "").replace(/\*\*|__|~~/g, "").replace(/(^|[^\w*])[*_](?=\S)/g, "$1").replace(/(\S)[*_](?=[^\w*]|$)/g, "$1").replace(/\s+/g, " ").trim();
+  }
+  var SKIP4 = "script,style,svg,textarea,.fe-md-anchor,.fe-md-code-bar,[hidden]";
+  function rangeFor(page, first, last, needle) {
+    const blocks = [...page.querySelectorAll("[data-sl]")].filter((b) => {
+      const [a, z] = b.dataset.sl.split("-").map(Number);
+      return z >= first && a <= last;
+    });
+    if (!blocks.length) return null;
+    let flat = "";
+    const at = [];
+    let ws = true;
+    for (const b of blocks) {
+      const walker = document.createTreeWalker(b, NodeFilter.SHOW_TEXT, {
+        acceptNode: (n) => n.parentElement?.closest(SKIP4) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+      });
+      while (walker.nextNode()) {
+        const t = walker.currentNode;
+        for (let i = 0; i < t.data.length; i++) {
+          const sp2 = /\s/.test(t.data[i]);
+          if (sp2 && ws) continue;
+          flat += sp2 ? " " : t.data[i];
+          at.push([t, i]);
+          ws = sp2;
+        }
+      }
+      if (!ws) {
+        flat += " ";
+        at.push(at[at.length - 1]);
+        ws = true;
+      }
+    }
+    const range = document.createRange();
+    let s = needle ? flat.indexOf(needle) : -1;
+    if (s === -1 && needle) s = flat.toLowerCase().indexOf(needle.toLowerCase());
+    if (s === -1) {
+      range.selectNodeContents(blocks[0]);
+      return range;
+    }
+    const [sn, so] = at[s], [en, eo] = at[s + needle.length - 1];
+    range.setStart(sn, so);
+    range.setEnd(en, eo + 1);
+    return range;
+  }
+  var who = (a) => a.kind === "human" ? "You" : (a.alias || "agent") + (a.role ? ` \xB7 ${a.role}` : "");
+  function ago(iso) {
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return "";
+    const s = Math.max(0, (Date.now() - t) / 1e3);
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h`;
+    if (s < 86400 * 7) return `${Math.floor(s / 86400)}d`;
+    return new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+  function dueLabel(d) {
+    const t = /* @__PURE__ */ new Date(d + "T00:00:00");
+    return isNaN(t.getTime()) ? d : t.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  }
+  function forOwner(t) {
+    if (t.status === "done" || !t.comments.length) return false;
+    const last = t.comments[t.comments.length - 1].author;
+    if (last.kind === "agent") return true;
+    let mine = -1;
+    t.comments.forEach((c, i) => {
+      if (c.author.kind === "human") mine = i;
+    });
+    return t.comments.slice(mine + 1).some((c) => /(^|\s)@(user|owner)\b/i.test(c.text || ""));
+  }
+  function mountComments(o) {
+    let threads = [];
+    let notesLine = [];
+    let filter = kvGet(FILTER_KEY) || "open";
+    let active = "";
+    let loaded = false, failed = "";
+    let lastCompanion = null, lastText = "";
+    const seen = /* @__PURE__ */ new Set();
+    const ranges = /* @__PURE__ */ new Map();
+    const readCompanion = () => fetchFileText(o.href + ".bfb.json").catch(() => "");
+    const load = async () => {
+      const root = o.root();
+      if (!root) {
+        loaded = true;
+        paint();
+        return;
+      }
+      lastCompanion = await readCompanion();
+      lastText = o.text();
+      try {
+        const r = await notes.commentsRead(root, o.rel());
+        const fresh = r.threads.flatMap((t) => t.comments.filter((c) => !seen.has(c.id) && c.author.kind === "agent").map((c) => c.author));
+        if (loaded && fresh.length) o.status(`New reply from ${fresh[fresh.length - 1].alias}`);
+        r.threads.forEach((t) => t.comments.forEach((c) => seen.add(c.id)));
+        threads = r.threads;
+        notesLine = r.notes;
+        failed = "";
+        loaded = true;
+      } catch (e) {
+        failed = e.message;
+        loaded = true;
+      }
+      paint();
+      redraw();
+      o.changed();
+    };
+    const visible = () => threads.filter((t) => filter === "all" ? true : filter === "done" ? t.status === "done" : filter === "me" ? forOwner(t) : t.status !== "done");
+    const threadHtml = (t) => {
+      const quote = visibleOf(t.place.state === "moved" && t.place.offset !== null ? o.text().slice(t.place.offset, t.place.offset + t.place.length) : t.anchor.exact);
+      const chips = [
+        ...(t.tags ?? []).map((g) => `<span class="fe-cm-chip">#${esc(g)}</span>`),
+        t.due ? `<span class="fe-cm-chip due">${UI_ICON.clock}${esc(dueLabel(t.due))}</span>` : "",
+        t.status === "done" ? `<span class="fe-cm-chip done">Done</span>` : ""
+      ].join("");
+      const cs = t.comments.map((c) => `
+      <div class="fe-cm-c${c.deleted ? " gone" : ""}">
+        <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(c.author))}</b><time title="${esc(c.created)}">${esc(ago(c.created))}</time></div>
+        <div class="fe-cm-tx">${c.deleted ? "<i>Deleted</i>" : mdInline(c.text || "")}</div>
+        ${c.suggestion ? `<div class="fe-cm-sug">Suggests <ins>${esc(c.suggestion.replace)}</ins> <span>${esc(c.suggestion.state)}</span></div>` : ""}
+      </div>`).join("");
+      const where = t.place.state === "moved" ? '<div class="fe-cm-state">Moved: the quoted words changed</div>' : t.place.state === "ambiguous" ? '<div class="fe-cm-state">The quoted words appear more than once</div>' : t.place.state === "detached" ? '<div class="fe-cm-state">The quoted text is no longer in the file</div>' : "";
+      return `<article class="fe-cm-th${t.id === active ? " on" : ""}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
+      <blockquote class="fe-cm-q">${esc(quote.length > 140 ? quote.slice(0, 139) + "\u2026" : quote)}</blockquote>${where}${cs}
+      ${chips ? `<div class="fe-cm-chips">${chips}</div>` : ""}</article>`;
+    };
+    const paint = () => {
+      const root = o.root();
+      if (!root) {
+        o.box.innerHTML = `<div class="fe-cm-empty"><p>Comments are saved beside this file, so this folder needs to be allowed first.</p>
+        <button type="button" class="btn" data-variant="outline" data-a="allow">${UI_ICON.lock}Allow this folder</button></div>`;
+        return;
+      }
+      if (!loaded) {
+        o.box.innerHTML = '<div class="fe-cm-empty"><p>Loading comments\u2026</p></div>';
+        return;
+      }
+      if (failed) {
+        o.box.innerHTML = `<div class="fe-cm-empty"><p>Comments could not be read: ${esc(failed)}</p></div>`;
+        return;
+      }
+      const list = visible();
+      const groups = filter === "done" || filter === "all" ? [["", list]] : [
+        ["", list.filter((t) => t.place.state === "anchored" || t.place.state === "ambiguous")],
+        ["Moved", list.filter((t) => t.place.state === "moved")],
+        ["Detached", list.filter((t) => t.place.state === "detached")]
+      ];
+      const done = filter === "open" ? threads.filter((t) => t.status === "done") : [];
+      const count = (f) => threads.filter((t) => f === "all" ? true : f === "done" ? t.status === "done" : f === "me" ? forOwner(t) : t.status !== "done").length;
+      o.box.innerHTML = `
+      <div class="fe-cm-filters" role="tablist">${FILTERS.map((f) => `<button type="button" role="tab" data-f="${f.id}" class="${f.id === filter ? "on" : ""}" aria-selected="${f.id === filter}">${f.label}<span>${count(f.id) || ""}</span></button>`).join("")}</div>
+      ${notesLine.map((n) => `<p class="fe-cm-note">${esc(n)}</p>`).join("")}
+      ${list.length ? "" : `<div class="fe-cm-empty"><p>${threads.length ? "Nothing here." : "No comments yet."}</p><p class="fe-cm-hint">Agents and the terminal add them with <code>bfb-docs comments new</code>.</p></div>`}
+      ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="fe-cm-group">${name} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
+      ${done.length ? `<details class="fe-cm-done"><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}`;
+    };
+    const redraw = () => {
+      ranges.clear();
+      o.page.querySelectorAll("[data-cm]").forEach((b) => b.removeAttribute("data-cm"));
+      const all = [];
+      const text = o.text();
+      for (const t of threads) {
+        if (t.status === "done" || t.place.offset === null || t.place.line === null) continue;
+        const src = text.slice(t.place.offset, t.place.offset + t.place.length);
+        const last = t.place.line + (src.match(/\n/g)?.length ?? 0);
+        const r = rangeFor(o.page, t.place.line, last, visibleOf(src));
+        if (!r) continue;
+        ranges.set(t.id, r);
+        all.push(r);
+        const block = (r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement)?.closest("[data-sl]");
+        if (block) block.dataset.cm = String(Number(block.dataset.cm || 0) + 1);
+      }
+      const reg = CSS.highlights;
+      const H = window.Highlight;
+      if (reg && H) {
+        reg.set("bfb-cm", new H(...all));
+        const on = ranges.get(active);
+        if (on) reg.set("bfb-cm-on", new H(on));
+        else reg.delete("bfb-cm-on");
+      }
+    };
+    const focusThread = (id, scroll = true) => {
+      active = id;
+      paint();
+      redraw();
+      const card = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
+      if (!card) {
+        filter = "all";
+        paint();
+        redraw();
+      }
+      o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" });
+      const r = ranges.get(id);
+      if (scroll && r) {
+        const box = r.getBoundingClientRect(), pg = o.page.getBoundingClientRect();
+        if (box.top < pg.top + 40 || box.bottom > pg.bottom - 40) o.page.scrollTop += box.top - pg.top - pg.height / 3;
+      }
+    };
+    o.box.addEventListener("click", async (e) => {
+      const el2 = e.target;
+      const f = el2.closest("[data-f]")?.dataset.f;
+      if (f) {
+        filter = f;
+        kvSet(FILTER_KEY, f);
+        paint();
+        return;
+      }
+      if (el2.closest('[data-a="allow"]')) {
+        if (await o.allow()) {
+          loaded = false;
+          paint();
+          void load();
+        }
+        return;
+      }
+      if (el2.closest("a")) return;
+      const th = el2.closest(".fe-cm-th");
+      if (th) focusThread(th.dataset.id);
+    });
+    o.box.addEventListener("keydown", (e) => {
+      const th = e.target.closest(".fe-cm-th");
+      if (th && (e.key === "Enter" || e.key === " ")) {
+        e.preventDefault();
+        focusThread(th.dataset.id);
+      }
+    });
+    o.page.addEventListener("click", (e) => {
+      const me = e;
+      const block = me.target.closest("[data-cm]");
+      if (block && me.clientX > block.getBoundingClientRect().right - 4) {
+        const id = [...ranges].find(([, r]) => block.contains(r.startContainer))?.[0];
+        if (id) {
+          focusThread(id, false);
+          o.changed();
+          return;
+        }
+      }
+      const pos = document.caretRangeFromPoint?.(me.clientX, me.clientY);
+      if (!pos || window.getSelection()?.toString()) return;
+      for (const [id, r] of ranges) {
+        try {
+          if (r.isPointInRange(pos.startContainer, pos.startOffset)) {
+            focusThread(id, false);
+            o.changed();
+            return;
+          }
+        } catch {
+        }
+      }
+    });
+    setInterval(async () => {
+      if (document.visibilityState !== "visible" || !o.root() || lastCompanion === null) return;
+      const comp = await readCompanion();
+      if (comp === lastCompanion && o.text() === lastText) return;
+      void load();
+    }, POLL_MS);
+    paint();
+    void load();
+    return {
+      redraw,
+      open: () => threads.filter((t) => t.status !== "done").length,
+      show: (id) => {
+        if (id) focusThread(id);
+        else paint();
+      }
+    };
+  }
+
   // src/file-page.ts
   var SCROLL_KEY = "bfb-page-scroll-v1";
   var TOC_KEY = "bfb-page-toc-v1";
+  var RAIL_TAB_KEY = "bfb-page-rail-tab-v1";
   var COLUMN_KEY = "bfb-page-column-v2";
   var COLUMN_MODES = ["unset", "xl", "lg", "md"];
   var COLUMN_WIDTHS = { unset: "full", xl: "150ch", lg: "130ch", md: "110ch" };
@@ -12400,6 +12771,7 @@ ${d.message}` : d.message;
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
+        <button id="fe-fp-cm" title="Comments on this file" hidden>${UI_ICON.comment}Comments<span id="fe-fp-cm-n"></span></button>
         <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
         <button id="fe-fp-wrap" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
@@ -12416,9 +12788,12 @@ ${d.message}` : d.message;
         <div id="fe-page"></div>
         <div id="fe-fe" style="display:none"></div>
         <aside id="fe-toc-rail" hidden>
-          <div class="fe-toc-head"><span class="fe-toc-title">On this page</span>
+          <div class="fe-toc-head"><div class="fe-rail-tabs" role="tablist" aria-label="Side panel">
+            <button type="button" role="tab" class="fe-rt" data-rt="toc" title="Headings on this page">On this page</button>
+            <button type="button" role="tab" class="fe-rt" data-rt="cm" title="Comments on this file">Comments<span class="fe-rt-n" id="fe-cm-n"></span></button></div>
             <button id="fe-toc-fold" type="button" title="Collapse the contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M5 3l3.5 3.5L5 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
           <nav id="fe-toc"></nav>
+          <div id="fe-cm" role="tabpanel" aria-label="Comments" hidden></div>
         </aside>
       </div>`;
   }
@@ -12465,7 +12840,22 @@ ${d.message}` : d.message;
       colBtn.title = `Reading width: ${column === "unset" ? "full" : `${column.toUpperCase()} (${COLUMN_WIDTHS[column]})`}. Click for ${next === "unset" ? "full" : `${next.toUpperCase()} (${COLUMN_WIDTHS[next]})`}`;
       colBtn.style.display = isMd && !raw ? "" : "none";
       rawBtn.style.display = editor ? "none" : "";
-      rail.hidden = !isMd || raw || headings < 2 || !!editor;
+      const cmOpen = comments?.open() ?? 0;
+      const hasToc = headings >= 2 && !editor;
+      const tab = railTab === "toc" && !hasToc ? "cm" : railTab;
+      rail.hidden = !isMd || raw || (tab === "cm" ? !cmWanted && !cmOpen : !hasToc);
+      rail.dataset.tab = tab;
+      toc.hidden = tab !== "toc";
+      cmBox.hidden = tab !== "cm";
+      rail.querySelectorAll(".fe-rt").forEach((b) => {
+        b.classList.toggle("on", b.dataset.rt === tab);
+        b.setAttribute("aria-selected", String(b.dataset.rt === tab));
+        if (b.dataset.rt === "toc") b.hidden = !hasToc;
+      });
+      cmN.textContent = cmOpen ? String(cmOpen) : "";
+      cmBtn.hidden = !isMd || raw;
+      cmBtn.classList.toggle("on", !rail.hidden && tab === "cm");
+      cmBtnN.textContent = cmOpen ? String(cmOpen) : "";
       const open = tight ? peek : tocOpen;
       rail.classList.toggle("folded", !open);
       rail.classList.toggle("peek", tight && peek);
@@ -12485,9 +12875,31 @@ ${d.message}` : d.message;
       paint();
       spy(page, toc);
       find.refresh();
+      comments?.redraw();
     };
     let editor = null;
+    const cmBox = document.getElementById("fe-cm");
+    const cmN = document.getElementById("fe-cm-n");
+    const cmBtn = document.getElementById("fe-fp-cm");
+    const cmBtnN = document.getElementById("fe-fp-cm-n");
+    let comments = null;
+    let railTab = kvGet(RAIL_TAB_KEY) === "cm" ? "cm" : "toc";
+    let cmWanted = railTab === "cm";
     render2();
+    rail.querySelector(".fe-rail-tabs").addEventListener("click", (e) => {
+      const t = e.target.closest("[data-rt]")?.dataset.rt;
+      if (!t) return;
+      railTab = t;
+      cmWanted = t === "cm";
+      kvSet(RAIL_TAB_KEY, t);
+      if (tight) peek = true;
+      else if (!tocOpen) {
+        tocOpen = true;
+        kvSet(TOC_KEY, "1");
+      }
+      paint();
+      if (t === "toc") spy(page, toc);
+    });
     foldBtn.addEventListener("click", () => {
       if (tight) peek = !peek;
       else {
@@ -12693,6 +13105,36 @@ ${d.message}` : d.message;
       }
     };
     editBtn.addEventListener("click", () => void edit2());
+    if (isMd) comments = mountComments({
+      page,
+      box: cmBox,
+      href,
+      root: () => root,
+      rel: () => rawPath.slice((root ?? "").length + 1),
+      text: () => text,
+      allow: askToAllow,
+      status,
+      changed: paint
+    });
+    cmBtn.addEventListener("click", () => {
+      const showing = !rail.hidden && rail.dataset.tab === "cm" && !rail.classList.contains("folded");
+      if (showing) {
+        cmWanted = false;
+        railTab = "toc";
+        kvSet(RAIL_TAB_KEY, "toc");
+      } else {
+        railTab = "cm";
+        cmWanted = true;
+        kvSet(RAIL_TAB_KEY, "cm");
+        if (tight) peek = true;
+        else if (!tocOpen) {
+          tocOpen = true;
+          kvSet(TOC_KEY, "1");
+        }
+      }
+      paint();
+    });
+    document.getElementById("fe-ff-q").addEventListener("input", () => setTimeout(() => comments?.redraw(), 0));
     rawBtn.addEventListener("click", toggleRaw);
     const wrapBtn = document.getElementById("fe-fp-wrap");
     const syncWrap = () => wrapBtn.classList.toggle("on", fe.dataset.wrap === "on");
@@ -16990,7 +17432,7 @@ ${rows.join("\n")}`, name: subject };
     const box = document.getElementById("fe-rc-sets");
     if (!box) return;
     const section = box.closest(".fe-sec");
-    const ago = (at) => {
+    const ago2 = (at) => {
       const m = Math.round((Date.now() - at) / 6e4);
       return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
     };
@@ -17007,7 +17449,7 @@ ${rows.join("\n")}`, name: subject };
       const sets = all.filter((s) => !young.includes(s)).slice(0, 3);
       box.innerHTML = sets.map((s) => {
         const n = s.labels.length;
-        return `<button type="button" class="fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago(s.at)}</span></button>`;
+        return `<button type="button" class="fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago2(s.at)}</span></button>`;
       }).join("");
       section.style.display = visible && sets.length ? "" : "none";
     }
@@ -17070,7 +17512,7 @@ ${rows.join("\n")}`, name: subject };
     const initHidden = getShowHidden();
     const recents = getRecents().filter((r) => r.path !== rawPath);
     pushRecent(rawPath);
-    const ago = (ts) => {
+    const ago2 = (ts) => {
       if (!ts) return "";
       const m = Math.round((Date.now() - ts) / 6e4);
       return m < 1 ? "now" : m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
@@ -17079,7 +17521,7 @@ ${rows.join("\n")}`, name: subject };
       const name = r.path.split("/").filter(Boolean).pop() || "/";
       const isDir = r.path.endsWith("/");
       const ext2 = name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
-      return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago(r.ts)}</span></a>`;
+      return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago2(r.ts)}</span></a>`;
     };
     const recentDirs = recents.filter((r) => r.path.endsWith("/")).slice(0, 12);
     const recentFiles = recents.filter((r) => !r.path.endsWith("/")).slice(0, 12);
@@ -17122,7 +17564,7 @@ ${rows.join("\n")}`, name: subject };
     document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${chrome.runtime.getURL("assets/favicon.svg")}">`;
     document.body.innerHTML = html;
     const styleEl = document.createElement("style");
-    styleEl.textContent = CSS;
+    styleEl.textContent = CSS2;
     document.head.appendChild(styleEl);
     preload?.remove();
     const fe = el("fe");

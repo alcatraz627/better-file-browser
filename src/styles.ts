@@ -604,6 +604,72 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
 #fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
 @media (prefers-reduced-motion:reduce){#fe-toc-fold svg{transition:none}}
+/* The rail's two tabs, Contents and Comments. Comments needs more room, so
+   the rail and the text column's right padding widen while it shows. */
+.fe-rail-tabs{flex:1;display:flex;gap:2px;min-width:0}
+.fe-rt{border:0;background:none;padding:3px 8px;border-radius:999px;font-size:var(--fs-sm);font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dm);cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.fe-rt:hover{color:var(--tx);background:var(--hover)}
+.fe-rt.on{color:var(--tx);background:var(--act)}
+.fe-rt[hidden]{display:none}
+.fe-rt-n:empty{display:none}
+.fe-rt-n{min-width:16px;padding:0 5px;border-radius:999px;background:var(--ac);color:var(--on-ac);font-size:var(--fs-xs);letter-spacing:0;line-height:16px;text-align:center}
+#fe-toc-rail.folded .fe-rail-tabs,#fe-toc-rail.folded #fe-cm{display:none}
+#fe-toc-rail[data-tab="cm"]:not(.folded){width:320px}
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.folded):not(.peek)) #fe-page{padding-right:336px}
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.folded):not(.peek)) #fe-fe{padding-right:336px}
+/* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]):not(.folded)) #fe-fe-pill{right:352px}
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden]).folded) #fe-fe-pill{right:66px}
+#fe-fp-cm-n:empty{display:none}
+#fe-fp-cm-n{margin-left:4px;min-width:16px;padding:0 5px;border-radius:999px;background:var(--ac);color:var(--on-ac);font-size:var(--fs-xs);line-height:16px}
+/* Comment threads: a quote, then each comment with who and when, then chips. */
+#fe-cm{flex:1;min-height:0;overflow-y:auto;padding:0 10px 14px}
+#fe-cm[hidden]{display:none}
+.fe-cm-filters{display:flex;gap:2px;padding:2px;margin:0 0 10px;border-radius:10px;background:var(--bg);border:1px solid var(--bd);position:sticky;top:0;z-index:1}
+.fe-cm-filters button{flex:1;border:0;background:none;border-radius:8px;padding:3px 4px;font-size:var(--fs-sm);color:var(--mt);cursor:pointer;display:inline-flex;justify-content:center;gap:4px}
+.fe-cm-filters button span{color:var(--dm)}
+.fe-cm-filters button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
+.fe-cm-group{display:flex;align-items:center;gap:6px;margin:14px 2px 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm);cursor:default}
+.fe-cm-group span{font-weight:500;letter-spacing:0}
+details.fe-cm-done > summary{cursor:pointer;list-style:none}
+details.fe-cm-done > summary::-webkit-details-marker{display:none}
+.fe-cm-th{position:relative;margin:0 0 8px;padding:10px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--card);cursor:pointer;
+  transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-cm-th:hover{border-color:var(--bd2)}
+.fe-cm-th.on{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 14%,transparent)}
+.fe-cm-th:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.fe-cm-q{margin:0 0 8px;padding:0 0 0 9px;border-left:2px solid color-mix(in srgb,var(--ac) 55%,transparent);font-size:var(--fs-sm);line-height:1.45;color:var(--mt);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.fe-cm-state{margin:-2px 0 8px;font-size:var(--fs-sm);color:var(--nc-orange)}
+.fe-cm-c + .fe-cm-c{margin-top:9px;padding-top:9px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+.fe-cm-who{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.fe-cm-who b{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-cm-who b.agent{color:var(--nc-purple)}
+.fe-cm-who b svg{width:12px;height:12px}
+.fe-cm-who time{font-size:var(--fs-sm);color:var(--dm)}
+.fe-cm-tx{font-size:var(--fs-md);line-height:1.5;color:var(--tx);overflow-wrap:anywhere}
+.fe-cm-tx code{font-size:.92em}
+.fe-cm-c.gone .fe-cm-tx{color:var(--dm)}
+.fe-cm-sug{margin-top:6px;font-size:var(--fs-sm);color:var(--mt)}
+.fe-cm-sug ins{text-decoration:none;background:color-mix(in srgb,var(--nc-green) 18%,transparent);padding:0 3px;border-radius:3px;color:var(--tx)}
+.fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.fe-cm-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;font-size:var(--fs-sm);background:var(--s2);color:var(--mt)}
+.fe-cm-chip svg{width:11px;height:11px}
+.fe-cm-chip.due{background:color-mix(in srgb,var(--nc-orange) 16%,transparent);color:var(--tx)}
+.fe-cm-chip.done{background:color-mix(in srgb,var(--nc-green) 16%,transparent);color:var(--tx)}
+.fe-cm-note{margin:0 2px 8px;font-size:var(--fs-sm);color:var(--dm);line-height:1.4}
+.fe-cm-empty{padding:18px 6px;text-align:center;color:var(--mt);font-size:var(--fs-md);line-height:1.5}
+.fe-cm-empty .btn{margin-top:8px;display:inline-flex;align-items:center;gap:6px}
+.fe-cm-empty .btn svg{width:13px;height:13px}
+.fe-cm-hint{color:var(--dm);font-size:var(--fs-sm)}
+/* In the text: commented words get a wash, the open thread a stronger one,
+   and each block with comments a count in the right margin. */
+::highlight(bfb-cm){background-color:color-mix(in srgb,var(--ac) 20%,transparent)}
+::highlight(bfb-cm-on){background-color:color-mix(in srgb,var(--ac) 42%,transparent)}
+.fe-md [data-cm]{position:relative}
+.fe-md [data-cm]::after{content:attr(data-cm);position:absolute;top:2px;right:-30px;min-width:20px;height:18px;padding:0 5px;border-radius:9px 9px 9px 2px;
+  background:color-mix(in srgb,var(--ac) 22%,var(--card));color:var(--tx);font-size:var(--fs-xs);font-weight:600;line-height:18px;text-align:center;cursor:pointer}
 /* Find in file, at the right end of the file bar. */
 #fe-ff{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 3px 0 9px;border:1px solid var(--bd);border-radius:8px;
   background:color-mix(in srgb,var(--tx) 3%,var(--card));color:var(--dm);transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}

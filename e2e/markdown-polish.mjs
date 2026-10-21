@@ -46,7 +46,7 @@ try {
   const dark = await checkPage();
   assert.equal(dark.theme, 'dark');
   assert.ok(dark.top < 35 && dark.bottom < 35, JSON.stringify(dark));
-  assert.deepEqual(dark.controls, ['Full width', 'Edit', 'Wrap', 'Raw', 'Copy'].map(text => ({ text, icon: true })));
+  assert.deepEqual(dark.controls, ['Full width', 'Comments', 'Edit', 'Wrap', 'Raw', 'Copy'].map(text => ({ text, icon: true })));
   await shot(page, 'markdown-callout-fixture-dark');
   await page.bringToFront();
   await page.evaluate(() => document.getElementById('fe-theme-btn').click());

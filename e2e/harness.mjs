@@ -18,22 +18,22 @@ function extensionId(dir) {
 }
 
 // Native host manifests live inside the user-data-dir for Chrome for Testing.
-// With pickReply, the host runs through a launcher that answers the system folder chooser
-// with that path, since a headless run has no dialog to click.
+// The host always runs through a launcher that keeps bfb-docs state (the
+// comments index, last known copies) inside the profile, never the owner's.
+// With pickReply, the launcher also answers the system folder chooser with
+// that path, since a headless run has no dialog to click.
 function installNotesHost(profile, pickReply) {
   const dir = join(profile, 'NativeMessagingHosts');
   mkdirSync(dir, { recursive: true });
-  let hostPath = join(ROOT, 'native', 'notes_host.py');
-  if (pickReply) {
-    hostPath = join(profile, 'notes_host_pick_stub.py');
-    writeFileSync(hostPath, `#!/usr/bin/env python3
-import importlib.util
+  const hostPath = join(profile, 'notes_host_launcher.py');
+  writeFileSync(hostPath, `#!/usr/bin/env python3
+import importlib.util, os
+os.environ['BFB_DOCS_HOME'] = ${JSON.stringify(docsHome(profile))}
 spec = importlib.util.spec_from_file_location('notes_host', ${JSON.stringify(join(ROOT, 'native', 'notes_host.py'))})
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-m.run_picker = lambda start: ${JSON.stringify(pickReply)}
+${pickReply ? `m.run_picker = lambda start: ${JSON.stringify(pickReply)}` : ''}
 m.main()
 `, { mode: 0o755 });
-  }
   writeFileSync(join(dir, 'com.better_file_browser.notes.json'), JSON.stringify({
     name: 'com.better_file_browser.notes',
     description: 'notes host (e2e)',
@@ -44,6 +44,8 @@ m.main()
 }
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
+// Where the host and a walk's own bfb-docs calls keep comment state for one run.
+const docsHome = profile => join(profile, 'bfb-docs-state');
 export const SHOTS = join(ROOT, 'e2e', 'shots');
 
 function findChrome() {
@@ -149,7 +151,7 @@ export async function launch({ headless = true, pickReply } = {}) {
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, open, close, store };
+  return { browser, fixture, notesDir, open, close, store, docsHome: docsHome(profile) };
 }
 
 // The extension's settings store for the running browser; set by launch().

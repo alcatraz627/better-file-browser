@@ -73,7 +73,9 @@ try {
     if (!m.shadow) fails.push(`${name}: no shadow`);
   }
 
-  await page.click('#fe-rail-places'); await new Promise(r => setTimeout(r, 300));
+  await page.click('#fe-rail-places');
+  // Places fills in once the native host says where home is.
+  await page.waitForSelector('#fe-lens-places .fe-si', { timeout: 5000 }).catch(() => null);
   await rows('places', '#fe-lens-places .fe-si');
   await page.click('#fe-rail-notes'); await new Promise(r => setTimeout(r, 300));
   await rows('saved', '#fe-sv-list .fe-bm-item');

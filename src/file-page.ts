@@ -16,10 +16,13 @@ import { UI_ICON } from './control-icons';
 import { getSettings, saveSettings } from './storage';
 import { editableRoot, openFileEditor, type FileEditor } from './file-editor';
 import { attachFind } from './find-in-page';
+import { mountComments, type CommentsPanel } from './comments-ui';
 import type { Settings } from './types';
 
 const SCROLL_KEY = 'bfb-page-scroll-v1';
 const TOC_KEY = 'bfb-page-toc-v1';
+// Which tab the rail shows, Contents or Comments; a per-reader choice.
+const RAIL_TAB_KEY = 'bfb-page-rail-tab-v1';
 export const COLUMN_KEY = 'bfb-page-column-v2';
 type ColumnMode = 'unset' | 'xl' | 'lg' | 'md';
 const COLUMN_MODES: ColumnMode[] = ['unset', 'xl', 'lg', 'md'];
@@ -139,6 +142,7 @@ export function renderFileContent(): string {
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
+        <button id="fe-fp-cm" title="Comments on this file" hidden>${UI_ICON.comment}Comments<span id="fe-fp-cm-n"></span></button>
         <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
         <button id="fe-fp-wrap" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
         <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
@@ -155,9 +159,12 @@ export function renderFileContent(): string {
         <div id="fe-page"></div>
         <div id="fe-fe" style="display:none"></div>
         <aside id="fe-toc-rail" hidden>
-          <div class="fe-toc-head"><span class="fe-toc-title">On this page</span>
+          <div class="fe-toc-head"><div class="fe-rail-tabs" role="tablist" aria-label="Side panel">
+            <button type="button" role="tab" class="fe-rt" data-rt="toc" title="Headings on this page">On this page</button>
+            <button type="button" role="tab" class="fe-rt" data-rt="cm" title="Comments on this file">Comments<span class="fe-rt-n" id="fe-cm-n"></span></button></div>
             <button id="fe-toc-fold" type="button" title="Collapse the contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M5 3l3.5 3.5L5 10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
           <nav id="fe-toc"></nav>
+          <div id="fe-cm" role="tabpanel" aria-label="Comments" hidden></div>
         </aside>
       </div>`;
 }
@@ -212,9 +219,25 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     colBtn.style.display = isMd && !raw ? '' : 'none';
     // While editing, the editor's own Raw / Split / Rich switch is the only view control.
     rawBtn.style.display = editor ? 'none' : '';
-    // The rail shows for a markdown page with at least two headings; folded,
-    // it keeps only its button so it can open again.
-    rail.hidden = !isMd || raw || headings < 2 || !!editor;
+    // The rail holds Contents (a markdown page with at least two headings) and
+    // Comments (any markdown page); folded, it keeps only its button so it can
+    // open again. While editing only Comments stays.
+    const cmOpen = comments?.open() ?? 0;
+    const hasToc = headings >= 2 && !editor;
+    const tab = railTab === 'toc' && !hasToc ? 'cm' : railTab;
+    rail.hidden = !isMd || raw || (tab === 'cm' ? !cmWanted && !cmOpen : !hasToc);
+    rail.dataset.tab = tab;
+    toc.hidden = tab !== 'toc';
+    cmBox.hidden = tab !== 'cm';
+    rail.querySelectorAll<HTMLElement>('.fe-rt').forEach(b => {
+      b.classList.toggle('on', b.dataset.rt === tab);
+      b.setAttribute('aria-selected', String(b.dataset.rt === tab));
+      if (b.dataset.rt === 'toc') b.hidden = !hasToc;
+    });
+    cmN.textContent = cmOpen ? String(cmOpen) : '';
+    cmBtn.hidden = !isMd || raw;
+    cmBtn.classList.toggle('on', !rail.hidden && tab === 'cm');
+    cmBtnN.textContent = cmOpen ? String(cmOpen) : '';
     const open = tight ? peek : tocOpen;
     rail.classList.toggle('folded', !open);
     rail.classList.toggle('peek', tight && peek);
@@ -234,10 +257,27 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     paint();
     spy(page, toc);
     find.refresh();
+    comments?.redraw();
   };
   // `editor` is declared below; render runs before any editor exists.
   let editor: FileEditor | null = null;
+  // The comments panel shares the rail; it mounts once the editable root is known.
+  const cmBox = document.getElementById('fe-cm')!;
+  const cmN = document.getElementById('fe-cm-n')!;
+  const cmBtn = document.getElementById('fe-fp-cm')!;
+  const cmBtnN = document.getElementById('fe-fp-cm-n')!;
+  let comments: CommentsPanel | null = null;
+  let railTab = kvGet(RAIL_TAB_KEY) === 'cm' ? 'cm' : 'toc';
+  let cmWanted = railTab === 'cm';
   render();
+  rail.querySelector('.fe-rail-tabs')!.addEventListener('click', e => {
+    const t = (e.target as Element).closest<HTMLElement>('[data-rt]')?.dataset.rt;
+    if (!t) return;
+    railTab = t; cmWanted = t === 'cm'; kvSet(RAIL_TAB_KEY, t);
+    if (tight) peek = true; else if (!tocOpen) { tocOpen = true; kvSet(TOC_KEY, '1'); }
+    paint();
+    if (t === 'toc') spy(page, toc);
+  });
   foldBtn.addEventListener('click', () => {
     if (tight) peek = !peek;
     else { tocOpen = !tocOpen; kvSet(TOC_KEY, tocOpen ? '1' : '0'); }
@@ -385,6 +425,23 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     if (!editor) { editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); render(); }
   };
   editBtn.addEventListener('click', () => void edit());
+  if (isMd) comments = mountComments({
+    page, box: cmBox, href,
+    root: () => root, rel: () => rawPath.slice((root ?? '').length + 1), text: () => text,
+    allow: askToAllow, status, changed: paint,
+  });
+  // The file bar's Comments button opens the rail on Comments, or folds it.
+  cmBtn.addEventListener('click', () => {
+    const showing = !rail.hidden && rail.dataset.tab === 'cm' && !rail.classList.contains('folded');
+    if (showing) { cmWanted = false; railTab = 'toc'; kvSet(RAIL_TAB_KEY, 'toc'); }
+    else {
+      railTab = 'cm'; cmWanted = true; kvSet(RAIL_TAB_KEY, 'cm');
+      if (tight) peek = true; else if (!tocOpen) { tocOpen = true; kvSet(TOC_KEY, '1'); }
+    }
+    paint();
+  });
+  // Find splits text into marks, which moves the highlights' text; draw them again.
+  document.getElementById('fe-ff-q')!.addEventListener('input', () => setTimeout(() => comments?.redraw(), 0));
   rawBtn.addEventListener('click', toggleRaw);
   // Wrap applies to every code view, here and in previews, and is remembered.
   const wrapBtn = document.getElementById('fe-fp-wrap')!;

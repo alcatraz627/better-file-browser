@@ -25,7 +25,7 @@ try {
       const r = document.getElementById('fe-toc-rail').getBoundingClientRect(), p = document.getElementById('fe-page').getBoundingClientRect();
       const rows = [...document.querySelectorAll('#fe-toc a')].map(a => { const s = getComputedStyle(a); return { t: a.textContent, pad: parseFloat(s.paddingLeft), size: parseFloat(s.fontSize) }; });
       const el = document.getElementById('fe-toc-rail');
-      return { floats: getComputedStyle(el).position === 'absolute' && r.left > p.left && r.right <= p.right + 1, title: document.querySelector('.fe-toc-title')?.textContent, rows };
+      return { floats: getComputedStyle(el).position === 'absolute' && r.left > p.left && r.right <= p.right + 1, title: document.querySelector('.fe-rt[data-rt="toc"]')?.textContent, rows };
     });
     const pads = rail.rows.map(r => r.pad), sizes = rail.rows.map(r => r.size);
     check(rail.floats && rail.title === 'On this page' && rail.rows.length === 5, `${theme}: contents floats over the page's right side: ${JSON.stringify({ floats: rail.floats, title: rail.title, n: rail.rows.length })}`);
