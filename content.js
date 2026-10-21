@@ -719,6 +719,12 @@ ${m[1]}`;
 ${fm}
 ---`);
   }
+  function setFirstLine(text, title) {
+    const m = text.match(/^(\s*)([^\n]*)/);
+    if (!m || !m[2].trim()) return null;
+    const marks = m[2].match(/^#+\s*/)?.[0] ?? "";
+    return m[1] + marks + title + text.slice(m[0].length);
+  }
   function settleClash(text, keep) {
     const out = [];
     let first = [], second = [];
@@ -18116,8 +18122,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           let now = rel;
           if (titled !== null) await notes.write(root, rel, titled, doc.mtime);
           else {
-            now = rel.replace(/[^/]+$/, slugForTitle(val));
-            await notes.rename(root, rel, now);
+            const lined = setFirstLine(doc.text, val);
+            if (lined !== null) await notes.write(root, rel, lined, doc.mtime);
+            const to = rel.replace(/[^/]+$/, slugForTitle(val));
+            if (to !== rel) {
+              await notes.rename(root, rel, to);
+              now = to;
+            }
           }
           refreshNotes();
           if (reopen) openNoteRel(root, now);

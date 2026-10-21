@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated, setTitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes } from '../src/notes';
 
 describe('clash', () => {
   const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
@@ -46,6 +46,14 @@ describe('front matter', () => {
     expect(setTitle(sb, 'New: "name" $1')).toBe('---\ntitle: "New: \\"name\\" $1"\ncreated: 2026-09-29T14:24:11Z\ncolor: purple\npinned: true\n---\nbody $1 $&\n');
     expect(setTitle('---\ncreated: x\n---\nb', 'T')).toBe('---\ntitle: "T"\ncreated: x\n---\nb');
     expect(setTitle('# plain\n', 'T')).toBeNull();
+  });
+  it('setFirstLine retitles a note without front matter and keeps its heading marks', () => {
+    expect(setFirstLine('# Old name\n\nbody\n', 'New $1')).toBe('# New $1\n\nbody\n');
+    expect(setFirstLine('\n## Old\nx', 'N')).toBe('\n## N\nx');
+    expect(setFirstLine('plain first line\nmore', 'N')).toBe('N\nmore');
+    expect(setFirstLine('', 'N')).toBeNull();
+    expect(setFirstLine('  \n', 'N')).toBeNull();
+    expect(noteTitle('a.md', setFirstLine('# Old\nbody', 'Fresh title')!)).toBe('Fresh title');
   });
   it('noteTitle reads back what setTitle writes, and single-quoted YAML titles', () => {
     const t = 'a "b" c \\ d';

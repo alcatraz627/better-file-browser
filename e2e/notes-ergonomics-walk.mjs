@@ -75,6 +75,22 @@ try {
   check(afterRename.includes('Renamed by the menu'), 'the new title shows in the list');
   const secondNow = (await rowsOf(page)).find(r => readFileSync(join(store, r), 'utf8').includes('Renamed by the menu'));
   check(!!secondNow, `the title is stored in the note file (${secondNow})`);
+  // A note titled by its first heading takes the new title too, in the list and in its heading.
+  const headed = (await rowsOf(page)).find(r => /^#+ /.test(readFileSync(join(store, r), 'utf8')));
+  if (headed) {
+    await page.click(`${rowSel(headed)} .fe-si-link`, { button: 'right' });
+    await page.waitForSelector('#fe-nt-ctx', { visible: true, timeout: 3_000 }).catch(() => null);
+    await page.click('#fe-nt-ctx [data-act="rename"]');
+    await page.waitForSelector('#fe-nt-list .fe-nt-label.editing', { timeout: 3_000 }).catch(() => null);
+    await page.keyboard.down('Meta'); await page.keyboard.press('a'); await page.keyboard.up('Meta');
+    await page.keyboard.type('Heading renamed');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('#fe-nt-list .fe-nt-item[data-rel="heading-renamed.md"]', { timeout: 5_000 }).catch(() => null);
+    await sleep(300);
+    const shown = await page.$$eval('#fe-nt-list .fe-nt-label', els => els.map(e => e.textContent));
+    const file = (await rowsOf(page)).find(r => existsSync(join(store, r)) && /^#+ Heading renamed$/m.test(readFileSync(join(store, r), 'utf8')));
+    check(shown.includes('Heading renamed') && !!file, `a heading-titled note shows its new title and its heading changed (${headed} → ${file})`);
+  } else check(false, 'the store has a heading-titled note to rename');
   // Keys on a focused row.
   const rowsBefore = await rowsOf(page);
   await page.$eval(`${rowSel(rowsBefore[2])} .fe-si-link`, e => e.focus());

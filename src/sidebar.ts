@@ -11,7 +11,7 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, slugForTitle, setTitle, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
+import { notes, noteTitle, slugForTitle, setTitle, setFirstLine, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
 import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
@@ -582,7 +582,14 @@ export function initSidebar(app: App): void {
         const titled = setTitle(doc.text, val);
         let now = rel;
         if (titled !== null) await notes.write(root, rel, titled, doc.mtime);
-        else { now = rel.replace(/[^/]+$/, slugForTitle(val)); await notes.rename(root, rel, now); }
+        else {
+          // No front matter: the title is the first line, so rewrite it, then
+          // give the file the matching name.
+          const lined = setFirstLine(doc.text, val);
+          if (lined !== null) await notes.write(root, rel, lined, doc.mtime);
+          const to = rel.replace(/[^/]+$/, slugForTitle(val));
+          if (to !== rel) { await notes.rename(root, rel, to); now = to; }
+        }
         refreshNotes();
         if (reopen) openNoteRel(root, now);
       }).catch((err: NotesError) => toast(err.message));
