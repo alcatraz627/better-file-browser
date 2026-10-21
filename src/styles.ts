@@ -144,6 +144,13 @@ body{opacity:1!important}
 .fe-rail-btn.on{flex:1 0 auto;gap:6px;padding:0 9px}
 .fe-rail-btn.on em{max-width:110px;opacity:1}
 #fe-rail.measuring .fe-rail-btn,#fe-rail.measuring .fe-rail-btn em{transition:none}
+#fe-rail{position:relative}
+.fe-rail-btn{position:relative;z-index:1}
+.fe-rail-pill{position:absolute;left:0;top:0;z-index:0;border-radius:8px;pointer-events:none;background:color-mix(in srgb,var(--ac) 16%,transparent);
+  transition:transform var(--t-base) var(--ease),width var(--t-base) var(--ease),height var(--t-base) var(--ease)}
+.fe-rail-pill.still{transition:none}
+#fe-rail .fe-rail-btn.on,#fe-rail .fe-rail-btn.on:hover{background:none}
+@media (prefers-reduced-motion:reduce){.fe-rail-pill{transition:none}}
 #fe-rail.tight .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 3px}
 #fe-rail.tight .fe-rail-btn.on{gap:0}
 #fe-rail.tight .fe-rail-btn em{display:none}
@@ -577,7 +584,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
 #fe-tabbar{display:flex;align-items:stretch;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:34px}
-#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 4px 0 6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+/* The strip takes only the room its tabs need, so + and the path button sit
+   right after the last tab; past the bar's width the tabs scroll and the
+   buttons stay in view. */
+#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 4px 0 6px;flex:0 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
 #fe-tabs-end{display:flex;align-items:center;gap:2px;padding:4px 8px 0 2px;flex:none}
 #fe-tabs-end button{color:var(--mt)}
 #fe-tabs-end button svg{width:13px;height:13px}
@@ -601,10 +611,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab.on{background:var(--bg);color:var(--tx)}
 .fe-tab.temp{background:none;border-color:transparent}
 .fe-tab.temp.on{background:var(--bg);border-color:var(--bd)}
-.fe-tab.temp.on{color:var(--mt);border-style:dashed}
+.fe-tab.temp.on{color:var(--mt)}
 .fe-tab.drag-over{border-left:2px solid var(--ac)}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
-.fe-tab-head{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fe-tab-head{overflow:hidden;white-space:pre;min-width:0}
 .fe-tab-tail{white-space:nowrap;flex-shrink:0}
 .fe-tab-x,.fe-tab-more{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;background:none;border:none;color:var(--dm);cursor:pointer;font-size:var(--fs-xs);border-radius:50%;opacity:0;line-height:1;transition:opacity var(--t-fast),background var(--t-fast)}
 .fe-tab-more{font-size:var(--fs-md);letter-spacing:1px}
@@ -1124,7 +1134,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
    set apart by a hairline, not a grey band. */
 #fe-side{background:var(--side)}
 #fe-main,#fe-toolbar,#fe-fp-bar,#fe-statusbar,thead{background:var(--card)}
-#fe-tabs{background:var(--side)}
+#fe-tabbar,#fe-tabs{background:var(--side)}
 .fe-tab.on{background:var(--card)}
 #fe-qlook.side{margin-left:10px}
 #fe-side-rz{width:10px;background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}

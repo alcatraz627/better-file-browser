@@ -28,7 +28,10 @@ export function initTooltips(root: HTMLElement): void {
     const t = tip.getBoundingClientRect();
     let top = r.bottom + 6;
     if (top + t.height > innerHeight - 4) top = r.top - t.height - 6;   // no room below: above
-    const left = Math.min(Math.max(4, r.left + r.width / 2 - t.width / 2), innerWidth - t.width - 4);
+    // A tab's tooltip starts at the tab's left edge so it reads as the tab's;
+    // anything else centres under its target.
+    const anchor = target.closest('.fe-tab') ? r.left : r.left + r.width / 2 - t.width / 2;
+    const left = Math.min(Math.max(4, anchor), innerWidth - t.width - 4);
     tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
   }
 

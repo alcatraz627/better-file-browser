@@ -4,7 +4,7 @@
 // filter narrows by name or folder, and two chips keep only what mentions
 // you or has a due date. A click opens the document with its comments showing.
 import { notes } from './notes';
-import { esc, fileHref, midHtml } from './utils';
+import { esc, midHtml } from './utils';
 import { icoFile } from './icons';
 import { UI_ICON } from './control-icons';
 
@@ -21,7 +21,7 @@ export function docRows(rows: DocRow[], f: DocFilter = { q: '', me: false, due: 
     .sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
 }
 
-export function initDocsLens(box: HTMLElement, home: string): void {
+export function initDocsLens(box: HTMLElement, home: string, go: (path: string, hash: string) => void): void {
   let loaded = false, all: DocRow[] = [];
   const f: DocFilter = { q: '', me: false, due: false };
   box.innerHTML = `<div class="fe-docs-top" hidden>
@@ -70,7 +70,7 @@ export function initDocsLens(box: HTMLElement, home: string): void {
   // link from its path and would encode the #comments into the file name.
   rowsBox.addEventListener('click', e => {
     const b = (e.target as Element).closest<HTMLElement>('.fe-doc-row');
-    if (b) location.href = fileHref(b.dataset.doc!) + '#comments';
+    if (b) go(b.dataset.doc!, '#comments');
   });
   document.addEventListener('bfb-lens', e => {
     if ((e as CustomEvent).detail !== 'comments') return;

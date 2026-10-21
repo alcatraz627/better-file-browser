@@ -30,7 +30,7 @@ import { initMarkdownUi } from './md-ui';
 import { loadKv } from './kv';
 import { initTooltips } from './tooltip';
 import { installColumnResize } from './col-resize';
-import { mountGoto, pathToHref } from './goto';
+import { mountGoto, absPath, resolvePath } from './goto';
 import { initDocsLens } from './docs-lens';
 
 // Tab sets from Chrome tabs closed in the last day, as rows under Recent. A
@@ -201,11 +201,14 @@ loadKv().catch(() => {}).then(function () {
   // address bar is always the active tab's location.
   app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
   void showClosedSets(app.strip, !settings.hideRecent);
-  initDocsLens(el('fe-docs-list'), homeDir(rawPath));
+  // Everything that opens a place from the sidebar or beside the strip opens
+  // it as a new tab and keeps the one you were on.
+  const goTab = (path: string, hash = '') => app.strip.go(path, hash);
+  initDocsLens(el('fe-docs-list'), homeDir(rawPath), goTab);
   // Beside the strip: open a file or folder from the system chooser, or go to a pasted path.
-  mountGoto(el('fe-open-path'), () => homeDir(rawPath));
+  mountGoto(el('fe-open-path'), () => homeDir(rawPath), goTab);
   el('fe-open-pick').addEventListener('click', () => {
-    notes.pick(rawPath, 'any').then(p => { const href = p && pathToHref(p, ''); if (href) location.href = href; })
+    notes.pick(rawPath, 'any').then(async p => { const path = p && absPath(p, ''); const found = path && await resolvePath(path); if (found) goTab(found); })
       .catch(err => app.toast(`Could not open the chooser: ${(err as Error).message}`));
   });
   if (fileMode) {

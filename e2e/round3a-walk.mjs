@@ -70,6 +70,9 @@ try {
   await page.waitForSelector('#fe-open-pick', { timeout: 6000 });
   await Promise.all([page.waitForNavigation({ timeout: 6000 }).catch(() => null), page.click('#fe-open-pick')]);
   check(decodeURIComponent(page.url()).endsWith('/picked/'), `+ opens what the chooser returns: ${page.url()}`);
+  await page.waitForSelector('#fe-tabs .fe-tab');
+  const tabsNow = await page.$$eval('#fe-tabs .fe-tab .fe-tab-lbl', ls => ls.map(l => l.textContent.trim()));
+  check(tabsNow.length >= 2 && tabsNow.includes('picked') && new Set(tabsNow).size === tabsNow.length, `+ opens it as a new tab and keeps the one you were on: ${tabsNow}`);
 
   // Search boxes in the listing and the sidebar.
   await page.waitForSelector('#fe-search', { timeout: 6000 });

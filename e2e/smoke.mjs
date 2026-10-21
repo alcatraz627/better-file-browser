@@ -504,7 +504,7 @@ try {
   // One shell: the bar, the sidebar and the strip sit exactly where the listing puts them.
   const shellOf = p => p.evaluate(() => {
     const r = id => { const b = document.getElementById(id).getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; };
-    return { bar: r('fe-bar'), side: r('fe-side'), tabs: r('fe-tabs'), status: r('fe-statusbar') };
+    return { bar: r('fe-bar'), side: r('fe-side'), tabs: r('fe-tabbar'), status: r('fe-statusbar') };
   });
   const shellListing = await shellOf(page);
   const shellFile = await shellOf(fpage);

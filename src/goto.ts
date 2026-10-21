@@ -27,19 +27,21 @@ export function absPath(input: string, home: string): string | null {
   return p.startsWith('/') ? p : null;
 }
 
-/** Whether a path is there, read from its folder's listing so a large file is never read. */
-async function exists(path: string): Promise<boolean> {
+/** The path as the strip names it (a folder ends in /), or null when nothing
+ *  is there. Read from the parent folder's listing, so a large file is never read. */
+export async function resolvePath(path: string): Promise<string | null> {
   const clean = path.replace(/\/+$/, '');
-  if (!clean) return true;
+  if (!clean) return '/';
   const parent = clean.slice(0, clean.lastIndexOf('/') + 1) || '/';
   const name = clean.slice(clean.lastIndexOf('/') + 1);
   try {
     const dir = fileHref(parent);
-    return parseListing(await fetchFileText(dir, 1), dir).some(e => e.name === name);
-  } catch { return false; }
+    const hit = parseListing(await fetchFileText(dir, 1), dir).find(e => e.name === name);
+    return hit ? clean + (hit.isDir ? '/' : '') : null;
+  } catch { return null; }
 }
 
-export function mountGoto(btn: HTMLElement, home: () => string): void {
+export function mountGoto(btn: HTMLElement, home: () => string, go: (path: string) => void): void {
   let box: HTMLElement | null = null;
   const close = () => {
     if (!box) return;
@@ -72,8 +74,10 @@ export function mountGoto(btn: HTMLElement, home: () => string): void {
       const path = absPath(input.value, home());
       if (!path) { say('Paste a full path, such as ~/Code or /Users/you/notes.md'); return; }
       kvSet(LAST_KEY, input.value);
-      if (!await exists(path)) { say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`); return; }
-      location.href = pageHref(fileHref(path));
+      const found = await resolvePath(path);
+      if (!found) { say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`); return; }
+      close();
+      go(found);
     });
     box.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); btn.focus(); } });
     input.addEventListener('input', () => kvSet(LAST_KEY, input.value));

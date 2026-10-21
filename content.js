@@ -4001,6 +4001,13 @@ body{opacity:1!important}
 .fe-rail-btn.on{flex:1 0 auto;gap:6px;padding:0 9px}
 .fe-rail-btn.on em{max-width:110px;opacity:1}
 #fe-rail.measuring .fe-rail-btn,#fe-rail.measuring .fe-rail-btn em{transition:none}
+#fe-rail{position:relative}
+.fe-rail-btn{position:relative;z-index:1}
+.fe-rail-pill{position:absolute;left:0;top:0;z-index:0;border-radius:8px;pointer-events:none;background:color-mix(in srgb,var(--ac) 16%,transparent);
+  transition:transform var(--t-base) var(--ease),width var(--t-base) var(--ease),height var(--t-base) var(--ease)}
+.fe-rail-pill.still{transition:none}
+#fe-rail .fe-rail-btn.on,#fe-rail .fe-rail-btn.on:hover{background:none}
+@media (prefers-reduced-motion:reduce){.fe-rail-pill{transition:none}}
 #fe-rail.tight .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 3px}
 #fe-rail.tight .fe-rail-btn.on{gap:0}
 #fe-rail.tight .fe-rail-btn em{display:none}
@@ -4434,7 +4441,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
 #fe-tabbar{display:flex;align-items:stretch;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:34px}
-#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 4px 0 6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+/* The strip takes only the room its tabs need, so + and the path button sit
+   right after the last tab; past the bar's width the tabs scroll and the
+   buttons stay in view. */
+#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 4px 0 6px;flex:0 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
 #fe-tabs-end{display:flex;align-items:center;gap:2px;padding:4px 8px 0 2px;flex:none}
 #fe-tabs-end button{color:var(--mt)}
 #fe-tabs-end button svg{width:13px;height:13px}
@@ -4458,10 +4468,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab.on{background:var(--bg);color:var(--tx)}
 .fe-tab.temp{background:none;border-color:transparent}
 .fe-tab.temp.on{background:var(--bg);border-color:var(--bd)}
-.fe-tab.temp.on{color:var(--mt);border-style:dashed}
+.fe-tab.temp.on{color:var(--mt)}
 .fe-tab.drag-over{border-left:2px solid var(--ac)}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
-.fe-tab-head{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fe-tab-head{overflow:hidden;white-space:pre;min-width:0}
 .fe-tab-tail{white-space:nowrap;flex-shrink:0}
 .fe-tab-x,.fe-tab-more{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;background:none;border:none;color:var(--dm);cursor:pointer;font-size:var(--fs-xs);border-radius:50%;opacity:0;line-height:1;transition:opacity var(--t-fast),background var(--t-fast)}
 .fe-tab-more{font-size:var(--fs-md);letter-spacing:1px}
@@ -4981,7 +4991,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
    set apart by a hairline, not a grey band. */
 #fe-side{background:var(--side)}
 #fe-main,#fe-toolbar,#fe-fp-bar,#fe-statusbar,thead{background:var(--card)}
-#fe-tabs{background:var(--side)}
+#fe-tabbar,#fe-tabs{background:var(--side)}
 .fe-tab.on{background:var(--card)}
 #fe-qlook.side{margin-left:10px}
 #fe-side-rz{width:10px;background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
@@ -14451,6 +14461,22 @@ ${d.message}` : d.message;
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeMenu();
     });
+    function fitHeads() {
+      for (const head of el2.querySelectorAll(".fe-tab-head")) {
+        const full = head.dataset.full ?? head.textContent ?? "";
+        head.dataset.full = full;
+        head.textContent = full;
+        if (head.scrollWidth <= head.clientWidth) continue;
+        let lo = 0, hi = full.length;
+        while (lo < hi) {
+          const mid = lo + hi + 1 >> 1;
+          head.textContent = full.slice(0, mid) + "\u2026";
+          if (head.scrollWidth <= head.clientWidth) lo = mid;
+          else hi = mid - 1;
+        }
+        head.textContent = full.slice(0, lo).trimEnd() + "\u2026";
+      }
+    }
     function lblHtml(label) {
       const { head, tail } = splitLabel(label);
       return `<span class="fe-tab-lbl"><span class="fe-tab-head">${esc(head)}</span>${tail ? `<span class="fe-tab-tail">${esc(tail)}</span>` : ""}</span>`;
@@ -14471,10 +14497,12 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
       const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i]));
       if (!here) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
-        rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
+        rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}
+Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
       }
       if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">${CHEVRON_DOWN}</button>`);
       el2.innerHTML = rows.join("");
+      fitHeads();
       el2.classList.toggle("empty", state.list.length === 0);
       el2.querySelector(".fe-tab.on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
       el2.querySelector(".fe-tab-list")?.addEventListener("click", (e) => {
@@ -14626,11 +14654,12 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
     return {
       handleKey,
       open: (path, background = false) => commit(openTab(state, path, background)),
-      go: (path) => {
+      go: (path, hash = "") => {
         let s = state;
         if (rawPath && !s.list.some((t) => t.path === rawPath)) s = openTab(s, rawPath, true);
         commit(openTab(s, path));
-        if (path !== rawPath) location.href = pageHref(fileUrl(path));
+        if (path !== rawPath) location.href = pageHref(fileUrl(path)) + hash;
+        else if (hash) location.hash = hash;
       },
       state: () => state,
       closedSets,
@@ -17234,6 +17263,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
       for (const l of lenses) l.hidden = l.dataset.lens !== pick;
       fitBar();
+      placePill();
       document.dispatchEvent(new CustomEvent("bfb-lens", { detail: pick }));
     };
     function fitBar() {
@@ -17243,7 +17273,25 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       rail.classList.remove("measuring");
       rail.classList.toggle("tight", over);
     }
-    new ResizeObserver(fitBar).observe(rail);
+    const pill = document.createElement("span");
+    pill.className = "fe-rail-pill";
+    rail.prepend(pill);
+    function placePill() {
+      const on = rail.querySelector(".fe-rail-btn.on");
+      if (!on) return;
+      rail.classList.add("measuring");
+      const r = on.getBoundingClientRect(), box = rail.getBoundingClientRect();
+      rail.classList.remove("measuring");
+      pill.style.transform = `translate(${r.left - box.left}px, ${r.top - box.top}px)`;
+      pill.style.width = `${r.width}px`;
+      pill.style.height = `${r.height}px`;
+    }
+    new ResizeObserver(() => {
+      fitBar();
+      pill.classList.add("still");
+      placePill();
+      requestAnimationFrame(() => pill.classList.remove("still"));
+    }).observe(rail);
     app.showLens = (lens, hideHistory) => {
       if (hideHistory !== void 0) el("fe-rail-history").hidden = hideHistory;
       show(lens ?? kvGet(LENS_KEY) ?? "notes");
@@ -18720,7 +18768,8 @@ ${rows.join("\n")}`, name: subject };
       const t = tip.getBoundingClientRect();
       let top = r.bottom + 6;
       if (top + t.height > innerHeight - 4) top = r.top - t.height - 6;
-      const left = Math.min(Math.max(4, r.left + r.width / 2 - t.width / 2), innerWidth - t.width - 4);
+      const anchor = target.closest(".fe-tab") ? r.left : r.left + r.width / 2 - t.width / 2;
+      const left = Math.min(Math.max(4, anchor), innerWidth - t.width - 4);
       tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
     }
     root.addEventListener("pointerover", (e) => {
@@ -18754,10 +18803,6 @@ ${rows.join("\n")}`, name: subject };
 
   // src/goto.ts
   var LAST_KEY = "bfb-goto-last-v1";
-  function pathToHref(input, home) {
-    const p = absPath(input, home);
-    return p ? pageHref(fileHref(p)) : null;
-  }
   function absPath(input, home) {
     let p = input.trim().replace(/^['"]|['"]$/g, "");
     if (!p) return null;
@@ -18774,19 +18819,20 @@ ${rows.join("\n")}`, name: subject };
     }
     return p.startsWith("/") ? p : null;
   }
-  async function exists(path) {
+  async function resolvePath(path) {
     const clean = path.replace(/\/+$/, "");
-    if (!clean) return true;
+    if (!clean) return "/";
     const parent = clean.slice(0, clean.lastIndexOf("/") + 1) || "/";
     const name = clean.slice(clean.lastIndexOf("/") + 1);
     try {
       const dir = fileHref(parent);
-      return parseListing(await fetchFileText(dir, 1), dir).some((e) => e.name === name);
+      const hit = parseListing(await fetchFileText(dir, 1), dir).find((e) => e.name === name);
+      return hit ? clean + (hit.isDir ? "/" : "") : null;
     } catch {
-      return false;
+      return null;
     }
   }
-  function mountGoto(btn, home) {
+  function mountGoto(btn, home, go) {
     let box = null;
     const close = () => {
       if (!box) return;
@@ -18830,11 +18876,13 @@ ${rows.join("\n")}`, name: subject };
           return;
         }
         kvSet(LAST_KEY, input.value);
-        if (!await exists(path)) {
+        const found = await resolvePath(path);
+        if (!found) {
           say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
           return;
         }
-        location.href = pageHref(fileHref(path));
+        close();
+        go(found);
       });
       box.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
@@ -18860,7 +18908,7 @@ ${rows.join("\n")}`, name: subject };
     const q = f.q.trim().toLowerCase();
     return rows.filter((r) => r.exists !== false && r.open + r.done > 0).filter((r) => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length)).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
   }
-  function initDocsLens(box, home) {
+  function initDocsLens(box, home, go) {
     let loaded = false, all = [];
     const f = { q: "", me: false, due: false };
     box.innerHTML = `<div class="fe-docs-top" hidden>
@@ -18921,7 +18969,7 @@ ${rows.join("\n")}`, name: subject };
     });
     rowsBox.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-doc-row");
-      if (b) location.href = fileHref(b.dataset.doc) + "#comments";
+      if (b) go(b.dataset.doc, "#comments");
     });
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "comments") return;
@@ -19134,12 +19182,14 @@ ${rows.join("\n")}`, name: subject };
     }, saveError: (message) => app.toast(message), toast: (message) => app.toast(message) });
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
     void showClosedSets(app.strip, !settings.hideRecent);
-    initDocsLens(el("fe-docs-list"), homeDir(rawPath));
-    mountGoto(el("fe-open-path"), () => homeDir(rawPath));
+    const goTab = (path, hash = "") => app.strip.go(path, hash);
+    initDocsLens(el("fe-docs-list"), homeDir(rawPath), goTab);
+    mountGoto(el("fe-open-path"), () => homeDir(rawPath), goTab);
     el("fe-open-pick").addEventListener("click", () => {
-      notes.pick(rawPath, "any").then((p) => {
-        const href = p && pathToHref(p, "");
-        if (href) location.href = href;
+      notes.pick(rawPath, "any").then(async (p) => {
+        const path = p && absPath(p, "");
+        const found = path && await resolvePath(path);
+        if (found) goTab(found);
       }).catch((err) => app.toast(`Could not open the chooser: ${err.message}`));
     });
     if (fileMode) {

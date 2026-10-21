@@ -28,6 +28,7 @@ function initLenses(app: App): void {
     for (const b of btns) { const on = b.dataset.lens === pick; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; }
     for (const l of lenses) l.hidden = l.dataset.lens !== pick;
     fitBar();
+    placePill();
     document.dispatchEvent(new CustomEvent('bfb-lens', { detail: pick }));
   };
   // A narrow sidebar cannot hold every icon and the open lens's name, so the
@@ -40,7 +41,23 @@ function initLenses(app: App): void {
     rail.classList.remove('measuring');
     rail.classList.toggle('tight', over);
   }
-  new ResizeObserver(fitBar).observe(rail);
+  // One pill behind the bar slides to the open lens, rather than each button
+  // lighting up in place. Its target is read with transitions held, then the
+  // pill eases there while the buttons grow and shrink around it.
+  const pill = document.createElement('span');
+  pill.className = 'fe-rail-pill';
+  rail.prepend(pill);
+  function placePill(): void {
+    const on = rail.querySelector<HTMLElement>('.fe-rail-btn.on');
+    if (!on) return;
+    rail.classList.add('measuring');
+    const r = on.getBoundingClientRect(), box = rail.getBoundingClientRect();
+    rail.classList.remove('measuring');
+    pill.style.transform = `translate(${r.left - box.left}px, ${r.top - box.top}px)`;
+    pill.style.width = `${r.width}px`;
+    pill.style.height = `${r.height}px`;
+  }
+  new ResizeObserver(() => { fitBar(); pill.classList.add('still'); placePill(); requestAnimationFrame(() => pill.classList.remove('still')); }).observe(rail);
   app.showLens = (lens, hideHistory) => {
     if (hideHistory !== undefined) el('fe-rail-history').hidden = hideHistory;
     show(lens ?? kvGet(LENS_KEY) ?? 'notes');

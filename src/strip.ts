@@ -32,7 +32,7 @@ export interface Strip {
   open(path: string, background?: boolean): void;
   // A bookmark's click: switch to the tab that already holds the path, or
   // keep a new one, then navigate there.
-  go(path: string): void;
+  go(path: string, hash?: string): void;
   state(): TabState;
   closedSets(): Promise<ClosedSet[]>;
   // Add a closed set's tabs to this strip, with undo.
@@ -183,6 +183,24 @@ export function mountStrip(host: StripHost): Strip {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 
   // ── Render ────────────────────────────────────────────────────────
+  // A cut-off name loses its middle: the head is trimmed to the room left
+  // and ends in an ellipsis, measured so no gap opens between it and the tail
+  // (a CSS ellipsis stops a part-character short of the edge).
+  function fitHeads(): void {
+    for (const head of el.querySelectorAll<HTMLElement>('.fe-tab-head')) {
+      const full = head.dataset.full ?? head.textContent ?? '';
+      head.dataset.full = full;
+      head.textContent = full;
+      if (head.scrollWidth <= head.clientWidth) continue;
+      let lo = 0, hi = full.length;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        head.textContent = full.slice(0, mid) + '…';
+        if (head.scrollWidth <= head.clientWidth) lo = mid; else hi = mid - 1;
+      }
+      head.textContent = full.slice(0, lo).trimEnd() + '…';
+    }
+  }
   function lblHtml(label: string): string {
     const { head, tail } = splitLabel(label);
     return `<span class="fe-tab-lbl"><span class="fe-tab-head">${esc(head)}</span>${tail ? `<span class="fe-tab-tail">${esc(tail)}</span>` : ''}</span>`;
@@ -204,10 +222,11 @@ export function mountStrip(host: StripHost): Strip {
     const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i]));
     if (!here) {
       const ico = kindOf(rawPath) === 'file' ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split('.').pop()!.toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
-      rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="Not kept yet · t or double-click keeps · p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
+      rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}\nNot kept yet · t or double-click keeps · p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
     }
     if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">${CHEVRON_DOWN}</button>`);
     el.innerHTML = rows.join('');
+    fitHeads();
     el.classList.toggle('empty', state.list.length === 0);
     el.querySelector<HTMLElement>('.fe-tab.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
     el.querySelector<HTMLElement>('.fe-tab-list')?.addEventListener('click', e => {
@@ -332,14 +351,15 @@ export function mountStrip(host: StripHost): Strip {
   return {
     handleKey,
     open: (path, background = false) => commit(openTab(state, path, background)),
-    go: path => {
+    go: (path, hash = '') => {
       // Keep the current place: if this folder or file was only a temp tab,
       // insert it as a kept background tab before navigating away, so a sidebar
       // click adds the target and never drops the tab the user was on.
       let s = state;
       if (rawPath && !s.list.some(t => t.path === rawPath)) s = openTab(s, rawPath, true);
       commit(openTab(s, path));
-      if (path !== rawPath) location.href = pageHref(fileUrl(path));
+      if (path !== rawPath) location.href = pageHref(fileUrl(path)) + hash;
+      else if (hash) location.hash = hash;
     },
     state: () => state,
     closedSets,
