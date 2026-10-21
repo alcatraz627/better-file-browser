@@ -11,6 +11,7 @@ import { formatFor, diagnose, type Diagnostic } from './formats';
 import { kvGet, kvSet } from './kv';
 import { notes, NotesError } from './notes';
 import { attachBuffer, indentLines } from './editor';
+import { wholeText, windowedText, lineStart, type TextWindow } from './text-window';
 import { UI_ICON } from './control-icons';
 
 const AUTOSAVE_MS = 800;
@@ -22,9 +23,17 @@ const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: 'split', label: 'Split', hint: 'Text and rendered view side by side' },
   { id: 'rich', label: 'Rich', hint: 'The rendered view alone' },
 ];
-// Opening cost grows with line count (every line is a painted row): about 3 s
-// at 14,000 lines and 20 s at 40,000, so longer files are refused for now.
-const EDIT_MAX_LINES = 15000;
+// Past this size a file edits in large mode: lines do not wrap, so every row
+// has one height and only the rows near the viewport are painted, coloured a
+// block of lines at a time. Below it every line is a painted row, which costs
+// about 12 µs per line on each key (24 ms at 2,000 lines).
+const BIG_LINES = 4000, BIG_CHARS = 400_000;
+const BLOCK = 200;          // lines coloured together in large mode
+const WIN_PAD = 60;         // rows painted beyond each edge of the viewport
+// Checks and the rendered view parse the whole text, so very large files skip
+// the checks and redraw the rendered view only after a longer pause.
+const CHECK_MAX = 2_000_000, BIG_RENDER_MS = 1000;
+const TA_LINES = 3000;      // lines the textarea holds at once in large mode
 
 export { splitHighlighted };
 
@@ -55,12 +64,9 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   let doc: { text: string; mtime: number };
   try { doc = await notes.fileRead(host.root, host.rel); }
   catch (err) { host.status(`cannot edit: ${(err as NotesError).message}`); return null; }
-  let lines = 1;
-  for (let p = doc.text.indexOf('\n'); p !== -1 && lines <= EDIT_MAX_LINES; p = doc.text.indexOf('\n', p + 1)) lines++;
-  if (lines > EDIT_MAX_LINES) {
-    host.status(`cannot edit: files over ${EDIT_MAX_LINES.toLocaleString('en-US')} lines are too slow to edit here`);
-    return null;
-  }
+  let lineCount = 1;
+  for (let p = doc.text.indexOf('\n'); p !== -1 && lineCount <= BIG_LINES; p = doc.text.indexOf('\n', p + 1)) lineCount++;
+  const big = lineCount > BIG_LINES || doc.text.length > BIG_CHARS;
 
   const fmt = formatFor(host.ext);
   const isMd = fmt?.id === 'markdown';
@@ -69,8 +75,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">
-          <pre id="fe-fe-paint" aria-hidden="true"></pre>
-          <textarea id="fe-fe-ta" spellcheck="false" aria-label="File text"></textarea>
+          <pre id="fe-fe-paint" aria-hidden="true">${big ? '<div id="fe-fe-win"></div>' : ''}</pre>
+          <textarea id="fe-fe-ta" spellcheck="false" aria-label="File text"${big ? ' wrap="off"' : ''}></textarea>
         </div>
         ${fmt ? `<div id="fe-fe-view" class="${isMd ? 'fe-md' : 'fe-fe-rich'}" hidden></div>` : ''}
       </div>
@@ -89,8 +95,15 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const state = box.querySelector<HTMLElement>('#fe-fe-state')!;
   const banner = box.querySelector<HTMLElement>('#fe-fe-banner')!;
   const diagBtn = box.querySelector<HTMLElement>('#fe-fe-diag')!;
-  ta.value = doc.text;
-  const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`);
+  const scroller = box.querySelector<HTMLElement>('#fe-fe-scroll')!;
+  box.classList.toggle('fe-fe-big', big);
+  // Painted rows round their height to whole pixels while textarea lines keep
+  // the fraction (22 against 22.1 px), so the two drift apart a line every few
+  // hundred lines. A whole-pixel line height keeps them in step.
+  const lhPx = Math.round(parseFloat(getComputedStyle(ta).fontSize) * 1.7);
+  paintEl.style.lineHeight = ta.style.lineHeight = lhPx + 'px';
+  const tw: TextWindow = big ? windowedText(ta, doc.text, TA_LINES) : wholeText(ta, doc.text);
+  const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`, { get: tw.text, set: tw.set });
   let base = doc.text;
   let saving = false;
   let failed = '';   // why the last save failed, until one succeeds
@@ -100,16 +113,18 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   let checkTimer = 0;
   let timer = 0;
 
-  const isDirty = () => ta.value !== base;
+  const isDirty = () => tw.text() !== base;
   // The coloured copy behind the textarea: one numbered row per line, so a
   // wrapped line keeps one number and the caret sits over its own text.
   let curRow = -1;
   const markLine = () => {
-    let i = 0;
-    for (let p = ta.value.indexOf('\n'); p !== -1 && p < ta.selectionStart; p = ta.value.indexOf('\n', p + 1)) i++;
+    // Read the value once: each read of ta.value copies all of it.
+    const v = ta.value, end = ta.selectionStart;
+    let i = tw.first();
+    for (let p = v.indexOf('\n'); p !== -1 && p < end; p = v.indexOf('\n', p + 1)) i++;
     if (i === curRow) return;
-    paintEl.children[curRow]?.classList.remove('cur');
-    paintEl.children[i]?.classList.add('cur');
+    rowEl(curRow)?.classList.remove('cur');
+    rowEl(i)?.classList.add('cur');
     curRow = i;
   };
   // A keystroke usually changes one row, so only the rows between the first
@@ -118,8 +133,83 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   // height follows the painted copy without being reset first.
   let painted: string[] = [];
   const rowHtml = (r: string, i: number) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || ' '}</span></div>`;
+  // Large mode: the painted copy is a window of rows inside a box as tall as
+  // the whole text. Colours come a block of lines at a time, cached by the
+  // block's text, so a key re-colours only the block it touched. A comment or
+  // string that spans a block edge may be coloured as plain text there.
+  const win = box.querySelector<HTMLElement>('#fe-fe-win');
+  let lines: string[] = [];
+  let lh = 0, winFirst = 0, winLast = -1;
+  const blockCache = new Map<string, string[]>();
+  const blockRows = (b: number) => {
+    const text = lines.slice(b * BLOCK, (b + 1) * BLOCK).join('\n');
+    let rows = blockCache.get(text);
+    if (!rows) {
+      rows = splitHighlighted(highlightCode(text, host.ext));
+      if (blockCache.size > 64) blockCache.delete(blockCache.keys().next().value!);
+      blockCache.set(text, rows);
+    }
+    return rows;
+  };
+  const rowEl = (i: number): HTMLElement | undefined =>
+    (big ? (i >= winFirst && i <= winLast ? win!.children[i - winFirst] : undefined) : paintEl.children[i]) as HTMLElement | undefined;
+  const lineAtY = (clientY: number) => Math.floor((clientY - paintEl.getBoundingClientRect().top) / lh);
+  // In Split the text side scrolls on its own; otherwise the whole column does.
+  const viewport = () => mode === 'split' ? src : scroller;
+  const paintWindow = (force = false) => {
+    const vp = viewport();
+    const top = vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top;
+    const first = Math.max(0, Math.floor(top / lh) - WIN_PAD);
+    const last = Math.min(lines.length - 1, Math.ceil((top + vp.clientHeight) / lh) + WIN_PAD);
+    // Scrolling within the padding keeps the painted rows.
+    if (!force && first >= winFirst && last <= winLast && (winFirst === 0 || first - winFirst < WIN_PAD) && (winLast === lines.length - 1 || winLast - last < WIN_PAD)) return;
+    let html = '';
+    for (let b = Math.floor(first / BLOCK); b <= Math.floor(last / BLOCK); b++) {
+      const rows = blockRows(b);
+      const from = Math.max(first, b * BLOCK), to = Math.min(last, b * BLOCK + rows.length - 1);
+      for (let i = from; i <= to; i++) html += rowHtml(rows[i - b * BLOCK], i);
+    }
+    win!.style.transform = `translateY(${first * lh}px)`;
+    win!.innerHTML = html;
+    winFirst = first; winLast = last;
+    rowEl(curRow)?.classList.add('cur');
+    markProblems();
+  };
+  let widest = 0, charW = 0;
+  // The textarea sits over the lines it holds.
+  const placeTa = () => { ta.style.top = tw.first() * lh + 'px'; ta.style.height = tw.size() * lh + 'px'; };
+  // Keep the view where it is while the window moves under it.
+  const moveWindow = (line: number) => {
+    const vp = viewport(), top = vp.scrollTop, from = tw.first();
+    tw.center(line);
+    if (tw.first() !== from) { placeTa(); vp.scrollTop = top; curRow = -1; markLine(); }
+  };
+  const paintBig = () => {
+    lines = tw.text().split('\n');
+    lh = parseFloat(getComputedStyle(ta).lineHeight);
+    if (!charW) {
+      const probe = win!.appendChild(document.createElement('span'));
+      probe.textContent = '0'.repeat(100);
+      charW = probe.getBoundingClientRect().width / 100;
+      probe.remove();
+    }
+    // Without wrapping the text is as wide as its longest line.
+    let w = 0;
+    for (const l of lines) if (l.length > w) w = l.length;
+    if (w > widest || w < widest - 40) { widest = w; src.style.minWidth = `${52 + (w + 4) * charW}px`; }
+    paintEl.style.height = lines.length * lh + 'px';
+    placeTa();
+    paintWindow(true);
+  };
+  if (big) for (const el of [scroller, src]) el.addEventListener('scroll', () => {
+    paintWindow();
+    const vp = viewport();
+    moveWindow(Math.floor((vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top + vp.clientHeight / 2) / lh));
+  }, { passive: true });
+
   const paintSource = () => {
-    const rows = splitHighlighted(highlightCode(ta.value, host.ext));
+    if (big) { paintBig(); curRow = -1; markLine(); return; }
+    const rows = splitHighlighted(highlightCode(tw.text(), host.ext));
     let a = 0;
     while (a < rows.length && a < painted.length && rows[a] === painted[a]) a++;
     let b = painted.length, c = rows.length;
@@ -140,7 +230,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const markProblems = () => {
     for (const r of paintEl.querySelectorAll('.fe-fe-row.err, .fe-fe-row.warn')) { r.classList.remove('err', 'warn'); r.removeAttribute('title'); }
     for (const d of diags) {
-      const row = paintEl.children[d.line - 1] as HTMLElement | undefined;
+      const row = rowEl(d.line - 1);
       if (!row) continue;
       row.classList.add(d.severity === 'error' || row.classList.contains('err') ? 'err' : 'warn');
       if (row.classList.contains('err')) row.classList.remove('warn');
@@ -153,7 +243,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     diagBtn.textContent = [errors && `${errors} error${errors > 1 ? 's' : ''}`, warns && `${warns} warning${warns > 1 ? 's' : ''}`].filter(Boolean).join(', ');
     diagBtn.title = diags.slice(0, 12).map(d => `Line ${d.line}: ${d.message}`).join('\n') + (diags.length > 12 ? `\nand ${diags.length - 12} more` : '');
   };
-  const check = () => { diags = diagnose(host.ext, ta.value); markProblems(); };
+  const check = () => { const t = tw.text(); diags = t.length > CHECK_MAX ? [] : diagnose(host.ext, t); markProblems(); };
   const checkLater = () => { clearTimeout(checkTimer); checkTimer = window.setTimeout(check, CHECK_MS); };
   const paint = () => {
     const dirty = isDirty();
@@ -165,12 +255,19 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   // The rendered view follows the text; an HTML frame is only rebuilt when
   // the text changed, so typing elsewhere does not reload the page in it.
   let shown = '';
+  let renderTimer = 0;
   const renderView = () => {
-    if (!view || !fmt || mode === 'raw' || shown === ta.value) return;
+    if (!view || !fmt || mode === 'raw' || shown === tw.text()) return;
+    if (big && shown) { clearTimeout(renderTimer); renderTimer = window.setTimeout(drawView, BIG_RENDER_MS); return; }
+    drawView();
+  };
+  const drawView = () => {
+    const t = tw.text();
+    if (!view || !fmt || mode === 'raw' || shown === t) return;
     const top = view.scrollTop;
-    view.innerHTML = fmt.rich(ta.value, host.href);
+    view.innerHTML = fmt.rich(t, host.href);
     view.scrollTop = top;
-    shown = ta.value;
+    shown = t;
   };
   const setMode = (m: Mode) => {
     if (!view) return;
@@ -178,6 +275,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     kvSet(MODE_KEY, m);
     box.dataset.mode = m;
     view.hidden = m === 'raw'; src.hidden = m === 'rich';
+    if (big && m !== 'rich') paintWindow(true);
     box.querySelectorAll<HTMLElement>('[data-mode]').forEach(b => { b.classList.toggle('on', b.dataset.mode === m); b.setAttribute('aria-pressed', String(b.dataset.mode === m)); });
     renderView();
     if (m !== 'rich') ta.focus({ preventScroll: true });
@@ -195,7 +293,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     saving = true; paint();
     let retryAt = 0;
     try {
-      const text = ta.value;
+      const text = tw.text();
       const r = await notes.fileWrite(host.root, host.rel, text, expect);
       doc = { text, mtime: r.mtime }; base = text; failed = '';
       banner.style.display = 'none';
@@ -224,12 +322,14 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   // Called by the page's autoreload when the file changed underneath us.
   const external = async () => {
     try {
+      // A stat first, so an unchanged large file is not read again every poll.
+      if ((await notes.fileStat(host.root, host.rel)).mtime === doc.mtime) return;
       const now = await notes.fileRead(host.root, host.rel);
       if (now.mtime === doc.mtime) return;
       // Touched but unchanged (a sync tool, a formatter that wrote the same
       // bytes): take the new time quietly, there is nothing to choose between.
       if (now.text === doc.text) { doc = now; return; }
-      if (!isDirty()) { doc = now; base = now.text; buf.snap(); ta.value = now.text; buf.snap(); check(); paintSource(); paint(); }
+      if (!isDirty()) { doc = now; base = now.text; buf.snap(); tw.set(now.text); buf.snap(); check(); paintSource(); paint(); }
       else showConflict();
     } catch { /* host gone; the next save reports it */ }
   };
@@ -241,6 +341,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     if (isDirty() && !confirm('Your last changes are not saved. Leave anyway?')) return;
     clearInterval(watch);
     clearTimeout(checkTimer);
+    clearTimeout(renderTimer);
     document.removeEventListener('selectionchange', onSelection);
     box.innerHTML = '';
     host.closed();
@@ -248,12 +349,13 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
 
   const goToLine = (line: number) => {
     if (mode === 'rich') setMode('split');
-    const lines = ta.value.split('\n');
-    let pos = 0;
-    for (let i = 0; i < line - 1 && i < lines.length; i++) pos += lines[i].length + 1;
+    const t = tw.text();
+    const pos = lineStart(t, line - 1);
+    const end = t.indexOf('\n', pos);
     ta.focus({ preventScroll: true });
-    ta.setSelectionRange(pos, pos + (lines[line - 1]?.length ?? 0));
-    (paintEl.children[line - 1] as HTMLElement | undefined)?.scrollIntoView({ block: 'center' });
+    tw.select(pos, end === -1 ? t.length : end);
+    if (big) { placeTa(); const vp = viewport(); vp.scrollTop += (line - 1) * lh - (vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top) - vp.clientHeight / 2; paintWindow(true); }
+    else rowEl(line - 1)?.scrollIntoView({ block: 'center' });
     markLine();
   };
   box.addEventListener('click', e => {
@@ -265,7 +367,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     if (act === 'save') save();
     else if (act === 'done') void close();
     else if (act === 'diag' && diags.length) goToLine(diags[0].line);
-    else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; base = now.text; buf.snap(); ta.value = now.text; banner.style.display = 'none'; paintSource(); paint(); }
+    else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; base = now.text; buf.snap(); tw.set(now.text); banner.style.display = 'none'; paintSource(); paint(); }
     else if (act === 'overwrite') { const now = await notes.fileRead(host.root, host.rel); void write(now.mtime); }
   });
   ta.addEventListener('input', () => { paintSource(); paint(); later(); checkLater(); });
@@ -279,28 +381,44 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     const me = e as MouseEvent;
     if (me.button !== 0 || mode === 'rich' || me.target === ta || view?.contains(me.target as Node)) return;
     me.preventDefault();
-    const rows = [...paintEl.children];
-    let line = rows.findIndex(r => r.getBoundingClientRect().bottom > me.clientY);
-    const lines = ta.value.split('\n');
-    let pos = ta.value.length;
-    if (line !== -1) {
-      pos = 0;
-      for (let i = 0; i < line; i++) pos += lines[i].length + 1;
-      pos += lines[line]?.length ?? 0;
-    }
+    const t = tw.text();
+    const line = big ? lineAtY(me.clientY) : [...paintEl.children].findIndex(r => r.getBoundingClientRect().bottom > me.clientY);
+    let pos = t.length;
+    if (line >= 0) { const nl = t.indexOf('\n', lineStart(t, line)); if (nl !== -1) pos = nl; }
     ta.focus({ preventScroll: true });
-    ta.setSelectionRange(pos, pos);
+    const top = viewport().scrollTop;
+    tw.select(pos, pos);
+    if (big) { placeTa(); viewport().scrollTop = top; }
     markLine();
   });
   box.addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p' && fmt) { e.preventDefault(); nextMode(); }
     else if (e.key === 'Escape' && mode === 'rich') { e.preventDefault(); setMode('raw'); }
   });
+  // Large mode: keys that move the caret far bring the window along first.
+  if (big) ta.addEventListener('keydown', e => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End')) {
+      e.preventDefault();
+      const toEnd = e.key === 'ArrowDown' || e.key === 'End';
+      const at = toEnd ? tw.text().length : 0;
+      const keep = e.shiftKey ? tw.selection() : null;
+      tw.select(keep ? (toEnd ? keep.start : at) : at, keep ? (toEnd ? at : keep.end) : at);
+      placeTa();
+      const vp = viewport(); vp.scrollTop = toEnd ? vp.scrollHeight : 0;
+      paintWindow(true); curRow = -1; markLine();
+    } else if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'].includes(e.key)) {
+      markLine();
+      moveWindow(curRow);
+    }
+  });
   ta.addEventListener('keydown', e => {
     const mod = e.metaKey || e.ctrlKey;
     if (mod && e.shiftKey && e.key.toLowerCase() === 'p') return;   // the box cycles the view
     if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
-    else if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) buf.redo(); else buf.undo(); }
+    // The undo buffer's own listener takes the step; this only keeps the
+    // browser's undo, which knows nothing of the buffer, from running too.
+    else if (mod && e.key.toLowerCase() === 'z') e.preventDefault();
     else if (e.key === 'Escape') { e.preventDefault(); void close(); }
     else if (e.key === 'Tab') {
       e.preventDefault();
@@ -314,7 +432,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const watch = setInterval(() => { if (document.visibilityState === 'visible' && !saving) void external(); }, 2000);
   window.addEventListener('beforeunload', e => { if (box.isConnected && isDirty()) e.preventDefault(); });
 
-  diags = diagnose(host.ext, ta.value);
+  diags = doc.text.length > CHECK_MAX ? [] : diagnose(host.ext, doc.text);
   paintSource();
   paint();
   if (fmt) setMode(mode);

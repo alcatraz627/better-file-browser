@@ -18,8 +18,9 @@ Ops (request -> reply):
   {op:"version", root, rel, sha}             -> {t:"version", rel, sha, text}
   {op:"pick", start?}                        -> {t:"picked", root}   (the system folder chooser; root is "" when cancelled)
   {op:"search", root, query}                 -> {t:"search", hits:[{rel, line}]}   (every word, any case; first matching line)
-  {op:"fileRead",  root, rel}                -> {t:"file", rel, text, mtime}   (any text file; root is a folder allowed for editing)
-  {op:"fileWrite", root, rel, text, expectMtime} -> {t:"written", rel, mtime, backup}   (existing text files under 2 MB; old text backed up 14 days)
+  {op:"fileRead",  root, rel, offset?}       -> {t:"file", rel, text, mtime, next}   (any text file; root is a folder allowed for editing; read in slices until next is null)
+  {op:"fileStat",  root, rel}                -> {t:"fstat", rel, mtime, size}
+  {op:"fileWrite", root, rel, text, expectMtime} -> {t:"written", rel, mtime, backup}   (existing text files under 20 MB; old text backed up 14 days)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it.
@@ -201,7 +202,10 @@ def op_write(root, rel, text, expect_mtime=None):
     atomic_write(full, text if isinstance(text, str) else '')
     return {'t': 'written', 'rel': rel, 'mtime': mtime_ms(full)}
 
-FILE_MAX = 2 * 1024 * 1024
+FILE_MAX = 20 * 1024 * 1024
+# Chrome refuses any reply from a native host over 1 MB, so a file is read in
+# slices whose JSON form stays under this many bytes.
+READ_BYTES = 900_000
 BACKUP_DIR = os.path.expanduser('~/Library/Application Support/BetterFileBrowser/backups')
 BACKUP_DAYS = 14
 
@@ -210,7 +214,7 @@ def op_file_write(root, rel, text, expect_mtime):
 
     The previous text is copied to a dated backup folder first (kept 14 days),
     so an edit outside git can still be undone. Unlike notes, any text file
-    type is fine, but the file must already exist and stay under 2 MB."""
+    type is fine, but the file must already exist and stay under 20 MB."""
     full = resolve_rel(root, rel)
     if not os.path.isfile(full):
         raise NotesError('notes_missing', f'no such file: {rel}')
@@ -218,7 +222,7 @@ def op_file_write(root, rel, text, expect_mtime):
         raise NotesError('notes_conflict', 'the file changed on disk since it was read')
     text = text if isinstance(text, str) else ''
     if len(text.encode('utf-8')) > FILE_MAX:
-        raise NotesError('notes_bad_path', 'files over 2 MB are not edited here')
+        raise NotesError('notes_bad_path', 'files over 20 MB are not edited here')
     with open(full, 'rb') as fh:
         old = fh.read()
     if b'\0' in old[:8192]:
@@ -246,17 +250,39 @@ def prune_backups():
     except OSError:
         pass
 
-def op_file_read(root, rel):
+def op_file_read(root, rel, offset=0):
+    """One slice of a text file, from character `offset`; `next` is where the
+    following slice starts, or None at the end. The caller checks that every
+    slice carries the same mtime, so a file changed mid-read is read again."""
     full = resolve_rel(root, rel)
     if not os.path.isfile(full):
         raise NotesError('notes_missing', f'no such file: {rel}')
     if os.path.getsize(full) > FILE_MAX:
-        raise NotesError('notes_bad_path', 'files over 2 MB are not edited here')
+        raise NotesError('notes_bad_path', 'files over 20 MB are not edited here')
+    mtime = mtime_ms(full)
     with open(full, 'rb') as fh:
         raw = fh.read()
     check_editable(full, raw)
     text = raw.decode('utf-8').replace('\r\n', '\n')
-    return {'t': 'file', 'rel': rel, 'text': text, 'mtime': mtime_ms(full)}
+    if offset is None:
+        # A client from before slicing reads the whole file in one reply; a
+        # slice would look like the full text to it and be saved truncated.
+        return {'t': 'file', 'rel': rel, 'text': text, 'mtime': mtime}
+    start = max(0, int(offset))
+    # Plain ASCII escapes to one byte a character; anything else to more, so
+    # shrink the slice until its escaped form fits.
+    end = start + READ_BYTES
+    while end > start + 1 and len(json.dumps(text[start:end])) > READ_BYTES:
+        end = start + (end - start) * 3 // 4
+    return {'t': 'file', 'rel': rel, 'text': text[start:end], 'mtime': mtime,
+            'next': end if end < len(text) else None}
+
+def op_file_stat(root, rel):
+    """A file's modified time and size, so a watcher can skip re-reading an unchanged file."""
+    full = resolve_rel(root, rel)
+    if not os.path.isfile(full):
+        raise NotesError('notes_missing', f'no such file: {rel}')
+    return {'t': 'fstat', 'rel': rel, 'mtime': mtime_ms(full), 'size': os.path.getsize(full)}
 
 def op_search(root, query):
     """Notes whose text holds every word of the query (any case), newest first, each with its first matching line."""
@@ -403,7 +429,8 @@ def handle(msg):
     if op == 'history': return op_history(root, msg.get('rel'))
     if op == 'version': return op_version(root, msg.get('rel'), msg.get('sha'))
     if op == 'search':    return op_search(root, msg.get('query'))
-    if op == 'fileRead':  return op_file_read(root, msg.get('rel'))
+    if op == 'fileRead':  return op_file_read(root, msg.get('rel'), msg.get('offset'))
+    if op == 'fileStat':  return op_file_stat(root, msg.get('rel'))
     if op == 'fileWrite': return op_file_write(root, msg.get('rel'), msg.get('text'), msg.get('expectMtime'))
     raise NotesError('notes_bad_op', f'unknown op {op!r}')
 

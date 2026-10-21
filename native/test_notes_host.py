@@ -213,5 +213,31 @@ with mock.patch.object(nh, 'BACKUP_DIR', os.path.join(ed, '.backups')):
     r = call({'op': 'fileRead', 'root': ed, 'rel': 'ro.md'})
     check(r['t'] == 'error' and 'read-only' in r['message'] and os.stat(p).st_mode & 0o777 == 0o444, f'a read-only file is refused and keeps its mode: {r}')
 
+# A large file comes back in slices that each fit Chrome's 1 MB reply limit,
+# and the slices join back into the exact text, emoji and all.
+def read_all(name):
+    parts, offset, frames = [], 0, []
+    while offset is not None:
+        r = nh.handle({'op': 'fileRead', 'root': ed, 'rel': name, 'offset': offset})
+        frames.append(len(json.dumps(r).encode('utf-8')))
+        parts.append(r['text']); offset = r['next']
+    return ''.join(parts), frames
+for name, text in [('big-ascii.txt', 'const value = compute(1, "row");\n' * 100_000),
+                   ('big-emoji.md', ('note 😀 ü ' * 40 + '\n') * 8_000)]:
+    put(name, text.encode('utf-8'))
+    got, frames = read_all(name)
+    check(got == text and len(frames) > 1 and max(frames) < 1024 * 1024,
+          f'{name} ({len(text.encode())} bytes) reads back exactly in {len(frames)} slices, largest {max(frames)} bytes')
+put('small.txt', b'tiny\n')
+r = nh.handle({'op': 'fileRead', 'root': ed, 'rel': 'small.txt', 'offset': 0})
+check(r['text'] == 'tiny\n' and r['next'] is None, 'a small file comes back whole with no next slice')
+old = nh.handle({'op': 'fileRead', 'root': ed, 'rel': 'big-ascii.txt'})
+check(len(old['text']) == 3_300_000 and 'next' not in old, 'a read with no offset (an older client) gets the whole file, never a slice')
+s = nh.handle({'op': 'fileStat', 'root': ed, 'rel': 'small.txt'})
+check(s['t'] == 'fstat' and s['size'] == 5 and s['mtime'] == r['mtime'], f'fileStat reports size and the same mtime as a read: {s}')
+with mock.patch.object(nh, 'FILE_MAX', 100):
+    try: nh.handle({'op': 'fileRead', 'root': ed, 'rel': 'big-ascii.txt'}); check(False, 'a file over the cap is refused')
+    except nh.NotesError as e: check('20 MB' in str(e), f'a file over the cap is refused: {e}')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

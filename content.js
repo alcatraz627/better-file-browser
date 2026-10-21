@@ -629,6 +629,24 @@
       }
     });
   }
+  async function fileRead(root, rel) {
+    for (let attempt = 0; ; attempt++) {
+      const parts = [];
+      let mtime = -1, offset = 0, torn = false;
+      while (offset != null) {
+        const f = await call({ op: "fileRead", root, rel, offset });
+        if (mtime !== -1 && f.mtime !== mtime) {
+          torn = true;
+          break;
+        }
+        mtime = f.mtime;
+        parts.push(f.text);
+        offset = f.next;
+      }
+      if (!torn) return { text: parts.join(""), mtime };
+      if (attempt >= 3) throw new NotesError("notes_io", "the file kept changing while it was read");
+    }
+  }
   var notes = {
     stat: (root) => call({ op: "stat", root }),
     list: (root) => call({ op: "list", root }).then((f) => f.notes),
@@ -647,7 +665,9 @@
     /// Notes whose text holds every word of the query, each with its first matching line.
     search: (root, query) => call({ op: "search", root, query }).then((f) => f.hits),
     /// Any text file inside a folder allowed for editing; root is that folder.
-    fileRead: (root, rel) => call({ op: "fileRead", root, rel }),
+    fileRead,
+    /// A file's modified time and size, without reading it.
+    fileStat: (root, rel) => call({ op: "fileStat", root, rel }),
     fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
   };
   function slugForTitle(title) {
@@ -2624,7 +2644,17 @@ ${body}`;
   // src/editor.ts
   var BUF_CAP = 60;
   var BUF_COALESCE = 600;
+  var BUF_CHARS = 8e6;
   var bufHist = /* @__PURE__ */ new Map();
+  function diffText(a, b) {
+    let p = 0;
+    const max = Math.min(a.length, b.length);
+    while (p < max && a.charCodeAt(p) === b.charCodeAt(p)) p++;
+    let s = 0;
+    while (s < max - p && a.charCodeAt(a.length - 1 - s) === b.charCodeAt(b.length - 1 - s)) s++;
+    return { at: p, len: a.length - p - s, ins: b.slice(p, b.length - s) };
+  }
+  var applyPatch = (t, p) => t.slice(0, p.at) + p.ins + t.slice(p.at + p.len);
   function insertAtCursor(el2, text) {
     const a = el2.selectionStart ?? el2.value.length, b = el2.selectionEnd ?? a;
     el2.value = el2.value.slice(0, a) + text + el2.value.slice(b);
@@ -2719,16 +2749,21 @@ ${sep}
 ${body}
 `;
   }
-  function attachBuffer(el2, id) {
-    let h = bufHist.get(id) ?? { past: [], future: [], timer: null };
+  function attachBuffer(el2, id, io = { get: () => el2.value, set: (v) => {
+    el2.value = v;
+  } }) {
+    const h = bufHist.get(id) ?? { cur: "", past: [], future: [], timer: null };
     bufHist.set(id, h);
-    h.past = [el2.value ?? ""];
+    h.cur = io.get() ?? "";
+    h.past = [];
     h.future = [];
     const snap = () => {
-      const now = el2.value ?? "";
-      if (h.past[h.past.length - 1] === now) return;
-      h.past.push(now);
-      if (h.past.length > BUF_CAP) h.past.shift();
+      const now = io.get() ?? "";
+      if (now === h.cur) return;
+      h.past.push(diffText(now, h.cur));
+      h.cur = now;
+      let chars = h.past.reduce((n, p) => n + p.ins.length, 0);
+      while (h.past.length > BUF_CAP || h.past.length > 1 && chars > BUF_CHARS) chars -= h.past.shift().ins.length;
       h.future = [];
     };
     const record = () => {
@@ -2736,22 +2771,25 @@ ${body}
       h.timer = setTimeout(snap, BUF_COALESCE);
     };
     const put = (v) => {
-      el2.value = v;
+      h.cur = v;
+      io.set(v);
       el2.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const step2 = (from, to) => {
+      const prev = applyPatch(h.cur, from.pop());
+      to.push(diffText(prev, h.cur));
+      put(prev);
     };
     const undo = () => {
       if (h.timer) clearTimeout(h.timer);
       snap();
-      if (h.past.length < 2) return false;
-      h.future.push(h.past.pop());
-      put(h.past[h.past.length - 1]);
+      if (!h.past.length) return false;
+      step2(h.past, h.future);
       return true;
     };
     const redo = () => {
       if (!h.future.length) return false;
-      const v = h.future.pop();
-      h.past.push(v);
-      put(v);
+      step2(h.future, h.past);
       return true;
     };
     el2.addEventListener("input", record);
@@ -2770,7 +2808,7 @@ ${body}
         }
       }
     });
-    return { undo, redo, snap, depth: () => h.past.length, insert: (t) => insertAtCursor(el2, t) };
+    return { undo, redo, snap, depth: () => h.past.length + 1, insert: (t) => insertAtCursor(el2, t) };
   }
 
   // src/llm.ts
@@ -4389,6 +4427,10 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fe-ta{position:absolute;top:0;left:0;width:100%;padding:0 0 0 52px;border:0;outline:0;resize:none;overflow:hidden;
   background:transparent;color:transparent;caret-color:var(--ac)}
 #fe-fe-ta::selection{background:color-mix(in srgb,var(--ac) 40%,transparent);color:transparent}
+/* Large files: no wrapping, so every row is one line tall and only a window
+   of rows is painted (#fe-fe-win, moved down to where the viewport is). */
+.fe-fe-big #fe-fe-paint,.fe-fe-big #fe-fe-ta{white-space:pre;overflow-wrap:normal}
+#fe-fe-win{will-change:transform}
 #fe-fe-view{padding:0;max-width:none}
 #fe-fe-pill{position:absolute;top:12px;right:18px;z-index:5;display:flex;align-items:center;gap:2px;padding:3px;
   background:var(--s1);border:1px solid var(--bd);border-radius:999px;box-shadow:0 6px 20px rgb(0 0 0 / .25)}
@@ -11456,6 +11498,125 @@ ${end.comment}` : end.comment;
     }
   }
 
+  // src/text-window.ts
+  function wholeText(ta, text) {
+    ta.value = text;
+    return {
+      text: () => ta.value,
+      set: (t) => {
+        ta.value = t;
+      },
+      first: () => 0,
+      size: () => countLines(ta.value),
+      selection: () => ({ start: ta.selectionStart, end: ta.selectionEnd }),
+      select: (a, b) => ta.setSelectionRange(a, b),
+      center: () => {
+      }
+    };
+  }
+  var countLines = (t) => {
+    let n = 1;
+    for (let p = t.indexOf("\n"); p !== -1; p = t.indexOf("\n", p + 1)) n++;
+    return n;
+  };
+  function lineStart(t, line2, from = 0, fromLine = 0) {
+    let p = from;
+    for (let i = fromLine; i < line2; i++) {
+      const nl = t.indexOf("\n", p);
+      if (nl === -1) return t.length;
+      p = nl + 1;
+    }
+    return p;
+  }
+  function windowedText(ta, text, lines = 3e3) {
+    let pre = "", post = "", first = 0, held = 1, after = 0;
+    const text_ = () => pre + ta.value + post;
+    const allSelected = () => ta.selectionStart === 0 && ta.selectionEnd === ta.value.length && (pre || post) !== "";
+    let selectAll = false;
+    const place = (t, center, selStart, selEnd) => {
+      const total = countLines(t);
+      first = Math.max(0, Math.min(center - (lines >> 1), total - lines));
+      const a = lineStart(t, first);
+      let b = lineStart(t, first + lines, a, first);
+      if (b > a && b <= t.length && t[b - 1] === "\n" && first + lines < total) b--;
+      pre = t.slice(0, a);
+      post = t.slice(b);
+      ta.value = t.slice(a, b);
+      held = Math.min(lines, total - first);
+      after = total - first - held;
+      const clamp = (x) => Math.max(0, Math.min(ta.value.length, x - a));
+      ta.setSelectionRange(clamp(selStart), clamp(selEnd));
+    };
+    const lineOf = (t, offset) => {
+      let n = 0;
+      for (let p = t.indexOf("\n"); p !== -1 && p < offset; p = t.indexOf("\n", p + 1)) n++;
+      return n;
+    };
+    const selection = () => selectAll && allSelected() ? { start: 0, end: text_().length } : { start: pre.length + ta.selectionStart, end: pre.length + ta.selectionEnd };
+    ta.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && !e.shiftKey) {
+        selectAll = true;
+        return;
+      }
+      if (!["Shift", "Meta", "Control", "Alt"].includes(e.key)) selectAll = false;
+    }, true);
+    ta.addEventListener("mousedown", () => {
+      selectAll = false;
+    });
+    const copyAll = (e, cut) => {
+      if (!selectAll || !allSelected()) return;
+      e.preventDefault();
+      e.clipboardData?.setData("text/plain", text_());
+      if (cut) {
+        pre = post = "";
+        first = 0;
+        after = 0;
+        ta.value = "";
+        held = 1;
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    };
+    ta.addEventListener("copy", (e) => copyAll(e, false));
+    ta.addEventListener("cut", (e) => copyAll(e, true));
+    ta.addEventListener("beforeinput", () => {
+      if (selectAll && allSelected()) {
+        pre = post = "";
+        first = 0;
+        after = 0;
+      }
+      selectAll = false;
+    });
+    ta.addEventListener("input", () => {
+      held = countLines(ta.value);
+    });
+    place(text, 0, 0, 0);
+    return {
+      text: text_,
+      set: (t) => {
+        const s = selection();
+        place(t, first + (lines >> 1), s.start, s.end);
+      },
+      first: () => first,
+      size: () => held,
+      selection,
+      select: (s, e) => {
+        if (s >= pre.length && e <= pre.length + ta.value.length) {
+          ta.setSelectionRange(s - pre.length, e - pre.length);
+          return;
+        }
+        const t = text_();
+        place(t, lineOf(t, s), s, e);
+      },
+      center: (line2) => {
+        const total = first + held + after;
+        const target = Math.max(0, Math.min(line2 - (lines >> 1), total - lines));
+        if (target === first || line2 - first > lines >> 3 && first + held - line2 > lines >> 3) return;
+        const s = selection();
+        place(text_(), line2, s.start, s.end);
+      }
+    };
+  }
+
   // src/file-editor.ts
   var AUTOSAVE_MS = 800;
   var CHECK_MS = 300;
@@ -11465,7 +11626,13 @@ ${end.comment}` : end.comment;
     { id: "split", label: "Split", hint: "Text and rendered view side by side" },
     { id: "rich", label: "Rich", hint: "The rendered view alone" }
   ];
-  var EDIT_MAX_LINES = 15e3;
+  var BIG_LINES = 4e3;
+  var BIG_CHARS = 4e5;
+  var BLOCK = 200;
+  var WIN_PAD = 60;
+  var CHECK_MAX = 2e6;
+  var BIG_RENDER_MS = 1e3;
+  var TA_LINES = 3e3;
   function editableRoot(path, folders, home = "") {
     for (const raw of folders ?? []) {
       let f = raw.trim().replace(/\/+$/, "");
@@ -11487,12 +11654,9 @@ ${end.comment}` : end.comment;
       host.status(`cannot edit: ${err.message}`);
       return null;
     }
-    let lines = 1;
-    for (let p = doc.text.indexOf("\n"); p !== -1 && lines <= EDIT_MAX_LINES; p = doc.text.indexOf("\n", p + 1)) lines++;
-    if (lines > EDIT_MAX_LINES) {
-      host.status(`cannot edit: files over ${EDIT_MAX_LINES.toLocaleString("en-US")} lines are too slow to edit here`);
-      return null;
-    }
+    let lineCount = 1;
+    for (let p = doc.text.indexOf("\n"); p !== -1 && lineCount <= BIG_LINES; p = doc.text.indexOf("\n", p + 1)) lineCount++;
+    const big = lineCount > BIG_LINES || doc.text.length > BIG_CHARS;
     const fmt = formatFor(host.ext);
     const isMd = fmt?.id === "markdown";
     box.innerHTML = `
@@ -11500,8 +11664,8 @@ ${end.comment}` : end.comment;
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">
-          <pre id="fe-fe-paint" aria-hidden="true"></pre>
-          <textarea id="fe-fe-ta" spellcheck="false" aria-label="File text"></textarea>
+          <pre id="fe-fe-paint" aria-hidden="true">${big ? '<div id="fe-fe-win"></div>' : ""}</pre>
+          <textarea id="fe-fe-ta" spellcheck="false" aria-label="File text"${big ? ' wrap="off"' : ""}></textarea>
         </div>
         ${fmt ? `<div id="fe-fe-view" class="${isMd ? "fe-md" : "fe-fe-rich"}" hidden></div>` : ""}
       </div>
@@ -11519,8 +11683,12 @@ ${end.comment}` : end.comment;
     const state = box.querySelector("#fe-fe-state");
     const banner = box.querySelector("#fe-fe-banner");
     const diagBtn = box.querySelector("#fe-fe-diag");
-    ta.value = doc.text;
-    const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`);
+    const scroller = box.querySelector("#fe-fe-scroll");
+    box.classList.toggle("fe-fe-big", big);
+    const lhPx = Math.round(parseFloat(getComputedStyle(ta).fontSize) * 1.7);
+    paintEl.style.lineHeight = ta.style.lineHeight = lhPx + "px";
+    const tw = big ? windowedText(ta, doc.text, TA_LINES) : wholeText(ta, doc.text);
+    const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`, { get: tw.text, set: tw.set });
     let base = doc.text;
     let saving = false;
     let failed = "";
@@ -11529,20 +11697,102 @@ ${end.comment}` : end.comment;
     let diags = [];
     let checkTimer = 0;
     let timer = 0;
-    const isDirty = () => ta.value !== base;
+    const isDirty = () => tw.text() !== base;
     let curRow = -1;
     const markLine = () => {
-      let i = 0;
-      for (let p = ta.value.indexOf("\n"); p !== -1 && p < ta.selectionStart; p = ta.value.indexOf("\n", p + 1)) i++;
+      const v = ta.value, end = ta.selectionStart;
+      let i = tw.first();
+      for (let p = v.indexOf("\n"); p !== -1 && p < end; p = v.indexOf("\n", p + 1)) i++;
       if (i === curRow) return;
-      paintEl.children[curRow]?.classList.remove("cur");
-      paintEl.children[i]?.classList.add("cur");
+      rowEl(curRow)?.classList.remove("cur");
+      rowEl(i)?.classList.add("cur");
       curRow = i;
     };
     let painted = [];
     const rowHtml = (r, i) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || " "}</span></div>`;
+    const win = box.querySelector("#fe-fe-win");
+    let lines = [];
+    let lh = 0, winFirst = 0, winLast = -1;
+    const blockCache = /* @__PURE__ */ new Map();
+    const blockRows = (b) => {
+      const text = lines.slice(b * BLOCK, (b + 1) * BLOCK).join("\n");
+      let rows = blockCache.get(text);
+      if (!rows) {
+        rows = splitHighlighted(highlightCode(text, host.ext));
+        if (blockCache.size > 64) blockCache.delete(blockCache.keys().next().value);
+        blockCache.set(text, rows);
+      }
+      return rows;
+    };
+    const rowEl = (i) => big ? i >= winFirst && i <= winLast ? win.children[i - winFirst] : void 0 : paintEl.children[i];
+    const lineAtY = (clientY) => Math.floor((clientY - paintEl.getBoundingClientRect().top) / lh);
+    const viewport = () => mode === "split" ? src : scroller;
+    const paintWindow = (force = false) => {
+      const vp = viewport();
+      const top = vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top;
+      const first = Math.max(0, Math.floor(top / lh) - WIN_PAD);
+      const last = Math.min(lines.length - 1, Math.ceil((top + vp.clientHeight) / lh) + WIN_PAD);
+      if (!force && first >= winFirst && last <= winLast && (winFirst === 0 || first - winFirst < WIN_PAD) && (winLast === lines.length - 1 || winLast - last < WIN_PAD)) return;
+      let html = "";
+      for (let b = Math.floor(first / BLOCK); b <= Math.floor(last / BLOCK); b++) {
+        const rows = blockRows(b);
+        const from = Math.max(first, b * BLOCK), to = Math.min(last, b * BLOCK + rows.length - 1);
+        for (let i = from; i <= to; i++) html += rowHtml(rows[i - b * BLOCK], i);
+      }
+      win.style.transform = `translateY(${first * lh}px)`;
+      win.innerHTML = html;
+      winFirst = first;
+      winLast = last;
+      rowEl(curRow)?.classList.add("cur");
+      markProblems();
+    };
+    let widest = 0, charW = 0;
+    const placeTa = () => {
+      ta.style.top = tw.first() * lh + "px";
+      ta.style.height = tw.size() * lh + "px";
+    };
+    const moveWindow = (line2) => {
+      const vp = viewport(), top = vp.scrollTop, from = tw.first();
+      tw.center(line2);
+      if (tw.first() !== from) {
+        placeTa();
+        vp.scrollTop = top;
+        curRow = -1;
+        markLine();
+      }
+    };
+    const paintBig = () => {
+      lines = tw.text().split("\n");
+      lh = parseFloat(getComputedStyle(ta).lineHeight);
+      if (!charW) {
+        const probe = win.appendChild(document.createElement("span"));
+        probe.textContent = "0".repeat(100);
+        charW = probe.getBoundingClientRect().width / 100;
+        probe.remove();
+      }
+      let w = 0;
+      for (const l of lines) if (l.length > w) w = l.length;
+      if (w > widest || w < widest - 40) {
+        widest = w;
+        src.style.minWidth = `${52 + (w + 4) * charW}px`;
+      }
+      paintEl.style.height = lines.length * lh + "px";
+      placeTa();
+      paintWindow(true);
+    };
+    if (big) for (const el2 of [scroller, src]) el2.addEventListener("scroll", () => {
+      paintWindow();
+      const vp = viewport();
+      moveWindow(Math.floor((vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top + vp.clientHeight / 2) / lh));
+    }, { passive: true });
     const paintSource = () => {
-      const rows = splitHighlighted(highlightCode(ta.value, host.ext));
+      if (big) {
+        paintBig();
+        curRow = -1;
+        markLine();
+        return;
+      }
+      const rows = splitHighlighted(highlightCode(tw.text(), host.ext));
       let a = 0;
       while (a < rows.length && a < painted.length && rows[a] === painted[a]) a++;
       let b = painted.length, c = rows.length;
@@ -11569,7 +11819,7 @@ ${end.comment}` : end.comment;
         r.removeAttribute("title");
       }
       for (const d of diags) {
-        const row = paintEl.children[d.line - 1];
+        const row = rowEl(d.line - 1);
         if (!row) continue;
         row.classList.add(d.severity === "error" || row.classList.contains("err") ? "err" : "warn");
         if (row.classList.contains("err")) row.classList.remove("warn");
@@ -11585,7 +11835,8 @@ ${d.message}` : `Line ${d.line}: ${d.message}`;
 and ${diags.length - 12} more` : "");
     };
     const check = () => {
-      diags = diagnose(host.ext, ta.value);
+      const t = tw.text();
+      diags = t.length > CHECK_MAX ? [] : diagnose(host.ext, t);
       markProblems();
     };
     const checkLater = () => {
@@ -11600,12 +11851,23 @@ and ${diags.length - 12} more` : "");
       renderView();
     };
     let shown = "";
+    let renderTimer = 0;
     const renderView = () => {
-      if (!view || !fmt || mode === "raw" || shown === ta.value) return;
+      if (!view || !fmt || mode === "raw" || shown === tw.text()) return;
+      if (big && shown) {
+        clearTimeout(renderTimer);
+        renderTimer = window.setTimeout(drawView, BIG_RENDER_MS);
+        return;
+      }
+      drawView();
+    };
+    const drawView = () => {
+      const t = tw.text();
+      if (!view || !fmt || mode === "raw" || shown === t) return;
       const top = view.scrollTop;
-      view.innerHTML = fmt.rich(ta.value, host.href);
+      view.innerHTML = fmt.rich(t, host.href);
       view.scrollTop = top;
-      shown = ta.value;
+      shown = t;
     };
     const setMode = (m) => {
       if (!view) return;
@@ -11614,6 +11876,7 @@ and ${diags.length - 12} more` : "");
       box.dataset.mode = m;
       view.hidden = m === "raw";
       src.hidden = m === "rich";
+      if (big && m !== "rich") paintWindow(true);
       box.querySelectorAll("[data-mode]").forEach((b) => {
         b.classList.toggle("on", b.dataset.mode === m);
         b.setAttribute("aria-pressed", String(b.dataset.mode === m));
@@ -11633,7 +11896,7 @@ and ${diags.length - 12} more` : "");
       paint();
       let retryAt = 0;
       try {
-        const text = ta.value;
+        const text = tw.text();
         const r = await notes.fileWrite(host.root, host.rel, text, expect);
         doc = { text, mtime: r.mtime };
         base = text;
@@ -11674,6 +11937,7 @@ and ${diags.length - 12} more` : "");
     }
     const external = async () => {
       try {
+        if ((await notes.fileStat(host.root, host.rel)).mtime === doc.mtime) return;
         const now = await notes.fileRead(host.root, host.rel);
         if (now.mtime === doc.mtime) return;
         if (now.text === doc.text) {
@@ -11684,7 +11948,7 @@ and ${diags.length - 12} more` : "");
           doc = now;
           base = now.text;
           buf.snap();
-          ta.value = now.text;
+          tw.set(now.text);
           buf.snap();
           check();
           paintSource();
@@ -11699,18 +11963,24 @@ and ${diags.length - 12} more` : "");
       if (isDirty() && !confirm("Your last changes are not saved. Leave anyway?")) return;
       clearInterval(watch);
       clearTimeout(checkTimer);
+      clearTimeout(renderTimer);
       document.removeEventListener("selectionchange", onSelection);
       box.innerHTML = "";
       host.closed();
     };
     const goToLine = (line2) => {
       if (mode === "rich") setMode("split");
-      const lines2 = ta.value.split("\n");
-      let pos = 0;
-      for (let i = 0; i < line2 - 1 && i < lines2.length; i++) pos += lines2[i].length + 1;
+      const t = tw.text();
+      const pos = lineStart(t, line2 - 1);
+      const end = t.indexOf("\n", pos);
       ta.focus({ preventScroll: true });
-      ta.setSelectionRange(pos, pos + (lines2[line2 - 1]?.length ?? 0));
-      paintEl.children[line2 - 1]?.scrollIntoView({ block: "center" });
+      tw.select(pos, end === -1 ? t.length : end);
+      if (big) {
+        placeTa();
+        const vp = viewport();
+        vp.scrollTop += (line2 - 1) * lh - (vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top) - vp.clientHeight / 2;
+        paintWindow(true);
+      } else rowEl(line2 - 1)?.scrollIntoView({ block: "center" });
       markLine();
     };
     box.addEventListener("click", (e) => {
@@ -11727,7 +11997,7 @@ and ${diags.length - 12} more` : "");
         doc = now;
         base = now.text;
         buf.snap();
-        ta.value = now.text;
+        tw.set(now.text);
         banner.style.display = "none";
         paintSource();
         paint();
@@ -11751,17 +12021,20 @@ and ${diags.length - 12} more` : "");
       const me = e;
       if (me.button !== 0 || mode === "rich" || me.target === ta || view?.contains(me.target)) return;
       me.preventDefault();
-      const rows = [...paintEl.children];
-      let line2 = rows.findIndex((r) => r.getBoundingClientRect().bottom > me.clientY);
-      const lines2 = ta.value.split("\n");
-      let pos = ta.value.length;
-      if (line2 !== -1) {
-        pos = 0;
-        for (let i = 0; i < line2; i++) pos += lines2[i].length + 1;
-        pos += lines2[line2]?.length ?? 0;
+      const t = tw.text();
+      const line2 = big ? lineAtY(me.clientY) : [...paintEl.children].findIndex((r) => r.getBoundingClientRect().bottom > me.clientY);
+      let pos = t.length;
+      if (line2 >= 0) {
+        const nl = t.indexOf("\n", lineStart(t, line2));
+        if (nl !== -1) pos = nl;
       }
       ta.focus({ preventScroll: true });
-      ta.setSelectionRange(pos, pos);
+      const top = viewport().scrollTop;
+      tw.select(pos, pos);
+      if (big) {
+        placeTa();
+        viewport().scrollTop = top;
+      }
       markLine();
     });
     box.addEventListener("keydown", (e) => {
@@ -11773,17 +12046,33 @@ and ${diags.length - 12} more` : "");
         setMode("raw");
       }
     });
+    if (big) ta.addEventListener("keydown", (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "Home" || e.key === "End")) {
+        e.preventDefault();
+        const toEnd = e.key === "ArrowDown" || e.key === "End";
+        const at = toEnd ? tw.text().length : 0;
+        const keep = e.shiftKey ? tw.selection() : null;
+        tw.select(keep ? toEnd ? keep.start : at : at, keep ? toEnd ? at : keep.end : at);
+        placeTa();
+        const vp = viewport();
+        vp.scrollTop = toEnd ? vp.scrollHeight : 0;
+        paintWindow(true);
+        curRow = -1;
+        markLine();
+      } else if (["ArrowUp", "ArrowDown", "PageUp", "PageDown"].includes(e.key)) {
+        markLine();
+        moveWindow(curRow);
+      }
+    });
     ta.addEventListener("keydown", (e) => {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.shiftKey && e.key.toLowerCase() === "p") return;
       if (mod && e.key.toLowerCase() === "s") {
         e.preventDefault();
         save();
-      } else if (mod && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        if (e.shiftKey) buf.redo();
-        else buf.undo();
-      } else if (e.key === "Escape") {
+      } else if (mod && e.key.toLowerCase() === "z") e.preventDefault();
+      else if (e.key === "Escape") {
         e.preventDefault();
         void close();
       } else if (e.key === "Tab") {
@@ -11804,7 +12093,7 @@ and ${diags.length - 12} more` : "");
     window.addEventListener("beforeunload", (e) => {
       if (box.isConnected && isDirty()) e.preventDefault();
     });
-    diags = diagnose(host.ext, ta.value);
+    diags = doc.text.length > CHECK_MAX ? [] : diagnose(host.ext, doc.text);
     paintSource();
     paint();
     if (fmt) setMode(mode);
@@ -11815,7 +12104,7 @@ and ${diags.length - 12} more` : "");
   // src/find-in-page.ts
   var MAX_HITS = 2e3;
   var SKIP3 = "script,style,svg,textarea,.fe-cl-n,.fe-jl-n,.fe-fe-ln,[hidden]";
-  var BLOCK = "p,li,dt,dd,h1,h2,h3,h4,h5,h6,td,th,tr,pre,blockquote,div,section,article,summary,figcaption";
+  var BLOCK2 = "p,li,dt,dd,h1,h2,h3,h4,h5,h6,td,th,tr,pre,blockquote,div,section,article,summary,figcaption";
   function attachFind(page, input, count, prev, next) {
     let hits = [];
     let cur = -1;
@@ -11869,7 +12158,7 @@ and ${diags.length - 12} more` : "");
       let joined = "", lastBlock = null;
       while (walker.nextNode()) {
         const node = walker.currentNode;
-        const block = node.parentElement.closest(BLOCK);
+        const block = node.parentElement.closest(BLOCK2);
         if (nodes.length && block !== lastBlock) joined += "\n";
         lastBlock = block;
         nodes.push(node);
@@ -13217,11 +13506,11 @@ seconds and re-renders when the file changes on disk.
     const pattern = q.textRegex ? new RegExp(q.text, q.caseSensitive ? "gu" : "giu") : null;
     const needle = q.caseSensitive ? q.text : q.text.toLowerCase();
     let count = 0, first = null;
-    let lineStart = 0, lineNumber = 1;
-    while (lineStart <= text.length) {
-      const breakAt = text.indexOf("\n", lineStart);
+    let lineStart2 = 0, lineNumber = 1;
+    while (lineStart2 <= text.length) {
+      const breakAt = text.indexOf("\n", lineStart2);
       const end = breakAt < 0 ? text.length : breakAt;
-      const line3 = text.slice(lineStart, end);
+      const line3 = text.slice(lineStart2, end);
       if (pattern) {
         pattern.lastIndex = 0;
         let match;
@@ -13241,7 +13530,7 @@ seconds and re-renders when the file changes on disk.
         }
       }
       if (breakAt < 0) break;
-      lineStart = breakAt + 1;
+      lineStart2 = breakAt + 1;
       lineNumber++;
     }
     if (!first) return null;

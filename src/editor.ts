@@ -2,8 +2,25 @@
 // rebuilt, keystrokes coalesced so a sentence is one undo step, and insert at
 // the caret. Carried over from the kanban board's editor.js, typed.
 const BUF_CAP = 60, BUF_COALESCE = 600;
-interface Hist { past: string[]; future: string[]; timer: ReturnType<typeof setTimeout> | null }
+// History holds the changed span of each step, not a copy of the text, so a
+// large file keeps its undo steps without holding dozens of full copies.
+// Oldest steps go first once their spans pass this many characters.
+const BUF_CHARS = 8_000_000;
+/** Replace `len` characters at `at` with `ins`. */
+export interface Patch { at: number; len: number; ins: string }
+interface Hist { cur: string; past: Patch[]; future: Patch[]; timer: ReturnType<typeof setTimeout> | null }
 const bufHist = new Map<string, Hist>();
+
+/** The patch that turns `a` into `b`: the span between their shared start and shared end. */
+export function diffText(a: string, b: string): Patch {
+  let p = 0;
+  const max = Math.min(a.length, b.length);
+  while (p < max && a.charCodeAt(p) === b.charCodeAt(p)) p++;
+  let s = 0;
+  while (s < max - p && a.charCodeAt(a.length - 1 - s) === b.charCodeAt(b.length - 1 - s)) s++;
+  return { at: p, len: a.length - p - s, ins: b.slice(p, b.length - s) };
+}
+export const applyPatch = (t: string, p: Patch) => t.slice(0, p.at) + p.ins + t.slice(p.at + p.len);
 
 export function insertAtCursor(el: HTMLTextAreaElement, text: string): void {
   const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? a;
@@ -108,34 +125,42 @@ export function tableSnippet(cols = 2, rows = 2): string {
 
 export interface Buffer { undo: () => boolean; redo: () => boolean; snap: () => void; depth: () => number; insert: (t: string) => void }
 
-export function attachBuffer(el: HTMLTextAreaElement, id: string): Buffer {
-  let h = bufHist.get(id) ?? { past: [], future: [], timer: null };
+/** `io` reads and writes the whole text when the textarea holds only part of it. */
+export function attachBuffer(el: HTMLTextAreaElement, id: string,
+  io: { get(): string; set(v: string): void } = { get: () => el.value, set: v => { el.value = v; } }): Buffer {
+  const h: Hist = bufHist.get(id) ?? { cur: '', past: [], future: [], timer: null };
   bufHist.set(id, h);
-  h.past = [el.value ?? ''];
+  h.cur = io.get() ?? '';
+  h.past = [];
   h.future = [];
 
+  // Each past step turns the current text back into the one before it.
   const snap = () => {
-    const now = el.value ?? '';
-    if (h.past[h.past.length - 1] === now) return;
-    h.past.push(now);
-    if (h.past.length > BUF_CAP) h.past.shift();
+    const now = io.get() ?? '';
+    if (now === h.cur) return;
+    h.past.push(diffText(now, h.cur));
+    h.cur = now;
+    let chars = h.past.reduce((n, p) => n + p.ins.length, 0);
+    while (h.past.length > BUF_CAP || (h.past.length > 1 && chars > BUF_CHARS)) chars -= h.past.shift()!.ins.length;
     h.future = [];                       // a new edit forks the timeline
   };
   const record = () => { if (h.timer) clearTimeout(h.timer); h.timer = setTimeout(snap, BUF_COALESCE); };
-  const put = (v: string) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
+  const put = (v: string) => { h.cur = v; io.set(v); el.dispatchEvent(new Event('input', { bubbles: true })); };
+  const step = (from: Patch[], to: Patch[]) => {
+    const prev = applyPatch(h.cur, from.pop()!);
+    to.push(diffText(prev, h.cur));
+    put(prev);
+  };
   const undo = () => {
     if (h.timer) clearTimeout(h.timer);
     snap();
-    if (h.past.length < 2) return false;
-    h.future.push(h.past.pop()!);
-    put(h.past[h.past.length - 1]);
+    if (!h.past.length) return false;
+    step(h.past, h.future);
     return true;
   };
   const redo = () => {
     if (!h.future.length) return false;
-    const v = h.future.pop()!;
-    h.past.push(v);
-    put(v);
+    step(h.future, h.past);
     return true;
   };
   el.addEventListener('input', record);
@@ -145,5 +170,5 @@ export function attachBuffer(el: HTMLTextAreaElement, id: string): Buffer {
     if (k === 'z' && !e.shiftKey) { if (undo()) { e.preventDefault(); e.stopPropagation(); } }
     else if ((k === 'z' && e.shiftKey) || k === 'y') { if (redo()) { e.preventDefault(); e.stopPropagation(); } }
   });
-  return { undo, redo, snap, depth: () => h.past.length, insert: t => insertAtCursor(el, t) };
+  return { undo, redo, snap, depth: () => h.past.length + 1, insert: t => insertAtCursor(el, t) };
 }

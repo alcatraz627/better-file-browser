@@ -657,6 +657,10 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fe-ta{position:absolute;top:0;left:0;width:100%;padding:0 0 0 52px;border:0;outline:0;resize:none;overflow:hidden;
   background:transparent;color:transparent;caret-color:var(--ac)}
 #fe-fe-ta::selection{background:color-mix(in srgb,var(--ac) 40%,transparent);color:transparent}
+/* Large files: no wrapping, so every row is one line tall and only a window
+   of rows is painted (#fe-fe-win, moved down to where the viewport is). */
+.fe-fe-big #fe-fe-paint,.fe-fe-big #fe-fe-ta{white-space:pre;overflow-wrap:normal}
+#fe-fe-win{will-change:transform}
 #fe-fe-view{padding:0;max-width:none}
 #fe-fe-pill{position:absolute;top:12px;right:18px;z-index:5;display:flex;align-items:center;gap:2px;padding:3px;
   background:var(--s1);border:1px solid var(--bd);border-radius:999px;box-shadow:0 6px 20px rgb(0 0 0 / .25)}

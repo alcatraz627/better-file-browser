@@ -66,6 +66,18 @@ try {
   await page.waitForFunction(() => document.getElementById('fe-fe-state').className === 'saved', { timeout: 5000 }).catch(() => null);
   check(readFileSync(md, 'utf8').endsWith('second line\n'), `it saves itself after a pause: ${JSON.stringify(readFileSync(md, 'utf8'))}`);
 
+  // One ⌘Z takes back one step, not two.
+  await typeAtEnd(page, 'aaa');
+  await new Promise(r => setTimeout(r, 800));
+  await typeAtEnd(page, 'bbb');
+  await new Promise(r => setTimeout(r, 800));
+  await page.keyboard.down('Meta'); await page.keyboard.press('z'); await page.keyboard.up('Meta');
+  const undone = await page.$eval('#fe-fe-ta', el => el.value);
+  check(undone.endsWith('second line\naaa'), `one ⌘Z takes back only the last step: ${JSON.stringify(undone.slice(-16))}`);
+  await page.keyboard.down('Meta'); await page.keyboard.press('z'); await page.keyboard.up('Meta');
+  await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
+  await page.waitForFunction(() => document.getElementById('fe-fe-state').className === 'saved', { timeout: 5000 }).catch(() => null);
+
   // The caret sits over its own text: the painted row for line 4 lines up with the textarea's line 4.
   const aligned = await page.evaluate(() => {
     const row = document.querySelectorAll('#fe-fe-paint .fe-fe-row')[3].getBoundingClientRect();

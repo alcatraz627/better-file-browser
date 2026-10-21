@@ -20,7 +20,8 @@ type Frame =
   | { t: 'version'; rel: string; sha: string; text: string }
   | { t: 'picked'; root: string }
   | { t: 'home'; home: string }
-  | { t: 'file'; rel: string; text: string; mtime: number }
+  | { t: 'file'; rel: string; text: string; mtime: number; next?: number | null }
+  | { t: 'fstat'; rel: string; mtime: number; size: number }
   | { t: 'search'; hits: { rel: string; line: string }[] }
   | { t: 'error'; code: string; message: string };
 
@@ -43,6 +44,22 @@ function call(payload: Record<string, unknown>): Promise<Frame> {
   });
 }
 
+// The host replies in slices under Chrome's 1 MB limit; join them, and start
+// over if the file changed between slices so the text is never a mix.
+async function fileRead(root: string, rel: string): Promise<{ text: string; mtime: number }> {
+  for (let attempt = 0; ; attempt++) {
+    const parts: string[] = [];
+    let mtime = -1, offset: number | null | undefined = 0, torn = false;
+    while (offset != null) {
+      const f = await call({ op: 'fileRead', root, rel, offset }) as { text: string; mtime: number; next?: number | null };
+      if (mtime !== -1 && f.mtime !== mtime) { torn = true; break; }
+      mtime = f.mtime; parts.push(f.text); offset = f.next;
+    }
+    if (!torn) return { text: parts.join(''), mtime };
+    if (attempt >= 3) throw new NotesError('notes_io', 'the file kept changing while it was read');
+  }
+}
+
 export const notes = {
   stat:   (root: string) => call({ op: 'stat', root }) as Promise<{ t: 'stat'; root: string; count: number }>,
   list:   (root: string) => call({ op: 'list', root }).then(f => (f as { notes: NoteMeta[] }).notes),
@@ -63,7 +80,9 @@ export const notes = {
   /// Notes whose text holds every word of the query, each with its first matching line.
   search: (root: string, query: string) => call({ op: 'search', root, query }).then(f => (f as { hits: { rel: string; line: string }[] }).hits),
   /// Any text file inside a folder allowed for editing; root is that folder.
-  fileRead: (root: string, rel: string) => call({ op: 'fileRead', root, rel }) as Promise<{ text: string; mtime: number }>,
+  fileRead,
+  /// A file's modified time and size, without reading it.
+  fileStat: (root: string, rel: string) => call({ op: 'fileStat', root, rel }) as Promise<{ mtime: number; size: number }>,
   fileWrite: (root: string, rel: string, text: string, expectMtime: number) =>
             call({ op: 'fileWrite', root, rel, text, expectMtime }) as Promise<{ mtime: number; backup?: string }>,
 };
