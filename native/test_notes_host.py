@@ -239,5 +239,35 @@ with mock.patch.object(nh, 'FILE_MAX', 100):
     try: nh.handle({'op': 'fileRead', 'root': ed, 'rel': 'big-ascii.txt'}); check(False, 'a file over the cap is refused')
     except nh.NotesError as e: check('20 MB' in str(e), f'a file over the cap is refused: {e}')
 
+# Comments through the host: read and write as the owner, the document never
+# written, paths kept inside the allowed folder, and rename and delete carry
+# a note's comments along.
+os.environ['BFB_DOCS_HOME'] = tempfile.mkdtemp(prefix='bfb-docs-state-')
+cd = tempfile.mkdtemp(prefix='bfb-comments-')
+doc = os.path.join(cd, 'plan.md')
+with open(doc, 'w') as fh: fh.write('# Plan\n\nShip on Friday after the smoke run.\n')
+before = (open(doc, 'rb').read(), os.stat(doc).st_mtime_ns)
+r = call({'op': 'commentsRead', 'root': cd, 'rel': 'plan.md'})
+check(r['t'] == 'comments' and r['threads'] == [], f'commentsRead on a file with no comments is an empty list: {r.get("threads")}')
+at = open(doc).read().index('Friday')
+r = call({'op': 'commentsWrite', 'root': cd, 'rel': 'plan.md', 'ops': [{'op': 'new', 'start': at, 'end': at + 6, 'text': 'Thursday? #schedule'}]})
+check(r['t'] == 'comments' and len(r['threads']) == 1 and r['threads'][0]['comments'][0]['author']['kind'] == 'human' and r['threads'][0]['tags'] == ['schedule'],
+      f'commentsWrite makes a thread as the owner: {r.get("threads", [{}])[0].get("comments") if r.get("threads") else r}')
+tid = r['threads'][0]['id']
+r = call({'op': 'commentsWrite', 'root': cd, 'rel': 'plan.md', 'ops': [{'op': 'reply', 'thread': tid, 'text': 'ok'}, {'op': 'done', 'thread': tid}]})
+check(len(r['threads'][0]['comments']) == 2 and r['threads'][0]['status'] == 'done' and r['threads'][0]['place']['state'] == 'anchored', 'several operations apply in one write, and each thread says where it sits')
+check((open(doc, 'rb').read(), os.stat(doc).st_mtime_ns) == before, 'the document is untouched by comment writes')
+r = call({'op': 'commentsWrite', 'root': cd, 'rel': 'plan.md', 'ops': [{'op': 'reply', 'thread': 't-nope', 'text': 'x'}]})
+check(r['t'] == 'error' and r['code'] == 'docs_missing_thread', f'a reply to a thread that is not there says so: {r}')
+r = call({'op': 'commentsWrite', 'root': cd, 'rel': 'plan.md', 'ops': [{'op': 'new', 'start': 0, 'end': 99999, 'text': 'x'}]})
+check(r['t'] == 'error' and r['code'] == 'notes_bad_op', f'a span outside the document is refused: {r}')
+check(call({'op': 'commentsRead', 'root': cd, 'rel': '../plan.md'})['code'] == 'notes_bad_path', 'a path out of the allowed folder is refused')
+r = call({'op': 'docsIndex'})
+check(r['t'] == 'docsIndex' and any(d['doc'] == os.path.realpath(doc) and d['done'] == 1 for d in r['docs']), 'docsIndex lists the document with its counts')
+nh.handle({'op': 'rename', 'root': cd, 'rel': 'plan.md', 'to': 'later.md'})
+check(os.path.exists(os.path.join(cd, 'later.md.bfb.json')) and not os.path.exists(doc + '.bfb.json'), 'renaming a note moves its comments with it')
+r = nh.handle({'op': 'delete', 'root': cd, 'rel': 'later.md'})
+check(os.path.exists(os.path.join(cd, r['trashed'] + '.bfb.json')), 'deleting a note moves its comments into .trash beside it')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

@@ -20,6 +20,9 @@ Ops (request -> reply):
   {op:"search", root, query}                 -> {t:"search", hits:[{rel, line}]}   (every word, any case; first matching line)
   {op:"fileRead",  root, rel, offset?}       -> {t:"file", rel, text, mtime, next}   (any text file; root is a folder allowed for editing; read in slices until next is null)
   {op:"fileStat",  root, rel}                -> {t:"fstat", rel, mtime, size}
+  {op:"commentsRead",  root, rel}            -> {t:"comments", rel, threads, where, companion, notes, doc}   (bfb-docs comments; spec .claude/specs/bfb-docs.md)
+  {op:"commentsWrite", root, rel, ops}       -> the same, plus results   (writes the companion only, as the owner)
+  {op:"docsIndex"}                           -> {t:"docsIndex", docs}   (every document with comments)
   {op:"fileWrite", root, rel, text, expectMtime} -> {t:"written", rel, mtime, backup}   (existing text files under 20 MB; old text backed up 14 days)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
@@ -337,6 +340,9 @@ def op_rename(root, rel, to):
         raise NotesError('notes_exists', f'already exists: {to}')
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     os.replace(src, dst)
+    # The note's comments go with it.
+    if os.path.exists(src + COMPANION) and not os.path.exists(dst + COMPANION):
+        os.replace(src + COMPANION, dst + COMPANION)
     return {'t': 'renamed', 'rel': rel, 'to': to}
 
 def op_delete(root, rel):
@@ -348,6 +354,8 @@ def op_delete(root, rel):
     stamp = time.strftime('%Y%m%d-%H%M%S')
     dst = os.path.join(trash, f'{stamp}-{os.path.basename(full)}')
     shutil.move(full, dst)
+    if os.path.exists(full + COMPANION):
+        shutil.move(full + COMPANION, dst + COMPANION)
     return {'t': 'deleted', 'rel': rel, 'trashed': os.path.relpath(dst, root)}
 
 def git_out(root, args):
@@ -413,10 +421,65 @@ def run_picker(start):
         raise NotesError('notes_io', r.stderr.strip() or 'the folder chooser failed')
     return r.stdout.strip().rstrip('/') or '/'
 
+COMPANION = '.bfb.json'
+REPLY_MAX = 900_000   # Chrome refuses a native reply over 1 MB
+
+def _docs():
+    """The bfb-docs store, imported on first use so notes never pay for it."""
+    sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+    import docs_store
+    return docs_store
+
+def _comments_reply(rel, v):
+    out = {'t': 'comments', 'rel': rel, 'threads': v['threads'], 'where': v['where'],
+           'companion': v['path'], 'notes': v['notes'], 'doc': v['doc']}
+    if len(json.dumps(out)) > REPLY_MAX:
+        raise NotesError('notes_too_big', 'this file has too many comments to send at once')
+    return out
+
+def op_comments_read(root, rel):
+    """Every thread on a document, each with where it sits in the text now."""
+    full = resolve_rel(root, rel)
+    if not os.path.isfile(full):
+        raise NotesError('notes_missing', f'no such file: {rel}')
+    S = _docs()
+    try:
+        return _comments_reply(rel, S.view(full))
+    except S.DocsError as e:
+        raise NotesError(e.code, str(e))
+
+def op_comments_write(root, rel, ops):
+    """Apply comment operations as the owner and return the threads after them.
+    The document itself is never written here."""
+    full = resolve_rel(root, rel)
+    if not os.path.isfile(full):
+        raise NotesError('notes_missing', f'no such file: {rel}')
+    if not isinstance(ops, list) or not all(isinstance(o, dict) and o.get('op') for o in ops):
+        raise NotesError('notes_bad_op', 'ops must be a list of operations')
+    S = _docs()
+    try:
+        results, _, _, notes = S.write(full, ops, S.whoami('user')[0])
+        out = _comments_reply(rel, S.view(full))
+    except S.DocsError as e:
+        raise NotesError(e.code, str(e))
+    except ValueError as e:
+        raise NotesError('notes_bad_op', str(e))
+    out['results'] = results
+    out['notes'] = notes + out['notes']
+    return out
+
+def op_docs_index():
+    """Every document with comments that bfb or the CLI has written, for the Docs lens."""
+    rows = []
+    for comp, row in _docs().read_index().get('docs', {}).items():
+        rows.append({**row, 'companion': comp, 'exists': os.path.exists(row.get('doc', ''))})
+    return {'t': 'docsIndex', 'docs': rows}
+
 def handle(msg):
     op = msg.get('op')
     if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'))}
     if op == 'home': return {'t': 'home', 'home': os.path.expanduser('~')}
+    if op == 'docsIndex': return op_docs_index()
     root = resolve_root(msg.get('root'))
     if op == 'stat':   return op_stat(root)
     if op == 'list':   return {'t': 'list', 'notes': list_notes(root)}
@@ -431,6 +494,8 @@ def handle(msg):
     if op == 'search':    return op_search(root, msg.get('query'))
     if op == 'fileRead':  return op_file_read(root, msg.get('rel'), msg.get('offset'))
     if op == 'fileStat':  return op_file_stat(root, msg.get('rel'))
+    if op == 'commentsRead':  return op_comments_read(root, msg.get('rel'))
+    if op == 'commentsWrite': return op_comments_write(root, msg.get('rel'), msg.get('ops'))
     if op == 'fileWrite': return op_file_write(root, msg.get('rel'), msg.get('text'), msg.get('expectMtime'))
     raise NotesError('notes_bad_op', f'unknown op {op!r}')
 
