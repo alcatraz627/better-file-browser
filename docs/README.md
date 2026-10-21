@@ -12,6 +12,7 @@ regex matching. The README changelog and current controls describe this release.
 |---|---|---|
 | [Version 2.11](release-2.11.md) | User-facing changes in the current release | Current release |
 | [Notes contract](notes-contract.md) | File format, saving, conflicts, and cross-tool use | Current, updated 2026-09-22 |
+| [Comments for agents](comments-for-agents.md) | Where markdown comments live, the `bfb-docs` commands, and a CLAUDE.md paragraph | Current |
 | [Interaction map](interaction-map.md) | Keys, mouse gestures, and page relationships | Current |
 | [Mouse and key audit](mouse-key-audit.md) | Gesture inventory and browser checks | Current checklist |
 | [Architecture v2](architecture-v2.md) | URL, tab strip, and recovery design | Shipped design, with later sidebar notes |
