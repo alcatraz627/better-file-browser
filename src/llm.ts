@@ -34,6 +34,7 @@ export type NativeFrame =
   | { t: 'done'; model: string; ms: number; truncated: boolean }
   | { t: 'error'; code: string; message: string }
   | { t: 'warm'; ok: boolean; on: boolean }
+  | { t: 'models'; tiers: ModelTier[]; gemini: GeminiModel[] }
   | { t: 'native-gone'; message?: string };
 
 // No caching: `lm status --json` returns in ~40ms, and a stale cache would
@@ -72,13 +73,35 @@ export function llmAvailability(): Promise<LlmAvailability> {
   });
 }
 
+// What Ask can pick from, read from lm itself: the local tiers by alias, and
+// the gemini lane's models (a cloud service; the file's text leaves the machine).
+export interface ModelTier { alias: string; model: string }
+export interface GeminiModel { name: string; default: boolean }
+export function llmModels(): Promise<{ tiers: ModelTier[]; gemini: GeminiModel[] }> {
+  return new Promise(resolve => {
+    let done = false;
+    const settle = (r: { tiers: ModelTier[]; gemini: GeminiModel[] }) => { if (!done) { done = true; resolve(r); } };
+    const port = openProxyPort();
+    if (!port) { settle({ tiers: [], gemini: [] }); return; }
+    const timer = setTimeout(() => { try { port.disconnect(); } catch { /* gone */ } settle({ tiers: [], gemini: [] }); }, 20_000);
+    port.onMessage.addListener((msg: NativeFrame) => {
+      if (msg?.t !== 'models' && msg?.t !== 'error' && msg?.t !== 'native-gone') return;
+      clearTimeout(timer);
+      try { port.disconnect(); } catch { /* gone */ }
+      settle(msg.t === 'models' ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [] } : { tiers: [], gemini: [] });
+    });
+    port.onDisconnect.addListener(() => { clearTimeout(timer); settle({ tiers: [], gemini: [] }); });
+    port.postMessage({ op: 'models' });
+  });
+}
+
 export interface LlmQueryOpts {
   ctx:      string;
   ctxName:  string;
   intent?:  string;
   question?: string;
   timeout?: number;
-  model?:   string;   // -m override; omitted → lm default model
+  model?:   string;   // -m override (a model or alias), or gemini:<name>; omitted → lm default model
 }
 export interface LlmCallbacks {
   onChunk: (text: string) => void;
@@ -146,4 +169,5 @@ export const LLM_ERROR_TEXT: Record<string, string> = {
   host_no_lm:    'The lm CLI was not found on this machine.',
   unavailable:   'Local AI is not set up. Settings, AI shows how.',
   disconnected:  'The AI host disconnected unexpectedly.',
+  gemini_unavailable: 'Gemini did not answer. Check lm gemini in a terminal, or pick a local model.',
 };

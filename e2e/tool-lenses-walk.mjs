@@ -10,7 +10,7 @@ const check = (ok, msg) => { results.push(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if 
 try {
   const page = await h.open();
   const rail = await page.$$eval('#fe-rail .fe-rail-btn:not([hidden]) em', es => es.map(e => e.textContent));
-  check(rail.join() === 'Places,Notes,History,Search,Ask', `the rail lists five lenses: ${rail}`);
+  check(rail.join() === 'Places,Saved,Notes,History,Search,Ask,Comments', `the bar lists seven lenses: ${rail}`);
 
   await page.click('#fe-rail-search');
   await page.waitForFunction(() => document.activeElement?.id === 'fe-srch-q', { timeout: 2000 }).catch(() => null);

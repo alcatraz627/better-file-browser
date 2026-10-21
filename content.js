@@ -2910,6 +2910,43 @@ ${body}
       port.postMessage({ op: "status" });
     });
   }
+  function llmModels() {
+    return new Promise((resolve) => {
+      let done = false;
+      const settle = (r) => {
+        if (!done) {
+          done = true;
+          resolve(r);
+        }
+      };
+      const port = openProxyPort();
+      if (!port) {
+        settle({ tiers: [], gemini: [] });
+        return;
+      }
+      const timer = setTimeout(() => {
+        try {
+          port.disconnect();
+        } catch {
+        }
+        settle({ tiers: [], gemini: [] });
+      }, 2e4);
+      port.onMessage.addListener((msg) => {
+        if (msg?.t !== "models" && msg?.t !== "error" && msg?.t !== "native-gone") return;
+        clearTimeout(timer);
+        try {
+          port.disconnect();
+        } catch {
+        }
+        settle(msg.t === "models" ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [] } : { tiers: [], gemini: [] });
+      });
+      port.onDisconnect.addListener(() => {
+        clearTimeout(timer);
+        settle({ tiers: [], gemini: [] });
+      });
+      port.postMessage({ op: "models" });
+    });
+  }
   function llmQuery(opts, cb) {
     const port = openProxyPort();
     if (!port) {
@@ -3005,7 +3042,8 @@ ${body}
     cancelled: "Cancelled.",
     host_no_lm: "The lm CLI was not found on this machine.",
     unavailable: "Local AI is not set up. Settings, AI shows how.",
-    disconnected: "The AI host disconnected unexpectedly."
+    disconnected: "The AI host disconnected unexpectedly.",
+    gemini_unavailable: "Gemini did not answer. Check lm gemini in a terminal, or pick a local model."
   };
 
   // src/preview.ts
@@ -5174,10 +5212,35 @@ button.fe-si{width:auto;display:flex}
 .fe-ask-turn{margin:0 6px 10px;padding:10px;border-radius:10px;background:var(--hover)}
 .fe-ask-q{font-weight:600;font-size:var(--row-fs);margin-bottom:6px;color:var(--tx)}
 .fe-ask-a.fe-md{padding:0;font-size:var(--fs-md);max-width:none}
+/* renderMarkdown wraps its output in its own .fe-md, which must not pad again. */
+.fe-ask-a .fe-md{padding:0;font-size:inherit;max-width:none}
 .fe-ask-wait{color:var(--dm);font-style:italic}
 .fe-ask-meta{margin-top:6px;font-size:var(--fs-sm);color:var(--dm)}
 .fe-ask-form{flex-direction:row;align-items:flex-end}
 .fe-ask-form .btn{flex:none;height:30px}
+.fe-ask-model{display:flex;align-items:center;gap:8px;margin:0 16px 6px;font-size:var(--fs-md);color:var(--mt)}
+.fe-ask-model select{flex:1;min-width:0;height:28px;padding:0 6px;border-radius:var(--row-r);border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md)}
+.fe-ask-cloud{display:flex;align-items:flex-start;gap:6px;margin:0 16px 8px;padding:6px 8px;border-radius:8px;font-size:var(--fs-sm);line-height:1.4;color:var(--tx);background:color-mix(in srgb,var(--gold) 14%,transparent)}
+.fe-ask-cloud[hidden]{display:none}
+.fe-ask-cloud svg{width:13px;height:13px;flex:none;margin-top:2px;color:var(--gold)}
+.fe-ask-bar{display:flex;gap:4px;margin:0 12px 6px}
+.fe-ask-bar .btn{gap:5px}
+.fe-ask-bar .btn svg{width:13px;height:13px}
+.fe-ask-bar .btn.on{background:var(--hover)}
+.fe-ask-n{min-width:16px;height:16px;padding:0 4px;border-radius:999px;font-size:var(--fs-xs);display:inline-grid;place-items:center;background:var(--s2);color:var(--mt)}
+.fe-ask-n:empty{display:none}
+.fe-ask-hist{margin:0 6px 10px;padding:4px;border:1px solid var(--bd);border-radius:10px;background:var(--card,var(--s1))}
+.fe-ask-hist[hidden]{display:none}
+.fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
+.fe-ask-h:hover,.fe-ask-h.on{background:var(--hover)}
+.fe-ask-h-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:0;background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--row-fs)}
+.fe-ask-h-m{font-size:var(--fs-sm);color:var(--dm)}
+.fe-ask-h-del{flex:none;border:0;background:none;color:var(--dm);cursor:pointer;padding:6px;border-radius:6px;opacity:0}
+.fe-ask-h:hover .fe-ask-h-del,.fe-ask-h-del:focus-visible{opacity:1}
+.fe-ask-h-del:hover{color:var(--nc-red);background:var(--hover)}
+.fe-ask-h-del svg{width:12px;height:12px}
+.fe-ask-h-none{margin:6px 8px;font-size:var(--fs-sm);color:var(--dm)}
 /* Review fixes: Settings follows the page order (panel a step below, cards
    on top), fields share one look, path chevrons show on hover only, and
    the palette swatch previews the theme in use. */
@@ -12824,7 +12887,7 @@ and ${diags.length - 12} more` : "");
   }
   function agentBrief(path, href, threads) {
     const name = (a) => a.kind === "human" ? a.name || "the owner" : a.alias || "agent";
-    const when = (iso) => iso.slice(0, 16).replace("T", " ");
+    const when2 = (iso) => iso.slice(0, 16).replace("T", " ");
     const one = threads.length === 1;
     const head = [
       `# ${one ? "A comment" : `${threads.length} comments`} on ${path}`,
@@ -12843,7 +12906,7 @@ and ${diags.length - 12} more` : "");
         `## Thread ${t.id} (${meta})`,
         ...quote.split("\n").map((l) => "> " + l),
         "",
-        ...t.comments.filter((c) => !c.deleted).map((c) => `- ${name(c.author)}, ${when(c.created)}:
+        ...t.comments.filter((c) => !c.deleted).map((c) => `- ${name(c.author)}, ${when2(c.created)}:
 ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         "",
         `Link: ${href.split("#")[0]}#c=${t.id}`
@@ -15011,14 +15074,14 @@ seconds and re-renders when the file changes on disk.
     const start = first.at - from + (from ? 1 : 0);
     return { count, line: line2, start, end: Math.min(line2.length, start + first.length), lineNumber: first.number };
   }
-  async function searchContents(files, read, q, onProgress, isCancelled = () => false, concurrency = 4, match = async (text, query) => scanContent(text, query)) {
+  async function searchContents(files, read2, q, onProgress, isCancelled = () => false, concurrency = 4, match = async (text, query) => scanContent(text, query)) {
     const hits = /* @__PURE__ */ new Map();
     let scanned = 0, failed = 0, next = 0;
     const worker = async () => {
       while (next < files.length && !isCancelled()) {
         const f = files[next++];
         try {
-          const text = await read(f.href);
+          const text = await read2(f.href);
           if (isCancelled()) break;
           const hit = await match(text, q);
           if (isCancelled()) break;
@@ -17832,6 +17895,66 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
   }
 
+  // src/ask-history.ts
+  var KEY = "bfb-ask-history-v1";
+  var CHATS_PER_SUBJECT = 20;
+  var SUBJECTS = 100;
+  var ANSWER_MAX = 2e4;
+  function read() {
+    try {
+      const v = JSON.parse(kvGet(KEY) || "{}");
+      return v && typeof v === "object" ? v : {};
+    } catch {
+      return {};
+    }
+  }
+  function chatsFor(subject) {
+    return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
+  }
+  function addTurn(subject, chatId, turn) {
+    const store = read();
+    const list = store[subject] ?? [];
+    let chat = list.find((c) => c.id === chatId);
+    if (!chat) {
+      chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] };
+      list.push(chat);
+    }
+    chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
+    chat.at = turn.at;
+    store[subject] = list.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
+    const subjects = Object.keys(store);
+    if (subjects.length > SUBJECTS) {
+      const last = (k) => Math.max(...store[k].map((c) => c.at));
+      subjects.sort((a, b) => last(a) - last(b)).slice(0, subjects.length - SUBJECTS).forEach((k) => {
+        delete store[k];
+      });
+    }
+    kvSet(KEY, JSON.stringify(store));
+    return chat;
+  }
+  function deleteChat(subject, chatId) {
+    const store = read();
+    store[subject] = (store[subject] ?? []).filter((c) => c.id !== chatId);
+    if (!store[subject].length) delete store[subject];
+    kvSet(KEY, JSON.stringify(store));
+  }
+  function withHistory(turns, question, maxChars = 4e3) {
+    if (!turns.length) return question;
+    const parts = [];
+    let used = 0;
+    for (const t of turns.slice(-4).reverse()) {
+      const block = `Q: ${t.q}
+A: ${t.a}`;
+      if (used + block.length > maxChars) break;
+      parts.unshift(block);
+      used += block.length;
+    }
+    return parts.length ? `Earlier in this chat:
+${parts.join("\n\n")}
+
+Now: ${question}` : question;
+  }
+
   // src/tool-lenses.ts
   var listDir = async (url) => parseListing(await fetchFileText(url), url);
   var extOf = (name) => name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
@@ -17914,40 +18037,71 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (e.detail === "search") q.focus({ preventScroll: true });
     });
   }
+  var ASK_MODEL_KEY = "bfb-ask-model-v1";
+  var when = (at) => new Date(at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   function initAsk(app) {
     const box = document.getElementById("fe-ask");
     if (!box) return;
     const subject = app.fileMode ? app.fileName : app.folderPath.split("/").filter(Boolean).pop() || "/";
+    const key = app.fileMode ? decodeURIComponent(location.pathname) : app.folderPath;
     const quick = app.fileMode ? [["summarize", "Summarize"], ["explain", "Explain"]] : [["folder", "What is in here?"]];
     box.innerHTML = `
     <div class="fe-ask-status" id="fe-ask-status"><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
+    <label class="fe-ask-model"><span>Model</span><select id="fe-ask-model" title="Which model answers. Local models run on this machine; Gemini runs on Google's servers."><option value="">Default</option></select></label>
+    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Gemini reads this ${app.fileMode ? "file's text" : "folder's listing"} on Google's servers.</span></p>
     <div class="fe-ask-about">About ${app.fileMode ? "this file" : "this folder"}: <b>${esc(subject)}</b></div>
+    <div class="fe-ask-bar">
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-ask-new" title="Start a new chat about ${app.fileMode ? "this file" : "this folder"}">${UI_ICON.add}<span>New chat</span></button>
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-ask-hist-btn" title="Earlier chats about ${app.fileMode ? "this file" : "this folder"}" aria-expanded="false">${UI_ICON.clock}<span>History</span><span class="fe-ask-n" id="fe-ask-hist-n"></span></button>
+    </div>
+    <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     <div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="fe-chip fe-ask-chip" data-intent="${k}">${l}</button>`).join("")}</div>
     <div id="fe-ask-thread"></div>
     <div class="fe-tl-form fe-ask-form">
       <textarea id="fe-ask-q" class="fe-tl-input" rows="2" placeholder="Ask about ${app.fileMode ? "this file" : "this folder"}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
-      <button type="button" class="btn" data-variant="solid" id="fe-ask-go" title="Ask the local model">Ask</button>
+      <button type="button" class="btn" data-variant="solid" id="fe-ask-go" title="Ask the chosen model">Ask</button>
     </div>`;
     const thread = el("fe-ask-thread");
     const q = el("fe-ask-q");
     const go = el("fe-ask-go");
     const statusRow = el("fe-ask-status");
     const state = el("fe-ask-state");
+    const pick = el("fe-ask-model");
+    const cloud = el("fe-ask-cloud");
+    const hist = el("fe-ask-hist");
+    const histBtn = el("fe-ask-hist-btn");
+    const histN = el("fe-ask-hist-n");
     let cancel = null;
     let checked = false;
-    let usable = true;
-    async function checkModel() {
-      checked = true;
-      state.textContent = "Checking the local model\u2026";
-      const a = await llmAvailability();
-      statusRow.className = `fe-ask-status ${a.kind === "ready" ? a.cold ? "cold" : "ready" : a.kind}`;
-      state.textContent = a.kind === "ready" ? a.cold ? `${a.status.default_model}, will load on first question` : `${a.status.default_model} is ready` : a.kind === "down" ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
-      usable = a.kind === "ready";
+    let localReady = false;
+    let chatId = "";
+    let turns = [];
+    const model = () => pick.value || app.settings.aiModel || "";
+    const isCloud = () => model().startsWith("gemini:");
+    const syncUsable = () => {
+      const usable = localReady || isCloud();
       q.disabled = go.disabled = !usable;
       box.querySelectorAll(".fe-ask-chip").forEach((b) => {
         b.disabled = !usable;
       });
+      cloud.hidden = !isCloud();
+    };
+    async function checkModel() {
+      checked = true;
+      state.textContent = "Checking the local model\u2026";
+      const [a, models] = await Promise.all([llmAvailability(), llmModels()]);
+      statusRow.className = `fe-ask-status ${a.kind === "ready" ? a.cold ? "cold" : "ready" : a.kind}`;
+      state.textContent = a.kind === "ready" ? a.cold ? `${a.status.default_model}, will load on first question` : `${a.status.default_model} is ready` : a.kind === "down" ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+      localReady = a.kind === "ready";
+      const saved = kvGet(ASK_MODEL_KEY) ?? "";
+      pick.innerHTML = `<option value="">Default${a.kind === "ready" ? ` \xB7 ${esc(a.status.default_model)}` : ""}</option>` + (models.tiers.length ? `<optgroup label="On this machine">${models.tiers.map((t) => `<option value="${esc(t.alias)}">${esc(t.alias)} \xB7 ${esc(t.model)}</option>`).join("")}</optgroup>` : "") + (models.gemini.length ? `<optgroup label="Gemini, on Google's servers">${models.gemini.map((g) => `<option value="gemini:${esc(g.name)}">${esc(g.name)}${g.default ? " (default)" : ""}</option>`).join("")}</optgroup>` : "");
+      pick.value = [...pick.options].some((o) => o.value === saved) ? saved : "";
+      syncUsable();
     }
+    pick.addEventListener("change", () => {
+      kvSet(ASK_MODEL_KEY, pick.value);
+      syncUsable();
+    });
     async function context() {
       if (app.fileMode) return { ctx: await fetchFileText(location.href.split("#")[0]), name: app.fileName };
       const url = fileHref(app.folderPath.replace(/\/?$/, "/"));
@@ -17955,13 +18109,55 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return { ctx: `Folder ${app.folderPath}
 ${rows.join("\n")}`, name: subject };
     }
-    async function ask(intent, question) {
-      if (!usable) return;
-      cancel?.();
+    const turnEl = (question) => {
       const turn = document.createElement("div");
       turn.className = "fe-ask-turn";
-      turn.innerHTML = `<div class="fe-ask-q">${esc(question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain"))}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking\u2026</span></div><div class="fe-ask-meta"></div>`;
+      turn.innerHTML = `<div class="fe-ask-q">${esc(question)}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking\u2026</span></div><div class="fe-ask-meta"></div>`;
       thread.appendChild(turn);
+      return turn;
+    };
+    const metaText = (m, ms, truncated = false) => `${m} \xB7 ${(ms / 1e3).toFixed(1)}s${truncated ? " \xB7 shortened to fit" : ""}`;
+    const syncHistN = () => {
+      const n = chatsFor(key).length;
+      histN.textContent = n ? String(n) : "";
+    };
+    const newChat = () => {
+      cancel?.();
+      chatId = "";
+      turns = [];
+      thread.innerHTML = "";
+      q.focus();
+    };
+    const openChat = (c) => {
+      cancel?.();
+      chatId = c.id;
+      turns = c.turns.slice();
+      thread.innerHTML = "";
+      for (const t of turns) {
+        const el2 = turnEl(t.q);
+        el2.querySelector(".fe-ask-a").innerHTML = renderMarkdown(t.a);
+        el2.querySelector(".fe-ask-meta").textContent = metaText(t.model, t.ms);
+      }
+      showHist(false);
+    };
+    const paintHist = () => {
+      const chats = chatsFor(key);
+      hist.innerHTML = chats.length ? chats.map((c) => `<div class="fe-ask-h${c.id === chatId ? " on" : ""}" data-chat="${esc(c.id)}">
+        <button type="button" class="fe-ask-h-open" title="Open this chat"><span class="fe-ask-h-t">${esc(c.title)}</span><span class="fe-ask-h-m">${esc(when(c.at))} \xB7 ${c.turns.length} question${c.turns.length === 1 ? "" : "s"}</span></button>
+        <button type="button" class="fe-ask-h-del" title="Delete this chat" aria-label="Delete this chat">${UI_ICON.close}</button>
+      </div>`).join("") : '<p class="fe-ask-h-none">No earlier chats about this yet</p>';
+    };
+    const showHist = (on) => {
+      hist.hidden = !on;
+      histBtn.setAttribute("aria-expanded", String(on));
+      histBtn.classList.toggle("on", on);
+      if (on) paintHist();
+    };
+    async function ask(intent, question) {
+      if (go.disabled) return;
+      cancel?.();
+      const shown = question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain");
+      const turn = turnEl(shown);
       turn.scrollIntoView({ block: "end" });
       const out = turn.querySelector(".fe-ask-a");
       const meta = turn.querySelector(".fe-ask-meta");
@@ -17978,14 +18174,17 @@ ${rows.join("\n")}`, name: subject };
         cancel = null;
         go.textContent = "Ask";
       };
+      const asked = intent === "folder" ? "What is in this folder? Group the files by purpose in a few short lines." : question;
       cancel = llmQuery(
         {
           ctx: c.ctx,
           ctxName: c.name,
           // The host knows summarize, explain-code and qa; a folder question is a qa.
           intent: intent === "explain" ? "explain-code" : intent === "summarize" ? "summarize" : "qa",
-          question: intent === "folder" ? "What is in this folder? Group the files by purpose in a few short lines." : question,
-          model: app.settings.aiModel
+          question: asked && intent === "qa" ? withHistory(turns, asked) : asked,
+          model: model() || void 0,
+          // lm gemini's own default; a local model keeps the shorter one.
+          timeout: isCloud() ? 300 : void 0
         },
         {
           onChunk: (t) => {
@@ -17995,7 +18194,12 @@ ${rows.join("\n")}`, name: subject };
           onDone: (info) => {
             done();
             out.innerHTML = renderMarkdown(full);
-            meta.textContent = `${info.model} \xB7 ${(info.ms / 1e3).toFixed(1)}s${info.truncated ? " \xB7 shortened to fit" : ""}`;
+            meta.textContent = metaText(info.model, info.ms, info.truncated);
+            if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            const t = { q: shown, a: full, model: info.model, ms: info.ms, at: Date.now() };
+            turns.push(t);
+            addTurn(key, chatId, t);
+            syncHistN();
           },
           onError: (code, message) => {
             done();
@@ -18005,9 +18209,30 @@ ${rows.join("\n")}`, name: subject };
       );
     }
     box.addEventListener("click", (e) => {
-      const chip = e.target.closest(".fe-ask-chip");
-      if (chip) void ask(chip.dataset.intent);
+      const t = e.target;
+      const chip = t.closest(".fe-ask-chip");
+      if (chip) {
+        void ask(chip.dataset.intent);
+        return;
+      }
+      const row = t.closest(".fe-ask-h");
+      if (row && t.closest(".fe-ask-h-del")) {
+        deleteChat(key, row.dataset.chat);
+        if (row.dataset.chat === chatId) newChat();
+        paintHist();
+        syncHistN();
+        return;
+      }
+      if (row && t.closest(".fe-ask-h-open")) {
+        const c = chatsFor(key).find((x) => x.id === row.dataset.chat);
+        if (c) openChat(c);
+      }
     });
+    el("fe-ask-new").addEventListener("click", () => {
+      showHist(false);
+      newChat();
+    });
+    histBtn.addEventListener("click", () => showHist(hist.hidden));
     go.addEventListener("click", () => {
       if (cancel) {
         cancel();
@@ -18030,6 +18255,7 @@ ${rows.join("\n")}`, name: subject };
         go.click();
       }
     });
+    syncHistN();
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "ask") return;
       if (!checked) void checkModel();

@@ -1355,10 +1355,35 @@ button.fe-si{width:auto;display:flex}
 .fe-ask-turn{margin:0 6px 10px;padding:10px;border-radius:10px;background:var(--hover)}
 .fe-ask-q{font-weight:600;font-size:var(--row-fs);margin-bottom:6px;color:var(--tx)}
 .fe-ask-a.fe-md{padding:0;font-size:var(--fs-md);max-width:none}
+/* renderMarkdown wraps its output in its own .fe-md, which must not pad again. */
+.fe-ask-a .fe-md{padding:0;font-size:inherit;max-width:none}
 .fe-ask-wait{color:var(--dm);font-style:italic}
 .fe-ask-meta{margin-top:6px;font-size:var(--fs-sm);color:var(--dm)}
 .fe-ask-form{flex-direction:row;align-items:flex-end}
 .fe-ask-form .btn{flex:none;height:30px}
+.fe-ask-model{display:flex;align-items:center;gap:8px;margin:0 16px 6px;font-size:var(--fs-md);color:var(--mt)}
+.fe-ask-model select{flex:1;min-width:0;height:28px;padding:0 6px;border-radius:var(--row-r);border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md)}
+.fe-ask-cloud{display:flex;align-items:flex-start;gap:6px;margin:0 16px 8px;padding:6px 8px;border-radius:8px;font-size:var(--fs-sm);line-height:1.4;color:var(--tx);background:color-mix(in srgb,var(--gold) 14%,transparent)}
+.fe-ask-cloud[hidden]{display:none}
+.fe-ask-cloud svg{width:13px;height:13px;flex:none;margin-top:2px;color:var(--gold)}
+.fe-ask-bar{display:flex;gap:4px;margin:0 12px 6px}
+.fe-ask-bar .btn{gap:5px}
+.fe-ask-bar .btn svg{width:13px;height:13px}
+.fe-ask-bar .btn.on{background:var(--hover)}
+.fe-ask-n{min-width:16px;height:16px;padding:0 4px;border-radius:999px;font-size:var(--fs-xs);display:inline-grid;place-items:center;background:var(--s2);color:var(--mt)}
+.fe-ask-n:empty{display:none}
+.fe-ask-hist{margin:0 6px 10px;padding:4px;border:1px solid var(--bd);border-radius:10px;background:var(--card,var(--s1))}
+.fe-ask-hist[hidden]{display:none}
+.fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
+.fe-ask-h:hover,.fe-ask-h.on{background:var(--hover)}
+.fe-ask-h-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:0;background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--row-fs)}
+.fe-ask-h-m{font-size:var(--fs-sm);color:var(--dm)}
+.fe-ask-h-del{flex:none;border:0;background:none;color:var(--dm);cursor:pointer;padding:6px;border-radius:6px;opacity:0}
+.fe-ask-h:hover .fe-ask-h-del,.fe-ask-h-del:focus-visible{opacity:1}
+.fe-ask-h-del:hover{color:var(--nc-red);background:var(--hover)}
+.fe-ask-h-del svg{width:12px;height:12px}
+.fe-ask-h-none{margin:6px 8px;font-size:var(--fs-sm);color:var(--dm)}
 /* Review fixes: Settings follows the page order (panel a step below, cards
    on top), fields share one look, path chevrons show on hover only, and
    the palette swatch previews the theme in use. */

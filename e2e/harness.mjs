@@ -6,7 +6,7 @@
 // Install once with `npx @puppeteer/browsers install chrome@stable`.
 import puppeteer from 'puppeteer-core';
 import { execSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
@@ -41,6 +41,47 @@ m.main()
     type: 'stdio',
     allowed_origins: [`chrome-extension://${extensionId(ROOT)}/`],
   }, null, 2));
+}
+
+// With lmStub, the AI host runs as it does for real but over a stand-in `lm`
+// that answers at once, so Ask can be walked without models or a cloud call.
+// Every call is logged to lm-calls.jsonl in the profile for the walk to read.
+function installLlmHost(profile) {
+  const dir = join(profile, 'NativeMessagingHosts');
+  mkdirSync(dir, { recursive: true });
+  const log = join(profile, 'lm-calls.jsonl');
+  const fake = join(profile, 'fake_lm.py');
+  writeFileSync(fake, `#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+stdin = sys.stdin.read() if args[:1] == ['q'] or (args[:1] == ['gemini'] and '--json' in args) else ''
+open(${JSON.stringify(log)}, 'a').write(json.dumps({'args': args, 'stdin': stdin[:200]}) + '\\n')
+if args[:2] == ['status', '--json']:
+    print(json.dumps({'api_version': 1, 'server': 'up', 'default_model': 'gemma4-e4b-warm', 'warm': True, 'latency_class': 'warm'}))
+elif args[:1] == ['models']:
+    print('models on disk\\ntiers   small=gemma4-e4b-warm · big=gemma4:26b · code=qwen3.6:35b-a3b  (q --big)')
+elif args[:2] == ['gemini', 'models']:
+    print('gemini models (* = default):\\n    gemini-3.8-flash\\n  * gemini-3.5-flash\\npick per call: ...')
+elif args[:1] == ['gemini']:
+    print(json.dumps({'ok': True, 'text': 'Gemini says hello.', 'model': 'gemini-3.5-flash', 'ms': 5}))
+elif args[:1] == ['q']:
+    model = args[args.index('-m') + 1] if '-m' in args else 'gemma4-e4b-warm'
+    q = args[-1]
+    said = ('Seen the chat so far. ' if 'Earlier in this chat' in q else '') + 'Local answer from ' + model + '.'
+    print(json.dumps({'t': 'chunk', 'text': said}))
+    print(json.dumps({'t': 'done', 'model': model, 'ms': 12, 'truncated': False}))
+`, { mode: 0o755 });
+  const hostPath = join(profile, 'llm_host_launcher.py');
+  writeFileSync(hostPath, `#!/usr/bin/env python3
+import os, runpy
+os.environ['BFB_LM_BIN'] = ${JSON.stringify(fake)}
+runpy.run_path(${JSON.stringify(join(ROOT, 'native', 'llm_host.py'))}, run_name='__main__')
+`, { mode: 0o755 });
+  writeFileSync(join(dir, 'com.better_file_browser.llm.json'), JSON.stringify({
+    name: 'com.better_file_browser.llm', description: 'llm host (e2e)', path: hostPath, type: 'stdio',
+    allowed_origins: [`chrome-extension://${extensionId(ROOT)}/`],
+  }, null, 2));
+  return log;
 }
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
@@ -88,7 +129,7 @@ export function makeNotesDir() {
   return dir;
 }
 
-export async function launch({ headless = true, pickReply } = {}) {
+export async function launch({ headless = true, pickReply, lmStub = false } = {}) {
   execSync('npm run -s build', { cwd: ROOT, stdio: 'inherit' });
   mkdirSync(SHOTS, { recursive: true });
   const profile = join(tmpdir(), `bfb-profile-${process.pid}`);
@@ -128,6 +169,8 @@ export async function launch({ headless = true, pickReply } = {}) {
   // After launch: a pre-existing profile folder makes Chrome skip loading
   // the unpacked extension; the manifest is only read when a port opens.
   installNotesHost(profile, pickReply);
+  const lmLog = lmStub ? installLlmHost(profile) : null;
+  const lmCalls = () => { try { return readFileSync(lmLog, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)); } catch { return []; } };
 
   async function open(dirPath = fixture) {
     const page = await browser.newPage();
@@ -151,7 +194,7 @@ export async function launch({ headless = true, pickReply } = {}) {
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, open, close, store, docsHome: docsHome(profile) };
+  return { browser, fixture, notesDir, open, close, store, docsHome: docsHome(profile), lmCalls };
 }
 
 // The extension's settings store for the running browser; set by launch().
