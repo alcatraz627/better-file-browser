@@ -6,7 +6,7 @@ import { esc, pageHref, fileHref, copyToClipboard } from './utils';
 import { kvGet, kvSet } from './kv';
 import { getIcon } from './icons';
 import { THEME_KEY, TERMINAL_CMDS, saveSettings, homeDir, getRecents } from './storage';
-import { absPath, resolvePath } from './goto';
+import { absPath, resolvePath, readable } from './goto';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { setSidebarShown } from './motion';
@@ -86,7 +86,10 @@ export function initChrome(app: App): void {
       groups[i].hidden = true;
       more.hidden = false;
     }
-    const first = groups.find((g, i) => g.hidden && i >= pre);
+    // Under home, "…" always offers the folders above "~"; it sits before
+    // "~" unless middle folders folded too, then where they were.
+    const first = groups.find((g, i) => g.hidden && i >= pre) ?? (pre ? groups[pre] : undefined);
+    if (pre) more.hidden = false;
     if (first) first.before(more);
   };
   fitCrumbs();
@@ -124,6 +127,7 @@ export function initChrome(app: App): void {
       if (!path) { input.setAttribute('aria-invalid', 'true'); toast('Type a full path, such as ~/Code or /Users/you/notes.md'); return; }
       const found = await resolvePath(path);
       if (!found) { input.setAttribute('aria-invalid', 'true'); toast(`Nothing at ${path}`); return; }
+      if (!(await readable(found))) { input.setAttribute('aria-invalid', 'true'); toast(`The browser cannot open ${found}: no permission to read it`); return; }
       if (found.replace(/\/$/, '') === app.rawPath.replace(/\/$/, '')) { endEdit(); return; }
       location.href = pageHref(fileHref(found));
     });

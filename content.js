@@ -722,8 +722,11 @@ ${fm}
   function setFirstLine(text, title) {
     const m = text.match(/^(\s*)([^\n]*)/);
     if (!m || !m[2].trim()) return null;
-    const marks = m[2].match(/^#+\s*/)?.[0] ?? "";
-    return m[1] + marks + title + text.slice(m[0].length);
+    const marks = m[2].match(/^#+\s*/)?.[0];
+    if (marks) return m[1] + marks + title + text.slice(m[0].length);
+    return `# ${title}
+
+` + text;
   }
   function settleClash(text, keep) {
     const out = [];
@@ -905,6 +908,14 @@ ${body}`;
     warm: svg('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>'),
     unload: svg('<path d="M2 12h20M12 2v20m-8.5-15L20.5 17M20.5 7 3.5 17M9 4l3 2 3-2M9 20l3-2 3 2"/>'),
     close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
+    // Text formatting in the note editor.
+    fmtBold: svg('<path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/>'),
+    fmtItalic: svg('<path d="M19 4h-9M14 20H5M15 4 9 20"/>'),
+    fmtCode: svg('<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>'),
+    fmtStrike: svg('<path d="M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16"/>'),
+    fmtHeading: svg('<path d="M6 12h12M6 20V4M18 20V4"/>'),
+    fmtQuote: svg('<path d="M17 6H3M21 12H8M21 18H8M3 12v6"/>'),
+    fmtOlist: svg('<path d="M10 12h11M10 18h11M10 6h11M4 10h2M4 6h1v4M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>'),
     list: svg('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
     task: svg('<path d="m3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8"/>'),
     table: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M12 3v18"/>'),
@@ -3365,18 +3376,19 @@ ${body}
     body.innerHTML = `
     <div id="fe-ed-meta"></div>
     <div id="fe-ed-bar">
-      <button class="fe-pbn" data-act="bold" title="Bold (\u2318B)"><b>B</b></button>
-      <button class="fe-pbn" data-act="italic" title="Italic (\u2318I)"><i>I</i></button>
-      <button class="fe-pbn" data-act="code" title="Code (\u2318E)">\u2039\u203A</button>
-      <button class="fe-pbn" data-act="strike" title="Strikethrough (\u2318\u21E7X)"><s>S</s></button>
-      <button class="fe-pbn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (\u2318\u21E7H)">H</button>
-      <button class="fe-pbn" data-act="link" title="Link (\u2318K)">\u{1F517}</button>
-      <button class="fe-pbn" data-act="quote" title="Quote (\u2318\u21E7.)">\u275D</button>
-      <button class="fe-pbn" data-act="olist" title="Numbered list (\u2318\u21E77)">1.</button>
-      <button class="fe-pbn" data-act="list" title="Bullet list">${UI_ICON.list}<span>list</span></button>
-      <button class="fe-pbn" data-act="task" title="Task list">${UI_ICON.task}<span>task</span></button>
-      <button class="fe-pbn" data-act="table" title="Insert a table">${UI_ICON.table}<span>table</span></button>
-      <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}<span>image</span></button>
+      <button class="fe-pbn" data-icon data-act="bold" title="Bold (\u2318B)">${UI_ICON.fmtBold}</button>
+      <button class="fe-pbn" data-icon data-act="italic" title="Italic (\u2318I)">${UI_ICON.fmtItalic}</button>
+      <button class="fe-pbn" data-icon data-act="code" title="Code (\u2318E)">${UI_ICON.fmtCode}</button>
+      <button class="fe-pbn" data-icon data-act="strike" title="Strikethrough (\u2318\u21E7X)">${UI_ICON.fmtStrike}</button>
+      <button class="fe-pbn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (\u2318\u21E7H)" data-icon>${UI_ICON.fmtHeading}</button>
+      <button class="fe-pbn" data-icon data-act="link" title="Link (\u2318K)">${UI_ICON.link}</button>
+      <button class="fe-pbn" data-icon data-act="quote" title="Quote (\u2318\u21E7.)">${UI_ICON.fmtQuote}</button>
+      <button class="fe-pbn" data-icon data-act="olist" title="Numbered list (\u2318\u21E77)">${UI_ICON.fmtOlist}</button>
+      <button class="fe-pbn" data-icon data-act="list" title="Bullet list">${UI_ICON.list}</button>
+      <button class="fe-pbn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
+      <button class="fe-pbn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
+      <button class="fe-pbn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
+      <span class="fe-ed-sep" aria-hidden="true"></span>
       <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>versions</span></button>
       ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>prev</span></button>
       <button class="fe-pbn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>next</span></button>
@@ -4020,18 +4032,17 @@ body{opacity:1!important}
 .fe-rail-hl{position:absolute;inset:0;z-index:-1;border-radius:8px;pointer-events:none;transform-origin:0 0}
 .fe-rail-btn.on .fe-rail-hl{background:color-mix(in srgb,var(--ac) 16%,transparent)}
 .fe-rail-btn.on:hover .fe-rail-hl{background:color-mix(in srgb,var(--ac) 22%,transparent)}
-#fe-rail.tight .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 3px}
-#fe-rail.tight .fe-rail-btn.on{gap:0}
-#fe-rail.tight .fe-rail-btn em{display:none}
+#fe-rail.tight .fe-rail-btn:not(.on){flex:1 1 0;min-width:22px;padding:0 2px}
+#fe-rail.tight .fe-rail-btn.on{padding:0 6px;gap:5px}
+#fe-rail.tighter .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 3px}
+#fe-rail.tighter .fe-rail-btn.on{gap:0}
+#fe-rail.tighter .fe-rail-btn em{display:none}
 @media (prefers-reduced-motion:reduce){.fe-rail-btn{transition:none}}
 .fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
 .fe-rail-btn.on,.fe-rail-btn.on:hover{background:none;color:var(--tx)}
 .fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 #fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
 .fe-lens[hidden]{display:none}
-.fe-lens-h{display:flex;align-items:center;gap:8px;padding:6px 12px 8px 14px}
-.fe-lens-ico{display:inline-flex;color:var(--mt)}
-.fe-lens-ico svg{width:16px;height:16px}
 .fe-doc-row{display:flex;align-items:center;gap:10px;width:calc(100% - 12px);margin:1px 6px;padding:6px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
 .fe-doc-row:hover{background:var(--hover)}
 .fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
@@ -4048,9 +4059,6 @@ body{opacity:1!important}
 .fe-row-cm{flex:none;display:inline-flex;align-items:center;gap:3px;padding:0 6px;height:18px;border-radius:999px;vertical-align:middle;
   font-size:var(--fs-xs);color:var(--tx);background:color-mix(in srgb,var(--ac) 16%,transparent)}
 .fe-row-cm svg{width:11px;height:11px}
-.fe-lens-t{flex:1;display:flex;flex-direction:column;line-height:1.25;min-width:0}
-.fe-lens-t b{font-size:var(--fs-xl);font-weight:600;color:var(--tx)}
-.fe-lens-t i{font-style:normal;font-size:var(--fs-md);color:var(--dm)}
 #fe-side-rz{width:5px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .12s}
 #fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
 .fe-sec{margin-bottom:4px}
@@ -4467,7 +4475,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.empty{padding-top:4px}
 .fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
-  background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:64px;flex:0 1 auto;position:relative;top:1px;
+  background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:112px;flex:0 1 auto;position:relative;top:1px;
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-tab:hover{background:var(--s3);color:var(--tx)}
 .fe-tab.on{background:var(--bg);color:var(--tx)}
@@ -4716,6 +4724,8 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fp-reload{font-size:var(--fs-sm);color:var(--dm)}
 #fe-ed-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 #fe-ed-bar .fe-pbn{padding:2px 7px;font-size:var(--fs-sm);display:inline-flex;align-items:center;gap:5px}
+#fe-ed-bar .fe-pbn[data-icon]{width:26px;height:26px;padding:0;justify-content:center;border-radius:6px}
+.fe-ed-sep{width:1px;align-self:stretch;margin:4px;background:var(--bd)}
 .fe-ed-hint{margin-left:auto;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
@@ -5059,7 +5069,6 @@ button.fe-si{width:auto;display:flex}
 .fe-grp > summary:hover{background:var(--hover);color:var(--tx)}
 .fe-grp > summary svg{width:12px;height:12px;opacity:.8}
 .fe-sh{padding:10px 16px 4px}
-.fe-lens-h{padding:6px 12px 8px 16px}
 .fe-hint{padding:6px 16px}
 #fe-lens-filter,#fe-docs-q{width:calc(100% - 12px);margin:2px 6px 8px;height:30px;padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs)}
 #fe-lens-filter,#fe-search,#fe-srch-q,#fe-find-text,#fe-filter-q,#fe-docs-q,.fe-dd-search{padding-left:28px!important;
@@ -13173,7 +13182,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       const placed2 = t.place.offset !== null;
       const now = s.state === "accepted" ? s.was ?? "" : placed2 ? o.text().slice(t.place.offset, t.place.offset + t.place.length) : t.anchor.exact;
       const cut = (x) => x.length > 200 ? x.slice(0, 199) + "\u2026" : x;
-      const diff = `<div class="fe-cm-diff">${now ? `<del>${esc(cut(now))}</del>` : ""}${s.replace ? `<ins>${esc(cut(s.replace))}</ins>` : "<i>remove these words</i>"}</div>`;
+      const diff = `<div class="fe-cm-diff">${now ? `<del>${esc(cut(now))}</del>` : ""}${s.replace ? `<ins>${esc(cut(s.replace))}</ins>` : `<i>${s.state === "accepted" ? "removed" : "remove these words"}</i>`}</div>`;
       if (s.state !== "pending") return `<div class="fe-cm-sug ${esc(s.state)}">${diff}<span class="fe-cm-sug-state">${s.state === "accepted" ? UI_ICON.check + "Accepted" : UI_ICON.close + "Rejected"}</span></div>`;
       const can = placed2 && t.place.state !== "ambiguous";
       const tools = on ? `<div class="fe-cm-tools">
@@ -13203,7 +13212,8 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         ${c.suggestion ? sugHtml(t, c, on) : ""}
       </div>`;
       }).join("");
-      const where = t.place.state === "moved" ? notice("Moved: the words changed", "The quoted words were edited; this is where they seem to be now.") : t.place.state === "ambiguous" ? notice("These words appear more than once") : t.place.state === "detached" ? notice("No longer in the file", "The quoted words were removed. Select new words and press Attach to selection to move the thread.") : "";
+      const applied = t.status === "done" && t.comments.some((c) => c.suggestion?.state === "accepted");
+      const where = applied ? "" : t.place.state === "moved" ? notice("Moved: the words changed", "The quoted words were edited; this is where they seem to be now.") : t.place.state === "ambiguous" ? notice("These words appear more than once") : t.place.state === "detached" ? notice("No longer in the file", "The quoted words were removed. Select new words and press Attach to selection to move the thread.") : "";
       const done = t.status === "done";
       const tools = on ? `
       ${box(t.id, "Reply", done ? "Reply to reopen\u2026" : "Reply\u2026 @ to mention, # to tag")}
@@ -13212,7 +13222,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : iconBtn("due", UI_ICON.clock, "Set a due date")}
         ${iconBtn("link", UI_ICON.link, "Copy a link that opens this thread")}
         ${iconBtn("brief", UI_ICON.bot, "Copy this thread as a brief for an agent")}
-        ${t.place.state !== "anchored" ? `<button type="button" class="btn" data-size="sm" data-hover-shade data-a="attach" title="Select words on the page first">Attach to selection</button>` : ""}
+        ${t.place.state !== "anchored" && !applied ? `<button type="button" class="btn" data-size="sm" data-hover-shade data-a="attach" title="Select words on the page first">Attach to selection</button>` : ""}
         <span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="reply" title="Reply (\u2318\u21B5)">Reply</button>
       </div>` : "";
@@ -14896,7 +14906,13 @@ included, set **Interface size** in **Settings \u2192 Appearance**.
 
 Click any path segment to jump there. The chevron button next to a segment opens a
 dropdown of that folder's contents with its own filter box \u2014 type to narrow,
-**Enter** opens the first match.
+**Enter** opens the first match. Inside your home folder the path starts at **~**;
+**\u2026** holds the folders above it and any that folded away for room.
+
+To type a path, click an empty part of the bar: it becomes a box holding the
+current path, with recent places offered as you type. **Enter** goes there in this
+tab, **Esc** puts the folders back. A path that does not exist, or a folder the
+browser cannot read, is marked and nothing is opened.
 
 ## Terminal
 
@@ -14914,6 +14930,17 @@ for raw, a remembered scroll position, and a re-render whenever the file
 changes on disk. **Settings \u2192 Files** can limit this to non-markdown files or
 turn it off. **Settings \u2192 Exclusions** opens .pdf, .html, and .htm in
 Chrome's native file page by default. Remove .html or .htm to show source.
+
+## Comments on markdown
+
+Select words on a markdown page and press **c** to comment; the comments button
+right of find shows every thread. Reply, mark done, tag with **#tag**, mention
+with **@user**, **@claude** or **@claude:alias**, and set a due date. Comments live
+in a **.bfb.json** file beside the document, so agents can read and answer them
+with the **bfb-docs** command. A suggested edit shows the words now struck through
+and the new words beside them: **Accept** replaces just those words in the file
+(a backup is kept) and closes the thread, **Reject** leaves the file alone. The
+**Comments** lens lists every document with comments.
 ` },
     { key: "preview", label: "Preview and Notes", hint: "panel, editor, AI", md: `
 ## File preview (Quick Look)
@@ -15135,7 +15162,8 @@ non-previewable file, or the go setting, navigates. A folder always navigates.
 ## Path bar and toolbar
 
 \u2261 shows or hides the sidebar, and its right edge drags to resize. A crumb goes;
-its chevron button opens a dropdown you can type to narrow. \u2605 saves the place. The terminal
+its chevron button opens a dropdown you can type to narrow. Click an empty part
+of the bar to type a path. \u2605 saves the place. The terminal
 button opens here, and \u21E7-click copies the command. The rest: theme, Help, Settings,
 the four views, Sort, Filter, hidden files, and a zoom slider that scales the list.
 
@@ -15476,8 +15504,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const viewBtnsHTML = VIEW_MODES.map(
       (v) => `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? " (active)" : ""}">${v.ico}</button>`
     ).join("");
-    const lensHead = (title, icon2, actions = "") => `<div class="fe-lens-h"><span class="fe-lens-ico">${icon2}</span><span class="fe-lens-t"><b>${title}</b></span>${actions}</div>`;
-    const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
+    const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}" data-hint="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
     const stRow = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
     const stCard = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
     const stSwitch = (id, title) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
@@ -15606,7 +15633,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
-        ${lensHead("Places", PI.home)}
         <div class="fe-sec" data-sec="places">
         ${placesHTML(homeDir(rawPath), rawPath)}
         </div>
@@ -15636,19 +15662,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       </div>
       <div class="fe-lens" id="fe-lens-history" data-lens="history" role="tabpanel" aria-labelledby="fe-rail-history" hidden>
-        ${lensHead("History", PI.recent)}
         ${recentsHTML}
       </div>
       <div class="fe-lens" id="fe-lens-search" data-lens="search" role="tabpanel" aria-labelledby="fe-rail-search" hidden>
-        ${lensHead("Search", PI.search)}
         <div id="fe-srch"></div>
       </div>
       <div class="fe-lens" id="fe-lens-ask" data-lens="ask" role="tabpanel" aria-labelledby="fe-rail-ask" hidden>
-        ${lensHead("Ask", PI.ask)}
         <div id="fe-ask"></div>
       </div>
       <div class="fe-lens" id="fe-lens-comments" data-lens="comments" role="tabpanel" aria-labelledby="fe-rail-comments" hidden>
-        ${lensHead("Comments", UI_ICON.comment)}
         <div id="fe-docs-list"></div>
       </div>
       </div>
@@ -15805,7 +15827,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!home) return null;
       p = home + p.slice(1);
     }
-    return p.startsWith("/") ? p : null;
+    return p.startsWith("/") ? p.replace(/\/{2,}/g, "/") : null;
+  }
+  async function readable(path, waitMs = 2500) {
+    if (!path.endsWith("/")) return true;
+    const timeout = new Promise((r) => setTimeout(() => r(false), waitMs));
+    const read2 = fetchFileText(fileHref(path)).then(() => true, () => false);
+    return Promise.race([read2, timeout]);
   }
   async function resolvePath(path) {
     const clean = path.replace(/\/+$/, "");
@@ -15870,6 +15898,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const found = await resolvePath(path);
         if (!found) {
           say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
+          return;
+        }
+        if (!await readable(found)) {
+          say(`The browser cannot open ${found}: it has no permission to read that folder.`);
           return;
         }
         close();
@@ -15986,7 +16018,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         groups[i].hidden = true;
         more.hidden = false;
       }
-      const first = groups.find((g, i) => g.hidden && i >= pre);
+      const first = groups.find((g, i) => g.hidden && i >= pre) ?? (pre ? groups[pre] : void 0);
+      if (pre) more.hidden = false;
       if (first) first.before(more);
     };
     fitCrumbs();
@@ -16039,6 +16072,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         if (!found) {
           input.setAttribute("aria-invalid", "true");
           toast(`Nothing at ${path}`);
+          return;
+        }
+        if (!await readable(found)) {
+          input.setAttribute("aria-invalid", "true");
+          toast(`The browser cannot open ${found}: no permission to read it`);
           return;
         }
         if (found.replace(/\/$/, "") === app.rawPath.replace(/\/$/, "")) {
@@ -17584,15 +17622,22 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
       for (const l of lenses) l.hidden = l.dataset.lens !== pick;
       paint(() => {
-        for (const b of btns) b.classList.toggle("on", b.dataset.lens === pick);
+        for (const b of btns) {
+          const on = b.dataset.lens === pick;
+          b.classList.toggle("on", on);
+          b.title = on ? "" : b.dataset.hint ?? "";
+          b.setAttribute("aria-label", b.dataset.hint ?? "");
+        }
         fitBar();
       });
       document.dispatchEvent(new CustomEvent("bfb-lens", { detail: pick }));
     };
     function fitBar() {
-      rail.classList.remove("tight");
-      const over = rail.scrollWidth > rail.clientWidth + 1;
-      rail.classList.toggle("tight", over);
+      rail.classList.remove("tight", "tighter");
+      const over = () => rail.scrollWidth > rail.clientWidth + 1;
+      if (!over()) return;
+      rail.classList.add("tight");
+      if (over()) rail.classList.add("tighter");
     }
     new ResizeObserver(fitBar).observe(rail);
     for (const b of btns) b.prepend(Object.assign(document.createElement("span"), { className: "fe-rail-hl" }));
@@ -17987,6 +18032,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return [...byMeta, ...allNotes.filter((n) => bodyHits.has(n.rel) && !byMeta.includes(n))];
     };
     function renderNotes(root) {
+      if (ntList.querySelector(".fe-nt-label.editing")) return;
       lensNotes.count = allNotes.length;
       lensNotes.tags = [...new Set(allNotes.flatMap((n) => n.tags ?? []))];
       syncLens();
@@ -18187,18 +18233,26 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           let now = rel;
           if (titled !== null) await notes.write(root, rel, titled, doc.mtime);
           else {
-            const lined = setFirstLine(doc.text, val);
-            if (lined !== null) await notes.write(root, rel, lined, doc.mtime);
             const to = rel.replace(/[^/]+$/, slugForTitle(val));
+            if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some((n) => n.rel.toLowerCase() === to.toLowerCase())) {
+              toast(`A note named ${to.split("/").pop()} already exists. Pick another title.`);
+              renderNotes(root);
+              return;
+            }
             if (to !== rel) {
               await notes.rename(root, rel, to);
               now = to;
             }
+            const lined = setFirstLine(doc.text, val);
+            if (lined !== null) await notes.write(root, now, lined, doc.mtime);
           }
           refreshNotes();
           if (reopen) openNoteRel(root, now);
         }).catch((err) => toast(err.message));
-      }, () => renderNotes(root));
+      }, () => {
+        renderNotes(root);
+        if (reopen) openNoteRel(root, rel);
+      });
     }
     function deleteNote(root, rel) {
       if (editingRel() === rel) discardEditor();
@@ -18210,8 +18264,22 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     function openNoteRel(root, rel) {
       const actions = {
         step: (r, dir) => stepNote(root, r, dir),
+        // The editor's scrim covers the sidebar, so close the editor, rename in
+        // the list, then reopen the note. The bar acts on mousedown; wait for the
+        // rest of that click, which would otherwise land on the page under the
+        // closed editor and shut the rename box straight away.
         rename: (r) => {
-          void saveEditor().then(() => renameNote(root, r, true));
+          let started = false;
+          const start = () => {
+            if (started) return;
+            started = true;
+            void saveEditor().then(() => {
+              discardEditor();
+              renameNote(root, r, true);
+            });
+          };
+          document.addEventListener("pointerup", () => setTimeout(start, 0), { once: true, capture: true });
+          setTimeout(start, 800);
         },
         del: (r) => deleteNote(root, r)
       };

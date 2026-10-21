@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 const read = vi.hoisted(() => ({ fn: (url: string): Promise<string> => Promise.reject(new Error(url)) }));
 vi.mock('../src/file-fetch', () => ({ fetchFileText: (url: string) => read.fn(url) }));
 
-import { pathToHref, resolvePath } from '../src/goto';
+import { pathToHref, resolvePath, readable } from '../src/goto';
 
 describe('pathToHref', () => {
   it.each([
@@ -11,6 +11,7 @@ describe('pathToHref', () => {
     ['  "/Users/a/My Notes/"  ', 'file:///Users/a/My%20Notes/'],
     ['~/Code', 'file:///Users/a/Code'],
     ['file:///Users/a/x.md', 'file:///Users/a/x.md'],
+    ['/Users/a//Code///x/', 'file:///Users/a/Code/x/'],
   ])('%j goes to %s', (input, want) => expect(pathToHref(input, '/Users/a')).toBe(want));
   it('refuses a relative path or ~ with no known home', () => {
     expect(pathToHref('Code/x', '/Users/a')).toBeNull();
@@ -32,5 +33,15 @@ describe('resolvePath', () => {
   it('keeps the path as typed when the folder cannot be read', async () => {
     read.fn = () => Promise.reject(new Error('no reply from the extension worker'));
     expect(await resolvePath('/x/a.server.ts')).toBe('/x/a.server.ts');
+  });
+});
+
+describe('readable', () => {
+  it('refuses a folder the browser cannot list and passes a file without reading it', async () => {
+    read.fn = () => Promise.reject(new Error('denied'));
+    expect(await readable('/var/root/')).toBe(false);
+    expect(await readable('/var/root/x.md')).toBe(true);
+    read.fn = () => Promise.resolve('');
+    expect(await readable('/tmp/')).toBe(true);
   });
 });

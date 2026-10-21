@@ -210,7 +210,8 @@ FILE_MAX = 20 * 1024 * 1024
 # Chrome refuses any reply from a native host over 1 MB, so a file is read in
 # slices whose JSON form stays under this many bytes.
 READ_BYTES = 900_000
-BACKUP_DIR = os.path.expanduser('~/Library/Application Support/BetterFileBrowser/backups')
+# BFB_BACKUP_DIR overrides where backups go (the e2e harness points it into its throwaway profile).
+BACKUP_DIR = os.environ.get('BFB_BACKUP_DIR') or os.path.expanduser('~/Library/Application Support/BetterFileBrowser/backups')
 BACKUP_DAYS = 14
 
 def op_file_write(root, rel, text, expect_mtime):

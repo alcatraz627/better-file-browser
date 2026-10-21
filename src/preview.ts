@@ -385,18 +385,19 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   body.innerHTML = `
     <div id="fe-ed-meta"></div>
     <div id="fe-ed-bar">
-      <button class="fe-pbn" data-act="bold" title="Bold (⌘B)"><b>B</b></button>
-      <button class="fe-pbn" data-act="italic" title="Italic (⌘I)"><i>I</i></button>
-      <button class="fe-pbn" data-act="code" title="Code (⌘E)">‹›</button>
-      <button class="fe-pbn" data-act="strike" title="Strikethrough (⌘⇧X)"><s>S</s></button>
-      <button class="fe-pbn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (⌘⇧H)">H</button>
-      <button class="fe-pbn" data-act="link" title="Link (⌘K)">🔗</button>
-      <button class="fe-pbn" data-act="quote" title="Quote (⌘⇧.)">❝</button>
-      <button class="fe-pbn" data-act="olist" title="Numbered list (⌘⇧7)">1.</button>
-      <button class="fe-pbn" data-act="list" title="Bullet list">${UI_ICON.list}<span>list</span></button>
-      <button class="fe-pbn" data-act="task" title="Task list">${UI_ICON.task}<span>task</span></button>
-      <button class="fe-pbn" data-act="table" title="Insert a table">${UI_ICON.table}<span>table</span></button>
-      <button class="fe-pbn" data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}<span>image</span></button>
+      <button class="fe-pbn" data-icon data-act="bold" title="Bold (⌘B)">${UI_ICON.fmtBold}</button>
+      <button class="fe-pbn" data-icon data-act="italic" title="Italic (⌘I)">${UI_ICON.fmtItalic}</button>
+      <button class="fe-pbn" data-icon data-act="code" title="Code (⌘E)">${UI_ICON.fmtCode}</button>
+      <button class="fe-pbn" data-icon data-act="strike" title="Strikethrough (⌘⇧X)">${UI_ICON.fmtStrike}</button>
+      <button class="fe-pbn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (⌘⇧H)" data-icon>${UI_ICON.fmtHeading}</button>
+      <button class="fe-pbn" data-icon data-act="link" title="Link (⌘K)">${UI_ICON.link}</button>
+      <button class="fe-pbn" data-icon data-act="quote" title="Quote (⌘⇧.)">${UI_ICON.fmtQuote}</button>
+      <button class="fe-pbn" data-icon data-act="olist" title="Numbered list (⌘⇧7)">${UI_ICON.fmtOlist}</button>
+      <button class="fe-pbn" data-icon data-act="list" title="Bullet list">${UI_ICON.list}</button>
+      <button class="fe-pbn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
+      <button class="fe-pbn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
+      <button class="fe-pbn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
+      <span class="fe-ed-sep" aria-hidden="true"></span>
       <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>versions</span></button>
       ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (⌥⌘↑)">${UI_ICON.prev}<span>prev</span></button>
       <button class="fe-pbn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>next</span></button>

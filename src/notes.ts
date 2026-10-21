@@ -153,14 +153,16 @@ export function setTitle(text: string, title: string): string | null {
   return text.replace(m[0], () => `---\n${fm}\n---`);
 }
 
-// For a note without front matter the title is its first line, so a rename
-// rewrites that line and keeps any heading marks in front of it. Returns null
-// when the note is empty and only its file name can carry the title.
+// For a note without front matter the title is its first line. A rename
+// rewrites that line only when it is a heading; otherwise the first line is
+// the person's own writing, so a new heading goes above it instead. Returns
+// null when the note is empty and only its file name can carry the title.
 export function setFirstLine(text: string, title: string): string | null {
   const m = text.match(/^(\s*)([^\n]*)/);
   if (!m || !m[2].trim()) return null;
-  const marks = m[2].match(/^#+\s*/)?.[0] ?? '';
-  return m[1] + marks + title + text.slice(m[0].length);
+  const marks = m[2].match(/^#+\s*/)?.[0];
+  if (marks) return m[1] + marks + title + text.slice(m[0].length);
+  return `# ${title}\n\n` + text;
 }
 
 // A note edited in two places holds both sides between git-style markers. settleClash keeps

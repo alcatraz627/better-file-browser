@@ -843,7 +843,7 @@ try {
   await fpage2.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);
   missing.push(...await fpage2.evaluate((sel) => {
     const out = [];
-    for (const el of document.querySelectorAll(sel)) if (el.offsetParent && !el.closest('.fe-md') && !el.title) out.push('file page: ' + (el.id ? '#' + el.id : el.className));
+    for (const el of document.querySelectorAll(sel)) if (el.offsetParent && !el.closest('.fe-md') && !el.title && !el.getAttribute('aria-label')) out.push('file page: ' + (el.id ? '#' + el.id : el.className));
     return out;
   }, SWEEP));
   await fpage2.close();

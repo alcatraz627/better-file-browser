@@ -45,6 +45,7 @@ try {
   check(folded.join('/') === hidden.join('/'), `"…" lists the folded folders in order: ${folded.join(' › ')}`);
   await page.screenshot({ path: join(SHOTS, `path-bar-more${sfx}.png`), clip: { x: 0, y: 0, width: 600, height: 300 } });
   const target = await page.$eval('#fe-crumb-menu .fe-dd-item:last-child', a => a.href);
+  await sleep(250);   // the menu rises in; click once it has settled
   await Promise.all([page.waitForNavigation({ timeout: 6000 }).catch(() => null), page.click('#fe-crumb-menu .fe-dd-item:last-child')]);
   check(page.url() === target, `a folded folder opens from the menu: ${page.url()}`);
 
@@ -82,6 +83,14 @@ try {
   await page.keyboard.press('Enter');
   await sleep(500);
   check(await page.$eval('#fe-bc-edit input', i => i.hasAttribute('aria-invalid')), 'a path that is not there is marked and the box stays');
+  // A real folder the browser cannot read is refused too, so the tab never lands on Chrome's error page.
+  await page.$eval('#fe-bc-edit input', i => { i.value = ''; i.removeAttribute('aria-invalid'); });
+  await page.keyboard.type('/var/root');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.querySelector('#fe-bc-edit input')?.hasAttribute('aria-invalid') || !document.querySelector('#fe-bc-edit'), { timeout: 8000 }).catch(() => null);
+  await sleep(300);
+  const denied = await page.evaluate(() => ({ marked: document.querySelector('#fe-bc-edit input')?.hasAttribute('aria-invalid'), app: !!document.getElementById('fe'), url: location.href }));
+  check(denied.marked && denied.app && !denied.url.includes('/var/root'), `a folder the browser cannot read is marked and not opened: ${JSON.stringify(denied)}`);
   await page.$eval('#fe-bc-edit input', i => { i.value = ''; });
   await page.keyboard.type(h.fixture + '/nested');
   await Promise.all([page.waitForNavigation({ timeout: 6000 }).catch(() => null), page.keyboard.press('Enter')]);
@@ -94,7 +103,13 @@ try {
   await page.waitForSelector('#fe-bc');
   await sleep(300);
   const atHome = await bar(page);
-  check(atHome.shown[0] === '~' && atHome.shown.length === 1 && !atHome.more, `at home the bar shows just "~": ${JSON.stringify(atHome)}`);
+  check(atHome.shown[0] === '~' && atHome.shown.length === 1 && atHome.more, `at home the bar shows "…" and "~": ${JSON.stringify(atHome)}`);
+  await page.click('#fe-crumb-more');
+  await page.waitForSelector('#fe-crumb-menu .fe-dd-item');
+  const above = await page.$$eval('#fe-crumb-menu .fe-dd-item', as => as.map(a => a.textContent.trim()));
+  check(above.join('/') === '/' + '/Users', `"…" before "~" reaches the folders above home: ${above.join(' › ')}`);
+  await page.keyboard.press('Escape');
+  await page.mouse.click(5, 300);
   await page.click('#fe-bc');
   const homeBox = await page.$eval('#fe-bc-edit input', i => i.value).catch(() => null);
   check(homeBox === '~/',`the path box writes home as "~": ${homeBox}`);

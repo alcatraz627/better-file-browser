@@ -57,7 +57,13 @@ included, set **Interface size** in **Settings → Appearance**.
 
 Click any path segment to jump there. The chevron button next to a segment opens a
 dropdown of that folder's contents with its own filter box — type to narrow,
-**Enter** opens the first match.
+**Enter** opens the first match. Inside your home folder the path starts at **~**;
+**…** holds the folders above it and any that folded away for room.
+
+To type a path, click an empty part of the bar: it becomes a box holding the
+current path, with recent places offered as you type. **Enter** goes there in this
+tab, **Esc** puts the folders back. A path that does not exist, or a folder the
+browser cannot read, is marked and nothing is opened.
 
 ## Terminal
 
@@ -75,6 +81,17 @@ for raw, a remembered scroll position, and a re-render whenever the file
 changes on disk. **Settings → Files** can limit this to non-markdown files or
 turn it off. **Settings → Exclusions** opens .pdf, .html, and .htm in
 Chrome's native file page by default. Remove .html or .htm to show source.
+
+## Comments on markdown
+
+Select words on a markdown page and press **c** to comment; the comments button
+right of find shows every thread. Reply, mark done, tag with **#tag**, mention
+with **@user**, **@claude** or **@claude:alias**, and set a due date. Comments live
+in a **.bfb.json** file beside the document, so agents can read and answer them
+with the **bfb-docs** command. A suggested edit shows the words now struck through
+and the new words beside them: **Accept** replaces just those words in the file
+(a backup is kept) and closes the thread, **Reject** leaves the file alone. The
+**Comments** lens lists every document with comments.
 ` },
   { key: 'preview', label: 'Preview and Notes', hint: 'panel, editor, AI', md: `
 ## File preview (Quick Look)
@@ -296,7 +313,8 @@ non-previewable file, or the go setting, navigates. A folder always navigates.
 ## Path bar and toolbar
 
 ≡ shows or hides the sidebar, and its right edge drags to resize. A crumb goes;
-its chevron button opens a dropdown you can type to narrow. ★ saves the place. The terminal
+its chevron button opens a dropdown you can type to narrow. Click an empty part
+of the bar to type a path. ★ saves the place. The terminal
 button opens here, and ⇧-click copies the command. The rest: theme, Help, Settings,
 the four views, Sort, Filter, hidden files, and a zoom slider that scales the list.
 

@@ -263,7 +263,7 @@ export function mountComments(o: {
     // Once accepted, the thread sits on the new words; the old ones were kept with the decision.
     const now = s.state === 'accepted' ? s.was ?? '' : placed ? o.text().slice(t.place.offset!, t.place.offset! + t.place.length) : t.anchor.exact;
     const cut = (x: string) => x.length > 200 ? x.slice(0, 199) + '…' : x;
-    const diff = `<div class="fe-cm-diff">${now ? `<del>${esc(cut(now))}</del>` : ''}${s.replace ? `<ins>${esc(cut(s.replace))}</ins>` : '<i>remove these words</i>'}</div>`;
+    const diff = `<div class="fe-cm-diff">${now ? `<del>${esc(cut(now))}</del>` : ''}${s.replace ? `<ins>${esc(cut(s.replace))}</ins>` : `<i>${s.state === 'accepted' ? 'removed' : 'remove these words'}</i>`}</div>`;
     if (s.state !== 'pending') return `<div class="fe-cm-sug ${esc(s.state)}">${diff}<span class="fe-cm-sug-state">${s.state === 'accepted' ? UI_ICON.check + 'Accepted' : UI_ICON.close + 'Rejected'}</span></div>`;
     const can = placed && t.place.state !== 'ambiguous';
     const tools = on ? `<div class="fe-cm-tools">
@@ -296,7 +296,10 @@ export function mountComments(o: {
         ${c.suggestion ? sugHtml(t, c, on) : ''}
       </div>`;
     }).join('');
-    const where = t.place.state === 'moved' ? notice('Moved: the words changed', 'The quoted words were edited; this is where they seem to be now.')
+    // A thread closed by accepting its own suggestion did what it asked; the
+    // words it quoted being gone is the point, not a lost comment.
+    const applied = t.status === 'done' && t.comments.some(c => c.suggestion?.state === 'accepted');
+    const where = applied ? '' : t.place.state === 'moved' ? notice('Moved: the words changed', 'The quoted words were edited; this is where they seem to be now.')
       : t.place.state === 'ambiguous' ? notice('These words appear more than once')
       : t.place.state === 'detached' ? notice('No longer in the file', 'The quoted words were removed. Select new words and press Attach to selection to move the thread.') : '';
     const done = t.status === 'done';
@@ -308,7 +311,7 @@ export function mountComments(o: {
           : iconBtn('due', UI_ICON.clock, 'Set a due date')}
         ${iconBtn('link', UI_ICON.link, 'Copy a link that opens this thread')}
         ${iconBtn('brief', UI_ICON.bot, 'Copy this thread as a brief for an agent')}
-        ${t.place.state !== 'anchored' ? `<button type="button" class="btn" data-size="sm" data-hover-shade data-a="attach" title="Select words on the page first">Attach to selection</button>` : ''}
+        ${t.place.state !== 'anchored' && !applied ? `<button type="button" class="btn" data-size="sm" data-hover-shade data-a="attach" title="Select words on the page first">Attach to selection</button>` : ''}
         <span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="reply" title="Reply (⌘↵)">Reply</button>
       </div>` : '';

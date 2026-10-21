@@ -31,15 +31,19 @@ function initLenses(app: App): void {
     const pick = usable.includes(lens) ? lens : 'notes';
     for (const b of btns) { const on = b.dataset.lens === pick; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; }
     for (const l of lenses) l.hidden = l.dataset.lens !== pick;
-    paint(() => { for (const b of btns) b.classList.toggle('on', b.dataset.lens === pick); fitBar(); });
+    // The open lens shows its name already; its tooltip would only sit over
+    // the lens's first row while the pointer rests where it clicked.
+    paint(() => { for (const b of btns) { const on = b.dataset.lens === pick; b.classList.toggle('on', on); b.title = on ? '' : b.dataset.hint ?? ''; b.setAttribute('aria-label', b.dataset.hint ?? ''); } fitBar(); });
     document.dispatchEvent(new CustomEvent('bfb-lens', { detail: pick }));
   };
-  // A narrow sidebar cannot hold every icon and the open lens's name, so the
-  // name goes first; the lens title below still says which lens is open.
+  // A narrow sidebar first squeezes the closed icons so the open lens keeps
+  // its name; only when even that does not fit does the name go.
   function fitBar(): void {
-    rail.classList.remove('tight');
-    const over = rail.scrollWidth > rail.clientWidth + 1;
-    rail.classList.toggle('tight', over);
+    rail.classList.remove('tight', 'tighter');
+    const over = () => rail.scrollWidth > rail.clientWidth + 1;
+    if (!over()) return;
+    rail.classList.add('tight');
+    if (over()) rail.classList.add('tighter');
   }
   new ResizeObserver(fitBar).observe(rail);
   // Each button holds its own highlight and only the open one shows it, so at
@@ -390,6 +394,9 @@ export function initSidebar(app: App): void {
     return [...byMeta, ...allNotes.filter(n => bodyHits.has(n.rel) && !byMeta.includes(n))];
   };
   function renderNotes(root: string): void {
+    // A refresh landing while a title is being renamed would replace the box
+    // under the cursor; the rename re-renders the list itself when it ends.
+    if (ntList.querySelector('.fe-nt-label.editing')) return;
     lensNotes.count = allNotes.length;
     lensNotes.tags = [...new Set(allNotes.flatMap(n => n.tags ?? []))];
     syncLens();
@@ -583,17 +590,22 @@ export function initSidebar(app: App): void {
         let now = rel;
         if (titled !== null) await notes.write(root, rel, titled, doc.mtime);
         else {
-          // No front matter: the title is the first line, so rewrite it, then
-          // give the file the matching name.
-          const lined = setFirstLine(doc.text, val);
-          if (lined !== null) await notes.write(root, rel, lined, doc.mtime);
+          // No front matter: the title is the first line. Give the file the
+          // matching name first, so a name already taken changes nothing.
           const to = rel.replace(/[^/]+$/, slugForTitle(val));
+          if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some(n => n.rel.toLowerCase() === to.toLowerCase())) {
+            toast(`A note named ${to.split('/').pop()} already exists. Pick another title.`);
+            renderNotes(root);
+            return;
+          }
           if (to !== rel) { await notes.rename(root, rel, to); now = to; }
+          const lined = setFirstLine(doc.text, val);
+          if (lined !== null) await notes.write(root, now, lined, doc.mtime);
         }
         refreshNotes();
         if (reopen) openNoteRel(root, now);
       }).catch((err: NotesError) => toast(err.message));
-    }, () => renderNotes(root));
+    }, () => { renderNotes(root); if (reopen) openNoteRel(root, rel); });
   }
   function deleteNote(root: string, rel: string): void {
     if (editingRel() === rel) discardEditor();
@@ -603,7 +615,16 @@ export function initSidebar(app: App): void {
   function openNoteRel(root: string, rel: string): void {
     const actions: NoteActions = {
       step: (r, dir) => stepNote(root, r, dir),
-      rename: r => { void saveEditor().then(() => renameNote(root, r, true)); },
+      // The editor's scrim covers the sidebar, so close the editor, rename in
+      // the list, then reopen the note. The bar acts on mousedown; wait for the
+      // rest of that click, which would otherwise land on the page under the
+      // closed editor and shut the rename box straight away.
+      rename: r => {
+        let started = false;
+        const start = () => { if (started) return; started = true; void saveEditor().then(() => { discardEditor(); renameNote(root, r, true); }); };
+        document.addEventListener('pointerup', () => setTimeout(start, 0), { once: true, capture: true });
+        setTimeout(start, 800);
+      },
       del: r => deleteNote(root, r),
     };
     notes.read(root, rel).then(doc => openNote(root, doc, refreshNotes, actions))

@@ -19,7 +19,8 @@ function extensionId(dir) {
 
 // Native host manifests live inside the user-data-dir for Chrome for Testing.
 // The host always runs through a launcher that keeps bfb-docs state (the
-// comments index, last known copies) inside the profile, never the owner's.
+// comments index, last known copies) and file backups inside the profile,
+// never the owner's.
 // With pickReply, the launcher also answers the system folder chooser with
 // that path, since a headless run has no dialog to click.
 function installNotesHost(profile, pickReply) {
@@ -29,6 +30,7 @@ function installNotesHost(profile, pickReply) {
   writeFileSync(hostPath, `#!/usr/bin/env python3
 import importlib.util, os
 os.environ['BFB_DOCS_HOME'] = ${JSON.stringify(docsHome(profile))}
+os.environ['BFB_BACKUP_DIR'] = ${JSON.stringify(join(profile, 'backups'))}
 spec = importlib.util.spec_from_file_location('notes_host', ${JSON.stringify(join(ROOT, 'native', 'notes_host.py'))})
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 ${pickReply ? `m.run_picker = lambda start, kind=None: ${JSON.stringify(pickReply)}` : ''}

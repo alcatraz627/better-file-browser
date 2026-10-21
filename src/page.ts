@@ -69,10 +69,8 @@ export function renderPage(p: PageParams): string {
     `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
   ).join('');
 
-  const lensHead = (title: string, icon: string, actions = '') =>
-    `<div class="fe-lens-h"><span class="fe-lens-ico">${icon}</span><span class="fe-lens-t"><b>${title}</b></span>${actions}</div>`;
   const railBtn = (lens: string, label: string, icon: string, hint: string, hidden = false) =>
-    `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}"${hidden ? ' hidden' : ''}>${icon}<em>${label}</em></button>`;
+    `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}" data-hint="${hint}"${hidden ? ' hidden' : ''}>${icon}<em>${label}</em></button>`;
 
 
   // Settings reads as a list of plain sentences: each row names the setting,
@@ -217,7 +215,6 @@ export function renderPage(p: PageParams): string {
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
-        ${lensHead('Places', PI.home)}
         <div class="fe-sec" data-sec="places">
         ${placesHTML(homeDir(rawPath), rawPath)}
         </div>
@@ -247,19 +244,15 @@ export function renderPage(p: PageParams): string {
       </div>
       </div>
       <div class="fe-lens" id="fe-lens-history" data-lens="history" role="tabpanel" aria-labelledby="fe-rail-history" hidden>
-        ${lensHead('History', PI.recent)}
         ${recentsHTML}
       </div>
       <div class="fe-lens" id="fe-lens-search" data-lens="search" role="tabpanel" aria-labelledby="fe-rail-search" hidden>
-        ${lensHead('Search', PI.search)}
         <div id="fe-srch"></div>
       </div>
       <div class="fe-lens" id="fe-lens-ask" data-lens="ask" role="tabpanel" aria-labelledby="fe-rail-ask" hidden>
-        ${lensHead('Ask', PI.ask)}
         <div id="fe-ask"></div>
       </div>
       <div class="fe-lens" id="fe-lens-comments" data-lens="comments" role="tabpanel" aria-labelledby="fe-rail-comments" hidden>
-        ${lensHead('Comments', UI_ICON.comment)}
         <div id="fe-docs-list"></div>
       </div>
       </div>

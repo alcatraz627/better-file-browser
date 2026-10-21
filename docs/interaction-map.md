@@ -92,6 +92,8 @@ panel when a note is opened as a reading tab.
 | sidebar right edge | drag to resize; the width persists |
 | crumb click / `⌥` / middle / `⌘` | go / background tab / browser tab |
 | crumb `▾` | dropdown of that folder; type to narrow, `Enter` opens the first |
+| `…` | folders folded for room, and the folders above `~` |
+| empty part of the bar | type a path: `Enter` goes in this tab, `Esc` restores; missing or unreadable paths are marked |
 | `★` | save or unsave the current place |
 | terminal | open here; `⇧`-click copies the command instead |
 | sun / moon | toggle the theme |
@@ -207,3 +209,14 @@ itself every couple of seconds and re-renders when the file changes on disk.
   view rather than opened.
 - There is no drag and drop to move or copy files; dragging reorders tabs and
   saved rows only.
+
+## Comments on markdown
+
+| Control | Action |
+|---|---|
+| select words, `c` | comment on them |
+| comments button (right of find) | show or hide the threads |
+| Reply, Done or Reopen, due, link, brief | on the open thread |
+| suggested edit: Accept | replace just the quoted words in the file, keep a backup, close the thread |
+| suggested edit: Reject | record the decision; the file is untouched |
+| Comments lens | every document with comments; filter, For me, Due, tag chips |

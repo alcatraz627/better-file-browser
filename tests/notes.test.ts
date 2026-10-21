@@ -50,7 +50,8 @@ describe('front matter', () => {
   it('setFirstLine retitles a note without front matter and keeps its heading marks', () => {
     expect(setFirstLine('# Old name\n\nbody\n', 'New $1')).toBe('# New $1\n\nbody\n');
     expect(setFirstLine('\n## Old\nx', 'N')).toBe('\n## N\nx');
-    expect(setFirstLine('plain first line\nmore', 'N')).toBe('N\nmore');
+    expect(setFirstLine('plain first line\nmore', 'N')).toBe('# N\n\nplain first line\nmore');
+    expect(setFirstLine('- [ ] buy milk\n- [ ] eggs', 'Groceries')).toBe('# Groceries\n\n- [ ] buy milk\n- [ ] eggs');
     expect(setFirstLine('', 'N')).toBeNull();
     expect(setFirstLine('  \n', 'N')).toBeNull();
     expect(noteTitle('a.md', setFirstLine('# Old\nbody', 'Fresh title')!)).toBe('Fresh title');

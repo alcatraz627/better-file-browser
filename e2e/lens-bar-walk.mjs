@@ -41,8 +41,9 @@ try {
   });
   check(bar.above && bar.row && bar.onWide && bar.label === '1', `the lens bar is one row on top and the open lens is wide with its name: ${JSON.stringify(bar)}`);
   check(['places', 'saved', 'notes', 'history', 'search', 'ask', 'comments'].every(l => bar.lenses.includes(l)), `Saved, Notes and Comments are lenses of their own: ${bar.lenses.join(',')}`);
-  const title = await page.evaluate(() => { const h = document.querySelector('#fe-lens-places .fe-lens-h'); return { icon: !!h.querySelector('.fe-lens-ico svg'), text: h.textContent.trim() }; });
-  check(title.icon && title.text === 'Places', `the lens title has its icon: ${JSON.stringify(title)}`);
+  // The open lens button already names the lens, so no lens repeats its name below the bar.
+  const repeats = await page.evaluate(() => [...document.querySelectorAll('#fe-lenses .fe-lens')].filter(l => l.querySelector('.fe-lens-h, .fe-lens-t')).map(l => l.dataset.lens));
+  check(!repeats.length, `no lens repeats its name under the bar: ${repeats.join(',') || 'none'}`);
   await page.screenshot({ path: join(SHOTS, `lens-bar${sfx}.png`), clip: { x: 0, y: 0, width: 420, height: 500 } });
 
   // Every lens name fits when its lens is open, even the longest.
@@ -50,8 +51,9 @@ try {
   for (const l of bar.lenses) {
     await page.click(`#fe-rail-${l}`);
     await sleep(350);
-    const fit = await page.$eval(`#fe-rail-${l} em`, e => ({ t: e.textContent, fits: e.scrollWidth <= e.clientWidth + 1, inBar: e.closest('.fe-rail-btn').getBoundingClientRect().right <= document.getElementById('fe-rail').getBoundingClientRect().right + 1 }));
-    if (!fit.fits || !fit.inBar) clipped.push(fit.t);
+    // A hidden label has no width, so "fits" alone cannot fail; it must also be drawn.
+    const fit = await page.$eval(`#fe-rail-${l} em`, e => ({ t: e.textContent, drawn: getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 8, fits: e.scrollWidth <= e.clientWidth + 1, inBar: e.closest('.fe-rail-btn').getBoundingClientRect().right <= document.getElementById('fe-rail').getBoundingClientRect().right + 1 }));
+    if (!fit.drawn || !fit.fits || !fit.inBar) clipped.push(fit.t);
   }
   check(!clipped.length, `every lens name shows whole when open: ${clipped.join(',') || 'none clipped'}`);
   await page.click('#fe-rail-places');

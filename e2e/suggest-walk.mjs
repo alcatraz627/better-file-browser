@@ -31,6 +31,8 @@ We ship on Friday after the smoke run.
 The lens rail could slip by a week.
 
 Old wording that will vanish.
+
+Drop this sentence entirely.
 `;
   writeFileSync(doc, text);
   await h.store.edit('bfb-settings-v1', s => ({ ...s, editableFolders: [h.fixture] }));
@@ -38,6 +40,7 @@ Old wording that will vanish.
   const take = cli('--as', 'bfb', 'comments', 'suggest', doc, '--quote', 'could slip by a week', '--replace', 'might slip a few days', 'softer').results[0].thread;
   const keep = cli('--as', 'bfb', 'comments', 'suggest', doc, '--quote', 'after the smoke run', '--replace', 'once the suite is green', 'clearer').results[0].thread;
   const gone = cli('--as', 'bfb', 'comments', 'suggest', doc, '--quote', 'Old wording that will vanish', '--replace', 'New wording', 'reword').results[0].thread;
+  const drop = cli('--as', 'bfb', 'comments', 'suggest', doc, '--quote', 'Drop this sentence entirely.', '--replace', '', 'cut it').results[0].thread;
   writeFileSync(doc, text.replace('Old wording that will vanish.\n', ''));
 
   const page = await h.open();
@@ -90,6 +93,18 @@ Old wording that will vanish.
   check(readFileSync(doc, 'utf8') === after && kp.comments.some(c => c.suggestion?.state === 'rejected'), 'Reject records the decision and leaves the file alone');
   const shownState = await page.$eval(`#fe-cm .fe-cm-th[data-id="${keep}"] .fe-cm-sug-state`, s => s.textContent.trim()).catch(() => '');
   check(shownState === 'Rejected', `a decided suggestion says so: "${shownState}"`);
+
+  // An accepted deletion reads as done, not as a lost comment.
+  await pick(drop);
+  await page.click(`#fe-cm .fe-cm-th[data-id="${drop}"] [data-a="accept"]`);
+  await sleep(900);
+  await page.click(`#fe-cm [data-f="all"]`).catch(() => {});
+  await sleep(300);
+  await page.click(`#fe-cm .fe-cm-th[data-id="${drop}"] .fe-cm-q`).catch(() => {});
+  await sleep(300);
+  const dropped = await page.$eval(`#fe-cm .fe-cm-th[data-id="${drop}"]`, t => ({ text: t.textContent, attach: !!t.querySelector('[data-a="attach"]') })).catch(() => null);
+  check(!readFileSync(doc, 'utf8').includes('Drop this sentence') && dropped && !/No longer in the file/.test(dropped.text) && !dropped.attach && /removed/.test(dropped.text),
+    `an accepted deletion removes the words and reads as done, with no detached warning: ${dropped && dropped.text.replace(/\s+/g, ' ').slice(0, 160)}`);
 
   // The detached one: Accept is there but disabled.
   await page.click(`#fe-cm [data-f="all"]`).catch(() => {});
