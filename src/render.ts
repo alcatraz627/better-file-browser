@@ -1,6 +1,6 @@
 import type { Entry, IconRule, Place, Settings, Tag, TipData } from './types';
 import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, fileHref } from './utils';
-import { getIcon, icoFile, IMG_EXTS, PI, CHEVRON_DOWN } from './icons';
+import { getIcon, icoFile, IMG_EXTS, PI, CHEVRON_DOWN, CHEVRON_RIGHT } from './icons';
 import { groupByTag, filterSaved, samePlace } from './places';
 import { isViewPath } from './find';
 import { canPreview } from './preview';
@@ -154,13 +154,18 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
   }).join('');
 }
 
-export function renderCrumbs(rawPath: string, segments: string[]): string {
+// The path bar: one crumb per folder, each followed by a chevron that is both
+// the separator and a menu of what that folder holds. The current folder's
+// chevron points down, since nothing follows it unless a file does. Middle
+// crumbs fold into a "…" menu when the bar runs out of room (fitCrumbs in chrome.ts).
+export function renderCrumbs(rawPath: string, segments: string[], trailing = false): string {
   const crumbs = [{ label: '/', href: 'file:///' }];
   let acc = '/';
   for (const seg of segments) { acc += seg + '/'; crumbs.push({ label: seg, href: fileHref(acc) }); }
-  return crumbs.map((c, i) =>
-    `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a>` +
-    `<button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">${CHEVRON_DOWN}</button>` +
-    (i < crumbs.length - 1 ? `<span class="fe-sep">›</span>` : '')
-  ).join('');
+  return crumbs.map((c, i) => {
+    const last = i === crumbs.length - 1, where = esc(decodeURIComponent(c.href.slice(7)));
+    const end = last && !trailing;
+    return `<span class="fe-cg" data-i="${i}"><a href="${esc(c.href)}" class="fe-crumb${end ? ' cur' : ''}" title="Go to ${where}">${esc(c.label)}</a>` +
+      `<button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
+  }).join('');
 }

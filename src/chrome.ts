@@ -59,18 +59,53 @@ export function initChrome(app: App): void {
   const crumbMenu = el('fe-crumb-menu');
   let crumbMenuUrl: string | null = null;
   function closeCrumbMenu(): void { crumbMenu.style.display = 'none'; crumbMenuUrl = null; }
-  el('fe-bc').addEventListener('click', async e => {
+  const bc = el('fe-bc'), more = el('fe-crumb-more');
+  const openCrumbMenu = (btn: HTMLElement, key: string, html: string) => {
+    const rect = btn.getBoundingClientRect();
+    crumbMenu.style.left    = Math.min(rect.left, window.innerWidth - 260) + 'px';
+    crumbMenu.style.top     = (rect.bottom + 4) + 'px';
+    crumbMenu.style.display = 'block';
+    crumbMenu.innerHTML     = html;
+    crumbMenuUrl = key;
+  };
+  // Fold middle folders into "…" until the path fits: first the ones between
+  // the top folder and the last two, then those too, so the current folder
+  // is the last to go. Measured, so a path that fits never folds.
+  const fitCrumbs = () => {
+    const groups = [...bc.querySelectorAll<HTMLElement>('.fe-cg')];
+    groups.forEach(g => { g.hidden = false; });
+    more.hidden = true;
+    const n = groups.length, order: number[] = [];
+    for (let i = 2; i < n - 2; i++) order.push(i);
+    for (const i of [1, n - 2]) if (i > 0 && i < n - 1 && !order.includes(i)) order.push(i);
+    for (const i of order) {
+      if (bc.scrollWidth <= bc.clientWidth) break;
+      groups[i].hidden = true;
+      more.hidden = false;
+    }
+    const first = groups.find(g => g.hidden);
+    if (first) first.before(more);
+  };
+  fitCrumbs();
+  new ResizeObserver(() => { closeCrumbMenu(); fitCrumbs(); }).observe(bc);
+  bc.addEventListener('click', async e => {
+    if ((e.target as HTMLElement).closest('#fe-crumb-more')) {
+      e.preventDefault(); e.stopPropagation();
+      if (crumbMenu.style.display !== 'none' && crumbMenuUrl === 'more') { closeCrumbMenu(); return; }
+      const hid = [...bc.querySelectorAll<HTMLAnchorElement>('.fe-cg[hidden] .fe-crumb')];
+      openCrumbMenu(more, 'more', `<div class="fe-dd-items">${hid.map(a => {
+        const href = a.getAttribute('href')!, name = a.textContent!;
+        const icon = getIcon({ name, href, isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: '' }, app.iconRules);
+        return `<a href="${esc(href)}" class="fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon}<span>${esc(name)}</span></a>`;
+      }).join('')}</div>`);
+      return;
+    }
     const btn = (e.target as HTMLElement).closest<HTMLElement>('.fe-crumb-dd');
     if (!btn) return;
     e.preventDefault(); e.stopPropagation();
     const url = btn.dataset.url!;
     if (crumbMenu.style.display !== 'none' && crumbMenuUrl === url) { closeCrumbMenu(); return; }
-    const rect = btn.getBoundingClientRect();
-    crumbMenu.style.left    = Math.min(rect.left, window.innerWidth - 260) + 'px';
-    crumbMenu.style.top     = (rect.bottom + 4) + 'px';
-    crumbMenu.style.display = 'block';
-    crumbMenu.innerHTML     = '<div class="fe-dd-spinner">Loading…</div>';
-    crumbMenuUrl = url;
+    openCrumbMenu(btn, url, '<div class="fe-dd-spinner">Loading…</div>');
 
     const text = await fetchFileText(url)
       .catch(err => { console.error('[BFB] crumb dropdown failed:', url, err); return null; });
@@ -109,7 +144,7 @@ export function initChrome(app: App): void {
     }
   });
   document.addEventListener('click', e => {
-    if (!crumbMenu.contains(e.target as Node) && !(e.target as HTMLElement).classList.contains('fe-crumb-dd'))
+    if (!crumbMenu.contains(e.target as Node) && !(e.target as HTMLElement).closest('.fe-crumb-dd,#fe-crumb-more'))
       closeCrumbMenu();
   });
 

@@ -89,7 +89,17 @@ body{opacity:1!important}
 #fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0}
 .fe-crumb{color:var(--mt);text-decoration:none;padding:2px 5px;border-radius:4px;
   font-size:var(--fs-md);flex-shrink:0;transition:background .1s,color .1s}
-.fe-crumb:last-of-type{color:var(--tx);font-weight:500}
+.fe-cg{display:inline-flex;align-items:center;flex-shrink:0;min-width:0}
+.fe-cg[hidden]{display:none}
+.fe-crumb.cur{color:var(--tx);font-weight:500}
+/* The current folder and a file name keep their full width while middle
+   folders fold; past that they shorten, but never below a readable share. */
+.fe-crumb.cur,.fe-crumb-file{flex-shrink:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-cg:has(.cur){flex-shrink:0;max-width:45%}
+.fe-cg:has(.cur) .fe-crumb.cur{max-width:100%}
+.fe-crumb-more{flex:none;background:none;border:0;color:var(--mt);cursor:pointer;font:inherit;font-size:var(--fs-md);padding:2px 6px;border-radius:4px;line-height:1}
+#fe-bar .fe-crumb-more[hidden]{display:none}
+.fe-crumb-more:hover{background:var(--hover);color:var(--tx)}
 .fe-crumb:hover{background:var(--hover);color:var(--tx)}
 .fe-sep{color:var(--dm);font-size:var(--fs-sm);flex-shrink:0;padding:0 1px}
 #fe-bar .fe-crumb-dd{background:none;border:none;color:var(--dm);cursor:pointer;
@@ -1353,9 +1363,8 @@ button.fe-si{width:auto;display:flex}
 .fe-dlg-pane .fe-st-select{min-width:150px}
 .fe-st-ai-why{margin-top:6px}
 .fe-st-ai-why > summary{cursor:pointer;color:var(--ac)}
-#fe-bar .fe-crumb-dd{opacity:0}
-#fe-bc:hover .fe-crumb-dd,#fe-bc:focus-within .fe-crumb-dd{opacity:.45}
-#fe-bar .fe-crumb-dd:hover{opacity:1}
+#fe-bar .fe-crumb-dd{opacity:1;color:var(--dm);padding:3px 1px}
+#fe-bar .fe-crumb-dd:hover{color:var(--tx)}
 #fe-statusbar{min-width:0;overflow:hidden;white-space:nowrap}
 #fe[data-theme="light"] .fe-set-sw:nth-child(1) .fe-set-sw-chip{--b:#eaf0f2;--a:#0e8f8a}
 #fe[data-theme="light"] .fe-set-sw:nth-child(2) .fe-set-sw-chip{--b:#f0f0f5;--a:#6d4aff}

@@ -1110,6 +1110,7 @@ ${body}`;
     lock: "#8b949e"
   };
   var IMG_EXTS = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "avif", "bmp"]);
+  var CHEVRON_RIGHT = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m4.5 2.5 3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var CHEVRON_DOWN = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3 3.5-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var SPECIAL_FOLDERS = /* @__PURE__ */ new Set([
     "Desktop",
@@ -3907,7 +3908,17 @@ body{opacity:1!important}
 #fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0}
 .fe-crumb{color:var(--mt);text-decoration:none;padding:2px 5px;border-radius:4px;
   font-size:var(--fs-md);flex-shrink:0;transition:background .1s,color .1s}
-.fe-crumb:last-of-type{color:var(--tx);font-weight:500}
+.fe-cg{display:inline-flex;align-items:center;flex-shrink:0;min-width:0}
+.fe-cg[hidden]{display:none}
+.fe-crumb.cur{color:var(--tx);font-weight:500}
+/* The current folder and a file name keep their full width while middle
+   folders fold; past that they shorten, but never below a readable share. */
+.fe-crumb.cur,.fe-crumb-file{flex-shrink:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-cg:has(.cur){flex-shrink:0;max-width:45%}
+.fe-cg:has(.cur) .fe-crumb.cur{max-width:100%}
+.fe-crumb-more{flex:none;background:none;border:0;color:var(--mt);cursor:pointer;font:inherit;font-size:var(--fs-md);padding:2px 6px;border-radius:4px;line-height:1}
+#fe-bar .fe-crumb-more[hidden]{display:none}
+.fe-crumb-more:hover{background:var(--hover);color:var(--tx)}
 .fe-crumb:hover{background:var(--hover);color:var(--tx)}
 .fe-sep{color:var(--dm);font-size:var(--fs-sm);flex-shrink:0;padding:0 1px}
 #fe-bar .fe-crumb-dd{background:none;border:none;color:var(--dm);cursor:pointer;
@@ -5171,9 +5182,8 @@ button.fe-si{width:auto;display:flex}
 .fe-dlg-pane .fe-st-select{min-width:150px}
 .fe-st-ai-why{margin-top:6px}
 .fe-st-ai-why > summary{cursor:pointer;color:var(--ac)}
-#fe-bar .fe-crumb-dd{opacity:0}
-#fe-bc:hover .fe-crumb-dd,#fe-bc:focus-within .fe-crumb-dd{opacity:.45}
-#fe-bar .fe-crumb-dd:hover{opacity:1}
+#fe-bar .fe-crumb-dd{opacity:1;color:var(--dm);padding:3px 1px}
+#fe-bar .fe-crumb-dd:hover{color:var(--tx)}
 #fe-statusbar{min-width:0;overflow:hidden;white-space:nowrap}
 #fe[data-theme="light"] .fe-set-sw:nth-child(1) .fe-set-sw-chip{--b:#eaf0f2;--a:#0e8f8a}
 #fe[data-theme="light"] .fe-set-sw:nth-child(2) .fe-set-sw-chip{--b:#f0f0f5;--a:#6d4aff}
@@ -15133,16 +15143,18 @@ seconds and re-renders when the file changes on disk.
     </details>`;
     }).join("");
   }
-  function renderCrumbs(rawPath, segments) {
+  function renderCrumbs(rawPath, segments, trailing = false) {
     const crumbs = [{ label: "/", href: "file:///" }];
     let acc = "/";
     for (const seg of segments) {
       acc += seg + "/";
       crumbs.push({ label: seg, href: fileHref(acc) });
     }
-    return crumbs.map(
-      (c, i) => `<a href="${esc(c.href)}" class="fe-crumb" title="Go to ${esc(decodeURIComponent(c.href.slice(7)))}">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="Browse ${esc(c.href)}">${CHEVRON_DOWN}</button>` + (i < crumbs.length - 1 ? `<span class="fe-sep">\u203A</span>` : "")
-    ).join("");
+    return crumbs.map((c, i) => {
+      const last = i === crumbs.length - 1, where = esc(decodeURIComponent(c.href.slice(7)));
+      const end = last && !trailing;
+      return `<span class="fe-cg" data-i="${i}"><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where}">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
+    }).join("");
   }
 
   // src/page.ts
@@ -15289,7 +15301,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 
   <div id="fe-bar">
     <button id="fe-side-toggle" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
-    <div id="fe-bc">${renderCrumbs(folderPath, segments)}${fileMode ? `<span class="fe-sep">\u203A</span><span class="fe-crumb fe-crumb-file">${esc(fileName)}</span>` : ""}</div>
+    <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode)}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ""}<button id="fe-crumb-more" class="fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>\u2026</button></div>
     <button id="fe-term-btn" data-icon title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
     <button id="fe-bm-btn" data-icon class="${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
       ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? "currentColor" : "none"}"/>`)}
@@ -15569,7 +15581,53 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       crumbMenu.style.display = "none";
       crumbMenuUrl = null;
     }
-    el("fe-bc").addEventListener("click", async (e) => {
+    const bc = el("fe-bc"), more = el("fe-crumb-more");
+    const openCrumbMenu = (btn, key, html) => {
+      const rect = btn.getBoundingClientRect();
+      crumbMenu.style.left = Math.min(rect.left, window.innerWidth - 260) + "px";
+      crumbMenu.style.top = rect.bottom + 4 + "px";
+      crumbMenu.style.display = "block";
+      crumbMenu.innerHTML = html;
+      crumbMenuUrl = key;
+    };
+    const fitCrumbs = () => {
+      const groups = [...bc.querySelectorAll(".fe-cg")];
+      groups.forEach((g) => {
+        g.hidden = false;
+      });
+      more.hidden = true;
+      const n = groups.length, order = [];
+      for (let i = 2; i < n - 2; i++) order.push(i);
+      for (const i of [1, n - 2]) if (i > 0 && i < n - 1 && !order.includes(i)) order.push(i);
+      for (const i of order) {
+        if (bc.scrollWidth <= bc.clientWidth) break;
+        groups[i].hidden = true;
+        more.hidden = false;
+      }
+      const first = groups.find((g) => g.hidden);
+      if (first) first.before(more);
+    };
+    fitCrumbs();
+    new ResizeObserver(() => {
+      closeCrumbMenu();
+      fitCrumbs();
+    }).observe(bc);
+    bc.addEventListener("click", async (e) => {
+      if (e.target.closest("#fe-crumb-more")) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (crumbMenu.style.display !== "none" && crumbMenuUrl === "more") {
+          closeCrumbMenu();
+          return;
+        }
+        const hid = [...bc.querySelectorAll(".fe-cg[hidden] .fe-crumb")];
+        openCrumbMenu(more, "more", `<div class="fe-dd-items">${hid.map((a) => {
+          const href = a.getAttribute("href"), name = a.textContent;
+          const icon2 = getIcon({ name, href, isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: "" }, app.iconRules);
+          return `<a href="${esc(href)}" class="fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon2}<span>${esc(name)}</span></a>`;
+        }).join("")}</div>`);
+        return;
+      }
       const btn = e.target.closest(".fe-crumb-dd");
       if (!btn) return;
       e.preventDefault();
@@ -15579,12 +15637,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         closeCrumbMenu();
         return;
       }
-      const rect = btn.getBoundingClientRect();
-      crumbMenu.style.left = Math.min(rect.left, window.innerWidth - 260) + "px";
-      crumbMenu.style.top = rect.bottom + 4 + "px";
-      crumbMenu.style.display = "block";
-      crumbMenu.innerHTML = '<div class="fe-dd-spinner">Loading\u2026</div>';
-      crumbMenuUrl = url;
+      openCrumbMenu(btn, url, '<div class="fe-dd-spinner">Loading\u2026</div>');
       const text = await fetchFileText(url).catch((err) => {
         console.error("[BFB] crumb dropdown failed:", url, err);
         return null;
@@ -15626,7 +15679,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
     });
     document.addEventListener("click", (e) => {
-      if (!crumbMenu.contains(e.target) && !e.target.classList.contains("fe-crumb-dd"))
+      if (!crumbMenu.contains(e.target) && !e.target.closest(".fe-crumb-dd,#fe-crumb-more"))
         closeCrumbMenu();
     });
     const side = el("fe-side");

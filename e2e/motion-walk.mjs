@@ -13,9 +13,9 @@ try {
     { path: h.fixture + '/readme.md', label: 'Three', tags: ['work'] },
   ]);
   const page = await h.open();
-  await page.click('#fe-rail-notes');
+  await page.click('#fe-rail-saved');
   await sleep(20);
-  const lensAnim = await page.$eval('#fe-lens-notes', e => e.getAnimations().map(a => a.animationName));
+  const lensAnim = await page.$eval('#fe-lens-saved', e => e.getAnimations().map(a => a.animationName));
   check(lensAnim.includes('fe-lens-in'), `the picked lens slides in: ${lensAnim}`);
   await sleep(300);
 
