@@ -2,10 +2,11 @@
 // dropdown that lists a parent folder in place.
 import type { App } from './app';
 import { el } from './el';
-import { esc, pageHref, copyToClipboard } from './utils';
+import { esc, pageHref, fileHref, copyToClipboard } from './utils';
 import { kvGet, kvSet } from './kv';
 import { getIcon } from './icons';
-import { THEME_KEY, TERMINAL_CMDS, saveSettings } from './storage';
+import { THEME_KEY, TERMINAL_CMDS, saveSettings, homeDir, getRecents } from './storage';
+import { absPath, resolvePath } from './goto';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { setSidebarShown } from './motion';
@@ -71,23 +72,66 @@ export function initChrome(app: App): void {
   // Fold middle folders into "…" until the path fits: first the ones between
   // the top folder and the last two, then those too, so the current folder
   // is the last to go. Measured, so a path that fits never folds.
+  // Folders above home ("~") start folded and never count as room to win.
   const fitCrumbs = () => {
     const groups = [...bc.querySelectorAll<HTMLElement>('.fe-cg')];
-    groups.forEach(g => { g.hidden = false; });
+    const pre = groups.filter(g => g.hasAttribute('data-pre')).length;
+    groups.forEach((g, i) => { g.hidden = i < pre; });
     more.hidden = true;
     const n = groups.length, order: number[] = [];
-    for (let i = 2; i < n - 2; i++) order.push(i);
-    for (const i of [1, n - 2]) if (i > 0 && i < n - 1 && !order.includes(i)) order.push(i);
+    for (let i = pre + 2; i < n - 2; i++) order.push(i);
+    for (const i of [pre + 1, n - 2]) if (i > pre && i < n - 1 && !order.includes(i)) order.push(i);
     for (const i of order) {
       if (bc.scrollWidth <= bc.clientWidth) break;
       groups[i].hidden = true;
       more.hidden = false;
     }
-    const first = groups.find(g => g.hidden);
+    const first = groups.find((g, i) => g.hidden && i >= pre);
     if (first) first.before(more);
   };
   fitCrumbs();
   new ResizeObserver(() => { closeCrumbMenu(); fitCrumbs(); }).observe(bc);
+  // Click an empty part of the bar to type a path, like an address bar:
+  // Enter goes there in this tab, Esc or a click elsewhere puts the folders back.
+  const home = homeDir(app.rawPath);
+  let edit: HTMLFormElement | null = null;
+  const endEdit = () => {
+    if (!edit) return;
+    edit.remove(); edit = null;
+    bc.hidden = false;
+    fitCrumbs();
+  };
+  const startEdit = () => {
+    if (edit) return;
+    closeCrumbMenu();
+    const shown = home && (app.rawPath === home || app.rawPath.startsWith(home + '/')) ? '~' + app.rawPath.slice(home.length) : app.rawPath;
+    edit = document.createElement('form');
+    edit.id = 'fe-bc-edit';
+    edit.innerHTML = `<input type="text" list="fe-bc-recent" spellcheck="false" autocomplete="off" aria-label="Path to a file or folder" title="Enter goes there · Esc cancels">
+      <datalist id="fe-bc-recent">${getRecents().slice(0, 30).map(r => `<option value="${esc(r.path)}"></option>`).join('')}</datalist>`;
+    bc.after(edit);
+    bc.hidden = true;
+    const input = edit.querySelector('input')!;
+    input.value = shown;
+    input.focus(); input.select();
+    input.addEventListener('blur', () => setTimeout(() => { if (edit && !edit.contains(document.activeElement)) endEdit(); }, 120));
+    input.addEventListener('keydown', ke => {
+      if (ke.key === 'Escape') { ke.preventDefault(); ke.stopPropagation(); endEdit(); }
+    });
+    edit.addEventListener('submit', async se => {
+      se.preventDefault();
+      const path = absPath(input.value, home);
+      if (!path) { input.setAttribute('aria-invalid', 'true'); toast('Type a full path, such as ~/Code or /Users/you/notes.md'); return; }
+      const found = await resolvePath(path);
+      if (!found) { input.setAttribute('aria-invalid', 'true'); toast(`Nothing at ${path}`); return; }
+      if (found.replace(/\/$/, '') === app.rawPath.replace(/\/$/, '')) { endEdit(); return; }
+      location.href = pageHref(fileHref(found));
+    });
+    input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
+  };
+  bc.title = 'Click an empty part of the bar to type a path';
+  bc.addEventListener('click', e => { if (e.target === bc) startEdit(); });
+
   bc.addEventListener('click', async e => {
     if ((e.target as HTMLElement).closest('#fe-crumb-more')) {
       e.preventDefault(); e.stopPropagation();

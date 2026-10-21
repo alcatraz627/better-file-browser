@@ -187,7 +187,7 @@ export function renderPage(p: PageParams): string {
 
   <div id="fe-bar">
     <button id="fe-side-toggle" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
-    <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode)}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ''}<button id="fe-crumb-more" class="fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>…</button></div>
+    <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ''}<button id="fe-crumb-more" class="fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>…</button></div>
     <button id="fe-term-btn" data-icon title="Open in terminal (${settings.terminalApp || 'ghostty'}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
     <button id="fe-bm-btn" data-icon class="${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? `Remove this ${fileMode ? 'file' : 'folder'} from Saved` : `Save this ${fileMode ? 'file' : 'folder'} (sidebar)`}">
       ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? 'currentColor' : 'none'}"/>`)}

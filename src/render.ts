@@ -163,14 +163,19 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
 // the separator and a menu of what that folder holds. The current folder's
 // chevron points down, since nothing follows it unless a file does. Middle
 // crumbs fold into a "…" menu when the bar runs out of room (fitCrumbs in chrome.ts).
-export function renderCrumbs(rawPath: string, segments: string[], trailing = false): string {
+// Inside your home folder the path starts at "~": the folders above it stay in
+// the bar, folded from the start, so the "…" menu still reaches them.
+export function renderCrumbs(rawPath: string, segments: string[], trailing = false, home = ''): string {
   const crumbs = [{ label: '/', href: 'file:///' }];
   let acc = '/';
   for (const seg of segments) { acc += seg + '/'; crumbs.push({ label: seg, href: fileHref(acc) }); }
+  const homeAt = home && (acc === home + '/' || acc.startsWith(home + '/')) ? home.split('/').length - 1 : -1;
   return crumbs.map((c, i) => {
     const last = i === crumbs.length - 1, where = esc(decodeURIComponent(c.href.slice(7)));
     const end = last && !trailing;
-    return `<span class="fe-cg" data-i="${i}"><a href="${esc(c.href)}" class="fe-crumb${end ? ' cur' : ''}" title="Go to ${where}">${esc(c.label)}</a>` +
+    const label = i === homeAt ? '~' : c.label;
+    const pre = i < homeAt ? ' data-pre hidden' : '';
+    return `<span class="fe-cg" data-i="${i}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? ' cur' : ''}" title="Go to ${where}">${esc(label)}</a>` +
       `<button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
   }).join('');
 }

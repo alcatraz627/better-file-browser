@@ -3943,11 +3943,19 @@ html,body{height:100%;background:var(--bg);color:var(--tx);
   font:var(--fs-lg)/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
 body{opacity:1!important}
 #fe{display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--tx)}
-#fe-bar{display:flex;align-items:center;gap:6px;padding:8px 14px;
-  background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:42px}
-#fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0}
+#fe-bar{display:flex;align-items:center;gap:6px;padding:4px 12px;
+  background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:36px;box-sizing:border-box}
+#fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0;align-self:stretch;cursor:text}
+#fe-bc[hidden]{display:none}
+#fe-bc > *{cursor:default}
+#fe-bc-edit{flex:1;min-width:0;display:flex}
+#fe-bc-edit input{flex:1;min-width:0;height:26px;box-sizing:border-box;padding:0 8px;border:1px solid color-mix(in srgb,var(--ac) 70%,var(--bd2));border-radius:var(--row-r);
+  background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md);outline:0}
+#fe-bc-edit input[aria-invalid]{border-color:var(--nc-red)}
+/* A long folder name (a hash, a generated id) shortens so the path around it stays readable. */
 .fe-crumb{color:var(--mt);text-decoration:none;padding:2px 5px;border-radius:4px;
-  font-size:var(--fs-md);flex-shrink:0;transition:background .1s,color .1s}
+  font-size:var(--fs-md);flex-shrink:0;transition:background .1s,color .1s;
+  max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .fe-cg{display:inline-flex;align-items:center;flex-shrink:0;min-width:0}
 .fe-cg[hidden]{display:none}
 .fe-crumb.cur{color:var(--tx);font-weight:500}
@@ -15336,17 +15344,20 @@ seconds and re-renders when the file changes on disk.
     </details>`;
     }).join("");
   }
-  function renderCrumbs(rawPath, segments, trailing = false) {
+  function renderCrumbs(rawPath, segments, trailing = false, home = "") {
     const crumbs = [{ label: "/", href: "file:///" }];
     let acc = "/";
     for (const seg of segments) {
       acc += seg + "/";
       crumbs.push({ label: seg, href: fileHref(acc) });
     }
+    const homeAt = home && (acc === home + "/" || acc.startsWith(home + "/")) ? home.split("/").length - 1 : -1;
     return crumbs.map((c, i) => {
       const last = i === crumbs.length - 1, where = esc(decodeURIComponent(c.href.slice(7)));
       const end = last && !trailing;
-      return `<span class="fe-cg" data-i="${i}"><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where}">${esc(c.label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
+      const label = i === homeAt ? "~" : c.label;
+      const pre = i < homeAt ? " data-pre hidden" : "";
+      return `<span class="fe-cg" data-i="${i}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where}">${esc(label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
     }).join("");
   }
 
@@ -15494,7 +15505,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 
   <div id="fe-bar">
     <button id="fe-side-toggle" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
-    <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode)}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ""}<button id="fe-crumb-more" class="fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>\u2026</button></div>
+    <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ""}<button id="fe-crumb-more" class="fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>\u2026</button></div>
     <button id="fe-term-btn" data-icon title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
     <button id="fe-bm-btn" data-icon class="${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
       ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? "currentColor" : "none"}"/>`)}
@@ -15707,6 +15718,110 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     return [...root.querySelectorAll(selector)];
   }
 
+  // src/goto.ts
+  var LAST_KEY = "bfb-goto-last-v1";
+  function absPath(input, home) {
+    let p = input.trim().replace(/^['"]|['"]$/g, "");
+    if (!p) return null;
+    if (/^file:\/\//i.test(p)) {
+      try {
+        p = decodeURIComponent(new URL(p).pathname);
+      } catch {
+        return null;
+      }
+    }
+    if (p === "~" || p.startsWith("~/")) {
+      if (!home) return null;
+      p = home + p.slice(1);
+    }
+    return p.startsWith("/") ? p : null;
+  }
+  async function resolvePath(path) {
+    const clean = path.replace(/\/+$/, "");
+    if (!clean) return "/";
+    const parent = clean.slice(0, clean.lastIndexOf("/") + 1) || "/";
+    const name = clean.slice(clean.lastIndexOf("/") + 1);
+    let listing;
+    const dir = fileHref(parent);
+    try {
+      listing = await fetchFileText(dir);
+    } catch {
+      if (parent === "/") return path;
+      return await resolvePath(parent) === null ? null : path;
+    }
+    const hit = parseListing(listing, dir).find((e) => e.name === name);
+    return hit ? clean + (hit.isDir ? "/" : "") : null;
+  }
+  function mountGoto(btn, home, go) {
+    let box = null;
+    const close = () => {
+      if (!box) return;
+      kvSet(LAST_KEY, box.querySelector("input").value);
+      box.remove();
+      box = null;
+      document.removeEventListener("pointerdown", away, true);
+      btn.classList.remove("on");
+    };
+    const away = (e) => {
+      if (box && !box.contains(e.target) && !btn.contains(e.target)) close();
+    };
+    const open = () => {
+      box = document.createElement("form");
+      box.id = "fe-goto";
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-label", "Go to a path");
+      const recents = getRecents().slice(0, 30);
+      box.innerHTML = `<input type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
+      <datalist id="fe-goto-list">${recents.map((r2) => `<option value="${esc(r2.path)}"></option>`).join("")}</datalist>
+      <p class="fe-goto-msg" hidden></p>`;
+      document.getElementById("fe").appendChild(box);
+      const r = btn.getBoundingClientRect();
+      box.style.top = `${r.bottom + 6}px`;
+      box.style.left = `${Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8))}px`;
+      const input = box.querySelector("input");
+      input.value = kvGet(LAST_KEY) ?? "";
+      input.focus();
+      input.select();
+      btn.classList.add("on");
+      const say = (text) => {
+        const msg = box.querySelector(".fe-goto-msg");
+        msg.hidden = false;
+        msg.textContent = text;
+      };
+      box.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const path = absPath(input.value, home());
+        if (!path) {
+          say("Paste a full path, such as ~/Code or /Users/you/notes.md");
+          return;
+        }
+        kvSet(LAST_KEY, input.value);
+        const found = await resolvePath(path);
+        if (!found) {
+          say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
+          return;
+        }
+        close();
+        go(found);
+      });
+      box.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          close();
+          btn.focus();
+        }
+      });
+      input.addEventListener("input", () => kvSet(LAST_KEY, input.value));
+      document.addEventListener("pointerdown", away, true);
+    };
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (box) close();
+      else open();
+    });
+  }
+
   // src/motion.ts
   var reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
   var EASE = "cubic-bezier(.2,.8,.2,1)";
@@ -15787,19 +15902,20 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     const fitCrumbs = () => {
       const groups = [...bc.querySelectorAll(".fe-cg")];
-      groups.forEach((g) => {
-        g.hidden = false;
+      const pre = groups.filter((g) => g.hasAttribute("data-pre")).length;
+      groups.forEach((g, i) => {
+        g.hidden = i < pre;
       });
       more.hidden = true;
       const n = groups.length, order = [];
-      for (let i = 2; i < n - 2; i++) order.push(i);
-      for (const i of [1, n - 2]) if (i > 0 && i < n - 1 && !order.includes(i)) order.push(i);
+      for (let i = pre + 2; i < n - 2; i++) order.push(i);
+      for (const i of [pre + 1, n - 2]) if (i > pre && i < n - 1 && !order.includes(i)) order.push(i);
       for (const i of order) {
         if (bc.scrollWidth <= bc.clientWidth) break;
         groups[i].hidden = true;
         more.hidden = false;
       }
-      const first = groups.find((g) => g.hidden);
+      const first = groups.find((g, i) => g.hidden && i >= pre);
       if (first) first.before(more);
     };
     fitCrumbs();
@@ -15807,6 +15923,65 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       closeCrumbMenu();
       fitCrumbs();
     }).observe(bc);
+    const home = homeDir(app.rawPath);
+    let edit2 = null;
+    const endEdit = () => {
+      if (!edit2) return;
+      edit2.remove();
+      edit2 = null;
+      bc.hidden = false;
+      fitCrumbs();
+    };
+    const startEdit = () => {
+      if (edit2) return;
+      closeCrumbMenu();
+      const shown = home && (app.rawPath === home || app.rawPath.startsWith(home + "/")) ? "~" + app.rawPath.slice(home.length) : app.rawPath;
+      edit2 = document.createElement("form");
+      edit2.id = "fe-bc-edit";
+      edit2.innerHTML = `<input type="text" list="fe-bc-recent" spellcheck="false" autocomplete="off" aria-label="Path to a file or folder" title="Enter goes there \xB7 Esc cancels">
+      <datalist id="fe-bc-recent">${getRecents().slice(0, 30).map((r) => `<option value="${esc(r.path)}"></option>`).join("")}</datalist>`;
+      bc.after(edit2);
+      bc.hidden = true;
+      const input = edit2.querySelector("input");
+      input.value = shown;
+      input.focus();
+      input.select();
+      input.addEventListener("blur", () => setTimeout(() => {
+        if (edit2 && !edit2.contains(document.activeElement)) endEdit();
+      }, 120));
+      input.addEventListener("keydown", (ke) => {
+        if (ke.key === "Escape") {
+          ke.preventDefault();
+          ke.stopPropagation();
+          endEdit();
+        }
+      });
+      edit2.addEventListener("submit", async (se) => {
+        se.preventDefault();
+        const path = absPath(input.value, home);
+        if (!path) {
+          input.setAttribute("aria-invalid", "true");
+          toast("Type a full path, such as ~/Code or /Users/you/notes.md");
+          return;
+        }
+        const found = await resolvePath(path);
+        if (!found) {
+          input.setAttribute("aria-invalid", "true");
+          toast(`Nothing at ${path}`);
+          return;
+        }
+        if (found.replace(/\/$/, "") === app.rawPath.replace(/\/$/, "")) {
+          endEdit();
+          return;
+        }
+        location.href = pageHref(fileHref(found));
+      });
+      input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
+    };
+    bc.title = "Click an empty part of the bar to type a path";
+    bc.addEventListener("click", (e) => {
+      if (e.target === bc) startEdit();
+    });
     bc.addEventListener("click", async (e) => {
       if (e.target.closest("#fe-crumb-more")) {
         e.preventDefault();
@@ -19048,109 +19223,6 @@ ${rows.join("\n")}`, name: subject };
     root.addEventListener("pointerdown", hide, true);
     root.addEventListener("scroll", hide, true);
     document.addEventListener("keydown", hide, true);
-  }
-
-  // src/goto.ts
-  var LAST_KEY = "bfb-goto-last-v1";
-  function absPath(input, home) {
-    let p = input.trim().replace(/^['"]|['"]$/g, "");
-    if (!p) return null;
-    if (/^file:\/\//i.test(p)) {
-      try {
-        p = decodeURIComponent(new URL(p).pathname);
-      } catch {
-        return null;
-      }
-    }
-    if (p === "~" || p.startsWith("~/")) {
-      if (!home) return null;
-      p = home + p.slice(1);
-    }
-    return p.startsWith("/") ? p : null;
-  }
-  async function resolvePath(path) {
-    const clean = path.replace(/\/+$/, "");
-    if (!clean) return "/";
-    const parent = clean.slice(0, clean.lastIndexOf("/") + 1) || "/";
-    const name = clean.slice(clean.lastIndexOf("/") + 1);
-    let listing;
-    const dir = fileHref(parent);
-    try {
-      listing = await fetchFileText(dir);
-    } catch {
-      return path;
-    }
-    const hit = parseListing(listing, dir).find((e) => e.name === name);
-    return hit ? clean + (hit.isDir ? "/" : "") : null;
-  }
-  function mountGoto(btn, home, go) {
-    let box = null;
-    const close = () => {
-      if (!box) return;
-      kvSet(LAST_KEY, box.querySelector("input").value);
-      box.remove();
-      box = null;
-      document.removeEventListener("pointerdown", away, true);
-      btn.classList.remove("on");
-    };
-    const away = (e) => {
-      if (box && !box.contains(e.target) && !btn.contains(e.target)) close();
-    };
-    const open = () => {
-      box = document.createElement("form");
-      box.id = "fe-goto";
-      box.setAttribute("role", "dialog");
-      box.setAttribute("aria-label", "Go to a path");
-      const recents = getRecents().slice(0, 30);
-      box.innerHTML = `<input type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
-      <datalist id="fe-goto-list">${recents.map((r2) => `<option value="${esc(r2.path)}"></option>`).join("")}</datalist>
-      <p class="fe-goto-msg" hidden></p>`;
-      document.getElementById("fe").appendChild(box);
-      const r = btn.getBoundingClientRect();
-      box.style.top = `${r.bottom + 6}px`;
-      box.style.left = `${Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8))}px`;
-      const input = box.querySelector("input");
-      input.value = kvGet(LAST_KEY) ?? "";
-      input.focus();
-      input.select();
-      btn.classList.add("on");
-      const say = (text) => {
-        const msg = box.querySelector(".fe-goto-msg");
-        msg.hidden = false;
-        msg.textContent = text;
-      };
-      box.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const path = absPath(input.value, home());
-        if (!path) {
-          say("Paste a full path, such as ~/Code or /Users/you/notes.md");
-          return;
-        }
-        kvSet(LAST_KEY, input.value);
-        const found = await resolvePath(path);
-        if (!found) {
-          say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
-          return;
-        }
-        close();
-        go(found);
-      });
-      box.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          close();
-          btn.focus();
-        }
-      });
-      input.addEventListener("input", () => kvSet(LAST_KEY, input.value));
-      document.addEventListener("pointerdown", away, true);
-    };
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (box) close();
-      else open();
-    });
   }
 
   // src/docs-lens.ts

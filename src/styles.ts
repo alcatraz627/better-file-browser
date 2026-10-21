@@ -84,11 +84,19 @@ html,body{height:100%;background:var(--bg);color:var(--tx);
   font:var(--fs-lg)/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
 body{opacity:1!important}
 #fe{display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--tx)}
-#fe-bar{display:flex;align-items:center;gap:6px;padding:8px 14px;
-  background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:42px}
-#fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0}
+#fe-bar{display:flex;align-items:center;gap:6px;padding:4px 12px;
+  background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:36px;box-sizing:border-box}
+#fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0;align-self:stretch;cursor:text}
+#fe-bc[hidden]{display:none}
+#fe-bc > *{cursor:default}
+#fe-bc-edit{flex:1;min-width:0;display:flex}
+#fe-bc-edit input{flex:1;min-width:0;height:26px;box-sizing:border-box;padding:0 8px;border:1px solid color-mix(in srgb,var(--ac) 70%,var(--bd2));border-radius:var(--row-r);
+  background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md);outline:0}
+#fe-bc-edit input[aria-invalid]{border-color:var(--nc-red)}
+/* A long folder name (a hash, a generated id) shortens so the path around it stays readable. */
 .fe-crumb{color:var(--mt);text-decoration:none;padding:2px 5px;border-radius:4px;
-  font-size:var(--fs-md);flex-shrink:0;transition:background .1s,color .1s}
+  font-size:var(--fs-md);flex-shrink:0;transition:background .1s,color .1s;
+  max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .fe-cg{display:inline-flex;align-items:center;flex-shrink:0;min-width:0}
 .fe-cg[hidden]{display:none}
 .fe-crumb.cur{color:var(--tx);font-weight:500}

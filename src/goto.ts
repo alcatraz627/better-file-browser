@@ -29,8 +29,10 @@ export function absPath(input: string, home: string): string | null {
 
 /** The path as the strip names it (a folder ends in /), or null when nothing
  *  is there. Read from the parent folder's listing, so a large file is never
- *  read. When the listing cannot be read at all, the path is kept as typed:
- *  "nothing there" is only said after looking. */
+ *  read. When the parent cannot be listed, the folders above it are checked
+ *  instead: a missing ancestor means nothing is there, and an unreadable but
+ *  real one keeps the path as typed, since "nothing there" is only said after
+ *  looking. */
 export async function resolvePath(path: string): Promise<string | null> {
   const clean = path.replace(/\/+$/, '');
   if (!clean) return '/';
@@ -38,7 +40,10 @@ export async function resolvePath(path: string): Promise<string | null> {
   const name = clean.slice(clean.lastIndexOf('/') + 1);
   let listing: string;
   const dir = fileHref(parent);
-  try { listing = await fetchFileText(dir); } catch { return path; }
+  try { listing = await fetchFileText(dir); } catch {
+    if (parent === '/') return path;
+    return (await resolvePath(parent)) === null ? null : path;
+  }
   const hit = parseListing(listing, dir).find(e => e.name === name);
   return hit ? clean + (hit.isDir ? '/' : '') : null;
 }
