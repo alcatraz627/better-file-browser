@@ -32,7 +32,7 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
   const f: DocFilter = { q: '', me: false, due: false, tag: '' };
   box.innerHTML = `<div class="fe-docs-top" hidden>
       <input id="fe-docs-q" class="tb" data-size="lg" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
-      <div class="fe-lens-tags"><button type="button" class="fe-chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="fe-chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
+      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
     </div><div class="fe-docs-rows"></div>`;
   const top = box.querySelector<HTMLElement>('.fe-docs-top')!, rowsBox = box.querySelector<HTMLElement>('.fe-docs-rows')!;
   const input = box.querySelector<HTMLInputElement>('#fe-docs-q')!;
@@ -48,7 +48,7 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
     const tags = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([g]) => g);
     if (f.tag && !tags.includes(f.tag)) tags.push(f.tag);
     const tagBox = top.querySelector<HTMLElement>('.fe-docs-tags')!;
-    const tagHtml = tags.map(g => `<button type="button" class="fe-chip fe-lens-tag${f.tag === g ? ' on' : ''}" data-tag="${esc(g)}" title="Only documents with a thread tagged #${esc(g)}">#${esc(g)}</button>`).join('');
+    const tagHtml = tags.map(g => `<button type="button" class="chip fe-lens-tag${f.tag === g ? ' on' : ''}" data-tag="${esc(g)}" title="Only documents with a thread tagged #${esc(g)}">#${esc(g)}</button>`).join('');
     if (tagBox.innerHTML !== tagHtml) tagBox.innerHTML = tagHtml;   // a chip under the pointer stays the same node
     const list = docRows(all, f);
     if (!usable.length) {
@@ -61,7 +61,7 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
         <span class="fe-doc-tx"><span class="fe-doc-name">${midHtml(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
         ${forMe(r) ? `<span class="fe-doc-me" title="Mentions you">${UI_ICON.at}</span>` : ''}
         ${r.due?.length ? `<span class="fe-doc-due" title="Due ${esc(r.due[0])}">${esc(due(r.due[0]))}</span>` : ''}
-        <span class="fe-doc-n${r.open ? '' : ' done'}" title="${r.open} open, ${r.done} done">${r.open || UI_ICON.check}</span>
+        <span class="badge fe-doc-n" data-tone="${r.open ? 'solid' : 'quiet'}" title="${r.open} open, ${r.done} done">${r.open || UI_ICON.check}</span>
       </button>`).join('');
   };
   const load = () => notes.docsIndex().then(rows => { all = rows.map(r => ({ ...r, doc: browsedPath(r.doc) })); paint(); }).catch(err => {

@@ -74,7 +74,8 @@ function buttonPaint(css) {
   let n = 0;
   for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const sels = m[1].split(',').map(s => s.trim()).filter(Boolean);
-    const hit = sels.filter(s => !s.includes('::') && !TAB_BACKING.test(s) && (OLD_BUTTONS.test(s) || CONTEXT_BTN.test(s)));
+    // A .btn inside :has() only says what the element holds; the rule styles the holder.
+    const hit = sels.filter(s => !s.includes('::') && !TAB_BACKING.test(s) && (OLD_BUTTONS.test(s) || CONTEXT_BTN.test(s.replace(/:has\([^)]*\)/g, ''))));
     if (hit.length) n += m[2].split(';').filter(d => PAINT.test(d)).length;
   }
   return n;

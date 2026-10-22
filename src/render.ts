@@ -19,7 +19,7 @@ export interface RenderContext {
 
 function commentBadge(e: Entry, ctx: RenderContext): string {
   const n = e.isDir || e.isParent ? 0 : ctx.openComments?.(e.name) ?? 0;
-  return n ? `<span class="fe-row-cm" title="${n} open comment${n === 1 ? '' : 's'}">${UI_ICON.comment}${n}</span>` : '';
+  return n ? `<span class="badge fe-row-cm" title="${n} open comment${n === 1 ? '' : 's'}">${UI_ICON.comment}${n}</span>` : '';
 }
 
 // Tags as chips. A tag's colour tints its outline, so the eye can group by
@@ -34,8 +34,8 @@ function tagChips(e: Entry, ctx: RenderContext): string {
   const rest = tags.slice(shown.length);
   if (!tags.length) return '';
   return '<div class="fe-chips">' + shown.map(t =>
-    `<span class="fe-chip" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}">${esc(t.name)}</span>`).join('')
-    + (rest.length ? `<span class="fe-chip fe-chip-more" title="Also tagged: ${esc(rest.map(t => t.name).join(', '))}">+${rest.length}</span>` : '') + '</div>';
+    `<span class="chip" data-size="sm" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}">${esc(t.name)}</span>`).join('')
+    + (rest.length ? `<span class="chip fe-chip-more" data-size="sm" title="Also tagged: ${esc(rest.map(t => t.name).join(', '))}">+${rest.length}</span>` : '') + '</div>';
 }
 
 export function buildTipData(e: Entry, ctx: RenderContext): string {
@@ -86,7 +86,7 @@ export function renderRow(e: Entry, ctx: RenderContext, idx = -1, hit?: ContentH
              data-name="${esc(e.name.toLowerCase())}"
              data-idx="${idx}"
              ${e.isParent ? '' : `data-tip="${esc(tipData)}"`}>
-    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span>${commentBadge(e, ctx)}</a>${hit ? renderHitSnippet(hit) + `<span class="fe-find-badge">${hit.count}</span>` : ''}${itemActions(e, ctx.rawPath)}</td>
+    <td class="c-nm"><a href="${esc(e.href)}" class="fe-lnk">${getIcon(e, ctx.iconRules)}<span class="fe-nm">${esc(e.isParent ? 'Parent Directory' : e.name)}</span>${commentBadge(e, ctx)}</a>${hit ? renderHitSnippet(hit) + `<span class="badge fe-find-badge">${hit.count}</span>` : ''}${itemActions(e, ctx.rawPath)}</td>
     <td class="c-tp">${fmtType(e)}</td>
     <td class="c-tg">${tagChips(e, ctx)}</td>
     <td class="c-sz">${e.isDir ? '—' : fmtSize(e.rawBytes)}</td>
@@ -107,7 +107,7 @@ export function renderTile(e: Entry, ctx: RenderContext, idx = -1, hit?: Content
             data-tip="${esc(tipData)}">
     <span class="fe-tile-ic">${iconHtml}</span>
     <span class="fe-tile-nm">${esc(e.isParent ? '..' : e.name)}</span>
-    ${hit ? `<span class="fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ''}
+    ${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ''}
     ${!e.isDir && !e.isParent ? `<span class="fe-tile-sz">${fmtSize(e.rawBytes)}</span>` : ''}
     ${e.isParent ? '' : `<span class="fe-tile-meta"><span class="fe-tile-tp">${fmtType(e)}</span><span class="fe-tile-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</span><span class="fe-tile-tags">${tagChips(e, ctx)}${commentBadge(e, ctx)}</span></span>`}
     ${itemActions(e, ctx.rawPath)}

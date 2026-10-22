@@ -6,6 +6,7 @@
 // under a root, once; the check box and switch are native and need no wiring.
 import { esc } from './utils';
 import { CHEVRON_DOWN } from './icons';
+import { UI_ICON } from './control-icons';
 import { openLayer, rovingFocus } from './layer';
 
 export interface Opt { value: string; label?: string; icon?: string; hint?: string; group?: string }
@@ -171,9 +172,9 @@ function upgradeChips(host: HTMLElement): void {
   let items: string[] = [];
   const paint = () => {
     host.dataset.value = items.join(', ');   // readable from outside this script, like the dropdown's
-    host.querySelectorAll('.fe-chip-x').forEach(c => c.remove());
+    host.querySelectorAll('.chip').forEach(c => c.remove());
     input.insertAdjacentHTML('beforebegin', items.map((t, i) =>
-      `<span class="fe-chip-x">${esc(t)}<button type="button" data-i="${i}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">×</button></span>`).join(''));
+      `<span class="chip" data-fill data-mono><span>${esc(t)}</span><button type="button" class="btn" data-icon data-size="xs" data-tone="danger" data-i="${i}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">${UI_ICON.close}</button></span>`).join(''));
   };
   const commit = () => {
     const add = input.value.split(/[,\s]+/).map(x => x.trim()).filter(Boolean);
@@ -193,7 +194,7 @@ function upgradeChips(host: HTMLElement): void {
   input.addEventListener('blur', commit);
   input.addEventListener('change', e => e.stopPropagation());
   host.addEventListener('click', e => {
-    const b = (e.target as Element).closest<HTMLElement>('.fe-chip-x button');
+    const b = (e.target as Element).closest<HTMLElement>('.chip button');
     if (b) { items.splice(Number(b.dataset.i), 1); paint(); fire(host); input.focus(); }
     else if (e.target === host) input.focus();
   });

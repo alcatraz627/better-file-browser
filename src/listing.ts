@@ -108,7 +108,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       const hit = ls.contentHits?.get(en.href);
       rows.push(`<div class="fe-tree-row${en.isHidden ? ' dotfile' : ''}${en.isDir ? ' dir' : ''}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
         ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? 'Collapse' : 'Expand'} ${esc(name)}" aria-expanded="${expanded}">${CHEVRON_DOWN}</button>` : '<span class="fe-tree-spacer"></span>'}
-        <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ''}
+        <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ''}
       </div>`);
       if (!en.isDir || !expanded) return;
       if (treeLoading.has(en.href)) { rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Loading…</div>`); return; }

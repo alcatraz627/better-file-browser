@@ -207,12 +207,8 @@ body{opacity:1!important}
 .fe-doc-me{display:inline-flex;color:var(--ac)}
 .fe-doc-me svg{width:13px;height:13px}
 .fe-doc-due{font-size:var(--fs-sm);color:var(--tx);padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--nc-orange) 16%,transparent)}
-.fe-doc-n{min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;display:inline-grid;place-items:center;font-size:var(--fs-xs);background:var(--ac);color:var(--tx-on-ac)}
-.fe-doc-n.done{background:var(--s2);color:var(--dm)}
-.fe-doc-n svg{width:10px;height:10px}
-.fe-row-cm{flex:none;display:inline-flex;align-items:center;gap:3px;padding:0 6px;height:18px;border-radius:999px;vertical-align:middle;
-  font-size:var(--fs-xs);color:var(--tx);background:color-mix(in srgb,var(--ac) 16%,transparent)}
-.fe-row-cm svg{width:11px;height:11px}
+.fe-doc-n{flex:none}
+.fe-row-cm{flex:none}
 #fe-side-rz{width:5px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .12s}
 #fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
 .fe-sec{margin-bottom:4px}
@@ -259,9 +255,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-lens-filter[hidden],.fe-lens-tags[hidden]{display:none}
 .fe-proxy-filter{display:none!important}
 .fe-lens-tags{display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 8px}
-.fe-lens-tag{cursor:pointer;background:none;font:inherit;font-size:var(--fs-sm)}
-.fe-lens-tag:hover{background:var(--hover)}
-.fe-lens-tag.on{background:color-mix(in srgb,var(--chip) 22%,transparent);color:var(--tx)}
 .fe-grp{margin:4px 8px;background:var(--s2);border-radius:10px;padding:0 0 4px}
 .fe-grp:not([open]){padding-bottom:0}
 .fe-grp > summary{list-style:none;cursor:pointer;padding:7px 8px 5px}
@@ -348,18 +341,16 @@ th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
 td.c-tg{white-space:nowrap;overflow:hidden}
 /* Named chips give up width (ending in …) before the +N count does. */
-.fe-chips{display:flex;min-width:0;overflow:hidden}
-.fe-chips .fe-chip{display:block;flex:0 1 auto;min-width:28px;overflow:hidden;text-overflow:ellipsis;line-height:16px}
+.fe-chips{display:flex;gap:var(--sp-2);min-width:0;overflow:hidden}
+.fe-chips .chip{display:block;flex:0 1 auto;min-width:28px;overflow:hidden;text-overflow:ellipsis;line-height:16px}
 .fe-chips .fe-chip-more{flex:none;min-width:0}
-.fe-chip{display:inline-flex;align-items:center;height:18px;padding:0 7px;margin-right:4px;border:1px solid color-mix(in srgb,var(--chip,var(--bd2)) 55%,transparent);
-  border-radius:9px;font-size:var(--fs-sm);color:var(--mt);line-height:1}
 .c-match{display:none;text-align:right;width:72px;color:var(--dm)}
 #fe.fe-has-find-hits[data-view="details"] .c-match{display:table-cell}
 #fe.fe-has-find-hits[data-view="details"] .c-nm{width:42%}
 #fe.fe-has-find-hits[data-view="details"] .c-dt{width:19%}
 .fe-find-snippet{display:block;color:var(--dm);font-size:var(--fs-sm);margin:3px 0 1px 22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-find-snippet mark{background:var(--ac);color:var(--bg);border-radius:2px;padding:0 1px}
-.fe-find-badge{display:inline-block;color:var(--ac);border:1px solid var(--bd);border-radius:8px;padding:0 5px;font-size:var(--fs-xs);margin-left:22px}
+.fe-find-badge{margin-left:22px}
 #fe-find-error{color:#f85149;font-size:var(--fs-sm)}
 #fe[data-view="details"] .fe-row .fe-find-badge{display:none}
 tbody tr{border-bottom:1px solid var(--bg);transition:background .08s}
@@ -835,10 +826,6 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-sug-msg{display:flex;gap:6px;align-items:flex-start;margin:6px 0 0;font-size:var(--fs-sm);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));line-height:1.4}
 .fe-cm-sug-msg svg{flex:none;width:13px;height:13px;margin-top:2px}
 .fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
-.fe-cm-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;font-size:var(--fs-sm);background:var(--s2);color:var(--mt)}
-.fe-cm-chip svg{width:11px;height:11px}
-.fe-cm-chip.due{background:color-mix(in srgb,var(--nc-orange) 16%,transparent);color:var(--tx)}
-.fe-cm-chip.done{background:color-mix(in srgb,var(--nc-green) 16%,transparent);color:var(--tx)}
 .fe-cm-note{margin:0 2px 8px;font-size:var(--fs-sm);color:var(--dm);line-height:1.4}
 .fe-cm-empty{padding:22px 6px 18px;text-align:center;color:var(--tx);font-size:var(--fs-md);line-height:1.5}
 .fe-cm-empty p{margin:0}
@@ -987,12 +974,6 @@ button.fe-chip-title{display:flex;align-items:center;gap:6px;text-align:left;cur
 button.fe-chip-title:hover{border-color:var(--ac)}
 button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
 textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.35;min-height:28px}
-.fe-chip,.fe-chip-btn{display:inline-flex;align-items:center;gap:5px}
-.fe-chip{border:1px solid var(--bd);border-radius:999px;padding:1px 4px 1px 8px;font-size:var(--fs-sm);color:var(--mt);background:var(--bg)}
-.fe-chip svg,.fe-chip-btn svg{flex:none;width:12px;height:12px}
-.fe-chip-static{padding-right:8px}
-.fe-chip-x{background:none;border:0;color:var(--dm);cursor:pointer;display:grid;place-items:center;padding:2px;border-radius:50%}
-.fe-chip-x:hover{color:var(--ac)}
 .fe-cdot{flex:none}
 .fe-pmenu{position:fixed;z-index:2147483000;width:250px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:6px}
 .fe-pmenu .btn{justify-content:flex-start}
@@ -1332,8 +1313,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-lens-depth.on{color:var(--ac);border-color:color-mix(in srgb,var(--ac) 45%,transparent);background:color-mix(in srgb,var(--ac) 12%,var(--bg))}
 #fe-lens-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 #fe-lens-tags .fe-lens-tag{flex:none;white-space:nowrap}
-.fe-lens-tag{display:inline-flex;align-items:center;gap:5px}
-.fe-lens-tag i{width:6px;height:6px;border-radius:50%;flex:none}
 /* A saved row is one quiet line: the name, then a tag count that gives way to
    the row's icon buttons on hover. Path and tags live in the hover card. */
 .fe-pl-meta{display:inline-flex;align-items:center;gap:2px;margin-left:auto;padding-right:2px;flex:none;font-size:var(--fs-xs);color:var(--dm)}
@@ -1522,8 +1501,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .dot.down,.dot.unavailable{background:var(--nc-red)}
 .fe-ask-ib{position:relative}
 
-.fe-ask-n{position:absolute;top:1px;right:0;min-width:14px;height:14px;padding:0 3px;border-radius:999px;font-size:10px;line-height:14px;text-align:center;background:var(--ac);color:var(--tx-on-ac)}
-.fe-ask-n:empty{display:none}
+.fe-ask-n{position:absolute;top:1px;right:0}
 .fe-ask-status{display:flex;align-items:center;gap:8px;margin:0 16px 8px;font-size:var(--fs-sm);line-height:1.4;color:var(--mt)}
 .fe-ask-status[hidden]{display:none}
 .fe-ask-cloud{display:flex;align-items:center;gap:6px;margin:0 16px 8px;font-size:var(--fs-sm);color:var(--mt)}
@@ -1542,8 +1520,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-empty[hidden]{display:none}
 .fe-ask-empty p{margin:0}
 .fe-ask-quick{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
-.fe-ask-chip{cursor:pointer;background:none;font:inherit;font-size:var(--fs-md)}
-.fe-ask-chip:hover{background:var(--hover)}
 .fe-ask-form{position:sticky;bottom:0;margin-top:auto;padding:8px 10px 10px;background:linear-gradient(to bottom,transparent,var(--side) 14px)}
 .fe-ask-box{display:flex;flex-direction:column;gap:4px;padding:8px 8px 6px 10px;border:1px solid var(--bd2);border-radius:14px;background:var(--bg);transition:border-color var(--t-fast) var(--ease)}
 .fe-ask-box:focus-within{border-color:var(--ac)}

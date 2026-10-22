@@ -189,7 +189,7 @@ export function initSidebar(app: App): void {
     const home = homeDir(rawPath);
     const where = isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path;
     card.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? '~' + where.slice(home.length) : where)}</span>`
-      + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags!.map(t => `<span class="fe-chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? '#8b949e')}"></i>${esc(t)}</span>`).join('')}</span>` : '')
+      + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags!.map(t => `<span class="chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? '#8b949e')}"></i>${esc(t)}</span>`).join('')}</span>` : '')
       + `<span class="fe-svc-hint">Double-click to rename · drag to reorder</span>`;
     const r = item.getBoundingClientRect();
     card.hidden = false;
@@ -255,7 +255,7 @@ export function initSidebar(app: App): void {
     const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap(p => p.tags ?? []))].sort();
     const on = box.value.trim().toLowerCase();
     row.hidden = !names.length;
-    row.innerHTML = names.map(n => `<button type="button" class="fe-chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? '#8b949e')}"></i>${esc(n)}</button>`).join('');
+    row.innerHTML = names.map(n => `<button type="button" class="chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? '#8b949e')}"></i>${esc(n)}</button>`).join('');
   }
   const foldedGroups = getFoldedGroups;
   app.refreshSaved = refreshSaved;

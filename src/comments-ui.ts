@@ -282,9 +282,9 @@ export function mountComments(o: {
     const quote = visibleOf(t.place.state === 'moved' && t.place.offset !== null ? o.text().slice(t.place.offset, t.place.offset + t.place.length) : t.anchor.exact);
     const x = (a: string, v: string, label: string) => on ? `<button type="button" class="btn fe-cm-x" data-icon data-size="xs" data-a="${a}" data-v="${esc(v)}" aria-label="${esc(label)}" title="${esc(label)}">${UI_ICON.close}</button>` : '';
     const chips = [
-      ...(t.tags ?? []).map(g => `<span class="fe-cm-chip">#${esc(g)}${x('untag', g, `Remove tag ${g}`)}</span>`),
-      t.due ? `<span class="fe-cm-chip due">${UI_ICON.clock}${esc(dueLabel(t.due))}${x('undue', '', 'Clear the due date')}</span>` : '',
-      t.status === 'done' ? `<span class="fe-cm-chip done">Done</span>` : '',
+      ...(t.tags ?? []).map(g => `<span class="chip fe-cm-chip" data-fill data-tone="quiet">#${esc(g)}${x('untag', g, `Remove tag ${g}`)}</span>`),
+      t.due ? `<span class="chip fe-cm-chip" data-fill data-tone="due">${UI_ICON.clock}${esc(dueLabel(t.due))}${x('undue', '', 'Clear the due date')}</span>` : '',
+      t.status === 'done' ? `<span class="chip fe-cm-chip" data-fill data-tone="done">Done</span>` : '',
     ].join('');
     const cs = t.comments.map(c => {
       const mine = on && c.author.kind === 'human' && !c.deleted;

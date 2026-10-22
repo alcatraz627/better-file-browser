@@ -25,9 +25,9 @@ try {
   await page.evaluate(() => document.getElementById('fe-theme-btn').click());
   // Leave only .pdf: remove every other chip with its × button.
   for (let i = 0; i < 6; i++) {
-    const other = await page.$$eval('#fe-st-excluded-exts .fe-chip-x', chips => chips.findIndex(c => !c.textContent.startsWith('.pdf')));
+    const other = await page.$$eval('#fe-st-excluded-exts .chip', chips => chips.findIndex(c => !c.textContent.startsWith('.pdf')));
     if (other < 0) break;
-    await page.$$eval('#fe-st-excluded-exts .fe-chip-x button', (bs, j) => bs[j].click(), other);
+    await page.$$eval('#fe-st-excluded-exts .chip button', (bs, j) => bs[j].click(), other);
   }
   assert.equal(await page.$eval('#fe-st-excluded-exts', host => host.dataset.value), '.pdf');
   const source = await h.browser.newPage();

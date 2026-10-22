@@ -209,12 +209,8 @@ body{opacity:1!important}
 .fe-doc-me{display:inline-flex;color:var(--ac)}
 .fe-doc-me svg{width:13px;height:13px}
 .fe-doc-due{font-size:var(--fs-sm);color:var(--tx);padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--nc-orange) 16%,transparent)}
-.fe-doc-n{min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;display:inline-grid;place-items:center;font-size:var(--fs-xs);background:var(--ac);color:var(--tx-on-ac)}
-.fe-doc-n.done{background:var(--s2);color:var(--dm)}
-.fe-doc-n svg{width:10px;height:10px}
-.fe-row-cm{flex:none;display:inline-flex;align-items:center;gap:3px;padding:0 6px;height:18px;border-radius:999px;vertical-align:middle;
-  font-size:var(--fs-xs);color:var(--tx);background:color-mix(in srgb,var(--ac) 16%,transparent)}
-.fe-row-cm svg{width:11px;height:11px}
+.fe-doc-n{flex:none}
+.fe-row-cm{flex:none}
 #fe-side-rz{width:5px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .12s}
 #fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
 .fe-sec{margin-bottom:4px}
@@ -261,9 +257,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-lens-filter[hidden],.fe-lens-tags[hidden]{display:none}
 .fe-proxy-filter{display:none!important}
 .fe-lens-tags{display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 8px}
-.fe-lens-tag{cursor:pointer;background:none;font:inherit;font-size:var(--fs-sm)}
-.fe-lens-tag:hover{background:var(--hover)}
-.fe-lens-tag.on{background:color-mix(in srgb,var(--chip) 22%,transparent);color:var(--tx)}
 .fe-grp{margin:4px 8px;background:var(--s2);border-radius:10px;padding:0 0 4px}
 .fe-grp:not([open]){padding-bottom:0}
 .fe-grp > summary{list-style:none;cursor:pointer;padding:7px 8px 5px}
@@ -350,18 +343,16 @@ th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
 td.c-tg{white-space:nowrap;overflow:hidden}
 /* Named chips give up width (ending in \u2026) before the +N count does. */
-.fe-chips{display:flex;min-width:0;overflow:hidden}
-.fe-chips .fe-chip{display:block;flex:0 1 auto;min-width:28px;overflow:hidden;text-overflow:ellipsis;line-height:16px}
+.fe-chips{display:flex;gap:var(--sp-2);min-width:0;overflow:hidden}
+.fe-chips .chip{display:block;flex:0 1 auto;min-width:28px;overflow:hidden;text-overflow:ellipsis;line-height:16px}
 .fe-chips .fe-chip-more{flex:none;min-width:0}
-.fe-chip{display:inline-flex;align-items:center;height:18px;padding:0 7px;margin-right:4px;border:1px solid color-mix(in srgb,var(--chip,var(--bd2)) 55%,transparent);
-  border-radius:9px;font-size:var(--fs-sm);color:var(--mt);line-height:1}
 .c-match{display:none;text-align:right;width:72px;color:var(--dm)}
 #fe.fe-has-find-hits[data-view="details"] .c-match{display:table-cell}
 #fe.fe-has-find-hits[data-view="details"] .c-nm{width:42%}
 #fe.fe-has-find-hits[data-view="details"] .c-dt{width:19%}
 .fe-find-snippet{display:block;color:var(--dm);font-size:var(--fs-sm);margin:3px 0 1px 22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-find-snippet mark{background:var(--ac);color:var(--bg);border-radius:2px;padding:0 1px}
-.fe-find-badge{display:inline-block;color:var(--ac);border:1px solid var(--bd);border-radius:8px;padding:0 5px;font-size:var(--fs-xs);margin-left:22px}
+.fe-find-badge{margin-left:22px}
 #fe-find-error{color:#f85149;font-size:var(--fs-sm)}
 #fe[data-view="details"] .fe-row .fe-find-badge{display:none}
 tbody tr{border-bottom:1px solid var(--bg);transition:background .08s}
@@ -837,10 +828,6 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-sug-msg{display:flex;gap:6px;align-items:flex-start;margin:6px 0 0;font-size:var(--fs-sm);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));line-height:1.4}
 .fe-cm-sug-msg svg{flex:none;width:13px;height:13px;margin-top:2px}
 .fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
-.fe-cm-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;font-size:var(--fs-sm);background:var(--s2);color:var(--mt)}
-.fe-cm-chip svg{width:11px;height:11px}
-.fe-cm-chip.due{background:color-mix(in srgb,var(--nc-orange) 16%,transparent);color:var(--tx)}
-.fe-cm-chip.done{background:color-mix(in srgb,var(--nc-green) 16%,transparent);color:var(--tx)}
 .fe-cm-note{margin:0 2px 8px;font-size:var(--fs-sm);color:var(--dm);line-height:1.4}
 .fe-cm-empty{padding:22px 6px 18px;text-align:center;color:var(--tx);font-size:var(--fs-md);line-height:1.5}
 .fe-cm-empty p{margin:0}
@@ -989,12 +976,6 @@ button.fe-chip-title{display:flex;align-items:center;gap:6px;text-align:left;cur
 button.fe-chip-title:hover{border-color:var(--ac)}
 button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
 textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.35;min-height:28px}
-.fe-chip,.fe-chip-btn{display:inline-flex;align-items:center;gap:5px}
-.fe-chip{border:1px solid var(--bd);border-radius:999px;padding:1px 4px 1px 8px;font-size:var(--fs-sm);color:var(--mt);background:var(--bg)}
-.fe-chip svg,.fe-chip-btn svg{flex:none;width:12px;height:12px}
-.fe-chip-static{padding-right:8px}
-.fe-chip-x{background:none;border:0;color:var(--dm);cursor:pointer;display:grid;place-items:center;padding:2px;border-radius:50%}
-.fe-chip-x:hover{color:var(--ac)}
 .fe-cdot{flex:none}
 .fe-pmenu{position:fixed;z-index:2147483000;width:250px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:6px}
 .fe-pmenu .btn{justify-content:flex-start}
@@ -1334,8 +1315,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-lens-depth.on{color:var(--ac);border-color:color-mix(in srgb,var(--ac) 45%,transparent);background:color-mix(in srgb,var(--ac) 12%,var(--bg))}
 #fe-lens-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 #fe-lens-tags .fe-lens-tag{flex:none;white-space:nowrap}
-.fe-lens-tag{display:inline-flex;align-items:center;gap:5px}
-.fe-lens-tag i{width:6px;height:6px;border-radius:50%;flex:none}
 /* A saved row is one quiet line: the name, then a tag count that gives way to
    the row's icon buttons on hover. Path and tags live in the hover card. */
 .fe-pl-meta{display:inline-flex;align-items:center;gap:2px;margin-left:auto;padding-right:2px;flex:none;font-size:var(--fs-xs);color:var(--dm)}
@@ -1524,8 +1503,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .dot.down,.dot.unavailable{background:var(--nc-red)}
 .fe-ask-ib{position:relative}
 
-.fe-ask-n{position:absolute;top:1px;right:0;min-width:14px;height:14px;padding:0 3px;border-radius:999px;font-size:10px;line-height:14px;text-align:center;background:var(--ac);color:var(--tx-on-ac)}
-.fe-ask-n:empty{display:none}
+.fe-ask-n{position:absolute;top:1px;right:0}
 .fe-ask-status{display:flex;align-items:center;gap:8px;margin:0 16px 8px;font-size:var(--fs-sm);line-height:1.4;color:var(--mt)}
 .fe-ask-status[hidden]{display:none}
 .fe-ask-cloud{display:flex;align-items:center;gap:6px;margin:0 16px 8px;font-size:var(--fs-sm);color:var(--mt)}
@@ -1544,8 +1522,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-empty[hidden]{display:none}
 .fe-ask-empty p{margin:0}
 .fe-ask-quick{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
-.fe-ask-chip{cursor:pointer;background:none;font:inherit;font-size:var(--fs-md)}
-.fe-ask-chip:hover{background:var(--hover)}
 .fe-ask-form{position:sticky;bottom:0;margin-top:auto;padding:8px 10px 10px;background:linear-gradient(to bottom,transparent,var(--side) 14px)}
 .fe-ask-box{display:flex;flex-direction:column;gap:4px;padding:8px 8px 6px 10px;border:1px solid var(--bd2);border-radius:14px;background:var(--bg);transition:border-color var(--t-fast) var(--ease)}
 .fe-ask-box:focus-within{border-color:var(--ac)}
@@ -1808,6 +1784,43 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
 .fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
 .fe-dd-g:first-child{padding-top:var(--sp-2)}
+/* Chip: a short label in a pill (docs/system/chip.md). Class chip. Tags,
+   filters and facts. --chip carries a tag's colour for the border, the dot
+   and the fill. data-size: sm 18 for listing rows, md 22 (the default).
+   data-fill: a soft fill instead of a border. data-tone: due, done, quiet.
+   A button chip is a filter: on with .on or aria-pressed. A removable chip
+   ends in an xs Button. */
+.chip{--chip-h:var(--ctl-sm);display:inline-flex;align-items:center;gap:var(--sp-2);max-width:100%;height:var(--chip-h);padding:0 var(--sp-4);box-sizing:border-box;
+  border:1px solid color-mix(in srgb,var(--chip,var(--bd2)) 55%,transparent);border-radius:var(--r-full);background:none;color:var(--mt);
+  font:inherit;font-size:var(--type-small);line-height:1;white-space:nowrap;vertical-align:middle}
+.chip[data-size="sm"]{--chip-h:var(--ctl-xs);padding:0 var(--sp-3);font-size:var(--fs-sm)}
+.chip > svg{flex:none;width:12px;height:12px}
+.chip > i{flex:none;width:6px;height:6px;border-radius:var(--r-full)}
+.chip > span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.chip:has(> .btn:last-child){padding-right:var(--sp-1)}
+.chip[data-fill]{border-color:transparent;background:color-mix(in srgb,var(--chip,var(--ac)) 16%,transparent);color:var(--tx)}
+.chip[data-tone="due"]{--chip:var(--nc-orange)}
+.chip[data-tone="done"]{--chip:var(--nc-green)}
+.chip[data-tone="quiet"]{background:var(--s2);color:var(--mt)}
+.chip[data-mono]{font-family:var(--mono)}
+.chip[data-add]{border-style:dashed}
+button.chip{cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+button.chip:not(:disabled):hover{color:var(--tx);background:var(--hover)}
+button.chip[data-add]:not(:disabled):hover{border-style:solid;border-color:var(--ac)}
+.chip.on,.chip[aria-pressed="true"],button.chip.on:hover{color:var(--tx);background:color-mix(in srgb,var(--chip,var(--ac)) 22%,transparent)}
+button.chip:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button.chip:disabled{opacity:.45;cursor:default}
+/* Badge: a count in a small pill (docs/system/badge.md). Class badge.
+   data-size: sm 14 on an icon's corner, md 18 (the default). data-tone:
+   soft (the default), solid, quiet. Empty, it hides. */
+.badge{--badge-h:18px;display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);min-width:var(--badge-h);height:var(--badge-h);padding:0 var(--sp-2);
+  box-sizing:border-box;border-radius:var(--r-full);background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx);
+  font-size:var(--fs-xs);font-weight:500;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:middle}
+.badge[data-size="sm"]{--badge-h:14px;padding:0 3px}
+.badge svg{flex:none;width:10px;height:10px}
+.badge[data-tone="solid"]{background:var(--ac);color:var(--tx-on-ac)}
+.badge[data-tone="quiet"]{background:var(--s2);color:var(--dm)}
+.badge:empty{display:none}
 /* Check: a box with a tick, and its label. Mixed shows a bar. */
 .fe-check{display:inline-flex;align-items:center;gap:var(--sp-3);min-height:var(--ctl-sm);color:var(--mt);font-size:var(--type-small);cursor:pointer;user-select:none}
 .fe-check:hover{color:var(--tx)}
@@ -1824,9 +1837,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:var(--ctl-lg);padding:var(--sp-1) var(--sp-3);box-sizing:border-box;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);cursor:text}
 .fe-set.wide .fe-chipin{width:100%}
 .fe-chipin:focus-within{border-color:var(--ac)}
-.fe-chip-x{display:inline-flex;align-items:center;gap:2px;height:24px;padding:0 3px 0 9px;border-radius:12px;background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--tx);font:500 var(--fs-md) var(--mono)}
-.fe-chip-x button{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer;font-size:13px;line-height:1}
-.fe-chip-x button:hover{background:var(--shade2);color:var(--tx)}
 .fe-chipin-in{flex:1;min-width:70px;height:24px;border:0;outline:0;background:none;color:var(--tx);font:var(--fs-md) var(--mono)}
 
 /* App icons: a grid of 16 tiles. */
@@ -1845,9 +1855,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-rule-sugg{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:12px 16px 4px}
 .fe-rule-sugg:empty{display:none}
 .fe-rule-sugg-l{font-size:var(--fs-sm);color:var(--dm);margin-right:2px}
-.fe-rule-add{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px 0 6px;margin:0;border:1px dashed var(--bd2);border-radius:13px;background:none;color:var(--mt);font:inherit;font-size:var(--fs-md);cursor:pointer}
-.fe-rule-add:hover{border-style:solid;border-color:var(--ac);color:var(--tx)}
-.fe-rule-add svg{width:13px;height:15px}
+.chip.fe-rule-add > svg{width:13px;height:15px}
 #fe-st-rules-list{padding:6px 10px 10px}
 .fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:10px;padding:6px;border-radius:9px}
 .fe-rule:hover{background:var(--hover)}
@@ -2475,8 +2483,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     let items = [];
     const paint = () => {
       host.dataset.value = items.join(", ");
-      host.querySelectorAll(".fe-chip-x").forEach((c) => c.remove());
-      input.insertAdjacentHTML("beforebegin", items.map((t, i) => `<span class="fe-chip-x">${esc(t)}<button type="button" data-i="${i}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">\xD7</button></span>`).join(""));
+      host.querySelectorAll(".chip").forEach((c) => c.remove());
+      input.insertAdjacentHTML("beforebegin", items.map((t, i) => `<span class="chip" data-fill data-mono><span>${esc(t)}</span><button type="button" class="btn" data-icon data-size="xs" data-tone="danger" data-i="${i}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">${UI_ICON.close}</button></span>`).join(""));
     };
     const commit = () => {
       const add = input.value.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
@@ -2506,7 +2514,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     input.addEventListener("blur", commit);
     input.addEventListener("change", (e) => e.stopPropagation());
     host.addEventListener("click", (e) => {
-      const b = e.target.closest(".fe-chip-x button");
+      const b = e.target.closest(".chip button");
       if (b) {
         items.splice(Number(b.dataset.i), 1);
         paint();

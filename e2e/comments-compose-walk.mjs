@@ -152,12 +152,12 @@ const beta = 2;
   await page.click(`#fe-cm .fe-cm-th.on [data-a="untag"][data-v="schedule"]`);
   await page.waitForFunction(() => !document.querySelector('#fe-cm .fe-cm-th.on [data-a="untag"]'), { timeout: 6000 }).catch(() => null);
   await page.click(`#fe-cm .fe-cm-th.on [data-a="undue"]`);
-  await page.waitForFunction(() => !document.querySelector('#fe-cm .fe-cm-th.on .fe-cm-chip.due'), { timeout: 6000 }).catch(() => null);
+  await page.waitForFunction(() => !document.querySelector('#fe-cm .fe-cm-th.on .fe-cm-chip[data-tone="due"]'), { timeout: 6000 }).catch(() => null);
   t = all().find(x => x.id === id);
   check(t && !t.tags.includes('schedule') && !t.due, `a chip's x removes the tag and clears the due date: ${JSON.stringify(t && { g: t.tags, d: t.due })}`);
   await page.click(`#fe-cm .fe-cm-th.on [data-a="due"]`);
   await page.$eval('#fe-cm .fe-cm-date', el => { el.value = '2026-12-01'; el.dispatchEvent(new Event('change', { bubbles: true })); });
-  await page.waitForFunction(() => document.querySelector('#fe-cm .fe-cm-th.on .fe-cm-chip.due'), { timeout: 6000 }).catch(() => null);
+  await page.waitForFunction(() => document.querySelector('#fe-cm .fe-cm-th.on .fe-cm-chip[data-tone="due"]'), { timeout: 6000 }).catch(() => null);
   check(all().find(x => x.id === id)?.due === '2026-12-01', 'the Due button sets a date from a date field');
 
   // Keyboard: Esc, Alt+Down and Up, Shift+C, c with a selection.

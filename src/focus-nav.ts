@@ -251,11 +251,11 @@ export function initFocusNav(app: App): void {
   }, () => !!openLens());
   bind('lens-tags', () => {
     if (!app.settings.showSidebar) runCommand('sidebar');
-    const chip = [...(openLens()?.querySelectorAll<HTMLElement>('.fe-lens-tags .fe-chip, .fe-lens-tags button') ?? [])].find(visible);
+    const chip = [...(openLens()?.querySelectorAll<HTMLElement>('.fe-lens-tags .chip, .fe-lens-tags button') ?? [])].find(visible);
     chip?.focus();
   }, () => !!openLens()?.querySelector('.fe-lens-tags'));
   // Arrows walk the chips; Enter or Space toggles one (they are buttons).
-  document.querySelectorAll<HTMLElement>('#fe-lenses .fe-lens-tags, #fe-docs-list .fe-lens-tags').forEach(r => rovingFocus(r, '.fe-chip, button', { axis: 'horizontal' }));
+  document.querySelectorAll<HTMLElement>('#fe-lenses .fe-lens-tags, #fe-docs-list .fe-lens-tags').forEach(r => rovingFocus(r, '.chip, button', { axis: 'horizontal' }));
   bind('side-look', () => {
     const a = focusedRow()!, path = rowPath(a), name = path.split('/').pop() || path;
     openPreview({ name, href: fileHref(path), isDir: false, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: '' });

@@ -102,6 +102,43 @@ export const UI_CSS = `
 .fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
 .fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
 .fe-dd-g:first-child{padding-top:var(--sp-2)}
+/* Chip: a short label in a pill (docs/system/chip.md). Class chip. Tags,
+   filters and facts. --chip carries a tag's colour for the border, the dot
+   and the fill. data-size: sm 18 for listing rows, md 22 (the default).
+   data-fill: a soft fill instead of a border. data-tone: due, done, quiet.
+   A button chip is a filter: on with .on or aria-pressed. A removable chip
+   ends in an xs Button. */
+.chip{--chip-h:var(--ctl-sm);display:inline-flex;align-items:center;gap:var(--sp-2);max-width:100%;height:var(--chip-h);padding:0 var(--sp-4);box-sizing:border-box;
+  border:1px solid color-mix(in srgb,var(--chip,var(--bd2)) 55%,transparent);border-radius:var(--r-full);background:none;color:var(--mt);
+  font:inherit;font-size:var(--type-small);line-height:1;white-space:nowrap;vertical-align:middle}
+.chip[data-size="sm"]{--chip-h:var(--ctl-xs);padding:0 var(--sp-3);font-size:var(--fs-sm)}
+.chip > svg{flex:none;width:12px;height:12px}
+.chip > i{flex:none;width:6px;height:6px;border-radius:var(--r-full)}
+.chip > span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.chip:has(> .btn:last-child){padding-right:var(--sp-1)}
+.chip[data-fill]{border-color:transparent;background:color-mix(in srgb,var(--chip,var(--ac)) 16%,transparent);color:var(--tx)}
+.chip[data-tone="due"]{--chip:var(--nc-orange)}
+.chip[data-tone="done"]{--chip:var(--nc-green)}
+.chip[data-tone="quiet"]{background:var(--s2);color:var(--mt)}
+.chip[data-mono]{font-family:var(--mono)}
+.chip[data-add]{border-style:dashed}
+button.chip{cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+button.chip:not(:disabled):hover{color:var(--tx);background:var(--hover)}
+button.chip[data-add]:not(:disabled):hover{border-style:solid;border-color:var(--ac)}
+.chip.on,.chip[aria-pressed="true"],button.chip.on:hover{color:var(--tx);background:color-mix(in srgb,var(--chip,var(--ac)) 22%,transparent)}
+button.chip:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button.chip:disabled{opacity:.45;cursor:default}
+/* Badge: a count in a small pill (docs/system/badge.md). Class badge.
+   data-size: sm 14 on an icon's corner, md 18 (the default). data-tone:
+   soft (the default), solid, quiet. Empty, it hides. */
+.badge{--badge-h:18px;display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);min-width:var(--badge-h);height:var(--badge-h);padding:0 var(--sp-2);
+  box-sizing:border-box;border-radius:var(--r-full);background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx);
+  font-size:var(--fs-xs);font-weight:500;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:middle}
+.badge[data-size="sm"]{--badge-h:14px;padding:0 3px}
+.badge svg{flex:none;width:10px;height:10px}
+.badge[data-tone="solid"]{background:var(--ac);color:var(--tx-on-ac)}
+.badge[data-tone="quiet"]{background:var(--s2);color:var(--dm)}
+.badge:empty{display:none}
 /* Check: a box with a tick, and its label. Mixed shows a bar. */
 .fe-check{display:inline-flex;align-items:center;gap:var(--sp-3);min-height:var(--ctl-sm);color:var(--mt);font-size:var(--type-small);cursor:pointer;user-select:none}
 .fe-check:hover{color:var(--tx)}
@@ -118,9 +155,6 @@ export const UI_CSS = `
 .fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:var(--ctl-lg);padding:var(--sp-1) var(--sp-3);box-sizing:border-box;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);cursor:text}
 .fe-set.wide .fe-chipin{width:100%}
 .fe-chipin:focus-within{border-color:var(--ac)}
-.fe-chip-x{display:inline-flex;align-items:center;gap:2px;height:24px;padding:0 3px 0 9px;border-radius:12px;background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--tx);font:500 var(--fs-md) var(--mono)}
-.fe-chip-x button{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer;font-size:13px;line-height:1}
-.fe-chip-x button:hover{background:var(--shade2);color:var(--tx)}
 .fe-chipin-in{flex:1;min-width:70px;height:24px;border:0;outline:0;background:none;color:var(--tx);font:var(--fs-md) var(--mono)}
 
 /* App icons: a grid of 16 tiles. */
@@ -139,9 +173,7 @@ export const UI_CSS = `
 .fe-rule-sugg{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:12px 16px 4px}
 .fe-rule-sugg:empty{display:none}
 .fe-rule-sugg-l{font-size:var(--fs-sm);color:var(--dm);margin-right:2px}
-.fe-rule-add{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px 0 6px;margin:0;border:1px dashed var(--bd2);border-radius:13px;background:none;color:var(--mt);font:inherit;font-size:var(--fs-md);cursor:pointer}
-.fe-rule-add:hover{border-style:solid;border-color:var(--ac);color:var(--tx)}
-.fe-rule-add svg{width:13px;height:15px}
+.chip.fe-rule-add > svg{width:13px;height:15px}
 #fe-st-rules-list{padding:6px 10px 10px}
 .fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:10px;padding:6px;border-radius:9px}
 .fe-rule:hover{background:var(--hover)}

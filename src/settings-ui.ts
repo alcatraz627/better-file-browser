@@ -61,7 +61,7 @@ export function initSettingsUi(app: App): void {
     const have = new Set(app.iconRules.map(r => r.pattern));
     const left = RULE_SUGGESTIONS.filter(s => !have.has(s.pattern));
     el('fe-st-rule-sugg').innerHTML = left.length ? `<span class="fe-rule-sugg-l">Add</span>` + left.map(s =>
-      `<button type="button" class="fe-chip fe-rule-add" data-name="${esc(s.name)}" title="${esc(s.pattern)}">${icoCustom(s.label, s.color, s.glyph)}${esc(s.name)}</button>`).join('') : '';
+      `<button type="button" class="chip fe-rule-add" data-add data-name="${esc(s.name)}" title="${esc(s.pattern)}">${icoCustom(s.label, s.color, s.glyph)}${esc(s.name)}</button>`).join('') : '';
   }
   const saveRules = () => { saveIconRules(app.iconRules); app.applyAll(); };
   const rulesList = el('fe-st-rules-list');

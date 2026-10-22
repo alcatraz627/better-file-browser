@@ -20,7 +20,7 @@ try {
     if (theme === 'light') { await page.click('#fe-theme-btn'); await page.mouse.move(700, 600); await new Promise(r => setTimeout(r, 500)); }
     const rows = await page.$$eval('#fe-tbody tr[data-idx]', trs => Object.fromEntries(trs.map(tr => [
       tr.querySelector('.fe-nm')?.textContent,
-      { type: tr.querySelector('td.c-tp')?.textContent, tags: [...tr.querySelectorAll('td.c-tg .fe-chip')].map(c => c.textContent) },
+      { type: tr.querySelector('td.c-tp')?.textContent, tags: [...tr.querySelectorAll('td.c-tg .chip')].map(c => c.textContent) },
     ])));
     const head = await page.$$eval('#fe-table thead th', ths => ths.map(t => t.textContent.trim()).filter(Boolean));
     check(head.includes('Type') && head.includes('Tags'), `${theme}: header has Type and Tags: ${JSON.stringify(head)}`);
