@@ -165,11 +165,20 @@ describe('agentBrief', () => {
     comments: [{ id: 'c-1', author: { kind: 'human', name: 'Aakarsh' }, created: '2026-10-21T11:18:00Z', text: '@claude is this firm?\nsecond line' }],
   };
   const b = agentBrief('/x/plan.md', 'file:///x/plan.md#c=old', [t]);
-  it('names the file, the commands and the thread', () => {
-    expect(b).toContain('bfb-docs comments reply /x/plan.md <thread>');
-    expect(b).toContain('## Thread t-abc (open, line 5, #schedule, due 2026-11-03)');
-    expect(b).toContain('> ship on **Friday**');
-    expect(b).toContain('- Aakarsh, 2026-10-21 11:18:\n    @claude is this firm?\n    second line');
-    expect(b).toContain('Link: file:///x/plan.md#c=t-abc');
+  it('names the file, the command and the thread, briefly', () => {
+    expect(b).toBe([
+      'Comment on /x/plan.md',
+      'Answer: bfb-docs comments reply|done /x/plan.md <thread> "text"',
+      '',
+      't-abc · line 5 · open · #schedule · due 2026-11-03',
+      '> ship on **Friday**',
+      'Aakarsh: @claude is this firm?\nsecond line',
+      '',
+      'file:///x/plan.md#c=t-abc',
+      '',
+    ].join('\n'));
+  });
+  it('leaves the link out when there are several threads', () => {
+    expect(agentBrief('/x/plan.md', 'file:///x/plan.md', [t, { ...t, id: 't-def' }])).not.toContain('#c=');
   });
 });

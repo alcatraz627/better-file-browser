@@ -84,29 +84,25 @@ export function completions(value: string, caret: number, people: string[], tags
 /** Threads written up for an agent that has none of this page's context: what
  *  each one says, where it sits, and the bfb-docs commands that answer it. */
 export function agentBrief(path: string, href: string, threads: DocThread[]): string {
-  const name = (a: CommentAuthor) => a.kind === 'human' ? (a.name || 'the owner') : (a.alias || 'agent');
-  const when = (iso: string) => iso.slice(0, 16).replace('T', ' ');
+  const name = (a: CommentAuthor) => a.kind === 'human' ? (a.name || 'owner') : (a.alias || 'agent');
   const one = threads.length === 1;
+  const short = (id: string) => id.slice(0, 10);
   const head = [
-    `# ${one ? 'A comment' : `${threads.length} comments`} on ${path}`,
-    '',
-    'Each thread is anchored to the quoted words of the file. Answer with bfb-docs, which signs you in as your claude-ipc alias:',
-    `  bfb-docs comments reply ${path} <thread> "your reply"`,
-    `  bfb-docs comments done ${path} <thread> "what you changed"`,
-    `  bfb-docs comments show ${path} <thread>    (the full thread)`,
-    'Edit the file itself with your usual tools; the comments follow the text.',
+    `${one ? 'Comment' : `${threads.length} comments`} on ${path}`,
+    `Answer: bfb-docs comments reply|done ${path} <thread> "text"`,
   ];
   const body = threads.map(t => {
-    const meta = [t.status, t.place.line !== null ? `line ${t.place.line}` : 'no longer found in the file', ...(t.tags ?? []).map(g => '#' + g), t.due ? `due ${t.due}` : ''].filter(Boolean).join(', ');
-    const quote = t.anchor.exact.length > 400 ? t.anchor.exact.slice(0, 399) + '…' : t.anchor.exact;
+    const where = t.place.line !== null ? `line ${t.place.line}` : 'not found in the file';
+    const meta = [short(t.id), where, t.status, ...(t.tags ?? []).map(g => '#' + g), t.due ? `due ${t.due}` : ''].filter(Boolean).join(' · ');
+    const quote = t.anchor.exact.length > 200 ? t.anchor.exact.slice(0, 199) + '…' : t.anchor.exact;
     return [
-      '', `## Thread ${t.id} (${meta})`,
-      ...quote.split('\n').map(l => '> ' + l), '',
-      ...t.comments.filter(c => !c.deleted).map(c => `- ${name(c.author)}, ${when(c.created)}:\n${(c.text || '').split('\n').map(l => '    ' + l).join('\n')}`),
-      '', `Link: ${href.split('#')[0]}#c=${t.id}`,
+      '', meta,
+      ...quote.split('\n').map(l => '> ' + l),
+      ...t.comments.filter(c => !c.deleted).map(c => `${name(c.author)}: ${(c.text || '').trim()}`),
     ].join('\n');
   });
-  return [...head, ...body].join('\n') + '\n';
+  const link = one ? [`\n${href.split('#')[0]}#c=${threads[0].id}`] : [];
+  return [...head, ...body, ...link].join('\n') + '\n';
 }
 
 export interface CommentsPanel {

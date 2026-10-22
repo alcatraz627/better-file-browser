@@ -269,5 +269,23 @@ check(os.path.exists(os.path.join(cd, 'later.md.bfb.json')) and not os.path.exis
 r = nh.handle({'op': 'delete', 'root': cd, 'rel': 'later.md'})
 check(os.path.exists(os.path.join(cd, r['trashed'] + '.bfb.json')), 'deleting a note moves its comments into .trash beside it')
 
+# The page counts an emoji as two units and Python as one. A comment after
+# emoji lands on the words selected, and the page gets back offsets it can
+# slice its own string with.
+emo = os.path.join(cd, 'emoji.md')
+text = '| id | state | default |\n| `A` | 🔴 🗣 🧪 | stays open |\n| `B` | 🟢 💭 | not sent |\n'
+with open(emo, 'w') as fh: fh.write(text)
+def u16(i): return len(text[:i].encode('utf-16-le')) // 2
+at = text.index('not sent')
+r = call({'op': 'commentsWrite', 'root': cd, 'rel': 'emoji.md', 'ops': [{'op': 'new', 'start': u16(at), 'end': u16(at) + 8, 'text': 'x'}]})
+st = json.load(open(emo + '.bfb.json'))['comments']['threads'][0]['anchor']
+check(st['exact'] == 'not sent', f'a comment after emoji anchors to the selected words: {st["exact"]!r}')
+pl = r['threads'][0]['place']
+page = text.encode('utf-16-le')
+check(page[pl['offset'] * 2:(pl['offset'] + pl['length']) * 2].decode('utf-16-le') == 'not sent', f'the page gets UTF-16 offsets back: {pl}')
+r = call({'op': 'commentsRead', 'root': cd, 'rel': 'emoji.md'})
+pl = r['threads'][0]['place']
+check(page[pl['offset'] * 2:(pl['offset'] + pl['length']) * 2].decode('utf-16-le') == 'not sent', f'reading back gives the same UTF-16 place: {pl}')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

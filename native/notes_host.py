@@ -29,6 +29,7 @@ Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it.
 """
+import bisect
 import sys, os, json, struct, time, shutil, subprocess
 from datetime import datetime
 
@@ -453,8 +454,62 @@ def _docs():
     import docs_store
     return docs_store
 
-def _comments_reply(rel, v):
-    out = {'t': 'comments', 'rel': rel, 'threads': v['threads'], 'where': v['where'],
+# The page counts text in UTF-16 units, where an emoji or other character
+# outside the basic plane is two; Python counts it as one. Comment positions
+# cross that line here, both ways, so stored anchors stay in characters and
+# the page gets numbers it can slice its own string with. Without this, every
+# comment after an emoji landed that many characters early.
+class _Units:
+    def __init__(self, text):
+        self.wide = [i for i, ch in enumerate(text) if ord(ch) > 0xFFFF]
+    def to_py(self, n):
+        """A page (UTF-16) offset as a character offset."""
+        lo, hi = 0, len(self.wide)
+        while lo < hi:   # astral characters wholly before the offset, each one unit too many
+            mid = (lo + hi) // 2
+            if self.wide[mid] + mid + 2 <= n: lo = mid + 1
+            else: hi = mid
+        return n - lo
+    def to_page(self, i):
+        """A character offset as a page (UTF-16) offset."""
+        return i + bisect.bisect_left(self.wide, i)
+
+def _page_ops(full, ops):
+    """Spans in operations from the page, turned into character offsets."""
+    u = _Units(_read_text(full))
+    out = []
+    for o in ops:
+        o = dict(o)
+        for k in ('start', 'end'):
+            if isinstance(o.get(k), int): o[k] = u.to_py(o[k])
+        out.append(o)
+    return out
+
+def _page_places(full, threads):
+    """Thread positions in a reply, turned into page (UTF-16) offsets."""
+    u = _Units(_read_text(full))
+    if not u.wide:
+        return threads
+    def fix(d):
+        if isinstance(d, dict) and isinstance(d.get('offset'), int):
+            end = d['offset'] + (d.get('length') or 0)
+            d['offset'] = u.to_page(d['offset'])
+            if isinstance(d.get('length'), int): d['length'] = u.to_page(end) - d['offset']
+    for t in threads:
+        fix(t.get('place'))
+        a = t.get('anchor') or {}
+        if isinstance(a.get('offset'), int):
+            a['offset'] = u.to_page(a['offset'])
+        fix(a.get('lastSeen'))
+    return threads
+
+def _read_text(full):
+    with open(full, encoding='utf-8', errors='replace', newline='') as f:
+        return f.read()
+
+def _comments_reply(rel, v, full=None):
+    threads = _page_places(full, v['threads']) if full else v['threads']
+    out = {'t': 'comments', 'rel': rel, 'threads': threads, 'where': v['where'],
            'companion': v['path'], 'notes': v['notes'], 'doc': v['doc']}
     if len(json.dumps(out)) > REPLY_MAX:
         raise NotesError('notes_too_big', 'this file has too many comments to send at once')
@@ -467,7 +522,7 @@ def op_comments_read(root, rel):
         raise NotesError('notes_missing', f'no such file: {rel}')
     S = _docs()
     try:
-        return _comments_reply(rel, S.view(full))
+        return _comments_reply(rel, S.view(full), full)
     except S.DocsError as e:
         raise NotesError(e.code, str(e))
 
@@ -481,8 +536,8 @@ def op_comments_write(root, rel, ops):
         raise NotesError('notes_bad_op', 'ops must be a list of operations')
     S = _docs()
     try:
-        results, _, _, notes = S.write(full, ops, S.whoami('user')[0])
-        out = _comments_reply(rel, S.view(full))
+        results, _, _, notes = S.write(full, _page_ops(full, ops), S.whoami('user')[0])
+        out = _comments_reply(rel, S.view(full), full)
     except S.DocsError as e:
         raise NotesError(e.code, str(e))
     except ValueError as e:
