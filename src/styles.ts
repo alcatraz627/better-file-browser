@@ -135,6 +135,17 @@ export const CSS = `
 .notice[data-tone="danger"]{color:var(--tone-danger)}
 .notice[data-tone="warn"]{color:var(--nc-orange)}
 .notice[data-tone="ok"]{color:var(--tone-ok)}
+/* Resize handle (docs/system/resize.md). Class rz, set by resizable(). A
+   thin hit area whose 2px accent line grows in on hover, drag or focus, the
+   sidebar's look everywhere. data-axis="xy" is a corner grip, which keeps
+   two faint lines at rest so it can be found. */
+.rz{flex-shrink:0;cursor:col-resize;user-select:none;touch-action:none;outline:0;
+  background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
+.rz:hover,.rz.drag,.rz:focus-visible{background-size:2px 100%}
+.rz[data-axis="xy"]{cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,var(--bd) 50%,var(--bd) 60%,transparent 60%,transparent 75%,var(--bd) 75%,var(--bd) 85%,transparent 85%)}
+.rz[data-axis="xy"]:hover,.rz[data-axis="xy"].drag,.rz[data-axis="xy"]:focus-visible{background:linear-gradient(var(--ac),var(--ac)) right bottom/100% 2px no-repeat,linear-gradient(var(--ac),var(--ac)) right bottom/2px 100% no-repeat}
+body.fe-resizing{user-select:none}
+table.fe-col-edge,table.fe-col-edge *{cursor:col-resize}
 /* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
    input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
    grows from one control high. Invalid: aria-invalid="true". */
@@ -247,8 +258,7 @@ body{opacity:1!important}
 .fe-doc-due{font-size:var(--fs-sm);color:var(--tx);padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--nc-orange) 16%,transparent)}
 .fe-doc-n{flex:none}
 .fe-row-cm{flex:none}
-#fe-side-rz{width:5px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .12s}
-#fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
+#fe-side-rz{width:10px}
 .fe-sec{margin-bottom:4px}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none!important}
 .fe-sh{padding:10px 14px 5px}
@@ -355,15 +365,13 @@ thead th{padding:6px 12px;text-align:left;font-size:var(--fs-sm);font-weight:600
 thead th{position:relative}
 thead th[data-sort]{cursor:pointer}
 thead th[data-sort]:hover{color:var(--tx)}
-.fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;user-select:none}
-.fe-col-rz:hover{background:linear-gradient(90deg,transparent,var(--ac))}
+.fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%}
 /* Rendered tables (markdown, CSV/TSV) share the handle; col-resize.ts fixes
    the layout on the first drag so one column moves at a time. */
 .fe-md-table th{position:relative}
 table.fe-rz-fixed{table-layout:fixed}
 .fe-ql-table.fe-rz-fixed th,.fe-ql-table.fe-rz-fixed td{overflow:hidden;text-overflow:ellipsis}
 .fe-md-table.fe-rz-fixed td,.fe-md-table.fe-rz-fixed th{overflow-wrap:anywhere}
-body.fe-col-dragging{cursor:col-resize;user-select:none}
 .si{opacity:.35;font-size:var(--fs-xs)}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
@@ -692,11 +700,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   border-radius:10px;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);
   max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);
   display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;overflow:hidden}
-#fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;z-index:2;
-  background:linear-gradient(135deg,transparent 50%,var(--bd) 50%,var(--bd) 60%,transparent 60%,transparent 75%,var(--bd) 75%,var(--bd) 85%,transparent 85%)}
-#fe-ql-rz:hover{background:linear-gradient(135deg,transparent 50%,var(--ac) 50%)}
-#fe-ql-rz-side{display:none;position:absolute;left:0;top:0;width:6px;height:100%;cursor:col-resize;z-index:2}
-#fe-ql-rz-side:hover{background:linear-gradient(90deg,var(--ac),transparent)}
+#fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;z-index:2}
+#fe-ql-rz-side{display:none;position:absolute;left:-3px;top:0;width:8px;height:100%;z-index:2}
 #fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;
   border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
@@ -1230,8 +1235,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-tabbar,#fe-tabs{background:var(--side)}
 .fe-tab.on{background:var(--card)}
 #fe-qlook.side{margin-left:10px}
-#fe-side-rz{width:10px;background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
-#fe-side-rz:hover,#fe-side-rz.drag{background:linear-gradient(var(--ac),var(--ac)) center/2px 100% no-repeat}
 #fe-table{border-collapse:separate;border-spacing:0}
 #fe-table tbody tr{border-bottom:0}
 #fe-table tbody tr:hover{background:none}

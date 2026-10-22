@@ -1,5 +1,6 @@
 // The path bar's own controls: theme toggle, terminal button, and the crumb
 // dropdown that lists a parent folder in place.
+import { resizable } from './resize';
 import type { App } from './app';
 import { el } from './el';
 import { esc, pageHref, fileHref, copyToClipboard } from './utils';
@@ -215,22 +216,17 @@ export function initChrome(app: App): void {
     if (box) box.checked = settings.showSidebar;
   });
 
-  // Drag the handle to resize the sidebar; the width persists.
-  rz.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    rz.classList.add('drag');
-    const startX = e.clientX;
-    const startW = side.getBoundingClientRect().width;
-    const move = (m: PointerEvent) => { side.style.width = Math.max(210, Math.min(520, startW + m.clientX - startX)) + 'px'; };
-    const up = () => {
-      rz.classList.remove('drag');
-      document.removeEventListener('pointermove', move);
-      document.removeEventListener('pointerup', up);
-      settings.sidebarWidth = Math.round(side.getBoundingClientRect().width);
+  // Drag the handle, or focus it and press the arrows, to resize the sidebar;
+  // the width persists, and a double-click goes back to the default.
+  resizable(rz, {
+    axis: 'x', label: 'Resize the sidebar',
+    size: () => ({ w: side.getBoundingClientRect().width, h: 0 }),
+    apply: w => { side.style.width = Math.max(210, Math.min(520, w)) + 'px'; },
+    reset: () => { side.style.width = ''; },
+    commit: () => {
+      settings.sidebarWidth = side.style.width ? Math.round(side.getBoundingClientRect().width) : undefined;
       settings.sidebarRail = true;
       saveSettings(settings);
-    };
-    document.addEventListener('pointermove', move);
-    document.addEventListener('pointerup', up);
+    },
   });
 }

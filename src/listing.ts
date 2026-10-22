@@ -2,6 +2,7 @@
 // deep search), how (view, detail level, hidden files, column widths) and which rows
 // are selected. Pointer and key handling live in listing-input.ts and drive
 // this module through the selection functions it returns.
+import { resizable } from './resize';
 import type { App } from './app';
 import type { Entry, SortConfig, FilterConfig, GroupMode } from './types';
 import type { FindQuery, ContentHit } from './find';
@@ -470,31 +471,16 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   if (el('fe-table').offsetWidth && lastTh.offsetWidth < LAST_MIN) { saveColWidths({}); applyWidths(); }
   els('.fe-col-rz').forEach(handle => {
     handle.title = 'Drag to resize this column · double-click to reset';
-    handle.addEventListener('click', e => e.stopPropagation());   // not a sort click
-    handle.addEventListener('dblclick', e => {
-      e.stopPropagation();
-      const widths = getColWidths();
-      delete widths[handle.closest<HTMLElement>('th')!.dataset.ck!];
-      saveColWidths(widths); applyWidths();
-    });
-    handle.addEventListener('mousedown', e => {
-      e.preventDefault(); e.stopPropagation();
-      const th = handle.closest<HTMLElement>('th')!;
-      const key = th.dataset.ck!;
-      const startX = e.clientX, startW = th.offsetWidth;
-      const maxW = startW + Math.max(0, lastTh.offsetWidth - LAST_MIN);
-      const widthAt = (x: number) => Math.min(maxW, Math.max(MIN_W, startW + x - startX));
-      lastTh.style.width = 'auto';
-      const onMove = (ev: MouseEvent) => { th.style.width = widthAt(ev.clientX) + 'px'; };
-      const onUp = (ev: MouseEvent) => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        const widths = getColWidths();
-        widths[key] = widthAt(ev.clientX);
-        saveColWidths(widths);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+    const th = handle.closest<HTMLElement>('th')!;
+    const key = th.dataset.ck!;
+    // The last column gives up its room, down to its own minimum.
+    let maxW = Infinity;
+    resizable(handle, {
+      axis: 'x', label: `Resize the ${th.textContent?.trim() || 'column'} column`,
+      size: () => { maxW = th.offsetWidth + Math.max(0, lastTh.offsetWidth - LAST_MIN); lastTh.style.width = 'auto'; return { w: th.offsetWidth, h: 0 }; },
+      apply: w => { th.style.width = Math.min(maxW, Math.max(MIN_W, w)) + 'px'; },
+      reset: () => { const widths = getColWidths(); delete widths[key]; saveColWidths(widths); applyWidths(); },
+      commit: () => { if (!th.style.width || th.style.width === 'auto') return; const widths = getColWidths(); widths[key] = parseFloat(th.style.width); saveColWidths(widths); },
     });
   });
 

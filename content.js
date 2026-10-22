@@ -895,6 +895,68 @@ ${body}`;
     return ["color", "pinned", "tags"].filter((k) => c[k] !== void 0);
   }
 
+  // src/resize.ts
+  function startDrag(e, cursor, move, end) {
+    e.preventDefault();
+    const x0 = e.clientX, y0 = e.clientY;
+    const target = e.target;
+    try {
+      target.setPointerCapture?.(e.pointerId);
+    } catch {
+    }
+    document.body.style.cursor = cursor;
+    document.body.classList.add("fe-resizing");
+    const onMove = (ev) => move(ev.clientX - x0, ev.clientY - y0);
+    const onUp = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      document.body.style.cursor = "";
+      document.body.classList.remove("fe-resizing");
+      end();
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
+  }
+  function resizable(handle, s) {
+    const dir = s.dir ?? 1;
+    handle.classList.add("rz");
+    handle.dataset.axis = s.axis;
+    handle.tabIndex = 0;
+    handle.setAttribute("role", "separator");
+    handle.setAttribute("aria-orientation", "vertical");
+    handle.setAttribute("aria-label", s.label);
+    const cursor = s.axis === "xy" ? "nwse-resize" : "col-resize";
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      const { w, h } = s.size();
+      handle.classList.add("drag");
+      startDrag(e, cursor, (dx, dy) => s.apply(w + dx * dir, h + dy), () => {
+        handle.classList.remove("drag");
+        s.commit?.();
+      });
+    });
+    handle.addEventListener("click", (e) => e.stopPropagation());
+    handle.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      s.reset?.();
+      s.commit?.();
+    });
+    handle.addEventListener("keydown", (e) => {
+      const step2 = e.shiftKey ? 64 : 16;
+      const dx = e.key === "ArrowRight" ? step2 : e.key === "ArrowLeft" ? -step2 : 0;
+      const dy = s.axis === "xy" ? e.key === "ArrowDown" ? step2 : e.key === "ArrowUp" ? -step2 : 0 : 0;
+      if (!dx && !dy) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const { w, h } = s.size();
+      s.apply(w + dx * dir, h + dy);
+      s.commit?.();
+    });
+  }
+
   // src/control-icons.ts
   var line = (body, size = 14) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
   var svg = (body) => line(body);
@@ -2095,59 +2157,114 @@ ${body}`;
   }
 
   // src/col-resize.ts
-  var COL_HANDLE = '<span class="fe-col-rz" title="Drag to resize this column \xB7 double-click to reset"></span>';
+  var COL_HANDLE = '<span class="fe-col-rz rz" data-axis="x" title="Drag to resize this column \xB7 double-click to reset"></span>';
   var MIN_W = 40;
+  var EDGE = 5;
   var installed = false;
+  var cellsOf = (table) => [...table.querySelectorAll("thead th")];
+  function edgeAt(e) {
+    const t = e.target;
+    const handle = t?.closest?.("table.fe-rz .fe-col-rz");
+    if (handle) return { table: handle.closest("table"), th: handle.closest("th") };
+    const cell = t?.closest?.("table.fe-rz td, table.fe-rz th");
+    if (!cell) return null;
+    const r = cell.getBoundingClientRect();
+    if (r.right - e.clientX > EDGE || r.right - e.clientX < -1) return null;
+    const table = cell.closest("table");
+    const th = cellsOf(table)[cell.cellIndex + cell.colSpan - 1];
+    return th ? { table, th } : null;
+  }
+  function freeze(table) {
+    if (table.classList.contains("fe-rz-fixed")) return;
+    const ths = cellsOf(table);
+    const widths = ths.map((h) => h.getBoundingClientRect().width);
+    ths.forEach((h, i3) => {
+      h.style.width = widths[i3] + "px";
+    });
+    table.style.width = widths.reduce((a, b) => a + b, 0) + "px";
+    table.classList.add("fe-rz-fixed");
+  }
+  function fitColumns(table) {
+    const box = table.parentElement;
+    if (!box || table.classList.contains("fe-rz-fixed") || table.scrollWidth <= box.clientWidth + 1) return;
+    const ths = cellsOf(table);
+    if (ths.length < 2) return;
+    const rows = [...table.querySelectorAll("tbody tr")].slice(0, 200);
+    const ctx = document.createElement("canvas").getContext("2d");
+    const textW = (el2) => {
+      if (!el2) return 0;
+      ctx.font = getComputedStyle(el2).font;
+      return ctx.measureText((el2.textContent ?? "").trim()).width;
+    };
+    const pad = (el2) => {
+      if (!el2) return 0;
+      const cs = getComputedStyle(el2);
+      return parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    };
+    const want = ths.map((th, i3) => {
+      const ws = rows.map((r) => textW(r.cells[i3])).sort((a, b) => a - b);
+      const p90 = ws.length ? ws[Math.min(ws.length - 1, Math.floor(ws.length * 0.9))] : 0;
+      const body = p90 + pad(rows[0]?.cells[i3]) + 4;
+      const head = textW(th) + pad(th) + 18;
+      return Math.max(56, Math.min(420, Math.ceil(Math.max(head, body))));
+    });
+    const total = want.reduce((a, b) => a + b, 0);
+    const spare = box.clientWidth - total;
+    const widths = spare > 0 ? want.map((w) => w + spare * (w / total)) : want;
+    ths.forEach((h, i3) => {
+      h.style.width = Math.round(widths[i3]) + "px";
+    });
+    table.style.width = Math.round(widths.reduce((a, b) => a + b, 0)) + "px";
+    table.classList.add("fe-rz-fixed", "fe-rz-fit");
+  }
   function installColumnResize() {
     if (installed) return;
     installed = true;
-    const handleOf = (e) => e.target?.closest?.("table.fe-rz .fe-col-rz") ?? null;
+    const fitAll = (root) => requestAnimationFrame(() => root.querySelectorAll("table.fe-rz:not(.fe-rz-fixed)").forEach(fitColumns));
+    new MutationObserver((muts) => {
+      for (const m of muts) for (const n of m.addedNodes) {
+        if (n instanceof Element && (n.matches("table.fe-rz") || n.querySelector("table.fe-rz"))) fitAll(n.parentNode ?? n);
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+    fitAll(document);
+    document.addEventListener("pointermove", (e) => {
+      if (document.body.classList.contains("fe-resizing")) return;
+      const cell = e.target?.closest?.("table.fe-rz td, table.fe-rz th");
+      const table = cell?.closest("table");
+      document.querySelectorAll("table.fe-col-edge").forEach((x) => {
+        if (x !== table) x.classList.remove("fe-col-edge");
+      });
+      table?.classList.toggle("fe-col-edge", !!edgeAt(e));
+    }, { passive: true });
     document.addEventListener("click", (e) => {
-      if (handleOf(e)) e.stopPropagation();
+      if (edgeAt(e)) e.stopPropagation();
     }, true);
     document.addEventListener("dblclick", (e) => {
-      const handle = handleOf(e);
-      if (!handle) return;
+      const hit = edgeAt(e);
+      if (!hit) return;
       e.stopPropagation();
-      const table = handle.closest("table");
-      table.classList.remove("fe-rz-fixed");
+      const { table } = hit;
+      table.classList.remove("fe-rz-fixed", "fe-rz-fit");
       table.style.width = "";
-      table.querySelectorAll("thead th").forEach((th) => {
+      cellsOf(table).forEach((th) => {
         th.style.width = "";
       });
+      fitColumns(table);
     }, true);
     document.addEventListener("pointerdown", (e) => {
-      const handle = handleOf(e);
-      if (!handle || e.button !== 0) return;
-      e.preventDefault();
+      const hit = edgeAt(e);
+      if (!hit || e.button !== 0) return;
       e.stopPropagation();
-      const th = handle.closest("th");
-      const table = th.closest("table");
-      const ths = [...table.querySelectorAll("thead th")];
-      if (!table.classList.contains("fe-rz-fixed")) {
-        const widths = ths.map((h) => h.getBoundingClientRect().width);
-        ths.forEach((h, i3) => {
-          h.style.width = widths[i3] + "px";
-        });
-        table.style.width = widths.reduce((a, b) => a + b, 0) + "px";
-        table.classList.add("fe-rz-fixed");
-      }
-      const startX = e.clientX;
+      const { table, th } = hit;
+      freeze(table);
       const startW = parseFloat(th.style.width);
       const startTable = parseFloat(table.style.width);
-      document.body.classList.add("fe-col-dragging");
-      const onMove = (ev) => {
-        const w = Math.max(MIN_W, startW + ev.clientX - startX);
+      th.querySelector(".fe-col-rz")?.classList.add("drag");
+      startDrag(e, "col-resize", (dx) => {
+        const w = Math.max(MIN_W, startW + dx);
         th.style.width = w + "px";
         table.style.width = startTable + (w - startW) + "px";
-      };
-      const onUp = () => {
-        document.removeEventListener("pointermove", onMove);
-        document.removeEventListener("pointerup", onUp);
-        document.body.classList.remove("fe-col-dragging");
-      };
-      document.addEventListener("pointermove", onMove);
-      document.addEventListener("pointerup", onUp);
+      }, () => th.querySelector(".fe-col-rz")?.classList.remove("drag"));
     }, true);
   }
 
@@ -4123,35 +4240,40 @@ Now: ${question}` : question;
     applyLayout();
     focusTrap(overlay, { when: () => layout.mode !== "side" });
     const dialog = document.getElementById("fe-ql-dialog");
-    const drag = (grip, onMove, onUp) => {
-      grip.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const move = (ev) => onMove(ev);
-        const up = () => {
-          document.removeEventListener("mousemove", move);
-          document.removeEventListener("mouseup", up);
-          document.body.style.cursor = "";
-          onUp();
-          savePreviewLayout(layout);
-        };
-        document.body.style.cursor = getComputedStyle(grip).cursor;
-        document.addEventListener("mousemove", move);
-        document.addEventListener("mouseup", up);
-      });
-    };
-    drag(document.getElementById("fe-ql-rz"), (ev) => {
-      const r = dialog.getBoundingClientRect();
-      layout.modalW = Math.min(window.innerWidth - r.left - 8, Math.max(360, ev.clientX - r.left));
-      layout.modalH = Math.min(window.innerHeight - r.top - 8, Math.max(240, ev.clientY - r.top));
-      applyLayout();
-    }, () => {
+    resizable(document.getElementById("fe-ql-rz"), {
+      axis: "xy",
+      label: "Resize the preview",
+      size: () => {
+        const r = dialog.getBoundingClientRect();
+        return { w: r.width, h: r.height };
+      },
+      apply: (w, h) => {
+        const r = dialog.getBoundingClientRect();
+        layout.modalW = Math.min(window.innerWidth - r.left - 8, Math.max(360, w));
+        layout.modalH = Math.min(window.innerHeight - r.top - 8, Math.max(240, h));
+        applyLayout();
+      },
+      reset: () => {
+        delete layout.modalW;
+        delete layout.modalH;
+        applyLayout();
+      },
+      commit: () => savePreviewLayout(layout)
     });
-    drag(document.getElementById("fe-ql-rz-side"), (ev) => {
-      const r = overlay.getBoundingClientRect();
-      layout.sideW = Math.min(window.innerWidth * 0.8, Math.max(280, r.right - ev.clientX));
-      applyLayout();
-    }, () => {
+    resizable(document.getElementById("fe-ql-rz-side"), {
+      axis: "x",
+      dir: -1,
+      label: "Resize the preview",
+      size: () => ({ w: overlay.getBoundingClientRect().width, h: 0 }),
+      apply: (w) => {
+        layout.sideW = Math.min(window.innerWidth * 0.8, Math.max(280, w));
+        applyLayout();
+      },
+      reset: () => {
+        delete layout.sideW;
+        applyLayout();
+      },
+      commit: () => savePreviewLayout(layout)
     });
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.addEventListener("click", () => {
@@ -5006,6 +5128,17 @@ Now: ${question}` : question;
 .notice[data-tone="danger"]{color:var(--tone-danger)}
 .notice[data-tone="warn"]{color:var(--nc-orange)}
 .notice[data-tone="ok"]{color:var(--tone-ok)}
+/* Resize handle (docs/system/resize.md). Class rz, set by resizable(). A
+   thin hit area whose 2px accent line grows in on hover, drag or focus, the
+   sidebar's look everywhere. data-axis="xy" is a corner grip, which keeps
+   two faint lines at rest so it can be found. */
+.rz{flex-shrink:0;cursor:col-resize;user-select:none;touch-action:none;outline:0;
+  background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
+.rz:hover,.rz.drag,.rz:focus-visible{background-size:2px 100%}
+.rz[data-axis="xy"]{cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,var(--bd) 50%,var(--bd) 60%,transparent 60%,transparent 75%,var(--bd) 75%,var(--bd) 85%,transparent 85%)}
+.rz[data-axis="xy"]:hover,.rz[data-axis="xy"].drag,.rz[data-axis="xy"]:focus-visible{background:linear-gradient(var(--ac),var(--ac)) right bottom/100% 2px no-repeat,linear-gradient(var(--ac),var(--ac)) right bottom/2px 100% no-repeat}
+body.fe-resizing{user-select:none}
+table.fe-col-edge,table.fe-col-edge *{cursor:col-resize}
 /* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
    input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
    grows from one control high. Invalid: aria-invalid="true". */
@@ -5118,8 +5251,7 @@ body{opacity:1!important}
 .fe-doc-due{font-size:var(--fs-sm);color:var(--tx);padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--nc-orange) 16%,transparent)}
 .fe-doc-n{flex:none}
 .fe-row-cm{flex:none}
-#fe-side-rz{width:5px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .12s}
-#fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
+#fe-side-rz{width:10px}
 .fe-sec{margin-bottom:4px}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none!important}
 .fe-sh{padding:10px 14px 5px}
@@ -5226,15 +5358,13 @@ thead th{padding:6px 12px;text-align:left;font-size:var(--fs-sm);font-weight:600
 thead th{position:relative}
 thead th[data-sort]{cursor:pointer}
 thead th[data-sort]:hover{color:var(--tx)}
-.fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;user-select:none}
-.fe-col-rz:hover{background:linear-gradient(90deg,transparent,var(--ac))}
+.fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%}
 /* Rendered tables (markdown, CSV/TSV) share the handle; col-resize.ts fixes
    the layout on the first drag so one column moves at a time. */
 .fe-md-table th{position:relative}
 table.fe-rz-fixed{table-layout:fixed}
 .fe-ql-table.fe-rz-fixed th,.fe-ql-table.fe-rz-fixed td{overflow:hidden;text-overflow:ellipsis}
 .fe-md-table.fe-rz-fixed td,.fe-md-table.fe-rz-fixed th{overflow-wrap:anywhere}
-body.fe-col-dragging{cursor:col-resize;user-select:none}
 .si{opacity:.35;font-size:var(--fs-xs)}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
@@ -5563,11 +5693,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   border-radius:10px;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);
   max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);
   display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;overflow:hidden}
-#fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;z-index:2;
-  background:linear-gradient(135deg,transparent 50%,var(--bd) 50%,var(--bd) 60%,transparent 60%,transparent 75%,var(--bd) 75%,var(--bd) 85%,transparent 85%)}
-#fe-ql-rz:hover{background:linear-gradient(135deg,transparent 50%,var(--ac) 50%)}
-#fe-ql-rz-side{display:none;position:absolute;left:0;top:0;width:6px;height:100%;cursor:col-resize;z-index:2}
-#fe-ql-rz-side:hover{background:linear-gradient(90deg,var(--ac),transparent)}
+#fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;z-index:2}
+#fe-ql-rz-side{display:none;position:absolute;left:-3px;top:0;width:8px;height:100%;z-index:2}
 #fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;
   border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
@@ -6101,8 +6228,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-tabbar,#fe-tabs{background:var(--side)}
 .fe-tab.on{background:var(--card)}
 #fe-qlook.side{margin-left:10px}
-#fe-side-rz{width:10px;background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
-#fe-side-rz:hover,#fe-side-rz.drag{background:linear-gradient(var(--ac),var(--ac)) center/2px 100% no-repeat}
 #fe-table{border-collapse:separate;border-spacing:0}
 #fe-table tbody tr{border-bottom:0}
 #fe-table tbody tr:hover{background:none}
@@ -7340,24 +7465,21 @@ button.chip:disabled{opacity:.45;cursor:default}
       const box = document.getElementById("fe-st-sidebar");
       if (box) box.checked = settings.showSidebar;
     });
-    rz.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      rz.classList.add("drag");
-      const startX = e.clientX;
-      const startW = side.getBoundingClientRect().width;
-      const move = (m) => {
-        side.style.width = Math.max(210, Math.min(520, startW + m.clientX - startX)) + "px";
-      };
-      const up = () => {
-        rz.classList.remove("drag");
-        document.removeEventListener("pointermove", move);
-        document.removeEventListener("pointerup", up);
-        settings.sidebarWidth = Math.round(side.getBoundingClientRect().width);
+    resizable(rz, {
+      axis: "x",
+      label: "Resize the sidebar",
+      size: () => ({ w: side.getBoundingClientRect().width, h: 0 }),
+      apply: (w) => {
+        side.style.width = Math.max(210, Math.min(520, w)) + "px";
+      },
+      reset: () => {
+        side.style.width = "";
+      },
+      commit: () => {
+        settings.sidebarWidth = side.style.width ? Math.round(side.getBoundingClientRect().width) : void 0;
         settings.sidebarRail = true;
         saveSettings(settings);
-      };
-      document.addEventListener("pointermove", move);
-      document.addEventListener("pointerup", up);
+      }
     });
   }
 
@@ -18551,35 +18673,32 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     els(".fe-col-rz").forEach((handle) => {
       handle.title = "Drag to resize this column \xB7 double-click to reset";
-      handle.addEventListener("click", (e) => e.stopPropagation());
-      handle.addEventListener("dblclick", (e) => {
-        e.stopPropagation();
-        const widths = getColWidths();
-        delete widths[handle.closest("th").dataset.ck];
-        saveColWidths(widths);
-        applyWidths();
-      });
-      handle.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const th = handle.closest("th");
-        const key = th.dataset.ck;
-        const startX = e.clientX, startW = th.offsetWidth;
-        const maxW = startW + Math.max(0, lastTh.offsetWidth - LAST_MIN);
-        const widthAt = (x) => Math.min(maxW, Math.max(MIN_W2, startW + x - startX));
-        lastTh.style.width = "auto";
-        const onMove = (ev) => {
-          th.style.width = widthAt(ev.clientX) + "px";
-        };
-        const onUp = (ev) => {
-          document.removeEventListener("mousemove", onMove);
-          document.removeEventListener("mouseup", onUp);
+      const th = handle.closest("th");
+      const key = th.dataset.ck;
+      let maxW = Infinity;
+      resizable(handle, {
+        axis: "x",
+        label: `Resize the ${th.textContent?.trim() || "column"} column`,
+        size: () => {
+          maxW = th.offsetWidth + Math.max(0, lastTh.offsetWidth - LAST_MIN);
+          lastTh.style.width = "auto";
+          return { w: th.offsetWidth, h: 0 };
+        },
+        apply: (w) => {
+          th.style.width = Math.min(maxW, Math.max(MIN_W2, w)) + "px";
+        },
+        reset: () => {
           const widths = getColWidths();
-          widths[key] = widthAt(ev.clientX);
+          delete widths[key];
           saveColWidths(widths);
-        };
-        document.addEventListener("mousemove", onMove);
-        document.addEventListener("mouseup", onUp);
+          applyWidths();
+        },
+        commit: () => {
+          if (!th.style.width || th.style.width === "auto") return;
+          const widths = getColWidths();
+          widths[key] = parseFloat(th.style.width);
+          saveColWidths(widths);
+        }
       });
     });
     const sgPanel = el("fe-sg-panel");

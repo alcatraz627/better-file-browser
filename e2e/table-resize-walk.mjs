@@ -67,6 +67,43 @@ try {
   } else {
     check(false, 'TSV file page shows a table');
   }
+
+  // A column's edge works from any cell down the column, not only the header.
+  await page.goto('file://' + md, { waitUntil: 'load' });
+  await page.waitForSelector('.fe-md-table');
+  const msel = '#fe-page .fe-md-table';
+  const b0 = await widths(page, msel);
+  const cell = await page.$eval(`${msel} tbody tr:nth-child(2) td:nth-child(1)`, el => { const r = el.getBoundingClientRect(); return { x: r.right - 2, y: r.top + r.height / 2 }; });
+  await page.mouse.move(cell.x, cell.y);
+  const edgeCursor = await page.$eval(msel, t => t.classList.contains('fe-col-edge'));
+  await page.mouse.down();
+  await page.mouse.move(cell.x + 50, cell.y, { steps: 5 });
+  await page.mouse.up();
+  const b1 = await widths(page, msel);
+  check(edgeCursor && Math.abs(b1[0] - b0[0] - 50) <= 2 && b1[1] === b0[1], `a body cell's edge drags its column: ${JSON.stringify({ edgeCursor, b0, b1 })}`);
+
+  // A data table wider than its box (cells there do not wrap) starts with
+  // widths from its content: short columns stay narrow and none takes the row.
+  const long = '/Users/someone/Code/project/packages/a-very-long-package-name/src/components/deeply/nested/folder/structure/file.tsx';
+  const rows = Array.from({ length: 12 }, (v, i) => `${i}\titem ${i}\t${long}\t${i * 7} KB\t${long}\t${long}`).join('\n');
+  writeFileSync(join(h.fixture, 'paths.tsv'), 'ID\tName\tPath\tSize\tFrom\tTo\n' + rows + '\n');
+  await page.goto('file://' + h.fixture + '/#view=paths.tsv', { waitUntil: 'load' });
+  await page.waitForSelector('.fe-ql-table', { timeout: 5000 }); await new Promise(r => setTimeout(r, 300));
+  const fit = await page.$eval('.fe-ql-table', t => ({ fit: t.classList.contains('fe-rz-fit'), w: [...t.querySelectorAll('thead th')].map(th => Math.round(th.getBoundingClientRect().width)) }));
+  check(fit.fit && fit.w[0] < 100 && fit.w[3] < 140 && [2, 4, 5].every(i => fit.w[i] <= 440 && fit.w[i] > fit.w[1]), `a wide data table starts with widths from its content: ${JSON.stringify(fit)}`);
+  await page.screenshot({ path: join(SHOTS, 'table-fit.png'), clip: { x: 0, y: 0, width: 1400, height: 520 } });
+  await page.keyboard.press('Escape');
+  await page.goto('file://' + md, { waitUntil: 'load' });
+  await page.waitForSelector('#fe-side-rz');
+
+  // The sidebar's handle answers the arrows like every resize handle.
+  const side0 = await page.$eval('#fe-side', s => Math.round(s.getBoundingClientRect().width));
+  await page.focus('#fe-side-rz');
+  await page.keyboard.press('ArrowRight');
+  const side1 = await page.$eval('#fe-side', s => Math.round(s.getBoundingClientRect().width));
+  const role = await page.$eval('#fe-side-rz', el => [el.getAttribute('role'), el.getAttribute('aria-label')]);
+  check(side1 - side0 === 16 && role[0] === 'separator' && !!role[1], `the sidebar handle is a separator the arrows move: ${JSON.stringify({ side0, side1, role })}`);
+  await page.keyboard.press('ArrowLeft');
 } finally {
   console.log(results.join('\n'));
   await h.close();

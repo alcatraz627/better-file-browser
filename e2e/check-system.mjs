@@ -34,7 +34,7 @@ const RULES = [
   { id: 'css-media', text: (css) => count(css, /@(media|container)\b/g), on: 'css' },
   { id: 'css-dup-selector', text: css => dupSelectors(css), on: 'css' },
   { id: 'css-part-paint', text: css => partPaint(css), on: 'css' },
-  { id: 'js-keydown', code: /addEventListener\(\s*['"]keydown['"]/g, skip: ['layer.ts'] },
+  { id: 'js-keydown', code: /addEventListener\(\s*['"]keydown['"]/g, skip: ['layer.ts', 'resize.ts'] },
   // Presses anywhere on the page, and clicks caught at the document, are how a
   // part closes itself on an outside click; the layer service owns that.
   { id: 'js-outside-click', code: /addEventListener\(\s*['"](mousedown|pointerdown)['"]|document\.addEventListener\(\s*['"]click['"]/g, skip: ['layer.ts'] },
