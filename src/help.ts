@@ -45,17 +45,23 @@ function keyboardMap(): string {
 }
 
 // One card: a coloured icon tile, a few words, and the keys or gesture.
+const toned = (tone: string) => ` style="--tone:${tone}"`;
 const card = (icon: string, tone: string, title: string, text: string, how = '') =>
-  `<div class="fe-hc" style="--tone:${tone}"><span class="fe-hc-ico">${icon}</span><div class="fe-hc-tx"><b>${title}</b><span>${text}</span></div>${how ? `<div class="fe-hc-how">${how}</div>` : ''}</div>`;
+  `<div class="fe-hc card"${toned(tone)}><span class="fe-hc-ico">${icon}</span><div class="fe-hc-tx"><b>${title}</b><span>${text}</span></div>${how ? `<div class="fe-hc-how">${how}</div>` : ''}</div>`;
 const cards = (title: string, body: string) => `<section class="fe-hs"><h3 class="sect" data-level="group">${title}</h3><div class="fe-hcs">${body}</div></section>`;
 const i = (body: string) => line(body, 18);
+// One journey: a few steps through the app, each with the keys the key map
+// gives that action, so the card and the map cannot disagree.
+const journey = (icon: string, tone: string, title: string, steps: [string, string][]) =>
+  `<div class="fe-hj card"${toned(tone)}><div class="fe-hj-h"><span class="fe-hc-ico">${icon}</span><b>${title}</b></div><ol class="fe-hj-steps">${
+    steps.map(([label, id]) => { const k = KEYMAP.find(d => d.id === id); return `<li data-key="${id}"><span>${label}</span>${k ? `<span class="fe-hc-how">${keys(k.keys)}</span>` : ''}</li>`; }).join('')}</ol></div>`;
 const T = { blue: 'var(--nc-blue)', teal: 'var(--nc-teal)', green: 'var(--nc-green)', orange: 'var(--nc-orange)', pink: 'var(--nc-pink)', purple: 'var(--nc-purple)', red: 'var(--nc-red)', yellow: 'var(--nc-yellow)' };
 const POINTER = i('<path d="M4 4l7 17 2.5-7.5L21 11z"/>');
 
 export const HELP_TABS: DialogTab[] = [
   { key: 'keys', label: 'Keyboard', hint: 'Every key, on a map', icon: UI_ICON.keyboard, tone: 'var(--nc-purple)', desc: 'Hover a row to see its keys. Hover a key to see what it does.', body: keyboardMap() },
 
-  { key: 'start', label: 'Tour', hint: 'The basics', icon: UI_ICON.ai, tone: 'var(--nc-pink)', desc: 'Twelve things worth knowing.', body:
+  { key: 'start', label: 'Tour', hint: 'The basics', icon: UI_ICON.ai, tone: 'var(--nc-pink)', desc: 'Twelve things worth knowing, and eight journeys by keyboard.', body:
     cards('Move around',
       card(PI.folder, T.blue, 'Browse', 'Folders open in place.', keys(['↩', '⌫'])) +
       card(UI_ICON.eye, T.teal, 'Preview', 'Look without leaving.', keys(['Space'])) +
@@ -70,7 +76,16 @@ export const HELP_TABS: DialogTab[] = [
       card(UI_ICON.notes, T.orange, 'Notes', 'Markdown, saved as you type.', keys(['n'])) +
       card(UI_ICON.rename, T.green, 'Edit', 'Any text file you allow.', keys(['e'])) +
       card(UI_ICON.comment, T.yellow, 'Comment', 'On a selection in a doc.', keys(['c'])) +
-      card(UI_ICON.ai, T.purple, 'Ask', 'A model reads the file.', keys(['g 6']))) },
+      card(UI_ICON.ai, T.purple, 'Ask', 'A model reads the file.', keys(['g 6']))) +
+    cards('Journeys, by keyboard',
+      journey(UI_ICON.eye, T.teal, 'Preview and sidebar', [['Preview a file', 'look'], ['Dock or float it', 'pv-dock'], ['Close it', 'pv-close'], ['Sidebar on or off', 'sidebar']]) +
+      journey(PI.bm, T.orange, 'Saved, by tag', [['Go to Saved', 'lens-saved'], ['Pick a tag', 'lens-tags'], ['Filter the list', 'lens-filter'], ['Preview a file', 'side-look'], ['Open it as a tab', 'side-open'], ['Or keep it in the background', 'side-bg']]) +
+      journey(UI_ICON.tab, T.green, 'Tabs and back', [['Focus the sidebar', 'to-sidebar'], ['Open as a tab', 'side-open'], ['Type a path', 'path'], ['Step through tabs', 'tab-step'], ['Back to the listing', 'to-listing']]) +
+      journey(UI_ICON.link, T.blue, 'Path picker', [['Type or paste a path', 'path'], ['Open it as a background tab', 'goto-bg'], ['All tabs', 'tab-list']]) +
+      journey(UI_ICON.comment, T.yellow, 'Comments', [['Comments panel', 'fp-comments'], ['Step through threads', 'fp-cm-step'], ['Comment on a selection', 'fp-comment'], ['Post it', 'fp-cm-post'], ['Reply', 'fp-cm-reply']]) +
+      journey(UI_ICON.ai, T.purple, 'Ask', [['Ask about the previewed file', 'pv-ask'], ['Go to Ask', 'lens-ask'], ['Back to the listing', 'to-listing']]) +
+      journey(UI_ICON.notes, T.pink, 'Notes', [['New note', 'new-note'], ['Save', 'ed-save'], ['Rename', 'note-rename'], ['Colour, pin and tags', 'side-props'], ['Move to .trash', 'note-delete']]) +
+      journey(PI.gear, T.red, 'Settings', [['Open Settings', 'settings'], ['Next page', 'dlg-tabs'], ['Next control', 'dlg-fields'], ['Change a choice', 'dlg-choice']])) },
 
   { key: 'mouse', label: 'Mouse', hint: 'Clicks and drags', icon: i('<rect width="12" height="18" x="6" y="3" rx="6"/><path d="M12 7v4"/>'), tone: 'var(--nc-blue)', desc: 'The same gestures work on rows, sidebar items and tabs.', body:
     cards('Gestures',

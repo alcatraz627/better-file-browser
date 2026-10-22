@@ -9,6 +9,7 @@ import {
 } from './storage';
 import { notes } from './notes';
 import { initPreview } from './preview';
+import { setSidebarShown } from './motion';
 import { CSS } from './styles';
 import { UI_CSS } from './styles-ui';
 import { setUiScale } from './chrome';
@@ -203,7 +204,9 @@ loadKv().catch(() => {}).then(function () {
   };
 
   initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); }, saveError: message => app.toast(message), toast: message => app.toast(message),
-    savedChanged: () => app.refreshSaved(), openInTerminal: p => app.openInTerminal(p) });
+    savedChanged: () => app.refreshSaved(), openInTerminal: p => app.openInTerminal(p),
+    // A docked preview folds the sidebar away while it shows; the sidebar's own setting comes back after.
+    dockRoom: docked => setSidebarShown(docked && settings.dockFoldsSidebar !== false ? false : settings.showSidebar) });
   // The strip: this Chrome tab's working set. Navigation is real, so the
   // address bar is always the active tab's location.
   app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), openInTerminal: p => app.openInTerminal(p) });

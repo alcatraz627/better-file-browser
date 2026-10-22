@@ -9,6 +9,7 @@ import { rememberFocus, restoreFocus } from './dialog';
 import { raise, lower, focusTrap } from './layer';
 import { getIcon, IMG_EXTS, PI } from './icons';
 import { UI_ICON } from './control-icons';
+import { SIZE_BTN, wireSize } from './panel-size';
 import { fileMeta, kindName, metaSummary } from './file-meta';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
@@ -62,6 +63,7 @@ interface PreviewDeps {
   toast?: (message: string) => void;
   savedChanged?: () => void;               // Saved changed from the preview's own button
   openInTerminal?: (folder: string) => void;
+  dockRoom?: (docked: boolean) => void;   // a docked preview is showing (true) or not (false)
 }
 // Scroll position per previewed file, for this page's lifetime.
 const scrollMemo = new Map<string, number>();
@@ -109,8 +111,8 @@ export function initPreview(d: PreviewDeps): void {
   overlay.id = 'fe-qlook';
   overlay.style.display = 'none';
   overlay.innerHTML = `
-    <div id="fe-ql-bg"></div>
-    <div id="fe-ql-dialog">
+    <div id="fe-ql-bg" class="scrim"></div>
+    <div id="fe-ql-dialog" class="panel">
       <div id="fe-ql-hdr" class="bar">
         <span id="fe-ql-icon"></span>
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (⌘-click / middle-click also work)"></a>
@@ -124,6 +126,7 @@ export function initPreview(d: PreviewDeps): void {
         <button id="fe-ql-tab" class="btn" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
         <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
+        ${SIZE_BTN('fe-ql-size')}
         <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
@@ -181,6 +184,7 @@ export function initPreview(d: PreviewDeps): void {
   // The corner grip (floating) sets the window's size; the left edge (docked)
   // sets the panel's width. Both are the shared resize handle.
   const dialog = document.getElementById('fe-ql-dialog')!;
+  const sizer = wireSize(document.getElementById('fe-ql-size')!, dialog, 'preview', () => applyLayout());
   resizable(document.getElementById('fe-ql-rz')!, {
     axis: 'xy', label: 'Resize the preview',
     size: () => { const r = dialog.getBoundingClientRect(); return { w: r.width, h: r.height }; },
@@ -188,6 +192,8 @@ export function initPreview(d: PreviewDeps): void {
       const r = dialog.getBoundingClientRect();
       layout.modalW = Math.min(window.innerWidth - r.left - 8, Math.max(360, w));
       layout.modalH = Math.min(window.innerHeight - r.top - 8, Math.max(240, h));
+      // A hand-set size replaces large and extra large.
+      if (dialog.dataset.size) sizer.set('md');
       applyLayout();
     },
     reset: () => { delete layout.modalW; delete layout.modalH; applyLayout(); },
@@ -255,6 +261,7 @@ function applyLayout(): void {
   const dialog = document.getElementById('fe-ql-dialog')!;
   const side = layout.mode === 'side';
   overlay.classList.toggle('side', side);
+  dialog.toggleAttribute('data-dock', side);
   // Docked, the header's text buttons show their icon alone; their title names them.
   overlay.querySelectorAll<HTMLElement>('#fe-ql-hdr > .btn').forEach(b => {
     if (!b.querySelector(':scope > span')) return;
@@ -266,11 +273,14 @@ function applyLayout(): void {
   // Remembered sizes are pixels from a wider window; cap them by the window
   // now, so a narrower window keeps room for the listing and the close button.
   overlay.style.width = side && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : '';
-  dialog.style.width  = !side && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : '';
-  dialog.style.height = !side && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : '';
+  // Large and extra large take their size from the window, not the grip.
+  const own = !side && !dialog.dataset.size;
+  dialog.style.width  = own && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : '';
+  dialog.style.height = own && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : '';
   // Floating, it stacks with the other floating parts; docked, it is part of the page.
   if (side) lower(overlay);
   else if (overlay.style.display !== 'none') raise(overlay);
+  if (overlay.style.display !== 'none') deps.dockRoom?.(side);
   const dock = document.getElementById('fe-ql-dock')!;
   dock.title = side ? 'Float the preview as a window' : 'Dock the preview to the side';
   dock.classList.toggle('on', side);
@@ -285,6 +295,7 @@ export function closePreview(): void {
     edit = null;
   }
   overlay.style.display = 'none';
+  deps.dockRoom?.(false);
   restoreFocus();
   document.getElementById('fe-ql-body')!.classList.remove('fe-editing');
   currentEntry = null;
@@ -435,6 +446,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   copyBtn.style.display = ''; copyBtn.disabled = false;
   if (overlay.style.display === 'none') rememberFocus();
   overlay.style.display = 'flex';
+  deps.dockRoom?.(layout.mode === 'side');
   if (layout.mode !== 'side') raise(overlay);
   syncSaveBtn();
 
@@ -748,6 +760,7 @@ export function openPreview(e: Entry): void {
   const body = document.getElementById('fe-ql-body')!;
   if (overlay.style.display === 'none') rememberFocus();
   overlay.style.display = 'flex';
+  deps.dockRoom?.(layout.mode === 'side');
   if (layout.mode !== 'side') raise(overlay);
   syncSaveBtn();
   dsvHeader = []; dsvRows = []; dsvSort = null;

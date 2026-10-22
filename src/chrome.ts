@@ -209,7 +209,7 @@ export function initChrome(app: App): void {
   const side = el('fe-side');
   const rz = el('fe-side-rz');
   el('fe-side-toggle').addEventListener('click', () => {
-    settings.showSidebar = !settings.showSidebar;
+    settings.showSidebar = side.style.display === 'none';
     saveSettings(settings);
     setSidebarShown(settings.showSidebar);
     const box = document.getElementById('fe-st-sidebar') as HTMLInputElement | null;

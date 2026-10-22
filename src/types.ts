@@ -34,6 +34,7 @@ export interface Tag {
 export interface Settings {
   compactMode:  boolean;
   showSidebar:  boolean;
+  dockFoldsSidebar?: boolean;   // a docked preview folds the sidebar away while it is open (default on)
   dateFormat:   'short' | 'full';
   terminalApp:  string;
   terminalCmd:  string;

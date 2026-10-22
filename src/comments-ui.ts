@@ -320,12 +320,12 @@ export function mountComments(o: {
         <span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="reply" title="Reply (⌘↵)">Reply</button>
       </div>` : '';
-    return `<article class="fe-cm-th${on ? ' on' : ''}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
+    return `<article class="fe-cm-th card${on ? ' on' : ''}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
       <blockquote class="fe-cm-q">${esc(quote.length > 140 ? quote.slice(0, 139) + '…' : quote)}</blockquote>${where}${cs}
       ${chips ? `<div class="fe-cm-chips">${chips}</div>` : ''}${tools}</article>`;
   };
 
-  const draftHtml = () => draft ? `<form class="fe-cm-th fe-cm-new on" data-new aria-label="${draft.attach ? 'Attach the thread here' : 'New comment'}">
+  const draftHtml = () => draft ? `<form class="fe-cm-th card fe-cm-new on" data-new aria-label="${draft.attach ? 'Attach the thread here' : 'New comment'}">
       <blockquote class="fe-cm-q">${esc(draft.quote.length > 140 ? draft.quote.slice(0, 139) + '…' : draft.quote)}</blockquote>
       ${draft.block ? notice('On the whole block', 'These words could not be placed exactly, so the comment covers the whole block.') : ''}
       ${draft.attach ? '<p class="fe-cm-hint">The thread moves to these words.</p>' : box('new', 'New comment', 'Comment… @ to mention, # to tag')}

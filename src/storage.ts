@@ -204,3 +204,11 @@ export function getPalette():    string  { const p = kvGet(PALETTE_KEY); return 
 export const DENSITY_NAMES = ['Overview', 'Large', 'Standard', 'Detailed', 'Full detail'];
 export function getDensity():    number  { const d = parseInt(kvGet(DENSITY_KEY) ?? '3'); return d >= 1 && d <= 5 ? d : 3; }
 export function getShowHidden(): boolean { return kvGet(HIDDEN_KEY) === 'true'; }
+
+/** The size a floating panel was last left at ('md', 'lg' or 'xl'). */
+export function getPanelSize(key: string): string {
+  try { return kvGet(`bfb-panel-size:${key}`) || ''; } catch { return ''; }
+}
+export function savePanelSize(key: string, size: string): void {
+  try { kvSet(`bfb-panel-size:${key}`, size); } catch { /* fine */ }
+}

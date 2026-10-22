@@ -8,7 +8,7 @@ import { writeFileSync, mkdtempSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { launch, shot } from './harness.mjs';
+import { launch, shot, applyTheme } from './harness.mjs';
 
 const CLI = resolve(new URL('..', import.meta.url).pathname, 'native', 'bfb_docs.py');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -29,6 +29,7 @@ try {
   writeFileSync(join(h.fixture, 'empty.txt'), '');
   const page = await h.open();
   await page.setViewport({ width: 1400, height: 900 });
+  await applyTheme(page);
   // What each visible bar measures: its box, padding, gap, the heights of its
   // own controls (not those inside a field or a segmented group), and the
   // room between its rows of controls and its edges.

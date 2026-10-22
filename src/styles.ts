@@ -126,9 +126,18 @@ export const CSS = `
 .sect[data-level="group"]{font-size:var(--type-micro);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
 .sect[data-level="panel"]{font-size:var(--type-ui);font-weight:600;color:var(--tx)}
 .sect[data-level="page"]{gap:var(--sp-5)}
-.fe-dlg-title.sect{align-items:flex-start}
 .sect[data-level="page"] .sect-tx > :first-child{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
 .sect[data-level="page"] .sect-tx > :nth-child(2){margin:0;font-size:var(--fs-md);font-style:normal;font-weight:400;line-height:1.35;color:var(--dm)}
+/* Panel: a bounded surface with a head, a scrolling body and an optional
+   foot, floating over the page or docked into it. Scrim: the dimmed page
+   behind a floating panel. (docs/system/panel.md) */
+.panel{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;outline:none;
+  background:var(--card);border:1px solid var(--pop-bd);border-radius:var(--pop-r);box-shadow:var(--pop-sh)}
+.panel[data-dock]{border:0;border-radius:0;box-shadow:none}
+.scrim{position:absolute;inset:0;background:rgb(0 0 0 / .55);backdrop-filter:blur(2px);animation:fe-fade var(--t-base) var(--ease)}
+.panel:not([data-dock]){animation:fe-rise var(--t-base) var(--ease)}
+/* Card: a bounded group inside a panel or a page. The place sets padding. */
+.card{background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r)}
 /* Notice, a line that tells the reader about the page itself
    (docs/system/notice.md): empty, cut short, could not render, changed on
    disk. Class notice; data-tone danger, warn or ok; buttons in it act on it. */
@@ -619,30 +628,42 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 ::-webkit-scrollbar-thumb:hover{background:var(--dm)}
 #fe.compact tbody td{padding:2px 12px}
 #fe.compact .fe-tile{padding:6px 6px 5px;gap:3px}
+/* Dialog: Settings and Help. A Panel over a Scrim with the title and the
+   tabs down the left and one scrolling pane on the right. Every rule for it
+   is here, and in the 700px block at the end (docs/system/dialog.md). */
 .fe-dlg{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center}
-.fe-dlg-bg{position:absolute;inset:0;background:#00000088;backdrop-filter:blur(2px)}
-.fe-dlg-box{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);border-radius:10px;
-  width:min(760px,calc(100vw - 40px));max-height:84vh;display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;outline:none}
-#fe-settings-modal .fe-dlg-box{width:min(900px,calc(100vw - 40px))}
-.fe-dlg-title{padding:14px 16px 12px;background:var(--s2);flex:none;border-radius:10px 10px 0 0}
-.fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;
-  background:var(--on);color:var(--ac);border:1px solid var(--ac)}
-
-.fe-dlg-tabs{display:flex;gap:3px;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex:none;align-items:stretch;overflow-x:auto}
-.fe-dlg-tab{display:flex;flex-direction:column;gap:2px;background:none;border:none;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
-  padding:9px 13px 8px;color:var(--mt);cursor:pointer;text-align:left;line-height:1;white-space:nowrap;transition:background .1s,color .1s,border-color .1s}
-.fe-dlg-tab-main{display:flex;align-items:center;gap:5px;min-width:0}
-.fe-dlg-tab-main svg{flex:none;width:13px;height:13px}
-.fe-dlg-tab b{font-size:var(--fs-md);font-weight:600;color:inherit}
-.fe-dlg-tab i{font-size:var(--fs-sm);font-style:normal;color:var(--dm);opacity:.85}
-.fe-dlg-tab:hover{color:var(--tx);background:var(--s1)}
-.fe-dlg-tab.on{background:var(--s1);color:var(--tx);border-bottom-color:var(--ac)}
+.fe-dlg-box{position:relative;z-index:1;display:grid;grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+  width:min(1000px,calc(100vw - 48px));height:min(780px,84vh)}
+/* Large and extra large never come out smaller than the panel's own size. */
+.fe-dlg-box[data-size="lg"]{width:max(min(1000px,calc(100vw - 48px)),85vw);height:max(min(780px,84vh),90vh)}
+#fe-ql-dialog[data-size="lg"]{width:max(min(1100px,calc(100vw - 64px)),85vw);height:max(min(84vh,1000px),90vh)}
+.fe-dlg-box[data-size="xl"],#fe-ql-dialog[data-size="xl"]{width:calc(100vw - 32px);height:calc(100vh - 32px)}
+.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;align-items:flex-start;background:var(--side);border-right:1px solid var(--bd)}
+.fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--on);color:var(--ac)}
+.fe-dlg-acts{position:absolute;top:14px;right:14px;z-index:5;display:flex;gap:var(--sp-2)}
+.fe-dlg-tabs{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:2px;padding:4px 8px 12px;overflow:auto;background:var(--side);border-right:1px solid var(--bd)}
+.fe-dlg-tab{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--mt);
+  cursor:pointer;text-align:left;line-height:1;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-dlg-tab:hover{background:var(--hover);color:var(--tx)}
+.fe-dlg-tab.on{background:var(--on);color:var(--tx)}
+.fe-dlg-tab-main{display:flex;align-items:center;gap:var(--row-gap);min-width:0}
+.fe-dlg-tab b{font-size:var(--row-fs);font-weight:500;color:inherit}
+.fe-dlg-tab i{padding-left:calc(22px + var(--row-gap));font-size:var(--fs-sm);font-style:normal;line-height:1.3;color:var(--dm);opacity:.85}
 .fe-dlg-tab.on i{opacity:1}
-.fe-dlg-pane{display:none;padding:18px 22px 22px;overflow:auto;min-height:0}
-.fe-dlg-pane.on{display:flex;flex-direction:column;gap:20px}
+.fe-dlg-tile{flex:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:#fff;
+  background:linear-gradient(165deg,color-mix(in srgb,var(--tone) 88%,#fff),color-mix(in srgb,var(--tone) 80%,#000));
+  box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .2),0 1px 2px rgb(0 0 0 / .22)}
+.fe-dlg-tile svg{width:13px;height:13px}
+.fe-dlg-tile.lg{width:40px;height:40px;border-radius:11px;box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .22),0 4px 12px color-mix(in srgb,var(--tone) 30%,transparent)}
+.fe-dlg-tile.lg svg{width:22px;height:22px}
+.fe-dlg-pane{grid-column:2;grid-row:1/span 2;display:none;min-height:0;padding:20px 24px 24px;overflow:auto;background:var(--side)}
+.fe-dlg-pane.on{display:flex;flex-direction:column;gap:16px}
+.fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
+.fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 96px 18px 24px;background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
 .fe-dlg-pane .fe-md{max-width:none;padding:0}
 .fe-dlg-pane .fe-md h2{font-size:1.15em;border:0;padding:0}
-.fe-dlg-pane .fe-md>:first-child{margin-top:0}
+.fe-dlg-pane .fe-md>:first-child{margin-top:0;padding-right:36px}
+
 .fe-st-section{display:flex;flex-direction:column;gap:10px}
 .fe-st-title{font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.08em;
   color:var(--dm);padding-bottom:4px;border-bottom:1px solid var(--bd)}
@@ -695,18 +716,14 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-row.selected .fe-nm{color:var(--ac)}
 .fe-tile.selected{background:var(--on);border-color:var(--ac)}
 #fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
-#fe-ql-bg{position:absolute;inset:0;background:#0009;backdrop-filter:blur(2px)}
-#fe-ql-dialog{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);
-  border-radius:10px;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);
-  max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);
-  display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;overflow:hidden}
+#fe-ql-dialog{position:relative;z-index:1;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);max-width:calc(100vw - 16px);max-height:calc(100vh - 16px)}
 #fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;z-index:2}
 #fe-ql-rz-side{display:none;position:absolute;left:-3px;top:0;width:8px;height:100%;z-index:2}
 #fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;
   border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch}
-#fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
+#fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz,#fe-qlook.side #fe-ql-size{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
-#fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
+#fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none}
 #fe-tabbar{display:flex;align-items:stretch;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:34px}
 /* The strip takes only the room its tabs need, so + and the path button sit
    right after the last tab; past the bar's width the tabs scroll and the
@@ -810,7 +827,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-cm-group span{font-weight:500;letter-spacing:0}
 details.fe-cm-done > summary{cursor:pointer;list-style:none}
 details.fe-cm-done > summary::-webkit-details-marker{display:none}
-.fe-cm-th{position:relative;margin:0 0 8px;padding:10px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--card);cursor:pointer;
+.fe-cm-th{position:relative;margin:0 0 8px;padding:10px 12px;cursor:pointer;
   transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
 .fe-cm-th:hover{border-color:var(--bd2)}
 .fe-cm-th.on{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 14%,transparent)}
@@ -1390,30 +1407,12 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 @keyframes fe-dock-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu{animation:fe-rise var(--t-fast) var(--ease);transform-origin:top left}
 .fe-lens:not([hidden]){animation:fe-lens-in var(--t-base) var(--ease)}
-.fe-dlg-bg,#fe-ql-bg{animation:fe-fade var(--t-base) var(--ease)}
-.fe-dlg-box,#fe-qlook:not(.side) #fe-ql-dialog{animation:fe-rise var(--t-base) var(--ease)}
 #fe-qlook.side{animation:fe-dock-in var(--t-base) var(--ease)}
 .fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
 /* Settings and Help read as a page: the title across the top, the sections
    listed on the left the way the sidebar lists lenses, the pane on the right.
    In Settings each row names the setting, says what it changes and keeps its
    control on the right; rows sit in cards by subject. */
-.fe-dlg-box{display:grid;grid-template-columns:200px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
-  width:min(920px,calc(100vw - 40px));height:min(640px,86vh);border-radius:14px;background:var(--card);border-color:var(--pop-bd);box-shadow:var(--pop-sh)}
-#fe-settings-modal .fe-dlg-box{width:min(920px,calc(100vw - 40px))}
-.fe-dlg-title{grid-column:1/-1;background:none;border-bottom:1px solid var(--bd);border-radius:14px 14px 0 0}
-.fe-dlg-mark{border:0;border-radius:8px}
-.fe-dlg-tabs{flex-direction:column;gap:2px;padding:10px 6px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);overflow-y:auto;border-radius:0 0 0 14px}
-.fe-dlg-tab{border:0;border-radius:var(--row-r);padding:8px 10px;gap:3px;white-space:normal;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-dlg-tab:hover{background:var(--hover)}
-.fe-dlg-tab.on{background:var(--on);color:var(--tx)}
-.fe-dlg-tab-main{gap:var(--row-gap)}
-.fe-dlg-tab-main svg{width:15px;height:15px}
-.fe-dlg-tab b{font-size:var(--row-fs);font-weight:500}
-.fe-dlg-tab i{padding-left:25px;line-height:1.3}
-.fe-dlg-pane{padding:20px 24px 24px}
-.fe-dlg-pane.on{gap:16px}
-.fe-set-card{background:var(--side);border:1px solid var(--bd);border-radius:12px;padding:2px 0 4px}
 .fe-set-h{justify-content:space-between;min-height:40px;padding:8px 16px 4px}
 .fe-set{display:flex;align-items:center;gap:16px;min-height:52px;padding:8px 16px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
 .fe-set-h + .fe-set{border-top:0}
@@ -1425,7 +1424,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-note{padding:2px 16px 10px;font-size:var(--fs-md);color:var(--dm);line-height:1.5}
 .fe-set-note:empty{display:none}
 .fe-set-card .fe-st-rules-cols,.fe-set-card #fe-st-rules-list{margin:0 16px}
-.fe-set-card #fe-st-reset-rules{margin:10px 16px 8px}
 .fe-set-danger{color:var(--nc-red)}
 
 .fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
@@ -1469,7 +1467,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-fe-pill .fe-fe-diag{border-radius:999px;padding:0 10px;font-size:var(--fs-md)}
 .fe-fe-diag.error{color:var(--nc-red)}
 .fe-fe-diag.warn{color:var(--nc-orange)}
-.fe-diag{margin:0 0 14px;border:1px solid var(--bd);border-radius:10px;background:var(--side);font-size:var(--fs-md)}
+.fe-diag{margin:0 0 14px;font-size:var(--fs-md)}
 .fe-diag > summary{cursor:pointer;padding:8px 12px;font-weight:600;list-style:none}
 .fe-diag.error > summary{color:var(--nc-red)}
 .fe-diag.warn > summary{color:var(--nc-orange)}
@@ -1550,8 +1548,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* Review fixes: Settings follows the page order (panel a step below, cards
    on top), fields share one look, path chevrons show on hover only, and
    the palette swatch previews the theme in use. */
-.fe-dlg-pane{background:var(--side)}
-.fe-set-card{background:var(--card)}
 
 .fe-st-ai-why{margin-top:6px}
 .fe-st-ai-why > summary{cursor:pointer;color:var(--ac)}
@@ -1567,26 +1563,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
    (large tile, title, what the page covers) that stays put while the page
    scrolls; sections are small headings over grouped cards. Hierarchy comes
    from weight, colour, case and space, inside the five-step type scale. */
-.fe-dlg-box{grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);border-radius:14px 0 0 0}
 
-.fe-dlg-close{position:absolute;top:14px;right:14px;z-index:5}
-.fe-dlg-tabs{grid-column:1;grid-row:2;padding:4px 8px 12px}
-.fe-dlg-pane{grid-column:2;grid-row:1/span 2;border-radius:0 14px 14px 0}
-.fe-dlg-pane .fe-md>:first-child{padding-right:36px}
-.fe-dlg-tile{flex:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:#fff;
-  background:linear-gradient(165deg,color-mix(in srgb,var(--tone) 88%,#fff),color-mix(in srgb,var(--tone) 80%,#000));
-  box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .2),0 1px 2px rgb(0 0 0 / .22)}
-.fe-dlg-tab-main .fe-dlg-tile svg{width:13px;height:13px}
-.fe-dlg-tile.lg{width:40px;height:40px;border-radius:11px;box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .22),0 4px 12px color-mix(in srgb,var(--tone) 30%,transparent)}
-.fe-dlg-tile.lg svg{width:22px;height:22px}
-.fe-dlg-tab i{padding-left:calc(22px + var(--row-gap))}
-.fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
-.fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 60px 18px 24px;background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
 
 .fe-set-group{display:flex;flex-direction:column;gap:8px}
 .fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px}
-.fe-set-card{padding:0;overflow:hidden}
+.fe-set-card{overflow:hidden}
 .fe-set-card > .fe-set:first-child{border-top:0}
 .fe-set-card > .fe-set-note:first-child{padding-top:12px}
 .fe-set-card #fe-st-reset-rules{margin:10px 16px 12px}
@@ -1669,12 +1650,13 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   #fe-qlook.side{margin-left:6px}
 }
 @media (max-width:700px){
+  /* Dialog: the tabs run across the top. */
   .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
-  .fe-dlg-title{grid-row:1;border-right:0;border-radius:14px 14px 0 0}
-  .fe-dlg-pane{grid-column:1;grid-row:3;border-radius:0 0 14px 14px}
-  .fe-dlg-tabs{grid-row:2;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--bd);border-radius:0}
+  .fe-dlg-title{border-right:0}
+  .fe-dlg-tabs{grid-row:2;flex-direction:row;border-right:0;border-bottom:1px solid var(--bd)}
   .fe-dlg-tab{flex:none}
   .fe-dlg-tab i{display:none}
+  .fe-dlg-pane{grid-column:1;grid-row:3}
   .fe-set{flex-wrap:wrap}
   .fe-set-c{max-width:100%}
 }

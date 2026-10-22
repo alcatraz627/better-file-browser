@@ -31,9 +31,6 @@ export const UI_CSS = `
 #fe .fe-set-thumb[data-mode="system"]{--a:var(--ac);--b:#1c2328;--t:#fff;--c:#131a1e;background:linear-gradient(135deg,#1c2328 50%,#f4f6f8 50%)}
 #fe .fe-set-thumb[data-mode="system"] .sb{background:linear-gradient(135deg,#131a1e 50%,#e2e7eb 50%)}
 
-/* Taller dialogs: room for a page of settings or help without scrolling at once. */
-.fe-dlg-box{height:min(780px,calc(100vh - 48px))}
-#fe-settings-modal .fe-dlg-box,#fe-help-modal .fe-dlg-box{width:min(1000px,calc(100vw - 48px))}
 
 /* Settings rows: a wide row puts its control under the label. */
 .fe-set.wide{flex-direction:column;align-items:stretch;gap:10px}
@@ -313,7 +310,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-hs{display:flex;flex-direction:column;gap:10px}
 .fe-hs h3{padding:0 2px}
 .fe-hcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
-.fe-hc{display:flex;align-items:center;gap:12px;min-height:62px;padding:10px 14px;border-radius:12px;background:var(--card);border:1px solid var(--bd);
+.fe-hc{display:flex;align-items:center;gap:12px;min-height:62px;padding:10px 14px;
   transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
 .fe-hc:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--tone) 45%,var(--bd));box-shadow:0 6px 16px -10px color-mix(in srgb,var(--tone) 55%,transparent)}
 .fe-hc-ico{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:var(--tone);background:color-mix(in srgb,var(--tone) 16%,transparent)}
@@ -323,5 +320,14 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-hc-tx span{font-size:var(--fs-md);color:var(--mt);line-height:1.35}
 .fe-hc-how{flex:none;display:flex;align-items:center;gap:3px}
 .fe-hc-tag{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);color:var(--tone);background:color-mix(in srgb,var(--tone) 14%,transparent)}
+/* A journey card: a title, then its steps, each with its keys on the right. */
+.fe-hj{display:flex;flex-direction:column;gap:8px;padding:12px 14px}
+.fe-hj-h{display:flex;align-items:center;gap:10px}
+.fe-hj-h .fe-hc-ico{width:28px;height:28px;border-radius:8px}
+.fe-hj-h b{font-size:var(--fs-lg);font-weight:650;color:var(--tx)}
+.fe-hj-steps{display:flex;flex-direction:column;gap:4px;margin:0;padding:0 0 0 38px;list-style:none;counter-reset:step}
+.fe-hj-steps li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px;font-size:var(--fs-md);color:var(--mt);counter-increment:step}
+.fe-hj-steps li::before{content:counter(step);flex:none;width:16px;font-size:var(--fs-xs);color:var(--dm)}
+.fe-hj-steps li > span:first-of-type{flex:1;min-width:0}
 #fe-help-modal .fe-dlg-pane.on{gap:22px}
 `;

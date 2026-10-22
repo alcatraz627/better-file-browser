@@ -613,6 +613,19 @@
   function getShowHidden() {
     return kvGet(HIDDEN_KEY) === "true";
   }
+  function getPanelSize(key) {
+    try {
+      return kvGet(`bfb-panel-size:${key}`) || "";
+    } catch {
+      return "";
+    }
+  }
+  function savePanelSize(key, size) {
+    try {
+      kvSet(`bfb-panel-size:${key}`, size);
+    } catch {
+    }
+  }
 
   // src/notes.ts
   var NotesError = class extends Error {
@@ -1006,6 +1019,7 @@ ${body}`;
     rotate: svg('<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>'),
     flip: svg('<path d="m3 7 5 5-5 5zM21 7l-5 5 5 5zM12 2v2M12 8v2M12 14v2M12 20v2"/>'),
     fit: svg('<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>'),
+    size: svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>'),
     rename: svg('<path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>'),
     trash: svg('<path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/>'),
     prev: svg('<path d="m15 18-6-6 6-6"/>'),
@@ -2074,6 +2088,33 @@ ${body}`;
     } });
   }
 
+  // src/panel-size.ts
+  var ORDER = ["md", "lg", "xl"];
+  var NAME = { md: "medium", lg: "large", xl: "extra large" };
+  function panelSize(key) {
+    const v = getPanelSize(key);
+    return ORDER.includes(v) ? v : "md";
+  }
+  var SIZE_BTN = (id) => `<button id="${id}" class="btn" data-icon title="Size">${UI_ICON.size}</button>`;
+  function wireSize(btn, panel, key, onChange) {
+    const set2 = (s) => {
+      if (s === "md") delete panel.dataset.size;
+      else panel.dataset.size = s;
+      const next = ORDER[(ORDER.indexOf(s) + 1) % ORDER.length];
+      btn.title = `Size: ${NAME[s]} \xB7 click for ${NAME[next]}`;
+      btn.setAttribute("aria-label", btn.title);
+      btn.classList.toggle("on", s !== "md");
+      savePanelSize(key, s);
+    };
+    set2(panelSize(key));
+    btn.addEventListener("click", () => {
+      const s = ORDER[(ORDER.indexOf(panelSize(key)) + 1) % ORDER.length];
+      set2(s);
+      onChange?.(s);
+    });
+    return { set: set2 };
+  }
+
   // src/dialog.ts
   var mounted = [];
   var openOne = () => mounted.find((d) => d.isOpen());
@@ -2082,13 +2123,13 @@ ${body}`;
   function renderDialog(d) {
     return `
   <div id="${esc(d.id)}" class="fe-dlg" style="display:none">
-    <div class="fe-dlg-bg"></div>
-    <div class="fe-dlg-box" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
+    <div class="fe-dlg-bg scrim"></div>
+    <div class="fe-dlg-box panel" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
       <div class="sect fe-dlg-title" data-level="page">
         <span class="fe-dlg-mark">${d.mark}</span>
         <span class="sect-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
-        <button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button>
       </div>
+      <div class="fe-dlg-acts">${SIZE_BTN(`${esc(d.id)}-size`)}<button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button></div>
       <div class="fe-dlg-tabs" role="tablist">
         ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ""}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
       </div>
@@ -2110,6 +2151,7 @@ ${body}`;
     const tabs = [...root.querySelectorAll(".fe-dlg-tab")];
     const panes = [...root.querySelectorAll(".fe-dlg-pane")];
     const memory = `bfb-dialog-tab:${id}`;
+    wireSize(root.querySelector(`#${id}-size`), box, id);
     const isOpen = () => root.style.display !== "none";
     function show(tab) {
       if (!tabs.some((t) => t.dataset.tab === tab)) tab = tabs[0]?.dataset.tab ?? "";
@@ -4173,8 +4215,8 @@ Now: ${question}` : question;
     overlay.id = "fe-qlook";
     overlay.style.display = "none";
     overlay.innerHTML = `
-    <div id="fe-ql-bg"></div>
-    <div id="fe-ql-dialog">
+    <div id="fe-ql-bg" class="scrim"></div>
+    <div id="fe-ql-dialog" class="panel">
       <div id="fe-ql-hdr" class="bar">
         <span id="fe-ql-icon"></span>
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (\u2318-click / middle-click also work)"></a>
@@ -4188,6 +4230,7 @@ Now: ${question}` : question;
         <button id="fe-ql-tab" class="btn" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
         <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
+        ${SIZE_BTN("fe-ql-size")}
         <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
@@ -4240,6 +4283,7 @@ Now: ${question}` : question;
     applyLayout();
     focusTrap(overlay, { when: () => layout.mode !== "side" });
     const dialog = document.getElementById("fe-ql-dialog");
+    const sizer = wireSize(document.getElementById("fe-ql-size"), dialog, "preview", () => applyLayout());
     resizable(document.getElementById("fe-ql-rz"), {
       axis: "xy",
       label: "Resize the preview",
@@ -4251,6 +4295,7 @@ Now: ${question}` : question;
         const r = dialog.getBoundingClientRect();
         layout.modalW = Math.min(window.innerWidth - r.left - 8, Math.max(360, w));
         layout.modalH = Math.min(window.innerHeight - r.top - 8, Math.max(240, h));
+        if (dialog.dataset.size) sizer.set("md");
         applyLayout();
       },
       reset: () => {
@@ -4323,6 +4368,7 @@ Now: ${question}` : question;
     const dialog = document.getElementById("fe-ql-dialog");
     const side = layout.mode === "side";
     overlay.classList.toggle("side", side);
+    dialog.toggleAttribute("data-dock", side);
     overlay.querySelectorAll("#fe-ql-hdr > .btn").forEach((b) => {
       if (!b.querySelector(":scope > span")) return;
       if (side) {
@@ -4336,10 +4382,12 @@ Now: ${question}` : question;
     const host = side ? document.getElementById("fe-body") : document.getElementById("fe");
     if (host && overlay.parentElement !== host) host.appendChild(overlay);
     overlay.style.width = side && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : "";
-    dialog.style.width = !side && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : "";
-    dialog.style.height = !side && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : "";
+    const own = !side && !dialog.dataset.size;
+    dialog.style.width = own && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : "";
+    dialog.style.height = own && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : "";
     if (side) lower(overlay);
     else if (overlay.style.display !== "none") raise(overlay);
+    if (overlay.style.display !== "none") deps.dockRoom?.(side);
     const dock = document.getElementById("fe-ql-dock");
     dock.title = side ? "Float the preview as a window" : "Dock the preview to the side";
     dock.classList.toggle("on", side);
@@ -4351,6 +4399,7 @@ Now: ${question}` : question;
       edit = null;
     }
     overlay.style.display = "none";
+    deps.dockRoom?.(false);
     restoreFocus();
     document.getElementById("fe-ql-body").classList.remove("fe-editing");
     currentEntry = null;
@@ -4479,6 +4528,7 @@ Now: ${question}` : question;
     copyBtn.disabled = false;
     if (overlay.style.display === "none") rememberFocus();
     overlay.style.display = "flex";
+    deps.dockRoom?.(layout.mode === "side");
     if (layout.mode !== "side") raise(overlay);
     syncSaveBtn();
     const body = document.getElementById("fe-ql-body");
@@ -4868,6 +4918,7 @@ Now: ${question}` : question;
     const body = document.getElementById("fe-ql-body");
     if (overlay.style.display === "none") rememberFocus();
     overlay.style.display = "flex";
+    deps.dockRoom?.(layout.mode === "side");
     if (layout.mode !== "side") raise(overlay);
     syncSaveBtn();
     dsvHeader = [];
@@ -4989,6 +5040,72 @@ Now: ${question}` : question;
   function restoreScroll(body) {
     const top = currentEntry ? scrollMemo.get(currentEntry.href) : void 0;
     if (top) body.scrollTop = top;
+  }
+
+  // src/el.ts
+  function el(id) {
+    return document.getElementById(id);
+  }
+  function els(selector, root = document) {
+    return [...root.querySelectorAll(selector)];
+  }
+
+  // src/motion.ts
+  var reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var EASE = "cubic-bezier(.2,.8,.2,1)";
+  var running = null;
+  var folding = /* @__PURE__ */ new WeakMap();
+  function foldTo(box, flip, done) {
+    const prev = folding.get(box);
+    if (prev) {
+      prev.anim.cancel();
+      prev.end();
+    }
+    if (reduced()) {
+      flip();
+      done?.();
+      return;
+    }
+    const from = box.offsetHeight;
+    flip();
+    const to = box.offsetHeight;
+    flip();
+    const closing = to < from;
+    if (!closing) flip();
+    box.style.overflow = "hidden";
+    const anim = box.animate(
+      [{ height: from + "px", opacity: closing ? 1 : 0.4 }, { height: to + "px", opacity: closing ? 0.4 : 1 }],
+      { duration: 200, easing: EASE }
+    );
+    const end = () => {
+      folding.delete(box);
+      box.style.overflow = "";
+      if (closing) flip();
+      done?.();
+    };
+    folding.set(box, { anim, end });
+    anim.onfinish = () => {
+      if (folding.get(box)?.anim === anim) end();
+    };
+  }
+  function setSidebarShown(show) {
+    const side = el("fe-side"), rz = el("fe-side-rz");
+    running?.cancel();
+    running = null;
+    const shown = side.style.display !== "none";
+    if (show === shown) return;
+    if (reduced()) {
+      side.style.display = rz.style.display = show ? "" : "none";
+      return;
+    }
+    if (show) side.style.display = rz.style.display = "";
+    const w = side.offsetWidth;
+    const open = [{ width: "0px", opacity: 0, marginRight: "-10px" }, { width: w + "px", opacity: 1, marginRight: "0px" }];
+    running = side.animate(show ? open : [...open].reverse(), { duration: 220, easing: EASE });
+    running.onfinish = () => {
+      running = null;
+      if (!show) side.style.display = rz.style.display = "none";
+    };
   }
 
   // src/styles.ts
@@ -5119,9 +5236,18 @@ Now: ${question}` : question;
 .sect[data-level="group"]{font-size:var(--type-micro);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
 .sect[data-level="panel"]{font-size:var(--type-ui);font-weight:600;color:var(--tx)}
 .sect[data-level="page"]{gap:var(--sp-5)}
-.fe-dlg-title.sect{align-items:flex-start}
 .sect[data-level="page"] .sect-tx > :first-child{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
 .sect[data-level="page"] .sect-tx > :nth-child(2){margin:0;font-size:var(--fs-md);font-style:normal;font-weight:400;line-height:1.35;color:var(--dm)}
+/* Panel: a bounded surface with a head, a scrolling body and an optional
+   foot, floating over the page or docked into it. Scrim: the dimmed page
+   behind a floating panel. (docs/system/panel.md) */
+.panel{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;outline:none;
+  background:var(--card);border:1px solid var(--pop-bd);border-radius:var(--pop-r);box-shadow:var(--pop-sh)}
+.panel[data-dock]{border:0;border-radius:0;box-shadow:none}
+.scrim{position:absolute;inset:0;background:rgb(0 0 0 / .55);backdrop-filter:blur(2px);animation:fe-fade var(--t-base) var(--ease)}
+.panel:not([data-dock]){animation:fe-rise var(--t-base) var(--ease)}
+/* Card: a bounded group inside a panel or a page. The place sets padding. */
+.card{background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r)}
 /* Notice, a line that tells the reader about the page itself
    (docs/system/notice.md): empty, cut short, could not render, changed on
    disk. Class notice; data-tone danger, warn or ok; buttons in it act on it. */
@@ -5612,30 +5738,42 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 ::-webkit-scrollbar-thumb:hover{background:var(--dm)}
 #fe.compact tbody td{padding:2px 12px}
 #fe.compact .fe-tile{padding:6px 6px 5px;gap:3px}
+/* Dialog: Settings and Help. A Panel over a Scrim with the title and the
+   tabs down the left and one scrolling pane on the right. Every rule for it
+   is here, and in the 700px block at the end (docs/system/dialog.md). */
 .fe-dlg{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center}
-.fe-dlg-bg{position:absolute;inset:0;background:#00000088;backdrop-filter:blur(2px)}
-.fe-dlg-box{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);border-radius:10px;
-  width:min(760px,calc(100vw - 40px));max-height:84vh;display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;outline:none}
-#fe-settings-modal .fe-dlg-box{width:min(900px,calc(100vw - 40px))}
-.fe-dlg-title{padding:14px 16px 12px;background:var(--s2);flex:none;border-radius:10px 10px 0 0}
-.fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;
-  background:var(--on);color:var(--ac);border:1px solid var(--ac)}
-
-.fe-dlg-tabs{display:flex;gap:3px;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex:none;align-items:stretch;overflow-x:auto}
-.fe-dlg-tab{display:flex;flex-direction:column;gap:2px;background:none;border:none;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
-  padding:9px 13px 8px;color:var(--mt);cursor:pointer;text-align:left;line-height:1;white-space:nowrap;transition:background .1s,color .1s,border-color .1s}
-.fe-dlg-tab-main{display:flex;align-items:center;gap:5px;min-width:0}
-.fe-dlg-tab-main svg{flex:none;width:13px;height:13px}
-.fe-dlg-tab b{font-size:var(--fs-md);font-weight:600;color:inherit}
-.fe-dlg-tab i{font-size:var(--fs-sm);font-style:normal;color:var(--dm);opacity:.85}
-.fe-dlg-tab:hover{color:var(--tx);background:var(--s1)}
-.fe-dlg-tab.on{background:var(--s1);color:var(--tx);border-bottom-color:var(--ac)}
+.fe-dlg-box{position:relative;z-index:1;display:grid;grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+  width:min(1000px,calc(100vw - 48px));height:min(780px,84vh)}
+/* Large and extra large never come out smaller than the panel's own size. */
+.fe-dlg-box[data-size="lg"]{width:max(min(1000px,calc(100vw - 48px)),85vw);height:max(min(780px,84vh),90vh)}
+#fe-ql-dialog[data-size="lg"]{width:max(min(1100px,calc(100vw - 64px)),85vw);height:max(min(84vh,1000px),90vh)}
+.fe-dlg-box[data-size="xl"],#fe-ql-dialog[data-size="xl"]{width:calc(100vw - 32px);height:calc(100vh - 32px)}
+.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;align-items:flex-start;background:var(--side);border-right:1px solid var(--bd)}
+.fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--on);color:var(--ac)}
+.fe-dlg-acts{position:absolute;top:14px;right:14px;z-index:5;display:flex;gap:var(--sp-2)}
+.fe-dlg-tabs{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:2px;padding:4px 8px 12px;overflow:auto;background:var(--side);border-right:1px solid var(--bd)}
+.fe-dlg-tab{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--mt);
+  cursor:pointer;text-align:left;line-height:1;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-dlg-tab:hover{background:var(--hover);color:var(--tx)}
+.fe-dlg-tab.on{background:var(--on);color:var(--tx)}
+.fe-dlg-tab-main{display:flex;align-items:center;gap:var(--row-gap);min-width:0}
+.fe-dlg-tab b{font-size:var(--row-fs);font-weight:500;color:inherit}
+.fe-dlg-tab i{padding-left:calc(22px + var(--row-gap));font-size:var(--fs-sm);font-style:normal;line-height:1.3;color:var(--dm);opacity:.85}
 .fe-dlg-tab.on i{opacity:1}
-.fe-dlg-pane{display:none;padding:18px 22px 22px;overflow:auto;min-height:0}
-.fe-dlg-pane.on{display:flex;flex-direction:column;gap:20px}
+.fe-dlg-tile{flex:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:#fff;
+  background:linear-gradient(165deg,color-mix(in srgb,var(--tone) 88%,#fff),color-mix(in srgb,var(--tone) 80%,#000));
+  box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .2),0 1px 2px rgb(0 0 0 / .22)}
+.fe-dlg-tile svg{width:13px;height:13px}
+.fe-dlg-tile.lg{width:40px;height:40px;border-radius:11px;box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .22),0 4px 12px color-mix(in srgb,var(--tone) 30%,transparent)}
+.fe-dlg-tile.lg svg{width:22px;height:22px}
+.fe-dlg-pane{grid-column:2;grid-row:1/span 2;display:none;min-height:0;padding:20px 24px 24px;overflow:auto;background:var(--side)}
+.fe-dlg-pane.on{display:flex;flex-direction:column;gap:16px}
+.fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
+.fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 96px 18px 24px;background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
 .fe-dlg-pane .fe-md{max-width:none;padding:0}
 .fe-dlg-pane .fe-md h2{font-size:1.15em;border:0;padding:0}
-.fe-dlg-pane .fe-md>:first-child{margin-top:0}
+.fe-dlg-pane .fe-md>:first-child{margin-top:0;padding-right:36px}
+
 .fe-st-section{display:flex;flex-direction:column;gap:10px}
 .fe-st-title{font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.08em;
   color:var(--dm);padding-bottom:4px;border-bottom:1px solid var(--bd)}
@@ -5688,18 +5826,14 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-row.selected .fe-nm{color:var(--ac)}
 .fe-tile.selected{background:var(--on);border-color:var(--ac)}
 #fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
-#fe-ql-bg{position:absolute;inset:0;background:#0009;backdrop-filter:blur(2px)}
-#fe-ql-dialog{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);
-  border-radius:10px;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);
-  max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);
-  display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;overflow:hidden}
+#fe-ql-dialog{position:relative;z-index:1;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);max-width:calc(100vw - 16px);max-height:calc(100vh - 16px)}
 #fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;z-index:2}
 #fe-ql-rz-side{display:none;position:absolute;left:-3px;top:0;width:8px;height:100%;z-index:2}
 #fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;
   border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch}
-#fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz{display:none}
+#fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz,#fe-qlook.side #fe-ql-size{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
-#fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none;border:none;border-radius:0;box-shadow:none}
+#fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none}
 #fe-tabbar{display:flex;align-items:stretch;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:34px}
 /* The strip takes only the room its tabs need, so + and the path button sit
    right after the last tab; past the bar's width the tabs scroll and the
@@ -5803,7 +5937,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-cm-group span{font-weight:500;letter-spacing:0}
 details.fe-cm-done > summary{cursor:pointer;list-style:none}
 details.fe-cm-done > summary::-webkit-details-marker{display:none}
-.fe-cm-th{position:relative;margin:0 0 8px;padding:10px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--card);cursor:pointer;
+.fe-cm-th{position:relative;margin:0 0 8px;padding:10px 12px;cursor:pointer;
   transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
 .fe-cm-th:hover{border-color:var(--bd2)}
 .fe-cm-th.on{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 14%,transparent)}
@@ -6383,30 +6517,12 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 @keyframes fe-dock-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu{animation:fe-rise var(--t-fast) var(--ease);transform-origin:top left}
 .fe-lens:not([hidden]){animation:fe-lens-in var(--t-base) var(--ease)}
-.fe-dlg-bg,#fe-ql-bg{animation:fe-fade var(--t-base) var(--ease)}
-.fe-dlg-box,#fe-qlook:not(.side) #fe-ql-dialog{animation:fe-rise var(--t-base) var(--ease)}
 #fe-qlook.side{animation:fe-dock-in var(--t-base) var(--ease)}
 .fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
 /* Settings and Help read as a page: the title across the top, the sections
    listed on the left the way the sidebar lists lenses, the pane on the right.
    In Settings each row names the setting, says what it changes and keeps its
    control on the right; rows sit in cards by subject. */
-.fe-dlg-box{display:grid;grid-template-columns:200px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
-  width:min(920px,calc(100vw - 40px));height:min(640px,86vh);border-radius:14px;background:var(--card);border-color:var(--pop-bd);box-shadow:var(--pop-sh)}
-#fe-settings-modal .fe-dlg-box{width:min(920px,calc(100vw - 40px))}
-.fe-dlg-title{grid-column:1/-1;background:none;border-bottom:1px solid var(--bd);border-radius:14px 14px 0 0}
-.fe-dlg-mark{border:0;border-radius:8px}
-.fe-dlg-tabs{flex-direction:column;gap:2px;padding:10px 6px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);overflow-y:auto;border-radius:0 0 0 14px}
-.fe-dlg-tab{border:0;border-radius:var(--row-r);padding:8px 10px;gap:3px;white-space:normal;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-dlg-tab:hover{background:var(--hover)}
-.fe-dlg-tab.on{background:var(--on);color:var(--tx)}
-.fe-dlg-tab-main{gap:var(--row-gap)}
-.fe-dlg-tab-main svg{width:15px;height:15px}
-.fe-dlg-tab b{font-size:var(--row-fs);font-weight:500}
-.fe-dlg-tab i{padding-left:25px;line-height:1.3}
-.fe-dlg-pane{padding:20px 24px 24px}
-.fe-dlg-pane.on{gap:16px}
-.fe-set-card{background:var(--side);border:1px solid var(--bd);border-radius:12px;padding:2px 0 4px}
 .fe-set-h{justify-content:space-between;min-height:40px;padding:8px 16px 4px}
 .fe-set{display:flex;align-items:center;gap:16px;min-height:52px;padding:8px 16px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
 .fe-set-h + .fe-set{border-top:0}
@@ -6418,7 +6534,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-note{padding:2px 16px 10px;font-size:var(--fs-md);color:var(--dm);line-height:1.5}
 .fe-set-note:empty{display:none}
 .fe-set-card .fe-st-rules-cols,.fe-set-card #fe-st-rules-list{margin:0 16px}
-.fe-set-card #fe-st-reset-rules{margin:10px 16px 8px}
 .fe-set-danger{color:var(--nc-red)}
 
 .fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
@@ -6462,7 +6577,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-fe-pill .fe-fe-diag{border-radius:999px;padding:0 10px;font-size:var(--fs-md)}
 .fe-fe-diag.error{color:var(--nc-red)}
 .fe-fe-diag.warn{color:var(--nc-orange)}
-.fe-diag{margin:0 0 14px;border:1px solid var(--bd);border-radius:10px;background:var(--side);font-size:var(--fs-md)}
+.fe-diag{margin:0 0 14px;font-size:var(--fs-md)}
 .fe-diag > summary{cursor:pointer;padding:8px 12px;font-weight:600;list-style:none}
 .fe-diag.error > summary{color:var(--nc-red)}
 .fe-diag.warn > summary{color:var(--nc-orange)}
@@ -6543,8 +6658,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* Review fixes: Settings follows the page order (panel a step below, cards
    on top), fields share one look, path chevrons show on hover only, and
    the palette swatch previews the theme in use. */
-.fe-dlg-pane{background:var(--side)}
-.fe-set-card{background:var(--card)}
 
 .fe-st-ai-why{margin-top:6px}
 .fe-st-ai-why > summary{cursor:pointer;color:var(--ac)}
@@ -6560,26 +6673,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
    (large tile, title, what the page covers) that stays put while the page
    scrolls; sections are small headings over grouped cards. Hierarchy comes
    from weight, colour, case and space, inside the five-step type scale. */
-.fe-dlg-box{grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);border-radius:14px 0 0 0}
 
-.fe-dlg-close{position:absolute;top:14px;right:14px;z-index:5}
-.fe-dlg-tabs{grid-column:1;grid-row:2;padding:4px 8px 12px}
-.fe-dlg-pane{grid-column:2;grid-row:1/span 2;border-radius:0 14px 14px 0}
-.fe-dlg-pane .fe-md>:first-child{padding-right:36px}
-.fe-dlg-tile{flex:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:#fff;
-  background:linear-gradient(165deg,color-mix(in srgb,var(--tone) 88%,#fff),color-mix(in srgb,var(--tone) 80%,#000));
-  box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .2),0 1px 2px rgb(0 0 0 / .22)}
-.fe-dlg-tab-main .fe-dlg-tile svg{width:13px;height:13px}
-.fe-dlg-tile.lg{width:40px;height:40px;border-radius:11px;box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .22),0 4px 12px color-mix(in srgb,var(--tone) 30%,transparent)}
-.fe-dlg-tile.lg svg{width:22px;height:22px}
-.fe-dlg-tab i{padding-left:calc(22px + var(--row-gap))}
-.fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
-.fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 60px 18px 24px;background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
 
 .fe-set-group{display:flex;flex-direction:column;gap:8px}
 .fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px}
-.fe-set-card{padding:0;overflow:hidden}
+.fe-set-card{overflow:hidden}
 .fe-set-card > .fe-set:first-child{border-top:0}
 .fe-set-card > .fe-set-note:first-child{padding-top:12px}
 .fe-set-card #fe-st-reset-rules{margin:10px 16px 12px}
@@ -6662,12 +6760,13 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   #fe-qlook.side{margin-left:6px}
 }
 @media (max-width:700px){
+  /* Dialog: the tabs run across the top. */
   .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
-  .fe-dlg-title{grid-row:1;border-right:0;border-radius:14px 14px 0 0}
-  .fe-dlg-pane{grid-column:1;grid-row:3;border-radius:0 0 14px 14px}
-  .fe-dlg-tabs{grid-row:2;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--bd);border-radius:0}
+  .fe-dlg-title{border-right:0}
+  .fe-dlg-tabs{grid-row:2;flex-direction:row;border-right:0;border-bottom:1px solid var(--bd)}
   .fe-dlg-tab{flex:none}
   .fe-dlg-tab i{display:none}
+  .fe-dlg-pane{grid-column:1;grid-row:3}
   .fe-set{flex-wrap:wrap}
   .fe-set-c{max-width:100%}
 }
@@ -6704,9 +6803,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe .fe-set-thumb[data-mode="system"]{--a:var(--ac);--b:#1c2328;--t:#fff;--c:#131a1e;background:linear-gradient(135deg,#1c2328 50%,#f4f6f8 50%)}
 #fe .fe-set-thumb[data-mode="system"] .sb{background:linear-gradient(135deg,#131a1e 50%,#e2e7eb 50%)}
 
-/* Taller dialogs: room for a page of settings or help without scrolling at once. */
-.fe-dlg-box{height:min(780px,calc(100vh - 48px))}
-#fe-settings-modal .fe-dlg-box,#fe-help-modal .fe-dlg-box{width:min(1000px,calc(100vw - 48px))}
 
 /* Settings rows: a wide row puts its control under the label. */
 .fe-set.wide{flex-direction:column;align-items:stretch;gap:10px}
@@ -6986,7 +7082,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-hs{display:flex;flex-direction:column;gap:10px}
 .fe-hs h3{padding:0 2px}
 .fe-hcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
-.fe-hc{display:flex;align-items:center;gap:12px;min-height:62px;padding:10px 14px;border-radius:12px;background:var(--card);border:1px solid var(--bd);
+.fe-hc{display:flex;align-items:center;gap:12px;min-height:62px;padding:10px 14px;
   transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
 .fe-hc:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--tone) 45%,var(--bd));box-shadow:0 6px 16px -10px color-mix(in srgb,var(--tone) 55%,transparent)}
 .fe-hc-ico{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:var(--tone);background:color-mix(in srgb,var(--tone) 16%,transparent)}
@@ -6996,16 +7092,17 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-hc-tx span{font-size:var(--fs-md);color:var(--mt);line-height:1.35}
 .fe-hc-how{flex:none;display:flex;align-items:center;gap:3px}
 .fe-hc-tag{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);color:var(--tone);background:color-mix(in srgb,var(--tone) 14%,transparent)}
+/* A journey card: a title, then its steps, each with its keys on the right. */
+.fe-hj{display:flex;flex-direction:column;gap:8px;padding:12px 14px}
+.fe-hj-h{display:flex;align-items:center;gap:10px}
+.fe-hj-h .fe-hc-ico{width:28px;height:28px;border-radius:8px}
+.fe-hj-h b{font-size:var(--fs-lg);font-weight:650;color:var(--tx)}
+.fe-hj-steps{display:flex;flex-direction:column;gap:4px;margin:0;padding:0 0 0 38px;list-style:none;counter-reset:step}
+.fe-hj-steps li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px;font-size:var(--fs-md);color:var(--mt);counter-increment:step}
+.fe-hj-steps li::before{content:counter(step);flex:none;width:16px;font-size:var(--fs-xs);color:var(--dm)}
+.fe-hj-steps li > span:first-of-type{flex:1;min-width:0}
 #fe-help-modal .fe-dlg-pane.on{gap:22px}
 `;
-
-  // src/el.ts
-  function el(id) {
-    return document.getElementById(id);
-  }
-  function els(selector, root = document) {
-    return [...root.querySelectorAll(selector)];
-  }
 
   // src/goto.ts
   var LAST_KEY = "bfb-goto-last-v1";
@@ -7128,64 +7225,6 @@ button.chip:disabled{opacity:.45;cursor:default}
       if (box) close();
       else open();
     });
-  }
-
-  // src/motion.ts
-  var reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var EASE = "cubic-bezier(.2,.8,.2,1)";
-  var running = null;
-  var folding = /* @__PURE__ */ new WeakMap();
-  function foldTo(box, flip, done) {
-    const prev = folding.get(box);
-    if (prev) {
-      prev.anim.cancel();
-      prev.end();
-    }
-    if (reduced()) {
-      flip();
-      done?.();
-      return;
-    }
-    const from = box.offsetHeight;
-    flip();
-    const to = box.offsetHeight;
-    flip();
-    const closing = to < from;
-    if (!closing) flip();
-    box.style.overflow = "hidden";
-    const anim = box.animate(
-      [{ height: from + "px", opacity: closing ? 1 : 0.4 }, { height: to + "px", opacity: closing ? 0.4 : 1 }],
-      { duration: 200, easing: EASE }
-    );
-    const end = () => {
-      folding.delete(box);
-      box.style.overflow = "";
-      if (closing) flip();
-      done?.();
-    };
-    folding.set(box, { anim, end });
-    anim.onfinish = () => {
-      if (folding.get(box)?.anim === anim) end();
-    };
-  }
-  function setSidebarShown(show) {
-    const side = el("fe-side"), rz = el("fe-side-rz");
-    running?.cancel();
-    running = null;
-    const shown = side.style.display !== "none";
-    if (show === shown) return;
-    if (reduced()) {
-      side.style.display = rz.style.display = show ? "" : "none";
-      return;
-    }
-    if (show) side.style.display = rz.style.display = "";
-    const w = side.offsetWidth;
-    const open = [{ width: "0px", opacity: 0, marginRight: "-10px" }, { width: w + "px", opacity: 1, marginRight: "0px" }];
-    running = side.animate(show ? open : [...open].reverse(), { duration: 220, easing: EASE });
-    running.onfinish = () => {
-      running = null;
-      if (!show) side.style.display = rz.style.display = "none";
-    };
   }
 
   // src/theme.ts
@@ -7456,7 +7495,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const side = el("fe-side");
     const rz = el("fe-side-rz");
     el("fe-side-toggle").addEventListener("click", () => {
-      settings.showSidebar = !settings.showSidebar;
+      settings.showSidebar = side.style.display === "none";
       saveSettings(settings);
       setSidebarShown(settings.showSidebar);
       const box = document.getElementById("fe-st-sidebar");
@@ -15218,11 +15257,11 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         <span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="reply" title="Reply (\u2318\u21B5)">Reply</button>
       </div>` : "";
-      return `<article class="fe-cm-th${on ? " on" : ""}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
+      return `<article class="fe-cm-th card${on ? " on" : ""}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
       <blockquote class="fe-cm-q">${esc(quote.length > 140 ? quote.slice(0, 139) + "\u2026" : quote)}</blockquote>${where}${cs}
       ${chips ? `<div class="fe-cm-chips">${chips}</div>` : ""}${tools}</article>`;
     };
-    const draftHtml = () => draft ? `<form class="fe-cm-th fe-cm-new on" data-new aria-label="${draft.attach ? "Attach the thread here" : "New comment"}">
+    const draftHtml = () => draft ? `<form class="fe-cm-th card fe-cm-new on" data-new aria-label="${draft.attach ? "Attach the thread here" : "New comment"}">
       <blockquote class="fe-cm-q">${esc(draft.quote.length > 140 ? draft.quote.slice(0, 139) + "\u2026" : draft.quote)}</blockquote>
       ${draft.block ? notice("On the whole block", "These words could not be placed exactly, so the comment covers the whole block.") : ""}
       ${draft.attach ? '<p class="fe-cm-hint">The thread moves to these words.</p>' : box("new", "New comment", "Comment\u2026 @ to mention, # to tag")}
@@ -15937,7 +15976,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     const head = [errors && `${errors} error${errors > 1 ? "s" : ""}`, warns && `${warns} warning${warns > 1 ? "s" : ""}`].filter(Boolean).join(", ");
     const rows = diags.slice(0, 8).map((d) => `<button type="button" class="fe-diag-row ${d.severity}" data-line="${d.line}" title="Show line ${d.line} in the source"><span class="fe-diag-ln">${d.line}</span><span>${esc(d.message)}</span></button>`).join("");
     const more = diags.length > 8 ? `<span class="fe-diag-more">and ${diags.length - 8} more</span>` : "";
-    return `<details class="fe-diag ${errors ? "error" : "warn"}"${errors ? " open" : ""}><summary>${head}</summary>${rows}${more}</details>`;
+    return `<details class="fe-diag card ${errors ? "error" : "warn"}"${errors ? " open" : ""}><summary>${head}</summary>${rows}${more}</details>`;
   }
   function markRows(rows, diags) {
     for (const d of diags) {
@@ -16895,14 +16934,19 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     <div class="fe-km-list">${list3}</div>
   </div>`;
   }
-  var card = (icon2, tone, title, text, how = "") => `<div class="fe-hc" style="--tone:${tone}"><span class="fe-hc-ico">${icon2}</span><div class="fe-hc-tx"><b>${title}</b><span>${text}</span></div>${how ? `<div class="fe-hc-how">${how}</div>` : ""}</div>`;
+  var toned = (tone) => ` style="--tone:${tone}"`;
+  var card = (icon2, tone, title, text, how = "") => `<div class="fe-hc card"${toned(tone)}><span class="fe-hc-ico">${icon2}</span><div class="fe-hc-tx"><b>${title}</b><span>${text}</span></div>${how ? `<div class="fe-hc-how">${how}</div>` : ""}</div>`;
   var cards = (title, body) => `<section class="fe-hs"><h3 class="sect" data-level="group">${title}</h3><div class="fe-hcs">${body}</div></section>`;
   var i = (body) => line(body, 18);
+  var journey = (icon2, tone, title, steps) => `<div class="fe-hj card"${toned(tone)}><div class="fe-hj-h"><span class="fe-hc-ico">${icon2}</span><b>${title}</b></div><ol class="fe-hj-steps">${steps.map(([label, id]) => {
+    const k = KEYMAP.find((d) => d.id === id);
+    return `<li data-key="${id}"><span>${label}</span>${k ? `<span class="fe-hc-how">${keys(k.keys)}</span>` : ""}</li>`;
+  }).join("")}</ol></div>`;
   var T = { blue: "var(--nc-blue)", teal: "var(--nc-teal)", green: "var(--nc-green)", orange: "var(--nc-orange)", pink: "var(--nc-pink)", purple: "var(--nc-purple)", red: "var(--nc-red)", yellow: "var(--nc-yellow)" };
   var POINTER = i('<path d="M4 4l7 17 2.5-7.5L21 11z"/>');
   var HELP_TABS = [
     { key: "keys", label: "Keyboard", hint: "Every key, on a map", icon: UI_ICON.keyboard, tone: "var(--nc-purple)", desc: "Hover a row to see its keys. Hover a key to see what it does.", body: keyboardMap() },
-    { key: "start", label: "Tour", hint: "The basics", icon: UI_ICON.ai, tone: "var(--nc-pink)", desc: "Twelve things worth knowing.", body: cards(
+    { key: "start", label: "Tour", hint: "The basics", icon: UI_ICON.ai, tone: "var(--nc-pink)", desc: "Twelve things worth knowing, and eight journeys by keyboard.", body: cards(
       "Move around",
       card(PI.folder, T.blue, "Browse", "Folders open in place.", keys(["\u21A9", "\u232B"])) + card(UI_ICON.eye, T.teal, "Preview", "Look without leaving.", keys(["Space"])) + card(UI_ICON.tab, T.green, "Tabs", "Keep places open.", keys(["t", "w"])) + card(PI.bm, T.orange, "Save", "A folder for later.", keys(["b"]))
     ) + cards(
@@ -16911,6 +16955,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     ) + cards(
       "Make things",
       card(UI_ICON.notes, T.orange, "Notes", "Markdown, saved as you type.", keys(["n"])) + card(UI_ICON.rename, T.green, "Edit", "Any text file you allow.", keys(["e"])) + card(UI_ICON.comment, T.yellow, "Comment", "On a selection in a doc.", keys(["c"])) + card(UI_ICON.ai, T.purple, "Ask", "A model reads the file.", keys(["g 6"]))
+    ) + cards(
+      "Journeys, by keyboard",
+      journey(UI_ICON.eye, T.teal, "Preview and sidebar", [["Preview a file", "look"], ["Dock or float it", "pv-dock"], ["Close it", "pv-close"], ["Sidebar on or off", "sidebar"]]) + journey(PI.bm, T.orange, "Saved, by tag", [["Go to Saved", "lens-saved"], ["Pick a tag", "lens-tags"], ["Filter the list", "lens-filter"], ["Preview a file", "side-look"], ["Open it as a tab", "side-open"], ["Or keep it in the background", "side-bg"]]) + journey(UI_ICON.tab, T.green, "Tabs and back", [["Focus the sidebar", "to-sidebar"], ["Open as a tab", "side-open"], ["Type a path", "path"], ["Step through tabs", "tab-step"], ["Back to the listing", "to-listing"]]) + journey(UI_ICON.link, T.blue, "Path picker", [["Type or paste a path", "path"], ["Open it as a background tab", "goto-bg"], ["All tabs", "tab-list"]]) + journey(UI_ICON.comment, T.yellow, "Comments", [["Comments panel", "fp-comments"], ["Step through threads", "fp-cm-step"], ["Comment on a selection", "fp-comment"], ["Post it", "fp-cm-post"], ["Reply", "fp-cm-reply"]]) + journey(UI_ICON.ai, T.purple, "Ask", [["Ask about the previewed file", "pv-ask"], ["Go to Ask", "lens-ask"], ["Back to the listing", "to-listing"]]) + journey(UI_ICON.notes, T.pink, "Notes", [["New note", "new-note"], ["Save", "ed-save"], ["Rename", "note-rename"], ["Colour, pin and tags", "side-props"], ["Move to .trash", "note-delete"]]) + journey(PI.gear, T.red, "Settings", [["Open Settings", "settings"], ["Next page", "dlg-tabs"], ["Next control", "dlg-fields"], ["Change a choice", "dlg-choice"]])
     ) },
     { key: "mouse", label: "Mouse", hint: "Clicks and drags", icon: i('<rect width="12" height="18" x="6" y="3" rx="6"/><path d="M12 7v4"/>'), tone: "var(--nc-blue)", desc: "The same gestures work on rows, sidebar items and tabs.", body: cards(
       "Gestures",
@@ -17252,7 +17299,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   // src/settings-page.ts
   var row = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
   var wide = (label, desc, ctl) => `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
-  var card2 = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
+  var card2 = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card card">${rows}</div></section>`;
   var sw = (id, title) => switchHtml({ id, title });
   var iconBtn = (id, icon2, title) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon title="${title}" aria-label="${title}">${icon2}</button>`;
   var note = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
@@ -17332,7 +17379,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           ], "Where the preview opens", "lg") + iconBtn("fe-st-panel-reset", UI_ICON.reset, "Reset dragged sizes"))
         ) + card2(
           "Sidebar",
-          row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
+          row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Make room for a docked preview", "Fold the sidebar while a docked preview is open", sw("fe-st-dock-fold", "Fold the sidebar for a docked preview")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
         ) + card2(
           "Terminal",
           row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app", "lg")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') + note("", "fe-st-term-hint")
@@ -21378,6 +21425,7 @@ ${rows.join("\n")}`, name: subject };
       v("fe-st-click").value = settings.clickOpens || "look";
       v("fe-st-panel").value = getPreviewLayout().mode;
       el("fe-st-sidebar").checked = settings.showSidebar !== false;
+      el("fe-st-dock-fold").checked = settings.dockFoldsSidebar !== false;
       el("fe-st-sec-recent").checked = !settings.hideRecent;
       v("fe-st-terminal").value = settings.terminalApp || "ghostty";
       el("fe-st-term-custom-row").style.display = settings.terminalApp === "custom" ? "" : "none";
@@ -21462,6 +21510,10 @@ ${rows.join("\n")}`, name: subject };
       settings.showSidebar = this.checked;
       saveSettings(settings);
       setSidebarShown(this.checked);
+    });
+    el("fe-st-dock-fold").addEventListener("change", function() {
+      settings.dockFoldsSidebar = this.checked;
+      saveSettings(settings);
     });
     el("fe-st-sec-recent").addEventListener("change", function() {
       settings.hideRecent = !this.checked;
@@ -21953,7 +22005,9 @@ ${rows.join("\n")}`, name: subject };
       saveError: (message) => app.toast(message),
       toast: (message) => app.toast(message),
       savedChanged: () => app.refreshSaved(),
-      openInTerminal: (p) => app.openInTerminal(p)
+      openInTerminal: (p) => app.openInTerminal(p),
+      // A docked preview folds the sidebar away while it shows; the sidebar's own setting comes back after.
+      dockRoom: (docked) => setSidebarShown(docked && settings.dockFoldsSidebar !== false ? false : settings.showSidebar)
     });
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), openInTerminal: (p) => app.openInTerminal(p) });
     void showClosedSets(app.strip, !settings.hideRecent);

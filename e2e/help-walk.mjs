@@ -40,6 +40,12 @@ try {
     check(n >= 8 && prose === 0, `${t}: ${n} cards, no paragraphs`);
     await shot(page, `help-${t}`);
   }
+  // The Tour ends with the keyboard journeys; every step shows its keys.
+  await page.click('#fe-help-modal .fe-dlg-tab[data-tab="start"]'); await sleep(150);
+  const j = await page.$$eval('#fe-help-modal .fe-hj', cs => cs.map(c => ({ t: c.querySelector('b').textContent, steps: c.querySelectorAll('li').length, bare: [...c.querySelectorAll('li')].filter(l => !l.querySelector('kbd')).map(l => l.dataset.key) })));
+  check(j.length === 8 && j.every(x => x.steps >= 3 && x.bare.length === 0), `8 journeys, each step with its keys: ${JSON.stringify(j)}`);
+  await page.$eval('#fe-help-modal .fe-hj', c => c.scrollIntoView({ block: 'start' })); await sleep(150);
+  await shot(page, 'help-journeys');
 } finally {
   await h.close();
   process.exitCode = fails.length ? 1 : 0;

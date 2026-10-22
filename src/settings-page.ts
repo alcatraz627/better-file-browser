@@ -14,7 +14,7 @@ const row = (label: string, desc: string, ctl: string, attrs = '') =>
 const wide = (label: string, desc: string, ctl: string) =>
   `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ''}</div><div class="fe-set-c">${ctl}</div></div>`;
 const card = (title: string, rows: string, action = '') =>
-  `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
+  `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card card">${rows}</div></section>`;
 const sw = (id: string, title: string) => switchHtml({ id, title });
 const iconBtn = (id: string, icon: string, title: string) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon title="${title}" aria-label="${title}">${icon}</button>`;
 const note = (text: string, id = '') => `<p class="fe-set-note"${id ? ` id="${id}"` : ''}>${text}</p>`;
@@ -90,6 +90,7 @@ export function settingsDialog(): DialogSpec {
             { value: 'side', label: 'Dock', icon: UI_ICON.preview }], 'Where the preview opens', 'lg') + iconBtn('fe-st-panel-reset', UI_ICON.reset, 'Reset dragged sizes'))) +
         card('Sidebar',
           row('Sidebar', '', sw('fe-st-sidebar', 'Show the sidebar')) +
+          row('Make room for a docked preview', 'Fold the sidebar while a docked preview is open', sw('fe-st-dock-fold', 'Fold the sidebar for a docked preview')) +
           row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
         card('Terminal',
           row('Open in', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app', 'lg')) +

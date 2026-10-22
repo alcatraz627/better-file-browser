@@ -75,7 +75,7 @@ function diagStrip(diags: Diagnostic[]): string {
   const rows = diags.slice(0, 8).map(d =>
     `<button type="button" class="fe-diag-row ${d.severity}" data-line="${d.line}" title="Show line ${d.line} in the source"><span class="fe-diag-ln">${d.line}</span><span>${esc(d.message)}</span></button>`).join('');
   const more = diags.length > 8 ? `<span class="fe-diag-more">and ${diags.length - 8} more</span>` : '';
-  return `<details class="fe-diag ${errors ? 'error' : 'warn'}"${errors ? ' open' : ''}><summary>${head}</summary>${rows}${more}</details>`;
+  return `<details class="fe-diag card ${errors ? 'error' : 'warn'}"${errors ? ' open' : ''}><summary>${head}</summary>${rows}${more}</details>`;
 }
 
 /** Marks the source rows that have a problem, with the message on hover. */

@@ -9,6 +9,7 @@ import { kvGet, kvSet } from './kv';
 import { UI_ICON } from './control-icons';
 import { openLayer, focusTrap, type Layer } from './layer';
 import { bind } from './commands';
+import { SIZE_BTN, wireSize } from './panel-size';
 
 // Every mounted dialog; the page keys act on the one that is open.
 const mounted: { isOpen: () => boolean; step: (dir: 1 | -1) => void }[] = [];
@@ -24,13 +25,13 @@ const tile = (t: DialogTab, size = '') =>
 export function renderDialog(d: DialogSpec): string {
   return `
   <div id="${esc(d.id)}" class="fe-dlg" style="display:none">
-    <div class="fe-dlg-bg"></div>
-    <div class="fe-dlg-box" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
+    <div class="fe-dlg-bg scrim"></div>
+    <div class="fe-dlg-box panel" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
       <div class="sect fe-dlg-title" data-level="page">
         <span class="fe-dlg-mark">${d.mark}</span>
         <span class="sect-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
-        <button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button>
       </div>
+      <div class="fe-dlg-acts">${SIZE_BTN(`${esc(d.id)}-size`)}<button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button></div>
       <div class="fe-dlg-tabs" role="tablist">
         ${d.tabs.map(t => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} · [ ] switch tabs · Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ''}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ''}</button>`).join('')}
       </div>
@@ -60,6 +61,7 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
   const tabs = [...root.querySelectorAll<HTMLElement>('.fe-dlg-tab')];
   const panes = [...root.querySelectorAll<HTMLElement>('.fe-dlg-pane')];
   const memory = `bfb-dialog-tab:${id}`;
+  wireSize(root.querySelector<HTMLElement>(`#${id}-size`)!, box, id);
   const isOpen = () => root.style.display !== 'none';
 
   function show(tab: string): void {

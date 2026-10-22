@@ -236,6 +236,7 @@ export function initSettingsUi(app: App): void {
     v('fe-st-click').value = settings.clickOpens || 'look';
     v('fe-st-panel').value = getPreviewLayout().mode;
     el<HTMLInputElement>('fe-st-sidebar').checked = settings.showSidebar !== false;
+    el<HTMLInputElement>('fe-st-dock-fold').checked = settings.dockFoldsSidebar !== false;
     el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
     v('fe-st-terminal').value = settings.terminalApp || 'ghostty';
     el('fe-st-term-custom-row').style.display = settings.terminalApp === 'custom' ? '' : 'none';
@@ -300,6 +301,9 @@ export function initSettingsUi(app: App): void {
   el<HTMLInputElement>('fe-st-sidebar').addEventListener('change', function () {
     settings.showSidebar = this.checked; saveSettings(settings);
     setSidebarShown(this.checked);
+  });
+  el<HTMLInputElement>('fe-st-dock-fold').addEventListener('change', function () {
+    settings.dockFoldsSidebar = this.checked; saveSettings(settings);
   });
   el<HTMLInputElement>('fe-st-sec-recent').addEventListener('change', function () {
     settings.hideRecent = !this.checked; saveSettings(settings);
