@@ -499,6 +499,13 @@
     kvSet(SAVED_KEY, JSON.stringify(merged));
     return merged;
   }
+  var isSaved = (path) => getSaved().some((p) => samePlace(p.path, path));
+  function toggleSaved(path, label) {
+    const list2 = getSaved();
+    const was = list2.some((p) => samePlace(p.path, path));
+    saveSaved(was ? removePlace(list2, path) : upsertPlace(list2, { path, label }));
+    return !was;
+  }
   function saveSaved(list2) {
     list2 = dedupePlaces(list2);
     kvSet(SAVED_KEY, JSON.stringify(list2));
@@ -1082,6 +1089,9 @@ ${body}`;
     if (topLayer && el2.matches(":popover-open")) el2.hidePopover();
     el2.removeAttribute("popover");
     delete el2.dataset.raised;
+  }
+  function topmost() {
+    return stack[stack.length - 1] ?? null;
   }
   function position(el2, o) {
     const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
@@ -3360,9 +3370,19 @@ Now: ${question}` : question;
   function previewEntry() {
     return currentEntry;
   }
+  function previewedPath() {
+    return currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname) : edit ? edit.root.replace(/\/$/, "") + "/" + edit.rel : null;
+  }
   function keepPreviewedAsTab() {
-    const path = currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname) : edit ? edit.root.replace(/\/$/, "") + "/" + edit.rel : null;
+    const path = previewedPath();
     if (path && deps.keepTab) deps.keepTab(path);
+  }
+  function syncSaveBtn() {
+    const p = previewedPath(), b = document.getElementById("fe-ql-save");
+    if (!b) return;
+    const on = !!p && isSaved(p);
+    b.classList.toggle("on", on);
+    b.title = on ? "Remove from Saved" : "Save this file";
   }
   var deps;
   var overlay;
@@ -3396,6 +3416,8 @@ Now: ${question}` : question;
         <a id="fe-ql-open" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
         <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
         <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
+        <button id="fe-ql-save" data-icon title="Save this file">${PI.bm}</button>
+        <button id="fe-ql-term" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
         <button id="fe-ql-dock" data-icon title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
@@ -3423,6 +3445,18 @@ Now: ${question}` : question;
       else if (edit) location.href = pageHref(fileHref(edit.root.replace(/\/$/, "") + "/" + edit.rel));
     });
     document.getElementById("fe-ql-tab").addEventListener("click", keepPreviewedAsTab);
+    document.getElementById("fe-ql-save").addEventListener("click", () => {
+      const p = previewedPath();
+      if (!p) return;
+      const now = toggleSaved(p, p.split("/").pop() || p);
+      syncSaveBtn();
+      deps.savedChanged?.();
+      deps.toast?.(now ? "Saved" : "Removed from Saved");
+    });
+    document.getElementById("fe-ql-term").addEventListener("click", () => {
+      const p = previewedPath();
+      if (p) deps.openInTerminal?.(p.replace(/\/[^/]*$/, "") || "/");
+    });
     const bodyEl = document.getElementById("fe-ql-body");
     bodyEl.addEventListener("scroll", () => {
       if (currentEntry) scrollMemo.set(currentEntry.href, bodyEl.scrollTop);
@@ -3664,6 +3698,7 @@ Now: ${question}` : question;
     if (overlay.style.display === "none") rememberFocus();
     overlay.style.display = "flex";
     if (layout.mode !== "side") raise(overlay);
+    syncSaveBtn();
     const body = document.getElementById("fe-ql-body");
     body.classList.add("fe-editing");
     body.innerHTML = `
@@ -4052,6 +4087,7 @@ Now: ${question}` : question;
     if (overlay.style.display === "none") rememberFocus();
     overlay.style.display = "flex";
     if (layout.mode !== "side") raise(overlay);
+    syncSaveBtn();
     dsvHeader = [];
     dsvRows = [];
     dsvSort = null;
@@ -15768,14 +15804,15 @@ ${d.message}` : d.message;
       openMenu3(t, a);
     });
     function openMenu3(t, anchor) {
-      const saved = getSaved().some((p) => p.path === t.path);
+      const saved = isSaved(t.path);
       menu.innerHTML = [
-        `<div class="fe-ctx-item" data-act="copy">Copy path</div>`,
-        `<div class="fe-ctx-item" data-act="save">${saved ? "Unsave" : "Save"}</div>`,
-        `<div class="fe-ctx-item" data-act="pin">${t.pinned ? "Unpin" : "Pin"}<span class="fe-ctx-key">p</span></div>`,
+        `<div class="fe-ctx-item" data-act="copy">${UI_ICON.copy}<span>Copy path</span></div>`,
+        `<div class="fe-ctx-item" data-act="save">${PI.bm}<span>${saved ? "Unsave" : "Save"}</span></div>`,
+        host.openInTerminal ? `<div class="fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>` : "",
+        `<div class="fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? "Unpin" : "Pin"}</span><span class="fe-ctx-key">p</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
-        `<div class="fe-ctx-item" data-act="close">Close<span class="fe-ctx-key">w</span></div>`,
-        `<div class="fe-ctx-item" data-act="others">Close others</div>`
+        `<div class="fe-ctx-item" data-act="close">${UI_ICON.close}<span>Close</span><span class="fe-ctx-key">w</span></div>`,
+        `<div class="fe-ctx-item" data-act="others">${UI_ICON.stack}<span>Close others</span></div>`
       ].join("");
       menu.dataset.id = t.id;
       layer = openLayer(menu, { kind: "popover", anchor, role: "menu", group: "menu" });
@@ -15792,11 +15829,11 @@ ${d.message}` : d.message;
       const act = item.dataset.act;
       if (act === "copy") void copyToClipboard(t.path).then((ok) => toast(ok ? "Copied path" : "Copy failed"));
       else if (act === "save") {
-        const was = getSaved().some((p) => p.path === t.path);
-        saveSaved(was ? removePlace(getSaved(), t.path) : upsertPlace(getSaved(), { path: t.path, label: t.label }));
+        const now = toggleSaved(t.path, t.label);
         host.onSavedChange?.();
-        toast(was ? "Removed from Saved" : "Saved");
-      } else if (act === "pin") commit(togglePin(state, t.id));
+        toast(now ? "Saved" : "Removed from Saved");
+      } else if (act === "term") host.openInTerminal?.(t.kind === "file" ? t.path.replace(/\/[^/]*$/, "") || "/" : t.path);
+      else if (act === "pin") commit(togglePin(state, t.id));
       else if (act === "close") closeById(t.id);
       else if (act === "others") commit(closeOthers(state, t.id));
     });
@@ -18863,6 +18900,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     scroll.addEventListener("mouseleave", hideTip);
     function showTip(target, ev) {
+      if (topmost()) return;
       try {
         const d = JSON.parse(target.getAttribute("data-tip") ?? "{}");
         const iconHtml = d.icon ? `<span class="tip-icon">${d.icon}</span>` : "";
@@ -18897,6 +18935,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let ctx = null;
     const closeCtx = () => ctx?.close("pick");
     scroll.addEventListener("contextmenu", (e) => {
+      hideTip();
       const holder = e.target.closest("[data-idx]");
       if (!holder) return;
       const idx = parseInt(holder.dataset.idx);
@@ -18906,14 +18945,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const multi = ls.selSet.size > 1 && ls.selSet.has(idx);
       if (!multi) sel.setSel(idx);
       ctxMenu.innerHTML = multi ? [
-        `<div class="fe-ctx-item" data-act="cp-paths">Copy ${ls.selSet.size} paths</div>`,
-        `<div class="fe-ctx-item" data-act="cp-names">Copy ${ls.selSet.size} names</div>`
+        `<div class="fe-ctx-item" data-act="cp-paths">${UI_ICON.copy}<span>Copy ${ls.selSet.size} paths</span></div>`,
+        `<div class="fe-ctx-item" data-act="cp-names">${UI_ICON.copy}<span>Copy ${ls.selSet.size} names</span></div>`
       ].join("") : [
-        canPreview(en) ? `<div class="fe-ctx-item" data-act="pv">Preview<span class="fe-ctx-key">Space</span></div>` : "",
-        `<div class="fe-ctx-item" data-act="cp-path">Copy path</div>`,
-        `<div class="fe-ctx-item" data-act="cp-name">Copy name</div>`,
+        canPreview(en) ? `<div class="fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : "",
+        `<div class="fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
+        `<div class="fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">\u21E7Y</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
-        `<div class="fe-ctx-item" data-act="term">Open in terminal</div>`
+        `<div class="fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? "Unsave" : "Save"}</span></div>`,
+        `<div class="fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`
       ].join("");
       ctxMenu.dataset.idx = String(idx);
       ctx = openLayer(ctxMenu, { kind: "popover", place: "point", point: { x: e.clientX, y: e.clientY }, origin: holder, role: "menu", group: "menu" });
@@ -18929,7 +18969,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       else if (item.dataset.act === "cp-path") copyText(fp);
       else if (item.dataset.act === "cp-name") copyText(en.name);
       else if (item.dataset.act === "term") app.openInTerminal(en.isDir ? fp : rawPath);
-      else if (item.dataset.act === "cp-paths") sel.copySelection();
+      else if (item.dataset.act === "save") {
+        const now = toggleSaved(fp, en.name);
+        app.refreshSaved();
+        toast(now ? `Saved ${en.name}` : `Removed ${en.name} from Saved`);
+      } else if (item.dataset.act === "cp-paths") sel.copySelection();
       else if (item.dataset.act === "cp-names") {
         const names = [...ls.selSet].sort((a, b) => a - b).map((i3) => ls.visible[i3].name).join("\n");
         copyToClipboard(names).then(() => toast(`Copied ${ls.selSet.size} names`));
@@ -21678,11 +21722,19 @@ ${rows.join("\n")}`, name: subject };
         else if (rawPath !== "/") location.href = "file:///";
       }
     };
-    initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: (path) => {
-      app.strip.open(path, true);
-      app.toast("Kept as a tab");
-    }, saveError: (message) => app.toast(message), toast: (message) => app.toast(message) });
-    app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
+    initPreview({
+      iconRules: () => app.iconRules,
+      aiModel: () => settings.aiModel,
+      keepTab: (path) => {
+        app.strip.open(path, true);
+        app.toast("Kept as a tab");
+      },
+      saveError: (message) => app.toast(message),
+      toast: (message) => app.toast(message),
+      savedChanged: () => app.refreshSaved(),
+      openInTerminal: (p) => app.openInTerminal(p)
+    });
+    app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), openInTerminal: (p) => app.openInTerminal(p) });
     void showClosedSets(app.strip, !settings.hideRecent);
     const goTab = (path, hash = "") => app.strip.go(path, hash);
     initDocsLens(el("fe-docs-list"), homeDir(rawPath), goTab);

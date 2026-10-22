@@ -5,9 +5,9 @@
 // Mounted by the explorer and by the file page; the pure list operations
 // are in tabs.ts.
 import { esc, copyToClipboard, pageHref } from './utils';
-import { icoFile, icoFolder } from './icons';
-import { getSaved, saveSaved } from './storage';
-import { upsertPlace, removePlace } from './places';
+import { icoFile, icoFolder, PI } from './icons';
+import { isSaved, toggleSaved } from './storage';
+import { UI_ICON } from './control-icons';
 import {
   EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, displayLabels, splitLabel,
   isTabState, normalize, isStale, type TabState, type Tab, type RecoveryEntry,
@@ -23,6 +23,7 @@ export interface StripHost {
   rawPath: string;
   toast: Toast;
   onSavedChange?: () => void;
+  openInTerminal?: (folder: string) => void;
 }
 // The tabs of a Chrome tab that was closed, offered in Recent.
 export interface ClosedSet { id: string; at: number; labels: string[] }
@@ -158,14 +159,15 @@ export function mountStrip(host: StripHost): Strip {
     openMenu(t, a!);
   });
   function openMenu(t: Tab, anchor: HTMLElement): void {
-    const saved = getSaved().some(p => p.path === t.path);
+    const saved = isSaved(t.path);
     menu.innerHTML = [
-      `<div class="fe-ctx-item" data-act="copy">Copy path</div>`,
-      `<div class="fe-ctx-item" data-act="save">${saved ? 'Unsave' : 'Save'}</div>`,
-      `<div class="fe-ctx-item" data-act="pin">${t.pinned ? 'Unpin' : 'Pin'}<span class="fe-ctx-key">p</span></div>`,
+      `<div class="fe-ctx-item" data-act="copy">${UI_ICON.copy}<span>Copy path</span></div>`,
+      `<div class="fe-ctx-item" data-act="save">${PI.bm}<span>${saved ? 'Unsave' : 'Save'}</span></div>`,
+      host.openInTerminal ? `<div class="fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>` : '',
+      `<div class="fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? 'Unpin' : 'Pin'}</span><span class="fe-ctx-key">p</span></div>`,
       `<div class="fe-ctx-sep"></div>`,
-      `<div class="fe-ctx-item" data-act="close">Close<span class="fe-ctx-key">w</span></div>`,
-      `<div class="fe-ctx-item" data-act="others">Close others</div>`,
+      `<div class="fe-ctx-item" data-act="close">${UI_ICON.close}<span>Close</span><span class="fe-ctx-key">w</span></div>`,
+      `<div class="fe-ctx-item" data-act="others">${UI_ICON.stack}<span>Close others</span></div>`,
     ].join('');
     menu.dataset.id = t.id;
     layer = openLayer(menu, { kind: 'popover', anchor, role: 'menu', group: 'menu' });
@@ -179,11 +181,11 @@ export function mountStrip(host: StripHost): Strip {
     const act = item.dataset.act;
     if (act === 'copy') void copyToClipboard(t.path).then(ok => toast(ok ? 'Copied path' : 'Copy failed'));
     else if (act === 'save') {
-      const was = getSaved().some(p => p.path === t.path);
-      saveSaved(was ? removePlace(getSaved(), t.path) : upsertPlace(getSaved(), { path: t.path, label: t.label }));
+      const now = toggleSaved(t.path, t.label);
       host.onSavedChange?.();
-      toast(was ? 'Removed from Saved' : 'Saved');
+      toast(now ? 'Saved' : 'Removed from Saved');
     }
+    else if (act === 'term') host.openInTerminal?.(t.kind === 'file' ? t.path.replace(/\/[^/]*$/, '') || '/' : t.path);
     else if (act === 'pin') commit(togglePin(state, t.id));
     else if (act === 'close') closeById(t.id);
     else if (act === 'others') commit(closeOthers(state, t.id));

@@ -7,9 +7,10 @@ import { el } from './el';
 import { esc, fullPath, copyToClipboard, pageHref } from './utils';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab } from './preview';
 import { bind, addPaletteSource } from './commands';
-import { openLayer, raise, type Layer } from './layer';
-import { getSortConfig, getGroupMode } from './storage';
-import { getIcon } from './icons';
+import { openLayer, raise, topmost, type Layer } from './layer';
+import { getSortConfig, getGroupMode, isSaved, toggleSaved } from './storage';
+import { getIcon, PI } from './icons';
+import { UI_ICON } from './control-icons';
 import type { SortConfig, GroupMode } from './types';
 
 export function initListingInput(app: App, listing: Listing): void {
@@ -86,6 +87,9 @@ export function initListingInput(app: App, listing: Listing): void {
   });
   scroll.addEventListener('mouseleave', hideTip);
   function showTip(target: HTMLElement, ev: MouseEvent): void {
+    // While a menu or dialog is open, the row under the pointer is not what
+    // the person is looking at; its card would cover the menu.
+    if (topmost()) return;
     try {
       const d = JSON.parse(target.getAttribute('data-tip') ?? '{}');
       const iconHtml  = d.icon  ? `<span class="tip-icon">${d.icon}</span>` : '';
@@ -117,6 +121,7 @@ export function initListingInput(app: App, listing: Listing): void {
   let ctx: Layer | null = null;
   const closeCtx = () => ctx?.close('pick');
   scroll.addEventListener('contextmenu', e => {
+    hideTip();
     const holder = (e.target as HTMLElement).closest<HTMLElement>('[data-idx]');
     if (!holder) return;
     const idx = parseInt(holder.dataset.idx!);
@@ -129,15 +134,16 @@ export function initListingInput(app: App, listing: Listing): void {
     if (!multi) sel.setSel(idx);
     ctxMenu.innerHTML = multi
       ? [
-          `<div class="fe-ctx-item" data-act="cp-paths">Copy ${ls.selSet.size} paths</div>`,
-          `<div class="fe-ctx-item" data-act="cp-names">Copy ${ls.selSet.size} names</div>`,
+          `<div class="fe-ctx-item" data-act="cp-paths">${UI_ICON.copy}<span>Copy ${ls.selSet.size} paths</span></div>`,
+          `<div class="fe-ctx-item" data-act="cp-names">${UI_ICON.copy}<span>Copy ${ls.selSet.size} names</span></div>`,
         ].join('')
       : [
-          canPreview(en) ? `<div class="fe-ctx-item" data-act="pv">Preview<span class="fe-ctx-key">Space</span></div>` : '',
-          `<div class="fe-ctx-item" data-act="cp-path">Copy path</div>`,
-          `<div class="fe-ctx-item" data-act="cp-name">Copy name</div>`,
+          canPreview(en) ? `<div class="fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : '',
+          `<div class="fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
+          `<div class="fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">⇧Y</span></div>`,
           `<div class="fe-ctx-sep"></div>`,
-          `<div class="fe-ctx-item" data-act="term">Open in terminal</div>`,
+          `<div class="fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? 'Unsave' : 'Save'}</span></div>`,
+          `<div class="fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
         ].join('');
     ctxMenu.dataset.idx = String(idx);
     ctx = openLayer(ctxMenu, { kind: 'popover', place: 'point', point: { x: e.clientX, y: e.clientY }, origin: holder, role: 'menu', group: 'menu' });
@@ -153,6 +159,7 @@ export function initListingInput(app: App, listing: Listing): void {
     else if (item.dataset.act === 'cp-path') copyText(fp);
     else if (item.dataset.act === 'cp-name') copyText(en.name);
     else if (item.dataset.act === 'term')    app.openInTerminal(en.isDir ? fp : rawPath);
+    else if (item.dataset.act === 'save') { const now = toggleSaved(fp, en.name); app.refreshSaved(); toast(now ? `Saved ${en.name}` : `Removed ${en.name} from Saved`); }
     else if (item.dataset.act === 'cp-paths') sel.copySelection();
     else if (item.dataset.act === 'cp-names') {
       const names = [...ls.selSet].sort((a, b) => a - b).map(i => ls.visible[i].name).join('\n');

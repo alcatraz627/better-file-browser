@@ -935,18 +935,18 @@ try {
   check(page.url().endsWith('/nested/') && await barIsActiveTab(page), `[ wraps to the last tab by real navigation: ${page.url()}`);
 
   await page.click('#fe-tabs .fe-tab.pinned', { button: 'right' });
-  await page.waitForSelector('.fe-tab-menu[style*="block"]', { timeout: 3_000 }).catch(() => null);
-  const pinnedMenu = await page.$$eval('.fe-tab-menu .fe-ctx-item', els => els.map(e => e.firstChild.textContent));
+  await page.waitForSelector('.fe-tab-menu', { timeout: 3_000 }).catch(() => null);
+  const pinnedMenu = await page.$$eval('.fe-tab-menu .fe-ctx-item', els => els.map(e => e.querySelector('span')?.textContent ?? e.textContent));
   check(pinnedMenu.includes('Unpin') && pinnedMenu.includes('Copy path'), `right-click on a pinned tab opens its menu, with Unpin: ${JSON.stringify(pinnedMenu)}`);
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.querySelector('.fe-tab-menu[style*="block"]'), { timeout: 3_000 }).catch(() => null);
 
   await page.hover('#fe-tabs .fe-tab:nth-child(2)');
   await page.click('#fe-tabs .fe-tab:nth-child(2) .fe-tab-more');
-  await page.waitForSelector('.fe-tab-menu[style*="block"]', { timeout: 3_000 }).catch(() => null);
-  const menuItems = await page.$$eval('.fe-tab-menu .fe-ctx-item', els => els.map(e => e.firstChild.textContent));
+  await page.waitForSelector('.fe-tab-menu', { timeout: 3_000 }).catch(() => null);
+  const menuItems = await page.$$eval('.fe-tab-menu .fe-ctx-item', els => els.map(e => e.querySelector('span')?.textContent ?? e.textContent));
   const rootSaved = (await h.store.json('bfb-saved-v1', [])).some(p => p.path === h.fixture + '/');
-  check(menuItems.join('|') === `Copy path|${rootSaved ? 'Unsave' : 'Save'}|Pin|Close|Close others`, `hover menu lists the tab actions and agrees with the star: ${JSON.stringify(menuItems)}`);
+  check(menuItems.join('|') === `Copy path|${rootSaved ? 'Unsave' : 'Save'}|Open in terminal|Pin|Close|Close others`, `hover menu lists the tab actions and agrees with the star: ${JSON.stringify(menuItems)}`);
   await page.click('.fe-tab-menu [data-act="others"]');
   await page.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
   tabsA = await tabLabels(page);

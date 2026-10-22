@@ -3,10 +3,10 @@
 // and hands it to a renderer picked by extension. No new permissions needed.
 import type { Entry, IconRule, PreviewLayout } from './types';
 import { esc, fmtSize, getExt, copyToClipboard, midHtml, pageHref, fileHref } from './utils';
-import { getPreviewLayout, savePreviewLayout } from './storage';
+import { getPreviewLayout, savePreviewLayout, isSaved, toggleSaved } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
 import { raise, lower } from './layer';
-import { getIcon, IMG_EXTS } from './icons';
+import { getIcon, IMG_EXTS, PI } from './icons';
 import { UI_ICON } from './control-icons';
 import { fileMeta, kindName, metaSummary } from './file-meta';
 import {
@@ -59,16 +59,29 @@ interface PreviewDeps {
   keepTab?:  (path: string) => void;     // keep the previewed file as a background strip tab
   saveError?: (message: string) => void;
   toast?: (message: string) => void;
+  savedChanged?: () => void;               // Saved changed from the preview's own button
+  openInTerminal?: (folder: string) => void;
 }
 // Scroll position per previewed file, for this page's lifetime.
 const scrollMemo = new Map<string, number>();
 export function previewEntry(): Entry | null { return currentEntry; }
+// The file in the panel: a previewed file comes from currentEntry; a note
+// being edited nulls that, so it falls back to the note's own path.
+function previewedPath(): string | null {
+  return currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname)
+       : edit ? edit.root.replace(/\/$/, '') + '/' + edit.rel : null;
+}
 export function keepPreviewedAsTab(): void {
-  // A previewed file comes from currentEntry; a note being edited nulls that,
-  // so fall back to the note's own path instead of a dead no-op.
-  const path = currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname)
-             : edit ? edit.root.replace(/\/$/, '') + '/' + edit.rel : null;
+  const path = previewedPath();
   if (path && deps.keepTab) deps.keepTab(path);
+}
+// The Save button shows whether the file in the panel is saved.
+function syncSaveBtn(): void {
+  const p = previewedPath(), b = document.getElementById('fe-ql-save');
+  if (!b) return;
+  const on = !!p && isSaved(p);
+  b.classList.toggle('on', on);
+  b.title = on ? 'Remove from Saved' : 'Save this file';
 }
 
 let deps: PreviewDeps;
@@ -108,6 +121,8 @@ export function initPreview(d: PreviewDeps): void {
         <a id="fe-ql-open" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
         <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
         <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
+        <button id="fe-ql-save" data-icon title="Save this file">${PI.bm}</button>
+        <button id="fe-ql-term" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
         <button id="fe-ql-dock" data-icon title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
@@ -136,6 +151,18 @@ export function initPreview(d: PreviewDeps): void {
     else if (edit) location.href = pageHref(fileHref(edit.root.replace(/\/$/, '') + '/' + edit.rel));
   });
   document.getElementById('fe-ql-tab')!.addEventListener('click', keepPreviewedAsTab);
+  document.getElementById('fe-ql-save')!.addEventListener('click', () => {
+    const p = previewedPath();
+    if (!p) return;
+    const now = toggleSaved(p, p.split('/').pop() || p);
+    syncSaveBtn();
+    deps.savedChanged?.();
+    deps.toast?.(now ? 'Saved' : 'Removed from Saved');
+  });
+  document.getElementById('fe-ql-term')!.addEventListener('click', () => {
+    const p = previewedPath();
+    if (p) deps.openInTerminal?.(p.replace(/\/[^/]*$/, '') || '/');
+  });
   const bodyEl = document.getElementById('fe-ql-body')!;
   bodyEl.addEventListener('scroll', () => { if (currentEntry) scrollMemo.set(currentEntry.href, bodyEl.scrollTop); });
   document.getElementById('fe-ql-bg')!.addEventListener('click', closePreview);
@@ -412,6 +439,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   if (overlay.style.display === 'none') rememberFocus();
   overlay.style.display = 'flex';
   if (layout.mode !== 'side') raise(overlay);
+  syncSaveBtn();
 
   const body = document.getElementById('fe-ql-body')!;
   body.classList.add('fe-editing');
@@ -724,6 +752,7 @@ export function openPreview(e: Entry): void {
   if (overlay.style.display === 'none') rememberFocus();
   overlay.style.display = 'flex';
   if (layout.mode !== 'side') raise(overlay);
+  syncSaveBtn();
   dsvHeader = []; dsvRows = []; dsvSort = null;
   currentText = null;
   resetAiUi();

@@ -1,5 +1,5 @@
 import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode, PreviewLayout, Tag } from './types';
-import { dedupePlaces, mergeLegacy, reconcileTags } from './places';
+import { dedupePlaces, mergeLegacy, reconcileTags, samePlace, upsertPlace, removePlace } from './places';
 import { kvGet, kvSet } from './kv';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
@@ -92,6 +92,15 @@ export function getSaved(): Place[] {
   const merged = mergeLegacy(readList<Bookmark>(BM_KEY), readList<Place>(PLACES_KEY));
   kvSet(SAVED_KEY, JSON.stringify(merged));
   return merged;
+}
+/// Whether a file or folder is in Saved.
+export const isSaved = (path: string): boolean => getSaved().some(p => samePlace(p.path, path));
+/// Saves a file or folder, or takes it out of Saved when it is there; true when it is now saved.
+export function toggleSaved(path: string, label: string): boolean {
+  const list = getSaved();
+  const was = list.some(p => samePlace(p.path, path));
+  saveSaved(was ? removePlace(list, path) : upsertPlace(list, { path, label }));
+  return !was;
 }
 export function saveSaved(list: Place[]): void {
   list = dedupePlaces(list);

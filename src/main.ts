@@ -202,10 +202,11 @@ loadKv().catch(() => {}).then(function () {
     },
   };
 
-  initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); }, saveError: message => app.toast(message), toast: message => app.toast(message) });
+  initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); }, saveError: message => app.toast(message), toast: message => app.toast(message),
+    savedChanged: () => app.refreshSaved(), openInTerminal: p => app.openInTerminal(p) });
   // The strip: this Chrome tab's working set. Navigation is real, so the
   // address bar is always the active tab's location.
-  app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved() });
+  app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), openInTerminal: p => app.openInTerminal(p) });
   void showClosedSets(app.strip, !settings.hideRecent);
   // Everything that opens a place from the sidebar or beside the strip opens
   // it as a new tab and keeps the one you were on.
