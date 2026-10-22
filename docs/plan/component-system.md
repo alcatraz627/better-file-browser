@@ -12,7 +12,7 @@ built from them is made by hand at each place it appears.
 
 This doc specifies the parts every surface is built from, the services every
 feature calls, the checks that stop new one-offs, and the order the app moves
-onto them. Nothing is built until the owner has decided on section 15.
+onto them. The owner decided the open questions on 2026-10-22 (section 15) and added the items in sections 17 and 18.
 
 It extends `design-system.md`, which stays the reference for colour, type and
 markdown reading. Section 4 lists every value this doc changes there; nothing
@@ -275,7 +275,7 @@ touches.
 | Interface size | Settings, Look | the whole tab (Chrome zoom) | |
 | Text size | `--ui-text-scale` | UI type steps | reading text |
 | Reader size | `--rd-size` | markdown and file text | UI chrome |
-| Compact | Settings, Look | listing row padding today; every control if question 3 says so | reading text |
+| Density (compact, default, spacious) | Settings, Look | every control and row, one step | reading text |
 | Detail | the toolbar slider | listing rows, tiles and what they show | everything outside the listing |
 
 ### 5.9 Containers
@@ -684,31 +684,28 @@ focus that is not returned, stacking). Actions come second because Toolbar
 and Menu render Actions. Each slice reuses the old CSS of a later part under
 the new name until that part's slice absorbs it.
 
-## 15. Questions for the owner
+## 15. Owner decisions, 2026-10-22
 
-Each has a default the build takes if the owner agrees. They are on one
-decision page: http://localhost:5106/dp/bfb-component-system/ (the answers are
-recorded back into this section).
+Answered on the decision page `bfb-component-system`
+(`D1a D2a D3a D4a D5a D6a D7a D8b D9a`).
 
-Already decided, not asked again: on and selected share one soft wash with no
-accent line, per the Soft round 2 answer ("a light bg is often the best").
+1. **Icon buttons:** round on their own; rounded square inside a Segmented
+   group and the rail.
+2. **Heights:** 40px bars, 28px controls, the 24px dense size removed.
+3. **Density:** three settings instead of the Compact switch: compact,
+   default, spacious. Each scales every control and row by one step.
+4. **Corners:** 8px for controls and rows, 12px for panels and layers.
+5. **UI text:** 13px.
+6. **Palette over dialogs:** kept. The owner added: every palette entry gets
+   an icon, and the palette gets tabs (section 17).
+7. **Firefox:** Chrome first. Firefox gets "decent parity for minimal effort or
+   maintenance": features may be cut there, but nothing Chrome-only is built
+   without a Firefox fallback or a stated cut.
+8. **Print:** add a print sheet for markdown and code pages.
+9. **Gallery:** yes, as the design-system page in section 17.
 
-1. **Icon button shape inside groups.** Owner row 4 says icon buttons are round. The
-   view switcher, Settings toggles and the lens rail use rounded squares.
-   Default: round everywhere except inside a Segmented group and the rail.
-2. **Heights.** Toolbar 36 to 40px, buttons 26 to 28px, the 24px dense size
-   removed. Default: yes, on the look sheet first.
-3. **Compact.** Scales every control, or rows only as today. Default: every
-   control.
-4. **Corners.** design-system.md says 6 and 10px; the code uses 8 and 12.
-   Default: 8 and 12, the code's values.
-5. **UI text.** 13px (the code) or 14px (the Soft decision's words). Default: 13px.
-6. **Palette over dialogs.** ⌘K opens the palette over Settings and the
-   preview today. Default: keep.
-7. **Firefox.** `kv.ts` handles Firefox, but the manifest does not target it.
-   Default: Chrome only; the store keeps its Firefox path.
-8. **Print.** No print styles exist. Default: out of scope.
-9. **Gallery.** A page inside the extension, not in menus. Default: yes.
+Already decided before the page: on and selected share one soft wash with no
+accent line (Soft round 2).
 
 ## 16. The review
 
@@ -716,6 +713,57 @@ An independent review found 52 issues in the first version. Each is
 answered in this version; the ledger in
 `.claude/specs/component-system-ledger.md` traces every finding to its
 section.
+
+## 17. Added by the owner with the decisions
+
+Owner's words are quoted; each item names its parts and slice.
+
+| Asked for | In the system | Slice |
+|---|---|---|
+| "A page for the design system showing primitives / composites / patterns / variants" | the gallery becomes a browsable design-system page, built from the real parts | 0, grows each slice |
+| Palette: an icon for every entry; tabs for history, notes, saved, recent, actions, comments, chats | palette sources become Item providers with an icon and a tab; tabs are a Segmented row in the command layer; the Actions registry feeds the actions tab | 2 |
+| Help: "some form of reading material ... minimal and a bit flashy" | a short guide in Help, one card per journey (section 18), each with its keys | 6 |
+| Settings preview: a "silhouette" of the app; hovering a setting highlights where it applies, and the reverse; changing it changes the preview | each Settings schema entry names the regions it affects; a silhouette panel in Settings draws those regions and re-renders on change | 6 (needs the store, slice 8, for live values; ships with today's settings first) |
+| Modal size inside the modal: xl (95%), lg (75%), md (today) | a size control in the Dialog and float title bar, remembered per dialog | 6 |
+| Opening the preview collapses the sidebar; closing restores it; a setting turns this off | a store setting read by the preview Panel and the sidebar | 6 |
+| Tooltips: icon and title, a lighter short subtitle, and the keys drawn below | the HoverCard tooltip takes `{icon, title, subtitle, keys}` from the Action; plain text tips stay for content | 1 |
+| Every capability by keyboard, with the keys shown in the UI | section 18 | 2, then every slice |
+
+## 18. Keyboard journeys
+
+The owner: "I neither see enough shortcuts shown in the UI to quickly learn nor
+do I think this kind of a workflow is possible. Same for ALL capabilities ...
+ALL WITH keyboard."
+
+A capability counts as reachable only when a whole journey through it works
+without the mouse and every step shows its key where the eye already is. Each
+journey becomes an e2e walk that drives keys only, and runs in every slice from
+slice 2 on.
+
+| Journey | Steps |
+|---|---|
+| Preview and sidebar | open a file's preview; switch it between float and dock; close it; open and close the sidebar |
+| Saved by tag | go to a sidebar lens; pick a tag; move to the search box and type; clear the tag; open a file in the preview, in a new tab, and as a strip tab |
+| Tabs and back | open files from the sidebar, the listing and Go to; switch strip tabs; return focus to the sidebar where it was |
+| Path picker | open Go to; type or paste a path; open it here or as a tab |
+| Comments | go to a document; read its threads; add a comment on selected text; reply; resolve |
+| AI chat | ask about one file; start a chat on another file; quote a paragraph from the first chat into the second |
+| Notes | create, edit, rename, tag, delete a note |
+| Settings | open a section; change a value; see it apply |
+
+Rules that make the journeys possible:
+
+1. Every Action has a key or is reachable from the palette; the palette shows
+   the key next to every entry.
+2. Every focusable area (sidebar lenses, the lens search, tag chips, the
+   listing, strip tabs, the preview, the comments rail, the Ask chat) is a
+   focus area or a RovingFocus group, so arrows and one key reach it.
+3. Focus returns to where it came from when a layer closes and when the user
+   switches area and back.
+4. Keys are shown three ways: in the rich tooltip, as hints while the hint key
+   is held, and in the palette. Help's keyboard map reads the same list.
+5. The journeys are written as parity rows before slice 2; any step that
+   needs a new key is an Action added in that slice.
 
 ## Appendix A: what each part replaces
 
