@@ -25,6 +25,9 @@ export interface LayerOptions {
   align?: 'start' | 'end';
   /// Gap between anchor and layer, in px.
   offset?: number;
+  /// The dimmed area behind a modal layer: a press that starts and ends on it
+  /// closes the layer; a drag that only ends there does not.
+  backdrop?: HTMLElement | null;
   /// Opening a layer closes any other open layer with the same group.
   group?: string;
   /// Move focus into the layer on open: its first focusable, a given element, or nowhere.
@@ -62,6 +65,7 @@ let wired = false;
 // press, however long it was held, must not open it again. Cleared once that
 // click has run, or by the next key or press.
 let anchorClosed: HTMLElement | null = null;
+let pressTarget: EventTarget | null = null;
 // Counts layer openings, so a raised part knows when something has opened over it.
 let opened = 0;
 
@@ -199,6 +203,7 @@ function wire(): void {
     top.close('esc');
   }, true);
   document.addEventListener('pointerdown', e => {
+    pressTarget = e.target;
     const t = e.target as Node;
     const top = stack[stack.length - 1];
     if (!top || top.el.contains(t)) return;
@@ -210,7 +215,11 @@ function wire(): void {
     anchorClosed = null;
     if (CLOSES[top.kind].outside) top.close('outside');
   }, true);
-  document.addEventListener('click', () => { if (anchorClosed) setTimeout(() => { anchorClosed = null; }); }, true);
+  document.addEventListener('click', e => {
+    if (anchorClosed) setTimeout(() => { anchorClosed = null; });
+    const top = stack[stack.length - 1], bd = top?.opts.backdrop;
+    if (bd && e.target === bd && pressTarget === bd) top.close('outside');
+  }, true);
   document.addEventListener('keydown', () => { anchorClosed = null; }, true);
   // A scroll closes a layer only when it moved the layer's anchor: a scroll
   // event that lands just after opening, from the scroll that brought the

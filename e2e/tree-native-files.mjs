@@ -16,17 +16,20 @@ try {
   const page = await h.open();
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="files"]');
-  const original = await page.$eval('#fe-st-excluded-exts', input => input.value);
+  const original = await page.$eval('#fe-st-excluded-exts', host => host.dataset.value);
   assert.match(original, /\.html/);
   assert.match(original, /\.pdf/);
   await shot(page, 'settings-exclusions-dark');
   await page.evaluate(() => document.getElementById('fe-theme-btn').click());
   await shot(page, 'settings-exclusions-light');
   await page.evaluate(() => document.getElementById('fe-theme-btn').click());
-  await page.$eval('#fe-st-excluded-exts', input => {
-    input.value = '.pdf';
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  // Leave only .pdf: remove every other chip with its × button.
+  for (let i = 0; i < 6; i++) {
+    const other = await page.$$eval('#fe-st-excluded-exts .fe-chip-x', chips => chips.findIndex(c => !c.textContent.startsWith('.pdf')));
+    if (other < 0) break;
+    await page.$$eval('#fe-st-excluded-exts .fe-chip-x button', (bs, j) => bs[j].click(), other);
+  }
+  assert.equal(await page.$eval('#fe-st-excluded-exts', host => host.dataset.value), '.pdf');
   const source = await h.browser.newPage();
   await source.goto('file://' + htmlPath, { waitUntil: 'load' });
   await source.waitForSelector('#fe-page .fe-code');
@@ -37,7 +40,7 @@ try {
   await source.close();
   await page.$eval('#fe-st-excluded-reset', button => button.click());
   console.log('reset clicked');
-  assert.match(await page.$eval('#fe-st-excluded-exts', input => input.value), /\.html/);
+  assert.match(await page.$eval('#fe-st-excluded-exts', host => host.dataset.value), /\.html/);
   await page.$eval('#fe-settings-modal .fe-dlg-close', button => button.click());
   console.log('settings reset');
 

@@ -165,13 +165,8 @@ export function openPalette(prefill = ''): void {
     if (row && Number(row.dataset.i) !== at) { at = Number(row.dataset.i); list.querySelectorAll('.fe-pal-i').forEach(r => r.classList.toggle('on', r === row)); }
   });
   list.addEventListener('click', e => { const row = (e.target as Element).closest<HTMLElement>('.fe-pal-i'); if (row) fire(Number(row.dataset.i), e.altKey); });
-  // Only a press that starts and ends on the dimmed area closes it; a text
-  // selection dragged out of the input and released there does not.
-  let pressOnScrim = false;
-  box.addEventListener('pointerdown', e => { pressOnScrim = e.target === box; });
-  box.addEventListener('click', e => { if (pressOnScrim && e.target === box) layer.close('outside'); });
   input.value = prefill;
   paint();
   // The palette sits over every other layer; focus goes back to where it was when it closes.
-  const layer = openLayer(box, { kind: 'command', place: 'none', focus: input, onClose: () => { paletteEl = null; } });
+  const layer = openLayer(box, { kind: 'command', place: 'none', focus: input, backdrop: box, onClose: () => { paletteEl = null; } });
 }

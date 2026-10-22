@@ -999,6 +999,7 @@ ${body}`;
   var topLayer = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
   var wired = false;
   var anchorClosed = null;
+  var pressTarget = null;
   var opened = 0;
   var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
   function openLayer(el2, opts) {
@@ -1121,6 +1122,7 @@ ${body}`;
       top.close("esc");
     }, true);
     document.addEventListener("pointerdown", (e) => {
+      pressTarget = e.target;
       const t = e.target;
       const top = stack[stack.length - 1];
       if (!top || top.el.contains(t)) return;
@@ -1135,10 +1137,12 @@ ${body}`;
       anchorClosed = null;
       if (CLOSES[top.kind].outside) top.close("outside");
     }, true);
-    document.addEventListener("click", () => {
+    document.addEventListener("click", (e) => {
       if (anchorClosed) setTimeout(() => {
         anchorClosed = null;
       });
+      const top = stack[stack.length - 1], bd = top?.opts.backdrop;
+      if (bd && e.target === bd && pressTarget === bd) top.close("outside");
     }, true);
     document.addEventListener("keydown", () => {
       anchorClosed = null;
@@ -1221,7 +1225,7 @@ ${body}`;
         box.focus();
         return;
       }
-      layer = openLayer(root, { kind: "dialog", place: "none", focus: box, onClose: () => {
+      layer = openLayer(root, { kind: "dialog", place: "none", focus: box, backdrop: root.querySelector(".fe-dlg-bg"), onClose: () => {
         root.style.display = "none";
         hooks.onClose?.();
       } });
@@ -1231,7 +1235,6 @@ ${body}`;
     }
     tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.tab)));
     root.querySelector(".fe-dlg-close").addEventListener("click", close);
-    root.querySelector(".fe-dlg-bg").addEventListener("click", close);
     document.addEventListener("keydown", (e) => {
       if (!isOpen()) return;
       if (e.key === "Tab") {
@@ -16541,6 +16544,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     const input = host.querySelector(".fe-chipin-in");
     let items = [];
     const paint = () => {
+      host.dataset.value = items.join(", ");
       host.querySelectorAll(".fe-chip-x").forEach((c) => c.remove());
       input.insertAdjacentHTML("beforebegin", items.map((t, i3) => `<span class="fe-chip-x">${esc(t)}<button type="button" data-i="${i3}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">\xD7</button></span>`).join(""));
     };
@@ -18605,16 +18609,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const row2 = e.target.closest(".fe-pal-i");
       if (row2) fire2(Number(row2.dataset.i), e.altKey);
     });
-    let pressOnScrim = false;
-    box.addEventListener("pointerdown", (e) => {
-      pressOnScrim = e.target === box;
-    });
-    box.addEventListener("click", (e) => {
-      if (pressOnScrim && e.target === box) layer.close("outside");
-    });
     input.value = prefill;
     paint();
-    const layer = openLayer(box, { kind: "command", place: "none", focus: input, onClose: () => {
+    const layer = openLayer(box, { kind: "command", place: "none", focus: input, backdrop: box, onClose: () => {
       paletteEl = null;
     } });
   }

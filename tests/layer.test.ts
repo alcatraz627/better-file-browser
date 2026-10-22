@@ -107,6 +107,18 @@ describe('layers', () => {
     expect(m.open).toBe(false);
   });
 
+  it('a press that starts and ends on the backdrop closes a modal layer; a drag that ends there does not', () => {
+    const el = mk('<div class="bd"></div><input>');
+    const bd = el.querySelector<HTMLElement>('.bd')!, input = el.querySelector('input')!;
+    const d = openLayer(el, { kind: 'dialog', backdrop: bd });
+    press(input);
+    bd.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(d.open).toBe(true);
+    press(bd);
+    bd.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(d.open).toBe(false);
+  });
+
   it('opening a layer in the same group closes the other', () => {
     const a = openLayer(mk(), { kind: 'popover', group: 'menu' });
     const b = openLayer(mk(), { kind: 'popover', group: 'menu' });

@@ -161,6 +161,7 @@ function upgradeChips(host: HTMLElement): void {
   const input = host.querySelector<HTMLInputElement>('.fe-chipin-in')!;
   let items: string[] = [];
   const paint = () => {
+    host.dataset.value = items.join(', ');   // readable from outside this script, like the dropdown's
     host.querySelectorAll('.fe-chip-x').forEach(c => c.remove());
     input.insertAdjacentHTML('beforebegin', items.map((t, i) =>
       `<span class="fe-chip-x">${esc(t)}<button type="button" data-i="${i}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">×</button></span>`).join(''));

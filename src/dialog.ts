@@ -71,13 +71,12 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
     root.style.display = 'flex';
     if (layer?.open) { box.focus(); return; }
     // Esc and focus going back to the opener come from the layer.
-    layer = openLayer(root, { kind: 'dialog', place: 'none', focus: box, onClose: () => { root.style.display = 'none'; hooks.onClose?.(); } });
+    layer = openLayer(root, { kind: 'dialog', place: 'none', focus: box, backdrop: root.querySelector<HTMLElement>('.fe-dlg-bg'), onClose: () => { root.style.display = 'none'; hooks.onClose?.(); } });
   }
   function close(): void { layer?.close('api'); }
 
   tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab!)));
   root.querySelector('.fe-dlg-close')!.addEventListener('click', close);
-  root.querySelector('.fe-dlg-bg')!.addEventListener('click', close);
   document.addEventListener('keydown', e => {
     if (!isOpen()) return;
     if (e.key === 'Tab') {

@@ -2130,6 +2130,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   var topLayer = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
   var wired = false;
   var anchorClosed = null;
+  var pressTarget = null;
   var opened = 0;
   var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
   function openLayer(el, opts) {
@@ -2235,6 +2236,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       top.close("esc");
     }, true);
     document.addEventListener("pointerdown", (e) => {
+      pressTarget = e.target;
       const t = e.target;
       const top = stack[stack.length - 1];
       if (!top || top.el.contains(t)) return;
@@ -2249,10 +2251,12 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       anchorClosed = null;
       if (CLOSES[top.kind].outside) top.close("outside");
     }, true);
-    document.addEventListener("click", () => {
+    document.addEventListener("click", (e) => {
       if (anchorClosed) setTimeout(() => {
         anchorClosed = null;
       });
+      const top = stack[stack.length - 1], bd = top?.opts.backdrop;
+      if (bd && e.target === bd && pressTarget === bd) top.close("outside");
     }, true);
     document.addEventListener("keydown", () => {
       anchorClosed = null;
@@ -2464,6 +2468,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     const input = host.querySelector(".fe-chipin-in");
     let items = [];
     const paint = () => {
+      host.dataset.value = items.join(", ");
       host.querySelectorAll(".fe-chip-x").forEach((c) => c.remove());
       input.insertAdjacentHTML("beforebegin", items.map((t, i) => `<span class="fe-chip-x">${esc(t)}<button type="button" data-i="${i}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">\xD7</button></span>`).join(""));
     };
