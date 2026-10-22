@@ -36,7 +36,7 @@ export const UI_CSS = `
 .fe-set.wide{flex-direction:column;align-items:stretch;gap:10px}
 .fe-set.wide .fe-set-c{max-width:none;justify-content:flex-start}
 .fe-set.wide .fe-set-tx:has(.fe-set-l:empty){gap:0}
-.fe-set-c{max-width:70%;flex-wrap:wrap}
+.fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-4);flex:none;max-width:70%;flex-wrap:wrap}
 #fe-st-term-hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}
 .fe-set-sws.grid4{display:grid;grid-template-columns:repeat(4,max-content);gap:var(--sp-2) var(--sp-4);justify-content:end}
 
@@ -206,7 +206,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-ai-hero-tx span{font-size:var(--fs-md);color:var(--mt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:var(--sp-2) 14px;padding:10px var(--sp-6) var(--sp-5);border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
 #fe-st-ai-grid:empty{display:none}
-.fe-st-ai-hint code{font-family:var(--mono)}
+.fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 var(--sp-2);font-size:var(--fs-sm);color:var(--mt);font-family:var(--mono)}
 .fe-dm{color:var(--dm)}
 .fe-ai-models{display:flex;flex-direction:column;padding:var(--sp-3)}
 .fe-ai-m{display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px;border-radius:9px}

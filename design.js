@@ -7,18 +7,6 @@
    Sand and Ink are picked in Settings. Each palette sets only the surface,
    text and accent colours below, so every rule reads the same tokens.
    Selection and hover are washes mixed from the accent, so they follow it. */
-:root{
-  --bg:#0f1316;--s1:#151b1f;--s2:#1c2328;--s3:#253039;
-  --bd:#243038;--bd2:#34434d;--tx:#e7eef1;--mt:#a3b2ba;--dm:#7f9099;
-  --ac:#3cc6c0;--tx-on-ac:#0f1316;--dir:#a3b2ba;
-  --shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);
-  --gold:#d29922;--green:#3fb950;
-  --hover:color-mix(in srgb,var(--tx) 6%,transparent);--on:color-mix(in srgb,var(--ac) 18%,transparent);--r-sm:6px;
-  --card:color-mix(in srgb,var(--s1),var(--s2) 62%);--side:var(--s1);
-  --t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);
-  --mono:'SF Mono',Menlo,Consolas,monospace;
-  --nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;
-}
 /* The html:has twin of each rule paints the page behind #fe to match. */
 #fe[data-theme="light"],html:has(#fe[data-theme="light"]){
   --bg:#eef3f5;--s1:#ffffff;--s2:#eaf0f2;--s3:#dde6ea;
@@ -236,10 +224,6 @@ body{opacity:1!important}
 #fe-bar .fe-crumb-more[hidden]{display:none}
 .fe-crumb:hover{background:var(--hover);color:var(--tx)}
 .fe-sep{color:var(--dm);font-size:var(--fs-sm);flex-shrink:0;padding:0 1px}
-#fe-bar .fe-crumb-dd{background:none;border:none;color:var(--dm);cursor:pointer;
-  padding:0 var(--sp-1);font-size:var(--fs-xs);border-radius:3px;line-height:1;opacity:0.35;
-  transition:opacity .1s,color .1s,background .1s;flex-shrink:0;min-width:0}
-#fe-bar .fe-crumb-dd:hover{background:var(--hover);color:var(--ac);opacity:1;border:none}
 #fe-bar .fe-crumb-dd svg{display:block}
 #fe-crumb-menu{
   position:fixed;z-index:var(--z-popover);
@@ -248,10 +232,8 @@ body{opacity:1!important}
   box-shadow:0 8px 24px #0009;padding:var(--sp-2) 0;
 }
 #fe-crumb-menu:not([data-layer]){display:none}
-.fe-dd-search-wrap{padding:5px var(--sp-4) 7px;border-bottom:1px solid var(--bd)}
 .fe-dd-search{width:100%}
 
-.fe-dd-items{max-height:288px;overflow-y:auto;padding:var(--sp-1) 0}
 .fe-dd-item{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-3) var(--sp-5);
   color:var(--tx);text-decoration:none;font-size:var(--fs-md);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;transition:background .08s}
@@ -262,8 +244,6 @@ body{opacity:1!important}
 #fe-theme-btn #fe-moon{display:block}
 #fe[data-theme="light"] #fe-theme-btn #fe-sun{display:block}
 #fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
-#fe-body{display:flex;flex:1;overflow:hidden}
-#fe-side{position:relative;width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
 /* The lens bar sits on top: icons in a row, the open lens grown to show its
    name; the wheel over the bar moves between lenses. The lens fills the rest. */
 #fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:var(--sp-3) var(--sp-3);border-bottom:1px solid var(--bd);overflow:hidden}
@@ -287,7 +267,6 @@ body{opacity:1!important}
 .fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
 .fe-rail-btn.on,.fe-rail-btn.on:hover{background:none;color:var(--tx)}
 .fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-#fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:var(--sp-3) 0}
 .fe-lens[hidden]{display:none}
 .fe-doc-row{display:flex;align-items:center;gap:10px;width:calc(100% - 12px);margin:1px var(--sp-3);padding:var(--sp-3) 10px;border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
 .fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
@@ -303,24 +282,18 @@ body{opacity:1!important}
 #fe-side-rz{width:10px}
 .fe-sec{margin-bottom:var(--sp-2)}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none!important}
-.fe-sh{padding:10px 14px 5px}
 #fe-side .fe-sh{justify-content:flex-start!important}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:var(--sp-3);padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
 .fe-sh-collapse:hover{color:var(--tx)}
 .fe-si{display:flex;align-items:center;gap:10px;padding:var(--sp-4) 14px;
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
-button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer}
 .fe-rc-ago{font-size:var(--fs-sm);color:var(--dm);flex-shrink:0}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
-.fe-sl{font-size:var(--fs-lg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
-.fe-hint{font-size:var(--fs-md);color:var(--dm);padding:var(--sp-3) 14px;font-style:italic;line-height:1.7}
 .fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
 .fe-drag-h{padding:7px var(--sp-2) 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
 .fe-bm-item:hover .fe-drag-h{opacity:1}
 .fe-bm-item.dragging{opacity:.4;background:var(--hover)}
 .fe-bm-item.drag-over{border-top:2px solid var(--ac)}
-.fe-si-link{display:flex;align-items:center;gap:10px;flex:1;padding:7px var(--sp-3) 7px var(--sp-2);
-  color:inherit;text-decoration:none;min-width:0;transition:color .1s}
 .fe-si-link svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-rm-btn{opacity:0;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
@@ -332,10 +305,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-sv-dot{width:9px;height:9px;border-radius:50%;cursor:pointer;flex-shrink:0;box-shadow:0 0 0 1px #0004}
 #fe-lens-filter[hidden],.fe-lens-tags[hidden]{display:none}
 .fe-proxy-filter{display:none!important}
-.fe-lens-tags{display:flex;flex-wrap:wrap;gap:var(--sp-2);padding:0 10px var(--sp-4)}
-.fe-grp{margin:var(--sp-2) var(--sp-4);background:var(--s2);border-radius:10px;padding:0 0 var(--sp-2)}
-.fe-grp:not([open]){padding-bottom:0}
-.fe-grp > summary{list-style:none;cursor:pointer;padding:7px var(--sp-4) 5px}
 .fe-grp > summary::-webkit-details-marker{display:none}
 .fe-grp-n{margin-left:auto;font-weight:500;color:var(--dm)}
 .fe-sv-dot:hover{transform:scale(1.25)}
@@ -385,13 +354,8 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-find-depth .fe-dd-btn{min-width:100px}
 #fe-find-status{font-size:var(--fs-sm);color:var(--mt);margin-left:var(--sp-2)}
 .fe-view .fe-si-link svg{color:var(--ac);opacity:.9}
-#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left}
-#fe-table{width:100%;border-collapse:collapse;table-layout:fixed}
 thead{position:sticky;top:0;z-index:var(--z-sticky);background:var(--s2)}
-thead th{padding:var(--sp-3) var(--sp-5);text-align:left;font-size:var(--fs-sm);font-weight:600;
-  text-transform:uppercase;letter-spacing:.07em;color:var(--dm);
-  border-bottom:1px solid var(--bd);user-select:none;white-space:nowrap}
-thead th{position:relative}
+thead th{padding:var(--sp-3) var(--sp-5);text-align:left;font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--dm);border-bottom:1px solid var(--bd);user-select:none;white-space:nowrap;position:relative}
 thead th[data-sort]{cursor:pointer}
 thead th[data-sort]:hover{color:var(--tx)}
 .fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%}
@@ -583,7 +547,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-meta-item{display:inline-flex;align-items:center;gap:5px}
 .fe-meta-item svg{color:var(--dm)}
 .fe-status-grow{flex:1}
-#fe-fp-reload{color:var(--green);animation:fe-fade-in var(--t-base) var(--ease)}
 #fe-fp-reload[hidden]{display:none}
 #fe-fp-reload.off{color:var(--dm)}
 @keyframes fe-fade-in{from{opacity:0}to{opacity:1}}
@@ -615,11 +578,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 }
 #fe-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 /* The label for anything with a title (tooltip.ts); same surface as the row card #fe-tip. */
-#fe-hint{position:fixed;top:0;left:0;z-index:var(--z-popover);max-width:320px;pointer-events:none;
-  background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-radius:var(--r-sm);
-  box-shadow:0 4px 14px #0006;padding:var(--sp-2) var(--sp-4);
-  font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
-  opacity:0;transition:opacity var(--t-fast) ease-out}
 #fe-hint.on{opacity:1}
 /* A control's tooltip: icon and title, a lighter line, then its keys. */
 #fe-hint.rich{white-space:normal;display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-3) var(--sp-5)}
@@ -642,7 +600,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 :where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
 @media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
 #fe-toast.act.show{pointer-events:auto}
-.fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
@@ -696,7 +653,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   gap:var(--sp-3);align-items:center;padding:5px var(--sp-1);border-bottom:1px solid var(--bd)}
 .fe-st-rule:last-child{border-bottom:none}
 .fe-st-rule input[type="checkbox"]{accent-color:var(--ac);cursor:pointer;width:13px;height:13px}
-#fe-st-ai-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:11px 13px}
 .fe-st-ai-head{display:flex;align-items:center;gap:var(--sp-4);margin-bottom:9px}
 .fe-st-ai-blink{position:relative;display:inline-flex;width:9px;height:9px;flex-shrink:0}
 .fe-st-ai-blink .dot{width:9px;height:9px;border-radius:50%;background:var(--dm);z-index:1}
@@ -716,14 +672,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-ai-grid .v.warm-yes{color:var(--green)}
 .fe-st-ai-grid .v.warm-no{color:var(--gold)}
 .fe-st-ai-hint{font-size:var(--fs-sm);color:var(--dm);margin-top:var(--sp-4);line-height:1.5}
-.fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 var(--sp-2);
-  font-family:'SF Mono',Menlo,Consolas,monospace;font-size:var(--fs-sm);color:var(--mt)}
 #fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
 #fe-ql-dialog{position:relative;z-index:1;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);max-width:calc(100vw - 16px);max-height:calc(100vh - 16px)}
 #fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;z-index:2}
 #fe-ql-rz-side{display:none;position:absolute;left:-3px;top:0;width:8px;height:100%;z-index:2}
-#fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;
-  border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz,#fe-qlook.side #fe-ql-size{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none}
@@ -749,10 +701,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:112px;flex:0 1 auto;position:relative;top:1px;
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-tab:hover{background:var(--s3);color:var(--tx)}
-.fe-tab.on{background:var(--bg);color:var(--tx)}
 .fe-tab.temp{background:none;border-color:transparent}
-.fe-tab.temp.on{background:var(--bg);border-color:var(--bd)}
-.fe-tab.temp.on{color:var(--mt)}
+.fe-tab.temp.on{background:var(--bg);border-color:var(--bd);color:var(--mt)}
 .fe-tab.drag-over{border-left:2px solid var(--ac)}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
 .fe-tab-head{overflow:hidden;white-space:pre;min-width:0}
@@ -771,14 +721,12 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 
 .fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
 .fe-tab-ico{display:flex;flex-shrink:0}
-.fe-tab-ico svg{width:11px;height:12px}
 .fe-tab-menu{position:fixed}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
 #fe-fp-bar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
-#fe-fp{display:flex;flex:1;min-height:0}
 /* Contents and Comments float over the page as a translucent card, shown and
    hidden by the two buttons right of find. The text keeps clear of the card. */
-#fe-fp{position:relative}
+#fe-fp{display:flex;flex:1;min-height:0;position:relative}
 #fe-toc-rail{position:absolute;top:12px;right:16px;z-index:4;width:240px;max-height:calc(100% - 24px);display:flex;flex-direction:column;min-height:0;
   border:1px solid color-mix(in srgb,var(--bd) 80%,transparent);border-radius:var(--pop-r);
   background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
@@ -787,7 +735,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc-rail.peek{box-shadow:var(--pop-sh)}
 .fe-toc-head{display:flex;align-items:center;gap:var(--sp-3);padding:10px var(--sp-4) var(--sp-3) var(--sp-6);flex:none}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:var(--sp-1) 0 var(--sp-6)}
-#fe-toc a{display:block;margin:1px var(--sp-3);border-radius:var(--r-sm);color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
 #fe-toc a.fe-toc-h1{font-size:var(--fs-lg);font-weight:600;color:var(--tx)}
 #fe-toc a.fe-toc-h2{font-size:var(--fs-md);padding-left:22px}
 #fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
@@ -942,7 +889,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1)}
 #fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
 /* The top padding clears the floating pill, so a long first line is never under it. */
-#fe-fe-col{max-width:980px;margin:0 auto;padding:62px 28px 120px}
 #fe-fe-src{position:relative}
 #fe-fe-src[hidden]{display:none}
 #fe-fe-paint,#fe-fe-ta{margin:0;font-family:var(--mono);font-size:calc(var(--rd-code,var(--fs-lg)) * var(--ui-text-scale,1));line-height:1.7;
@@ -980,7 +926,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fp-edit.busy{opacity:.6;cursor:progress}
 @keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
-#fe-fp-reload{font-size:var(--fs-sm);color:var(--dm)}
+#fe-fp-reload{animation:fe-fade-in var(--t-base) var(--ease);font-size:var(--fs-sm);color:var(--dm)}
 #fe-ed-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 .fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-3) 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
@@ -989,7 +935,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 .fe-hist-head{display:flex;gap:var(--sp-4);align-items:center;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--bd);color:var(--dm);font-size:var(--fs-sm)}
 #fe-ql-body.fe-editing{display:flex;flex-direction:column}
 .fe-ed{display:flex;flex:1;min-height:0}
-.fe-md img{max-width:100%;border-radius:var(--r-sm)}
 #fe-ed-src{flex:1;min-width:0;resize:none;border:none;border-right:1px solid var(--bd);background:var(--s1);color:var(--tx);
   font:var(--fs-md)/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px var(--sp-6);outline:none;tab-size:2}
 #fe-ed-view{flex:1;min-width:0;overflow:auto}
@@ -1011,16 +956,12 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-pm-add{display:flex;gap:var(--sp-2)}
 .fe-pm-add input{flex:1;min-width:0}
 
-.fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:1px}
 .fe-mid{display:flex;min-width:0;max-width:100%;overflow:hidden}
 .fe-mid-h{overflow:hidden;text-overflow:ellipsis;white-space:pre;min-width:0}
 .fe-mid-t{white-space:pre;flex:none}
 .fe-nt-label{flex:none;display:flex;min-width:0;white-space:nowrap;overflow:hidden;line-height:1.3}
 .fe-nt-label.editing{display:block;white-space:normal;overflow:visible;overflow-wrap:anywhere}
-.fe-nt-item .fe-nt-acts{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;
-  background:var(--hover);border-radius:var(--r-xs);opacity:0;pointer-events:none;transition:opacity .1s}
 .fe-nt-item:hover .fe-nt-acts,.fe-nt-item:focus-within .fe-nt-acts{opacity:1;pointer-events:auto}
-.fe-nt-tags{font-size:var(--fs-sm);color:var(--mt);display:flex;gap:var(--sp-3);flex-wrap:wrap}
 .fe-nt-tags span{display:inline-flex;align-items:center;gap:3px}
 .fe-nt-tags svg{width:10px;height:10px;flex:none}
 .fe-nt-flags{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none}
@@ -1029,7 +970,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-nt-props{opacity:0;flex:none}
 .fe-nt-item:hover .fe-nt-props,.fe-nt-props:focus-visible{opacity:1}
 
-.fe-nt-item .fe-si-link{padding-left:14px}
 .fe-nt-tab{opacity:0;flex:none}
 .fe-nt-item:hover .fe-nt-tab,.fe-nt-tab:focus-visible{opacity:1}
 
@@ -1045,10 +985,9 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-qlook.side #fe-ql-name,#fe-qlook.side #fe-ql-meta{flex-shrink:1;min-width:0}
 #fe-qlook.side #fe-ed-bar > button > span{display:none}
 #fe-qlook.side .fe-ed-hint{display:none}
-#fe-ql-name{font-weight:600;font-size:var(--fs-lg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
 #fe-ql-name:hover{color:var(--ac);text-decoration:underline}
 #fe-ql-meta{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
-#fe-ql-name{min-width:0;flex-shrink:1}
+#fe-ql-name{font-weight:600;font-size:var(--fs-lg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none;min-width:0;flex-shrink:1}
 #fe-ql-body{flex:1;overflow:auto;font-size:var(--fs-md)}
 #fe-ql-body:has(> .fe-ql-htmlbar){display:flex;flex-direction:column}
 .fe-ql-htmlbar{border-bottom:1px solid var(--bd);flex:none}
@@ -1168,13 +1107,12 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md li::marker{color:var(--mt)}
 .fe-md code{background:var(--s2);border:0;padding:.12em .4em;border-radius:var(--r-xs);font-family:var(--mono);font-size:.86em}
 .fe-md a code{color:inherit}
-.fe-md-code{border:1px solid var(--bd);border-radius:var(--row-r);background:color-mix(in srgb,var(--card),var(--tx) 3.5%);overflow:hidden}
 .fe-md-code-bar{justify-content:space-between;padding:var(--sp-2) var(--sp-3) 0 var(--sp-5);background:none}
 .fe-md-lang{font:600 var(--fs-sm)/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 .fe-md-pre{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);padding:.75em 1em;
   overflow-x:auto;font-family:var(--mono);font-size:.86em;line-height:1.55;white-space:pre;color:var(--tx)}
 .fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0;padding-top:.4em;background:none}
-.fe-md-code{background:color-mix(in srgb,var(--s1),#000 6%)}
+.fe-md-code{border:1px solid var(--bd);border-radius:var(--row-r);overflow:hidden;background:color-mix(in srgb,var(--s1),#000 6%)}
 .fe-md-lines{counter-reset:ln;padding-left:.2em}
 .fe-md-l{display:block;width:max-content;min-width:100%;box-sizing:border-box;padding-right:1em;border-radius:3px;counter-increment:ln}
 .fe-md-l::before{content:counter(ln);display:inline-block;width:2.2em;margin-right:1em;text-align:right;color:var(--dm);opacity:.6;user-select:none}
@@ -1218,7 +1156,6 @@ a.fe-fm-path:hover{text-decoration:underline}
 .fe-ctx-item{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-3) var(--sp-5);color:var(--tx);
   font-size:var(--fs-md);cursor:pointer;white-space:nowrap}
 .fe-ctx-key{margin-left:auto;color:var(--dm);font-size:var(--fs-xs);padding-left:var(--sp-6)}
-.fe-ctx-sep{height:1px;background:var(--bd);margin:var(--sp-2) 0}
 .fe-tab-ico svg{width:15px;height:16px}
 .fe-tab-x,.fe-tab-more{opacity:.6}
 .fe-tab:focus-visible,.fe-tab-x:focus-visible,.fe-tab-more:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}
@@ -1238,17 +1175,16 @@ a.fe-fm-path:hover{text-decoration:underline}
    float as cards on the page background; rows are 36px with no lines, and
    selection is a wash with rounded ends, never a ring. The sidebar's resize
    handle is the 10px gutter between cards and shows a thin line on hover. */
-#fe-body{padding:10px;background:var(--bg)}
+#fe-body{display:flex;flex:1;overflow:hidden;padding:10px;background:var(--bg)}
 #fe-side,#fe-main,#fe-qlook.side{border:1px solid var(--bd);border-radius:var(--pop-r);overflow:hidden}
 /* The page is the lightest surface, the sidebar one step below it, and the
    page background the deepest; bars inside the page share its colour and are
    set apart by a hairline, not a grey band. */
-#fe-side{background:var(--side)}
+#fe-side{position:relative;width:272px;flex-shrink:0;border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--side)}
 #fe-main,#fe-toolbar,#fe-fp-bar,#fe-statusbar,thead{background:var(--card)}
 #fe-tabbar,#fe-tabs{background:var(--side)}
-.fe-tab.on{background:var(--card)}
-#fe-qlook.side{margin-left:10px}
-#fe-table{border-collapse:separate;border-spacing:0}
+.fe-tab.on{color:var(--tx);background:var(--card)}
+#fe-table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0}
 #fe-table tbody tr{border-bottom:0}
 #fe-table tbody tr:hover{background:none}
 #fe-table tbody tr:hover td{background:var(--hover)}
@@ -1262,7 +1198,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe[data-density="5"] #fe-table tbody td{height:23px}
 #fe-table tbody td:first-child{border-radius:var(--row-r) 0 0 var(--row-r)}
 #fe-table tbody td:last-child{border-radius:0 var(--row-r) var(--row-r) 0}
-#fe-scroll{padding:0 var(--sp-3)}
+#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left;padding:0 var(--sp-3)}
 .fe-row.selected .fe-nm{color:var(--tx)}
 .fe-tile.selected{background:var(--on);border-color:transparent}
 
@@ -1272,9 +1208,7 @@ a.fe-fm-path:hover{text-decoration:underline}
    the card edge, in a menu the menu's own 6px padding gives the same inset.
    Every popover, menu, tip and the Contents card share one surface. Notes
    rows grow to fit a tag line but keep the inset and corners. */
-:root{--fs-xs:calc(10px * var(--ui-text-scale,1));--fs-sm:calc(11px * var(--ui-text-scale,1));--fs-md:calc(12px * var(--ui-text-scale,1));--fs-lg:calc(13px * var(--ui-text-scale,1));--fs-xl:calc(15px * var(--ui-text-scale,1));--row-h:32px;--row-r:8px;--row-px:10px;--row-gap:10px;--row-ic:16px;--row-fs:var(--fs-lg);
-  --pop-r:12px;--pop-pad:6px;--pop-bg:color-mix(in srgb,var(--card) 90%,transparent);--pop-bd:var(--bd2);
-  --pop-sh:0 12px 32px rgb(0 0 0 / .34),0 1px 3px rgb(0 0 0 / .2);--pop-blur:blur(16px) saturate(1.2)}
+:root{--bg:#0f1316;--s1:#151b1f;--s2:#1c2328;--s3:#253039;--bd:#243038;--bd2:#34434d;--tx:#e7eef1;--mt:#a3b2ba;--dm:#7f9099;--ac:#3cc6c0;--tx-on-ac:#0f1316;--dir:#a3b2ba;--shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);--gold:#d29922;--green:#3fb950;--hover:color-mix(in srgb,var(--tx) 6%,transparent);--on:color-mix(in srgb,var(--ac) 18%,transparent);--r-sm:6px;--card:color-mix(in srgb,var(--s1),var(--s2) 62%);--side:var(--s1);--t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);--mono:'SF Mono',Menlo,Consolas,monospace;--nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;--fs-xs:calc(10px * var(--ui-text-scale,1));--fs-sm:calc(11px * var(--ui-text-scale,1));--fs-md:calc(12px * var(--ui-text-scale,1));--fs-lg:calc(13px * var(--ui-text-scale,1));--fs-xl:calc(15px * var(--ui-text-scale,1));--row-h:32px;--row-r:8px;--row-px:10px;--row-gap:10px;--row-ic:16px;--row-fs:var(--fs-lg);--pop-r:12px;--pop-pad:6px;--pop-bg:color-mix(in srgb,var(--card) 90%,transparent);--pop-bd:var(--bd2);--pop-sh:0 12px 32px rgb(0 0 0 / .34),0 1px 3px rgb(0 0 0 / .2);--pop-blur:blur(16px) saturate(1.2)}
 #fe[data-theme="light"],html:has(#fe[data-theme="light"]){--pop-bg:color-mix(in srgb,var(--card) 94%,transparent);--pop-bd:var(--bd);
   --pop-sh:0 10px 28px rgb(16 24 32 / .12),0 1px 3px rgb(16 24 32 / .08)}
 /* The component system's scales (docs/plan/component-system.md, sections 4
@@ -1291,36 +1225,34 @@ a.fe-fm-path:hover{text-decoration:underline}
 .fe-si,.fe-bm-item,.fe-dd-item,.fe-ctx-item{min-height:var(--row-h);margin:0 var(--sp-3);padding:0 var(--row-px);gap:var(--row-gap);
   border-radius:var(--row-r);font-size:var(--row-fs);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-dd-item,.fe-ctx-item{margin:0}
-button.fe-si{width:auto;display:flex}
+button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointer;width:auto;display:flex}
 .fe-si > svg,.fe-si-link > svg,.fe-dd-item > svg,.fe-ctx-item > svg{width:var(--row-ic);height:var(--row-ic);flex:none}
-.fe-sl{font-size:var(--row-fs)}
-.fe-si-link{padding:0;gap:var(--row-gap);min-height:var(--row-h)}
-.fe-nt-item .fe-si-link{padding:var(--sp-3) 0}
+.fe-sl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;font-size:var(--row-fs)}
+.fe-si-link{display:flex;align-items:center;flex:1;color:inherit;text-decoration:none;min-width:0;transition:color .1s;padding:0;gap:var(--row-gap);min-height:var(--row-h)}
+.fe-nt-item .fe-si-link{padding-left:14px;padding:var(--sp-3) 0}
 .fe-pl-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
 
 /* A note row's actions float over the end of the title on a solid fade, so
    nothing moves under the pointer on hover. In a narrow sidebar only delete
    shows; colour and open-in-tab stay in the right-click menu. */
-.fe-nt-item .fe-nt-acts{right:4px;border-radius:0 var(--row-r) var(--row-r) 0;padding-left:14px;
-  --fade:var(--hover);background:linear-gradient(to right,transparent,var(--fade) 14px),linear-gradient(to right,transparent,var(--side) 14px)}
+.fe-nt-item .fe-nt-acts{position:absolute;top:50%;transform:translateY(-50%);display:flex;align-items:center;opacity:0;pointer-events:none;transition:opacity .1s;right:4px;border-radius:0 var(--row-r) var(--row-r) 0;padding-left:14px;--fade:var(--hover);background:linear-gradient(to right,transparent,var(--fade) 14px),linear-gradient(to right,transparent,var(--side) 14px)}
 .fe-nt-item:has(> .fe-si-link.active) .fe-nt-acts{--fade:var(--on)}
 .fe-nt-item:has(.editing) .fe-nt-acts{display:none}
 
-#fe-lenses{container:lens/inline-size}
+#fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:var(--sp-3) 0;container:lens/inline-size}
 @container lens (max-width:200px){.fe-nt-props,.fe-nt-tab{display:none!important}}
 /* A tag group is a plain section: one header row (chevron, colour, name,
    count) at the row inset, and its rows exactly like every other row. */
 .fe-grp{margin:var(--sp-3) 0 0;padding:0;background:none;border-radius:0}
-.fe-grp:not([open]){padding:0}
+.fe-grp:not([open]){padding-bottom:0;padding:0}
 .fe-grp .fe-bm-item{margin:0 var(--sp-3)}
-.fe-grp > summary{min-height:var(--ctl-md);margin:0 var(--sp-3);padding:0 var(--row-px);border-radius:var(--row-r);gap:var(--sp-4);
-  font-size:var(--fs-sm);letter-spacing:.06em;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-grp > summary{list-style:none;cursor:pointer;min-height:var(--ctl-md);margin:0 var(--sp-3);padding:0 var(--row-px);border-radius:var(--row-r);gap:var(--sp-4);font-size:var(--fs-sm);letter-spacing:.06em;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-grp > summary:hover{background:var(--hover);color:var(--tx)}
 .fe-grp > summary svg{width:12px;height:12px;opacity:.8}
 .fe-sh{padding:10px var(--sp-6) var(--sp-2)}
-.fe-hint{padding:var(--sp-3) var(--sp-6)}
+.fe-hint{font-size:var(--fs-md);color:var(--dm);font-style:italic;line-height:1.7;padding:var(--sp-3) var(--sp-6)}
 #fe-lens-filter,#fe-docs-q{width:calc(100% - 12px);margin:var(--sp-1) var(--sp-3) var(--sp-4)}
-.fe-lens-tags{padding:0 var(--sp-3) var(--sp-4)}
+.fe-lens-tags{display:flex;flex-wrap:wrap;gap:var(--sp-2);padding:0 var(--sp-3) var(--sp-4)}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
 .fe-lens-tools{padding:var(--sp-1) var(--sp-3) var(--sp-4)}
@@ -1354,8 +1286,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-item.coloured .fe-si-link > svg{color:var(--c);opacity:1}
 .fe-nt-item.two .fe-si-link{align-items:flex-start}
 .fe-nt-item.two .fe-si-link > svg{margin-top:1px}
-.fe-nt-main{gap:var(--sp-2)}
-.fe-nt-tags{gap:var(--sp-2);flex-wrap:nowrap;overflow:hidden}
+.fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:var(--sp-2)}
+.fe-nt-tags{font-size:var(--fs-sm);color:var(--mt);display:flex;gap:var(--sp-2);flex-wrap:nowrap;overflow:hidden}
 .fe-nt-tag{display:inline-flex;align-items:center;gap:var(--sp-2);height:17px;padding:0 var(--sp-3);border:1px solid var(--bd2);border-radius:var(--r-full);font-size:var(--fs-xs);color:var(--mt);white-space:nowrap;flex:none}
 .fe-nt-tag i{width:6px;height:6px;border-radius:50%;flex:none}
 .fe-nt-item .fe-nt-pin{display:inline-flex;margin-left:auto;padding-right:var(--sp-2);color:var(--gold);flex:none}
@@ -1374,16 +1306,16 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);color:var(--tx)}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-allow,#fe-toc-rail{border-radius:var(--pop-r)}
 #fe-crumb-menu,#fe-ctx,.fe-ctx{padding:var(--pop-pad)}
-#fe-hint{border-radius:var(--row-r);padding:5px 10px}
-.fe-dd-search-wrap{padding:0 0 var(--sp-3);margin-bottom:var(--sp-2)}
+#fe-hint{position:fixed;top:0;left:0;z-index:var(--z-popover);max-width:320px;pointer-events:none;background:var(--s2);color:var(--tx);border:1px solid var(--bd);box-shadow:0 4px 14px #0006;font-size:var(--fs-md);line-height:1.4;white-space:pre-line;opacity:0;transition:opacity var(--t-fast) ease-out;border-radius:var(--row-r);padding:5px 10px}
+.fe-dd-search-wrap{border-bottom:1px solid var(--bd);padding:0 0 var(--sp-3);margin-bottom:var(--sp-2)}
 
-.fe-dd-items{padding:0}
-.fe-ctx-sep{margin:var(--sp-2) var(--sp-2)}
-.fe-toast-act{color:var(--ac)}
+.fe-dd-items{max-height:288px;overflow-y:auto;padding:0}
+.fe-ctx-sep{height:1px;background:var(--bd);margin:var(--sp-2) var(--sp-2)}
+.fe-toast-act{background:none;border:none;cursor:pointer;font:inherit;padding:0;text-decoration:underline;color:var(--ac)}
 /* Contents is a quiet card, with a faint rail per heading level so the
    hierarchy reads at a glance. */
 #fe-toc-rail{box-shadow:0 1px 2px rgb(0 0 0 / .05),0 4px 14px rgb(0 0 0 / .06)}
-#fe-toc a{margin:0 var(--sp-3);position:relative}
+#fe-toc a{display:block;border-radius:var(--r-sm);color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease);margin:0 var(--sp-3);position:relative}
 #fe-toc a.fe-toc-h2,#fe-toc a.fe-toc-h3,#fe-toc a.fe-toc-h4{--rail:color-mix(in srgb,var(--bd2) 55%,transparent)}
 #fe-toc a.fe-toc-h2::before,#fe-toc a.fe-toc-h3::before,#fe-toc a.fe-toc-h4::before{content:'';position:absolute;inset:0 auto 0 0;width:44px;pointer-events:none;
   background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat}
@@ -1400,7 +1332,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 @keyframes fe-dock-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu{animation:fe-rise var(--t-fast) var(--ease);transform-origin:top left}
 .fe-lens:not([hidden]){animation:fe-lens-in var(--t-base) var(--ease)}
-#fe-qlook.side{animation:fe-dock-in var(--t-base) var(--ease)}
+#fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch;margin-left:10px;animation:fe-dock-in var(--t-base) var(--ease)}
 .fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
 /* Settings and Help read as a page: the title across the top, the sections
    listed on the left the way the sidebar lists lenses, the pane on the right.
@@ -1412,7 +1344,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-1)}
 .fe-set-l{font-size:var(--row-fs);color:var(--tx)}
 .fe-set-d{font-size:var(--fs-md);color:var(--dm);line-height:1.35}
-.fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-4);flex:none;max-width:62%}
 .fe-set-c .fe-st-input{width:260px;max-width:100%}
 .fe-set-note{padding:var(--sp-1) var(--sp-6) 10px;font-size:var(--fs-md);color:var(--dm);line-height:1.5}
 .fe-set-note:empty{display:none}
@@ -1426,16 +1357,13 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-switch:checked{background:var(--ac)}
 .fe-switch:checked::after{transform:translateX(14px);background:var(--tx-on-ac)}
 .fe-switch:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
-.fe-set-sws{display:flex;gap:var(--sp-2);flex-wrap:wrap;justify-content:flex-end}
-.fe-set-sw{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:var(--sp-3) var(--sp-4);border-radius:10px;cursor:pointer;
-  font-size:var(--fs-md);color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-set-sw:hover{background:var(--hover)}
 .fe-set-sw:has(input:checked){background:var(--on);color:var(--tx)}
 .fe-set-sw input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
 .fe-set-sw-chip{width:40px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--b) 55%,var(--a) 55%);box-shadow:inset 0 0 0 1px var(--bd2)}
 /* Editing: the reading width applies to Raw and Rich; Split gives each side
    half the pane and its own scroll. Problems mark their row in the gutter. */
-#fe-fe-col{max-width:none}
+#fe-fe-col{margin:0 auto;padding:62px 28px 120px;max-width:none}
 #fe.fe-column-xl #fe-fe-col{max-width:150ch}
 #fe.fe-column-lg #fe-fe-col{max-width:130ch}
 #fe.fe-column-md #fe-fe-col{max-width:110ch}
@@ -1540,8 +1468,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
    on top), fields share one look, path chevrons show on hover only, and
    the palette swatch previews the theme in use. */
 
-#fe-bar .fe-crumb-dd{opacity:1;color:var(--dm);padding:3px 1px}
-#fe-bar .fe-crumb-dd:hover{color:var(--tx)}
+#fe-bar .fe-crumb-dd{background:none;border:none;cursor:pointer;font-size:var(--fs-xs);border-radius:3px;line-height:1;transition:opacity .1s,color .1s,background .1s;flex-shrink:0;min-width:0;opacity:1;color:var(--dm);padding:3px 1px}
+#fe-bar .fe-crumb-dd:hover{background:var(--hover);opacity:1;border:none;color:var(--tx)}
 #fe-statusbar{min-width:0;overflow:hidden;white-space:nowrap}
 #fe[data-theme="light"] .fe-set-sw:nth-child(1) .fe-set-sw-chip{--b:#eaf0f2;--a:#0e8f8a}
 #fe[data-theme="light"] .fe-set-sw:nth-child(2) .fe-set-sw-chip{--b:#f0f0f5;--a:#6d4aff}
@@ -1563,8 +1491,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-st-ai-card{background:none;border:0;border-radius:0;padding:14px var(--sp-6)}
 /* Theme and palette pickers: a small window drawn in the colours each one
    picks. Palette windows follow the current mode; mode windows show both. */
-.fe-set-sws{gap:var(--sp-3)}
-.fe-set-sw{gap:var(--sp-3);padding:var(--sp-3)}
+.fe-set-sws{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:var(--sp-3)}
+.fe-set-sw{position:relative;display:flex;flex-direction:column;align-items:center;border-radius:10px;cursor:pointer;font-size:var(--fs-md);color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease);gap:var(--sp-3);padding:var(--sp-3)}
 .fe-set-thumb{position:relative;display:block;width:68px;height:46px;border-radius:var(--row-r);overflow:hidden;background:var(--b);
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t) 14%,transparent),0 1px 3px rgb(0 0 0 / .18);
   --t:#fff;--c:color-mix(in srgb,var(--b) 78%,#000);transition:box-shadow var(--t-fast) var(--ease)}
@@ -1696,7 +1624,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set.wide{flex-direction:column;align-items:stretch;gap:10px}
 .fe-set.wide .fe-set-c{max-width:none;justify-content:flex-start}
 .fe-set.wide .fe-set-tx:has(.fe-set-l:empty){gap:0}
-.fe-set-c{max-width:70%;flex-wrap:wrap}
+.fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-4);flex:none;max-width:70%;flex-wrap:wrap}
 #fe-st-term-hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}
 .fe-set-sws.grid4{display:grid;grid-template-columns:repeat(4,max-content);gap:var(--sp-2) var(--sp-4);justify-content:end}
 
@@ -1866,7 +1794,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-ai-hero-tx span{font-size:var(--fs-md);color:var(--mt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:var(--sp-2) 14px;padding:10px var(--sp-6) var(--sp-5);border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
 #fe-st-ai-grid:empty{display:none}
-.fe-st-ai-hint code{font-family:var(--mono)}
+.fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 var(--sp-2);font-size:var(--fs-sm);color:var(--mt);font-family:var(--mono)}
 .fe-dm{color:var(--dm)}
 .fe-ai-models{display:flex;flex-direction:column;padding:var(--sp-3)}
 .fe-ai-m{display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px;border-radius:9px}

@@ -14,19 +14,25 @@ if (process.argv.includes('--light')) process.env.BFB_THEME = 'light';
 const { launch, applyTheme } = await import('./harness.mjs');
 if (args[0] === '--diff') {
   const [a, b] = [JSON.parse(readFileSync(args[1], 'utf8')), JSON.parse(readFileSync(args[2], 'utf8'))];
-  let moved = 0;
+  // An element only one run has (a list that filled in late) is counted apart
+  // from one whose look changed, which is what a stylesheet change can cause.
+  let moved = 0, onlyOne = 0;
+  const per = new Map();
   for (const surface of new Set([...Object.keys(a), ...Object.keys(b)])) {
     const x = a[surface] ?? {}, y = b[surface] ?? {};
     for (const key of new Set([...Object.keys(x), ...Object.keys(y)])) {
+      if (!(key in x) || !(key in y)) { onlyOne++; continue; }
       if (JSON.stringify(x[key]) === JSON.stringify(y[key])) continue;
       moved++;
+      per.set(surface, (per.get(surface) ?? 0) + 1);
       if (moved <= 12) {
-        const before = x[key] ?? {}, after = y[key] ?? {};
-        const props = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(p => before[p] !== after[p]);
-        console.log(`${surface} ${key}\n    ${props.map(p => `${p}: ${before[p]} → ${after[p]}`).join('\n    ')}`);
+        const props = Object.keys(x[key]).filter(p => x[key][p] !== y[key][p]);
+        console.log(`${surface} ${key}\n    ${props.map(p => `${p}: ${x[key][p]} → ${y[key][p]}`).join('\n    ')}`);
       }
     }
   }
+  if (per.size) console.log('by surface:', [...per].map(([s, n]) => `${s} ${n}`).join(', '));
+  if (onlyOne) console.log(`${onlyOne} element(s) in only one snapshot (not compared)`);
   console.log(moved ? `${moved} element(s) moved` : 'no element moved');
   process.exit(moved ? 1 : 0);
 }
