@@ -5,10 +5,9 @@ import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
 import { esc, copyToClipboard, midHtml, fileHref } from './utils';
-import { kvGet, kvSet, onKvChange } from './kv';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
-import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir } from './storage';
+import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
 import { notes, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
@@ -23,7 +22,7 @@ import { openLayer, raise, rovingFocus, type Layer } from './layer';
 import { emptyHtml, CLEAR } from './empty-state';
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
-const LENS_KEY = 'bfb-lens-v1';
+const lensPref = textPref('bfb-lens-v1', 'notes');
 function initLenses(app: App): void {
   const rail = el('fe-rail');
   const btns = els<HTMLButtonElement>('#fe-rail .fe-rail-btn');
@@ -65,7 +64,7 @@ function initLenses(app: App): void {
   });
   app.showLens = (lens, hideHistory) => {
     if (hideHistory !== undefined) el('fe-rail-history').hidden = hideHistory;
-    show(lens ?? kvGet(LENS_KEY) ?? 'notes');
+    show(lens ?? lensPref.get());
   };
   // In a narrow window the sidebar is only its rail; picking a lens opens it
   // over the page, and picking it again, Esc or a click outside closes it.
@@ -73,7 +72,7 @@ function initLenses(app: App): void {
   const narrow = () => matchMedia('(max-width: 520px)').matches;
   const closeOverlay = () => side.classList.remove('open');
   // Open a lens from its bar button and remember it.
-  const pick = (b: HTMLElement) => { kvSet(LENS_KEY, b.dataset.lens!); switchTo(b.dataset.lens!); };
+  const pick = (b: HTMLElement) => { lensPref.set(b.dataset.lens!); switchTo(b.dataset.lens!); };
   rail.addEventListener('click', e => {
     const b = (e.target as Element).closest<HTMLElement>('.fe-rail-btn');
     if (!b) return;
@@ -116,21 +115,16 @@ function initLenses(app: App): void {
     tools.append(box);
     tools.after(tagRow);
   });
-  onKvChange(key => { if (key === LENS_KEY) show(kvGet(LENS_KEY) ?? 'notes'); });
-  show(kvGet(LENS_KEY) ?? 'notes');
+  lensPref.onChange(() => show(lensPref.get()));
+  show(lensPref.get());
 }
 
 export function initSidebar(app: App): void {
   const { rawPath, settings, toast } = app;
   initLenses(app);
-  const collapseKey = 'bfb-sidebar-collapsed-v1';
+  const collapsedPref = setPref('bfb-sidebar-collapsed-v1');
   const sections = els<HTMLElement>('#fe-side .fe-sec[data-collapse]');
-  const collapsed = (): Set<string> => {
-    try {
-      const value = JSON.parse(kvGet(collapseKey) || '[]');
-      return new Set(Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
-    } catch { return new Set(); }
-  };
+  const collapsed = (): Set<string> => collapsedPref.get();
   const applyCollapsed = (keys: Set<string>): void => {
     for (const section of sections) {
       const key = section.dataset.collapse!;
@@ -160,14 +154,14 @@ export function initSidebar(app: App): void {
       const keys = collapsed();
       if (section.classList.contains('fe-collapsed')) keys.delete(key); else keys.add(key);
       // The choice is saved at once; only the look waits for the fold to finish.
-      kvSet(collapseKey, JSON.stringify([...keys]));
+      collapsedPref.set(keys);
       toggle.setAttribute('aria-expanded', String(!keys.has(key)));   // the chevron turns as the fold starts
       foldTo(section, () => { section.classList.toggle('fe-collapsed'); }, () => applyCollapsed(keys));
     });
     header.prepend(toggle);
   }
   applyCollapsed(collapsed());
-  onKvChange(key => { if (key === collapseKey) applyCollapsed(collapsed()); });
+  collapsedPref.onChange(() => applyCollapsed(collapsed()));
   const svList = el('fe-sv-list');
   const svFilter = el<HTMLInputElement>('fe-sv-filter');
   // Saved places found by looking inside them, with the name that matched.
@@ -383,8 +377,8 @@ export function initSidebar(app: App): void {
   function notesRoot(): string { return (settings.notesRoot || '').replace(/\/$/, ''); }
   const ntFilter = el<HTMLInputElement>('fe-nt-filter');
   let allNotes: NoteMeta[] = [];
-  const NOTE_FOLDS_KEY = 'bfb-notes-folded-v1';
-  const noteFolds = (): Set<string> => { try { return new Set(JSON.parse(kvGet(NOTE_FOLDS_KEY) || '[]')); } catch { return new Set(); } };
+  const noteFoldsPref = setPref('bfb-notes-folded-v1');
+  const noteFolds = (): Set<string> => noteFoldsPref.get();
   ntList.addEventListener('click', e => {
     const g = (e.target as Element).closest<HTMLElement>('.fe-nt-grp');
     if (!g) return;
@@ -394,7 +388,7 @@ export function initSidebar(app: App): void {
     const open = !folds.has(key);
     g.setAttribute('aria-expanded', String(open));
     g.title = `${open ? 'Fold' : 'Show'} ${g.dataset.label}`;
-    kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds]));
+    noteFoldsPref.set(folds);
     foldTo(body, () => { body.hidden = !body.hidden; });
   });
   // Notes whose text (not just title or tags) holds every word typed, with the
@@ -480,9 +474,9 @@ export function initSidebar(app: App): void {
   }
   // Names matches names and tags; Deep also looks inside: the text of each
   // note, and the names in each saved folder. The choice is kept.
-  const DEEP_KEY = 'bfb-lens-deep-v1';
+  const deepPref = flagPref('bfb-lens-deep-v1', false);
   const depthBtn = el<HTMLButtonElement>('fe-lens-depth');
-  const deep = () => kvGet(DEEP_KEY) === '1';
+  const deep = () => deepPref.get();
   function syncDepth(): void {
     const on = deep(), inNotes = openLens() === 'notes';
     depthBtn.textContent = on ? 'Deep' : 'Names';
@@ -493,7 +487,7 @@ export function initSidebar(app: App): void {
   }
   depthBtn.addEventListener('click', e => {
     e.preventDefault();
-    kvSet(DEEP_KEY, deep() ? '0' : '1');
+    deepPref.set(!deep());
     syncDepth();
     applyLensFilter();
     lensFilter.focus();

@@ -6,19 +6,18 @@ import type { LlmAvailability } from './llm';
 import type { IconRule, SortConfig, GroupMode } from './types';
 import { el, els } from './el';
 import { esc } from './utils';
-import { kvGet, kvKeys, kvSet } from './kv';
 import { icoCustom, RULE_GLYPHS } from './icons';
-import { VIEW_KEY, PALETTE_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
+import { viewPref, palettePref, exportAll, importAll, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
 import { llmAvailability, llmWarm, llmModels } from './llm';
 import { mountDialog } from './dialog';
 import { openLayer, type Layer } from './layer';
 import { wireKeyboardMap } from './help';
-import { COLUMN_KEY, parseExcludedExtensions, savedColumnMode } from './file-page';
+import { columnPref, parseExcludedExtensions, savedColumnMode } from './file-page';
 import { UI_ICON } from './control-icons';
 import { setSidebarShown } from './motion';
 import { setUiScale } from './chrome';
 import { upgradeControls, switchHtml, type ValuedEl, type DropdownEl } from './controls';
-import { setThemeMode, setAppIcon, appIconUrl, APP_ICON_KEY, type ThemeMode } from './theme';
+import { setThemeMode, setAppIcon, appIconUrl, appIconPref, type ThemeMode } from './theme';
 
 // Ready-made rules offered above the list; each appears until it is added.
 const RULE_SUGGESTIONS: (Omit<IconRule, 'id' | 'enabled'> & { name: string })[] = [
@@ -217,7 +216,7 @@ export function initSettingsUi(app: App): void {
   function openSettings(tab?: string): void {
     els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => { r.checked = r.value === (fe.dataset.mode || 'dark'); });
     els<HTMLInputElement>('input[name="bfb-palette"]').forEach(r => { r.checked = r.value === (fe.dataset.palette || 'slate'); });
-    const icon = kvGet(APP_ICON_KEY) ?? 'classic';
+    const icon = appIconPref.get();
     els<HTMLInputElement>('input[name="bfb-appicon"]').forEach(r => {
       r.checked = r.value === icon;
       const img = r.nextElementSibling as HTMLImageElement;
@@ -266,7 +265,7 @@ export function initSettingsUi(app: App): void {
 
   // Look.
   els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => r.addEventListener('change', () => setThemeMode(fe, r.value as ThemeMode)));
-  els<HTMLInputElement>('input[name="bfb-palette"]').forEach(r => r.addEventListener('change', () => { fe.dataset.palette = r.value; kvSet(PALETTE_KEY, r.value); }));
+  els<HTMLInputElement>('input[name="bfb-palette"]').forEach(r => r.addEventListener('change', () => { fe.dataset.palette = r.value; palettePref.set(r.value); }));
   els<HTMLInputElement>('input[name="bfb-appicon"]').forEach(r => r.addEventListener('change', () => setAppIcon(r.value)));
   v('fe-st-uiscale').addEventListener('change', () => {
     settings.uiScale = Number(v('fe-st-uiscale').value); saveSettings(settings);
@@ -286,7 +285,7 @@ export function initSettingsUi(app: App): void {
   });
 
   // Folders.
-  v('fe-st-defview').addEventListener('change', () => kvSet(VIEW_KEY, v('fe-st-defview').value));
+  v('fe-st-defview').addEventListener('change', () => viewPref.set(v('fe-st-defview').value));
   const applyOrder = () => app.setOrder(
     { col: (v('fe-st-sort').value || null) as SortConfig['col'], dir: v('fe-st-sort-dir').value as SortConfig['dir'] },
     v('fe-st-group').value as GroupMode);
@@ -323,7 +322,7 @@ export function initSettingsUi(app: App): void {
   // Files.
   v('fe-st-rd-column').addEventListener('change', () => {
     settings.readerColumn = v('fe-st-rd-column').value as 'unset' | 'xl' | 'lg' | 'md'; saveSettings(settings);
-    try { kvSet(COLUMN_KEY, settings.readerColumn); } catch { /* fine */ }
+    columnPref.set(settings.readerColumn);
   });
   const readerVar = (id: string, key: 'readerLineHeight' | 'readerCodeSize', cssVar: string, unit: string) => {
     const live = () => fe.style.setProperty(cssVar, v(id).value + unit);
@@ -361,9 +360,7 @@ export function initSettingsUi(app: App): void {
 
   // Data.
   el('fe-st-export').addEventListener('click', () => {
-    const out: Record<string, unknown> = {};
-    for (const k of kvKeys().sort()) { try { out[k] = JSON.parse(kvGet(k)!); } catch { out[k] = kvGet(k); } }
-    const text = JSON.stringify(out, null, 2);
+    const text = JSON.stringify(exportAll(), null, 2);
     const ta = el<HTMLTextAreaElement>('fe-st-export-out');
     ta.value = text; ta.style.display = ''; ta.select();
     navigator.clipboard.writeText(text).then(() => toast('Export copied'), () => toast('Export shown below'));
@@ -374,8 +371,7 @@ export function initSettingsUi(app: App): void {
     if (!f) return;
     f.text().then(text => {
       const data = JSON.parse(text) as Record<string, unknown>;
-      let n = 0;
-      for (const [k, val] of Object.entries(data)) if (k.startsWith('bfb-')) { kvSet(k, typeof val === 'string' ? val : JSON.stringify(val)); n++; }
+      const n = importAll(data);
       toast(`Imported ${n} keys, reloading`);
       setTimeout(() => location.reload(), 600);
     }).catch(() => toast('That file is not a JSON export'));

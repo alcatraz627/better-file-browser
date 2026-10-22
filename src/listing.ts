@@ -8,9 +8,8 @@ import type { Entry, SortConfig, FilterConfig, GroupMode } from './types';
 import type { FindQuery, ContentHit } from './find';
 import { el, els } from './el';
 import { esc, fmtSize, fullPath, copyToClipboard } from './utils';
-import { kvGet, kvSet } from './kv';
 import {
-  VIEW_KEY, DENSITY_KEY, HIDDEN_KEY, getColWidths, saveColWidths, getSaved, getTags, saveSaved,
+  viewPref, densityPref, hiddenPref, textPref, getColWidths, saveColWidths, getSaved, getTags, saveSaved,
   getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
 } from './storage';
 import { upsertPlace } from './places';
@@ -372,7 +371,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   el('fe-view-group').addEventListener('change', () => {
     const v = el<ValuedEl>('fe-view-group').value;
     fe.dataset.view = v;
-    kvSet(VIEW_KEY, v);
+    viewPref.set(v);
     applyAll();
   });
   el('fe-tree').addEventListener('click', e => {
@@ -418,7 +417,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     const on = fe.classList.toggle('show-hidden');
     hiddenBtn.classList.toggle('on', on);
     hiddenBtn.title = `Hidden files: ${on ? 'showing' : 'hiding'} dotfiles and comment files · click to toggle`;
-    kvSet(HIDDEN_KEY, String(on));
+    hiddenPref.set(on);
     toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? 's' : ''}` : 'Hidden files concealed');
     if (!app.fileMode) el('fe-count').textContent = ls.baseStatus = countText();
     if (win) applyAll();   // a windowed list leaves hidden files' rows out, so it is drawn again
@@ -438,16 +437,17 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     const n = Math.max(1, Math.min(5, d));
     fe.dataset.density = String(n);
     density.value = String(n);
-    kvSet(DENSITY_KEY, String(n));
+    densityPref.set(n);
     applyAll();   // rows change height, so a windowed list measures again
   };
   density.addEventListener('input', () => { fe.dataset.density = density.value; });
   density.addEventListener('change', () => setDensity(Number(density.value)));
   const scroll  = el('fe-scroll');
   // This Chrome tab remembers where each folder was scrolled to.
-  const scrollKey = 'bfb-scroll:' + rawPath;
-  try { const top = Number(sessionStorage.getItem(scrollKey)); if (top) scroll.scrollTop = top; } catch { /* fine */ }
-  scroll.addEventListener('scroll', () => { try { sessionStorage.setItem(scrollKey, String(scroll.scrollTop)); } catch { /* fine */ } });
+  const scrollPref = textPref('bfb-scroll:' + rawPath, '', 'tab');
+  const top = Number(scrollPref.get());
+  if (top) scroll.scrollTop = top;
+  scroll.addEventListener('scroll', () => scrollPref.set(String(scroll.scrollTop)));
 
   // Sort state: panel controls, the Sort button's label, header arrows, storage.
   const sortCols = el<ValuedEl>('fe-sort-cols'), sortDir = el<ValuedEl>('fe-sort-dir'), groupSeg = el<ValuedEl>('fe-group-btns');

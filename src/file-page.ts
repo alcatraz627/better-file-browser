@@ -4,7 +4,6 @@
 // main.ts builds the shell and calls mountFileContent. HTML source is fetched
 // after takeover because the document contains rendered text, not source.
 import { esc, copyToClipboard } from './utils';
-import { kvGet, kvSet } from './kv';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
   renderCode, parseDSV, numericCols, renderDSVTable, unrenderableNote,
@@ -14,17 +13,19 @@ import { fetchFileText } from './file-fetch';
 import { fileMeta, metaChips, metaSummary } from './file-meta';
 import { UI_ICON } from './control-icons';
 import { openLayer } from './layer';
-import { getSettings, saveSettings } from './storage';
+import { getSettings, saveSettings, textPref, jsonPref, flagPref, choicePref } from './storage';
 import { editableRoot, openFileEditor, type FileEditor } from './file-editor';
 import { attachFind } from './find-in-page';
 import { mountComments, type CommentsPanel, type CommentAction } from './comments-ui';
 import type { Settings } from './types';
 
-const SCROLL_KEY = 'bfb-page-scroll-v1';
-const TOC_KEY = 'bfb-page-toc-v1';
+const scrollPref = jsonPref<Record<string, number>>('bfb-page-scroll-v1', {}, v => !!v && typeof v === 'object');
+const tocPref = flagPref('bfb-page-toc-v1', true);
 // Which tab the rail shows, Contents or Comments; a per-reader choice.
-const RAIL_TAB_KEY = 'bfb-page-rail-tab-v1';
-export const COLUMN_KEY = 'bfb-page-column-v2';
+const railTabPref = choicePref('bfb-page-rail-tab-v1', ['toc', 'cm'], 'toc');
+/** The reading column's width; v1 held a plain on or off. */
+export const columnPref = textPref('bfb-page-column-v2');
+const oldColumnPref = textPref('bfb-page-column-v1');
 type ColumnMode = 'unset' | 'xl' | 'lg' | 'md';
 const COLUMN_MODES: ColumnMode[] = ['unset', 'xl', 'lg', 'md'];
 const COLUMN_WIDTHS: Record<ColumnMode, string> = { unset: 'full', xl: '150ch', lg: '130ch', md: '110ch' };
@@ -33,7 +34,7 @@ export function columnMode(value: unknown): ColumnMode {
   return COLUMN_MODES.includes(value as ColumnMode) ? value as ColumnMode : 'unset';
 }
 export function savedColumnMode(fallback: unknown): ColumnMode {
-  return columnMode(kvGet(COLUMN_KEY) ?? kvGet('bfb-page-column-v1') ?? fallback);
+  return columnMode(columnPref.get() || oldColumnPref.get() || fallback);
 }
 const RELOAD_MS = 2000;
 
@@ -132,14 +133,14 @@ function spy(page: HTMLElement, toc: HTMLElement): void {
 }
 
 function scrollMemory(): Record<string, number> {
-  try { return JSON.parse(kvGet(SCROLL_KEY) || '{}'); } catch { return {}; }
+  return scrollPref.get();
 }
 function rememberScroll(path: string, top: number): void {
   const m = scrollMemory();
   m[path] = top;
   const keys = Object.keys(m);
   if (keys.length > 200) for (const k of keys.slice(0, keys.length - 200)) delete m[k];
-  kvSet(SCROLL_KEY, JSON.stringify(m));
+  scrollPref.set(m);
 }
 
 // The markup the shell places in its main column, under the strip.
@@ -208,7 +209,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   let headings = 0;
   // Two remembered choices: the contents rail open or folded, and a reading
   // column instead of the full width (full width is the owner's default).
-  let tocOpen = kvGet(TOC_KEY) !== '0';
+  let tocOpen = tocPref.get();
   // A pane too narrow for a full text column beside the card folds the card
   // to its button; opening it then lays it over the text for a moment
   // instead of squeezing the column.
@@ -289,18 +290,18 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   const cmBtn = document.getElementById('fe-fp-cm')!;
   const cmBtnN = document.getElementById('fe-fp-cm-n')!;
   let comments: CommentsPanel | null = null;
-  let railTab = kvGet(RAIL_TAB_KEY) === 'cm' ? 'cm' : 'toc';
+  let railTab = railTabPref.get();
   // Show the rail on one pane; the remembered open state follows.
   const showPane = (t: 'toc' | 'cm') => {
-    railTab = t; kvSet(RAIL_TAB_KEY, t);
-    if (tight) peek = true; else if (!tocOpen) { tocOpen = true; kvSet(TOC_KEY, '1'); }
+    railTab = t; railTabPref.set(t);
+    if (tight) peek = true; else if (!tocOpen) { tocOpen = true; tocPref.set(true); }
     paint();
     if (t === 'toc') spy(page, toc);
   };
   // The bar's button for a pane hides the rail when that pane is showing.
   const togglePane = (t: 'toc' | 'cm') => {
     if (rail.hidden || rail.dataset.tab !== t) { showPane(t); return; }
-    if (tight) peek = false; else { tocOpen = false; kvSet(TOC_KEY, '0'); }
+    if (tight) peek = false; else { tocOpen = false; tocPref.set(false); }
     paint();
   };
   const fp = document.getElementById('fe-fp');
@@ -314,7 +315,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     if (tight !== was) { peek = false; paint(); }
   }).observe(fp);
   toc.addEventListener('click', e => { if (tight && (e.target as Element).closest('a')) { peek = false; paint(); } });
-  colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; kvSet(COLUMN_KEY, column); paint(); });
+  colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; columnPref.set(column); paint(); });
   page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
   // A problem's line number opens the source at that line.
   page.addEventListener('click', e => {

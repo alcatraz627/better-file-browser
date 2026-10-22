@@ -8,7 +8,7 @@ import { notes, type DocThread, type CommentAuthor, type CommentOp, type Comment
 import { esc, copyToClipboard } from './utils';
 import { mdInline } from './renderers';
 import { UI_ICON } from './control-icons';
-import { kvGet, kvSet } from './kv';
+import { textPref } from './storage';
 import { fetchFileText } from './file-fetch';
 import { visibleOf, rangeFor, sourceSpan, type SourceSpan } from './comment-anchor';
 import { emptyHtml } from './empty-state';
@@ -16,7 +16,7 @@ import { DISCLOSE } from './icons';
 
 export { visibleOf };
 
-const FILTER_KEY = 'bfb-comments-filter-v1';
+const filterPref = textPref('bfb-comments-filter-v1', 'open');
 const POLL_MS = 2000;
 type Filter = 'open' | 'me' | 'done' | 'all';
 const FILTERS: { id: Filter; label: string; icon: string; hint: string }[] = [
@@ -141,7 +141,7 @@ export function mountComments(o: {
 }): CommentsPanel {
   let threads: DocThread[] = [];
   let notesLine: string[] = [];
-  let filter = (kvGet(FILTER_KEY) as Filter) || 'open';
+  let filter = filterPref.get() as Filter;
   let active = '';
   let loaded = false, failed = '';
   let lastCompanion: string | null = null, lastText = '';
@@ -660,7 +660,7 @@ export function mountComments(o: {
   o.box.addEventListener('click', async e => {
     const el = e.target as HTMLElement;
     const f = el.closest<HTMLElement>('[data-f]')?.dataset.f as Filter | undefined;
-    if (f) { filter = f; kvSet(FILTER_KEY, f); paint(); redraw(); return; }
+    if (f) { filter = f; filterPref.set(f); paint(); redraw(); return; }
     const act = el.closest<HTMLElement>('[data-a]');
     const a = act?.dataset.a;
     if (a === 'allow') { if (await o.allow()) { loaded = false; paint(); void load(); } return; }

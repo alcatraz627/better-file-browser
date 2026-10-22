@@ -15,7 +15,7 @@ import { llmAvailability, llmModels, llmQuery, LLM_ERROR_TEXT } from './llm';
 import { addTurn, allChats, chatsFor, deleteChat, withHistory, type AskChat, type AskTurn } from './ask-history';
 import { addPaletteSource } from './commands';
 import { openLayer, type Layer } from './layer';
-import { kvGet, kvSet } from './kv';
+import { textPref } from './storage';
 import { UI_ICON } from './control-icons';
 import { checkHtml, ddHtml, upgradeControls, type DropdownEl, type Opt } from './controls';
 import { renderMarkdown } from './renderers';
@@ -93,7 +93,7 @@ function initSearch(app: App): void {
 
 // ── Ask ─────────────────────────────────────────────────────────────
 
-const ASK_MODEL_KEY = 'bfb-ask-model-v1';
+const askModelPref = textPref('bfb-ask-model-v1');
 const when = (at: number) => new Date(at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 function initAsk(app: App): void {
@@ -169,7 +169,7 @@ function initAsk(app: App): void {
     chipDot.className = `dot ${kind}`;
     chipDot.title = a.kind === 'ready' ? (a.cold ? 'Loads on the first question' : 'Ready') : state.textContent;
     localReady = a.kind === 'ready';
-    const saved = kvGet(ASK_MODEL_KEY) ?? '';
+    const saved = askModelPref.get();
     const opts: Opt[] = [
       { value: '', label: a.kind === 'ready' ? a.status.default_model.replace(/:latest$/, '') : 'Default' },
       ...models.tiers.map(t => ({ value: t.alias, label: t.alias, hint: t.model, group: 'On this machine' })),
@@ -179,7 +179,7 @@ function initAsk(app: App): void {
     pick.value = opts.some(o => o.value === saved) ? saved : '';
     syncUsable();
   }
-  pick.addEventListener('change', () => { kvSet(ASK_MODEL_KEY, pick.value); syncUsable(); });
+  pick.addEventListener('change', () => { askModelPref.set(pick.value); syncUsable(); });
 
   // What the model reads: the file's text, or the folder's listing.
   async function context(): Promise<{ ctx: string; name: string }> {

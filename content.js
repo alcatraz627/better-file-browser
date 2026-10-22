@@ -599,19 +599,17 @@
     kvSet(PREVIEW_LAYOUT_KEY, JSON.stringify(l));
   }
   function getView() {
-    return kvGet(VIEW_KEY) ?? "details";
+    return viewPref.get();
   }
   function getPalette() {
-    const p = kvGet(PALETTE_KEY);
-    return p && PALETTES.includes(p) ? p : "slate";
+    return palettePref.get();
   }
   var DENSITY_NAMES = ["Overview", "Large", "Standard", "Detailed", "Full detail"];
   function getDensity() {
-    const d = parseInt(kvGet(DENSITY_KEY) ?? "3");
-    return d >= 1 && d <= 5 ? d : 3;
+    return densityPref.get();
   }
   function getShowHidden() {
-    return kvGet(HIDDEN_KEY) === "true";
+    return hiddenPref.get();
   }
   function getPanelSize(key) {
     try {
@@ -638,6 +636,86 @@
       kvSet(`bfb-dialog-place:${id}`, place);
     } catch {
     }
+  }
+  function sessionGet(id) {
+    try {
+      return sessionStorage.getItem(id);
+    } catch {
+      return null;
+    }
+  }
+  function sessionSet(id, v) {
+    try {
+      sessionStorage.setItem(id, v);
+    } catch {
+    }
+  }
+  function makePref(id, read2, write, where = "profile") {
+    const tab = where === "tab";
+    return {
+      get: () => read2(tab ? sessionGet(id) : kvGet(id)),
+      set: (v) => {
+        const s = write(v);
+        if (tab) sessionSet(id, s);
+        else kvSet(id, s);
+      },
+      onChange: (fn) => {
+        if (!tab) onKvChange((k) => {
+          if (k === id) fn();
+        });
+      }
+    };
+  }
+  var textPref = (id, init = "", where) => makePref(id, (r) => r ?? init, (v) => v, where);
+  var choicePref = (id, choices, init) => makePref(id, (r) => choices.includes(r ?? "") ? r : init, (v) => v);
+  var flagPref = (id, init, on = "1", off = "0") => makePref(id, (r) => r === on ? true : r === off ? false : init, (v) => v ? on : off);
+  function jsonPref(id, init, valid = () => true, where) {
+    const fresh = () => JSON.parse(JSON.stringify(init));
+    return makePref(id, (r) => {
+      if (r === null) return fresh();
+      try {
+        const v = JSON.parse(r);
+        return valid(v) ? v : fresh();
+      } catch {
+        return fresh();
+      }
+    }, (v) => JSON.stringify(v), where);
+  }
+  var numberPref = (id, init, ok = Number.isFinite) => makePref(id, (r) => {
+    const n = parseInt(r ?? "");
+    return ok(n) ? n : init;
+  }, (v) => String(v));
+  var viewPref = textPref(VIEW_KEY, "details");
+  var palettePref = choicePref(PALETTE_KEY, PALETTES, "slate");
+  var densityPref = numberPref(DENSITY_KEY, 3, (n) => n >= 1 && n <= 5);
+  var hiddenPref = flagPref(HIDDEN_KEY, false, "true", "false");
+  var setPref = (id) => makePref(id, (r) => {
+    try {
+      const v = JSON.parse(r || "[]");
+      return new Set(Array.isArray(v) ? v.filter((x) => typeof x === "string") : []);
+    } catch {
+      return /* @__PURE__ */ new Set();
+    }
+  }, (v) => JSON.stringify([...v]));
+  function exportAll() {
+    const out = {};
+    for (const k of kvKeys().sort()) {
+      const raw = kvGet(k);
+      try {
+        out[k] = JSON.parse(raw);
+      } catch {
+        out[k] = raw;
+      }
+    }
+    return out;
+  }
+  function importAll(data) {
+    let n = 0;
+    for (const [k, val] of Object.entries(data)) if (k.startsWith("bfb-")) {
+      kvSet(k, typeof val === "string" ? val : JSON.stringify(val));
+      n++;
+    }
+    return n;
   }
 
   // src/notes.ts
@@ -2268,7 +2346,7 @@ ${body}`;
     const box = root.querySelector(".fe-dlg-box");
     const tabs = [...root.querySelectorAll(".fe-dlg-tab")];
     const panes = [...root.querySelectorAll(".fe-dlg-pane")];
-    const memory = `bfb-dialog-tab:${id}`;
+    const lastTab = textPref(`bfb-dialog-tab:${id}`);
     const placeBtn = root.querySelector(".fe-dlg-place");
     wireSize(root.querySelector(`#${id}-size`), box, id);
     let place = getDialogPlace(id);
@@ -2282,10 +2360,7 @@ ${body}`;
         p.classList.toggle("on", p.dataset.tab === tab);
         if (p.dataset.tab === tab) p.scrollTop = 0;
       });
-      try {
-        kvSet(memory, tab);
-      } catch {
-      }
+      lastTab.set(tab);
     }
     const paintPlace = () => {
       placeBtn.title = place === "side" ? "Open as a window" : "Open in the sidebar";
@@ -2295,12 +2370,7 @@ ${body}`;
     let layer = null;
     function open(tab) {
       hooks.onOpen?.();
-      let last = "";
-      try {
-        last = kvGet(memory) || "";
-      } catch {
-      }
-      show(tab ?? last);
+      show(tab ?? lastTab.get());
       const pane = place === "side" ? sidePane() : null;
       if (pane) {
         mounted.find((m) => m.inSide() && m.box !== box)?.close();
@@ -4296,17 +4366,12 @@ ${body}
   };
 
   // src/ask-history.ts
-  var KEY = "bfb-ask-history-v1";
+  var historyPref = jsonPref("bfb-ask-history-v1", {}, (v) => !!v && typeof v === "object");
   var CHATS_PER_SUBJECT = 20;
   var SUBJECTS = 100;
   var ANSWER_MAX = 2e4;
   function read() {
-    try {
-      const v = JSON.parse(kvGet(KEY) || "{}");
-      return v && typeof v === "object" ? v : {};
-    } catch {
-      return {};
-    }
+    return historyPref.get();
   }
   function allChats() {
     return Object.entries(read()).flatMap(([subject, list3]) => list3.map((chat) => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
@@ -4332,14 +4397,14 @@ ${body}
         delete store[k];
       });
     }
-    kvSet(KEY, JSON.stringify(store));
+    historyPref.set(store);
     return chat;
   }
   function deleteChat(subject, chatId) {
     const store = read();
     store[subject] = (store[subject] ?? []).filter((c) => c.id !== chatId);
     if (!store[subject].length) delete store[subject];
-    kvSet(KEY, JSON.stringify(store));
+    historyPref.set(store);
   }
   function withHistory(turns, question, maxChars = 4e3) {
     if (!turns.length) return question;
@@ -7231,7 +7296,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 `;
 
   // src/goto.ts
-  var LAST_KEY = "bfb-goto-last-v1";
+  var lastPref = textPref("bfb-goto-last-v1");
   function absPath(input, home) {
     let p = input.trim().replace(/^['"]|['"]$/g, "");
     if (!p) return null;
@@ -7289,7 +7354,7 @@ button.chip:disabled{opacity:.45;cursor:default}
       <p class="fe-goto-msg" hidden></p>`;
       const form = box;
       const input = box.querySelector("input");
-      input.value = kvGet(LAST_KEY) ?? "";
+      input.value = lastPref.get();
       layer = openLayer(box, {
         kind: "popover",
         anchor: btn,
@@ -7298,7 +7363,7 @@ button.chip:disabled{opacity:.45;cursor:default}
         label: "Go to a path",
         focus: input,
         onClose: () => {
-          kvSet(LAST_KEY, input.value);
+          lastPref.set(input.value);
           if (box === form) {
             box = null;
             submitOpen = null;
@@ -7323,7 +7388,7 @@ button.chip:disabled{opacity:.45;cursor:default}
           say("Paste a full path, such as ~/Code or /Users/you/notes.md");
           return;
         }
-        kvSet(LAST_KEY, input.value);
+        lastPref.set(input.value);
         const found = await resolvePath(path);
         if (!found) {
           say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
@@ -7344,7 +7409,7 @@ button.chip:disabled{opacity:.45;cursor:default}
         e.preventDefault();
         void submit(false);
       });
-      input.addEventListener("input", () => kvSet(LAST_KEY, input.value));
+      input.addEventListener("input", () => lastPref.set(input.value));
     };
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -7354,9 +7419,9 @@ button.chip:disabled{opacity:.45;cursor:default}
   }
 
   // src/theme.ts
+  var themePref = choicePref(THEME_KEY, ["dark", "light", "system"], "dark");
   function themeMode() {
-    const m = kvGet(THEME_KEY);
-    return m === "light" || m === "system" ? m : "dark";
+    return themePref.get();
   }
   var systemDark = () => matchMedia("(prefers-color-scheme: dark)").matches;
   function resolveTheme(mode) {
@@ -7365,7 +7430,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   function setThemeMode(fe, mode, save = true) {
     fe.dataset.mode = mode;
     fe.dataset.theme = resolveTheme(mode);
-    if (save) kvSet(THEME_KEY, mode);
+    if (save) themePref.set(mode);
   }
   function followSystem(fe) {
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -7390,13 +7455,13 @@ button.chip:disabled{opacity:.45;cursor:default}
     { id: "mono-b", file: "15-mono-b.svg", name: "Mono B" },
     { id: "outline", file: "16-outline.svg", name: "Outline" }
   ];
-  var APP_ICON_KEY = "bfb-app-icon";
-  function appIconUrl(id = kvGet(APP_ICON_KEY) ?? "classic") {
+  var appIconPref = textPref("bfb-app-icon", "classic");
+  function appIconUrl(id = appIconPref.get()) {
     const icon2 = APP_ICONS.find((i3) => i3.id === id) ?? APP_ICONS[0];
     return chrome.runtime.getURL(`assets/app-icons/${icon2.file}`);
   }
   function setAppIcon(id) {
-    kvSet(APP_ICON_KEY, id);
+    appIconPref.set(id);
     const link = document.querySelector('link[rel="icon"]');
     if (link) link.href = appIconUrl(id);
     try {
@@ -14424,7 +14489,7 @@ ${end.comment}` : end.comment;
   // src/file-editor.ts
   var AUTOSAVE_MS = 800;
   var CHECK_MS = 300;
-  var MODE_KEY = "bfb-edit-mode-v1";
+  var modePref = textPref("bfb-edit-mode-v1");
   var MODES = [
     { id: "raw", label: "Raw", hint: "The text alone" },
     { id: "split", label: "Split", hint: "Text and rendered view side by side" },
@@ -14496,7 +14561,7 @@ ${end.comment}` : end.comment;
     let base = doc.text;
     let saving = false;
     let failed = "";
-    const saved = kvGet(MODE_KEY);
+    const saved = modePref.get();
     let mode = fmt && saved && MODES.some((m) => m.id === saved) ? saved : "raw";
     let diags = [];
     let checkTimer = 0;
@@ -14702,7 +14767,7 @@ and ${diags.length - 12} more` : "");
     const setMode = (m) => {
       if (!view) return;
       mode = m;
-      kvSet(MODE_KEY, m);
+      modePref.set(m);
       box.dataset.mode = m;
       view.hidden = m === "raw";
       src.hidden = m === "rich";
@@ -15077,7 +15142,7 @@ and ${diags.length - 12} more` : "");
   }
 
   // src/comments-ui.ts
-  var FILTER_KEY = "bfb-comments-filter-v1";
+  var filterPref = textPref("bfb-comments-filter-v1", "open");
   var POLL_MS = 2e3;
   var FILTERS = [
     { id: "open", label: "Open", icon: UI_ICON.circle, hint: "Threads still open" },
@@ -15179,7 +15244,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
   function mountComments(o) {
     let threads = [];
     let notesLine = [];
-    let filter = kvGet(FILTER_KEY) || "open";
+    let filter = filterPref.get();
     let active = "";
     let loaded = false, failed = "";
     let lastCompanion = null, lastText = "";
@@ -15814,7 +15879,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const f = el2.closest("[data-f]")?.dataset.f;
       if (f) {
         filter = f;
-        kvSet(FILTER_KEY, f);
+        filterPref.set(f);
         paint();
         redraw();
         return;
@@ -16069,10 +16134,11 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
   }
 
   // src/file-page.ts
-  var SCROLL_KEY = "bfb-page-scroll-v1";
-  var TOC_KEY = "bfb-page-toc-v1";
-  var RAIL_TAB_KEY = "bfb-page-rail-tab-v1";
-  var COLUMN_KEY = "bfb-page-column-v2";
+  var scrollPref = jsonPref("bfb-page-scroll-v1", {}, (v) => !!v && typeof v === "object");
+  var tocPref = flagPref("bfb-page-toc-v1", true);
+  var railTabPref = choicePref("bfb-page-rail-tab-v1", ["toc", "cm"], "toc");
+  var columnPref = textPref("bfb-page-column-v2");
+  var oldColumnPref = textPref("bfb-page-column-v1");
   var COLUMN_MODES = ["unset", "xl", "lg", "md"];
   var COLUMN_WIDTHS = { unset: "full", xl: "150ch", lg: "130ch", md: "110ch" };
   function columnMode(value) {
@@ -16080,7 +16146,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     return COLUMN_MODES.includes(value) ? value : "unset";
   }
   function savedColumnMode(fallback) {
-    return columnMode(kvGet(COLUMN_KEY) ?? kvGet("bfb-page-column-v1") ?? fallback);
+    return columnMode(columnPref.get() || oldColumnPref.get() || fallback);
   }
   var RELOAD_MS = 2e3;
   function parseExcludedExtensions(value) {
@@ -16164,18 +16230,14 @@ ${d.message}` : d.message;
     }
   }
   function scrollMemory() {
-    try {
-      return JSON.parse(kvGet(SCROLL_KEY) || "{}");
-    } catch {
-      return {};
-    }
+    return scrollPref.get();
   }
   function rememberScroll(path, top) {
     const m = scrollMemory();
     m[path] = top;
     const keys2 = Object.keys(m);
     if (keys2.length > 200) for (const k of keys2.slice(0, keys2.length - 200)) delete m[k];
-    kvSet(SCROLL_KEY, JSON.stringify(m));
+    scrollPref.set(m);
   }
   function renderFileContent() {
     return `
@@ -16230,7 +16292,7 @@ ${d.message}` : d.message;
     const isMd = ext2 === "md" || ext2 === "mdx";
     let raw = false;
     let headings = 0;
-    let tocOpen = kvGet(TOC_KEY) !== "0";
+    let tocOpen = tocPref.get();
     let tight = false, peek = false;
     let column = savedColumnMode(opts.column);
     const fe = document.getElementById("fe");
@@ -16298,14 +16360,14 @@ ${d.message}` : d.message;
     const cmBtn = document.getElementById("fe-fp-cm");
     const cmBtnN = document.getElementById("fe-fp-cm-n");
     let comments = null;
-    let railTab = kvGet(RAIL_TAB_KEY) === "cm" ? "cm" : "toc";
+    let railTab = railTabPref.get();
     const showPane = (t) => {
       railTab = t;
-      kvSet(RAIL_TAB_KEY, t);
+      railTabPref.set(t);
       if (tight) peek = true;
       else if (!tocOpen) {
         tocOpen = true;
-        kvSet(TOC_KEY, "1");
+        tocPref.set(true);
       }
       paint();
       if (t === "toc") spy(page, toc);
@@ -16318,7 +16380,7 @@ ${d.message}` : d.message;
       if (tight) peek = false;
       else {
         tocOpen = false;
-        kvSet(TOC_KEY, "0");
+        tocPref.set(false);
       }
       paint();
     };
@@ -16341,7 +16403,7 @@ ${d.message}` : d.message;
     });
     colBtn.addEventListener("click", () => {
       column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
-      kvSet(COLUMN_KEY, column);
+      columnPref.set(column);
       paint();
     });
     page.addEventListener("scroll", () => {
@@ -16672,19 +16734,13 @@ ${d.message}` : d.message;
   var SESSION_KEY = "bfb-strip-v2";
   var RECOVERY_PREFIX = "bfb-strip-v2:";
   var storageArea = () => typeof chrome !== "undefined" && chrome.storage?.local || null;
+  var sessionPref = jsonPref(SESSION_KEY, null, () => true, "tab");
   function readSession() {
-    try {
-      const v = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
-      return v && typeof v.sid === "string" && isTabState(v.state) ? { sid: v.sid, state: normalize(v.state), closed: Array.isArray(v.closed) ? v.closed : [] } : null;
-    } catch {
-      return null;
-    }
+    const v = sessionPref.get();
+    return v && typeof v.sid === "string" && isTabState(v.state) ? { sid: v.sid, state: normalize(v.state), closed: Array.isArray(v.closed) ? v.closed : [] } : null;
   }
   function writeSession(sid, state, closed) {
-    try {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ sid, state, closed }));
-    } catch {
-    }
+    sessionPref.set({ sid, state, closed });
   }
   function writeRecovery(sid, state, closed) {
     const area2 = storageArea();
@@ -18493,10 +18549,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!win) return;
       const scroller = el("fe-scroll"), tbody = el("fe-tbody");
       const offset = tbody.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-      const top = scroller.scrollTop - offset;
+      const top2 = scroller.scrollTop - offset;
       const n = win.parts.length;
-      const a = Math.max(0, firstAtOrAfter(win.tops, top) - OVERSCAN);
-      const b = Math.min(n, firstAtOrAfter(win.tops, top + scroller.clientHeight) + OVERSCAN);
+      const a = Math.max(0, firstAtOrAfter(win.tops, top2) - OVERSCAN);
+      const b = Math.min(n, firstAtOrAfter(win.tops, top2 + scroller.clientHeight) + OVERSCAN);
       if (!force && a >= win.a && b <= win.b) return;
       win.a = Math.max(0, a - OVERSCAN);
       win.b = Math.min(n, b + OVERSCAN);
@@ -18744,7 +18800,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     el("fe-view-group").addEventListener("change", () => {
       const v = el("fe-view-group").value;
       fe.dataset.view = v;
-      kvSet(VIEW_KEY, v);
+      viewPref.set(v);
       applyAll();
     });
     el("fe-tree").addEventListener("click", (e) => {
@@ -18795,7 +18851,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const on = fe.classList.toggle("show-hidden");
       hiddenBtn.classList.toggle("on", on);
       hiddenBtn.title = `Hidden files: ${on ? "showing" : "hiding"} dotfiles and comment files \xB7 click to toggle`;
-      kvSet(HIDDEN_KEY, String(on));
+      hiddenPref.set(on);
       toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? "s" : ""}` : "Hidden files concealed");
       if (!app.fileMode) el("fe-count").textContent = ls.baseStatus = countText();
       if (win) applyAll();
@@ -18813,7 +18869,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const n = Math.max(1, Math.min(5, d));
       fe.dataset.density = String(n);
       density.value = String(n);
-      kvSet(DENSITY_KEY, String(n));
+      densityPref.set(n);
       applyAll();
     };
     density.addEventListener("input", () => {
@@ -18821,18 +18877,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     density.addEventListener("change", () => setDensity(Number(density.value)));
     const scroll = el("fe-scroll");
-    const scrollKey = "bfb-scroll:" + rawPath;
-    try {
-      const top = Number(sessionStorage.getItem(scrollKey));
-      if (top) scroll.scrollTop = top;
-    } catch {
-    }
-    scroll.addEventListener("scroll", () => {
-      try {
-        sessionStorage.setItem(scrollKey, String(scroll.scrollTop));
-      } catch {
-      }
-    });
+    const scrollPref2 = textPref("bfb-scroll:" + rawPath, "", "tab");
+    const top = Number(scrollPref2.get());
+    if (top) scroll.scrollTop = top;
+    scroll.addEventListener("scroll", () => scrollPref2.set(String(scroll.scrollTop)));
     const sortCols = el("fe-sort-cols"), sortDir = el("fe-sort-dir"), groupSeg = el("fe-group-btns");
     const SORT_NAMES = { name: "Name", size: "Size", date: "Modified", type: "Type", ext: "Extension" };
     function syncSortUi() {
@@ -20090,7 +20138,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   }
 
   // src/sidebar.ts
-  var LENS_KEY = "bfb-lens-v1";
+  var lensPref = textPref("bfb-lens-v1", "notes");
   function initLenses(app) {
     const rail = el("fe-rail");
     const btns = els("#fe-rail .fe-rail-btn");
@@ -20137,13 +20185,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     app.showLens = (lens, hideHistory) => {
       if (hideHistory !== void 0) el("fe-rail-history").hidden = hideHistory;
-      show(lens ?? kvGet(LENS_KEY) ?? "notes");
+      show(lens ?? lensPref.get());
     };
     const side = el("fe-side");
     const narrow = () => matchMedia("(max-width: 520px)").matches;
     const closeOverlay = () => side.classList.remove("open");
     const pick = (b) => {
-      kvSet(LENS_KEY, b.dataset.lens);
+      lensPref.set(b.dataset.lens);
       switchTo(b.dataset.lens);
     };
     rail.addEventListener("click", (e) => {
@@ -20187,24 +20235,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       tools.append(box);
       tools.after(tagRow);
     });
-    onKvChange((key) => {
-      if (key === LENS_KEY) show(kvGet(LENS_KEY) ?? "notes");
-    });
-    show(kvGet(LENS_KEY) ?? "notes");
+    lensPref.onChange(() => show(lensPref.get()));
+    show(lensPref.get());
   }
   function initSidebar(app) {
     const { rawPath, settings, toast } = app;
     initLenses(app);
-    const collapseKey = "bfb-sidebar-collapsed-v1";
+    const collapsedPref = setPref("bfb-sidebar-collapsed-v1");
     const sections = els("#fe-side .fe-sec[data-collapse]");
-    const collapsed = () => {
-      try {
-        const value = JSON.parse(kvGet(collapseKey) || "[]");
-        return new Set(Array.isArray(value) ? value.filter((v) => typeof v === "string") : []);
-      } catch {
-        return /* @__PURE__ */ new Set();
-      }
-    };
+    const collapsed = () => collapsedPref.get();
     const applyCollapsed = (keys2) => {
       for (const section of sections) {
         const key = section.dataset.collapse;
@@ -20234,7 +20273,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const keys2 = collapsed();
         if (section.classList.contains("fe-collapsed")) keys2.delete(key);
         else keys2.add(key);
-        kvSet(collapseKey, JSON.stringify([...keys2]));
+        collapsedPref.set(keys2);
         toggle.setAttribute("aria-expanded", String(!keys2.has(key)));
         foldTo(section, () => {
           section.classList.toggle("fe-collapsed");
@@ -20243,9 +20282,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       header.prepend(toggle);
     }
     applyCollapsed(collapsed());
-    onKvChange((key) => {
-      if (key === collapseKey) applyCollapsed(collapsed());
-    });
+    collapsedPref.onChange(() => applyCollapsed(collapsed()));
     const svList = el("fe-sv-list");
     const svFilter = el("fe-sv-filter");
     let svHits = /* @__PURE__ */ new Map();
@@ -20491,14 +20528,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     const ntFilter = el("fe-nt-filter");
     let allNotes = [];
-    const NOTE_FOLDS_KEY = "bfb-notes-folded-v1";
-    const noteFolds = () => {
-      try {
-        return new Set(JSON.parse(kvGet(NOTE_FOLDS_KEY) || "[]"));
-      } catch {
-        return /* @__PURE__ */ new Set();
-      }
-    };
+    const noteFoldsPref = setPref("bfb-notes-folded-v1");
+    const noteFolds = () => noteFoldsPref.get();
     ntList.addEventListener("click", (e) => {
       const g = e.target.closest(".fe-nt-grp");
       if (!g) return;
@@ -20509,7 +20540,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const open = !folds.has(key);
       g.setAttribute("aria-expanded", String(open));
       g.title = `${open ? "Fold" : "Show"} ${g.dataset.label}`;
-      kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds]));
+      noteFoldsPref.set(folds);
       foldTo(body, () => {
         body.hidden = !body.hidden;
       });
@@ -20592,9 +20623,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       lensFilter.value = lensFilter.value.trim().toLowerCase() === q.toLowerCase() ? "" : q;
       applyLensFilter();
     }
-    const DEEP_KEY = "bfb-lens-deep-v1";
+    const deepPref = flagPref("bfb-lens-deep-v1", false);
     const depthBtn = el("fe-lens-depth");
-    const deep = () => kvGet(DEEP_KEY) === "1";
+    const deep = () => deepPref.get();
     function syncDepth() {
       const on = deep(), inNotes = openLens() === "notes";
       depthBtn.textContent = on ? "Deep" : "Names";
@@ -20605,7 +20636,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     depthBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      kvSet(DEEP_KEY, deep() ? "0" : "1");
+      deepPref.set(!deep());
       syncDepth();
       applyLensFilter();
       lensFilter.focus();
@@ -21046,7 +21077,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (e.detail === "search") q.focus({ preventScroll: true });
     });
   }
-  var ASK_MODEL_KEY = "bfb-ask-model-v1";
+  var askModelPref = textPref("bfb-ask-model-v1");
   var when = (at) => new Date(at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   function initAsk(app) {
     const box = document.getElementById("fe-ask");
@@ -21121,7 +21152,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       chipDot.className = `dot ${kind}`;
       chipDot.title = a.kind === "ready" ? a.cold ? "Loads on the first question" : "Ready" : state.textContent;
       localReady = a.kind === "ready";
-      const saved = kvGet(ASK_MODEL_KEY) ?? "";
+      const saved = askModelPref.get();
       const opts = [
         { value: "", label: a.kind === "ready" ? a.status.default_model.replace(/:latest$/, "") : "Default" },
         ...models.tiers.map((t) => ({ value: t.alias, label: t.alias, hint: t.model, group: "On this machine" })),
@@ -21132,7 +21163,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       syncUsable();
     }
     pick.addEventListener("change", () => {
-      kvSet(ASK_MODEL_KEY, pick.value);
+      askModelPref.set(pick.value);
       syncUsable();
     });
     async function context() {
@@ -21604,7 +21635,7 @@ ${rows.join("\n")}`, name: subject };
       els('input[name="bfb-palette"]').forEach((r) => {
         r.checked = r.value === (fe.dataset.palette || "slate");
       });
-      const icon2 = kvGet(APP_ICON_KEY) ?? "classic";
+      const icon2 = appIconPref.get();
       els('input[name="bfb-appicon"]').forEach((r) => {
         r.checked = r.value === icon2;
         const img = r.nextElementSibling;
@@ -21655,7 +21686,7 @@ ${rows.join("\n")}`, name: subject };
     els('input[name="bfb-theme"]').forEach((r) => r.addEventListener("change", () => setThemeMode(fe, r.value)));
     els('input[name="bfb-palette"]').forEach((r) => r.addEventListener("change", () => {
       fe.dataset.palette = r.value;
-      kvSet(PALETTE_KEY, r.value);
+      palettePref.set(r.value);
     }));
     els('input[name="bfb-appicon"]').forEach((r) => r.addEventListener("change", () => setAppIcon(r.value)));
     v("fe-st-uiscale").addEventListener("change", () => {
@@ -21681,7 +21712,7 @@ ${rows.join("\n")}`, name: subject };
       fe.classList.toggle("fe-notips", !this.checked);
       if (this.checked) toast("Tooltips come back after a reload");
     });
-    v("fe-st-defview").addEventListener("change", () => kvSet(VIEW_KEY, v("fe-st-defview").value));
+    v("fe-st-defview").addEventListener("change", () => viewPref.set(v("fe-st-defview").value));
     const applyOrder = () => app.setOrder(
       { col: v("fe-st-sort").value || null, dir: v("fe-st-sort-dir").value },
       v("fe-st-group").value
@@ -21733,10 +21764,7 @@ ${rows.join("\n")}`, name: subject };
     v("fe-st-rd-column").addEventListener("change", () => {
       settings.readerColumn = v("fe-st-rd-column").value;
       saveSettings(settings);
-      try {
-        kvSet(COLUMN_KEY, settings.readerColumn);
-      } catch {
-      }
+      columnPref.set(settings.readerColumn);
     });
     const readerVar = (id, key, cssVar, unit) => {
       const live2 = () => fe.style.setProperty(cssVar, v(id).value + unit);
@@ -21780,15 +21808,7 @@ ${rows.join("\n")}`, name: subject };
       saveSettings(settings);
     });
     el("fe-st-export").addEventListener("click", () => {
-      const out = {};
-      for (const k of kvKeys().sort()) {
-        try {
-          out[k] = JSON.parse(kvGet(k));
-        } catch {
-          out[k] = kvGet(k);
-        }
-      }
-      const text = JSON.stringify(out, null, 2);
+      const text = JSON.stringify(exportAll(), null, 2);
       const ta = el("fe-st-export-out");
       ta.value = text;
       ta.style.display = "";
@@ -21801,11 +21821,7 @@ ${rows.join("\n")}`, name: subject };
       if (!f) return;
       f.text().then((text) => {
         const data = JSON.parse(text);
-        let n = 0;
-        for (const [k, val] of Object.entries(data)) if (k.startsWith("bfb-")) {
-          kvSet(k, typeof val === "string" ? val : JSON.stringify(val));
-          n++;
-        }
+        const n = importAll(data);
         toast(`Imported ${n} keys, reloading`);
         setTimeout(() => location.reload(), 600);
       }).catch(() => toast("That file is not a JSON export"));

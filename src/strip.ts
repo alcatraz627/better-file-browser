@@ -6,7 +6,7 @@
 // are in tabs.ts.
 import { esc, copyToClipboard, pageHref } from './utils';
 import { icoFile, icoFolder, PI } from './icons';
-import { isSaved, toggleSaved } from './storage';
+import { isSaved, toggleSaved, jsonPref } from './storage';
 import { UI_ICON } from './control-icons';
 import {
   EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, displayLabels, splitLabel,
@@ -46,16 +46,16 @@ export interface Strip {
 const storageArea = () => (typeof chrome !== 'undefined' && chrome.storage?.local) || null;
 
 interface Closed { tab: Tab; index: number }
+// This tab's strip, kept for the tab's life so a reload finds it.
+const sessionPref = jsonPref<{ sid?: unknown; state?: unknown; closed?: unknown } | null>(SESSION_KEY, null, () => true, 'tab');
 function readSession(): { sid: string; state: TabState; closed: Closed[] } | null {
-  try {
-    const v = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
-    return v && typeof v.sid === 'string' && isTabState(v.state)
-      ? { sid: v.sid, state: normalize(v.state), closed: Array.isArray(v.closed) ? v.closed : [] }
-      : null;
-  } catch { return null; }
+  const v = sessionPref.get();
+  return v && typeof v.sid === 'string' && isTabState(v.state)
+    ? { sid: v.sid, state: normalize(v.state), closed: Array.isArray(v.closed) ? v.closed : [] }
+    : null;
 }
 function writeSession(sid: string, state: TabState, closed: Closed[]): void {
-  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ sid, state, closed })); } catch { /* storage full or disabled */ }
+  sessionPref.set({ sid, state, closed });
 }
 function writeRecovery(sid: string, state: TabState, closed: boolean): void {
   const area = storageArea();

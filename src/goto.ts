@@ -3,13 +3,12 @@
 // type. The box keeps what was last typed in it, like a scratch pad, and a
 // click anywhere else closes it.
 import { esc, fileHref, pageHref } from './utils';
-import { getRecents } from './storage';
-import { kvGet, kvSet } from './kv';
+import { getRecents, textPref } from './storage';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { openLayer, type Layer } from './layer';
 
-const LAST_KEY = 'bfb-goto-last-v1';
+const lastPref = textPref('bfb-goto-last-v1');
 
 /** The address for a typed or pasted path: `~` is home, a file:// URL is kept,
  *  quotes and a trailing newline from a copied path are dropped. Null when it
@@ -85,10 +84,10 @@ export function mountGoto(btn: HTMLElement, home: () => string, go: (path: strin
       <p class="fe-goto-msg" hidden></p>`;
     const form = box;
     const input = box.querySelector('input')!;
-    input.value = kvGet(LAST_KEY) ?? '';
+    input.value = lastPref.get();
     // A click away or Esc closes it and keeps what was typed for next time.
     layer = openLayer(box, { kind: 'popover', anchor: btn, offset: 6, role: 'dialog', label: 'Go to a path', focus: input,
-      onClose: () => { kvSet(LAST_KEY, input.value); if (box === form) { box = null; submitOpen = null; } btn.classList.remove('on'); } });
+      onClose: () => { lastPref.set(input.value); if (box === form) { box = null; submitOpen = null; } btn.classList.remove('on'); } });
     if (!layer.open) { box = null; return; }
     input.select();
     btn.classList.add('on');
@@ -96,7 +95,7 @@ export function mountGoto(btn: HTMLElement, home: () => string, go: (path: strin
     const submit = async (background: boolean) => {
       const path = absPath(input.value, home());
       if (!path) { say('Paste a full path, such as ~/Code or /Users/you/notes.md'); return; }
-      kvSet(LAST_KEY, input.value);
+      lastPref.set(input.value);
       const found = await resolvePath(path);
       if (!found) { say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`); return; }
       const slow = setTimeout(() => say('Checking that folder…'), 600);
@@ -108,7 +107,7 @@ export function mountGoto(btn: HTMLElement, home: () => string, go: (path: strin
     };
     submitOpen = background => void submit(background);
     box.addEventListener('submit', e => { e.preventDefault(); void submit(false); });
-    input.addEventListener('input', () => kvSet(LAST_KEY, input.value));
+    input.addEventListener('input', () => lastPref.set(input.value));
   };
   btn.addEventListener('click', e => { e.preventDefault(); if (box) close(); else open(); });
 }

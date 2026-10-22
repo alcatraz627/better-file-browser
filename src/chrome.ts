@@ -4,7 +4,6 @@ import { resizable } from './resize';
 import type { App } from './app';
 import { el } from './el';
 import { esc, pageHref, fileHref, copyToClipboard } from './utils';
-import { kvGet, kvSet } from './kv';
 import { getIcon } from './icons';
 import { TERMINAL_CMDS, saveSettings, homeDir, getRecents } from './storage';
 import { absPath, resolvePath, readable } from './goto';

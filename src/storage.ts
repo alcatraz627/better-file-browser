@@ -1,6 +1,6 @@
 import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode, PreviewLayout, Tag } from './types';
 import { dedupePlaces, mergeLegacy, reconcileTags, samePlace, upsertPlace, removePlace } from './places';
-import { kvGet, kvSet } from './kv';
+import { kvGet, kvSet, kvKeys, onKvChange } from './kv';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
 export const RECENTS_KEY   = 'bfb-recents-v1';
@@ -197,13 +197,13 @@ export function savePreviewLayout(l: PreviewLayout): void {
   kvSet(PREVIEW_LAYOUT_KEY, JSON.stringify(l));
 }
 
-export function getView():       string  { return kvGet(VIEW_KEY)   ?? 'details'; }
+export function getView():       string  { return viewPref.get(); }
 export function getTheme():      string  { return kvGet(THEME_KEY)  ?? 'dark'; }
-export function getPalette():    string  { const p = kvGet(PALETTE_KEY); return p && PALETTES.includes(p) ? p : 'slate'; }
+export function getPalette():    string  { return palettePref.get(); }
 /// How much a folder shows, from 1 (few big items, names only) to 5 (small items, every detail).
 export const DENSITY_NAMES = ['Overview', 'Large', 'Standard', 'Detailed', 'Full detail'];
-export function getDensity():    number  { const d = parseInt(kvGet(DENSITY_KEY) ?? '3'); return d >= 1 && d <= 5 ? d : 3; }
-export function getShowHidden(): boolean { return kvGet(HIDDEN_KEY) === 'true'; }
+export function getDensity():    number  { return densityPref.get(); }
+export function getShowHidden(): boolean { return hiddenPref.get(); }
 
 /** The size a floating panel was last left at ('md', 'lg' or 'xl'). */
 export function getPanelSize(key: string): string {
@@ -219,4 +219,78 @@ export function getDialogPlace(id: string): 'window' | 'side' {
 }
 export function saveDialogPlace(id: string, place: 'window' | 'side'): void {
   try { kvSet(`bfb-dialog-place:${id}`, place); } catch { /* fine */ }
+}
+
+// ── Remembered choices ──────────────────────────────────────────────────────
+// Every other module reaches stored values through a Pref declared here, so
+// the key, its default and how it is written sit in one place. A profile Pref
+// lives in the shared store (every tab, every folder); a tab Pref lives in
+// this tab's session only and is gone when the tab closes.
+
+/** One remembered value: read it, change it, hear when another tab changes it. */
+export interface Pref<T> { get(): T; set(v: T): void; onChange(fn: () => void): void }
+type Where = 'profile' | 'tab';
+
+function sessionGet(id: string): string | null { try { return sessionStorage.getItem(id); } catch { return null; } }
+function sessionSet(id: string, v: string): void { try { sessionStorage.setItem(id, v); } catch { /* storage full or disabled */ } }
+
+function makePref<T>(id: string, read: (raw: string | null) => T, write: (v: T) => string, where: Where = 'profile'): Pref<T> {
+  const tab = where === 'tab';
+  return {
+    get: () => read(tab ? sessionGet(id) : kvGet(id)),
+    set: v => { const s = write(v); if (tab) sessionSet(id, s); else kvSet(id, s); },
+    onChange: fn => { if (!tab) onKvChange(k => { if (k === id) fn(); }); },
+  };
+}
+
+/** A remembered word or line, `init` until something is saved. */
+export const textPref = (id: string, init = '', where?: Where): Pref<string> =>
+  makePref(id, r => r ?? init, v => v, where);
+
+/** A remembered word from a fixed list; anything else reads as `init`. */
+export const choicePref = <T extends string>(id: string, choices: readonly T[], init: T): Pref<T> =>
+  makePref(id, r => (choices as readonly string[]).includes(r ?? '') ? r as T : init, v => v);
+
+/** A remembered on or off, stored as `on` and `off` (kept as each key always wrote them). */
+export const flagPref = (id: string, init: boolean, on = '1', off = '0'): Pref<boolean> =>
+  makePref(id, r => r === on ? true : r === off ? false : init, v => v ? on : off);
+
+/** A remembered list, map or record. `valid` turns away a damaged value, which then reads as `init`. */
+export function jsonPref<T>(id: string, init: T, valid: (v: unknown) => boolean = () => true, where?: Where): Pref<T> {
+  // A fresh copy each time, so a caller that changes what it read cannot change the default.
+  const fresh = (): T => JSON.parse(JSON.stringify(init));
+  return makePref(id, r => {
+    if (r === null) return fresh();
+    try { const v = JSON.parse(r); return valid(v) ? v as T : fresh(); } catch { return fresh(); }
+  }, v => JSON.stringify(v), where);
+}
+
+/** A remembered whole number; one that is missing or fails `ok` reads as `init`. */
+export const numberPref = (id: string, init: number, ok: (n: number) => boolean = Number.isFinite): Pref<number> =>
+  makePref(id, r => { const n = parseInt(r ?? ''); return ok(n) ? n : init; }, v => String(v));
+
+export const viewPref = textPref(VIEW_KEY, 'details');
+export const palettePref = choicePref(PALETTE_KEY, PALETTES, 'slate');
+export const densityPref = numberPref(DENSITY_KEY, 3, n => n >= 1 && n <= 5);
+export const hiddenPref = flagPref(HIDDEN_KEY, false, 'true', 'false');
+
+/** A remembered set of names, such as which groups are folded. */
+export const setPref = (id: string): Pref<Set<string>> =>
+  makePref(id, r => {
+    try { const v = JSON.parse(r || '[]'); return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []); }
+    catch { return new Set(); }
+  }, v => JSON.stringify([...v]));
+
+/** Every stored setting, for Settings' export. Values that are JSON come out parsed. */
+export function exportAll(): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of kvKeys().sort()) { const raw = kvGet(k)!; try { out[k] = JSON.parse(raw); } catch { out[k] = raw; } }
+  return out;
+}
+
+/** Write back an export; only the explorer's own keys are taken. Returns how many. */
+export function importAll(data: Record<string, unknown>): number {
+  let n = 0;
+  for (const [k, val] of Object.entries(data)) if (k.startsWith('bfb-')) { kvSet(k, typeof val === 'string' ? val : JSON.stringify(val)); n++; }
+  return n;
 }

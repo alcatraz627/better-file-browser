@@ -5,12 +5,11 @@
 // focus goes back to where it was; the preview shares the focus half
 // through the two helpers.
 import { esc } from './utils';
-import { kvGet, kvSet } from './kv';
 import { UI_ICON } from './control-icons';
 import { openLayer, focusTrap, type Layer } from './layer';
 import { bind } from './commands';
 import { SIZE_BTN, wireSize } from './panel-size';
-import { getDialogPlace, saveDialogPlace } from './storage';
+import { getDialogPlace, saveDialogPlace, textPref } from './storage';
 import { setSidebarShown, sidebarShown } from './motion';
 
 // Every mounted dialog; the page keys act on the one that is open.
@@ -85,7 +84,7 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
   const box = root.querySelector<HTMLElement>('.fe-dlg-box')!;
   const tabs = [...root.querySelectorAll<HTMLElement>('.fe-dlg-tab')];
   const panes = [...root.querySelectorAll<HTMLElement>('.fe-dlg-pane')];
-  const memory = `bfb-dialog-tab:${id}`;
+  const lastTab = textPref(`bfb-dialog-tab:${id}`);
   const placeBtn = root.querySelector<HTMLElement>('.fe-dlg-place')!;
   wireSize(root.querySelector<HTMLElement>(`#${id}-size`)!, box, id);
   let place = getDialogPlace(id);
@@ -99,7 +98,7 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
     if (!tabs.some(t => t.dataset.tab === tab)) tab = tabs[0]?.dataset.tab ?? '';
     tabs.forEach(t => t.classList.toggle('on', t.dataset.tab === tab));
     panes.forEach(p => { p.classList.toggle('on', p.dataset.tab === tab); if (p.dataset.tab === tab) p.scrollTop = 0; });
-    try { kvSet(memory, tab); } catch { /* fine */ }
+    lastTab.set(tab);
   }
   const paintPlace = () => {
     placeBtn.title = place === 'side' ? 'Open as a window' : 'Open in the sidebar';
@@ -109,9 +108,7 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
   let layer: Layer | null = null;
   function open(tab?: string): void {
     hooks.onOpen?.();
-    let last = '';
-    try { last = kvGet(memory) || ''; } catch { /* fine */ }
-    show(tab ?? last);
+    show(tab ?? lastTab.get());
     const pane = place === 'side' ? sidePane() : null;
     if (pane) {
       // Another dialog in the pane gives way to this one.

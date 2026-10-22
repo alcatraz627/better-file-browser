@@ -8,7 +8,7 @@
 import { esc } from './utils';
 import { highlightCode, splitHighlighted } from './renderers';
 import { formatFor, diagnose, type Diagnostic } from './formats';
-import { kvGet, kvSet } from './kv';
+import { textPref } from './storage';
 import { notes, NotesError } from './notes';
 import { attachBuffer, indentLines } from './editor';
 import { wholeText, windowedText, lineStart, type TextWindow } from './text-window';
@@ -17,7 +17,7 @@ import { carrier } from './comment-anchor';
 
 const AUTOSAVE_MS = 800;
 const CHECK_MS = 300;
-const MODE_KEY = 'bfb-edit-mode-v1';
+const modePref = textPref('bfb-edit-mode-v1');
 type Mode = 'raw' | 'split' | 'rich';
 const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: 'raw', label: 'Raw', hint: 'The text alone' },
@@ -116,7 +116,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   let base = doc.text;
   let saving = false;
   let failed = '';   // why the last save failed, until one succeeds
-  const saved = kvGet(MODE_KEY) as Mode | null;
+  const saved = modePref.get() as Mode;
   let mode: Mode = fmt && saved && MODES.some(m => m.id === saved) ? saved : 'raw';
   let diags: Diagnostic[] = [];
   let checkTimer = 0;
@@ -302,7 +302,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const setMode = (m: Mode) => {
     if (!view) return;
     mode = m;
-    kvSet(MODE_KEY, m);
+    modePref.set(m);
     box.dataset.mode = m;
     view.hidden = m === 'raw'; src.hidden = m === 'rich';
     if (big && m !== 'rich') paintWindow(true);

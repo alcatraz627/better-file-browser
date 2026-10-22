@@ -2,18 +2,17 @@
 // first, so one can be reopened or deleted. Kept in the extension's own
 // storage, never beside the file. Capped so a long-lived history cannot grow
 // without bound.
-import { kvGet, kvSet } from './kv';
+import { jsonPref } from './storage';
 
 export interface AskTurn { q: string; a: string; model: string; ms: number; at: number }
 export interface AskChat { id: string; at: number; title: string; turns: AskTurn[] }
 type Store = Record<string, AskChat[]>;
 
-const KEY = 'bfb-ask-history-v1';
+const historyPref = jsonPref<Store>('bfb-ask-history-v1', {}, v => !!v && typeof v === 'object');
 const CHATS_PER_SUBJECT = 20, SUBJECTS = 100, ANSWER_MAX = 20_000;
 
 function read(): Store {
-  try { const v = JSON.parse(kvGet(KEY) || '{}'); return v && typeof v === 'object' ? v as Store : {}; }
-  catch { return {}; }
+  return historyPref.get();
 }
 
 /** Every chat about every file or folder, newest first, with what it is about. */
@@ -41,7 +40,7 @@ export function addTurn(subject: string, chatId: string, turn: AskTurn): AskChat
     const last = (k: string) => Math.max(...store[k].map(c => c.at));
     subjects.sort((a, b) => last(a) - last(b)).slice(0, subjects.length - SUBJECTS).forEach(k => { delete store[k]; });
   }
-  kvSet(KEY, JSON.stringify(store));
+  historyPref.set(store);
   return chat;
 }
 
@@ -49,7 +48,7 @@ export function deleteChat(subject: string, chatId: string): void {
   const store = read();
   store[subject] = (store[subject] ?? []).filter(c => c.id !== chatId);
   if (!store[subject].length) delete store[subject];
-  kvSet(KEY, JSON.stringify(store));
+  historyPref.set(store);
 }
 
 /** A follow-up question carrying the chat so far, last few turns only, so the

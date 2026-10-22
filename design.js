@@ -2524,8 +2524,91 @@ button.chip:disabled{opacity:.45;cursor:default}
     });
   }
 
+  // src/kv.ts
+  var MIGRATED = "bfb-kv-migrated";
+  var NOT_KV = "bfb-strip-v2:";
+  var cache = /* @__PURE__ */ new Map();
+  var area = null;
+  var watchers = [];
+  function onKvChange(fn) {
+    watchers.push(fn);
+    if (!area) window.addEventListener("storage", (e) => {
+      if (e.key && isKvKey(e.key)) fn(e.key);
+    });
+  }
+  var isKvKey = (k) => k.startsWith("bfb-") && !k.startsWith(NOT_KV) && k !== MIGRATED;
+  function kvGet(key) {
+    if (!area) {
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    }
+    return cache.get(key) ?? null;
+  }
+  function kvSet(key, value) {
+    if (!area) {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+      }
+      return;
+    }
+    cache.set(key, value);
+    try {
+      area.set({ [key]: value }).catch(() => {
+      });
+    } catch {
+    }
+  }
+
   // src/storage.ts
+  var VIEW_KEY = "bfb-view";
+  var PALETTE_KEY = "bfb-palette";
   var PALETTES = ["slate", "violet", "sand", "ink", "ocean", "forest", "ember", "nord"];
+  var DENSITY_KEY = "bfb-density";
+  var HIDDEN_KEY = "bfb-show-hidden";
+  function sessionGet(id) {
+    try {
+      return sessionStorage.getItem(id);
+    } catch {
+      return null;
+    }
+  }
+  function sessionSet(id, v) {
+    try {
+      sessionStorage.setItem(id, v);
+    } catch {
+    }
+  }
+  function makePref(id, read, write, where = "profile") {
+    const tab = where === "tab";
+    return {
+      get: () => read(tab ? sessionGet(id) : kvGet(id)),
+      set: (v) => {
+        const s = write(v);
+        if (tab) sessionSet(id, s);
+        else kvSet(id, s);
+      },
+      onChange: (fn) => {
+        if (!tab) onKvChange((k) => {
+          if (k === id) fn();
+        });
+      }
+    };
+  }
+  var textPref = (id, init = "", where) => makePref(id, (r) => r ?? init, (v) => v, where);
+  var choicePref = (id, choices, init) => makePref(id, (r) => choices.includes(r ?? "") ? r : init, (v) => v);
+  var flagPref = (id, init, on = "1", off = "0") => makePref(id, (r) => r === on ? true : r === off ? false : init, (v) => v ? on : off);
+  var numberPref = (id, init, ok = Number.isFinite) => makePref(id, (r) => {
+    const n = parseInt(r ?? "");
+    return ok(n) ? n : init;
+  }, (v) => String(v));
+  var viewPref = textPref(VIEW_KEY, "details");
+  var palettePref = choicePref(PALETTE_KEY, PALETTES, "slate");
+  var densityPref = numberPref(DENSITY_KEY, 3, (n) => n >= 1 && n <= 5);
+  var hiddenPref = flagPref(HIDDEN_KEY, false, "true", "false");
 
   // src/design-page.ts
   var PAGE_CSS = `
