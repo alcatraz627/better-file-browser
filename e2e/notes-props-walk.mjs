@@ -103,6 +103,18 @@ try {
   await page.click('#fe-ed-meta [data-m="color"]');
   await page.waitForSelector('.fe-pmenu', { timeout: 3_000 });
   await shot(page, 'props-menu');
+  // The keyboard cursor in this menu shows, with the hover wash every list uses.
+  // The first item is Pin, already on for this note, so the cursor goes one further.
+  await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown'); await sleep(200);
+  const cur = await page.evaluate(() => {
+    const b = document.querySelector('.fe-pmenu button.kb:not(.active)');
+    if (!b) return null;
+    const probe = document.createElement('div'); probe.style.background = 'var(--hover)';
+    document.getElementById('fe').appendChild(probe);
+    const want = getComputedStyle(probe).backgroundColor; probe.remove();
+    return { bg: getComputedStyle(b).backgroundColor, want };
+  });
+  check(!!cur?.bg && cur.bg === cur.want, `ArrowDown in the properties menu paints its cursor: ${JSON.stringify(cur)}`);
   await page.click('.fe-pmenu [data-pm="color"][data-color="purple"]');
   await page.type('.fe-pmenu .fe-pm-add input', 'walk');
   await page.keyboard.press('Enter');

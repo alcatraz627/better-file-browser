@@ -18,6 +18,8 @@ const cli = (...args) => spawnSync('python3', [CLI, '--json', ...args], { env, e
 try {
   const names = ['readme.md', 'nested/', 'notes.txt', 'data.json', 'rows.tsv', 'script.sh', 'code.py', 'nested/inner.txt'];
   await h.store.set('bfb-saved-v1', names.map(n => ({ path: h.fixture + '/' + n, label: n.replace(/\/$/, '') })));
+  // Docking folds the sidebar by default; this step needs both on screen.
+  await h.store.set('bfb-settings-v1', { dockFoldsSidebar: false });
   const page = await h.open();
   await page.setViewport({ width: 1400, height: 900 });
   const ae = () => page.evaluate(() => { const a = document.activeElement; return a ? (a.id || a.getAttribute('href') || a.className || a.tagName) : ''; });

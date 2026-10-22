@@ -243,9 +243,12 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     const busy = ls.deepScanning || !!nameFilterAbort || app.fileMode;
     const filtered = !!ls.filter.q || ls.filter.type !== 'all' || !!ls.contentHits;
     box.hidden = busy || seen > 0;
+    const showThem = 'Press <kbd>.</kbd> to show them';
     box.innerHTML = box.hidden ? ''
+      : filtered && lastEntries.length ? emptyHtml('filtered', 'Only hidden files match', { hintHtml: showThem, actions: [CLEAR] })
       : filtered ? emptyHtml('filtered', 'Nothing here matches', { actions: [CLEAR] })
-      : lastEntries.length ? emptyHtml('empty', 'Only hidden files here', { hintHtml: 'Press <kbd>.</kbd> to show them' })
+      : lastEntries.length ? emptyHtml('empty', 'Only hidden files here', { hintHtml: showThem })
+      : ls.deepOn ? emptyHtml('empty', 'Nothing in these folders', { hint: showHidden ? '' : 'Hidden files are left out of a subfolder search' })
       : emptyHtml('empty', 'This folder is empty');
   }
   app.applyAll = applyAll;
@@ -262,10 +265,10 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       applyAll();
       return;
     }
+    const controller = new AbortController();
+    nameFilterAbort = controller;   // set first, so the paint below knows a filter is still running
     nameMatches = new Set();
     applyAll();
-    const controller = new AbortController();
-    nameFilterAbort = controller;
     const entries = [...nonPar, ...(ls.deepEntries ?? []), ...[...treeChildren.values()].flat()];
     nameFilterReady = filterNames(entries, ls.filter.q, controller.signal).then(matches => {
       if (nameFilterAbort !== controller) return;

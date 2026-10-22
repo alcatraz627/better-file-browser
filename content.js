@@ -1811,7 +1811,7 @@ ${body}`;
   function emptyHtml(state, text, o = {}) {
     const hint = o.hintHtml ?? (o.hint ? esc(o.hint) : "");
     const acts = (o.actions ?? []).map((a) => `<button type="button" class="btn" data-size="sm" data-variant="outline"${a.id ? ` id="${a.id}"` : ""}${a.a ? ` data-a="${a.a}"` : ""} title="${esc(a.title)}">${a.icon ?? ""}<span>${esc(a.label)}</span></button>`).join("");
-    return `<div class="empty" data-state="${state}"${o.inline ? " data-inline" : ""} role="status"${o.style ? ` style="${o.style}"` : ""}>` + (o.icon ? `<span class="empty-ico">${o.icon}</span>` : "") + `<p class="empty-t">${esc(text)}</p>` + (hint ? `<p class="empty-h">${hint}</p>` : "") + (acts ? `<div class="empty-a">${acts}</div>` : "") + `</div>`;
+    return `<div class="empty" data-state="${state}"${o.inline ? " data-inline" : ' role="status"'}${o.style ? ` style="${o.style}"` : ""}>` + (o.icon ? `<span class="empty-ico">${o.icon}</span>` : "") + `<p class="empty-t">${esc(text)}</p>` + (hint ? `<p class="empty-h">${hint}</p>` : "") + (acts ? `<div class="empty-a">${acts}</div>` : "") + `</div>`;
   }
   var CLEAR = { a: "clear", label: "Clear filter", title: "Show everything again" };
 
@@ -2124,7 +2124,7 @@ ${body}`;
         const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g sect" data-level="group">${esc(it.group)}</div>` : "";
         lastGroup = it.group;
         return `${head}<div class="row fe-pal-i${i3 === at ? " on" : ""}" role="option" aria-selected="${i3 === at}" data-i="${i3}" data-tab="${tabOf(it)}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
-      }).join("") : late.length && tab !== "all" && !counts.get(tab) ? emptyHtml("loading", "Loading\u2026") : emptyHtml("filtered", "Nothing matches", { hintHtml: "<kbd>esc</kbd> clears the box" });
+      }).join("") : late.length && tab !== "all" && !counts.get(tab) ? emptyHtml("loading", "Loading\u2026") : emptyHtml("filtered", "Nothing matches", { hint: "Try fewer letters, or another tab" });
       list3.querySelector(".on")?.scrollIntoView({ block: "nearest" });
     };
     const setTab = (t) => {
@@ -4897,17 +4897,21 @@ Now: ${question}` : question;
         return;
       }
       hist.style.display = "";
-      hist.textContent = "reading versions\u2026";
+      hist.innerHTML = emptyHtml("loading", "Reading versions\u2026", { inline: true });
       try {
         const { versions: vs, repo } = await notes.history(root, edit?.rel ?? doc.rel);
         if (!vs.length) {
-          hist.textContent = repo === false ? "No versions yet: the notes folder is not a git repository (Switchboard makes it one on its first save)." : "No versions yet: this note has not been committed to the notes folder's git history.";
+          hist.innerHTML = emptyHtml("empty", "No versions yet", { inline: true, hint: repo === false ? "The notes folder is not a git repository; Switchboard makes it one on its first save." : "This note has not been committed to the notes folder's git history." });
           return;
         }
         hist.innerHTML = vs.slice(0, 30).map((v) => `<button class="row fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join("") + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : "");
         hist.querySelectorAll(".fe-hist-row").forEach((b) => b.addEventListener("click", () => void showVersion(b.dataset.sha)));
       } catch (err) {
-        hist.textContent = `versions failed: ${err.message}`;
+        hist.innerHTML = emptyHtml("failed", "Versions could not be read", { inline: true, hint: err.message, actions: [{ a: "retry", label: "Try again", title: "Read the versions again" }] });
+        hist.querySelector('[data-a="retry"]')?.addEventListener("click", () => {
+          hist.style.display = "none";
+          void toggleVersions();
+        });
       }
     };
     const showVersion = async (sha) => {
@@ -5402,6 +5406,7 @@ Now: ${question}` : question;
 .btn:not(:disabled):not([aria-disabled="true"])[data-variant="outline"]:hover{border-color:var(--mt)}
 .btn:not(:disabled):not([aria-disabled="true"])[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
 .btn:not(:disabled):not([aria-disabled="true"])[data-tone="danger"]:hover{color:var(--tone-danger)}
+.btn.kb{color:var(--tx);background:var(--hover)}
 .btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"],.btn:has(> input:checked){color:var(--ac);background:var(--on)}
 .btn[data-variant="outline"]:is(.on,.active,[aria-pressed="true"],:has(> input:checked)){border-color:color-mix(in srgb,var(--ac) 45%,transparent)}
 /* A toggle can wrap a native check box, laid invisibly over the whole button. */
@@ -6025,9 +6030,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-ai-hint{font-size:var(--fs-sm);color:var(--dm);margin-top:8px;line-height:1.5}
 .fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 4px;
   font-family:'SF Mono',Menlo,Consolas,monospace;font-size:var(--fs-sm);color:var(--mt)}
-.fe-row.selected td{background:var(--on)}
-.fe-row.selected .fe-nm{color:var(--ac)}
-.fe-tile.selected{background:var(--on);border-color:var(--ac)}
 #fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
 #fe-ql-dialog{position:relative;z-index:1;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);max-width:calc(100vw - 16px);max-height:calc(100vh - 16px)}
 #fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;z-index:2}
@@ -6574,7 +6576,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-table tbody td:last-child{border-radius:0 8px 8px 0}
 #fe-scroll{padding:0 6px}
 .fe-row.selected .fe-nm{color:var(--tx)}
-.fe-tile.selected{border-color:transparent}
+.fe-tile.selected{background:var(--on);border-color:transparent}
 
 /* One row and one floating surface. Every list row (Places, Saved, Notes,
    History, the path menu, context menus) shares a height, inset, corner,
@@ -18656,7 +18658,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const busy = ls.deepScanning || !!nameFilterAbort || app.fileMode;
       const filtered = !!ls.filter.q || ls.filter.type !== "all" || !!ls.contentHits;
       box.hidden = busy || seen > 0;
-      box.innerHTML = box.hidden ? "" : filtered ? emptyHtml("filtered", "Nothing here matches", { actions: [CLEAR] }) : lastEntries.length ? emptyHtml("empty", "Only hidden files here", { hintHtml: "Press <kbd>.</kbd> to show them" }) : emptyHtml("empty", "This folder is empty");
+      const showThem = "Press <kbd>.</kbd> to show them";
+      box.innerHTML = box.hidden ? "" : filtered && lastEntries.length ? emptyHtml("filtered", "Only hidden files match", { hintHtml: showThem, actions: [CLEAR] }) : filtered ? emptyHtml("filtered", "Nothing here matches", { actions: [CLEAR] }) : lastEntries.length ? emptyHtml("empty", "Only hidden files here", { hintHtml: showThem }) : ls.deepOn ? emptyHtml("empty", "Nothing in these folders", { hint: showHidden ? "" : "Hidden files are left out of a subfolder search" }) : emptyHtml("empty", "This folder is empty");
     }
     app.applyAll = applyAll;
     void loadOpenCounts(all).then((m) => {
@@ -18681,10 +18684,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         applyAll();
         return;
       }
-      nameMatches = /* @__PURE__ */ new Set();
-      applyAll();
       const controller = new AbortController();
       nameFilterAbort = controller;
+      nameMatches = /* @__PURE__ */ new Set();
+      applyAll();
       const entries = [...nonPar, ...ls.deepEntries ?? [], ...[...treeChildren.values()].flat()];
       nameFilterReady = filterNames(entries, ls.filter.q, controller.signal).then((matches) => {
         if (nameFilterAbort !== controller) return;
@@ -19737,7 +19740,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   }
 
   // src/focus-nav.ts
-  var visible = (x) => !!x && x.offsetParent !== null;
+  var visible = (x) => !!x && x.checkVisibility();
   var isTyping = (x) => !!x && (["INPUT", "TEXTAREA", "SELECT"].includes(x.tagName) || x.isContentEditable) && !x.type?.match(/^(checkbox|radio|range|button)$/);
   var MENU_SEL = "#fe-ctx, .fe-ctx, #fe-crumb-menu, .fe-pmenu";
   var ITEM_SEL = ".fe-ctx-item, .fe-dd-item, .fe-pmenu button";
@@ -21448,7 +21451,7 @@ ${rows.join("\n")}`, name: subject };
         <span class="fe-rule-n" title="Matches in this folder">${bad ? "!" : hits(rule.pattern)}</span>
         <button type="button" class="btn fe-ibtn fe-st-rule-del" data-icon data-size="sm" data-tone="danger" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
       </div>`;
-      }).join("") : '<p class="fe-set-note">No rules. Add one, or pick a suggestion.</p>';
+      }).join("") : emptyHtml("empty", "No rules yet", { inline: true, hint: "Add one, or pick a suggestion" });
       const have = new Set(app.iconRules.map((r) => r.pattern));
       const left = RULE_SUGGESTIONS.filter((s) => !have.has(s.pattern));
       el("fe-st-rule-sugg").innerHTML = left.length ? `<span class="fe-rule-sugg-l">Add</span>` + left.map((s) => `<button type="button" class="chip fe-rule-add" data-add data-name="${esc(s.name)}" title="${esc(s.pattern)}">${icoCustom(s.label, s.color, s.glyph)}${esc(s.name)}</button>`).join("") : "";

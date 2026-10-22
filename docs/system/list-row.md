@@ -21,8 +21,17 @@ washes or the text colour for a state.
 Screen readers hear the state too: the sidebar's current place carries
 `aria-current="page"`, palette and dropdown rows carry `aria-selected`.
 
-The listing's table rows and tiles keep their own layout and take the same
-two washes: `#fe-table tbody tr.selected td` and the tiles use `--on`.
+Two lists cannot take the class, because `row` is a flex line: the listing's
+table rows and its tiles. They keep their own state rules, written with the
+same two tokens (`#fe-table tbody tr.selected td` and `.fe-tile.selected` use
+`--on`, their hover uses `--hover`), and the ratchet does not count them.
+
+A button inside a menu (the note properties menu) is a Button, not a row; the
+Button part gives its keyboard cursor the same `--hover` wash.
+
+The palette has no separate cursor: the highlighted entry is the selected one,
+and Enter runs it, so it shows `--on`. A dropdown option that is both the
+chosen value and under the cursor shows `--on`.
 
 ## Sanctioned and banned
 

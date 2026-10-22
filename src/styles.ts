@@ -92,6 +92,7 @@ export const CSS = `
 .btn:not(:disabled):not([aria-disabled="true"])[data-variant="outline"]:hover{border-color:var(--mt)}
 .btn:not(:disabled):not([aria-disabled="true"])[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
 .btn:not(:disabled):not([aria-disabled="true"])[data-tone="danger"]:hover{color:var(--tone-danger)}
+.btn.kb{color:var(--tx);background:var(--hover)}
 .btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"],.btn:has(> input:checked){color:var(--ac);background:var(--on)}
 .btn[data-variant="outline"]:is(.on,.active,[aria-pressed="true"],:has(> input:checked)){border-color:color-mix(in srgb,var(--ac) 45%,transparent)}
 /* A toggle can wrap a native check box, laid invisibly over the whole button. */
@@ -715,9 +716,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-ai-hint{font-size:var(--fs-sm);color:var(--dm);margin-top:8px;line-height:1.5}
 .fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 4px;
   font-family:'SF Mono',Menlo,Consolas,monospace;font-size:var(--fs-sm);color:var(--mt)}
-.fe-row.selected td{background:var(--on)}
-.fe-row.selected .fe-nm{color:var(--ac)}
-.fe-tile.selected{background:var(--on);border-color:var(--ac)}
 #fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
 #fe-ql-dialog{position:relative;z-index:1;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);max-width:calc(100vw - 16px);max-height:calc(100vh - 16px)}
 #fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;z-index:2}
@@ -1264,7 +1262,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-table tbody td:last-child{border-radius:0 8px 8px 0}
 #fe-scroll{padding:0 6px}
 .fe-row.selected .fe-nm{color:var(--tx)}
-.fe-tile.selected{border-color:transparent}
+.fe-tile.selected{background:var(--on);border-color:transparent}
 
 /* One row and one floating surface. Every list row (Places, Saved, Notes,
    History, the path menu, context menus) shares a height, inset, corner,

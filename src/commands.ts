@@ -232,7 +232,7 @@ export function openPalette(prefill = ''): void {
       const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g sect" data-level="group">${esc(it.group)}</div>` : '';
       lastGroup = it.group;
       return `${head}<div class="row fe-pal-i${i === at ? ' on' : ''}" role="option" aria-selected="${i === at}" data-i="${i}" data-tab="${tabOf(it)}">${it.icon ?? ''}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ''}${(it.keys ?? []).slice(0, 1).map(k => `<kbd>${esc(k)}</kbd>`).join('')}</div>`;
-    }).join('') : (late.length && tab !== 'all' && !counts.get(tab) ? emptyHtml('loading', 'Loading…') : emptyHtml('filtered', 'Nothing matches', { hintHtml: '<kbd>esc</kbd> clears the box' }));
+    }).join('') : (late.length && tab !== 'all' && !counts.get(tab) ? emptyHtml('loading', 'Loading…') : emptyHtml('filtered', 'Nothing matches', { hint: 'Try fewer letters, or another tab' }));
     list.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
   };
   const setTab = (t: PaletteTab | 'all') => { tab = t; at = 0; paint(); };

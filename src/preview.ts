@@ -26,6 +26,7 @@ import {
 } from './editor';
 import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
 import { addTurn } from './ask-history';
+import { emptyHtml } from './empty-state';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
 
@@ -547,21 +548,24 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   const toggleVersions = async () => {
     if (hist.style.display !== 'none') { hist.style.display = 'none'; renderView(); return; }
     hist.style.display = '';
-    hist.textContent = 'reading versions…';
+    hist.innerHTML = emptyHtml('loading', 'Reading versions…', { inline: true });
     try {
       // The note may have been renamed since it opened (a first save names it), so ask under its current name.
       const { versions: vs, repo } = await notes.history(root, edit?.rel ?? doc.rel);
       if (!vs.length) {
-        hist.textContent = repo === false
-          ? 'No versions yet: the notes folder is not a git repository (Switchboard makes it one on its first save).'
-          : 'No versions yet: this note has not been committed to the notes folder\'s git history.';
+        hist.innerHTML = emptyHtml('empty', 'No versions yet', { inline: true, hint: repo === false
+          ? 'The notes folder is not a git repository; Switchboard makes it one on its first save.'
+          : 'This note has not been committed to the notes folder\'s git history.' });
         return;
       }
       hist.innerHTML = vs.slice(0, 30).map(v =>
         `<button class="row fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join('')
         + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : '');
       hist.querySelectorAll<HTMLElement>('.fe-hist-row').forEach(b => b.addEventListener('click', () => void showVersion(b.dataset.sha!)));
-    } catch (err) { hist.textContent = `versions failed: ${(err as NotesError).message}`; }
+    } catch (err) {
+      hist.innerHTML = emptyHtml('failed', 'Versions could not be read', { inline: true, hint: (err as NotesError).message, actions: [{ a: 'retry', label: 'Try again', title: 'Read the versions again' }] });
+      hist.querySelector('[data-a="retry"]')?.addEventListener('click', () => { hist.style.display = 'none'; void toggleVersions(); });
+    }
   };
   const showVersion = async (sha: string) => {
     hist.querySelectorAll<HTMLElement>('.fe-hist-row').forEach(b => b.classList.toggle('active', b.dataset.sha === sha));

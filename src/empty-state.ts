@@ -30,7 +30,7 @@ export function emptyHtml(state: ListState, text: string, o: EmptyOpts = {}): st
   const hint = o.hintHtml ?? (o.hint ? esc(o.hint) : '');
   const acts = (o.actions ?? []).map(a =>
     `<button type="button" class="btn" data-size="sm" data-variant="outline"${a.id ? ` id="${a.id}"` : ''}${a.a ? ` data-a="${a.a}"` : ''} title="${esc(a.title)}">${a.icon ?? ''}<span>${esc(a.label)}</span></button>`).join('');
-  return `<div class="empty" data-state="${state}"${o.inline ? ' data-inline' : ''} role="status"${o.style ? ` style="${o.style}"` : ''}>`
+  return `<div class="empty" data-state="${state}"${o.inline ? ' data-inline' : ' role="status"'}${o.style ? ` style="${o.style}"` : ''}>`
     + (o.icon ? `<span class="empty-ico">${o.icon}</span>` : '')
     + `<p class="empty-t">${esc(text)}</p>`
     + (hint ? `<p class="empty-h">${hint}</p>` : '')

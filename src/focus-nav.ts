@@ -16,7 +16,8 @@ import { homeDir, getSaved, getRecents } from './storage';
 import { PI } from './icons';
 import { fileHref, pageHref, esc } from './utils';
 
-const visible = (x: Element | null): x is HTMLElement => !!x && (x as HTMLElement).offsetParent !== null;
+// offsetParent alone calls every fixed-position element hidden, menus included.
+const visible = (x: Element | null): x is HTMLElement => !!x && (x as HTMLElement).checkVisibility();
 const isTyping = (x: Element | null) => !!x && (['INPUT', 'TEXTAREA', 'SELECT'].includes(x.tagName) || (x as HTMLElement).isContentEditable)
   && !(x as HTMLInputElement).type?.match(/^(checkbox|radio|range|button)$/);
 

@@ -18,6 +18,7 @@ import { setSidebarShown } from './motion';
 import { setUiScale } from './chrome';
 import { upgradeControls, switchHtml, type ValuedEl, type DropdownEl } from './controls';
 import { setThemeMode, setAppIcon, appIconUrl, appIconPref, type ThemeMode } from './theme';
+import { emptyHtml } from './empty-state';
 
 // Ready-made rules offered above the list; each appears until it is added.
 const RULE_SUGGESTIONS: (Omit<IconRule, 'id' | 'enabled'> & { name: string })[] = [
@@ -56,7 +57,7 @@ export function initSettingsUi(app: App): void {
         <span class="fe-rule-n" title="Matches in this folder">${bad ? '!' : hits(rule.pattern)}</span>
         <button type="button" class="btn fe-ibtn fe-st-rule-del" data-icon data-size="sm" data-tone="danger" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
       </div>`;
-    }).join('') : '<p class="fe-set-note">No rules. Add one, or pick a suggestion.</p>';
+    }).join('') : emptyHtml('empty', 'No rules yet', { inline: true, hint: 'Add one, or pick a suggestion' });
     const have = new Set(app.iconRules.map(r => r.pattern));
     const left = RULE_SUGGESTIONS.filter(s => !have.has(s.pattern));
     el('fe-st-rule-sugg').innerHTML = left.length ? `<span class="fe-rule-sugg-l">Add</span>` + left.map(s =>

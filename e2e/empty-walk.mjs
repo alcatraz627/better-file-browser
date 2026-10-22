@@ -83,6 +83,11 @@ try {
   if (!shownBefore) {
     check(d?.text === 'Only hidden files here' && d.shown, `a folder of hidden files says they are hidden: ${JSON.stringify(d)}`);
     await p3.screenshot({ path: await shot(p3, 'empty-hidden') });
+    // A filter whose only match is hidden says so, rather than "nothing matches".
+    await p3.click('#fe-search'); await p3.keyboard.type('only'); await sleep(400);
+    const hm = await state(p3, '#fe-empty .empty');
+    check(hm?.text === 'Only hidden files match' && hm.acts.includes('Clear filter'), `a filter matching only hidden files says so: ${JSON.stringify(hm)}`);
+    await p3.click('#fe-empty [data-a="clear"]'); await sleep(300);
     await p3.click('#fe-hidden-btn'); await sleep(300);
     check(await p3.$eval('#fe-empty', e => e.hidden), 'showing hidden files takes the message away');
   } else console.log('     (hidden files shown by default here; skipped)');
