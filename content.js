@@ -19487,6 +19487,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       card3.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="fe-chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
       const r = item.getBoundingClientRect();
       card3.hidden = false;
+      raise(card3);
       const h = card3.offsetHeight, w = card3.offsetWidth;
       const sideRight = el("fe-side").getBoundingClientRect().right;
       if (sideRight + 8 + w <= innerWidth - 8) {

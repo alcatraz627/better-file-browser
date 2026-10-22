@@ -38,6 +38,21 @@ try {
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
 
+  // Resting on a Saved row shows its card beside the sidebar.
+  await page.keyboard.press('b');
+  await page.keyboard.press('g'); await page.keyboard.press('2');
+  await new Promise(res => setTimeout(res, 1500));
+  const saved = await page.$('#fe-lens-saved .fe-pl-item');
+  if (saved) {
+    await saved.hover();
+    await new Promise(res => setTimeout(res, 700));
+    const card = await page.$eval('#fe-sv-card', c => ({ shown: !c.hidden, top: c.matches(':popover-open'), text: c.querySelector('b')?.textContent}));
+    console.log(`${card.shown && card.top ? 'ok  ' : 'FAIL'} a Saved row shows its card in the top layer: ${JSON.stringify(card)}`);
+    if (!(card.shown && card.top)) process.exitCode = 1;
+    await page.screenshot({ path: new URL('./shots/layer-saved-card-light.png', import.meta.url).pathname, clip: { x: 0, y: 40, width: 640, height: 200 } });
+    await page.mouse.move(900, 600);
+  } else { console.log('FAIL no Saved row to hover'); process.exitCode = 1; }
+
   // The tab's "…" button, pressed with a real mouse: open, then shut, then open.
   await page.keyboard.press('t');
   await new Promise(res => setTimeout(res, 200));

@@ -19,7 +19,7 @@ import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { foldTo } from './motion';
 import { addPaletteSource } from './commands';
-import { openLayer, type Layer } from './layer';
+import { openLayer, raise, type Layer } from './layer';
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
 const LENS_KEY = 'bfb-lens-v1';
@@ -199,6 +199,7 @@ export function initSidebar(app: App): void {
       + `<span class="fe-svc-hint">Double-click to rename · drag to reorder</span>`;
     const r = item.getBoundingClientRect();
     card.hidden = false;
+    raise(card);
     const h = card.offsetHeight, w = card.offsetWidth;
     // Beside the sidebar, level with the row, so it never covers the rows a
     // person moves on to; below the row only when the window is too narrow.
