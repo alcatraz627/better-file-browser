@@ -6,7 +6,7 @@ import type { Listing } from './listing';
 import { el } from './el';
 import { esc, fullPath, copyToClipboard, pageHref } from './utils';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab } from './preview';
-import { bind, addPaletteSource } from './commands';
+import { bind, addPaletteSource, runCommand } from './commands';
 import { openLayer, raise, topmost, type Layer } from './layer';
 import { getSortConfig, getGroupMode, isSaved, toggleSaved } from './storage';
 import { getIcon, PI } from './icons';
@@ -191,7 +191,7 @@ export function initListingInput(app: App, listing: Listing): void {
       if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); closePreview(); }
       else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); sel.previewStep(1); }
       else if (e.key === 'ArrowUp'   || e.key === 'ArrowLeft')  { e.preventDefault(); sel.previewStep(-1); }
-      else if (e.key === 'Enter') { const en = previewEntry(); if (en) location.href = pageHref(en.href); }
+      else if (e.key === 'Enter') runCommand('pv-open');
       else if (e.key === 't' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); keepPreviewedAsTab(); }
       else if (['[', ']', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
       return;
@@ -203,7 +203,7 @@ export function initListingInput(app: App, listing: Listing): void {
     else if (e.key === 'ArrowUp' && !app.fileMode)   { e.preventDefault(); sel.moveSel(-1); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); sel.selectAll(); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c' && ls.selSet.size) { e.preventDefault(); sel.copySelection(); }
-    else if (e.key === 'Enter' && ls.selIdx >= 0) { location.href = pageHref(ls.visible[ls.selIdx].href); }
+    else if (e.key === 'Enter' && ls.selIdx >= 0) runCommand('open');
     else if (e.key === 'Backspace') { e.preventDefault(); app.goUp(); }
     else if (e.key === ' ' && ls.selIdx >= 0) { e.preventDefault(); sel.tryPreview(ls.visible[ls.selIdx]); }
     else if (e.key === 'n' && !e.metaKey && !e.ctrlKey && app.settings.notesRoot) { e.preventDefault(); app.newNote(); }
@@ -237,6 +237,15 @@ export function initListingInput(app: App, listing: Listing): void {
   bind('open-bg', () => { const en = lead(); if (en && !en.isParent) { app.strip.open(fullPath(rawPath, en), true); toast(`Kept ${en.name} as a tab`); } }, () => onListing() && !!lead());
   bind('open-chrome', () => { const en = lead(); if (en) window.open(en.href, '_blank'); }, () => onListing() && !!lead());
   bind('copy-path', () => { const en = lead(); if (en) copyText(fullPath(rawPath, en)); }, () => onListing() && !!lead());
+  // Keys the listing answers itself, bound here too so the palette can run them.
+  bind('up', () => app.goUp());
+  bind('open', () => { const en = lead(); if (en) location.href = pageHref(en.href); }, () => onListing() && !!lead());
+  bind('look', () => { const en = lead(); if (en) sel.tryPreview(en); }, () => onListing() && !!lead() && canPreview(lead()!));
+  bind('select-all', () => sel.selectAll(), onListing);
+  bind('copy-paths', () => sel.copySelection(), () => onListing() && ls.selSet.size > 0);
+  bind('pv-close', () => closePreview(), () => isPreviewOpen());
+  bind('pv-open', () => { const en = previewEntry(); if (en) location.href = pageHref(en.href); }, () => isPreviewOpen() && !!previewEntry());
+  bind('pv-tab', () => keepPreviewedAsTab(), () => isPreviewOpen());
   bind('copy-name', () => { const en = lead(); if (en) copyText(en.name); }, () => onListing() && !!lead());
   bind('menu', () => {
     const row = leadRow();

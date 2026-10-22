@@ -38,6 +38,24 @@ try {
   await page.keyboard.type('saved');
   const typedAll = await page.$$eval('.fe-pal-i', rows => [...new Set(rows.map(r => r.dataset.tab))]);
   check(typedAll.length > 1, `typing in All matches across kinds: ${typedAll.join(',')}`);
+  // Keys the listing answers itself are in the palette too.
+  const find = async want => {
+    await page.$eval('.fe-pal input', i => { i.value = ''; });
+    await page.keyboard.type(want.toLowerCase());
+    return page.$eval('.fe-pal-i .fe-pal-t', t => t.textContent).catch(() => '');
+  };
+  for (const want of ['Parent folder', 'Select all']) { const top = await find(want); check(top === want, `typing "${want.toLowerCase()}" finds ${want}: ${top}`); }
+  const noLead = await find('Preview');
+  check(noLead !== 'Preview', `Preview is not offered with nothing selected: ${noLead || 'none'}`);
+  await page.keyboard.press('Escape');
+  // With a file selected, Preview is offered and runs.
+  await page.keyboard.press('End');
+  await open();
+  const withLead = await find('Preview');
+  check(withLead === 'Preview', `with a file selected, typing "preview" finds Preview: ${withLead}`);
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.getElementById('fe-qlook')?.style.display === 'flex', { timeout: 3000 }).catch(() => null);
+  check(await page.$eval('#fe-qlook', q => q.style.display === 'flex'), 'running Preview from the palette opens the preview');
   await page.keyboard.press('Escape');
 } finally { await h.close(); }
 console.log(failed ? `${failed} check(s) failed` : 'all checks passed');

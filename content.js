@@ -19021,10 +19021,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
           e.preventDefault();
           sel.previewStep(-1);
-        } else if (e.key === "Enter") {
-          const en = previewEntry();
-          if (en) location.href = pageHref(en.href);
-        } else if (e.key === "t" && !e.metaKey && !e.ctrlKey) {
+        } else if (e.key === "Enter") runCommand("pv-open");
+        else if (e.key === "t" && !e.metaKey && !e.ctrlKey) {
           e.preventDefault();
           keepPreviewedAsTab();
         } else if (["[", "]", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
@@ -19049,9 +19047,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c" && ls.selSet.size) {
         e.preventDefault();
         sel.copySelection();
-      } else if (e.key === "Enter" && ls.selIdx >= 0) {
-        location.href = pageHref(ls.visible[ls.selIdx].href);
-      } else if (e.key === "Backspace") {
+      } else if (e.key === "Enter" && ls.selIdx >= 0) runCommand("open");
+      else if (e.key === "Backspace") {
         e.preventDefault();
         app.goUp();
       } else if (e.key === " " && ls.selIdx >= 0) {
@@ -19106,6 +19103,23 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const en = lead();
       if (en) copyText(fullPath(rawPath, en));
     }, () => onListing() && !!lead());
+    bind("up", () => app.goUp());
+    bind("open", () => {
+      const en = lead();
+      if (en) location.href = pageHref(en.href);
+    }, () => onListing() && !!lead());
+    bind("look", () => {
+      const en = lead();
+      if (en) sel.tryPreview(en);
+    }, () => onListing() && !!lead() && canPreview(lead()));
+    bind("select-all", () => sel.selectAll(), onListing);
+    bind("copy-paths", () => sel.copySelection(), () => onListing() && ls.selSet.size > 0);
+    bind("pv-close", () => closePreview(), () => isPreviewOpen());
+    bind("pv-open", () => {
+      const en = previewEntry();
+      if (en) location.href = pageHref(en.href);
+    }, () => isPreviewOpen() && !!previewEntry());
+    bind("pv-tab", () => keepPreviewedAsTab(), () => isPreviewOpen());
     bind("copy-name", () => {
       const en = lead();
       if (en) copyText(en.name);
