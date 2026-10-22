@@ -230,7 +230,7 @@ body{opacity:1!important}
 #fe[data-theme="light"] #fe-theme-btn #fe-sun{display:block}
 #fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
 #fe-body{display:flex;flex:1;overflow:hidden}
-#fe-side{width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#fe-side{position:relative;width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
 /* The lens bar sits on top: icons in a row, the open lens grown to show its
    name; the wheel over the bar moves between lenses. The lens fills the rest. */
 #fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:6px 6px;border-bottom:1px solid var(--bd);overflow:hidden}
@@ -639,7 +639,12 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 /* Dialog: Settings and Help. A Panel over a Scrim with the title and the
    tabs down the left and one scrolling pane on the right. Every rule for it
    is here, and in the 700px block at the end (docs/system/dialog.md). */
-.fe-dlg{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center}
+.fe-dlg{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;container:dlg/inline-size}
+/* In the sidebar: the same box fills a pane over the lenses. */
+#fe-side-pane{position:absolute;inset:0;display:flex;container:dlg/inline-size;background:var(--side)}
+#fe-side-pane[hidden]{display:none}
+.fe-dlg-box.panel[data-dock]{width:100%;height:100%;max-height:none}
+.fe-dlg-box[data-dock] [id$="-size"]{display:none}
 .fe-dlg-box{position:relative;z-index:1;display:grid;grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
   width:min(1000px,calc(100vw - 48px));height:min(780px,84vh)}
 /* Large and extra large never come out smaller than the panel's own size. */
@@ -1662,15 +1667,24 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   #fe-side-rz{width:6px}
   #fe-qlook.side{margin-left:6px}
 }
-@media (max-width:700px){
-  /* Dialog: the tabs run across the top. */
+/* A narrow dialog, in a small window or in the sidebar: the tabs run across the top. */
+@container dlg (max-width:700px){
   .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
   .fe-dlg-title{border-right:0}
   .fe-dlg-tabs{grid-row:2;flex-direction:row;border-right:0;border-bottom:1px solid var(--bd)}
   .fe-dlg-tab{flex:none}
   .fe-dlg-tab i{display:none}
   .fe-dlg-pane{grid-column:1;grid-row:3}
-  .fe-set{flex-wrap:wrap}
-  .fe-set-c{max-width:100%}
+  /* Settings rows stack: the label, then the control the full width. Written
+     one step more specific than the wide rules in styles-ui.ts, which come later. */
+  .fe-set-card .fe-set{flex-direction:column;align-items:stretch;gap:var(--sp-4)}
+  .fe-set > .fe-set-c{max-width:none;justify-content:flex-start}
+  .fe-set-c .fe-set-sws.grid4{grid-template-columns:repeat(auto-fill,minmax(68px,1fr));justify-content:start}
+  .fe-set-c .fe-set-sws{width:100%;justify-content:flex-start}
+  /* Help: one column of cards; the page header needs no room for the buttons. */
+  .fe-dlg-pane .fe-hcs{grid-template-columns:minmax(0,1fr)}
+  .fe-dlg-ph{padding-right:var(--sp-8)}
+  .fe-km-g .fe-km-i{flex-wrap:wrap;padding-block:var(--sp-2)}
+  .fe-km-i .fe-km-k{flex-wrap:wrap;margin-left:auto}
 }
 `;

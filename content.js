@@ -626,6 +626,19 @@
     } catch {
     }
   }
+  function getDialogPlace(id) {
+    try {
+      return kvGet(`bfb-dialog-place:${id}`) === "side" ? "side" : "window";
+    } catch {
+      return "window";
+    }
+  }
+  function saveDialogPlace(id, place) {
+    try {
+      kvSet(`bfb-dialog-place:${id}`, place);
+    } catch {
+    }
+  }
 
   // src/notes.ts
   var NotesError = class extends Error {
@@ -2117,6 +2130,77 @@ ${body}`;
     } };
   }
 
+  // src/el.ts
+  function el(id) {
+    return document.getElementById(id);
+  }
+  function els(selector, root = document) {
+    return [...root.querySelectorAll(selector)];
+  }
+
+  // src/motion.ts
+  var reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var EASE = "cubic-bezier(.2,.8,.2,1)";
+  var running = null;
+  var folding = /* @__PURE__ */ new WeakMap();
+  function foldTo(box, flip, done) {
+    const prev = folding.get(box);
+    if (prev) {
+      prev.anim.cancel();
+      prev.end();
+    }
+    if (reduced()) {
+      flip();
+      done?.();
+      return;
+    }
+    const from = box.offsetHeight;
+    flip();
+    const to = box.offsetHeight;
+    flip();
+    const closing = to < from;
+    if (!closing) flip();
+    box.style.overflow = "hidden";
+    const anim = box.animate(
+      [{ height: from + "px", opacity: closing ? 1 : 0.4 }, { height: to + "px", opacity: closing ? 0.4 : 1 }],
+      { duration: 200, easing: EASE }
+    );
+    const end = () => {
+      folding.delete(box);
+      box.style.overflow = "";
+      if (closing) flip();
+      done?.();
+    };
+    folding.set(box, { anim, end });
+    anim.onfinish = () => {
+      if (folding.get(box)?.anim === anim) end();
+    };
+  }
+  var wanted = null;
+  function sidebarShown() {
+    return wanted ?? el("fe-side").style.display !== "none";
+  }
+  function setSidebarShown(show) {
+    wanted = show;
+    const side = el("fe-side"), rz = el("fe-side-rz");
+    running?.cancel();
+    running = null;
+    const shown = side.style.display !== "none";
+    if (show === shown) return;
+    if (reduced()) {
+      side.style.display = rz.style.display = show ? "" : "none";
+      return;
+    }
+    if (show) side.style.display = rz.style.display = "";
+    const w = side.offsetWidth;
+    const open = [{ width: "0px", opacity: 0, marginRight: "-10px" }, { width: w + "px", opacity: 1, marginRight: "0px" }];
+    running = side.animate(show ? open : [...open].reverse(), { duration: 220, easing: EASE });
+    running.onfinish = () => {
+      running = null;
+      if (!show) side.style.display = rz.style.display = "none";
+    };
+  }
+
   // src/dialog.ts
   var mounted = [];
   var openOne = () => mounted.find((d) => d.isOpen());
@@ -2131,7 +2215,7 @@ ${body}`;
         <span class="fe-dlg-mark">${d.mark}</span>
         <span class="sect-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
       </div>
-      <div class="fe-dlg-acts">${SIZE_BTN(`${esc(d.id)}-size`)}<button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button></div>
+      <div class="fe-dlg-acts"><button class="btn fe-dlg-place" data-icon title="Open in the sidebar">${UI_ICON.preview}</button>${SIZE_BTN(`${esc(d.id)}-size`)}<button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button></div>
       <div class="fe-dlg-tabs" role="tablist">
         ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ""}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
       </div>
@@ -2147,14 +2231,35 @@ ${body}`;
     const el2 = focusStack.pop() ?? null;
     if (el2 && document.contains(el2) && typeof el2.focus === "function") el2.focus();
   }
+  function sidePane() {
+    const side = document.getElementById("fe-side");
+    if (!side) return null;
+    let pane = document.getElementById("fe-side-pane");
+    if (!pane) {
+      pane = document.createElement("div");
+      pane.id = "fe-side-pane";
+      pane.hidden = true;
+      side.appendChild(pane);
+    }
+    return pane;
+  }
+  function closeSideDialog() {
+    const d = mounted.find((m) => m.inSide());
+    d?.close();
+    return !!d;
+  }
   function mountDialog(id, hooks = {}) {
     const root = document.getElementById(id);
     const box = root.querySelector(".fe-dlg-box");
     const tabs = [...root.querySelectorAll(".fe-dlg-tab")];
     const panes = [...root.querySelectorAll(".fe-dlg-pane")];
     const memory = `bfb-dialog-tab:${id}`;
+    const placeBtn = root.querySelector(".fe-dlg-place");
     wireSize(root.querySelector(`#${id}-size`), box, id);
-    const isOpen = () => root.style.display !== "none";
+    let place = getDialogPlace(id);
+    const inSide = () => box.parentElement?.id === "fe-side-pane" && !box.parentElement.hidden;
+    const isOpen = () => root.style.display !== "none" || inSide();
+    let unfolded = false;
     function show(tab) {
       if (!tabs.some((t) => t.dataset.tab === tab)) tab = tabs[0]?.dataset.tab ?? "";
       tabs.forEach((t) => t.classList.toggle("on", t.dataset.tab === tab));
@@ -2167,6 +2272,11 @@ ${body}`;
       } catch {
       }
     }
+    const paintPlace = () => {
+      placeBtn.title = place === "side" ? "Open as a window" : "Open in the sidebar";
+      placeBtn.classList.toggle("on", place === "side");
+    };
+    paintPlace();
     let layer = null;
     function open(tab) {
       hooks.onOpen?.();
@@ -2176,6 +2286,19 @@ ${body}`;
       } catch {
       }
       show(tab ?? last);
+      const pane = place === "side" ? sidePane() : null;
+      if (pane) {
+        mounted.find((m) => m.inSide() && m.box !== box)?.close();
+        if (!sidebarShown()) {
+          setSidebarShown(true);
+          unfolded = true;
+        }
+        box.dataset.dock = "";
+        pane.appendChild(box);
+        pane.hidden = false;
+        box.focus();
+        return;
+      }
       root.style.display = "flex";
       if (layer?.open) {
         box.focus();
@@ -2187,16 +2310,37 @@ ${body}`;
       } });
     }
     function close() {
+      if (inSide()) {
+        const pane = box.parentElement;
+        pane.hidden = true;
+        delete box.dataset.dock;
+        root.appendChild(box);
+        if (unfolded) {
+          unfolded = false;
+          setSidebarShown(false);
+        }
+        hooks.onClose?.();
+        return;
+      }
       layer?.close("api");
     }
+    placeBtn.addEventListener("click", () => {
+      const tab = tabs.find((t) => t.classList.contains("on"))?.dataset.tab;
+      close();
+      place = place === "side" ? "window" : "side";
+      saveDialogPlace(id, place);
+      paintPlace();
+      open(tab);
+    });
     tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.tab)));
     root.querySelector(".fe-dlg-close").addEventListener("click", close);
-    focusTrap(box, { when: isOpen });
+    focusTrap(box, { when: () => isOpen() && !inSide() });
     const step2 = (dir) => {
       const i3 = tabs.findIndex((t) => t.classList.contains("on"));
       show(tabs[(i3 + dir + tabs.length) % tabs.length].dataset.tab);
     };
-    mounted.push({ isOpen, step: step2 });
+    const owns = () => root.style.display !== "none" || inSide() && box.contains(document.activeElement);
+    mounted.push({ isOpen: owns, step: step2, inSide, close, box });
     return { open, close, isOpen, show };
   }
 
@@ -5084,77 +5228,6 @@ Now: ${question}` : question;
     if (top) body.scrollTop = top;
   }
 
-  // src/el.ts
-  function el(id) {
-    return document.getElementById(id);
-  }
-  function els(selector, root = document) {
-    return [...root.querySelectorAll(selector)];
-  }
-
-  // src/motion.ts
-  var reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var EASE = "cubic-bezier(.2,.8,.2,1)";
-  var running = null;
-  var folding = /* @__PURE__ */ new WeakMap();
-  function foldTo(box, flip, done) {
-    const prev = folding.get(box);
-    if (prev) {
-      prev.anim.cancel();
-      prev.end();
-    }
-    if (reduced()) {
-      flip();
-      done?.();
-      return;
-    }
-    const from = box.offsetHeight;
-    flip();
-    const to = box.offsetHeight;
-    flip();
-    const closing = to < from;
-    if (!closing) flip();
-    box.style.overflow = "hidden";
-    const anim = box.animate(
-      [{ height: from + "px", opacity: closing ? 1 : 0.4 }, { height: to + "px", opacity: closing ? 0.4 : 1 }],
-      { duration: 200, easing: EASE }
-    );
-    const end = () => {
-      folding.delete(box);
-      box.style.overflow = "";
-      if (closing) flip();
-      done?.();
-    };
-    folding.set(box, { anim, end });
-    anim.onfinish = () => {
-      if (folding.get(box)?.anim === anim) end();
-    };
-  }
-  var wanted = null;
-  function sidebarShown() {
-    return wanted ?? el("fe-side").style.display !== "none";
-  }
-  function setSidebarShown(show) {
-    wanted = show;
-    const side = el("fe-side"), rz = el("fe-side-rz");
-    running?.cancel();
-    running = null;
-    const shown = side.style.display !== "none";
-    if (show === shown) return;
-    if (reduced()) {
-      side.style.display = rz.style.display = show ? "" : "none";
-      return;
-    }
-    if (show) side.style.display = rz.style.display = "";
-    const w = side.offsetWidth;
-    const open = [{ width: "0px", opacity: 0, marginRight: "-10px" }, { width: w + "px", opacity: 1, marginRight: "0px" }];
-    running = side.animate(show ? open : [...open].reverse(), { duration: 220, easing: EASE });
-    running.onfinish = () => {
-      running = null;
-      if (!show) side.style.display = rz.style.display = "none";
-    };
-  }
-
   // src/styles.ts
   var CSS2 = `
 *{box-sizing:border-box;margin:0;padding:0}
@@ -5387,7 +5460,7 @@ body{opacity:1!important}
 #fe[data-theme="light"] #fe-theme-btn #fe-sun{display:block}
 #fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
 #fe-body{display:flex;flex:1;overflow:hidden}
-#fe-side{width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#fe-side{position:relative;width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
 /* The lens bar sits on top: icons in a row, the open lens grown to show its
    name; the wheel over the bar moves between lenses. The lens fills the rest. */
 #fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:6px 6px;border-bottom:1px solid var(--bd);overflow:hidden}
@@ -5796,7 +5869,12 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 /* Dialog: Settings and Help. A Panel over a Scrim with the title and the
    tabs down the left and one scrolling pane on the right. Every rule for it
    is here, and in the 700px block at the end (docs/system/dialog.md). */
-.fe-dlg{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center}
+.fe-dlg{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;container:dlg/inline-size}
+/* In the sidebar: the same box fills a pane over the lenses. */
+#fe-side-pane{position:absolute;inset:0;display:flex;container:dlg/inline-size;background:var(--side)}
+#fe-side-pane[hidden]{display:none}
+.fe-dlg-box.panel[data-dock]{width:100%;height:100%;max-height:none}
+.fe-dlg-box[data-dock] [id$="-size"]{display:none}
 .fe-dlg-box{position:relative;z-index:1;display:grid;grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
   width:min(1000px,calc(100vw - 48px));height:min(780px,84vh)}
 /* Large and extra large never come out smaller than the panel's own size. */
@@ -6819,16 +6897,25 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   #fe-side-rz{width:6px}
   #fe-qlook.side{margin-left:6px}
 }
-@media (max-width:700px){
-  /* Dialog: the tabs run across the top. */
+/* A narrow dialog, in a small window or in the sidebar: the tabs run across the top. */
+@container dlg (max-width:700px){
   .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
   .fe-dlg-title{border-right:0}
   .fe-dlg-tabs{grid-row:2;flex-direction:row;border-right:0;border-bottom:1px solid var(--bd)}
   .fe-dlg-tab{flex:none}
   .fe-dlg-tab i{display:none}
   .fe-dlg-pane{grid-column:1;grid-row:3}
-  .fe-set{flex-wrap:wrap}
-  .fe-set-c{max-width:100%}
+  /* Settings rows stack: the label, then the control the full width. Written
+     one step more specific than the wide rules in styles-ui.ts, which come later. */
+  .fe-set-card .fe-set{flex-direction:column;align-items:stretch;gap:var(--sp-4)}
+  .fe-set > .fe-set-c{max-width:none;justify-content:flex-start}
+  .fe-set-c .fe-set-sws.grid4{grid-template-columns:repeat(auto-fill,minmax(68px,1fr));justify-content:start}
+  .fe-set-c .fe-set-sws{width:100%;justify-content:flex-start}
+  /* Help: one column of cards; the page header needs no room for the buttons. */
+  .fe-dlg-pane .fe-hcs{grid-template-columns:minmax(0,1fr)}
+  .fe-dlg-ph{padding-right:var(--sp-8)}
+  .fe-km-g .fe-km-i{flex-wrap:wrap;padding-block:var(--sp-2)}
+  .fe-km-i .fe-km-k{flex-wrap:wrap;margin-left:auto}
 }
 `;
 
@@ -19727,14 +19814,20 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("to-toolbar", () => goArea("toolbar"));
     const ae = () => document.activeElement;
     const inArea = () => !!areaOf(ae())?.widget;
+    const inSidePane = () => !!ae()?.closest("#fe-side-pane");
     bind("area-leave", () => {
+      if (inSidePane()) {
+        closeSideDialog();
+        runCommand("to-listing");
+        return;
+      }
       const leave = inArea();
       app.closeSideOverlay?.();
       if (leave) {
         ae()?.blur();
         runCommand("to-listing");
       }
-    }, () => inArea() || !!document.querySelector("#fe-side.open"));
+    }, () => inSidePane() || inArea() || !!document.querySelector("#fe-side.open"));
     const sideRow = () => ae()?.closest("#fe-lenses .fe-lens .fe-bm-item, #fe-lenses .fe-lens .fe-pl-item") ?? null;
     const inLens = () => !!ae()?.closest("#fe-lenses .fe-lens");
     const LENS_ROWS = ".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp";

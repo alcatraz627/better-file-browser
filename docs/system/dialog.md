@@ -17,7 +17,19 @@ Settings and Help are Dialogs.
 | Actions | size and close, top right, in `.fe-dlg-acts` |
 | Keys | `[` and `]` change page; Esc closes; Tab stays inside |
 | Memory | the last page and the size, per dialog |
-| Narrow | under 700px the tabs run across the top |
+| Narrow | in a box under 700px the tabs run across the top and Settings rows stack |
+| Place | a window over the page, or a pane over the sidebar; the button left of size moves it, and each dialog remembers its place |
+
+## In the sidebar
+
+The same markup moves into `#fe-side-pane`, over the rail and lenses, so the
+two places cannot drift apart. There it is a docked Panel: no scrim, no corner,
+no size button, and Tab is not held inside it. Esc closes it when the keyboard
+is in it; `[` and `]` change its page only then. A sidebar that was folded comes
+out for it and folds again when it closes.
+
+The narrow layout is a container query on the dialog's own box (`dlg`), so a
+small window and the sidebar share one set of rules.
 
 ## Rules
 

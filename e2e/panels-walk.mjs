@@ -84,6 +84,44 @@ try {
   await page.keyboard.press('Escape'); await sleep(200);
   await page.keyboard.press('Escape'); await sleep(600);
 
+  // Settings in the sidebar: the same dialog, moved into a pane over the
+  // lenses, its tabs across the top; remembered; Esc closes it.
+  await page.keyboard.press(','); await page.waitForSelector('#fe-settings-modal .fe-dlg-box', { visible: true }); await sleep(300);
+  await page.click('#fe-settings-modal .fe-dlg-place'); await sleep(400);
+  const pane = () => page.evaluate(() => {
+    const box = document.querySelector('#fe-settings-modal .fe-dlg-box') ?? document.querySelector('#fe-side-pane .fe-dlg-box');
+    const tabs = box?.querySelector('.fe-dlg-tabs');
+    return { inPane: !!box?.closest('#fe-side-pane'), paneShown: !!document.getElementById('fe-side-pane')?.checkVisibility(),
+      scrim: document.getElementById('fe-settings-modal').style.display, tabsDir: tabs ? getComputedStyle(tabs).flexDirection : null,
+      radius: box ? getComputedStyle(box).borderTopLeftRadius : null, w: Math.round(box?.getBoundingClientRect().width ?? 0) };
+  });
+  const sp = await pane();
+  check(sp.inPane && sp.paneShown && sp.scrim === 'none' && sp.tabsDir === 'row' && sp.radius === '0px', `Settings opens in the sidebar with its tabs across the top: ${JSON.stringify(sp)}`);
+  await page.screenshot({ path: await shot(page, 'panels-settings-side') });
+  await page.focus('#fe-side-pane .fe-dlg-tab.on'); await page.keyboard.press('Escape'); await sleep(300);
+  const shut = await pane();
+  check(!shut.inPane && !shut.paneShown, `Esc in the pane closes it: ${JSON.stringify(shut)}`);
+  await page.keyboard.press(','); await sleep(400);
+  const again = await pane();
+  check(again.inPane && again.paneShown, `Settings reopens in the sidebar: ${JSON.stringify(again)}`);
+  await page.click('#fe-side-pane .fe-dlg-place'); await sleep(400);
+  const win = await pane();
+  check(!win.inPane && win.scrim === 'flex' && win.tabsDir === 'column', `and goes back to a window: ${JSON.stringify(win)}`);
+  await page.keyboard.press('Escape'); await sleep(200);
+
+  // Help in the sidebar: nothing in it is wider than the pane.
+  await page.keyboard.press('?'); await page.waitForSelector('#fe-help-modal .fe-dlg-box', { visible: true }); await sleep(300);
+  await page.click('#fe-help-modal .fe-dlg-place'); await sleep(400);
+  const over = [];
+  for (const t of ['keys', 'start', 'mouse']) {
+    await page.click(`#fe-side-pane .fe-dlg-tab[data-tab="${t}"]`); await sleep(250);
+    over.push(await page.$eval(`#fe-side-pane .fe-dlg-pane[data-tab="${t}"]`, p => ({ t: p.dataset.tab, wide: p.scrollWidth - p.clientWidth })));
+    if (t !== 'mouse') await page.screenshot({ path: await shot(page, `panels-help-side-${t}`) });
+  }
+  check(over.every(o => o.wide <= 1), `Help pages fit the sidebar: ${JSON.stringify(over)}`);
+  await page.click('#fe-side-pane .fe-dlg-place'); await sleep(300);
+  await page.keyboard.press('Escape'); await sleep(200);
+
   // With the setting off, docking leaves the sidebar alone.
   await page.keyboard.press(','); await page.waitForSelector('#fe-st-dock-fold'); await sleep(200);
   await page.evaluate(() => { const b = document.getElementById('fe-st-dock-fold'); b.checked = false; b.dispatchEvent(new Event('change')); });

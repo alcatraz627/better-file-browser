@@ -10,6 +10,7 @@ import { raise, rovingFocus } from './layer';
 import { declareArea, areaOf, areaNamed, cycleArea, allRoots } from './areas';
 import { setTooltipKeys } from './tooltip';
 import { sidebarShown } from './motion';
+import { closeSideDialog } from './dialog';
 import { gotoBackground } from './goto';
 import { homeDir, getSaved, getRecents } from './storage';
 import { PI } from './icons';
@@ -127,11 +128,14 @@ export function initFocusNav(app: App): void {
   // the sidebar, tabs or a toolbar hands the keyboard back to the listing.
   const ae = () => document.activeElement as HTMLElement | null;
   const inArea = () => !!areaOf(ae())?.widget;
+  // A dialog open in the sidebar closes first, when the keyboard is in it.
+  const inSidePane = () => !!ae()?.closest('#fe-side-pane');
   bind('area-leave', () => {
+    if (inSidePane()) { closeSideDialog(); runCommand('to-listing'); return; }
     const leave = inArea();
     app.closeSideOverlay?.();
     if (leave) { ae()?.blur(); runCommand('to-listing'); }
-  }, () => inArea() || !!document.querySelector('#fe-side.open'));
+  }, () => inSidePane() || inArea() || !!document.querySelector('#fe-side.open'));
 
   // Sidebar rows: ⌥↩ keeps a background tab; F2 and ⌫ rename and remove a
   // Saved or Places row (note rows answer these themselves); ← goes to the

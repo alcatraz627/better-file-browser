@@ -212,3 +212,11 @@ export function getPanelSize(key: string): string {
 export function savePanelSize(key: string, size: string): void {
   try { kvSet(`bfb-panel-size:${key}`, size); } catch { /* fine */ }
 }
+
+/** Where a dialog opens: as a window over the page, or in the sidebar. */
+export function getDialogPlace(id: string): 'window' | 'side' {
+  try { return kvGet(`bfb-dialog-place:${id}`) === 'side' ? 'side' : 'window'; } catch { return 'window'; }
+}
+export function saveDialogPlace(id: string, place: 'window' | 'side'): void {
+  try { kvSet(`bfb-dialog-place:${id}`, place); } catch { /* fine */ }
+}

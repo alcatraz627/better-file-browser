@@ -10,9 +10,11 @@ import { UI_ICON } from './control-icons';
 import { openLayer, focusTrap, type Layer } from './layer';
 import { bind } from './commands';
 import { SIZE_BTN, wireSize } from './panel-size';
+import { getDialogPlace, saveDialogPlace } from './storage';
+import { setSidebarShown, sidebarShown } from './motion';
 
 // Every mounted dialog; the page keys act on the one that is open.
-const mounted: { isOpen: () => boolean; step: (dir: 1 | -1) => void }[] = [];
+const mounted: { isOpen: () => boolean; step: (dir: 1 | -1) => void; inSide: () => boolean; close: () => void; box: HTMLElement }[] = [];
 const openOne = () => mounted.find(d => d.isOpen());
 bind('dlg-tabs', key => openOne()?.step(key === '[' ? -1 : 1), () => !!openOne());
 
@@ -31,7 +33,7 @@ export function renderDialog(d: DialogSpec): string {
         <span class="fe-dlg-mark">${d.mark}</span>
         <span class="sect-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
       </div>
-      <div class="fe-dlg-acts">${SIZE_BTN(`${esc(d.id)}-size`)}<button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button></div>
+      <div class="fe-dlg-acts"><button class="btn fe-dlg-place" data-icon title="Open in the sidebar">${UI_ICON.preview}</button>${SIZE_BTN(`${esc(d.id)}-size`)}<button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button></div>
       <div class="fe-dlg-tabs" role="tablist">
         ${d.tabs.map(t => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} · [ ] switch tabs · Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ''}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ''}</button>`).join('')}
       </div>
@@ -53,16 +55,45 @@ export function restoreFocus(): void {
 
 export interface Dialog { open(tab?: string): void; close(): void; isOpen(): boolean; show(tab: string): void }
 
+// The pane over the sidebar that holds a dialog opened there; one at a time.
+function sidePane(): HTMLElement | null {
+  const side = document.getElementById('fe-side');
+  if (!side) return null;
+  let pane = document.getElementById('fe-side-pane');
+  if (!pane) {
+    pane = document.createElement('div');
+    pane.id = 'fe-side-pane';
+    pane.hidden = true;
+    side.appendChild(pane);
+  }
+  return pane;
+}
+
+/** Close whichever dialog is open in the sidebar; false when none is. */
+export function closeSideDialog(): boolean {
+  const d = mounted.find(m => m.inSide());
+  d?.close();
+  return !!d;
+}
+
 // Wire a rendered dialog: close button and scrim, tab switching (the last
-// tab is remembered per dialog), Esc, and focus in and out.
+// tab is remembered per dialog), Esc, and focus in and out. It opens as a
+// window over the page or as a pane over the sidebar, from the same markup,
+// and remembers which (docs/system/dialog.md).
 export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: () => void } = {}): Dialog {
   const root = document.getElementById(id)!;
   const box = root.querySelector<HTMLElement>('.fe-dlg-box')!;
   const tabs = [...root.querySelectorAll<HTMLElement>('.fe-dlg-tab')];
   const panes = [...root.querySelectorAll<HTMLElement>('.fe-dlg-pane')];
   const memory = `bfb-dialog-tab:${id}`;
+  const placeBtn = root.querySelector<HTMLElement>('.fe-dlg-place')!;
   wireSize(root.querySelector<HTMLElement>(`#${id}-size`)!, box, id);
-  const isOpen = () => root.style.display !== 'none';
+  let place = getDialogPlace(id);
+  const inSide = () => box.parentElement?.id === 'fe-side-pane' && !box.parentElement.hidden;
+  const isOpen = () => root.style.display !== 'none' || inSide();
+  // A sidebar folded away (by its setting or a docked preview) comes out for
+  // the pane and goes back when the pane closes.
+  let unfolded = false;
 
   function show(tab: string): void {
     if (!tabs.some(t => t.dataset.tab === tab)) tab = tabs[0]?.dataset.tab ?? '';
@@ -70,27 +101,66 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
     panes.forEach(p => { p.classList.toggle('on', p.dataset.tab === tab); if (p.dataset.tab === tab) p.scrollTop = 0; });
     try { kvSet(memory, tab); } catch { /* fine */ }
   }
+  const paintPlace = () => {
+    placeBtn.title = place === 'side' ? 'Open as a window' : 'Open in the sidebar';
+    placeBtn.classList.toggle('on', place === 'side');
+  };
+  paintPlace();
   let layer: Layer | null = null;
   function open(tab?: string): void {
     hooks.onOpen?.();
     let last = '';
     try { last = kvGet(memory) || ''; } catch { /* fine */ }
     show(tab ?? last);
+    const pane = place === 'side' ? sidePane() : null;
+    if (pane) {
+      // Another dialog in the pane gives way to this one.
+      mounted.find(m => m.inSide() && m.box !== box)?.close();
+      if (!sidebarShown()) { setSidebarShown(true); unfolded = true; }
+      box.dataset.dock = '';
+      pane.appendChild(box);
+      pane.hidden = false;
+      box.focus();
+      return;
+    }
     root.style.display = 'flex';
     if (layer?.open) { box.focus(); return; }
     // Esc and focus going back to the opener come from the layer.
     layer = openLayer(root, { kind: 'dialog', place: 'none', focus: box, backdrop: root.querySelector<HTMLElement>('.fe-dlg-bg'), onClose: () => { root.style.display = 'none'; hooks.onClose?.(); } });
   }
-  function close(): void { layer?.close('api'); }
+  function close(): void {
+    if (inSide()) {
+      const pane = box.parentElement!;
+      pane.hidden = true;
+      delete box.dataset.dock;
+      root.appendChild(box);
+      if (unfolded) { unfolded = false; setSidebarShown(false); }
+      hooks.onClose?.();
+      return;
+    }
+    layer?.close('api');
+  }
+  // Move between the window and the sidebar, keeping the page that is open.
+  placeBtn.addEventListener('click', () => {
+    const tab = tabs.find(t => t.classList.contains('on'))?.dataset.tab;
+    close();
+    place = place === 'side' ? 'window' : 'side';
+    saveDialogPlace(id, place);
+    paintPlace();
+    open(tab);
+  });
 
   tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab!)));
   root.querySelector('.fe-dlg-close')!.addEventListener('click', close);
-  // Tab stays inside the dialog; [ and ] step through its pages.
-  focusTrap(box, { when: isOpen });
+  // As a window, Tab stays inside it; in the sidebar it is part of the page.
+  focusTrap(box, { when: () => isOpen() && !inSide() });
   const step = (dir: 1 | -1) => {
     const i = tabs.findIndex(t => t.classList.contains('on'));
     show(tabs[(i + dir + tabs.length) % tabs.length].dataset.tab!);
   };
-  mounted.push({ isOpen, step });
+  // [ and ] step through its pages while it is a window, or while the
+  // keyboard is inside it in the sidebar; elsewhere they move strip tabs.
+  const owns = () => root.style.display !== 'none' || (inSide() && box.contains(document.activeElement));
+  mounted.push({ isOpen: owns, step, inSide, close, box });
   return { open, close, isOpen, show };
 }
