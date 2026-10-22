@@ -8,6 +8,7 @@ import { bind, dispatch, setContext, openPalette, paletteOpen, runCommand, addPa
 import { isPreviewOpen, openPreview } from './preview';
 import { raise, rovingFocus } from './layer';
 import { setTooltipKeys } from './tooltip';
+import { gotoBackground } from './goto';
 import { homeDir, getSaved, getRecents } from './storage';
 import { PI } from './icons';
 import { fileHref, pageHref, esc } from './utils';
@@ -51,6 +52,7 @@ export function initFocusNav(app: App): void {
     const preview = isPreviewOpen();
     if (preview) scopes.add('preview');
     if (app.fileMode && !preview) scopes.add('file');
+    if (document.getElementById('fe-goto')) scopes.add('goto');
     const inSide = !!ae?.closest('#fe-side'), inTabs = !!ae?.closest('#fe-tabbar'), inBar = !!ae?.closest('#fe-bar, #fe-toolbar');
     if (inSide) scopes.add('sidebar');
     if (inTabs) scopes.add('tabs');
@@ -61,7 +63,7 @@ export function initFocusNav(app: App): void {
     if (openMenu()) scopes.add('menu');
     return {
       scopes, typing: isTyping(ae),
-      blocked: dialogOpen() || paletteOpen() || !!openMenu() || !!document.querySelector('.fe-dd-list, .fe-rule-pop, #fe-goto:not([hidden])'),
+      blocked: dialogOpen() || paletteOpen() || !!openMenu() || !!document.querySelector('.fe-dd-list, .fe-rule-pop'),
     };
   });
 
@@ -207,6 +209,7 @@ export function initFocusNav(app: App): void {
   bind('new-note', () => app.newNote(), () => !!app.settings.notesRoot);
   bind('fp-raw', () => app.filePage?.toggleRaw(), () => !!app.filePage);
   bind('fp-edit', () => app.filePage?.edit(), () => !!app.filePage);
+  bind('goto-bg', gotoBackground, () => !!document.getElementById('fe-goto'));
   const commentable = () => !!app.filePage?.commentable();
   bind('fp-comment', () => app.filePage?.comment('comment'), commentable);
   bind('fp-cm-reply', () => app.filePage?.comment('reply'), commentable);

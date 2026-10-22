@@ -3,8 +3,9 @@
 // A key is written as it is pressed: modifiers then the key ("⌘K", "⇧T"), a
 // sequence with a space ("g h"). `own` marks the keys the command layer
 // binds itself; the rest are answered by the surface that owns them.
-export type Scope = 'any' | 'listing' | 'tree' | 'preview' | 'file' | 'editor' | 'sidebar' | 'tabs' | 'menu' | 'dialog';
-export interface KeyDef { id: string; group: string; title: string; keys: string[]; scope?: Scope; own?: boolean }
+export type Scope = 'any' | 'listing' | 'tree' | 'preview' | 'file' | 'editor' | 'sidebar' | 'tabs' | 'menu' | 'dialog' | 'goto';
+/// `field`: the key is a chord no text box types (such as ⌥↩), so it runs while typing too.
+export interface KeyDef { id: string; group: string; title: string; keys: string[]; scope?: Scope; own?: boolean; field?: boolean }
 
 export const GROUPS: { name: string; icon: string }[] = [
   { name: 'Anywhere', icon: 'apps' },
@@ -35,6 +36,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'up', group: 'Go', title: 'Parent folder', keys: ['⌫', '⌘↑'] },
   { id: 'home', group: 'Go', title: 'Home', keys: ['g h'], own: true },
   { id: 'path', group: 'Go', title: 'Type a path', keys: ['l'], own: true },
+  { id: 'goto-bg', group: 'Go', title: 'Open the typed path as a background tab', keys: ['⌥↩'], scope: 'goto', own: true, field: true },
   { id: 'open-pick', group: 'Go', title: 'Open a file or folder', keys: ['o'], own: true },
   { id: 'save', group: 'Go', title: 'Save or unsave folder', keys: ['b'], own: true },
   { id: 'terminal', group: 'Go', title: 'Terminal here', keys: ['`'], own: true },

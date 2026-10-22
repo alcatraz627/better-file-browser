@@ -67,6 +67,26 @@ try {
   await key('g', 's');
   await sleep(150);
   check(await active() === left, `g s returns to the row focus left: ${left} → ${await active()}`);
+
+  // Journey 1: Go to a typed path, here or as a background tab.
+  await page.evaluate(() => document.activeElement?.blur());
+  const tabCount = () => page.$$eval('#fe-tabs .fe-tab[data-id]:not([data-id=""])', ts => ts.length);
+  const url = page.url();
+  const tabsBefore = await tabCount();
+  await key('l');
+  await page.waitForSelector('#fe-goto input', { timeout: 3000 });
+  await page.$eval('#fe-goto input', i => { i.value = ''; });
+  await page.keyboard.type(h.fixture + '/nested/');
+  await page.keyboard.down('Alt'); await page.keyboard.press('Enter'); await page.keyboard.up('Alt');
+  await page.waitForFunction(() => !document.getElementById('fe-goto'), { timeout: 3000 }).catch(() => null);
+  await sleep(300);
+  check(page.url() === url && await tabCount() === tabsBefore + 1, `⌥↩ in Go to keeps the page and adds a tab (${tabsBefore} → ${await tabCount()})`);
+  await key('l');
+  await page.waitForSelector('#fe-goto input', { timeout: 3000 });
+  await page.$eval('#fe-goto input', i => { i.value = ''; });
+  await page.keyboard.type(h.fixture + '/nested/');
+  await Promise.all([page.waitForNavigation({ timeout: 5000 }).catch(() => null), page.keyboard.press('Enter')]);
+  check(page.url().includes('/nested'), `↩ in Go to goes there: ${page.url()}`);
 } finally { await h.close(); }
 console.log(failed ? `${failed} check(s) failed` : 'all checks passed');
 process.exitCode = failed ? 1 : 0;

@@ -213,7 +213,7 @@ loadKv().catch(() => {}).then(function () {
   const goTab = (path: string, hash = '') => app.strip.go(path, hash);
   initDocsLens(el('fe-docs-list'), homeDir(rawPath), goTab);
   // Beside the strip: open a file or folder from the system chooser, or go to a pasted path.
-  mountGoto(el('fe-open-path'), () => homeDir(rawPath), goTab);
+  mountGoto(el('fe-open-path'), () => homeDir(rawPath), (path, background) => { if (!background) { goTab(path); return; } app.strip.open(path, true); app.toast('Kept as a tab'); });
   el('fe-open-pick').addEventListener('click', () => {
     notes.pick(rawPath, 'any').then(async p => { const path = p && absPath(p, ''); const found = path && await resolvePath(path); if (found) goTab(found); })
       .catch(err => app.toast(`Could not open the chooser: ${(err as Error).message}`));

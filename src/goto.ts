@@ -62,7 +62,17 @@ export async function resolvePath(path: string): Promise<string | null> {
   return hit ? clean + (hit.isDir ? '/' : '') : null;
 }
 
-export function mountGoto(btn: HTMLElement, home: () => string, go: (path: string) => void): void {
+// Go to's submit while it is open; ⌥↩ calls it with background set.
+let submitOpen: ((background: boolean) => void) | null = null;
+
+/// Open what is typed in Go to as a tab kept in the background. False when Go to is closed.
+export function gotoBackground(): boolean {
+  if (!submitOpen) return false;
+  submitOpen(true);
+  return true;
+}
+
+export function mountGoto(btn: HTMLElement, home: () => string, go: (path: string, background: boolean) => void): void {
   let box: HTMLElement | null = null;
   let layer: Layer | null = null;
   const close = () => layer?.close('api');
@@ -78,13 +88,12 @@ export function mountGoto(btn: HTMLElement, home: () => string, go: (path: strin
     input.value = kvGet(LAST_KEY) ?? '';
     // A click away or Esc closes it and keeps what was typed for next time.
     layer = openLayer(box, { kind: 'popover', anchor: btn, offset: 6, role: 'dialog', label: 'Go to a path', focus: input,
-      onClose: () => { kvSet(LAST_KEY, input.value); if (box === form) box = null; btn.classList.remove('on'); } });
+      onClose: () => { kvSet(LAST_KEY, input.value); if (box === form) { box = null; submitOpen = null; } btn.classList.remove('on'); } });
     if (!layer.open) { box = null; return; }
     input.select();
     btn.classList.add('on');
     const say = (text: string) => { const msg = box!.querySelector<HTMLElement>('.fe-goto-msg')!; msg.hidden = false; msg.textContent = text; };
-    box.addEventListener('submit', async e => {
-      e.preventDefault();
+    const submit = async (background: boolean) => {
       const path = absPath(input.value, home());
       if (!path) { say('Paste a full path, such as ~/Code or /Users/you/notes.md'); return; }
       kvSet(LAST_KEY, input.value);
@@ -95,8 +104,10 @@ export function mountGoto(btn: HTMLElement, home: () => string, go: (path: strin
       clearTimeout(slow);
       if (!ok) { say(`The browser could not open ${found}. It may not have permission to read that folder.`); return; }
       close();
-      go(found);
-    });
+      go(found, background);
+    };
+    submitOpen = background => void submit(background);
+    box.addEventListener('submit', e => { e.preventDefault(); void submit(false); });
     input.addEventListener('input', () => kvSet(LAST_KEY, input.value));
   };
   btn.addEventListener('click', e => { e.preventDefault(); if (box) close(); else open(); });

@@ -6309,6 +6309,12 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     const hit = parseListing(listing, dir).find((e) => e.name === name);
     return hit ? clean + (hit.isDir ? "/" : "") : null;
   }
+  var submitOpen = null;
+  function gotoBackground() {
+    if (!submitOpen) return false;
+    submitOpen(true);
+    return true;
+  }
   function mountGoto(btn, home, go) {
     let box = null;
     let layer = null;
@@ -6332,7 +6338,10 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
         focus: input,
         onClose: () => {
           kvSet(LAST_KEY, input.value);
-          if (box === form) box = null;
+          if (box === form) {
+            box = null;
+            submitOpen = null;
+          }
           btn.classList.remove("on");
         }
       });
@@ -6347,8 +6356,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
         msg.hidden = false;
         msg.textContent = text;
       };
-      box.addEventListener("submit", async (e) => {
-        e.preventDefault();
+      const submit = async (background) => {
         const path = absPath(input.value, home());
         if (!path) {
           say("Paste a full path, such as ~/Code or /Users/you/notes.md");
@@ -6368,7 +6376,12 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
           return;
         }
         close();
-        go(found);
+        go(found, background);
+      };
+      submitOpen = (background) => void submit(background);
+      box.addEventListener("submit", (e) => {
+        e.preventDefault();
+        void submit(false);
       });
       input.addEventListener("input", () => kvSet(LAST_KEY, input.value));
     };
@@ -16163,6 +16176,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     { id: "up", group: "Go", title: "Parent folder", keys: ["\u232B", "\u2318\u2191"] },
     { id: "home", group: "Go", title: "Home", keys: ["g h"], own: true },
     { id: "path", group: "Go", title: "Type a path", keys: ["l"], own: true },
+    { id: "goto-bg", group: "Go", title: "Open the typed path as a background tab", keys: ["\u2325\u21A9"], scope: "goto", own: true, field: true },
     { id: "open-pick", group: "Go", title: "Open a file or folder", keys: ["o"], own: true },
     { id: "save", group: "Go", title: "Save or unsave folder", keys: ["b"], own: true },
     { id: "terminal", group: "Go", title: "Terminal here", keys: ["`"], own: true },
@@ -18610,8 +18624,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       e.preventDefault();
       return runCommand("palette");
     }
-    if (ctx.blocked || ctx.typing) {
+    if (ctx.blocked) {
       setPending("");
+      return false;
+    }
+    if (ctx.typing) {
+      setPending("");
+      const d2 = OWN.find((x) => x.field && x.keys.includes(tok) && live(x, ctx) && canRun(x.id));
+      if (d2) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        runCommand(d2.id);
+        return true;
+      }
       return false;
     }
     if (pending) {
@@ -18669,6 +18694,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     up: UI_ICON.prev,
     home: PI.home,
     path: UI_ICON.link,
+    "goto-bg": UI_ICON.link,
     "open-pick": UI_ICON.folderOpen,
     save: PI.bm,
     terminal: UI_ICON.terminal,
@@ -19386,6 +19412,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const preview = isPreviewOpen();
       if (preview) scopes.add("preview");
       if (app.fileMode && !preview) scopes.add("file");
+      if (document.getElementById("fe-goto")) scopes.add("goto");
       const inSide = !!ae?.closest("#fe-side"), inTabs = !!ae?.closest("#fe-tabbar"), inBar = !!ae?.closest("#fe-bar, #fe-toolbar");
       if (inSide) scopes.add("sidebar");
       if (inTabs) scopes.add("tabs");
@@ -19397,7 +19424,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return {
         scopes,
         typing: isTyping(ae),
-        blocked: dialogOpen() || paletteOpen() || !!openMenu2() || !!document.querySelector(".fe-dd-list, .fe-rule-pop, #fe-goto:not([hidden])")
+        blocked: dialogOpen() || paletteOpen() || !!openMenu2() || !!document.querySelector(".fe-dd-list, .fe-rule-pop")
       };
     });
     document.addEventListener("keydown", (e) => {
@@ -19577,6 +19604,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("new-note", () => app.newNote(), () => !!app.settings.notesRoot);
     bind("fp-raw", () => app.filePage?.toggleRaw(), () => !!app.filePage);
     bind("fp-edit", () => app.filePage?.edit(), () => !!app.filePage);
+    bind("goto-bg", gotoBackground, () => !!document.getElementById("fe-goto"));
     const commentable = () => !!app.filePage?.commentable();
     bind("fp-comment", () => app.filePage?.comment("comment"), commentable);
     bind("fp-cm-reply", () => app.filePage?.comment("reply"), commentable);
@@ -21868,7 +21896,14 @@ ${rows.join("\n")}`, name: subject };
     void showClosedSets(app.strip, !settings.hideRecent);
     const goTab = (path, hash = "") => app.strip.go(path, hash);
     initDocsLens(el("fe-docs-list"), homeDir(rawPath), goTab);
-    mountGoto(el("fe-open-path"), () => homeDir(rawPath), goTab);
+    mountGoto(el("fe-open-path"), () => homeDir(rawPath), (path, background) => {
+      if (!background) {
+        goTab(path);
+        return;
+      }
+      app.strip.open(path, true);
+      app.toast("Kept as a tab");
+    });
     el("fe-open-pick").addEventListener("click", () => {
       notes.pick(rawPath, "any").then(async (p) => {
         const path = p && absPath(p, "");
