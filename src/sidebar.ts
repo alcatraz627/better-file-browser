@@ -683,7 +683,7 @@ export function initSidebar(app: App): void {
     ].join('');
     ntMenu.dataset.rel = rel;
     ntMenu.dataset.root = root;
-    ntLayer = openLayer(ntMenu, { kind: 'popover', place: 'point', point: { x, y }, role: 'menu', group: 'menu' });
+    ntLayer = openLayer(ntMenu, { kind: 'popover', place: 'point', point: { x, y }, origin: item, role: 'menu', group: 'menu' });
   }
   ntMenu.addEventListener('click', e => {
     const item = (e.target as HTMLElement).closest<HTMLElement>('.fe-ctx-item');

@@ -41,6 +41,7 @@ export function openPropsMenu(anchor: HTMLElement, props: NoteProps, apply: Appl
     const r = await apply(c);
     if (r) cur = r;
     render();
+    openMenu?.place();
     menu.querySelector<HTMLInputElement>('.fe-pm-add input')?.focus();
   };
   menu.addEventListener('click', e => {

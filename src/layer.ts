@@ -16,6 +16,9 @@ export interface LayerOptions {
   kind: Archetype;
   /// The element the layer belongs to; it gets aria-expanded and is where focus returns.
   anchor?: HTMLElement | null;
+  /// For a layer shown at a point: the element it belongs to, so a scroll
+  /// that moves that element closes it and any other scroll leaves it.
+  origin?: HTMLElement | null;
   /// Where to show it: next to the anchor (default below), or at a pointer position.
   place?: 'below' | 'above' | 'right' | 'point' | 'none';
   point?: { x: number; y: number };
@@ -52,12 +55,13 @@ const CLOSES: Record<Archetype, Partial<Record<CloseWhy, boolean>>> = {
 };
 const MODAL: Partial<Record<Archetype, boolean>> = { command: true, dialog: true, float: true };
 
-const stack: (Layer & { opts: LayerOptions; returnTo: Element | null; at: DOMRect | null })[] = [];
+const stack: (Layer & { opts: LayerOptions; returnTo: Element | null; at: DOMRect | null; seq: number })[] = [];
 const topLayer = typeof HTMLElement !== 'undefined' && typeof HTMLElement.prototype.showPopover === 'function';
 let wired = false;
-// A press on an open layer's anchor closes it; the click that follows the same
-// press must not open it again.
-let anchorClosed: { anchor: HTMLElement; at: number } | null = null;
+// A press on an open layer's anchor closes it; the click that ends the same
+// press, however long it was held, must not open it again. Cleared once that
+// click has run, or by the next key or press.
+let anchorClosed: HTMLElement | null = null;
 // Counts layer openings, so a raised part knows when something has opened over it.
 let opened = 0;
 
@@ -66,7 +70,7 @@ const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,te
 /// Open `el` as a layer. If it is already open as a layer, it is closed first.
 export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
   wire();
-  if (opts.anchor && anchorClosed?.anchor === opts.anchor && performance.now() - anchorClosed.at < 600) {
+  if (opts.anchor && anchorClosed === opts.anchor) {
     anchorClosed = null;
     return { el, kind: opts.kind, open: false, close() {}, place() {} };
   }
@@ -93,6 +97,7 @@ export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
     el, kind: opts.kind, opts,
     returnTo: document.activeElement,
     at: null as DOMRect | null,
+    seq: 0,
     get open() { return open; },
     place: () => position(el, opts),
     close(why: CloseWhy = 'api') {
@@ -115,9 +120,9 @@ export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
     },
   };
   stack.push(layer);
-  opened++;
+  layer.seq = ++opened;
   position(el, opts);
-  layer.at = anchor?.getBoundingClientRect() ?? null;
+  layer.at = (anchor ?? opts.origin)?.getBoundingClientRect() ?? null;
   const f = opts.focus ?? (MODAL[opts.kind] ? 'first' : 'none');
   if (f === 'first') el.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: true });
   else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
@@ -130,7 +135,12 @@ export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
 /// before showing the part.
 export function raise(el: HTMLElement): void {
   if (!topLayer) return;
-  if (el.matches(':popover-open') && Number(el.dataset.raised) === opened) return;
+  // Already showing: move it up only when a layer opened since is still open
+  // over it, and never while focus is inside (hiding it would drop focus).
+  if (el.matches(':popover-open')) {
+    const since = Number(el.dataset.raised);
+    if (!stack.some(l => l.seq > since) || el.contains(document.activeElement)) return;
+  }
   el.dataset.raised = String(opened);
   if (!el.hasAttribute('popover')) el.setAttribute('popover', 'manual');
   if (el.matches(':popover-open')) el.hidePopover();
@@ -194,12 +204,14 @@ function wire(): void {
     if (!top || top.el.contains(t)) return;
     const anchor = top.opts.anchor;
     if (anchor?.contains(t)) {
-      if (CLOSES[top.kind].anchor) { top.close('anchor'); anchorClosed = { anchor, at: performance.now() }; }
+      if (CLOSES[top.kind].anchor) { top.close('anchor'); anchorClosed = anchor; }
       return;
     }
     anchorClosed = null;
     if (CLOSES[top.kind].outside) top.close('outside');
   }, true);
+  document.addEventListener('click', () => { if (anchorClosed) setTimeout(() => { anchorClosed = null; }); }, true);
+  document.addEventListener('keydown', () => { anchorClosed = null; }, true);
   // A scroll closes a layer only when it moved the layer's anchor: a scroll
   // event that lands just after opening, from the scroll that brought the
   // anchor into view, leaves it open.
@@ -207,7 +219,7 @@ function wire(): void {
     const t = e.target as Node;
     for (const l of [...stack]) {
       if (!CLOSES[l.kind].scroll || l.el.contains(t)) continue;
-      const a = l.opts.anchor;
+      const a = l.opts.anchor ?? l.opts.origin;
       if (a && l.at) {
         const r = a.getBoundingClientRect();
         if (Math.abs(r.top - l.at.top) < 2 && Math.abs(r.left - l.at.left) < 2) continue;

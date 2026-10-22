@@ -80,6 +80,33 @@ describe('layers', () => {
     expect(p.open).toBe(false);
   });
 
+  it('a slow press on the anchor still only closes it; a key afterwards opens normally', async () => {
+    const anchor = document.getElementById('anchor')!;
+    const p = openLayer(mk(), { kind: 'popover', anchor });
+    press(anchor);
+    expect(p.open).toBe(false);
+    await new Promise(r => setTimeout(r, 700));
+    expect(openLayer(mk(), { kind: 'popover', anchor }).open).toBe(false);
+    openLayer(mk(), { kind: 'popover', anchor }).close();
+    press(anchor);
+    key('Enter');
+    const viaKey = openLayer(mk(), { kind: 'popover', anchor });
+    expect(viaKey.open).toBe(true);
+    viaKey.close();
+  });
+
+  it('a menu shown at a point closes on a scroll that moves its origin, not on any other', () => {
+    const origin = document.getElementById('other')!;
+    let top = 10;
+    origin.getBoundingClientRect = () => ({ top, left: 0, right: 10, bottom: top + 10, width: 10, height: 10, x: 0, y: top, toJSON() {} }) as DOMRect;
+    const m = openLayer(mk(), { kind: 'popover', place: 'point', point: { x: 5, y: 5 }, origin });
+    document.dispatchEvent(new Event('scroll'));
+    expect(m.open).toBe(true);
+    top = 50;
+    document.dispatchEvent(new Event('scroll'));
+    expect(m.open).toBe(false);
+  });
+
   it('opening a layer in the same group closes the other', () => {
     const a = openLayer(mk(), { kind: 'popover', group: 'menu' });
     const b = openLayer(mk(), { kind: 'popover', group: 'menu' });

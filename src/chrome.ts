@@ -174,12 +174,14 @@ export function initChrome(app: App): void {
     if (crumbMenuUrl !== url) return;
     try {
       const entries = parseListing(text, url);
-      if (!entries.length) { crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>'; return; }
+      if (!entries.length) { crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>'; crumbLayer?.place(); return; }
       crumbMenu.innerHTML =
         `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow · Enter opens the first match · Esc closes"></div>` +
         `<div class="fe-dd-items">${entries.map(en =>
           `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? ' dir' : ''}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
         ).join('')}</div>`;
+      // Placed from the spinner's size at first; the listing needs its own.
+      crumbLayer?.place();
       const ddSearch = crumbMenu.querySelector<HTMLInputElement>('.fe-dd-search')!;
       ddSearch.focus();
       ddSearch.addEventListener('input', () => {

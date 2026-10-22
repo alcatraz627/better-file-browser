@@ -574,7 +574,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
    browser's popover defaults; zero specificity, so every part's own rule wins. */
 :where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
 @media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
-#fe-toast.act{pointer-events:auto}
+#fe-toast.act.show{pointer-events:auto}
 .fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -2134,7 +2134,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
   function openLayer(el, opts) {
     wire();
-    if (opts.anchor && anchorClosed?.anchor === opts.anchor && performance.now() - anchorClosed.at < 600) {
+    if (opts.anchor && anchorClosed === opts.anchor) {
       anchorClosed = null;
       return { el, kind: opts.kind, open: false, close() {
       }, place() {
@@ -2164,6 +2164,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       opts,
       returnTo: document.activeElement,
       at: null,
+      seq: 0,
       get open() {
         return open;
       },
@@ -2187,9 +2188,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       }
     };
     stack.push(layer);
-    opened++;
+    layer.seq = ++opened;
     position(el, opts);
-    layer.at = anchor?.getBoundingClientRect() ?? null;
+    layer.at = (anchor ?? opts.origin)?.getBoundingClientRect() ?? null;
     const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
     if (f === "first") el.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
     else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
@@ -2241,18 +2242,26 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       if (anchor?.contains(t)) {
         if (CLOSES[top.kind].anchor) {
           top.close("anchor");
-          anchorClosed = { anchor, at: performance.now() };
+          anchorClosed = anchor;
         }
         return;
       }
       anchorClosed = null;
       if (CLOSES[top.kind].outside) top.close("outside");
     }, true);
+    document.addEventListener("click", () => {
+      if (anchorClosed) setTimeout(() => {
+        anchorClosed = null;
+      });
+    }, true);
+    document.addEventListener("keydown", () => {
+      anchorClosed = null;
+    }, true);
     document.addEventListener("scroll", (e) => {
       const t = e.target;
       for (const l of [...stack]) {
         if (!CLOSES[l.kind].scroll || l.el.contains(t)) continue;
-        const a = l.opts.anchor;
+        const a = l.opts.anchor ?? l.opts.origin;
         if (a && l.at) {
           const r = a.getBoundingClientRect();
           if (Math.abs(r.top - l.at.top) < 2 && Math.abs(r.left - l.at.left) < 2) continue;

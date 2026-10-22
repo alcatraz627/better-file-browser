@@ -1003,7 +1003,7 @@ ${body}`;
   var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
   function openLayer(el2, opts) {
     wire();
-    if (opts.anchor && anchorClosed?.anchor === opts.anchor && performance.now() - anchorClosed.at < 600) {
+    if (opts.anchor && anchorClosed === opts.anchor) {
       anchorClosed = null;
       return { el: el2, kind: opts.kind, open: false, close() {
       }, place() {
@@ -1033,6 +1033,7 @@ ${body}`;
       opts,
       returnTo: document.activeElement,
       at: null,
+      seq: 0,
       get open() {
         return open;
       },
@@ -1056,9 +1057,9 @@ ${body}`;
       }
     };
     stack.push(layer);
-    opened++;
+    layer.seq = ++opened;
     position(el2, opts);
-    layer.at = anchor?.getBoundingClientRect() ?? null;
+    layer.at = (anchor ?? opts.origin)?.getBoundingClientRect() ?? null;
     const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
     if (f === "first") el2.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
     else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
@@ -1066,7 +1067,10 @@ ${body}`;
   }
   function raise(el2) {
     if (!topLayer) return;
-    if (el2.matches(":popover-open") && Number(el2.dataset.raised) === opened) return;
+    if (el2.matches(":popover-open")) {
+      const since = Number(el2.dataset.raised);
+      if (!stack.some((l) => l.seq > since) || el2.contains(document.activeElement)) return;
+    }
     el2.dataset.raised = String(opened);
     if (!el2.hasAttribute("popover")) el2.setAttribute("popover", "manual");
     if (el2.matches(":popover-open")) el2.hidePopover();
@@ -1124,18 +1128,26 @@ ${body}`;
       if (anchor?.contains(t)) {
         if (CLOSES[top.kind].anchor) {
           top.close("anchor");
-          anchorClosed = { anchor, at: performance.now() };
+          anchorClosed = anchor;
         }
         return;
       }
       anchorClosed = null;
       if (CLOSES[top.kind].outside) top.close("outside");
     }, true);
+    document.addEventListener("click", () => {
+      if (anchorClosed) setTimeout(() => {
+        anchorClosed = null;
+      });
+    }, true);
+    document.addEventListener("keydown", () => {
+      anchorClosed = null;
+    }, true);
     document.addEventListener("scroll", (e) => {
       const t = e.target;
       for (const l of [...stack]) {
         if (!CLOSES[l.kind].scroll || l.el.contains(t)) continue;
-        const a = l.opts.anchor;
+        const a = l.opts.anchor ?? l.opts.origin;
         if (a && l.at) {
           const r = a.getBoundingClientRect();
           if (Math.abs(r.top - l.at.top) < 2 && Math.abs(r.left - l.at.left) < 2) continue;
@@ -2685,6 +2697,7 @@ ${body}`;
       const r = await apply(c);
       if (r) cur = r;
       render2();
+      openMenu?.place();
       menu.querySelector(".fe-pm-add input")?.focus();
     };
     menu.addEventListener("click", (e) => {
@@ -4728,7 +4741,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
    browser's popover defaults; zero specificity, so every part's own rule wins. */
 :where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
 @media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
-#fe-toast.act{pointer-events:auto}
+#fe-toast.act.show{pointer-events:auto}
 .fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -6583,11 +6596,13 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
         const entries = parseListing(text, url);
         if (!entries.length) {
           crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>';
+          crumbLayer?.place();
           return;
         }
         crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
           (en) => `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
         ).join("")}</div>`;
+        crumbLayer?.place();
         const ddSearch = crumbMenu.querySelector(".fe-dd-search");
         ddSearch.focus();
         ddSearch.addEventListener("input", () => {
@@ -18590,8 +18605,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const row2 = e.target.closest(".fe-pal-i");
       if (row2) fire2(Number(row2.dataset.i), e.altKey);
     });
+    let pressOnScrim = false;
+    box.addEventListener("pointerdown", (e) => {
+      pressOnScrim = e.target === box;
+    });
     box.addEventListener("click", (e) => {
-      if (e.target === box) layer.close("outside");
+      if (pressOnScrim && e.target === box) layer.close("outside");
     });
     input.value = prefill;
     paint();
@@ -18750,7 +18769,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         `<div class="fe-ctx-item" data-act="term">Open in terminal</div>`
       ].join("");
       ctxMenu.dataset.idx = String(idx);
-      ctx = openLayer(ctxMenu, { kind: "popover", place: "point", point: { x: e.clientX, y: e.clientY }, role: "menu", group: "menu" });
+      ctx = openLayer(ctxMenu, { kind: "popover", place: "point", point: { x: e.clientX, y: e.clientY }, origin: holder, role: "menu", group: "menu" });
     });
     ctxMenu.addEventListener("click", (e) => {
       const item = e.target.closest(".fe-ctx-item");
@@ -20150,7 +20169,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ].join("");
       ntMenu.dataset.rel = rel;
       ntMenu.dataset.root = root;
-      ntLayer = openLayer(ntMenu, { kind: "popover", place: "point", point: { x, y }, role: "menu", group: "menu" });
+      ntLayer = openLayer(ntMenu, { kind: "popover", place: "point", point: { x, y }, origin: item, role: "menu", group: "menu" });
     }
     ntMenu.addEventListener("click", (e) => {
       const item = e.target.closest(".fe-ctx-item");

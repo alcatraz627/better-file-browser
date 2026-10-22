@@ -140,7 +140,7 @@ export function initListingInput(app: App, listing: Listing): void {
           `<div class="fe-ctx-item" data-act="term">Open in terminal</div>`,
         ].join('');
     ctxMenu.dataset.idx = String(idx);
-    ctx = openLayer(ctxMenu, { kind: 'popover', place: 'point', point: { x: e.clientX, y: e.clientY }, role: 'menu', group: 'menu' });
+    ctx = openLayer(ctxMenu, { kind: 'popover', place: 'point', point: { x: e.clientX, y: e.clientY }, origin: holder, role: 'menu', group: 'menu' });
   });
   ctxMenu.addEventListener('click', e => {
     const item = (e.target as HTMLElement).closest<HTMLElement>('.fe-ctx-item');

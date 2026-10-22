@@ -38,6 +38,37 @@ try {
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
 
+  // A slow press on an open box's button closes it and does not reopen it on release.
+  await page.$eval('#fe-open-path', b => b.click());
+  await page.waitForSelector('#fe-goto');
+  const pb = await (await page.$('#fe-open-path')).boundingBox();
+  await page.mouse.move(pb.x + pb.width / 2, pb.y + pb.height / 2);
+  await page.mouse.down();
+  await new Promise(res => setTimeout(res, 900));
+  await page.mouse.up();
+  await new Promise(res => setTimeout(res, 150));
+  const slowShut = !(await page.$('#fe-goto'));
+  console.log(`${slowShut ? 'ok  ' : 'FAIL'} a slow press on the Go to button closes its box and leaves it closed`);
+  if (!slowShut) process.exitCode = 1;
+
+  // A text drag from the palette input released on the dimmed area keeps the palette open.
+  await page.keyboard.down('Meta'); await page.keyboard.press('k'); await page.keyboard.up('Meta');
+  await page.waitForSelector('.fe-pal input');
+  await page.keyboard.type('list');
+  const ib = await (await page.$('.fe-pal input')).boundingBox();
+  await page.mouse.move(ib.x + 40, ib.y + ib.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(ib.x + 40, ib.y + 400, { steps: 8 });
+  await page.mouse.move(40, 40, { steps: 8 });
+  await page.mouse.up();
+  await new Promise(res => setTimeout(res, 150));
+  const palKept = !!(await page.$('.fe-pal-wrap'));
+  await page.mouse.click(40, 40);
+  await new Promise(res => setTimeout(res, 150));
+  const palGone = !(await page.$('.fe-pal-wrap'));
+  console.log(`${palKept && palGone ? 'ok  ' : 'FAIL'} a drag out of the palette input keeps it open; a click on the dimmed area closes it: ${JSON.stringify({ palKept, palGone })}`);
+  if (!(palKept && palGone)) process.exitCode = 1;
+
   // The floating preview sits in the top layer, the palette opens over it,
   // and the docked preview leaves the top layer for the page's own layout.
   await page.$eval('#fe-tbody tr:not(.dir):not(.dotfile):not(.par) .fe-name, #fe-tbody tr:not(.dir):not(.dotfile):not(.par) a', a => a.click());

@@ -572,7 +572,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
    browser's popover defaults; zero specificity, so every part's own rule wins. */
 :where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
 @media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
-#fe-toast.act{pointer-events:auto}
+#fe-toast.act.show{pointer-events:auto}
 .fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
