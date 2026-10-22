@@ -44,7 +44,7 @@ try {
   await page.$eval('#fe-settings-modal .fe-dlg-close', button => button.click());
   console.log('settings reset');
 
-  await page.$eval('.fe-view-btn[data-view="tree"]', button => button.click());
+  await page.$eval('#fe-view-group [data-v="tree"]', button => button.click());
   console.log('tree selected');
   assert.ok(await page.$('#fe-tree [data-idx] .fe-nm'));
   assert.equal(await page.$('#fe-tree .fe-nm[data-name="inner.txt"]'), null);

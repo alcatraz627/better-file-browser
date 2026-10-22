@@ -25,8 +25,7 @@ try {
     await page.screenshot({ path: await shot(page, name), clip: { x: Math.max(0, box.x - pad), y: Math.max(0, box.y - pad), width: box.width + pad * 2, height: box.height + pad * 2 } });
   };
   // Every icon button is the part, and none is wider or taller than its size.
-  // The view switch is a Segmented group, which sets its own height.
-  const audit = () => page.evaluate(() => [...document.querySelectorAll('button.btn[data-icon]:not(.fe-view-btn)')].filter(b => b.offsetParent).map(b => {
+  const audit = () => page.evaluate(() => [...document.querySelectorAll('button.btn[data-icon]')].filter(b => b.offsetParent).map(b => {
     const r = b.getBoundingClientRect(), want = { xs: 18, sm: 22, md: 28, lg: 32 }[b.dataset.size || 'md'];
     return { id: b.id || b.className, w: Math.round(r.width), h: Math.round(r.height), want, round: getComputedStyle(b).borderRadius, named: !!(b.getAttribute('aria-label') || b.title) };
   }));
@@ -45,10 +44,33 @@ try {
   const mute = sizes.filter(s => !s.named);
   check(mute.length === 0, `every icon button has a name: ${JSON.stringify(mute.slice(0, 4).map(s => s.id))}`);
 
+  // Segmented: every group is one control high and its items 4px shorter.
+  const segs = () => page.evaluate(() => [...document.querySelectorAll('.fe-seg')].filter(s => s.offsetParent).map(s => {
+    const h = Math.round(s.getBoundingClientRect().height), want = s.dataset.size === 'lg' ? 32 : 28;
+    const items = [...s.querySelectorAll('.fe-seg-b')].map(b => Math.round(b.getBoundingClientRect().height));
+    return { id: s.id || s.className, h, want, items };
+  }));
+  const badSeg = list => list.filter(s => s.h !== s.want || s.items.some(i => i !== s.want - 4));
+  const segs1 = await segs();
+  check(segs1.length > 0 && badSeg(segs1).length === 0, `segmented groups on the listing are 28 with 24 items (${segs1.length} seen): ${JSON.stringify(badSeg(segs1))}`);
+  await page.focus('#fe-view-group .fe-seg-b.on');
+  await page.keyboard.press('ArrowRight'); await sleep(250);
+  const v1 = await page.evaluate(() => ({ view: document.querySelector('#fe').dataset.view, on: document.querySelector('#fe-view-group .fe-seg-b.on')?.dataset.v }));
+  check(v1.view !== 'details' && v1.view === v1.on, `an arrow in the view switch changes the view: ${JSON.stringify(v1)}`);
+  await clip('buttons-viewswitch', '#fe-toolbar');
+  await page.reload({ waitUntil: 'load' }); await sleep(600);
+  const v2 = await page.evaluate(() => ({ view: document.querySelector('#fe').dataset.view, on: document.querySelector('#fe-view-group .fe-seg-b.on')?.dataset.v }));
+  check(v2.view === v1.view && v2.on === v1.view, `the view and its switch survive a reload: ${JSON.stringify(v2)}`);
+  await page.click(`#fe-view-group [data-v="details"]`); await sleep(250);
+
   await page.evaluate(() => document.querySelector('#fe-rail-ask')?.click()); await sleep(400);
   await clip('buttons-ask', '#fe-lenses .fe-lens:not([hidden])');
   await page.keyboard.press(','); await sleep(400);
   await page.screenshot({ path: await shot(page, 'buttons-settings') });
+  await page.evaluate(() => document.querySelector('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]')?.click()); await sleep(250);
+  const segs2 = await segs();
+  check(segs2.length > 0 && badSeg(segs2).length === 0, `segmented groups in Settings are 32 with 28 items (${segs2.length} seen): ${JSON.stringify(badSeg(segs2))}`);
+  await page.screenshot({ path: await shot(page, 'buttons-settings-folders') });
   await page.keyboard.press('Escape'); await sleep(200);
 
   const doc = join(h.fixture, 'btn.md');

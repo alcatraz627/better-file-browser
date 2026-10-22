@@ -30,7 +30,7 @@ try {
   await page.click('#fe-filter-btn'); await sleep(200);
 
   for (const v of ['details', 'list', 'tree', 'tiles', 'icons']) {
-    await page.$eval(`.fe-view-btn[data-view="${v}"]`, b => b.click()); await sleep(350);
+    await page.$eval(`#fe-view-group [data-v="${v}"]`, b => b.click()); await sleep(350);
     await shot(page, `audit-view-${v}`);
   }
   // Each view at the two ends of the detail scale and one step in.
@@ -41,14 +41,14 @@ try {
     r.dispatchEvent(new Event('change', { bubbles: true }));
   }, d);
   for (const v of ['details', 'list', 'tiles', 'icons']) {
-    await page.$eval(`.fe-view-btn[data-view="${v}"]`, b => b.click());
+    await page.$eval(`#fe-view-group [data-v="${v}"]`, b => b.click());
     for (const d of [1, 2, 4, 5]) {
       await setDensity(d); await sleep(300); await shot(page, `audit-density-${v}-${d}`);
       if (v === 'details') console.log(`details row at ${d}:`, await page.$eval('#fe-tbody tr.fe-row', r => Math.round(r.getBoundingClientRect().height)));
     }
     await setDensity(3);
   }
-  await page.$eval('.fe-view-btn[data-view="details"]', b => b.click()); await sleep(300);
+  await page.$eval('#fe-view-group [data-v="details"]', b => b.click()); await sleep(300);
 
   await page.click('#fe-tbody tr.fe-row:not(.dir):not(.dotfile):not(.par)', { button: 'right' }); await sleep(300);
   await shot(page, 'audit-context-menu');

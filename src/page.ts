@@ -65,9 +65,7 @@ export function renderPage(p: PageParams): string {
     icons:   'Large icon grid',
   };
 
-  const viewBtnsHTML = VIEW_MODES.map(v =>
-    `<button class="btn fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
-  ).join('');
+  const viewSeg = segHtml('fe-view-group', VIEW_MODES.map(v => ({ value: v.id, icon: v.ico, hint: `${v.label} view: ${VIEW_LABELS[v.id]}` })), 'View');
 
   const railBtn = (lens: string, label: string, icon: string, hint: string, hidden = false) =>
     `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}" data-hint="${hint}"${hidden ? ' hidden' : ''}>${icon}<em>${label}</em></button>`;
@@ -191,7 +189,7 @@ export function renderPage(p: PageParams): string {
             <span class="fe-density-end" aria-hidden="true">${line('<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', 13)}</span>
           </div>
           <span class="fe-tb-sep"></span>
-          <div id="fe-view-group" role="group" aria-label="View">${viewBtnsHTML}</div>
+          ${viewSeg}
           <label class="fe-in-box fe-tb-box"><input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
         </div>
       </div>

@@ -11,8 +11,9 @@ export interface Opt { value: string; label?: string; icon?: string; hint?: stri
 
 /// A row of buttons where one is on, like a segmented control. Options with
 /// an icon and no label show only the icon, with the hint as their tooltip.
-export function segHtml(id: string, opts: Opt[], title: string): string {
-  return `<div class="fe-seg" id="${id}" role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map(o =>
+/// Size lg is for dialogs, where every control is 32px.
+export function segHtml(id: string, opts: Opt[], title: string, size: 'md' | 'lg' = 'md'): string {
+  return `<div class="fe-seg" id="${id}"${size === 'md' ? '' : ` data-size="${size}"`} role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map(o =>
     `<button type="button" role="radio" class="fe-seg-b${o.label ? '' : ' ico'}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? '' : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ''}${o.label ? `<span>${esc(o.label)}</span>` : ''}</button>`).join('')}</div>`;
 }
 

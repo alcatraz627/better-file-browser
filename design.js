@@ -164,7 +164,7 @@ body{opacity:1!important}
 /* The lens bar sits on top: icons in a row, the open lens grown to show its
    name; the wheel over the bar moves between lenses. The lens fills the rest. */
 #fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:6px 6px;border-bottom:1px solid var(--bd);overflow:hidden}
-.fe-rail-btn{flex:0 1 auto;min-width:26px;height:30px;display:flex;align-items:center;justify-content:center;gap:0;padding:0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
+.fe-rail-btn{flex:0 1 auto;min-width:26px;height:var(--ctl-lg);display:flex;align-items:center;justify-content:center;gap:0;padding:0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
   font:inherit;position:relative;z-index:1;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-rail-btn[hidden]{display:none}
 .fe-rail-btn svg{width:16px;height:16px;flex:none}
@@ -288,13 +288,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-density input{order:1;flex:none;width:72px}
 #fe-density-wrap .fe-density-end:last-of-type{order:2}
 #fe-density output{order:3;min-width:72px;padding:0;background:none;font-family:inherit;font-size:var(--fs-sm);color:var(--mt);text-align:left}
-/* The five views as one segmented control, like Settings. */
-#fe-view-group{display:inline-flex;gap:2px;padding:2px;border-radius:9px;background:color-mix(in srgb,var(--tx) 6%,transparent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
-#fe-toolbar #fe-view-group .fe-view-btn{width:28px;height:24px;border:0;border-radius:7px}
-#fe-toolbar #fe-view-group .fe-view-btn.active{background:color-mix(in srgb,var(--ac) 20%,var(--card));color:var(--ac);
-  box-shadow:0 1px 2px rgb(0 0 0 / .18),inset 0 0 0 1px color-mix(in srgb,var(--ac) 45%,transparent)}
-#fe[data-theme="light"] #fe-toolbar #fe-view-group .fe-view-btn.active{background:#fff;box-shadow:0 1px 2px rgb(16 24 32 / .14),inset 0 0 0 1px color-mix(in srgb,var(--ac) 50%,var(--bd))}
 /* One text box for the toolbar filter and the filter bar: the sidebar filter's
    look, with toggles (.*, Aa) as chips inside its right end. */
 .fe-in-box{position:relative;display:inline-flex;align-items:center;flex:none}
@@ -321,7 +314,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-panel-lbl{min-width:52px;font-size:var(--fs-sm);color:var(--dm);font-weight:500;white-space:nowrap}
 .fe-panel-sub{display:inline-flex;align-items:center;gap:8px}
 .fe-panel-sub .fe-panel-lbl{min-width:0}
-#fe-sg-panel .fe-seg-b,#fe-filter-bar .fe-seg-b{height:24px}
 .fe-panel-gap{margin-left:14px}
 #fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px;height:28px}
 #fe-find-depth .fe-dd-btn{min-width:100px}
@@ -1490,7 +1482,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-switch:checked{background:var(--ac)}
 .fe-switch:checked::after{transform:translateX(14px);background:var(--tx-on-ac)}
 .fe-switch:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
-.fe-seg{display:inline-flex;padding:2px;border-radius:10px;background:var(--bg);border:1px solid var(--bd)}
 .fe-set-sws{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .fe-set-sw{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 8px;border-radius:10px;cursor:pointer;
   font-size:var(--fs-md);color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
@@ -1521,10 +1512,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-fe-row.warn .fe-fe-ln,.fe-cl.warn .fe-cl-n{color:var(--nc-orange);font-weight:600}
 .fe-fe-row.err .fe-fe-code,.fe-cl.err .fe-cl-t{text-decoration:underline wavy color-mix(in srgb,var(--nc-red) 70%,transparent);text-underline-offset:3px}
 .fe-cl.flash{background:var(--on);transition:background 1s var(--ease)}
-.fe-fe-modes{padding:2px;border-radius:999px}
-.fe-fe-modes button{height:24px;padding:0 10px;border:0;border-radius:999px;background:none;color:var(--mt);font:inherit;font-size:var(--fs-md);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-fe-modes button:hover{color:var(--tx)}
-.fe-fe-modes button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
+.fe-fe-modes,.fe-fe-modes .fe-seg-b{border-radius:var(--r-full)}
 #fe-fe-pill .fe-fe-diag{border-radius:999px;padding:0 10px;font-size:var(--fs-md)}
 .fe-fe-diag.error{color:var(--nc-red)}
 .fe-fe-diag.warn{color:var(--nc-orange)}
@@ -1805,18 +1793,21 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 
 
 
-/* A row of buttons, one on. */
-.fe-seg{display:inline-flex;align-items:stretch;gap:2px;padding:2px;border-radius:9px;background:color-mix(in srgb,var(--tx) 6%,transparent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
-.fe-seg-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:30px;height:28px;padding:0 11px;border:0;border-radius:7px;background:none;
-  color:var(--mt);font:inherit;font-size:var(--fs-md);font-weight:500;cursor:pointer;white-space:nowrap;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
-.fe-seg-b.ico{padding:0 8px}
+/* Segmented: a row of buttons with one on (docs/system/segmented.md). The
+   group is one control high, md 28 (the default) or lg 32 with data-size;
+   its items are 4px shorter, rounded squares inside it. An item with only
+   an icon is square. */
+.fe-seg{--seg-h:var(--ctl-md);display:inline-flex;align-items:stretch;gap:2px;height:var(--seg-h);padding:2px;box-sizing:border-box;border-radius:var(--row-r);
+  background:color-mix(in srgb,var(--tx) 6%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
+.fe-seg[data-size="lg"]{--seg-h:var(--ctl-lg)}
+.fe-seg-b{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);min-width:calc(var(--seg-h) - 4px);padding:0 var(--sp-4);border:0;border-radius:var(--r-sm);
+  background:none;color:var(--mt);font:inherit;font-size:var(--type-ui);font-weight:500;cursor:pointer;white-space:nowrap;box-sizing:border-box;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-seg-b.ico{width:calc(var(--seg-h) - 4px);padding:0}
 .fe-seg-b svg{flex:none;width:14px;height:14px}
-.fe-seg-b:hover{color:var(--tx)}
-.fe-seg-b.on{background:color-mix(in srgb,var(--ac) 20%,var(--card));color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18),inset 0 0 0 1px color-mix(in srgb,var(--ac) 45%,transparent)}
-.fe-seg-b.on svg{color:var(--ac)}
+.fe-seg-b:hover{color:var(--tx);background:var(--hover)}
+.fe-seg-b.on,.fe-seg-b.on:hover{color:var(--ac);background:var(--on)}
 .fe-seg-b:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-#fe[data-theme="light"] .fe-seg-b.on{background:#fff;box-shadow:0 1px 2px rgb(16 24 32 / .14),inset 0 0 0 1px color-mix(in srgb,var(--ac) 50%,var(--bd))}
 
 /* A slider that steps through set values, with the value beside it. */
 .fe-sld{display:inline-flex;align-items:center;gap:12px;width:240px;--pct:50%}
@@ -2326,8 +2317,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   }
 
   // src/controls.ts
-  function segHtml(id, opts, title) {
-    return `<div class="fe-seg" id="${id}" role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
+  function segHtml(id, opts, title, size = "md") {
+    return `<div class="fe-seg" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
   }
   function sliderHtml(id, values, unit, title, names) {
     return `<div class="fe-sld" id="${id}" data-values="${values.join(",")}" data-unit="${esc(unit)}"${names ? ` data-names="${esc(names.join("|"))}"` : ""} title="${esc(title)}">

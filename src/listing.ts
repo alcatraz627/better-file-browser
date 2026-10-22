@@ -349,16 +349,12 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     els(`#fe-scroll [data-idx="${ls.selIdx}"]`).forEach(x => { if (x.offsetParent) x.scrollIntoView({ block: 'nearest' }); });
   }
 
-  // View buttons, hidden files, zoom.
-  els<HTMLButtonElement>('.fe-view-btn').forEach(btn => {
-    if (btn.dataset.view === init.view) btn.classList.add('active');
-    btn.addEventListener('click', () => {
-      els('.fe-view-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      fe.dataset.view = btn.dataset.view!;
-      kvSet(VIEW_KEY, btn.dataset.view!);
-      applyAll();
-    });
+  // The view switch, hidden files, zoom.
+  el('fe-view-group').addEventListener('change', () => {
+    const v = el<ValuedEl>('fe-view-group').value;
+    fe.dataset.view = v;
+    kvSet(VIEW_KEY, v);
+    applyAll();
   });
   el('fe-tree').addEventListener('click', e => {
     const toggle = (e.target as HTMLElement).closest<HTMLButtonElement>('.fe-tree-toggle');
@@ -411,6 +407,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   upgradeControls(el('fe-toolbar'));
   upgradeControls(el('fe-sg-panel'));
   upgradeControls(el('fe-filter-bar'));
+  el<ValuedEl>('fe-view-group').value = init.view;
   el<ValuedEl>('fe-type-filter').value = ls.filter.type;
   el<ValuedEl>('fe-find-depth').value = '8';
   // Detail: one scale from a few big items with names only to small items

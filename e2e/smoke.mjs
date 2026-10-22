@@ -841,8 +841,8 @@ try {
   }, SWEEP, surface);
   const missing = [];
   missing.push(...await sweep('listing'));
-  for (const v of ['list', 'tiles', 'icons']) { await page.evaluate(v => document.querySelector(`.fe-view-btn[data-view="${v}"]`).click(), v); missing.push(...await sweep(`view ${v}`)); }
-  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="details"]').click());
+  for (const v of ['list', 'tiles', 'icons']) { await page.evaluate(v => document.querySelector(`#fe-view-group [data-v="${v}"]`).click(), v); missing.push(...await sweep(`view ${v}`)); }
+  await page.evaluate(() => document.querySelector('#fe-view-group [data-v="details"]').click());
   await page.click('#fe-sg-btn'); missing.push(...await sweep('sort panel')); await page.click('#fe-sg-btn');
   await page.click('#fe-filter-btn'); missing.push(...await sweep('filter panel')); await page.click('#fe-filter-btn');
   await page.click('#fe-tbody a[href$="readme.md"]');
@@ -1075,7 +1075,7 @@ try {
 
   // Tile views: no stretch under icons; the page background follows the theme.
   await page.keyboard.press('Escape');
-  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="icons"]').click());
+  await page.evaluate(() => document.querySelector('#fe-view-group [data-v="icons"]').click());
   const tileRows = await page.$$eval('#fe-tiles .fe-tile', all => {
     const els = all.filter(e => e.offsetHeight > 0);   // hidden dotfile tiles are display:none
     const tops = [...new Set(els.map(e => e.offsetTop))];
@@ -1084,7 +1084,7 @@ try {
   });
   check(tileRows.maxH - tileRows.minH <= 40, `icon tiles keep their own height (rows=${tileRows.rows}, heights ${tileRows.minH}-${tileRows.maxH})`);
   await shot(page, 'view-icons');
-  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="tiles"]').click());
+  await page.evaluate(() => document.querySelector('#fe-view-group [data-v="tiles"]').click());
   await shot(page, 'view-tiles');
 
   // Many long names: rows stay one tile tall with a tight gap, names clamp
@@ -1097,7 +1097,7 @@ try {
   for (const view of ['tiles', 'icons']) {
     for (const width of [1400, 1735]) {
       await page.setViewport({ width, height: 900 });
-      await page.evaluate(v => document.querySelector(`.fe-view-btn[data-view="${v}"]`).click(), view);
+      await page.evaluate(v => document.querySelector(`#fe-view-group [data-v="${v}"]`).click(), view);
       const m = await page.$$eval('#fe-tiles .fe-tile', all => {
         const els = all.filter(e => e.offsetHeight > 0);
         const tops = [...new Set(els.map(e => e.offsetTop))].sort((a, b) => a - b);
@@ -1110,7 +1110,7 @@ try {
   }
   await page.setViewport({ width: 1400, height: 900 });
   // Per-tab listing scroll memory, then strip overflow with twenty background tabs.
-  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="details"]').click());
+  await page.evaluate(() => document.querySelector('#fe-view-group [data-v="details"]').click());
   await page.evaluate(() => { document.getElementById('fe-scroll').scrollTop = 60; });
   await new Promise(r => setTimeout(r, 100));
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
@@ -1141,16 +1141,16 @@ try {
   }
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await page.waitForSelector('#fe');
-  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="tiles"]').click());
+  await page.evaluate(() => document.querySelector('#fe-view-group [data-v="tiles"]').click());
   const htmlBg = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
   const feBg = await page.$eval('#fe', el => getComputedStyle(el).backgroundColor);
   check(htmlBg === feBg, `html background matches the theme (${htmlBg} vs ${feBg})`);
-  await page.evaluate(() => document.querySelector('.fe-view-btn[data-view="details"]').click());
+  await page.evaluate(() => document.querySelector('#fe-view-group [data-v="details"]').click());
 
   // Sort + view persist across a folder change and a reload.
   await page.click('th[data-sort="size"]');
   await page.click('th[data-sort="size"]');
-  await page.click('.fe-view-btn[data-view="tiles"]');
+  await page.click('#fe-view-group [data-v="tiles"]');
   const readState = () => page.evaluate(() => ({
     view: document.getElementById('fe').dataset.view,
     sorted: document.querySelector('th.sorted')?.dataset.sort,
@@ -1173,7 +1173,7 @@ try {
 
   // Reloading the extension orphans this page's content script. The preview
   // must say so and offer a refresh instead of a bare "Could not read file".
-  await page.click('.fe-view-btn[data-view="details"]');
+  await page.click('#fe-view-group [data-v="details"]');
   // The MV3 worker sleeps after 30 s idle; a runtime message wakes it.
   await page.click('#fe-term-btn');
   await new Promise(r => setTimeout(r, 500));

@@ -227,7 +227,7 @@ export function initListingInput(app: App, listing: Listing): void {
   bind('filter-panel', () => el('fe-filter-btn').click(), onListing);
   bind('hidden', () => el('fe-hidden-btn').click(), onListing);
   for (const v of ['details', 'list', 'tree', 'tiles', 'icons']) {
-    bind('view-' + v, () => document.querySelector<HTMLElement>(`.fe-view-btn[data-view="${v}"]`)?.click(), onListing);
+    bind('view-' + v, () => document.querySelector<HTMLElement>(`#fe-view-group [data-v="${v}"]`)?.click(), onListing);
   }
   const sortBy = (col: SortConfig['col']) => { const s = getSortConfig(); app.setOrder({ col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' }, getGroupMode()); };
   bind('sort-name', () => sortBy('name'), onListing);

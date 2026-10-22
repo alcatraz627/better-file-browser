@@ -5020,7 +5020,7 @@ body{opacity:1!important}
 /* The lens bar sits on top: icons in a row, the open lens grown to show its
    name; the wheel over the bar moves between lenses. The lens fills the rest. */
 #fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:6px 6px;border-bottom:1px solid var(--bd);overflow:hidden}
-.fe-rail-btn{flex:0 1 auto;min-width:26px;height:30px;display:flex;align-items:center;justify-content:center;gap:0;padding:0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
+.fe-rail-btn{flex:0 1 auto;min-width:26px;height:var(--ctl-lg);display:flex;align-items:center;justify-content:center;gap:0;padding:0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
   font:inherit;position:relative;z-index:1;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-rail-btn[hidden]{display:none}
 .fe-rail-btn svg{width:16px;height:16px;flex:none}
@@ -5144,13 +5144,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-density input{order:1;flex:none;width:72px}
 #fe-density-wrap .fe-density-end:last-of-type{order:2}
 #fe-density output{order:3;min-width:72px;padding:0;background:none;font-family:inherit;font-size:var(--fs-sm);color:var(--mt);text-align:left}
-/* The five views as one segmented control, like Settings. */
-#fe-view-group{display:inline-flex;gap:2px;padding:2px;border-radius:9px;background:color-mix(in srgb,var(--tx) 6%,transparent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
-#fe-toolbar #fe-view-group .fe-view-btn{width:28px;height:24px;border:0;border-radius:7px}
-#fe-toolbar #fe-view-group .fe-view-btn.active{background:color-mix(in srgb,var(--ac) 20%,var(--card));color:var(--ac);
-  box-shadow:0 1px 2px rgb(0 0 0 / .18),inset 0 0 0 1px color-mix(in srgb,var(--ac) 45%,transparent)}
-#fe[data-theme="light"] #fe-toolbar #fe-view-group .fe-view-btn.active{background:#fff;box-shadow:0 1px 2px rgb(16 24 32 / .14),inset 0 0 0 1px color-mix(in srgb,var(--ac) 50%,var(--bd))}
 /* One text box for the toolbar filter and the filter bar: the sidebar filter's
    look, with toggles (.*, Aa) as chips inside its right end. */
 .fe-in-box{position:relative;display:inline-flex;align-items:center;flex:none}
@@ -5177,7 +5170,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-panel-lbl{min-width:52px;font-size:var(--fs-sm);color:var(--dm);font-weight:500;white-space:nowrap}
 .fe-panel-sub{display:inline-flex;align-items:center;gap:8px}
 .fe-panel-sub .fe-panel-lbl{min-width:0}
-#fe-sg-panel .fe-seg-b,#fe-filter-bar .fe-seg-b{height:24px}
 .fe-panel-gap{margin-left:14px}
 #fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px;height:28px}
 #fe-find-depth .fe-dd-btn{min-width:100px}
@@ -6346,7 +6338,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-switch:checked{background:var(--ac)}
 .fe-switch:checked::after{transform:translateX(14px);background:var(--tx-on-ac)}
 .fe-switch:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
-.fe-seg{display:inline-flex;padding:2px;border-radius:10px;background:var(--bg);border:1px solid var(--bd)}
 .fe-set-sws{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .fe-set-sw{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 8px;border-radius:10px;cursor:pointer;
   font-size:var(--fs-md);color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
@@ -6377,10 +6368,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-fe-row.warn .fe-fe-ln,.fe-cl.warn .fe-cl-n{color:var(--nc-orange);font-weight:600}
 .fe-fe-row.err .fe-fe-code,.fe-cl.err .fe-cl-t{text-decoration:underline wavy color-mix(in srgb,var(--nc-red) 70%,transparent);text-underline-offset:3px}
 .fe-cl.flash{background:var(--on);transition:background 1s var(--ease)}
-.fe-fe-modes{padding:2px;border-radius:999px}
-.fe-fe-modes button{height:24px;padding:0 10px;border:0;border-radius:999px;background:none;color:var(--mt);font:inherit;font-size:var(--fs-md);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-fe-modes button:hover{color:var(--tx)}
-.fe-fe-modes button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
+.fe-fe-modes,.fe-fe-modes .fe-seg-b{border-radius:var(--r-full)}
 #fe-fe-pill .fe-fe-diag{border-radius:999px;padding:0 10px;font-size:var(--fs-md)}
 .fe-fe-diag.error{color:var(--nc-red)}
 .fe-fe-diag.warn{color:var(--nc-orange)}
@@ -6661,18 +6649,21 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 
 
 
-/* A row of buttons, one on. */
-.fe-seg{display:inline-flex;align-items:stretch;gap:2px;padding:2px;border-radius:9px;background:color-mix(in srgb,var(--tx) 6%,transparent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
-.fe-seg-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:30px;height:28px;padding:0 11px;border:0;border-radius:7px;background:none;
-  color:var(--mt);font:inherit;font-size:var(--fs-md);font-weight:500;cursor:pointer;white-space:nowrap;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
-.fe-seg-b.ico{padding:0 8px}
+/* Segmented: a row of buttons with one on (docs/system/segmented.md). The
+   group is one control high, md 28 (the default) or lg 32 with data-size;
+   its items are 4px shorter, rounded squares inside it. An item with only
+   an icon is square. */
+.fe-seg{--seg-h:var(--ctl-md);display:inline-flex;align-items:stretch;gap:2px;height:var(--seg-h);padding:2px;box-sizing:border-box;border-radius:var(--row-r);
+  background:color-mix(in srgb,var(--tx) 6%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
+.fe-seg[data-size="lg"]{--seg-h:var(--ctl-lg)}
+.fe-seg-b{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);min-width:calc(var(--seg-h) - 4px);padding:0 var(--sp-4);border:0;border-radius:var(--r-sm);
+  background:none;color:var(--mt);font:inherit;font-size:var(--type-ui);font-weight:500;cursor:pointer;white-space:nowrap;box-sizing:border-box;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-seg-b.ico{width:calc(var(--seg-h) - 4px);padding:0}
 .fe-seg-b svg{flex:none;width:14px;height:14px}
-.fe-seg-b:hover{color:var(--tx)}
-.fe-seg-b.on{background:color-mix(in srgb,var(--ac) 20%,var(--card));color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18),inset 0 0 0 1px color-mix(in srgb,var(--ac) 45%,transparent)}
-.fe-seg-b.on svg{color:var(--ac)}
+.fe-seg-b:hover{color:var(--tx);background:var(--hover)}
+.fe-seg-b.on,.fe-seg-b.on:hover{color:var(--ac);background:var(--on)}
 .fe-seg-b:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-#fe[data-theme="light"] .fe-seg-b.on{background:#fff;box-shadow:0 1px 2px rgb(16 24 32 / .14),inset 0 0 0 1px color-mix(in srgb,var(--ac) 50%,var(--bd))}
 
 /* A slider that steps through set values, with the value beside it. */
 .fe-sld{display:inline-flex;align-items:center;gap:12px;width:240px;--pct:50%}
@@ -14207,7 +14198,7 @@ ${end.comment}` : end.comment;
     <div id="fe-fe-pill" role="toolbar" aria-label="Editing">
       <span id="fe-fe-state"></span>
       <button type="button" class="btn" id="fe-fe-diag" data-act="diag" hidden></button>
-      ${fmt ? `<span class="fe-seg fe-fe-modes" role="group" aria-label="View">${MODES.map((m) => `<button type="button" data-mode="${m.id}" title="${m.hint} (\u2318\u21E7P cycles)">${m.label}</button>`).join("")}</span>` : ""}
+      ${fmt ? `<span class="fe-seg fe-fe-modes" role="group" aria-label="View">${MODES.map((m) => `<button type="button" class="fe-seg-b" data-mode="${m.id}" title="${m.hint} (\u2318\u21E7P cycles)">${m.label}</button>`).join("")}</span>` : ""}
       <button type="button" class="btn" data-variant="solid" data-act="done" title="Back to reading (Esc)">Done</button>
     </div>`;
     const ta = box.querySelector("#fe-fe-ta");
@@ -16894,8 +16885,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   }
 
   // src/controls.ts
-  function segHtml(id, opts, title) {
-    return `<div class="fe-seg" id="${id}" role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
+  function segHtml(id, opts, title, size = "md") {
+    return `<div class="fe-seg" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
   }
   function sliderHtml(id, values, unit, title, names) {
     return `<div class="fe-sld" id="${id}" data-values="${values.join(",")}" data-unit="${esc(unit)}"${names ? ` data-names="${esc(names.join("|"))}"` : ""} title="${esc(title)}">
@@ -17196,23 +17187,23 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           row("Interface", "Everything", sliderHtml("fe-st-uiscale", [80, 90, 100, 110, 125, 150], "%", "Interface size")) + row("Text", "Lists, sidebar, pages", sliderHtml("fe-st-rd-size", [12, 13, 14, 15, 16, 17, 18], " px", "Text size")) + row("Density", "", segHtml("fe-st-density", [
             { value: "roomy", label: "Roomy", icon: i2('<path d="M3 5h18M3 12h18M3 19h18"/>') },
             { value: "compact", label: "Compact", icon: i2('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }
-          ], "Row spacing"))
+          ], "Row spacing", "lg"))
         ) + card2(
           "Help",
           row("Tooltips", "Labels on hover", sw("fe-st-tooltips", "Tooltips on every control")) + row("Keyboard", "Every key, on a map", `<button id="fe-st-keys" class="btn" data-size="lg" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)
         ) },
         { key: "folders", label: "Folders", hint: "View, order, sidebar", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "How folders open, and what a click does.", body: card2(
           "Opening a folder",
-          row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read"))
+          row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in", "lg")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction", "lg")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read", "lg"))
         ) + card2(
           "Opening a file",
           row("Click a file", "", segHtml("fe-st-click", [
             { value: "look", label: "Preview", icon: UI_ICON.eye },
             { value: "go", label: "Open", icon: UI_ICON.external }
-          ], "What a click on a file does")) + row("Preview", "", segHtml("fe-st-panel", [
+          ], "What a click on a file does", "lg")) + row("Preview", "", segHtml("fe-st-panel", [
             { value: "modal", label: "Float", icon: i2('<rect width="14" height="12" x="5" y="6" rx="2"/>') },
             { value: "side", label: "Dock", icon: UI_ICON.preview }
-          ], "Where the preview opens") + iconBtn("fe-st-panel-reset", UI_ICON.reset, "Reset dragged sizes"))
+          ], "Where the preview opens", "lg") + iconBtn("fe-st-panel-reset", UI_ICON.reset, "Reset dragged sizes"))
         ) + card2(
           "Sidebar",
           row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
@@ -17227,14 +17218,14 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
             { value: "xl", label: "Wide" },
             { value: "lg", label: "Medium" },
             { value: "md", label: "Narrow" }
-          ], "Reading width")) + row("Line height", "", sliderHtml("fe-st-rd-lh", [1.4, 1.5, 1.65, 1.8, 2], "", "Line height")) + row("Code", "", sliderHtml("fe-st-rd-code", [11, 12, 13, 14, 15, 16], " px", "Code size")) + row("Wrap lines", "Raw text and code", sw("fe-st-wrap", "Wrap long lines"))
+          ], "Reading width", "lg")) + row("Line height", "", sliderHtml("fe-st-rd-lh", [1.4, 1.5, 1.65, 1.8, 2], "", "Line height")) + row("Code", "", sliderHtml("fe-st-rd-code", [11, 12, 13, 14, 15, 16], " px", "Code size")) + row("Wrap lines", "Raw text and code", sw("fe-st-wrap", "Wrap long lines"))
         ) + card2(
           "File pages",
           row("Pages for", "", segHtml("fe-st-filepages", [
             { value: "all", label: "All text" },
             { value: "not-md", label: "Not .md" },
             { value: "off", label: "Off" }
-          ], "Which files open as pages")) + row("Chrome opens", "In its own viewer", chipsHtml("fe-st-excluded-exts", ".ext", "Extensions Chrome opens itself") + iconBtn("fe-st-excluded-reset", UI_ICON.reset, "Restore .pdf .html .htm"))
+          ], "Which files open as pages", "lg")) + row("Chrome opens", "In its own viewer", chipsHtml("fe-st-excluded-exts", ".ext", "Extensions Chrome opens itself") + iconBtn("fe-st-excluded-reset", UI_ICON.reset, "Restore .pdf .html .htm"))
         ) + card2(
           "Icon rules",
           `
@@ -17547,9 +17538,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       tiles: "Medium icon grid with filename below",
       icons: "Large icon grid"
     };
-    const viewBtnsHTML = VIEW_MODES.map(
-      (v) => `<button class="btn fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? " (active)" : ""}">${v.ico}</button>`
-    ).join("");
+    const viewSeg = segHtml("fe-view-group", VIEW_MODES.map((v) => ({ value: v.id, icon: v.ico, hint: `${v.label} view: ${VIEW_LABELS[v.id]}` })), "View");
     const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}" data-hint="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
     const SETTINGS_DIALOG = settingsDialog();
     const HELP_DIALOG = {
@@ -17671,7 +17660,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             <span class="fe-density-end" aria-hidden="true">${line('<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', 13)}</span>
           </div>
           <span class="fe-tb-sep"></span>
-          <div id="fe-view-group" role="group" aria-label="View">${viewBtnsHTML}</div>
+          ${viewSeg}
           <label class="fe-in-box fe-tb-box"><input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
         </div>
       </div>
@@ -18421,15 +18410,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         if (x.offsetParent) x.scrollIntoView({ block: "nearest" });
       });
     }
-    els(".fe-view-btn").forEach((btn) => {
-      if (btn.dataset.view === init.view) btn.classList.add("active");
-      btn.addEventListener("click", () => {
-        els(".fe-view-btn").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        fe.dataset.view = btn.dataset.view;
-        kvSet(VIEW_KEY, btn.dataset.view);
-        applyAll();
-      });
+    el("fe-view-group").addEventListener("change", () => {
+      const v = el("fe-view-group").value;
+      fe.dataset.view = v;
+      kvSet(VIEW_KEY, v);
+      applyAll();
     });
     el("fe-tree").addEventListener("click", (e) => {
       const toggle = e.target.closest(".fe-tree-toggle");
@@ -18487,6 +18472,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     upgradeControls(el("fe-toolbar"));
     upgradeControls(el("fe-sg-panel"));
     upgradeControls(el("fe-filter-bar"));
+    el("fe-view-group").value = init.view;
     el("fe-type-filter").value = ls.filter.type;
     el("fe-find-depth").value = "8";
     const density = el("fe-density");
@@ -19198,7 +19184,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("filter-panel", () => el("fe-filter-btn").click(), onListing);
     bind("hidden", () => el("fe-hidden-btn").click(), onListing);
     for (const v of ["details", "list", "tree", "tiles", "icons"]) {
-      bind("view-" + v, () => document.querySelector(`.fe-view-btn[data-view="${v}"]`)?.click(), onListing);
+      bind("view-" + v, () => document.querySelector(`#fe-view-group [data-v="${v}"]`)?.click(), onListing);
     }
     const sortBy = (col) => {
       const s = getSortConfig();
@@ -19696,7 +19682,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     const keyOf = (cmd) => KEYMAP.find((d) => d.id === cmd)?.keys[0];
     setTooltipKeys((x) => {
-      const cmd = KEY_OF[x.id] ?? (x.matches(".fe-view-btn[data-view]") ? "view-" + x.dataset.view : "");
+      const cmd = KEY_OF[x.id] ?? (x.matches("#fe-view-group [data-v]") ? "view-" + x.dataset.v : "");
       return cmd && KEYMAP.find((d) => d.id === cmd)?.keys || [];
     });
     let hintTimer = null;
@@ -19717,8 +19703,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const k = keyOf(cmd);
         if (visible(x) && k) spots.push([x, k]);
       }
-      document.querySelectorAll(".fe-view-btn[data-view]").forEach((b) => {
-        const k = keyOf("view-" + (b.dataset.view === "icons" ? "icons" : b.dataset.view));
+      document.querySelectorAll("#fe-view-group [data-v]").forEach((b) => {
+        const k = keyOf("view-" + b.dataset.v);
         if (visible(b) && k) spots.push([b, k]);
       });
       document.querySelectorAll("#fe-tabs .fe-tab").forEach((t, i3) => {

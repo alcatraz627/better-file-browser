@@ -51,18 +51,21 @@ export const UI_CSS = `
 
 
 
-/* A row of buttons, one on. */
-.fe-seg{display:inline-flex;align-items:stretch;gap:2px;padding:2px;border-radius:9px;background:color-mix(in srgb,var(--tx) 6%,transparent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
-.fe-seg-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:30px;height:28px;padding:0 11px;border:0;border-radius:7px;background:none;
-  color:var(--mt);font:inherit;font-size:var(--fs-md);font-weight:500;cursor:pointer;white-space:nowrap;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
-.fe-seg-b.ico{padding:0 8px}
+/* Segmented: a row of buttons with one on (docs/system/segmented.md). The
+   group is one control high, md 28 (the default) or lg 32 with data-size;
+   its items are 4px shorter, rounded squares inside it. An item with only
+   an icon is square. */
+.fe-seg{--seg-h:var(--ctl-md);display:inline-flex;align-items:stretch;gap:2px;height:var(--seg-h);padding:2px;box-sizing:border-box;border-radius:var(--row-r);
+  background:color-mix(in srgb,var(--tx) 6%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
+.fe-seg[data-size="lg"]{--seg-h:var(--ctl-lg)}
+.fe-seg-b{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);min-width:calc(var(--seg-h) - 4px);padding:0 var(--sp-4);border:0;border-radius:var(--r-sm);
+  background:none;color:var(--mt);font:inherit;font-size:var(--type-ui);font-weight:500;cursor:pointer;white-space:nowrap;box-sizing:border-box;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-seg-b.ico{width:calc(var(--seg-h) - 4px);padding:0}
 .fe-seg-b svg{flex:none;width:14px;height:14px}
-.fe-seg-b:hover{color:var(--tx)}
-.fe-seg-b.on{background:color-mix(in srgb,var(--ac) 20%,var(--card));color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18),inset 0 0 0 1px color-mix(in srgb,var(--ac) 45%,transparent)}
-.fe-seg-b.on svg{color:var(--ac)}
+.fe-seg-b:hover{color:var(--tx);background:var(--hover)}
+.fe-seg-b.on,.fe-seg-b.on:hover{color:var(--ac);background:var(--on)}
 .fe-seg-b:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-#fe[data-theme="light"] .fe-seg-b.on{background:#fff;box-shadow:0 1px 2px rgb(16 24 32 / .14),inset 0 0 0 1px color-mix(in srgb,var(--ac) 50%,var(--bd))}
 
 /* A slider that steps through set values, with the value beside it. */
 .fe-sld{display:inline-flex;align-items:center;gap:12px;width:240px;--pct:50%}

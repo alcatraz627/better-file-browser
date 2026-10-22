@@ -297,7 +297,7 @@ export function initFocusNav(app: App): void {
   const keyOf = (cmd: string) => KEYMAP.find(d => d.id === cmd)?.keys[0];
   // A control's tooltip shows the keys of the command it runs.
   setTooltipKeys(x => {
-    const cmd = KEY_OF[x.id] ?? (x.matches('.fe-view-btn[data-view]') ? 'view-' + x.dataset.view : '');
+    const cmd = KEY_OF[x.id] ?? (x.matches('#fe-view-group [data-v]') ? 'view-' + x.dataset.v : '');
     return (cmd && KEYMAP.find(d => d.id === cmd)?.keys) || [];
   });
   let hintTimer: ReturnType<typeof setTimeout> | null = null;
@@ -309,7 +309,7 @@ export function initFocusNav(app: App): void {
     hints.className = 'fe-hints';
     const spots: [HTMLElement, string][] = [];
     for (const [id, cmd] of Object.entries(KEY_OF)) { const x = document.getElementById(id); const k = keyOf(cmd); if (visible(x) && k) spots.push([x, k]); }
-    document.querySelectorAll<HTMLElement>('.fe-view-btn[data-view]').forEach(b => { const k = keyOf('view-' + (b.dataset.view === 'icons' ? 'icons' : b.dataset.view)); if (visible(b) && k) spots.push([b, k]); });
+    document.querySelectorAll<HTMLElement>('#fe-view-group [data-v]').forEach(b => { const k = keyOf('view-' + b.dataset.v); if (visible(b) && k) spots.push([b, k]); });
     document.querySelectorAll<HTMLElement>('#fe-tabs .fe-tab').forEach((t, i) => { if (i < 9 && visible(t)) spots.push([t, String(i + 1)]); });
     hints.innerHTML = spots.map(([x, k]) => { const r = x.getBoundingClientRect(); return `<kbd style="left:${Math.round(r.left + r.width / 2)}px;top:${Math.round(r.bottom - 6)}px">${esc(k)}</kbd>`; }).join('')
       + `<div class="fe-hints-tip"><kbd>⌘K</kbd> every command · <kbd>?</kbd> keyboard map · <kbd>F6</kbd> next area</div>`;

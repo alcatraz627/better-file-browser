@@ -70,24 +70,24 @@ export function settingsDialog(): DialogSpec {
           row('Text', 'Lists, sidebar, pages', sliderHtml('fe-st-rd-size', [12, 13, 14, 15, 16, 17, 18], ' px', 'Text size')) +
           row('Density', '', segHtml('fe-st-density', [
             { value: 'roomy', label: 'Roomy', icon: i('<path d="M3 5h18M3 12h18M3 19h18"/>') },
-            { value: 'compact', label: 'Compact', icon: i('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }], 'Row spacing'))) +
+            { value: 'compact', label: 'Compact', icon: i('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }], 'Row spacing', 'lg'))) +
         card('Help',
           row('Tooltips', 'Labels on hover', sw('fe-st-tooltips', 'Tooltips on every control')) +
           row('Keyboard', 'Every key, on a map', `<button id="fe-st-keys" class="btn" data-size="lg" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)) },
 
       { key: 'folders', label: 'Folders', hint: 'View, order, sidebar', icon: UI_ICON.folderOpen, tone: 'var(--nc-blue)', desc: 'How folders open, and what a click does.', body:
         card('Opening a folder',
-          row('View', '', segHtml('fe-st-defview', VIEW_ICONS.map(v => ({ value: v.id, icon: v.ico, hint: v.label })), 'View a folder opens in')) +
-          row('Sort', '', ddHtml('fe-st-sort', SORT_OPTS, 'Order a folder opens in') + segHtml('fe-st-sort-dir', SORT_DIR_OPTS, 'Direction')) +
+          row('View', '', segHtml('fe-st-defview', VIEW_ICONS.map(v => ({ value: v.id, icon: v.ico, hint: v.label })), 'View a folder opens in', 'lg')) +
+          row('Sort', '', ddHtml('fe-st-sort', SORT_OPTS, 'Order a folder opens in') + segHtml('fe-st-sort-dir', SORT_DIR_OPTS, 'Direction', 'lg')) +
           row('Group', '', ddHtml('fe-st-group', GROUP_OPTS, 'Grouping a folder opens with')) +
-          row('Dates', '', segHtml('fe-st-datefmt', [{ value: 'short', label: 'Apr 17' }, { value: 'full', label: 'April 17, 2025' }], 'How dates read'))) +
+          row('Dates', '', segHtml('fe-st-datefmt', [{ value: 'short', label: 'Apr 17' }, { value: 'full', label: 'April 17, 2025' }], 'How dates read', 'lg'))) +
         card('Opening a file',
           row('Click a file', '', segHtml('fe-st-click', [
             { value: 'look', label: 'Preview', icon: UI_ICON.eye },
-            { value: 'go', label: 'Open', icon: UI_ICON.external }], 'What a click on a file does')) +
+            { value: 'go', label: 'Open', icon: UI_ICON.external }], 'What a click on a file does', 'lg')) +
           row('Preview', '', segHtml('fe-st-panel', [
             { value: 'modal', label: 'Float', icon: i('<rect width="14" height="12" x="5" y="6" rx="2"/>') },
-            { value: 'side', label: 'Dock', icon: UI_ICON.preview }], 'Where the preview opens') + iconBtn('fe-st-panel-reset', UI_ICON.reset, 'Reset dragged sizes'))) +
+            { value: 'side', label: 'Dock', icon: UI_ICON.preview }], 'Where the preview opens', 'lg') + iconBtn('fe-st-panel-reset', UI_ICON.reset, 'Reset dragged sizes'))) +
         card('Sidebar',
           row('Sidebar', '', sw('fe-st-sidebar', 'Show the sidebar')) +
           row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
@@ -99,13 +99,13 @@ export function settingsDialog(): DialogSpec {
       { key: 'files', label: 'Files', hint: 'Pages, icons', icon: UI_ICON.files, tone: 'var(--nc-teal)', desc: 'Reading, file pages and icons.', body:
         card('Reading',
           row('Width', 'Markdown pages', segHtml('fe-st-rd-column', [
-            { value: 'unset', label: 'Full' }, { value: 'xl', label: 'Wide' }, { value: 'lg', label: 'Medium' }, { value: 'md', label: 'Narrow' }], 'Reading width')) +
+            { value: 'unset', label: 'Full' }, { value: 'xl', label: 'Wide' }, { value: 'lg', label: 'Medium' }, { value: 'md', label: 'Narrow' }], 'Reading width', 'lg')) +
           row('Line height', '', sliderHtml('fe-st-rd-lh', [1.4, 1.5, 1.65, 1.8, 2], '', 'Line height')) +
           row('Code', '', sliderHtml('fe-st-rd-code', [11, 12, 13, 14, 15, 16], ' px', 'Code size')) +
           row('Wrap lines', 'Raw text and code', sw('fe-st-wrap', 'Wrap long lines'))) +
         card('File pages',
           row('Pages for', '', segHtml('fe-st-filepages', [
-            { value: 'all', label: 'All text' }, { value: 'not-md', label: 'Not .md' }, { value: 'off', label: 'Off' }], 'Which files open as pages')) +
+            { value: 'all', label: 'All text' }, { value: 'not-md', label: 'Not .md' }, { value: 'off', label: 'Off' }], 'Which files open as pages', 'lg')) +
           row('Chrome opens', 'In its own viewer', chipsHtml('fe-st-excluded-exts', '.ext', 'Extensions Chrome opens itself') + iconBtn('fe-st-excluded-reset', UI_ICON.reset, 'Restore .pdf .html .htm'))) +
         card('Icon rules', `
           <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
