@@ -121,7 +121,7 @@ export function renderPage(p: PageParams): string {
         <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? 'file' : 'folder'} and name it" aria-label="Save this ${fileMode ? 'file' : 'folder'}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
           <input id="fe-lens-filter" class="tb" data-size="lg" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
-          <button type="button" id="fe-lens-depth" class="fe-lens-depth" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
+          <button type="button" id="fe-lens-depth" class="btn fe-lens-depth" data-size="sm" data-variant="outline" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
         </label>
       </div>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
@@ -209,7 +209,7 @@ export function renderPage(p: PageParams): string {
           <span class="fe-panel-lbl">Name</span>
           <label class="fe-in-box fe-in-name">
             <input id="fe-filter-q" class="tb" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
-            <span class="fe-in-chips"><button type="button" id="fe-regex-btn" class="fe-in-chip" title="Treat the pattern as a regular expression">.*</button></span>
+            <span class="fe-in-chips"><button type="button" id="fe-regex-btn" class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono aria-pressed="false" title="Treat the pattern as a regular expression">.*</button></span>
           </label>
           <span class="fe-panel-lbl">Type</span>
           ${ddHtml('fe-type-filter', [
@@ -224,8 +224,8 @@ export function renderPage(p: PageParams): string {
           <label class="fe-in-box fe-in-text">
             <input id="fe-find-text" class="tb" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
             <span class="fe-in-chips">
-              <label class="fe-in-chip" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
-              <label class="fe-in-chip" title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
+              <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
+              <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
             </span>
           </label>
           <span id="fe-find-depth-wrap" class="fe-panel-sub" style="display:none" title="How many levels of subfolders to look in">

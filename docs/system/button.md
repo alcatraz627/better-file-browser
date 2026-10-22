@@ -22,6 +22,8 @@ per-surface classes only say where a button sits and when it shows.
 | `data-size` | `xs` 18, `sm` 22, `md` 28 (default), `lg` 32 | height from `--ctl-*`; icon 10, 12, 14, 16px |
 | `data-variant` | plain (default), `shade`, `surface`, `outline`, `solid` | fill and border; `surface` is a solid fill for a button floating over content (row actions over a file name) |
 | `data-shape` | `pill` | round ends on a text button, for a pill bar (the editor's Done) |
+| `data-mono` | | a code glyph label (`.*`, `Aa`) |
+| Toggle | `.on`, `aria-pressed`, or a hidden `<input type="checkbox">` inside | stays on; with `data-variant="outline"` its border turns accent too. Toggles inside a text field are sm outline (`Aa`, `.*`, the lens Names/Deep switch) |
 | `data-icon` | | square at its size and round; text is not allowed |
 | `data-tone` | `danger`, `accent` | danger turns red on hover; accent is accent text at rest |
 | on | `.on`, `.active`, `aria-pressed="true"`, `aria-expanded="true"` | accent text on the `--on` wash |

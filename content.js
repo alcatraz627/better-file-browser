@@ -4933,6 +4933,8 @@ Now: ${question}` : question;
    data-size: xs 18, sm 22, md 28 (the default), lg 32.
    data-icon: an icon alone, square at its size and round.
    data-shape="pill": a text button with round ends, for a pill bar.
+   data-mono: a code glyph label (.* or Aa).
+   A Toggle is a button that stays on; it may wrap a hidden check box.
    data-tone: danger (red on hover), accent (accent text at rest).
    On: .on, .active, aria-pressed or aria-expanded="true". Busy:
    aria-busy="true" (a spinner in place of the content). Done: data-done
@@ -4960,7 +4962,13 @@ Now: ${question}` : question;
 .btn:not(:disabled):not([aria-disabled="true"])[data-variant="outline"]:hover{border-color:var(--mt)}
 .btn:not(:disabled):not([aria-disabled="true"])[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
 .btn:not(:disabled):not([aria-disabled="true"])[data-tone="danger"]:hover{color:var(--tone-danger)}
-.btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"]{color:var(--ac);background:var(--on)}
+.btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"],.btn:has(> input:checked){color:var(--ac);background:var(--on)}
+.btn[data-variant="outline"]:is(.on,.active,[aria-pressed="true"],:has(> input:checked)){border-color:color-mix(in srgb,var(--ac) 45%,transparent)}
+/* A toggle can wrap a native check box, laid invisibly over the whole button. */
+.btn:has(> input){position:relative}
+.btn > input[type="checkbox"]{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.btn:has(> input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
+.btn[data-mono]{font-family:var(--mono)}
 .btn:not(:disabled):not([data-variant="solid"]):active{background:var(--s3)}
 .btn[data-variant="solid"]:not(:disabled):active{filter:brightness(.95)}
 .btn:disabled,.btn[aria-disabled="true"]{opacity:.45;cursor:default}
@@ -5170,13 +5178,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-in-text{width:300px}
 .fe-in-text input[type="text"]{padding-right:68px!important}
 .fe-in-chips{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px}
-.fe-in-chip{position:relative;display:inline-grid;place-items:center;min-width:26px;height:20px;padding:0 5px;box-sizing:border-box;border:1px solid var(--bd);border-radius:6px;
-  background:var(--bg);color:var(--dm);font:500 var(--fs-xs) var(--mono);cursor:pointer;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
-.fe-in-chip:hover{color:var(--tx)}
-.fe-in-chip input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
-.fe-in-chip.active,.fe-in-chip:has(input:checked){color:var(--ac);border-color:color-mix(in srgb,var(--ac) 45%,transparent);background:color-mix(in srgb,var(--ac) 12%,var(--bg))}
-.fe-in-chip:focus-visible,.fe-in-chip:has(input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
 #fe-sg-panel,#fe-filter-bar{display:flex;flex-direction:column;gap:8px;
   padding:9px 14px;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
 .fe-panel-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -6177,10 +6178,7 @@ button.fe-si{width:auto;display:flex}
 a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-lens-box{position:relative;flex:1;min-width:0;margin-left:4px}
 .fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
-.fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%);height:22px;padding:0 7px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);
-  color:var(--dm);font:inherit;font-size:var(--fs-xs);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
-.fe-lens-depth:hover{color:var(--tx)}
-.fe-lens-depth.on{color:var(--ac);border-color:color-mix(in srgb,var(--ac) 45%,transparent);background:color-mix(in srgb,var(--ac) 12%,var(--bg))}
+.fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
 #fe-lens-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 #fe-lens-tags .fe-lens-tag{flex:none;white-space:nowrap}
 /* A saved row is one quiet line: the name, then a tag count that gives way to
@@ -17596,7 +17594,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? "file" : "folder"} and name it" aria-label="Save this ${fileMode ? "file" : "folder"}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
           <input id="fe-lens-filter" class="tb" data-size="lg" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
-          <button type="button" id="fe-lens-depth" class="fe-lens-depth" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
+          <button type="button" id="fe-lens-depth" class="btn fe-lens-depth" data-size="sm" data-variant="outline" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
         </label>
       </div>
       <div id="fe-lens-tags" class="fe-lens-tags" hidden></div>
@@ -17684,7 +17682,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <span class="fe-panel-lbl">Name</span>
           <label class="fe-in-box fe-in-name">
             <input id="fe-filter-q" class="tb" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
-            <span class="fe-in-chips"><button type="button" id="fe-regex-btn" class="fe-in-chip" title="Treat the pattern as a regular expression">.*</button></span>
+            <span class="fe-in-chips"><button type="button" id="fe-regex-btn" class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono aria-pressed="false" title="Treat the pattern as a regular expression">.*</button></span>
           </label>
           <span class="fe-panel-lbl">Type</span>
           ${ddHtml("fe-type-filter", [
@@ -17699,8 +17697,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <label class="fe-in-box fe-in-text">
             <input id="fe-find-text" class="tb" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
             <span class="fe-in-chips">
-              <label class="fe-in-chip" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
-              <label class="fe-in-chip" title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
+              <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
+              <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
             </span>
           </label>
           <span id="fe-find-depth-wrap" class="fe-panel-sub" style="display:none" title="How many levels of subfolders to look in">
@@ -18620,6 +18618,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       stopFind();
       ls.filter.regex = !ls.filter.regex;
       this.classList.toggle("active", ls.filter.regex);
+      this.setAttribute("aria-pressed", String(ls.filter.regex));
       this.title = ls.filter.regex ? "Regex mode on" : "Toggle regex mode";
       refreshNameMatches();
     });
@@ -18801,6 +18800,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       el("fe-filter-q").value = q.name;
       el("fe-search").value = q.name;
       el("fe-regex-btn").classList.toggle("active", q.regex);
+      el("fe-regex-btn").setAttribute("aria-pressed", String(q.regex));
       const typeDd = el("fe-type-filter");
       const typeOpts = JSON.parse(typeDd.dataset.opts || "[]");
       if (!typeOpts.some((o) => o.value === ls.filter.type)) typeDd.setOptions([...typeOpts, { value: ls.filter.type, label: "." + ls.filter.type }]);

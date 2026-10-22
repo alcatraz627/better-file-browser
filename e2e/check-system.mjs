@@ -66,7 +66,7 @@ function dupSelectors(css) {
 // come from .btn. So does any rule that reaches a .btn through its context
 // (`#bar .btn{height:…}`). Two exceptions: a tab's buttons over its label
 // keep their backing, and a glyph drawn inside a button (::before) is content.
-const OLD_BUTTONS = /\.(fe-ibtn|fe-lens-ib|fe-ask-ib|fe-act-btn|fe-cm-ib|fe-cm-x|fe-tab-x|fe-tab-more|fe-dlg-close|fe-rm-btn|fe-tag-btn|fe-ask-send|fe-nt-props|fe-nt-tab|fe-md-copy|fe-ask-h-del|fe-st-rule-del)(?![\w-])/;
+const OLD_BUTTONS = /\.(fe-ibtn|fe-lens-ib|fe-ask-ib|fe-act-btn|fe-cm-ib|fe-cm-x|fe-tab-x|fe-tab-more|fe-dlg-close|fe-rm-btn|fe-tag-btn|fe-ask-send|fe-nt-props|fe-nt-tab|fe-md-copy|fe-ask-h-del|fe-st-rule-del|fe-in-chip|fe-lens-depth)(?![\w-])/;
 const CONTEXT_BTN = /\S\s+[^\s>+~]*\.btn(?![\w-])[^\s]*$|\S\s*>\s*[^\s]*\.btn(?![\w-])[^\s]*$/;
 const TAB_BACKING = /^\.fe-tab:not\(\.on\) \.fe-tab-(x|more)(:hover)?$/;
 const PAINT = /^\s*(width|height|min-width|min-height|padding[\w-]*|border(-[\w-]+)?|background(-[\w-]+)?|color|font(-[\w-]+)?|line-height|cursor|transition|place-items|display\s*:\s*(inline-)?(grid|flex|block))\s*:?/;

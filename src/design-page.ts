@@ -80,7 +80,7 @@ function render(): string {
     row('Dropdown', ddHtml('ds-dd', [{ value: 'a', label: 'As listed', icon: UI_ICON.list }, { value: 'b', label: 'Name', icon: UI_ICON.file }, { value: 'c', label: 'Modified', icon: UI_ICON.clock }], 'Dropdown')),
     row('Slider', sliderHtml('ds-sld', [1, 2, 3, 4, 5], '', 'Detail', ['Overview', 'Large', 'Standard', 'Detailed', 'Full detail'])),
     row('Chips', chipsHtml('ds-chips', 'Add a tag', 'Chips')),
-    row('Text box', `<label class="fe-in-box" style="width:260px"><input class="tb" type="text" placeholder="Pattern" title="Text box"><span class="fe-in-chips"><button type="button" class="fe-in-chip active" title="Regex">.*</button></span></label>`),
+    row('Text box', `<label class="fe-in-box" style="width:260px"><input class="tb" type="text" placeholder="Pattern" title="Text box"><span class="fe-in-chips"><button type="button" class="btn fe-in-chip active" data-size="sm" data-variant="outline" data-mono title="Regex">.*</button></span></label>`),
   ].join(''))}
   ${sec('Planned parts', 'Built slice by slice (component-system.md, section 14); each appears here when it lands.', [
     row('Slice 1', '<span class="ds-plan">Layer, Menu, HoverCard, rich tooltip, RovingFocus, FocusTrap</span>'),

@@ -65,6 +65,8 @@
    data-size: xs 18, sm 22, md 28 (the default), lg 32.
    data-icon: an icon alone, square at its size and round.
    data-shape="pill": a text button with round ends, for a pill bar.
+   data-mono: a code glyph label (.* or Aa).
+   A Toggle is a button that stays on; it may wrap a hidden check box.
    data-tone: danger (red on hover), accent (accent text at rest).
    On: .on, .active, aria-pressed or aria-expanded="true". Busy:
    aria-busy="true" (a spinner in place of the content). Done: data-done
@@ -92,7 +94,13 @@
 .btn:not(:disabled):not([aria-disabled="true"])[data-variant="outline"]:hover{border-color:var(--mt)}
 .btn:not(:disabled):not([aria-disabled="true"])[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
 .btn:not(:disabled):not([aria-disabled="true"])[data-tone="danger"]:hover{color:var(--tone-danger)}
-.btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"]{color:var(--ac);background:var(--on)}
+.btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"],.btn:has(> input:checked){color:var(--ac);background:var(--on)}
+.btn[data-variant="outline"]:is(.on,.active,[aria-pressed="true"],:has(> input:checked)){border-color:color-mix(in srgb,var(--ac) 45%,transparent)}
+/* A toggle can wrap a native check box, laid invisibly over the whole button. */
+.btn:has(> input){position:relative}
+.btn > input[type="checkbox"]{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.btn:has(> input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
+.btn[data-mono]{font-family:var(--mono)}
 .btn:not(:disabled):not([data-variant="solid"]):active{background:var(--s3)}
 .btn[data-variant="solid"]:not(:disabled):active{filter:brightness(.95)}
 .btn:disabled,.btn[aria-disabled="true"]{opacity:.45;cursor:default}
@@ -302,13 +310,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-in-text{width:300px}
 .fe-in-text input[type="text"]{padding-right:68px!important}
 .fe-in-chips{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px}
-.fe-in-chip{position:relative;display:inline-grid;place-items:center;min-width:26px;height:20px;padding:0 5px;box-sizing:border-box;border:1px solid var(--bd);border-radius:6px;
-  background:var(--bg);color:var(--dm);font:500 var(--fs-xs) var(--mono);cursor:pointer;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
-.fe-in-chip:hover{color:var(--tx)}
-.fe-in-chip input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
-.fe-in-chip.active,.fe-in-chip:has(input:checked){color:var(--ac);border-color:color-mix(in srgb,var(--ac) 45%,transparent);background:color-mix(in srgb,var(--ac) 12%,var(--bg))}
-.fe-in-chip:focus-visible,.fe-in-chip:has(input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
 #fe-sg-panel,#fe-filter-bar{display:flex;flex-direction:column;gap:8px;
   padding:9px 14px;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
 .fe-panel-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1309,10 +1310,7 @@ button.fe-si{width:auto;display:flex}
 a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-lens-box{position:relative;flex:1;min-width:0;margin-left:4px}
 .fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
-.fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%);height:22px;padding:0 7px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);
-  color:var(--dm);font:inherit;font-size:var(--fs-xs);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
-.fe-lens-depth:hover{color:var(--tx)}
-.fe-lens-depth.on{color:var(--ac);border-color:color-mix(in srgb,var(--ac) 45%,transparent);background:color-mix(in srgb,var(--ac) 12%,var(--bg))}
+.fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
 #fe-lens-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 #fe-lens-tags .fe-lens-tag{flex:none;white-space:nowrap}
 /* A saved row is one quiet line: the name, then a tag count that gives way to
@@ -2609,7 +2607,7 @@ html,body{height:auto;overflow:auto;margin:0;background:var(--bg)}
       row("Dropdown", ddHtml("ds-dd", [{ value: "a", label: "As listed", icon: UI_ICON.list }, { value: "b", label: "Name", icon: UI_ICON.file }, { value: "c", label: "Modified", icon: UI_ICON.clock }], "Dropdown")),
       row("Slider", sliderHtml("ds-sld", [1, 2, 3, 4, 5], "", "Detail", ["Overview", "Large", "Standard", "Detailed", "Full detail"])),
       row("Chips", chipsHtml("ds-chips", "Add a tag", "Chips")),
-      row("Text box", `<label class="fe-in-box" style="width:260px"><input class="tb" type="text" placeholder="Pattern" title="Text box"><span class="fe-in-chips"><button type="button" class="fe-in-chip active" title="Regex">.*</button></span></label>`)
+      row("Text box", `<label class="fe-in-box" style="width:260px"><input class="tb" type="text" placeholder="Pattern" title="Text box"><span class="fe-in-chips"><button type="button" class="btn fe-in-chip active" data-size="sm" data-variant="outline" data-mono title="Regex">.*</button></span></label>`)
     ].join(""))}
   ${sec("Planned parts", "Built slice by slice (component-system.md, section 14); each appears here when it lands.", [
       row("Slice 1", '<span class="ds-plan">Layer, Menu, HoverCard, rich tooltip, RovingFocus, FocusTrap</span>'),

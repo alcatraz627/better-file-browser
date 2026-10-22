@@ -538,6 +538,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     stopFind();
     ls.filter.regex = !ls.filter.regex;
     (this as HTMLElement).classList.toggle('active', ls.filter.regex);
+    (this as HTMLElement).setAttribute('aria-pressed', String(ls.filter.regex));
     (this as HTMLElement).title = ls.filter.regex ? 'Regex mode on' : 'Toggle regex mode';
     refreshNameMatches();
   });
@@ -660,6 +661,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     el<HTMLInputElement>('fe-filter-q').value = q.name;
     el<HTMLInputElement>('fe-search').value = q.name;
     el('fe-regex-btn').classList.toggle('active', q.regex);
+    el('fe-regex-btn').setAttribute('aria-pressed', String(q.regex));
     // A view saved elsewhere can name an extension this folder lacks; list it so it reads ".rs".
     const typeDd = el<DropdownEl>('fe-type-filter');
     const typeOpts: Opt[] = JSON.parse(typeDd.dataset.opts || '[]');
