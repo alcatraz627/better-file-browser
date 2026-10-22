@@ -1073,6 +1073,11 @@ ${body}`;
     el2.showPopover();
     void el2.offsetWidth;
   }
+  function lower(el2) {
+    if (topLayer && el2.matches(":popover-open")) el2.hidePopover();
+    el2.removeAttribute("popover");
+    delete el2.dataset.raised;
+  }
   function position(el2, o) {
     const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
     if (place === "none") return;
@@ -3504,6 +3509,8 @@ Now: ${question}` : question;
     overlay.style.width = side && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : "";
     dialog.style.width = !side && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : "";
     dialog.style.height = !side && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : "";
+    if (side) lower(overlay);
+    else if (overlay.style.display !== "none") raise(overlay);
     const dock = document.getElementById("fe-ql-dock");
     dock.title = side ? "Float the preview as a window" : "Dock the preview to the side";
     dock.classList.toggle("on", side);
@@ -3637,6 +3644,7 @@ Now: ${question}` : question;
     copyBtn.disabled = false;
     if (overlay.style.display === "none") rememberFocus();
     overlay.style.display = "flex";
+    if (layout.mode !== "side") raise(overlay);
     const body = document.getElementById("fe-ql-body");
     body.classList.add("fe-editing");
     body.innerHTML = `
@@ -4024,6 +4032,7 @@ Now: ${question}` : question;
     const body = document.getElementById("fe-ql-body");
     if (overlay.style.display === "none") rememberFocus();
     overlay.style.display = "flex";
+    if (layout.mode !== "side") raise(overlay);
     dsvHeader = [];
     dsvRows = [];
     dsvSort = null;
@@ -13997,10 +14006,10 @@ and ${diags.length - 12} more` : "");
         starts.push(joined.length);
         joined += node.data;
       }
-      const lower = joined.toLowerCase();
+      const lower2 = joined.toLowerCase();
       const pieces = [];
       let n = 0, found = 0;
-      for (let at = lower.indexOf(q); at !== -1 && found < MAX_HITS; at = lower.indexOf(q, at + q.length), found++) {
+      for (let at = lower2.indexOf(q); at !== -1 && found < MAX_HITS; at = lower2.indexOf(q, at + q.length), found++) {
         const end = at + q.length;
         while (starts[n] + nodes[n].data.length <= at) n++;
         for (let k = n; k < nodes.length && starts[k] < end; k++) {

@@ -38,6 +38,28 @@ try {
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
 
+  // The floating preview sits in the top layer, the palette opens over it,
+  // and the docked preview leaves the top layer for the page's own layout.
+  await page.$eval('#fe-tbody tr:not(.dir):not(.dotfile):not(.par) .fe-name, #fe-tbody tr:not(.dir):not(.dotfile):not(.par) a', a => a.click());
+  await page.waitForFunction(() => document.getElementById('fe-qlook')?.style.display === 'flex', { timeout: 4000 });
+  const floatTop = await page.$eval('#fe-qlook', q => q.matches(':popover-open'));
+  await page.keyboard.down('Meta'); await page.keyboard.press('k'); await page.keyboard.up('Meta');
+  await new Promise(res => setTimeout(res, 200));
+  const palOver = await page.evaluate(() => !!document.elementFromPoint(innerWidth / 2, innerHeight * 0.2)?.closest('.fe-pal-wrap'));
+  await page.keyboard.press('Escape');
+  const stillOpen = await page.$eval('#fe-qlook', q => q.style.display === 'flex');
+  await page.$eval('#fe-ql-dock', b => b.click());
+  await new Promise(res => setTimeout(res, 300));
+  const docked = await page.$eval('#fe-qlook', q => ({ side: q.classList.contains('side'), top: q.matches(':popover-open'), pos: getComputedStyle(q).position }));
+  await page.$eval('#fe-ql-dock', b => b.click());
+  await new Promise(res => setTimeout(res, 300));
+  const back = await page.$eval('#fe-qlook', q => q.matches(':popover-open'));
+  const pvOk = floatTop && palOver && stillOpen && docked.side && !docked.top && docked.pos === 'relative' && back;
+  console.log(`${pvOk ? 'ok  ' : 'FAIL'} the floating preview is a top-layer part, the palette opens over it and Esc closes only the palette, docking leaves the top layer: ${JSON.stringify({ floatTop, palOver, stillOpen, docked, back })}`);
+  if (!pvOk) process.exitCode = 1;
+  await page.keyboard.press('Escape');
+  await new Promise(res => setTimeout(res, 200));
+
   // Resting on a Saved row shows its card beside the sidebar.
   await page.keyboard.press('b');
   await page.keyboard.press('g'); await page.keyboard.press('2');

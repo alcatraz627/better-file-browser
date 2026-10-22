@@ -138,6 +138,14 @@ export function raise(el: HTMLElement): void {
   void el.offsetWidth;   // a class added next starts its transition from here
 }
 
+/// Takes a raised part back out of the top layer, for when it joins the
+/// page's own layout (the docked preview).
+export function lower(el: HTMLElement): void {
+  if (topLayer && el.matches(':popover-open')) el.hidePopover();
+  el.removeAttribute('popover');
+  delete el.dataset.raised;
+}
+
 /// The topmost open layer, if any.
 export function topmost(): Layer | null { return stack[stack.length - 1] ?? null; }
 /// Close every open layer (for a page change or a reset).

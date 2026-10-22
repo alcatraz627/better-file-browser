@@ -5,6 +5,7 @@ import type { Entry, IconRule, PreviewLayout } from './types';
 import { esc, fmtSize, getExt, copyToClipboard, midHtml, pageHref, fileHref } from './utils';
 import { getPreviewLayout, savePreviewLayout } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
+import { raise, lower } from './layer';
 import { getIcon, IMG_EXTS } from './icons';
 import { UI_ICON } from './control-icons';
 import { fileMeta, kindName, metaSummary } from './file-meta';
@@ -251,6 +252,9 @@ function applyLayout(): void {
   overlay.style.width = side && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : '';
   dialog.style.width  = !side && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : '';
   dialog.style.height = !side && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : '';
+  // Floating, it stacks with the other floating parts; docked, it is part of the page.
+  if (side) lower(overlay);
+  else if (overlay.style.display !== 'none') raise(overlay);
   const dock = document.getElementById('fe-ql-dock')!;
   dock.title = side ? 'Float the preview as a window' : 'Dock the preview to the side';
   dock.classList.toggle('on', side);
@@ -407,6 +411,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   copyBtn.style.display = ''; copyBtn.disabled = false;
   if (overlay.style.display === 'none') rememberFocus();
   overlay.style.display = 'flex';
+  if (layout.mode !== 'side') raise(overlay);
 
   const body = document.getElementById('fe-ql-body')!;
   body.classList.add('fe-editing');
@@ -718,6 +723,7 @@ export function openPreview(e: Entry): void {
   const body = document.getElementById('fe-ql-body')!;
   if (overlay.style.display === 'none') rememberFocus();
   overlay.style.display = 'flex';
+  if (layout.mode !== 'side') raise(overlay);
   dsvHeader = []; dsvRows = []; dsvSort = null;
   currentText = null;
   resetAiUi();
