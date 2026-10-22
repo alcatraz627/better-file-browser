@@ -215,3 +215,38 @@ ruling before the slice treats it as changed.
   behaviour: L8, L14, L21, L23, L26, L42, L84, L91, L94, L119.
 - 57 rows have a real check (119 minus the 62 above).
 - Part 2 has 10 defects.
+
+## 4. Where the slice stands
+
+The owner's approved spec already rules the layer contract (Esc closes the
+topmost layer only, focus returns to the opener, an anchor press toggles), so
+the defects it covers are fixed as part of the slice rather than asked again.
+
+Fixed by the move onto the layer service: D1 (every path menu state takes
+Esc), D2 (focus returns to the chevron), D3 (one menu group, opening one
+closes the other), D4 (Esc reaches only the topmost layer), D6 (a second Edit
+press answers no and leaves nothing behind), D7 (toast, tooltip, row tip,
+badges and chord pill rise above whatever opened before them), D9 (the All
+tabs button toggles), D10 for scroll (an anchored layer closes when its anchor
+moves; resize still closes only the path menu).
+
+On the layer service now: item menu, tab menu and All tabs list, note row
+menu, props menu, path menu, dropdown lists, icon designer, Settings and Help,
+command palette, Go to, Ask history, Allow popover and cannot-edit note.
+Raised above layers without becoming one: toast, title tooltip, row tip, key
+badges, chord pill, Saved card.
+
+Changed on purpose: opening the palette while a menu is open now closes the
+menu (it loses focus) instead of stacking over it (L87). A second click on the
+props or rule-designer anchor closes it instead of reopening it in place.
+
+Left for later in the slice: the floating preview (z-index, its own focus
+stack), the narrow sidebar overlay (a dock), the Comment button and the
+completion list (D8), and the note row menu's keyboard route (D5, slice 2 with
+the action registry).
+
+Checks added: tests/layer.test.ts (Esc order, outside and anchor presses,
+group, focus return, page-held parts, scroll), tests/tooltip.test.ts,
+e2e/layer-shots.mjs (real-mouse toggle, palette over a menu, tooltip over a
+menu, Saved card; dark and light shots), and an Esc-inside-Settings row in
+e2e/settings-walk.mjs (L53).
