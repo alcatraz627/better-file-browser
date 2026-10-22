@@ -3693,6 +3693,12 @@ Now: ${question}` : question;
     document.getElementById("fe-ql-meta").textContent = `${edit.dirty ? "\u25CF " : ""}${edit.rel} \xB7 ${status}`;
   }
   var stripFrontMatter = (t) => t.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  function noteAction(name) {
+    if (!edit?.actions) return false;
+    if (name === "rename") edit.actions.rename(edit.rel, true);
+    else edit.actions.del(edit.rel);
+    return true;
+  }
   function discardEditor() {
     if (edit) {
       if (edit.timer) clearTimeout(edit.timer);
@@ -3741,8 +3747,8 @@ Now: ${question}` : question;
       <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
       ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>Previous</span></button>
       <button class="fe-pbn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>Next</span></button>
-      <button class="fe-pbn" data-act="rename" title="Rename this note in the sidebar (F2 there)">${UI_ICON.rename}<span>Rename</span></button>
-      <button class="fe-pbn" data-act="delete" title="Move this note to .trash">${UI_ICON.trash}<span>Delete</span></button>` : ""}
+      <button class="fe-pbn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
+      <button class="fe-pbn" data-act="delete" title="Move this note to .trash (\u2318\u21E7\u232B)">${UI_ICON.trash}<span>Delete</span></button>` : ""}
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
     </div>
@@ -16287,6 +16293,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     { id: "ed-link", group: "Editor", title: "Link", keys: ["\u2318K"], scope: "editor" },
     { id: "ed-more", group: "Editor", title: "Strike, heading, quote, numbered list", keys: ["\u2318\u21E7X", "\u2318\u21E7H", "\u2318\u21E7.", "\u2318\u21E77"], scope: "editor" },
     { id: "ed-mode", group: "Editor", title: "Raw, split or rich", keys: ["\u2318\u21E7P"], scope: "editor" },
+    { id: "note-rename", group: "Editor", title: "Rename this note", keys: ["F2"], scope: "editor", own: true, field: true },
+    { id: "note-delete", group: "Editor", title: "Move this note to .trash", keys: ["\u2318\u21E7\u232B"], scope: "editor", own: true, field: true },
     // Menus and dialogs
     { id: "menu-move", group: "Menus and dialogs", title: "Move in a menu", keys: ["\u2191", "\u2193"], scope: "menu", own: true },
     { id: "menu-pick", group: "Menus and dialogs", title: "Pick", keys: ["\u21A9"], scope: "menu", own: true },
@@ -18695,6 +18703,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     home: PI.home,
     path: UI_ICON.link,
     "goto-bg": UI_ICON.link,
+    "note-rename": UI_ICON.rename,
+    "note-delete": UI_ICON.trash,
     "open-pick": UI_ICON.folderOpen,
     save: PI.bm,
     terminal: UI_ICON.terminal,
@@ -19413,6 +19423,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (preview) scopes.add("preview");
       if (app.fileMode && !preview) scopes.add("file");
       if (document.getElementById("fe-goto")) scopes.add("goto");
+      if (visible(document.getElementById("fe-ed-bar"))) scopes.add("editor");
       const inSide = !!ae?.closest("#fe-side"), inTabs = !!ae?.closest("#fe-tabbar"), inBar = !!ae?.closest("#fe-bar, #fe-toolbar");
       if (inSide) scopes.add("sidebar");
       if (inTabs) scopes.add("tabs");
@@ -19604,6 +19615,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("new-note", () => app.newNote(), () => !!app.settings.notesRoot);
     bind("fp-raw", () => app.filePage?.toggleRaw(), () => !!app.filePage);
     bind("fp-edit", () => app.filePage?.edit(), () => !!app.filePage);
+    const noteBtn = (act) => document.querySelector(`#fe-ed-bar [data-act="${act}"]`);
+    bind("note-rename", () => noteAction("rename"), () => visible(noteBtn("rename")));
+    bind("note-delete", () => noteAction("delete"), () => visible(noteBtn("delete")));
     bind("goto-bg", gotoBackground, () => !!document.getElementById("fe-goto"));
     const commentable = () => !!app.filePage?.commentable();
     bind("fp-comment", () => app.filePage?.comment("comment"), commentable);
@@ -20463,7 +20477,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         // the list, then reopen the note. The bar acts on mousedown; wait for the
         // rest of that click, which would otherwise land on the page under the
         // closed editor and shut the rename box straight away.
-        rename: (r) => {
+        rename: (r, now) => {
           let started = false;
           const start = () => {
             if (started) return;
@@ -20473,6 +20487,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
               renameNote(root, r, true);
             });
           };
+          if (now) {
+            start();
+            return;
+          }
           document.addEventListener("pointerup", () => setTimeout(start, 0), { once: true, capture: true });
           setTimeout(start, 800);
         },

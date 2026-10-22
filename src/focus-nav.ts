@@ -5,7 +5,7 @@
 import type { App } from './app';
 import { KEYMAP, type Scope } from './keymap';
 import { bind, dispatch, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
-import { isPreviewOpen, openPreview } from './preview';
+import { isPreviewOpen, openPreview, noteAction } from './preview';
 import { raise, rovingFocus } from './layer';
 import { setTooltipKeys } from './tooltip';
 import { gotoBackground } from './goto';
@@ -53,6 +53,7 @@ export function initFocusNav(app: App): void {
     if (preview) scopes.add('preview');
     if (app.fileMode && !preview) scopes.add('file');
     if (document.getElementById('fe-goto')) scopes.add('goto');
+    if (visible(document.getElementById('fe-ed-bar'))) scopes.add('editor');
     const inSide = !!ae?.closest('#fe-side'), inTabs = !!ae?.closest('#fe-tabbar'), inBar = !!ae?.closest('#fe-bar, #fe-toolbar');
     if (inSide) scopes.add('sidebar');
     if (inTabs) scopes.add('tabs');
@@ -209,6 +210,9 @@ export function initFocusNav(app: App): void {
   bind('new-note', () => app.newNote(), () => !!app.settings.notesRoot);
   bind('fp-raw', () => app.filePage?.toggleRaw(), () => !!app.filePage);
   bind('fp-edit', () => app.filePage?.edit(), () => !!app.filePage);
+  const noteBtn = (act: string) => document.querySelector<HTMLElement>(`#fe-ed-bar [data-act="${act}"]`);
+  bind('note-rename', () => noteAction('rename'), () => visible(noteBtn('rename')));
+  bind('note-delete', () => noteAction('delete'), () => visible(noteBtn('delete')));
   bind('goto-bg', gotoBackground, () => !!document.getElementById('fe-goto'));
   const commentable = () => !!app.filePage?.commentable();
   bind('fp-comment', () => app.filePage?.comment('comment'), commentable);

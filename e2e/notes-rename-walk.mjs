@@ -80,7 +80,21 @@ try {
   const meta = await page.$eval('#fe-ql-meta', e => e.textContent).catch(() => '');
   check(after.includes('renamed-slowly.md') && /^# Renamed slowly/.test(read('renamed-slowly.md')) && meta.startsWith('renamed-slowly.md'),
     `the note is renamed and opens again in the editor: ${after.join(', ')} · ${meta}`);
-} finally {
+
+  // The same two actions by key while typing in the editor.
+  await page.focus('#fe-ed-src');
+  await page.keyboard.press('F2');
+  await sleep(700);
+  const byKey = await page.evaluate(() => { const l = document.querySelector('#fe-nt-list .fe-nt-label.editing'); return { open: !!l, focused: !!l && l.contains(document.activeElement) }; });
+  check(byKey.open && byKey.focused, `F2 in the editor opens the rename box: ${JSON.stringify(byKey)}`);
+  await page.keyboard.press('Escape');
+  await sleep(400);
+  await page.waitForSelector('#fe-ed-src', { timeout: 5000 }).catch(() => null);
+  await page.focus('#fe-ed-src');
+  await page.keyboard.down('Meta'); await page.keyboard.down('Shift'); await page.keyboard.press('Backspace'); await page.keyboard.up('Shift'); await page.keyboard.up('Meta');
+  await sleep(1200);
+  const gone = !existsSync(join(store, 'renamed-slowly.md')) && existsSync(join(store, '.trash'));
+  check(gone, `⌘⇧⌫ in the editor moves the note to .trash: ${readdirSync(store).join(', ')}`);} finally {
   console.log(results.join('\n'));
   await h.close();
   rmSync(store, { recursive: true, force: true });

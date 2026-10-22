@@ -129,7 +129,7 @@ const tabOf = (it: PaletteItem): PaletteTab => it.tab ?? TAB_OF_GROUP[it.group] 
 // listed takes its group's icon.
 const ACTION_ICON: Record<string, string> = {
   keys: UI_ICON.keyboard, settings: PI.gear, hints: UI_ICON.keyboard, sidebar: UI_ICON.preview, theme: UI_ICON.appearance, esc: UI_ICON.close,
-  up: UI_ICON.prev, home: PI.home, path: UI_ICON.link, 'goto-bg': UI_ICON.link, 'open-pick': UI_ICON.folderOpen, save: PI.bm, terminal: UI_ICON.terminal, 'terminal-copy': UI_ICON.copy,
+  up: UI_ICON.prev, home: PI.home, path: UI_ICON.link, 'goto-bg': UI_ICON.link, 'note-rename': UI_ICON.rename, 'note-delete': UI_ICON.trash, 'open-pick': UI_ICON.folderOpen, save: PI.bm, terminal: UI_ICON.terminal, 'terminal-copy': UI_ICON.copy,
   'area-next': UI_ICON.stack, 'area-prev': UI_ICON.stack, 'to-listing': UI_ICON.list, 'to-sidebar': UI_ICON.preview, 'to-tabs': UI_ICON.tab, 'to-toolbar': UI_ICON.stack, 'to-path': UI_ICON.link,
   'lens-places': PI.home, 'lens-saved': PI.bm, 'lens-notes': UI_ICON.notes, 'lens-recent': PI.recent, 'lens-search': PI.search, 'lens-ask': UI_ICON.ai, 'lens-docs': UI_ICON.comment,
   'open-bg': UI_ICON.tab, 'open-chrome': UI_ICON.external, menu: UI_ICON.list, 'select-all': UI_ICON.task, 'copy-paths': UI_ICON.copy, 'copy-path': UI_ICON.copy, 'copy-name': UI_ICON.copy,

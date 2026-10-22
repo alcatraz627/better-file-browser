@@ -644,9 +644,10 @@ export function initSidebar(app: App): void {
       // the list, then reopen the note. The bar acts on mousedown; wait for the
       // rest of that click, which would otherwise land on the page under the
       // closed editor and shut the rename box straight away.
-      rename: r => {
+      rename: (r, now) => {
         let started = false;
         const start = () => { if (started) return; started = true; void saveEditor().then(() => { discardEditor(); renameNote(root, r, true); }); };
+        if (now) { start(); return; }
         document.addEventListener('pointerup', () => setTimeout(start, 0), { once: true, capture: true });
         setTimeout(start, 800);
       },

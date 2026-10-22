@@ -154,6 +154,8 @@ export const KEYMAP: KeyDef[] = [
   { id: 'ed-link', group: 'Editor', title: 'Link', keys: ['⌘K'], scope: 'editor' },
   { id: 'ed-more', group: 'Editor', title: 'Strike, heading, quote, numbered list', keys: ['⌘⇧X', '⌘⇧H', '⌘⇧.', '⌘⇧7'], scope: 'editor' },
   { id: 'ed-mode', group: 'Editor', title: 'Raw, split or rich', keys: ['⌘⇧P'], scope: 'editor' },
+  { id: 'note-rename', group: 'Editor', title: 'Rename this note', keys: ['F2'], scope: 'editor', own: true, field: true },
+  { id: 'note-delete', group: 'Editor', title: 'Move this note to .trash', keys: ['⌘⇧⌫'], scope: 'editor', own: true, field: true },
 
   // Menus and dialogs
   { id: 'menu-move', group: 'Menus and dialogs', title: 'Move in a menu', keys: ['↑', '↓'], scope: 'menu', own: true },

@@ -414,7 +414,15 @@ function editHeader(status: string): void {
 const stripFrontMatter = (t: string) => t.replace(/^---\n[\s\S]*?\n---\n?/, '');
 
 /// What the editor's prev, next, rename and delete buttons do; the sidebar owns the list they act on.
-export interface NoteActions { step(rel: string, dir: 1 | -1): void; rename(rel: string): void; del(rel: string): void }
+/// `rename`'s `now` is for a key press, which has no pointer click left to wait out.
+export interface NoteActions { step(rel: string, dir: 1 | -1): void; rename(rel: string, now?: boolean): void; del(rel: string): void }
+
+/// Rename or delete the open note from a key; false when no note with those actions is open.
+export function noteAction(name: 'rename' | 'delete'): boolean {
+  if (!edit?.actions) return false;
+  if (name === 'rename') edit.actions.rename(edit.rel, true); else edit.actions.del(edit.rel);
+  return true;
+}
 
 /// Close the editor without saving: the note is about to be moved away, and an autosave would bring it back.
 export function discardEditor(): void {
@@ -462,8 +470,8 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
       ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (⌥⌘↑)">${UI_ICON.prev}<span>Previous</span></button>
       <button class="fe-pbn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>Next</span></button>
-      <button class="fe-pbn" data-act="rename" title="Rename this note in the sidebar (F2 there)">${UI_ICON.rename}<span>Rename</span></button>
-      <button class="fe-pbn" data-act="delete" title="Move this note to .trash">${UI_ICON.trash}<span>Delete</span></button>` : ''}
+      <button class="fe-pbn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
+      <button class="fe-pbn" data-act="delete" title="Move this note to .trash (⌘⇧⌫)">${UI_ICON.trash}<span>Delete</span></button>` : ''}
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">⌥↑↓ move line · ⌥⇧↑↓ duplicate · ⇥ indent · Enter continues lists</span>
     </div>
