@@ -34,6 +34,37 @@ Add `--json` to any command for machine-readable output. A thread id can be
 shortened to its first 6 or more characters. `bfb-docs whoami` shows who you
 write as: your claude-ipc alias when you have one, otherwise your session id.
 
+## When you move or rewrite commented text
+
+A thread holds on to the words it quotes. After an edit, bfb finds them again
+on its own when it can: text added above or below, a paragraph moved within
+the file, a word changed inside the quote (shown as "moved"). When the words
+are gone, the thread is "detached" and waits to be placed again. Placement is
+best effort; you keep it right by fixing what you moved.
+
+If you moved, reworded or deleted text that has comments, put the threads back
+before you finish:
+
+```
+bfb-docs comments reanchor plan.md              # where every thread is now: anchored, moved or detached
+bfb-docs comments attach plan.md <thread> --quote "the words it is about now"
+bfb-docs comments move plan.md <thread> other.md --quote "the words in other.md"
+bfb-docs comments reanchor plan.md --write      # save the places it found, once they look right
+bfb-docs comments doctor .                      # comments whose document you renamed or moved
+bfb-docs comments relink plan.md.bfb.json new-name.md
+```
+
+- Rewrote a sentence: `attach` the thread to the new wording.
+- Moved a section to another file: `move` the thread; its replies, tags and
+  status go with it.
+- Renamed or moved the file itself: `doctor`, then `relink`.
+- Deleted what a thread was about: leave it detached and say so in a reply.
+  The owner can place it again from the comments panel.
+
+The owner can also place a thread by hand in the browser: a thread that is
+moved or detached has "Attach to selection"; select the new words on the
+page, press it, then "Attach here".
+
 ## Paragraph for a project's CLAUDE.md
 
 Paste this into a project whose markdown files people comment on:
@@ -44,7 +75,10 @@ Paste this into a project whose markdown files people comment on:
 > threads waiting on you, and `bfb-docs comments list X.md` before changing a
 > markdown file. Answer with `bfb-docs comments reply X.md <thread> "..."`.
 > Close a thread with `bfb-docs comments done X.md <thread> "what you did"`
-> only when you have done what it asked. To propose wording rather than change
+> only when you have done what it asked. When you move, reword or delete
+> commented text, put its threads back before you finish: `bfb-docs comments
+> reanchor X.md` shows where each one is, `attach` and `move` place them again
+> (see docs/comments-for-agents.md in better-file-browser). To propose wording rather than change
 > it, use `bfb-docs comments suggest`; never accept a suggestion yourself.
 > Never edit or delete someone else's comment, never edit the `.bfb.json`
 > file by hand, and never put comment markers in the markdown.

@@ -347,6 +347,32 @@ check(r and os.path.realpath(comp) in r and os.path.realpath(race + '.bfb.json')
 r = jcli('comments', 'inbox')
 check(r is not None and all(t['file'] for t in r), f'inbox reads across the index: {len(r or [])} threads waiting on the owner')
 
+# ── Text that moves: within a file, and to another file ────────────────
+src = os.path.join(SCRATCH, 'moves-a.md'); dst = os.path.join(SCRATCH, 'moves-b.md')
+open(src, 'w').write('# A\n\nThe retry budget is three attempts.\n\nOther words.\n')
+open(dst, 'w').write('# B\n\nNothing yet.\n')
+mt = jcli('comments', 'new', src, '--quote', 'retry budget is three', 'why three? #risk')['results'][0]['thread']
+jcli('comments', 'reply', src, mt[:10], 'measured on the slow link')
+# Within the file: the words change, the thread is re-placed by hand.
+open(src, 'w').write('# A\n\nRetries: up to five attempts.\n\nOther words.\n')
+r = jcli('comments', 'attach', src, mt[:10], '--quote', 'up to five attempts')
+shown = jcli('comments', 'show', src, mt[:10])
+check(r is not None and shown and shown['anchor']['exact'] == 'up to five attempts', f'attach puts a thread on new words: {shown and shown["anchor"]["exact"]!r}')
+# To another file: the paragraph moves, the thread follows with its replies.
+open(dst, 'w').write('# B\n\nRetries: up to five attempts.\n')
+open(src, 'w').write('# A\n\nOther words.\n')
+r = cli('comments', 'move', src, mt[:10], dst, '--quote', 'not there', ok=False)
+check(r.returncode != 0 and 'not in the file' in r.stderr and jcli('comments', 'show', src, mt[:10]) is not None and not os.path.exists(dst + '.bfb.json'),
+      'a move to words that are not there changes nothing')
+r = jcli('comments', 'move', src, mt[:10], dst, '--quote', 'up to five attempts')
+left = jcli('comments', 'list', src, '--all') or []
+moved = jcli('comments', 'show', dst, mt[:10])
+check(r is not None and not any(t['id'] == mt for t in left), f'move takes the thread out of the old file: {[t["id"][:8] for t in left]}')
+check(moved and len(moved['comments']) == 2 and 'risk' in moved['tags'] and moved['anchor']['exact'] == 'up to five attempts',
+      f'and into the new one with its replies and tags: {moved and (len(moved["comments"]), moved["tags"], moved["anchor"]["exact"])}')
+help_text = cli('comments', '--help').stdout
+check(all(w in help_text for w in ('move a thread to words in another file', 'find every thread again')), 'the repair commands say what they do in --help')
+
 shutil.rmtree(SCRATCH, ignore_errors=True)
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

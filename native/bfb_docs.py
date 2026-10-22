@@ -195,6 +195,19 @@ def cmd_suggest(args):
     _write(args, ops, lambda r: f"suggestion on {r[-1]['thread'][:10]}")
 
 
+def cmd_move(args):
+    """Move a thread to another document whose words it now belongs to."""
+    data = S.load(os.path.abspath(args.file))[0]
+    if not data:
+        raise S.DocsError('docs_missing_thread', f'{args.file} has no comments')
+    t = S._thread(data, args.thread)
+    s, e = _span(S.read_doc(args.to), args.quote, args.nth)
+    # Into the new document first: a failure after this leaves two copies, never none.
+    S.write(args.to, [{'op': 'adopt', 'data': t, 'start': s, 'end': e, 'from': os.path.relpath(args.file, os.path.dirname(os.path.abspath(args.to)))}], _who(args))
+    S.write(args.file, [{'op': 'movedOut', 'thread': t['id'], 'to': os.path.relpath(args.to, os.path.dirname(os.path.abspath(args.file)))}], _who(args))
+    _out(args, {'thread': t['id'], 'to': args.to}, f"moved {t['id'][:10]} to {args.to} at line {C.line_of(S.read_doc(args.to), s)}")
+
+
 def cmd_reanchor(args):
     v = S.view(args.file)
     out = [_thread_line(os.path.relpath(args.file), t) for t in v['threads']]
@@ -268,12 +281,13 @@ def main(argv=None):
     for name in ('tag', 'untag'):
         x = cm.add_parser(name); x.add_argument('file'); x.add_argument('thread'); x.add_argument('tags', nargs='+'); x.set_defaults(func=cmd_tag)
     x = cm.add_parser('due', help='set a due date (YYYY-MM-DD) or clear it (none)'); x.add_argument('file'); x.add_argument('thread'); x.add_argument('date'); x.set_defaults(func=cmd_due)
-    x = cm.add_parser('attach'); x.add_argument('file'); x.add_argument('thread'); x.add_argument('--quote', required=True); x.add_argument('--nth', type=int); x.set_defaults(func=cmd_attach)
+    x = cm.add_parser('attach', help='move a thread to other words in the same file'); x.add_argument('file'); x.add_argument('thread'); x.add_argument('--quote', required=True); x.add_argument('--nth', type=int); x.set_defaults(func=cmd_attach)
     x = cm.add_parser('suggest'); x.add_argument('file'); x.add_argument('--thread'); x.add_argument('--quote'); x.add_argument('--nth', type=int)
     x.add_argument('--replace', required=True); x.add_argument('text', nargs='?', default=''); x.set_defaults(func=cmd_suggest)
-    x = cm.add_parser('reanchor'); x.add_argument('file'); x.add_argument('--write', action='store_true'); x.set_defaults(func=cmd_reanchor)
-    x = cm.add_parser('doctor'); x.add_argument('folder', nargs='?', default='.'); x.set_defaults(func=cmd_doctor)
-    x = cm.add_parser('relink'); x.add_argument('companion'); x.add_argument('file'); x.set_defaults(func=cmd_relink)
+    x = cm.add_parser('move', help='move a thread to words in another file'); x.add_argument('file'); x.add_argument('thread'); x.add_argument('to'); x.add_argument('--quote', required=True); x.add_argument('--nth', type=int); x.set_defaults(func=cmd_move)
+    x = cm.add_parser('reanchor', help='find every thread again after an edit; --write saves the new places'); x.add_argument('file'); x.add_argument('--write', action='store_true'); x.set_defaults(func=cmd_reanchor)
+    x = cm.add_parser('doctor', help='comments whose document was moved or renamed'); x.add_argument('folder', nargs='?', default='.'); x.set_defaults(func=cmd_doctor)
+    x = cm.add_parser('relink', help='put a moved document\'s comments beside it again'); x.add_argument('companion'); x.add_argument('file'); x.set_defaults(func=cmd_relink)
 
     x = top.add_parser('index', help='the list of every document with comments'); x.add_argument('--rebuild', action='store_true'); x.add_argument('roots', nargs='*'); x.set_defaults(func=cmd_index)
     x = top.add_parser('config', help='repo settings'); x.add_argument('key', choices=['commit']); x.add_argument('value', choices=['on', 'off']); x.add_argument('repo', nargs='?'); x.set_defaults(func=cmd_config)

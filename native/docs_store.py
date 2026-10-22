@@ -476,6 +476,18 @@ def _comment(author, text):
     return {'id': new_id('c-'), 'author': author, 'created': ts, 'updated': ts, 'text': text}
 
 
+def apply_adopt(data, op, text, author, base_text):
+    """Take in a thread moved here from another document, replies and all, on
+    the words it now belongs to."""
+    ts = now()
+    t = json.loads(json.dumps(op['data']))
+    t['anchor'] = {**C.make_anchor(text, op['start'], op['end']), 'confirmedAt': ts}
+    t['movedFrom'] = op.get('from', '')
+    t['updated'] = ts
+    data['comments']['threads'].append(t)
+    return {'thread': t['id']}
+
+
 def apply(data, op, text, author, base_text):
     """Apply one operation to the companion data in place. Returns what it made."""
     kind = op['op']
@@ -490,7 +502,14 @@ def apply(data, op, text, author, base_text):
         if p['done']: t.update(status='done', doneBy=author, doneAt=ts)
         threads.append(t)
         return {'thread': t['id'], 'comment': t['comments'][0]['id']}
+    if kind == 'adopt':
+        return apply_adopt(data, op, text, author, base_text)
     t = _thread(data, op['thread'])
+    if kind == 'movedOut':
+        t['deleted'] = True
+        t['movedTo'] = op.get('to', '')
+        t['updated'] = ts
+        return {'thread': t['id']}
     if kind == 'reply':
         c = _comment(author, op['text'])
         t['comments'].append(c)
