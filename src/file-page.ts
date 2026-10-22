@@ -18,6 +18,7 @@ import { editableRoot, openFileEditor, type FileEditor } from './file-editor';
 import { attachFind } from './find-in-page';
 import { mountComments, type CommentsPanel, type CommentAction } from './comments-ui';
 import type { Settings } from './types';
+import { markPlace } from './nav';
 
 const scrollPref = jsonPref<Record<string, number>>('bfb-page-scroll-v1', {}, v => !!v && typeof v === 'object');
 const tocPref = flagPref('bfb-page-toc-v1', true);
@@ -337,7 +338,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
     toc.dataset.pin = a.dataset.id!;
     target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
-    history.replaceState(null, '', '#' + encodeURIComponent(a.dataset.id!));
+    markPlace('#' + encodeURIComponent(a.dataset.id!));
     spy(page, toc);
   });
   // Scrolling by hand hands the marker back to the scroll position.

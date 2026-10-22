@@ -3085,8 +3085,14 @@ ${body}`;
     const filePath = path.replace(/:\d+(?::\d+)?$/, "");
     return "file://" + filePath.split("/").map(encodeURIComponent).join("/");
   }
+  var linkHome = "";
+  function setLinkHome(home) {
+    linkHome = home.replace(/\/$/, "");
+  }
+  var underHome = (path) => !!linkHome && (path === linkHome || path.startsWith(linkHome + "/"));
+  var opensNewTab = (url) => /^https?:/i.test(url) || /^file:\/\//i.test(url) && underHome(url.slice(7));
   function resolveMdUrl(base, url) {
-    if (/^\/Users\/alcatraz627(?:\/|$)/.test(url)) return localFileUrl(url);
+    if (underHome(url)) return localFileUrl(url);
     if (!base) return url;
     if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith("//") || url.startsWith("#")) return url;
     try {
@@ -3162,7 +3168,7 @@ ${body}`;
         }
         attrs += ` ${a.name}="${esc(val)}"`;
       }
-      if (tag === "a" && /^(?:https?:|file:\/\/\/Users\/alcatraz627(?:\/|$))/i.test(resolveMdUrl(baseUrl, el2.getAttribute("href") ?? ""))) {
+      if (tag === "a" && opensNewTab(resolveMdUrl(baseUrl, el2.getAttribute("href") ?? ""))) {
         attrs += ' target="_blank" rel="noopener"';
       }
       return VOID_TAGS.has(tag) ? `<${tag}${attrs}>` : `<${tag}${attrs}>${kids}</${tag}>`;
@@ -3221,7 +3227,7 @@ ${body}`;
     out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) => {
       if (badUrl(url)) return t;
       const u = resolveMdUrl(baseUrl, url);
-      return `<a href="${u}"${/^(?:https?:|file:\/\/\/Users\/alcatraz627(?:\/|$))/i.test(u) ? ' target="_blank" rel="noopener"' : ""}>${t}</a>`;
+      return `<a href="${u}"${opensNewTab(u) ? ' target="_blank" rel="noopener"' : ""}>${t}</a>`;
     });
     out = out.replace(/&lt;((?:https?|file):\/\/[^\s<>]+?)&gt;/gi, "$1");
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -3267,7 +3273,7 @@ ${body}`;
     }
   }
   function linkLocalPaths(html) {
-    if (!html.includes("/Users/alcatraz627") && !/(?:https?|file):\/\//i.test(html)) return html;
+    if (!(linkHome && html.includes(linkHome)) && !/(?:https?|file):\/\//i.test(html)) return html;
     const template = document.createElement("template");
     template.innerHTML = html;
     linkBareUrls(template.content);
@@ -3280,15 +3286,15 @@ ${body}`;
       const replacement = document.createDocumentFragment();
       let cursor = 0;
       while (cursor < value.length) {
-        const start = value.indexOf("/Users/alcatraz627", cursor);
+        const start = linkHome ? value.indexOf(linkHome, cursor) : -1;
         if (start < 0) break;
-        const afterHome = value[start + "/Users/alcatraz627".length];
+        const afterHome = value[start + linkHome.length];
         if (start && /[\w/:]/.test(value[start - 1]) || afterHome && afterHome !== "/" && !/\s|[),.;!?]/.test(afterHome)) {
           replacement.append(value.slice(cursor, start + 1));
           cursor = start + 1;
           continue;
         }
-        let end = start + "/Users/alcatraz627".length;
+        let end = start + linkHome.length;
         let depth = 0;
         const opener = start ? value[start - 1] : "";
         const delimiter = opener === '"' || opener === "'" ? opener : opener === "<" ? ">" : "";
@@ -4423,6 +4429,21 @@ ${parts.join("\n\n")}
 Now: ${question}` : question;
   }
 
+  // src/nav.ts
+  function go(href, how = "here", o = {}) {
+    if (how === "chrome-tab") {
+      window.open(href, "_blank");
+      return;
+    }
+    location.href = (o.exact ? href : pageHref(href)) + (o.hash ?? "");
+  }
+  function reload() {
+    location.reload();
+  }
+  function markPlace(hash) {
+    history.replaceState(null, "", hash);
+  }
+
   // src/preview.ts
   var FETCH_WARN_BYTES = 8 * 1024 * 1024;
   var PDF_EXTS = /* @__PURE__ */ new Set(["pdf"]);
@@ -4519,8 +4540,8 @@ Now: ${question}` : question;
     document.getElementById("fe").appendChild(overlay);
     document.getElementById("fe-ql-close").addEventListener("click", closePreview);
     document.getElementById("fe-ql-go").addEventListener("click", () => {
-      if (currentEntry) location.href = pageHref(currentEntry.href);
-      else if (edit) location.href = pageHref(fileHref(edit.root.replace(/\/$/, "") + "/" + edit.rel));
+      if (currentEntry) go(currentEntry.href);
+      else if (edit) go(fileHref(edit.root.replace(/\/$/, "") + "/" + edit.rel));
     });
     document.getElementById("fe-ql-tab").addEventListener("click", keepPreviewedAsTab);
     document.getElementById("fe-ql-save").addEventListener("click", () => {
@@ -5247,7 +5268,7 @@ Now: ${question}` : question;
       const stale = err instanceof FileFetchError && err.code === "context-invalidated";
       body.innerHTML = stale ? `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
       document.getElementById("fe-ql-retry").addEventListener("click", () => {
-        if (stale) location.reload();
+        if (stale) reload();
         else fetchAndRender(e, ext2, seq2);
       });
     });
@@ -7343,7 +7364,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     submitOpen(true);
     return true;
   }
-  function mountGoto(btn, home, go) {
+  function mountGoto(btn, home, go2) {
     let box = null;
     let layer = null;
     const close = () => layer?.close("api");
@@ -7404,7 +7425,7 @@ button.chip:disabled{opacity:.45;cursor:default}
           return;
         }
         close();
-        go(found, background);
+        go2(found, background);
       };
       submitOpen = (background) => void submit(background);
       box.addEventListener("submit", (e) => {
@@ -7612,7 +7633,7 @@ button.chip:disabled{opacity:.45;cursor:default}
           endEdit();
           return;
         }
-        location.href = pageHref(fileHref(found));
+        go(fileHref(found));
       });
       input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
     };
@@ -7677,7 +7698,7 @@ button.chip:disabled{opacity:.45;cursor:default}
         ddSearch.addEventListener("keydown", (ke) => {
           if (ke.key === "Enter") {
             const first = [...crumbMenu.querySelectorAll(".fe-dd-item")].find((it) => it.style.display !== "none");
-            if (first) location.href = pageHref(first.href);
+            if (first) go(first.href);
           }
         });
       } catch (err) {
@@ -15045,7 +15066,7 @@ and ${diags.length - 12} more` : "");
       next.toggleAttribute("disabled", hits.length < 2);
       hits.forEach((h, i3) => h.forEach((m) => m.classList.toggle("on", i3 === cur)));
     };
-    const go = (i3) => {
+    const go2 = (i3) => {
       if (!hits.length) return;
       cur = (i3 + hits.length) % hits.length;
       show();
@@ -15109,14 +15130,14 @@ and ${diags.length - 12} more` : "");
       }
       const top = page.getBoundingClientRect().top;
       const first = hits.findIndex((h) => h[0].getBoundingClientRect().top >= top);
-      go(first === -1 ? 0 : first);
+      go2(first === -1 ? 0 : first);
       if (!hits.length) show();
     };
     input.addEventListener("input", mark);
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        go(cur + (e.shiftKey ? -1 : 1));
+        go2(cur + (e.shiftKey ? -1 : 1));
       } else if (e.key === "Escape") {
         e.preventDefault();
         input.value = "";
@@ -15125,8 +15146,8 @@ and ${diags.length - 12} more` : "");
       }
       e.stopPropagation();
     });
-    prev.addEventListener("click", () => go(cur - 1));
-    next.addEventListener("click", () => go(cur + 1));
+    prev.addEventListener("click", () => go2(cur - 1));
+    next.addEventListener("click", () => go2(cur + 1));
     return {
       refresh: () => {
         if (input.value) mark();
@@ -16432,7 +16453,7 @@ ${d.message}` : d.message;
       const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
       toc.dataset.pin = a.dataset.id;
       target.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
-      history.replaceState(null, "", "#" + encodeURIComponent(a.dataset.id));
+      markPlace("#" + encodeURIComponent(a.dataset.id));
       spy(page, toc);
     });
     const unpin = () => {
@@ -16814,7 +16835,7 @@ ${d.message}` : d.message;
       if (!t) return;
       const s = t.path !== rawPath && rawPath && !hereIn(state) ? openTab(state, rawPath, true) : state;
       commit(activate(s, id));
-      if (t.path !== rawPath) location.href = pageHref(hrefFor(t));
+      if (t.path !== rawPath) go(hrefFor(t));
     }
     function closeHere() {
       const here = hereIn(state);
@@ -16822,7 +16843,7 @@ ${d.message}` : d.message;
       const next = closeTab(state, here.id);
       commit(next);
       const to = next.list.find((t) => t.id === next.active);
-      if (to && to.path !== rawPath) location.href = pageHref(hrefFor(to));
+      if (to && to.path !== rawPath) go(hrefFor(to));
     }
     function closeById(id) {
       if (hereIn(state)?.id === id) closeHere();
@@ -17075,7 +17096,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         let s = state;
         if (rawPath && !s.list.some((t) => t.path === rawPath)) s = openTab(s, rawPath, true);
         commit(openTab(s, path));
-        if (path !== rawPath) location.href = pageHref(fileUrl(path)) + hash;
+        if (path !== rawPath) go(fileUrl(path), "here", { hash });
         else if (hash) location.hash = hash;
       },
       state: () => state,
@@ -19349,7 +19370,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const i3 = ls.visible.indexOf(en);
       e.preventDefault();
       if (en.isParent) {
-        location.href = pageHref(en.href);
+        go(en.href);
         return;
       }
       if (e.altKey) {
@@ -19363,13 +19384,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         return;
       }
       if (en.isDir) {
-        location.href = pageHref(en.href);
+        go(en.href);
         return;
       }
       if (!sel.selectable(i3)) return;
       sel.setSel(i3);
       if (!canPreview(en) || app.settings.clickOpens === "go") {
-        location.href = pageHref(en.href);
+        go(en.href);
         return;
       }
       if (lookTimer) clearTimeout(lookTimer);
@@ -19387,14 +19408,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         clearTimeout(lookTimer);
         lookTimer = null;
       }
-      location.href = pageHref(en.href);
+      go(en.href);
     });
     scroll.addEventListener("auxclick", (e) => {
       if (e.button !== 1 || e.target.closest("a")) return;
       const en = entryAt(e);
       if (!en) return;
       e.preventDefault();
-      window.open(en.href, "_blank");
+      go(en.href, "chrome-tab");
     });
     const tip = el("fe-tip");
     let tipTimeout;
@@ -19526,7 +19547,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }, () => onListing() && !!lead());
     bind("open-chrome", () => {
       const en = lead();
-      if (en) window.open(en.href, "_blank");
+      if (en) go(en.href, "chrome-tab");
     }, () => onListing() && !!lead());
     bind("copy-path", () => {
       const en = lead();
@@ -19537,7 +19558,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("pv-step", (key) => sel.previewStep(key === "\u2191" || key === "\u2190" ? -1 : 1), () => isPreviewOpen());
     bind("open", () => {
       const en = lead();
-      if (en) location.href = pageHref(en.href);
+      if (en) go(en.href);
     }, () => onListing() && !!lead());
     bind("look", () => {
       const en = lead();
@@ -19548,7 +19569,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("pv-close", () => closePreview(), () => isPreviewOpen());
     bind("pv-open", () => {
       const en = previewEntry();
-      if (en) location.href = pageHref(en.href);
+      if (en) go(en.href);
     }, () => isPreviewOpen() && !!previewEntry());
     bind("pv-tab", () => keepPreviewedAsTab(), () => isPreviewOpen());
     bind("copy-name", () => {
@@ -19611,7 +19632,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       group: "This folder",
       icon: getIcon(en, app.iconRules),
       run: () => {
-        location.href = pageHref(en.href);
+        go(en.href);
       },
       runAlt: () => {
         app.strip.open(fullPath(rawPath, en), true);
@@ -19993,7 +20014,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("tab-list", click("fe-tab-list"), () => !document.getElementById("fe-tab-list")?.hidden);
     bind("home", () => {
       const h = homeDir(app.rawPath);
-      if (h) location.href = pageHref(fileHref(h + "/"));
+      if (h) go(fileHref(h + "/"));
     }, () => !!homeDir(app.rawPath));
     const LENSES = [["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"]];
     for (const [id, lens] of LENSES) bind(id, () => {
@@ -21110,7 +21131,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     </div>`;
     const thread = el("fe-ask-thread");
     const q = el("fe-ask-q");
-    const go = el("fe-ask-go");
+    const go2 = el("fe-ask-go");
     const statusRow = el("fe-ask-status");
     const state = el("fe-ask-state");
     upgradeControls(box);
@@ -21138,7 +21159,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const isCloud = () => model().startsWith("gemini:");
     const syncUsable = () => {
       const usable = localReady || isCloud();
-      q.disabled = go.disabled = !usable;
+      q.disabled = go2.disabled = !usable;
       box.querySelectorAll(".fe-ask-chip").forEach((b) => {
         b.disabled = !usable;
       });
@@ -21233,7 +21254,7 @@ ${rows.join("\n")}`, name: subject };
       else hist.hidden = true;
     };
     async function ask(intent, question) {
-      if (go.disabled) return;
+      if (go2.disabled) return;
       cancel?.();
       const shown = question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain");
       const turn = turnEl(shown);
@@ -21248,14 +21269,14 @@ ${rows.join("\n")}`, name: subject };
         return;
       }
       let full = "";
-      go.classList.add("stop");
-      go.title = "Stop";
-      go.setAttribute("aria-label", "Stop");
+      go2.classList.add("stop");
+      go2.title = "Stop";
+      go2.setAttribute("aria-label", "Stop");
       const done = () => {
         cancel = null;
-        go.classList.remove("stop");
-        go.title = "Ask (Enter)";
-        go.setAttribute("aria-label", "Ask");
+        go2.classList.remove("stop");
+        go2.title = "Ask (Enter)";
+        go2.setAttribute("aria-label", "Ask");
       };
       const asked = intent === "folder" ? "What is in this folder? Group the files by purpose in a few short lines." : question;
       let over = false;
@@ -21339,7 +21360,7 @@ ${rows.join("\n")}`, name: subject };
       newChat();
     });
     histBtn.addEventListener("click", () => showHist(hist.hidden));
-    go.addEventListener("click", () => {
+    go2.addEventListener("click", () => {
       if (cancel) {
         cancel();
         return;
@@ -21357,7 +21378,7 @@ ${rows.join("\n")}`, name: subject };
       e.stopPropagation();
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        go.click();
+        go2.click();
       }
     });
     syncHistN();
@@ -21826,7 +21847,7 @@ ${rows.join("\n")}`, name: subject };
         const data = JSON.parse(text);
         const n = importAll(data);
         toast(`Imported ${n} keys, reloading`);
-        setTimeout(() => location.reload(), 600);
+        setTimeout(reload, 600);
       }).catch(() => toast("That file is not a JSON export"));
     });
   }
@@ -21909,7 +21930,7 @@ ${rows.join("\n")}`, name: subject };
       const img = t.closest(".fe-md img");
       if (img && !img.closest("a")) {
         e.preventDefault();
-        window.open(img.src, "_blank");
+        go(img.src, "chrome-tab");
       }
     });
   }
@@ -21964,7 +21985,7 @@ ${rows.join("\n")}`, name: subject };
     const q = f.q.trim().toLowerCase();
     return rows.filter((r) => r.exists !== false && r.open + r.done > 0).filter((r) => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length) && (!f.tag || (r.tags ?? []).includes(f.tag))).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
   }
-  function initDocsLens(box, home, go) {
+  function initDocsLens(box, home, go2) {
     let loaded = false, all = [];
     const f = { q: "", me: false, due: false, tag: "" };
     box.innerHTML = `<div class="fe-docs-top" hidden>
@@ -22043,7 +22064,7 @@ ${rows.join("\n")}`, name: subject };
     rowsBox.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-doc-row");
       if (b) {
-        go(b.dataset.doc, "#comments");
+        go2(b.dataset.doc, "#comments");
         return;
       }
       const a = e.target.closest(".empty [data-a]")?.dataset.a;
@@ -22065,7 +22086,7 @@ ${rows.join("\n")}`, name: subject };
       group: "Comments",
       tab: "comments",
       icon: icoFile(r.name.split(".").pop().toLowerCase()),
-      run: () => go(r.doc, "#comments")
+      run: () => go2(r.doc, "#comments")
     }))));
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "comments") return;
@@ -22130,6 +22151,7 @@ ${rows.join("\n")}`, name: subject };
     const fetchSource = isHtmlSource || !!viewName;
     const fileText = fileMode ? fetchSource ? "Loading\u2026" : document.body.textContent || "" : "";
     const rawPath = decodeURIComponent(window.location.pathname + viewName);
+    setLinkHome(homeDir(rawPath));
     const segments = rawPath.split("/").filter(Boolean);
     const fileName = fileMode ? segments.pop() || "" : "";
     const folderPath = fileMode ? "/" + segments.join("/") + (segments.length ? "/" : "") : rawPath;
@@ -22267,12 +22289,12 @@ ${rows.join("\n")}`, name: subject };
       },
       goUp: () => {
         if (fileMode) {
-          location.href = fileHref(folderPath);
+          go(fileHref(folderPath), "here", { exact: true });
           return;
         }
         const up = entries.find((x) => x.isParent);
-        if (up) location.href = up.href;
-        else if (rawPath !== "/") location.href = "file:///";
+        if (up) go(up.href, "here", { exact: true });
+        else if (rawPath !== "/") go("file:///", "here", { exact: true });
       }
     };
     initPreview({
@@ -22323,7 +22345,7 @@ ${rows.join("\n")}`, name: subject };
       }
     }, true);
     window.addEventListener("hashchange", () => {
-      if (location.hash.startsWith("#view=") || viewName) location.reload();
+      if (location.hash.startsWith("#view=") || viewName) reload();
     });
     initChrome(app);
     initMarkdownUi(app.toast);
@@ -22337,6 +22359,7 @@ ${rows.join("\n")}`, name: subject };
     if (!homeDir(rawPath)) {
       notes.home().then((home) => {
         if (!setHomeDir(home)) return;
+        setLinkHome(home);
         const list3 = document.querySelector('#fe-lens-places .fe-sec[data-sec="places"]');
         if (list3) list3.innerHTML = placesHTML(home, rawPath);
       }).catch(() => {

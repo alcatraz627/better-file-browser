@@ -49,7 +49,8 @@ describe('Markdown', () => {
   it('passes a tidy note', () => expect(diagnose('md', '---\ntitle: x\n---\n# A\n\n## B\n\n```js\nx\n```\n')).toEqual([]));
   it('reports unclosed front matter, a bad front matter key and an open code block', () => {
     expect(diagnose('md', '---\ntitle: x\n# A\n')[0]).toMatchObject({ line: 1, severity: 'error' });
-    expect(diagnose('md', '---\na: 1\na: 2\n---\nbody\n')[0]).toMatchObject({ line: 3, severity: 'error' });
+    // A front matter problem is a warning: the box still shows what parsed.
+    expect(diagnose('md', '---\na: 1\na: 2\n---\nbody\n')[0]).toMatchObject({ line: 3, severity: 'warn' });
     expect(diagnose('md', '# A\n\n```\ncode\n')[0]).toMatchObject({ line: 3, severity: 'warn' });
   });
   it('warns when a heading skips a level, but not inside code', () => {

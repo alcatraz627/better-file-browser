@@ -19,6 +19,7 @@ import { setUiScale } from './chrome';
 import { upgradeControls, switchHtml, type ValuedEl, type DropdownEl } from './controls';
 import { setThemeMode, setAppIcon, appIconUrl, appIconPref, type ThemeMode } from './theme';
 import { emptyHtml } from './empty-state';
+import { reload } from './nav';
 
 // Ready-made rules offered above the list; each appears until it is added.
 const RULE_SUGGESTIONS: (Omit<IconRule, 'id' | 'enabled'> & { name: string })[] = [
@@ -374,7 +375,7 @@ export function initSettingsUi(app: App): void {
       const data = JSON.parse(text) as Record<string, unknown>;
       const n = importAll(data);
       toast(`Imported ${n} keys, reloading`);
-      setTimeout(() => location.reload(), 600);
+      setTimeout(reload, 600);
     }).catch(() => toast('That file is not a JSON export'));
   });
 }

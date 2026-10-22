@@ -13,6 +13,7 @@ import { setSidebarShown, sidebarShown } from './motion';
 import { setThemeMode } from './theme';
 import { openLayer, type Layer } from './layer';
 import { emptyHtml } from './empty-state';
+import { go } from './nav';
 
 /// Interface size: the tab's own Chrome zoom, set through the extension's
 /// worker. A CSS zoom on the page scaled every menu's screen coordinates a
@@ -140,7 +141,7 @@ export function initChrome(app: App): void {
       clearTimeout(slow);
       if (!ok) { input.setAttribute('aria-invalid', 'true'); toast(`The browser could not open ${found}. It may not have permission to read it.`); return; }
       if (found.replace(/\/$/, '') === app.rawPath.replace(/\/$/, '')) { endEdit(); return; }
-      location.href = pageHref(fileHref(found));
+      go(fileHref(found));
     });
     input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
   };
@@ -195,7 +196,7 @@ export function initChrome(app: App): void {
         if (ke.key === 'Enter') {
           const first = [...crumbMenu.querySelectorAll<HTMLAnchorElement>('.fe-dd-item')]
             .find(it => it.style.display !== 'none');
-          if (first) location.href = pageHref(first.href);
+          if (first) go(first.href);
         }
       });
     } catch (err) {

@@ -444,11 +444,19 @@ function localFileUrl(path: string): string {
   return 'file://' + filePath.split('/').map(encodeURIComponent).join('/');
 }
 
+// The home folder whose bare paths in text become file links. The page sets it
+// from the path model; until then no bare path is linked.
+let linkHome = '';
+export function setLinkHome(home: string): void { linkHome = home.replace(/\/$/, ''); }
+const underHome = (path: string) => !!linkHome && (path === linkHome || path.startsWith(linkHome + '/'));
+// Links that leave the page open in a new tab: web pages, and files under home.
+const opensNewTab = (url: string) => /^https?:/i.test(url) || (/^file:\/\//i.test(url) && underHome(url.slice(7)));
+
 // Resolve a markdown image/link target against the file's own URL so relative
 // paths (logo.svg, ./docs/x.md, ../y.png) point at the right file:// location.
 // URLs that already carry a scheme, protocol-relative //, or #anchors pass through.
 export function resolveMdUrl(base: string, url: string): string {
-  if (/^\/Users\/alcatraz627(?:\/|$)/.test(url)) return localFileUrl(url);
+  if (underHome(url)) return localFileUrl(url);
   if (!base) return url;
   if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith('//') || url.startsWith('#')) return url;
   try { return new URL(url, base).href; } catch { return url; }
@@ -487,7 +495,7 @@ export function sanitizeHtml(html: string, baseUrl = ''): string {
       }
       attrs += ` ${a.name}="${esc(val)}"`;
     }
-    if (tag === 'a' && /^(?:https?:|file:\/\/\/Users\/alcatraz627(?:\/|$))/i.test(resolveMdUrl(baseUrl, el.getAttribute('href') ?? ''))) {
+    if (tag === 'a' && opensNewTab(resolveMdUrl(baseUrl, el.getAttribute('href') ?? ''))) {
       attrs += ' target="_blank" rel="noopener"';
     }
     return VOID_TAGS.has(tag) ? `<${tag}${attrs}>` : `<${tag}${attrs}>${kids}</${tag}>`;
@@ -537,7 +545,7 @@ export function mdInline(s: string, baseUrl = ''): string {
   out = out.replace(/\[([^\]]+)\]\(([^)\s]+?)\)/g, (_m, t, url) => {
     if (badUrl(url)) return t;
     const u = resolveMdUrl(baseUrl, url);
-    return `<a href="${u}"${/^(?:https?:|file:\/\/\/Users\/alcatraz627(?:\/|$))/i.test(u) ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`;
+    return `<a href="${u}"${opensNewTab(u) ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`;
   });
   // <https://…> autolinks lose their brackets; the bare-URL pass links them.
   out = out.replace(/&lt;((?:https?|file):\/\/[^\s<>]+?)&gt;/gi, '$1');
@@ -595,7 +603,7 @@ function linkBareUrls(root: DocumentFragment): void {
 }
 
 function linkLocalPaths(html: string): string {
-  if (!html.includes('/Users/alcatraz627') && !/(?:https?|file):\/\//i.test(html)) return html;
+  if (!(linkHome && html.includes(linkHome)) && !/(?:https?|file):\/\//i.test(html)) return html;
   const template = document.createElement('template');
   template.innerHTML = html;
   linkBareUrls(template.content);
@@ -608,15 +616,15 @@ function linkLocalPaths(html: string): string {
     const replacement = document.createDocumentFragment();
     let cursor = 0;
     while (cursor < value.length) {
-      const start = value.indexOf('/Users/alcatraz627', cursor);
+      const start = linkHome ? value.indexOf(linkHome, cursor) : -1;
       if (start < 0) break;
-      const afterHome = value[start + '/Users/alcatraz627'.length];
+      const afterHome = value[start + linkHome.length];
       if ((start && /[\w/:]/.test(value[start - 1])) || (afterHome && afterHome !== '/' && !/\s|[),.;!?]/.test(afterHome))) {
         replacement.append(value.slice(cursor, start + 1));
         cursor = start + 1;
         continue;
       }
-      let end = start + '/Users/alcatraz627'.length;
+      let end = start + linkHome.length;
       let depth = 0;
       const opener = start ? value[start - 1] : '';
       const delimiter = opener === '"' || opener === "'" ? opener : opener === '<' ? '>' : '';

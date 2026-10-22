@@ -27,6 +27,7 @@ import {
 import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
 import { addTurn } from './ask-history';
 import { emptyHtml } from './empty-state';
+import { go, reload } from './nav';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
 
@@ -152,8 +153,8 @@ export function initPreview(d: PreviewDeps): void {
 
   document.getElementById('fe-ql-close')!.addEventListener('click', closePreview);
   document.getElementById('fe-ql-go')!.addEventListener('click', () => {
-    if (currentEntry) location.href = pageHref(currentEntry.href);
-    else if (edit) location.href = pageHref(fileHref(edit.root.replace(/\/$/, '') + '/' + edit.rel));
+    if (currentEntry) go(currentEntry.href);
+    else if (edit) go(fileHref(edit.root.replace(/\/$/, '') + '/' + edit.rel));
   });
   document.getElementById('fe-ql-tab')!.addEventListener('click', keepPreviewedAsTab);
   document.getElementById('fe-ql-save')!.addEventListener('click', () => {
@@ -828,7 +829,7 @@ function fetchAndRender(e: Entry, ext: string, seq: number): void {
         ? `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>`
         : `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
       document.getElementById('fe-ql-retry')!.addEventListener('click', () => {
-        if (stale) location.reload(); else fetchAndRender(e, ext, seq);
+        if (stale) reload(); else fetchAndRender(e, ext, seq);
       });
     });
 }

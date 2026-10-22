@@ -5,6 +5,7 @@ import { UI_ICON } from './control-icons';
 import type { Toast } from './toast';
 import { fileExists } from './file-fetch';
 import { esc } from './utils';
+import { go } from './nav';
 
 export function initMarkdownUi(toast: Toast): void {
   const rendered = new WeakMap<HTMLElement, string>();
@@ -64,7 +65,7 @@ export function initMarkdownUi(toast: Toast): void {
       return;
     }
     const img = t.closest<HTMLImageElement>('.fe-md img');
-    if (img && !img.closest('a')) { e.preventDefault(); window.open(img.src, '_blank'); }
+    if (img && !img.closest('a')) { e.preventDefault(); go(img.src, 'chrome-tab'); }
   });
 }
 

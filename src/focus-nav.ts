@@ -15,6 +15,7 @@ import { gotoBackground } from './goto';
 import { homeDir, getSaved, getRecents } from './storage';
 import { PI } from './icons';
 import { fileHref, pageHref, esc } from './utils';
+import { go } from './nav';
 
 // offsetParent alone calls every fixed-position element hidden, menus included.
 const visible = (x: Element | null): x is HTMLElement => !!x && (x as HTMLElement).checkVisibility();
@@ -235,7 +236,7 @@ export function initFocusNav(app: App): void {
   bind('tab-left', () => moveHere(-1), () => !!document.querySelector('#fe-tabs .fe-tab.on[data-id]:not([data-id=""])'));
   bind('tab-right', () => moveHere(1), () => !!document.querySelector('#fe-tabs .fe-tab.on[data-id]:not([data-id=""])'));
   bind('tab-list', click('fe-tab-list'), () => !document.getElementById('fe-tab-list')?.hidden);
-  bind('home', () => { const h = homeDir(app.rawPath); if (h) location.href = pageHref(fileHref(h + '/')); }, () => !!homeDir(app.rawPath));
+  bind('home', () => { const h = homeDir(app.rawPath); if (h) go(fileHref(h + '/')); }, () => !!homeDir(app.rawPath));
   const LENSES: [string, string][] = [['lens-places', 'places'], ['lens-saved', 'saved'], ['lens-notes', 'notes'], ['lens-recent', 'history'], ['lens-search', 'search'], ['lens-ask', 'ask'], ['lens-docs', 'comments']];
   for (const [id, lens] of LENSES) bind(id, () => {
     if (!sidebarShown()) runCommand('sidebar');

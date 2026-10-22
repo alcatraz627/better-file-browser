@@ -38,6 +38,8 @@ import { installColumnResize } from './col-resize';
 import { mountGoto, absPath, resolvePath } from './goto';
 import { initDocsLens } from './docs-lens';
 import { emptyHtml } from './empty-state';
+import { go, reload } from './nav';
+import { setLinkHome } from './renderers';
 
 // Tab sets from Chrome tabs closed in the last day, as rows under Recent. A
 // click adds that set's tabs to this strip; nothing is restored on its own.
@@ -92,6 +94,8 @@ loadKv().catch(() => {}).then(function () {
   const fileText = fileMode ? (fetchSource ? 'Loading…' : (document.body.textContent || '')) : '';
 
   const rawPath  = decodeURIComponent(window.location.pathname + viewName);
+  // Bare paths under home in rendered text become file links.
+  setLinkHome(homeDir(rawPath));
   const segments = rawPath.split('/').filter(Boolean);
   const fileName = fileMode ? (segments.pop() || '') : '';
   // The folder this page belongs to: the path itself for a listing.
@@ -197,10 +201,10 @@ loadKv().catch(() => {}).then(function () {
     applyAll: () => {}, setOrder: () => {}, refreshSaved: () => {}, refreshNotes: () => {}, newNote: () => {}, pickNotesFolder: () => {},
     openInTerminal: () => {}, openHelp: () => {}, openSettings: () => {},
     goUp: () => {
-      if (fileMode) { location.href = fileHref(folderPath); return; }
+      if (fileMode) { go(fileHref(folderPath), 'here', { exact: true }); return; }
       const up = entries.find(x => x.isParent);
-      if (up) location.href = up.href;
-      else if (rawPath !== '/') location.href = 'file:///';
+      if (up) go(up.href, 'here', { exact: true });
+      else if (rawPath !== '/') go('file:///', 'here', { exact: true });
     },
   };
 
@@ -236,7 +240,7 @@ loadKv().catch(() => {}).then(function () {
     if (a) { const v = pageHref(a.href); if (v !== a.href) a.href = v; }
   }, true);
   // On the folder's own page a #view link only changes the hash; load it properly.
-  window.addEventListener('hashchange', () => { if (location.hash.startsWith('#view=') || viewName) location.reload(); });
+  window.addEventListener('hashchange', () => { if (location.hash.startsWith('#view=') || viewName) reload(); });
 
   initChrome(app);
   initMarkdownUi(app.toast);
@@ -252,6 +256,7 @@ loadKv().catch(() => {}).then(function () {
   if (!homeDir(rawPath)) {
     notes.home().then(home => {
       if (!setHomeDir(home)) return;
+      setLinkHome(home);
       const list = document.querySelector('#fe-lens-places .fe-sec[data-sec="places"]');
       if (list) list.innerHTML = placesHTML(home, rawPath);
     }).catch(() => { /* no host installed: Places waits for a visit under home */ });

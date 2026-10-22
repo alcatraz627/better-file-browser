@@ -14,6 +14,7 @@ import {
 } from './tabs';
 import type { Toast } from './toast';
 import { openLayer, type Layer } from './layer';
+import { go } from './nav';
 
 const SESSION_KEY = 'bfb-strip-v2';
 const RECOVERY_PREFIX = 'bfb-strip-v2:';
@@ -128,7 +129,7 @@ export function mountStrip(host: StripHost): Strip {
     if (!t) return;
     const s = t.path !== rawPath && rawPath && !hereIn(state) ? openTab(state, rawPath, true) : state;
     commit(activate(s, id));
-    if (t.path !== rawPath) location.href = pageHref(hrefFor(t));
+    if (t.path !== rawPath) go(hrefFor(t));
   }
   function closeHere(): void {
     const here = hereIn(state);
@@ -136,7 +137,7 @@ export function mountStrip(host: StripHost): Strip {
     const next = closeTab(state, here.id);
     commit(next);
     const to = next.list.find(t => t.id === next.active);
-    if (to && to.path !== rawPath) location.href = pageHref(hrefFor(to));
+    if (to && to.path !== rawPath) go(hrefFor(to));
   }
   function closeById(id: string): void {
     if (hereIn(state)?.id === id) closeHere();
@@ -372,7 +373,7 @@ export function mountStrip(host: StripHost): Strip {
       let s = state;
       if (rawPath && !s.list.some(t => t.path === rawPath)) s = openTab(s, rawPath, true);
       commit(openTab(s, path));
-      if (path !== rawPath) location.href = pageHref(fileUrl(path)) + hash;
+      if (path !== rawPath) go(fileUrl(path), 'here', { hash });
       else if (hash) location.hash = hash;
     },
     state: () => state,

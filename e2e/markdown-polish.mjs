@@ -15,6 +15,8 @@ try {
     `> ${'A longer explanation follows the list and wraps across the reading column. '.repeat(2)}`,
     '>', '> The final paragraph should sit near the bottom border.', '',
   ].join('\n'));
+  // A profile that has seen the home folder once; bare paths under it become links.
+  await h.store.set('bfb-home-v1', '/Users/alcatraz627');
   const page = await h.browser.newPage();
   await page.goto('file://' + linksFile, { waitUntil: 'load' });
   await page.waitForSelector('#fe-page .fe-md');

@@ -12,6 +12,7 @@ import { getSortConfig, getGroupMode, isSaved, toggleSaved } from './storage';
 import { getIcon, PI } from './icons';
 import { UI_ICON } from './control-icons';
 import type { SortConfig, GroupMode } from './types';
+import { go } from './nav';
 
 export function initListingInput(app: App, listing: Listing): void {
   const { fe, toast, rawPath } = app;
@@ -42,17 +43,17 @@ export function initListingInput(app: App, listing: Listing): void {
     if (!en) return;
     const i = ls.visible.indexOf(en);
     e.preventDefault();
-    if (en.isParent) { location.href = pageHref(en.href); return; }
+    if (en.isParent) { go(en.href); return; }
     if (e.altKey) { app.strip.open(fullPath(rawPath, en), true); return; }
     if (e.shiftKey || e.metaKey || e.ctrlKey) {
       if (!sel.selectable(i)) return;
       if (e.shiftKey && (e.metaKey || e.ctrlKey)) sel.rangeSel(i); else sel.toggleSel(i);
       return;
     }
-    if (en.isDir) { location.href = pageHref(en.href); return; }
+    if (en.isDir) { go(en.href); return; }
     if (!sel.selectable(i)) return;
     sel.setSel(i);
-    if (!canPreview(en) || app.settings.clickOpens === 'go') { location.href = pageHref(en.href); return; }
+    if (!canPreview(en) || app.settings.clickOpens === 'go') { go(en.href); return; }
     // The panel waits out the double-click interval, or its scrim would
     // swallow the second click that means go; dblclick below does the going.
     if (lookTimer) clearTimeout(lookTimer);
@@ -64,7 +65,7 @@ export function initListingInput(app: App, listing: Listing): void {
     if (!en || en.isDir || en.isParent || e.altKey || e.shiftKey || e.metaKey || e.ctrlKey) return;
     e.preventDefault();
     if (lookTimer) { clearTimeout(lookTimer); lookTimer = null; }
-    location.href = pageHref(en.href);
+    go(en.href);
   });
   // Middle click anywhere on a row opens a Chrome tab; on the name link the
   // anchor already does it natively.
@@ -73,7 +74,7 @@ export function initListingInput(app: App, listing: Listing): void {
     const en = entryAt(e);
     if (!en) return;
     e.preventDefault();
-    window.open(en.href, '_blank');
+    go(en.href, 'chrome-tab');
   });
 
   // Row hover tip, from each row's data-tip JSON.
@@ -192,18 +193,18 @@ export function initListingInput(app: App, listing: Listing): void {
   bind('extend-up', () => extend(-1), onListing);
   bind('extend-down', () => extend(1), onListing);
   bind('open-bg', () => { const en = lead(); if (en && !en.isParent) { app.strip.open(fullPath(rawPath, en), true); toast(`Kept ${en.name} as a tab`); } }, () => onListing() && !!lead());
-  bind('open-chrome', () => { const en = lead(); if (en) window.open(en.href, '_blank'); }, () => onListing() && !!lead());
+  bind('open-chrome', () => { const en = lead(); if (en) go(en.href, 'chrome-tab'); }, () => onListing() && !!lead());
   bind('copy-path', () => { const en = lead(); if (en) copyText(fullPath(rawPath, en)); }, () => onListing() && !!lead());
   // Keys the listing answers itself, bound here too so the palette can run them.
   bind('up', () => app.goUp());
   bind('move', key => sel.moveSel(key === '↑' ? -1 : 1), onListing);
   bind('pv-step', key => sel.previewStep(key === '↑' || key === '←' ? -1 : 1), () => isPreviewOpen());
-  bind('open', () => { const en = lead(); if (en) location.href = pageHref(en.href); }, () => onListing() && !!lead());
+  bind('open', () => { const en = lead(); if (en) go(en.href); }, () => onListing() && !!lead());
   bind('look', () => { const en = lead(); if (en) sel.tryPreview(en); }, () => onListing() && !!lead());
   bind('select-all', () => sel.selectAll(), onListing);
   bind('copy-paths', () => sel.copySelection(), () => onListing() && ls.selSet.size > 0);
   bind('pv-close', () => closePreview(), () => isPreviewOpen());
-  bind('pv-open', () => { const en = previewEntry(); if (en) location.href = pageHref(en.href); }, () => isPreviewOpen() && !!previewEntry());
+  bind('pv-open', () => { const en = previewEntry(); if (en) go(en.href); }, () => isPreviewOpen() && !!previewEntry());
   bind('pv-tab', () => keepPreviewedAsTab(), () => isPreviewOpen());
   bind('copy-name', () => { const en = lead(); if (en) copyText(en.name); }, () => onListing() && !!lead());
   bind('menu', () => {
@@ -254,7 +255,7 @@ export function initListingInput(app: App, listing: Listing): void {
   // The palette also goes to anything in this folder.
   addPaletteSource(() => onListing() ? ls.all.filter(en => !en.isParent).slice(0, 400).map(en => ({
     title: en.name, sub: en.isDir ? 'folder here' : 'file here', group: 'This folder', icon: getIcon(en, app.iconRules),
-    run: () => { location.href = pageHref(en.href); },
+    run: () => { go(en.href); },
     runAlt: () => { app.strip.open(fullPath(rawPath, en), true); toast(`Kept ${en.name} as a tab`); },
   })) : []);
 }

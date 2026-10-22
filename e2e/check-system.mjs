@@ -39,7 +39,7 @@ const RULES = [
   // Presses anywhere on the page, and clicks caught at the document, are how a
   // part closes itself on an outside click; the layer service owns that.
   { id: 'js-outside-click', code: /addEventListener\(\s*['"](mousedown|pointerdown)['"]|document\.addEventListener\(\s*['"]click['"]/g, skip: ['layer.ts'] },
-  { id: 'js-navigation', code: /location\.(href\s*=|assign|replace|reload)|history\.(push|replace)State|window\.open\(/g, skip: [] },
+  { id: 'js-navigation', code: /location\.(href\s*=|assign|replace|reload)|history\.(push|replace)State|window\.open\(/g, skip: ['nav.ts'] },
   { id: 'js-storage', code: /\bkv(Get|Set)\(|\b(local|session)Storage\./g, skip: ['kv.ts', 'storage.ts'] },
   { id: 'js-native-control', code: /<select\b|type="checkbox"/g, skip: ['renderers.ts', 'controls.ts'] },
   // The design-system page draws each token by setting it inline; that is its job.

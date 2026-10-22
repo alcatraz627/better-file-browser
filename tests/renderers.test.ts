@@ -3,8 +3,10 @@ import {
   parseDSV, numericCols, sortDSVRows, renderDSVTable,
   highlightCode, renderCode, sniffBinary, unrenderableNote,
   renderJsonl, renderJsonTree, RENDER_CAPS,
-  renderMarkdown, mdInline, sanitizeHtml, resolveMdUrl,
+  renderMarkdown, mdInline, sanitizeHtml, resolveMdUrl, setLinkHome,
 } from '../src/renderers';
+// The page sets home from the path model; these tests write paths under this one.
+setLinkHome('/Users/alcatraz627');
 // Block source lines are checked in data-sl.test.ts; markup checks here ignore them.
 const plain = (html: string) => html.replace(/ data-sl="[^"]*"/g, '');
 
@@ -326,10 +328,10 @@ describe('renderMarkdown', () => {
   });
   it('renders front matter as a key and value block, task items as boxes, fences with a chip', () => {
     const html = renderMarkdown('---\ntitle: T\nn: 2\n---\n# H\n\n- [x] a\n- [ ] b\n\n```py\nx = 1\n```\n');
-    expect(html).toContain('<dl class="fe-md-fm"><dt>title</dt><dd>T</dd><dt>n</dt><dd>2</dd></dl>');
+    expect(html).toContain('<dl class="fe-md-fm" data-fm-base=""><dt>title</dt><dd>T</dd><dt>n</dt><dd>2</dd></dl>');
     expect(html).toContain('<li class="fe-task"><input type="checkbox" disabled checked> a</li>');
     expect(html).toContain('<input type="checkbox" disabled> b</li>');
-    expect(html).toMatch(/<span class="fe-md-lang">py<\/span><button type="button" class="fe-md-copy" title="Copy this block" aria-label="Copy this block"><svg/);
+    expect(html).toMatch(/<span class="fe-md-lang">py<\/span><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block"><svg/);
     expect(html).not.toContain('<h1 id="---">');
   });
   it('joins consecutive lines into one paragraph, splits on blanks', () => {
@@ -362,7 +364,7 @@ describe('renderMarkdown', () => {
   });
   it('renders GFM tables', () => {
     const html = renderMarkdown('| h1 | h2 |\n|---|---|\n| a | b |');
-    expect(html).toContain('<th>h1<span class="fe-col-rz"');
+    expect(html).toContain('<th>h1<span class="fe-col-rz rz"');
     expect(html).toContain('<table class="fe-md-table fe-rz">');
     expect(html).toContain('<td>b</td>');
   });
