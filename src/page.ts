@@ -181,7 +181,7 @@ export function renderPage(p: PageParams): string {
             <span id="fe-zoom-val">${initZoom}%</span>
           </div>
           <div id="fe-view-group">${viewBtnsHTML}</div>
-          <button id="fe-deep-btn" data-icon title="Deep search: include every subfolder in the filter">
+          <button id="fe-deep-btn" data-icon title="Subfolders: filter every folder under this one too">
             ${line('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/><path d="M2 10h20"/>', 13)}
           </button>
           <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/>
@@ -230,7 +230,7 @@ export function renderPage(p: PageParams): string {
           <input id="fe-find-text" type="text" placeholder="Search text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
           <label class="fe-st-check" title="Use a regular expression for text inside files (advanced)"><input type="checkbox" id="fe-find-text-regex" title="Text regex"> Text regex</label>
           <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
-          <label id="fe-find-depth-wrap" class="fe-st-check" style="display:none" title="Maximum subfolder depth to scan">Depth
+          <label id="fe-find-depth-wrap" class="fe-st-check" style="display:none" title="How many levels of subfolders to look in">Subfolder depth
             <select id="fe-find-depth" title="Maximum subfolder depth"><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="8" selected>8</option></select>
           </label>
           <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>

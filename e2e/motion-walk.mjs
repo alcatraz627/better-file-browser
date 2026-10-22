@@ -29,7 +29,7 @@ try {
   const grp = '#fe-sv-list details.fe-grp[data-tag="work"]';
   const full = await page.$eval(grp, d => d.getBoundingClientRect().height);
   await page.click(`${grp} > summary`);
-  await sleep(70);
+  await sleep(40);
   const mid = await page.$eval(grp, d => d.getBoundingClientRect().height);
   await sleep(300);
   const shut = await page.$eval(grp, d => d.getBoundingClientRect().height);

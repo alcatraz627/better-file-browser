@@ -16,9 +16,10 @@ try {
   let page = await h.open();
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]').catch(() => null);
-  await page.select('#fe-st-sort', 'size');
-  await page.select('#fe-st-sort-dir', 'desc');
-  await page.select('#fe-st-group', 'none');
+  const pick = async (id, v) => { await page.click(`#${id} .fe-dd-btn`); await page.click(`.fe-dd-list .fe-dd-opt[data-v="${v}"]`); };
+  await pick('fe-st-sort', 'size');
+  await page.click('#fe-st-sort-dir .fe-seg-b[data-v="desc"]');
+  await pick('fe-st-group', 'none');
   await page.keyboard.press('Escape');
   const here = await names(page);
   const stored = await h.store.json('bfb-sort-v1', null);

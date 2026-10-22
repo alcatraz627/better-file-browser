@@ -22,7 +22,7 @@ const note = (text: string, id = '') => `<p class="fe-set-note"${id ? ` id="${id
 // A small window drawn in the colours it picks, so the choice shows what it
 // will look like.
 const thumb = (group: string, value: string, name: string, kind: 'mode' | 'p') =>
-  `<label class="fe-set-sw" title="${name}"><input type="radio" name="${group}" value="${value}"><span class="fe-set-thumb" data-${kind}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
+  `<label class="fe-set-sw" title="${name}"><input type="radio" name="${group}" value="${value}" title="${name}"><span class="fe-set-thumb" data-${kind}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
 
 export const PALETTE_NAMES: [string, string][] = [
   ['slate', 'Slate'], ['violet', 'Violet'], ['sand', 'Sand'], ['ink', 'Ink'],
@@ -60,7 +60,7 @@ export function settingsDialog(): DialogSpec {
           row('Palette', '', `<div class="fe-set-sws grid4">${PALETTE_NAMES.map(([v, n]) => thumb('bfb-palette', v, n, 'p')).join('')}</div>`)) +
         card('App icon',
           wide('', 'Shows in the tab and in an installed app window', `<div class="fe-appicons" role="radiogroup" aria-label="App icon">${APP_ICONS.map(a =>
-            `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join('')}</div>`)) +
+            `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}" title="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join('')}</div>`)) +
         card('Size',
           row('Interface', 'Everything', sliderHtml('fe-st-uiscale', [80, 90, 100, 110, 125, 150], '%', 'Interface size')) +
           row('Text', 'Lists, sidebar, pages', sliderHtml('fe-st-rd-size', [12, 13, 14, 15, 16, 17, 18], ' px', 'Text size')) +

@@ -674,13 +674,21 @@ try {
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]');
   await page.click('#fe-st-sec-recent');
   const recentHidden = await page.evaluate(() => document.getElementById('fe-rail-history').hidden);
-  await page.select('#fe-st-click', 'go');
+  // Settings controls are button rows and sliders, driven the way a person would.
+  const seg = (id, v) => page.click(`#${id} .fe-seg-b[data-v="${v}"]`);
+  const slide = (id, v) => page.$eval(`#${id}`, (host, val) => {
+    const r = host.querySelector('input');
+    r.value = String(host.dataset.values.split(',').map(Number).indexOf(Number(val)));
+    r.dispatchEvent(new Event('input', { bubbles: true }));
+    r.dispatchEvent(new Event('change', { bubbles: true }));
+  }, v);
+  await seg('fe-st-click', 'go');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
-  await page.select('#fe-st-rd-size', '17');
+  await slide('fe-st-rd-size', '17');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="files"]');
-  await page.select('#fe-st-rd-column', 'lg');
+  await seg('fe-st-rd-column', 'lg');
   const colKeyOn = await h.store.get('bfb-page-column-v2');
-  await page.select('#fe-st-rd-column', 'unset');
+  await seg('fe-st-rd-column', 'unset');
   const colKeyOff = await h.store.get('bfb-page-column-v2');
   check(colKeyOn === 'lg' && colKeyOff === 'unset', `Settings reading width writes the file-page mode: on=${colKeyOn} off=${colKeyOff}`);
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="data"]');
@@ -741,6 +749,7 @@ try {
   const availableSections = await page.$$eval('#fe-side .fe-sec[data-collapse]', els => els.map(e => e.dataset.collapse));
   check(sectionKeys.every(k => availableSections.includes(k)), `all sidebar sections have collapse controls: ${JSON.stringify(availableSections)}`);
   await toggleAll();
+  await new Promise(r => setTimeout(r, 300));   // the fold eases shut
   const allCollapsed = await page.evaluate(keys => keys.every(key => {
     const section = document.querySelector(`#fe-side .fe-sec[data-collapse="${key}"]`);
     return section.classList.contains('fe-collapsed') && section.querySelector('.fe-sh-collapse').getAttribute('aria-expanded') === 'false'
@@ -794,12 +803,19 @@ try {
 
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
-  await page.select('#fe-st-uiscale', '125');
-  const zoomed = await page.evaluate(() => document.getElementById('fe').style.zoom);
-  await page.select('#fe-st-uiscale', '100');
-  const unzoomed = await page.evaluate(() => document.getElementById('fe').style.zoom);
+  const slideUi = v => page.$eval('#fe-st-uiscale', (host, val) => {
+    const r = host.querySelector('input');
+    r.value = String(host.dataset.values.split(',').map(Number).indexOf(Number(val)));
+    r.dispatchEvent(new Event('change', { bubbles: true }));
+  }, v);
+  await slideUi('125');
+  await new Promise(r => setTimeout(r, 400));
+  const zoomed = await page.evaluate(() => devicePixelRatio);
+  await slideUi('100');
+  await new Promise(r => setTimeout(r, 400));
+  const unzoomed = await page.evaluate(() => devicePixelRatio);
   await page.keyboard.press('Escape');
-  check(zoomed === '1.25' && (unzoomed === '' || unzoomed === '1'), `Interface size scales the UI: 125→${zoomed}, 100→"${unzoomed}"`);
+  check(Math.abs(zoomed - 1.25) < 0.01 && Math.abs(unzoomed - 1) < 0.01, `Interface size zooms the tab: 125→${zoomed}, 100→${unzoomed}`);
 
   const labelCss = await page.evaluate(() => {
     const lbl = document.querySelector('#fe-side .fe-sl');

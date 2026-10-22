@@ -71,11 +71,11 @@ try {
     await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
     await page.screenshot({ path: join(process.cwd(), '.claude', 'output', '20260922-adversarial-ui', `settings-${theme}.png`) });
     await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
-    await page.select('#fe-st-rd-size', '15');
+    await page.$eval('#fe-st-rd-size', (host, val) => { const r = host.querySelector('input'); r.value = String(host.dataset.values.split(',').map(Number).indexOf(Number(val))); r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); }, '15');
     const before = await page.evaluate(() => ({ side: getComputedStyle(document.querySelector('.fe-sl')).fontSize,
       nav: getComputedStyle(document.querySelector('.fe-crumb')).fontSize,
       settings: getComputedStyle(document.querySelector('.fe-dlg-tab b')).fontSize }));
-    await page.select('#fe-st-rd-size', '17');
+    await page.$eval('#fe-st-rd-size', (host, val) => { const r = host.querySelector('input'); r.value = String(host.dataset.values.split(',').map(Number).indexOf(Number(val))); r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); }, '17');
     const after = await page.evaluate(() => ({ side: getComputedStyle(document.querySelector('.fe-sl')).fontSize,
       nav: getComputedStyle(document.querySelector('.fe-crumb')).fontSize,
       settings: getComputedStyle(document.querySelector('.fe-dlg-tab b')).fontSize }));

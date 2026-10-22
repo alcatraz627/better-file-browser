@@ -22,6 +22,7 @@ import {
   attachBuffer, moveLines, duplicateLines, indentLines, continueList, wrapSelection, tableSnippet, type TextEdit,
 } from './editor';
 import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
+import { addTurn } from './ask-history';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
 
@@ -103,7 +104,7 @@ export function initPreview(d: PreviewDeps): void {
           <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>Copy</span>
         </button>
-        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">${UI_ICON.external}<span>Open raw</span></a>
+        <a id="fe-ql-open" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
         <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
         <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
         <button id="fe-ql-dock" data-icon title="Dock the preview to the side">
@@ -309,8 +310,14 @@ function setupAi(e: Entry, ext: string): void {
   });
 }
 
+// Answers from the preview's AI bar join the file's Ask history, one chat per
+// file per preview, so the Ask lens on that file's page lists them too.
+let aiChat = { href: '', id: '' };
+const AI_ASKED: Record<string, string> = { summarize: 'Summarize', explain: 'Explain', describe: 'Describe' };
 function runAi(intent: string, question?: string): void {
   if (currentText === null || !currentEntry) return;   // fetch not done yet
+  const entry = currentEntry;
+  if (aiChat.href !== entry.href) aiChat = { href: entry.href, id: 'pv-' + Date.now().toString(36) };
   aiCancel?.();
   const seq = ++aiSeq;
   const body = document.getElementById('fe-ql-ai-out-body')!;
@@ -331,6 +338,10 @@ function runAi(intent: string, question?: string): void {
         if (seq !== aiSeq) return;
         aiCancel = null;
         body.innerHTML = renderMarkdown(full);
+        try {
+          const path = decodeURIComponent(new URL(entry.href).pathname);
+          addTurn(path, aiChat.id, { q: question || AI_ASKED[intent] || intent, a: full, model: info.model, ms: info.ms, at: Date.now() });
+        } catch { /* history is a convenience; the answer is already shown */ }
         meta.textContent = `${info.model} · ${(info.ms / 1000).toFixed(1)}s` +
           (info.truncated ? ' · input truncated to fit the model' : '');
       },

@@ -12,14 +12,14 @@ export interface Opt { value: string; label?: string; icon?: string; hint?: stri
 /// an icon and no label show only the icon, with the hint as their tooltip.
 export function segHtml(id: string, opts: Opt[], title: string): string {
   return `<div class="fe-seg" id="${id}" role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map(o =>
-    `<button type="button" role="radio" class="fe-seg-b${o.label ? '' : ' ico'}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1"${o.hint ? ` title="${esc(o.hint)}"` : ''}${o.label ? '' : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ''}${o.label ? `<span>${esc(o.label)}</span>` : ''}</button>`).join('')}</div>`;
+    `<button type="button" role="radio" class="fe-seg-b${o.label ? '' : ' ico'}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? '' : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ''}${o.label ? `<span>${esc(o.label)}</span>` : ''}</button>`).join('')}</div>`;
 }
 
 /// A slider over a fixed list of values, with the chosen one shown beside it
 /// and a tick for each stop.
 export function sliderHtml(id: string, values: number[], unit: string, title: string): string {
   return `<div class="fe-sld" id="${id}" data-values="${values.join(',')}" data-unit="${esc(unit)}" title="${esc(title)}">
-    <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}">
+    <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}" title="${esc(title)}">
     <output></output>
   </div>`;
 }

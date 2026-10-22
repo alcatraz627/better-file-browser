@@ -163,10 +163,9 @@ export function initSidebar(app: App): void {
     toggle.addEventListener('click', () => {
       const keys = collapsed();
       if (section.classList.contains('fe-collapsed')) keys.delete(key); else keys.add(key);
-      foldTo(section, () => { section.classList.toggle('fe-collapsed'); }, () => {
-        kvSet(collapseKey, JSON.stringify([...keys]));
-        applyCollapsed(keys);
-      });
+      // The choice is saved at once; only the look waits for the fold to finish.
+      kvSet(collapseKey, JSON.stringify([...keys]));
+      foldTo(section, () => { section.classList.toggle('fe-collapsed'); }, () => applyCollapsed(keys));
     });
     header.prepend(toggle);
   }
@@ -302,12 +301,12 @@ export function initSidebar(app: App): void {
     els<HTMLDetailsElement>('details.fe-grp', svList).forEach(d => d.querySelector('summary')!.addEventListener('click', e => {
       if ((e.target as Element).closest('.fe-sv-dot')) return;
       e.preventDefault();
-      foldTo(d, () => { d.open = !d.open; }, () => {
-        if (svFilter.value.trim()) return;
+      if (!svFilter.value.trim()) {
         const folded = foldedGroups();
-        if (d.open) folded.delete(d.dataset.tag!); else folded.add(d.dataset.tag!);
+        if (d.open) folded.add(d.dataset.tag!); else folded.delete(d.dataset.tag!);
         saveFoldedGroups(folded);
-      });
+      }
+      foldTo(d, () => { d.open = !d.open; });
     }));
     els('.fe-rm-btn', svList).forEach(btn => {
       btn.addEventListener('click', e => {
@@ -397,7 +396,8 @@ export function initSidebar(app: App): void {
     const open = !folds.has(key);
     g.setAttribute('aria-expanded', String(open));
     g.title = `${open ? 'Fold' : 'Show'} ${g.dataset.label}`;
-    foldTo(body, () => { body.hidden = !body.hidden; }, () => kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds])));
+    kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds]));
+    foldTo(body, () => { body.hidden = !body.hidden; });
   });
   // Notes whose text (not just title or tags) holds every word typed, with the
   // first matching line; filled a moment after typing stops.
