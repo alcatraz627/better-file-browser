@@ -16169,17 +16169,17 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   ];
   var KEYMAP = [
     // Anywhere
-    { id: "palette", group: "Anywhere", title: "Command palette", keys: ["\u2318K"], own: true },
-    { id: "keys", group: "Anywhere", title: "Keyboard map", keys: ["?"] },
-    { id: "settings", group: "Anywhere", title: "Settings", keys: [","] },
-    { id: "hints", group: "Anywhere", title: "Show keys on screen", keys: ["hold \u2325"], own: true },
-    { id: "area-next", group: "Anywhere", title: "Next area", keys: ["F6", "\u2303`"], own: true },
-    { id: "area-prev", group: "Anywhere", title: "Previous area", keys: ["\u21E7F6", "\u2303\u21E7`"], own: true },
-    { id: "sidebar", group: "Anywhere", title: "Sidebar on or off", keys: ["\\"], own: true },
-    { id: "theme", group: "Anywhere", title: "Dark or light", keys: ["\u21E7L"], own: true },
+    { id: "palette", group: "Anywhere", title: "Command palette", keys: ["\u2318K"], own: true, over: true },
+    { id: "keys", group: "Anywhere", title: "Keyboard map", keys: ["?"], own: true, over: true },
+    { id: "settings", group: "Anywhere", title: "Settings", keys: [","], own: true, over: true },
+    { id: "hints", group: "Anywhere", title: "Show keys on screen", keys: ["hold \u2325"], own: true, over: true },
+    { id: "area-next", group: "Anywhere", title: "Next area", keys: ["F6", "\u2303`"], own: true, over: true },
+    { id: "area-prev", group: "Anywhere", title: "Previous area", keys: ["\u21E7F6", "\u2303\u21E7`"], own: true, over: true },
+    { id: "sidebar", group: "Anywhere", title: "Sidebar on or off", keys: ["\\"], own: true, over: true },
+    { id: "theme", group: "Anywhere", title: "Dark or light", keys: ["\u21E7L"], own: true, over: true },
     { id: "esc", group: "Anywhere", title: "Close, or step back", keys: ["Esc"] },
     // Go
-    { id: "up", group: "Go", title: "Parent folder", keys: ["\u232B", "\u2318\u2191"] },
+    { id: "up", group: "Go", title: "Parent folder", keys: ["\u232B", "\u2318\u2191"], own: true, over: ["\u2318\u2191"] },
     { id: "home", group: "Go", title: "Home", keys: ["g h"], own: true },
     { id: "path", group: "Go", title: "Type a path", keys: ["l"], own: true },
     { id: "goto-bg", group: "Go", title: "Open the typed path as a background tab", keys: ["\u2325\u21A9"], scope: "goto", own: true, field: true },
@@ -16200,26 +16200,26 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     { id: "lens-ask", group: "Go", title: "Ask", keys: ["g 6"], own: true },
     { id: "lens-docs", group: "Go", title: "Comments", keys: ["g 7"], own: true },
     // Listing
-    { id: "move", group: "Listing", title: "Move", keys: ["\u2191", "\u2193"], scope: "listing" },
+    { id: "move", group: "Listing", title: "Move", keys: ["\u2191", "\u2193"], scope: "listing", own: true },
     { id: "extend-up", group: "Listing", title: "Select upward", keys: ["\u21E7\u2191"], scope: "listing", own: true },
     { id: "extend-down", group: "Listing", title: "Select downward", keys: ["\u21E7\u2193"], scope: "listing", own: true },
     { id: "first", group: "Listing", title: "First item", keys: ["Home"], scope: "listing", own: true },
     { id: "last", group: "Listing", title: "Last item", keys: ["End"], scope: "listing", own: true },
     { id: "page-up", group: "Listing", title: "Page up", keys: ["PgUp"], scope: "listing", own: true },
     { id: "page-down", group: "Listing", title: "Page down", keys: ["PgDn"], scope: "listing", own: true },
-    { id: "open", group: "Listing", title: "Open", keys: ["\u21A9"], scope: "listing" },
+    { id: "open", group: "Listing", title: "Open", keys: ["\u21A9"], scope: "listing", own: true },
     { id: "open-bg", group: "Listing", title: "Keep as a background tab", keys: ["\u2325\u21A9"], scope: "listing", own: true },
     { id: "open-chrome", group: "Listing", title: "Open in a Chrome tab", keys: ["\u2318\u21A9"], scope: "listing", own: true },
-    { id: "look", group: "Listing", title: "Preview", keys: ["Space"], scope: "listing" },
+    { id: "look", group: "Listing", title: "Preview", keys: ["Space"], scope: "listing", own: true },
     { id: "tree-open", group: "Listing", title: "Expand folder (Tree)", keys: ["\u2192"], scope: "tree", own: true },
     { id: "tree-close", group: "Listing", title: "Collapse folder (Tree)", keys: ["\u2190"], scope: "tree", own: true },
     { id: "menu", group: "Listing", title: "Item menu", keys: ["x", "\u21E7F10"], scope: "listing", own: true },
-    { id: "select-all", group: "Listing", title: "Select all", keys: ["\u2318A"], scope: "listing" },
-    { id: "copy-paths", group: "Listing", title: "Copy selected paths", keys: ["\u2318C"], scope: "listing" },
+    { id: "select-all", group: "Listing", title: "Select all", keys: ["\u2318A"], scope: "listing", own: true },
+    { id: "copy-paths", group: "Listing", title: "Copy selected paths", keys: ["\u2318C"], scope: "listing", own: true },
     { id: "copy-path", group: "Listing", title: "Copy path", keys: ["y"], scope: "listing", own: true },
     { id: "copy-name", group: "Listing", title: "Copy name", keys: ["\u21E7Y"], scope: "listing", own: true },
     { id: "filter", group: "Listing", title: "Filter", keys: ["/", "\u2318F"], own: true },
-    { id: "new-note", group: "Listing", title: "New note", keys: ["n"] },
+    { id: "new-note", group: "Listing", title: "New note", keys: ["n"], own: true },
     // View
     { id: "view-details", group: "View", title: "Details", keys: ["v d"], own: true },
     { id: "view-list", group: "View", title: "List", keys: ["v l"], own: true },
@@ -16265,16 +16265,16 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     { id: "side-chrome", group: "Sidebar", title: "Open in a Chrome tab", keys: ["\u2318\u21A9"], scope: "sidebar", own: true },
     { id: "side-props", group: "Sidebar", title: "Note colour, pin and tags", keys: ["#"], scope: "sidebar", own: true },
     // Preview
-    { id: "pv-close", group: "Preview", title: "Close", keys: ["Space", "Esc"], scope: "preview" },
-    { id: "pv-step", group: "Preview", title: "Previous or next file", keys: ["\u2191", "\u2193"], scope: "preview" },
-    { id: "pv-open", group: "Preview", title: "Open the page", keys: ["\u21A9"], scope: "preview" },
-    { id: "pv-tab", group: "Preview", title: "Keep as a tab", keys: ["t"], scope: "preview" },
+    { id: "pv-close", group: "Preview", title: "Close", keys: ["Space", "Esc"], scope: "preview", own: true },
+    { id: "pv-step", group: "Preview", title: "Previous or next file", keys: ["\u2191", "\u2193", "\u2190", "\u2192"], scope: "preview", own: true },
+    { id: "pv-open", group: "Preview", title: "Open the page", keys: ["\u21A9"], scope: "preview", own: true },
+    { id: "pv-tab", group: "Preview", title: "Keep as a tab", keys: ["t"], scope: "preview", own: true },
     { id: "pv-dock", group: "Preview", title: "Dock or float", keys: ["d"], scope: "preview", own: true },
     { id: "pv-copy", group: "Preview", title: "Copy contents", keys: ["c"], scope: "preview", own: true },
     { id: "pv-ask", group: "Preview", title: "Ask about it", keys: ["a"], scope: "preview", own: true },
     // File page
-    { id: "fp-raw", group: "File page", title: "Raw or rendered", keys: ["r"], scope: "file" },
-    { id: "fp-edit", group: "File page", title: "Edit", keys: ["e"], scope: "file" },
+    { id: "fp-raw", group: "File page", title: "Raw or rendered", keys: ["r"], scope: "file", own: true },
+    { id: "fp-edit", group: "File page", title: "Edit", keys: ["e"], scope: "file", own: true },
     { id: "fp-find", group: "File page", title: "Find in file", keys: ["/"], scope: "file" },
     { id: "fp-comment", group: "File page", title: "Comment on the selection or paragraph", keys: ["c"], scope: "file" },
     { id: "fp-cm-reply", group: "File page", title: "Reply to the comment", keys: ["\u21E7R"], scope: "file" },
@@ -18562,9 +18562,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const b = bound.get(id);
     return !!b && (!b.when || b.when());
   }
-  function runCommand(id) {
+  function runCommand(id, key) {
     if (!canRun(id)) return false;
-    bound.get(id).run();
+    bound.get(id).run(key);
     return true;
   }
   var NAMED2 = {
@@ -18602,7 +18602,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     contextOf = fn;
   }
   var OWN = KEYMAP.filter((d) => d.own);
-  var live = (d, ctx) => (d.scope ?? "any") === "any" ? !ctx.scopes.has("preview") || ["palette", "area-next", "area-prev", "sidebar", "theme", "hints"].includes(d.id) : ctx.scopes.has(d.scope);
+  var MOVING = /* @__PURE__ */ new Set(["\u2191", "\u2193", "\u2190", "\u2192", "\u21A9", "Space", "\u232B", "Home", "End"]);
+  var baseOf = (tok) => tok.replace(/^[⌘⌃⌥⇧]+/, "");
+  var live = (d, ctx, tok = "") => {
+    const scope = d.scope ?? "any";
+    if (scope !== "any") return ctx.scopes.has(scope);
+    if (ctx.widget && MOVING.has(baseOf(tok))) return false;
+    return !ctx.scopes.has("preview") || d.over === true || !!tok && !!d.over?.includes(tok);
+  };
   var pending = "";
   var pendingTimer = null;
   var pill = null;
@@ -18638,11 +18645,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     if (ctx.typing) {
       setPending("");
-      const d2 = OWN.find((x) => x.field && x.keys.includes(tok) && live(x, ctx) && canRun(x.id));
+      const d2 = OWN.find((x) => x.field && x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
       if (d2) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        runCommand(d2.id);
+        runCommand(d2.id, tok);
         return true;
       }
       return false;
@@ -18650,21 +18657,21 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     if (pending) {
       const want = `${pending} ${tok}`;
       setPending("");
-      const seq2 = OWN.filter((x) => x.keys.includes(want) && live(x, ctx) && canRun(x.id));
+      const seq2 = OWN.filter((x) => x.keys.includes(want) && live(x, ctx, want) && canRun(x.id));
       const d2 = seq2.find((x) => (x.scope ?? "any") !== "any") ?? seq2[0];
-      if (d2 && runCommand(d2.id)) {
+      if (d2 && runCommand(d2.id, want)) {
         e.preventDefault();
         e.stopImmediatePropagation();
         return true;
       }
       return false;
     }
-    const all = OWN.filter((x) => x.keys.includes(tok) && live(x, ctx) && canRun(x.id));
+    const all = OWN.filter((x) => x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
     const d = all.find((x) => (x.scope ?? "any") !== "any") ?? all[0];
     if (d) {
       e.preventDefault();
       e.stopImmediatePropagation();
-      runCommand(d.id);
+      runCommand(d.id, tok);
       return true;
     }
     if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some((x) => live(x, ctx) && canRun(x.id) && x.keys.some((k) => k.startsWith(tok + " ")))) {
@@ -19104,69 +19111,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (ae?.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar") && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " ", "Backspace", "Delete", "Home", "End"].includes(e.key)) return;
       if (el("fe-settings-modal").style.display !== "none") return;
       if (el("fe-help-modal").style.display !== "none") return;
-      if (e.key === "?") {
-        e.preventDefault();
-        app.openHelp();
-        return;
-      }
-      if (e.key === "," && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        app.openSettings();
-        return;
-      }
-      if (e.metaKey && e.key === "ArrowUp") {
-        e.preventDefault();
-        app.goUp();
-        return;
-      }
       if (ctx?.open) return;
       if (isPreviewOpen()) {
-        if (e.key === "Escape" || e.key === " ") {
-          e.preventDefault();
-          closePreview();
-        } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
-          e.preventDefault();
-          sel.previewStep(1);
-        } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-          e.preventDefault();
-          sel.previewStep(-1);
-        } else if (e.key === "Enter") runCommand("pv-open");
-        else if (e.key === "t" && !e.metaKey && !e.ctrlKey) {
-          e.preventDefault();
-          keepPreviewedAsTab();
-        } else if (["[", "]", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
+        if (["[", "]", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
         return;
       }
       if (app.filePage?.key(e)) e.preventDefault();
-      else if (app.filePage && e.key === "r" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        app.filePage.toggleRaw();
-      } else if (app.filePage && e.key === "e" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        app.filePage.edit();
-      } else if (e.key === "ArrowDown" && !app.fileMode) {
-        e.preventDefault();
-        sel.moveSel(1);
-      } else if (e.key === "ArrowUp" && !app.fileMode) {
-        e.preventDefault();
-        sel.moveSel(-1);
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
-        e.preventDefault();
-        sel.selectAll();
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c" && ls.selSet.size) {
-        e.preventDefault();
-        sel.copySelection();
-      } else if (e.key === "Enter" && ls.selIdx >= 0) runCommand("open");
-      else if (e.key === "Backspace") {
-        e.preventDefault();
-        app.goUp();
-      } else if (e.key === " " && ls.selIdx >= 0) {
-        e.preventDefault();
-        sel.tryPreview(ls.visible[ls.selIdx]);
-      } else if (e.key === "n" && !e.metaKey && !e.ctrlKey && app.settings.notesRoot) {
-        e.preventDefault();
-        app.newNote();
-      } else if (app.strip.handleKey(e)) e.preventDefault();
+      else if (app.strip.handleKey(e)) e.preventDefault();
     });
     const onListing = () => !app.fileMode;
     const lead = () => ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null;
@@ -19213,6 +19164,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (en) copyText(fullPath(rawPath, en));
     }, () => onListing() && !!lead());
     bind("up", () => app.goUp());
+    bind("move", (key) => sel.moveSel(key === "\u2191" ? -1 : 1), onListing);
+    bind("pv-step", (key) => sel.previewStep(key === "\u2191" || key === "\u2190" ? -1 : 1), () => isPreviewOpen());
     bind("open", () => {
       const en = lead();
       if (en) location.href = pageHref(en.href);
@@ -19220,7 +19173,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("look", () => {
       const en = lead();
       if (en) sel.tryPreview(en);
-    }, () => onListing() && !!lead() && canPreview(lead()));
+    }, () => onListing() && !!lead());
     bind("select-all", () => sel.selectAll(), onListing);
     bind("copy-paths", () => sel.copySelection(), () => onListing() && ls.selSet.size > 0);
     bind("pv-close", () => closePreview(), () => isPreviewOpen());
@@ -19435,6 +19388,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return {
         scopes,
         typing: isTyping(ae),
+        widget: inSide || inTabs || inBar || !!ae?.closest("#fe-fp-bar"),
         blocked: dialogOpen() || paletteOpen() || !!openMenu2() || !!document.querySelector(".fe-dd-list, .fe-rule-pop")
       };
     });

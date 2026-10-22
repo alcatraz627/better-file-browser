@@ -63,7 +63,7 @@ export function initFocusNav(app: App): void {
     }
     if (openMenu()) scopes.add('menu');
     return {
-      scopes, typing: isTyping(ae),
+      scopes, typing: isTyping(ae), widget: inSide || inTabs || inBar || !!ae?.closest('#fe-fp-bar'),
       blocked: dialogOpen() || paletteOpen() || !!openMenu() || !!document.querySelector('.fe-dd-list, .fe-rule-pop'),
     };
   });

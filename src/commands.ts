@@ -7,20 +7,21 @@ import { UI_ICON } from './control-icons';
 import { esc } from './utils';
 import { openLayer, raise } from './layer';
 
-interface Bound { run: () => void; when?: () => boolean }
+interface Bound { run: (key?: string) => void; when?: () => boolean }
 const bound = new Map<string, Bound>();
 
-/// Make the command `id` from the key map do something.
-export function bind(id: string, run: () => void, when?: () => boolean): void {
+/// Make the command `id` from the key map do something. `run` gets the key
+/// that ran it (such as "↑"), or nothing when it came from the palette.
+export function bind(id: string, run: (key?: string) => void, when?: () => boolean): void {
   bound.set(id, { run, when });
 }
 export function canRun(id: string): boolean {
   const b = bound.get(id);
   return !!b && (!b.when || b.when());
 }
-export function runCommand(id: string): boolean {
+export function runCommand(id: string, key?: string): boolean {
   if (!canRun(id)) return false;
-  bound.get(id)!.run();
+  bound.get(id)!.run(key);
   return true;
 }
 
@@ -45,12 +46,22 @@ export function keyToken(e: KeyboardEvent): string {
 }
 
 // Which keys are live depends on what has the keyboard right now.
-export interface Context { scopes: Set<Scope>; typing: boolean; blocked: boolean }
+// `widget`: the sidebar, the tabs or a toolbar has focus, and its own
+// moving and acting keys (MOVING) are not commands for anywhere else.
+export interface Context { scopes: Set<Scope>; typing: boolean; blocked: boolean; widget?: boolean }
 let contextOf: () => Context = () => ({ scopes: new Set(['any']), typing: false, blocked: false });
 export function setContext(fn: () => Context): void { contextOf = fn; }
 
 const OWN = KEYMAP.filter(d => d.own);
-const live = (d: KeyDef, ctx: Context) => (d.scope ?? 'any') === 'any' ? !ctx.scopes.has('preview') || ['palette', 'area-next', 'area-prev', 'sidebar', 'theme', 'hints'].includes(d.id) : ctx.scopes.has(d.scope!);
+const MOVING = new Set(['↑', '↓', '←', '→', '↩', 'Space', '⌫', 'Home', 'End']);
+// The base key of a token, without modifiers: "⌘↑" is "↑".
+const baseOf = (tok: string) => tok.replace(/^[⌘⌃⌥⇧]+/, '');
+const live = (d: KeyDef, ctx: Context, tok = '') => {
+  const scope = d.scope ?? 'any';
+  if (scope !== 'any') return ctx.scopes.has(scope);
+  if (ctx.widget && MOVING.has(baseOf(tok))) return false;
+  return !ctx.scopes.has('preview') || d.over === true || (!!tok && !!d.over?.includes(tok));
+};
 
 // A sequence such as "g h": the first key waits a moment for the second, with
 // a small pill showing what was typed.
@@ -77,22 +88,22 @@ export function dispatch(e: KeyboardEvent): boolean {
   if (ctx.blocked) { setPending(''); return false; }
   if (ctx.typing) {
     setPending('');
-    const d = OWN.find(x => x.field && x.keys.includes(tok) && live(x, ctx) && canRun(x.id));
-    if (d) { e.preventDefault(); e.stopImmediatePropagation(); runCommand(d.id); return true; }
+    const d = OWN.find(x => x.field && x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
+    if (d) { e.preventDefault(); e.stopImmediatePropagation(); runCommand(d.id, tok); return true; }
     return false;
   }
   if (pending) {
     const want = `${pending} ${tok}`;
     setPending('');
-    const seq = OWN.filter(x => x.keys.includes(want) && live(x, ctx) && canRun(x.id));
+    const seq = OWN.filter(x => x.keys.includes(want) && live(x, ctx, want) && canRun(x.id));
     const d = seq.find(x => (x.scope ?? 'any') !== 'any') ?? seq[0];
-    if (d && runCommand(d.id)) { e.preventDefault(); e.stopImmediatePropagation(); return true; }
+    if (d && runCommand(d.id, want)) { e.preventDefault(); e.stopImmediatePropagation(); return true; }
     return false;
   }
   // A command for where the keyboard is beats one that works anywhere.
-  const all = OWN.filter(x => x.keys.includes(tok) && live(x, ctx) && canRun(x.id));
+  const all = OWN.filter(x => x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
   const d = all.find(x => (x.scope ?? 'any') !== 'any') ?? all[0];
-  if (d) { e.preventDefault(); e.stopImmediatePropagation(); runCommand(d.id); return true; }
+  if (d) { e.preventDefault(); e.stopImmediatePropagation(); runCommand(d.id, tok); return true; }
   if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some(x => live(x, ctx) && canRun(x.id) && x.keys.some(k => k.startsWith(tok + ' ')))) {
     e.preventDefault(); e.stopImmediatePropagation();
     setPending(tok);

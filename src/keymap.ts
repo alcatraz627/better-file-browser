@@ -5,7 +5,8 @@
 // binds itself; the rest are answered by the surface that owns them.
 export type Scope = 'any' | 'listing' | 'tree' | 'preview' | 'file' | 'editor' | 'sidebar' | 'tabs' | 'menu' | 'dialog' | 'goto';
 /// `field`: the key is a chord no text box types (such as ⌥↩), so it runs while typing too.
-export interface KeyDef { id: string; group: string; title: string; keys: string[]; scope?: Scope; own?: boolean; field?: boolean }
+/// `over`: an anywhere key that also works over the open preview; true for all its keys, or the ones listed.
+export interface KeyDef { id: string; group: string; title: string; keys: string[]; scope?: Scope; own?: boolean; field?: boolean; over?: true | string[] }
 
 export const GROUPS: { name: string; icon: string }[] = [
   { name: 'Anywhere', icon: 'apps' },
@@ -22,18 +23,18 @@ export const GROUPS: { name: string; icon: string }[] = [
 
 export const KEYMAP: KeyDef[] = [
   // Anywhere
-  { id: 'palette', group: 'Anywhere', title: 'Command palette', keys: ['⌘K'], own: true },
-  { id: 'keys', group: 'Anywhere', title: 'Keyboard map', keys: ['?'] },
-  { id: 'settings', group: 'Anywhere', title: 'Settings', keys: [','] },
-  { id: 'hints', group: 'Anywhere', title: 'Show keys on screen', keys: ['hold ⌥'], own: true },
-  { id: 'area-next', group: 'Anywhere', title: 'Next area', keys: ['F6', '⌃`'], own: true },
-  { id: 'area-prev', group: 'Anywhere', title: 'Previous area', keys: ['⇧F6', '⌃⇧`'], own: true },
-  { id: 'sidebar', group: 'Anywhere', title: 'Sidebar on or off', keys: ['\\'], own: true },
-  { id: 'theme', group: 'Anywhere', title: 'Dark or light', keys: ['⇧L'], own: true },
+  { id: 'palette', group: 'Anywhere', title: 'Command palette', keys: ['⌘K'], own: true, over: true },
+  { id: 'keys', group: 'Anywhere', title: 'Keyboard map', keys: ['?'], own: true, over: true },
+  { id: 'settings', group: 'Anywhere', title: 'Settings', keys: [','], own: true, over: true },
+  { id: 'hints', group: 'Anywhere', title: 'Show keys on screen', keys: ['hold ⌥'], own: true, over: true },
+  { id: 'area-next', group: 'Anywhere', title: 'Next area', keys: ['F6', '⌃`'], own: true, over: true },
+  { id: 'area-prev', group: 'Anywhere', title: 'Previous area', keys: ['⇧F6', '⌃⇧`'], own: true, over: true },
+  { id: 'sidebar', group: 'Anywhere', title: 'Sidebar on or off', keys: ['\\'], own: true, over: true },
+  { id: 'theme', group: 'Anywhere', title: 'Dark or light', keys: ['⇧L'], own: true, over: true },
   { id: 'esc', group: 'Anywhere', title: 'Close, or step back', keys: ['Esc'] },
 
   // Go
-  { id: 'up', group: 'Go', title: 'Parent folder', keys: ['⌫', '⌘↑'] },
+  { id: 'up', group: 'Go', title: 'Parent folder', keys: ['⌫', '⌘↑'], own: true, over: ['⌘↑'] },
   { id: 'home', group: 'Go', title: 'Home', keys: ['g h'], own: true },
   { id: 'path', group: 'Go', title: 'Type a path', keys: ['l'], own: true },
   { id: 'goto-bg', group: 'Go', title: 'Open the typed path as a background tab', keys: ['⌥↩'], scope: 'goto', own: true, field: true },
@@ -55,26 +56,26 @@ export const KEYMAP: KeyDef[] = [
   { id: 'lens-docs', group: 'Go', title: 'Comments', keys: ['g 7'], own: true },
 
   // Listing
-  { id: 'move', group: 'Listing', title: 'Move', keys: ['↑', '↓'], scope: 'listing' },
+  { id: 'move', group: 'Listing', title: 'Move', keys: ['↑', '↓'], scope: 'listing', own: true },
   { id: 'extend-up', group: 'Listing', title: 'Select upward', keys: ['⇧↑'], scope: 'listing', own: true },
   { id: 'extend-down', group: 'Listing', title: 'Select downward', keys: ['⇧↓'], scope: 'listing', own: true },
   { id: 'first', group: 'Listing', title: 'First item', keys: ['Home'], scope: 'listing', own: true },
   { id: 'last', group: 'Listing', title: 'Last item', keys: ['End'], scope: 'listing', own: true },
   { id: 'page-up', group: 'Listing', title: 'Page up', keys: ['PgUp'], scope: 'listing', own: true },
   { id: 'page-down', group: 'Listing', title: 'Page down', keys: ['PgDn'], scope: 'listing', own: true },
-  { id: 'open', group: 'Listing', title: 'Open', keys: ['↩'], scope: 'listing' },
+  { id: 'open', group: 'Listing', title: 'Open', keys: ['↩'], scope: 'listing', own: true },
   { id: 'open-bg', group: 'Listing', title: 'Keep as a background tab', keys: ['⌥↩'], scope: 'listing', own: true },
   { id: 'open-chrome', group: 'Listing', title: 'Open in a Chrome tab', keys: ['⌘↩'], scope: 'listing', own: true },
-  { id: 'look', group: 'Listing', title: 'Preview', keys: ['Space'], scope: 'listing' },
+  { id: 'look', group: 'Listing', title: 'Preview', keys: ['Space'], scope: 'listing', own: true },
   { id: 'tree-open', group: 'Listing', title: 'Expand folder (Tree)', keys: ['→'], scope: 'tree', own: true },
   { id: 'tree-close', group: 'Listing', title: 'Collapse folder (Tree)', keys: ['←'], scope: 'tree', own: true },
   { id: 'menu', group: 'Listing', title: 'Item menu', keys: ['x', '⇧F10'], scope: 'listing', own: true },
-  { id: 'select-all', group: 'Listing', title: 'Select all', keys: ['⌘A'], scope: 'listing' },
-  { id: 'copy-paths', group: 'Listing', title: 'Copy selected paths', keys: ['⌘C'], scope: 'listing' },
+  { id: 'select-all', group: 'Listing', title: 'Select all', keys: ['⌘A'], scope: 'listing', own: true },
+  { id: 'copy-paths', group: 'Listing', title: 'Copy selected paths', keys: ['⌘C'], scope: 'listing', own: true },
   { id: 'copy-path', group: 'Listing', title: 'Copy path', keys: ['y'], scope: 'listing', own: true },
   { id: 'copy-name', group: 'Listing', title: 'Copy name', keys: ['⇧Y'], scope: 'listing', own: true },
   { id: 'filter', group: 'Listing', title: 'Filter', keys: ['/', '⌘F'], own: true },
-  { id: 'new-note', group: 'Listing', title: 'New note', keys: ['n'] },
+  { id: 'new-note', group: 'Listing', title: 'New note', keys: ['n'], own: true },
 
   // View
   { id: 'view-details', group: 'View', title: 'Details', keys: ['v d'], own: true },
@@ -124,17 +125,17 @@ export const KEYMAP: KeyDef[] = [
   { id: 'side-props', group: 'Sidebar', title: 'Note colour, pin and tags', keys: ['#'], scope: 'sidebar', own: true },
 
   // Preview
-  { id: 'pv-close', group: 'Preview', title: 'Close', keys: ['Space', 'Esc'], scope: 'preview' },
-  { id: 'pv-step', group: 'Preview', title: 'Previous or next file', keys: ['↑', '↓'], scope: 'preview' },
-  { id: 'pv-open', group: 'Preview', title: 'Open the page', keys: ['↩'], scope: 'preview' },
-  { id: 'pv-tab', group: 'Preview', title: 'Keep as a tab', keys: ['t'], scope: 'preview' },
+  { id: 'pv-close', group: 'Preview', title: 'Close', keys: ['Space', 'Esc'], scope: 'preview', own: true },
+  { id: 'pv-step', group: 'Preview', title: 'Previous or next file', keys: ['↑', '↓', '←', '→'], scope: 'preview', own: true },
+  { id: 'pv-open', group: 'Preview', title: 'Open the page', keys: ['↩'], scope: 'preview', own: true },
+  { id: 'pv-tab', group: 'Preview', title: 'Keep as a tab', keys: ['t'], scope: 'preview', own: true },
   { id: 'pv-dock', group: 'Preview', title: 'Dock or float', keys: ['d'], scope: 'preview', own: true },
   { id: 'pv-copy', group: 'Preview', title: 'Copy contents', keys: ['c'], scope: 'preview', own: true },
   { id: 'pv-ask', group: 'Preview', title: 'Ask about it', keys: ['a'], scope: 'preview', own: true },
 
   // File page
-  { id: 'fp-raw', group: 'File page', title: 'Raw or rendered', keys: ['r'], scope: 'file' },
-  { id: 'fp-edit', group: 'File page', title: 'Edit', keys: ['e'], scope: 'file' },
+  { id: 'fp-raw', group: 'File page', title: 'Raw or rendered', keys: ['r'], scope: 'file', own: true },
+  { id: 'fp-edit', group: 'File page', title: 'Edit', keys: ['e'], scope: 'file', own: true },
   { id: 'fp-find', group: 'File page', title: 'Find in file', keys: ['/'], scope: 'file' },
   { id: 'fp-comment', group: 'File page', title: 'Comment on the selection or paragraph', keys: ['c'], scope: 'file' },
   { id: 'fp-cm-reply', group: 'File page', title: 'Reply to the comment', keys: ['⇧R'], scope: 'file' },

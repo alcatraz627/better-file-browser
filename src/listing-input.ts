@@ -183,30 +183,13 @@ export function initListingInput(app: App, listing: Listing): void {
       && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' ', 'Backspace', 'Delete', 'Home', 'End'].includes(e.key)) return;
     if (el('fe-settings-modal').style.display !== 'none') return;
     if (el('fe-help-modal').style.display !== 'none') return;
-    if (e.key === '?') { e.preventDefault(); app.openHelp(); return; }
-    if (e.key === ',' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.openSettings(); return; }
-    if (e.metaKey && e.key === 'ArrowUp') { e.preventDefault(); app.goUp(); return; }   // Finder: go to parent
     if (ctx?.open) return;
+    // The rest of the listing's keys are commands (see the binds below).
     if (isPreviewOpen()) {
-      if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); closePreview(); }
-      else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); sel.previewStep(1); }
-      else if (e.key === 'ArrowUp'   || e.key === 'ArrowLeft')  { e.preventDefault(); sel.previewStep(-1); }
-      else if (e.key === 'Enter') runCommand('pv-open');
-      else if (e.key === 't' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); keepPreviewedAsTab(); }
-      else if (['[', ']', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
+      if (['[', ']', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
       return;
     }
     if (app.filePage?.key(e)) e.preventDefault();
-    else if (app.filePage && e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.filePage.toggleRaw(); }
-    else if (app.filePage && e.key === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.filePage.edit(); }
-    else if (e.key === 'ArrowDown' && !app.fileMode) { e.preventDefault(); sel.moveSel(1); }
-    else if (e.key === 'ArrowUp' && !app.fileMode)   { e.preventDefault(); sel.moveSel(-1); }
-    else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); sel.selectAll(); }
-    else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c' && ls.selSet.size) { e.preventDefault(); sel.copySelection(); }
-    else if (e.key === 'Enter' && ls.selIdx >= 0) runCommand('open');
-    else if (e.key === 'Backspace') { e.preventDefault(); app.goUp(); }
-    else if (e.key === ' ' && ls.selIdx >= 0) { e.preventDefault(); sel.tryPreview(ls.visible[ls.selIdx]); }
-    else if (e.key === 'n' && !e.metaKey && !e.ctrlKey && app.settings.notesRoot) { e.preventDefault(); app.newNote(); }
     else if (app.strip.handleKey(e)) e.preventDefault();
   });
 
@@ -239,8 +222,10 @@ export function initListingInput(app: App, listing: Listing): void {
   bind('copy-path', () => { const en = lead(); if (en) copyText(fullPath(rawPath, en)); }, () => onListing() && !!lead());
   // Keys the listing answers itself, bound here too so the palette can run them.
   bind('up', () => app.goUp());
+  bind('move', key => sel.moveSel(key === '↑' ? -1 : 1), onListing);
+  bind('pv-step', key => sel.previewStep(key === '↑' || key === '←' ? -1 : 1), () => isPreviewOpen());
   bind('open', () => { const en = lead(); if (en) location.href = pageHref(en.href); }, () => onListing() && !!lead());
-  bind('look', () => { const en = lead(); if (en) sel.tryPreview(en); }, () => onListing() && !!lead() && canPreview(lead()!));
+  bind('look', () => { const en = lead(); if (en) sel.tryPreview(en); }, () => onListing() && !!lead());
   bind('select-all', () => sel.selectAll(), onListing);
   bind('copy-paths', () => sel.copySelection(), () => onListing() && ls.selSet.size > 0);
   bind('pv-close', () => closePreview(), () => isPreviewOpen());
