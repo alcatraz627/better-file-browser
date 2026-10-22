@@ -2295,6 +2295,31 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       for (const l of [...stack]) if (CLOSES[l.kind].blur && !l.el.contains(t) && !l.opts.anchor?.contains(t)) l.close("blur");
     });
   }
+  function rovingFocus(root, items, o = {}) {
+    const axis = o.axis ?? "vertical";
+    const onKey = (e) => {
+      if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const t = e.target;
+      if (t.isContentEditable || t.matches("textarea, select, input:not([type=checkbox], [type=radio], [type=button], [type=submit])")) return;
+      const list2 = [...root.querySelectorAll(items)].filter((x) => !x.hasAttribute("disabled") && x.offsetParent !== null);
+      if (!list2.length) return;
+      const i = list2.indexOf(document.activeElement);
+      const next = axis !== "horizontal" && e.key === "ArrowDown" || axis !== "vertical" && e.key === "ArrowRight";
+      const prev = axis !== "horizontal" && e.key === "ArrowUp" || axis !== "vertical" && e.key === "ArrowLeft";
+      let to = -1;
+      if (e.key === "Home") to = 0;
+      else if (e.key === "End") to = list2.length - 1;
+      else if (next) to = i < 0 ? 0 : i + 1 >= list2.length ? o.wrap === false ? i : 0 : i + 1;
+      else if (prev) to = i <= 0 ? o.wrap === false ? 0 : list2.length - 1 : i - 1;
+      if (to < 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      list2[to].focus();
+      o.onMove?.(list2[to]);
+    };
+    root.addEventListener("keydown", onKey);
+    return () => root.removeEventListener("keydown", onKey);
+  }
 
   // src/controls.ts
   function segHtml(id, opts, title) {
@@ -2328,24 +2353,14 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       cur = String(v);
       paint();
     } });
-    btns.forEach((b, i) => {
-      b.addEventListener("click", () => {
-        if (cur !== b.dataset.v) {
-          cur = b.dataset.v;
-          paint();
-          fire(host);
-        }
-      });
-      b.addEventListener("keydown", (e) => {
-        const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
-        const to = e.key === "Home" ? 0 : e.key === "End" ? btns.length - 1 : step ? (i + step + btns.length) % btns.length : -1;
-        if (to < 0) return;
-        e.preventDefault();
-        e.stopPropagation();
-        btns[to].focus();
-        btns[to].click();
-      });
-    });
+    btns.forEach((b) => b.addEventListener("click", () => {
+      if (cur !== b.dataset.v) {
+        cur = b.dataset.v;
+        paint();
+        fire(host);
+      }
+    }));
+    rovingFocus(host, ".fe-seg-b", { axis: "both", onMove: (b) => b.click() });
     paint();
   }
   function upgradeSlider(host) {

@@ -5,7 +5,7 @@
 // <select>. upgradeControls() wires every one under a root, once.
 import { esc } from './utils';
 import { CHEVRON_DOWN } from './icons';
-import { openLayer } from './layer';
+import { openLayer, rovingFocus } from './layer';
 
 export interface Opt { value: string; label?: string; icon?: string; hint?: string }
 
@@ -53,17 +53,9 @@ function upgradeSeg(host: HTMLElement): void {
     b.tabIndex = on || (!cur && b === btns[0]) ? 0 : -1;
   });
   Object.defineProperty(host, 'value', { get: () => cur, set: (v: string) => { cur = String(v); paint(); } });
-  btns.forEach((b, i) => {
-    b.addEventListener('click', () => { if (cur !== b.dataset.v) { cur = b.dataset.v!; paint(); fire(host); } });
-    // Arrows move the choice, as in a radio group; Home and End jump.
-    b.addEventListener('keydown', e => {
-      const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
-      const to = e.key === 'Home' ? 0 : e.key === 'End' ? btns.length - 1 : step ? (i + step + btns.length) % btns.length : -1;
-      if (to < 0) return;
-      e.preventDefault(); e.stopPropagation();
-      btns[to].focus(); btns[to].click();
-    });
-  });
+  btns.forEach(b => b.addEventListener('click', () => { if (cur !== b.dataset.v) { cur = b.dataset.v!; paint(); fire(host); } }));
+  // Arrows move the choice, as in a radio group; Home and End jump.
+  rovingFocus(host, '.fe-seg-b', { axis: 'both', onMove: b => b.click() });
   paint();
 }
 
