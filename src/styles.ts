@@ -261,12 +261,15 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-tb-right{display:flex;align-items:center;gap:4px}
 .fe-tb-sep{flex:none;width:1px;height:18px;margin:0 4px;background:var(--bd)}
 #fe-sg-cur{font-variant-numeric:tabular-nums}
+/* One "on" look across the toolbar: the accent tint the chosen view wears. */
+#fe-toolbar #fe-tb-right > button.on{color:var(--ac);background:color-mix(in srgb,var(--ac) 18%,transparent)}
 /* Detail: a small slider between a big-square and a dense-rows icon, its stop named beside it. */
 #fe-density-wrap{display:flex;align-items:center;gap:6px;color:var(--dm)}
 .fe-density-end{display:inline-grid;place-items:center}
-#fe-density{width:auto;gap:8px}
-#fe-density input{flex:none;width:72px}
-#fe-density output{min-width:72px;padding:0;background:none;font-family:inherit;font-size:var(--fs-sm);color:var(--mt);text-align:left}
+#fe-density{display:contents}
+#fe-density input{order:1;flex:none;width:72px}
+#fe-density-wrap .fe-density-end:last-of-type{order:2}
+#fe-density output{order:3;min-width:72px;padding:0;background:none;font-family:inherit;font-size:var(--fs-sm);color:var(--mt);text-align:left}
 /* The five views as one segmented control, like Settings. */
 #fe-view-group{display:inline-flex;gap:2px;padding:2px;border-radius:9px;background:color-mix(in srgb,var(--tx) 6%,transparent);
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
@@ -300,7 +303,7 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-panel-lbl{min-width:52px;font-size:var(--fs-sm);color:var(--dm);font-weight:500;white-space:nowrap}
 .fe-panel-sub{display:inline-flex;align-items:center;gap:8px}
 .fe-panel-sub .fe-panel-lbl{min-width:0}
-#fe-sg-panel .fe-seg-b,#fe-filter-bar .fe-seg-b{height:26px}
+#fe-sg-panel .fe-seg-b,#fe-filter-bar .fe-seg-b{height:24px}
 .fe-panel-gap{margin-left:14px}
 #fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px;height:28px}
 #fe-find-depth .fe-dd-btn{min-width:100px}
@@ -474,17 +477,25 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe[data-density="4"] .fe-tile-meta{display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;font-size:var(--fs-xs);color:var(--dm)}
 #fe[data-density="4"] .fe-tile-meta > span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fe[data-density="4"] .fe-tile-tags{display:none!important}
-#fe[data-density="5"] #fe-tiles{gap:4px 6px}
-#fe[data-density="5"] .fe-tile{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto 1fr;column-gap:10px;row-gap:1px;
+#fe[data-density="5"][data-view="tiles"] #fe-tiles{gap:4px 6px}
+#fe[data-density="5"][data-view="tiles"] .fe-tile{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto 1fr;column-gap:10px;row-gap:1px;
   align-items:start;justify-items:start;width:250px;padding:8px 10px;text-align:left}
-#fe[data-density="5"] .fe-tile-ic{grid-row:1 / span 3;align-self:center}
-#fe[data-density="5"] .fe-tile-ic svg{transform:scale(1.6);margin:6px}
-#fe[data-density="5"] .fe-tile-ic .fe-tile-img-wrap{width:44px;height:36px}
-#fe[data-density="5"] .fe-tile-nm{text-align:left;-webkit-line-clamp:1;font-size:var(--fs-md)}
-#fe[data-density="5"] .fe-tile-sz{grid-column:2;font-size:var(--fs-xs)}
-#fe[data-density="5"] .fe-tile-meta{grid-column:2;display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;font-size:var(--fs-xs);color:var(--dm)}
-#fe[data-density="5"] .fe-tile-tags{display:flex;align-items:center;gap:4px}
-#fe[data-density="5"] .fe-tile-tags .fe-chips{max-width:150px}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-ic{grid-row:1 / span 3;align-self:center}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-ic svg{transform:scale(1.6);margin:6px}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:44px;height:36px}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-nm{text-align:left;-webkit-line-clamp:1;font-size:var(--fs-md)}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-sz{grid-column:2;font-size:var(--fs-xs)}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-meta{grid-column:2;display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;font-size:var(--fs-xs);color:var(--dm)}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-tags{display:flex;align-items:center;gap:4px}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-tags .fe-chips{max-width:150px}
+/* Icons keep their centred shape at 5: a smaller icon over the name and every fact. */
+#fe[data-density="5"][data-view="icons"] .fe-tile{width:112px;padding:8px 6px 7px;gap:3px}
+#fe[data-density="5"][data-view="icons"] .fe-tile-ic svg{transform:scale(1.5);margin:5px 8px 4px}
+#fe[data-density="5"][data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:72px;height:56px}
+#fe[data-density="5"][data-view="icons"] .fe-tile-nm{font-size:var(--fs-sm)}
+#fe[data-density="5"][data-view="icons"] .fe-tile-meta{display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;font-size:var(--fs-xs);color:var(--dm)}
+#fe[data-density="5"][data-view="icons"] .fe-tile-meta > span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fe[data-density="5"][data-view="icons"] .fe-tile-tags{display:flex;justify-content:center;gap:4px}
 .fe-row .fe-acts{
   display:inline-flex;align-items:center;gap:3px;
   position:absolute;right:8px;top:50%;transform:translateY(-50%);
@@ -1248,6 +1259,11 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-table tbody tr:hover td{background:var(--hover)}
 #fe-table tbody td{height:36px}
 #fe.compact #fe-table tbody td{height:28px}
+/* Row height per detail level; it wins over Compact, which only sets level 3. */
+#fe[data-density="1"] #fe-table tbody td{height:52px}
+#fe[data-density="2"] #fe-table tbody td{height:44px}
+#fe[data-density="4"] #fe-table tbody td{height:28px}
+#fe[data-density="5"] #fe-table tbody td{height:23px}
 #fe-table tbody td:first-child{border-radius:8px 0 0 8px}
 #fe-table tbody td:last-child{border-radius:0 8px 8px 0}
 #fe-scroll{padding:0 6px}

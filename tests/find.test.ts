@@ -99,4 +99,15 @@ describe('saved view hash', () => {
     expect(describeFind(q)).toBe('plan .md "todo" in subfolders');
     expect(describeFind(EMPTY_FIND)).toBe('everything');
   });
+
+  it('keeps a folders-only or files-only view, which has no extension', () => {
+    const q = { ...EMPTY_FIND, kind: 'folders' as const };
+    expect(findToHash(q)).not.toBe('');
+    expect(findFromHash(findToHash(q))).toEqual(q);
+    expect(describeFind(q)).toBe('folders');
+    const dir = { name: 'src', isDir: true } as never, file = { name: 'a.md', isDir: false } as never;
+    expect([matchesFind(dir, q), matchesFind(file, q)]).toEqual([true, false]);
+    expect(matchesFind(file, { ...EMPTY_FIND, kind: 'files' })).toBe(true);
+    expect(findFromHash('#find=' + encodeURIComponent(JSON.stringify({ kind: 'bogus', name: 'x' })))!.kind).toBeUndefined();
+  });
 });

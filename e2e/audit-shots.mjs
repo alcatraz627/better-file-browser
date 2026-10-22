@@ -42,7 +42,10 @@ try {
   }, d);
   for (const v of ['details', 'list', 'tiles', 'icons']) {
     await page.$eval(`.fe-view-btn[data-view="${v}"]`, b => b.click());
-    for (const d of [1, 2, 4, 5]) { await setDensity(d); await sleep(300); await shot(page, `audit-density-${v}-${d}`); }
+    for (const d of [1, 2, 4, 5]) {
+      await setDensity(d); await sleep(300); await shot(page, `audit-density-${v}-${d}`);
+      if (v === 'details') console.log(`details row at ${d}:`, await page.$eval('#fe-tbody tr.fe-row', r => Math.round(r.getBoundingClientRect().height)));
+    }
     await setDensity(3);
   }
   await page.$eval('.fe-view-btn[data-view="details"]', b => b.click()); await sleep(300);

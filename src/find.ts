@@ -10,6 +10,7 @@ export interface FindQuery {
   name:  string;       // substring, or a regex when `regex` is on
   regex: boolean;
   exts:  string[];     // lowercase, no dot; empty = any
+  kind?: 'folders' | 'files';   // only folders or only files; absent = both
   text:  string;       // text inside files; empty = no contents pass
   caseSensitive: boolean;
   textRegex: boolean;
@@ -19,7 +20,7 @@ export interface FindQuery {
 export const EMPTY_FIND: FindQuery = { scope: 'here', name: '', regex: false, exts: [], text: '', caseSensitive: false, textRegex: false, maxDepth: 8 };
 
 export function isEmptyFind(q: FindQuery): boolean {
-  return q.scope === 'here' && !q.name && !q.exts.length && !q.text;
+  return q.scope === 'here' && !q.name && !q.exts.length && !q.kind && !q.text;
 }
 
 export function parseExts(s: string): string[] {
@@ -34,6 +35,7 @@ export function parseExts(s: string): string[] {
 const ext = (e: Entry) => (e.isDir ? '' : (e.name.includes('.') ? e.name.split('.').pop()!.toLowerCase() : ''));
 
 export function matchesFind(e: Entry, q: FindQuery): boolean {
+  if (q.kind && (q.kind === 'folders') !== e.isDir) return false;
   if (q.exts.length && !q.exts.includes(ext(e))) return false;
   if (q.name) {
     if (q.regex) { try { if (!new RegExp(q.name, q.caseSensitive ? '' : 'i').test(e.name)) return false; } catch { return false; } }
@@ -140,7 +142,7 @@ export function findFromHash(hash: string): FindQuery | null {
   if (!m) return null;
   try {
     const q = JSON.parse(decodeURIComponent(m[1]));
-    return { ...EMPTY_FIND, ...q, exts: Array.isArray(q.exts) ? q.exts : [], maxDepth: [1, 2, 4, 8].includes(q.maxDepth) ? q.maxDepth : 8 };
+    return { ...EMPTY_FIND, ...q, exts: Array.isArray(q.exts) ? q.exts : [], kind: q.kind === 'folders' || q.kind === 'files' ? q.kind : undefined, maxDepth: [1, 2, 4, 8].includes(q.maxDepth) ? q.maxDepth : 8 };
   } catch { return null; }
 }
 export function isViewPath(path: string): boolean { return path.includes('#find='); }
@@ -148,6 +150,7 @@ export function isViewPath(path: string): boolean { return path.includes('#find=
 export function describeFind(q: FindQuery): string {
   const bits: string[] = [];
   if (q.name) bits.push(q.regex ? `/${q.name}/` : q.name);
+  if (q.kind) bits.push(q.kind === 'folders' ? 'folders' : 'files');
   if (q.exts.length) bits.push('.' + q.exts.join(' .'));
   if (q.text) bits.push(q.textRegex ? `/${q.text}/` : `"${q.text}"`);
   const what = bits.join(' ') || 'everything';

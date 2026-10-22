@@ -24,7 +24,7 @@ import { SearchFileReader, SearchSession } from './search-session';
 import { renderRow, renderTile, renderHitSnippet, type RenderContext } from './render';
 import { getIcon, CHEVRON_DOWN } from './icons';
 import { openPreview, canPreview } from './preview';
-import { upgradeControls, type ValuedEl } from './controls';
+import { upgradeControls, type ValuedEl, type DropdownEl, type Opt } from './controls';
 
 export interface ListingState {
   all: Entry[];
@@ -568,6 +568,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       scope: ls.deepOn ? 'deep' : 'here',
       name: ls.filter.q, regex: ls.filter.regex,
       exts: ['all', 'folders', 'files'].includes(type) ? [] : [type],
+      kind: type === 'folders' || type === 'files' ? type : undefined,
       text: findText.value.trim(), caseSensitive: findCase.checked,
       textRegex: findRegex.checked, maxDepth: Number(findDepth.value) || 8,
     };
@@ -658,11 +659,15 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     const q = findFromHash(location.hash);
     if (!q) { if (location.hash.startsWith('#find=')) toast('This saved view link is damaged, so the folder shows unfiltered'); return; }
     ls.filter.q = q.name; ls.filter.regex = q.regex;
-    ls.filter.type = q.exts.length === 1 ? q.exts[0] : 'all';
+    ls.filter.type = q.kind ?? (q.exts.length === 1 ? q.exts[0] : 'all');
     el<HTMLInputElement>('fe-filter-q').value = q.name;
     el<HTMLInputElement>('fe-search').value = q.name;
     el('fe-regex-btn').classList.toggle('active', q.regex);
-    el<HTMLSelectElement>('fe-type-filter').value = ls.filter.type;
+    // A view saved elsewhere can name an extension this folder lacks; list it so it reads ".rs".
+    const typeDd = el<DropdownEl>('fe-type-filter');
+    const typeOpts: Opt[] = JSON.parse(typeDd.dataset.opts || '[]');
+    if (!typeOpts.some(o => o.value === ls.filter.type)) typeDd.setOptions([...typeOpts, { value: ls.filter.type, label: '.' + ls.filter.type }]);
+    typeDd.value = ls.filter.type;
     findText.value = q.text; findCase.checked = q.caseSensitive;
     findRegex.checked = q.textRegex;
     findDepth.value = String(q.maxDepth);
