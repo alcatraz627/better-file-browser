@@ -161,4 +161,4 @@ function setActionIcon(id) {
   const p = size => `assets/app-icons/png/${id}-${size}.png`;
   return chrome.action.setIcon({ path: { 16: p(16), 32: p(32), 48: p(48), 128: p(128) } });
 }
-chrome.storage.local.get('bfb-app-icon').then(r => { if (r['bfb-app-icon']) setActionIcon(r['bfb-app-icon']).catch(() => {}); });
+chrome.storage?.local?.get('bfb-app-icon').then(r => { if (r['bfb-app-icon']) setActionIcon(r['bfb-app-icon']).catch(() => {}); });
