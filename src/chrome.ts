@@ -13,6 +13,7 @@ import { parseListing } from './parse';
 import { setSidebarShown, sidebarShown } from './motion';
 import { setThemeMode } from './theme';
 import { openLayer, type Layer } from './layer';
+import { emptyHtml } from './empty-state';
 
 /// Interface size: the tab's own Chrome zoom, set through the extension's
 /// worker. A CSS zoom on the page scaled every menu's screen coordinates a
@@ -164,18 +165,18 @@ export function initChrome(app: App): void {
     e.preventDefault(); e.stopPropagation();
     const url = btn.dataset.url!;
     if (crumbLayer?.open && crumbMenuUrl === url) { closeCrumbMenu(); return; }
-    if (!openCrumbMenu(btn, url, '<div class="fe-dd-spinner">Loading…</div>')) return;
+    if (!openCrumbMenu(btn, url, emptyHtml('loading', 'Loading…', { inline: true }))) return;
 
     const text = await fetchFileText(url)
       .catch(err => { console.error('[BFB] crumb dropdown failed:', url, err); return null; });
     if (text === null) {
-      if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
+      if (crumbMenuUrl === url) crumbMenu.innerHTML = emptyHtml('failed', 'This folder could not be read', { inline: true });
       return;
     }
     if (crumbMenuUrl !== url) return;
     try {
       const entries = parseListing(text, url);
-      if (!entries.length) { crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>'; crumbLayer?.place(); return; }
+      if (!entries.length) { crumbMenu.innerHTML = emptyHtml('empty', 'Empty folder', { inline: true }); crumbLayer?.place(); return; }
       crumbMenu.innerHTML =
         `<div class="fe-dd-search-wrap"><input class="tb fe-dd-search" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow · Enter opens the first match · Esc closes"></div>` +
         `<div class="fe-dd-items">${entries.map(en =>
@@ -200,7 +201,7 @@ export function initChrome(app: App): void {
       });
     } catch (err) {
       console.error('[BFB] crumb dropdown parse error:', url, err);
-      if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
+      if (crumbMenuUrl === url) crumbMenu.innerHTML = emptyHtml('failed', 'This folder could not be read', { inline: true });
     }
   });
 

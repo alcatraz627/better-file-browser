@@ -6,6 +6,7 @@ import { isViewPath } from './find';
 import { canPreview } from './preview';
 import type { ContentHit } from './find';
 import { UI_ICON } from './control-icons';
+import { emptyHtml, CLEAR } from './empty-state';
 
 export interface RenderContext {
   rawPath:   string;
@@ -130,10 +131,10 @@ const savedFileExt = (path: string) => path.endsWith('/') ? '' : (path.split('/'
  *  `hits` holds places found by looking inside them (a deep search), each with
  *  the name that matched; they show even when their own name does not match. */
 export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, filter = '', folded: Set<string> = new Set(), hits: Map<string, string> = new Map()): string {
-  if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click ☆ in the path bar, or + to name this folder.</div>`;
+  if (!saved.length) return emptyHtml('empty', 'Nothing saved yet', { inline: true, hint: 'Click ☆ in the path bar, or + to name this folder' });
   const byName = filterSaved(saved, filter);
   saved = saved.filter(p => byName.includes(p) || hits.has(p.path));
-  if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
+  if (!saved.length) return emptyHtml('filtered', 'No saved item matches', { inline: true, actions: [CLEAR] });
   const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
   const row = (p: Place) => {
     const n = p.tags?.length ?? 0, hit = hits.get(p.path);

@@ -6,6 +6,7 @@ import { PI } from './icons';
 import { UI_ICON } from './control-icons';
 import { esc } from './utils';
 import { openLayer, raise, escTaken } from './layer';
+import { emptyHtml } from './empty-state';
 
 interface Bound { run: (key?: string) => void; when?: () => boolean }
 const bound = new Map<string, Bound>();
@@ -218,7 +219,7 @@ export function openPalette(prefill = ''): void {
     // Tabs show how many entries match what is typed; an empty one dims.
     const counts = new Map<string, number>();
     for (const it of items) if (matches(it, q) > 0) { const t = tabOf(it); counts.set(t, (counts.get(t) ?? 0) + 1); counts.set('all', (counts.get('all') ?? 0) + 1); }
-    tabsEl.innerHTML = TABS.map(t => `<button type="button" role="tab" class="fe-pal-tab${t.id === tab ? ' on' : ''}${counts.get(t.id) ? '' : ' empty'}" data-tab="${t.id}" aria-selected="${t.id === tab}" tabindex="-1">${t.icon}<span>${t.label}</span>${counts.get(t.id) ? `<i>${counts.get(t.id)}</i>` : ''}</button>`).join('');
+    tabsEl.innerHTML = TABS.map(t => `<button type="button" role="tab" class="fe-pal-tab${t.id === tab ? ' on' : ''}${counts.get(t.id) ? '' : ' is-empty'}" data-tab="${t.id}" aria-selected="${t.id === tab}" tabindex="-1">${t.icon}<span>${t.label}</span>${counts.get(t.id) ? `<i>${counts.get(t.id)}</i>` : ''}</button>`).join('');
     tabsEl.querySelector('.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
     shown = items.filter(it => tab === 'all' || tabOf(it) === tab)
       .map(it => ({ it, s: matches(it, q) }))
@@ -231,7 +232,7 @@ export function openPalette(prefill = ''): void {
       const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g sect" data-level="group">${esc(it.group)}</div>` : '';
       lastGroup = it.group;
       return `${head}<div class="row fe-pal-i${i === at ? ' on' : ''}" role="option" aria-selected="${i === at}" data-i="${i}" data-tab="${tabOf(it)}">${it.icon ?? ''}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ''}${(it.keys ?? []).slice(0, 1).map(k => `<kbd>${esc(k)}</kbd>`).join('')}</div>`;
-    }).join('') : `<div class="fe-pal-none">${late.length && tab !== 'all' && !counts.get(tab) ? 'Loading…' : 'Nothing matches'}</div>`;
+    }).join('') : (late.length && tab !== 'all' && !counts.get(tab) ? emptyHtml('loading', 'Loading…') : emptyHtml('filtered', 'Nothing matches', { hintHtml: '<kbd>esc</kbd> clears the box' }));
     list.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
   };
   const setTab = (t: PaletteTab | 'all') => { tab = t; at = 0; paint(); };
@@ -249,7 +250,7 @@ export function openPalette(prefill = ''): void {
       // Tab and Shift+Tab walk the tabs, skipping the empty ones.
       e.preventDefault();
       const ids = TABS.map(t => t.id);
-      const live = ids.filter(id => id === 'all' || tabsEl.querySelector(`[data-tab="${id}"]:not(.empty)`));
+      const live = ids.filter(id => id === 'all' || tabsEl.querySelector(`[data-tab="${id}"]:not(.is-empty)`));
       const i = live.indexOf(tab);
       setTab(live[(i + (e.shiftKey ? -1 : 1) + live.length) % live.length]);
     }

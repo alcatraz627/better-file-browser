@@ -37,6 +37,7 @@ import { initTooltips } from './tooltip';
 import { installColumnResize } from './col-resize';
 import { mountGoto, absPath, resolvePath } from './goto';
 import { initDocsLens } from './docs-lens';
+import { emptyHtml } from './empty-state';
 
 // Tab sets from Chrome tabs closed in the last day, as rows under Recent. A
 // click adds that set's tabs to this strip; nothing is restored on its own.
@@ -145,11 +146,11 @@ loadKv().catch(() => {}).then(function () {
   const recentsHTML = `
       <div class="fe-sec" data-sec="recent" data-collapse="recent">
         <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Folders</span></div>
-        ${recentDirs.length ? recentDirs.map(recentRow).join('') : '<div class="fe-hint">Folders you open show up here.</div>'}
+        ${recentDirs.length ? recentDirs.map(recentRow).join('') : emptyHtml('empty', 'Folders you open show up here', { inline: true })}
       </div>
       <div class="fe-sec" data-collapse="recent-files">
         <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Files</span></div>
-        ${recentFiles.length ? recentFiles.map(recentRow).join('') : '<div class="fe-hint">Files you open show up here.</div>'}
+        ${recentFiles.length ? recentFiles.map(recentRow).join('') : emptyHtml('empty', 'Files you open show up here', { inline: true })}
       </div>
       <div class="fe-sec" data-collapse="recent-tabs" id="fe-rc-tabs-sec" style="display:none">
         <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Closed tabs</span></div>

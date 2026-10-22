@@ -19,6 +19,7 @@ import { kvGet, kvSet } from './kv';
 import { UI_ICON } from './control-icons';
 import { checkHtml, ddHtml, upgradeControls, type DropdownEl, type Opt } from './controls';
 import { renderMarkdown } from './renderers';
+import { emptyHtml } from './empty-state';
 
 const listDir = async (url: string): Promise<Entry[]> => parseListing(await fetchFileText(url), url);
 const extOf = (name: string) => (name.includes('.') ? name.split('.').pop()!.toLowerCase() : 'txt');
@@ -216,7 +217,7 @@ function initAsk(app: App): void {
     hist.innerHTML = chats.length ? chats.map(c => `<div class="row fe-ask-h${c.id === chatId ? ' on' : ''}" data-chat="${esc(c.id)}">
         <button type="button" class="fe-ask-h-open" title="Open this chat"><span class="fe-ask-h-t">${esc(c.title)}</span><span class="fe-ask-h-m">${esc(when(c.at))} · ${c.turns.length} question${c.turns.length === 1 ? '' : 's'}</span></button>
         <button type="button" class="btn fe-ask-h-del" data-icon data-size="sm" data-tone="danger" title="Delete this chat" aria-label="Delete this chat">${UI_ICON.close}</button>
-      </div>`).join('') : '<p class="fe-ask-h-none">No earlier chats about this yet</p>';
+      </div>`).join('') : emptyHtml('empty', 'No earlier chats about this yet', { inline: true });
   };
   let histLayer: Layer | null = null;
   const showHist = (on: boolean) => {

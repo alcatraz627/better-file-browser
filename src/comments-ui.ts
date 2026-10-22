@@ -11,6 +11,7 @@ import { UI_ICON } from './control-icons';
 import { kvGet, kvSet } from './kv';
 import { fetchFileText } from './file-fetch';
 import { visibleOf, rangeFor, sourceSpan, type SourceSpan } from './comment-anchor';
+import { emptyHtml } from './empty-state';
 
 export { visibleOf };
 
@@ -334,11 +335,9 @@ export function mountComments(o: {
         <button type="submit" class="btn" data-size="sm" data-variant="solid" data-a="post" title="${draft.attach ? 'Attach' : 'Comment'} (⌘↵)">${draft.attach ? 'Attach here' : 'Comment'}</button></div>
     </form>` : '';
 
-  const emptyHtml = () => `<div class="fe-cm-empty">
-      <span class="fe-cm-empty-ico">${UI_ICON.comment}</span>
-      <p>${threads.length ? 'Nothing here' : 'No comments yet'}</p>
-      <p class="fe-cm-hint">Select some text,<br>then press <kbd>c</kbd></p>
-    </div>`;
+  const noneHtml = () => threads.length
+    ? emptyHtml('filtered', 'Nothing here', { icon: UI_ICON.comment, actions: [{ a: 'show-all', label: 'Show all', title: 'Show every thread, open and done' }] })
+    : emptyHtml('empty', 'No comments yet', { icon: UI_ICON.comment, hintHtml: 'Select some text,<br>then press <kbd>c</kbd>' });
 
   // Which boxes are on screen now; text typed in a box that is going away is not kept.
   const wanted = (id: string) => id === 'new' ? !!draft && !draft.attach : id.startsWith('edit:') ? editing === id.slice(5) : id === active;
@@ -354,12 +353,11 @@ export function mountComments(o: {
     const listTop = o.box.querySelector('.fe-cm-list')?.scrollTop ?? 0;
     const root = o.root();
     if (!root) {
-      o.box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.lock}</span><p>Comments are saved beside this file.</p>
-        <button type="button" class="btn" data-variant="outline" data-a="allow">Allow this folder</button></div>`;
+      o.box.innerHTML = emptyHtml('empty', 'Comments are saved beside this file', { icon: UI_ICON.lock, actions: [{ a: 'allow', label: 'Allow this folder', title: 'Let comments be written in this folder' }] });
       return;
     }
-    if (!loaded) { o.box.innerHTML = '<div class="fe-cm-empty"><p>Loading comments…</p></div>'; return; }
-    if (failed) { o.box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.info}</span><p>Comments could not be read</p><p class="fe-cm-hint">${esc(failed)}</p></div>`; return; }
+    if (!loaded) { o.box.innerHTML = emptyHtml('loading', 'Loading comments…'); return; }
+    if (failed) { o.box.innerHTML = emptyHtml('failed', 'Comments could not be read', { icon: UI_ICON.info, hint: failed, actions: [{ a: 'retry', label: 'Try again', title: 'Read the comments again' }] }); return; }
     const list = visible();
     const groups: [string, DocThread[]][] = filter === 'done' || filter === 'all'
       ? [['', list]]
@@ -376,7 +374,7 @@ export function mountComments(o: {
       <div class="fe-cm-list">
         ${draftHtml()}
         ${notesLine.map(n => `<p class="fe-cm-note">${esc(n)}</p>`).join('')}
-        ${list.length || draft ? '' : emptyHtml()}
+        ${list.length || draft ? '' : noneHtml()}
         ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="fe-cm-group">${name} <span>${ts.length}</span></h4>` : ''}${ts.map(threadHtml).join('')}`).join('')}
         ${done.length ? `<details class="fe-cm-done"${done.some(t => t.id === active) ? ' open' : ''}><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join('')}</details>` : ''}
       </div>
@@ -665,6 +663,8 @@ export function mountComments(o: {
     const act = el.closest<HTMLElement>('[data-a]');
     const a = act?.dataset.a;
     if (a === 'allow') { if (await o.allow()) { loaded = false; paint(); void load(); } return; }
+    if (a === 'retry') { failed = ''; loaded = false; paint(); void load(); return; }
+    if (a === 'show-all') { filter = 'all'; paint(); redraw(); return; }
     if (a === 'cancel') { cancelDraft(); return; }
     if (a === 'post') { e.preventDefault(); void post(); return; }
     if (a === 'brief-all') { const ts = visible(); void copy(agentBrief(o.path, o.href, ts), `${ts.length} thread${ts.length === 1 ? '' : 's'} copied as a brief for an agent`); return; }

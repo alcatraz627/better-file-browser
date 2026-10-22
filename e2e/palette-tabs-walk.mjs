@@ -14,7 +14,7 @@ try {
   await sleep(200);
   const open = async () => { await page.keyboard.down('Meta'); await page.keyboard.press('k'); await page.keyboard.up('Meta'); await page.waitForSelector('.fe-pal input'); await sleep(150); };
   await open();
-  const tabs = await page.$$eval('.fe-pal-tab', ts => ts.map(t => ({ id: t.dataset.tab, empty: t.classList.contains('empty'), on: t.classList.contains('on') })));
+  const tabs = await page.$$eval('.fe-pal-tab', ts => ts.map(t => ({ id: t.dataset.tab, empty: t.classList.contains('is-empty'), on: t.classList.contains('on') })));
   check(tabs.length === 9 && tabs[0].id === 'all' && tabs[0].on, `nine tabs, All first and on: ${tabs.map(t => t.id + (t.empty ? '(empty)' : '')).join(' ')}`);
   const noIcon = await page.$$eval('.fe-pal-i', rows => rows.filter(r => !r.querySelector('svg')).map(r => r.textContent));
   check(noIcon.length === 0, `every entry has an icon (${noIcon.length} without: ${noIcon.slice(0, 3).join(' | ')})`);

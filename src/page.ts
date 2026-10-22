@@ -256,6 +256,7 @@ export function renderPage(p: PageParams): string {
         </table>
         <div id="fe-tiles">${renderTiles(ALL_ENTRIES, ctx0)}</div>
         <div id="fe-tree"></div>
+        <div id="fe-empty" hidden></div>
       </div>
 
       <div id="fe-statusbar" class="bar">

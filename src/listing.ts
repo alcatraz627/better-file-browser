@@ -26,6 +26,7 @@ import { renderRow, renderTile, renderHitSnippet, type RenderContext } from './r
 import { getIcon, CHEVRON_DOWN } from './icons';
 import { openPreview, canPreview } from './preview';
 import { upgradeControls, type ValuedEl, type DropdownEl, type Opt } from './controls';
+import { emptyHtml, CLEAR } from './empty-state';
 
 export interface ListingState {
   all: Entry[];
@@ -112,11 +113,11 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
         <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ''}
       </div>`);
       if (!en.isDir || !expanded) return;
-      if (treeLoading.has(en.href)) { rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Loading…</div>`); return; }
-      if (treeErrors.has(en.href)) { rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Could not read folder. Collapse and expand to retry.</div>`); return; }
+      if (treeLoading.has(en.href)) { rows.push(emptyHtml('loading', 'Loading…', { inline: true, style: `padding-left:${34 + (depth + 1) * 20}px` })); return; }
+      if (treeErrors.has(en.href)) { rows.push(emptyHtml('failed', 'This folder could not be read', { inline: true, hint: 'Collapse and expand it to try again', style: `padding-left:${34 + (depth + 1) * 20}px` })); return; }
       const children = treeChildren.get(en.href);
       if (!children) return;
-      if (!children.length) rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Empty folder</div>`);
+      if (!children.length) rows.push(emptyHtml('empty', 'Empty folder', { inline: true, style: `padding-left:${34 + (depth + 1) * 20}px` }));
       for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? undefined), ls.sort)) {
         if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
       }
@@ -229,7 +230,24 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
         : countText();
     }
     if (!app.fileMode) el('fe-count').textContent = ls.baseStatus;   // a file page shows its line count there
+    lastEntries = entries;
+    paintEmpty();
     sel.setSel(-1);
+  }
+  // With no row to show, the listing says why: an empty folder, only hidden
+  // files, or a filter that hides everything. Quiet while a search is running.
+  let lastEntries: Entry[] = [];
+  function paintEmpty(): void {
+    const box = el('fe-empty');
+    const showHidden = fe.classList.contains('show-hidden');
+    const seen = lastEntries.filter(e => showHidden || !e.isHidden).length;
+    const busy = ls.deepScanning || !!nameFilterAbort || app.fileMode;
+    const filtered = !!ls.filter.q || ls.filter.type !== 'all' || !!ls.contentHits;
+    box.hidden = busy || seen > 0;
+    box.innerHTML = box.hidden ? ''
+      : filtered ? emptyHtml('filtered', 'Nothing here matches', { actions: [CLEAR] })
+      : lastEntries.length ? emptyHtml('empty', 'Only hidden files here', { hintHtml: 'Press <kbd>.</kbd> to show them' })
+      : emptyHtml('empty', 'This folder is empty');
   }
   app.applyAll = applyAll;
   void loadOpenCounts(all).then(m => { if (m.size) { openComments = m; applyAll(); } });
@@ -404,6 +422,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? 's' : ''}` : 'Hidden files concealed');
     if (!app.fileMode) el('fe-count').textContent = ls.baseStatus = countText();
     if (win) applyAll();   // a windowed list leaves hidden files' rows out, so it is drawn again
+    else paintEmpty();
   });
   upgradeControls(el('fe-toolbar'));
   upgradeControls(el('fe-sg-panel'));
@@ -735,6 +754,18 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       refreshNameMatches();
     }
     searchEl.blur();
+  });
+  // The empty listing's Clear drops every filter: name, type and text search.
+  el('fe-empty').addEventListener('click', e => {
+    if ((e.target as Element).closest<HTMLElement>('[data-a]')?.dataset.a !== 'clear') return;
+    stopFind();
+    findText.value = '';
+    searchEl.value = ls.filter.q = '';
+    el<HTMLInputElement>('fe-filter-q').value = '';
+    ls.filter.type = 'all';
+    el<DropdownEl>('fe-type-filter').value = 'all';
+    refreshNameMatches();
+    searchEl.focus();
   });
   window.addEventListener('pagehide', () => {
     nameFilterAbort?.abort();

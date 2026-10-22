@@ -133,6 +133,22 @@
 .row:hover,.row.kb,.row:focus-visible{background:var(--hover);color:var(--tx)}
 .row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]),.row:has(> .active){background:var(--on);color:var(--tx)}
 .row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]) svg,.row:has(> .active) svg{color:var(--ac);opacity:1}
+/* EmptyState: what a list shows in place of rows while it loads, when it is
+   empty, when a filter hides everything, or when it could not be read. Inline
+   sits among rows (menus, sidebar, a tree level); the default is centered in
+   the space the list would fill (docs/system/empty-state.md). */
+.empty{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-8) var(--sp-5) var(--sp-7);
+  text-align:center;color:var(--tx);font-size:var(--fs-md);line-height:1.5}
+.empty p{margin:0}
+.empty-h{color:var(--dm);font-size:var(--fs-sm)}
+.empty-h kbd{font:inherit;font-family:var(--mono);padding:0 var(--sp-2);border:1px solid var(--bd2);border-radius:var(--sp-2)}
+.empty-ico{display:inline-grid;place-items:center;width:34px;height:34px;margin-bottom:var(--sp-2);border-radius:50%;background:var(--s2);color:var(--dm)}
+.empty-ico svg{width:16px;height:16px}
+.empty-a{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-3);margin-top:var(--sp-3)}
+.empty[data-inline]{align-items:flex-start;text-align:left;gap:var(--sp-1);padding:var(--sp-3) var(--row-px);font-size:var(--fs-sm)}
+.empty[data-inline] .empty-a{justify-content:flex-start;margin-top:var(--sp-2)}
+.empty:is([data-inline],[data-state="loading"]) .empty-t{color:var(--dm)}
+#fe-empty[hidden]{display:none}
 .sect{display:flex;align-items:center;gap:var(--sp-3);min-width:0;margin:0}
 .sect-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .sect-acts{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:auto}
@@ -235,7 +251,6 @@ body{opacity:1!important}
   overflow:hidden;text-overflow:ellipsis;transition:background .08s}
 .fe-dd-item.dir{color:var(--dir)}
 .fe-dd-item svg{flex-shrink:0}
-.fe-dd-spinner,.fe-dd-empty{padding:10px 14px;font-size:var(--fs-md);color:var(--dm);font-style:italic}
 #fe-bm-btn.on,#fe-bm-btn.on:hover{color:var(--gold)}
 #fe-theme-btn #fe-sun{display:none}
 #fe-theme-btn #fe-moon{display:block}
@@ -295,10 +310,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-sl{font-size:var(--fs-lg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .fe-hint{font-size:var(--fs-md);color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
-.fe-hint-action{border:0;background:none;color:var(--ac);padding:0;cursor:pointer;font:inherit;font-style:normal;text-decoration:underline;text-underline-offset:2px}
-.fe-hint-action:hover{color:var(--tx)}
-.fe-hint-action.fe-icon-act{display:inline-flex;align-items:center;gap:5px;margin-bottom:3px}
-.fe-hint-action.fe-icon-act svg{width:13px;height:13px;flex:none}
 .fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
 .fe-drag-h{padding:7px 4px 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
 .fe-bm-item:hover .fe-drag-h{opacity:1}
@@ -446,7 +457,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tree-link{display:flex;align-items:center;gap:8px;color:var(--tx);text-decoration:none;min-width:0}
 .fe-tree-link svg{flex:none}
 .fe-tree-link:hover .fe-nm{text-decoration:underline;color:var(--ac)}
-.fe-tree-message{padding:4px 12px;color:var(--dm);font-size:var(--fs-sm)}
 #fe[data-view="tiles"] #fe-tiles,#fe[data-view="icons"] #fe-tiles{display:flex}
 .fe-tile{display:flex;flex-direction:column;align-items:center;gap:3px;
   padding:8px 6px 7px;border-radius:var(--r-sm);text-decoration:none;
@@ -738,7 +748,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
-#fe-tabs.empty{padding-top:4px}
+#fe-tabs.is-empty{padding-top:4px}
 .fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
   background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:112px;flex:0 1 auto;position:relative;top:1px;
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
@@ -858,12 +868,6 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-sug-msg svg{flex:none;width:13px;height:13px;margin-top:2px}
 .fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
 .fe-cm-note{margin:0 2px 8px;font-size:var(--fs-sm);color:var(--dm);line-height:1.4}
-.fe-cm-empty{padding:22px 6px 18px;text-align:center;color:var(--tx);font-size:var(--fs-md);line-height:1.5}
-.fe-cm-empty p{margin:0}
-.fe-cm-empty .fe-cm-hint{margin-top:4px}
-.fe-cm-empty-ico{display:inline-grid;place-items:center;width:34px;height:34px;margin-bottom:8px;border-radius:50%;background:var(--s2);color:var(--dm)}
-.fe-cm-empty-ico svg{width:16px;height:16px}
-.fe-cm-empty .btn{margin-top:10px}
 .fe-cm-hint{color:var(--dm);font-size:var(--fs-sm)}
 .fe-cm-hint kbd{font:inherit;font-family:var(--mono);padding:0 4px;border:1px solid var(--bd2);border-radius:4px}
 /* Writing: the composer card, the reply box on the open thread, its tools. */
@@ -1539,7 +1543,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-h-m{font-size:var(--fs-xs);color:var(--dm)}
 .fe-ask-h-del{opacity:0}
 .fe-ask-h:hover .fe-ask-h-del,.fe-ask-h-del:focus-visible{opacity:1}
-.fe-ask-h-none{margin:6px 8px;font-size:var(--fs-sm);color:var(--dm)}
 /* Review fixes: Settings follows the page order (panel a step below, cards
    on top), fields share one look, path chevrons show on hover only, and
    the palette swatch previews the theme in use. */
@@ -1897,7 +1900,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-tab i{font-style:normal;color:var(--dm);font-size:var(--fs-xs)}
 .fe-pal-tab:hover{background:var(--hover);color:var(--tx)}
 .fe-pal-tab.on{background:color-mix(in srgb,var(--tab-c,var(--ac)) 16%,transparent);color:var(--tx)}
-.fe-pal-tab.empty{opacity:.45}
+.fe-pal-tab.is-empty{opacity:.45}
 .fe-pal-tab[data-tab="actions"],.fe-pal-i[data-tab="actions"]{--tab-c:var(--ac)}
 .fe-pal-tab[data-tab="tabs"],.fe-pal-i[data-tab="tabs"]{--tab-c:var(--nc-blue)}
 .fe-pal-tab[data-tab="saved"],.fe-pal-i[data-tab="saved"]{--tab-c:var(--nc-yellow)}
@@ -1914,7 +1917,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--tx) 14%,transparent);color:var(--mt);font:600 var(--fs-xs) var(--mono);white-space:nowrap}
 .fe-pal-i kbd{margin-left:auto}
-.fe-pal-none{padding:24px;text-align:center;color:var(--dm)}
 .fe-pal-foot{display:flex;gap:16px;padding:8px 14px;border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--dm)}
 .fe-pal-foot span{display:inline-flex;align-items:center;gap:4px}
 

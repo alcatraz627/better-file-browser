@@ -1728,6 +1728,14 @@ ${body}`;
     drag: `<svg width="10" height="14" viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="3" cy="11" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="11" r="1.2" fill="currentColor"/></svg>`
   };
 
+  // src/empty-state.ts
+  function emptyHtml(state, text, o = {}) {
+    const hint = o.hintHtml ?? (o.hint ? esc(o.hint) : "");
+    const acts = (o.actions ?? []).map((a) => `<button type="button" class="btn" data-size="sm" data-variant="outline"${a.id ? ` id="${a.id}"` : ""}${a.a ? ` data-a="${a.a}"` : ""} title="${esc(a.title)}">${a.icon ?? ""}<span>${esc(a.label)}</span></button>`).join("");
+    return `<div class="empty" data-state="${state}"${o.inline ? " data-inline" : ""} role="status"${o.style ? ` style="${o.style}"` : ""}>` + (o.icon ? `<span class="empty-ico">${o.icon}</span>` : "") + `<p class="empty-t">${esc(text)}</p>` + (hint ? `<p class="empty-h">${hint}</p>` : "") + (acts ? `<div class="empty-a">${acts}</div>` : "") + `</div>`;
+  }
+  var CLEAR = { a: "clear", label: "Clear filter", title: "Show everything again" };
+
   // src/commands.ts
   var bound = /* @__PURE__ */ new Map();
   function bind(id, run, when2) {
@@ -2028,7 +2036,7 @@ ${body}`;
         counts.set(t, (counts.get(t) ?? 0) + 1);
         counts.set("all", (counts.get("all") ?? 0) + 1);
       }
-      tabsEl.innerHTML = TABS.map((t) => `<button type="button" role="tab" class="fe-pal-tab${t.id === tab ? " on" : ""}${counts.get(t.id) ? "" : " empty"}" data-tab="${t.id}" aria-selected="${t.id === tab}" tabindex="-1">${t.icon}<span>${t.label}</span>${counts.get(t.id) ? `<i>${counts.get(t.id)}</i>` : ""}</button>`).join("");
+      tabsEl.innerHTML = TABS.map((t) => `<button type="button" role="tab" class="fe-pal-tab${t.id === tab ? " on" : ""}${counts.get(t.id) ? "" : " is-empty"}" data-tab="${t.id}" aria-selected="${t.id === tab}" tabindex="-1">${t.icon}<span>${t.label}</span>${counts.get(t.id) ? `<i>${counts.get(t.id)}</i>` : ""}</button>`).join("");
       tabsEl.querySelector(".on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
       shown = items.filter((it) => tab === "all" || tabOf(it) === tab).map((it) => ({ it, s: matches(it, q) })).filter((x) => x.s > 0).sort((a, b) => q ? b.s - a.s : 0).slice(0, 80).map((x) => x.it);
       at = Math.min(at, Math.max(0, shown.length - 1));
@@ -2037,7 +2045,7 @@ ${body}`;
         const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g sect" data-level="group">${esc(it.group)}</div>` : "";
         lastGroup = it.group;
         return `${head}<div class="row fe-pal-i${i3 === at ? " on" : ""}" role="option" aria-selected="${i3 === at}" data-i="${i3}" data-tab="${tabOf(it)}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
-      }).join("") : `<div class="fe-pal-none">${late.length && tab !== "all" && !counts.get(tab) ? "Loading\u2026" : "Nothing matches"}</div>`;
+      }).join("") : late.length && tab !== "all" && !counts.get(tab) ? emptyHtml("loading", "Loading\u2026") : emptyHtml("filtered", "Nothing matches", { hintHtml: "<kbd>esc</kbd> clears the box" });
       list3.querySelector(".on")?.scrollIntoView({ block: "nearest" });
     };
     const setTab = (t) => {
@@ -2067,7 +2075,7 @@ ${body}`;
       } else if (e.key === "Tab") {
         e.preventDefault();
         const ids = TABS.map((t) => t.id);
-        const live2 = ids.filter((id) => id === "all" || tabsEl.querySelector(`[data-tab="${id}"]:not(.empty)`));
+        const live2 = ids.filter((id) => id === "all" || tabsEl.querySelector(`[data-tab="${id}"]:not(.is-empty)`));
         const i3 = live2.indexOf(tab);
         setTab(live2[(i3 + (e.shiftKey ? -1 : 1) + live2.length) % live2.length]);
       }
@@ -5367,6 +5375,22 @@ Now: ${question}` : question;
 .row:hover,.row.kb,.row:focus-visible{background:var(--hover);color:var(--tx)}
 .row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]),.row:has(> .active){background:var(--on);color:var(--tx)}
 .row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]) svg,.row:has(> .active) svg{color:var(--ac);opacity:1}
+/* EmptyState: what a list shows in place of rows while it loads, when it is
+   empty, when a filter hides everything, or when it could not be read. Inline
+   sits among rows (menus, sidebar, a tree level); the default is centered in
+   the space the list would fill (docs/system/empty-state.md). */
+.empty{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-8) var(--sp-5) var(--sp-7);
+  text-align:center;color:var(--tx);font-size:var(--fs-md);line-height:1.5}
+.empty p{margin:0}
+.empty-h{color:var(--dm);font-size:var(--fs-sm)}
+.empty-h kbd{font:inherit;font-family:var(--mono);padding:0 var(--sp-2);border:1px solid var(--bd2);border-radius:var(--sp-2)}
+.empty-ico{display:inline-grid;place-items:center;width:34px;height:34px;margin-bottom:var(--sp-2);border-radius:50%;background:var(--s2);color:var(--dm)}
+.empty-ico svg{width:16px;height:16px}
+.empty-a{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-3);margin-top:var(--sp-3)}
+.empty[data-inline]{align-items:flex-start;text-align:left;gap:var(--sp-1);padding:var(--sp-3) var(--row-px);font-size:var(--fs-sm)}
+.empty[data-inline] .empty-a{justify-content:flex-start;margin-top:var(--sp-2)}
+.empty:is([data-inline],[data-state="loading"]) .empty-t{color:var(--dm)}
+#fe-empty[hidden]{display:none}
 .sect{display:flex;align-items:center;gap:var(--sp-3);min-width:0;margin:0}
 .sect-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .sect-acts{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:auto}
@@ -5469,7 +5493,6 @@ body{opacity:1!important}
   overflow:hidden;text-overflow:ellipsis;transition:background .08s}
 .fe-dd-item.dir{color:var(--dir)}
 .fe-dd-item svg{flex-shrink:0}
-.fe-dd-spinner,.fe-dd-empty{padding:10px 14px;font-size:var(--fs-md);color:var(--dm);font-style:italic}
 #fe-bm-btn.on,#fe-bm-btn.on:hover{color:var(--gold)}
 #fe-theme-btn #fe-sun{display:none}
 #fe-theme-btn #fe-moon{display:block}
@@ -5529,10 +5552,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-sl{font-size:var(--fs-lg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .fe-hint{font-size:var(--fs-md);color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
-.fe-hint-action{border:0;background:none;color:var(--ac);padding:0;cursor:pointer;font:inherit;font-style:normal;text-decoration:underline;text-underline-offset:2px}
-.fe-hint-action:hover{color:var(--tx)}
-.fe-hint-action.fe-icon-act{display:inline-flex;align-items:center;gap:5px;margin-bottom:3px}
-.fe-hint-action.fe-icon-act svg{width:13px;height:13px;flex:none}
 .fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
 .fe-drag-h{padding:7px 4px 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
 .fe-bm-item:hover .fe-drag-h{opacity:1}
@@ -5680,7 +5699,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tree-link{display:flex;align-items:center;gap:8px;color:var(--tx);text-decoration:none;min-width:0}
 .fe-tree-link svg{flex:none}
 .fe-tree-link:hover .fe-nm{text-decoration:underline;color:var(--ac)}
-.fe-tree-message{padding:4px 12px;color:var(--dm);font-size:var(--fs-sm)}
 #fe[data-view="tiles"] #fe-tiles,#fe[data-view="icons"] #fe-tiles{display:flex}
 .fe-tile{display:flex;flex-direction:column;align-items:center;gap:3px;
   padding:8px 6px 7px;border-radius:var(--r-sm);text-decoration:none;
@@ -5972,7 +5990,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
-#fe-tabs.empty{padding-top:4px}
+#fe-tabs.is-empty{padding-top:4px}
 .fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
   background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:112px;flex:0 1 auto;position:relative;top:1px;
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
@@ -6092,12 +6110,6 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-sug-msg svg{flex:none;width:13px;height:13px;margin-top:2px}
 .fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
 .fe-cm-note{margin:0 2px 8px;font-size:var(--fs-sm);color:var(--dm);line-height:1.4}
-.fe-cm-empty{padding:22px 6px 18px;text-align:center;color:var(--tx);font-size:var(--fs-md);line-height:1.5}
-.fe-cm-empty p{margin:0}
-.fe-cm-empty .fe-cm-hint{margin-top:4px}
-.fe-cm-empty-ico{display:inline-grid;place-items:center;width:34px;height:34px;margin-bottom:8px;border-radius:50%;background:var(--s2);color:var(--dm)}
-.fe-cm-empty-ico svg{width:16px;height:16px}
-.fe-cm-empty .btn{margin-top:10px}
 .fe-cm-hint{color:var(--dm);font-size:var(--fs-sm)}
 .fe-cm-hint kbd{font:inherit;font-family:var(--mono);padding:0 4px;border:1px solid var(--bd2);border-radius:4px}
 /* Writing: the composer card, the reply box on the open thread, its tools. */
@@ -6773,7 +6785,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-h-m{font-size:var(--fs-xs);color:var(--dm)}
 .fe-ask-h-del{opacity:0}
 .fe-ask-h:hover .fe-ask-h-del,.fe-ask-h-del:focus-visible{opacity:1}
-.fe-ask-h-none{margin:6px 8px;font-size:var(--fs-sm);color:var(--dm)}
 /* Review fixes: Settings follows the page order (panel a step below, cards
    on top), fields share one look, path chevrons show on hover only, and
    the palette swatch previews the theme in use. */
@@ -7131,7 +7142,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-tab i{font-style:normal;color:var(--dm);font-size:var(--fs-xs)}
 .fe-pal-tab:hover{background:var(--hover);color:var(--tx)}
 .fe-pal-tab.on{background:color-mix(in srgb,var(--tab-c,var(--ac)) 16%,transparent);color:var(--tx)}
-.fe-pal-tab.empty{opacity:.45}
+.fe-pal-tab.is-empty{opacity:.45}
 .fe-pal-tab[data-tab="actions"],.fe-pal-i[data-tab="actions"]{--tab-c:var(--ac)}
 .fe-pal-tab[data-tab="tabs"],.fe-pal-i[data-tab="tabs"]{--tab-c:var(--nc-blue)}
 .fe-pal-tab[data-tab="saved"],.fe-pal-i[data-tab="saved"]{--tab-c:var(--nc-yellow)}
@@ -7148,7 +7159,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--tx) 14%,transparent);color:var(--mt);font:600 var(--fs-xs) var(--mono);white-space:nowrap}
 .fe-pal-i kbd{margin-left:auto}
-.fe-pal-none{padding:24px;text-align:center;color:var(--dm)}
 .fe-pal-foot{display:flex;gap:16px;padding:8px 14px;border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--dm)}
 .fe-pal-foot span{display:inline-flex;align-items:center;gap:4px}
 
@@ -7572,20 +7582,20 @@ button.chip:disabled{opacity:.45;cursor:default}
         closeCrumbMenu();
         return;
       }
-      if (!openCrumbMenu(btn, url, '<div class="fe-dd-spinner">Loading\u2026</div>')) return;
+      if (!openCrumbMenu(btn, url, emptyHtml("loading", "Loading\u2026", { inline: true }))) return;
       const text = await fetchFileText(url).catch((err) => {
         console.error("[BFB] crumb dropdown failed:", url, err);
         return null;
       });
       if (text === null) {
-        if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
+        if (crumbMenuUrl === url) crumbMenu.innerHTML = emptyHtml("failed", "This folder could not be read", { inline: true });
         return;
       }
       if (crumbMenuUrl !== url) return;
       try {
         const entries = parseListing(text, url);
         if (!entries.length) {
-          crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>';
+          crumbMenu.innerHTML = emptyHtml("empty", "Empty folder", { inline: true });
           crumbLayer?.place();
           return;
         }
@@ -7609,7 +7619,7 @@ button.chip:disabled{opacity:.45;cursor:default}
         });
       } catch (err) {
         console.error("[BFB] crumb dropdown parse error:", url, err);
-        if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
+        if (crumbMenuUrl === url) crumbMenu.innerHTML = emptyHtml("failed", "This folder could not be read", { inline: true });
       }
     });
     const side = el("fe-side");
@@ -15392,11 +15402,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         <button type="button" class="btn" data-size="sm" data-a="cancel" title="Cancel (Esc)">Cancel</button>
         <button type="submit" class="btn" data-size="sm" data-variant="solid" data-a="post" title="${draft.attach ? "Attach" : "Comment"} (\u2318\u21B5)">${draft.attach ? "Attach here" : "Comment"}</button></div>
     </form>` : "";
-    const emptyHtml = () => `<div class="fe-cm-empty">
-      <span class="fe-cm-empty-ico">${UI_ICON.comment}</span>
-      <p>${threads.length ? "Nothing here" : "No comments yet"}</p>
-      <p class="fe-cm-hint">Select some text,<br>then press <kbd>c</kbd></p>
-    </div>`;
+    const noneHtml = () => threads.length ? emptyHtml("filtered", "Nothing here", { icon: UI_ICON.comment, actions: [{ a: "show-all", label: "Show all", title: "Show every thread, open and done" }] }) : emptyHtml("empty", "No comments yet", { icon: UI_ICON.comment, hintHtml: "Select some text,<br>then press <kbd>c</kbd>" });
     const wanted2 = (id) => id === "new" ? !!draft && !draft.attach : id.startsWith("edit:") ? editing === id.slice(5) : id === active;
     const paint = () => {
       const ae = document.activeElement;
@@ -15409,16 +15415,15 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const listTop = o.box.querySelector(".fe-cm-list")?.scrollTop ?? 0;
       const root = o.root();
       if (!root) {
-        o.box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.lock}</span><p>Comments are saved beside this file.</p>
-        <button type="button" class="btn" data-variant="outline" data-a="allow">Allow this folder</button></div>`;
+        o.box.innerHTML = emptyHtml("empty", "Comments are saved beside this file", { icon: UI_ICON.lock, actions: [{ a: "allow", label: "Allow this folder", title: "Let comments be written in this folder" }] });
         return;
       }
       if (!loaded) {
-        o.box.innerHTML = '<div class="fe-cm-empty"><p>Loading comments\u2026</p></div>';
+        o.box.innerHTML = emptyHtml("loading", "Loading comments\u2026");
         return;
       }
       if (failed) {
-        o.box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.info}</span><p>Comments could not be read</p><p class="fe-cm-hint">${esc(failed)}</p></div>`;
+        o.box.innerHTML = emptyHtml("failed", "Comments could not be read", { icon: UI_ICON.info, hint: failed, actions: [{ a: "retry", label: "Try again", title: "Read the comments again" }] });
         return;
       }
       const list3 = visible2();
@@ -15437,7 +15442,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       <div class="fe-cm-list">
         ${draftHtml()}
         ${notesLine.map((n) => `<p class="fe-cm-note">${esc(n)}</p>`).join("")}
-        ${list3.length || draft ? "" : emptyHtml()}
+        ${list3.length || draft ? "" : noneHtml()}
         ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="fe-cm-group">${name} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
         ${done.length ? `<details class="fe-cm-done"${done.some((t) => t.id === active) ? " open" : ""}><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}
       </div>
@@ -15826,6 +15831,19 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
           paint();
           void load();
         }
+        return;
+      }
+      if (a === "retry") {
+        failed = "";
+        loaded = false;
+        paint();
+        void load();
+        return;
+      }
+      if (a === "show-all") {
+        filter = "all";
+        paint();
+        redraw();
         return;
       }
       if (a === "cancel") {
@@ -16843,7 +16861,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       }
       el2.innerHTML = rows.join("");
       fitHeads();
-      el2.classList.toggle("empty", state.list.length === 0);
+      el2.classList.toggle("is-empty", state.list.length === 0);
       el2.querySelector(".fe-tab.on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
       if (listBtn) {
         listBtn.hidden = state.list.length < 2;
@@ -17759,10 +17777,10 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   }
   var savedFileExt = (path) => path.endsWith("/") ? "" : path.split("/").pop().match(/\.([^.]+)$/)?.[1].toLowerCase() ?? "";
   function renderSavedList(saved, tags, rawPath, filter = "", folded = /* @__PURE__ */ new Set(), hits = /* @__PURE__ */ new Map()) {
-    if (!saved.length) return `<div class="fe-hint">Nothing saved yet.<br>Click \u2606 in the path bar, or + to name this folder.</div>`;
+    if (!saved.length) return emptyHtml("empty", "Nothing saved yet", { inline: true, hint: "Click \u2606 in the path bar, or + to name this folder" });
     const byName = filterSaved(saved, filter);
     saved = saved.filter((p) => byName.includes(p) || hits.has(p.path));
-    if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
+    if (!saved.length) return emptyHtml("filtered", "No saved item matches", { inline: true, actions: [CLEAR] });
     const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
     const row2 = (p) => {
       const n = p.tags?.length ?? 0, hit = hits.get(p.path);
@@ -18031,6 +18049,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         </table>
         <div id="fe-tiles">${renderTiles(ALL_ENTRIES, ctx0)}</div>
         <div id="fe-tree"></div>
+        <div id="fe-empty" hidden></div>
       </div>
 
       <div id="fe-statusbar" class="bar">
@@ -18445,16 +18464,16 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>`);
         if (!en.isDir || !expanded) return;
         if (treeLoading.has(en.href)) {
-          rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Loading\u2026</div>`);
+          rows.push(emptyHtml("loading", "Loading\u2026", { inline: true, style: `padding-left:${34 + (depth + 1) * 20}px` }));
           return;
         }
         if (treeErrors.has(en.href)) {
-          rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Could not read folder. Collapse and expand to retry.</div>`);
+          rows.push(emptyHtml("failed", "This folder could not be read", { inline: true, hint: "Collapse and expand it to try again", style: `padding-left:${34 + (depth + 1) * 20}px` }));
           return;
         }
         const children = treeChildren.get(en.href);
         if (!children) return;
-        if (!children.length) rows.push(`<div class="fe-tree-message" style="padding-left:${34 + (depth + 1) * 20}px">Empty folder</div>`);
+        if (!children.length) rows.push(emptyHtml("empty", "Empty folder", { inline: true, style: `padding-left:${34 + (depth + 1) * 20}px` }));
         for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? void 0), ls.sort)) {
           if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
         }
@@ -18573,7 +18592,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         ls.baseStatus = filtered ? `${shown} of ${nonPar.length} item${nonPar.length !== 1 ? "s" : ""} shown` : countText();
       }
       if (!app.fileMode) el("fe-count").textContent = ls.baseStatus;
+      lastEntries = entries;
+      paintEmpty();
       sel.setSel(-1);
+    }
+    let lastEntries = [];
+    function paintEmpty() {
+      const box = el("fe-empty");
+      const showHidden = fe.classList.contains("show-hidden");
+      const seen = lastEntries.filter((e) => showHidden || !e.isHidden).length;
+      const busy = ls.deepScanning || !!nameFilterAbort || app.fileMode;
+      const filtered = !!ls.filter.q || ls.filter.type !== "all" || !!ls.contentHits;
+      box.hidden = busy || seen > 0;
+      box.innerHTML = box.hidden ? "" : filtered ? emptyHtml("filtered", "Nothing here matches", { actions: [CLEAR] }) : lastEntries.length ? emptyHtml("empty", "Only hidden files here", { hintHtml: "Press <kbd>.</kbd> to show them" }) : emptyHtml("empty", "This folder is empty");
     }
     app.applyAll = applyAll;
     void loadOpenCounts(all).then((m) => {
@@ -18772,6 +18803,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       toast(on ? `Showing ${hidden} hidden file${hidden !== 1 ? "s" : ""}` : "Hidden files concealed");
       if (!app.fileMode) el("fe-count").textContent = ls.baseStatus = countText();
       if (win) applyAll();
+      else paintEmpty();
     });
     upgradeControls(el("fe-toolbar"));
     upgradeControls(el("fe-sg-panel"));
@@ -19211,6 +19243,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         refreshNameMatches();
       }
       searchEl.blur();
+    });
+    el("fe-empty").addEventListener("click", (e) => {
+      if (e.target.closest("[data-a]")?.dataset.a !== "clear") return;
+      stopFind();
+      findText.value = "";
+      searchEl.value = ls.filter.q = "";
+      el("fe-filter-q").value = "";
+      ls.filter.type = "all";
+      el("fe-type-filter").value = "all";
+      refreshNameMatches();
+      searchEl.focus();
     });
     window.addEventListener("pagehide", () => {
       nameFilterAbort?.abort();
@@ -20506,7 +20549,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const open = !folded.has(key) || !!ntFilter.value.trim();
         return `<button type="button" class="fe-nt-grp" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${CHEVRON_DOWN}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list3.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list3.map(row2).join("")}</div>`;
       };
-      ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>` : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
+      ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
       attachNoteEvents(root);
     }
     addPaletteSource(() => {
@@ -20604,6 +20647,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }, 250);
     }
     lensFilter.addEventListener("input", applyLensFilter);
+    for (const list3 of [svList, ntList]) list3.addEventListener("click", (e) => {
+      const a = e.target.closest(".empty [data-a]")?.dataset.a;
+      if (a === "clear") {
+        lensFilter.value = "";
+        applyLensFilter();
+        lensFilter.focus();
+      } else if (a === "retry") refreshNotes();
+    });
     lensFilter.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -20638,7 +20689,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         syncLens();
         ntHint.textContent = "";
         el("fe-notes-root").removeAttribute("href");
-        ntList.innerHTML = `<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-pick" class="fe-hint-action fe-icon-act" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose folder</span></button><br><button id="fe-nt-setup" class="fe-hint-action" title="Type the notes folder in Settings">Type it in Settings</button></div>`;
+        ntList.innerHTML = emptyHtml("empty", "Choose a folder to store your notes", { inline: true, actions: [
+          { id: "fe-nt-pick", label: "Choose folder", title: "Pick the notes folder in the system chooser", icon: UI_ICON.folderOpen },
+          { id: "fe-nt-setup", label: "Type it in Settings", title: "Type the notes folder in Settings" }
+        ] });
         el("fe-nt-pick").addEventListener("click", () => app.pickNotesFolder());
         el("fe-nt-setup").addEventListener("click", () => {
           app.openSettings("notes");
@@ -20652,7 +20706,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         renderNotes(root);
       }).catch((err) => {
         ntHint.textContent = err.message;
-        ntList.innerHTML = `<div class="fe-hint">${esc(err.code === "unavailable" ? "Notes host not installed. Run native/install.sh." : err.message)}</div>`;
+        ntList.innerHTML = err.code === "unavailable" ? emptyHtml("failed", "Notes host not installed", { inline: true, hint: "Run native/install.sh, then reload" }) : emptyHtml("failed", "Notes could not be listed", { inline: true, hint: err.message, actions: [{ a: "retry", label: "Try again", title: "List the notes again" }] });
       });
     }
     app.refreshNotes = refreshNotes;
@@ -21130,7 +21184,7 @@ ${rows.join("\n")}`, name: subject };
       hist.innerHTML = chats.length ? chats.map((c) => `<div class="row fe-ask-h${c.id === chatId ? " on" : ""}" data-chat="${esc(c.id)}">
         <button type="button" class="fe-ask-h-open" title="Open this chat"><span class="fe-ask-h-t">${esc(c.title)}</span><span class="fe-ask-h-m">${esc(when(c.at))} \xB7 ${c.turns.length} question${c.turns.length === 1 ? "" : "s"}</span></button>
         <button type="button" class="btn fe-ask-h-del" data-icon data-size="sm" data-tone="danger" title="Delete this chat" aria-label="Delete this chat">${UI_ICON.close}</button>
-      </div>`).join("") : '<p class="fe-ask-h-none">No earlier chats about this yet</p>';
+      </div>`).join("") : emptyHtml("empty", "No earlier chats about this yet", { inline: true });
     };
     let histLayer = null;
     const showHist = (on) => {
@@ -21922,11 +21976,11 @@ ${rows.join("\n")}`, name: subject };
       if (tagBox.innerHTML !== tagHtml) tagBox.innerHTML = tagHtml;
       const list3 = docRows(all, f);
       if (!usable.length) {
-        rowsBox.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
+        rowsBox.innerHTML = emptyHtml("empty", "No comments yet", { icon: UI_ICON.comment, hintHtml: "Documents you or an agent<br>comment on show up here" });
         return;
       }
       if (!list3.length) {
-        rowsBox.innerHTML = '<div class="fe-cm-empty"><p>No document matches</p></div>';
+        rowsBox.innerHTML = emptyHtml("filtered", "No document matches", { actions: [CLEAR] });
         return;
       }
       rowsBox.innerHTML = list3.map((r) => `<button type="button" class="row fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
@@ -21942,7 +21996,7 @@ ${rows.join("\n")}`, name: subject };
       paint();
     }).catch((err) => {
       top.hidden = true;
-      rowsBox.innerHTML = `<div class="fe-cm-empty"><p>Comments could not be listed</p><p class="fe-cm-hint">${esc(err.message)}</p></div>`;
+      rowsBox.innerHTML = emptyHtml("failed", "Comments could not be listed", { hint: err.message, actions: [{ a: "retry", label: "Try again", title: "List the commented documents again" }] });
     });
     input.addEventListener("input", () => {
       f.q = input.value;
@@ -21972,7 +22026,22 @@ ${rows.join("\n")}`, name: subject };
     });
     rowsBox.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-doc-row");
-      if (b) go(b.dataset.doc, "#comments");
+      if (b) {
+        go(b.dataset.doc, "#comments");
+        return;
+      }
+      const a = e.target.closest(".empty [data-a]")?.dataset.a;
+      if (a === "clear") {
+        input.value = "";
+        f.q = "";
+        f.tag = "";
+        f.me = f.due = false;
+        paint();
+        input.focus();
+      } else if (a === "retry") {
+        rowsBox.innerHTML = emptyHtml("loading", "Loading\u2026");
+        void load();
+      }
     });
     addPaletteSource(() => (loaded ? Promise.resolve(all) : (loaded = true, load().then(() => all))).then((rows) => docRows(rows).map((r) => ({
       title: r.name,
@@ -21984,7 +22053,7 @@ ${rows.join("\n")}`, name: subject };
     }))));
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "comments") return;
-      if (!loaded) rowsBox.innerHTML = '<div class="fe-cm-empty"><p>Loading\u2026</p></div>';
+      if (!loaded) rowsBox.innerHTML = emptyHtml("loading", "Loading\u2026");
       loaded = true;
       void load();
     });
@@ -22091,11 +22160,11 @@ ${rows.join("\n")}`, name: subject };
     const recentsHTML = `
       <div class="fe-sec" data-sec="recent" data-collapse="recent">
         <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Folders</span></div>
-        ${recentDirs.length ? recentDirs.map(recentRow).join("") : '<div class="fe-hint">Folders you open show up here.</div>'}
+        ${recentDirs.length ? recentDirs.map(recentRow).join("") : emptyHtml("empty", "Folders you open show up here", { inline: true })}
       </div>
       <div class="fe-sec" data-collapse="recent-files">
         <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Files</span></div>
-        ${recentFiles.length ? recentFiles.map(recentRow).join("") : '<div class="fe-hint">Files you open show up here.</div>'}
+        ${recentFiles.length ? recentFiles.map(recentRow).join("") : emptyHtml("empty", "Files you open show up here", { inline: true })}
       </div>
       <div class="fe-sec" data-collapse="recent-tabs" id="fe-rc-tabs-sec" style="display:none">
         <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Closed tabs</span></div>

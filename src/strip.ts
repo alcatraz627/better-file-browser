@@ -235,7 +235,7 @@ export function mountStrip(host: StripHost): Strip {
     }
     el.innerHTML = rows.join('');
     fitHeads();
-    el.classList.toggle('empty', state.list.length === 0);
+    el.classList.toggle('is-empty', state.list.length === 0);
     el.querySelector<HTMLElement>('.fe-tab.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
     if (listBtn) {
       listBtn.hidden = state.list.length < 2;

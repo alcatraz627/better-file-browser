@@ -50,6 +50,12 @@ try {
   const none = await page.$eval('#fe-nt-list', e => e.textContent.trim());
   check(/No note matches/.test(none), `no match says so: "${none}"`);
   await shot(page, 'nt-filter-none');
+  await page.click('#fe-nt-list .empty [data-a="clear"]');
+  await sleep(150);
+  const cleared = await rowsOf(page);
+  check(cleared.length === all.length && await page.$eval('#fe-lens-filter', e => e.value === ''), 'Clear filter empties the box and the whole list returns');
+  await page.type('#fe-lens-filter', 'zzzzqqq');
+  await sleep(150);
   await page.keyboard.press('Escape');
   await sleep(150);
   const back = await rowsOf(page);

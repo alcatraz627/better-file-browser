@@ -20,6 +20,7 @@ import { parseListing } from './parse';
 import { foldTo } from './motion';
 import { addPaletteSource } from './commands';
 import { openLayer, raise, rovingFocus, type Layer } from './layer';
+import { emptyHtml, CLEAR } from './empty-state';
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
 const LENS_KEY = 'bfb-lens-v1';
@@ -440,8 +441,8 @@ export function initSidebar(app: App): void {
     ntList.innerHTML = shown.length
       ? (pinned.length ? group('pinned', 'Pinned', pinned) + group('all', 'All notes', rest) : shown.map(row).join(''))
       : allNotes.length
-        ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>`
-        : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
+        ? emptyHtml('filtered', `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] })
+        : emptyHtml('empty', 'No notes yet', { inline: true, hintHtml: 'Press <kbd>n</kbd> or + to write one' });
     attachNoteEvents(root);
   }
   addPaletteSource(() => {
@@ -532,6 +533,11 @@ export function initSidebar(app: App): void {
     }, 250);
   }
   lensFilter.addEventListener('input', applyLensFilter);
+  for (const list of [svList, ntList]) list.addEventListener('click', e => {
+    const a = (e.target as Element).closest<HTMLElement>('.empty [data-a]')?.dataset.a;
+    if (a === 'clear') { lensFilter.value = ''; applyLensFilter(); lensFilter.focus(); }
+    else if (a === 'retry') refreshNotes();
+  });
   lensFilter.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); lensFilter.value = ''; applyLensFilter(); lensFilter.blur(); }
     e.stopPropagation();   // page keys must not fire while typing
@@ -557,7 +563,9 @@ export function initSidebar(app: App): void {
       lensNotes.count = 0; lensNotes.tags = []; syncLens();
       ntHint.textContent = '';
       el<HTMLAnchorElement>('fe-notes-root').removeAttribute('href');
-      ntList.innerHTML = `<div class="fe-hint">Choose a folder to store your notes.<br><button id="fe-nt-pick" class="fe-hint-action fe-icon-act" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose folder</span></button><br><button id="fe-nt-setup" class="fe-hint-action" title="Type the notes folder in Settings">Type it in Settings</button></div>`;
+      ntList.innerHTML = emptyHtml('empty', 'Choose a folder to store your notes', { inline: true, actions: [
+        { id: 'fe-nt-pick', label: 'Choose folder', title: 'Pick the notes folder in the system chooser', icon: UI_ICON.folderOpen },
+        { id: 'fe-nt-setup', label: 'Type it in Settings', title: 'Type the notes folder in Settings' }] });
       el('fe-nt-pick').addEventListener('click', () => app.pickNotesFolder());
       el('fe-nt-setup').addEventListener('click', () => {
         app.openSettings('notes');
@@ -571,7 +579,9 @@ export function initSidebar(app: App): void {
       renderNotes(root);
     }).catch((err: NotesError) => {
       ntHint.textContent = err.message;
-      ntList.innerHTML = `<div class="fe-hint">${esc(err.code === 'unavailable' ? 'Notes host not installed. Run native/install.sh.' : err.message)}</div>`;
+      ntList.innerHTML = err.code === 'unavailable'
+        ? emptyHtml('failed', 'Notes host not installed', { inline: true, hint: 'Run native/install.sh, then reload' })
+        : emptyHtml('failed', 'Notes could not be listed', { inline: true, hint: err.message, actions: [{ a: 'retry', label: 'Try again', title: 'List the notes again' }] });
     });
   }
   app.refreshNotes = refreshNotes;

@@ -8,6 +8,7 @@ import { esc, midHtml } from './utils';
 import { icoFile } from './icons';
 import { UI_ICON } from './control-icons';
 import { addPaletteSource } from './commands';
+import { emptyHtml, CLEAR } from './empty-state';
 
 export interface DocRow { doc: string; name: string; open: number; done: number; due?: string[]; mentions?: string[]; tags?: string[]; exists?: boolean; updated?: string }
 export interface DocFilter { q: string; me: boolean; due: boolean; tag?: string }
@@ -52,10 +53,10 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
     if (tagBox.innerHTML !== tagHtml) tagBox.innerHTML = tagHtml;   // a chip under the pointer stays the same node
     const list = docRows(all, f);
     if (!usable.length) {
-      rowsBox.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
+      rowsBox.innerHTML = emptyHtml('empty', 'No comments yet', { icon: UI_ICON.comment, hintHtml: 'Documents you or an agent<br>comment on show up here' });
       return;
     }
-    if (!list.length) { rowsBox.innerHTML = '<div class="fe-cm-empty"><p>No document matches</p></div>'; return; }
+    if (!list.length) { rowsBox.innerHTML = emptyHtml('filtered', 'No document matches', { actions: [CLEAR] }); return; }
     rowsBox.innerHTML = list.map(r => `<button type="button" class="row fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
         <span class="fe-row-ico">${icoFile(r.name.split('.').pop()!.toLowerCase())}</span>
         <span class="fe-doc-tx"><span class="fe-doc-name">${midHtml(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
@@ -66,7 +67,7 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
   };
   const load = () => notes.docsIndex().then(rows => { all = rows.map(r => ({ ...r, doc: browsedPath(r.doc) })); paint(); }).catch(err => {
     top.hidden = true;
-    rowsBox.innerHTML = `<div class="fe-cm-empty"><p>Comments could not be listed</p><p class="fe-cm-hint">${esc((err as Error).message)}</p></div>`;
+    rowsBox.innerHTML = emptyHtml('failed', 'Comments could not be listed', { hint: (err as Error).message, actions: [{ a: 'retry', label: 'Try again', title: 'List the commented documents again' }] });
   });
   input.addEventListener('input', () => { f.q = input.value; paint(); });
   input.addEventListener('keydown', e => {
@@ -86,7 +87,10 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
   // link from its path and would encode the #comments into the file name.
   rowsBox.addEventListener('click', e => {
     const b = (e.target as Element).closest<HTMLElement>('.fe-doc-row');
-    if (b) go(b.dataset.doc!, '#comments');
+    if (b) { go(b.dataset.doc!, '#comments'); return; }
+    const a = (e.target as Element).closest<HTMLElement>('.empty [data-a]')?.dataset.a;
+    if (a === 'clear') { input.value = ''; f.q = ''; f.tag = ''; f.me = f.due = false; paint(); input.focus(); }
+    else if (a === 'retry') { rowsBox.innerHTML = emptyHtml('loading', 'Loading…'); void load(); }
   });
   // Every commented document is in the palette's Comments tab; the list loads
   // on first use, so the palette fills that tab when it arrives.
@@ -96,7 +100,7 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
   }))));
   document.addEventListener('bfb-lens', e => {
     if ((e as CustomEvent).detail !== 'comments') return;
-    if (!loaded) rowsBox.innerHTML = '<div class="fe-cm-empty"><p>Loading…</p></div>';
+    if (!loaded) rowsBox.innerHTML = emptyHtml('loading', 'Loading…');
     loaded = true;
     void load();
   });

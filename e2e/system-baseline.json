@@ -1,7 +1,7 @@
 {
   "css-radius-px": 102,
-  "css-height-px": 142,
-  "css-space-px": 498,
+  "css-height-px": 141,
+  "css-space-px": 488,
   "css-zindex": 35,
   "css-font-px": 4,
   "css-duration": 23,
@@ -15,8 +15,8 @@
   "js-navigation": 25,
   "js-storage": 53,
   "js-native-control": 2,
-  "js-inline-style": 37,
+  "js-inline-style": 35,
   "js-inline-svg": 22,
-  "js-message-shown": 31,
+  "js-message-shown": 29,
   "js-home-literal": 7
 }
