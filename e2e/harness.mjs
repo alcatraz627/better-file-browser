@@ -5,7 +5,7 @@
 // Chrome for Testing is required: branded Chrome ignores --load-extension.
 // Install once with `npx @puppeteer/browsers install chrome@stable`.
 import puppeteer from 'puppeteer-core';
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
@@ -131,7 +131,16 @@ export function makeNotesDir() {
   return dir;
 }
 
+// On macOS a headless Chrome draws no new frames while the display sleeps,
+// so a screenshot of a page that has gone still waits forever. Keep the
+// display awake for as long as this run lives.
+function keepDisplayAwake() {
+  if (process.platform !== 'darwin') return;
+  try { spawn('caffeinate', ['-u', '-d', '-w', String(process.pid)], { stdio: 'ignore' }).unref(); } catch { /* not fatal */ }
+}
+
 export async function launch({ headless = true, pickReply, lmStub = false } = {}) {
+  keepDisplayAwake();
   execSync('npm run -s build', { cwd: ROOT, stdio: 'inherit' });
   mkdirSync(SHOTS, { recursive: true });
   const profile = join(tmpdir(), `bfb-profile-${process.pid}`);
