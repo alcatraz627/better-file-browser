@@ -296,7 +296,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-q{flex:1;min-width:200px;width:auto}
 .fe-km-legend{font-size:var(--fs-sm);color:var(--dm);display:inline-flex;align-items:center;gap:4px}
 .fe-km-list{columns:2 320px;column-gap:18px}
-.fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px;border-radius:12px;background:var(--card);border:1px solid var(--bd)}
+.fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px}
 .fe-km-g h3{padding:8px 10px 6px}
 .fe-km-g h3 svg{width:14px;height:14px}
 .fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}

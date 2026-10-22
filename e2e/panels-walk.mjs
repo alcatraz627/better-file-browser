@@ -69,6 +69,21 @@ try {
   await page.keyboard.press('Escape'); await sleep(600);
   check(await sideShown(), 'and it stays after the preview closes');
 
+  // A second press during the slide reverses it.
+  await page.click('#fe-side-toggle'); await sleep(80);
+  await page.click('#fe-side-toggle'); await sleep(600);
+  check(await sideShown(), 'two quick hamburger presses end with the sidebar shown');
+
+  // A lens key unfolds a sidebar the docked preview folded.
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td.c-nm')).click();
+  await page.waitForSelector('#fe-qlook', { visible: true }); await sleep(600);
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="notes.txt"]) td.c-nm')).click(); await sleep(300);
+  await page.keyboard.press('g'); await page.keyboard.press('2'); await sleep(600);
+  const lens = await page.evaluate(() => ({ vis: !!document.getElementById('fe-lens-saved')?.checkVisibility(), hidden: document.getElementById('fe-lens-saved')?.hidden, side: document.getElementById('fe-side').style.display, act: document.activeElement?.id || document.activeElement?.className, docked: !!document.querySelector('#fe-qlook.side') }));
+  check(await sideShown() && lens.vis, `g 2 brings back a folded sidebar on Saved: ${JSON.stringify({ lens })}`);
+  await page.keyboard.press('Escape'); await sleep(200);
+  await page.keyboard.press('Escape'); await sleep(600);
+
   // With the setting off, docking leaves the sidebar alone.
   await page.keyboard.press(','); await page.waitForSelector('#fe-st-dock-fold'); await sleep(200);
   await page.evaluate(() => { const b = document.getElementById('fe-st-dock-fold'); b.checked = false; b.dispatchEvent(new Event('change')); });

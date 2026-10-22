@@ -39,9 +39,19 @@ export function foldTo(box: HTMLElement, flip: () => void, done?: () => void): v
   anim.onfinish = () => { if (folding.get(box)?.anim === anim) end(); };
 }
 
+// Where the sidebar is headed, set the moment it is asked to move, so a
+// second press during the slide reverses it rather than repeating it.
+let wanted: boolean | null = null;
+
+/** Whether the sidebar is showing, or on its way to showing. */
+export function sidebarShown(): boolean {
+  return wanted ?? el('fe-side').style.display !== 'none';
+}
+
 /// Show or hide the sidebar card and its resize gutter. The card's width
 /// animates to and from zero, so the page beside it widens smoothly.
 export function setSidebarShown(show: boolean): void {
+  wanted = show;
   const side = el('fe-side'), rz = el('fe-side-rz');
   running?.cancel();
   running = null;

@@ -10,7 +10,7 @@ import { TERMINAL_CMDS, saveSettings, homeDir, getRecents } from './storage';
 import { absPath, resolvePath, readable } from './goto';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
-import { setSidebarShown } from './motion';
+import { setSidebarShown, sidebarShown } from './motion';
 import { setThemeMode } from './theme';
 import { openLayer, type Layer } from './layer';
 
@@ -209,7 +209,7 @@ export function initChrome(app: App): void {
   const side = el('fe-side');
   const rz = el('fe-side-rz');
   el('fe-side-toggle').addEventListener('click', () => {
-    settings.showSidebar = side.style.display === 'none';
+    settings.showSidebar = !sidebarShown();
     saveSettings(settings);
     setSidebarShown(settings.showSidebar);
     const box = document.getElementById('fe-st-sidebar') as HTMLInputElement | null;

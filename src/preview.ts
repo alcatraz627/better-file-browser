@@ -196,7 +196,7 @@ export function initPreview(d: PreviewDeps): void {
       if (dialog.dataset.size) sizer.set('md');
       applyLayout();
     },
-    reset: () => { delete layout.modalW; delete layout.modalH; applyLayout(); },
+    reset: () => { delete layout.modalW; delete layout.modalH; if (dialog.dataset.size) sizer.set('md'); applyLayout(); },
     commit: () => savePreviewLayout(layout),
   });
   resizable(document.getElementById('fe-ql-rz-side')!, {

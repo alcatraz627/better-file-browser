@@ -9,6 +9,7 @@ import { isPreviewOpen, openPreview, noteAction } from './preview';
 import { raise, rovingFocus } from './layer';
 import { declareArea, areaOf, areaNamed, cycleArea, allRoots } from './areas';
 import { setTooltipKeys } from './tooltip';
+import { sidebarShown } from './motion';
 import { gotoBackground } from './goto';
 import { homeDir, getSaved, getRecents } from './storage';
 import { PI } from './icons';
@@ -232,7 +233,7 @@ export function initFocusNav(app: App): void {
   bind('home', () => { const h = homeDir(app.rawPath); if (h) location.href = pageHref(fileHref(h + '/')); }, () => !!homeDir(app.rawPath));
   const LENSES: [string, string][] = [['lens-places', 'places'], ['lens-saved', 'saved'], ['lens-notes', 'notes'], ['lens-recent', 'history'], ['lens-search', 'search'], ['lens-ask', 'ask'], ['lens-docs', 'comments']];
   for (const [id, lens] of LENSES) bind(id, () => {
-    if (!app.settings.showSidebar) runCommand('sidebar');
+    if (!sidebarShown()) runCommand('sidebar');
     app.showLens?.(lens);
     setTimeout(() => {
       const box = document.getElementById(`fe-lens-${lens}`);
@@ -250,7 +251,7 @@ export function initFocusNav(app: App): void {
     box?.focus(); box?.select();
   }, () => !!openLens());
   bind('lens-tags', () => {
-    if (!app.settings.showSidebar) runCommand('sidebar');
+    if (!sidebarShown()) runCommand('sidebar');
     const chip = [...(openLens()?.querySelectorAll<HTMLElement>('.fe-lens-tags .chip, .fe-lens-tags button') ?? [])].find(visible);
     chip?.focus();
   }, () => !!openLens()?.querySelector('.fe-lens-tags'));

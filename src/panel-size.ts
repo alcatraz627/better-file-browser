@@ -26,15 +26,14 @@ export function wireSize(btn: HTMLElement, panel: HTMLElement, key: string, onCh
     if (s === 'md') delete panel.dataset.size; else panel.dataset.size = s;
     const next = ORDER[(ORDER.indexOf(s) + 1) % ORDER.length];
     btn.title = `Size: ${NAME[s]} · click for ${NAME[next]}`;
-    btn.setAttribute('aria-label', btn.title);
     btn.classList.toggle('on', s !== 'md');
-    savePanelSize(key, s);
   };
   set(panelSize(key));
   btn.addEventListener('click', () => {
     const s = ORDER[(ORDER.indexOf(panelSize(key)) + 1) % ORDER.length];
     set(s);
+    savePanelSize(key, s);
     onChange?.(s);
   });
-  return { set };
+  return { set: s => { set(s); savePanelSize(key, s); } };
 }

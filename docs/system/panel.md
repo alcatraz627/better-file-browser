@@ -34,7 +34,16 @@ The owner asked for lg at 75%. The preview's own size is already about 79% of a
 1400px window, so lg at 75% made it smaller. lg is 85% instead.
 
 Code: `wireSize(button, panel, key)` and `SIZE_BTN(id)` in `src/panel-size.ts`.
-Dragging the preview's corner sets it back to md.
+Dragging the preview's corner, or double-clicking it, sets it back to md. In a
+window narrower than about 1180px, md is already wider than 85%, so lg grows
+only the height there.
+
+## Not a Panel yet
+
+These float or dock with a skin of their own and move later: the contents
+rail when it peeks over a narrow page (`#fe-toc-rail`), the narrow sidebar
+overlay (`#fe-side.open #fe-lenses`) and the allow-editing popover
+(`#fe-allow`, a Layer).
 
 ## Docked preview and the sidebar
 

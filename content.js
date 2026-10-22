@@ -2102,17 +2102,19 @@ ${body}`;
       else panel.dataset.size = s;
       const next = ORDER[(ORDER.indexOf(s) + 1) % ORDER.length];
       btn.title = `Size: ${NAME[s]} \xB7 click for ${NAME[next]}`;
-      btn.setAttribute("aria-label", btn.title);
       btn.classList.toggle("on", s !== "md");
-      savePanelSize(key, s);
     };
     set2(panelSize(key));
     btn.addEventListener("click", () => {
       const s = ORDER[(ORDER.indexOf(panelSize(key)) + 1) % ORDER.length];
       set2(s);
+      savePanelSize(key, s);
       onChange?.(s);
     });
-    return { set: set2 };
+    return { set: (s) => {
+      set2(s);
+      savePanelSize(key, s);
+    } };
   }
 
   // src/dialog.ts
@@ -4340,6 +4342,7 @@ Now: ${question}` : question;
       reset: () => {
         delete layout.modalW;
         delete layout.modalH;
+        if (dialog.dataset.size) sizer.set("md");
         applyLayout();
       },
       commit: () => savePreviewLayout(layout)
@@ -5127,7 +5130,12 @@ Now: ${question}` : question;
       if (folding.get(box)?.anim === anim) end();
     };
   }
+  var wanted = null;
+  function sidebarShown() {
+    return wanted ?? el("fe-side").style.display !== "none";
+  }
   function setSidebarShown(show) {
+    wanted = show;
     const side = el("fe-side"), rz = el("fe-side-rz");
     running?.cancel();
     running = null;
@@ -7120,7 +7128,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-q{flex:1;min-width:200px;width:auto}
 .fe-km-legend{font-size:var(--fs-sm);color:var(--dm);display:inline-flex;align-items:center;gap:4px}
 .fe-km-list{columns:2 320px;column-gap:18px}
-.fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px;border-radius:12px;background:var(--card);border:1px solid var(--bd)}
+.fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px}
 .fe-km-g h3{padding:8px 10px 6px}
 .fe-km-g h3 svg{width:14px;height:14px}
 .fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}
@@ -7547,7 +7555,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const side = el("fe-side");
     const rz = el("fe-side-rz");
     el("fe-side-toggle").addEventListener("click", () => {
-      settings.showSidebar = side.style.display === "none";
+      settings.showSidebar = !sidebarShown();
       saveSettings(settings);
       setSidebarShown(settings.showSidebar);
       const box = document.getElementById("fe-st-sidebar");
@@ -15329,13 +15337,13 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       <p>${threads.length ? "Nothing here" : "No comments yet"}</p>
       <p class="fe-cm-hint">Select some text,<br>then press <kbd>c</kbd></p>
     </div>`;
-    const wanted = (id) => id === "new" ? !!draft && !draft.attach : id.startsWith("edit:") ? editing === id.slice(5) : id === active;
+    const wanted2 = (id) => id === "new" ? !!draft && !draft.attach : id.startsWith("edit:") ? editing === id.slice(5) : id === active;
     const paint = () => {
       const ae = document.activeElement;
       const focus = ae && o.box.contains(ae) && ae.dataset.for ? { id: ae.dataset.for, s: ae.selectionStart, e: ae.selectionEnd } : null;
       o.box.querySelectorAll("textarea[data-for]").forEach((ta) => {
         const id = ta.dataset.for;
-        if (ta.value && wanted(id)) typed.set(id, ta.value);
+        if (ta.value && wanted2(id)) typed.set(id, ta.value);
         else typed.delete(id);
       });
       const listTop = o.box.querySelector(".fe-cm-list")?.scrollTop ?? 0;
@@ -16988,7 +16996,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     const list3 = GROUPS.map((g) => {
       const defs = KEYMAP.filter((d) => d.group === g.name);
       if (!defs.length) return "";
-      return `<section class="fe-km-g"><h3 class="sect" data-level="group">${PI[g.icon] ?? ""}${esc(g.name)}</h3>${defs.map((d) => `<div class="fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(" "))}" data-q="${esc((d.title + " " + d.keys.join(" ") + " " + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join("")}</section>`;
+      return `<section class="fe-km-g card"><h3 class="sect" data-level="group">${PI[g.icon] ?? ""}${esc(g.name)}</h3>${defs.map((d) => `<div class="fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(" "))}" data-q="${esc((d.title + " " + d.keys.join(" ") + " " + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join("")}</section>`;
     }).join("");
     return `<div class="fe-km">
     ${board}
@@ -19833,7 +19841,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }, () => !!homeDir(app.rawPath));
     const LENSES = [["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"]];
     for (const [id, lens] of LENSES) bind(id, () => {
-      if (!app.settings.showSidebar) runCommand("sidebar");
+      if (!sidebarShown()) runCommand("sidebar");
       app.showLens?.(lens);
       setTimeout(() => {
         const box = document.getElementById(`fe-lens-${lens}`);
@@ -19849,7 +19857,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       box?.select();
     }, () => !!openLens());
     bind("lens-tags", () => {
-      if (!app.settings.showSidebar) runCommand("sidebar");
+      if (!sidebarShown()) runCommand("sidebar");
       const chip = [...openLens()?.querySelectorAll(".fe-lens-tags .chip, .fe-lens-tags button") ?? []].find(visible);
       chip?.focus();
     }, () => !!openLens()?.querySelector(".fe-lens-tags"));
@@ -21587,6 +21595,7 @@ ${rows.join("\n")}`, name: subject };
     el("fe-st-dock-fold").addEventListener("change", function() {
       settings.dockFoldsSidebar = this.checked;
       saveSettings(settings);
+      if (document.querySelector("#fe-qlook.side")?.checkVisibility()) setSidebarShown(this.checked ? false : settings.showSidebar);
     });
     el("fe-st-sec-recent").addEventListener("change", function() {
       settings.hideRecent = !this.checked;

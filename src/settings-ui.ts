@@ -304,6 +304,8 @@ export function initSettingsUi(app: App): void {
   });
   el<HTMLInputElement>('fe-st-dock-fold').addEventListener('change', function () {
     settings.dockFoldsSidebar = this.checked; saveSettings(settings);
+    // A docked preview already open makes or gives back its room now.
+    if (document.querySelector<HTMLElement>('#fe-qlook.side')?.checkVisibility()) setSidebarShown(this.checked ? false : settings.showSidebar);
   });
   el<HTMLInputElement>('fe-st-sec-recent').addEventListener('change', function () {
     settings.hideRecent = !this.checked; saveSettings(settings);

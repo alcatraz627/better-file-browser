@@ -33,7 +33,7 @@ function keyboardMap(): string {
   const list = GROUPS.map(g => {
     const defs = KEYMAP.filter(d => d.group === g.name);
     if (!defs.length) return '';
-    return `<section class="fe-km-g"><h3 class="sect" data-level="group">${PI[g.icon] ?? ''}${esc(g.name)}</h3>${defs.map(d =>
+    return `<section class="fe-km-g card"><h3 class="sect" data-level="group">${PI[g.icon] ?? ''}${esc(g.name)}</h3>${defs.map(d =>
       `<div class="fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(' '))}" data-q="${esc((d.title + ' ' + d.keys.join(' ') + ' ' + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join('')}</section>`;
   }).join('');
   return `<div class="fe-km">
