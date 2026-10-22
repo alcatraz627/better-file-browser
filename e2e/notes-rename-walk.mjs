@@ -94,7 +94,15 @@ try {
   await page.keyboard.down('Meta'); await page.keyboard.down('Shift'); await page.keyboard.press('Backspace'); await page.keyboard.up('Shift'); await page.keyboard.up('Meta');
   await sleep(1200);
   const gone = !existsSync(join(store, 'renamed-slowly.md')) && existsSync(join(store, '.trash'));
-  check(gone, `⌘⇧⌫ in the editor moves the note to .trash: ${readdirSync(store).join(', ')}`);} finally {
+  check(gone, `⌘⇧⌫ in the editor moves the note to .trash: ${readdirSync(store).join(', ')}`);
+
+  // # on a note row opens its colour, pin and tags menu.
+  await page.waitForSelector(`${row('alpha.md')} .fe-si-link`, { timeout: 5000 });
+  await page.$eval(`${row('alpha.md')} .fe-si-link`, a => a.focus());
+  await page.keyboard.press('#');
+  const props = await page.waitForSelector('.fe-pmenu', { visible: true, timeout: 3000 }).then(() => true).catch(() => false);
+  check(props, '# on a note row opens its colour, pin and tags menu');
+  await page.keyboard.press('Escape');} finally {
   console.log(results.join('\n'));
   await h.close();
   rmSync(store, { recursive: true, force: true });
