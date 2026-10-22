@@ -15331,71 +15331,50 @@ ${d.message}` : d.message;
     const folder = rawPath.slice(0, rawPath.lastIndexOf("/"));
     editBtn.title = "Edit this file (e)";
     const askToAllow = () => new Promise((resolve) => {
-      document.getElementById("fe-allow")?.remove();
       const pop = document.createElement("div");
       pop.id = "fe-allow";
-      pop.setAttribute("role", "dialog");
-      pop.setAttribute("aria-label", "Allow editing");
       const short = home && folder.startsWith(home + "/") ? "~" + folder.slice(home.length) : folder;
       pop.innerHTML = `<div class="fe-allow-title">${UI_ICON.lock}Allow editing here?</div>
       <p>Saves write to <code>${esc(short)}</code>. Each save keeps the old text for 14 days.</p>
       <div class="fe-allow-acts"><button type="button" class="btn" data-hover-shade data-a="cancel">Cancel</button>
       <button type="button" class="btn" data-variant="outline" data-a="file">Just this file</button>
       <button type="button" class="btn" data-variant="solid" data-a="folder">Allow folder</button></div>`;
-      document.getElementById("fe").appendChild(pop);
-      const r = editBtn.getBoundingClientRect();
-      pop.style.top = `${r.bottom + 8}px`;
-      pop.style.left = `${Math.max(8, Math.min(r.right - pop.offsetWidth, innerWidth - pop.offsetWidth - 8))}px`;
-      const done = (ok) => {
-        pop.remove();
-        document.removeEventListener("keydown", onKey, true);
-        document.removeEventListener("pointerdown", onAway, true);
-        resolve(ok);
-      };
-      const onKey = (e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          done(false);
-        }
-      };
-      const onAway = (e) => {
-        if (!pop.contains(e.target) && e.target !== editBtn) done(false);
-      };
-      document.addEventListener("keydown", onKey, true);
-      document.addEventListener("pointerdown", onAway, true);
+      let ok = false;
+      const layer = openLayer(pop, {
+        kind: "popover",
+        anchor: editBtn,
+        align: "end",
+        offset: 8,
+        role: "dialog",
+        label: "Allow editing",
+        group: "allow",
+        focus: pop.querySelector('[data-a="folder"]'),
+        onClose: () => resolve(ok)
+      });
+      if (!layer.open) {
+        resolve(false);
+        return;
+      }
       pop.addEventListener("click", (e) => {
         const a = e.target.closest("[data-a]")?.dataset.a;
         if (!a) return;
-        if (a === "cancel") {
-          done(false);
-          return;
+        if (a !== "cancel") {
+          const s = getSettings();
+          s.editableFolders = [.../* @__PURE__ */ new Set([...s.editableFolders ?? [], a === "folder" ? folder : rawPath])];
+          saveSettings(s);
+          root = editableRoot(rawPath, s.editableFolders, home);
+          ok = !!root;
         }
-        const s = getSettings();
-        s.editableFolders = [.../* @__PURE__ */ new Set([...s.editableFolders ?? [], a === "folder" ? folder : rawPath])];
-        saveSettings(s);
-        root = editableRoot(rawPath, s.editableFolders, home);
-        done(!!root);
+        layer.close("pick");
       });
-      pop.querySelector('[data-a="folder"]').focus();
     });
     const noteAtButton = (msg) => {
-      document.getElementById("fe-allow")?.remove();
       const pop = document.createElement("div");
       pop.id = "fe-allow";
       pop.className = "fe-allow-note";
-      pop.setAttribute("role", "alert");
       pop.innerHTML = `<div class="fe-allow-title">${UI_ICON.lock}Cannot edit this file</div><p>${esc(msg)}</p>`;
-      document.getElementById("fe").appendChild(pop);
-      const r = editBtn.getBoundingClientRect();
-      pop.style.top = `${r.bottom + 8}px`;
-      pop.style.left = `${Math.max(8, Math.min(r.right - pop.offsetWidth, innerWidth - pop.offsetWidth - 8))}px`;
-      const away = () => {
-        pop.remove();
-        document.removeEventListener("pointerdown", away, true);
-      };
-      document.addEventListener("pointerdown", away, true);
-      setTimeout(away, 8e3);
+      const layer = openLayer(pop, { kind: "popover", anchor: editBtn, align: "end", offset: 8, role: "alert", group: "allow", focus: "none" });
+      setTimeout(() => layer.close("api"), 8e3);
     };
     const edit2 = async () => {
       if (editor || editBtn.classList.contains("busy")) return;
