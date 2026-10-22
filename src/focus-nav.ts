@@ -60,6 +60,7 @@ export function initFocusNav(app: App): void {
     const inSide = !!ae?.closest('#fe-side'), inTabs = !!ae?.closest('#fe-tabbar'), inBar = !!ae?.closest('#fe-bar, #fe-toolbar');
     if (inSide) scopes.add('sidebar');
     if (inTabs) scopes.add('tabs');
+    if (inBar) scopes.add('bar');
     if (!app.fileMode && !preview && !inSide && !inTabs && !inBar) {
       scopes.add('listing');
       if (fe.dataset.view === 'tree') scopes.add('tree');
@@ -123,80 +124,70 @@ export function initFocusNav(app: App): void {
   bind('to-tabs', () => { areas[1].enter(); flash(document.activeElement as HTMLElement); });
   bind('to-toolbar', () => { areas[3].enter(); flash(document.activeElement as HTMLElement); });
 
-  // Arrow keys inside an area. A surface that already handles a key marks it
-  // handled, and this leaves it alone.
-  document.addEventListener('keydown', e => {
-    if (e.defaultPrevented || e.metaKey || e.ctrlKey) return;
-    const ae = document.activeElement as HTMLElement | null;
-    if (!ae || isTyping(ae)) return;
-    // Esc from the sidebar, tabs or a toolbar hands the keyboard back to the listing.
-    if (e.key === 'Escape' && !openMenu() && ae.closest('#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar')) {
-      e.preventDefault(); ae.blur(); runCommand('to-listing'); return;
-    }
-    // Sidebar rows: up and down walk the open lens; ⌥↩ keeps a background tab;
-    // F2, ⌫ and # reach the row's rename, remove and tags.
-    const lens = ae.closest<HTMLElement>('#fe-lenses .fe-lens');
-    if (lens) {
-      const rows = [...lens.querySelectorAll<HTMLElement>('.fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp')].filter(visible);
-      const at = rows.indexOf(ae);
-      const row = ae.closest<HTMLElement>('.fe-bm-item, .fe-pl-item');
-      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && at >= 0) {
-        const to = rows[at + (e.key === 'ArrowDown' ? 1 : -1)];
-        if (to) { e.preventDefault(); to.focus(); }
-      } else if ((e.key === 'Home' || e.key === 'End') && rows.length) { e.preventDefault(); rows[e.key === 'Home' ? 0 : rows.length - 1].focus(); }
-      else if (e.key === 'Enter' && e.altKey && ae.matches('a')) { e.preventDefault(); ae.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })); }
-      else if (e.key === 'F2' && row?.querySelector('.fe-pl-label')) { e.preventDefault(); row.querySelector('.fe-pl-label')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); }
-      else if ((e.key === 'Delete' || e.key === 'Backspace') && row?.querySelector('.fe-rm-btn') && !row.classList.contains('fe-nt-item')) {
-        e.preventDefault();
-        const next = rows[at + 1] ?? rows[at - 1];
-        row.querySelector<HTMLElement>('.fe-rm-btn')!.click();
-        setTimeout(() => (next && document.contains(next) ? next : lens.querySelector<HTMLElement>('.fe-si, .fe-si-link'))?.focus(), 50);
-      } else if (e.key === 'ArrowLeft' && !e.altKey) { e.preventDefault(); document.querySelector<HTMLElement>('#fe-rail .fe-rail-btn.on')?.focus(); }
-      return;
-    }
-    // From the lens bar, down goes into the open lens.
-    if (ae.closest('#fe-rail') && e.key === 'ArrowDown' && e.altKey) { e.preventDefault(); areas[0].enter(); return; }
-    // Tabs: left and right walk them; shift moves the tab; ⌫ closes; ⇧F10 menu.
-    if (ae.closest('#fe-tabs') && ae.classList.contains('fe-tab')) {
-      const tabs = [...document.querySelectorAll<HTMLElement>('#fe-tabs .fe-tab')];
-      const at = tabs.indexOf(ae);
-      if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !e.shiftKey) {
-        e.preventDefault();
-        const to = tabs[at + (e.key === 'ArrowRight' ? 1 : -1)] ?? (e.key === 'ArrowRight' ? document.querySelector<HTMLElement>('#fe-tabs-end button:not([hidden])') : null);
-        to?.focus();
-      } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && e.shiftKey && ae.dataset.id) {
-        e.preventDefault();
-        app.strip.move(ae.dataset.id, e.key === 'ArrowRight' ? 1 : -1);
-        document.querySelector<HTMLElement>(`#fe-tabs .fe-tab[data-id="${ae.dataset.id}"]`)?.focus();
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && ae.querySelector('.fe-tab-x')) {
-        e.preventDefault();
-        const next = tabs[at + 1] ?? tabs[at - 1];
-        const nextId = next?.dataset.id;
-        ae.querySelector<HTMLElement>('.fe-tab-x')!.click();
-        setTimeout(() => document.querySelector<HTMLElement>(`#fe-tabs .fe-tab[data-id="${nextId}"]`)?.focus(), 30);
-      } else if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
-        e.preventDefault();
-        const r = ae.getBoundingClientRect();
-        ae.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 8, clientY: r.bottom }));
-      }
-      return;
-    }
-    // Toolbar and path bar: left and right walk the controls in the row.
-    const row = ae.closest<HTMLElement>('#fe-bar, #fe-toolbar, #fe-tabs-end, #fe-fp-bar');
-    if (row && (e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !e.altKey && !e.shiftKey) {
-      const ctl = [...row.querySelectorAll<HTMLElement>('a[href], button, input')].filter(x => visible(x) && !(x as HTMLButtonElement).disabled && x.tabIndex >= 0);
-      const at = ctl.indexOf(ae);
-      if (at < 0 || ae.matches('input[type="range"]')) return;
-      const to = ctl[at + (e.key === 'ArrowRight' ? 1 : -1)];
-      if (to) { e.preventDefault(); to.focus(); }
-      return;
-    }
-    // A crumb: down opens its folder menu.
-    if (ae.closest('#fe-bc') && e.key === 'ArrowDown') {
-      const dd = ae.matches('.fe-crumb-dd') ? ae : ae.nextElementSibling?.matches('.fe-crumb-dd') ? ae.nextElementSibling as HTMLElement : null;
-      if (dd) { e.preventDefault(); dd.click(); }
-    }
-  });
+  // Inside an area the arrow keys walk its controls: the rows of the open
+  // lens, the tabs and the buttons after them, and each toolbar's controls.
+  rovingFocus(document.getElementById('fe-lenses')!, '.fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp', { wrap: false });
+  rovingFocus(document.getElementById('fe-tabbar')!, '#fe-tabs .fe-tab, #fe-tabs-end button', { axis: 'horizontal', wrap: false });
+  for (const id of ['fe-bar', 'fe-toolbar', 'fe-fp-bar']) {
+    const bar = document.getElementById(id);
+    if (bar) rovingFocus(bar, 'a[href], button, input', { axis: 'horizontal', wrap: false });
+  }
+
+  // Esc closes the sidebar shown over the page in a narrow window, and from
+  // the sidebar, tabs or a toolbar hands the keyboard back to the listing.
+  const ae = () => document.activeElement as HTMLElement | null;
+  const inArea = () => !!ae()?.closest('#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar');
+  bind('area-leave', () => {
+    const leave = inArea();
+    app.closeSideOverlay?.();
+    if (leave) { ae()?.blur(); runCommand('to-listing'); }
+  }, () => inArea() || !!document.querySelector('#fe-side.open'));
+
+  // Sidebar rows: ⌥↩ keeps a background tab; F2 and ⌫ rename and remove a
+  // Saved or Places row (note rows answer these themselves); ← goes to the
+  // lens bar, and ⌥↓ from the bar comes back into the open lens.
+  const sideRow = () => ae()?.closest<HTMLElement>('#fe-lenses .fe-lens .fe-bm-item, #fe-lenses .fe-lens .fe-pl-item') ?? null;
+  const inLens = () => !!ae()?.closest('#fe-lenses .fe-lens');
+  bind('side-bg', () => ae()?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })), () => inLens() && !!ae()?.matches('a'));
+  bind('side-rename', () => sideRow()!.querySelector('.fe-pl-label')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), () => !!sideRow()?.querySelector('.fe-pl-label'));
+  bind('side-remove', () => {
+    const row = sideRow()!, lens = row.closest<HTMLElement>('.fe-lens')!;
+    const rows = [...lens.querySelectorAll<HTMLElement>('.fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp')].filter(visible);
+    const at = rows.indexOf(ae()!);
+    const next = rows[at + 1] ?? rows[at - 1];
+    row.querySelector<HTMLElement>('.fe-rm-btn')!.click();
+    setTimeout(() => (next && document.contains(next) ? next : lens.querySelector<HTMLElement>('.fe-si, .fe-si-link'))?.focus(), 50);
+  }, () => !!sideRow()?.querySelector('.fe-rm-btn') && !sideRow()!.classList.contains('fe-nt-item'));
+  const LENS_ROWS = '.fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp';
+  bind('side-rail', () => document.querySelector<HTMLElement>('#fe-rail .fe-rail-btn.on')?.focus(), () => inLens() && !!ae()?.matches(LENS_ROWS));
+  bind('side-into', () => areas[0].enter(), () => !!ae()?.closest('#fe-rail'));
+
+  // The focused tab: ⇧← and ⇧→ move it, ⌫ closes it, ⇧F10 opens its menu.
+  const focusedTab = () => { const t = ae(); return t?.closest('#fe-tabs') && t.classList.contains('fe-tab') ? t : null; };
+  bind('tab-focus-shift', key => {
+    const id = focusedTab()!.dataset.id!;
+    app.strip.move(id, key === '⇧←' ? -1 : 1);
+    document.querySelector<HTMLElement>(`#fe-tabs .fe-tab[data-id="${id}"]`)?.focus();
+  }, () => !!focusedTab()?.dataset.id);
+  bind('tab-focus-close', () => {
+    const t = focusedTab()!, tabs = [...document.querySelectorAll<HTMLElement>('#fe-tabs .fe-tab')];
+    const at = tabs.indexOf(t);
+    const nextId = (tabs[at + 1] ?? tabs[at - 1])?.dataset.id;
+    t.querySelector<HTMLElement>('.fe-tab-x')!.click();
+    setTimeout(() => document.querySelector<HTMLElement>(`#fe-tabs .fe-tab[data-id="${nextId}"]`)?.focus(), 30);
+  }, () => !!focusedTab()?.querySelector('.fe-tab-x'));
+  bind('tab-focus-menu', () => {
+    const t = focusedTab()!, r = t.getBoundingClientRect();
+    t.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 8, clientY: r.bottom }));
+  }, () => !!focusedTab()?.dataset.id);   // a temporary tab has no menu
+
+  // A path crumb: ↓ opens its folder menu.
+  const crumbDd = () => {
+    const t = ae();
+    if (!t?.closest('#fe-bc')) return null;
+    return t.matches('.fe-crumb-dd') ? t : t.nextElementSibling?.matches('.fe-crumb-dd') ? t.nextElementSibling as HTMLElement : null;
+  };
+  bind('crumb-menu', () => crumbDd()?.click(), () => !!crumbDd());
 
   // Commands that press the page's own buttons.
   const click = (id: string, init: MouseEventInit = {}) => () => { const b = document.getElementById(id); if (b && !b.hidden) b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init })); };

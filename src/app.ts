@@ -32,5 +32,7 @@ export interface App {
   // Switch the sidebar to a lens (null keeps the current one); hideHistory
   // removes or restores the History lens's rail button.
   showLens?(lens: string | null, hideHistory?: boolean): void;
+  /** Close the sidebar shown over the page in a narrow window; true when it was open. */
+  closeSideOverlay?(): boolean;
   goUp(): void;
 }

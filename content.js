@@ -1177,7 +1177,10 @@ ${body}`;
   function rovingFocus(root, items, o = {}) {
     const axis = o.axis ?? "vertical";
     const onKey = (e) => {
-      const list2 = [...root.querySelectorAll(items)].filter((x) => !x.hasAttribute("disabled") && x.offsetParent !== null);
+      if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const t = e.target;
+      if (t.isContentEditable || t.matches("textarea, select, input:not([type=checkbox], [type=radio], [type=button], [type=submit])")) return;
+      const list2 = [...root.querySelectorAll(items)].filter((x) => !x.hasAttribute("disabled") && x.offsetParent !== null && x.tabIndex >= 0);
       if (!list2.length) return;
       const i3 = list2.indexOf(document.activeElement);
       const next = axis !== "horizontal" && e.key === "ArrowDown" || axis !== "vertical" && e.key === "ArrowRight";
@@ -1245,6 +1248,8 @@ ${body}`;
     { id: "terminal", group: "Go", title: "Terminal here", keys: ["`"], own: true },
     { id: "terminal-copy", group: "Go", title: "Copy terminal command", keys: ["\u21E7`"], own: true },
     { id: "to-listing", group: "Go", title: "Focus the listing", keys: ["g l"], own: true },
+    { id: "area-leave", group: "Go", title: "Close the sidebar over the page, or go back to the listing", keys: ["Esc"], own: true, over: true },
+    { id: "crumb-menu", group: "Go", title: "Folder menu of a path crumb", keys: ["\u2193"], scope: "bar", own: true },
     { id: "to-sidebar", group: "Go", title: "Focus the sidebar", keys: ["g s"], own: true },
     { id: "to-tabs", group: "Go", title: "Focus the tabs", keys: ["g t"], own: true },
     { id: "to-toolbar", group: "Go", title: "Focus the toolbar", keys: ["g b"], own: true },
@@ -1306,16 +1311,19 @@ ${body}`;
     { id: "tab-right", group: "Tabs", title: "Move tab right", keys: ["\u21E7]"], own: true },
     { id: "tab-list", group: "Tabs", title: "All tabs", keys: ["g a"], own: true },
     { id: "tab-focus-move", group: "Tabs", title: "Move between tabs", keys: ["\u2190", "\u2192"], scope: "tabs" },
-    { id: "tab-focus-shift", group: "Tabs", title: "Drag the focused tab", keys: ["\u21E7\u2190", "\u21E7\u2192"], scope: "tabs" },
+    { id: "tab-focus-shift", group: "Tabs", title: "Drag the focused tab", keys: ["\u21E7\u2190", "\u21E7\u2192"], scope: "tabs", own: true },
+    { id: "tab-focus-close", group: "Tabs", title: "Close the focused tab", keys: ["\u232B"], scope: "tabs", own: true },
+    { id: "tab-focus-menu", group: "Tabs", title: "Menu of the focused tab", keys: ["\u21E7F10"], scope: "tabs", own: true },
     // Sidebar
-    { id: "side-close", group: "Sidebar", title: "Close the sidebar over the page", keys: ["Esc"], own: true },
     { id: "side-move", group: "Sidebar", title: "Move", keys: ["\u2191", "\u2193"], scope: "sidebar" },
     { id: "side-lens", group: "Sidebar", title: "Switch lens (on the bar)", keys: ["\u2190", "\u2192"], scope: "sidebar" },
     { id: "side-open", group: "Sidebar", title: "Open as a tab", keys: ["\u21A9"], scope: "sidebar" },
-    { id: "side-bg", group: "Sidebar", title: "Background tab", keys: ["\u2325\u21A9"], scope: "sidebar" },
-    { id: "side-rename", group: "Sidebar", title: "Rename", keys: ["F2"], scope: "sidebar" },
+    { id: "side-bg", group: "Sidebar", title: "Background tab", keys: ["\u2325\u21A9"], scope: "sidebar", own: true },
+    { id: "side-rename", group: "Sidebar", title: "Rename", keys: ["F2"], scope: "sidebar", own: true },
     { id: "side-tags", group: "Sidebar", title: "Tags", keys: ["#"], scope: "sidebar" },
-    { id: "side-remove", group: "Sidebar", title: "Remove", keys: ["\u232B"], scope: "sidebar" },
+    { id: "side-remove", group: "Sidebar", title: "Remove", keys: ["\u232B"], scope: "sidebar", own: true },
+    { id: "side-rail", group: "Sidebar", title: "To the lens bar", keys: ["\u2190"], scope: "sidebar", own: true },
+    { id: "side-into", group: "Sidebar", title: "Into the open lens (on the bar)", keys: ["\u2325\u2193"], scope: "sidebar", own: true },
     { id: "side-fold", group: "Sidebar", title: "Fold a group", keys: ["Space"], scope: "sidebar" },
     { id: "lens-filter", group: "Sidebar", title: "Filter this list", keys: ["/"], scope: "sidebar", own: true },
     { id: "lens-tags", group: "Sidebar", title: "Tag chips", keys: ["g #"], own: true },
@@ -19354,18 +19362,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const fe = app.fe;
     const dialogOpen = () => [...document.querySelectorAll(".fe-dlg")].some((d) => d.style.display !== "none");
     setContext(() => {
-      const ae = document.activeElement;
+      const ae2 = document.activeElement;
       const blocked = paletteOpen() || !!openMenu2() || !!document.querySelector(".fe-dd-list, .fe-rule-pop");
-      if (dialogOpen()) return { scopes: /* @__PURE__ */ new Set(["dialog"]), typing: isTyping(ae), blocked };
+      if (dialogOpen()) return { scopes: /* @__PURE__ */ new Set(["dialog"]), typing: isTyping(ae2), blocked };
       const scopes = /* @__PURE__ */ new Set(["any"]);
       const preview = isPreviewOpen();
       if (preview) scopes.add("preview");
       if (app.fileMode && !preview) scopes.add("file");
       if (document.getElementById("fe-goto")) scopes.add("goto");
       if (visible(document.getElementById("fe-ed-bar"))) scopes.add("editor");
-      const inSide = !!ae?.closest("#fe-side"), inTabs = !!ae?.closest("#fe-tabbar"), inBar = !!ae?.closest("#fe-bar, #fe-toolbar");
+      const inSide = !!ae2?.closest("#fe-side"), inTabs = !!ae2?.closest("#fe-tabbar"), inBar = !!ae2?.closest("#fe-bar, #fe-toolbar");
       if (inSide) scopes.add("sidebar");
       if (inTabs) scopes.add("tabs");
+      if (inBar) scopes.add("bar");
       if (!app.fileMode && !preview && !inSide && !inTabs && !inBar) {
         scopes.add("listing");
         if (fe.dataset.view === "tree") scopes.add("tree");
@@ -19373,8 +19382,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (openMenu2()) scopes.add("menu");
       return {
         scopes,
-        typing: isTyping(ae),
-        widget: inSide || inTabs || inBar || !!ae?.closest("#fe-fp-bar"),
+        typing: isTyping(ae2),
+        widget: inSide || inTabs || inBar || !!ae2?.closest("#fe-fp-bar"),
         blocked
       };
     });
@@ -19415,8 +19424,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return true;
     }
     const cycle = (dir) => {
-      const ae = document.activeElement ?? document.body;
-      let i3 = areas.findIndex((a) => a.has(ae));
+      const ae2 = document.activeElement ?? document.body;
+      let i3 = areas.findIndex((a) => a.has(ae2));
       for (let n = 0; n < areas.length; n++) {
         i3 = (i3 + dir + areas.length) % areas.length;
         if (areas[i3].enter()) {
@@ -19447,96 +19456,63 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       areas[3].enter();
       flash(document.activeElement);
     });
-    document.addEventListener("keydown", (e) => {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey) return;
-      const ae = document.activeElement;
-      if (!ae || isTyping(ae)) return;
-      if (e.key === "Escape" && !openMenu2() && ae.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar")) {
-        e.preventDefault();
-        ae.blur();
+    rovingFocus(document.getElementById("fe-lenses"), ".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp", { wrap: false });
+    rovingFocus(document.getElementById("fe-tabbar"), "#fe-tabs .fe-tab, #fe-tabs-end button", { axis: "horizontal", wrap: false });
+    for (const id of ["fe-bar", "fe-toolbar", "fe-fp-bar"]) {
+      const bar = document.getElementById(id);
+      if (bar) rovingFocus(bar, "a[href], button, input", { axis: "horizontal", wrap: false });
+    }
+    const ae = () => document.activeElement;
+    const inArea = () => !!ae()?.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar");
+    bind("area-leave", () => {
+      const leave = inArea();
+      app.closeSideOverlay?.();
+      if (leave) {
+        ae()?.blur();
         runCommand("to-listing");
-        return;
       }
-      const lens = ae.closest("#fe-lenses .fe-lens");
-      if (lens) {
-        const rows = [...lens.querySelectorAll(".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp")].filter(visible);
-        const at = rows.indexOf(ae);
-        const row3 = ae.closest(".fe-bm-item, .fe-pl-item");
-        if ((e.key === "ArrowDown" || e.key === "ArrowUp") && at >= 0) {
-          const to = rows[at + (e.key === "ArrowDown" ? 1 : -1)];
-          if (to) {
-            e.preventDefault();
-            to.focus();
-          }
-        } else if ((e.key === "Home" || e.key === "End") && rows.length) {
-          e.preventDefault();
-          rows[e.key === "Home" ? 0 : rows.length - 1].focus();
-        } else if (e.key === "Enter" && e.altKey && ae.matches("a")) {
-          e.preventDefault();
-          ae.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, altKey: true }));
-        } else if (e.key === "F2" && row3?.querySelector(".fe-pl-label")) {
-          e.preventDefault();
-          row3.querySelector(".fe-pl-label").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-        } else if ((e.key === "Delete" || e.key === "Backspace") && row3?.querySelector(".fe-rm-btn") && !row3.classList.contains("fe-nt-item")) {
-          e.preventDefault();
-          const next = rows[at + 1] ?? rows[at - 1];
-          row3.querySelector(".fe-rm-btn").click();
-          setTimeout(() => (next && document.contains(next) ? next : lens.querySelector(".fe-si, .fe-si-link"))?.focus(), 50);
-        } else if (e.key === "ArrowLeft" && !e.altKey) {
-          e.preventDefault();
-          document.querySelector("#fe-rail .fe-rail-btn.on")?.focus();
-        }
-        return;
-      }
-      if (ae.closest("#fe-rail") && e.key === "ArrowDown" && e.altKey) {
-        e.preventDefault();
-        areas[0].enter();
-        return;
-      }
-      if (ae.closest("#fe-tabs") && ae.classList.contains("fe-tab")) {
-        const tabs = [...document.querySelectorAll("#fe-tabs .fe-tab")];
-        const at = tabs.indexOf(ae);
-        if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && !e.shiftKey) {
-          e.preventDefault();
-          const to = tabs[at + (e.key === "ArrowRight" ? 1 : -1)] ?? (e.key === "ArrowRight" ? document.querySelector("#fe-tabs-end button:not([hidden])") : null);
-          to?.focus();
-        } else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && e.shiftKey && ae.dataset.id) {
-          e.preventDefault();
-          app.strip.move(ae.dataset.id, e.key === "ArrowRight" ? 1 : -1);
-          document.querySelector(`#fe-tabs .fe-tab[data-id="${ae.dataset.id}"]`)?.focus();
-        } else if ((e.key === "Delete" || e.key === "Backspace") && ae.querySelector(".fe-tab-x")) {
-          e.preventDefault();
-          const next = tabs[at + 1] ?? tabs[at - 1];
-          const nextId = next?.dataset.id;
-          ae.querySelector(".fe-tab-x").click();
-          setTimeout(() => document.querySelector(`#fe-tabs .fe-tab[data-id="${nextId}"]`)?.focus(), 30);
-        } else if (e.key === "ContextMenu" || e.key === "F10" && e.shiftKey) {
-          e.preventDefault();
-          const r = ae.getBoundingClientRect();
-          ae.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 8, clientY: r.bottom }));
-        }
-        return;
-      }
-      const row2 = ae.closest("#fe-bar, #fe-toolbar, #fe-tabs-end, #fe-fp-bar");
-      if (row2 && (e.key === "ArrowRight" || e.key === "ArrowLeft") && !e.altKey && !e.shiftKey) {
-        const ctl = [...row2.querySelectorAll("a[href], button, input")].filter((x) => visible(x) && !x.disabled && x.tabIndex >= 0);
-        const at = ctl.indexOf(ae);
-        if (at < 0 || ae.matches('input[type="range"]')) return;
-        const to = ctl[at + (e.key === "ArrowRight" ? 1 : -1)];
-        if (to) {
-          e.preventDefault();
-          to.focus();
-        }
-        return;
-      }
-      if (ae.closest("#fe-bc") && e.key === "ArrowDown") {
-        const dd = ae.matches(".fe-crumb-dd") ? ae : ae.nextElementSibling?.matches(".fe-crumb-dd") ? ae.nextElementSibling : null;
-        if (dd) {
-          e.preventDefault();
-          dd.click();
-        }
-      }
-    });
+    }, () => inArea() || !!document.querySelector("#fe-side.open"));
+    const sideRow = () => ae()?.closest("#fe-lenses .fe-lens .fe-bm-item, #fe-lenses .fe-lens .fe-pl-item") ?? null;
+    const inLens = () => !!ae()?.closest("#fe-lenses .fe-lens");
+    bind("side-bg", () => ae()?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, altKey: true })), () => inLens() && !!ae()?.matches("a"));
+    bind("side-rename", () => sideRow().querySelector(".fe-pl-label").dispatchEvent(new MouseEvent("dblclick", { bubbles: true })), () => !!sideRow()?.querySelector(".fe-pl-label"));
+    bind("side-remove", () => {
+      const row2 = sideRow(), lens = row2.closest(".fe-lens");
+      const rows = [...lens.querySelectorAll(".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp")].filter(visible);
+      const at = rows.indexOf(ae());
+      const next = rows[at + 1] ?? rows[at - 1];
+      row2.querySelector(".fe-rm-btn").click();
+      setTimeout(() => (next && document.contains(next) ? next : lens.querySelector(".fe-si, .fe-si-link"))?.focus(), 50);
+    }, () => !!sideRow()?.querySelector(".fe-rm-btn") && !sideRow().classList.contains("fe-nt-item"));
+    const LENS_ROWS = ".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp";
+    bind("side-rail", () => document.querySelector("#fe-rail .fe-rail-btn.on")?.focus(), () => inLens() && !!ae()?.matches(LENS_ROWS));
+    bind("side-into", () => areas[0].enter(), () => !!ae()?.closest("#fe-rail"));
+    const focusedTab = () => {
+      const t = ae();
+      return t?.closest("#fe-tabs") && t.classList.contains("fe-tab") ? t : null;
+    };
+    bind("tab-focus-shift", (key) => {
+      const id = focusedTab().dataset.id;
+      app.strip.move(id, key === "\u21E7\u2190" ? -1 : 1);
+      document.querySelector(`#fe-tabs .fe-tab[data-id="${id}"]`)?.focus();
+    }, () => !!focusedTab()?.dataset.id);
+    bind("tab-focus-close", () => {
+      const t = focusedTab(), tabs = [...document.querySelectorAll("#fe-tabs .fe-tab")];
+      const at = tabs.indexOf(t);
+      const nextId = (tabs[at + 1] ?? tabs[at - 1])?.dataset.id;
+      t.querySelector(".fe-tab-x").click();
+      setTimeout(() => document.querySelector(`#fe-tabs .fe-tab[data-id="${nextId}"]`)?.focus(), 30);
+    }, () => !!focusedTab()?.querySelector(".fe-tab-x"));
+    bind("tab-focus-menu", () => {
+      const t = focusedTab(), r = t.getBoundingClientRect();
+      t.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 8, clientY: r.bottom }));
+    }, () => !!focusedTab()?.dataset.id);
+    const crumbDd = () => {
+      const t = ae();
+      if (!t?.closest("#fe-bc")) return null;
+      return t.matches(".fe-crumb-dd") ? t : t.nextElementSibling?.matches(".fe-crumb-dd") ? t.nextElementSibling : null;
+    };
+    bind("crumb-menu", () => crumbDd()?.click(), () => !!crumbDd());
     const click = (id, init = {}) => () => {
       const b = document.getElementById(id);
       if (b && !b.hidden) b.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...init }));
@@ -19796,14 +19772,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     document.addEventListener("pointerdown", (e) => {
       if (side.classList.contains("open") && !side.contains(e.target)) closeOverlay();
     });
-    bind("side-close", () => {
-      const inside = side.contains(document.activeElement);
+    app.closeSideOverlay = () => {
+      const was = side.classList.contains("open");
       closeOverlay();
-      if (inside) {
-        document.activeElement.blur();
-        runCommand("to-listing");
-      }
-    }, () => side.classList.contains("open"));
+      return was;
+    };
     const step2 = (dir, focus = false) => {
       const usable = btns.filter((b) => !b.hidden);
       const i3 = usable.findIndex((b) => b.classList.contains("on"));

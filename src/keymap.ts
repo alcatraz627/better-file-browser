@@ -3,7 +3,7 @@
 // A key is written as it is pressed: modifiers then the key ("⌘K", "⇧T"), a
 // sequence with a space ("g h"). `own` marks the keys the command layer
 // binds itself; the rest are answered by the surface that owns them.
-export type Scope = 'any' | 'listing' | 'tree' | 'preview' | 'file' | 'editor' | 'sidebar' | 'tabs' | 'menu' | 'dialog' | 'goto';
+export type Scope = 'any' | 'listing' | 'tree' | 'preview' | 'file' | 'editor' | 'sidebar' | 'tabs' | 'menu' | 'dialog' | 'goto' | 'bar';
 /// `field`: the key is a chord no text box types (such as ⌥↩), so it runs while typing too.
 /// `over`: an anywhere key that also works over the open preview; true for all its keys, or the ones listed.
 export interface KeyDef { id: string; group: string; title: string; keys: string[]; scope?: Scope; own?: boolean; field?: boolean; over?: true | string[] }
@@ -43,6 +43,8 @@ export const KEYMAP: KeyDef[] = [
   { id: 'terminal', group: 'Go', title: 'Terminal here', keys: ['`'], own: true },
   { id: 'terminal-copy', group: 'Go', title: 'Copy terminal command', keys: ['⇧`'], own: true },
   { id: 'to-listing', group: 'Go', title: 'Focus the listing', keys: ['g l'], own: true },
+  { id: 'area-leave', group: 'Go', title: 'Close the sidebar over the page, or go back to the listing', keys: ['Esc'], own: true, over: true },
+  { id: 'crumb-menu', group: 'Go', title: 'Folder menu of a path crumb', keys: ['↓'], scope: 'bar', own: true },
   { id: 'to-sidebar', group: 'Go', title: 'Focus the sidebar', keys: ['g s'], own: true },
   { id: 'to-tabs', group: 'Go', title: 'Focus the tabs', keys: ['g t'], own: true },
   { id: 'to-toolbar', group: 'Go', title: 'Focus the toolbar', keys: ['g b'], own: true },
@@ -107,17 +109,20 @@ export const KEYMAP: KeyDef[] = [
   { id: 'tab-right', group: 'Tabs', title: 'Move tab right', keys: ['⇧]'], own: true },
   { id: 'tab-list', group: 'Tabs', title: 'All tabs', keys: ['g a'], own: true },
   { id: 'tab-focus-move', group: 'Tabs', title: 'Move between tabs', keys: ['←', '→'], scope: 'tabs' },
-  { id: 'tab-focus-shift', group: 'Tabs', title: 'Drag the focused tab', keys: ['⇧←', '⇧→'], scope: 'tabs' },
+  { id: 'tab-focus-shift', group: 'Tabs', title: 'Drag the focused tab', keys: ['⇧←', '⇧→'], scope: 'tabs', own: true },
+  { id: 'tab-focus-close', group: 'Tabs', title: 'Close the focused tab', keys: ['⌫'], scope: 'tabs', own: true },
+  { id: 'tab-focus-menu', group: 'Tabs', title: 'Menu of the focused tab', keys: ['⇧F10'], scope: 'tabs', own: true },
 
   // Sidebar
-  { id: 'side-close', group: 'Sidebar', title: 'Close the sidebar over the page', keys: ['Esc'], own: true },
   { id: 'side-move', group: 'Sidebar', title: 'Move', keys: ['↑', '↓'], scope: 'sidebar' },
   { id: 'side-lens', group: 'Sidebar', title: 'Switch lens (on the bar)', keys: ['←', '→'], scope: 'sidebar' },
   { id: 'side-open', group: 'Sidebar', title: 'Open as a tab', keys: ['↩'], scope: 'sidebar' },
-  { id: 'side-bg', group: 'Sidebar', title: 'Background tab', keys: ['⌥↩'], scope: 'sidebar' },
-  { id: 'side-rename', group: 'Sidebar', title: 'Rename', keys: ['F2'], scope: 'sidebar' },
+  { id: 'side-bg', group: 'Sidebar', title: 'Background tab', keys: ['⌥↩'], scope: 'sidebar', own: true },
+  { id: 'side-rename', group: 'Sidebar', title: 'Rename', keys: ['F2'], scope: 'sidebar', own: true },
   { id: 'side-tags', group: 'Sidebar', title: 'Tags', keys: ['#'], scope: 'sidebar' },
-  { id: 'side-remove', group: 'Sidebar', title: 'Remove', keys: ['⌫'], scope: 'sidebar' },
+  { id: 'side-remove', group: 'Sidebar', title: 'Remove', keys: ['⌫'], scope: 'sidebar', own: true },
+  { id: 'side-rail', group: 'Sidebar', title: 'To the lens bar', keys: ['←'], scope: 'sidebar', own: true },
+  { id: 'side-into', group: 'Sidebar', title: 'Into the open lens (on the bar)', keys: ['⌥↓'], scope: 'sidebar', own: true },
   { id: 'side-fold', group: 'Sidebar', title: 'Fold a group', keys: ['Space'], scope: 'sidebar' },
   { id: 'lens-filter', group: 'Sidebar', title: 'Filter this list', keys: ['/'], scope: 'sidebar', own: true },
   { id: 'lens-tags', group: 'Sidebar', title: 'Tag chips', keys: ['g #'], own: true },

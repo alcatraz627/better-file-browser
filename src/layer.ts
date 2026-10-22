@@ -280,7 +280,11 @@ export function hoverCard(anchor: HTMLElement, build: () => HTMLElement | null, 
 export function rovingFocus(root: HTMLElement, items: string, o: { wrap?: boolean; axis?: 'vertical' | 'horizontal' | 'both' } = {}): () => void {
   const axis = o.axis ?? 'vertical';
   const onKey = (e: KeyboardEvent) => {
-    const list = [...root.querySelectorAll<HTMLElement>(items)].filter(x => !x.hasAttribute('disabled') && x.offsetParent !== null);
+    // A key a surface already used, a chord, or one meant for a text box or slider is not a move.
+    if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    const t = e.target as HTMLElement;
+    if (t.isContentEditable || t.matches('textarea, select, input:not([type=checkbox], [type=radio], [type=button], [type=submit])')) return;
+    const list = [...root.querySelectorAll<HTMLElement>(items)].filter(x => !x.hasAttribute('disabled') && x.offsetParent !== null && x.tabIndex >= 0);
     if (!list.length) return;
     const i = list.indexOf(document.activeElement as HTMLElement);
     const next = (axis !== 'horizontal' && e.key === 'ArrowDown') || (axis !== 'vertical' && e.key === 'ArrowRight');
