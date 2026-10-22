@@ -17,6 +17,7 @@ import { addPaletteSource } from './commands';
 import { openLayer, type Layer } from './layer';
 import { kvGet, kvSet } from './kv';
 import { UI_ICON } from './control-icons';
+import { checkHtml, ddHtml, upgradeControls, type DropdownEl, type Opt } from './controls';
 import { renderMarkdown } from './renderers';
 
 const listDir = async (url: string): Promise<Entry[]> => parseListing(await fetchFileText(url), url);
@@ -38,8 +39,8 @@ function initSearch(app: App): void {
     <div class="fe-tl-form">
       <input id="fe-srch-q" class="fe-tl-input" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
       <div class="fe-tl-opts">
-        <label class="fe-tl-opt" title="Subfolders: search every folder under this one too"><input type="checkbox" id="fe-srch-deep" checked>Subfolders</label>
-        <label class="fe-tl-opt" title="Match upper and lower case exactly"><input type="checkbox" id="fe-srch-case">Match case</label>
+        ${checkHtml('fe-srch-deep', 'Subfolders', 'Subfolders: search every folder under this one too', true)}
+        ${checkHtml('fe-srch-case', 'Match case', 'Match upper and lower case exactly')}
       </div>
     </div>
     <div id="fe-srch-status" class="fe-hint">Type a word and press Enter.</div>
@@ -106,7 +107,7 @@ function initAsk(app: App): void {
   const what = app.fileMode ? 'this file' : 'this folder';
   box.innerHTML = `
     <div class="fe-ask-top">
-      <label class="fe-ask-model" title="Which model answers. Local models run on this machine; Gemini runs on Google's servers."><span class="dot"></span><select id="fe-ask-model"><option value="">Default</option></select></label>
+      <span class="fe-ask-model"><span class="dot"></span>${ddHtml('fe-ask-model', [{ value: '', label: 'Default' }], "Which model answers. Local models run on this machine; Gemini runs on Google's servers.")}</span>
       <span class="fe-ask-sp"></span>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-hist-btn" title="Earlier chats about ${what}" aria-expanded="false">${UI_ICON.clock}<span class="fe-ask-n" id="fe-ask-hist-n"></span></button>
@@ -128,7 +129,8 @@ function initAsk(app: App): void {
   const go = el<HTMLButtonElement>('fe-ask-go');
   const statusRow = el('fe-ask-status');
   const state = el('fe-ask-state');
-  const pick = el<HTMLSelectElement>('fe-ask-model');
+  upgradeControls(box);
+  const pick = el<DropdownEl>('fe-ask-model');
   const cloud = el('fe-ask-cloud');
   const hist = el('fe-ask-hist');
   const histBtn = el('fe-ask-hist-btn');
@@ -167,10 +169,13 @@ function initAsk(app: App): void {
     chipDot.title = a.kind === 'ready' ? (a.cold ? 'Loads on the first question' : 'Ready') : state.textContent;
     localReady = a.kind === 'ready';
     const saved = kvGet(ASK_MODEL_KEY) ?? '';
-    pick.innerHTML = `<option value="">${a.kind === 'ready' ? esc(a.status.default_model.replace(/:latest$/, '')) : 'Default'}</option>`
-      + (models.tiers.length ? `<optgroup label="On this machine">${models.tiers.map(t => `<option value="${esc(t.alias)}">${esc(t.alias)} · ${esc(t.model)}</option>`).join('')}</optgroup>` : '')
-      + (models.gemini.length ? `<optgroup label="Gemini, on Google's servers">${models.gemini.map(g => `<option value="gemini:${esc(g.name)}">${esc(g.name)}${g.default ? ' (default)' : ''}</option>`).join('')}</optgroup>` : '');
-    pick.value = [...pick.options].some(o => o.value === saved) ? saved : '';
+    const opts: Opt[] = [
+      { value: '', label: a.kind === 'ready' ? a.status.default_model.replace(/:latest$/, '') : 'Default' },
+      ...models.tiers.map(t => ({ value: t.alias, label: t.alias, hint: t.model, group: 'On this machine' })),
+      ...models.gemini.map(g => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? ' (default)' : ''), group: "Gemini, on Google's servers" })),
+    ];
+    pick.setOptions(opts);
+    pick.value = opts.some(o => o.value === saved) ? saved : '';
     syncUsable();
   }
   pick.addEventListener('change', () => { kvSet(ASK_MODEL_KEY, pick.value); syncUsable(); });

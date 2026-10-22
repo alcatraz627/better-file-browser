@@ -5171,7 +5171,7 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-panel-sub{display:inline-flex;align-items:center;gap:8px}
 .fe-panel-sub .fe-panel-lbl{min-width:0}
 .fe-panel-gap{margin-left:14px}
-#fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px;height:28px}
+#fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px}
 #fe-find-depth .fe-dd-btn{min-width:100px}
 #fe-filter-bar .btn{height:28px}
 #fe-filter-bar .btn svg{width:12px;height:12px}
@@ -6389,8 +6389,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   font:inherit;font-size:var(--row-fs);outline:none;resize:vertical;transition:border-color var(--t-fast) var(--ease)}
 .fe-tl-input:focus{border-color:var(--ac)}
 .fe-tl-opts{display:flex;gap:12px;padding:0 4px}
-.fe-tl-opt{display:flex;align-items:center;gap:5px;font-size:var(--fs-md);color:var(--mt);cursor:pointer}
-.fe-tl-opt input{accent-color:var(--ac)}
 .fe-srch-hit{align-items:flex-start;padding-top:6px;padding-bottom:6px}
 .fe-srch-hit > svg{margin-top:1px}
 .fe-srch-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
@@ -6402,9 +6400,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-ask{flex:1;display:flex;flex-direction:column}
 .fe-ask-top{position:relative;display:flex;align-items:center;gap:2px;margin:0 10px 8px 14px}
 .fe-ask-sp{flex:1}
-.fe-ask-model{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;height:26px;padding:0 4px 0 9px;border:1px solid var(--bd);border-radius:999px;color:var(--mt);font-size:var(--fs-sm)}
-.fe-ask-model:hover{border-color:var(--bd2);color:var(--tx)}
-.fe-ask-model select{min-width:0;max-width:150px;border:0;background:none;color:inherit;font:inherit;outline:0;cursor:pointer;text-overflow:ellipsis}
+.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%}
+.fe-ask-model > .dot{position:absolute;left:10px;top:50%;margin-top:-3.5px;pointer-events:none}
+.fe-ask-model .fe-dd-btn{min-width:0;max-width:190px;padding-left:var(--sp-8)}
 .fe-ask-model .dot,.fe-ask-status .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dm)}
 .dot.ready{background:var(--green)}
 .dot.cold{background:var(--gold)}
@@ -6677,8 +6675,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-sld output{min-width:48px;padding:3px 7px;border-radius:6px;background:color-mix(in srgb,var(--tx) 6%,transparent);font:500 var(--fs-md) var(--mono);color:var(--tx);text-align:center}
 
 /* A dropdown button and its list. */
-.fe-dd{display:inline-flex}
-.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:32px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);
+.fe-dd{--dd-h:var(--ctl-md);display:inline-flex}
+.fe-dd[data-size="lg"]{--dd-h:var(--ctl-lg)}
+.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:var(--dd-h);padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);
   color:var(--tx);font:inherit;font-size:var(--row-fs);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
 .fe-dd-btn:hover,.fe-dd-btn[aria-expanded="true"]{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd2))}
 .fe-dd-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
@@ -6696,6 +6695,19 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dd-opt.on svg{color:var(--ac)}
 .fe-dd-l{flex:1}
 .fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
+.fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
+.fe-dd-g:first-child{padding-top:var(--sp-2)}
+/* Check: a box with a tick, and its label. Mixed shows a bar. */
+.fe-check{display:inline-flex;align-items:center;gap:var(--sp-3);min-height:var(--ctl-sm);color:var(--mt);font-size:var(--type-small);cursor:pointer;user-select:none}
+.fe-check:hover{color:var(--tx)}
+.fe-check input{appearance:none;-webkit-appearance:none;display:grid;place-content:center;flex:none;width:14px;height:14px;margin:0;border:1px solid var(--bd2);border-radius:var(--r-xs);background:var(--card);cursor:pointer;
+  transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+.fe-check:hover input{border-color:var(--mt)}
+.fe-check input:checked,.fe-check input:indeterminate{background:var(--ac);border-color:var(--ac)}
+.fe-check input:checked::after{content:'';width:7px;height:4px;margin-top:-2px;border:solid var(--tx-on-ac);border-width:0 0 2px 2px;transform:rotate(-45deg)}
+.fe-check input:indeterminate::after{content:'';width:8px;height:2px;border-radius:1px;background:var(--tx-on-ac)}
+.fe-check input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-check input:disabled{opacity:.45;cursor:default}
 
 /* A list edited as chips. */
 .fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:34px;padding:4px 6px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);cursor:text}
@@ -16894,10 +16906,16 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     <output></output>
   </div>`;
   }
-  function ddHtml(id, opts, title) {
-    return `<div class="fe-dd" id="${id}" data-opts="${esc(JSON.stringify(opts))}">
+  function ddHtml(id, opts, title, size = "md") {
+    return `<div class="fe-dd" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} data-opts="${esc(JSON.stringify(opts))}">
     <button type="button" class="fe-dd-btn" aria-haspopup="listbox" aria-expanded="false" title="${esc(title)}"><span class="fe-dd-cur"></span>${CHEVRON_DOWN}</button>
   </div>`;
+  }
+  function checkHtml2(id, label, title, checked = false) {
+    return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}"${checked ? " checked" : ""}><span>${esc(label)}</span></label>`;
+  }
+  function switchHtml(o) {
+    return `<input type="checkbox" role="switch" class="fe-switch${o.small ? " sm" : ""}${o.cls ? " " + o.cls : ""}"${o.id ? ` id="${o.id}"` : ""} title="${esc(o.title)}"${o.checked ? " checked" : ""}>`;
   }
   function chipsHtml(id, placeholder, title) {
     return `<div class="fe-chipin" id="${id}" title="${esc(title)}"><input class="fe-chipin-in" placeholder="${esc(placeholder)}" spellcheck="false" aria-label="${esc(title)}"></div>`;
@@ -16978,6 +16996,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     } });
     host.setOptions = (o) => {
       opts = o;
+      host.dataset.opts = JSON.stringify(o);
       paint();
     };
     let keys2 = null;
@@ -16985,7 +17004,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       closeList?.();
       list = document.createElement("div");
       list.className = "fe-dd-list";
-      list.innerHTML = opts.map((o) => `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`).join("");
+      list.innerHTML = opts.map((o, i3) => (o.group && o.group !== opts[i3 - 1]?.group ? `<div class="fe-dd-g" role="presentation">${esc(o.group)}</div>` : "") + `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`).join("");
       list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
       const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
         keys2 = null;
@@ -17127,7 +17146,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   var row = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
   var wide = (label, desc, ctl) => `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
   var card2 = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
-  var sw = (id, title) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
+  var sw = (id, title) => switchHtml({ id, title });
   var iconBtn = (id, icon2, title) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon data-size="sm" title="${title}" aria-label="${title}">${icon2}</button>`;
   var note = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
   var thumb = (group, value, name, kind) => `<label class="fe-set-sw" title="${name}"><input type="radio" name="${group}" value="${value}" title="${name}"><span class="fe-set-thumb" data-${kind}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
@@ -17194,7 +17213,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ) },
         { key: "folders", label: "Folders", hint: "View, order, sidebar", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "How folders open, and what a click does.", body: card2(
           "Opening a folder",
-          row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in", "lg")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction", "lg")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read", "lg"))
+          row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in", "lg")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in", "lg") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction", "lg")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with", "lg")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read", "lg"))
         ) + card2(
           "Opening a file",
           row("Click a file", "", segHtml("fe-st-click", [
@@ -17209,7 +17228,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
         ) + card2(
           "Terminal",
-          row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') + note("", "fe-st-term-hint")
+          row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app", "lg")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') + note("", "fe-st-term-hint")
         ) },
         { key: "files", label: "Files", hint: "Pages, icons", icon: UI_ICON.files, tone: "var(--nc-teal)", desc: "Reading, file pages and icons.", body: card2(
           "Reading",
@@ -17247,7 +17266,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           ${iconBtn("fe-st-ai-refresh", UI_ICON.reset, "Check again")}
         </div>` + card2(
           "On this Mac",
-          row("Model", "", ddHtml("fe-st-ai-model", [], "Local model")) + row("Keep warm", "Replies start at once", sw("fe-st-ai-warm", "Keep the model loaded")) + `<div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>` + note("", "fe-st-ai-hint")
+          row("Model", "", ddHtml("fe-st-ai-model", [], "Local model", "lg")) + row("Keep warm", "Replies start at once", sw("fe-st-ai-warm", "Keep the model loaded")) + `<div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>` + note("", "fe-st-ai-hint")
         ) + card2("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
         { key: "data", label: "Data", hint: "Export, import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list.", body: card2(
           "Your data",
@@ -20608,8 +20627,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     <div class="fe-tl-form">
       <input id="fe-srch-q" class="fe-tl-input" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
       <div class="fe-tl-opts">
-        <label class="fe-tl-opt" title="Subfolders: search every folder under this one too"><input type="checkbox" id="fe-srch-deep" checked>Subfolders</label>
-        <label class="fe-tl-opt" title="Match upper and lower case exactly"><input type="checkbox" id="fe-srch-case">Match case</label>
+        ${checkHtml2("fe-srch-deep", "Subfolders", "Subfolders: search every folder under this one too", true)}
+        ${checkHtml2("fe-srch-case", "Match case", "Match upper and lower case exactly")}
       </div>
     </div>
     <div id="fe-srch-status" class="fe-hint">Type a word and press Enter.</div>
@@ -20686,7 +20705,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const what = app.fileMode ? "this file" : "this folder";
     box.innerHTML = `
     <div class="fe-ask-top">
-      <label class="fe-ask-model" title="Which model answers. Local models run on this machine; Gemini runs on Google's servers."><span class="dot"></span><select id="fe-ask-model"><option value="">Default</option></select></label>
+      <span class="fe-ask-model"><span class="dot"></span>${ddHtml("fe-ask-model", [{ value: "", label: "Default" }], "Which model answers. Local models run on this machine; Gemini runs on Google's servers.")}</span>
       <span class="fe-ask-sp"></span>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-hist-btn" title="Earlier chats about ${what}" aria-expanded="false">${UI_ICON.clock}<span class="fe-ask-n" id="fe-ask-hist-n"></span></button>
@@ -20708,6 +20727,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const go = el("fe-ask-go");
     const statusRow = el("fe-ask-status");
     const state = el("fe-ask-state");
+    upgradeControls(box);
     const pick = el("fe-ask-model");
     const cloud = el("fe-ask-cloud");
     const hist = el("fe-ask-hist");
@@ -20750,8 +20770,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       chipDot.title = a.kind === "ready" ? a.cold ? "Loads on the first question" : "Ready" : state.textContent;
       localReady = a.kind === "ready";
       const saved = kvGet(ASK_MODEL_KEY) ?? "";
-      pick.innerHTML = `<option value="">${a.kind === "ready" ? esc(a.status.default_model.replace(/:latest$/, "")) : "Default"}</option>` + (models.tiers.length ? `<optgroup label="On this machine">${models.tiers.map((t) => `<option value="${esc(t.alias)}">${esc(t.alias)} \xB7 ${esc(t.model)}</option>`).join("")}</optgroup>` : "") + (models.gemini.length ? `<optgroup label="Gemini, on Google's servers">${models.gemini.map((g) => `<option value="gemini:${esc(g.name)}">${esc(g.name)}${g.default ? " (default)" : ""}</option>`).join("")}</optgroup>` : "");
-      pick.value = [...pick.options].some((o) => o.value === saved) ? saved : "";
+      const opts = [
+        { value: "", label: a.kind === "ready" ? a.status.default_model.replace(/:latest$/, "") : "Default" },
+        ...models.tiers.map((t) => ({ value: t.alias, label: t.alias, hint: t.model, group: "On this machine" })),
+        ...models.gemini.map((g) => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? " (default)" : ""), group: "Gemini, on Google's servers" }))
+      ];
+      pick.setOptions(opts);
+      pick.value = opts.some((o) => o.value === saved) ? saved : "";
       syncUsable();
     }
     pick.addEventListener("change", () => {
@@ -21034,7 +21059,7 @@ ${rows.join("\n")}`, name: subject };
       list3.innerHTML = app.iconRules.length ? app.iconRules.map((rule, i3) => {
         const bad = badRegex(rule.pattern);
         return `<div class="fe-rule${rule.enabled ? "" : " off"}" data-idx="${i3}">
-        <input type="checkbox" class="fe-switch sm fe-st-rule-en" title="${rule.enabled ? "On" : "Off"}"${rule.enabled ? " checked" : ""}>
+        ${switchHtml({ title: rule.enabled ? "On" : "Off", checked: rule.enabled, small: true, cls: "fe-st-rule-en" })}
         <button type="button" class="fe-rule-ico" title="Icon and colour">${icoCustom(rule.label, rule.color, rule.glyph)}</button>
         <input type="text" class="fe-st-rule-pattern${bad ? " bad" : ""}" value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : "Matches file names, any case"}">
         <span class="fe-rule-n" title="Matches in this folder">${bad ? "!" : hits(rule.pattern)}</span>

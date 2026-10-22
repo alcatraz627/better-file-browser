@@ -313,7 +313,7 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-panel-sub{display:inline-flex;align-items:center;gap:8px}
 .fe-panel-sub .fe-panel-lbl{min-width:0}
 .fe-panel-gap{margin-left:14px}
-#fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px;height:28px}
+#fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px}
 #fe-find-depth .fe-dd-btn{min-width:100px}
 #fe-filter-bar .btn{height:28px}
 #fe-filter-bar .btn svg{width:12px;height:12px}
@@ -1531,8 +1531,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   font:inherit;font-size:var(--row-fs);outline:none;resize:vertical;transition:border-color var(--t-fast) var(--ease)}
 .fe-tl-input:focus{border-color:var(--ac)}
 .fe-tl-opts{display:flex;gap:12px;padding:0 4px}
-.fe-tl-opt{display:flex;align-items:center;gap:5px;font-size:var(--fs-md);color:var(--mt);cursor:pointer}
-.fe-tl-opt input{accent-color:var(--ac)}
 .fe-srch-hit{align-items:flex-start;padding-top:6px;padding-bottom:6px}
 .fe-srch-hit > svg{margin-top:1px}
 .fe-srch-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
@@ -1544,9 +1542,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-ask{flex:1;display:flex;flex-direction:column}
 .fe-ask-top{position:relative;display:flex;align-items:center;gap:2px;margin:0 10px 8px 14px}
 .fe-ask-sp{flex:1}
-.fe-ask-model{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;height:26px;padding:0 4px 0 9px;border:1px solid var(--bd);border-radius:999px;color:var(--mt);font-size:var(--fs-sm)}
-.fe-ask-model:hover{border-color:var(--bd2);color:var(--tx)}
-.fe-ask-model select{min-width:0;max-width:150px;border:0;background:none;color:inherit;font:inherit;outline:0;cursor:pointer;text-overflow:ellipsis}
+.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%}
+.fe-ask-model > .dot{position:absolute;left:10px;top:50%;margin-top:-3.5px;pointer-events:none}
+.fe-ask-model .fe-dd-btn{min-width:0;max-width:190px;padding-left:var(--sp-8)}
 .fe-ask-model .dot,.fe-ask-status .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dm)}
 .dot.ready{background:var(--green)}
 .dot.cold{background:var(--gold)}

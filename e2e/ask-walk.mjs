@@ -12,6 +12,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const sfx = THEME === 'light' ? '-light' : '';
 const h = await launch({ lmStub: true });
 const lastAnswer = p => p.$$eval('#fe-ask-thread .fe-ask-turn', ts => ts.length ? { a: ts.at(-1).querySelector('.fe-ask-a').textContent.trim(), meta: ts.at(-1).querySelector('.fe-ask-meta').textContent } : null);
+// The model picker is a dropdown: open it and click the option.
+const pickModel = async (p, v) => {
+  await p.$eval('#fe-ask-model .fe-dd-btn', b => b.click());
+  await p.waitForSelector(`.fe-dd-list [data-v="${v}"]`, { timeout: 3000 });
+  await p.$eval(`.fe-dd-list [data-v="${v}"]`, o => o.click());
+};
 const askIt = async (p, text) => {
   await p.type('#fe-ask-q', text);
   await p.keyboard.press('Enter');
@@ -25,8 +31,12 @@ try {
   await page.setViewport({ width: 1400, height: 900 });
   await page.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
   await page.waitForSelector('#fe-ask-model');
-  await page.waitForFunction(() => document.querySelectorAll('#fe-ask-model option').length > 1, { timeout: 15000 }).catch(() => null);
-  const opts = await page.$$eval('#fe-ask-model optgroup', gs => gs.map(g => ({ label: g.label, opts: [...g.querySelectorAll('option')].map(o => o.value) })));
+  await page.waitForFunction(() => JSON.parse(document.getElementById('fe-ask-model').dataset.opts || '[]').length > 1, { timeout: 15000 }).catch(() => null);
+  const opts = await page.$eval('#fe-ask-model', dd => {
+    const groups = [];
+    for (const o of JSON.parse(dd.dataset.opts)) if (o.group) { if (groups.at(-1)?.label !== o.group) groups.push({ label: o.group, opts: [] }); groups.at(-1).opts.push(o.value); }
+    return groups;
+  });
   check(opts.length === 2 && opts[0].opts.join() === 'small,big,code' && opts[1].opts.join() === 'gemini:gemini-3.8-flash,gemini:gemini-3.5-flash',
     `the picker lists the lm aliases and the Gemini models: ${JSON.stringify(opts)}`);
   check(await page.$eval('#fe-ask-cloud', c => c.hidden), 'no cloud note while a local model is picked');
@@ -36,11 +46,16 @@ try {
   const two = await askIt(page, 'And the list?');
   check(/Seen the chat so far/.test(two?.a ?? ''), `a follow-up carries the chat so far: ${two?.a}`);
 
-  await page.select('#fe-ask-model', 'big');
+  await pickModel(page, 'big');
   const big = await askIt(page, 'Think harder');
   check(/from big/.test(big?.a ?? ''), `the big alias goes to lm as -m big: ${big?.a}`);
 
-  await page.select('#fe-ask-model', 'gemini:gemini-3.5-flash');
+  await pickModel(page, 'gemini:gemini-3.5-flash');
+  await page.$eval('#fe-ask-model .fe-dd-btn', b => b.click()); await sleep(200);
+  const heads = await page.$$eval('.fe-dd-list .fe-dd-g', gs => gs.map(g => g.textContent));
+  check(heads.length === 2 && /machine/.test(heads[0]) && /Gemini/.test(heads[1]), `the open list names its two groups: ${JSON.stringify(heads)}`);
+  await page.screenshot({ path: join(SHOTS, `ask-model-list${sfx}.png`), clip: { x: 0, y: 40, width: 360, height: 420 } });
+  await page.keyboard.press('Escape'); await sleep(150);
   const cloud = await page.$eval('#fe-ask-cloud', c => ({ shown: !c.hidden, text: c.textContent.trim() }));
   check(cloud.shown && /Google/.test(cloud.text), `picking Gemini says the text goes to Google: ${cloud.text}`);
   await page.screenshot({ path: join(SHOTS, `ask-gemini${sfx}.png`), clip: { x: 0, y: 40, width: 300, height: 760 } });
@@ -51,7 +66,7 @@ try {
 
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-ask-hist-btn');
-  check(await page.$eval('#fe-ask-model', s => s.value === 'gemini:gemini-3.5-flash' || s.options.length === 1), 'the picked model is remembered');
+  check(await page.$eval('#fe-ask-model', s => s.dataset.value === 'gemini:gemini-3.5-flash' || JSON.parse(s.dataset.opts).length === 1), 'the picked model is remembered');
   check(await page.$eval('#fe-ask-hist-n', n => n.textContent) === '1', 'the history button counts the chat');
   await page.click('#fe-ask-hist-btn');
   const rows = await page.$$eval('#fe-ask-hist .fe-ask-h', rs => rs.map(r => r.querySelector('.fe-ask-h-t').textContent));

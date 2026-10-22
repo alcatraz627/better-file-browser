@@ -79,8 +79,9 @@ export const UI_CSS = `
 .fe-sld output{min-width:48px;padding:3px 7px;border-radius:6px;background:color-mix(in srgb,var(--tx) 6%,transparent);font:500 var(--fs-md) var(--mono);color:var(--tx);text-align:center}
 
 /* A dropdown button and its list. */
-.fe-dd{display:inline-flex}
-.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:32px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);
+.fe-dd{--dd-h:var(--ctl-md);display:inline-flex}
+.fe-dd[data-size="lg"]{--dd-h:var(--ctl-lg)}
+.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:var(--dd-h);padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);
   color:var(--tx);font:inherit;font-size:var(--row-fs);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
 .fe-dd-btn:hover,.fe-dd-btn[aria-expanded="true"]{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd2))}
 .fe-dd-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
@@ -98,6 +99,19 @@ export const UI_CSS = `
 .fe-dd-opt.on svg{color:var(--ac)}
 .fe-dd-l{flex:1}
 .fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
+.fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
+.fe-dd-g:first-child{padding-top:var(--sp-2)}
+/* Check: a box with a tick, and its label. Mixed shows a bar. */
+.fe-check{display:inline-flex;align-items:center;gap:var(--sp-3);min-height:var(--ctl-sm);color:var(--mt);font-size:var(--type-small);cursor:pointer;user-select:none}
+.fe-check:hover{color:var(--tx)}
+.fe-check input{appearance:none;-webkit-appearance:none;display:grid;place-content:center;flex:none;width:14px;height:14px;margin:0;border:1px solid var(--bd2);border-radius:var(--r-xs);background:var(--card);cursor:pointer;
+  transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+.fe-check:hover input{border-color:var(--mt)}
+.fe-check input:checked,.fe-check input:indeterminate{background:var(--ac);border-color:var(--ac)}
+.fe-check input:checked::after{content:'';width:7px;height:4px;margin-top:-2px;border:solid var(--tx-on-ac);border-width:0 0 2px 2px;transform:rotate(-45deg)}
+.fe-check input:indeterminate::after{content:'';width:8px;height:2px;border-radius:1px;background:var(--tx-on-ac)}
+.fe-check input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-check input:disabled{opacity:.45;cursor:default}
 
 /* A list edited as chips. */
 .fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:34px;padding:4px 6px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);cursor:text}

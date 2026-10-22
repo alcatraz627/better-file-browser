@@ -17,7 +17,7 @@ import { COLUMN_KEY, parseExcludedExtensions, savedColumnMode } from './file-pag
 import { UI_ICON } from './control-icons';
 import { setSidebarShown } from './motion';
 import { setUiScale } from './chrome';
-import { upgradeControls, type ValuedEl, type DropdownEl } from './controls';
+import { upgradeControls, switchHtml, type ValuedEl, type DropdownEl } from './controls';
 import { setThemeMode, setAppIcon, appIconUrl, APP_ICON_KEY, type ThemeMode } from './theme';
 
 // Ready-made rules offered above the list; each appears until it is added.
@@ -51,7 +51,7 @@ export function initSettingsUi(app: App): void {
     list.innerHTML = app.iconRules.length ? app.iconRules.map((rule, i) => {
       const bad = badRegex(rule.pattern);
       return `<div class="fe-rule${rule.enabled ? '' : ' off'}" data-idx="${i}">
-        <input type="checkbox" class="fe-switch sm fe-st-rule-en" title="${rule.enabled ? 'On' : 'Off'}"${rule.enabled ? ' checked' : ''}>
+        ${switchHtml({ title: rule.enabled ? 'On' : 'Off', checked: rule.enabled, small: true, cls: 'fe-st-rule-en' })}
         <button type="button" class="fe-rule-ico" title="Icon and colour">${icoCustom(rule.label, rule.color, rule.glyph)}</button>
         <input type="text" class="fe-st-rule-pattern${bad ? ' bad' : ''}" value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : 'Matches file names, any case'}">
         <span class="fe-rule-n" title="Matches in this folder">${bad ? '!' : hits(rule.pattern)}</span>

@@ -315,7 +315,7 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-panel-sub{display:inline-flex;align-items:center;gap:8px}
 .fe-panel-sub .fe-panel-lbl{min-width:0}
 .fe-panel-gap{margin-left:14px}
-#fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px;height:28px}
+#fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px}
 #fe-find-depth .fe-dd-btn{min-width:100px}
 #fe-filter-bar .btn{height:28px}
 #fe-filter-bar .btn svg{width:12px;height:12px}
@@ -1533,8 +1533,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   font:inherit;font-size:var(--row-fs);outline:none;resize:vertical;transition:border-color var(--t-fast) var(--ease)}
 .fe-tl-input:focus{border-color:var(--ac)}
 .fe-tl-opts{display:flex;gap:12px;padding:0 4px}
-.fe-tl-opt{display:flex;align-items:center;gap:5px;font-size:var(--fs-md);color:var(--mt);cursor:pointer}
-.fe-tl-opt input{accent-color:var(--ac)}
 .fe-srch-hit{align-items:flex-start;padding-top:6px;padding-bottom:6px}
 .fe-srch-hit > svg{margin-top:1px}
 .fe-srch-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
@@ -1546,9 +1544,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-ask{flex:1;display:flex;flex-direction:column}
 .fe-ask-top{position:relative;display:flex;align-items:center;gap:2px;margin:0 10px 8px 14px}
 .fe-ask-sp{flex:1}
-.fe-ask-model{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;height:26px;padding:0 4px 0 9px;border:1px solid var(--bd);border-radius:999px;color:var(--mt);font-size:var(--fs-sm)}
-.fe-ask-model:hover{border-color:var(--bd2);color:var(--tx)}
-.fe-ask-model select{min-width:0;max-width:150px;border:0;background:none;color:inherit;font:inherit;outline:0;cursor:pointer;text-overflow:ellipsis}
+.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%}
+.fe-ask-model > .dot{position:absolute;left:10px;top:50%;margin-top:-3.5px;pointer-events:none}
+.fe-ask-model .fe-dd-btn{min-width:0;max-width:190px;padding-left:var(--sp-8)}
 .fe-ask-model .dot,.fe-ask-status .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dm)}
 .dot.ready{background:var(--green)}
 .dot.cold{background:var(--gold)}
@@ -1821,8 +1819,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-sld output{min-width:48px;padding:3px 7px;border-radius:6px;background:color-mix(in srgb,var(--tx) 6%,transparent);font:500 var(--fs-md) var(--mono);color:var(--tx);text-align:center}
 
 /* A dropdown button and its list. */
-.fe-dd{display:inline-flex}
-.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:32px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);
+.fe-dd{--dd-h:var(--ctl-md);display:inline-flex}
+.fe-dd[data-size="lg"]{--dd-h:var(--ctl-lg)}
+.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:var(--dd-h);padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);
   color:var(--tx);font:inherit;font-size:var(--row-fs);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
 .fe-dd-btn:hover,.fe-dd-btn[aria-expanded="true"]{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd2))}
 .fe-dd-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
@@ -1840,6 +1839,19 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dd-opt.on svg{color:var(--ac)}
 .fe-dd-l{flex:1}
 .fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
+.fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
+.fe-dd-g:first-child{padding-top:var(--sp-2)}
+/* Check: a box with a tick, and its label. Mixed shows a bar. */
+.fe-check{display:inline-flex;align-items:center;gap:var(--sp-3);min-height:var(--ctl-sm);color:var(--mt);font-size:var(--type-small);cursor:pointer;user-select:none}
+.fe-check:hover{color:var(--tx)}
+.fe-check input{appearance:none;-webkit-appearance:none;display:grid;place-content:center;flex:none;width:14px;height:14px;margin:0;border:1px solid var(--bd2);border-radius:var(--r-xs);background:var(--card);cursor:pointer;
+  transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+.fe-check:hover input{border-color:var(--mt)}
+.fe-check input:checked,.fe-check input:indeterminate{background:var(--ac);border-color:var(--ac)}
+.fe-check input:checked::after{content:'';width:7px;height:4px;margin-top:-2px;border:solid var(--tx-on-ac);border-width:0 0 2px 2px;transform:rotate(-45deg)}
+.fe-check input:indeterminate::after{content:'';width:8px;height:2px;border-radius:1px;background:var(--tx-on-ac)}
+.fe-check input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-check input:disabled{opacity:.45;cursor:default}
 
 /* A list edited as chips. */
 .fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:34px;padding:4px 6px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);cursor:text}
@@ -2326,8 +2338,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     <output></output>
   </div>`;
   }
-  function ddHtml(id, opts, title) {
-    return `<div class="fe-dd" id="${id}" data-opts="${esc(JSON.stringify(opts))}">
+  function ddHtml(id, opts, title, size = "md") {
+    return `<div class="fe-dd" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} data-opts="${esc(JSON.stringify(opts))}">
     <button type="button" class="fe-dd-btn" aria-haspopup="listbox" aria-expanded="false" title="${esc(title)}"><span class="fe-dd-cur"></span>${CHEVRON_DOWN}</button>
   </div>`;
   }
@@ -2410,6 +2422,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     } });
     host.setOptions = (o) => {
       opts = o;
+      host.dataset.opts = JSON.stringify(o);
       paint();
     };
     let keys = null;
@@ -2417,7 +2430,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       closeList?.();
       list = document.createElement("div");
       list.className = "fe-dd-list";
-      list.innerHTML = opts.map((o) => `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`).join("");
+      list.innerHTML = opts.map((o, i) => (o.group && o.group !== opts[i - 1]?.group ? `<div class="fe-dd-g" role="presentation">${esc(o.group)}</div>` : "") + `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`).join("");
       list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
       const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
         keys = null;

@@ -1,13 +1,14 @@
-// The form controls Settings is built from: a row of toggle buttons, a
-// slider that steps through set values, and a dropdown that lists options
-// with icons. Each is a plain element with a `value` property and a `change`
-// event, so the code that reads and saves a setting treats it like a
-// <select>. upgradeControls() wires every one under a root, once.
+// The form controls every page is built from: a row of toggle buttons, a
+// slider that steps through set values, a dropdown that lists options with
+// icons, a check box and a switch. The first three are plain elements with a
+// `value` property and a `change` event, so the code that reads and saves a
+// setting treats them like a <select>. upgradeControls() wires every one
+// under a root, once; the check box and switch are native and need no wiring.
 import { esc } from './utils';
 import { CHEVRON_DOWN } from './icons';
 import { openLayer, rovingFocus } from './layer';
 
-export interface Opt { value: string; label?: string; icon?: string; hint?: string }
+export interface Opt { value: string; label?: string; icon?: string; hint?: string; group?: string }
 
 /// A row of buttons where one is on, like a segmented control. Options with
 /// an icon and no label show only the icon, with the hint as their tooltip.
@@ -28,10 +29,24 @@ export function sliderHtml(id: string, values: number[], unit: string, title: st
 }
 
 /// A dropdown button whose list shows each option's icon and a short hint.
-export function ddHtml(id: string, opts: Opt[], title: string): string {
-  return `<div class="fe-dd" id="${id}" data-opts="${esc(JSON.stringify(opts))}">
+/// Options that share a `group` sit under that group's name in the list.
+/// Size lg is for dialogs, where every control is 32px.
+export function ddHtml(id: string, opts: Opt[], title: string, size: 'md' | 'lg' = 'md'): string {
+  return `<div class="fe-dd" id="${id}"${size === 'md' ? '' : ` data-size="${size}"`} data-opts="${esc(JSON.stringify(opts))}">
     <button type="button" class="fe-dd-btn" aria-haspopup="listbox" aria-expanded="false" title="${esc(title)}"><span class="fe-dd-cur"></span>${CHEVRON_DOWN}</button>
   </div>`;
+}
+
+/// A check box with its label, for an option that is on or off inside a
+/// form. A setting in Settings is a Switch instead.
+export function checkHtml(id: string, label: string, title: string, checked = false): string {
+  return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}"${checked ? ' checked' : ''}><span>${esc(label)}</span></label>`;
+}
+
+/// A switch for a setting that takes effect at once. Small sits inside a row
+/// of other controls.
+export function switchHtml(o: { id?: string; title: string; checked?: boolean; small?: boolean; cls?: string }): string {
+  return `<input type="checkbox" role="switch" class="fe-switch${o.small ? ' sm' : ''}${o.cls ? ' ' + o.cls : ''}"${o.id ? ` id="${o.id}"` : ''} title="${esc(o.title)}"${o.checked ? ' checked' : ''}>`;
 }
 
 /// A list edited as chips: each entry a pill with its own remove button, and
@@ -105,7 +120,7 @@ function upgradeDd(host: HTMLElement): void {
   };
   Object.defineProperty(host, 'value', { get: () => cur, set: (v: string) => { cur = String(v); paint(); } });
   // Options can change after load (the AI model list arrives late).
-  (host as HTMLElement & { setOptions: (o: Opt[]) => void }).setOptions = (o: Opt[]) => { opts = o; paint(); };
+  (host as HTMLElement & { setOptions: (o: Opt[]) => void }).setOptions = (o: Opt[]) => { opts = o; host.dataset.opts = JSON.stringify(o); paint(); };
 
   // While the list is open, keys on the button move through it; focus stays on the button.
   let keys: ((e: KeyboardEvent) => void) | null = null;
@@ -113,7 +128,8 @@ function upgradeDd(host: HTMLElement): void {
     closeList?.();
     list = document.createElement('div');
     list.className = 'fe-dd-list';
-    list.innerHTML = opts.map(o => `<div role="option" class="fe-dd-opt${o.value === cur ? ' on' : ''}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">`
+    list.innerHTML = opts.map((o, i) => (o.group && o.group !== opts[i - 1]?.group ? `<div class="fe-dd-g" role="presentation">${esc(o.group)}</div>` : '')
+      + `<div role="option" class="fe-dd-opt${o.value === cur ? ' on' : ''}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">`
       + `${o.icon ?? ''}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ''}</div>`).join('');
     list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
     const layer = openLayer(list, { kind: 'popover', anchor: btn, align: 'end', role: 'listbox', group: 'menu', onClose: () => { keys = null; list = null; closeList = null; } });

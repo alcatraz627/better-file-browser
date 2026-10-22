@@ -1,7 +1,7 @@
 {
   "css-radius-px": 141,
   "css-height-px": 180,
-  "css-space-px": 601,
+  "css-space-px": 600,
   "css-zindex": 35,
   "css-font-px": 6,
   "css-duration": 31,
@@ -14,7 +14,7 @@
   "js-outside-click": 18,
   "js-navigation": 25,
   "js-storage": 53,
-  "js-native-control": 8,
+  "js-native-control": 5,
   "js-inline-style": 37,
   "js-inline-svg": 22,
   "js-message-shown": 31,

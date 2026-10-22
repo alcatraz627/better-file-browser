@@ -5,7 +5,7 @@
 import type { DialogSpec } from './dialog';
 import { PI } from './icons';
 import { UI_ICON, VIEW_ICONS, line } from './control-icons';
-import { segHtml, sliderHtml, ddHtml, chipsHtml, type Opt } from './controls';
+import { segHtml, sliderHtml, ddHtml, chipsHtml, switchHtml, type Opt } from './controls';
 import { APP_ICONS } from './theme';
 
 const row = (label: string, desc: string, ctl: string, attrs = '') =>
@@ -15,7 +15,7 @@ const wide = (label: string, desc: string, ctl: string) =>
   `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ''}</div><div class="fe-set-c">${ctl}</div></div>`;
 const card = (title: string, rows: string, action = '') =>
   `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
-const sw = (id: string, title: string) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
+const sw = (id: string, title: string) => switchHtml({ id, title });
 const iconBtn = (id: string, icon: string, title: string) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon data-size="sm" title="${title}" aria-label="${title}">${icon}</button>`;
 const note = (text: string, id = '') => `<p class="fe-set-note"${id ? ` id="${id}"` : ''}>${text}</p>`;
 
@@ -78,8 +78,8 @@ export function settingsDialog(): DialogSpec {
       { key: 'folders', label: 'Folders', hint: 'View, order, sidebar', icon: UI_ICON.folderOpen, tone: 'var(--nc-blue)', desc: 'How folders open, and what a click does.', body:
         card('Opening a folder',
           row('View', '', segHtml('fe-st-defview', VIEW_ICONS.map(v => ({ value: v.id, icon: v.ico, hint: v.label })), 'View a folder opens in', 'lg')) +
-          row('Sort', '', ddHtml('fe-st-sort', SORT_OPTS, 'Order a folder opens in') + segHtml('fe-st-sort-dir', SORT_DIR_OPTS, 'Direction', 'lg')) +
-          row('Group', '', ddHtml('fe-st-group', GROUP_OPTS, 'Grouping a folder opens with')) +
+          row('Sort', '', ddHtml('fe-st-sort', SORT_OPTS, 'Order a folder opens in', 'lg') + segHtml('fe-st-sort-dir', SORT_DIR_OPTS, 'Direction', 'lg')) +
+          row('Group', '', ddHtml('fe-st-group', GROUP_OPTS, 'Grouping a folder opens with', 'lg')) +
           row('Dates', '', segHtml('fe-st-datefmt', [{ value: 'short', label: 'Apr 17' }, { value: 'full', label: 'April 17, 2025' }], 'How dates read', 'lg'))) +
         card('Opening a file',
           row('Click a file', '', segHtml('fe-st-click', [
@@ -92,7 +92,7 @@ export function settingsDialog(): DialogSpec {
           row('Sidebar', '', sw('fe-st-sidebar', 'Show the sidebar')) +
           row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
         card('Terminal',
-          row('Open in', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app')) +
+          row('Open in', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app', 'lg')) +
           row('Command', '${p} is the folder', `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') +
           note('', 'fe-st-term-hint')) },
 
@@ -126,7 +126,7 @@ export function settingsDialog(): DialogSpec {
           ${iconBtn('fe-st-ai-refresh', UI_ICON.reset, 'Check again')}
         </div>` +
         card('On this Mac',
-          row('Model', '', ddHtml('fe-st-ai-model', [], 'Local model')) +
+          row('Model', '', ddHtml('fe-st-ai-model', [], 'Local model', 'lg')) +
           row('Keep warm', 'Replies start at once', sw('fe-st-ai-warm', 'Keep the model loaded')) +
           `<div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>` +
           note('', 'fe-st-ai-hint')) +
