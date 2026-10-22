@@ -55,12 +55,19 @@ const MODAL: Partial<Record<Archetype, boolean>> = { command: true, dialog: true
 const stack: (Layer & { opts: LayerOptions; returnTo: Element | null })[] = [];
 const topLayer = typeof HTMLElement !== 'undefined' && typeof HTMLElement.prototype.showPopover === 'function';
 let wired = false;
+// A press on an open layer's anchor closes it; the click that follows the same
+// press must not open it again.
+let anchorClosed: { anchor: HTMLElement; at: number } | null = null;
 
 const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
 
 /// Open `el` as a layer. If it is already open as a layer, it is closed first.
 export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
   wire();
+  if (opts.anchor && anchorClosed?.anchor === opts.anchor && performance.now() - anchorClosed.at < 600) {
+    anchorClosed = null;
+    return { el, kind: opts.kind, open: false, close() {}, place() {} };
+  }
   const existing = stack.find(l => l.el === el);
   existing?.close('replaced');
   if (opts.group) stack.filter(l => l.opts.group === opts.group).forEach(l => l.close('replaced'));
@@ -151,7 +158,12 @@ function wire(): void {
     const t = e.target as Node;
     const top = stack[stack.length - 1];
     if (!top || top.el.contains(t)) return;
-    if (top.opts.anchor?.contains(t)) { if (CLOSES[top.kind].anchor) top.close('anchor'); return; }
+    const anchor = top.opts.anchor;
+    if (anchor?.contains(t)) {
+      if (CLOSES[top.kind].anchor) { top.close('anchor'); anchorClosed = { anchor, at: performance.now() }; }
+      return;
+    }
+    anchorClosed = null;
     if (CLOSES[top.kind].outside) top.close('outside');
   }, true);
   document.addEventListener('scroll', e => {

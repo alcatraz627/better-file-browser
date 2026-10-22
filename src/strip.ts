@@ -13,6 +13,7 @@ import {
   isTabState, normalize, isStale, type TabState, type Tab, type RecoveryEntry,
 } from './tabs';
 import type { Toast } from './toast';
+import { openLayer, type Layer } from './layer';
 
 const SESSION_KEY = 'bfb-strip-v2';
 const RECOVERY_PREFIX = 'bfb-strip-v2:';
@@ -145,9 +146,8 @@ export function mountStrip(host: StripHost): Strip {
   const listBtn = document.getElementById('fe-tab-list');
   const menu = document.createElement('div');
   menu.className = 'fe-ctx fe-tab-menu';
-  menu.style.display = 'none';
-  (el.closest('#fe') ?? document.body).appendChild(menu);
-  const closeMenu = () => { menu.style.display = 'none'; };
+  let layer: Layer | null = null;
+  const closeMenu = () => layer?.close('pick');
   // Right-click on any tab opens its menu; a pinned tab has no "…" button,
   // so this is how it reaches Copy path, Save, Unpin and Close others.
   el.addEventListener('contextmenu', e => {
@@ -168,10 +168,7 @@ export function mountStrip(host: StripHost): Strip {
       `<div class="fe-ctx-item" data-act="others">Close others</div>`,
     ].join('');
     menu.dataset.id = t.id;
-    menu.style.display = 'block';
-    const r = anchor.getBoundingClientRect();
-    menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + 'px';
-    menu.style.top = r.bottom + 4 + 'px';
+    layer = openLayer(menu, { kind: 'popover', anchor, role: 'menu', group: 'menu' });
   }
   menu.addEventListener('click', e => {
     const item = (e.target as HTMLElement).closest<HTMLElement>('.fe-ctx-item');
@@ -191,8 +188,6 @@ export function mountStrip(host: StripHost): Strip {
     else if (act === 'close') closeById(t.id);
     else if (act === 'others') commit(closeOthers(state, t.id));
   });
-  document.addEventListener('click', e => { if (menu.style.display !== 'none' && !menu.contains(e.target as Node)) closeMenu(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 
   // ── Render ────────────────────────────────────────────────────────
   // A cut-off name keeps its start and any extension: the head is trimmed to
@@ -247,10 +242,7 @@ export function mountStrip(host: StripHost): Strip {
         menu.innerHTML = state.list.map((t, i) => `<div class="fe-ctx-item${t.id === here?.id ? ' on' : ''}" data-go="${esc(t.id)}">`
           + `${t.kind === 'file' ? icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '') : icoFolder(t.label)}<span>${esc(labels[i])}</span>${i < 9 ? `<kbd>${i + 1}</kbd>` : ''}</div>`).join('');
         menu.dataset.id = '';
-        menu.style.display = 'block';
-        const r = listBtn.getBoundingClientRect();
-        menu.style.left = Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)) + 'px';
-        menu.style.top = r.bottom + 4 + 'px';
+        layer = openLayer(menu, { kind: 'popover', anchor: listBtn, align: 'end', role: 'menu', group: 'menu' });
       };
     }
     el.querySelectorAll<HTMLElement>('.fe-tab').forEach(a => {

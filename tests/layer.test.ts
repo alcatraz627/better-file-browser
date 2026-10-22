@@ -39,6 +39,9 @@ describe('layers', () => {
     press(anchor);
     expect(p.open).toBe(false);
     expect(anchor.getAttribute('aria-expanded')).toBe('false');
+    // The click that ends the same press does not open it again.
+    expect(openLayer(el, { kind: 'popover', anchor }).open).toBe(false);
+    expect(openLayer(el, { kind: 'popover', anchor }).open).toBe(true);
   });
 
   it('opening a layer in the same group closes the other', () => {

@@ -693,7 +693,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-goto-msg{margin:6px 2px 0;font-size:var(--fs-sm);color:var(--dm)}
 #fe-tabs::-webkit-scrollbar{display:none}
 /* The list of every tab: icon, name, and the digit that jumps to it. */
-.fe-tab-menu .fe-ctx-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-tab-menu .fe-ctx-item span:not(.fe-ctx-key){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-tab-menu .fe-ctx-item.on{color:var(--ac);font-weight:600}
 .fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
@@ -1213,7 +1213,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md-table thead th{background:color-mix(in srgb,var(--s1),var(--tx) 5%);font-weight:600;font-size:inherit;letter-spacing:0;text-transform:none;color:var(--tx);
   white-space:normal;user-select:text;padding:.55em .9em}
 #fe-ctx,.fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
-  min-width:180px;box-shadow:0 8px 24px #0009;display:none;padding:4px 0}
+  min-width:180px;box-shadow:0 8px 24px #0009;padding:4px 0}
+.fe-ctx:not([data-layer]){display:none}
 .fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
   font-size:var(--fs-md);cursor:pointer;white-space:nowrap}
 .fe-ctx-item:hover{background:var(--hover)}

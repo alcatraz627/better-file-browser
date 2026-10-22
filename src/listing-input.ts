@@ -7,6 +7,7 @@ import { el } from './el';
 import { esc, fullPath, copyToClipboard, pageHref } from './utils';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab } from './preview';
 import { bind, addPaletteSource } from './commands';
+import { openLayer, type Layer } from './layer';
 import { getSortConfig, getGroupMode } from './storage';
 import { getIcon } from './icons';
 import type { SortConfig, GroupMode } from './types';
@@ -112,9 +113,8 @@ export function initListingInput(app: App, listing: Listing): void {
   // Context menu on a row or tile.
   const ctxMenu = document.createElement('div');
   ctxMenu.id = 'fe-ctx';
-  ctxMenu.style.display = 'none';
-  fe.appendChild(ctxMenu);
-  const closeCtx = () => { ctxMenu.style.display = 'none'; };
+  let ctx: Layer | null = null;
+  const closeCtx = () => ctx?.close('pick');
   scroll.addEventListener('contextmenu', e => {
     const holder = (e.target as HTMLElement).closest<HTMLElement>('[data-idx]');
     if (!holder) return;
@@ -139,9 +139,7 @@ export function initListingInput(app: App, listing: Listing): void {
           `<div class="fe-ctx-item" data-act="term">Open in terminal</div>`,
         ].join('');
     ctxMenu.dataset.idx = String(idx);
-    ctxMenu.style.display = 'block';
-    ctxMenu.style.left = Math.min(e.clientX, window.innerWidth  - ctxMenu.offsetWidth  - 8) + 'px';
-    ctxMenu.style.top  = Math.min(e.clientY, window.innerHeight - ctxMenu.offsetHeight - 8) + 'px';
+    ctx = openLayer(ctxMenu, { kind: 'popover', place: 'point', point: { x: e.clientX, y: e.clientY }, role: 'menu', group: 'menu' });
   });
   ctxMenu.addEventListener('click', e => {
     const item = (e.target as HTMLElement).closest<HTMLElement>('.fe-ctx-item');
@@ -159,9 +157,6 @@ export function initListingInput(app: App, listing: Listing): void {
       const names = [...ls.selSet].sort((a, b) => a - b).map(i => ls.visible[i].name).join('\n');
       copyToClipboard(names).then(() => toast(`Copied ${ls.selSet.size} names`));
     }
-  });
-  document.addEventListener('click', e => {
-    if (ctxMenu.style.display !== 'none' && !ctxMenu.contains(e.target as Node)) closeCtx();
   });
 
   // Keys, in order: cmd-F, inputs and dialogs, the context menu, the open
@@ -183,10 +178,7 @@ export function initListingInput(app: App, listing: Listing): void {
     if (e.key === '?') { e.preventDefault(); app.openHelp(); return; }
     if (e.key === ',' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.openSettings(); return; }
     if (e.metaKey && e.key === 'ArrowUp') { e.preventDefault(); app.goUp(); return; }   // Finder: go to parent
-    if (ctxMenu.style.display !== 'none') {
-      if (e.key === 'Escape') closeCtx();
-      return;
-    }
+    if (ctx?.open) return;
     if (isPreviewOpen()) {
       if (e.key === 'Escape' || e.key === ' ') { e.preventDefault(); closePreview(); }
       else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); sel.previewStep(1); }

@@ -62,13 +62,13 @@ try {
   check(many === 3, `⇧↓ grows the selection: ${many}`);
   await k('x');
   await sleep(120);
-  const menuOpen = await page.$eval('#fe-ctx', m => m.style.display !== 'none');
+  const menuOpen = await page.$eval('#fe-ctx', m => m.matches(':popover-open') && m.offsetParent !== null || getComputedStyle(m).display !== 'none');
   check(menuOpen, 'x opens the item menu');
   await k('ArrowDown');
   const kb = await page.$$eval('#fe-ctx .fe-ctx-item.kb', r => r.length);
   check(kb === 1, 'arrows move in the menu');
   await k('Escape');
-  check(await page.$eval('#fe-ctx', m => m.style.display === 'none'), 'Esc closes the menu');
+  check(!(await page.$('#fe-ctx')), 'Esc closes the menu');
   await k('.');
   check(await page.$eval('#fe', e => e.classList.contains('show-hidden')), '. shows hidden files');
   await k('.');

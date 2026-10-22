@@ -34,7 +34,9 @@ const RULES = [
   { id: 'css-media', text: (css) => count(css, /@(media|container)\b/g), on: 'css' },
   { id: 'css-dup-selector', text: css => dupSelectors(css), on: 'css' },
   { id: 'js-keydown', code: /addEventListener\(\s*['"]keydown['"]/g, skip: ['layer.ts'] },
-  { id: 'js-outside-click', code: /addEventListener\(\s*['"](mousedown|pointerdown)['"]/g, skip: ['layer.ts'] },
+  // Presses anywhere on the page, and clicks caught at the document, are how a
+  // part closes itself on an outside click; the layer service owns that.
+  { id: 'js-outside-click', code: /addEventListener\(\s*['"](mousedown|pointerdown)['"]|document\.addEventListener\(\s*['"]click['"]/g, skip: ['layer.ts'] },
   { id: 'js-navigation', code: /location\.(href\s*=|assign|replace|reload)|history\.(push|replace)State|window\.open\(/g, skip: [] },
   { id: 'js-storage', code: /\bkv(Get|Set)\(|\b(local|session)Storage\./g, skip: ['kv.ts', 'storage.ts'] },
   { id: 'js-native-control', code: /<select\b|type="checkbox"/g, skip: ['renderers.ts'] },

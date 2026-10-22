@@ -4703,7 +4703,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-goto-msg{margin:6px 2px 0;font-size:var(--fs-sm);color:var(--dm)}
 #fe-tabs::-webkit-scrollbar{display:none}
 /* The list of every tab: icon, name, and the digit that jumps to it. */
-.fe-tab-menu .fe-ctx-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-tab-menu .fe-ctx-item span:not(.fe-ctx-key){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-tab-menu .fe-ctx-item.on{color:var(--ac);font-weight:600}
 .fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
@@ -5223,7 +5223,8 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md-table thead th{background:color-mix(in srgb,var(--s1),var(--tx) 5%);font-weight:600;font-size:inherit;letter-spacing:0;text-transform:none;color:var(--tx);
   white-space:normal;user-select:text;padding:.55em .9em}
 #fe-ctx,.fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
-  min-width:180px;box-shadow:0 8px 24px #0009;display:none;padding:4px 0}
+  min-width:180px;box-shadow:0 8px 24px #0009;padding:4px 0}
+.fe-ctx:not([data-layer]){display:none}
 .fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
   font-size:var(--fs-md);cursor:pointer;white-space:nowrap}
 .fe-ctx-item:hover{background:var(--hover)}
@@ -12883,7 +12884,7 @@ ${end.comment}` : end.comment;
   var OPTIONAL_CLOSE = /* @__PURE__ */ new Set(["p", "li", "td", "th", "tr", "thead", "tbody", "tfoot", "option", "optgroup", "dt", "dd", "html", "head", "body", "colgroup", "caption", "rt", "rp"]);
   function checkHtml(text) {
     const out = [];
-    const stack = [];
+    const stack2 = [];
     const re = /<!--[\s\S]*?(?:-->|$)|<(script|style|textarea|title)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)|<(\/?)([a-zA-Z][\w:-]*)\b(?:[^>"']|"[^"]*"|'[^']*')*?(\/?)>/g;
     for (let m = re.exec(text); m; m = re.exec(text)) {
       if (m[0].startsWith("<!--")) {
@@ -12898,19 +12899,19 @@ ${end.comment}` : end.comment;
       if (VOID.has(name) || m[4] === "/") continue;
       const at = lineCol(text, m.index);
       if (!m[2]) {
-        stack.push({ name, line: at.line });
+        stack2.push({ name, line: at.line });
         continue;
       }
-      const i3 = stack.map((s) => s.name).lastIndexOf(name);
+      const i3 = stack2.map((s) => s.name).lastIndexOf(name);
       if (i3 === -1) {
         out.push({ ...at, severity: "error", message: `</${name}> closes nothing that is open` });
         continue;
       }
-      for (const s of stack.splice(i3).slice(1)) {
+      for (const s of stack2.splice(i3).slice(1)) {
         if (!OPTIONAL_CLOSE.has(s.name)) out.push({ line: s.line, severity: "warn", message: `<${s.name}> is closed implicitly by </${name}> on line ${at.line}` });
       }
     }
-    for (const s of stack) if (!OPTIONAL_CLOSE.has(s.name)) out.push({ line: s.line, severity: "warn", message: `<${s.name}> is never closed` });
+    for (const s of stack2) if (!OPTIONAL_CLOSE.has(s.name)) out.push({ line: s.line, severity: "warn", message: `<${s.name}> is never closed` });
     return out;
   }
   function richHtml(text, href) {
@@ -15487,6 +15488,140 @@ ${d.message}` : d.message;
     });
   }
 
+  // src/layer.ts
+  var CLOSES = {
+    popover: { esc: true, outside: true, anchor: true, scroll: true, blur: true },
+    hovercard: { esc: true, scroll: true },
+    transient: { esc: true },
+    command: { esc: true, outside: true },
+    dialog: { esc: true },
+    float: { esc: true }
+  };
+  var MODAL = { command: true, dialog: true, float: true };
+  var stack = [];
+  var topLayer = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
+  var wired = false;
+  var anchorClosed = null;
+  var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
+  function openLayer(el2, opts) {
+    wire();
+    if (opts.anchor && anchorClosed?.anchor === opts.anchor && performance.now() - anchorClosed.at < 600) {
+      anchorClosed = null;
+      return { el: el2, kind: opts.kind, open: false, close() {
+      }, place() {
+      } };
+    }
+    const existing = stack.find((l) => l.el === el2);
+    existing?.close("replaced");
+    if (opts.group) stack.filter((l) => l.opts.group === opts.group).forEach((l) => l.close("replaced"));
+    const host = document.getElementById("fe") ?? document.body;
+    if (!el2.isConnected) host.appendChild(el2);
+    el2.dataset.layer = opts.kind;
+    if (opts.role) el2.setAttribute("role", opts.role);
+    if (opts.label) el2.setAttribute("aria-label", opts.label);
+    if (MODAL[opts.kind]) el2.setAttribute("aria-modal", "true");
+    if (topLayer) {
+      el2.setAttribute("popover", "manual");
+      el2.showPopover();
+    }
+    const anchor = opts.anchor ?? null;
+    anchor?.setAttribute("aria-expanded", "true");
+    if (anchor && el2.id) anchor.setAttribute("aria-controls", el2.id);
+    let open = true;
+    const layer = {
+      el: el2,
+      kind: opts.kind,
+      opts,
+      returnTo: document.activeElement,
+      get open() {
+        return open;
+      },
+      place: () => position(el2, opts),
+      close(why = "api") {
+        if (!open) return;
+        open = false;
+        const i3 = stack.indexOf(layer);
+        if (i3 >= 0) stack.splice(i3, 1);
+        anchor?.setAttribute("aria-expanded", "false");
+        const hadFocus = el2.contains(document.activeElement);
+        if (topLayer && el2.matches(":popover-open")) el2.hidePopover();
+        el2.remove();
+        if (hadFocus || document.activeElement === document.body) {
+          const back = anchor ?? layer.returnTo;
+          if (back?.isConnected) back.focus({ preventScroll: true });
+        }
+        opts.onClose?.(why);
+      }
+    };
+    stack.push(layer);
+    position(el2, opts);
+    const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
+    if (f === "first") el2.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
+    else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
+    return layer;
+  }
+  function position(el2, o) {
+    const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
+    if (place === "none") return;
+    el2.style.position = "fixed";
+    el2.style.margin = "0";
+    el2.style.inset = "auto";
+    const gap = o.offset ?? 4, pad = 8;
+    const w = el2.offsetWidth, h = el2.offsetHeight;
+    let x, y;
+    if (place === "point" && o.point) {
+      x = o.point.x;
+      y = o.point.y;
+    } else {
+      const r = (o.anchor ?? el2).getBoundingClientRect();
+      if (place === "right") {
+        x = r.right + gap;
+        y = r.top;
+      } else {
+        x = o.align === "end" ? r.right - w : r.left;
+        const below = r.bottom + gap, above = r.top - gap - h;
+        y = place === "above" ? above >= pad ? above : below : below + h <= innerHeight - pad || above < pad ? below : above;
+      }
+    }
+    el2.style.left = `${Math.max(pad, Math.min(x, innerWidth - w - pad))}px`;
+    el2.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
+  }
+  function wire() {
+    if (wired) return;
+    wired = true;
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc);
+      if (!top) return;
+      e.preventDefault();
+      e.stopPropagation();
+      top.close("esc");
+    }, true);
+    document.addEventListener("pointerdown", (e) => {
+      const t = e.target;
+      const top = stack[stack.length - 1];
+      if (!top || top.el.contains(t)) return;
+      const anchor = top.opts.anchor;
+      if (anchor?.contains(t)) {
+        if (CLOSES[top.kind].anchor) {
+          top.close("anchor");
+          anchorClosed = { anchor, at: performance.now() };
+        }
+        return;
+      }
+      anchorClosed = null;
+      if (CLOSES[top.kind].outside) top.close("outside");
+    }, true);
+    document.addEventListener("scroll", (e) => {
+      const t = e.target;
+      for (const l of [...stack]) if (CLOSES[l.kind].scroll && !l.el.contains(t)) l.close("scroll");
+    }, true);
+    document.addEventListener("focusin", (e) => {
+      const t = e.target;
+      for (const l of [...stack]) if (CLOSES[l.kind].blur && !l.el.contains(t) && !l.opts.anchor?.contains(t)) l.close("blur");
+    });
+  }
+
   // src/strip.ts
   var SESSION_KEY = "bfb-strip-v2";
   var RECOVERY_PREFIX = "bfb-strip-v2:";
@@ -15592,11 +15727,8 @@ ${d.message}` : d.message;
     const listBtn = document.getElementById("fe-tab-list");
     const menu = document.createElement("div");
     menu.className = "fe-ctx fe-tab-menu";
-    menu.style.display = "none";
-    (el2.closest("#fe") ?? document.body).appendChild(menu);
-    const closeMenu = () => {
-      menu.style.display = "none";
-    };
+    let layer = null;
+    const closeMenu = () => layer?.close("pick");
     el2.addEventListener("contextmenu", (e) => {
       const a = e.target.closest(".fe-tab[data-id]");
       const t = a && state.list.find((x) => x.id === a.dataset.id);
@@ -15615,10 +15747,7 @@ ${d.message}` : d.message;
         `<div class="fe-ctx-item" data-act="others">Close others</div>`
       ].join("");
       menu.dataset.id = t.id;
-      menu.style.display = "block";
-      const r = anchor.getBoundingClientRect();
-      menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + "px";
-      menu.style.top = r.bottom + 4 + "px";
+      layer = openLayer(menu, { kind: "popover", anchor, role: "menu", group: "menu" });
     }
     menu.addEventListener("click", (e) => {
       const item = e.target.closest(".fe-ctx-item");
@@ -15639,12 +15768,6 @@ ${d.message}` : d.message;
       } else if (act === "pin") commit(togglePin(state, t.id));
       else if (act === "close") closeById(t.id);
       else if (act === "others") commit(closeOthers(state, t.id));
-    });
-    document.addEventListener("click", (e) => {
-      if (menu.style.display !== "none" && !menu.contains(e.target)) closeMenu();
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeMenu();
     });
     function fitHeads() {
       for (const head of el2.querySelectorAll(".fe-tab-head")) {
@@ -15696,10 +15819,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           e.stopPropagation();
           menu.innerHTML = state.list.map((t, i3) => `<div class="fe-ctx-item${t.id === here?.id ? " on" : ""}" data-go="${esc(t.id)}">${t.kind === "file" ? icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "") : icoFolder(t.label)}<span>${esc(labels[i3])}</span>${i3 < 9 ? `<kbd>${i3 + 1}</kbd>` : ""}</div>`).join("");
           menu.dataset.id = "";
-          menu.style.display = "block";
-          const r = listBtn.getBoundingClientRect();
-          menu.style.left = Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)) + "px";
-          menu.style.top = r.bottom + 4 + "px";
+          layer = openLayer(menu, { kind: "popover", anchor: listBtn, align: "end", role: "menu", group: "menu" });
         };
       }
       el2.querySelectorAll(".fe-tab").forEach((a) => {
@@ -18635,11 +18755,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     const ctxMenu = document.createElement("div");
     ctxMenu.id = "fe-ctx";
-    ctxMenu.style.display = "none";
-    fe.appendChild(ctxMenu);
-    const closeCtx = () => {
-      ctxMenu.style.display = "none";
-    };
+    let ctx = null;
+    const closeCtx = () => ctx?.close("pick");
     scroll.addEventListener("contextmenu", (e) => {
       const holder = e.target.closest("[data-idx]");
       if (!holder) return;
@@ -18660,9 +18777,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         `<div class="fe-ctx-item" data-act="term">Open in terminal</div>`
       ].join("");
       ctxMenu.dataset.idx = String(idx);
-      ctxMenu.style.display = "block";
-      ctxMenu.style.left = Math.min(e.clientX, window.innerWidth - ctxMenu.offsetWidth - 8) + "px";
-      ctxMenu.style.top = Math.min(e.clientY, window.innerHeight - ctxMenu.offsetHeight - 8) + "px";
+      ctx = openLayer(ctxMenu, { kind: "popover", place: "point", point: { x: e.clientX, y: e.clientY }, role: "menu", group: "menu" });
     });
     ctxMenu.addEventListener("click", (e) => {
       const item = e.target.closest(".fe-ctx-item");
@@ -18680,9 +18795,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const names = [...ls.selSet].sort((a, b) => a - b).map((i3) => ls.visible[i3].name).join("\n");
         copyToClipboard(names).then(() => toast(`Copied ${ls.selSet.size} names`));
       }
-    });
-    document.addEventListener("click", (e) => {
-      if (ctxMenu.style.display !== "none" && !ctxMenu.contains(e.target)) closeCtx();
     });
     document.addEventListener("keydown", (e) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f") {
@@ -18715,10 +18827,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         app.goUp();
         return;
       }
-      if (ctxMenu.style.display !== "none") {
-        if (e.key === "Escape") closeCtx();
-        return;
-      }
+      if (ctx?.open) return;
       if (isPreviewOpen()) {
         if (e.key === "Escape" || e.key === " ") {
           e.preventDefault();
