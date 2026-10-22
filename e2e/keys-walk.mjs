@@ -112,6 +112,19 @@ try {
   check(before.length > 1 && before.join('|') !== after.join('|'), `⇧→ moves the tab: ${before.join(',')} → ${after.join(',')}`);
   await k('Escape');
 
+  // With a listing row selected, keys in the sidebar act on the sidebar:
+  // ⌫ removes the focused saved row and the page stays put.
+  await page.evaluate(() => document.activeElement?.blur());
+  await k('Home', 'ArrowDown');
+  const urlBefore = page.url();
+  await k('g', '2');
+  await sleep(150);
+  await page.focus('#fe-sv-list .fe-si-link');
+  await k('Backspace');
+  await sleep(200);
+  const savedLeft = await page.$$eval('#fe-sv-list .fe-pl-item', r => r.length);
+  check(page.url() === urlBefore && savedLeft === 0, `⌫ on a saved row removes it and stays on the page: rows=${savedLeft} url kept=${page.url() === urlBefore}`);
+
   // Holding ⌥ shows key badges.
   await page.keyboard.down('Alt');
   await sleep(650);

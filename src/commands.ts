@@ -60,7 +60,7 @@ function setPending(p: string): void {
   if (!p) { pill?.remove(); pill = null; return; }
   pendingTimer = setTimeout(() => setPending(''), 1600);
   if (!pill) { pill = document.createElement('div'); pill.className = 'fe-chord'; (document.getElementById('fe') ?? document.body).appendChild(pill); }
-  const next = OWN.filter(d => d.keys.some(k => k.startsWith(p + ' ')));
+  const next = OWN.filter(d => canRun(d.id) && d.keys.some(k => k.startsWith(p + ' ')));
   pill.innerHTML = `<kbd>${esc(p)}</kbd><span>then</span>${next.slice(0, 8).map(d => `<span class="fe-chord-o"><kbd>${esc(d.keys.find(k => k.startsWith(p + ' '))!.slice(p.length + 1))}</kbd>${esc(d.title)}</span>`).join('')}`;
 }
 
@@ -68,7 +68,9 @@ function setPending(p: string): void {
 export function dispatch(e: KeyboardEvent): boolean {
   const ctx = contextOf();
   const tok = keyToken(e);
-  if (tok === '⌘K') { e.preventDefault(); return runCommand('palette'); }
+  // A text area or editor that binds ⌘K itself (the note editor's link) keeps it.
+  const ae = document.activeElement as HTMLElement | null;
+  if (tok === '⌘K' && !(ae?.tagName === 'TEXTAREA' || ae?.isContentEditable)) { e.preventDefault(); return runCommand('palette'); }
   if (ctx.blocked || ctx.typing) { setPending(''); return false; }
   if (pending) {
     const want = `${pending} ${tok}`;
@@ -79,7 +81,7 @@ export function dispatch(e: KeyboardEvent): boolean {
   }
   const d = OWN.find(x => x.keys.includes(tok) && live(x, ctx) && canRun(x.id));
   if (d) { e.preventDefault(); e.stopImmediatePropagation(); runCommand(d.id); return true; }
-  if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some(x => live(x, ctx) && x.keys.some(k => k.startsWith(tok + ' ')))) {
+  if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some(x => live(x, ctx) && canRun(x.id) && x.keys.some(k => k.startsWith(tok + ' ')))) {
     e.preventDefault(); e.stopImmediatePropagation();
     setPending(tok);
     return true;
@@ -114,7 +116,7 @@ export function openPalette(prefill = ''): void {
   if (paletteEl) { paletteEl.querySelector('input')?.focus(); return; }
   const back = document.activeElement as HTMLElement | null;
   const ctx = contextOf();
-  const cmds: PaletteItem[] = KEYMAP.filter(d => d.own && d.id !== 'palette' && canRun(d.id) && (d.scope === undefined || d.scope === 'any' || ctx.scopes.has(d.scope)))
+  const cmds: PaletteItem[] = KEYMAP.filter(d => d.id !== 'palette' && canRun(d.id) && (d.scope === undefined || d.scope === 'any' || ctx.scopes.has(d.scope)))
     .map(d => ({ title: d.title, keys: d.keys, group: d.group, run: () => runCommand(d.id) }));
   const items = [...cmds, ...sources.flatMap(f => { try { return f(); } catch { return []; } })];
   const box = document.createElement('div');

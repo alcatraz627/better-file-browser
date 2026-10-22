@@ -290,6 +290,7 @@ export function initSettingsUi(app: App): void {
   el<HTMLInputElement>('fe-st-tooltips').addEventListener('change', function () {
     settings.tooltips = this.checked; saveSettings(settings);
     fe.classList.toggle('fe-notips', !this.checked);
+    if (this.checked) toast('Tooltips come back after a reload');
   });
 
   // Folders.

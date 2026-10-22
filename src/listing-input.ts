@@ -175,6 +175,9 @@ export function initListingInput(app: App, listing: Listing): void {
     }
     const ae = document.activeElement;
     if (ae && ['INPUT', 'TEXTAREA', 'SELECT'].includes(ae.tagName)) return;
+    // With the sidebar, tabs or a toolbar focused, moving and acting keys belong to them.
+    if (ae?.closest('#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar')
+      && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' ', 'Backspace', 'Delete', 'Home', 'End'].includes(e.key)) return;
     if (el('fe-settings-modal').style.display !== 'none') return;
     if (el('fe-help-modal').style.display !== 'none') return;
     if (e.key === '?') { e.preventDefault(); app.openHelp(); return; }
@@ -196,8 +199,8 @@ export function initListingInput(app: App, listing: Listing): void {
     if (app.filePage?.key(e)) e.preventDefault();
     else if (app.filePage && e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.filePage.toggleRaw(); }
     else if (app.filePage && e.key === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); app.filePage.edit(); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); sel.moveSel(1); }
-    else if (e.key === 'ArrowUp')   { e.preventDefault(); sel.moveSel(-1); }
+    else if (e.key === 'ArrowDown' && !app.fileMode) { e.preventDefault(); sel.moveSel(1); }
+    else if (e.key === 'ArrowUp' && !app.fileMode)   { e.preventDefault(); sel.moveSel(-1); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); sel.selectAll(); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c' && ls.selSet.size) { e.preventDefault(); sel.copySelection(); }
     else if (e.key === 'Enter' && ls.selIdx >= 0) { location.href = pageHref(ls.visible[ls.selIdx].href); }

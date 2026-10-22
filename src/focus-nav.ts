@@ -59,7 +59,7 @@ export function initFocusNav(app: App): void {
     if (openMenu()) scopes.add('menu');
     return {
       scopes, typing: isTyping(ae),
-      blocked: dialogOpen() || paletteOpen() || !!document.querySelector('.fe-dd-list, .fe-rule-pop, #fe-goto:not([hidden])'),
+      blocked: dialogOpen() || paletteOpen() || !!openMenu() || !!document.querySelector('.fe-dd-list, .fe-rule-pop, #fe-goto:not([hidden])'),
     };
   });
 
@@ -189,6 +189,21 @@ export function initFocusNav(app: App): void {
   // Commands that press the page's own buttons.
   const click = (id: string, init: MouseEventInit = {}) => () => { const b = document.getElementById(id); if (b && !b.hidden) b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init })); };
   bind('palette', () => openPalette());
+  // Actions whose keys their own surfaces answer, bound here so the palette can run them too.
+  const stripKey = (key: string) => () => { app.strip.handleKey(new KeyboardEvent('keydown', { key })); };
+  bind('settings', () => app.openSettings());
+  bind('keys', () => app.openHelp('keys'));
+  bind('tab-keep', stripKey('t'));
+  bind('tab-close', stripKey('w'));
+  bind('tab-pin', stripKey('p'));
+  bind('tab-step', stripKey(']'));
+  bind('tab-reopen', stripKey('T'));
+  bind('new-note', () => app.newNote(), () => !!app.settings.notesRoot);
+  bind('fp-raw', () => app.filePage?.toggleRaw(), () => !!app.filePage);
+  bind('fp-edit', () => app.filePage?.edit(), () => !!app.filePage);
+  bind('fp-find', () => document.getElementById('fe-ff-q')?.focus(), () => app.fileMode);
+  bind('to-path', () => { focusFirst('#fe-bc', 'a.fe-crumb:last-of-type, .fe-crumb.cur, a'); flash(document.activeElement as HTMLElement); });
+  bind('deep', click('fe-deep-btn'), () => !app.fileMode);
   bind('sidebar', click('fe-side-toggle'));
   bind('theme', click('fe-theme-btn'));
   bind('path', click('fe-open-path'));

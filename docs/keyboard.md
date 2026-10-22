@@ -25,8 +25,8 @@ This file is generated from `src/keymap.ts`, the same list the app reads.
 | Keyboard map | <kbd>?</kbd> |
 | Settings | <kbd>,</kbd> |
 | Show keys on screen | hold <kbd>⌥</kbd> |
-| Next area | <kbd>F6</kbd> |
-| Previous area | <kbd>⇧F6</kbd> |
+| Next area | <kbd>F6</kbd> or <kbd>⌃`</kbd> |
+| Previous area | <kbd>⇧F6</kbd> or <kbd>⌃⇧`</kbd> |
 | Sidebar on or off | <kbd>\</kbd> |
 | Dark or light | <kbd>⇧L</kbd> |
 | Close, or step back | <kbd>Esc</kbd> |
@@ -46,6 +46,7 @@ This file is generated from `src/keymap.ts`, the same list the app reads.
 | Focus the sidebar | <kbd>g</kbd> then <kbd>s</kbd> |
 | Focus the tabs | <kbd>g</kbd> then <kbd>t</kbd> |
 | Focus the toolbar | <kbd>g</kbd> then <kbd>b</kbd> |
+| Focus the path bar | <kbd>g</kbd> then <kbd>p</kbd> |
 | Places | <kbd>g</kbd> then <kbd>1</kbd> |
 | Saved | <kbd>g</kbd> then <kbd>2</kbd> |
 | Notes | <kbd>g</kbd> then <kbd>3</kbd> |
@@ -95,6 +96,7 @@ This file is generated from `src/keymap.ts`, the same list the app reads.
 | Reverse the order | <kbd>s</kbd> then <kbd>r</kbd> |
 | Next grouping | <kbd>s</kbd> then <kbd>g</kbd> |
 | Filter panel | <kbd>f</kbd> |
+| Include subfolders | <kbd>⇧D</kbd> |
 | Hidden files | <kbd>.</kbd> |
 | Bigger | <kbd>=</kbd> |
 | Smaller | <kbd>-</kbd> |
@@ -151,6 +153,9 @@ This file is generated from `src/keymap.ts`, the same list the app reads.
 | Comment on selection | <kbd>c</kbd> |
 | Contents | <kbd>⇧O</kbd> |
 | Reading width | <kbd>⇧W</kbd> |
+| Comments panel | <kbd>⇧C</kbd> |
+| Previous or next comment | <kbd>⌥↑</kbd> or <kbd>⌥↓</kbd> |
+| Post, or post a reply | <kbd>⌘↩</kbd> or <kbd>⌘⇧↩</kbd> |
 
 ## Editor
 
@@ -162,6 +167,9 @@ This file is generated from `src/keymap.ts`, the same list the app reads.
 | Copy line | <kbd>⌥⇧↑</kbd> or <kbd>⌥⇧↓</kbd> |
 | Indent | <kbd>⇥</kbd> or <kbd>⇧⇥</kbd> |
 | Undo, redo | <kbd>⌘Z</kbd> or <kbd>⌘⇧Z</kbd> |
+| Link | <kbd>⌘K</kbd> |
+| Strike, heading, quote, numbered list | <kbd>⌘⇧X</kbd> or <kbd>⌘⇧H</kbd> or <kbd>⌘⇧.</kbd> or <kbd>⌘⇧7</kbd> |
+| Raw, split or rich | <kbd>⌘⇧P</kbd> |
 
 ## Menus and dialogs
 

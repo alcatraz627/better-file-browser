@@ -84,6 +84,14 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
   document.addEventListener('keydown', e => {
     if (!isOpen()) return;
     if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'Tab') {
+      // Tab stays inside the dialog, wrapping from the last control to the first.
+      const all = [...box.querySelectorAll<HTMLElement>('button, a[href], input, textarea, [tabindex]:not([tabindex="-1"])')]
+        .filter(x => x.offsetParent !== null && !(x as HTMLButtonElement).disabled && x.tabIndex >= 0);
+      if (!all.length) return;
+      const at = all.indexOf(document.activeElement as HTMLElement);
+      if (e.shiftKey ? at <= 0 : at === all.length - 1 || at < 0) { e.preventDefault(); all[e.shiftKey ? all.length - 1 : 0].focus(); }
+    }
     else if ((e.key === '[' || e.key === ']') && !['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement as HTMLElement)?.tagName)) {
       const i = tabs.findIndex(t => t.classList.contains('on'));
       const j = (i + (e.key === ']' ? 1 : -1) + tabs.length) % tabs.length;

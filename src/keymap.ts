@@ -25,8 +25,8 @@ export const KEYMAP: KeyDef[] = [
   { id: 'keys', group: 'Anywhere', title: 'Keyboard map', keys: ['?'] },
   { id: 'settings', group: 'Anywhere', title: 'Settings', keys: [','] },
   { id: 'hints', group: 'Anywhere', title: 'Show keys on screen', keys: ['hold ⌥'], own: true },
-  { id: 'area-next', group: 'Anywhere', title: 'Next area', keys: ['F6'], own: true },
-  { id: 'area-prev', group: 'Anywhere', title: 'Previous area', keys: ['⇧F6'], own: true },
+  { id: 'area-next', group: 'Anywhere', title: 'Next area', keys: ['F6', '⌃`'], own: true },
+  { id: 'area-prev', group: 'Anywhere', title: 'Previous area', keys: ['⇧F6', '⌃⇧`'], own: true },
   { id: 'sidebar', group: 'Anywhere', title: 'Sidebar on or off', keys: ['\\'], own: true },
   { id: 'theme', group: 'Anywhere', title: 'Dark or light', keys: ['⇧L'], own: true },
   { id: 'esc', group: 'Anywhere', title: 'Close, or step back', keys: ['Esc'] },
@@ -43,6 +43,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'to-sidebar', group: 'Go', title: 'Focus the sidebar', keys: ['g s'], own: true },
   { id: 'to-tabs', group: 'Go', title: 'Focus the tabs', keys: ['g t'], own: true },
   { id: 'to-toolbar', group: 'Go', title: 'Focus the toolbar', keys: ['g b'], own: true },
+  { id: 'to-path', group: 'Go', title: 'Focus the path bar', keys: ['g p'], own: true },
   { id: 'lens-places', group: 'Go', title: 'Places', keys: ['g 1'], own: true },
   { id: 'lens-saved', group: 'Go', title: 'Saved', keys: ['g 2'], own: true },
   { id: 'lens-notes', group: 'Go', title: 'Notes', keys: ['g 3'], own: true },
@@ -86,6 +87,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'sort-rev', group: 'View', title: 'Reverse the order', keys: ['s r'], own: true },
   { id: 'group', group: 'View', title: 'Next grouping', keys: ['s g'], own: true },
   { id: 'filter-panel', group: 'View', title: 'Filter panel', keys: ['f'], own: true },
+  { id: 'deep', group: 'View', title: 'Include subfolders', keys: ['⇧D'], scope: 'listing', own: true },
   { id: 'hidden', group: 'View', title: 'Hidden files', keys: ['.'], own: true },
   { id: 'zoom-in', group: 'View', title: 'Bigger', keys: ['='], own: true },
   { id: 'zoom-out', group: 'View', title: 'Smaller', keys: ['-'], own: true },
@@ -130,6 +132,9 @@ export const KEYMAP: KeyDef[] = [
   { id: 'fp-comment', group: 'File page', title: 'Comment on selection', keys: ['c'], scope: 'file' },
   { id: 'fp-toc', group: 'File page', title: 'Contents', keys: ['⇧O'], scope: 'file', own: true },
   { id: 'fp-width', group: 'File page', title: 'Reading width', keys: ['⇧W'], scope: 'file', own: true },
+  { id: 'fp-comments', group: 'File page', title: 'Comments panel', keys: ['⇧C'], scope: 'file' },
+  { id: 'fp-cm-step', group: 'File page', title: 'Previous or next comment', keys: ['⌥↑', '⌥↓'], scope: 'file' },
+  { id: 'fp-cm-post', group: 'File page', title: 'Post, or post a reply', keys: ['⌘↩', '⌘⇧↩'], scope: 'file' },
 
   // Editor
   { id: 'ed-save', group: 'Editor', title: 'Save', keys: ['⌘S'], scope: 'editor' },
@@ -138,6 +143,9 @@ export const KEYMAP: KeyDef[] = [
   { id: 'ed-dup', group: 'Editor', title: 'Copy line', keys: ['⌥⇧↑', '⌥⇧↓'], scope: 'editor' },
   { id: 'ed-indent', group: 'Editor', title: 'Indent', keys: ['⇥', '⇧⇥'], scope: 'editor' },
   { id: 'ed-undo', group: 'Editor', title: 'Undo, redo', keys: ['⌘Z', '⌘⇧Z'], scope: 'editor' },
+  { id: 'ed-link', group: 'Editor', title: 'Link', keys: ['⌘K'], scope: 'editor' },
+  { id: 'ed-more', group: 'Editor', title: 'Strike, heading, quote, numbered list', keys: ['⌘⇧X', '⌘⇧H', '⌘⇧.', '⌘⇧7'], scope: 'editor' },
+  { id: 'ed-mode', group: 'Editor', title: 'Raw, split or rich', keys: ['⌘⇧P'], scope: 'editor' },
 
   // Menus and dialogs
   { id: 'menu-move', group: 'Menus and dialogs', title: 'Move in a menu', keys: ['↑', '↓'], scope: 'menu', own: true },

@@ -10,15 +10,15 @@ export const UI_CSS = `
 #fe[data-palette="forest"],html:has(#fe[data-palette="forest"]){
   --bg:#0e1310;--s1:#141b16;--s2:#1a231d;--s3:#232e26;--bd:#232d26;--bd2:#334136;--tx:#e6efe8;--mt:#a3b3a7;--dm:#7f9184;--ac:#5fc77a;--on-ac:#0e1310;--dir:#a3b3a7}
 #fe[data-palette="forest"][data-theme="light"],html:has(#fe[data-palette="forest"][data-theme="light"]){
-  --bg:#f0f4ef;--s1:#ffffff;--s2:#eaf0e9;--s3:#dde6dc;--bd:#dbe3d9;--bd2:#c3d0c1;--tx:#18241a;--mt:#4d6151;--dm:#697d6c;--ac:#2e8b47;--on-ac:#ffffff;--dir:#5a6e5d}
+  --bg:#f0f4ef;--s1:#ffffff;--s2:#eaf0e9;--s3:#dde6dc;--bd:#dbe3d9;--bd2:#c3d0c1;--tx:#18241a;--mt:#4d6151;--dm:#697d6c;--ac:#247338;--on-ac:#ffffff;--dir:#5a6e5d}
 #fe[data-palette="ember"],html:has(#fe[data-palette="ember"]){
   --bg:#14100d;--s1:#1c1612;--s2:#251d17;--s3:#30261e;--bd:#30261f;--bd2:#45372b;--tx:#f2e9e1;--mt:#bba99a;--dm:#988676;--ac:#ff8a3d;--on-ac:#14100d;--dir:#bba99a}
 #fe[data-palette="ember"][data-theme="light"],html:has(#fe[data-palette="ember"][data-theme="light"]){
-  --bg:#f8f2ec;--s1:#fffcf9;--s2:#f4ebe2;--s3:#eadccf;--bd:#e8dccf;--bd2:#d6c3b0;--tx:#2b1f15;--mt:#6c5847;--dm:#88725f;--ac:#c85a12;--on-ac:#ffffff;--dir:#7a6553}
+  --bg:#f8f2ec;--s1:#fffcf9;--s2:#f4ebe2;--s3:#eadccf;--bd:#e8dccf;--bd2:#d6c3b0;--tx:#2b1f15;--mt:#6c5847;--dm:#88725f;--ac:#a64a0e;--on-ac:#ffffff;--dir:#7a6553}
 #fe[data-palette="nord"],html:has(#fe[data-palette="nord"]){
   --bg:#1f232b;--s1:#262b34;--s2:#2c323c;--s3:#353c48;--bd:#353c47;--bd2:#444c59;--tx:#e5e9f0;--mt:#aeb6c4;--dm:#8a93a3;--ac:#88c0d0;--on-ac:#1f232b;--dir:#aeb6c4}
 #fe[data-palette="nord"][data-theme="light"],html:has(#fe[data-palette="nord"][data-theme="light"]){
-  --bg:#eceff4;--s1:#ffffff;--s2:#e5e9f0;--s3:#d8dee9;--bd:#d8dee9;--bd2:#c2cad6;--tx:#2e3440;--mt:#4c566a;--dm:#67728a;--ac:#5e81ac;--on-ac:#ffffff;--dir:#5c667a}
+  --bg:#eceff4;--s1:#ffffff;--s2:#e5e9f0;--s3:#d8dee9;--bd:#d8dee9;--bd2:#c2cad6;--tx:#2e3440;--mt:#4c566a;--dm:#67728a;--ac:#4b6c96;--on-ac:#ffffff;--dir:#5c667a}
 .fe-set-thumb[data-p="ocean"]{--a:#4da3ff;--b:#19222f}
 .fe-set-thumb[data-p="forest"]{--a:#5fc77a;--b:#1a231d}
 .fe-set-thumb[data-p="ember"]{--a:#ff8a3d;--b:#251d17}

@@ -21,7 +21,7 @@ export const CSS = `
 #fe[data-theme="light"],html:has(#fe[data-theme="light"]){
   --bg:#eef3f5;--s1:#ffffff;--s2:#eaf0f2;--s3:#dde6ea;
   --bd:#dbe4e8;--bd2:#c5d2d8;--tx:#17232a;--mt:#4f6370;--dm:#6b7f8a;
-  --ac:#0e8f8a;--on-ac:#ffffff;--dir:#5d717c;
+  --ac:#0b7a76;--on-ac:#ffffff;--dir:#5d717c;
   --shade:rgb(110 119 129 / .10);--shade2:rgb(110 119 129 / .18);
   --hover:color-mix(in srgb,var(--tx) 5%,transparent);--act:color-mix(in srgb,var(--ac) 14%,transparent);
   --card:var(--s1);--side:color-mix(in srgb,var(--s1),var(--bg) 45%);
