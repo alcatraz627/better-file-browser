@@ -12,7 +12,8 @@ import { crawl, relativeName } from './deep-search';
 import { EMPTY_FIND, isTextCandidate, searchContents, type FindQuery } from './find';
 import { icoFile } from './icons';
 import { llmAvailability, llmModels, llmQuery, LLM_ERROR_TEXT } from './llm';
-import { addTurn, chatsFor, deleteChat, withHistory, type AskChat, type AskTurn } from './ask-history';
+import { addTurn, allChats, chatsFor, deleteChat, withHistory, type AskChat, type AskTurn } from './ask-history';
+import { addPaletteSource } from './commands';
 import { openLayer, type Layer } from './layer';
 import { kvGet, kvSet } from './kv';
 import { UI_ICON } from './control-icons';
@@ -300,6 +301,20 @@ function initAsk(app: App): void {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go.click(); }
   });
   syncHistN();
+  // Every chat is in the palette's Chats tab. One about this page opens here;
+  // one about another file or folder opens there, through #ask=<chat>.
+  const reopen = (id: string) => {
+    const c = chatsFor(key).find(x => x.id === id);
+    if (!c) return;
+    app.showLens?.('ask');
+    openChat(c);
+  };
+  addPaletteSource(() => allChats().slice(0, 60).map(({ subject, chat }) => ({
+    title: chat.title, sub: `${subject.split('/').filter(Boolean).pop() || '/'} · ${when(chat.at)}`, group: 'Chats', tab: 'chats' as const, icon: UI_ICON.ai,
+    run: () => { if (subject === key) reopen(chat.id); else app.strip.go(subject, '#ask=' + encodeURIComponent(chat.id)); },
+  })));
+  const askHash = /^#ask=(.+)$/.exec(location.hash);
+  if (askHash) setTimeout(() => reopen(decodeURIComponent(askHash[1])), 0);
   document.addEventListener('bfb-lens', e => {
     if ((e as CustomEvent).detail !== 'ask') return;
     if (!checked) void checkModel();

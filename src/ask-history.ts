@@ -16,6 +16,11 @@ function read(): Store {
   catch { return {}; }
 }
 
+/** Every chat about every file or folder, newest first, with what it is about. */
+export function allChats(): { subject: string; chat: AskChat }[] {
+  return Object.entries(read()).flatMap(([subject, list]) => list.map(chat => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
+}
+
 /** The chats about one subject, newest first. */
 export function chatsFor(subject: string): AskChat[] {
   return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);

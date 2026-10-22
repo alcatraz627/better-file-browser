@@ -7,6 +7,7 @@ import { notes } from './notes';
 import { esc, midHtml } from './utils';
 import { icoFile } from './icons';
 import { UI_ICON } from './control-icons';
+import { addPaletteSource } from './commands';
 
 export interface DocRow { doc: string; name: string; open: number; done: number; due?: string[]; mentions?: string[]; tags?: string[]; exists?: boolean; updated?: string }
 export interface DocFilter { q: string; me: boolean; due: boolean; tag?: string }
@@ -87,6 +88,12 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
     const b = (e.target as Element).closest<HTMLElement>('.fe-doc-row');
     if (b) go(b.dataset.doc!, '#comments');
   });
+  // Every commented document is in the palette's Comments tab; the list loads
+  // on first use, so the palette fills that tab when it arrives.
+  addPaletteSource(() => (loaded ? Promise.resolve(all) : (loaded = true, load().then(() => all))).then(rows => docRows(rows).map(r => ({
+    title: r.name, sub: `${short(r.doc)} · ${r.open ? `${r.open} open` : 'all done'}`, group: 'Comments', tab: 'comments' as const,
+    icon: icoFile(r.name.split('.').pop()!.toLowerCase()), run: () => go(r.doc, '#comments'),
+  }))));
   document.addEventListener('bfb-lens', e => {
     if ((e as CustomEvent).detail !== 'comments') return;
     if (!loaded) rowsBox.innerHTML = '<div class="fe-cm-empty"><p>Loading…</p></div>';

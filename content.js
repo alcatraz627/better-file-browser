@@ -3286,6 +3286,9 @@ ${body}
       return {};
     }
   }
+  function allChats() {
+    return Object.entries(read()).flatMap(([subject, list2]) => list2.map((chat) => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
+  }
   function chatsFor(subject) {
     return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
   }
@@ -6105,9 +6108,26 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-pal-q{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd);color:var(--dm)}
 .fe-pal-q input{flex:1;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-xl)}
 .fe-pal-list{flex:1;overflow-y:auto;padding:6px}
+/* Palette tabs: one per kind of entry, each with its own colour, which the
+   entries of that kind share. */
+.fe-pal-tabs{flex:none;display:flex;gap:var(--sp-1);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none}
+.fe-pal-tab{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none;height:var(--ctl-md);padding:0 var(--sp-3);border:0;border-radius:var(--r-full);background:none;color:var(--mt);font:inherit;font-size:var(--fs-sm);cursor:pointer;transition:background var(--t-fast),color var(--t-fast)}
+.fe-pal-tab svg{width:1.1em;height:1.1em;color:var(--tab-c,var(--mt))}
+.fe-pal-tab i{font-style:normal;color:var(--dm);font-size:var(--fs-xs)}
+.fe-pal-tab:hover{background:var(--hover);color:var(--tx)}
+.fe-pal-tab.on{background:color-mix(in srgb,var(--tab-c,var(--ac)) 16%,transparent);color:var(--tx)}
+.fe-pal-tab.empty{opacity:.45}
+.fe-pal-tab[data-tab="actions"],.fe-pal-i[data-tab="actions"]{--tab-c:var(--ac)}
+.fe-pal-tab[data-tab="tabs"],.fe-pal-i[data-tab="tabs"]{--tab-c:var(--nc-blue)}
+.fe-pal-tab[data-tab="saved"],.fe-pal-i[data-tab="saved"]{--tab-c:var(--nc-yellow)}
+.fe-pal-tab[data-tab="recent"],.fe-pal-i[data-tab="recent"]{--tab-c:var(--nc-purple)}
+.fe-pal-tab[data-tab="notes"],.fe-pal-i[data-tab="notes"]{--tab-c:var(--nc-green)}
+.fe-pal-tab[data-tab="here"],.fe-pal-i[data-tab="here"]{--tab-c:var(--dir)}
+.fe-pal-tab[data-tab="comments"],.fe-pal-i[data-tab="comments"]{--tab-c:var(--nc-orange)}
+.fe-pal-tab[data-tab="chats"],.fe-pal-i[data-tab="chats"]{--tab-c:var(--nc-pink)}
 .fe-pal-g{padding:10px 10px 4px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
 .fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
-.fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--mt)}
+.fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--tab-c,var(--mt))}
 .fe-pal-i.on{background:var(--on)}
 .fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
@@ -18518,6 +18538,97 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   function addPaletteSource(fn) {
     sources.push(fn);
   }
+  var TABS = [
+    { id: "all", label: "All", icon: PI.apps },
+    { id: "actions", label: "Actions", icon: UI_ICON.keyboard },
+    { id: "tabs", label: "Tabs", icon: PI.tabset },
+    { id: "saved", label: "Saved", icon: PI.bm },
+    { id: "recent", label: "Recent", icon: PI.recent },
+    { id: "notes", label: "Notes", icon: UI_ICON.notes },
+    { id: "here", label: "Here", icon: PI.folder },
+    { id: "comments", label: "Comments", icon: UI_ICON.comment },
+    { id: "chats", label: "Chats", icon: UI_ICON.ai }
+  ];
+  var TAB_OF_GROUP = { Tabs: "tabs", Saved: "saved", Recent: "recent", Notes: "notes", "This folder": "here", Comments: "comments", Chats: "chats" };
+  var tabOf = (it) => it.tab ?? TAB_OF_GROUP[it.group] ?? "actions";
+  var ACTION_ICON = {
+    keys: UI_ICON.keyboard,
+    settings: PI.gear,
+    hints: UI_ICON.keyboard,
+    sidebar: UI_ICON.preview,
+    theme: UI_ICON.appearance,
+    esc: UI_ICON.close,
+    up: UI_ICON.prev,
+    home: PI.home,
+    path: UI_ICON.link,
+    "open-pick": UI_ICON.folderOpen,
+    save: PI.bm,
+    terminal: UI_ICON.terminal,
+    "terminal-copy": UI_ICON.copy,
+    "area-next": UI_ICON.stack,
+    "area-prev": UI_ICON.stack,
+    "to-listing": UI_ICON.list,
+    "to-sidebar": UI_ICON.preview,
+    "to-tabs": UI_ICON.tab,
+    "to-toolbar": UI_ICON.stack,
+    "to-path": UI_ICON.link,
+    "lens-places": PI.home,
+    "lens-saved": PI.bm,
+    "lens-notes": UI_ICON.notes,
+    "lens-recent": PI.recent,
+    "lens-search": PI.search,
+    "lens-ask": UI_ICON.ai,
+    "lens-docs": UI_ICON.comment,
+    "open-bg": UI_ICON.tab,
+    "open-chrome": UI_ICON.external,
+    menu: UI_ICON.list,
+    "select-all": UI_ICON.task,
+    "copy-paths": UI_ICON.copy,
+    "copy-path": UI_ICON.copy,
+    "copy-name": UI_ICON.copy,
+    filter: PI.search,
+    "new-note": UI_ICON.add,
+    "tree-open": UI_ICON.folderOpen,
+    "tree-close": PI.folder,
+    deep: UI_ICON.stack,
+    "view-details": UI_ICON.table,
+    "view-list": UI_ICON.list,
+    "view-tree": UI_ICON.contents,
+    "view-tiles": PI.apps,
+    "view-icons": UI_ICON.image,
+    "sort-name": UI_ICON.contents,
+    "sort-date": UI_ICON.clock,
+    "sort-size": UI_ICON.data,
+    "sort-type": UI_ICON.file,
+    "sort-rev": UI_ICON.rotate,
+    group: UI_ICON.stack,
+    "filter-panel": PI.search,
+    hidden: UI_ICON.eye,
+    "zoom-in": UI_ICON.zoomIn,
+    "zoom-out": UI_ICON.zoomOut,
+    "zoom-reset": UI_ICON.actualSize,
+    "tab-keep": UI_ICON.tab,
+    "tab-close": UI_ICON.close,
+    "tab-pin": UI_ICON.pin,
+    "tab-step": UI_ICON.next,
+    "tab-reopen": UI_ICON.reset,
+    "tab-left": UI_ICON.prev,
+    "tab-right": UI_ICON.next,
+    "tab-list": UI_ICON.list,
+    "pv-dock": UI_ICON.preview,
+    "pv-copy": UI_ICON.copy,
+    "pv-ask": UI_ICON.ai,
+    "pv-tab": UI_ICON.tab,
+    "pv-open": UI_ICON.external,
+    "fp-raw": UI_ICON.fmtCode,
+    "fp-edit": UI_ICON.rename,
+    "fp-find": PI.search,
+    "fp-toc": UI_ICON.contents,
+    "fp-width": UI_ICON.fit,
+    "fp-comments": UI_ICON.comment,
+    "fp-comment": UI_ICON.comment
+  };
+  var iconFor = (d) => ACTION_ICON[d.id] ?? PI[GROUPS.find((g) => g.name === d.group)?.icon ?? "apps"] ?? "";
   function score(text, q) {
     if (!q) return 1;
     const t = text.toLowerCase(), s = q.toLowerCase();
@@ -18543,38 +18654,58 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return;
     }
     const ctx = contextOf();
-    const cmds = KEYMAP.filter((d) => d.id !== "palette" && canRun(d.id) && (d.scope === void 0 || d.scope === "any" || ctx.scopes.has(d.scope))).map((d) => ({ title: d.title, keys: d.keys, group: d.group, run: () => runCommand(d.id) }));
-    const items = [...cmds, ...sources.flatMap((f) => {
+    const cmds = KEYMAP.filter((d) => d.id !== "palette" && canRun(d.id) && (d.scope === void 0 || d.scope === "any" || ctx.scopes.has(d.scope))).map((d) => ({ title: d.title, keys: d.keys, group: d.group, tab: "actions", icon: iconFor(d), run: () => runCommand(d.id) }));
+    const items = [...cmds];
+    const late = [];
+    for (const f of sources) {
       try {
-        return f();
+        const r = f();
+        if (Array.isArray(r)) items.push(...r);
+        else late.push(r);
       } catch {
-        return [];
       }
-    })];
+    }
     const box = document.createElement("div");
     box.className = "fe-pal-wrap";
     box.innerHTML = `<div class="fe-pal" role="dialog" aria-label="Command palette">
     <div class="fe-pal-q"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input type="text" placeholder="Type a command or a place" spellcheck="false" autocomplete="off" aria-label="Command or place"><kbd>esc</kbd></div>
+    <div class="fe-pal-tabs" role="tablist"></div>
     <div class="fe-pal-list" role="listbox"></div>
-    <div class="fe-pal-foot"><span><kbd>\u2191</kbd><kbd>\u2193</kbd> move</span><span><kbd>\u21A9</kbd> run</span><span><kbd>\u2325\u21A9</kbd> background tab</span></div>
+    <div class="fe-pal-foot"><span><kbd>\u2191</kbd><kbd>\u2193</kbd> move</span><span><kbd>\u21A9</kbd> run</span><span><kbd>\u2325\u21A9</kbd> background tab</span><span><kbd>\u21E5</kbd><kbd>\u21E7\u21E5</kbd> tabs</span></div>
   </div>`;
     paletteEl = box;
     const input = box.querySelector("input");
+    const tabsEl = box.querySelector(".fe-pal-tabs");
     const list2 = box.querySelector(".fe-pal-list");
     let shown = [];
     let at = 0;
+    let tab = "all";
+    const matches = (it, q) => Math.max(score(it.title, q), score(it.sub ?? "", q) * 0.6, q ? score((it.keys ?? []).join(" "), q) * 0.9 : 0);
     const paint = () => {
       const q = input.value.trim();
-      shown = items.map((it) => ({ it, s: Math.max(score(it.title, q), score(it.sub ?? "", q) * 0.6, q ? score((it.keys ?? []).join(" "), q) * 0.9 : 0) })).filter((x) => x.s > 0).sort((a, b) => q ? b.s - a.s : 0).slice(0, 60).map((x) => x.it);
+      const counts = /* @__PURE__ */ new Map();
+      for (const it of items) if (matches(it, q) > 0) {
+        const t = tabOf(it);
+        counts.set(t, (counts.get(t) ?? 0) + 1);
+        counts.set("all", (counts.get("all") ?? 0) + 1);
+      }
+      tabsEl.innerHTML = TABS.map((t) => `<button type="button" role="tab" class="fe-pal-tab${t.id === tab ? " on" : ""}${counts.get(t.id) ? "" : " empty"}" data-tab="${t.id}" aria-selected="${t.id === tab}" tabindex="-1">${t.icon}<span>${t.label}</span>${counts.get(t.id) ? `<i>${counts.get(t.id)}</i>` : ""}</button>`).join("");
+      tabsEl.querySelector(".on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
+      shown = items.filter((it) => tab === "all" || tabOf(it) === tab).map((it) => ({ it, s: matches(it, q) })).filter((x) => x.s > 0).sort((a, b) => q ? b.s - a.s : 0).slice(0, 80).map((x) => x.it);
       at = Math.min(at, Math.max(0, shown.length - 1));
       let lastGroup = "";
       list2.innerHTML = shown.length ? shown.map((it, i3) => {
         const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g">${esc(it.group)}</div>` : "";
         lastGroup = it.group;
-        return `${head}<div class="fe-pal-i${i3 === at ? " on" : ""}" role="option" data-i="${i3}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
-      }).join("") : '<div class="fe-pal-none">Nothing matches</div>';
+        return `${head}<div class="fe-pal-i${i3 === at ? " on" : ""}" role="option" data-i="${i3}" data-tab="${tabOf(it)}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
+      }).join("") : `<div class="fe-pal-none">${late.length && tab !== "all" && !counts.get(tab) ? "Loading\u2026" : "Nothing matches"}</div>`;
       list2.querySelector(".on")?.scrollIntoView({ block: "nearest" });
+    };
+    const setTab = (t) => {
+      tab = t;
+      at = 0;
+      paint();
     };
     const fire2 = (i3, alt = false) => {
       const it = shown[i3];
@@ -18595,8 +18726,21 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } else if (e.key === "Enter") {
         e.preventDefault();
         fire2(at, e.altKey);
-      } else if (e.key === "Tab") e.preventDefault();
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        const ids = TABS.map((t) => t.id);
+        const live2 = ids.filter((id) => id === "all" || tabsEl.querySelector(`[data-tab="${id}"]:not(.empty)`));
+        const i3 = live2.indexOf(tab);
+        setTab(live2[(i3 + (e.shiftKey ? -1 : 1) + live2.length) % live2.length]);
+      }
       e.stopPropagation();
+    });
+    tabsEl.addEventListener("click", (e) => {
+      const b = e.target.closest(".fe-pal-tab");
+      if (b) {
+        setTab(b.dataset.tab);
+        input.focus();
+      }
     });
     list2.addEventListener("mousemove", (e) => {
       const row2 = e.target.closest(".fe-pal-i");
@@ -18611,6 +18755,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     input.value = prefill;
     paint();
+    for (const p of late) p.then((r) => {
+      if (paletteEl !== box) return;
+      items.push(...r);
+      paint();
+    }).catch(() => {
+    });
     const layer = openLayer(box, { kind: "command", place: "none", focus: input, backdrop: box, onClose: () => {
       paletteEl = null;
     } });
@@ -20672,6 +20822,25 @@ ${rows.join("\n")}`, name: subject };
       }
     });
     syncHistN();
+    const reopen = (id) => {
+      const c = chatsFor(key).find((x) => x.id === id);
+      if (!c) return;
+      app.showLens?.("ask");
+      openChat(c);
+    };
+    addPaletteSource(() => allChats().slice(0, 60).map(({ subject: subject2, chat }) => ({
+      title: chat.title,
+      sub: `${subject2.split("/").filter(Boolean).pop() || "/"} \xB7 ${when(chat.at)}`,
+      group: "Chats",
+      tab: "chats",
+      icon: UI_ICON.ai,
+      run: () => {
+        if (subject2 === key) reopen(chat.id);
+        else app.strip.go(subject2, "#ask=" + encodeURIComponent(chat.id));
+      }
+    })));
+    const askHash = /^#ask=(.+)$/.exec(location.hash);
+    if (askHash) setTimeout(() => reopen(decodeURIComponent(askHash[1])), 0);
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "ask") return;
       if (!checked) void checkModel();
@@ -21293,6 +21462,14 @@ ${rows.join("\n")}`, name: subject };
       const b = e.target.closest(".fe-doc-row");
       if (b) go(b.dataset.doc, "#comments");
     });
+    addPaletteSource(() => (loaded ? Promise.resolve(all) : (loaded = true, load().then(() => all))).then((rows) => docRows(rows).map((r) => ({
+      title: r.name,
+      sub: `${short(r.doc)} \xB7 ${r.open ? `${r.open} open` : "all done"}`,
+      group: "Comments",
+      tab: "comments",
+      icon: icoFile(r.name.split(".").pop().toLowerCase()),
+      run: () => go(r.doc, "#comments")
+    }))));
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "comments") return;
       if (!loaded) rowsBox.innerHTML = '<div class="fe-cm-empty"><p>Loading\u2026</p></div>';
