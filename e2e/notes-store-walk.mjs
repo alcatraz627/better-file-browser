@@ -1,19 +1,20 @@
-// Walks the Notes surface on a copy of a real shared notes store (Switchboard's
-// ~/Notes: id-named files, Switchboard frontmatter, git history, an agent note,
-// a note holding both sides of a clash). The smoke test's notes folder is made
-// up; this one checks bfb against the store the owner actually uses.
+// Walks the Notes surface on a copy of a store shaped like the one Switchboard
+// and the phone share (id-named files, Switchboard frontmatter, git history, an agent note,
+// a note holding both sides of a clash), made by make-notes-store.mjs. The
+// smoke test's notes folder is simpler; this one holds the shapes the shared store has.
 //
-//   BFB_NOTES_SRC=/path/to/Notes node e2e/notes-store-walk.mjs   (default ~/Notes)
+//   node e2e/notes-store-walk.mjs   (a generated store; BFB_NOTES_SRC names another scratch store, never a real Notes folder)
 //
 // The source folder is copied, never written. Each check names what a person
 // would see go wrong, so a FAIL line reads as the defect.
+import { notesSource, scratchStore } from './make-notes-store.mjs';
 import { launch, shot } from './harness.mjs';
 import { cpSync, rmSync, readdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 
-const SRC = process.env.BFB_NOTES_SRC || join(homedir(), 'Notes');
+const SRC = notesSource();
 const store = join(tmpdir(), `bfb-store-walk-${process.pid}`);
 rmSync(store, { recursive: true, force: true });
 cpSync(SRC, store, { recursive: true });
@@ -52,7 +53,8 @@ try {
   const rows = await page.$$eval('#fe-nt-list .fe-nt-item', els => els.map(e => ({
     rel: e.getAttribute('data-rel'), label: e.querySelector('.fe-nt-label')?.textContent })));
   check(rows.length === mdFiles.length, `the sidebar lists every note in the store: ${rows.length} of ${mdFiles.length}`);
-  const wrongNames = rows.filter(r => existsSync(join(store, r.rel)) && r.label !== titleOf(r.rel)).map(r => ({ ...r, want: titleOf(r.rel) }));
+  // An empty note has no title of its own, so its row may read as its file name.
+  const wrongNames = rows.filter(r => existsSync(join(store, r.rel)) && titleOf(r.rel) && r.label !== titleOf(r.rel)).map(r => ({ ...r, want: titleOf(r.rel) }));
   check(wrongNames.length === 0, `each row shows the note's title, not its file name: ${JSON.stringify(wrongNames.slice(0, 4))}`);
   const filenameLabels = rows.filter(r => /^\d{8}-\d{6}/.test(r.label || ''));
   check(filenameLabels.length === 0, `no row is labelled with a raw id: ${JSON.stringify(filenameLabels.slice(0, 4))}`);

@@ -1,17 +1,18 @@
 // Walks note properties (title, colour, pin, tags) on a scratch copy of a real notes store:
 // the chips above the editor, the frontmatter guard, and the sidebar order and menu.
 //
-//   BFB_NOTES_SRC=~/Notes BFB_NOTES_SCRATCH=/private/tmp/.../scratch node e2e/notes-props-walk.mjs
+//   node e2e/notes-props-walk.mjs   (a generated store; BFB_NOTES_SRC names another scratch store, never a real Notes folder)
 //   BFB_THEME=light ...   (same checks on the light theme, screenshots get a -light suffix)
 //
 // The source folder is copied, never written.
+import { notesSource, scratchStore } from './make-notes-store.mjs';
 import { launch, shot, applyTheme } from './harness.mjs';
 import { cpSync, rmSync, readdirSync, readFileSync, existsSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
-const SRC = process.env.BFB_NOTES_SRC || join(homedir(), 'Notes');
-const store = process.env.BFB_NOTES_SCRATCH || '/private/tmp/claude-501/bfb-notes-scratch';
+const SRC = notesSource();
+const store = scratchStore(SRC, 'props-walk');
 rmSync(store, { recursive: true, force: true });
 mkdirSync(store, { recursive: true });
 cpSync(SRC, store, { recursive: true, preserveTimestamps: true });

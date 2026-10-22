@@ -1,6 +1,6 @@
 // Walks the shared note order (specs/order.md) in the sidebar on a scratch store it builds itself:
 // pinned first, then never-arranged notes newest created first, then `pos` in byte order, and an
-// edit or a new note never reshuffles the arranged ones. Also the one-line editor header title.
+// edit or a new note never reshuffles the arranged ones. Also the one-line title chip in the editor.
 //
 //   node e2e/notes-order-walk.mjs      (BFB_THEME=light for the light theme)
 import { launch, shot, applyTheme } from './harness.mjs';
@@ -63,16 +63,16 @@ try {
   const afterNew = await rows(page);
   check(afterNew.length === 8 && afterNew.slice(0, 2).join() === 'p1.md,p2.md' && afterNew[2].startsWith('brand-new') && afterNew.slice(3).join() === want.slice(2).join(), `a new note lands first among the unarranged: ${afterNew.join(' ')}`);
 
-  // The header name is one line, cut in the middle.
+  // The note's title shows once, in its title chip under the header: one line, cut in the middle.
   await page.setViewport({ width: 900, height: 900 });
   await page.click('#fe-nt-list .fe-nt-item[data-rel="zz-long.md"] .fe-si-link');
   await page.waitForSelector('#fe-ed-src', { timeout: 8_000 });
   await sleep(300);
-  const hdr = await page.$eval('#fe-ql-name', e => {
+  const hdr = await page.$eval('#fe-meta-title', e => {
     const hd = e.querySelector('.fe-mid-h');
     return { tail: e.querySelector('.fe-mid-t')?.textContent ?? '', cut: !!hd && hd.scrollWidth > hd.clientWidth + 1, h: e.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(e).lineHeight) || 18 };
   });
-  check(hdr.cut && hdr.tail.length === 10 && LONG.endsWith(hdr.tail) && hdr.h < 30, `the editor header title is one line cut in the middle, ending "${hdr.tail}"`);
+  check(hdr.cut && hdr.tail.length === 10 && LONG.endsWith(hdr.tail) && hdr.h < 30, `the note's title chip is one line cut in the middle, ending "${hdr.tail}"`);
   await shot(page, 'order-header');
 } finally {
   await h.close();

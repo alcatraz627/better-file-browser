@@ -11,7 +11,7 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, slugForTitle, retitle, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
+import { notes, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
 import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
@@ -607,11 +607,11 @@ export function initSidebar(app: App): void {
       // An emptied box means "never mind", not "call it untitled".
       if (!val.trim()) { back(); return; }
       notes.read(root, rel).then(async doc => {
-        // Rename does the same thing to every note: the file takes the new
-        // title's name, and the title itself goes where this note keeps it
-        // (its properties block, or else its first line). The file moves
-        // first, so a name already taken changes nothing.
-        const to = rel.replace(/[^/]+$/, slugForTitle(val));
+        // Rename puts the title where this note keeps it (its properties
+        // block, or else its first line). A note named after its title also
+        // takes the new title's file name, moved first so a name already
+        // taken changes nothing; a note whose name is its id keeps it.
+        const to = nameIsId(rel) ? rel : rel.replace(/[^/]+$/, slugForTitle(val));
         if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some(n => n.rel.toLowerCase() === to.toLowerCase())) {
           toast(`A note named ${to.split('/').pop()} already exists. Pick another title.`);
           back();

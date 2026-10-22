@@ -2,8 +2,9 @@
 // zoom, actual size, rotate, flip, copy image (read back from the clipboard), open in app.
 // "Open in app" goes through the real launcher host with a fake `open` first on PATH, so no app opens.
 //
-//   BFB_NOTES_SRC=~/Notes BFB_NOTES_SCRATCH=/private/tmp/.../scratch node e2e/image-toolbar-walk.mjs
+//   node e2e/image-toolbar-walk.mjs   (a generated store; BFB_NOTES_SRC names another scratch store, never a real Notes folder)
 //   BFB_THEME=light ...
+import { notesSource, scratchStore } from './make-notes-store.mjs';
 import { launch, shot, applyTheme } from './harness.mjs';
 import { cpSync, rmSync, readFileSync, existsSync, writeFileSync, mkdirSync, chmodSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -11,8 +12,8 @@ import { tmpdir, homedir } from 'node:os';
 import { createHash } from 'node:crypto';
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
-const SRC = process.env.BFB_NOTES_SRC || join(homedir(), 'Notes');
-const store = process.env.BFB_NOTES_SCRATCH || '/private/tmp/claude-501/bfb-notes-scratch';
+const SRC = notesSource();
+const store = scratchStore(SRC, 'image-walk');
 rmSync(store, { recursive: true, force: true });
 mkdirSync(store, { recursive: true });
 cpSync(SRC, store, { recursive: true, preserveTimestamps: true });

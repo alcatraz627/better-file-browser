@@ -166,6 +166,14 @@ export function setFirstLine(text: string, title: string): string | null {
   return `# ${title}\n\n` + text;
 }
 
+/** Whether a note's file name is its id: Switchboard and the phone name a
+ *  note by the moment it was made (20261009-203134.md, with an optional
+ *  -a1b2), and its place in their order and its git history hang on that
+ *  name, so a rename changes only its title. */
+export function nameIsId(rel: string): boolean {
+  return /^\d{8}-\d{6}(-[0-9a-f]{4})?\.md$/i.test(rel.split('/').pop() ?? '');
+}
+
 // Give a note a new title wherever it keeps one now: the properties block
 // when that names a title, otherwise the first line of the writing. Pinning or
 // colouring adds a properties block without a title, and the title then still

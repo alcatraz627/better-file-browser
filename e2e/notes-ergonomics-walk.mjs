@@ -2,18 +2,17 @@
 // the right-click menu, keyboard rename and delete, previous and next, the folder picker,
 // and one-line middle-truncated titles with the click-to-edit box.
 //
-//   BFB_NOTES_SRC=<store made by fuzz_notes.py> node e2e/notes-ergonomics-walk.mjs
+//   node e2e/notes-ergonomics-walk.mjs   (a generated store; BFB_NOTES_SRC names another scratch store, never a real Notes folder)
 //   BFB_THEME=light ...   (same checks on the light theme, screenshots get a -light suffix)
 //
 // The source folder is copied, never written.
+import { notesSource, scratchStore } from './make-notes-store.mjs';
 import { launch, shot, applyTheme } from './harness.mjs';
 import { cpSync, rmSync, readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const SRC = process.env.BFB_NOTES_SRC;
-if (!SRC) throw new Error('set BFB_NOTES_SRC to a scratch notes store (never the real ~/Notes)');
-if (/\/Notes\/?$/.test(SRC) && !/scratch|fuzz/.test(SRC)) throw new Error('refusing to copy a real Notes folder');
-const store = process.env.BFB_NOTES_SCRATCH || '/private/tmp/claude-501/laneD/walk-store';
+const SRC = notesSource();
+const store = scratchStore(SRC, 'ergonomics-walk');
 rmSync(store, { recursive: true, force: true });
 mkdirSync(store, { recursive: true });
 cpSync(SRC, store, { recursive: true, preserveTimestamps: true });
@@ -139,9 +138,9 @@ try {
   check(afterPick.rows > 0 && afterPick.saved === store, `choosing a folder lists its notes and remembers it: ${JSON.stringify(afterPick)}`);
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="notes"]');
-  const setBtn = await page.$eval('#fe-st-notes-pick', e => ({ text: e.textContent.trim(), icon: !!e.querySelector('svg') }));
+  const setBtn = await page.$eval('#fe-st-notes-pick', e => ({ name: e.getAttribute('aria-label') || e.title || e.textContent.trim(), icon: !!e.querySelector('svg') }));
   const fieldVal = await page.$eval('#fe-st-notes-root', e => e.value);
-  check(setBtn.icon && /Choose/.test(setBtn.text) && fieldVal === store, `Settings > Notes has a Choose button with an icon and shows the path: ${JSON.stringify(setBtn)}`);
+  check(setBtn.icon && /Choose/.test(setBtn.name) && fieldVal === store, `Settings > Notes has a Choose button with an icon and shows the path: ${JSON.stringify(setBtn)}`);
   await sleep(300);
   await shot(page, 'nt-pick-settings');
   await page.$eval('#fe-st-notes-root', e => { e.value = ''; e.dispatchEvent(new Event('change')); });
@@ -179,7 +178,7 @@ try {
   await page.click(`${rowSel(longRel)} .fe-si-link`);
   await page.waitForSelector('#fe-meta-title', { timeout: 8_000 }).catch(() => null);
   await sleep(300);
-  const chip = await page.$eval('#fe-meta-title', e => ({ tag: e.tagName, h: e.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(e).lineHeight), icon: !!e.querySelector('svg'), full: e.dataset.title, cut: (() => { const hd = e.querySelector('.fe-mid-h'); return !!hd && hd.scrollWidth > hd.clientWidth + 1; })() }));
+  const chip = await page.$eval('#fe-meta-title', e => ({ tag: e.tagName, h: e.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.3, icon: !!e.querySelector('svg'), full: e.dataset.title, cut: (() => { const hd = e.querySelector('.fe-mid-h'); return !!hd && hd.scrollWidth > hd.clientWidth + 1; })() }));
   check(chip.tag === 'BUTTON' && chip.icon && chip.full === longest.full && chip.cut && chip.h < chip.lh * 1.8, `the editor title chip is one line, cut in the middle, with an icon: ${chip.h.toFixed(0)}px tall, cut=${chip.cut}`);
   await shot(page, 'nt-chip-oneline');
   await page.click('#fe-meta-title');

@@ -759,6 +759,9 @@ ${fm}
 
 ` + text;
   }
+  function nameIsId(rel) {
+    return /^\d{8}-\d{6}(-[0-9a-f]{4})?\.md$/i.test(rel.split("/").pop() ?? "");
+  }
   function retitle(text, title) {
     const { head, body } = splitNote(text);
     if (head && /^title:/m.test(head)) return setTitle(text, title);
@@ -20726,7 +20729,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           return;
         }
         notes.read(root, rel).then(async (doc) => {
-          const to = rel.replace(/[^/]+$/, slugForTitle(val));
+          const to = nameIsId(rel) ? rel : rel.replace(/[^/]+$/, slugForTitle(val));
           if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some((n) => n.rel.toLowerCase() === to.toLowerCase())) {
             toast(`A note named ${to.split("/").pop()} already exists. Pick another title.`);
             back();
