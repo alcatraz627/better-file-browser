@@ -241,24 +241,24 @@
   function samePlace(a, b) {
     return a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
   }
-  function dedupePlaces(list2) {
-    return list2.filter((p, i3) => list2.findIndex((q) => samePlace(q.path, p.path)) === i3);
+  function dedupePlaces(list3) {
+    return list3.filter((p, i3) => list3.findIndex((q) => samePlace(q.path, p.path)) === i3);
   }
-  function upsertPlace(list2, place) {
-    if (list2.some((p) => samePlace(p.path, place.path))) return list2;
-    return [...list2, place];
+  function upsertPlace(list3, place) {
+    if (list3.some((p) => samePlace(p.path, place.path))) return list3;
+    return [...list3, place];
   }
-  function removePlace(list2, path) {
-    return list2.filter((p) => !samePlace(p.path, path));
+  function removePlace(list3, path) {
+    return list3.filter((p) => !samePlace(p.path, path));
   }
-  function renamePlace(list2, path, label) {
-    return list2.map((p) => p.path === path ? { ...p, label } : p);
+  function renamePlace(list3, path, label) {
+    return list3.map((p) => p.path === path ? { ...p, label } : p);
   }
-  function movePlace(list2, fromPath, toPath) {
-    const from = list2.findIndex((p) => p.path === fromPath);
-    const to = list2.findIndex((p) => p.path === toPath);
-    if (from < 0 || to < 0 || from === to) return list2;
-    const next = [...list2];
+  function movePlace(list3, fromPath, toPath) {
+    const from = list3.findIndex((p) => p.path === fromPath);
+    const to = list3.findIndex((p) => p.path === toPath);
+    if (from < 0 || to < 0 || from === to) return list3;
+    const next = [...list3];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
     return next;
@@ -271,13 +271,13 @@
     }
     return out;
   }
-  function setTags(list2, path, tags) {
-    return list2.map((p) => p.path === path ? { ...p, tags: tags.length ? tags : void 0 } : p);
+  function setTags(list3, path, tags) {
+    return list3.map((p) => p.path === path ? { ...p, tags: tags.length ? tags : void 0 } : p);
   }
   var TAG_COLORS = ["#58a6ff", "#3fb950", "#d29922", "#f778ba", "#a371f7", "#f0883e", "#39c5cf", "#8b949e"];
-  function reconcileTags(list2, tags) {
+  function reconcileTags(list3, tags) {
     const used = [];
-    for (const p of list2) for (const t of p.tags ?? []) if (!used.includes(t)) used.push(t);
+    for (const p of list3) for (const t of p.tags ?? []) if (!used.includes(t)) used.push(t);
     const kept = tags.filter((t) => used.includes(t.name));
     for (const name of used) {
       if (kept.some((t) => t.name === name)) continue;
@@ -292,19 +292,19 @@
       return { ...t, color: TAG_COLORS[(i3 + 1) % TAG_COLORS.length] };
     });
   }
-  function filterSaved(list2, text) {
+  function filterSaved(list3, text) {
     const words = text.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!words.length) return list2;
-    return list2.filter((p) => {
+    if (!words.length) return list3;
+    return list3.filter((p) => {
       const tags = (p.tags ?? []).map((t) => t.toLowerCase());
       const hay = `${p.label} ${p.path} ${tags.join(" ")}`.toLowerCase();
       return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
     });
   }
-  function groupByTag(list2, tags) {
-    const groups = [{ tag: null, items: list2.filter((p) => !p.tags?.length) }];
+  function groupByTag(list3, tags) {
+    const groups = [{ tag: null, items: list3.filter((p) => !p.tags?.length) }];
     for (const tag of tags) {
-      const items = list2.filter((p) => p.tags?.[0] === tag.name);
+      const items = list3.filter((p) => p.tags?.[0] === tag.name);
       if (items.length) groups.push({ tag, items });
     }
     return groups;
@@ -501,15 +501,15 @@
   }
   var isSaved = (path) => getSaved().some((p) => samePlace(p.path, path));
   function toggleSaved(path, label) {
-    const list2 = getSaved();
-    const was = list2.some((p) => samePlace(p.path, path));
-    saveSaved(was ? removePlace(list2, path) : upsertPlace(list2, { path, label }));
+    const list3 = getSaved();
+    const was = list3.some((p) => samePlace(p.path, path));
+    saveSaved(was ? removePlace(list3, path) : upsertPlace(list3, { path, label }));
     return !was;
   }
-  function saveSaved(list2) {
-    list2 = dedupePlaces(list2);
-    kvSet(SAVED_KEY, JSON.stringify(list2));
-    kvSet(TAGS_KEY, JSON.stringify(reconcileTags(list2, readList(TAGS_KEY))));
+  function saveSaved(list3) {
+    list3 = dedupePlaces(list3);
+    kvSet(SAVED_KEY, JSON.stringify(list3));
+    kvSet(TAGS_KEY, JSON.stringify(reconcileTags(list3, readList(TAGS_KEY))));
   }
   function getTags() {
     return reconcileTags(getSaved(), readList(TAGS_KEY));
@@ -519,16 +519,16 @@
   }
   function getRecents() {
     try {
-      const list2 = JSON.parse(kvGet(RECENTS_KEY) ?? "[]");
-      return Array.isArray(list2) ? list2.filter((r) => typeof r?.path === "string") : [];
+      const list3 = JSON.parse(kvGet(RECENTS_KEY) ?? "[]");
+      return Array.isArray(list3) ? list3.filter((r) => typeof r?.path === "string") : [];
     } catch {
       return [];
     }
   }
   function pushRecent(path) {
-    const list2 = getRecents().filter((r) => r.path !== path);
-    list2.unshift({ path, ts: Date.now() });
-    kvSet(RECENTS_KEY, JSON.stringify(list2.slice(0, 40)));
+    const list3 = getRecents().filter((r) => r.path !== path);
+    list3.unshift({ path, ts: Date.now() });
+    kvSet(RECENTS_KEY, JSON.stringify(list3.slice(0, 40)));
   }
   var HOME_KEY = "bfb-home-v1";
   function homeDir(path) {
@@ -866,19 +866,19 @@ ${body}`;
     const a = keep(before), b = keep(after);
     return a.length === b.length && a.every((l, i3) => l === b[i3]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
   }
-  function sharedOrder(list2) {
+  function sharedOrder(list3) {
     const made = (n) => n.created ?? n.mtime;
-    return [...list2].sort((x, y) => {
+    return [...list3].sort((x, y) => {
       if (!!x.pinned !== !!y.pinned) return x.pinned ? -1 : 1;
       if (!x.pos !== !y.pos) return x.pos ? 1 : -1;
       if (!x.pos) return made(y) - made(x) || (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
       return x.pos < y.pos ? -1 : x.pos > y.pos ? 1 : x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0;
     });
   }
-  function filterNotes(list2, query) {
+  function filterNotes(list3, query) {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!words.length) return list2;
-    return list2.filter((n) => {
+    if (!words.length) return list3;
+    return list3.filter((n) => {
       const tags = (n.tags ?? []).map((t) => t.toLowerCase());
       const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ""} ${tags.join(" ")}`.toLowerCase();
       return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
@@ -1183,21 +1183,21 @@ ${body}`;
       if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
       const t = e.target;
       if (t.isContentEditable || t.matches("textarea, select, input:not([type=checkbox], [type=radio], [type=button], [type=submit])")) return;
-      const list2 = [...root.querySelectorAll(items)].filter((x) => !x.hasAttribute("disabled") && x.offsetParent !== null);
-      if (!list2.length) return;
-      const i3 = list2.indexOf(document.activeElement);
+      const list3 = [...root.querySelectorAll(items)].filter((x) => !x.hasAttribute("disabled") && x.offsetParent !== null);
+      if (!list3.length) return;
+      const i3 = list3.indexOf(document.activeElement);
       const next = axis !== "horizontal" && e.key === "ArrowDown" || axis !== "vertical" && e.key === "ArrowRight";
       const prev = axis !== "horizontal" && e.key === "ArrowUp" || axis !== "vertical" && e.key === "ArrowLeft";
       let to = -1;
       if (e.key === "Home") to = 0;
-      else if (e.key === "End") to = list2.length - 1;
-      else if (next) to = i3 < 0 ? 0 : i3 + 1 >= list2.length ? o.wrap === false ? i3 : 0 : i3 + 1;
-      else if (prev) to = i3 <= 0 ? o.wrap === false ? 0 : list2.length - 1 : i3 - 1;
+      else if (e.key === "End") to = list3.length - 1;
+      else if (next) to = i3 < 0 ? 0 : i3 + 1 >= list3.length ? o.wrap === false ? i3 : 0 : i3 + 1;
+      else if (prev) to = i3 <= 0 ? o.wrap === false ? 0 : list3.length - 1 : i3 - 1;
       if (to < 0) return;
       e.preventDefault();
       e.stopPropagation();
-      list2[to].focus();
-      o.onMove?.(list2[to]);
+      list3[to].focus();
+      o.onMove?.(list3[to]);
     };
     root.addEventListener("keydown", onKey);
     return () => root.removeEventListener("keydown", onKey);
@@ -1920,7 +1920,7 @@ ${body}`;
     paletteEl = box;
     const input = box.querySelector("input");
     const tabsEl = box.querySelector(".fe-pal-tabs");
-    const list2 = box.querySelector(".fe-pal-list");
+    const list3 = box.querySelector(".fe-pal-list");
     let shown = [];
     let at = 0;
     let tab = "all";
@@ -1938,12 +1938,12 @@ ${body}`;
       shown = items.filter((it) => tab === "all" || tabOf(it) === tab).map((it) => ({ it, s: matches(it, q) })).filter((x) => x.s > 0).sort((a, b) => q ? b.s - a.s : 0).slice(0, 80).map((x) => x.it);
       at = Math.min(at, Math.max(0, shown.length - 1));
       let lastGroup = "";
-      list2.innerHTML = shown.length ? shown.map((it, i3) => {
+      list3.innerHTML = shown.length ? shown.map((it, i3) => {
         const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g">${esc(it.group)}</div>` : "";
         lastGroup = it.group;
         return `${head}<div class="fe-pal-i${i3 === at ? " on" : ""}" role="option" data-i="${i3}" data-tab="${tabOf(it)}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
       }).join("") : `<div class="fe-pal-none">${late.length && tab !== "all" && !counts.get(tab) ? "Loading\u2026" : "Nothing matches"}</div>`;
-      list2.querySelector(".on")?.scrollIntoView({ block: "nearest" });
+      list3.querySelector(".on")?.scrollIntoView({ block: "nearest" });
     };
     const setTab = (t) => {
       tab = t;
@@ -1985,14 +1985,14 @@ ${body}`;
         input.focus();
       }
     });
-    list2.addEventListener("mousemove", (e) => {
+    list3.addEventListener("mousemove", (e) => {
       const row2 = e.target.closest(".fe-pal-i");
       if (row2 && Number(row2.dataset.i) !== at) {
         at = Number(row2.dataset.i);
-        list2.querySelectorAll(".fe-pal-i").forEach((r) => r.classList.toggle("on", r === row2));
+        list3.querySelectorAll(".fe-pal-i").forEach((r) => r.classList.toggle("on", r === row2));
       }
     });
-    list2.addEventListener("click", (e) => {
+    list3.addEventListener("click", (e) => {
       const row2 = e.target.closest(".fe-pal-i");
       if (row2) fire2(Number(row2.dataset.i), e.altKey);
     });
@@ -3947,22 +3947,22 @@ ${body}
     }
   }
   function allChats() {
-    return Object.entries(read()).flatMap(([subject, list2]) => list2.map((chat) => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
+    return Object.entries(read()).flatMap(([subject, list3]) => list3.map((chat) => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
   }
   function chatsFor(subject) {
     return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
   }
   function addTurn(subject, chatId, turn) {
     const store = read();
-    const list2 = store[subject] ?? [];
-    let chat = list2.find((c) => c.id === chatId);
+    const list3 = store[subject] ?? [];
+    let chat = list3.find((c) => c.id === chatId);
     if (!chat) {
       chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] };
-      list2.push(chat);
+      list3.push(chat);
     }
     chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
     chat.at = turn.at;
-    store[subject] = list2.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
+    store[subject] = list3.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
     const subjects = Object.keys(store);
     if (subjects.length > SUBJECTS) {
       const last = (k) => Math.max(...store[k].map((c) => c.at));
@@ -12700,15 +12700,15 @@ ${end.comment}` : end.comment;
   };
 
   // node_modules/yaml/browser/dist/parse/parser.js
-  function includesToken(list2, type) {
-    for (let i3 = 0; i3 < list2.length; ++i3)
-      if (list2[i3].type === type)
+  function includesToken(list3, type) {
+    for (let i3 = 0; i3 < list3.length; ++i3)
+      if (list3[i3].type === type)
         return true;
     return false;
   }
-  function findNonEmptyIndex(list2) {
-    for (let i3 = 0; i3 < list2.length; ++i3) {
-      switch (list2[i3].type) {
+  function findNonEmptyIndex(list3) {
+    for (let i3 = 0; i3 < list3.length; ++i3) {
+      switch (list3[i3].type) {
         case "space":
         case "comment":
         case "newline":
@@ -13703,8 +13703,8 @@ ${end.comment}` : end.comment;
     const { docs, lineCounter } = yamlDocs(text);
     const out = [];
     for (const d of docs) {
-      for (const [list2, severity] of [[d.errors, "error"], [d.warnings, "warn"]]) {
-        for (const e of list2) {
+      for (const [list3, severity] of [[d.errors, "error"], [d.warnings, "warn"]]) {
+        for (const e of list3) {
           const p = lineCounter.linePos(e.pos[0]);
           out.push({ line: p.line + lineOffset, col: p.col, severity, message: e.message.split("\n")[0] });
         }
@@ -14836,11 +14836,11 @@ and ${diags.length - 12} more` : "");
   }
   function commentHtml(text) {
     const out = [];
-    let list2 = [];
+    let list3 = [];
     const flush = () => {
-      if (list2.length) {
-        out.push(`<ul>${list2.map((l) => `<li>${l}</li>`).join("")}</ul>`);
-        list2 = [];
+      if (list3.length) {
+        out.push(`<ul>${list3.map((l) => `<li>${l}</li>`).join("")}</ul>`);
+        list3 = [];
       }
     };
     let para = [];
@@ -14854,7 +14854,7 @@ and ${diags.length - 12} more` : "");
       const item = /^\s*[-*]\s+(.*)$/.exec(line2);
       if (item) {
         end();
-        list2.push(mdInline(item[1]));
+        list3.push(mdInline(item[1]));
         continue;
       }
       flush();
@@ -15150,23 +15150,23 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         o.box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.info}</span><p>Comments could not be read</p><p class="fe-cm-hint">${esc(failed)}</p></div>`;
         return;
       }
-      const list2 = visible2();
-      const groups = filter === "done" || filter === "all" ? [["", list2]] : [
-        ["", list2.filter((t) => t.place.state === "anchored" || t.place.state === "ambiguous")],
-        ["Moved", list2.filter((t) => t.place.state === "moved")],
-        ["Detached", list2.filter((t) => t.place.state === "detached")]
+      const list3 = visible2();
+      const groups = filter === "done" || filter === "all" ? [["", list3]] : [
+        ["", list3.filter((t) => t.place.state === "anchored" || t.place.state === "ambiguous")],
+        ["Moved", list3.filter((t) => t.place.state === "moved")],
+        ["Detached", list3.filter((t) => t.place.state === "detached")]
       ];
       const done = filter === "open" ? threads.filter((t) => t.status === "done") : [];
       const count = (f) => threads.filter((t) => f === "all" ? true : f === "done" ? t.status === "done" : f === "me" ? forOwner(t) : t.status !== "done").length;
       o.box.innerHTML = `
       <div class="fe-cm-top">
         <div class="fe-cm-filters" role="tablist">${FILTERS.map((f) => `<button type="button" role="tab" data-f="${f.id}" class="${f.id === filter ? "on" : ""}" aria-selected="${f.id === filter}" title="${f.hint}">${f.icon}<span class="fe-cm-fl">${f.label}</span><span class="fe-cm-fn">${count(f.id) || ""}</span></button>`).join("")}</div>
-        ${list2.length ? iconBtn2("brief-all", UI_ICON.bot, "Copy the threads shown as a brief for an agent, with links") : ""}
+        ${list3.length ? iconBtn2("brief-all", UI_ICON.bot, "Copy the threads shown as a brief for an agent, with links") : ""}
       </div>
       <div class="fe-cm-list">
         ${draftHtml()}
         ${notesLine.map((n) => `<p class="fe-cm-note">${esc(n)}</p>`).join("")}
-        ${list2.length || draft ? "" : emptyHtml()}
+        ${list3.length || draft ? "" : emptyHtml()}
         ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="fe-cm-group">${name} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
         ${done.length ? `<details class="fe-cm-done"${done.some((t) => t.id === active) ? " open" : ""}><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}
       </div>
@@ -15404,24 +15404,24 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       acFor = null;
     };
     const acShow = (ta) => {
-      const list2 = acList();
+      const list3 = acList();
       const c = completions(ta.value, ta.selectionStart, people(), allTags());
-      if (!list2 || !c) {
+      if (!list3 || !c) {
         acClose();
         return;
       }
       acFor = ta;
       acAt = Math.min(acAt, c.items.length - 1);
-      list2.hidden = false;
-      list2.innerHTML = c.items.map((x, i3) => {
+      list3.hidden = false;
+      list3.innerHTML = c.items.map((x, i3) => {
         const hint = hintFor(x);
         return `<div role="option" data-v="${esc(x)}" class="${i3 === acAt ? "on" : ""}" aria-selected="${i3 === acAt}">${esc(c.sigil + x)}${hint ? ` <span>${esc(hint)}</span>` : ""}</div>`;
       }).join("");
       const t = ta.getBoundingClientRect(), b = o.box.getBoundingClientRect();
-      list2.style.left = `${t.left - b.left}px`;
-      list2.style.width = `${t.width}px`;
-      const below = t.bottom + list2.offsetHeight + 8 < innerHeight;
-      list2.style.top = `${below ? t.bottom - b.top + 4 : t.top - b.top - list2.offsetHeight - 4}px`;
+      list3.style.left = `${t.left - b.left}px`;
+      list3.style.width = `${t.width}px`;
+      const below = t.bottom + list3.offsetHeight + 8 < innerHeight;
+      list3.style.top = `${below ? t.bottom - b.top + 4 : t.top - b.top - list3.offsetHeight - 4}px`;
     };
     const acPick = (ta, v) => {
       const c = completions(ta.value, ta.selectionStart, people(), allTags());
@@ -15454,9 +15454,9 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const el2 = e.target;
       const ta = el2.closest("textarea[data-for]");
       if (ta) {
-        const list2 = acList();
-        if (list2 && !list2.hidden && acFor === ta) {
-          const n = list2.children.length;
+        const list3 = acList();
+        if (list3 && !list3.hidden && acFor === ta) {
+          const n = list3.children.length;
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
             acAt = (acAt + (e.key === "ArrowDown" ? 1 : n - 1)) % n;
@@ -15465,7 +15465,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
           }
           if (e.key === "Enter" || e.key === "Tab") {
             e.preventDefault();
-            acPick(ta, list2.children[acAt].dataset.v);
+            acPick(ta, list3.children[acAt].dataset.v);
             return;
           }
           if (e.key === "Escape") {
@@ -15706,10 +15706,10 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     }, POLL_MS);
     const placed = () => threads.filter((t) => t.status !== "done" && t.place.offset !== null);
     const step2 = (dir) => {
-      const list2 = placed();
-      if (!list2.length) return;
-      const i3 = list2.findIndex((t) => t.id === active);
-      const next = list2[i3 === -1 ? dir === 1 ? 0 : list2.length - 1 : (i3 + dir + list2.length) % list2.length];
+      const list3 = placed();
+      if (!list3.length) return;
+      const i3 = list3.findIndex((t) => t.id === active);
+      const next = list3[i3 === -1 ? dir === 1 ? 0 : list3.length - 1 : (i3 + dir + list3.length) % list3.length];
       o.reveal();
       focusThread(next.id);
       o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(next.id)}"]`)?.focus({ preventScroll: true });
@@ -16300,22 +16300,22 @@ ${d.message}` : d.message;
     if (found) return background ? s : { ...s, active: found.id };
     const tab = { id: newId(), path, kind: kindOf(path), label: labelFor(path), pinned: false };
     const i3 = s.list.findIndex((t) => t.id === s.active);
-    const list2 = [...s.list];
-    list2.splice(Math.max(i3 < 0 ? list2.length : i3 + 1, pinnedCount(s)), 0, tab);
-    return { list: list2, active: background ? s.active : tab.id };
+    const list3 = [...s.list];
+    list3.splice(Math.max(i3 < 0 ? list3.length : i3 + 1, pinnedCount(s)), 0, tab);
+    return { list: list3, active: background ? s.active : tab.id };
   }
   function closeTab(s, id) {
     const i3 = s.list.findIndex((t) => t.id === id);
     if (i3 < 0) return s;
-    const list2 = s.list.filter((t) => t.id !== id);
+    const list3 = s.list.filter((t) => t.id !== id);
     let active = s.active;
-    if (active === id) active = list2[Math.min(i3, list2.length - 1)]?.id ?? null;
-    return { list: list2, active };
+    if (active === id) active = list3[Math.min(i3, list3.length - 1)]?.id ?? null;
+    return { list: list3, active };
   }
   function closeOthers(s, id) {
     if (!s.list.some((t) => t.id === id)) return s;
-    const list2 = s.list.filter((t) => t.pinned || t.id === id);
-    return { list: list2, active: list2.some((t) => t.id === s.active) ? s.active : id };
+    const list3 = s.list.filter((t) => t.pinned || t.id === id);
+    return { list: list3, active: list3.some((t) => t.id === s.active) ? s.active : id };
   }
   function activate(s, id) {
     return s.list.some((t) => t.id === id) ? { ...s, active: id } : s;
@@ -16337,10 +16337,10 @@ ${d.message}` : d.message;
   function moveTab(s, id, toId) {
     const from = s.list.findIndex((t2) => t2.id === id), to = s.list.findIndex((t2) => t2.id === toId);
     if (from < 0 || to < 0 || from === to || s.list[from].pinned !== s.list[to].pinned) return s;
-    const list2 = [...s.list];
-    const [t] = list2.splice(from, 1);
-    list2.splice(to, 0, t);
-    return { ...s, list: list2 };
+    const list3 = [...s.list];
+    const [t] = list3.splice(from, 1);
+    list3.splice(to, 0, t);
+    return { ...s, list: list3 };
   }
   function isTabState(v) {
     const s = v;
@@ -16355,20 +16355,20 @@ ${d.message}` : d.message;
   }
   function insertTab(s, tab, index) {
     if (s.list.some((t) => t.path === tab.path)) return s;
-    const list2 = [...s.list];
-    const at = Math.min(Math.max(index, pinnedCount(s)), list2.length);
-    list2.splice(at, 0, { ...tab, pinned: false });
-    return { ...s, list: list2 };
+    const list3 = [...s.list];
+    const at = Math.min(Math.max(index, pinnedCount(s)), list3.length);
+    list3.splice(at, 0, { ...tab, pinned: false });
+    return { ...s, list: list3 };
   }
   function splitLabel(label) {
     if (label.length <= 12) return { head: label, tail: "" };
     const ext2 = label.match(/\.[A-Za-z0-9]{1,6}$/)?.[0] ?? "";
     return { head: label.slice(0, label.length - ext2.length), tail: ext2 };
   }
-  function displayLabels(list2) {
+  function displayLabels(list3) {
     const count = /* @__PURE__ */ new Map();
-    for (const t of list2) count.set(t.label, (count.get(t.label) ?? 0) + 1);
-    return list2.map((t) => {
+    for (const t of list3) count.set(t.label, (count.get(t.label) ?? 0) + 1);
+    return list3.map((t) => {
       if ((count.get(t.label) ?? 0) < 2) return t.label;
       const parts = t.path.split("/").filter(Boolean);
       return parts.length >= 2 ? parts[parts.length - 2] + "/" + t.label : t.label;
@@ -16760,7 +16760,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
 
   // src/help.ts
   var kbd = (k) => k.startsWith("hold ") ? `<i class="fe-km-then">hold</i><kbd>${esc(k.slice(5))}</kbd>` : k.split(" ").map((p) => `<kbd>${esc(p)}</kbd>`).join('<i class="fe-km-then">then</i>');
-  var keys = (list2) => list2.map(kbd).join('<i class="fe-km-or">or</i>');
+  var keys = (list3) => list3.map(kbd).join('<i class="fe-km-or">or</i>');
   var ROWS = [
     [["esc", "esc", 1.5], ...Array.from({ length: 12 }, (_, i3) => [`f${i3 + 1}`, `F${i3 + 1}`])],
     [["`", "`"], ..."1234567890".split("").map((c) => [c, c]), ["-", "-"], ["=", "="], ["backspace", "\u232B", 2]],
@@ -16774,7 +16774,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     for (const d of KEYMAP) for (const k of d.keys) for (const c of capsFor(k)) uses.set(c, (uses.get(c) ?? 0) + 1);
     const cap = ([id, label, w = 1]) => id === "updown" ? `<span class="fe-km-ud"><span class="fe-km-cap half${uses.has("up") ? " used" : ""}" data-cap="up">\u2191</span><span class="fe-km-cap half${uses.has("down") ? " used" : ""}" data-cap="down">\u2193</span></span>` : `<span class="fe-km-cap${uses.has(id) ? " used" : ""}${/^f\d/.test(id) || id === "esc" ? " fn" : ""}" data-cap="${esc(id)}" style="--w:${w}">${esc(label)}</span>`;
     const board = `<div class="fe-km-board" aria-hidden="true">${ROWS.map((r) => `<div class="fe-km-row-k">${r.map(cap).join("")}</div>`).join("")}</div>`;
-    const list2 = GROUPS.map((g) => {
+    const list3 = GROUPS.map((g) => {
       const defs = KEYMAP.filter((d) => d.group === g.name);
       if (!defs.length) return "";
       return `<section class="fe-km-g"><h3>${PI[g.icon] ?? ""}${esc(g.name)}</h3>${defs.map((d) => `<div class="fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(" "))}" data-q="${esc((d.title + " " + d.keys.join(" ") + " " + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join("")}</section>`;
@@ -16783,7 +16783,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     ${board}
     <div class="fe-km-bar"><input type="search" class="fe-km-q" placeholder="Find a key or an action" spellcheck="false" aria-label="Find a key or an action">
       <span class="fe-km-legend"><kbd>\u2318K</kbd> run any of these \xB7 hold <kbd>\u2325</kbd> to see keys on screen</span></div>
-    <div class="fe-km-list">${list2}</div>
+    <div class="fe-km-list">${list3}</div>
   </div>`;
   }
   var card = (icon2, tone, title, text, how = "") => `<div class="fe-hc" style="--tone:${tone}"><span class="fe-hc-ico">${icon2}</span><div class="fe-hc-tx"><b>${title}</b><span>${text}</span></div>${how ? `<div class="fe-hc-how">${how}</div>` : ""}</div>`;
@@ -19111,8 +19111,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const shown = () => ls.visible.map((_, i3) => i3).filter((i3) => sel.selectable(i3) || ls.visible[i3].isParent);
     const perPage = () => Math.max(1, Math.floor(scroll.clientHeight / (leadRow()?.offsetHeight || 32)) - 1);
     const jump = (to) => {
-      const list2 = shown();
-      if (list2.length) sel.setSel(list2[Math.max(0, Math.min(list2.length - 1, to))]);
+      const list3 = shown();
+      if (list3.length) sel.setSel(list3[Math.max(0, Math.min(list3.length - 1, to))]);
     };
     const pos = () => shown().indexOf(ls.selIdx);
     bind("to-listing", () => {
@@ -19125,8 +19125,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("page-up", () => jump(pos() - perPage()), onListing);
     bind("page-down", () => jump(Math.max(0, pos()) + perPage()), onListing);
     const extend = (dir) => {
-      const list2 = shown();
-      const to = list2[list2.indexOf(ls.selIdx) + dir];
+      const list3 = shown();
+      const to = list3[list3.indexOf(ls.selIdx) + dir];
       if (to !== void 0 && sel.selectable(to)) {
         if (ls.anchor < 0) ls.anchor = ls.selIdx;
         sel.rangeSel(to);
@@ -19236,6 +19236,28 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
     })) : []);
   }
+
+  // src/areas.ts
+  var list2 = [];
+  function declareArea(a) {
+    list2.push(a);
+    if (a.roving) for (const r of document.querySelectorAll(a.root)) rovingFocus(r, a.roving.items, { axis: a.roving.axis, wrap: a.roving.wrap });
+  }
+  function areaOf(x) {
+    return x && list2.find((a) => x.closest(a.root)) || null;
+  }
+  function areaNamed(name) {
+    return list2.find((a) => a.name === name) ?? null;
+  }
+  function cycleArea(from, dir, isHome) {
+    let i3 = list2.findIndex((a) => (from ? !!from.closest(a.root) : false) || from === document.body && isHome(a));
+    for (let n = 0; n < list2.length; n++) {
+      i3 = (i3 + dir + list2.length) % list2.length;
+      if (list2[i3].enter()) return list2[i3];
+    }
+    return null;
+  }
+  var allRoots = () => list2.map((a) => a.root).join(", ");
 
   // src/tooltip.ts
   var DELAY = 350;
@@ -19365,21 +19387,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (app.fileMode && !preview) scopes.add("file");
       if (document.getElementById("fe-goto")) scopes.add("goto");
       if (visible(document.getElementById("fe-ed-bar"))) scopes.add("editor");
-      const inSide = !!ae2?.closest("#fe-side"), inTabs = !!ae2?.closest("#fe-tabbar"), inBar = !!ae2?.closest("#fe-bar, #fe-toolbar");
-      if (inSide) scopes.add("sidebar");
-      if (inTabs) scopes.add("tabs");
-      if (inBar) scopes.add("bar");
-      if (!app.fileMode && !preview && !inSide && !inTabs && !inBar) {
+      const area2 = areaOf(ae2);
+      if (area2?.scope) scopes.add(area2.scope);
+      if (!app.fileMode && !preview && !area2?.widget) {
         scopes.add("listing");
         if (fe.dataset.view === "tree") scopes.add("tree");
       }
       if (openMenu2()) scopes.add("menu");
-      return {
-        scopes,
-        typing: isTyping(ae2),
-        widget: inSide || inTabs || inBar || !!ae2?.closest("#fe-fp-bar"),
-        blocked
-      };
+      return { scopes, typing: isTyping(ae2), widget: !!area2?.widget, blocked };
     });
     document.addEventListener("keydown", (e) => {
       if (e.defaultPrevented) return;
@@ -19398,18 +19413,45 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
       return false;
     };
-    const areas = [
-      { name: "sidebar", has: (x) => !!x.closest("#fe-side"), enter: () => sideBack() || focusFirst("#fe-lenses .fe-lens:not([hidden])", ROW_SEL) || focusFirst("#fe-lenses .fe-lens:not([hidden])", "input, textarea, button") || focusFirst("#fe-rail", ".fe-rail-btn.on") },
-      { name: "tabs", has: (x) => !!x.closest("#fe-tabbar"), enter: () => focusFirst("#fe-tabs", ".fe-tab.on") || focusFirst("#fe-tabbar", "button") },
-      { name: "path", has: (x) => !!x.closest("#fe-bar"), enter: () => focusFirst("#fe-bc", ".fe-crumb.cur, .fe-crumb:last-of-type") || focusFirst("#fe-bar", "button") },
-      { name: "toolbar", has: (x) => !!x.closest("#fe-toolbar, #fe-fp-bar"), enter: () => focusFirst("#fe-toolbar, #fe-fp-bar", "button") },
-      { name: "listing", has: (x) => !!x.closest("#fe-scroll, #fe-page") || x === document.body, enter: () => {
-        runCommand("to-listing");
-        return true;
-      } },
-      { name: "preview", has: (x) => !!x.closest("#fe-qlook"), enter: () => isPreviewOpen() && focusFirst("#fe-qlook", "#fe-ql-close, button") }
-    ];
     const ROW_SEL = ".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp";
+    const BAR_ITEMS = ':is(a[href], button, input):not([tabindex="-1"])';
+    declareArea({
+      name: "sidebar",
+      root: "#fe-side",
+      scope: "sidebar",
+      widget: true,
+      roving: { items: ROW_SEL, wrap: false },
+      enter: () => sideBack() || focusFirst("#fe-lenses .fe-lens:not([hidden])", ROW_SEL) || focusFirst("#fe-lenses .fe-lens:not([hidden])", "input, textarea, button") || focusFirst("#fe-rail", ".fe-rail-btn.on")
+    });
+    declareArea({
+      name: "tabs",
+      root: "#fe-tabbar",
+      scope: "tabs",
+      widget: true,
+      roving: { items: "#fe-tabs .fe-tab, #fe-tabs-end button", axis: "horizontal", wrap: false },
+      enter: () => focusFirst("#fe-tabs", ".fe-tab.on") || focusFirst("#fe-tabbar", "button")
+    });
+    declareArea({
+      name: "path",
+      root: "#fe-bar",
+      scope: "bar",
+      widget: true,
+      roving: { items: BAR_ITEMS, axis: "horizontal", wrap: false },
+      enter: () => focusFirst("#fe-bc", ".fe-crumb.cur, .fe-crumb:last-of-type") || focusFirst("#fe-bar", "button")
+    });
+    declareArea({
+      name: "toolbar",
+      root: "#fe-toolbar, #fe-fp-bar",
+      scope: "bar",
+      widget: true,
+      roving: { items: BAR_ITEMS, axis: "horizontal", wrap: false },
+      enter: () => focusFirst("#fe-toolbar, #fe-fp-bar", "button")
+    });
+    declareArea({ name: "listing", root: "#fe-scroll, #fe-page", enter: () => {
+      runCommand("to-listing");
+      return true;
+    } });
+    declareArea({ name: "preview", root: "#fe-qlook", enter: () => isPreviewOpen() && focusFirst("#fe-qlook", "#fe-ql-close, button") });
     function focusFirst(scope, sel) {
       const root = [...document.querySelectorAll(scope)].find(visible);
       const t = root && [...root.querySelectorAll(sel)].find(visible);
@@ -19418,18 +19460,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return true;
     }
     const cycle = (dir) => {
-      const ae2 = document.activeElement ?? document.body;
-      let i3 = areas.findIndex((a) => a.has(ae2));
-      for (let n = 0; n < areas.length; n++) {
-        i3 = (i3 + dir + areas.length) % areas.length;
-        if (areas[i3].enter()) {
-          flash(document.activeElement);
-          return;
-        }
-      }
+      if (cycleArea(document.activeElement ?? document.body, dir, (a) => a.name === "listing")) flash(document.activeElement);
     };
     function flash(x) {
-      const box = x?.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar, #fe-scroll, #fe-page, #fe-qlook");
+      const box = x?.closest(allRoots());
       if (!box) return;
       box.classList.remove("fe-area-flash");
       void box.offsetWidth;
@@ -19437,27 +19471,18 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     bind("area-next", () => cycle(1));
     bind("area-prev", () => cycle(-1));
+    const goArea = (name) => {
+      areaNamed(name)?.enter();
+      flash(document.activeElement);
+    };
     bind("to-sidebar", () => {
       if (fe.querySelector("#fe-side")?.checkVisibility?.() === false) runCommand("sidebar");
-      areas[0].enter();
-      flash(document.activeElement);
+      goArea("sidebar");
     });
-    bind("to-tabs", () => {
-      areas[1].enter();
-      flash(document.activeElement);
-    });
-    bind("to-toolbar", () => {
-      areas[3].enter();
-      flash(document.activeElement);
-    });
-    rovingFocus(document.getElementById("fe-lenses"), ".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp", { wrap: false });
-    rovingFocus(document.getElementById("fe-tabbar"), "#fe-tabs .fe-tab, #fe-tabs-end button", { axis: "horizontal", wrap: false });
-    for (const id of ["fe-bar", "fe-toolbar", "fe-fp-bar"]) {
-      const bar = document.getElementById(id);
-      if (bar) rovingFocus(bar, ':is(a[href], button, input):not([tabindex="-1"])', { axis: "horizontal", wrap: false });
-    }
+    bind("to-tabs", () => goArea("tabs"));
+    bind("to-toolbar", () => goArea("toolbar"));
     const ae = () => document.activeElement;
-    const inArea = () => !!ae()?.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar");
+    const inArea = () => !!areaOf(ae())?.widget;
     bind("area-leave", () => {
       const leave = inArea();
       app.closeSideOverlay?.();
@@ -19490,7 +19515,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }, 450);
     }, () => !!sideRow()?.querySelector(".fe-rm-btn"));
     bind("side-rail", () => document.querySelector("#fe-rail .fe-rail-btn.on")?.focus(), () => inLens() && !!ae()?.matches(LENS_ROWS));
-    bind("side-into", () => areas[0].enter(), () => !!ae()?.closest("#fe-rail"));
+    bind("side-into", () => areaNamed("sidebar")?.enter(), () => !!ae()?.closest("#fe-rail"));
     const focusedTab = () => {
       const t = ae();
       return t?.closest("#fe-tabs") && t.classList.contains("fe-tab") ? t : null;
@@ -20167,9 +20192,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       };
       const pinned = shown.filter((n) => n.pinned), rest = shown.filter((n) => !n.pinned);
       const folded = noteFolds();
-      const group = (key, label, list2) => {
+      const group = (key, label, list3) => {
         const open = !folded.has(key) || !!ntFilter.value.trim();
-        return `<button type="button" class="fe-nt-grp" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${CHEVRON_DOWN}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list2.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list2.map(row2).join("")}</div>`;
+        return `<button type="button" class="fe-nt-grp" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${CHEVRON_DOWN}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list3.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list3.map(row2).join("")}</div>`;
       };
       ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>` : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
       attachNoteEvents(root);
@@ -20601,13 +20626,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     <div id="fe-srch-list"></div>`;
     const q = el("fe-srch-q");
     const status = el("fe-srch-status");
-    const list2 = el("fe-srch-list");
+    const list3 = el("fe-srch-list");
     let run = 0;
     async function search() {
       const term = q.value.trim();
       const mine = ++run;
       const cancelled = () => mine !== run;
-      list2.innerHTML = "";
+      list3.innerHTML = "";
       if (!term) {
         status.textContent = "Type a word and press Enter.";
         return;
@@ -20638,7 +20663,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const hits = [...res.hits].sort((a, b) => b[1].count - a[1].count);
       const total = hits.reduce((n, [, h]) => n + h.count, 0);
       status.textContent = hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`;
-      list2.innerHTML = hits.map(([href, h]) => {
+      list3.innerHTML = hits.map(([href, h]) => {
         const name = relativeName(href, root);
         const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
         return `<a class="fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
@@ -20652,7 +20677,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } else if (e.key === "Escape") {
         q.value = "";
         run++;
-        list2.innerHTML = "";
+        list3.innerHTML = "";
         status.textContent = "Type a word and press Enter.";
       }
     });
@@ -21015,8 +21040,8 @@ ${rows.join("\n")}`, name: subject };
       }
     };
     function renderRulesList() {
-      const list2 = el("fe-st-rules-list");
-      list2.innerHTML = app.iconRules.length ? app.iconRules.map((rule, i3) => {
+      const list3 = el("fe-st-rules-list");
+      list3.innerHTML = app.iconRules.length ? app.iconRules.map((rule, i3) => {
         const bad = badRegex(rule.pattern);
         return `<div class="fe-rule${rule.enabled ? "" : " off"}" data-idx="${i3}">
         <input type="checkbox" class="fe-switch sm fe-st-rule-en" title="${rule.enabled ? "On" : "Off"}"${rule.enabled ? " checked" : ""}>
@@ -21376,8 +21401,8 @@ ${rows.join("\n")}`, name: subject };
       app.refreshNotes();
     });
     v("fe-st-edit-roots").addEventListener("change", () => {
-      const list2 = v("fe-st-edit-roots").value.split(",").map((s) => s.trim()).filter(Boolean);
-      settings.editableFolders = list2.length ? list2 : void 0;
+      const list3 = v("fe-st-edit-roots").value.split(",").map((s) => s.trim()).filter(Boolean);
+      settings.editableFolders = list3.length ? list3 : void 0;
       saveSettings(settings);
     });
     el("fe-st-export").addEventListener("click", () => {
@@ -21521,16 +21546,16 @@ ${rows.join("\n")}`, name: subject };
       const tagBox = top.querySelector(".fe-docs-tags");
       const tagHtml = tags.map((g) => `<button type="button" class="fe-chip fe-lens-tag${f.tag === g ? " on" : ""}" data-tag="${esc(g)}" title="Only documents with a thread tagged #${esc(g)}">#${esc(g)}</button>`).join("");
       if (tagBox.innerHTML !== tagHtml) tagBox.innerHTML = tagHtml;
-      const list2 = docRows(all, f);
+      const list3 = docRows(all, f);
       if (!usable.length) {
         rowsBox.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
         return;
       }
-      if (!list2.length) {
+      if (!list3.length) {
         rowsBox.innerHTML = '<div class="fe-cm-empty"><p>No document matches</p></div>';
         return;
       }
-      rowsBox.innerHTML = list2.map((r) => `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
+      rowsBox.innerHTML = list3.map((r) => `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
         <span class="fe-row-ico">${icoFile(r.name.split(".").pop().toLowerCase())}</span>
         <span class="fe-doc-tx"><span class="fe-doc-name">${midHtml(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
         ${forMe(r) ? `<span class="fe-doc-me" title="Mentions you">${UI_ICON.at}</span>` : ""}
@@ -21851,8 +21876,8 @@ ${rows.join("\n")}`, name: subject };
     if (!homeDir(rawPath)) {
       notes.home().then((home) => {
         if (!setHomeDir(home)) return;
-        const list2 = document.querySelector('#fe-lens-places .fe-sec[data-sec="places"]');
-        if (list2) list2.innerHTML = placesHTML(home, rawPath);
+        const list3 = document.querySelector('#fe-lens-places .fe-sec[data-sec="places"]');
+        if (list3) list3.innerHTML = placesHTML(home, rawPath);
       }).catch(() => {
       });
     }

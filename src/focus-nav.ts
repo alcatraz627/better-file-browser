@@ -7,6 +7,7 @@ import { KEYMAP, type Scope } from './keymap';
 import { bind, dispatch, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
 import { isPreviewOpen, openPreview, noteAction } from './preview';
 import { raise, rovingFocus } from './layer';
+import { declareArea, areaOf, areaNamed, cycleArea, allRoots } from './areas';
 import { setTooltipKeys } from './tooltip';
 import { gotoBackground } from './goto';
 import { homeDir, getSaved, getRecents } from './storage';
@@ -57,19 +58,14 @@ export function initFocusNav(app: App): void {
     if (app.fileMode && !preview) scopes.add('file');
     if (document.getElementById('fe-goto')) scopes.add('goto');
     if (visible(document.getElementById('fe-ed-bar'))) scopes.add('editor');
-    const inSide = !!ae?.closest('#fe-side'), inTabs = !!ae?.closest('#fe-tabbar'), inBar = !!ae?.closest('#fe-bar, #fe-toolbar');
-    if (inSide) scopes.add('sidebar');
-    if (inTabs) scopes.add('tabs');
-    if (inBar) scopes.add('bar');
-    if (!app.fileMode && !preview && !inSide && !inTabs && !inBar) {
+    const area = areaOf(ae);
+    if (area?.scope) scopes.add(area.scope);
+    if (!app.fileMode && !preview && !area?.widget) {
       scopes.add('listing');
       if (fe.dataset.view === 'tree') scopes.add('tree');
     }
     if (openMenu()) scopes.add('menu');
-    return {
-      scopes, typing: isTyping(ae), widget: inSide || inTabs || inBar || !!ae?.closest('#fe-fp-bar'),
-      blocked,
-    };
+    return { scopes, typing: isTyping(ae), widget: !!area?.widget, blocked };
   });
 
   // Capture runs before every surface's own handler, so a command key wins
@@ -86,15 +82,18 @@ export function initFocusNav(app: App): void {
   const sideBack = () => { if (lastSide && document.contains(lastSide) && visible(lastSide)) { lastSide.focus(); return true; } return false; };
 
   // The areas, in the order F6 visits them.
-  const areas: { name: string; has: (x: Element) => boolean; enter: () => boolean }[] = [
-    { name: 'sidebar', has: x => !!x.closest('#fe-side'), enter: () => sideBack() || focusFirst('#fe-lenses .fe-lens:not([hidden])', ROW_SEL) || focusFirst('#fe-lenses .fe-lens:not([hidden])', 'input, textarea, button') || focusFirst('#fe-rail', '.fe-rail-btn.on') },
-    { name: 'tabs', has: x => !!x.closest('#fe-tabbar'), enter: () => focusFirst('#fe-tabs', '.fe-tab.on') || focusFirst('#fe-tabbar', 'button') },
-    { name: 'path', has: x => !!x.closest('#fe-bar'), enter: () => focusFirst('#fe-bc', '.fe-crumb.cur, .fe-crumb:last-of-type') || focusFirst('#fe-bar', 'button') },
-    { name: 'toolbar', has: x => !!x.closest('#fe-toolbar, #fe-fp-bar'), enter: () => focusFirst('#fe-toolbar, #fe-fp-bar', 'button') },
-    { name: 'listing', has: x => !!x.closest('#fe-scroll, #fe-page') || x === document.body, enter: () => { runCommand('to-listing'); return true; } },
-    { name: 'preview', has: x => !!x.closest('#fe-qlook'), enter: () => isPreviewOpen() && focusFirst('#fe-qlook', '#fe-ql-close, button') },
-  ];
   const ROW_SEL = '.fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp';
+  const BAR_ITEMS = ':is(a[href], button, input):not([tabindex="-1"])';
+  declareArea({ name: 'sidebar', root: '#fe-side', scope: 'sidebar', widget: true, roving: { items: ROW_SEL, wrap: false },
+    enter: () => sideBack() || focusFirst('#fe-lenses .fe-lens:not([hidden])', ROW_SEL) || focusFirst('#fe-lenses .fe-lens:not([hidden])', 'input, textarea, button') || focusFirst('#fe-rail', '.fe-rail-btn.on') });
+  declareArea({ name: 'tabs', root: '#fe-tabbar', scope: 'tabs', widget: true, roving: { items: '#fe-tabs .fe-tab, #fe-tabs-end button', axis: 'horizontal', wrap: false },
+    enter: () => focusFirst('#fe-tabs', '.fe-tab.on') || focusFirst('#fe-tabbar', 'button') });
+  declareArea({ name: 'path', root: '#fe-bar', scope: 'bar', widget: true, roving: { items: BAR_ITEMS, axis: 'horizontal', wrap: false },
+    enter: () => focusFirst('#fe-bc', '.fe-crumb.cur, .fe-crumb:last-of-type') || focusFirst('#fe-bar', 'button') });
+  declareArea({ name: 'toolbar', root: '#fe-toolbar, #fe-fp-bar', scope: 'bar', widget: true, roving: { items: BAR_ITEMS, axis: 'horizontal', wrap: false },
+    enter: () => focusFirst('#fe-toolbar, #fe-fp-bar', 'button') });
+  declareArea({ name: 'listing', root: '#fe-scroll, #fe-page', enter: () => { runCommand('to-listing'); return true; } });
+  declareArea({ name: 'preview', root: '#fe-qlook', enter: () => isPreviewOpen() && focusFirst('#fe-qlook', '#fe-ql-close, button') });
   function focusFirst(scope: string, sel: string): boolean {
     const root = [...document.querySelectorAll(scope)].find(visible);
     const t = root && [...root.querySelectorAll<HTMLElement>(sel)].find(visible);
@@ -103,16 +102,11 @@ export function initFocusNav(app: App): void {
     return true;
   }
   const cycle = (dir: 1 | -1) => {
-    const ae = document.activeElement ?? document.body;
-    let i = areas.findIndex(a => a.has(ae));
-    for (let n = 0; n < areas.length; n++) {
-      i = (i + dir + areas.length) % areas.length;
-      if (areas[i].enter()) { flash(document.activeElement as HTMLElement); return; }
-    }
+    if (cycleArea(document.activeElement ?? document.body, dir, a => a.name === 'listing')) flash(document.activeElement as HTMLElement);
   };
   // A short ring on the area the keyboard just moved to.
   function flash(x: HTMLElement | null): void {
-    const box = x?.closest<HTMLElement>('#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar, #fe-scroll, #fe-page, #fe-qlook');
+    const box = x?.closest<HTMLElement>(allRoots());
     if (!box) return;
     box.classList.remove('fe-area-flash');
     void box.offsetWidth;
@@ -120,23 +114,15 @@ export function initFocusNav(app: App): void {
   }
   bind('area-next', () => cycle(1));
   bind('area-prev', () => cycle(-1));
-  bind('to-sidebar', () => { if (fe.querySelector('#fe-side')?.checkVisibility?.() === false) runCommand('sidebar'); areas[0].enter(); flash(document.activeElement as HTMLElement); });
-  bind('to-tabs', () => { areas[1].enter(); flash(document.activeElement as HTMLElement); });
-  bind('to-toolbar', () => { areas[3].enter(); flash(document.activeElement as HTMLElement); });
-
-  // Inside an area the arrow keys walk its controls: the rows of the open
-  // lens, the tabs and the buttons after them, and each toolbar's controls.
-  rovingFocus(document.getElementById('fe-lenses')!, '.fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp', { wrap: false });
-  rovingFocus(document.getElementById('fe-tabbar')!, '#fe-tabs .fe-tab, #fe-tabs-end button', { axis: 'horizontal', wrap: false });
-  for (const id of ['fe-bar', 'fe-toolbar', 'fe-fp-bar']) {
-    const bar = document.getElementById(id);
-    if (bar) rovingFocus(bar, ':is(a[href], button, input):not([tabindex="-1"])', { axis: 'horizontal', wrap: false });
-  }
+  const goArea = (name: string) => { areaNamed(name)?.enter(); flash(document.activeElement as HTMLElement); };
+  bind('to-sidebar', () => { if (fe.querySelector('#fe-side')?.checkVisibility?.() === false) runCommand('sidebar'); goArea('sidebar'); });
+  bind('to-tabs', () => goArea('tabs'));
+  bind('to-toolbar', () => goArea('toolbar'));
 
   // Esc closes the sidebar shown over the page in a narrow window, and from
   // the sidebar, tabs or a toolbar hands the keyboard back to the listing.
   const ae = () => document.activeElement as HTMLElement | null;
-  const inArea = () => !!ae()?.closest('#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar');
+  const inArea = () => !!areaOf(ae())?.widget;
   bind('area-leave', () => {
     const leave = inArea();
     app.closeSideOverlay?.();
@@ -170,7 +156,7 @@ export function initFocusNav(app: App): void {
     setTimeout(() => { const a = ae(); if (!a || a === document.body || !a.isConnected) refocus(); }, 450);
   }, () => !!sideRow()?.querySelector('.fe-rm-btn'));
   bind('side-rail', () => document.querySelector<HTMLElement>('#fe-rail .fe-rail-btn.on')?.focus(), () => inLens() && !!ae()?.matches(LENS_ROWS));
-  bind('side-into', () => areas[0].enter(), () => !!ae()?.closest('#fe-rail'));
+  bind('side-into', () => areaNamed('sidebar')?.enter(), () => !!ae()?.closest('#fe-rail'));
 
   // The focused tab: ⇧← and ⇧→ move it, ⌫ closes it, ⇧F10 opens its menu.
   const focusedTab = () => { const t = ae(); return t?.closest('#fe-tabs') && t.classList.contains('fe-tab') ? t : null; };
