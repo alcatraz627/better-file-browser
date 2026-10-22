@@ -14704,6 +14704,9 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       acShow(ta);
     });
     o.box.addEventListener("scroll", acClose, true);
+    o.box.addEventListener("focusout", (e) => {
+      if (e.target === acFor) acClose();
+    });
     o.box.addEventListener("pointerdown", (e) => {
       const s = selected();
       if (s) held = s.span;

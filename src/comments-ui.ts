@@ -594,6 +594,9 @@ export function mountComments(o: {
     acAt = 0; acShow(ta);
   });
   o.box.addEventListener('scroll', acClose, true);
+  // Leaving the box (a click elsewhere, Tab away) ends the completion; picking
+  // an option keeps focus in the box, so it never blurs first.
+  o.box.addEventListener('focusout', e => { if (e.target === acFor) acClose(); });
   o.box.addEventListener('pointerdown', e => {
     // Opening a card clears the page selection, so the one before it is kept for Attach.
     const s = selected();
