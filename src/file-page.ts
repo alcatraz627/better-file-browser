@@ -66,14 +66,17 @@ function renderBody(text: string, ext: string, href: string): string {
   return renderCode(text, ext);
 }
 
+/** One problem: its line number, which jumps to the source, and what is wrong. */
+const diagRow = (d: Diagnostic) =>
+  `<button type="button" class="fe-diag-row ${d.severity}" data-line="${d.line}" title="Show line ${d.line} in the source"><span class="fe-diag-ln">${d.line}</span><span>${esc(d.message)}</span></button>`;
+
 /** The problems a checker found, as one quiet strip; each line number jumps to the source. */
 function diagStrip(diags: Diagnostic[]): string {
   if (!diags.length) return '';
   const errors = diags.filter(d => d.severity === 'error').length;
   const warns = diags.length - errors;
   const head = [errors && `${errors} error${errors > 1 ? 's' : ''}`, warns && `${warns} warning${warns > 1 ? 's' : ''}`].filter(Boolean).join(', ');
-  const rows = diags.slice(0, 8).map(d =>
-    `<button type="button" class="fe-diag-row ${d.severity}" data-line="${d.line}" title="Show line ${d.line} in the source"><span class="fe-diag-ln">${d.line}</span><span>${esc(d.message)}</span></button>`).join('');
+  const rows = diags.slice(0, 8).map(diagRow).join('');
   const more = diags.length > 8 ? `<span class="fe-diag-more">and ${diags.length - 8} more</span>` : '';
   return `<details class="fe-diag card ${errors ? 'error' : 'warn'}"${errors ? ' open' : ''}><summary>${head}</summary>${rows}${more}</details>`;
 }
@@ -86,6 +89,8 @@ export function markRows(rows: ArrayLike<Element>, diags: Diagnostic[]): void {
     if (!row.classList.contains('err')) row.classList.add(d.severity === 'error' ? 'err' : 'warn');
     if (d.severity === 'error') row.classList.replace('warn', 'err');
     row.title = row.title ? `${row.title}\n${d.message}` : d.message;
+    row.dataset.tip = 'problem';
+    row.dataset.line = String(d.line);
   }
 }
 
@@ -259,7 +264,14 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     paintMeta();
     const top = page.scrollTop;
     const diags = diagnose(ext, text);
-    page.innerHTML = diagStrip(diags) + (raw ? renderCode(text, JSONL_EXTS.has(ext) ? 'json' : ext) : renderBody(text, ext, href));
+    // What a strict YAML reader said about the front matter shows inside the
+    // front matter box, which still lists every value it could read.
+    const fmEnd = isMd && !raw && /^---\r?\n/.test(text) ? text.split('\n').findIndex((l, k) => k > 0 && /^(---|\.\.\.)\s*$/.test(l)) + 1 : 0;
+    const inBox = fmEnd > 0 ? diags.filter(d => d.line <= fmEnd) : [];
+    page.innerHTML = diagStrip(diags.filter(d => !inBox.includes(d))) + (raw ? renderCode(text, JSONL_EXTS.has(ext) ? 'json' : ext) : renderBody(text, ext, href));
+    const box = inBox.length ? page.querySelector('.fe-md-fm') : null;
+    if (box) box.insertAdjacentHTML('beforeend', `<div class="fe-md-fm-warn notice" data-tone="warn">${inBox.map(diagRow).join('')}<span class="fe-md-fm-note">Shown as written; a strict YAML reader would not accept it.</span></div>`);
+    else if (inBox.length) page.insertAdjacentHTML('afterbegin', diagStrip(inBox));
     markRows(page.querySelectorAll('.fe-cl'), diags);
     headings = !raw && isMd ? buildToc(page, toc) : 0;
     page.scrollTop = top;

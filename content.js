@@ -3101,6 +3101,30 @@ ${body}`;
   }
   var ALERTS = { NOTE: "Note", TIP: "Tip", IMPORTANT: "Important", WARNING: "Warning", CAUTION: "Caution" };
   var LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])(?:\s+(.*)|\s*)$/;
+  function frontMatterRows(lines) {
+    const rows = [];
+    const unquote = (s) => s.trim().replace(/^(["'])(.*)\1$/, "$2");
+    for (const l of lines) {
+      const kv = /^([\w.-]+)\s*:\s*(.*)$/.exec(l);
+      const item = /^\s+-\s+(.*)$/.exec(l);
+      const last = rows[rows.length - 1];
+      if (kv) {
+        const v = kv[2].trim();
+        const flow = /^\[(.*)\]$/.exec(v);
+        rows.push(flow ? { key: kv[1], value: "", items: flow[1].split(",").map(unquote).filter(Boolean) } : { key: kv[1], value: unquote(v) });
+      } else if (item && last) {
+        (last.items ??= []).push(unquote(item[1]));
+      } else if (/^\s+\S/.test(l) && last && !last.items) {
+        last.value = (/^[|>][-+]?$/.test(last.value) ? "" : last.value + " ") + l.trim();
+      }
+    }
+    return rows;
+  }
+  var FM_PATH = /^(~\/|\.{1,2}\/|\/)?[\w@.-]+(\/[\w@.-]+)*\/?$/;
+  var fmPath = (v) => FM_PATH.test(v) && !/^\d/.test(v) && (v.includes("/") || /\.[a-z][\w]{0,5}$/i.test(v));
+  function fmValue(v, baseUrl) {
+    return fmPath(v) ? `<span class="fe-fm-path" data-fm-path="${esc(v)}">${esc(v)}</span>` : mdInline(v, baseUrl);
+  }
   function renderMarkdown(src, baseUrl = "", inner = false, nested = false) {
     let lines = src.replace(/\r\n/g, "\n").split("\n");
     const out = [];
@@ -3133,8 +3157,8 @@ ${body}`;
     if (!inner && lines[0] === "---") {
       const end = lines.slice(1, 60).findIndex((l) => l === "---");
       if (end >= 0) {
-        const rows = lines.slice(1, end + 1).map((l) => l.match(/^([\w.-]+)\s*:\s*(.*)$/)).filter(Boolean);
-        if (rows.length) out.push(`<dl class="fe-md-fm">${rows.map((m) => `<dt>${esc(m[1])}</dt><dd>${mdInline(m[2], baseUrl)}</dd>`).join("")}</dl>`);
+        const rows = frontMatterRows(lines.slice(1, end + 1));
+        if (rows.length) out.push(`<dl class="fe-md-fm" data-fm-base="${esc(baseUrl)}">${rows.map((r) => `<dt>${esc(r.key)}</dt><dd>${r.items ? `<span class="fe-fm-items">${r.items.map((v) => fmPath(v) ? `<span class="fe-fm-item">${fmValue(v, baseUrl)}</span>` : `<span class="fe-fm-item chip" data-size="sm" data-tone="quiet"><span>${esc(v)}</span></span>`).join("")}</span>` : fmValue(r.value, baseUrl)}</dd>`).join("")}</dl>`);
         i3 = end + 2;
       }
     }
@@ -3490,6 +3514,21 @@ ${body}`;
     return xhrDirect(url).catch(() => {
       throw new FileFetchError("read-failed", "no reply from the extension worker");
     });
+  }
+  async function fileExists(rawUrl) {
+    const url = new URL(rawUrl, location.href).href;
+    for (let i3 = 0; i3 < 2; i3++) {
+      if (!chrome.runtime?.id) return false;
+      let res;
+      try {
+        res = await relayOnce(url);
+      } catch {
+        return false;
+      }
+      if (res) return res.ok;
+      await sleep(150);
+    }
+    return false;
   }
 
   // src/note-meta-ui.ts
@@ -5726,6 +5765,14 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-hint-s{color:var(--dm);font-size:var(--fs-xs)}
 .fe-hint-k{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-1)}
 .fe-hint-k i{color:var(--dm);font-style:normal;font-size:var(--fs-xs)}
+/* A problem on a line: the kind in its tone and the line number, then each
+   message at reading size, since the message is the point. */
+#fe-hint.problem{border-left:3px solid var(--tone-warn)}
+#fe-hint.problem.err{border-left-color:var(--tone-danger)}
+#fe-hint.problem .fe-hint-h b{color:var(--tone-warn)}
+#fe-hint.problem.err .fe-hint-h b{color:var(--tone-danger)}
+.fe-hint-ln{color:var(--dm);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
+#fe-hint.problem .fe-hint-s{color:var(--tx);font-size:var(--fs-sm)}
 /* Parts in the top layer (layer.ts) keep their own look and placement, not the
    browser's popover defaults; zero specificity, so every part's own rule wins. */
 :where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
@@ -6308,6 +6355,11 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md-fm{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;padding:10px 14px;background:var(--s1);border:1px solid var(--bd);border-radius:6px;font-size:var(--fs-md)}
 .fe-md-fm dt{color:var(--dm);font-weight:600}
 .fe-md-fm dd{margin:0;color:var(--tx)}
+.fe-md-fm-warn{grid-column:1/-1;display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-1);margin-top:var(--sp-2);padding:var(--sp-2) 0 0;border-top:1px solid var(--bd)}
+.fe-md-fm-note{font-size:var(--fs-sm);color:var(--dm)}
+.fe-fm-items{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3)}
+a.fe-fm-path{color:var(--ac);text-decoration:none}
+a.fe-fm-path:hover{text-decoration:underline}
 .fe-md li.fe-task{list-style:none;margin-left:-1.3em;padding-left:0}
 .fe-md li.fe-task input{accent-color:var(--ac);margin-right:6px;vertical-align:-2px}
 .fe-md-tablewrap{overflow-x:auto}
@@ -13882,7 +13934,7 @@ ${end.comment}` : end.comment;
       const end = lines.findIndex((l, i3) => i3 > 0 && /^(---|\.\.\.)\s*$/.test(l));
       if (end === -1) out.push({ line: 1, severity: "error", message: "The front matter opened here is never closed with ---" });
       else {
-        out.push(...checkYaml(lines.slice(1, end).join("\n"), 1));
+        out.push(...checkYaml(lines.slice(1, end).join("\n"), 1).map((d) => ({ ...d, severity: "warn" })));
         start = end + 1;
       }
     }
@@ -14497,6 +14549,7 @@ ${end.comment}` : end.comment;
       for (const r of paintEl.querySelectorAll(".fe-fe-row.err, .fe-fe-row.warn")) {
         r.classList.remove("err", "warn");
         r.removeAttribute("title");
+        delete r.dataset.tip;
       }
       for (const d of diags) {
         const row2 = rowEl(d.line - 1);
@@ -14505,6 +14558,8 @@ ${end.comment}` : end.comment;
         if (row2.classList.contains("err")) row2.classList.remove("warn");
         row2.title = row2.title ? `${row2.title}
 ${d.message}` : `Line ${d.line}: ${d.message}`;
+        row2.dataset.tip = "problem";
+        row2.dataset.line = String(d.line);
       }
       const errors = diags.filter((d) => d.severity === "error").length;
       diagBtn.hidden = !diags.length;
@@ -15969,12 +16024,13 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     if (fmt && fmt.id !== "html") return fmt.rich(text, href);
     return renderCode(text, ext2);
   }
+  var diagRow = (d) => `<button type="button" class="fe-diag-row ${d.severity}" data-line="${d.line}" title="Show line ${d.line} in the source"><span class="fe-diag-ln">${d.line}</span><span>${esc(d.message)}</span></button>`;
   function diagStrip(diags) {
     if (!diags.length) return "";
     const errors = diags.filter((d) => d.severity === "error").length;
     const warns = diags.length - errors;
     const head = [errors && `${errors} error${errors > 1 ? "s" : ""}`, warns && `${warns} warning${warns > 1 ? "s" : ""}`].filter(Boolean).join(", ");
-    const rows = diags.slice(0, 8).map((d) => `<button type="button" class="fe-diag-row ${d.severity}" data-line="${d.line}" title="Show line ${d.line} in the source"><span class="fe-diag-ln">${d.line}</span><span>${esc(d.message)}</span></button>`).join("");
+    const rows = diags.slice(0, 8).map(diagRow).join("");
     const more = diags.length > 8 ? `<span class="fe-diag-more">and ${diags.length - 8} more</span>` : "";
     return `<details class="fe-diag card ${errors ? "error" : "warn"}"${errors ? " open" : ""}><summary>${head}</summary>${rows}${more}</details>`;
   }
@@ -15986,6 +16042,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (d.severity === "error") row2.classList.replace("warn", "err");
       row2.title = row2.title ? `${row2.title}
 ${d.message}` : d.message;
+      row2.dataset.tip = "problem";
+      row2.dataset.line = String(d.line);
     }
   }
   function buildToc(page, toc) {
@@ -16137,7 +16195,12 @@ ${d.message}` : d.message;
       paintMeta();
       const top = page.scrollTop;
       const diags = diagnose(ext2, text);
-      page.innerHTML = diagStrip(diags) + (raw ? renderCode(text, JSONL_EXTS.has(ext2) ? "json" : ext2) : renderBody(text, ext2, href));
+      const fmEnd = isMd && !raw && /^---\r?\n/.test(text) ? text.split("\n").findIndex((l, k) => k > 0 && /^(---|\.\.\.)\s*$/.test(l)) + 1 : 0;
+      const inBox = fmEnd > 0 ? diags.filter((d) => d.line <= fmEnd) : [];
+      page.innerHTML = diagStrip(diags.filter((d) => !inBox.includes(d))) + (raw ? renderCode(text, JSONL_EXTS.has(ext2) ? "json" : ext2) : renderBody(text, ext2, href));
+      const box = inBox.length ? page.querySelector(".fe-md-fm") : null;
+      if (box) box.insertAdjacentHTML("beforeend", `<div class="fe-md-fm-warn notice" data-tone="warn">${inBox.map(diagRow).join("")}<span class="fe-md-fm-note">Shown as written; a strict YAML reader would not accept it.</span></div>`);
+      else if (inBox.length) page.insertAdjacentHTML("afterbegin", diagStrip(inBox));
       markRows(page.querySelectorAll(".fe-cl"), diags);
       headings = !raw && isMd ? buildToc(page, toc) : 0;
       page.scrollTop = top;
@@ -19465,7 +19528,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const t = tip.getBoundingClientRect();
       let top = r.bottom + 6;
       if (top + t.height > innerHeight - 4) top = r.top - t.height - 6;
-      const anchor = target.closest(".fe-tab") ? r.left : r.left + r.width / 2 - t.width / 2;
+      const anchor = target.closest(".fe-tab") || target.dataset.tip === "problem" ? r.left : r.left + r.width / 2 - t.width / 2;
       const left = Math.min(Math.max(4, anchor), innerWidth - t.width - 4);
       tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
     }
@@ -19485,6 +19548,16 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
       timer = window.setTimeout(() => {
         if (target !== el2) return;
+        if (el2.dataset.tip === "problem") {
+          const err = el2.classList.contains("err");
+          const msgs = text.split("\n").map((m) => m.replace(/^Line \d+:\s*/, ""));
+          tip.className = `rich problem ${err ? "err" : "warn"}`;
+          tip.innerHTML = `<span class="fe-hint-h"><b>${err ? "Error" : "Warning"}</b>${el2.dataset.line ? `<span class="fe-hint-ln">line ${esc(el2.dataset.line)}</span>` : ""}</span>` + msgs.map((m) => `<span class="fe-hint-s">${esc(m)}</span>`).join("");
+          raise(tip);
+          tip.classList.add("on");
+          place();
+          return;
+        }
         const keys2 = keysFor(el2);
         const icon2 = el2.matches('button, a, [role="button"]') ? el2.querySelector("svg") : null;
         if (keys2.length || icon2) {
@@ -21655,13 +21728,17 @@ ${rows.join("\n")}`, name: subject };
     };
     const fe = document.getElementById("fe");
     if (fe) {
-      new MutationObserver(renderDiagrams).observe(fe, {
+      new MutationObserver(() => {
+        renderDiagrams();
+        linkFrontMatterPaths();
+      }).observe(fe, {
         childList: true,
         subtree: true,
         attributes: true,
         attributeFilter: ["data-theme"]
       });
       renderDiagrams();
+      linkFrontMatterPaths();
     }
     document.addEventListener("click", (e) => {
       const t = e.target;
@@ -21690,6 +21767,49 @@ ${rows.join("\n")}`, name: subject };
         window.open(img.src, "_blank");
       }
     });
+  }
+  var looked = /* @__PURE__ */ new WeakSet();
+  function linkFrontMatterPaths() {
+    document.querySelectorAll(".fe-md-fm .fe-fm-path").forEach((span) => {
+      if (looked.has(span) || span.tagName === "A") return;
+      looked.add(span);
+      const base = span.closest(".fe-md-fm")?.dataset.fmBase || location.href;
+      const rel = span.dataset.fmPath || "";
+      void findPath(rel, base).then((url) => {
+        if (!url || !span.isConnected) return;
+        const a = document.createElement("a");
+        a.className = "fe-fm-path";
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.title = decodeURIComponent(new URL(url).pathname);
+        a.innerHTML = esc(rel);
+        span.replaceWith(a);
+      });
+    });
+  }
+  async function findPath(rel, base) {
+    let dir;
+    try {
+      dir = new URL(".", new URL(base, location.href));
+    } catch {
+      return null;
+    }
+    const home = /^\/(Users|home)\/[^/]+\//.exec(dir.pathname)?.[0];
+    const tries = [];
+    if (rel.startsWith("/")) tries.push("file://" + rel);
+    else if (rel.startsWith("~/")) {
+      if (home) tries.push("file://" + home + rel.slice(2));
+    } else for (let d = dir, k = 0; k < 8; k++) {
+      tries.push(new URL(rel, d).href);
+      const up = new URL("..", d);
+      if (up.href === d.href) break;
+      d = up;
+    }
+    for (const url of tries) {
+      if (await fileExists(url)) return url;
+    }
+    return null;
   }
 
   // src/docs-lens.ts

@@ -618,6 +618,14 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-hint-s{color:var(--dm);font-size:var(--fs-xs)}
 .fe-hint-k{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-1)}
 .fe-hint-k i{color:var(--dm);font-style:normal;font-size:var(--fs-xs)}
+/* A problem on a line: the kind in its tone and the line number, then each
+   message at reading size, since the message is the point. */
+#fe-hint.problem{border-left:3px solid var(--tone-warn)}
+#fe-hint.problem.err{border-left-color:var(--tone-danger)}
+#fe-hint.problem .fe-hint-h b{color:var(--tone-warn)}
+#fe-hint.problem.err .fe-hint-h b{color:var(--tone-danger)}
+.fe-hint-ln{color:var(--dm);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
+#fe-hint.problem .fe-hint-s{color:var(--tx);font-size:var(--fs-sm)}
 /* Parts in the top layer (layer.ts) keep their own look and placement, not the
    browser's popover defaults; zero specificity, so every part's own rule wins. */
 :where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
@@ -1200,6 +1208,11 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md-fm{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;padding:10px 14px;background:var(--s1);border:1px solid var(--bd);border-radius:6px;font-size:var(--fs-md)}
 .fe-md-fm dt{color:var(--dm);font-weight:600}
 .fe-md-fm dd{margin:0;color:var(--tx)}
+.fe-md-fm-warn{grid-column:1/-1;display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-1);margin-top:var(--sp-2);padding:var(--sp-2) 0 0;border-top:1px solid var(--bd)}
+.fe-md-fm-note{font-size:var(--fs-sm);color:var(--dm)}
+.fe-fm-items{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3)}
+a.fe-fm-path{color:var(--ac);text-decoration:none}
+a.fe-fm-path:hover{text-decoration:underline}
 .fe-md li.fe-task{list-style:none;margin-left:-1.3em;padding-left:0}
 .fe-md li.fe-task input{accent-color:var(--ac);margin-right:6px;vertical-align:-2px}
 .fe-md-tablewrap{overflow-x:auto}

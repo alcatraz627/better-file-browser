@@ -55,7 +55,7 @@ export function initTooltips(root: HTMLElement): void {
     if (top + t.height > innerHeight - 4) top = r.top - t.height - 6;   // no room below: above
     // A tab's tooltip starts at the tab's left edge so it reads as the tab's;
     // anything else centres under its target.
-    const anchor = target.closest('.fe-tab') ? r.left : r.left + r.width / 2 - t.width / 2;
+    const anchor = target.closest('.fe-tab') || target.dataset.tip === 'problem' ? r.left : r.left + r.width / 2 - t.width / 2;
     const left = Math.min(Math.max(4, anchor), innerWidth - t.width - 4);
     tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
   }
@@ -78,6 +78,16 @@ export function initTooltips(root: HTMLElement): void {
       if (target !== el) return;
       // A control (a button or a link that draws an icon, or anything with
       // keys) gets the full pattern; content keeps a plain label.
+      // A line with a problem: its line number and kind, then each message.
+      if (el.dataset.tip === 'problem') {
+        const err = el.classList.contains('err');
+        const msgs = text.split('\n').map(m => m.replace(/^Line \d+:\s*/, ''));
+        tip.className = `rich problem ${err ? 'err' : 'warn'}`;
+        tip.innerHTML = `<span class="fe-hint-h"><b>${err ? 'Error' : 'Warning'}</b>${el.dataset.line ? `<span class="fe-hint-ln">line ${esc(el.dataset.line)}</span>` : ''}</span>`
+          + msgs.map(m => `<span class="fe-hint-s">${esc(m)}</span>`).join('');
+        raise(tip); tip.classList.add('on'); place();
+        return;
+      }
       const keys = keysFor(el);
       const icon = el.matches('button, a, [role="button"]') ? el.querySelector('svg') : null;
       if (keys.length || icon) {

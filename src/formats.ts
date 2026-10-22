@@ -143,7 +143,8 @@ function checkMarkdown(text: string): Diagnostic[] {
   if (lines[0]?.trim() === '---') {
     const end = lines.findIndex((l, i) => i > 0 && /^(---|\.\.\.)\s*$/.test(l));
     if (end === -1) out.push({ line: 1, severity: 'error', message: 'The front matter opened here is never closed with ---' });
-    else { out.push(...checkYaml(lines.slice(1, end).join('\n'), 1)); start = end + 1; }
+    // The page still reads every value it can, so a strict YAML complaint is a warning here.
+    else { out.push(...checkYaml(lines.slice(1, end).join('\n'), 1).map(d => ({ ...d, severity: 'warn' as const }))); start = end + 1; }
   }
   let fence: { mark: string; line: number } | null = null;
   let lastLevel = 0;

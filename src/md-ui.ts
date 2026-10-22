@@ -3,6 +3,8 @@
 import { copyToClipboard } from './utils';
 import { UI_ICON } from './control-icons';
 import type { Toast } from './toast';
+import { fileExists } from './file-fetch';
+import { esc } from './utils';
 
 export function initMarkdownUi(toast: Toast): void {
   const rendered = new WeakMap<HTMLElement, string>();
@@ -39,10 +41,11 @@ export function initMarkdownUi(toast: Toast): void {
   };
   const fe = document.getElementById('fe');
   if (fe) {
-    new MutationObserver(renderDiagrams).observe(fe, {
+    new MutationObserver(() => { renderDiagrams(); linkFrontMatterPaths(); }).observe(fe, {
       childList: true, subtree: true, attributes: true, attributeFilter: ['data-theme'],
     });
     renderDiagrams();
+    linkFrontMatterPaths();
   }
   document.addEventListener('click', e => {
     const t = e.target as HTMLElement;
@@ -63,4 +66,48 @@ export function initMarkdownUi(toast: Toast): void {
     const img = t.closest<HTMLImageElement>('.fe-md img');
     if (img && !img.closest('a')) { e.preventDefault(); window.open(img.src, '_blank'); }
   });
+}
+
+/// Front matter values that name a file become links when the file is there.
+/// A relative path is tried from the document's folder, then from each folder
+/// above it, so `features/x.md` in a file under ~/.claude/features finds
+/// ~/.claude/features/x.md. A path found nowhere stays plain text.
+const looked = new WeakSet<HTMLElement>();
+function linkFrontMatterPaths(): void {
+  document.querySelectorAll<HTMLElement>('.fe-md-fm .fe-fm-path').forEach(span => {
+    if (looked.has(span) || span.tagName === 'A') return;
+    looked.add(span);
+    const base = span.closest<HTMLElement>('.fe-md-fm')?.dataset.fmBase || location.href;
+    const rel = span.dataset.fmPath || '';
+    void findPath(rel, base).then(url => {
+      if (!url || !span.isConnected) return;
+      const a = document.createElement('a');
+      a.className = 'fe-fm-path';
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.title = decodeURIComponent(new URL(url).pathname);
+      a.innerHTML = esc(rel);
+      span.replaceWith(a);
+    });
+  });
+}
+
+async function findPath(rel: string, base: string): Promise<string | null> {
+  let dir: URL;
+  try { dir = new URL('.', new URL(base, location.href)); } catch { return null; }
+  const home = /^\/(Users|home)\/[^/]+\//.exec(dir.pathname)?.[0];
+  const tries: string[] = [];
+  if (rel.startsWith('/')) tries.push('file://' + rel);
+  else if (rel.startsWith('~/')) { if (home) tries.push('file://' + home + rel.slice(2)); }
+  else for (let d = dir, k = 0; k < 8; k++) {
+    tries.push(new URL(rel, d).href);
+    const up = new URL('..', d);
+    if (up.href === d.href) break;
+    d = up;
+  }
+  for (const url of tries) {
+    if (await fileExists(url)) return url;
+  }
+  return null;
 }

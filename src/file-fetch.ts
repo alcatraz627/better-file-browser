@@ -55,3 +55,17 @@ export async function fetchFileText(rawUrl: string, attempts = 3, delayMs = 150)
   }
   return xhrDirect(url).catch(() => { throw new FileFetchError('read-failed', 'no reply from the extension worker'); });
 }
+
+/** Whether a file:// URL can be read, asked of the worker alone so a missing
+ *  file leaves no error in the page's console. */
+export async function fileExists(rawUrl: string): Promise<boolean> {
+  const url = new URL(rawUrl, location.href).href;
+  for (let i = 0; i < 2; i++) {
+    if (!chrome.runtime?.id) return false;
+    let res: RelayReply | null;
+    try { res = await relayOnce(url); } catch { return false; }
+    if (res) return res.ok;
+    await sleep(150);
+  }
+  return false;
+}

@@ -665,6 +665,40 @@ export function headingId(text: string, seen: Map<string, number>): string {
 const ALERTS: Record<string, string> = { NOTE: 'Note', TIP: 'Tip', IMPORTANT: 'Important', WARNING: 'Warning', CAUTION: 'Caution' };
 const LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])(?:\s+(.*)|\s*)$/;
 
+// Front matter read as well as it can be, without a YAML parser that gives
+// up on the first odd line: `key: value` rows, a `[a, b]` list, a list of
+// `- item` lines under a key, and indented lines that carry a value on. The
+// file page shows what a strict YAML reader complained about inside the box.
+export function frontMatterRows(lines: string[]): { key: string; value: string; items?: string[] }[] {
+  const rows: { key: string; value: string; items?: string[] }[] = [];
+  const unquote = (s: string) => s.trim().replace(/^(["'])(.*)\1$/, '$2');
+  for (const l of lines) {
+    const kv = /^([\w.-]+)\s*:\s*(.*)$/.exec(l);
+    const item = /^\s+-\s+(.*)$/.exec(l);
+    const last = rows[rows.length - 1];
+    if (kv) {
+      const v = kv[2].trim();
+      const flow = /^\[(.*)\]$/.exec(v);
+      rows.push(flow ? { key: kv[1], value: '', items: flow[1].split(',').map(unquote).filter(Boolean) } : { key: kv[1], value: unquote(v) });
+    } else if (item && last) {
+      (last.items ??= []).push(unquote(item[1]));
+    } else if (/^\s+\S/.test(l) && last && !last.items) {
+      // A block scalar (`|` or `>`) starts empty and takes the lines below it.
+      last.value = (/^[|>][-+]?$/.test(last.value) ? '' : last.value + ' ') + l.trim();
+    }
+  }
+  return rows;
+}
+
+// A front matter value that names a file or folder ("features/llm-mini.md",
+// "../notes/", "~/x.md") is marked, and becomes a link once the page finds
+// where it is (md-ui.ts). Anything else renders as inline markdown.
+const FM_PATH = /^(~\/|\.{1,2}\/|\/)?[\w@.-]+(\/[\w@.-]+)*\/?$/;
+const fmPath = (v: string) => FM_PATH.test(v) && !/^\d/.test(v) && (v.includes('/') || /\.[a-z][\w]{0,5}$/i.test(v));
+function fmValue(v: string, baseUrl: string): string {
+  return fmPath(v) ? `<span class="fe-fm-path" data-fm-path="${esc(v)}">${esc(v)}</span>` : mdInline(v, baseUrl);
+}
+
 export function renderMarkdown(src: string, baseUrl = '', inner = false, nested = false): string {
   let lines = src.replace(/\r\n/g, '\n').split('\n');
   const out: string[] = [];
@@ -701,8 +735,9 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false, nested 
   if (!inner && lines[0] === '---') {
     const end = lines.slice(1, 60).findIndex(l => l === '---');
     if (end >= 0) {
-      const rows = lines.slice(1, end + 1).map(l => l.match(/^([\w.-]+)\s*:\s*(.*)$/)).filter(Boolean) as RegExpMatchArray[];
-      if (rows.length) out.push(`<dl class="fe-md-fm">${rows.map(m => `<dt>${esc(m[1])}</dt><dd>${mdInline(m[2], baseUrl)}</dd>`).join('')}</dl>`);
+      const rows = frontMatterRows(lines.slice(1, end + 1));
+      if (rows.length) out.push(`<dl class="fe-md-fm" data-fm-base="${esc(baseUrl)}">${rows.map(r =>
+        `<dt>${esc(r.key)}</dt><dd>${r.items ? `<span class="fe-fm-items">${r.items.map(v => fmPath(v) ? `<span class="fe-fm-item">${fmValue(v, baseUrl)}</span>` : `<span class="fe-fm-item chip" data-size="sm" data-tone="quiet"><span>${esc(v)}</span></span>`).join('')}</span>` : fmValue(r.value, baseUrl)}</dd>`).join('')}</dl>`);
       i = end + 2;
     }
   }

@@ -239,13 +239,15 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   // Problem rows: the gutter number turns red or amber and the message shows
   // on hover; the pill counts them and a click goes to the first.
   const markProblems = () => {
-    for (const r of paintEl.querySelectorAll('.fe-fe-row.err, .fe-fe-row.warn')) { r.classList.remove('err', 'warn'); r.removeAttribute('title'); }
+    for (const r of paintEl.querySelectorAll('.fe-fe-row.err, .fe-fe-row.warn')) { r.classList.remove('err', 'warn'); r.removeAttribute('title'); delete (r as HTMLElement).dataset.tip; }
     for (const d of diags) {
       const row = rowEl(d.line - 1);
       if (!row) continue;
       row.classList.add(d.severity === 'error' || row.classList.contains('err') ? 'err' : 'warn');
       if (row.classList.contains('err')) row.classList.remove('warn');
       row.title = row.title ? `${row.title}\n${d.message}` : `Line ${d.line}: ${d.message}`;
+      row.dataset.tip = 'problem';
+      row.dataset.line = String(d.line);
     }
     const errors = diags.filter(d => d.severity === 'error').length;
     diagBtn.hidden = !diags.length;
