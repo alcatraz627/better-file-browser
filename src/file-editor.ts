@@ -344,8 +344,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   function showConflict(): void {
     banner.style.display = '';
     banner.innerHTML = `<span>${esc(host.rel.split('/').pop()!)} changed on disk since you opened it.</span>
-      <button class="fe-pbn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
-      <button class="fe-pbn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
+      <button class="btn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
+      <button class="btn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
   }
   // Called by the page's autoreload when the file changed underneath us.
   const external = async () => {

@@ -2022,7 +2022,7 @@ ${body}`;
       <div class="fe-dlg-title">
         <span class="fe-dlg-mark">${d.mark}</span>
         <span class="fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
-        <button class="fe-dlg-close" title="Close (Esc)">${UI_ICON.close}</button>
+        <button class="btn fe-dlg-close" data-icon data-size="lg" title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div class="fe-dlg-tabs" role="tablist">
         ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ""}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
@@ -3344,17 +3344,17 @@ ${body}`;
     let cur = props;
     const render2 = () => {
       menu.innerHTML = `
-      <button class="fe-pbn fe-pm-pin${cur.pinned ? " active" : ""}" data-pm="pin" role="menuitem">${UI_ICON.pin}<span>${cur.pinned ? "unpin" : "pin to top"}</span></button>
+      <button data-size="sm" class="btn fe-pm-pin${cur.pinned ? " active" : ""}" data-pm="pin" role="menuitem">${UI_ICON.pin}<span>${cur.pinned ? "unpin" : "pin to top"}</span></button>
       <div class="fe-pm-lbl">Colour</div>
       <div class="fe-pm-colors">
-        <button class="fe-pbn${cur.color === null ? " active" : ""}" data-pm="color" data-color="" role="menuitem">${colorDot(null)}<span>none</span></button>
-        ${NOTE_COLORS.map((c) => `<button class="fe-pbn${cur.color === c ? " active" : ""}" data-pm="color" data-color="${c}" role="menuitem">${colorDot(c)}<span>${c}</span></button>`).join("")}
+        <button data-size="sm" class="btn${cur.color === null ? " active" : ""}" data-pm="color" data-color="" role="menuitem">${colorDot(null)}<span>none</span></button>
+        ${NOTE_COLORS.map((c) => `<button data-size="sm" class="btn${cur.color === c ? " active" : ""}" data-pm="color" data-color="${c}" role="menuitem">${colorDot(c)}<span>${c}</span></button>`).join("")}
       </div>
       <div class="fe-pm-lbl">tags</div>
       <div class="fe-pm-tags">
         ${cur.tags.map((t) => `<span class="fe-chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="fe-chip-x" data-pm="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
       </div>
-      <form class="fe-pm-add"><input type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="fe-pbn" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
+      <form class="fe-pm-add"><input type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="btn" data-size="sm" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
     };
     const run = async (c) => {
       const r = await apply(c);
@@ -3394,10 +3394,10 @@ ${body}`;
       const p = o.props();
       host.innerHTML = `
       ${o.titleEditable() ? `<button id="fe-meta-title" class="fe-chip-title" data-title="${esc(p.title)}" title="${esc(p.title)}&#10;Click to edit the whole title" aria-label="Note title: ${esc(p.title)}. Click to edit.">${UI_ICON.rename}${midHtml(p.title)}</button>` : `<span class="fe-chip fe-chip-static" title="This note has no properties block yet; its title is its first line">${UI_ICON.notes}<span>${esc(p.title)}</span></span>`}
-      <button class="fe-pbn fe-chip-btn${p.pinned ? " active" : ""}" data-m="pin" title="${p.pinned ? "Unpin this note" : "Pin this note to the top of the list"}">${UI_ICON.pin}<span>${p.pinned ? "Pinned" : "Pin"}</span></button>
-      <button class="fe-pbn fe-chip-btn${p.color ? " active" : ""}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ? p.color[0].toUpperCase() + p.color.slice(1) : "Colour"}</span></button>
+      <button data-size="sm" class="btn fe-chip-btn${p.pinned ? " active" : ""}" data-m="pin" title="${p.pinned ? "Unpin this note" : "Pin this note to the top of the list"}">${UI_ICON.pin}<span>${p.pinned ? "Pinned" : "Pin"}</span></button>
+      <button data-size="sm" class="btn fe-chip-btn${p.color ? " active" : ""}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ? p.color[0].toUpperCase() + p.color.slice(1) : "Colour"}</span></button>
       ${p.tags.map((t) => `<span class="fe-chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="fe-chip-x" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
-      <button class="fe-pbn fe-chip-btn" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>`;
+      <button class="btn fe-chip-btn" data-size="sm" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>`;
       const btn = host.querySelector("#fe-meta-title");
       btn?.addEventListener("click", () => {
         const box = document.createElement("textarea");
@@ -3475,7 +3475,7 @@ ${body}`;
   function viewTransform(v) {
     return `translate(-50%,-50%) scaleX(${v.flip ? -1 : 1}) rotate(${v.rot}deg)`;
   }
-  var BTN = (act, icon2, text, title) => `<button class="fe-pbn" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
+  var BTN = (act, icon2, text, title) => `<button class="btn" data-size="sm" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
   function mountImageTools(wrap, o) {
     wrap.innerHTML = `
     <div class="fe-ql-imgbar" role="toolbar" aria-label="Image tools">
@@ -4059,28 +4059,28 @@ Now: ${question}` : question;
         <span id="fe-ql-icon"></span>
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (\u2318-click / middle-click also work)"></a>
         <span id="fe-ql-meta"></span>
-        <button id="fe-ql-copy" title="Copy full file contents to clipboard" disabled>
+        <button id="fe-ql-copy" class="btn" title="Copy full file contents to clipboard" disabled>
           <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>Copy</span>
         </button>
-        <a id="fe-ql-open" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
-        <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
-        <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
-        <button id="fe-ql-save" data-icon title="Save this file">${PI.bm}</button>
-        <button id="fe-ql-term" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
-        <button id="fe-ql-dock" data-icon title="Dock the preview to the side">
+        <a id="fe-ql-open" class="btn" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
+        <button id="fe-ql-go" class="btn" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
+        <button id="fe-ql-tab" class="btn" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
+        <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
+        <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
+        <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
-        <button id="fe-ql-close" data-icon title="Close (Esc)">${UI_ICON.close}</button>
+        <button id="fe-ql-close" class="btn" data-icon title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div id="fe-ql-rz" title="Drag to resize"></div>
       <div id="fe-ql-rz-side" title="Drag to resize"></div>
       <div id="fe-ql-ai" style="display:none">
         <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
-        <button class="fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
-        <button class="fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
+        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
+        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
         <input id="fe-ql-ai-q" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
-        <button class="fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
+        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
       </div>
       <div id="fe-ql-ai-out" style="display:none">
         <div id="fe-ql-ai-out-body"></div>
@@ -4351,24 +4351,24 @@ Now: ${question}` : question;
     body.innerHTML = `
     <div id="fe-ed-meta"></div>
     <div id="fe-ed-bar">
-      <button class="fe-pbn" data-icon data-act="bold" title="Bold (\u2318B)">${UI_ICON.fmtBold}</button>
-      <button class="fe-pbn" data-icon data-act="italic" title="Italic (\u2318I)">${UI_ICON.fmtItalic}</button>
-      <button class="fe-pbn" data-icon data-act="code" title="Code (\u2318E)">${UI_ICON.fmtCode}</button>
-      <button class="fe-pbn" data-icon data-act="strike" title="Strikethrough (\u2318\u21E7X)">${UI_ICON.fmtStrike}</button>
-      <button class="fe-pbn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (\u2318\u21E7H)" data-icon>${UI_ICON.fmtHeading}</button>
-      <button class="fe-pbn" data-icon data-act="link" title="Link (\u2318K)">${UI_ICON.link}</button>
-      <button class="fe-pbn" data-icon data-act="quote" title="Quote (\u2318\u21E7.)">${UI_ICON.fmtQuote}</button>
-      <button class="fe-pbn" data-icon data-act="olist" title="Numbered list (\u2318\u21E77)">${UI_ICON.fmtOlist}</button>
-      <button class="fe-pbn" data-icon data-act="list" title="Bullet list">${UI_ICON.list}</button>
-      <button class="fe-pbn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
-      <button class="fe-pbn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
-      <button class="fe-pbn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
+      <button class="btn" data-icon data-act="bold" title="Bold (\u2318B)">${UI_ICON.fmtBold}</button>
+      <button class="btn" data-icon data-act="italic" title="Italic (\u2318I)">${UI_ICON.fmtItalic}</button>
+      <button class="btn" data-icon data-act="code" title="Code (\u2318E)">${UI_ICON.fmtCode}</button>
+      <button class="btn" data-icon data-act="strike" title="Strikethrough (\u2318\u21E7X)">${UI_ICON.fmtStrike}</button>
+      <button class="btn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (\u2318\u21E7H)" data-icon>${UI_ICON.fmtHeading}</button>
+      <button class="btn" data-icon data-act="link" title="Link (\u2318K)">${UI_ICON.link}</button>
+      <button class="btn" data-icon data-act="quote" title="Quote (\u2318\u21E7.)">${UI_ICON.fmtQuote}</button>
+      <button class="btn" data-icon data-act="olist" title="Numbered list (\u2318\u21E77)">${UI_ICON.fmtOlist}</button>
+      <button class="btn" data-icon data-act="list" title="Bullet list">${UI_ICON.list}</button>
+      <button class="btn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
+      <button class="btn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
+      <button class="btn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
       <span class="fe-ed-sep" aria-hidden="true"></span>
-      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
-      ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>Previous</span></button>
-      <button class="fe-pbn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>Next</span></button>
-      <button class="fe-pbn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
-      <button class="fe-pbn" data-act="delete" title="Move this note to .trash (\u2318\u21E7\u232B)">${UI_ICON.trash}<span>Delete</span></button>` : ""}
+      <button class="btn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
+      ${actions ? `<button class="btn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>Previous</span></button>
+      <button class="btn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>Next</span></button>
+      <button class="btn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
+      <button class="btn" data-act="delete" title="Move this note to .trash (\u2318\u21E7\u232B)">${UI_ICON.trash}<span>Delete</span></button>` : ""}
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
     </div>
@@ -4463,7 +4463,7 @@ Now: ${question}` : question;
       hist.querySelectorAll(".fe-hist-row").forEach((b) => b.classList.toggle("active", b.dataset.sha === sha));
       try {
         const v = await notes.version(root, edit?.rel ?? doc.rel, sha);
-        view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="fe-pbn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button><button class="fe-pbn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
+        view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="btn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button><button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
         document.getElementById("fe-hist-use").addEventListener("click", () => {
           buf.snap();
           ta.value = splitNote(v.text).body;
@@ -4528,7 +4528,7 @@ Now: ${question}` : question;
       if (!sides) return;
       document.getElementById("fe-ql-body").insertAdjacentHTML(
         "afterbegin",
-        `<div id="fe-ed-clash" class="fe-ql-note">Two versions, keep: <button class="fe-pbn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> <button class="fe-pbn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> <button class="fe-pbn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`
+        `<div id="fe-ed-clash" class="fe-ql-note">Two versions, keep: <button class="btn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> <button class="btn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> <button class="btn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`
       );
       document.querySelectorAll("#fe-ed-clash [data-keep]").forEach((b) => b.addEventListener("click", () => {
         ta.value = settleClash(ta.value, b.dataset.keep);
@@ -4690,7 +4690,7 @@ Now: ${question}` : question;
           if (!document.getElementById("fe-ed-conflict")) {
             body.insertAdjacentHTML(
               "afterbegin",
-              `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="fe-pbn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="fe-pbn" title="Write the editor text over the disk copy">Overwrite</button></div>`
+              `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="btn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="btn" title="Write the editor text over the disk copy">Overwrite</button></div>`
             );
             document.getElementById("fe-ed-reload").addEventListener("click", () => {
               notes.read(st.root, st.rel).then((d) => openNote(st.root, d, st.onSaved, st.actions));
@@ -4769,7 +4769,7 @@ Now: ${question}` : question;
       body.innerHTML = `
       <div class="fe-ql-center">
         <div class="fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
-        <button id="fe-ql-force" class="fe-pbn" title="Render despite the size">Load anyway</button>
+        <button id="fe-ql-force" class="btn" title="Render despite the size">Load anyway</button>
       </div>`;
       document.getElementById("fe-ql-force").addEventListener("click", () => fetchAndRender(e, ext2, seq2));
       return;
@@ -4789,7 +4789,7 @@ Now: ${question}` : question;
       if (seq2 !== reqSeq) return;
       console.error("[BFB] preview failed:", e.href, err);
       const stale = err instanceof FileFetchError && err.code === "context-invalidated";
-      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="fe-pbn" title="Reload this page">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="fe-pbn" title="Try reading the file again">Retry</button></div>`;
+      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
       document.getElementById("fe-ql-retry").addEventListener("click", () => {
         if (stale) location.reload();
         else fetchAndRender(e, ext2, seq2);
@@ -4842,7 +4842,7 @@ Now: ${question}` : question;
   }
   var htmlSource = false;
   function renderHtml(body, text) {
-    const btn = (v, label, on) => `<button class="fe-pbn${on ? " on" : ""}" data-v="${v}" title="${v === "page" ? "Show the rendered page" : "Show the HTML source"}">${label}</button>`;
+    const btn = (v, label, on) => `<button class="btn${on ? " on" : ""}" data-v="${v}" title="${v === "page" ? "Show the rendered page" : "Show the HTML source"}">${label}</button>`;
     body.innerHTML = `<div class="fe-ql-htmlbar">${btn("page", "Page", !htmlSource)}${btn("src", "Source", htmlSource)}</div>` + (htmlSource ? renderCode(text, "html") : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
     const frame = body.querySelector("iframe.fe-ql-html");
     if (frame && currentEntry) frame.src = currentEntry.href;
@@ -4915,28 +4915,47 @@ Now: ${question}` : question;
   --bd:#e4e4e4;--bd2:#cfcfcf;--tx:#141414;--mt:#5c5c5c;--dm:#777777;
   --ac:#141414;--tx-on-ac:#ffffff;--dir:#666666;
 }
-/* Button: plain by default (design-system.md). data-variant solid|outline|shade,
-   data-shade (same as variant shade), data-hover-shade, data-icon (a circle),
-   data-size sm. Every bar's buttons share these rules. */
-.btn,#fe-bar button,#fe-toolbar button,#fe-fp-bar button,#fe-ql-hdr button,#fe-ql-hdr #fe-ql-open,.fe-ql-ai-btn,.fe-pbn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:26px;padding:0 8px;flex-shrink:0;
-  border:1px solid transparent;border-radius:6px;background:none;color:var(--mt);font:inherit;font-size:var(--fs-md);
-  line-height:1;white-space:nowrap;text-decoration:none;cursor:pointer;
+/* Button, the one button part (docs/system/button.md). Class btn.
+   data-variant: plain (the default), shade, outline, solid.
+   data-size: xs 18, sm 22, md 28 (the default), lg 32.
+   data-icon: an icon alone, square at its size and round.
+   data-tone: danger (red on hover), accent (accent text at rest).
+   On: .on, .active, aria-pressed or aria-expanded="true". Busy:
+   aria-busy="true" (a spinner in place of the icon). Done: data-done (green
+   text; the caller removes it after a moment). */
+.btn{--btn-h:var(--ctl-md);display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);height:var(--btn-h);padding:0 var(--sp-4);flex-shrink:0;
+  border:1px solid transparent;border-radius:var(--row-r);background:none;color:var(--mt);font:inherit;font-size:var(--type-ui);
+  line-height:1;white-space:nowrap;text-decoration:none;cursor:pointer;box-sizing:border-box;
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
-.btn:hover{color:var(--tx)}
-.btn[data-hover-shade]:hover,#fe-bar button:hover,#fe-toolbar button:hover,#fe-fp-bar button:hover,#fe-ql-hdr button:hover,#fe-ql-hdr #fe-ql-open:hover,.fe-ql-ai-btn:hover,.fe-pbn:hover{color:var(--tx);background:var(--shade)}
-.btn[data-variant="shade"],#fe-bar button[data-variant="shade"],#fe-toolbar button[data-variant="shade"],#fe-fp-bar button[data-variant="shade"],#fe-ql-hdr button[data-variant="shade"],#fe-ql-hdr #fe-ql-open[data-variant="shade"],.fe-ql-ai-btn[data-variant="shade"],.fe-pbn[data-variant="shade"],.btn[data-shade],#fe-bar button[data-shade],#fe-toolbar button[data-shade],#fe-fp-bar button[data-shade],#fe-ql-hdr button[data-shade],#fe-ql-hdr #fe-ql-open[data-shade],.fe-ql-ai-btn[data-shade],.fe-pbn[data-shade]{background:var(--shade)}
-.btn[data-variant="shade"]:hover,#fe-bar button[data-variant="shade"]:hover,#fe-toolbar button[data-variant="shade"]:hover,#fe-fp-bar button[data-variant="shade"]:hover,#fe-ql-hdr button[data-variant="shade"]:hover,#fe-ql-hdr #fe-ql-open[data-variant="shade"]:hover,.fe-ql-ai-btn[data-variant="shade"]:hover,.fe-pbn[data-variant="shade"]:hover,.btn[data-shade]:hover,#fe-bar button[data-shade]:hover,#fe-toolbar button[data-shade]:hover,#fe-fp-bar button[data-shade]:hover,#fe-ql-hdr button[data-shade]:hover,#fe-ql-hdr #fe-ql-open[data-shade]:hover,.fe-ql-ai-btn[data-shade]:hover,.fe-pbn[data-shade]:hover{background:var(--shade2)}
-.btn[data-variant="outline"],#fe-bar button[data-variant="outline"],#fe-toolbar button[data-variant="outline"],#fe-fp-bar button[data-variant="outline"],#fe-ql-hdr button[data-variant="outline"],#fe-ql-hdr #fe-ql-open[data-variant="outline"],.fe-ql-ai-btn[data-variant="outline"],.fe-pbn[data-variant="outline"]{border-color:var(--bd2)}
-.btn[data-variant="outline"]:hover,#fe-bar button[data-variant="outline"]:hover,#fe-toolbar button[data-variant="outline"]:hover,#fe-fp-bar button[data-variant="outline"]:hover,#fe-ql-hdr button[data-variant="outline"]:hover,#fe-ql-hdr #fe-ql-open[data-variant="outline"]:hover,.fe-ql-ai-btn[data-variant="outline"]:hover,.fe-pbn[data-variant="outline"]:hover{border-color:var(--mt)}
-.btn[data-variant="solid"],#fe-bar button[data-variant="solid"],#fe-toolbar button[data-variant="solid"],#fe-fp-bar button[data-variant="solid"],#fe-ql-hdr button[data-variant="solid"],#fe-ql-hdr #fe-ql-open[data-variant="solid"],.fe-ql-ai-btn[data-variant="solid"],.fe-pbn[data-variant="solid"]{background:var(--ac);color:var(--tx-on-ac)}
-.btn[data-variant="solid"]:hover,#fe-bar button[data-variant="solid"]:hover,#fe-toolbar button[data-variant="solid"]:hover,#fe-fp-bar button[data-variant="solid"]:hover,#fe-ql-hdr button[data-variant="solid"]:hover,#fe-ql-hdr #fe-ql-open[data-variant="solid"]:hover,.fe-ql-ai-btn[data-variant="solid"]:hover,.fe-pbn[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
-.btn[data-icon],#fe-bar button[data-icon],#fe-toolbar button[data-icon],#fe-fp-bar button[data-icon],#fe-ql-hdr button[data-icon],#fe-ql-hdr #fe-ql-open[data-icon],.fe-ql-ai-btn[data-icon],.fe-pbn[data-icon]{width:26px;padding:0;border-radius:50%}
-.btn[data-size="sm"],#fe-bar button[data-size="sm"],#fe-toolbar button[data-size="sm"],#fe-fp-bar button[data-size="sm"],#fe-ql-hdr button[data-size="sm"],#fe-ql-hdr #fe-ql-open[data-size="sm"],.fe-ql-ai-btn[data-size="sm"],.fe-pbn[data-size="sm"]{height:22px;font-size:var(--fs-sm)}
-.btn[data-size="sm"][data-icon],#fe-bar button[data-size="sm"][data-icon],#fe-toolbar button[data-size="sm"][data-icon],#fe-fp-bar button[data-size="sm"][data-icon],#fe-ql-hdr button[data-size="sm"][data-icon],#fe-ql-hdr #fe-ql-open[data-size="sm"][data-icon],.fe-ql-ai-btn[data-size="sm"][data-icon],.fe-pbn[data-size="sm"][data-icon]{width:22px}
-.btn.on,#fe-bar button.on,#fe-toolbar button.on,#fe-fp-bar button.on,#fe-ql-hdr button.on,#fe-ql-hdr #fe-ql-open.on,.fe-ql-ai-btn.on,.fe-pbn.on,.btn.active,#fe-bar button.active,#fe-toolbar button.active,#fe-fp-bar button.active,#fe-ql-hdr button.active,#fe-ql-hdr #fe-ql-open.active,.fe-ql-ai-btn.active,.fe-pbn.active{color:var(--ac);background:var(--shade)}
-.btn:disabled,#fe-bar button:disabled,#fe-toolbar button:disabled,#fe-fp-bar button:disabled,#fe-ql-hdr button:disabled,#fe-ql-hdr #fe-ql-open:disabled,.fe-ql-ai-btn:disabled,.fe-pbn:disabled{opacity:.45;cursor:default;background:none}
-.btn:focus-visible,#fe-bar button:focus-visible,#fe-toolbar button:focus-visible,#fe-fp-bar button:focus-visible,#fe-ql-hdr button:focus-visible,#fe-ql-hdr #fe-ql-open:focus-visible,.fe-ql-ai-btn:focus-visible,.fe-pbn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.btn svg,#fe-bar button svg,#fe-toolbar button svg,#fe-fp-bar button svg,#fe-ql-hdr button svg,#fe-ql-hdr #fe-ql-open svg,.fe-ql-ai-btn svg,.fe-pbn svg{flex:none}
+.btn[data-size="xs"]{--btn-h:var(--ctl-xs);padding:0 var(--sp-2);font-size:var(--type-micro)}
+.btn[data-size="sm"]{--btn-h:var(--ctl-sm);padding:0 var(--sp-3);font-size:var(--type-small)}
+.btn[data-size="lg"]{--btn-h:var(--ctl-lg);padding:0 var(--sp-5)}
+.btn[data-icon]{width:var(--btn-h);padding:0;border-radius:var(--r-full)}
+.btn svg{flex:none;width:var(--btn-ic,14px);height:var(--btn-ic,14px)}
+.btn[data-size="xs"]{--btn-ic:10px}
+.btn[data-size="sm"]{--btn-ic:12px}
+.btn[data-size="lg"]{--btn-ic:16px}
+.btn:hover{color:var(--tx);background:var(--hover)}
+.btn:active{background:var(--s3)}
+.btn[data-variant="shade"],.btn[data-shade]{background:var(--shade)}
+.btn[data-variant="shade"]:hover,.btn[data-shade]:hover{background:var(--shade2)}
+.btn[data-variant="outline"]{border-color:var(--bd2)}
+.btn[data-variant="outline"]:hover{border-color:var(--mt)}
+.btn[data-variant="solid"]{background:var(--ac);color:var(--tx-on-ac)}
+.btn[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
+.btn[data-tone="danger"]:hover{color:var(--tone-danger)}
+.btn[data-tone="accent"]{color:var(--ac)}
+.btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"]{color:var(--ac);background:var(--on)}
+.btn:disabled,.btn[aria-disabled="true"]{opacity:.45;cursor:default}
+.btn:not([data-variant]):disabled,.btn:not([data-variant])[aria-disabled="true"]{background:none;color:var(--mt)}
+.btn:disabled:hover,.btn[aria-disabled="true"]:hover{filter:none}
+.btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.btn[aria-busy="true"]{cursor:progress}
+.btn[aria-busy="true"] svg{visibility:hidden}
+.btn[aria-busy="true"]::after{content:'';position:absolute;width:var(--btn-ic,14px);height:var(--btn-ic,14px);border:2px solid currentColor;border-right-color:transparent;border-radius:var(--r-full);animation:fe-spin var(--t-slow) linear infinite}
+.btn[aria-busy="true"]{position:relative}
+.btn[data-done]{color:var(--tone-ok)}
+@keyframes fe-spin{to{transform:rotate(1turn)}}
 html,body{height:100%;background:var(--bg);color:var(--tx);
   font:var(--fs-lg)/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
 body{opacity:1!important}
@@ -5073,10 +5092,9 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-si-link:hover{color:var(--tx)}
 .fe-si-link.active{color:var(--ac)}
 .fe-si-link svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
-.fe-rm-btn{background:none;border:none;color:var(--dm);cursor:pointer;
-  padding:4px 10px 4px 4px;font-size:var(--fs-md);opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
+.fe-rm-btn{opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
-.fe-rm-btn:hover{color:#f85149}
+
 #fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 20px);margin:2px 10px 6px;box-sizing:border-box;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:3px 8px;border-radius:var(--r-sm);font-size:var(--fs-sm);outline:none;transition:border-color .15s}
 #fe-lens-filter:focus,#fe-docs-q:focus{border-color:var(--ac)}
@@ -5104,9 +5122,9 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-sv-more{font-size:var(--fs-xs);color:var(--dm);line-height:6px}
 .fe-pl-tags{display:none;font-size:var(--fs-sm);color:var(--mt);min-width:60px;max-width:110px;white-space:nowrap;overflow:hidden}
 .fe-pl-tags.show{display:inline-block}
-.fe-tag-btn{background:none;border:none;color:var(--dm);cursor:pointer;padding:4px 4px;font-size:var(--fs-md);opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
+.fe-tag-btn{opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
 .fe-bm-item:hover .fe-tag-btn{opacity:1}
-.fe-tag-btn:hover{color:var(--ac)}
+
 /* clip, not hidden: focusing a control past the edge must not scroll the pane sideways.
    The pane is a size container so its toolbar wraps by the pane's width, which a
    docked preview can make narrow in a wide window. */
@@ -5369,10 +5387,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   position:absolute;right:6px;top:50%;transform:translateY(-50%);
   background:none;border-radius:0;padding:0;width:auto;left:auto}
 /* Row actions float over the name, so they sit on a solid surface; small circles like every icon button. */
-.fe-act-btn{display:inline-grid;place-items:center;width:22px;height:22px;padding:0;border-radius:50%;
-  background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
+.fe-act-btn{display:inline-grid;
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-act-btn:hover{background:var(--s3);color:var(--tx)}
+
 .fe-row td.c-nm{position:relative}
 #fe-statusbar{display:flex;align-items:center;gap:14px;min-height:30px;padding:0 14px;
   background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt);white-space:nowrap;overflow:hidden}
@@ -5449,8 +5466,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-tx{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
 .fe-dlg-tx b{font-size:var(--fs-xl);font-weight:600;line-height:1.2;color:var(--tx);letter-spacing:-.01em}
 .fe-dlg-tx i{font-size:var(--fs-sm);line-height:1.2;font-style:normal;color:var(--dm)}
-.fe-dlg-close{display:inline-grid;place-items:center;width:26px;height:26px;padding:0;background:none;border:none;color:var(--dm);cursor:pointer;border-radius:50%;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
-.fe-dlg-close:hover{background:var(--shade);color:var(--tx)}
+.fe-dlg-close{display:inline-grid;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+
 .fe-dlg-tabs{display:flex;gap:3px;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex:none;align-items:stretch;overflow-x:auto}
 .fe-dlg-tab{display:flex;flex-direction:column;gap:2px;background:none;border:none;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
   padding:9px 13px 8px;color:var(--mt);cursor:pointer;text-align:left;line-height:1;white-space:nowrap;transition:background .1s,color .1s,border-color .1s}
@@ -5463,8 +5480,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-tab.on i{opacity:1}
 .fe-dlg-pane{display:none;padding:18px 22px 22px;overflow:auto;min-height:0}
 .fe-dlg-pane.on{display:flex;flex-direction:column;gap:20px}
-.fe-dlg-pane .fe-pbn{display:inline-flex;align-items:center;justify-content:center;gap:5px}
-.fe-dlg-pane .fe-pbn svg{flex:none;width:13px;height:13px}
 .fe-dlg-pane .fe-md{max-width:none;padding:0}
 .fe-dlg-pane .fe-md h2{font-size:1.15em;border:0;padding:0}
 .fe-dlg-pane .fe-md>:first-child{margin-top:0}
@@ -5554,8 +5569,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
    buttons stay in view. */
 #fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 4px 0 6px;flex:0 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
 #fe-tabs-end{display:flex;align-items:center;gap:2px;padding:4px 8px 0 2px;flex:none}
-#fe-tabs-end button{color:var(--mt)}
-#fe-tabs-end button svg{width:13px;height:13px}
 #fe-goto{position:fixed;z-index:60;width:min(460px,calc(100vw - 16px));padding:8px;border-radius:var(--pop-r);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
 #fe-goto input{width:100%;box-sizing:border-box;height:30px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md);outline:0}
@@ -5581,17 +5594,17 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
 .fe-tab-head{overflow:hidden;white-space:pre;min-width:0}
 .fe-tab-tail{white-space:nowrap;flex-shrink:0}
-.fe-tab-x,.fe-tab-more{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;background:none;border:none;color:var(--dm);cursor:pointer;font-size:var(--fs-xs);border-radius:50%;opacity:0;line-height:1;transition:opacity var(--t-fast),background var(--t-fast)}
-.fe-tab-more{font-size:var(--fs-md);letter-spacing:1px}
+.fe-tab-x,.fe-tab-more{display:inline-grid;opacity:0;transition:opacity var(--t-fast),background var(--t-fast)}
+
 .fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
-.fe-tab-x:hover{background:var(--shade2);color:#f85149}
+
 /* A tab you are not on gives its name the whole width: its menu and close
    buttons float over the end of the name, and only while it is hovered. */
 .fe-tab:not(.on) .fe-tab-x,.fe-tab:not(.on) .fe-tab-more{position:absolute;top:50%;margin-top:-9px;background:var(--s3)}
 .fe-tab:not(.on) .fe-tab-x{right:6px}
 .fe-tab:not(.on) .fe-tab-more{right:26px}
 .fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-x,.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-more{visibility:hidden}
-.fe-tab-more:hover{background:var(--shade2);color:var(--tx)}
+
 .fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
 .fe-tab-ico{display:flex;flex-shrink:0}
 .fe-tab-ico svg{width:11px;height:12px}
@@ -5648,11 +5661,11 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-cm-filters button{flex:1;border:0;background:none;border-radius:8px;padding:3px 4px;font-size:var(--fs-sm);color:var(--mt);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
 .fe-cm-filters button svg{width:11px;height:11px;opacity:.75}
 .fe-cm-fn{color:var(--dm)}
-.fe-cm-ib{display:inline-grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer;flex:none;
+.fe-cm-ib{display:inline-grid;flex:none;
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-cm-ib:hover{background:var(--shade);color:var(--tx)}
-.fe-cm-ib:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-cm-ib svg{width:13px;height:13px}
+
+
+
 .fe-cm-filters button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
 .fe-cm-group{display:flex;align-items:center;gap:6px;margin:14px 2px 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm);cursor:default}
 .fe-cm-group span{font-weight:500;letter-spacing:0}
@@ -5680,8 +5693,8 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-tx ul{margin:.15em 0;padding-left:1.15em}
 .fe-cm-own{margin-left:auto;display:inline-flex;opacity:0;transition:opacity var(--t-fast) var(--ease)}
 .fe-cm-c:hover .fe-cm-own,.fe-cm-own:focus-within{opacity:1}
-.fe-cm-own .fe-cm-ib{width:20px;height:20px}
-.fe-cm-own .fe-cm-ib svg{width:12px;height:12px}
+
+
 .fe-cm-c.gone .fe-cm-tx{color:var(--dm)}
 .fe-cm-sug{margin-top:6px;font-size:var(--fs-sm);color:var(--mt)}
 .fe-cm-diff{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;border-radius:var(--row-r);background:var(--shade);line-height:1.5;overflow-wrap:anywhere}
@@ -5725,9 +5738,9 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-tools .btn svg{width:12px;height:12px}
 .fe-cm-grow{flex:1}
 .fe-cm-date{height:22px;padding:0 6px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-sm);color-scheme:light dark}
-.fe-cm-x{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin:0 -3px 0 1px;padding:0;border:0;border-radius:50%;background:none;color:var(--dm);cursor:pointer}
-.fe-cm-x:hover{background:var(--shade);color:var(--tx)}
-.fe-cm-x svg{width:9px;height:9px}
+.fe-cm-x{display:inline-flex;margin:0 -3px 0 1px}
+
+
 /* The floating Comment button above a selection on the page. */
 #fe-cm-add{position:fixed;z-index:30;height:28px;padding:0 10px;border-radius:999px;color:var(--tx);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
@@ -5755,7 +5768,6 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 #fe-ff-n{flex:none;width:7.5ch;text-align:right;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;font-variant-numeric:tabular-nums}
 #fe-ff-n.none{color:var(--mt);font-style:italic}
 #fe-ff-n.part{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
-#fe-fp-bar #fe-ff button{height:20px;width:20px}
 mark.fe-ff-hit{background:color-mix(in srgb,var(--gold) 35%,transparent);color:inherit;border-radius:2px}
 mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-page{flex:1;min-width:0;overflow:auto;font-size:var(--fs-md)}
@@ -5829,8 +5841,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 @media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
 #fe-fp-reload{font-size:var(--fs-sm);color:var(--dm)}
 #fe-ed-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
-#fe-ed-bar .fe-pbn{padding:2px 7px;font-size:var(--fs-sm);display:inline-flex;align-items:center;gap:5px}
-#fe-ed-bar .fe-pbn[data-icon]{width:26px;height:26px;padding:0;justify-content:center;border-radius:6px}
 .fe-ed-sep{width:1px;align-self:stretch;margin:4px;background:var(--bd)}
 .fe-ed-hint{margin-left:auto;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
@@ -5860,11 +5870,9 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-chip-static{padding-right:8px}
 .fe-chip-x{background:none;border:0;color:var(--dm);cursor:pointer;display:grid;place-items:center;padding:2px;border-radius:50%}
 .fe-chip-x:hover{color:var(--ac)}
-#fe-ed-meta .fe-pbn{padding:2px 8px;font-size:var(--fs-sm)}
 .fe-cdot{flex:none}
 .fe-pmenu{position:fixed;z-index:2147483000;width:250px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:6px}
-.fe-pmenu .fe-pbn{display:inline-flex;align-items:center;gap:6px;text-align:left}
-.fe-pmenu .fe-pbn svg{flex:none;width:12px;height:12px}
+.fe-pmenu .btn{justify-content:flex-start}
 .fe-pm-lbl{font-size:var(--fs-sm);color:var(--mt);text-transform:uppercase;letter-spacing:.04em}
 .fe-pm-colors{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .fe-pm-tags{display:flex;flex-wrap:wrap;gap:4px}
@@ -5886,15 +5894,15 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-nt-flags{display:inline-flex;align-items:center;gap:4px;flex:none}
 .fe-nt-flags svg{width:12px;height:12px}
 .fe-nt-pin{color:var(--gold)}
-.fe-nt-props{background:none;border:0;color:var(--dm);cursor:pointer;padding:4px;display:grid;place-items:center;opacity:0;flex:none}
+.fe-nt-props{display:grid;opacity:0;flex:none}
 .fe-nt-item:hover .fe-nt-props,.fe-nt-props:focus-visible{opacity:1}
-.fe-nt-props:hover{color:var(--ac)}
-.fe-nt-props svg{width:14px;height:14px}
+
+
 .fe-nt-item .fe-si-link{padding-left:14px}
-.fe-nt-tab{background:none;border:0;color:var(--dm);cursor:pointer;padding:4px;display:grid;place-items:center;opacity:0;flex:none}
+.fe-nt-tab{display:grid;opacity:0;flex:none}
 .fe-nt-item:hover .fe-nt-tab,.fe-nt-tab:focus-visible{opacity:1}
-.fe-nt-tab:hover{color:var(--ac)}
-.fe-nt-tab svg{width:14px;height:14px}
+
+
 .fe-sh a{color:inherit;text-decoration:none}
 .fe-sh a:hover{color:var(--ac)}
 #fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
@@ -5940,8 +5948,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-ql-note.err{color:#f85149}
 .fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
 .fe-ql-imgbar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
-.fe-ql-imgbar .fe-pbn{padding:2px 7px;font-size:var(--fs-sm);display:inline-flex;align-items:center;gap:5px}
-.fe-ql-imgbar .fe-pbn svg{flex:none;width:13px;height:13px}
 .fe-ql-imgstage{flex:1;min-height:0;overflow:auto;display:flex}
 .fe-ql-imgsizer{position:relative;margin:auto;flex:none}
 .fe-ql-img{position:absolute;left:50%;top:50%;max-width:none;max-height:none;border-radius:4px;transform-origin:center}
@@ -6172,7 +6178,7 @@ button.fe-si{width:auto;display:flex}
 .fe-si-link{padding:0;gap:var(--row-gap);min-height:var(--row-h)}
 .fe-nt-item .fe-si-link{padding:6px 0}
 .fe-pl-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
-.fe-pl-item .fe-rm-btn{padding:4px 0 4px 4px}
+
 /* A note row's actions float over the end of the title on a solid fade, so
    nothing moves under the pointer on hover. In a narrow sidebar only delete
    shows; colour and open-in-tab stay in the right-click menu. */
@@ -6180,7 +6186,7 @@ button.fe-si{width:auto;display:flex}
   background:linear-gradient(to right,transparent,color-mix(in srgb,var(--side),var(--tx) 6%) 14px)}
 .fe-nt-item:has(> .fe-si-link.active) .fe-nt-acts{background:linear-gradient(to right,transparent,color-mix(in srgb,var(--side),var(--ac) 18%) 14px)}
 .fe-nt-item:has(.editing) .fe-nt-acts{display:none}
-.fe-nt-item .fe-rm-btn{padding:4px 6px}
+
 #fe-lenses{container:lens/inline-size}
 @container lens (max-width:200px){.fe-nt-props,.fe-nt-tab{display:none!important}}
 /* A tag group is a plain section: one header row (chevron, colour, name,
@@ -6202,11 +6208,11 @@ button.fe-si{width:auto;display:flex}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
 .fe-lens-tools{display:flex;align-items:center;gap:2px;padding:2px 6px 8px}
-.fe-lens-ib{flex:none;display:inline-grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:var(--row-r);background:none;color:var(--mt);cursor:pointer;
+.fe-lens-ib{flex:none;display:inline-grid;
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-lens-ib svg{width:16px;height:16px}
-.fe-lens-ib:hover{background:var(--hover);color:var(--tx)}
-.fe-lens-ib.accent{color:var(--ac)}
+
+
+
 a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-lens-box{position:relative;flex:1;min-width:0;margin-left:4px}
 .fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
@@ -6223,11 +6229,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-pl-meta{display:inline-flex;align-items:center;gap:2px;margin-left:auto;padding-right:2px;flex:none;font-size:var(--fs-xs);color:var(--dm)}
 .fe-pl-meta svg{width:11px!important;height:11px!important;opacity:1}
 .fe-pl-item:hover .fe-pl-meta,.fe-pl-item:focus-within .fe-pl-meta{display:none}
-.fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{display:none;place-items:center;width:24px;height:24px;padding:0;border-radius:6px;opacity:1}
+.fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{display:none;opacity:1}
 .fe-pl-item:hover .fe-tag-btn,.fe-pl-item:hover .fe-rm-btn,.fe-pl-item:focus-within .fe-tag-btn,.fe-pl-item:focus-within .fe-rm-btn{display:inline-grid}
-.fe-pl-item .fe-tag-btn svg,.fe-pl-item .fe-rm-btn svg{width:13px;height:13px}
-.fe-pl-item .fe-tag-btn:hover,.fe-pl-item .fe-rm-btn:hover{background:color-mix(in srgb,var(--tx) 10%,transparent)}
-.fe-pl-item .fe-rm-btn:hover{color:var(--nc-red)}
+
+
+
 .fe-pl-item:has(.fe-pl-hit){flex-wrap:wrap}
 .fe-pl-hit{flex-basis:100%;padding:0 0 5px 29px;margin-top:-4px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #fe-sv-card{position:fixed;z-index:60;pointer-events:none;width:230px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--pop-bd);border-radius:10px;
@@ -6250,8 +6256,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-item .fe-nt-pin{display:inline-flex;margin-left:auto;padding-right:4px;color:var(--gold);flex:none}
 .fe-nt-item .fe-nt-pin svg{width:12px!important;height:12px!important;opacity:1}
 .fe-nt-item:hover .fe-nt-pin,.fe-nt-item:focus-within .fe-nt-pin{visibility:hidden}
-.fe-nt-item .fe-rm-btn svg{width:13px;height:13px}
-.fe-nt-item .fe-rm-btn:hover{color:var(--nc-red)}
+
+
 .fe-nt-grp{display:flex;align-items:center;gap:7px;width:calc(100% - 12px);height:26px;margin:8px 6px 2px;padding:0 var(--row-px);border:0;border-radius:var(--row-r);background:none;cursor:pointer;
   font:inherit;font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm);text-align:left}
 .fe-nt-grp:first-child{margin-top:0}
@@ -6315,7 +6321,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-tab i{padding-left:25px;line-height:1.3}
 .fe-dlg-pane{padding:20px 24px 24px}
 .fe-dlg-pane.on{gap:16px}
-.fe-dlg-pane .fe-pbn{height:30px;padding:0 12px;border-radius:var(--row-r);font-size:var(--row-fs)}
 .fe-set-card{background:var(--side);border:1px solid var(--bd);border-radius:12px;padding:2px 0 4px}
 .fe-set-h{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:8px 16px 4px;
   font-size:var(--fs-md);font-weight:600;color:var(--tx)}
@@ -6416,9 +6421,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .dot.ready{background:var(--green)}
 .dot.cold{background:var(--gold)}
 .dot.down,.dot.unavailable{background:var(--nc-red)}
-.fe-ask-ib{position:relative;display:inline-grid;place-items:center;width:28px;height:28px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer}
-.fe-ask-ib:hover,.fe-ask-ib[aria-expanded="true"]{background:var(--hover);color:var(--tx)}
-.fe-ask-ib svg{width:15px;height:15px}
+.fe-ask-ib{position:relative;display:inline-grid}
+
+
 .fe-ask-n{position:absolute;top:1px;right:0;min-width:14px;height:14px;padding:0 3px;border-radius:999px;font-size:10px;line-height:14px;text-align:center;background:var(--ac);color:var(--tx-on-ac)}
 .fe-ask-n:empty{display:none}
 .fe-ask-status{display:flex;align-items:center;gap:8px;margin:0 16px 8px;font-size:var(--fs-sm);line-height:1.4;color:var(--mt)}
@@ -6450,9 +6455,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-ctx{flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--dm)}
 .fe-ask-ctx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-ask-ctx svg{width:11px;height:11px;flex:none}
-.fe-ask-send{flex:none;display:inline-grid;place-items:center;width:28px;height:28px;border:0;border-radius:50%;background:var(--ac);color:var(--tx-on-ac);cursor:pointer}
-.fe-ask-send:disabled{opacity:.4;cursor:default}
-.fe-ask-send svg{width:15px;height:15px}
+.fe-ask-send{flex:none;display:inline-grid}
+.fe-ask-send:disabled{opacity:.4}
+
 .fe-ask-send.stop svg{display:none}
 .fe-ask-send.stop::before{content:'';width:9px;height:9px;border-radius:2px;background:currentColor}
 .fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
@@ -6510,7 +6515,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-ph p{margin:3px 0 0;font-size:var(--fs-md);line-height:1.4;color:var(--dm)}
 .fe-set-group{display:flex;flex-direction:column;gap:8px}
 .fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
-.fe-set-group > .fe-set-h .fe-pbn{height:24px;padding:0 9px;font-size:var(--fs-sm);font-weight:500;letter-spacing:0;text-transform:none}
 .fe-set-card{padding:0;overflow:hidden}
 .fe-set-card > .fe-set:first-child{border-top:0}
 .fe-set-card > .fe-set-note:first-child{padding-top:12px}
@@ -6651,11 +6655,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-h-acts{display:inline-flex;align-items:center;gap:6px}
 
 /* Icon button: no fill until hovered. */
-.fe-ibtn{display:inline-grid;place-items:center;flex:none;width:28px;height:28px;padding:0;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
+.fe-ibtn{display:inline-grid;flex:none;
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-ibtn:hover{background:var(--hover);color:var(--tx)}
-.fe-ibtn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-ibtn svg{width:15px;height:15px}
+
+
+
 
 /* A row of buttons, one on. */
 .fe-seg{display:inline-flex;align-items:stretch;gap:2px;padding:2px;border-radius:9px;background:color-mix(in srgb,var(--tx) 6%,transparent);
@@ -14485,8 +14489,8 @@ and ${diags.length - 12} more` : "");
     function showConflict() {
       banner.style.display = "";
       banner.innerHTML = `<span>${esc(host.rel.split("/").pop())} changed on disk since you opened it.</span>
-      <button class="fe-pbn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
-      <button class="fe-pbn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
+      <button class="btn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
+      <button class="btn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
     }
     const external = async () => {
       try {
@@ -15057,7 +15061,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       <textarea data-for="${esc(id)}" rows="2" aria-label="${esc(label)}" placeholder="${esc(place)}">${esc(typed.get(id) ?? start)}</textarea>
     </div>`;
     const notice = (text, why = "") => `<div class="fe-cm-state"${why ? ` title="${esc(why)}"` : ""}>${UI_ICON.info}<span>${esc(text)}</span></div>`;
-    const iconBtn2 = (a, icon2, title, v = "") => `<button type="button" class="fe-cm-ib" data-a="${a}"${v ? ` data-v="${esc(v)}"` : ""} title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
+    const iconBtn2 = (a, icon2, title, v = "") => `<button type="button" class="btn fe-cm-ib" data-icon data-size="sm" data-a="${a}"${v ? ` data-v="${esc(v)}"` : ""} title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
     let sugMsg = null;
     const sugHtml = (t, c, on) => {
       const s = c.suggestion;
@@ -15068,7 +15072,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (s.state !== "pending") return `<div class="fe-cm-sug ${esc(s.state)}">${diff}<span class="fe-cm-sug-state">${s.state === "accepted" ? UI_ICON.check + "Accepted" : UI_ICON.close + "Rejected"}</span></div>`;
       const can = placed2 && t.place.state !== "ambiguous";
       const tools = on ? `<div class="fe-cm-tools">
-        <button type="button" class="btn" data-size="sm" data-hover-shade data-a="reject" data-v="${esc(c.id)}" title="Keep the text as it is">${UI_ICON.close}Reject</button>
+        <button type="button" class="btn" data-size="sm" data-a="reject" data-v="${esc(c.id)}" title="Keep the text as it is">${UI_ICON.close}Reject</button>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="accept" data-v="${esc(c.id)}"${can ? "" : " disabled"} title="${can ? "Replace the words in the file (a backup is kept)" : "The words are no longer in the file, so this cannot be applied"}">${UI_ICON.check}Accept</button></div>` : "";
       const said = on && sugMsg?.id === c.id ? `<p class="fe-cm-sug-msg" role="status">${UI_ICON.info}<span>${esc(sugMsg.text)}</span></p>` : "";
       return `<div class="fe-cm-sug pending">${diff}${tools}${said}</div>`;
@@ -15076,7 +15080,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     const threadHtml = (t) => {
       const on = t.id === active;
       const quote = visibleOf(t.place.state === "moved" && t.place.offset !== null ? o.text().slice(t.place.offset, t.place.offset + t.place.length) : t.anchor.exact);
-      const x = (a, v, label) => on ? `<button type="button" class="fe-cm-x" data-a="${a}" data-v="${esc(v)}" aria-label="${esc(label)}" title="${esc(label)}">${UI_ICON.close}</button>` : "";
+      const x = (a, v, label) => on ? `<button type="button" class="btn fe-cm-x" data-icon data-size="xs" data-a="${a}" data-v="${esc(v)}" aria-label="${esc(label)}" title="${esc(label)}">${UI_ICON.close}</button>` : "";
       const chips = [
         ...(t.tags ?? []).map((g) => `<span class="fe-cm-chip">#${esc(g)}${x("untag", g, `Remove tag ${g}`)}</span>`),
         t.due ? `<span class="fe-cm-chip due">${UI_ICON.clock}${esc(dueLabel(t.due))}${x("undue", "", "Clear the due date")}</span>` : "",
@@ -15085,7 +15089,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const cs = t.comments.map((c) => {
         const mine = on && c.author.kind === "human" && !c.deleted;
         const body = editing === c.id ? `${box("edit:" + c.id, "Edit comment", "", c.text || "")}<div class="fe-cm-tools"><span class="fe-cm-grow"></span>
-            <button type="button" class="btn" data-size="sm" data-hover-shade data-a="edit-cancel" title="Cancel (Esc)">Cancel</button>
+            <button type="button" class="btn" data-size="sm" data-a="edit-cancel" title="Cancel (Esc)">Cancel</button>
             <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="edit-save" data-v="${esc(c.id)}" title="Save (\u2318\u21B5)">Save</button></div>` : `<div class="fe-cm-tx">${c.deleted ? "<i>Deleted</i>" : commentHtml(c.text || "")}</div>`;
         return `
       <div class="fe-cm-c${c.deleted ? " gone" : ""}">
@@ -15101,11 +15105,11 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const tools = on ? `
       ${box(t.id, "Reply", done ? "Reply to reopen\u2026" : "Reply\u2026 @ to mention, # to tag")}
       <div class="fe-cm-tools">
-        <button type="button" class="btn" data-size="sm" data-hover-shade data-a="${done ? "reopen" : "done"}" title="${done ? "Reopen this thread" : "Mark done"} (\u2318\u21E7\u21B5)">${done ? UI_ICON.reset + "Reopen" : UI_ICON.check + "Done"}</button>
+        <button type="button" class="btn" data-size="sm" data-a="${done ? "reopen" : "done"}" title="${done ? "Reopen this thread" : "Mark done"} (\u2318\u21E7\u21B5)">${done ? UI_ICON.reset + "Reopen" : UI_ICON.check + "Done"}</button>
         ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : iconBtn2("due", UI_ICON.clock, "Set a due date")}
         ${iconBtn2("link", UI_ICON.link, "Copy a link that opens this thread")}
         ${iconBtn2("brief", UI_ICON.bot, "Copy this thread as a brief for an agent")}
-        ${t.place.state !== "anchored" && !applied ? `<button type="button" class="btn" data-size="sm" data-hover-shade data-a="attach" title="Select words on the page first">Attach to selection</button>` : ""}
+        ${t.place.state !== "anchored" && !applied ? `<button type="button" class="btn" data-size="sm" data-a="attach" title="Select words on the page first">Attach to selection</button>` : ""}
         <span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="reply" title="Reply (\u2318\u21B5)">Reply</button>
       </div>` : "";
@@ -15118,7 +15122,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       ${draft.block ? notice("On the whole block", "These words could not be placed exactly, so the comment covers the whole block.") : ""}
       ${draft.attach ? '<p class="fe-cm-hint">The thread moves to these words.</p>' : box("new", "New comment", "Comment\u2026 @ to mention, # to tag")}
       <div class="fe-cm-tools"><span class="fe-cm-grow"></span>
-        <button type="button" class="btn" data-size="sm" data-hover-shade data-a="cancel" title="Cancel (Esc)">Cancel</button>
+        <button type="button" class="btn" data-size="sm" data-a="cancel" title="Cancel (Esc)">Cancel</button>
         <button type="submit" class="btn" data-size="sm" data-variant="solid" data-a="post" title="${draft.attach ? "Attach" : "Comment"} (\u2318\u21B5)">${draft.attach ? "Attach here" : "Comment"}</button></div>
     </form>` : "";
     const emptyHtml = () => `<div class="fe-cm-empty">
@@ -15893,21 +15897,21 @@ ${d.message}` : d.message;
     return `
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
-        <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
-        <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
-        <button id="fe-fp-wrap" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
-        <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
-        <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
+        <button id="fe-fp-column" class="btn" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
+        <button id="fe-fp-edit" class="btn" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
+        <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
+        <button id="fe-fp-raw" class="btn" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
+        <button id="fe-fp-copy" class="btn" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
         <span id="fe-ff" title="Find in this file (/) \xB7 Enter next \xB7 Shift+Enter previous \xB7 Esc clears">
           <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><circle cx="5.5" cy="5.5" r="3.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8.4 8.4 11.5 11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
           <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
           <span id="fe-ff-n" aria-live="polite"></span>
-          <button id="fe-ff-prev" data-icon data-size="sm" title="Previous match (Shift+Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          <button id="fe-ff-next" data-icon data-size="sm" title="Next match (Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="fe-ff-prev" class="btn" data-icon data-size="xs" title="Previous match (Shift+Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="fe-ff-next" class="btn" data-icon data-size="xs" title="Next match (Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </span>
         <span class="fe-fp-panes">
-          <button id="fe-fp-toc" data-icon title="On this page: the headings" aria-label="On this page" hidden>${UI_ICON.contents}</button>
-          <button id="fe-fp-cm" data-icon title="Comments (\u21E7C)" aria-label="Comments" hidden>${UI_ICON.comment}<span id="fe-fp-cm-n"></span></button>
+          <button id="fe-fp-toc" class="btn" data-icon title="On this page: the headings" aria-label="On this page" hidden>${UI_ICON.contents}</button>
+          <button id="fe-fp-cm" class="btn" data-icon title="Comments (\u21E7C)" aria-label="Comments" hidden>${UI_ICON.comment}<span id="fe-fp-cm-n"></span></button>
         </span>
       </div>
       <div id="fe-fp">
@@ -16113,7 +16117,7 @@ ${d.message}` : d.message;
       const short = home && folder.startsWith(home + "/") ? "~" + folder.slice(home.length) : folder;
       pop.innerHTML = `<div class="fe-allow-title">${UI_ICON.lock}Allow editing here?</div>
       <p>Saves write to <code>${esc(short)}</code>. Each save keeps the old text for 14 days.</p>
-      <div class="fe-allow-acts"><button type="button" class="btn" data-hover-shade data-a="cancel">Cancel</button>
+      <div class="fe-allow-acts"><button type="button" class="btn" data-a="cancel">Cancel</button>
       <button type="button" class="btn" data-variant="outline" data-a="file">Just this file</button>
       <button type="button" class="btn" data-variant="solid" data-a="folder">Allow folder</button></div>`;
       let ok = false;
@@ -16549,8 +16553,8 @@ ${d.message}` : d.message;
 ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins, right-click for more)" : "middle-click closes"} \xB7 drag reorders`;
       return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}"${on ? ' aria-current="page"' : ""} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}${lblHtml(label)}
-      <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">\u2026</button>
-      ${t.pinned ? "" : `<button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">\u2715</button>`}
+      <button class="btn fe-tab-more" data-icon data-size="xs" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">\u2026</button>
+      ${t.pinned ? "" : `<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="${esc(t.id)}" title="Close (w)">\u2715</button>`}
     </a>`;
     }
     function render2() {
@@ -17133,7 +17137,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   var wide = (label, desc, ctl) => `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
   var card2 = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
   var sw = (id, title) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
-  var iconBtn = (id, icon2, title) => `<button type="button" id="${id}" class="fe-ibtn" title="${title}" aria-label="${title}">${icon2}</button>`;
+  var iconBtn = (id, icon2, title) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon data-size="sm" title="${title}" aria-label="${title}">${icon2}</button>`;
   var note = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
   var thumb = (group, value, name, kind) => `<label class="fe-set-sw" title="${name}"><input type="radio" name="${group}" value="${value}" title="${name}"><span class="fe-set-thumb" data-${kind}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
   var PALETTE_NAMES = [
@@ -17195,7 +17199,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           ], "Row spacing"))
         ) + card2(
           "Help",
-          row("Tooltips", "Labels on hover", sw("fe-st-tooltips", "Tooltips on every control")) + row("Keyboard", "Every key, on a map", `<button id="fe-st-keys" class="fe-pbn" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)
+          row("Tooltips", "Labels on hover", sw("fe-st-tooltips", "Tooltips on every control")) + row("Keyboard", "Every key, on a map", `<button id="fe-st-keys" class="btn" data-size="lg" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)
         ) },
         { key: "folders", label: "Folders", hint: "View, order, sidebar", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "How folders open, and what a click does.", body: card2(
           "Opening a folder",
@@ -17236,7 +17240,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           `
           <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
           <div id="fe-st-rules-list"></div>`,
-          `<span class="fe-set-h-acts">${iconBtn("fe-st-reset-rules", UI_ICON.reset, "Reset to the built-in rules")}<button id="fe-st-add-rule" class="fe-pbn" title="Add a rule">${UI_ICON.add}Rule</button></span>`
+          `<span class="fe-set-h-acts">${iconBtn("fe-st-reset-rules", UI_ICON.reset, "Reset to the built-in rules")}<button id="fe-st-add-rule" class="btn" data-size="sm" title="Add a rule">${UI_ICON.add}Rule</button></span>`
         ) },
         { key: "notes", label: "Notes", hint: "Notes, editing", icon: UI_ICON.notes, tone: "var(--nc-orange)", desc: "Your notes folder, and where you can edit.", body: card2(
           "Notes",
@@ -17256,7 +17260,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ) + card2("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
         { key: "data", label: "Data", hint: "Export, import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list.", body: card2(
           "Your data",
-          row("Export", "Copies JSON", `<button id="fe-st-export" class="fe-pbn" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) + row("Import", "Then reloads", `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) + `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`
+          row("Export", "Copies JSON", `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) + row("Import", "Then reloads", `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) + `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`
         ) }
       ]
     };
@@ -17407,14 +17411,14 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   function itemActions(e, rawPath) {
     if (e.isParent) return "";
     const dPath = esc(fullPath(rawPath, e)), dName = esc(e.name);
-    const pvBtn = canPreview(e) ? `<button class="fe-act-btn fe-act-pv" title="Preview (Space)" data-pv="${dName}">
+    const pvBtn = canPreview(e) ? `<button class="btn fe-act-btn fe-act-pv" data-icon data-size="sm" title="Preview (Space)" data-pv="${dName}">
         <svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
       </button>` : "";
     return `<span class="fe-acts" data-path="${dPath}" data-name="${dName}">
-    ${pvBtn}<button class="fe-act-btn fe-act-cp" title="Copy full path" data-copy="${dPath}">
+    ${pvBtn}<button class="btn fe-act-btn fe-act-cp" data-icon data-size="sm" title="Copy full path" data-copy="${dPath}">
       <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
     </button>
-    <button class="fe-act-btn fe-act-nm" title="Copy name" data-copy="${dName}">
+    <button class="btn fe-act-btn fe-act-nm" data-icon data-size="sm" title="Copy name" data-copy="${dName}">
       <svg width="11" height="11" viewBox="0 0 11 11"><path d="M2 3h7M2 6h7M2 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
     </button>
   </span>`;
@@ -17475,8 +17479,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ""}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ""}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
-      <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
-      <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
+      <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
+      <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;
     };
     return groupByTag(saved, tags).map((g) => {
@@ -17501,7 +17505,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       const end = last && !trailing;
       const label = i3 === homeAt ? "~" : c.label;
       const pre = i3 < homeAt ? " data-pre hidden" : "";
-      return `<span class="fe-cg" data-i="${i3}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where}">${esc(label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
+      return `<span class="fe-cg" data-i="${i3}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where}">${esc(label)}</a><button class="btn fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
     }).join("");
   }
 
@@ -17544,7 +17548,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       icons: "Large icon grid"
     };
     const viewBtnsHTML = VIEW_MODES.map(
-      (v) => `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? " (active)" : ""}">${v.ico}</button>`
+      (v) => `<button class="btn fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? " (active)" : ""}">${v.ico}</button>`
     ).join("");
     const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}" data-hint="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
     const SETTINGS_DIALOG = settingsDialog();
@@ -17559,20 +17563,20 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 <div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}" data-density="${initDensity}"${fileMode ? ' class="fe-file-page"' : ""}>
 
   <div id="fe-bar">
-    <button id="fe-side-toggle" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
-    <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ""}<button id="fe-crumb-more" class="fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>\u2026</button></div>
-    <button id="fe-term-btn" data-icon title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
-    <button id="fe-bm-btn" data-icon class="${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
+    <button id="fe-side-toggle" class="btn" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
+    <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ""}<button id="fe-crumb-more" class="btn fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>\u2026</button></div>
+    <button id="fe-term-btn" class="btn" data-icon title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
+    <button id="fe-bm-btn" data-icon class="btn ${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
       ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? "currentColor" : "none"}"/>`)}
     </button>
-    <button id="fe-theme-btn" data-icon title="Switch between dark and light">
+    <button id="fe-theme-btn" class="btn" data-icon title="Switch between dark and light">
       ${UI_ICON.appearance.replace("<svg ", '<svg id="fe-sun" ')}
       ${line('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>').replace("<svg ", '<svg id="fe-moon" ')}
     </button>
-    <button id="fe-help-btn" data-icon title="Help (press ?), what's here and how to use it">
+    <button id="fe-help-btn" class="btn" data-icon title="Help (press ?), what's here and how to use it">
       ${PI.help}
     </button>
-    <button id="fe-settings-btn" data-icon title="Settings (press ,), theme, views, terminal, icon rules">
+    <button id="fe-settings-btn" class="btn" data-icon title="Settings (press ,), theme, views, terminal, icon rules">
       ${PI.gear}
     </button>
   </div>
@@ -17596,7 +17600,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       <div class="fe-lens" id="fe-lens-saved" data-lens="saved" role="tabpanel" aria-labelledby="fe-rail-saved" hidden>
       <div class="fe-lens-tools">
-        <button id="fe-sv-add" class="fe-lens-ib accent" title="Save this ${fileMode ? "file" : "folder"} and name it" aria-label="Save this ${fileMode ? "file" : "folder"}">${UI_ICON.add}</button>
+        <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? "file" : "folder"} and name it" aria-label="Save this ${fileMode ? "file" : "folder"}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
           <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
           <button type="button" id="fe-lens-depth" class="fe-lens-depth" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
@@ -17610,8 +17614,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
       <div class="fe-lens-tools">
-        <button id="fe-nt-add" class="fe-lens-ib accent" title="New note (n)" aria-label="New note">${UI_ICON.add}</button>
-        <a id="fe-notes-root" class="fe-lens-ib" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
+        <button id="fe-nt-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="New note (n)" aria-label="New note">${UI_ICON.add}</button>
+        <a id="fe-notes-root" class="btn fe-lens-ib" data-icon data-size="lg" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
       </div>
       <div class="fe-sec" id="fe-notes-sec" data-sec="notes">
         <input id="fe-nt-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
@@ -17638,26 +17642,26 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <div id="fe-tabbar">
         <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
         <div id="fe-tabs-end">
-          <button id="fe-tab-list" class="btn" data-hover-shade data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>
-          <button id="fe-open-pick" class="btn" data-hover-shade data-icon data-size="sm" title="Open a file or folder" aria-label="Open a file or folder">${UI_ICON.add}</button>
-          <button id="fe-open-path" class="btn" data-hover-shade data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
+          <button id="fe-tab-list" class="btn" data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>
+          <button id="fe-open-pick" class="btn" data-icon data-size="sm" title="Open a file or folder" aria-label="Open a file or folder">${UI_ICON.add}</button>
+          <button id="fe-open-path" class="btn" data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
         </div>
       </div>
       ${fileMode ? renderFileContent() : ""}
       <div id="fe-toolbar">
         <span id="fe-count">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <div id="fe-tb-right">
-          <button id="fe-sg-btn" title="Sort and group" aria-expanded="false">
+          <button id="fe-sg-btn" class="btn" title="Sort and group" aria-expanded="false">
             ${SORT_ICON}<span id="fe-sg-cur">Sort</span>
           </button>
           <span class="fe-tb-sep"></span>
-          <button id="fe-filter-btn" data-icon title="Filter by name, type or text inside files" aria-expanded="false">
+          <button id="fe-filter-btn" class="btn" data-icon title="Filter by name, type or text inside files" aria-expanded="false">
             ${line('<path d="M10 20a1 1 0 0 0 .55.9l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .52-1.34L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.22 7.99A2 2 0 0 1 10 14z"/>', 14)}
           </button>
-          <button id="fe-deep-btn" data-icon title="Subfolders: filter every folder under this one too">
+          <button id="fe-deep-btn" class="btn" data-icon title="Subfolders: filter every folder under this one too">
             ${line('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/><path d="M2 10h20"/>', 14)}
           </button>
-          <button id="fe-hidden-btn" data-icon class="${initHidden ? "on" : ""}" title="Hidden files: ${initHidden ? "showing" : "hiding"} dotfiles and comment files \xB7 click to toggle">
+          <button id="fe-hidden-btn" data-icon class="btn ${initHidden ? "on" : ""}" title="Hidden files: ${initHidden ? "showing" : "hiding"} dotfiles and comment files \xB7 click to toggle">
             ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? "currentColor" : "none"}"/>`, 14)}
           </button>
           <span class="fe-tb-sep"></span>
@@ -20184,9 +20188,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
               ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel))}">${esc(bodyHits.get(n.rel))}</span>` : ""}
             </a>
             <span class="fe-nt-acts">
-              <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
-              <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
-              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash" aria-label="Move ${esc(n.title || noteTitle(n.rel))} to .trash">${UI_ICON.trash}</button>
+              <button class="btn fe-nt-props" data-icon data-size="sm" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
+              <button class="btn fe-nt-tab" data-icon data-size="sm" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
+              <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-rel="${esc(n.rel)}" title="Move to .trash" aria-label="Move ${esc(n.title || noteTitle(n.rel))} to .trash">${UI_ICON.trash}</button>
             </span>
           </div>`;
       };
@@ -20698,8 +20702,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     <div class="fe-ask-top">
       <label class="fe-ask-model" title="Which model answers. Local models run on this machine; Gemini runs on Google's servers."><span class="dot"></span><select id="fe-ask-model"><option value="">Default</option></select></label>
       <span class="fe-ask-sp"></span>
-      <button type="button" class="fe-ask-ib" id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
-      <button type="button" class="fe-ask-ib" id="fe-ask-hist-btn" title="Earlier chats about ${what}" aria-expanded="false">${UI_ICON.clock}<span class="fe-ask-n" id="fe-ask-hist-n"></span></button>
+      <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
+      <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-hist-btn" title="Earlier chats about ${what}" aria-expanded="false">${UI_ICON.clock}<span class="fe-ask-n" id="fe-ask-hist-n"></span></button>
       <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
     <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
@@ -20710,7 +20714,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <div class="fe-ask-box">
         <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
         <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(app.fileMode ? decodeURIComponent(location.pathname) : app.folderPath)}">${app.fileMode ? UI_ICON.file ?? "" : ""}<span>${esc(subject)}</span></span>
-          <button type="button" class="fe-ask-send" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? "\u2191"}</button></div>
+          <button type="button" class="btn fe-ask-send" data-icon data-variant="solid" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? "\u2191"}</button></div>
       </div>
     </div>`;
     const thread = el("fe-ask-thread");
@@ -21048,7 +21052,7 @@ ${rows.join("\n")}`, name: subject };
         <button type="button" class="fe-rule-ico" title="Icon and colour">${icoCustom(rule.label, rule.color, rule.glyph)}</button>
         <input type="text" class="fe-st-rule-pattern${bad ? " bad" : ""}" value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : "Matches file names, any case"}">
         <span class="fe-rule-n" title="Matches in this folder">${bad ? "!" : hits(rule.pattern)}</span>
-        <button type="button" class="fe-ibtn fe-st-rule-del" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
+        <button type="button" class="btn fe-ibtn fe-st-rule-del" data-icon data-size="sm" data-tone="danger" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
       </div>`;
       }).join("") : '<p class="fe-set-note">No rules. Add one, or pick a suggestion.</p>';
       const have = new Set(app.iconRules.map((r) => r.pattern));

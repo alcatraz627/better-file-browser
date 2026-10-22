@@ -45,11 +45,11 @@ export const UI_CSS = `
 .fe-set-h-acts{display:inline-flex;align-items:center;gap:6px}
 
 /* Icon button: no fill until hovered. */
-.fe-ibtn{display:inline-grid;place-items:center;flex:none;width:28px;height:28px;padding:0;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
+.fe-ibtn{display:inline-grid;flex:none;
   transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-ibtn:hover{background:var(--hover);color:var(--tx)}
-.fe-ibtn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-ibtn svg{width:15px;height:15px}
+
+
+
 
 /* A row of buttons, one on. */
 .fe-seg{display:inline-flex;align-items:stretch;gap:2px;padding:2px;border-radius:9px;background:color-mix(in srgb,var(--tx) 6%,transparent);

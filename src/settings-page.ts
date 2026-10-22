@@ -16,7 +16,7 @@ const wide = (label: string, desc: string, ctl: string) =>
 const card = (title: string, rows: string, action = '') =>
   `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
 const sw = (id: string, title: string) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
-const iconBtn = (id: string, icon: string, title: string) => `<button type="button" id="${id}" class="fe-ibtn" title="${title}" aria-label="${title}">${icon}</button>`;
+const iconBtn = (id: string, icon: string, title: string) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon data-size="sm" title="${title}" aria-label="${title}">${icon}</button>`;
 const note = (text: string, id = '') => `<p class="fe-set-note"${id ? ` id="${id}"` : ''}>${text}</p>`;
 
 // A small window drawn in the colours it picks, so the choice shows what it
@@ -73,7 +73,7 @@ export function settingsDialog(): DialogSpec {
             { value: 'compact', label: 'Compact', icon: i('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }], 'Row spacing'))) +
         card('Help',
           row('Tooltips', 'Labels on hover', sw('fe-st-tooltips', 'Tooltips on every control')) +
-          row('Keyboard', 'Every key, on a map', `<button id="fe-st-keys" class="fe-pbn" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)) },
+          row('Keyboard', 'Every key, on a map', `<button id="fe-st-keys" class="btn" data-size="lg" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)) },
 
       { key: 'folders', label: 'Folders', hint: 'View, order, sidebar', icon: UI_ICON.folderOpen, tone: 'var(--nc-blue)', desc: 'How folders open, and what a click does.', body:
         card('Opening a folder',
@@ -110,7 +110,7 @@ export function settingsDialog(): DialogSpec {
         card('Icon rules', `
           <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
           <div id="fe-st-rules-list"></div>`,
-          `<span class="fe-set-h-acts">${iconBtn('fe-st-reset-rules', UI_ICON.reset, 'Reset to the built-in rules')}<button id="fe-st-add-rule" class="fe-pbn" title="Add a rule">${UI_ICON.add}Rule</button></span>`) },
+          `<span class="fe-set-h-acts">${iconBtn('fe-st-reset-rules', UI_ICON.reset, 'Reset to the built-in rules')}<button id="fe-st-add-rule" class="btn" data-size="sm" title="Add a rule">${UI_ICON.add}Rule</button></span>`) },
 
       { key: 'notes', label: 'Notes', hint: 'Notes, editing', icon: UI_ICON.notes, tone: 'var(--nc-orange)', desc: 'Your notes folder, and where you can edit.', body:
         card('Notes',
@@ -134,8 +134,8 @@ export function settingsDialog(): DialogSpec {
 
       { key: 'data', label: 'Data', hint: 'Export, import', icon: UI_ICON.data, tone: 'var(--nc-green)', desc: 'Move your settings and Saved list.', body:
         card('Your data',
-          row('Export', 'Copies JSON', `<button id="fe-st-export" class="fe-pbn" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) +
-          row('Import', 'Then reloads', `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) +
+          row('Export', 'Copies JSON', `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) +
+          row('Import', 'Then reloads', `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) +
           `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
     ],
   };

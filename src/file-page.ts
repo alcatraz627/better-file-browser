@@ -142,21 +142,21 @@ export function renderFileContent(): string {
   return `
       <div id="fe-fp-bar">
         <span id="fe-fp-meta"></span>
-        <button id="fe-fp-column" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
-        <button id="fe-fp-edit" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
-        <button id="fe-fp-wrap" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
-        <button id="fe-fp-raw" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
-        <button id="fe-fp-copy" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
+        <button id="fe-fp-column" class="btn" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
+        <button id="fe-fp-edit" class="btn" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
+        <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
+        <button id="fe-fp-raw" class="btn" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
+        <button id="fe-fp-copy" class="btn" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
         <span id="fe-ff" title="Find in this file (/) · Enter next · Shift+Enter previous · Esc clears">
           <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><circle cx="5.5" cy="5.5" r="3.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8.4 8.4 11.5 11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
           <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
           <span id="fe-ff-n" aria-live="polite"></span>
-          <button id="fe-ff-prev" data-icon data-size="sm" title="Previous match (Shift+Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          <button id="fe-ff-next" data-icon data-size="sm" title="Next match (Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="fe-ff-prev" class="btn" data-icon data-size="xs" title="Previous match (Shift+Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="fe-ff-next" class="btn" data-icon data-size="xs" title="Next match (Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </span>
         <span class="fe-fp-panes">
-          <button id="fe-fp-toc" data-icon title="On this page: the headings" aria-label="On this page" hidden>${UI_ICON.contents}</button>
-          <button id="fe-fp-cm" data-icon title="Comments (⇧C)" aria-label="Comments" hidden>${UI_ICON.comment}<span id="fe-fp-cm-n"></span></button>
+          <button id="fe-fp-toc" class="btn" data-icon title="On this page: the headings" aria-label="On this page" hidden>${UI_ICON.contents}</button>
+          <button id="fe-fp-cm" class="btn" data-icon title="Comments (⇧C)" aria-label="Comments" hidden>${UI_ICON.comment}<span id="fe-fp-cm-n"></span></button>
         </span>
       </div>
       <div id="fe-fp">
@@ -361,7 +361,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     const short = home && folder.startsWith(home + '/') ? '~' + folder.slice(home.length) : folder;
     pop.innerHTML = `<div class="fe-allow-title">${UI_ICON.lock}Allow editing here?</div>
       <p>Saves write to <code>${esc(short)}</code>. Each save keeps the old text for 14 days.</p>
-      <div class="fe-allow-acts"><button type="button" class="btn" data-hover-shade data-a="cancel">Cancel</button>
+      <div class="fe-allow-acts"><button type="button" class="btn" data-a="cancel">Cancel</button>
       <button type="button" class="btn" data-variant="outline" data-a="file">Just this file</button>
       <button type="button" class="btn" data-variant="solid" data-a="folder">Allow folder</button></div>`;
     // Esc, a click away or a second Edit press answer no; only a pick answers yes.

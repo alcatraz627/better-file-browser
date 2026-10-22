@@ -221,8 +221,8 @@ export function mountStrip(host: StripHost): Strip {
     const tip = `${t.path}\n${i < 9 ? `${i + 1} jumps · ` : ''}click switches · ${t.pinned ? 'pinned (p unpins, right-click for more)' : 'middle-click closes'} · drag reorders`;
     return `<a class="fe-tab${on ? ' on' : ''}${t.pinned ? ' pinned' : ''}"${on ? ' aria-current="page"' : ''} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}${lblHtml(label)}
-      <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path · save · pin · close others">…</button>
-      ${t.pinned ? '' : `<button class="fe-tab-x" data-id="${esc(t.id)}" title="Close (w)">✕</button>`}
+      <button class="btn fe-tab-more" data-icon data-size="xs" data-id="${esc(t.id)}" title="Copy path · save · pin · close others">…</button>
+      ${t.pinned ? '' : `<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="${esc(t.id)}" title="Close (w)">✕</button>`}
     </a>`;
   }
   function render(): void {

@@ -55,7 +55,7 @@ export function initSettingsUi(app: App): void {
         <button type="button" class="fe-rule-ico" title="Icon and colour">${icoCustom(rule.label, rule.color, rule.glyph)}</button>
         <input type="text" class="fe-st-rule-pattern${bad ? ' bad' : ''}" value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : 'Matches file names, any case'}">
         <span class="fe-rule-n" title="Matches in this folder">${bad ? '!' : hits(rule.pattern)}</span>
-        <button type="button" class="fe-ibtn fe-st-rule-del" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
+        <button type="button" class="btn fe-ibtn fe-st-rule-del" data-icon data-size="sm" data-tone="danger" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
       </div>`;
     }).join('') : '<p class="fe-set-note">No rules. Add one, or pick a suggestion.</p>';
     const have = new Set(app.iconRules.map(r => r.pattern));

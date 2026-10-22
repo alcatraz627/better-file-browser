@@ -421,9 +421,9 @@ export function initSidebar(app: App): void {
               ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel)!)}">${esc(bodyHits.get(n.rel)!)}</span>` : ''}
             </a>
             <span class="fe-nt-acts">
-              <button class="fe-nt-props" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
-              <button class="fe-nt-tab" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
-              <button class="fe-rm-btn" data-rel="${esc(n.rel)}" title="Move to .trash" aria-label="Move ${esc(n.title || noteTitle(n.rel))} to .trash">${UI_ICON.trash}</button>
+              <button class="btn fe-nt-props" data-icon data-size="sm" data-rel="${esc(n.rel)}" title="Colour, pin and tags" aria-label="Colour, pin and tags for ${esc(n.title || noteTitle(n.rel))}">${UI_ICON.palette}</button>
+              <button class="btn fe-nt-tab" data-icon data-size="sm" data-rel="${esc(n.rel)}" title="Open in a page tab" aria-label="Open ${esc(n.title || noteTitle(n.rel))} in a page tab">${UI_ICON.tab}</button>
+              <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-rel="${esc(n.rel)}" title="Move to .trash" aria-label="Move ${esc(n.title || noteTitle(n.rel))} to .trash">${UI_ICON.trash}</button>
             </span>
           </div>`;
     };

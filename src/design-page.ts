@@ -44,7 +44,7 @@ function render(): string {
   const btns = (attrs: string) => ['', 'shade', 'outline', 'solid'].map(v =>
     `<button class="btn" ${attrs} ${v ? `data-variant="${v}"` : ''} title="${v || 'plain'}">${UI_ICON.copy}${v || 'Plain'}</button>`).join('');
   const iconBtns = ['', 'shade', 'outline', 'solid'].map(v =>
-    `<button class="btn" data-icon data-hover-shade ${v ? `data-variant="${v}"` : ''} title="${v || 'plain'} icon button" aria-label="${v || 'plain'}">${UI_ICON.copy}</button>`).join('');
+    `<button class="btn" data-icon ${v ? `data-variant="${v}"` : ''} title="${v || 'plain'} icon button" aria-label="${v || 'plain'}">${UI_ICON.copy}</button>`).join('');
   return `
 <div class="ds-wrap">
   <div class="ds-head">
@@ -69,10 +69,10 @@ function render(): string {
   ${sec('Layer levels', 'Each floating archetype has a base level; a layer opened from another sits one step above it.', LEVELS.map(t =>
     row(t, `<span class="ds-tag">${esc(getComputedStyle(document.documentElement).getPropertyValue(t).trim() || '?')}</span>`)).join(''))}
   ${sec('Buttons (today)', 'The shared button. Slice 3 makes it the only button.', [
-    row('Text, md', btns('data-hover-shade')),
-    row('Text, sm', btns('data-hover-shade data-size="sm"')),
+    row('Text, md', btns('')),
+    row('Text, sm', btns('data-size="sm"')),
     row('Icon', iconBtns),
-    row('States', `<button class="btn on" data-hover-shade title="on">${UI_ICON.check}On</button><button class="btn" disabled title="disabled">${UI_ICON.check}Disabled</button>`),
+    row('States', `<button class="btn on" title="on">${UI_ICON.check}On</button><button class="btn" disabled title="disabled">${UI_ICON.check}Disabled</button>`),
   ].join(''))}
   ${sec('Controls (today)', 'The Settings controls the filter bar and sort panel already use.', [
     row('Segmented', segHtml('ds-seg', [{ value: 'a', label: 'Name' }, { value: 'b', label: 'Size' }, { value: 'c', label: 'Modified' }], 'Segmented')),

@@ -62,15 +62,15 @@ export function itemActions(e: Entry, rawPath: string): string {
   if (e.isParent) return '';
   const dPath = esc(fullPath(rawPath, e)), dName = esc(e.name);
   const pvBtn = canPreview(e)
-    ? `<button class="fe-act-btn fe-act-pv" title="Preview (Space)" data-pv="${dName}">
+    ? `<button class="btn fe-act-btn fe-act-pv" data-icon data-size="sm" title="Preview (Space)" data-pv="${dName}">
         <svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
       </button>`
     : '';
   return `<span class="fe-acts" data-path="${dPath}" data-name="${dName}">
-    ${pvBtn}<button class="fe-act-btn fe-act-cp" title="Copy full path" data-copy="${dPath}">
+    ${pvBtn}<button class="btn fe-act-btn fe-act-cp" data-icon data-size="sm" title="Copy full path" data-copy="${dPath}">
       <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
     </button>
-    <button class="fe-act-btn fe-act-nm" title="Copy name" data-copy="${dName}">
+    <button class="btn fe-act-btn fe-act-nm" data-icon data-size="sm" title="Copy name" data-copy="${dName}">
       <svg width="11" height="11" viewBox="0 0 11 11"><path d="M2 3h7M2 6h7M2 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
     </button>
   </span>`;
@@ -145,8 +145,8 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ''}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ''}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
-      <button class="fe-tag-btn" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
-      <button class="fe-rm-btn" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
+      <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
+      <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;
   };
   // A filter opens every group so no match hides inside a folded one.
@@ -177,6 +177,6 @@ export function renderCrumbs(rawPath: string, segments: string[], trailing = fal
     const label = i === homeAt ? '~' : c.label;
     const pre = i < homeAt ? ' data-pre hidden' : '';
     return `<span class="fe-cg" data-i="${i}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? ' cur' : ''}" title="Go to ${where}">${esc(label)}</a>` +
-      `<button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
+      `<button class="btn fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
   }).join('');
 }

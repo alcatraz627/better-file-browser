@@ -33,6 +33,7 @@ const RULES = [
   { id: 'css-important', css: d => /!important/.test(d) },
   { id: 'css-media', text: (css) => count(css, /@(media|container)\b/g), on: 'css' },
   { id: 'css-dup-selector', text: css => dupSelectors(css), on: 'css' },
+  { id: 'css-button-paint', text: css => buttonPaint(css), on: 'css' },
   { id: 'js-keydown', code: /addEventListener\(\s*['"]keydown['"]/g, skip: ['layer.ts'] },
   // Presses anywhere on the page, and clicks caught at the document, are how a
   // part closes itself on an outside click; the layer service owns that.
@@ -58,6 +59,22 @@ function dupSelectors(css) {
   let dups = 0;
   for (const n of seen.values()) if (n > 1) dups += n - 1;
   return dups;
+}
+
+// The icon-button classes that moved onto the button part keep only where
+// they sit and when they show; size, colour and borders come from .btn. A
+// tab's buttons over its label (:not(.on)) keep their backing on purpose, and
+// a glyph drawn inside one (::before) is content, not the button.
+const OLD_BUTTONS = /\.(fe-ibtn|fe-lens-ib|fe-ask-ib|fe-act-btn|fe-cm-ib|fe-cm-x|fe-tab-x|fe-tab-more|fe-dlg-close|fe-rm-btn|fe-tag-btn|fe-ask-send|fe-nt-props|fe-nt-tab)\b/;
+const PAINT = /^\s*(width|height|min-width|min-height|padding[\w-]*|border(-[\w-]+)?|background(-[\w-]+)?|color|font(-[\w-]+)?|line-height|cursor)\s*:/;
+function buttonPaint(css) {
+  let n = 0;
+  for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sels = m[1].split(',').map(s => s.trim()).filter(Boolean);
+    if (!sels.length || !sels.every(s => OLD_BUTTONS.test(s)) || sels.some(s => s.includes(':not(.on)') || s.includes('::'))) continue;
+    n += m[2].split(';').filter(d => PAINT.test(d)).length;
+  }
+  return n;
 }
 
 function measure(files) {

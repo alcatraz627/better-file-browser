@@ -114,28 +114,28 @@ export function initPreview(d: PreviewDeps): void {
         <span id="fe-ql-icon"></span>
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (⌘-click / middle-click also work)"></a>
         <span id="fe-ql-meta"></span>
-        <button id="fe-ql-copy" title="Copy full file contents to clipboard" disabled>
+        <button id="fe-ql-copy" class="btn" title="Copy full file contents to clipboard" disabled>
           <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>Copy</span>
         </button>
-        <a id="fe-ql-open" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
-        <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
-        <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
-        <button id="fe-ql-save" data-icon title="Save this file">${PI.bm}</button>
-        <button id="fe-ql-term" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
-        <button id="fe-ql-dock" data-icon title="Dock the preview to the side">
+        <a id="fe-ql-open" class="btn" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
+        <button id="fe-ql-go" class="btn" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
+        <button id="fe-ql-tab" class="btn" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
+        <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
+        <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
+        <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
-        <button id="fe-ql-close" data-icon title="Close (Esc)">${UI_ICON.close}</button>
+        <button id="fe-ql-close" class="btn" data-icon title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div id="fe-ql-rz" title="Drag to resize"></div>
       <div id="fe-ql-rz-side" title="Drag to resize"></div>
       <div id="fe-ql-ai" style="display:none">
         <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
-        <button class="fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
-        <button class="fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
+        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
+        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
         <input id="fe-ql-ai-q" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
-        <button class="fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
+        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
       </div>
       <div id="fe-ql-ai-out" style="display:none">
         <div id="fe-ql-ai-out-body"></div>
@@ -444,24 +444,24 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   body.innerHTML = `
     <div id="fe-ed-meta"></div>
     <div id="fe-ed-bar">
-      <button class="fe-pbn" data-icon data-act="bold" title="Bold (⌘B)">${UI_ICON.fmtBold}</button>
-      <button class="fe-pbn" data-icon data-act="italic" title="Italic (⌘I)">${UI_ICON.fmtItalic}</button>
-      <button class="fe-pbn" data-icon data-act="code" title="Code (⌘E)">${UI_ICON.fmtCode}</button>
-      <button class="fe-pbn" data-icon data-act="strike" title="Strikethrough (⌘⇧X)">${UI_ICON.fmtStrike}</button>
-      <button class="fe-pbn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (⌘⇧H)" data-icon>${UI_ICON.fmtHeading}</button>
-      <button class="fe-pbn" data-icon data-act="link" title="Link (⌘K)">${UI_ICON.link}</button>
-      <button class="fe-pbn" data-icon data-act="quote" title="Quote (⌘⇧.)">${UI_ICON.fmtQuote}</button>
-      <button class="fe-pbn" data-icon data-act="olist" title="Numbered list (⌘⇧7)">${UI_ICON.fmtOlist}</button>
-      <button class="fe-pbn" data-icon data-act="list" title="Bullet list">${UI_ICON.list}</button>
-      <button class="fe-pbn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
-      <button class="fe-pbn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
-      <button class="fe-pbn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
+      <button class="btn" data-icon data-act="bold" title="Bold (⌘B)">${UI_ICON.fmtBold}</button>
+      <button class="btn" data-icon data-act="italic" title="Italic (⌘I)">${UI_ICON.fmtItalic}</button>
+      <button class="btn" data-icon data-act="code" title="Code (⌘E)">${UI_ICON.fmtCode}</button>
+      <button class="btn" data-icon data-act="strike" title="Strikethrough (⌘⇧X)">${UI_ICON.fmtStrike}</button>
+      <button class="btn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (⌘⇧H)" data-icon>${UI_ICON.fmtHeading}</button>
+      <button class="btn" data-icon data-act="link" title="Link (⌘K)">${UI_ICON.link}</button>
+      <button class="btn" data-icon data-act="quote" title="Quote (⌘⇧.)">${UI_ICON.fmtQuote}</button>
+      <button class="btn" data-icon data-act="olist" title="Numbered list (⌘⇧7)">${UI_ICON.fmtOlist}</button>
+      <button class="btn" data-icon data-act="list" title="Bullet list">${UI_ICON.list}</button>
+      <button class="btn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
+      <button class="btn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
+      <button class="btn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
       <span class="fe-ed-sep" aria-hidden="true"></span>
-      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
-      ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (⌥⌘↑)">${UI_ICON.prev}<span>Previous</span></button>
-      <button class="fe-pbn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>Next</span></button>
-      <button class="fe-pbn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
-      <button class="fe-pbn" data-act="delete" title="Move this note to .trash (⌘⇧⌫)">${UI_ICON.trash}<span>Delete</span></button>` : ''}
+      <button class="btn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
+      ${actions ? `<button class="btn" data-act="prev" title="Previous note in the list (⌥⌘↑)">${UI_ICON.prev}<span>Previous</span></button>
+      <button class="btn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>Next</span></button>
+      <button class="btn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
+      <button class="btn" data-act="delete" title="Move this note to .trash (⌘⇧⌫)">${UI_ICON.trash}<span>Delete</span></button>` : ''}
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">⌥↑↓ move line · ⌥⇧↑↓ duplicate · ⇥ indent · Enter continues lists</span>
     </div>
@@ -557,8 +557,8 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     try {
       const v = await notes.version(root, edit?.rel ?? doc.rel, sha);
       view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span>`
-        + `<button class="fe-pbn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button>`
-        + `<button class="fe-pbn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
+        + `<button class="btn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button>`
+        + `<button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
       document.getElementById('fe-hist-use')!.addEventListener('click', () => {
         buf.snap(); ta.value = splitNote(v.text).body; ta.dispatchEvent(new Event('input', { bubbles: true }));
         hist.style.display = 'none'; ta.focus();
@@ -598,9 +598,9 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     if (!sides) return;
     document.getElementById('fe-ql-body')!.insertAdjacentHTML('afterbegin',
       `<div id="fe-ed-clash" class="fe-ql-note">Two versions, keep: `
-      + `<button class="fe-pbn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> `
-      + `<button class="fe-pbn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> `
-      + `<button class="fe-pbn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`);
+      + `<button class="btn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> `
+      + `<button class="btn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> `
+      + `<button class="btn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`);
     document.querySelectorAll<HTMLButtonElement>('#fe-ed-clash [data-keep]').forEach(b => b.addEventListener('click', () => {
       ta.value = settleClash(ta.value, b.dataset.keep as Keep);
       ta.dispatchEvent(new Event('input', { bubbles: true }));
@@ -712,7 +712,7 @@ async function saveNote(st = edit): Promise<void> {
         const body = document.getElementById('fe-ql-body')!;
         if (!document.getElementById('fe-ed-conflict')) {
           body.insertAdjacentHTML('afterbegin',
-            `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="fe-pbn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="fe-pbn" title="Write the editor text over the disk copy">Overwrite</button></div>`);
+            `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="btn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="btn" title="Write the editor text over the disk copy">Overwrite</button></div>`);
           document.getElementById('fe-ed-reload')!.addEventListener('click', () => {
             notes.read(st.root, st.rel).then(d => openNote(st.root, d, st.onSaved, st.actions));
           });
@@ -784,7 +784,7 @@ export function openPreview(e: Entry): void {
     body.innerHTML = `
       <div class="fe-ql-center">
         <div class="fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
-        <button id="fe-ql-force" class="fe-pbn" title="Render despite the size">Load anyway</button>
+        <button id="fe-ql-force" class="btn" title="Render despite the size">Load anyway</button>
       </div>`;
     document.getElementById('fe-ql-force')!.addEventListener('click', () => fetchAndRender(e, ext, seq));
     return;
@@ -809,8 +809,8 @@ function fetchAndRender(e: Entry, ext: string, seq: number): void {
       console.error('[BFB] preview failed:', e.href, err);
       const stale = err instanceof FileFetchError && err.code === 'context-invalidated';
       body.innerHTML = stale
-        ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="fe-pbn" title="Reload this page">Refresh page</button></div>`
-        : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="fe-pbn" title="Try reading the file again">Retry</button></div>`;
+        ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>`
+        : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
       document.getElementById('fe-ql-retry')!.addEventListener('click', () => {
         if (stale) location.reload(); else fetchAndRender(e, ext, seq);
       });
@@ -859,7 +859,7 @@ function render(text: string, ext: string): void {
 let htmlSource = false;
 function renderHtml(body: HTMLElement, text: string): void {
   const btn = (v: 'page' | 'src', label: string, on: boolean) =>
-    `<button class="fe-pbn${on ? ' on' : ''}" data-v="${v}" title="${v === 'page' ? 'Show the rendered page' : 'Show the HTML source'}">${label}</button>`;
+    `<button class="btn${on ? ' on' : ''}" data-v="${v}" title="${v === 'page' ? 'Show the rendered page' : 'Show the HTML source'}">${label}</button>`;
   body.innerHTML = `<div class="fe-ql-htmlbar">${btn('page', 'Page', !htmlSource)}${btn('src', 'Source', htmlSource)}</div>`
     + (htmlSource ? renderCode(text, 'html') : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
   const frame = body.querySelector<HTMLIFrameElement>('iframe.fe-ql-html');

@@ -66,7 +66,7 @@ export function renderPage(p: PageParams): string {
   };
 
   const viewBtnsHTML = VIEW_MODES.map(v =>
-    `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
+    `<button class="btn fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? ' (active)' : ''}">${v.ico}</button>`
   ).join('');
 
   const railBtn = (lens: string, label: string, icon: string, hint: string, hidden = false) =>
@@ -83,20 +83,20 @@ export function renderPage(p: PageParams): string {
 <div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}" data-density="${initDensity}"${fileMode ? ' class="fe-file-page"' : ''}>
 
   <div id="fe-bar">
-    <button id="fe-side-toggle" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
-    <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ''}<button id="fe-crumb-more" class="fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>…</button></div>
-    <button id="fe-term-btn" data-icon title="Open in terminal (${settings.terminalApp || 'ghostty'}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
-    <button id="fe-bm-btn" data-icon class="${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? `Remove this ${fileMode ? 'file' : 'folder'} from Saved` : `Save this ${fileMode ? 'file' : 'folder'} (sidebar)`}">
+    <button id="fe-side-toggle" class="btn" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
+    <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ''}<button id="fe-crumb-more" class="btn fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>…</button></div>
+    <button id="fe-term-btn" class="btn" data-icon title="Open in terminal (${settings.terminalApp || 'ghostty'}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
+    <button id="fe-bm-btn" data-icon class="btn ${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? `Remove this ${fileMode ? 'file' : 'folder'} from Saved` : `Save this ${fileMode ? 'file' : 'folder'} (sidebar)`}">
       ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? 'currentColor' : 'none'}"/>`)}
     </button>
-    <button id="fe-theme-btn" data-icon title="Switch between dark and light">
+    <button id="fe-theme-btn" class="btn" data-icon title="Switch between dark and light">
       ${UI_ICON.appearance.replace('<svg ', '<svg id="fe-sun" ')}
       ${line('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>').replace('<svg ', '<svg id="fe-moon" ')}
     </button>
-    <button id="fe-help-btn" data-icon title="Help (press ?), what's here and how to use it">
+    <button id="fe-help-btn" class="btn" data-icon title="Help (press ?), what's here and how to use it">
       ${PI.help}
     </button>
-    <button id="fe-settings-btn" data-icon title="Settings (press ,), theme, views, terminal, icon rules">
+    <button id="fe-settings-btn" class="btn" data-icon title="Settings (press ,), theme, views, terminal, icon rules">
       ${PI.gear}
     </button>
   </div>
@@ -120,7 +120,7 @@ export function renderPage(p: PageParams): string {
       </div>
       <div class="fe-lens" id="fe-lens-saved" data-lens="saved" role="tabpanel" aria-labelledby="fe-rail-saved" hidden>
       <div class="fe-lens-tools">
-        <button id="fe-sv-add" class="fe-lens-ib accent" title="Save this ${fileMode ? 'file' : 'folder'} and name it" aria-label="Save this ${fileMode ? 'file' : 'folder'}">${UI_ICON.add}</button>
+        <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? 'file' : 'folder'} and name it" aria-label="Save this ${fileMode ? 'file' : 'folder'}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
           <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
           <button type="button" id="fe-lens-depth" class="fe-lens-depth" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
@@ -134,8 +134,8 @@ export function renderPage(p: PageParams): string {
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
       <div class="fe-lens-tools">
-        <button id="fe-nt-add" class="fe-lens-ib accent" title="New note (n)" aria-label="New note">${UI_ICON.add}</button>
-        <a id="fe-notes-root" class="fe-lens-ib" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
+        <button id="fe-nt-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="New note (n)" aria-label="New note">${UI_ICON.add}</button>
+        <a id="fe-notes-root" class="btn fe-lens-ib" data-icon data-size="lg" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
       </div>
       <div class="fe-sec" id="fe-notes-sec" data-sec="notes">
         <input id="fe-nt-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
@@ -162,26 +162,26 @@ export function renderPage(p: PageParams): string {
       <div id="fe-tabbar">
         <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
         <div id="fe-tabs-end">
-          <button id="fe-tab-list" class="btn" data-hover-shade data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>
-          <button id="fe-open-pick" class="btn" data-hover-shade data-icon data-size="sm" title="Open a file or folder" aria-label="Open a file or folder">${UI_ICON.add}</button>
-          <button id="fe-open-path" class="btn" data-hover-shade data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
+          <button id="fe-tab-list" class="btn" data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>
+          <button id="fe-open-pick" class="btn" data-icon data-size="sm" title="Open a file or folder" aria-label="Open a file or folder">${UI_ICON.add}</button>
+          <button id="fe-open-path" class="btn" data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
         </div>
       </div>
       ${fileMode ? renderFileContent() : ''}
       <div id="fe-toolbar">
         <span id="fe-count">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <div id="fe-tb-right">
-          <button id="fe-sg-btn" title="Sort and group" aria-expanded="false">
+          <button id="fe-sg-btn" class="btn" title="Sort and group" aria-expanded="false">
             ${SORT_ICON}<span id="fe-sg-cur">Sort</span>
           </button>
           <span class="fe-tb-sep"></span>
-          <button id="fe-filter-btn" data-icon title="Filter by name, type or text inside files" aria-expanded="false">
+          <button id="fe-filter-btn" class="btn" data-icon title="Filter by name, type or text inside files" aria-expanded="false">
             ${line('<path d="M10 20a1 1 0 0 0 .55.9l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .52-1.34L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.22 7.99A2 2 0 0 1 10 14z"/>', 14)}
           </button>
-          <button id="fe-deep-btn" data-icon title="Subfolders: filter every folder under this one too">
+          <button id="fe-deep-btn" class="btn" data-icon title="Subfolders: filter every folder under this one too">
             ${line('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/><path d="M2 10h20"/>', 14)}
           </button>
-          <button id="fe-hidden-btn" data-icon class="${initHidden ? 'on' : ''}" title="Hidden files: ${initHidden ? 'showing' : 'hiding'} dotfiles and comment files · click to toggle">
+          <button id="fe-hidden-btn" data-icon class="btn ${initHidden ? 'on' : ''}" title="Hidden files: ${initHidden ? 'showing' : 'hiding'} dotfiles and comment files · click to toggle">
             ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? 'currentColor' : 'none'}"/>`, 14)}
           </button>
           <span class="fe-tb-sep"></span>
