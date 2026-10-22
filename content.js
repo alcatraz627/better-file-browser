@@ -15436,13 +15436,6 @@ ${d.message}` : d.message;
         paint();
       }
     });
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey || editor) return;
-      const ae = document.activeElement;
-      if (ae && ["INPUT", "TEXTAREA", "SELECT"].includes(ae.tagName)) return;
-      e.preventDefault();
-      find.focus();
-    });
     colBtn.addEventListener("click", () => {
       column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
       kvSet(COLUMN_KEY, column);
@@ -15673,6 +15666,7 @@ ${d.message}` : d.message;
       key: (e) => !editor && !raw && !!comments?.key(e),
       comment: (a) => !editor && !raw && !!comments?.act(a),
       commentable: () => !editor && !raw && !!comments,
+      editing: () => !!editor,
       setText(fresh) {
         text = fresh;
         paintMeta();
@@ -16275,7 +16269,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     // File page
     { id: "fp-raw", group: "File page", title: "Raw or rendered", keys: ["r"], scope: "file", own: true },
     { id: "fp-edit", group: "File page", title: "Edit", keys: ["e"], scope: "file", own: true },
-    { id: "fp-find", group: "File page", title: "Find in file", keys: ["/"], scope: "file" },
+    { id: "fp-find", group: "File page", title: "Find in file", keys: ["/"], scope: "file", own: true },
     { id: "fp-comment", group: "File page", title: "Comment on the selection or paragraph", keys: ["c"], scope: "file" },
     { id: "fp-cm-reply", group: "File page", title: "Reply to the comment", keys: ["\u21E7R"], scope: "file" },
     { id: "fp-toc", group: "File page", title: "Contents", keys: ["\u21E7O"], scope: "file", own: true },
@@ -19096,16 +19090,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
     });
     document.addEventListener("keydown", (e) => {
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "f") {
-        if (app.fileMode) return;
-        const s = el("fe-search");
-        if (document.activeElement !== s) {
-          e.preventDefault();
-          s.focus({ preventScroll: true });
-          s.select();
-        }
-        return;
-      }
       const ae = document.activeElement;
       if (ae && ["INPUT", "TEXTAREA", "SELECT"].includes(ae.tagName)) return;
       if (ae?.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar") && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " ", "Backspace", "Delete", "Home", "End"].includes(e.key)) return;
@@ -19578,7 +19562,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("fp-cm-reply", () => app.filePage?.comment("reply"), commentable);
     bind("fp-comments", () => app.filePage?.comment("panel"), commentable);
     bind("fp-cm-step", () => app.filePage?.comment("next"), commentable);
-    bind("fp-find", () => document.getElementById("fe-ff-q")?.focus(), () => app.fileMode);
+    bind("fp-find", () => document.getElementById("fe-ff-q")?.focus(), () => app.fileMode && !app.filePage?.editing());
     bind("to-path", () => {
       focusFirst("#fe-bc", "a.fe-crumb:last-of-type, .fe-crumb.cur, a");
       flash(document.activeElement);

@@ -178,6 +178,8 @@ export interface FileContent {
   comment(a: CommentAction): boolean;
   /** Whether comments can be made here now (a rendered Markdown page, not editing). */
   commentable(): boolean;
+  /** Whether the file is open in the editor. */
+  editing(): boolean;
 }
 
 /// The pane width at which the open Contents card fits beside a full text column.
@@ -300,13 +302,6 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     if (tight !== was) { peek = false; paint(); }
   }).observe(fp);
   toc.addEventListener('click', e => { if (tight && (e.target as Element).closest('a')) { peek = false; paint(); } });
-  document.addEventListener('keydown', e => {
-    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || editor) return;
-    const ae = document.activeElement;
-    if (ae && ['INPUT', 'TEXTAREA', 'SELECT'].includes(ae.tagName)) return;
-    e.preventDefault();
-    find.focus();
-  });
   colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; kvSet(COLUMN_KEY, column); paint(); });
   page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
   // A problem's line number opens the source at that line.
@@ -483,6 +478,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     key: e => !editor && !raw && !!comments?.key(e),
     comment: a => !editor && !raw && !!comments?.act(a),
     commentable: () => !editor && !raw && !!comments,
+    editing: () => !!editor,
     setText(fresh) {
       text = fresh;
       paintMeta();

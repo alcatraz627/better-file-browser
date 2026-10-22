@@ -219,7 +219,7 @@ export function initFocusNav(app: App): void {
   bind('fp-cm-reply', () => app.filePage?.comment('reply'), commentable);
   bind('fp-comments', () => app.filePage?.comment('panel'), commentable);
   bind('fp-cm-step', () => app.filePage?.comment('next'), commentable);
-  bind('fp-find',() => document.getElementById('fe-ff-q')?.focus(), () => app.fileMode);
+  bind('fp-find', () => document.getElementById('fe-ff-q')?.focus(), () => app.fileMode && !app.filePage?.editing());
   bind('to-path', () => { focusFirst('#fe-bc', 'a.fe-crumb:last-of-type, .fe-crumb.cur, a'); flash(document.activeElement as HTMLElement); });
   bind('deep', click('fe-deep-btn'), () => !app.fileMode);
   bind('sidebar', click('fe-side-toggle'));

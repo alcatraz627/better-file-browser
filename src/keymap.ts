@@ -136,7 +136,7 @@ export const KEYMAP: KeyDef[] = [
   // File page
   { id: 'fp-raw', group: 'File page', title: 'Raw or rendered', keys: ['r'], scope: 'file', own: true },
   { id: 'fp-edit', group: 'File page', title: 'Edit', keys: ['e'], scope: 'file', own: true },
-  { id: 'fp-find', group: 'File page', title: 'Find in file', keys: ['/'], scope: 'file' },
+  { id: 'fp-find', group: 'File page', title: 'Find in file', keys: ['/'], scope: 'file', own: true },
   { id: 'fp-comment', group: 'File page', title: 'Comment on the selection or paragraph', keys: ['c'], scope: 'file' },
   { id: 'fp-cm-reply', group: 'File page', title: 'Reply to the comment', keys: ['⇧R'], scope: 'file' },
   { id: 'fp-toc', group: 'File page', title: 'Contents', keys: ['⇧O'], scope: 'file', own: true },
