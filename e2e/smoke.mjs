@@ -1126,12 +1126,12 @@ try {
   const overflow = await page.evaluate(() => {
     const strip = document.getElementById('fe-tabs').getBoundingClientRect();
     const on = document.querySelector('#fe-tabs .fe-tab.on').getBoundingClientRect();
-    return { kept: document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length, activeVisible: on.left >= strip.left && on.right <= strip.right, scrolls: document.getElementById('fe-tabs').scrollWidth > document.getElementById('fe-tabs').clientWidth, list: !document.getElementById('fe-tab-list').hidden };
+    return { kept: document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length, shown: document.querySelectorAll('#fe-tabs .fe-tab').length, activeVisible: on.left >= strip.left && on.right <= strip.right, scrolls: document.getElementById('fe-tabs').scrollWidth > document.getElementById('fe-tabs').clientWidth, list: !document.getElementById('fe-tab-list').hidden };
   });
   await page.click('#fe-tab-list');
   const listed = await page.$$eval('.fe-tab-menu .fe-ctx-item[data-go]', els => els.length);
   await page.keyboard.press('Escape');
-  check(overflow.kept >= 20 && overflow.activeVisible && overflow.scrolls && overflow.list && listed === overflow.kept, `twenty tabs overflow: strip scrolls, active tab visible, list menu names all 20: ${JSON.stringify({ ...overflow, listed })}`);
+  check(overflow.kept >= 20 && overflow.activeVisible && overflow.scrolls && overflow.list && listed === overflow.shown, `twenty tabs overflow: strip scrolls, active tab visible, list menu names every tab in the strip: ${JSON.stringify({ ...overflow, listed })}`);
   for (let i = 0; i < 30; i++) {
     const t = await page.$('#fe-tabs .fe-tab[data-id]:not(.on):not(.pinned)');
     if (!t) break;

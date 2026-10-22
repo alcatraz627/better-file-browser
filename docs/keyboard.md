@@ -110,7 +110,7 @@ This file is generated from `src/keymap.ts`, the same list the app reads.
 | Close | <kbd>w</kbd> |
 | Pin | <kbd>p</kbd> |
 | Previous or next | <kbd>[</kbd> or <kbd>]</kbd> |
-| Jump to 1 to 9 | <kbd>1…9</kbd> |
+| Jump to tab 1 to 9 | <kbd>e</kbd> then <kbd>1…9</kbd> |
 | Reopen closed | <kbd>⇧T</kbd> |
 | Move tab left | <kbd>⇧[</kbd> |
 | Move tab right | <kbd>⇧]</kbd> |
@@ -148,7 +148,7 @@ This file is generated from `src/keymap.ts`, the same list the app reads.
 | Action | Keys |
 |---|---|
 | Raw or rendered | <kbd>r</kbd> |
-| Edit | <kbd>e</kbd> |
+| Edit | <kbd>e</kbd> <kbd>e</kbd> |
 | Find in file | <kbd>/</kbd> |
 | Comment on selection | <kbd>c</kbd> |
 | Contents | <kbd>⇧O</kbd> |

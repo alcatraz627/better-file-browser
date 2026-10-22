@@ -177,7 +177,7 @@ try {
   await page.waitForSelector('#fe-page .fe-jt-key', { timeout: 5000 }).catch(() => null);
   const yv = { url: page.url(), keys: await page.$$eval('#fe-page .fe-jt-key', s => s.map(x => x.textContent)), crumb: await page.title() };
   check(yv.url.endsWith('/#view=conf.yaml') && yv.keys.includes('name') && /conf\.yaml/.test(yv.crumb), `a .yaml opens in its folder view as a tree: ${JSON.stringify(yv)}`);
-  await page.keyboard.press('e');
+  await page.keyboard.press('e'); await page.keyboard.press('e');
   await page.waitForSelector('#fe-fe-ta');
   await typeAtEnd(page, 'done: true\n');
   await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');

@@ -103,7 +103,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'tab-close', group: 'Tabs', title: 'Close', keys: ['w'], own: true },
   { id: 'tab-pin', group: 'Tabs', title: 'Pin', keys: ['p'], own: true },
   { id: 'tab-step', group: 'Tabs', title: 'Previous or next', keys: ['[', ']'], own: true, over: true },
-  { id: 'tab-jump', group: 'Tabs', title: 'Jump to 1 to 9', keys: ['1…9'], own: true, over: true },
+  { id: 'tab-jump', group: 'Tabs', title: 'Jump to tab 1 to 9', keys: ['e 1…9'], own: true, over: true },
   { id: 'tab-reopen', group: 'Tabs', title: 'Reopen closed', keys: ['⇧T'], own: true },
   { id: 'tab-left', group: 'Tabs', title: 'Move tab left', keys: ['⇧['], own: true },
   { id: 'tab-right', group: 'Tabs', title: 'Move tab right', keys: ['⇧]'], own: true },
@@ -141,7 +141,7 @@ export const KEYMAP: KeyDef[] = [
 
   // File page
   { id: 'fp-raw', group: 'File page', title: 'Raw or rendered', keys: ['r'], scope: 'file', own: true },
-  { id: 'fp-edit', group: 'File page', title: 'Edit', keys: ['e'], scope: 'file', own: true },
+  { id: 'fp-edit', group: 'File page', title: 'Edit', keys: ['e e'], scope: 'file', own: true },
   { id: 'fp-find', group: 'File page', title: 'Find in file', keys: ['/'], scope: 'file', own: true },
   { id: 'fp-comment', group: 'File page', title: 'Comment on the selection or paragraph', keys: ['c'], scope: 'file', own: true },
   { id: 'fp-cm-reply', group: 'File page', title: 'Reply to the comment', keys: ['⇧R'], scope: 'file', own: true },
@@ -181,7 +181,7 @@ const NAMED: Record<string, string> = {
   '↩': 'enter', '⌫': 'backspace', '⇥': 'tab', esc: 'esc', space: 'space', home: 'left', end: 'right', pgup: 'up', pgdn: 'down',
 };
 export function capsFor(key: string): string[] {
-  if (key === '1…9') return ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  if (key.endsWith('1…9')) return [...key.slice(0, -3).split(' ').filter(Boolean), '1', '2', '3', '4', '5', '6', '7', '8', '9'];
   const out = new Set<string>();
   for (const part of key.replace(/^hold /, '').split(' ')) {
     if (/^(home|end|pgup|pgdn)$/i.test(part)) { out.add('fn'); out.add(NAMED[part.toLowerCase()]); continue; }

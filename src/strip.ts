@@ -37,6 +37,9 @@ export interface Strip {
   // keep a new one, then navigate there.
   go(path: string, hash?: string): void;
   state(): TabState;
+  // Every tab the strip shows, the current page included while it is not kept
+  // yet (its id is empty).
+  shown(): Tab[];
   closedSets(): Promise<ClosedSet[]>;
   // Add a closed set's tabs to this strip, with undo.
   restoreSet(id: string): Promise<void>;
@@ -226,6 +229,10 @@ export function mountStrip(host: StripHost): Strip {
       ${t.pinned ? '' : `<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="${esc(t.id)}" title="Close (w)">${UI_ICON.close}</button>`}
     </a>`;
   }
+  function shown(): Tab[] {
+    if (hereIn(state) || !rawPath) return state.list;
+    return [...state.list, { id: '', path: rawPath, kind: kindOf(rawPath), label: labelFor(rawPath), pinned: false }];
+  }
   function render(): void {
     const here = hereIn(state);
     const labels = displayLabels(state.list);
@@ -239,11 +246,12 @@ export function mountStrip(host: StripHost): Strip {
     el.classList.toggle('is-empty', state.list.length === 0);
     el.querySelector<HTMLElement>('.fe-tab.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
     if (listBtn) {
-      listBtn.hidden = state.list.length < 2;
+      const all = shown();
+      listBtn.hidden = all.length < 2;
       listBtn.onclick = e => {
         e.preventDefault(); e.stopPropagation();
-        menu.innerHTML = state.list.map((t, i) => `<div class="row fe-ctx-item${t.id === here?.id ? ' on' : ''}" data-go="${esc(t.id)}">`
-          + `${t.kind === 'file' ? icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '') : icoFolder(t.label)}<span>${esc(labels[i])}</span>${i < 9 ? `<kbd>${i + 1}</kbd>` : ''}</div>`).join('');
+        menu.innerHTML = all.map((t, i) => `<div class="row fe-ctx-item${t.id === (here?.id ?? '') ? ' on' : ''}" data-go="${esc(t.id)}">`
+          + `${t.kind === 'file' ? icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '') : icoFolder(t.label)}<span>${esc(labels[i] ?? t.label)}</span>${i < 9 && t.id ? `<kbd>e ${i + 1}</kbd>` : ''}</div>`).join('');
         menu.dataset.id = '';
         layer = openLayer(menu, { kind: 'popover', anchor: listBtn, align: 'end', role: 'menu', group: 'menu' });
       };
@@ -377,6 +385,7 @@ export function mountStrip(host: StripHost): Strip {
       else if (hash) location.hash = hash;
     },
     state: () => state,
+    shown,
     closedSets,
     restoreSet,
   };

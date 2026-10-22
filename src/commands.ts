@@ -60,9 +60,10 @@ let contextOf: () => Context = () => ({ scopes: new Set(['any']), typing: false,
 export function setContext(fn: () => Context): void { contextOf = fn; }
 
 const OWN = KEYMAP.filter(d => d.own);
-// The keys a row answers: the map writes the digit row as "1…9".
+// The keys a row answers: the map writes the digit row as "1…9", after a
+// chord prefix when there is one ("e 1…9").
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
-const keysOf = (d: KeyDef) => d.keys.flatMap(k => k === '1…9' ? DIGITS : [k]);
+const keysOf = (d: KeyDef) => d.keys.flatMap(k => k.endsWith('1…9') ? DIGITS.map(n => k.slice(0, -3) + n) : [k]);
 const MOVING = new Set(['↑', '↓', '←', '→', '↩', 'Space', '⌫', 'Home', 'End']);
 // The keys the preview's own commands answer; a docked preview claims only these.
 const PREVIEW_KEYS = new Set(KEYMAP.filter(d => d.scope === 'preview').flatMap(d => keysOf(d)));
@@ -111,7 +112,7 @@ export function dispatch(e: KeyboardEvent): boolean {
   if (pending) {
     const want = `${pending} ${tok}`;
     setPending('');
-    const seq = OWN.filter(x => x.keys.includes(want) && live(x, ctx, want) && canRun(x.id));
+    const seq = OWN.filter(x => keysOf(x).includes(want) && live(x, ctx, want) && canRun(x.id));
     const d = seq.find(x => (x.scope ?? 'any') !== 'any') ?? seq[0];
     if (d && runCommand(d.id, want)) { e.preventDefault(); e.stopImmediatePropagation(); return true; }
     return false;

@@ -206,7 +206,7 @@ export function initFocusNav(app: App): void {
   bind('tab-close', stripKey('w'));
   bind('tab-pin', stripKey('p'));
   bind('tab-step', key => stripKey(key === '[' ? '[' : ']')());
-  bind('tab-jump', key => stripKey(key ?? '1')());
+  bind('tab-jump', key => stripKey(key?.slice(-1) ?? '1')());
   bind('tab-reopen', stripKey('T'));
   bind('new-note', () => app.newNote(), () => !!app.settings.notesRoot);
   bind('fp-raw', () => app.filePage?.toggleRaw(), () => !!app.filePage);
@@ -283,8 +283,8 @@ export function initFocusNav(app: App): void {
 
   // The palette goes to tabs, saved places and recent places too.
   const placeIcon = (p: string) => p.endsWith('/') ? PI.folder : PI.docs;
-  addPaletteSource(() => app.strip.state().list.map((t, i) => ({
-    title: t.label, sub: i < 9 ? `tab ${i + 1}` : 'tab', group: 'Tabs', icon: placeIcon(t.path), run: () => app.strip.go(t.path),
+  addPaletteSource(() => app.strip.shown().map((t, i) => ({
+    title: t.label, sub: !t.id ? 'this page, not kept' : i < 9 ? `tab ${i + 1}` : 'tab', group: 'Tabs', icon: placeIcon(t.path), run: () => app.strip.go(t.path),
   })));
   addPaletteSource(() => getSaved().map(p => ({
     title: p.label || p.path, sub: (p.tags ?? []).map(t => '#' + t).join(' ') || 'saved', group: 'Saved', icon: PI.bm,
