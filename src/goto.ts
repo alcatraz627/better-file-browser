@@ -7,6 +7,7 @@ import { getRecents } from './storage';
 import { kvGet, kvSet } from './kv';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
+import { openLayer, type Layer } from './layer';
 
 const LAST_KEY = 'bfb-goto-last-v1';
 
@@ -63,30 +64,23 @@ export async function resolvePath(path: string): Promise<string | null> {
 
 export function mountGoto(btn: HTMLElement, home: () => string, go: (path: string) => void): void {
   let box: HTMLElement | null = null;
-  const close = () => {
-    if (!box) return;
-    kvSet(LAST_KEY, box.querySelector('input')!.value);
-    box.remove(); box = null;
-    document.removeEventListener('pointerdown', away, true);
-    btn.classList.remove('on');
-  };
-  const away = (e: PointerEvent) => { if (box && !box.contains(e.target as Node) && !btn.contains(e.target as Node)) close(); };
+  let layer: Layer | null = null;
+  const close = () => layer?.close('api');
   const open = () => {
     box = document.createElement('form');
     box.id = 'fe-goto';
-    box.setAttribute('role', 'dialog');
-    box.setAttribute('aria-label', 'Go to a path');
     const recents = getRecents().slice(0, 30);
     box.innerHTML = `<input type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
       <datalist id="fe-goto-list">${recents.map(r => `<option value="${esc(r.path)}"></option>`).join('')}</datalist>
       <p class="fe-goto-msg" hidden></p>`;
-    document.getElementById('fe')!.appendChild(box);
-    const r = btn.getBoundingClientRect();
-    box.style.top = `${r.bottom + 6}px`;
-    box.style.left = `${Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8))}px`;
+    const form = box;
     const input = box.querySelector('input')!;
     input.value = kvGet(LAST_KEY) ?? '';
-    input.focus(); input.select();
+    // A click away or Esc closes it and keeps what was typed for next time.
+    layer = openLayer(box, { kind: 'popover', anchor: btn, offset: 6, role: 'dialog', label: 'Go to a path', focus: input,
+      onClose: () => { kvSet(LAST_KEY, input.value); if (box === form) box = null; btn.classList.remove('on'); } });
+    if (!layer.open) { box = null; return; }
+    input.select();
     btn.classList.add('on');
     const say = (text: string) => { const msg = box!.querySelector<HTMLElement>('.fe-goto-msg')!; msg.hidden = false; msg.textContent = text; };
     box.addEventListener('submit', async e => {
@@ -103,9 +97,7 @@ export function mountGoto(btn: HTMLElement, home: () => string, go: (path: strin
       close();
       go(found);
     });
-    box.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); btn.focus(); } });
     input.addEventListener('input', () => kvSet(LAST_KEY, input.value));
-    document.addEventListener('pointerdown', away, true);
   };
   btn.addEventListener('click', e => { e.preventDefault(); if (box) close(); else open(); });
 }

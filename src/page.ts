@@ -224,7 +224,7 @@ export function renderPage(p: PageParams): string {
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text</span>
           <label class="fe-in-box fe-in-text">
-            <input id="fe-find-text" type="text" placeholder="Search text inside files" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
+            <input id="fe-find-text" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
             <span class="fe-in-chips">
               <label class="fe-in-chip" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
               <label class="fe-in-chip" title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>

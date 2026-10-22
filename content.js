@@ -6201,33 +6201,35 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   }
   function mountGoto(btn, home, go) {
     let box = null;
-    const close = () => {
-      if (!box) return;
-      kvSet(LAST_KEY, box.querySelector("input").value);
-      box.remove();
-      box = null;
-      document.removeEventListener("pointerdown", away, true);
-      btn.classList.remove("on");
-    };
-    const away = (e) => {
-      if (box && !box.contains(e.target) && !btn.contains(e.target)) close();
-    };
+    let layer = null;
+    const close = () => layer?.close("api");
     const open = () => {
       box = document.createElement("form");
       box.id = "fe-goto";
-      box.setAttribute("role", "dialog");
-      box.setAttribute("aria-label", "Go to a path");
       const recents = getRecents().slice(0, 30);
       box.innerHTML = `<input type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
-      <datalist id="fe-goto-list">${recents.map((r2) => `<option value="${esc(r2.path)}"></option>`).join("")}</datalist>
+      <datalist id="fe-goto-list">${recents.map((r) => `<option value="${esc(r.path)}"></option>`).join("")}</datalist>
       <p class="fe-goto-msg" hidden></p>`;
-      document.getElementById("fe").appendChild(box);
-      const r = btn.getBoundingClientRect();
-      box.style.top = `${r.bottom + 6}px`;
-      box.style.left = `${Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8))}px`;
+      const form = box;
       const input = box.querySelector("input");
       input.value = kvGet(LAST_KEY) ?? "";
-      input.focus();
+      layer = openLayer(box, {
+        kind: "popover",
+        anchor: btn,
+        offset: 6,
+        role: "dialog",
+        label: "Go to a path",
+        focus: input,
+        onClose: () => {
+          kvSet(LAST_KEY, input.value);
+          if (box === form) box = null;
+          btn.classList.remove("on");
+        }
+      });
+      if (!layer.open) {
+        box = null;
+        return;
+      }
       input.select();
       btn.classList.add("on");
       const say = (text) => {
@@ -6258,16 +6260,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
         close();
         go(found);
       });
-      box.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          close();
-          btn.focus();
-        }
-      });
       input.addEventListener("input", () => kvSet(LAST_KEY, input.value));
-      document.addEventListener("pointerdown", away, true);
     };
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -17165,7 +17158,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text</span>
           <label class="fe-in-box fe-in-text">
-            <input id="fe-find-text" type="text" placeholder="Search text inside files" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
+            <input id="fe-find-text" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
             <span class="fe-in-chips">
               <label class="fe-in-chip" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
               <label class="fe-in-chip" title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
