@@ -196,7 +196,7 @@ export async function launch({ headless = true, pickReply, lmStub = false } = {}
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, open, close, store, docsHome: docsHome(profile), lmCalls };
+  return { browser, fixture, notesDir, open, close, store, sw, docsHome: docsHome(profile), lmCalls };
 }
 
 // The extension's settings store for the running browser; set by launch().

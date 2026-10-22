@@ -33,6 +33,8 @@ try {
   await page.click('input[name="bfb-appicon"][value="sprout"] + img');
   const fav = await page.$eval('link[rel="icon"]', l => l.href);
   check(/12-sprout\.svg$/.test(fav), `app icon changes the tab icon: ${fav}`);
+  const action = await h.sw.evaluate(async () => { const out = []; for (const id of ['sprout', 'mono-b', 'classic']) out.push(await setActionIcon(id).then(() => 'ok', e => String(e))); return out.join(','); });
+  check(action === 'ok,ok,ok', `the toolbar icon takes the app icon: ${action}`);
   const imgsOk = await page.$$eval('.fe-appicon img', a => a.every(i => i.complete && i.naturalWidth > 0));
   check(imgsOk, 'all 16 app icons load');
   // Slider by keys: focus, arrow right, the value and the text scale move.

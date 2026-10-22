@@ -58,4 +58,5 @@ export function setAppIcon(id: string): void {
   kvSet(APP_ICON_KEY, id);
   const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
   if (link) link.href = appIconUrl(id);
+  try { void chrome.runtime.sendMessage({ type: 'bfb-app-icon', id }); } catch { /* no worker in tests */ }
 }

@@ -26,6 +26,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch(err => sendResponse({ ok: false, error: String(err) }));
     return true;
   }
+  // The app icon picked in Settings also becomes the toolbar button's icon.
+  if (msg.type === 'bfb-app-icon') {
+    setActionIcon(msg.id).then(() => sendResponse({ ok: true }), err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
   // Interface size is Chrome's own zoom for the tab, so every popup the page
   // places by screen coordinates still lands under its anchor.
   if (msg.type === 'bfb-zoom') {
@@ -148,3 +153,12 @@ chrome.runtime.onConnect.addListener(port => {
     try { native?.disconnect(); } catch { /* already closed */ }
   });
 });
+
+// The toolbar button wears the app icon chosen in Settings, from PNGs rendered
+// beside each SVG (a service worker cannot draw an SVG itself).
+function setActionIcon(id) {
+  if (!/^[a-z0-9-]{1,40}$/.test(id || '') || id === 'classic') return chrome.action.setIcon({ path: { 16: 'icon16.png', 48: 'icon48.png', 128: 'icon128.png' } });
+  const p = size => `assets/app-icons/png/${id}-${size}.png`;
+  return chrome.action.setIcon({ path: { 16: p(16), 32: p(32), 48: p(48), 128: p(128) } });
+}
+chrome.storage.local.get('bfb-app-icon').then(r => { if (r['bfb-app-icon']) setActionIcon(r['bfb-app-icon']).catch(() => {}); });
