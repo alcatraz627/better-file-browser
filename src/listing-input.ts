@@ -7,7 +7,7 @@ import { el } from './el';
 import { esc, fullPath, copyToClipboard, pageHref } from './utils';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab } from './preview';
 import { bind, addPaletteSource } from './commands';
-import { openLayer, type Layer } from './layer';
+import { openLayer, raise, type Layer } from './layer';
 import { getSortConfig, getGroupMode } from './storage';
 import { getIcon } from './icons';
 import type { SortConfig, GroupMode } from './types';
@@ -95,6 +95,7 @@ export function initListingInput(app: App, listing: Listing): void {
     } catch {
       tip.innerHTML = `<div class="tip-name">${esc(target.getAttribute('data-tip') ?? '')}</div>`;
     }
+    raise(tip);
     tip.classList.add('show');
     positionTip(ev);
   }

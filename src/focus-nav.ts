@@ -6,6 +6,7 @@ import type { App } from './app';
 import { KEYMAP, type Scope } from './keymap';
 import { bind, dispatch, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
 import { isPreviewOpen } from './preview';
+import { raise } from './layer';
 import { homeDir, getSaved, getRecents } from './storage';
 import { PI } from './icons';
 import { fileHref, pageHref, esc } from './utils';
@@ -272,6 +273,7 @@ export function initFocusNav(app: App): void {
     hints.innerHTML = spots.map(([x, k]) => { const r = x.getBoundingClientRect(); return `<kbd style="left:${Math.round(r.left + r.width / 2)}px;top:${Math.round(r.bottom - 6)}px">${esc(k)}</kbd>`; }).join('')
       + `<div class="fe-hints-tip"><kbd>⌘K</kbd> every command · <kbd>?</kbd> keyboard map · <kbd>F6</kbd> next area</div>`;
     fe.appendChild(hints);
+    raise(hints);
   }
   document.addEventListener('keydown', e => {
     if (e.key === 'Alt' && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.repeat) { hideHints(); hintTimer = setTimeout(showHints, 450); }

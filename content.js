@@ -18432,6 +18432,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       pill = document.createElement("div");
       pill.className = "fe-chord";
       (document.getElementById("fe") ?? document.body).appendChild(pill);
+      raise(pill);
     }
     const next = OWN.filter((d) => canRun(d.id) && d.keys.some((k) => k.startsWith(p + " ")));
     pill.innerHTML = `<kbd>${esc(p)}</kbd><span>then</span>${next.slice(0, 8).map((d) => `<span class="fe-chord-o"><kbd>${esc(d.keys.find((k) => k.startsWith(p + " ")).slice(p.length + 1))}</kbd>${esc(d.title)}</span>`).join("")}`;
@@ -18685,6 +18686,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } catch {
         tip.innerHTML = `<div class="tip-name">${esc(target.getAttribute("data-tip") ?? "")}</div>`;
       }
+      raise(tip);
       tip.classList.add("show");
       positionTip(ev);
     }
@@ -19286,6 +19288,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         return `<kbd style="left:${Math.round(r.left + r.width / 2)}px;top:${Math.round(r.bottom - 6)}px">${esc(k)}</kbd>`;
       }).join("") + `<div class="fe-hints-tip"><kbd>\u2318K</kbd> every command \xB7 <kbd>?</kbd> keyboard map \xB7 <kbd>F6</kbd> next area</div>`;
       fe.appendChild(hints);
+      raise(hints);
     }
     document.addEventListener("keydown", (e) => {
       if (e.key === "Alt" && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.repeat) {

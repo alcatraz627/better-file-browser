@@ -3,7 +3,7 @@
 // the actions they own with bind(); the keys themselves come from keymap.ts.
 import { KEYMAP, type KeyDef, type Scope } from './keymap';
 import { esc } from './utils';
-import { openLayer } from './layer';
+import { openLayer, raise } from './layer';
 
 interface Bound { run: () => void; when?: () => boolean }
 const bound = new Map<string, Bound>();
@@ -60,7 +60,7 @@ function setPending(p: string): void {
   if (pendingTimer) clearTimeout(pendingTimer);
   if (!p) { pill?.remove(); pill = null; return; }
   pendingTimer = setTimeout(() => setPending(''), 1600);
-  if (!pill) { pill = document.createElement('div'); pill.className = 'fe-chord'; (document.getElementById('fe') ?? document.body).appendChild(pill); }
+  if (!pill) { pill = document.createElement('div'); pill.className = 'fe-chord'; (document.getElementById('fe') ?? document.body).appendChild(pill); raise(pill); }
   const next = OWN.filter(d => canRun(d.id) && d.keys.some(k => k.startsWith(p + ' ')));
   pill.innerHTML = `<kbd>${esc(p)}</kbd><span>then</span>${next.slice(0, 8).map(d => `<span class="fe-chord-o"><kbd>${esc(d.keys.find(k => k.startsWith(p + ' '))!.slice(p.length + 1))}</kbd>${esc(d.title)}</span>`).join('')}`;
 }
