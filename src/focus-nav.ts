@@ -7,6 +7,7 @@ import { KEYMAP, type Scope } from './keymap';
 import { bind, dispatch, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
 import { isPreviewOpen } from './preview';
 import { raise } from './layer';
+import { setTooltipKeys } from './tooltip';
 import { homeDir, getSaved, getRecents } from './storage';
 import { PI } from './icons';
 import { fileHref, pageHref, esc } from './utils';
@@ -259,6 +260,11 @@ export function initFocusNav(app: App): void {
     'fe-rail-search': 'lens-search', 'fe-rail-ask': 'lens-ask', 'fe-rail-comments': 'lens-docs',
   };
   const keyOf = (cmd: string) => KEYMAP.find(d => d.id === cmd)?.keys[0];
+  // A control's tooltip shows the keys of the command it runs.
+  setTooltipKeys(x => {
+    const cmd = KEY_OF[x.id] ?? (x.matches('.fe-view-btn[data-view]') ? 'view-' + x.dataset.view : '');
+    return (cmd && KEYMAP.find(d => d.id === cmd)?.keys) || [];
+  });
   let hintTimer: ReturnType<typeof setTimeout> | null = null;
   let hints: HTMLElement | null = null;
   const hideHints = () => { if (hintTimer) clearTimeout(hintTimer); hintTimer = null; hints?.remove(); hints = null; };

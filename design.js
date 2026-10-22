@@ -562,6 +562,14 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
   opacity:0;transition:opacity .12s ease-out}
 #fe-hint.on{opacity:1}
+/* A control's tooltip: icon and title, a lighter line, then its keys. */
+#fe-hint.rich{white-space:normal;display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-3) var(--sp-5)}
+.fe-hint-h{display:flex;align-items:center;gap:var(--sp-3)}
+.fe-hint-h svg{width:1.15em;height:1.15em;flex:none;color:var(--ac)}
+.fe-hint-h b{font-weight:600}
+.fe-hint-s{color:var(--dm);font-size:var(--fs-xs)}
+.fe-hint-k{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-1)}
+.fe-hint-k i{color:var(--dm);font-style:normal;font-size:var(--fs-xs)}
 /* Parts in the top layer (layer.ts) keep their own look and placement, not the
    browser's popover defaults; zero specificity, so every part's own rule wins. */
 :where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
@@ -1933,7 +1941,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-pal-i.on{background:var(--on)}
 .fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
-.fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
+.fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--tx) 14%,transparent);color:var(--mt);font:600 var(--fs-xs) var(--mono);white-space:nowrap}
 .fe-pal-i kbd{margin-left:auto}
 .fe-pal-none{padding:24px;text-align:center;color:var(--dm)}

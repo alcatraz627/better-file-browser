@@ -49,9 +49,10 @@ try {
       await page.waitForSelector('#fe-hint.on', { timeout: 2_000 }).catch(() => null);
       const tip = await page.evaluate(() => {
         const t = document.getElementById('fe-hint'); const r = t.getBoundingClientRect();
-        return { on: t.classList.contains('on'), text: t.textContent, inView: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight };
+        return { on: t.classList.contains('on'), text: t.querySelector('b')?.textContent ?? t.textContent, inView: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight };
       });
-      check(tip.on && tip.text === want && tip.inView, `${theme}: hovering #${id} shows "${want}": ${JSON.stringify(tip)}`);
+      // A control's tooltip leads with the title's first part; the rest goes on the lighter line.
+      check(tip.on && !!tip.text && want.startsWith(tip.text) && tip.inView, `${theme}: hovering #${id} shows "${want}": ${JSON.stringify(tip)}`);
       if (id === 'fe-ql-dock') { await new Promise(r => setTimeout(r, 200)); await shot(page, `tooltip-preview-${theme}`); }
       await page.mouse.move(5, 500);
       await new Promise(r => setTimeout(r, 200));

@@ -560,6 +560,14 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
   opacity:0;transition:opacity .12s ease-out}
 #fe-hint.on{opacity:1}
+/* A control's tooltip: icon and title, a lighter line, then its keys. */
+#fe-hint.rich{white-space:normal;display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-3) var(--sp-5)}
+.fe-hint-h{display:flex;align-items:center;gap:var(--sp-3)}
+.fe-hint-h svg{width:1.15em;height:1.15em;flex:none;color:var(--ac)}
+.fe-hint-h b{font-weight:600}
+.fe-hint-s{color:var(--dm);font-size:var(--fs-xs)}
+.fe-hint-k{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-1)}
+.fe-hint-k i{color:var(--dm);font-style:normal;font-size:var(--fs-xs)}
 /* Parts in the top layer (layer.ts) keep their own look and placement, not the
    browser's popover defaults; zero specificity, so every part's own rule wins. */
 :where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}

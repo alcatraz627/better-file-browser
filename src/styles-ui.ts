@@ -191,7 +191,7 @@ export const UI_CSS = `
 .fe-pal-i.on{background:var(--on)}
 .fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
-.fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
+.fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--tx) 14%,transparent);color:var(--mt);font:600 var(--fs-xs) var(--mono);white-space:nowrap}
 .fe-pal-i kbd{margin-left:auto}
 .fe-pal-none{padding:24px;text-align:center;color:var(--dm)}

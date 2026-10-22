@@ -4707,6 +4707,14 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
   opacity:0;transition:opacity .12s ease-out}
 #fe-hint.on{opacity:1}
+/* A control's tooltip: icon and title, a lighter line, then its keys. */
+#fe-hint.rich{white-space:normal;display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-3) var(--sp-5)}
+.fe-hint-h{display:flex;align-items:center;gap:var(--sp-3)}
+.fe-hint-h svg{width:1.15em;height:1.15em;flex:none;color:var(--ac)}
+.fe-hint-h b{font-weight:600}
+.fe-hint-s{color:var(--dm);font-size:var(--fs-xs)}
+.fe-hint-k{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-1)}
+.fe-hint-k i{color:var(--dm);font-style:normal;font-size:var(--fs-xs)}
 /* Parts in the top layer (layer.ts) keep their own look and placement, not the
    browser's popover defaults; zero specificity, so every part's own rule wins. */
 :where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
@@ -6078,7 +6086,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-pal-i.on{background:var(--on)}
 .fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
-.fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
+.fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--tx) 14%,transparent);color:var(--mt);font:600 var(--fs-xs) var(--mono);white-space:nowrap}
 .fe-pal-i kbd{margin-left:auto}
 .fe-pal-none{padding:24px;text-align:center;color:var(--dm)}
@@ -18945,6 +18953,93 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     })) : []);
   }
 
+  // src/tooltip.ts
+  var DELAY = 350;
+  function tipParts(text, keys2 = []) {
+    let t = text;
+    for (const k of keys2) {
+      const q = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      t = t.replace(new RegExp(`\\s*\\((?:press\\s+)?${q}\\)`, "g"), "");
+    }
+    const nl = t.indexOf("\n");
+    if (nl >= 0) return { title: t.slice(0, nl).trim(), sub: t.slice(nl + 1).trim(), keys: keys2 };
+    const dot = t.indexOf(" \xB7 ");
+    if (dot >= 0) return { title: t.slice(0, dot).trim(), sub: t.slice(dot + 3).trim(), keys: keys2 };
+    const comma = t.indexOf(", ");
+    if (comma > 0 && t.slice(0, comma).split(" ").length <= 3) return { title: t.slice(0, comma).trim(), sub: t.slice(comma + 2).trim(), keys: keys2 };
+    return { title: t.trim(), sub: "", keys: keys2 };
+  }
+  var keysFor = () => [];
+  function setTooltipKeys(fn) {
+    keysFor = fn;
+  }
+  function initTooltips(root) {
+    const tip = document.createElement("div");
+    tip.id = "fe-hint";
+    tip.setAttribute("role", "tooltip");
+    root.appendChild(tip);
+    let target = null;
+    let lifted = "";
+    let labelled = false;
+    let timer = 0;
+    function hide() {
+      clearTimeout(timer);
+      tip.classList.remove("on");
+      if (target && lifted && !target.hasAttribute("title")) target.setAttribute("title", lifted);
+      if (target && labelled) target.removeAttribute("aria-label");
+      target = null;
+      lifted = "";
+      labelled = false;
+    }
+    function place() {
+      if (!target) return;
+      const r = target.getBoundingClientRect();
+      const t = tip.getBoundingClientRect();
+      let top = r.bottom + 6;
+      if (top + t.height > innerHeight - 4) top = r.top - t.height - 6;
+      const anchor = target.closest(".fe-tab") ? r.left : r.left + r.width / 2 - t.width / 2;
+      const left = Math.min(Math.max(4, anchor), innerWidth - t.width - 4);
+      tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+    }
+    root.addEventListener("pointerover", (e) => {
+      const el2 = e.target.closest("[title]");
+      if (!el2 || el2 === target || !root.contains(el2)) return;
+      hide();
+      const text = el2.getAttribute("title")?.trim();
+      if (!text) return;
+      if (text === el2.textContent?.trim() && el2.scrollWidth <= el2.clientWidth) return;
+      target = el2;
+      lifted = text;
+      el2.removeAttribute("title");
+      if (!el2.hasAttribute("aria-label")) {
+        el2.setAttribute("aria-label", text);
+        labelled = true;
+      }
+      timer = window.setTimeout(() => {
+        if (target !== el2) return;
+        const keys2 = keysFor(el2);
+        const icon2 = el2.matches('button, a, [role="button"]') ? el2.querySelector("svg") : null;
+        if (keys2.length || icon2) {
+          const p = tipParts(text, keys2);
+          tip.className = "rich";
+          tip.innerHTML = `<span class="fe-hint-h">${icon2 ? icon2.outerHTML : ""}<b>${esc(p.title)}</b></span>` + (p.sub ? `<span class="fe-hint-s">${esc(p.sub)}</span>` : "") + (p.keys.length ? `<span class="fe-hint-k">${p.keys.map((k) => k.split(" ").map((x) => `<kbd>${esc(x)}</kbd>`).join("")).join("<i>or</i>")}</span>` : "");
+        } else {
+          tip.className = "";
+          tip.textContent = text;
+        }
+        raise(tip);
+        tip.classList.add("on");
+        place();
+      }, DELAY);
+    });
+    root.addEventListener("pointerout", (e) => {
+      if (target && !target.contains(e.relatedTarget)) hide();
+    });
+    root.addEventListener("pointerdown", hide, true);
+    root.addEventListener("scroll", hide, true);
+    document.addEventListener("keydown", hide, true);
+  }
+
   // src/focus-nav.ts
   var visible = (x) => !!x && x.offsetParent !== null;
   var isTyping = (x) => !!x && (["INPUT", "TEXTAREA", "SELECT"].includes(x.tagName) || x.isContentEditable) && !x.type?.match(/^(checkbox|radio|range|button)$/);
@@ -19258,6 +19353,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       "fe-rail-comments": "lens-docs"
     };
     const keyOf = (cmd) => KEYMAP.find((d) => d.id === cmd)?.keys[0];
+    setTooltipKeys((x) => {
+      const cmd = KEY_OF[x.id] ?? (x.matches(".fe-view-btn[data-view]") ? "view-" + x.dataset.view : "");
+      return cmd && KEYMAP.find((d) => d.id === cmd)?.keys || [];
+    });
     let hintTimer = null;
     let hints = null;
     const hideHints = () => {
@@ -21081,66 +21180,6 @@ ${rows.join("\n")}`, name: subject };
         window.open(img.src, "_blank");
       }
     });
-  }
-
-  // src/tooltip.ts
-  var DELAY = 350;
-  function initTooltips(root) {
-    const tip = document.createElement("div");
-    tip.id = "fe-hint";
-    tip.setAttribute("role", "tooltip");
-    root.appendChild(tip);
-    let target = null;
-    let lifted = "";
-    let labelled = false;
-    let timer = 0;
-    function hide() {
-      clearTimeout(timer);
-      tip.classList.remove("on");
-      if (target && lifted && !target.hasAttribute("title")) target.setAttribute("title", lifted);
-      if (target && labelled) target.removeAttribute("aria-label");
-      target = null;
-      lifted = "";
-      labelled = false;
-    }
-    function place() {
-      if (!target) return;
-      const r = target.getBoundingClientRect();
-      const t = tip.getBoundingClientRect();
-      let top = r.bottom + 6;
-      if (top + t.height > innerHeight - 4) top = r.top - t.height - 6;
-      const anchor = target.closest(".fe-tab") ? r.left : r.left + r.width / 2 - t.width / 2;
-      const left = Math.min(Math.max(4, anchor), innerWidth - t.width - 4);
-      tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
-    }
-    root.addEventListener("pointerover", (e) => {
-      const el2 = e.target.closest("[title]");
-      if (!el2 || el2 === target || !root.contains(el2)) return;
-      hide();
-      const text = el2.getAttribute("title")?.trim();
-      if (!text) return;
-      if (text === el2.textContent?.trim() && el2.scrollWidth <= el2.clientWidth) return;
-      target = el2;
-      lifted = text;
-      el2.removeAttribute("title");
-      if (!el2.hasAttribute("aria-label")) {
-        el2.setAttribute("aria-label", text);
-        labelled = true;
-      }
-      timer = window.setTimeout(() => {
-        if (target !== el2) return;
-        tip.textContent = text;
-        raise(tip);
-        tip.classList.add("on");
-        place();
-      }, DELAY);
-    });
-    root.addEventListener("pointerout", (e) => {
-      if (target && !target.contains(e.relatedTarget)) hide();
-    });
-    root.addEventListener("pointerdown", hide, true);
-    root.addEventListener("scroll", hide, true);
-    document.addEventListener("keydown", hide, true);
   }
 
   // src/docs-lens.ts
