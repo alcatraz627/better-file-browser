@@ -6,7 +6,7 @@ reader: the owner and the agent building the layers slice
 
 One row per thing a person can do with a floating layer today that must still
 work after the slice (component-system.md 13.1, step 3). The full behaviour
-table is `docs/plan/variants/layers.md`. Rows describe the commit before the
+table is `.claude/specs/layers-variants.md`. Rows describe the commit before the
 slice (068d04f).
 
 Every row is marked `kept` until the owner decides otherwise. The last column
