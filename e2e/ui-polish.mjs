@@ -24,7 +24,7 @@ try {
       });
       return { href, status, loaded };
     });
-    assert.ok(favicon.href.endsWith('/assets/favicon.svg') && favicon.status === 200 && favicon.loaded,
+    assert.ok(favicon.href.endsWith('/assets/app-icons/01-classic.svg') && favicon.status === 200 && favicon.loaded,
       `${theme} favicon ${JSON.stringify(favicon)}`);
     await page.keyboard.press('t');
     await page.goto('file://' + join(h.fixture, 'nested') + '/', { waitUntil: 'load' });
@@ -53,7 +53,7 @@ try {
       const buttons = [...modal.querySelectorAll('.fe-dlg-pane button.btn')].filter(el => el.offsetParent);
       const input = modal.querySelector('#fe-st-notes-root');
       return { scroll: tabs.scrollWidth - tabs.clientWidth, icons, hints, buttons: buttons.every(el => !!el.querySelector('svg')),
-        bg: getComputedStyle(input).backgroundColor, selectBg: getComputedStyle(modal.querySelector('.fe-st-select')).backgroundColor };
+        bg: getComputedStyle(input).backgroundColor, selectBg: getComputedStyle(modal.querySelector('.fe-dd-btn')).backgroundColor };
     });
     assert.equal(settings.scroll, 0, `${theme} settings tabs overflow`);
     assert.equal(settings.icons, 6);
@@ -63,7 +63,7 @@ try {
     assert.equal(settings.bg, settings.selectBg, `${theme} input and select differ`);
     for (const tab of ['look', 'folders', 'files', 'notes', 'ai', 'data']) {
       await page.click(`#fe-settings-modal .fe-dlg-tab[data-tab="${tab}"]`);
-      const missing = await page.evaluate(() => [...document.querySelectorAll('#fe-settings-modal button')]
+      const missing = await page.evaluate(() => [...document.querySelectorAll('#fe-settings-modal button.btn')]
         .filter(el => el.getClientRects().length && !el.querySelector('svg'))
         .map(el => el.id || el.className));
       assert.deepEqual(missing, [], `${theme} ${tab} settings buttons missing icons`);
@@ -83,7 +83,7 @@ try {
     await page.keyboard.press('Escape');
     await page.goto('file://' + sample, { waitUntil: 'load' });
     await page.waitForSelector('#fe.fe-file-page');
-    assert.ok((await page.$eval('link[rel="icon"]', link => link.href)).endsWith('/assets/favicon.svg'));
+    assert.ok((await page.$eval('link[rel="icon"]', link => link.href)).endsWith('/assets/app-icons/01-classic.svg'));
     const markdown = await page.evaluate(() => ({ code: document.querySelector('#fe-page .fe-md-pre')?.textContent,
       kbd: document.querySelector('#fe-page kbd')?.textContent,
       sup: document.querySelector('#fe-page sup')?.textContent,

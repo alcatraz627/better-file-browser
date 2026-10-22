@@ -54,7 +54,7 @@ export function keyToken(ev: KeyboardEvent): string {
 // Which keys are live depends on what has the keyboard right now.
 // `widget`: the sidebar, the tabs or a toolbar has focus, and its own
 // moving and acting keys (MOVING) are not commands for anywhere else.
-export interface Context { scopes: Set<Scope>; typing: boolean; blocked: boolean; widget?: boolean }
+export interface Context { scopes: Set<Scope>; typing: boolean; blocked: boolean; widget?: boolean; docked?: boolean }
 let contextOf: () => Context = () => ({ scopes: new Set(['any']), typing: false, blocked: false });
 export function setContext(fn: () => Context): void { contextOf = fn; }
 
@@ -72,7 +72,8 @@ const live = (d: KeyDef, ctx: Context, tok = '') => {
   if (scope !== 'any') return ctx.scopes.has(scope);
   if (!ctx.scopes.has('any')) return false;
   if (ctx.widget && MOVING.has(baseOf(tok))) return false;
-  return !ctx.scopes.has('preview') || d.over === true || (!!tok && !!d.over?.includes(tok));
+  if (!ctx.scopes.has('preview') || d.over === true || (!!tok && !!d.over?.includes(tok))) return true;
+  return !!ctx.docked && !!tok && !MOVING.has(baseOf(tok)) && tok !== 'Esc';
 };
 
 // A sequence such as "g h": the first key waits a moment for the second, with

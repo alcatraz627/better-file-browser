@@ -1699,7 +1699,8 @@ ${body}`;
     if (scope !== "any") return ctx.scopes.has(scope);
     if (!ctx.scopes.has("any")) return false;
     if (ctx.widget && MOVING.has(baseOf(tok))) return false;
-    return !ctx.scopes.has("preview") || d.over === true || !!tok && !!d.over?.includes(tok);
+    if (!ctx.scopes.has("preview") || d.over === true || !!tok && !!d.over?.includes(tok)) return true;
+    return !!ctx.docked && !!tok && !MOVING.has(baseOf(tok)) && tok !== "Esc";
   };
   var pending = "";
   var pendingTimer = null;
@@ -6653,9 +6654,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* A dropdown button and its list. */
 .fe-dd{--dd-h:var(--ctl-md);display:inline-flex}
 .fe-dd[data-size="lg"]{--dd-h:var(--ctl-lg)}
-.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:var(--dd-h);padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);
-  color:var(--tx);font:inherit;font-size:var(--row-fs);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
-.fe-dd-btn:hover,.fe-dd-btn[aria-expanded="true"]{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd2))}
+.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:var(--dd-h);padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);
+  color:var(--tx);font:inherit;font-size:var(--type-ui);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
+/* The same surface and hairline as a TextBox: fields and dropdowns read as one family. */
+.fe-dd-btn:hover{border-color:color-mix(in srgb,var(--mt) 60%,var(--bd2))}
+.fe-dd-btn[aria-expanded="true"]{border-color:var(--ac)}
 .fe-dd-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 .fe-dd-cur{flex:1;display:flex;align-items:center;gap:8px;min-width:0;text-align:left}
 .fe-dd-cur span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -19367,6 +19370,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const scopes = /* @__PURE__ */ new Set(["any"]);
       const preview = isPreviewOpen();
       if (preview) scopes.add("preview");
+      const docked = preview && !!document.getElementById("fe-qlook")?.classList.contains("side");
       if (app.fileMode && !preview) scopes.add("file");
       if (document.getElementById("fe-goto")) scopes.add("goto");
       if (visible(document.getElementById("fe-ed-bar"))) scopes.add("editor");
@@ -19377,7 +19381,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         if (fe.dataset.view === "tree") scopes.add("tree");
       }
       if (openMenu2()) scopes.add("menu");
-      return { scopes, typing: isTyping(ae2), widget: !!area2?.widget, blocked };
+      return { scopes, typing: isTyping(ae2), widget: !!area2?.widget, docked, blocked };
     });
     document.addEventListener("keydown", (e) => {
       if (e.defaultPrevented) return;

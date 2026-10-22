@@ -83,6 +83,7 @@ try {
   check(hdr.length > 0 && hdr.every(b => b.icon && b.w === b.h), `the docked preview header is square icon buttons: ${JSON.stringify(hdr)}`);
   await clip('buttons-docked-header', '#fe-ql-hdr');
   await page.keyboard.press('Escape'); await sleep(250);
+  check(await page.evaluate(() => !document.querySelector('#fe-qlook.side') || getComputedStyle(document.getElementById('fe-qlook')).display === 'none'), 'Esc closes the docked preview while focus is in the listing');
 
   await page.evaluate(() => document.querySelector('#fe-rail-ask')?.click()); await sleep(400);
   await clip('buttons-ask', '#fe-lenses .fe-lens:not([hidden])');

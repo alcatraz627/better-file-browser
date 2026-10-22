@@ -55,6 +55,9 @@ export function initFocusNav(app: App): void {
     const scopes = new Set<Scope>(['any']);
     const preview = isPreviewOpen();
     if (preview) scopes.add('preview');
+    // A docked preview is a pane beside the listing: it keeps its own keys
+    // (moving, Space, Esc) but leaves every other key to the page.
+    const docked = preview && !!document.getElementById('fe-qlook')?.classList.contains('side');
     if (app.fileMode && !preview) scopes.add('file');
     if (document.getElementById('fe-goto')) scopes.add('goto');
     if (visible(document.getElementById('fe-ed-bar'))) scopes.add('editor');
@@ -65,7 +68,7 @@ export function initFocusNav(app: App): void {
       if (fe.dataset.view === 'tree') scopes.add('tree');
     }
     if (openMenu()) scopes.add('menu');
-    return { scopes, typing: isTyping(ae), widget: !!area?.widget, blocked };
+    return { scopes, typing: isTyping(ae), widget: !!area?.widget, docked, blocked };
   });
 
   // Capture runs before every surface's own handler, so a command key wins

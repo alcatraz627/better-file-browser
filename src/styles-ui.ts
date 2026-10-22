@@ -80,9 +80,11 @@ export const UI_CSS = `
 /* A dropdown button and its list. */
 .fe-dd{--dd-h:var(--ctl-md);display:inline-flex}
 .fe-dd[data-size="lg"]{--dd-h:var(--ctl-lg)}
-.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:var(--dd-h);padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);
-  color:var(--tx);font:inherit;font-size:var(--row-fs);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
-.fe-dd-btn:hover,.fe-dd-btn[aria-expanded="true"]{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd2))}
+.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:var(--dd-h);padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);
+  color:var(--tx);font:inherit;font-size:var(--type-ui);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
+/* The same surface and hairline as a TextBox: fields and dropdowns read as one family. */
+.fe-dd-btn:hover{border-color:color-mix(in srgb,var(--mt) 60%,var(--bd2))}
+.fe-dd-btn[aria-expanded="true"]{border-color:var(--ac)}
 .fe-dd-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 .fe-dd-cur{flex:1;display:flex;align-items:center;gap:8px;min-width:0;text-align:left}
 .fe-dd-cur span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -36,7 +36,9 @@ try {
   await page.keyboard.press('Escape');
 
   await page.click('#fe-sv-list details.fe-grp[data-tag="alpha"] > summary');
-  check(!(await page.$eval('details.fe-grp[data-tag="alpha"]', d => d.open)), 'clicking a group header folds it');
+  // A closing group stays open while it shrinks, then folds (motion.ts foldTo).
+  const folded = await page.waitForFunction(() => !document.querySelector('details.fe-grp[data-tag="alpha"]').open, { timeout: 1500 }).then(() => true, () => false);
+  check(folded, 'clicking a group header folds it');
   await page.screenshot({ path: join(SHOTS, 'notes-lens-folded.png'), clip: { x: 0, y: 0, width: 700, height: 600 } });
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-sv-list details.fe-grp');
