@@ -19,6 +19,7 @@ import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { foldTo } from './motion';
 import { addPaletteSource } from './commands';
+import { openLayer, type Layer } from './layer';
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
 const LENS_KEY = 'bfb-lens-v1';
@@ -664,9 +665,8 @@ export function initSidebar(app: App): void {
   const ntMenu = document.createElement('div');
   ntMenu.id = 'fe-nt-ctx';
   ntMenu.className = 'fe-ctx';
-  ntMenu.style.display = 'none';
-  (document.getElementById('fe') ?? document.body).appendChild(ntMenu);
-  const closeNtMenu = () => { ntMenu.style.display = 'none'; };
+  let ntLayer: Layer | null = null;
+  const closeNtMenu = () => ntLayer?.close('pick');
   function openNtMenu(root: string, item: HTMLElement, x: number, y: number): void {
     const rel = item.dataset.rel!;
     ntMenu.innerHTML = [
@@ -682,9 +682,7 @@ export function initSidebar(app: App): void {
     ].join('');
     ntMenu.dataset.rel = rel;
     ntMenu.dataset.root = root;
-    ntMenu.style.display = 'block';
-    ntMenu.style.left = Math.min(x, window.innerWidth - ntMenu.offsetWidth - 8) + 'px';
-    ntMenu.style.top = Math.min(y, window.innerHeight - ntMenu.offsetHeight - 8) + 'px';
+    ntLayer = openLayer(ntMenu, { kind: 'popover', place: 'point', point: { x, y }, role: 'menu', group: 'menu' });
   }
   ntMenu.addEventListener('click', e => {
     const item = (e.target as HTMLElement).closest<HTMLElement>('.fe-ctx-item');
@@ -703,8 +701,6 @@ export function initSidebar(app: App): void {
       case 'delete': deleteNote(root, rel); break;
     }
   });
-  document.addEventListener('click', e => { if (ntMenu.style.display !== 'none' && !ntMenu.contains(e.target as Node)) closeNtMenu(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && ntMenu.style.display !== 'none') closeNtMenu(); });
 
   // Keys on a focused note row: arrows move between rows, F2 renames, Delete trashes.
   ntList.addEventListener('keydown', e => {

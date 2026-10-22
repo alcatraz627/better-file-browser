@@ -2490,20 +2490,151 @@ ${body}`;
     });
   }
 
+  // src/layer.ts
+  var CLOSES = {
+    popover: { esc: true, outside: true, anchor: true, scroll: true, blur: true },
+    hovercard: { esc: true, scroll: true },
+    transient: { esc: true },
+    command: { esc: true, outside: true },
+    dialog: { esc: true },
+    float: { esc: true }
+  };
+  var MODAL = { command: true, dialog: true, float: true };
+  var stack = [];
+  var topLayer = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
+  var wired = false;
+  var anchorClosed = null;
+  var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
+  function openLayer(el2, opts) {
+    wire();
+    if (opts.anchor && anchorClosed?.anchor === opts.anchor && performance.now() - anchorClosed.at < 600) {
+      anchorClosed = null;
+      return { el: el2, kind: opts.kind, open: false, close() {
+      }, place() {
+      } };
+    }
+    const existing = stack.find((l) => l.el === el2);
+    existing?.close("replaced");
+    if (opts.group) stack.filter((l) => l.opts.group === opts.group).forEach((l) => l.close("replaced"));
+    const host = document.getElementById("fe") ?? document.body;
+    if (!el2.isConnected) host.appendChild(el2);
+    el2.dataset.layer = opts.kind;
+    if (opts.role) el2.setAttribute("role", opts.role);
+    if (opts.label) el2.setAttribute("aria-label", opts.label);
+    if (MODAL[opts.kind]) el2.setAttribute("aria-modal", "true");
+    if (topLayer) {
+      el2.setAttribute("popover", "manual");
+      el2.showPopover();
+    }
+    const anchor = opts.anchor ?? null;
+    anchor?.setAttribute("aria-expanded", "true");
+    if (anchor && el2.id) anchor.setAttribute("aria-controls", el2.id);
+    let open = true;
+    const layer = {
+      el: el2,
+      kind: opts.kind,
+      opts,
+      returnTo: document.activeElement,
+      get open() {
+        return open;
+      },
+      place: () => position(el2, opts),
+      close(why = "api") {
+        if (!open) return;
+        open = false;
+        const i3 = stack.indexOf(layer);
+        if (i3 >= 0) stack.splice(i3, 1);
+        anchor?.setAttribute("aria-expanded", "false");
+        const hadFocus = el2.contains(document.activeElement);
+        if (topLayer && el2.matches(":popover-open")) el2.hidePopover();
+        el2.remove();
+        if (hadFocus || document.activeElement === document.body) {
+          const back = anchor ?? layer.returnTo;
+          if (back?.isConnected) back.focus({ preventScroll: true });
+        }
+        opts.onClose?.(why);
+      }
+    };
+    stack.push(layer);
+    position(el2, opts);
+    const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
+    if (f === "first") el2.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
+    else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
+    return layer;
+  }
+  function position(el2, o) {
+    const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
+    if (place === "none") return;
+    el2.style.position = "fixed";
+    el2.style.margin = "0";
+    el2.style.inset = "auto";
+    const gap = o.offset ?? 4, pad = 8;
+    const w = el2.offsetWidth, h = el2.offsetHeight;
+    let x, y;
+    if (place === "point" && o.point) {
+      x = o.point.x;
+      y = o.point.y;
+    } else {
+      const r = (o.anchor ?? el2).getBoundingClientRect();
+      if (place === "right") {
+        x = r.right + gap;
+        y = r.top;
+      } else {
+        x = o.align === "end" ? r.right - w : r.left;
+        const below = r.bottom + gap, above = r.top - gap - h;
+        y = place === "above" ? above >= pad ? above : below : below + h <= innerHeight - pad || above < pad ? below : above;
+      }
+    }
+    el2.style.left = `${Math.max(pad, Math.min(x, innerWidth - w - pad))}px`;
+    el2.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
+  }
+  function wire() {
+    if (wired) return;
+    wired = true;
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc);
+      if (!top) return;
+      e.preventDefault();
+      e.stopPropagation();
+      top.close("esc");
+    }, true);
+    document.addEventListener("pointerdown", (e) => {
+      const t = e.target;
+      const top = stack[stack.length - 1];
+      if (!top || top.el.contains(t)) return;
+      const anchor = top.opts.anchor;
+      if (anchor?.contains(t)) {
+        if (CLOSES[top.kind].anchor) {
+          top.close("anchor");
+          anchorClosed = { anchor, at: performance.now() };
+        }
+        return;
+      }
+      anchorClosed = null;
+      if (CLOSES[top.kind].outside) top.close("outside");
+    }, true);
+    document.addEventListener("scroll", (e) => {
+      const t = e.target;
+      for (const l of [...stack]) if (CLOSES[l.kind].scroll && !l.el.contains(t)) l.close("scroll");
+    }, true);
+    document.addEventListener("focusin", (e) => {
+      const t = e.target;
+      for (const l of [...stack]) if (CLOSES[l.kind].blur && !l.el.contains(t) && !l.opts.anchor?.contains(t)) l.close("blur");
+    });
+  }
+
   // src/note-meta-ui.ts
   var colorDot = (c) => `<svg class="fe-cdot" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">` + (c ? `<circle cx="6" cy="6" r="4.5" fill="var(--nc-${c})"/>` : `<circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.2"/>`) + `</svg>`;
   var openMenu = null;
   function closePropsMenu() {
-    openMenu?.off();
+    openMenu?.close("api");
     openMenu = null;
   }
   function openPropsMenu(anchor, props, apply) {
     closePropsMenu();
     const menu = document.createElement("div");
     menu.className = "fe-pmenu";
-    menu.setAttribute("role", "menu");
-    const host = document.getElementById("fe") ?? document.body;
-    host.appendChild(menu);
     let cur = props;
     const render2 = () => {
       menu.innerHTML = `
@@ -2520,8 +2651,8 @@ ${body}`;
       <form class="fe-pm-add"><input type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="fe-pbn" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
     };
     const run = async (c) => {
-      const r2 = await apply(c);
-      if (r2) cur = r2;
+      const r = await apply(c);
+      if (r) cur = r;
       render2();
       menu.querySelector(".fe-pm-add input")?.focus();
     };
@@ -2549,27 +2680,7 @@ ${body}`;
       else inp.value = "";
     });
     render2();
-    const r = anchor.getBoundingClientRect();
-    menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`;
-    menu.style.top = `${Math.min(r.bottom + 4, window.innerHeight - menu.offsetHeight - 8)}px`;
-    const onDown = (e) => {
-      if (!menu.contains(e.target) && !anchor.contains(e.target)) closePropsMenu();
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        e.preventDefault();
-        closePropsMenu();
-      }
-    };
-    document.addEventListener("mousedown", onDown, true);
-    document.addEventListener("keydown", onKey, true);
-    openMenu = { el: menu, off: () => {
-      document.removeEventListener("mousedown", onDown, true);
-      document.removeEventListener("keydown", onKey, true);
-      menu.remove();
-    } };
-    menu.querySelector(".fe-pm-add input").focus();
+    openMenu = openLayer(menu, { kind: "popover", anchor, role: "menu", group: "menu", focus: menu.querySelector(".fe-pm-add input") });
   }
   function mountMetaBar(host, o) {
     const draw = () => {
@@ -15488,140 +15599,6 @@ ${d.message}` : d.message;
     });
   }
 
-  // src/layer.ts
-  var CLOSES = {
-    popover: { esc: true, outside: true, anchor: true, scroll: true, blur: true },
-    hovercard: { esc: true, scroll: true },
-    transient: { esc: true },
-    command: { esc: true, outside: true },
-    dialog: { esc: true },
-    float: { esc: true }
-  };
-  var MODAL = { command: true, dialog: true, float: true };
-  var stack = [];
-  var topLayer = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
-  var wired = false;
-  var anchorClosed = null;
-  var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
-  function openLayer(el2, opts) {
-    wire();
-    if (opts.anchor && anchorClosed?.anchor === opts.anchor && performance.now() - anchorClosed.at < 600) {
-      anchorClosed = null;
-      return { el: el2, kind: opts.kind, open: false, close() {
-      }, place() {
-      } };
-    }
-    const existing = stack.find((l) => l.el === el2);
-    existing?.close("replaced");
-    if (opts.group) stack.filter((l) => l.opts.group === opts.group).forEach((l) => l.close("replaced"));
-    const host = document.getElementById("fe") ?? document.body;
-    if (!el2.isConnected) host.appendChild(el2);
-    el2.dataset.layer = opts.kind;
-    if (opts.role) el2.setAttribute("role", opts.role);
-    if (opts.label) el2.setAttribute("aria-label", opts.label);
-    if (MODAL[opts.kind]) el2.setAttribute("aria-modal", "true");
-    if (topLayer) {
-      el2.setAttribute("popover", "manual");
-      el2.showPopover();
-    }
-    const anchor = opts.anchor ?? null;
-    anchor?.setAttribute("aria-expanded", "true");
-    if (anchor && el2.id) anchor.setAttribute("aria-controls", el2.id);
-    let open = true;
-    const layer = {
-      el: el2,
-      kind: opts.kind,
-      opts,
-      returnTo: document.activeElement,
-      get open() {
-        return open;
-      },
-      place: () => position(el2, opts),
-      close(why = "api") {
-        if (!open) return;
-        open = false;
-        const i3 = stack.indexOf(layer);
-        if (i3 >= 0) stack.splice(i3, 1);
-        anchor?.setAttribute("aria-expanded", "false");
-        const hadFocus = el2.contains(document.activeElement);
-        if (topLayer && el2.matches(":popover-open")) el2.hidePopover();
-        el2.remove();
-        if (hadFocus || document.activeElement === document.body) {
-          const back = anchor ?? layer.returnTo;
-          if (back?.isConnected) back.focus({ preventScroll: true });
-        }
-        opts.onClose?.(why);
-      }
-    };
-    stack.push(layer);
-    position(el2, opts);
-    const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
-    if (f === "first") el2.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
-    else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
-    return layer;
-  }
-  function position(el2, o) {
-    const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
-    if (place === "none") return;
-    el2.style.position = "fixed";
-    el2.style.margin = "0";
-    el2.style.inset = "auto";
-    const gap = o.offset ?? 4, pad = 8;
-    const w = el2.offsetWidth, h = el2.offsetHeight;
-    let x, y;
-    if (place === "point" && o.point) {
-      x = o.point.x;
-      y = o.point.y;
-    } else {
-      const r = (o.anchor ?? el2).getBoundingClientRect();
-      if (place === "right") {
-        x = r.right + gap;
-        y = r.top;
-      } else {
-        x = o.align === "end" ? r.right - w : r.left;
-        const below = r.bottom + gap, above = r.top - gap - h;
-        y = place === "above" ? above >= pad ? above : below : below + h <= innerHeight - pad || above < pad ? below : above;
-      }
-    }
-    el2.style.left = `${Math.max(pad, Math.min(x, innerWidth - w - pad))}px`;
-    el2.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
-  }
-  function wire() {
-    if (wired) return;
-    wired = true;
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc);
-      if (!top) return;
-      e.preventDefault();
-      e.stopPropagation();
-      top.close("esc");
-    }, true);
-    document.addEventListener("pointerdown", (e) => {
-      const t = e.target;
-      const top = stack[stack.length - 1];
-      if (!top || top.el.contains(t)) return;
-      const anchor = top.opts.anchor;
-      if (anchor?.contains(t)) {
-        if (CLOSES[top.kind].anchor) {
-          top.close("anchor");
-          anchorClosed = { anchor, at: performance.now() };
-        }
-        return;
-      }
-      anchorClosed = null;
-      if (CLOSES[top.kind].outside) top.close("outside");
-    }, true);
-    document.addEventListener("scroll", (e) => {
-      const t = e.target;
-      for (const l of [...stack]) if (CLOSES[l.kind].scroll && !l.el.contains(t)) l.close("scroll");
-    }, true);
-    document.addEventListener("focusin", (e) => {
-      const t = e.target;
-      for (const l of [...stack]) if (CLOSES[l.kind].blur && !l.el.contains(t) && !l.opts.anchor?.contains(t)) l.close("blur");
-    });
-  }
-
   // src/strip.ts
   var SESSION_KEY = "bfb-strip-v2";
   var RECOVERY_PREFIX = "bfb-strip-v2:";
@@ -20067,11 +20044,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const ntMenu = document.createElement("div");
     ntMenu.id = "fe-nt-ctx";
     ntMenu.className = "fe-ctx";
-    ntMenu.style.display = "none";
-    (document.getElementById("fe") ?? document.body).appendChild(ntMenu);
-    const closeNtMenu = () => {
-      ntMenu.style.display = "none";
-    };
+    let ntLayer = null;
+    const closeNtMenu = () => ntLayer?.close("pick");
     function openNtMenu(root, item, x, y) {
       const rel = item.dataset.rel;
       ntMenu.innerHTML = [
@@ -20087,9 +20061,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ].join("");
       ntMenu.dataset.rel = rel;
       ntMenu.dataset.root = root;
-      ntMenu.style.display = "block";
-      ntMenu.style.left = Math.min(x, window.innerWidth - ntMenu.offsetWidth - 8) + "px";
-      ntMenu.style.top = Math.min(y, window.innerHeight - ntMenu.offsetHeight - 8) + "px";
+      ntLayer = openLayer(ntMenu, { kind: "popover", place: "point", point: { x, y }, role: "menu", group: "menu" });
     }
     ntMenu.addEventListener("click", (e) => {
       const item = e.target.closest(".fe-ctx-item");
@@ -20121,12 +20093,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           deleteNote(root, rel);
           break;
       }
-    });
-    document.addEventListener("click", (e) => {
-      if (ntMenu.style.display !== "none" && !ntMenu.contains(e.target)) closeNtMenu();
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && ntMenu.style.display !== "none") closeNtMenu();
     });
     ntList.addEventListener("keydown", (e) => {
       const item = e.target.closest(".fe-nt-item");

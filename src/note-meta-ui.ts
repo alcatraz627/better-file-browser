@@ -3,6 +3,7 @@
 import { NOTE_COLORS, type NoteColor, type NoteProps, type PropChange } from './notes';
 import { UI_ICON } from './control-icons';
 import { esc, midHtml } from './utils';
+import { openLayer, type Layer } from './layer';
 
 export const colorDot = (c: NoteColor | null): string =>
   `<svg class="fe-cdot" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">`
@@ -12,17 +13,14 @@ export const colorDot = (c: NoteColor | null): string =>
 /// Applies a change and answers with the properties as written, or void when the change failed.
 export type ApplyChange = (c: PropChange) => Promise<NoteProps | void> | NoteProps | void;
 
-let openMenu: { el: HTMLElement; off: () => void } | null = null;
-export function closePropsMenu(): void { openMenu?.off(); openMenu = null; }
+let openMenu: Layer | null = null;
+export function closePropsMenu(): void { openMenu?.close('api'); openMenu = null; }
 
 /// The properties menu: pin, the eight colours, and tags, anchored under `anchor`.
 export function openPropsMenu(anchor: HTMLElement, props: NoteProps, apply: ApplyChange): void {
   closePropsMenu();
   const menu = document.createElement('div');
   menu.className = 'fe-pmenu';
-  menu.setAttribute('role', 'menu');
-  const host = document.getElementById('fe') ?? document.body;
-  host.appendChild(menu);
   let cur = props;
 
   const render = () => {
@@ -70,20 +68,7 @@ export function openPropsMenu(anchor: HTMLElement, props: NoteProps, apply: Appl
     else inp.value = '';
   });
   render();
-
-  const r = anchor.getBoundingClientRect();
-  menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - menu.offsetWidth - 8))}px`;
-  menu.style.top = `${Math.min(r.bottom + 4, window.innerHeight - menu.offsetHeight - 8)}px`;
-  const onDown = (e: MouseEvent) => { if (!menu.contains(e.target as Node) && !anchor.contains(e.target as Node)) closePropsMenu(); };
-  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); closePropsMenu(); } };
-  document.addEventListener('mousedown', onDown, true);
-  document.addEventListener('keydown', onKey, true);
-  openMenu = { el: menu, off: () => {
-    document.removeEventListener('mousedown', onDown, true);
-    document.removeEventListener('keydown', onKey, true);
-    menu.remove();
-  } };
-  menu.querySelector<HTMLInputElement>('.fe-pm-add input')!.focus();
+  openMenu = openLayer(menu, { kind: 'popover', anchor, role: 'menu', group: 'menu', focus: menu.querySelector<HTMLElement>('.fe-pm-add input')! });
 }
 
 /// The chip row above the editor text: title, pin, colour and tags. Returns a redraw.
