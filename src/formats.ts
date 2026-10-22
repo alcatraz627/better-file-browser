@@ -8,7 +8,7 @@
 // can be read, and only falls back to plain source when nothing can.
 import { parseAllDocuments, LineCounter } from 'yaml';
 import { esc } from './utils';
-import { renderMarkdown, renderJsonTree, renderJsonl, renderValueTree, renderCode } from './renderers';
+import { renderMarkdown, renderJsonTree, renderJsonl, renderValueTree, renderCode, unrenderableNote, parseDSV, numericCols, renderDSVTable, TABLE_EXTS } from './renderers';
 import { detailOf } from './errors';
 
 export type Severity = 'error' | 'warn';
@@ -218,13 +218,35 @@ const safely = (f: Format['rich'], ext: string): Format['rich'] => (text, href) 
 };
 
 export const FORMATS: Format[] = [
-  { id: 'markdown', label: 'Markdown', exts: ['md', 'mdx', 'markdown'], rich: safely((t, h) => `<div class="fe-md">${renderMarkdown(t, h)}</div>`, 'md'), check: checkMarkdown },
+  { id: 'markdown', label: 'Markdown', exts: ['md', 'mdx', 'markdown'], rich: safely((t, h) => renderMarkdown(t, h), 'md'), check: checkMarkdown },
   // A file that is not strict JSON shows as text; the problems strip says why.
   { id: 'json', label: 'JSON', exts: ['json', 'jsonc', 'json5'], rich: safely(t => { try { JSON.parse(t); return renderJsonTree(t); } catch { return renderCode(t, 'jsonc'); } }, 'json'), check: checkJson },
   { id: 'jsonl', label: 'JSON Lines', exts: ['jsonl', 'ndjson'], rich: safely(t => renderJsonl(t), 'json'), check: checkJsonl },
   { id: 'yaml', label: 'YAML', exts: ['yaml', 'yml'], rich: safely(t => richYaml(t), 'yaml'), check: t => checkYaml(t) },
   { id: 'html', label: 'HTML', exts: ['html', 'htm', 'xhtml'], rich: safely(richHtml, 'html'), check: checkHtml },
 ];
+
+/**
+ * Where a file is shown. The two differ on purpose: the file page has a
+ * problems strip, so a bad JSON file shows as text and the strip says why,
+ * and it shows HTML as source; the preview explains bad JSON inline and runs
+ * HTML live (preview.ts), and opens every markdown link in a new tab.
+ */
+export type Host = 'page' | 'preview';
+
+/** A file's text drawn for a host: a note for binary or empty text, a table, the format's rich view, or highlighted code. */
+export function renderFile(text: string, ext: string, href: string, host: Host): string {
+  const note = unrenderableNote(text);
+  if (note) return note;
+  if (TABLE_EXTS.has(ext)) {
+    const rows = parseDSV(text, ext === 'tsv' ? '\t' : ',');
+    return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : unrenderableNote('');
+  }
+  const fmt = formatFor(ext);
+  if (fmt?.id === 'html' && host === 'page') return renderCode(text, ext);
+  if (fmt?.id === 'json' && host === 'preview') return renderJsonTree(text);
+  return fmt ? fmt.rich(text, href) : renderCode(text, ext);
+}
 
 /** The format for a file extension, or null when the file is plain text or code. */
 export function formatFor(ext: string): Format | null {

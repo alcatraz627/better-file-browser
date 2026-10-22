@@ -4471,3295 +4471,6 @@ Now: ${question}` : question;
     history.replaceState(null, "", hash);
   }
 
-  // src/preview.ts
-  var FETCH_WARN_BYTES = 8 * 1024 * 1024;
-  var PDF_EXTS = /* @__PURE__ */ new Set(["pdf"]);
-  var VIDEO_EXTS = /* @__PURE__ */ new Set(["mp4", "m4v", "webm", "ogv", "mov"]);
-  var AUDIO_EXTS = /* @__PURE__ */ new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac"]);
-  var FONT_EXTS = /* @__PURE__ */ new Set(["ttf", "otf", "woff", "woff2"]);
-  function canPreview(e) {
-    if (e.isDir || e.isParent) return false;
-    const ext2 = getExt(e);
-    return IMG_EXTS.has(ext2) || PDF_EXTS.has(ext2) || VIDEO_EXTS.has(ext2) || AUDIO_EXTS.has(ext2) || FONT_EXTS.has(ext2) || TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json" || CODE_EXTS.has(ext2) || ext2 === "";
-  }
-  function fontSpecimen(href) {
-    const sample = "The quick brown fox jumps over the lazy dog 0123456789";
-    const sizes = [14, 20, 28, 40, 56];
-    return `<style>@font-face{font-family:'bfb-spec';src:url("${esc(href)}")}</style>
-    <div class="fe-ql-font">
-      ${sizes.map((s) => `<div style="font-size:${s}px">${sample}</div>`).join("")}
-      <div style="font-size:30px">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz</div>
-    </div>`;
-  }
-  var scrollMemo = /* @__PURE__ */ new Map();
-  function previewEntry() {
-    return currentEntry;
-  }
-  function previewedPath() {
-    return currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname) : edit ? edit.root.replace(/\/$/, "") + "/" + edit.rel : null;
-  }
-  function keepPreviewedAsTab() {
-    const path = previewedPath();
-    if (path && deps.keepTab) deps.keepTab(path);
-  }
-  function syncSaveBtn() {
-    const p = previewedPath(), b = document.getElementById("fe-ql-save");
-    if (!b) return;
-    const on = !!p && isSaved(p);
-    b.classList.toggle("on", on);
-    b.title = on ? "Remove from Saved" : "Save this file";
-  }
-  var deps;
-  var overlay;
-  var layout = { mode: "modal" };
-  var currentEntry = null;
-  var currentText = null;
-  var reqSeq = 0;
-  var dsvHeader = [];
-  var dsvRows = [];
-  var dsvNum = /* @__PURE__ */ new Set();
-  var dsvSort = null;
-  var aiCancel = null;
-  var aiSeq = 0;
-  function initPreview(d) {
-    deps = d;
-    layout = getPreviewLayout();
-    overlay = document.createElement("div");
-    overlay.id = "fe-qlook";
-    overlay.style.display = "none";
-    overlay.innerHTML = `
-    <div id="fe-ql-bg" class="scrim"></div>
-    <div id="fe-ql-dialog" class="panel">
-      <div id="fe-ql-hdr" class="bar">
-        <span id="fe-ql-icon"></span>
-        <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (\u2318-click / middle-click also work)"></a>
-        <span id="fe-ql-meta"></span>
-        <button id="fe-ql-copy" class="btn" title="Copy full file contents to clipboard" disabled>
-          <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-          <span>Copy</span>
-        </button>
-        <a id="fe-ql-open" class="btn" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
-        <button id="fe-ql-go" class="btn" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
-        <button id="fe-ql-tab" class="btn" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
-        <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
-        <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
-        ${SIZE_BTN("fe-ql-size")}
-        <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
-          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
-        </button>
-        <button id="fe-ql-close" class="btn" data-icon title="Close (Esc)">${UI_ICON.close}</button>
-      </div>
-      <div id="fe-ql-rz" title="Drag to resize"></div>
-      <div id="fe-ql-rz-side" title="Drag to resize"></div>
-      <div id="fe-ql-ai" style="display:none">
-        <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
-        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
-        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
-        <input id="fe-ql-ai-q" class="tb" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
-        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
-      </div>
-      <div id="fe-ql-ai-out" style="display:none">
-        <div id="fe-ql-ai-out-body"></div>
-        <div id="fe-ql-ai-out-meta"></div>
-      </div>
-      <div id="fe-ql-body"></div>
-    </div>`;
-    document.getElementById("fe").appendChild(overlay);
-    document.getElementById("fe-ql-close").addEventListener("click", closePreview);
-    document.getElementById("fe-ql-go").addEventListener("click", () => {
-      if (currentEntry) go(currentEntry.href);
-      else if (edit) go(fileHref(edit.root.replace(/\/$/, "") + "/" + edit.rel));
-    });
-    document.getElementById("fe-ql-tab").addEventListener("click", keepPreviewedAsTab);
-    document.getElementById("fe-ql-save").addEventListener("click", () => {
-      const p = previewedPath();
-      if (!p) return;
-      const now = toggleSaved(p, p.split("/").pop() || p);
-      syncSaveBtn();
-      deps.savedChanged?.();
-      deps.toast?.(now ? "Saved" : "Removed from Saved");
-    });
-    document.getElementById("fe-ql-term").addEventListener("click", () => {
-      const p = previewedPath();
-      if (p) deps.openInTerminal?.(p.replace(/\/[^/]*$/, "") || "/");
-    });
-    const bodyEl = document.getElementById("fe-ql-body");
-    bodyEl.addEventListener("scroll", () => {
-      if (currentEntry) scrollMemo.set(currentEntry.href, bodyEl.scrollTop);
-    });
-    document.getElementById("fe-ql-bg").addEventListener("click", closePreview);
-    document.getElementById("fe-ql-dock").addEventListener("click", () => {
-      layout = { ...layout, mode: layout.mode === "side" ? "modal" : "side" };
-      savePreviewLayout(layout);
-      applyLayout();
-    });
-    applyLayout();
-    focusTrap(overlay, { when: () => layout.mode !== "side" });
-    const dialog = document.getElementById("fe-ql-dialog");
-    const sizer = wireSize(document.getElementById("fe-ql-size"), dialog, "preview", () => applyLayout());
-    resizable(document.getElementById("fe-ql-rz"), {
-      axis: "xy",
-      label: "Resize the preview",
-      size: () => {
-        const r = dialog.getBoundingClientRect();
-        return { w: r.width, h: r.height };
-      },
-      apply: (w, h) => {
-        const r = dialog.getBoundingClientRect();
-        layout.modalW = Math.min(window.innerWidth - r.left - 8, Math.max(360, w));
-        layout.modalH = Math.min(window.innerHeight - r.top - 8, Math.max(240, h));
-        if (dialog.dataset.size) sizer.set("md");
-        applyLayout();
-      },
-      reset: () => {
-        delete layout.modalW;
-        delete layout.modalH;
-        if (dialog.dataset.size) sizer.set("md");
-        applyLayout();
-      },
-      commit: () => savePreviewLayout(layout)
-    });
-    resizable(document.getElementById("fe-ql-rz-side"), {
-      axis: "x",
-      dir: -1,
-      label: "Resize the preview",
-      size: () => ({ w: overlay.getBoundingClientRect().width, h: 0 }),
-      apply: (w) => {
-        layout.sideW = Math.min(window.innerWidth * 0.8, Math.max(280, w));
-        applyLayout();
-      },
-      reset: () => {
-        delete layout.sideW;
-        applyLayout();
-      },
-      commit: () => savePreviewLayout(layout)
-    });
-    const copyBtn = document.getElementById("fe-ql-copy");
-    copyBtn.addEventListener("click", () => {
-      if (currentText === null) return;
-      const flash = (ok) => {
-        copyBtn.querySelector("span").textContent = ok ? "\u2713 copied" : "failed";
-        setTimeout(() => {
-          copyBtn.querySelector("span").textContent = "copy";
-        }, 1400);
-      };
-      copyToClipboard(currentText).then(flash);
-    });
-    const aiQ = document.getElementById("fe-ql-ai-q");
-    document.getElementById("fe-ql-ai-sum").addEventListener("click", () => runAi("summarize"));
-    document.getElementById("fe-ql-ai-exp").addEventListener("click", function() {
-      runAi(this.dataset.intent || "explain-code");
-    });
-    const askAi = () => {
-      const q = aiQ.value.trim();
-      if (!q) {
-        aiQ.focus();
-        return;
-      }
-      runAi("qa", q);
-    };
-    document.getElementById("fe-ql-ai-ask").addEventListener("click", askAi);
-    aiQ.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") askAi();
-      else if (e.key === "Escape") {
-        e.stopPropagation();
-        aiQ.blur();
-      }
-    });
-    document.getElementById("fe-ql-body").addEventListener("click", (e) => {
-      const th = e.target.closest(".fe-ql-table th");
-      if (!th || !dsvHeader.length) return;
-      const col = parseInt(th.dataset.col);
-      dsvSort = dsvSort?.col === col ? { col, dir: dsvSort.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" };
-      const sorted = sortDSVRows(dsvRows, col, dsvSort.dir, dsvNum.has(col));
-      document.getElementById("fe-ql-body").innerHTML = renderDSVTable(dsvHeader, sorted, dsvNum, dsvSort);
-    });
-  }
-  function isPreviewOpen() {
-    return overlay?.style.display !== "none";
-  }
-  function applyLayout() {
-    const dialog = document.getElementById("fe-ql-dialog");
-    const side = layout.mode === "side";
-    overlay.classList.toggle("side", side);
-    dialog.toggleAttribute("data-dock", side);
-    overlay.querySelectorAll("#fe-ql-hdr > .btn").forEach((b) => {
-      if (!b.querySelector(":scope > span")) return;
-      if (side) {
-        b.dataset.icon = "";
-        b.dataset.dockIcon = "";
-      } else if ("dockIcon" in b.dataset) {
-        delete b.dataset.icon;
-        delete b.dataset.dockIcon;
-      }
-    });
-    const host = side ? document.getElementById("fe-body") : document.getElementById("fe");
-    if (host && overlay.parentElement !== host) host.appendChild(overlay);
-    overlay.style.width = side && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : "";
-    const own = !side && !dialog.dataset.size;
-    dialog.style.width = own && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : "";
-    dialog.style.height = own && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : "";
-    if (side) lower(overlay);
-    else if (overlay.style.display !== "none") raise(overlay);
-    if (overlay.style.display !== "none") deps.dockRoom?.(side);
-    const dock = document.getElementById("fe-ql-dock");
-    dock.title = side ? "Float the preview as a window" : "Dock the preview to the side";
-    dock.classList.toggle("on", side);
-  }
-  function closePreview() {
-    if (edit) {
-      if (edit.timer) clearTimeout(edit.timer);
-      if (edit.dirty) void saveNote();
-      edit = null;
-    }
-    overlay.style.display = "none";
-    deps.dockRoom?.(false);
-    restoreFocus();
-    document.getElementById("fe-ql-body").classList.remove("fe-editing");
-    currentEntry = null;
-    currentText = null;
-    dsvHeader = [];
-    dsvRows = [];
-    dsvSort = null;
-    document.getElementById("fe-ql-body").innerHTML = "";
-    resetAiUi();
-  }
-  function resetAiUi() {
-    aiCancel?.();
-    aiCancel = null;
-    aiSeq++;
-    document.getElementById("fe-ql-ai").style.display = "none";
-    document.getElementById("fe-ql-ai-out").style.display = "none";
-    document.getElementById("fe-ql-ai-out-body").innerHTML = "";
-    document.getElementById("fe-ql-ai-out-meta").textContent = "";
-    document.getElementById("fe-ql-ai-q").value = "";
-  }
-  function setupAi(e, ext2) {
-    llmAvailability().then((av) => {
-      if (currentEntry !== e || !isPreviewOpen()) return;
-      if (av.kind === "unavailable") return;
-      const tabular = TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json";
-      const exp = document.getElementById("fe-ql-ai-exp");
-      exp.textContent = tabular ? "Describe" : "Explain";
-      exp.dataset.intent = tabular ? "describe-data" : "explain-code";
-      exp.title = tabular ? "Schema + notable observations (local model)" : "What this does, with safety callouts (local model)";
-      const ready = av.kind === "ready";
-      const chip = document.getElementById("fe-ql-ai-chip");
-      chip.className = ready ? av.cold ? "cold" : "ready" : "down";
-      document.getElementById("fe-ql-ai-chip-txt").textContent = ready ? av.cold ? "AI \xB7 cold start" : "AI \xB7 ready" : "AI \xB7 lm server down";
-      document.querySelectorAll(".fe-ql-ai-btn").forEach((b) => {
-        b.disabled = !ready;
-      });
-      document.getElementById("fe-ql-ai-q").disabled = !ready;
-      document.getElementById("fe-ql-ai").style.display = "";
-    });
-  }
-  var aiChat = { href: "", id: "" };
-  var AI_ASKED = { summarize: "Summarize", explain: "Explain", describe: "Describe" };
-  function runAi(intent, question) {
-    if (currentText === null || !currentEntry) return;
-    const entry = currentEntry;
-    if (aiChat.href !== entry.href) aiChat = { href: entry.href, id: "pv-" + Date.now().toString(36) };
-    aiCancel?.();
-    const seq2 = ++aiSeq;
-    const body = document.getElementById("fe-ql-ai-out-body");
-    const meta = document.getElementById("fe-ql-ai-out-meta");
-    document.getElementById("fe-ql-ai-out").style.display = "";
-    body.textContent = "";
-    meta.textContent = "Thinking\u2026";
-    let full = "";
-    aiCancel = llmQuery(
-      { ctx: currentText, ctxName: currentEntry.name, intent, question, model: deps.aiModel?.() },
-      {
-        onChunk: (t) => {
-          if (seq2 !== aiSeq) return;
-          full += t;
-          body.textContent = full;
-        },
-        onDone: (info) => {
-          if (seq2 !== aiSeq) return;
-          aiCancel = null;
-          body.innerHTML = renderMarkdown(full);
-          try {
-            const path = decodeURIComponent(new URL(entry.href).pathname);
-            addTurn(path, aiChat.id, { q: question || AI_ASKED[intent] || intent, a: full, model: info.model, ms: info.ms, at: Date.now() });
-          } catch {
-          }
-          meta.textContent = `${info.model} \xB7 ${(info.ms / 1e3).toFixed(1)}s` + (info.truncated ? " \xB7 input truncated to fit the model" : "");
-        },
-        onError: (code, message) => {
-          if (seq2 !== aiSeq) return;
-          aiCancel = null;
-          if (code === "cancelled") return;
-          body.textContent = LLM_ERROR_TEXT[code] ?? message;
-          meta.textContent = "";
-        }
-      }
-    );
-  }
-  var edit = null;
-  function editingRel() {
-    return edit ? edit.rel : null;
-  }
-  function saveEditor() {
-    return saveNote();
-  }
-  function editHeader(status) {
-    if (!edit) return;
-    const nameEl = document.getElementById("fe-ql-name");
-    nameEl.hidden = true;
-    document.getElementById("fe-ql-meta").textContent = `${edit.dirty ? "\u25CF " : ""}${edit.rel} \xB7 ${status}`;
-  }
-  var stripFrontMatter = (t) => t.replace(/^---\n[\s\S]*?\n---\n?/, "");
-  function noteAction(name) {
-    if (!edit?.actions) return false;
-    if (name === "rename") edit.actions.rename(edit.rel, true);
-    else edit.actions.del(edit.rel);
-    return true;
-  }
-  function discardEditor() {
-    if (edit) {
-      if (edit.timer) clearTimeout(edit.timer);
-      edit.dirty = false;
-    }
-    closePreview();
-  }
-  function openNote(root, doc, onSaved, actions) {
-    if (edit && edit.dirty) void saveNote();
-    currentEntry = null;
-    reqSeq++;
-    const { head, body: noteBody } = splitNote(doc.text);
-    edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: /* @__PURE__ */ new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved, actions };
-    currentText = doc.text;
-    document.getElementById("fe-ql-icon").innerHTML = "";
-    const nameEl = document.getElementById("fe-ql-name");
-    nameEl.href = fileHref(root.replace(/\/$/, "") + "/" + doc.rel);
-    document.getElementById("fe-ql-open").href = nameEl.href;
-    resetAiUi();
-    document.getElementById("fe-ql-ai").style.display = "none";
-    const copyBtn = document.getElementById("fe-ql-copy");
-    copyBtn.style.display = "";
-    copyBtn.disabled = false;
-    if (overlay.style.display === "none") rememberFocus();
-    overlay.style.display = "flex";
-    deps.dockRoom?.(layout.mode === "side");
-    if (layout.mode !== "side") raise(overlay);
-    syncSaveBtn();
-    const body = document.getElementById("fe-ql-body");
-    body.classList.add("fe-editing");
-    body.innerHTML = `
-    <div id="fe-ed-meta"></div>
-    <div id="fe-ed-bar" class="bar">
-      <button class="btn" data-icon data-act="bold" title="Bold (\u2318B)">${UI_ICON.fmtBold}</button>
-      <button class="btn" data-icon data-act="italic" title="Italic (\u2318I)">${UI_ICON.fmtItalic}</button>
-      <button class="btn" data-icon data-act="code" title="Code (\u2318E)">${UI_ICON.fmtCode}</button>
-      <button class="btn" data-icon data-act="strike" title="Strikethrough (\u2318\u21E7X)">${UI_ICON.fmtStrike}</button>
-      <button class="btn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (\u2318\u21E7H)" data-icon>${UI_ICON.fmtHeading}</button>
-      <button class="btn" data-icon data-act="link" title="Link (\u2318K)">${UI_ICON.link}</button>
-      <button class="btn" data-icon data-act="quote" title="Quote (\u2318\u21E7.)">${UI_ICON.fmtQuote}</button>
-      <button class="btn" data-icon data-act="olist" title="Numbered list (\u2318\u21E77)">${UI_ICON.fmtOlist}</button>
-      <button class="btn" data-icon data-act="list" title="Bullet list">${UI_ICON.list}</button>
-      <button class="btn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
-      <button class="btn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
-      <button class="btn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
-      <span class="bar-sep" aria-hidden="true"></span>
-      <button class="btn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
-      ${actions ? `<button class="btn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>Previous</span></button>
-      <button class="btn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>Next</span></button>
-      <button class="btn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
-      <button class="btn" data-act="delete" title="Move this note to .trash (\u2318\u21E7\u232B)">${UI_ICON.trash}<span>Delete</span></button>` : ""}
-      <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
-      <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
-    </div>
-    <div id="fe-ed-hist" style="display:none"></div>
-    <div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
-    const ta = document.getElementById("fe-ed-src");
-    const view = document.getElementById("fe-ed-view");
-    ta.value = noteBody;
-    edit.ta = ta;
-    const buf = attachBuffer(ta, `note:${root}/${doc.rel}`);
-    const apply = (r) => {
-      buf.snap();
-      ta.value = r.text;
-      ta.setSelectionRange(r.start, r.end);
-      ta.dispatchEvent(new Event("input", { bubbles: true }));
-      ta.focus();
-    };
-    const sel = () => ({ start: ta.selectionStart, end: ta.selectionEnd });
-    const prefixLines = (prefix) => {
-      const s = sel();
-      const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
-      let to = ta.value.indexOf("\n", s.end);
-      if (to < 0) to = ta.value.length;
-      const lines = ta.value.slice(from, to).split("\n").map((l) => prefix + l);
-      apply({ text: ta.value.slice(0, from) + lines.join("\n") + ta.value.slice(to), start: from, end: from + lines.join("\n").length });
-    };
-    const act = (name) => {
-      if (name === "bold") apply(wrapSelection(ta.value, sel(), "**"));
-      if (name === "italic") apply(wrapSelection(ta.value, sel(), "_"));
-      if (name === "code") apply(wrapSelection(ta.value, sel(), "`"));
-      if (name === "strike") apply(wrapSelection(ta.value, sel(), "~~"));
-      if (name === "quote") prefixLines("> ");
-      if (name === "olist") {
-        const s = sel();
-        const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
-        let to = ta.value.indexOf("\n", s.end);
-        if (to < 0) to = ta.value.length;
-        const lines = ta.value.slice(from, to).split("\n").map((l, n) => `${n + 1}. ${l}`).join("\n");
-        apply({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
-      }
-      if (name === "heading") {
-        const s = sel();
-        const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
-        let to = ta.value.indexOf("\n", from);
-        if (to < 0) to = ta.value.length;
-        const line2 = ta.value.slice(from, to);
-        const level = line2.match(/^(#{1,6}) /)?.[1].length ?? 0;
-        const next = level >= 3 ? line2.replace(/^#{1,6} /, "") : "#".repeat(level + 1) + " " + line2.replace(/^#{1,6} /, "");
-        apply({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
-      }
-      if (name === "link") {
-        const s = sel();
-        const label = ta.value.slice(s.start, s.end) || "text";
-        const t = `[${label}](url)`;
-        const at = s.start + label.length + 3;
-        apply({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
-      }
-      if (name === "list") prefixLines("- ");
-      if (name === "task") prefixLines("- [ ] ");
-      if (name === "table") buf.insert((ta.value.slice(0, ta.selectionStart).endsWith("\n") || !ta.selectionStart ? "" : "\n") + tableSnippet());
-      if (name === "image") document.getElementById("fe-ed-file").click();
-      if (name === "versions") void toggleVersions();
-      if (name === "prev") actions?.step(edit.rel, -1);
-      if (name === "next") actions?.step(edit.rel, 1);
-      if (name === "rename") actions?.rename(edit.rel);
-      if (name === "delete") actions?.del(edit.rel);
-    };
-    const hist = document.getElementById("fe-ed-hist");
-    const escHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-    const whenText = (ms) => new Date(ms).toLocaleString(void 0, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-    const toggleVersions = async () => {
-      if (hist.style.display !== "none") {
-        hist.style.display = "none";
-        renderView();
-        return;
-      }
-      hist.style.display = "";
-      hist.innerHTML = emptyHtml("loading", "Reading versions\u2026", { inline: true });
-      try {
-        const { versions: vs, repo } = await notes.history(root, edit?.rel ?? doc.rel);
-        if (!vs.length) {
-          hist.innerHTML = emptyHtml("empty", "No versions yet", { inline: true, hint: repo === false ? "The notes folder is not a git repository; Switchboard makes it one on its first save." : "This note has not been committed to the notes folder's git history." });
-          return;
-        }
-        hist.innerHTML = vs.slice(0, 30).map((v) => `<button class="row fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join("") + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : "");
-        hist.querySelectorAll(".fe-hist-row").forEach((b) => b.addEventListener("click", () => void showVersion(b.dataset.sha)));
-      } catch (err) {
-        hist.innerHTML = emptyHtml("failed", "Versions could not be read", { inline: true, hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "Read the versions again" }] });
-        hist.querySelector('[data-a="retry"]')?.addEventListener("click", () => {
-          hist.style.display = "none";
-          void toggleVersions();
-        });
-      }
-    };
-    const showVersion = async (sha) => {
-      hist.querySelectorAll(".fe-hist-row").forEach((b) => b.classList.toggle("active", b.dataset.sha === sha));
-      try {
-        const v = await notes.version(root, edit?.rel ?? doc.rel, sha);
-        view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="btn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button><button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
-        document.getElementById("fe-hist-use").addEventListener("click", () => {
-          buf.snap();
-          ta.value = splitNote(v.text).body;
-          ta.dispatchEvent(new Event("input", { bubbles: true }));
-          hist.style.display = "none";
-          ta.focus();
-        });
-        document.getElementById("fe-hist-back").addEventListener("click", () => renderView());
-      } catch (err) {
-        hist.textContent = errorText(err, "Reading that version");
-      }
-    };
-    document.getElementById("fe-ed-bar").querySelectorAll("[data-act]").forEach((b) => b.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      act(b.dataset.act);
-    }));
-    const addImage = async (file) => {
-      const st2 = edit;
-      if (!st2 || st2.root !== root) return;
-      const ext2 = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
-      const rel = `attachments/${slugForTitle(noteTitle(st2.rel, st2.text)).replace(/\.md$/, "")}-${Date.now().toString(36)}.${ext2}`;
-      const b64 = await new Promise((res) => {
-        const r = new FileReader();
-        r.onload = () => res(String(r.result).split(",")[1] || "");
-        r.readAsDataURL(file);
-      });
-      try {
-        await notes.writeBinary(root, rel, b64);
-        const depth = st2.rel.split("/").length - 1;
-        buf.insert(`![${file.name.replace(/\.[^.]+$/, "")}](${"../".repeat(depth)}${rel})`);
-      } catch (err) {
-        editHeader(errorText(err, "Adding the image"));
-      }
-    };
-    const imageFiles = (dt) => [...dt?.files ?? []].filter((f) => f.type.startsWith("image/"));
-    ta.addEventListener("paste", (e) => {
-      const fs = imageFiles(e.clipboardData);
-      if (fs.length) {
-        e.preventDefault();
-        fs.forEach((f) => void addImage(f));
-      }
-    });
-    ta.addEventListener("drop", (e) => {
-      const fs = imageFiles(e.dataTransfer);
-      if (fs.length) {
-        e.preventDefault();
-        fs.forEach((f) => void addImage(f));
-      }
-    });
-    ta.addEventListener("dragover", (e) => e.preventDefault());
-    document.getElementById("fe-ed-file").addEventListener("change", function() {
-      [...this.files ?? []].forEach((f) => void addImage(f));
-      this.value = "";
-    });
-    const renderView = () => {
-      view.innerHTML = renderMarkdown(ta.value, nameEl.href);
-    };
-    renderView();
-    const showClash = () => {
-      document.getElementById("fe-ed-clash")?.remove();
-      const sides = clashSides(ta.value);
-      if (!sides) return;
-      document.getElementById("fe-ql-body").insertAdjacentHTML(
-        "afterbegin",
-        `<div id="fe-ed-clash" class="notice fe-ql-note">Two versions, keep: <button class="btn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> <button class="btn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> <button class="btn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`
-      );
-      document.querySelectorAll("#fe-ed-clash [data-keep]").forEach((b) => b.addEventListener("click", () => {
-        ta.value = settleClash(ta.value, b.dataset.keep);
-        ta.dispatchEvent(new Event("input", { bubbles: true }));
-        void saveNote();
-      }));
-    };
-    showClash();
-    let viewTimer = null;
-    ta.addEventListener("input", () => {
-      if (!edit) return;
-      if (!!document.getElementById("fe-ed-clash") !== !!clashSides(ta.value)) showClash();
-      edit.text = edit.head + ta.value;
-      edit.dirty = true;
-      edit.version++;
-      currentText = edit.text;
-      editHeader("unsaved");
-      if (viewTimer) clearTimeout(viewTimer);
-      viewTimer = setTimeout(renderView, 120);
-      if (edit.timer) clearTimeout(edit.timer);
-      edit.timer = setTimeout(() => void saveNote(), 1500);
-    });
-    ta.addEventListener("keydown", (e) => {
-      const mod = e.metaKey || e.ctrlKey;
-      const k = e.key.toLowerCase();
-      const stop = () => {
-        e.preventDefault();
-        e.stopPropagation();
-      };
-      if (mod && k === "s") {
-        stop();
-        void saveNote();
-      } else if (e.key === "Escape") {
-        stop();
-        closePreview();
-      } else if (mod && !e.shiftKey && k === "b") {
-        stop();
-        act("bold");
-      } else if (mod && !e.shiftKey && k === "i") {
-        stop();
-        act("italic");
-      } else if (mod && !e.shiftKey && k === "e") {
-        stop();
-        act("code");
-      } else if (mod && !e.shiftKey && k === "k") {
-        stop();
-        act("link");
-      } else if (mod && e.shiftKey && k === "x") {
-        stop();
-        act("strike");
-      } else if (mod && e.shiftKey && k === "h") {
-        stop();
-        act("heading");
-      } else if (mod && e.shiftKey && (k === "." || k === ">")) {
-        stop();
-        act("quote");
-      } else if (mod && e.shiftKey && (k === "7" || k === "&")) {
-        stop();
-        act("olist");
-      } else if (mod && e.altKey && !e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && actions) {
-        stop();
-        actions.step(edit.rel, e.key === "ArrowDown" ? 1 : -1);
-      } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-        stop();
-        apply(e.shiftKey ? duplicateLines(ta.value, sel()) : moveLines(ta.value, sel(), e.key === "ArrowDown" ? 1 : -1));
-      } else if (e.key === "Tab") {
-        stop();
-        apply(indentLines(ta.value, sel(), e.shiftKey));
-      } else if (e.key === "Enter" && !mod && !e.shiftKey) {
-        const r = continueList(ta.value, sel());
-        if (r) {
-          stop();
-          apply(r);
-        }
-      }
-    });
-    const st = edit;
-    const change = (fn, keys2) => {
-      if (/^<{7} /m.test(st.text)) {
-        editHeader("settle the two versions before changing properties");
-        return false;
-      }
-      st.head = fn(st.head);
-      keys2.forEach((k) => st.touched.add(k));
-      st.text = st.head + ta.value;
-      st.dirty = true;
-      st.version++;
-      currentText = st.text;
-      editHeader("unsaved");
-      if (st.timer) clearTimeout(st.timer);
-      st.timer = setTimeout(() => void saveNote(), 1500);
-      return true;
-    };
-    st.redrawMeta = mountMetaBar(document.getElementById("fe-ed-meta"), {
-      props: () => readProps(st.rel, st.text),
-      titleEditable: () => !!st.head,
-      setTitle: (v) => {
-        change((h) => setField(h, "title", JSON.stringify(v)), ["title"]);
-        st.redrawMeta?.();
-      },
-      apply: (c) => {
-        change((h) => applyChange(h, c), changedKeys(c));
-        return readProps(st.rel, st.text);
-      }
-    });
-    editHeader("saved");
-    ta.setSelectionRange(0, 0);
-    ta.focus();
-    ta.scrollTop = 0;
-  }
-  async function saveNote(st = edit) {
-    if (!st || st.saving) return;
-    if (st.timer) {
-      clearTimeout(st.timer);
-      st.timer = null;
-    }
-    st.saving = true;
-    const version = st.version;
-    let text = stampUpdated(st.text);
-    if (frontmatterDrift(st.base, text, st.touched).length) {
-      if (st.ta && !st.head) {
-        st.ta.value = "\n" + st.ta.value;
-        st.text = st.head + st.ta.value;
-        text = stampUpdated(st.text);
-      }
-      if (frontmatterDrift(st.base, text, st.touched).length) {
-        st.saving = false;
-        if (edit === st) editHeader("not saved: this would change the note properties");
-        return;
-      }
-    }
-    let wrote = false;
-    try {
-      const r = await notes.write(st.root, st.rel, text, st.mtime);
-      wrote = true;
-      st.mtime = r.mtime;
-      st.dirty = st.version !== version;
-      st.base = text;
-      const want = slugForTitle(noteTitle(st.rel, st.text));
-      if (/^untitled-/.test(st.rel.split("/").pop()) && !/^untitled/.test(want)) {
-        const to = st.rel.replace(/[^/]+$/, want);
-        try {
-          await notes.rename(st.root, st.rel, to);
-          st.rel = to;
-        } catch {
-        }
-      }
-      if (edit === st) {
-        editHeader(st.dirty ? "unsaved" : "saved " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-        st.redrawMeta?.();
-      }
-      st.onSaved?.(st.rel);
-    } catch (err) {
-      const e = err;
-      if (edit === st) {
-        editHeader(e.code === "notes_conflict" ? "changed on disk, not saved" : errorText(e, "Saving"));
-        if (e.code === "notes_conflict") {
-          const body = document.getElementById("fe-ql-body");
-          if (!document.getElementById("fe-ed-conflict")) {
-            body.insertAdjacentHTML(
-              "afterbegin",
-              `<div id="fe-ed-conflict" class="notice fe-ql-note" data-tone="danger">Another program changed this note. <button id="fe-ed-reload" class="btn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="btn" title="Write the editor text over the disk copy">Overwrite</button></div>`
-            );
-            document.getElementById("fe-ed-reload").addEventListener("click", () => {
-              notes.read(st.root, st.rel).then((d) => openNote(st.root, d, st.onSaved, st.actions));
-            });
-            document.getElementById("fe-ed-force").addEventListener("click", () => {
-              st.mtime = 0;
-              notes.read(st.root, st.rel).then((d) => {
-                st.mtime = d.mtime;
-                document.getElementById("fe-ed-conflict")?.remove();
-                void saveNote();
-              });
-            });
-          }
-        }
-      } else deps.saveError?.(errorText(e, "Saving the note"));
-    } finally {
-      st.saving = false;
-      if (wrote && st.dirty) void saveNote(st);
-    }
-  }
-  function openPreview(e) {
-    if (!canPreview(e)) return;
-    if (edit) {
-      if (edit.timer) clearTimeout(edit.timer);
-      if (edit.dirty) void saveNote();
-      edit = null;
-    }
-    document.getElementById("fe-ql-body").classList.remove("fe-editing");
-    closePropsMenu();
-    currentEntry = e;
-    const seq2 = ++reqSeq;
-    const ext2 = getExt(e);
-    document.getElementById("fe-ql-icon").innerHTML = getIcon(e, deps.iconRules());
-    const nameEl = document.getElementById("fe-ql-name");
-    nameEl.hidden = false;
-    nameEl.textContent = e.name;
-    nameEl.href = e.href;
-    document.getElementById("fe-ql-meta").textContent = [kindName(ext2), e.rawBytes >= 0 ? fmtSize(e.rawBytes) : ""].filter(Boolean).join(" \xB7 ");
-    document.getElementById("fe-ql-open").href = e.href;
-    const body = document.getElementById("fe-ql-body");
-    if (overlay.style.display === "none") rememberFocus();
-    overlay.style.display = "flex";
-    deps.dockRoom?.(layout.mode === "side");
-    if (layout.mode !== "side") raise(overlay);
-    syncSaveBtn();
-    dsvHeader = [];
-    dsvRows = [];
-    dsvSort = null;
-    currentText = null;
-    resetAiUi();
-    const copyBtn = document.getElementById("fe-ql-copy");
-    copyBtn.disabled = true;
-    if (IMG_EXTS.has(ext2) || PDF_EXTS.has(ext2) || VIDEO_EXTS.has(ext2) || AUDIO_EXTS.has(ext2) || FONT_EXTS.has(ext2)) {
-      copyBtn.style.display = "none";
-      if (IMG_EXTS.has(ext2)) {
-        body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
-        mountImageTools(body.querySelector(".fe-ql-imgwrap"), {
-          href: e.href,
-          name: e.name,
-          path: decodeURIComponent(new URL(e.href, location.href).pathname),
-          notify: (m) => deps.toast?.(m),
-          // the Ghostty host also opens a file in its default app; a missing host answers not-ok
-          openNative: (p) => new Promise((res) => chrome.runtime.sendMessage(
-            { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_file", path: p } },
-            (r) => res(!chrome.runtime.lastError && !!r?.ok && r.response?.success === true)
-          ))
-        });
-      } else if (PDF_EXTS.has(ext2)) body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
-      else if (VIDEO_EXTS.has(ext2)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;
-      else if (AUDIO_EXTS.has(ext2)) body.innerHTML = `<div class="fe-ql-center"><audio src="${esc(e.href)}" controls></audio></div>`;
-      else body.innerHTML = fontSpecimen(e.href);
-      return;
-    }
-    copyBtn.style.display = "";
-    setupAi(e, ext2);
-    if (e.rawBytes > FETCH_WARN_BYTES) {
-      body.innerHTML = `
-      <div class="fe-ql-center">
-        <div class="notice fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
-        <button id="fe-ql-force" class="btn" title="Render despite the size">Load anyway</button>
-      </div>`;
-      document.getElementById("fe-ql-force").addEventListener("click", () => fetchAndRender(e, ext2, seq2));
-      return;
-    }
-    fetchAndRender(e, ext2, seq2);
-  }
-  function fetchAndRender(e, ext2, seq2) {
-    const body = document.getElementById("fe-ql-body");
-    body.innerHTML = `<div class="fe-ql-center"><div class="notice fe-ql-note">Loading\u2026</div></div>`;
-    fetchFileText(e.href).then((text) => {
-      if (seq2 !== reqSeq) return;
-      currentText = text;
-      document.getElementById("fe-ql-copy").disabled = false;
-      document.getElementById("fe-ql-meta").textContent = metaSummary(fileMeta(text, ext2, e.href, e.rawBytes >= 0 ? e.rawBytes : void 0));
-      render(text, ext2);
-    }).catch((err) => {
-      if (seq2 !== reqSeq) return;
-      console.error("[BFB] preview failed:", e.href, err);
-      const stale = err instanceof FileFetchError && err.code === "context-invalidated";
-      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
-      document.getElementById("fe-ql-retry").addEventListener("click", () => {
-        if (stale) reload();
-        else fetchAndRender(e, ext2, seq2);
-      });
-    });
-  }
-  function render(text, ext2) {
-    const body = document.getElementById("fe-ql-body");
-    const note2 = unrenderableNote(text);
-    if (note2) {
-      if (sniffBinary(text)) document.getElementById("fe-ql-ai").style.display = "none";
-      body.innerHTML = `<div class="fe-ql-center">${note2}</div>`;
-      return;
-    }
-    if (TABLE_EXTS.has(ext2)) {
-      const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
-      if (rows.length) {
-        dsvHeader = rows[0];
-        dsvRows = rows.slice(1);
-        dsvNum = numericCols(rows);
-        body.innerHTML = renderDSVTable(dsvHeader, dsvRows, dsvNum);
-        return;
-      }
-      body.innerHTML = `<div class="fe-ql-center">${unrenderableNote("")}</div>`;
-      return;
-    }
-    if (JSONL_EXTS.has(ext2)) {
-      body.innerHTML = renderJsonl(text);
-      return;
-    }
-    if (ext2 === "json") {
-      body.innerHTML = renderJsonTree(text);
-      return;
-    }
-    if (ext2 === "html" || ext2 === "htm") {
-      renderHtml(body, text);
-      return;
-    }
-    if (ext2 === "md" || ext2 === "mdx") {
-      body.innerHTML = renderMarkdown(text, currentEntry?.href ?? "");
-      body.querySelectorAll("a[href]:not(.fe-md-anchor)").forEach((a) => {
-        a.target = "_blank";
-        a.rel = "noopener";
-      });
-      restoreScroll(body);
-      return;
-    }
-    body.innerHTML = renderCode(text, ext2);
-    restoreScroll(body);
-  }
-  var htmlSource = false;
-  function renderHtml(body, text) {
-    const btn = (v, label, on) => `<button class="btn${on ? " on" : ""}" data-v="${v}" title="${v === "page" ? "Show the rendered page" : "Show the HTML source"}">${label}</button>`;
-    body.innerHTML = `<div class="bar fe-ql-htmlbar">${btn("page", "Page", !htmlSource)}${btn("src", "Source", htmlSource)}</div>` + (htmlSource ? renderCode(text, "html") : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
-    const frame = body.querySelector("iframe.fe-ql-html");
-    if (frame && currentEntry) frame.src = currentEntry.href;
-    body.querySelectorAll(".fe-ql-htmlbar button").forEach((b) => b.addEventListener("click", () => {
-      htmlSource = b.dataset.v === "src";
-      renderHtml(body, text);
-    }));
-  }
-  function restoreScroll(body) {
-    const top = currentEntry ? scrollMemo.get(currentEntry.href) : void 0;
-    if (top) body.scrollTop = top;
-  }
-
-  // src/styles.ts
-  var CSS2 = `
-*{box-sizing:border-box;margin:0;padding:0}
-/* Palettes (design-system.md, Soft round 2): Slate is the default; Violet,
-   Sand and Ink are picked in Settings. Each palette sets only the surface,
-   text and accent colours below, so every rule reads the same tokens.
-   Selection and hover are washes mixed from the accent, so they follow it. */
-:root{
-  --bg:#0f1316;--s1:#151b1f;--s2:#1c2328;--s3:#253039;
-  --bd:#243038;--bd2:#34434d;--tx:#e7eef1;--mt:#a3b2ba;--dm:#7f9099;
-  --ac:#3cc6c0;--tx-on-ac:#0f1316;--dir:#a3b2ba;
-  --shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);
-  --gold:#d29922;--green:#3fb950;
-  --hover:color-mix(in srgb,var(--tx) 6%,transparent);--on:color-mix(in srgb,var(--ac) 18%,transparent);--r-sm:6px;
-  --card:color-mix(in srgb,var(--s1),var(--s2) 62%);--side:var(--s1);
-  --t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);
-  --mono:'SF Mono',Menlo,Consolas,monospace;
-  --nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;
-}
-/* The html:has twin of each rule paints the page behind #fe to match. */
-#fe[data-theme="light"],html:has(#fe[data-theme="light"]){
-  --bg:#eef3f5;--s1:#ffffff;--s2:#eaf0f2;--s3:#dde6ea;
-  --bd:#dbe4e8;--bd2:#c5d2d8;--tx:#17232a;--mt:#4f6370;--dm:#6b7f8a;
-  --ac:#0b7a76;--tx-on-ac:#ffffff;--dir:#5d717c;
-  --shade:rgb(110 119 129 / .10);--shade2:rgb(110 119 129 / .18);
-  --hover:color-mix(in srgb,var(--tx) 5%,transparent);--on:color-mix(in srgb,var(--ac) 14%,transparent);
-  --card:var(--s1);--side:color-mix(in srgb,var(--s1),var(--bg) 45%);
-  --nc-red:#d92d2d;--nc-orange:#d9730d;--nc-yellow:#b58900;--nc-green:#2b8a3e;--nc-teal:#0c8f78;--nc-blue:#1971c2;--nc-purple:#7048e8;--nc-pink:#c2255c;
-}
-#fe[data-palette="violet"],html:has(#fe[data-palette="violet"]){
-  --bg:#101014;--s1:#17171d;--s2:#1f1f27;--s3:#292933;
-  --bd:#2a2a33;--bd2:#3a3a46;--tx:#ececf1;--mt:#a9a9b8;--dm:#85859c;
-  --ac:#9d7cff;--tx-on-ac:#101014;--dir:#a9a9b8;
-}
-#fe[data-palette="violet"][data-theme="light"],html:has(#fe[data-palette="violet"][data-theme="light"]){
-  --bg:#f4f4f7;--s1:#ffffff;--s2:#f0f0f5;--s3:#e6e6ee;
-  --bd:#e3e3ea;--bd2:#cfcfdb;--tx:#1c1c24;--mt:#5d5d70;--dm:#76768c;
-  --ac:#6d4aff;--tx-on-ac:#ffffff;--dir:#6e6e84;
-}
-#fe[data-palette="sand"],html:has(#fe[data-palette="sand"]){
-  --bg:#13110f;--s1:#1b1815;--s2:#24201c;--s3:#2f2a24;
-  --bd:#2f2a25;--bd2:#433b33;--tx:#efe9e2;--mt:#b8ab9c;--dm:#958778;
-  --ac:#e8789a;--tx-on-ac:#13110f;--dir:#b8ab9c;
-}
-#fe[data-palette="sand"][data-theme="light"],html:has(#fe[data-palette="sand"][data-theme="light"]){
-  --bg:#f6f2ec;--s1:#fffdfa;--s2:#f2ece4;--s3:#e8e0d5;
-  --bd:#e6ddd1;--bd2:#d3c6b6;--tx:#2a221b;--mt:#6b5d4f;--dm:#867767;
-  --ac:#c2406b;--tx-on-ac:#ffffff;--dir:#7a6a5a;
-}
-#fe[data-palette="ink"],html:has(#fe[data-palette="ink"]){
-  --bg:#0c0c0d;--s1:#141415;--s2:#1b1b1d;--s3:#252527;
-  --bd:#242426;--bd2:#353538;--tx:#f2f2f3;--mt:#a8a8ad;--dm:#86868c;
-  --ac:#f2f2f3;--tx-on-ac:#0c0c0d;--dir:#a8a8ad;
-}
-#fe[data-palette="ink"][data-theme="light"],html:has(#fe[data-palette="ink"][data-theme="light"]){
-  --bg:#f5f5f5;--s1:#ffffff;--s2:#f0f0f0;--s3:#e5e5e5;
-  --bd:#e4e4e4;--bd2:#cfcfcf;--tx:#141414;--mt:#5c5c5c;--dm:#777777;
-  --ac:#141414;--tx-on-ac:#ffffff;--dir:#666666;
-}
-/* Button, the one button part (docs/system/button.md). Class btn.
-   data-variant: plain (the default), shade, surface (a solid fill for a
-   button floating over content), outline, solid.
-   data-size: xs 18, sm 22, md 28 (the default), lg 32.
-   data-icon: an icon alone, square at its size and round.
-   data-shape="pill": a text button with round ends, for a pill bar.
-   data-mono: a code glyph label (.* or Aa).
-   A Toggle is a button that stays on; it may wrap a hidden check box.
-   data-tone: danger (red on hover), accent (accent text at rest).
-   On: .on, .active, aria-pressed or aria-expanded="true". Busy:
-   aria-busy="true" (a spinner in place of the content). Done: data-done
-   (green text; the caller removes it after a moment). A disabled button
-   keeps its rest look and loses every hover. */
-.btn{--btn-h:var(--ctl-md);display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);height:var(--btn-h);padding:0 var(--sp-4);flex-shrink:0;
-  border:1px solid transparent;border-radius:var(--row-r);background:none;color:var(--mt);font:inherit;font-size:var(--type-ui);
-  line-height:1;white-space:nowrap;text-decoration:none;cursor:pointer;box-sizing:border-box;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),opacity var(--t-fast) var(--ease)}
-.btn[hidden]{display:none}
-.btn[data-size="xs"]{--btn-h:var(--ctl-xs);--btn-ic:10px;padding:0 var(--sp-2);font-size:var(--type-micro)}
-.btn[data-size="sm"]{--btn-h:var(--ctl-sm);--btn-ic:12px;padding:0 var(--sp-3);font-size:var(--type-small)}
-.btn[data-size="lg"]{--btn-h:var(--ctl-lg);--btn-ic:16px;padding:0 var(--sp-5)}
-.btn[data-icon]{width:var(--btn-h);padding:0;border-radius:var(--r-full)}
-.btn[data-shape="pill"]{padding:0 var(--sp-5);border-radius:var(--r-full)}
-.btn svg{flex:none;width:var(--btn-ic,14px);height:var(--btn-ic,14px)}
-.btn[data-variant="shade"],.btn[data-shade]{background:var(--shade)}
-.btn[data-variant="surface"]{background:var(--s1);border-color:var(--bd)}
-.btn[data-variant="outline"]{border-color:var(--bd2)}
-.btn[data-variant="solid"]{background:var(--ac);color:var(--tx-on-ac)}
-.btn[data-tone="accent"]{color:var(--ac)}
-.btn:not(:disabled):not([aria-disabled="true"]):hover{color:var(--tx);background:var(--hover)}
-.btn:not(:disabled):not([aria-disabled="true"]):is([data-variant="shade"],[data-shade]):hover{background:var(--shade2)}
-.btn:not(:disabled):not([aria-disabled="true"])[data-variant="surface"]:hover{background:var(--s3)}
-.btn:not(:disabled):not([aria-disabled="true"])[data-variant="outline"]:hover{border-color:var(--mt)}
-.btn:not(:disabled):not([aria-disabled="true"])[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
-.btn:not(:disabled):not([aria-disabled="true"])[data-tone="danger"]:hover{color:var(--tone-danger)}
-.btn.kb{color:var(--tx);background:var(--hover)}
-.btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"],.btn:has(> input:checked){color:var(--ac);background:var(--on)}
-.btn[data-variant="outline"]:is(.on,.active,[aria-pressed="true"],:has(> input:checked)){border-color:color-mix(in srgb,var(--ac) 45%,transparent)}
-/* A toggle can wrap a native check box, laid invisibly over the whole button. */
-.btn:has(> input){position:relative}
-.btn > input[type="checkbox"]{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
-.btn:has(> input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
-.btn[data-mono]{font-family:var(--mono)}
-.btn:not(:disabled):not([data-variant="solid"]):active{background:var(--s3)}
-.btn[data-variant="solid"]:not(:disabled):active{filter:brightness(.95)}
-.btn:disabled,.btn[aria-disabled="true"]{opacity:.45;cursor:default}
-.btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.btn[aria-busy="true"]{position:relative;cursor:progress;color:transparent}
-.btn[aria-busy="true"] > *{visibility:hidden}
-.btn[aria-busy="true"]::after{content:'';position:absolute;width:var(--btn-ic,14px);height:var(--btn-ic,14px);border:2px solid var(--mt);border-right-color:transparent;border-radius:var(--r-full);animation:fe-spin var(--t-slow) linear infinite}
-.btn[data-done],.btn[data-done]:not(:disabled):not([aria-disabled="true"]):hover{color:var(--tone-ok)}
-/* Toolbar, the one bar (docs/system/toolbar.md). Class bar. A bar along a
-   page or panel is 40px with 12px sides; its controls are md. data-inset: a
-   toolbar inside content (a code block, a comment, a lens) keeps the gap
-   but takes its size from its place. Controls sit 4px apart; a bar-sep
-   between groups makes 12px. */
-.bar{display:flex;align-items:center;gap:var(--sp-2);box-sizing:border-box;flex-shrink:0}
-.bar:not([data-inset]){min-height:var(--bar-h);padding:5px var(--sp-5)}
-.bar-sep{flex:none;width:1px;height:16px;margin:0 var(--sp-2);background:var(--bd)}
-/* SectionTitle, the one heading for a part of the page (docs/system/section-title.md).
-   Class sect with data-level: group (a small capital label over a list or
-   card), panel (a panel's or rail's title, with its icon and count), page (a
-   dialog or page header: a tile, a title and a line under it). Actions sit
-   at the end in sect-acts. The place sets padding. */
-/* ListRow: one line in any list (sidebar, menus, dropdowns, palette, key
-   map, contents, versions). Hover and the keyboard cursor share one wash; the
-   selected, current or active row takes the accent wash with body text and an
-   accent icon. The place sets its own height and padding where it differs
-   (docs/system/list-row.md). */
-.row{display:flex;align-items:center;gap:var(--row-gap);min-width:0;min-height:var(--row-h);padding:0 var(--row-px);
-  border-radius:var(--row-r);font-size:var(--row-fs);color:var(--mt);text-decoration:none;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.row:hover,.row.kb,.row:focus-visible{background:var(--hover);color:var(--tx)}
-.row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]),.row:has(> .active){background:var(--on);color:var(--tx)}
-.row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]) svg,.row:has(> .active) svg{color:var(--ac);opacity:1}
-/* EmptyState: what a list shows in place of rows while it loads, when it is
-   empty, when a filter hides everything, or when it could not be read. Inline
-   sits among rows (menus, sidebar, a tree level); the default is centered in
-   the space the list would fill (docs/system/empty-state.md). */
-.empty{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-8) var(--sp-5) var(--sp-7);
-  text-align:center;color:var(--tx);font-size:var(--fs-md);line-height:1.5}
-.empty p{margin:0}
-.empty-h{color:var(--dm);font-size:var(--fs-sm)}
-.empty-h kbd{font:inherit;font-family:var(--mono);padding:0 var(--sp-2);border:1px solid var(--bd2);border-radius:var(--sp-2)}
-.empty-ico{display:inline-grid;place-items:center;width:34px;height:34px;margin-bottom:var(--sp-2);border-radius:50%;background:var(--s2);color:var(--dm)}
-.empty-ico svg{width:16px;height:16px}
-.empty-a{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-3);margin-top:var(--sp-3)}
-.empty[data-inline]{align-items:flex-start;text-align:left;gap:var(--sp-1);padding:var(--sp-3) var(--row-px);font-size:var(--fs-sm)}
-.empty[data-inline] .empty-a{justify-content:flex-start;margin-top:var(--sp-2)}
-.empty:is([data-inline],[data-state="loading"]) .empty-t{color:var(--dm)}
-#fe-empty[hidden]{display:none}
-/* Disclosure: the chevron on anything that folds turns right when folded,
-   read from aria-expanded on its button or a closed <details> around its
-   summary. */
-.chev{width:12px;height:12px;flex:none;transition:transform var(--t-fast) var(--ease)}
-:is([aria-expanded="false"],details:not([open]) > summary) > .chev{transform:rotate(-90deg)}
-.sect{display:flex;align-items:center;gap:var(--sp-3);min-width:0;margin:0}
-.sect-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
-.sect-acts{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:auto}
-.sect[data-level="group"]{font-size:var(--type-micro);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
-.sect[data-level="panel"]{font-size:var(--type-ui);font-weight:600;color:var(--tx)}
-.sect[data-level="page"]{gap:var(--sp-5)}
-.sect[data-level="page"] .sect-tx > :first-child{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
-.sect[data-level="page"] .sect-tx > :nth-child(2){margin:0;font-size:var(--fs-md);font-style:normal;font-weight:400;line-height:1.35;color:var(--dm)}
-/* Panel: a bounded surface with a head, a scrolling body and an optional
-   foot, floating over the page or docked into it. Scrim: the dimmed page
-   behind a floating panel. (docs/system/panel.md) */
-.panel{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;outline:none;
-  background:var(--card);border:1px solid var(--pop-bd);border-radius:var(--pop-r);box-shadow:var(--pop-sh)}
-.panel[data-dock]{border:0;border-radius:0;box-shadow:none}
-.scrim{position:absolute;inset:0;background:rgb(0 0 0 / .55);backdrop-filter:blur(2px);animation:fe-fade var(--t-base) var(--ease)}
-.panel:not([data-dock]){animation:fe-rise var(--t-base) var(--ease)}
-/* Card: a bounded group inside a panel or a page. The place sets padding. */
-.card{background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r)}
-/* Notice, a line that tells the reader about the page itself
-   (docs/system/notice.md): empty, cut short, could not render, changed on
-   disk. Class notice; data-tone danger, warn or ok; buttons in it act on it. */
-.notice{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-3);padding:var(--sp-3) var(--sp-5);color:var(--dm);font-size:var(--type-small);line-height:1.4}
-.notice[data-tone="danger"]{color:var(--tone-danger)}
-.notice[data-tone="warn"]{color:var(--tone-warn)}
-.notice[data-tone="ok"]{color:var(--tone-ok)}
-/* Resize handle (docs/system/resize.md). Class rz, set by resizable(). A
-   thin hit area whose 2px accent line grows in on hover, drag or focus, the
-   sidebar's look everywhere. data-axis="xy" is a corner grip, which keeps
-   two faint lines at rest so it can be found. */
-.rz{flex-shrink:0;cursor:col-resize;user-select:none;touch-action:none;outline:0;
-  background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
-.rz:hover,.rz.drag,.rz:focus-visible{background-size:2px 100%}
-.rz[data-axis="xy"]{cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,var(--bd) 50%,var(--bd) 60%,transparent 60%,transparent 75%,var(--bd) 75%,var(--bd) 85%,transparent 85%)}
-.rz[data-axis="xy"]:hover,.rz[data-axis="xy"].drag,.rz[data-axis="xy"]:focus-visible{background:linear-gradient(var(--ac),var(--ac)) right bottom/100% 2px no-repeat,linear-gradient(var(--ac),var(--ac)) right bottom/2px 100% no-repeat}
-body.fe-resizing{user-select:none}
-table.fe-col-edge,table.fe-col-edge *{cursor:col-resize}
-/* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
-   input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
-   grows from one control high. Invalid: aria-invalid="true". */
-.tb{--tb-h:var(--ctl-md);display:block;width:100%;height:var(--tb-h);margin:0;padding:0 var(--sp-4);box-sizing:border-box;
-  border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);color:var(--tx);font:inherit;font-size:var(--type-ui);outline:0;
-  transition:border-color var(--t-fast) var(--ease)}
-.tb[data-size="sm"]{--tb-h:var(--ctl-sm);padding:0 var(--sp-3);font-size:var(--type-small)}
-.tb[data-size="lg"]{--tb-h:var(--ctl-lg);padding:0 var(--sp-5)}
-textarea.tb{height:auto;min-height:var(--tb-h);padding:var(--sp-3) var(--sp-4);line-height:1.45;resize:vertical}
-.tb::placeholder{color:var(--dm)}
-.tb:hover{border-color:color-mix(in srgb,var(--mt) 60%,var(--bd2))}
-.tb:focus{border-color:var(--ac)}
-.tb[aria-invalid="true"]{border-color:var(--tone-danger)}
-.tb:disabled{opacity:.45;cursor:default}
-.tb[data-mono]{font-family:var(--mono)}
-/* A search field shows a magnifier at its start. */
-.tb[data-lead="search"]{padding-left:var(--sp-8);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:var(--sp-4) 50%}
-@keyframes fe-spin{to{transform:rotate(1turn)}}
-html,body{height:100%;background:var(--bg);color:var(--tx);
-  font:var(--fs-lg)/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
-body{opacity:1!important}
-#fe{display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--tx)}
-#fe-bar{background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
-#fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0;align-self:stretch;cursor:text}
-#fe-bc[hidden]{display:none}
-#fe-bc > *{cursor:default}
-#fe-bc-edit{flex:1;min-width:0;display:flex}
-#fe-bc-edit input{flex:1;min-width:0}
-
-/* A long folder name (a hash, a generated id) shortens so the path around it stays readable. */
-.fe-crumb{color:var(--mt);text-decoration:none;padding:2px 5px;border-radius:4px;
-  font-size:var(--fs-md);flex-shrink:0;transition:background .1s,color .1s;
-  max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
-.fe-cg{display:inline-flex;align-items:center;flex-shrink:0;min-width:0}
-.fe-cg[hidden]{display:none}
-.fe-crumb.cur{color:var(--tx);font-weight:500}
-/* The current folder and a file name keep their full width while middle
-   folders fold; past that they shorten, but never below a readable share. */
-.fe-crumb.cur,.fe-crumb-file{flex-shrink:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-cg:has(.cur){flex-shrink:0;max-width:45%}
-.fe-cg:has(.cur) .fe-crumb.cur{max-width:100%}
-.fe-crumb-more{flex:none}
-#fe-bar .fe-crumb-more[hidden]{display:none}
-.fe-crumb:hover{background:var(--hover);color:var(--tx)}
-.fe-sep{color:var(--dm);font-size:var(--fs-sm);flex-shrink:0;padding:0 1px}
-#fe-bar .fe-crumb-dd{background:none;border:none;color:var(--dm);cursor:pointer;
-  padding:0 2px;font-size:var(--fs-xs);border-radius:3px;line-height:1;opacity:0.35;
-  transition:opacity .1s,color .1s,background .1s;flex-shrink:0;min-width:0}
-#fe-bar .fe-crumb-dd:hover{background:var(--hover);color:var(--ac);opacity:1;border:none}
-#fe-bar .fe-crumb-dd svg{display:block}
-#fe-crumb-menu{
-  position:fixed;z-index:300;
-  background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
-  min-width:220px;max-width:340px;max-height:340px;overflow:hidden;
-  box-shadow:0 8px 24px #0009;padding:4px 0;
-}
-#fe-crumb-menu:not([data-layer]){display:none}
-.fe-dd-search-wrap{padding:5px 8px 7px;border-bottom:1px solid var(--bd)}
-.fe-dd-search{width:100%}
-
-.fe-dd-items{max-height:288px;overflow-y:auto;padding:2px 0}
-.fe-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;
-  color:var(--tx);text-decoration:none;font-size:var(--fs-md);white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;transition:background .08s}
-.fe-dd-item.dir{color:var(--dir)}
-.fe-dd-item svg{flex-shrink:0}
-#fe-bm-btn.on,#fe-bm-btn.on:hover{color:var(--gold)}
-#fe-theme-btn #fe-sun{display:none}
-#fe-theme-btn #fe-moon{display:block}
-#fe[data-theme="light"] #fe-theme-btn #fe-sun{display:block}
-#fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
-#fe-body{display:flex;flex:1;overflow:hidden}
-#fe-side{position:relative;width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
-/* The lens bar sits on top: icons in a row, the open lens grown to show its
-   name; the wheel over the bar moves between lenses. The lens fills the rest. */
-#fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:6px 6px;border-bottom:1px solid var(--bd);overflow:hidden}
-.fe-rail-btn{flex:0 1 auto;min-width:26px;height:var(--ctl-lg);display:flex;align-items:center;justify-content:center;gap:0;padding:0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
-  font:inherit;position:relative;z-index:1;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-rail-btn[hidden]{display:none}
-.fe-rail-btn svg{width:16px;height:16px;flex:none}
-.fe-rail-btn em{font-style:normal;font-size:var(--fs-md);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;opacity:0}
-.fe-rail-btn.on{flex:1 0 auto;gap:6px;padding:0 9px}
-.fe-rail-btn.on em{max-width:110px;opacity:1}
-/* The open lens's highlight. It sits inside its button, so it always fits it;
-   a lens switch slides it over from the old button. */
-.fe-rail-hl{position:absolute;inset:0;z-index:-1;border-radius:8px;pointer-events:none;transform-origin:0 0}
-.fe-rail-btn.on .fe-rail-hl{background:color-mix(in srgb,var(--ac) 16%,transparent)}
-.fe-rail-btn.on:hover .fe-rail-hl{background:color-mix(in srgb,var(--ac) 22%,transparent)}
-#fe-rail.tight .fe-rail-btn:not(.on){flex:1 1 0;min-width:22px;padding:0 2px}
-#fe-rail.tight .fe-rail-btn.on{padding:0 6px;gap:5px}
-#fe-rail.tighter .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 3px}
-#fe-rail.tighter .fe-rail-btn.on{gap:0}
-#fe-rail.tighter .fe-rail-btn em{display:none}
-.fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
-.fe-rail-btn.on,.fe-rail-btn.on:hover{background:none;color:var(--tx)}
-.fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-#fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
-.fe-lens[hidden]{display:none}
-.fe-doc-row{display:flex;align-items:center;gap:10px;width:calc(100% - 12px);margin:1px 6px;padding:6px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
-.fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-doc-name{font-size:var(--row-fs)}
-.fe-docs-top[hidden]{display:none}
-.fe-doc-dir{font-size:var(--fs-sm);color:var(--dm)}
-.fe-doc-me{display:inline-flex;color:var(--ac)}
-.fe-doc-me svg{width:13px;height:13px}
-.fe-doc-due{font-size:var(--fs-sm);color:var(--tx);padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--nc-orange) 16%,transparent)}
-.fe-doc-n{flex:none}
-.fe-row-cm{flex:none}
-#fe-side-rz{width:10px}
-.fe-sec{margin-bottom:4px}
-.fe-sec.fe-collapsed>:not(.fe-sh){display:none!important}
-.fe-sh{padding:10px 14px 5px}
-#fe-side .fe-sh{justify-content:flex-start!important}
-.fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
-.fe-sh-collapse:hover{color:var(--tx)}
-.fe-si{display:flex;align-items:center;gap:10px;padding:8px 14px;
-  color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
-button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer}
-.fe-rc-ago{font-size:var(--fs-sm);color:var(--dm);flex-shrink:0}
-.fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
-.fe-sl{font-size:var(--fs-lg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
-.fe-hint{font-size:var(--fs-md);color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
-.fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
-.fe-drag-h{padding:7px 4px 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
-.fe-bm-item:hover .fe-drag-h{opacity:1}
-.fe-bm-item.dragging{opacity:.4;background:var(--hover)}
-.fe-bm-item.drag-over{border-top:2px solid var(--ac)}
-.fe-si-link{display:flex;align-items:center;gap:10px;flex:1;padding:7px 6px 7px 4px;
-  color:inherit;text-decoration:none;min-width:0;transition:color .1s}
-.fe-si-link svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
-.fe-rm-btn{opacity:0;flex-shrink:0}
-.fe-bm-item:hover .fe-rm-btn{opacity:1}
-
-#fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 20px);margin:2px 10px 6px}
-
-.fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
-.fe-sv-tag{gap:7px;padding:8px 14px 3px}
-.fe-sv-dot{width:9px;height:9px;border-radius:50%;cursor:pointer;flex-shrink:0;box-shadow:0 0 0 1px #0004}
-#fe-lens-filter[hidden],.fe-lens-tags[hidden]{display:none}
-.fe-proxy-filter{display:none!important}
-.fe-lens-tags{display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 8px}
-.fe-grp{margin:4px 8px;background:var(--s2);border-radius:10px;padding:0 0 4px}
-.fe-grp:not([open]){padding-bottom:0}
-.fe-grp > summary{list-style:none;cursor:pointer;padding:7px 8px 5px}
-.fe-grp > summary::-webkit-details-marker{display:none}
-.fe-grp-n{margin-left:auto;font-weight:500;color:var(--dm)}
-.fe-sv-dot:hover{transform:scale(1.25)}
-.fe-pl-dots{display:flex;align-items:center;gap:3px;margin-left:auto;padding-right:2px;flex:none}
-.fe-sv-mini{width:6px;height:6px;border-radius:50%;display:inline-block}
-.fe-sv-more{font-size:var(--fs-xs);color:var(--dm);line-height:6px}
-.fe-pl-tags{display:none;font-size:var(--fs-sm);color:var(--mt);min-width:60px;max-width:110px;white-space:nowrap;overflow:hidden}
-.fe-pl-tags.show{display:inline-block}
-.fe-tag-btn{opacity:0;flex-shrink:0}
-.fe-bm-item:hover .fe-tag-btn{opacity:1}
-
-/* clip, not hidden: focusing a control past the edge must not scroll the pane sideways.
-   The pane is a size container so its toolbar wraps by the pane's width, which a
-   docked preview can make narrow in a wide window. */
-#fe-main{flex:1;display:flex;flex-direction:column;overflow:clip;container:fe-main / inline-size;min-width:0}
-#fe-toolbar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
-#fe-count{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap}
-#fe-tb-right{display:flex;align-items:center;gap:4px}
-#fe-sg-cur{font-variant-numeric:tabular-nums}
-/* One "on" look across the toolbar: the accent tint the chosen view wears. */
-/* Detail: a small slider between a big-square and a dense-rows icon, its stop named beside it. */
-#fe-density-wrap{display:flex;align-items:center;gap:6px;color:var(--dm)}
-.fe-density-end{display:inline-grid;place-items:center}
-#fe-density{display:contents}
-#fe-density input{order:1;flex:none;width:72px}
-#fe-density-wrap .fe-density-end:last-of-type{order:2}
-#fe-density output{order:3;min-width:72px;padding:0;background:none;font-family:inherit;font-size:var(--fs-sm);color:var(--mt);text-align:left}
-/* One text box for the toolbar filter and the filter bar: the sidebar filter's
-   look, with toggles (.*, Aa) as chips inside its right end. */
-.fe-in-box{position:relative;display:inline-flex;align-items:center;flex:none}
-.fe-in-box input[type="text"]{width:100%;margin:0}
-
-.fe-tb-box{width:170px;margin-left:4px}
-.fe-in-name{width:220px}
-.fe-in-name input[type="text"]{padding-right:40px!important}
-.fe-in-text{width:300px}
-.fe-in-text input[type="text"]{padding-right:68px!important}
-.fe-in-chips{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px}
-#fe-sg-panel,#fe-filter-bar{display:flex;flex-direction:column;gap:8px;
-  padding:9px 14px;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
-.fe-panel-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.fe-panel-lbl{min-width:52px;font-size:var(--fs-sm);color:var(--dm);font-weight:500;white-space:nowrap}
-.fe-panel-sub{display:inline-flex;align-items:center;gap:8px}
-.fe-panel-sub .fe-panel-lbl{min-width:0}
-.fe-panel-gap{margin-left:14px}
-#fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px}
-#fe-find-depth .fe-dd-btn{min-width:100px}
-#fe-find-status{font-size:var(--fs-sm);color:var(--mt);margin-left:4px}
-.fe-view .fe-si-link svg{color:var(--ac);opacity:.9}
-#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left}
-#fe-table{width:100%;border-collapse:collapse;table-layout:fixed}
-thead{position:sticky;top:0;z-index:5;background:var(--s2)}
-thead th{padding:6px 12px;text-align:left;font-size:var(--fs-sm);font-weight:600;
-  text-transform:uppercase;letter-spacing:.07em;color:var(--dm);
-  border-bottom:1px solid var(--bd);user-select:none;white-space:nowrap}
-thead th{position:relative}
-thead th[data-sort]{cursor:pointer}
-thead th[data-sort]:hover{color:var(--tx)}
-.fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%}
-/* Rendered tables (markdown, CSV/TSV) share the handle; col-resize.ts fixes
-   the layout on the first drag so one column moves at a time. */
-.fe-md-table th{position:relative}
-table.fe-rz-fixed{table-layout:fixed}
-.fe-ql-table.fe-rz-fixed th,.fe-ql-table.fe-rz-fixed td{overflow:hidden;text-overflow:ellipsis}
-.fe-md-table.fe-rz-fixed td,.fe-md-table.fe-rz-fixed th{overflow-wrap:anywhere}
-.si{opacity:.35;font-size:var(--fs-xs)}
-th.sorted .si{opacity:1;color:var(--ac)}
-.c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
-td.c-tg{white-space:nowrap;overflow:hidden}
-/* Named chips give up width (ending in \u2026) before the +N count does. */
-.fe-chips{display:flex;gap:var(--sp-2);min-width:0;overflow:hidden}
-.fe-chips .chip{flex:0 1 auto;min-width:28px}
-.fe-chips .fe-chip-more{flex:none;min-width:0}
-.c-match{display:none;text-align:right;width:72px;color:var(--dm)}
-#fe.fe-has-find-hits[data-view="details"] .c-match{display:table-cell}
-#fe.fe-has-find-hits[data-view="details"] .c-nm{width:42%}
-#fe.fe-has-find-hits[data-view="details"] .c-dt{width:19%}
-.fe-find-snippet{display:block;color:var(--dm);font-size:var(--fs-sm);margin:3px 0 1px 22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-find-snippet mark{background:var(--ac);color:var(--bg);border-radius:2px;padding:0 1px}
-.fe-find-badge{margin-left:22px}
-#fe-find-error{color:var(--tone-danger);font-size:var(--type-small)}
-#fe[data-view="details"] .fe-row .fe-find-badge{display:none}
-tbody tr{border-bottom:1px solid var(--bg);transition:background .08s}
-tbody tr:hover{background:var(--hover)}
-tbody td{padding:5px 12px;vertical-align:middle}
-td.c-sz{text-align:right;white-space:nowrap;color:var(--dm);font-variant-numeric:tabular-nums;font-size:var(--fs-md)}
-td.c-dt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-md)}
-td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
-.fe-lnk{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--tx)}
-.fe-lnk svg{flex-shrink:0}
-.fe-lnk:hover .fe-nm{color:var(--ac);text-decoration:underline}
-.fe-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dir .fe-nm{color:var(--dir)}
-.par td.c-nm .fe-nm{color:var(--dm)}
-.par:hover .fe-nm{color:var(--mt)}
-.dotfile{opacity:.65}
-.fe-group-hdr td{padding:5px 12px;font-size:var(--fs-sm);font-weight:600;
-  text-transform:uppercase;letter-spacing:.08em;color:var(--dm);
-  background:var(--s2);border-bottom:1px solid var(--bd);border-top:1px solid var(--bd)}
-.fe-group-hdr-tile{width:100%;padding:6px 4px 2px;font-size:var(--fs-sm);font-weight:600;
-  text-transform:uppercase;letter-spacing:.08em;color:var(--dm)}
-#fe:not(.show-hidden) .fe-row.dotfile,
-#fe:not(.show-hidden) .fe-tile.dotfile,
-#fe:not(.show-hidden) .fe-tree-row.dotfile{display:none!important}
-#fe[data-view="list"] .c-tp,#fe[data-view="list"] .c-tg,#fe[data-view="list"] .c-sz,#fe[data-view="list"] .c-dt{display:none}
-#fe[data-view="list"] .c-nm{width:100%}
-#fe[data-view="list"] tbody td{padding:4px 12px}
-#fe-tiles{display:none;flex-wrap:wrap;gap:4px 6px;padding:10px 12px;align-content:flex-start;align-items:flex-start}
-#fe[data-view="tiles"] #fe-table,#fe[data-view="icons"] #fe-table{display:none}
-#fe[data-view="tree"] #fe-table{display:none}
-#fe-tree{display:none;padding:6px 0}
-#fe[data-view="tree"] #fe-tree{display:block}
-#fe[data-view="tree"] #fe-tiles{display:none}
-.fe-tree-row{display:flex;align-items:center;min-height:29px;padding-right:12px;gap:4px}
-.fe-tree-toggle,.fe-tree-spacer{width:20px;height:20px;flex:none}
-.fe-tree-toggle{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--dm);cursor:pointer;border-radius:4px}
-.fe-tree-toggle:hover{background:var(--s2);color:var(--tx)}
-.fe-tree-link{display:flex;align-items:center;gap:8px;color:var(--tx);text-decoration:none;min-width:0}
-.fe-tree-link svg{flex:none}
-.fe-tree-link:hover .fe-nm{text-decoration:underline;color:var(--ac)}
-#fe[data-view="tiles"] #fe-tiles,#fe[data-view="icons"] #fe-tiles{display:flex}
-.fe-tile{display:flex;flex-direction:column;align-items:center;gap:3px;
-  padding:8px 6px 7px;border-radius:var(--r-sm);text-decoration:none;
-  color:var(--tx);border:1px solid transparent;transition:all .12s;
-  width:96px;overflow:hidden;cursor:pointer;position:relative}
-.fe-tile:hover{background:var(--hover);border-color:var(--bd)}
-.fe-tile-ic{font-size:0;line-height:0}
-.fe-tile-ic svg{display:block}
-.fe-tile-nm{font-size:var(--fs-sm);text-align:center;overflow-wrap:anywhere;word-break:normal;max-width:100%;
-  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-  line-height:1.3}
-.fe-tile-sz{font-size:var(--fs-xs);color:var(--dm)}
-.fe-tile.dir .fe-tile-nm{color:var(--dir)}
-.fe-tile.par .fe-tile-nm{color:var(--dm)}
-#fe[data-view="tiles"] .fe-tile-ic svg{transform:scale(1.5);margin:4px}
-#fe[data-view="icons"] .fe-tile{width:116px;padding:10px 8px 8px;gap:4px}
-#fe[data-view="icons"] .fe-tile-ic svg{transform:scale(2);margin:8px 10px 6px}
-#fe[data-view="icons"] .fe-tile-nm{font-size:var(--fs-md)}
-.fe-tile-img-wrap{display:block;width:68px;height:56px;border-radius:5px;overflow:hidden;
-  box-shadow:0 1px 4px #0005;flex-shrink:0}
-.fe-tile-thumb{width:100%;height:100%;object-fit:cover;display:block;border-radius:5px}
-.fe-tile-img-wrap svg{display:none;transform:none!important;margin:4px!important;width:24px;height:24px}
-.fe-tile-img-wrap.err .fe-tile-thumb{display:none}
-.fe-tile-img-wrap.err svg{display:block}
-#fe[data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:68px;height:56px}
-#fe[data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:86px;height:70px}
-#fe[data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap svg,
-#fe[data-view="icons"] .fe-tile-ic .fe-tile-img-wrap svg{transform:none!important;margin:8px!important}
-.fe-tile-meta{display:none}
-
-/* Detail levels (data-density 1 to 5, 3 is the standard look). Low numbers
-   show fewer, bigger items with names only; high numbers show smaller items
-   and add facts: type, date, tags and comments on tiles, columns on lists. */
-#fe[data-density="1"][data-view="details"] tbody td{padding:12px 16px}
-#fe[data-density="1"][data-view="details"] .fe-lnk{gap:12px;font-size:var(--fs-lg)}
-#fe[data-density="1"][data-view="details"] .fe-lnk svg{transform:scale(1.45)}
-#fe[data-density="1"][data-view="details"] :is(.c-tp,.c-tg,.c-sz,.c-dt){display:none}
-#fe[data-density="1"][data-view="details"] .c-nm{width:100%}
-#fe[data-density="2"][data-view="details"] tbody td{padding:9px 14px}
-#fe[data-density="2"][data-view="details"] .fe-lnk svg{transform:scale(1.2)}
-#fe[data-density="2"][data-view="details"] :is(.c-tp,.c-tg){display:none}
-#fe[data-density="2"][data-view="details"] .c-nm{width:60%}
-#fe[data-density="4"][data-view="details"] tbody td{padding:3px 12px}
-#fe[data-density="5"][data-view="details"] tbody td{padding:1px 10px;font-size:var(--fs-sm)}
-#fe[data-density="5"][data-view="details"] .fe-lnk svg{transform:scale(.85)}
-
-#fe[data-density="1"][data-view="list"] tbody td{padding:11px 16px}
-#fe[data-density="1"][data-view="list"] .fe-lnk{gap:12px;font-size:var(--fs-lg)}
-#fe[data-density="1"][data-view="list"] .fe-lnk svg{transform:scale(1.45)}
-#fe[data-density="2"][data-view="list"] tbody td{padding:8px 14px}
-#fe[data-density="2"][data-view="list"] .fe-lnk svg{transform:scale(1.2)}
-/* List gains columns as detail goes up: size and date, then type too. */
-#fe[data-density="4"][data-view="list"] :is(.c-sz,.c-dt),
-#fe[data-density="5"][data-view="list"] :is(.c-sz,.c-dt,.c-tp){display:table-cell}
-#fe[data-density="4"][data-view="list"] .c-nm,#fe[data-density="5"][data-view="list"] .c-nm{width:auto}
-#fe[data-density="4"][data-view="list"] tbody td{padding:3px 12px}
-#fe[data-density="5"][data-view="list"] tbody td{padding:1px 10px;font-size:var(--fs-sm)}
-
-#fe[data-density="1"] .fe-tree-row{min-height:42px;font-size:var(--fs-lg)}
-#fe[data-density="1"] .fe-tree-link svg{transform:scale(1.4)}
-#fe[data-density="2"] .fe-tree-row{min-height:35px}
-#fe[data-density="4"] .fe-tree-row{min-height:24px}
-#fe[data-density="5"] .fe-tree-row{min-height:20px;font-size:var(--fs-sm)}
-
-/* Tiles and icons: big name-only tiles at 1 and 2; at 4 a type and date line;
-   at 5 a card with the icon beside the name, type, size, date, tags, comments. */
-#fe[data-density="1"] #fe-tiles,#fe[data-density="2"] #fe-tiles{gap:10px 12px;padding:14px 16px}
-#fe[data-density="1"] .fe-tile-sz,#fe[data-density="2"] .fe-tile-sz{display:none}
-#fe[data-density="1"][data-view="tiles"] .fe-tile{width:168px;padding:16px 10px 12px;gap:8px}
-#fe[data-density="1"][data-view="tiles"] .fe-tile-ic svg{transform:scale(3.2);margin:22px}
-#fe[data-density="1"][data-view="icons"] .fe-tile{width:220px;padding:20px 12px 14px;gap:10px}
-#fe[data-density="1"][data-view="icons"] .fe-tile-ic svg{transform:scale(4.4);margin:32px}
-#fe[data-density="1"] .fe-tile-nm{font-size:var(--fs-lg)}
-#fe[data-density="1"][data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:148px;height:112px}
-#fe[data-density="1"][data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:196px;height:148px}
-#fe[data-density="2"][data-view="tiles"] .fe-tile{width:128px;padding:12px 8px 10px;gap:6px}
-#fe[data-density="2"][data-view="tiles"] .fe-tile-ic svg{transform:scale(2.3);margin:14px}
-#fe[data-density="2"][data-view="icons"] .fe-tile{width:160px;padding:14px 10px 10px;gap:8px}
-#fe[data-density="2"][data-view="icons"] .fe-tile-ic svg{transform:scale(3);margin:20px}
-#fe[data-density="2"] .fe-tile-nm{font-size:var(--fs-md)}
-#fe[data-density="2"][data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:108px;height:84px}
-#fe[data-density="2"][data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:140px;height:108px}
-#fe[data-density="4"] .fe-tile-meta{display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;font-size:var(--fs-xs);color:var(--dm)}
-#fe[data-density="4"] .fe-tile-meta > span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#fe[data-density="4"] .fe-tile-tags{display:none!important}
-#fe[data-density="5"][data-view="tiles"] #fe-tiles{gap:4px 6px}
-#fe[data-density="5"][data-view="tiles"] .fe-tile{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto 1fr;column-gap:10px;row-gap:1px;
-  align-items:start;justify-items:start;width:250px;padding:8px 10px;text-align:left}
-#fe[data-density="5"][data-view="tiles"] .fe-tile-ic{grid-row:1 / span 3;align-self:center}
-#fe[data-density="5"][data-view="tiles"] .fe-tile-ic svg{transform:scale(1.6);margin:6px}
-#fe[data-density="5"][data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:44px;height:36px}
-#fe[data-density="5"][data-view="tiles"] .fe-tile-nm{text-align:left;-webkit-line-clamp:1;font-size:var(--fs-md)}
-#fe[data-density="5"][data-view="tiles"] .fe-tile-sz{grid-column:2;font-size:var(--fs-xs)}
-#fe[data-density="5"][data-view="tiles"] .fe-tile-meta{grid-column:2;display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;font-size:var(--fs-xs);color:var(--dm)}
-#fe[data-density="5"][data-view="tiles"] .fe-tile-tags{display:flex;align-items:center;gap:4px}
-#fe[data-density="5"][data-view="tiles"] .fe-tile-tags .fe-chips{max-width:150px}
-/* Icons keep their centred shape at 5: a smaller icon over the name and every fact. */
-#fe[data-density="5"][data-view="icons"] .fe-tile{width:112px;padding:8px 6px 7px;gap:3px}
-#fe[data-density="5"][data-view="icons"] .fe-tile-ic svg{transform:scale(1.5);margin:5px 8px 4px}
-#fe[data-density="5"][data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:72px;height:56px}
-#fe[data-density="5"][data-view="icons"] .fe-tile-nm{font-size:var(--fs-sm)}
-#fe[data-density="5"][data-view="icons"] .fe-tile-meta{display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;font-size:var(--fs-xs);color:var(--dm)}
-#fe[data-density="5"][data-view="icons"] .fe-tile-meta > span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#fe[data-density="5"][data-view="icons"] .fe-tile-tags{display:flex;justify-content:center;gap:4px}
-.fe-row .fe-acts{
-  display:inline-flex;align-items:center;gap:3px;
-  position:absolute;right:8px;top:50%;transform:translateY(-50%);
-  opacity:0;transition:opacity .12s;pointer-events:none}
-.fe-row:hover .fe-acts{opacity:1;pointer-events:auto}
-.fe-tile .fe-acts{
-  display:flex;justify-content:center;gap:4px;
-  position:absolute;bottom:0;left:0;right:0;
-  padding:4px 4px 5px;
-  background:linear-gradient(transparent,var(--s1)cc 40%,var(--s1) 100%);
-  border-radius:0 0 var(--r-sm) var(--r-sm);
-  opacity:0;transition:opacity .14s;pointer-events:none}
-.fe-tile:hover .fe-acts{opacity:1;pointer-events:auto}
-#fe[data-view="list"] .fe-tile .fe-acts{
-  position:absolute;right:6px;top:50%;transform:translateY(-50%);
-  background:none;border-radius:0;padding:0;width:auto;left:auto}
-
-.fe-row td.c-nm{position:relative}
-#fe-statusbar{background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt);white-space:nowrap;overflow:hidden}
-#fe-status-meta{display:flex;align-items:center;gap:var(--sp-5)}
-.fe-meta-item{display:inline-flex;align-items:center;gap:5px}
-.fe-meta-item svg{color:var(--dm)}
-.fe-status-grow{flex:1}
-#fe-fp-reload{color:var(--green);animation:fe-fade-in var(--t-base) var(--ease)}
-#fe-fp-reload[hidden]{display:none}
-#fe-fp-reload.off{color:var(--dm)}
-@keyframes fe-fade-in{from{opacity:0}to{opacity:1}}
-/* The path reads as a link: pointer, accent and underline on hover; a click copies it. */
-#fe-status-path{min-width:0;max-width:60%;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;
-  height:22px;padding:0;border:0;background:none;color:var(--mt);font:inherit;cursor:pointer;
-  text-decoration:underline transparent;text-underline-offset:3px;transition:color var(--t-fast) var(--ease),text-decoration-color var(--t-fast) var(--ease)}
-#fe-status-path:hover{color:var(--ac);text-decoration-color:currentColor}
-#fe-tip{
-  position:fixed;pointer-events:none;z-index:200;
-  background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-sm);
-  padding:9px 12px;font-size:var(--fs-md);line-height:1.7;color:var(--tx);
-  max-width:380px;overflow-wrap:anywhere;word-break:break-word;
-  box-shadow:0 4px 20px #000a;opacity:0;
-  transition:opacity .15s ease-out;
-}
-#fe-tip.show{opacity:1;transition:opacity .18s ease-in .06s}
-.tip-header{display:flex;align-items:center;gap:7px;margin-bottom:4px}
-.tip-icon{flex-shrink:0;display:flex;align-items:center}
-.tip-icon svg{display:block}
-.tip-name{font-weight:600;font-size:var(--fs-md);word-break:break-all;color:var(--tx)}
-.tip-line{color:var(--mt);font-size:var(--fs-sm);line-height:1.6}
-.tip-warn{color:var(--dm);font-size:var(--fs-sm);margin-top:3px;border-top:1px solid var(--bd);padding-top:3px}
-#fe-toast{
-  position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(6px);
-  background:#1f2937;color:#e5e7eb;padding:8px 18px;border-radius:20px;
-  font-size:var(--fs-md);opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;
-  border:1px solid #374151;z-index:200
-}
-#fe-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-/* The label for anything with a title (tooltip.ts); same surface as the row card #fe-tip. */
-#fe-hint{position:fixed;top:0;left:0;z-index:300;max-width:320px;pointer-events:none;
-  background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-radius:var(--r-sm);
-  box-shadow:0 4px 14px #0006;padding:4px 8px;
-  font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
-  opacity:0;transition:opacity .12s ease-out}
-#fe-hint.on{opacity:1}
-/* A control's tooltip: icon and title, a lighter line, then its keys. */
-#fe-hint.rich{white-space:normal;display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-3) var(--sp-5)}
-.fe-hint-h{display:flex;align-items:center;gap:var(--sp-3)}
-.fe-hint-h svg{width:1.15em;height:1.15em;flex:none;color:var(--ac)}
-.fe-hint-h b{font-weight:600}
-.fe-hint-s{color:var(--dm);font-size:var(--fs-xs)}
-.fe-hint-k{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-1)}
-.fe-hint-k i{color:var(--dm);font-style:normal;font-size:var(--fs-xs)}
-/* A problem on a line: the kind in its tone and the line number, then each
-   message at reading size, since the message is the point. */
-#fe-hint.problem{border-left:3px solid var(--tone-warn)}
-#fe-hint.problem.err{border-left-color:var(--tone-danger)}
-#fe-hint.problem .fe-hint-h b{color:var(--tone-warn)}
-#fe-hint.problem.err .fe-hint-h b{color:var(--tone-danger)}
-.fe-hint-ln{color:var(--dm);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
-#fe-hint.problem .fe-hint-s{color:var(--tx);font-size:var(--fs-sm)}
-/* Parts in the top layer (layer.ts) keep their own look and placement, not the
-   browser's popover defaults; zero specificity, so every part's own rule wins. */
-:where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
-@media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
-#fe-toast.act.show{pointer-events:auto}
-.fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--dm)}
-#fe.compact tbody td{padding:2px 12px}
-#fe.compact .fe-tile{padding:6px 6px 5px;gap:3px}
-/* Dialog: Settings and Help. A Panel over a Scrim with the title and the
-   tabs down the left and one scrolling pane on the right. Every rule for it
-   is here, and in the 700px block at the end (docs/system/dialog.md). */
-.fe-dlg{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;container:dlg/inline-size}
-/* In the sidebar: the same box fills a pane over the lenses. */
-#fe-side-pane{position:absolute;inset:0;display:flex;container:dlg/inline-size;background:var(--side)}
-#fe-side-pane[hidden]{display:none}
-.fe-dlg-box.panel[data-dock]{width:100%;height:100%;max-height:none}
-.fe-dlg-box[data-dock] [id$="-size"]{display:none}
-.fe-dlg-box{position:relative;z-index:1;display:grid;grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
-  width:min(1000px,calc(100vw - 48px));height:min(780px,84vh)}
-/* Large and extra large never come out smaller than the panel's own size. */
-.fe-dlg-box[data-size="lg"]{width:max(min(1000px,calc(100vw - 48px)),85vw);height:max(min(780px,84vh),90vh)}
-#fe-ql-dialog[data-size="lg"]{width:max(min(1100px,calc(100vw - 64px)),85vw);height:max(min(84vh,1000px),90vh)}
-.fe-dlg-box[data-size="xl"],#fe-ql-dialog[data-size="xl"]{width:calc(100vw - 32px);height:calc(100vh - 32px)}
-.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;align-items:flex-start;background:var(--side);border-right:1px solid var(--bd)}
-.fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--on);color:var(--ac)}
-.fe-dlg-acts{position:absolute;top:14px;right:14px;z-index:5;display:flex;gap:var(--sp-2)}
-.fe-dlg-tabs{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:2px;padding:4px 8px 12px;overflow:auto;background:var(--side);border-right:1px solid var(--bd)}
-.fe-dlg-tab{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--mt);
-  cursor:pointer;text-align:left;line-height:1;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-dlg-tab:hover{background:var(--hover);color:var(--tx)}
-.fe-dlg-tab.on{background:var(--on);color:var(--tx)}
-.fe-dlg-tab-main{display:flex;align-items:center;gap:var(--row-gap);min-width:0}
-.fe-dlg-tab b{font-size:var(--row-fs);font-weight:500;color:inherit}
-.fe-dlg-tab i{padding-left:calc(22px + var(--row-gap));font-size:var(--fs-sm);font-style:normal;line-height:1.3;color:var(--dm);opacity:.85}
-.fe-dlg-tab.on i{opacity:1}
-.fe-dlg-tile{flex:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:#fff;
-  background:linear-gradient(165deg,color-mix(in srgb,var(--tone) 88%,#fff),color-mix(in srgb,var(--tone) 80%,#000));
-  box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .2),0 1px 2px rgb(0 0 0 / .22)}
-.fe-dlg-tile svg{width:13px;height:13px}
-.fe-dlg-tile.lg{width:40px;height:40px;border-radius:11px;box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .22),0 4px 12px color-mix(in srgb,var(--tone) 30%,transparent)}
-.fe-dlg-tile.lg svg{width:22px;height:22px}
-.fe-dlg-pane{grid-column:2;grid-row:1/span 2;display:none;min-height:0;padding:20px 24px 24px;overflow:auto;background:var(--side)}
-.fe-dlg-pane.on{display:flex;flex-direction:column;gap:16px}
-.fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
-.fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 96px 18px 24px;background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
-.fe-dlg-pane .fe-md{max-width:none;padding:0}
-.fe-dlg-pane .fe-md h2{font-size:1.15em;border:0;padding:0}
-.fe-dlg-pane .fe-md>:first-child{margin-top:0;padding-right:36px}
-
-.fe-st-input{width:100%}
-
-.fe-st-rule{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
-  gap:6px;align-items:center;padding:5px 2px;border-bottom:1px solid var(--bd)}
-.fe-st-rule:last-child{border-bottom:none}
-.fe-st-rule input[type="checkbox"]{accent-color:var(--ac);cursor:pointer;width:13px;height:13px}
-#fe-st-ai-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:11px 13px}
-.fe-st-ai-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
-.fe-st-ai-blink{position:relative;display:inline-flex;width:9px;height:9px;flex-shrink:0}
-.fe-st-ai-blink .dot{width:9px;height:9px;border-radius:50%;background:var(--dm);z-index:1}
-.fe-st-ai-blink::after{content:'';position:absolute;inset:0;border-radius:50%;background:inherit}
-.fe-st-ai-head.ready .dot{background:var(--green)}
-.fe-st-ai-head.cold .dot{background:var(--gold)}
-.fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:#f85149}
-/* Pulsing halo only when the model is actually resident (ready). */
-.fe-st-ai-head.ready .fe-st-ai-blink::after{background:var(--green);animation:fe-blink 1.6s ease-out infinite}
-.fe-st-ai-head.cold .fe-st-ai-blink::after{background:var(--gold);animation:fe-blink 2.4s ease-out infinite}
-@keyframes fe-blink{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
-.fe-st-ai-state{font-size:var(--fs-md);font-weight:600;color:var(--tx)}
-.fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:var(--fs-md)}
-.fe-st-ai-grid .k{color:var(--dm)}
-.fe-st-ai-grid .v{color:var(--tx);font-family:'SF Mono',Menlo,Consolas,monospace;font-size:var(--fs-sm);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-st-ai-grid .v.warm-yes{color:var(--green)}
-.fe-st-ai-grid .v.warm-no{color:var(--gold)}
-.fe-st-ai-hint{font-size:var(--fs-sm);color:var(--dm);margin-top:8px;line-height:1.5}
-.fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 4px;
-  font-family:'SF Mono',Menlo,Consolas,monospace;font-size:var(--fs-sm);color:var(--mt)}
-#fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
-#fe-ql-dialog{position:relative;z-index:1;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);max-width:calc(100vw - 16px);max-height:calc(100vh - 16px)}
-#fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;z-index:2}
-#fe-ql-rz-side{display:none;position:absolute;left:-3px;top:0;width:8px;height:100%;z-index:2}
-#fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;
-  border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch}
-#fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz,#fe-qlook.side #fe-ql-size{display:none}
-#fe-qlook.side #fe-ql-rz-side{display:block}
-#fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none}
-#fe-tabbar{display:flex;align-items:stretch;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:34px}
-/* The strip takes only the room its tabs need, so + and the path button sit
-   right after the last tab; past the bar's width the tabs scroll and the
-   buttons stay in view. */
-#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 4px 0 6px;flex:0 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
-#fe-tabs-end{display:flex;align-items:center;gap:2px;padding:4px 8px 0 2px;flex:none}
-#fe-goto{position:fixed;z-index:60;width:min(460px,calc(100vw - 16px));padding:8px;border-radius:var(--pop-r);
-  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
-#fe-goto input{width:100%}
-
-.fe-goto-msg{margin:6px 2px 0;font-size:var(--fs-sm);color:var(--dm)}
-#fe-tabs::-webkit-scrollbar{display:none}
-/* The list of every tab: icon, name, and the digit that jumps to it. */
-.fe-tab-menu .fe-ctx-item span:not(.fe-ctx-key){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
-.fe-tab.pinned{padding:5px 6px;min-width:0}
-.fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
-#fe-tabs.is-empty{padding-top:4px}
-.fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
-  background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:112px;flex:0 1 auto;position:relative;top:1px;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-tab:hover{background:var(--s3);color:var(--tx)}
-.fe-tab.on{background:var(--bg);color:var(--tx)}
-.fe-tab.temp{background:none;border-color:transparent}
-.fe-tab.temp.on{background:var(--bg);border-color:var(--bd)}
-.fe-tab.temp.on{color:var(--mt)}
-.fe-tab.drag-over{border-left:2px solid var(--ac)}
-.fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
-.fe-tab-head{overflow:hidden;white-space:pre;min-width:0}
-.fe-tab-tail{white-space:nowrap;flex-shrink:0}
-.fe-tab-x,.fe-tab-more{opacity:0}
-
-.fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
-
-/* A tab you are not on gives its name the whole width: its menu and close
-   buttons float over the end of the name, and only while it is hovered. */
-.fe-tab:not(.on) .fe-tab-x,.fe-tab:not(.on) .fe-tab-more{position:absolute;top:50%;margin-top:calc(var(--btn-h) / -2);background:var(--s3)}
-.fe-tab:not(.on) .fe-tab-x:hover,.fe-tab:not(.on) .fe-tab-more:hover{background:var(--bd2)}
-.fe-tab:not(.on) .fe-tab-x{right:6px}
-.fe-tab:not(.on) .fe-tab-more{right:26px}
-.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-x,.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-more{visibility:hidden}
-
-.fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
-.fe-tab-ico{display:flex;flex-shrink:0}
-.fe-tab-ico svg{width:11px;height:12px}
-.fe-tab-menu{position:fixed}
-#fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
-#fe-fp-bar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
-#fe-fp{display:flex;flex:1;min-height:0}
-/* Contents and Comments float over the page as a translucent card, shown and
-   hidden by the two buttons right of find. The text keeps clear of the card. */
-#fe-fp{position:relative}
-#fe-toc-rail{position:absolute;top:12px;right:16px;z-index:4;width:240px;max-height:calc(100% - 24px);display:flex;flex-direction:column;min-height:0;
-  border:1px solid color-mix(in srgb,var(--bd) 80%,transparent);border-radius:12px;
-  background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
-  box-shadow:0 8px 24px rgb(0 0 0 / .12),0 1px 3px rgb(0 0 0 / .08);transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
-#fe-toc-rail[hidden]{display:none}
-#fe-toc-rail.peek{box-shadow:var(--pop-sh)}
-.fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
-#fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
-#fe-toc a{display:block;margin:1px 6px;border-radius:6px;color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
-#fe-toc a.fe-toc-h1{font-size:var(--fs-lg);font-weight:600;color:var(--tx)}
-#fe-toc a.fe-toc-h2{font-size:var(--fs-md);padding-left:22px}
-#fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
-#fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
-/* The rail's two tabs, Contents and Comments. Comments needs more room, so
-   the rail and the text column's right padding widen while it shows. */
-.fe-rail-title{flex:1}
-.fe-rail-ico{display:inline-flex;color:var(--mt)}
-.fe-rail-ico svg{width:14px;height:14px}
-.fe-rt{border:0;background:none;padding:3px 9px;border-radius:999px;font-size:var(--fs-md);font-weight:500;
-  color:var(--mt);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-.fe-rt svg{width:13px;height:13px;opacity:.85}
-.fe-rt:hover{color:var(--tx);background:var(--hover)}
-.fe-rt.on{color:var(--tx);background:var(--on)}
-.fe-rt[hidden]{display:none}
-#fe-toc-rail[data-tab="cm"]{width:320px}
-/* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
-#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
-/* The pane buttons right of find: icons only, the comment count as a small badge. */
-.fe-fp-panes{display:inline-flex;gap:2px;flex:none}
-#fe-fp-bar .fe-fp-panes button[hidden]{display:none}
-#fe-fp-cm{position:relative}
-#fe-fp-cm-n:empty{display:none}
-#fe-fp-cm-n{position:absolute;top:-3px;right:-4px;min-width:14px;padding:0 4px;border-radius:999px;background:var(--ac);color:var(--tx-on-ac);font-size:10px;line-height:14px;text-align:center}
-/* Comment threads: a quote, then each comment with who and when, then chips. */
-#fe-cm{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
-.fe-cm-top{flex:none;display:flex;align-items:center;gap:4px;padding:0 10px 8px}
-.fe-cm-list{flex:1;min-height:0;overflow-y:auto;padding:2px 10px 14px}
-#fe-cm[hidden]{display:none}
-.fe-cm-filters{flex:1;display:flex;gap:2px;padding:2px;border-radius:10px;background:var(--bg);border:1px solid var(--bd)}
-.fe-cm-filters button{flex:1;border:0;background:none;border-radius:8px;padding:3px 4px;font-size:var(--fs-sm);color:var(--mt);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
-.fe-cm-filters button svg{width:11px;height:11px;opacity:.75}
-.fe-cm-fn{color:var(--dm)}
-.fe-cm-ib{flex:none}
-
-.fe-cm-filters button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
-.fe-cm-group{gap:6px;margin:14px 2px 6px;cursor:default}
-.fe-cm-group span{font-weight:500;letter-spacing:0}
-details.fe-cm-done > summary{cursor:pointer;list-style:none}
-details.fe-cm-done > summary::-webkit-details-marker{display:none}
-.fe-cm-th{position:relative;margin:0 0 8px;padding:10px 12px;cursor:pointer;
-  transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
-.fe-cm-th:hover{border-color:var(--bd2)}
-.fe-cm-th.on{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 14%,transparent)}
-.fe-cm-th:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
-.fe-cm-q{margin:0 0 8px;padding:0 0 0 9px;border-left:2px solid color-mix(in srgb,var(--ac) 55%,transparent);font-size:var(--fs-sm);line-height:1.45;color:var(--mt);
-  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.fe-cm-state{display:flex;align-items:center;gap:5px;margin:-2px 0 8px;font-size:var(--fs-xs);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));cursor:default}
-.fe-cm-state svg{width:12px;height:12px;flex:none}
-.fe-cm-c + .fe-cm-c{margin-top:9px;padding-top:9px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
-.fe-cm-who{display:flex;align-items:center;gap:6px;margin-bottom:3px}
-.fe-cm-who b{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-md);font-weight:600;color:var(--tx)}
-.fe-cm-who b.agent{color:var(--nc-purple)}
-.fe-cm-who b svg{width:12px;height:12px}
-.fe-cm-who time{font-size:var(--fs-sm);color:var(--dm)}
-.fe-cm-tx{font-size:var(--fs-md);line-height:1.5;color:var(--tx);overflow-wrap:anywhere}
-.fe-cm-tx code{font-size:.92em}
-.fe-cm-tx p{margin:0}
-.fe-cm-tx p + p,.fe-cm-tx ul + p,.fe-cm-tx p + ul{margin-top:.45em}
-.fe-cm-tx ul{margin:.15em 0;padding-left:1.15em}
-.fe-cm-own{margin-left:auto;display:inline-flex;opacity:0;transition:opacity var(--t-fast) var(--ease)}
-.fe-cm-c:hover .fe-cm-own,.fe-cm-own:focus-within{opacity:1}
-
-.fe-cm-c.gone .fe-cm-tx{color:var(--dm)}
-.fe-cm-sug{margin-top:6px;font-size:var(--fs-sm);color:var(--mt)}
-.fe-cm-diff{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;border-radius:var(--row-r);background:var(--shade);line-height:1.5;overflow-wrap:anywhere}
-.fe-cm-diff del{background:color-mix(in srgb,var(--nc-red) 14%,transparent);color:var(--mt);padding:0 3px;border-radius:3px}
-.fe-cm-sug ins{text-decoration:none;background:color-mix(in srgb,var(--nc-green) 18%,transparent);padding:0 3px;border-radius:3px;color:var(--tx)}
-.fe-cm-sug .fe-cm-tools{margin-top:6px}
-.fe-cm-sug-state{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:var(--fs-xs);color:var(--dm)}
-.fe-cm-sug-state svg{width:12px;height:12px}
-.fe-cm-sug.rejected .fe-cm-diff{opacity:.6}
-.fe-cm-sug-msg{display:flex;gap:6px;align-items:flex-start;margin:6px 0 0;font-size:var(--fs-sm);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));line-height:1.4}
-.fe-cm-sug-msg svg{flex:none;width:13px;height:13px;margin-top:2px}
-.fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
-.fe-cm-note{margin:0 2px 8px;font-size:var(--fs-sm);color:var(--dm);line-height:1.4}
-.fe-cm-hint{color:var(--dm);font-size:var(--fs-sm)}
-.fe-cm-hint kbd{font:inherit;font-family:var(--mono);padding:0 4px;border:1px solid var(--bd2);border-radius:4px}
-/* Writing: the composer card, the reply box on the open thread, its tools. */
-.fe-cm-new{cursor:default}
-.fe-cm-box{margin-top:10px}
-.fe-cm-new .fe-cm-box{margin-top:0}
-.fe-cm-box textarea{display:block;width:100%;max-height:220px;resize:vertical}
-
-.fe-cm-ac{position:absolute;z-index:10;max-width:calc(100% - 20px);box-sizing:border-box;padding:4px;border-radius:10px;
-  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
-.fe-cm-ac[hidden]{display:none}
-.fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
-.fe-cm-ac > div:hover{background:var(--hover)}
-.fe-cm-ac > div.on{background:var(--on)}
-.fe-cm-tools{flex-wrap:wrap;margin-top:6px}
-.fe-cm-grow{flex:1}
-.fe-cm-date{width:auto;color-scheme:light dark}
-.fe-cm-x{margin:0 -3px 0 1px}
-
-/* The floating Comment button above a selection on the page. */
-#fe-cm-add{position:fixed;z-index:30;height:28px;padding:0 10px;border-radius:999px;color:var(--tx);
-  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
-#fe-cm-add:hover{color:var(--ac)}
-#fe-cm-add[hidden]{display:none}
-#fe-cm-add svg{width:13px;height:13px}
-/* In the editor, a row where an open comment starts carries a mark in the gutter. */
-.fe-fe-row.cm .fe-fe-ln{position:relative}
-.fe-fe-row.cm .fe-fe-ln::before{content:'';position:absolute;left:6px;top:.55em;width:9px;height:8px;border-radius:3px 3px 3px 0;background:var(--ac);cursor:pointer}
-/* In the text: commented words get a wash, the open thread a stronger one,
-   and each block with comments a count in the right margin. */
-::highlight(bfb-cm){background-color:color-mix(in srgb,var(--ac) 9%,transparent)}
-::highlight(bfb-cm-hover){background-color:color-mix(in srgb,var(--ac) 17%,transparent)}
-::highlight(bfb-cm-on){background-color:color-mix(in srgb,var(--ac) 24%,transparent)}
-#fe-page.fe-cm-pointing{cursor:pointer}
-.fe-md [data-cm]{position:relative}
-.fe-md [data-cm]::after{content:attr(data-cm);position:absolute;top:2px;right:-30px;min-width:20px;height:18px;padding:0 5px;border-radius:9px 9px 9px 2px;
-  background:color-mix(in srgb,var(--ac) 22%,var(--card));color:var(--tx);font-size:var(--fs-xs);font-weight:600;line-height:18px;text-align:center;cursor:pointer}
-/* Find in file, at the right end of the file bar. */
-#fe-ff{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 3px 0 9px;border:1px solid var(--bd);border-radius:8px;
-  background:color-mix(in srgb,var(--tx) 3%,var(--card));color:var(--dm);transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
-#fe-ff:focus-within{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));background:var(--card)}
-#fe-ff[hidden]{display:none}
-#fe-ff-q{width:150px;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md)}
-#fe-ff-n{flex:none;width:7.5ch;text-align:right;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;font-variant-numeric:tabular-nums}
-#fe-ff-n.none{color:var(--mt);font-style:italic}
-#fe-ff-n.part{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
-mark.fe-ff-hit{background:color-mix(in srgb,var(--gold) 35%,transparent);color:inherit;border-radius:2px}
-mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
-#fe-page{flex:1;min-width:0;overflow:auto;font-size:var(--fs-md)}
-#fe-page .fe-md{overflow-wrap:break-word;max-width:none;margin:0;padding:28px 48px 80px;font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
-#fe.fe-column-xl #fe-page .fe-md{max-width:150ch;margin:0 auto}
-#fe.fe-column-lg #fe-page .fe-md{max-width:130ch;margin:0 auto}
-#fe.fe-column-md #fe-page .fe-md{max-width:110ch;margin:0 auto}
-#fe-page .fe-md blockquote > .fe-md{padding:0;margin:0;max-width:none}
-.fe-md-alert{--al:#4493f8;border-left:3px solid var(--al);padding:.6em 1em;border-radius:4px;background:color-mix(in srgb,var(--al) 9%,transparent)}
-.fe-md-alert-title{font-weight:600;color:var(--al);margin:0 0 4px!important}
-.fe-md-alert-tip{--al:#3fb950}.fe-md-alert-important{--al:#ab7df8}.fe-md-alert-warning{--al:#d29922}.fe-md-alert-caution{--al:#f85149}
-#fe[data-theme="light"] .fe-md-alert{--al:#0969da}
-#fe[data-theme="light"] .fe-md-alert-tip{--al:#1a7f37}#fe[data-theme="light"] .fe-md-alert-important{--al:#8250df}
-#fe[data-theme="light"] .fe-md-alert-warning{--al:#9a6700}#fe[data-theme="light"] .fe-md-alert-caution{--al:#d1242f}
-.fe-md-footnotes{border-top:1px solid var(--bd);margin-top:2em;padding-top:.8em;font-size:.88em;color:var(--mt)}
-.fe-md-fnref a,.fe-md-fnback{text-decoration:none}
-#fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
-#fe.fe-notips #fe-tip{display:none!important}
-#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
-.fe-crumb-file{color:var(--tx);font-weight:500}
-#fe-fp-meta{font-size:var(--fs-sm);color:var(--dm);margin-right:auto;white-space:nowrap}
-/* A text match sits on its own line under the title, inside the link, so the title keeps its width and the whole row opens the note. */
-#fe-nt-list .fe-si-link:has(.fe-nt-hit){flex-wrap:wrap;row-gap:1px}
-#fe-nt-list .fe-nt-hit{flex:1 0 100%;min-width:0;padding:0 0 2px 24px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* Editing in place: coloured, numbered source in the reading column. The
-   painted copy (#fe-fe-paint) and the textarea share font, padding and
-   wrapping exactly, so the caret sits over its own text. */
-#fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
-#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1)}
-#fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
-/* The top padding clears the floating pill, so a long first line is never under it. */
-#fe-fe-col{max-width:980px;margin:0 auto;padding:62px 28px 120px}
-#fe-fe-src{position:relative}
-#fe-fe-src[hidden]{display:none}
-#fe-fe-paint,#fe-fe-ta{margin:0;font-family:var(--mono);font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1));line-height:1.7;
-  white-space:pre-wrap;overflow-wrap:anywhere;tab-size:4;letter-spacing:0}
-#fe-fe-paint{padding:0;color:var(--tx);pointer-events:none}
-.fe-fe-row{display:grid;grid-template-columns:52px minmax(0,1fr)}
-.fe-fe-ln{color:var(--dm);text-align:right;padding-right:16px;user-select:none}
-/* The caret's line, so every click shows where it landed. */
-.fe-fe-row.cur{background:color-mix(in srgb,var(--ac) 8%,transparent);border-radius:3px}
-.fe-fe-row.cur .fe-fe-ln{color:var(--tx)}
-#fe-fe-ta{position:absolute;top:0;left:0;width:100%;padding:0 0 0 52px;border:0;outline:0;resize:none;overflow:hidden;
-  background:transparent;color:transparent;caret-color:var(--ac)}
-#fe-fe-ta::selection{background:color-mix(in srgb,var(--ac) 40%,transparent);color:transparent}
-/* Large files: no wrapping, so every row is one line tall and only a window
-   of rows is painted (#fe-fe-win, moved down to where the viewport is). */
-.fe-fe-big #fe-fe-paint,.fe-fe-big #fe-fe-ta{white-space:pre;overflow-wrap:normal}
-#fe-fe-win{will-change:transform}
-#fe-fe-view{padding:0;max-width:none}
-#fe-fe-pill{position:absolute;top:12px;right:18px;z-index:5;display:flex;align-items:center;gap:2px;padding:3px;
-  background:var(--s1);border:1px solid var(--bd);border-radius:999px;box-shadow:0 6px 20px rgb(0 0 0 / .25)}
-#fe-fe-state{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 10px;font-size:var(--fs-md);color:var(--mt);
-  transition:color var(--t-fast) var(--ease)}
-#fe-fe-state.saved{color:var(--green)}
-#fe-fe-state.failed{color:var(--nc-red)}
-#fe-fe-state.failed .fe-fe-dot{background:var(--nc-red)}
-#fe-fe-state svg{width:13px;height:13px}
-.fe-fe-dot{width:6px;height:6px;border-radius:50%;background:var(--ac)}
-#fe-allow{position:fixed;z-index:320;width:340px;padding:14px;background:var(--s1);border:1px solid var(--bd2);border-radius:10px;
-  box-shadow:0 12px 32px rgb(0 0 0 / .3);animation:fe-pop var(--t-base) var(--ease)}
-#fe-allow p{color:var(--mt);font-size:var(--fs-md);margin:6px 0 12px;line-height:1.5}
-#fe-allow code{font:var(--fs-md) var(--mono);background:var(--s2);padding:1px 4px;border-radius:4px;overflow-wrap:anywhere}
-.fe-allow-title{display:flex;align-items:center;gap:8px;font-weight:600}
-.fe-allow-acts{display:flex;gap:6px;justify-content:flex-end}
-#fe-allow.fe-allow-note{border-color:color-mix(in srgb,var(--nc-red) 50%,var(--bd2))}
-#fe-fp-edit.busy{opacity:.6;cursor:progress}
-@keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
-#fe-fp-reload{font-size:var(--fs-sm);color:var(--dm)}
-#fe-ed-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
-.fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
-#fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
-.fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
-.fe-hist-row code{color:var(--dm)}
-.fe-hist-head{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bd);color:var(--dm);font-size:var(--fs-sm)}
-#fe-ql-body.fe-editing{display:flex;flex-direction:column}
-.fe-ed{display:flex;flex:1;min-height:0}
-.fe-md img{max-width:100%;border-radius:6px}
-#fe-ed-src{flex:1;min-width:0;resize:none;border:none;border-right:1px solid var(--bd);background:var(--s1);color:var(--tx);
-  font:var(--fs-md)/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px 16px;outline:none;tab-size:2}
-#fe-ed-view{flex:1;min-width:0;overflow:auto}
-#fe-qlook.side .fe-ed{flex-direction:column}
-#fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
-#fe-ed-conflict{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd)}
-#fe-ed-meta{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
-.fe-chip-title{flex:1 1 180px;min-width:120px;font-weight:600}
-button.fe-chip-title{display:flex;align-items:center;gap:6px;text-align:left;cursor:text;min-width:0}
-button.fe-chip-title:hover{border-color:var(--ac)}
-button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
-textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.35;min-height:28px}
-.fe-cdot{flex:none}
-.fe-pmenu{position:fixed;z-index:2147483000;width:250px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:6px}
-.fe-pmenu .btn{justify-content:flex-start}
-.fe-pm-lbl{font-size:var(--fs-sm);color:var(--mt);text-transform:uppercase;letter-spacing:.04em}
-.fe-pm-colors{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-.fe-pm-tags{display:flex;flex-wrap:wrap;gap:4px}
-.fe-pm-add{display:flex;gap:4px}
-.fe-pm-add input{flex:1;min-width:0}
-
-.fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:1px}
-.fe-mid{display:flex;min-width:0;max-width:100%;overflow:hidden}
-.fe-mid-h{overflow:hidden;text-overflow:ellipsis;white-space:pre;min-width:0}
-.fe-mid-t{white-space:pre;flex:none}
-.fe-nt-label{flex:none;display:flex;min-width:0;white-space:nowrap;overflow:hidden;line-height:1.3}
-.fe-nt-label.editing{display:block;white-space:normal;overflow:visible;overflow-wrap:anywhere}
-.fe-nt-item .fe-nt-acts{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;
-  background:var(--hover);border-radius:4px;opacity:0;pointer-events:none;transition:opacity .1s}
-.fe-nt-item:hover .fe-nt-acts,.fe-nt-item:focus-within .fe-nt-acts{opacity:1;pointer-events:auto}
-.fe-nt-tags{font-size:var(--fs-sm);color:var(--mt);display:flex;gap:6px;flex-wrap:wrap}
-.fe-nt-tags span{display:inline-flex;align-items:center;gap:3px}
-.fe-nt-tags svg{width:10px;height:10px;flex:none}
-.fe-nt-flags{display:inline-flex;align-items:center;gap:4px;flex:none}
-.fe-nt-flags svg{width:12px;height:12px}
-.fe-nt-pin{color:var(--gold)}
-.fe-nt-props{opacity:0;flex:none}
-.fe-nt-item:hover .fe-nt-props,.fe-nt-props:focus-visible{opacity:1}
-
-.fe-nt-item .fe-si-link{padding-left:14px}
-.fe-nt-tab{opacity:0;flex:none}
-.fe-nt-item:hover .fe-nt-tab,.fe-nt-tab:focus-visible{opacity:1}
-
-.fe-sh a{color:inherit;text-decoration:none}
-.fe-sh a:hover{color:var(--ac)}
-#fe-ql-hdr{border-bottom:1px solid var(--bd);flex-shrink:0}
-#fe-ql-icon svg{display:block}
-/* Docked, the header keeps its name readable and its close button inside the panel: buttons go icon-only. */
-#fe-qlook.side #fe-ql-hdr > button > span,#fe-qlook.side #fe-ql-hdr > a:not(#fe-ql-name) > span{display:none}
-
-/* Docked, the header's labelled buttons lose their labels and become icon circles. */
-#fe-qlook.side #fe-ql-hdr > *{flex-shrink:0}
-#fe-qlook.side #fe-ql-name,#fe-qlook.side #fe-ql-meta{flex-shrink:1;min-width:0}
-#fe-qlook.side #fe-ed-bar > button > span{display:none}
-#fe-qlook.side .fe-ed-hint{display:none}
-#fe-ql-name{font-weight:600;font-size:var(--fs-lg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
-#fe-ql-name:hover{color:var(--ac);text-decoration:underline}
-#fe-ql-meta{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
-#fe-ql-name{min-width:0;flex-shrink:1}
-#fe-ql-body{flex:1;overflow:auto;font-size:var(--fs-md)}
-#fe-ql-body:has(> .fe-ql-htmlbar){display:flex;flex-direction:column}
-.fe-ql-htmlbar{border-bottom:1px solid var(--bd);flex:none}
-.fe-ql-html{flex:1;min-height:0;width:100%;border:0;background:#fff}
-/* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
-#fe-ql-body .fe-md{font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
-#fe-ql-ai{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 14px;
-  border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0}
-#fe-ql-ai-chip{display:flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:var(--dm);
-  margin-right:4px;white-space:nowrap}
-#fe-ql-ai-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--dm);flex-shrink:0}
-#fe-ql-ai-chip.ready .dot{background:var(--green)}
-#fe-ql-ai-chip.cold .dot{background:var(--gold)}
-#fe-ql-ai-chip.down .dot{background:#f85149}
-#fe-ql-ai-q{flex:1;min-width:140px}
-
-#fe-ql-ai-q:disabled{opacity:.45}
-
-#fe-ql-ai-out{border-bottom:1px solid var(--bd);max-height:42%;overflow-y:auto;flex-shrink:0;background:var(--s1)}
-#fe-ql-ai-out-body{padding:10px 16px 4px;font-size:var(--fs-md);line-height:1.6;white-space:pre-wrap}
-#fe-ql-ai-out-body .fe-md{padding:0;white-space:normal}
-#fe-ql-ai-out-meta{padding:2px 16px 8px;font-size:var(--fs-xs);color:var(--dm)}
-.fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
-.fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
-.fe-ql-imgbar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
-.fe-ql-imgstage{flex:1;min-height:0;overflow:auto;display:flex}
-.fe-ql-imgsizer{position:relative;margin:auto;flex:none}
-.fe-ql-img{position:absolute;left:50%;top:50%;max-width:none;max-height:none;border-radius:4px;transform-origin:center}
-.fe-ql-imgwrap .fe-ql-dim{padding:4px 12px;border-top:1px solid var(--bd);text-align:center;flex-shrink:0}
-.fe-ql-dim{font-size:var(--fs-sm);color:var(--dm);font-variant-numeric:tabular-nums}
-.fe-ql-pdf{width:100%;height:100%;border:none}
-.fe-ql-media-wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
-.fe-ql-media{max-width:100%;max-height:100%;border-radius:4px;background:#000}
-.fe-ql-center audio{width:min(480px,90%)}
-.fe-ql-font{padding:20px 26px;overflow:auto;line-height:1.5}
-.fe-ql-font>div{margin:6px 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:6px}
-.fe-code-wrap{font:var(--fs-md)/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
-.fe-code{padding:10px 14px 14px 0;width:max-content;min-width:100%}
-.fe-cl-blk{content-visibility:auto;contain-intrinsic-size:auto calc(var(--n) * 1.55em)}
-.fe-cl{display:grid;grid-template-columns:calc(var(--gut,4ch) + 22px) minmax(0,1fr)}
-.fe-cl-n{position:sticky;left:0;padding:0 10px 0 12px;text-align:right;color:var(--dm);user-select:none;background:var(--card)}
-.fe-cl-t{white-space:pre;padding-left:10px}
-/* Wrap (Settings, and the file bar toggle): long lines fold inside the page. */
-#fe[data-wrap="on"] .fe-code{width:auto}
-#fe[data-wrap="on"] .fe-cl-t{white-space:pre-wrap;overflow-wrap:anywhere}
-.tok-cmt{color:var(--mt);font-style:italic}
-.tok-str{color:#7ee787}
-.tok-kw{color:#ff7b72}
-.tok-kw-ctrl{color:#ff7b72}
-.tok-type{color:#56d4dd}
-.tok-builtin{color:#ffa657}
-.tok-lit{color:#a5d6ff}
-.tok-num{color:#f2cc60}
-.tok-var{color:#d2a8ff}
-.tok-deco{color:#e2b340}
-.tok-fn{color:#d2a8ff}.tok-regex{color:#a5d6a7}
-.tok-key{color:#79c0ff}.tok-section{color:#d2a8ff}
-.tok-add{color:#3fb950}.tok-del{color:#f85149}
-#fe[data-theme="light"] .tok-str{color:#0a7d33}
-#fe[data-theme="light"] .tok-kw,#fe[data-theme="light"] .tok-kw-ctrl{color:#cf222e}
-#fe[data-theme="light"] .tok-type{color:#1b7c83}
-#fe[data-theme="light"] .tok-builtin{color:#953800}
-#fe[data-theme="light"] .tok-lit{color:#8250df}
-#fe[data-theme="light"] .tok-num{color:#9a6700}
-#fe[data-theme="light"] .tok-var{color:#8250df}
-#fe[data-theme="light"] .tok-deco{color:#9a6700}
-#fe[data-theme="light"] .tok-fn{color:#8250df}
-#fe[data-theme="light"] .tok-regex{color:#116329}
-#fe[data-theme="light"] .tok-key{color:#0550ae}
-#fe[data-theme="light"] .tok-section{color:#8250df}
-#fe[data-theme="light"] .tok-add{color:#1a7f37}
-#fe[data-theme="light"] .tok-del{color:#cf222e}
-.fe-ql-table{border-collapse:collapse;width:100%;font:var(--fs-md) 'SF Mono',Menlo,Consolas,monospace}
-.fe-ql-table th{position:sticky;top:0;background:var(--s2);padding:6px 10px;text-align:left;
-  border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
-.fe-ql-table th:hover{color:var(--tx)}
-.fe-ql-table th.sorted{color:var(--ac)}
-.fe-ql-table td{padding:4px 10px;border-bottom:1px solid var(--s2);white-space:pre;
-  max-width:340px;overflow:hidden;text-overflow:ellipsis}
-.fe-ql-table th.num,.fe-ql-table td.num{text-align:right;font-variant-numeric:tabular-nums}
-.fe-ql-table tbody tr:hover{background:var(--hover)}
-.fe-jt-root,.fe-jl-root{padding:10px 14px;font:var(--fs-md)/1.6 'SF Mono',Menlo,Consolas,monospace}
-.fe-jt summary,.fe-jl-line summary{cursor:pointer;list-style:none}
-.fe-jt summary::-webkit-details-marker,.fe-jl-line summary::-webkit-details-marker{display:none}
-.fe-jt summary svg,.fe-jl-line summary svg{color:var(--dm);vertical-align:-2px}
-.fe-jt summary svg{margin-right:4px}
-.fe-jt summary:hover{background:var(--hover)}
-.fe-jt-kids{padding-left:16px;border-left:1px solid var(--s3);margin-left:4px}
-.fe-jt-key{color:#79c0ff}
-#fe[data-theme="light"] .fe-jt-key{color:#0550ae}
-.fe-jt-colon{color:var(--dm)}
-.fe-jt-badge{color:var(--dm);font-size:var(--fs-sm)}
-.fe-jt-row{padding-left:12px}
-.fe-jl-line{border-bottom:1px solid var(--s2);padding:2px 0}
-.fe-jl-line summary{display:flex;gap:8px;align-items:baseline}
-.fe-jl-n{color:var(--dm);min-width:28px;text-align:right;user-select:none;font-size:var(--fs-sm);flex-shrink:0}
-.fe-jl-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mt)}
-.fe-jl-line.bad{display:flex;gap:8px;align-items:baseline}
-.fe-jl-err{color:#f85149;font-size:var(--fs-xs);border:1px solid #f8514940;border-radius:3px;padding:0 4px;flex-shrink:0}
-.fe-md{padding:14px 22px 20px;font-size:var(--fs-lg);line-height:1.65;max-width:760px;color:var(--tx)}
-/* Reading rhythm: every block owns the space below it, in em, so one scale
-   holds in the file page, preview, notes, dialogs and AI answers alike. */
-.fe-md>*,.fe-md-alert>*,.fe-md blockquote>*{margin:0 0 .9em}
-.fe-md>:last-child,.fe-md-alert>:last-child,.fe-md blockquote>:last-child{margin-bottom:0}
-.fe-md h1,.fe-md h2,.fe-md h3,.fe-md h4,.fe-md h5,.fe-md h6{font-weight:600;line-height:1.3;margin:1.6em 0 .5em;color:var(--tx)}
-.fe-md>h1:first-child,.fe-md>h2:first-child,.fe-md>h3:first-child,.fe-md>.fe-md-fm+h1,.fe-md>.fe-md-fm+h2{margin-top:0}
-.fe-md h1{font-size:1.75em;padding-bottom:.3em;border-bottom:1px solid var(--bd)}
-.fe-md h2{font-size:1.4em;padding-bottom:.3em;border-bottom:1px solid var(--bd)}
-.fe-md h3{font-size:1.15em}
-.fe-md h4,.fe-md h5,.fe-md h6{font-size:1em}
-.fe-md h5,.fe-md h6{color:var(--mt)}
-.fe-md ul,.fe-md ol{padding-left:1.6em}
-.fe-md li{margin:0}
-.fe-md li+li{margin-top:.35em}
-.fe-md li>p{margin:0}
-.fe-md li>p+p,.fe-md li>p+ul,.fe-md li>p+ol,.fe-md li>ul,.fe-md li>ol,.fe-md li>.fe-md-code,.fe-md li>.fe-md-pre{margin:.35em 0 0}
-.fe-md li::marker{color:var(--mt)}
-.fe-md code{background:var(--s2);border:0;padding:.12em .4em;border-radius:4px;font-family:var(--mono);font-size:.86em}
-.fe-md a code{color:inherit}
-.fe-md-code{border:1px solid var(--bd);border-radius:8px;background:color-mix(in srgb,var(--card),var(--tx) 3.5%);overflow:hidden}
-.fe-md-code-bar{justify-content:space-between;padding:4px 6px 0 12px;background:none}
-.fe-md-lang{font:600 var(--fs-sm)/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
-.fe-md-pre{background:var(--s1);border:1px solid var(--bd);border-radius:6px;padding:.75em 1em;
-  overflow-x:auto;font-family:var(--mono);font-size:.86em;line-height:1.55;white-space:pre;color:var(--tx)}
-.fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0;padding-top:.4em;background:none}
-.fe-md-code{background:color-mix(in srgb,var(--s1),#000 6%)}
-.fe-md-lines{counter-reset:ln;padding-left:.2em}
-.fe-md-l{display:block;width:max-content;min-width:100%;box-sizing:border-box;padding-right:1em;border-radius:3px;counter-increment:ln}
-.fe-md-l::before{content:counter(ln);display:inline-block;width:2.2em;margin-right:1em;text-align:right;color:var(--dm);opacity:.6;user-select:none}
-.fe-md-l:hover{background:color-mix(in srgb,var(--tx) 6%,transparent)}
-.fe-md-mermaid{padding:14px;border:1px solid var(--bd);border-radius:6px;
-  background:var(--s1);overflow-x:auto;text-align:center}
-.fe-md-mermaid svg{display:block;max-width:100%;height:auto;margin:auto}
-.fe-md-mermaid-source[hidden]{display:none}
-.fe-md-mermaid-source{margin:8px 0 0;padding:10px;text-align:left;white-space:pre-wrap;
-  background:var(--s2);border-radius:4px;font:var(--fs-md)/1.55 var(--mono)}
-.fe-md-anchor{margin-left:8px;color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity var(--t-fast)}
-.fe-md-anchor::before{content:'#'}
-.fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}
-.fe-md-fm{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;padding:10px 14px;background:var(--s1);border:1px solid var(--bd);border-radius:6px;font-size:var(--fs-md)}
-.fe-md-fm dt{color:var(--dm);font-weight:600}
-.fe-md-fm dd{margin:0;color:var(--tx)}
-.fe-md-fm-warn{grid-column:1/-1;display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-1);margin-top:var(--sp-2);padding:var(--sp-2) 0 0;border-top:1px solid var(--bd)}
-.fe-md-fm-note{font-size:var(--fs-sm);color:var(--dm)}
-.fe-fm-items{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3)}
-a.fe-fm-path{color:var(--ac);text-decoration:none}
-a.fe-fm-path:hover{text-decoration:underline}
-.fe-md li.fe-task{list-style:none;margin-left:-1.3em;padding-left:0}
-.fe-md li.fe-task input{accent-color:var(--ac);margin-right:6px;vertical-align:-2px}
-.fe-md-tablewrap{overflow-x:auto}
-.fe-md img{display:block;margin-left:auto;margin-right:auto;cursor:zoom-in;max-width:100%;border-radius:6px}
-.fe-md blockquote{border-left:3px solid var(--bd2);padding:0 1em;color:var(--mt)}
-.fe-md blockquote .fe-md{padding:0}
-.fe-md a{color:var(--ac);text-decoration:none}
-.fe-md a:hover{text-decoration:underline}
-.fe-md hr{border:none;border-top:1px solid var(--bd);margin:1.6em 0}
-.fe-md strong{font-weight:600}
-.fe-md-table{border-collapse:separate;border-spacing:0;margin:0;font-size:.93em;border:1px solid var(--bd);border-radius:6px;overflow:hidden}
-.fe-md-table th,.fe-md-table td{border:0;border-bottom:1px solid var(--bd);padding:.55em .9em;text-align:left;vertical-align:top}
-.fe-md-table tbody tr:last-child td{border-bottom:0}
-.fe-md-table thead{position:static;background:none}
-.fe-md-table thead th{background:color-mix(in srgb,var(--s1),var(--tx) 5%);font-weight:600;font-size:inherit;letter-spacing:0;text-transform:none;color:var(--tx);
-  white-space:normal;user-select:text;padding:.55em .9em}
-#fe-ctx,.fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
-  min-width:180px;box-shadow:0 8px 24px #0009;padding:4px 0}
-.fe-ctx:not([data-layer]){display:none}
-.fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
-  font-size:var(--fs-md);cursor:pointer;white-space:nowrap}
-.fe-ctx-key{margin-left:auto;color:var(--dm);font-size:var(--fs-xs);padding-left:16px}
-.fe-ctx-sep{height:1px;background:var(--bd);margin:4px 0}
-.fe-tab-ico svg{width:15px;height:16px}
-.fe-tab-x,.fe-tab-more{opacity:.6}
-.fe-tab:focus-visible,.fe-tab-x:focus-visible,.fe-tab-more:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}
-@media (max-width:900px){
-  #fe-side{width:clamp(200px,26vw,240px)}
-  #fe-toc-rail{width:clamp(150px,22vw,190px)}
-  #fe-ff-q{width:110px}
-  #fe-page .fe-md{padding:20px 18px 60px}
-  #fe-fp-bar{flex-wrap:wrap}
-}
-@container fe-main (max-width:760px){
-  #fe-toolbar{flex-wrap:wrap}
-  #fe-count{flex-basis:100%}
-  #fe-tb-right{width:100%;flex-wrap:wrap;justify-content:flex-start}
-}
-/* Soft (design-system.md): the sidebar, the main pane and a docked preview
-   float as cards on the page background; rows are 36px with no lines, and
-   selection is a wash with rounded ends, never a ring. The sidebar's resize
-   handle is the 10px gutter between cards and shows a thin line on hover. */
-#fe-body{padding:10px;background:var(--bg)}
-#fe-side,#fe-main,#fe-qlook.side{border:1px solid var(--bd);border-radius:12px;overflow:hidden}
-/* The page is the lightest surface, the sidebar one step below it, and the
-   page background the deepest; bars inside the page share its colour and are
-   set apart by a hairline, not a grey band. */
-#fe-side{background:var(--side)}
-#fe-main,#fe-toolbar,#fe-fp-bar,#fe-statusbar,thead{background:var(--card)}
-#fe-tabbar,#fe-tabs{background:var(--side)}
-.fe-tab.on{background:var(--card)}
-#fe-qlook.side{margin-left:10px}
-#fe-table{border-collapse:separate;border-spacing:0}
-#fe-table tbody tr{border-bottom:0}
-#fe-table tbody tr:hover{background:none}
-#fe-table tbody tr:hover td{background:var(--hover)}
-#fe-table tbody tr.selected td{background:var(--on)}
-#fe-table tbody td{height:36px}
-#fe.compact #fe-table tbody td{height:28px}
-/* Row height per detail level; it wins over Compact, which only sets level 3. */
-#fe[data-density="1"] #fe-table tbody td{height:52px}
-#fe[data-density="2"] #fe-table tbody td{height:44px}
-#fe[data-density="4"] #fe-table tbody td{height:28px}
-#fe[data-density="5"] #fe-table tbody td{height:23px}
-#fe-table tbody td:first-child{border-radius:8px 0 0 8px}
-#fe-table tbody td:last-child{border-radius:0 8px 8px 0}
-#fe-scroll{padding:0 6px}
-.fe-row.selected .fe-nm{color:var(--tx)}
-.fe-tile.selected{background:var(--on);border-color:transparent}
-
-/* One row and one floating surface. Every list row (Places, Saved, Notes,
-   History, the path menu, context menus) shares a height, inset, corner,
-   icon size, text size and hover wash; in the sidebar a row sits 6px in from
-   the card edge, in a menu the menu's own 6px padding gives the same inset.
-   Every popover, menu, tip and the Contents card share one surface. Notes
-   rows grow to fit a tag line but keep the inset and corners. */
-:root{--fs-xs:calc(10px * var(--ui-text-scale,1));--fs-sm:calc(11px * var(--ui-text-scale,1));--fs-md:calc(12px * var(--ui-text-scale,1));--fs-lg:calc(13px * var(--ui-text-scale,1));--fs-xl:calc(15px * var(--ui-text-scale,1));--row-h:32px;--row-r:8px;--row-px:10px;--row-gap:10px;--row-ic:16px;--row-fs:var(--fs-lg);
-  --pop-r:12px;--pop-pad:6px;--pop-bg:color-mix(in srgb,var(--card) 90%,transparent);--pop-bd:var(--bd2);
-  --pop-sh:0 12px 32px rgb(0 0 0 / .34),0 1px 3px rgb(0 0 0 / .2);--pop-blur:blur(16px) saturate(1.2)}
-#fe[data-theme="light"],html:has(#fe[data-theme="light"]){--pop-bg:color-mix(in srgb,var(--card) 94%,transparent);--pop-bd:var(--bd);
-  --pop-sh:0 10px 28px rgb(16 24 32 / .12),0 1px 3px rgb(16 24 32 / .08)}
-/* The component system's scales (docs/plan/component-system.md, sections 4
-   and 5). Declared on #fe too, so tokens built from palette colours pick up
-   the light theme's values rather than the root's. */
-:root,#fe{
-  --sp-1:2px;--sp-2:4px;--sp-3:6px;--sp-4:8px;--sp-5:12px;--sp-6:16px;--sp-7:20px;--sp-8:24px;--sp-9:32px;
-  --ctl-xs:18px;--ctl-sm:22px;--ctl-md:28px;--ctl-lg:32px;--bar-h:40px;
-  --r-xs:4px;--r-full:999px;
-  --z-sticky:5;--z-panel:30;--z-popover:300;--z-overlay:400;--z-command:500;--z-toast:600;--z-tip:700;--z-step:10;
-  --tone-ok:var(--nc-green);--tone-warn:var(--nc-orange);--tone-danger:var(--nc-red);--tone-info:var(--nc-blue);
-  --type-micro:var(--fs-sm);--type-small:var(--fs-md);--type-ui:var(--fs-lg);--type-ui-strong:var(--fs-lg);--type-title:var(--fs-xl)}
-@media (prefers-reduced-motion:reduce){:root,#fe{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}}
-.fe-si,.fe-bm-item,.fe-dd-item,.fe-ctx-item{min-height:var(--row-h);margin:0 6px;padding:0 var(--row-px);gap:var(--row-gap);
-  border-radius:var(--row-r);font-size:var(--row-fs);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-dd-item,.fe-ctx-item{margin:0}
-button.fe-si{width:auto;display:flex}
-.fe-si > svg,.fe-si-link > svg,.fe-dd-item > svg,.fe-ctx-item > svg{width:var(--row-ic);height:var(--row-ic);flex:none}
-.fe-sl{font-size:var(--row-fs)}
-.fe-si-link{padding:0;gap:var(--row-gap);min-height:var(--row-h)}
-.fe-nt-item .fe-si-link{padding:6px 0}
-.fe-pl-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
-
-/* A note row's actions float over the end of the title on a solid fade, so
-   nothing moves under the pointer on hover. In a narrow sidebar only delete
-   shows; colour and open-in-tab stay in the right-click menu. */
-.fe-nt-item .fe-nt-acts{right:4px;border-radius:0 var(--row-r) var(--row-r) 0;padding-left:14px;
-  --fade:var(--hover);background:linear-gradient(to right,transparent,var(--fade) 14px),linear-gradient(to right,transparent,var(--side) 14px)}
-.fe-nt-item:has(> .fe-si-link.active) .fe-nt-acts{--fade:var(--on)}
-.fe-nt-item:has(.editing) .fe-nt-acts{display:none}
-
-#fe-lenses{container:lens/inline-size}
-@container lens (max-width:200px){.fe-nt-props,.fe-nt-tab{display:none!important}}
-/* A tag group is a plain section: one header row (chevron, colour, name,
-   count) at the row inset, and its rows exactly like every other row. */
-.fe-grp{margin:6px 0 0;padding:0;background:none;border-radius:0}
-.fe-grp:not([open]){padding:0}
-.fe-grp .fe-bm-item{margin:0 6px}
-.fe-grp > summary{min-height:28px;margin:0 6px;padding:0 var(--row-px);border-radius:var(--row-r);gap:8px;
-  font-size:var(--fs-sm);letter-spacing:.06em;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-grp > summary:hover{background:var(--hover);color:var(--tx)}
-.fe-grp > summary svg{width:12px;height:12px;opacity:.8}
-.fe-sh{padding:10px 16px 4px}
-.fe-hint{padding:6px 16px}
-#fe-lens-filter,#fe-docs-q{width:calc(100% - 12px);margin:2px 6px 8px}
-.fe-lens-tags{padding:0 6px 8px}
-/* Saved and Notes: the lens's own buttons, icon only, left of one search
-   box that carries a Names/Deep switch; the tag chips scroll in a row below. */
-.fe-lens-tools{padding:2px 6px 8px}
-.fe-lens-ib{flex:none}
-
-a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
-.fe-lens-box{position:relative;flex:1;min-width:0;margin-left:4px}
-.fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
-.fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
-#fe-lens-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-#fe-lens-tags .fe-lens-tag{flex:none;white-space:nowrap}
-/* A saved row is one quiet line: the name, then a tag count that gives way to
-   the row's icon buttons on hover. Path and tags live in the hover card. */
-.fe-pl-meta{display:inline-flex;align-items:center;gap:2px;margin-left:auto;padding-right:2px;flex:none;font-size:var(--fs-xs);color:var(--dm)}
-.fe-pl-meta svg{width:11px!important;height:11px!important;opacity:1}
-.fe-pl-item:hover .fe-pl-meta,.fe-pl-item:focus-within .fe-pl-meta{display:none}
-.fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{display:none;opacity:1}
-
-.fe-pl-item:has(.fe-pl-hit){flex-wrap:wrap}
-.fe-pl-hit{flex-basis:100%;padding:0 0 5px 29px;margin-top:-4px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#fe-sv-card{position:fixed;z-index:60;pointer-events:none;width:230px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--pop-bd);border-radius:10px;
-  background:var(--pop-bg);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);font-size:var(--fs-sm);color:var(--mt);line-height:1.45;animation:fe-rise var(--t-fast) var(--ease)}
-#fe-sv-card[hidden]{display:none}
-#fe-sv-card b{color:var(--tx);font-size:var(--fs-md);font-weight:600;overflow-wrap:anywhere}
-.fe-svc-path{overflow-wrap:anywhere}
-.fe-svc-tags{display:flex;flex-wrap:wrap;gap:4px;padding-top:2px}
-.fe-svc-hint{color:var(--dm);font-size:var(--fs-xs)}
-/* A note row: a colour bar and tinted icon for a coloured note, the title with
-   its tags as small chips beneath, and the pin in the end slot until hover. */
-.fe-nt-item.coloured::before{content:'';position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--c)}
-.fe-nt-item.coloured .fe-si-link > svg{color:var(--c);opacity:1}
-.fe-nt-item.two .fe-si-link{align-items:flex-start}
-.fe-nt-item.two .fe-si-link > svg{margin-top:1px}
-.fe-nt-main{gap:4px}
-.fe-nt-tags{gap:4px;flex-wrap:nowrap;overflow:hidden}
-.fe-nt-tag{display:inline-flex;align-items:center;gap:4px;height:17px;padding:0 6px;border:1px solid var(--bd2);border-radius:999px;font-size:var(--fs-xs);color:var(--mt);white-space:nowrap;flex:none}
-.fe-nt-tag i{width:6px;height:6px;border-radius:50%;flex:none}
-.fe-nt-item .fe-nt-pin{display:inline-flex;margin-left:auto;padding-right:4px;color:var(--gold);flex:none}
-.fe-nt-item .fe-nt-pin svg{width:12px!important;height:12px!important;opacity:1}
-.fe-nt-item:hover .fe-nt-pin,.fe-nt-item:focus-within .fe-nt-pin{visibility:hidden}
-
-.fe-nt-grp{gap:7px;width:calc(100% - 12px);height:26px;margin:8px 6px 2px;padding:0 var(--row-px);border:0;border-radius:var(--row-r);background:none;cursor:pointer;
-  font-family:inherit;text-align:left}
-.fe-nt-grp:first-child{margin-top:0}
-.fe-nt-grp:hover{background:var(--hover);color:var(--tx)}
-.fe-nt-grp .fe-grp-n{letter-spacing:0}
-.fe-nt-grp-pin{display:inline-flex;color:var(--gold)}
-.fe-nt-grp-pin svg{width:12px;height:12px}
-#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
-  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);
-  backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);color:var(--tx)}
-#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-allow,#fe-toc-rail{border-radius:var(--pop-r)}
-#fe-crumb-menu,#fe-ctx,.fe-ctx{padding:var(--pop-pad)}
-#fe-hint{border-radius:var(--row-r);padding:5px 10px}
-.fe-dd-search-wrap{padding:0 0 6px;margin-bottom:4px}
-
-.fe-dd-items{padding:0}
-.fe-ctx-sep{margin:4px 4px}
-.fe-toast-act{color:var(--ac)}
-/* Contents is a quiet card, with a faint rail per heading level so the
-   hierarchy reads at a glance. */
-#fe-toc-rail{box-shadow:0 1px 2px rgb(0 0 0 / .05),0 4px 14px rgb(0 0 0 / .06)}
-#fe-toc a{margin:0 6px;position:relative}
-#fe-toc a.fe-toc-h2,#fe-toc a.fe-toc-h3,#fe-toc a.fe-toc-h4{--rail:color-mix(in srgb,var(--bd2) 55%,transparent)}
-#fe-toc a.fe-toc-h2::before,#fe-toc a.fe-toc-h3::before,#fe-toc a.fe-toc-h4::before{content:'';position:absolute;inset:0 auto 0 0;width:44px;pointer-events:none;
-  background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat}
-#fe-toc a.fe-toc-h3::before,#fe-toc a.fe-toc-h4::before{background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 25px 0/1px 100% no-repeat}
-#fe-toc a.fe-toc-h4::before{background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 25px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 37px 0/1px 100% no-repeat}
-
-/* Motion. Things that appear fade and settle from a few pixels away; a
-   folded group's body eases its height; the lens that takes over the
-   sidebar slides in from the side it was picked on. One duration family
-   (--t-fast, --t-base) and one ease. Reduced motion snaps everything. */
-@keyframes fe-rise{from{opacity:0;transform:translateY(-4px) scale(.985)}to{opacity:1;transform:none}}
-@keyframes fe-fade{from{opacity:0}to{opacity:1}}
-@keyframes fe-lens-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
-@keyframes fe-dock-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
-#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu{animation:fe-rise var(--t-fast) var(--ease);transform-origin:top left}
-.fe-lens:not([hidden]){animation:fe-lens-in var(--t-base) var(--ease)}
-#fe-qlook.side{animation:fe-dock-in var(--t-base) var(--ease)}
-.fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
-/* Settings and Help read as a page: the title across the top, the sections
-   listed on the left the way the sidebar lists lenses, the pane on the right.
-   In Settings each row names the setting, says what it changes and keeps its
-   control on the right; rows sit in cards by subject. */
-.fe-set-h{justify-content:space-between;min-height:40px;padding:8px 16px 4px}
-.fe-set{display:flex;align-items:center;gap:16px;min-height:52px;padding:8px 16px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
-.fe-set-h + .fe-set{border-top:0}
-.fe-set-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.fe-set-l{font-size:var(--row-fs);color:var(--tx)}
-.fe-set-d{font-size:var(--fs-md);color:var(--dm);line-height:1.35}
-.fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none;max-width:62%}
-.fe-set-c .fe-st-input{width:260px;max-width:100%}
-.fe-set-note{padding:2px 16px 10px;font-size:var(--fs-md);color:var(--dm);line-height:1.5}
-.fe-set-note:empty{display:none}
-.fe-set-card #fe-st-rules-list{margin:0 16px}
-.fe-set-danger{color:var(--nc-red)}
-
-.fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
-  background:var(--s3);cursor:pointer;transition:background var(--t-fast) var(--ease)}
-.fe-switch::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;
-  box-shadow:0 1px 2px rgb(0 0 0 / .3);transition:transform var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
-.fe-switch:checked{background:var(--ac)}
-.fe-switch:checked::after{transform:translateX(14px);background:var(--tx-on-ac)}
-.fe-switch:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
-.fe-set-sws{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
-.fe-set-sw{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 8px;border-radius:10px;cursor:pointer;
-  font-size:var(--fs-md);color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-set-sw:hover{background:var(--hover)}
-.fe-set-sw:has(input:checked){background:var(--on);color:var(--tx)}
-.fe-set-sw input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
-.fe-set-sw-chip{width:40px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--b) 55%,var(--a) 55%);box-shadow:inset 0 0 0 1px var(--bd2)}
-/* Editing: the reading width applies to Raw and Rich; Split gives each side
-   half the pane and its own scroll. Problems mark their row in the gutter. */
-#fe-fe-col{max-width:none}
-#fe.fe-column-xl #fe-fe-col{max-width:150ch}
-#fe.fe-column-lg #fe-fe-col{max-width:130ch}
-#fe.fe-column-md #fe-fe-col{max-width:110ch}
-[data-mode="split"] #fe-fe-scroll{overflow:hidden}
-#fe [data-mode="split"] #fe-fe-col{max-width:none;height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:0}
-/* Spacing on the text side is border, not padding: the typing layer is placed
-   against the padding box, so padding would shift it off the painted text. */
-[data-mode="split"] #fe-fe-src{overflow:auto;padding:0 20px 120px 0;border-top:24px solid transparent;border-left:12px solid transparent}
-[data-mode="split"] #fe-fe-view{overflow:auto;padding:60px 28px 120px;border-left:1px solid var(--bd)}
-#fe-fe-diag[hidden]{display:none}
-.fe-fe-rich{padding:0}
-[data-mode="rich"] #fe-fe-view,[data-mode="split"] #fe-fe-view{animation:fe-fade var(--t-base) var(--ease)}
-.fe-html-frame{display:block;width:100%;height:calc(100vh - 210px);min-height:320px;border:1px solid var(--bd);border-radius:8px;background:#fff}
-.fe-yaml-sep{border:0;border-top:1px dashed var(--bd);margin:12px 0}
-.fe-fe-row.err,.fe-cl.err{background:color-mix(in srgb,var(--nc-red) 8%,transparent)}
-.fe-fe-row.warn,.fe-cl.warn{background:color-mix(in srgb,var(--nc-orange) 7%,transparent)}
-.fe-fe-row.err .fe-fe-ln,.fe-cl.err .fe-cl-n{color:var(--nc-red);font-weight:600}
-.fe-fe-row.warn .fe-fe-ln,.fe-cl.warn .fe-cl-n{color:var(--nc-orange);font-weight:600}
-.fe-fe-row.err .fe-fe-code,.fe-cl.err .fe-cl-t{text-decoration:underline wavy color-mix(in srgb,var(--nc-red) 70%,transparent);text-underline-offset:3px}
-.fe-cl.flash{background:var(--on);transition:background 1s var(--ease)}
-.fe-fe-modes,.fe-fe-modes .fe-seg-b{border-radius:var(--r-full)}
-#fe-fe-pill .fe-fe-diag{border-radius:999px;padding:0 10px;font-size:var(--fs-md)}
-.fe-fe-diag.error{color:var(--nc-red)}
-.fe-fe-diag.warn{color:var(--nc-orange)}
-.fe-diag{margin:0 0 14px;font-size:var(--fs-md)}
-.fe-diag > summary{cursor:pointer;padding:8px 12px;font-weight:600;list-style:none}
-.fe-diag.error > summary{color:var(--nc-red)}
-.fe-diag.warn > summary{color:var(--nc-orange)}
-.fe-diag-row{display:flex;gap:10px;width:100%;padding:5px 12px;border:0;background:none;color:var(--mt);font:inherit;text-align:left;cursor:pointer;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
-.fe-diag-row:hover{background:var(--hover);color:var(--tx)}
-.fe-diag-ln{flex:none;min-width:3ch;text-align:right;font-family:var(--mono);color:var(--dm)}
-.fe-diag-row.error .fe-diag-ln{color:var(--nc-red)}
-.fe-diag-row.warn .fe-diag-ln{color:var(--nc-orange)}
-.fe-diag-more{display:block;padding:5px 12px 8px;color:var(--dm)}
-#fe-page > .fe-diag{margin:16px 48px 0}
-/* Search and Ask lenses: a form at the row inset, results as ordinary rows. */
-.fe-tl-form{display:flex;flex-direction:column;gap:6px;margin:2px 6px 8px}
-.fe-tl-input{width:100%;resize:vertical}
-
-.fe-tl-opts{display:flex;gap:12px;padding:0 4px}
-.fe-srch-hit{align-items:flex-start;padding-top:6px;padding-bottom:6px}
-.fe-srch-hit > svg{margin-top:1px}
-.fe-srch-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
-.fe-srch-snip{font-size:var(--fs-md);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fe-srch-snip mark{background:color-mix(in srgb,var(--ac) 28%,transparent);color:var(--tx);border-radius:3px;padding:0 1px}
-/* Ask: a top row (model chip, new chat, history), the chat, and a composer
-   pinned to the bottom of the lens. */
-#fe-lens-ask:not([hidden]){display:flex;flex-direction:column;min-height:100%}
-#fe-ask{flex:1;display:flex;flex-direction:column}
-.fe-ask-top{position:relative;display:flex;align-items:center;gap:2px;margin:0 10px 8px 14px}
-.fe-ask-sp{flex:1}
-.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%}
-.fe-ask-model > .dot{position:absolute;left:10px;top:50%;margin-top:-3.5px;pointer-events:none}
-.fe-ask-model .fe-dd-btn{min-width:0;max-width:190px;padding-left:var(--sp-8)}
-.fe-ask-model .dot,.fe-ask-status .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dm)}
-.dot.ready{background:var(--green)}
-.dot.cold{background:var(--gold)}
-.dot.down,.dot.unavailable{background:var(--nc-red)}
-.fe-ask-ib{position:relative}
-
-.fe-ask-n{position:absolute;top:1px;right:0}
-.fe-ask-status{display:flex;align-items:center;gap:8px;margin:0 16px 8px;font-size:var(--fs-sm);line-height:1.4;color:var(--mt)}
-.fe-ask-status[hidden]{display:none}
-.fe-ask-cloud{display:flex;align-items:center;gap:6px;margin:0 16px 8px;font-size:var(--fs-sm);color:var(--mt)}
-.fe-ask-cloud[hidden]{display:none}
-.fe-ask-cloud svg{width:12px;height:12px;flex:none;color:var(--gold)}
-#fe-ask-thread{display:flex;flex-direction:column;gap:14px;padding:4px 12px 12px 14px}
-.fe-ask-turn{display:flex;flex-direction:column;gap:6px}
-.fe-ask-q{align-self:flex-end;max-width:88%;padding:6px 10px;border-radius:12px 12px 4px 12px;background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx);font-size:var(--fs-md);line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
-.fe-ask-a.fe-md{padding:0;font-size:var(--fs-md);line-height:1.55;max-width:none}
-/* renderMarkdown wraps its output in its own .fe-md, which must not pad again. */
-.fe-ask-a .fe-md{padding:0;font-size:inherit;max-width:none}
-.fe-ask-wait{color:var(--dm)}
-.fe-ask-meta{font-size:var(--fs-xs);color:var(--dm)}
-.fe-ask-meta:empty{display:none}
-.fe-ask-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;color:var(--dm);font-size:var(--fs-md);text-align:center}
-.fe-ask-empty[hidden]{display:none}
-.fe-ask-empty p{margin:0}
-.fe-ask-quick{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
-.fe-ask-form{position:sticky;bottom:0;margin-top:auto;padding:8px 10px 10px;background:linear-gradient(to bottom,transparent,var(--side) 14px)}
-.fe-ask-box{display:flex;flex-direction:column;gap:4px;padding:8px 8px 6px 10px;border:1px solid var(--bd2);border-radius:14px;background:var(--bg);transition:border-color var(--t-fast) var(--ease)}
-.fe-ask-box:focus-within{border-color:var(--ac)}
-#fe-ask-q{width:100%;min-height:22px;max-height:140px;padding:0;border:0;outline:0;resize:none;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md);line-height:1.45}
-#fe-ask-q::placeholder{color:var(--dm)}
-.fe-ask-foot{display:flex;align-items:center;gap:8px}
-.fe-ask-ctx{flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--dm)}
-.fe-ask-ctx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-ask-ctx svg{width:11px;height:11px;flex:none}
-.fe-ask-send{flex:none}
-
-.fe-ask-send.stop svg{display:none}
-.fe-ask-send.stop::before{content:'';width:9px;height:9px;border-radius:2px;background:currentColor}
-.fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
-.fe-ask-hist[hidden]{display:none}
-.fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
-.fe-ask-h-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:0;background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md)}
-.fe-ask-h-m{font-size:var(--fs-xs);color:var(--dm)}
-.fe-ask-h-del{opacity:0}
-.fe-ask-h:hover .fe-ask-h-del,.fe-ask-h-del:focus-visible{opacity:1}
-/* Review fixes: Settings follows the page order (panel a step below, cards
-   on top), fields share one look, path chevrons show on hover only, and
-   the palette swatch previews the theme in use. */
-
-#fe-bar .fe-crumb-dd{opacity:1;color:var(--dm);padding:3px 1px}
-#fe-bar .fe-crumb-dd:hover{color:var(--tx)}
-#fe-statusbar{min-width:0;overflow:hidden;white-space:nowrap}
-#fe[data-theme="light"] .fe-set-sw:nth-child(1) .fe-set-sw-chip{--b:#eaf0f2;--a:#0e8f8a}
-#fe[data-theme="light"] .fe-set-sw:nth-child(2) .fe-set-sw-chip{--b:#f0f0f5;--a:#6d4aff}
-#fe[data-theme="light"] .fe-set-sw:nth-child(3) .fe-set-sw-chip{--b:#f2ece4;--a:#c2406b}
-#fe[data-theme="light"] .fe-set-sw:nth-child(4) .fe-set-sw-chip{--b:#f0f0f0;--a:#141414}
-/* Settings and Help as a desktop settings window: the title and the tabs
-   down the left, each tab a coloured tile; each page opens with a header
-   (large tile, title, what the page covers) that stays put while the page
-   scrolls; sections are small headings over grouped cards. Hierarchy comes
-   from weight, colour, case and space, inside the five-step type scale. */
-
-
-.fe-set-group{display:flex;flex-direction:column;gap:8px}
-.fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px}
-.fe-set-card{overflow:hidden}
-.fe-set-card > .fe-set:first-child{border-top:0}
-.fe-set-card > .fe-set-note:first-child{padding-top:12px}
-.fe-set-card #fe-st-reset-rules{margin:10px 16px 12px}
-#fe-st-ai-card{background:none;border:0;border-radius:0;padding:14px 16px}
-/* Theme and palette pickers: a small window drawn in the colours each one
-   picks. Palette windows follow the current mode; mode windows show both. */
-.fe-set-sws{gap:6px}
-.fe-set-sw{gap:6px;padding:6px}
-.fe-set-thumb{position:relative;display:block;width:68px;height:46px;border-radius:8px;overflow:hidden;background:var(--b);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t) 14%,transparent),0 1px 3px rgb(0 0 0 / .18);
-  --t:#fff;--c:color-mix(in srgb,var(--b) 78%,#000);transition:box-shadow var(--t-fast) var(--ease)}
-.fe-set-thumb i{position:absolute;display:block}
-.fe-set-thumb .sb{left:0;top:0;bottom:0;width:18px;background:var(--c)}
-.fe-set-thumb .r1,.fe-set-thumb .r2{left:25px;height:4px;border-radius:2px;background:var(--t);opacity:.42}
-.fe-set-thumb .r1{top:11px;width:32px}
-.fe-set-thumb .r2{top:20px;width:22px;opacity:.26}
-.fe-set-thumb .pill{left:25px;bottom:9px;width:20px;height:7px;border-radius:4px;background:var(--a)}
-.fe-set-sw:has(input:checked) .fe-set-thumb{box-shadow:0 0 0 2px var(--ac),0 1px 3px rgb(0 0 0 / .18)}
-.fe-set-sw:has(.fe-set-thumb):has(input:checked){background:none}
-.fe-set-sw:has(.fe-set-thumb):hover{background:none}
-.fe-set-sw:has(.fe-set-thumb):hover .fe-set-thumb{box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 45%,transparent),0 1px 3px rgb(0 0 0 / .18)}
-.fe-set-sw:has(.fe-set-thumb):has(input:checked):hover .fe-set-thumb{box-shadow:0 0 0 2px var(--ac),0 1px 3px rgb(0 0 0 / .18)}
-.fe-set-sw:has(input:focus-visible) .fe-set-thumb{outline:2px solid var(--ac);outline-offset:3px}
-.fe-set-thumb[data-p="slate"]{--a:#3cc6c0;--b:#1c2328}
-.fe-set-thumb[data-p="violet"]{--a:#9d7cff;--b:#1f1f27}
-.fe-set-thumb[data-p="sand"]{--a:#e8789a;--b:#24201c}
-.fe-set-thumb[data-p="ink"]{--a:#f2f2f3;--b:#1b1b1d}
-#fe[data-theme="light"] .fe-set-thumb[data-p]{--t:#000;--c:color-mix(in srgb,var(--b) 90%,#000)}
-#fe[data-theme="light"] .fe-set-thumb[data-p="slate"]{--a:#0e8f8a;--b:#eef3f5}
-#fe[data-theme="light"] .fe-set-thumb[data-p="violet"]{--a:#6d4aff;--b:#f3f3f8}
-#fe[data-theme="light"] .fe-set-thumb[data-p="sand"]{--a:#c2406b;--b:#f5efe7}
-#fe[data-theme="light"] .fe-set-thumb[data-p="ink"]{--a:#141414;--b:#f4f4f4}
-#fe .fe-set-thumb[data-mode="dark"]{--a:var(--ac);--b:#1c2328;--t:#fff;--c:#131a1e}
-#fe .fe-set-thumb[data-mode="light"]{--a:var(--ac);--b:#f4f6f8;--t:#000;--c:#e2e7eb}
-/* Very narrow: the sidebar shrinks to its rail and a picked lens floats over
-   the page; the path bar keeps its last folder in view. */
-@media (max-width:520px){
-  #fe #fe-side{width:54px!important;max-width:none;overflow:visible;position:relative;z-index:30;flex-direction:row}
-  #fe-rail{flex-direction:column;padding:8px 0;border-bottom:0}
-  .fe-rail-btn.on{flex-grow:0}
-  .fe-rail-btn em{display:none}
-  #fe-side-rz{display:none}
-  #fe-lenses{display:none}
-  #fe-side.open #fe-lenses{display:block;position:absolute;top:0;bottom:0;left:58px;width:min(260px,calc(100vw - 80px));
-    background:var(--side);border:1px solid var(--pop-bd);border-radius:12px;box-shadow:var(--pop-sh);animation:fe-lens-in var(--t-base) var(--ease)}
-  #fe-rail{border-right:0}
-  #fe-bc{justify-content:flex-end}
-}
-@container fe-main (max-width:480px){
-  #fe-page .fe-md{padding:16px 14px 48px}
-  #fe-page .fe-md h1{font-size:1.45em}
-  #fe-page > .fe-diag{margin:12px 14px 0}
-}
-#fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none!important}
-.fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
-@media (prefers-reduced-motion:reduce){
-  #fe *,#fe *::before,#fe *::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
-}
-
-/* Narrow windows keep the reading column usable: the listing drops its
-   lesser columns, Contents gives way to the text, and the sidebar is held
-   to a share of the width (max-width beats a dragged inline width). */
-@container fe-main (max-width:560px){
-  .c-tp,.c-tg{display:none}
-}
-@container fe-main (max-width:400px){
-  .c-dt{display:none}
-}
-/* A narrow window keeps the card out of the text until it is asked for;
-   then it floats over the right side (the peek state, set in file-page.ts). */
-@media (max-width:760px){
-  #fe-toc-rail:not(.peek){display:none}
-  #fe-toc-rail.peek{width:min(300px,calc(100% - 24px));right:12px}
-}
-@media (max-width:640px){
-  #fe-side{max-width:42vw}
-  #fe-side{width:clamp(180px,30vw,220px)}
-  #fe-body{padding:6px}
-  #fe-side-rz{width:6px}
-  #fe-qlook.side{margin-left:6px}
-}
-/* A narrow dialog, in a small window or in the sidebar: the tabs run across the top. */
-@container dlg (max-width:700px){
-  .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
-  .fe-dlg-title{border-right:0}
-  .fe-dlg-tabs{grid-row:2;flex-direction:row;border-right:0;border-bottom:1px solid var(--bd)}
-  .fe-dlg-tab{flex:none}
-  .fe-dlg-tab i{display:none}
-  .fe-dlg-pane{grid-column:1;grid-row:3}
-  /* Settings rows stack: the label, then the control the full width. Written
-     one step more specific than the wide rules in styles-ui.ts, which come later. */
-  .fe-set-card .fe-set{flex-direction:column;align-items:stretch;gap:var(--sp-4)}
-  .fe-set > .fe-set-c{max-width:none;justify-content:flex-start}
-  .fe-set-c .fe-set-sws.grid4{grid-template-columns:repeat(auto-fill,minmax(68px,1fr));justify-content:start}
-  .fe-set-c .fe-set-sws{width:100%;justify-content:flex-start}
-  /* Help: one column of cards; the page header needs no room for the buttons. */
-  .fe-dlg-pane .fe-hcs{grid-template-columns:minmax(0,1fr)}
-  .fe-dlg-ph{padding-right:var(--sp-8)}
-  .fe-km-g .fe-km-i{flex-wrap:wrap;padding-block:var(--sp-2)}
-  .fe-km-i .fe-km-k{flex-wrap:wrap;margin-left:auto}
-}
-`;
-
-  // src/styles-ui.ts
-  var UI_CSS = `
-/* Palettes beyond the first four: dark tokens, then light. */
-#fe[data-palette="ocean"],html:has(#fe[data-palette="ocean"]){
-  --bg:#0d1219;--s1:#131a24;--s2:#19222f;--s3:#222d3d;--bd:#222c3a;--bd2:#313e50;--tx:#e6edf5;--mt:#a1b0c2;--dm:#7d8ca0;--ac:#4da3ff;--tx-on-ac:#0d1219;--dir:#a1b0c2}
-#fe[data-palette="ocean"][data-theme="light"],html:has(#fe[data-palette="ocean"][data-theme="light"]){
-  --bg:#eef3f9;--s1:#ffffff;--s2:#e9eff7;--s3:#dbe5f1;--bd:#d9e2ee;--bd2:#c2cfdf;--tx:#152030;--mt:#4b5d75;--dm:#687a92;--ac:#1f6fd1;--tx-on-ac:#ffffff;--dir:#5b6d85}
-#fe[data-palette="forest"],html:has(#fe[data-palette="forest"]){
-  --bg:#0e1310;--s1:#141b16;--s2:#1a231d;--s3:#232e26;--bd:#232d26;--bd2:#334136;--tx:#e6efe8;--mt:#a3b3a7;--dm:#7f9184;--ac:#5fc77a;--tx-on-ac:#0e1310;--dir:#a3b3a7}
-#fe[data-palette="forest"][data-theme="light"],html:has(#fe[data-palette="forest"][data-theme="light"]){
-  --bg:#f0f4ef;--s1:#ffffff;--s2:#eaf0e9;--s3:#dde6dc;--bd:#dbe3d9;--bd2:#c3d0c1;--tx:#18241a;--mt:#4d6151;--dm:#697d6c;--ac:#247338;--tx-on-ac:#ffffff;--dir:#5a6e5d}
-#fe[data-palette="ember"],html:has(#fe[data-palette="ember"]){
-  --bg:#14100d;--s1:#1c1612;--s2:#251d17;--s3:#30261e;--bd:#30261f;--bd2:#45372b;--tx:#f2e9e1;--mt:#bba99a;--dm:#988676;--ac:#ff8a3d;--tx-on-ac:#14100d;--dir:#bba99a}
-#fe[data-palette="ember"][data-theme="light"],html:has(#fe[data-palette="ember"][data-theme="light"]){
-  --bg:#f8f2ec;--s1:#fffcf9;--s2:#f4ebe2;--s3:#eadccf;--bd:#e8dccf;--bd2:#d6c3b0;--tx:#2b1f15;--mt:#6c5847;--dm:#88725f;--ac:#a64a0e;--tx-on-ac:#ffffff;--dir:#7a6553}
-#fe[data-palette="nord"],html:has(#fe[data-palette="nord"]){
-  --bg:#1f232b;--s1:#262b34;--s2:#2c323c;--s3:#353c48;--bd:#353c47;--bd2:#444c59;--tx:#e5e9f0;--mt:#aeb6c4;--dm:#8a93a3;--ac:#88c0d0;--tx-on-ac:#1f232b;--dir:#aeb6c4}
-#fe[data-palette="nord"][data-theme="light"],html:has(#fe[data-palette="nord"][data-theme="light"]){
-  --bg:#eceff4;--s1:#ffffff;--s2:#e5e9f0;--s3:#d8dee9;--bd:#d8dee9;--bd2:#c2cad6;--tx:#2e3440;--mt:#4c566a;--dm:#67728a;--ac:#4b6c96;--tx-on-ac:#ffffff;--dir:#5c667a}
-.fe-set-thumb[data-p="ocean"]{--a:#4da3ff;--b:#19222f}
-.fe-set-thumb[data-p="forest"]{--a:#5fc77a;--b:#1a231d}
-.fe-set-thumb[data-p="ember"]{--a:#ff8a3d;--b:#251d17}
-.fe-set-thumb[data-p="nord"]{--a:#88c0d0;--b:#2c323c}
-#fe[data-theme="light"] .fe-set-thumb[data-p="ocean"]{--a:#1f6fd1;--b:#eef3f9}
-#fe[data-theme="light"] .fe-set-thumb[data-p="forest"]{--a:#2e8b47;--b:#f0f4ef}
-#fe[data-theme="light"] .fe-set-thumb[data-p="ember"]{--a:#c85a12;--b:#f8f2ec}
-#fe[data-theme="light"] .fe-set-thumb[data-p="nord"]{--a:#5e81ac;--b:#eceff4}
-/* System: half dark, half light. */
-#fe .fe-set-thumb[data-mode="system"]{--a:var(--ac);--b:#1c2328;--t:#fff;--c:#131a1e;background:linear-gradient(135deg,#1c2328 50%,#f4f6f8 50%)}
-#fe .fe-set-thumb[data-mode="system"] .sb{background:linear-gradient(135deg,#131a1e 50%,#e2e7eb 50%)}
-
-
-/* Settings rows: a wide row puts its control under the label. */
-.fe-set.wide{flex-direction:column;align-items:stretch;gap:10px}
-.fe-set.wide .fe-set-c{max-width:none;justify-content:flex-start}
-.fe-set.wide .fe-set-tx:has(.fe-set-l:empty){gap:0}
-.fe-set-c{max-width:70%;flex-wrap:wrap}
-#fe-st-term-hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}
-.fe-set-sws.grid4{display:grid;grid-template-columns:repeat(4,max-content);gap:4px 8px;justify-content:end}
-
-/* Icon button: no fill until hovered. */
-.fe-ibtn{flex:none}
-
-
-
-
-/* Segmented: a row of buttons with one on (docs/system/segmented.md). The
-   group is one control high, md 28 (the default) or lg 32 with data-size;
-   its items are 4px shorter, rounded squares inside it. An item with only
-   an icon is square. */
-.fe-seg{--seg-h:var(--ctl-md);display:inline-flex;align-items:stretch;gap:2px;height:var(--seg-h);padding:2px;box-sizing:border-box;border-radius:var(--row-r);
-  background:color-mix(in srgb,var(--tx) 6%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
-.fe-seg[data-size="lg"]{--seg-h:var(--ctl-lg)}
-.fe-seg-b{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);min-width:calc(var(--seg-h) - 4px);padding:0 var(--sp-4);border:0;border-radius:var(--r-sm);
-  background:none;color:var(--mt);font:inherit;font-size:var(--type-ui);font-weight:500;cursor:pointer;white-space:nowrap;box-sizing:border-box;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-seg-b.ico{width:calc(var(--seg-h) - 4px);padding:0}
-.fe-seg-b svg{flex:none;width:14px;height:14px}
-.fe-seg-b:hover{color:var(--tx);background:var(--hover)}
-.fe-seg-b.on,.fe-seg-b.on:hover{color:var(--ac);background:var(--on)}
-.fe-seg-b:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-
-/* A slider that steps through set values, with the value beside it. */
-.fe-sld{display:inline-flex;align-items:center;gap:12px;width:240px;--pct:50%}
-.fe-sld input{flex:1;min-width:0;height:20px;margin:0;background:none;appearance:none;-webkit-appearance:none;cursor:pointer}
-.fe-sld input::-webkit-slider-runnable-track{height:4px;border-radius:2px;
-  background:linear-gradient(90deg,var(--ac) var(--pct),color-mix(in srgb,var(--tx) 14%,transparent) var(--pct))}
-.fe-sld input::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;margin-top:-6px;border-radius:50%;background:#fff;
-  box-shadow:0 0 0 1px rgb(0 0 0 / .14),0 1px 3px rgb(0 0 0 / .3);transition:transform var(--t-fast) var(--ease)}
-.fe-sld input:hover::-webkit-slider-thumb{transform:scale(1.12)}
-.fe-sld input:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 40%,transparent),0 1px 3px rgb(0 0 0 / .3)}
-.fe-sld output{min-width:48px;padding:3px 7px;border-radius:6px;background:color-mix(in srgb,var(--tx) 6%,transparent);font:500 var(--fs-md) var(--mono);color:var(--tx);text-align:center}
-
-/* A dropdown button and its list. */
-.fe-dd{--dd-h:var(--ctl-md);display:inline-flex}
-.fe-dd[data-size="lg"]{--dd-h:var(--ctl-lg)}
-.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:var(--dd-h);padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);
-  color:var(--tx);font:inherit;font-size:var(--type-ui);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
-/* The same surface and hairline as a TextBox: fields and dropdowns read as one family. */
-.fe-dd-btn:hover{border-color:color-mix(in srgb,var(--mt) 60%,var(--bd2))}
-.fe-dd-btn[aria-expanded="true"]{border-color:var(--ac)}
-.fe-dd-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-dd-cur{flex:1;display:flex;align-items:center;gap:8px;min-width:0;text-align:left}
-.fe-dd-cur span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-dd-cur svg{flex:none;width:14px;height:14px;color:var(--mt)}
-.fe-dd-btn > svg{flex:none;color:var(--dm)}
-.fe-dd-none{color:var(--dm)}
-.fe-dd-list{position:fixed;z-index:600;max-height:min(360px,60vh);overflow-y:auto;padding:5px;border-radius:var(--pop-r);
-  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
-.fe-dd-opt{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 10px;border-radius:7px;color:var(--tx);font-size:var(--row-fs);cursor:pointer;white-space:nowrap}
-.fe-dd-opt svg{flex:none;width:14px;height:14px;color:var(--mt)}
-.fe-dd-l{flex:1}
-.fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
-.fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
-.fe-dd-g:first-child{padding-top:var(--sp-2)}
-/* Chip: a short label in a pill (docs/system/chip.md). Class chip. Tags,
-   filters and facts. --chip carries a tag's colour for the border, the dot
-   and the fill. data-size: sm 18 for listing rows, md 22 (the default).
-   data-fill: a soft fill instead of a border. data-tone: due, done, quiet.
-   A button chip is a filter: on with .on or aria-pressed. A removable chip
-   ends in an xs Button. */
-.chip{--chip-h:var(--ctl-sm);display:inline-flex;align-items:center;gap:var(--sp-2);max-width:100%;height:var(--chip-h);padding:0 var(--sp-4);box-sizing:border-box;
-  border:1px solid color-mix(in srgb,var(--chip,var(--bd2)) 55%,transparent);border-radius:var(--r-full);background:none;color:var(--mt);
-  font:inherit;font-size:var(--type-small);line-height:1;white-space:nowrap;vertical-align:middle}
-.chip[data-size="sm"]{--chip-h:var(--ctl-xs);padding:0 var(--sp-3);font-size:var(--fs-sm)}
-.chip > svg{flex:none;width:12px;height:12px}
-.chip > i{flex:none;width:6px;height:6px;border-radius:var(--r-full)}
-.chip > span{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.chip:has(> .btn:last-child){padding-right:var(--sp-1)}
-.chip[data-fill]{border-color:transparent;background:color-mix(in srgb,var(--chip,var(--ac)) 16%,transparent);color:var(--tx)}
-.chip[data-tone="due"]{--chip:var(--nc-orange)}
-.chip[data-tone="done"]{--chip:var(--nc-green)}
-.chip[data-tone="quiet"]{background:var(--s2);color:var(--mt)}
-.chip[data-mono]{font-family:var(--mono)}
-.chip[data-add]{border-style:dashed}
-button.chip{cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
-button.chip:not(:disabled):hover{color:var(--tx);background:var(--hover)}
-button.chip[data-add]:not(:disabled):hover{border-style:solid;border-color:var(--ac)}
-.chip.on,.chip[aria-pressed="true"],button.chip.on:hover{color:var(--tx);background:color-mix(in srgb,var(--chip,var(--ac)) 22%,transparent)}
-button.chip:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-button.chip:disabled{opacity:.45;cursor:default}
-/* Badge: a count in a small pill (docs/system/badge.md). Class badge.
-   data-size: sm 14 on an icon's corner, md 18 (the default). data-tone:
-   soft (the default), solid, quiet. Empty, it hides. */
-.badge{--badge-h:18px;display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);min-width:var(--badge-h);height:var(--badge-h);padding:0 var(--sp-2);
-  box-sizing:border-box;border-radius:var(--r-full);background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx);
-  font-size:var(--fs-xs);font-weight:500;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:middle}
-.badge[data-size="sm"]{--badge-h:14px;padding:0 3px}
-.badge svg{flex:none;width:10px;height:10px}
-.badge[data-tone="solid"]{background:var(--ac);color:var(--tx-on-ac)}
-.badge[data-tone="quiet"]{background:var(--s2);color:var(--dm)}
-.badge:empty{display:none}
-/* Check: a box with a tick, and its label. Mixed shows a bar. */
-.fe-check{display:inline-flex;align-items:center;gap:var(--sp-3);min-height:var(--ctl-sm);color:var(--mt);font-size:var(--type-small);cursor:pointer;user-select:none}
-.fe-check:hover{color:var(--tx)}
-.fe-check input{appearance:none;-webkit-appearance:none;display:grid;place-content:center;flex:none;width:14px;height:14px;margin:0;border:1px solid var(--bd2);border-radius:var(--r-xs);background:var(--card);cursor:pointer;
-  transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
-.fe-check:hover input{border-color:var(--mt)}
-.fe-check input:checked,.fe-check input:indeterminate{background:var(--ac);border-color:var(--ac)}
-.fe-check input:checked::after{content:'';width:7px;height:4px;margin-top:-2px;border:solid var(--tx-on-ac);border-width:0 0 2px 2px;transform:rotate(-45deg)}
-.fe-check input:indeterminate::after{content:'';width:8px;height:2px;border-radius:1px;background:var(--tx-on-ac)}
-.fe-check input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-check input:disabled{opacity:.45;cursor:default}
-
-/* A list edited as chips. */
-.fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:var(--ctl-lg);padding:var(--sp-1) var(--sp-3);box-sizing:border-box;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);cursor:text}
-.fe-set.wide .fe-chipin{width:100%}
-.fe-chipin:focus-within{border-color:var(--ac)}
-.fe-chipin-in{flex:1;min-width:70px;height:24px;border:0;outline:0;background:none;color:var(--tx);font:var(--fs-md) var(--mono)}
-
-/* App icons: a grid of 16 tiles. */
-.fe-appicons{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
-.fe-appicon{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px 6px;border-radius:10px;cursor:pointer;color:var(--mt);font-size:var(--fs-sm);
-  transition:background var(--t-fast) var(--ease)}
-.fe-appicon:hover{background:var(--hover)}
-.fe-appicon input{position:absolute;opacity:0;pointer-events:none}
-.fe-appicon img{width:40px;height:40px;border-radius:10px;box-shadow:0 1px 3px rgb(0 0 0 / .25);transition:transform var(--t-fast) var(--ease)}
-.fe-appicon:hover img{transform:translateY(-1px) scale(1.04)}
-.fe-appicon:has(input:checked){background:var(--on);color:var(--tx)}
-.fe-appicon:has(input:checked) img{box-shadow:0 0 0 2px var(--ac),0 2px 6px rgb(0 0 0 / .25)}
-.fe-appicon:has(input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
-
-/* Icon rules. */
-.fe-rule-sugg{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:12px 16px 4px}
-.fe-rule-sugg:empty{display:none}
-.fe-rule-sugg-l{font-size:var(--fs-sm);color:var(--dm);margin-right:2px}
-.chip.fe-rule-add > svg{width:13px;height:15px}
-#fe-st-rules-list{padding:6px 10px 10px}
-.fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:10px;padding:6px;border-radius:9px}
-.fe-rule:hover{background:var(--hover)}
-.fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern{opacity:.45}
-.fe-switch.sm{width:28px;height:16px;border-radius:8px}
-.fe-switch.sm::after{width:12px;height:12px}
-.fe-switch.sm:checked::after{transform:translateX(12px)}
-.fe-rule-ico{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:9px;background:var(--card);cursor:pointer}
-.fe-rule-ico:hover{border-color:var(--ac)}
-.fe-rule-ico svg{width:18px;height:20px}
-.fe-st-rule-pattern{width:100%}
-.fe-rule-n{min-width:26px;padding:2px 6px;border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
-.fe-rule-pop{position:fixed;z-index:610;width:330px;padding:12px;border-radius:var(--pop-r);display:flex;flex-direction:column;gap:12px;
-  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
-.fe-rp-sec{display:flex;flex-direction:column;gap:6px}
-.fe-rp-l{font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
-.fe-rp-glyphs{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}
-.fe-rp-g{display:grid;place-items:center;height:34px;padding:0;border:0;border-radius:7px;background:none;cursor:pointer}
-.fe-rp-g svg{width:20px;height:22px}
-.fe-rp-g:hover{background:var(--hover)}
-.fe-rp-g.on{background:var(--on);box-shadow:inset 0 0 0 1.5px var(--ac)}
-.fe-rp-label{width:90px}
-.fe-rp-sw{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:center}
-.fe-rp-c{width:26px;height:26px;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .15);transition:transform var(--t-fast) var(--ease)}
-.fe-rp-c:hover{transform:scale(1.1)}
-.fe-rp-c.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c)}
-.fe-rp-c:focus-visible,.fe-rp-g:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-rp-hex{grid-column:span 4}
-
-/* AI: a status line on top, then the model controls and the list. */
-.fe-ai-hero{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--nc-purple) 18%,var(--card)),var(--card));
-  border:1px solid color-mix(in srgb,var(--nc-purple) 30%,var(--bd))}
-.fe-ai-hero .fe-st-ai-head{margin:0}
-.fe-ai-hero .fe-st-ai-blink,.fe-ai-hero .fe-st-ai-blink .dot{width:12px;height:12px}
-.fe-ai-hero-tx{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
-.fe-ai-hero-tx b{font-size:var(--fs-xl);font-weight:650;color:var(--tx)}
-.fe-ai-hero-tx span{font-size:var(--fs-md);color:var(--mt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:10px 16px 12px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
-#fe-st-ai-grid:empty{display:none}
-.fe-st-ai-hint code{font-family:var(--mono)}
-.fe-dm{color:var(--dm)}
-.fe-ai-models{display:flex;flex-direction:column;padding:6px}
-.fe-ai-m{display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px;border-radius:9px}
-.fe-ai-m:hover{background:var(--hover)}
-.fe-ai-m svg{flex:none;width:15px;height:15px;color:var(--mt)}
-.fe-ai-m b{font-size:var(--row-fs);font-weight:550;color:var(--tx)}
-.fe-ai-m-id{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--fs-sm) var(--mono);color:var(--dm)}
-.fe-ai-where{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:color-mix(in srgb,var(--nc-green) 16%,transparent);color:var(--nc-green)}
-.fe-ai-where.cloud{background:color-mix(in srgb,var(--nc-blue) 16%,transparent);color:var(--nc-blue)}
-.fe-ai-def{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:var(--on);color:var(--ac)}
-
-/* The command palette. */
-.fe-pal-wrap{position:fixed;inset:0;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
-.fe-pal{width:min(640px,calc(100vw - 32px));max-height:min(560px,72vh);display:flex;flex-direction:column;border-radius:16px;overflow:hidden;
-  background:var(--card);border:1px solid var(--pop-bd);box-shadow:0 24px 64px rgb(0 0 0 / .45),0 2px 8px rgb(0 0 0 / .25);animation:fe-rise var(--t-base) var(--ease)}
-.fe-pal-q{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd);color:var(--dm)}
-.fe-pal-q input{flex:1;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-xl)}
-.fe-pal-list{flex:1;overflow-y:auto;padding:6px}
-/* Palette tabs: one per kind of entry, each with its own colour, which the
-   entries of that kind share. */
-.fe-pal-tabs{flex:none;display:flex;gap:var(--sp-1);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none}
-.fe-pal-tab{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none;height:var(--ctl-md);padding:0 var(--sp-3);border:0;border-radius:var(--r-full);background:none;color:var(--mt);font:inherit;font-size:var(--fs-sm);cursor:pointer;transition:background var(--t-fast),color var(--t-fast)}
-.fe-pal-tab svg{width:1.1em;height:1.1em;color:var(--tab-c,var(--mt))}
-.fe-pal-tab i{font-style:normal;color:var(--dm);font-size:var(--fs-xs)}
-.fe-pal-tab:hover{background:var(--hover);color:var(--tx)}
-.fe-pal-tab.on{background:color-mix(in srgb,var(--tab-c,var(--ac)) 16%,transparent);color:var(--tx)}
-.fe-pal-tab.is-empty{opacity:.45}
-.fe-pal-tab[data-tab="actions"],.fe-pal-i[data-tab="actions"]{--tab-c:var(--ac)}
-.fe-pal-tab[data-tab="tabs"],.fe-pal-i[data-tab="tabs"]{--tab-c:var(--nc-blue)}
-.fe-pal-tab[data-tab="saved"],.fe-pal-i[data-tab="saved"]{--tab-c:var(--nc-yellow)}
-.fe-pal-tab[data-tab="recent"],.fe-pal-i[data-tab="recent"]{--tab-c:var(--nc-purple)}
-.fe-pal-tab[data-tab="notes"],.fe-pal-i[data-tab="notes"]{--tab-c:var(--nc-green)}
-.fe-pal-tab[data-tab="here"],.fe-pal-i[data-tab="here"]{--tab-c:var(--dir)}
-.fe-pal-tab[data-tab="comments"],.fe-pal-i[data-tab="comments"]{--tab-c:var(--nc-orange)}
-.fe-pal-tab[data-tab="chats"],.fe-pal-i[data-tab="chats"]{--tab-c:var(--nc-pink)}
-.fe-pal-g{padding:10px 10px 4px}
-.fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
-.fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--tab-c,var(--mt))}
-.fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
-.fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
-  background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--tx) 14%,transparent);color:var(--mt);font:600 var(--fs-xs) var(--mono);white-space:nowrap}
-.fe-pal-i kbd{margin-left:auto}
-.fe-pal-foot{display:flex;gap:16px;padding:8px 14px;border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--dm)}
-.fe-pal-foot span{display:inline-flex;align-items:center;gap:4px}
-
-/* A key sequence waiting for its second key. */
-.fe-chord{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:700;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;max-width:min(720px,90vw);
-  padding:8px 12px;border-radius:12px;background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);
-  font-size:var(--fs-md);color:var(--mt);animation:fe-rise var(--t-fast) var(--ease)}
-.fe-chord > kbd{background:var(--ac);color:var(--tx-on-ac);box-shadow:none}
-.fe-chord-o{display:inline-flex;align-items:center;gap:5px;color:var(--tx)}
-
-/* Key badges while \u2325 is held. */
-.fe-hints{position:fixed;inset:0;z-index:690;pointer-events:none}
-.fe-hints > kbd{position:fixed;transform:translate(-50%,0);background:var(--ac);color:var(--tx-on-ac);box-shadow:0 2px 6px rgb(0 0 0 / .35);animation:fe-rise var(--t-fast) var(--ease)}
-.fe-hints-tip{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;
-  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);font-size:var(--fs-md);color:var(--mt)}
-
-/* Where the keyboard is. */
-.fe-area-flash{animation:fe-area .7s var(--ease)}
-@keyframes fe-area{0%{box-shadow:inset 0 0 0 2px var(--ac)}100%{box-shadow:inset 0 0 0 2px transparent}}
-#fe-side .fe-si:focus-visible,#fe-side .fe-si-link:focus-visible,#fe-side summary:focus-visible,#fe-side .fe-nt-grp:focus-visible,
-#fe-tabs .fe-tab:focus-visible,#fe-bc a:focus-visible,#fe-bc button:focus-visible{outline:2px solid var(--ac);outline-offset:-2px;border-radius:var(--row-r)}
-
-/* Help: the keyboard map. Keys with a use are tinted; hovering an action
-   lights its keys, hovering a key lights its actions. */
-.fe-km{display:flex;flex-direction:column;gap:14px}
-.fe-km-board{display:flex;flex-direction:column;gap:5px;padding:14px;border-radius:14px;background:color-mix(in srgb,var(--tx) 4%,var(--card));
-  border:1px solid var(--bd);position:sticky;top:-2px;z-index:2;box-shadow:0 8px 16px -12px rgb(0 0 0 / .4)}
-.fe-km-row-k{display:flex;gap:5px}
-.fe-km-cap{flex:var(--w,1) 1 0;min-width:0;height:34px;display:grid;place-items:center;border-radius:7px;font:500 var(--fs-sm) var(--mono);color:var(--dm);
-  background:color-mix(in srgb,var(--tx) 5%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,#000 22%,transparent);transition:background .12s,color .12s,transform .12s}
-.fe-km-cap.fn{height:22px;font-size:var(--fs-xs)}
-.fe-km-cap.used{color:var(--tx);background:color-mix(in srgb,var(--ac) 12%,transparent);cursor:pointer}
-.fe-km-cap.hl{background:var(--ac);color:var(--tx-on-ac);transform:translateY(1px);box-shadow:inset 0 -1px 0 rgb(0 0 0 / .25),0 0 0 3px color-mix(in srgb,var(--ac) 30%,transparent)}
-.fe-km-cap.pin{outline:2px solid var(--ac);outline-offset:2px}
-.fe-km-ud{flex:1 1 0;display:flex;flex-direction:column;gap:2px}
-.fe-km-cap.half{height:16px;font-size:9px}
-.fe-km-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.fe-km-q{flex:1;min-width:200px;width:auto}
-.fe-km-legend{font-size:var(--fs-sm);color:var(--dm);display:inline-flex;align-items:center;gap:4px}
-.fe-km-list{columns:2 320px;column-gap:18px}
-.fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px}
-.fe-km-g h3{padding:8px 10px 6px}
-.fe-km-g h3 svg{width:14px;height:14px}
-.fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}
-.fe-km-k{display:inline-flex;align-items:center;gap:3px;flex:none}
-.fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:6px;
-  background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}
-.fe-km-then,.fe-km-or{font-style:normal;font-size:var(--fs-xs);color:var(--dm);padding:0 2px}
-
-/* Help: cards. */
-.fe-hs{display:flex;flex-direction:column;gap:10px}
-.fe-hs h3{padding:0 2px}
-.fe-hcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
-.fe-hc{display:flex;align-items:center;gap:12px;min-height:62px;padding:10px 14px;
-  transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
-.fe-hc:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--tone) 45%,var(--bd));box-shadow:0 6px 16px -10px color-mix(in srgb,var(--tone) 55%,transparent)}
-.fe-hc-ico{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:var(--tone);background:color-mix(in srgb,var(--tone) 16%,transparent)}
-.fe-hc-ico svg{width:18px;height:18px}
-.fe-hc-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.fe-hc-tx b{font-size:var(--fs-lg);font-weight:650;color:var(--tx)}
-.fe-hc-tx span{font-size:var(--fs-md);color:var(--mt);line-height:1.35}
-.fe-hc-how{flex:none;display:flex;align-items:center;gap:3px}
-.fe-hc-tag{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);color:var(--tone);background:color-mix(in srgb,var(--tone) 14%,transparent)}
-/* A journey card: a title, then its steps, each with its keys on the right. */
-.fe-hj{display:flex;flex-direction:column;gap:8px;padding:12px 14px}
-.fe-hj-h{display:flex;align-items:center;gap:10px}
-.fe-hj-h .fe-hc-ico{width:28px;height:28px;border-radius:8px}
-.fe-hj-h b{font-size:var(--fs-lg);font-weight:650;color:var(--tx)}
-.fe-hj-steps{display:flex;flex-direction:column;gap:4px;margin:0;padding:0 0 0 38px;list-style:none;counter-reset:step}
-.fe-hj-steps li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px;font-size:var(--fs-md);color:var(--mt);counter-increment:step}
-.fe-hj-steps li::before{content:counter(step);flex:none;width:16px;font-size:var(--fs-xs);color:var(--dm)}
-.fe-hj-steps li > span:first-of-type{flex:1;min-width:0}
-#fe-help-modal .fe-dlg-pane.on{gap:22px}
-`;
-
-  // src/goto.ts
-  var lastPref = textPref("bfb-goto-last-v1");
-  function absPath(input, home) {
-    let p = input.trim().replace(/^['"]|['"]$/g, "");
-    if (!p) return null;
-    if (/^file:\/\//i.test(p)) {
-      try {
-        p = decodeURIComponent(new URL(p).pathname);
-      } catch {
-        return null;
-      }
-    }
-    if (p === "~" || p.startsWith("~/")) {
-      if (!home) return null;
-      p = home + p.slice(1);
-    }
-    return p.startsWith("/") ? p.replace(/\/{2,}/g, "/") : null;
-  }
-  async function readable(path, waitMs = 9e3) {
-    if (!path.endsWith("/")) return true;
-    const timeout = new Promise((r) => setTimeout(() => r(false), waitMs));
-    const read2 = fetchFileText(fileHref(path)).then(() => true, () => false);
-    return Promise.race([read2, timeout]);
-  }
-  async function resolvePath(path) {
-    const clean = path.replace(/\/+$/, "");
-    if (!clean) return "/";
-    const parent = clean.slice(0, clean.lastIndexOf("/") + 1) || "/";
-    const name = clean.slice(clean.lastIndexOf("/") + 1);
-    let listing;
-    const dir = fileHref(parent);
-    try {
-      listing = await fetchFileText(dir);
-    } catch {
-      if (parent === "/") return path;
-      return await resolvePath(parent) === null ? null : path;
-    }
-    const hit = parseListing(listing, dir).find((e) => e.name === name);
-    return hit ? clean + (hit.isDir ? "/" : "") : null;
-  }
-  var submitOpen = null;
-  function gotoBackground() {
-    if (!submitOpen) return false;
-    submitOpen(true);
-    return true;
-  }
-  function mountGoto(btn, home, go2) {
-    let box = null;
-    let layer = null;
-    const close = () => layer?.close("api");
-    const open = () => {
-      box = document.createElement("form");
-      box.id = "fe-goto";
-      const recents = getRecents().slice(0, 30);
-      box.innerHTML = `<input class="tb" data-size="lg" type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
-      <datalist id="fe-goto-list">${recents.map((r) => `<option value="${esc(r.path)}"></option>`).join("")}</datalist>
-      <p class="fe-goto-msg" hidden></p>`;
-      const form = box;
-      const input = box.querySelector("input");
-      input.value = lastPref.get();
-      layer = openLayer(box, {
-        kind: "popover",
-        anchor: btn,
-        offset: 6,
-        role: "dialog",
-        label: "Go to a path",
-        focus: input,
-        onClose: () => {
-          lastPref.set(input.value);
-          if (box === form) {
-            box = null;
-            submitOpen = null;
-          }
-          btn.classList.remove("on");
-        }
-      });
-      if (!layer.open) {
-        box = null;
-        return;
-      }
-      input.select();
-      btn.classList.add("on");
-      const say = (text) => {
-        const msg = box.querySelector(".fe-goto-msg");
-        msg.hidden = false;
-        msg.textContent = text;
-      };
-      const submit = async (background) => {
-        const path = absPath(input.value, home());
-        if (!path) {
-          say("Paste a full path, such as ~/Code or /Users/you/notes.md");
-          return;
-        }
-        lastPref.set(input.value);
-        const found = await resolvePath(path);
-        if (!found) {
-          say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
-          return;
-        }
-        const slow = setTimeout(() => say("Checking that folder\u2026"), 600);
-        const ok = await readable(found);
-        clearTimeout(slow);
-        if (!ok) {
-          say(`The browser could not open ${found}. It may not have permission to read that folder.`);
-          return;
-        }
-        close();
-        go2(found, background);
-      };
-      submitOpen = (background) => void submit(background);
-      box.addEventListener("submit", (e) => {
-        e.preventDefault();
-        void submit(false);
-      });
-      input.addEventListener("input", () => lastPref.set(input.value));
-    };
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (box) close();
-      else open();
-    });
-  }
-
-  // src/theme.ts
-  var themePref = choicePref(THEME_KEY, ["dark", "light", "system"], "dark");
-  function themeMode() {
-    return themePref.get();
-  }
-  var systemDark = () => matchMedia("(prefers-color-scheme: dark)").matches;
-  function resolveTheme(mode) {
-    return mode === "system" ? systemDark() ? "dark" : "light" : mode;
-  }
-  function setThemeMode(fe, mode, save = true) {
-    fe.dataset.mode = mode;
-    fe.dataset.theme = resolveTheme(mode);
-    if (save) themePref.set(mode);
-  }
-  function followSystem(fe) {
-    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-      if (fe.dataset.mode === "system") fe.dataset.theme = resolveTheme("system");
-    });
-  }
-  var APP_ICONS = [
-    { id: "classic", file: "01-classic.svg", name: "Classic" },
-    { id: "stack", file: "02-stack.svg", name: "Stack" },
-    { id: "tree", file: "03-tree.svg", name: "Tree" },
-    { id: "lens", file: "04-lens.svg", name: "Lens" },
-    { id: "panes", file: "05-panes.svg", name: "Panes" },
-    { id: "map", file: "06-map.svg", name: "Map" },
-    { id: "drawer", file: "07-drawer.svg", name: "Drawer" },
-    { id: "tabs", file: "08-tabs.svg", name: "Tabs" },
-    { id: "fan", file: "09-fan.svg", name: "Fan" },
-    { id: "prompt", file: "10-prompt.svg", name: "Prompt" },
-    { id: "orbit", file: "11-orbit.svg", name: "Orbit" },
-    { id: "sprout", file: "12-sprout.svg", name: "Sprout" },
-    { id: "grid", file: "13-grid.svg", name: "Grid" },
-    { id: "starred", file: "14-starred.svg", name: "Starred" },
-    { id: "mono-b", file: "15-mono-b.svg", name: "Mono B" },
-    { id: "outline", file: "16-outline.svg", name: "Outline" }
-  ];
-  var appIconPref = textPref("bfb-app-icon", "classic");
-  function appIconUrl(id = appIconPref.get()) {
-    const icon2 = APP_ICONS.find((i3) => i3.id === id) ?? APP_ICONS[0];
-    return chrome.runtime.getURL(`assets/app-icons/${icon2.file}`);
-  }
-  function setAppIcon(id) {
-    appIconPref.set(id);
-    const link = document.querySelector('link[rel="icon"]');
-    if (link) link.href = appIconUrl(id);
-    try {
-      void chrome.runtime.sendMessage({ type: "bfb-app-icon", id });
-    } catch {
-    }
-  }
-
-  // src/chrome.ts
-  function setUiScale(percent) {
-    try {
-      void chrome.runtime.sendMessage({ type: "bfb-zoom", factor: (percent || 100) / 100 });
-    } catch {
-    }
-  }
-  function initChrome(app) {
-    const { fe, settings, toast } = app;
-    el("fe-status-path").addEventListener("click", () => {
-      void copyToClipboard(app.rawPath).then((ok) => toast(ok ? "Copied the path" : "Copy failed"));
-    });
-    el("fe-theme-btn").addEventListener("click", () => setThemeMode(fe, fe.dataset.theme === "dark" ? "light" : "dark"));
-    function getTermCmd(path) {
-      const term = settings.terminalApp || "ghostty";
-      const tpl = term === "custom" ? settings.terminalCmd || 'cd "${p}"' : TERMINAL_CMDS[term] || TERMINAL_CMDS.ghostty;
-      return tpl.replace(/\$\{p\}/g, path);
-    }
-    function fallbackCopy(path) {
-      const cmd = getTermCmd(path);
-      navigator.clipboard.writeText(cmd).catch(() => {
-      });
-      toast(`Copied: ${cmd}`);
-    }
-    app.openInTerminal = (path) => {
-      const term = settings.terminalApp || "ghostty";
-      if (term !== "custom") {
-        chrome.runtime.sendMessage(
-          { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_terminal", path, app: term } },
-          (res) => {
-            if (chrome.runtime.lastError || !res?.ok) fallbackCopy(path);
-          }
-        );
-        return;
-      }
-      fallbackCopy(path);
-    };
-    el("fe-term-btn").addEventListener("click", (e) => {
-      if (e.shiftKey) fallbackCopy(app.folderPath);
-      else app.openInTerminal(app.folderPath);
-    });
-    const crumbMenu = el("fe-crumb-menu");
-    let crumbMenuUrl = null;
-    let crumbLayer = null;
-    function closeCrumbMenu() {
-      crumbLayer?.close("api");
-    }
-    const bc = el("fe-bc"), more = el("fe-crumb-more");
-    const openCrumbMenu = (btn, key, html) => {
-      crumbMenu.innerHTML = html;
-      crumbLayer = openLayer(crumbMenu, { kind: "popover", anchor: btn, role: "menu", group: "menu", onClose: () => {
-        crumbMenuUrl = null;
-      } });
-      if (!crumbLayer.open) return false;
-      crumbMenuUrl = key;
-      return true;
-    };
-    const fitCrumbs = () => {
-      const groups = [...bc.querySelectorAll(".fe-cg")];
-      const pre = groups.filter((g) => g.hasAttribute("data-pre")).length;
-      groups.forEach((g, i3) => {
-        g.hidden = i3 < pre;
-      });
-      more.hidden = true;
-      const n = groups.length, order = [];
-      for (let i3 = pre + 2; i3 < n - 2; i3++) order.push(i3);
-      for (const i3 of [pre + 1, n - 2]) if (i3 > pre && i3 < n - 1 && !order.includes(i3)) order.push(i3);
-      for (const i3 of order) {
-        if (bc.scrollWidth <= bc.clientWidth) break;
-        groups[i3].hidden = true;
-        more.hidden = false;
-      }
-      const first = groups.find((g, i3) => g.hidden && i3 >= pre) ?? (pre ? groups[pre] : void 0);
-      if (pre) more.hidden = false;
-      if (first) first.before(more);
-    };
-    fitCrumbs();
-    new ResizeObserver(() => {
-      closeCrumbMenu();
-      fitCrumbs();
-    }).observe(bc);
-    const home = homeDir(app.rawPath);
-    let edit2 = null;
-    const endEdit = () => {
-      if (!edit2) return;
-      edit2.remove();
-      edit2 = null;
-      bc.hidden = false;
-      fitCrumbs();
-    };
-    const startEdit = () => {
-      if (edit2) return;
-      closeCrumbMenu();
-      const shown = home && (app.rawPath === home || app.rawPath.startsWith(home + "/")) ? "~" + app.rawPath.slice(home.length) : app.rawPath;
-      edit2 = document.createElement("form");
-      edit2.id = "fe-bc-edit";
-      edit2.innerHTML = `<input class="tb" type="text" list="fe-bc-recent" spellcheck="false" autocomplete="off" aria-label="Path to a file or folder" title="Enter goes there \xB7 Esc cancels">
-      <datalist id="fe-bc-recent">${getRecents().slice(0, 30).map((r) => `<option value="${esc(r.path)}"></option>`).join("")}</datalist>`;
-      bc.after(edit2);
-      bc.hidden = true;
-      const input = edit2.querySelector("input");
-      input.value = shown;
-      input.focus();
-      input.select();
-      input.addEventListener("blur", () => setTimeout(() => {
-        if (edit2 && !edit2.contains(document.activeElement)) endEdit();
-      }, 120));
-      input.addEventListener("keydown", (ke) => {
-        if (ke.key === "Escape") {
-          ke.preventDefault();
-          ke.stopPropagation();
-          endEdit();
-        }
-      });
-      edit2.addEventListener("submit", async (se) => {
-        se.preventDefault();
-        const path = absPath(input.value, home);
-        if (!path) {
-          input.setAttribute("aria-invalid", "true");
-          toast("Type a full path, such as ~/Code or /Users/you/notes.md");
-          return;
-        }
-        const found = await resolvePath(path);
-        if (!found) {
-          input.setAttribute("aria-invalid", "true");
-          toast(`Nothing at ${path}`);
-          return;
-        }
-        const slow = setTimeout(() => toast("Checking that folder\u2026"), 600);
-        const ok = await readable(found);
-        clearTimeout(slow);
-        if (!ok) {
-          input.setAttribute("aria-invalid", "true");
-          toast(`The browser could not open ${found}. It may not have permission to read it.`);
-          return;
-        }
-        if (found.replace(/\/$/, "") === app.rawPath.replace(/\/$/, "")) {
-          endEdit();
-          return;
-        }
-        go(fileHref(found));
-      });
-      input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
-    };
-    bc.title = "Click an empty part of the bar to type a path";
-    bc.addEventListener("click", (e) => {
-      if (e.target === bc) startEdit();
-    });
-    bc.addEventListener("click", async (e) => {
-      if (e.target.closest("#fe-crumb-more")) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (crumbLayer?.open && crumbMenuUrl === "more") {
-          closeCrumbMenu();
-          return;
-        }
-        const hid = [...bc.querySelectorAll(".fe-cg[hidden] .fe-crumb")];
-        openCrumbMenu(more, "more", `<div class="fe-dd-items">${hid.map((a) => {
-          const href = a.getAttribute("href"), name = a.textContent;
-          const icon2 = getIcon({ name, href, isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: "" }, app.iconRules);
-          return `<a href="${esc(href)}" class="row fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon2}<span>${esc(name)}</span></a>`;
-        }).join("")}</div>`);
-        return;
-      }
-      const btn = e.target.closest(".fe-crumb-dd");
-      if (!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const url = btn.dataset.url;
-      if (crumbLayer?.open && crumbMenuUrl === url) {
-        closeCrumbMenu();
-        return;
-      }
-      if (!openCrumbMenu(btn, url, emptyHtml("loading", "Loading\u2026", { inline: true }))) return;
-      const text = await fetchFileText(url).catch((err) => {
-        console.error("[BFB] crumb dropdown failed:", url, err);
-        return null;
-      });
-      if (text === null) {
-        if (crumbMenuUrl === url) crumbMenu.innerHTML = emptyHtml("failed", "This folder could not be read", { inline: true });
-        return;
-      }
-      if (crumbMenuUrl !== url) return;
-      try {
-        const entries = parseListing(text, url);
-        if (!entries.length) {
-          crumbMenu.innerHTML = emptyHtml("empty", "Empty folder", { inline: true });
-          crumbLayer?.place();
-          return;
-        }
-        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="tb fe-dd-search" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
-          (en) => `<a href="${esc(en.href)}" class="row fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
-        ).join("")}</div>`;
-        crumbLayer?.place();
-        const ddSearch = crumbMenu.querySelector(".fe-dd-search");
-        ddSearch.focus();
-        ddSearch.addEventListener("input", () => {
-          const q = ddSearch.value.toLowerCase();
-          crumbMenu.querySelectorAll(".fe-dd-item").forEach((it) => {
-            it.style.display = !q || it.dataset.name.includes(q) ? "" : "none";
-          });
-        });
-        ddSearch.addEventListener("keydown", (ke) => {
-          if (ke.key === "Enter") {
-            const first = [...crumbMenu.querySelectorAll(".fe-dd-item")].find((it) => it.style.display !== "none");
-            if (first) go(first.href);
-          }
-        });
-      } catch (err) {
-        console.error("[BFB] crumb dropdown parse error:", url, err);
-        if (crumbMenuUrl === url) crumbMenu.innerHTML = emptyHtml("failed", "This folder could not be read", { inline: true });
-      }
-    });
-    const side = el("fe-side");
-    const rz = el("fe-side-rz");
-    el("fe-side-toggle").addEventListener("click", () => {
-      settings.showSidebar = !sidebarShown();
-      saveSettings(settings);
-      setSidebarShown(settings.showSidebar);
-      const box = document.getElementById("fe-st-sidebar");
-      if (box) box.checked = settings.showSidebar;
-    });
-    resizable(rz, {
-      axis: "x",
-      label: "Resize the sidebar",
-      size: () => ({ w: side.getBoundingClientRect().width, h: 0 }),
-      apply: (w) => {
-        side.style.width = Math.max(210, Math.min(520, w)) + "px";
-      },
-      reset: () => {
-        side.style.width = "";
-      },
-      commit: () => {
-        settings.sidebarWidth = side.style.width ? Math.round(side.getBoundingClientRect().width) : void 0;
-        settings.sidebarRail = true;
-        saveSettings(settings);
-      }
-    });
-  }
-
   // node_modules/yaml/browser/dist/nodes/identity.js
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
@@ -14195,7 +10906,7 @@ ${end.comment}` : end.comment;
     }
   };
   var FORMATS = [
-    { id: "markdown", label: "Markdown", exts: ["md", "mdx", "markdown"], rich: safely((t, h) => `<div class="fe-md">${renderMarkdown(t, h)}</div>`, "md"), check: checkMarkdown },
+    { id: "markdown", label: "Markdown", exts: ["md", "mdx", "markdown"], rich: safely((t, h) => renderMarkdown(t, h), "md"), check: checkMarkdown },
     // A file that is not strict JSON shows as text; the problems strip says why.
     { id: "json", label: "JSON", exts: ["json", "jsonc", "json5"], rich: safely((t) => {
       try {
@@ -14209,6 +10920,18 @@ ${end.comment}` : end.comment;
     { id: "yaml", label: "YAML", exts: ["yaml", "yml"], rich: safely((t) => richYaml(t), "yaml"), check: (t) => checkYaml(t) },
     { id: "html", label: "HTML", exts: ["html", "htm", "xhtml"], rich: safely(richHtml, "html"), check: checkHtml }
   ];
+  function renderFile(text, ext2, href, host) {
+    const note2 = unrenderableNote(text);
+    if (note2) return note2;
+    if (TABLE_EXTS.has(ext2)) {
+      const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
+      return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : unrenderableNote("");
+    }
+    const fmt = formatFor(ext2);
+    if (fmt?.id === "html" && host === "page") return renderCode(text, ext2);
+    if (fmt?.id === "json" && host === "preview") return renderJsonTree(text);
+    return fmt ? fmt.rich(text, href) : renderCode(text, ext2);
+  }
   function formatFor(ext2) {
     const e = ext2.toLowerCase();
     return FORMATS.find((f) => f.exts.includes(e)) ?? null;
@@ -14221,6 +10944,3282 @@ ${end.comment}` : end.comment;
     } catch {
       return [];
     }
+  }
+
+  // src/preview.ts
+  var FETCH_WARN_BYTES = 8 * 1024 * 1024;
+  var PDF_EXTS = /* @__PURE__ */ new Set(["pdf"]);
+  var VIDEO_EXTS = /* @__PURE__ */ new Set(["mp4", "m4v", "webm", "ogv", "mov"]);
+  var AUDIO_EXTS = /* @__PURE__ */ new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac"]);
+  var FONT_EXTS = /* @__PURE__ */ new Set(["ttf", "otf", "woff", "woff2"]);
+  function canPreview(e) {
+    if (e.isDir || e.isParent) return false;
+    const ext2 = getExt(e);
+    return IMG_EXTS.has(ext2) || PDF_EXTS.has(ext2) || VIDEO_EXTS.has(ext2) || AUDIO_EXTS.has(ext2) || FONT_EXTS.has(ext2) || TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json" || CODE_EXTS.has(ext2) || ext2 === "";
+  }
+  function fontSpecimen(href) {
+    const sample = "The quick brown fox jumps over the lazy dog 0123456789";
+    const sizes = [14, 20, 28, 40, 56];
+    return `<style>@font-face{font-family:'bfb-spec';src:url("${esc(href)}")}</style>
+    <div class="fe-ql-font">
+      ${sizes.map((s) => `<div style="font-size:${s}px">${sample}</div>`).join("")}
+      <div style="font-size:30px">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz</div>
+    </div>`;
+  }
+  var scrollMemo = /* @__PURE__ */ new Map();
+  function previewEntry() {
+    return currentEntry;
+  }
+  function previewedPath() {
+    return currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname) : edit ? edit.root.replace(/\/$/, "") + "/" + edit.rel : null;
+  }
+  function keepPreviewedAsTab() {
+    const path = previewedPath();
+    if (path && deps.keepTab) deps.keepTab(path);
+  }
+  function syncSaveBtn() {
+    const p = previewedPath(), b = document.getElementById("fe-ql-save");
+    if (!b) return;
+    const on = !!p && isSaved(p);
+    b.classList.toggle("on", on);
+    b.title = on ? "Remove from Saved" : "Save this file";
+  }
+  var deps;
+  var overlay;
+  var layout = { mode: "modal" };
+  var currentEntry = null;
+  var currentText = null;
+  var reqSeq = 0;
+  var dsvHeader = [];
+  var dsvRows = [];
+  var dsvNum = /* @__PURE__ */ new Set();
+  var dsvSort = null;
+  var aiCancel = null;
+  var aiSeq = 0;
+  function initPreview(d) {
+    deps = d;
+    layout = getPreviewLayout();
+    overlay = document.createElement("div");
+    overlay.id = "fe-qlook";
+    overlay.style.display = "none";
+    overlay.innerHTML = `
+    <div id="fe-ql-bg" class="scrim"></div>
+    <div id="fe-ql-dialog" class="panel">
+      <div id="fe-ql-hdr" class="bar">
+        <span id="fe-ql-icon"></span>
+        <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (\u2318-click / middle-click also work)"></a>
+        <span id="fe-ql-meta"></span>
+        <button id="fe-ql-copy" class="btn" title="Copy full file contents to clipboard" disabled>
+          <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          <span>Copy</span>
+        </button>
+        <a id="fe-ql-open" class="btn" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
+        <button id="fe-ql-go" class="btn" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
+        <button id="fe-ql-tab" class="btn" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
+        <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
+        <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
+        ${SIZE_BTN("fe-ql-size")}
+        <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
+          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
+        </button>
+        <button id="fe-ql-close" class="btn" data-icon title="Close (Esc)">${UI_ICON.close}</button>
+      </div>
+      <div id="fe-ql-rz" title="Drag to resize"></div>
+      <div id="fe-ql-rz-side" title="Drag to resize"></div>
+      <div id="fe-ql-ai" style="display:none">
+        <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
+        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
+        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
+        <input id="fe-ql-ai-q" class="tb" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
+        <button class="btn fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
+      </div>
+      <div id="fe-ql-ai-out" style="display:none">
+        <div id="fe-ql-ai-out-body"></div>
+        <div id="fe-ql-ai-out-meta"></div>
+      </div>
+      <div id="fe-ql-body"></div>
+    </div>`;
+    document.getElementById("fe").appendChild(overlay);
+    document.getElementById("fe-ql-close").addEventListener("click", closePreview);
+    document.getElementById("fe-ql-go").addEventListener("click", () => {
+      if (currentEntry) go(currentEntry.href);
+      else if (edit) go(fileHref(edit.root.replace(/\/$/, "") + "/" + edit.rel));
+    });
+    document.getElementById("fe-ql-tab").addEventListener("click", keepPreviewedAsTab);
+    document.getElementById("fe-ql-save").addEventListener("click", () => {
+      const p = previewedPath();
+      if (!p) return;
+      const now = toggleSaved(p, p.split("/").pop() || p);
+      syncSaveBtn();
+      deps.savedChanged?.();
+      deps.toast?.(now ? "Saved" : "Removed from Saved");
+    });
+    document.getElementById("fe-ql-term").addEventListener("click", () => {
+      const p = previewedPath();
+      if (p) deps.openInTerminal?.(p.replace(/\/[^/]*$/, "") || "/");
+    });
+    const bodyEl = document.getElementById("fe-ql-body");
+    bodyEl.addEventListener("scroll", () => {
+      if (currentEntry) scrollMemo.set(currentEntry.href, bodyEl.scrollTop);
+    });
+    document.getElementById("fe-ql-bg").addEventListener("click", closePreview);
+    document.getElementById("fe-ql-dock").addEventListener("click", () => {
+      layout = { ...layout, mode: layout.mode === "side" ? "modal" : "side" };
+      savePreviewLayout(layout);
+      applyLayout();
+    });
+    applyLayout();
+    focusTrap(overlay, { when: () => layout.mode !== "side" });
+    const dialog = document.getElementById("fe-ql-dialog");
+    const sizer = wireSize(document.getElementById("fe-ql-size"), dialog, "preview", () => applyLayout());
+    resizable(document.getElementById("fe-ql-rz"), {
+      axis: "xy",
+      label: "Resize the preview",
+      size: () => {
+        const r = dialog.getBoundingClientRect();
+        return { w: r.width, h: r.height };
+      },
+      apply: (w, h) => {
+        const r = dialog.getBoundingClientRect();
+        layout.modalW = Math.min(window.innerWidth - r.left - 8, Math.max(360, w));
+        layout.modalH = Math.min(window.innerHeight - r.top - 8, Math.max(240, h));
+        if (dialog.dataset.size) sizer.set("md");
+        applyLayout();
+      },
+      reset: () => {
+        delete layout.modalW;
+        delete layout.modalH;
+        if (dialog.dataset.size) sizer.set("md");
+        applyLayout();
+      },
+      commit: () => savePreviewLayout(layout)
+    });
+    resizable(document.getElementById("fe-ql-rz-side"), {
+      axis: "x",
+      dir: -1,
+      label: "Resize the preview",
+      size: () => ({ w: overlay.getBoundingClientRect().width, h: 0 }),
+      apply: (w) => {
+        layout.sideW = Math.min(window.innerWidth * 0.8, Math.max(280, w));
+        applyLayout();
+      },
+      reset: () => {
+        delete layout.sideW;
+        applyLayout();
+      },
+      commit: () => savePreviewLayout(layout)
+    });
+    const copyBtn = document.getElementById("fe-ql-copy");
+    copyBtn.addEventListener("click", () => {
+      if (currentText === null) return;
+      const flash = (ok) => {
+        copyBtn.querySelector("span").textContent = ok ? "\u2713 copied" : "failed";
+        setTimeout(() => {
+          copyBtn.querySelector("span").textContent = "copy";
+        }, 1400);
+      };
+      copyToClipboard(currentText).then(flash);
+    });
+    const aiQ = document.getElementById("fe-ql-ai-q");
+    document.getElementById("fe-ql-ai-sum").addEventListener("click", () => runAi("summarize"));
+    document.getElementById("fe-ql-ai-exp").addEventListener("click", function() {
+      runAi(this.dataset.intent || "explain-code");
+    });
+    const askAi = () => {
+      const q = aiQ.value.trim();
+      if (!q) {
+        aiQ.focus();
+        return;
+      }
+      runAi("qa", q);
+    };
+    document.getElementById("fe-ql-ai-ask").addEventListener("click", askAi);
+    aiQ.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") askAi();
+      else if (e.key === "Escape") {
+        e.stopPropagation();
+        aiQ.blur();
+      }
+    });
+    document.getElementById("fe-ql-body").addEventListener("click", (e) => {
+      const th = e.target.closest(".fe-ql-table th");
+      if (!th || !dsvHeader.length) return;
+      const col = parseInt(th.dataset.col);
+      dsvSort = dsvSort?.col === col ? { col, dir: dsvSort.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" };
+      const sorted = sortDSVRows(dsvRows, col, dsvSort.dir, dsvNum.has(col));
+      document.getElementById("fe-ql-body").innerHTML = renderDSVTable(dsvHeader, sorted, dsvNum, dsvSort);
+    });
+  }
+  function isPreviewOpen() {
+    return overlay?.style.display !== "none";
+  }
+  function applyLayout() {
+    const dialog = document.getElementById("fe-ql-dialog");
+    const side = layout.mode === "side";
+    overlay.classList.toggle("side", side);
+    dialog.toggleAttribute("data-dock", side);
+    overlay.querySelectorAll("#fe-ql-hdr > .btn").forEach((b) => {
+      if (!b.querySelector(":scope > span")) return;
+      if (side) {
+        b.dataset.icon = "";
+        b.dataset.dockIcon = "";
+      } else if ("dockIcon" in b.dataset) {
+        delete b.dataset.icon;
+        delete b.dataset.dockIcon;
+      }
+    });
+    const host = side ? document.getElementById("fe-body") : document.getElementById("fe");
+    if (host && overlay.parentElement !== host) host.appendChild(overlay);
+    overlay.style.width = side && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : "";
+    const own = !side && !dialog.dataset.size;
+    dialog.style.width = own && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : "";
+    dialog.style.height = own && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : "";
+    if (side) lower(overlay);
+    else if (overlay.style.display !== "none") raise(overlay);
+    if (overlay.style.display !== "none") deps.dockRoom?.(side);
+    const dock = document.getElementById("fe-ql-dock");
+    dock.title = side ? "Float the preview as a window" : "Dock the preview to the side";
+    dock.classList.toggle("on", side);
+  }
+  function closePreview() {
+    if (edit) {
+      if (edit.timer) clearTimeout(edit.timer);
+      if (edit.dirty) void saveNote();
+      edit = null;
+    }
+    overlay.style.display = "none";
+    deps.dockRoom?.(false);
+    restoreFocus();
+    document.getElementById("fe-ql-body").classList.remove("fe-editing");
+    currentEntry = null;
+    currentText = null;
+    dsvHeader = [];
+    dsvRows = [];
+    dsvSort = null;
+    document.getElementById("fe-ql-body").innerHTML = "";
+    resetAiUi();
+  }
+  function resetAiUi() {
+    aiCancel?.();
+    aiCancel = null;
+    aiSeq++;
+    document.getElementById("fe-ql-ai").style.display = "none";
+    document.getElementById("fe-ql-ai-out").style.display = "none";
+    document.getElementById("fe-ql-ai-out-body").innerHTML = "";
+    document.getElementById("fe-ql-ai-out-meta").textContent = "";
+    document.getElementById("fe-ql-ai-q").value = "";
+  }
+  function setupAi(e, ext2) {
+    llmAvailability().then((av) => {
+      if (currentEntry !== e || !isPreviewOpen()) return;
+      if (av.kind === "unavailable") return;
+      const tabular = TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json";
+      const exp = document.getElementById("fe-ql-ai-exp");
+      exp.textContent = tabular ? "Describe" : "Explain";
+      exp.dataset.intent = tabular ? "describe-data" : "explain-code";
+      exp.title = tabular ? "Schema + notable observations (local model)" : "What this does, with safety callouts (local model)";
+      const ready = av.kind === "ready";
+      const chip = document.getElementById("fe-ql-ai-chip");
+      chip.className = ready ? av.cold ? "cold" : "ready" : "down";
+      document.getElementById("fe-ql-ai-chip-txt").textContent = ready ? av.cold ? "AI \xB7 cold start" : "AI \xB7 ready" : "AI \xB7 lm server down";
+      document.querySelectorAll(".fe-ql-ai-btn").forEach((b) => {
+        b.disabled = !ready;
+      });
+      document.getElementById("fe-ql-ai-q").disabled = !ready;
+      document.getElementById("fe-ql-ai").style.display = "";
+    });
+  }
+  var aiChat = { href: "", id: "" };
+  var AI_ASKED = { summarize: "Summarize", explain: "Explain", describe: "Describe" };
+  function runAi(intent, question) {
+    if (currentText === null || !currentEntry) return;
+    const entry = currentEntry;
+    if (aiChat.href !== entry.href) aiChat = { href: entry.href, id: "pv-" + Date.now().toString(36) };
+    aiCancel?.();
+    const seq2 = ++aiSeq;
+    const body = document.getElementById("fe-ql-ai-out-body");
+    const meta = document.getElementById("fe-ql-ai-out-meta");
+    document.getElementById("fe-ql-ai-out").style.display = "";
+    body.textContent = "";
+    meta.textContent = "Thinking\u2026";
+    let full = "";
+    aiCancel = llmQuery(
+      { ctx: currentText, ctxName: currentEntry.name, intent, question, model: deps.aiModel?.() },
+      {
+        onChunk: (t) => {
+          if (seq2 !== aiSeq) return;
+          full += t;
+          body.textContent = full;
+        },
+        onDone: (info) => {
+          if (seq2 !== aiSeq) return;
+          aiCancel = null;
+          body.innerHTML = renderMarkdown(full);
+          try {
+            const path = decodeURIComponent(new URL(entry.href).pathname);
+            addTurn(path, aiChat.id, { q: question || AI_ASKED[intent] || intent, a: full, model: info.model, ms: info.ms, at: Date.now() });
+          } catch {
+          }
+          meta.textContent = `${info.model} \xB7 ${(info.ms / 1e3).toFixed(1)}s` + (info.truncated ? " \xB7 input truncated to fit the model" : "");
+        },
+        onError: (code, message) => {
+          if (seq2 !== aiSeq) return;
+          aiCancel = null;
+          if (code === "cancelled") return;
+          body.textContent = LLM_ERROR_TEXT[code] ?? message;
+          meta.textContent = "";
+        }
+      }
+    );
+  }
+  var edit = null;
+  function editingRel() {
+    return edit ? edit.rel : null;
+  }
+  function saveEditor() {
+    return saveNote();
+  }
+  function editHeader(status) {
+    if (!edit) return;
+    const nameEl = document.getElementById("fe-ql-name");
+    nameEl.hidden = true;
+    document.getElementById("fe-ql-meta").textContent = `${edit.dirty ? "\u25CF " : ""}${edit.rel} \xB7 ${status}`;
+  }
+  var stripFrontMatter = (t) => t.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  function noteAction(name) {
+    if (!edit?.actions) return false;
+    if (name === "rename") edit.actions.rename(edit.rel, true);
+    else edit.actions.del(edit.rel);
+    return true;
+  }
+  function discardEditor() {
+    if (edit) {
+      if (edit.timer) clearTimeout(edit.timer);
+      edit.dirty = false;
+    }
+    closePreview();
+  }
+  function openNote(root, doc, onSaved, actions) {
+    if (edit && edit.dirty) void saveNote();
+    currentEntry = null;
+    reqSeq++;
+    const { head, body: noteBody } = splitNote(doc.text);
+    edit = { root, rel: doc.rel, mtime: doc.mtime, text: doc.text, head, base: doc.text, touched: /* @__PURE__ */ new Set(), dirty: false, saving: false, version: 0, timer: null, onSaved, actions };
+    currentText = doc.text;
+    document.getElementById("fe-ql-icon").innerHTML = "";
+    const nameEl = document.getElementById("fe-ql-name");
+    nameEl.href = fileHref(root.replace(/\/$/, "") + "/" + doc.rel);
+    document.getElementById("fe-ql-open").href = nameEl.href;
+    resetAiUi();
+    document.getElementById("fe-ql-ai").style.display = "none";
+    const copyBtn = document.getElementById("fe-ql-copy");
+    copyBtn.style.display = "";
+    copyBtn.disabled = false;
+    if (overlay.style.display === "none") rememberFocus();
+    overlay.style.display = "flex";
+    deps.dockRoom?.(layout.mode === "side");
+    if (layout.mode !== "side") raise(overlay);
+    syncSaveBtn();
+    const body = document.getElementById("fe-ql-body");
+    body.classList.add("fe-editing");
+    body.innerHTML = `
+    <div id="fe-ed-meta"></div>
+    <div id="fe-ed-bar" class="bar">
+      <button class="btn" data-icon data-act="bold" title="Bold (\u2318B)">${UI_ICON.fmtBold}</button>
+      <button class="btn" data-icon data-act="italic" title="Italic (\u2318I)">${UI_ICON.fmtItalic}</button>
+      <button class="btn" data-icon data-act="code" title="Code (\u2318E)">${UI_ICON.fmtCode}</button>
+      <button class="btn" data-icon data-act="strike" title="Strikethrough (\u2318\u21E7X)">${UI_ICON.fmtStrike}</button>
+      <button class="btn" data-act="heading" title="Heading: each press adds a level, up to ###, then clears (\u2318\u21E7H)" data-icon>${UI_ICON.fmtHeading}</button>
+      <button class="btn" data-icon data-act="link" title="Link (\u2318K)">${UI_ICON.link}</button>
+      <button class="btn" data-icon data-act="quote" title="Quote (\u2318\u21E7.)">${UI_ICON.fmtQuote}</button>
+      <button class="btn" data-icon data-act="olist" title="Numbered list (\u2318\u21E77)">${UI_ICON.fmtOlist}</button>
+      <button class="btn" data-icon data-act="list" title="Bullet list">${UI_ICON.list}</button>
+      <button class="btn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
+      <button class="btn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
+      <button class="btn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
+      <span class="bar-sep" aria-hidden="true"></span>
+      <button class="btn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
+      ${actions ? `<button class="btn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>Previous</span></button>
+      <button class="btn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>Next</span></button>
+      <button class="btn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
+      <button class="btn" data-act="delete" title="Move this note to .trash (\u2318\u21E7\u232B)">${UI_ICON.trash}<span>Delete</span></button>` : ""}
+      <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
+      <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
+    </div>
+    <div id="fe-ed-hist" style="display:none"></div>
+    <div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
+    const ta = document.getElementById("fe-ed-src");
+    const view = document.getElementById("fe-ed-view");
+    ta.value = noteBody;
+    edit.ta = ta;
+    const buf = attachBuffer(ta, `note:${root}/${doc.rel}`);
+    const apply = (r) => {
+      buf.snap();
+      ta.value = r.text;
+      ta.setSelectionRange(r.start, r.end);
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      ta.focus();
+    };
+    const sel = () => ({ start: ta.selectionStart, end: ta.selectionEnd });
+    const prefixLines = (prefix) => {
+      const s = sel();
+      const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
+      let to = ta.value.indexOf("\n", s.end);
+      if (to < 0) to = ta.value.length;
+      const lines = ta.value.slice(from, to).split("\n").map((l) => prefix + l);
+      apply({ text: ta.value.slice(0, from) + lines.join("\n") + ta.value.slice(to), start: from, end: from + lines.join("\n").length });
+    };
+    const act = (name) => {
+      if (name === "bold") apply(wrapSelection(ta.value, sel(), "**"));
+      if (name === "italic") apply(wrapSelection(ta.value, sel(), "_"));
+      if (name === "code") apply(wrapSelection(ta.value, sel(), "`"));
+      if (name === "strike") apply(wrapSelection(ta.value, sel(), "~~"));
+      if (name === "quote") prefixLines("> ");
+      if (name === "olist") {
+        const s = sel();
+        const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
+        let to = ta.value.indexOf("\n", s.end);
+        if (to < 0) to = ta.value.length;
+        const lines = ta.value.slice(from, to).split("\n").map((l, n) => `${n + 1}. ${l}`).join("\n");
+        apply({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
+      }
+      if (name === "heading") {
+        const s = sel();
+        const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
+        let to = ta.value.indexOf("\n", from);
+        if (to < 0) to = ta.value.length;
+        const line2 = ta.value.slice(from, to);
+        const level = line2.match(/^(#{1,6}) /)?.[1].length ?? 0;
+        const next = level >= 3 ? line2.replace(/^#{1,6} /, "") : "#".repeat(level + 1) + " " + line2.replace(/^#{1,6} /, "");
+        apply({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
+      }
+      if (name === "link") {
+        const s = sel();
+        const label = ta.value.slice(s.start, s.end) || "text";
+        const t = `[${label}](url)`;
+        const at = s.start + label.length + 3;
+        apply({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
+      }
+      if (name === "list") prefixLines("- ");
+      if (name === "task") prefixLines("- [ ] ");
+      if (name === "table") buf.insert((ta.value.slice(0, ta.selectionStart).endsWith("\n") || !ta.selectionStart ? "" : "\n") + tableSnippet());
+      if (name === "image") document.getElementById("fe-ed-file").click();
+      if (name === "versions") void toggleVersions();
+      if (name === "prev") actions?.step(edit.rel, -1);
+      if (name === "next") actions?.step(edit.rel, 1);
+      if (name === "rename") actions?.rename(edit.rel);
+      if (name === "delete") actions?.del(edit.rel);
+    };
+    const hist = document.getElementById("fe-ed-hist");
+    const escHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    const whenText = (ms) => new Date(ms).toLocaleString(void 0, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    const toggleVersions = async () => {
+      if (hist.style.display !== "none") {
+        hist.style.display = "none";
+        renderView();
+        return;
+      }
+      hist.style.display = "";
+      hist.innerHTML = emptyHtml("loading", "Reading versions\u2026", { inline: true });
+      try {
+        const { versions: vs, repo } = await notes.history(root, edit?.rel ?? doc.rel);
+        if (!vs.length) {
+          hist.innerHTML = emptyHtml("empty", "No versions yet", { inline: true, hint: repo === false ? "The notes folder is not a git repository; Switchboard makes it one on its first save." : "This note has not been committed to the notes folder's git history." });
+          return;
+        }
+        hist.innerHTML = vs.slice(0, 30).map((v) => `<button class="row fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join("") + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : "");
+        hist.querySelectorAll(".fe-hist-row").forEach((b) => b.addEventListener("click", () => void showVersion(b.dataset.sha)));
+      } catch (err) {
+        hist.innerHTML = emptyHtml("failed", "Versions could not be read", { inline: true, hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "Read the versions again" }] });
+        hist.querySelector('[data-a="retry"]')?.addEventListener("click", () => {
+          hist.style.display = "none";
+          void toggleVersions();
+        });
+      }
+    };
+    const showVersion = async (sha) => {
+      hist.querySelectorAll(".fe-hist-row").forEach((b) => b.classList.toggle("active", b.dataset.sha === sha));
+      try {
+        const v = await notes.version(root, edit?.rel ?? doc.rel, sha);
+        view.innerHTML = `<div class="fe-hist-head"><span>version ${sha}</span><button class="btn" id="fe-hist-use" title="Put this text in the editor; today's text stays in the versions">Use this version</button><button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
+        document.getElementById("fe-hist-use").addEventListener("click", () => {
+          buf.snap();
+          ta.value = splitNote(v.text).body;
+          ta.dispatchEvent(new Event("input", { bubbles: true }));
+          hist.style.display = "none";
+          ta.focus();
+        });
+        document.getElementById("fe-hist-back").addEventListener("click", () => renderView());
+      } catch (err) {
+        hist.textContent = errorText(err, "Reading that version");
+      }
+    };
+    document.getElementById("fe-ed-bar").querySelectorAll("[data-act]").forEach((b) => b.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      act(b.dataset.act);
+    }));
+    const addImage = async (file) => {
+      const st2 = edit;
+      if (!st2 || st2.root !== root) return;
+      const ext2 = (file.type.split("/")[1] || "png").replace("jpeg", "jpg");
+      const rel = `attachments/${slugForTitle(noteTitle(st2.rel, st2.text)).replace(/\.md$/, "")}-${Date.now().toString(36)}.${ext2}`;
+      const b64 = await new Promise((res) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result).split(",")[1] || "");
+        r.readAsDataURL(file);
+      });
+      try {
+        await notes.writeBinary(root, rel, b64);
+        const depth = st2.rel.split("/").length - 1;
+        buf.insert(`![${file.name.replace(/\.[^.]+$/, "")}](${"../".repeat(depth)}${rel})`);
+      } catch (err) {
+        editHeader(errorText(err, "Adding the image"));
+      }
+    };
+    const imageFiles = (dt) => [...dt?.files ?? []].filter((f) => f.type.startsWith("image/"));
+    ta.addEventListener("paste", (e) => {
+      const fs = imageFiles(e.clipboardData);
+      if (fs.length) {
+        e.preventDefault();
+        fs.forEach((f) => void addImage(f));
+      }
+    });
+    ta.addEventListener("drop", (e) => {
+      const fs = imageFiles(e.dataTransfer);
+      if (fs.length) {
+        e.preventDefault();
+        fs.forEach((f) => void addImage(f));
+      }
+    });
+    ta.addEventListener("dragover", (e) => e.preventDefault());
+    document.getElementById("fe-ed-file").addEventListener("change", function() {
+      [...this.files ?? []].forEach((f) => void addImage(f));
+      this.value = "";
+    });
+    const renderView = () => {
+      view.innerHTML = renderMarkdown(ta.value, nameEl.href);
+    };
+    renderView();
+    const showClash = () => {
+      document.getElementById("fe-ed-clash")?.remove();
+      const sides = clashSides(ta.value);
+      if (!sides) return;
+      document.getElementById("fe-ql-body").insertAdjacentHTML(
+        "afterbegin",
+        `<div id="fe-ed-clash" class="notice fe-ql-note">Two versions, keep: <button class="btn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> <button class="btn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> <button class="btn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`
+      );
+      document.querySelectorAll("#fe-ed-clash [data-keep]").forEach((b) => b.addEventListener("click", () => {
+        ta.value = settleClash(ta.value, b.dataset.keep);
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+        void saveNote();
+      }));
+    };
+    showClash();
+    let viewTimer = null;
+    ta.addEventListener("input", () => {
+      if (!edit) return;
+      if (!!document.getElementById("fe-ed-clash") !== !!clashSides(ta.value)) showClash();
+      edit.text = edit.head + ta.value;
+      edit.dirty = true;
+      edit.version++;
+      currentText = edit.text;
+      editHeader("unsaved");
+      if (viewTimer) clearTimeout(viewTimer);
+      viewTimer = setTimeout(renderView, 120);
+      if (edit.timer) clearTimeout(edit.timer);
+      edit.timer = setTimeout(() => void saveNote(), 1500);
+    });
+    ta.addEventListener("keydown", (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      const k = e.key.toLowerCase();
+      const stop = () => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      if (mod && k === "s") {
+        stop();
+        void saveNote();
+      } else if (e.key === "Escape") {
+        stop();
+        closePreview();
+      } else if (mod && !e.shiftKey && k === "b") {
+        stop();
+        act("bold");
+      } else if (mod && !e.shiftKey && k === "i") {
+        stop();
+        act("italic");
+      } else if (mod && !e.shiftKey && k === "e") {
+        stop();
+        act("code");
+      } else if (mod && !e.shiftKey && k === "k") {
+        stop();
+        act("link");
+      } else if (mod && e.shiftKey && k === "x") {
+        stop();
+        act("strike");
+      } else if (mod && e.shiftKey && k === "h") {
+        stop();
+        act("heading");
+      } else if (mod && e.shiftKey && (k === "." || k === ">")) {
+        stop();
+        act("quote");
+      } else if (mod && e.shiftKey && (k === "7" || k === "&")) {
+        stop();
+        act("olist");
+      } else if (mod && e.altKey && !e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && actions) {
+        stop();
+        actions.step(edit.rel, e.key === "ArrowDown" ? 1 : -1);
+      } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        stop();
+        apply(e.shiftKey ? duplicateLines(ta.value, sel()) : moveLines(ta.value, sel(), e.key === "ArrowDown" ? 1 : -1));
+      } else if (e.key === "Tab") {
+        stop();
+        apply(indentLines(ta.value, sel(), e.shiftKey));
+      } else if (e.key === "Enter" && !mod && !e.shiftKey) {
+        const r = continueList(ta.value, sel());
+        if (r) {
+          stop();
+          apply(r);
+        }
+      }
+    });
+    const st = edit;
+    const change = (fn, keys2) => {
+      if (/^<{7} /m.test(st.text)) {
+        editHeader("settle the two versions before changing properties");
+        return false;
+      }
+      st.head = fn(st.head);
+      keys2.forEach((k) => st.touched.add(k));
+      st.text = st.head + ta.value;
+      st.dirty = true;
+      st.version++;
+      currentText = st.text;
+      editHeader("unsaved");
+      if (st.timer) clearTimeout(st.timer);
+      st.timer = setTimeout(() => void saveNote(), 1500);
+      return true;
+    };
+    st.redrawMeta = mountMetaBar(document.getElementById("fe-ed-meta"), {
+      props: () => readProps(st.rel, st.text),
+      titleEditable: () => !!st.head,
+      setTitle: (v) => {
+        change((h) => setField(h, "title", JSON.stringify(v)), ["title"]);
+        st.redrawMeta?.();
+      },
+      apply: (c) => {
+        change((h) => applyChange(h, c), changedKeys(c));
+        return readProps(st.rel, st.text);
+      }
+    });
+    editHeader("saved");
+    ta.setSelectionRange(0, 0);
+    ta.focus();
+    ta.scrollTop = 0;
+  }
+  async function saveNote(st = edit) {
+    if (!st || st.saving) return;
+    if (st.timer) {
+      clearTimeout(st.timer);
+      st.timer = null;
+    }
+    st.saving = true;
+    const version = st.version;
+    let text = stampUpdated(st.text);
+    if (frontmatterDrift(st.base, text, st.touched).length) {
+      if (st.ta && !st.head) {
+        st.ta.value = "\n" + st.ta.value;
+        st.text = st.head + st.ta.value;
+        text = stampUpdated(st.text);
+      }
+      if (frontmatterDrift(st.base, text, st.touched).length) {
+        st.saving = false;
+        if (edit === st) editHeader("not saved: this would change the note properties");
+        return;
+      }
+    }
+    let wrote = false;
+    try {
+      const r = await notes.write(st.root, st.rel, text, st.mtime);
+      wrote = true;
+      st.mtime = r.mtime;
+      st.dirty = st.version !== version;
+      st.base = text;
+      const want = slugForTitle(noteTitle(st.rel, st.text));
+      if (/^untitled-/.test(st.rel.split("/").pop()) && !/^untitled/.test(want)) {
+        const to = st.rel.replace(/[^/]+$/, want);
+        try {
+          await notes.rename(st.root, st.rel, to);
+          st.rel = to;
+        } catch {
+        }
+      }
+      if (edit === st) {
+        editHeader(st.dirty ? "unsaved" : "saved " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+        st.redrawMeta?.();
+      }
+      st.onSaved?.(st.rel);
+    } catch (err) {
+      const e = err;
+      if (edit === st) {
+        editHeader(e.code === "notes_conflict" ? "changed on disk, not saved" : errorText(e, "Saving"));
+        if (e.code === "notes_conflict") {
+          const body = document.getElementById("fe-ql-body");
+          if (!document.getElementById("fe-ed-conflict")) {
+            body.insertAdjacentHTML(
+              "afterbegin",
+              `<div id="fe-ed-conflict" class="notice fe-ql-note" data-tone="danger">Another program changed this note. <button id="fe-ed-reload" class="btn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="btn" title="Write the editor text over the disk copy">Overwrite</button></div>`
+            );
+            document.getElementById("fe-ed-reload").addEventListener("click", () => {
+              notes.read(st.root, st.rel).then((d) => openNote(st.root, d, st.onSaved, st.actions));
+            });
+            document.getElementById("fe-ed-force").addEventListener("click", () => {
+              st.mtime = 0;
+              notes.read(st.root, st.rel).then((d) => {
+                st.mtime = d.mtime;
+                document.getElementById("fe-ed-conflict")?.remove();
+                void saveNote();
+              });
+            });
+          }
+        }
+      } else deps.saveError?.(errorText(e, "Saving the note"));
+    } finally {
+      st.saving = false;
+      if (wrote && st.dirty) void saveNote(st);
+    }
+  }
+  function openPreview(e) {
+    if (!canPreview(e)) return;
+    if (edit) {
+      if (edit.timer) clearTimeout(edit.timer);
+      if (edit.dirty) void saveNote();
+      edit = null;
+    }
+    document.getElementById("fe-ql-body").classList.remove("fe-editing");
+    closePropsMenu();
+    currentEntry = e;
+    const seq2 = ++reqSeq;
+    const ext2 = getExt(e);
+    document.getElementById("fe-ql-icon").innerHTML = getIcon(e, deps.iconRules());
+    const nameEl = document.getElementById("fe-ql-name");
+    nameEl.hidden = false;
+    nameEl.textContent = e.name;
+    nameEl.href = e.href;
+    document.getElementById("fe-ql-meta").textContent = [kindName(ext2), e.rawBytes >= 0 ? fmtSize(e.rawBytes) : ""].filter(Boolean).join(" \xB7 ");
+    document.getElementById("fe-ql-open").href = e.href;
+    const body = document.getElementById("fe-ql-body");
+    if (overlay.style.display === "none") rememberFocus();
+    overlay.style.display = "flex";
+    deps.dockRoom?.(layout.mode === "side");
+    if (layout.mode !== "side") raise(overlay);
+    syncSaveBtn();
+    dsvHeader = [];
+    dsvRows = [];
+    dsvSort = null;
+    currentText = null;
+    resetAiUi();
+    const copyBtn = document.getElementById("fe-ql-copy");
+    copyBtn.disabled = true;
+    if (IMG_EXTS.has(ext2) || PDF_EXTS.has(ext2) || VIDEO_EXTS.has(ext2) || AUDIO_EXTS.has(ext2) || FONT_EXTS.has(ext2)) {
+      copyBtn.style.display = "none";
+      if (IMG_EXTS.has(ext2)) {
+        body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
+        mountImageTools(body.querySelector(".fe-ql-imgwrap"), {
+          href: e.href,
+          name: e.name,
+          path: decodeURIComponent(new URL(e.href, location.href).pathname),
+          notify: (m) => deps.toast?.(m),
+          // the Ghostty host also opens a file in its default app; a missing host answers not-ok
+          openNative: (p) => new Promise((res) => chrome.runtime.sendMessage(
+            { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_file", path: p } },
+            (r) => res(!chrome.runtime.lastError && !!r?.ok && r.response?.success === true)
+          ))
+        });
+      } else if (PDF_EXTS.has(ext2)) body.innerHTML = `<embed class="fe-ql-pdf" src="${esc(e.href)}" type="application/pdf">`;
+      else if (VIDEO_EXTS.has(ext2)) body.innerHTML = `<div class="fe-ql-media-wrap"><video class="fe-ql-media" src="${esc(e.href)}" controls autoplay muted></video></div>`;
+      else if (AUDIO_EXTS.has(ext2)) body.innerHTML = `<div class="fe-ql-center"><audio src="${esc(e.href)}" controls></audio></div>`;
+      else body.innerHTML = fontSpecimen(e.href);
+      return;
+    }
+    copyBtn.style.display = "";
+    setupAi(e, ext2);
+    if (e.rawBytes > FETCH_WARN_BYTES) {
+      body.innerHTML = `
+      <div class="fe-ql-center">
+        <div class="notice fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
+        <button id="fe-ql-force" class="btn" title="Render despite the size">Load anyway</button>
+      </div>`;
+      document.getElementById("fe-ql-force").addEventListener("click", () => fetchAndRender(e, ext2, seq2));
+      return;
+    }
+    fetchAndRender(e, ext2, seq2);
+  }
+  function fetchAndRender(e, ext2, seq2) {
+    const body = document.getElementById("fe-ql-body");
+    body.innerHTML = `<div class="fe-ql-center"><div class="notice fe-ql-note">Loading\u2026</div></div>`;
+    fetchFileText(e.href).then((text) => {
+      if (seq2 !== reqSeq) return;
+      currentText = text;
+      document.getElementById("fe-ql-copy").disabled = false;
+      document.getElementById("fe-ql-meta").textContent = metaSummary(fileMeta(text, ext2, e.href, e.rawBytes >= 0 ? e.rawBytes : void 0));
+      render(text, ext2);
+    }).catch((err) => {
+      if (seq2 !== reqSeq) return;
+      console.error("[BFB] preview failed:", e.href, err);
+      const stale = err instanceof FileFetchError && err.code === "context-invalidated";
+      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
+      document.getElementById("fe-ql-retry").addEventListener("click", () => {
+        if (stale) reload();
+        else fetchAndRender(e, ext2, seq2);
+      });
+    });
+  }
+  function render(text, ext2) {
+    const body = document.getElementById("fe-ql-body");
+    const note2 = unrenderableNote(text);
+    if (note2) {
+      if (sniffBinary(text)) document.getElementById("fe-ql-ai").style.display = "none";
+      body.innerHTML = `<div class="fe-ql-center">${note2}</div>`;
+      return;
+    }
+    if (TABLE_EXTS.has(ext2)) {
+      const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
+      if (rows.length) {
+        dsvHeader = rows[0];
+        dsvRows = rows.slice(1);
+        dsvNum = numericCols(rows);
+        body.innerHTML = renderDSVTable(dsvHeader, dsvRows, dsvNum);
+        return;
+      }
+      body.innerHTML = `<div class="fe-ql-center">${unrenderableNote("")}</div>`;
+      return;
+    }
+    if (formatFor(ext2)?.id === "html") {
+      renderHtml(body, text);
+      return;
+    }
+    body.innerHTML = renderFile(text, ext2, currentEntry?.href ?? "", "preview");
+    body.querySelectorAll(".fe-md a[href]:not(.fe-md-anchor)").forEach((a) => {
+      a.target = "_blank";
+      a.rel = "noopener";
+    });
+    restoreScroll(body);
+  }
+  var htmlSource = false;
+  function renderHtml(body, text) {
+    const btn = (v, label, on) => `<button class="btn${on ? " on" : ""}" data-v="${v}" title="${v === "page" ? "Show the rendered page" : "Show the HTML source"}">${label}</button>`;
+    body.innerHTML = `<div class="bar fe-ql-htmlbar">${btn("page", "Page", !htmlSource)}${btn("src", "Source", htmlSource)}</div>` + (htmlSource ? renderCode(text, "html") : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
+    const frame = body.querySelector("iframe.fe-ql-html");
+    if (frame && currentEntry) frame.src = currentEntry.href;
+    body.querySelectorAll(".fe-ql-htmlbar button").forEach((b) => b.addEventListener("click", () => {
+      htmlSource = b.dataset.v === "src";
+      renderHtml(body, text);
+    }));
+  }
+  function restoreScroll(body) {
+    const top = currentEntry ? scrollMemo.get(currentEntry.href) : void 0;
+    if (top) body.scrollTop = top;
+  }
+
+  // src/styles.ts
+  var CSS2 = `
+*{box-sizing:border-box;margin:0;padding:0}
+/* Palettes (design-system.md, Soft round 2): Slate is the default; Violet,
+   Sand and Ink are picked in Settings. Each palette sets only the surface,
+   text and accent colours below, so every rule reads the same tokens.
+   Selection and hover are washes mixed from the accent, so they follow it. */
+:root{
+  --bg:#0f1316;--s1:#151b1f;--s2:#1c2328;--s3:#253039;
+  --bd:#243038;--bd2:#34434d;--tx:#e7eef1;--mt:#a3b2ba;--dm:#7f9099;
+  --ac:#3cc6c0;--tx-on-ac:#0f1316;--dir:#a3b2ba;
+  --shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);
+  --gold:#d29922;--green:#3fb950;
+  --hover:color-mix(in srgb,var(--tx) 6%,transparent);--on:color-mix(in srgb,var(--ac) 18%,transparent);--r-sm:6px;
+  --card:color-mix(in srgb,var(--s1),var(--s2) 62%);--side:var(--s1);
+  --t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);
+  --mono:'SF Mono',Menlo,Consolas,monospace;
+  --nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;
+}
+/* The html:has twin of each rule paints the page behind #fe to match. */
+#fe[data-theme="light"],html:has(#fe[data-theme="light"]){
+  --bg:#eef3f5;--s1:#ffffff;--s2:#eaf0f2;--s3:#dde6ea;
+  --bd:#dbe4e8;--bd2:#c5d2d8;--tx:#17232a;--mt:#4f6370;--dm:#6b7f8a;
+  --ac:#0b7a76;--tx-on-ac:#ffffff;--dir:#5d717c;
+  --shade:rgb(110 119 129 / .10);--shade2:rgb(110 119 129 / .18);
+  --hover:color-mix(in srgb,var(--tx) 5%,transparent);--on:color-mix(in srgb,var(--ac) 14%,transparent);
+  --card:var(--s1);--side:color-mix(in srgb,var(--s1),var(--bg) 45%);
+  --nc-red:#d92d2d;--nc-orange:#d9730d;--nc-yellow:#b58900;--nc-green:#2b8a3e;--nc-teal:#0c8f78;--nc-blue:#1971c2;--nc-purple:#7048e8;--nc-pink:#c2255c;
+}
+#fe[data-palette="violet"],html:has(#fe[data-palette="violet"]){
+  --bg:#101014;--s1:#17171d;--s2:#1f1f27;--s3:#292933;
+  --bd:#2a2a33;--bd2:#3a3a46;--tx:#ececf1;--mt:#a9a9b8;--dm:#85859c;
+  --ac:#9d7cff;--tx-on-ac:#101014;--dir:#a9a9b8;
+}
+#fe[data-palette="violet"][data-theme="light"],html:has(#fe[data-palette="violet"][data-theme="light"]){
+  --bg:#f4f4f7;--s1:#ffffff;--s2:#f0f0f5;--s3:#e6e6ee;
+  --bd:#e3e3ea;--bd2:#cfcfdb;--tx:#1c1c24;--mt:#5d5d70;--dm:#76768c;
+  --ac:#6d4aff;--tx-on-ac:#ffffff;--dir:#6e6e84;
+}
+#fe[data-palette="sand"],html:has(#fe[data-palette="sand"]){
+  --bg:#13110f;--s1:#1b1815;--s2:#24201c;--s3:#2f2a24;
+  --bd:#2f2a25;--bd2:#433b33;--tx:#efe9e2;--mt:#b8ab9c;--dm:#958778;
+  --ac:#e8789a;--tx-on-ac:#13110f;--dir:#b8ab9c;
+}
+#fe[data-palette="sand"][data-theme="light"],html:has(#fe[data-palette="sand"][data-theme="light"]){
+  --bg:#f6f2ec;--s1:#fffdfa;--s2:#f2ece4;--s3:#e8e0d5;
+  --bd:#e6ddd1;--bd2:#d3c6b6;--tx:#2a221b;--mt:#6b5d4f;--dm:#867767;
+  --ac:#c2406b;--tx-on-ac:#ffffff;--dir:#7a6a5a;
+}
+#fe[data-palette="ink"],html:has(#fe[data-palette="ink"]){
+  --bg:#0c0c0d;--s1:#141415;--s2:#1b1b1d;--s3:#252527;
+  --bd:#242426;--bd2:#353538;--tx:#f2f2f3;--mt:#a8a8ad;--dm:#86868c;
+  --ac:#f2f2f3;--tx-on-ac:#0c0c0d;--dir:#a8a8ad;
+}
+#fe[data-palette="ink"][data-theme="light"],html:has(#fe[data-palette="ink"][data-theme="light"]){
+  --bg:#f5f5f5;--s1:#ffffff;--s2:#f0f0f0;--s3:#e5e5e5;
+  --bd:#e4e4e4;--bd2:#cfcfcf;--tx:#141414;--mt:#5c5c5c;--dm:#777777;
+  --ac:#141414;--tx-on-ac:#ffffff;--dir:#666666;
+}
+/* Button, the one button part (docs/system/button.md). Class btn.
+   data-variant: plain (the default), shade, surface (a solid fill for a
+   button floating over content), outline, solid.
+   data-size: xs 18, sm 22, md 28 (the default), lg 32.
+   data-icon: an icon alone, square at its size and round.
+   data-shape="pill": a text button with round ends, for a pill bar.
+   data-mono: a code glyph label (.* or Aa).
+   A Toggle is a button that stays on; it may wrap a hidden check box.
+   data-tone: danger (red on hover), accent (accent text at rest).
+   On: .on, .active, aria-pressed or aria-expanded="true". Busy:
+   aria-busy="true" (a spinner in place of the content). Done: data-done
+   (green text; the caller removes it after a moment). A disabled button
+   keeps its rest look and loses every hover. */
+.btn{--btn-h:var(--ctl-md);display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);height:var(--btn-h);padding:0 var(--sp-4);flex-shrink:0;
+  border:1px solid transparent;border-radius:var(--row-r);background:none;color:var(--mt);font:inherit;font-size:var(--type-ui);
+  line-height:1;white-space:nowrap;text-decoration:none;cursor:pointer;box-sizing:border-box;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),opacity var(--t-fast) var(--ease)}
+.btn[hidden]{display:none}
+.btn[data-size="xs"]{--btn-h:var(--ctl-xs);--btn-ic:10px;padding:0 var(--sp-2);font-size:var(--type-micro)}
+.btn[data-size="sm"]{--btn-h:var(--ctl-sm);--btn-ic:12px;padding:0 var(--sp-3);font-size:var(--type-small)}
+.btn[data-size="lg"]{--btn-h:var(--ctl-lg);--btn-ic:16px;padding:0 var(--sp-5)}
+.btn[data-icon]{width:var(--btn-h);padding:0;border-radius:var(--r-full)}
+.btn[data-shape="pill"]{padding:0 var(--sp-5);border-radius:var(--r-full)}
+.btn svg{flex:none;width:var(--btn-ic,14px);height:var(--btn-ic,14px)}
+.btn[data-variant="shade"],.btn[data-shade]{background:var(--shade)}
+.btn[data-variant="surface"]{background:var(--s1);border-color:var(--bd)}
+.btn[data-variant="outline"]{border-color:var(--bd2)}
+.btn[data-variant="solid"]{background:var(--ac);color:var(--tx-on-ac)}
+.btn[data-tone="accent"]{color:var(--ac)}
+.btn:not(:disabled):not([aria-disabled="true"]):hover{color:var(--tx);background:var(--hover)}
+.btn:not(:disabled):not([aria-disabled="true"]):is([data-variant="shade"],[data-shade]):hover{background:var(--shade2)}
+.btn:not(:disabled):not([aria-disabled="true"])[data-variant="surface"]:hover{background:var(--s3)}
+.btn:not(:disabled):not([aria-disabled="true"])[data-variant="outline"]:hover{border-color:var(--mt)}
+.btn:not(:disabled):not([aria-disabled="true"])[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
+.btn:not(:disabled):not([aria-disabled="true"])[data-tone="danger"]:hover{color:var(--tone-danger)}
+.btn.kb{color:var(--tx);background:var(--hover)}
+.btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"],.btn:has(> input:checked){color:var(--ac);background:var(--on)}
+.btn[data-variant="outline"]:is(.on,.active,[aria-pressed="true"],:has(> input:checked)){border-color:color-mix(in srgb,var(--ac) 45%,transparent)}
+/* A toggle can wrap a native check box, laid invisibly over the whole button. */
+.btn:has(> input){position:relative}
+.btn > input[type="checkbox"]{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.btn:has(> input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
+.btn[data-mono]{font-family:var(--mono)}
+.btn:not(:disabled):not([data-variant="solid"]):active{background:var(--s3)}
+.btn[data-variant="solid"]:not(:disabled):active{filter:brightness(.95)}
+.btn:disabled,.btn[aria-disabled="true"]{opacity:.45;cursor:default}
+.btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.btn[aria-busy="true"]{position:relative;cursor:progress;color:transparent}
+.btn[aria-busy="true"] > *{visibility:hidden}
+.btn[aria-busy="true"]::after{content:'';position:absolute;width:var(--btn-ic,14px);height:var(--btn-ic,14px);border:2px solid var(--mt);border-right-color:transparent;border-radius:var(--r-full);animation:fe-spin var(--t-slow) linear infinite}
+.btn[data-done],.btn[data-done]:not(:disabled):not([aria-disabled="true"]):hover{color:var(--tone-ok)}
+/* Toolbar, the one bar (docs/system/toolbar.md). Class bar. A bar along a
+   page or panel is 40px with 12px sides; its controls are md. data-inset: a
+   toolbar inside content (a code block, a comment, a lens) keeps the gap
+   but takes its size from its place. Controls sit 4px apart; a bar-sep
+   between groups makes 12px. */
+.bar{display:flex;align-items:center;gap:var(--sp-2);box-sizing:border-box;flex-shrink:0}
+.bar:not([data-inset]){min-height:var(--bar-h);padding:5px var(--sp-5)}
+.bar-sep{flex:none;width:1px;height:16px;margin:0 var(--sp-2);background:var(--bd)}
+/* SectionTitle, the one heading for a part of the page (docs/system/section-title.md).
+   Class sect with data-level: group (a small capital label over a list or
+   card), panel (a panel's or rail's title, with its icon and count), page (a
+   dialog or page header: a tile, a title and a line under it). Actions sit
+   at the end in sect-acts. The place sets padding. */
+/* ListRow: one line in any list (sidebar, menus, dropdowns, palette, key
+   map, contents, versions). Hover and the keyboard cursor share one wash; the
+   selected, current or active row takes the accent wash with body text and an
+   accent icon. The place sets its own height and padding where it differs
+   (docs/system/list-row.md). */
+.row{display:flex;align-items:center;gap:var(--row-gap);min-width:0;min-height:var(--row-h);padding:0 var(--row-px);
+  border-radius:var(--row-r);font-size:var(--row-fs);color:var(--mt);text-decoration:none;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.row:hover,.row.kb,.row:focus-visible{background:var(--hover);color:var(--tx)}
+.row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]),.row:has(> .active){background:var(--on);color:var(--tx)}
+.row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]) svg,.row:has(> .active) svg{color:var(--ac);opacity:1}
+/* EmptyState: what a list shows in place of rows while it loads, when it is
+   empty, when a filter hides everything, or when it could not be read. Inline
+   sits among rows (menus, sidebar, a tree level); the default is centered in
+   the space the list would fill (docs/system/empty-state.md). */
+.empty{display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-8) var(--sp-5) var(--sp-7);
+  text-align:center;color:var(--tx);font-size:var(--fs-md);line-height:1.5}
+.empty p{margin:0}
+.empty-h{color:var(--dm);font-size:var(--fs-sm)}
+.empty-h kbd{font:inherit;font-family:var(--mono);padding:0 var(--sp-2);border:1px solid var(--bd2);border-radius:var(--sp-2)}
+.empty-ico{display:inline-grid;place-items:center;width:34px;height:34px;margin-bottom:var(--sp-2);border-radius:50%;background:var(--s2);color:var(--dm)}
+.empty-ico svg{width:16px;height:16px}
+.empty-a{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-3);margin-top:var(--sp-3)}
+.empty[data-inline]{align-items:flex-start;text-align:left;gap:var(--sp-1);padding:var(--sp-3) var(--row-px);font-size:var(--fs-sm)}
+.empty[data-inline] .empty-a{justify-content:flex-start;margin-top:var(--sp-2)}
+.empty:is([data-inline],[data-state="loading"]) .empty-t{color:var(--dm)}
+#fe-empty[hidden]{display:none}
+/* Disclosure: the chevron on anything that folds turns right when folded,
+   read from aria-expanded on its button or a closed <details> around its
+   summary. */
+.chev{width:12px;height:12px;flex:none;transition:transform var(--t-fast) var(--ease)}
+:is([aria-expanded="false"],details:not([open]) > summary) > .chev{transform:rotate(-90deg)}
+.sect{display:flex;align-items:center;gap:var(--sp-3);min-width:0;margin:0}
+.sect-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.sect-acts{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:auto}
+.sect[data-level="group"]{font-size:var(--type-micro);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.sect[data-level="panel"]{font-size:var(--type-ui);font-weight:600;color:var(--tx)}
+.sect[data-level="page"]{gap:var(--sp-5)}
+.sect[data-level="page"] .sect-tx > :first-child{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
+.sect[data-level="page"] .sect-tx > :nth-child(2){margin:0;font-size:var(--fs-md);font-style:normal;font-weight:400;line-height:1.35;color:var(--dm)}
+/* Panel: a bounded surface with a head, a scrolling body and an optional
+   foot, floating over the page or docked into it. Scrim: the dimmed page
+   behind a floating panel. (docs/system/panel.md) */
+.panel{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;outline:none;
+  background:var(--card);border:1px solid var(--pop-bd);border-radius:var(--pop-r);box-shadow:var(--pop-sh)}
+.panel[data-dock]{border:0;border-radius:0;box-shadow:none}
+.scrim{position:absolute;inset:0;background:rgb(0 0 0 / .55);backdrop-filter:blur(2px);animation:fe-fade var(--t-base) var(--ease)}
+.panel:not([data-dock]){animation:fe-rise var(--t-base) var(--ease)}
+/* Card: a bounded group inside a panel or a page. The place sets padding. */
+.card{background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r)}
+/* Notice, a line that tells the reader about the page itself
+   (docs/system/notice.md): empty, cut short, could not render, changed on
+   disk. Class notice; data-tone danger, warn or ok; buttons in it act on it. */
+.notice{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-3);padding:var(--sp-3) var(--sp-5);color:var(--dm);font-size:var(--type-small);line-height:1.4}
+.notice[data-tone="danger"]{color:var(--tone-danger)}
+.notice[data-tone="warn"]{color:var(--tone-warn)}
+.notice[data-tone="ok"]{color:var(--tone-ok)}
+/* Resize handle (docs/system/resize.md). Class rz, set by resizable(). A
+   thin hit area whose 2px accent line grows in on hover, drag or focus, the
+   sidebar's look everywhere. data-axis="xy" is a corner grip, which keeps
+   two faint lines at rest so it can be found. */
+.rz{flex-shrink:0;cursor:col-resize;user-select:none;touch-action:none;outline:0;
+  background:linear-gradient(var(--ac),var(--ac)) center/0 100% no-repeat;transition:background-size var(--t-fast) var(--ease)}
+.rz:hover,.rz.drag,.rz:focus-visible{background-size:2px 100%}
+.rz[data-axis="xy"]{cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,var(--bd) 50%,var(--bd) 60%,transparent 60%,transparent 75%,var(--bd) 75%,var(--bd) 85%,transparent 85%)}
+.rz[data-axis="xy"]:hover,.rz[data-axis="xy"].drag,.rz[data-axis="xy"]:focus-visible{background:linear-gradient(var(--ac),var(--ac)) right bottom/100% 2px no-repeat,linear-gradient(var(--ac),var(--ac)) right bottom/2px 100% no-repeat}
+body.fe-resizing{user-select:none}
+table.fe-col-edge,table.fe-col-edge *{cursor:col-resize}
+/* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
+   input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
+   grows from one control high. Invalid: aria-invalid="true". */
+.tb{--tb-h:var(--ctl-md);display:block;width:100%;height:var(--tb-h);margin:0;padding:0 var(--sp-4);box-sizing:border-box;
+  border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);color:var(--tx);font:inherit;font-size:var(--type-ui);outline:0;
+  transition:border-color var(--t-fast) var(--ease)}
+.tb[data-size="sm"]{--tb-h:var(--ctl-sm);padding:0 var(--sp-3);font-size:var(--type-small)}
+.tb[data-size="lg"]{--tb-h:var(--ctl-lg);padding:0 var(--sp-5)}
+textarea.tb{height:auto;min-height:var(--tb-h);padding:var(--sp-3) var(--sp-4);line-height:1.45;resize:vertical}
+.tb::placeholder{color:var(--dm)}
+.tb:hover{border-color:color-mix(in srgb,var(--mt) 60%,var(--bd2))}
+.tb:focus{border-color:var(--ac)}
+.tb[aria-invalid="true"]{border-color:var(--tone-danger)}
+.tb:disabled{opacity:.45;cursor:default}
+.tb[data-mono]{font-family:var(--mono)}
+/* A search field shows a magnifier at its start. */
+.tb[data-lead="search"]{padding-left:var(--sp-8);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:var(--sp-4) 50%}
+@keyframes fe-spin{to{transform:rotate(1turn)}}
+html,body{height:100%;background:var(--bg);color:var(--tx);
+  font:var(--fs-lg)/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
+body{opacity:1!important}
+#fe{display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--tx)}
+#fe-bar{background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0;align-self:stretch;cursor:text}
+#fe-bc[hidden]{display:none}
+#fe-bc > *{cursor:default}
+#fe-bc-edit{flex:1;min-width:0;display:flex}
+#fe-bc-edit input{flex:1;min-width:0}
+
+/* A long folder name (a hash, a generated id) shortens so the path around it stays readable. */
+.fe-crumb{color:var(--mt);text-decoration:none;padding:2px 5px;border-radius:4px;
+  font-size:var(--fs-md);flex-shrink:0;transition:background .1s,color .1s;
+  max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.fe-cg{display:inline-flex;align-items:center;flex-shrink:0;min-width:0}
+.fe-cg[hidden]{display:none}
+.fe-crumb.cur{color:var(--tx);font-weight:500}
+/* The current folder and a file name keep their full width while middle
+   folders fold; past that they shorten, but never below a readable share. */
+.fe-crumb.cur,.fe-crumb-file{flex-shrink:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-cg:has(.cur){flex-shrink:0;max-width:45%}
+.fe-cg:has(.cur) .fe-crumb.cur{max-width:100%}
+.fe-crumb-more{flex:none}
+#fe-bar .fe-crumb-more[hidden]{display:none}
+.fe-crumb:hover{background:var(--hover);color:var(--tx)}
+.fe-sep{color:var(--dm);font-size:var(--fs-sm);flex-shrink:0;padding:0 1px}
+#fe-bar .fe-crumb-dd{background:none;border:none;color:var(--dm);cursor:pointer;
+  padding:0 2px;font-size:var(--fs-xs);border-radius:3px;line-height:1;opacity:0.35;
+  transition:opacity .1s,color .1s,background .1s;flex-shrink:0;min-width:0}
+#fe-bar .fe-crumb-dd:hover{background:var(--hover);color:var(--ac);opacity:1;border:none}
+#fe-bar .fe-crumb-dd svg{display:block}
+#fe-crumb-menu{
+  position:fixed;z-index:300;
+  background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
+  min-width:220px;max-width:340px;max-height:340px;overflow:hidden;
+  box-shadow:0 8px 24px #0009;padding:4px 0;
+}
+#fe-crumb-menu:not([data-layer]){display:none}
+.fe-dd-search-wrap{padding:5px 8px 7px;border-bottom:1px solid var(--bd)}
+.fe-dd-search{width:100%}
+
+.fe-dd-items{max-height:288px;overflow-y:auto;padding:2px 0}
+.fe-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;
+  color:var(--tx);text-decoration:none;font-size:var(--fs-md);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;transition:background .08s}
+.fe-dd-item.dir{color:var(--dir)}
+.fe-dd-item svg{flex-shrink:0}
+#fe-bm-btn.on,#fe-bm-btn.on:hover{color:var(--gold)}
+#fe-theme-btn #fe-sun{display:none}
+#fe-theme-btn #fe-moon{display:block}
+#fe[data-theme="light"] #fe-theme-btn #fe-sun{display:block}
+#fe[data-theme="light"] #fe-theme-btn #fe-moon{display:none}
+#fe-body{display:flex;flex:1;overflow:hidden}
+#fe-side{position:relative;width:272px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+/* The lens bar sits on top: icons in a row, the open lens grown to show its
+   name; the wheel over the bar moves between lenses. The lens fills the rest. */
+#fe-rail{flex:none;display:flex;align-items:center;gap:1px;padding:6px 6px;border-bottom:1px solid var(--bd);overflow:hidden}
+.fe-rail-btn{flex:0 1 auto;min-width:26px;height:var(--ctl-lg);display:flex;align-items:center;justify-content:center;gap:0;padding:0 5px;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
+  font:inherit;position:relative;z-index:1;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-rail-btn[hidden]{display:none}
+.fe-rail-btn svg{width:16px;height:16px;flex:none}
+.fe-rail-btn em{font-style:normal;font-size:var(--fs-md);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;opacity:0}
+.fe-rail-btn.on{flex:1 0 auto;gap:6px;padding:0 9px}
+.fe-rail-btn.on em{max-width:110px;opacity:1}
+/* The open lens's highlight. It sits inside its button, so it always fits it;
+   a lens switch slides it over from the old button. */
+.fe-rail-hl{position:absolute;inset:0;z-index:-1;border-radius:8px;pointer-events:none;transform-origin:0 0}
+.fe-rail-btn.on .fe-rail-hl{background:color-mix(in srgb,var(--ac) 16%,transparent)}
+.fe-rail-btn.on:hover .fe-rail-hl{background:color-mix(in srgb,var(--ac) 22%,transparent)}
+#fe-rail.tight .fe-rail-btn:not(.on){flex:1 1 0;min-width:22px;padding:0 2px}
+#fe-rail.tight .fe-rail-btn.on{padding:0 6px;gap:5px}
+#fe-rail.tighter .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 3px}
+#fe-rail.tighter .fe-rail-btn.on{gap:0}
+#fe-rail.tighter .fe-rail-btn em{display:none}
+.fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
+.fe-rail-btn.on,.fe-rail-btn.on:hover{background:none;color:var(--tx)}
+.fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+#fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
+.fe-lens[hidden]{display:none}
+.fe-doc-row{display:flex;align-items:center;gap:10px;width:calc(100% - 12px);margin:1px 6px;padding:6px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-doc-name{font-size:var(--row-fs)}
+.fe-docs-top[hidden]{display:none}
+.fe-doc-dir{font-size:var(--fs-sm);color:var(--dm)}
+.fe-doc-me{display:inline-flex;color:var(--ac)}
+.fe-doc-me svg{width:13px;height:13px}
+.fe-doc-due{font-size:var(--fs-sm);color:var(--tx);padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--nc-orange) 16%,transparent)}
+.fe-doc-n{flex:none}
+.fe-row-cm{flex:none}
+#fe-side-rz{width:10px}
+.fe-sec{margin-bottom:4px}
+.fe-sec.fe-collapsed>:not(.fe-sh){display:none!important}
+.fe-sh{padding:10px 14px 5px}
+#fe-side .fe-sh{justify-content:flex-start!important}
+.fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
+.fe-sh-collapse:hover{color:var(--tx)}
+.fe-si{display:flex;align-items:center;gap:10px;padding:8px 14px;
+  color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
+button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer}
+.fe-rc-ago{font-size:var(--fs-sm);color:var(--dm);flex-shrink:0}
+.fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
+.fe-sl{font-size:var(--fs-lg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.fe-hint{font-size:var(--fs-md);color:var(--dm);padding:6px 14px;font-style:italic;line-height:1.7}
+.fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
+.fe-drag-h{padding:7px 4px 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
+.fe-bm-item:hover .fe-drag-h{opacity:1}
+.fe-bm-item.dragging{opacity:.4;background:var(--hover)}
+.fe-bm-item.drag-over{border-top:2px solid var(--ac)}
+.fe-si-link{display:flex;align-items:center;gap:10px;flex:1;padding:7px 6px 7px 4px;
+  color:inherit;text-decoration:none;min-width:0;transition:color .1s}
+.fe-si-link svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
+.fe-rm-btn{opacity:0;flex-shrink:0}
+.fe-bm-item:hover .fe-rm-btn{opacity:1}
+
+#fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 20px);margin:2px 10px 6px}
+
+.fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
+.fe-sv-tag{gap:7px;padding:8px 14px 3px}
+.fe-sv-dot{width:9px;height:9px;border-radius:50%;cursor:pointer;flex-shrink:0;box-shadow:0 0 0 1px #0004}
+#fe-lens-filter[hidden],.fe-lens-tags[hidden]{display:none}
+.fe-proxy-filter{display:none!important}
+.fe-lens-tags{display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 8px}
+.fe-grp{margin:4px 8px;background:var(--s2);border-radius:10px;padding:0 0 4px}
+.fe-grp:not([open]){padding-bottom:0}
+.fe-grp > summary{list-style:none;cursor:pointer;padding:7px 8px 5px}
+.fe-grp > summary::-webkit-details-marker{display:none}
+.fe-grp-n{margin-left:auto;font-weight:500;color:var(--dm)}
+.fe-sv-dot:hover{transform:scale(1.25)}
+.fe-pl-dots{display:flex;align-items:center;gap:3px;margin-left:auto;padding-right:2px;flex:none}
+.fe-sv-mini{width:6px;height:6px;border-radius:50%;display:inline-block}
+.fe-sv-more{font-size:var(--fs-xs);color:var(--dm);line-height:6px}
+.fe-pl-tags{display:none;font-size:var(--fs-sm);color:var(--mt);min-width:60px;max-width:110px;white-space:nowrap;overflow:hidden}
+.fe-pl-tags.show{display:inline-block}
+.fe-tag-btn{opacity:0;flex-shrink:0}
+.fe-bm-item:hover .fe-tag-btn{opacity:1}
+
+/* clip, not hidden: focusing a control past the edge must not scroll the pane sideways.
+   The pane is a size container so its toolbar wraps by the pane's width, which a
+   docked preview can make narrow in a wide window. */
+#fe-main{flex:1;display:flex;flex-direction:column;overflow:clip;container:fe-main / inline-size;min-width:0}
+#fe-toolbar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-count{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap}
+#fe-tb-right{display:flex;align-items:center;gap:4px}
+#fe-sg-cur{font-variant-numeric:tabular-nums}
+/* One "on" look across the toolbar: the accent tint the chosen view wears. */
+/* Detail: a small slider between a big-square and a dense-rows icon, its stop named beside it. */
+#fe-density-wrap{display:flex;align-items:center;gap:6px;color:var(--dm)}
+.fe-density-end{display:inline-grid;place-items:center}
+#fe-density{display:contents}
+#fe-density input{order:1;flex:none;width:72px}
+#fe-density-wrap .fe-density-end:last-of-type{order:2}
+#fe-density output{order:3;min-width:72px;padding:0;background:none;font-family:inherit;font-size:var(--fs-sm);color:var(--mt);text-align:left}
+/* One text box for the toolbar filter and the filter bar: the sidebar filter's
+   look, with toggles (.*, Aa) as chips inside its right end. */
+.fe-in-box{position:relative;display:inline-flex;align-items:center;flex:none}
+.fe-in-box input[type="text"]{width:100%;margin:0}
+
+.fe-tb-box{width:170px;margin-left:4px}
+.fe-in-name{width:220px}
+.fe-in-name input[type="text"]{padding-right:40px!important}
+.fe-in-text{width:300px}
+.fe-in-text input[type="text"]{padding-right:68px!important}
+.fe-in-chips{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px}
+#fe-sg-panel,#fe-filter-bar{display:flex;flex-direction:column;gap:8px;
+  padding:9px 14px;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
+.fe-panel-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fe-panel-lbl{min-width:52px;font-size:var(--fs-sm);color:var(--dm);font-weight:500;white-space:nowrap}
+.fe-panel-sub{display:inline-flex;align-items:center;gap:8px}
+.fe-panel-sub .fe-panel-lbl{min-width:0}
+.fe-panel-gap{margin-left:14px}
+#fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px}
+#fe-find-depth .fe-dd-btn{min-width:100px}
+#fe-find-status{font-size:var(--fs-sm);color:var(--mt);margin-left:4px}
+.fe-view .fe-si-link svg{color:var(--ac);opacity:.9}
+#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left}
+#fe-table{width:100%;border-collapse:collapse;table-layout:fixed}
+thead{position:sticky;top:0;z-index:5;background:var(--s2)}
+thead th{padding:6px 12px;text-align:left;font-size:var(--fs-sm);font-weight:600;
+  text-transform:uppercase;letter-spacing:.07em;color:var(--dm);
+  border-bottom:1px solid var(--bd);user-select:none;white-space:nowrap}
+thead th{position:relative}
+thead th[data-sort]{cursor:pointer}
+thead th[data-sort]:hover{color:var(--tx)}
+.fe-col-rz{position:absolute;top:0;right:0;width:7px;height:100%}
+/* Rendered tables (markdown, CSV/TSV) share the handle; col-resize.ts fixes
+   the layout on the first drag so one column moves at a time. */
+.fe-md-table th{position:relative}
+table.fe-rz-fixed{table-layout:fixed}
+.fe-ql-table.fe-rz-fixed th,.fe-ql-table.fe-rz-fixed td{overflow:hidden;text-overflow:ellipsis}
+.fe-md-table.fe-rz-fixed td,.fe-md-table.fe-rz-fixed th{overflow-wrap:anywhere}
+.si{opacity:.35;font-size:var(--fs-xs)}
+th.sorted .si{opacity:1;color:var(--ac)}
+.c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
+td.c-tg{white-space:nowrap;overflow:hidden}
+/* Named chips give up width (ending in \u2026) before the +N count does. */
+.fe-chips{display:flex;gap:var(--sp-2);min-width:0;overflow:hidden}
+.fe-chips .chip{flex:0 1 auto;min-width:28px}
+.fe-chips .fe-chip-more{flex:none;min-width:0}
+.c-match{display:none;text-align:right;width:72px;color:var(--dm)}
+#fe.fe-has-find-hits[data-view="details"] .c-match{display:table-cell}
+#fe.fe-has-find-hits[data-view="details"] .c-nm{width:42%}
+#fe.fe-has-find-hits[data-view="details"] .c-dt{width:19%}
+.fe-find-snippet{display:block;color:var(--dm);font-size:var(--fs-sm);margin:3px 0 1px 22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-find-snippet mark{background:var(--ac);color:var(--bg);border-radius:2px;padding:0 1px}
+.fe-find-badge{margin-left:22px}
+#fe-find-error{color:var(--tone-danger);font-size:var(--type-small)}
+#fe[data-view="details"] .fe-row .fe-find-badge{display:none}
+tbody tr{border-bottom:1px solid var(--bg);transition:background .08s}
+tbody tr:hover{background:var(--hover)}
+tbody td{padding:5px 12px;vertical-align:middle}
+td.c-sz{text-align:right;white-space:nowrap;color:var(--dm);font-variant-numeric:tabular-nums;font-size:var(--fs-md)}
+td.c-dt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-md)}
+td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
+.fe-lnk{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--tx)}
+.fe-lnk svg{flex-shrink:0}
+.fe-lnk:hover .fe-nm{color:var(--ac);text-decoration:underline}
+.fe-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dir .fe-nm{color:var(--dir)}
+.par td.c-nm .fe-nm{color:var(--dm)}
+.par:hover .fe-nm{color:var(--mt)}
+.dotfile{opacity:.65}
+.fe-group-hdr td{padding:5px 12px;font-size:var(--fs-sm);font-weight:600;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--dm);
+  background:var(--s2);border-bottom:1px solid var(--bd);border-top:1px solid var(--bd)}
+.fe-group-hdr-tile{width:100%;padding:6px 4px 2px;font-size:var(--fs-sm);font-weight:600;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--dm)}
+#fe:not(.show-hidden) .fe-row.dotfile,
+#fe:not(.show-hidden) .fe-tile.dotfile,
+#fe:not(.show-hidden) .fe-tree-row.dotfile{display:none!important}
+#fe[data-view="list"] .c-tp,#fe[data-view="list"] .c-tg,#fe[data-view="list"] .c-sz,#fe[data-view="list"] .c-dt{display:none}
+#fe[data-view="list"] .c-nm{width:100%}
+#fe[data-view="list"] tbody td{padding:4px 12px}
+#fe-tiles{display:none;flex-wrap:wrap;gap:4px 6px;padding:10px 12px;align-content:flex-start;align-items:flex-start}
+#fe[data-view="tiles"] #fe-table,#fe[data-view="icons"] #fe-table{display:none}
+#fe[data-view="tree"] #fe-table{display:none}
+#fe-tree{display:none;padding:6px 0}
+#fe[data-view="tree"] #fe-tree{display:block}
+#fe[data-view="tree"] #fe-tiles{display:none}
+.fe-tree-row{display:flex;align-items:center;min-height:29px;padding-right:12px;gap:4px}
+.fe-tree-toggle,.fe-tree-spacer{width:20px;height:20px;flex:none}
+.fe-tree-toggle{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--dm);cursor:pointer;border-radius:4px}
+.fe-tree-toggle:hover{background:var(--s2);color:var(--tx)}
+.fe-tree-link{display:flex;align-items:center;gap:8px;color:var(--tx);text-decoration:none;min-width:0}
+.fe-tree-link svg{flex:none}
+.fe-tree-link:hover .fe-nm{text-decoration:underline;color:var(--ac)}
+#fe[data-view="tiles"] #fe-tiles,#fe[data-view="icons"] #fe-tiles{display:flex}
+.fe-tile{display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:8px 6px 7px;border-radius:var(--r-sm);text-decoration:none;
+  color:var(--tx);border:1px solid transparent;transition:all .12s;
+  width:96px;overflow:hidden;cursor:pointer;position:relative}
+.fe-tile:hover{background:var(--hover);border-color:var(--bd)}
+.fe-tile-ic{font-size:0;line-height:0}
+.fe-tile-ic svg{display:block}
+.fe-tile-nm{font-size:var(--fs-sm);text-align:center;overflow-wrap:anywhere;word-break:normal;max-width:100%;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  line-height:1.3}
+.fe-tile-sz{font-size:var(--fs-xs);color:var(--dm)}
+.fe-tile.dir .fe-tile-nm{color:var(--dir)}
+.fe-tile.par .fe-tile-nm{color:var(--dm)}
+#fe[data-view="tiles"] .fe-tile-ic svg{transform:scale(1.5);margin:4px}
+#fe[data-view="icons"] .fe-tile{width:116px;padding:10px 8px 8px;gap:4px}
+#fe[data-view="icons"] .fe-tile-ic svg{transform:scale(2);margin:8px 10px 6px}
+#fe[data-view="icons"] .fe-tile-nm{font-size:var(--fs-md)}
+.fe-tile-img-wrap{display:block;width:68px;height:56px;border-radius:5px;overflow:hidden;
+  box-shadow:0 1px 4px #0005;flex-shrink:0}
+.fe-tile-thumb{width:100%;height:100%;object-fit:cover;display:block;border-radius:5px}
+.fe-tile-img-wrap svg{display:none;transform:none!important;margin:4px!important;width:24px;height:24px}
+.fe-tile-img-wrap.err .fe-tile-thumb{display:none}
+.fe-tile-img-wrap.err svg{display:block}
+#fe[data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:68px;height:56px}
+#fe[data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:86px;height:70px}
+#fe[data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap svg,
+#fe[data-view="icons"] .fe-tile-ic .fe-tile-img-wrap svg{transform:none!important;margin:8px!important}
+.fe-tile-meta{display:none}
+
+/* Detail levels (data-density 1 to 5, 3 is the standard look). Low numbers
+   show fewer, bigger items with names only; high numbers show smaller items
+   and add facts: type, date, tags and comments on tiles, columns on lists. */
+#fe[data-density="1"][data-view="details"] tbody td{padding:12px 16px}
+#fe[data-density="1"][data-view="details"] .fe-lnk{gap:12px;font-size:var(--fs-lg)}
+#fe[data-density="1"][data-view="details"] .fe-lnk svg{transform:scale(1.45)}
+#fe[data-density="1"][data-view="details"] :is(.c-tp,.c-tg,.c-sz,.c-dt){display:none}
+#fe[data-density="1"][data-view="details"] .c-nm{width:100%}
+#fe[data-density="2"][data-view="details"] tbody td{padding:9px 14px}
+#fe[data-density="2"][data-view="details"] .fe-lnk svg{transform:scale(1.2)}
+#fe[data-density="2"][data-view="details"] :is(.c-tp,.c-tg){display:none}
+#fe[data-density="2"][data-view="details"] .c-nm{width:60%}
+#fe[data-density="4"][data-view="details"] tbody td{padding:3px 12px}
+#fe[data-density="5"][data-view="details"] tbody td{padding:1px 10px;font-size:var(--fs-sm)}
+#fe[data-density="5"][data-view="details"] .fe-lnk svg{transform:scale(.85)}
+
+#fe[data-density="1"][data-view="list"] tbody td{padding:11px 16px}
+#fe[data-density="1"][data-view="list"] .fe-lnk{gap:12px;font-size:var(--fs-lg)}
+#fe[data-density="1"][data-view="list"] .fe-lnk svg{transform:scale(1.45)}
+#fe[data-density="2"][data-view="list"] tbody td{padding:8px 14px}
+#fe[data-density="2"][data-view="list"] .fe-lnk svg{transform:scale(1.2)}
+/* List gains columns as detail goes up: size and date, then type too. */
+#fe[data-density="4"][data-view="list"] :is(.c-sz,.c-dt),
+#fe[data-density="5"][data-view="list"] :is(.c-sz,.c-dt,.c-tp){display:table-cell}
+#fe[data-density="4"][data-view="list"] .c-nm,#fe[data-density="5"][data-view="list"] .c-nm{width:auto}
+#fe[data-density="4"][data-view="list"] tbody td{padding:3px 12px}
+#fe[data-density="5"][data-view="list"] tbody td{padding:1px 10px;font-size:var(--fs-sm)}
+
+#fe[data-density="1"] .fe-tree-row{min-height:42px;font-size:var(--fs-lg)}
+#fe[data-density="1"] .fe-tree-link svg{transform:scale(1.4)}
+#fe[data-density="2"] .fe-tree-row{min-height:35px}
+#fe[data-density="4"] .fe-tree-row{min-height:24px}
+#fe[data-density="5"] .fe-tree-row{min-height:20px;font-size:var(--fs-sm)}
+
+/* Tiles and icons: big name-only tiles at 1 and 2; at 4 a type and date line;
+   at 5 a card with the icon beside the name, type, size, date, tags, comments. */
+#fe[data-density="1"] #fe-tiles,#fe[data-density="2"] #fe-tiles{gap:10px 12px;padding:14px 16px}
+#fe[data-density="1"] .fe-tile-sz,#fe[data-density="2"] .fe-tile-sz{display:none}
+#fe[data-density="1"][data-view="tiles"] .fe-tile{width:168px;padding:16px 10px 12px;gap:8px}
+#fe[data-density="1"][data-view="tiles"] .fe-tile-ic svg{transform:scale(3.2);margin:22px}
+#fe[data-density="1"][data-view="icons"] .fe-tile{width:220px;padding:20px 12px 14px;gap:10px}
+#fe[data-density="1"][data-view="icons"] .fe-tile-ic svg{transform:scale(4.4);margin:32px}
+#fe[data-density="1"] .fe-tile-nm{font-size:var(--fs-lg)}
+#fe[data-density="1"][data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:148px;height:112px}
+#fe[data-density="1"][data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:196px;height:148px}
+#fe[data-density="2"][data-view="tiles"] .fe-tile{width:128px;padding:12px 8px 10px;gap:6px}
+#fe[data-density="2"][data-view="tiles"] .fe-tile-ic svg{transform:scale(2.3);margin:14px}
+#fe[data-density="2"][data-view="icons"] .fe-tile{width:160px;padding:14px 10px 10px;gap:8px}
+#fe[data-density="2"][data-view="icons"] .fe-tile-ic svg{transform:scale(3);margin:20px}
+#fe[data-density="2"] .fe-tile-nm{font-size:var(--fs-md)}
+#fe[data-density="2"][data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:108px;height:84px}
+#fe[data-density="2"][data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:140px;height:108px}
+#fe[data-density="4"] .fe-tile-meta{display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;font-size:var(--fs-xs);color:var(--dm)}
+#fe[data-density="4"] .fe-tile-meta > span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fe[data-density="4"] .fe-tile-tags{display:none!important}
+#fe[data-density="5"][data-view="tiles"] #fe-tiles{gap:4px 6px}
+#fe[data-density="5"][data-view="tiles"] .fe-tile{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto 1fr;column-gap:10px;row-gap:1px;
+  align-items:start;justify-items:start;width:250px;padding:8px 10px;text-align:left}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-ic{grid-row:1 / span 3;align-self:center}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-ic svg{transform:scale(1.6);margin:6px}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:44px;height:36px}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-nm{text-align:left;-webkit-line-clamp:1;font-size:var(--fs-md)}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-sz{grid-column:2;font-size:var(--fs-xs)}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-meta{grid-column:2;display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;font-size:var(--fs-xs);color:var(--dm)}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-tags{display:flex;align-items:center;gap:4px}
+#fe[data-density="5"][data-view="tiles"] .fe-tile-tags .fe-chips{max-width:150px}
+/* Icons keep their centred shape at 5: a smaller icon over the name and every fact. */
+#fe[data-density="5"][data-view="icons"] .fe-tile{width:112px;padding:8px 6px 7px;gap:3px}
+#fe[data-density="5"][data-view="icons"] .fe-tile-ic svg{transform:scale(1.5);margin:5px 8px 4px}
+#fe[data-density="5"][data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:72px;height:56px}
+#fe[data-density="5"][data-view="icons"] .fe-tile-nm{font-size:var(--fs-sm)}
+#fe[data-density="5"][data-view="icons"] .fe-tile-meta{display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;font-size:var(--fs-xs);color:var(--dm)}
+#fe[data-density="5"][data-view="icons"] .fe-tile-meta > span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fe[data-density="5"][data-view="icons"] .fe-tile-tags{display:flex;justify-content:center;gap:4px}
+.fe-row .fe-acts{
+  display:inline-flex;align-items:center;gap:3px;
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  opacity:0;transition:opacity .12s;pointer-events:none}
+.fe-row:hover .fe-acts{opacity:1;pointer-events:auto}
+.fe-tile .fe-acts{
+  display:flex;justify-content:center;gap:4px;
+  position:absolute;bottom:0;left:0;right:0;
+  padding:4px 4px 5px;
+  background:linear-gradient(transparent,var(--s1)cc 40%,var(--s1) 100%);
+  border-radius:0 0 var(--r-sm) var(--r-sm);
+  opacity:0;transition:opacity .14s;pointer-events:none}
+.fe-tile:hover .fe-acts{opacity:1;pointer-events:auto}
+#fe[data-view="list"] .fe-tile .fe-acts{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  background:none;border-radius:0;padding:0;width:auto;left:auto}
+
+.fe-row td.c-nm{position:relative}
+#fe-statusbar{background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt);white-space:nowrap;overflow:hidden}
+#fe-status-meta{display:flex;align-items:center;gap:var(--sp-5)}
+.fe-meta-item{display:inline-flex;align-items:center;gap:5px}
+.fe-meta-item svg{color:var(--dm)}
+.fe-status-grow{flex:1}
+#fe-fp-reload{color:var(--green);animation:fe-fade-in var(--t-base) var(--ease)}
+#fe-fp-reload[hidden]{display:none}
+#fe-fp-reload.off{color:var(--dm)}
+@keyframes fe-fade-in{from{opacity:0}to{opacity:1}}
+/* The path reads as a link: pointer, accent and underline on hover; a click copies it. */
+#fe-status-path{min-width:0;max-width:60%;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;
+  height:22px;padding:0;border:0;background:none;color:var(--mt);font:inherit;cursor:pointer;
+  text-decoration:underline transparent;text-underline-offset:3px;transition:color var(--t-fast) var(--ease),text-decoration-color var(--t-fast) var(--ease)}
+#fe-status-path:hover{color:var(--ac);text-decoration-color:currentColor}
+#fe-tip{
+  position:fixed;pointer-events:none;z-index:200;
+  background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-sm);
+  padding:9px 12px;font-size:var(--fs-md);line-height:1.7;color:var(--tx);
+  max-width:380px;overflow-wrap:anywhere;word-break:break-word;
+  box-shadow:0 4px 20px #000a;opacity:0;
+  transition:opacity .15s ease-out;
+}
+#fe-tip.show{opacity:1;transition:opacity .18s ease-in .06s}
+.tip-header{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.tip-icon{flex-shrink:0;display:flex;align-items:center}
+.tip-icon svg{display:block}
+.tip-name{font-weight:600;font-size:var(--fs-md);word-break:break-all;color:var(--tx)}
+.tip-line{color:var(--mt);font-size:var(--fs-sm);line-height:1.6}
+.tip-warn{color:var(--dm);font-size:var(--fs-sm);margin-top:3px;border-top:1px solid var(--bd);padding-top:3px}
+#fe-toast{
+  position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(6px);
+  background:#1f2937;color:#e5e7eb;padding:8px 18px;border-radius:20px;
+  font-size:var(--fs-md);opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;
+  border:1px solid #374151;z-index:200
+}
+#fe-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* The label for anything with a title (tooltip.ts); same surface as the row card #fe-tip. */
+#fe-hint{position:fixed;top:0;left:0;z-index:300;max-width:320px;pointer-events:none;
+  background:var(--s2);color:var(--tx);border:1px solid var(--bd);border-radius:var(--r-sm);
+  box-shadow:0 4px 14px #0006;padding:4px 8px;
+  font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
+  opacity:0;transition:opacity .12s ease-out}
+#fe-hint.on{opacity:1}
+/* A control's tooltip: icon and title, a lighter line, then its keys. */
+#fe-hint.rich{white-space:normal;display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-3) var(--sp-5)}
+.fe-hint-h{display:flex;align-items:center;gap:var(--sp-3)}
+.fe-hint-h svg{width:1.15em;height:1.15em;flex:none;color:var(--ac)}
+.fe-hint-h b{font-weight:600}
+.fe-hint-s{color:var(--dm);font-size:var(--fs-xs)}
+.fe-hint-k{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-1)}
+.fe-hint-k i{color:var(--dm);font-style:normal;font-size:var(--fs-xs)}
+/* A problem on a line: the kind in its tone and the line number, then each
+   message at reading size, since the message is the point. */
+#fe-hint.problem{border-left:3px solid var(--tone-warn)}
+#fe-hint.problem.err{border-left-color:var(--tone-danger)}
+#fe-hint.problem .fe-hint-h b{color:var(--tone-warn)}
+#fe-hint.problem.err .fe-hint-h b{color:var(--tone-danger)}
+.fe-hint-ln{color:var(--dm);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
+#fe-hint.problem .fe-hint-s{color:var(--tx);font-size:var(--fs-sm)}
+/* Parts in the top layer (layer.ts) keep their own look and placement, not the
+   browser's popover defaults; zero specificity, so every part's own rule wins. */
+:where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
+@media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
+#fe-toast.act.show{pointer-events:auto}
+.fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--dm)}
+#fe.compact tbody td{padding:2px 12px}
+#fe.compact .fe-tile{padding:6px 6px 5px;gap:3px}
+/* Dialog: Settings and Help. A Panel over a Scrim with the title and the
+   tabs down the left and one scrolling pane on the right. Every rule for it
+   is here, and in the 700px block at the end (docs/system/dialog.md). */
+.fe-dlg{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;container:dlg/inline-size}
+/* In the sidebar: the same box fills a pane over the lenses. */
+#fe-side-pane{position:absolute;inset:0;display:flex;container:dlg/inline-size;background:var(--side)}
+#fe-side-pane[hidden]{display:none}
+.fe-dlg-box.panel[data-dock]{width:100%;height:100%;max-height:none}
+.fe-dlg-box[data-dock] [id$="-size"]{display:none}
+.fe-dlg-box{position:relative;z-index:1;display:grid;grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+  width:min(1000px,calc(100vw - 48px));height:min(780px,84vh)}
+/* Large and extra large never come out smaller than the panel's own size. */
+.fe-dlg-box[data-size="lg"]{width:max(min(1000px,calc(100vw - 48px)),85vw);height:max(min(780px,84vh),90vh)}
+#fe-ql-dialog[data-size="lg"]{width:max(min(1100px,calc(100vw - 64px)),85vw);height:max(min(84vh,1000px),90vh)}
+.fe-dlg-box[data-size="xl"],#fe-ql-dialog[data-size="xl"]{width:calc(100vw - 32px);height:calc(100vh - 32px)}
+.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;align-items:flex-start;background:var(--side);border-right:1px solid var(--bd)}
+.fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--on);color:var(--ac)}
+.fe-dlg-acts{position:absolute;top:14px;right:14px;z-index:5;display:flex;gap:var(--sp-2)}
+.fe-dlg-tabs{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:2px;padding:4px 8px 12px;overflow:auto;background:var(--side);border-right:1px solid var(--bd)}
+.fe-dlg-tab{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--mt);
+  cursor:pointer;text-align:left;line-height:1;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-dlg-tab:hover{background:var(--hover);color:var(--tx)}
+.fe-dlg-tab.on{background:var(--on);color:var(--tx)}
+.fe-dlg-tab-main{display:flex;align-items:center;gap:var(--row-gap);min-width:0}
+.fe-dlg-tab b{font-size:var(--row-fs);font-weight:500;color:inherit}
+.fe-dlg-tab i{padding-left:calc(22px + var(--row-gap));font-size:var(--fs-sm);font-style:normal;line-height:1.3;color:var(--dm);opacity:.85}
+.fe-dlg-tab.on i{opacity:1}
+.fe-dlg-tile{flex:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:#fff;
+  background:linear-gradient(165deg,color-mix(in srgb,var(--tone) 88%,#fff),color-mix(in srgb,var(--tone) 80%,#000));
+  box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .2),0 1px 2px rgb(0 0 0 / .22)}
+.fe-dlg-tile svg{width:13px;height:13px}
+.fe-dlg-tile.lg{width:40px;height:40px;border-radius:11px;box-shadow:inset 0 0 0 .5px rgb(255 255 255 / .22),0 4px 12px color-mix(in srgb,var(--tone) 30%,transparent)}
+.fe-dlg-tile.lg svg{width:22px;height:22px}
+.fe-dlg-pane{grid-column:2;grid-row:1/span 2;display:none;min-height:0;padding:20px 24px 24px;overflow:auto;background:var(--side)}
+.fe-dlg-pane.on{display:flex;flex-direction:column;gap:16px}
+.fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
+.fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 96px 18px 24px;background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
+.fe-dlg-pane .fe-md{max-width:none;padding:0}
+.fe-dlg-pane .fe-md h2{font-size:1.15em;border:0;padding:0}
+.fe-dlg-pane .fe-md>:first-child{margin-top:0;padding-right:36px}
+
+.fe-st-input{width:100%}
+
+.fe-st-rule{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
+  gap:6px;align-items:center;padding:5px 2px;border-bottom:1px solid var(--bd)}
+.fe-st-rule:last-child{border-bottom:none}
+.fe-st-rule input[type="checkbox"]{accent-color:var(--ac);cursor:pointer;width:13px;height:13px}
+#fe-st-ai-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:11px 13px}
+.fe-st-ai-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.fe-st-ai-blink{position:relative;display:inline-flex;width:9px;height:9px;flex-shrink:0}
+.fe-st-ai-blink .dot{width:9px;height:9px;border-radius:50%;background:var(--dm);z-index:1}
+.fe-st-ai-blink::after{content:'';position:absolute;inset:0;border-radius:50%;background:inherit}
+.fe-st-ai-head.ready .dot{background:var(--green)}
+.fe-st-ai-head.cold .dot{background:var(--gold)}
+.fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:#f85149}
+/* Pulsing halo only when the model is actually resident (ready). */
+.fe-st-ai-head.ready .fe-st-ai-blink::after{background:var(--green);animation:fe-blink 1.6s ease-out infinite}
+.fe-st-ai-head.cold .fe-st-ai-blink::after{background:var(--gold);animation:fe-blink 2.4s ease-out infinite}
+@keyframes fe-blink{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
+.fe-st-ai-state{font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:var(--fs-md)}
+.fe-st-ai-grid .k{color:var(--dm)}
+.fe-st-ai-grid .v{color:var(--tx);font-family:'SF Mono',Menlo,Consolas,monospace;font-size:var(--fs-sm);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-st-ai-grid .v.warm-yes{color:var(--green)}
+.fe-st-ai-grid .v.warm-no{color:var(--gold)}
+.fe-st-ai-hint{font-size:var(--fs-sm);color:var(--dm);margin-top:8px;line-height:1.5}
+.fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 4px;
+  font-family:'SF Mono',Menlo,Consolas,monospace;font-size:var(--fs-sm);color:var(--mt)}
+#fe-qlook{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center}
+#fe-ql-dialog{position:relative;z-index:1;width:min(1100px,calc(100vw - 64px));height:min(84vh,1000px);max-width:calc(100vw - 16px);max-height:calc(100vh - 16px)}
+#fe-ql-rz{position:absolute;right:0;bottom:0;width:16px;height:16px;z-index:2}
+#fe-ql-rz-side{display:none;position:absolute;left:-3px;top:0;width:8px;height:100%;z-index:2}
+#fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;
+  border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch}
+#fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz,#fe-qlook.side #fe-ql-size{display:none}
+#fe-qlook.side #fe-ql-rz-side{display:block}
+#fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none}
+#fe-tabbar{display:flex;align-items:stretch;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:34px}
+/* The strip takes only the room its tabs need, so + and the path button sit
+   right after the last tab; past the bar's width the tabs scroll and the
+   buttons stay in view. */
+#fe-tabs{display:flex;align-items:stretch;gap:4px;padding:6px 4px 0 6px;flex:0 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+#fe-tabs-end{display:flex;align-items:center;gap:2px;padding:4px 8px 0 2px;flex:none}
+#fe-goto{position:fixed;z-index:60;width:min(460px,calc(100vw - 16px));padding:8px;border-radius:var(--pop-r);
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+#fe-goto input{width:100%}
+
+.fe-goto-msg{margin:6px 2px 0;font-size:var(--fs-sm);color:var(--dm)}
+#fe-tabs::-webkit-scrollbar{display:none}
+/* The list of every tab: icon, name, and the digit that jumps to it. */
+.fe-tab-menu .fe-ctx-item span:not(.fe-ctx-key){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
+.fe-tab.pinned{padding:5px 6px;min-width:0}
+.fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
+#fe-tabs.is-empty{padding-top:4px}
+.fe-tab{display:flex;align-items:center;gap:6px;padding:5px 8px 5px 10px;min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
+  background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:112px;flex:0 1 auto;position:relative;top:1px;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-tab:hover{background:var(--s3);color:var(--tx)}
+.fe-tab.on{background:var(--bg);color:var(--tx)}
+.fe-tab.temp{background:none;border-color:transparent}
+.fe-tab.temp.on{background:var(--bg);border-color:var(--bd)}
+.fe-tab.temp.on{color:var(--mt)}
+.fe-tab.drag-over{border-left:2px solid var(--ac)}
+.fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
+.fe-tab-head{overflow:hidden;white-space:pre;min-width:0}
+.fe-tab-tail{white-space:nowrap;flex-shrink:0}
+.fe-tab-x,.fe-tab-more{opacity:0}
+
+.fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
+
+/* A tab you are not on gives its name the whole width: its menu and close
+   buttons float over the end of the name, and only while it is hovered. */
+.fe-tab:not(.on) .fe-tab-x,.fe-tab:not(.on) .fe-tab-more{position:absolute;top:50%;margin-top:calc(var(--btn-h) / -2);background:var(--s3)}
+.fe-tab:not(.on) .fe-tab-x:hover,.fe-tab:not(.on) .fe-tab-more:hover{background:var(--bd2)}
+.fe-tab:not(.on) .fe-tab-x{right:6px}
+.fe-tab:not(.on) .fe-tab-more{right:26px}
+.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-x,.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-more{visibility:hidden}
+
+.fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
+.fe-tab-ico{display:flex;flex-shrink:0}
+.fe-tab-ico svg{width:11px;height:12px}
+.fe-tab-menu{position:fixed}
+#fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
+#fe-fp-bar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-fp{display:flex;flex:1;min-height:0}
+/* Contents and Comments float over the page as a translucent card, shown and
+   hidden by the two buttons right of find. The text keeps clear of the card. */
+#fe-fp{position:relative}
+#fe-toc-rail{position:absolute;top:12px;right:16px;z-index:4;width:240px;max-height:calc(100% - 24px);display:flex;flex-direction:column;min-height:0;
+  border:1px solid color-mix(in srgb,var(--bd) 80%,transparent);border-radius:12px;
+  background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
+  box-shadow:0 8px 24px rgb(0 0 0 / .12),0 1px 3px rgb(0 0 0 / .08);transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
+#fe-toc-rail[hidden]{display:none}
+#fe-toc-rail.peek{box-shadow:var(--pop-sh)}
+.fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
+#fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
+#fe-toc a{display:block;margin:1px 6px;border-radius:6px;color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+#fe-toc a.fe-toc-h1{font-size:var(--fs-lg);font-weight:600;color:var(--tx)}
+#fe-toc a.fe-toc-h2{font-size:var(--fs-md);padding-left:22px}
+#fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
+#fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
+/* The rail's two tabs, Contents and Comments. Comments needs more room, so
+   the rail and the text column's right padding widen while it shows. */
+.fe-rail-title{flex:1}
+.fe-rail-ico{display:inline-flex;color:var(--mt)}
+.fe-rail-ico svg{width:14px;height:14px}
+.fe-rt{border:0;background:none;padding:3px 9px;border-radius:999px;font-size:var(--fs-md);font-weight:500;
+  color:var(--mt);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.fe-rt svg{width:13px;height:13px;opacity:.85}
+.fe-rt:hover{color:var(--tx);background:var(--hover)}
+.fe-rt.on{color:var(--tx);background:var(--on)}
+.fe-rt[hidden]{display:none}
+#fe-toc-rail[data-tab="cm"]{width:320px}
+/* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
+#fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
+/* The pane buttons right of find: icons only, the comment count as a small badge. */
+.fe-fp-panes{display:inline-flex;gap:2px;flex:none}
+#fe-fp-bar .fe-fp-panes button[hidden]{display:none}
+#fe-fp-cm{position:relative}
+#fe-fp-cm-n:empty{display:none}
+#fe-fp-cm-n{position:absolute;top:-3px;right:-4px;min-width:14px;padding:0 4px;border-radius:999px;background:var(--ac);color:var(--tx-on-ac);font-size:10px;line-height:14px;text-align:center}
+/* Comment threads: a quote, then each comment with who and when, then chips. */
+#fe-cm{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
+.fe-cm-top{flex:none;display:flex;align-items:center;gap:4px;padding:0 10px 8px}
+.fe-cm-list{flex:1;min-height:0;overflow-y:auto;padding:2px 10px 14px}
+#fe-cm[hidden]{display:none}
+.fe-cm-filters{flex:1;display:flex;gap:2px;padding:2px;border-radius:10px;background:var(--bg);border:1px solid var(--bd)}
+.fe-cm-filters button{flex:1;border:0;background:none;border-radius:8px;padding:3px 4px;font-size:var(--fs-sm);color:var(--mt);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
+.fe-cm-filters button svg{width:11px;height:11px;opacity:.75}
+.fe-cm-fn{color:var(--dm)}
+.fe-cm-ib{flex:none}
+
+.fe-cm-filters button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
+.fe-cm-group{gap:6px;margin:14px 2px 6px;cursor:default}
+.fe-cm-group span{font-weight:500;letter-spacing:0}
+details.fe-cm-done > summary{cursor:pointer;list-style:none}
+details.fe-cm-done > summary::-webkit-details-marker{display:none}
+.fe-cm-th{position:relative;margin:0 0 8px;padding:10px 12px;cursor:pointer;
+  transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-cm-th:hover{border-color:var(--bd2)}
+.fe-cm-th.on{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 14%,transparent)}
+.fe-cm-th:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.fe-cm-q{margin:0 0 8px;padding:0 0 0 9px;border-left:2px solid color-mix(in srgb,var(--ac) 55%,transparent);font-size:var(--fs-sm);line-height:1.45;color:var(--mt);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.fe-cm-state{display:flex;align-items:center;gap:5px;margin:-2px 0 8px;font-size:var(--fs-xs);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));cursor:default}
+.fe-cm-state svg{width:12px;height:12px;flex:none}
+.fe-cm-c + .fe-cm-c{margin-top:9px;padding-top:9px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+.fe-cm-who{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.fe-cm-who b{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-cm-who b.agent{color:var(--nc-purple)}
+.fe-cm-who b svg{width:12px;height:12px}
+.fe-cm-who time{font-size:var(--fs-sm);color:var(--dm)}
+.fe-cm-tx{font-size:var(--fs-md);line-height:1.5;color:var(--tx);overflow-wrap:anywhere}
+.fe-cm-tx code{font-size:.92em}
+.fe-cm-tx p{margin:0}
+.fe-cm-tx p + p,.fe-cm-tx ul + p,.fe-cm-tx p + ul{margin-top:.45em}
+.fe-cm-tx ul{margin:.15em 0;padding-left:1.15em}
+.fe-cm-own{margin-left:auto;display:inline-flex;opacity:0;transition:opacity var(--t-fast) var(--ease)}
+.fe-cm-c:hover .fe-cm-own,.fe-cm-own:focus-within{opacity:1}
+
+.fe-cm-c.gone .fe-cm-tx{color:var(--dm)}
+.fe-cm-sug{margin-top:6px;font-size:var(--fs-sm);color:var(--mt)}
+.fe-cm-diff{display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;border-radius:var(--row-r);background:var(--shade);line-height:1.5;overflow-wrap:anywhere}
+.fe-cm-diff del{background:color-mix(in srgb,var(--nc-red) 14%,transparent);color:var(--mt);padding:0 3px;border-radius:3px}
+.fe-cm-sug ins{text-decoration:none;background:color-mix(in srgb,var(--nc-green) 18%,transparent);padding:0 3px;border-radius:3px;color:var(--tx)}
+.fe-cm-sug .fe-cm-tools{margin-top:6px}
+.fe-cm-sug-state{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:var(--fs-xs);color:var(--dm)}
+.fe-cm-sug-state svg{width:12px;height:12px}
+.fe-cm-sug.rejected .fe-cm-diff{opacity:.6}
+.fe-cm-sug-msg{display:flex;gap:6px;align-items:flex-start;margin:6px 0 0;font-size:var(--fs-sm);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));line-height:1.4}
+.fe-cm-sug-msg svg{flex:none;width:13px;height:13px;margin-top:2px}
+.fe-cm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.fe-cm-note{margin:0 2px 8px;font-size:var(--fs-sm);color:var(--dm);line-height:1.4}
+.fe-cm-hint{color:var(--dm);font-size:var(--fs-sm)}
+.fe-cm-hint kbd{font:inherit;font-family:var(--mono);padding:0 4px;border:1px solid var(--bd2);border-radius:4px}
+/* Writing: the composer card, the reply box on the open thread, its tools. */
+.fe-cm-new{cursor:default}
+.fe-cm-box{margin-top:10px}
+.fe-cm-new .fe-cm-box{margin-top:0}
+.fe-cm-box textarea{display:block;width:100%;max-height:220px;resize:vertical}
+
+.fe-cm-ac{position:absolute;z-index:10;max-width:calc(100% - 20px);box-sizing:border-box;padding:4px;border-radius:10px;
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+.fe-cm-ac[hidden]{display:none}
+.fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
+.fe-cm-ac > div:hover{background:var(--hover)}
+.fe-cm-ac > div.on{background:var(--on)}
+.fe-cm-tools{flex-wrap:wrap;margin-top:6px}
+.fe-cm-grow{flex:1}
+.fe-cm-date{width:auto;color-scheme:light dark}
+.fe-cm-x{margin:0 -3px 0 1px}
+
+/* The floating Comment button above a selection on the page. */
+#fe-cm-add{position:fixed;z-index:30;height:28px;padding:0 10px;border-radius:999px;color:var(--tx);
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+#fe-cm-add:hover{color:var(--ac)}
+#fe-cm-add[hidden]{display:none}
+#fe-cm-add svg{width:13px;height:13px}
+/* In the editor, a row where an open comment starts carries a mark in the gutter. */
+.fe-fe-row.cm .fe-fe-ln{position:relative}
+.fe-fe-row.cm .fe-fe-ln::before{content:'';position:absolute;left:6px;top:.55em;width:9px;height:8px;border-radius:3px 3px 3px 0;background:var(--ac);cursor:pointer}
+/* In the text: commented words get a wash, the open thread a stronger one,
+   and each block with comments a count in the right margin. */
+::highlight(bfb-cm){background-color:color-mix(in srgb,var(--ac) 9%,transparent)}
+::highlight(bfb-cm-hover){background-color:color-mix(in srgb,var(--ac) 17%,transparent)}
+::highlight(bfb-cm-on){background-color:color-mix(in srgb,var(--ac) 24%,transparent)}
+#fe-page.fe-cm-pointing{cursor:pointer}
+.fe-md [data-cm]{position:relative}
+.fe-md [data-cm]::after{content:attr(data-cm);position:absolute;top:2px;right:-30px;min-width:20px;height:18px;padding:0 5px;border-radius:9px 9px 9px 2px;
+  background:color-mix(in srgb,var(--ac) 22%,var(--card));color:var(--tx);font-size:var(--fs-xs);font-weight:600;line-height:18px;text-align:center;cursor:pointer}
+/* Find in file, at the right end of the file bar. */
+#fe-ff{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 3px 0 9px;border:1px solid var(--bd);border-radius:8px;
+  background:color-mix(in srgb,var(--tx) 3%,var(--card));color:var(--dm);transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+#fe-ff:focus-within{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));background:var(--card)}
+#fe-ff[hidden]{display:none}
+#fe-ff-q{width:150px;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md)}
+#fe-ff-n{flex:none;width:7.5ch;text-align:right;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;font-variant-numeric:tabular-nums}
+#fe-ff-n.none{color:var(--mt);font-style:italic}
+#fe-ff-n.part{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
+mark.fe-ff-hit{background:color-mix(in srgb,var(--gold) 35%,transparent);color:inherit;border-radius:2px}
+mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
+#fe-page{flex:1;min-width:0;overflow:auto;font-size:var(--fs-md)}
+#fe-page .fe-md{overflow-wrap:break-word;max-width:none;margin:0;padding:28px 48px 80px;font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
+#fe.fe-column-xl #fe-page .fe-md{max-width:150ch;margin:0 auto}
+#fe.fe-column-lg #fe-page .fe-md{max-width:130ch;margin:0 auto}
+#fe.fe-column-md #fe-page .fe-md{max-width:110ch;margin:0 auto}
+#fe-page .fe-md blockquote > .fe-md{padding:0;margin:0;max-width:none}
+.fe-md-alert{--al:#4493f8;border-left:3px solid var(--al);padding:.6em 1em;border-radius:4px;background:color-mix(in srgb,var(--al) 9%,transparent)}
+.fe-md-alert-title{font-weight:600;color:var(--al);margin:0 0 4px!important}
+.fe-md-alert-tip{--al:#3fb950}.fe-md-alert-important{--al:#ab7df8}.fe-md-alert-warning{--al:#d29922}.fe-md-alert-caution{--al:#f85149}
+#fe[data-theme="light"] .fe-md-alert{--al:#0969da}
+#fe[data-theme="light"] .fe-md-alert-tip{--al:#1a7f37}#fe[data-theme="light"] .fe-md-alert-important{--al:#8250df}
+#fe[data-theme="light"] .fe-md-alert-warning{--al:#9a6700}#fe[data-theme="light"] .fe-md-alert-caution{--al:#d1242f}
+.fe-md-footnotes{border-top:1px solid var(--bd);margin-top:2em;padding-top:.8em;font-size:.88em;color:var(--mt)}
+.fe-md-fnref a,.fe-md-fnback{text-decoration:none}
+#fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
+#fe.fe-notips #fe-tip{display:none!important}
+#fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
+.fe-crumb-file{color:var(--tx);font-weight:500}
+#fe-fp-meta{font-size:var(--fs-sm);color:var(--dm);margin-right:auto;white-space:nowrap}
+/* A text match sits on its own line under the title, inside the link, so the title keeps its width and the whole row opens the note. */
+#fe-nt-list .fe-si-link:has(.fe-nt-hit){flex-wrap:wrap;row-gap:1px}
+#fe-nt-list .fe-nt-hit{flex:1 0 100%;min-width:0;padding:0 0 2px 24px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Editing in place: coloured, numbered source in the reading column. The
+   painted copy (#fe-fe-paint) and the textarea share font, padding and
+   wrapping exactly, so the caret sits over its own text. */
+#fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
+#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1)}
+#fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
+/* The top padding clears the floating pill, so a long first line is never under it. */
+#fe-fe-col{max-width:980px;margin:0 auto;padding:62px 28px 120px}
+#fe-fe-src{position:relative}
+#fe-fe-src[hidden]{display:none}
+#fe-fe-paint,#fe-fe-ta{margin:0;font-family:var(--mono);font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1));line-height:1.7;
+  white-space:pre-wrap;overflow-wrap:anywhere;tab-size:4;letter-spacing:0}
+#fe-fe-paint{padding:0;color:var(--tx);pointer-events:none}
+.fe-fe-row{display:grid;grid-template-columns:52px minmax(0,1fr)}
+.fe-fe-ln{color:var(--dm);text-align:right;padding-right:16px;user-select:none}
+/* The caret's line, so every click shows where it landed. */
+.fe-fe-row.cur{background:color-mix(in srgb,var(--ac) 8%,transparent);border-radius:3px}
+.fe-fe-row.cur .fe-fe-ln{color:var(--tx)}
+#fe-fe-ta{position:absolute;top:0;left:0;width:100%;padding:0 0 0 52px;border:0;outline:0;resize:none;overflow:hidden;
+  background:transparent;color:transparent;caret-color:var(--ac)}
+#fe-fe-ta::selection{background:color-mix(in srgb,var(--ac) 40%,transparent);color:transparent}
+/* Large files: no wrapping, so every row is one line tall and only a window
+   of rows is painted (#fe-fe-win, moved down to where the viewport is). */
+.fe-fe-big #fe-fe-paint,.fe-fe-big #fe-fe-ta{white-space:pre;overflow-wrap:normal}
+#fe-fe-win{will-change:transform}
+#fe-fe-view{padding:0;max-width:none}
+#fe-fe-pill{position:absolute;top:12px;right:18px;z-index:5;display:flex;align-items:center;gap:2px;padding:3px;
+  background:var(--s1);border:1px solid var(--bd);border-radius:999px;box-shadow:0 6px 20px rgb(0 0 0 / .25)}
+#fe-fe-state{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 10px;font-size:var(--fs-md);color:var(--mt);
+  transition:color var(--t-fast) var(--ease)}
+#fe-fe-state.saved{color:var(--green)}
+#fe-fe-state.failed{color:var(--nc-red)}
+#fe-fe-state.failed .fe-fe-dot{background:var(--nc-red)}
+#fe-fe-state svg{width:13px;height:13px}
+.fe-fe-dot{width:6px;height:6px;border-radius:50%;background:var(--ac)}
+#fe-allow{position:fixed;z-index:320;width:340px;padding:14px;background:var(--s1);border:1px solid var(--bd2);border-radius:10px;
+  box-shadow:0 12px 32px rgb(0 0 0 / .3);animation:fe-pop var(--t-base) var(--ease)}
+#fe-allow p{color:var(--mt);font-size:var(--fs-md);margin:6px 0 12px;line-height:1.5}
+#fe-allow code{font:var(--fs-md) var(--mono);background:var(--s2);padding:1px 4px;border-radius:4px;overflow-wrap:anywhere}
+.fe-allow-title{display:flex;align-items:center;gap:8px;font-weight:600}
+.fe-allow-acts{display:flex;gap:6px;justify-content:flex-end}
+#fe-allow.fe-allow-note{border-color:color-mix(in srgb,var(--nc-red) 50%,var(--bd2))}
+#fe-fp-edit.busy{opacity:.6;cursor:progress}
+@keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
+#fe-fp-reload{font-size:var(--fs-sm);color:var(--dm)}
+#fe-ed-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
+.fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
+#fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
+.fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
+.fe-hist-row code{color:var(--dm)}
+.fe-hist-head{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bd);color:var(--dm);font-size:var(--fs-sm)}
+#fe-ql-body.fe-editing{display:flex;flex-direction:column}
+.fe-ed{display:flex;flex:1;min-height:0}
+.fe-md img{max-width:100%;border-radius:6px}
+#fe-ed-src{flex:1;min-width:0;resize:none;border:none;border-right:1px solid var(--bd);background:var(--s1);color:var(--tx);
+  font:var(--fs-md)/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px 16px;outline:none;tab-size:2}
+#fe-ed-view{flex:1;min-width:0;overflow:auto}
+#fe-qlook.side .fe-ed{flex-direction:column}
+#fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
+#fe-ed-conflict{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd)}
+#fe-ed-meta{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
+.fe-chip-title{flex:1 1 180px;min-width:120px;font-weight:600}
+button.fe-chip-title{display:flex;align-items:center;gap:6px;text-align:left;cursor:text;min-width:0}
+button.fe-chip-title:hover{border-color:var(--ac)}
+button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
+textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.35;min-height:28px}
+.fe-cdot{flex:none}
+.fe-pmenu{position:fixed;z-index:2147483000;width:250px;background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:6px}
+.fe-pmenu .btn{justify-content:flex-start}
+.fe-pm-lbl{font-size:var(--fs-sm);color:var(--mt);text-transform:uppercase;letter-spacing:.04em}
+.fe-pm-colors{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.fe-pm-tags{display:flex;flex-wrap:wrap;gap:4px}
+.fe-pm-add{display:flex;gap:4px}
+.fe-pm-add input{flex:1;min-width:0}
+
+.fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:1px}
+.fe-mid{display:flex;min-width:0;max-width:100%;overflow:hidden}
+.fe-mid-h{overflow:hidden;text-overflow:ellipsis;white-space:pre;min-width:0}
+.fe-mid-t{white-space:pre;flex:none}
+.fe-nt-label{flex:none;display:flex;min-width:0;white-space:nowrap;overflow:hidden;line-height:1.3}
+.fe-nt-label.editing{display:block;white-space:normal;overflow:visible;overflow-wrap:anywhere}
+.fe-nt-item .fe-nt-acts{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;align-items:center;
+  background:var(--hover);border-radius:4px;opacity:0;pointer-events:none;transition:opacity .1s}
+.fe-nt-item:hover .fe-nt-acts,.fe-nt-item:focus-within .fe-nt-acts{opacity:1;pointer-events:auto}
+.fe-nt-tags{font-size:var(--fs-sm);color:var(--mt);display:flex;gap:6px;flex-wrap:wrap}
+.fe-nt-tags span{display:inline-flex;align-items:center;gap:3px}
+.fe-nt-tags svg{width:10px;height:10px;flex:none}
+.fe-nt-flags{display:inline-flex;align-items:center;gap:4px;flex:none}
+.fe-nt-flags svg{width:12px;height:12px}
+.fe-nt-pin{color:var(--gold)}
+.fe-nt-props{opacity:0;flex:none}
+.fe-nt-item:hover .fe-nt-props,.fe-nt-props:focus-visible{opacity:1}
+
+.fe-nt-item .fe-si-link{padding-left:14px}
+.fe-nt-tab{opacity:0;flex:none}
+.fe-nt-item:hover .fe-nt-tab,.fe-nt-tab:focus-visible{opacity:1}
+
+.fe-sh a{color:inherit;text-decoration:none}
+.fe-sh a:hover{color:var(--ac)}
+#fe-ql-hdr{border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-ql-icon svg{display:block}
+/* Docked, the header keeps its name readable and its close button inside the panel: buttons go icon-only. */
+#fe-qlook.side #fe-ql-hdr > button > span,#fe-qlook.side #fe-ql-hdr > a:not(#fe-ql-name) > span{display:none}
+
+/* Docked, the header's labelled buttons lose their labels and become icon circles. */
+#fe-qlook.side #fe-ql-hdr > *{flex-shrink:0}
+#fe-qlook.side #fe-ql-name,#fe-qlook.side #fe-ql-meta{flex-shrink:1;min-width:0}
+#fe-qlook.side #fe-ed-bar > button > span{display:none}
+#fe-qlook.side .fe-ed-hint{display:none}
+#fe-ql-name{font-weight:600;font-size:var(--fs-lg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
+#fe-ql-name:hover{color:var(--ac);text-decoration:underline}
+#fe-ql-meta{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#fe-ql-name{min-width:0;flex-shrink:1}
+#fe-ql-body{flex:1;overflow:auto;font-size:var(--fs-md)}
+#fe-ql-body:has(> .fe-ql-htmlbar){display:flex;flex-direction:column}
+.fe-ql-htmlbar{border-bottom:1px solid var(--bd);flex:none}
+.fe-ql-html{flex:1;min-height:0;width:100%;border:0;background:#fff}
+/* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
+#fe-ql-body .fe-md{font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
+#fe-ql-ai{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 14px;
+  border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0}
+#fe-ql-ai-chip{display:flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:var(--dm);
+  margin-right:4px;white-space:nowrap}
+#fe-ql-ai-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--dm);flex-shrink:0}
+#fe-ql-ai-chip.ready .dot{background:var(--green)}
+#fe-ql-ai-chip.cold .dot{background:var(--gold)}
+#fe-ql-ai-chip.down .dot{background:#f85149}
+#fe-ql-ai-q{flex:1;min-width:140px}
+
+#fe-ql-ai-q:disabled{opacity:.45}
+
+#fe-ql-ai-out{border-bottom:1px solid var(--bd);max-height:42%;overflow-y:auto;flex-shrink:0;background:var(--s1)}
+#fe-ql-ai-out-body{padding:10px 16px 4px;font-size:var(--fs-md);line-height:1.6;white-space:pre-wrap}
+#fe-ql-ai-out-body .fe-md{padding:0;white-space:normal}
+#fe-ql-ai-out-meta{padding:2px 16px 8px;font-size:var(--fs-xs);color:var(--dm)}
+.fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
+.fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
+.fe-ql-imgbar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
+.fe-ql-imgstage{flex:1;min-height:0;overflow:auto;display:flex}
+.fe-ql-imgsizer{position:relative;margin:auto;flex:none}
+.fe-ql-img{position:absolute;left:50%;top:50%;max-width:none;max-height:none;border-radius:4px;transform-origin:center}
+.fe-ql-imgwrap .fe-ql-dim{padding:4px 12px;border-top:1px solid var(--bd);text-align:center;flex-shrink:0}
+.fe-ql-dim{font-size:var(--fs-sm);color:var(--dm);font-variant-numeric:tabular-nums}
+.fe-ql-pdf{width:100%;height:100%;border:none}
+.fe-ql-media-wrap{display:flex;align-items:center;justify-content:center;height:100%;padding:16px}
+.fe-ql-media{max-width:100%;max-height:100%;border-radius:4px;background:#000}
+.fe-ql-center audio{width:min(480px,90%)}
+.fe-ql-font{padding:20px 26px;overflow:auto;line-height:1.5}
+.fe-ql-font>div{margin:6px 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:6px}
+.fe-code-wrap{font:var(--fs-md)/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
+.fe-code{padding:10px 14px 14px 0;width:max-content;min-width:100%}
+.fe-cl-blk{content-visibility:auto;contain-intrinsic-size:auto calc(var(--n) * 1.55em)}
+.fe-cl{display:grid;grid-template-columns:calc(var(--gut,4ch) + 22px) minmax(0,1fr)}
+.fe-cl-n{position:sticky;left:0;padding:0 10px 0 12px;text-align:right;color:var(--dm);user-select:none;background:var(--card)}
+.fe-cl-t{white-space:pre;padding-left:10px}
+/* Wrap (Settings, and the file bar toggle): long lines fold inside the page. */
+#fe[data-wrap="on"] .fe-code{width:auto}
+#fe[data-wrap="on"] .fe-cl-t{white-space:pre-wrap;overflow-wrap:anywhere}
+.tok-cmt{color:var(--mt);font-style:italic}
+.tok-str{color:#7ee787}
+.tok-kw{color:#ff7b72}
+.tok-kw-ctrl{color:#ff7b72}
+.tok-type{color:#56d4dd}
+.tok-builtin{color:#ffa657}
+.tok-lit{color:#a5d6ff}
+.tok-num{color:#f2cc60}
+.tok-var{color:#d2a8ff}
+.tok-deco{color:#e2b340}
+.tok-fn{color:#d2a8ff}.tok-regex{color:#a5d6a7}
+.tok-key{color:#79c0ff}.tok-section{color:#d2a8ff}
+.tok-add{color:#3fb950}.tok-del{color:#f85149}
+#fe[data-theme="light"] .tok-str{color:#0a7d33}
+#fe[data-theme="light"] .tok-kw,#fe[data-theme="light"] .tok-kw-ctrl{color:#cf222e}
+#fe[data-theme="light"] .tok-type{color:#1b7c83}
+#fe[data-theme="light"] .tok-builtin{color:#953800}
+#fe[data-theme="light"] .tok-lit{color:#8250df}
+#fe[data-theme="light"] .tok-num{color:#9a6700}
+#fe[data-theme="light"] .tok-var{color:#8250df}
+#fe[data-theme="light"] .tok-deco{color:#9a6700}
+#fe[data-theme="light"] .tok-fn{color:#8250df}
+#fe[data-theme="light"] .tok-regex{color:#116329}
+#fe[data-theme="light"] .tok-key{color:#0550ae}
+#fe[data-theme="light"] .tok-section{color:#8250df}
+#fe[data-theme="light"] .tok-add{color:#1a7f37}
+#fe[data-theme="light"] .tok-del{color:#cf222e}
+.fe-ql-table{border-collapse:collapse;width:100%;font:var(--fs-md) 'SF Mono',Menlo,Consolas,monospace}
+.fe-ql-table th{position:sticky;top:0;background:var(--s2);padding:6px 10px;text-align:left;
+  border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
+.fe-ql-table th:hover{color:var(--tx)}
+.fe-ql-table th.sorted{color:var(--ac)}
+.fe-ql-table td{padding:4px 10px;border-bottom:1px solid var(--s2);white-space:pre;
+  max-width:340px;overflow:hidden;text-overflow:ellipsis}
+.fe-ql-table th.num,.fe-ql-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.fe-ql-table tbody tr:hover{background:var(--hover)}
+.fe-jt-root,.fe-jl-root{padding:10px 14px;font:var(--fs-md)/1.6 'SF Mono',Menlo,Consolas,monospace}
+.fe-jt summary,.fe-jl-line summary{cursor:pointer;list-style:none}
+.fe-jt summary::-webkit-details-marker,.fe-jl-line summary::-webkit-details-marker{display:none}
+.fe-jt summary svg,.fe-jl-line summary svg{color:var(--dm);vertical-align:-2px}
+.fe-jt summary svg{margin-right:4px}
+.fe-jt summary:hover{background:var(--hover)}
+.fe-jt-kids{padding-left:16px;border-left:1px solid var(--s3);margin-left:4px}
+.fe-jt-key{color:#79c0ff}
+#fe[data-theme="light"] .fe-jt-key{color:#0550ae}
+.fe-jt-colon{color:var(--dm)}
+.fe-jt-badge{color:var(--dm);font-size:var(--fs-sm)}
+.fe-jt-row{padding-left:12px}
+.fe-jl-line{border-bottom:1px solid var(--s2);padding:2px 0}
+.fe-jl-line summary{display:flex;gap:8px;align-items:baseline}
+.fe-jl-n{color:var(--dm);min-width:28px;text-align:right;user-select:none;font-size:var(--fs-sm);flex-shrink:0}
+.fe-jl-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mt)}
+.fe-jl-line.bad{display:flex;gap:8px;align-items:baseline}
+.fe-jl-err{color:#f85149;font-size:var(--fs-xs);border:1px solid #f8514940;border-radius:3px;padding:0 4px;flex-shrink:0}
+.fe-md{padding:14px 22px 20px;font-size:var(--fs-lg);line-height:1.65;max-width:760px;color:var(--tx)}
+/* Reading rhythm: every block owns the space below it, in em, so one scale
+   holds in the file page, preview, notes, dialogs and AI answers alike. */
+.fe-md>*,.fe-md-alert>*,.fe-md blockquote>*{margin:0 0 .9em}
+.fe-md>:last-child,.fe-md-alert>:last-child,.fe-md blockquote>:last-child{margin-bottom:0}
+.fe-md h1,.fe-md h2,.fe-md h3,.fe-md h4,.fe-md h5,.fe-md h6{font-weight:600;line-height:1.3;margin:1.6em 0 .5em;color:var(--tx)}
+.fe-md>h1:first-child,.fe-md>h2:first-child,.fe-md>h3:first-child,.fe-md>.fe-md-fm+h1,.fe-md>.fe-md-fm+h2{margin-top:0}
+.fe-md h1{font-size:1.75em;padding-bottom:.3em;border-bottom:1px solid var(--bd)}
+.fe-md h2{font-size:1.4em;padding-bottom:.3em;border-bottom:1px solid var(--bd)}
+.fe-md h3{font-size:1.15em}
+.fe-md h4,.fe-md h5,.fe-md h6{font-size:1em}
+.fe-md h5,.fe-md h6{color:var(--mt)}
+.fe-md ul,.fe-md ol{padding-left:1.6em}
+.fe-md li{margin:0}
+.fe-md li+li{margin-top:.35em}
+.fe-md li>p{margin:0}
+.fe-md li>p+p,.fe-md li>p+ul,.fe-md li>p+ol,.fe-md li>ul,.fe-md li>ol,.fe-md li>.fe-md-code,.fe-md li>.fe-md-pre{margin:.35em 0 0}
+.fe-md li::marker{color:var(--mt)}
+.fe-md code{background:var(--s2);border:0;padding:.12em .4em;border-radius:4px;font-family:var(--mono);font-size:.86em}
+.fe-md a code{color:inherit}
+.fe-md-code{border:1px solid var(--bd);border-radius:8px;background:color-mix(in srgb,var(--card),var(--tx) 3.5%);overflow:hidden}
+.fe-md-code-bar{justify-content:space-between;padding:4px 6px 0 12px;background:none}
+.fe-md-lang{font:600 var(--fs-sm)/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
+.fe-md-pre{background:var(--s1);border:1px solid var(--bd);border-radius:6px;padding:.75em 1em;
+  overflow-x:auto;font-family:var(--mono);font-size:.86em;line-height:1.55;white-space:pre;color:var(--tx)}
+.fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0;padding-top:.4em;background:none}
+.fe-md-code{background:color-mix(in srgb,var(--s1),#000 6%)}
+.fe-md-lines{counter-reset:ln;padding-left:.2em}
+.fe-md-l{display:block;width:max-content;min-width:100%;box-sizing:border-box;padding-right:1em;border-radius:3px;counter-increment:ln}
+.fe-md-l::before{content:counter(ln);display:inline-block;width:2.2em;margin-right:1em;text-align:right;color:var(--dm);opacity:.6;user-select:none}
+.fe-md-l:hover{background:color-mix(in srgb,var(--tx) 6%,transparent)}
+.fe-md-mermaid{padding:14px;border:1px solid var(--bd);border-radius:6px;
+  background:var(--s1);overflow-x:auto;text-align:center}
+.fe-md-mermaid svg{display:block;max-width:100%;height:auto;margin:auto}
+.fe-md-mermaid-source[hidden]{display:none}
+.fe-md-mermaid-source{margin:8px 0 0;padding:10px;text-align:left;white-space:pre-wrap;
+  background:var(--s2);border-radius:4px;font:var(--fs-md)/1.55 var(--mono)}
+.fe-md-anchor{margin-left:8px;color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity var(--t-fast)}
+.fe-md-anchor::before{content:'#'}
+.fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}
+.fe-md-fm{display:grid;grid-template-columns:max-content 1fr;gap:3px 14px;padding:10px 14px;background:var(--s1);border:1px solid var(--bd);border-radius:6px;font-size:var(--fs-md)}
+.fe-md-fm dt{color:var(--dm);font-weight:600}
+.fe-md-fm dd{margin:0;color:var(--tx)}
+.fe-md-fm-warn{grid-column:1/-1;display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-1);margin-top:var(--sp-2);padding:var(--sp-2) 0 0;border-top:1px solid var(--bd)}
+.fe-md-fm-note{font-size:var(--fs-sm);color:var(--dm)}
+.fe-fm-items{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3)}
+a.fe-fm-path{color:var(--ac);text-decoration:none}
+a.fe-fm-path:hover{text-decoration:underline}
+.fe-md li.fe-task{list-style:none;margin-left:-1.3em;padding-left:0}
+.fe-md li.fe-task input{accent-color:var(--ac);margin-right:6px;vertical-align:-2px}
+.fe-md-tablewrap{overflow-x:auto}
+.fe-md img{display:block;margin-left:auto;margin-right:auto;cursor:zoom-in;max-width:100%;border-radius:6px}
+.fe-md blockquote{border-left:3px solid var(--bd2);padding:0 1em;color:var(--mt)}
+.fe-md blockquote .fe-md{padding:0}
+.fe-md a{color:var(--ac);text-decoration:none}
+.fe-md a:hover{text-decoration:underline}
+.fe-md hr{border:none;border-top:1px solid var(--bd);margin:1.6em 0}
+.fe-md strong{font-weight:600}
+.fe-md-table{border-collapse:separate;border-spacing:0;margin:0;font-size:.93em;border:1px solid var(--bd);border-radius:6px;overflow:hidden}
+.fe-md-table th,.fe-md-table td{border:0;border-bottom:1px solid var(--bd);padding:.55em .9em;text-align:left;vertical-align:top}
+.fe-md-table tbody tr:last-child td{border-bottom:0}
+.fe-md-table thead{position:static;background:none}
+.fe-md-table thead th{background:color-mix(in srgb,var(--s1),var(--tx) 5%);font-weight:600;font-size:inherit;letter-spacing:0;text-transform:none;color:var(--tx);
+  white-space:normal;user-select:text;padding:.55em .9em}
+#fe-ctx,.fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
+  min-width:180px;box-shadow:0 8px 24px #0009;padding:4px 0}
+.fe-ctx:not([data-layer]){display:none}
+.fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
+  font-size:var(--fs-md);cursor:pointer;white-space:nowrap}
+.fe-ctx-key{margin-left:auto;color:var(--dm);font-size:var(--fs-xs);padding-left:16px}
+.fe-ctx-sep{height:1px;background:var(--bd);margin:4px 0}
+.fe-tab-ico svg{width:15px;height:16px}
+.fe-tab-x,.fe-tab-more{opacity:.6}
+.fe-tab:focus-visible,.fe-tab-x:focus-visible,.fe-tab-more:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}
+@media (max-width:900px){
+  #fe-side{width:clamp(200px,26vw,240px)}
+  #fe-toc-rail{width:clamp(150px,22vw,190px)}
+  #fe-ff-q{width:110px}
+  #fe-page .fe-md{padding:20px 18px 60px}
+  #fe-fp-bar{flex-wrap:wrap}
+}
+@container fe-main (max-width:760px){
+  #fe-toolbar{flex-wrap:wrap}
+  #fe-count{flex-basis:100%}
+  #fe-tb-right{width:100%;flex-wrap:wrap;justify-content:flex-start}
+}
+/* Soft (design-system.md): the sidebar, the main pane and a docked preview
+   float as cards on the page background; rows are 36px with no lines, and
+   selection is a wash with rounded ends, never a ring. The sidebar's resize
+   handle is the 10px gutter between cards and shows a thin line on hover. */
+#fe-body{padding:10px;background:var(--bg)}
+#fe-side,#fe-main,#fe-qlook.side{border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+/* The page is the lightest surface, the sidebar one step below it, and the
+   page background the deepest; bars inside the page share its colour and are
+   set apart by a hairline, not a grey band. */
+#fe-side{background:var(--side)}
+#fe-main,#fe-toolbar,#fe-fp-bar,#fe-statusbar,thead{background:var(--card)}
+#fe-tabbar,#fe-tabs{background:var(--side)}
+.fe-tab.on{background:var(--card)}
+#fe-qlook.side{margin-left:10px}
+#fe-table{border-collapse:separate;border-spacing:0}
+#fe-table tbody tr{border-bottom:0}
+#fe-table tbody tr:hover{background:none}
+#fe-table tbody tr:hover td{background:var(--hover)}
+#fe-table tbody tr.selected td{background:var(--on)}
+#fe-table tbody td{height:36px}
+#fe.compact #fe-table tbody td{height:28px}
+/* Row height per detail level; it wins over Compact, which only sets level 3. */
+#fe[data-density="1"] #fe-table tbody td{height:52px}
+#fe[data-density="2"] #fe-table tbody td{height:44px}
+#fe[data-density="4"] #fe-table tbody td{height:28px}
+#fe[data-density="5"] #fe-table tbody td{height:23px}
+#fe-table tbody td:first-child{border-radius:8px 0 0 8px}
+#fe-table tbody td:last-child{border-radius:0 8px 8px 0}
+#fe-scroll{padding:0 6px}
+.fe-row.selected .fe-nm{color:var(--tx)}
+.fe-tile.selected{background:var(--on);border-color:transparent}
+
+/* One row and one floating surface. Every list row (Places, Saved, Notes,
+   History, the path menu, context menus) shares a height, inset, corner,
+   icon size, text size and hover wash; in the sidebar a row sits 6px in from
+   the card edge, in a menu the menu's own 6px padding gives the same inset.
+   Every popover, menu, tip and the Contents card share one surface. Notes
+   rows grow to fit a tag line but keep the inset and corners. */
+:root{--fs-xs:calc(10px * var(--ui-text-scale,1));--fs-sm:calc(11px * var(--ui-text-scale,1));--fs-md:calc(12px * var(--ui-text-scale,1));--fs-lg:calc(13px * var(--ui-text-scale,1));--fs-xl:calc(15px * var(--ui-text-scale,1));--row-h:32px;--row-r:8px;--row-px:10px;--row-gap:10px;--row-ic:16px;--row-fs:var(--fs-lg);
+  --pop-r:12px;--pop-pad:6px;--pop-bg:color-mix(in srgb,var(--card) 90%,transparent);--pop-bd:var(--bd2);
+  --pop-sh:0 12px 32px rgb(0 0 0 / .34),0 1px 3px rgb(0 0 0 / .2);--pop-blur:blur(16px) saturate(1.2)}
+#fe[data-theme="light"],html:has(#fe[data-theme="light"]){--pop-bg:color-mix(in srgb,var(--card) 94%,transparent);--pop-bd:var(--bd);
+  --pop-sh:0 10px 28px rgb(16 24 32 / .12),0 1px 3px rgb(16 24 32 / .08)}
+/* The component system's scales (docs/plan/component-system.md, sections 4
+   and 5). Declared on #fe too, so tokens built from palette colours pick up
+   the light theme's values rather than the root's. */
+:root,#fe{
+  --sp-1:2px;--sp-2:4px;--sp-3:6px;--sp-4:8px;--sp-5:12px;--sp-6:16px;--sp-7:20px;--sp-8:24px;--sp-9:32px;
+  --ctl-xs:18px;--ctl-sm:22px;--ctl-md:28px;--ctl-lg:32px;--bar-h:40px;
+  --r-xs:4px;--r-full:999px;
+  --z-sticky:5;--z-panel:30;--z-popover:300;--z-overlay:400;--z-command:500;--z-toast:600;--z-tip:700;--z-step:10;
+  --tone-ok:var(--nc-green);--tone-warn:var(--nc-orange);--tone-danger:var(--nc-red);--tone-info:var(--nc-blue);
+  --type-micro:var(--fs-sm);--type-small:var(--fs-md);--type-ui:var(--fs-lg);--type-ui-strong:var(--fs-lg);--type-title:var(--fs-xl)}
+@media (prefers-reduced-motion:reduce){:root,#fe{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}}
+.fe-si,.fe-bm-item,.fe-dd-item,.fe-ctx-item{min-height:var(--row-h);margin:0 6px;padding:0 var(--row-px);gap:var(--row-gap);
+  border-radius:var(--row-r);font-size:var(--row-fs);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-dd-item,.fe-ctx-item{margin:0}
+button.fe-si{width:auto;display:flex}
+.fe-si > svg,.fe-si-link > svg,.fe-dd-item > svg,.fe-ctx-item > svg{width:var(--row-ic);height:var(--row-ic);flex:none}
+.fe-sl{font-size:var(--row-fs)}
+.fe-si-link{padding:0;gap:var(--row-gap);min-height:var(--row-h)}
+.fe-nt-item .fe-si-link{padding:6px 0}
+.fe-pl-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
+
+/* A note row's actions float over the end of the title on a solid fade, so
+   nothing moves under the pointer on hover. In a narrow sidebar only delete
+   shows; colour and open-in-tab stay in the right-click menu. */
+.fe-nt-item .fe-nt-acts{right:4px;border-radius:0 var(--row-r) var(--row-r) 0;padding-left:14px;
+  --fade:var(--hover);background:linear-gradient(to right,transparent,var(--fade) 14px),linear-gradient(to right,transparent,var(--side) 14px)}
+.fe-nt-item:has(> .fe-si-link.active) .fe-nt-acts{--fade:var(--on)}
+.fe-nt-item:has(.editing) .fe-nt-acts{display:none}
+
+#fe-lenses{container:lens/inline-size}
+@container lens (max-width:200px){.fe-nt-props,.fe-nt-tab{display:none!important}}
+/* A tag group is a plain section: one header row (chevron, colour, name,
+   count) at the row inset, and its rows exactly like every other row. */
+.fe-grp{margin:6px 0 0;padding:0;background:none;border-radius:0}
+.fe-grp:not([open]){padding:0}
+.fe-grp .fe-bm-item{margin:0 6px}
+.fe-grp > summary{min-height:28px;margin:0 6px;padding:0 var(--row-px);border-radius:var(--row-r);gap:8px;
+  font-size:var(--fs-sm);letter-spacing:.06em;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-grp > summary:hover{background:var(--hover);color:var(--tx)}
+.fe-grp > summary svg{width:12px;height:12px;opacity:.8}
+.fe-sh{padding:10px 16px 4px}
+.fe-hint{padding:6px 16px}
+#fe-lens-filter,#fe-docs-q{width:calc(100% - 12px);margin:2px 6px 8px}
+.fe-lens-tags{padding:0 6px 8px}
+/* Saved and Notes: the lens's own buttons, icon only, left of one search
+   box that carries a Names/Deep switch; the tag chips scroll in a row below. */
+.fe-lens-tools{padding:2px 6px 8px}
+.fe-lens-ib{flex:none}
+
+a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
+.fe-lens-box{position:relative;flex:1;min-width:0;margin-left:4px}
+.fe-lens-box #fe-lens-filter{width:100%;margin:0;padding-right:64px}
+.fe-lens-depth{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
+#fe-lens-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#fe-lens-tags .fe-lens-tag{flex:none;white-space:nowrap}
+/* A saved row is one quiet line: the name, then a tag count that gives way to
+   the row's icon buttons on hover. Path and tags live in the hover card. */
+.fe-pl-meta{display:inline-flex;align-items:center;gap:2px;margin-left:auto;padding-right:2px;flex:none;font-size:var(--fs-xs);color:var(--dm)}
+.fe-pl-meta svg{width:11px!important;height:11px!important;opacity:1}
+.fe-pl-item:hover .fe-pl-meta,.fe-pl-item:focus-within .fe-pl-meta{display:none}
+.fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{display:none;opacity:1}
+
+.fe-pl-item:has(.fe-pl-hit){flex-wrap:wrap}
+.fe-pl-hit{flex-basis:100%;padding:0 0 5px 29px;margin-top:-4px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#fe-sv-card{position:fixed;z-index:60;pointer-events:none;width:230px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--pop-bd);border-radius:10px;
+  background:var(--pop-bg);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);font-size:var(--fs-sm);color:var(--mt);line-height:1.45;animation:fe-rise var(--t-fast) var(--ease)}
+#fe-sv-card[hidden]{display:none}
+#fe-sv-card b{color:var(--tx);font-size:var(--fs-md);font-weight:600;overflow-wrap:anywhere}
+.fe-svc-path{overflow-wrap:anywhere}
+.fe-svc-tags{display:flex;flex-wrap:wrap;gap:4px;padding-top:2px}
+.fe-svc-hint{color:var(--dm);font-size:var(--fs-xs)}
+/* A note row: a colour bar and tinted icon for a coloured note, the title with
+   its tags as small chips beneath, and the pin in the end slot until hover. */
+.fe-nt-item.coloured::before{content:'';position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--c)}
+.fe-nt-item.coloured .fe-si-link > svg{color:var(--c);opacity:1}
+.fe-nt-item.two .fe-si-link{align-items:flex-start}
+.fe-nt-item.two .fe-si-link > svg{margin-top:1px}
+.fe-nt-main{gap:4px}
+.fe-nt-tags{gap:4px;flex-wrap:nowrap;overflow:hidden}
+.fe-nt-tag{display:inline-flex;align-items:center;gap:4px;height:17px;padding:0 6px;border:1px solid var(--bd2);border-radius:999px;font-size:var(--fs-xs);color:var(--mt);white-space:nowrap;flex:none}
+.fe-nt-tag i{width:6px;height:6px;border-radius:50%;flex:none}
+.fe-nt-item .fe-nt-pin{display:inline-flex;margin-left:auto;padding-right:4px;color:var(--gold);flex:none}
+.fe-nt-item .fe-nt-pin svg{width:12px!important;height:12px!important;opacity:1}
+.fe-nt-item:hover .fe-nt-pin,.fe-nt-item:focus-within .fe-nt-pin{visibility:hidden}
+
+.fe-nt-grp{gap:7px;width:calc(100% - 12px);height:26px;margin:8px 6px 2px;padding:0 var(--row-px);border:0;border-radius:var(--row-r);background:none;cursor:pointer;
+  font-family:inherit;text-align:left}
+.fe-nt-grp:first-child{margin-top:0}
+.fe-nt-grp:hover{background:var(--hover);color:var(--tx)}
+.fe-nt-grp .fe-grp-n{letter-spacing:0}
+.fe-nt-grp-pin{display:inline-flex;color:var(--gold)}
+.fe-nt-grp-pin svg{width:12px;height:12px}
+#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);
+  backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);color:var(--tx)}
+#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-allow,#fe-toc-rail{border-radius:var(--pop-r)}
+#fe-crumb-menu,#fe-ctx,.fe-ctx{padding:var(--pop-pad)}
+#fe-hint{border-radius:var(--row-r);padding:5px 10px}
+.fe-dd-search-wrap{padding:0 0 6px;margin-bottom:4px}
+
+.fe-dd-items{padding:0}
+.fe-ctx-sep{margin:4px 4px}
+.fe-toast-act{color:var(--ac)}
+/* Contents is a quiet card, with a faint rail per heading level so the
+   hierarchy reads at a glance. */
+#fe-toc-rail{box-shadow:0 1px 2px rgb(0 0 0 / .05),0 4px 14px rgb(0 0 0 / .06)}
+#fe-toc a{margin:0 6px;position:relative}
+#fe-toc a.fe-toc-h2,#fe-toc a.fe-toc-h3,#fe-toc a.fe-toc-h4{--rail:color-mix(in srgb,var(--bd2) 55%,transparent)}
+#fe-toc a.fe-toc-h2::before,#fe-toc a.fe-toc-h3::before,#fe-toc a.fe-toc-h4::before{content:'';position:absolute;inset:0 auto 0 0;width:44px;pointer-events:none;
+  background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat}
+#fe-toc a.fe-toc-h3::before,#fe-toc a.fe-toc-h4::before{background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 25px 0/1px 100% no-repeat}
+#fe-toc a.fe-toc-h4::before{background:linear-gradient(var(--rail),var(--rail)) 13px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 25px 0/1px 100% no-repeat,linear-gradient(var(--rail),var(--rail)) 37px 0/1px 100% no-repeat}
+
+/* Motion. Things that appear fade and settle from a few pixels away; a
+   folded group's body eases its height; the lens that takes over the
+   sidebar slides in from the side it was picked on. One duration family
+   (--t-fast, --t-base) and one ease. Reduced motion snaps everything. */
+@keyframes fe-rise{from{opacity:0;transform:translateY(-4px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes fe-fade{from{opacity:0}to{opacity:1}}
+@keyframes fe-lens-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+@keyframes fe-dock-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+#fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu{animation:fe-rise var(--t-fast) var(--ease);transform-origin:top left}
+.fe-lens:not([hidden]){animation:fe-lens-in var(--t-base) var(--ease)}
+#fe-qlook.side{animation:fe-dock-in var(--t-base) var(--ease)}
+.fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
+/* Settings and Help read as a page: the title across the top, the sections
+   listed on the left the way the sidebar lists lenses, the pane on the right.
+   In Settings each row names the setting, says what it changes and keeps its
+   control on the right; rows sit in cards by subject. */
+.fe-set-h{justify-content:space-between;min-height:40px;padding:8px 16px 4px}
+.fe-set{display:flex;align-items:center;gap:16px;min-height:52px;padding:8px 16px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+.fe-set-h + .fe-set{border-top:0}
+.fe-set-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fe-set-l{font-size:var(--row-fs);color:var(--tx)}
+.fe-set-d{font-size:var(--fs-md);color:var(--dm);line-height:1.35}
+.fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none;max-width:62%}
+.fe-set-c .fe-st-input{width:260px;max-width:100%}
+.fe-set-note{padding:2px 16px 10px;font-size:var(--fs-md);color:var(--dm);line-height:1.5}
+.fe-set-note:empty{display:none}
+.fe-set-card #fe-st-rules-list{margin:0 16px}
+.fe-set-danger{color:var(--nc-red)}
+
+.fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
+  background:var(--s3);cursor:pointer;transition:background var(--t-fast) var(--ease)}
+.fe-switch::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 2px rgb(0 0 0 / .3);transition:transform var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+.fe-switch:checked{background:var(--ac)}
+.fe-switch:checked::after{transform:translateX(14px);background:var(--tx-on-ac)}
+.fe-switch:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.fe-set-sws{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.fe-set-sw{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 8px;border-radius:10px;cursor:pointer;
+  font-size:var(--fs-md);color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-set-sw:hover{background:var(--hover)}
+.fe-set-sw:has(input:checked){background:var(--on);color:var(--tx)}
+.fe-set-sw input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.fe-set-sw-chip{width:40px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--b) 55%,var(--a) 55%);box-shadow:inset 0 0 0 1px var(--bd2)}
+/* Editing: the reading width applies to Raw and Rich; Split gives each side
+   half the pane and its own scroll. Problems mark their row in the gutter. */
+#fe-fe-col{max-width:none}
+#fe.fe-column-xl #fe-fe-col{max-width:150ch}
+#fe.fe-column-lg #fe-fe-col{max-width:130ch}
+#fe.fe-column-md #fe-fe-col{max-width:110ch}
+[data-mode="split"] #fe-fe-scroll{overflow:hidden}
+#fe [data-mode="split"] #fe-fe-col{max-width:none;height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:0}
+/* Spacing on the text side is border, not padding: the typing layer is placed
+   against the padding box, so padding would shift it off the painted text. */
+[data-mode="split"] #fe-fe-src{overflow:auto;padding:0 20px 120px 0;border-top:24px solid transparent;border-left:12px solid transparent}
+[data-mode="split"] #fe-fe-view{overflow:auto;padding:60px 28px 120px;border-left:1px solid var(--bd)}
+#fe-fe-diag[hidden]{display:none}
+.fe-fe-rich{padding:0}
+[data-mode="rich"] #fe-fe-view,[data-mode="split"] #fe-fe-view{animation:fe-fade var(--t-base) var(--ease)}
+.fe-html-frame{display:block;width:100%;height:calc(100vh - 210px);min-height:320px;border:1px solid var(--bd);border-radius:8px;background:#fff}
+.fe-yaml-sep{border:0;border-top:1px dashed var(--bd);margin:12px 0}
+.fe-fe-row.err,.fe-cl.err{background:color-mix(in srgb,var(--nc-red) 8%,transparent)}
+.fe-fe-row.warn,.fe-cl.warn{background:color-mix(in srgb,var(--nc-orange) 7%,transparent)}
+.fe-fe-row.err .fe-fe-ln,.fe-cl.err .fe-cl-n{color:var(--nc-red);font-weight:600}
+.fe-fe-row.warn .fe-fe-ln,.fe-cl.warn .fe-cl-n{color:var(--nc-orange);font-weight:600}
+.fe-fe-row.err .fe-fe-code,.fe-cl.err .fe-cl-t{text-decoration:underline wavy color-mix(in srgb,var(--nc-red) 70%,transparent);text-underline-offset:3px}
+.fe-cl.flash{background:var(--on);transition:background 1s var(--ease)}
+.fe-fe-modes,.fe-fe-modes .fe-seg-b{border-radius:var(--r-full)}
+#fe-fe-pill .fe-fe-diag{border-radius:999px;padding:0 10px;font-size:var(--fs-md)}
+.fe-fe-diag.error{color:var(--nc-red)}
+.fe-fe-diag.warn{color:var(--nc-orange)}
+.fe-diag{margin:0 0 14px;font-size:var(--fs-md)}
+.fe-diag > summary{cursor:pointer;padding:8px 12px;font-weight:600;list-style:none}
+.fe-diag.error > summary{color:var(--nc-red)}
+.fe-diag.warn > summary{color:var(--nc-orange)}
+.fe-diag-row{display:flex;gap:10px;width:100%;padding:5px 12px;border:0;background:none;color:var(--mt);font:inherit;text-align:left;cursor:pointer;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+.fe-diag-row:hover{background:var(--hover);color:var(--tx)}
+.fe-diag-ln{flex:none;min-width:3ch;text-align:right;font-family:var(--mono);color:var(--dm)}
+.fe-diag-row.error .fe-diag-ln{color:var(--nc-red)}
+.fe-diag-row.warn .fe-diag-ln{color:var(--nc-orange)}
+.fe-diag-more{display:block;padding:5px 12px 8px;color:var(--dm)}
+#fe-page > .fe-diag{margin:16px 48px 0}
+/* Search and Ask lenses: a form at the row inset, results as ordinary rows. */
+.fe-tl-form{display:flex;flex-direction:column;gap:6px;margin:2px 6px 8px}
+.fe-tl-input{width:100%;resize:vertical}
+
+.fe-tl-opts{display:flex;gap:12px;padding:0 4px}
+.fe-srch-hit{align-items:flex-start;padding-top:6px;padding-bottom:6px}
+.fe-srch-hit > svg{margin-top:1px}
+.fe-srch-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.fe-srch-snip{font-size:var(--fs-md);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-srch-snip mark{background:color-mix(in srgb,var(--ac) 28%,transparent);color:var(--tx);border-radius:3px;padding:0 1px}
+/* Ask: a top row (model chip, new chat, history), the chat, and a composer
+   pinned to the bottom of the lens. */
+#fe-lens-ask:not([hidden]){display:flex;flex-direction:column;min-height:100%}
+#fe-ask{flex:1;display:flex;flex-direction:column}
+.fe-ask-top{position:relative;display:flex;align-items:center;gap:2px;margin:0 10px 8px 14px}
+.fe-ask-sp{flex:1}
+.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%}
+.fe-ask-model > .dot{position:absolute;left:10px;top:50%;margin-top:-3.5px;pointer-events:none}
+.fe-ask-model .fe-dd-btn{min-width:0;max-width:190px;padding-left:var(--sp-8)}
+.fe-ask-model .dot,.fe-ask-status .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dm)}
+.dot.ready{background:var(--green)}
+.dot.cold{background:var(--gold)}
+.dot.down,.dot.unavailable{background:var(--nc-red)}
+.fe-ask-ib{position:relative}
+
+.fe-ask-n{position:absolute;top:1px;right:0}
+.fe-ask-status{display:flex;align-items:center;gap:8px;margin:0 16px 8px;font-size:var(--fs-sm);line-height:1.4;color:var(--mt)}
+.fe-ask-status[hidden]{display:none}
+.fe-ask-cloud{display:flex;align-items:center;gap:6px;margin:0 16px 8px;font-size:var(--fs-sm);color:var(--mt)}
+.fe-ask-cloud[hidden]{display:none}
+.fe-ask-cloud svg{width:12px;height:12px;flex:none;color:var(--gold)}
+#fe-ask-thread{display:flex;flex-direction:column;gap:14px;padding:4px 12px 12px 14px}
+.fe-ask-turn{display:flex;flex-direction:column;gap:6px}
+.fe-ask-q{align-self:flex-end;max-width:88%;padding:6px 10px;border-radius:12px 12px 4px 12px;background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx);font-size:var(--fs-md);line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.fe-ask-a.fe-md{padding:0;font-size:var(--fs-md);line-height:1.55;max-width:none}
+/* renderMarkdown wraps its output in its own .fe-md, which must not pad again. */
+.fe-ask-a .fe-md{padding:0;font-size:inherit;max-width:none}
+.fe-ask-wait{color:var(--dm)}
+.fe-ask-meta{font-size:var(--fs-xs);color:var(--dm)}
+.fe-ask-meta:empty{display:none}
+.fe-ask-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;color:var(--dm);font-size:var(--fs-md);text-align:center}
+.fe-ask-empty[hidden]{display:none}
+.fe-ask-empty p{margin:0}
+.fe-ask-quick{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.fe-ask-form{position:sticky;bottom:0;margin-top:auto;padding:8px 10px 10px;background:linear-gradient(to bottom,transparent,var(--side) 14px)}
+.fe-ask-box{display:flex;flex-direction:column;gap:4px;padding:8px 8px 6px 10px;border:1px solid var(--bd2);border-radius:14px;background:var(--bg);transition:border-color var(--t-fast) var(--ease)}
+.fe-ask-box:focus-within{border-color:var(--ac)}
+#fe-ask-q{width:100%;min-height:22px;max-height:140px;padding:0;border:0;outline:0;resize:none;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md);line-height:1.45}
+#fe-ask-q::placeholder{color:var(--dm)}
+.fe-ask-foot{display:flex;align-items:center;gap:8px}
+.fe-ask-ctx{flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--dm)}
+.fe-ask-ctx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-ask-ctx svg{width:11px;height:11px;flex:none}
+.fe-ask-send{flex:none}
+
+.fe-ask-send.stop svg{display:none}
+.fe-ask-send.stop::before{content:'';width:9px;height:9px;border-radius:2px;background:currentColor}
+.fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+.fe-ask-hist[hidden]{display:none}
+.fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
+.fe-ask-h-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:0;background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md)}
+.fe-ask-h-m{font-size:var(--fs-xs);color:var(--dm)}
+.fe-ask-h-del{opacity:0}
+.fe-ask-h:hover .fe-ask-h-del,.fe-ask-h-del:focus-visible{opacity:1}
+/* Review fixes: Settings follows the page order (panel a step below, cards
+   on top), fields share one look, path chevrons show on hover only, and
+   the palette swatch previews the theme in use. */
+
+#fe-bar .fe-crumb-dd{opacity:1;color:var(--dm);padding:3px 1px}
+#fe-bar .fe-crumb-dd:hover{color:var(--tx)}
+#fe-statusbar{min-width:0;overflow:hidden;white-space:nowrap}
+#fe[data-theme="light"] .fe-set-sw:nth-child(1) .fe-set-sw-chip{--b:#eaf0f2;--a:#0e8f8a}
+#fe[data-theme="light"] .fe-set-sw:nth-child(2) .fe-set-sw-chip{--b:#f0f0f5;--a:#6d4aff}
+#fe[data-theme="light"] .fe-set-sw:nth-child(3) .fe-set-sw-chip{--b:#f2ece4;--a:#c2406b}
+#fe[data-theme="light"] .fe-set-sw:nth-child(4) .fe-set-sw-chip{--b:#f0f0f0;--a:#141414}
+/* Settings and Help as a desktop settings window: the title and the tabs
+   down the left, each tab a coloured tile; each page opens with a header
+   (large tile, title, what the page covers) that stays put while the page
+   scrolls; sections are small headings over grouped cards. Hierarchy comes
+   from weight, colour, case and space, inside the five-step type scale. */
+
+
+.fe-set-group{display:flex;flex-direction:column;gap:8px}
+.fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px}
+.fe-set-card{overflow:hidden}
+.fe-set-card > .fe-set:first-child{border-top:0}
+.fe-set-card > .fe-set-note:first-child{padding-top:12px}
+.fe-set-card #fe-st-reset-rules{margin:10px 16px 12px}
+#fe-st-ai-card{background:none;border:0;border-radius:0;padding:14px 16px}
+/* Theme and palette pickers: a small window drawn in the colours each one
+   picks. Palette windows follow the current mode; mode windows show both. */
+.fe-set-sws{gap:6px}
+.fe-set-sw{gap:6px;padding:6px}
+.fe-set-thumb{position:relative;display:block;width:68px;height:46px;border-radius:8px;overflow:hidden;background:var(--b);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--t) 14%,transparent),0 1px 3px rgb(0 0 0 / .18);
+  --t:#fff;--c:color-mix(in srgb,var(--b) 78%,#000);transition:box-shadow var(--t-fast) var(--ease)}
+.fe-set-thumb i{position:absolute;display:block}
+.fe-set-thumb .sb{left:0;top:0;bottom:0;width:18px;background:var(--c)}
+.fe-set-thumb .r1,.fe-set-thumb .r2{left:25px;height:4px;border-radius:2px;background:var(--t);opacity:.42}
+.fe-set-thumb .r1{top:11px;width:32px}
+.fe-set-thumb .r2{top:20px;width:22px;opacity:.26}
+.fe-set-thumb .pill{left:25px;bottom:9px;width:20px;height:7px;border-radius:4px;background:var(--a)}
+.fe-set-sw:has(input:checked) .fe-set-thumb{box-shadow:0 0 0 2px var(--ac),0 1px 3px rgb(0 0 0 / .18)}
+.fe-set-sw:has(.fe-set-thumb):has(input:checked){background:none}
+.fe-set-sw:has(.fe-set-thumb):hover{background:none}
+.fe-set-sw:has(.fe-set-thumb):hover .fe-set-thumb{box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 45%,transparent),0 1px 3px rgb(0 0 0 / .18)}
+.fe-set-sw:has(.fe-set-thumb):has(input:checked):hover .fe-set-thumb{box-shadow:0 0 0 2px var(--ac),0 1px 3px rgb(0 0 0 / .18)}
+.fe-set-sw:has(input:focus-visible) .fe-set-thumb{outline:2px solid var(--ac);outline-offset:3px}
+.fe-set-thumb[data-p="slate"]{--a:#3cc6c0;--b:#1c2328}
+.fe-set-thumb[data-p="violet"]{--a:#9d7cff;--b:#1f1f27}
+.fe-set-thumb[data-p="sand"]{--a:#e8789a;--b:#24201c}
+.fe-set-thumb[data-p="ink"]{--a:#f2f2f3;--b:#1b1b1d}
+#fe[data-theme="light"] .fe-set-thumb[data-p]{--t:#000;--c:color-mix(in srgb,var(--b) 90%,#000)}
+#fe[data-theme="light"] .fe-set-thumb[data-p="slate"]{--a:#0e8f8a;--b:#eef3f5}
+#fe[data-theme="light"] .fe-set-thumb[data-p="violet"]{--a:#6d4aff;--b:#f3f3f8}
+#fe[data-theme="light"] .fe-set-thumb[data-p="sand"]{--a:#c2406b;--b:#f5efe7}
+#fe[data-theme="light"] .fe-set-thumb[data-p="ink"]{--a:#141414;--b:#f4f4f4}
+#fe .fe-set-thumb[data-mode="dark"]{--a:var(--ac);--b:#1c2328;--t:#fff;--c:#131a1e}
+#fe .fe-set-thumb[data-mode="light"]{--a:var(--ac);--b:#f4f6f8;--t:#000;--c:#e2e7eb}
+/* Very narrow: the sidebar shrinks to its rail and a picked lens floats over
+   the page; the path bar keeps its last folder in view. */
+@media (max-width:520px){
+  #fe #fe-side{width:54px!important;max-width:none;overflow:visible;position:relative;z-index:30;flex-direction:row}
+  #fe-rail{flex-direction:column;padding:8px 0;border-bottom:0}
+  .fe-rail-btn.on{flex-grow:0}
+  .fe-rail-btn em{display:none}
+  #fe-side-rz{display:none}
+  #fe-lenses{display:none}
+  #fe-side.open #fe-lenses{display:block;position:absolute;top:0;bottom:0;left:58px;width:min(260px,calc(100vw - 80px));
+    background:var(--side);border:1px solid var(--pop-bd);border-radius:12px;box-shadow:var(--pop-sh);animation:fe-lens-in var(--t-base) var(--ease)}
+  #fe-rail{border-right:0}
+  #fe-bc{justify-content:flex-end}
+}
+@container fe-main (max-width:480px){
+  #fe-page .fe-md{padding:16px 14px 48px}
+  #fe-page .fe-md h1{font-size:1.45em}
+  #fe-page > .fe-diag{margin:12px 14px 0}
+}
+#fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none!important}
+.fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
+@media (prefers-reduced-motion:reduce){
+  #fe *,#fe *::before,#fe *::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
+}
+
+/* Narrow windows keep the reading column usable: the listing drops its
+   lesser columns, Contents gives way to the text, and the sidebar is held
+   to a share of the width (max-width beats a dragged inline width). */
+@container fe-main (max-width:560px){
+  .c-tp,.c-tg{display:none}
+}
+@container fe-main (max-width:400px){
+  .c-dt{display:none}
+}
+/* A narrow window keeps the card out of the text until it is asked for;
+   then it floats over the right side (the peek state, set in file-page.ts). */
+@media (max-width:760px){
+  #fe-toc-rail:not(.peek){display:none}
+  #fe-toc-rail.peek{width:min(300px,calc(100% - 24px));right:12px}
+}
+@media (max-width:640px){
+  #fe-side{max-width:42vw}
+  #fe-side{width:clamp(180px,30vw,220px)}
+  #fe-body{padding:6px}
+  #fe-side-rz{width:6px}
+  #fe-qlook.side{margin-left:6px}
+}
+/* A narrow dialog, in a small window or in the sidebar: the tabs run across the top. */
+@container dlg (max-width:700px){
+  .fe-dlg-box{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr)}
+  .fe-dlg-title{border-right:0}
+  .fe-dlg-tabs{grid-row:2;flex-direction:row;border-right:0;border-bottom:1px solid var(--bd)}
+  .fe-dlg-tab{flex:none}
+  .fe-dlg-tab i{display:none}
+  .fe-dlg-pane{grid-column:1;grid-row:3}
+  /* Settings rows stack: the label, then the control the full width. Written
+     one step more specific than the wide rules in styles-ui.ts, which come later. */
+  .fe-set-card .fe-set{flex-direction:column;align-items:stretch;gap:var(--sp-4)}
+  .fe-set > .fe-set-c{max-width:none;justify-content:flex-start}
+  .fe-set-c .fe-set-sws.grid4{grid-template-columns:repeat(auto-fill,minmax(68px,1fr));justify-content:start}
+  .fe-set-c .fe-set-sws{width:100%;justify-content:flex-start}
+  /* Help: one column of cards; the page header needs no room for the buttons. */
+  .fe-dlg-pane .fe-hcs{grid-template-columns:minmax(0,1fr)}
+  .fe-dlg-ph{padding-right:var(--sp-8)}
+  .fe-km-g .fe-km-i{flex-wrap:wrap;padding-block:var(--sp-2)}
+  .fe-km-i .fe-km-k{flex-wrap:wrap;margin-left:auto}
+}
+`;
+
+  // src/styles-ui.ts
+  var UI_CSS = `
+/* Palettes beyond the first four: dark tokens, then light. */
+#fe[data-palette="ocean"],html:has(#fe[data-palette="ocean"]){
+  --bg:#0d1219;--s1:#131a24;--s2:#19222f;--s3:#222d3d;--bd:#222c3a;--bd2:#313e50;--tx:#e6edf5;--mt:#a1b0c2;--dm:#7d8ca0;--ac:#4da3ff;--tx-on-ac:#0d1219;--dir:#a1b0c2}
+#fe[data-palette="ocean"][data-theme="light"],html:has(#fe[data-palette="ocean"][data-theme="light"]){
+  --bg:#eef3f9;--s1:#ffffff;--s2:#e9eff7;--s3:#dbe5f1;--bd:#d9e2ee;--bd2:#c2cfdf;--tx:#152030;--mt:#4b5d75;--dm:#687a92;--ac:#1f6fd1;--tx-on-ac:#ffffff;--dir:#5b6d85}
+#fe[data-palette="forest"],html:has(#fe[data-palette="forest"]){
+  --bg:#0e1310;--s1:#141b16;--s2:#1a231d;--s3:#232e26;--bd:#232d26;--bd2:#334136;--tx:#e6efe8;--mt:#a3b3a7;--dm:#7f9184;--ac:#5fc77a;--tx-on-ac:#0e1310;--dir:#a3b3a7}
+#fe[data-palette="forest"][data-theme="light"],html:has(#fe[data-palette="forest"][data-theme="light"]){
+  --bg:#f0f4ef;--s1:#ffffff;--s2:#eaf0e9;--s3:#dde6dc;--bd:#dbe3d9;--bd2:#c3d0c1;--tx:#18241a;--mt:#4d6151;--dm:#697d6c;--ac:#247338;--tx-on-ac:#ffffff;--dir:#5a6e5d}
+#fe[data-palette="ember"],html:has(#fe[data-palette="ember"]){
+  --bg:#14100d;--s1:#1c1612;--s2:#251d17;--s3:#30261e;--bd:#30261f;--bd2:#45372b;--tx:#f2e9e1;--mt:#bba99a;--dm:#988676;--ac:#ff8a3d;--tx-on-ac:#14100d;--dir:#bba99a}
+#fe[data-palette="ember"][data-theme="light"],html:has(#fe[data-palette="ember"][data-theme="light"]){
+  --bg:#f8f2ec;--s1:#fffcf9;--s2:#f4ebe2;--s3:#eadccf;--bd:#e8dccf;--bd2:#d6c3b0;--tx:#2b1f15;--mt:#6c5847;--dm:#88725f;--ac:#a64a0e;--tx-on-ac:#ffffff;--dir:#7a6553}
+#fe[data-palette="nord"],html:has(#fe[data-palette="nord"]){
+  --bg:#1f232b;--s1:#262b34;--s2:#2c323c;--s3:#353c48;--bd:#353c47;--bd2:#444c59;--tx:#e5e9f0;--mt:#aeb6c4;--dm:#8a93a3;--ac:#88c0d0;--tx-on-ac:#1f232b;--dir:#aeb6c4}
+#fe[data-palette="nord"][data-theme="light"],html:has(#fe[data-palette="nord"][data-theme="light"]){
+  --bg:#eceff4;--s1:#ffffff;--s2:#e5e9f0;--s3:#d8dee9;--bd:#d8dee9;--bd2:#c2cad6;--tx:#2e3440;--mt:#4c566a;--dm:#67728a;--ac:#4b6c96;--tx-on-ac:#ffffff;--dir:#5c667a}
+.fe-set-thumb[data-p="ocean"]{--a:#4da3ff;--b:#19222f}
+.fe-set-thumb[data-p="forest"]{--a:#5fc77a;--b:#1a231d}
+.fe-set-thumb[data-p="ember"]{--a:#ff8a3d;--b:#251d17}
+.fe-set-thumb[data-p="nord"]{--a:#88c0d0;--b:#2c323c}
+#fe[data-theme="light"] .fe-set-thumb[data-p="ocean"]{--a:#1f6fd1;--b:#eef3f9}
+#fe[data-theme="light"] .fe-set-thumb[data-p="forest"]{--a:#2e8b47;--b:#f0f4ef}
+#fe[data-theme="light"] .fe-set-thumb[data-p="ember"]{--a:#c85a12;--b:#f8f2ec}
+#fe[data-theme="light"] .fe-set-thumb[data-p="nord"]{--a:#5e81ac;--b:#eceff4}
+/* System: half dark, half light. */
+#fe .fe-set-thumb[data-mode="system"]{--a:var(--ac);--b:#1c2328;--t:#fff;--c:#131a1e;background:linear-gradient(135deg,#1c2328 50%,#f4f6f8 50%)}
+#fe .fe-set-thumb[data-mode="system"] .sb{background:linear-gradient(135deg,#131a1e 50%,#e2e7eb 50%)}
+
+
+/* Settings rows: a wide row puts its control under the label. */
+.fe-set.wide{flex-direction:column;align-items:stretch;gap:10px}
+.fe-set.wide .fe-set-c{max-width:none;justify-content:flex-start}
+.fe-set.wide .fe-set-tx:has(.fe-set-l:empty){gap:0}
+.fe-set-c{max-width:70%;flex-wrap:wrap}
+#fe-st-term-hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}
+.fe-set-sws.grid4{display:grid;grid-template-columns:repeat(4,max-content);gap:4px 8px;justify-content:end}
+
+/* Icon button: no fill until hovered. */
+.fe-ibtn{flex:none}
+
+
+
+
+/* Segmented: a row of buttons with one on (docs/system/segmented.md). The
+   group is one control high, md 28 (the default) or lg 32 with data-size;
+   its items are 4px shorter, rounded squares inside it. An item with only
+   an icon is square. */
+.fe-seg{--seg-h:var(--ctl-md);display:inline-flex;align-items:stretch;gap:2px;height:var(--seg-h);padding:2px;box-sizing:border-box;border-radius:var(--row-r);
+  background:color-mix(in srgb,var(--tx) 6%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
+.fe-seg[data-size="lg"]{--seg-h:var(--ctl-lg)}
+.fe-seg-b{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);min-width:calc(var(--seg-h) - 4px);padding:0 var(--sp-4);border:0;border-radius:var(--r-sm);
+  background:none;color:var(--mt);font:inherit;font-size:var(--type-ui);font-weight:500;cursor:pointer;white-space:nowrap;box-sizing:border-box;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-seg-b.ico{width:calc(var(--seg-h) - 4px);padding:0}
+.fe-seg-b svg{flex:none;width:14px;height:14px}
+.fe-seg-b:hover{color:var(--tx);background:var(--hover)}
+.fe-seg-b.on,.fe-seg-b.on:hover{color:var(--ac);background:var(--on)}
+.fe-seg-b:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+
+/* A slider that steps through set values, with the value beside it. */
+.fe-sld{display:inline-flex;align-items:center;gap:12px;width:240px;--pct:50%}
+.fe-sld input{flex:1;min-width:0;height:20px;margin:0;background:none;appearance:none;-webkit-appearance:none;cursor:pointer}
+.fe-sld input::-webkit-slider-runnable-track{height:4px;border-radius:2px;
+  background:linear-gradient(90deg,var(--ac) var(--pct),color-mix(in srgb,var(--tx) 14%,transparent) var(--pct))}
+.fe-sld input::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;margin-top:-6px;border-radius:50%;background:#fff;
+  box-shadow:0 0 0 1px rgb(0 0 0 / .14),0 1px 3px rgb(0 0 0 / .3);transition:transform var(--t-fast) var(--ease)}
+.fe-sld input:hover::-webkit-slider-thumb{transform:scale(1.12)}
+.fe-sld input:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 40%,transparent),0 1px 3px rgb(0 0 0 / .3)}
+.fe-sld output{min-width:48px;padding:3px 7px;border-radius:6px;background:color-mix(in srgb,var(--tx) 6%,transparent);font:500 var(--fs-md) var(--mono);color:var(--tx);text-align:center}
+
+/* A dropdown button and its list. */
+.fe-dd{--dd-h:var(--ctl-md);display:inline-flex}
+.fe-dd[data-size="lg"]{--dd-h:var(--ctl-lg)}
+.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:var(--dd-h);padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);
+  color:var(--tx);font:inherit;font-size:var(--type-ui);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
+/* The same surface and hairline as a TextBox: fields and dropdowns read as one family. */
+.fe-dd-btn:hover{border-color:color-mix(in srgb,var(--mt) 60%,var(--bd2))}
+.fe-dd-btn[aria-expanded="true"]{border-color:var(--ac)}
+.fe-dd-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-dd-cur{flex:1;display:flex;align-items:center;gap:8px;min-width:0;text-align:left}
+.fe-dd-cur span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-dd-cur svg{flex:none;width:14px;height:14px;color:var(--mt)}
+.fe-dd-btn > svg{flex:none;color:var(--dm)}
+.fe-dd-none{color:var(--dm)}
+.fe-dd-list{position:fixed;z-index:600;max-height:min(360px,60vh);overflow-y:auto;padding:5px;border-radius:var(--pop-r);
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-dd-opt{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 10px;border-radius:7px;color:var(--tx);font-size:var(--row-fs);cursor:pointer;white-space:nowrap}
+.fe-dd-opt svg{flex:none;width:14px;height:14px;color:var(--mt)}
+.fe-dd-l{flex:1}
+.fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
+.fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
+.fe-dd-g:first-child{padding-top:var(--sp-2)}
+/* Chip: a short label in a pill (docs/system/chip.md). Class chip. Tags,
+   filters and facts. --chip carries a tag's colour for the border, the dot
+   and the fill. data-size: sm 18 for listing rows, md 22 (the default).
+   data-fill: a soft fill instead of a border. data-tone: due, done, quiet.
+   A button chip is a filter: on with .on or aria-pressed. A removable chip
+   ends in an xs Button. */
+.chip{--chip-h:var(--ctl-sm);display:inline-flex;align-items:center;gap:var(--sp-2);max-width:100%;height:var(--chip-h);padding:0 var(--sp-4);box-sizing:border-box;
+  border:1px solid color-mix(in srgb,var(--chip,var(--bd2)) 55%,transparent);border-radius:var(--r-full);background:none;color:var(--mt);
+  font:inherit;font-size:var(--type-small);line-height:1;white-space:nowrap;vertical-align:middle}
+.chip[data-size="sm"]{--chip-h:var(--ctl-xs);padding:0 var(--sp-3);font-size:var(--fs-sm)}
+.chip > svg{flex:none;width:12px;height:12px}
+.chip > i{flex:none;width:6px;height:6px;border-radius:var(--r-full)}
+.chip > span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.chip:has(> .btn:last-child){padding-right:var(--sp-1)}
+.chip[data-fill]{border-color:transparent;background:color-mix(in srgb,var(--chip,var(--ac)) 16%,transparent);color:var(--tx)}
+.chip[data-tone="due"]{--chip:var(--nc-orange)}
+.chip[data-tone="done"]{--chip:var(--nc-green)}
+.chip[data-tone="quiet"]{background:var(--s2);color:var(--mt)}
+.chip[data-mono]{font-family:var(--mono)}
+.chip[data-add]{border-style:dashed}
+button.chip{cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+button.chip:not(:disabled):hover{color:var(--tx);background:var(--hover)}
+button.chip[data-add]:not(:disabled):hover{border-style:solid;border-color:var(--ac)}
+.chip.on,.chip[aria-pressed="true"],button.chip.on:hover{color:var(--tx);background:color-mix(in srgb,var(--chip,var(--ac)) 22%,transparent)}
+button.chip:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button.chip:disabled{opacity:.45;cursor:default}
+/* Badge: a count in a small pill (docs/system/badge.md). Class badge.
+   data-size: sm 14 on an icon's corner, md 18 (the default). data-tone:
+   soft (the default), solid, quiet. Empty, it hides. */
+.badge{--badge-h:18px;display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);min-width:var(--badge-h);height:var(--badge-h);padding:0 var(--sp-2);
+  box-sizing:border-box;border-radius:var(--r-full);background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx);
+  font-size:var(--fs-xs);font-weight:500;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:middle}
+.badge[data-size="sm"]{--badge-h:14px;padding:0 3px}
+.badge svg{flex:none;width:10px;height:10px}
+.badge[data-tone="solid"]{background:var(--ac);color:var(--tx-on-ac)}
+.badge[data-tone="quiet"]{background:var(--s2);color:var(--dm)}
+.badge:empty{display:none}
+/* Check: a box with a tick, and its label. Mixed shows a bar. */
+.fe-check{display:inline-flex;align-items:center;gap:var(--sp-3);min-height:var(--ctl-sm);color:var(--mt);font-size:var(--type-small);cursor:pointer;user-select:none}
+.fe-check:hover{color:var(--tx)}
+.fe-check input{appearance:none;-webkit-appearance:none;display:grid;place-content:center;flex:none;width:14px;height:14px;margin:0;border:1px solid var(--bd2);border-radius:var(--r-xs);background:var(--card);cursor:pointer;
+  transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+.fe-check:hover input{border-color:var(--mt)}
+.fe-check input:checked,.fe-check input:indeterminate{background:var(--ac);border-color:var(--ac)}
+.fe-check input:checked::after{content:'';width:7px;height:4px;margin-top:-2px;border:solid var(--tx-on-ac);border-width:0 0 2px 2px;transform:rotate(-45deg)}
+.fe-check input:indeterminate::after{content:'';width:8px;height:2px;border-radius:1px;background:var(--tx-on-ac)}
+.fe-check input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-check input:disabled{opacity:.45;cursor:default}
+
+/* A list edited as chips. */
+.fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:var(--ctl-lg);padding:var(--sp-1) var(--sp-3);box-sizing:border-box;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);cursor:text}
+.fe-set.wide .fe-chipin{width:100%}
+.fe-chipin:focus-within{border-color:var(--ac)}
+.fe-chipin-in{flex:1;min-width:70px;height:24px;border:0;outline:0;background:none;color:var(--tx);font:var(--fs-md) var(--mono)}
+
+/* App icons: a grid of 16 tiles. */
+.fe-appicons{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+.fe-appicon{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px 6px;border-radius:10px;cursor:pointer;color:var(--mt);font-size:var(--fs-sm);
+  transition:background var(--t-fast) var(--ease)}
+.fe-appicon:hover{background:var(--hover)}
+.fe-appicon input{position:absolute;opacity:0;pointer-events:none}
+.fe-appicon img{width:40px;height:40px;border-radius:10px;box-shadow:0 1px 3px rgb(0 0 0 / .25);transition:transform var(--t-fast) var(--ease)}
+.fe-appicon:hover img{transform:translateY(-1px) scale(1.04)}
+.fe-appicon:has(input:checked){background:var(--on);color:var(--tx)}
+.fe-appicon:has(input:checked) img{box-shadow:0 0 0 2px var(--ac),0 2px 6px rgb(0 0 0 / .25)}
+.fe-appicon:has(input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
+
+/* Icon rules. */
+.fe-rule-sugg{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:12px 16px 4px}
+.fe-rule-sugg:empty{display:none}
+.fe-rule-sugg-l{font-size:var(--fs-sm);color:var(--dm);margin-right:2px}
+.chip.fe-rule-add > svg{width:13px;height:15px}
+#fe-st-rules-list{padding:6px 10px 10px}
+.fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:10px;padding:6px;border-radius:9px}
+.fe-rule:hover{background:var(--hover)}
+.fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern{opacity:.45}
+.fe-switch.sm{width:28px;height:16px;border-radius:8px}
+.fe-switch.sm::after{width:12px;height:12px}
+.fe-switch.sm:checked::after{transform:translateX(12px)}
+.fe-rule-ico{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:9px;background:var(--card);cursor:pointer}
+.fe-rule-ico:hover{border-color:var(--ac)}
+.fe-rule-ico svg{width:18px;height:20px}
+.fe-st-rule-pattern{width:100%}
+.fe-rule-n{min-width:26px;padding:2px 6px;border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
+.fe-rule-pop{position:fixed;z-index:610;width:330px;padding:12px;border-radius:var(--pop-r);display:flex;flex-direction:column;gap:12px;
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-rp-sec{display:flex;flex-direction:column;gap:6px}
+.fe-rp-l{font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
+.fe-rp-glyphs{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}
+.fe-rp-g{display:grid;place-items:center;height:34px;padding:0;border:0;border-radius:7px;background:none;cursor:pointer}
+.fe-rp-g svg{width:20px;height:22px}
+.fe-rp-g:hover{background:var(--hover)}
+.fe-rp-g.on{background:var(--on);box-shadow:inset 0 0 0 1.5px var(--ac)}
+.fe-rp-label{width:90px}
+.fe-rp-sw{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:center}
+.fe-rp-c{width:26px;height:26px;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .15);transition:transform var(--t-fast) var(--ease)}
+.fe-rp-c:hover{transform:scale(1.1)}
+.fe-rp-c.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c)}
+.fe-rp-c:focus-visible,.fe-rp-g:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-rp-hex{grid-column:span 4}
+
+/* AI: a status line on top, then the model controls and the list. */
+.fe-ai-hero{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--nc-purple) 18%,var(--card)),var(--card));
+  border:1px solid color-mix(in srgb,var(--nc-purple) 30%,var(--bd))}
+.fe-ai-hero .fe-st-ai-head{margin:0}
+.fe-ai-hero .fe-st-ai-blink,.fe-ai-hero .fe-st-ai-blink .dot{width:12px;height:12px}
+.fe-ai-hero-tx{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+.fe-ai-hero-tx b{font-size:var(--fs-xl);font-weight:650;color:var(--tx)}
+.fe-ai-hero-tx span{font-size:var(--fs-md);color:var(--mt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:10px 16px 12px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+#fe-st-ai-grid:empty{display:none}
+.fe-st-ai-hint code{font-family:var(--mono)}
+.fe-dm{color:var(--dm)}
+.fe-ai-models{display:flex;flex-direction:column;padding:6px}
+.fe-ai-m{display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px;border-radius:9px}
+.fe-ai-m:hover{background:var(--hover)}
+.fe-ai-m svg{flex:none;width:15px;height:15px;color:var(--mt)}
+.fe-ai-m b{font-size:var(--row-fs);font-weight:550;color:var(--tx)}
+.fe-ai-m-id{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--fs-sm) var(--mono);color:var(--dm)}
+.fe-ai-where{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:color-mix(in srgb,var(--nc-green) 16%,transparent);color:var(--nc-green)}
+.fe-ai-where.cloud{background:color-mix(in srgb,var(--nc-blue) 16%,transparent);color:var(--nc-blue)}
+.fe-ai-def{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:var(--on);color:var(--ac)}
+
+/* The command palette. */
+.fe-pal-wrap{position:fixed;inset:0;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
+.fe-pal{width:min(640px,calc(100vw - 32px));max-height:min(560px,72vh);display:flex;flex-direction:column;border-radius:16px;overflow:hidden;
+  background:var(--card);border:1px solid var(--pop-bd);box-shadow:0 24px 64px rgb(0 0 0 / .45),0 2px 8px rgb(0 0 0 / .25);animation:fe-rise var(--t-base) var(--ease)}
+.fe-pal-q{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd);color:var(--dm)}
+.fe-pal-q input{flex:1;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-xl)}
+.fe-pal-list{flex:1;overflow-y:auto;padding:6px}
+/* Palette tabs: one per kind of entry, each with its own colour, which the
+   entries of that kind share. */
+.fe-pal-tabs{flex:none;display:flex;gap:var(--sp-1);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none}
+.fe-pal-tab{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none;height:var(--ctl-md);padding:0 var(--sp-3);border:0;border-radius:var(--r-full);background:none;color:var(--mt);font:inherit;font-size:var(--fs-sm);cursor:pointer;transition:background var(--t-fast),color var(--t-fast)}
+.fe-pal-tab svg{width:1.1em;height:1.1em;color:var(--tab-c,var(--mt))}
+.fe-pal-tab i{font-style:normal;color:var(--dm);font-size:var(--fs-xs)}
+.fe-pal-tab:hover{background:var(--hover);color:var(--tx)}
+.fe-pal-tab.on{background:color-mix(in srgb,var(--tab-c,var(--ac)) 16%,transparent);color:var(--tx)}
+.fe-pal-tab.is-empty{opacity:.45}
+.fe-pal-tab[data-tab="actions"],.fe-pal-i[data-tab="actions"]{--tab-c:var(--ac)}
+.fe-pal-tab[data-tab="tabs"],.fe-pal-i[data-tab="tabs"]{--tab-c:var(--nc-blue)}
+.fe-pal-tab[data-tab="saved"],.fe-pal-i[data-tab="saved"]{--tab-c:var(--nc-yellow)}
+.fe-pal-tab[data-tab="recent"],.fe-pal-i[data-tab="recent"]{--tab-c:var(--nc-purple)}
+.fe-pal-tab[data-tab="notes"],.fe-pal-i[data-tab="notes"]{--tab-c:var(--nc-green)}
+.fe-pal-tab[data-tab="here"],.fe-pal-i[data-tab="here"]{--tab-c:var(--dir)}
+.fe-pal-tab[data-tab="comments"],.fe-pal-i[data-tab="comments"]{--tab-c:var(--nc-orange)}
+.fe-pal-tab[data-tab="chats"],.fe-pal-i[data-tab="chats"]{--tab-c:var(--nc-pink)}
+.fe-pal-g{padding:10px 10px 4px}
+.fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
+.fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--tab-c,var(--mt))}
+.fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
+.fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
+  background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--tx) 14%,transparent);color:var(--mt);font:600 var(--fs-xs) var(--mono);white-space:nowrap}
+.fe-pal-i kbd{margin-left:auto}
+.fe-pal-foot{display:flex;gap:16px;padding:8px 14px;border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--dm)}
+.fe-pal-foot span{display:inline-flex;align-items:center;gap:4px}
+
+/* A key sequence waiting for its second key. */
+.fe-chord{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:700;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;max-width:min(720px,90vw);
+  padding:8px 12px;border-radius:12px;background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);
+  font-size:var(--fs-md);color:var(--mt);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-chord > kbd{background:var(--ac);color:var(--tx-on-ac);box-shadow:none}
+.fe-chord-o{display:inline-flex;align-items:center;gap:5px;color:var(--tx)}
+
+/* Key badges while \u2325 is held. */
+.fe-hints{position:fixed;inset:0;z-index:690;pointer-events:none}
+.fe-hints > kbd{position:fixed;transform:translate(-50%,0);background:var(--ac);color:var(--tx-on-ac);box-shadow:0 2px 6px rgb(0 0 0 / .35);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-hints-tip{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);font-size:var(--fs-md);color:var(--mt)}
+
+/* Where the keyboard is. */
+.fe-area-flash{animation:fe-area .7s var(--ease)}
+@keyframes fe-area{0%{box-shadow:inset 0 0 0 2px var(--ac)}100%{box-shadow:inset 0 0 0 2px transparent}}
+#fe-side .fe-si:focus-visible,#fe-side .fe-si-link:focus-visible,#fe-side summary:focus-visible,#fe-side .fe-nt-grp:focus-visible,
+#fe-tabs .fe-tab:focus-visible,#fe-bc a:focus-visible,#fe-bc button:focus-visible{outline:2px solid var(--ac);outline-offset:-2px;border-radius:var(--row-r)}
+
+/* Help: the keyboard map. Keys with a use are tinted; hovering an action
+   lights its keys, hovering a key lights its actions. */
+.fe-km{display:flex;flex-direction:column;gap:14px}
+.fe-km-board{display:flex;flex-direction:column;gap:5px;padding:14px;border-radius:14px;background:color-mix(in srgb,var(--tx) 4%,var(--card));
+  border:1px solid var(--bd);position:sticky;top:-2px;z-index:2;box-shadow:0 8px 16px -12px rgb(0 0 0 / .4)}
+.fe-km-row-k{display:flex;gap:5px}
+.fe-km-cap{flex:var(--w,1) 1 0;min-width:0;height:34px;display:grid;place-items:center;border-radius:7px;font:500 var(--fs-sm) var(--mono);color:var(--dm);
+  background:color-mix(in srgb,var(--tx) 5%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,#000 22%,transparent);transition:background .12s,color .12s,transform .12s}
+.fe-km-cap.fn{height:22px;font-size:var(--fs-xs)}
+.fe-km-cap.used{color:var(--tx);background:color-mix(in srgb,var(--ac) 12%,transparent);cursor:pointer}
+.fe-km-cap.hl{background:var(--ac);color:var(--tx-on-ac);transform:translateY(1px);box-shadow:inset 0 -1px 0 rgb(0 0 0 / .25),0 0 0 3px color-mix(in srgb,var(--ac) 30%,transparent)}
+.fe-km-cap.pin{outline:2px solid var(--ac);outline-offset:2px}
+.fe-km-ud{flex:1 1 0;display:flex;flex-direction:column;gap:2px}
+.fe-km-cap.half{height:16px;font-size:9px}
+.fe-km-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.fe-km-q{flex:1;min-width:200px;width:auto}
+.fe-km-legend{font-size:var(--fs-sm);color:var(--dm);display:inline-flex;align-items:center;gap:4px}
+.fe-km-list{columns:2 320px;column-gap:18px}
+.fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px}
+.fe-km-g h3{padding:8px 10px 6px}
+.fe-km-g h3 svg{width:14px;height:14px}
+.fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}
+.fe-km-k{display:inline-flex;align-items:center;gap:3px;flex:none}
+.fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:6px;
+  background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}
+.fe-km-then,.fe-km-or{font-style:normal;font-size:var(--fs-xs);color:var(--dm);padding:0 2px}
+
+/* Help: cards. */
+.fe-hs{display:flex;flex-direction:column;gap:10px}
+.fe-hs h3{padding:0 2px}
+.fe-hcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.fe-hc{display:flex;align-items:center;gap:12px;min-height:62px;padding:10px 14px;
+  transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-hc:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--tone) 45%,var(--bd));box-shadow:0 6px 16px -10px color-mix(in srgb,var(--tone) 55%,transparent)}
+.fe-hc-ico{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:var(--tone);background:color-mix(in srgb,var(--tone) 16%,transparent)}
+.fe-hc-ico svg{width:18px;height:18px}
+.fe-hc-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fe-hc-tx b{font-size:var(--fs-lg);font-weight:650;color:var(--tx)}
+.fe-hc-tx span{font-size:var(--fs-md);color:var(--mt);line-height:1.35}
+.fe-hc-how{flex:none;display:flex;align-items:center;gap:3px}
+.fe-hc-tag{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);color:var(--tone);background:color-mix(in srgb,var(--tone) 14%,transparent)}
+/* A journey card: a title, then its steps, each with its keys on the right. */
+.fe-hj{display:flex;flex-direction:column;gap:8px;padding:12px 14px}
+.fe-hj-h{display:flex;align-items:center;gap:10px}
+.fe-hj-h .fe-hc-ico{width:28px;height:28px;border-radius:8px}
+.fe-hj-h b{font-size:var(--fs-lg);font-weight:650;color:var(--tx)}
+.fe-hj-steps{display:flex;flex-direction:column;gap:4px;margin:0;padding:0 0 0 38px;list-style:none;counter-reset:step}
+.fe-hj-steps li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px;font-size:var(--fs-md);color:var(--mt);counter-increment:step}
+.fe-hj-steps li::before{content:counter(step);flex:none;width:16px;font-size:var(--fs-xs);color:var(--dm)}
+.fe-hj-steps li > span:first-of-type{flex:1;min-width:0}
+#fe-help-modal .fe-dlg-pane.on{gap:22px}
+`;
+
+  // src/goto.ts
+  var lastPref = textPref("bfb-goto-last-v1");
+  function absPath(input, home) {
+    let p = input.trim().replace(/^['"]|['"]$/g, "");
+    if (!p) return null;
+    if (/^file:\/\//i.test(p)) {
+      try {
+        p = decodeURIComponent(new URL(p).pathname);
+      } catch {
+        return null;
+      }
+    }
+    if (p === "~" || p.startsWith("~/")) {
+      if (!home) return null;
+      p = home + p.slice(1);
+    }
+    return p.startsWith("/") ? p.replace(/\/{2,}/g, "/") : null;
+  }
+  async function readable(path, waitMs = 9e3) {
+    if (!path.endsWith("/")) return true;
+    const timeout = new Promise((r) => setTimeout(() => r(false), waitMs));
+    const read2 = fetchFileText(fileHref(path)).then(() => true, () => false);
+    return Promise.race([read2, timeout]);
+  }
+  async function resolvePath(path) {
+    const clean = path.replace(/\/+$/, "");
+    if (!clean) return "/";
+    const parent = clean.slice(0, clean.lastIndexOf("/") + 1) || "/";
+    const name = clean.slice(clean.lastIndexOf("/") + 1);
+    let listing;
+    const dir = fileHref(parent);
+    try {
+      listing = await fetchFileText(dir);
+    } catch {
+      if (parent === "/") return path;
+      return await resolvePath(parent) === null ? null : path;
+    }
+    const hit = parseListing(listing, dir).find((e) => e.name === name);
+    return hit ? clean + (hit.isDir ? "/" : "") : null;
+  }
+  var submitOpen = null;
+  function gotoBackground() {
+    if (!submitOpen) return false;
+    submitOpen(true);
+    return true;
+  }
+  function mountGoto(btn, home, go2) {
+    let box = null;
+    let layer = null;
+    const close = () => layer?.close("api");
+    const open = () => {
+      box = document.createElement("form");
+      box.id = "fe-goto";
+      const recents = getRecents().slice(0, 30);
+      box.innerHTML = `<input class="tb" data-size="lg" type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
+      <datalist id="fe-goto-list">${recents.map((r) => `<option value="${esc(r.path)}"></option>`).join("")}</datalist>
+      <p class="fe-goto-msg" hidden></p>`;
+      const form = box;
+      const input = box.querySelector("input");
+      input.value = lastPref.get();
+      layer = openLayer(box, {
+        kind: "popover",
+        anchor: btn,
+        offset: 6,
+        role: "dialog",
+        label: "Go to a path",
+        focus: input,
+        onClose: () => {
+          lastPref.set(input.value);
+          if (box === form) {
+            box = null;
+            submitOpen = null;
+          }
+          btn.classList.remove("on");
+        }
+      });
+      if (!layer.open) {
+        box = null;
+        return;
+      }
+      input.select();
+      btn.classList.add("on");
+      const say = (text) => {
+        const msg = box.querySelector(".fe-goto-msg");
+        msg.hidden = false;
+        msg.textContent = text;
+      };
+      const submit = async (background) => {
+        const path = absPath(input.value, home());
+        if (!path) {
+          say("Paste a full path, such as ~/Code or /Users/you/notes.md");
+          return;
+        }
+        lastPref.set(input.value);
+        const found = await resolvePath(path);
+        if (!found) {
+          say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
+          return;
+        }
+        const slow = setTimeout(() => say("Checking that folder\u2026"), 600);
+        const ok = await readable(found);
+        clearTimeout(slow);
+        if (!ok) {
+          say(`The browser could not open ${found}. It may not have permission to read that folder.`);
+          return;
+        }
+        close();
+        go2(found, background);
+      };
+      submitOpen = (background) => void submit(background);
+      box.addEventListener("submit", (e) => {
+        e.preventDefault();
+        void submit(false);
+      });
+      input.addEventListener("input", () => lastPref.set(input.value));
+    };
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (box) close();
+      else open();
+    });
+  }
+
+  // src/theme.ts
+  var themePref = choicePref(THEME_KEY, ["dark", "light", "system"], "dark");
+  function themeMode() {
+    return themePref.get();
+  }
+  var systemDark = () => matchMedia("(prefers-color-scheme: dark)").matches;
+  function resolveTheme(mode) {
+    return mode === "system" ? systemDark() ? "dark" : "light" : mode;
+  }
+  function setThemeMode(fe, mode, save = true) {
+    fe.dataset.mode = mode;
+    fe.dataset.theme = resolveTheme(mode);
+    if (save) themePref.set(mode);
+  }
+  function followSystem(fe) {
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+      if (fe.dataset.mode === "system") fe.dataset.theme = resolveTheme("system");
+    });
+  }
+  var APP_ICONS = [
+    { id: "classic", file: "01-classic.svg", name: "Classic" },
+    { id: "stack", file: "02-stack.svg", name: "Stack" },
+    { id: "tree", file: "03-tree.svg", name: "Tree" },
+    { id: "lens", file: "04-lens.svg", name: "Lens" },
+    { id: "panes", file: "05-panes.svg", name: "Panes" },
+    { id: "map", file: "06-map.svg", name: "Map" },
+    { id: "drawer", file: "07-drawer.svg", name: "Drawer" },
+    { id: "tabs", file: "08-tabs.svg", name: "Tabs" },
+    { id: "fan", file: "09-fan.svg", name: "Fan" },
+    { id: "prompt", file: "10-prompt.svg", name: "Prompt" },
+    { id: "orbit", file: "11-orbit.svg", name: "Orbit" },
+    { id: "sprout", file: "12-sprout.svg", name: "Sprout" },
+    { id: "grid", file: "13-grid.svg", name: "Grid" },
+    { id: "starred", file: "14-starred.svg", name: "Starred" },
+    { id: "mono-b", file: "15-mono-b.svg", name: "Mono B" },
+    { id: "outline", file: "16-outline.svg", name: "Outline" }
+  ];
+  var appIconPref = textPref("bfb-app-icon", "classic");
+  function appIconUrl(id = appIconPref.get()) {
+    const icon2 = APP_ICONS.find((i3) => i3.id === id) ?? APP_ICONS[0];
+    return chrome.runtime.getURL(`assets/app-icons/${icon2.file}`);
+  }
+  function setAppIcon(id) {
+    appIconPref.set(id);
+    const link = document.querySelector('link[rel="icon"]');
+    if (link) link.href = appIconUrl(id);
+    try {
+      void chrome.runtime.sendMessage({ type: "bfb-app-icon", id });
+    } catch {
+    }
+  }
+
+  // src/chrome.ts
+  function setUiScale(percent) {
+    try {
+      void chrome.runtime.sendMessage({ type: "bfb-zoom", factor: (percent || 100) / 100 });
+    } catch {
+    }
+  }
+  function initChrome(app) {
+    const { fe, settings, toast } = app;
+    el("fe-status-path").addEventListener("click", () => {
+      void copyToClipboard(app.rawPath).then((ok) => toast(ok ? "Copied the path" : "Copy failed"));
+    });
+    el("fe-theme-btn").addEventListener("click", () => setThemeMode(fe, fe.dataset.theme === "dark" ? "light" : "dark"));
+    function getTermCmd(path) {
+      const term = settings.terminalApp || "ghostty";
+      const tpl = term === "custom" ? settings.terminalCmd || 'cd "${p}"' : TERMINAL_CMDS[term] || TERMINAL_CMDS.ghostty;
+      return tpl.replace(/\$\{p\}/g, path);
+    }
+    function fallbackCopy(path) {
+      const cmd = getTermCmd(path);
+      navigator.clipboard.writeText(cmd).catch(() => {
+      });
+      toast(`Copied: ${cmd}`);
+    }
+    app.openInTerminal = (path) => {
+      const term = settings.terminalApp || "ghostty";
+      if (term !== "custom") {
+        chrome.runtime.sendMessage(
+          { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_terminal", path, app: term } },
+          (res) => {
+            if (chrome.runtime.lastError || !res?.ok) fallbackCopy(path);
+          }
+        );
+        return;
+      }
+      fallbackCopy(path);
+    };
+    el("fe-term-btn").addEventListener("click", (e) => {
+      if (e.shiftKey) fallbackCopy(app.folderPath);
+      else app.openInTerminal(app.folderPath);
+    });
+    const crumbMenu = el("fe-crumb-menu");
+    let crumbMenuUrl = null;
+    let crumbLayer = null;
+    function closeCrumbMenu() {
+      crumbLayer?.close("api");
+    }
+    const bc = el("fe-bc"), more = el("fe-crumb-more");
+    const openCrumbMenu = (btn, key, html) => {
+      crumbMenu.innerHTML = html;
+      crumbLayer = openLayer(crumbMenu, { kind: "popover", anchor: btn, role: "menu", group: "menu", onClose: () => {
+        crumbMenuUrl = null;
+      } });
+      if (!crumbLayer.open) return false;
+      crumbMenuUrl = key;
+      return true;
+    };
+    const fitCrumbs = () => {
+      const groups = [...bc.querySelectorAll(".fe-cg")];
+      const pre = groups.filter((g) => g.hasAttribute("data-pre")).length;
+      groups.forEach((g, i3) => {
+        g.hidden = i3 < pre;
+      });
+      more.hidden = true;
+      const n = groups.length, order = [];
+      for (let i3 = pre + 2; i3 < n - 2; i3++) order.push(i3);
+      for (const i3 of [pre + 1, n - 2]) if (i3 > pre && i3 < n - 1 && !order.includes(i3)) order.push(i3);
+      for (const i3 of order) {
+        if (bc.scrollWidth <= bc.clientWidth) break;
+        groups[i3].hidden = true;
+        more.hidden = false;
+      }
+      const first = groups.find((g, i3) => g.hidden && i3 >= pre) ?? (pre ? groups[pre] : void 0);
+      if (pre) more.hidden = false;
+      if (first) first.before(more);
+    };
+    fitCrumbs();
+    new ResizeObserver(() => {
+      closeCrumbMenu();
+      fitCrumbs();
+    }).observe(bc);
+    const home = homeDir(app.rawPath);
+    let edit2 = null;
+    const endEdit = () => {
+      if (!edit2) return;
+      edit2.remove();
+      edit2 = null;
+      bc.hidden = false;
+      fitCrumbs();
+    };
+    const startEdit = () => {
+      if (edit2) return;
+      closeCrumbMenu();
+      const shown = home && (app.rawPath === home || app.rawPath.startsWith(home + "/")) ? "~" + app.rawPath.slice(home.length) : app.rawPath;
+      edit2 = document.createElement("form");
+      edit2.id = "fe-bc-edit";
+      edit2.innerHTML = `<input class="tb" type="text" list="fe-bc-recent" spellcheck="false" autocomplete="off" aria-label="Path to a file or folder" title="Enter goes there \xB7 Esc cancels">
+      <datalist id="fe-bc-recent">${getRecents().slice(0, 30).map((r) => `<option value="${esc(r.path)}"></option>`).join("")}</datalist>`;
+      bc.after(edit2);
+      bc.hidden = true;
+      const input = edit2.querySelector("input");
+      input.value = shown;
+      input.focus();
+      input.select();
+      input.addEventListener("blur", () => setTimeout(() => {
+        if (edit2 && !edit2.contains(document.activeElement)) endEdit();
+      }, 120));
+      input.addEventListener("keydown", (ke) => {
+        if (ke.key === "Escape") {
+          ke.preventDefault();
+          ke.stopPropagation();
+          endEdit();
+        }
+      });
+      edit2.addEventListener("submit", async (se) => {
+        se.preventDefault();
+        const path = absPath(input.value, home);
+        if (!path) {
+          input.setAttribute("aria-invalid", "true");
+          toast("Type a full path, such as ~/Code or /Users/you/notes.md");
+          return;
+        }
+        const found = await resolvePath(path);
+        if (!found) {
+          input.setAttribute("aria-invalid", "true");
+          toast(`Nothing at ${path}`);
+          return;
+        }
+        const slow = setTimeout(() => toast("Checking that folder\u2026"), 600);
+        const ok = await readable(found);
+        clearTimeout(slow);
+        if (!ok) {
+          input.setAttribute("aria-invalid", "true");
+          toast(`The browser could not open ${found}. It may not have permission to read it.`);
+          return;
+        }
+        if (found.replace(/\/$/, "") === app.rawPath.replace(/\/$/, "")) {
+          endEdit();
+          return;
+        }
+        go(fileHref(found));
+      });
+      input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
+    };
+    bc.title = "Click an empty part of the bar to type a path";
+    bc.addEventListener("click", (e) => {
+      if (e.target === bc) startEdit();
+    });
+    bc.addEventListener("click", async (e) => {
+      if (e.target.closest("#fe-crumb-more")) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (crumbLayer?.open && crumbMenuUrl === "more") {
+          closeCrumbMenu();
+          return;
+        }
+        const hid = [...bc.querySelectorAll(".fe-cg[hidden] .fe-crumb")];
+        openCrumbMenu(more, "more", `<div class="fe-dd-items">${hid.map((a) => {
+          const href = a.getAttribute("href"), name = a.textContent;
+          const icon2 = getIcon({ name, href, isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: "" }, app.iconRules);
+          return `<a href="${esc(href)}" class="row fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon2}<span>${esc(name)}</span></a>`;
+        }).join("")}</div>`);
+        return;
+      }
+      const btn = e.target.closest(".fe-crumb-dd");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const url = btn.dataset.url;
+      if (crumbLayer?.open && crumbMenuUrl === url) {
+        closeCrumbMenu();
+        return;
+      }
+      if (!openCrumbMenu(btn, url, emptyHtml("loading", "Loading\u2026", { inline: true }))) return;
+      const text = await fetchFileText(url).catch((err) => {
+        console.error("[BFB] crumb dropdown failed:", url, err);
+        return null;
+      });
+      if (text === null) {
+        if (crumbMenuUrl === url) crumbMenu.innerHTML = emptyHtml("failed", "This folder could not be read", { inline: true });
+        return;
+      }
+      if (crumbMenuUrl !== url) return;
+      try {
+        const entries = parseListing(text, url);
+        if (!entries.length) {
+          crumbMenu.innerHTML = emptyHtml("empty", "Empty folder", { inline: true });
+          crumbLayer?.place();
+          return;
+        }
+        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="tb fe-dd-search" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
+          (en) => `<a href="${esc(en.href)}" class="row fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
+        ).join("")}</div>`;
+        crumbLayer?.place();
+        const ddSearch = crumbMenu.querySelector(".fe-dd-search");
+        ddSearch.focus();
+        ddSearch.addEventListener("input", () => {
+          const q = ddSearch.value.toLowerCase();
+          crumbMenu.querySelectorAll(".fe-dd-item").forEach((it) => {
+            it.style.display = !q || it.dataset.name.includes(q) ? "" : "none";
+          });
+        });
+        ddSearch.addEventListener("keydown", (ke) => {
+          if (ke.key === "Enter") {
+            const first = [...crumbMenu.querySelectorAll(".fe-dd-item")].find((it) => it.style.display !== "none");
+            if (first) go(first.href);
+          }
+        });
+      } catch (err) {
+        console.error("[BFB] crumb dropdown parse error:", url, err);
+        if (crumbMenuUrl === url) crumbMenu.innerHTML = emptyHtml("failed", "This folder could not be read", { inline: true });
+      }
+    });
+    const side = el("fe-side");
+    const rz = el("fe-side-rz");
+    el("fe-side-toggle").addEventListener("click", () => {
+      settings.showSidebar = !sidebarShown();
+      saveSettings(settings);
+      setSidebarShown(settings.showSidebar);
+      const box = document.getElementById("fe-st-sidebar");
+      if (box) box.checked = settings.showSidebar;
+    });
+    resizable(rz, {
+      axis: "x",
+      label: "Resize the sidebar",
+      size: () => ({ w: side.getBoundingClientRect().width, h: 0 }),
+      apply: (w) => {
+        side.style.width = Math.max(210, Math.min(520, w)) + "px";
+      },
+      reset: () => {
+        side.style.width = "";
+      },
+      commit: () => {
+        settings.sidebarWidth = side.style.width ? Math.round(side.getBoundingClientRect().width) : void 0;
+        settings.sidebarRail = true;
+        saveSettings(settings);
+      }
+    });
   }
 
   // src/text-window.ts
@@ -16234,17 +16233,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     if (CODE_EXTS.has(ext2) || TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json") return ext2;
     return null;
   }
-  function renderBody(text, ext2, href) {
-    const note2 = unrenderableNote(text);
-    if (note2) return note2;
-    if (TABLE_EXTS.has(ext2)) {
-      const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
-      return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : unrenderableNote("");
-    }
-    const fmt = formatFor(ext2);
-    if (fmt && fmt.id !== "html") return fmt.rich(text, href);
-    return renderCode(text, ext2);
-  }
+  var renderBody = (text, ext2, href) => renderFile(text, ext2, href, "page");
   var diagRow = (d) => `<button type="button" class="fe-diag-row ${d.severity}" data-line="${d.line}" title="Show line ${d.line} in the source"><span class="fe-diag-ln">${d.line}</span><span>${esc(d.message)}</span></button>`;
   function diagStrip(diags) {
     if (!diags.length) return "";

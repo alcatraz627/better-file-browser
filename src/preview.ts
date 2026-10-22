@@ -29,6 +29,7 @@ import { addTurn } from './ask-history';
 import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
 import { errorText } from './errors';
+import { formatFor, renderFile } from './formats';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
 
@@ -855,17 +856,11 @@ function render(text: string, ext: string): void {
     body.innerHTML = `<div class="fe-ql-center">${unrenderableNote('')}</div>`;
     return;
   }
-  if (JSONL_EXTS.has(ext)) { body.innerHTML = renderJsonl(text); return; }
-  if (ext === 'json')      { body.innerHTML = renderJsonTree(text); return; }
-  if (ext === 'html' || ext === 'htm') { renderHtml(body, text); return; }
-  if (ext === 'md' || ext === 'mdx') {
-    body.innerHTML = renderMarkdown(text, currentEntry?.href ?? '');
-    // Links leave the explorer in place: every one opens a new tab.
-    body.querySelectorAll<HTMLAnchorElement>('a[href]:not(.fe-md-anchor)').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
-    restoreScroll(body);
-    return;
-  }
-  body.innerHTML = renderCode(text, ext);
+  // HTML runs live here, with a Source toggle; everything else is the file page's renderer.
+  if (formatFor(ext)?.id === 'html') { renderHtml(body, text); return; }
+  body.innerHTML = renderFile(text, ext, currentEntry?.href ?? '', 'preview');
+  // Links leave the explorer in place: every one opens a new tab.
+  body.querySelectorAll<HTMLAnchorElement>('.fe-md a[href]:not(.fe-md-anchor)').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
   restoreScroll(body);
 }
 // HTML previews as the page it describes: the frame loads the file itself, so

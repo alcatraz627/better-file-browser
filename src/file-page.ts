@@ -8,7 +8,7 @@ import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
   renderCode, parseDSV, numericCols, renderDSVTable, unrenderableNote,
 } from './renderers';
-import { formatFor, diagnose, type Diagnostic } from './formats';
+import { formatFor, diagnose, renderFile, type Diagnostic } from './formats';
 import { fetchFileText } from './file-fetch';
 import { fileMeta, metaChips, metaSummary } from './file-meta';
 import { UI_ICON } from './control-icons';
@@ -55,18 +55,8 @@ export function filePageExt(pathname: string): string | null {
   return null;
 }
 
-function renderBody(text: string, ext: string, href: string): string {
-  const note = unrenderableNote(text);
-  if (note) return note;
-  if (TABLE_EXTS.has(ext)) {
-    const rows = parseDSV(text, ext === 'tsv' ? '\t' : ',');
-    return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : unrenderableNote('');
-  }
-  // HTML reads as its source here; its rendered page is Chrome's own, or the editor's Rich view.
-  const fmt = formatFor(ext);
-  if (fmt && fmt.id !== 'html') return fmt.rich(text, href);
-  return renderCode(text, ext);
-}
+// HTML reads as its source here; its rendered page is Chrome's own, or the editor's Rich view.
+const renderBody = (text: string, ext: string, href: string): string => renderFile(text, ext, href, 'page');
 
 /** One problem: its line number, which jumps to the source, and what is wrong. */
 const diagRow = (d: Diagnostic) =>
