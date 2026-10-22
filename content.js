@@ -20418,11 +20418,20 @@ ${rows.join("\n")}`, name: subject };
         <button type="button" class="fe-ask-h-del" title="Delete this chat" aria-label="Delete this chat">${UI_ICON.close}</button>
       </div>`).join("") : '<p class="fe-ask-h-none">No earlier chats about this yet</p>';
     };
+    let histLayer = null;
     const showHist = (on) => {
-      hist.hidden = !on;
-      histBtn.setAttribute("aria-expanded", String(on));
-      histBtn.classList.toggle("on", on);
-      if (on) paintHist();
+      if (!on) {
+        histLayer?.close("api");
+        return;
+      }
+      hist.hidden = false;
+      paintHist();
+      histLayer = openLayer(hist, { kind: "popover", anchor: histBtn, align: "end", onClose: () => {
+        hist.hidden = true;
+        histBtn.classList.remove("on");
+      } });
+      if (histLayer.open) histBtn.classList.add("on");
+      else hist.hidden = true;
     };
     async function ask(intent, question) {
       if (go.disabled) return;
@@ -20531,16 +20540,6 @@ ${rows.join("\n")}`, name: subject };
       newChat();
     });
     histBtn.addEventListener("click", () => showHist(hist.hidden));
-    document.addEventListener("pointerdown", (e) => {
-      if (!hist.hidden && !hist.contains(e.target) && !histBtn.contains(e.target)) showHist(false);
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !hist.hidden) {
-        e.stopPropagation();
-        showHist(false);
-        histBtn.focus();
-      }
-    }, true);
     go.addEventListener("click", () => {
       if (cancel) {
         cancel();

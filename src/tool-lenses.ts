@@ -13,6 +13,7 @@ import { EMPTY_FIND, isTextCandidate, searchContents, type FindQuery } from './f
 import { icoFile } from './icons';
 import { llmAvailability, llmModels, llmQuery, LLM_ERROR_TEXT } from './llm';
 import { addTurn, chatsFor, deleteChat, withHistory, type AskChat, type AskTurn } from './ask-history';
+import { openLayer, type Layer } from './layer';
 import { kvGet, kvSet } from './kv';
 import { UI_ICON } from './control-icons';
 import { renderMarkdown } from './renderers';
@@ -211,7 +212,14 @@ function initAsk(app: App): void {
         <button type="button" class="fe-ask-h-del" title="Delete this chat" aria-label="Delete this chat">${UI_ICON.close}</button>
       </div>`).join('') : '<p class="fe-ask-h-none">No earlier chats about this yet</p>';
   };
-  const showHist = (on: boolean) => { hist.hidden = !on; histBtn.setAttribute('aria-expanded', String(on)); histBtn.classList.toggle('on', on); if (on) paintHist(); };
+  let histLayer: Layer | null = null;
+  const showHist = (on: boolean) => {
+    if (!on) { histLayer?.close('api'); return; }
+    hist.hidden = false;
+    paintHist();
+    histLayer = openLayer(hist, { kind: 'popover', anchor: histBtn, align: 'end', onClose: () => { hist.hidden = true; histBtn.classList.remove('on'); } });
+    if (histLayer.open) histBtn.classList.add('on'); else hist.hidden = true;
+  };
 
   async function ask(intent: string, question?: string): Promise<void> {
     if (go.disabled) return;
@@ -280,8 +288,6 @@ function initAsk(app: App): void {
   });
   el('fe-ask-new').addEventListener('click', () => { showHist(false); newChat(); });
   histBtn.addEventListener('click', () => showHist(hist.hidden));
-  document.addEventListener('pointerdown', e => { if (!hist.hidden && !hist.contains(e.target as Node) && !histBtn.contains(e.target as Node)) showHist(false); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !hist.hidden) { e.stopPropagation(); showHist(false); histBtn.focus(); } }, true);
   go.addEventListener('click', () => {
     if (cancel) { cancel(); return; }
     const text = q.value.trim();
