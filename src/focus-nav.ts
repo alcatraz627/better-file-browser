@@ -130,7 +130,7 @@ export function initFocusNav(app: App): void {
   rovingFocus(document.getElementById('fe-tabbar')!, '#fe-tabs .fe-tab, #fe-tabs-end button', { axis: 'horizontal', wrap: false });
   for (const id of ['fe-bar', 'fe-toolbar', 'fe-fp-bar']) {
     const bar = document.getElementById(id);
-    if (bar) rovingFocus(bar, 'a[href], button, input', { axis: 'horizontal', wrap: false });
+    if (bar) rovingFocus(bar, ':is(a[href], button, input):not([tabindex="-1"])', { axis: 'horizontal', wrap: false });
   }
 
   // Esc closes the sidebar shown over the page in a narrow window, and from
@@ -148,17 +148,26 @@ export function initFocusNav(app: App): void {
   // lens bar, and ⌥↓ from the bar comes back into the open lens.
   const sideRow = () => ae()?.closest<HTMLElement>('#fe-lenses .fe-lens .fe-bm-item, #fe-lenses .fe-lens .fe-pl-item') ?? null;
   const inLens = () => !!ae()?.closest('#fe-lenses .fe-lens');
+  const LENS_ROWS = '.fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp';
   bind('side-bg', () => ae()?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })), () => inLens() && !!ae()?.matches('a'));
-  bind('side-rename', () => sideRow()!.querySelector('.fe-pl-label')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), () => !!sideRow()?.querySelector('.fe-pl-label'));
+  const LABEL = '.fe-pl-label, .fe-nt-label';
+  bind('side-rename', () => sideRow()!.querySelector(LABEL)!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), () => !!sideRow()?.querySelector(LABEL));
+  // After a remove the list may redraw (notes do, once the file has moved),
+  // so the next row is found again by its path.
   bind('side-remove', () => {
     const row = sideRow()!, lens = row.closest<HTMLElement>('.fe-lens')!;
-    const rows = [...lens.querySelectorAll<HTMLElement>('.fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp')].filter(visible);
+    const rows = [...lens.querySelectorAll<HTMLElement>(LENS_ROWS)].filter(visible);
     const at = rows.indexOf(ae()!);
     const next = rows[at + 1] ?? rows[at - 1];
+    const nextKey = next?.closest<HTMLElement>('[data-rel]')?.dataset.rel ?? next?.getAttribute('href') ?? '';
     row.querySelector<HTMLElement>('.fe-rm-btn')!.click();
-    setTimeout(() => (next && document.contains(next) ? next : lens.querySelector<HTMLElement>('.fe-si, .fe-si-link'))?.focus(), 50);
-  }, () => !!sideRow()?.querySelector('.fe-rm-btn') && !sideRow()!.classList.contains('fe-nt-item'));
-  const LENS_ROWS = '.fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp';
+    const refocus = () => {
+      const again = nextKey && [...lens.querySelectorAll<HTMLElement>(LENS_ROWS)].find(r => (r.closest<HTMLElement>('[data-rel]')?.dataset.rel ?? r.getAttribute('href')) === nextKey);
+      (again || (next && document.contains(next) ? next : lens.querySelector<HTMLElement>('.fe-si, .fe-si-link')))?.focus();
+    };
+    setTimeout(refocus, 50);
+    setTimeout(refocus, 450);
+  }, () => !!sideRow()?.querySelector('.fe-rm-btn'));
   bind('side-rail', () => document.querySelector<HTMLElement>('#fe-rail .fe-rail-btn.on')?.focus(), () => inLens() && !!ae()?.matches(LENS_ROWS));
   bind('side-into', () => areas[0].enter(), () => !!ae()?.closest('#fe-rail'));
 

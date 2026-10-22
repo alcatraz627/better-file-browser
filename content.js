@@ -1180,7 +1180,7 @@ ${body}`;
       if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
       const t = e.target;
       if (t.isContentEditable || t.matches("textarea, select, input:not([type=checkbox], [type=radio], [type=button], [type=submit])")) return;
-      const list2 = [...root.querySelectorAll(items)].filter((x) => !x.hasAttribute("disabled") && x.offsetParent !== null && x.tabIndex >= 0);
+      const list2 = [...root.querySelectorAll(items)].filter((x) => !x.hasAttribute("disabled") && x.offsetParent !== null);
       if (!list2.length) return;
       const i3 = list2.indexOf(document.activeElement);
       const next = axis !== "horizontal" && e.key === "ArrowDown" || axis !== "vertical" && e.key === "ArrowRight";
@@ -1194,6 +1194,7 @@ ${body}`;
       e.preventDefault();
       e.stopPropagation();
       list2[to].focus();
+      o.onMove?.(list2[to]);
     };
     root.addEventListener("keydown", onKey);
     return () => root.removeEventListener("keydown", onKey);
@@ -19441,7 +19442,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     rovingFocus(document.getElementById("fe-tabbar"), "#fe-tabs .fe-tab, #fe-tabs-end button", { axis: "horizontal", wrap: false });
     for (const id of ["fe-bar", "fe-toolbar", "fe-fp-bar"]) {
       const bar = document.getElementById(id);
-      if (bar) rovingFocus(bar, "a[href], button, input", { axis: "horizontal", wrap: false });
+      if (bar) rovingFocus(bar, ':is(a[href], button, input):not([tabindex="-1"])', { axis: "horizontal", wrap: false });
     }
     const ae = () => document.activeElement;
     const inArea = () => !!ae()?.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar");
@@ -19455,17 +19456,24 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }, () => inArea() || !!document.querySelector("#fe-side.open"));
     const sideRow = () => ae()?.closest("#fe-lenses .fe-lens .fe-bm-item, #fe-lenses .fe-lens .fe-pl-item") ?? null;
     const inLens = () => !!ae()?.closest("#fe-lenses .fe-lens");
+    const LENS_ROWS = ".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp";
     bind("side-bg", () => ae()?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, altKey: true })), () => inLens() && !!ae()?.matches("a"));
-    bind("side-rename", () => sideRow().querySelector(".fe-pl-label").dispatchEvent(new MouseEvent("dblclick", { bubbles: true })), () => !!sideRow()?.querySelector(".fe-pl-label"));
+    const LABEL = ".fe-pl-label, .fe-nt-label";
+    bind("side-rename", () => sideRow().querySelector(LABEL).dispatchEvent(new MouseEvent("dblclick", { bubbles: true })), () => !!sideRow()?.querySelector(LABEL));
     bind("side-remove", () => {
       const row2 = sideRow(), lens = row2.closest(".fe-lens");
-      const rows = [...lens.querySelectorAll(".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp")].filter(visible);
+      const rows = [...lens.querySelectorAll(LENS_ROWS)].filter(visible);
       const at = rows.indexOf(ae());
       const next = rows[at + 1] ?? rows[at - 1];
+      const nextKey = next?.closest("[data-rel]")?.dataset.rel ?? next?.getAttribute("href") ?? "";
       row2.querySelector(".fe-rm-btn").click();
-      setTimeout(() => (next && document.contains(next) ? next : lens.querySelector(".fe-si, .fe-si-link"))?.focus(), 50);
-    }, () => !!sideRow()?.querySelector(".fe-rm-btn") && !sideRow().classList.contains("fe-nt-item"));
-    const LENS_ROWS = ".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp";
+      const refocus = () => {
+        const again = nextKey && [...lens.querySelectorAll(LENS_ROWS)].find((r) => (r.closest("[data-rel]")?.dataset.rel ?? r.getAttribute("href")) === nextKey);
+        (again || (next && document.contains(next) ? next : lens.querySelector(".fe-si, .fe-si-link")))?.focus();
+      };
+      setTimeout(refocus, 50);
+      setTimeout(refocus, 450);
+    }, () => !!sideRow()?.querySelector(".fe-rm-btn"));
     bind("side-rail", () => document.querySelector("#fe-rail .fe-rail-btn.on")?.focus(), () => inLens() && !!ae()?.matches(LENS_ROWS));
     bind("side-into", () => areas[0].enter(), () => !!ae()?.closest("#fe-rail"));
     const focusedTab = () => {
@@ -19700,23 +19708,23 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const lenses = els("#fe-lenses .fe-lens");
     const show = (lens, paint = (f) => f()) => {
       const usable = btns.filter((b) => !b.hidden).map((b) => b.dataset.lens);
-      const pick = usable.includes(lens) ? lens : "notes";
+      const pick2 = usable.includes(lens) ? lens : "notes";
       for (const b of btns) {
-        const on = b.dataset.lens === pick;
+        const on = b.dataset.lens === pick2;
         b.setAttribute("aria-selected", String(on));
         b.tabIndex = on ? 0 : -1;
       }
-      for (const l of lenses) l.hidden = l.dataset.lens !== pick;
+      for (const l of lenses) l.hidden = l.dataset.lens !== pick2;
       paint(() => {
         for (const b of btns) {
-          const on = b.dataset.lens === pick;
+          const on = b.dataset.lens === pick2;
           b.classList.toggle("on", on);
           b.title = on ? "" : b.dataset.hint ?? "";
           b.setAttribute("aria-label", b.dataset.hint ?? "");
         }
         fitBar();
       });
-      document.dispatchEvent(new CustomEvent("bfb-lens", { detail: pick }));
+      document.dispatchEvent(new CustomEvent("bfb-lens", { detail: pick2 }));
     };
     function fitBar() {
       rail.classList.remove("tight", "tighter");
@@ -19745,12 +19753,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const side = el("fe-side");
     const narrow = () => matchMedia("(max-width: 520px)").matches;
     const closeOverlay = () => side.classList.remove("open");
+    const pick = (b) => {
+      kvSet(LENS_KEY, b.dataset.lens);
+      switchTo(b.dataset.lens);
+    };
     rail.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-rail-btn");
       if (!b) return;
       if (narrow()) side.classList.toggle("open", !(b.classList.contains("on") && side.classList.contains("open")));
-      kvSet(LENS_KEY, b.dataset.lens);
-      switchTo(b.dataset.lens);
+      pick(b);
     });
     document.addEventListener("pointerdown", (e) => {
       if (side.classList.contains("open") && !side.contains(e.target)) closeOverlay();
@@ -19760,20 +19771,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       closeOverlay();
       return was;
     };
-    const step2 = (dir, focus = false) => {
+    const step2 = (dir) => {
       const usable = btns.filter((b) => !b.hidden);
       const i3 = usable.findIndex((b) => b.classList.contains("on"));
-      const next = usable[(i3 + dir + usable.length) % usable.length];
-      kvSet(LENS_KEY, next.dataset.lens);
-      switchTo(next.dataset.lens);
-      if (focus) next.focus();
+      pick(usable[(i3 + dir + usable.length) % usable.length]);
     };
-    rail.addEventListener("keydown", (e) => {
-      const dir = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
-      if (!dir) return;
-      e.preventDefault();
-      step2(dir, true);
-    });
+    rovingFocus(rail, ".fe-rail-btn", { axis: "both", onMove: pick });
     let wheelAt = 0, steppedAt = 0;
     rail.addEventListener("wheel", (e) => {
       const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
@@ -20468,32 +20471,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         case "delete":
           deleteNote(root, rel);
           break;
-      }
-    });
-    ntList.addEventListener("keydown", (e) => {
-      const item = e.target.closest(".fe-nt-item");
-      if (!item || e.target.isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return;
-      const root = notesRoot();
-      const rel = item.dataset.rel;
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        const rows = els(".fe-nt-item", ntList);
-        const to = rows[rows.indexOf(item) + (e.key === "ArrowDown" ? 1 : -1)];
-        if (to) {
-          e.preventDefault();
-          to.querySelector(".fe-si-link").focus();
-        }
-      } else if (e.key === "F2") {
-        e.preventDefault();
-        renameNote(root, rel, false);
-      } else if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault();
-        const rows = els(".fe-nt-item", ntList);
-        const keep = rows[rows.indexOf(item) + 1] ?? rows[rows.indexOf(item) - 1];
-        deleteNote(root, rel);
-        if (keep) {
-          const keepRel = keep.dataset.rel;
-          setTimeout(() => els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === keepRel)?.querySelector(".fe-si-link")?.focus(), 400);
-        }
       }
     });
     function attachNoteEvents(root) {

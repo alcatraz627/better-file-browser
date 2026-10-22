@@ -19,7 +19,7 @@ import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { foldTo } from './motion';
 import { addPaletteSource } from './commands';
-import { openLayer, raise, type Layer } from './layer';
+import { openLayer, raise, rovingFocus, type Layer } from './layer';
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
 const LENS_KEY = 'bfb-lens-v1';
@@ -71,33 +71,26 @@ function initLenses(app: App): void {
   const side = el('fe-side');
   const narrow = () => matchMedia('(max-width: 520px)').matches;
   const closeOverlay = () => side.classList.remove('open');
+  // Open a lens from its bar button and remember it.
+  const pick = (b: HTMLElement) => { kvSet(LENS_KEY, b.dataset.lens!); switchTo(b.dataset.lens!); };
   rail.addEventListener('click', e => {
     const b = (e.target as Element).closest<HTMLElement>('.fe-rail-btn');
     if (!b) return;
     if (narrow()) side.classList.toggle('open', !(b.classList.contains('on') && side.classList.contains('open')));
-    kvSet(LENS_KEY, b.dataset.lens!);
-    switchTo(b.dataset.lens!);
+    pick(b);
   });
   document.addEventListener('pointerdown', e => { if (side.classList.contains('open') && !side.contains(e.target as Node)) closeOverlay(); });
   // Esc (area-leave) closes it too.
   app.closeSideOverlay = () => { const was = side.classList.contains('open'); closeOverlay(); return was; };
-  const step = (dir: 1 | -1, focus = false) => {
+  const step = (dir: 1 | -1) => {
     const usable = btns.filter(b => !b.hidden);
     const i = usable.findIndex(b => b.classList.contains('on'));
-    const next = usable[(i + dir + usable.length) % usable.length];
-    kvSet(LENS_KEY, next.dataset.lens!);
-    switchTo(next.dataset.lens!);
-    if (focus) next.focus();
+    pick(usable[(i + dir + usable.length) % usable.length]);
   };
   // The arrow keys move between lenses, and so does the wheel over the bar:
   // one step per mouse notch, and one per trackpad swipe, which arrives as a
   // stream of small deltas and counts as one gesture until it pauses.
-  rail.addEventListener('keydown', e => {
-    const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
-    if (!dir) return;
-    e.preventDefault();
-    step(dir, true);
-  });
+  rovingFocus(rail, '.fe-rail-btn', { axis: 'both', onMove: pick });
   let wheelAt = 0, steppedAt = 0;
   rail.addEventListener('wheel', e => {
     const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
@@ -709,26 +702,6 @@ export function initSidebar(app: App): void {
     }
   });
 
-  // Keys on a focused note row: arrows move between rows, F2 renames, Delete trashes.
-  ntList.addEventListener('keydown', e => {
-    const item = (e.target as HTMLElement).closest<HTMLElement>('.fe-nt-item');
-    if (!item || (e.target as HTMLElement).isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return;
-    const root = notesRoot();
-    const rel = item.dataset.rel!;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      const rows = els<HTMLElement>('.fe-nt-item', ntList);
-      const to = rows[rows.indexOf(item) + (e.key === 'ArrowDown' ? 1 : -1)];
-      if (to) { e.preventDefault(); to.querySelector<HTMLElement>('.fe-si-link')!.focus(); }
-    } else if (e.key === 'F2') {
-      e.preventDefault(); renameNote(root, rel, false);
-    } else if (e.key === 'Delete' || e.key === 'Backspace') {
-      e.preventDefault();
-      const rows = els<HTMLElement>('.fe-nt-item', ntList);
-      const keep = rows[rows.indexOf(item) + 1] ?? rows[rows.indexOf(item) - 1];
-      deleteNote(root, rel);
-      if (keep) { const keepRel = keep.dataset.rel; setTimeout(() => els<HTMLElement>('.fe-nt-item', ntList).find(i => i.dataset.rel === keepRel)?.querySelector<HTMLElement>('.fe-si-link')?.focus(), 400); }
-    }
-  });
   function attachNoteEvents(root: string): void {
     els('.fe-nt-item', ntList).forEach(item => {
       const rel = item.dataset.rel!;

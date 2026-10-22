@@ -102,7 +102,22 @@ try {
   await page.keyboard.press('#');
   const props = await page.waitForSelector('.fe-pmenu', { visible: true, timeout: 3000 }).then(() => true).catch(() => false);
   check(props, '# on a note row opens its colour, pin and tags menu');
-  await page.keyboard.press('Escape');} finally {
+  await page.keyboard.press('Escape');
+  await sleep(200);
+
+  // F2 and ⌫ on a note row; after ⌫ the keyboard stays on the next row.
+  await page.$eval(`${row('alpha.md')} .fe-si-link`, a => a.focus());
+  await page.keyboard.press('F2');
+  await sleep(300);
+  const rowRename = await page.evaluate(() => !!document.querySelector('#fe-nt-list .fe-nt-label.editing'));
+  check(rowRename, 'F2 on a note row starts renaming it');
+  await page.keyboard.press('Escape');
+  await sleep(300);
+  await page.$eval(`${row('alpha.md')} .fe-si-link`, a => a.focus());
+  await page.keyboard.press('Backspace');
+  await sleep(900);
+  const afterDel = await page.evaluate(() => ({ inList: !!document.activeElement?.closest('#fe-nt-list'), rel: document.activeElement?.closest('.fe-nt-item')?.dataset.rel ?? '' }));
+  check(!existsSync(join(store, 'alpha.md')) && afterDel.inList && !!afterDel.rel, `⌫ on a note row moves it to .trash and keeps the keyboard on a row: ${JSON.stringify(afterDel)}`);} finally {
   console.log(results.join('\n'));
   await h.close();
   rmSync(store, { recursive: true, force: true });

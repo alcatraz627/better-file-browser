@@ -277,14 +277,14 @@ export function hoverCard(anchor: HTMLElement, build: () => HTMLElement | null, 
 
 /// Arrow keys move focus among `items` inside `root`; Home and End jump; one
 /// Tab stop for the group. Returns a function that stops it.
-export function rovingFocus(root: HTMLElement, items: string, o: { wrap?: boolean; axis?: 'vertical' | 'horizontal' | 'both' } = {}): () => void {
+export function rovingFocus(root: HTMLElement, items: string, o: { wrap?: boolean; axis?: 'vertical' | 'horizontal' | 'both'; onMove?: (to: HTMLElement) => void } = {}): () => void {
   const axis = o.axis ?? 'vertical';
   const onKey = (e: KeyboardEvent) => {
     // A key a surface already used, a chord, or one meant for a text box or slider is not a move.
     if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
     const t = e.target as HTMLElement;
     if (t.isContentEditable || t.matches('textarea, select, input:not([type=checkbox], [type=radio], [type=button], [type=submit])')) return;
-    const list = [...root.querySelectorAll<HTMLElement>(items)].filter(x => !x.hasAttribute('disabled') && x.offsetParent !== null && x.tabIndex >= 0);
+    const list = [...root.querySelectorAll<HTMLElement>(items)].filter(x => !x.hasAttribute('disabled') && x.offsetParent !== null);
     if (!list.length) return;
     const i = list.indexOf(document.activeElement as HTMLElement);
     const next = (axis !== 'horizontal' && e.key === 'ArrowDown') || (axis !== 'vertical' && e.key === 'ArrowRight');
@@ -297,6 +297,7 @@ export function rovingFocus(root: HTMLElement, items: string, o: { wrap?: boolea
     if (to < 0) return;
     e.preventDefault(); e.stopPropagation();
     list[to].focus();
+    o.onMove?.(list[to]);
   };
   root.addEventListener('keydown', onKey);
   return () => root.removeEventListener('keydown', onKey);
