@@ -3,6 +3,7 @@
 // the actions they own with bind(); the keys themselves come from keymap.ts.
 import { KEYMAP, type KeyDef, type Scope } from './keymap';
 import { esc } from './utils';
+import { openLayer } from './layer';
 
 interface Bound { run: () => void; when?: () => boolean }
 const bound = new Map<string, Bound>();
@@ -114,7 +115,6 @@ let paletteEl: HTMLElement | null = null;
 export function paletteOpen(): boolean { return !!paletteEl; }
 export function openPalette(prefill = ''): void {
   if (paletteEl) { paletteEl.querySelector('input')?.focus(); return; }
-  const back = document.activeElement as HTMLElement | null;
   const ctx = contextOf();
   const cmds: PaletteItem[] = KEYMAP.filter(d => d.id !== 'palette' && canRun(d.id) && (d.scope === undefined || d.scope === 'any' || ctx.scopes.has(d.scope)))
     .map(d => ({ title: d.title, keys: d.keys, group: d.group, run: () => runCommand(d.id) }));
@@ -127,7 +127,6 @@ export function openPalette(prefill = ''): void {
     <div class="fe-pal-list" role="listbox"></div>
     <div class="fe-pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>↩</kbd> run</span><span><kbd>⌥↩</kbd> background tab</span></div>
   </div>`;
-  (document.getElementById('fe') ?? document.body).appendChild(box);
   paletteEl = box;
   const input = box.querySelector('input')!;
   const list = box.querySelector<HTMLElement>('.fe-pal-list')!;
@@ -148,21 +147,16 @@ export function openPalette(prefill = ''): void {
     }).join('') : '<div class="fe-pal-none">Nothing matches</div>';
     list.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
   };
-  const close = (refocus = true) => {
-    box.remove(); paletteEl = null;
-    if (refocus && back && document.contains(back)) back.focus();
-  };
   const fire = (i: number, alt = false) => {
     const it = shown[i];
     if (!it) return;
-    close(false);
+    layer.close('pick');
     if (alt && it.runAlt) it.runAlt(); else it.run();
   };
   input.addEventListener('input', () => { at = 0; paint(); });
   input.addEventListener('keydown', e => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); at = (at + (e.key === 'ArrowDown' ? 1 : -1) + shown.length) % Math.max(1, shown.length); paint(); }
     else if (e.key === 'Enter') { e.preventDefault(); fire(at, e.altKey); }
-    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
     else if (e.key === 'Tab') e.preventDefault();
     e.stopPropagation();
   });
@@ -171,8 +165,9 @@ export function openPalette(prefill = ''): void {
     if (row && Number(row.dataset.i) !== at) { at = Number(row.dataset.i); list.querySelectorAll('.fe-pal-i').forEach(r => r.classList.toggle('on', r === row)); }
   });
   list.addEventListener('click', e => { const row = (e.target as Element).closest<HTMLElement>('.fe-pal-i'); if (row) fire(Number(row.dataset.i), e.altKey); });
-  box.addEventListener('mousedown', e => { if (e.target === box) close(); });
+  box.addEventListener('click', e => { if (e.target === box) layer.close('outside'); });
   input.value = prefill;
   paint();
-  input.focus();
+  // The palette sits over every other layer; focus goes back to where it was when it closes.
+  const layer = openLayer(box, { kind: 'command', place: 'none', focus: input, onClose: () => { paletteEl = null; } });
 }

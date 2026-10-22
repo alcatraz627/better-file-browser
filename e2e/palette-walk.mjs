@@ -8,7 +8,7 @@ import { launch, SHOTS } from './harness.mjs';
 
 // Accent and page background per palette and theme, from src/styles.ts.
 const WANT = {
-  slate:  { dark: ['#3cc6c0', '#0f1316'], light: ['#0e8f8a', '#eef3f5'] },
+  slate:  { dark: ['#3cc6c0', '#0f1316'], light: ['#0b7a76', '#eef3f5'] },
   violet: { dark: ['#9d7cff', '#101014'], light: ['#6d4aff', '#f4f4f7'] },
   sand:   { dark: ['#e8789a', '#13110f'], light: ['#c2406b', '#f6f2ec'] },
   ink:    { dark: ['#f2f2f3', '#0c0c0d'], light: ['#141414', '#f5f5f5'] },

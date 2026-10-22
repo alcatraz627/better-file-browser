@@ -179,7 +179,7 @@ export const UI_CSS = `
 .fe-ai-def{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:var(--on);color:var(--ac)}
 
 /* The command palette. */
-.fe-pal-wrap{position:fixed;inset:0;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
+.fe-pal-wrap{position:fixed;inset:0;width:auto;height:auto;max-width:none;max-height:none;margin:0;border:0;overflow:visible;color:inherit;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
 .fe-pal{width:min(640px,calc(100vw - 32px));max-height:min(560px,72vh);display:flex;flex-direction:column;border-radius:16px;overflow:hidden;
   background:var(--card);border:1px solid var(--pop-bd);box-shadow:0 24px 64px rgb(0 0 0 / .45),0 2px 8px rgb(0 0 0 / .25);animation:fe-rise var(--t-base) var(--ease)}
 .fe-pal-q{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd);color:var(--dm)}

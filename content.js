@@ -6040,7 +6040,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ai-def{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:var(--on);color:var(--ac)}
 
 /* The command palette. */
-.fe-pal-wrap{position:fixed;inset:0;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
+.fe-pal-wrap{position:fixed;inset:0;width:auto;height:auto;max-width:none;max-height:none;margin:0;border:0;overflow:visible;color:inherit;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
 .fe-pal{width:min(640px,calc(100vw - 32px));max-height:min(560px,72vh);display:flex;flex-direction:column;border-radius:16px;overflow:hidden;
   background:var(--card);border:1px solid var(--pop-bd);box-shadow:0 24px 64px rgb(0 0 0 / .45),0 2px 8px rgb(0 0 0 / .25);animation:fe-rise var(--t-base) var(--ease)}
 .fe-pal-q{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd);color:var(--dm)}
@@ -18503,7 +18503,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       paletteEl.querySelector("input")?.focus();
       return;
     }
-    const back = document.activeElement;
     const ctx = contextOf();
     const cmds = KEYMAP.filter((d) => d.id !== "palette" && canRun(d.id) && (d.scope === void 0 || d.scope === "any" || ctx.scopes.has(d.scope))).map((d) => ({ title: d.title, keys: d.keys, group: d.group, run: () => runCommand(d.id) }));
     const items = [...cmds, ...sources.flatMap((f) => {
@@ -18521,7 +18520,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     <div class="fe-pal-list" role="listbox"></div>
     <div class="fe-pal-foot"><span><kbd>\u2191</kbd><kbd>\u2193</kbd> move</span><span><kbd>\u21A9</kbd> run</span><span><kbd>\u2325\u21A9</kbd> background tab</span></div>
   </div>`;
-    (document.getElementById("fe") ?? document.body).appendChild(box);
     paletteEl = box;
     const input = box.querySelector("input");
     const list2 = box.querySelector(".fe-pal-list");
@@ -18539,15 +18537,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }).join("") : '<div class="fe-pal-none">Nothing matches</div>';
       list2.querySelector(".on")?.scrollIntoView({ block: "nearest" });
     };
-    const close = (refocus = true) => {
-      box.remove();
-      paletteEl = null;
-      if (refocus && back && document.contains(back)) back.focus();
-    };
     const fire2 = (i3, alt = false) => {
       const it = shown[i3];
       if (!it) return;
-      close(false);
+      layer.close("pick");
       if (alt && it.runAlt) it.runAlt();
       else it.run();
     };
@@ -18563,10 +18556,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } else if (e.key === "Enter") {
         e.preventDefault();
         fire2(at, e.altKey);
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        close();
       } else if (e.key === "Tab") e.preventDefault();
       e.stopPropagation();
     });
@@ -18581,12 +18570,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const row2 = e.target.closest(".fe-pal-i");
       if (row2) fire2(Number(row2.dataset.i), e.altKey);
     });
-    box.addEventListener("mousedown", (e) => {
-      if (e.target === box) close();
+    box.addEventListener("click", (e) => {
+      if (e.target === box) layer.close("outside");
     });
     input.value = prefill;
     paint();
-    input.focus();
+    const layer = openLayer(box, { kind: "command", place: "none", focus: input, onClose: () => {
+      paletteEl = null;
+    } });
   }
 
   // src/listing-input.ts

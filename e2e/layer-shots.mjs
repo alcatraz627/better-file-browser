@@ -18,6 +18,26 @@ try {
     await page.keyboard.press('Escape');
   }
 
+  // The palette opened while a menu is open takes focus, and the menu closes.
+  const row2 = await page.$('#fe-tbody tr:not(.dir):not(.dotfile):not(.par)');
+  const r2 = await row2.boundingBox();
+  await page.mouse.click(r2.x + 60, r2.y + r2.height / 2, { button: 'right' });
+  await new Promise(res => setTimeout(res, 150));
+  await page.keyboard.down('Meta'); await page.keyboard.press('k'); await page.keyboard.up('Meta');
+  await new Promise(res => setTimeout(res, 200));
+  const onTop = await page.evaluate(() => {
+    const hit = document.elementFromPoint(innerWidth / 2, innerHeight * 0.2);
+    return { menu: !!document.getElementById('fe-ctx'), hitPalette: !!hit?.closest('.fe-pal-wrap'), focus: document.activeElement?.closest('.fe-pal') != null };
+  });
+  const palOk = !onTop.menu && onTop.hitPalette && onTop.focus;
+  console.log(`${palOk ? 'ok  ' : 'FAIL'} the palette opened with a menu open takes focus and the menu closes: ${JSON.stringify(onTop)}`);
+  if (!palOk) process.exitCode = 1;
+  const wrap = await page.$eval('.fe-pal-wrap', w => { const r = w.getBoundingClientRect(); return { w: r.width, h: r.height, bg: getComputedStyle(w).backgroundColor }; });
+  console.log('palette scrim', JSON.stringify(wrap));
+  await page.screenshot({ path: new URL('./shots/layer-palette-light.png', import.meta.url).pathname });
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+
   // The tab's "…" button, pressed with a real mouse: open, then shut, then open.
   await page.keyboard.press('t');
   await new Promise(res => setTimeout(res, 200));
