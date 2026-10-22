@@ -110,6 +110,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'tab-focus-shift', group: 'Tabs', title: 'Drag the focused tab', keys: ['⇧←', '⇧→'], scope: 'tabs' },
 
   // Sidebar
+  { id: 'side-close', group: 'Sidebar', title: 'Close the sidebar over the page', keys: ['Esc'], own: true },
   { id: 'side-move', group: 'Sidebar', title: 'Move', keys: ['↑', '↓'], scope: 'sidebar' },
   { id: 'side-lens', group: 'Sidebar', title: 'Switch lens (on the bar)', keys: ['←', '→'], scope: 'sidebar' },
   { id: 'side-open', group: 'Sidebar', title: 'Open as a tab', keys: ['↩'], scope: 'sidebar' },

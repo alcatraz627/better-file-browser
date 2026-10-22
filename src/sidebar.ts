@@ -18,7 +18,7 @@ import { isViewPath } from './find';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { foldTo } from './motion';
-import { addPaletteSource } from './commands';
+import { addPaletteSource, bind, runCommand } from './commands';
 import { openLayer, raise, type Layer } from './layer';
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
@@ -79,7 +79,12 @@ function initLenses(app: App): void {
     switchTo(b.dataset.lens!);
   });
   document.addEventListener('pointerdown', e => { if (side.classList.contains('open') && !side.contains(e.target as Node)) closeOverlay(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && side.classList.contains('open')) closeOverlay(); });
+  // Esc closes it; from inside, the keyboard goes back to the listing as well.
+  bind('side-close', () => {
+    const inside = side.contains(document.activeElement);
+    closeOverlay();
+    if (inside) { (document.activeElement as HTMLElement).blur(); runCommand('to-listing'); }
+  }, () => side.classList.contains('open'));
   const step = (dir: 1 | -1, focus = false) => {
     const usable = btns.filter(b => !b.hidden);
     const i = usable.findIndex(b => b.classList.contains('on'));

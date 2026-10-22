@@ -87,6 +87,24 @@ try {
   await page.keyboard.type(h.fixture + '/nested/');
   await Promise.all([page.waitForNavigation({ timeout: 5000 }).catch(() => null), page.keyboard.press('Enter')]);
   check(page.url().includes('/nested'), `↩ in Go to goes there: ${page.url()}`);
+
+  // A narrow window: the sidebar opens over the page, and Esc closes it.
+  await page.setViewport({ width: 500, height: 800 });
+  await sleep(300);
+  const sideOpen = () => page.$eval('#fe-side', s => s.classList.contains('open'));
+  await page.click('#fe-side .fe-rail-btn:not([hidden])');
+  await sleep(300);
+  check(await sideOpen(), 'a lens button opens the sidebar over the page');
+  await page.screenshot({ path: new URL('./shots/journeys-narrow-side.png', import.meta.url).pathname });
+  await page.evaluate(() => document.activeElement?.blur());
+  await key('Escape');
+  check(!(await sideOpen()), 'Esc closes it');
+  await page.click('#fe-side .fe-rail-btn:not([hidden])');
+  await sleep(300);
+  await page.$eval('#fe-lenses a, #fe-lenses button', x => x.focus());
+  await key('Escape');
+  const after = await page.evaluate(() => ({ open: document.getElementById('fe-side').classList.contains('open'), inSide: !!document.activeElement?.closest('#fe-side') }));
+  check(!after.open && !after.inSide, `Esc from inside closes it and hands the keyboard back: ${JSON.stringify(after)}`);
 } finally { await h.close(); }
 console.log(failed ? `${failed} check(s) failed` : 'all checks passed');
 process.exitCode = failed ? 1 : 0;

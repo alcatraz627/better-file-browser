@@ -16245,6 +16245,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     { id: "tab-focus-move", group: "Tabs", title: "Move between tabs", keys: ["\u2190", "\u2192"], scope: "tabs" },
     { id: "tab-focus-shift", group: "Tabs", title: "Drag the focused tab", keys: ["\u21E7\u2190", "\u21E7\u2192"], scope: "tabs" },
     // Sidebar
+    { id: "side-close", group: "Sidebar", title: "Close the sidebar over the page", keys: ["Esc"], own: true },
     { id: "side-move", group: "Sidebar", title: "Move", keys: ["\u2191", "\u2193"], scope: "sidebar" },
     { id: "side-lens", group: "Sidebar", title: "Switch lens (on the bar)", keys: ["\u2190", "\u2192"], scope: "sidebar" },
     { id: "side-open", group: "Sidebar", title: "Open as a tab", keys: ["\u21A9"], scope: "sidebar" },
@@ -19794,9 +19795,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     document.addEventListener("pointerdown", (e) => {
       if (side.classList.contains("open") && !side.contains(e.target)) closeOverlay();
     });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && side.classList.contains("open")) closeOverlay();
-    });
+    bind("side-close", () => {
+      const inside = side.contains(document.activeElement);
+      closeOverlay();
+      if (inside) {
+        document.activeElement.blur();
+        runCommand("to-listing");
+      }
+    }, () => side.classList.contains("open"));
     const step2 = (dir, focus = false) => {
       const usable = btns.filter((b) => !b.hidden);
       const i3 = usable.findIndex((b) => b.classList.contains("on"));
