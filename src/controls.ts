@@ -5,6 +5,7 @@
 // <select>. upgradeControls() wires every one under a root, once.
 import { esc } from './utils';
 import { CHEVRON_DOWN } from './icons';
+import { openLayer } from './layer';
 
 export interface Opt { value: string; label?: string; icon?: string; hint?: string }
 
@@ -113,34 +114,30 @@ function upgradeDd(host: HTMLElement): void {
   // Options can change after load (the AI model list arrives late).
   (host as HTMLElement & { setOptions: (o: Opt[]) => void }).setOptions = (o: Opt[]) => { opts = o; paint(); };
 
+  // While the list is open, keys on the button move through it; focus stays on the button.
+  let keys: ((e: KeyboardEvent) => void) | null = null;
   function open(): void {
     closeList?.();
-    const fe = document.getElementById('fe') ?? document.body;
     list = document.createElement('div');
     list.className = 'fe-dd-list';
-    list.setAttribute('role', 'listbox');
     list.innerHTML = opts.map(o => `<div role="option" class="fe-dd-opt${o.value === cur ? ' on' : ''}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">`
       + `${o.icon ?? ''}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ''}</div>`).join('');
-    fe.appendChild(list);
-    const r = btn.getBoundingClientRect();
-    list.style.minWidth = `${r.width}px`;
-    const h = list.offsetHeight, w = list.offsetWidth;
-    list.style.left = `${Math.max(8, Math.min(r.right - w, innerWidth - w - 8))}px`;
-    list.style.top = `${r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4}px`;
-    btn.setAttribute('aria-expanded', 'true');
+    list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
+    const layer = openLayer(list, { kind: 'popover', anchor: btn, align: 'end', role: 'listbox', group: 'menu', onClose: () => { keys = null; list = null; closeList = null; } });
+    if (!layer.open) return;
     const items = [...list.querySelectorAll<HTMLElement>('.fe-dd-opt')];
     let at = Math.max(0, items.findIndex(i => i.dataset.v === cur));
     const mark = () => { items.forEach((it, i) => it.classList.toggle('kb', i === at)); items[at]?.scrollIntoView({ block: 'nearest' }); };
     mark();
-    const pick = (v: string) => { const changed = v !== cur; cur = v; paint(); shut(); btn.focus(); if (changed) fire(host); };
+    const pick = (v: string) => { const changed = v !== cur; cur = v; paint(); layer.close('pick'); btn.focus(); if (changed) fire(host); };
     list.addEventListener('click', e => { const it = (e.target as Element).closest<HTMLElement>('.fe-dd-opt'); if (it) pick(it.dataset.v!); });
     list.addEventListener('mousemove', e => { const it = (e.target as Element).closest<HTMLElement>('.fe-dd-opt'); if (it) { at = items.indexOf(it); mark(); } });
     let typed = '', typedAt = 0;
-    const onKey = (e: KeyboardEvent) => {
+    keys = e => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { at = (at + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; mark(); }
       else if (e.key === 'Home' || e.key === 'End') { at = e.key === 'Home' ? 0 : items.length - 1; mark(); }
       else if (e.key === 'Enter' || e.key === ' ') { if (items[at]) pick(items[at].dataset.v!); }
-      else if (e.key === 'Escape' || e.key === 'Tab') { shut(); if (e.key === 'Escape') btn.focus(); else return; }
+      else if (e.key === 'Tab') { layer.close('blur'); return; }
       else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
         // Typing jumps to the first option starting with what was typed.
         typed = Date.now() - typedAt > 700 ? e.key.toLowerCase() : typed + e.key.toLowerCase();
@@ -150,20 +147,12 @@ function upgradeDd(host: HTMLElement): void {
       } else return;
       e.preventDefault(); e.stopPropagation();
     };
-    const onDown = (e: MouseEvent) => { if (!list?.contains(e.target as Node) && !host.contains(e.target as Node)) shut(); };
-    document.addEventListener('keydown', onKey, true);
-    document.addEventListener('mousedown', onDown, true);
-    function shut(): void {
-      document.removeEventListener('keydown', onKey, true);
-      document.removeEventListener('mousedown', onDown, true);
-      list?.remove(); list = null; closeList = null;
-      btn.setAttribute('aria-expanded', 'false');
-    }
-    closeList = shut;
+    closeList = () => layer.close('api');
   }
   btn.addEventListener('click', () => { if (btn.getAttribute('aria-expanded') === 'true') closeList?.(); else open(); });
   btn.addEventListener('keydown', e => {
-    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && btn.getAttribute('aria-expanded') !== 'true') { e.preventDefault(); open(); }
+    if (keys) keys(e);
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); open(); }
   });
   paint();
 }

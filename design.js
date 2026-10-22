@@ -2104,6 +2104,140 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     drag: `<svg width="10" height="14" viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="3" cy="11" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="11" r="1.2" fill="currentColor"/></svg>`
   };
 
+  // src/layer.ts
+  var CLOSES = {
+    popover: { esc: true, outside: true, anchor: true, scroll: true, blur: true },
+    hovercard: { esc: true, scroll: true },
+    transient: { esc: true },
+    command: { esc: true, outside: true },
+    dialog: { esc: true },
+    float: { esc: true }
+  };
+  var MODAL = { command: true, dialog: true, float: true };
+  var stack = [];
+  var topLayer = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
+  var wired = false;
+  var anchorClosed = null;
+  var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
+  function openLayer(el, opts) {
+    wire();
+    if (opts.anchor && anchorClosed?.anchor === opts.anchor && performance.now() - anchorClosed.at < 600) {
+      anchorClosed = null;
+      return { el, kind: opts.kind, open: false, close() {
+      }, place() {
+      } };
+    }
+    const existing = stack.find((l) => l.el === el);
+    existing?.close("replaced");
+    if (opts.group) stack.filter((l) => l.opts.group === opts.group).forEach((l) => l.close("replaced"));
+    const host = document.getElementById("fe") ?? document.body;
+    if (!el.isConnected) host.appendChild(el);
+    el.dataset.layer = opts.kind;
+    if (opts.role) el.setAttribute("role", opts.role);
+    if (opts.label) el.setAttribute("aria-label", opts.label);
+    if (MODAL[opts.kind]) el.setAttribute("aria-modal", "true");
+    if (topLayer) {
+      el.setAttribute("popover", "manual");
+      el.showPopover();
+    }
+    const anchor = opts.anchor ?? null;
+    anchor?.setAttribute("aria-expanded", "true");
+    if (anchor && el.id) anchor.setAttribute("aria-controls", el.id);
+    let open = true;
+    const layer = {
+      el,
+      kind: opts.kind,
+      opts,
+      returnTo: document.activeElement,
+      get open() {
+        return open;
+      },
+      place: () => position(el, opts),
+      close(why = "api") {
+        if (!open) return;
+        open = false;
+        const i = stack.indexOf(layer);
+        if (i >= 0) stack.splice(i, 1);
+        anchor?.setAttribute("aria-expanded", "false");
+        const hadFocus = el.contains(document.activeElement);
+        if (topLayer && el.matches(":popover-open")) el.hidePopover();
+        el.remove();
+        if (hadFocus || document.activeElement === document.body) {
+          const back = anchor ?? layer.returnTo;
+          if (back?.isConnected) back.focus({ preventScroll: true });
+        }
+        opts.onClose?.(why);
+      }
+    };
+    stack.push(layer);
+    position(el, opts);
+    const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
+    if (f === "first") el.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
+    else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
+    return layer;
+  }
+  function position(el, o) {
+    const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
+    if (place === "none") return;
+    el.style.position = "fixed";
+    el.style.margin = "0";
+    el.style.inset = "auto";
+    const gap = o.offset ?? 4, pad = 8;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    let x, y;
+    if (place === "point" && o.point) {
+      x = o.point.x;
+      y = o.point.y;
+    } else {
+      const r = (o.anchor ?? el).getBoundingClientRect();
+      if (place === "right") {
+        x = r.right + gap;
+        y = r.top;
+      } else {
+        x = o.align === "end" ? r.right - w : r.left;
+        const below = r.bottom + gap, above = r.top - gap - h;
+        y = place === "above" ? above >= pad ? above : below : below + h <= innerHeight - pad || above < pad ? below : above;
+      }
+    }
+    el.style.left = `${Math.max(pad, Math.min(x, innerWidth - w - pad))}px`;
+    el.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
+  }
+  function wire() {
+    if (wired) return;
+    wired = true;
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc);
+      if (!top) return;
+      e.preventDefault();
+      e.stopPropagation();
+      top.close("esc");
+    }, true);
+    document.addEventListener("pointerdown", (e) => {
+      const t = e.target;
+      const top = stack[stack.length - 1];
+      if (!top || top.el.contains(t)) return;
+      const anchor = top.opts.anchor;
+      if (anchor?.contains(t)) {
+        if (CLOSES[top.kind].anchor) {
+          top.close("anchor");
+          anchorClosed = { anchor, at: performance.now() };
+        }
+        return;
+      }
+      anchorClosed = null;
+      if (CLOSES[top.kind].outside) top.close("outside");
+    }, true);
+    document.addEventListener("scroll", (e) => {
+      const t = e.target;
+      for (const l of [...stack]) if (CLOSES[l.kind].scroll && !l.el.contains(t)) l.close("scroll");
+    }, true);
+    document.addEventListener("focusin", (e) => {
+      const t = e.target;
+      for (const l of [...stack]) if (CLOSES[l.kind].blur && !l.el.contains(t) && !l.opts.anchor?.contains(t)) l.close("blur");
+    });
+  }
+
   // src/controls.ts
   function segHtml(id, opts, title) {
     return `<div class="fe-seg" id="${id}" role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
@@ -2210,20 +2344,19 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       opts = o;
       paint();
     };
+    let keys = null;
     function open() {
       closeList?.();
-      const fe2 = document.getElementById("fe") ?? document.body;
       list = document.createElement("div");
       list.className = "fe-dd-list";
-      list.setAttribute("role", "listbox");
       list.innerHTML = opts.map((o) => `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`).join("");
-      fe2.appendChild(list);
-      const r = btn.getBoundingClientRect();
-      list.style.minWidth = `${r.width}px`;
-      const h = list.offsetHeight, w = list.offsetWidth;
-      list.style.left = `${Math.max(8, Math.min(r.right - w, innerWidth - w - 8))}px`;
-      list.style.top = `${r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4}px`;
-      btn.setAttribute("aria-expanded", "true");
+      list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
+      const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
+        keys = null;
+        list = null;
+        closeList = null;
+      } });
+      if (!layer.open) return;
       const items = [...list.querySelectorAll(".fe-dd-opt")];
       let at = Math.max(0, items.findIndex((i) => i.dataset.v === cur));
       const mark = () => {
@@ -2235,7 +2368,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
         const changed = v !== cur;
         cur = v;
         paint();
-        shut();
+        layer.close("pick");
         btn.focus();
         if (changed) fire(host);
       };
@@ -2251,7 +2384,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
         }
       });
       let typed = "", typedAt = 0;
-      const onKey = (e) => {
+      keys = (e) => {
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
           at = (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
           mark();
@@ -2260,10 +2393,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
           mark();
         } else if (e.key === "Enter" || e.key === " ") {
           if (items[at]) pick(items[at].dataset.v);
-        } else if (e.key === "Escape" || e.key === "Tab") {
-          shut();
-          if (e.key === "Escape") btn.focus();
-          else return;
+        } else if (e.key === "Tab") {
+          layer.close("blur");
+          return;
         } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
           typed = Date.now() - typedAt > 700 ? e.key.toLowerCase() : typed + e.key.toLowerCase();
           typedAt = Date.now();
@@ -2276,27 +2408,15 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
         e.preventDefault();
         e.stopPropagation();
       };
-      const onDown = (e) => {
-        if (!list?.contains(e.target) && !host.contains(e.target)) shut();
-      };
-      document.addEventListener("keydown", onKey, true);
-      document.addEventListener("mousedown", onDown, true);
-      function shut() {
-        document.removeEventListener("keydown", onKey, true);
-        document.removeEventListener("mousedown", onDown, true);
-        list?.remove();
-        list = null;
-        closeList = null;
-        btn.setAttribute("aria-expanded", "false");
-      }
-      closeList = shut;
+      closeList = () => layer.close("api");
     }
     btn.addEventListener("click", () => {
       if (btn.getAttribute("aria-expanded") === "true") closeList?.();
       else open();
     });
     btn.addEventListener("keydown", (e) => {
-      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && btn.getAttribute("aria-expanded") !== "true") {
+      if (keys) keys(e);
+      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         open();
       }

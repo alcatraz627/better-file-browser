@@ -64,6 +64,15 @@ try {
   check(!listGone, 'the list closes after a pick');
   const dlgOpen = await page.$eval('#fe-settings-modal', e => e.style.display !== 'none');
   check(dlgOpen, 'Settings stays open after Enter in the list');
+  // Esc closes only the topmost layer: the open list, not the dialog under it.
+  await page.keyboard.press('ArrowDown');
+  await page.waitForSelector('.fe-dd-list');
+  await page.keyboard.press('Escape');
+  await sleep(100);
+  const escList = !!(await page.$('.fe-dd-list'));
+  const escDlg = await page.$eval('#fe-settings-modal', e => e.style.display !== 'none');
+  const escFocus = await page.evaluate(() => document.activeElement?.closest('#fe-st-group') != null);
+  check(!escList && escDlg && escFocus, `Esc on an open list closes the list and leaves Settings open, focus on the button: ${JSON.stringify({ escList, escDlg, escFocus })}`);
 
   // Files: chips and icon rules.
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="files"]');

@@ -16426,20 +16426,19 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       opts = o;
       paint();
     };
+    let keys2 = null;
     function open() {
       closeList?.();
-      const fe = document.getElementById("fe") ?? document.body;
       list = document.createElement("div");
       list.className = "fe-dd-list";
-      list.setAttribute("role", "listbox");
       list.innerHTML = opts.map((o) => `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`).join("");
-      fe.appendChild(list);
-      const r = btn.getBoundingClientRect();
-      list.style.minWidth = `${r.width}px`;
-      const h = list.offsetHeight, w = list.offsetWidth;
-      list.style.left = `${Math.max(8, Math.min(r.right - w, innerWidth - w - 8))}px`;
-      list.style.top = `${r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4}px`;
-      btn.setAttribute("aria-expanded", "true");
+      list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
+      const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
+        keys2 = null;
+        list = null;
+        closeList = null;
+      } });
+      if (!layer.open) return;
       const items = [...list.querySelectorAll(".fe-dd-opt")];
       let at = Math.max(0, items.findIndex((i3) => i3.dataset.v === cur));
       const mark = () => {
@@ -16451,7 +16450,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         const changed = v !== cur;
         cur = v;
         paint();
-        shut();
+        layer.close("pick");
         btn.focus();
         if (changed) fire(host);
       };
@@ -16467,7 +16466,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         }
       });
       let typed = "", typedAt = 0;
-      const onKey = (e) => {
+      keys2 = (e) => {
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
           at = (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
           mark();
@@ -16476,10 +16475,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           mark();
         } else if (e.key === "Enter" || e.key === " ") {
           if (items[at]) pick(items[at].dataset.v);
-        } else if (e.key === "Escape" || e.key === "Tab") {
-          shut();
-          if (e.key === "Escape") btn.focus();
-          else return;
+        } else if (e.key === "Tab") {
+          layer.close("blur");
+          return;
         } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
           typed = Date.now() - typedAt > 700 ? e.key.toLowerCase() : typed + e.key.toLowerCase();
           typedAt = Date.now();
@@ -16492,27 +16490,15 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         e.preventDefault();
         e.stopPropagation();
       };
-      const onDown = (e) => {
-        if (!list?.contains(e.target) && !host.contains(e.target)) shut();
-      };
-      document.addEventListener("keydown", onKey, true);
-      document.addEventListener("mousedown", onDown, true);
-      function shut() {
-        document.removeEventListener("keydown", onKey, true);
-        document.removeEventListener("mousedown", onDown, true);
-        list?.remove();
-        list = null;
-        closeList = null;
-        btn.setAttribute("aria-expanded", "false");
-      }
-      closeList = shut;
+      closeList = () => layer.close("api");
     }
     btn.addEventListener("click", () => {
       if (btn.getAttribute("aria-expanded") === "true") closeList?.();
       else open();
     });
     btn.addEventListener("keydown", (e) => {
-      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && btn.getAttribute("aria-expanded") !== "true") {
+      if (keys2) keys2(e);
+      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         open();
       }
