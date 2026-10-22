@@ -242,7 +242,7 @@
     return a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
   }
   function dedupePlaces(list2) {
-    return list2.filter((p, i2) => list2.findIndex((q) => samePlace(q.path, p.path)) === i2);
+    return list2.filter((p, i3) => list2.findIndex((q) => samePlace(q.path, p.path)) === i3);
   }
   function upsertPlace(list2, place) {
     if (list2.some((p) => samePlace(p.path, place.path))) return list2;
@@ -288,8 +288,8 @@
   function cycleTagColor(tags, name) {
     return tags.map((t) => {
       if (t.name !== name) return t;
-      const i2 = TAG_COLORS.indexOf(t.color);
-      return { ...t, color: TAG_COLORS[(i2 + 1) % TAG_COLORS.length] };
+      const i3 = TAG_COLORS.indexOf(t.color);
+      return { ...t, color: TAG_COLORS[(i3 + 1) % TAG_COLORS.length] };
     });
   }
   function filterSaved(list2, text) {
@@ -338,8 +338,8 @@
   function localKeys() {
     const out = [];
     try {
-      for (let i2 = 0; i2 < localStorage.length; i2++) {
-        const k = localStorage.key(i2);
+      for (let i3 = 0; i3 < localStorage.length; i3++) {
+        const k = localStorage.key(i3);
         if (k && isKvKey(k)) out.push(k);
       }
     } catch {
@@ -805,8 +805,8 @@ ${fm}
     const { head } = splitNote(text);
     const f = {};
     for (const line2 of fmLines(head)) {
-      const i2 = line2.indexOf(":");
-      if (i2 > 0) f[line2.slice(0, i2).trim()] = unquoteYaml(line2.slice(i2 + 1).trim());
+      const i3 = line2.indexOf(":");
+      if (i3 > 0) f[line2.slice(0, i3).trim()] = unquoteYaml(line2.slice(i3 + 1).trim());
     }
     return {
       title: noteTitle(rel, text),
@@ -856,7 +856,7 @@ ${body}`;
     const skip = /* @__PURE__ */ new Set([...allowed, "updated"]);
     const keep = (t) => fmLines(splitNote(t).head).filter((l) => !skip.has(l.slice(0, Math.max(l.indexOf(":"), 0)).trim()));
     const a = keep(before), b = keep(after);
-    return a.length === b.length && a.every((l, i2) => l === b[i2]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
+    return a.length === b.length && a.every((l, i3) => l === b[i3]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
   }
   function sharedOrder(list2) {
     const made = (n) => n.created ?? n.mtime;
@@ -1056,9 +1056,17 @@ ${body}`;
       if (e.key === "Escape") {
         e.preventDefault();
         close();
+      } else if (e.key === "Tab") {
+        const all = [...box.querySelectorAll('button, a[href], input, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null && !x.disabled && x.tabIndex >= 0);
+        if (!all.length) return;
+        const at = all.indexOf(document.activeElement);
+        if (e.shiftKey ? at <= 0 : at === all.length - 1 || at < 0) {
+          e.preventDefault();
+          all[e.shiftKey ? all.length - 1 : 0].focus();
+        }
       } else if ((e.key === "[" || e.key === "]") && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) {
-        const i2 = tabs.findIndex((t) => t.classList.contains("on"));
-        const j = (i2 + (e.key === "]" ? 1 : -1) + tabs.length) % tabs.length;
+        const i3 = tabs.findIndex((t) => t.classList.contains("on"));
+        const j = (i3 + (e.key === "]" ? 1 : -1) + tabs.length) % tabs.length;
         e.preventDefault();
         show(tabs[j].dataset.tab);
       }
@@ -1274,8 +1282,8 @@ ${body}`;
       const ths = [...table.querySelectorAll("thead th")];
       if (!table.classList.contains("fe-rz-fixed")) {
         const widths = ths.map((h) => h.getBoundingClientRect().width);
-        ths.forEach((h, i2) => {
-          h.style.width = widths[i2] + "px";
+        ths.forEach((h, i3) => {
+          h.style.width = widths[i3] + "px";
         });
         table.style.width = widths.reduce((a, b) => a + b, 0) + "px";
         table.classList.add("fe-rz-fixed");
@@ -1666,9 +1674,9 @@ ${body}`;
   }
   function compile(rules) {
     const kinds = [];
-    const parts = rules.map((r, i2) => {
-      kinds[i2] = r.kind;
-      return `(?<g${i2}>${r.pattern})`;
+    const parts = rules.map((r, i3) => {
+      kinds[i3] = r.kind;
+      return `(?<g${i3}>${r.pattern})`;
     });
     return { re: new RegExp(parts.join("|"), "gm"), kinds };
   }
@@ -1701,8 +1709,8 @@ ${body}`;
       last = m.index + m[0].length;
       const g = m.groups ?? {};
       let kind;
-      for (let i2 = 0; i2 < kinds.length; i2++) if (g[`g${i2}`] !== void 0) {
-        kind = kinds[i2];
+      for (let i3 = 0; i3 < kinds.length; i3++) if (g[`g${i3}`] !== void 0) {
+        kind = kinds[i3];
         break;
       }
       const text = esc(m[0]);
@@ -1731,7 +1739,7 @@ ${body}`;
     const gut = String(rows.length).length + 1;
     const blocks = [];
     for (let s = 0; s < rows.length; s += CODE_BLOCK) {
-      const part = rows.slice(s, s + CODE_BLOCK).map((r, i2) => `<div class="fe-cl"><span class="fe-cl-n">${s + i2 + 1}</span><span class="fe-cl-t">${r || " "}</span></div>`).join("");
+      const part = rows.slice(s, s + CODE_BLOCK).map((r, i3) => `<div class="fe-cl"><span class="fe-cl-n">${s + i3 + 1}</span><span class="fe-cl-t">${r || " "}</span></div>`).join("");
       blocks.push(`<div class="fe-cl-blk" style="--n:${Math.min(CODE_BLOCK, rows.length - s)}">${part}</div>`);
     }
     return `${truncNote}<div class="fe-code-wrap" style="--gut:${gut}ch"><div class="fe-code">${blocks.join("")}</div></div>`;
@@ -1758,20 +1766,20 @@ ${body}`;
   }
   function codeLines(html) {
     const rows = splitHighlighted(html);
-    return rows.map((r, i2) => `<span class="fe-md-l">${r}${i2 < rows.length - 1 ? "\n" : ""}</span>`).join("");
+    return rows.map((r, i3) => `<span class="fe-md-l">${r}${i3 < rows.length - 1 ? "\n" : ""}</span>`).join("");
   }
   function parseDSV(text, delim) {
     const rows = [];
     let row2 = [];
     let cell = "";
     let inQ = false;
-    for (let i2 = 0; i2 < text.length; i2++) {
-      const ch = text[i2];
+    for (let i3 = 0; i3 < text.length; i3++) {
+      const ch = text[i3];
       if (inQ) {
         if (ch === '"') {
-          if (text[i2 + 1] === '"') {
+          if (text[i3 + 1] === '"') {
             cell += '"';
-            i2++;
+            i3++;
           } else inQ = false;
         } else cell += ch;
       } else if (ch === '"' && cell === "") {
@@ -1780,7 +1788,7 @@ ${body}`;
         row2.push(cell);
         cell = "";
       } else if (ch === "\n" || ch === "\r") {
-        if (ch === "\r" && text[i2 + 1] === "\n") i2++;
+        if (ch === "\r" && text[i3 + 1] === "\n") i3++;
         row2.push(cell);
         cell = "";
         rows.push(row2);
@@ -1826,13 +1834,13 @@ ${body}`;
       truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.tableRows.toLocaleString()} of ${dataRows.length.toLocaleString()} rows.</div>`;
     }
     const width = rows.reduce((w, r) => Math.max(w, r.length), header.length);
-    const cols = Array.from({ length: width }, (_, i2) => header[i2] ?? `(${i2 + 1})`);
-    const ths = cols.map((h, i2) => {
-      const arrow = sort?.col === i2 ? sort.dir === "asc" ? " \u2191" : " \u2193" : "";
-      return `<th data-col="${i2}" class="${numCols.has(i2) ? "num" : ""}${sort?.col === i2 ? " sorted" : ""}" title="Click to sort">${esc(h)}${arrow}${COL_HANDLE}</th>`;
+    const cols = Array.from({ length: width }, (_, i3) => header[i3] ?? `(${i3 + 1})`);
+    const ths = cols.map((h, i3) => {
+      const arrow = sort?.col === i3 ? sort.dir === "asc" ? " \u2191" : " \u2193" : "";
+      return `<th data-col="${i3}" class="${numCols.has(i3) ? "num" : ""}${sort?.col === i3 ? " sorted" : ""}" title="Click to sort">${esc(h)}${arrow}${COL_HANDLE}</th>`;
     }).join("");
     const trs = rows.map(
-      (r) => `<tr>${cols.map((_, i2) => `<td class="${numCols.has(i2) ? "num" : ""}">${esc(r[i2] ?? "")}</td>`).join("")}</tr>`
+      (r) => `<tr>${cols.map((_, i3) => `<td class="${numCols.has(i3) ? "num" : ""}">${esc(r[i3] ?? "")}</td>`).join("")}</tr>`
     ).join("");
     return `${truncNote}<table class="fe-ql-table fe-rz"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
   }
@@ -1931,22 +1939,22 @@ ${body}`;
     const htmlTags = [];
     let source = "";
     let codeTicks = 0;
-    for (let i2 = 0; i2 < s.length; i2++) {
-      if (s[i2] === "`") {
-        let end2 = i2;
+    for (let i3 = 0; i3 < s.length; i3++) {
+      if (s[i3] === "`") {
+        let end2 = i3;
         while (s[end2] === "`") end2++;
-        const count = end2 - i2;
+        const count = end2 - i3;
         if (!codeTicks) codeTicks = count;
         else if (codeTicks === count) codeTicks = 0;
-        source += s.slice(i2, end2);
-        i2 = end2 - 1;
+        source += s.slice(i3, end2);
+        i3 = end2 - 1;
         continue;
       }
-      if (s[i2] !== "<" || codeTicks || !/^<\/?[a-z][\w-]*\b/i.test(s.slice(i2))) {
-        source += s[i2];
+      if (s[i3] !== "<" || codeTicks || !/^<\/?[a-z][\w-]*\b/i.test(s.slice(i3))) {
+        source += s[i3];
         continue;
       }
-      let end = i2 + 1, quote = "";
+      let end = i3 + 1, quote = "";
       for (; end < s.length; end++) {
         if (quote) {
           if (s[end] === quote) quote = "";
@@ -1954,21 +1962,21 @@ ${body}`;
         else if (s[end] === ">") break;
       }
       if (end === s.length) {
-        source += s[i2];
+        source += s[i3];
         continue;
       }
-      const raw = s.slice(i2, end + 1);
+      const raw = s.slice(i3, end + 1);
       const name = raw.match(/^<\/?([a-z][\w-]*)/i)[1].toLowerCase();
       if (!HTML_TAGS.has(name)) {
         source += raw;
-        i2 = end;
+        i3 = end;
         continue;
       }
       const safe = sanitizeHtml(raw.startsWith("</") ? `<${name}></${name}>` : `${raw}${VOID_TAGS.has(name) ? "" : `</${name}>`}`, baseUrl);
       const tag = raw.startsWith("</") ? `</${name}>` : safe.slice(0, safe.indexOf(">") + 1);
       htmlTags.push(tag);
       source += `\uE000${htmlTags.length - 1}\uE001`;
-      i2 = end;
+      i3 = end;
     }
     let out = esc(source);
     out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
@@ -1984,7 +1992,7 @@ ${body}`;
     out = out.replace(/&lt;((?:https?|file):\/\/[^\s<>]+?)&gt;/gi, "$1");
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
-    out = out.split(/(<code>[\s\S]*?<\/code>|<[^>]+>|\b(?:https?|file):\/\/\S+)/).map((part, i2) => i2 % 2 ? part : part.replace(/(^|[^\w])__([^_\s][^_]*?)__(?!\w)/g, "$1<strong>$2</strong>").replace(/(^|[^\w])_([^_\s][^_]*?)_(?!\w)/g, "$1<em>$2</em>")).join("");
+    out = out.split(/(<code>[\s\S]*?<\/code>|<[^>]+>|\b(?:https?|file):\/\/\S+)/).map((part, i3) => i3 % 2 ? part : part.replace(/(^|[^\w])__([^_\s][^_]*?)__(?!\w)/g, "$1<strong>$2</strong>").replace(/(^|[^\w])_([^_\s][^_]*?)_(?!\w)/g, "$1<em>$2</em>")).join("");
     out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
     return out.replace(/\uE000(\d+)\uE001/g, (_m, index) => htmlTags[Number(index)]);
   }
@@ -2115,16 +2123,16 @@ ${body}`;
     const marking = !inner && !nested;
     const mark = (from, start) => {
       if (!marking) return;
-      const a = srcLine[from] ?? from + 1, b = srcLine[Math.max(from, i2 - 1)] ?? i2;
+      const a = srcLine[from] ?? from + 1, b = srcLine[Math.max(from, i3 - 1)] ?? i3;
       for (let k = start; k < out.length; k++) if (!/^<[^>]* data-sl=/.test(out[k])) out[k] = out[k].replace(/^(<[a-z][a-z0-9]*\b[^>]*?)>/, `$1 data-sl="${a}-${b}">`);
     };
-    let i2 = 0;
+    let i3 = 0;
     if (!inner && lines[0] === "---") {
       const end = lines.slice(1, 60).findIndex((l) => l === "---");
       if (end >= 0) {
         const rows = lines.slice(1, end + 1).map((l) => l.match(/^([\w.-]+)\s*:\s*(.*)$/)).filter(Boolean);
         if (rows.length) out.push(`<dl class="fe-md-fm">${rows.map((m) => `<dt>${esc(m[1])}</dt><dd>${mdInline(m[2], baseUrl)}</dd>`).join("")}</dl>`);
-        i2 = end + 2;
+        i3 = end + 2;
       }
     }
     let paraFrom = 0, paraTo = 0;
@@ -2134,20 +2142,20 @@ ${body}`;
       out.push(`<p${marking ? ` data-sl="${srcLine[paraFrom]}-${srcLine[paraTo]}"` : ""}>${mdInline(text, baseUrl).replace(/\uE002 ?/g, "<br>")}</p>`);
       para = [];
     };
-    while (i2 < lines.length) {
-      const line2 = lines[i2];
-      const from = i2, outAt = out.length;
+    while (i3 < lines.length) {
+      const line2 = lines[i3];
+      const from = i3, outAt = out.length;
       const fence = line2.match(/^( {0,3})(`{3,}|~{3,})([^\r\n]*)$/);
       if (fence) {
         flush();
         const buf = [];
-        i2++;
+        i3++;
         const marker = fence[2][0], width = fence[2].length, indent = fence[1].length;
         const close = new RegExp(`^ {0,3}${marker === "`" ? "`" : "~"}{${width},}\\s*$`);
-        while (i2 < lines.length && !close.test(lines[i2])) {
-          buf.push(lines[i2++].replace(new RegExp(`^ {0,${indent}}`), ""));
+        while (i3 < lines.length && !close.test(lines[i3])) {
+          buf.push(lines[i3++].replace(new RegExp(`^ {0,${indent}}`), ""));
         }
-        if (i2 < lines.length) i2++;
+        if (i3 < lines.length) i3++;
         const code = buf.join("\n");
         const language = fence[3].trim().split(/\s+/)[0] || "";
         if (language.toLowerCase() === "mermaid") {
@@ -2164,14 +2172,14 @@ ${body}`;
         const n = h[1].length;
         const id = headingId(h[2].replace(/[*_`]/g, ""), seenIds);
         out.push(`<h${n} id="${esc(id)}">${mdInline(h[2], baseUrl)}<a class="fe-md-anchor" href="#${esc(id)}" title="Link to this heading"></a></h${n}>`);
-        i2++;
+        i3++;
         mark(from, outAt);
         continue;
       }
       if (/^\s*<[a-zA-Z!/]/.test(line2)) {
         flush();
         const buf = [];
-        while (i2 < lines.length && !/^\s*$/.test(lines[i2])) buf.push(lines[i2++]);
+        while (i3 < lines.length && !/^\s*$/.test(lines[i3])) buf.push(lines[i3++]);
         out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join("\n"), baseUrl)}</div>`);
         mark(from, outAt);
         continue;
@@ -2179,14 +2187,14 @@ ${body}`;
       if (para.length === 0 && /^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/.test(line2)) {
         flush();
         out.push("<hr>");
-        i2++;
+        i3++;
         mark(from, outAt);
         continue;
       }
       if (/^\s*>/.test(line2)) {
         flush();
         const buf = [];
-        while (i2 < lines.length && /^\s*>/.test(lines[i2])) buf.push(lines[i2++].replace(/^\s*>\s?/, ""));
+        while (i3 < lines.length && /^\s*>/.test(lines[i3])) buf.push(lines[i3++].replace(/^\s*>\s?/, ""));
         const alert = buf[0]?.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i);
         if (alert) {
           const kind = alert[1].toUpperCase();
@@ -2202,19 +2210,19 @@ ${body}`;
         const ordered = /\d/.test(li[2]);
         const items = [];
         let loose = false;
-        while (i2 < lines.length) {
-          const m = lines[i2].match(LIST_ITEM);
+        while (i3 < lines.length) {
+          const m = lines[i3].match(LIST_ITEM);
           if (!m || m[1].length !== baseIndent || /\d/.test(m[2]) !== ordered) break;
           const contentIndent = m[1].length + m[2].length + 1;
           const body = [m[3] ?? ""];
-          i2++;
-          while (i2 < lines.length) {
-            const l = lines[i2];
+          i3++;
+          while (i3 < lines.length) {
+            const l = lines[i3];
             if (/^\s*$/.test(l)) {
-              const next = lines.slice(i2 + 1).find((x) => !/^\s*$/.test(x));
+              const next = lines.slice(i3 + 1).find((x) => !/^\s*$/.test(x));
               if (next !== void 0 && next.match(/^\s*/)[0].length >= contentIndent) {
                 body.push("");
-                i2++;
+                i3++;
                 loose = true;
                 continue;
               }
@@ -2223,12 +2231,12 @@ ${body}`;
             const ind = l.match(/^\s*/)[0].length;
             if (ind >= contentIndent || ind > baseIndent && LIST_ITEM.test(l)) {
               body.push(l.slice(Math.min(ind, contentIndent)));
-              i2++;
+              i3++;
               continue;
             }
             if (!LIST_ITEM.test(l) && body[body.length - 1] !== "" && !/^\s*(#|>|```|~~~|\|)/.test(l)) {
               body.push(l.trim());
-              i2++;
+              i3++;
               continue;
             }
             break;
@@ -2239,8 +2247,8 @@ ${body}`;
           const tight = html2.match(/^<p>([\s\S]*?)<\/p>(\n?[\s\S]*)$/);
           if (tight && !loose) html2 = tight[1] + tight[2];
           items.push(task ? `<li class="fe-task"><input type="checkbox" disabled${task[1] === " " ? "" : " checked"}> ${html2}</li>` : `<li>${html2}</li>`);
-          if (i2 < lines.length && /^\s*$/.test(lines[i2]) && lines[i2 + 1]?.match(LIST_ITEM)?.[1].length === baseIndent) {
-            i2++;
+          if (i3 < lines.length && /^\s*$/.test(lines[i3]) && lines[i3 + 1]?.match(LIST_ITEM)?.[1].length === baseIndent) {
+            i3++;
             loose = true;
           }
         }
@@ -2249,7 +2257,7 @@ ${body}`;
         mark(from, outAt);
         continue;
       }
-      if (line2.includes("|") && i2 + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i2 + 1])) {
+      if (line2.includes("|") && i3 + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i3 + 1])) {
         flush();
         const cells = (l) => {
           const parts = [];
@@ -2284,22 +2292,22 @@ ${body}`;
           return parts.map((c) => mdInline(c.trim(), baseUrl));
         };
         const head = cells(line2);
-        i2 += 2;
+        i3 += 2;
         const rows = [];
-        while (i2 < lines.length && lines[i2].includes("|")) rows.push(cells(lines[i2++]));
+        while (i3 < lines.length && lines[i3].includes("|")) rows.push(cells(lines[i3++]));
         out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table fe-rz"><thead><tr>${head.map((c) => `<th>${c}${COL_HANDLE}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
         mark(from, outAt);
         continue;
       }
       if (/^\s*$/.test(line2)) {
         flush();
-        i2++;
+        i3++;
         continue;
       }
-      if (!para.length) paraFrom = i2;
-      paraTo = i2;
+      if (!para.length) paraFrom = i3;
+      paraTo = i3;
       para.push(line2.replace(/^\s+/, ""));
-      i2++;
+      i3++;
     }
     flush();
     if (inner) return out.join("\n");
@@ -2337,7 +2345,7 @@ ${body}`;
     const keyHtml = key !== null ? `<span class="fe-jt-key">${esc(key)}</span><span class="fe-jt-colon">: </span>` : "";
     if (v !== null && typeof v === "object") {
       const isArr = Array.isArray(v);
-      const entries = isArr ? v.map((x, i2) => [String(i2), x]) : Object.entries(v);
+      const entries = isArr ? v.map((x, i3) => [String(i3), x]) : Object.entries(v);
       const badge = isArr ? `[${entries.length}]` : `{${entries.length}}`;
       if (!entries.length) return `<div class="fe-jt-row">${keyHtml}<span class="fe-jt-badge">${isArr ? "[]" : "{}"}</span></div>`;
       const open = depth < 2 ? " open" : "";
@@ -2358,7 +2366,7 @@ ${body}`;
     return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
   }
   function renderJsonl(text) {
-    const lines = text.split("\n").map((l, i2) => ({ l, n: i2 + 1 })).filter((x) => x.l.trim() !== "");
+    const lines = text.split("\n").map((l, i3) => ({ l, n: i3 + 1 })).filter((x) => x.l.trim() !== "");
     let truncNote = "";
     let shown = lines;
     if (lines.length > RENDER_CAPS.jsonlLines) {
@@ -2413,7 +2421,7 @@ ${body}`;
     return { kind: kindName(e), path, items };
   }
   function metaSummary(m) {
-    const pick = (k) => m.items.find((i2) => i2.key === k)?.value;
+    const pick = (k) => m.items.find((i3) => i3.key === k)?.value;
     return [m.kind, pick("size"), pick("lines")].filter(Boolean).join(" \xB7 ");
   }
   var ICONS = {
@@ -2428,7 +2436,7 @@ ${body}`;
   };
   var icon = (k) => `<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] ?? ""}</svg>`;
   function metaChips(m) {
-    return m.items.map((i2) => `<span class="fe-meta-item" title="${esc(i2.label)}">${icon(i2.key)}${esc(i2.value)}</span>`).join("");
+    return m.items.map((i3) => `<span class="fe-meta-item" title="${esc(i3.label)}">${icon(i3.key)}${esc(i3.value)}</span>`).join("");
   }
 
   // src/file-fetch.ts
@@ -2459,7 +2467,7 @@ ${body}`;
   var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   async function fetchFileText(rawUrl, attempts = 3, delayMs = 150) {
     const url = new URL(rawUrl, location.href).href;
-    for (let i2 = 0; i2 < attempts; i2++) {
+    for (let i3 = 0; i3 < attempts; i3++) {
       if (!chrome.runtime?.id) throw new FileFetchError("context-invalidated", "extension reloaded under this page");
       let res;
       try {
@@ -2468,7 +2476,7 @@ ${body}`;
         throw new FileFetchError("context-invalidated", String(e));
       }
       if (res === null) {
-        await sleep(delayMs * (i2 + 1));
+        await sleep(delayMs * (i3 + 1));
         continue;
       }
       if (res.ok) return res.text;
@@ -2808,7 +2816,7 @@ ${body}`;
     const { from, to } = lineSpan(text, sel);
     const lines = text.slice(from, to).split("\n");
     let firstDelta = 0, total = 0;
-    const changed = lines.map((l, i2) => {
+    const changed = lines.map((l, i3) => {
       let d;
       if (outdent) {
         const n = l.startsWith(unit) ? unit.length : l.startsWith(" ") ? 1 : 0;
@@ -2818,7 +2826,7 @@ ${body}`;
         l = unit + l;
         d = unit.length;
       }
-      if (i2 === 0) firstDelta = d;
+      if (i3 === 0) firstDelta = d;
       total += d;
       return l;
     });
@@ -2850,7 +2858,7 @@ ${body}`;
     return { text: out, start: sel.start + left.length, end: sel.end + left.length };
   }
   function tableSnippet(cols = 2, rows = 2) {
-    const head = "| " + Array.from({ length: cols }, (_, i2) => `Column ${i2 + 1}`).join(" | ") + " |";
+    const head = "| " + Array.from({ length: cols }, (_, i3) => `Column ${i3 + 1}`).join(" | ") + " |";
     const sep = "|" + Array.from({ length: cols }, () => " --- |").join("");
     const body = Array.from({ length: rows }, () => "|" + Array.from({ length: cols }, () => "   |").join("")).join("\n");
     return `${head}
@@ -3106,6 +3114,66 @@ ${body}
     gemini_unavailable: "Gemini did not answer. Check lm gemini in a terminal, or pick a local model."
   };
 
+  // src/ask-history.ts
+  var KEY = "bfb-ask-history-v1";
+  var CHATS_PER_SUBJECT = 20;
+  var SUBJECTS = 100;
+  var ANSWER_MAX = 2e4;
+  function read() {
+    try {
+      const v = JSON.parse(kvGet(KEY) || "{}");
+      return v && typeof v === "object" ? v : {};
+    } catch {
+      return {};
+    }
+  }
+  function chatsFor(subject) {
+    return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
+  }
+  function addTurn(subject, chatId, turn) {
+    const store = read();
+    const list2 = store[subject] ?? [];
+    let chat = list2.find((c) => c.id === chatId);
+    if (!chat) {
+      chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] };
+      list2.push(chat);
+    }
+    chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
+    chat.at = turn.at;
+    store[subject] = list2.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
+    const subjects = Object.keys(store);
+    if (subjects.length > SUBJECTS) {
+      const last = (k) => Math.max(...store[k].map((c) => c.at));
+      subjects.sort((a, b) => last(a) - last(b)).slice(0, subjects.length - SUBJECTS).forEach((k) => {
+        delete store[k];
+      });
+    }
+    kvSet(KEY, JSON.stringify(store));
+    return chat;
+  }
+  function deleteChat(subject, chatId) {
+    const store = read();
+    store[subject] = (store[subject] ?? []).filter((c) => c.id !== chatId);
+    if (!store[subject].length) delete store[subject];
+    kvSet(KEY, JSON.stringify(store));
+  }
+  function withHistory(turns, question, maxChars = 4e3) {
+    if (!turns.length) return question;
+    const parts = [];
+    let used = 0;
+    for (const t of turns.slice(-4).reverse()) {
+      const block = `Q: ${t.q}
+A: ${t.a}`;
+      if (used + block.length > maxChars) break;
+      parts.unshift(block);
+      used += block.length;
+    }
+    return parts.length ? `Earlier in this chat:
+${parts.join("\n\n")}
+
+Now: ${question}` : question;
+  }
+
   // src/preview.ts
   var FETCH_WARN_BYTES = 8 * 1024 * 1024;
   var PDF_EXTS = /* @__PURE__ */ new Set(["pdf"]);
@@ -3163,7 +3231,7 @@ ${body}
           <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
           <span>Copy</span>
         </button>
-        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">${UI_ICON.external}<span>Open raw</span></a>
+        <a id="fe-ql-open" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
         <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
         <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
         <button id="fe-ql-dock" data-icon title="Dock the preview to the side">
@@ -3349,8 +3417,12 @@ ${body}
       document.getElementById("fe-ql-ai").style.display = "";
     });
   }
+  var aiChat = { href: "", id: "" };
+  var AI_ASKED = { summarize: "Summarize", explain: "Explain", describe: "Describe" };
   function runAi(intent, question) {
     if (currentText === null || !currentEntry) return;
+    const entry = currentEntry;
+    if (aiChat.href !== entry.href) aiChat = { href: entry.href, id: "pv-" + Date.now().toString(36) };
     aiCancel?.();
     const seq2 = ++aiSeq;
     const body = document.getElementById("fe-ql-ai-out-body");
@@ -3371,6 +3443,11 @@ ${body}
           if (seq2 !== aiSeq) return;
           aiCancel = null;
           body.innerHTML = renderMarkdown(full);
+          try {
+            const path = decodeURIComponent(new URL(entry.href).pathname);
+            addTurn(path, aiChat.id, { q: question || AI_ASKED[intent] || intent, a: full, model: info.model, ms: info.ms, at: Date.now() });
+          } catch {
+          }
           meta.textContent = `${info.model} \xB7 ${(info.ms / 1e3).toFixed(1)}s` + (info.truncated ? " \xB7 input truncated to fit the model" : "");
         },
         onError: (code, message) => {
@@ -3682,13 +3759,13 @@ ${body}
       }
     });
     const st = edit;
-    const change = (fn, keys) => {
+    const change = (fn, keys2) => {
       if (/^<{7} /m.test(st.text)) {
         editHeader("settle the two versions before changing properties");
         return false;
       }
       st.head = fn(st.head);
-      keys.forEach((k) => st.touched.add(k));
+      keys2.forEach((k) => st.touched.add(k));
       st.text = st.head + ta.value;
       st.dirty = true;
       st.version++;
@@ -3953,7 +4030,7 @@ ${body}
 #fe[data-theme="light"],html:has(#fe[data-theme="light"]){
   --bg:#eef3f5;--s1:#ffffff;--s2:#eaf0f2;--s3:#dde6ea;
   --bd:#dbe4e8;--bd2:#c5d2d8;--tx:#17232a;--mt:#4f6370;--dm:#6b7f8a;
-  --ac:#0e8f8a;--on-ac:#ffffff;--dir:#5d717c;
+  --ac:#0b7a76;--on-ac:#ffffff;--dir:#5d717c;
   --shade:rgb(110 119 129 / .10);--shade2:rgb(110 119 129 / .18);
   --hover:color-mix(in srgb,var(--tx) 5%,transparent);--act:color-mix(in srgb,var(--ac) 14%,transparent);
   --card:var(--s1);--side:color-mix(in srgb,var(--s1),var(--bg) 45%);
@@ -5564,15 +5641,15 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe[data-palette="forest"],html:has(#fe[data-palette="forest"]){
   --bg:#0e1310;--s1:#141b16;--s2:#1a231d;--s3:#232e26;--bd:#232d26;--bd2:#334136;--tx:#e6efe8;--mt:#a3b3a7;--dm:#7f9184;--ac:#5fc77a;--on-ac:#0e1310;--dir:#a3b3a7}
 #fe[data-palette="forest"][data-theme="light"],html:has(#fe[data-palette="forest"][data-theme="light"]){
-  --bg:#f0f4ef;--s1:#ffffff;--s2:#eaf0e9;--s3:#dde6dc;--bd:#dbe3d9;--bd2:#c3d0c1;--tx:#18241a;--mt:#4d6151;--dm:#697d6c;--ac:#2e8b47;--on-ac:#ffffff;--dir:#5a6e5d}
+  --bg:#f0f4ef;--s1:#ffffff;--s2:#eaf0e9;--s3:#dde6dc;--bd:#dbe3d9;--bd2:#c3d0c1;--tx:#18241a;--mt:#4d6151;--dm:#697d6c;--ac:#247338;--on-ac:#ffffff;--dir:#5a6e5d}
 #fe[data-palette="ember"],html:has(#fe[data-palette="ember"]){
   --bg:#14100d;--s1:#1c1612;--s2:#251d17;--s3:#30261e;--bd:#30261f;--bd2:#45372b;--tx:#f2e9e1;--mt:#bba99a;--dm:#988676;--ac:#ff8a3d;--on-ac:#14100d;--dir:#bba99a}
 #fe[data-palette="ember"][data-theme="light"],html:has(#fe[data-palette="ember"][data-theme="light"]){
-  --bg:#f8f2ec;--s1:#fffcf9;--s2:#f4ebe2;--s3:#eadccf;--bd:#e8dccf;--bd2:#d6c3b0;--tx:#2b1f15;--mt:#6c5847;--dm:#88725f;--ac:#c85a12;--on-ac:#ffffff;--dir:#7a6553}
+  --bg:#f8f2ec;--s1:#fffcf9;--s2:#f4ebe2;--s3:#eadccf;--bd:#e8dccf;--bd2:#d6c3b0;--tx:#2b1f15;--mt:#6c5847;--dm:#88725f;--ac:#a64a0e;--on-ac:#ffffff;--dir:#7a6553}
 #fe[data-palette="nord"],html:has(#fe[data-palette="nord"]){
   --bg:#1f232b;--s1:#262b34;--s2:#2c323c;--s3:#353c48;--bd:#353c47;--bd2:#444c59;--tx:#e5e9f0;--mt:#aeb6c4;--dm:#8a93a3;--ac:#88c0d0;--on-ac:#1f232b;--dir:#aeb6c4}
 #fe[data-palette="nord"][data-theme="light"],html:has(#fe[data-palette="nord"][data-theme="light"]){
-  --bg:#eceff4;--s1:#ffffff;--s2:#e5e9f0;--s3:#d8dee9;--bd:#d8dee9;--bd2:#c2cad6;--tx:#2e3440;--mt:#4c566a;--dm:#67728a;--ac:#5e81ac;--on-ac:#ffffff;--dir:#5c667a}
+  --bg:#eceff4;--s1:#ffffff;--s2:#e5e9f0;--s3:#d8dee9;--bd:#d8dee9;--bd2:#c2cad6;--tx:#2e3440;--mt:#4c566a;--dm:#67728a;--ac:#4b6c96;--on-ac:#ffffff;--dir:#5c667a}
 .fe-set-thumb[data-p="ocean"]{--a:#4da3ff;--b:#19222f}
 .fe-set-thumb[data-p="forest"]{--a:#5fc77a;--b:#1a231d}
 .fe-set-thumb[data-p="ember"]{--a:#ff8a3d;--b:#251d17}
@@ -5731,6 +5808,91 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ai-where{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:color-mix(in srgb,var(--nc-green) 16%,transparent);color:var(--nc-green)}
 .fe-ai-where.cloud{background:color-mix(in srgb,var(--nc-blue) 16%,transparent);color:var(--nc-blue)}
 .fe-ai-def{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:var(--act);color:var(--ac)}
+
+/* The command palette. */
+.fe-pal-wrap{position:fixed;inset:0;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
+.fe-pal{width:min(640px,calc(100vw - 32px));max-height:min(560px,72vh);display:flex;flex-direction:column;border-radius:16px;overflow:hidden;
+  background:var(--card);border:1px solid var(--pop-bd);box-shadow:0 24px 64px rgb(0 0 0 / .45),0 2px 8px rgb(0 0 0 / .25);animation:fe-rise var(--t-base) var(--ease)}
+.fe-pal-q{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd);color:var(--dm)}
+.fe-pal-q input{flex:1;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-xl)}
+.fe-pal-list{flex:1;overflow-y:auto;padding:6px}
+.fe-pal-g{padding:10px 10px 4px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
+.fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--mt)}
+.fe-pal-i.on{background:var(--act)}
+.fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
+.fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
+  background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--tx) 14%,transparent);color:var(--mt);font:600 var(--fs-xs) var(--mono);white-space:nowrap}
+.fe-pal-i kbd{margin-left:auto}
+.fe-pal-none{padding:24px;text-align:center;color:var(--dm)}
+.fe-pal-foot{display:flex;gap:16px;padding:8px 14px;border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--dm)}
+.fe-pal-foot span{display:inline-flex;align-items:center;gap:4px}
+
+/* A key sequence waiting for its second key. */
+.fe-chord{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:700;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;max-width:min(720px,90vw);
+  padding:8px 12px;border-radius:12px;background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);
+  font-size:var(--fs-md);color:var(--mt);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-chord > kbd{background:var(--ac);color:var(--on-ac);box-shadow:none}
+.fe-chord-o{display:inline-flex;align-items:center;gap:5px;color:var(--tx)}
+
+/* Key badges while \u2325 is held. */
+.fe-hints{position:fixed;inset:0;z-index:690;pointer-events:none}
+.fe-hints > kbd{position:fixed;transform:translate(-50%,0);background:var(--ac);color:var(--on-ac);box-shadow:0 2px 6px rgb(0 0 0 / .35);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-hints-tip{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);font-size:var(--fs-md);color:var(--mt)}
+
+/* Where the keyboard is. */
+.fe-area-flash{animation:fe-area .7s var(--ease)}
+@keyframes fe-area{0%{box-shadow:inset 0 0 0 2px var(--ac)}100%{box-shadow:inset 0 0 0 2px transparent}}
+#fe-side .fe-si:focus-visible,#fe-side .fe-si-link:focus-visible,#fe-side summary:focus-visible,#fe-side .fe-nt-grp:focus-visible,
+#fe-tabs .fe-tab:focus-visible,#fe-bc a:focus-visible,#fe-bc button:focus-visible{outline:2px solid var(--ac);outline-offset:-2px;border-radius:var(--row-r)}
+#fe-ctx .fe-ctx-item.kb,.fe-ctx .fe-ctx-item.kb,#fe-crumb-menu .fe-dd-item.kb,.fe-pmenu button.kb{background:var(--act);color:var(--tx)}
+
+/* Help: the keyboard map. Keys with a use are tinted; hovering an action
+   lights its keys, hovering a key lights its actions. */
+.fe-km{display:flex;flex-direction:column;gap:14px}
+.fe-km-board{display:flex;flex-direction:column;gap:5px;padding:14px;border-radius:14px;background:color-mix(in srgb,var(--tx) 4%,var(--card));
+  border:1px solid var(--bd);position:sticky;top:-2px;z-index:2;box-shadow:0 8px 16px -12px rgb(0 0 0 / .4)}
+.fe-km-row-k{display:flex;gap:5px}
+.fe-km-cap{flex:var(--w,1) 1 0;min-width:0;height:34px;display:grid;place-items:center;border-radius:7px;font:500 var(--fs-sm) var(--mono);color:var(--dm);
+  background:color-mix(in srgb,var(--tx) 5%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,#000 22%,transparent);transition:background .12s,color .12s,transform .12s}
+.fe-km-cap.fn{height:22px;font-size:var(--fs-xs)}
+.fe-km-cap.used{color:var(--tx);background:color-mix(in srgb,var(--ac) 12%,transparent);cursor:pointer}
+.fe-km-cap.hl{background:var(--ac);color:var(--on-ac);transform:translateY(1px);box-shadow:inset 0 -1px 0 rgb(0 0 0 / .25),0 0 0 3px color-mix(in srgb,var(--ac) 30%,transparent)}
+.fe-km-cap.pin{outline:2px solid var(--ac);outline-offset:2px}
+.fe-km-ud{flex:1 1 0;display:flex;flex-direction:column;gap:2px}
+.fe-km-cap.half{height:16px;font-size:9px}
+.fe-km-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.fe-km-q{flex:1;min-width:200px;height:34px;padding:0 12px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);color:var(--tx);font:inherit;font-size:var(--row-fs);outline:0}
+.fe-km-q:focus{border-color:var(--ac)}
+.fe-km-legend{font-size:var(--fs-sm);color:var(--dm);display:inline-flex;align-items:center;gap:4px}
+.fe-km-list{columns:2 320px;column-gap:18px}
+.fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px;border-radius:12px;background:var(--card);border:1px solid var(--bd)}
+.fe-km-g h3{display:flex;align-items:center;gap:7px;margin:0;padding:8px 10px 6px;font-size:var(--fs-xs);font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-km-g h3 svg{width:14px;height:14px}
+.fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}
+.fe-km-i.on{background:var(--act)}
+.fe-km-k{display:inline-flex;align-items:center;gap:3px;flex:none}
+.fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:6px;
+  background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}
+.fe-km-then,.fe-km-or{font-style:normal;font-size:var(--fs-xs);color:var(--dm);padding:0 2px}
+
+/* Help: cards. */
+.fe-hs{display:flex;flex-direction:column;gap:10px}
+.fe-hs h3{margin:0;padding:0 2px;font-size:var(--fs-xs);font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-hcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.fe-hc{display:flex;align-items:center;gap:12px;min-height:62px;padding:10px 14px;border-radius:12px;background:var(--card);border:1px solid var(--bd);
+  transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-hc:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--tone) 45%,var(--bd));box-shadow:0 6px 16px -10px color-mix(in srgb,var(--tone) 55%,transparent)}
+.fe-hc-ico{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:var(--tone);background:color-mix(in srgb,var(--tone) 16%,transparent)}
+.fe-hc-ico svg{width:18px;height:18px}
+.fe-hc-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fe-hc-tx b{font-size:var(--fs-lg);font-weight:650;color:var(--tx)}
+.fe-hc-tx span{font-size:var(--fs-md);color:var(--mt);line-height:1.35}
+.fe-hc-how{flex:none;display:flex;align-items:center;gap:3px}
+.fe-hc-tag{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);color:var(--tone);background:color-mix(in srgb,var(--tone) 14%,transparent)}
+#fe-help-modal .fe-dlg-pane.on{gap:22px}
 `;
 
   // src/el.ts
@@ -5864,7 +6026,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   var running = null;
   var folding = /* @__PURE__ */ new WeakMap();
   function foldTo(box, flip, done) {
-    folding.get(box)?.finish();
+    const prev = folding.get(box);
+    if (prev) {
+      prev.anim.cancel();
+      prev.end();
+    }
     if (reduced()) {
       flip();
       done?.();
@@ -5881,12 +6047,15 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       [{ height: from + "px", opacity: closing ? 1 : 0.4 }, { height: to + "px", opacity: closing ? 0.4 : 1 }],
       { duration: 200, easing: EASE }
     );
-    folding.set(box, anim);
-    anim.onfinish = () => {
+    const end = () => {
       folding.delete(box);
       box.style.overflow = "";
       if (closing) flip();
       done?.();
+    };
+    folding.set(box, { anim, end });
+    anim.onfinish = () => {
+      if (folding.get(box)?.anim === anim) end();
     };
   }
   function setSidebarShown(show) {
@@ -5948,13 +6117,17 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   ];
   var APP_ICON_KEY = "bfb-app-icon";
   function appIconUrl(id = kvGet(APP_ICON_KEY) ?? "classic") {
-    const icon2 = APP_ICONS.find((i2) => i2.id === id) ?? APP_ICONS[0];
+    const icon2 = APP_ICONS.find((i3) => i3.id === id) ?? APP_ICONS[0];
     return chrome.runtime.getURL(`assets/app-icons/${icon2.file}`);
   }
   function setAppIcon(id) {
     kvSet(APP_ICON_KEY, id);
     const link = document.querySelector('link[rel="icon"]');
     if (link) link.href = appIconUrl(id);
+    try {
+      void chrome.runtime.sendMessage({ type: "bfb-app-icon", id });
+    } catch {
+    }
   }
 
   // src/chrome.ts
@@ -6016,19 +6189,19 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     const fitCrumbs = () => {
       const groups = [...bc.querySelectorAll(".fe-cg")];
       const pre = groups.filter((g) => g.hasAttribute("data-pre")).length;
-      groups.forEach((g, i2) => {
-        g.hidden = i2 < pre;
+      groups.forEach((g, i3) => {
+        g.hidden = i3 < pre;
       });
       more.hidden = true;
       const n = groups.length, order = [];
-      for (let i2 = pre + 2; i2 < n - 2; i2++) order.push(i2);
-      for (const i2 of [pre + 1, n - 2]) if (i2 > pre && i2 < n - 1 && !order.includes(i2)) order.push(i2);
-      for (const i2 of order) {
+      for (let i3 = pre + 2; i3 < n - 2; i3++) order.push(i3);
+      for (const i3 of [pre + 1, n - 2]) if (i3 > pre && i3 < n - 1 && !order.includes(i3)) order.push(i3);
+      for (const i3 of order) {
         if (bc.scrollWidth <= bc.clientWidth) break;
-        groups[i2].hidden = true;
+        groups[i3].hidden = true;
         more.hidden = false;
       }
-      const first = groups.find((g, i2) => g.hidden && i2 >= pre) ?? (pre ? groups[pre] : void 0);
+      const first = groups.find((g, i3) => g.hidden && i3 >= pre) ?? (pre ? groups[pre] : void 0);
       if (pre) more.hidden = false;
       if (first) first.before(more);
     };
@@ -6265,15 +6438,15 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     if (typeof ctrl !== "symbol") {
       if (isCollection(node)) {
         path = Object.freeze(path.concat(node));
-        for (let i2 = 0; i2 < node.items.length; ++i2) {
-          const ci = visit_(i2, node.items[i2], visitor, path);
+        for (let i3 = 0; i3 < node.items.length; ++i3) {
+          const ci = visit_(i3, node.items[i3], visitor, path);
           if (typeof ci === "number")
-            i2 = ci - 1;
+            i3 = ci - 1;
           else if (ci === BREAK)
             return BREAK;
           else if (ci === REMOVE) {
-            node.items.splice(i2, 1);
-            i2 -= 1;
+            node.items.splice(i3, 1);
+            i3 -= 1;
           }
         }
       } else if (isPair(node)) {
@@ -6313,15 +6486,15 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     if (typeof ctrl !== "symbol") {
       if (isCollection(node)) {
         path = Object.freeze(path.concat(node));
-        for (let i2 = 0; i2 < node.items.length; ++i2) {
-          const ci = await visitAsync_(i2, node.items[i2], visitor, path);
+        for (let i3 = 0; i3 < node.items.length; ++i3) {
+          const ci = await visitAsync_(i3, node.items[i3], visitor, path);
           if (typeof ci === "number")
-            i2 = ci - 1;
+            i3 = ci - 1;
           else if (ci === BREAK)
             return BREAK;
           else if (ci === REMOVE) {
-            node.items.splice(i2, 1);
-            i2 -= 1;
+            node.items.splice(i3, 1);
+            i3 -= 1;
           }
         }
       } else if (isPair(node)) {
@@ -6573,8 +6746,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     return anchors;
   }
   function findNewAnchor(prefix, exclude) {
-    for (let i2 = 1; true; ++i2) {
-      const name = `${prefix}${i2}`;
+    for (let i3 = 1; true; ++i3) {
+      const name = `${prefix}${i3}`;
       if (!exclude.has(name))
         return name;
     }
@@ -6617,13 +6790,13 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
       if (Array.isArray(val)) {
-        for (let i2 = 0, len = val.length; i2 < len; ++i2) {
-          const v0 = val[i2];
-          const v1 = applyReviver(reviver, val, String(i2), v0);
+        for (let i3 = 0, len = val.length; i3 < len; ++i3) {
+          const v0 = val[i3];
+          const v1 = applyReviver(reviver, val, String(i3), v0);
           if (v1 === void 0)
-            delete val[i2];
+            delete val[i3];
           else if (v1 !== v0)
-            val[i2] = v1;
+            val[i3] = v1;
         }
       } else if (val instanceof Map) {
         for (const k of Array.from(val.keys())) {
@@ -6660,7 +6833,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   // node_modules/yaml/browser/dist/nodes/toJS.js
   function toJS(value, arg, ctx) {
     if (Array.isArray(value))
-      return value.map((v, i2) => toJS(v, String(i2), ctx));
+      return value.map((v, i3) => toJS(v, String(i3), ctx));
     if (value && typeof value.toJSON === "function") {
       if (!ctx || !hasAnchor(value))
         return value.toJSON(arg, ctx);
@@ -6893,8 +7066,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   // node_modules/yaml/browser/dist/nodes/Collection.js
   function collectionFromPath(schema4, path, value) {
     let v = value;
-    for (let i2 = path.length - 1; i2 >= 0; --i2) {
-      const k = path[i2];
+    for (let i3 = path.length - 1; i3 >= 0; --i3) {
+      const k = path[i3];
       if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
         const a = [];
         a[k] = v;
@@ -7055,44 +7228,44 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     let split = void 0;
     let prev = void 0;
     let overflow = false;
-    let i2 = -1;
+    let i3 = -1;
     let escStart = -1;
     let escEnd = -1;
     if (mode === FOLD_BLOCK) {
-      i2 = consumeMoreIndentedLines(text, i2, indent.length);
-      if (i2 !== -1)
-        end = i2 + endStep;
+      i3 = consumeMoreIndentedLines(text, i3, indent.length);
+      if (i3 !== -1)
+        end = i3 + endStep;
     }
-    for (let ch; ch = text[i2 += 1]; ) {
+    for (let ch; ch = text[i3 += 1]; ) {
       if (mode === FOLD_QUOTED && ch === "\\") {
-        escStart = i2;
-        switch (text[i2 + 1]) {
+        escStart = i3;
+        switch (text[i3 + 1]) {
           case "x":
-            i2 += 3;
+            i3 += 3;
             break;
           case "u":
-            i2 += 5;
+            i3 += 5;
             break;
           case "U":
-            i2 += 9;
+            i3 += 9;
             break;
           default:
-            i2 += 1;
+            i3 += 1;
         }
-        escEnd = i2;
+        escEnd = i3;
       }
       if (ch === "\n") {
         if (mode === FOLD_BLOCK)
-          i2 = consumeMoreIndentedLines(text, i2, indent.length);
-        end = i2 + indent.length + endStep;
+          i3 = consumeMoreIndentedLines(text, i3, indent.length);
+        end = i3 + indent.length + endStep;
         split = void 0;
       } else {
         if (ch === " " && prev && prev !== " " && prev !== "\n" && prev !== "	") {
-          const next = text[i2 + 1];
+          const next = text[i3 + 1];
           if (next && next !== " " && next !== "\n" && next !== "	")
-            split = i2;
+            split = i3;
         }
-        if (i2 >= end) {
+        if (i3 >= end) {
           if (split) {
             folds.push(split);
             end = split + endStep;
@@ -7100,10 +7273,10 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
           } else if (mode === FOLD_QUOTED) {
             while (prev === " " || prev === "	") {
               prev = ch;
-              ch = text[i2 += 1];
+              ch = text[i3 += 1];
               overflow = true;
             }
-            const j = i2 > escEnd + 1 ? i2 - 2 : escStart - 1;
+            const j = i3 > escEnd + 1 ? i3 - 2 : escStart - 1;
             if (escapedFolds[j])
               return text;
             folds.push(j);
@@ -7124,9 +7297,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     if (onFold)
       onFold();
     let res = text.slice(0, folds[0]);
-    for (let i3 = 0; i3 < folds.length; ++i3) {
-      const fold = folds[i3];
-      const end2 = folds[i3 + 1] || text.length;
+    for (let i4 = 0; i4 < folds.length; ++i4) {
+      const fold = folds[i4];
+      const end2 = folds[i4 + 1] || text.length;
       if (fold === 0)
         res = `
 ${indent}${text.slice(0, end2)}`;
@@ -7139,19 +7312,19 @@ ${indent}${text.slice(fold + 1, end2)}`;
     }
     return res;
   }
-  function consumeMoreIndentedLines(text, i2, indent) {
-    let end = i2;
-    let start = i2 + 1;
+  function consumeMoreIndentedLines(text, i3, indent) {
+    let end = i3;
+    let start = i3 + 1;
     let ch = text[start];
     while (ch === " " || ch === "	") {
-      if (i2 < start + indent) {
-        ch = text[++i2];
+      if (i3 < start + indent) {
+        ch = text[++i3];
       } else {
         do {
-          ch = text[++i2];
+          ch = text[++i3];
         } while (ch && ch !== "\n");
-        end = i2;
-        start = i2 + 1;
+        end = i3;
+        start = i3 + 1;
         ch = text[start];
       }
     }
@@ -7172,11 +7345,11 @@ ${indent}${text.slice(fold + 1, end2)}`;
     const strLen = str.length;
     if (strLen <= limit)
       return false;
-    for (let i2 = 0, start = 0; i2 < strLen; ++i2) {
-      if (str[i2] === "\n") {
-        if (i2 - start > limit)
+    for (let i3 = 0, start = 0; i3 < strLen; ++i3) {
+      if (str[i3] === "\n") {
+        if (i3 - start > limit)
           return true;
-        start = i2 + 1;
+        start = i3 + 1;
         if (strLen - start <= limit)
           return false;
       }
@@ -7192,19 +7365,19 @@ ${indent}${text.slice(fold + 1, end2)}`;
     const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
     let str = "";
     let start = 0;
-    for (let i2 = 0, ch = json[i2]; ch; ch = json[++i2]) {
-      if (ch === " " && json[i2 + 1] === "\\" && json[i2 + 2] === "n") {
-        str += json.slice(start, i2) + "\\ ";
-        i2 += 1;
-        start = i2;
+    for (let i3 = 0, ch = json[i3]; ch; ch = json[++i3]) {
+      if (ch === " " && json[i3 + 1] === "\\" && json[i3 + 2] === "n") {
+        str += json.slice(start, i3) + "\\ ";
+        i3 += 1;
+        start = i3;
         ch = "\\";
       }
       if (ch === "\\")
-        switch (json[i2 + 1]) {
+        switch (json[i3 + 1]) {
           case "u":
             {
-              str += json.slice(start, i2);
-              const code = json.substr(i2 + 2, 4);
+              str += json.slice(start, i3);
+              const code = json.substr(i3 + 2, 4);
               switch (code) {
                 case "0000":
                   str += "\\0";
@@ -7234,30 +7407,30 @@ ${indent}${text.slice(fold + 1, end2)}`;
                   if (code.substr(0, 2) === "00")
                     str += "\\x" + code.substr(2);
                   else
-                    str += json.substr(i2, 6);
+                    str += json.substr(i3, 6);
               }
-              i2 += 5;
-              start = i2 + 1;
+              i3 += 5;
+              start = i3 + 1;
             }
             break;
           case "n":
-            if (implicitKey || json[i2 + 2] === '"' || json.length < minMultiLineLength) {
-              i2 += 1;
+            if (implicitKey || json[i3 + 2] === '"' || json.length < minMultiLineLength) {
+              i3 += 1;
             } else {
-              str += json.slice(start, i2) + "\n\n";
-              while (json[i2 + 2] === "\\" && json[i2 + 3] === "n" && json[i2 + 4] !== '"') {
+              str += json.slice(start, i3) + "\n\n";
+              while (json[i3 + 2] === "\\" && json[i3 + 3] === "n" && json[i3 + 4] !== '"') {
                 str += "\n";
-                i2 += 2;
+                i3 += 2;
               }
               str += indent;
-              if (json[i2 + 2] === " ")
+              if (json[i3 + 2] === " ")
                 str += "\\";
-              i2 += 1;
-              start = i2 + 1;
+              i3 += 1;
+              start = i3 + 1;
             }
             break;
           default:
-            i2 += 1;
+            i3 += 1;
         }
     }
     str = start ? str + json.slice(start) : json;
@@ -7819,8 +7992,8 @@ ${ctx.indent}`;
     const itemCtx = Object.assign({}, ctx, { indent: itemIndent, type: null });
     let chompKeep = false;
     const lines = [];
-    for (let i2 = 0; i2 < items.length; ++i2) {
-      const item = items[i2];
+    for (let i3 = 0; i3 < items.length; ++i3) {
+      const item = items[i3];
       let comment2 = null;
       if (isNode(item)) {
         if (!chompKeep && item.spaceBefore)
@@ -7849,8 +8022,8 @@ ${ctx.indent}`;
       str = flowChars.start + flowChars.end;
     } else {
       str = lines[0];
-      for (let i2 = 1; i2 < lines.length; ++i2) {
-        const line2 = lines[i2];
+      for (let i3 = 1; i3 < lines.length; ++i3) {
+        const line2 = lines[i3];
         str += line2 ? `
 ${indent}${line2}` : "\n";
       }
@@ -7874,8 +8047,8 @@ ${indent}${line2}` : "\n";
     let reqNewline = false;
     let linesAtValue = 0;
     const lines = [];
-    for (let i2 = 0; i2 < items.length; ++i2) {
-      const item = items[i2];
+    for (let i3 = 0; i3 < items.length; ++i3) {
+      const item = items[i3];
       let comment = null;
       if (isNode(item)) {
         if (item.spaceBefore)
@@ -7905,7 +8078,7 @@ ${indent}${line2}` : "\n";
       if (comment)
         reqNewline = true;
       let str = stringify(item, itemCtx, () => comment = null);
-      if (i2 < items.length - 1)
+      if (i3 < items.length - 1)
         str += ",";
       if (comment)
         str += lineComment(str, itemIndent, commentString(comment));
@@ -8015,11 +8188,11 @@ ${indent}${end}`;
         else
           prev.value = _pair.value;
       } else if (sortEntries) {
-        const i2 = this.items.findIndex((item) => sortEntries(_pair, item) < 0);
-        if (i2 === -1)
+        const i3 = this.items.findIndex((item) => sortEntries(_pair, item) < 0);
+        if (i3 === -1)
           this.items.push(_pair);
         else
-          this.items.splice(i2, 0, _pair);
+          this.items.splice(i3, 0, _pair);
       } else {
         this.items.push(_pair);
       }
@@ -8153,9 +8326,9 @@ ${indent}${end}`;
       const seq2 = [];
       if (ctx?.onCreate)
         ctx.onCreate(seq2);
-      let i2 = 0;
+      let i3 = 0;
       for (const item of this.items)
-        seq2.push(toJS(item, String(i2++), ctx));
+        seq2.push(toJS(item, String(i3++), ctx));
       return seq2;
     }
     toString(ctx, onComment, onChompKeep) {
@@ -8173,10 +8346,10 @@ ${indent}${end}`;
       const { replacer } = ctx;
       const seq2 = new this(schema4);
       if (obj && Symbol.iterator in Object(obj)) {
-        let i2 = 0;
+        let i3 = 0;
         for (let it of obj) {
           if (typeof replacer === "function") {
-            const key = obj instanceof Set ? it : String(i2++);
+            const key = obj instanceof Set ? it : String(i3++);
             it = replacer.call(obj, key, it);
           }
           seq2.items.push(createNode(it, void 0, ctx));
@@ -8255,12 +8428,12 @@ ${indent}${end}`;
       return isNaN(num) ? ".nan" : num < 0 ? "-.inf" : ".inf";
     let n = JSON.stringify(value);
     if (!format && minFractionDigits && (!tag || tag === "tag:yaml.org,2002:float") && /^\d/.test(n)) {
-      let i2 = n.indexOf(".");
-      if (i2 < 0) {
-        i2 = n.length;
+      let i3 = n.indexOf(".");
+      if (i3 < 0) {
+        i3 = n.length;
         n += ".";
       }
-      let d = minFractionDigits - (n.length - i2 - 1);
+      let d = minFractionDigits - (n.length - i3 - 1);
       while (d-- > 0)
         n += "0";
     }
@@ -8432,8 +8605,8 @@ ${indent}${end}`;
       } else if (typeof atob === "function") {
         const str = atob(src.replace(/[\n\r]/g, ""));
         const buffer = new Uint8Array(str.length);
-        for (let i2 = 0; i2 < str.length; ++i2)
-          buffer[i2] = str.charCodeAt(i2);
+        for (let i3 = 0; i3 < str.length; ++i3)
+          buffer[i3] = str.charCodeAt(i3);
         return buffer;
       } else {
         onError("This environment does not support reading binary tags; either Buffer or atob is required");
@@ -8447,8 +8620,8 @@ ${indent}${end}`;
         str = buf instanceof Buffer ? buf.toString("base64") : Buffer.from(buf.buffer).toString("base64");
       } else if (typeof btoa === "function") {
         let s = "";
-        for (let i2 = 0; i2 < buf.length; ++i2)
-          s += String.fromCharCode(buf[i2]);
+        for (let i3 = 0; i3 < buf.length; ++i3)
+          s += String.fromCharCode(buf[i3]);
         str = btoa(s);
       } else {
         throw new Error("This environment does not support writing binary tags; either Buffer or btoa is required");
@@ -8459,8 +8632,8 @@ ${indent}${end}`;
         const lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth);
         const n = Math.ceil(str.length / lineWidth);
         const lines = new Array(n);
-        for (let i2 = 0, o = 0; i2 < n; ++i2, o += lineWidth) {
-          lines[i2] = str.substr(o, lineWidth);
+        for (let i3 = 0, o = 0; i3 < n; ++i3, o += lineWidth) {
+          lines[i3] = str.substr(o, lineWidth);
         }
         str = lines.join(type === Scalar.BLOCK_LITERAL ? "\n" : " ");
       }
@@ -8471,8 +8644,8 @@ ${indent}${end}`;
   // node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
   function resolvePairs(seq2, onError) {
     if (isSeq(seq2)) {
-      for (let i2 = 0; i2 < seq2.items.length; ++i2) {
-        let item = seq2.items[i2];
+      for (let i3 = 0; i3 < seq2.items.length; ++i3) {
+        let item = seq2.items[i3];
         if (isPair(item))
           continue;
         else if (isMap(item)) {
@@ -8489,7 +8662,7 @@ ${cn.comment}` : item.comment;
           }
           item = pair;
         }
-        seq2.items[i2] = isPair(item) ? item : new Pair(item);
+        seq2.items[i3] = isPair(item) ? item : new Pair(item);
       }
     } else
       onError("Expected a sequence for this tag");
@@ -8499,11 +8672,11 @@ ${cn.comment}` : item.comment;
     const { replacer } = ctx;
     const pairs2 = new YAMLSeq(schema4);
     pairs2.tag = "tag:yaml.org,2002:pairs";
-    let i2 = 0;
+    let i3 = 0;
     if (iterable && Symbol.iterator in Object(iterable))
       for (let it of iterable) {
         if (typeof replacer === "function")
-          it = replacer.call(iterable, String(i2++), it);
+          it = replacer.call(iterable, String(i3++), it);
         let key, value;
         if (Array.isArray(it)) {
           if (it.length === 2) {
@@ -8512,12 +8685,12 @@ ${cn.comment}` : item.comment;
           } else
             throw new TypeError(`Expected [key, value] tuple: ${it}`);
         } else if (it && it instanceof Object) {
-          const keys = Object.keys(it);
-          if (keys.length === 1) {
-            key = keys[0];
+          const keys2 = Object.keys(it);
+          if (keys2.length === 1) {
+            key = keys2[0];
             value = it[key];
           } else {
-            throw new TypeError(`Expected tuple with one key, not ${keys.length} keys`);
+            throw new TypeError(`Expected tuple with one key, not ${keys2.length} keys`);
           }
         } else {
           key = it;
@@ -8961,8 +9134,8 @@ ${cn.comment}` : item.comment;
       if (Array.isArray(customTags))
         tags = [];
       else {
-        const keys = Array.from(schemas.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
-        throw new Error(`Unknown schema "${schemaName}"; use one of ${keys} or define customTags array`);
+        const keys2 = Array.from(schemas.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
+        throw new Error(`Unknown schema "${schemaName}"; use one of ${keys2} or define customTags array`);
       }
     }
     if (Array.isArray(customTags)) {
@@ -8977,8 +9150,8 @@ ${cn.comment}` : item.comment;
       const tagObj = typeof tag === "string" ? tagsByName[tag] : tag;
       if (!tagObj) {
         const tagName = JSON.stringify(tag);
-        const keys = Object.keys(tagsByName).map((key) => JSON.stringify(key)).join(", ");
-        throw new Error(`Unknown custom tag ${tagName}; use one of ${keys}`);
+        const keys2 = Object.keys(tagsByName).map((key) => JSON.stringify(key)).join(", ");
+        throw new Error(`Unknown custom tag ${tagName}; use one of ${keys2}`);
       }
       if (!tags2.includes(tagObj))
         tags2.push(tagObj);
@@ -9802,8 +9975,8 @@ ${pointer}
     if (ctx.atKey)
       ctx.atKey = false;
     let offset = fc.offset + fc.start.source.length;
-    for (let i2 = 0; i2 < fc.items.length; ++i2) {
-      const collItem = fc.items[i2];
+    for (let i3 = 0; i3 < fc.items.length; ++i3) {
+      const collItem = fc.items[i3];
       const { start, key, sep, value } = collItem;
       const props = resolveProps(start, {
         flow: fcName,
@@ -9816,9 +9989,9 @@ ${pointer}
       });
       if (!props.found) {
         if (!props.anchor && !props.tag && !sep && !value) {
-          if (i2 === 0 && props.comma)
+          if (i3 === 0 && props.comma)
             onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
-          else if (i2 < fc.items.length - 1)
+          else if (i3 < fc.items.length - 1)
             onError(props.start, "UNEXPECTED_TOKEN", `Unexpected empty item in ${fcName}`);
           if (props.comment) {
             if (coll.comment)
@@ -9837,7 +10010,7 @@ ${pointer}
             "Implicit keys of flow sequence pairs need to be on a single line"
           );
       }
-      if (i2 === 0) {
+      if (i3 === 0) {
         if (props.comma)
           onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
       } else {
@@ -10028,10 +10201,10 @@ ${pointer}
     const type = header.mode === ">" ? Scalar.BLOCK_FOLDED : Scalar.BLOCK_LITERAL;
     const lines = scalar.source ? splitLines(scalar.source) : [];
     let chompStart = lines.length;
-    for (let i2 = lines.length - 1; i2 >= 0; --i2) {
-      const content = lines[i2][1];
+    for (let i3 = lines.length - 1; i3 >= 0; --i3) {
+      const content = lines[i3][1];
       if (content === "" || content === "\r")
-        chompStart = i2;
+        chompStart = i3;
       else
         break;
     }
@@ -10045,8 +10218,8 @@ ${pointer}
     let trimIndent = scalar.indent + header.indent;
     let offset = scalar.offset + header.length;
     let contentStart = 0;
-    for (let i2 = 0; i2 < chompStart; ++i2) {
-      const [indent, content] = lines[i2];
+    for (let i3 = 0; i3 < chompStart; ++i3) {
+      const [indent, content] = lines[i3];
       if (content === "" || content === "\r") {
         if (header.indent === 0 && indent.length > trimIndent)
           trimIndent = indent.length;
@@ -10057,7 +10230,7 @@ ${pointer}
         }
         if (header.indent === 0)
           trimIndent = indent.length;
-        contentStart = i2;
+        contentStart = i3;
         if (trimIndent === 0 && !ctx.atRoot) {
           const message = "Block scalar values in collections must be indented";
           onError(offset, "BAD_INDENT", message);
@@ -10066,17 +10239,17 @@ ${pointer}
       }
       offset += indent.length + content.length + 1;
     }
-    for (let i2 = lines.length - 1; i2 >= chompStart; --i2) {
-      if (lines[i2][0].length > trimIndent)
-        chompStart = i2 + 1;
+    for (let i3 = lines.length - 1; i3 >= chompStart; --i3) {
+      if (lines[i3][0].length > trimIndent)
+        chompStart = i3 + 1;
     }
     let value = "";
     let sep = "";
     let prevMoreIndented = false;
-    for (let i2 = 0; i2 < contentStart; ++i2)
-      value += lines[i2][0].slice(trimIndent) + "\n";
-    for (let i2 = contentStart; i2 < chompStart; ++i2) {
-      let [indent, content] = lines[i2];
+    for (let i3 = 0; i3 < contentStart; ++i3)
+      value += lines[i3][0].slice(trimIndent) + "\n";
+    for (let i3 = contentStart; i3 < chompStart; ++i3) {
+      let [indent, content] = lines[i3];
       offset += indent.length + content.length + 1;
       const crlf = content[content.length - 1] === "\r";
       if (crlf)
@@ -10113,8 +10286,8 @@ ${pointer}
       case "-":
         break;
       case "+":
-        for (let i2 = chompStart; i2 < lines.length; ++i2)
-          value += "\n" + lines[i2][0].slice(trimIndent);
+        for (let i3 = chompStart; i3 < lines.length; ++i3)
+          value += "\n" + lines[i3][0].slice(trimIndent);
         if (value[value.length - 1] !== "\n")
           value += "\n";
         break;
@@ -10134,8 +10307,8 @@ ${pointer}
     let indent = 0;
     let chomp = "";
     let error = -1;
-    for (let i2 = 1; i2 < source.length; ++i2) {
-      const ch = source[i2];
+    for (let i3 = 1; i3 < source.length; ++i3) {
+      const ch = source[i3];
       if (!chomp && (ch === "-" || ch === "+"))
         chomp = ch;
       else {
@@ -10143,7 +10316,7 @@ ${pointer}
         if (!indent && n)
           indent = n;
         else if (error === -1)
-          error = offset + i2;
+          error = offset + i3;
       }
     }
     if (error !== -1)
@@ -10151,8 +10324,8 @@ ${pointer}
     let hasSpace = false;
     let comment = "";
     let length = source.length;
-    for (let i2 = 1; i2 < props.length; ++i2) {
-      const token = props[i2];
+    for (let i3 = 1; i3 < props.length; ++i3) {
+      const token = props[i3];
       switch (token.type) {
         case "space":
           hasSpace = true;
@@ -10190,8 +10363,8 @@ ${pointer}
     const m = first.match(/^( *)/);
     const line0 = m?.[1] ? [m[1], first.slice(m[1].length)] : ["", first];
     const lines = [line0];
-    for (let i2 = 1; i2 < split.length; i2 += 2)
-      lines.push([split[i2], split[i2 + 1]]);
+    for (let i3 = 1; i3 < split.length; i3 += 2)
+      lines.push([split[i3], split[i3 + 1]]);
     return lines;
   }
 
@@ -10301,43 +10474,43 @@ ${pointer}
   }
   function doubleQuotedValue(source, onError) {
     let res = "";
-    for (let i2 = 1; i2 < source.length - 1; ++i2) {
-      const ch = source[i2];
-      if (ch === "\r" && source[i2 + 1] === "\n")
+    for (let i3 = 1; i3 < source.length - 1; ++i3) {
+      const ch = source[i3];
+      if (ch === "\r" && source[i3 + 1] === "\n")
         continue;
       if (ch === "\n") {
-        const { fold, offset } = foldNewline(source, i2);
+        const { fold, offset } = foldNewline(source, i3);
         res += fold;
-        i2 = offset;
+        i3 = offset;
       } else if (ch === "\\") {
-        let next = source[++i2];
+        let next = source[++i3];
         const cc = escapeCodes[next];
         if (cc)
           res += cc;
         else if (next === "\n") {
-          next = source[i2 + 1];
+          next = source[i3 + 1];
           while (next === " " || next === "	")
-            next = source[++i2 + 1];
-        } else if (next === "\r" && source[i2 + 1] === "\n") {
-          next = source[++i2 + 1];
+            next = source[++i3 + 1];
+        } else if (next === "\r" && source[i3 + 1] === "\n") {
+          next = source[++i3 + 1];
           while (next === " " || next === "	")
-            next = source[++i2 + 1];
+            next = source[++i3 + 1];
         } else if (next === "x" || next === "u" || next === "U") {
           const length = { x: 2, u: 4, U: 8 }[next];
-          res += parseCharCode(source, i2 + 1, length, onError);
-          i2 += length;
+          res += parseCharCode(source, i3 + 1, length, onError);
+          i3 += length;
         } else {
-          const raw = source.substr(i2 - 1, 2);
-          onError(i2 - 1, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
+          const raw = source.substr(i3 - 1, 2);
+          onError(i3 - 1, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
           res += raw;
         }
       } else if (ch === " " || ch === "	") {
-        const wsStart = i2;
-        let next = source[i2 + 1];
+        const wsStart = i3;
+        let next = source[i3 + 1];
         while (next === " " || next === "	")
-          next = source[++i2 + 1];
-        if (next !== "\n" && !(next === "\r" && source[i2 + 2] === "\n"))
-          res += i2 > wsStart ? source.slice(wsStart, i2 + 1) : ch;
+          next = source[++i3 + 1];
+        if (next !== "\n" && !(next === "\r" && source[i3 + 2] === "\n"))
+          res += i3 > wsStart ? source.slice(wsStart, i3 + 1) : ch;
       } else {
         res += ch;
       }
@@ -10482,8 +10655,8 @@ ${pointer}
     if (before) {
       if (pos === null)
         pos = before.length;
-      for (let i2 = pos - 1; i2 >= 0; --i2) {
-        let st = before[i2];
+      for (let i3 = pos - 1; i3 >= 0; --i3) {
+        let st = before[i3];
         switch (st.type) {
           case "space":
           case "comment":
@@ -10491,10 +10664,10 @@ ${pointer}
             offset -= st.source.length;
             continue;
         }
-        st = before[++i2];
+        st = before[++i3];
         while (st?.type === "space") {
           offset += st.source.length;
-          st = before[++i2];
+          st = before[++i3];
         }
         break;
       }
@@ -10636,8 +10809,8 @@ ${pointer}
     let comment = "";
     let atComment = false;
     let afterEmptyLine = false;
-    for (let i2 = 0; i2 < prelude.length; ++i2) {
-      const source = prelude[i2];
+    for (let i3 = 0; i3 < prelude.length; ++i3) {
+      const source = prelude[i3];
       switch (source[0]) {
         case "#":
           comment += (comment === "" ? "" : afterEmptyLine ? "\n\n" : "\n") + (source.substring(1) || " ");
@@ -10645,8 +10818,8 @@ ${pointer}
           afterEmptyLine = false;
           break;
         case "%":
-          if (prelude[i2 + 1]?.[0] !== "#")
-            i2 += 1;
+          if (prelude[i3 + 1]?.[0] !== "#")
+            i3 += 1;
           atComment = false;
           break;
         default:
@@ -10852,15 +11025,15 @@ ${end.comment}` : end.comment;
     for (const field of ["key", "value"]) {
       const token = item[field];
       if (token && "items" in token) {
-        for (let i2 = 0; i2 < token.items.length; ++i2) {
-          const ci = _visit(Object.freeze(path.concat([[field, i2]])), token.items[i2], visitor);
+        for (let i3 = 0; i3 < token.items.length; ++i3) {
+          const ci = _visit(Object.freeze(path.concat([[field, i3]])), token.items[i3], visitor);
           if (typeof ci === "number")
-            i2 = ci - 1;
+            i3 = ci - 1;
           else if (ci === BREAK2)
             return BREAK2;
           else if (ci === REMOVE2) {
-            token.items.splice(i2, 1);
-            i2 -= 1;
+            token.items.splice(i3, 1);
+            i3 -= 1;
           }
         }
         if (typeof ctrl === "function" && field === "key")
@@ -10986,14 +11159,14 @@ ${end.comment}` : end.comment;
         next = yield* this.parseNext(next);
     }
     atLineEnd() {
-      let i2 = this.pos;
-      let ch = this.buffer[i2];
+      let i3 = this.pos;
+      let ch = this.buffer[i3];
       while (ch === " " || ch === "	")
-        ch = this.buffer[++i2];
+        ch = this.buffer[++i3];
       if (!ch || ch === "#" || ch === "\n")
         return true;
       if (ch === "\r")
-        return this.buffer[i2 + 1] === "\n";
+        return this.buffer[i3 + 1] === "\n";
       return false;
     }
     charAt(n) {
@@ -11288,9 +11461,9 @@ ${end.comment}` : end.comment;
     *parseBlockScalarHeader() {
       this.blockScalarIndent = -1;
       this.blockScalarKeep = false;
-      let i2 = this.pos;
+      let i3 = this.pos;
       while (true) {
-        const ch = this.buffer[++i2];
+        const ch = this.buffer[++i3];
         if (ch === "+")
           this.blockScalarKeep = true;
         else if (ch > "0" && ch <= "9")
@@ -11304,17 +11477,17 @@ ${end.comment}` : end.comment;
       let nl = this.pos - 1;
       let indent = 0;
       let ch;
-      loop: for (let i3 = this.pos; ch = this.buffer[i3]; ++i3) {
+      loop: for (let i4 = this.pos; ch = this.buffer[i4]; ++i4) {
         switch (ch) {
           case " ":
             indent += 1;
             break;
           case "\n":
-            nl = i3;
+            nl = i4;
             indent = 0;
             break;
           case "\r": {
-            const next = this.buffer[i3 + 1];
+            const next = this.buffer[i4 + 1];
             if (!next && !this.atEnd)
               return this.setNext("block-scalar");
             if (next === "\n")
@@ -11345,25 +11518,25 @@ ${end.comment}` : end.comment;
           nl = this.buffer.length;
         }
       }
-      let i2 = nl + 1;
-      ch = this.buffer[i2];
+      let i3 = nl + 1;
+      ch = this.buffer[i3];
       while (ch === " ")
-        ch = this.buffer[++i2];
+        ch = this.buffer[++i3];
       if (ch === "	") {
         while (ch === "	" || ch === " " || ch === "\r" || ch === "\n")
-          ch = this.buffer[++i2];
-        nl = i2 - 1;
+          ch = this.buffer[++i3];
+        nl = i3 - 1;
       } else if (!this.blockScalarKeep) {
         do {
-          let i3 = nl - 1;
-          let ch2 = this.buffer[i3];
+          let i4 = nl - 1;
+          let ch2 = this.buffer[i4];
           if (ch2 === "\r")
-            ch2 = this.buffer[--i3];
-          const lastChar = i3;
+            ch2 = this.buffer[--i4];
+          const lastChar = i4;
           while (ch2 === " ")
-            ch2 = this.buffer[--i3];
-          if (ch2 === "\n" && i3 >= this.pos && i3 + 1 + indent > lastChar)
-            nl = i3;
+            ch2 = this.buffer[--i4];
+          if (ch2 === "\n" && i4 >= this.pos && i4 + 1 + indent > lastChar)
+            nl = i4;
           else
             break;
         } while (true);
@@ -11375,36 +11548,36 @@ ${end.comment}` : end.comment;
     *parsePlainScalar() {
       const inFlow = this.flowLevel > 0;
       let end = this.pos - 1;
-      let i2 = this.pos - 1;
+      let i3 = this.pos - 1;
       let ch;
-      while (ch = this.buffer[++i2]) {
+      while (ch = this.buffer[++i3]) {
         if (ch === ":") {
-          const next = this.buffer[i2 + 1];
+          const next = this.buffer[i3 + 1];
           if (isEmpty(next) || inFlow && flowIndicatorChars.has(next))
             break;
-          end = i2;
+          end = i3;
         } else if (isEmpty(ch)) {
-          let next = this.buffer[i2 + 1];
+          let next = this.buffer[i3 + 1];
           if (ch === "\r") {
             if (next === "\n") {
-              i2 += 1;
+              i3 += 1;
               ch = "\n";
-              next = this.buffer[i2 + 1];
+              next = this.buffer[i3 + 1];
             } else
-              end = i2;
+              end = i3;
           }
           if (next === "#" || inFlow && flowIndicatorChars.has(next))
             break;
           if (ch === "\n") {
-            const cs = this.continueScalar(i2 + 1);
+            const cs = this.continueScalar(i3 + 1);
             if (cs === -1)
               break;
-            i2 = Math.max(i2, cs - 2);
+            i3 = Math.max(i3, cs - 2);
           }
         } else {
           if (inFlow && flowIndicatorChars.has(ch))
             break;
-          end = i2;
+          end = i3;
         }
       }
       if (!ch && !this.atEnd)
@@ -11421,8 +11594,8 @@ ${end.comment}` : end.comment;
       }
       return 0;
     }
-    *pushToIndex(i2, allowEmpty) {
-      const s = this.buffer.slice(this.pos, i2);
+    *pushToIndex(i3, allowEmpty) {
+      const s = this.buffer.slice(this.pos, i3);
       if (s) {
         yield s;
         this.pos += s.length;
@@ -11457,23 +11630,23 @@ ${end.comment}` : end.comment;
     }
     *pushTag() {
       if (this.charAt(1) === "<") {
-        let i2 = this.pos + 2;
-        let ch = this.buffer[i2];
+        let i3 = this.pos + 2;
+        let ch = this.buffer[i3];
         while (!isEmpty(ch) && ch !== ">")
-          ch = this.buffer[++i2];
-        return yield* this.pushToIndex(ch === ">" ? i2 + 1 : i2, false);
+          ch = this.buffer[++i3];
+        return yield* this.pushToIndex(ch === ">" ? i3 + 1 : i3, false);
       } else {
-        let i2 = this.pos + 1;
-        let ch = this.buffer[i2];
+        let i3 = this.pos + 1;
+        let ch = this.buffer[i3];
         while (ch) {
           if (tagChars.has(ch))
-            ch = this.buffer[++i2];
-          else if (ch === "%" && hexDigits.has(this.buffer[i2 + 1]) && hexDigits.has(this.buffer[i2 + 2])) {
-            ch = this.buffer[i2 += 3];
+            ch = this.buffer[++i3];
+          else if (ch === "%" && hexDigits.has(this.buffer[i3 + 1]) && hexDigits.has(this.buffer[i3 + 2])) {
+            ch = this.buffer[i3 += 3];
           } else
             break;
         }
-        return yield* this.pushToIndex(i2, false);
+        return yield* this.pushToIndex(i3, false);
       }
     }
     *pushNewline() {
@@ -11486,24 +11659,24 @@ ${end.comment}` : end.comment;
         return 0;
     }
     *pushSpaces(allowTabs) {
-      let i2 = this.pos - 1;
+      let i3 = this.pos - 1;
       let ch;
       do {
-        ch = this.buffer[++i2];
+        ch = this.buffer[++i3];
       } while (ch === " " || allowTabs && ch === "	");
-      const n = i2 - this.pos;
+      const n = i3 - this.pos;
       if (n > 0) {
         yield this.buffer.substr(this.pos, n);
-        this.pos = i2;
+        this.pos = i3;
       }
       return n;
     }
     *pushUntil(test) {
-      let i2 = this.pos;
-      let ch = this.buffer[i2];
+      let i3 = this.pos;
+      let ch = this.buffer[i3];
       while (!test(ch))
-        ch = this.buffer[++i2];
-      return yield* this.pushToIndex(i2, false);
+        ch = this.buffer[++i3];
+      return yield* this.pushToIndex(i3, false);
     }
   };
 
@@ -11534,20 +11707,20 @@ ${end.comment}` : end.comment;
 
   // node_modules/yaml/browser/dist/parse/parser.js
   function includesToken(list2, type) {
-    for (let i2 = 0; i2 < list2.length; ++i2)
-      if (list2[i2].type === type)
+    for (let i3 = 0; i3 < list2.length; ++i3)
+      if (list2[i3].type === type)
         return true;
     return false;
   }
   function findNonEmptyIndex(list2) {
-    for (let i2 = 0; i2 < list2.length; ++i2) {
-      switch (list2[i2].type) {
+    for (let i3 = 0; i3 < list2.length; ++i3) {
+      switch (list2[i3].type) {
         case "space":
         case "comment":
         case "newline":
           break;
         default:
-          return i2;
+          return i3;
       }
     }
     return -1;
@@ -11582,9 +11755,9 @@ ${end.comment}` : end.comment;
   function getFirstKeyStartProps(prev) {
     if (prev.length === 0)
       return [];
-    let i2 = prev.length;
-    loop: while (--i2 >= 0) {
-      switch (prev[i2].type) {
+    let i3 = prev.length;
+    loop: while (--i3 >= 0) {
+      switch (prev[i3].type) {
         case "doc-start":
         case "explicit-key-ind":
         case "map-value-ind":
@@ -11593,9 +11766,9 @@ ${end.comment}` : end.comment;
           break loop;
       }
     }
-    while (prev[++i2]?.type === "space") {
+    while (prev[++i3]?.type === "space") {
     }
-    return prev.splice(i2, prev.length);
+    return prev.splice(i3, prev.length);
   }
   function fixFlowSeqItems(fc) {
     if (fc.start.type === "flow-seq-start") {
@@ -11979,11 +12152,11 @@ ${end.comment}` : end.comment;
         let start = [];
         if (atNextItem && it.sep && !it.value) {
           const nl = [];
-          for (let i2 = 0; i2 < it.sep.length; ++i2) {
-            const st = it.sep[i2];
+          for (let i3 = 0; i3 < it.sep.length; ++i3) {
+            const st = it.sep[i3];
             switch (st.type) {
               case "newline":
-                nl.push(i2);
+                nl.push(i3);
                 break;
               case "space":
                 break;
@@ -12402,90 +12575,90 @@ ${end.comment}` : end.comment;
   // src/formats.ts
   function lineCol(text, offset) {
     let line2 = 1, last = -1;
-    for (let i2 = text.indexOf("\n"); i2 !== -1 && i2 < offset; i2 = text.indexOf("\n", i2 + 1)) {
+    for (let i3 = text.indexOf("\n"); i3 !== -1 && i3 < offset; i3 = text.indexOf("\n", i3 + 1)) {
       line2++;
-      last = i2;
+      last = i3;
     }
     return { line: line2, col: offset - last };
   }
   function jsonFaultAt(s) {
-    let i2 = 0;
+    let i3 = 0;
     const ws = () => {
-      while (i2 < s.length && " 	\n\r".includes(s[i2])) i2++;
+      while (i3 < s.length && " 	\n\r".includes(s[i3])) i3++;
     };
     const fail = () => {
-      throw i2;
+      throw i3;
     };
     const value = () => {
       ws();
-      const c = s[i2];
+      const c = s[i3];
       if (c === "{") {
-        i2++;
+        i3++;
         ws();
-        if (s[i2] === "}") {
-          i2++;
+        if (s[i3] === "}") {
+          i3++;
           return;
         }
         for (; ; ) {
           ws();
-          if (s[i2] !== '"') fail();
+          if (s[i3] !== '"') fail();
           str();
           ws();
-          if (s[i2] !== ":") fail();
-          i2++;
+          if (s[i3] !== ":") fail();
+          i3++;
           value();
           ws();
-          if (s[i2] === ",") {
-            i2++;
+          if (s[i3] === ",") {
+            i3++;
             continue;
           }
-          if (s[i2] === "}") {
-            i2++;
+          if (s[i3] === "}") {
+            i3++;
             return;
           }
           fail();
         }
       }
       if (c === "[") {
-        i2++;
+        i3++;
         ws();
-        if (s[i2] === "]") {
-          i2++;
+        if (s[i3] === "]") {
+          i3++;
           return;
         }
         for (; ; ) {
           value();
           ws();
-          if (s[i2] === ",") {
-            i2++;
+          if (s[i3] === ",") {
+            i3++;
             continue;
           }
-          if (s[i2] === "]") {
-            i2++;
+          if (s[i3] === "]") {
+            i3++;
             return;
           }
           fail();
         }
       }
       if (c === '"') return str();
-      const lit = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(s.slice(i2, i2 + 64));
+      const lit = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(s.slice(i3, i3 + 64));
       if (!lit) fail();
-      i2 += lit[0].length;
+      i3 += lit[0].length;
     };
     const str = () => {
-      i2++;
-      while (i2 < s.length && s[i2] !== '"') {
-        if (s[i2] === "\\") i2++;
-        else if (s[i2] === "\n") fail();
-        i2++;
+      i3++;
+      while (i3 < s.length && s[i3] !== '"') {
+        if (s[i3] === "\\") i3++;
+        else if (s[i3] === "\n") fail();
+        i3++;
       }
-      if (s[i2] !== '"') fail();
-      i2++;
+      if (s[i3] !== '"') fail();
+      i3++;
     };
     try {
       value();
       ws();
-      if (i2 < s.length) fail();
+      if (i3 < s.length) fail();
       return -1;
     } catch (at) {
       return typeof at === "number" ? Math.min(at, s.length) : 0;
@@ -12516,12 +12689,12 @@ ${end.comment}` : end.comment;
   }
   function checkJsonl(text) {
     const out = [];
-    text.split("\n").forEach((l, i2) => {
+    text.split("\n").forEach((l, i3) => {
       if (!l.trim()) return;
       try {
         JSON.parse(l);
       } catch (err) {
-        out.push({ line: i2 + 1, severity: "error", message: `Not JSON: ${err.message}` });
+        out.push({ line: i3 + 1, severity: "error", message: `Not JSON: ${err.message}` });
       }
     });
     return out;
@@ -12564,7 +12737,7 @@ ${end.comment}` : end.comment;
     const lines = text.split("\n");
     let start = 0;
     if (lines[0]?.trim() === "---") {
-      const end = lines.findIndex((l, i2) => i2 > 0 && /^(---|\.\.\.)\s*$/.test(l));
+      const end = lines.findIndex((l, i3) => i3 > 0 && /^(---|\.\.\.)\s*$/.test(l));
       if (end === -1) out.push({ line: 1, severity: "error", message: "The front matter opened here is never closed with ---" });
       else {
         out.push(...checkYaml(lines.slice(1, end).join("\n"), 1));
@@ -12573,11 +12746,11 @@ ${end.comment}` : end.comment;
     }
     let fence = null;
     let lastLevel = 0;
-    for (let i2 = start; i2 < lines.length; i2++) {
-      const l = lines[i2];
+    for (let i3 = start; i3 < lines.length; i3++) {
+      const l = lines[i3];
       const f = /^\s{0,3}(`{3,}|~{3,})/.exec(l);
       if (f) {
-        if (!fence) fence = { mark: f[1], line: i2 + 1 };
+        if (!fence) fence = { mark: f[1], line: i3 + 1 };
         else if (f[1][0] === fence.mark[0] && f[1].length >= fence.mark.length && !l.slice(f.index + f[1].length).trim()) fence = null;
         continue;
       }
@@ -12585,7 +12758,7 @@ ${end.comment}` : end.comment;
       const h = /^(#{1,6})\s/.exec(l);
       if (h) {
         const level = h[1].length;
-        if (lastLevel && level > lastLevel + 1) out.push({ line: i2 + 1, severity: "warn", message: `Heading jumps from level ${lastLevel} to ${level}` });
+        if (lastLevel && level > lastLevel + 1) out.push({ line: i3 + 1, severity: "warn", message: `Heading jumps from level ${lastLevel} to ${level}` });
         lastLevel = level;
       }
     }
@@ -12614,12 +12787,12 @@ ${end.comment}` : end.comment;
         stack.push({ name, line: at.line });
         continue;
       }
-      const i2 = stack.map((s) => s.name).lastIndexOf(name);
-      if (i2 === -1) {
+      const i3 = stack.map((s) => s.name).lastIndexOf(name);
+      if (i3 === -1) {
         out.push({ ...at, severity: "error", message: `</${name}> closes nothing that is open` });
         continue;
       }
-      for (const s of stack.splice(i2).slice(1)) {
+      for (const s of stack.splice(i3).slice(1)) {
         if (!OPTIONAL_CLOSE.has(s.name)) out.push({ line: s.line, severity: "warn", message: `<${s.name}> is closed implicitly by </${name}> on line ${at.line}` });
       }
     }
@@ -12690,7 +12863,7 @@ ${end.comment}` : end.comment;
   };
   function lineStart(t, line2, from = 0, fromLine = 0) {
     let p = from;
-    for (let i2 = fromLine; i2 < line2; i2++) {
+    for (let i3 = fromLine; i3 < line2; i3++) {
       const nl = t.indexOf("\n", p);
       if (nl === -1) return t.length;
       p = nl + 1;
@@ -12798,7 +12971,7 @@ ${end.comment}` : end.comment;
       for (const p of pieces) {
         if (typeof p === "string") {
           out.s += p;
-          for (let i2 = 0; i2 < p.length; i2++) out.o.push(here);
+          for (let i3 = 0; i3 < p.length; i3++) out.o.push(here);
           continue;
         }
         const span = m.indices[p];
@@ -12830,7 +13003,7 @@ ${end.comment}` : end.comment;
     [/\s+/g, [" "]]
   ];
   function visibleMap(src) {
-    let t = { s: src, o: Array.from({ length: src.length }, (_v, i2) => i2) };
+    let t = { s: src, o: Array.from({ length: src.length }, (_v, i3) => i3) };
     for (const [re, pieces] of PASSES) t = pass(t, re, pieces);
     const lead = t.s.length - t.s.trimStart().length;
     const keep = t.s.trim().length;
@@ -12852,11 +13025,11 @@ ${end.comment}` : end.comment;
       });
       while (walker.nextNode()) {
         const t = walker.currentNode;
-        for (let i2 = 0; i2 < t.data.length; i2++) {
-          const sp2 = /\s/.test(t.data[i2]);
+        for (let i3 = 0; i3 < t.data.length; i3++) {
+          const sp2 = /\s/.test(t.data[i3]);
           if (sp2 && ws) continue;
-          flat += sp2 ? " " : t.data[i2];
-          at.push([t, i2]);
+          flat += sp2 ? " " : t.data[i3];
+          at.push([t, i3]);
           ws = sp2;
         }
       }
@@ -12912,7 +13085,7 @@ ${end.comment}` : end.comment;
         start = lb;
         continue;
       }
-      const mark = (i2) => MARKS.includes(text[i2] ?? "\0") && !(text[i2] === "_" && /\w/.test(text[i2 - 1] ?? "") && /\w/.test(text[i2 + 1] ?? ""));
+      const mark = (i3) => MARKS.includes(text[i3] ?? "\0") && !(text[i3] === "_" && /\w/.test(text[i3 - 1] ?? "") && /\w/.test(text[i3 + 1] ?? ""));
       const after = text[end], before = text[start - 1];
       if (mark(end) && runs(span, after) % 2) {
         while (text[end] === after) end++;
@@ -12953,10 +13126,10 @@ ${end.comment}` : end.comment;
       }
     });
     let e = -1;
-    for (let i2 = at.length - 1; i2 >= 0; i2--) {
+    for (let i3 = at.length - 1; i3 >= 0; i3--) {
       try {
-        if (range.comparePoint(at[i2][0], at[i2][1]) === 0) {
-          e = i2 + 1;
+        if (range.comparePoint(at[i3][0], at[i3][1]) === 0) {
+          e = i3 + 1;
           break;
         }
       } catch {
@@ -12971,11 +13144,11 @@ ${end.comment}` : end.comment;
     const hits = [];
     for (const hay of [vis.s, vis.s.toLowerCase()]) {
       const n = hay === vis.s ? needle : needle.toLowerCase();
-      for (let i2 = hay.indexOf(n); i2 !== -1; i2 = hay.indexOf(n, i2 + 1)) hits.push(i2);
+      for (let i3 = hay.indexOf(n); i3 !== -1; i3 = hay.indexOf(n, i3 + 1)) hits.push(i3);
       if (hits.length) break;
     }
     if (!hits.length) return block;
-    const v = hits.reduce((best, i2) => Math.abs(i2 - s) < Math.abs(best - s) ? i2 : best, hits[0]);
+    const v = hits.reduce((best, i3) => Math.abs(i3 - s) < Math.abs(best - s) ? i3 : best, hits[0]);
     const [ws, we] = widen(text, from + vis.o[v], from + vis.o[v + needle.length - 1] + 1);
     return { start: ws, end: we, block: false };
   }
@@ -13064,15 +13237,15 @@ ${end.comment}` : end.comment;
     let curRow = -1;
     const markLine = () => {
       const v = ta.value, end = ta.selectionStart;
-      let i2 = tw.first();
-      for (let p = v.indexOf("\n"); p !== -1 && p < end; p = v.indexOf("\n", p + 1)) i2++;
-      if (i2 === curRow) return;
+      let i3 = tw.first();
+      for (let p = v.indexOf("\n"); p !== -1 && p < end; p = v.indexOf("\n", p + 1)) i3++;
+      if (i3 === curRow) return;
       rowEl(curRow)?.classList.remove("cur");
-      rowEl(i2)?.classList.add("cur");
-      curRow = i2;
+      rowEl(i3)?.classList.add("cur");
+      curRow = i3;
     };
     let painted = [];
-    const rowHtml = (r, i2) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i2 + 1}</span><span class="fe-fe-code">${r || " "}</span></div>`;
+    const rowHtml = (r, i3) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i3 + 1}</span><span class="fe-fe-code">${r || " "}</span></div>`;
     const win = box.querySelector("#fe-fe-win");
     let lines = [];
     let lh = 0, winFirst = 0, winLast = -1;
@@ -13087,7 +13260,7 @@ ${end.comment}` : end.comment;
       }
       return rows;
     };
-    const rowEl = (i2) => big ? i2 >= winFirst && i2 <= winLast ? win.children[i2 - winFirst] : void 0 : paintEl.children[i2];
+    const rowEl = (i3) => big ? i3 >= winFirst && i3 <= winLast ? win.children[i3 - winFirst] : void 0 : paintEl.children[i3];
     const lineAtY = (clientY) => Math.floor((clientY - paintEl.getBoundingClientRect().top) / lh);
     const viewport = () => mode === "split" ? src : scroller;
     const paintWindow = (force = false) => {
@@ -13100,7 +13273,7 @@ ${end.comment}` : end.comment;
       for (let b = Math.floor(first / BLOCK); b <= Math.floor(last / BLOCK); b++) {
         const rows = blockRows(b);
         const from = Math.max(first, b * BLOCK), to = Math.min(last, b * BLOCK + rows.length - 1);
-        for (let i2 = from; i2 <= to; i2++) html += rowHtml(rows[i2 - b * BLOCK], i2);
+        for (let i3 = from; i3 <= to; i3++) html += rowHtml(rows[i3 - b * BLOCK], i3);
       }
       win.style.transform = `translateY(${first * lh}px)`;
       win.innerHTML = html;
@@ -13164,12 +13337,12 @@ ${end.comment}` : end.comment;
         b--;
         c--;
       }
-      for (let i2 = b - 1; i2 >= a; i2--) paintEl.children[i2].remove();
+      for (let i3 = b - 1; i3 >= a; i3--) paintEl.children[i3].remove();
       const html = rows.slice(a, c).map((r, k) => rowHtml(r, a + k)).join("");
       const next = paintEl.children[a];
       if (next) next.insertAdjacentHTML("beforebegin", html);
       else paintEl.insertAdjacentHTML("beforeend", html);
-      if (rows.length !== painted.length) for (let i2 = c; i2 < rows.length; i2++) paintEl.children[i2].firstChild.textContent = String(i2 + 1);
+      if (rows.length !== painted.length) for (let i3 = c; i3 < rows.length; i3++) paintEl.children[i3].firstChild.textContent = String(i3 + 1);
       painted = rows;
       ta.style.height = paintEl.offsetHeight + "px";
       paintEl.querySelector(".cur")?.classList.remove("cur");
@@ -13532,11 +13705,11 @@ and ${diags.length - 12} more` : "");
       count.classList.toggle("none", !!q && !hits.length);
       prev.toggleAttribute("disabled", hits.length < 2);
       next.toggleAttribute("disabled", hits.length < 2);
-      hits.forEach((h, i2) => h.forEach((m) => m.classList.toggle("on", i2 === cur)));
+      hits.forEach((h, i3) => h.forEach((m) => m.classList.toggle("on", i3 === cur)));
     };
-    const go = (i2) => {
+    const go = (i3) => {
       if (!hits.length) return;
-      cur = (i2 + hits.length) % hits.length;
+      cur = (i3 + hits.length) % hits.length;
       show();
       hits[cur][0].scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     };
@@ -13585,8 +13758,8 @@ and ${diags.length - 12} more` : "");
         }
       }
       hits = Array.from({ length: found }, () => []);
-      for (let i2 = pieces.length - 1; i2 >= 0; i2--) {
-        const { node, s, e, hit } = pieces[i2];
+      for (let i3 = pieces.length - 1; i3 >= 0; i3--) {
+        const { node, s, e, hit } = pieces[i3];
         const t = nodes[node];
         t.splitText(e);
         const mid = t.splitText(s);
@@ -13662,8 +13835,8 @@ and ${diags.length - 12} more` : "");
     const last = t.comments[t.comments.length - 1].author;
     if (last.kind === "agent") return true;
     let mine = -1;
-    t.comments.forEach((c, i2) => {
-      if (c.author.kind === "human") mine = i2;
+    t.comments.forEach((c, i3) => {
+      if (c.author.kind === "human") mine = i3;
     });
     return t.comments.slice(mine + 1).some((c) => /(^|\s)@(user|owner)\b/i.test(c.text || ""));
   }
@@ -13710,33 +13883,27 @@ and ${diags.length - 12} more` : "");
     return items.length ? { from: caret - m[3].length - 1, sigil: m[2], items } : null;
   }
   function agentBrief(path, href, threads) {
-    const name = (a) => a.kind === "human" ? a.name || "the owner" : a.alias || "agent";
-    const when2 = (iso) => iso.slice(0, 16).replace("T", " ");
+    const name = (a) => a.kind === "human" ? a.name || "owner" : a.alias || "agent";
     const one = threads.length === 1;
+    const short = (id) => id.slice(0, 10);
     const head = [
-      `# ${one ? "A comment" : `${threads.length} comments`} on ${path}`,
-      "",
-      "Each thread is anchored to the quoted words of the file. Answer with bfb-docs, which signs you in as your claude-ipc alias:",
-      `  bfb-docs comments reply ${path} <thread> "your reply"`,
-      `  bfb-docs comments done ${path} <thread> "what you changed"`,
-      `  bfb-docs comments show ${path} <thread>    (the full thread)`,
-      "Edit the file itself with your usual tools; the comments follow the text."
+      `${one ? "Comment" : `${threads.length} comments`} on ${path}`,
+      `Answer: bfb-docs comments reply|done ${path} <thread> "text"`
     ];
     const body = threads.map((t) => {
-      const meta = [t.status, t.place.line !== null ? `line ${t.place.line}` : "no longer found in the file", ...(t.tags ?? []).map((g) => "#" + g), t.due ? `due ${t.due}` : ""].filter(Boolean).join(", ");
-      const quote = t.anchor.exact.length > 400 ? t.anchor.exact.slice(0, 399) + "\u2026" : t.anchor.exact;
+      const where = t.place.line !== null ? `line ${t.place.line}` : "not found in the file";
+      const meta = [short(t.id), where, t.status, ...(t.tags ?? []).map((g) => "#" + g), t.due ? `due ${t.due}` : ""].filter(Boolean).join(" \xB7 ");
+      const quote = t.anchor.exact.length > 200 ? t.anchor.exact.slice(0, 199) + "\u2026" : t.anchor.exact;
       return [
         "",
-        `## Thread ${t.id} (${meta})`,
+        meta,
         ...quote.split("\n").map((l) => "> " + l),
-        "",
-        ...t.comments.filter((c) => !c.deleted).map((c) => `- ${name(c.author)}, ${when2(c.created)}:
-${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
-        "",
-        `Link: ${href.split("#")[0]}#c=${t.id}`
+        ...t.comments.filter((c) => !c.deleted).map((c) => `${name(c.author)}: ${(c.text || "").trim()}`)
       ].join("\n");
     });
-    return [...head, ...body].join("\n") + "\n";
+    const link = one ? [`
+${href.split("#")[0]}#c=${threads[0].id}`] : [];
+    return [...head, ...body, ...link].join("\n") + "\n";
   }
   function mountComments(o) {
     let threads = [];
@@ -13890,7 +14057,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       return p ? `${p.cwd.split("/").pop() || p.cwd} \xB7 ${p.status}` : "";
     };
     const allTags = () => threads.flatMap((t) => t.tags ?? []);
-    const visible = () => threads.filter((t) => filter === "all" ? true : filter === "done" ? t.status === "done" : filter === "me" ? forOwner(t) : t.status !== "done");
+    const visible2 = () => threads.filter((t) => filter === "all" ? true : filter === "done" ? t.status === "done" : filter === "me" ? forOwner(t) : t.status !== "done");
     const box = (id, label, place, start = "") => `
     <div class="fe-cm-box">
       <textarea data-for="${esc(id)}" rows="2" aria-label="${esc(label)}" placeholder="${esc(place)}">${esc(typed.get(id) ?? start)}</textarea>
@@ -13989,7 +14156,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         o.box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.info}</span><p>Comments could not be read</p><p class="fe-cm-hint">${esc(failed)}</p></div>`;
         return;
       }
-      const list2 = visible();
+      const list2 = visible2();
       const groups = filter === "done" || filter === "all" ? [["", list2]] : [
         ["", list2.filter((t) => t.place.state === "anchored" || t.place.state === "ambiguous")],
         ["Moved", list2.filter((t) => t.place.state === "moved")],
@@ -14061,8 +14228,8 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       editing = "";
       paint();
       redraw();
-      const card2 = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
-      if (!card2) {
+      const card3 = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
+      if (!card3) {
         filter = "all";
         paint();
         redraw();
@@ -14252,9 +14419,9 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       acFor = ta;
       acAt = Math.min(acAt, c.items.length - 1);
       list2.hidden = false;
-      list2.innerHTML = c.items.map((x, i2) => {
+      list2.innerHTML = c.items.map((x, i3) => {
         const hint = hintFor(x);
-        return `<div role="option" data-v="${esc(x)}" class="${i2 === acAt ? "on" : ""}" aria-selected="${i2 === acAt}">${esc(c.sigil + x)}${hint ? ` <span>${esc(hint)}</span>` : ""}</div>`;
+        return `<div role="option" data-v="${esc(x)}" class="${i3 === acAt ? "on" : ""}" aria-selected="${i3 === acAt}">${esc(c.sigil + x)}${hint ? ` <span>${esc(hint)}</span>` : ""}</div>`;
       }).join("");
       const t = ta.getBoundingClientRect(), b = o.box.getBoundingClientRect();
       list2.style.left = `${t.left - b.left}px`;
@@ -14403,7 +14570,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         return;
       }
       if (a === "brief-all") {
-        const ts = visible();
+        const ts = visible2();
         void copy(agentBrief(o.path, o.href, ts), `${ts.length} thread${ts.length === 1 ? "" : "s"} copied as a brief for an agent`);
         return;
       }
@@ -14544,8 +14711,8 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
     const step2 = (dir) => {
       const list2 = placed();
       if (!list2.length) return;
-      const i2 = list2.findIndex((t) => t.id === active);
-      const next = list2[i2 === -1 ? dir === 1 ? 0 : list2.length - 1 : (i2 + dir + list2.length) % list2.length];
+      const i3 = list2.findIndex((t) => t.id === active);
+      const next = list2[i3 === -1 ? dir === 1 ? 0 : list2.length - 1 : (i3 + dir + list2.length) % list2.length];
       o.reveal();
       focusThread(next.id);
       o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(next.id)}"]`)?.focus({ preventScroll: true });
@@ -14691,8 +14858,8 @@ ${d.message}` : d.message;
   function rememberScroll(path, top) {
     const m = scrollMemory();
     m[path] = top;
-    const keys = Object.keys(m);
-    if (keys.length > 200) for (const k of keys.slice(0, keys.length - 200)) delete m[k];
+    const keys2 = Object.keys(m);
+    if (keys2.length > 200) for (const k of keys2.slice(0, keys2.length - 200)) delete m[k];
     kvSet(SCROLL_KEY, JSON.stringify(m));
   }
   function renderFileContent() {
@@ -15084,7 +15251,7 @@ ${d.message}` : d.message;
     });
     const reloadEl = document.getElementById("fe-fp-reload");
     let liveTimer = 0;
-    const live = (ok, label) => {
+    const live2 = (ok, label) => {
       clearTimeout(liveTimer);
       reloadEl.hidden = false;
       reloadEl.classList.toggle("off", !ok);
@@ -15101,8 +15268,8 @@ ${d.message}` : d.message;
         text = fresh;
         paintMeta();
         render2();
-        live(true, "reloaded " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-      }).catch(() => live(false, "not watching"));
+        live2(true, "reloaded " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      }).catch(() => live2(false, "not watching"));
     }, RELOAD_MS);
     return {
       toggleRaw,
@@ -15130,17 +15297,17 @@ ${d.message}` : d.message;
     const found = s.list.find((t) => t.path === path);
     if (found) return background ? s : { ...s, active: found.id };
     const tab = { id: newId(), path, kind: kindOf(path), label: labelFor(path), pinned: false };
-    const i2 = s.list.findIndex((t) => t.id === s.active);
+    const i3 = s.list.findIndex((t) => t.id === s.active);
     const list2 = [...s.list];
-    list2.splice(Math.max(i2 < 0 ? list2.length : i2 + 1, pinnedCount(s)), 0, tab);
+    list2.splice(Math.max(i3 < 0 ? list2.length : i3 + 1, pinnedCount(s)), 0, tab);
     return { list: list2, active: background ? s.active : tab.id };
   }
   function closeTab(s, id) {
-    const i2 = s.list.findIndex((t) => t.id === id);
-    if (i2 < 0) return s;
+    const i3 = s.list.findIndex((t) => t.id === id);
+    if (i3 < 0) return s;
     const list2 = s.list.filter((t) => t.id !== id);
     let active = s.active;
-    if (active === id) active = list2[Math.min(i2, list2.length - 1)]?.id ?? null;
+    if (active === id) active = list2[Math.min(i3, list2.length - 1)]?.id ?? null;
     return { list: list2, active };
   }
   function closeOthers(s, id) {
@@ -15161,8 +15328,8 @@ ${d.message}` : d.message;
   }
   function step(s, dir) {
     if (!s.list.length) return null;
-    const i2 = s.list.findIndex((t) => t.id === s.active);
-    const j = i2 < 0 ? dir > 0 ? 0 : s.list.length - 1 : (i2 + dir + s.list.length) % s.list.length;
+    const i3 = s.list.findIndex((t) => t.id === s.active);
+    const j = i3 < 0 ? dir > 0 ? 0 : s.list.length - 1 : (i3 + dir + s.list.length) % s.list.length;
     return s.list[j];
   }
   function moveTab(s, id, toId) {
@@ -15264,8 +15431,8 @@ ${d.message}` : d.message;
     let closed = [];
     let drag = null;
     function commit(next) {
-      state.list.forEach((t, i2) => {
-        if (!next.list.some((x) => x.id === t.id)) closed.push({ tab: t, index: i2 });
+      state.list.forEach((t, i3) => {
+        if (!next.list.some((x) => x.id === t.id)) closed.push({ tab: t, index: i3 });
       });
       if (closed.length > 20) closed = closed.slice(-20);
       state = next;
@@ -15321,9 +15488,9 @@ ${d.message}` : d.message;
       const t = a && state.list.find((x) => x.id === a.dataset.id);
       if (!t) return;
       e.preventDefault();
-      openMenu2(t, a);
+      openMenu3(t, a);
     });
-    function openMenu2(t, anchor) {
+    function openMenu3(t, anchor) {
       const saved = getSaved().some((p) => p.path === t.path);
       menu.innerHTML = [
         `<div class="fe-ctx-item" data-act="copy">Copy path</div>`,
@@ -15385,10 +15552,10 @@ ${d.message}` : d.message;
       const { head, tail } = splitLabel(label);
       return `<span class="fe-tab-lbl"><span class="fe-tab-head">${esc(head)}</span>${tail ? `<span class="fe-tab-tail">${esc(tail)}</span>` : ""}</span>`;
     }
-    function tabHtml(t, i2, on, label) {
+    function tabHtml(t, i3, on, label) {
       const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : `<span class="fe-tab-ico">${icoFolder(t.label)}</span>`;
       const tip = `${t.path}
-${i2 < 9 ? `${i2 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins, right-click for more)" : "middle-click closes"} \xB7 drag reorders`;
+${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins, right-click for more)" : "middle-click closes"} \xB7 drag reorders`;
       return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}"${on ? ' aria-current="page"' : ""} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}${lblHtml(label)}
       <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">\u2026</button>
@@ -15398,7 +15565,7 @@ ${i2 < 9 ? `${i2 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned
     function render2() {
       const here = hereIn(state);
       const labels = displayLabels(state.list);
-      const rows = state.list.map((t, i2) => tabHtml(t, i2, t.id === here?.id, labels[i2]));
+      const rows = state.list.map((t, i3) => tabHtml(t, i3, t.id === here?.id, labels[i3]));
       if (!here) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
         rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}
@@ -15413,7 +15580,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         listBtn.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          menu.innerHTML = state.list.map((t, i2) => `<div class="fe-ctx-item${t.id === here?.id ? " on" : ""}" data-go="${esc(t.id)}">${t.kind === "file" ? icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "") : icoFolder(t.label)}<span>${esc(labels[i2])}</span>${i2 < 9 ? `<kbd>${i2 + 1}</kbd>` : ""}</div>`).join("");
+          menu.innerHTML = state.list.map((t, i3) => `<div class="fe-ctx-item${t.id === here?.id ? " on" : ""}" data-go="${esc(t.id)}">${t.kind === "file" ? icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "") : icoFolder(t.label)}<span>${esc(labels[i3])}</span>${i3 < 9 ? `<kbd>${i3 + 1}</kbd>` : ""}</div>`).join("");
           menu.dataset.id = "";
           menu.style.display = "block";
           const r = listBtn.getBoundingClientRect();
@@ -15466,7 +15633,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           e.preventDefault();
           e.stopPropagation();
           const t = state.list.find((x) => x.id === btn.dataset.id);
-          if (t) openMenu2(t, btn);
+          if (t) openMenu3(t, btn);
         });
       });
     }
@@ -15559,6 +15726,11 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     window.addEventListener("pagehide", () => writeRecovery(sid, state, true));
     return {
       handleKey,
+      move(id, dir) {
+        const i3 = state.list.findIndex((t) => t.id === id);
+        const to = state.list[i3 + dir];
+        if (i3 >= 0 && to) commit(moveTab(state, id, to.id));
+      },
       open: (path, background = false) => commit(openTab(state, path, background)),
       go: (path, hash = "") => {
         let s = state;
@@ -15597,400 +15769,353 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     };
   }
 
-  // src/help.ts
-  var HELP_TABS = [
-    { key: "keys", label: "Keyboard", hint: "every shortcut", md: `
-| Key | Action |
-|-----|--------|
-| \u2191 / \u2193 | Move selection |
-| Enter | Open |
-| Backspace \xB7 \u2318\u2191 | Go to parent folder |
-| Space | Preview selected file (Space again closes) |
-| \u2318F | Focus the filter (again \u2192 browser find) |
-| \u2318A | Select all |
-| \u2318C | Copy selected path(s) |
-| Esc | Close a dialog or the preview / clear the filter |
-| ? \xB7 , | Open this Help \xB7 open Settings |
-| t \xB7 w \xB7 p | Keep this folder or file as a tab \xB7 close it \xB7 pin it |
-| [ \xB7 ] \xB7 1-9 | Previous / next tab \xB7 jump to a tab (in a dialog: switch its tabs) |
-| T (shift-t) | Reopen the last closed tab, at its place |
-| n | New note (when a Notes folder is set) |
-| r | Raw / rendered, on a file page |
-
-Single-letter keys work when nothing is focused. Chrome owns \u2318T and \u2318W, so
-the tab keys are bare letters.
-` },
-    { key: "explorer", label: "Explorer", hint: "views, finding, opening", md: `
-## Views & zoom
-
-Switch layout from the toolbar: **Details** (table), **List** (compact),
-**Tree** (expand folders in place), **Tiles**, or **Large Icons**. Your choice is remembered. The **zoom** slider
-(50\u2013320%) scales the whole list.
-
-The **\u2261** button at the top left shows or hides the sidebar, and dragging the
-sidebar's right edge resizes it. To scale the whole interface, sidebar and text
-included, set **Interface size** in **Settings \u2192 Look**.
-
-## Finding files
-
-- **Quick filter**: type in the **Filter** box (top-right), or press **\u2318F** to jump to it. Press **\u2318F** again to fall through to Chrome's own find.
-- **Text inside files**: open the **Filter** panel; the second row reads text files allowed by the name and type fields, up to 2 MB each. **Text regex** changes only content matching. Results show a first-match snippet and match count. **Run** or Enter starts a scan; **Cancel** keeps a labelled partial result. Changing the query stops the old scan. **Save view** keeps these fields in a Saved link.
-- **Deep search**: the folder button beside the filter box includes subfolders. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8).
-- **Sort**: click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
-- **Filter** panel: match names by text or regex, or show only folders / files / one extension.
-- **Hidden files**: the eye button toggles dotfiles and the .bfb.json comment files beside documents. A document with open comments shows their count on its row.
-
-## Selecting & opening
-
-- Click a file to look at it in the panel; the address bar stays put. Click a folder to go there. **Double-click** a file to open its page in this tab.
-- **\u2325-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab. Both work on sidebar rows and path segments too. A click on a sidebar row opens it as a strip tab, switching to the tab that already has it.
-- **\u2191 / \u2193** move the selection, **Enter** opens, **Backspace** or **\u2318\u2191** goes up.
-- **Multi-select**: **shift-click** or **\u2318/Ctrl-click** toggles a row, **\u21E7\u2318-click** selects a range, **\u2318A** selects all. **\u2318C** copies the selected paths.
-- **Right-click** an item for Copy path, Copy name, Open in terminal, plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
-
-## Breadcrumbs
-
-Click any path segment to jump there. The chevron button next to a segment opens a
-dropdown of that folder's contents with its own filter box; type to narrow,
-**Enter** opens the first match. Inside your home folder the path starts at **~**;
-**\u2026** holds the folders above it and any that folded away for room.
-
-To type a path, click an empty part of the bar: it becomes a box holding the
-current path, with recent places offered as you type. **Enter** goes there in this
-tab, **Esc** puts the folders back. A path that does not exist, or a folder the
-browser cannot read, is marked and nothing is opened.
-
-## Terminal
-
-The terminal button opens the current folder in your terminal. With the optional
-native host it launches Ghostty directly; otherwise it copies a \`cd\` command to
-your clipboard. Choose your terminal in **Settings \u2192 Terminal**.
-
-## File pages
-
-A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt)
-renders like the preview instead of Chrome's plain text, inside the same
-shell as a folder: the sidebar, the strip and the path bar stay where they
-are. The main column shows a heading table of contents for markdown, **r**
-for raw, a remembered scroll position, and a re-render whenever the file
-changes on disk. In a folder you allowed for editing, **Edit** opens the file
-in place: **Raw** shows the source, **Split** puts the source beside the
-render, **Rich** shows the render alone, and **Done** goes back to reading.
-**Settings \u2192 Files** can limit this to non-markdown files or
-turn it off. **Settings \u2192 Exclusions** opens .pdf, .html, and .htm in
-Chrome's native file page by default. Remove .html or .htm to show source.
-
-## Comments on markdown
-
-Select words on a markdown page and press **c** to comment; the comments button
-right of find shows every thread. Reply, mark done, tag with **#tag**, mention
-with **@user**, **@claude** or **@claude:alias**, and set a due date. Comments live
-in a **.bfb.json** file beside the document, so agents can read and answer them
-with the **bfb-docs** command. A suggested edit shows the words now struck through
-and the new words beside them: **Accept** replaces just those words in the file
-(a backup is kept) and closes the thread, **Reject** leaves the file alone. The
-**Comments** lens lists every document with comments.
-` },
-    { key: "preview", label: "Preview and Notes", hint: "panel, editor, AI", md: `
-## File preview (Quick Look)
-
-Click a file, or select it and press **Space**, to open a preview. **Space**
-again, or **Esc**, closes it. **\u2191 / \u2193** (or **\u2190 / \u2192**) step between previewable
-files; the **copy** button copies the raw contents. Files over 8 MB ask before
-loading.
-
-The preview is a floating window by default; drag its bottom-right corner to
-resize it. The dock button in its header moves it to a **side panel** next to
-the listing, where the left edge drags to set the width. Both the choice and
-the sizes are remembered.
-
-The file name in the preview header, **open raw**, and every link inside a
-rendered markdown file open in a **new tab**, so the explorer stays put.
-
-Renders by type:
-
-| Type | Shown as |
-|------|----------|
-| Code (\`.sh\`, \`.ts\`, \`.py\`, \`.go\`, \`.rs\`, \`.sql\`, \`.yaml\`, \u2026) | Syntax-highlighted, with line numbers |
-| \`.tsv\` / \`.csv\` | Sortable table (numeric columns detected) |
-| \`.json\` / \`.jsonl\` | Collapsible tree |
-| \`.md\` / \`.mdx\` | Rendered markdown with Mermaid diagrams (relative images/links resolved) |
-| Images | Fit-to-view, with pixel dimensions |
-| PDF \xB7 audio/video \xB7 fonts | Embedded viewer / player / glyph specimen |
-| Plain text & extensionless (\`.txt\`, \`.log\`, \`LICENSE\`, \`Makefile\`) | Plain text with line numbers |
-
-## Notes
-
-The sidebar shows **Notes** even before setup. **Choose folder** picks a local
-folder (or type it in **Settings \u2192 Notes**); its \`.md\` files then appear with
-pinned notes first. The filter matches titles and tags; switch **Names** to
-**Deep** inside the box to search the notes' text too, and each match shows its
-line under the title. Saved has the same switch, which also looks inside saved
-folders. **n** or **+** starts an empty note. The panel becomes an
-editor with the source on the left and the render on the right: a toolbar for
-bold, italic, code, lists, tasks, tables and images; \u2325\u2191\u2193 moves lines and
-\u2325\u21E7\u2191\u2193 duplicates them; Tab indents; Enter continues a list; a pasted or
-dropped image is saved under \`attachments/\`. **\u2318S** saves immediately; a
-1.5-second pause autosaves, and closing the editor starts a pending save.
-The name shows an unsaved dot or an error if writing fails. An untitled note
-takes its first heading or first text line as its file name on the first save.
-If another program changed the file, choose **Reload from disk** or
-**Overwrite**. Rename by double-click; \u2715 moves the note into \`.trash/\`.
-The tab button on a note row opens a rendered file page in this page's strip;
-the editor stays in the preview panel. The folder is plain Markdown that
-Obsidian and other Markdown tools can read.
-
-## AI assistant (optional)
-
-If you have the local-models **\`lm\`** CLI and its native host installed, the
-preview gains an **AI bar**: **Summarize**, **Explain** (**Describe** for tables),
-and an **Ask** box. Answers stream in; closing the overlay cancels them.
-
-Pick the model and toggle **Keep warm** in **Settings \u2192 AI**. Local models run
-on this Mac and nothing leaves it. The **Ask** lens can also use Gemini models,
-listed under "Gemini, on Google's servers": those send the question and the
-file or folder listing to Google. Without the CLI installed, the bar simply
-doesn't appear and everything else works normally.
-
-## Ask
-
-The **Ask** lens puts a question about the open file or folder to the model you
-pick. Chats are kept per file and folder: the clock button lists earlier chats
-to reopen or delete, and **New chat** starts over. **Stop** ends an answer and
-keeps what arrived, marked as stopped.
-` },
-    { key: "tabs", label: "Tabs and Saved", hint: "open now, kept for later", md: `
-## Tabs
-
-The strip above the toolbar is the working set of this Chrome tab: folders
-and files, kept through refresh and navigation, gone when the Chrome tab
-closes. Open the same folder again within a day and the strip comes back with
-an undo. After a Chrome crash, Chrome's own session restore brings the strip
-back with the tab. The place you are in shows as an italic tab until you keep it: press
-**t** or double-click it. **w** closes the current tab, **p** pins it (pinned
-tabs sit first and have no \u2715), **[** and **]** move between tabs, **1** to
-**9** jump. **Shift-T** reopens the last closed tab at its place. Drag to
-reorder. **Middle-click** a tab to close it (pinned tabs stay). Hover a tab
-for **\u2026**: copy path, save, pin, close, close others.
-Navigation is real, so the address bar is always the active tab's location.
-
-## Saved
-
-One list of your folders, files and saved views. A click opens the row as a
-strip tab, or switches to the tab that already has it; **\u2325-click** keeps it
-in the background. The \u2605 in the path bar saves or unsaves the current
-folder; **+** saves it and opens the name for editing.
-**Double-click** a label to rename, drag to reorder, \u2715 to remove. Hover a row
-and press **#** to type tags (comma separated); tagged rows group under their
-first tag, and clicking the coloured dot on a tag heading changes its colour.
-The filter box at the top matches label, path and tag; Esc clears it. Old
-Bookmarks and My Places entries were merged in.
-
-Tabs are what is open right now; Saved is the long-term list, the way browser
-tabs sit above browser bookmarks.
-
-## The sidebar lenses
-
-The row of icons at the top of the sidebar picks what it shows; the open one
-grows to show its name. \u2190 and \u2192 move between them when the row has focus, the
-mouse wheel over the row steps through them, and the choice is remembered.
-
-- **Places**: where you can go. Home, the folders under it, Applications and Root.
-- **Saved**: folders, files and saved views you kept, with tags.
-- **Notes**: your notes folder.
-- **History**: what you opened lately, and tabs from Chrome tabs you closed.
-- **Search**, **Ask** and **Comments**: search here, ask a model, and every
-  document with comments.
-
-Click a list's title to collapse it. Collapse choices survive a reload.
-**Settings \u2192 Folders** can switch History off.
-` },
-    { key: "how", label: "How it works", hint: "the model, storage, what runs where", md: `
-## The model
-
-Four things, three actions, one key each. Learn the three actions once and
-every surface behaves the same way.
-
-- **Place** is a folder. It lives in tabs (open now), in Saved (kept), in
-  History, and in the sidebar's Places.
-- **File** is something inside a folder, shown in the listing and in search
-  results.
-- **Note** is a file you write here, in the Notes section, which is a Place you
-  write in.
-- **View** is how a Place is shown: its sort, group, filter and layout.
-
-- **Go** (Enter, or a click) moves to a thing. A Place navigates, a File opens
-  natively, a Note opens in the editor, a tab switches.
-- **Look** (Space) sees a thing without leaving. A File previews, a Note reads
-  in the panel. Space again stops looking.
-- **Keep** (\u2605 or **+**, and **t** for the open Place) makes a thing stay. A
-  Place joins Saved, the open Place becomes a tab, a Note saves with **\u2318S**.
-
-Tabs are what is open right now; Saved is the long-term list, the way browser
-tabs sit above browser bookmarks.
-
-## Where your state lives
-
-Everything is stored on your machine, in the browser. Nothing leaves it unless you ask a Gemini model in Ask, which sends that question and the file or folder listing to Google.
-
-- **Settings, the Saved list, tags, view, theme and reader sizes** live in
-  the extension's own storage (\`chrome.storage.local\`) under \`bfb-\` keys, so
-  every folder and tab sees the same values. Older copies in the page's
-  localStorage are read once and left in place. Settings and Saved export and import as one
-  JSON file in **Settings \u2192 Data**.
-- **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
-  survives refresh and navigation. When a Chrome tab closes, its tabs are kept
-  for a day and listed under **History** as "3 tabs: \u2026"; a click adds them to the
-  strip you are in. Nothing comes back on its own. **History** also lists the
-  files and folders you opened lately.
-- **Reading choices** (the column toggle, the ToC, a file page's scroll
-  position) live in the same storage, so they persist across reloads.
-
-## What runs where
-
-- The extension replaces Chrome's plain file listing with this UI. No page is
-  fetched from a server.
-- Reading a file for a preview or a file page goes through the extension's
-  background worker, because a page cannot read \`file://\` URLs on its own.
-- The terminal button, the notes editor and the AI bar use optional native
-  hosts you install once. Without them the terminal button copies a command and
-  the AI bar does not appear; notes need their host to write files.
-
-## What you can do
-
-Browse and open in four views with zoom. Preview any file type in a floating or
-docked panel, or open a file directly as a rendered page with a table of
-contents. Keep folders and files as tabs and as Saved bookmarks with tags.
-Write notes in a live editor. Filter by name or regex, search the text inside
-files, and search every subfolder. Save a search as a reusable view. Most
-actions have a key; press **?** for the full list.
-` },
-    { key: "reference", label: "Reference", hint: "keys, gestures, how it fits", md: `
-Single-letter keys work only when no text field is focused and no dialog is open.
-\u2318 / Ctrl and middle clicks reach the browser, except on rows where \u2318 and \u21E7 select.
-**Esc** closes the topmost overlay (a menu, then a dialog, then the preview), and
-clears the filter box when it has focus.
-
-## Listing keys
-
-| Key | Action |
-|-----|--------|
-| \u2191 \u2193 | move the selection |
-| Enter | open the selection |
-| Space | preview the selection (a toast on a folder) |
-| Backspace \xB7 \u2318\u2191 | parent folder |
-| \u2318A \xB7 \u2318C | select all \xB7 copy the selected paths |
-| \u2318F | focus the filter; again falls through to the browser's find |
-| ? \xB7 , | open Help \xB7 open Settings |
-| n \xB7 r | new note (with a Notes folder) \xB7 raw or rendered (file page) |
-| t \xB7 w \xB7 p | keep \xB7 close \xB7 pin the current tab |
-| T | reopen the last closed tab |
-| [ \xB7 ] \xB7 1-9 | previous \xB7 next \xB7 jump to a tab |
-
-## Listing rows and tiles
-
-A click on a file opens it in the panel with the address unchanged, but only when
-the file is previewable and "Click on a file" is set to look (the default). A
-non-previewable file, or the go setting, navigates. A folder always navigates.
-
-| Gesture | Action |
-|---------|--------|
-| double-click | go to the file page |
-| \u2325-click | keep as a background tab |
-| middle-click | browser tab |
-| \u21E7 / \u2318-click \xB7 \u21E7\u2318-click | toggle in the selection \xB7 range |
-| right-click | Preview, Copy path, Copy name, Open in terminal |
-| hover | a tip, plus a separate eye (preview) and copy buttons |
-
-## Strip tabs
-
-| Gesture | Action |
-|---------|--------|
-| click | switch (kept or pinned); a temporary tab does nothing |
-| double-click | keep a temporary tab |
-| middle-click | close a kept tab; pinned and temporary stay |
-| \u2318 / \u21E7-click | browser tab or window |
-| drag | reorder within the pinned or unpinned block |
-| hover \u2026 \xB7 hover \u2715 | menu (copy, save, pin, close, close others) \xB7 close |
-
-## Sidebar
-
-| Gesture | Action |
-|---------|--------|
-| click | open as a strip tab (or the editor for a note) and go |
-| double-click | rename |
-| \u2325-click | keep a background tab |
-| middle / \u2318-click | browser tab |
-| hover # \xB7 hover \u2715 | tags \xB7 remove, or a note to trash |
-| drag \xB7 tag dot | reorder \xB7 cycle the colour |
-
-## Path bar and toolbar
-
-\u2261 shows or hides the sidebar, and its right edge drags to resize. A crumb goes;
-its chevron button opens a dropdown you can type to narrow. Click an empty part
-of the bar to type a path. \u2605 saves the place. The terminal
-button opens here, and \u21E7-click copies the command. The rest: theme, Help, Settings,
-the four views, Sort, Filter, hidden files, and a zoom slider that scales the list.
-
-## Preview panel
-
-| Gesture or key | Action |
-|----------------|--------|
-| scrim \xB7 \u2715 \xB7 Esc \xB7 Space | close |
-| \u2191 \u2193 \u2190 \u2192 | previous, next previewable file |
-| open \xB7 Enter | go to the file page |
-| + tab \xB7 t | keep as a background strip tab |
-| copy | copy the whole file |
-| dock \xB7 grips | float or dock to the side \xB7 resize |
-| header name \xB7 open raw \xB7 links | new browser tab |
-
-The strip keys still work while the preview is open. A file over 8 MB asks before
-loading. With a local model installed, an AI bar adds Summarize, Explain, and Ask.
-
-## Notes editor
-
-\u2318S saves (a pause autosaves). \u2318B, \u2318I, \u2318E are bold, italic, code. \u2325\u2191\u2193 move a line
-and \u2325\u21E7\u2191\u2193 duplicate it. Tab and \u21E7Tab indent. Enter continues a list. \u2318Z and \u2318\u21E7Z (or
-\u2318Y) undo and redo. The toolbar adds list, task, table, and image, which have no
-key. **open** and **+ tab** act on the note.
-
-## File page
-
-**r** toggles raw, a copy button, and ToC links jump. Backspace or \u2318\u2191 go to the
-folder, and \u2318F uses the browser's find. Two buttons toggle a table-of-contents
-rail and a reading-width control that cycles through full, XL, LG, and MD. The page reloads itself every couple of
-seconds and re-renders when the file changes on disk.
-
-## How the parts fit
-
-- The address bar is always the active tab's location; navigation is real.
-- A listing click looks or goes by the "Click on a file" setting; a sidebar click
-  always goes; \u2325 keeps a background tab in both.
-- A file page is the explorer with the file in the main column, so nothing moves.
-- The folder you are in is a temporary (italic) tab until you keep it; opening a
-  place from the sidebar keeps that folder as a tab so you do not lose it.
-- A dialog over the preview takes Esc first, then the preview; focus returns.
-- Text size and Interface size scale the whole interface; list zoom changes the
-  folder listing separately.
-
-## Good to know
-
-- Many controls are mouse-only: the sort, filter, view, hidden, zoom, theme, and
-  terminal controls, the sidebar, and rename have no key, and the context menu is
-  right-click only.
-- The toast message is always dark, in both themes.
-- A saved bookmark to a file whose name contains a # may be read as a search view.
-- Dragging reorders tabs and saved rows; it does not move or copy files.
-` }
+  // src/keymap.ts
+  var GROUPS = [
+    { name: "Anywhere", icon: "apps" },
+    { name: "Go", icon: "home" },
+    { name: "Listing", icon: "folder" },
+    { name: "View", icon: "pics" },
+    { name: "Tabs", icon: "tabset" },
+    { name: "Sidebar", icon: "bm" },
+    { name: "Preview", icon: "search" },
+    { name: "File page", icon: "docs" },
+    { name: "Editor", icon: "code" },
+    { name: "Menus and dialogs", icon: "gear" }
   ];
+  var KEYMAP = [
+    // Anywhere
+    { id: "palette", group: "Anywhere", title: "Command palette", keys: ["\u2318K"], own: true },
+    { id: "keys", group: "Anywhere", title: "Keyboard map", keys: ["?"] },
+    { id: "settings", group: "Anywhere", title: "Settings", keys: [","] },
+    { id: "hints", group: "Anywhere", title: "Show keys on screen", keys: ["hold \u2325"], own: true },
+    { id: "area-next", group: "Anywhere", title: "Next area", keys: ["F6", "\u2303`"], own: true },
+    { id: "area-prev", group: "Anywhere", title: "Previous area", keys: ["\u21E7F6", "\u2303\u21E7`"], own: true },
+    { id: "sidebar", group: "Anywhere", title: "Sidebar on or off", keys: ["\\"], own: true },
+    { id: "theme", group: "Anywhere", title: "Dark or light", keys: ["\u21E7L"], own: true },
+    { id: "esc", group: "Anywhere", title: "Close, or step back", keys: ["Esc"] },
+    // Go
+    { id: "up", group: "Go", title: "Parent folder", keys: ["\u232B", "\u2318\u2191"] },
+    { id: "home", group: "Go", title: "Home", keys: ["g h"], own: true },
+    { id: "path", group: "Go", title: "Type a path", keys: ["l"], own: true },
+    { id: "open-pick", group: "Go", title: "Open a file or folder", keys: ["o"], own: true },
+    { id: "save", group: "Go", title: "Save or unsave folder", keys: ["b"], own: true },
+    { id: "terminal", group: "Go", title: "Terminal here", keys: ["`"], own: true },
+    { id: "terminal-copy", group: "Go", title: "Copy terminal command", keys: ["\u21E7`"], own: true },
+    { id: "to-listing", group: "Go", title: "Focus the listing", keys: ["g l"], own: true },
+    { id: "to-sidebar", group: "Go", title: "Focus the sidebar", keys: ["g s"], own: true },
+    { id: "to-tabs", group: "Go", title: "Focus the tabs", keys: ["g t"], own: true },
+    { id: "to-toolbar", group: "Go", title: "Focus the toolbar", keys: ["g b"], own: true },
+    { id: "to-path", group: "Go", title: "Focus the path bar", keys: ["g p"], own: true },
+    { id: "lens-places", group: "Go", title: "Places", keys: ["g 1"], own: true },
+    { id: "lens-saved", group: "Go", title: "Saved", keys: ["g 2"], own: true },
+    { id: "lens-notes", group: "Go", title: "Notes", keys: ["g 3"], own: true },
+    { id: "lens-recent", group: "Go", title: "History", keys: ["g 4"], own: true },
+    { id: "lens-search", group: "Go", title: "Search", keys: ["g 5"], own: true },
+    { id: "lens-ask", group: "Go", title: "Ask", keys: ["g 6"], own: true },
+    { id: "lens-docs", group: "Go", title: "Comments", keys: ["g 7"], own: true },
+    // Listing
+    { id: "move", group: "Listing", title: "Move", keys: ["\u2191", "\u2193"], scope: "listing" },
+    { id: "extend-up", group: "Listing", title: "Select upward", keys: ["\u21E7\u2191"], scope: "listing", own: true },
+    { id: "extend-down", group: "Listing", title: "Select downward", keys: ["\u21E7\u2193"], scope: "listing", own: true },
+    { id: "first", group: "Listing", title: "First item", keys: ["Home"], scope: "listing", own: true },
+    { id: "last", group: "Listing", title: "Last item", keys: ["End"], scope: "listing", own: true },
+    { id: "page-up", group: "Listing", title: "Page up", keys: ["PgUp"], scope: "listing", own: true },
+    { id: "page-down", group: "Listing", title: "Page down", keys: ["PgDn"], scope: "listing", own: true },
+    { id: "open", group: "Listing", title: "Open", keys: ["\u21A9"], scope: "listing" },
+    { id: "open-bg", group: "Listing", title: "Keep as a background tab", keys: ["\u2325\u21A9"], scope: "listing", own: true },
+    { id: "open-chrome", group: "Listing", title: "Open in a Chrome tab", keys: ["\u2318\u21A9"], scope: "listing", own: true },
+    { id: "look", group: "Listing", title: "Preview", keys: ["Space"], scope: "listing" },
+    { id: "tree-open", group: "Listing", title: "Expand folder (Tree)", keys: ["\u2192"], scope: "tree", own: true },
+    { id: "tree-close", group: "Listing", title: "Collapse folder (Tree)", keys: ["\u2190"], scope: "tree", own: true },
+    { id: "menu", group: "Listing", title: "Item menu", keys: ["x", "\u21E7F10"], scope: "listing", own: true },
+    { id: "select-all", group: "Listing", title: "Select all", keys: ["\u2318A"], scope: "listing" },
+    { id: "copy-paths", group: "Listing", title: "Copy selected paths", keys: ["\u2318C"], scope: "listing" },
+    { id: "copy-path", group: "Listing", title: "Copy path", keys: ["y"], scope: "listing", own: true },
+    { id: "copy-name", group: "Listing", title: "Copy name", keys: ["\u21E7Y"], scope: "listing", own: true },
+    { id: "filter", group: "Listing", title: "Filter", keys: ["/", "\u2318F"], own: true },
+    { id: "new-note", group: "Listing", title: "New note", keys: ["n"] },
+    // View
+    { id: "view-details", group: "View", title: "Details", keys: ["v d"], own: true },
+    { id: "view-list", group: "View", title: "List", keys: ["v l"], own: true },
+    { id: "view-tree", group: "View", title: "Tree", keys: ["v t"], own: true },
+    { id: "view-tiles", group: "View", title: "Tiles", keys: ["v i"], own: true },
+    { id: "view-icons", group: "View", title: "Large icons", keys: ["v g"], own: true },
+    { id: "sort-name", group: "View", title: "Sort by name", keys: ["s n"], own: true },
+    { id: "sort-date", group: "View", title: "Sort by modified", keys: ["s m"], own: true },
+    { id: "sort-size", group: "View", title: "Sort by size", keys: ["s z"], own: true },
+    { id: "sort-type", group: "View", title: "Sort by type", keys: ["s t"], own: true },
+    { id: "sort-rev", group: "View", title: "Reverse the order", keys: ["s r"], own: true },
+    { id: "group", group: "View", title: "Next grouping", keys: ["s g"], own: true },
+    { id: "filter-panel", group: "View", title: "Filter panel", keys: ["f"], own: true },
+    { id: "deep", group: "View", title: "Include subfolders", keys: ["\u21E7D"], scope: "listing", own: true },
+    { id: "hidden", group: "View", title: "Hidden files", keys: ["."], own: true },
+    { id: "zoom-in", group: "View", title: "Bigger", keys: ["="], own: true },
+    { id: "zoom-out", group: "View", title: "Smaller", keys: ["-"], own: true },
+    { id: "zoom-reset", group: "View", title: "Actual size", keys: ["0"], own: true },
+    // Tabs
+    { id: "tab-keep", group: "Tabs", title: "Keep this place", keys: ["t"] },
+    { id: "tab-close", group: "Tabs", title: "Close", keys: ["w"] },
+    { id: "tab-pin", group: "Tabs", title: "Pin", keys: ["p"] },
+    { id: "tab-step", group: "Tabs", title: "Previous or next", keys: ["[", "]"] },
+    { id: "tab-jump", group: "Tabs", title: "Jump to 1 to 9", keys: ["1\u20269"] },
+    { id: "tab-reopen", group: "Tabs", title: "Reopen closed", keys: ["\u21E7T"] },
+    { id: "tab-left", group: "Tabs", title: "Move tab left", keys: ["\u21E7["], own: true },
+    { id: "tab-right", group: "Tabs", title: "Move tab right", keys: ["\u21E7]"], own: true },
+    { id: "tab-list", group: "Tabs", title: "All tabs", keys: ["g a"], own: true },
+    { id: "tab-focus-move", group: "Tabs", title: "Move between tabs", keys: ["\u2190", "\u2192"], scope: "tabs" },
+    { id: "tab-focus-shift", group: "Tabs", title: "Drag the focused tab", keys: ["\u21E7\u2190", "\u21E7\u2192"], scope: "tabs" },
+    // Sidebar
+    { id: "side-move", group: "Sidebar", title: "Move", keys: ["\u2191", "\u2193"], scope: "sidebar" },
+    { id: "side-lens", group: "Sidebar", title: "Switch lens (on the bar)", keys: ["\u2190", "\u2192"], scope: "sidebar" },
+    { id: "side-open", group: "Sidebar", title: "Open as a tab", keys: ["\u21A9"], scope: "sidebar" },
+    { id: "side-bg", group: "Sidebar", title: "Background tab", keys: ["\u2325\u21A9"], scope: "sidebar" },
+    { id: "side-rename", group: "Sidebar", title: "Rename", keys: ["F2"], scope: "sidebar" },
+    { id: "side-tags", group: "Sidebar", title: "Tags", keys: ["#"], scope: "sidebar" },
+    { id: "side-remove", group: "Sidebar", title: "Remove", keys: ["\u232B"], scope: "sidebar" },
+    { id: "side-fold", group: "Sidebar", title: "Fold a group", keys: ["Space"], scope: "sidebar" },
+    // Preview
+    { id: "pv-close", group: "Preview", title: "Close", keys: ["Space", "Esc"], scope: "preview" },
+    { id: "pv-step", group: "Preview", title: "Previous or next file", keys: ["\u2191", "\u2193"], scope: "preview" },
+    { id: "pv-open", group: "Preview", title: "Open the page", keys: ["\u21A9"], scope: "preview" },
+    { id: "pv-tab", group: "Preview", title: "Keep as a tab", keys: ["t"], scope: "preview" },
+    { id: "pv-dock", group: "Preview", title: "Dock or float", keys: ["d"], scope: "preview", own: true },
+    { id: "pv-copy", group: "Preview", title: "Copy contents", keys: ["c"], scope: "preview", own: true },
+    { id: "pv-ask", group: "Preview", title: "Ask about it", keys: ["a"], scope: "preview", own: true },
+    // File page
+    { id: "fp-raw", group: "File page", title: "Raw or rendered", keys: ["r"], scope: "file" },
+    { id: "fp-edit", group: "File page", title: "Edit", keys: ["e"], scope: "file" },
+    { id: "fp-find", group: "File page", title: "Find in file", keys: ["/"], scope: "file" },
+    { id: "fp-comment", group: "File page", title: "Comment on selection", keys: ["c"], scope: "file" },
+    { id: "fp-toc", group: "File page", title: "Contents", keys: ["\u21E7O"], scope: "file", own: true },
+    { id: "fp-width", group: "File page", title: "Reading width", keys: ["\u21E7W"], scope: "file", own: true },
+    { id: "fp-comments", group: "File page", title: "Comments panel", keys: ["\u21E7C"], scope: "file" },
+    { id: "fp-cm-step", group: "File page", title: "Previous or next comment", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "file" },
+    { id: "fp-cm-post", group: "File page", title: "Post, or post a reply", keys: ["\u2318\u21A9", "\u2318\u21E7\u21A9"], scope: "file" },
+    // Editor
+    { id: "ed-save", group: "Editor", title: "Save", keys: ["\u2318S"], scope: "editor" },
+    { id: "ed-bold", group: "Editor", title: "Bold, italic, code", keys: ["\u2318B", "\u2318I", "\u2318E"], scope: "editor" },
+    { id: "ed-move", group: "Editor", title: "Move line", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "editor" },
+    { id: "ed-dup", group: "Editor", title: "Copy line", keys: ["\u2325\u21E7\u2191", "\u2325\u21E7\u2193"], scope: "editor" },
+    { id: "ed-indent", group: "Editor", title: "Indent", keys: ["\u21E5", "\u21E7\u21E5"], scope: "editor" },
+    { id: "ed-undo", group: "Editor", title: "Undo, redo", keys: ["\u2318Z", "\u2318\u21E7Z"], scope: "editor" },
+    { id: "ed-link", group: "Editor", title: "Link", keys: ["\u2318K"], scope: "editor" },
+    { id: "ed-more", group: "Editor", title: "Strike, heading, quote, numbered list", keys: ["\u2318\u21E7X", "\u2318\u21E7H", "\u2318\u21E7.", "\u2318\u21E77"], scope: "editor" },
+    { id: "ed-mode", group: "Editor", title: "Raw, split or rich", keys: ["\u2318\u21E7P"], scope: "editor" },
+    // Menus and dialogs
+    { id: "menu-move", group: "Menus and dialogs", title: "Move in a menu", keys: ["\u2191", "\u2193"], scope: "menu", own: true },
+    { id: "menu-pick", group: "Menus and dialogs", title: "Pick", keys: ["\u21A9"], scope: "menu", own: true },
+    { id: "dlg-tabs", group: "Menus and dialogs", title: "Dialog pages", keys: ["[", "]"], scope: "dialog" },
+    { id: "dlg-fields", group: "Menus and dialogs", title: "Next control", keys: ["\u21E5"], scope: "dialog" },
+    { id: "dlg-choice", group: "Menus and dialogs", title: "Change a choice", keys: ["\u2190", "\u2192"], scope: "dialog" }
+  ];
+  var SHIFTED = { "?": "/", "{": "[", "}": "]", "#": "3", "~": "`", "_": "-", "+": "=", "<": ",", ">": ".", '"': "'", ":": ";", "|": "\\" };
+  var NAMED = {
+    "\u2318": "meta",
+    "\u21E7": "shift",
+    "\u2325": "alt",
+    "\u2303": "ctrl",
+    "\u2191": "up",
+    "\u2193": "down",
+    "\u2190": "left",
+    "\u2192": "right",
+    "\u21A9": "enter",
+    "\u232B": "backspace",
+    "\u21E5": "tab",
+    esc: "esc",
+    space: "space",
+    home: "left",
+    end: "right",
+    pgup: "up",
+    pgdn: "down"
+  };
+  function capsFor(key) {
+    if (key === "1\u20269") return ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    const out = /* @__PURE__ */ new Set();
+    for (const part of key.replace(/^hold /, "").split(" ")) {
+      if (/^(home|end|pgup|pgdn)$/i.test(part)) {
+        out.add("fn");
+        out.add(NAMED[part.toLowerCase()]);
+        continue;
+      }
+      if (/^F\d+$/.test(part)) {
+        out.add(part.toLowerCase());
+        continue;
+      }
+      if (/^(esc|space)$/i.test(part)) {
+        out.add(part.toLowerCase());
+        continue;
+      }
+      let rest = part;
+      while (rest && "\u2318\u21E7\u2325\u2303".includes(rest[0]) && rest.length > 1) {
+        out.add(NAMED[rest[0]]);
+        rest = rest.slice(1);
+      }
+      const m = /^⇧(F\d+)$/.exec(part);
+      if (m) {
+        out.add(m[1].toLowerCase());
+        continue;
+      }
+      if (/^F\d+$/.test(rest)) {
+        out.add(rest.toLowerCase());
+        continue;
+      }
+      if (NAMED[rest]) {
+        out.add(NAMED[rest]);
+        continue;
+      }
+      if (SHIFTED[rest]) {
+        out.add("shift");
+        out.add(SHIFTED[rest]);
+        continue;
+      }
+      if (/^[A-Z]$/.test(rest) && !part.startsWith("\u2318")) {
+        out.add("shift");
+        out.add(rest.toLowerCase());
+        continue;
+      }
+      out.add(rest.toLowerCase());
+    }
+    return [...out];
+  }
+
+  // src/help.ts
+  var kbd = (k) => k.startsWith("hold ") ? `<i class="fe-km-then">hold</i><kbd>${esc(k.slice(5))}</kbd>` : k.split(" ").map((p) => `<kbd>${esc(p)}</kbd>`).join('<i class="fe-km-then">then</i>');
+  var keys = (list2) => list2.map(kbd).join('<i class="fe-km-or">or</i>');
+  var ROWS = [
+    [["esc", "esc", 1.5], ...Array.from({ length: 12 }, (_, i3) => [`f${i3 + 1}`, `F${i3 + 1}`])],
+    [["`", "`"], ..."1234567890".split("").map((c) => [c, c]), ["-", "-"], ["=", "="], ["backspace", "\u232B", 2]],
+    [["tab", "\u21E5", 1.5], ..."qwertyuiop".split("").map((c) => [c, c.toUpperCase()]), ["[", "["], ["]", "]"], ["\\", "\\", 1.5]],
+    [["caps", "\u21EA", 1.75], ..."asdfghjkl".split("").map((c) => [c, c.toUpperCase()]), [";", ";"], ["'", "'"], ["enter", "\u21A9", 2.25]],
+    [["shift", "\u21E7", 2.25], ..."zxcvbnm".split("").map((c) => [c, c.toUpperCase()]), [",", ","], [".", "."], ["/", "/"], ["shift", "\u21E7", 2.75]],
+    [["fn", "fn"], ["ctrl", "\u2303"], ["alt", "\u2325"], ["meta", "\u2318", 1.25], ["space", "", 5], ["meta", "\u2318", 1.25], ["alt", "\u2325"], ["left", "\u2190"], ["updown", "", 1], ["right", "\u2192"]]
+  ];
+  function keyboardMap() {
+    const uses = /* @__PURE__ */ new Map();
+    for (const d of KEYMAP) for (const k of d.keys) for (const c of capsFor(k)) uses.set(c, (uses.get(c) ?? 0) + 1);
+    const cap = ([id, label, w = 1]) => id === "updown" ? `<span class="fe-km-ud"><span class="fe-km-cap half${uses.has("up") ? " used" : ""}" data-cap="up">\u2191</span><span class="fe-km-cap half${uses.has("down") ? " used" : ""}" data-cap="down">\u2193</span></span>` : `<span class="fe-km-cap${uses.has(id) ? " used" : ""}${/^f\d/.test(id) || id === "esc" ? " fn" : ""}" data-cap="${esc(id)}" style="--w:${w}">${esc(label)}</span>`;
+    const board = `<div class="fe-km-board" aria-hidden="true">${ROWS.map((r) => `<div class="fe-km-row-k">${r.map(cap).join("")}</div>`).join("")}</div>`;
+    const list2 = GROUPS.map((g) => {
+      const defs = KEYMAP.filter((d) => d.group === g.name);
+      if (!defs.length) return "";
+      return `<section class="fe-km-g"><h3>${PI[g.icon] ?? ""}${esc(g.name)}</h3>${defs.map((d) => `<div class="fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(" "))}" data-q="${esc((d.title + " " + d.keys.join(" ") + " " + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join("")}</section>`;
+    }).join("");
+    return `<div class="fe-km">
+    ${board}
+    <div class="fe-km-bar"><input type="search" class="fe-km-q" placeholder="Find a key or an action" spellcheck="false" aria-label="Find a key or an action">
+      <span class="fe-km-legend"><kbd>\u2318K</kbd> run any of these \xB7 hold <kbd>\u2325</kbd> to see keys on screen</span></div>
+    <div class="fe-km-list">${list2}</div>
+  </div>`;
+  }
+  var card = (icon2, tone, title, text, how = "") => `<div class="fe-hc" style="--tone:${tone}"><span class="fe-hc-ico">${icon2}</span><div class="fe-hc-tx"><b>${title}</b><span>${text}</span></div>${how ? `<div class="fe-hc-how">${how}</div>` : ""}</div>`;
+  var cards = (title, body) => `<section class="fe-hs"><h3>${title}</h3><div class="fe-hcs">${body}</div></section>`;
+  var i = (body) => line(body, 18);
+  var T = { blue: "var(--nc-blue)", teal: "var(--nc-teal)", green: "var(--nc-green)", orange: "var(--nc-orange)", pink: "var(--nc-pink)", purple: "var(--nc-purple)", red: "var(--nc-red)", yellow: "var(--nc-yellow)" };
+  var POINTER = i('<path d="M4 4l7 17 2.5-7.5L21 11z"/>');
+  var HELP_TABS = [
+    { key: "keys", label: "Keyboard", hint: "Every key, on a map", icon: UI_ICON.keyboard, tone: "var(--nc-purple)", desc: "Hover a row to see its keys. Hover a key to see what it does.", body: keyboardMap() },
+    { key: "start", label: "Tour", hint: "The basics", icon: UI_ICON.ai, tone: "var(--nc-pink)", desc: "Twelve things worth knowing.", body: cards(
+      "Move around",
+      card(PI.folder, T.blue, "Browse", "Folders open in place.", keys(["\u21A9", "\u232B"])) + card(UI_ICON.eye, T.teal, "Preview", "Look without leaving.", keys(["Space"])) + card(UI_ICON.tab, T.green, "Tabs", "Keep places open.", keys(["t", "w"])) + card(PI.bm, T.orange, "Save", "A folder for later.", keys(["b"]))
+    ) + cards(
+      "Find things",
+      card(PI.search, T.purple, "Filter", "Narrow this folder.", keys(["/"])) + card(UI_ICON.stack, T.pink, "Palette", "Any command or place.", keys(["\u2318K"])) + card(UI_ICON.link, T.blue, "Go to a path", "Type or paste one.", keys(["l"])) + card(PI.recent, T.teal, "History", "Where you have been.", keys(["g 4"]))
+    ) + cards(
+      "Make things",
+      card(UI_ICON.notes, T.orange, "Notes", "Markdown, saved as you type.", keys(["n"])) + card(UI_ICON.rename, T.green, "Edit", "Any text file you allow.", keys(["e"])) + card(UI_ICON.comment, T.yellow, "Comment", "On a selection in a doc.", keys(["c"])) + card(UI_ICON.ai, T.purple, "Ask", "A model reads the file.", keys(["g 6"]))
+    ) },
+    { key: "mouse", label: "Mouse", hint: "Clicks and drags", icon: i('<rect width="12" height="18" x="6" y="3" rx="6"/><path d="M12 7v4"/>'), tone: "var(--nc-blue)", desc: "The same gestures work on rows, sidebar items and tabs.", body: cards(
+      "Gestures",
+      card(POINTER, T.blue, "Click", "File previews, folder opens.", '<span class="fe-hc-tag">click</span>') + card(POINTER, T.teal, "Double-click", "Open the file page.", '<span class="fe-hc-tag">2\xD7</span>') + card(UI_ICON.tab, T.green, "\u2325-click", "Keep as a background tab.", "<kbd>\u2325</kbd>") + card(UI_ICON.external, T.orange, "Middle-click", "A new Chrome tab.", '<span class="fe-hc-tag">middle</span>') + card(UI_ICON.list, T.purple, "Right-click", "The item menu.", keys(["x"])) + card(UI_ICON.check, T.pink, "\u21E7 or \u2318-click", "Pick several.", "<kbd>\u21E7</kbd><kbd>\u2318</kbd>") + card(PI.drag, T.yellow, "Drag", "Reorder tabs and Saved.", '<span class="fe-hc-tag">drag</span>') + card(UI_ICON.rename, T.red, "Double-click a name", "Rename in the sidebar.", keys(["F2"]))
+    ) + cards(
+      "Panels",
+      card(UI_ICON.preview, T.blue, "Dock the preview", "Float it, or pin it right.", keys(["d"])) + card(UI_ICON.fit, T.teal, "Resize", "Drag any edge or corner.", '<span class="fe-hc-tag">drag</span>') + card(i('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>'), T.green, "Sidebar", "Toggle, or drag its edge.", keys(["\\"]))
+    ) },
+    { key: "files", label: "Files", hint: "What opens as what", icon: UI_ICON.files, tone: "var(--nc-teal)", desc: "Files show as pages, with the sidebar and tabs still there.", body: cards(
+      "Shown as",
+      card(UI_ICON.fmtCode, T.blue, "Code", "Highlighted, numbered.") + card(UI_ICON.table, T.green, "CSV, TSV", "A sortable table.") + card(i('<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>'), T.orange, "JSON", "A tree you can fold.") + card(UI_ICON.files, T.purple, "Markdown", "Rendered, with diagrams.") + card(UI_ICON.image, T.pink, "Images", "Fit, zoom, rotate, copy.") + card(i('<path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/>'), T.red, "Media, PDF", "Played or embedded.")
+    ) + cards(
+      "On a file page",
+      card(UI_ICON.contents, T.blue, "Contents", "Jump between headings.", keys(["\u21E7O"])) + card(PI.search, T.teal, "Find", "Inside this file.", keys(["/"])) + card(UI_ICON.fmtCode, T.green, "Raw", "See the source.", keys(["r"])) + card(i('<path d="M3 12h18M3 6h18M3 18h18"/>'), T.orange, "Width", "Full to narrow.", keys(["\u21E7W"]))
+    ) },
+    { key: "notes", label: "Notes and AI", hint: "Write, ask, comment", icon: UI_ICON.notes, tone: "var(--nc-orange)", desc: "Plain Markdown on your disk, and models that read it.", body: cards(
+      "Notes",
+      card(UI_ICON.add, T.orange, "New note", "Untitled until you type.", keys(["n"])) + card(UI_ICON.check, T.green, "Autosave", "A pause saves. So does \u2318S.", keys(["\u2318S"])) + card(UI_ICON.pin, T.yellow, "Pin and colour", "Pinned notes sit on top.") + card(UI_ICON.tag, T.pink, "Tags", "Filter with #tag.") + card(UI_ICON.image, T.blue, "Images", "Paste one in.") + card(UI_ICON.versions, T.purple, "Versions", "Every save, from git.")
+    ) + cards(
+      "AI",
+      card(UI_ICON.ai, T.purple, "Ask", "Chat about a file or folder.", keys(["g 6"])) + card(UI_ICON.bot, T.green, "On this Mac", "Local models stay local.") + card(i('<path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9"/>'), T.blue, "Gemini", "Sends the file to Google.")
+    ) + cards(
+      "Comments",
+      card(UI_ICON.comment, T.yellow, "Comment", "Select words, press c.", keys(["c"])) + card(UI_ICON.at, T.teal, "Mention", "@claude answers in the file.") + card(UI_ICON.check, T.green, "Suggest", "Accept or reject edits.")
+    ) },
+    { key: "how", label: "How it works", hint: "The idea, and your data", icon: UI_ICON.info, tone: "var(--nc-green)", desc: "Three actions on four things.", body: cards(
+      "Three actions",
+      card(UI_ICON.next, T.blue, "Go", "Move to it.", keys(["\u21A9"])) + card(UI_ICON.eye, T.teal, "Look", "See it, stay put.", keys(["Space"])) + card(UI_ICON.pin, T.orange, "Keep", "Make it stay.", keys(["t", "b"]))
+    ) + cards(
+      "Four things",
+      card(PI.folder, T.blue, "Place", "A folder.") + card(UI_ICON.file, T.green, "File", "Something in it.") + card(UI_ICON.notes, T.orange, "Note", "A file you write here.") + card(UI_ICON.list, T.purple, "View", "How a place is shown.")
+    ) + cards(
+      "Where things live",
+      card(UI_ICON.data, T.teal, "Settings, Saved", "In this browser.") + card(UI_ICON.tab, T.pink, "Tabs", "In this Chrome tab only.") + card(UI_ICON.lock, T.green, "Your files", "Never leave the Mac, unless you ask Gemini.")
+    ) }
+  ];
+  function wireKeyboardMap(root) {
+    const km = root.querySelector(".fe-km");
+    if (!km) return;
+    const caps = [...km.querySelectorAll(".fe-km-cap")];
+    const rows = [...km.querySelectorAll(".fe-km-i")];
+    const q = km.querySelector(".fe-km-q");
+    let pinned = null;
+    const light = (ids) => caps.forEach((c) => c.classList.toggle("hl", ids.includes(c.dataset.cap)));
+    const filter = () => {
+      const s = q.value.trim().toLowerCase();
+      rows.forEach((r) => {
+        const hit = (!s || r.dataset.q.includes(s)) && (!pinned || r.dataset.caps.split(" ").includes(pinned));
+        r.hidden = !hit;
+      });
+      km.querySelectorAll(".fe-km-g").forEach((g) => {
+        g.hidden = !g.querySelector(".fe-km-i:not([hidden])");
+      });
+      caps.forEach((c) => c.classList.toggle("pin", c.dataset.cap === pinned));
+    };
+    km.addEventListener("mouseover", (e) => {
+      const row2 = e.target.closest(".fe-km-i");
+      const cap = e.target.closest(".fe-km-cap");
+      if (row2) {
+        light(row2.dataset.caps.split(" "));
+        rows.forEach((r) => r.classList.toggle("on", r === row2));
+      } else if (cap) {
+        light([cap.dataset.cap]);
+        rows.forEach((r) => r.classList.toggle("on", r.dataset.caps.split(" ").includes(cap.dataset.cap)));
+      }
+    });
+    km.addEventListener("mouseleave", () => {
+      light([]);
+      rows.forEach((r) => r.classList.remove("on"));
+    });
+    km.addEventListener("click", (e) => {
+      const cap = e.target.closest(".fe-km-cap.used");
+      if (!cap) return;
+      pinned = pinned === cap.dataset.cap ? null : cap.dataset.cap;
+      filter();
+    });
+    q.addEventListener("input", filter);
+    q.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && (q.value || pinned)) {
+        e.stopPropagation();
+        q.value = "";
+        pinned = null;
+        filter();
+      }
+    });
+  }
 
   // src/controls.ts
   function segHtml(id, opts, title) {
-    return `<div class="fe-seg" id="${id}" role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1"${o.hint ? ` title="${esc(o.hint)}"` : ""}${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
+    return `<div class="fe-seg" id="${id}" role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
   }
   function sliderHtml(id, values, unit, title) {
     return `<div class="fe-sld" id="${id}" data-values="${values.join(",")}" data-unit="${esc(unit)}" title="${esc(title)}">
-    <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}">
+    <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}" title="${esc(title)}">
     <output></output>
   </div>`;
   }
@@ -16016,7 +16141,7 @@ seconds and re-renders when the file changes on disk.
       cur = String(v);
       paint();
     } });
-    btns.forEach((b, i2) => {
+    btns.forEach((b, i3) => {
       b.addEventListener("click", () => {
         if (cur !== b.dataset.v) {
           cur = b.dataset.v;
@@ -16026,7 +16151,7 @@ seconds and re-renders when the file changes on disk.
       });
       b.addEventListener("keydown", (e) => {
         const step2 = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
-        const to = e.key === "Home" ? 0 : e.key === "End" ? btns.length - 1 : step2 ? (i2 + step2 + btns.length) % btns.length : -1;
+        const to = e.key === "Home" ? 0 : e.key === "End" ? btns.length - 1 : step2 ? (i3 + step2 + btns.length) % btns.length : -1;
         if (to < 0) return;
         e.preventDefault();
         e.stopPropagation();
@@ -16051,8 +16176,8 @@ seconds and re-renders when the file changes on disk.
       set: (v) => {
         const n = Number(v);
         let best = 0;
-        values.forEach((x, i2) => {
-          if (Math.abs(x - n) < Math.abs(values[best] - n)) best = i2;
+        values.forEach((x, i3) => {
+          if (Math.abs(x - n) < Math.abs(values[best] - n)) best = i3;
         });
         range.value = String(best);
         show();
@@ -16102,9 +16227,9 @@ seconds and re-renders when the file changes on disk.
       list.style.top = `${r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4}px`;
       btn.setAttribute("aria-expanded", "true");
       const items = [...list.querySelectorAll(".fe-dd-opt")];
-      let at = Math.max(0, items.findIndex((i2) => i2.dataset.v === cur));
+      let at = Math.max(0, items.findIndex((i3) => i3.dataset.v === cur));
       const mark = () => {
-        items.forEach((it, i2) => it.classList.toggle("kb", i2 === at));
+        items.forEach((it, i3) => it.classList.toggle("kb", i3 === at));
         items[at]?.scrollIntoView({ block: "nearest" });
       };
       mark();
@@ -16185,7 +16310,7 @@ seconds and re-renders when the file changes on disk.
     let items = [];
     const paint = () => {
       host.querySelectorAll(".fe-chip-x").forEach((c) => c.remove());
-      input.insertAdjacentHTML("beforebegin", items.map((t, i2) => `<span class="fe-chip-x">${esc(t)}<button type="button" data-i="${i2}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">\xD7</button></span>`).join(""));
+      input.insertAdjacentHTML("beforebegin", items.map((t, i3) => `<span class="fe-chip-x">${esc(t)}<button type="button" data-i="${i3}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">\xD7</button></span>`).join(""));
     };
     const commit = () => {
       const add = input.value.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
@@ -16246,11 +16371,11 @@ seconds and re-renders when the file changes on disk.
   // src/settings-page.ts
   var row = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
   var wide = (label, desc, ctl) => `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
-  var card = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
+  var card2 = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
   var sw = (id, title) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
   var iconBtn = (id, icon2, title) => `<button type="button" id="${id}" class="fe-ibtn" title="${title}" aria-label="${title}">${icon2}</button>`;
   var note = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
-  var thumb = (group, value, name, kind) => `<label class="fe-set-sw" title="${name}"><input type="radio" name="${group}" value="${value}"><span class="fe-set-thumb" data-${kind}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
+  var thumb = (group, value, name, kind) => `<label class="fe-set-sw" title="${name}"><input type="radio" name="${group}" value="${value}" title="${name}"><span class="fe-set-thumb" data-${kind}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
   var PALETTE_NAMES = [
     ["slate", "Slate"],
     ["violet", "Violet"],
@@ -16261,21 +16386,21 @@ seconds and re-renders when the file changes on disk.
     ["ember", "Ember"],
     ["nord", "Nord"]
   ];
-  var i = (body) => line(body, 14);
+  var i2 = (body) => line(body, 14);
   var SORT_OPTS = [
-    { value: "", label: "As listed", icon: i('<path d="M3 6h18M3 12h18M3 18h18"/>') },
-    { value: "name", label: "Name", icon: i('<path d="M4 18 8 6l4 12M5.5 14h5M15 6h5l-5 12h5"/>') },
-    { value: "date", label: "Modified", icon: i('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>') },
-    { value: "size", label: "Size", icon: i('<path d="M3 20h18M6 20v-5M10 20V9M14 20v-8M18 20V4"/>') },
-    { value: "type", label: "Type", icon: i('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h6"/>') },
-    { value: "ext", label: "Extension", icon: i('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>') }
+    { value: "", label: "As listed", icon: i2('<path d="M3 6h18M3 12h18M3 18h18"/>') },
+    { value: "name", label: "Name", icon: i2('<path d="M4 18 8 6l4 12M5.5 14h5M15 6h5l-5 12h5"/>') },
+    { value: "date", label: "Modified", icon: i2('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>') },
+    { value: "size", label: "Size", icon: i2('<path d="M3 20h18M6 20v-5M10 20V9M14 20v-8M18 20V4"/>') },
+    { value: "type", label: "Type", icon: i2('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h6"/>') },
+    { value: "ext", label: "Extension", icon: i2('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>') }
   ];
   var GROUP_OPTS = [
-    { value: "none", label: "None", icon: i('<path d="M3 6h18M3 12h18M3 18h18"/>') },
-    { value: "folders-first", label: "Folders first", icon: i('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>') },
-    { value: "files-first", label: "Files first", icon: i('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>') },
-    { value: "ext", label: "By extension", icon: i('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>') },
-    { value: "type", label: "By type", icon: i('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/>') }
+    { value: "none", label: "None", icon: i2('<path d="M3 6h18M3 12h18M3 18h18"/>') },
+    { value: "folders-first", label: "Folders first", icon: i2('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>') },
+    { value: "files-first", label: "Files first", icon: i2('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>') },
+    { value: "ext", label: "By extension", icon: i2('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>') },
+    { value: "type", label: "By type", icon: i2('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/>') }
   ];
   var TERM_OPTS = [
     { value: "ghostty", label: "Ghostty" },
@@ -16292,45 +16417,45 @@ seconds and re-renders when the file changes on disk.
       title: "Settings",
       subtitle: "Kept in this browser",
       tabs: [
-        { key: "look", label: "Look", hint: "Theme, colour, size", icon: UI_ICON.appearance, tone: "var(--nc-pink)", desc: "Theme, colours, icon and size.", body: card(
+        { key: "look", label: "Look", hint: "Theme, colour, size", icon: UI_ICON.appearance, tone: "var(--nc-pink)", desc: "Theme, colours, icon and size.", body: card2(
           "Theme",
           row("Mode", "", `<div class="fe-set-sws">${thumb("bfb-theme", "dark", "Dark", "mode") + thumb("bfb-theme", "light", "Light", "mode") + thumb("bfb-theme", "system", "System", "mode")}</div>`) + row("Palette", "", `<div class="fe-set-sws grid4">${PALETTE_NAMES.map(([v, n]) => thumb("bfb-palette", v, n, "p")).join("")}</div>`)
-        ) + card(
+        ) + card2(
           "App icon",
-          wide("", "Shows in the tab and in an installed app window", `<div class="fe-appicons" role="radiogroup" aria-label="App icon">${APP_ICONS.map((a) => `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join("")}</div>`)
-        ) + card(
+          wide("", "Shows in the tab and in an installed app window", `<div class="fe-appicons" role="radiogroup" aria-label="App icon">${APP_ICONS.map((a) => `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}" title="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join("")}</div>`)
+        ) + card2(
           "Size",
           row("Interface", "Everything", sliderHtml("fe-st-uiscale", [80, 90, 100, 110, 125, 150], "%", "Interface size")) + row("Text", "Lists, sidebar, pages", sliderHtml("fe-st-rd-size", [12, 13, 14, 15, 16, 17, 18], " px", "Text size")) + row("Density", "", segHtml("fe-st-density", [
-            { value: "roomy", label: "Roomy", icon: i('<path d="M3 5h18M3 12h18M3 19h18"/>') },
-            { value: "compact", label: "Compact", icon: i('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }
+            { value: "roomy", label: "Roomy", icon: i2('<path d="M3 5h18M3 12h18M3 19h18"/>') },
+            { value: "compact", label: "Compact", icon: i2('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }
           ], "Row spacing"))
-        ) + card(
+        ) + card2(
           "Help",
           row("Tooltips", "Labels on hover", sw("fe-st-tooltips", "Tooltips on every control")) + row("Keyboard", "Every key, on a map", `<button id="fe-st-keys" class="fe-pbn" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)
         ) },
-        { key: "folders", label: "Folders", hint: "View, order, sidebar", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "How folders open, and what a click does.", body: card(
+        { key: "folders", label: "Folders", hint: "View, order, sidebar", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "How folders open, and what a click does.", body: card2(
           "Opening a folder",
           row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in") + segHtml("fe-st-sort-dir", [
-            { value: "asc", icon: i('<path d="M12 19V5M5 12l7-7 7 7"/>'), hint: "Ascending" },
-            { value: "desc", icon: i('<path d="M12 5v14M19 12l-7 7-7-7"/>'), hint: "Descending" }
+            { value: "asc", icon: i2('<path d="M12 19V5M5 12l7-7 7 7"/>'), hint: "Ascending" },
+            { value: "desc", icon: i2('<path d="M12 5v14M19 12l-7 7-7-7"/>'), hint: "Descending" }
           ], "Direction")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read"))
-        ) + card(
+        ) + card2(
           "Opening a file",
           row("Click a file", "", segHtml("fe-st-click", [
             { value: "look", label: "Preview", icon: UI_ICON.eye },
             { value: "go", label: "Open", icon: UI_ICON.external }
           ], "What a click on a file does")) + row("Preview", "", segHtml("fe-st-panel", [
-            { value: "modal", label: "Float", icon: i('<rect width="14" height="12" x="5" y="6" rx="2"/>') },
+            { value: "modal", label: "Float", icon: i2('<rect width="14" height="12" x="5" y="6" rx="2"/>') },
             { value: "side", label: "Dock", icon: UI_ICON.preview }
           ], "Where the preview opens") + iconBtn("fe-st-panel-reset", UI_ICON.reset, "Reset dragged sizes"))
-        ) + card(
+        ) + card2(
           "Sidebar",
           row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
-        ) + card(
+        ) + card2(
           "Terminal",
           row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') + note("", "fe-st-term-hint")
         ) },
-        { key: "files", label: "Files", hint: "Pages, icons", icon: UI_ICON.files, tone: "var(--nc-teal)", desc: "Reading, file pages and icons.", body: card(
+        { key: "files", label: "Files", hint: "Pages, icons", icon: UI_ICON.files, tone: "var(--nc-teal)", desc: "Reading, file pages and icons.", body: card2(
           "Reading",
           row("Width", "Markdown pages", segHtml("fe-st-rd-column", [
             { value: "unset", label: "Full" },
@@ -16338,24 +16463,24 @@ seconds and re-renders when the file changes on disk.
             { value: "lg", label: "Medium" },
             { value: "md", label: "Narrow" }
           ], "Reading width")) + row("Line height", "", sliderHtml("fe-st-rd-lh", [1.4, 1.5, 1.65, 1.8, 2], "", "Line height")) + row("Code", "", sliderHtml("fe-st-rd-code", [11, 12, 13, 14, 15, 16], " px", "Code size")) + row("Wrap lines", "Raw text and code", sw("fe-st-wrap", "Wrap long lines"))
-        ) + card(
+        ) + card2(
           "File pages",
           row("Pages for", "", segHtml("fe-st-filepages", [
             { value: "all", label: "All text" },
             { value: "not-md", label: "Not .md" },
             { value: "off", label: "Off" }
           ], "Which files open as pages")) + row("Chrome opens", "In its own viewer", chipsHtml("fe-st-excluded-exts", ".ext", "Extensions Chrome opens itself") + iconBtn("fe-st-excluded-reset", UI_ICON.reset, "Restore .pdf .html .htm"))
-        ) + card(
+        ) + card2(
           "Icon rules",
           `
           <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
           <div id="fe-st-rules-list"></div>`,
           `<span class="fe-set-h-acts">${iconBtn("fe-st-reset-rules", UI_ICON.reset, "Reset to the built-in rules")}<button id="fe-st-add-rule" class="fe-pbn" title="Add a rule">${UI_ICON.add}Rule</button></span>`
         ) },
-        { key: "notes", label: "Notes", hint: "Notes, editing", icon: UI_ICON.notes, tone: "var(--nc-orange)", desc: "Your notes folder, and where you can edit.", body: card(
+        { key: "notes", label: "Notes", hint: "Notes, editing", icon: UI_ICON.notes, tone: "var(--nc-orange)", desc: "Your notes folder, and where you can edit.", body: card2(
           "Notes",
           row("Folder", "Markdown files", `<input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="~/Notes" spellcheck="false" title="Notes folder">${iconBtn("fe-st-notes-pick", UI_ICON.folderOpen, "Choose a folder")}`) + note("", "fe-st-notes-hint")
-        ) + card(
+        ) + card2(
           "Editing",
           wide("Editable folders", "Text files inside get Edit (e). Saves keep a 14-day backup.", chipsHtml("fe-st-edit-roots", "~/Code", "Folders you can edit in"))
         ) },
@@ -16364,11 +16489,11 @@ seconds and re-renders when the file changes on disk.
           <span class="fe-st-ai-head"><span class="fe-st-ai-blink"><span class="dot"></span></span></span>
           <div class="fe-ai-hero-tx"><b class="fe-st-ai-state">Checking\u2026</b><span id="fe-st-ai-sub"></span></div>
           ${iconBtn("fe-st-ai-refresh", UI_ICON.reset, "Check again")}
-        </div>` + card(
+        </div>` + card2(
           "On this Mac",
           row("Model", "", ddHtml("fe-st-ai-model", [], "Local model")) + row("Keep warm", "Replies start at once", sw("fe-st-ai-warm", "Keep the model loaded")) + `<div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>` + note("", "fe-st-ai-hint")
-        ) + card("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
-        { key: "data", label: "Data", hint: "Export, import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list.", body: card(
+        ) + card2("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
+        { key: "data", label: "Data", hint: "Export, import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list.", body: card2(
           "Your data",
           row("Export", "Copies JSON", `<button id="fe-st-export" class="fe-pbn" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) + row("Import", "Then reloads", `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) + `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`
         ) }
@@ -16565,10 +16690,10 @@ seconds and re-renders when the file changes on disk.
   </a>`;
   }
   function renderRows(entries, ctx, start = 0) {
-    return entries.map((e, i2) => renderRow(e, ctx, start + i2)).join("");
+    return entries.map((e, i3) => renderRow(e, ctx, start + i3)).join("");
   }
   function renderTiles(entries, ctx, start = 0) {
-    return entries.map((e, i2) => renderTile(e, ctx, start + i2)).join("");
+    return entries.map((e, i3) => renderTile(e, ctx, start + i3)).join("");
   }
   var savedFileExt = (path) => path.endsWith("/") ? "" : path.split("/").pop().match(/\.([^.]+)$/)?.[1].toLowerCase() ?? "";
   function renderSavedList(saved, tags, rawPath, filter = "", folded = /* @__PURE__ */ new Set(), hits = /* @__PURE__ */ new Map()) {
@@ -16608,12 +16733,12 @@ seconds and re-renders when the file changes on disk.
       crumbs.push({ label: seg, href: fileHref(acc) });
     }
     const homeAt = home && (acc === home + "/" || acc.startsWith(home + "/")) ? home.split("/").length - 1 : -1;
-    return crumbs.map((c, i2) => {
-      const last = i2 === crumbs.length - 1, where = esc(decodeURIComponent(c.href.slice(7)));
+    return crumbs.map((c, i3) => {
+      const last = i3 === crumbs.length - 1, where = esc(decodeURIComponent(c.href.slice(7)));
       const end = last && !trailing;
-      const label = i2 === homeAt ? "~" : c.label;
-      const pre = i2 < homeAt ? " data-pre hidden" : "";
-      return `<span class="fe-cg" data-i="${i2}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where}">${esc(label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
+      const label = i3 === homeAt ? "~" : c.label;
+      const pre = i3 < homeAt ? " data-pre hidden" : "";
+      return `<span class="fe-cg" data-i="${i3}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where}">${esc(label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
     }).join("");
   }
 
@@ -16662,7 +16787,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       mark: PI.help,
       title: "Help",
       subtitle: "What is here and how to use it",
-      tabs: HELP_TABS.map((t) => ({ key: t.key, label: t.label, hint: t.hint, body: `<div class="fe-md">${renderMarkdown(t.md)}</div>` }))
+      tabs: HELP_TABS
     };
     const PAGE_HTML = `
 <div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ""}>
@@ -16772,7 +16897,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             <span id="fe-zoom-val">${initZoom}%</span>
           </div>
           <div id="fe-view-group">${viewBtnsHTML}</div>
-          <button id="fe-deep-btn" data-icon title="Deep search: include every subfolder in the filter">
+          <button id="fe-deep-btn" data-icon title="Subfolders: filter every folder under this one too">
             ${line('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/><path d="M2 10h20"/>', 13)}
           </button>
           <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/>
@@ -16821,7 +16946,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <input id="fe-find-text" type="text" placeholder="Search text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
           <label class="fe-st-check" title="Use a regular expression for text inside files (advanced)"><input type="checkbox" id="fe-find-text-regex" title="Text regex"> Text regex</label>
           <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
-          <label id="fe-find-depth-wrap" class="fe-st-check" style="display:none" title="Maximum subfolder depth to scan">Depth
+          <label id="fe-find-depth-wrap" class="fe-st-check" style="display:none" title="How many levels of subfolders to look in">Subfolder depth
             <select id="fe-find-depth" title="Maximum subfolder depth"><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="8" selected>8</option></select>
           </label>
           <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
@@ -16875,7 +17000,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const lo = Math.min(anchor, target);
     const hi = Math.max(anchor, target);
     const out = [];
-    for (let i2 = lo; i2 <= hi; i2++) out.push(i2);
+    for (let i3 = lo; i3 <= hi; i3++) out.push(i3);
     return out;
   }
 
@@ -17314,9 +17439,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const row2 = tbody.querySelector("tr[data-idx]")?.offsetHeight || 36;
       const hdr = tbody.querySelector(".fe-group-hdr")?.offsetHeight || row2;
       let y = 0;
-      win.tops = win.parts.map((part, i2) => {
+      win.tops = win.parts.map((part, i3) => {
         const t = y;
-        y += win.idxOf[i2] < 0 ? hdr : row2;
+        y += win.idxOf[i3] < 0 ? hdr : row2;
         return t;
       });
       win.total = y;
@@ -17370,8 +17495,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } else {
         entries.forEach(pushEntry);
       }
-      const kept = rowParts.map((p, i2) => showHidden || !hiddenRow[i2] ? i2 : -1).filter((i2) => i2 >= 0);
-      win = rowParts.length > WINDOW_MIN ? { parts: kept.map((i2) => rowParts[i2]), idxOf: kept.map((i2) => idxOf[i2]), tops: [], total: 0, a: 0, b: 0 } : null;
+      const kept = rowParts.map((p, i3) => showHidden || !hiddenRow[i3] ? i3 : -1).filter((i3) => i3 >= 0);
+      win = rowParts.length > WINDOW_MIN ? { parts: kept.map((i3) => rowParts[i3]), idxOf: kept.map((i3) => idxOf[i3]), tops: [], total: 0, a: 0, b: 0 } : null;
       if (win) measureWindow();
       else tbody.innerHTML = rowParts.join("");
       tiles.innerHTML = tileParts.join("");
@@ -17436,52 +17561,52 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     const sel = {
       entryShown: (en) => !en.isHidden || fe.classList.contains("show-hidden"),
-      selectable: (i2) => {
-        const en = ls.visible[i2];
+      selectable: (i3) => {
+        const en = ls.visible[i3];
         return !!en && !en.isParent && sel.entryShown(en);
       },
-      setSel(i2) {
+      setSel(i3) {
         ls.selSet.clear();
-        ls.selIdx = i2;
-        ls.anchor = i2;
-        if (i2 >= 0) ls.selSet.add(i2);
+        ls.selIdx = i3;
+        ls.anchor = i3;
+        if (i3 >= 0) ls.selSet.add(i3);
         paintSel();
         scrollToLead();
       },
-      toggleSel(i2) {
-        if (ls.selSet.has(i2)) ls.selSet.delete(i2);
-        else ls.selSet.add(i2);
-        ls.selIdx = i2;
-        ls.anchor = i2;
+      toggleSel(i3) {
+        if (ls.selSet.has(i3)) ls.selSet.delete(i3);
+        else ls.selSet.add(i3);
+        ls.selIdx = i3;
+        ls.anchor = i3;
         paintSel();
       },
       rangeSel(target) {
         const a = ls.anchor >= 0 ? ls.anchor : target;
         ls.selSet.clear();
-        selectionRange(a, target).filter(sel.selectable).forEach((i2) => ls.selSet.add(i2));
+        selectionRange(a, target).filter(sel.selectable).forEach((i3) => ls.selSet.add(i3));
         ls.selIdx = target;
         paintSel();
         scrollToLead();
       },
       selectAll() {
         ls.selSet.clear();
-        for (let i2 = 0; i2 < ls.visible.length; i2++) if (sel.selectable(i2)) ls.selSet.add(i2);
+        for (let i3 = 0; i3 < ls.visible.length; i3++) if (sel.selectable(i3)) ls.selSet.add(i3);
         if (ls.selSet.size && ls.selIdx < 0) ls.selIdx = [...ls.selSet][0];
         paintSel();
       },
       moveSel(step2) {
-        let i2 = ls.selIdx;
+        let i3 = ls.selIdx;
         for (let n = 0; n < ls.visible.length; n++) {
-          i2 += step2;
-          if (i2 < 0 || i2 >= ls.visible.length) return;
-          if (sel.entryShown(ls.visible[i2])) {
-            sel.setSel(i2);
+          i3 += step2;
+          if (i3 < 0 || i3 >= ls.visible.length) return;
+          if (sel.entryShown(ls.visible[i3])) {
+            sel.setSel(i3);
             return;
           }
         }
       },
       copySelection() {
-        const paths = [...ls.selSet].sort((a, b) => a - b).map((i2) => fullPath(rawPath, ls.visible[i2]));
+        const paths = [...ls.selSet].sort((a, b) => a - b).map((i3) => fullPath(rawPath, ls.visible[i3]));
         if (!paths.length) return;
         copyToClipboard(paths.join("\n")).then(() => toast(`Copied ${paths.length} path${paths.length !== 1 ? "s" : ""}`));
       },
@@ -17493,13 +17618,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         else toast("No preview for this file type");
       },
       previewStep(step2) {
-        let i2 = ls.selIdx;
+        let i3 = ls.selIdx;
         for (let n = 0; n < ls.visible.length; n++) {
-          i2 += step2;
-          if (i2 < 0 || i2 >= ls.visible.length) return;
-          const en = ls.visible[i2];
+          i3 += step2;
+          if (i3 < 0 || i3 >= ls.visible.length) return;
+          const en = ls.visible[i3];
           if (sel.entryShown(en) && canPreview(en)) {
-            sel.setSel(i2);
+            sel.setSel(i3);
             openPreview(en);
             return;
           }
@@ -18022,6 +18147,228 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     return { ls, sel, applyAll, applyFindFromHash };
   }
 
+  // src/commands.ts
+  var bound = /* @__PURE__ */ new Map();
+  function bind(id, run, when2) {
+    bound.set(id, { run, when: when2 });
+  }
+  function canRun(id) {
+    const b = bound.get(id);
+    return !!b && (!b.when || b.when());
+  }
+  function runCommand(id) {
+    if (!canRun(id)) return false;
+    bound.get(id).run();
+    return true;
+  }
+  var NAMED2 = {
+    ArrowUp: "\u2191",
+    ArrowDown: "\u2193",
+    ArrowLeft: "\u2190",
+    ArrowRight: "\u2192",
+    Enter: "\u21A9",
+    Backspace: "\u232B",
+    Delete: "\u232B",
+    Escape: "Esc",
+    " ": "Space",
+    Tab: "\u21E5",
+    PageUp: "PgUp",
+    PageDown: "PgDn",
+    Home: "Home",
+    End: "End"
+  };
+  var SHIFT_OF = { "{": "[", "}": "]", "~": "`" };
+  function keyToken(e) {
+    const named = NAMED2[e.key];
+    let k = named ?? e.key;
+    let shift = e.shiftKey;
+    if (named) {
+    } else if (SHIFT_OF[k]) {
+      k = SHIFT_OF[k];
+      shift = true;
+    } else if (/^[a-z]$/i.test(k)) k = shift || e.metaKey ? k.toUpperCase() : k.toLowerCase();
+    else if (k.length === 1) shift = false;
+    if (e.altKey && /^Key[A-Z]$/.test(e.code)) k = e.code.slice(3);
+    return (e.metaKey ? "\u2318" : "") + (e.ctrlKey ? "\u2303" : "") + (e.altKey ? "\u2325" : "") + (shift ? "\u21E7" : "") + k;
+  }
+  var contextOf = () => ({ scopes: /* @__PURE__ */ new Set(["any"]), typing: false, blocked: false });
+  function setContext(fn) {
+    contextOf = fn;
+  }
+  var OWN = KEYMAP.filter((d) => d.own);
+  var live = (d, ctx) => (d.scope ?? "any") === "any" ? !ctx.scopes.has("preview") || ["palette", "area-next", "area-prev", "sidebar", "theme", "hints"].includes(d.id) : ctx.scopes.has(d.scope);
+  var pending = "";
+  var pendingTimer = null;
+  var pill = null;
+  function setPending(p) {
+    pending = p;
+    if (pendingTimer) clearTimeout(pendingTimer);
+    if (!p) {
+      pill?.remove();
+      pill = null;
+      return;
+    }
+    pendingTimer = setTimeout(() => setPending(""), 1600);
+    if (!pill) {
+      pill = document.createElement("div");
+      pill.className = "fe-chord";
+      (document.getElementById("fe") ?? document.body).appendChild(pill);
+    }
+    const next = OWN.filter((d) => canRun(d.id) && d.keys.some((k) => k.startsWith(p + " ")));
+    pill.innerHTML = `<kbd>${esc(p)}</kbd><span>then</span>${next.slice(0, 8).map((d) => `<span class="fe-chord-o"><kbd>${esc(d.keys.find((k) => k.startsWith(p + " ")).slice(p.length + 1))}</kbd>${esc(d.title)}</span>`).join("")}`;
+  }
+  function dispatch(e) {
+    const ctx = contextOf();
+    const tok = keyToken(e);
+    const ae = document.activeElement;
+    if (tok === "\u2318K" && !(ae?.tagName === "TEXTAREA" || ae?.isContentEditable)) {
+      e.preventDefault();
+      return runCommand("palette");
+    }
+    if (ctx.blocked || ctx.typing) {
+      setPending("");
+      return false;
+    }
+    if (pending) {
+      const want = `${pending} ${tok}`;
+      setPending("");
+      const d2 = OWN.find((x) => x.keys.includes(want) && live(x, ctx));
+      if (d2 && runCommand(d2.id)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return true;
+      }
+      return false;
+    }
+    const d = OWN.find((x) => x.keys.includes(tok) && live(x, ctx) && canRun(x.id));
+    if (d) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      runCommand(d.id);
+      return true;
+    }
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some((x) => live(x, ctx) && canRun(x.id) && x.keys.some((k) => k.startsWith(tok + " ")))) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setPending(tok);
+      return true;
+    }
+    return false;
+  }
+  var sources = [];
+  function addPaletteSource(fn) {
+    sources.push(fn);
+  }
+  function score(text, q) {
+    if (!q) return 1;
+    const t = text.toLowerCase(), s = q.toLowerCase();
+    const at = t.indexOf(s);
+    if (at >= 0) return 1e3 - at - (t.length - s.length) * 0.1 + (at === 0 || t[at - 1] === " " ? 200 : 0);
+    let i3 = 0, gaps = 0, last = -1;
+    for (const ch of s) {
+      const j = t.indexOf(ch, last + 1);
+      if (j < 0) return 0;
+      gaps += j - last - 1;
+      last = j;
+      i3++;
+    }
+    return 100 - gaps;
+  }
+  var paletteEl = null;
+  function paletteOpen() {
+    return !!paletteEl;
+  }
+  function openPalette(prefill = "") {
+    if (paletteEl) {
+      paletteEl.querySelector("input")?.focus();
+      return;
+    }
+    const back = document.activeElement;
+    const ctx = contextOf();
+    const cmds = KEYMAP.filter((d) => d.id !== "palette" && canRun(d.id) && (d.scope === void 0 || d.scope === "any" || ctx.scopes.has(d.scope))).map((d) => ({ title: d.title, keys: d.keys, group: d.group, run: () => runCommand(d.id) }));
+    const items = [...cmds, ...sources.flatMap((f) => {
+      try {
+        return f();
+      } catch {
+        return [];
+      }
+    })];
+    const box = document.createElement("div");
+    box.className = "fe-pal-wrap";
+    box.innerHTML = `<div class="fe-pal" role="dialog" aria-label="Command palette">
+    <div class="fe-pal-q"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="text" placeholder="Type a command or a place" spellcheck="false" autocomplete="off" aria-label="Command or place"><kbd>esc</kbd></div>
+    <div class="fe-pal-list" role="listbox"></div>
+    <div class="fe-pal-foot"><span><kbd>\u2191</kbd><kbd>\u2193</kbd> move</span><span><kbd>\u21A9</kbd> run</span><span><kbd>\u2325\u21A9</kbd> background tab</span></div>
+  </div>`;
+    (document.getElementById("fe") ?? document.body).appendChild(box);
+    paletteEl = box;
+    const input = box.querySelector("input");
+    const list2 = box.querySelector(".fe-pal-list");
+    let shown = [];
+    let at = 0;
+    const paint = () => {
+      const q = input.value.trim();
+      shown = items.map((it) => ({ it, s: Math.max(score(it.title, q), score(it.sub ?? "", q) * 0.6, q ? score((it.keys ?? []).join(" "), q) * 0.9 : 0) })).filter((x) => x.s > 0).sort((a, b) => q ? b.s - a.s : 0).slice(0, 60).map((x) => x.it);
+      at = Math.min(at, Math.max(0, shown.length - 1));
+      let lastGroup = "";
+      list2.innerHTML = shown.length ? shown.map((it, i3) => {
+        const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g">${esc(it.group)}</div>` : "";
+        lastGroup = it.group;
+        return `${head}<div class="fe-pal-i${i3 === at ? " on" : ""}" role="option" data-i="${i3}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
+      }).join("") : '<div class="fe-pal-none">Nothing matches</div>';
+      list2.querySelector(".on")?.scrollIntoView({ block: "nearest" });
+    };
+    const close = (refocus = true) => {
+      box.remove();
+      paletteEl = null;
+      if (refocus && back && document.contains(back)) back.focus();
+    };
+    const fire2 = (i3, alt = false) => {
+      const it = shown[i3];
+      if (!it) return;
+      close(false);
+      if (alt && it.runAlt) it.runAlt();
+      else it.run();
+    };
+    input.addEventListener("input", () => {
+      at = 0;
+      paint();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        at = (at + (e.key === "ArrowDown" ? 1 : -1) + shown.length) % Math.max(1, shown.length);
+        paint();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        fire2(at, e.altKey);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      } else if (e.key === "Tab") e.preventDefault();
+      e.stopPropagation();
+    });
+    list2.addEventListener("mousemove", (e) => {
+      const row2 = e.target.closest(".fe-pal-i");
+      if (row2 && Number(row2.dataset.i) !== at) {
+        at = Number(row2.dataset.i);
+        list2.querySelectorAll(".fe-pal-i").forEach((r) => r.classList.toggle("on", r === row2));
+      }
+    });
+    list2.addEventListener("click", (e) => {
+      const row2 = e.target.closest(".fe-pal-i");
+      if (row2) fire2(Number(row2.dataset.i), e.altKey);
+    });
+    box.addEventListener("mousedown", (e) => {
+      if (e.target === box) close();
+    });
+    input.value = prefill;
+    paint();
+    input.focus();
+  }
+
   // src/listing-input.ts
   function initListingInput(app, listing) {
     const { fe, toast, rawPath } = app;
@@ -18056,7 +18403,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
       const en = entryAt(e);
       if (!en) return;
-      const i2 = ls.visible.indexOf(en);
+      const i3 = ls.visible.indexOf(en);
       e.preventDefault();
       if (en.isParent) {
         location.href = pageHref(en.href);
@@ -18067,17 +18414,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         return;
       }
       if (e.shiftKey || e.metaKey || e.ctrlKey) {
-        if (!sel.selectable(i2)) return;
-        if (e.shiftKey && (e.metaKey || e.ctrlKey)) sel.rangeSel(i2);
-        else sel.toggleSel(i2);
+        if (!sel.selectable(i3)) return;
+        if (e.shiftKey && (e.metaKey || e.ctrlKey)) sel.rangeSel(i3);
+        else sel.toggleSel(i3);
         return;
       }
       if (en.isDir) {
         location.href = pageHref(en.href);
         return;
       }
-      if (!sel.selectable(i2)) return;
-      sel.setSel(i2);
+      if (!sel.selectable(i3)) return;
+      sel.setSel(i3);
       if (!canPreview(en) || app.settings.clickOpens === "go") {
         location.href = pageHref(en.href);
         return;
@@ -18191,7 +18538,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       else if (item.dataset.act === "term") app.openInTerminal(en.isDir ? fp : rawPath);
       else if (item.dataset.act === "cp-paths") sel.copySelection();
       else if (item.dataset.act === "cp-names") {
-        const names = [...ls.selSet].sort((a, b) => a - b).map((i2) => ls.visible[i2].name).join("\n");
+        const names = [...ls.selSet].sort((a, b) => a - b).map((i3) => ls.visible[i3].name).join("\n");
         copyToClipboard(names).then(() => toast(`Copied ${ls.selSet.size} names`));
       }
     });
@@ -18211,6 +18558,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
       const ae = document.activeElement;
       if (ae && ["INPUT", "TEXTAREA", "SELECT"].includes(ae.tagName)) return;
+      if (ae?.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar") && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " ", "Backspace", "Delete", "Home", "End"].includes(e.key)) return;
       if (el("fe-settings-modal").style.display !== "none") return;
       if (el("fe-help-modal").style.display !== "none") return;
       if (e.key === "?") {
@@ -18258,10 +18606,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } else if (app.filePage && e.key === "e" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         app.filePage.edit();
-      } else if (e.key === "ArrowDown") {
+      } else if (e.key === "ArrowDown" && !app.fileMode) {
         e.preventDefault();
         sel.moveSel(1);
-      } else if (e.key === "ArrowUp") {
+      } else if (e.key === "ArrowUp" && !app.fileMode) {
         e.preventDefault();
         sel.moveSel(-1);
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
@@ -18283,6 +18631,474 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         app.newNote();
       } else if (app.strip.handleKey(e)) e.preventDefault();
     });
+    const onListing = () => !app.fileMode;
+    const lead = () => ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null;
+    const leadRow = () => scroll.querySelector(`[data-idx="${ls.selIdx}"]`);
+    const shown = () => ls.visible.map((_, i3) => i3).filter((i3) => sel.selectable(i3) || ls.visible[i3].isParent);
+    const perPage = () => Math.max(1, Math.floor(scroll.clientHeight / (leadRow()?.offsetHeight || 32)) - 1);
+    const jump = (to) => {
+      const list2 = shown();
+      if (list2.length) sel.setSel(list2[Math.max(0, Math.min(list2.length - 1, to))]);
+    };
+    const pos = () => shown().indexOf(ls.selIdx);
+    bind("to-listing", () => {
+      document.activeElement?.blur();
+      if (ls.selIdx < 0) sel.moveSel(1);
+      else sel.setSel(ls.selIdx);
+    }, onListing);
+    bind("first", () => jump(0), onListing);
+    bind("last", () => jump(Infinity), onListing);
+    bind("page-up", () => jump(pos() - perPage()), onListing);
+    bind("page-down", () => jump(Math.max(0, pos()) + perPage()), onListing);
+    const extend = (dir) => {
+      const list2 = shown();
+      const to = list2[list2.indexOf(ls.selIdx) + dir];
+      if (to !== void 0 && sel.selectable(to)) {
+        if (ls.anchor < 0) ls.anchor = ls.selIdx;
+        sel.rangeSel(to);
+      }
+    };
+    bind("extend-up", () => extend(-1), onListing);
+    bind("extend-down", () => extend(1), onListing);
+    bind("open-bg", () => {
+      const en = lead();
+      if (en && !en.isParent) {
+        app.strip.open(fullPath(rawPath, en), true);
+        toast(`Kept ${en.name} as a tab`);
+      }
+    }, () => onListing() && !!lead());
+    bind("open-chrome", () => {
+      const en = lead();
+      if (en) window.open(en.href, "_blank");
+    }, () => onListing() && !!lead());
+    bind("copy-path", () => {
+      const en = lead();
+      if (en) copyText(fullPath(rawPath, en));
+    }, () => onListing() && !!lead());
+    bind("copy-name", () => {
+      const en = lead();
+      if (en) copyText(en.name);
+    }, () => onListing() && !!lead());
+    bind("menu", () => {
+      const row2 = leadRow();
+      if (!row2) return;
+      const r = row2.getBoundingClientRect();
+      row2.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 40, clientY: r.top + r.height }));
+      ctxMenu.querySelector(".fe-ctx-item")?.classList.add("kb");
+    }, () => onListing() && !!lead());
+    const treeToggle = (open) => {
+      const t = leadRow()?.querySelector(".fe-tree-toggle");
+      if (t && t.getAttribute("aria-expanded") === "true" !== open) t.click();
+    };
+    bind("tree-open", () => treeToggle(true), () => onListing() && fe.dataset.view === "tree" && !!lead()?.isDir);
+    bind("tree-close", () => treeToggle(false), () => onListing() && fe.dataset.view === "tree" && !!lead()?.isDir);
+    bind("filter", () => {
+      if (app.fileMode) return;
+      const s = el("fe-search");
+      s.focus({ preventScroll: true });
+      s.select();
+    }, onListing);
+    bind("filter-panel", () => el("fe-filter-btn").click(), onListing);
+    bind("hidden", () => el("fe-hidden-btn").click(), onListing);
+    for (const v of ["details", "list", "tree", "tiles", "icons"]) {
+      bind("view-" + v, () => document.querySelector(`.fe-view-btn[data-view="${v}"]`)?.click(), onListing);
+    }
+    const sortBy = (col) => {
+      const s = getSortConfig();
+      app.setOrder({ col, dir: s.col === col && s.dir === "asc" ? "desc" : "asc" }, getGroupMode());
+    };
+    bind("sort-name", () => sortBy("name"), onListing);
+    bind("sort-date", () => sortBy("date"), onListing);
+    bind("sort-size", () => sortBy("size"), onListing);
+    bind("sort-type", () => sortBy("type"), onListing);
+    bind("sort-rev", () => {
+      const s = getSortConfig();
+      app.setOrder({ col: s.col ?? "name", dir: s.dir === "asc" ? "desc" : "asc" }, getGroupMode());
+    }, onListing);
+    const GROUPS2 = ["none", "folders-first", "files-first", "ext", "type"];
+    bind("group", () => {
+      const next = GROUPS2[(GROUPS2.indexOf(getGroupMode()) + 1) % GROUPS2.length];
+      app.setOrder(getSortConfig(), next);
+      toast(`Grouping: ${next.replace("-", " ")}`);
+    }, onListing);
+    const zoom = (to) => {
+      const z = el("fe-zoom");
+      z.value = String(Math.max(Number(z.min || 50), Math.min(Number(z.max || 320), to(Number(z.value)))));
+      z.dispatchEvent(new Event("input"));
+    };
+    bind("zoom-in", () => zoom((z) => z + 10), onListing);
+    bind("zoom-out", () => zoom((z) => z - 10), onListing);
+    bind("zoom-reset", () => zoom(() => 100), onListing);
+    addPaletteSource(() => onListing() ? ls.all.filter((en) => !en.isParent).slice(0, 400).map((en) => ({
+      title: en.name,
+      sub: en.isDir ? "folder here" : "file here",
+      group: "This folder",
+      icon: getIcon(en, app.iconRules),
+      run: () => {
+        location.href = pageHref(en.href);
+      },
+      runAlt: () => {
+        app.strip.open(fullPath(rawPath, en), true);
+        toast(`Kept ${en.name} as a tab`);
+      }
+    })) : []);
+  }
+
+  // src/focus-nav.ts
+  var visible = (x) => !!x && x.offsetParent !== null;
+  var isTyping = (x) => !!x && (["INPUT", "TEXTAREA", "SELECT"].includes(x.tagName) || x.isContentEditable) && !x.type?.match(/^(checkbox|radio|range|button)$/);
+  var MENU_SEL = "#fe-ctx, .fe-ctx, #fe-crumb-menu, .fe-pmenu";
+  var ITEM_SEL = ".fe-ctx-item, .fe-dd-item, .fe-pmenu button";
+  function openMenu2() {
+    return [...document.querySelectorAll(MENU_SEL)].find((m) => m.style.display !== "none" && visible(m)) ?? null;
+  }
+  function menuKeys(e) {
+    const menu = openMenu2();
+    if (!menu || !["ArrowDown", "ArrowUp", "Home", "End", "Enter"].includes(e.key)) return false;
+    const items = [...menu.querySelectorAll(ITEM_SEL)].filter(visible);
+    if (!items.length) return false;
+    let at = items.findIndex((i3) => i3.classList.contains("kb"));
+    if (e.key === "Enter") {
+      if (at < 0) return false;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      items[at].click();
+      return true;
+    }
+    at = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : at < 0 ? e.key === "ArrowDown" ? 0 : items.length - 1 : (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items.forEach((it, i3) => it.classList.toggle("kb", i3 === at));
+    items[at].scrollIntoView({ block: "nearest" });
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    return true;
+  }
+  function initFocusNav(app) {
+    const fe = app.fe;
+    const dialogOpen = () => [...document.querySelectorAll(".fe-dlg")].some((d) => d.style.display !== "none");
+    setContext(() => {
+      const ae = document.activeElement;
+      const scopes = /* @__PURE__ */ new Set(["any"]);
+      const preview = isPreviewOpen();
+      if (preview) scopes.add("preview");
+      if (app.fileMode && !preview) scopes.add("file");
+      const inSide = !!ae?.closest("#fe-side"), inTabs = !!ae?.closest("#fe-tabbar"), inBar = !!ae?.closest("#fe-bar, #fe-toolbar");
+      if (inSide) scopes.add("sidebar");
+      if (inTabs) scopes.add("tabs");
+      if (!app.fileMode && !preview && !inSide && !inTabs && !inBar) {
+        scopes.add("listing");
+        if (fe.dataset.view === "tree") scopes.add("tree");
+      }
+      if (openMenu2()) scopes.add("menu");
+      return {
+        scopes,
+        typing: isTyping(ae),
+        blocked: dialogOpen() || paletteOpen() || !!openMenu2() || !!document.querySelector(".fe-dd-list, .fe-rule-pop, #fe-goto:not([hidden])")
+      };
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.defaultPrevented) return;
+      if (menuKeys(e)) return;
+      dispatch(e);
+    }, true);
+    const areas = [
+      { name: "sidebar", has: (x) => !!x.closest("#fe-side"), enter: () => focusFirst("#fe-lenses .fe-lens:not([hidden])", ROW_SEL) || focusFirst("#fe-lenses .fe-lens:not([hidden])", "input, textarea, button") || focusFirst("#fe-rail", ".fe-rail-btn.on") },
+      { name: "tabs", has: (x) => !!x.closest("#fe-tabbar"), enter: () => focusFirst("#fe-tabs", ".fe-tab.on") || focusFirst("#fe-tabbar", "button") },
+      { name: "path", has: (x) => !!x.closest("#fe-bar"), enter: () => focusFirst("#fe-bc", ".fe-crumb.cur, .fe-crumb:last-of-type") || focusFirst("#fe-bar", "button") },
+      { name: "toolbar", has: (x) => !!x.closest("#fe-toolbar, #fe-fp-bar"), enter: () => focusFirst("#fe-toolbar, #fe-fp-bar", "button") },
+      { name: "listing", has: (x) => !!x.closest("#fe-scroll, #fe-page") || x === document.body, enter: () => {
+        runCommand("to-listing");
+        return true;
+      } },
+      { name: "preview", has: (x) => !!x.closest("#fe-qlook"), enter: () => isPreviewOpen() && focusFirst("#fe-qlook", "#fe-ql-close, button") }
+    ];
+    const ROW_SEL = ".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp";
+    function focusFirst(scope, sel) {
+      const root = [...document.querySelectorAll(scope)].find(visible);
+      const t = root && [...root.querySelectorAll(sel)].find(visible);
+      if (!t) return false;
+      t.focus({ preventScroll: false });
+      return true;
+    }
+    const cycle = (dir) => {
+      const ae = document.activeElement ?? document.body;
+      let i3 = areas.findIndex((a) => a.has(ae));
+      for (let n = 0; n < areas.length; n++) {
+        i3 = (i3 + dir + areas.length) % areas.length;
+        if (areas[i3].enter()) {
+          flash(document.activeElement);
+          return;
+        }
+      }
+    };
+    function flash(x) {
+      const box = x?.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar, #fe-scroll, #fe-page, #fe-qlook");
+      if (!box) return;
+      box.classList.remove("fe-area-flash");
+      void box.offsetWidth;
+      box.classList.add("fe-area-flash");
+    }
+    bind("area-next", () => cycle(1));
+    bind("area-prev", () => cycle(-1));
+    bind("to-sidebar", () => {
+      if (fe.querySelector("#fe-side")?.checkVisibility?.() === false) runCommand("sidebar");
+      areas[0].enter();
+      flash(document.activeElement);
+    });
+    bind("to-tabs", () => {
+      areas[1].enter();
+      flash(document.activeElement);
+    });
+    bind("to-toolbar", () => {
+      areas[3].enter();
+      flash(document.activeElement);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey) return;
+      const ae = document.activeElement;
+      if (!ae || isTyping(ae)) return;
+      if (e.key === "Escape" && !openMenu2() && ae.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar")) {
+        e.preventDefault();
+        ae.blur();
+        runCommand("to-listing");
+        return;
+      }
+      const lens = ae.closest("#fe-lenses .fe-lens");
+      if (lens) {
+        const rows = [...lens.querySelectorAll(".fe-si, .fe-si-link, .fe-grp > summary, .fe-nt-grp")].filter(visible);
+        const at = rows.indexOf(ae);
+        const row3 = ae.closest(".fe-bm-item, .fe-pl-item");
+        if ((e.key === "ArrowDown" || e.key === "ArrowUp") && at >= 0) {
+          const to = rows[at + (e.key === "ArrowDown" ? 1 : -1)];
+          if (to) {
+            e.preventDefault();
+            to.focus();
+          }
+        } else if ((e.key === "Home" || e.key === "End") && rows.length) {
+          e.preventDefault();
+          rows[e.key === "Home" ? 0 : rows.length - 1].focus();
+        } else if (e.key === "Enter" && e.altKey && ae.matches("a")) {
+          e.preventDefault();
+          ae.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, altKey: true }));
+        } else if (e.key === "F2" && row3?.querySelector(".fe-pl-label")) {
+          e.preventDefault();
+          row3.querySelector(".fe-pl-label").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+        } else if ((e.key === "Delete" || e.key === "Backspace") && row3?.querySelector(".fe-rm-btn") && !row3.classList.contains("fe-nt-item")) {
+          e.preventDefault();
+          const next = rows[at + 1] ?? rows[at - 1];
+          row3.querySelector(".fe-rm-btn").click();
+          setTimeout(() => (next && document.contains(next) ? next : lens.querySelector(".fe-si, .fe-si-link"))?.focus(), 50);
+        } else if (e.key === "#" && row3?.querySelector(".fe-tag-btn")) {
+          e.preventDefault();
+          row3.querySelector(".fe-tag-btn").click();
+        } else if (e.key === "ArrowLeft" && !e.altKey) {
+          e.preventDefault();
+          document.querySelector("#fe-rail .fe-rail-btn.on")?.focus();
+        }
+        return;
+      }
+      if (ae.closest("#fe-rail") && e.key === "ArrowDown" && e.altKey) {
+        e.preventDefault();
+        areas[0].enter();
+        return;
+      }
+      if (ae.closest("#fe-tabs") && ae.classList.contains("fe-tab")) {
+        const tabs = [...document.querySelectorAll("#fe-tabs .fe-tab")];
+        const at = tabs.indexOf(ae);
+        if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && !e.shiftKey) {
+          e.preventDefault();
+          const to = tabs[at + (e.key === "ArrowRight" ? 1 : -1)] ?? (e.key === "ArrowRight" ? document.querySelector("#fe-tabs-end button:not([hidden])") : null);
+          to?.focus();
+        } else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && e.shiftKey && ae.dataset.id) {
+          e.preventDefault();
+          app.strip.move(ae.dataset.id, e.key === "ArrowRight" ? 1 : -1);
+          document.querySelector(`#fe-tabs .fe-tab[data-id="${ae.dataset.id}"]`)?.focus();
+        } else if ((e.key === "Delete" || e.key === "Backspace") && ae.querySelector(".fe-tab-x")) {
+          e.preventDefault();
+          const next = tabs[at + 1] ?? tabs[at - 1];
+          const nextId = next?.dataset.id;
+          ae.querySelector(".fe-tab-x").click();
+          setTimeout(() => document.querySelector(`#fe-tabs .fe-tab[data-id="${nextId}"]`)?.focus(), 30);
+        } else if (e.key === "ContextMenu" || e.key === "F10" && e.shiftKey) {
+          e.preventDefault();
+          const r = ae.getBoundingClientRect();
+          ae.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 8, clientY: r.bottom }));
+        }
+        return;
+      }
+      const row2 = ae.closest("#fe-bar, #fe-toolbar, #fe-tabs-end, #fe-fp-bar");
+      if (row2 && (e.key === "ArrowRight" || e.key === "ArrowLeft") && !e.altKey && !e.shiftKey) {
+        const ctl = [...row2.querySelectorAll("a[href], button, input")].filter((x) => visible(x) && !x.disabled && x.tabIndex >= 0);
+        const at = ctl.indexOf(ae);
+        if (at < 0 || ae.matches('input[type="range"]')) return;
+        const to = ctl[at + (e.key === "ArrowRight" ? 1 : -1)];
+        if (to) {
+          e.preventDefault();
+          to.focus();
+        }
+        return;
+      }
+      if (ae.closest("#fe-bc") && e.key === "ArrowDown") {
+        const dd = ae.matches(".fe-crumb-dd") ? ae : ae.nextElementSibling?.matches(".fe-crumb-dd") ? ae.nextElementSibling : null;
+        if (dd) {
+          e.preventDefault();
+          dd.click();
+        }
+      }
+    });
+    const click = (id, init = {}) => () => {
+      const b = document.getElementById(id);
+      if (b && !b.hidden) b.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...init }));
+    };
+    bind("palette", () => openPalette());
+    const stripKey = (key) => () => {
+      app.strip.handleKey(new KeyboardEvent("keydown", { key }));
+    };
+    bind("settings", () => app.openSettings());
+    bind("keys", () => app.openHelp("keys"));
+    bind("tab-keep", stripKey("t"));
+    bind("tab-close", stripKey("w"));
+    bind("tab-pin", stripKey("p"));
+    bind("tab-step", stripKey("]"));
+    bind("tab-reopen", stripKey("T"));
+    bind("new-note", () => app.newNote(), () => !!app.settings.notesRoot);
+    bind("fp-raw", () => app.filePage?.toggleRaw(), () => !!app.filePage);
+    bind("fp-edit", () => app.filePage?.edit(), () => !!app.filePage);
+    bind("fp-find", () => document.getElementById("fe-ff-q")?.focus(), () => app.fileMode);
+    bind("to-path", () => {
+      focusFirst("#fe-bc", "a.fe-crumb:last-of-type, .fe-crumb.cur, a");
+      flash(document.activeElement);
+    });
+    bind("deep", click("fe-deep-btn"), () => !app.fileMode);
+    bind("sidebar", click("fe-side-toggle"));
+    bind("theme", click("fe-theme-btn"));
+    bind("path", click("fe-open-path"));
+    bind("open-pick", click("fe-open-pick"));
+    bind("save", click("fe-bm-btn"), () => !!document.getElementById("fe-bm-btn"));
+    bind("terminal", click("fe-term-btn"));
+    bind("terminal-copy", click("fe-term-btn", { shiftKey: true }));
+    const moveHere = (dir) => {
+      const id = document.querySelector("#fe-tabs .fe-tab.on")?.dataset.id;
+      if (id) app.strip.move(id, dir);
+    };
+    bind("tab-left", () => moveHere(-1), () => !!document.querySelector('#fe-tabs .fe-tab.on[data-id]:not([data-id=""])'));
+    bind("tab-right", () => moveHere(1), () => !!document.querySelector('#fe-tabs .fe-tab.on[data-id]:not([data-id=""])'));
+    bind("tab-list", click("fe-tab-list"), () => !document.getElementById("fe-tab-list")?.hidden);
+    bind("home", () => {
+      const h = homeDir(app.rawPath);
+      if (h) location.href = pageHref(fileHref(h + "/"));
+    }, () => !!homeDir(app.rawPath));
+    const LENSES = [["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"]];
+    for (const [id, lens] of LENSES) bind(id, () => {
+      if (!app.settings.showSidebar) runCommand("sidebar");
+      app.showLens?.(lens);
+      setTimeout(() => {
+        const box = document.getElementById(`fe-lens-${lens}`);
+        (box?.querySelector('input[type="search"], textarea, .fe-tl-input') ?? box?.querySelector(".fe-si, .fe-si-link"))?.focus();
+      }, 60);
+    }, () => !document.getElementById(`fe-rail-${lens}`)?.hidden);
+    const pv = () => isPreviewOpen();
+    bind("pv-dock", click("fe-ql-dock"), pv);
+    bind("pv-copy", click("fe-ql-copy"), pv);
+    bind("pv-ask", () => document.getElementById("fe-ql-ai-q")?.focus(), () => pv() && visible(document.getElementById("fe-ql-ai-q")));
+    bind("fp-toc", click("fe-fp-toc"), () => app.fileMode && visible(document.getElementById("fe-fp-toc")));
+    bind("fp-width", click("fe-fp-column"), () => app.fileMode && visible(document.getElementById("fe-fp-column")));
+    const placeIcon = (p) => p.endsWith("/") ? PI.folder : PI.docs;
+    addPaletteSource(() => app.strip.state().list.map((t, i3) => ({
+      title: t.label,
+      sub: i3 < 9 ? `tab ${i3 + 1}` : "tab",
+      group: "Tabs",
+      icon: placeIcon(t.path),
+      run: () => app.strip.go(t.path)
+    })));
+    addPaletteSource(() => getSaved().map((p) => ({
+      title: p.label || p.path,
+      sub: (p.tags ?? []).map((t) => "#" + t).join(" ") || "saved",
+      group: "Saved",
+      icon: PI.bm,
+      run: () => app.strip.go(p.path),
+      runAlt: () => app.strip.open(p.path, true)
+    })));
+    addPaletteSource(() => getRecents().slice(0, 30).map((r) => ({
+      title: r.path.split("/").filter(Boolean).pop() || "/",
+      sub: r.path,
+      group: "Recent",
+      icon: PI.recent,
+      run: () => app.strip.go(r.path),
+      runAlt: () => app.strip.open(r.path, true)
+    })));
+    const KEY_OF = {
+      "fe-side-toggle": "sidebar",
+      "fe-theme-btn": "theme",
+      "fe-help-btn": "keys",
+      "fe-settings-btn": "settings",
+      "fe-term-btn": "terminal",
+      "fe-bm-btn": "save",
+      "fe-open-pick": "open-pick",
+      "fe-open-path": "path",
+      "fe-tab-list": "tab-list",
+      "fe-filter-btn": "filter-panel",
+      "fe-hidden-btn": "hidden",
+      "fe-search": "filter",
+      "fe-fp-raw": "fp-raw",
+      "fe-fp-edit": "fp-edit",
+      "fe-fp-toc": "fp-toc",
+      "fe-fp-column": "fp-width",
+      "fe-ql-dock": "pv-dock",
+      "fe-ql-copy": "pv-copy",
+      "fe-ql-tab": "pv-tab",
+      "fe-ql-go": "pv-open",
+      "fe-ql-close": "pv-close",
+      "fe-rail-places": "lens-places",
+      "fe-rail-saved": "lens-saved",
+      "fe-rail-notes": "lens-notes",
+      "fe-rail-history": "lens-recent",
+      "fe-rail-search": "lens-search",
+      "fe-rail-ask": "lens-ask",
+      "fe-rail-comments": "lens-docs"
+    };
+    const keyOf = (cmd) => KEYMAP.find((d) => d.id === cmd)?.keys[0];
+    let hintTimer = null;
+    let hints = null;
+    const hideHints = () => {
+      if (hintTimer) clearTimeout(hintTimer);
+      hintTimer = null;
+      hints?.remove();
+      hints = null;
+    };
+    function showHints() {
+      hideHints();
+      hints = document.createElement("div");
+      hints.className = "fe-hints";
+      const spots = [];
+      for (const [id, cmd] of Object.entries(KEY_OF)) {
+        const x = document.getElementById(id);
+        const k = keyOf(cmd);
+        if (visible(x) && k) spots.push([x, k]);
+      }
+      document.querySelectorAll(".fe-view-btn[data-view]").forEach((b) => {
+        const k = keyOf("view-" + (b.dataset.view === "icons" ? "icons" : b.dataset.view));
+        if (visible(b) && k) spots.push([b, k]);
+      });
+      document.querySelectorAll("#fe-tabs .fe-tab").forEach((t, i3) => {
+        if (i3 < 9 && visible(t)) spots.push([t, String(i3 + 1)]);
+      });
+      hints.innerHTML = spots.map(([x, k]) => {
+        const r = x.getBoundingClientRect();
+        return `<kbd style="left:${Math.round(r.left + r.width / 2)}px;top:${Math.round(r.bottom - 6)}px">${esc(k)}</kbd>`;
+      }).join("") + `<div class="fe-hints-tip"><kbd>\u2318K</kbd> every command \xB7 <kbd>?</kbd> keyboard map \xB7 <kbd>F6</kbd> next area</div>`;
+      fe.appendChild(hints);
+    }
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Alt" && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.repeat) {
+        hideHints();
+        hintTimer = setTimeout(showHints, 450);
+      } else hideHints();
+    }, true);
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "Alt") hideHints();
+    }, true);
+    window.addEventListener("blur", hideHints);
+    document.addEventListener("pointerdown", hideHints, true);
   }
 
   // src/sidebar.ts
@@ -18353,8 +19169,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     const step2 = (dir, focus = false) => {
       const usable = btns.filter((b) => !b.hidden);
-      const i2 = usable.findIndex((b) => b.classList.contains("on"));
-      const next = usable[(i2 + dir + usable.length) % usable.length];
+      const i3 = usable.findIndex((b) => b.classList.contains("on"));
+      const next = usable[(i3 + dir + usable.length) % usable.length];
       kvSet(LENS_KEY, next.dataset.lens);
       switchTo(next.dataset.lens);
       if (focus) next.focus();
@@ -18404,10 +19220,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         return /* @__PURE__ */ new Set();
       }
     };
-    const applyCollapsed = (keys) => {
+    const applyCollapsed = (keys2) => {
       for (const section of sections) {
         const key = section.dataset.collapse;
-        const isCollapsed = keys.has(key);
+        const isCollapsed = keys2.has(key);
         section.classList.toggle("fe-collapsed", isCollapsed);
         const toggle = section.querySelector(".fe-sh-collapse");
         const label = toggle.dataset.label;
@@ -18430,15 +19246,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       toggle.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       toggle.append(labelNode);
       toggle.addEventListener("click", () => {
-        const keys = collapsed();
-        if (section.classList.contains("fe-collapsed")) keys.delete(key);
-        else keys.add(key);
+        const keys2 = collapsed();
+        if (section.classList.contains("fe-collapsed")) keys2.delete(key);
+        else keys2.add(key);
+        kvSet(collapseKey, JSON.stringify([...keys2]));
         foldTo(section, () => {
           section.classList.toggle("fe-collapsed");
-        }, () => {
-          kvSet(collapseKey, JSON.stringify([...keys]));
-          applyCollapsed(keys);
-        });
+        }, () => applyCollapsed(keys2));
       });
       header.prepend(toggle);
     }
@@ -18449,17 +19263,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const svList = el("fe-sv-list");
     const svFilter = el("fe-sv-filter");
     let svHits = /* @__PURE__ */ new Map();
-    const card2 = document.createElement("div");
-    card2.id = "fe-sv-card";
-    card2.hidden = true;
-    el("fe").append(card2);
+    const card3 = document.createElement("div");
+    card3.id = "fe-sv-card";
+    card3.hidden = true;
+    el("fe").append(card3);
     let cardTimer = null, cardFor = null;
     function hideCard() {
       if (cardTimer) {
         clearTimeout(cardTimer);
         cardTimer = null;
       }
-      card2.hidden = true;
+      card3.hidden = true;
       cardFor = null;
     }
     function showCard(item) {
@@ -18468,17 +19282,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const home = homeDir(rawPath);
       const where = isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path;
-      card2.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="fe-chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
+      card3.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="fe-chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
       const r = item.getBoundingClientRect();
-      card2.hidden = false;
-      const h = card2.offsetHeight, w = card2.offsetWidth;
+      card3.hidden = false;
+      const h = card3.offsetHeight, w = card3.offsetWidth;
       const sideRight = el("fe-side").getBoundingClientRect().right;
       if (sideRight + 8 + w <= innerWidth - 8) {
-        card2.style.left = `${Math.round(sideRight + 8)}px`;
-        card2.style.top = `${Math.round(Math.max(8, Math.min(r.top - 4, innerHeight - h - 8)))}px`;
+        card3.style.left = `${Math.round(sideRight + 8)}px`;
+        card3.style.top = `${Math.round(Math.max(8, Math.min(r.top - 4, innerHeight - h - 8)))}px`;
       } else {
-        card2.style.left = `${Math.round(r.left + 24)}px`;
-        card2.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
+        card3.style.left = `${Math.round(r.left + 24)}px`;
+        card3.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
       }
       cardFor = item;
     }
@@ -18500,7 +19314,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         cardTimer = null;
         hideCard();
         showCard(item);
-      }, card2.hidden ? 450 : 120);
+      }, card3.hidden ? 450 : 120);
     });
     svList.addEventListener("pointerleave", () => {
       if (cardTimer) clearTimeout(cardTimer);
@@ -18588,14 +19402,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       els("details.fe-grp", svList).forEach((d) => d.querySelector("summary").addEventListener("click", (e) => {
         if (e.target.closest(".fe-sv-dot")) return;
         e.preventDefault();
+        if (!svFilter.value.trim()) {
+          const folded = foldedGroups();
+          if (d.open) folded.add(d.dataset.tag);
+          else folded.delete(d.dataset.tag);
+          saveFoldedGroups(folded);
+        }
         foldTo(d, () => {
           d.open = !d.open;
-        }, () => {
-          if (svFilter.value.trim()) return;
-          const folded = foldedGroups();
-          if (d.open) folded.delete(d.dataset.tag);
-          else folded.add(d.dataset.tag);
-          saveFoldedGroups(folded);
         });
       }));
       els(".fe-rm-btn", svList).forEach((btn) => {
@@ -18669,7 +19483,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       refreshSaved();
       toast("Saved");
       if (!rename) return;
-      const fresh = els(".fe-pl-item", svList).find((i2) => samePlace(i2.dataset.path, rawPath));
+      const fresh = els(".fe-pl-item", svList).find((i3) => samePlace(i3.dataset.path, rawPath));
       const lbl = fresh?.querySelector(".fe-pl-label");
       if (lbl) lbl.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     }
@@ -18708,9 +19522,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const open = !folds.has(key);
       g.setAttribute("aria-expanded", String(open));
       g.title = `${open ? "Fold" : "Show"} ${g.dataset.label}`;
+      kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds]));
       foldTo(body, () => {
         body.hidden = !body.hidden;
-      }, () => kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds])));
+      });
     });
     let bodyHits = /* @__PURE__ */ new Map();
     const shownNotes = () => {
@@ -18747,6 +19562,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>` : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
       attachNoteEvents(root);
     }
+    addPaletteSource(() => {
+      const root = notesRoot();
+      return root ? allNotes.map((n) => ({
+        title: n.title || noteTitle(n.rel),
+        sub: (n.tags ?? []).map((t) => "#" + t).join(" ") || "note",
+        group: "Notes",
+        icon: PI.docs,
+        run: () => app.strip.go(root + "/" + n.rel),
+        runAlt: () => app.strip.open(root + "/" + n.rel, true)
+      })) : [];
+    });
     let searchTimer = null;
     ntFilter.addEventListener("input", () => {
       const root = notesRoot();
@@ -18900,7 +19726,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       openNoteRel(root, next.rel);
     }
     function renameNote(root, rel, reopen) {
-      const row2 = els(".fe-nt-item", ntList).find((i2) => i2.dataset.rel === rel);
+      const row2 = els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === rel);
       const label = row2?.querySelector(".fe-nt-label");
       if (!label) {
         toast("That note is not in the list. Clear the filter first.");
@@ -19022,7 +19848,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!item) return;
       const { rel, root } = ntMenu.dataset;
       closeNtMenu();
-      const row2 = els(".fe-nt-item", ntList).find((i2) => i2.dataset.rel === rel);
+      const row2 = els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === rel);
       const meta = allNotes.find((n) => n.rel === rel);
       switch (item.dataset.act) {
         case "open":
@@ -19076,7 +19902,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         deleteNote(root, rel);
         if (keep) {
           const keepRel = keep.dataset.rel;
-          setTimeout(() => els(".fe-nt-item", ntList).find((i2) => i2.dataset.rel === keepRel)?.querySelector(".fe-si-link")?.focus(), 400);
+          setTimeout(() => els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === keepRel)?.querySelector(".fe-si-link")?.focus(), 400);
         }
       }
     });
@@ -19170,66 +19996,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
   }
 
-  // src/ask-history.ts
-  var KEY = "bfb-ask-history-v1";
-  var CHATS_PER_SUBJECT = 20;
-  var SUBJECTS = 100;
-  var ANSWER_MAX = 2e4;
-  function read() {
-    try {
-      const v = JSON.parse(kvGet(KEY) || "{}");
-      return v && typeof v === "object" ? v : {};
-    } catch {
-      return {};
-    }
-  }
-  function chatsFor(subject) {
-    return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
-  }
-  function addTurn(subject, chatId, turn) {
-    const store = read();
-    const list2 = store[subject] ?? [];
-    let chat = list2.find((c) => c.id === chatId);
-    if (!chat) {
-      chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] };
-      list2.push(chat);
-    }
-    chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
-    chat.at = turn.at;
-    store[subject] = list2.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
-    const subjects = Object.keys(store);
-    if (subjects.length > SUBJECTS) {
-      const last = (k) => Math.max(...store[k].map((c) => c.at));
-      subjects.sort((a, b) => last(a) - last(b)).slice(0, subjects.length - SUBJECTS).forEach((k) => {
-        delete store[k];
-      });
-    }
-    kvSet(KEY, JSON.stringify(store));
-    return chat;
-  }
-  function deleteChat(subject, chatId) {
-    const store = read();
-    store[subject] = (store[subject] ?? []).filter((c) => c.id !== chatId);
-    if (!store[subject].length) delete store[subject];
-    kvSet(KEY, JSON.stringify(store));
-  }
-  function withHistory(turns, question, maxChars = 4e3) {
-    if (!turns.length) return question;
-    const parts = [];
-    let used = 0;
-    for (const t of turns.slice(-4).reverse()) {
-      const block = `Q: ${t.q}
-A: ${t.a}`;
-      if (used + block.length > maxChars) break;
-      parts.unshift(block);
-      used += block.length;
-    }
-    return parts.length ? `Earlier in this chat:
-${parts.join("\n\n")}
-
-Now: ${question}` : question;
-  }
-
   // src/tool-lenses.ts
   var listDir = async (url) => parseListing(await fetchFileText(url), url);
   var extOf = (name) => name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
@@ -19245,7 +20011,7 @@ Now: ${question}` : question;
     <div class="fe-tl-form">
       <input id="fe-srch-q" class="fe-tl-input" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
       <div class="fe-tl-opts">
-        <label class="fe-tl-opt" title="Look inside subfolders too"><input type="checkbox" id="fe-srch-deep" checked>Subfolders</label>
+        <label class="fe-tl-opt" title="Subfolders: search every folder under this one too"><input type="checkbox" id="fe-srch-deep" checked>Subfolders</label>
         <label class="fe-tl-opt" title="Match upper and lower case exactly"><input type="checkbox" id="fe-srch-case">Match case</label>
       </div>
     </div>
@@ -19650,9 +20416,9 @@ ${rows.join("\n")}`, name: subject };
     };
     function renderRulesList() {
       const list2 = el("fe-st-rules-list");
-      list2.innerHTML = app.iconRules.length ? app.iconRules.map((rule, i2) => {
+      list2.innerHTML = app.iconRules.length ? app.iconRules.map((rule, i3) => {
         const bad = badRegex(rule.pattern);
-        return `<div class="fe-rule${rule.enabled ? "" : " off"}" data-idx="${i2}">
+        return `<div class="fe-rule${rule.enabled ? "" : " off"}" data-idx="${i3}">
         <input type="checkbox" class="fe-switch sm fe-st-rule-en" title="${rule.enabled ? "On" : "Off"}"${rule.enabled ? " checked" : ""}>
         <button type="button" class="fe-rule-ico" title="Icon and colour">${icoCustom(rule.label, rule.color, rule.glyph)}</button>
         <input type="text" class="fe-st-rule-pattern${bad ? " bad" : ""}" value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : "Matches file names, any case"}">
@@ -19904,6 +20670,7 @@ ${rows.join("\n")}`, name: subject };
     }
     el("fe-settings-btn").addEventListener("click", () => openSettings());
     const helpDlg = mountDialog("fe-help-modal");
+    wireKeyboardMap(el("fe-help-modal"));
     el("fe-help-btn").addEventListener("click", () => helpDlg.open());
     el("fe-st-keys").addEventListener("click", () => {
       settingsDlg.close();
@@ -19938,6 +20705,7 @@ ${rows.join("\n")}`, name: subject };
       settings.tooltips = this.checked;
       saveSettings(settings);
       fe.classList.toggle("fe-notips", !this.checked);
+      if (this.checked) toast("Tooltips come back after a reload");
     });
     v("fe-st-defview").addEventListener("change", () => kvSet(VIEW_KEY, v("fe-st-defview").value));
     const applyOrder = () => app.setOrder(
@@ -19992,10 +20760,10 @@ ${rows.join("\n")}`, name: subject };
       }
     });
     const readerVar = (id, key, cssVar, unit) => {
-      const live = () => fe.style.setProperty(cssVar, v(id).value + unit);
-      v(id).addEventListener("input", live);
+      const live2 = () => fe.style.setProperty(cssVar, v(id).value + unit);
+      v(id).addEventListener("input", live2);
       v(id).addEventListener("change", () => {
-        live();
+        live2();
         settings[key] = Number(v(id).value);
         saveSettings(settings);
       });
@@ -20068,14 +20836,14 @@ ${rows.join("\n")}`, name: subject };
   // src/md-ui.ts
   function initMarkdownUi(toast) {
     const rendered = /* @__PURE__ */ new WeakMap();
-    const pending = /* @__PURE__ */ new WeakSet();
+    const pending2 = /* @__PURE__ */ new WeakSet();
     let sequence = 0;
     let queue = Promise.resolve();
     const theme = () => document.getElementById("fe")?.dataset.theme === "light" ? "light" : "dark";
     const renderDiagrams = () => {
       document.querySelectorAll(".fe-md-mermaid").forEach((block) => {
-        if (pending.has(block) || rendered.get(block) === theme()) return;
-        pending.add(block);
+        if (pending2.has(block) || rendered.get(block) === theme()) return;
+        pending2.add(block);
         queue = queue.then(async () => {
           if (!block.isConnected) return;
           const source = block.querySelector(".fe-md-mermaid-source")?.textContent || "";
@@ -20100,7 +20868,7 @@ ${rows.join("\n")}`, name: subject };
           rendered.set(block, currentTheme);
         }).catch(() => {
         }).finally(() => {
-          pending.delete(block);
+          pending2.delete(block);
           if (block.isConnected && rendered.get(block) !== theme()) renderDiagrams();
         });
       });
@@ -20295,7 +21063,7 @@ ${rows.join("\n")}`, name: subject };
   }
 
   // src/main.ts
-  async function showClosedSets(strip, visible) {
+  async function showClosedSets(strip, visible2) {
     const box = document.getElementById("fe-rc-sets");
     if (!box) return;
     const section = box.closest(".fe-sec");
@@ -20318,7 +21086,7 @@ ${rows.join("\n")}`, name: subject };
         const n = s.labels.length;
         return `<button type="button" class="fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago2(s.at)}</span></button>`;
       }).join("");
-      section.style.display = visible && sets.length ? "" : "none";
+      section.style.display = visible2 && sets.length ? "" : "none";
     }
     box.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-rc-set");
@@ -20535,6 +21303,7 @@ ${rows.join("\n")}`, name: subject };
     initSettingsUi(app);
     initToolLenses(app);
     initSidebar(app);
+    initFocusNav(app);
     if (!homeDir(rawPath)) {
       notes.home().then((home) => {
         if (!setHomeDir(home)) return;
