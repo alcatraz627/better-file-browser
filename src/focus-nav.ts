@@ -207,7 +207,12 @@ export function initFocusNav(app: App): void {
   bind('new-note', () => app.newNote(), () => !!app.settings.notesRoot);
   bind('fp-raw', () => app.filePage?.toggleRaw(), () => !!app.filePage);
   bind('fp-edit', () => app.filePage?.edit(), () => !!app.filePage);
-  bind('fp-find', () => document.getElementById('fe-ff-q')?.focus(), () => app.fileMode);
+  const commentable = () => !!app.filePage?.commentable();
+  bind('fp-comment', () => app.filePage?.comment('comment'), commentable);
+  bind('fp-cm-reply', () => app.filePage?.comment('reply'), commentable);
+  bind('fp-comments', () => app.filePage?.comment('panel'), commentable);
+  bind('fp-cm-step', () => app.filePage?.comment('next'), commentable);
+  bind('fp-find',() => document.getElementById('fe-ff-q')?.focus(), () => app.fileMode);
   bind('to-path', () => { focusFirst('#fe-bc', 'a.fe-crumb:last-of-type, .fe-crumb.cur, a'); flash(document.activeElement as HTMLElement); });
   bind('deep', click('fe-deep-btn'), () => !app.fileMode);
   bind('sidebar', click('fe-side-toggle'));

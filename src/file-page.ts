@@ -17,7 +17,7 @@ import { openLayer } from './layer';
 import { getSettings, saveSettings } from './storage';
 import { editableRoot, openFileEditor, type FileEditor } from './file-editor';
 import { attachFind } from './find-in-page';
-import { mountComments, type CommentsPanel } from './comments-ui';
+import { mountComments, type CommentsPanel, type CommentAction } from './comments-ui';
 import type { Settings } from './types';
 
 const SCROLL_KEY = 'bfb-page-scroll-v1';
@@ -174,6 +174,10 @@ export interface FileContent {
   toggleRaw(): void; setText(text: string): void; edit(): void;
   /** A key the file page's comments handle; true when it was used. */
   key(e: KeyboardEvent): boolean;
+  /** A comments action by name; false when the page has no comments or nothing to act on. */
+  comment(a: CommentAction): boolean;
+  /** Whether comments can be made here now (a rendered Markdown page, not editing). */
+  commentable(): boolean;
 }
 
 /// The pane width at which the open Contents card fits beside a full text column.
@@ -477,6 +481,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     toggleRaw,
     edit: () => void edit(),
     key: e => !editor && !raw && !!comments?.key(e),
+    comment: a => !editor && !raw && !!comments?.act(a),
+    commentable: () => !editor && !raw && !!comments,
     setText(fresh) {
       text = fresh;
       paintMeta();

@@ -14908,8 +14908,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         redraw();
         return;
       }
-      const act = el2.closest("[data-a]");
-      const a = act?.dataset.a;
+      const act2 = el2.closest("[data-a]");
+      const a = act2?.dataset.a;
       if (a === "allow") {
         if (await o.allow()) {
           loaded = false;
@@ -14933,7 +14933,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         return;
       }
       if (a && active) {
-        const v = act.dataset.v ?? "";
+        const v = act2.dataset.v ?? "";
         const t = threads.find((x) => x.id === active);
         if (a === "reply") {
           void reply(active);
@@ -15075,9 +15075,56 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       focusThread(next.id);
       o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(next.id)}"]`)?.focus({ preventScroll: true });
     };
+    const readingBlock = () => {
+      const at = document.activeElement?.closest("[data-sl]");
+      if (at && o.page.contains(at)) return at;
+      const top = o.page.getBoundingClientRect().top + 8;
+      return [...o.page.querySelectorAll("[data-sl]")].find((b) => !b.querySelector("[data-sl]") && b.getBoundingClientRect().bottom > top && b.textContent.trim()) ?? null;
+    };
+    const act = (a) => {
+      if (a === "panel") {
+        o.toggle();
+        return true;
+      }
+      if (a === "next" || a === "prev") {
+        step2(a === "next" ? 1 : -1);
+        return placed().length > 0;
+      }
+      if (a === "comment") {
+        const s = selected();
+        if (s) {
+          void startDraft(s.span);
+          return true;
+        }
+        const block = readingBlock();
+        if (!block) return false;
+        const r = document.createRange();
+        r.selectNodeContents(block);
+        const span = sourceSpan(o.page, o.text(), r);
+        if (!span) {
+          o.status("This part of the page cannot take a comment");
+          return true;
+        }
+        void startDraft(span);
+        return true;
+      }
+      if (!active || !threads.some((t) => t.id === active && t.status !== "done")) {
+        if (!placed().length) {
+          o.status("No open comments to reply to");
+          return true;
+        }
+        step2(1);
+      }
+      o.reveal();
+      const ta = o.box.querySelector(`textarea[data-for="${CSS.escape(active)}"]`);
+      ta?.focus();
+      ta?.scrollIntoView({ block: "nearest" });
+      return true;
+    };
     paint();
     void load();
     return {
+      act,
       redraw,
       open: () => threads.filter((t) => t.status !== "done").length,
       show: (id) => {
@@ -15088,20 +15135,13 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       key: (e) => {
         if (e.metaKey || e.ctrlKey) return false;
         if (e.altKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
-          step2(e.key === "ArrowDown" ? 1 : -1);
+          act(e.key === "ArrowDown" ? "next" : "prev");
           return true;
         }
         if (e.altKey) return false;
-        if (e.key === "c") {
-          const s = selected();
-          if (!s) return false;
-          void startDraft(s.span);
-          return true;
-        }
-        if (e.key === "C") {
-          o.toggle();
-          return true;
-        }
+        if (e.key === "c") return act("comment");
+        if (e.key === "C") return act("panel");
+        if (e.key === "R") return act("reply");
         if (e.key === "Escape" && (active || draft)) {
           draft = null;
           active = "";
@@ -15612,6 +15652,8 @@ ${d.message}` : d.message;
       toggleRaw,
       edit: () => void edit2(),
       key: (e) => !editor && !raw && !!comments?.key(e),
+      comment: (a) => !editor && !raw && !!comments?.act(a),
+      commentable: () => !editor && !raw && !!comments,
       setText(fresh) {
         text = fresh;
         paintMeta();
@@ -16214,7 +16256,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     { id: "fp-raw", group: "File page", title: "Raw or rendered", keys: ["r"], scope: "file" },
     { id: "fp-edit", group: "File page", title: "Edit", keys: ["e"], scope: "file" },
     { id: "fp-find", group: "File page", title: "Find in file", keys: ["/"], scope: "file" },
-    { id: "fp-comment", group: "File page", title: "Comment on selection", keys: ["c"], scope: "file" },
+    { id: "fp-comment", group: "File page", title: "Comment on the selection or paragraph", keys: ["c"], scope: "file" },
+    { id: "fp-cm-reply", group: "File page", title: "Reply to the comment", keys: ["\u21E7R"], scope: "file" },
     { id: "fp-toc", group: "File page", title: "Contents", keys: ["\u21E7O"], scope: "file", own: true },
     { id: "fp-width", group: "File page", title: "Reading width", keys: ["\u21E7W"], scope: "file", own: true },
     { id: "fp-comments", group: "File page", title: "Comments panel", keys: ["\u21E7C"], scope: "file" },
@@ -18691,7 +18734,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     "fp-toc": UI_ICON.contents,
     "fp-width": UI_ICON.fit,
     "fp-comments": UI_ICON.comment,
-    "fp-comment": UI_ICON.comment
+    "fp-comment": UI_ICON.comment,
+    "fp-cm-reply": UI_ICON.comment,
+    "fp-cm-step": UI_ICON.comment
   };
   var iconFor = (d) => ACTION_ICON[d.id] ?? PI[GROUPS.find((g) => g.name === d.group)?.icon ?? "apps"] ?? "";
   function score(text, q) {
@@ -19532,6 +19577,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("new-note", () => app.newNote(), () => !!app.settings.notesRoot);
     bind("fp-raw", () => app.filePage?.toggleRaw(), () => !!app.filePage);
     bind("fp-edit", () => app.filePage?.edit(), () => !!app.filePage);
+    const commentable = () => !!app.filePage?.commentable();
+    bind("fp-comment", () => app.filePage?.comment("comment"), commentable);
+    bind("fp-cm-reply", () => app.filePage?.comment("reply"), commentable);
+    bind("fp-comments", () => app.filePage?.comment("panel"), commentable);
+    bind("fp-cm-step", () => app.filePage?.comment("next"), commentable);
     bind("fp-find", () => document.getElementById("fe-ff-q")?.focus(), () => app.fileMode);
     bind("to-path", () => {
       focusFirst("#fe-bc", "a.fe-crumb:last-of-type, .fe-crumb.cur, a");

@@ -133,7 +133,7 @@ const ACTION_ICON: Record<string, string> = {
   'filter-panel': PI.search, hidden: UI_ICON.eye, 'zoom-in': UI_ICON.zoomIn, 'zoom-out': UI_ICON.zoomOut, 'zoom-reset': UI_ICON.actualSize,
   'tab-keep': UI_ICON.tab, 'tab-close': UI_ICON.close, 'tab-pin': UI_ICON.pin, 'tab-step': UI_ICON.next, 'tab-reopen': UI_ICON.reset, 'tab-left': UI_ICON.prev, 'tab-right': UI_ICON.next, 'tab-list': UI_ICON.list,
   'pv-dock': UI_ICON.preview, 'pv-copy': UI_ICON.copy, 'pv-ask': UI_ICON.ai, 'pv-tab': UI_ICON.tab, 'pv-open': UI_ICON.external,
-  'fp-raw': UI_ICON.fmtCode, 'fp-edit': UI_ICON.rename, 'fp-find': PI.search, 'fp-toc': UI_ICON.contents, 'fp-width': UI_ICON.fit, 'fp-comments': UI_ICON.comment, 'fp-comment': UI_ICON.comment,
+  'fp-raw': UI_ICON.fmtCode, 'fp-edit': UI_ICON.rename, 'fp-find': PI.search, 'fp-toc': UI_ICON.contents, 'fp-width': UI_ICON.fit, 'fp-comments': UI_ICON.comment, 'fp-comment': UI_ICON.comment, 'fp-cm-reply': UI_ICON.comment, 'fp-cm-step': UI_ICON.comment,
 };
 const iconFor = (d: KeyDef) => ACTION_ICON[d.id] ?? PI[GROUPS.find(g => g.name === d.group)?.icon ?? 'apps'] ?? '';
 

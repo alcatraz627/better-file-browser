@@ -116,7 +116,11 @@ export interface CommentsPanel {
   marks(): { id: string; offset: number; length: number }[];
   /** A key on the file page: comment on the selection, show the panel, move between threads. */
   key(e: KeyboardEvent): boolean;
+  /** The same actions by name, for the palette; false when there was nothing to act on. */
+  act(a: CommentAction): boolean;
 }
+
+export type CommentAction = 'comment' | 'reply' | 'panel' | 'next' | 'prev';
 
 interface Draft extends SourceSpan { quote: string; attach?: string }
 
@@ -757,19 +761,57 @@ export function mountComments(o: {
     o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(next.id)}"]`)?.focus({ preventScroll: true });
   };
 
+  // With no words selected, a comment goes on the paragraph being read: the
+  // one holding focus, else the first one showing at the top of the page.
+  const readingBlock = (): HTMLElement | null => {
+    const at = document.activeElement?.closest<HTMLElement>('[data-sl]');
+    if (at && o.page.contains(at)) return at;
+    const top = o.page.getBoundingClientRect().top + 8;
+    return [...o.page.querySelectorAll<HTMLElement>('[data-sl]')]
+      .find(b => !b.querySelector('[data-sl]') && b.getBoundingClientRect().bottom > top && b.textContent!.trim()) ?? null;
+  };
+  const act = (a: CommentAction): boolean => {
+    if (a === 'panel') { o.toggle(); return true; }
+    if (a === 'next' || a === 'prev') { step(a === 'next' ? 1 : -1); return placed().length > 0; }
+    if (a === 'comment') {
+      const s = selected();
+      if (s) { void startDraft(s.span); return true; }
+      const block = readingBlock();
+      if (!block) return false;
+      const r = document.createRange();
+      r.selectNodeContents(block);
+      const span = sourceSpan(o.page, o.text(), r);
+      if (!span) { o.status('This part of the page cannot take a comment'); return true; }
+      void startDraft(span);
+      return true;
+    }
+    // Reply: the open thread's box, else the first thread from here on.
+    if (!active || !threads.some(t => t.id === active && t.status !== 'done')) {
+      if (!placed().length) { o.status('No open comments to reply to'); return true; }
+      step(1);
+    }
+    o.reveal();
+    const ta = o.box.querySelector<HTMLTextAreaElement>(`textarea[data-for="${CSS.escape(active)}"]`);
+    ta?.focus();
+    ta?.scrollIntoView({ block: 'nearest' });
+    return true;
+  };
+
   paint();
   void load();
   return {
+    act,
     redraw,
     open: () => threads.filter(t => t.status !== 'done').length,
     show: (id?: string) => { if (id) focusThread(id); else paint(); },
     marks: () => placed().map(t => ({ id: t.id, offset: t.place.offset!, length: t.place.length })),
     key: e => {
       if (e.metaKey || e.ctrlKey) return false;
-      if (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { step(e.key === 'ArrowDown' ? 1 : -1); return true; }
+      if (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { act(e.key === 'ArrowDown' ? 'next' : 'prev'); return true; }
       if (e.altKey) return false;
-      if (e.key === 'c') { const s = selected(); if (!s) return false; void startDraft(s.span); return true; }
-      if (e.key === 'C') { o.toggle(); return true; }
+      if (e.key === 'c') return act('comment');
+      if (e.key === 'C') return act('panel');
+      if (e.key === 'R') return act('reply');
       if (e.key === 'Escape' && (active || draft)) { draft = null; active = ''; paint(); redraw(); return true; }
       return false;
     },
