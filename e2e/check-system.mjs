@@ -62,17 +62,20 @@ function dupSelectors(css) {
 }
 
 // The icon-button classes that moved onto the button part keep only where
-// they sit and when they show; size, colour and borders come from .btn. A
-// tab's buttons over its label (:not(.on)) keep their backing on purpose, and
-// a glyph drawn inside one (::before) is content, not the button.
-const OLD_BUTTONS = /\.(fe-ibtn|fe-lens-ib|fe-ask-ib|fe-act-btn|fe-cm-ib|fe-cm-x|fe-tab-x|fe-tab-more|fe-dlg-close|fe-rm-btn|fe-tag-btn|fe-ask-send|fe-nt-props|fe-nt-tab)\b/;
-const PAINT = /^\s*(width|height|min-width|min-height|padding[\w-]*|border(-[\w-]+)?|background(-[\w-]+)?|color|font(-[\w-]+)?|line-height|cursor)\s*:/;
+// they sit and when they show; size, colour, borders, display and transitions
+// come from .btn. So does any rule that reaches a .btn through its context
+// (`#bar .btn{height:…}`). Two exceptions: a tab's buttons over its label
+// keep their backing, and a glyph drawn inside a button (::before) is content.
+const OLD_BUTTONS = /\.(fe-ibtn|fe-lens-ib|fe-ask-ib|fe-act-btn|fe-cm-ib|fe-cm-x|fe-tab-x|fe-tab-more|fe-dlg-close|fe-rm-btn|fe-tag-btn|fe-ask-send|fe-nt-props|fe-nt-tab|fe-md-copy|fe-ask-h-del|fe-st-rule-del)(?![\w-])/;
+const CONTEXT_BTN = /\S\s+[^\s>+~]*\.btn(?![\w-])[^\s]*$|\S\s*>\s*[^\s]*\.btn(?![\w-])[^\s]*$/;
+const TAB_BACKING = /^\.fe-tab:not\(\.on\) \.fe-tab-(x|more)(:hover)?$/;
+const PAINT = /^\s*(width|height|min-width|min-height|padding[\w-]*|border(-[\w-]+)?|background(-[\w-]+)?|color|font(-[\w-]+)?|line-height|cursor|transition|place-items|display\s*:\s*(inline-)?(grid|flex|block))\s*:?/;
 function buttonPaint(css) {
   let n = 0;
   for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const sels = m[1].split(',').map(s => s.trim()).filter(Boolean);
-    if (!sels.length || !sels.every(s => OLD_BUTTONS.test(s)) || sels.some(s => s.includes(':not(.on)') || s.includes('::'))) continue;
-    n += m[2].split(';').filter(d => PAINT.test(d)).length;
+    const hit = sels.filter(s => !s.includes('::') && !TAB_BACKING.test(s) && (OLD_BUTTONS.test(s) || CONTEXT_BTN.test(s)));
+    if (hit.length) n += m[2].split(';').filter(d => PAINT.test(d)).length;
   }
   return n;
 }

@@ -54,9 +54,9 @@ export function initMarkdownUi(toast: Toast): void {
         if (!ok) { toast('Copy failed'); return; }
         // A green check stands in for the icon for 3s; a second copy restarts it.
         clearTimeout(Number(copy.dataset.timer));
-        copy.classList.add('copied');
+        copy.dataset.done = '';
         copy.innerHTML = UI_ICON.check;
-        copy.dataset.timer = String(window.setTimeout(() => { copy.classList.remove('copied'); copy.innerHTML = UI_ICON.copy; }, 3000));
+        copy.dataset.timer = String(window.setTimeout(() => { delete copy.dataset.done; copy.innerHTML = UI_ICON.copy; }, 3000));
       });
       return;
     }

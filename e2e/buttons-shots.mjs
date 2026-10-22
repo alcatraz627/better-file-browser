@@ -18,6 +18,7 @@ try {
   await h.store.set('bfb-saved-v1', [{ path: h.fixture + '/readme.md', label: 'readme.md', tags: ['work'] }, { path: h.fixture + '/nested/', label: 'nested' }]);
   await h.store.edit('bfb-settings-v1', s => ({ ...s, editableFolders: [h.fixture] }));
   await h.store.set('bfb-comments-filter-v1', 'open');
+  await h.store.set('bfb-preview-layout-v1', { mode: 'side', sideW: 520 });
   const page = await h.open();
   await page.setViewport({ width: 1400, height: 900 });
   const clip = async (name, sel, pad = 10) => {
@@ -68,6 +69,20 @@ try {
   const v2 = await page.evaluate(() => ({ view: document.querySelector('#fe').dataset.view, on: document.querySelector('#fe-view-group .fe-seg-b.on')?.dataset.v }));
   check(v2.view === v1.view && v2.on === v1.view, `the view and its switch survive a reload: ${JSON.stringify(v2)}`);
   await page.click(`#fe-view-group [data-v="details"]`); await sleep(250);
+
+  // Row actions float over the name, so they are opaque.
+  await page.keyboard.press('Escape'); await sleep(150);
+  await page.hover('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td.c-nm'); await sleep(250);
+  const acts = await page.evaluate(() => [...document.querySelectorAll('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) .fe-act-btn')].map(b => getComputedStyle(b).backgroundColor));
+  check(acts.length > 0 && acts.every(c => !/rgba\(0, 0, 0, 0\)|transparent/.test(c)), `row actions sit on a solid fill: ${JSON.stringify(acts)}`);
+  await clip('buttons-row-actions', '#fe-tbody tr[data-idx]:has(a[href$="readme.md"])');
+  // Docked, the preview header's text buttons become square icon buttons.
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) td.c-nm')).click();
+  await page.waitForSelector('#fe-qlook.side', { timeout: 5000 }); await sleep(300);
+  const hdr = await page.evaluate(() => [...document.querySelectorAll('#fe-ql-hdr > .btn')].filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return { id: b.id, icon: b.hasAttribute('data-icon'), w: Math.round(r.width), h: Math.round(r.height) }; }));
+  check(hdr.length > 0 && hdr.every(b => b.icon && b.w === b.h), `the docked preview header is square icon buttons: ${JSON.stringify(hdr)}`);
+  await clip('buttons-docked-header', '#fe-ql-hdr');
+  await page.keyboard.press('Escape'); await sleep(250);
 
   await page.evaluate(() => document.querySelector('#fe-rail-ask')?.click()); await sleep(400);
   await clip('buttons-ask', '#fe-lenses .fe-lens:not([hidden])');

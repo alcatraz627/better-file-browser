@@ -50,7 +50,7 @@ try {
       const tabs = modal.querySelector('.fe-dlg-tabs');
       const icons = [...tabs.querySelectorAll('.fe-dlg-tab svg')].length;
       const hints = [...tabs.querySelectorAll('.fe-dlg-tab i')].map(el => el.textContent.trim());
-      const buttons = [...modal.querySelectorAll('button.fe-pbn')].filter(el => el.offsetParent);
+      const buttons = [...modal.querySelectorAll('.fe-dlg-pane button.btn')].filter(el => el.offsetParent);
       const input = modal.querySelector('#fe-st-notes-root');
       return { scroll: tabs.scrollWidth - tabs.clientWidth, icons, hints, buttons: buttons.every(el => !!el.querySelector('svg')),
         bg: getComputedStyle(input).backgroundColor, selectBg: getComputedStyle(modal.querySelector('.fe-st-select')).backgroundColor };

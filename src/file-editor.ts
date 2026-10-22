@@ -95,7 +95,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       <button type="button" class="btn" id="fe-fe-diag" data-act="diag" hidden></button>
       ${fmt ? `<span class="fe-seg fe-fe-modes" role="group" aria-label="View">${MODES.map(m =>
         `<button type="button" class="fe-seg-b" data-mode="${m.id}" title="${m.hint} (⌘⇧P cycles)">${m.label}</button>`).join('')}</span>` : ''}
-      <button type="button" class="btn" data-variant="solid" data-act="done" title="Back to reading (Esc)">Done</button>
+      <button type="button" class="btn" data-variant="solid" data-shape="pill" data-act="done" title="Back to reading (Esc)">Done</button>
     </div>`;
   const ta = box.querySelector<HTMLTextAreaElement>('#fe-fe-ta')!;
   const paintEl = box.querySelector<HTMLElement>('#fe-fe-paint')!;

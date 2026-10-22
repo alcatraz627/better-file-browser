@@ -45,8 +45,7 @@ export const UI_CSS = `
 .fe-set-h-acts{display:inline-flex;align-items:center;gap:6px}
 
 /* Icon button: no fill until hovered. */
-.fe-ibtn{display:inline-grid;flex:none;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-ibtn{flex:none}
 
 
 
@@ -155,7 +154,6 @@ export const UI_CSS = `
 .fe-st-rule-pattern:focus{border-color:var(--ac)}
 .fe-st-rule-pattern.bad{border-color:var(--nc-red);color:var(--nc-red)}
 .fe-rule-n{min-width:26px;padding:2px 6px;border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
-.fe-st-rule-del:hover{color:var(--nc-red)}
 .fe-rule-pop{position:fixed;z-index:610;width:330px;padding:12px;border-radius:var(--pop-r);display:flex;flex-direction:column;gap:12px;
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-rp-sec{display:flex;flex-direction:column;gap:6px}

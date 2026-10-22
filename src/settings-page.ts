@@ -16,7 +16,7 @@ const wide = (label: string, desc: string, ctl: string) =>
 const card = (title: string, rows: string, action = '') =>
   `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
 const sw = (id: string, title: string) => switchHtml({ id, title });
-const iconBtn = (id: string, icon: string, title: string) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon data-size="sm" title="${title}" aria-label="${title}">${icon}</button>`;
+const iconBtn = (id: string, icon: string, title: string) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon title="${title}" aria-label="${title}">${icon}</button>`;
 const note = (text: string, id = '') => `<p class="fe-set-note"${id ? ` id="${id}"` : ''}>${text}</p>`;
 
 // A small window drawn in the colours it picks, so the choice shows what it

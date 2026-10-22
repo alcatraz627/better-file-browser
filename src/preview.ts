@@ -262,6 +262,12 @@ function applyLayout(): void {
   const dialog = document.getElementById('fe-ql-dialog')!;
   const side = layout.mode === 'side';
   overlay.classList.toggle('side', side);
+  // Docked, the header's text buttons show their icon alone; their title names them.
+  overlay.querySelectorAll<HTMLElement>('#fe-ql-hdr > .btn').forEach(b => {
+    if (!b.querySelector(':scope > span')) return;
+    if (side) { b.dataset.icon = ''; b.dataset.dockIcon = ''; }
+    else if ('dockIcon' in b.dataset) { delete b.dataset.icon; delete b.dataset.dockIcon; }
+  });
   const host = side ? document.getElementById('fe-body') : document.getElementById('fe');
   if (host && overlay.parentElement !== host) host.appendChild(overlay);
   // Remembered sizes are pixels from a wider window; cap them by the window

@@ -60,44 +60,46 @@
   --ac:#141414;--tx-on-ac:#ffffff;--dir:#666666;
 }
 /* Button, the one button part (docs/system/button.md). Class btn.
-   data-variant: plain (the default), shade, outline, solid.
+   data-variant: plain (the default), shade, surface (a solid fill for a
+   button floating over content), outline, solid.
    data-size: xs 18, sm 22, md 28 (the default), lg 32.
    data-icon: an icon alone, square at its size and round.
+   data-shape="pill": a text button with round ends, for a pill bar.
    data-tone: danger (red on hover), accent (accent text at rest).
    On: .on, .active, aria-pressed or aria-expanded="true". Busy:
-   aria-busy="true" (a spinner in place of the icon). Done: data-done (green
-   text; the caller removes it after a moment). */
+   aria-busy="true" (a spinner in place of the content). Done: data-done
+   (green text; the caller removes it after a moment). A disabled button
+   keeps its rest look and loses every hover. */
 .btn{--btn-h:var(--ctl-md);display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-3);height:var(--btn-h);padding:0 var(--sp-4);flex-shrink:0;
   border:1px solid transparent;border-radius:var(--row-r);background:none;color:var(--mt);font:inherit;font-size:var(--type-ui);
   line-height:1;white-space:nowrap;text-decoration:none;cursor:pointer;box-sizing:border-box;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
-.btn[data-size="xs"]{--btn-h:var(--ctl-xs);padding:0 var(--sp-2);font-size:var(--type-micro)}
-.btn[data-size="sm"]{--btn-h:var(--ctl-sm);padding:0 var(--sp-3);font-size:var(--type-small)}
-.btn[data-size="lg"]{--btn-h:var(--ctl-lg);padding:0 var(--sp-5)}
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),opacity var(--t-fast) var(--ease)}
+.btn[hidden]{display:none}
+.btn[data-size="xs"]{--btn-h:var(--ctl-xs);--btn-ic:10px;padding:0 var(--sp-2);font-size:var(--type-micro)}
+.btn[data-size="sm"]{--btn-h:var(--ctl-sm);--btn-ic:12px;padding:0 var(--sp-3);font-size:var(--type-small)}
+.btn[data-size="lg"]{--btn-h:var(--ctl-lg);--btn-ic:16px;padding:0 var(--sp-5)}
 .btn[data-icon]{width:var(--btn-h);padding:0;border-radius:var(--r-full)}
+.btn[data-shape="pill"]{padding:0 var(--sp-5);border-radius:var(--r-full)}
 .btn svg{flex:none;width:var(--btn-ic,14px);height:var(--btn-ic,14px)}
-.btn[data-size="xs"]{--btn-ic:10px}
-.btn[data-size="sm"]{--btn-ic:12px}
-.btn[data-size="lg"]{--btn-ic:16px}
-.btn:hover{color:var(--tx);background:var(--hover)}
-.btn:active{background:var(--s3)}
 .btn[data-variant="shade"],.btn[data-shade]{background:var(--shade)}
-.btn[data-variant="shade"]:hover,.btn[data-shade]:hover{background:var(--shade2)}
+.btn[data-variant="surface"]{background:var(--s1);border-color:var(--bd)}
 .btn[data-variant="outline"]{border-color:var(--bd2)}
-.btn[data-variant="outline"]:hover{border-color:var(--mt)}
 .btn[data-variant="solid"]{background:var(--ac);color:var(--tx-on-ac)}
-.btn[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
-.btn[data-tone="danger"]:hover{color:var(--tone-danger)}
 .btn[data-tone="accent"]{color:var(--ac)}
+.btn:not(:disabled):not([aria-disabled="true"]):hover{color:var(--tx);background:var(--hover)}
+.btn:not(:disabled):not([aria-disabled="true"]):is([data-variant="shade"],[data-shade]):hover{background:var(--shade2)}
+.btn:not(:disabled):not([aria-disabled="true"])[data-variant="surface"]:hover{background:var(--s3)}
+.btn:not(:disabled):not([aria-disabled="true"])[data-variant="outline"]:hover{border-color:var(--mt)}
+.btn:not(:disabled):not([aria-disabled="true"])[data-variant="solid"]:hover{background:var(--ac);color:var(--tx-on-ac);filter:brightness(1.1)}
+.btn:not(:disabled):not([aria-disabled="true"])[data-tone="danger"]:hover{color:var(--tone-danger)}
 .btn.on,.btn.active,.btn[aria-pressed="true"],.btn[aria-expanded="true"]{color:var(--ac);background:var(--on)}
+.btn:not(:disabled):not([data-variant="solid"]):active{background:var(--s3)}
+.btn[data-variant="solid"]:not(:disabled):active{filter:brightness(.95)}
 .btn:disabled,.btn[aria-disabled="true"]{opacity:.45;cursor:default}
-.btn:not([data-variant]):disabled,.btn:not([data-variant])[aria-disabled="true"]{background:none;color:var(--mt)}
-.btn:disabled:hover,.btn[aria-disabled="true"]:hover{filter:none}
 .btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.btn[aria-busy="true"]{cursor:progress}
-.btn[aria-busy="true"] svg{visibility:hidden}
-.btn[aria-busy="true"]::after{content:'';position:absolute;width:var(--btn-ic,14px);height:var(--btn-ic,14px);border:2px solid currentColor;border-right-color:transparent;border-radius:var(--r-full);animation:fe-spin var(--t-slow) linear infinite}
-.btn[aria-busy="true"]{position:relative}
+.btn[aria-busy="true"]{position:relative;cursor:progress;color:transparent}
+.btn[aria-busy="true"] > *{visibility:hidden}
+.btn[aria-busy="true"]::after{content:'';position:absolute;width:var(--btn-ic,14px);height:var(--btn-ic,14px);border:2px solid var(--mt);border-right-color:transparent;border-radius:var(--r-full);animation:fe-spin var(--t-slow) linear infinite}
 .btn[data-done]{color:var(--tone-ok)}
 /* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
    input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
@@ -138,9 +140,8 @@ body{opacity:1!important}
 .fe-crumb.cur,.fe-crumb-file{flex-shrink:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-cg:has(.cur){flex-shrink:0;max-width:45%}
 .fe-cg:has(.cur) .fe-crumb.cur{max-width:100%}
-.fe-crumb-more{flex:none;background:none;border:0;color:var(--mt);cursor:pointer;font:inherit;font-size:var(--fs-md);padding:2px 6px;border-radius:4px;line-height:1}
+.fe-crumb-more{flex:none}
 #fe-bar .fe-crumb-more[hidden]{display:none}
-.fe-crumb-more:hover{background:var(--hover);color:var(--tx)}
 .fe-crumb:hover{background:var(--hover);color:var(--tx)}
 .fe-sep{color:var(--dm);font-size:var(--fs-sm);flex-shrink:0;padding:0 1px}
 #fe-bar .fe-crumb-dd{background:none;border:none;color:var(--dm);cursor:pointer;
@@ -248,7 +249,7 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-si-link:hover{color:var(--tx)}
 .fe-si-link.active{color:var(--ac)}
 .fe-si-link svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
-.fe-rm-btn{opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
+.fe-rm-btn{opacity:0;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
 
 #fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 20px);margin:2px 10px 6px}
@@ -276,7 +277,7 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-sv-more{font-size:var(--fs-xs);color:var(--dm);line-height:6px}
 .fe-pl-tags{display:none;font-size:var(--fs-sm);color:var(--mt);min-width:60px;max-width:110px;white-space:nowrap;overflow:hidden}
 .fe-pl-tags.show{display:inline-block}
-.fe-tag-btn{opacity:0;transition:opacity .1s,color .1s;flex-shrink:0}
+.fe-tag-btn{opacity:0;flex-shrink:0}
 .fe-bm-item:hover .fe-tag-btn{opacity:1}
 
 /* clip, not hidden: focusing a control past the edge must not scroll the pane sideways.
@@ -290,7 +291,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-tb-sep{flex:none;width:1px;height:18px;margin:0 4px;background:var(--bd)}
 #fe-sg-cur{font-variant-numeric:tabular-nums}
 /* One "on" look across the toolbar: the accent tint the chosen view wears. */
-#fe-toolbar #fe-tb-right > button.on{color:var(--ac);background:color-mix(in srgb,var(--ac) 18%,transparent)}
 /* Detail: a small slider between a big-square and a dense-rows icon, its stop named beside it. */
 #fe-density-wrap{display:flex;align-items:center;gap:6px;color:var(--dm)}
 .fe-density-end{display:inline-grid;place-items:center}
@@ -325,8 +325,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-panel-gap{margin-left:14px}
 #fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px}
 #fe-find-depth .fe-dd-btn{min-width:100px}
-#fe-filter-bar .btn{height:28px}
-#fe-filter-bar .btn svg{width:12px;height:12px}
 #fe-find-status{font-size:var(--fs-sm);color:var(--mt);margin-left:4px}
 .fe-view .fe-si-link svg{color:var(--ac);opacity:.9}
 #fe-scroll{flex:1;overflow-y:auto;transform-origin:top left}
@@ -530,9 +528,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe[data-view="list"] .fe-tile .fe-acts{
   position:absolute;right:6px;top:50%;transform:translateY(-50%);
   background:none;border-radius:0;padding:0;width:auto;left:auto}
-/* Row actions float over the name, so they sit on a solid surface; small circles like every icon button. */
-.fe-act-btn{display:inline-grid;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 
 .fe-row td.c-nm{position:relative}
 #fe-statusbar{display:flex;align-items:center;gap:14px;min-height:30px;padding:0 14px;
@@ -610,7 +605,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-tx{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
 .fe-dlg-tx b{font-size:var(--fs-xl);font-weight:600;line-height:1.2;color:var(--tx);letter-spacing:-.01em}
 .fe-dlg-tx i{font-size:var(--fs-sm);line-height:1.2;font-style:normal;color:var(--dm)}
-.fe-dlg-close{display:inline-grid;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
 
 .fe-dlg-tabs{display:flex;gap:3px;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex:none;align-items:stretch;overflow-x:auto}
 .fe-dlg-tab{display:flex;flex-direction:column;gap:2px;background:none;border:none;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
@@ -658,9 +652,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-rule-label{text-align:center}
 .fe-st-rule-color{border:1px solid var(--bd);background:none;cursor:pointer;
   width:28px;height:24px;padding:1px;border-radius:4px;flex-shrink:0}
-.fe-st-rule-del{background:none;border:none;color:var(--dm);cursor:pointer;
-  padding:3px 5px;font-size:var(--fs-md);border-radius:3px;line-height:1;transition:color .1s,background .1s;text-align:center}
-.fe-st-rule-del:hover{color:#f85149;background:var(--hover)}
 .fe-st-rules-empty{font-size:var(--fs-md);color:var(--dm);padding:8px 2px;font-style:italic}
 #fe-st-ai-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:11px 13px}
 .fe-st-ai-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
@@ -736,13 +727,14 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
 .fe-tab-head{overflow:hidden;white-space:pre;min-width:0}
 .fe-tab-tail{white-space:nowrap;flex-shrink:0}
-.fe-tab-x,.fe-tab-more{display:inline-grid;opacity:0;transition:opacity var(--t-fast),background var(--t-fast)}
+.fe-tab-x,.fe-tab-more{opacity:0}
 
 .fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
 
 /* A tab you are not on gives its name the whole width: its menu and close
    buttons float over the end of the name, and only while it is hovered. */
-.fe-tab:not(.on) .fe-tab-x,.fe-tab:not(.on) .fe-tab-more{position:absolute;top:50%;margin-top:-9px;background:var(--s3)}
+.fe-tab:not(.on) .fe-tab-x,.fe-tab:not(.on) .fe-tab-more{position:absolute;top:50%;margin-top:calc(var(--btn-h) / -2);background:var(--s3)}
+.fe-tab:not(.on) .fe-tab-x:hover,.fe-tab:not(.on) .fe-tab-more:hover{background:var(--bd2)}
 .fe-tab:not(.on) .fe-tab-x{right:6px}
 .fe-tab:not(.on) .fe-tab-more{right:26px}
 .fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-x,.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-more{visibility:hidden}
@@ -803,8 +795,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-cm-filters button{flex:1;border:0;background:none;border-radius:8px;padding:3px 4px;font-size:var(--fs-sm);color:var(--mt);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap}
 .fe-cm-filters button svg{width:11px;height:11px;opacity:.75}
 .fe-cm-fn{color:var(--dm)}
-.fe-cm-ib{display:inline-grid;flex:none;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-cm-ib{flex:none}
 
 .fe-cm-filters button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
 .fe-cm-group{display:flex;align-items:center;gap:6px;margin:14px 2px 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm);cursor:default}
@@ -872,10 +863,9 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
 .fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--on)}
 .fe-cm-tools{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin-top:6px}
-.fe-cm-tools .btn svg{width:12px;height:12px}
 .fe-cm-grow{flex:1}
 .fe-cm-date{height:22px;padding:0 6px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-sm);color-scheme:light dark}
-.fe-cm-x{display:inline-flex;margin:0 -3px 0 1px}
+.fe-cm-x{margin:0 -3px 0 1px}
 
 /* The floating Comment button above a selection on the page. */
 #fe-cm-add{position:fixed;z-index:30;height:28px;padding:0 10px;border-radius:999px;color:var(--tx);
@@ -957,7 +947,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fe-view{padding:0;max-width:none}
 #fe-fe-pill{position:absolute;top:12px;right:18px;z-index:5;display:flex;align-items:center;gap:2px;padding:3px;
   background:var(--s1);border:1px solid var(--bd);border-radius:999px;box-shadow:0 6px 20px rgb(0 0 0 / .25)}
-#fe-fe-pill .btn[data-variant="solid"]{border-radius:999px;padding:0 12px}
 #fe-fe-state{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 10px;font-size:var(--fs-md);color:var(--mt);
   transition:color var(--t-fast) var(--ease)}
 #fe-fe-state.saved{color:var(--green)}
@@ -1030,11 +1019,11 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-nt-flags{display:inline-flex;align-items:center;gap:4px;flex:none}
 .fe-nt-flags svg{width:12px;height:12px}
 .fe-nt-pin{color:var(--gold)}
-.fe-nt-props{display:grid;opacity:0;flex:none}
+.fe-nt-props{opacity:0;flex:none}
 .fe-nt-item:hover .fe-nt-props,.fe-nt-props:focus-visible{opacity:1}
 
 .fe-nt-item .fe-si-link{padding-left:14px}
-.fe-nt-tab{display:grid;opacity:0;flex:none}
+.fe-nt-tab{opacity:0;flex:none}
 .fe-nt-item:hover .fe-nt-tab,.fe-nt-tab:focus-visible{opacity:1}
 
 .fe-sh a{color:inherit;text-decoration:none}
@@ -1045,7 +1034,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-qlook.side #fe-ql-hdr > button > span,#fe-qlook.side #fe-ql-hdr > a:not(#fe-ql-name) > span{display:none}
 #fe-qlook.side #fe-ql-hdr{gap:5px;padding:8px 10px}
 /* Docked, the header's labelled buttons lose their labels and become icon circles. */
-#fe-qlook.side #fe-ql-hdr > button,#fe-qlook.side #fe-ql-hdr > #fe-ql-open{width:26px;padding:0;border-radius:50%}
 #fe-qlook.side #fe-ql-hdr > *{flex-shrink:0}
 #fe-qlook.side #fe-ql-name,#fe-qlook.side #fe-ql-meta{flex-shrink:1;min-width:0}
 #fe-qlook.side #fe-ed-bar > button > span{display:none}
@@ -1179,12 +1167,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md-code{border:1px solid var(--bd);border-radius:8px;background:color-mix(in srgb,var(--card),var(--tx) 3.5%);overflow:hidden}
 .fe-md-code-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px 0 12px;background:none}
 .fe-md-lang{font:600 var(--fs-sm)/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
-.fe-md-copy{position:relative;display:inline-grid;place-items:center;width:24px;height:24px;padding:0;border:0;border-radius:50%;
-  background:none;color:var(--dm);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-md-copy:hover{background:var(--shade);color:var(--tx)}
-.fe-md-copy:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-md-copy svg{width:14px;height:14px}
-.fe-md-copy.copied{color:var(--green)}
 .fe-md-pre{background:var(--s1);border:1px solid var(--bd);border-radius:6px;padding:.75em 1em;
   overflow-x:auto;font-family:var(--mono);font-size:.86em;line-height:1.55;white-space:pre;color:var(--tx)}
 .fe-md-code .fe-md-pre{border:none;border-radius:0;margin:0;padding-top:.4em;background:none}
@@ -1341,8 +1323,7 @@ button.fe-si{width:auto;display:flex}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
 .fe-lens-tools{display:flex;align-items:center;gap:2px;padding:2px 6px 8px}
-.fe-lens-ib{flex:none;display:inline-grid;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-lens-ib{flex:none}
 
 a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-lens-box{position:relative;flex:1;min-width:0;margin-left:4px}
@@ -1361,7 +1342,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-pl-meta svg{width:11px!important;height:11px!important;opacity:1}
 .fe-pl-item:hover .fe-pl-meta,.fe-pl-item:focus-within .fe-pl-meta{display:none}
 .fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{display:none;opacity:1}
-.fe-pl-item:hover .fe-tag-btn,.fe-pl-item:hover .fe-rm-btn,.fe-pl-item:focus-within .fe-tag-btn,.fe-pl-item:focus-within .fe-rm-btn{display:inline-grid}
 
 .fe-pl-item:has(.fe-pl-hit){flex-wrap:wrap}
 .fe-pl-hit{flex-basis:100%;padding:0 0 5px 29px;margin-top:-4px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1542,7 +1522,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .dot.ready{background:var(--green)}
 .dot.cold{background:var(--gold)}
 .dot.down,.dot.unavailable{background:var(--nc-red)}
-.fe-ask-ib{position:relative;display:inline-grid}
+.fe-ask-ib{position:relative}
 
 .fe-ask-n{position:absolute;top:1px;right:0;min-width:14px;height:14px;padding:0 3px;border-radius:999px;font-size:10px;line-height:14px;text-align:center;background:var(--ac);color:var(--tx-on-ac)}
 .fe-ask-n:empty{display:none}
@@ -1575,8 +1555,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-ctx{flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--dm)}
 .fe-ask-ctx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-ask-ctx svg{width:11px;height:11px;flex:none}
-.fe-ask-send{flex:none;display:inline-grid}
-.fe-ask-send:disabled{opacity:.4}
+.fe-ask-send{flex:none}
 
 .fe-ask-send.stop svg{display:none}
 .fe-ask-send.stop::before{content:'';width:9px;height:9px;border-radius:2px;background:currentColor}
@@ -1587,10 +1566,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-h-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:0;background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
 .fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md)}
 .fe-ask-h-m{font-size:var(--fs-xs);color:var(--dm)}
-.fe-ask-h-del{flex:none;border:0;background:none;color:var(--dm);cursor:pointer;padding:6px;border-radius:6px;opacity:0}
+.fe-ask-h-del{opacity:0}
 .fe-ask-h:hover .fe-ask-h-del,.fe-ask-h-del:focus-visible{opacity:1}
-.fe-ask-h-del:hover{color:var(--nc-red);background:var(--hover)}
-.fe-ask-h-del svg{width:12px;height:12px}
 .fe-ask-h-none{margin:6px 8px;font-size:var(--fs-sm);color:var(--dm)}
 /* Review fixes: Settings follows the page order (panel a step below, cards
    on top), fields share one look, path chevrons show on hover only, and
@@ -1690,7 +1667,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   #fe-page > .fe-diag{margin:12px 14px 0}
 }
 #fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none!important}
-.fe-st-rule-del:hover{color:var(--nc-red)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){
   #fe *,#fe *::before,#fe *::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
@@ -1775,8 +1751,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-h-acts{display:inline-flex;align-items:center;gap:6px}
 
 /* Icon button: no fill until hovered. */
-.fe-ibtn{display:inline-grid;flex:none;
-  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-ibtn{flex:none}
 
 
 
@@ -1885,7 +1860,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-st-rule-pattern:focus{border-color:var(--ac)}
 .fe-st-rule-pattern.bad{border-color:var(--nc-red);color:var(--nc-red)}
 .fe-rule-n{min-width:26px;padding:2px 6px;border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
-.fe-st-rule-del:hover{color:var(--nc-red)}
 .fe-rule-pop{position:fixed;z-index:610;width:330px;padding:12px;border-radius:var(--pop-r);display:flex;flex-direction:column;gap:12px;
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-rp-sec{display:flex;flex-direction:column;gap:6px}
@@ -2057,6 +2031,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     warm: svg('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>'),
     unload: svg('<path d="M2 12h20M12 2v20m-8.5-15L20.5 17M20.5 7 3.5 17M9 4l3 2 3-2M9 20l3-2 3 2"/>'),
     close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
+    more: svg('<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>'),
     // Text formatting in the note editor.
     fmtBold: svg('<path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/>'),
     fmtItalic: svg('<path d="M19 4h-9M14 20H5M15 4 9 20"/>'),

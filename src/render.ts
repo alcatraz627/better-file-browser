@@ -62,15 +62,15 @@ export function itemActions(e: Entry, rawPath: string): string {
   if (e.isParent) return '';
   const dPath = esc(fullPath(rawPath, e)), dName = esc(e.name);
   const pvBtn = canPreview(e)
-    ? `<button class="btn fe-act-btn fe-act-pv" data-icon data-size="sm" title="Preview (Space)" data-pv="${dName}">
+    ? `<button class="btn fe-act-btn fe-act-pv" data-icon data-size="sm" data-variant="surface" title="Preview (Space)" data-pv="${dName}">
         <svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
       </button>`
     : '';
   return `<span class="fe-acts" data-path="${dPath}" data-name="${dName}">
-    ${pvBtn}<button class="btn fe-act-btn fe-act-cp" data-icon data-size="sm" title="Copy full path" data-copy="${dPath}">
+    ${pvBtn}<button class="btn fe-act-btn fe-act-cp" data-icon data-size="sm" data-variant="surface" title="Copy full path" data-copy="${dPath}">
       <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
     </button>
-    <button class="btn fe-act-btn fe-act-nm" data-icon data-size="sm" title="Copy name" data-copy="${dName}">
+    <button class="btn fe-act-btn fe-act-nm" data-icon data-size="sm" data-variant="surface" title="Copy name" data-copy="${dName}">
       <svg width="11" height="11" viewBox="0 0 11 11"><path d="M2 3h7M2 6h7M2 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
     </button>
   </span>`;
