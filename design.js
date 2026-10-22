@@ -120,8 +120,9 @@ body{opacity:1!important}
   position:fixed;z-index:300;
   background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
   min-width:220px;max-width:340px;max-height:340px;overflow:hidden;
-  box-shadow:0 8px 24px #0009;display:none;padding:4px 0;
+  box-shadow:0 8px 24px #0009;padding:4px 0;
 }
+#fe-crumb-menu:not([data-layer]){display:none}
 .fe-dd-search-wrap{padding:5px 8px 7px;border-bottom:1px solid var(--bd)}
 .fe-dd-search{width:100%;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:4px 8px;border-radius:5px;font-size:var(--fs-md);outline:none;box-sizing:border-box}
@@ -2131,7 +2132,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     existing?.close("replaced");
     if (opts.group) stack.filter((l) => l.opts.group === opts.group).forEach((l) => l.close("replaced"));
     const host = document.getElementById("fe") ?? document.body;
-    if (!el.isConnected) host.appendChild(el);
+    const added = !el.isConnected;
+    if (added) host.appendChild(el);
     el.dataset.layer = opts.kind;
     if (opts.role) el.setAttribute("role", opts.role);
     if (opts.label) el.setAttribute("aria-label", opts.label);
@@ -2161,7 +2163,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
         anchor?.setAttribute("aria-expanded", "false");
         const hadFocus = el.contains(document.activeElement);
         if (topLayer && el.matches(":popover-open")) el.hidePopover();
-        el.remove();
+        el.removeAttribute("popover");
+        delete el.dataset.layer;
+        if (added) el.remove();
         if (hadFocus || document.activeElement === document.body) {
           const back = anchor ?? layer.returnTo;
           if (back?.isConnected) back.focus({ preventScroll: true });

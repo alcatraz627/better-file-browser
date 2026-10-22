@@ -11,6 +11,7 @@ import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { setSidebarShown } from './motion';
 import { setThemeMode } from './theme';
+import { openLayer, type Layer } from './layer';
 
 /// Interface size: the tab's own Chrome zoom, set through the extension's
 /// worker. A CSS zoom on the page scaled every menu's screen coordinates a
@@ -64,15 +65,16 @@ export function initChrome(app: App): void {
   // The button beside a crumb lists that folder with a filter box.
   const crumbMenu = el('fe-crumb-menu');
   let crumbMenuUrl: string | null = null;
-  function closeCrumbMenu(): void { crumbMenu.style.display = 'none'; crumbMenuUrl = null; }
+  let crumbLayer: Layer | null = null;
+  function closeCrumbMenu(): void { crumbLayer?.close('api'); }
   const bc = el('fe-bc'), more = el('fe-crumb-more');
-  const openCrumbMenu = (btn: HTMLElement, key: string, html: string) => {
-    const rect = btn.getBoundingClientRect();
-    crumbMenu.style.left    = Math.min(rect.left, window.innerWidth - 260) + 'px';
-    crumbMenu.style.top     = (rect.bottom + 4) + 'px';
-    crumbMenu.style.display = 'block';
-    crumbMenu.innerHTML     = html;
+  // False when the press that ended on `btn` had just closed this menu.
+  const openCrumbMenu = (btn: HTMLElement, key: string, html: string): boolean => {
+    crumbMenu.innerHTML = html;
+    crumbLayer = openLayer(crumbMenu, { kind: 'popover', anchor: btn, role: 'menu', group: 'menu', onClose: () => { crumbMenuUrl = null; } });
+    if (!crumbLayer.open) return false;
     crumbMenuUrl = key;
+    return true;
   };
   // Fold middle folders into "…" until the path fits: first the ones between
   // the top folder and the last two, then those too, so the current folder
@@ -147,7 +149,7 @@ export function initChrome(app: App): void {
   bc.addEventListener('click', async e => {
     if ((e.target as HTMLElement).closest('#fe-crumb-more')) {
       e.preventDefault(); e.stopPropagation();
-      if (crumbMenu.style.display !== 'none' && crumbMenuUrl === 'more') { closeCrumbMenu(); return; }
+      if (crumbLayer?.open && crumbMenuUrl === 'more') { closeCrumbMenu(); return; }
       const hid = [...bc.querySelectorAll<HTMLAnchorElement>('.fe-cg[hidden] .fe-crumb')];
       openCrumbMenu(more, 'more', `<div class="fe-dd-items">${hid.map(a => {
         const href = a.getAttribute('href')!, name = a.textContent!;
@@ -160,8 +162,8 @@ export function initChrome(app: App): void {
     if (!btn) return;
     e.preventDefault(); e.stopPropagation();
     const url = btn.dataset.url!;
-    if (crumbMenu.style.display !== 'none' && crumbMenuUrl === url) { closeCrumbMenu(); return; }
-    openCrumbMenu(btn, url, '<div class="fe-dd-spinner">Loading…</div>');
+    if (crumbLayer?.open && crumbMenuUrl === url) { closeCrumbMenu(); return; }
+    if (!openCrumbMenu(btn, url, '<div class="fe-dd-spinner">Loading…</div>')) return;
 
     const text = await fetchFileText(url)
       .catch(err => { console.error('[BFB] crumb dropdown failed:', url, err); return null; });
@@ -187,8 +189,7 @@ export function initChrome(app: App): void {
         });
       });
       ddSearch.addEventListener('keydown', ke => {
-        if (ke.key === 'Escape') { ke.stopPropagation(); closeCrumbMenu(); }
-        else if (ke.key === 'Enter') {
+        if (ke.key === 'Enter') {
           const first = [...crumbMenu.querySelectorAll<HTMLAnchorElement>('.fe-dd-item')]
             .find(it => it.style.display !== 'none');
           if (first) location.href = pageHref(first.href);
@@ -198,10 +199,6 @@ export function initChrome(app: App): void {
       console.error('[BFB] crumb dropdown parse error:', url, err);
       if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
     }
-  });
-  document.addEventListener('click', e => {
-    if (!crumbMenu.contains(e.target as Node) && !(e.target as HTMLElement).closest('.fe-crumb-dd,#fe-crumb-more'))
-      closeCrumbMenu();
   });
 
   // The hamburger shows or hides the sidebar; the setting and its Settings

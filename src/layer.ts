@@ -73,7 +73,10 @@ export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
   if (opts.group) stack.filter(l => l.opts.group === opts.group).forEach(l => l.close('replaced'));
 
   const host = document.getElementById('fe') ?? document.body;
-  if (!el.isConnected) host.appendChild(el);
+  // A layer the page already holds stays in place when it closes; one built
+  // for this opening leaves with it.
+  const added = !el.isConnected;
+  if (added) host.appendChild(el);
   el.dataset.layer = opts.kind;
   if (opts.role) el.setAttribute('role', opts.role);
   if (opts.label) el.setAttribute('aria-label', opts.label);
@@ -97,7 +100,9 @@ export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
       anchor?.setAttribute('aria-expanded', 'false');
       const hadFocus = el.contains(document.activeElement);
       if (topLayer && el.matches(':popover-open')) el.hidePopover();
-      el.remove();
+      el.removeAttribute('popover');
+      delete el.dataset.layer;
+      if (added) el.remove();
       // Focus goes back to where it came from when it was inside the layer.
       if (hadFocus || document.activeElement === document.body) {
         const back = (anchor ?? layer.returnTo) as HTMLElement | null;

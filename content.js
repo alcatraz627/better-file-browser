@@ -2517,7 +2517,8 @@ ${body}`;
     existing?.close("replaced");
     if (opts.group) stack.filter((l) => l.opts.group === opts.group).forEach((l) => l.close("replaced"));
     const host = document.getElementById("fe") ?? document.body;
-    if (!el2.isConnected) host.appendChild(el2);
+    const added = !el2.isConnected;
+    if (added) host.appendChild(el2);
     el2.dataset.layer = opts.kind;
     if (opts.role) el2.setAttribute("role", opts.role);
     if (opts.label) el2.setAttribute("aria-label", opts.label);
@@ -2547,7 +2548,9 @@ ${body}`;
         anchor?.setAttribute("aria-expanded", "false");
         const hadFocus = el2.contains(document.activeElement);
         if (topLayer && el2.matches(":popover-open")) el2.hidePopover();
-        el2.remove();
+        el2.removeAttribute("popover");
+        delete el2.dataset.layer;
+        if (added) el2.remove();
         if (hadFocus || document.activeElement === document.body) {
           const back = anchor ?? layer.returnTo;
           if (back?.isConnected) back.focus({ preventScroll: true });
@@ -4239,8 +4242,9 @@ body{opacity:1!important}
   position:fixed;z-index:300;
   background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
   min-width:220px;max-width:340px;max-height:340px;overflow:hidden;
-  box-shadow:0 8px 24px #0009;display:none;padding:4px 0;
+  box-shadow:0 8px 24px #0009;padding:4px 0;
 }
+#fe-crumb-menu:not([data-layer]){display:none}
 .fe-dd-search-wrap{padding:5px 8px 7px;border-bottom:1px solid var(--bd)}
 .fe-dd-search{width:100%;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:4px 8px;border-radius:5px;font-size:var(--fs-md);outline:none;box-sizing:border-box}
@@ -6399,18 +6403,19 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     });
     const crumbMenu = el("fe-crumb-menu");
     let crumbMenuUrl = null;
+    let crumbLayer = null;
     function closeCrumbMenu() {
-      crumbMenu.style.display = "none";
-      crumbMenuUrl = null;
+      crumbLayer?.close("api");
     }
     const bc = el("fe-bc"), more = el("fe-crumb-more");
     const openCrumbMenu = (btn, key, html) => {
-      const rect = btn.getBoundingClientRect();
-      crumbMenu.style.left = Math.min(rect.left, window.innerWidth - 260) + "px";
-      crumbMenu.style.top = rect.bottom + 4 + "px";
-      crumbMenu.style.display = "block";
       crumbMenu.innerHTML = html;
+      crumbLayer = openLayer(crumbMenu, { kind: "popover", anchor: btn, role: "menu", group: "menu", onClose: () => {
+        crumbMenuUrl = null;
+      } });
+      if (!crumbLayer.open) return false;
       crumbMenuUrl = key;
+      return true;
     };
     const fitCrumbs = () => {
       const groups = [...bc.querySelectorAll(".fe-cg")];
@@ -6507,7 +6512,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       if (e.target.closest("#fe-crumb-more")) {
         e.preventDefault();
         e.stopPropagation();
-        if (crumbMenu.style.display !== "none" && crumbMenuUrl === "more") {
+        if (crumbLayer?.open && crumbMenuUrl === "more") {
           closeCrumbMenu();
           return;
         }
@@ -6524,11 +6529,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       e.preventDefault();
       e.stopPropagation();
       const url = btn.dataset.url;
-      if (crumbMenu.style.display !== "none" && crumbMenuUrl === url) {
+      if (crumbLayer?.open && crumbMenuUrl === url) {
         closeCrumbMenu();
         return;
       }
-      openCrumbMenu(btn, url, '<div class="fe-dd-spinner">Loading\u2026</div>');
+      if (!openCrumbMenu(btn, url, '<div class="fe-dd-spinner">Loading\u2026</div>')) return;
       const text = await fetchFileText(url).catch((err) => {
         console.error("[BFB] crumb dropdown failed:", url, err);
         return null;
@@ -6556,10 +6561,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
           });
         });
         ddSearch.addEventListener("keydown", (ke) => {
-          if (ke.key === "Escape") {
-            ke.stopPropagation();
-            closeCrumbMenu();
-          } else if (ke.key === "Enter") {
+          if (ke.key === "Enter") {
             const first = [...crumbMenu.querySelectorAll(".fe-dd-item")].find((it) => it.style.display !== "none");
             if (first) location.href = pageHref(first.href);
           }
@@ -6568,10 +6570,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
         console.error("[BFB] crumb dropdown parse error:", url, err);
         if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
       }
-    });
-    document.addEventListener("click", (e) => {
-      if (!crumbMenu.contains(e.target) && !e.target.closest(".fe-crumb-dd,#fe-crumb-more"))
-        closeCrumbMenu();
     });
     const side = el("fe-side");
     const rz = el("fe-side-rz");

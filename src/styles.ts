@@ -118,8 +118,9 @@ body{opacity:1!important}
   position:fixed;z-index:300;
   background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
   min-width:220px;max-width:340px;max-height:340px;overflow:hidden;
-  box-shadow:0 8px 24px #0009;display:none;padding:4px 0;
+  box-shadow:0 8px 24px #0009;padding:4px 0;
 }
+#fe-crumb-menu:not([data-layer]){display:none}
 .fe-dd-search-wrap{padding:5px 8px 7px;border-bottom:1px solid var(--bd)}
 .fe-dd-search{width:100%;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:4px 8px;border-radius:5px;font-size:var(--fs-md);outline:none;box-sizing:border-box}

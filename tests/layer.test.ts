@@ -44,6 +44,15 @@ describe('layers', () => {
     expect(openLayer(el, { kind: 'popover', anchor }).open).toBe(true);
   });
 
+  it('a layer the page already holds stays in the page when it closes', () => {
+    const own = mk();
+    document.getElementById('fe')!.appendChild(own);
+    const l = openLayer(own, { kind: 'popover' });
+    expect(own.dataset.layer).toBe('popover');
+    l.close();
+    expect([own.isConnected, own.dataset.layer]).toEqual([true, undefined]);
+  });
+
   it('opening a layer in the same group closes the other', () => {
     const a = openLayer(mk(), { kind: 'popover', group: 'menu' });
     const b = openLayer(mk(), { kind: 'popover', group: 'menu' });
