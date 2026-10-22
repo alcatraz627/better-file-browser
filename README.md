@@ -38,7 +38,7 @@ Chrome navigates to a file:// folder or supported file
 │              ├──────────────────────────────────────────────┤
 │  Saved       │  PAGE TABS                                   │
 │  Notes       ├──────────────────────────────────────────────┤
-│  Recent      │  Toolbar: Find, sort, zoom, view            │
+│  Recent      │  Toolbar: Find, sort, detail, view          │
 │  Favorites   ├──────────────────────────────────────────────┤
 │  System      │  Folder listing or rendered file page       │
 └──────────────┴───────────────────────────────────────────────┘
@@ -60,7 +60,7 @@ Chrome navigates to a file:// folder or supported file
 Switch with the toolbar buttons. Preference persists across sessions.
 
 ### Toolbar
-- **Zoom slider** — scales the entire file list proportionally (50–320%)
+- **Detail slider**: from Overview (few big items, names only) to Full detail (small items with type, size, date, tags and comments). Keys `=`, `-`, `0`.
 - **View toggle** — Details / List / Tree / Tiles / Large Icons. Tree reads a folder when you expand it.
 - **Search** — live filter by filename as you type (covers all view modes)
 - **Hidden files** — show/hide dotfiles with one click

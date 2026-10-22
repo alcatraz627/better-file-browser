@@ -8,15 +8,21 @@ import { UI_ICON, line, VIEW_ICONS } from './control-icons';
 import { getSaved, getTags, homeDir, getFoldedGroups } from './storage';
 import { HELP_TABS } from './help';
 import { renderDialog, type DialogSpec } from './dialog';
-import { settingsDialog } from './settings-page';
+import { settingsDialog, SORT_OPTS, SORT_DIR_OPTS, GROUP_OPTS } from './settings-page';
 import { renderFileContent } from './file-page';
 import { renderRows, renderTiles, renderSavedList, renderCrumbs, type RenderContext } from './render';
+import { segHtml, ddHtml, sliderHtml } from './controls';
+import { DENSITY_NAMES } from './storage';
+
+const SORT_ICON = line('<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>', 14);
+const PI_FOLDER = '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>';
+const STAR = '<path d="M11.53 2.3a.53.53 0 0 1 .94 0l2.31 4.68a2.12 2.12 0 0 0 1.6 1.16l5.16.76a.53.53 0 0 1 .3.9l-3.74 3.64a2.12 2.12 0 0 0-.61 1.88l.88 5.14a.53.53 0 0 1-.77.56l-4.62-2.43a2.12 2.12 0 0 0-1.97 0L6.4 21.01a.53.53 0 0 1-.77-.56l.88-5.14a2.12 2.12 0 0 0-.61-1.88L2.16 9.8a.53.53 0 0 1 .3-.9l5.16-.76a2.12 2.12 0 0 0 1.6-1.16z"/>';
 
 export interface PageParams {
-  initTheme: string; initPalette: string; initView: string; initZoom: number; initHidden: boolean;
+  initTheme: string; initPalette: string; initView: string; initDensity: number; initHidden: boolean;
   fileMode: boolean; rawPath: string; folderPath: string; fileName: string; segments: string[];
   settings: Settings; curIsBookmarked: boolean;
-  dirs: number; files: number; extOpts: string; recentsHTML: string;
+  dirs: number; files: number; extOpts: string[]; recentsHTML: string;
   entries: Entry[]; ctx: RenderContext;
 }
 
@@ -46,7 +52,7 @@ export function placesHTML(home: string, rawPath: string): string {
 }
 
 export function renderPage(p: PageParams): string {
-  const { initTheme, initPalette, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
+  const { initTheme, initPalette, initView, initDensity, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
   const ALL_ENTRIES = p.entries;
   const ctx0 = p.ctx;
   const VIEW_MODES = VIEW_ICONS;
@@ -74,7 +80,7 @@ export function renderPage(p: PageParams): string {
   };
 
   const PAGE_HTML = `
-<div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ''}>
+<div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}" data-density="${initDensity}"${fileMode ? ' class="fe-file-page"' : ''}>
 
   <div id="fe-bar">
     <button id="fe-side-toggle" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
@@ -165,83 +171,78 @@ export function renderPage(p: PageParams): string {
       <div id="fe-toolbar">
         <span id="fe-count">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <div id="fe-tb-right">
-          <button id="fe-sg-btn" title="Sort and group">
-            ${line('<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>', 13)}
-            Sort
+          <button id="fe-sg-btn" title="Sort and group" aria-expanded="false">
+            ${SORT_ICON}<span id="fe-sg-cur">Sort</span>
           </button>
-          <button id="fe-filter-btn" data-icon title="Filter by name or type">
-            ${line('<path d="M10 20a1 1 0 0 0 .55.9l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .52-1.34L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.22 7.99A2 2 0 0 1 10 14z"/>', 13)}
+          <span class="fe-tb-sep"></span>
+          <button id="fe-filter-btn" data-icon title="Filter by name, type or text inside files" aria-expanded="false">
+            ${line('<path d="M10 20a1 1 0 0 0 .55.9l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .52-1.34L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.22 7.99A2 2 0 0 1 10 14z"/>', 14)}
+          </button>
+          <button id="fe-deep-btn" data-icon title="Subfolders: filter every folder under this one too">
+            ${line('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/><path d="M2 10h20"/>', 14)}
           </button>
           <button id="fe-hidden-btn" data-icon class="${initHidden ? 'on' : ''}" title="Hidden files: ${initHidden ? 'showing' : 'hiding'} dotfiles and comment files · click to toggle">
-            ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? 'currentColor' : 'none'}"/>`, 13)}
+            ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? 'currentColor' : 'none'}"/>`, 14)}
           </button>
-          <div id="fe-zoom-wrap" title="Zoom: ${initZoom}% · drag to scale the list (50 to 320%)">
-            ${line('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 11)}
-            <input type="range" id="fe-zoom" min="50" max="320" value="${initZoom}" step="5" title="Zoom: ${initZoom}% · drag to scale">
-            <span id="fe-zoom-val">${initZoom}%</span>
+          <span class="fe-tb-sep"></span>
+          <div id="fe-density-wrap" title="Detail: drag left for fewer, bigger items, right for smaller items with more facts (- and =)">
+            <span class="fe-density-end" aria-hidden="true">${line('<rect width="16" height="16" x="4" y="4" rx="2"/>', 13)}</span>
+            ${sliderHtml('fe-density', [1, 2, 3, 4, 5], '', 'Detail', DENSITY_NAMES)}
+            <span class="fe-density-end" aria-hidden="true">${line('<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', 13)}</span>
           </div>
-          <div id="fe-view-group">${viewBtnsHTML}</div>
-          <button id="fe-deep-btn" data-icon title="Subfolders: filter every folder under this one too">
-            ${line('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/><path d="M2 10h20"/>', 13)}
-          </button>
-          <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/>
+          <span class="fe-tb-sep"></span>
+          <div id="fe-view-group" role="group" aria-label="View">${viewBtnsHTML}</div>
+          <label class="fe-in-box fe-tb-box"><input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
         </div>
       </div>
 
       <div id="fe-sg-panel" style="display:none">
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Sort by</span>
-          <div class="fe-btn-group" id="fe-sort-cols">
-            <button class="fe-pbn active" data-col="name" title="Sort by name (A–Z or Z–A)">Name</button>
-            <button class="fe-pbn" data-col="size" title="Sort by file size">Size</button>
-            <button class="fe-pbn" data-col="date" title="Sort by last modified date">Modified</button>
-            <button class="fe-pbn" data-col="type" title="Sort by file type (folder, JS, image…)">Type</button>
-            <button class="fe-pbn" data-col="ext" title="Sort alphabetically by file extension">Extension</button>
-          </div>
-          <button class="fe-pbn" id="fe-sort-dir" title="Toggle sort direction (ascending / descending)">↑ Asc</button>
-        </div>
-        <div class="fe-panel-row">
-          <span class="fe-panel-lbl">Group by</span>
-          <div class="fe-btn-group" id="fe-group-btns">
-            <button class="fe-pbn active" data-group="none" title="No grouping">None</button>
-            <button class="fe-pbn" data-group="folders-first" title="Show all folders above files">Folders first</button>
-            <button class="fe-pbn" data-group="files-first" title="Show all files above folders">Files first</button>
-            <button class="fe-pbn" data-group="ext" title="Group items by file extension">Extension</button>
-            <button class="fe-pbn" data-group="type" title="Group items by broad file type (image, video, code…)">Type</button>
-          </div>
+          ${ddHtml('fe-sort-cols', SORT_OPTS, 'Sort this folder by')}
+          ${segHtml('fe-sort-dir', SORT_DIR_OPTS, 'Direction')}
+          <span class="fe-panel-lbl fe-panel-gap">Group by</span>
+          ${ddHtml('fe-group-btns', GROUP_OPTS, 'Group this folder by')}
         </div>
       </div>
 
       <div id="fe-filter-bar" style="display:none">
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
-          <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
-          <button id="fe-regex-btn" class="fe-pbn" title="Treat the pattern as a regular expression">.*</button>
-          <span class="fe-panel-lbl" style="margin-left:12px">Type</span>
-          <select id="fe-type-filter" title="Show only folders, files or one extension">
-            <option value="all">All types</option>
-            <option value="folders">Folders only</option>
-            <option value="files">Files only</option>
-            ${extOpts}
-          </select>
+          <label class="fe-in-box fe-in-name">
+            <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
+            <span class="fe-in-chips"><button type="button" id="fe-regex-btn" class="fe-in-chip" title="Treat the pattern as a regular expression">.*</button></span>
+          </label>
+          <span class="fe-panel-lbl">Type</span>
+          ${ddHtml('fe-type-filter', [
+            { value: 'all', label: 'All types', icon: line('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>', 14) },
+            { value: 'folders', label: 'Folders only', icon: line(PI_FOLDER, 14) },
+            { value: 'files', label: 'Files only', icon: UI_ICON.file },
+            ...extOpts.map(x => ({ value: x, label: '.' + x })),
+          ], 'Show only folders, files or one extension')}
         </div>
         <div class="fe-panel-row">
-          <span class="fe-panel-lbl">Text inside files</span>
-          <input id="fe-find-text" type="text" placeholder="Search text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
-          <label class="fe-st-check" title="Use a regular expression for text inside files (advanced)"><input type="checkbox" id="fe-find-text-regex" title="Text regex"> Text regex</label>
-          <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
-          <label id="fe-find-depth-wrap" class="fe-st-check" style="display:none" title="How many levels of subfolders to look in">Subfolder depth
-            <select id="fe-find-depth" title="Maximum subfolder depth"><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="8" selected>8</option></select>
+          <span class="fe-panel-lbl">Text</span>
+          <label class="fe-in-box fe-in-text">
+            <input id="fe-find-text" type="text" placeholder="Search text inside files" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
+            <span class="fe-in-chips">
+              <label class="fe-in-chip" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
+              <label class="fe-in-chip" title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
+            </span>
           </label>
-          <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
-          <button id="fe-find-cancel" class="fe-pbn" style="display:none" title="Stop scanning">Cancel</button>
+          <span id="fe-find-depth-wrap" class="fe-panel-sub" style="display:none" title="How many levels of subfolders to look in">
+            <span class="fe-panel-lbl">Depth</span>
+            ${ddHtml('fe-find-depth', [1, 2, 4, 8].map(n => ({ value: String(n), label: n === 1 ? '1 level' : `${n} levels` })), 'Maximum subfolder depth')}
+          </span>
+          <button id="fe-find-run" class="btn" data-variant="outline" title="Run the text search (Enter)">${line('<path d="M6 4l13 8-13 8z"/>', 12)}Run</button>
+          <button id="fe-find-cancel" class="btn" data-variant="outline" style="display:none" title="Stop scanning">${UI_ICON.close}Cancel</button>
           <span id="fe-find-status"></span>
           <span id="fe-find-error" role="alert"></span>
-          <button id="fe-find-save" class="fe-pbn" style="margin-left:auto" title="Keep this search as a Saved view: this folder plus these fields">☆ Save view</button>
+          <button id="fe-find-save" class="btn" data-variant="outline" style="margin-left:auto" title="Keep this search as a Saved view: this folder plus these fields">${line(STAR, 13)}Save view</button>
         </div>
       </div>
 
-      <div id="fe-scroll" style="zoom:${initZoom / 100}">
+      <div id="fe-scroll">
         <table id="fe-table">
           <thead>
             <tr>

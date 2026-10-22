@@ -424,7 +424,7 @@
   var THEME_KEY = "bfb-theme";
   var PALETTE_KEY = "bfb-palette";
   var PALETTES = ["slate", "violet", "sand", "ink", "ocean", "forest", "ember", "nord"];
-  var ZOOM_KEY = "bfb-zoom";
+  var DENSITY_KEY = "bfb-density";
   var HIDDEN_KEY = "bfb-show-hidden";
   var ICON_RULES_KEY = "bfb-icon-rules-v1";
   var SETTINGS_KEY = "bfb-settings-v1";
@@ -598,9 +598,10 @@
     const p = kvGet(PALETTE_KEY);
     return p && PALETTES.includes(p) ? p : "slate";
   }
-  function getZoom() {
-    const z = parseInt(kvGet(ZOOM_KEY) ?? "100");
-    return Number.isFinite(z) ? z : 100;
+  var DENSITY_NAMES = ["Overview", "Large", "Standard", "Detailed", "Full detail"];
+  function getDensity() {
+    const d = parseInt(kvGet(DENSITY_KEY) ?? "3");
+    return d >= 1 && d <= 5 ? d : 3;
   }
   function getShowHidden() {
     return kvGet(HIDDEN_KEY) === "true";
@@ -4267,28 +4268,54 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-toolbar{display:flex;align-items:center;gap:10px;padding:7px 14px;
   background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-count{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap}
-#fe-tb-right{display:flex;align-items:center;gap:6px}
-#fe-zoom-wrap{display:flex;align-items:center;gap:5px;color:var(--dm)}
-#fe-zoom{width:80px;accent-color:var(--ac);cursor:pointer}
-#fe-zoom-val{font-size:var(--fs-xs);color:var(--dm);width:34px;text-align:right}
-#fe-view-group{display:flex;gap:2px}
-#fe-search{background:var(--bg);border:1px solid var(--bd);color:var(--tx);
-  padding:4px 10px;border-radius:var(--r);font-size:var(--fs-md);width:150px;outline:none;transition:border-color .15s}
-#fe-search:focus{border-color:var(--ac)}
-#fe-search::placeholder{color:var(--dm)}
-#fe-sg-panel,#fe-filter-bar{
-  padding:8px 14px;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-tb-right{display:flex;align-items:center;gap:4px}
+.fe-tb-sep{flex:none;width:1px;height:18px;margin:0 4px;background:var(--bd)}
+#fe-sg-cur{font-variant-numeric:tabular-nums}
+/* Detail: a small slider between a big-square and a dense-rows icon, its stop named beside it. */
+#fe-density-wrap{display:flex;align-items:center;gap:6px;color:var(--dm)}
+.fe-density-end{display:inline-grid;place-items:center}
+#fe-density{width:auto;gap:8px}
+#fe-density input{flex:none;width:72px}
+#fe-density output{min-width:72px;padding:0;background:none;font-family:inherit;font-size:var(--fs-sm);color:var(--mt);text-align:left}
+/* The five views as one segmented control, like Settings. */
+#fe-view-group{display:inline-flex;gap:2px;padding:2px;border-radius:9px;background:color-mix(in srgb,var(--tx) 6%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
+#fe-toolbar #fe-view-group .fe-view-btn{width:28px;height:24px;border:0;border-radius:7px}
+#fe-toolbar #fe-view-group .fe-view-btn.active{background:color-mix(in srgb,var(--ac) 20%,var(--card));color:var(--ac);
+  box-shadow:0 1px 2px rgb(0 0 0 / .18),inset 0 0 0 1px color-mix(in srgb,var(--ac) 45%,transparent)}
+#fe[data-theme="light"] #fe-toolbar #fe-view-group .fe-view-btn.active{background:#fff;box-shadow:0 1px 2px rgb(16 24 32 / .14),inset 0 0 0 1px color-mix(in srgb,var(--ac) 50%,var(--bd))}
+/* One text box for the toolbar filter and the filter bar: the sidebar filter's
+   look, with toggles (.*, Aa) as chips inside its right end. */
+.fe-in-box{position:relative;display:inline-flex;align-items:center;flex:none}
+.fe-in-box input[type="text"]{width:100%;height:28px;margin:0;padding:0 10px;box-sizing:border-box;border:1px solid var(--bd);border-radius:var(--row-r);
+  background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-md);outline:none;transition:border-color var(--t-fast) var(--ease)}
+.fe-in-box input[type="text"]:focus{border-color:var(--ac)}
+.fe-in-box input[type="text"]::placeholder{color:var(--dm)}
+.fe-tb-box{width:170px;margin-left:4px}
+.fe-in-name{width:220px}
+.fe-in-name input[type="text"]{padding-right:40px!important}
+.fe-in-text{width:300px}
+.fe-in-text input[type="text"]{padding-right:68px!important}
+.fe-in-chips{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;gap:3px}
+.fe-in-chip{position:relative;display:inline-grid;place-items:center;min-width:26px;height:20px;padding:0 5px;box-sizing:border-box;border:1px solid var(--bd);border-radius:6px;
+  background:var(--bg);color:var(--dm);font:500 var(--fs-xs) var(--mono);cursor:pointer;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+.fe-in-chip:hover{color:var(--tx)}
+.fe-in-chip input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.fe-in-chip.active,.fe-in-chip:has(input:checked){color:var(--ac);border-color:color-mix(in srgb,var(--ac) 45%,transparent);background:color-mix(in srgb,var(--ac) 12%,var(--bg))}
+.fe-in-chip:focus-visible,.fe-in-chip:has(input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
+#fe-sg-panel,#fe-filter-bar{display:flex;flex-direction:column;gap:8px;
+  padding:9px 14px;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
 .fe-panel-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.fe-panel-lbl{font-size:var(--fs-sm);color:var(--dm);font-weight:500;white-space:nowrap}
-.fe-btn-group{display:flex;gap:4px;flex-wrap:wrap}
-#fe-filter-q{background:var(--bg);border:1px solid var(--bd);color:var(--tx);
-  padding:3px 8px;border-radius:var(--r);font-size:var(--fs-md);width:200px;outline:none;transition:border-color .15s}
-#fe-filter-q:focus{border-color:var(--ac)}
-#fe-type-filter{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
-  padding:3px 8px;border-radius:var(--r);font-size:var(--fs-md);outline:none;cursor:pointer}
-#fe-regex-btn.active{background:var(--act);border-color:var(--ac);color:var(--ac)}
-#fe-find-text{background:var(--bg);border:1px solid var(--bd);color:var(--tx);padding:4px 8px;border-radius:5px;font-size:var(--fs-md);width:260px;outline:none}
-#fe-find-text:focus{border-color:var(--ac)}
+.fe-panel-lbl{min-width:52px;font-size:var(--fs-sm);color:var(--dm);font-weight:500;white-space:nowrap}
+.fe-panel-sub{display:inline-flex;align-items:center;gap:8px}
+.fe-panel-sub .fe-panel-lbl{min-width:0}
+#fe-sg-panel .fe-seg-b,#fe-filter-bar .fe-seg-b{height:26px}
+.fe-panel-gap{margin-left:14px}
+#fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px;height:28px}
+#fe-find-depth .fe-dd-btn{min-width:100px}
+#fe-filter-bar .btn{height:28px}
+#fe-filter-bar .btn svg{width:12px;height:12px}
 #fe-find-status{font-size:var(--fs-sm);color:var(--mt);margin-left:4px}
 .fe-view .fe-si-link svg{color:var(--ac);opacity:.9}
 #fe-scroll{flex:1;overflow-y:auto;transform-origin:top left}
@@ -4400,6 +4427,74 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe[data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:86px;height:70px}
 #fe[data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap svg,
 #fe[data-view="icons"] .fe-tile-ic .fe-tile-img-wrap svg{transform:none!important;margin:8px!important}
+.fe-tile-meta{display:none}
+
+/* Detail levels (data-density 1 to 5, 3 is the standard look). Low numbers
+   show fewer, bigger items with names only; high numbers show smaller items
+   and add facts: type, date, tags and comments on tiles, columns on lists. */
+#fe[data-density="1"][data-view="details"] tbody td{padding:12px 16px}
+#fe[data-density="1"][data-view="details"] .fe-lnk{gap:12px;font-size:var(--fs-lg)}
+#fe[data-density="1"][data-view="details"] .fe-lnk svg{transform:scale(1.45)}
+#fe[data-density="1"][data-view="details"] :is(.c-tp,.c-tg,.c-sz,.c-dt){display:none}
+#fe[data-density="1"][data-view="details"] .c-nm{width:100%}
+#fe[data-density="2"][data-view="details"] tbody td{padding:9px 14px}
+#fe[data-density="2"][data-view="details"] .fe-lnk svg{transform:scale(1.2)}
+#fe[data-density="2"][data-view="details"] :is(.c-tp,.c-tg){display:none}
+#fe[data-density="2"][data-view="details"] .c-nm{width:60%}
+#fe[data-density="4"][data-view="details"] tbody td{padding:3px 12px}
+#fe[data-density="5"][data-view="details"] tbody td{padding:1px 10px;font-size:var(--fs-sm)}
+#fe[data-density="5"][data-view="details"] .fe-lnk svg{transform:scale(.85)}
+
+#fe[data-density="1"][data-view="list"] tbody td{padding:11px 16px}
+#fe[data-density="1"][data-view="list"] .fe-lnk{gap:12px;font-size:var(--fs-lg)}
+#fe[data-density="1"][data-view="list"] .fe-lnk svg{transform:scale(1.45)}
+#fe[data-density="2"][data-view="list"] tbody td{padding:8px 14px}
+#fe[data-density="2"][data-view="list"] .fe-lnk svg{transform:scale(1.2)}
+/* List gains columns as detail goes up: size and date, then type too. */
+#fe[data-density="4"][data-view="list"] :is(.c-sz,.c-dt),
+#fe[data-density="5"][data-view="list"] :is(.c-sz,.c-dt,.c-tp){display:table-cell}
+#fe[data-density="4"][data-view="list"] .c-nm,#fe[data-density="5"][data-view="list"] .c-nm{width:auto}
+#fe[data-density="4"][data-view="list"] tbody td{padding:3px 12px}
+#fe[data-density="5"][data-view="list"] tbody td{padding:1px 10px;font-size:var(--fs-sm)}
+
+#fe[data-density="1"] .fe-tree-row{min-height:42px;font-size:var(--fs-lg)}
+#fe[data-density="1"] .fe-tree-link svg{transform:scale(1.4)}
+#fe[data-density="2"] .fe-tree-row{min-height:35px}
+#fe[data-density="4"] .fe-tree-row{min-height:24px}
+#fe[data-density="5"] .fe-tree-row{min-height:20px;font-size:var(--fs-sm)}
+
+/* Tiles and icons: big name-only tiles at 1 and 2; at 4 a type and date line;
+   at 5 a card with the icon beside the name, type, size, date, tags, comments. */
+#fe[data-density="1"] #fe-tiles,#fe[data-density="2"] #fe-tiles{gap:10px 12px;padding:14px 16px}
+#fe[data-density="1"] .fe-tile-sz,#fe[data-density="2"] .fe-tile-sz{display:none}
+#fe[data-density="1"][data-view="tiles"] .fe-tile{width:168px;padding:16px 10px 12px;gap:8px}
+#fe[data-density="1"][data-view="tiles"] .fe-tile-ic svg{transform:scale(3.2);margin:22px}
+#fe[data-density="1"][data-view="icons"] .fe-tile{width:220px;padding:20px 12px 14px;gap:10px}
+#fe[data-density="1"][data-view="icons"] .fe-tile-ic svg{transform:scale(4.4);margin:32px}
+#fe[data-density="1"] .fe-tile-nm{font-size:var(--fs-lg)}
+#fe[data-density="1"][data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:148px;height:112px}
+#fe[data-density="1"][data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:196px;height:148px}
+#fe[data-density="2"][data-view="tiles"] .fe-tile{width:128px;padding:12px 8px 10px;gap:6px}
+#fe[data-density="2"][data-view="tiles"] .fe-tile-ic svg{transform:scale(2.3);margin:14px}
+#fe[data-density="2"][data-view="icons"] .fe-tile{width:160px;padding:14px 10px 10px;gap:8px}
+#fe[data-density="2"][data-view="icons"] .fe-tile-ic svg{transform:scale(3);margin:20px}
+#fe[data-density="2"] .fe-tile-nm{font-size:var(--fs-md)}
+#fe[data-density="2"][data-view="tiles"] .fe-tile-ic .fe-tile-img-wrap{width:108px;height:84px}
+#fe[data-density="2"][data-view="icons"] .fe-tile-ic .fe-tile-img-wrap{width:140px;height:108px}
+#fe[data-density="4"] .fe-tile-meta{display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;font-size:var(--fs-xs);color:var(--dm)}
+#fe[data-density="4"] .fe-tile-meta > span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fe[data-density="4"] .fe-tile-tags{display:none!important}
+#fe[data-density="5"] #fe-tiles{gap:4px 6px}
+#fe[data-density="5"] .fe-tile{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto 1fr;column-gap:10px;row-gap:1px;
+  align-items:start;justify-items:start;width:250px;padding:8px 10px;text-align:left}
+#fe[data-density="5"] .fe-tile-ic{grid-row:1 / span 3;align-self:center}
+#fe[data-density="5"] .fe-tile-ic svg{transform:scale(1.6);margin:6px}
+#fe[data-density="5"] .fe-tile-ic .fe-tile-img-wrap{width:44px;height:36px}
+#fe[data-density="5"] .fe-tile-nm{text-align:left;-webkit-line-clamp:1;font-size:var(--fs-md)}
+#fe[data-density="5"] .fe-tile-sz{grid-column:2;font-size:var(--fs-xs)}
+#fe[data-density="5"] .fe-tile-meta{grid-column:2;display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;font-size:var(--fs-xs);color:var(--dm)}
+#fe[data-density="5"] .fe-tile-tags{display:flex;align-items:center;gap:4px}
+#fe[data-density="5"] .fe-tile-tags .fe-chips{max-width:150px}
 .fe-row .fe-acts{
   display:inline-flex;align-items:center;gap:3px;
   position:absolute;right:8px;top:50%;transform:translateY(-50%);
@@ -5362,11 +5457,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-switch:checked::after{transform:translateX(14px);background:var(--on-ac)}
 .fe-switch:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 .fe-seg{display:inline-flex;padding:2px;border-radius:10px;background:var(--bg);border:1px solid var(--bd)}
-.fe-seg label{position:relative;cursor:pointer}
-.fe-seg input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
-.fe-seg span{display:block;padding:0 16px;line-height:26px;border-radius:8px;font-size:var(--row-fs);color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-seg input:checked + span{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
-.fe-seg input:focus-visible + span{outline:2px solid var(--ac);outline-offset:1px}
 .fe-set-sws{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .fe-set-sw{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 8px;border-radius:10px;cursor:pointer;
   font-size:var(--fs-md);color:var(--mt);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
@@ -15849,9 +15939,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     { id: "filter-panel", group: "View", title: "Filter panel", keys: ["f"], own: true },
     { id: "deep", group: "View", title: "Include subfolders", keys: ["\u21E7D"], scope: "listing", own: true },
     { id: "hidden", group: "View", title: "Hidden files", keys: ["."], own: true },
-    { id: "zoom-in", group: "View", title: "Bigger", keys: ["="], own: true },
-    { id: "zoom-out", group: "View", title: "Smaller", keys: ["-"], own: true },
-    { id: "zoom-reset", group: "View", title: "Actual size", keys: ["0"], own: true },
+    { id: "zoom-in", group: "View", title: "Less detail, bigger items", keys: ["="], own: true },
+    { id: "zoom-out", group: "View", title: "More detail, smaller items", keys: ["-"], own: true },
+    { id: "zoom-reset", group: "View", title: "Standard detail", keys: ["0"], own: true },
     // Tabs
     { id: "tab-keep", group: "Tabs", title: "Keep this place", keys: ["t"] },
     { id: "tab-close", group: "Tabs", title: "Close", keys: ["w"] },
@@ -16113,8 +16203,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   function segHtml(id, opts, title) {
     return `<div class="fe-seg" id="${id}" role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
   }
-  function sliderHtml(id, values, unit, title) {
-    return `<div class="fe-sld" id="${id}" data-values="${values.join(",")}" data-unit="${esc(unit)}" title="${esc(title)}">
+  function sliderHtml(id, values, unit, title, names) {
+    return `<div class="fe-sld" id="${id}" data-values="${values.join(",")}" data-unit="${esc(unit)}"${names ? ` data-names="${esc(names.join("|"))}"` : ""} title="${esc(title)}">
     <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}" title="${esc(title)}">
     <output></output>
   </div>`;
@@ -16164,11 +16254,13 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   function upgradeSlider(host) {
     const values = host.dataset.values.split(",").map(Number);
     const unit = host.dataset.unit ?? "";
+    const names = host.dataset.names?.split("|");
     const range = host.querySelector("input");
     const out = host.querySelector("output");
     const show = () => {
       const v = values[Number(range.value)];
-      out.textContent = `${v}${unit}`;
+      out.textContent = names?.[Number(range.value)] ?? `${v}${unit}`;
+      if (names) range.setAttribute("aria-valuetext", out.textContent);
       host.style.setProperty("--pct", `${Number(range.value) / (values.length - 1) * 100}%`);
     };
     Object.defineProperty(host, "value", {
@@ -16201,6 +16293,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     let opts = JSON.parse(host.dataset.opts || "[]");
     let cur = "";
     const paint = () => {
+      host.dataset.value = cur;
       const o = opts.find((x) => x.value === cur);
       curEl.innerHTML = o ? `${o.icon ?? ""}<span>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
     };
@@ -16395,6 +16488,10 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     { value: "type", label: "Type", icon: i2('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h6"/>') },
     { value: "ext", label: "Extension", icon: i2('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>') }
   ];
+  var SORT_DIR_OPTS = [
+    { value: "asc", icon: i2('<path d="M12 19V5M5 12l7-7 7 7"/>'), hint: "Ascending" },
+    { value: "desc", icon: i2('<path d="M12 5v14M19 12l-7 7-7-7"/>'), hint: "Descending" }
+  ];
   var GROUP_OPTS = [
     { value: "none", label: "None", icon: i2('<path d="M3 6h18M3 12h18M3 18h18"/>') },
     { value: "folders-first", label: "Folders first", icon: i2('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>') },
@@ -16435,10 +16532,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ) },
         { key: "folders", label: "Folders", hint: "View, order, sidebar", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "How folders open, and what a click does.", body: card2(
           "Opening a folder",
-          row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in") + segHtml("fe-st-sort-dir", [
-            { value: "asc", icon: i2('<path d="M12 19V5M5 12l7-7 7 7"/>'), hint: "Ascending" },
-            { value: "desc", icon: i2('<path d="M12 5v14M19 12l-7 7-7-7"/>'), hint: "Descending" }
-          ], "Direction")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read"))
+          row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in") + segHtml("fe-st-sort-dir", SORT_DIR_OPTS, "Direction")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read"))
         ) + card2(
           "Opening a file",
           row("Click a file", "", segHtml("fe-st-click", [
@@ -16686,6 +16780,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     <span class="fe-tile-nm">${esc(e.isParent ? ".." : e.name)}</span>
     ${hit ? `<span class="fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
     ${!e.isDir && !e.isParent ? `<span class="fe-tile-sz">${fmtSize(e.rawBytes)}</span>` : ""}
+    ${e.isParent ? "" : `<span class="fe-tile-meta"><span class="fe-tile-tp">${fmtType(e)}</span><span class="fe-tile-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</span><span class="fe-tile-tags">${tagChips(e, ctx)}${commentBadge(e, ctx)}</span></span>`}
     ${itemActions(e, ctx.rawPath)}
   </a>`;
   }
@@ -16743,6 +16838,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   }
 
   // src/page.ts
+  var SORT_ICON = line('<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>', 14);
+  var PI_FOLDER = '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>';
+  var STAR = '<path d="M11.53 2.3a.53.53 0 0 1 .94 0l2.31 4.68a2.12 2.12 0 0 0 1.6 1.16l5.16.76a.53.53 0 0 1 .3.9l-3.74 3.64a2.12 2.12 0 0 0-.61 1.88l.88 5.14a.53.53 0 0 1-.77.56l-4.62-2.43a2.12 2.12 0 0 0-1.97 0L6.4 21.01a.53.53 0 0 1-.77-.56l.88-5.14a2.12 2.12 0 0 0-.61-1.88L2.16 9.8a.53.53 0 0 1 .3-.9l5.16-.76a2.12 2.12 0 0 0 1.6-1.16z"/>';
   function placesHTML(home, rawPath) {
     const places = [
       ...home ? [
@@ -16766,7 +16864,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     ).join("");
   }
   function renderPage(p) {
-    const { initTheme, initPalette, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
+    const { initTheme, initPalette, initView, initDensity, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
     const ALL_ENTRIES = p.entries;
     const ctx0 = p.ctx;
     const VIEW_MODES = VIEW_ICONS;
@@ -16790,7 +16888,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       tabs: HELP_TABS
     };
     const PAGE_HTML = `
-<div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}"${fileMode ? ' class="fe-file-page"' : ""}>
+<div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}" data-density="${initDensity}"${fileMode ? ' class="fe-file-page"' : ""}>
 
   <div id="fe-bar">
     <button id="fe-side-toggle" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
@@ -16881,83 +16979,78 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <div id="fe-toolbar">
         <span id="fe-count">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <div id="fe-tb-right">
-          <button id="fe-sg-btn" title="Sort and group">
-            ${line('<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>', 13)}
-            Sort
+          <button id="fe-sg-btn" title="Sort and group" aria-expanded="false">
+            ${SORT_ICON}<span id="fe-sg-cur">Sort</span>
           </button>
-          <button id="fe-filter-btn" data-icon title="Filter by name or type">
-            ${line('<path d="M10 20a1 1 0 0 0 .55.9l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .52-1.34L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.22 7.99A2 2 0 0 1 10 14z"/>', 13)}
+          <span class="fe-tb-sep"></span>
+          <button id="fe-filter-btn" data-icon title="Filter by name, type or text inside files" aria-expanded="false">
+            ${line('<path d="M10 20a1 1 0 0 0 .55.9l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .52-1.34L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.22 7.99A2 2 0 0 1 10 14z"/>', 14)}
+          </button>
+          <button id="fe-deep-btn" data-icon title="Subfolders: filter every folder under this one too">
+            ${line('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/><path d="M2 10h20"/>', 14)}
           </button>
           <button id="fe-hidden-btn" data-icon class="${initHidden ? "on" : ""}" title="Hidden files: ${initHidden ? "showing" : "hiding"} dotfiles and comment files \xB7 click to toggle">
-            ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? "currentColor" : "none"}"/>`, 13)}
+            ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? "currentColor" : "none"}"/>`, 14)}
           </button>
-          <div id="fe-zoom-wrap" title="Zoom: ${initZoom}% \xB7 drag to scale the list (50 to 320%)">
-            ${line('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>', 11)}
-            <input type="range" id="fe-zoom" min="50" max="320" value="${initZoom}" step="5" title="Zoom: ${initZoom}% \xB7 drag to scale">
-            <span id="fe-zoom-val">${initZoom}%</span>
+          <span class="fe-tb-sep"></span>
+          <div id="fe-density-wrap" title="Detail: drag left for fewer, bigger items, right for smaller items with more facts (- and =)">
+            <span class="fe-density-end" aria-hidden="true">${line('<rect width="16" height="16" x="4" y="4" rx="2"/>', 13)}</span>
+            ${sliderHtml("fe-density", [1, 2, 3, 4, 5], "", "Detail", DENSITY_NAMES)}
+            <span class="fe-density-end" aria-hidden="true">${line('<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', 13)}</span>
           </div>
-          <div id="fe-view-group">${viewBtnsHTML}</div>
-          <button id="fe-deep-btn" data-icon title="Subfolders: filter every folder under this one too">
-            ${line('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/><path d="M2 10h20"/>', 13)}
-          </button>
-          <input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/>
+          <span class="fe-tb-sep"></span>
+          <div id="fe-view-group" role="group" aria-label="View">${viewBtnsHTML}</div>
+          <label class="fe-in-box fe-tb-box"><input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
         </div>
       </div>
 
       <div id="fe-sg-panel" style="display:none">
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Sort by</span>
-          <div class="fe-btn-group" id="fe-sort-cols">
-            <button class="fe-pbn active" data-col="name" title="Sort by name (A\u2013Z or Z\u2013A)">Name</button>
-            <button class="fe-pbn" data-col="size" title="Sort by file size">Size</button>
-            <button class="fe-pbn" data-col="date" title="Sort by last modified date">Modified</button>
-            <button class="fe-pbn" data-col="type" title="Sort by file type (folder, JS, image\u2026)">Type</button>
-            <button class="fe-pbn" data-col="ext" title="Sort alphabetically by file extension">Extension</button>
-          </div>
-          <button class="fe-pbn" id="fe-sort-dir" title="Toggle sort direction (ascending / descending)">\u2191 Asc</button>
-        </div>
-        <div class="fe-panel-row">
-          <span class="fe-panel-lbl">Group by</span>
-          <div class="fe-btn-group" id="fe-group-btns">
-            <button class="fe-pbn active" data-group="none" title="No grouping">None</button>
-            <button class="fe-pbn" data-group="folders-first" title="Show all folders above files">Folders first</button>
-            <button class="fe-pbn" data-group="files-first" title="Show all files above folders">Files first</button>
-            <button class="fe-pbn" data-group="ext" title="Group items by file extension">Extension</button>
-            <button class="fe-pbn" data-group="type" title="Group items by broad file type (image, video, code\u2026)">Type</button>
-          </div>
+          ${ddHtml("fe-sort-cols", SORT_OPTS, "Sort this folder by")}
+          ${segHtml("fe-sort-dir", SORT_DIR_OPTS, "Direction")}
+          <span class="fe-panel-lbl fe-panel-gap">Group by</span>
+          ${ddHtml("fe-group-btns", GROUP_OPTS, "Group this folder by")}
         </div>
       </div>
 
       <div id="fe-filter-bar" style="display:none">
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
-          <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
-          <button id="fe-regex-btn" class="fe-pbn" title="Treat the pattern as a regular expression">.*</button>
-          <span class="fe-panel-lbl" style="margin-left:12px">Type</span>
-          <select id="fe-type-filter" title="Show only folders, files or one extension">
-            <option value="all">All types</option>
-            <option value="folders">Folders only</option>
-            <option value="files">Files only</option>
-            ${extOpts}
-          </select>
+          <label class="fe-in-box fe-in-name">
+            <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
+            <span class="fe-in-chips"><button type="button" id="fe-regex-btn" class="fe-in-chip" title="Treat the pattern as a regular expression">.*</button></span>
+          </label>
+          <span class="fe-panel-lbl">Type</span>
+          ${ddHtml("fe-type-filter", [
+      { value: "all", label: "All types", icon: line('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>', 14) },
+      { value: "folders", label: "Folders only", icon: line(PI_FOLDER, 14) },
+      { value: "files", label: "Files only", icon: UI_ICON.file },
+      ...extOpts.map((x) => ({ value: x, label: "." + x }))
+    ], "Show only folders, files or one extension")}
         </div>
         <div class="fe-panel-row">
-          <span class="fe-panel-lbl">Text inside files</span>
-          <input id="fe-find-text" type="text" placeholder="Search text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when deep search is on. Enter runs."/>
-          <label class="fe-st-check" title="Use a regular expression for text inside files (advanced)"><input type="checkbox" id="fe-find-text-regex" title="Text regex"> Text regex</label>
-          <label class="fe-st-check" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case"> Aa</label>
-          <label id="fe-find-depth-wrap" class="fe-st-check" style="display:none" title="How many levels of subfolders to look in">Subfolder depth
-            <select id="fe-find-depth" title="Maximum subfolder depth"><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="8" selected>8</option></select>
+          <span class="fe-panel-lbl">Text</span>
+          <label class="fe-in-box fe-in-text">
+            <input id="fe-find-text" type="text" placeholder="Search text inside files" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
+            <span class="fe-in-chips">
+              <label class="fe-in-chip" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
+              <label class="fe-in-chip" title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
+            </span>
           </label>
-          <button id="fe-find-run" class="fe-pbn" title="Run the text search (Enter)">Run</button>
-          <button id="fe-find-cancel" class="fe-pbn" style="display:none" title="Stop scanning">Cancel</button>
+          <span id="fe-find-depth-wrap" class="fe-panel-sub" style="display:none" title="How many levels of subfolders to look in">
+            <span class="fe-panel-lbl">Depth</span>
+            ${ddHtml("fe-find-depth", [1, 2, 4, 8].map((n) => ({ value: String(n), label: n === 1 ? "1 level" : `${n} levels` })), "Maximum subfolder depth")}
+          </span>
+          <button id="fe-find-run" class="btn" data-variant="outline" title="Run the text search (Enter)">${line('<path d="M6 4l13 8-13 8z"/>', 12)}Run</button>
+          <button id="fe-find-cancel" class="btn" data-variant="outline" style="display:none" title="Stop scanning">${UI_ICON.close}Cancel</button>
           <span id="fe-find-status"></span>
           <span id="fe-find-error" role="alert"></span>
-          <button id="fe-find-save" class="fe-pbn" style="margin-left:auto" title="Keep this search as a Saved view: this folder plus these fields">\u2606 Save view</button>
+          <button id="fe-find-save" class="btn" data-variant="outline" style="margin-left:auto" title="Keep this search as a Saved view: this folder plus these fields">${line(STAR, 13)}Save view</button>
         </div>
       </div>
 
-      <div id="fe-scroll" style="zoom:${initZoom / 100}">
+      <div id="fe-scroll">
         <table id="fe-table">
           <thead>
             <tr>
@@ -17719,8 +17812,24 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!app.fileMode) el("fe-count").textContent = ls.baseStatus = countText();
       if (win) applyAll();
     });
-    const zoomEl = el("fe-zoom");
-    const zoomVal = el("fe-zoom-val");
+    upgradeControls(el("fe-toolbar"));
+    upgradeControls(el("fe-sg-panel"));
+    upgradeControls(el("fe-filter-bar"));
+    el("fe-type-filter").value = ls.filter.type;
+    el("fe-find-depth").value = "8";
+    const density = el("fe-density");
+    density.value = String(init.density);
+    const setDensity = (d) => {
+      const n = Math.max(1, Math.min(5, d));
+      fe.dataset.density = String(n);
+      density.value = String(n);
+      kvSet(DENSITY_KEY, String(n));
+      applyAll();
+    };
+    density.addEventListener("input", () => {
+      fe.dataset.density = density.value;
+    });
+    density.addEventListener("change", () => setDensity(Number(density.value)));
     const scroll = el("fe-scroll");
     const scrollKey = "bfb-scroll:" + rawPath;
     try {
@@ -17734,24 +17843,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } catch {
       }
     });
-    zoomEl.addEventListener("input", () => {
-      const z = parseInt(zoomEl.value);
-      scroll.style.zoom = String(z / 100);
-      zoomVal.textContent = z + "%";
-      zoomEl.title = `Zoom: ${z}% \xB7 drag to scale`;
-      el("fe-zoom-wrap").title = `Zoom: ${z}% \xB7 drag to scale the list (50 to 320%)`;
-      kvSet(ZOOM_KEY, String(z));
-    });
+    const sortCols = el("fe-sort-cols"), sortDir = el("fe-sort-dir"), groupSeg = el("fe-group-btns");
+    const SORT_NAMES = { name: "Name", size: "Size", date: "Modified", type: "Type", ext: "Extension" };
     function syncSortUi() {
       const { col, dir } = ls.sort;
-      els("#fe-sort-cols .fe-pbn").forEach((b) => b.classList.toggle("active", b.dataset.col === (col ?? "name")));
-      el("fe-sort-dir").textContent = dir === "asc" ? "\u2191 Asc" : "\u2193 Desc";
+      sortCols.value = col ?? "";
+      sortDir.value = dir;
+      el("fe-sg-cur").textContent = col ? `${SORT_NAMES[col]} ${dir === "asc" ? "\u2191" : "\u2193"}` : "Sort";
       els("th[data-sort]").forEach((h) => {
         const on = h.dataset.sort === col;
         h.classList.toggle("sorted", on);
         h.querySelector(".si").textContent = on ? dir === "asc" ? "\u2191" : "\u2193" : "\u2195";
       });
-      els("#fe-group-btns .fe-pbn").forEach((b) => b.classList.toggle("active", b.dataset.group === ls.group));
+      groupSeg.value = ls.group;
       saveSortConfig(ls.sort);
       saveGroupMode(ls.group);
     }
@@ -17818,25 +17922,31 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const open = sgPanel.style.display === "none";
       sgPanel.style.display = open ? "" : "none";
       el("fe-sg-btn").classList.toggle("on", open);
+      el("fe-sg-btn").setAttribute("aria-expanded", String(open));
     });
-    els("#fe-sort-cols .fe-pbn").forEach((btn) => btn.addEventListener("click", () => setSortCol(btn.dataset.col)));
-    el("fe-sort-dir").addEventListener("click", () => {
-      ls.sort.dir = ls.sort.dir === "asc" ? "desc" : "asc";
+    sortCols.addEventListener("change", () => {
+      ls.sort.col = sortCols.value || null;
+      syncSortUi();
+      applyAll();
+    });
+    sortDir.addEventListener("change", () => {
+      ls.sort.dir = sortDir.value;
       if (!ls.sort.col) ls.sort.col = "name";
       syncSortUi();
       applyAll();
     });
-    els("#fe-group-btns .fe-pbn").forEach((btn) => btn.addEventListener("click", () => {
-      ls.group = btn.dataset.group;
+    groupSeg.addEventListener("change", () => {
+      ls.group = groupSeg.value;
       syncSortUi();
       applyAll();
-    }));
+    });
     syncSortUi();
     const filterBar = el("fe-filter-bar");
     el("fe-filter-btn").addEventListener("click", () => {
       const open = filterBar.style.display === "none";
       filterBar.style.display = open ? "" : "none";
       el("fe-filter-btn").classList.toggle("on", open);
+      el("fe-filter-btn").setAttribute("aria-expanded", String(open));
       if (open) el("fe-filter-q").focus();
     });
     el("fe-filter-q").addEventListener("input", function() {
@@ -18082,7 +18192,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         reader.close();
         if (deepReader === reader) deepReader = null;
         if (seq2 !== ls.deepSeq) return;
-        ls.deepCap = [r.entryCapped ? "stopped at 5,000 items" : "", r.depthCapped ? `not deeper than ${findDepth.value} levels` : ""].filter(Boolean).join(", ");
+        ls.deepCap = [r.entryCapped ? "stopped at 5,000 items" : "", r.depthCapped ? `not deeper than ${findDepth.value} level${findDepth.value === "1" ? "" : "s"}` : ""].filter(Boolean).join(", ");
         ls.deepEntries = r.entries;
         ls.deepFolders = r.folders;
         ls.deepTruncated = r.truncated;
@@ -18721,14 +18831,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       app.setOrder(getSortConfig(), next);
       toast(`Grouping: ${next.replace("-", " ")}`);
     }, onListing);
-    const zoom = (to) => {
-      const z = el("fe-zoom");
-      z.value = String(Math.max(Number(z.min || 50), Math.min(Number(z.max || 320), to(Number(z.value)))));
-      z.dispatchEvent(new Event("input"));
+    const detail = (to) => {
+      const d = el("fe-density");
+      d.value = String(Math.max(1, Math.min(5, to(Number(d.value)))));
+      d.dispatchEvent(new Event("change"));
     };
-    bind("zoom-in", () => zoom((z) => z + 10), onListing);
-    bind("zoom-out", () => zoom((z) => z - 10), onListing);
-    bind("zoom-reset", () => zoom(() => 100), onListing);
+    bind("zoom-in", () => detail((d) => d - 1), onListing);
+    bind("zoom-out", () => detail((d) => d + 1), onListing);
+    bind("zoom-reset", () => detail(() => 3), onListing);
     addPaletteSource(() => onListing() ? ls.all.filter((en) => !en.isParent).slice(0, 400).map((en) => ({
       title: en.name,
       sub: en.isDir ? "folder here" : "file here",
@@ -21138,9 +21248,9 @@ ${rows.join("\n")}`, name: subject };
     const dirs = nonPar.filter((e) => e.isDir).length;
     const files = nonPar.filter((e) => !e.isDir).length;
     const allExts = [...new Set(nonPar.filter((e) => !e.isDir && getExt(e)).map(getExt))].sort();
-    const extOpts = allExts.map((x) => `<option value="${x}">.${x}</option>`).join("");
+    const extOpts = allExts;
     const iconRules = getIconRules();
-    const initZoom = getZoom();
+    const initDensity = getDensity();
     const initView = getView();
     const initTheme = resolveTheme(themeMode());
     const initPalette = getPalette();
@@ -21177,7 +21287,7 @@ ${rows.join("\n")}`, name: subject };
       initTheme,
       initPalette,
       initView,
-      initZoom,
+      initDensity,
       initHidden,
       fileMode,
       rawPath,
@@ -21298,7 +21408,7 @@ ${rows.join("\n")}`, name: subject };
     initChrome(app);
     initMarkdownUi(app.toast);
     installColumnResize();
-    const listing = initListing(app, entries, { view: initView, zoom: initZoom, hidden: initHidden });
+    const listing = initListing(app, entries, { view: initView, density: initDensity, hidden: initHidden });
     initListingInput(app, listing);
     initSettingsUi(app);
     initToolLenses(app);

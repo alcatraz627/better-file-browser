@@ -4,7 +4,7 @@
 import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
-  getView, getPalette, getZoom, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
+  getView, getPalette, getDensity, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
   homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard,
 } from './storage';
 import { notes } from './notes';
@@ -111,10 +111,10 @@ loadKv().catch(() => {}).then(function () {
   const dirs    = nonPar.filter(e => e.isDir).length;
   const files   = nonPar.filter(e => !e.isDir).length;
   const allExts = [...new Set(nonPar.filter(e => !e.isDir && getExt(e)).map(getExt))].sort();
-  const extOpts = allExts.map(x => `<option value="${x}">.${x}</option>`).join('');
+  const extOpts = allExts;
 
   const iconRules = getIconRules();
-  const initZoom   = getZoom();
+  const initDensity = getDensity();
   const initView   = getView();
   const initTheme  = resolveTheme(themeMode());
   const initPalette = getPalette();
@@ -156,7 +156,7 @@ loadKv().catch(() => {}).then(function () {
       </div>`;
 
   const html = renderPage({
-    initTheme, initPalette, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings,
+    initTheme, initPalette, initView, initDensity, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings,
     curIsBookmarked: getSaved().some(p => samePlace(p.path, rawPath)),
     dirs, files, extOpts, recentsHTML, entries, ctx: { rawPath, iconRules, settings },
   });
@@ -236,7 +236,7 @@ loadKv().catch(() => {}).then(function () {
   initChrome(app);
   initMarkdownUi(app.toast);
   installColumnResize();
-  const listing = initListing(app, entries, { view: initView, zoom: initZoom, hidden: initHidden });
+  const listing = initListing(app, entries, { view: initView, density: initDensity, hidden: initHidden });
   initListingInput(app, listing);
   initSettingsUi(app);
   initToolLenses(app);

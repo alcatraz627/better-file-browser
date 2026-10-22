@@ -109,6 +109,7 @@ export function renderTile(e: Entry, ctx: RenderContext, idx = -1, hit?: Content
     <span class="fe-tile-nm">${esc(e.isParent ? '..' : e.name)}</span>
     ${hit ? `<span class="fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ''}
     ${!e.isDir && !e.isParent ? `<span class="fe-tile-sz">${fmtSize(e.rawBytes)}</span>` : ''}
+    ${e.isParent ? '' : `<span class="fe-tile-meta"><span class="fe-tile-tp">${fmtType(e)}</span><span class="fe-tile-dt">${fmtDate(e.dateMs, ctx.settings, e.dateStr)}</span><span class="fe-tile-tags">${tagChips(e, ctx)}${commentBadge(e, ctx)}</span></span>`}
     ${itemActions(e, ctx.rawPath)}
   </a>`;
 }

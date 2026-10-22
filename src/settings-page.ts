@@ -30,7 +30,7 @@ export const PALETTE_NAMES: [string, string][] = [
 ];
 
 const i = (body: string) => line(body, 14);
-const SORT_OPTS: Opt[] = [
+export const SORT_OPTS: Opt[] = [
   { value: '', label: 'As listed', icon: i('<path d="M3 6h18M3 12h18M3 18h18"/>') },
   { value: 'name', label: 'Name', icon: i('<path d="M4 18 8 6l4 12M5.5 14h5M15 6h5l-5 12h5"/>') },
   { value: 'date', label: 'Modified', icon: i('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>') },
@@ -38,7 +38,11 @@ const SORT_OPTS: Opt[] = [
   { value: 'type', label: 'Type', icon: i('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h6"/>') },
   { value: 'ext', label: 'Extension', icon: i('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>') },
 ];
-const GROUP_OPTS: Opt[] = [
+export const SORT_DIR_OPTS: Opt[] = [
+  { value: 'asc', icon: i('<path d="M12 19V5M5 12l7-7 7 7"/>'), hint: 'Ascending' },
+  { value: 'desc', icon: i('<path d="M12 5v14M19 12l-7 7-7-7"/>'), hint: 'Descending' },
+];
+export const GROUP_OPTS: Opt[] = [
   { value: 'none', label: 'None', icon: i('<path d="M3 6h18M3 12h18M3 18h18"/>') },
   { value: 'folders-first', label: 'Folders first', icon: i('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>') },
   { value: 'files-first', label: 'Files first', icon: i('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>') },
@@ -74,9 +78,7 @@ export function settingsDialog(): DialogSpec {
       { key: 'folders', label: 'Folders', hint: 'View, order, sidebar', icon: UI_ICON.folderOpen, tone: 'var(--nc-blue)', desc: 'How folders open, and what a click does.', body:
         card('Opening a folder',
           row('View', '', segHtml('fe-st-defview', VIEW_ICONS.map(v => ({ value: v.id, icon: v.ico, hint: v.label })), 'View a folder opens in')) +
-          row('Sort', '', ddHtml('fe-st-sort', SORT_OPTS, 'Order a folder opens in') + segHtml('fe-st-sort-dir', [
-            { value: 'asc', icon: i('<path d="M12 19V5M5 12l7-7 7 7"/>'), hint: 'Ascending' },
-            { value: 'desc', icon: i('<path d="M12 5v14M19 12l-7 7-7-7"/>'), hint: 'Descending' }], 'Direction')) +
+          row('Sort', '', ddHtml('fe-st-sort', SORT_OPTS, 'Order a folder opens in') + segHtml('fe-st-sort-dir', SORT_DIR_OPTS, 'Direction')) +
           row('Group', '', ddHtml('fe-st-group', GROUP_OPTS, 'Grouping a folder opens with')) +
           row('Dates', '', segHtml('fe-st-datefmt', [{ value: 'short', label: 'Apr 17' }, { value: 'full', label: 'April 17, 2025' }], 'How dates read'))) +
         card('Opening a file',

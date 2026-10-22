@@ -16,9 +16,10 @@ export function segHtml(id: string, opts: Opt[], title: string): string {
 }
 
 /// A slider over a fixed list of values, with the chosen one shown beside it
-/// and a tick for each stop.
-export function sliderHtml(id: string, values: number[], unit: string, title: string): string {
-  return `<div class="fe-sld" id="${id}" data-values="${values.join(',')}" data-unit="${esc(unit)}" title="${esc(title)}">
+/// and a tick for each stop. With `names`, each stop shows its name instead
+/// of its number.
+export function sliderHtml(id: string, values: number[], unit: string, title: string, names?: string[]): string {
+  return `<div class="fe-sld" id="${id}" data-values="${values.join(',')}" data-unit="${esc(unit)}"${names ? ` data-names="${esc(names.join('|'))}"` : ''} title="${esc(title)}">
     <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}" title="${esc(title)}">
     <output></output>
   </div>`;
@@ -68,11 +69,13 @@ function upgradeSeg(host: HTMLElement): void {
 function upgradeSlider(host: HTMLElement): void {
   const values = host.dataset.values!.split(',').map(Number);
   const unit = host.dataset.unit ?? '';
+  const names = host.dataset.names?.split('|');
   const range = host.querySelector('input')!;
   const out = host.querySelector('output')!;
   const show = () => {
     const v = values[Number(range.value)];
-    out.textContent = `${v}${unit}`;
+    out.textContent = names?.[Number(range.value)] ?? `${v}${unit}`;
+    if (names) range.setAttribute('aria-valuetext', out.textContent);
     host.style.setProperty('--pct', `${(Number(range.value) / (values.length - 1)) * 100}%`);
   };
   Object.defineProperty(host, 'value', {
@@ -100,6 +103,8 @@ function upgradeDd(host: HTMLElement): void {
   let opts: Opt[] = JSON.parse(host.dataset.opts || '[]');
   let cur = '';
   const paint = () => {
+    // Mirrored as an attribute, which pages and tests outside this script can read.
+    host.dataset.value = cur;
     const o = opts.find(x => x.value === cur);
     // A saved value missing from the list (a model since removed) still shows.
     curEl.innerHTML = o ? `${o.icon ?? ''}<span>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';

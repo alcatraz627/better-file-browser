@@ -12,7 +12,7 @@ export const VIEW_KEY      = 'bfb-view';
 export const THEME_KEY     = 'bfb-theme';
 export const PALETTE_KEY   = 'bfb-palette';
 export const PALETTES      = ['slate', 'violet', 'sand', 'ink', 'ocean', 'forest', 'ember', 'nord'];
-export const ZOOM_KEY      = 'bfb-zoom';
+export const DENSITY_KEY   = 'bfb-density';
 export const HIDDEN_KEY    = 'bfb-show-hidden';
 export const ICON_RULES_KEY = 'bfb-icon-rules-v1';
 export const SETTINGS_KEY  = 'bfb-settings-v1';
@@ -191,5 +191,7 @@ export function savePreviewLayout(l: PreviewLayout): void {
 export function getView():       string  { return kvGet(VIEW_KEY)   ?? 'details'; }
 export function getTheme():      string  { return kvGet(THEME_KEY)  ?? 'dark'; }
 export function getPalette():    string  { const p = kvGet(PALETTE_KEY); return p && PALETTES.includes(p) ? p : 'slate'; }
-export function getZoom():       number  { const z = parseInt(kvGet(ZOOM_KEY) ?? '100'); return Number.isFinite(z) ? z : 100; }
+/// How much a folder shows, from 1 (few big items, names only) to 5 (small items, every detail).
+export const DENSITY_NAMES = ['Overview', 'Large', 'Standard', 'Detailed', 'Full detail'];
+export function getDensity():    number  { const d = parseInt(kvGet(DENSITY_KEY) ?? '3'); return d >= 1 && d <= 5 ? d : 3; }
 export function getShowHidden(): boolean { return kvGet(HIDDEN_KEY) === 'true'; }

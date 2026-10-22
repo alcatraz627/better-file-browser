@@ -1,5 +1,5 @@
 // The folder listing: what is shown (sort, group, filter, text search,
-// deep search), how (view, zoom, hidden files, column widths) and which rows
+// deep search), how (view, detail level, hidden files, column widths) and which rows
 // are selected. Pointer and key handling live in listing-input.ts and drive
 // this module through the selection functions it returns.
 import type { App } from './app';
@@ -9,7 +9,7 @@ import { el, els } from './el';
 import { esc, fmtSize, fullPath, copyToClipboard } from './utils';
 import { kvGet, kvSet } from './kv';
 import {
-  VIEW_KEY, ZOOM_KEY, HIDDEN_KEY, getColWidths, saveColWidths, getSaved, getTags, saveSaved,
+  VIEW_KEY, DENSITY_KEY, HIDDEN_KEY, getColWidths, saveColWidths, getSaved, getTags, saveSaved,
   getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
 } from './storage';
 import { upsertPlace } from './places';
@@ -24,6 +24,7 @@ import { SearchFileReader, SearchSession } from './search-session';
 import { renderRow, renderTile, renderHitSnippet, type RenderContext } from './render';
 import { getIcon, CHEVRON_DOWN } from './icons';
 import { openPreview, canPreview } from './preview';
+import { upgradeControls, type ValuedEl } from './controls';
 
 export interface ListingState {
   all: Entry[];
@@ -52,7 +53,7 @@ export interface Selection {
 
 export interface Listing { ls: ListingState; sel: Selection; applyAll(): void; applyFindFromHash(): void }
 
-export function initListing(app: App, all: Entry[], init: { view: string; zoom: number; hidden: boolean }): Listing {
+export function initListing(app: App, all: Entry[], init: { view: string; density: number; hidden: boolean }): Listing {
   const { fe, toast, rawPath } = app;
   const ls: ListingState = {
     all, visible: all, baseStatus: '',
@@ -407,33 +408,44 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     if (!app.fileMode) el('fe-count').textContent = ls.baseStatus = countText();
     if (win) applyAll();   // a windowed list leaves hidden files' rows out, so it is drawn again
   });
-  const zoomEl  = el<HTMLInputElement>('fe-zoom');
-  const zoomVal = el('fe-zoom-val');
+  upgradeControls(el('fe-toolbar'));
+  upgradeControls(el('fe-sg-panel'));
+  upgradeControls(el('fe-filter-bar'));
+  el<ValuedEl>('fe-type-filter').value = ls.filter.type;
+  el<ValuedEl>('fe-find-depth').value = '8';
+  // Detail: one scale from a few big items with names only to small items
+  // with every fact. The styles key off data-density on #fe, per view.
+  const density = el<ValuedEl>('fe-density');
+  density.value = String(init.density);
+  const setDensity = (d: number) => {
+    const n = Math.max(1, Math.min(5, d));
+    fe.dataset.density = String(n);
+    density.value = String(n);
+    kvSet(DENSITY_KEY, String(n));
+    applyAll();   // rows change height, so a windowed list measures again
+  };
+  density.addEventListener('input', () => { fe.dataset.density = density.value; });
+  density.addEventListener('change', () => setDensity(Number(density.value)));
   const scroll  = el('fe-scroll');
   // This Chrome tab remembers where each folder was scrolled to.
   const scrollKey = 'bfb-scroll:' + rawPath;
   try { const top = Number(sessionStorage.getItem(scrollKey)); if (top) scroll.scrollTop = top; } catch { /* fine */ }
   scroll.addEventListener('scroll', () => { try { sessionStorage.setItem(scrollKey, String(scroll.scrollTop)); } catch { /* fine */ } });
-  zoomEl.addEventListener('input', () => {
-    const z = parseInt(zoomEl.value);
-    (scroll.style as CSSStyleDeclaration & { zoom: string }).zoom = String(z / 100);
-    zoomVal.textContent = z + '%';
-    zoomEl.title = `Zoom: ${z}% · drag to scale`;
-    el('fe-zoom-wrap').title = `Zoom: ${z}% · drag to scale the list (50 to 320%)`;
-    kvSet(ZOOM_KEY, String(z));
-  });
 
-  // Sort state: panel buttons, header arrows, storage.
+  // Sort state: panel controls, the Sort button's label, header arrows, storage.
+  const sortCols = el<ValuedEl>('fe-sort-cols'), sortDir = el<ValuedEl>('fe-sort-dir'), groupSeg = el<ValuedEl>('fe-group-btns');
+  const SORT_NAMES: Record<string, string> = { name: 'Name', size: 'Size', date: 'Modified', type: 'Type', ext: 'Extension' };
   function syncSortUi(): void {
     const { col, dir } = ls.sort;
-    els('#fe-sort-cols .fe-pbn').forEach(b => b.classList.toggle('active', b.dataset.col === (col ?? 'name')));
-    el('fe-sort-dir').textContent = dir === 'asc' ? '↑ Asc' : '↓ Desc';
+    sortCols.value = col ?? '';
+    sortDir.value = dir;
+    el('fe-sg-cur').textContent = col ? `${SORT_NAMES[col]} ${dir === 'asc' ? '↑' : '↓'}` : 'Sort';
     els('th[data-sort]').forEach(h => {
       const on = h.dataset.sort === col;
       h.classList.toggle('sorted', on);
       h.querySelector('.si')!.textContent = on ? (dir === 'asc' ? '↑' : '↓') : '↕';
     });
-    els('#fe-group-btns .fe-pbn').forEach(b => b.classList.toggle('active', b.dataset.group === ls.group));
+    groupSeg.value = ls.group;
     saveSortConfig(ls.sort);
     saveGroupMode(ls.group);
   }
@@ -495,19 +507,24 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     const open = sgPanel.style.display === 'none';
     sgPanel.style.display = open ? '' : 'none';
     el('fe-sg-btn').classList.toggle('on', open);
+    el('fe-sg-btn').setAttribute('aria-expanded', String(open));
   });
-  els('#fe-sort-cols .fe-pbn').forEach(btn => btn.addEventListener('click', () => setSortCol(btn.dataset.col as SortConfig['col'])));
-  el('fe-sort-dir').addEventListener('click', () => {
-    ls.sort.dir = ls.sort.dir === 'asc' ? 'desc' : 'asc';
+  sortCols.addEventListener('change', () => {
+    ls.sort.col = (sortCols.value || null) as SortConfig['col'];
+    syncSortUi();
+    applyAll();
+  });
+  sortDir.addEventListener('change', () => {
+    ls.sort.dir = sortDir.value as SortConfig['dir'];
     if (!ls.sort.col) ls.sort.col = 'name';   // a direction implies a column
     syncSortUi();
     applyAll();
   });
-  els('#fe-group-btns .fe-pbn').forEach(btn => btn.addEventListener('click', () => {
-    ls.group = btn.dataset.group as GroupMode;
+  groupSeg.addEventListener('change', () => {
+    ls.group = groupSeg.value as GroupMode;
     syncSortUi();
     applyAll();
-  }));
+  });
   syncSortUi();
 
   // Filter bar: name, regex, type, and the text-inside-files pass.
@@ -516,6 +533,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
     const open = filterBar.style.display === 'none';
     filterBar.style.display = open ? '' : 'none';
     el('fe-filter-btn').classList.toggle('on', open);
+    el('fe-filter-btn').setAttribute('aria-expanded', String(open));
     if (open) el<HTMLInputElement>('fe-filter-q').focus();
   });
   el<HTMLInputElement>('fe-filter-q').addEventListener('input', function () { stopFind(); ls.filter.q = this.value; refreshNameMatches(); });
@@ -686,7 +704,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; zoom: 
       if (deepReader === reader) deepReader = null;
       if (seq !== ls.deepSeq) return;
       // Name the limit that stopped it, so "0 found" is not read as "not there".
-      ls.deepCap = [r.entryCapped ? 'stopped at 5,000 items' : '', r.depthCapped ? `not deeper than ${findDepth.value} levels` : ''].filter(Boolean).join(', ');
+      ls.deepCap = [r.entryCapped ? 'stopped at 5,000 items' : '', r.depthCapped ? `not deeper than ${findDepth.value} level${findDepth.value === '1' ? '' : 's'}` : ''].filter(Boolean).join(', ');
       ls.deepEntries = r.entries; ls.deepFolders = r.folders; ls.deepTruncated = r.truncated;
       ls.deepScanning = false;
       refreshNameMatches();

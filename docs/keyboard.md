@@ -98,9 +98,9 @@ This file is generated from `src/keymap.ts`, the same list the app reads.
 | Filter panel | <kbd>f</kbd> |
 | Include subfolders | <kbd>⇧D</kbd> |
 | Hidden files | <kbd>.</kbd> |
-| Bigger | <kbd>=</kbd> |
-| Smaller | <kbd>-</kbd> |
-| Actual size | <kbd>0</kbd> |
+| Less detail, bigger items | <kbd>=</kbd> |
+| More detail, smaller items | <kbd>-</kbd> |
+| Standard detail | <kbd>0</kbd> |
 
 ## Tabs
 

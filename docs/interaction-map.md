@@ -103,7 +103,7 @@ panel when a note is opened as a reading tab.
 | Sort, Filter | open the panel |
 | column header / edge | sort / drag to resize |
 | eye | show hidden files |
-| zoom slider | scale the list only |
+| detail slider | fewer, bigger items or smaller items with more facts |
 
 ## Preview panel
 
@@ -173,7 +173,7 @@ itself every couple of seconds and re-renders when the file changes on disk.
 - The notes editor is the preview panel in edit mode; its `open` and `+ tab` act
   on the note.
 - Reader size applies to the file page and the preview panel; interface size
-  scales the whole interface and stacks on top of the list zoom.
+  scales the whole interface; the toolbar detail slider changes what the list shows.
 - The tab strip belongs to one browser tab and is restored into a fresh one for a
   day after it closes, with an undo.
 
@@ -202,7 +202,7 @@ itself every couple of seconds and re-renders when the file changes on disk.
 
 ## Good to know
 
-- Some controls have no single key: sort, filter, view, hidden, zoom, theme,
+- Some controls have no single key: sort, filter, view, hidden, detail, theme,
   terminal, and the breadcrumb dropdown. Tab reaches them, the sidebar's lens
   row, filters and rows, and the floating preview's buttons (Tab stays inside
   the preview while it is open). The context menu is right-click only.

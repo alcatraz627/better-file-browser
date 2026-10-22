@@ -273,14 +273,15 @@ export function initListingInput(app: App, listing: Listing): void {
     app.setOrder(getSortConfig(), next);
     toast(`Grouping: ${next.replace('-', ' ')}`);
   }, onListing);
-  const zoom = (to: (z: number) => number) => {
-    const z = el<HTMLInputElement>('fe-zoom');
-    z.value = String(Math.max(Number(z.min || 50), Math.min(Number(z.max || 320), to(Number(z.value)))));
-    z.dispatchEvent(new Event('input'));
+  // Bigger means fewer, larger items with less detail on each.
+  const detail = (to: (d: number) => number) => {
+    const d = el<HTMLElement & { value: string }>('fe-density');
+    d.value = String(Math.max(1, Math.min(5, to(Number(d.value)))));
+    d.dispatchEvent(new Event('change'));
   };
-  bind('zoom-in', () => zoom(z => z + 10), onListing);
-  bind('zoom-out', () => zoom(z => z - 10), onListing);
-  bind('zoom-reset', () => zoom(() => 100), onListing);
+  bind('zoom-in', () => detail(d => d - 1), onListing);
+  bind('zoom-out', () => detail(d => d + 1), onListing);
+  bind('zoom-reset', () => detail(() => 3), onListing);
 
   // The palette also goes to anything in this folder.
   addPaletteSource(() => onListing() ? ls.all.filter(en => !en.isParent).slice(0, 400).map(en => ({

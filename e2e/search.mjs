@@ -27,7 +27,12 @@ try {
   assert.match(await a.$eval('#fe-find-status', el => el.textContent), /1 matching file/);
   assert.match(await b.$eval('#fe-find-status', el => el.textContent), /0 matching files/);
   assert.equal(await a.$$eval('#fe-tbody .fe-find-snippet', nodes => nodes.length), 1);
-  await a.$eval('#fe-find-depth', input => { input.value = '1'; });
+  await a.$eval('#fe-filter-btn', button => { if (document.getElementById('fe-filter-bar').style.display === 'none') button.click(); });
+  await a.$eval('#fe-deep-btn', button => button.click());   // the depth control shows with Subfolders on
+  // DOM clicks: page a sits behind page b, where mouse clicks wait on frames that never come.
+  await a.$eval('#fe-find-depth .fe-dd-btn', button => button.click());
+  await a.$eval('.fe-dd-list .fe-dd-opt[data-v="1"]', option => option.click());
+  await a.$eval('#fe-deep-btn', button => button.click());
   await a.$eval('#fe-deep-btn', button => button.click());
   await a.waitForFunction(() => !document.getElementById('fe-count').textContent.startsWith('Scanning'), { polling: 100, timeout: 5000 }).catch(async error => {
     console.log('crawl wait state', await a.$eval('#fe-count', el => el.textContent), await a.$eval('#fe-find-error', el => el.textContent));
@@ -54,7 +59,7 @@ try {
   await restored.goto(saved, { waitUntil: 'load' });
   await restored.waitForFunction(() => document.getElementById('fe-find-status')?.textContent.includes('scanned'), { polling: 100 });
   assert.equal(await restored.$eval('#fe-find-text-regex', input => input.checked), true);
-  assert.equal(await restored.$eval('#fe-find-depth', input => input.value), '1');
+  assert.equal(await restored.$eval('#fe-find-depth', host => host.dataset.value), '1');
   assert.equal(await restored.$$eval('#fe-tbody .fe-find-snippet', nodes => nodes.length), 1);
   await b.$eval('#fe-find-text', input => { input.value = 'plain'; input.dispatchEvent(new Event('input', { bubbles: true })); });
   await b.$eval('#fe-find-run', button => button.click());

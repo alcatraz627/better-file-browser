@@ -89,9 +89,9 @@ export const KEYMAP: KeyDef[] = [
   { id: 'filter-panel', group: 'View', title: 'Filter panel', keys: ['f'], own: true },
   { id: 'deep', group: 'View', title: 'Include subfolders', keys: ['⇧D'], scope: 'listing', own: true },
   { id: 'hidden', group: 'View', title: 'Hidden files', keys: ['.'], own: true },
-  { id: 'zoom-in', group: 'View', title: 'Bigger', keys: ['='], own: true },
-  { id: 'zoom-out', group: 'View', title: 'Smaller', keys: ['-'], own: true },
-  { id: 'zoom-reset', group: 'View', title: 'Actual size', keys: ['0'], own: true },
+  { id: 'zoom-in', group: 'View', title: 'Less detail, bigger items', keys: ['='], own: true },
+  { id: 'zoom-out', group: 'View', title: 'More detail, smaller items', keys: ['-'], own: true },
+  { id: 'zoom-reset', group: 'View', title: 'Standard detail', keys: ['0'], own: true },
 
   // Tabs
   { id: 'tab-keep', group: 'Tabs', title: 'Keep this place', keys: ['t'] },

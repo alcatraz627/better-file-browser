@@ -135,7 +135,7 @@ Settings can still hide Recent, Finder Favorites, or System entirely.
 | column header | sort; again flips ✓ |
 | column edge | drag to resize ✓ |
 | eye | show hidden files |
-| zoom slider | scale the list |
+| detail slider | fewer, bigger items or smaller items with more facts |
 | folder button by the filter | deep search ✓ |
 
 ## Dialogs
