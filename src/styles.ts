@@ -677,30 +677,12 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-pane .fe-md h2{font-size:1.15em;border:0;padding:0}
 .fe-dlg-pane .fe-md>:first-child{margin-top:0;padding-right:36px}
 
-.fe-st-section{display:flex;flex-direction:column;gap:10px}
-.fe-st-title{font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--dm);padding-bottom:4px;border-bottom:1px solid var(--bd)}
-.fe-st-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.fe-st-lbl{font-size:var(--fs-md);color:var(--mt);min-width:90px;flex-shrink:0}
-.fe-st-radio{display:flex;align-items:center;gap:6px;font-size:var(--fs-lg);color:var(--tx);cursor:pointer}
-.fe-st-radio input{accent-color:var(--ac);cursor:pointer}
-.fe-st-swatch{width:12px;height:12px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px var(--bd2)}
-.fe-st-check{display:flex;align-items:center;gap:7px;font-size:var(--fs-lg);color:var(--tx);cursor:pointer}
-.fe-st-check input{accent-color:var(--ac);cursor:pointer;width:14px;height:14px}
 .fe-st-input{width:100%}
 
-.fe-st-rules-hint{font-size:var(--fs-sm);color:var(--dm);font-style:italic}
-.fe-st-rules-cols{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
-  gap:6px;padding:0 2px 4px;align-items:center;font-size:var(--fs-xs);color:var(--dm)}
-.fe-st-col-lbl{font-size:var(--fs-xs);color:var(--dm);font-weight:500}
 .fe-st-rule{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
   gap:6px;align-items:center;padding:5px 2px;border-bottom:1px solid var(--bd)}
 .fe-st-rule:last-child{border-bottom:none}
 .fe-st-rule input[type="checkbox"]{accent-color:var(--ac);cursor:pointer;width:13px;height:13px}
-.fe-st-rule-preview{display:flex;align-items:center;justify-content:center;height:20px}
-.fe-st-rule-color{border:1px solid var(--bd);background:none;cursor:pointer;
-  width:28px;height:24px;padding:1px;border-radius:4px;flex-shrink:0}
-.fe-st-rules-empty{font-size:var(--fs-md);color:var(--dm);padding:8px 2px;font-style:italic}
 #fe-st-ai-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:11px 13px}
 .fe-st-ai-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
 .fe-st-ai-blink{position:relative;display:inline-flex;width:9px;height:9px;flex-shrink:0}
@@ -720,8 +702,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-st-ai-grid .v.warm-yes{color:var(--green)}
 .fe-st-ai-grid .v.warm-no{color:var(--gold)}
-.fe-st-ai-controls{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
-.fe-st-ai-controls .fe-st-select{flex:1;min-width:120px}
 .fe-st-ai-hint{font-size:var(--fs-sm);color:var(--dm);margin-top:8px;line-height:1.5}
 .fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 4px;
   font-family:'SF Mono',Menlo,Consolas,monospace;font-size:var(--fs-sm);color:var(--mt)}
@@ -1441,7 +1421,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-c .fe-st-input{width:260px;max-width:100%}
 .fe-set-note{padding:2px 16px 10px;font-size:var(--fs-md);color:var(--dm);line-height:1.5}
 .fe-set-note:empty{display:none}
-.fe-set-card .fe-st-rules-cols,.fe-set-card #fe-st-rules-list{margin:0 16px}
+.fe-set-card #fe-st-rules-list{margin:0 16px}
 .fe-set-danger{color:var(--nc-red)}
 
 .fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
@@ -1567,8 +1547,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
    on top), fields share one look, path chevrons show on hover only, and
    the palette swatch previews the theme in use. */
 
-.fe-st-ai-why{margin-top:6px}
-.fe-st-ai-why > summary{cursor:pointer;color:var(--ac)}
 #fe-bar .fe-crumb-dd{opacity:1;color:var(--dm);padding:3px 1px}
 #fe-bar .fe-crumb-dd:hover{color:var(--tx)}
 #fe-statusbar{min-width:0;overflow:hidden;white-space:nowrap}
