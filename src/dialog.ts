@@ -7,6 +7,7 @@
 import { esc } from './utils';
 import { kvGet, kvSet } from './kv';
 import { UI_ICON } from './control-icons';
+import { openLayer, type Layer } from './layer';
 
 export interface DialogTab { key: string; label: string; hint?: string; icon?: string; tone?: string; desc?: string; body: string }
 export interface DialogSpec { id: string; mark: string; title: string; subtitle: string; tabs: DialogTab[] }
@@ -32,9 +33,8 @@ export function renderDialog(d: DialogSpec): string {
   </div>`;
 }
 
-// A stack, not one slot: the preview and the dialogs all remember focus here,
-// and they nest (a dialog can open over a docked preview), so close must return
-// focus to each overlay's own opener, not the last one that opened.
+// The preview remembers focus here until it opens through the layer service
+// too. A stack, not one slot, so nested openings each return to their opener.
 const focusStack: (HTMLElement | null)[] = [];
 export function rememberFocus(): void {
   focusStack.push(document.activeElement as HTMLElement | null);
@@ -62,29 +62,25 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
     panes.forEach(p => { p.classList.toggle('on', p.dataset.tab === tab); if (p.dataset.tab === tab) p.scrollTop = 0; });
     try { kvSet(memory, tab); } catch { /* fine */ }
   }
+  let layer: Layer | null = null;
   function open(tab?: string): void {
-    rememberFocus();
     hooks.onOpen?.();
     let last = '';
     try { last = kvGet(memory) || ''; } catch { /* fine */ }
     show(tab ?? last);
     root.style.display = 'flex';
-    box.focus();
+    if (layer?.open) { box.focus(); return; }
+    // Esc and focus going back to the opener come from the layer.
+    layer = openLayer(root, { kind: 'dialog', place: 'none', focus: box, onClose: () => { root.style.display = 'none'; hooks.onClose?.(); } });
   }
-  function close(): void {
-    if (!isOpen()) return;
-    root.style.display = 'none';
-    hooks.onClose?.();
-    restoreFocus();
-  }
+  function close(): void { layer?.close('api'); }
 
   tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab!)));
   root.querySelector('.fe-dlg-close')!.addEventListener('click', close);
   root.querySelector('.fe-dlg-bg')!.addEventListener('click', close);
   document.addEventListener('keydown', e => {
     if (!isOpen()) return;
-    if (e.key === 'Escape') { e.preventDefault(); close(); }
-    else if (e.key === 'Tab') {
+    if (e.key === 'Tab') {
       // Tab stays inside the dialog, wrapping from the last control to the first.
       const all = [...box.querySelectorAll<HTMLElement>('button, a[href], input, textarea, [tabindex]:not([tabindex="-1"])')]
         .filter(x => x.offsetParent !== null && !(x as HTMLButtonElement).disabled && x.tabIndex >= 0);

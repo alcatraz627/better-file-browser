@@ -562,8 +562,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
   opacity:0;transition:opacity .12s ease-out}
 #fe-hint.on{opacity:1}
-/* A raised part (layer.ts raise) keeps its own placement, not the top layer's centring. */
-[data-raised]{inset:auto;margin:0;overflow:visible}
+/* Parts in the top layer (layer.ts) keep their own look and placement, not the
+   browser's popover defaults; zero specificity, so every part's own rule wins. */
+:where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
 @media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
 #fe-toast.act{pointer-events:auto}
 .fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
@@ -1920,7 +1921,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ai-def{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:var(--on);color:var(--ac)}
 
 /* The command palette. */
-.fe-pal-wrap{position:fixed;inset:0;width:auto;height:auto;max-width:none;max-height:none;margin:0;border:0;overflow:visible;color:inherit;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
+.fe-pal-wrap{position:fixed;inset:0;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
 .fe-pal{width:min(640px,calc(100vw - 32px));max-height:min(560px,72vh);display:flex;flex-direction:column;border-radius:16px;overflow:hidden;
   background:var(--card);border:1px solid var(--pop-bd);box-shadow:0 24px 64px rgb(0 0 0 / .45),0 2px 8px rgb(0 0 0 / .25);animation:fe-rise var(--t-base) var(--ease)}
 .fe-pal-q{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd);color:var(--dm)}
@@ -2154,6 +2155,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       kind: opts.kind,
       opts,
       returnTo: document.activeElement,
+      at: null,
       get open() {
         return open;
       },
@@ -2179,6 +2181,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     stack.push(layer);
     opened++;
     position(el, opts);
+    layer.at = anchor?.getBoundingClientRect() ?? null;
     const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
     if (f === "first") el.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
     else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
@@ -2239,7 +2242,15 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     }, true);
     document.addEventListener("scroll", (e) => {
       const t = e.target;
-      for (const l of [...stack]) if (CLOSES[l.kind].scroll && !l.el.contains(t)) l.close("scroll");
+      for (const l of [...stack]) {
+        if (!CLOSES[l.kind].scroll || l.el.contains(t)) continue;
+        const a = l.opts.anchor;
+        if (a && l.at) {
+          const r = a.getBoundingClientRect();
+          if (Math.abs(r.top - l.at.top) < 2 && Math.abs(r.left - l.at.left) < 2) continue;
+        }
+        l.close("scroll");
+      }
     }, true);
     document.addEventListener("focusin", (e) => {
       const t = e.target;

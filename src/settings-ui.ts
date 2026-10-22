@@ -11,6 +11,7 @@ import { icoCustom, RULE_GLYPHS } from './icons';
 import { VIEW_KEY, PALETTE_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
 import { llmAvailability, llmWarm, llmModels } from './llm';
 import { mountDialog } from './dialog';
+import { openLayer, type Layer } from './layer';
 import { wireKeyboardMap } from './help';
 import { COLUMN_KEY, parseExcludedExtensions, savedColumnMode } from './file-page';
 import { UI_ICON } from './control-icons';
@@ -112,13 +113,11 @@ export function initSettingsUi(app: App): void {
   });
 
   // The icon designer: a short text badge or a picture, and a colour.
-  let pop: HTMLElement | null = null;
-  const closePop = () => { pop?.remove(); pop = null; };
+  let pop: Layer | null = null;
+  const closePop = () => pop?.close('api');
   function openRulePop(idx: number, anchor: HTMLElement): void {
-    closePop();
     const rule = app.iconRules[idx];
     const box = document.createElement('div');
-    pop = box;
     box.className = 'fe-rule-pop';
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-label', 'Icon and colour');
@@ -154,16 +153,8 @@ export function initSettingsUi(app: App): void {
       if (t.classList.contains('fe-rp-label')) { rule.label = t.value; apply(); }
       if (t.classList.contains('fe-rp-hex') && /^#[0-9a-f]{6}$/i.test(t.value)) { rule.color = t.value; apply(); }
     });
-    box.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePop(); anchor.focus(); } });
-    fe.appendChild(box);
-    const r = anchor.getBoundingClientRect();
-    box.style.left = `${Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8))}px`;
-    box.style.top = `${r.bottom + box.offsetHeight + 8 > innerHeight ? Math.max(8, r.top - box.offsetHeight - 6) : r.bottom + 6}px`;
-    box.querySelector<HTMLElement>('.fe-rp-g.on')?.focus();
+    pop = openLayer(box, { kind: 'popover', anchor, offset: 6, group: 'menu', focus: box.querySelector<HTMLElement>('.fe-rp-g.on') ?? 'first' });
   }
-  document.addEventListener('mousedown', e => {
-    if (pop && !pop.contains(e.target as Node) && !(e.target as Element).closest?.('.fe-rule-ico')) closePop();
-  }, true);
 
   // AI.
   const aiModel = v<DropdownEl>('fe-st-ai-model');

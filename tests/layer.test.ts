@@ -68,6 +68,18 @@ describe('layers', () => {
     expect([own.isConnected, own.dataset.layer]).toEqual([true, undefined]);
   });
 
+  it('a scroll closes an anchored layer only when its anchor moved', () => {
+    const anchor = document.getElementById('anchor')!;
+    let top = 10;
+    anchor.getBoundingClientRect = () => ({ top, left: 0, right: 10, bottom: top + 10, width: 10, height: 10, x: 0, y: top, toJSON() {} }) as DOMRect;
+    const p = openLayer(mk(), { kind: 'popover', anchor });
+    document.dispatchEvent(new Event('scroll'));
+    expect(p.open).toBe(true);
+    top = 40;
+    document.dispatchEvent(new Event('scroll'));
+    expect(p.open).toBe(false);
+  });
+
   it('opening a layer in the same group closes the other', () => {
     const a = openLayer(mk(), { kind: 'popover', group: 'menu' });
     const b = openLayer(mk(), { kind: 'popover', group: 'menu' });

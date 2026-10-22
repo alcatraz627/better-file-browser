@@ -560,8 +560,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
   opacity:0;transition:opacity .12s ease-out}
 #fe-hint.on{opacity:1}
-/* A raised part (layer.ts raise) keeps its own placement, not the top layer's centring. */
-[data-raised]{inset:auto;margin:0;overflow:visible}
+/* Parts in the top layer (layer.ts) keep their own look and placement, not the
+   browser's popover defaults; zero specificity, so every part's own rule wins. */
+:where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
 @media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
 #fe-toast.act{pointer-events:auto}
 .fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}

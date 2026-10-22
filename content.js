@@ -985,6 +985,165 @@ ${body}`;
     { id: "icons", label: "Large Icons", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/></svg>` }
   ];
 
+  // src/layer.ts
+  var CLOSES = {
+    popover: { esc: true, outside: true, anchor: true, scroll: true, blur: true },
+    hovercard: { esc: true, scroll: true },
+    transient: {},
+    command: { esc: true, outside: true },
+    dialog: { esc: true },
+    float: { esc: true }
+  };
+  var MODAL = { command: true, dialog: true, float: true };
+  var stack = [];
+  var topLayer = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
+  var wired = false;
+  var anchorClosed = null;
+  var opened = 0;
+  var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
+  function openLayer(el2, opts) {
+    wire();
+    if (opts.anchor && anchorClosed?.anchor === opts.anchor && performance.now() - anchorClosed.at < 600) {
+      anchorClosed = null;
+      return { el: el2, kind: opts.kind, open: false, close() {
+      }, place() {
+      } };
+    }
+    const existing = stack.find((l) => l.el === el2);
+    existing?.close("replaced");
+    if (opts.group) stack.filter((l) => l.opts.group === opts.group).forEach((l) => l.close("replaced"));
+    const host = document.getElementById("fe") ?? document.body;
+    const added = !el2.isConnected;
+    if (added) host.appendChild(el2);
+    el2.dataset.layer = opts.kind;
+    if (opts.role) el2.setAttribute("role", opts.role);
+    if (opts.label) el2.setAttribute("aria-label", opts.label);
+    if (MODAL[opts.kind]) el2.setAttribute("aria-modal", "true");
+    if (topLayer) {
+      el2.setAttribute("popover", "manual");
+      el2.showPopover();
+    }
+    const anchor = opts.anchor ?? null;
+    anchor?.setAttribute("aria-expanded", "true");
+    if (anchor && el2.id) anchor.setAttribute("aria-controls", el2.id);
+    let open = true;
+    const layer = {
+      el: el2,
+      kind: opts.kind,
+      opts,
+      returnTo: document.activeElement,
+      at: null,
+      get open() {
+        return open;
+      },
+      place: () => position(el2, opts),
+      close(why = "api") {
+        if (!open) return;
+        open = false;
+        const i3 = stack.indexOf(layer);
+        if (i3 >= 0) stack.splice(i3, 1);
+        anchor?.setAttribute("aria-expanded", "false");
+        const hadFocus = el2.contains(document.activeElement);
+        if (topLayer && el2.matches(":popover-open")) el2.hidePopover();
+        el2.removeAttribute("popover");
+        delete el2.dataset.layer;
+        if (added) el2.remove();
+        if (hadFocus || document.activeElement === document.body) {
+          const back = anchor ?? layer.returnTo;
+          if (back?.isConnected) back.focus({ preventScroll: true });
+        }
+        opts.onClose?.(why);
+      }
+    };
+    stack.push(layer);
+    opened++;
+    position(el2, opts);
+    layer.at = anchor?.getBoundingClientRect() ?? null;
+    const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
+    if (f === "first") el2.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
+    else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
+    return layer;
+  }
+  function raise(el2) {
+    if (!topLayer) return;
+    if (el2.matches(":popover-open") && Number(el2.dataset.raised) === opened) return;
+    el2.dataset.raised = String(opened);
+    if (!el2.hasAttribute("popover")) el2.setAttribute("popover", "manual");
+    if (el2.matches(":popover-open")) el2.hidePopover();
+    el2.showPopover();
+    void el2.offsetWidth;
+  }
+  function position(el2, o) {
+    const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
+    if (place === "none") return;
+    el2.style.position = "fixed";
+    el2.style.margin = "0";
+    el2.style.inset = "auto";
+    const gap = o.offset ?? 4, pad = 8;
+    const w = el2.offsetWidth, h = el2.offsetHeight;
+    let x, y;
+    if (place === "point" && o.point) {
+      x = o.point.x;
+      y = o.point.y;
+    } else {
+      const r = (o.anchor ?? el2).getBoundingClientRect();
+      if (place === "right") {
+        x = r.right + gap;
+        y = r.top;
+      } else {
+        x = o.align === "end" ? r.right - w : r.left;
+        const below = r.bottom + gap, above = r.top - gap - h;
+        y = place === "above" ? above >= pad ? above : below : below + h <= innerHeight - pad || above < pad ? below : above;
+      }
+    }
+    el2.style.left = `${Math.max(pad, Math.min(x, innerWidth - w - pad))}px`;
+    el2.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
+  }
+  function wire() {
+    if (wired) return;
+    wired = true;
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      stack.filter((l) => l.kind === "hovercard").forEach((l) => l.close("esc"));
+      const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc);
+      if (!top) return;
+      e.preventDefault();
+      e.stopPropagation();
+      top.close("esc");
+    }, true);
+    document.addEventListener("pointerdown", (e) => {
+      const t = e.target;
+      const top = stack[stack.length - 1];
+      if (!top || top.el.contains(t)) return;
+      const anchor = top.opts.anchor;
+      if (anchor?.contains(t)) {
+        if (CLOSES[top.kind].anchor) {
+          top.close("anchor");
+          anchorClosed = { anchor, at: performance.now() };
+        }
+        return;
+      }
+      anchorClosed = null;
+      if (CLOSES[top.kind].outside) top.close("outside");
+    }, true);
+    document.addEventListener("scroll", (e) => {
+      const t = e.target;
+      for (const l of [...stack]) {
+        if (!CLOSES[l.kind].scroll || l.el.contains(t)) continue;
+        const a = l.opts.anchor;
+        if (a && l.at) {
+          const r = a.getBoundingClientRect();
+          if (Math.abs(r.top - l.at.top) < 2 && Math.abs(r.left - l.at.left) < 2) continue;
+        }
+        l.close("scroll");
+      }
+    }, true);
+    document.addEventListener("focusin", (e) => {
+      const t = e.target;
+      for (const l of [...stack]) if (CLOSES[l.kind].blur && !l.el.contains(t) && !l.opts.anchor?.contains(t)) l.close("blur");
+    });
+  }
+
   // src/dialog.ts
   var tile = (t, size = "") => `<span class="fe-dlg-tile ${size}" style="--tone:${t.tone ?? "var(--ac)"}" aria-hidden="true">${t.icon}</span>`;
   function renderDialog(d) {
@@ -1031,8 +1190,8 @@ ${body}`;
       } catch {
       }
     }
+    let layer = null;
     function open(tab) {
-      rememberFocus();
       hooks.onOpen?.();
       let last = "";
       try {
@@ -1041,23 +1200,24 @@ ${body}`;
       }
       show(tab ?? last);
       root.style.display = "flex";
-      box.focus();
+      if (layer?.open) {
+        box.focus();
+        return;
+      }
+      layer = openLayer(root, { kind: "dialog", place: "none", focus: box, onClose: () => {
+        root.style.display = "none";
+        hooks.onClose?.();
+      } });
     }
     function close() {
-      if (!isOpen()) return;
-      root.style.display = "none";
-      hooks.onClose?.();
-      restoreFocus();
+      layer?.close("api");
     }
     tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.tab)));
     root.querySelector(".fe-dlg-close").addEventListener("click", close);
     root.querySelector(".fe-dlg-bg").addEventListener("click", close);
     document.addEventListener("keydown", (e) => {
       if (!isOpen()) return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-      } else if (e.key === "Tab") {
+      if (e.key === "Tab") {
         const all = [...box.querySelectorAll('button, a[href], input, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null && !x.disabled && x.tabIndex >= 0);
         if (!all.length) return;
         const at = all.indexOf(document.activeElement);
@@ -2487,155 +2647,6 @@ ${body}`;
     }
     return xhrDirect(url).catch(() => {
       throw new FileFetchError("read-failed", "no reply from the extension worker");
-    });
-  }
-
-  // src/layer.ts
-  var CLOSES = {
-    popover: { esc: true, outside: true, anchor: true, scroll: true, blur: true },
-    hovercard: { esc: true, scroll: true },
-    transient: {},
-    command: { esc: true, outside: true },
-    dialog: { esc: true },
-    float: { esc: true }
-  };
-  var MODAL = { command: true, dialog: true, float: true };
-  var stack = [];
-  var topLayer = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
-  var wired = false;
-  var anchorClosed = null;
-  var opened = 0;
-  var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
-  function openLayer(el2, opts) {
-    wire();
-    if (opts.anchor && anchorClosed?.anchor === opts.anchor && performance.now() - anchorClosed.at < 600) {
-      anchorClosed = null;
-      return { el: el2, kind: opts.kind, open: false, close() {
-      }, place() {
-      } };
-    }
-    const existing = stack.find((l) => l.el === el2);
-    existing?.close("replaced");
-    if (opts.group) stack.filter((l) => l.opts.group === opts.group).forEach((l) => l.close("replaced"));
-    const host = document.getElementById("fe") ?? document.body;
-    const added = !el2.isConnected;
-    if (added) host.appendChild(el2);
-    el2.dataset.layer = opts.kind;
-    if (opts.role) el2.setAttribute("role", opts.role);
-    if (opts.label) el2.setAttribute("aria-label", opts.label);
-    if (MODAL[opts.kind]) el2.setAttribute("aria-modal", "true");
-    if (topLayer) {
-      el2.setAttribute("popover", "manual");
-      el2.showPopover();
-    }
-    const anchor = opts.anchor ?? null;
-    anchor?.setAttribute("aria-expanded", "true");
-    if (anchor && el2.id) anchor.setAttribute("aria-controls", el2.id);
-    let open = true;
-    const layer = {
-      el: el2,
-      kind: opts.kind,
-      opts,
-      returnTo: document.activeElement,
-      get open() {
-        return open;
-      },
-      place: () => position(el2, opts),
-      close(why = "api") {
-        if (!open) return;
-        open = false;
-        const i3 = stack.indexOf(layer);
-        if (i3 >= 0) stack.splice(i3, 1);
-        anchor?.setAttribute("aria-expanded", "false");
-        const hadFocus = el2.contains(document.activeElement);
-        if (topLayer && el2.matches(":popover-open")) el2.hidePopover();
-        el2.removeAttribute("popover");
-        delete el2.dataset.layer;
-        if (added) el2.remove();
-        if (hadFocus || document.activeElement === document.body) {
-          const back = anchor ?? layer.returnTo;
-          if (back?.isConnected) back.focus({ preventScroll: true });
-        }
-        opts.onClose?.(why);
-      }
-    };
-    stack.push(layer);
-    opened++;
-    position(el2, opts);
-    const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
-    if (f === "first") el2.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
-    else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
-    return layer;
-  }
-  function raise(el2) {
-    if (!topLayer) return;
-    if (el2.matches(":popover-open") && Number(el2.dataset.raised) === opened) return;
-    el2.dataset.raised = String(opened);
-    if (!el2.hasAttribute("popover")) el2.setAttribute("popover", "manual");
-    if (el2.matches(":popover-open")) el2.hidePopover();
-    el2.showPopover();
-    void el2.offsetWidth;
-  }
-  function position(el2, o) {
-    const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
-    if (place === "none") return;
-    el2.style.position = "fixed";
-    el2.style.margin = "0";
-    el2.style.inset = "auto";
-    const gap = o.offset ?? 4, pad = 8;
-    const w = el2.offsetWidth, h = el2.offsetHeight;
-    let x, y;
-    if (place === "point" && o.point) {
-      x = o.point.x;
-      y = o.point.y;
-    } else {
-      const r = (o.anchor ?? el2).getBoundingClientRect();
-      if (place === "right") {
-        x = r.right + gap;
-        y = r.top;
-      } else {
-        x = o.align === "end" ? r.right - w : r.left;
-        const below = r.bottom + gap, above = r.top - gap - h;
-        y = place === "above" ? above >= pad ? above : below : below + h <= innerHeight - pad || above < pad ? below : above;
-      }
-    }
-    el2.style.left = `${Math.max(pad, Math.min(x, innerWidth - w - pad))}px`;
-    el2.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
-  }
-  function wire() {
-    if (wired) return;
-    wired = true;
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      stack.filter((l) => l.kind === "hovercard").forEach((l) => l.close("esc"));
-      const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc);
-      if (!top) return;
-      e.preventDefault();
-      e.stopPropagation();
-      top.close("esc");
-    }, true);
-    document.addEventListener("pointerdown", (e) => {
-      const t = e.target;
-      const top = stack[stack.length - 1];
-      if (!top || top.el.contains(t)) return;
-      const anchor = top.opts.anchor;
-      if (anchor?.contains(t)) {
-        if (CLOSES[top.kind].anchor) {
-          top.close("anchor");
-          anchorClosed = { anchor, at: performance.now() };
-        }
-        return;
-      }
-      anchorClosed = null;
-      if (CLOSES[top.kind].outside) top.close("outside");
-    }, true);
-    document.addEventListener("scroll", (e) => {
-      const t = e.target;
-      for (const l of [...stack]) if (CLOSES[l.kind].scroll && !l.el.contains(t)) l.close("scroll");
-    }, true);
-    document.addEventListener("focusin", (e) => {
-      const t = e.target;
-      for (const l of [...stack]) if (CLOSES[l.kind].blur && !l.el.contains(t) && !l.opts.anchor?.contains(t)) l.close("blur");
     });
   }
 
@@ -4696,8 +4707,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
   opacity:0;transition:opacity .12s ease-out}
 #fe-hint.on{opacity:1}
-/* A raised part (layer.ts raise) keeps its own placement, not the top layer's centring. */
-[data-raised]{inset:auto;margin:0;overflow:visible}
+/* Parts in the top layer (layer.ts) keep their own look and placement, not the
+   browser's popover defaults; zero specificity, so every part's own rule wins. */
+:where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
 @media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
 #fe-toast.act{pointer-events:auto}
 .fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
@@ -6054,7 +6066,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ai-def{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:var(--on);color:var(--ac)}
 
 /* The command palette. */
-.fe-pal-wrap{position:fixed;inset:0;width:auto;height:auto;max-width:none;max-height:none;margin:0;border:0;overflow:visible;color:inherit;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
+.fe-pal-wrap{position:fixed;inset:0;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
 .fe-pal{width:min(640px,calc(100vw - 32px));max-height:min(560px,72vh);display:flex;flex-direction:column;border-radius:16px;overflow:hidden;
   background:var(--card);border:1px solid var(--pop-bd);box-shadow:0 24px 64px rgb(0 0 0 / .45),0 2px 8px rgb(0 0 0 / .25);animation:fe-rise var(--t-base) var(--ease)}
 .fe-pal-q{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd);color:var(--dm)}
@@ -20698,15 +20710,10 @@ ${rows.join("\n")}`, name: subject };
       toast("Icon rules reset");
     });
     let pop = null;
-    const closePop = () => {
-      pop?.remove();
-      pop = null;
-    };
+    const closePop = () => pop?.close("api");
     function openRulePop(idx, anchor) {
-      closePop();
       const rule = app.iconRules[idx];
       const box = document.createElement("div");
-      pop = box;
       box.className = "fe-rule-pop";
       box.setAttribute("role", "dialog");
       box.setAttribute("aria-label", "Icon and colour");
@@ -20749,23 +20756,8 @@ ${rows.join("\n")}`, name: subject };
           apply();
         }
       });
-      box.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          closePop();
-          anchor.focus();
-        }
-      });
-      fe.appendChild(box);
-      const r = anchor.getBoundingClientRect();
-      box.style.left = `${Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8))}px`;
-      box.style.top = `${r.bottom + box.offsetHeight + 8 > innerHeight ? Math.max(8, r.top - box.offsetHeight - 6) : r.bottom + 6}px`;
-      box.querySelector(".fe-rp-g.on")?.focus();
+      pop = openLayer(box, { kind: "popover", anchor, offset: 6, group: "menu", focus: box.querySelector(".fe-rp-g.on") ?? "first" });
     }
-    document.addEventListener("mousedown", (e) => {
-      if (pop && !pop.contains(e.target) && !e.target.closest?.(".fe-rule-ico")) closePop();
-    }, true);
     const aiModel = v("fe-st-ai-model");
     const warm = el("fe-st-ai-warm");
     function refreshAi() {

@@ -52,7 +52,7 @@ const CLOSES: Record<Archetype, Partial<Record<CloseWhy, boolean>>> = {
 };
 const MODAL: Partial<Record<Archetype, boolean>> = { command: true, dialog: true, float: true };
 
-const stack: (Layer & { opts: LayerOptions; returnTo: Element | null })[] = [];
+const stack: (Layer & { opts: LayerOptions; returnTo: Element | null; at: DOMRect | null })[] = [];
 const topLayer = typeof HTMLElement !== 'undefined' && typeof HTMLElement.prototype.showPopover === 'function';
 let wired = false;
 // A press on an open layer's anchor closes it; the click that follows the same
@@ -92,6 +92,7 @@ export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
   const layer = {
     el, kind: opts.kind, opts,
     returnTo: document.activeElement,
+    at: null as DOMRect | null,
     get open() { return open; },
     place: () => position(el, opts),
     close(why: CloseWhy = 'api') {
@@ -116,6 +117,7 @@ export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
   stack.push(layer);
   opened++;
   position(el, opts);
+  layer.at = anchor?.getBoundingClientRect() ?? null;
   const f = opts.focus ?? (MODAL[opts.kind] ? 'first' : 'none');
   if (f === 'first') el.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: true });
   else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
@@ -190,9 +192,20 @@ function wire(): void {
     anchorClosed = null;
     if (CLOSES[top.kind].outside) top.close('outside');
   }, true);
+  // A scroll closes a layer only when it moved the layer's anchor: a scroll
+  // event that lands just after opening, from the scroll that brought the
+  // anchor into view, leaves it open.
   document.addEventListener('scroll', e => {
     const t = e.target as Node;
-    for (const l of [...stack]) if (CLOSES[l.kind].scroll && !l.el.contains(t)) l.close('scroll');
+    for (const l of [...stack]) {
+      if (!CLOSES[l.kind].scroll || l.el.contains(t)) continue;
+      const a = l.opts.anchor;
+      if (a && l.at) {
+        const r = a.getBoundingClientRect();
+        if (Math.abs(r.top - l.at.top) < 2 && Math.abs(r.left - l.at.left) < 2) continue;
+      }
+      l.close('scroll');
+    }
   }, true);
   document.addEventListener('focusin', e => {
     const t = e.target as Node;
