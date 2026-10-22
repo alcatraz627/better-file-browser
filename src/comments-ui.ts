@@ -14,11 +14,11 @@ import { visibleOf, rangeFor, sourceSpan, type SourceSpan } from './comment-anch
 import { emptyHtml } from './empty-state';
 import { DISCLOSE } from './icons';
 import { errorText } from './errors';
+import { watch } from './watch';
 
 export { visibleOf };
 
 const filterPref = textPref('bfb-comments-filter-v1', 'open');
-const POLL_MS = 2000;
 type Filter = 'open' | 'me' | 'done' | 'all';
 const FILTERS: { id: Filter; label: string; icon: string; hint: string }[] = [
   { id: 'open', label: 'Open', icon: UI_ICON.circle, hint: 'Threads still open' },
@@ -744,12 +744,11 @@ export function mountComments(o: {
 
   // Watch the companion by its file URL (no host process) and ask the host
   // to re-anchor only when it or the document changed; runs while editing too.
-  setInterval(async () => {
-    if (document.visibilityState !== 'visible' || !o.root() || lastCompanion === null || busy) return;
+  watch(async () => {
     const comp = await readCompanion();
     if (comp === lastCompanion && o.text() === lastText) return;
     void load();
-  }, POLL_MS);
+  }, { pause: () => !o.root() || lastCompanion === null || busy });
 
   // Open threads with a place, in document order (the host sorts them so).
   const placed = () => threads.filter(t => t.status !== 'done' && t.place.offset !== null);

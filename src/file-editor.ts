@@ -15,6 +15,7 @@ import { wholeText, windowedText, lineStart, type TextWindow } from './text-wind
 import { UI_ICON } from './control-icons';
 import { carrier } from './comment-anchor';
 import { errorText } from './errors';
+import { watch } from './watch';
 
 const AUTOSAVE_MS = 800;
 const CHECK_MS = 300;
@@ -370,7 +371,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     clearTimeout(timer);
     if (isDirty() && !saving && banner.style.display === 'none') await write(doc.mtime);
     if (isDirty() && !confirm('Your last changes are not saved. Leave anyway?')) return;
-    clearInterval(watch);
+    stopWatch();
     clearTimeout(checkTimer);
     clearTimeout(renderTimer);
     document.removeEventListener('selectionchange', onSelection);
@@ -475,7 +476,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     }
     e.stopPropagation();   // page keys (r, t, w, [ ]) must not fire while typing
   });
-  const watch = setInterval(() => { if (document.visibilityState === 'visible' && !saving) void external(); }, 2000);
+  const stopWatch = watch(external, { pause: () => saving });
   window.addEventListener('beforeunload', e => { if (box.isConnected && isDirty()) e.preventDefault(); });
 
   diags = doc.text.length > CHECK_MAX ? [] : diagnose(host.ext, doc.text);

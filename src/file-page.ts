@@ -19,6 +19,7 @@ import { attachFind } from './find-in-page';
 import { mountComments, type CommentsPanel, type CommentAction } from './comments-ui';
 import type { Settings } from './types';
 import { markPlace } from './nav';
+import { watch } from './watch';
 
 const scrollPref = jsonPref<Record<string, number>>('bfb-page-scroll-v1', {}, v => !!v && typeof v === 'object');
 const tocPref = flagPref('bfb-page-toc-v1', true);
@@ -37,7 +38,6 @@ export function columnMode(value: unknown): ColumnMode {
 export function savedColumnMode(fallback: unknown): ColumnMode {
   return columnMode(columnPref.get() || oldColumnPref.get() || fallback);
 }
-const RELOAD_MS = 2000;
 
 export function parseExcludedExtensions(value: string): string[] {
   return [...new Set(value.split(/[\s,]+/).map(x => x.replace(/^\*?\./, '').toLowerCase())
@@ -475,16 +475,13 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     reloadEl.title = label;
     if (ok) liveTimer = window.setTimeout(() => { reloadEl.hidden = true; }, 4000);
   };
-  setInterval(() => {
-    if (document.visibilityState !== 'visible' || editor) return;
-    fetchFileText(href).then(fresh => {
+  watch(() => fetchFileText(href).then(fresh => {
       if (fresh === text) return;
       text = fresh;
       paintMeta();
       render();
       live(true, 'reloaded ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    }).catch(() => live(false, 'not watching'));
-  }, RELOAD_MS);
+    }).catch(() => live(false, 'not watching')), { pause: () => !!editor });
 
   return {
     toggleRaw,

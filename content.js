@@ -4233,7 +4233,7 @@ ${body}
         settle({ kind: "unavailable", reason: "extension messaging unavailable" });
         return;
       }
-      const timer = setTimeout(() => {
+      const timer2 = setTimeout(() => {
         try {
           port.disconnect();
         } catch {
@@ -4242,7 +4242,7 @@ ${body}
       }, 5e3);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "status" && msg?.t !== "error" && msg?.t !== "native-gone") return;
-        clearTimeout(timer);
+        clearTimeout(timer2);
         try {
           port.disconnect();
         } catch {
@@ -4256,7 +4256,7 @@ ${body}
         }
       });
       port.onDisconnect.addListener(() => {
-        clearTimeout(timer);
+        clearTimeout(timer2);
         settle({ kind: "unavailable", reason: chrome.runtime.lastError?.message || "lm host not found" });
       });
       port.postMessage({ op: "status" });
@@ -4276,7 +4276,7 @@ ${body}
         settle({ tiers: [], gemini: [] });
         return;
       }
-      const timer = setTimeout(() => {
+      const timer2 = setTimeout(() => {
         try {
           port.disconnect();
         } catch {
@@ -4285,7 +4285,7 @@ ${body}
       }, 2e4);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "models" && msg?.t !== "error" && msg?.t !== "native-gone") return;
-        clearTimeout(timer);
+        clearTimeout(timer2);
         try {
           port.disconnect();
         } catch {
@@ -4293,7 +4293,7 @@ ${body}
         settle(msg.t === "models" ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [] } : { tiers: [], gemini: [] });
       });
       port.onDisconnect.addListener(() => {
-        clearTimeout(timer);
+        clearTimeout(timer2);
         settle({ tiers: [], gemini: [] });
       });
       port.postMessage({ op: "models" });
@@ -4362,7 +4362,7 @@ ${body}
         settle({ ok: false, message: "AI host not installed" });
         return;
       }
-      const timer = setTimeout(() => {
+      const timer2 = setTimeout(() => {
         try {
           port.disconnect();
         } catch {
@@ -4371,7 +4371,7 @@ ${body}
       }, 3e4);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "warm" && msg?.t !== "error" && msg?.t !== "native-gone") return;
-        clearTimeout(timer);
+        clearTimeout(timer2);
         try {
           port.disconnect();
         } catch {
@@ -4379,7 +4379,7 @@ ${body}
         settle(msg.t === "warm" ? { ok: !!msg.ok } : { ok: false, message: msg.message });
       });
       port.onDisconnect.addListener(() => {
-        clearTimeout(timer);
+        clearTimeout(timer2);
         settle({ ok: false, message: chrome.runtime.lastError?.message });
       });
       port.postMessage({ op: "warm", on });
@@ -14536,6 +14536,34 @@ ${end.comment}` : end.comment;
     return { start: ws, end: we, block: false };
   }
 
+  // src/watch.ts
+  var EVERY_MS = 2e3;
+  var subs = /* @__PURE__ */ new Set();
+  var timer = 0;
+  function tick() {
+    if (document.visibilityState !== "visible") return;
+    for (const s of subs) {
+      if (s.running || s.pause?.()) continue;
+      s.running = true;
+      Promise.resolve().then(s.check).catch(() => {
+      }).finally(() => {
+        s.running = false;
+      });
+    }
+  }
+  function watch(check, o = {}) {
+    const s = { check, pause: o.pause, running: false };
+    subs.add(s);
+    if (!timer) timer = window.setInterval(tick, EVERY_MS);
+    return () => {
+      subs.delete(s);
+      if (!subs.size) {
+        clearInterval(timer);
+        timer = 0;
+      }
+    };
+  }
+
   // src/file-editor.ts
   var AUTOSAVE_MS = 800;
   var CHECK_MS = 300;
@@ -14615,7 +14643,7 @@ ${end.comment}` : end.comment;
     let mode = fmt && saved && MODES.some((m) => m.id === saved) ? saved : "raw";
     let diags = [];
     let checkTimer = 0;
-    let timer = 0;
+    let timer2 = 0;
     const isDirty = () => tw.text() !== base;
     let curRow = -1;
     const markLine = () => {
@@ -14867,12 +14895,12 @@ and ${diags.length - 12} more` : "");
       if (retryAt) await write(retryAt);
     };
     const save = () => {
-      clearTimeout(timer);
+      clearTimeout(timer2);
       if (!saving && isDirty()) void write(doc.mtime);
     };
     const later = () => {
-      clearTimeout(timer);
-      timer = window.setTimeout(save, AUTOSAVE_MS);
+      clearTimeout(timer2);
+      timer2 = window.setTimeout(save, AUTOSAVE_MS);
     };
     function showConflict() {
       banner.style.display = "";
@@ -14903,10 +14931,10 @@ and ${diags.length - 12} more` : "");
       }
     };
     const close = async () => {
-      clearTimeout(timer);
+      clearTimeout(timer2);
       if (isDirty() && !saving && banner.style.display === "none") await write(doc.mtime);
       if (isDirty() && !confirm("Your last changes are not saved. Leave anyway?")) return;
-      clearInterval(watch);
+      stopWatch();
       clearTimeout(checkTimer);
       clearTimeout(renderTimer);
       document.removeEventListener("selectionchange", onSelection);
@@ -15046,9 +15074,7 @@ and ${diags.length - 12} more` : "");
       }
       e.stopPropagation();
     });
-    const watch = setInterval(() => {
-      if (document.visibilityState === "visible" && !saving) void external();
-    }, 2e3);
+    const stopWatch = watch(external, { pause: () => saving });
     window.addEventListener("beforeunload", (e) => {
       if (box.isConnected && isDirty()) e.preventDefault();
     });
@@ -15193,7 +15219,6 @@ and ${diags.length - 12} more` : "");
 
   // src/comments-ui.ts
   var filterPref = textPref("bfb-comments-filter-v1", "open");
-  var POLL_MS = 2e3;
   var FILTERS = [
     { id: "open", label: "Open", icon: UI_ICON.circle, hint: "Threads still open" },
     { id: "me", label: "For me", icon: UI_ICON.at, hint: "Threads waiting on you" },
@@ -16098,12 +16123,11 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         o.changed();
       }
     });
-    setInterval(async () => {
-      if (document.visibilityState !== "visible" || !o.root() || lastCompanion === null || busy) return;
+    watch(async () => {
       const comp = await readCompanion();
       if (comp === lastCompanion && o.text() === lastText) return;
       void load();
-    }, POLL_MS);
+    }, { pause: () => !o.root() || lastCompanion === null || busy });
     const placed = () => threads.filter((t) => t.status !== "done" && t.place.offset !== null);
     const step2 = (dir) => {
       const list3 = placed();
@@ -16198,7 +16222,6 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
   function savedColumnMode(fallback) {
     return columnMode(columnPref.get() || oldColumnPref.get() || fallback);
   }
-  var RELOAD_MS = 2e3;
   function parseExcludedExtensions(value) {
     return [...new Set(value.split(/[\s,]+/).map((x) => x.replace(/^\*?\./, "").toLowerCase()).filter((x) => /^[a-z0-9][a-z0-9_-]*$/.test(x)))];
   }
@@ -16665,16 +16688,13 @@ ${d.message}` : d.message;
         reloadEl.hidden = true;
       }, 4e3);
     };
-    setInterval(() => {
-      if (document.visibilityState !== "visible" || editor) return;
-      fetchFileText(href).then((fresh) => {
-        if (fresh === text) return;
-        text = fresh;
-        paintMeta();
-        render2();
-        live2(true, "reloaded " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-      }).catch(() => live2(false, "not watching"));
-    }, RELOAD_MS);
+    watch(() => fetchFileText(href).then((fresh) => {
+      if (fresh === text) return;
+      text = fresh;
+      paintMeta();
+      render2();
+      live2(true, "reloaded " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    }).catch(() => live2(false, "not watching")), { pause: () => !!editor });
     return {
       toggleRaw,
       edit: () => void edit2(),
@@ -18367,14 +18387,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const finish = (result, error) => {
         if (settled) return;
         settled = true;
-        clearTimeout(timer);
+        clearTimeout(timer2);
         signal.removeEventListener("abort", abort);
         worker.terminate();
         if (error) reject(error);
         else resolve(new Set(result));
       };
       const abort = () => finish(void 0, new Error("Name matching stopped"));
-      const timer = setTimeout(() => finish(void 0, Object.assign(new Error("Name regex timed out"), { code: "match-timeout" })), 500);
+      const timer2 = setTimeout(() => finish(void 0, Object.assign(new Error("Name regex timed out"), { code: "match-timeout" })), 500);
       signal.addEventListener("abort", abort, { once: true });
       worker.onerror = () => finish(void 0, new Error("Name matching worker failed"));
       worker.onmessage = (event) => {
@@ -19718,9 +19738,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let target = null;
     let lifted = "";
     let labelled = false;
-    let timer = 0;
+    let timer2 = 0;
     function hide() {
-      clearTimeout(timer);
+      clearTimeout(timer2);
       tip.classList.remove("on");
       if (target && lifted && !target.hasAttribute("title")) target.setAttribute("title", lifted);
       if (target && labelled) target.removeAttribute("aria-label");
@@ -19752,7 +19772,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         el2.setAttribute("aria-label", text);
         labelled = true;
       }
-      timer = window.setTimeout(() => {
+      timer2 = window.setTimeout(() => {
         if (target !== el2) return;
         if (el2.dataset.tip === "problem") {
           const err = el2.classList.contains("err");
@@ -22132,10 +22152,10 @@ ${rows.join("\n")}`, name: subject };
       const m = Math.round((Date.now() - at) / 6e4);
       return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
     };
-    let timer = 0;
+    let timer2 = 0;
     const later = (ms) => {
-      clearTimeout(timer);
-      timer = window.setTimeout(() => void paint(), ms);
+      clearTimeout(timer2);
+      timer2 = window.setTimeout(() => void paint(), ms);
     };
     async function paint() {
       const all = await strip.closedSets();
