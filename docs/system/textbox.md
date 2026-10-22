@@ -22,7 +22,8 @@ fields, the comment box. The part is one class, `tb`, on an `<input>` or
 | Invalid | `aria-invalid="true"`: a danger hairline; the message goes in a toast or below |
 | Disabled | 45% opacity |
 | Textarea | `textarea.tb`: auto height from `min-height`, vertical resize |
-| Leading icon | the search magnifier is a background image on the filter fields; it moves into a slot in cleanup |
+| Leading icon | `data-lead="search"`: a magnifier at the start (filters, find text, the search lens, the crumb list filter) |
+| Mono | `data-mono` for patterns and codes (icon rule patterns, labels, colours) |
 
 ## Sizes by place
 

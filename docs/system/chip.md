@@ -9,7 +9,8 @@ comment, a value in a list field. One class, `chip`.
 - A filter the reader turns on and off: a `<button class="chip">` with `.on`
   or `aria-pressed`.
 - A value someone can remove: a chip ending in an xs Button.
-- Not for an action: that is a Button, even when small and round.
+- Not for an action: that is a Button, even when small and round. Ask's quick
+  questions are sm outline pill Buttons for this reason.
 
 ## Contract
 
@@ -22,7 +23,7 @@ comment, a value in a list field. One class, `chip`.
 | Tones | `data-tone`: `due` (orange), `done` (green), `quiet` (neutral grey fill) |
 | Text | `data-mono` for code-like values (`.pdf`); a long label ends in an ellipsis inside a `<span>` |
 | Add | `data-add`: a dashed border, for a suggestion that adds something when clicked |
-| On | a button chip with `.on` or `aria-pressed="true"`: text `--tx` on its colour at 22% |
+| On | a filter chip sets both `.on` and `aria-pressed`: text `--tx` on its colour at 22% |
 | Remove | `<button class="btn" data-icon data-size="xs" data-tone="danger">` as the last child |
 | Keys | a row of filter chips is one Tab stop with arrows (RovingFocus); Backspace in a list field removes the last value |
 
@@ -48,5 +49,4 @@ A row of chips wraps; in a listing cell it clips, and the last chip shows
 
 Two conflicting `.fe-chip` rules (listing tags and note properties), two
 meanings of `.fe-chip-x` (a Settings value pill and a remove button), the
-lens tags, the Ask quick questions, the comment facts and the Settings rule
-suggestions.
+lens tags, the comment facts and the Settings rule suggestions.

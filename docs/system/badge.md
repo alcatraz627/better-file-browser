@@ -36,5 +36,7 @@ the history, threads on a document. One class, `badge`.
 
 The row comment count (`.fe-row-cm`), the find match count
 (`.fe-find-badge`, which was an outlined pill), the document thread count
-(`.fe-doc-n`) and the Ask history count (`.fe-ask-n`). Still separate: the
-Settings icon rules' match counts, which move with Lists.
+(`.fe-doc-n`), the Ask history count (`.fe-ask-n`) and the comments rail's
+count (`.fe-rt-n`). Still separate: the Settings icon rules' match counts,
+which move with Lists. A bare number in a heading (a tag group's or comment
+group's count) is text, not a Badge.

@@ -34,7 +34,7 @@ function tagChips(e: Entry, ctx: RenderContext): string {
   const rest = tags.slice(shown.length);
   if (!tags.length) return '';
   return '<div class="fe-chips">' + shown.map(t =>
-    `<span class="chip" data-size="sm" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}">${esc(t.name)}</span>`).join('')
+    `<span class="chip" data-size="sm" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}"><span>${esc(t.name)}</span></span>`).join('')
     + (rest.length ? `<span class="chip fe-chip-more" data-size="sm" title="Also tagged: ${esc(rest.map(t => t.name).join(', '))}">+${rest.length}</span>` : '') + '</div>';
 }
 

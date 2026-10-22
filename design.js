@@ -151,6 +151,9 @@ textarea.tb{height:auto;min-height:var(--tb-h);padding:var(--sp-3) var(--sp-4);l
 .tb:focus{border-color:var(--ac)}
 .tb[aria-invalid="true"]{border-color:var(--tone-danger)}
 .tb:disabled{opacity:.45;cursor:default}
+.tb[data-mono]{font-family:var(--mono)}
+/* A search field shows a magnifier at its start. */
+.tb[data-lead="search"]{padding-left:var(--sp-8);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:var(--sp-4) 50%}
 @keyframes fe-spin{to{transform:rotate(1turn)}}
 html,body{height:100%;background:var(--bg);color:var(--tx);
   font:var(--fs-lg)/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
@@ -369,7 +372,7 @@ th.sorted .si{opacity:1;color:var(--ac)}
 td.c-tg{white-space:nowrap;overflow:hidden}
 /* Named chips give up width (ending in \u2026) before the +N count does. */
 .fe-chips{display:flex;gap:var(--sp-2);min-width:0;overflow:hidden}
-.fe-chips .chip{display:block;flex:0 1 auto;min-width:28px;overflow:hidden;text-overflow:ellipsis;line-height:16px}
+.fe-chips .chip{flex:0 1 auto;min-width:28px}
 .fe-chips .fe-chip-more{flex:none;min-width:0}
 .c-match{display:none;text-align:right;width:72px;color:var(--dm)}
 #fe.fe-has-find-hits[data-view="details"] .c-match{display:table-cell}
@@ -644,8 +647,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-swatch{width:12px;height:12px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px var(--bd2)}
 .fe-st-check{display:flex;align-items:center;gap:7px;font-size:var(--fs-lg);color:var(--tx);cursor:pointer}
 .fe-st-check input{accent-color:var(--ac);cursor:pointer;width:14px;height:14px}
-.fe-st-select{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
-  padding:4px 8px;border-radius:var(--r-sm);font-size:var(--fs-md);outline:none;cursor:pointer}
 .fe-st-input{width:100%}
 
 .fe-st-rules-hint{font-size:var(--fs-sm);color:var(--dm);font-style:italic}
@@ -657,12 +658,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-rule:last-child{border-bottom:none}
 .fe-st-rule input[type="checkbox"]{accent-color:var(--ac);cursor:pointer;width:13px;height:13px}
 .fe-st-rule-preview{display:flex;align-items:center;justify-content:center;height:20px}
-.fe-st-rule-pattern,.fe-st-rule-label{
-  background:var(--bg);border:1px solid var(--bd);color:var(--tx);
-  padding:3px 6px;border-radius:var(--r-sm);font-size:var(--fs-sm);
-  font-family:'SF Mono',Consolas,monospace;outline:none;transition:border-color .15s;width:100%}
-.fe-st-rule-pattern:focus,.fe-st-rule-label:focus{border-color:var(--ac)}
-.fe-st-rule-label{text-align:center}
 .fe-st-rule-color{border:1px solid var(--bd);background:none;cursor:pointer;
   width:28px;height:24px;padding:1px;border-radius:4px;flex-shrink:0}
 .fe-st-rules-empty{font-size:var(--fs-md);color:var(--dm);padding:8px 2px;font-style:italic}
@@ -788,8 +783,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-rt:hover{color:var(--tx);background:var(--hover)}
 .fe-rt.on{color:var(--tx);background:var(--on)}
 .fe-rt[hidden]{display:none}
-.fe-rt-n:empty{display:none}
-.fe-rt-n{min-width:16px;padding:0 5px;border-radius:999px;background:var(--ac);color:var(--tx-on-ac);font-size:var(--fs-xs);letter-spacing:0;line-height:16px;text-align:center}
 #fe-toc-rail[data-tab="cm"]{width:320px}
 /* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
 #fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
@@ -873,7 +866,7 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--on)}
 .fe-cm-tools{flex-wrap:wrap;margin-top:6px}
 .fe-cm-grow{flex:1}
-.fe-cm-date{height:22px;padding:0 6px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-sm);color-scheme:light dark}
+.fe-cm-date{width:auto;color-scheme:light dark}
 .fe-cm-x{margin:0 -3px 0 1px}
 
 /* The floating Comment button above a selection on the page. */
@@ -991,8 +984,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
 #fe-ed-conflict{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd)}
 #fe-ed-meta{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
-.fe-chip-title{flex:1 1 180px;min-width:120px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 8px;font:inherit;font-weight:600}
-.fe-chip-title:focus{outline:none;border-color:var(--ac)}
+.fe-chip-title{flex:1 1 180px;min-width:120px;font-weight:600}
 button.fe-chip-title{display:flex;align-items:center;gap:6px;text-align:left;cursor:text;min-width:0}
 button.fe-chip-title:hover{border-color:var(--ac)}
 button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
@@ -1316,9 +1308,6 @@ button.fe-si{width:auto;display:flex}
 .fe-sh{padding:10px 16px 4px}
 .fe-hint{padding:6px 16px}
 #fe-lens-filter,#fe-docs-q{width:calc(100% - 12px);margin:2px 6px 8px}
-#fe-lens-filter,#fe-search,#fe-srch-q,#fe-find-text,#fe-filter-q,#fe-docs-q,.fe-dd-search{padding-left:28px!important;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:9px 50%}
 .fe-lens-tags{padding:0 6px 8px}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
@@ -1438,8 +1427,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-card .fe-st-rules-cols,.fe-set-card #fe-st-rules-list{margin:0 16px}
 .fe-set-card #fe-st-reset-rules{margin:10px 16px 8px}
 .fe-set-danger{color:var(--nc-red)}
-.fe-dlg-pane .fe-st-select{height:30px;padding:0 28px 0 10px;border-radius:var(--row-r);font-size:var(--row-fs);background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238b949e' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
-  border-color:var(--bd2);appearance:none;-webkit-appearance:none}
 
 .fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
   background:var(--s3);cursor:pointer;transition:background var(--t-fast) var(--ease)}
@@ -1566,7 +1553,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-pane{background:var(--side)}
 .fe-set-card{background:var(--card)}
 
-.fe-dlg-pane .fe-st-select{min-width:150px}
 .fe-st-ai-why{margin-top:6px}
 .fe-st-ai-why > summary{cursor:pointer;color:var(--ac)}
 #fe-bar .fe-crumb-dd{opacity:1;color:var(--dm);padding:3px 1px}
@@ -1879,9 +1865,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule-ico{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:9px;background:var(--card);cursor:pointer}
 .fe-rule-ico:hover{border-color:var(--ac)}
 .fe-rule-ico svg{width:18px;height:20px}
-.fe-st-rule-pattern{width:100%;height:32px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);color:var(--tx);font:var(--fs-md) var(--mono);outline:0}
-.fe-st-rule-pattern:focus{border-color:var(--ac)}
-.fe-st-rule-pattern.bad{border-color:var(--nc-red);color:var(--nc-red)}
+.fe-st-rule-pattern{width:100%}
 .fe-rule-n{min-width:26px;padding:2px 6px;border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
 .fe-rule-pop{position:fixed;z-index:610;width:330px;padding:12px;border-radius:var(--pop-r);display:flex;flex-direction:column;gap:12px;
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
@@ -1892,13 +1876,13 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rp-g svg{width:20px;height:22px}
 .fe-rp-g:hover{background:var(--hover)}
 .fe-rp-g.on{background:var(--on);box-shadow:inset 0 0 0 1.5px var(--ac)}
-.fe-rp-label{width:90px;height:30px;padding:0 10px;font:600 var(--fs-md) var(--mono);border-radius:var(--row-r)}
+.fe-rp-label{width:90px}
 .fe-rp-sw{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:center}
 .fe-rp-c{width:26px;height:26px;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .15);transition:transform var(--t-fast) var(--ease)}
 .fe-rp-c:hover{transform:scale(1.1)}
 .fe-rp-c.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c)}
 .fe-rp-c:focus-visible,.fe-rp-g:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-rp-hex{grid-column:span 4;height:28px;padding:0 8px;font:var(--fs-md) var(--mono);border-radius:var(--row-r)}
+.fe-rp-hex{grid-column:span 4}
 
 /* AI: a status line on top, then the model controls and the list. */
 .fe-ai-hero{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--nc-purple) 18%,var(--card)),var(--card));
@@ -2417,7 +2401,12 @@ button.chip:disabled{opacity:.45;cursor:default}
       closeList?.();
       list = document.createElement("div");
       list.className = "fe-dd-list";
-      list.innerHTML = opts.map((o, i) => (o.group && o.group !== opts[i - 1]?.group ? `<div class="fe-dd-g" role="presentation">${esc(o.group)}</div>` : "") + `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`).join("");
+      const optHtml = (o) => `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
+      const groups = [...new Set(opts.map((o) => o.group ?? ""))];
+      list.innerHTML = groups.map((g) => {
+        const inner = opts.filter((o) => (o.group ?? "") === g).map(optHtml).join("");
+        return g ? `<div role="group" aria-label="${esc(g)}"><div class="fe-dd-g" aria-hidden="true">${esc(g)}</div>${inner}</div>` : inner;
+      }).join("");
       list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
       const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
         keys = null;
@@ -2459,7 +2448,7 @@ button.chip:disabled{opacity:.45;cursor:default}
         } else if (e.key === "Home" || e.key === "End") {
           at = e.key === "Home" ? 0 : items.length - 1;
           mark();
-        } else if (e.key === "Enter" || e.key === " ") {
+        } else if (e.key === "Enter" || e.key === " " && !(typed && Date.now() - typedAt < 700)) {
           if (items[at]) pick(items[at].dataset.v);
         } else if (e.key === "Tab") {
           layer.close("blur");

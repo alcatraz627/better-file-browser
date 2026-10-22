@@ -33,14 +33,14 @@ const RULES = [
   { id: 'css-important', css: d => /!important/.test(d) },
   { id: 'css-media', text: (css) => count(css, /@(media|container)\b/g), on: 'css' },
   { id: 'css-dup-selector', text: css => dupSelectors(css), on: 'css' },
-  { id: 'css-button-paint', text: css => buttonPaint(css), on: 'css' },
+  { id: 'css-part-paint', text: css => partPaint(css), on: 'css' },
   { id: 'js-keydown', code: /addEventListener\(\s*['"]keydown['"]/g, skip: ['layer.ts'] },
   // Presses anywhere on the page, and clicks caught at the document, are how a
   // part closes itself on an outside click; the layer service owns that.
   { id: 'js-outside-click', code: /addEventListener\(\s*['"](mousedown|pointerdown)['"]|document\.addEventListener\(\s*['"]click['"]/g, skip: ['layer.ts'] },
   { id: 'js-navigation', code: /location\.(href\s*=|assign|replace|reload)|history\.(push|replace)State|window\.open\(/g, skip: [] },
   { id: 'js-storage', code: /\bkv(Get|Set)\(|\b(local|session)Storage\./g, skip: ['kv.ts', 'storage.ts'] },
-  { id: 'js-native-control', code: /<select\b|type="checkbox"/g, skip: ['renderers.ts'] },
+  { id: 'js-native-control', code: /<select\b|type="checkbox"/g, skip: ['renderers.ts', 'controls.ts'] },
   // The design-system page draws each token by setting it inline; that is its job.
   { id: 'js-inline-style', code: /\sstyle="/g, skip: ['design-page.ts'] },
   { id: 'js-inline-svg', code: /<svg\b/g, skip: ['icons.ts', 'control-icons.ts'] },
@@ -67,16 +67,22 @@ function dupSelectors(css) {
 // (`#bar .btn{height:…}`). Two exceptions: a tab's buttons over its label
 // keep their backing, and a glyph drawn inside a button (::before) is content.
 const OLD_BUTTONS = /\.(fe-ibtn|fe-lens-ib|fe-ask-ib|fe-act-btn|fe-cm-ib|fe-cm-x|fe-tab-x|fe-tab-more|fe-dlg-close|fe-rm-btn|fe-tag-btn|fe-ask-send|fe-nt-props|fe-nt-tab|fe-md-copy|fe-ask-h-del|fe-st-rule-del|fe-in-chip|fe-lens-depth)(?![\w-])/;
-const CONTEXT_BTN = /\S\s+[^\s>+~]*\.btn(?![\w-])[^\s]*$|\S\s*>\s*[^\s]*\.btn(?![\w-])[^\s]*$/;
+// Fields, chips and badges that moved onto their parts; their place may still set a width.
+const OLD_FIELDS = /\.(fe-st-input|fe-tl-input|fe-km-q|fe-dd-search|fe-st-rule-pattern|fe-rp-label|fe-rp-hex|fe-cm-date|fe-lens-tag|fe-cm-chip|fe-row-cm|fe-find-badge|fe-doc-n|fe-ask-n|fe-rt-n)(?![\w-])/;
+const CONTEXT_BTN = /\S\s+[^\s>+~]*\.(btn|tb|chip|badge)(?![\w-])[^\s]*$|\S\s*>\s*[^\s]*\.(btn|tb|chip|badge)(?![\w-])[^\s]*$/;
 const TAB_BACKING = /^\.fe-tab:not\(\.on\) \.fe-tab-(x|more)(:hover)?$/;
-const PAINT = /^\s*(width|height|min-width|min-height|padding[\w-]*|border(-[\w-]+)?|background(-[\w-]+)?|color|font(-[\w-]+)?|line-height|cursor|transition|place-items|display\s*:\s*(inline-)?(grid|flex|block))\s*:?/;
-function buttonPaint(css) {
+const PAINT = /^\s*(?:(?:width|height|min-width|min-height|padding[\w-]*|border(?:-[\w-]+)?|background(?:-[\w-]+)?|color|font(?:-[\w-]+)?|line-height|cursor|transition|place-items)\s*:|display\s*:\s*(?:inline-)?(?:grid|flex|block)\b)/;
+const WIDTH = /^\s*(?:min-|max-)?width\s*:/;
+function partPaint(css) {
   let n = 0;
   for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const sels = m[1].split(',').map(s => s.trim()).filter(Boolean);
     // A .btn inside :has() only says what the element holds; the rule styles the holder.
-    const hit = sels.filter(s => !s.includes('::') && !TAB_BACKING.test(s) && (OLD_BUTTONS.test(s) || CONTEXT_BTN.test(s.replace(/:has\([^)]*\)/g, ''))));
-    if (hit.length) n += m[2].split(';').filter(d => PAINT.test(d)).length;
+    const fair = sels.filter(s => !s.includes('::') && !TAB_BACKING.test(s));
+    const btn = fair.some(s => OLD_BUTTONS.test(s) || /\.btn(?![\w-])/.test(s.replace(/:has\([^)]*\)/g, '')) && CONTEXT_BTN.test(s.replace(/:has\([^)]*\)/g, '')));
+    const field = fair.some(s => OLD_FIELDS.test(s) || CONTEXT_BTN.test(s.replace(/:has\([^)]*\)/g, '')));
+    if (btn) n += m[2].split(';').filter(d => PAINT.test(d)).length;
+    else if (field) n += m[2].split(';').filter(d => PAINT.test(d) && !WIDTH.test(d)).length;
   }
   return n;
 }

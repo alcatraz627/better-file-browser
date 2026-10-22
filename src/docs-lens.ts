@@ -31,8 +31,8 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
   let loaded = false, all: DocRow[] = [];
   const f: DocFilter = { q: '', me: false, due: false, tag: '' };
   box.innerHTML = `<div class="fe-docs-top" hidden>
-      <input id="fe-docs-q" class="tb" data-size="lg" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
-      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
+      <input id="fe-docs-q" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
+      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
     </div><div class="fe-docs-rows"></div>`;
   const top = box.querySelector<HTMLElement>('.fe-docs-top')!, rowsBox = box.querySelector<HTMLElement>('.fe-docs-rows')!;
   const input = box.querySelector<HTMLInputElement>('#fe-docs-q')!;
@@ -41,14 +41,14 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
   const paint = () => {
     const usable = docRows(all);
     top.hidden = !usable.length;
-    for (const c of top.querySelectorAll<HTMLElement>('[data-f]')) c.classList.toggle('on', f[c.dataset.f as 'me' | 'due']);
+    for (const c of top.querySelectorAll<HTMLElement>('[data-f]')) { const on = f[c.dataset.f as 'me' | 'due']; c.classList.toggle('on', on); c.setAttribute('aria-pressed', String(on)); }
     // Tags in use across the listed documents, most used first; a chip filters to that tag.
     const counts = new Map<string, number>();
     for (const r of usable) for (const g of r.tags ?? []) counts.set(g, (counts.get(g) ?? 0) + 1);
     const tags = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([g]) => g);
     if (f.tag && !tags.includes(f.tag)) tags.push(f.tag);
     const tagBox = top.querySelector<HTMLElement>('.fe-docs-tags')!;
-    const tagHtml = tags.map(g => `<button type="button" class="chip fe-lens-tag${f.tag === g ? ' on' : ''}" data-tag="${esc(g)}" title="Only documents with a thread tagged #${esc(g)}">#${esc(g)}</button>`).join('');
+    const tagHtml = tags.map(g => `<button type="button" class="chip fe-lens-tag${f.tag === g ? ' on' : ''}" aria-pressed="${f.tag === g}" data-tag="${esc(g)}" title="Only documents with a thread tagged #${esc(g)}">#${esc(g)}</button>`).join('');
     if (tagBox.innerHTML !== tagHtml) tagBox.innerHTML = tagHtml;   // a chip under the pointer stays the same node
     const list = docRows(all, f);
     if (!usable.length) {

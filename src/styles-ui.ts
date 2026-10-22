@@ -184,9 +184,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule-ico{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:9px;background:var(--card);cursor:pointer}
 .fe-rule-ico:hover{border-color:var(--ac)}
 .fe-rule-ico svg{width:18px;height:20px}
-.fe-st-rule-pattern{width:100%;height:32px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);color:var(--tx);font:var(--fs-md) var(--mono);outline:0}
-.fe-st-rule-pattern:focus{border-color:var(--ac)}
-.fe-st-rule-pattern.bad{border-color:var(--nc-red);color:var(--nc-red)}
+.fe-st-rule-pattern{width:100%}
 .fe-rule-n{min-width:26px;padding:2px 6px;border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
 .fe-rule-pop{position:fixed;z-index:610;width:330px;padding:12px;border-radius:var(--pop-r);display:flex;flex-direction:column;gap:12px;
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
@@ -197,13 +195,13 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rp-g svg{width:20px;height:22px}
 .fe-rp-g:hover{background:var(--hover)}
 .fe-rp-g.on{background:var(--on);box-shadow:inset 0 0 0 1.5px var(--ac)}
-.fe-rp-label{width:90px;height:30px;padding:0 10px;font:600 var(--fs-md) var(--mono);border-radius:var(--row-r)}
+.fe-rp-label{width:90px}
 .fe-rp-sw{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:center}
 .fe-rp-c{width:26px;height:26px;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .15);transition:transform var(--t-fast) var(--ease)}
 .fe-rp-c:hover{transform:scale(1.1)}
 .fe-rp-c.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c)}
 .fe-rp-c:focus-visible,.fe-rp-g:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-rp-hex{grid-column:span 4;height:28px;padding:0 8px;font:var(--fs-md) var(--mono);border-radius:var(--row-r)}
+.fe-rp-hex{grid-column:span 4}
 
 /* AI: a status line on top, then the model controls and the list. */
 .fe-ai-hero{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--nc-purple) 18%,var(--card)),var(--card));

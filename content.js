@@ -1692,6 +1692,7 @@ ${body}`;
   var DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
   var keysOf = (d) => d.keys.flatMap((k) => k === "1\u20269" ? DIGITS : [k]);
   var MOVING = /* @__PURE__ */ new Set(["\u2191", "\u2193", "\u2190", "\u2192", "\u21A9", "Space", "\u232B", "Home", "End"]);
+  var PREVIEW_KEYS = new Set(KEYMAP.filter((d) => d.scope === "preview").flatMap((d) => keysOf(d)));
   var baseOf = (tok) => tok.replace(/^[⌘⌃⌥⇧]+/, "");
   var live = (d, ctx, tok = "") => {
     const scope = d.scope ?? "any";
@@ -1700,7 +1701,7 @@ ${body}`;
     if (!ctx.scopes.has("any")) return false;
     if (ctx.widget && MOVING.has(baseOf(tok))) return false;
     if (!ctx.scopes.has("preview") || d.over === true || !!tok && !!d.over?.includes(tok)) return true;
-    return !!ctx.docked && !!tok && !MOVING.has(baseOf(tok)) && tok !== "Esc";
+    return !!ctx.docked && !!tok && !PREVIEW_KEYS.has(tok);
   };
   var pending = "";
   var pendingTimer = null;
@@ -1766,7 +1767,7 @@ ${body}`;
       runCommand(d.id, tok);
       return true;
     }
-    if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some((x) => live(x, ctx) && canRun(x.id) && x.keys.some((k) => k.startsWith(tok + " ")))) {
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some((x) => live(x, ctx, tok + " ") && canRun(x.id) && x.keys.some((k) => k.startsWith(tok + " ")))) {
       e.preventDefault();
       e.stopImmediatePropagation();
       setPending(tok);
@@ -3404,7 +3405,7 @@ ${body}`;
       btn?.addEventListener("click", () => {
         const box = document.createElement("textarea");
         box.id = "fe-meta-title-edit";
-        box.className = "fe-chip-title";
+        box.className = "tb fe-chip-title";
         box.value = p.title;
         box.rows = 1;
         box.maxLength = 200;
@@ -5019,6 +5020,9 @@ textarea.tb{height:auto;min-height:var(--tb-h);padding:var(--sp-3) var(--sp-4);l
 .tb:focus{border-color:var(--ac)}
 .tb[aria-invalid="true"]{border-color:var(--tone-danger)}
 .tb:disabled{opacity:.45;cursor:default}
+.tb[data-mono]{font-family:var(--mono)}
+/* A search field shows a magnifier at its start. */
+.tb[data-lead="search"]{padding-left:var(--sp-8);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:var(--sp-4) 50%}
 @keyframes fe-spin{to{transform:rotate(1turn)}}
 html,body{height:100%;background:var(--bg);color:var(--tx);
   font:var(--fs-lg)/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
@@ -5237,7 +5241,7 @@ th.sorted .si{opacity:1;color:var(--ac)}
 td.c-tg{white-space:nowrap;overflow:hidden}
 /* Named chips give up width (ending in \u2026) before the +N count does. */
 .fe-chips{display:flex;gap:var(--sp-2);min-width:0;overflow:hidden}
-.fe-chips .chip{display:block;flex:0 1 auto;min-width:28px;overflow:hidden;text-overflow:ellipsis;line-height:16px}
+.fe-chips .chip{flex:0 1 auto;min-width:28px}
 .fe-chips .fe-chip-more{flex:none;min-width:0}
 .c-match{display:none;text-align:right;width:72px;color:var(--dm)}
 #fe.fe-has-find-hits[data-view="details"] .c-match{display:table-cell}
@@ -5512,8 +5516,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-swatch{width:12px;height:12px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px var(--bd2)}
 .fe-st-check{display:flex;align-items:center;gap:7px;font-size:var(--fs-lg);color:var(--tx);cursor:pointer}
 .fe-st-check input{accent-color:var(--ac);cursor:pointer;width:14px;height:14px}
-.fe-st-select{background:var(--s2);border:1px solid var(--bd);color:var(--tx);
-  padding:4px 8px;border-radius:var(--r-sm);font-size:var(--fs-md);outline:none;cursor:pointer}
 .fe-st-input{width:100%}
 
 .fe-st-rules-hint{font-size:var(--fs-sm);color:var(--dm);font-style:italic}
@@ -5525,12 +5527,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-rule:last-child{border-bottom:none}
 .fe-st-rule input[type="checkbox"]{accent-color:var(--ac);cursor:pointer;width:13px;height:13px}
 .fe-st-rule-preview{display:flex;align-items:center;justify-content:center;height:20px}
-.fe-st-rule-pattern,.fe-st-rule-label{
-  background:var(--bg);border:1px solid var(--bd);color:var(--tx);
-  padding:3px 6px;border-radius:var(--r-sm);font-size:var(--fs-sm);
-  font-family:'SF Mono',Consolas,monospace;outline:none;transition:border-color .15s;width:100%}
-.fe-st-rule-pattern:focus,.fe-st-rule-label:focus{border-color:var(--ac)}
-.fe-st-rule-label{text-align:center}
 .fe-st-rule-color{border:1px solid var(--bd);background:none;cursor:pointer;
   width:28px;height:24px;padding:1px;border-radius:4px;flex-shrink:0}
 .fe-st-rules-empty{font-size:var(--fs-md);color:var(--dm);padding:8px 2px;font-style:italic}
@@ -5656,8 +5652,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-rt:hover{color:var(--tx);background:var(--hover)}
 .fe-rt.on{color:var(--tx);background:var(--on)}
 .fe-rt[hidden]{display:none}
-.fe-rt-n:empty{display:none}
-.fe-rt-n{min-width:16px;padding:0 5px;border-radius:999px;background:var(--ac);color:var(--tx-on-ac);font-size:var(--fs-xs);letter-spacing:0;line-height:16px;text-align:center}
 #fe-toc-rail[data-tab="cm"]{width:320px}
 /* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
 #fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
@@ -5741,7 +5735,7 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--on)}
 .fe-cm-tools{flex-wrap:wrap;margin-top:6px}
 .fe-cm-grow{flex:1}
-.fe-cm-date{height:22px;padding:0 6px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-sm);color-scheme:light dark}
+.fe-cm-date{width:auto;color-scheme:light dark}
 .fe-cm-x{margin:0 -3px 0 1px}
 
 /* The floating Comment button above a selection on the page. */
@@ -5859,8 +5853,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
 #fe-ed-conflict{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd)}
 #fe-ed-meta{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
-.fe-chip-title{flex:1 1 180px;min-width:120px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:5px;padding:3px 8px;font:inherit;font-weight:600}
-.fe-chip-title:focus{outline:none;border-color:var(--ac)}
+.fe-chip-title{flex:1 1 180px;min-width:120px;font-weight:600}
 button.fe-chip-title{display:flex;align-items:center;gap:6px;text-align:left;cursor:text;min-width:0}
 button.fe-chip-title:hover{border-color:var(--ac)}
 button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
@@ -6184,9 +6177,6 @@ button.fe-si{width:auto;display:flex}
 .fe-sh{padding:10px 16px 4px}
 .fe-hint{padding:6px 16px}
 #fe-lens-filter,#fe-docs-q{width:calc(100% - 12px);margin:2px 6px 8px}
-#fe-lens-filter,#fe-search,#fe-srch-q,#fe-find-text,#fe-filter-q,#fe-docs-q,.fe-dd-search{padding-left:28px!important;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:9px 50%}
 .fe-lens-tags{padding:0 6px 8px}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
@@ -6306,8 +6296,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-card .fe-st-rules-cols,.fe-set-card #fe-st-rules-list{margin:0 16px}
 .fe-set-card #fe-st-reset-rules{margin:10px 16px 8px}
 .fe-set-danger{color:var(--nc-red)}
-.fe-dlg-pane .fe-st-select{height:30px;padding:0 28px 0 10px;border-radius:var(--row-r);font-size:var(--row-fs);background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238b949e' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
-  border-color:var(--bd2);appearance:none;-webkit-appearance:none}
 
 .fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
   background:var(--s3);cursor:pointer;transition:background var(--t-fast) var(--ease)}
@@ -6434,7 +6422,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-pane{background:var(--side)}
 .fe-set-card{background:var(--card)}
 
-.fe-dlg-pane .fe-st-select{min-width:150px}
 .fe-st-ai-why{margin-top:6px}
 .fe-st-ai-why > summary{cursor:pointer;color:var(--ac)}
 #fe-bar .fe-crumb-dd{opacity:1;color:var(--dm);padding:3px 1px}
@@ -6747,9 +6734,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule-ico{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:9px;background:var(--card);cursor:pointer}
 .fe-rule-ico:hover{border-color:var(--ac)}
 .fe-rule-ico svg{width:18px;height:20px}
-.fe-st-rule-pattern{width:100%;height:32px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);color:var(--tx);font:var(--fs-md) var(--mono);outline:0}
-.fe-st-rule-pattern:focus{border-color:var(--ac)}
-.fe-st-rule-pattern.bad{border-color:var(--nc-red);color:var(--nc-red)}
+.fe-st-rule-pattern{width:100%}
 .fe-rule-n{min-width:26px;padding:2px 6px;border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
 .fe-rule-pop{position:fixed;z-index:610;width:330px;padding:12px;border-radius:var(--pop-r);display:flex;flex-direction:column;gap:12px;
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
@@ -6760,13 +6745,13 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rp-g svg{width:20px;height:22px}
 .fe-rp-g:hover{background:var(--hover)}
 .fe-rp-g.on{background:var(--on);box-shadow:inset 0 0 0 1.5px var(--ac)}
-.fe-rp-label{width:90px;height:30px;padding:0 10px;font:600 var(--fs-md) var(--mono);border-radius:var(--row-r)}
+.fe-rp-label{width:90px}
 .fe-rp-sw{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:center}
 .fe-rp-c{width:26px;height:26px;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .15);transition:transform var(--t-fast) var(--ease)}
 .fe-rp-c:hover{transform:scale(1.1)}
 .fe-rp-c.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c)}
 .fe-rp-c:focus-visible,.fe-rp-g:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-rp-hex{grid-column:span 4;height:28px;padding:0 8px;font:var(--fs-md) var(--mono);border-radius:var(--row-r)}
+.fe-rp-hex{grid-column:span 4}
 
 /* AI: a status line on top, then the model controls and the list. */
 .fe-ai-hero{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--nc-purple) 18%,var(--card)),var(--card));
@@ -7323,7 +7308,7 @@ button.chip:disabled{opacity:.45;cursor:default}
           crumbLayer?.place();
           return;
         }
-        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="tb fe-dd-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
+        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="tb fe-dd-search" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
           (en) => `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
         ).join("")}</div>`;
         crumbLayer?.place();
@@ -15107,7 +15092,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       ${box(t.id, "Reply", done ? "Reply to reopen\u2026" : "Reply\u2026 @ to mention, # to tag")}
       <div data-inset class="bar fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-a="${done ? "reopen" : "done"}" title="${done ? "Reopen this thread" : "Mark done"} (\u2318\u21E7\u21B5)">${done ? UI_ICON.reset + "Reopen" : UI_ICON.check + "Done"}</button>
-        ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : iconBtn2("due", UI_ICON.clock, "Set a due date")}
+        ${dueOpen === t.id ? `<input type="date" class="tb fe-cm-date" data-size="sm" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : iconBtn2("due", UI_ICON.clock, "Set a due date")}
         ${iconBtn2("link", UI_ICON.link, "Copy a link that opens this thread")}
         ${iconBtn2("brief", UI_ICON.bot, "Copy this thread as a brief for an agent")}
         ${t.place.state !== "anchored" && !applied ? `<button type="button" class="btn" data-size="sm" data-a="attach" title="Select words on the page first">Attach to selection</button>` : ""}
@@ -15919,7 +15904,7 @@ ${d.message}` : d.message;
         <div id="fe-page" tabindex="-1"></div>
         <div id="fe-fe" style="display:none"></div>
         <aside id="fe-toc-rail" hidden>
-          <div class="fe-toc-head"><h3 class="sect fe-rail-title" data-level="panel"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="fe-rt-n" id="fe-cm-n"></span></h3></div>
+          <div class="fe-toc-head"><h3 class="sect fe-rail-title" data-level="panel"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="badge fe-rt-n" data-tone="solid" id="fe-cm-n"></span></h3></div>
           <nav id="fe-toc"></nav>
           <div id="fe-cm" role="tabpanel" aria-label="Comments" hidden></div>
         </aside>
@@ -16913,7 +16898,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}"${checked ? " checked" : ""}><span>${esc(label)}</span></label>`;
   }
   function switchHtml(o) {
-    return `<input type="checkbox" role="switch" class="fe-switch${o.small ? " sm" : ""}${o.cls ? " " + o.cls : ""}"${o.id ? ` id="${o.id}"` : ""} title="${esc(o.title)}"${o.checked ? " checked" : ""}>`;
+    return `<input type="checkbox" role="switch" class="fe-switch${o.small ? " sm" : ""}${o.cls ? " " + o.cls : ""}"${o.id ? ` id="${o.id}"` : ""} title="${esc(o.title)}" aria-label="${esc(o.label ?? o.title)}"${o.checked ? " checked" : ""}>`;
   }
   function chipsHtml(id, placeholder, title) {
     return `<div class="fe-chipin" id="${id}" title="${esc(title)}"><input class="fe-chipin-in" placeholder="${esc(placeholder)}" spellcheck="false" aria-label="${esc(title)}"></div>`;
@@ -17002,7 +16987,12 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       closeList?.();
       list = document.createElement("div");
       list.className = "fe-dd-list";
-      list.innerHTML = opts.map((o, i3) => (o.group && o.group !== opts[i3 - 1]?.group ? `<div class="fe-dd-g" role="presentation">${esc(o.group)}</div>` : "") + `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`).join("");
+      const optHtml = (o) => `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
+      const groups = [...new Set(opts.map((o) => o.group ?? ""))];
+      list.innerHTML = groups.map((g) => {
+        const inner = opts.filter((o) => (o.group ?? "") === g).map(optHtml).join("");
+        return g ? `<div role="group" aria-label="${esc(g)}"><div class="fe-dd-g" aria-hidden="true">${esc(g)}</div>${inner}</div>` : inner;
+      }).join("");
       list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
       const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
         keys2 = null;
@@ -17044,7 +17034,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         } else if (e.key === "Home" || e.key === "End") {
           at = e.key === "Home" ? 0 : items.length - 1;
           mark();
-        } else if (e.key === "Enter" || e.key === " ") {
+        } else if (e.key === "Enter" || e.key === " " && !(typed && Date.now() - typedAt < 700)) {
           if (items[at]) pick(items[at].dataset.v);
         } else if (e.key === "Tab") {
           layer.close("blur");
@@ -17397,7 +17387,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     const shown = tags.length > CHIPS_SHOWN + 1 ? tags.slice(0, CHIPS_SHOWN) : tags;
     const rest = tags.slice(shown.length);
     if (!tags.length) return "";
-    return '<div class="fe-chips">' + shown.map((t) => `<span class="chip" data-size="sm" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}">${esc(t.name)}</span>`).join("") + (rest.length ? `<span class="chip fe-chip-more" data-size="sm" title="Also tagged: ${esc(rest.map((t) => t.name).join(", "))}">+${rest.length}</span>` : "") + "</div>";
+    return '<div class="fe-chips">' + shown.map((t) => `<span class="chip" data-size="sm" style="--chip:${esc(t.color)}" title="Tag: ${esc(t.name)}"><span>${esc(t.name)}</span></span>`).join("") + (rest.length ? `<span class="chip fe-chip-more" data-size="sm" title="Also tagged: ${esc(rest.map((t) => t.name).join(", "))}">+${rest.length}</span>` : "") + "</div>";
   }
   function buildTipData(e, ctx) {
     if (e.isParent) {
@@ -17608,7 +17598,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <div class="bar fe-lens-tools" data-inset>
         <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? "file" : "folder"} and name it" aria-label="Save this ${fileMode ? "file" : "folder"}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
-          <input id="fe-lens-filter" class="tb" data-size="lg" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
+          <input id="fe-lens-filter" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
           <button type="button" id="fe-lens-depth" class="btn fe-lens-depth" data-size="sm" data-variant="outline" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
         </label>
       </div>
@@ -17678,7 +17668,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           </div>
           <span class="bar-sep" aria-hidden="true"></span>
           ${viewSeg}
-          <label class="fe-in-box fe-tb-box"><input id="fe-search" class="tb" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
+          <label class="fe-in-box fe-tb-box"><input id="fe-search" class="tb" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
         </div>
       </div>
 
@@ -17696,7 +17686,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
           <label class="fe-in-box fe-in-name">
-            <input id="fe-filter-q" class="tb" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
+            <input id="fe-filter-q" class="tb" data-lead="search" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
             <span class="fe-in-chips"><button type="button" id="fe-regex-btn" class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono aria-pressed="false" title="Treat the pattern as a regular expression">.*</button></span>
           </label>
           <span class="fe-panel-lbl">Type</span>
@@ -17710,7 +17700,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text</span>
           <label class="fe-in-box fe-in-text">
-            <input id="fe-find-text" class="tb" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
+            <input id="fe-find-text" class="tb" data-lead="search" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
             <span class="fe-in-chips">
               <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
               <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
@@ -19997,7 +19987,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap((p) => p.tags ?? []))].sort();
       const on = box.value.trim().toLowerCase();
       row2.hidden = !names.length;
-      row2.innerHTML = names.map((n) => `<button type="button" class="chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? "#8b949e")}"></i>${esc(n)}</button>`).join("");
+      row2.innerHTML = names.map((n) => `<button type="button" class="chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" aria-pressed="${on === "#" + n.toLowerCase()}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? "#8b949e")}"></i>${esc(n)}</button>`).join("");
     }
     const foldedGroups = getFoldedGroups;
     app.refreshSaved = refreshSaved;
@@ -20626,7 +20616,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     if (!box) return;
     box.innerHTML = `
     <div class="fe-tl-form">
-      <input id="fe-srch-q" class="tb fe-tl-input" data-size="lg" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
+      <input id="fe-srch-q" class="tb fe-tl-input" data-size="lg" data-lead="search" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
       <div class="fe-tl-opts">
         ${checkHtml2("fe-srch-deep", "Subfolders", "Subfolders: search every folder under this one too", true)}
         ${checkHtml2("fe-srch-case", "Match case", "Match upper and lower case exactly")}
@@ -20715,7 +20705,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
     <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? "the text" : "the listing"} to Google</span></p>
     <div id="fe-ask-thread"></div>
-    <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="chip fe-ask-chip" data-intent="${k}">${l}</button>`).join("")}</div></div>
+    <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join("")}</div></div>
     <div class="fe-ask-form">
       <div class="fe-ask-box">
         <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
@@ -21060,9 +21050,9 @@ ${rows.join("\n")}`, name: subject };
       list3.innerHTML = app.iconRules.length ? app.iconRules.map((rule, i3) => {
         const bad = badRegex(rule.pattern);
         return `<div class="fe-rule${rule.enabled ? "" : " off"}" data-idx="${i3}">
-        ${switchHtml({ title: rule.enabled ? "On" : "Off", checked: rule.enabled, small: true, cls: "fe-st-rule-en" })}
+        ${switchHtml({ title: rule.enabled ? "On" : "Off", label: "Use this rule", checked: rule.enabled, small: true, cls: "fe-st-rule-en" })}
         <button type="button" class="fe-rule-ico" title="Icon and colour">${icoCustom(rule.label, rule.color, rule.glyph)}</button>
-        <input type="text" class="fe-st-rule-pattern${bad ? " bad" : ""}" value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : "Matches file names, any case"}">
+        <input type="text" class="tb fe-st-rule-pattern" data-size="lg" data-mono${bad ? ' aria-invalid="true"' : ""} value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : "Matches file names, any case"}">
         <span class="fe-rule-n" title="Matches in this folder">${bad ? "!" : hits(rule.pattern)}</span>
         <button type="button" class="btn fe-ibtn fe-st-rule-del" data-icon data-size="sm" data-tone="danger" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
       </div>`;
@@ -21099,7 +21089,8 @@ ${rows.join("\n")}`, name: subject };
       if (!t.classList.contains("fe-st-rule-pattern")) return;
       app.iconRules[hit[1]].pattern = t.value;
       const bad = badRegex(t.value);
-      t.classList.toggle("bad", !!bad);
+      if (bad) t.setAttribute("aria-invalid", "true");
+      else t.removeAttribute("aria-invalid");
       t.title = bad || "Matches file names, any case";
       hit[0].querySelector(".fe-rule-n").textContent = bad ? "!" : String(hits(t.value));
       if (!bad) saveRules();
@@ -21149,10 +21140,10 @@ ${rows.join("\n")}`, name: subject };
             <button type="button" class="fe-rp-g${rule.glyph ? "" : " on"}" data-g="" title="Text badge">${icoCustom(rule.label, rule.color)}</button>
             ${Object.keys(RULE_GLYPHS).map((g) => `<button type="button" class="fe-rp-g${rule.glyph === g ? " on" : ""}" data-g="${g}" title="${g}">${icoCustom("", rule.color, g)}</button>`).join("")}
           </div></div>
-        <div class="fe-rp-sec"><span class="fe-rp-l">Text</span><input class="tb fe-st-input fe-rp-label" maxlength="4" value="${esc(rule.label)}" spellcheck="false" title="Up to 4 characters, shown when there is no picture"></div>
+        <div class="fe-rp-sec"><span class="fe-rp-l">Text</span><input class="tb fe-st-input fe-rp-label" data-mono maxlength="4" value="${esc(rule.label)}" spellcheck="false" title="Up to 4 characters, shown when there is no picture"></div>
         <div class="fe-rp-sec"><span class="fe-rp-l">Colour</span>
           <div class="fe-rp-sw">${SWATCHES.map((c) => `<button type="button" class="fe-rp-c${c === rule.color ? " on" : ""}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join("")}
-          <input class="tb fe-st-input fe-rp-hex" value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
+          <input class="tb fe-st-input fe-rp-hex" data-mono value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
       };
       paint();
       const apply = () => {
@@ -21544,8 +21535,8 @@ ${rows.join("\n")}`, name: subject };
     let loaded = false, all = [];
     const f = { q: "", me: false, due: false, tag: "" };
     box.innerHTML = `<div class="fe-docs-top" hidden>
-      <input id="fe-docs-q" class="tb" data-size="lg" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
-      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
+      <input id="fe-docs-q" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
+      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
     </div><div class="fe-docs-rows"></div>`;
     const top = box.querySelector(".fe-docs-top"), rowsBox = box.querySelector(".fe-docs-rows");
     const input = box.querySelector("#fe-docs-q");
@@ -21554,13 +21545,17 @@ ${rows.join("\n")}`, name: subject };
     const paint = () => {
       const usable = docRows(all);
       top.hidden = !usable.length;
-      for (const c of top.querySelectorAll("[data-f]")) c.classList.toggle("on", f[c.dataset.f]);
+      for (const c of top.querySelectorAll("[data-f]")) {
+        const on = f[c.dataset.f];
+        c.classList.toggle("on", on);
+        c.setAttribute("aria-pressed", String(on));
+      }
       const counts = /* @__PURE__ */ new Map();
       for (const r of usable) for (const g of r.tags ?? []) counts.set(g, (counts.get(g) ?? 0) + 1);
       const tags = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8).map(([g]) => g);
       if (f.tag && !tags.includes(f.tag)) tags.push(f.tag);
       const tagBox = top.querySelector(".fe-docs-tags");
-      const tagHtml = tags.map((g) => `<button type="button" class="chip fe-lens-tag${f.tag === g ? " on" : ""}" data-tag="${esc(g)}" title="Only documents with a thread tagged #${esc(g)}">#${esc(g)}</button>`).join("");
+      const tagHtml = tags.map((g) => `<button type="button" class="chip fe-lens-tag${f.tag === g ? " on" : ""}" aria-pressed="${f.tag === g}" data-tag="${esc(g)}" title="Only documents with a thread tagged #${esc(g)}">#${esc(g)}</button>`).join("");
       if (tagBox.innerHTML !== tagHtml) tagBox.innerHTML = tagHtml;
       const list3 = docRows(all, f);
       if (!usable.length) {

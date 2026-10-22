@@ -52,7 +52,7 @@ try {
       const hints = [...tabs.querySelectorAll('.fe-dlg-tab i')].map(el => el.textContent.trim());
       const buttons = [...modal.querySelectorAll('.fe-dlg-pane button.btn')].filter(el => el.offsetParent);
       const input = modal.querySelector('#fe-st-notes-root');
-      return { scroll: tabs.scrollWidth - tabs.clientWidth, icons, hints, buttons: buttons.every(el => !!el.querySelector('svg')),
+      return { scroll: tabs.scrollWidth - tabs.clientWidth, icons, hints, buttons: buttons.length > 0 && buttons.every(el => !!el.querySelector('svg')),
         bg: getComputedStyle(input).backgroundColor, selectBg: getComputedStyle(modal.querySelector('.fe-dd-btn')).backgroundColor };
     });
     assert.equal(settings.scroll, 0, `${theme} settings tabs overflow`);

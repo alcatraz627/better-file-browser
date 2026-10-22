@@ -82,6 +82,10 @@ try {
   const hdr = await page.evaluate(() => [...document.querySelectorAll('#fe-ql-hdr > .btn')].filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return { id: b.id, icon: b.hasAttribute('data-icon'), w: Math.round(r.width), h: Math.round(r.height) }; }));
   check(hdr.length > 0 && hdr.every(b => b.icon && b.w === b.h), `the docked preview header is square icon buttons: ${JSON.stringify(hdr)}`);
   await clip('buttons-docked-header', '#fe-ql-hdr');
+  await page.evaluate(() => document.querySelector('#fe-tbody tr[data-idx]:has(a[href$="readme.md"]) a')?.focus());
+  await page.keyboard.press('g'); await sleep(150);
+  check(await page.evaluate(() => !!document.querySelector('.fe-chord')), 'a two-key chord starts with the preview docked and focus in the listing');
+  await page.keyboard.press('Escape'); await sleep(100);
   await page.keyboard.press('Escape'); await sleep(250);
   check(await page.evaluate(() => !document.querySelector('#fe-qlook.side') || getComputedStyle(document.getElementById('fe-qlook')).display === 'none'), 'Esc closes the docked preview while focus is in the listing');
 

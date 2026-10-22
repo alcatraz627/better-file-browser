@@ -312,7 +312,7 @@ export function mountComments(o: {
       ${box(t.id, 'Reply', done ? 'Reply to reopen…' : 'Reply… @ to mention, # to tag')}
       <div data-inset class="bar fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-a="${done ? 'reopen' : 'done'}" title="${done ? 'Reopen this thread' : 'Mark done'} (⌘⇧↵)">${done ? UI_ICON.reset + 'Reopen' : UI_ICON.check + 'Done'}</button>
-        ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? '')}">`
+        ${dueOpen === t.id ? `<input type="date" class="tb fe-cm-date" data-size="sm" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? '')}">`
           : iconBtn('due', UI_ICON.clock, 'Set a due date')}
         ${iconBtn('link', UI_ICON.link, 'Copy a link that opens this thread')}
         ${iconBtn('brief', UI_ICON.bot, 'Copy this thread as a brief for an agent')}

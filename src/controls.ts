@@ -46,8 +46,8 @@ export function checkHtml(id: string, label: string, title: string, checked = fa
 
 /// A switch for a setting that takes effect at once. Small sits inside a row
 /// of other controls.
-export function switchHtml(o: { id?: string; title: string; checked?: boolean; small?: boolean; cls?: string }): string {
-  return `<input type="checkbox" role="switch" class="fe-switch${o.small ? ' sm' : ''}${o.cls ? ' ' + o.cls : ''}"${o.id ? ` id="${o.id}"` : ''} title="${esc(o.title)}"${o.checked ? ' checked' : ''}>`;
+export function switchHtml(o: { id?: string; title: string; label?: string; checked?: boolean; small?: boolean; cls?: string }): string {
+  return `<input type="checkbox" role="switch" class="fe-switch${o.small ? ' sm' : ''}${o.cls ? ' ' + o.cls : ''}"${o.id ? ` id="${o.id}"` : ''} title="${esc(o.title)}" aria-label="${esc(o.label ?? o.title)}"${o.checked ? ' checked' : ''}>`;
 }
 
 /// A list edited as chips: each entry a pill with its own remove button, and
@@ -129,9 +129,14 @@ function upgradeDd(host: HTMLElement): void {
     closeList?.();
     list = document.createElement('div');
     list.className = 'fe-dd-list';
-    list.innerHTML = opts.map((o, i) => (o.group && o.group !== opts[i - 1]?.group ? `<div class="fe-dd-g" role="presentation">${esc(o.group)}</div>` : '')
-      + `<div role="option" class="fe-dd-opt${o.value === cur ? ' on' : ''}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">`
-      + `${o.icon ?? ''}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ''}</div>`).join('');
+    const optHtml = (o: Opt) => `<div role="option" class="fe-dd-opt${o.value === cur ? ' on' : ''}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">`
+      + `${o.icon ?? ''}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ''}</div>`;
+    // Options sharing a group sit in a named group, in the order the groups first appear.
+    const groups = [...new Set(opts.map(o => o.group ?? ''))];
+    list.innerHTML = groups.map(g => {
+      const inner = opts.filter(o => (o.group ?? '') === g).map(optHtml).join('');
+      return g ? `<div role="group" aria-label="${esc(g)}"><div class="fe-dd-g" aria-hidden="true">${esc(g)}</div>${inner}</div>` : inner;
+    }).join('');
     list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
     const layer = openLayer(list, { kind: 'popover', anchor: btn, align: 'end', role: 'listbox', group: 'menu', onClose: () => { keys = null; list = null; closeList = null; } });
     if (!layer.open) return;
@@ -146,7 +151,7 @@ function upgradeDd(host: HTMLElement): void {
     keys = e => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { at = (at + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; mark(); }
       else if (e.key === 'Home' || e.key === 'End') { at = e.key === 'Home' ? 0 : items.length - 1; mark(); }
-      else if (e.key === 'Enter' || e.key === ' ') { if (items[at]) pick(items[at].dataset.v!); }
+      else if (e.key === 'Enter' || (e.key === ' ' && !(typed && Date.now() - typedAt < 700))) { if (items[at]) pick(items[at].dataset.v!); }
       else if (e.key === 'Tab') { layer.close('blur'); return; }
       else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
         // Typing jumps to the first option starting with what was typed.

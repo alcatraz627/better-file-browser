@@ -17,14 +17,14 @@ model picker. Built by `ddHtml()` in `src/controls.ts` and wired by
 | | |
 |---|---|
 | Markup | `ddHtml(id, opts, title, size?)`: `.fe-dd` holding a `.fe-dd-btn` |
-| Options | `{ value, label?, icon?, hint?, group? }`; options sharing a `group` sit under its name |
+| Options | `{ value, label?, icon?, hint?, group? }`; options sharing a `group` are gathered under its name in a `role="group"` labelled for screen readers, in the order the groups first appear |
 | Value | `value` property, `change` event; mirrored to `data-value`, and the options to `data-opts`, for code outside the script |
 | Late options | `setOptions(opts)` replaces the list (models arrive after load) |
 | A missing value | a saved value no longer listed still shows on the button |
 | Sizes | md 28 (default), lg 32 for dialogs |
 | Surface | the TextBox's: `--bg` fill and `--bd2` hairline, accent while open, so fields and dropdowns read as one family (owner review, 2026-10-21) |
 | List | one floating list, opened through the Layer service; closes on pick, Esc, Tab or a click outside |
-| Keys | Arrow Up or Down opens it; arrows move, Home and End jump, typing jumps to a match, Enter or Space picks |
+| Keys | Arrow Up or Down opens it; arrows move, Home and End jump, typing jumps to a match (Space included while typing), Enter or Space picks |
 
 ## Narrow
 

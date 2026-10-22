@@ -95,7 +95,7 @@ try {
   check(!(await page.$('.fe-rule-pop')), 'Esc closes the icon designer');
   await page.click('.fe-rule:last-child .fe-st-rule-pattern', { clickCount: 3 });
   await page.keyboard.type('(');
-  check(await page.$eval('.fe-rule:last-child .fe-st-rule-pattern', e => e.classList.contains('bad')), 'a broken pattern is marked');
+  check(await page.$eval('.fe-rule:last-child .fe-st-rule-pattern', e => e.getAttribute('aria-invalid') === 'true'), 'a broken pattern is marked');
 } finally {
   await h.close();
   process.exitCode = fails.length ? 1 : 0;

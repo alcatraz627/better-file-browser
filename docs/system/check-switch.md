@@ -16,7 +16,7 @@ that takes effect at once (Settings rows, a rule's enable).
 
 | | Check | Switch |
 |---|---|---|
-| Builder | `checkHtml(id, label, title, checked?)` | `switchHtml({ id?, title, checked?, small?, cls? })` |
+| Builder | `checkHtml(id, label, title, checked?)` | `switchHtml({ id?, title, label?, checked?, small?, cls? })`; `label` names it for screen readers when the tooltip describes its state |
 | Markup | `<label class="fe-check">` around the input and its label | `<input type="checkbox" role="switch" class="fe-switch">` |
 | Size | a 14px box in a 22px row | 34 by 20; small is 28 by 16 |
 | On | accent fill with a tick | accent track, knob to the right |

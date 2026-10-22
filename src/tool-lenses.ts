@@ -37,7 +37,7 @@ function initSearch(app: App): void {
   if (!box) return;
   box.innerHTML = `
     <div class="fe-tl-form">
-      <input id="fe-srch-q" class="tb fe-tl-input" data-size="lg" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
+      <input id="fe-srch-q" class="tb fe-tl-input" data-size="lg" data-lead="search" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
       <div class="fe-tl-opts">
         ${checkHtml('fe-srch-deep', 'Subfolders', 'Subfolders: search every folder under this one too', true)}
         ${checkHtml('fe-srch-case', 'Match case', 'Match upper and lower case exactly')}
@@ -116,7 +116,7 @@ function initAsk(app: App): void {
     <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
     <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? 'the text' : 'the listing'} to Google</span></p>
     <div id="fe-ask-thread"></div>
-    <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="chip fe-ask-chip" data-intent="${k}">${l}</button>`).join('')}</div></div>
+    <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join('')}</div></div>
     <div class="fe-ask-form">
       <div class="fe-ask-box">
         <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>

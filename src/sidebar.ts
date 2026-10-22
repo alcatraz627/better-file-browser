@@ -255,7 +255,7 @@ export function initSidebar(app: App): void {
     const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap(p => p.tags ?? []))].sort();
     const on = box.value.trim().toLowerCase();
     row.hidden = !names.length;
-    row.innerHTML = names.map(n => `<button type="button" class="chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? '#8b949e')}"></i>${esc(n)}</button>`).join('');
+    row.innerHTML = names.map(n => `<button type="button" class="chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" aria-pressed="${on === '#' + n.toLowerCase()}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? '#8b949e')}"></i>${esc(n)}</button>`).join('');
   }
   const foldedGroups = getFoldedGroups;
   app.refreshSaved = refreshSaved;

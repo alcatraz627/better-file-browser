@@ -94,7 +94,7 @@ export function mountMetaBar(host: HTMLElement, o: {
     btn?.addEventListener('click', () => {
       const box = document.createElement('textarea');
       box.id = 'fe-meta-title-edit';
-      box.className = 'fe-chip-title';
+      box.className = 'tb fe-chip-title';
       box.value = p.title; box.rows = 1; box.maxLength = 200; box.spellcheck = true;
       box.setAttribute('aria-label', 'Note title');
       btn.replaceWith(box);

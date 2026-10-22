@@ -66,7 +66,10 @@ try {
 
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe-ask-hist-btn');
-  check(await page.$eval('#fe-ask-model', s => s.dataset.value === 'gemini:gemini-3.5-flash' || JSON.parse(s.dataset.opts).length === 1), 'the picked model is remembered');
+  // The model list arrives after the lens draws; the saved pick is applied then.
+  await page.waitForFunction(() => JSON.parse(document.getElementById('fe-ask-model').dataset.opts || '[]').length > 1, { timeout: 15000 }).catch(() => null);
+  const remembered = await page.$eval('#fe-ask-model', s => s.dataset.value);
+  check(remembered === 'gemini:gemini-3.5-flash', `the picked model is remembered: ${JSON.stringify(remembered)}`);
   check(await page.$eval('#fe-ask-hist-n', n => n.textContent) === '1', 'the history button counts the chat');
   await page.click('#fe-ask-hist-btn');
   const rows = await page.$$eval('#fe-ask-hist .fe-ask-h', rs => rs.map(r => r.querySelector('.fe-ask-h-t').textContent));

@@ -63,6 +63,8 @@ const OWN = KEYMAP.filter(d => d.own);
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const keysOf = (d: KeyDef) => d.keys.flatMap(k => k === '1…9' ? DIGITS : [k]);
 const MOVING = new Set(['↑', '↓', '←', '→', '↩', 'Space', '⌫', 'Home', 'End']);
+// The keys the preview's own commands answer; a docked preview claims only these.
+const PREVIEW_KEYS = new Set(KEYMAP.filter(d => d.scope === 'preview').flatMap(d => keysOf(d)));
 // The base key of a token, without modifiers: "⌘↑" is "↑".
 const baseOf = (tok: string) => tok.replace(/^[⌘⌃⌥⇧]+/, '');
 const live = (d: KeyDef, ctx: Context, tok = '') => {
@@ -73,7 +75,7 @@ const live = (d: KeyDef, ctx: Context, tok = '') => {
   if (!ctx.scopes.has('any')) return false;
   if (ctx.widget && MOVING.has(baseOf(tok))) return false;
   if (!ctx.scopes.has('preview') || d.over === true || (!!tok && !!d.over?.includes(tok))) return true;
-  return !!ctx.docked && !!tok && !MOVING.has(baseOf(tok)) && tok !== 'Esc';
+  return !!ctx.docked && !!tok && !PREVIEW_KEYS.has(tok);
 };
 
 // A sequence such as "g h": the first key waits a moment for the second, with
@@ -117,7 +119,7 @@ export function dispatch(e: KeyboardEvent): boolean {
   const all = OWN.filter(x => keysOf(x).includes(tok) && live(x, ctx, tok) && canRun(x.id));
   const d = all.find(x => (x.scope ?? 'any') !== 'any') ?? all[0];
   if (d) { e.preventDefault(); e.stopImmediatePropagation(); runCommand(d.id, tok); return true; }
-  if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some(x => live(x, ctx) && canRun(x.id) && x.keys.some(k => k.startsWith(tok + ' ')))) {
+  if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some(x => live(x, ctx, tok + ' ') && canRun(x.id) && x.keys.some(k => k.startsWith(tok + ' ')))) {
     e.preventDefault(); e.stopImmediatePropagation();
     setPending(tok);
     return true;

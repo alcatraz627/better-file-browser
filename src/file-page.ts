@@ -163,7 +163,7 @@ export function renderFileContent(): string {
         <div id="fe-page" tabindex="-1"></div>
         <div id="fe-fe" style="display:none"></div>
         <aside id="fe-toc-rail" hidden>
-          <div class="fe-toc-head"><h3 class="sect fe-rail-title" data-level="panel"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="fe-rt-n" id="fe-cm-n"></span></h3></div>
+          <div class="fe-toc-head"><h3 class="sect fe-rail-title" data-level="panel"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="badge fe-rt-n" data-tone="solid" id="fe-cm-n"></span></h3></div>
           <nav id="fe-toc"></nav>
           <div id="fe-cm" role="tabpanel" aria-label="Comments" hidden></div>
         </aside>

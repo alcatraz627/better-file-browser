@@ -51,9 +51,9 @@ export function initSettingsUi(app: App): void {
     list.innerHTML = app.iconRules.length ? app.iconRules.map((rule, i) => {
       const bad = badRegex(rule.pattern);
       return `<div class="fe-rule${rule.enabled ? '' : ' off'}" data-idx="${i}">
-        ${switchHtml({ title: rule.enabled ? 'On' : 'Off', checked: rule.enabled, small: true, cls: 'fe-st-rule-en' })}
+        ${switchHtml({ title: rule.enabled ? 'On' : 'Off', label: 'Use this rule', checked: rule.enabled, small: true, cls: 'fe-st-rule-en' })}
         <button type="button" class="fe-rule-ico" title="Icon and colour">${icoCustom(rule.label, rule.color, rule.glyph)}</button>
-        <input type="text" class="fe-st-rule-pattern${bad ? ' bad' : ''}" value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : 'Matches file names, any case'}">
+        <input type="text" class="tb fe-st-rule-pattern" data-size="lg" data-mono${bad ? ' aria-invalid="true"' : ''} value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : 'Matches file names, any case'}">
         <span class="fe-rule-n" title="Matches in this folder">${bad ? '!' : hits(rule.pattern)}</span>
         <button type="button" class="btn fe-ibtn fe-st-rule-del" data-icon data-size="sm" data-tone="danger" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
       </div>`;
@@ -82,7 +82,7 @@ export function initSettingsUi(app: App): void {
     if (!t.classList.contains('fe-st-rule-pattern')) return;
     app.iconRules[hit[1]].pattern = t.value;
     const bad = badRegex(t.value);
-    t.classList.toggle('bad', !!bad);
+    if (bad) t.setAttribute('aria-invalid', 'true'); else t.removeAttribute('aria-invalid');
     t.title = bad || 'Matches file names, any case';
     hit[0].querySelector('.fe-rule-n')!.textContent = bad ? '!' : String(hits(t.value));
     if (!bad) saveRules();
@@ -128,10 +128,10 @@ export function initSettingsUi(app: App): void {
             <button type="button" class="fe-rp-g${rule.glyph ? '' : ' on'}" data-g="" title="Text badge">${icoCustom(rule.label, rule.color)}</button>
             ${Object.keys(RULE_GLYPHS).map(g => `<button type="button" class="fe-rp-g${rule.glyph === g ? ' on' : ''}" data-g="${g}" title="${g}">${icoCustom('', rule.color, g)}</button>`).join('')}
           </div></div>
-        <div class="fe-rp-sec"><span class="fe-rp-l">Text</span><input class="tb fe-st-input fe-rp-label" maxlength="4" value="${esc(rule.label)}" spellcheck="false" title="Up to 4 characters, shown when there is no picture"></div>
+        <div class="fe-rp-sec"><span class="fe-rp-l">Text</span><input class="tb fe-st-input fe-rp-label" data-mono maxlength="4" value="${esc(rule.label)}" spellcheck="false" title="Up to 4 characters, shown when there is no picture"></div>
         <div class="fe-rp-sec"><span class="fe-rp-l">Colour</span>
           <div class="fe-rp-sw">${SWATCHES.map(c => `<button type="button" class="fe-rp-c${c === rule.color ? ' on' : ''}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join('')}
-          <input class="tb fe-st-input fe-rp-hex" value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
+          <input class="tb fe-st-input fe-rp-hex" data-mono value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
     };
     paint();
     const apply = () => {
