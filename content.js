@@ -314,6 +314,11 @@
     for (const b of bookmarks) out = upsertPlace(out, { path: b.path, label: b.label });
     return out;
   }
+  function isWithin(path, folder, depth = 4) {
+    const base = folder.endsWith("/") ? folder : folder + "/";
+    if (path === folder || path === base) return true;
+    return path.startsWith(base) && path.slice(base.length).split("/").filter(Boolean).length <= depth;
+  }
 
   // src/kv.ts
   var MIGRATED = "bfb-kv-migrated";
@@ -423,7 +428,24 @@
   var VIEW_KEY = "bfb-view";
   var THEME_KEY = "bfb-theme";
   var PALETTE_KEY = "bfb-palette";
-  var PALETTES = ["slate", "violet", "sand", "ink", "ocean", "forest", "ember", "nord"];
+  var PALETTES = [
+    "slate",
+    "violet",
+    "sand",
+    "ink",
+    "ocean",
+    "forest",
+    "ember",
+    "nord",
+    "mocha",
+    "solar",
+    "grove",
+    "velvet",
+    "coral",
+    "neon",
+    "matcha",
+    "plum"
+  ];
   var DENSITY_KEY = "bfb-density";
   var HIDDEN_KEY = "bfb-show-hidden";
   var ICON_RULES_KEY = "bfb-icon-rules-v1";
@@ -1496,7 +1518,7 @@ ${body}`;
     { id: "tab-close", group: "Tabs", title: "Close", keys: ["w"], own: true },
     { id: "tab-pin", group: "Tabs", title: "Pin", keys: ["p"], own: true },
     { id: "tab-step", group: "Tabs", title: "Previous or next", keys: ["[", "]"], own: true, over: true },
-    { id: "tab-jump", group: "Tabs", title: "Jump to 1 to 9", keys: ["1\u20269"], own: true, over: true },
+    { id: "tab-jump", group: "Tabs", title: "Jump to tab 1 to 9", keys: ["e 1\u20269"], own: true, over: true },
     { id: "tab-reopen", group: "Tabs", title: "Reopen closed", keys: ["\u21E7T"], own: true },
     { id: "tab-left", group: "Tabs", title: "Move tab left", keys: ["\u21E7["], own: true },
     { id: "tab-right", group: "Tabs", title: "Move tab right", keys: ["\u21E7]"], own: true },
@@ -1531,7 +1553,7 @@ ${body}`;
     { id: "pv-ask", group: "Preview", title: "Ask about it", keys: ["a"], scope: "preview", own: true },
     // File page
     { id: "fp-raw", group: "File page", title: "Raw or rendered", keys: ["r"], scope: "file", own: true },
-    { id: "fp-edit", group: "File page", title: "Edit", keys: ["e"], scope: "file", own: true },
+    { id: "fp-edit", group: "File page", title: "Edit", keys: ["e e"], scope: "file", own: true },
     { id: "fp-find", group: "File page", title: "Find in file", keys: ["/"], scope: "file", own: true },
     { id: "fp-comment", group: "File page", title: "Comment on the selection or paragraph", keys: ["c"], scope: "file", own: true },
     { id: "fp-cm-reply", group: "File page", title: "Reply to the comment", keys: ["\u21E7R"], scope: "file", own: true },
@@ -1581,7 +1603,7 @@ ${body}`;
     pgdn: "down"
   };
   function capsFor(key) {
-    if (key === "1\u20269") return ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    if (key.endsWith("1\u20269")) return [...key.slice(0, -3).split(" ").filter(Boolean), "1", "2", "3", "4", "5", "6", "7", "8", "9"];
     const out = /* @__PURE__ */ new Set();
     for (const part of key.replace(/^hold /, "").split(" ")) {
       if (/^(home|end|pgup|pgdn)$/i.test(part)) {
@@ -1869,7 +1891,7 @@ ${body}`;
   }
   var OWN = KEYMAP.filter((d) => d.own);
   var DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
-  var keysOf = (d) => d.keys.flatMap((k) => k === "1\u20269" ? DIGITS : [k]);
+  var keysOf = (d) => d.keys.flatMap((k) => k.endsWith("1\u20269") ? DIGITS.map((n) => k.slice(0, -3) + n) : [k]);
   var MOVING = /* @__PURE__ */ new Set(["\u2191", "\u2193", "\u2190", "\u2192", "\u21A9", "Space", "\u232B", "Home", "End"]);
   var PREVIEW_KEYS = new Set(KEYMAP.filter((d) => d.scope === "preview").flatMap((d) => keysOf(d)));
   var baseOf = (tok) => tok.replace(/^[⌘⌃⌥⇧]+/, "");
@@ -1929,7 +1951,7 @@ ${body}`;
     if (pending) {
       const want = `${pending} ${tok}`;
       setPending("");
-      const seq2 = OWN.filter((x) => x.keys.includes(want) && live(x, ctx, want) && canRun(x.id));
+      const seq2 = OWN.filter((x) => keysOf(x).includes(want) && live(x, ctx, want) && canRun(x.id));
       const d2 = seq2.find((x) => (x.scope ?? "any") !== "any") ?? seq2[0];
       if (d2 && runCommand(d2.id, want)) {
         e.preventDefault();
@@ -3705,8 +3727,8 @@ ${body}`;
     return { kind: kindName(e), path, items };
   }
   function metaSummary(m) {
-    const pick = (k) => m.items.find((i3) => i3.key === k)?.value;
-    return [m.kind, pick("size"), pick("lines")].filter(Boolean).join(" \xB7 ");
+    const pick2 = (k) => m.items.find((i3) => i3.key === k)?.value;
+    return [m.kind, pick2("size"), pick2("lines")].filter(Boolean).join(" \xB7 ");
   }
   var ICONS = {
     size: '<path d="M2.5 4.5 7 2l4.5 2.5v5L7 12l-4.5-2.5z"/><path d="M2.5 4.5 7 7l4.5-2.5M7 7v5"/>',
@@ -4401,6 +4423,9 @@ ${body}
   }
   function allChats() {
     return Object.entries(read()).flatMap(([subject, list3]) => list3.map((chat) => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
+  }
+  function chatsUnder(folder, depth = 4) {
+    return allChats().filter(({ subject }) => isWithin(subject, folder, depth));
   }
   function chatsFor(subject) {
     return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
@@ -12013,9 +12038,9 @@ textarea.tb{height:auto;min-height:var(--tb-h);padding:var(--sp-3) var(--sp-4);l
 .tb[data-lead="search"]{padding-left:var(--sp-8);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:var(--sp-4) 50%}
 @keyframes fe-spin{to{transform:rotate(1turn)}}
 html,body{height:100%;background:var(--bg);color:var(--tx);
-  font:var(--fs-lg)/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
+  font:var(--fs-lg)/1.5 var(--font-text);overflow:hidden}
 body{opacity:1!important}
-#fe{display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--tx)}
+#fe{display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--tx);font-family:var(--font-text)}
 #fe-bar{background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0;align-self:stretch;cursor:text}
 #fe-bc[hidden]{display:none}
@@ -12436,6 +12461,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-box[data-size="lg"]{width:max(min(1000px,calc(100vw - 48px)),85vw);height:max(min(780px,84vh),90vh)}
 #fe-ql-dialog[data-size="lg"]{width:max(min(1100px,calc(100vw - 64px)),85vw);height:max(min(84vh,1000px),90vh)}
 .fe-dlg-box[data-size="xl"],#fe-ql-dialog[data-size="xl"]{width:calc(100vw - 32px);height:calc(100vh - var(--ctl-lg))}
+.fe-dlg-title b{font-family:var(--font-head)}
 .fe-dlg-title{grid-column:1;grid-row:1;padding:18px var(--sp-6) 10px;align-items:flex-start;background:var(--side);border-right:1px solid var(--bd)}
 .fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:var(--row-r);display:grid;place-items:center;background:var(--on);color:var(--ac)}
 .fe-dlg-acts{position:absolute;top:14px;right:14px;z-index:var(--z-sticky);display:flex;gap:var(--sp-2)}
@@ -12482,7 +12508,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-ai-state{font-size:var(--fs-md);font-weight:600;color:var(--tx)}
 .fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:3px var(--sp-5);font-size:var(--fs-md)}
 .fe-st-ai-grid .k{color:var(--dm)}
-.fe-st-ai-grid .v{color:var(--tx);font-family:'SF Mono',Menlo,Consolas,monospace;font-size:var(--fs-sm);
+.fe-st-ai-grid .v{color:var(--tx);font-family:var(--mono);font-size:var(--fs-sm);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-st-ai-grid .v.warm-yes{color:var(--green)}
 .fe-st-ai-grid .v.warm-no{color:var(--gold)}
@@ -12689,7 +12715,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe[data-theme="light"] .fe-md-alert-warning{--al:#9a6700}#fe[data-theme="light"] .fe-md-alert-caution{--al:#d1242f}
 .fe-md-footnotes{border-top:1px solid var(--bd);margin-top:2em;padding-top:.8em;font-size:.88em;color:var(--mt)}
 .fe-md-fnref a,.fe-md-fnback{text-decoration:none}
-#fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre{font-size:calc(var(--rd-code,var(--fs-lg)) * var(--ui-text-scale,1))}
+#fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre,#fe-page .fe-code,#fe-ql-body .fe-code{font-size:calc(var(--rd-code,var(--fs-lg)) * var(--ui-text-scale,1))}
 #fe.fe-notips #fe-tip{display:none!important}
 #fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
@@ -12907,7 +12933,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
    holds in the file page, preview, notes, dialogs and AI answers alike. */
 .fe-md>*,.fe-md-alert>*,.fe-md blockquote>*{margin:0 0 .9em}
 .fe-md>:last-child,.fe-md-alert>:last-child,.fe-md blockquote>:last-child{margin-bottom:0}
-.fe-md h1,.fe-md h2,.fe-md h3,.fe-md h4,.fe-md h5,.fe-md h6{font-weight:600;line-height:1.3;margin:1.6em 0 .5em;color:var(--tx)}
+.fe-md h1,.fe-md h2,.fe-md h3,.fe-md h4,.fe-md h5,.fe-md h6{font-family:var(--font-head);font-weight:600;line-height:1.3;margin:1.6em 0 .5em;color:var(--tx)}
 .fe-md>h1:first-child,.fe-md>h2:first-child,.fe-md>h3:first-child,.fe-md>.fe-md-fm+h1,.fe-md>.fe-md-fm+h2{margin-top:0}
 .fe-md h1{font-size:1.75em;padding-bottom:.3em;border-bottom:1px solid var(--bd)}
 .fe-md h2{font-size:1.4em;padding-bottom:.3em;border-bottom:1px solid var(--bd)}
@@ -13023,7 +13049,7 @@ a.fe-fm-path:hover{text-decoration:underline}
    the card edge, in a menu the menu's own 6px padding gives the same inset.
    Every popover, menu, tip and the Contents card share one surface. Notes
    rows grow to fit a tag line but keep the inset and corners. */
-:root{--bg:#0f1316;--s1:#151b1f;--s2:#1c2328;--s3:#253039;--bd:#243038;--bd2:#34434d;--tx:#e7eef1;--mt:#a3b2ba;--dm:#7f9099;--ac:#3cc6c0;--tx-on-ac:#0f1316;--dir:#a3b2ba;--shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);--gold:#d29922;--green:#3fb950;--hover:color-mix(in srgb,var(--tx) 6%,transparent);--on:color-mix(in srgb,var(--ac) 18%,transparent);--r-sm:6px;--card:color-mix(in srgb,var(--s1),var(--s2) 62%);--side:var(--s1);--t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);--mono:'SF Mono',Menlo,Consolas,monospace;--nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;--fs-xs:calc(10px * var(--ui-text-scale,1));--fs-sm:calc(11px * var(--ui-text-scale,1));--fs-md:calc(12px * var(--ui-text-scale,1));--fs-lg:calc(13px * var(--ui-text-scale,1));--fs-xl:calc(15px * var(--ui-text-scale,1));--row-h:32px;--row-r:8px;--row-px:10px;--row-gap:10px;--row-ic:16px;--row-fs:var(--fs-lg);--pop-r:12px;--pop-pad:6px;--pop-bg:color-mix(in srgb,var(--card) 90%,transparent);--pop-bd:var(--bd2);--pop-sh:0 12px 32px rgb(0 0 0 / .34),0 1px 3px rgb(0 0 0 / .2);--pop-blur:blur(16px) saturate(1.2)}
+:root{--bg:#0f1316;--s1:#151b1f;--s2:#1c2328;--s3:#253039;--bd:#243038;--bd2:#34434d;--tx:#e7eef1;--mt:#a3b2ba;--dm:#7f9099;--ac:#3cc6c0;--tx-on-ac:#0f1316;--dir:#a3b2ba;--shade:rgb(139 148 158 / .14);--shade2:rgb(139 148 158 / .24);--gold:#d29922;--green:#3fb950;--hover:color-mix(in srgb,var(--tx) 6%,transparent);--on:color-mix(in srgb,var(--ac) 18%,transparent);--r-sm:6px;--card:color-mix(in srgb,var(--s1),var(--s2) 62%);--side:var(--s1);--t-fast:120ms;--t-base:180ms;--t-slow:260ms;--ease:cubic-bezier(.2,.8,.2,1);--mono:'SF Mono',Menlo,Consolas,monospace;--font-text:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;--font-head:var(--font-text);--nc-red:#ff6b6b;--nc-orange:#ffa94d;--nc-yellow:#ffd43b;--nc-green:#51cf66;--nc-teal:#38d9a9;--nc-blue:#4dabf7;--nc-purple:#b197fc;--nc-pink:#f783ac;--fs-xs:calc(10px * var(--ui-text-scale,1));--fs-sm:calc(11px * var(--ui-text-scale,1));--fs-md:calc(12px * var(--ui-text-scale,1));--fs-lg:calc(13px * var(--ui-text-scale,1));--fs-xl:calc(15px * var(--ui-text-scale,1));--row-h:32px;--row-r:8px;--row-px:10px;--row-gap:10px;--row-ic:16px;--row-fs:var(--fs-lg);--pop-r:12px;--pop-pad:6px;--pop-bg:color-mix(in srgb,var(--card) 90%,transparent);--pop-bd:var(--bd2);--pop-sh:0 12px 32px rgb(0 0 0 / .34),0 1px 3px rgb(0 0 0 / .2);--pop-blur:blur(16px) saturate(1.2)}
 #fe[data-theme="light"],html:has(#fe[data-theme="light"]){--pop-bg:color-mix(in srgb,var(--card) 94%,transparent);--pop-bd:var(--bd);
   --pop-sh:0 10px 28px rgb(16 24 32 / .12),0 1px 3px rgb(16 24 32 / .08)}
 /* The component system's scales (docs/plan/component-system.md, sections 4
@@ -13394,6 +13420,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   .fe-set-card .fe-set{flex-direction:column;align-items:stretch;gap:var(--sp-4)}
   .fe-set > .fe-set-c{max-width:none;justify-content:flex-start}
   .fe-set-c .fe-set-sws.grid4{grid-template-columns:repeat(auto-fill,minmax(68px,1fr));justify-content:start}
+  .fe-set-sws.grid8{grid-template-columns:repeat(auto-fill,minmax(56px,1fr))}
   .fe-set-c .fe-set-sws{width:100%;justify-content:flex-start}
   /* Help: one column of cards; the page header needs no room for the buttons. */
   .fe-dlg-pane .fe-hcs{grid-template-columns:minmax(0,1fr)}
@@ -13422,6 +13449,38 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   --bg:#1f232b;--s1:#262b34;--s2:#2c323c;--s3:#353c48;--bd:#353c47;--bd2:#444c59;--tx:#e5e9f0;--mt:#aeb6c4;--dm:#8a93a3;--ac:#88c0d0;--tx-on-ac:#1f232b;--dir:#aeb6c4}
 #fe[data-palette="nord"][data-theme="light"],html:has(#fe[data-palette="nord"][data-theme="light"]){
   --bg:#eceff4;--s1:#ffffff;--s2:#e5e9f0;--s3:#d8dee9;--bd:#d8dee9;--bd2:#c2cad6;--tx:#2e3440;--mt:#4c566a;--dm:#67728a;--ac:#4b6c96;--tx-on-ac:#ffffff;--dir:#5c667a}
+#fe[data-palette="mocha"],html:has(#fe[data-palette="mocha"]){
+  --bg:#1e1e2e;--s1:#232334;--s2:#2a2a3c;--s3:#313244;--bd:#313244;--bd2:#45475a;--tx:#cdd6f4;--mt:#a6adc8;--dm:#8a8fa8;--ac:#cba6f7;--tx-on-ac:#1e1e2e;--dir:#a6adc8}
+#fe[data-palette="mocha"][data-theme="light"],html:has(#fe[data-palette="mocha"][data-theme="light"]){
+  --bg:#eff1f5;--s1:#ffffff;--s2:#e6e9ef;--s3:#dce0e8;--bd:#dce0e8;--bd2:#bcc0cc;--tx:#4c4f69;--mt:#5c5f77;--dm:#646880;--ac:#8839ef;--tx-on-ac:#ffffff;--dir:#6c6f85}
+#fe[data-palette="solar"],html:has(#fe[data-palette="solar"]){
+  --bg:#002b36;--s1:#05323e;--s2:#073642;--s3:#0d4250;--bd:#0d3f4b;--bd2:#1a5463;--tx:#eee8d5;--mt:#93a1a1;--dm:#849597;--ac:#e0a800;--tx-on-ac:#002b36;--dir:#93a1a1}
+#fe[data-palette="solar"][data-theme="light"],html:has(#fe[data-palette="solar"][data-theme="light"]){
+  --bg:#fdf6e3;--s1:#fffbef;--s2:#eee8d5;--s3:#e4dcc4;--bd:#e6dfc8;--bd2:#d3c9ab;--tx:#073642;--mt:#586e75;--dm:#5b7178;--ac:#8a6700;--tx-on-ac:#ffffff;--dir:#657b82}
+#fe[data-palette="grove"],html:has(#fe[data-palette="grove"]){
+  --bg:#1d2021;--s1:#242526;--s2:#2c2a29;--s3:#3c3836;--bd:#3c3836;--bd2:#504945;--tx:#ebdbb2;--mt:#bdae93;--dm:#a89984;--ac:#b8bb26;--tx-on-ac:#1d2021;--dir:#bdae93}
+#fe[data-palette="grove"][data-theme="light"],html:has(#fe[data-palette="grove"][data-theme="light"]){
+  --bg:#f9f5d7;--s1:#fffbe8;--s2:#f2e5bc;--s3:#ebdbb2;--bd:#e5d6aa;--bd2:#d5c4a1;--tx:#3c3836;--mt:#665c54;--dm:#74685d;--ac:#6e6a0c;--tx-on-ac:#ffffff;--dir:#7c6f64}
+#fe[data-palette="velvet"],html:has(#fe[data-palette="velvet"]){
+  --bg:#22212c;--s1:#282a36;--s2:#2f3140;--s3:#383a4c;--bd:#363849;--bd2:#4a4d63;--tx:#f8f8f2;--mt:#b9bccf;--dm:#9195b0;--ac:#ff79c6;--tx-on-ac:#22212c;--dir:#b9bccf}
+#fe[data-palette="velvet"][data-theme="light"],html:has(#fe[data-palette="velvet"][data-theme="light"]){
+  --bg:#f7f5fb;--s1:#ffffff;--s2:#efebf6;--s3:#e3ddef;--bd:#e2dcee;--bd2:#cdc4e0;--tx:#282a36;--mt:#565975;--dm:#6b6e8b;--ac:#b4237a;--tx-on-ac:#ffffff;--dir:#626582}
+#fe[data-palette="coral"],html:has(#fe[data-palette="coral"]){
+  --bg:#161211;--s1:#1e1817;--s2:#271f1d;--s3:#322826;--bd:#322826;--bd2:#483a37;--tx:#f4ebe8;--mt:#c2aca6;--dm:#9f8984;--ac:#ff7b6b;--tx-on-ac:#161211;--dir:#c2aca6}
+#fe[data-palette="coral"][data-theme="light"],html:has(#fe[data-palette="coral"][data-theme="light"]){
+  --bg:#fcf3f1;--s1:#ffffff;--s2:#f7e8e4;--s3:#eed8d2;--bd:#edd9d3;--bd2:#dfc2ba;--tx:#2d1b17;--mt:#6f524b;--dm:#84665f;--ac:#c13a29;--tx-on-ac:#ffffff;--dir:#7b5d56}
+#fe[data-palette="neon"],html:has(#fe[data-palette="neon"]){
+  --bg:#1a1b26;--s1:#1f2030;--s2:#24283b;--s3:#2c3047;--bd:#2a2e42;--bd2:#3b4261;--tx:#c0caf5;--mt:#9aa5ce;--dm:#7d86aa;--ac:#7dcfff;--tx-on-ac:#1a1b26;--dir:#9aa5ce}
+#fe[data-palette="neon"][data-theme="light"],html:has(#fe[data-palette="neon"][data-theme="light"]){
+  --bg:#e9ebf3;--s1:#ffffff;--s2:#e1e4ef;--s3:#d3d8e8;--bd:#d5d9e7;--bd2:#bcc2d8;--tx:#343b58;--mt:#4c5578;--dm:#5e6688;--ac:#0b6f8f;--tx-on-ac:#ffffff;--dir:#5a6385}
+#fe[data-palette="matcha"],html:has(#fe[data-palette="matcha"]){
+  --bg:#12140f;--s1:#191c15;--s2:#20241b;--s3:#2a2f23;--bd:#292e22;--bd2:#3c4331;--tx:#ecefe2;--mt:#b0b79d;--dm:#90977e;--ac:#b5d36b;--tx-on-ac:#12140f;--dir:#b0b79d}
+#fe[data-palette="matcha"][data-theme="light"],html:has(#fe[data-palette="matcha"][data-theme="light"]){
+  --bg:#f4f5ec;--s1:#fefff8;--s2:#ecefe0;--s3:#e0e5cf;--bd:#dfe3cf;--bd2:#c9d0b0;--tx:#22261a;--mt:#545c42;--dm:#687056;--ac:#557311;--tx-on-ac:#ffffff;--dir:#626a4e}
+#fe[data-palette="plum"],html:has(#fe[data-palette="plum"]){
+  --bg:#18121a;--s1:#1f1722;--s2:#281d2c;--s3:#332538;--bd:#322537;--bd2:#47354e;--tx:#f1e9f3;--mt:#bba7c1;--dm:#98859e;--ac:#f2c14e;--tx-on-ac:#18121a;--dir:#bba7c1}
+#fe[data-palette="plum"][data-theme="light"],html:has(#fe[data-palette="plum"][data-theme="light"]){
+  --bg:#f8f2f9;--s1:#ffffff;--s2:#f1e7f3;--s3:#e6d7e9;--bd:#e5d6e8;--bd2:#d2bdd6;--tx:#2a1a2e;--mt:#634f68;--dm:#7a657f;--ac:#865700;--tx-on-ac:#ffffff;--dir:#705a75}
 .fe-set-thumb[data-p="ocean"]{--a:#4da3ff;--b:#19222f}
 .fe-set-thumb[data-p="forest"]{--a:#5fc77a;--b:#1a231d}
 .fe-set-thumb[data-p="ember"]{--a:#ff8a3d;--b:#251d17}
@@ -13430,6 +13489,22 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe[data-theme="light"] .fe-set-thumb[data-p="forest"]{--a:#2e8b47;--b:#f0f4ef}
 #fe[data-theme="light"] .fe-set-thumb[data-p="ember"]{--a:#c85a12;--b:#f8f2ec}
 #fe[data-theme="light"] .fe-set-thumb[data-p="nord"]{--a:#5e81ac;--b:#eceff4}
+.fe-set-thumb[data-p="mocha"]{--a:#cba6f7;--b:#2a2a3c}
+.fe-set-thumb[data-p="solar"]{--a:#e0a800;--b:#073642}
+.fe-set-thumb[data-p="grove"]{--a:#b8bb26;--b:#2c2a29}
+.fe-set-thumb[data-p="velvet"]{--a:#ff79c6;--b:#2f3140}
+.fe-set-thumb[data-p="coral"]{--a:#ff7b6b;--b:#271f1d}
+.fe-set-thumb[data-p="neon"]{--a:#7dcfff;--b:#24283b}
+.fe-set-thumb[data-p="matcha"]{--a:#b5d36b;--b:#20241b}
+.fe-set-thumb[data-p="plum"]{--a:#f2c14e;--b:#281d2c}
+#fe[data-theme="light"] .fe-set-thumb[data-p="mocha"]{--a:#8839ef;--b:#eff1f5}
+#fe[data-theme="light"] .fe-set-thumb[data-p="solar"]{--a:#8a6700;--b:#fdf6e3}
+#fe[data-theme="light"] .fe-set-thumb[data-p="grove"]{--a:#6e6a0c;--b:#f9f5d7}
+#fe[data-theme="light"] .fe-set-thumb[data-p="velvet"]{--a:#b4237a;--b:#f7f5fb}
+#fe[data-theme="light"] .fe-set-thumb[data-p="coral"]{--a:#c13a29;--b:#fcf3f1}
+#fe[data-theme="light"] .fe-set-thumb[data-p="neon"]{--a:#0b6f8f;--b:#e9ebf3}
+#fe[data-theme="light"] .fe-set-thumb[data-p="matcha"]{--a:#557311;--b:#f4f5ec}
+#fe[data-theme="light"] .fe-set-thumb[data-p="plum"]{--a:#865700;--b:#f8f2f9}
 /* System: half dark, half light. */
 #fe .fe-set-thumb[data-mode="system"]{--a:var(--ac);--b:#1c2328;--t:#fff;--c:#131a1e;background:linear-gradient(135deg,#1c2328 50%,#f4f6f8 50%)}
 #fe .fe-set-thumb[data-mode="system"] .sb{background:linear-gradient(135deg,#131a1e 50%,#e2e7eb 50%)}
@@ -13442,6 +13517,19 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-4);flex:none;max-width:70%;flex-wrap:wrap}
 #fe-st-term-hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}
 .fe-set-sws.grid4{display:grid;grid-template-columns:repeat(4,max-content);gap:var(--sp-2) var(--sp-4);justify-content:end}
+/* Theme: mode and palette side by side, each named above its swatches; the
+   palettes sit eight to a row in smaller windows. */
+.fe-set-theme{align-items:flex-start;gap:var(--sp-8)}
+.fe-set-pick{display:flex;flex-direction:column;gap:var(--sp-3);min-width:0}
+.fe-set-pick:last-child{flex:1}
+.fe-set-pick .fe-set-sws{justify-content:flex-start}
+.fe-set-sws.grid8{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:var(--sp-1) var(--sp-2)}
+.fe-set-sws.grid8 .fe-set-sw{padding:var(--sp-2) 0;gap:var(--sp-2);font-size:var(--fs-sm)}
+.fe-set-sws.grid8 .fe-set-thumb{width:100%;max-width:56px;height:var(--ctl-lg)}
+.fe-set-sws.grid8 .fe-set-thumb .sb{width:13px}
+.fe-set-sws.grid8 .fe-set-thumb .r1{left:19px;top:7px;width:24px}
+.fe-set-sws.grid8 .fe-set-thumb .r2{left:19px;top:13px;width:16px}
+.fe-set-sws.grid8 .fe-set-thumb .pill{left:19px;bottom:5px;width:16px;height:var(--sp-3)}
 
 /* Icon button: no fill until hovered. */
 .fe-ibtn{flex:none}
@@ -13886,7 +13974,15 @@ button.chip:disabled{opacity:.45;cursor:default}
     { id: "grid", file: "13-grid.svg", name: "Grid" },
     { id: "starred", file: "14-starred.svg", name: "Starred" },
     { id: "mono-b", file: "15-mono-b.svg", name: "Mono B" },
-    { id: "outline", file: "16-outline.svg", name: "Outline" }
+    { id: "outline", file: "16-outline.svg", name: "Outline" },
+    { id: "vault", file: "17-vault.svg", name: "Vault" },
+    { id: "compass", file: "18-compass.svg", name: "Compass" },
+    { id: "shelf", file: "19-shelf.svg", name: "Shelf" },
+    { id: "pages", file: "20-pages.svg", name: "Pages" },
+    { id: "hex", file: "21-hex.svg", name: "Hex" },
+    { id: "sunset", file: "22-sunset.svg", name: "Sunset" },
+    { id: "pixel", file: "23-pixel.svg", name: "Pixel" },
+    { id: "neon", file: "24-neon.svg", name: "Neon" }
   ];
   var appIconPref = textPref("bfb-app-icon", "classic");
   function appIconUrl(id = appIconPref.get()) {
@@ -13900,6 +13996,53 @@ button.chip:disabled{opacity:.45;cursor:default}
     try {
       void chrome.runtime.sendMessage({ type: "bfb-app-icon", id });
     } catch {
+    }
+  }
+  var SYS = "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif";
+  var font = (id, name, family, fallback = SYS) => ({ id, name, stack: `${family},${fallback}` });
+  var TEXT_FONTS = [
+    { id: "system", name: "System", stack: SYS },
+    font("inter", "Inter", "Inter"),
+    font("manrope", "Manrope", "Manrope"),
+    font("open-sans", "Open Sans", "'Open Sans'"),
+    font("avenir", "Avenir Next", "'Avenir Next',Avenir"),
+    font("helvetica", "Helvetica Neue", "'Helvetica Neue',Helvetica"),
+    font("rounded", "SF Rounded", "'SF Pro Rounded'"),
+    font("seravek", "Seravek", "Seravek"),
+    font("charter", "Charter", "Charter", "Georgia,serif"),
+    font("iowan", "Iowan Old Style", "'Iowan Old Style'", "Georgia,serif")
+  ];
+  var HEAD_FONTS = [
+    { id: "system", name: "System", stack: SYS },
+    font("inter", "Inter", "Inter"),
+    font("montserrat", "Montserrat", "Montserrat"),
+    font("avenir", "Avenir Next", "'Avenir Next',Avenir"),
+    font("futura", "Futura", "Futura"),
+    font("rounded", "SF Rounded", "'SF Pro Rounded'"),
+    font("gill", "Gill Sans", "'Gill Sans'"),
+    font("editorial", "Editorial", "'PP Editorial Old'", "Georgia,serif"),
+    font("charter", "Charter", "Charter", "Georgia,serif"),
+    font("baskerville", "Baskerville", "Baskerville", "Georgia,serif")
+  ];
+  var MONO = "Menlo,Consolas,monospace";
+  var CODE_FONTS = [
+    { id: "system", name: "System mono", stack: `'SF Mono',${MONO}` },
+    font("jetbrains", "JetBrains Mono", "'JetBrains Mono'", MONO),
+    font("fira", "Fira Code", "'Fira Code'", MONO),
+    font("source", "Source Code Pro", "'Source Code Pro'", MONO),
+    font("google", "Google Sans Code", "'Google Sans Code'", MONO)
+  ];
+  var fontPrefs = {
+    text: textPref("bfb-font-text", "system"),
+    head: textPref("bfb-font-head", "system"),
+    code: textPref("bfb-font-code", "system")
+  };
+  var FONT_LISTS = { text: TEXT_FONTS, head: HEAD_FONTS, code: CODE_FONTS };
+  var FONT_VARS = { text: "--font-text", head: "--font-head", code: "--mono" };
+  function applyFonts(fe) {
+    for (const k of ["text", "head", "code"]) {
+      const list3 = FONT_LISTS[k];
+      fe.style.setProperty(FONT_VARS[k], (list3.find((f) => f.id === fontPrefs[k].get()) ?? list3[0]).stack);
     }
   }
 
@@ -16240,7 +16383,7 @@ ${d.message}` : d.message;
       <div id="fe-fp-bar" class="bar">
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-column" class="btn" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
-        <button id="fe-fp-edit" class="btn" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
+        <button id="fe-fp-edit" class="btn" title="Edit this file (e e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
         <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
         <button id="fe-fp-raw" class="btn" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
         <button id="fe-fp-copy" class="btn" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
@@ -16896,6 +17039,10 @@ ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned
       ${t.pinned ? "" : `<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="${esc(t.id)}" title="Close (w)">${UI_ICON.close}</button>`}
     </a>`;
     }
+    function shown() {
+      if (hereIn(state) || !rawPath) return state.list;
+      return [...state.list, { id: "", path: rawPath, kind: kindOf(rawPath), label: labelFor(rawPath), pinned: false }];
+    }
     function render2() {
       const here = hereIn(state);
       const labels = displayLabels(state.list);
@@ -16910,11 +17057,12 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       el2.classList.toggle("is-empty", state.list.length === 0);
       el2.querySelector(".fe-tab.on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
       if (listBtn) {
-        listBtn.hidden = state.list.length < 2;
+        const all = shown();
+        listBtn.hidden = all.length < 2;
         listBtn.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          menu.innerHTML = state.list.map((t, i3) => `<div class="row fe-ctx-item${t.id === here?.id ? " on" : ""}" data-go="${esc(t.id)}">${t.kind === "file" ? icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "") : icoFolder(t.label)}<span>${esc(labels[i3])}</span>${i3 < 9 ? `<kbd>${i3 + 1}</kbd>` : ""}</div>`).join("");
+          menu.innerHTML = all.map((t, i3) => `<div class="row fe-ctx-item${t.id === (here?.id ?? "") ? " on" : ""}" data-go="${esc(t.id)}">${t.kind === "file" ? icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "") : icoFolder(t.label)}<span>${esc(labels[i3] ?? t.label)}</span>${i3 < 9 && t.id ? `<kbd>e ${i3 + 1}</kbd>` : ""}</div>`).join("");
           menu.dataset.id = "";
           layer = openLayer(menu, { kind: "popover", anchor: listBtn, align: "end", role: "menu", group: "menu" });
         };
@@ -17071,6 +17219,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         else if (hash) location.hash = hash;
       },
       state: () => state,
+      shown,
       closedSets,
       restoreSet
     };
@@ -17241,6 +17390,10 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   }
 
   // src/controls.ts
+  var fontAttr = (o) => o.font ? ` data-font="${esc(o.font)}"` : "";
+  var drawFonts = (box) => box.querySelectorAll("[data-font]").forEach((e) => {
+    e.style.fontFamily = e.dataset.font;
+  });
   function segHtml(id, opts, title, size = "md") {
     return `<div class="fe-seg" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
   }
@@ -17332,7 +17485,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     const paint = () => {
       host.dataset.value = cur;
       const o = opts.find((x) => x.value === cur);
-      curEl.innerHTML = o ? `${o.icon ?? ""}<span>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
+      curEl.innerHTML = o ? `${o.icon ?? ""}<span${fontAttr(o)}>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
+      drawFonts(curEl);
     };
     Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
       cur = String(v);
@@ -17348,12 +17502,13 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       closeList?.();
       list = document.createElement("div");
       list.className = "fe-dd-list";
-      const optHtml = (o) => `<div role="option" class="row fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
+      const optHtml = (o) => `<div role="option" class="row fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l"${fontAttr(o)}>${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
       const groups = [...new Set(opts.map((o) => o.group ?? ""))];
       list.innerHTML = groups.map((g) => {
         const inner = opts.filter((o) => (o.group ?? "") === g).map(optHtml).join("");
         return g ? `<div role="group" aria-label="${esc(g)}"><div class="fe-dd-g" aria-hidden="true">${esc(g)}</div>${inner}</div>` : inner;
       }).join("");
+      drawFonts(list);
       list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
       const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
         keys2 = null;
@@ -17368,7 +17523,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         items[at]?.scrollIntoView({ block: "nearest" });
       };
       mark();
-      const pick = (v) => {
+      const pick2 = (v) => {
         const changed = v !== cur;
         cur = v;
         paint();
@@ -17378,7 +17533,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       };
       list.addEventListener("click", (e) => {
         const it = e.target.closest(".fe-dd-opt");
-        if (it) pick(it.dataset.v);
+        if (it) pick2(it.dataset.v);
       });
       list.addEventListener("mousemove", (e) => {
         const it = e.target.closest(".fe-dd-opt");
@@ -17396,7 +17551,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           at = e.key === "Home" ? 0 : items.length - 1;
           mark();
         } else if (e.key === "Enter" || e.key === " " && !(typed && Date.now() - typedAt < 700)) {
-          if (items[at]) pick(items[at].dataset.v);
+          if (items[at]) pick2(items[at].dataset.v);
         } else if (e.key === "Tab") {
           layer.close("blur");
           return;
@@ -17497,6 +17652,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   var card2 = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card card">${rows}</div></section>`;
   var sw = (id, title) => switchHtml({ id, title });
   var iconBtn = (id, icon2, title) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon title="${title}" aria-label="${title}">${icon2}</button>`;
+  var pick = (label, body) => `<div class="fe-set-pick"><span class="fe-set-l">${label}</span>${body}</div>`;
+  var fontOpts = (list3) => list3.map((f) => ({ value: f.id, label: f.name, font: f.stack }));
   var note = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
   var thumb = (group, value, name, kind) => `<label class="fe-set-sw" title="${name}"><input type="radio" name="${group}" value="${value}" title="${name}"><span class="fe-set-thumb" data-${kind}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
   var PALETTE_NAMES = [
@@ -17507,7 +17664,15 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     ["ocean", "Ocean"],
     ["forest", "Forest"],
     ["ember", "Ember"],
-    ["nord", "Nord"]
+    ["nord", "Nord"],
+    ["mocha", "Mocha"],
+    ["solar", "Solar"],
+    ["grove", "Grove"],
+    ["velvet", "Velvet"],
+    ["coral", "Coral"],
+    ["neon", "Neon"],
+    ["matcha", "Matcha"],
+    ["plum", "Plum"]
   ];
   var i2 = (body) => line(body, 14);
   var SORT_OPTS = [
@@ -17544,9 +17709,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       title: "Settings",
       subtitle: "Kept in this browser",
       tabs: [
-        { key: "look", label: "Look", hint: "Theme, colour, size", icon: UI_ICON.appearance, tone: "var(--nc-pink)", desc: "Theme, colours, icon and size.", body: card2(
-          "Theme",
-          row("Mode", "", `<div class="fe-set-sws">${thumb("bfb-theme", "dark", "Dark", "mode") + thumb("bfb-theme", "light", "Light", "mode") + thumb("bfb-theme", "system", "System", "mode")}</div>`) + row("Palette", "", `<div class="fe-set-sws grid4">${PALETTE_NAMES.map(([v, n]) => thumb("bfb-palette", v, n, "p")).join("")}</div>`)
+        { key: "look", label: "Look", hint: "Theme, colour, size", icon: UI_ICON.appearance, tone: "var(--nc-pink)", desc: "Theme, colours, fonts, icon and size.", body: card2("Theme", `<div class="fe-set fe-set-theme">${pick("Mode", `<div class="fe-set-sws">${thumb("bfb-theme", "dark", "Dark", "mode") + thumb("bfb-theme", "light", "Light", "mode") + thumb("bfb-theme", "system", "System", "mode")}</div>`) + pick("Palette", `<div class="fe-set-sws grid8">${PALETTE_NAMES.map(([v, n]) => thumb("bfb-palette", v, n, "p")).join("")}</div>`)}</div>`) + card2(
+          "Fonts",
+          row("Headings", "Titles in pages and notes", ddHtml("fe-st-font-head", fontOpts(HEAD_FONTS), "Font for headings", "lg")) + row("Text", "Everything else", ddHtml("fe-st-font-text", fontOpts(TEXT_FONTS), "Font for text", "lg")) + row("Code", "Code, raw files, paths", ddHtml("fe-st-font-code", fontOpts(CODE_FONTS), "Font for code", "lg"))
         ) + card2(
           "App icon",
           wide("", "Shows in the tab and in an installed app window", `<div class="fe-appicons" role="radiogroup" aria-label="App icon">${APP_ICONS.map((a) => `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}" title="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join("")}</div>`)
@@ -17606,7 +17771,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           row("Folder", "Markdown files", `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="~/Notes" spellcheck="false" title="Notes folder">${iconBtn("fe-st-notes-pick", UI_ICON.folderOpen, "Choose a folder")}`) + note("", "fe-st-notes-hint")
         ) + card2(
           "Editing",
-          wide("Editable folders", "Text files inside get Edit (e). Saves keep a 14-day backup.", chipsHtml("fe-st-edit-roots", "~/Code", "Folders you can edit in"))
+          wide("Editable folders", "Text files inside get Edit (e e). Saves keep a 14-day backup.", chipsHtml("fe-st-edit-roots", "~/Code", "Folders you can edit in"))
         ) },
         { key: "ai", label: "AI", hint: "Models", icon: UI_ICON.ai, tone: "var(--nc-purple)", desc: "Models that answer in Ask and the preview.", body: `
         <div id="fe-st-ai-card" class="fe-ai-hero">
@@ -19951,7 +20116,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("tab-close", stripKey("w"));
     bind("tab-pin", stripKey("p"));
     bind("tab-step", (key) => stripKey(key === "[" ? "[" : "]")());
-    bind("tab-jump", (key) => stripKey(key ?? "1")());
+    bind("tab-jump", (key) => stripKey(key?.slice(-1) ?? "1")());
     bind("tab-reopen", stripKey("T"));
     bind("new-note", () => app.newNote(), () => !!app.settings.notesRoot);
     bind("fp-raw", () => app.filePage?.toggleRaw(), () => !!app.filePage);
@@ -20032,9 +20197,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("fp-toc", click("fe-fp-toc"), () => app.fileMode && visible(document.getElementById("fe-fp-toc")));
     bind("fp-width", click("fe-fp-column"), () => app.fileMode && visible(document.getElementById("fe-fp-column")));
     const placeIcon = (p) => p.endsWith("/") ? PI.folder : PI.docs;
-    addPaletteSource(() => app.strip.state().list.map((t, i3) => ({
+    addPaletteSource(() => app.strip.shown().map((t, i3) => ({
       title: t.label,
-      sub: i3 < 9 ? `tab ${i3 + 1}` : "tab",
+      sub: !t.id ? "this page, not kept" : i3 < 9 ? `tab ${i3 + 1}` : "tab",
       group: "Tabs",
       icon: placeIcon(t.path),
       run: () => app.strip.go(t.path)
@@ -20143,23 +20308,23 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const lenses = els("#fe-lenses .fe-lens");
     const show = (lens, paint = (f) => f()) => {
       const usable = btns.filter((b) => !b.hidden).map((b) => b.dataset.lens);
-      const pick2 = usable.includes(lens) ? lens : "notes";
+      const pick3 = usable.includes(lens) ? lens : "notes";
       for (const b of btns) {
-        const on = b.dataset.lens === pick2;
+        const on = b.dataset.lens === pick3;
         b.setAttribute("aria-selected", String(on));
         b.tabIndex = on ? 0 : -1;
       }
-      for (const l of lenses) l.hidden = l.dataset.lens !== pick2;
+      for (const l of lenses) l.hidden = l.dataset.lens !== pick3;
       paint(() => {
         for (const b of btns) {
-          const on = b.dataset.lens === pick2;
+          const on = b.dataset.lens === pick3;
           b.classList.toggle("on", on);
           b.title = on ? "" : b.dataset.hint ?? "";
           b.setAttribute("aria-label", b.dataset.hint ?? "");
         }
         fitBar();
       });
-      document.dispatchEvent(new CustomEvent("bfb-lens", { detail: pick2 }));
+      document.dispatchEvent(new CustomEvent("bfb-lens", { detail: pick3 }));
     };
     function fitBar() {
       rail.classList.remove("tight", "tighter");
@@ -20188,7 +20353,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const side = el("fe-side");
     const narrow = () => matchMedia("(max-width: 520px)").matches;
     const closeOverlay = () => side.classList.remove("open");
-    const pick = (b) => {
+    const pick2 = (b) => {
       lensPref.set(b.dataset.lens);
       switchTo(b.dataset.lens);
     };
@@ -20196,7 +20361,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const b = e.target.closest(".fe-rail-btn");
       if (!b) return;
       if (narrow()) side.classList.toggle("open", !(b.classList.contains("on") && side.classList.contains("open")));
-      pick(b);
+      pick2(b);
     });
     document.addEventListener("pointerdown", (e) => {
       if (side.classList.contains("open") && !side.contains(e.target)) closeOverlay();
@@ -20209,9 +20374,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const step2 = (dir) => {
       const usable = btns.filter((b) => !b.hidden);
       const i3 = usable.findIndex((b) => b.classList.contains("on"));
-      pick(usable[(i3 + dir + usable.length) % usable.length]);
+      pick2(usable[(i3 + dir + usable.length) % usable.length]);
     };
-    rovingFocus(rail, ".fe-rail-btn", { axis: "both", onMove: pick });
+    rovingFocus(rail, ".fe-rail-btn", { axis: "both", onMove: pick2 });
     let wheelAt = 0, steppedAt = 0;
     rail.addEventListener("wheel", (e) => {
       const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
@@ -21089,7 +21254,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <span class="fe-ask-model"><span class="dot"></span>${ddHtml("fe-ask-model", [{ value: "", label: "Default" }], "Which model answers. Local models run on this machine; Gemini runs on Google's servers.")}</span>
       <span class="fe-ask-sp"></span>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
-      <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-hist-btn" title="Earlier chats about ${what}" aria-expanded="false">${UI_ICON.clock}<span class="badge fe-ask-n" data-size="sm" data-tone="solid" id="fe-ask-hist-n"></span></button>
+      <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-hist-btn" title="Earlier chats about ${app.fileMode ? what : "this folder and what is in it"}" aria-expanded="false">${UI_ICON.clock}<span class="badge fe-ask-n" data-size="sm" data-tone="solid" id="fe-ask-hist-n"></span></button>
       <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
     <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
@@ -21109,7 +21274,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const statusRow = el("fe-ask-status");
     const state = el("fe-ask-state");
     upgradeControls(box);
-    const pick = el("fe-ask-model");
+    const pick2 = el("fe-ask-model");
     const cloud = el("fe-ask-cloud");
     const hist = el("fe-ask-hist");
     const histBtn = el("fe-ask-hist-btn");
@@ -21129,7 +21294,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let localReady = false;
     let chatId = "";
     let turns = [];
-    const model = () => pick.value || app.settings.aiModel || "";
+    const model = () => pick2.value || app.settings.aiModel || "";
     const isCloud = () => model().startsWith("gemini:");
     const syncUsable = () => {
       const usable = localReady || isCloud();
@@ -21156,12 +21321,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         ...models.tiers.map((t) => ({ value: t.alias, label: t.alias, hint: t.model, group: "On this machine" })),
         ...models.gemini.map((g) => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? " (default)" : ""), group: "Gemini, on Google's servers" }))
       ];
-      pick.setOptions(opts);
-      pick.value = opts.some((o) => o.value === saved) ? saved : "";
+      pick2.setOptions(opts);
+      pick2.value = opts.some((o) => o.value === saved) ? saved : "";
       syncUsable();
     }
-    pick.addEventListener("change", () => {
-      askModelPref.set(pick.value);
+    pick2.addEventListener("change", () => {
+      askModelPref.set(pick2.value);
       syncUsable();
     });
     async function context() {
@@ -21180,8 +21345,10 @@ ${rows.join("\n")}`, name: subject };
       return turn;
     };
     const metaText = (m, ms, truncated = false) => `${m} \xB7 ${(ms / 1e3).toFixed(1)}s${truncated ? " \xB7 shortened to fit" : ""}`;
+    const listed = () => app.fileMode ? chatsFor(key).map((chat) => ({ subject: key, chat })) : chatsUnder(key);
+    const below = (subject2) => subject2 === key ? "" : subject2.slice(key.length).replace(/^\//, "");
     const syncHistN = () => {
-      const n = chatsFor(key).length;
+      const n = listed().length;
       histN.textContent = n ? String(n) : "";
     };
     const newChat = () => {
@@ -21206,9 +21373,9 @@ ${rows.join("\n")}`, name: subject };
       showHist(false);
     };
     const paintHist = () => {
-      const chats = chatsFor(key);
-      hist.innerHTML = chats.length ? chats.map((c) => `<div class="row fe-ask-h${c.id === chatId ? " on" : ""}" data-chat="${esc(c.id)}">
-        <button type="button" class="fe-ask-h-open" title="Open this chat"><span class="fe-ask-h-t">${esc(c.title)}</span><span class="fe-ask-h-m">${esc(when(c.at))} \xB7 ${c.turns.length} question${c.turns.length === 1 ? "" : "s"}</span></button>
+      const chats = listed();
+      hist.innerHTML = chats.length ? chats.map(({ subject: subject2, chat: c }) => `<div class="row fe-ask-h${c.id === chatId ? " on" : ""}" data-chat="${esc(c.id)}" data-subject="${esc(subject2)}">
+        <button type="button" class="fe-ask-h-open" title="${below(subject2) ? `Open this chat about ${esc(below(subject2))}` : "Open this chat"}"><span class="fe-ask-h-t">${esc(c.title)}</span><span class="fe-ask-h-m">${below(subject2) ? `${esc(below(subject2))} \xB7 ` : ""}${esc(when(c.at))} \xB7 ${c.turns.length} question${c.turns.length === 1 ? "" : "s"}</span></button>
         <button type="button" class="btn fe-ask-h-del" data-icon data-size="sm" data-tone="danger" title="Delete this chat" aria-label="Delete this chat">${UI_ICON.close}</button>
       </div>`).join("") : emptyHtml("empty", "No earlier chats about this yet", { inline: true });
     };
@@ -21317,14 +21484,20 @@ ${rows.join("\n")}`, name: subject };
         return;
       }
       const row2 = t.closest(".fe-ask-h");
+      const at = row2?.dataset.subject ?? key;
       if (row2 && t.closest(".fe-ask-h-del")) {
-        deleteChat(key, row2.dataset.chat);
+        deleteChat(at, row2.dataset.chat);
         if (row2.dataset.chat === chatId) newChat();
         paintHist();
         syncHistN();
         return;
       }
       if (row2 && t.closest(".fe-ask-h-open")) {
+        if (at !== key) {
+          showHist(false);
+          app.strip.go(at, "#ask=" + encodeURIComponent(row2.dataset.chat));
+          return;
+        }
         const c = chatsFor(key).find((x) => x.id === row2.dataset.chat);
         if (c) openChat(c);
       }
@@ -21639,6 +21812,9 @@ ${rows.join("\n")}`, name: subject };
         const img = r.nextElementSibling;
         if (!img.getAttribute("src")) img.src = appIconUrl(r.value);
       });
+      v("fe-st-font-head").value = fontPrefs.head.get();
+      v("fe-st-font-text").value = fontPrefs.text.get();
+      v("fe-st-font-code").value = fontPrefs.code.get();
       v("fe-st-uiscale").value = String(settings.uiScale || 100);
       v("fe-st-rd-size").value = String(settings.readerSize || 15);
       v("fe-st-density").value = settings.compactMode ? "compact" : "roomy";
@@ -21686,6 +21862,10 @@ ${rows.join("\n")}`, name: subject };
       fe.dataset.palette = r.value;
       palettePref.set(r.value);
     }));
+    for (const k of ["head", "text", "code"]) v(`fe-st-font-${k}`).addEventListener("change", () => {
+      fontPrefs[k].set(v(`fe-st-font-${k}`).value);
+      applyFonts(fe);
+    });
     els('input[name="bfb-appicon"]').forEach((r) => r.addEventListener("change", () => setAppIcon(r.value)));
     v("fe-st-uiscale").addEventListener("change", () => {
       settings.uiScale = Number(v("fe-st-uiscale").value);
@@ -21957,14 +22137,14 @@ ${rows.join("\n")}`, name: subject };
   var forMe = (r) => (r.mentions ?? []).some((m) => m === "user" || m === "owner");
   function docRows(rows, f = { q: "", me: false, due: false }) {
     const q = f.q.trim().toLowerCase();
-    return rows.filter((r) => r.exists !== false && r.open + r.done > 0).filter((r) => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length) && (!f.tag || (r.tags ?? []).includes(f.tag))).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
+    return rows.filter((r) => r.exists !== false && r.open + r.done > 0).filter((r) => (!q || r.doc.toLowerCase().includes(q)) && (!f.me || forMe(r)) && (!f.due || !!r.due?.length) && (!f.tag || (r.tags ?? []).includes(f.tag)) && (!f.here || !f.folder || isWithin(r.doc, f.folder))).sort((a, b) => (b.open > 0 ? 1 : 0) - (a.open > 0 ? 1 : 0) || a.name.localeCompare(b.name));
   }
-  function initDocsLens(box, home, go2) {
+  function initDocsLens(box, home, folder, go2) {
     let loaded = false, all = [];
-    const f = { q: "", me: false, due: false, tag: "" };
+    const f = { q: "", me: false, due: false, tag: "", here: true, folder };
     box.innerHTML = `<div class="fe-docs-top" hidden>
       <input id="fe-docs-q" class="tb" data-size="lg" data-lead="search" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
-      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
+      <div class="fe-lens-tags"><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="here" title="Only documents in this folder, up to four levels down">This folder</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="chip fe-lens-tag" aria-pressed="false" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
     </div><div class="fe-docs-rows"></div>`;
     const top = box.querySelector(".fe-docs-top"), rowsBox = box.querySelector(".fe-docs-rows");
     const input = box.querySelector("#fe-docs-q");
@@ -21974,7 +22154,7 @@ ${rows.join("\n")}`, name: subject };
       const usable = docRows(all);
       top.hidden = !usable.length;
       for (const c of top.querySelectorAll("[data-f]")) {
-        const on = f[c.dataset.f];
+        const on = !!f[c.dataset.f];
         c.classList.toggle("on", on);
         c.setAttribute("aria-pressed", String(on));
       }
@@ -21991,7 +22171,8 @@ ${rows.join("\n")}`, name: subject };
         return;
       }
       if (!list3.length) {
-        rowsBox.innerHTML = emptyHtml("filtered", "No document matches", { actions: [CLEAR] });
+        const onlyHere = f.here && docRows(all, { ...f, here: false }).length > 0;
+        rowsBox.innerHTML = onlyHere ? emptyHtml("filtered", "No comments in this folder", { actions: [{ a: "all", label: "Show all", title: "List commented documents from every folder" }] }) : emptyHtml("filtered", "No document matches", { actions: [CLEAR] });
         return;
       }
       rowsBox.innerHTML = list3.map((r) => `<button type="button" class="row fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
@@ -22046,9 +22227,12 @@ ${rows.join("\n")}`, name: subject };
         input.value = "";
         f.q = "";
         f.tag = "";
-        f.me = f.due = false;
+        f.me = f.due = f.here = false;
         paint();
         input.focus();
+      } else if (a === "all") {
+        f.here = false;
+        paint();
       } else if (a === "retry") {
         rowsBox.innerHTML = emptyHtml("loading", "Loading\u2026");
         void load();
@@ -22213,7 +22397,6 @@ ${rows.join("\n")}`, name: subject };
     preload?.remove();
     const fe = el("fe");
     fe.dataset.wrap = settings.wrapLines === false ? "off" : "on";
-    fe.dataset.mode = themeMode();
     followSystem(fe);
     if (settings.sidebarWidth && !settings.sidebarRail) {
       settings.sidebarWidth += 52;
@@ -22225,11 +22408,22 @@ ${rows.join("\n")}`, name: subject };
       el("fe-side").style.display = "none";
       el("fe-side-rz").style.display = "none";
     }
-    if (settings.uiScale && settings.uiScale !== 100) setUiScale(settings.uiScale);
-    if (settings.compactMode) fe.classList.add("compact");
-    document.documentElement.style.setProperty("--ui-text-scale", String((settings.readerSize || 15) / 15));
-    fe.style.setProperty("--rd-lh", String(settings.readerLineHeight || 1.65));
-    fe.style.setProperty("--rd-code", `${settings.readerCodeSize || 13}px`);
+    const applyLook = () => {
+      setUiScale(settings.uiScale || 100);
+      fe.classList.toggle("compact", !!settings.compactMode);
+      document.documentElement.style.setProperty("--ui-text-scale", String((settings.readerSize || 15) / 15));
+      fe.style.setProperty("--rd-lh", String(settings.readerLineHeight || 1.65));
+      fe.style.setProperty("--rd-code", `${settings.readerCodeSize || 13}px`);
+      applyFonts(fe);
+      fe.dataset.palette = getPalette();
+      fe.dataset.mode = themeMode();
+      fe.dataset.theme = resolveTheme(themeMode());
+    };
+    applyLook();
+    onKvChange((k) => {
+      if (k === SETTINGS_KEY) Object.assign(settings, getSettings());
+      if (k === SETTINGS_KEY || k === PALETTE_KEY || k === THEME_KEY || k.startsWith("bfb-font-")) applyLook();
+    });
     if (settings.tooltips === false) fe.classList.add("fe-notips");
     const app = {
       fileMode,
@@ -22288,7 +22482,7 @@ ${rows.join("\n")}`, name: subject };
     app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), openInTerminal: (p) => app.openInTerminal(p) });
     void showClosedSets(app.strip, !settings.hideRecent);
     const goTab = (path, hash = "") => app.strip.go(path, hash);
-    initDocsLens(el("fe-docs-list"), homeDir(rawPath), goTab);
+    initDocsLens(el("fe-docs-list"), homeDir(rawPath), folderPath, goTab);
     mountGoto(el("fe-open-path"), () => homeDir(rawPath), (path, background) => {
       if (!background) {
         goTab(path);

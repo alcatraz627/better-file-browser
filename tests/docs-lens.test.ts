@@ -21,6 +21,15 @@ describe('docRows', () => {
   });
 });
 
+describe('docRows in this folder', () => {
+  it('keeps documents in the folder and up to four levels down', () => {
+    const tree = [row('top.md'), row('a/b/c/four.md'), row('a/b/c/d/five.md'), { ...row('x.md'), doc: '/wx/x.md' }];
+    const here = { q: '', me: false, due: false, here: true, folder: '/w/' };
+    expect(docRows(tree, here).map(r => r.name).sort()).toEqual(['a/b/c/four.md', 'top.md']);
+    expect(docRows(tree, { ...here, here: false }).length).toBe(4);
+  });
+});
+
 describe('browsedPath', () => {
   it('turns the resolved /private form back into the path a person browses', () => {
     expect(browsedPath('/private/var/folders/x/plan.md')).toBe('/var/folders/x/plan.md');

@@ -5,7 +5,7 @@ import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
   getView, getPalette, getDensity, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
-  homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard,
+  homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard, SETTINGS_KEY, PALETTE_KEY, THEME_KEY,
 } from './storage';
 import { notes } from './notes';
 import { initPreview } from './preview';
@@ -13,7 +13,7 @@ import { setSidebarShown } from './motion';
 import { CSS } from './styles';
 import { UI_CSS } from './styles-ui';
 import { setUiScale } from './chrome';
-import { themeMode, resolveTheme, followSystem, appIconUrl } from './theme';
+import { themeMode, resolveTheme, followSystem, appIconUrl, applyFonts } from './theme';
 import { esc, pageHref, fileHref } from './utils';
 import { samePlace } from './places';
 import { PI, icoFile } from './icons';
@@ -32,7 +32,7 @@ import { initSidebar } from './sidebar';
 import { initToolLenses } from './tool-lenses';
 import { initSettingsUi } from './settings-ui';
 import { initMarkdownUi } from './md-ui';
-import { loadKv } from './kv';
+import { loadKv, onKvChange } from './kv';
 import { initTooltips } from './tooltip';
 import { installColumnResize } from './col-resize';
 import { mountGoto, absPath, resolvePath } from './goto';
@@ -180,18 +180,31 @@ loadKv().catch(() => {}).then(function () {
 
   const fe = el('fe');
   fe.dataset.wrap = settings.wrapLines === false ? 'off' : 'on';
-  fe.dataset.mode = themeMode();
   followSystem(fe);
   // A width saved before the lens rail existed is widened once by the rail's
   // 52px, so the lists keep the room they had.
   if (settings.sidebarWidth && !settings.sidebarRail) { settings.sidebarWidth += 52; settings.sidebarRail = true; saveSettings(settings); }
   if (settings.sidebarWidth) el('fe-side').style.width = settings.sidebarWidth + 'px';
   if (!settings.showSidebar) { el('fe-side').style.display = 'none'; el('fe-side-rz').style.display = 'none'; }
-  if (settings.uiScale && settings.uiScale !== 100) setUiScale(settings.uiScale);
-  if (settings.compactMode) fe.classList.add('compact');
-  document.documentElement.style.setProperty('--ui-text-scale', String((settings.readerSize || 15) / 15));
-  fe.style.setProperty('--rd-lh', String(settings.readerLineHeight || 1.65));
-  fe.style.setProperty('--rd-code', `${settings.readerCodeSize || 13}px`);
+  // Size, fonts and colours: set at load, and again whenever another tab
+  // changes one, so every open tab looks the same. Interface size is the
+  // tab's zoom, which Chrome keeps per tab, so 100% is set too, not skipped.
+  const applyLook = () => {
+    setUiScale(settings.uiScale || 100);
+    fe.classList.toggle('compact', !!settings.compactMode);
+    document.documentElement.style.setProperty('--ui-text-scale', String((settings.readerSize || 15) / 15));
+    fe.style.setProperty('--rd-lh', String(settings.readerLineHeight || 1.65));
+    fe.style.setProperty('--rd-code', `${settings.readerCodeSize || 13}px`);
+    applyFonts(fe);
+    fe.dataset.palette = getPalette();
+    fe.dataset.mode = themeMode();
+    fe.dataset.theme = resolveTheme(themeMode());
+  };
+  applyLook();
+  onKvChange(k => {
+    if (k === SETTINGS_KEY) Object.assign(settings, getSettings());
+    if (k === SETTINGS_KEY || k === PALETTE_KEY || k === THEME_KEY || k.startsWith('bfb-font-')) applyLook();
+  });
   if (settings.tooltips === false) fe.classList.add('fe-notips');
 
   const app: App = {
@@ -220,7 +233,7 @@ loadKv().catch(() => {}).then(function () {
   // Everything that opens a place from the sidebar or beside the strip opens
   // it as a new tab and keeps the one you were on.
   const goTab = (path: string, hash = '') => app.strip.go(path, hash);
-  initDocsLens(el('fe-docs-list'), homeDir(rawPath), goTab);
+  initDocsLens(el('fe-docs-list'), homeDir(rawPath), folderPath, goTab);
   // Beside the strip: open a file or folder from the system chooser, or go to a pasted path.
   mountGoto(el('fe-open-path'), () => homeDir(rawPath), (path, background) => { if (!background) { goTab(path); return; } app.strip.open(path, true); app.toast('Kept as a tab'); });
   el('fe-open-pick').addEventListener('click', () => {

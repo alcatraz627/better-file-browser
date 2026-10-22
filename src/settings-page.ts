@@ -6,7 +6,7 @@ import type { DialogSpec } from './dialog';
 import { PI } from './icons';
 import { UI_ICON, VIEW_ICONS, line } from './control-icons';
 import { segHtml, sliderHtml, ddHtml, chipsHtml, switchHtml, type Opt } from './controls';
-import { APP_ICONS } from './theme';
+import { APP_ICONS, TEXT_FONTS, HEAD_FONTS, CODE_FONTS, type FontChoice } from './theme';
 
 const row = (label: string, desc: string, ctl: string, attrs = '') =>
   `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ''}</div><div class="fe-set-c">${ctl}</div></div>`;
@@ -17,6 +17,10 @@ const card = (title: string, rows: string, action = '') =>
   `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card card">${rows}</div></section>`;
 const sw = (id: string, title: string) => switchHtml({ id, title });
 const iconBtn = (id: string, icon: string, title: string) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon title="${title}" aria-label="${title}">${icon}</button>`;
+// Mode and palette share one row, each named above its swatches.
+const pick = (label: string, body: string) => `<div class="fe-set-pick"><span class="fe-set-l">${label}</span>${body}</div>`;
+// Each font in the list is drawn in itself.
+const fontOpts = (list: FontChoice[]): Opt[] => list.map(f => ({ value: f.id, label: f.name, font: f.stack }));
 const note = (text: string, id = '') => `<p class="fe-set-note"${id ? ` id="${id}"` : ''}>${text}</p>`;
 
 // A small window drawn in the colours it picks, so the choice shows what it
@@ -27,6 +31,8 @@ const thumb = (group: string, value: string, name: string, kind: 'mode' | 'p') =
 export const PALETTE_NAMES: [string, string][] = [
   ['slate', 'Slate'], ['violet', 'Violet'], ['sand', 'Sand'], ['ink', 'Ink'],
   ['ocean', 'Ocean'], ['forest', 'Forest'], ['ember', 'Ember'], ['nord', 'Nord'],
+  ['mocha', 'Mocha'], ['solar', 'Solar'], ['grove', 'Grove'], ['velvet', 'Velvet'],
+  ['coral', 'Coral'], ['neon', 'Neon'], ['matcha', 'Matcha'], ['plum', 'Plum'],
 ];
 
 const i = (body: string) => line(body, 14);
@@ -58,10 +64,14 @@ export function settingsDialog(): DialogSpec {
   return {
     id: 'fe-settings-modal', mark: PI.gear, title: 'Settings', subtitle: 'Kept in this browser',
     tabs: [
-      { key: 'look', label: 'Look', hint: 'Theme, colour, size', icon: UI_ICON.appearance, tone: 'var(--nc-pink)', desc: 'Theme, colours, icon and size.', body:
-        card('Theme',
-          row('Mode', '', `<div class="fe-set-sws">${thumb('bfb-theme', 'dark', 'Dark', 'mode') + thumb('bfb-theme', 'light', 'Light', 'mode') + thumb('bfb-theme', 'system', 'System', 'mode')}</div>`) +
-          row('Palette', '', `<div class="fe-set-sws grid4">${PALETTE_NAMES.map(([v, n]) => thumb('bfb-palette', v, n, 'p')).join('')}</div>`)) +
+      { key: 'look', label: 'Look', hint: 'Theme, colour, size', icon: UI_ICON.appearance, tone: 'var(--nc-pink)', desc: 'Theme, colours, fonts, icon and size.', body:
+        card('Theme', `<div class="fe-set fe-set-theme">${
+          pick('Mode', `<div class="fe-set-sws">${thumb('bfb-theme', 'dark', 'Dark', 'mode') + thumb('bfb-theme', 'light', 'Light', 'mode') + thumb('bfb-theme', 'system', 'System', 'mode')}</div>`) +
+          pick('Palette', `<div class="fe-set-sws grid8">${PALETTE_NAMES.map(([v, n]) => thumb('bfb-palette', v, n, 'p')).join('')}</div>`)}</div>`) +
+        card('Fonts',
+          row('Headings', 'Titles in pages and notes', ddHtml('fe-st-font-head', fontOpts(HEAD_FONTS), 'Font for headings', 'lg')) +
+          row('Text', 'Everything else', ddHtml('fe-st-font-text', fontOpts(TEXT_FONTS), 'Font for text', 'lg')) +
+          row('Code', 'Code, raw files, paths', ddHtml('fe-st-font-code', fontOpts(CODE_FONTS), 'Font for code', 'lg'))) +
         card('App icon',
           wide('', 'Shows in the tab and in an installed app window', `<div class="fe-appicons" role="radiogroup" aria-label="App icon">${APP_ICONS.map(a =>
             `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}" title="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join('')}</div>`)) +
@@ -118,7 +128,7 @@ export function settingsDialog(): DialogSpec {
           row('Folder', 'Markdown files', `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="~/Notes" spellcheck="false" title="Notes folder">${iconBtn('fe-st-notes-pick', UI_ICON.folderOpen, 'Choose a folder')}`) +
           note('', 'fe-st-notes-hint')) +
         card('Editing',
-          wide('Editable folders', 'Text files inside get Edit (e). Saves keep a 14-day backup.', chipsHtml('fe-st-edit-roots', '~/Code', 'Folders you can edit in'))) },
+          wide('Editable folders', 'Text files inside get Edit (e e). Saves keep a 14-day backup.', chipsHtml('fe-st-edit-roots', '~/Code', 'Folders you can edit in'))) },
 
       { key: 'ai', label: 'AI', hint: 'Models', icon: UI_ICON.ai, tone: 'var(--nc-purple)', desc: 'Models that answer in Ask and the preview.', body: `
         <div id="fe-st-ai-card" class="fe-ai-hero">

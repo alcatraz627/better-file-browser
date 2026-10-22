@@ -1,5 +1,5 @@
-// How bfb looks overall: dark, light, or following the system, and which app
-// icon the tab (and an installed app window) shows.
+// How bfb looks overall: dark, light, or following the system, which app
+// icon the tab (and an installed app window) shows, and the fonts.
 import { THEME_KEY, choicePref, textPref } from './storage';
 
 export type ThemeMode = 'dark' | 'light' | 'system';
@@ -46,6 +46,14 @@ export const APP_ICONS: AppIcon[] = [
   { id: 'starred', file: '14-starred.svg', name: 'Starred' },
   { id: 'mono-b', file: '15-mono-b.svg', name: 'Mono B' },
   { id: 'outline', file: '16-outline.svg', name: 'Outline' },
+  { id: 'vault', file: '17-vault.svg', name: 'Vault' },
+  { id: 'compass', file: '18-compass.svg', name: 'Compass' },
+  { id: 'shelf', file: '19-shelf.svg', name: 'Shelf' },
+  { id: 'pages', file: '20-pages.svg', name: 'Pages' },
+  { id: 'hex', file: '21-hex.svg', name: 'Hex' },
+  { id: 'sunset', file: '22-sunset.svg', name: 'Sunset' },
+  { id: 'pixel', file: '23-pixel.svg', name: 'Pixel' },
+  { id: 'neon', file: '24-neon.svg', name: 'Neon' },
 ];
 /** Which app icon the tab shows, by id. */
 export const appIconPref = textPref('bfb-app-icon', 'classic');
@@ -59,4 +67,57 @@ export function setAppIcon(id: string): void {
   const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
   if (link) link.href = appIconUrl(id);
   try { void chrome.runtime.sendMessage({ type: 'bfb-app-icon', id }); } catch { /* no worker in tests */ }
+}
+
+// Fonts a page on this Mac can draw: the system's own, faces macOS ships, and
+// ones installed in ~/Library/Fonts. A face that is missing on another Mac
+// falls back to the system font.
+export interface FontChoice { id: string; name: string; stack: string }
+const SYS = "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif";
+const font = (id: string, name: string, family: string, fallback = SYS): FontChoice => ({ id, name, stack: `${family},${fallback}` });
+export const TEXT_FONTS: FontChoice[] = [
+  { id: 'system', name: 'System', stack: SYS },
+  font('inter', 'Inter', 'Inter'),
+  font('manrope', 'Manrope', 'Manrope'),
+  font('open-sans', 'Open Sans', "'Open Sans'"),
+  font('avenir', 'Avenir Next', "'Avenir Next',Avenir"),
+  font('helvetica', 'Helvetica Neue', "'Helvetica Neue',Helvetica"),
+  font('rounded', 'SF Rounded', "'SF Pro Rounded'"),
+  font('seravek', 'Seravek', 'Seravek'),
+  font('charter', 'Charter', 'Charter', 'Georgia,serif'),
+  font('iowan', 'Iowan Old Style', "'Iowan Old Style'", 'Georgia,serif'),
+];
+export const HEAD_FONTS: FontChoice[] = [
+  { id: 'system', name: 'System', stack: SYS },
+  font('inter', 'Inter', 'Inter'),
+  font('montserrat', 'Montserrat', 'Montserrat'),
+  font('avenir', 'Avenir Next', "'Avenir Next',Avenir"),
+  font('futura', 'Futura', 'Futura'),
+  font('rounded', 'SF Rounded', "'SF Pro Rounded'"),
+  font('gill', 'Gill Sans', "'Gill Sans'"),
+  font('editorial', 'Editorial', "'PP Editorial Old'", 'Georgia,serif'),
+  font('charter', 'Charter', 'Charter', 'Georgia,serif'),
+  font('baskerville', 'Baskerville', 'Baskerville', 'Georgia,serif'),
+];
+const MONO = 'Menlo,Consolas,monospace';
+export const CODE_FONTS: FontChoice[] = [
+  { id: 'system', name: 'System mono', stack: `'SF Mono',${MONO}` },
+  font('jetbrains', 'JetBrains Mono', "'JetBrains Mono'", MONO),
+  font('fira', 'Fira Code', "'Fira Code'", MONO),
+  font('source', 'Source Code Pro', "'Source Code Pro'", MONO),
+  font('google', 'Google Sans Code', "'Google Sans Code'", MONO),
+];
+export const fontPrefs = {
+  text: textPref('bfb-font-text', 'system'),
+  head: textPref('bfb-font-head', 'system'),
+  code: textPref('bfb-font-code', 'system'),
+};
+const FONT_LISTS = { text: TEXT_FONTS, head: HEAD_FONTS, code: CODE_FONTS };
+const FONT_VARS = { text: '--font-text', head: '--font-head', code: '--mono' };
+/// Draw the page in the remembered fonts.
+export function applyFonts(fe: HTMLElement): void {
+  for (const k of ['text', 'head', 'code'] as const) {
+    const list = FONT_LISTS[k];
+    fe.style.setProperty(FONT_VARS[k], (list.find(f => f.id === fontPrefs[k].get()) ?? list[0]).stack);
+  }
 }

@@ -24,6 +24,19 @@ describe('ask history', () => {
     expect(h.chatsFor('/b.md')).toHaveLength(1);
   });
 
+  it('a folder lists its own chats and those up to four levels down', async () => {
+    const h = await fresh();
+    h.addTurn('/p/', 'self', turn('The folder', 1));
+    h.addTurn('/p/a.md', 'file', turn('A file', 2));
+    h.addTurn('/p/x/y/z/w.md', 'four', turn('Four down', 3));
+    h.addTurn('/p/x/y/z/q/deep.md', 'five', turn('Five down', 4));
+    h.addTurn('/pq/b.md', 'beside', turn('A sibling with a shared prefix', 5));
+    h.addTurn('/other.md', 'out', turn('Elsewhere', 6));
+    expect(h.chatsUnder('/p/').map(c => c.chat.id)).toEqual(['four', 'file', 'self']);
+    expect(h.chatsUnder('/p').map(c => c.chat.id)).toEqual(['four', 'file', 'self']);
+    expect(h.chatsUnder('/p/', 1).map(c => c.chat.id)).toEqual(['file', 'self']);
+  });
+
   it('deletes a chat, and forgets a subject with none left', async () => {
     const h = await fresh();
     h.addTurn('/a.md', 'c1', turn('One', 1));

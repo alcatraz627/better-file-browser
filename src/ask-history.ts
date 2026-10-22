@@ -3,6 +3,7 @@
 // storage, never beside the file. Capped so a long-lived history cannot grow
 // without bound.
 import { jsonPref } from './storage';
+import { isWithin } from './places';
 
 export interface AskTurn { q: string; a: string; model: string; ms: number; at: number }
 export interface AskChat { id: string; at: number; title: string; turns: AskTurn[] }
@@ -18,6 +19,13 @@ function read(): Store {
 /** Every chat about every file or folder, newest first, with what it is about. */
 export function allChats(): { subject: string; chat: AskChat }[] {
   return Object.entries(read()).flatMap(([subject, list]) => list.map(chat => ({ subject, chat }))).sort((a, b) => b.chat.at - a.chat.at);
+}
+
+/** Chats about a folder and about what is inside it, up to `depth` levels
+ *  down, newest first. Reads only the stored history, never the disk, so a
+ *  deep tree costs nothing. */
+export function chatsUnder(folder: string, depth = 4): { subject: string; chat: AskChat }[] {
+  return allChats().filter(({ subject }) => isWithin(subject, folder, depth));
 }
 
 /** The chats about one subject, newest first. */

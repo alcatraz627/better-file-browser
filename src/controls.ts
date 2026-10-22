@@ -9,7 +9,10 @@ import { CHEVRON_DOWN } from './icons';
 import { UI_ICON } from './control-icons';
 import { openLayer, rovingFocus } from './layer';
 
-export interface Opt { value: string; label?: string; icon?: string; hint?: string; group?: string }
+export interface Opt { value: string; label?: string; icon?: string; hint?: string; group?: string; font?: string }
+// An option that names a font shows in that font.
+const fontAttr = (o: Opt) => o.font ? ` data-font="${esc(o.font)}"` : '';
+const drawFonts = (box: HTMLElement) => box.querySelectorAll<HTMLElement>('[data-font]').forEach(e => { e.style.fontFamily = e.dataset.font!; });
 
 /// A row of buttons where one is on, like a segmented control. Options with
 /// an icon and no label show only the icon, with the hint as their tooltip.
@@ -117,7 +120,8 @@ function upgradeDd(host: HTMLElement): void {
     host.dataset.value = cur;
     const o = opts.find(x => x.value === cur);
     // A saved value missing from the list (a model since removed) still shows.
-    curEl.innerHTML = o ? `${o.icon ?? ''}<span>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
+    curEl.innerHTML = o ? `${o.icon ?? ''}<span${fontAttr(o)}>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
+    drawFonts(curEl);
   };
   Object.defineProperty(host, 'value', { get: () => cur, set: (v: string) => { cur = String(v); paint(); } });
   // Options can change after load (the AI model list arrives late).
@@ -130,13 +134,14 @@ function upgradeDd(host: HTMLElement): void {
     list = document.createElement('div');
     list.className = 'fe-dd-list';
     const optHtml = (o: Opt) => `<div role="option" class="row fe-dd-opt${o.value === cur ? ' on' : ''}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">`
-      + `${o.icon ?? ''}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ''}</div>`;
+      + `${o.icon ?? ''}<span class="fe-dd-l"${fontAttr(o)}>${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ''}</div>`;
     // Options sharing a group sit in a named group, in the order the groups first appear.
     const groups = [...new Set(opts.map(o => o.group ?? ''))];
     list.innerHTML = groups.map(g => {
       const inner = opts.filter(o => (o.group ?? '') === g).map(optHtml).join('');
       return g ? `<div role="group" aria-label="${esc(g)}"><div class="fe-dd-g" aria-hidden="true">${esc(g)}</div>${inner}</div>` : inner;
     }).join('');
+    drawFonts(list);
     list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
     const layer = openLayer(list, { kind: 'popover', anchor: btn, align: 'end', role: 'listbox', group: 'menu', onClose: () => { keys = null; list = null; closeList = null; } });
     if (!layer.open) return;

@@ -17,7 +17,7 @@ import { UI_ICON } from './control-icons';
 import { setSidebarShown } from './motion';
 import { setUiScale } from './chrome';
 import { upgradeControls, switchHtml, type ValuedEl, type DropdownEl } from './controls';
-import { setThemeMode, setAppIcon, appIconUrl, appIconPref, type ThemeMode } from './theme';
+import { setThemeMode, setAppIcon, appIconUrl, appIconPref, fontPrefs, applyFonts, type ThemeMode } from './theme';
 import { emptyHtml } from './empty-state';
 import { reload } from './nav';
 import { errorText } from './errors';
@@ -225,6 +225,9 @@ export function initSettingsUi(app: App): void {
       const img = r.nextElementSibling as HTMLImageElement;
       if (!img.getAttribute('src')) img.src = appIconUrl(r.value);
     });
+    v('fe-st-font-head').value = fontPrefs.head.get();
+    v('fe-st-font-text').value = fontPrefs.text.get();
+    v('fe-st-font-code').value = fontPrefs.code.get();
     v('fe-st-uiscale').value = String(settings.uiScale || 100);
     v('fe-st-rd-size').value = String(settings.readerSize || 15);
     v('fe-st-density').value = settings.compactMode ? 'compact' : 'roomy';
@@ -269,6 +272,7 @@ export function initSettingsUi(app: App): void {
   // Look.
   els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => r.addEventListener('change', () => setThemeMode(fe, r.value as ThemeMode)));
   els<HTMLInputElement>('input[name="bfb-palette"]').forEach(r => r.addEventListener('change', () => { fe.dataset.palette = r.value; palettePref.set(r.value); }));
+  for (const k of ['head', 'text', 'code'] as const) v(`fe-st-font-${k}`).addEventListener('change', () => { fontPrefs[k].set(v(`fe-st-font-${k}`).value); applyFonts(fe); });
   els<HTMLInputElement>('input[name="bfb-appicon"]').forEach(r => r.addEventListener('change', () => setAppIcon(r.value)));
   v('fe-st-uiscale').addEventListener('change', () => {
     settings.uiScale = Number(v('fe-st-uiscale').value); saveSettings(settings);

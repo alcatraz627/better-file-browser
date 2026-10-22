@@ -12,7 +12,7 @@ import { crawl, relativeName } from './deep-search';
 import { EMPTY_FIND, isTextCandidate, searchContents, type FindQuery } from './find';
 import { icoFile } from './icons';
 import { llmAvailability, llmModels, llmQuery, LLM_ERROR_TEXT } from './llm';
-import { addTurn, allChats, chatsFor, deleteChat, withHistory, type AskChat, type AskTurn } from './ask-history';
+import { addTurn, allChats, chatsFor, chatsUnder, deleteChat, withHistory, type AskChat, type AskTurn } from './ask-history';
 import { addPaletteSource } from './commands';
 import { openLayer, type Layer } from './layer';
 import { textPref } from './storage';
@@ -111,7 +111,7 @@ function initAsk(app: App): void {
       <span class="fe-ask-model"><span class="dot"></span>${ddHtml('fe-ask-model', [{ value: '', label: 'Default' }], "Which model answers. Local models run on this machine; Gemini runs on Google's servers.")}</span>
       <span class="fe-ask-sp"></span>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
-      <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-hist-btn" title="Earlier chats about ${what}" aria-expanded="false">${UI_ICON.clock}<span class="badge fe-ask-n" data-size="sm" data-tone="solid" id="fe-ask-hist-n"></span></button>
+      <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-hist-btn" title="Earlier chats about ${app.fileMode ? what : 'this folder and what is in it'}" aria-expanded="false">${UI_ICON.clock}<span class="badge fe-ask-n" data-size="sm" data-tone="solid" id="fe-ask-hist-n"></span></button>
       <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
     <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
@@ -198,7 +198,10 @@ function initAsk(app: App): void {
     return turn;
   };
   const metaText = (m: string, ms: number, truncated = false) => `${m} · ${(ms / 1000).toFixed(1)}s${truncated ? ' · shortened to fit' : ''}`;
-  const syncHistN = () => { const n = chatsFor(key).length; histN.textContent = n ? String(n) : ''; };
+  // On a folder, chats about what is inside it, four levels down, are listed too.
+  const listed = () => app.fileMode ? chatsFor(key).map(chat => ({ subject: key, chat })) : chatsUnder(key);
+  const below = (subject: string) => subject === key ? '' : subject.slice(key.length).replace(/^\//, '');
+  const syncHistN = () => { const n = listed().length; histN.textContent = n ? String(n) : ''; };
   const newChat = () => { cancel?.(); chatId = ''; turns = []; thread.innerHTML = ''; syncEmpty(); q.focus(); };
   const openChat = (c: AskChat) => {
     cancel?.();
@@ -213,9 +216,9 @@ function initAsk(app: App): void {
     showHist(false);
   };
   const paintHist = () => {
-    const chats = chatsFor(key);
-    hist.innerHTML = chats.length ? chats.map(c => `<div class="row fe-ask-h${c.id === chatId ? ' on' : ''}" data-chat="${esc(c.id)}">
-        <button type="button" class="fe-ask-h-open" title="Open this chat"><span class="fe-ask-h-t">${esc(c.title)}</span><span class="fe-ask-h-m">${esc(when(c.at))} · ${c.turns.length} question${c.turns.length === 1 ? '' : 's'}</span></button>
+    const chats = listed();
+    hist.innerHTML = chats.length ? chats.map(({ subject, chat: c }) => `<div class="row fe-ask-h${c.id === chatId ? ' on' : ''}" data-chat="${esc(c.id)}" data-subject="${esc(subject)}">
+        <button type="button" class="fe-ask-h-open" title="${below(subject) ? `Open this chat about ${esc(below(subject))}` : 'Open this chat'}"><span class="fe-ask-h-t">${esc(c.title)}</span><span class="fe-ask-h-m">${below(subject) ? `${esc(below(subject))} · ` : ''}${esc(when(c.at))} · ${c.turns.length} question${c.turns.length === 1 ? '' : 's'}</span></button>
         <button type="button" class="btn fe-ask-h-del" data-icon data-size="sm" data-tone="danger" title="Delete this chat" aria-label="Delete this chat">${UI_ICON.close}</button>
       </div>`).join('') : emptyHtml('empty', 'No earlier chats about this yet', { inline: true });
   };
@@ -290,8 +293,13 @@ function initAsk(app: App): void {
     const chip = t.closest<HTMLElement>('.fe-ask-chip');
     if (chip) { void ask(chip.dataset.intent!); return; }
     const row = t.closest<HTMLElement>('.fe-ask-h');
-    if (row && t.closest('.fe-ask-h-del')) { deleteChat(key, row.dataset.chat!); if (row.dataset.chat === chatId) newChat(); paintHist(); syncHistN(); return; }
-    if (row && t.closest('.fe-ask-h-open')) { const c = chatsFor(key).find(x => x.id === row.dataset.chat); if (c) openChat(c); }
+    const at = row?.dataset.subject ?? key;
+    if (row && t.closest('.fe-ask-h-del')) { deleteChat(at, row.dataset.chat!); if (row.dataset.chat === chatId) newChat(); paintHist(); syncHistN(); return; }
+    if (row && t.closest('.fe-ask-h-open')) {
+      // A chat about something inside this folder opens on that page.
+      if (at !== key) { showHist(false); app.strip.go(at, '#ask=' + encodeURIComponent(row.dataset.chat!)); return; }
+      const c = chatsFor(key).find(x => x.id === row.dataset.chat); if (c) openChat(c);
+    }
   });
   el('fe-ask-new').addEventListener('click', () => { showHist(false); newChat(); });
   histBtn.addEventListener('click', () => showHist(hist.hidden));

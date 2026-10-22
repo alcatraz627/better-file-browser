@@ -14,5 +14,13 @@
   {"id":"grid","file":"13-grid.svg","name":"Grid"},
   {"id":"starred","file":"14-starred.svg","name":"Starred"},
   {"id":"mono-b","file":"15-mono-b.svg","name":"Mono B"},
-  {"id":"outline","file":"16-outline.svg","name":"Outline"}
+  {"id":"outline","file":"16-outline.svg","name":"Outline"},
+  {"id":"vault","file":"17-vault.svg","name":"Vault"},
+  {"id":"compass","file":"18-compass.svg","name":"Compass"},
+  {"id":"shelf","file":"19-shelf.svg","name":"Shelf"},
+  {"id":"pages","file":"20-pages.svg","name":"Pages"},
+  {"id":"hex","file":"21-hex.svg","name":"Hex"},
+  {"id":"sunset","file":"22-sunset.svg","name":"Sunset"},
+  {"id":"pixel","file":"23-pixel.svg","name":"Pixel"},
+  {"id":"neon","file":"24-neon.svg","name":"Neon"}
 ]

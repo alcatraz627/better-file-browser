@@ -11,7 +11,8 @@ export const TAGS_KEY      = 'bfb-tags-v1';
 export const VIEW_KEY      = 'bfb-view';
 export const THEME_KEY     = 'bfb-theme';
 export const PALETTE_KEY   = 'bfb-palette';
-export const PALETTES      = ['slate', 'violet', 'sand', 'ink', 'ocean', 'forest', 'ember', 'nord'];
+export const PALETTES      = ['slate', 'violet', 'sand', 'ink', 'ocean', 'forest', 'ember', 'nord',
+  'mocha', 'solar', 'grove', 'velvet', 'coral', 'neon', 'matcha', 'plum'];
 export const DENSITY_KEY   = 'bfb-density';
 export const HIDDEN_KEY    = 'bfb-show-hidden';
 export const ICON_RULES_KEY = 'bfb-icon-rules-v1';

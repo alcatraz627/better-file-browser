@@ -111,3 +111,12 @@ export function mergeLegacy(bookmarks: Bookmark[], places: Place[]): Place[] {
   for (const b of bookmarks) out = upsertPlace(out, { path: b.path, label: b.label });
   return out;
 }
+
+/** Whether a path is a folder itself or sits inside it, at most `depth`
+ *  levels down: what the folder lists is level 1, what its folders list is
+ *  level 2. A name that only starts the same ("/a/bc" for "/a/b") is not inside. */
+export function isWithin(path: string, folder: string, depth = 4): boolean {
+  const base = folder.endsWith('/') ? folder : folder + '/';
+  if (path === folder || path === base) return true;
+  return path.startsWith(base) && path.slice(base.length).split('/').filter(Boolean).length <= depth;
+}

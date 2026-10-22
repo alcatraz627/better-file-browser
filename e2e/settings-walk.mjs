@@ -36,7 +36,7 @@ try {
   const action = await h.sw.evaluate(async () => { const out = []; for (const id of ['sprout', 'mono-b', 'classic']) out.push(await setActionIcon(id).then(() => 'ok', e => String(e))); return out.join(','); });
   check(action === 'ok,ok,ok', `the toolbar icon takes the app icon: ${action}`);
   const imgsOk = await page.$$eval('.fe-appicon img', a => a.every(i => i.complete && i.naturalWidth > 0));
-  check(imgsOk, 'all 16 app icons load');
+  check(imgsOk, 'every app icon loads');
   // Slider by keys: focus, arrow right, the value and the text scale move.
   await page.focus('#fe-st-rd-size input');
   await page.keyboard.press('ArrowRight');
