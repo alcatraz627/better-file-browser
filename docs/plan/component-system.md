@@ -732,6 +732,18 @@ Owner's words are quoted; each item names its parts and slice.
 | Tooltips: icon and title, a lighter short subtitle, and the keys drawn below | the HoverCard tooltip takes `{icon, title, subtitle, keys}` from the Action; plain text tips stay for content | 1 |
 | Every capability by keyboard, with the keys shown in the UI | section 18 | 2, then every slice |
 
+Added later the same day (owner feedback, 2026-10-22):
+
+| Asked for | In the system | Slice |
+|---|---|---|
+| Front matter that fails to parse: "parse this as properly as we can", show the warning inside the front-matter box, link `related` paths when they resolve | a lenient front-matter reader with the error as a row of the box; path-shaped values become file links | 7 (renderers) |
+| The editor's error line: "a hover warn tooltip with proper text (not too dense, terse and formatted)" | the rich tooltip on the error gutter | 1 pattern, used in 7 |
+| Notes stay compatible with Switchboard and csync "across all platforms" | a compatibility check of the note format against both readers | before 8 |
+| Save and Open in terminal also "in other places where we place file/folder related actions" | both become Actions shown in every file and folder action surface | 2 |
+| Comment instructions for agents: reconcile comment locations after moves, with basic tools; best effort, and the person can move a comment too | the agent guide and a small re-anchor tool; a move control on a comment | 9 |
+| One drag-handle behaviour like the left sidebar's for table columns and the right pane; drag a column from any cell; better initial column widths | one ResizeHandle primitive; column edges active down the whole column; a width heuristic from content | 3 |
+| Settings and Help can also open as a sidebar pane; the modal stays | one content source shown either as a dialog or as a sidebar lens | 6 |
+
 ## 18. Keyboard journeys
 
 The owner: "I neither see enough shortcuts shown in the UI to quickly learn nor
