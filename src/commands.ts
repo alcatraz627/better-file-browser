@@ -78,11 +78,14 @@ export function dispatch(e: KeyboardEvent): boolean {
   if (pending) {
     const want = `${pending} ${tok}`;
     setPending('');
-    const d = OWN.find(x => x.keys.includes(want) && live(x, ctx));
+    const seq = OWN.filter(x => x.keys.includes(want) && live(x, ctx) && canRun(x.id));
+    const d = seq.find(x => (x.scope ?? 'any') !== 'any') ?? seq[0];
     if (d && runCommand(d.id)) { e.preventDefault(); e.stopImmediatePropagation(); return true; }
     return false;
   }
-  const d = OWN.find(x => x.keys.includes(tok) && live(x, ctx) && canRun(x.id));
+  // A command for where the keyboard is beats one that works anywhere.
+  const all = OWN.filter(x => x.keys.includes(tok) && live(x, ctx) && canRun(x.id));
+  const d = all.find(x => (x.scope ?? 'any') !== 'any') ?? all[0];
   if (d) { e.preventDefault(); e.stopImmediatePropagation(); runCommand(d.id); return true; }
   if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some(x => live(x, ctx) && canRun(x.id) && x.keys.some(k => k.startsWith(tok + ' ')))) {
     e.preventDefault(); e.stopImmediatePropagation();

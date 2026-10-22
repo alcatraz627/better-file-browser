@@ -551,7 +551,11 @@ export function initSidebar(app: App): void {
   syncDepth();
   el('fe-lens-tags').addEventListener('click', e => {
     const chip = (e.target as Element).closest<HTMLElement>('.fe-lens-tag');
-    if (chip) toggleTagFilter(chip.dataset.tag!);
+    if (!chip) return;
+    const tag = chip.dataset.tag!, hadFocus = document.activeElement === chip;
+    toggleTagFilter(tag);
+    // The row is redrawn; a chip picked by keyboard keeps the focus.
+    if (hadFocus) [...el('fe-lens-tags').querySelectorAll<HTMLElement>('.fe-lens-tag')].find(c => c.dataset.tag === tag)?.focus();
   });
   function refreshNotes(): void {
     const root = notesRoot();

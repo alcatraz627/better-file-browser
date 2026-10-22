@@ -5,8 +5,8 @@
 import type { App } from './app';
 import { KEYMAP, type Scope } from './keymap';
 import { bind, dispatch, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
-import { isPreviewOpen } from './preview';
-import { raise } from './layer';
+import { isPreviewOpen, openPreview } from './preview';
+import { raise, rovingFocus } from './layer';
 import { setTooltipKeys } from './tooltip';
 import { homeDir, getSaved, getRecents } from './storage';
 import { PI } from './icons';
@@ -73,9 +73,14 @@ export function initFocusNav(app: App): void {
     dispatch(e);
   }, true);
 
+  // Where focus last was in the sidebar, so coming back lands on that row.
+  let lastSide: HTMLElement | null = null;
+  document.addEventListener('focusin', e => { const t = e.target as HTMLElement; if (t.closest?.('#fe-lenses')) lastSide = t; });
+  const sideBack = () => { if (lastSide && document.contains(lastSide) && visible(lastSide)) { lastSide.focus(); return true; } return false; };
+
   // The areas, in the order F6 visits them.
   const areas: { name: string; has: (x: Element) => boolean; enter: () => boolean }[] = [
-    { name: 'sidebar', has: x => !!x.closest('#fe-side'), enter: () => focusFirst('#fe-lenses .fe-lens:not([hidden])', ROW_SEL) || focusFirst('#fe-lenses .fe-lens:not([hidden])', 'input, textarea, button') || focusFirst('#fe-rail', '.fe-rail-btn.on') },
+    { name: 'sidebar', has: x => !!x.closest('#fe-side'), enter: () => sideBack() || focusFirst('#fe-lenses .fe-lens:not([hidden])', ROW_SEL) || focusFirst('#fe-lenses .fe-lens:not([hidden])', 'input, textarea, button') || focusFirst('#fe-rail', '.fe-rail-btn.on') },
     { name: 'tabs', has: x => !!x.closest('#fe-tabbar'), enter: () => focusFirst('#fe-tabs', '.fe-tab.on') || focusFirst('#fe-tabbar', 'button') },
     { name: 'path', has: x => !!x.closest('#fe-bar'), enter: () => focusFirst('#fe-bc', '.fe-crumb.cur, .fe-crumb:last-of-type') || focusFirst('#fe-bar', 'button') },
     { name: 'toolbar', has: x => !!x.closest('#fe-toolbar, #fe-fp-bar'), enter: () => focusFirst('#fe-toolbar, #fe-fp-bar', 'button') },
@@ -140,8 +145,7 @@ export function initFocusNav(app: App): void {
         const next = rows[at + 1] ?? rows[at - 1];
         row.querySelector<HTMLElement>('.fe-rm-btn')!.click();
         setTimeout(() => (next && document.contains(next) ? next : lens.querySelector<HTMLElement>('.fe-si, .fe-si-link'))?.focus(), 50);
-      } else if (e.key === '#' && row?.querySelector('.fe-tag-btn')) { e.preventDefault(); row.querySelector<HTMLElement>('.fe-tag-btn')!.click(); }
-      else if (e.key === 'ArrowLeft' && !e.altKey) { e.preventDefault(); document.querySelector<HTMLElement>('#fe-rail .fe-rail-btn.on')?.focus(); }
+      } else if (e.key === 'ArrowLeft' && !e.altKey) { e.preventDefault(); document.querySelector<HTMLElement>('#fe-rail .fe-rail-btn.on')?.focus(); }
       return;
     }
     // From the lens bar, down goes into the open lens.
@@ -227,6 +231,32 @@ export function initFocusNav(app: App): void {
       (box?.querySelector<HTMLElement>('input[type="search"], textarea, .fe-tl-input') ?? box?.querySelector<HTMLElement>('.fe-si, .fe-si-link'))?.focus();
     }, 60);
   }, () => !document.getElementById(`fe-rail-${lens}`)?.hidden);
+
+  // Sidebar actions for the journeys: filter the open list, reach its tag
+  // chips, preview a file row, open a row in Chrome, and a row's tags.
+  const openLens = () => document.querySelector<HTMLElement>('#fe-lenses .fe-lens:not([hidden])');
+  const focusedRow = () => (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('#fe-lenses .fe-si-link, #fe-lenses a.fe-si') ?? null;
+  const rowPath = (a: HTMLElement) => decodeURIComponent((a.getAttribute('href') || '').slice(7));
+  bind('lens-filter', () => {
+    const box = [...(openLens()?.querySelectorAll<HTMLInputElement>('input[type="text"], input[type="search"]') ?? [])].find(visible);
+    box?.focus(); box?.select();
+  }, () => !!openLens());
+  bind('lens-tags', () => {
+    if (!app.settings.showSidebar) runCommand('sidebar');
+    const chip = [...(openLens()?.querySelectorAll<HTMLElement>('.fe-lens-tags .fe-chip, .fe-lens-tags button') ?? [])].find(visible);
+    chip?.focus();
+  }, () => !!openLens()?.querySelector('.fe-lens-tags'));
+  // Arrows walk the chips; Enter or Space toggles one (they are buttons).
+  document.querySelectorAll<HTMLElement>('#fe-lenses .fe-lens-tags, #fe-docs-list .fe-lens-tags').forEach(r => rovingFocus(r, '.fe-chip, button', { axis: 'horizontal' }));
+  bind('side-look', () => {
+    const a = focusedRow()!, path = rowPath(a), name = path.split('/').pop() || path;
+    openPreview({ name, href: fileHref(path), isDir: false, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: '' });
+  }, () => { const a = focusedRow(); return !!a && !rowPath(a).endsWith('/') && !rowPath(a).includes('#'); });
+  bind('side-chrome', () => focusedRow()!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true })), () => !!focusedRow());
+  bind('side-props', () => {
+    const row = (document.activeElement as HTMLElement).closest<HTMLElement>('.fe-bm-item, .fe-pl-item, .fe-nt-item')!;
+    row.querySelector<HTMLElement>('.fe-tag-btn, .fe-nt-props')!.click();
+  }, () => !!(document.activeElement as HTMLElement | null)?.closest('.fe-bm-item, .fe-pl-item, .fe-nt-item')?.querySelector('.fe-tag-btn, .fe-nt-props'));
 
   // Preview and file page buttons.
   const pv = () => isPreviewOpen();

@@ -115,6 +115,11 @@ export const KEYMAP: KeyDef[] = [
   { id: 'side-tags', group: 'Sidebar', title: 'Tags', keys: ['#'], scope: 'sidebar' },
   { id: 'side-remove', group: 'Sidebar', title: 'Remove', keys: ['⌫'], scope: 'sidebar' },
   { id: 'side-fold', group: 'Sidebar', title: 'Fold a group', keys: ['Space'], scope: 'sidebar' },
+  { id: 'lens-filter', group: 'Sidebar', title: 'Filter this list', keys: ['/'], scope: 'sidebar', own: true },
+  { id: 'lens-tags', group: 'Sidebar', title: 'Tag chips', keys: ['g #'], own: true },
+  { id: 'side-look', group: 'Sidebar', title: 'Preview a file', keys: ['Space'], scope: 'sidebar', own: true },
+  { id: 'side-chrome', group: 'Sidebar', title: 'Open in a Chrome tab', keys: ['⌘↩'], scope: 'sidebar', own: true },
+  { id: 'side-props', group: 'Sidebar', title: 'Note colour, pin and tags', keys: ['#'], scope: 'sidebar', own: true },
 
   // Preview
   { id: 'pv-close', group: 'Preview', title: 'Close', keys: ['Space', 'Esc'], scope: 'preview' },
