@@ -15,8 +15,9 @@ it. One class, `notice`.
 ## Sanctioned and banned
 
 - Banned: a raw colour for an error line. Use `data-tone="danger"`.
-- `.fe-ql-note` stays on preview notices as a hook: find in page uses it to
-  tell that a page was cut short.
+- `.fe-ql-note` stays on preview notices as a hook. Find in page checks for
+  it to tell that a page was cut short, and matches any preview notice, not
+  only the cut-short one.
 
 ## What it replaced
 

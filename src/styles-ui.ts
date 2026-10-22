@@ -42,7 +42,6 @@ export const UI_CSS = `
 .fe-set-c{max-width:70%;flex-wrap:wrap}
 #fe-st-term-hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}
 .fe-set-sws.grid4{display:grid;grid-template-columns:repeat(4,max-content);gap:4px 8px;justify-content:end}
-.fe-set-h-acts{display:inline-flex;align-items:center;gap:6px}
 
 /* Icon button: no fill until hovered. */
 .fe-ibtn{flex:none}
@@ -249,7 +248,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-tab[data-tab="here"],.fe-pal-i[data-tab="here"]{--tab-c:var(--dir)}
 .fe-pal-tab[data-tab="comments"],.fe-pal-i[data-tab="comments"]{--tab-c:var(--nc-orange)}
 .fe-pal-tab[data-tab="chats"],.fe-pal-i[data-tab="chats"]{--tab-c:var(--nc-pink)}
-.fe-pal-g{padding:10px 10px 4px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-pal-g{padding:10px 10px 4px}
 .fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
 .fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--tab-c,var(--mt))}
 .fe-pal-i.on{background:var(--on)}
@@ -301,7 +300,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-legend{font-size:var(--fs-sm);color:var(--dm);display:inline-flex;align-items:center;gap:4px}
 .fe-km-list{columns:2 320px;column-gap:18px}
 .fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px;border-radius:12px;background:var(--card);border:1px solid var(--bd)}
-.fe-km-g h3{display:flex;align-items:center;gap:7px;margin:0;padding:8px 10px 6px;font-size:var(--fs-xs);font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-km-g h3{padding:8px 10px 6px}
 .fe-km-g h3 svg{width:14px;height:14px}
 .fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}
 .fe-km-i.on{background:var(--on)}
@@ -312,7 +311,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 
 /* Help: cards. */
 .fe-hs{display:flex;flex-direction:column;gap:10px}
-.fe-hs h3{margin:0;padding:0 2px;font-size:var(--fs-xs);font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-hs h3{padding:0 2px}
 .fe-hcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
 .fe-hc{display:flex;align-items:center;gap:12px;min-height:62px;padding:10px 14px;border-radius:12px;background:var(--card);border:1px solid var(--bd);
   transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}

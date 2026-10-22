@@ -228,7 +228,7 @@ export function openPalette(prefill = ''): void {
     at = Math.min(at, Math.max(0, shown.length - 1));
     let lastGroup = '';
     list.innerHTML = shown.length ? shown.map((it, i) => {
-      const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g">${esc(it.group)}</div>` : '';
+      const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g sect" data-level="group">${esc(it.group)}</div>` : '';
       lastGroup = it.group;
       return `${head}<div class="fe-pal-i${i === at ? ' on' : ''}" role="option" data-i="${i}" data-tab="${tabOf(it)}">${it.icon ?? ''}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ''}${(it.keys ?? []).slice(0, 1).map(k => `<kbd>${esc(k)}</kbd>`).join('')}</div>`;
     }).join('') : `<div class="fe-pal-none">${late.length && tab !== 'all' && !counts.get(tab) ? 'Loading…' : 'Nothing matches'}</div>`;

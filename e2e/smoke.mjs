@@ -616,8 +616,8 @@ try {
     const d = await page.evaluate(i => {
       const root = document.getElementById(i);
       return {
-        open: root.style.display !== 'none', title: root.querySelector('.fe-dlg-tx b')?.textContent,
-        subtitle: !!root.querySelector('.fe-dlg-tx i')?.textContent, mark: !!root.querySelector('.fe-dlg-mark svg'),
+        open: root.style.display !== 'none', title: root.querySelector('.fe-dlg-title .sect-tx b')?.textContent,
+        subtitle: !!root.querySelector('.fe-dlg-title .sect-tx i')?.textContent, mark: !!root.querySelector('.fe-dlg-mark svg'),
         tabs: [...root.querySelectorAll('.fe-dlg-tab b')].map(b => b.textContent),
         shown: [...root.querySelectorAll('.fe-dlg-pane')].filter(p => getComputedStyle(p).display !== 'none').length,
       };

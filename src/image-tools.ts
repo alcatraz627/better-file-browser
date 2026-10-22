@@ -26,7 +26,7 @@ export function viewTransform(v: View): string {
 }
 
 const BTN = (act: string, icon: string, text: string, title: string) =>
-  `<button class="btn" data-size="sm" data-img="${act}" title="${esc(title)}">${icon}<span>${text}</span></button>`;
+  `<button class="btn" data-img="${act}" title="${esc(title)}">${icon}<span>${text}</span></button>`;
 
 /// Builds the toolbar and the zoomable stage inside `wrap`. `open` hands the file to its default app.
 export function mountImageTools(wrap: HTMLElement, o: {

@@ -27,5 +27,10 @@ alignment.
 
 The dialog title and pane header type rules, the rail title, the Settings
 group header (two rules that disagreed at 10 and 13px), and the sidebar
-section label. Settings group labels move from 10 to 11px to match the
-sidebar's. Still separate: the comments rail's group labels (Lists).
+section label, and the group labels in the palette, the key map and Help.
+Settings group labels move from 10 to 11px to match the sidebar's. The rail
+title moves from 12 to 13px. Help's section labels go from 650 to 600 weight.
+
+Still separate, and moving with Lists because each is also a fold button or a
+list row: the comments rail's group labels (`.fe-cm-group`), the saved
+items' tag groups (`.fe-sv-tag`) and the notes groups (`.fe-nt-grp`).

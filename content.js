@@ -2004,7 +2004,7 @@ ${body}`;
       at = Math.min(at, Math.max(0, shown.length - 1));
       let lastGroup = "";
       list3.innerHTML = shown.length ? shown.map((it, i3) => {
-        const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g">${esc(it.group)}</div>` : "";
+        const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g sect" data-level="group">${esc(it.group)}</div>` : "";
         lastGroup = it.group;
         return `${head}<div class="fe-pal-i${i3 === at ? " on" : ""}" role="option" data-i="${i3}" data-tab="${tabOf(it)}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
       }).join("") : `<div class="fe-pal-none">${late.length && tab !== "all" && !counts.get(tab) ? "Loading\u2026" : "Nothing matches"}</div>`;
@@ -2086,13 +2086,13 @@ ${body}`;
     <div class="fe-dlg-box" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
       <div class="sect fe-dlg-title" data-level="page">
         <span class="fe-dlg-mark">${d.mark}</span>
-        <span class="sect-tx fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
+        <span class="sect-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
         <button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div class="fe-dlg-tabs" role="tablist">
         ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ""}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
       </div>
-      ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.icon ? `<header class="sect fe-dlg-ph" data-level="page">${tile(t, "lg")}<div class="sect-tx fe-dlg-ph-tx"><h2>${esc(t.label)}</h2>${t.desc || t.hint ? `<p>${esc(t.desc || t.hint)}</p>` : ""}</div></header>` : ""}${t.body}</div>`).join("")}
+      ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.icon ? `<header class="sect fe-dlg-ph" data-level="page">${tile(t, "lg")}<div class="sect-tx"><h2>${esc(t.label)}</h2>${t.desc || t.hint ? `<p>${esc(t.desc || t.hint)}</p>` : ""}</div></header>` : ""}${t.body}</div>`).join("")}
     </div>
   </div>`;
   }
@@ -3595,7 +3595,7 @@ ${body}`;
   function viewTransform(v) {
     return `translate(-50%,-50%) scaleX(${v.flip ? -1 : 1}) rotate(${v.rot}deg)`;
   }
-  var BTN = (act, icon2, text, title) => `<button class="btn" data-size="sm" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
+  var BTN = (act, icon2, text, title) => `<button class="btn" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
   function mountImageTools(wrap, o) {
     wrap.innerHTML = `
     <div class="bar fe-ql-imgbar" role="toolbar" aria-label="Image tools">
@@ -5106,7 +5106,7 @@ Now: ${question}` : question;
    but takes its size from its place. Controls sit 4px apart; a bar-sep
    between groups makes 12px. */
 .bar{display:flex;align-items:center;gap:var(--sp-2);box-sizing:border-box;flex-shrink:0}
-.bar:not([data-inset]){min-height:var(--bar-h);padding:0 var(--sp-5)}
+.bar:not([data-inset]){min-height:var(--bar-h);padding:5px var(--sp-5)}
 .bar-sep{flex:none;width:1px;height:16px;margin:0 var(--sp-2);background:var(--bd)}
 /* SectionTitle, the one heading for a part of the page (docs/system/section-title.md).
    Class sect with data-level: group (a small capital label over a list or
@@ -5119,6 +5119,7 @@ Now: ${question}` : question;
 .sect[data-level="group"]{font-size:var(--type-micro);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
 .sect[data-level="panel"]{font-size:var(--type-ui);font-weight:600;color:var(--tx)}
 .sect[data-level="page"]{gap:var(--sp-5)}
+.fe-dlg-title.sect{align-items:flex-start}
 .sect[data-level="page"] .sect-tx > :first-child{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
 .sect[data-level="page"] .sect-tx > :nth-child(2){margin:0;font-size:var(--fs-md);font-style:normal;font-weight:400;line-height:1.35;color:var(--dm)}
 /* Notice, a line that tells the reader about the page itself
@@ -5126,7 +5127,7 @@ Now: ${question}` : question;
    disk. Class notice; data-tone danger, warn or ok; buttons in it act on it. */
 .notice{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-3);padding:var(--sp-3) var(--sp-5);color:var(--dm);font-size:var(--type-small);line-height:1.4}
 .notice[data-tone="danger"]{color:var(--tone-danger)}
-.notice[data-tone="warn"]{color:var(--nc-orange)}
+.notice[data-tone="warn"]{color:var(--tone-warn)}
 .notice[data-tone="ok"]{color:var(--tone-ok)}
 /* Resize handle (docs/system/resize.md). Class rz, set by resizable(). A
    thin hit area whose 2px accent line grows in on hover, drag or focus, the
@@ -5380,7 +5381,7 @@ td.c-tg{white-space:nowrap;overflow:hidden}
 .fe-find-snippet{display:block;color:var(--dm);font-size:var(--fs-sm);margin:3px 0 1px 22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-find-snippet mark{background:var(--ac);color:var(--bg);border-radius:2px;padding:0 1px}
 .fe-find-badge{margin-left:22px}
-#fe-find-error{color:#f85149;font-size:var(--fs-sm)}
+#fe-find-error{color:var(--tone-danger);font-size:var(--type-small)}
 #fe[data-view="details"] .fe-row .fe-find-badge{display:none}
 tbody tr{border-bottom:1px solid var(--bg);transition:background .08s}
 tbody tr:hover{background:var(--hover)}
@@ -5549,7 +5550,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 
 .fe-row td.c-nm{position:relative}
 #fe-statusbar{background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt);white-space:nowrap;overflow:hidden}
-#fe-status-meta{display:flex;align-items:center;gap:14px}
+#fe-status-meta{display:flex;align-items:center;gap:var(--sp-5)}
 .fe-meta-item{display:inline-flex;align-items:center;gap:5px}
 .fe-meta-item svg{color:var(--dm)}
 .fe-status-grow{flex:1}
@@ -5619,7 +5620,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-title{padding:14px 16px 12px;background:var(--s2);flex:none;border-radius:10px 10px 0 0}
 .fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;
   background:var(--on);color:var(--ac);border:1px solid var(--ac)}
-.fe-dlg-tx{flex-direction:column;min-width:0;flex:1}
 
 .fe-dlg-tabs{display:flex;gap:3px;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex:none;align-items:stretch;overflow-x:auto}
 .fe-dlg-tab{display:flex;flex-direction:column;gap:2px;background:none;border:none;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
@@ -5760,7 +5760,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc-rail[hidden]{display:none}
 #fe-toc-rail.peek{box-shadow:var(--pop-sh)}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
-.fe-toc-title{flex:1;font-size:var(--fs-sm);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
 #fe-toc a{display:block;margin:1px 6px;border-radius:6px;color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
 #fe-toc a:hover{color:var(--tx);background:var(--hover)}
@@ -5921,7 +5920,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
    painted copy (#fe-fe-paint) and the textarea share font, padding and
    wrapping exactly, so the caret sits over its own text. */
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
-#fe-fe-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--s1)}
+#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1)}
 #fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
 /* The top padding clears the floating pill, so a long first line is never under it. */
 #fe-fe-col{max-width:980px;margin:0 auto;padding:62px 28px 120px}
@@ -5964,7 +5963,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 @media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
 #fe-fp-reload{font-size:var(--fs-sm);color:var(--dm)}
 #fe-ed-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
-.fe-ed-hint{margin-left:auto;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
+.fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
 .fe-hist-row:hover,.fe-hist-row.active{border-color:var(--ac);background:var(--on)}
@@ -6577,7 +6576,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-tab i{padding-left:calc(22px + var(--row-gap))}
 .fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
 .fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 60px 18px 24px;background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
-.fe-dlg-ph-tx{min-width:0}
 
 .fe-set-group{display:flex;flex-direction:column;gap:8px}
 .fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px}
@@ -6717,7 +6715,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-c{max-width:70%;flex-wrap:wrap}
 #fe-st-term-hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}
 .fe-set-sws.grid4{display:grid;grid-template-columns:repeat(4,max-content);gap:4px 8px;justify-content:end}
-.fe-set-h-acts{display:inline-flex;align-items:center;gap:6px}
 
 /* Icon button: no fill until hovered. */
 .fe-ibtn{flex:none}
@@ -6924,7 +6921,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-tab[data-tab="here"],.fe-pal-i[data-tab="here"]{--tab-c:var(--dir)}
 .fe-pal-tab[data-tab="comments"],.fe-pal-i[data-tab="comments"]{--tab-c:var(--nc-orange)}
 .fe-pal-tab[data-tab="chats"],.fe-pal-i[data-tab="chats"]{--tab-c:var(--nc-pink)}
-.fe-pal-g{padding:10px 10px 4px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-pal-g{padding:10px 10px 4px}
 .fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
 .fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--tab-c,var(--mt))}
 .fe-pal-i.on{background:var(--on)}
@@ -6976,7 +6973,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-legend{font-size:var(--fs-sm);color:var(--dm);display:inline-flex;align-items:center;gap:4px}
 .fe-km-list{columns:2 320px;column-gap:18px}
 .fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px;border-radius:12px;background:var(--card);border:1px solid var(--bd)}
-.fe-km-g h3{display:flex;align-items:center;gap:7px;margin:0;padding:8px 10px 6px;font-size:var(--fs-xs);font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-km-g h3{padding:8px 10px 6px}
 .fe-km-g h3 svg{width:14px;height:14px}
 .fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}
 .fe-km-i.on{background:var(--on)}
@@ -6987,7 +6984,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 
 /* Help: cards. */
 .fe-hs{display:flex;flex-direction:column;gap:10px}
-.fe-hs h3{margin:0;padding:0 2px;font-size:var(--fs-xs);font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-hs h3{padding:0 2px}
 .fe-hcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
 .fe-hc{display:flex;align-items:center;gap:12px;min-height:62px;padding:10px 14px;border-radius:12px;background:var(--card);border:1px solid var(--bd);
   transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
@@ -14302,7 +14299,7 @@ ${end.comment}` : end.comment;
     const fmt = formatFor(host.ext);
     const isMd = fmt?.id === "markdown";
     box.innerHTML = `
-    <div id="fe-fe-banner" style="display:none"></div>
+    <div id="fe-fe-banner" class="notice" data-tone="warn" style="display:none"></div>
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">
@@ -16889,7 +16886,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     const list3 = GROUPS.map((g) => {
       const defs = KEYMAP.filter((d) => d.group === g.name);
       if (!defs.length) return "";
-      return `<section class="fe-km-g"><h3>${PI[g.icon] ?? ""}${esc(g.name)}</h3>${defs.map((d) => `<div class="fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(" "))}" data-q="${esc((d.title + " " + d.keys.join(" ") + " " + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join("")}</section>`;
+      return `<section class="fe-km-g"><h3 class="sect" data-level="group">${PI[g.icon] ?? ""}${esc(g.name)}</h3>${defs.map((d) => `<div class="fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(" "))}" data-q="${esc((d.title + " " + d.keys.join(" ") + " " + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join("")}</section>`;
     }).join("");
     return `<div class="fe-km">
     ${board}
@@ -16899,7 +16896,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   </div>`;
   }
   var card = (icon2, tone, title, text, how = "") => `<div class="fe-hc" style="--tone:${tone}"><span class="fe-hc-ico">${icon2}</span><div class="fe-hc-tx"><b>${title}</b><span>${text}</span></div>${how ? `<div class="fe-hc-how">${how}</div>` : ""}</div>`;
-  var cards = (title, body) => `<section class="fe-hs"><h3>${title}</h3><div class="fe-hcs">${body}</div></section>`;
+  var cards = (title, body) => `<section class="fe-hs"><h3 class="sect" data-level="group">${title}</h3><div class="fe-hcs">${body}</div></section>`;
   var i = (body) => line(body, 18);
   var T = { blue: "var(--nc-blue)", teal: "var(--nc-teal)", green: "var(--nc-green)", orange: "var(--nc-orange)", pink: "var(--nc-pink)", purple: "var(--nc-purple)", red: "var(--nc-red)", yellow: "var(--nc-yellow)" };
   var POINTER = i('<path d="M4 4l7 17 2.5-7.5L21 11z"/>');
@@ -17360,7 +17357,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           `
           <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
           <div id="fe-st-rules-list"></div>`,
-          `<span class="fe-set-h-acts">${iconBtn("fe-st-reset-rules", UI_ICON.reset, "Reset to the built-in rules")}<button id="fe-st-add-rule" class="btn" data-size="sm" title="Add a rule">${UI_ICON.add}Rule</button></span>`
+          `<span class="sect-acts">${iconBtn("fe-st-reset-rules", UI_ICON.reset, "Reset to the built-in rules")}<button id="fe-st-add-rule" class="btn" data-size="sm" title="Add a rule">${UI_ICON.add}Rule</button></span>`
         ) },
         { key: "notes", label: "Notes", hint: "Notes, editing", icon: UI_ICON.notes, tone: "var(--nc-orange)", desc: "Your notes folder, and where you can edit.", body: card2(
           "Notes",
@@ -17859,7 +17856,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
 
       <div id="fe-statusbar" class="bar">
-        ${fileMode ? '<span id="fe-status-meta"></span>' : ""}
+        ${fileMode ? '<span id="fe-status-meta"></span><span class="bar-sep" aria-hidden="true"></span>' : ""}
         <span id="fe-status-text">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <span class="fe-status-grow"></span>
         ${fileMode ? '<span id="fe-fp-reload" hidden></span>' : ""}

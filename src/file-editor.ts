@@ -80,7 +80,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const fmt = formatFor(host.ext);
   const isMd = fmt?.id === 'markdown';
   box.innerHTML = `
-    <div id="fe-fe-banner" style="display:none"></div>
+    <div id="fe-fe-banner" class="notice" data-tone="warn" style="display:none"></div>
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">

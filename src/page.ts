@@ -259,7 +259,7 @@ export function renderPage(p: PageParams): string {
       </div>
 
       <div id="fe-statusbar" class="bar">
-        ${fileMode ? '<span id="fe-status-meta"></span>' : ''}
+        ${fileMode ? '<span id="fe-status-meta"></span><span class="bar-sep" aria-hidden="true"></span>' : ''}
         <span id="fe-status-text">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <span class="fe-status-grow"></span>
         ${fileMode ? '<span id="fe-fp-reload" hidden></span>' : ''}

@@ -33,7 +33,7 @@ function keyboardMap(): string {
   const list = GROUPS.map(g => {
     const defs = KEYMAP.filter(d => d.group === g.name);
     if (!defs.length) return '';
-    return `<section class="fe-km-g"><h3>${PI[g.icon] ?? ''}${esc(g.name)}</h3>${defs.map(d =>
+    return `<section class="fe-km-g"><h3 class="sect" data-level="group">${PI[g.icon] ?? ''}${esc(g.name)}</h3>${defs.map(d =>
       `<div class="fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(' '))}" data-q="${esc((d.title + ' ' + d.keys.join(' ') + ' ' + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join('')}</section>`;
   }).join('');
   return `<div class="fe-km">
@@ -47,7 +47,7 @@ function keyboardMap(): string {
 // One card: a coloured icon tile, a few words, and the keys or gesture.
 const card = (icon: string, tone: string, title: string, text: string, how = '') =>
   `<div class="fe-hc" style="--tone:${tone}"><span class="fe-hc-ico">${icon}</span><div class="fe-hc-tx"><b>${title}</b><span>${text}</span></div>${how ? `<div class="fe-hc-how">${how}</div>` : ''}</div>`;
-const cards = (title: string, body: string) => `<section class="fe-hs"><h3>${title}</h3><div class="fe-hcs">${body}</div></section>`;
+const cards = (title: string, body: string) => `<section class="fe-hs"><h3 class="sect" data-level="group">${title}</h3><div class="fe-hcs">${body}</div></section>`;
 const i = (body: string) => line(body, 18);
 const T = { blue: 'var(--nc-blue)', teal: 'var(--nc-teal)', green: 'var(--nc-green)', orange: 'var(--nc-orange)', pink: 'var(--nc-pink)', purple: 'var(--nc-purple)', red: 'var(--nc-red)', yellow: 'var(--nc-yellow)' };
 const POINTER = i('<path d="M4 4l7 17 2.5-7.5L21 11z"/>');

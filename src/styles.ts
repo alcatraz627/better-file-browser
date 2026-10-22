@@ -113,7 +113,7 @@ export const CSS = `
    but takes its size from its place. Controls sit 4px apart; a bar-sep
    between groups makes 12px. */
 .bar{display:flex;align-items:center;gap:var(--sp-2);box-sizing:border-box;flex-shrink:0}
-.bar:not([data-inset]){min-height:var(--bar-h);padding:0 var(--sp-5)}
+.bar:not([data-inset]){min-height:var(--bar-h);padding:5px var(--sp-5)}
 .bar-sep{flex:none;width:1px;height:16px;margin:0 var(--sp-2);background:var(--bd)}
 /* SectionTitle, the one heading for a part of the page (docs/system/section-title.md).
    Class sect with data-level: group (a small capital label over a list or
@@ -126,6 +126,7 @@ export const CSS = `
 .sect[data-level="group"]{font-size:var(--type-micro);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
 .sect[data-level="panel"]{font-size:var(--type-ui);font-weight:600;color:var(--tx)}
 .sect[data-level="page"]{gap:var(--sp-5)}
+.fe-dlg-title.sect{align-items:flex-start}
 .sect[data-level="page"] .sect-tx > :first-child{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
 .sect[data-level="page"] .sect-tx > :nth-child(2){margin:0;font-size:var(--fs-md);font-style:normal;font-weight:400;line-height:1.35;color:var(--dm)}
 /* Notice, a line that tells the reader about the page itself
@@ -133,7 +134,7 @@ export const CSS = `
    disk. Class notice; data-tone danger, warn or ok; buttons in it act on it. */
 .notice{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-3);padding:var(--sp-3) var(--sp-5);color:var(--dm);font-size:var(--type-small);line-height:1.4}
 .notice[data-tone="danger"]{color:var(--tone-danger)}
-.notice[data-tone="warn"]{color:var(--nc-orange)}
+.notice[data-tone="warn"]{color:var(--tone-warn)}
 .notice[data-tone="ok"]{color:var(--tone-ok)}
 /* Resize handle (docs/system/resize.md). Class rz, set by resizable(). A
    thin hit area whose 2px accent line grows in on hover, drag or focus, the
@@ -387,7 +388,7 @@ td.c-tg{white-space:nowrap;overflow:hidden}
 .fe-find-snippet{display:block;color:var(--dm);font-size:var(--fs-sm);margin:3px 0 1px 22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-find-snippet mark{background:var(--ac);color:var(--bg);border-radius:2px;padding:0 1px}
 .fe-find-badge{margin-left:22px}
-#fe-find-error{color:#f85149;font-size:var(--fs-sm)}
+#fe-find-error{color:var(--tone-danger);font-size:var(--type-small)}
 #fe[data-view="details"] .fe-row .fe-find-badge{display:none}
 tbody tr{border-bottom:1px solid var(--bg);transition:background .08s}
 tbody tr:hover{background:var(--hover)}
@@ -556,7 +557,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 
 .fe-row td.c-nm{position:relative}
 #fe-statusbar{background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt);white-space:nowrap;overflow:hidden}
-#fe-status-meta{display:flex;align-items:center;gap:14px}
+#fe-status-meta{display:flex;align-items:center;gap:var(--sp-5)}
 .fe-meta-item{display:inline-flex;align-items:center;gap:5px}
 .fe-meta-item svg{color:var(--dm)}
 .fe-status-grow{flex:1}
@@ -626,7 +627,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-title{padding:14px 16px 12px;background:var(--s2);flex:none;border-radius:10px 10px 0 0}
 .fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;
   background:var(--on);color:var(--ac);border:1px solid var(--ac)}
-.fe-dlg-tx{flex-direction:column;min-width:0;flex:1}
 
 .fe-dlg-tabs{display:flex;gap:3px;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex:none;align-items:stretch;overflow-x:auto}
 .fe-dlg-tab{display:flex;flex-direction:column;gap:2px;background:none;border:none;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
@@ -767,7 +767,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc-rail[hidden]{display:none}
 #fe-toc-rail.peek{box-shadow:var(--pop-sh)}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
-.fe-toc-title{flex:1;font-size:var(--fs-sm);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
 #fe-toc a{display:block;margin:1px 6px;border-radius:6px;color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
 #fe-toc a:hover{color:var(--tx);background:var(--hover)}
@@ -928,7 +927,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
    painted copy (#fe-fe-paint) and the textarea share font, padding and
    wrapping exactly, so the caret sits over its own text. */
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
-#fe-fe-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--s1)}
+#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1)}
 #fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
 /* The top padding clears the floating pill, so a long first line is never under it. */
 #fe-fe-col{max-width:980px;margin:0 auto;padding:62px 28px 120px}
@@ -971,7 +970,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 @media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
 #fe-fp-reload{font-size:var(--fs-sm);color:var(--dm)}
 #fe-ed-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
-.fe-ed-hint{margin-left:auto;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
+.fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
 .fe-hist-row:hover,.fe-hist-row.active{border-color:var(--ac);background:var(--on)}
@@ -1584,7 +1583,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-tab i{padding-left:calc(22px + var(--row-gap))}
 .fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
 .fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 60px 18px 24px;background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
-.fe-dlg-ph-tx{min-width:0}
 
 .fe-set-group{display:flex;flex-direction:column;gap:8px}
 .fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px}

@@ -110,7 +110,7 @@ export function settingsDialog(): DialogSpec {
         card('Icon rules', `
           <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
           <div id="fe-st-rules-list"></div>`,
-          `<span class="fe-set-h-acts">${iconBtn('fe-st-reset-rules', UI_ICON.reset, 'Reset to the built-in rules')}<button id="fe-st-add-rule" class="btn" data-size="sm" title="Add a rule">${UI_ICON.add}Rule</button></span>`) },
+          `<span class="sect-acts">${iconBtn('fe-st-reset-rules', UI_ICON.reset, 'Reset to the built-in rules')}<button id="fe-st-add-rule" class="btn" data-size="sm" title="Add a rule">${UI_ICON.add}Rule</button></span>`) },
 
       { key: 'notes', label: 'Notes', hint: 'Notes, editing', icon: UI_ICON.notes, tone: 'var(--nc-orange)', desc: 'Your notes folder, and where you can edit.', body:
         card('Notes',

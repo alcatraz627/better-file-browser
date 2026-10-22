@@ -25,8 +25,21 @@ image and HTML bars, and the status bar. One class, `bar`.
 ## Narrow
 
 A bar that can run out of room wraps (`flex-wrap`, as the editor and image
-bars do) or folds its middle (the path bar's `…`). A docked preview's header
-turns its text buttons into icon buttons.
+bars do) or folds its middle (the path bar's `…`). A wrapped bar keeps 5px
+above and below its rows. Hint text in a bar shrinks with an ellipsis rather
+than wrapping the bar. A docked preview's header turns its text buttons into
+icon buttons.
+
+## Not a Toolbar
+
+These rows hold controls but are something else, and keep their own layout:
+
+- The tab strip: tabs, which scroll sideways.
+- A key-map row: a key and what it does (Lists).
+- The comments filter row and the palette footer: filters and key hints that
+  belong to the list above them (Lists).
+- The editor's floating pill: a menu that follows the selection (Layers).
+- The note history header (`.fe-hist-head`): a panel's title line (Panels).
 
 ## Sanctioned and banned
 
