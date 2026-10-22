@@ -2,6 +2,7 @@
 // rests on anything with a title, in place of Chrome's slow native one. The
 // title stays in the markup; it is lifted off only while the tooltip shows, so
 // the native tooltip does not appear on top of it.
+import { raise } from './layer';
 
 const DELAY = 350;
 
@@ -52,6 +53,7 @@ export function initTooltips(root: HTMLElement): void {
     timer = window.setTimeout(() => {
       if (target !== el) return;
       tip.textContent = text;
+      raise(tip);
       tip.classList.add('on');
       place();
     }, DELAY);

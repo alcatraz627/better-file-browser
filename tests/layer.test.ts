@@ -19,6 +19,21 @@ describe('layers', () => {
     expect(topmost()).toBeNull();
   });
 
+  it('Esc closes an open hover card and the layer under it together', () => {
+    const p = openLayer(mk(), { kind: 'popover' });
+    const card = openLayer(mk(), { kind: 'hovercard' });
+    key('Escape');
+    expect([card.open, p.open]).toEqual([false, false]);
+  });
+
+  it('a transient never takes Esc', () => {
+    const p = openLayer(mk(), { kind: 'popover' });
+    const t = openLayer(mk(), { kind: 'transient' });
+    key('Escape');
+    expect([t.open, p.open]).toEqual([true, false]);
+    t.close();
+  });
+
   it('a click outside closes a popover but not a dialog', () => {
     const d = openLayer(mk(), { kind: 'dialog' });
     press(document.getElementById('other')!);

@@ -2494,7 +2494,7 @@ ${body}`;
   var CLOSES = {
     popover: { esc: true, outside: true, anchor: true, scroll: true, blur: true },
     hovercard: { esc: true, scroll: true },
-    transient: { esc: true },
+    transient: {},
     command: { esc: true, outside: true },
     dialog: { esc: true },
     float: { esc: true }
@@ -2504,6 +2504,7 @@ ${body}`;
   var topLayer = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
   var wired = false;
   var anchorClosed = null;
+  var opened = 0;
   var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
   function openLayer(el2, opts) {
     wire();
@@ -2559,11 +2560,21 @@ ${body}`;
       }
     };
     stack.push(layer);
+    opened++;
     position(el2, opts);
     const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
     if (f === "first") el2.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
     else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
     return layer;
+  }
+  function raise(el2) {
+    if (!topLayer) return;
+    if (el2.matches(":popover-open") && Number(el2.dataset.raised) === opened) return;
+    el2.dataset.raised = String(opened);
+    if (!el2.hasAttribute("popover")) el2.setAttribute("popover", "manual");
+    if (el2.matches(":popover-open")) el2.hidePopover();
+    el2.showPopover();
+    void el2.offsetWidth;
   }
   function position(el2, o) {
     const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
@@ -2596,6 +2607,7 @@ ${body}`;
     wired = true;
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
+      stack.filter((l) => l.kind === "hovercard").forEach((l) => l.close("esc"));
       const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc);
       if (!top) return;
       e.preventDefault();
@@ -4684,6 +4696,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
   opacity:0;transition:opacity .12s ease-out}
 #fe-hint.on{opacity:1}
+/* A raised part (layer.ts raise) keeps its own placement, not the top layer's centring. */
+[data-raised]{inset:auto;margin:0;overflow:visible}
 @media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
 #fe-toast.act{pointer-events:auto}
 .fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
@@ -15972,6 +15986,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ms = Math.max(ms, 6e3);
       }
       el2.classList.toggle("act", !!action);
+      raise(el2);
       el2.classList.add("show");
       clearTimeout(tid);
       tid = setTimeout(() => el2.classList.remove("show"), ms);
@@ -21148,6 +21163,7 @@ ${rows.join("\n")}`, name: subject };
       timer = window.setTimeout(() => {
         if (target !== el2) return;
         tip.textContent = text;
+        raise(tip);
         tip.classList.add("on");
         place();
       }, DELAY);

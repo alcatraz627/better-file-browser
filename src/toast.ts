@@ -1,5 +1,6 @@
 // One short message at the bottom of the page, optionally with a single
 // action such as undo. The explorer and the file page each mount one.
+import { raise } from './layer';
 export interface ToastAction { label: string; run: () => void }
 export type Toast = (msg: string, ms?: number, action?: ToastAction) => void;
 
@@ -17,6 +18,7 @@ export function makeToast(el: HTMLElement): Toast {
       ms = Math.max(ms, 6000);
     }
     el.classList.toggle('act', !!action);
+    raise(el);
     el.classList.add('show');
     clearTimeout(tid);
     tid = setTimeout(() => el.classList.remove('show'), ms);

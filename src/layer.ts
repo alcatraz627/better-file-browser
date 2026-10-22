@@ -45,7 +45,7 @@ export interface Layer {
 const CLOSES: Record<Archetype, Partial<Record<CloseWhy, boolean>>> = {
   popover:   { esc: true, outside: true, anchor: true, scroll: true, blur: true },
   hovercard: { esc: true, scroll: true },
-  transient: { esc: true },
+  transient: {},
   command:   { esc: true, outside: true },
   dialog:    { esc: true },
   float:     { esc: true },
@@ -58,6 +58,8 @@ let wired = false;
 // A press on an open layer's anchor closes it; the click that follows the same
 // press must not open it again.
 let anchorClosed: { anchor: HTMLElement; at: number } | null = null;
+// Counts layer openings, so a raised part knows when something has opened over it.
+let opened = 0;
 
 const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
 
@@ -112,11 +114,26 @@ export function openLayer(el: HTMLElement, opts: LayerOptions): Layer {
     },
   };
   stack.push(layer);
+  opened++;
   position(el, opts);
   const f = opts.focus ?? (MODAL[opts.kind] ? 'first' : 'none');
   if (f === 'first') el.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: true });
   else if (f instanceof HTMLElement) f.focus({ preventScroll: true });
   return layer;
+}
+
+/// Lifts a part that shows and hides itself (a toast, a tooltip) above every
+/// open layer, without making it a layer: it takes no Esc and no outside click,
+/// and stays in the top layer so its own fade-out still runs. Call it just
+/// before showing the part.
+export function raise(el: HTMLElement): void {
+  if (!topLayer) return;
+  if (el.matches(':popover-open') && Number(el.dataset.raised) === opened) return;
+  el.dataset.raised = String(opened);
+  if (!el.hasAttribute('popover')) el.setAttribute('popover', 'manual');
+  if (el.matches(':popover-open')) el.hidePopover();
+  el.showPopover();
+  void el.offsetWidth;   // a class added next starts its transition from here
 }
 
 /// The topmost open layer, if any.
@@ -152,8 +169,10 @@ function position(el: HTMLElement, o: LayerOptions): void {
 function wire(): void {
   if (wired) return;
   wired = true;
+  // A hover card goes on Esc too, but never takes an Esc meant for the layer under it.
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
+    stack.filter(l => l.kind === 'hovercard').forEach(l => l.close('esc'));
     const top = [...stack].reverse().find(l => CLOSES[l.kind].esc);
     if (!top) return;
     e.preventDefault(); e.stopPropagation();

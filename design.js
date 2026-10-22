@@ -562,6 +562,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   font-size:var(--fs-md);line-height:1.4;white-space:pre-line;
   opacity:0;transition:opacity .12s ease-out}
 #fe-hint.on{opacity:1}
+/* A raised part (layer.ts raise) keeps its own placement, not the top layer's centring. */
+[data-raised]{inset:auto;margin:0;overflow:visible}
 @media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
 #fe-toast.act{pointer-events:auto}
 .fe-toast-act{background:none;border:none;color:#79b8ff;cursor:pointer;font:inherit;padding:0;text-decoration:underline}
@@ -2109,7 +2111,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   var CLOSES = {
     popover: { esc: true, outside: true, anchor: true, scroll: true, blur: true },
     hovercard: { esc: true, scroll: true },
-    transient: { esc: true },
+    transient: {},
     command: { esc: true, outside: true },
     dialog: { esc: true },
     float: { esc: true }
@@ -2119,6 +2121,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   var topLayer = typeof HTMLElement !== "undefined" && typeof HTMLElement.prototype.showPopover === "function";
   var wired = false;
   var anchorClosed = null;
+  var opened = 0;
   var FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])';
   function openLayer(el, opts) {
     wire();
@@ -2174,6 +2177,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
       }
     };
     stack.push(layer);
+    opened++;
     position(el, opts);
     const f = opts.focus ?? (MODAL[opts.kind] ? "first" : "none");
     if (f === "first") el.querySelector(FOCUSABLE)?.focus({ preventScroll: true });
@@ -2211,6 +2215,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     wired = true;
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
+      stack.filter((l) => l.kind === "hovercard").forEach((l) => l.close("esc"));
       const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc);
       if (!top) return;
       e.preventDefault();

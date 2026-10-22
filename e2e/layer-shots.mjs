@@ -55,4 +55,14 @@ try {
   if (!ok) process.exitCode = 1;
   const b = await page.$eval('.fe-tab-menu', m => { const r = m.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
   await page.screenshot({ path: new URL('./shots/layer-tabmenu-light.png', import.meta.url).pathname, clip: { x: Math.max(0, b.x - 120), y: Math.max(0, b.y - 60), width: b.w + 240, height: b.h + 100 } });
+
+  // A tooltip shown while the menu is open draws over it.
+  const near = await page.$$('#fe-tabs-end button[title]');
+  for (const btn of near) if (await btn.isVisible()) { await btn.hover(); break; }
+  await new Promise(res => setTimeout(res, 600));
+  const tipOn = await page.$eval('#fe-hint', t => t.classList.contains('on') && t.matches(':popover-open'));
+  const menuStill = !!(await page.$('.fe-tab-menu'));
+  console.log(`${tipOn && menuStill ? 'ok  ' : 'FAIL'} a tooltip shows in the top layer while the menu is open: ${JSON.stringify({ tipOn, menuStill })}`);
+  if (!(tipOn && menuStill)) process.exitCode = 1;
+  await page.screenshot({ path: new URL('./shots/layer-tip-over-menu-light.png', import.meta.url).pathname, clip: { x: Math.max(0, b.x - 120), y: Math.max(0, b.y - 60), width: b.w + 240, height: b.h + 100 } });
 } finally { await h.close(); }
