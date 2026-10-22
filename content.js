@@ -1195,6 +1195,21 @@ ${body}`;
     root.addEventListener("keydown", onKey);
     return () => root.removeEventListener("keydown", onKey);
   }
+  function focusTrap(root, o = {}) {
+    const onKey = (e) => {
+      if (e.key !== "Tab" || !root.isConnected || getComputedStyle(root).display === "none" || o.when && !o.when()) return;
+      const ae = document.activeElement;
+      if (ae?.closest('textarea, [contenteditable="true"]')) return;
+      const list2 = [...root.querySelectorAll(FOCUSABLE)].filter((x) => x.offsetParent !== null && !x.disabled);
+      if (!list2.length) return;
+      const at = ae ? list2.indexOf(ae) : -1;
+      const next = at < 0 ? e.shiftKey ? list2.length - 1 : 0 : (at + (e.shiftKey ? -1 : 1) + list2.length) % list2.length;
+      e.preventDefault();
+      list2[next].focus();
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }
 
   // src/dialog.ts
   var tile = (t, size = "") => `<span class="fe-dlg-tile ${size}" style="--tone:${t.tone ?? "var(--ac)"}" aria-hidden="true">${t.icon}</span>`;
@@ -3489,16 +3504,7 @@ Now: ${question}` : question;
       applyLayout();
     });
     applyLayout();
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Tab" || overlay.style.display === "none" || !overlay.style.display || layout.mode === "side") return;
-      if (document.activeElement?.closest('textarea, [contenteditable="true"]')) return;
-      const all = [...overlay.querySelectorAll('button, a[href], input:not([type="file"]), textarea, select, [tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null && !x.disabled);
-      if (!all.length) return;
-      const at = all.indexOf(document.activeElement);
-      const next = at < 0 ? e.shiftKey ? all.length - 1 : 0 : (at + (e.shiftKey ? -1 : 1) + all.length) % all.length;
-      e.preventDefault();
-      all[next].focus();
-    }, true);
+    focusTrap(overlay, { when: () => layout.mode !== "side" });
     const dialog = document.getElementById("fe-ql-dialog");
     const drag = (grip, onMove, onUp) => {
       grip.addEventListener("mousedown", (e) => {

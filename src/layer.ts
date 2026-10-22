@@ -298,16 +298,21 @@ export function rovingFocus(root: HTMLElement, items: string, o: { wrap?: boolea
   return () => root.removeEventListener('keydown', onKey);
 }
 
-/// Keeps Tab and Shift+Tab inside `root`.
-export function focusTrap(root: HTMLElement): () => void {
+/// Keeps Tab and Shift+Tab inside `root` while it shows and `when` holds:
+/// they wrap at the ends, and from outside they step in. A text area or rich
+/// editor keeps its Tab (it indents).
+export function focusTrap(root: HTMLElement, o: { when?: () => boolean } = {}): () => void {
   const onKey = (e: KeyboardEvent) => {
-    if (e.key !== 'Tab') return;
-    const list = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(x => x.offsetParent !== null);
+    if (e.key !== 'Tab' || !root.isConnected || getComputedStyle(root).display === 'none' || (o.when && !o.when())) return;
+    const ae = document.activeElement as HTMLElement | null;
+    if (ae?.closest('textarea, [contenteditable="true"]')) return;
+    const list = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(x => x.offsetParent !== null && !(x as HTMLButtonElement).disabled);
     if (!list.length) return;
-    const first = list[0], last = list[list.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    const at = ae ? list.indexOf(ae) : -1;
+    const next = at < 0 ? (e.shiftKey ? list.length - 1 : 0) : (at + (e.shiftKey ? -1 : 1) + list.length) % list.length;
+    e.preventDefault();
+    list[next].focus();
   };
-  root.addEventListener('keydown', onKey);
-  return () => root.removeEventListener('keydown', onKey);
+  document.addEventListener('keydown', onKey, true);
+  return () => document.removeEventListener('keydown', onKey, true);
 }

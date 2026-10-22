@@ -5,7 +5,7 @@ import type { Entry, IconRule, PreviewLayout } from './types';
 import { esc, fmtSize, getExt, copyToClipboard, midHtml, pageHref, fileHref } from './utils';
 import { getPreviewLayout, savePreviewLayout, isSaved, toggleSaved } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
-import { raise, lower } from './layer';
+import { raise, lower, focusTrap } from './layer';
 import { getIcon, IMG_EXTS, PI } from './icons';
 import { UI_ICON } from './control-icons';
 import { fileMeta, kindName, metaSummary } from './file-meta';
@@ -175,17 +175,7 @@ export function initPreview(d: PreviewDeps): void {
 
   // While the floating preview is open, Tab moves through its own controls
   // and wraps, rather than walking the listing hidden behind its scrim.
-  document.addEventListener('keydown', e => {
-    if (e.key !== 'Tab' || overlay.style.display === 'none' || !overlay.style.display || layout.mode === 'side') return;
-    if ((document.activeElement as HTMLElement | null)?.closest('textarea, [contenteditable="true"]')) return;   // the note editor indents with Tab
-    const all = [...overlay.querySelectorAll<HTMLElement>('button, a[href], input:not([type="file"]), textarea, select, [tabindex]:not([tabindex="-1"])')]
-      .filter(x => x.offsetParent !== null && !(x as HTMLButtonElement).disabled);
-    if (!all.length) return;
-    const at = all.indexOf(document.activeElement as HTMLElement);
-    const next = at < 0 ? (e.shiftKey ? all.length - 1 : 0) : (at + (e.shiftKey ? -1 : 1) + all.length) % all.length;
-    e.preventDefault();
-    all[next].focus();
-  }, true);
+  focusTrap(overlay, { when: () => layout.mode !== 'side' });
 
   // Corner grip (modal) sets the dialog's size; left-edge grip (side) sets
   // the panel width. Same mousedown/move/up shape as the column resizers.

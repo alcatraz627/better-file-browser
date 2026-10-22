@@ -51,7 +51,22 @@ try {
   await sleep(400);
   const pv = await page.$eval('#fe-qlook', q => q.style.display === 'flex');
   check(pv || rowName.includes('nested'), `Space on a file row previews it: ${rowName} → ${pv}`);
-  if (pv) await key('Escape');
+  if (pv) {
+    // Tab walks the floating preview's own controls and never leaves it.
+    let outside = 0;
+    for (let i = 0; i < 25; i++) {
+      await page.keyboard.press('Tab');
+      if (!(await page.evaluate(() => !!document.activeElement?.closest('#fe-qlook')))) outside++;
+    }
+    await page.keyboard.down('Shift');
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press('Tab');
+      if (!(await page.evaluate(() => !!document.activeElement?.closest('#fe-qlook')))) outside++;
+    }
+    await page.keyboard.up('Shift');
+    check(outside === 0, `Tab and Shift+Tab stay inside the floating preview (${outside} steps outside)`);
+    await key('Escape');
+  }
   await sleep(150);
   const before = (await h.browser.pages()).length;
   await page.$eval('#fe-lens-saved .fe-pl-item a', a => a.focus());
