@@ -240,10 +240,14 @@ Changed on purpose: opening the palette while a menu is open now closes the
 menu (it loses focus) instead of stacking over it (L87). A second click on the
 props or rule-designer anchor closes it instead of reopening it in place.
 
-Left for later in the slice: the floating preview (z-index, its own focus
-stack), the narrow sidebar overlay (a dock), the Comment button and the
-completion list (D8), and the note row menu's keyboard route (D5, slice 2 with
-the action registry).
+The floating preview now rises into the top layer when it opens and leaves it
+when docked; Esc and focus return keep their own owners. The comment
+completion list closes when its box loses focus (D8, mutation-proven).
+
+Left for later: the narrow sidebar overlay stays a dock with its own Esc
+(layers stop Esc before it reaches it, so D4 no longer bites); the Comment
+button keeps its own placement; the note row menu's keyboard route (D5) goes
+with the action registry in slice 2.
 
 Checks added: tests/layer.test.ts (Esc order, outside and anchor presses,
 group, focus return, page-held parts, scroll), tests/tooltip.test.ts,
