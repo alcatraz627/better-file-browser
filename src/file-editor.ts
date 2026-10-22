@@ -56,6 +56,8 @@ export function editableRoot(path: string, folders: string[] | undefined, home =
 export interface FileEditorHost {
   root: string; rel: string; ext: string; href: string;
   status(text: string): void;
+  /** The file cannot be opened for editing, and why. */
+  cannotEdit?(why: string): void;
   // The saved text, so the reading view shows it when the editor closes.
   saved(text: string): void;
   closed(): void;
@@ -74,7 +76,7 @@ export interface FileEditor {
 export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Promise<FileEditor | null> {
   let doc: { text: string; mtime: number };
   try { doc = await notes.fileRead(host.root, host.rel); }
-  catch (err) { host.status(errorText(err, 'Opening it for editing')); return null; }
+  catch (err) { const why = errorText(err, 'Opening it for editing'); if (host.cannotEdit) host.cannotEdit(why); else host.status(why); return null; }
   let lineCount = 1;
   for (let p = doc.text.indexOf('\n'); p !== -1 && lineCount <= BIG_LINES; p = doc.text.indexOf('\n', p + 1)) lineCount++;
   const big = lineCount > BIG_LINES || doc.text.length > BIG_CHARS;

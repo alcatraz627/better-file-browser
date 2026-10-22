@@ -6,18 +6,14 @@
 /** A failure as the page sees it: a stable code, and the source's own words. */
 export interface AppError { code: string; message?: string }
 
-// The notes host's codes (native/), and the page's own.
+// Codes whose cause is always the same get fixed words. The notes host (native/)
+// reuses its other codes (notes_bad_path, notes_io, notes_exists, notes_too_big,
+// notes_bad_op, notes_bad_root) for many causes, so those keep the host's own
+// reason, which it writes for people, behind what was being done.
 const WORDS: Record<string, string> = {
-  unavailable:      'The notes host is not installed. Run native/install.sh, then reload.',
-  notes_host:       'The notes host stopped unexpectedly. Reload the page to start it again.',
-  notes_bad_root:   'The notes folder is not set, or is not a folder. Pick it in Settings.',
-  notes_bad_path:   'That name or place cannot be used for a note.',
-  notes_missing:    'That note is not there any more; it may have been moved or deleted.',
-  notes_exists:     'A note with that name already exists.',
-  notes_conflict:   'The note changed on disk since it was opened. Reload it, then try again.',
-  notes_io:         'The note could not be read or written.',
-  notes_too_big:    'That note is too large to open here.',
-  notes_bad_op:     'The notes host did not understand the request. Update the host with native/install.sh.',
+  unavailable:      'The notes host did not answer. If it is new, run native/install.sh, then reload.',
+  notes_missing:    'That file is not there any more; it may have been moved or deleted.',
+  notes_conflict:   'The file changed on disk since it was opened. Reload it, then try again.',
   'read-failed':    'The file could not be read.',
   'write-failed':   'The change could not be saved.',
   'match-timeout':  'The search took too long. Narrow it and try again.',

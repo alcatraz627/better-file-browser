@@ -4,7 +4,7 @@
 // while edited raises the banner instead of overwriting, and Done goes back
 // to reading.
 import assert from 'node:assert/strict';
-import { writeFileSync, readFileSync, utimesSync } from 'node:fs';
+import { writeFileSync, readFileSync, utimesSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { launch, SHOTS } from './harness.mjs';
 
@@ -154,6 +154,18 @@ try {
   await page.click('#fe-fp-edit');
   await page.waitForSelector('#fe-fe-ta');
   check(!(await page.$('#fe-fe-view')) && !(await page.$('#fe-fe-pill [data-mode]')), 'a .txt file edits as source alone');
+
+  // A file the host will not edit (read-only here) says why beside the Edit button.
+  const locked = join(h.fixture, 'locked.txt');
+  writeFileSync(locked, 'hands off\n');
+  chmodSync(locked, 0o444);
+  await page.goto('file://' + locked, { waitUntil: 'load' });
+  await page.waitForSelector('#fe-fp-edit');
+  await page.click('#fe-fp-edit');
+  await page.waitForSelector('#fe-allow.fe-allow-note', { timeout: 5000 }).catch(() => null);
+  const refused = await page.$eval('#fe-allow.fe-allow-note', el => el.textContent).catch(() => '');
+  check(/Cannot edit this file/.test(refused) && /read-only/.test(refused), `a read-only file says why it cannot be edited: "${refused}"`);
+  chmodSync(locked, 0o644);
 
   // A .yaml file, which Chrome downloads, opens in its folder's view: coloured and editable.
   const yaml = join(h.fixture, 'conf.yaml');

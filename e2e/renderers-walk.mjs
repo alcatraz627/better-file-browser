@@ -1,7 +1,7 @@
 // One fixture of each kind, drawn on the file page and in the preview: both
 // go through renderFile, so they agree except where a host differs on
 // purpose (HTML live in the preview, source on the page; bad JSON explained
-// inline in the preview, by the problems strip on the page).
+// inline in the preview, by the problems strip on the page; JSONC is code in both).
 //   node e2e/renderers-walk.mjs
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -28,6 +28,7 @@ const FIX = {
   'r.md': '# Title\n\nSome words.\n',
   'r.json': '{"a": 1, "b": [1, 2]}\n',
   'r.jsonc': '{\n  // a comment\n  "a": 1,\n}\n',
+  'bad.json': '{"a": 1,}\n',
   'r.jsonl': '{"a":1}\n{"a":2}\n',
   'r.yaml': 'a: 1\nb: [x, y]\n',
   'r.csv': 'h1,h2\n1,2\n',
@@ -39,7 +40,8 @@ const FIX = {
 const WANT = {
   'r.md': { page: { md: 1 }, preview: { md: 1 } },
   'r.json': { page: { tree: true }, preview: { tree: true } },
-  'r.jsonc': { page: { code: true, tree: false }, preview: { code: true, note: true } },
+  'r.jsonc': { page: { code: true, tree: false }, preview: { code: true, note: false } },
+  'bad.json': { page: { code: true, tree: false }, preview: { code: true, note: true } },
   'r.jsonl': { page: { jsonl: true }, preview: { jsonl: true } },
   'r.yaml': { page: { tree: true }, preview: { tree: true } },
   'r.csv': { page: { table: true }, preview: { table: true } },

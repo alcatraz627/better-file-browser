@@ -407,7 +407,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     editBtn.classList.add('on');
     editor = await openFileEditor(editBox, {
       root, rel: rawPath.slice(root.length + 1), ext, href,
-      status: t => { status(t); if (t.startsWith('cannot edit: ')) noteAtButton(t.slice(13)); },
+      status,
+      cannotEdit: why => { status(why); noteAtButton(why); },
       saved: fresh => { text = fresh; paintMeta(); },   // the pill shows Saved
       // The file may have changed while editing (a reload from disk), so read it again.
       closed: () => {

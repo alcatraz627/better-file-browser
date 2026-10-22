@@ -244,7 +244,7 @@ export function renderFile(text: string, ext: string, href: string, host: Host):
   }
   const fmt = formatFor(ext);
   if (fmt?.id === 'html' && host === 'page') return renderCode(text, ext);
-  if (fmt?.id === 'json' && host === 'preview') return renderJsonTree(text);
+  if (fmt?.id === 'json' && host === 'preview') return ext === 'json' ? renderJsonTree(text) : renderCode(text, ext);
   return fmt ? fmt.rich(text, href) : renderCode(text, ext);
 }
 

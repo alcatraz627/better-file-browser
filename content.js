@@ -2543,16 +2543,9 @@ ${body}`;
 
   // src/errors.ts
   var WORDS = {
-    unavailable: "The notes host is not installed. Run native/install.sh, then reload.",
-    notes_host: "The notes host stopped unexpectedly. Reload the page to start it again.",
-    notes_bad_root: "The notes folder is not set, or is not a folder. Pick it in Settings.",
-    notes_bad_path: "That name or place cannot be used for a note.",
-    notes_missing: "That note is not there any more; it may have been moved or deleted.",
-    notes_exists: "A note with that name already exists.",
-    notes_conflict: "The note changed on disk since it was opened. Reload it, then try again.",
-    notes_io: "The note could not be read or written.",
-    notes_too_big: "That note is too large to open here.",
-    notes_bad_op: "The notes host did not understand the request. Update the host with native/install.sh.",
+    unavailable: "The notes host did not answer. If it is new, run native/install.sh, then reload.",
+    notes_missing: "That file is not there any more; it may have been moved or deleted.",
+    notes_conflict: "The file changed on disk since it was opened. Reload it, then try again.",
     "read-failed": "The file could not be read.",
     "write-failed": "The change could not be saved.",
     "match-timeout": "The search took too long. Narrow it and try again."
@@ -10929,7 +10922,7 @@ ${end.comment}` : end.comment;
     }
     const fmt = formatFor(ext2);
     if (fmt?.id === "html" && host === "page") return renderCode(text, ext2);
-    if (fmt?.id === "json" && host === "preview") return renderJsonTree(text);
+    if (fmt?.id === "json" && host === "preview") return ext2 === "json" ? renderJsonTree(text) : renderCode(text, ext2);
     return fmt ? fmt.rich(text, href) : renderCode(text, ext2);
   }
   function formatFor(ext2) {
@@ -14537,21 +14530,32 @@ button.chip:disabled{opacity:.45;cursor:default}
 
   // src/watch.ts
   var EVERY_MS = 2e3;
+  var STALE_TICKS = 3;
   var subs = /* @__PURE__ */ new Set();
   var timer = 0;
   function tick() {
     if (document.visibilityState !== "visible") return;
     for (const s of subs) {
-      if (s.running || s.pause?.()) continue;
-      s.running = true;
+      if (s.running && ++s.running <= STALE_TICKS) continue;
+      let paused;
+      try {
+        paused = !!s.pause?.();
+      } catch {
+        paused = true;
+      }
+      if (paused) {
+        s.running = 0;
+        continue;
+      }
+      const run = s.running = 1;
       Promise.resolve().then(s.check).catch(() => {
       }).finally(() => {
-        s.running = false;
+        if (s.running === run) s.running = 0;
       });
     }
   }
   function watch(check, o = {}) {
-    const s = { check, pause: o.pause, running: false };
+    const s = { check, pause: o.pause, running: 0 };
     subs.add(s);
     if (!timer) timer = window.setInterval(tick, EVERY_MS);
     return () => {
@@ -14597,7 +14601,9 @@ button.chip:disabled{opacity:.45;cursor:default}
     try {
       doc = await notes.fileRead(host.root, host.rel);
     } catch (err) {
-      host.status(errorText(err, "Opening it for editing"));
+      const why = errorText(err, "Opening it for editing");
+      if (host.cannotEdit) host.cannotEdit(why);
+      else host.status(why);
       return null;
     }
     let lineCount = 1;
@@ -16584,9 +16590,10 @@ ${d.message}` : d.message;
         rel: rawPath.slice(root.length + 1),
         ext: ext2,
         href,
-        status: (t) => {
-          status(t);
-          if (t.startsWith("cannot edit: ")) noteAtButton(t.slice(13));
+        status,
+        cannotEdit: (why) => {
+          status(why);
+          noteAtButton(why);
         },
         saved: (fresh) => {
           text = fresh;
@@ -18443,6 +18450,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       this.matchId = 0;
       this.dead = false;
       this.failure = null;
+      /** The failure itself, so its code chooses the words the person reads. */
+      this.failureError = null;
       this.match = (text, query) => new Promise((resolve, reject) => {
         if (this.dead) {
           reject(new Error(this.failure ?? "search stopped"));
@@ -18488,6 +18497,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (this.dead) return;
       this.dead = true;
       this.failure = error.message;
+      this.failureError = error;
       this.worker?.terminate();
       for (const p of this.matches.values()) {
         if (p.timer) clearTimeout(p.timer);
@@ -19157,7 +19167,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } catch (error) {
         if (seq2 !== ls.findSeq) return;
         findCancel.style.display = "none";
-        findError.textContent = `Search could not start: ${String(error)}`;
+        findError.textContent = errorText(error, "Starting the search");
         return;
       }
       if (seq2 !== ls.findSeq) {
@@ -19177,14 +19187,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         4,
         session.match
       );
-      const failure = session.failure;
+      const failure = session.failure, failureError = session.failureError;
       session.close();
       if (findSession === session) findSession = null;
       if (seq2 !== ls.findSeq) return;
       findCancel.style.display = "none";
       ls.contentHits = r.hits;
       findStatus.textContent = `${r.hits.size} matching file${r.hits.size === 1 ? "" : "s"} of ${r.scanned} scanned${r.failed ? `, ${r.failed} unreadable or timed out` : ""}${r.cancelled ? " (partial, stopped)" : ""}`;
-      if (failure && failure !== "search stopped") findError.textContent = failure;
+      if (failure && failure !== "search stopped") findError.textContent = errorText(failureError ?? failure, "Matching text");
       applyAll();
     }
     el("fe-find-run").addEventListener("click", () => void runFind(findText.value.trim()));
@@ -19266,7 +19276,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         reader = new SearchFileReader();
       } catch (error) {
         ls.deepScanning = false;
-        findError.textContent = `Folder scan could not start: ${String(error)}`;
+        findError.textContent = errorText(error, "Starting the folder scan");
         return;
       }
       deepReader = reader;
@@ -19275,7 +19285,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         treeRootUrl,
         (url) => reader.read(url).then((html) => parseListing(html, url)).catch((error) => {
           scanFailures++;
-          if (seq2 === ls.deepSeq) findError.textContent = `Could not read ${scanFailures} folder${scanFailures === 1 ? "" : "s"}: ${String(error)}`;
+          if (seq2 === ls.deepSeq) findError.textContent = errorText(error, `Reading ${scanFailures} folder${scanFailures === 1 ? "" : "s"}`);
           throw error;
         }),
         {

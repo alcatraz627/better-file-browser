@@ -625,7 +625,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     catch (error) {
       if (seq !== ls.findSeq) return;
       findCancel.style.display = 'none';
-      findError.textContent = `Search could not start: ${String(error)}`;
+      findError.textContent = errorText(error, 'Starting the search');
       return;
     }
     if (seq !== ls.findSeq) { session.close(); return; }
@@ -634,14 +634,14 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     const r = await searchContents(candidates, session.read, query,
       (d, t) => { if (seq === ls.findSeq) findStatus.textContent = `scanning ${d}/${t}`; },
       () => cancelled || session.dead || seq !== ls.findSeq, 4, session.match);
-    const failure = session.failure;
+    const failure = session.failure, failureError = session.failureError;
     session.close();
     if (findSession === session) findSession = null;
     if (seq !== ls.findSeq) return;
     findCancel.style.display = 'none';
     ls.contentHits = r.hits;
     findStatus.textContent = `${r.hits.size} matching file${r.hits.size === 1 ? '' : 's'} of ${r.scanned} scanned${r.failed ? `, ${r.failed} unreadable or timed out` : ''}${r.cancelled ? ' (partial, stopped)' : ''}`;
-    if (failure && failure !== 'search stopped') findError.textContent = failure;
+    if (failure && failure !== 'search stopped') findError.textContent = errorText(failureError ?? failure, 'Matching text');
     applyAll();
   }
   el('fe-find-run').addEventListener('click', () => void runFind(findText.value.trim()));
@@ -696,14 +696,14 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     ls.deepScanning = true;
     let reader: SearchFileReader;
     try { reader = new SearchFileReader(); }
-    catch (error) { ls.deepScanning = false; findError.textContent = `Folder scan could not start: ${String(error)}`; return; }
+    catch (error) { ls.deepScanning = false; findError.textContent = errorText(error, 'Starting the folder scan'); return; }
     deepReader = reader;
     let scanFailures = 0;
     crawl(
       treeRootUrl,
       url => reader.read(url).then(html => parseListing(html, url)).catch(error => {
         scanFailures++;
-        if (seq === ls.deepSeq) findError.textContent = `Could not read ${scanFailures} folder${scanFailures === 1 ? '' : 's'}: ${String(error)}`;
+        if (seq === ls.deepSeq) findError.textContent = errorText(error, `Reading ${scanFailures} folder${scanFailures === 1 ? '' : 's'}`);
         throw error;
       }),
       {

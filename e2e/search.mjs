@@ -86,7 +86,7 @@ try {
   await b.waitForFunction(() => document.getElementById('fe-find-status').textContent.includes('partial'), { polling: 100 });
   assert.equal(await b.$$eval('#fe-tbody .fe-find-snippet', nodes => nodes.length), 0);
   await b.$eval('#fe-find-run', button => button.click());
-  await b.waitForFunction(() => document.getElementById('fe-find-error').textContent === 'Text matching timed out', { polling: 100, timeout: 5000 });
+  await b.waitForFunction(() => document.getElementById('fe-find-error').textContent.includes('took too long'), { polling: 100, timeout: 5000 });
   assert.match(await b.$eval('#fe-find-status', el => el.textContent), /partial/);
   await b.$eval('#fe-find-run', button => button.click());
   await b.close();

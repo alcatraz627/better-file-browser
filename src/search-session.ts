@@ -41,6 +41,8 @@ export class SearchSession extends SearchFileReader {
   private matchId = 0;
   dead = false;
   failure: string | null = null;
+  /** The failure itself, so its code chooses the words the person reads. */
+  failureError: Error | null = null;
 
   static async open(): Promise<SearchSession> {
     const response = await fetch(chrome.runtime.getURL('search-worker.js'));
@@ -81,6 +83,7 @@ export class SearchSession extends SearchFileReader {
     if (this.dead) return;
     this.dead = true;
     this.failure = error.message;
+    this.failureError = error;
     this.worker?.terminate();
     for (const p of this.matches.values()) {
       if (p.timer) clearTimeout(p.timer);

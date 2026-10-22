@@ -2,13 +2,18 @@ import { describe, it, expect } from 'vitest';
 import { errorText, detailOf } from '../src/errors';
 
 describe('errorText', () => {
-  it('uses the words for a known code, whatever the source said', () => {
-    const err = Object.assign(new Error('EACCES: permission denied, open'), { code: 'notes_io' });
-    expect(errorText(err, 'Saving')).toBe('The note could not be read or written.');
+  it('uses the words for a code with one cause, whatever the source said', () => {
+    const err = Object.assign(new Error('stale mtime 123'), { code: 'notes_conflict' });
+    expect(errorText(err, 'Saving')).toBe('The file changed on disk since it was opened. Reload it, then try again.');
+  });
+
+  it('keeps the host reason for a code the host reuses for many causes', () => {
+    const err = Object.assign(new Error('the file is read-only'), { code: 'notes_bad_path' });
+    expect(errorText(err, 'Opening it for editing')).toBe('Opening it for editing failed: the file is read-only');
   });
 
   it('gives the notes host its install step when it is missing', () => {
-    expect(errorText({ code: 'unavailable', message: 'no reply' })).toContain('native/install.sh');
+    expect(errorText({ code: 'unavailable', message: 'no reply' })).toMatch(/did not answer.*native\/install\.sh/);
   });
 
   it('keeps an unknown failure\'s own words behind what was being done', () => {

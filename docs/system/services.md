@@ -21,7 +21,8 @@ default and how it is written sit in one place.
 
 A `profile` Pref (the default) lives in the shared store and is seen by every
 tab; a `tab` Pref lives in this tab's session. `onChange` reports another tab's
-write. `exportAll` and `importAll` back Settings' export and import.
+write (profile Prefs only; a tab Pref is this tab's alone). `exportAll` and
+`importAll` back Settings' export and import.
 
 Banned: `kvGet`, `kvSet` or `localStorage`/`sessionStorage` outside kv.ts and
 storage.ts (`js-storage`, 0).
@@ -37,14 +38,17 @@ Banned: writing `location.href`, `location.reload`, `history.*State` or
 
 The home folder comes from the path model (`homeDir` in storage.ts: a visit
 under it, or the native host). The renderers link bare paths under it through
-`setLinkHome`; no source names a home folder (`js-home-literal`, 0).
+`setLinkHome`; no source names a home folder (`js-home-literal`, 0). A fresh
+profile on a page outside home links no bare paths until it learns home; what is
+already drawn is not drawn again.
 
 ## Errors: `src/errors.ts`
 
-`errorText(err, doing)` gives the words for a failure by its code: the notes
-host's codes and the page's own (`read-failed`, `write-failed`,
-`match-timeout`). A failure with no known code keeps its own words behind what
-was being done ("Copying the image failed: disk full").
+`errorText(err, doing)` gives the words for a failure by its code. A code
+with one cause gets fixed words (`unavailable`, `notes_missing`,
+`notes_conflict`, `read-failed`, `write-failed`, `match-timeout`). Any other
+failure, including the notes host's codes it reuses for many causes, keeps its
+own reason behind what was being done ("Copying the image failed: disk full").
 
 Checker findings are not errors: a `Diagnostic`'s message is a finding in the
 checker's words, and `detailOf(err)` passes a parser's words into a finding.
@@ -57,8 +61,9 @@ errors.ts (`js-message-shown`, 0).
 `watch(check, { pause })` puts a check on one shared two-second clock. Nothing
 runs while the tab is hidden, a part pauses its own check while it saves or
 edits, and a check still running is not started again. The file page, the
-editor and the comments panel are its three subscribers. smoke's "Updated from
-disk" check goes red when the clock stops.
+editor and the comments panel are its three subscribers. A check that has not
+settled after three ticks is started again, and a pause that throws counts as
+paused. smoke's "Updated from disk" check goes red when the clock stops.
 
 ## Drawing a file: `renderFile` in `src/formats.ts`
 
@@ -69,8 +74,14 @@ highlighted code. The hosts differ only on purpose:
 | | File page | Preview |
 |---|---|---|
 | HTML | its source | the live page, with a Source toggle (preview.ts) |
-| JSON that is not strict | text; the problems strip says why | the tree's own note, then text |
+| `.json` that is not strict | text; the problems strip says why | the tree's own note, then text |
+| `.jsonc`, `.json5` | a tree when it is strict JSON, else text | text |
 | Links in markdown | as written | every one opens a new tab |
 
-Checked by `e2e/renderers-walk.mjs`, which draws nine kinds of file in both
+Markdown is wrapped once: the file page and the editor's Rich and Split views
+used to nest two wrappers and doubled their inset (the page from 48 to 96px,
+the editor from 22 to 44px). The preview draws YAML as a tree and restores the
+scroll position for every kind, as the page does.
+
+Checked by `e2e/renderers-walk.mjs`, which draws ten kinds of file in both
 hosts.
