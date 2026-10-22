@@ -11,6 +11,7 @@ import { icoCustom, RULE_GLYPHS } from './icons';
 import { VIEW_KEY, PALETTE_KEY, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
 import { llmAvailability, llmWarm, llmModels } from './llm';
 import { mountDialog } from './dialog';
+import { wireKeyboardMap } from './help';
 import { COLUMN_KEY, parseExcludedExtensions, savedColumnMode } from './file-page';
 import { UI_ICON } from './control-icons';
 import { setSidebarShown } from './motion';
@@ -265,6 +266,7 @@ export function initSettingsUi(app: App): void {
 
   el('fe-settings-btn').addEventListener('click', () => openSettings());
   const helpDlg = mountDialog('fe-help-modal');
+  wireKeyboardMap(el('fe-help-modal'));
   el('fe-help-btn').addEventListener('click', () => helpDlg.open());
   el('fe-st-keys').addEventListener('click', () => { settingsDlg.close(); helpDlg.open('keys'); });
   app.openHelp = tab => helpDlg.open(tab);

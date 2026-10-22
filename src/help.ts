@@ -1,390 +1,171 @@
-// User-facing help, one markdown document per Help tab, rendered via
-// renderMarkdown to reuse the preview's .fe-md styling. Keep it accurate to the
-// real features; it is the one doc users read in-product.
-export interface HelpTab { key: string; label: string; hint: string; md: string }
-
-export const HELP_TABS: HelpTab[] = [
-  { key: 'keys', label: 'Keyboard', hint: 'every shortcut', md: `
-| Key | Action |
-|-----|--------|
-| ↑ / ↓ | Move selection |
-| Enter | Open |
-| Backspace · ⌘↑ | Go to parent folder |
-| Space | Preview selected file (Space again closes) |
-| ⌘F | Focus the filter (again → browser find) |
-| ⌘A | Select all |
-| ⌘C | Copy selected path(s) |
-| Esc | Close a dialog or the preview / clear the filter |
-| ? · , | Open this Help · open Settings |
-| t · w · p | Keep this folder or file as a tab · close it · pin it |
-| [ · ] · 1-9 | Previous / next tab · jump to a tab (in a dialog: switch its tabs) |
-| T (shift-t) | Reopen the last closed tab, at its place |
-| n | New note (when a Notes folder is set) |
-| r | Raw / rendered, on a file page |
-
-Single-letter keys work when nothing is focused. Chrome owns ⌘T and ⌘W, so
-the tab keys are bare letters.
-` },
-  { key: 'explorer', label: 'Explorer', hint: 'views, finding, opening', md: `
-## Views & zoom
-
-Switch layout from the toolbar: **Details** (table), **List** (compact),
-**Tree** (expand folders in place), **Tiles**, or **Large Icons**. Your choice is remembered. The **zoom** slider
-(50–320%) scales the whole list.
-
-The **≡** button at the top left shows or hides the sidebar, and dragging the
-sidebar's right edge resizes it. To scale the whole interface, sidebar and text
-included, set **Interface size** in **Settings → Look**.
-
-## Finding files
-
-- **Quick filter**: type in the **Filter** box (top-right), or press **⌘F** to jump to it. Press **⌘F** again to fall through to Chrome's own find.
-- **Text inside files**: open the **Filter** panel; the second row reads text files allowed by the name and type fields, up to 2 MB each. **Text regex** changes only content matching. Results show a first-match snippet and match count. **Run** or Enter starts a scan; **Cancel** keeps a labelled partial result. Changing the query stops the old scan. **Save view** keeps these fields in a Saved link.
-- **Deep search**: the folder button beside the filter box includes subfolders. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8).
-- **Sort**: click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
-- **Filter** panel: match names by text or regex, or show only folders / files / one extension.
-- **Hidden files**: the eye button toggles dotfiles and the .bfb.json comment files beside documents. A document with open comments shows their count on its row.
-
-## Selecting & opening
-
-- Click a file to look at it in the panel; the address bar stays put. Click a folder to go there. **Double-click** a file to open its page in this tab.
-- **⌥-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab. Both work on sidebar rows and path segments too. A click on a sidebar row opens it as a strip tab, switching to the tab that already has it.
-- **↑ / ↓** move the selection, **Enter** opens, **Backspace** or **⌘↑** goes up.
-- **Multi-select**: **shift-click** or **⌘/Ctrl-click** toggles a row, **⇧⌘-click** selects a range, **⌘A** selects all. **⌘C** copies the selected paths.
-- **Right-click** an item for Copy path, Copy name, Open in terminal, plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
-
-## Breadcrumbs
-
-Click any path segment to jump there. The chevron button next to a segment opens a
-dropdown of that folder's contents with its own filter box; type to narrow,
-**Enter** opens the first match. Inside your home folder the path starts at **~**;
-**…** holds the folders above it and any that folded away for room.
-
-To type a path, click an empty part of the bar: it becomes a box holding the
-current path, with recent places offered as you type. **Enter** goes there in this
-tab, **Esc** puts the folders back. A path that does not exist, or a folder the
-browser cannot read, is marked and nothing is opened.
-
-## Terminal
-
-The terminal button opens the current folder in your terminal. With the optional
-native host it launches Ghostty directly; otherwise it copies a \`cd\` command to
-your clipboard. Choose your terminal in **Settings → Terminal**.
-
-## File pages
-
-A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt)
-renders like the preview instead of Chrome's plain text, inside the same
-shell as a folder: the sidebar, the strip and the path bar stay where they
-are. The main column shows a heading table of contents for markdown, **r**
-for raw, a remembered scroll position, and a re-render whenever the file
-changes on disk. In a folder you allowed for editing, **Edit** opens the file
-in place: **Raw** shows the source, **Split** puts the source beside the
-render, **Rich** shows the render alone, and **Done** goes back to reading.
-**Settings → Files** can limit this to non-markdown files or
-turn it off. **Settings → Exclusions** opens .pdf, .html, and .htm in
-Chrome's native file page by default. Remove .html or .htm to show source.
-
-## Comments on markdown
-
-Select words on a markdown page and press **c** to comment; the comments button
-right of find shows every thread. Reply, mark done, tag with **#tag**, mention
-with **@user**, **@claude** or **@claude:alias**, and set a due date. Comments live
-in a **.bfb.json** file beside the document, so agents can read and answer them
-with the **bfb-docs** command. A suggested edit shows the words now struck through
-and the new words beside them: **Accept** replaces just those words in the file
-(a backup is kept) and closes the thread, **Reject** leaves the file alone. The
-**Comments** lens lists every document with comments.
-` },
-  { key: 'preview', label: 'Preview and Notes', hint: 'panel, editor, AI', md: `
-## File preview (Quick Look)
-
-Click a file, or select it and press **Space**, to open a preview. **Space**
-again, or **Esc**, closes it. **↑ / ↓** (or **← / →**) step between previewable
-files; the **copy** button copies the raw contents. Files over 8 MB ask before
-loading.
-
-The preview is a floating window by default; drag its bottom-right corner to
-resize it. The dock button in its header moves it to a **side panel** next to
-the listing, where the left edge drags to set the width. Both the choice and
-the sizes are remembered.
-
-The file name in the preview header, **open raw**, and every link inside a
-rendered markdown file open in a **new tab**, so the explorer stays put.
-
-Renders by type:
-
-| Type | Shown as |
-|------|----------|
-| Code (\`.sh\`, \`.ts\`, \`.py\`, \`.go\`, \`.rs\`, \`.sql\`, \`.yaml\`, …) | Syntax-highlighted, with line numbers |
-| \`.tsv\` / \`.csv\` | Sortable table (numeric columns detected) |
-| \`.json\` / \`.jsonl\` | Collapsible tree |
-| \`.md\` / \`.mdx\` | Rendered markdown with Mermaid diagrams (relative images/links resolved) |
-| Images | Fit-to-view, with pixel dimensions |
-| PDF · audio/video · fonts | Embedded viewer / player / glyph specimen |
-| Plain text & extensionless (\`.txt\`, \`.log\`, \`LICENSE\`, \`Makefile\`) | Plain text with line numbers |
-
-## Notes
-
-The sidebar shows **Notes** even before setup. **Choose folder** picks a local
-folder (or type it in **Settings → Notes**); its \`.md\` files then appear with
-pinned notes first. The filter matches titles and tags; switch **Names** to
-**Deep** inside the box to search the notes' text too, and each match shows its
-line under the title. Saved has the same switch, which also looks inside saved
-folders. **n** or **+** starts an empty note. The panel becomes an
-editor with the source on the left and the render on the right: a toolbar for
-bold, italic, code, lists, tasks, tables and images; ⌥↑↓ moves lines and
-⌥⇧↑↓ duplicates them; Tab indents; Enter continues a list; a pasted or
-dropped image is saved under \`attachments/\`. **⌘S** saves immediately; a
-1.5-second pause autosaves, and closing the editor starts a pending save.
-The name shows an unsaved dot or an error if writing fails. An untitled note
-takes its first heading or first text line as its file name on the first save.
-If another program changed the file, choose **Reload from disk** or
-**Overwrite**. Rename by double-click; ✕ moves the note into \`.trash/\`.
-The tab button on a note row opens a rendered file page in this page's strip;
-the editor stays in the preview panel. The folder is plain Markdown that
-Obsidian and other Markdown tools can read.
-
-## AI assistant (optional)
-
-If you have the local-models **\`lm\`** CLI and its native host installed, the
-preview gains an **AI bar**: **Summarize**, **Explain** (**Describe** for tables),
-and an **Ask** box. Answers stream in; closing the overlay cancels them.
-
-Pick the model and toggle **Keep warm** in **Settings → AI**. Local models run
-on this Mac and nothing leaves it. The **Ask** lens can also use Gemini models,
-listed under "Gemini, on Google's servers": those send the question and the
-file or folder listing to Google. Without the CLI installed, the bar simply
-doesn't appear and everything else works normally.
-
-## Ask
-
-The **Ask** lens puts a question about the open file or folder to the model you
-pick. Chats are kept per file and folder: the clock button lists earlier chats
-to reopen or delete, and **New chat** starts over. **Stop** ends an answer and
-keeps what arrived, marked as stopped.
-` },
-  { key: 'tabs', label: 'Tabs and Saved', hint: 'open now, kept for later', md: `
-## Tabs
-
-The strip above the toolbar is the working set of this Chrome tab: folders
-and files, kept through refresh and navigation, gone when the Chrome tab
-closes. Open the same folder again within a day and the strip comes back with
-an undo. After a Chrome crash, Chrome's own session restore brings the strip
-back with the tab. The place you are in shows as an italic tab until you keep it: press
-**t** or double-click it. **w** closes the current tab, **p** pins it (pinned
-tabs sit first and have no ✕), **[** and **]** move between tabs, **1** to
-**9** jump. **Shift-T** reopens the last closed tab at its place. Drag to
-reorder. **Middle-click** a tab to close it (pinned tabs stay). Hover a tab
-for **…**: copy path, save, pin, close, close others.
-Navigation is real, so the address bar is always the active tab's location.
-
-## Saved
-
-One list of your folders, files and saved views. A click opens the row as a
-strip tab, or switches to the tab that already has it; **⌥-click** keeps it
-in the background. The ★ in the path bar saves or unsaves the current
-folder; **+** saves it and opens the name for editing.
-**Double-click** a label to rename, drag to reorder, ✕ to remove. Hover a row
-and press **#** to type tags (comma separated); tagged rows group under their
-first tag, and clicking the coloured dot on a tag heading changes its colour.
-The filter box at the top matches label, path and tag; Esc clears it. Old
-Bookmarks and My Places entries were merged in.
-
-Tabs are what is open right now; Saved is the long-term list, the way browser
-tabs sit above browser bookmarks.
-
-## The sidebar lenses
-
-The row of icons at the top of the sidebar picks what it shows; the open one
-grows to show its name. ← and → move between them when the row has focus, the
-mouse wheel over the row steps through them, and the choice is remembered.
-
-- **Places**: where you can go. Home, the folders under it, Applications and Root.
-- **Saved**: folders, files and saved views you kept, with tags.
-- **Notes**: your notes folder.
-- **History**: what you opened lately, and tabs from Chrome tabs you closed.
-- **Search**, **Ask** and **Comments**: search here, ask a model, and every
-  document with comments.
-
-Click a list's title to collapse it. Collapse choices survive a reload.
-**Settings → Folders** can switch History off.
-` },
-  { key: 'how', label: 'How it works', hint: 'the model, storage, what runs where', md: `
-## The model
-
-Four things, three actions, one key each. Learn the three actions once and
-every surface behaves the same way.
-
-- **Place** is a folder. It lives in tabs (open now), in Saved (kept), in
-  History, and in the sidebar's Places.
-- **File** is something inside a folder, shown in the listing and in search
-  results.
-- **Note** is a file you write here, in the Notes section, which is a Place you
-  write in.
-- **View** is how a Place is shown: its sort, group, filter and layout.
-
-- **Go** (Enter, or a click) moves to a thing. A Place navigates, a File opens
-  natively, a Note opens in the editor, a tab switches.
-- **Look** (Space) sees a thing without leaving. A File previews, a Note reads
-  in the panel. Space again stops looking.
-- **Keep** (★ or **+**, and **t** for the open Place) makes a thing stay. A
-  Place joins Saved, the open Place becomes a tab, a Note saves with **⌘S**.
-
-Tabs are what is open right now; Saved is the long-term list, the way browser
-tabs sit above browser bookmarks.
-
-## Where your state lives
-
-Everything is stored on your machine, in the browser. Nothing leaves it unless you ask a Gemini model in Ask, which sends that question and the file or folder listing to Google.
-
-- **Settings, the Saved list, tags, view, theme and reader sizes** live in
-  the extension's own storage (\`chrome.storage.local\`) under \`bfb-\` keys, so
-  every folder and tab sees the same values. Older copies in the page's
-  localStorage are read once and left in place. Settings and Saved export and import as one
-  JSON file in **Settings → Data**.
-- **The tab strip** lives in sessionStorage, so it belongs to one Chrome tab and
-  survives refresh and navigation. When a Chrome tab closes, its tabs are kept
-  for a day and listed under **History** as "3 tabs: …"; a click adds them to the
-  strip you are in. Nothing comes back on its own. **History** also lists the
-  files and folders you opened lately.
-- **Reading choices** (the column toggle, the ToC, a file page's scroll
-  position) live in the same storage, so they persist across reloads.
-
-## What runs where
-
-- The extension replaces Chrome's plain file listing with this UI. No page is
-  fetched from a server.
-- Reading a file for a preview or a file page goes through the extension's
-  background worker, because a page cannot read \`file://\` URLs on its own.
-- The terminal button, the notes editor and the AI bar use optional native
-  hosts you install once. Without them the terminal button copies a command and
-  the AI bar does not appear; notes need their host to write files.
-
-## What you can do
-
-Browse and open in four views with zoom. Preview any file type in a floating or
-docked panel, or open a file directly as a rendered page with a table of
-contents. Keep folders and files as tabs and as Saved bookmarks with tags.
-Write notes in a live editor. Filter by name or regex, search the text inside
-files, and search every subfolder. Save a search as a reusable view. Most
-actions have a key; press **?** for the full list.
-` },
-  { key: 'reference', label: 'Reference', hint: 'keys, gestures, how it fits', md: `
-Single-letter keys work only when no text field is focused and no dialog is open.
-⌘ / Ctrl and middle clicks reach the browser, except on rows where ⌘ and ⇧ select.
-**Esc** closes the topmost overlay (a menu, then a dialog, then the preview), and
-clears the filter box when it has focus.
-
-## Listing keys
-
-| Key | Action |
-|-----|--------|
-| ↑ ↓ | move the selection |
-| Enter | open the selection |
-| Space | preview the selection (a toast on a folder) |
-| Backspace · ⌘↑ | parent folder |
-| ⌘A · ⌘C | select all · copy the selected paths |
-| ⌘F | focus the filter; again falls through to the browser's find |
-| ? · , | open Help · open Settings |
-| n · r | new note (with a Notes folder) · raw or rendered (file page) |
-| t · w · p | keep · close · pin the current tab |
-| T | reopen the last closed tab |
-| [ · ] · 1-9 | previous · next · jump to a tab |
-
-## Listing rows and tiles
-
-A click on a file opens it in the panel with the address unchanged, but only when
-the file is previewable and "Click on a file" is set to look (the default). A
-non-previewable file, or the go setting, navigates. A folder always navigates.
-
-| Gesture | Action |
-|---------|--------|
-| double-click | go to the file page |
-| ⌥-click | keep as a background tab |
-| middle-click | browser tab |
-| ⇧ / ⌘-click · ⇧⌘-click | toggle in the selection · range |
-| right-click | Preview, Copy path, Copy name, Open in terminal |
-| hover | a tip, plus a separate eye (preview) and copy buttons |
-
-## Strip tabs
-
-| Gesture | Action |
-|---------|--------|
-| click | switch (kept or pinned); a temporary tab does nothing |
-| double-click | keep a temporary tab |
-| middle-click | close a kept tab; pinned and temporary stay |
-| ⌘ / ⇧-click | browser tab or window |
-| drag | reorder within the pinned or unpinned block |
-| hover … · hover ✕ | menu (copy, save, pin, close, close others) · close |
-
-## Sidebar
-
-| Gesture | Action |
-|---------|--------|
-| click | open as a strip tab (or the editor for a note) and go |
-| double-click | rename |
-| ⌥-click | keep a background tab |
-| middle / ⌘-click | browser tab |
-| hover # · hover ✕ | tags · remove, or a note to trash |
-| drag · tag dot | reorder · cycle the colour |
-
-## Path bar and toolbar
-
-≡ shows or hides the sidebar, and its right edge drags to resize. A crumb goes;
-its chevron button opens a dropdown you can type to narrow. Click an empty part
-of the bar to type a path. ★ saves the place. The terminal
-button opens here, and ⇧-click copies the command. The rest: theme, Help, Settings,
-the four views, Sort, Filter, hidden files, and a zoom slider that scales the list.
-
-## Preview panel
-
-| Gesture or key | Action |
-|----------------|--------|
-| scrim · ✕ · Esc · Space | close |
-| ↑ ↓ ← → | previous, next previewable file |
-| open · Enter | go to the file page |
-| + tab · t | keep as a background strip tab |
-| copy | copy the whole file |
-| dock · grips | float or dock to the side · resize |
-| header name · open raw · links | new browser tab |
-
-The strip keys still work while the preview is open. A file over 8 MB asks before
-loading. With a local model installed, an AI bar adds Summarize, Explain, and Ask.
-
-## Notes editor
-
-⌘S saves (a pause autosaves). ⌘B, ⌘I, ⌘E are bold, italic, code. ⌥↑↓ move a line
-and ⌥⇧↑↓ duplicate it. Tab and ⇧Tab indent. Enter continues a list. ⌘Z and ⌘⇧Z (or
-⌘Y) undo and redo. The toolbar adds list, task, table, and image, which have no
-key. **open** and **+ tab** act on the note.
-
-## File page
-
-**r** toggles raw, a copy button, and ToC links jump. Backspace or ⌘↑ go to the
-folder, and ⌘F uses the browser's find. Two buttons toggle a table-of-contents
-rail and a reading-width control that cycles through full, XL, LG, and MD. The page reloads itself every couple of
-seconds and re-renders when the file changes on disk.
-
-## How the parts fit
-
-- The address bar is always the active tab's location; navigation is real.
-- A listing click looks or goes by the "Click on a file" setting; a sidebar click
-  always goes; ⌥ keeps a background tab in both.
-- A file page is the explorer with the file in the main column, so nothing moves.
-- The folder you are in is a temporary (italic) tab until you keep it; opening a
-  place from the sidebar keeps that folder as a tab so you do not lose it.
-- A dialog over the preview takes Esc first, then the preview; focus returns.
-- Text size and Interface size scale the whole interface; list zoom changes the
-  folder listing separately.
-
-## Good to know
-
-- Many controls are mouse-only: the sort, filter, view, hidden, zoom, theme, and
-  terminal controls, the sidebar, and rename have no key, and the context menu is
-  right-click only.
-- The toast message is always dark, in both themes.
-- A saved bookmark to a file whose name contains a # may be read as a search view.
-- Dragging reorders tabs and saved rows; it does not move or copy files.
-` },
+// Help, as pages of small cards rather than paragraphs: a keyboard map you
+// can hover, a quick tour, mouse gestures, what files open as, notes and AI,
+// and how the app holds together. Every key shown comes from keymap.ts.
+import type { DialogTab } from './dialog';
+import { KEYMAP, GROUPS, capsFor } from './keymap';
+import { UI_ICON, line } from './control-icons';
+import { PI } from './icons';
+import { esc } from './utils';
+
+const kbd = (k: string) => k.startsWith('hold ')
+  ? `<i class="fe-km-then">hold</i><kbd>${esc(k.slice(5))}</kbd>`
+  : k.split(' ').map(p => `<kbd>${esc(p)}</kbd>`).join('<i class="fe-km-then">then</i>');
+const keys = (list: string[]) => list.map(kbd).join('<i class="fe-km-or">or</i>');
+
+// A Mac keyboard, row by row: [cap id, label, width in key units].
+type Cap = [string, string, number?];
+const ROWS: Cap[][] = [
+  [['esc', 'esc', 1.5], ...Array.from({ length: 12 }, (_, i): Cap => [`f${i + 1}`, `F${i + 1}`])],
+  [['`', '`'], ...'1234567890'.split('').map((c): Cap => [c, c]), ['-', '-'], ['=', '='], ['backspace', '⌫', 2]],
+  [['tab', '⇥', 1.5], ...'qwertyuiop'.split('').map((c): Cap => [c, c.toUpperCase()]), ['[', '['], [']', ']'], ['\\', '\\', 1.5]],
+  [['caps', '⇪', 1.75], ...'asdfghjkl'.split('').map((c): Cap => [c, c.toUpperCase()]), [';', ';'], ["'", "'"], ['enter', '↩', 2.25]],
+  [['shift', '⇧', 2.25], ...'zxcvbnm'.split('').map((c): Cap => [c, c.toUpperCase()]), [',', ','], ['.', '.'], ['/', '/'], ['shift', '⇧', 2.75]],
+  [['fn', 'fn'], ['ctrl', '⌃'], ['alt', '⌥'], ['meta', '⌘', 1.25], ['space', '', 5], ['meta', '⌘', 1.25], ['alt', '⌥'], ['left', '←'], ['updown', '', 1], ['right', '→']],
 ];
+
+function keyboardMap(): string {
+  const uses = new Map<string, number>();
+  for (const d of KEYMAP) for (const k of d.keys) for (const c of capsFor(k)) uses.set(c, (uses.get(c) ?? 0) + 1);
+  const cap = ([id, label, w = 1]: Cap) => id === 'updown'
+    ? `<span class="fe-km-ud"><span class="fe-km-cap half${uses.has('up') ? ' used' : ''}" data-cap="up">↑</span><span class="fe-km-cap half${uses.has('down') ? ' used' : ''}" data-cap="down">↓</span></span>`
+    : `<span class="fe-km-cap${uses.has(id) ? ' used' : ''}${/^f\d/.test(id) || id === 'esc' ? ' fn' : ''}" data-cap="${esc(id)}" style="--w:${w}">${esc(label)}</span>`;
+  const board = `<div class="fe-km-board" aria-hidden="true">${ROWS.map(r => `<div class="fe-km-row-k">${r.map(cap).join('')}</div>`).join('')}</div>`;
+  const list = GROUPS.map(g => {
+    const defs = KEYMAP.filter(d => d.group === g.name);
+    if (!defs.length) return '';
+    return `<section class="fe-km-g"><h3>${PI[g.icon] ?? ''}${esc(g.name)}</h3>${defs.map(d =>
+      `<div class="fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(' '))}" data-q="${esc((d.title + ' ' + d.keys.join(' ') + ' ' + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join('')}</section>`;
+  }).join('');
+  return `<div class="fe-km">
+    ${board}
+    <div class="fe-km-bar"><input type="search" class="fe-km-q" placeholder="Find a key or an action" spellcheck="false" aria-label="Find a key or an action">
+      <span class="fe-km-legend"><kbd>⌘K</kbd> run any of these · hold <kbd>⌥</kbd> to see keys on screen</span></div>
+    <div class="fe-km-list">${list}</div>
+  </div>`;
+}
+
+// One card: a coloured icon tile, a few words, and the keys or gesture.
+const card = (icon: string, tone: string, title: string, text: string, how = '') =>
+  `<div class="fe-hc" style="--tone:${tone}"><span class="fe-hc-ico">${icon}</span><div class="fe-hc-tx"><b>${title}</b><span>${text}</span></div>${how ? `<div class="fe-hc-how">${how}</div>` : ''}</div>`;
+const cards = (title: string, body: string) => `<section class="fe-hs"><h3>${title}</h3><div class="fe-hcs">${body}</div></section>`;
+const i = (body: string) => line(body, 18);
+const T = { blue: 'var(--nc-blue)', teal: 'var(--nc-teal)', green: 'var(--nc-green)', orange: 'var(--nc-orange)', pink: 'var(--nc-pink)', purple: 'var(--nc-purple)', red: 'var(--nc-red)', yellow: 'var(--nc-yellow)' };
+const POINTER = i('<path d="M4 4l7 17 2.5-7.5L21 11z"/>');
+
+export const HELP_TABS: DialogTab[] = [
+  { key: 'keys', label: 'Keyboard', hint: 'Every key, on a map', icon: UI_ICON.keyboard, tone: 'var(--nc-purple)', desc: 'Hover a row to see its keys. Hover a key to see what it does.', body: keyboardMap() },
+
+  { key: 'start', label: 'Tour', hint: 'The basics', icon: UI_ICON.ai, tone: 'var(--nc-pink)', desc: 'Twelve things worth knowing.', body:
+    cards('Move around',
+      card(PI.folder, T.blue, 'Browse', 'Folders open in place.', keys(['↩', '⌫'])) +
+      card(UI_ICON.eye, T.teal, 'Preview', 'Look without leaving.', keys(['Space'])) +
+      card(UI_ICON.tab, T.green, 'Tabs', 'Keep places open.', keys(['t', 'w'])) +
+      card(PI.bm, T.orange, 'Save', 'A folder for later.', keys(['b']))) +
+    cards('Find things',
+      card(PI.search, T.purple, 'Filter', 'Narrow this folder.', keys(['/'])) +
+      card(UI_ICON.stack, T.pink, 'Palette', 'Any command or place.', keys(['⌘K'])) +
+      card(UI_ICON.link, T.blue, 'Go to a path', 'Type or paste one.', keys(['l'])) +
+      card(PI.recent, T.teal, 'History', 'Where you have been.', keys(['g 4']))) +
+    cards('Make things',
+      card(UI_ICON.notes, T.orange, 'Notes', 'Markdown, saved as you type.', keys(['n'])) +
+      card(UI_ICON.rename, T.green, 'Edit', 'Any text file you allow.', keys(['e'])) +
+      card(UI_ICON.comment, T.yellow, 'Comment', 'On a selection in a doc.', keys(['c'])) +
+      card(UI_ICON.ai, T.purple, 'Ask', 'A model reads the file.', keys(['g 6']))) },
+
+  { key: 'mouse', label: 'Mouse', hint: 'Clicks and drags', icon: i('<rect width="12" height="18" x="6" y="3" rx="6"/><path d="M12 7v4"/>'), tone: 'var(--nc-blue)', desc: 'The same gestures work on rows, sidebar items and tabs.', body:
+    cards('Gestures',
+      card(POINTER, T.blue, 'Click', 'File previews, folder opens.', '<span class="fe-hc-tag">click</span>') +
+      card(POINTER, T.teal, 'Double-click', 'Open the file page.', '<span class="fe-hc-tag">2×</span>') +
+      card(UI_ICON.tab, T.green, '⌥-click', 'Keep as a background tab.', '<kbd>⌥</kbd>') +
+      card(UI_ICON.external, T.orange, 'Middle-click', 'A new Chrome tab.', '<span class="fe-hc-tag">middle</span>') +
+      card(UI_ICON.list, T.purple, 'Right-click', 'The item menu.', keys(['x'])) +
+      card(UI_ICON.check, T.pink, '⇧ or ⌘-click', 'Pick several.', '<kbd>⇧</kbd><kbd>⌘</kbd>') +
+      card(PI.drag, T.yellow, 'Drag', 'Reorder tabs and Saved.', '<span class="fe-hc-tag">drag</span>') +
+      card(UI_ICON.rename, T.red, 'Double-click a name', 'Rename in the sidebar.', keys(['F2']))) +
+    cards('Panels',
+      card(UI_ICON.preview, T.blue, 'Dock the preview', 'Float it, or pin it right.', keys(['d'])) +
+      card(UI_ICON.fit, T.teal, 'Resize', 'Drag any edge or corner.', '<span class="fe-hc-tag">drag</span>') +
+      card(i('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>'), T.green, 'Sidebar', 'Toggle, or drag its edge.', keys(['\\']))) },
+
+  { key: 'files', label: 'Files', hint: 'What opens as what', icon: UI_ICON.files, tone: 'var(--nc-teal)', desc: 'Files show as pages, with the sidebar and tabs still there.', body:
+    cards('Shown as',
+      card(UI_ICON.fmtCode, T.blue, 'Code', 'Highlighted, numbered.') +
+      card(UI_ICON.table, T.green, 'CSV, TSV', 'A sortable table.') +
+      card(i('<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>'), T.orange, 'JSON', 'A tree you can fold.') +
+      card(UI_ICON.files, T.purple, 'Markdown', 'Rendered, with diagrams.') +
+      card(UI_ICON.image, T.pink, 'Images', 'Fit, zoom, rotate, copy.') +
+      card(i('<path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/>'), T.red, 'Media, PDF', 'Played or embedded.')) +
+    cards('On a file page',
+      card(UI_ICON.contents, T.blue, 'Contents', 'Jump between headings.', keys(['⇧O'])) +
+      card(PI.search, T.teal, 'Find', 'Inside this file.', keys(['/'])) +
+      card(UI_ICON.fmtCode, T.green, 'Raw', 'See the source.', keys(['r'])) +
+      card(i('<path d="M3 12h18M3 6h18M3 18h18"/>'), T.orange, 'Width', 'Full to narrow.', keys(['⇧W']))) },
+
+  { key: 'notes', label: 'Notes and AI', hint: 'Write, ask, comment', icon: UI_ICON.notes, tone: 'var(--nc-orange)', desc: 'Plain Markdown on your disk, and models that read it.', body:
+    cards('Notes',
+      card(UI_ICON.add, T.orange, 'New note', 'Untitled until you type.', keys(['n'])) +
+      card(UI_ICON.check, T.green, 'Autosave', 'A pause saves. So does ⌘S.', keys(['⌘S'])) +
+      card(UI_ICON.pin, T.yellow, 'Pin and colour', 'Pinned notes sit on top.') +
+      card(UI_ICON.tag, T.pink, 'Tags', 'Filter with #tag.') +
+      card(UI_ICON.image, T.blue, 'Images', 'Paste one in.') +
+      card(UI_ICON.versions, T.purple, 'Versions', 'Every save, from git.')) +
+    cards('AI',
+      card(UI_ICON.ai, T.purple, 'Ask', 'Chat about a file or folder.', keys(['g 6'])) +
+      card(UI_ICON.bot, T.green, 'On this Mac', 'Local models stay local.') +
+      card(i('<path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9"/>'), T.blue, 'Gemini', 'Sends the file to Google.')) +
+    cards('Comments',
+      card(UI_ICON.comment, T.yellow, 'Comment', 'Select words, press c.', keys(['c'])) +
+      card(UI_ICON.at, T.teal, 'Mention', '@claude answers in the file.') +
+      card(UI_ICON.check, T.green, 'Suggest', 'Accept or reject edits.')) },
+
+  { key: 'how', label: 'How it works', hint: 'The idea, and your data', icon: UI_ICON.info, tone: 'var(--nc-green)', desc: 'Three actions on four things.', body:
+    cards('Three actions',
+      card(UI_ICON.next, T.blue, 'Go', 'Move to it.', keys(['↩'])) +
+      card(UI_ICON.eye, T.teal, 'Look', 'See it, stay put.', keys(['Space'])) +
+      card(UI_ICON.pin, T.orange, 'Keep', 'Make it stay.', keys(['t', 'b']))) +
+    cards('Four things',
+      card(PI.folder, T.blue, 'Place', 'A folder.') +
+      card(UI_ICON.file, T.green, 'File', 'Something in it.') +
+      card(UI_ICON.notes, T.orange, 'Note', 'A file you write here.') +
+      card(UI_ICON.list, T.purple, 'View', 'How a place is shown.')) +
+    cards('Where things live',
+      card(UI_ICON.data, T.teal, 'Settings, Saved', 'In this browser.') +
+      card(UI_ICON.tab, T.pink, 'Tabs', 'In this Chrome tab only.') +
+      card(UI_ICON.lock, T.green, 'Your files', 'Never leave the Mac, unless you ask Gemini.')) },
+];
+
+/// Make the keyboard map respond: hovering an action lights its keys,
+/// hovering a key shows the actions that use it, typing filters both.
+export function wireKeyboardMap(root: HTMLElement): void {
+  const km = root.querySelector<HTMLElement>('.fe-km');
+  if (!km) return;
+  const caps = [...km.querySelectorAll<HTMLElement>('.fe-km-cap')];
+  const rows = [...km.querySelectorAll<HTMLElement>('.fe-km-i')];
+  const q = km.querySelector<HTMLInputElement>('.fe-km-q')!;
+  let pinned: string | null = null;
+  const light = (ids: string[]) => caps.forEach(c => c.classList.toggle('hl', ids.includes(c.dataset.cap!)));
+  const filter = () => {
+    const s = q.value.trim().toLowerCase();
+    rows.forEach(r => {
+      const hit = (!s || r.dataset.q!.includes(s)) && (!pinned || r.dataset.caps!.split(' ').includes(pinned));
+      r.hidden = !hit;
+    });
+    km.querySelectorAll<HTMLElement>('.fe-km-g').forEach(g => { g.hidden = !g.querySelector('.fe-km-i:not([hidden])'); });
+    caps.forEach(c => c.classList.toggle('pin', c.dataset.cap === pinned));
+  };
+  km.addEventListener('mouseover', e => {
+    const row = (e.target as Element).closest<HTMLElement>('.fe-km-i');
+    const cap = (e.target as Element).closest<HTMLElement>('.fe-km-cap');
+    if (row) { light(row.dataset.caps!.split(' ')); rows.forEach(r => r.classList.toggle('on', r === row)); }
+    else if (cap) { light([cap.dataset.cap!]); rows.forEach(r => r.classList.toggle('on', r.dataset.caps!.split(' ').includes(cap.dataset.cap!))); }
+  });
+  km.addEventListener('mouseleave', () => { light([]); rows.forEach(r => r.classList.remove('on')); });
+  km.addEventListener('click', e => {
+    const cap = (e.target as Element).closest<HTMLElement>('.fe-km-cap.used');
+    if (!cap) return;
+    pinned = pinned === cap.dataset.cap ? null : cap.dataset.cap!;
+    filter();
+  });
+  q.addEventListener('input', filter);
+  q.addEventListener('keydown', e => { if (e.key === 'Escape' && (q.value || pinned)) { e.stopPropagation(); q.value = ''; pinned = null; filter(); } });
+}

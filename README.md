@@ -88,11 +88,8 @@ A **copy** button in the header copies the full raw file contents. Previews fetc
 ### AI (local model) — optional
 With the [local-models `lm` CLI](https://github.com/alcatraz627/local-models) installed, the preview gains an **AI bar**: **Summarize**, **Explain** (→ **Describe** for tabular files), and an **Ask** box. Answers stream in and render as markdown; closing the overlay cancels the generation. A status chip shows whether the model is warm/cold/down, and the settings modal has a **Local Model** panel with a live status blinker, a **model picker** (choose any installed model; passed as `-m`), and a **Keep warm / Unload** toggle (runs `lm warm on/off`). Fully local — the extension shells out to `lm` via a native messaging host; no network egress. Requires the `install.sh` step below.
 
-### Keyboard & navigation
-- **↑ / ↓** move the selection, **Enter** opens, **Backspace** or **⌘↑** goes to the parent
-- **Space** opens Quick Look on the selected file
-- **⌘F** focuses the filter; press again to fall through to the browser's native find
-- **Esc** in the filter clears it
+### Keyboard
+Every action has a key. **⌘K** opens the command palette (any action, tab, saved place, note or file here). **?** opens a keyboard map you can hover. Holding **⌥** shows each button's key on screen. **F6** walks the areas (sidebar, tabs, path bar, toolbar, listing), and sequences like **g h** (home), **v t** (tree view) and **s m** (sort by modified) cover the rest. The full list is [`docs/keyboard.md`](docs/keyboard.md), generated from `src/keymap.ts`.
 
 ### Context menu
 Right-click any row or tile for **Preview · Copy path · Copy name · Open in terminal**.

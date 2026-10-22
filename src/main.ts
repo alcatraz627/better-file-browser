@@ -26,6 +26,7 @@ import type { App } from './app';
 import { initChrome } from './chrome';
 import { initListing } from './listing';
 import { initListingInput } from './listing-input';
+import { initFocusNav } from './focus-nav';
 import { initSidebar } from './sidebar';
 import { initToolLenses } from './tool-lenses';
 import { initSettingsUi } from './settings-ui';
@@ -240,6 +241,7 @@ loadKv().catch(() => {}).then(function () {
   initSettingsUi(app);
   initToolLenses(app);
   initSidebar(app);
+  initFocusNav(app);
   // Before any visit under home, ask the native host where home is, so Places
   // offers Home, Desktop and the rest from the first page.
   if (!homeDir(rawPath)) {

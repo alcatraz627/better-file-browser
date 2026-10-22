@@ -6,6 +6,10 @@ import type { Listing } from './listing';
 import { el } from './el';
 import { esc, fullPath, copyToClipboard, pageHref } from './utils';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab } from './preview';
+import { bind, addPaletteSource } from './commands';
+import { getSortConfig, getGroupMode } from './storage';
+import { getIcon } from './icons';
+import type { SortConfig, GroupMode } from './types';
 
 export function initListingInput(app: App, listing: Listing): void {
   const { fe, toast, rawPath } = app;
@@ -202,6 +206,85 @@ export function initListingInput(app: App, listing: Listing): void {
     else if (e.key === 'n' && !e.metaKey && !e.ctrlKey && app.settings.notesRoot) { e.preventDefault(); app.newNote(); }
     else if (app.strip.handleKey(e)) e.preventDefault();
   });
+
+  // The listing's named commands: what the key map gives keys to here, and
+  // what the palette lists for this folder.
+  const onListing = () => !app.fileMode;
+  const lead = () => (ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null);
+  const leadRow = () => scroll.querySelector<HTMLElement>(`[data-idx="${ls.selIdx}"]`);
+  const shown = () => ls.visible.map((_, i) => i).filter(i => sel.selectable(i) || ls.visible[i].isParent);
+  const perPage = () => Math.max(1, Math.floor(scroll.clientHeight / (leadRow()?.offsetHeight || 32)) - 1);
+  const jump = (to: number) => { const list = shown(); if (list.length) sel.setSel(list[Math.max(0, Math.min(list.length - 1, to))]); };
+  const pos = () => shown().indexOf(ls.selIdx);
+  bind('to-listing', () => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    if (ls.selIdx < 0) sel.moveSel(1); else sel.setSel(ls.selIdx);
+  }, onListing);
+  bind('first', () => jump(0), onListing);
+  bind('last', () => jump(Infinity), onListing);
+  bind('page-up', () => jump(pos() - perPage()), onListing);
+  bind('page-down', () => jump(Math.max(0, pos()) + perPage()), onListing);
+  const extend = (dir: 1 | -1) => {
+    const list = shown();
+    const to = list[list.indexOf(ls.selIdx) + dir];
+    if (to !== undefined && sel.selectable(to)) { if (ls.anchor < 0) ls.anchor = ls.selIdx; sel.rangeSel(to); }
+  };
+  bind('extend-up', () => extend(-1), onListing);
+  bind('extend-down', () => extend(1), onListing);
+  bind('open-bg', () => { const en = lead(); if (en && !en.isParent) { app.strip.open(fullPath(rawPath, en), true); toast(`Kept ${en.name} as a tab`); } }, () => onListing() && !!lead());
+  bind('open-chrome', () => { const en = lead(); if (en) window.open(en.href, '_blank'); }, () => onListing() && !!lead());
+  bind('copy-path', () => { const en = lead(); if (en) copyText(fullPath(rawPath, en)); }, () => onListing() && !!lead());
+  bind('copy-name', () => { const en = lead(); if (en) copyText(en.name); }, () => onListing() && !!lead());
+  bind('menu', () => {
+    const row = leadRow();
+    if (!row) return;
+    const r = row.getBoundingClientRect();
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 40, clientY: r.top + r.height }));
+    ctxMenu.querySelector('.fe-ctx-item')?.classList.add('kb');
+  }, () => onListing() && !!lead());
+  const treeToggle = (open: boolean) => {
+    const t = leadRow()?.querySelector<HTMLElement>('.fe-tree-toggle');
+    if (t && (t.getAttribute('aria-expanded') === 'true') !== open) t.click();
+  };
+  bind('tree-open', () => treeToggle(true), () => onListing() && fe.dataset.view === 'tree' && !!lead()?.isDir);
+  bind('tree-close', () => treeToggle(false), () => onListing() && fe.dataset.view === 'tree' && !!lead()?.isDir);
+  bind('filter', () => {
+    if (app.fileMode) return;
+    const s = el<HTMLInputElement>('fe-search');
+    s.focus({ preventScroll: true }); s.select();
+  }, onListing);
+  bind('filter-panel', () => el('fe-filter-btn').click(), onListing);
+  bind('hidden', () => el('fe-hidden-btn').click(), onListing);
+  for (const v of ['details', 'list', 'tree', 'tiles', 'icons']) {
+    bind('view-' + v, () => document.querySelector<HTMLElement>(`.fe-view-btn[data-view="${v}"]`)?.click(), onListing);
+  }
+  const sortBy = (col: SortConfig['col']) => { const s = getSortConfig(); app.setOrder({ col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' }, getGroupMode()); };
+  bind('sort-name', () => sortBy('name'), onListing);
+  bind('sort-date', () => sortBy('date'), onListing);
+  bind('sort-size', () => sortBy('size'), onListing);
+  bind('sort-type', () => sortBy('type'), onListing);
+  bind('sort-rev', () => { const s = getSortConfig(); app.setOrder({ col: s.col ?? 'name', dir: s.dir === 'asc' ? 'desc' : 'asc' }, getGroupMode()); }, onListing);
+  const GROUPS: GroupMode[] = ['none', 'folders-first', 'files-first', 'ext', 'type'];
+  bind('group', () => {
+    const next = GROUPS[(GROUPS.indexOf(getGroupMode()) + 1) % GROUPS.length];
+    app.setOrder(getSortConfig(), next);
+    toast(`Grouping: ${next.replace('-', ' ')}`);
+  }, onListing);
+  const zoom = (to: (z: number) => number) => {
+    const z = el<HTMLInputElement>('fe-zoom');
+    z.value = String(Math.max(Number(z.min || 50), Math.min(Number(z.max || 320), to(Number(z.value)))));
+    z.dispatchEvent(new Event('input'));
+  };
+  bind('zoom-in', () => zoom(z => z + 10), onListing);
+  bind('zoom-out', () => zoom(z => z - 10), onListing);
+  bind('zoom-reset', () => zoom(() => 100), onListing);
+
+  // The palette also goes to anything in this folder.
+  addPaletteSource(() => onListing() ? ls.all.filter(en => !en.isParent).slice(0, 400).map(en => ({
+    title: en.name, sub: en.isDir ? 'folder here' : 'file here', group: 'This folder', icon: getIcon(en, app.iconRules),
+    run: () => { location.href = pageHref(en.href); },
+    runAlt: () => { app.strip.open(fullPath(rawPath, en), true); toast(`Kept ${en.name} as a tab`); },
+  })) : []);
 }
 
 type Entry = import('./types').Entry;

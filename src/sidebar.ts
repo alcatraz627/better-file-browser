@@ -18,6 +18,7 @@ import { isViewPath } from './find';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { foldTo } from './motion';
+import { addPaletteSource } from './commands';
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
 const LENS_KEY = 'bfb-lens-v1';
@@ -447,6 +448,11 @@ export function initSidebar(app: App): void {
         : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
     attachNoteEvents(root);
   }
+  addPaletteSource(() => {
+    const root = notesRoot();
+    return root ? allNotes.map(n => ({ title: n.title || noteTitle(n.rel), sub: (n.tags ?? []).map(t => '#' + t).join(' ') || 'note', group: 'Notes', icon: PI.docs,
+      run: () => app.strip.go(root + '/' + n.rel), runAlt: () => app.strip.open(root + '/' + n.rel, true) })) : [];
+  });
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   ntFilter.addEventListener('input', () => {
     const root = notesRoot();

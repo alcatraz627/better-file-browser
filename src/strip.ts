@@ -37,6 +37,8 @@ export interface Strip {
   closedSets(): Promise<ClosedSet[]>;
   // Add a closed set's tabs to this strip, with undo.
   restoreSet(id: string): Promise<void>;
+  // Move a tab one place left or right, within its pinned or unpinned block.
+  move(id: string, dir: 1 | -1): void;
 }
 
 const storageArea = () => (typeof chrome !== 'undefined' && chrome.storage?.local) || null;
@@ -363,6 +365,11 @@ export function mountStrip(host: StripHost): Strip {
 
   return {
     handleKey,
+    move(id, dir) {
+      const i = state.list.findIndex(t => t.id === id);
+      const to = state.list[i + dir];
+      if (i >= 0 && to) commit(moveTab(state, id, to.id));
+    },
     open: (path, background = false) => commit(openTab(state, path, background)),
     go: (path, hash = '') => {
       // Keep the current place: if this folder or file was only a temp tab,

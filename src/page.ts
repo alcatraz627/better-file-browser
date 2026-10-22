@@ -6,7 +6,6 @@ import { esc, fileHref } from './utils';
 import { PI, CHEVRON_DOWN } from './icons';
 import { UI_ICON, line, VIEW_ICONS } from './control-icons';
 import { getSaved, getTags, homeDir, getFoldedGroups } from './storage';
-import { renderMarkdown } from './renderers';
 import { HELP_TABS } from './help';
 import { renderDialog, type DialogSpec } from './dialog';
 import { settingsDialog } from './settings-page';
@@ -71,7 +70,7 @@ export function renderPage(p: PageParams): string {
   const SETTINGS_DIALOG = settingsDialog();
   const HELP_DIALOG: DialogSpec = {
     id: 'fe-help-modal', mark: PI.help, title: 'Help', subtitle: 'What is here and how to use it',
-    tabs: HELP_TABS.map(t => ({ key: t.key, label: t.label, hint: t.hint, body: `<div class="fe-md">${renderMarkdown(t.md)}</div>` })),
+    tabs: HELP_TABS,
   };
 
   const PAGE_HTML = `

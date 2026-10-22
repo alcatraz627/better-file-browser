@@ -177,4 +177,89 @@ export const UI_CSS = `
 .fe-ai-where{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:color-mix(in srgb,var(--nc-green) 16%,transparent);color:var(--nc-green)}
 .fe-ai-where.cloud{background:color-mix(in srgb,var(--nc-blue) 16%,transparent);color:var(--nc-blue)}
 .fe-ai-def{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:var(--act);color:var(--ac)}
+
+/* The command palette. */
+.fe-pal-wrap{position:fixed;inset:0;z-index:700;display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
+.fe-pal{width:min(640px,calc(100vw - 32px));max-height:min(560px,72vh);display:flex;flex-direction:column;border-radius:16px;overflow:hidden;
+  background:var(--card);border:1px solid var(--pop-bd);box-shadow:0 24px 64px rgb(0 0 0 / .45),0 2px 8px rgb(0 0 0 / .25);animation:fe-rise var(--t-base) var(--ease)}
+.fe-pal-q{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--bd);color:var(--dm)}
+.fe-pal-q input{flex:1;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-xl)}
+.fe-pal-list{flex:1;overflow-y:auto;padding:6px}
+.fe-pal-g{padding:10px 10px 4px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
+.fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--mt)}
+.fe-pal-i.on{background:var(--act)}
+.fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
+.fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
+  background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--tx) 14%,transparent);color:var(--mt);font:600 var(--fs-xs) var(--mono);white-space:nowrap}
+.fe-pal-i kbd{margin-left:auto}
+.fe-pal-none{padding:24px;text-align:center;color:var(--dm)}
+.fe-pal-foot{display:flex;gap:16px;padding:8px 14px;border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--dm)}
+.fe-pal-foot span{display:inline-flex;align-items:center;gap:4px}
+
+/* A key sequence waiting for its second key. */
+.fe-chord{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:700;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;max-width:min(720px,90vw);
+  padding:8px 12px;border-radius:12px;background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);
+  font-size:var(--fs-md);color:var(--mt);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-chord > kbd{background:var(--ac);color:var(--on-ac);box-shadow:none}
+.fe-chord-o{display:inline-flex;align-items:center;gap:5px;color:var(--tx)}
+
+/* Key badges while ⌥ is held. */
+.fe-hints{position:fixed;inset:0;z-index:690;pointer-events:none}
+.fe-hints > kbd{position:fixed;transform:translate(-50%,0);background:var(--ac);color:var(--on-ac);box-shadow:0 2px 6px rgb(0 0 0 / .35);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-hints-tip{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);font-size:var(--fs-md);color:var(--mt)}
+
+/* Where the keyboard is. */
+.fe-area-flash{animation:fe-area .7s var(--ease)}
+@keyframes fe-area{0%{box-shadow:inset 0 0 0 2px var(--ac)}100%{box-shadow:inset 0 0 0 2px transparent}}
+#fe-side .fe-si:focus-visible,#fe-side .fe-si-link:focus-visible,#fe-side summary:focus-visible,#fe-side .fe-nt-grp:focus-visible,
+#fe-tabs .fe-tab:focus-visible,#fe-bc a:focus-visible,#fe-bc button:focus-visible{outline:2px solid var(--ac);outline-offset:-2px;border-radius:var(--row-r)}
+#fe-ctx .fe-ctx-item.kb,.fe-ctx .fe-ctx-item.kb,#fe-crumb-menu .fe-dd-item.kb,.fe-pmenu button.kb{background:var(--act);color:var(--tx)}
+
+/* Help: the keyboard map. Keys with a use are tinted; hovering an action
+   lights its keys, hovering a key lights its actions. */
+.fe-km{display:flex;flex-direction:column;gap:14px}
+.fe-km-board{display:flex;flex-direction:column;gap:5px;padding:14px;border-radius:14px;background:color-mix(in srgb,var(--tx) 4%,var(--card));
+  border:1px solid var(--bd);position:sticky;top:-2px;z-index:2;box-shadow:0 8px 16px -12px rgb(0 0 0 / .4)}
+.fe-km-row-k{display:flex;gap:5px}
+.fe-km-cap{flex:var(--w,1) 1 0;min-width:0;height:34px;display:grid;place-items:center;border-radius:7px;font:500 var(--fs-sm) var(--mono);color:var(--dm);
+  background:color-mix(in srgb,var(--tx) 5%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,#000 22%,transparent);transition:background .12s,color .12s,transform .12s}
+.fe-km-cap.fn{height:22px;font-size:var(--fs-xs)}
+.fe-km-cap.used{color:var(--tx);background:color-mix(in srgb,var(--ac) 12%,transparent);cursor:pointer}
+.fe-km-cap.hl{background:var(--ac);color:var(--on-ac);transform:translateY(1px);box-shadow:inset 0 -1px 0 rgb(0 0 0 / .25),0 0 0 3px color-mix(in srgb,var(--ac) 30%,transparent)}
+.fe-km-cap.pin{outline:2px solid var(--ac);outline-offset:2px}
+.fe-km-ud{flex:1 1 0;display:flex;flex-direction:column;gap:2px}
+.fe-km-cap.half{height:16px;font-size:9px}
+.fe-km-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.fe-km-q{flex:1;min-width:200px;height:34px;padding:0 12px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);color:var(--tx);font:inherit;font-size:var(--row-fs);outline:0}
+.fe-km-q:focus{border-color:var(--ac)}
+.fe-km-legend{font-size:var(--fs-sm);color:var(--dm);display:inline-flex;align-items:center;gap:4px}
+.fe-km-list{columns:2 320px;column-gap:18px}
+.fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px;border-radius:12px;background:var(--card);border:1px solid var(--bd)}
+.fe-km-g h3{display:flex;align-items:center;gap:7px;margin:0;padding:8px 10px 6px;font-size:var(--fs-xs);font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-km-g h3 svg{width:14px;height:14px}
+.fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}
+.fe-km-i.on{background:var(--act)}
+.fe-km-k{display:inline-flex;align-items:center;gap:3px;flex:none}
+.fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:6px;
+  background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}
+.fe-km-then,.fe-km-or{font-style:normal;font-size:var(--fs-xs);color:var(--dm);padding:0 2px}
+
+/* Help: cards. */
+.fe-hs{display:flex;flex-direction:column;gap:10px}
+.fe-hs h3{margin:0;padding:0 2px;font-size:var(--fs-xs);font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-hcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.fe-hc{display:flex;align-items:center;gap:12px;min-height:62px;padding:10px 14px;border-radius:12px;background:var(--card);border:1px solid var(--bd);
+  transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-hc:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--tone) 45%,var(--bd));box-shadow:0 6px 16px -10px color-mix(in srgb,var(--tone) 55%,transparent)}
+.fe-hc-ico{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:var(--tone);background:color-mix(in srgb,var(--tone) 16%,transparent)}
+.fe-hc-ico svg{width:18px;height:18px}
+.fe-hc-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fe-hc-tx b{font-size:var(--fs-lg);font-weight:650;color:var(--tx)}
+.fe-hc-tx span{font-size:var(--fs-md);color:var(--mt);line-height:1.35}
+.fe-hc-how{flex:none;display:flex;align-items:center;gap:3px}
+.fe-hc-tag{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);color:var(--tone);background:color-mix(in srgb,var(--tone) 14%,transparent)}
+#fe-help-modal .fe-dlg-pane.on{gap:22px}
 `;
