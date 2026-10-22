@@ -80,7 +80,7 @@ export function renderPage(p: PageParams): string {
   const PAGE_HTML = `
 <div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}" data-density="${initDensity}"${fileMode ? ' class="fe-file-page"' : ''}>
 
-  <div id="fe-bar">
+  <div id="fe-bar" class="bar">
     <button id="fe-side-toggle" class="btn" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
     <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ''}<button id="fe-crumb-more" class="btn fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>…</button></div>
     <button id="fe-term-btn" class="btn" data-icon title="Open in terminal (${settings.terminalApp || 'ghostty'}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
@@ -117,7 +117,7 @@ export function renderPage(p: PageParams): string {
         </div>
       </div>
       <div class="fe-lens" id="fe-lens-saved" data-lens="saved" role="tabpanel" aria-labelledby="fe-rail-saved" hidden>
-      <div class="fe-lens-tools">
+      <div class="bar fe-lens-tools" data-inset>
         <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? 'file' : 'folder'} and name it" aria-label="Save this ${fileMode ? 'file' : 'folder'}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
           <input id="fe-lens-filter" class="tb" data-size="lg" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
@@ -131,7 +131,7 @@ export function renderPage(p: PageParams): string {
       </div>
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
-      <div class="fe-lens-tools">
+      <div class="bar fe-lens-tools" data-inset>
         <button id="fe-nt-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="New note (n)" aria-label="New note">${UI_ICON.add}</button>
         <a id="fe-notes-root" class="btn fe-lens-ib" data-icon data-size="lg" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
       </div>
@@ -166,13 +166,13 @@ export function renderPage(p: PageParams): string {
         </div>
       </div>
       ${fileMode ? renderFileContent() : ''}
-      <div id="fe-toolbar">
+      <div id="fe-toolbar" class="bar">
         <span id="fe-count">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <div id="fe-tb-right">
           <button id="fe-sg-btn" class="btn" title="Sort and group" aria-expanded="false">
             ${SORT_ICON}<span id="fe-sg-cur">Sort</span>
           </button>
-          <span class="fe-tb-sep"></span>
+          <span class="bar-sep" aria-hidden="true"></span>
           <button id="fe-filter-btn" class="btn" data-icon title="Filter by name, type or text inside files" aria-expanded="false">
             ${line('<path d="M10 20a1 1 0 0 0 .55.9l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .52-1.34L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.22 7.99A2 2 0 0 1 10 14z"/>', 14)}
           </button>
@@ -182,13 +182,13 @@ export function renderPage(p: PageParams): string {
           <button id="fe-hidden-btn" data-icon class="btn ${initHidden ? 'on' : ''}" title="Hidden files: ${initHidden ? 'showing' : 'hiding'} dotfiles and comment files · click to toggle">
             ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? 'currentColor' : 'none'}"/>`, 14)}
           </button>
-          <span class="fe-tb-sep"></span>
+          <span class="bar-sep" aria-hidden="true"></span>
           <div id="fe-density-wrap" title="Detail: drag left for fewer, bigger items, right for smaller items with more facts (- and =)">
             <span class="fe-density-end" aria-hidden="true">${line('<rect width="16" height="16" x="4" y="4" rx="2"/>', 13)}</span>
             ${sliderHtml('fe-density', [1, 2, 3, 4, 5], '', 'Detail', DENSITY_NAMES)}
             <span class="fe-density-end" aria-hidden="true">${line('<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', 13)}</span>
           </div>
-          <span class="fe-tb-sep"></span>
+          <span class="bar-sep" aria-hidden="true"></span>
           ${viewSeg}
           <label class="fe-in-box fe-tb-box"><input id="fe-search" class="tb" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
         </div>
@@ -258,7 +258,7 @@ export function renderPage(p: PageParams): string {
         <div id="fe-tree"></div>
       </div>
 
-      <div id="fe-statusbar">
+      <div id="fe-statusbar" class="bar">
         ${fileMode ? '<span id="fe-status-meta"></span>' : ''}
         <span id="fe-status-text">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <span class="fe-status-grow"></span>

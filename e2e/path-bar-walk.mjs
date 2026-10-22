@@ -62,7 +62,8 @@ try {
   await page.keyboard.press('Escape');
 
   const barH = await page.$eval('#fe-bar', b => b.getBoundingClientRect().height);
-  check(barH <= 37, `the bar is slim: ${barH}px`);
+  // Every bar is 40px (owner, 2026-10-22, docs/plan/component-system.md §15).
+  check(barH === 40, `the bar is one bar height: ${barH}px`);
 
   // Click an empty part of the bar to type a path.
   const typeBox = async () => {

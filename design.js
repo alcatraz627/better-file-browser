@@ -109,6 +109,14 @@
 .btn[aria-busy="true"] > *{visibility:hidden}
 .btn[aria-busy="true"]::after{content:'';position:absolute;width:var(--btn-ic,14px);height:var(--btn-ic,14px);border:2px solid var(--mt);border-right-color:transparent;border-radius:var(--r-full);animation:fe-spin var(--t-slow) linear infinite}
 .btn[data-done],.btn[data-done]:not(:disabled):not([aria-disabled="true"]):hover{color:var(--tone-ok)}
+/* Toolbar, the one bar (docs/system/toolbar.md). Class bar. A bar along a
+   page or panel is 40px with 12px sides; its controls are md. data-inset: a
+   toolbar inside content (a code block, a comment, a lens) keeps the gap
+   but takes its size from its place. Controls sit 4px apart; a bar-sep
+   between groups makes 12px. */
+.bar{display:flex;align-items:center;gap:var(--sp-2);box-sizing:border-box;flex-shrink:0}
+.bar:not([data-inset]){min-height:var(--bar-h);padding:0 var(--sp-5)}
+.bar-sep{flex:none;width:1px;height:16px;margin:0 var(--sp-2);background:var(--bd)}
 /* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
    input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
    grows from one control high. Invalid: aria-invalid="true". */
@@ -128,8 +136,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);
   font:var(--fs-lg)/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
 body{opacity:1!important}
 #fe{display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--tx)}
-#fe-bar{display:flex;align-items:center;gap:6px;padding:4px 12px;
-  background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:36px;box-sizing:border-box}
+#fe-bar{background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0;align-self:stretch;cursor:text}
 #fe-bc[hidden]{display:none}
 #fe-bc > *{cursor:default}
@@ -285,11 +292,9 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
    The pane is a size container so its toolbar wraps by the pane's width, which a
    docked preview can make narrow in a wide window. */
 #fe-main{flex:1;display:flex;flex-direction:column;overflow:clip;container:fe-main / inline-size;min-width:0}
-#fe-toolbar{display:flex;align-items:center;gap:10px;padding:7px 14px;
-  background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-toolbar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-count{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap}
 #fe-tb-right{display:flex;align-items:center;gap:4px}
-.fe-tb-sep{flex:none;width:1px;height:18px;margin:0 4px;background:var(--bd)}
 #fe-sg-cur{font-variant-numeric:tabular-nums}
 /* One "on" look across the toolbar: the accent tint the chosen view wears. */
 /* Detail: a small slider between a big-square and a dense-rows icon, its stop named beside it. */
@@ -522,8 +527,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   background:none;border-radius:0;padding:0;width:auto;left:auto}
 
 .fe-row td.c-nm{position:relative}
-#fe-statusbar{display:flex;align-items:center;gap:14px;min-height:30px;padding:0 14px;
-  background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt);white-space:nowrap;overflow:hidden}
+#fe-statusbar{background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt);white-space:nowrap;overflow:hidden}
 #fe-status-meta{display:flex;align-items:center;gap:14px}
 .fe-meta-item{display:inline-flex;align-items:center;gap:5px}
 .fe-meta-item svg{color:var(--dm)}
@@ -736,7 +740,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-ico svg{width:11px;height:12px}
 .fe-tab-menu{position:fixed}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
-#fe-fp-bar{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-fp-bar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-fp{display:flex;flex:1;min-height:0}
 /* Contents and Comments float over the page as a translucent card, shown and
    hidden by the two buttons right of find. The text keeps clear of the card. */
@@ -850,7 +854,7 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
 .fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--on)}
-.fe-cm-tools{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin-top:6px}
+.fe-cm-tools{flex-wrap:wrap;margin-top:6px}
 .fe-cm-grow{flex:1}
 .fe-cm-date{height:22px;padding:0 6px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-sm);color-scheme:light dark}
 .fe-cm-x{margin:0 -3px 0 1px}
@@ -953,8 +957,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 @keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
 #fe-fp-reload{font-size:var(--fs-sm);color:var(--dm)}
-#fe-ed-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
-.fe-ed-sep{width:1px;align-self:stretch;margin:4px;background:var(--bd)}
+#fe-ed-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 .fe-ed-hint{margin-left:auto;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
@@ -1010,11 +1013,11 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 
 .fe-sh a{color:inherit;text-decoration:none}
 .fe-sh a:hover{color:var(--ac)}
-#fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-ql-hdr{border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-ql-icon svg{display:block}
 /* Docked, the header keeps its name readable and its close button inside the panel: buttons go icon-only. */
 #fe-qlook.side #fe-ql-hdr > button > span,#fe-qlook.side #fe-ql-hdr > a:not(#fe-ql-name) > span{display:none}
-#fe-qlook.side #fe-ql-hdr{gap:5px;padding:8px 10px}
+
 /* Docked, the header's labelled buttons lose their labels and become icon circles. */
 #fe-qlook.side #fe-ql-hdr > *{flex-shrink:0}
 #fe-qlook.side #fe-ql-name,#fe-qlook.side #fe-ql-meta{flex-shrink:1;min-width:0}
@@ -1026,7 +1029,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-ql-name{min-width:0;flex-shrink:1}
 #fe-ql-body{flex:1;overflow:auto;font-size:var(--fs-md)}
 #fe-ql-body:has(> .fe-ql-htmlbar){display:flex;flex-direction:column}
-.fe-ql-htmlbar{display:flex;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);flex:none}
+.fe-ql-htmlbar{border-bottom:1px solid var(--bd);flex:none}
 .fe-ql-html{flex:1;min-height:0;width:100%;border:0;background:#fff}
 /* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
 #fe-ql-body .fe-md{font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
@@ -1050,7 +1053,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-ql-note{font-size:var(--fs-md);color:var(--dm);padding:6px 14px}
 .fe-ql-note.err{color:#f85149}
 .fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
-.fe-ql-imgbar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
+.fe-ql-imgbar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 .fe-ql-imgstage{flex:1;min-height:0;overflow:auto;display:flex}
 .fe-ql-imgsizer{position:relative;margin:auto;flex:none}
 .fe-ql-img{position:absolute;left:50%;top:50%;max-width:none;max-height:none;border-radius:4px;transform-origin:center}
@@ -1147,7 +1150,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md code{background:var(--s2);border:0;padding:.12em .4em;border-radius:4px;font-family:var(--mono);font-size:.86em}
 .fe-md a code{color:inherit}
 .fe-md-code{border:1px solid var(--bd);border-radius:8px;background:color-mix(in srgb,var(--card),var(--tx) 3.5%);overflow:hidden}
-.fe-md-code-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px 0 12px;background:none}
+.fe-md-code-bar{justify-content:space-between;padding:4px 6px 0 12px;background:none}
 .fe-md-lang{font:600 var(--fs-sm)/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 .fe-md-pre{background:var(--s1);border:1px solid var(--bd);border-radius:6px;padding:.75em 1em;
   overflow-x:auto;font-family:var(--mono);font-size:.86em;line-height:1.55;white-space:pre;color:var(--tx)}
@@ -1201,7 +1204,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   #fe-toc-rail{width:clamp(150px,22vw,190px)}
   #fe-ff-q{width:110px}
   #fe-page .fe-md{padding:20px 18px 60px}
-  #fe-fp-bar{flex-wrap:wrap;padding:7px 10px}
+  #fe-fp-bar{flex-wrap:wrap}
 }
 @container fe-main (max-width:760px){
   #fe-toolbar{flex-wrap:wrap}
@@ -1304,7 +1307,7 @@ button.fe-si{width:auto;display:flex}
 .fe-lens-tags{padding:0 6px 8px}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
-.fe-lens-tools{display:flex;align-items:center;gap:2px;padding:2px 6px 8px}
+.fe-lens-tools{padding:2px 6px 8px}
 .fe-lens-ib{flex:none}
 
 a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}

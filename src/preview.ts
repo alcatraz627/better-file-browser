@@ -110,7 +110,7 @@ export function initPreview(d: PreviewDeps): void {
   overlay.innerHTML = `
     <div id="fe-ql-bg"></div>
     <div id="fe-ql-dialog">
-      <div id="fe-ql-hdr">
+      <div id="fe-ql-hdr" class="bar">
         <span id="fe-ql-icon"></span>
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (⌘-click / middle-click also work)"></a>
         <span id="fe-ql-meta"></span>
@@ -449,7 +449,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   body.classList.add('fe-editing');
   body.innerHTML = `
     <div id="fe-ed-meta"></div>
-    <div id="fe-ed-bar">
+    <div id="fe-ed-bar" class="bar">
       <button class="btn" data-icon data-act="bold" title="Bold (⌘B)">${UI_ICON.fmtBold}</button>
       <button class="btn" data-icon data-act="italic" title="Italic (⌘I)">${UI_ICON.fmtItalic}</button>
       <button class="btn" data-icon data-act="code" title="Code (⌘E)">${UI_ICON.fmtCode}</button>
@@ -462,7 +462,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       <button class="btn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
       <button class="btn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
       <button class="btn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
-      <span class="fe-ed-sep" aria-hidden="true"></span>
+      <span class="bar-sep" aria-hidden="true"></span>
       <button class="btn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
       ${actions ? `<button class="btn" data-act="prev" title="Previous note in the list (⌥⌘↑)">${UI_ICON.prev}<span>Previous</span></button>
       <button class="btn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>Next</span></button>
@@ -866,7 +866,7 @@ let htmlSource = false;
 function renderHtml(body: HTMLElement, text: string): void {
   const btn = (v: 'page' | 'src', label: string, on: boolean) =>
     `<button class="btn${on ? ' on' : ''}" data-v="${v}" title="${v === 'page' ? 'Show the rendered page' : 'Show the HTML source'}">${label}</button>`;
-  body.innerHTML = `<div class="fe-ql-htmlbar">${btn('page', 'Page', !htmlSource)}${btn('src', 'Source', htmlSource)}</div>`
+  body.innerHTML = `<div class="bar fe-ql-htmlbar">${btn('page', 'Page', !htmlSource)}${btn('src', 'Source', htmlSource)}</div>`
     + (htmlSource ? renderCode(text, 'html') : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
   const frame = body.querySelector<HTMLIFrameElement>('iframe.fe-ql-html');
   if (frame && currentEntry) frame.src = currentEntry.href;

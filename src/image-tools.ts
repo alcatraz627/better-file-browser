@@ -35,7 +35,7 @@ export function mountImageTools(wrap: HTMLElement, o: {
   openNative: (path: string) => Promise<boolean>;
 }): void {
   wrap.innerHTML = `
-    <div class="fe-ql-imgbar" role="toolbar" aria-label="Image tools">
+    <div class="bar fe-ql-imgbar" role="toolbar" aria-label="Image tools">
       ${BTN('in', UI_ICON.zoomIn, 'zoom in', 'Zoom in')}
       ${BTN('out', UI_ICON.zoomOut, 'zoom out', 'Zoom out')}
       ${BTN('fit', UI_ICON.fit, 'fit', 'Fit the picture in the panel')}

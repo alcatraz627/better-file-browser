@@ -3004,7 +3004,7 @@ ${body}`;
         if (language.toLowerCase() === "mermaid") {
           out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view">Rendering diagram\u2026</div></div>`);
         } else {
-          out.push(`<div class="fe-md-code"><div class="fe-md-code-bar"><span class="fe-md-lang">${esc(language || "text")}</span><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || "md"))}</pre></div>`);
+          out.push(`<div class="fe-md-code"><div class="bar fe-md-code-bar" data-inset><span class="fe-md-lang">${esc(language || "text")}</span><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || "md"))}</pre></div>`);
         }
         mark(from, outAt);
         continue;
@@ -3480,7 +3480,7 @@ ${body}`;
   var BTN = (act, icon2, text, title) => `<button class="btn" data-size="sm" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
   function mountImageTools(wrap, o) {
     wrap.innerHTML = `
-    <div class="fe-ql-imgbar" role="toolbar" aria-label="Image tools">
+    <div class="bar fe-ql-imgbar" role="toolbar" aria-label="Image tools">
       ${BTN("in", UI_ICON.zoomIn, "zoom in", "Zoom in")}
       ${BTN("out", UI_ICON.zoomOut, "zoom out", "Zoom out")}
       ${BTN("fit", UI_ICON.fit, "fit", "Fit the picture in the panel")}
@@ -4057,7 +4057,7 @@ Now: ${question}` : question;
     overlay.innerHTML = `
     <div id="fe-ql-bg"></div>
     <div id="fe-ql-dialog">
-      <div id="fe-ql-hdr">
+      <div id="fe-ql-hdr" class="bar">
         <span id="fe-ql-icon"></span>
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (\u2318-click / middle-click also work)"></a>
         <span id="fe-ql-meta"></span>
@@ -4362,7 +4362,7 @@ Now: ${question}` : question;
     body.classList.add("fe-editing");
     body.innerHTML = `
     <div id="fe-ed-meta"></div>
-    <div id="fe-ed-bar">
+    <div id="fe-ed-bar" class="bar">
       <button class="btn" data-icon data-act="bold" title="Bold (\u2318B)">${UI_ICON.fmtBold}</button>
       <button class="btn" data-icon data-act="italic" title="Italic (\u2318I)">${UI_ICON.fmtItalic}</button>
       <button class="btn" data-icon data-act="code" title="Code (\u2318E)">${UI_ICON.fmtCode}</button>
@@ -4375,7 +4375,7 @@ Now: ${question}` : question;
       <button class="btn" data-icon data-act="task" title="Task list">${UI_ICON.task}</button>
       <button class="btn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
       <button class="btn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
-      <span class="fe-ed-sep" aria-hidden="true"></span>
+      <span class="bar-sep" aria-hidden="true"></span>
       <button class="btn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
       ${actions ? `<button class="btn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>Previous</span></button>
       <button class="btn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>Next</span></button>
@@ -4855,7 +4855,7 @@ Now: ${question}` : question;
   var htmlSource = false;
   function renderHtml(body, text) {
     const btn = (v, label, on) => `<button class="btn${on ? " on" : ""}" data-v="${v}" title="${v === "page" ? "Show the rendered page" : "Show the HTML source"}">${label}</button>`;
-    body.innerHTML = `<div class="fe-ql-htmlbar">${btn("page", "Page", !htmlSource)}${btn("src", "Source", htmlSource)}</div>` + (htmlSource ? renderCode(text, "html") : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
+    body.innerHTML = `<div class="bar fe-ql-htmlbar">${btn("page", "Page", !htmlSource)}${btn("src", "Source", htmlSource)}</div>` + (htmlSource ? renderCode(text, "html") : '<iframe class="fe-ql-html" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>');
     const frame = body.querySelector("iframe.fe-ql-html");
     if (frame && currentEntry) frame.src = currentEntry.href;
     body.querySelectorAll(".fe-ql-htmlbar button").forEach((b) => b.addEventListener("click", () => {
@@ -4977,6 +4977,14 @@ Now: ${question}` : question;
 .btn[aria-busy="true"] > *{visibility:hidden}
 .btn[aria-busy="true"]::after{content:'';position:absolute;width:var(--btn-ic,14px);height:var(--btn-ic,14px);border:2px solid var(--mt);border-right-color:transparent;border-radius:var(--r-full);animation:fe-spin var(--t-slow) linear infinite}
 .btn[data-done],.btn[data-done]:not(:disabled):not([aria-disabled="true"]):hover{color:var(--tone-ok)}
+/* Toolbar, the one bar (docs/system/toolbar.md). Class bar. A bar along a
+   page or panel is 40px with 12px sides; its controls are md. data-inset: a
+   toolbar inside content (a code block, a comment, a lens) keeps the gap
+   but takes its size from its place. Controls sit 4px apart; a bar-sep
+   between groups makes 12px. */
+.bar{display:flex;align-items:center;gap:var(--sp-2);box-sizing:border-box;flex-shrink:0}
+.bar:not([data-inset]){min-height:var(--bar-h);padding:0 var(--sp-5)}
+.bar-sep{flex:none;width:1px;height:16px;margin:0 var(--sp-2);background:var(--bd)}
 /* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
    input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
    grows from one control high. Invalid: aria-invalid="true". */
@@ -4996,8 +5004,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);
   font:var(--fs-lg)/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow:hidden}
 body{opacity:1!important}
 #fe{display:flex;flex-direction:column;height:100vh;background:var(--bg);color:var(--tx)}
-#fe-bar{display:flex;align-items:center;gap:6px;padding:4px 12px;
-  background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:36px;box-sizing:border-box}
+#fe-bar{background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-bc{display:flex;align-items:center;gap:1px;flex:1;overflow:hidden;white-space:nowrap;min-width:0;align-self:stretch;cursor:text}
 #fe-bc[hidden]{display:none}
 #fe-bc > *{cursor:default}
@@ -5153,11 +5160,9 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
    The pane is a size container so its toolbar wraps by the pane's width, which a
    docked preview can make narrow in a wide window. */
 #fe-main{flex:1;display:flex;flex-direction:column;overflow:clip;container:fe-main / inline-size;min-width:0}
-#fe-toolbar{display:flex;align-items:center;gap:10px;padding:7px 14px;
-  background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-toolbar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-count{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap}
 #fe-tb-right{display:flex;align-items:center;gap:4px}
-.fe-tb-sep{flex:none;width:1px;height:18px;margin:0 4px;background:var(--bd)}
 #fe-sg-cur{font-variant-numeric:tabular-nums}
 /* One "on" look across the toolbar: the accent tint the chosen view wears. */
 /* Detail: a small slider between a big-square and a dense-rows icon, its stop named beside it. */
@@ -5390,8 +5395,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   background:none;border-radius:0;padding:0;width:auto;left:auto}
 
 .fe-row td.c-nm{position:relative}
-#fe-statusbar{display:flex;align-items:center;gap:14px;min-height:30px;padding:0 14px;
-  background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt);white-space:nowrap;overflow:hidden}
+#fe-statusbar{background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt);white-space:nowrap;overflow:hidden}
 #fe-status-meta{display:flex;align-items:center;gap:14px}
 .fe-meta-item{display:inline-flex;align-items:center;gap:5px}
 .fe-meta-item svg{color:var(--dm)}
@@ -5604,7 +5608,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-ico svg{width:11px;height:12px}
 .fe-tab-menu{position:fixed}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
-#fe-fp-bar{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-fp-bar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-fp{display:flex;flex:1;min-height:0}
 /* Contents and Comments float over the page as a translucent card, shown and
    hidden by the two buttons right of find. The text keeps clear of the card. */
@@ -5718,7 +5722,7 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
 .fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--on)}
-.fe-cm-tools{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin-top:6px}
+.fe-cm-tools{flex-wrap:wrap;margin-top:6px}
 .fe-cm-grow{flex:1}
 .fe-cm-date{height:22px;padding:0 6px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit;font-size:var(--fs-sm);color-scheme:light dark}
 .fe-cm-x{margin:0 -3px 0 1px}
@@ -5821,8 +5825,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 @keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
 #fe-fp-reload{font-size:var(--fs-sm);color:var(--dm)}
-#fe-ed-bar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
-.fe-ed-sep{width:1px;align-self:stretch;margin:4px;background:var(--bd)}
+#fe-ed-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 .fe-ed-hint{margin-left:auto;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
@@ -5878,11 +5881,11 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 
 .fe-sh a{color:inherit;text-decoration:none}
 .fe-sh a:hover{color:var(--ac)}
-#fe-ql-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-ql-hdr{border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-ql-icon svg{display:block}
 /* Docked, the header keeps its name readable and its close button inside the panel: buttons go icon-only. */
 #fe-qlook.side #fe-ql-hdr > button > span,#fe-qlook.side #fe-ql-hdr > a:not(#fe-ql-name) > span{display:none}
-#fe-qlook.side #fe-ql-hdr{gap:5px;padding:8px 10px}
+
 /* Docked, the header's labelled buttons lose their labels and become icon circles. */
 #fe-qlook.side #fe-ql-hdr > *{flex-shrink:0}
 #fe-qlook.side #fe-ql-name,#fe-qlook.side #fe-ql-meta{flex-shrink:1;min-width:0}
@@ -5894,7 +5897,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-ql-name{min-width:0;flex-shrink:1}
 #fe-ql-body{flex:1;overflow:auto;font-size:var(--fs-md)}
 #fe-ql-body:has(> .fe-ql-htmlbar){display:flex;flex-direction:column}
-.fe-ql-htmlbar{display:flex;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);flex:none}
+.fe-ql-htmlbar{border-bottom:1px solid var(--bd);flex:none}
 .fe-ql-html{flex:1;min-height:0;width:100%;border:0;background:#fff}
 /* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
 #fe-ql-body .fe-md{font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
@@ -5918,7 +5921,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-ql-note{font-size:var(--fs-md);color:var(--dm);padding:6px 14px}
 .fe-ql-note.err{color:#f85149}
 .fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
-.fe-ql-imgbar{display:flex;align-items:center;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
+.fe-ql-imgbar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 .fe-ql-imgstage{flex:1;min-height:0;overflow:auto;display:flex}
 .fe-ql-imgsizer{position:relative;margin:auto;flex:none}
 .fe-ql-img{position:absolute;left:50%;top:50%;max-width:none;max-height:none;border-radius:4px;transform-origin:center}
@@ -6015,7 +6018,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-md code{background:var(--s2);border:0;padding:.12em .4em;border-radius:4px;font-family:var(--mono);font-size:.86em}
 .fe-md a code{color:inherit}
 .fe-md-code{border:1px solid var(--bd);border-radius:8px;background:color-mix(in srgb,var(--card),var(--tx) 3.5%);overflow:hidden}
-.fe-md-code-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px 0 12px;background:none}
+.fe-md-code-bar{justify-content:space-between;padding:4px 6px 0 12px;background:none}
 .fe-md-lang{font:600 var(--fs-sm)/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
 .fe-md-pre{background:var(--s1);border:1px solid var(--bd);border-radius:6px;padding:.75em 1em;
   overflow-x:auto;font-family:var(--mono);font-size:.86em;line-height:1.55;white-space:pre;color:var(--tx)}
@@ -6069,7 +6072,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   #fe-toc-rail{width:clamp(150px,22vw,190px)}
   #fe-ff-q{width:110px}
   #fe-page .fe-md{padding:20px 18px 60px}
-  #fe-fp-bar{flex-wrap:wrap;padding:7px 10px}
+  #fe-fp-bar{flex-wrap:wrap}
 }
 @container fe-main (max-width:760px){
   #fe-toolbar{flex-wrap:wrap}
@@ -6172,7 +6175,7 @@ button.fe-si{width:auto;display:flex}
 .fe-lens-tags{padding:0 6px 8px}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */
-.fe-lens-tools{display:flex;align-items:center;gap:2px;padding:2px 6px 8px}
+.fe-lens-tools{padding:2px 6px 8px}
 .fe-lens-ib{flex:none}
 
 a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
@@ -15057,7 +15060,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const diff = `<div class="fe-cm-diff">${now ? `<del>${esc(cut(now))}</del>` : ""}${s.replace ? `<ins>${esc(cut(s.replace))}</ins>` : `<i>${s.state === "accepted" ? "removed" : "remove these words"}</i>`}</div>`;
       if (s.state !== "pending") return `<div class="fe-cm-sug ${esc(s.state)}">${diff}<span class="fe-cm-sug-state">${s.state === "accepted" ? UI_ICON.check + "Accepted" : UI_ICON.close + "Rejected"}</span></div>`;
       const can = placed2 && t.place.state !== "ambiguous";
-      const tools = on ? `<div class="fe-cm-tools">
+      const tools = on ? `<div data-inset class="bar fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-a="reject" data-v="${esc(c.id)}" title="Keep the text as it is">${UI_ICON.close}Reject</button>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="accept" data-v="${esc(c.id)}"${can ? "" : " disabled"} title="${can ? "Replace the words in the file (a backup is kept)" : "The words are no longer in the file, so this cannot be applied"}">${UI_ICON.check}Accept</button></div>` : "";
       const said = on && sugMsg?.id === c.id ? `<p class="fe-cm-sug-msg" role="status">${UI_ICON.info}<span>${esc(sugMsg.text)}</span></p>` : "";
@@ -15074,7 +15077,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       ].join("");
       const cs = t.comments.map((c) => {
         const mine = on && c.author.kind === "human" && !c.deleted;
-        const body = editing === c.id ? `${box("edit:" + c.id, "Edit comment", "", c.text || "")}<div class="fe-cm-tools"><span class="fe-cm-grow"></span>
+        const body = editing === c.id ? `${box("edit:" + c.id, "Edit comment", "", c.text || "")}<div data-inset class="bar fe-cm-tools"><span class="fe-cm-grow"></span>
             <button type="button" class="btn" data-size="sm" data-a="edit-cancel" title="Cancel (Esc)">Cancel</button>
             <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="edit-save" data-v="${esc(c.id)}" title="Save (\u2318\u21B5)">Save</button></div>` : `<div class="fe-cm-tx">${c.deleted ? "<i>Deleted</i>" : commentHtml(c.text || "")}</div>`;
         return `
@@ -15090,7 +15093,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const done = t.status === "done";
       const tools = on ? `
       ${box(t.id, "Reply", done ? "Reply to reopen\u2026" : "Reply\u2026 @ to mention, # to tag")}
-      <div class="fe-cm-tools">
+      <div data-inset class="bar fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-a="${done ? "reopen" : "done"}" title="${done ? "Reopen this thread" : "Mark done"} (\u2318\u21E7\u21B5)">${done ? UI_ICON.reset + "Reopen" : UI_ICON.check + "Done"}</button>
         ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : iconBtn2("due", UI_ICON.clock, "Set a due date")}
         ${iconBtn2("link", UI_ICON.link, "Copy a link that opens this thread")}
@@ -15107,7 +15110,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       <blockquote class="fe-cm-q">${esc(draft.quote.length > 140 ? draft.quote.slice(0, 139) + "\u2026" : draft.quote)}</blockquote>
       ${draft.block ? notice("On the whole block", "These words could not be placed exactly, so the comment covers the whole block.") : ""}
       ${draft.attach ? '<p class="fe-cm-hint">The thread moves to these words.</p>' : box("new", "New comment", "Comment\u2026 @ to mention, # to tag")}
-      <div class="fe-cm-tools"><span class="fe-cm-grow"></span>
+      <div data-inset class="bar fe-cm-tools"><span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-size="sm" data-a="cancel" title="Cancel (Esc)">Cancel</button>
         <button type="submit" class="btn" data-size="sm" data-variant="solid" data-a="post" title="${draft.attach ? "Attach" : "Comment"} (\u2318\u21B5)">${draft.attach ? "Attach here" : "Comment"}</button></div>
     </form>` : "";
@@ -15881,7 +15884,7 @@ ${d.message}` : d.message;
   }
   function renderFileContent() {
     return `
-      <div id="fe-fp-bar">
+      <div id="fe-fp-bar" class="bar">
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-column" class="btn" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
         <button id="fe-fp-edit" class="btn" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
@@ -17553,7 +17556,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const PAGE_HTML = `
 <div id="fe" data-theme="${initTheme}" data-palette="${initPalette}" data-view="${initView}" data-density="${initDensity}"${fileMode ? ' class="fe-file-page"' : ""}>
 
-  <div id="fe-bar">
+  <div id="fe-bar" class="bar">
     <button id="fe-side-toggle" class="btn" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
     <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ""}<button id="fe-crumb-more" class="btn fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>\u2026</button></div>
     <button id="fe-term-btn" class="btn" data-icon title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
@@ -17590,7 +17593,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         </div>
       </div>
       <div class="fe-lens" id="fe-lens-saved" data-lens="saved" role="tabpanel" aria-labelledby="fe-rail-saved" hidden>
-      <div class="fe-lens-tools">
+      <div class="bar fe-lens-tools" data-inset>
         <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? "file" : "folder"} and name it" aria-label="Save this ${fileMode ? "file" : "folder"}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
           <input id="fe-lens-filter" class="tb" data-size="lg" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
@@ -17604,7 +17607,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       </div>
       <div class="fe-lens" id="fe-lens-notes" data-lens="notes" role="tabpanel" aria-labelledby="fe-rail-notes" hidden>
-      <div class="fe-lens-tools">
+      <div class="bar fe-lens-tools" data-inset>
         <button id="fe-nt-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="New note (n)" aria-label="New note">${UI_ICON.add}</button>
         <a id="fe-notes-root" class="btn fe-lens-ib" data-icon data-size="lg" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
       </div>
@@ -17639,13 +17642,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         </div>
       </div>
       ${fileMode ? renderFileContent() : ""}
-      <div id="fe-toolbar">
+      <div id="fe-toolbar" class="bar">
         <span id="fe-count">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <div id="fe-tb-right">
           <button id="fe-sg-btn" class="btn" title="Sort and group" aria-expanded="false">
             ${SORT_ICON}<span id="fe-sg-cur">Sort</span>
           </button>
-          <span class="fe-tb-sep"></span>
+          <span class="bar-sep" aria-hidden="true"></span>
           <button id="fe-filter-btn" class="btn" data-icon title="Filter by name, type or text inside files" aria-expanded="false">
             ${line('<path d="M10 20a1 1 0 0 0 .55.9l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .52-1.34L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.22 7.99A2 2 0 0 1 10 14z"/>', 14)}
           </button>
@@ -17655,13 +17658,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <button id="fe-hidden-btn" data-icon class="btn ${initHidden ? "on" : ""}" title="Hidden files: ${initHidden ? "showing" : "hiding"} dotfiles and comment files \xB7 click to toggle">
             ${line(`<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3" fill="${initHidden ? "currentColor" : "none"}"/>`, 14)}
           </button>
-          <span class="fe-tb-sep"></span>
+          <span class="bar-sep" aria-hidden="true"></span>
           <div id="fe-density-wrap" title="Detail: drag left for fewer, bigger items, right for smaller items with more facts (- and =)">
             <span class="fe-density-end" aria-hidden="true">${line('<rect width="16" height="16" x="4" y="4" rx="2"/>', 13)}</span>
             ${sliderHtml("fe-density", [1, 2, 3, 4, 5], "", "Detail", DENSITY_NAMES)}
             <span class="fe-density-end" aria-hidden="true">${line('<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', 13)}</span>
           </div>
-          <span class="fe-tb-sep"></span>
+          <span class="bar-sep" aria-hidden="true"></span>
           ${viewSeg}
           <label class="fe-in-box fe-tb-box"><input id="fe-search" class="tb" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
         </div>
@@ -17731,7 +17734,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         <div id="fe-tree"></div>
       </div>
 
-      <div id="fe-statusbar">
+      <div id="fe-statusbar" class="bar">
         ${fileMode ? '<span id="fe-status-meta"></span>' : ""}
         <span id="fe-status-text">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <span class="fe-status-grow"></span>

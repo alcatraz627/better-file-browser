@@ -270,7 +270,7 @@ export function mountComments(o: {
     const diff = `<div class="fe-cm-diff">${now ? `<del>${esc(cut(now))}</del>` : ''}${s.replace ? `<ins>${esc(cut(s.replace))}</ins>` : `<i>${s.state === 'accepted' ? 'removed' : 'remove these words'}</i>`}</div>`;
     if (s.state !== 'pending') return `<div class="fe-cm-sug ${esc(s.state)}">${diff}<span class="fe-cm-sug-state">${s.state === 'accepted' ? UI_ICON.check + 'Accepted' : UI_ICON.close + 'Rejected'}</span></div>`;
     const can = placed && t.place.state !== 'ambiguous';
-    const tools = on ? `<div class="fe-cm-tools">
+    const tools = on ? `<div data-inset class="bar fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-a="reject" data-v="${esc(c.id)}" title="Keep the text as it is">${UI_ICON.close}Reject</button>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="accept" data-v="${esc(c.id)}"${can ? '' : ' disabled'} title="${can ? 'Replace the words in the file (a backup is kept)' : 'The words are no longer in the file, so this cannot be applied'}">${UI_ICON.check}Accept</button></div>` : '';
     const said = on && sugMsg?.id === c.id ? `<p class="fe-cm-sug-msg" role="status">${UI_ICON.info}<span>${esc(sugMsg.text)}</span></p>` : '';
@@ -289,7 +289,7 @@ export function mountComments(o: {
     const cs = t.comments.map(c => {
       const mine = on && c.author.kind === 'human' && !c.deleted;
       const body = editing === c.id
-        ? `${box('edit:' + c.id, 'Edit comment', '', c.text || '')}<div class="fe-cm-tools"><span class="fe-cm-grow"></span>
+        ? `${box('edit:' + c.id, 'Edit comment', '', c.text || '')}<div data-inset class="bar fe-cm-tools"><span class="fe-cm-grow"></span>
             <button type="button" class="btn" data-size="sm" data-a="edit-cancel" title="Cancel (Esc)">Cancel</button>
             <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="edit-save" data-v="${esc(c.id)}" title="Save (⌘↵)">Save</button></div>`
         : `<div class="fe-cm-tx">${c.deleted ? '<i>Deleted</i>' : commentHtml(c.text || '')}</div>`;
@@ -310,7 +310,7 @@ export function mountComments(o: {
     const done = t.status === 'done';
     const tools = on ? `
       ${box(t.id, 'Reply', done ? 'Reply to reopen…' : 'Reply… @ to mention, # to tag')}
-      <div class="fe-cm-tools">
+      <div data-inset class="bar fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-a="${done ? 'reopen' : 'done'}" title="${done ? 'Reopen this thread' : 'Mark done'} (⌘⇧↵)">${done ? UI_ICON.reset + 'Reopen' : UI_ICON.check + 'Done'}</button>
         ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? '')}">`
           : iconBtn('due', UI_ICON.clock, 'Set a due date')}
@@ -329,7 +329,7 @@ export function mountComments(o: {
       <blockquote class="fe-cm-q">${esc(draft.quote.length > 140 ? draft.quote.slice(0, 139) + '…' : draft.quote)}</blockquote>
       ${draft.block ? notice('On the whole block', 'These words could not be placed exactly, so the comment covers the whole block.') : ''}
       ${draft.attach ? '<p class="fe-cm-hint">The thread moves to these words.</p>' : box('new', 'New comment', 'Comment… @ to mention, # to tag')}
-      <div class="fe-cm-tools"><span class="fe-cm-grow"></span>
+      <div data-inset class="bar fe-cm-tools"><span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-size="sm" data-a="cancel" title="Cancel (Esc)">Cancel</button>
         <button type="submit" class="btn" data-size="sm" data-variant="solid" data-a="post" title="${draft.attach ? 'Attach' : 'Comment'} (⌘↵)">${draft.attach ? 'Attach here' : 'Comment'}</button></div>
     </form>` : '';

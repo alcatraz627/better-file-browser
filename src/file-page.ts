@@ -140,7 +140,7 @@ function rememberScroll(path: string, top: number): void {
 // The markup the shell places in its main column, under the strip.
 export function renderFileContent(): string {
   return `
-      <div id="fe-fp-bar">
+      <div id="fe-fp-bar" class="bar">
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-column" class="btn" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
         <button id="fe-fp-edit" class="btn" title="Edit this file (e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
