@@ -107,7 +107,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       const name = en.isParent ? 'Parent Directory' : en.name.split('/').pop()!;
       const expanded = treeExpanded.has(en.href);
       const hit = ls.contentHits?.get(en.href);
-      rows.push(`<div class="fe-tree-row${en.isHidden ? ' dotfile' : ''}${en.isDir ? ' dir' : ''}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
+      rows.push(`<div class="row fe-tree-row${en.isHidden ? ' dotfile' : ''}${en.isDir ? ' dir' : ''}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
         ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? 'Collapse' : 'Expand'} ${esc(name)}" aria-expanded="${expanded}">${CHEVRON_DOWN}</button>` : '<span class="fe-tree-spacer"></span>'}
         <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ''}
       </div>`);

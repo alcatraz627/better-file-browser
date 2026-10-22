@@ -230,7 +230,7 @@ export function openPalette(prefill = ''): void {
     list.innerHTML = shown.length ? shown.map((it, i) => {
       const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g sect" data-level="group">${esc(it.group)}</div>` : '';
       lastGroup = it.group;
-      return `${head}<div class="fe-pal-i${i === at ? ' on' : ''}" role="option" data-i="${i}" data-tab="${tabOf(it)}">${it.icon ?? ''}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ''}${(it.keys ?? []).slice(0, 1).map(k => `<kbd>${esc(k)}</kbd>`).join('')}</div>`;
+      return `${head}<div class="row fe-pal-i${i === at ? ' on' : ''}" role="option" aria-selected="${i === at}" data-i="${i}" data-tab="${tabOf(it)}">${it.icon ?? ''}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ''}${(it.keys ?? []).slice(0, 1).map(k => `<kbd>${esc(k)}</kbd>`).join('')}</div>`;
     }).join('') : `<div class="fe-pal-none">${late.length && tab !== 'all' && !counts.get(tab) ? 'Loading…' : 'Nothing matches'}</div>`;
     list.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
   };
@@ -258,7 +258,7 @@ export function openPalette(prefill = ''): void {
   tabsEl.addEventListener('click', e => { const b = (e.target as Element).closest<HTMLElement>('.fe-pal-tab'); if (b) { setTab(b.dataset.tab as PaletteTab | 'all'); input.focus(); } });
   list.addEventListener('mousemove', e => {
     const row = (e.target as Element).closest<HTMLElement>('.fe-pal-i');
-    if (row && Number(row.dataset.i) !== at) { at = Number(row.dataset.i); list.querySelectorAll('.fe-pal-i').forEach(r => r.classList.toggle('on', r === row)); }
+    if (row && Number(row.dataset.i) !== at) { at = Number(row.dataset.i); list.querySelectorAll('.fe-pal-i').forEach(r => { r.classList.toggle('on', r === row); r.setAttribute('aria-selected', String(r === row)); }); }
   });
   list.addEventListener('click', e => { const row = (e.target as Element).closest<HTMLElement>('.fe-pal-i'); if (row) fire(Number(row.dataset.i), e.altKey); });
   input.value = prefill;

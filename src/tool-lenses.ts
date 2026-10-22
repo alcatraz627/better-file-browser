@@ -79,7 +79,7 @@ function initSearch(app: App): void {
     list.innerHTML = hits.map(([href, h]) => {
       const name = relativeName(href, root);
       const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
-      return `<a class="fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
+      return `<a class="row fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
     }).join('');
   }
   q.addEventListener('keydown', e => {
@@ -213,7 +213,7 @@ function initAsk(app: App): void {
   };
   const paintHist = () => {
     const chats = chatsFor(key);
-    hist.innerHTML = chats.length ? chats.map(c => `<div class="fe-ask-h${c.id === chatId ? ' on' : ''}" data-chat="${esc(c.id)}">
+    hist.innerHTML = chats.length ? chats.map(c => `<div class="row fe-ask-h${c.id === chatId ? ' on' : ''}" data-chat="${esc(c.id)}">
         <button type="button" class="fe-ask-h-open" title="Open this chat"><span class="fe-ask-h-t">${esc(c.title)}</span><span class="fe-ask-h-m">${esc(when(c.at))} · ${c.turns.length} question${c.turns.length === 1 ? '' : 's'}</span></button>
         <button type="button" class="btn fe-ask-h-del" data-icon data-size="sm" data-tone="danger" title="Delete this chat" aria-label="Delete this chat">${UI_ICON.close}</button>
       </div>`).join('') : '<p class="fe-ask-h-none">No earlier chats about this yet</p>';

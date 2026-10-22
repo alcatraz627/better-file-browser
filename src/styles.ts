@@ -120,6 +120,17 @@ export const CSS = `
    card), panel (a panel's or rail's title, with its icon and count), page (a
    dialog or page header: a tile, a title and a line under it). Actions sit
    at the end in sect-acts. The place sets padding. */
+/* ListRow: one line in any list (sidebar, menus, dropdowns, palette, key
+   map, contents, versions). Hover and the keyboard cursor share one wash; the
+   selected, current or active row takes the accent wash with body text and an
+   accent icon. The place sets its own height and padding where it differs
+   (docs/system/list-row.md). */
+.row{display:flex;align-items:center;gap:var(--row-gap);min-width:0;min-height:var(--row-h);padding:0 var(--row-px);
+  border-radius:var(--row-r);font-size:var(--row-fs);color:var(--mt);text-decoration:none;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.row:hover,.row.kb,.row:focus-visible{background:var(--hover);color:var(--tx)}
+.row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]),.row:has(> .active){background:var(--on);color:var(--tx)}
+.row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]) svg,.row:has(> .active) svg{color:var(--ac);opacity:1}
 .sect{display:flex;align-items:center;gap:var(--sp-3);min-width:0;margin:0}
 .sect-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .sect-acts{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:auto}
@@ -220,7 +231,6 @@ body{opacity:1!important}
 .fe-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;
   color:var(--tx);text-decoration:none;font-size:var(--fs-md);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;transition:background .08s}
-.fe-dd-item:hover{background:var(--hover)}
 .fe-dd-item.dir{color:var(--dir)}
 .fe-dd-item svg{flex-shrink:0}
 .fe-dd-spinner,.fe-dd-empty{padding:10px 14px;font-size:var(--fs-md);color:var(--dm);font-style:italic}
@@ -257,7 +267,6 @@ body{opacity:1!important}
 #fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
 .fe-lens[hidden]{display:none}
 .fe-doc-row{display:flex;align-items:center;gap:10px;width:calc(100% - 12px);margin:1px 6px;padding:6px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-doc-row:hover{background:var(--hover)}
 .fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
 .fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-doc-name{font-size:var(--row-fs)}
@@ -279,8 +288,6 @@ body{opacity:1!important}
 .fe-sh-collapse:hover{color:var(--tx)}
 .fe-si{display:flex;align-items:center;gap:10px;padding:8px 14px;
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
-.fe-si:hover{background:var(--hover);color:var(--tx)}
-.fe-si.active{background:var(--on);color:var(--ac)}
 button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer}
 .fe-rc-ago{font-size:var(--fs-sm);color:var(--dm);flex-shrink:0}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
@@ -296,9 +303,7 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-bm-item.dragging{opacity:.4;background:var(--hover)}
 .fe-bm-item.drag-over{border-top:2px solid var(--ac)}
 .fe-si-link{display:flex;align-items:center;gap:10px;flex:1;padding:7px 6px 7px 4px;
-  color:var(--mt);text-decoration:none;min-width:0;transition:color .1s}
-.fe-si-link:hover{color:var(--tx)}
-.fe-si-link.active{color:var(--ac)}
+  color:inherit;text-decoration:none;min-width:0;transition:color .1s}
 .fe-si-link svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-rm-btn{opacity:0;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
@@ -431,9 +436,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe[data-view="tree"] #fe-tree{display:block}
 #fe[data-view="tree"] #fe-tiles{display:none}
 .fe-tree-row{display:flex;align-items:center;min-height:29px;padding-right:12px;gap:4px}
-.fe-tree-row:hover{background:var(--hover)}
-.fe-tree-row.selected{background:var(--on)}
-.fe-tree-row.selected .fe-nm{color:var(--ac)}
 .fe-tree-toggle,.fe-tree-spacer{width:20px;height:20px;flex:none}
 .fe-tree-toggle{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--dm);cursor:pointer;border-radius:4px}
 .fe-tree-toggle:hover{background:var(--s2);color:var(--tx)}
@@ -731,7 +733,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-tabs::-webkit-scrollbar{display:none}
 /* The list of every tab: icon, name, and the digit that jumps to it. */
 .fe-tab-menu .fe-ctx-item span:not(.fe-ctx-key){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-tab-menu .fe-ctx-item.on{color:var(--ac);font-weight:600}
 .fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
@@ -779,7 +780,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
 #fe-toc a{display:block;margin:1px 6px;border-radius:6px;color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
-#fe-toc a:hover{color:var(--tx);background:var(--hover)}
 #fe-toc a.fe-toc-h1{font-size:var(--fs-lg);font-weight:600;color:var(--tx)}
 #fe-toc a.fe-toc-h2{font-size:var(--fs-md);padding-left:22px}
 #fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
@@ -875,7 +875,8 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-ac[hidden]{display:none}
 .fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
-.fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--on)}
+.fe-cm-ac > div:hover{background:var(--hover)}
+.fe-cm-ac > div.on{background:var(--on)}
 .fe-cm-tools{flex-wrap:wrap;margin-top:6px}
 .fe-cm-grow{flex:1}
 .fe-cm-date{width:auto;color-scheme:light dark}
@@ -927,7 +928,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
 #fe.fe-notips #fe-tip{display:none!important}
 #fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
-#fe-toc a.on{color:var(--tx);background:var(--on)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:var(--fs-sm);color:var(--dm);margin-right:auto;white-space:nowrap}
 /* A text match sits on its own line under the title, inside the link, so the title keeps its width and the whole row opens the note. */
@@ -983,7 +983,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 .fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
-.fe-hist-row:hover,.fe-hist-row.active{border-color:var(--ac);background:var(--on)}
 .fe-hist-row code{color:var(--dm)}
 .fe-hist-head{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bd);color:var(--dm);font-size:var(--fs-sm)}
 #fe-ql-body.fe-editing{display:flex;flex-direction:column}
@@ -1217,7 +1216,6 @@ a.fe-fm-path:hover{text-decoration:underline}
 .fe-ctx:not([data-layer]){display:none}
 .fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
   font-size:var(--fs-md);cursor:pointer;white-space:nowrap}
-.fe-ctx-item:hover{background:var(--hover)}
 .fe-ctx-key{margin-left:auto;color:var(--dm);font-size:var(--fs-xs);padding-left:16px}
 .fe-ctx-sep{height:1px;background:var(--bd);margin:4px 0}
 .fe-tab-ico svg{width:15px;height:16px}
@@ -1253,6 +1251,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-table tbody tr{border-bottom:0}
 #fe-table tbody tr:hover{background:none}
 #fe-table tbody tr:hover td{background:var(--hover)}
+#fe-table tbody tr.selected td{background:var(--on)}
 #fe-table tbody td{height:36px}
 #fe.compact #fe-table tbody td{height:28px}
 /* Row height per detail level; it wins over Compact, which only sets level 3. */
@@ -1265,7 +1264,6 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-scroll{padding:0 6px}
 .fe-row.selected .fe-nm{color:var(--tx)}
 .fe-tile.selected{border-color:transparent}
-.fe-hist-row.active{border-color:transparent}
 
 /* One row and one floating surface. Every list row (Places, Saved, Notes,
    History, the path menu, context menus) shares a height, inset, corner,
@@ -1293,8 +1291,6 @@ a.fe-fm-path:hover{text-decoration:underline}
   border-radius:var(--row-r);font-size:var(--row-fs);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-dd-item,.fe-ctx-item{margin:0}
 button.fe-si{width:auto;display:flex}
-.fe-si:hover,.fe-bm-item:hover,.fe-dd-item:hover,.fe-ctx-item:hover{background:var(--hover)}
-.fe-bm-item:has(> .fe-si-link.active){background:var(--on)}
 .fe-si > svg,.fe-si-link > svg,.fe-dd-item > svg,.fe-ctx-item > svg{width:var(--row-ic);height:var(--row-ic);flex:none}
 .fe-sl{font-size:var(--row-fs)}
 .fe-si-link{padding:0;gap:var(--row-gap);min-height:var(--row-h)}
@@ -1536,7 +1532,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
 .fe-ask-hist[hidden]{display:none}
 .fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
-.fe-ask-h:hover,.fe-ask-h.on{background:var(--hover)}
 .fe-ask-h-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:0;background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
 .fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md)}
 .fe-ask-h-m{font-size:var(--fs-xs);color:var(--dm)}

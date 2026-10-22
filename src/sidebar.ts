@@ -416,7 +416,7 @@ export function initSidebar(app: App): void {
     const row = (n: NoteMeta) => {
       const c = colorName(n.color);
       return `
-          <div class="fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}${c ? ' coloured' : ''}${(n.tags ?? []).length ? ' two' : ''}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ''}>
+          <div class="row fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}${c ? ' coloured' : ''}${(n.tags ?? []).length ? ' two' : ''}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ''}>
             <a href="${esc(fileHref(root + '/' + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel)!)}">${esc(bodyHits.get(n.rel)!)}</span>` : ''}
             </a>
@@ -670,15 +670,15 @@ export function initSidebar(app: App): void {
   function openNtMenu(root: string, item: HTMLElement, x: number, y: number): void {
     const rel = item.dataset.rel!;
     ntMenu.innerHTML = [
-      `<div class="fe-ctx-item" data-act="open">${UI_ICON.files}<span>Open</span><span class="fe-ctx-key">Enter</span></div>`,
-      `<div class="fe-ctx-item" data-act="tab">${UI_ICON.tab}<span>Open in a page tab</span></div>`,
-      `<div class="fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
-      `<div class="fe-ctx-item" data-act="props">${UI_ICON.palette}<span>Colour, pin and tags</span></div>`,
+      `<div class="row fe-ctx-item" data-act="open">${UI_ICON.files}<span>Open</span><span class="fe-ctx-key">Enter</span></div>`,
+      `<div class="row fe-ctx-item" data-act="tab">${UI_ICON.tab}<span>Open in a page tab</span></div>`,
+      `<div class="row fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
+      `<div class="row fe-ctx-item" data-act="props">${UI_ICON.palette}<span>Colour, pin and tags</span></div>`,
       `<div class="fe-ctx-sep"></div>`,
-      `<div class="fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
-      `<div class="fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
+      `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
+      `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
       `<div class="fe-ctx-sep"></div>`,
-      `<div class="fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`,
+      `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`,
     ].join('');
     ntMenu.dataset.rel = rel;
     ntMenu.dataset.root = root;

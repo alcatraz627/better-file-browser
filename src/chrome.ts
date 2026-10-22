@@ -155,7 +155,7 @@ export function initChrome(app: App): void {
       openCrumbMenu(more, 'more', `<div class="fe-dd-items">${hid.map(a => {
         const href = a.getAttribute('href')!, name = a.textContent!;
         const icon = getIcon({ name, href, isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: '' }, app.iconRules);
-        return `<a href="${esc(href)}" class="fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon}<span>${esc(name)}</span></a>`;
+        return `<a href="${esc(href)}" class="row fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon}<span>${esc(name)}</span></a>`;
       }).join('')}</div>`);
       return;
     }
@@ -179,7 +179,7 @@ export function initChrome(app: App): void {
       crumbMenu.innerHTML =
         `<div class="fe-dd-search-wrap"><input class="tb fe-dd-search" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow · Enter opens the first match · Esc closes"></div>` +
         `<div class="fe-dd-items">${entries.map(en =>
-          `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? ' dir' : ''}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
+          `<a href="${esc(en.href)}" class="row fe-dd-item${en.isDir ? ' dir' : ''}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
         ).join('')}</div>`;
       // Placed from the spinner's size at first; the listing needs its own.
       crumbLayer?.place();

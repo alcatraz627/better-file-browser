@@ -134,16 +134,16 @@ export function initListingInput(app: App, listing: Listing): void {
     if (!multi) sel.setSel(idx);
     ctxMenu.innerHTML = multi
       ? [
-          `<div class="fe-ctx-item" data-act="cp-paths">${UI_ICON.copy}<span>Copy ${ls.selSet.size} paths</span></div>`,
-          `<div class="fe-ctx-item" data-act="cp-names">${UI_ICON.copy}<span>Copy ${ls.selSet.size} names</span></div>`,
+          `<div class="row fe-ctx-item" data-act="cp-paths">${UI_ICON.copy}<span>Copy ${ls.selSet.size} paths</span></div>`,
+          `<div class="row fe-ctx-item" data-act="cp-names">${UI_ICON.copy}<span>Copy ${ls.selSet.size} names</span></div>`,
         ].join('')
       : [
-          canPreview(en) ? `<div class="fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : '',
-          `<div class="fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
-          `<div class="fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">⇧Y</span></div>`,
+          canPreview(en) ? `<div class="row fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : '',
+          `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
+          `<div class="row fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">⇧Y</span></div>`,
           `<div class="fe-ctx-sep"></div>`,
-          `<div class="fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? 'Unsave' : 'Save'}</span></div>`,
-          `<div class="fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
+          `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? 'Unsave' : 'Save'}</span></div>`,
+          `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
         ].join('');
     ctxMenu.dataset.idx = String(idx);
     ctx = openLayer(ctxMenu, { kind: 'popover', place: 'point', point: { x: e.clientX, y: e.clientY }, origin: holder, role: 'menu', group: 'menu' });

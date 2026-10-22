@@ -161,13 +161,13 @@ export function mountStrip(host: StripHost): Strip {
   function openMenu(t: Tab, anchor: HTMLElement): void {
     const saved = isSaved(t.path);
     menu.innerHTML = [
-      `<div class="fe-ctx-item" data-act="copy">${UI_ICON.copy}<span>Copy path</span></div>`,
-      `<div class="fe-ctx-item" data-act="save">${PI.bm}<span>${saved ? 'Unsave' : 'Save'}</span></div>`,
-      host.openInTerminal ? `<div class="fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>` : '',
-      `<div class="fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? 'Unpin' : 'Pin'}</span><span class="fe-ctx-key">p</span></div>`,
+      `<div class="row fe-ctx-item" data-act="copy">${UI_ICON.copy}<span>Copy path</span></div>`,
+      `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${saved ? 'Unsave' : 'Save'}</span></div>`,
+      host.openInTerminal ? `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>` : '',
+      `<div class="row fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? 'Unpin' : 'Pin'}</span><span class="fe-ctx-key">p</span></div>`,
       `<div class="fe-ctx-sep"></div>`,
-      `<div class="fe-ctx-item" data-act="close">${UI_ICON.close}<span>Close</span><span class="fe-ctx-key">w</span></div>`,
-      `<div class="fe-ctx-item" data-act="others">${UI_ICON.stack}<span>Close others</span></div>`,
+      `<div class="row fe-ctx-item" data-act="close">${UI_ICON.close}<span>Close</span><span class="fe-ctx-key">w</span></div>`,
+      `<div class="row fe-ctx-item" data-act="others">${UI_ICON.stack}<span>Close others</span></div>`,
     ].join('');
     menu.dataset.id = t.id;
     layer = openLayer(menu, { kind: 'popover', anchor, role: 'menu', group: 'menu' });
@@ -241,7 +241,7 @@ export function mountStrip(host: StripHost): Strip {
       listBtn.hidden = state.list.length < 2;
       listBtn.onclick = e => {
         e.preventDefault(); e.stopPropagation();
-        menu.innerHTML = state.list.map((t, i) => `<div class="fe-ctx-item${t.id === here?.id ? ' on' : ''}" data-go="${esc(t.id)}">`
+        menu.innerHTML = state.list.map((t, i) => `<div class="row fe-ctx-item${t.id === here?.id ? ' on' : ''}" data-go="${esc(t.id)}">`
           + `${t.kind === 'file' ? icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '') : icoFolder(t.label)}<span>${esc(labels[i])}</span>${i < 9 ? `<kbd>${i + 1}</kbd>` : ''}</div>`).join('');
         menu.dataset.id = '';
         layer = openLayer(menu, { kind: 'popover', anchor: listBtn, align: 'end', role: 'menu', group: 'menu' });

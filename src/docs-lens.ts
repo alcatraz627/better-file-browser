@@ -56,7 +56,7 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
       return;
     }
     if (!list.length) { rowsBox.innerHTML = '<div class="fe-cm-empty"><p>No document matches</p></div>'; return; }
-    rowsBox.innerHTML = list.map(r => `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
+    rowsBox.innerHTML = list.map(r => `<button type="button" class="row fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
         <span class="fe-row-ico">${icoFile(r.name.split('.').pop()!.toLowerCase())}</span>
         <span class="fe-doc-tx"><span class="fe-doc-name">${midHtml(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
         ${forMe(r) ? `<span class="fe-doc-me" title="Mentions you">${UI_ICON.at}</span>` : ''}

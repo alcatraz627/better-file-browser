@@ -55,7 +55,7 @@ async function showClosedSets(strip: Strip, visible: boolean): Promise<void> {
     const sets = all.filter(s => !young.includes(s)).slice(0, 3);
     box!.innerHTML = sets.map(s => {
       const n = s.labels.length;
-      return `<button type="button" class="fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(', '))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? '' : 's'}: ${esc(s.labels.slice(0, 3).join(', '))}${n > 3 ? '…' : ''}</span><span class="fe-rc-ago">${ago(s.at)}</span></button>`;
+      return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(', '))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? '' : 's'}: ${esc(s.labels.slice(0, 3).join(', '))}${n > 3 ? '…' : ''}</span><span class="fe-rc-ago">${ago(s.at)}</span></button>`;
     }).join('');
     section.style.display = visible && sets.length ? '' : 'none';
   }
@@ -138,7 +138,7 @@ loadKv().catch(() => {}).then(function () {
     const name = r.path.split('/').filter(Boolean).pop() || '/';
     const isDir = r.path.endsWith('/');
     const ext = name.includes('.') ? name.split('.').pop()!.toLowerCase() : 'txt';
-    return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago(r.ts)}</span></a>`;
+    return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago(r.ts)}</span></a>`;
   };
   const recentDirs = recents.filter(r => r.path.endsWith('/')).slice(0, 12);
   const recentFiles = recents.filter(r => !r.path.endsWith('/')).slice(0, 12);

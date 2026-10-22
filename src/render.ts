@@ -138,9 +138,9 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
   const row = (p: Place) => {
     const n = p.tags?.length ?? 0, hit = hits.get(p.path);
     return `
-    <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? ' fe-view' : ''}" draggable="true" data-path="${esc(p.path)}">
+    <div class="row fe-bm-item fe-pl-item${isViewPath(p.path) ? ' fe-view' : ''}" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? 'file://' + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active' : ''}">
+      <a href="${isViewPath(p.path) ? 'file://' + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ''}">
         ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label">${esc(p.label || p.path.split('/').filter(Boolean).pop() || '/')}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ''}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ''}

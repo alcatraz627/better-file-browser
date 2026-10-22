@@ -47,7 +47,7 @@ export function placesHTML(home: string, rawPath: string): string {
     { label: 'Root /',       icon: 'root', href: 'file:///' },
   ];
   return places.map(p =>
-    `<a href="${p.href}" class="fe-si${p.href.replace(/\/$/, '') === fileHref(rawPath).replace(/\/$/, '') ? ' active' : ''}" title="${esc(p.label)}\n${esc(p.href)}">${(PI[p.icon] ?? PI.folder)}<span class="fe-sl">${esc(p.label)}</span></a>`
+    `<a href="${p.href}" class="row fe-si${p.href.replace(/\/$/, '') === fileHref(rawPath).replace(/\/$/, '') ? ' active" aria-current="page' : ''}" title="${esc(p.label)}\n${esc(p.href)}">${(PI[p.icon] ?? PI.folder)}<span class="fe-sl">${esc(p.label)}</span></a>`
   ).join('');
 }
 

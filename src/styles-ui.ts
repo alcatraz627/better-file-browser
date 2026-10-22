@@ -91,9 +91,6 @@ export const UI_CSS = `
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-dd-opt{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 10px;border-radius:7px;color:var(--tx);font-size:var(--row-fs);cursor:pointer;white-space:nowrap}
 .fe-dd-opt svg{flex:none;width:14px;height:14px;color:var(--mt)}
-.fe-dd-opt.kb{background:var(--hover)}
-.fe-dd-opt.on{color:var(--ac)}
-.fe-dd-opt.on svg{color:var(--ac)}
 .fe-dd-l{flex:1}
 .fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
 .fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
@@ -248,7 +245,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-g{padding:10px 10px 4px}
 .fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
 .fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--tab-c,var(--mt))}
-.fe-pal-i.on{background:var(--on)}
 .fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
 .fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
@@ -276,7 +272,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 @keyframes fe-area{0%{box-shadow:inset 0 0 0 2px var(--ac)}100%{box-shadow:inset 0 0 0 2px transparent}}
 #fe-side .fe-si:focus-visible,#fe-side .fe-si-link:focus-visible,#fe-side summary:focus-visible,#fe-side .fe-nt-grp:focus-visible,
 #fe-tabs .fe-tab:focus-visible,#fe-bc a:focus-visible,#fe-bc button:focus-visible{outline:2px solid var(--ac);outline-offset:-2px;border-radius:var(--row-r)}
-#fe-ctx .fe-ctx-item.kb,.fe-ctx .fe-ctx-item.kb,#fe-crumb-menu .fe-dd-item.kb,.fe-pmenu button.kb{background:var(--on);color:var(--tx)}
 
 /* Help: the keyboard map. Keys with a use are tinted; hovering an action
    lights its keys, hovering a key lights its actions. */
@@ -300,7 +295,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-g h3{padding:8px 10px 6px}
 .fe-km-g h3 svg{width:14px;height:14px}
 .fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}
-.fe-km-i.on{background:var(--on)}
 .fe-km-k{display:inline-flex;align-items:center;gap:3px;flex:none}
 .fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:6px;
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}

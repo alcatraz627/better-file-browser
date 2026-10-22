@@ -99,7 +99,7 @@ function buildToc(page: HTMLElement, toc: HTMLElement): number {
   const heads = [...page.querySelectorAll<HTMLElement>('.fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4')];
   toc.innerHTML = heads.map(h => {
     const text = (h.textContent || '').replace(/#$/, '').trim();
-    return `<a href="#${esc(h.id)}" class="fe-toc-${h.tagName.toLowerCase()}" data-id="${esc(h.id)}" title="${esc(text)}">${esc(text)}</a>`;
+    return `<a href="#${esc(h.id)}" class="row fe-toc-${h.tagName.toLowerCase()}" data-id="${esc(h.id)}" title="${esc(text)}">${esc(text)}</a>`;
   }).join('');
   return heads.length;
 }

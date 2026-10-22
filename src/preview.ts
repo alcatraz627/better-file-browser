@@ -558,7 +558,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
         return;
       }
       hist.innerHTML = vs.slice(0, 30).map(v =>
-        `<button class="fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join('')
+        `<button class="row fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join('')
         + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : '');
       hist.querySelectorAll<HTMLElement>('.fe-hist-row').forEach(b => b.addEventListener('click', () => void showVersion(b.dataset.sha!)));
     } catch (err) { hist.textContent = `versions failed: ${(err as NotesError).message}`; }

@@ -129,7 +129,7 @@ function upgradeDd(host: HTMLElement): void {
     closeList?.();
     list = document.createElement('div');
     list.className = 'fe-dd-list';
-    const optHtml = (o: Opt) => `<div role="option" class="fe-dd-opt${o.value === cur ? ' on' : ''}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">`
+    const optHtml = (o: Opt) => `<div role="option" class="row fe-dd-opt${o.value === cur ? ' on' : ''}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">`
       + `${o.icon ?? ''}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ''}</div>`;
     // Options sharing a group sit in a named group, in the order the groups first appear.
     const groups = [...new Set(opts.map(o => o.group ?? ''))];

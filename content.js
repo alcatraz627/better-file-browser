@@ -2036,7 +2036,7 @@ ${body}`;
       list3.innerHTML = shown.length ? shown.map((it, i3) => {
         const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g sect" data-level="group">${esc(it.group)}</div>` : "";
         lastGroup = it.group;
-        return `${head}<div class="fe-pal-i${i3 === at ? " on" : ""}" role="option" data-i="${i3}" data-tab="${tabOf(it)}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
+        return `${head}<div class="row fe-pal-i${i3 === at ? " on" : ""}" role="option" aria-selected="${i3 === at}" data-i="${i3}" data-tab="${tabOf(it)}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
       }).join("") : `<div class="fe-pal-none">${late.length && tab !== "all" && !counts.get(tab) ? "Loading\u2026" : "Nothing matches"}</div>`;
       list3.querySelector(".on")?.scrollIntoView({ block: "nearest" });
     };
@@ -2084,7 +2084,10 @@ ${body}`;
       const row2 = e.target.closest(".fe-pal-i");
       if (row2 && Number(row2.dataset.i) !== at) {
         at = Number(row2.dataset.i);
-        list3.querySelectorAll(".fe-pal-i").forEach((r) => r.classList.toggle("on", r === row2));
+        list3.querySelectorAll(".fe-pal-i").forEach((r) => {
+          r.classList.toggle("on", r === row2);
+          r.setAttribute("aria-selected", String(r === row2));
+        });
       }
     });
     list3.addEventListener("click", (e) => {
@@ -4827,7 +4830,7 @@ Now: ${question}` : question;
           hist.textContent = repo === false ? "No versions yet: the notes folder is not a git repository (Switchboard makes it one on its first save)." : "No versions yet: this note has not been committed to the notes folder's git history.";
           return;
         }
-        hist.innerHTML = vs.slice(0, 30).map((v) => `<button class="fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join("") + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : "");
+        hist.innerHTML = vs.slice(0, 30).map((v) => `<button class="row fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join("") + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : "");
         hist.querySelectorAll(".fe-hist-row").forEach((b) => b.addEventListener("click", () => void showVersion(b.dataset.sha)));
       } catch (err) {
         hist.textContent = `versions failed: ${err.message}`;
@@ -5353,6 +5356,17 @@ Now: ${question}` : question;
    card), panel (a panel's or rail's title, with its icon and count), page (a
    dialog or page header: a tile, a title and a line under it). Actions sit
    at the end in sect-acts. The place sets padding. */
+/* ListRow: one line in any list (sidebar, menus, dropdowns, palette, key
+   map, contents, versions). Hover and the keyboard cursor share one wash; the
+   selected, current or active row takes the accent wash with body text and an
+   accent icon. The place sets its own height and padding where it differs
+   (docs/system/list-row.md). */
+.row{display:flex;align-items:center;gap:var(--row-gap);min-width:0;min-height:var(--row-h);padding:0 var(--row-px);
+  border-radius:var(--row-r);font-size:var(--row-fs);color:var(--mt);text-decoration:none;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.row:hover,.row.kb,.row:focus-visible{background:var(--hover);color:var(--tx)}
+.row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]),.row:has(> .active){background:var(--on);color:var(--tx)}
+.row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]) svg,.row:has(> .active) svg{color:var(--ac);opacity:1}
 .sect{display:flex;align-items:center;gap:var(--sp-3);min-width:0;margin:0}
 .sect-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .sect-acts{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:auto}
@@ -5453,7 +5467,6 @@ body{opacity:1!important}
 .fe-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;
   color:var(--tx);text-decoration:none;font-size:var(--fs-md);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;transition:background .08s}
-.fe-dd-item:hover{background:var(--hover)}
 .fe-dd-item.dir{color:var(--dir)}
 .fe-dd-item svg{flex-shrink:0}
 .fe-dd-spinner,.fe-dd-empty{padding:10px 14px;font-size:var(--fs-md);color:var(--dm);font-style:italic}
@@ -5490,7 +5503,6 @@ body{opacity:1!important}
 #fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
 .fe-lens[hidden]{display:none}
 .fe-doc-row{display:flex;align-items:center;gap:10px;width:calc(100% - 12px);margin:1px 6px;padding:6px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-doc-row:hover{background:var(--hover)}
 .fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
 .fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-doc-name{font-size:var(--row-fs)}
@@ -5512,8 +5524,6 @@ body{opacity:1!important}
 .fe-sh-collapse:hover{color:var(--tx)}
 .fe-si{display:flex;align-items:center;gap:10px;padding:8px 14px;
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
-.fe-si:hover{background:var(--hover);color:var(--tx)}
-.fe-si.active{background:var(--on);color:var(--ac)}
 button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer}
 .fe-rc-ago{font-size:var(--fs-sm);color:var(--dm);flex-shrink:0}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
@@ -5529,9 +5539,7 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-bm-item.dragging{opacity:.4;background:var(--hover)}
 .fe-bm-item.drag-over{border-top:2px solid var(--ac)}
 .fe-si-link{display:flex;align-items:center;gap:10px;flex:1;padding:7px 6px 7px 4px;
-  color:var(--mt);text-decoration:none;min-width:0;transition:color .1s}
-.fe-si-link:hover{color:var(--tx)}
-.fe-si-link.active{color:var(--ac)}
+  color:inherit;text-decoration:none;min-width:0;transition:color .1s}
 .fe-si-link svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-rm-btn{opacity:0;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
@@ -5664,9 +5672,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe[data-view="tree"] #fe-tree{display:block}
 #fe[data-view="tree"] #fe-tiles{display:none}
 .fe-tree-row{display:flex;align-items:center;min-height:29px;padding-right:12px;gap:4px}
-.fe-tree-row:hover{background:var(--hover)}
-.fe-tree-row.selected{background:var(--on)}
-.fe-tree-row.selected .fe-nm{color:var(--ac)}
 .fe-tree-toggle,.fe-tree-spacer{width:20px;height:20px;flex:none}
 .fe-tree-toggle{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--dm);cursor:pointer;border-radius:4px}
 .fe-tree-toggle:hover{background:var(--s2);color:var(--tx)}
@@ -5964,7 +5969,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-tabs::-webkit-scrollbar{display:none}
 /* The list of every tab: icon, name, and the digit that jumps to it. */
 .fe-tab-menu .fe-ctx-item span:not(.fe-ctx-key){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-tab-menu .fe-ctx-item.on{color:var(--ac);font-weight:600}
 .fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
@@ -6012,7 +6016,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
 #fe-toc a{display:block;margin:1px 6px;border-radius:6px;color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
-#fe-toc a:hover{color:var(--tx);background:var(--hover)}
 #fe-toc a.fe-toc-h1{font-size:var(--fs-lg);font-weight:600;color:var(--tx)}
 #fe-toc a.fe-toc-h2{font-size:var(--fs-md);padding-left:22px}
 #fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
@@ -6108,7 +6111,8 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-ac[hidden]{display:none}
 .fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
-.fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--on)}
+.fe-cm-ac > div:hover{background:var(--hover)}
+.fe-cm-ac > div.on{background:var(--on)}
 .fe-cm-tools{flex-wrap:wrap;margin-top:6px}
 .fe-cm-grow{flex:1}
 .fe-cm-date{width:auto;color-scheme:light dark}
@@ -6160,7 +6164,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
 #fe.fe-notips #fe-tip{display:none!important}
 #fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
-#fe-toc a.on{color:var(--tx);background:var(--on)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:var(--fs-sm);color:var(--dm);margin-right:auto;white-space:nowrap}
 /* A text match sits on its own line under the title, inside the link, so the title keeps its width and the whole row opens the note. */
@@ -6216,7 +6219,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 .fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
-.fe-hist-row:hover,.fe-hist-row.active{border-color:var(--ac);background:var(--on)}
 .fe-hist-row code{color:var(--dm)}
 .fe-hist-head{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bd);color:var(--dm);font-size:var(--fs-sm)}
 #fe-ql-body.fe-editing{display:flex;flex-direction:column}
@@ -6450,7 +6452,6 @@ a.fe-fm-path:hover{text-decoration:underline}
 .fe-ctx:not([data-layer]){display:none}
 .fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
   font-size:var(--fs-md);cursor:pointer;white-space:nowrap}
-.fe-ctx-item:hover{background:var(--hover)}
 .fe-ctx-key{margin-left:auto;color:var(--dm);font-size:var(--fs-xs);padding-left:16px}
 .fe-ctx-sep{height:1px;background:var(--bd);margin:4px 0}
 .fe-tab-ico svg{width:15px;height:16px}
@@ -6486,6 +6487,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-table tbody tr{border-bottom:0}
 #fe-table tbody tr:hover{background:none}
 #fe-table tbody tr:hover td{background:var(--hover)}
+#fe-table tbody tr.selected td{background:var(--on)}
 #fe-table tbody td{height:36px}
 #fe.compact #fe-table tbody td{height:28px}
 /* Row height per detail level; it wins over Compact, which only sets level 3. */
@@ -6498,7 +6500,6 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-scroll{padding:0 6px}
 .fe-row.selected .fe-nm{color:var(--tx)}
 .fe-tile.selected{border-color:transparent}
-.fe-hist-row.active{border-color:transparent}
 
 /* One row and one floating surface. Every list row (Places, Saved, Notes,
    History, the path menu, context menus) shares a height, inset, corner,
@@ -6526,8 +6527,6 @@ a.fe-fm-path:hover{text-decoration:underline}
   border-radius:var(--row-r);font-size:var(--row-fs);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-dd-item,.fe-ctx-item{margin:0}
 button.fe-si{width:auto;display:flex}
-.fe-si:hover,.fe-bm-item:hover,.fe-dd-item:hover,.fe-ctx-item:hover{background:var(--hover)}
-.fe-bm-item:has(> .fe-si-link.active){background:var(--on)}
 .fe-si > svg,.fe-si-link > svg,.fe-dd-item > svg,.fe-ctx-item > svg{width:var(--row-ic);height:var(--row-ic);flex:none}
 .fe-sl{font-size:var(--row-fs)}
 .fe-si-link{padding:0;gap:var(--row-gap);min-height:var(--row-h)}
@@ -6769,7 +6768,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
 .fe-ask-hist[hidden]{display:none}
 .fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
-.fe-ask-h:hover,.fe-ask-h.on{background:var(--hover)}
 .fe-ask-h-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:0;background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
 .fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md)}
 .fe-ask-h-m{font-size:var(--fs-xs);color:var(--dm)}
@@ -6991,9 +6989,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-dd-opt{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 10px;border-radius:7px;color:var(--tx);font-size:var(--row-fs);cursor:pointer;white-space:nowrap}
 .fe-dd-opt svg{flex:none;width:14px;height:14px;color:var(--mt)}
-.fe-dd-opt.kb{background:var(--hover)}
-.fe-dd-opt.on{color:var(--ac)}
-.fe-dd-opt.on svg{color:var(--ac)}
 .fe-dd-l{flex:1}
 .fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
 .fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
@@ -7148,7 +7143,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-g{padding:10px 10px 4px}
 .fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
 .fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--tab-c,var(--mt))}
-.fe-pal-i.on{background:var(--on)}
 .fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
 .fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
@@ -7176,7 +7170,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 @keyframes fe-area{0%{box-shadow:inset 0 0 0 2px var(--ac)}100%{box-shadow:inset 0 0 0 2px transparent}}
 #fe-side .fe-si:focus-visible,#fe-side .fe-si-link:focus-visible,#fe-side summary:focus-visible,#fe-side .fe-nt-grp:focus-visible,
 #fe-tabs .fe-tab:focus-visible,#fe-bc a:focus-visible,#fe-bc button:focus-visible{outline:2px solid var(--ac);outline-offset:-2px;border-radius:var(--row-r)}
-#fe-ctx .fe-ctx-item.kb,.fe-ctx .fe-ctx-item.kb,#fe-crumb-menu .fe-dd-item.kb,.fe-pmenu button.kb{background:var(--on);color:var(--tx)}
 
 /* Help: the keyboard map. Keys with a use are tinted; hovering an action
    lights its keys, hovering a key lights its actions. */
@@ -7200,7 +7193,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-g h3{padding:8px 10px 6px}
 .fe-km-g h3 svg{width:14px;height:14px}
 .fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}
-.fe-km-i.on{background:var(--on)}
 .fe-km-k{display:inline-flex;align-items:center;gap:3px;flex:none}
 .fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:6px;
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}
@@ -7567,7 +7559,7 @@ button.chip:disabled{opacity:.45;cursor:default}
         openCrumbMenu(more, "more", `<div class="fe-dd-items">${hid.map((a) => {
           const href = a.getAttribute("href"), name = a.textContent;
           const icon2 = getIcon({ name, href, isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: "" }, app.iconRules);
-          return `<a href="${esc(href)}" class="fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon2}<span>${esc(name)}</span></a>`;
+          return `<a href="${esc(href)}" class="row fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon2}<span>${esc(name)}</span></a>`;
         }).join("")}</div>`);
         return;
       }
@@ -7598,7 +7590,7 @@ button.chip:disabled{opacity:.45;cursor:default}
           return;
         }
         crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="tb fe-dd-search" data-lead="search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
-          (en) => `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
+          (en) => `<a href="${esc(en.href)}" class="row fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
         ).join("")}</div>`;
         crumbLayer?.place();
         const ddSearch = crumbMenu.querySelector(".fe-dd-search");
@@ -16126,7 +16118,7 @@ ${d.message}` : d.message;
     const heads = [...page.querySelectorAll(".fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4")];
     toc.innerHTML = heads.map((h) => {
       const text = (h.textContent || "").replace(/#$/, "").trim();
-      return `<a href="#${esc(h.id)}" class="fe-toc-${h.tagName.toLowerCase()}" data-id="${esc(h.id)}" title="${esc(text)}">${esc(text)}</a>`;
+      return `<a href="#${esc(h.id)}" class="row fe-toc-${h.tagName.toLowerCase()}" data-id="${esc(h.id)}" title="${esc(text)}">${esc(text)}</a>`;
     }).join("");
     return heads.length;
   }
@@ -16779,13 +16771,13 @@ ${d.message}` : d.message;
     function openMenu3(t, anchor) {
       const saved = isSaved(t.path);
       menu.innerHTML = [
-        `<div class="fe-ctx-item" data-act="copy">${UI_ICON.copy}<span>Copy path</span></div>`,
-        `<div class="fe-ctx-item" data-act="save">${PI.bm}<span>${saved ? "Unsave" : "Save"}</span></div>`,
-        host.openInTerminal ? `<div class="fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>` : "",
-        `<div class="fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? "Unpin" : "Pin"}</span><span class="fe-ctx-key">p</span></div>`,
+        `<div class="row fe-ctx-item" data-act="copy">${UI_ICON.copy}<span>Copy path</span></div>`,
+        `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${saved ? "Unsave" : "Save"}</span></div>`,
+        host.openInTerminal ? `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>` : "",
+        `<div class="row fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? "Unpin" : "Pin"}</span><span class="fe-ctx-key">p</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
-        `<div class="fe-ctx-item" data-act="close">${UI_ICON.close}<span>Close</span><span class="fe-ctx-key">w</span></div>`,
-        `<div class="fe-ctx-item" data-act="others">${UI_ICON.stack}<span>Close others</span></div>`
+        `<div class="row fe-ctx-item" data-act="close">${UI_ICON.close}<span>Close</span><span class="fe-ctx-key">w</span></div>`,
+        `<div class="row fe-ctx-item" data-act="others">${UI_ICON.stack}<span>Close others</span></div>`
       ].join("");
       menu.dataset.id = t.id;
       layer = openLayer(menu, { kind: "popover", anchor, role: "menu", group: "menu" });
@@ -16858,7 +16850,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         listBtn.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          menu.innerHTML = state.list.map((t, i3) => `<div class="fe-ctx-item${t.id === here?.id ? " on" : ""}" data-go="${esc(t.id)}">${t.kind === "file" ? icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "") : icoFolder(t.label)}<span>${esc(labels[i3])}</span>${i3 < 9 ? `<kbd>${i3 + 1}</kbd>` : ""}</div>`).join("");
+          menu.innerHTML = state.list.map((t, i3) => `<div class="row fe-ctx-item${t.id === here?.id ? " on" : ""}" data-go="${esc(t.id)}">${t.kind === "file" ? icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "") : icoFolder(t.label)}<span>${esc(labels[i3])}</span>${i3 < 9 ? `<kbd>${i3 + 1}</kbd>` : ""}</div>`).join("");
           menu.dataset.id = "";
           layer = openLayer(menu, { kind: "popover", anchor: listBtn, align: "end", role: "menu", group: "menu" });
         };
@@ -17064,7 +17056,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     const list3 = GROUPS.map((g) => {
       const defs = KEYMAP.filter((d) => d.group === g.name);
       if (!defs.length) return "";
-      return `<section class="fe-km-g card"><h3 class="sect" data-level="group">${PI[g.icon] ?? ""}${esc(g.name)}</h3>${defs.map((d) => `<div class="fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(" "))}" data-q="${esc((d.title + " " + d.keys.join(" ") + " " + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join("")}</section>`;
+      return `<section class="fe-km-g card"><h3 class="sect" data-level="group">${PI[g.icon] ?? ""}${esc(g.name)}</h3>${defs.map((d) => `<div class="row fe-km-i" data-caps="${esc([...new Set(d.keys.flatMap(capsFor))].join(" "))}" data-q="${esc((d.title + " " + d.keys.join(" ") + " " + g.name).toLowerCase())}"><span>${esc(d.title)}</span><span class="fe-km-k">${keys(d.keys)}</span></div>`).join("")}</section>`;
     }).join("");
     return `<div class="fe-km">
     ${board}
@@ -17292,7 +17284,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       closeList?.();
       list = document.createElement("div");
       list.className = "fe-dd-list";
-      const optHtml = (o) => `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
+      const optHtml = (o) => `<div role="option" class="row fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
       const groups = [...new Set(opts.map((o) => o.group ?? ""))];
       list.innerHTML = groups.map((g) => {
         const inner = opts.filter((o) => (o.group ?? "") === g).map(optHtml).join("");
@@ -17775,9 +17767,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     const row2 = (p) => {
       const n = p.tags?.length ?? 0, hit = hits.get(p.path);
       return `
-    <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
+    <div class="row fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? "file://" + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? " active" : ""}">
+      <a href="${isViewPath(p.path) ? "file://" + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ""}">
         ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label">${esc(p.label || p.path.split("/").filter(Boolean).pop() || "/")}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ""}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ""}
@@ -17834,7 +17826,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       { label: "Root /", icon: "root", href: "file:///" }
     ];
     return places.map(
-      (p) => `<a href="${p.href}" class="fe-si${p.href.replace(/\/$/, "") === fileHref(rawPath).replace(/\/$/, "") ? " active" : ""}" title="${esc(p.label)}
+      (p) => `<a href="${p.href}" class="row fe-si${p.href.replace(/\/$/, "") === fileHref(rawPath).replace(/\/$/, "") ? ' active" aria-current="page' : ""}" title="${esc(p.label)}
 ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</span></a>`
     ).join("");
   }
@@ -18447,7 +18439,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const name = en.isParent ? "Parent Directory" : en.name.split("/").pop();
         const expanded = treeExpanded.has(en.href);
         const hit = ls.contentHits?.get(en.href);
-        rows.push(`<div class="fe-tree-row${en.isHidden ? " dotfile" : ""}${en.isDir ? " dir" : ""}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
+        rows.push(`<div class="row fe-tree-row${en.isHidden ? " dotfile" : ""}${en.isDir ? " dir" : ""}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
         ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? "Collapse" : "Expand"} ${esc(name)}" aria-expanded="${expanded}">${CHEVRON_DOWN}</button>` : '<span class="fe-tree-spacer"></span>'}
         <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
       </div>`);
@@ -19372,15 +19364,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const multi = ls.selSet.size > 1 && ls.selSet.has(idx);
       if (!multi) sel.setSel(idx);
       ctxMenu.innerHTML = multi ? [
-        `<div class="fe-ctx-item" data-act="cp-paths">${UI_ICON.copy}<span>Copy ${ls.selSet.size} paths</span></div>`,
-        `<div class="fe-ctx-item" data-act="cp-names">${UI_ICON.copy}<span>Copy ${ls.selSet.size} names</span></div>`
+        `<div class="row fe-ctx-item" data-act="cp-paths">${UI_ICON.copy}<span>Copy ${ls.selSet.size} paths</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-names">${UI_ICON.copy}<span>Copy ${ls.selSet.size} names</span></div>`
       ].join("") : [
-        canPreview(en) ? `<div class="fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : "",
-        `<div class="fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
-        `<div class="fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">\u21E7Y</span></div>`,
+        canPreview(en) ? `<div class="row fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : "",
+        `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">\u21E7Y</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
-        `<div class="fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? "Unsave" : "Save"}</span></div>`,
-        `<div class="fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`
+        `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? "Unsave" : "Save"}</span></div>`,
+        `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`
       ].join("");
       ctxMenu.dataset.idx = String(idx);
       ctx = openLayer(ctxMenu, { kind: "popover", place: "point", point: { x: e.clientX, y: e.clientY }, origin: holder, role: "menu", group: "menu" });
@@ -20497,7 +20489,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const row2 = (n) => {
         const c = colorName(n.color);
         return `
-          <div class="fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}>
+          <div class="row fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}>
             <a href="${esc(fileHref(root + "/" + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel))}">${esc(bodyHits.get(n.rel))}</span>` : ""}
             </a>
@@ -20786,15 +20778,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     function openNtMenu(root, item, x, y) {
       const rel = item.dataset.rel;
       ntMenu.innerHTML = [
-        `<div class="fe-ctx-item" data-act="open">${UI_ICON.files}<span>Open</span><span class="fe-ctx-key">Enter</span></div>`,
-        `<div class="fe-ctx-item" data-act="tab">${UI_ICON.tab}<span>Open in a page tab</span></div>`,
-        `<div class="fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
-        `<div class="fe-ctx-item" data-act="props">${UI_ICON.palette}<span>Colour, pin and tags</span></div>`,
+        `<div class="row fe-ctx-item" data-act="open">${UI_ICON.files}<span>Open</span><span class="fe-ctx-key">Enter</span></div>`,
+        `<div class="row fe-ctx-item" data-act="tab">${UI_ICON.tab}<span>Open in a page tab</span></div>`,
+        `<div class="row fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
+        `<div class="row fe-ctx-item" data-act="props">${UI_ICON.palette}<span>Colour, pin and tags</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
-        `<div class="fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
-        `<div class="fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
-        `<div class="fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`
+        `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`
       ].join("");
       ntMenu.dataset.rel = rel;
       ntMenu.dataset.root = root;
@@ -20984,7 +20976,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       list3.innerHTML = hits.map(([href, h]) => {
         const name = relativeName(href, root);
         const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
-        return `<a class="fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
+        return `<a class="row fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
       }).join("");
     }
     q.addEventListener("keydown", (e) => {
@@ -21135,7 +21127,7 @@ ${rows.join("\n")}`, name: subject };
     };
     const paintHist = () => {
       const chats = chatsFor(key);
-      hist.innerHTML = chats.length ? chats.map((c) => `<div class="fe-ask-h${c.id === chatId ? " on" : ""}" data-chat="${esc(c.id)}">
+      hist.innerHTML = chats.length ? chats.map((c) => `<div class="row fe-ask-h${c.id === chatId ? " on" : ""}" data-chat="${esc(c.id)}">
         <button type="button" class="fe-ask-h-open" title="Open this chat"><span class="fe-ask-h-t">${esc(c.title)}</span><span class="fe-ask-h-m">${esc(when(c.at))} \xB7 ${c.turns.length} question${c.turns.length === 1 ? "" : "s"}</span></button>
         <button type="button" class="btn fe-ask-h-del" data-icon data-size="sm" data-tone="danger" title="Delete this chat" aria-label="Delete this chat">${UI_ICON.close}</button>
       </div>`).join("") : '<p class="fe-ask-h-none">No earlier chats about this yet</p>';
@@ -21937,7 +21929,7 @@ ${rows.join("\n")}`, name: subject };
         rowsBox.innerHTML = '<div class="fe-cm-empty"><p>No document matches</p></div>';
         return;
       }
-      rowsBox.innerHTML = list3.map((r) => `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
+      rowsBox.innerHTML = list3.map((r) => `<button type="button" class="row fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
         <span class="fe-row-ico">${icoFile(r.name.split(".").pop().toLowerCase())}</span>
         <span class="fe-doc-tx"><span class="fe-doc-name">${midHtml(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
         ${forMe(r) ? `<span class="fe-doc-me" title="Mentions you">${UI_ICON.at}</span>` : ""}
@@ -22020,7 +22012,7 @@ ${rows.join("\n")}`, name: subject };
       const sets = all.filter((s) => !young.includes(s)).slice(0, 3);
       box.innerHTML = sets.map((s) => {
         const n = s.labels.length;
-        return `<button type="button" class="fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago2(s.at)}</span></button>`;
+        return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago2(s.at)}</span></button>`;
       }).join("");
       section.style.display = visible2 && sets.length ? "" : "none";
     }
@@ -22092,7 +22084,7 @@ ${rows.join("\n")}`, name: subject };
       const name = r.path.split("/").filter(Boolean).pop() || "/";
       const isDir = r.path.endsWith("/");
       const ext2 = name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
-      return `<a href="${esc(fileHref(r.path))}" class="fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago2(r.ts)}</span></a>`;
+      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago2(r.ts)}</span></a>`;
     };
     const recentDirs = recents.filter((r) => r.path.endsWith("/")).slice(0, 12);
     const recentFiles = recents.filter((r) => !r.path.endsWith("/")).slice(0, 12);

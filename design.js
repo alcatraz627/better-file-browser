@@ -122,6 +122,17 @@
    card), panel (a panel's or rail's title, with its icon and count), page (a
    dialog or page header: a tile, a title and a line under it). Actions sit
    at the end in sect-acts. The place sets padding. */
+/* ListRow: one line in any list (sidebar, menus, dropdowns, palette, key
+   map, contents, versions). Hover and the keyboard cursor share one wash; the
+   selected, current or active row takes the accent wash with body text and an
+   accent icon. The place sets its own height and padding where it differs
+   (docs/system/list-row.md). */
+.row{display:flex;align-items:center;gap:var(--row-gap);min-width:0;min-height:var(--row-h);padding:0 var(--row-px);
+  border-radius:var(--row-r);font-size:var(--row-fs);color:var(--mt);text-decoration:none;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.row:hover,.row.kb,.row:focus-visible{background:var(--hover);color:var(--tx)}
+.row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]),.row:has(> .active){background:var(--on);color:var(--tx)}
+.row:is(.active,.on,.selected,[aria-selected="true"],[aria-current="page"]) svg,.row:has(> .active) svg{color:var(--ac);opacity:1}
 .sect{display:flex;align-items:center;gap:var(--sp-3);min-width:0;margin:0}
 .sect-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .sect-acts{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:auto}
@@ -222,7 +233,6 @@ body{opacity:1!important}
 .fe-dd-item{display:flex;align-items:center;gap:8px;padding:6px 12px;
   color:var(--tx);text-decoration:none;font-size:var(--fs-md);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;transition:background .08s}
-.fe-dd-item:hover{background:var(--hover)}
 .fe-dd-item.dir{color:var(--dir)}
 .fe-dd-item svg{flex-shrink:0}
 .fe-dd-spinner,.fe-dd-empty{padding:10px 14px;font-size:var(--fs-md);color:var(--dm);font-style:italic}
@@ -259,7 +269,6 @@ body{opacity:1!important}
 #fe-lenses{flex:1;min-width:0;overflow-y:auto;padding:6px 0}
 .fe-lens[hidden]{display:none}
 .fe-doc-row{display:flex;align-items:center;gap:10px;width:calc(100% - 12px);margin:1px 6px;padding:6px 10px;border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-doc-row:hover{background:var(--hover)}
 .fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
 .fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-doc-name{font-size:var(--row-fs)}
@@ -281,8 +290,6 @@ body{opacity:1!important}
 .fe-sh-collapse:hover{color:var(--tx)}
 .fe-si{display:flex;align-items:center;gap:10px;padding:8px 14px;
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
-.fe-si:hover{background:var(--hover);color:var(--tx)}
-.fe-si.active{background:var(--on);color:var(--ac)}
 button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer}
 .fe-rc-ago{font-size:var(--fs-sm);color:var(--dm);flex-shrink:0}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
@@ -298,9 +305,7 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-bm-item.dragging{opacity:.4;background:var(--hover)}
 .fe-bm-item.drag-over{border-top:2px solid var(--ac)}
 .fe-si-link{display:flex;align-items:center;gap:10px;flex:1;padding:7px 6px 7px 4px;
-  color:var(--mt);text-decoration:none;min-width:0;transition:color .1s}
-.fe-si-link:hover{color:var(--tx)}
-.fe-si-link.active{color:var(--ac)}
+  color:inherit;text-decoration:none;min-width:0;transition:color .1s}
 .fe-si-link svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-rm-btn{opacity:0;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
@@ -433,9 +438,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe[data-view="tree"] #fe-tree{display:block}
 #fe[data-view="tree"] #fe-tiles{display:none}
 .fe-tree-row{display:flex;align-items:center;min-height:29px;padding-right:12px;gap:4px}
-.fe-tree-row:hover{background:var(--hover)}
-.fe-tree-row.selected{background:var(--on)}
-.fe-tree-row.selected .fe-nm{color:var(--ac)}
 .fe-tree-toggle,.fe-tree-spacer{width:20px;height:20px;flex:none}
 .fe-tree-toggle{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--dm);cursor:pointer;border-radius:4px}
 .fe-tree-toggle:hover{background:var(--s2);color:var(--tx)}
@@ -679,30 +681,12 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-pane .fe-md h2{font-size:1.15em;border:0;padding:0}
 .fe-dlg-pane .fe-md>:first-child{margin-top:0;padding-right:36px}
 
-.fe-st-section{display:flex;flex-direction:column;gap:10px}
-.fe-st-title{font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--dm);padding-bottom:4px;border-bottom:1px solid var(--bd)}
-.fe-st-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.fe-st-lbl{font-size:var(--fs-md);color:var(--mt);min-width:90px;flex-shrink:0}
-.fe-st-radio{display:flex;align-items:center;gap:6px;font-size:var(--fs-lg);color:var(--tx);cursor:pointer}
-.fe-st-radio input{accent-color:var(--ac);cursor:pointer}
-.fe-st-swatch{width:12px;height:12px;border-radius:50%;background:var(--sw);box-shadow:inset 0 0 0 1px var(--bd2)}
-.fe-st-check{display:flex;align-items:center;gap:7px;font-size:var(--fs-lg);color:var(--tx);cursor:pointer}
-.fe-st-check input{accent-color:var(--ac);cursor:pointer;width:14px;height:14px}
 .fe-st-input{width:100%}
 
-.fe-st-rules-hint{font-size:var(--fs-sm);color:var(--dm);font-style:italic}
-.fe-st-rules-cols{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
-  gap:6px;padding:0 2px 4px;align-items:center;font-size:var(--fs-xs);color:var(--dm)}
-.fe-st-col-lbl{font-size:var(--fs-xs);color:var(--dm);font-weight:500}
 .fe-st-rule{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
   gap:6px;align-items:center;padding:5px 2px;border-bottom:1px solid var(--bd)}
 .fe-st-rule:last-child{border-bottom:none}
 .fe-st-rule input[type="checkbox"]{accent-color:var(--ac);cursor:pointer;width:13px;height:13px}
-.fe-st-rule-preview{display:flex;align-items:center;justify-content:center;height:20px}
-.fe-st-rule-color{border:1px solid var(--bd);background:none;cursor:pointer;
-  width:28px;height:24px;padding:1px;border-radius:4px;flex-shrink:0}
-.fe-st-rules-empty{font-size:var(--fs-md);color:var(--dm);padding:8px 2px;font-style:italic}
 #fe-st-ai-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:11px 13px}
 .fe-st-ai-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
 .fe-st-ai-blink{position:relative;display:inline-flex;width:9px;height:9px;flex-shrink:0}
@@ -722,8 +706,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-st-ai-grid .v.warm-yes{color:var(--green)}
 .fe-st-ai-grid .v.warm-no{color:var(--gold)}
-.fe-st-ai-controls{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
-.fe-st-ai-controls .fe-st-select{flex:1;min-width:120px}
 .fe-st-ai-hint{font-size:var(--fs-sm);color:var(--dm);margin-top:8px;line-height:1.5}
 .fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 4px;
   font-family:'SF Mono',Menlo,Consolas,monospace;font-size:var(--fs-sm);color:var(--mt)}
@@ -753,7 +735,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-tabs::-webkit-scrollbar{display:none}
 /* The list of every tab: icon, name, and the digit that jumps to it. */
 .fe-tab-menu .fe-ctx-item span:not(.fe-ctx-key){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-tab-menu .fe-ctx-item.on{color:var(--ac);font-weight:600}
 .fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
@@ -801,7 +782,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-toc-head{display:flex;align-items:center;gap:6px;padding:10px 8px 6px 16px;flex:none}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:2px 0 16px}
 #fe-toc a{display:block;margin:1px 6px;border-radius:6px;color:var(--mt);text-decoration:none;padding:3px 10px 3px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
-#fe-toc a:hover{color:var(--tx);background:var(--hover)}
 #fe-toc a.fe-toc-h1{font-size:var(--fs-lg);font-weight:600;color:var(--tx)}
 #fe-toc a.fe-toc-h2{font-size:var(--fs-md);padding-left:22px}
 #fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
@@ -897,7 +877,8 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-ac[hidden]{display:none}
 .fe-cm-ac > div{padding:4px 8px;border-radius:6px;font-size:var(--fs-md);color:var(--tx);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-cm-ac > div span{color:var(--dm);font-size:var(--fs-sm);margin-left:4px}
-.fe-cm-ac > div.on,.fe-cm-ac > div:hover{background:var(--on)}
+.fe-cm-ac > div:hover{background:var(--hover)}
+.fe-cm-ac > div.on{background:var(--on)}
 .fe-cm-tools{flex-wrap:wrap;margin-top:6px}
 .fe-cm-grow{flex:1}
 .fe-cm-date{width:auto;color-scheme:light dark}
@@ -949,7 +930,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-page .fe-md code,#fe-page .fe-md-pre,#fe-ql-body .fe-md code,#fe-ql-body .fe-md-pre{font-size:calc(var(--rd-code,13px) * var(--ui-text-scale,1))}
 #fe.fe-notips #fe-tip{display:none!important}
 #fe-fp-column:hover{border-color:var(--ac);color:var(--ac)}
-#fe-toc a.on{color:var(--tx);background:var(--on)}
 .fe-crumb-file{color:var(--tx);font-weight:500}
 #fe-fp-meta{font-size:var(--fs-sm);color:var(--dm);margin-right:auto;white-space:nowrap}
 /* A text match sits on its own line under the title, inside the link, so the title keeps its width and the whole row opens the note. */
@@ -1005,7 +985,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 .fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
 #fe-ed-hist{display:flex;flex-direction:column;gap:2px;padding:6px 10px;border-bottom:1px solid var(--bd);background:var(--s2);max-height:180px;overflow:auto;flex-shrink:0;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hist-row{display:grid;grid-template-columns:minmax(120px,160px) 1fr auto;gap:10px;align-items:baseline;text-align:left;background:none;border:1px solid transparent;border-radius:5px;padding:3px 6px;color:var(--tx);cursor:pointer;font:inherit}
-.fe-hist-row:hover,.fe-hist-row.active{border-color:var(--ac);background:var(--on)}
 .fe-hist-row code{color:var(--dm)}
 .fe-hist-head{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--bd);color:var(--dm);font-size:var(--fs-sm)}
 #fe-ql-body.fe-editing{display:flex;flex-direction:column}
@@ -1239,7 +1218,6 @@ a.fe-fm-path:hover{text-decoration:underline}
 .fe-ctx:not([data-layer]){display:none}
 .fe-ctx-item{display:flex;align-items:center;gap:8px;padding:6px 12px;color:var(--tx);
   font-size:var(--fs-md);cursor:pointer;white-space:nowrap}
-.fe-ctx-item:hover{background:var(--hover)}
 .fe-ctx-key{margin-left:auto;color:var(--dm);font-size:var(--fs-xs);padding-left:16px}
 .fe-ctx-sep{height:1px;background:var(--bd);margin:4px 0}
 .fe-tab-ico svg{width:15px;height:16px}
@@ -1275,6 +1253,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-table tbody tr{border-bottom:0}
 #fe-table tbody tr:hover{background:none}
 #fe-table tbody tr:hover td{background:var(--hover)}
+#fe-table tbody tr.selected td{background:var(--on)}
 #fe-table tbody td{height:36px}
 #fe.compact #fe-table tbody td{height:28px}
 /* Row height per detail level; it wins over Compact, which only sets level 3. */
@@ -1287,7 +1266,6 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-scroll{padding:0 6px}
 .fe-row.selected .fe-nm{color:var(--tx)}
 .fe-tile.selected{border-color:transparent}
-.fe-hist-row.active{border-color:transparent}
 
 /* One row and one floating surface. Every list row (Places, Saved, Notes,
    History, the path menu, context menus) shares a height, inset, corner,
@@ -1315,8 +1293,6 @@ a.fe-fm-path:hover{text-decoration:underline}
   border-radius:var(--row-r);font-size:var(--row-fs);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-dd-item,.fe-ctx-item{margin:0}
 button.fe-si{width:auto;display:flex}
-.fe-si:hover,.fe-bm-item:hover,.fe-dd-item:hover,.fe-ctx-item:hover{background:var(--hover)}
-.fe-bm-item:has(> .fe-si-link.active){background:var(--on)}
 .fe-si > svg,.fe-si-link > svg,.fe-dd-item > svg,.fe-ctx-item > svg{width:var(--row-ic);height:var(--row-ic);flex:none}
 .fe-sl{font-size:var(--row-fs)}
 .fe-si-link{padding:0;gap:var(--row-gap);min-height:var(--row-h)}
@@ -1443,7 +1419,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-set-c .fe-st-input{width:260px;max-width:100%}
 .fe-set-note{padding:2px 16px 10px;font-size:var(--fs-md);color:var(--dm);line-height:1.5}
 .fe-set-note:empty{display:none}
-.fe-set-card .fe-st-rules-cols,.fe-set-card #fe-st-rules-list{margin:0 16px}
+.fe-set-card #fe-st-rules-list{margin:0 16px}
 .fe-set-danger{color:var(--nc-red)}
 
 .fe-switch{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:34px;height:20px;margin:0;border-radius:10px;
@@ -1558,7 +1534,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-hist{position:absolute;right:0;top:32px;z-index:20;width:240px;max-height:320px;overflow-y:auto;padding:4px;border:1px solid var(--pop-bd,var(--bd2));border-radius:10px;background:var(--pop-bg,var(--s2));box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
 .fe-ask-hist[hidden]{display:none}
 .fe-ask-h{display:flex;align-items:center;border-radius:var(--row-r)}
-.fe-ask-h:hover,.fe-ask-h.on{background:var(--hover)}
 .fe-ask-h-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:0;background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
 .fe-ask-h-t{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-md)}
 .fe-ask-h-m{font-size:var(--fs-xs);color:var(--dm)}
@@ -1569,8 +1544,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
    on top), fields share one look, path chevrons show on hover only, and
    the palette swatch previews the theme in use. */
 
-.fe-st-ai-why{margin-top:6px}
-.fe-st-ai-why > summary{cursor:pointer;color:var(--ac)}
 #fe-bar .fe-crumb-dd{opacity:1;color:var(--dm);padding:3px 1px}
 #fe-bar .fe-crumb-dd:hover{color:var(--tx)}
 #fe-statusbar{min-width:0;overflow:hidden;white-space:nowrap}
@@ -1782,9 +1755,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-dd-opt{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 10px;border-radius:7px;color:var(--tx);font-size:var(--row-fs);cursor:pointer;white-space:nowrap}
 .fe-dd-opt svg{flex:none;width:14px;height:14px;color:var(--mt)}
-.fe-dd-opt.kb{background:var(--hover)}
-.fe-dd-opt.on{color:var(--ac)}
-.fe-dd-opt.on svg{color:var(--ac)}
 .fe-dd-l{flex:1}
 .fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
 .fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
@@ -1939,7 +1909,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-g{padding:10px 10px 4px}
 .fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
 .fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--tab-c,var(--mt))}
-.fe-pal-i.on{background:var(--on)}
 .fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
 .fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;
@@ -1967,7 +1936,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 @keyframes fe-area{0%{box-shadow:inset 0 0 0 2px var(--ac)}100%{box-shadow:inset 0 0 0 2px transparent}}
 #fe-side .fe-si:focus-visible,#fe-side .fe-si-link:focus-visible,#fe-side summary:focus-visible,#fe-side .fe-nt-grp:focus-visible,
 #fe-tabs .fe-tab:focus-visible,#fe-bc a:focus-visible,#fe-bc button:focus-visible{outline:2px solid var(--ac);outline-offset:-2px;border-radius:var(--row-r)}
-#fe-ctx .fe-ctx-item.kb,.fe-ctx .fe-ctx-item.kb,#fe-crumb-menu .fe-dd-item.kb,.fe-pmenu button.kb{background:var(--on);color:var(--tx)}
 
 /* Help: the keyboard map. Keys with a use are tinted; hovering an action
    lights its keys, hovering a key lights its actions. */
@@ -1991,7 +1959,6 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-g h3{padding:8px 10px 6px}
 .fe-km-g h3 svg{width:14px;height:14px}
 .fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px;padding:0 10px;border-radius:8px;font-size:var(--row-fs);color:var(--tx)}
-.fe-km-i.on{background:var(--on)}
 .fe-km-k{display:inline-flex;align-items:center;gap:3px;flex:none}
 .fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:6px;
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}
@@ -2417,7 +2384,7 @@ button.chip:disabled{opacity:.45;cursor:default}
       closeList?.();
       list = document.createElement("div");
       list.className = "fe-dd-list";
-      const optHtml = (o) => `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
+      const optHtml = (o) => `<div role="option" class="row fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
       const groups = [...new Set(opts.map((o) => o.group ?? ""))];
       list.innerHTML = groups.map((g) => {
         const inner = opts.filter((o) => (o.group ?? "") === g).map(optHtml).join("");
