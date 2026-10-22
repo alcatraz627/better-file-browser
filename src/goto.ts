@@ -80,7 +80,7 @@ export function mountGoto(btn: HTMLElement, home: () => string, go: (path: strin
     box = document.createElement('form');
     box.id = 'fe-goto';
     const recents = getRecents().slice(0, 30);
-    box.innerHTML = `<input type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
+    box.innerHTML = `<input class="tb" data-size="lg" type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
       <datalist id="fe-goto-list">${recents.map(r => `<option value="${esc(r.path)}"></option>`).join('')}</datalist>
       <p class="fe-goto-msg" hidden></p>`;
     const form = box;

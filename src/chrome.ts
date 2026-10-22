@@ -117,7 +117,7 @@ export function initChrome(app: App): void {
     const shown = home && (app.rawPath === home || app.rawPath.startsWith(home + '/')) ? '~' + app.rawPath.slice(home.length) : app.rawPath;
     edit = document.createElement('form');
     edit.id = 'fe-bc-edit';
-    edit.innerHTML = `<input type="text" list="fe-bc-recent" spellcheck="false" autocomplete="off" aria-label="Path to a file or folder" title="Enter goes there · Esc cancels">
+    edit.innerHTML = `<input class="tb" type="text" list="fe-bc-recent" spellcheck="false" autocomplete="off" aria-label="Path to a file or folder" title="Enter goes there · Esc cancels">
       <datalist id="fe-bc-recent">${getRecents().slice(0, 30).map(r => `<option value="${esc(r.path)}"></option>`).join('')}</datalist>`;
     bc.after(edit);
     bc.hidden = true;
@@ -176,7 +176,7 @@ export function initChrome(app: App): void {
       const entries = parseListing(text, url);
       if (!entries.length) { crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>'; crumbLayer?.place(); return; }
       crumbMenu.innerHTML =
-        `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow · Enter opens the first match · Esc closes"></div>` +
+        `<div class="fe-dd-search-wrap"><input class="tb fe-dd-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow · Enter opens the first match · Esc closes"></div>` +
         `<div class="fe-dd-items">${entries.map(en =>
           `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? ' dir' : ''}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
         ).join('')}</div>`;

@@ -35,7 +35,7 @@ export function openPropsMenu(anchor: HTMLElement, props: NoteProps, apply: Appl
       <div class="fe-pm-tags">
         ${cur.tags.map(t => `<span class="fe-chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="fe-chip-x" data-pm="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join('')}
       </div>
-      <form class="fe-pm-add"><input type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="btn" data-size="sm" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
+      <form class="fe-pm-add"><input class="tb" data-size="sm" type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="btn" data-size="sm" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
   };
   const run = async (c: PropChange) => {
     const r = await apply(c);

@@ -114,9 +114,9 @@ export const UI_CSS = `
 .fe-check input:disabled{opacity:.45;cursor:default}
 
 /* A list edited as chips. */
-.fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:34px;padding:4px 6px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);cursor:text}
+.fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:var(--ctl-lg);padding:var(--sp-1) var(--sp-3);box-sizing:border-box;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);cursor:text}
 .fe-set.wide .fe-chipin{width:100%}
-.fe-chipin:focus-within{border-color:color-mix(in srgb,var(--ac) 70%,var(--bd2))}
+.fe-chipin:focus-within{border-color:var(--ac)}
 .fe-chip-x{display:inline-flex;align-items:center;gap:2px;height:24px;padding:0 3px 0 9px;border-radius:12px;background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--tx);font:500 var(--fs-md) var(--mono)}
 .fe-chip-x button{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer;font-size:13px;line-height:1}
 .fe-chip-x button:hover{background:var(--shade2);color:var(--tx)}
@@ -267,8 +267,7 @@ export const UI_CSS = `
 .fe-km-ud{flex:1 1 0;display:flex;flex-direction:column;gap:2px}
 .fe-km-cap.half{height:16px;font-size:9px}
 .fe-km-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.fe-km-q{flex:1;min-width:200px;height:34px;padding:0 12px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);color:var(--tx);font:inherit;font-size:var(--row-fs);outline:0}
-.fe-km-q:focus{border-color:var(--ac)}
+.fe-km-q{flex:1;min-width:200px;width:auto}
 .fe-km-legend{font-size:var(--fs-sm);color:var(--dm);display:inline-flex;align-items:center;gap:4px}
 .fe-km-list{columns:2 320px;column-gap:18px}
 .fe-km-g{break-inside:avoid;margin-bottom:16px;padding:4px;border-radius:12px;background:var(--card);border:1px solid var(--bd)}

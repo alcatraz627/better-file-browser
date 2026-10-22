@@ -31,7 +31,7 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
   let loaded = false, all: DocRow[] = [];
   const f: DocFilter = { q: '', me: false, due: false, tag: '' };
   box.innerHTML = `<div class="fe-docs-top" hidden>
-      <input id="fe-docs-q" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
+      <input id="fe-docs-q" class="tb" data-size="lg" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches the document's name and folder. Esc clears.">
       <div class="fe-lens-tags"><button type="button" class="fe-chip fe-lens-tag" data-f="me" title="Only documents with a comment that mentions you">For me</button><button type="button" class="fe-chip fe-lens-tag" data-f="due" title="Only documents with a due date">Due</button><span class="fe-docs-tags"></span></div>
     </div><div class="fe-docs-rows"></div>`;
   const top = box.querySelector<HTMLElement>('.fe-docs-top')!, rowsBox = box.querySelector<HTMLElement>('.fe-docs-rows')!;

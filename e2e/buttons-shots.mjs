@@ -51,7 +51,13 @@ try {
     return { id: s.id || s.className, h, want, items };
   }));
   const badSeg = list => list.filter(s => s.h !== s.want || s.items.some(i => i !== s.want - 4));
+  // TextBox: every single-line field is exactly its size.
+  const boxes = () => page.evaluate(() => [...document.querySelectorAll('input.tb')].filter(b => b.offsetParent).map(b => {
+    const want = { sm: 22, md: 28, lg: 32 }[b.dataset.size || 'md'];
+    return { id: b.id || b.className, h: Math.round(b.getBoundingClientRect().height), want };
+  }).filter(b => b.h !== b.want));
   const segs1 = await segs();
+  check((await boxes()).length === 0, `text boxes on the listing are their size: ${JSON.stringify(await boxes())}`);
   check(segs1.length > 0 && badSeg(segs1).length === 0, `segmented groups on the listing are 28 with 24 items (${segs1.length} seen): ${JSON.stringify(badSeg(segs1))}`);
   await page.focus('#fe-view-group .fe-seg-b.on');
   await page.keyboard.press('ArrowRight'); await sleep(250);
@@ -68,6 +74,7 @@ try {
   await page.keyboard.press(','); await sleep(400);
   await page.screenshot({ path: await shot(page, 'buttons-settings') });
   await page.evaluate(() => document.querySelector('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]')?.click()); await sleep(250);
+  check((await boxes()).length === 0, `text boxes in Settings are their size: ${JSON.stringify(await boxes())}`);
   const segs2 = await segs();
   check(segs2.length > 0 && badSeg(segs2).length === 0, `segmented groups in Settings are 32 with 28 items (${segs2.length} seen): ${JSON.stringify(badSeg(segs2))}`);
   await page.screenshot({ path: await shot(page, 'buttons-settings-folders') });

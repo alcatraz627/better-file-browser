@@ -38,7 +38,7 @@ function keyboardMap(): string {
   }).join('');
   return `<div class="fe-km">
     ${board}
-    <div class="fe-km-bar"><input type="search" class="fe-km-q" placeholder="Find a key or an action" spellcheck="false" aria-label="Find a key or an action">
+    <div class="fe-km-bar"><input type="search" class="tb fe-km-q" data-size="lg" placeholder="Find a key or an action" spellcheck="false" aria-label="Find a key or an action">
       <span class="fe-km-legend"><kbd>⌘K</kbd> run any of these · hold <kbd>⌥</kbd> to see keys on screen</span></div>
     <div class="fe-km-list">${list}</div>
   </div>`;

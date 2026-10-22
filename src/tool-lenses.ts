@@ -37,7 +37,7 @@ function initSearch(app: App): void {
   if (!box) return;
   box.innerHTML = `
     <div class="fe-tl-form">
-      <input id="fe-srch-q" class="fe-tl-input" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
+      <input id="fe-srch-q" class="tb fe-tl-input" data-size="lg" type="search" placeholder="Search" spellcheck="false" autocomplete="off" title="Enter searches the text of every file here">
       <div class="fe-tl-opts">
         ${checkHtml('fe-srch-deep', 'Subfolders', 'Subfolders: search every folder under this one too', true)}
         ${checkHtml('fe-srch-case', 'Match case', 'Match upper and lower case exactly')}

@@ -128,10 +128,10 @@ export function initSettingsUi(app: App): void {
             <button type="button" class="fe-rp-g${rule.glyph ? '' : ' on'}" data-g="" title="Text badge">${icoCustom(rule.label, rule.color)}</button>
             ${Object.keys(RULE_GLYPHS).map(g => `<button type="button" class="fe-rp-g${rule.glyph === g ? ' on' : ''}" data-g="${g}" title="${g}">${icoCustom('', rule.color, g)}</button>`).join('')}
           </div></div>
-        <div class="fe-rp-sec"><span class="fe-rp-l">Text</span><input class="fe-st-input fe-rp-label" maxlength="4" value="${esc(rule.label)}" spellcheck="false" title="Up to 4 characters, shown when there is no picture"></div>
+        <div class="fe-rp-sec"><span class="fe-rp-l">Text</span><input class="tb fe-st-input fe-rp-label" maxlength="4" value="${esc(rule.label)}" spellcheck="false" title="Up to 4 characters, shown when there is no picture"></div>
         <div class="fe-rp-sec"><span class="fe-rp-l">Colour</span>
           <div class="fe-rp-sw">${SWATCHES.map(c => `<button type="button" class="fe-rp-c${c === rule.color ? ' on' : ''}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join('')}
-          <input class="fe-st-input fe-rp-hex" value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
+          <input class="tb fe-st-input fe-rp-hex" value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
     };
     paint();
     const apply = () => {

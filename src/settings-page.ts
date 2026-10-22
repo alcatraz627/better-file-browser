@@ -93,7 +93,7 @@ export function settingsDialog(): DialogSpec {
           row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
         card('Terminal',
           row('Open in', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app', 'lg')) +
-          row('Command', '${p} is the folder', `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') +
+          row('Command', '${p} is the folder', `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') +
           note('', 'fe-st-term-hint')) },
 
       { key: 'files', label: 'Files', hint: 'Pages, icons', icon: UI_ICON.files, tone: 'var(--nc-teal)', desc: 'Reading, file pages and icons.', body:
@@ -114,7 +114,7 @@ export function settingsDialog(): DialogSpec {
 
       { key: 'notes', label: 'Notes', hint: 'Notes, editing', icon: UI_ICON.notes, tone: 'var(--nc-orange)', desc: 'Your notes folder, and where you can edit.', body:
         card('Notes',
-          row('Folder', 'Markdown files', `<input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="~/Notes" spellcheck="false" title="Notes folder">${iconBtn('fe-st-notes-pick', UI_ICON.folderOpen, 'Choose a folder')}`) +
+          row('Folder', 'Markdown files', `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="~/Notes" spellcheck="false" title="Notes folder">${iconBtn('fe-st-notes-pick', UI_ICON.folderOpen, 'Choose a folder')}`) +
           note('', 'fe-st-notes-hint')) +
         card('Editing',
           wide('Editable folders', 'Text files inside get Edit (e). Saves keep a 14-day backup.', chipsHtml('fe-st-edit-roots', '~/Code', 'Folders you can edit in'))) },
@@ -136,7 +136,7 @@ export function settingsDialog(): DialogSpec {
         card('Your data',
           row('Export', 'Copies JSON', `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) +
           row('Import', 'Then reloads', `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) +
-          `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
+          `<textarea id="fe-st-export-out" class="tb fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
     ],
   };
 }

@@ -253,7 +253,7 @@ export function mountComments(o: {
 
   const box = (id: string, label: string, place: string, start = '') => `
     <div class="fe-cm-box">
-      <textarea data-for="${esc(id)}" rows="2" aria-label="${esc(label)}" placeholder="${esc(place)}">${esc(typed.get(id) ?? start)}</textarea>
+      <textarea class="tb" data-for="${esc(id)}" rows="2" aria-label="${esc(label)}" placeholder="${esc(place)}">${esc(typed.get(id) ?? start)}</textarea>
     </div>`;
   const notice = (text: string, why = '') => `<div class="fe-cm-state"${why ? ` title="${esc(why)}"` : ''}>${UI_ICON.info}<span>${esc(text)}</span></div>`;
   const iconBtn = (a: string, icon: string, title: string, v = '') => `<button type="button" class="btn fe-cm-ib" data-icon data-size="sm" data-a="${a}"${v ? ` data-v="${esc(v)}"` : ''} title="${esc(title)}" aria-label="${esc(title)}">${icon}</button>`;

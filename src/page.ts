@@ -120,7 +120,7 @@ export function renderPage(p: PageParams): string {
       <div class="fe-lens-tools">
         <button id="fe-sv-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="Save this ${fileMode ? 'file' : 'folder'} and name it" aria-label="Save this ${fileMode ? 'file' : 'folder'}">${UI_ICON.add}</button>
         <label class="fe-lens-box">
-          <input id="fe-lens-filter" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
+          <input id="fe-lens-filter" class="tb" data-size="lg" type="text" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches names and tags. #work matches tags only. Esc clears.">
           <button type="button" id="fe-lens-depth" class="fe-lens-depth" aria-pressed="false" title="Names only. Click to search inside too">Names</button>
         </label>
       </div>
@@ -190,7 +190,7 @@ export function renderPage(p: PageParams): string {
           </div>
           <span class="fe-tb-sep"></span>
           ${viewSeg}
-          <label class="fe-in-box fe-tb-box"><input id="fe-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
+          <label class="fe-in-box fe-tb-box"><input id="fe-search" class="tb" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Filter this folder by name"/></label>
         </div>
       </div>
 
@@ -208,7 +208,7 @@ export function renderPage(p: PageParams): string {
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
           <label class="fe-in-box fe-in-name">
-            <input id="fe-filter-q" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
+            <input id="fe-filter-q" class="tb" type="text" placeholder="Pattern" autocomplete="off" spellcheck="false" title="Filter by name; turn on .* for a regular expression"/>
             <span class="fe-in-chips"><button type="button" id="fe-regex-btn" class="fe-in-chip" title="Treat the pattern as a regular expression">.*</button></span>
           </label>
           <span class="fe-panel-lbl">Type</span>
@@ -222,7 +222,7 @@ export function renderPage(p: PageParams): string {
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Text</span>
           <label class="fe-in-box fe-in-text">
-            <input id="fe-find-text" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
+            <input id="fe-find-text" class="tb" type="text" placeholder="Find text" autocomplete="off" spellcheck="false" title="Reads text files (up to 2 MB each) in this folder, or every subfolder when Subfolders is on. Enter runs."/>
             <span class="fe-in-chips">
               <label class="fe-in-chip" title="Match case"><input type="checkbox" id="fe-find-case" title="Match case">Aa</label>
               <label class="fe-in-chip" title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
