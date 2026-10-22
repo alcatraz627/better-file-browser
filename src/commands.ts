@@ -38,7 +38,10 @@ export function keyToken(e: KeyboardEvent): string {
   let shift = e.shiftKey;
   if (named) { /* arrows and the like keep ⇧ */ }
   else if (SHIFT_OF[k]) { k = SHIFT_OF[k]; shift = true; }
-  else if (/^[a-z]$/i.test(k)) k = shift || e.metaKey ? k.toUpperCase() : k.toLowerCase();
+  else if (/^[a-z]$/i.test(k)) {
+    if (/^[A-Z]$/.test(k) && !e.metaKey) shift = true;   // a capital is ⇧, Caps Lock included
+    k = shift || e.metaKey ? k.toUpperCase() : k.toLowerCase();
+  }
   else if (k.length === 1) shift = false;   // "?" and "#" already say shift
   // ⌥ turns letters into other characters on a Mac; read the key's place instead.
   if (e.altKey && /^Key[A-Z]$/.test(e.code)) k = e.code.slice(3);
@@ -53,6 +56,9 @@ let contextOf: () => Context = () => ({ scopes: new Set(['any']), typing: false,
 export function setContext(fn: () => Context): void { contextOf = fn; }
 
 const OWN = KEYMAP.filter(d => d.own);
+// The keys a row answers: the map writes the digit row as "1…9".
+const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+const keysOf = (d: KeyDef) => d.keys.flatMap(k => k === '1…9' ? DIGITS : [k]);
 const MOVING = new Set(['↑', '↓', '←', '→', '↩', 'Space', '⌫', 'Home', 'End']);
 // The base key of a token, without modifiers: "⌘↑" is "↑".
 const baseOf = (tok: string) => tok.replace(/^[⌘⌃⌥⇧]+/, '');
@@ -89,7 +95,7 @@ export function dispatch(e: KeyboardEvent): boolean {
   if (ctx.blocked) { setPending(''); return false; }
   if (ctx.typing) {
     setPending('');
-    const d = OWN.find(x => x.field && x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
+    const d = OWN.find(x => x.field && keysOf(x).includes(tok) && live(x, ctx, tok) && canRun(x.id));
     if (d) { e.preventDefault(); e.stopImmediatePropagation(); runCommand(d.id, tok); return true; }
     return false;
   }
@@ -102,7 +108,7 @@ export function dispatch(e: KeyboardEvent): boolean {
     return false;
   }
   // A command for where the keyboard is beats one that works anywhere.
-  const all = OWN.filter(x => x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
+  const all = OWN.filter(x => keysOf(x).includes(tok) && live(x, ctx, tok) && canRun(x.id));
   const d = all.find(x => (x.scope ?? 'any') !== 'any') ?? all[0];
   if (d) { e.preventDefault(); e.stopImmediatePropagation(); runCommand(d.id, tok); return true; }
   if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some(x => live(x, ctx) && canRun(x.id) && x.keys.some(k => k.startsWith(tok + ' ')))) {

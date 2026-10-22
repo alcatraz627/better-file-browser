@@ -114,13 +114,13 @@ export interface CommentsPanel {
   show(threadId?: string): void;
   /** Open threads with a place in the text, in document order, for the editor's gutter. */
   marks(): { id: string; offset: number; length: number }[];
-  /** A key on the file page: comment on the selection, show the panel, move between threads. */
-  key(e: KeyboardEvent): boolean;
-  /** The same actions by name, for the palette; false when there was nothing to act on. */
+  /** Comment, reply, show the panel or move between threads; false when there was nothing to act on. */
   act(a: CommentAction): boolean;
+  /** Whether a thread is being looked at or a comment written, which Esc lets go of. */
+  held(): boolean;
 }
 
-export type CommentAction = 'comment' | 'reply' | 'panel' | 'next' | 'prev';
+export type CommentAction = 'comment' | 'reply' | 'panel' | 'next' | 'prev' | 'clear';
 
 interface Draft extends SourceSpan { quote: string; attach?: string }
 
@@ -772,6 +772,11 @@ export function mountComments(o: {
   };
   const act = (a: CommentAction): boolean => {
     if (a === 'panel') { o.toggle(); return true; }
+    if (a === 'clear') {
+      if (!active && !draft) return false;
+      draft = null; active = ''; paint(); redraw();
+      return true;
+    }
     if (a === 'next' || a === 'prev') { step(a === 'next' ? 1 : -1); return placed().length > 0; }
     if (a === 'comment') {
       const s = selected();
@@ -805,15 +810,6 @@ export function mountComments(o: {
     open: () => threads.filter(t => t.status !== 'done').length,
     show: (id?: string) => { if (id) focusThread(id); else paint(); },
     marks: () => placed().map(t => ({ id: t.id, offset: t.place.offset!, length: t.place.length })),
-    key: e => {
-      if (e.metaKey || e.ctrlKey) return false;
-      if (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { act(e.key === 'ArrowDown' ? 'next' : 'prev'); return true; }
-      if (e.altKey) return false;
-      if (e.key === 'c') return act('comment');
-      if (e.key === 'C') return act('panel');
-      if (e.key === 'R') return act('reply');
-      if (e.key === 'Escape' && (active || draft)) { draft = null; active = ''; paint(); redraw(); return true; }
-      return false;
-    },
+    held: () => !!active || !!draft,
   };
 }

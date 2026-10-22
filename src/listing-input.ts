@@ -167,26 +167,6 @@ export function initListingInput(app: App, listing: Listing): void {
     }
   });
 
-  // Keys, in order: cmd-F, inputs and dialogs, the context menu, the open
-  // preview, the file page, the listing, the strip.
-  document.addEventListener('keydown', e => {
-    const ae = document.activeElement;
-    if (ae && ['INPUT', 'TEXTAREA', 'SELECT'].includes(ae.tagName)) return;
-    // With the sidebar, tabs or a toolbar focused, moving and acting keys belong to them.
-    if (ae?.closest('#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar')
-      && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' ', 'Backspace', 'Delete', 'Home', 'End'].includes(e.key)) return;
-    if (el('fe-settings-modal').style.display !== 'none') return;
-    if (el('fe-help-modal').style.display !== 'none') return;
-    if (ctx?.open) return;
-    // The rest of the listing's keys are commands (see the binds below).
-    if (isPreviewOpen()) {
-      if (['[', ']', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
-      return;
-    }
-    if (app.filePage?.key(e)) e.preventDefault();
-    else if (app.strip.handleKey(e)) e.preventDefault();
-  });
-
   // The listing's named commands: what the key map gives keys to here, and
   // what the palette lists for this folder.
   const onListing = () => !app.fileMode;

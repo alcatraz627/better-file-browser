@@ -1301,12 +1301,12 @@ ${body}`;
     { id: "zoom-out", group: "View", title: "More detail, smaller items", keys: ["-"], own: true },
     { id: "zoom-reset", group: "View", title: "Standard detail", keys: ["0"], own: true },
     // Tabs
-    { id: "tab-keep", group: "Tabs", title: "Keep this place", keys: ["t"] },
-    { id: "tab-close", group: "Tabs", title: "Close", keys: ["w"] },
-    { id: "tab-pin", group: "Tabs", title: "Pin", keys: ["p"] },
-    { id: "tab-step", group: "Tabs", title: "Previous or next", keys: ["[", "]"] },
-    { id: "tab-jump", group: "Tabs", title: "Jump to 1 to 9", keys: ["1\u20269"] },
-    { id: "tab-reopen", group: "Tabs", title: "Reopen closed", keys: ["\u21E7T"] },
+    { id: "tab-keep", group: "Tabs", title: "Keep this place", keys: ["t"], own: true },
+    { id: "tab-close", group: "Tabs", title: "Close", keys: ["w"], own: true },
+    { id: "tab-pin", group: "Tabs", title: "Pin", keys: ["p"], own: true },
+    { id: "tab-step", group: "Tabs", title: "Previous or next", keys: ["[", "]"], own: true, over: true },
+    { id: "tab-jump", group: "Tabs", title: "Jump to 1 to 9", keys: ["1\u20269"], own: true, over: true },
+    { id: "tab-reopen", group: "Tabs", title: "Reopen closed", keys: ["\u21E7T"], own: true },
     { id: "tab-left", group: "Tabs", title: "Move tab left", keys: ["\u21E7["], own: true },
     { id: "tab-right", group: "Tabs", title: "Move tab right", keys: ["\u21E7]"], own: true },
     { id: "tab-list", group: "Tabs", title: "All tabs", keys: ["g a"], own: true },
@@ -1342,12 +1342,13 @@ ${body}`;
     { id: "fp-raw", group: "File page", title: "Raw or rendered", keys: ["r"], scope: "file", own: true },
     { id: "fp-edit", group: "File page", title: "Edit", keys: ["e"], scope: "file", own: true },
     { id: "fp-find", group: "File page", title: "Find in file", keys: ["/"], scope: "file", own: true },
-    { id: "fp-comment", group: "File page", title: "Comment on the selection or paragraph", keys: ["c"], scope: "file" },
-    { id: "fp-cm-reply", group: "File page", title: "Reply to the comment", keys: ["\u21E7R"], scope: "file" },
+    { id: "fp-comment", group: "File page", title: "Comment on the selection or paragraph", keys: ["c"], scope: "file", own: true },
+    { id: "fp-cm-reply", group: "File page", title: "Reply to the comment", keys: ["\u21E7R"], scope: "file", own: true },
     { id: "fp-toc", group: "File page", title: "Contents", keys: ["\u21E7O"], scope: "file", own: true },
     { id: "fp-width", group: "File page", title: "Reading width", keys: ["\u21E7W"], scope: "file", own: true },
-    { id: "fp-comments", group: "File page", title: "Comments panel", keys: ["\u21E7C"], scope: "file" },
-    { id: "fp-cm-step", group: "File page", title: "Previous or next comment", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "file" },
+    { id: "fp-comments", group: "File page", title: "Comments panel", keys: ["\u21E7C"], scope: "file", own: true },
+    { id: "fp-cm-step", group: "File page", title: "Previous or next comment", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "file", own: true },
+    { id: "fp-cm-clear", group: "File page", title: "Let go of the comment being looked at or written", keys: ["Esc"], scope: "file", own: true },
     { id: "fp-cm-post", group: "File page", title: "Post, or post a reply", keys: ["\u2318\u21A9", "\u2318\u21E7\u21A9"], scope: "file" },
     // Editor
     { id: "ed-save", group: "Editor", title: "Save", keys: ["\u2318S"], scope: "editor" },
@@ -1653,8 +1654,10 @@ ${body}`;
     } else if (SHIFT_OF[k]) {
       k = SHIFT_OF[k];
       shift = true;
-    } else if (/^[a-z]$/i.test(k)) k = shift || e.metaKey ? k.toUpperCase() : k.toLowerCase();
-    else if (k.length === 1) shift = false;
+    } else if (/^[a-z]$/i.test(k)) {
+      if (/^[A-Z]$/.test(k) && !e.metaKey) shift = true;
+      k = shift || e.metaKey ? k.toUpperCase() : k.toLowerCase();
+    } else if (k.length === 1) shift = false;
     if (e.altKey && /^Key[A-Z]$/.test(e.code)) k = e.code.slice(3);
     return (e.metaKey ? "\u2318" : "") + (e.ctrlKey ? "\u2303" : "") + (e.altKey ? "\u2325" : "") + (shift ? "\u21E7" : "") + k;
   }
@@ -1663,6 +1666,8 @@ ${body}`;
     contextOf = fn;
   }
   var OWN = KEYMAP.filter((d) => d.own);
+  var DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+  var keysOf = (d) => d.keys.flatMap((k) => k === "1\u20269" ? DIGITS : [k]);
   var MOVING = /* @__PURE__ */ new Set(["\u2191", "\u2193", "\u2190", "\u2192", "\u21A9", "Space", "\u232B", "Home", "End"]);
   var baseOf = (tok) => tok.replace(/^[⌘⌃⌥⇧]+/, "");
   var live = (d, ctx, tok = "") => {
@@ -1707,7 +1712,7 @@ ${body}`;
     }
     if (ctx.typing) {
       setPending("");
-      const d2 = OWN.find((x) => x.field && x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
+      const d2 = OWN.find((x) => x.field && keysOf(x).includes(tok) && live(x, ctx, tok) && canRun(x.id));
       if (d2) {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -1728,7 +1733,7 @@ ${body}`;
       }
       return false;
     }
-    const all = OWN.filter((x) => x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
+    const all = OWN.filter((x) => keysOf(x).includes(tok) && live(x, ctx, tok) && canRun(x.id));
     const d = all.find((x) => (x.scope ?? "any") !== "any") ?? all[0];
     if (d) {
       e.preventDefault();
@@ -15697,6 +15702,14 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         o.toggle();
         return true;
       }
+      if (a === "clear") {
+        if (!active && !draft) return false;
+        draft = null;
+        active = "";
+        paint();
+        redraw();
+        return true;
+      }
       if (a === "next" || a === "prev") {
         step2(a === "next" ? 1 : -1);
         return placed().length > 0;
@@ -15743,25 +15756,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         else paint();
       },
       marks: () => placed().map((t) => ({ id: t.id, offset: t.place.offset, length: t.place.length })),
-      key: (e) => {
-        if (e.metaKey || e.ctrlKey) return false;
-        if (e.altKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
-          act(e.key === "ArrowDown" ? "next" : "prev");
-          return true;
-        }
-        if (e.altKey) return false;
-        if (e.key === "c") return act("comment");
-        if (e.key === "C") return act("panel");
-        if (e.key === "R") return act("reply");
-        if (e.key === "Escape" && (active || draft)) {
-          draft = null;
-          active = "";
-          paint();
-          redraw();
-          return true;
-        }
-        return false;
-      }
+      held: () => !!active || !!draft
     };
   }
 
@@ -16255,9 +16250,9 @@ ${d.message}` : d.message;
     return {
       toggleRaw,
       edit: () => void edit2(),
-      key: (e) => !editor && !raw && !!comments?.key(e),
       comment: (a) => !editor && !raw && !!comments?.act(a),
       commentable: () => !editor && !raw && !!comments,
+      commentHeld: () => !editor && !raw && !!comments?.held(),
       editing: () => !!editor,
       setText(fresh) {
         text = fresh;
@@ -19097,20 +19092,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         copyToClipboard(names).then(() => toast(`Copied ${ls.selSet.size} names`));
       }
     });
-    document.addEventListener("keydown", (e) => {
-      const ae = document.activeElement;
-      if (ae && ["INPUT", "TEXTAREA", "SELECT"].includes(ae.tagName)) return;
-      if (ae?.closest("#fe-side, #fe-tabbar, #fe-bar, #fe-toolbar, #fe-fp-bar") && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " ", "Backspace", "Delete", "Home", "End"].includes(e.key)) return;
-      if (el("fe-settings-modal").style.display !== "none") return;
-      if (el("fe-help-modal").style.display !== "none") return;
-      if (ctx?.open) return;
-      if (isPreviewOpen()) {
-        if (["[", "]", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(e.key) && app.strip.handleKey(e)) e.preventDefault();
-        return;
-      }
-      if (app.filePage?.key(e)) e.preventDefault();
-      else if (app.strip.handleKey(e)) e.preventDefault();
-    });
     const onListing = () => !app.fileMode;
     const lead = () => ls.selIdx >= 0 ? ls.visible[ls.selIdx] : null;
     const leadRow = () => scroll.querySelector(`[data-idx="${ls.selIdx}"]`);
@@ -19526,7 +19507,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("tab-keep", stripKey("t"));
     bind("tab-close", stripKey("w"));
     bind("tab-pin", stripKey("p"));
-    bind("tab-step", stripKey("]"));
+    bind("tab-step", (key) => stripKey(key === "[" ? "[" : "]")());
+    bind("tab-jump", (key) => stripKey(key ?? "1")());
     bind("tab-reopen", stripKey("T"));
     bind("new-note", () => app.newNote(), () => !!app.settings.notesRoot);
     bind("fp-raw", () => app.filePage?.toggleRaw(), () => !!app.filePage);
@@ -19539,7 +19521,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("fp-comment", () => app.filePage?.comment("comment"), commentable);
     bind("fp-cm-reply", () => app.filePage?.comment("reply"), commentable);
     bind("fp-comments", () => app.filePage?.comment("panel"), commentable);
-    bind("fp-cm-step", () => app.filePage?.comment("next"), commentable);
+    bind("fp-cm-step", (key) => app.filePage?.comment(key === "\u2325\u2191" ? "prev" : "next"), commentable);
+    bind("fp-cm-clear", () => app.filePage?.comment("clear"), () => !!app.filePage?.commentHeld());
     bind("fp-find", () => document.getElementById("fe-ff-q")?.focus(), () => app.fileMode && !app.filePage?.editing());
     bind("to-path", () => {
       focusFirst("#fe-bc", "a.fe-crumb:last-of-type, .fe-crumb.cur, a");

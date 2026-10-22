@@ -172,12 +172,12 @@ export function renderFileContent(): string {
 
 export interface FileContent {
   toggleRaw(): void; setText(text: string): void; edit(): void;
-  /** A key the file page's comments handle; true when it was used. */
-  key(e: KeyboardEvent): boolean;
   /** A comments action by name; false when the page has no comments or nothing to act on. */
   comment(a: CommentAction): boolean;
   /** Whether comments can be made here now (a rendered Markdown page, not editing). */
   commentable(): boolean;
+  /** Whether a comment is being looked at or written, which Esc lets go of. */
+  commentHeld(): boolean;
   /** Whether the file is open in the editor. */
   editing(): boolean;
 }
@@ -475,9 +475,9 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   return {
     toggleRaw,
     edit: () => void edit(),
-    key: e => !editor && !raw && !!comments?.key(e),
     comment: a => !editor && !raw && !!comments?.act(a),
     commentable: () => !editor && !raw && !!comments,
+    commentHeld: () => !editor && !raw && !!comments?.held(),
     editing: () => !!editor,
     setText(fresh) {
       text = fresh;

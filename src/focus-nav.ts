@@ -199,7 +199,8 @@ export function initFocusNav(app: App): void {
   bind('tab-keep', stripKey('t'));
   bind('tab-close', stripKey('w'));
   bind('tab-pin', stripKey('p'));
-  bind('tab-step', stripKey(']'));
+  bind('tab-step', key => stripKey(key === '[' ? '[' : ']')());
+  bind('tab-jump', key => stripKey(key ?? '1')());
   bind('tab-reopen', stripKey('T'));
   bind('new-note', () => app.newNote(), () => !!app.settings.notesRoot);
   bind('fp-raw', () => app.filePage?.toggleRaw(), () => !!app.filePage);
@@ -212,7 +213,8 @@ export function initFocusNav(app: App): void {
   bind('fp-comment', () => app.filePage?.comment('comment'), commentable);
   bind('fp-cm-reply', () => app.filePage?.comment('reply'), commentable);
   bind('fp-comments', () => app.filePage?.comment('panel'), commentable);
-  bind('fp-cm-step', () => app.filePage?.comment('next'), commentable);
+  bind('fp-cm-step', key => app.filePage?.comment(key === '⌥↑' ? 'prev' : 'next'), commentable);
+  bind('fp-cm-clear', () => app.filePage?.comment('clear'), () => !!app.filePage?.commentHeld());
   bind('fp-find', () => document.getElementById('fe-ff-q')?.focus(), () => app.fileMode && !app.filePage?.editing());
   bind('to-path', () => { focusFirst('#fe-bc', 'a.fe-crumb:last-of-type, .fe-crumb.cur, a'); flash(document.activeElement as HTMLElement); });
   bind('deep', click('fe-deep-btn'), () => !app.fileMode);
