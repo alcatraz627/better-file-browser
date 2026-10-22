@@ -34,6 +34,7 @@ const RULES = [
   { id: 'css-media', text: (css) => count(css, /@(media|container)\b/g), on: 'css' },
   { id: 'css-dup-selector', text: css => dupSelectors(css), on: 'css' },
   { id: 'css-part-paint', text: css => partPaint(css), on: 'css' },
+  { id: 'css-row-paint', text: css => rowPaint(css), on: 'css' },
   { id: 'js-keydown', code: /addEventListener\(\s*['"]keydown['"]/g, skip: ['layer.ts', 'resize.ts'] },
   // Presses anywhere on the page, and clicks caught at the document, are how a
   // part closes itself on an outside click; the layer service owns that.
@@ -83,6 +84,19 @@ function partPaint(css) {
     const field = fair.some(s => OLD_FIELDS.test(s) || CONTEXT_BTN.test(s.replace(/:has\([^)]*\)/g, '')));
     if (btn) n += m[2].split(';').filter(d => PAINT.test(d)).length;
     else if (field) n += m[2].split(';').filter(d => PAINT.test(d) && !WIDTH.test(d)).length;
+  }
+  return n;
+}
+
+// List rows take their hover, keyboard-cursor and selected looks from .row
+// (docs/system/list-row.md): a row kind's own rule for one of those states may
+// not set a background or a colour.
+const ROW_STATE = /(?:\.(?:fe-si|fe-si-link|fe-bm-item|fe-dd-item|fe-ctx-item|fe-dd-opt|fe-km-i|fe-doc-row|fe-ask-h|fe-pal-i|fe-hist-row|fe-tree-row)|#fe-toc a)(?![\w-])[^\s,]*(?::hover|\.kb|\.on|\.active|\.selected|\[aria-(?:selected|current))/;
+const ROW_PAINT = /^\s*(?:background(?:-color)?|color)\s*:/;
+function rowPaint(css) {
+  let n = 0;
+  for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (m[1].split(',').some(s => ROW_STATE.test(s.trim()))) n += m[2].split(';').filter(d => ROW_PAINT.test(d)).length;
   }
   return n;
 }

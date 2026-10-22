@@ -31,6 +31,6 @@ section label, and the group labels in the palette, the key map and Help.
 Settings group labels move from 10 to 11px to match the sidebar's. The rail
 title moves from 12 to 13px. Help's section labels go from 650 to 600 weight.
 
-Still separate, and moving with Lists because each is also a fold button or a
-list row: the comments rail's group labels (`.fe-cm-group`), the saved
-items' tag groups (`.fe-sv-tag`) and the notes groups (`.fe-nt-grp`).
+With Lists, the comments rail's group labels (`.fe-cm-group`), the saved
+items' tag groups (`.fe-sv-tag`) and the notes groups (`.fe-nt-grp`) joined
+the group level too; their fold is a Disclosure (docs/system/disclosure.md).

@@ -1304,8 +1304,8 @@ button.fe-si{width:auto;display:flex}
    nothing moves under the pointer on hover. In a narrow sidebar only delete
    shows; colour and open-in-tab stay in the right-click menu. */
 .fe-nt-item .fe-nt-acts{right:4px;border-radius:0 var(--row-r) var(--row-r) 0;padding-left:14px;
-  background:linear-gradient(to right,transparent,color-mix(in srgb,var(--side),var(--tx) 6%) 14px)}
-.fe-nt-item:has(> .fe-si-link.active) .fe-nt-acts{background:linear-gradient(to right,transparent,color-mix(in srgb,var(--side),var(--ac) 18%) 14px)}
+  --fade:var(--hover);background:linear-gradient(to right,transparent,var(--fade) 14px),linear-gradient(to right,transparent,var(--side) 14px)}
+.fe-nt-item:has(> .fe-si-link.active) .fe-nt-acts{--fade:var(--on)}
 .fe-nt-item:has(.editing) .fe-nt-acts{display:none}
 
 #fe-lenses{container:lens/inline-size}
