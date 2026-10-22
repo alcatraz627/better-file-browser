@@ -12,6 +12,7 @@ import { kvGet, kvSet } from './kv';
 import { fetchFileText } from './file-fetch';
 import { visibleOf, rangeFor, sourceSpan, type SourceSpan } from './comment-anchor';
 import { emptyHtml } from './empty-state';
+import { DISCLOSE } from './icons';
 
 export { visibleOf };
 
@@ -375,8 +376,8 @@ export function mountComments(o: {
         ${draftHtml()}
         ${notesLine.map(n => `<p class="fe-cm-note">${esc(n)}</p>`).join('')}
         ${list.length || draft ? '' : noneHtml()}
-        ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="fe-cm-group">${name} <span>${ts.length}</span></h4>` : ''}${ts.map(threadHtml).join('')}`).join('')}
-        ${done.length ? `<details class="fe-cm-done"${done.some(t => t.id === active) ? ' open' : ''}><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join('')}</details>` : ''}
+        ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="sect fe-cm-group" data-level="group">${name} <span>${ts.length}</span></h4>` : ''}${ts.map(threadHtml).join('')}`).join('')}
+        ${done.length ? `<details class="fe-cm-done"${done.some(t => t.id === active) ? ' open' : ''}><summary class="sect fe-cm-group" data-level="group">${DISCLOSE}Done <span>${done.length}</span></summary>${done.map(threadHtml).join('')}</details>` : ''}
       </div>
       <div class="fe-cm-ac" role="listbox" hidden></div>`;
     o.box.querySelector('.fe-cm-list')!.scrollTop = listTop;

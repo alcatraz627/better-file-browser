@@ -2,7 +2,7 @@
 // file text and returns an HTML string; nothing here touches the DOM or
 // fetches anything, so every renderer is unit-testable in isolation.
 import { esc } from './utils';
-import { CHEVRON_DOWN } from './icons';
+import { DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { COL_HANDLE } from './col-resize';
 
@@ -943,7 +943,7 @@ function jsonNode(key: string | null, v: unknown, depth: number, budget: { n: nu
     const badge = isArr ? `[${entries.length}]` : `{${entries.length}}`;
     if (!entries.length) return `<div class="fe-jt-row">${keyHtml}<span class="fe-jt-badge">${isArr ? '[]' : '{}'}</span></div>`;
     const open = depth < 2 ? ' open' : '';
-    return `<details class="fe-jt"${open}><summary>${CHEVRON_DOWN}${keyHtml}<span class="fe-jt-badge">${badge}</span></summary><div class="fe-jt-kids">${
+    return `<details class="fe-jt"${open}><summary>${DISCLOSE}${keyHtml}<span class="fe-jt-badge">${badge}</span></summary><div class="fe-jt-kids">${
       entries.map(([k, x]) => jsonNode(k, x, depth + 1, budget)).join('')
     }</div></details>`;
   }
@@ -981,7 +981,7 @@ export function renderJsonl(text: string): string {
       const v = JSON.parse(line);
       const compact = JSON.stringify(v);
       const preview = compact.length > 140 ? compact.slice(0, 140) + '…' : compact;
-      return `<details class="fe-jl-line"><summary>${CHEVRON_DOWN}<span class="fe-jl-n">${n}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2000 })}</div></details>`;
+      return `<details class="fe-jl-line"><summary>${DISCLOSE}<span class="fe-jl-n">${n}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2000 })}</div></details>`;
     } catch {
       return `<div class="fe-jl-line bad"><span class="fe-jl-n">${n}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line.slice(0, 200))}</span></div>`;
     }

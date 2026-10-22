@@ -1627,6 +1627,7 @@ ${body}`;
   };
   var IMG_EXTS = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "avif", "bmp"]);
   var CHEVRON_RIGHT = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m4.5 2.5 3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var DISCLOSE = '<svg class="chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3 3.5-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var CHEVRON_DOWN = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3 3.5-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var SPECIAL_FOLDERS = /* @__PURE__ */ new Set([
     "Desktop",
@@ -3536,7 +3537,7 @@ ${body}`;
       const badge = isArr ? `[${entries.length}]` : `{${entries.length}}`;
       if (!entries.length) return `<div class="fe-jt-row">${keyHtml}<span class="fe-jt-badge">${isArr ? "[]" : "{}"}</span></div>`;
       const open = depth < 2 ? " open" : "";
-      return `<details class="fe-jt"${open}><summary>${CHEVRON_DOWN}${keyHtml}<span class="fe-jt-badge">${badge}</span></summary><div class="fe-jt-kids">${entries.map(([k, x]) => jsonNode(k, x, depth + 1, budget)).join("")}</div></details>`;
+      return `<details class="fe-jt"${open}><summary>${DISCLOSE}${keyHtml}<span class="fe-jt-badge">${badge}</span></summary><div class="fe-jt-kids">${entries.map(([k, x]) => jsonNode(k, x, depth + 1, budget)).join("")}</div></details>`;
     }
     return `<div class="fe-jt-row">${keyHtml}${jsonLeaf(v)}</div>`;
   }
@@ -3565,7 +3566,7 @@ ${body}`;
         const v = JSON.parse(line2);
         const compact = JSON.stringify(v);
         const preview = compact.length > 140 ? compact.slice(0, 140) + "\u2026" : compact;
-        return `<details class="fe-jl-line"><summary>${CHEVRON_DOWN}<span class="fe-jl-n">${n}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2e3 })}</div></details>`;
+        return `<details class="fe-jl-line"><summary>${DISCLOSE}<span class="fe-jl-n">${n}</span><span class="fe-jl-prev">${esc(preview)}</span></summary><div class="fe-jt-kids">${jsonNode(null, v, 1, { n: 2e3 })}</div></details>`;
       } catch {
         return `<div class="fe-jl-line bad"><span class="fe-jl-n">${n}</span><span class="fe-jl-err">not JSON</span><span class="fe-jl-prev">${esc(line2.slice(0, 200))}</span></div>`;
       }
@@ -5391,6 +5392,11 @@ Now: ${question}` : question;
 .empty[data-inline] .empty-a{justify-content:flex-start;margin-top:var(--sp-2)}
 .empty:is([data-inline],[data-state="loading"]) .empty-t{color:var(--dm)}
 #fe-empty[hidden]{display:none}
+/* Disclosure: the chevron on anything that folds turns right when folded,
+   read from aria-expanded on its button or a closed <details> around its
+   summary. */
+.chev{width:12px;height:12px;flex:none;transition:transform var(--t-fast) var(--ease)}
+:is([aria-expanded="false"],details:not([open]) > summary) > .chev{transform:rotate(-90deg)}
 .sect{display:flex;align-items:center;gap:var(--sp-3);min-width:0;margin:0}
 .sect-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .sect-acts{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:auto}
@@ -5542,8 +5548,6 @@ body{opacity:1!important}
 .fe-sh{padding:10px 14px 5px}
 #fe-side .fe-sh{justify-content:flex-start!important}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
-.fe-sh-collapse svg{width:12px;height:12px;flex:none;transition:transform .12s}
-.fe-collapsed .fe-sh-collapse svg{transform:rotate(-90deg)}
 .fe-sh-collapse:hover{color:var(--tx)}
 .fe-si{display:flex;align-items:center;gap:10px;padding:8px 14px;
   color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
@@ -5566,8 +5570,7 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 #fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 20px);margin:2px 10px 6px}
 
 .fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
-.fe-sv-tag{display:flex;align-items:center;gap:7px;padding:8px 14px 3px;font-size:var(--fs-sm);font-weight:600;
-  text-transform:uppercase;letter-spacing:.07em;color:var(--dm)}
+.fe-sv-tag{gap:7px;padding:8px 14px 3px}
 .fe-sv-dot{width:9px;height:9px;border-radius:50%;cursor:pointer;flex-shrink:0;box-shadow:0 0 0 1px #0004}
 #fe-lens-filter[hidden],.fe-lens-tags[hidden]{display:none}
 .fe-proxy-filter{display:none!important}
@@ -5576,8 +5579,6 @@ button.fe-si{width:100%;border:0;background:none;font:inherit;text-align:left;cu
 .fe-grp:not([open]){padding-bottom:0}
 .fe-grp > summary{list-style:none;cursor:pointer;padding:7px 8px 5px}
 .fe-grp > summary::-webkit-details-marker{display:none}
-.fe-grp > summary svg{width:10px;height:10px;flex:none;transition:transform var(--t-fast) var(--ease)}
-.fe-grp:not([open]) > summary svg{transform:rotate(-90deg)}
 .fe-grp-n{margin-left:auto;font-weight:500;color:var(--dm)}
 .fe-sv-dot:hover{transform:scale(1.25)}
 .fe-pl-dots{display:flex;align-items:center;gap:3px;margin-left:auto;padding-right:2px;flex:none}
@@ -5694,8 +5695,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tree-toggle,.fe-tree-spacer{width:20px;height:20px;flex:none}
 .fe-tree-toggle{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--dm);cursor:pointer;border-radius:4px}
 .fe-tree-toggle:hover{background:var(--s2);color:var(--tx)}
-.fe-tree-toggle svg{width:12px;height:12px;transform:rotate(-90deg)}
-.fe-tree-toggle[aria-expanded="true"] svg{transform:none}
 .fe-tree-link{display:flex;align-items:center;gap:8px;color:var(--tx);text-decoration:none;min-width:0}
 .fe-tree-link svg{flex:none}
 .fe-tree-link:hover .fe-nm{text-decoration:underline;color:var(--ac)}
@@ -6070,7 +6069,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-cm-ib{flex:none}
 
 .fe-cm-filters button.on{background:var(--card);color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18)}
-.fe-cm-group{display:flex;align-items:center;gap:6px;margin:14px 2px 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm);cursor:default}
+.fe-cm-group{gap:6px;margin:14px 2px 6px;cursor:default}
 .fe-cm-group span{font-weight:500;letter-spacing:0}
 details.fe-cm-done > summary{cursor:pointer;list-style:none}
 details.fe-cm-done > summary::-webkit-details-marker{display:none}
@@ -6379,8 +6378,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-jt-root,.fe-jl-root{padding:10px 14px;font:var(--fs-md)/1.6 'SF Mono',Menlo,Consolas,monospace}
 .fe-jt summary,.fe-jl-line summary{cursor:pointer;list-style:none}
 .fe-jt summary::-webkit-details-marker,.fe-jl-line summary::-webkit-details-marker{display:none}
-.fe-jt summary svg,.fe-jl-line summary svg{color:var(--dm);flex-shrink:0;vertical-align:-2px;transform:rotate(-90deg)}
-.fe-jt[open]>summary>svg,.fe-jl-line[open]>summary>svg{transform:none}
+.fe-jt summary svg,.fe-jl-line summary svg{color:var(--dm);vertical-align:-2px}
 .fe-jt summary svg{margin-right:4px}
 .fe-jt summary:hover{background:var(--hover)}
 .fe-jt-kids{padding-left:16px;border-left:1px solid var(--s3);margin-left:4px}
@@ -6609,13 +6607,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-item .fe-nt-pin svg{width:12px!important;height:12px!important;opacity:1}
 .fe-nt-item:hover .fe-nt-pin,.fe-nt-item:focus-within .fe-nt-pin{visibility:hidden}
 
-.fe-nt-grp{display:flex;align-items:center;gap:7px;width:calc(100% - 12px);height:26px;margin:8px 6px 2px;padding:0 var(--row-px);border:0;border-radius:var(--row-r);background:none;cursor:pointer;
-  font:inherit;font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm);text-align:left}
+.fe-nt-grp{gap:7px;width:calc(100% - 12px);height:26px;margin:8px 6px 2px;padding:0 var(--row-px);border:0;border-radius:var(--row-r);background:none;cursor:pointer;
+  font-family:inherit;text-align:left}
 .fe-nt-grp:first-child{margin-top:0}
 .fe-nt-grp:hover{background:var(--hover);color:var(--tx)}
 .fe-nt-grp .fe-grp-n{letter-spacing:0}
-.fe-nt-grp svg{width:12px;height:12px;flex:none;transition:transform var(--t-fast) var(--ease)}
-.fe-nt-grp[aria-expanded="false"] > svg:first-child{transform:rotate(-90deg)}
 .fe-nt-grp-pin{display:inline-flex;color:var(--gold)}
 .fe-nt-grp-pin svg{width:12px;height:12px}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
@@ -15443,8 +15439,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         ${draftHtml()}
         ${notesLine.map((n) => `<p class="fe-cm-note">${esc(n)}</p>`).join("")}
         ${list3.length || draft ? "" : noneHtml()}
-        ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="fe-cm-group">${name} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
-        ${done.length ? `<details class="fe-cm-done"${done.some((t) => t.id === active) ? " open" : ""}><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}
+        ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="sect fe-cm-group" data-level="group">${name} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
+        ${done.length ? `<details class="fe-cm-done"${done.some((t) => t.id === active) ? " open" : ""}><summary class="sect fe-cm-group" data-level="group">${DISCLOSE}Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}
       </div>
       <div class="fe-cm-ac" role="listbox" hidden></div>`;
       o.box.querySelector(".fe-cm-list").scrollTop = listTop;
@@ -17800,7 +17796,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       if (!g.tag) return g.items.map(row2).join("");
       const open = filter.trim() || !folded.has(g.tag.name) ? " open" : "";
       return `<details class="fe-grp" data-tag="${esc(g.tag.name)}"${open}>
-      <summary class="fe-sv-tag">${CHEVRON_DOWN}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
+      <summary class="sect fe-sv-tag" data-level="group">${DISCLOSE}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
       <div class="fe-grp-body">${g.items.map(row2).join("")}</div>
     </details>`;
     }).join("");
@@ -18459,7 +18455,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const expanded = treeExpanded.has(en.href);
         const hit = ls.contentHits?.get(en.href);
         rows.push(`<div class="row fe-tree-row${en.isHidden ? " dotfile" : ""}${en.isDir ? " dir" : ""}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
-        ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? "Collapse" : "Expand"} ${esc(name)}" aria-expanded="${expanded}">${CHEVRON_DOWN}</button>` : '<span class="fe-tree-spacer"></span>'}
+        ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? "Collapse" : "Expand"} ${esc(name)}" aria-expanded="${expanded}">${DISCLOSE}</button>` : '<span class="fe-tree-spacer"></span>'}
         <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
       </div>`);
         if (!en.isDir || !expanded) return;
@@ -20232,13 +20228,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       toggle.className = "fe-sh-collapse";
       toggle.id = `fe-sec-toggle-${key}`;
       toggle.dataset.label = label;
-      toggle.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      toggle.innerHTML = DISCLOSE;
       toggle.append(labelNode);
       toggle.addEventListener("click", () => {
         const keys2 = collapsed();
         if (section.classList.contains("fe-collapsed")) keys2.delete(key);
         else keys2.add(key);
         kvSet(collapseKey, JSON.stringify([...keys2]));
+        toggle.setAttribute("aria-expanded", String(!keys2.has(key)));
         foldTo(section, () => {
           section.classList.toggle("fe-collapsed");
         }, () => applyCollapsed(keys2));
@@ -20547,7 +20544,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const folded = noteFolds();
       const group = (key, label, list3) => {
         const open = !folded.has(key) || !!ntFilter.value.trim();
-        return `<button type="button" class="fe-nt-grp" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${CHEVRON_DOWN}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list3.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list3.map(row2).join("")}</div>`;
+        return `<button type="button" class="sect fe-nt-grp" data-level="group" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${DISCLOSE}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list3.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list3.map(row2).join("")}</div>`;
       };
       ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
       attachNoteEvents(root);

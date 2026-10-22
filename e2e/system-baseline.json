@@ -1,14 +1,14 @@
 {
   "css-radius-px": 102,
-  "css-height-px": 141,
+  "css-height-px": 138,
   "css-space-px": 488,
   "css-zindex": 35,
   "css-font-px": 4,
-  "css-duration": 23,
+  "css-duration": 22,
   "css-raw-colour": 81,
   "css-important": 25,
   "css-media": 14,
-  "css-dup-selector": 140,
+  "css-dup-selector": 138,
   "css-part-paint": 0,
   "js-keydown": 29,
   "js-outside-click": 16,
@@ -16,7 +16,7 @@
   "js-storage": 53,
   "js-native-control": 2,
   "js-inline-style": 35,
-  "js-inline-svg": 22,
+  "js-inline-svg": 21,
   "js-message-shown": 29,
   "js-home-literal": 7
 }

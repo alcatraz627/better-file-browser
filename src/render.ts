@@ -1,6 +1,6 @@
 import type { Entry, IconRule, Place, Settings, Tag, TipData } from './types';
 import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, fileHref } from './utils';
-import { getIcon, icoFile, IMG_EXTS, PI, CHEVRON_DOWN, CHEVRON_RIGHT } from './icons';
+import { getIcon, icoFile, IMG_EXTS, PI, CHEVRON_DOWN, CHEVRON_RIGHT, DISCLOSE } from './icons';
 import { groupByTag, filterSaved, samePlace } from './places';
 import { isViewPath } from './find';
 import { canPreview } from './preview';
@@ -155,7 +155,7 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
     if (!g.tag) return g.items.map(row).join('');
     const open = filter.trim() || !folded.has(g.tag.name) ? ' open' : '';
     return `<details class="fe-grp" data-tag="${esc(g.tag.name)}"${open}>
-      <summary class="fe-sv-tag">${CHEVRON_DOWN}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
+      <summary class="sect fe-sv-tag" data-level="group">${DISCLOSE}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
       <div class="fe-grp-body">${g.items.map(row).join('')}</div>
     </details>`;
   }).join('');

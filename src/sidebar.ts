@@ -6,7 +6,7 @@ import type { NotesError } from './notes';
 import { el, els } from './el';
 import { esc, copyToClipboard, midHtml, fileHref } from './utils';
 import { kvGet, kvSet, onKvChange } from './kv';
-import { PI, CHEVRON_DOWN } from './icons';
+import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
@@ -154,13 +154,14 @@ export function initSidebar(app: App): void {
     toggle.className = 'fe-sh-collapse';
     toggle.id = `fe-sec-toggle-${key}`;
     toggle.dataset.label = label;
-    toggle.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    toggle.innerHTML = DISCLOSE;
     toggle.append(labelNode);
     toggle.addEventListener('click', () => {
       const keys = collapsed();
       if (section.classList.contains('fe-collapsed')) keys.delete(key); else keys.add(key);
       // The choice is saved at once; only the look waits for the fold to finish.
       kvSet(collapseKey, JSON.stringify([...keys]));
+      toggle.setAttribute('aria-expanded', String(!keys.has(key)));   // the chevron turns as the fold starts
       foldTo(section, () => { section.classList.toggle('fe-collapsed'); }, () => applyCollapsed(keys));
     });
     header.prepend(toggle);
@@ -434,8 +435,8 @@ export function initSidebar(app: App): void {
     const folded = noteFolds();
     const group = (key: string, label: string, list: NoteMeta[]) => {
       const open = !folded.has(key) || !!ntFilter.value.trim();
-      return `<button type="button" class="fe-nt-grp" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? 'Fold' : 'Show'} ${esc(label.toLowerCase())}">`
-        + `${CHEVRON_DOWN}${key === 'pinned' ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ''}${label}<span class="fe-grp-n">${list.length}</span></button>`
+      return `<button type="button" class="sect fe-nt-grp" data-level="group" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? 'Fold' : 'Show'} ${esc(label.toLowerCase())}">`
+        + `${DISCLOSE}${key === 'pinned' ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ''}${label}<span class="fe-grp-n">${list.length}</span></button>`
         + `<div class="fe-nt-gbody"${open ? '' : ' hidden'}>${list.map(row).join('')}</div>`;
     };
     ntList.innerHTML = shown.length
