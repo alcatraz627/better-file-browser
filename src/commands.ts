@@ -59,6 +59,7 @@ const baseOf = (tok: string) => tok.replace(/^[⌘⌃⌥⇧]+/, '');
 const live = (d: KeyDef, ctx: Context, tok = '') => {
   const scope = d.scope ?? 'any';
   if (scope !== 'any') return ctx.scopes.has(scope);
+  if (!ctx.scopes.has('any')) return false;
   if (ctx.widget && MOVING.has(baseOf(tok))) return false;
   return !ctx.scopes.has('preview') || d.over === true || (!!tok && !!d.over?.includes(tok));
 };

@@ -306,7 +306,7 @@ export function focusTrap(root: HTMLElement, o: { when?: () => boolean } = {}): 
     if (e.key !== 'Tab' || !root.isConnected || getComputedStyle(root).display === 'none' || (o.when && !o.when())) return;
     const ae = document.activeElement as HTMLElement | null;
     if (ae?.closest('textarea, [contenteditable="true"]')) return;
-    const list = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(x => x.offsetParent !== null && !(x as HTMLButtonElement).disabled);
+    const list = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(x => x.offsetParent !== null && !(x as HTMLButtonElement).disabled && x.tabIndex >= 0);
     if (!list.length) return;
     const at = ae ? list.indexOf(ae) : -1;
     const next = at < 0 ? (e.shiftKey ? list.length - 1 : 0) : (at + (e.shiftKey ? -1 : 1) + list.length) % list.length;

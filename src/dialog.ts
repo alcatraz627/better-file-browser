@@ -7,7 +7,13 @@
 import { esc } from './utils';
 import { kvGet, kvSet } from './kv';
 import { UI_ICON } from './control-icons';
-import { openLayer, type Layer } from './layer';
+import { openLayer, focusTrap, type Layer } from './layer';
+import { bind } from './commands';
+
+// Every mounted dialog; the page keys act on the one that is open.
+const mounted: { isOpen: () => boolean; step: (dir: 1 | -1) => void }[] = [];
+const openOne = () => mounted.find(d => d.isOpen());
+bind('dlg-tabs', key => openOne()?.step(key === '[' ? -1 : 1), () => !!openOne());
 
 export interface DialogTab { key: string; label: string; hint?: string; icon?: string; tone?: string; desc?: string; body: string }
 export interface DialogSpec { id: string; mark: string; title: string; subtitle: string; tabs: DialogTab[] }
@@ -77,22 +83,12 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
 
   tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.tab!)));
   root.querySelector('.fe-dlg-close')!.addEventListener('click', close);
-  document.addEventListener('keydown', e => {
-    if (!isOpen()) return;
-    if (e.key === 'Tab') {
-      // Tab stays inside the dialog, wrapping from the last control to the first.
-      const all = [...box.querySelectorAll<HTMLElement>('button, a[href], input, textarea, [tabindex]:not([tabindex="-1"])')]
-        .filter(x => x.offsetParent !== null && !(x as HTMLButtonElement).disabled && x.tabIndex >= 0);
-      if (!all.length) return;
-      const at = all.indexOf(document.activeElement as HTMLElement);
-      if (e.shiftKey ? at <= 0 : at === all.length - 1 || at < 0) { e.preventDefault(); all[e.shiftKey ? all.length - 1 : 0].focus(); }
-    }
-    else if ((e.key === '[' || e.key === ']') && !['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement as HTMLElement)?.tagName)) {
-      const i = tabs.findIndex(t => t.classList.contains('on'));
-      const j = (i + (e.key === ']' ? 1 : -1) + tabs.length) % tabs.length;
-      e.preventDefault();
-      show(tabs[j].dataset.tab!);
-    }
-  });
+  // Tab stays inside the dialog; [ and ] step through its pages.
+  focusTrap(box, { when: isOpen });
+  const step = (dir: 1 | -1) => {
+    const i = tabs.findIndex(t => t.classList.contains('on'));
+    show(tabs[(i + dir + tabs.length) % tabs.length].dataset.tab!);
+  };
+  mounted.push({ isOpen, step });
   return { open, close, isOpen, show };
 }

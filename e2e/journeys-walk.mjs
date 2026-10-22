@@ -103,6 +103,31 @@ try {
   await Promise.all([page.waitForNavigation({ timeout: 5000 }).catch(() => null), page.keyboard.press('Enter')]);
   check(page.url().includes('/nested'), `↩ in Go to goes there: ${page.url()}`);
 
+  // Journey 8: Settings by keys alone.
+  await page.evaluate(() => document.activeElement?.blur());
+  await key(',');
+  await page.waitForFunction(() => document.getElementById('fe-settings-modal')?.style.display === 'flex', { timeout: 3000 }).catch(() => null);
+  const onTab = () => page.$eval('#fe-settings-modal .fe-dlg-tab.on, #fe-settings-modal [data-tab].on', t => t.dataset.tab).catch(() => '');
+  const t0 = await onTab();
+  await key(']');
+  const t1 = await onTab();
+  await key('[');
+  const t2 = await onTab();
+  check(!!t0 && t1 !== t0 && t2 === t0, `] and [ step the Settings pages: ${t0} → ${t1} → ${t2}`);
+  let out = 0;
+  for (let i = 0; i < 30; i++) {
+    await page.keyboard.press('Tab');
+    if (!(await page.evaluate(() => !!document.activeElement?.closest('#fe-settings-modal .fe-dlg-box, #fe-settings-modal')))) out++;
+  }
+  check(out === 0, `Tab stays inside Settings (${out} steps outside)`);
+  await page.evaluate(() => document.activeElement?.blur());
+  await key('?');
+  const helpOver = await page.$eval('#fe-help-modal', m => m.style.display === 'flex');
+  check(!helpOver, '? does nothing while Settings is open');
+  await key('Escape');
+  await sleep(200);
+  check(await page.$eval('#fe-settings-modal', m => m.style.display !== 'flex'), 'Esc closes Settings');
+
   // A narrow window: the sidebar opens over the page, and Esc closes it.
   await page.setViewport({ width: 500, height: 800 });
   await sleep(300);

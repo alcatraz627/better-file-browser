@@ -162,7 +162,7 @@ export const KEYMAP: KeyDef[] = [
   // Menus and dialogs
   { id: 'menu-move', group: 'Menus and dialogs', title: 'Move in a menu', keys: ['↑', '↓'], scope: 'menu', own: true },
   { id: 'menu-pick', group: 'Menus and dialogs', title: 'Pick', keys: ['↩'], scope: 'menu', own: true },
-  { id: 'dlg-tabs', group: 'Menus and dialogs', title: 'Dialog pages', keys: ['[', ']'], scope: 'dialog' },
+  { id: 'dlg-tabs', group: 'Menus and dialogs', title: 'Dialog pages', keys: ['[', ']'], scope: 'dialog', own: true },
   { id: 'dlg-fields', group: 'Menus and dialogs', title: 'Next control', keys: ['⇥'], scope: 'dialog' },
   { id: 'dlg-choice', group: 'Menus and dialogs', title: 'Change a choice', keys: ['←', '→'], scope: 'dialog' },
 ];

@@ -48,6 +48,9 @@ export function initFocusNav(app: App): void {
   const dialogOpen = () => [...document.querySelectorAll<HTMLElement>('.fe-dlg')].some(d => d.style.display !== 'none');
   setContext(() => {
     const ae = document.activeElement;
+    const blocked = paletteOpen() || !!openMenu() || !!document.querySelector('.fe-dd-list, .fe-rule-pop');
+    // An open dialog has the keyboard to itself: only its own keys run.
+    if (dialogOpen()) return { scopes: new Set<Scope>(['dialog']), typing: isTyping(ae), blocked };
     const scopes = new Set<Scope>(['any']);
     const preview = isPreviewOpen();
     if (preview) scopes.add('preview');
@@ -64,7 +67,7 @@ export function initFocusNav(app: App): void {
     if (openMenu()) scopes.add('menu');
     return {
       scopes, typing: isTyping(ae), widget: inSide || inTabs || inBar || !!ae?.closest('#fe-fp-bar'),
-      blocked: dialogOpen() || paletteOpen() || !!openMenu() || !!document.querySelector('.fe-dd-list, .fe-rule-pop'),
+      blocked,
     };
   });
 

@@ -1200,7 +1200,7 @@ ${body}`;
       if (e.key !== "Tab" || !root.isConnected || getComputedStyle(root).display === "none" || o.when && !o.when()) return;
       const ae = document.activeElement;
       if (ae?.closest('textarea, [contenteditable="true"]')) return;
-      const list2 = [...root.querySelectorAll(FOCUSABLE)].filter((x) => x.offsetParent !== null && !x.disabled);
+      const list2 = [...root.querySelectorAll(FOCUSABLE)].filter((x) => x.offsetParent !== null && !x.disabled && x.tabIndex >= 0);
       if (!list2.length) return;
       const at = ae ? list2.indexOf(ae) : -1;
       const next = at < 0 ? e.shiftKey ? list2.length - 1 : 0 : (at + (e.shiftKey ? -1 : 1) + list2.length) % list2.length;
@@ -1211,94 +1211,223 @@ ${body}`;
     return () => document.removeEventListener("keydown", onKey, true);
   }
 
-  // src/dialog.ts
-  var tile = (t, size = "") => `<span class="fe-dlg-tile ${size}" style="--tone:${t.tone ?? "var(--ac)"}" aria-hidden="true">${t.icon}</span>`;
-  function renderDialog(d) {
-    return `
-  <div id="${esc(d.id)}" class="fe-dlg" style="display:none">
-    <div class="fe-dlg-bg"></div>
-    <div class="fe-dlg-box" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
-      <div class="fe-dlg-title">
-        <span class="fe-dlg-mark">${d.mark}</span>
-        <span class="fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
-        <button class="fe-dlg-close" title="Close (Esc)">${UI_ICON.close}</button>
-      </div>
-      <div class="fe-dlg-tabs" role="tablist">
-        ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ""}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
-      </div>
-      ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.icon ? `<header class="fe-dlg-ph">${tile(t, "lg")}<div class="fe-dlg-ph-tx"><h2>${esc(t.label)}</h2>${t.desc || t.hint ? `<p>${esc(t.desc || t.hint)}</p>` : ""}</div></header>` : ""}${t.body}</div>`).join("")}
-    </div>
-  </div>`;
-  }
-  var focusStack = [];
-  function rememberFocus() {
-    focusStack.push(document.activeElement);
-  }
-  function restoreFocus() {
-    const el2 = focusStack.pop() ?? null;
-    if (el2 && document.contains(el2) && typeof el2.focus === "function") el2.focus();
-  }
-  function mountDialog(id, hooks = {}) {
-    const root = document.getElementById(id);
-    const box = root.querySelector(".fe-dlg-box");
-    const tabs = [...root.querySelectorAll(".fe-dlg-tab")];
-    const panes = [...root.querySelectorAll(".fe-dlg-pane")];
-    const memory = `bfb-dialog-tab:${id}`;
-    const isOpen = () => root.style.display !== "none";
-    function show(tab) {
-      if (!tabs.some((t) => t.dataset.tab === tab)) tab = tabs[0]?.dataset.tab ?? "";
-      tabs.forEach((t) => t.classList.toggle("on", t.dataset.tab === tab));
-      panes.forEach((p) => {
-        p.classList.toggle("on", p.dataset.tab === tab);
-        if (p.dataset.tab === tab) p.scrollTop = 0;
-      });
-      try {
-        kvSet(memory, tab);
-      } catch {
+  // src/keymap.ts
+  var GROUPS = [
+    { name: "Anywhere", icon: "apps" },
+    { name: "Go", icon: "home" },
+    { name: "Listing", icon: "folder" },
+    { name: "View", icon: "pics" },
+    { name: "Tabs", icon: "tabset" },
+    { name: "Sidebar", icon: "bm" },
+    { name: "Preview", icon: "search" },
+    { name: "File page", icon: "docs" },
+    { name: "Editor", icon: "code" },
+    { name: "Menus and dialogs", icon: "gear" }
+  ];
+  var KEYMAP = [
+    // Anywhere
+    { id: "palette", group: "Anywhere", title: "Command palette", keys: ["\u2318K"], own: true, over: true },
+    { id: "keys", group: "Anywhere", title: "Keyboard map", keys: ["?"], own: true, over: true },
+    { id: "settings", group: "Anywhere", title: "Settings", keys: [","], own: true, over: true },
+    { id: "hints", group: "Anywhere", title: "Show keys on screen", keys: ["hold \u2325"], own: true, over: true },
+    { id: "area-next", group: "Anywhere", title: "Next area", keys: ["F6", "\u2303`"], own: true, over: true },
+    { id: "area-prev", group: "Anywhere", title: "Previous area", keys: ["\u21E7F6", "\u2303\u21E7`"], own: true, over: true },
+    { id: "sidebar", group: "Anywhere", title: "Sidebar on or off", keys: ["\\"], own: true, over: true },
+    { id: "theme", group: "Anywhere", title: "Dark or light", keys: ["\u21E7L"], own: true, over: true },
+    { id: "esc", group: "Anywhere", title: "Close, or step back", keys: ["Esc"] },
+    // Go
+    { id: "up", group: "Go", title: "Parent folder", keys: ["\u232B", "\u2318\u2191"], own: true, over: ["\u2318\u2191"] },
+    { id: "home", group: "Go", title: "Home", keys: ["g h"], own: true },
+    { id: "path", group: "Go", title: "Type a path", keys: ["l"], own: true },
+    { id: "goto-bg", group: "Go", title: "Open the typed path as a background tab", keys: ["\u2325\u21A9"], scope: "goto", own: true, field: true },
+    { id: "open-pick", group: "Go", title: "Open a file or folder", keys: ["o"], own: true },
+    { id: "save", group: "Go", title: "Save or unsave folder", keys: ["b"], own: true },
+    { id: "terminal", group: "Go", title: "Terminal here", keys: ["`"], own: true },
+    { id: "terminal-copy", group: "Go", title: "Copy terminal command", keys: ["\u21E7`"], own: true },
+    { id: "to-listing", group: "Go", title: "Focus the listing", keys: ["g l"], own: true },
+    { id: "to-sidebar", group: "Go", title: "Focus the sidebar", keys: ["g s"], own: true },
+    { id: "to-tabs", group: "Go", title: "Focus the tabs", keys: ["g t"], own: true },
+    { id: "to-toolbar", group: "Go", title: "Focus the toolbar", keys: ["g b"], own: true },
+    { id: "to-path", group: "Go", title: "Focus the path bar", keys: ["g p"], own: true },
+    { id: "lens-places", group: "Go", title: "Places", keys: ["g 1"], own: true },
+    { id: "lens-saved", group: "Go", title: "Saved", keys: ["g 2"], own: true },
+    { id: "lens-notes", group: "Go", title: "Notes", keys: ["g 3"], own: true },
+    { id: "lens-recent", group: "Go", title: "History", keys: ["g 4"], own: true },
+    { id: "lens-search", group: "Go", title: "Search", keys: ["g 5"], own: true },
+    { id: "lens-ask", group: "Go", title: "Ask", keys: ["g 6"], own: true },
+    { id: "lens-docs", group: "Go", title: "Comments", keys: ["g 7"], own: true },
+    // Listing
+    { id: "move", group: "Listing", title: "Move", keys: ["\u2191", "\u2193"], scope: "listing", own: true },
+    { id: "extend-up", group: "Listing", title: "Select upward", keys: ["\u21E7\u2191"], scope: "listing", own: true },
+    { id: "extend-down", group: "Listing", title: "Select downward", keys: ["\u21E7\u2193"], scope: "listing", own: true },
+    { id: "first", group: "Listing", title: "First item", keys: ["Home"], scope: "listing", own: true },
+    { id: "last", group: "Listing", title: "Last item", keys: ["End"], scope: "listing", own: true },
+    { id: "page-up", group: "Listing", title: "Page up", keys: ["PgUp"], scope: "listing", own: true },
+    { id: "page-down", group: "Listing", title: "Page down", keys: ["PgDn"], scope: "listing", own: true },
+    { id: "open", group: "Listing", title: "Open", keys: ["\u21A9"], scope: "listing", own: true },
+    { id: "open-bg", group: "Listing", title: "Keep as a background tab", keys: ["\u2325\u21A9"], scope: "listing", own: true },
+    { id: "open-chrome", group: "Listing", title: "Open in a Chrome tab", keys: ["\u2318\u21A9"], scope: "listing", own: true },
+    { id: "look", group: "Listing", title: "Preview", keys: ["Space"], scope: "listing", own: true },
+    { id: "tree-open", group: "Listing", title: "Expand folder (Tree)", keys: ["\u2192"], scope: "tree", own: true },
+    { id: "tree-close", group: "Listing", title: "Collapse folder (Tree)", keys: ["\u2190"], scope: "tree", own: true },
+    { id: "menu", group: "Listing", title: "Item menu", keys: ["x", "\u21E7F10"], scope: "listing", own: true },
+    { id: "select-all", group: "Listing", title: "Select all", keys: ["\u2318A"], scope: "listing", own: true },
+    { id: "copy-paths", group: "Listing", title: "Copy selected paths", keys: ["\u2318C"], scope: "listing", own: true },
+    { id: "copy-path", group: "Listing", title: "Copy path", keys: ["y"], scope: "listing", own: true },
+    { id: "copy-name", group: "Listing", title: "Copy name", keys: ["\u21E7Y"], scope: "listing", own: true },
+    { id: "filter", group: "Listing", title: "Filter", keys: ["/", "\u2318F"], own: true },
+    { id: "new-note", group: "Listing", title: "New note", keys: ["n"], own: true },
+    // View
+    { id: "view-details", group: "View", title: "Details", keys: ["v d"], own: true },
+    { id: "view-list", group: "View", title: "List", keys: ["v l"], own: true },
+    { id: "view-tree", group: "View", title: "Tree", keys: ["v t"], own: true },
+    { id: "view-tiles", group: "View", title: "Tiles", keys: ["v i"], own: true },
+    { id: "view-icons", group: "View", title: "Large icons", keys: ["v g"], own: true },
+    { id: "sort-name", group: "View", title: "Sort by name", keys: ["s n"], own: true },
+    { id: "sort-date", group: "View", title: "Sort by modified", keys: ["s m"], own: true },
+    { id: "sort-size", group: "View", title: "Sort by size", keys: ["s z"], own: true },
+    { id: "sort-type", group: "View", title: "Sort by type", keys: ["s t"], own: true },
+    { id: "sort-rev", group: "View", title: "Reverse the order", keys: ["s r"], own: true },
+    { id: "group", group: "View", title: "Next grouping", keys: ["s g"], own: true },
+    { id: "filter-panel", group: "View", title: "Filter panel", keys: ["f"], own: true },
+    { id: "deep", group: "View", title: "Include subfolders", keys: ["\u21E7D"], scope: "listing", own: true },
+    { id: "hidden", group: "View", title: "Hidden files", keys: ["."], own: true },
+    { id: "zoom-in", group: "View", title: "Less detail, bigger items", keys: ["="], own: true },
+    { id: "zoom-out", group: "View", title: "More detail, smaller items", keys: ["-"], own: true },
+    { id: "zoom-reset", group: "View", title: "Standard detail", keys: ["0"], own: true },
+    // Tabs
+    { id: "tab-keep", group: "Tabs", title: "Keep this place", keys: ["t"] },
+    { id: "tab-close", group: "Tabs", title: "Close", keys: ["w"] },
+    { id: "tab-pin", group: "Tabs", title: "Pin", keys: ["p"] },
+    { id: "tab-step", group: "Tabs", title: "Previous or next", keys: ["[", "]"] },
+    { id: "tab-jump", group: "Tabs", title: "Jump to 1 to 9", keys: ["1\u20269"] },
+    { id: "tab-reopen", group: "Tabs", title: "Reopen closed", keys: ["\u21E7T"] },
+    { id: "tab-left", group: "Tabs", title: "Move tab left", keys: ["\u21E7["], own: true },
+    { id: "tab-right", group: "Tabs", title: "Move tab right", keys: ["\u21E7]"], own: true },
+    { id: "tab-list", group: "Tabs", title: "All tabs", keys: ["g a"], own: true },
+    { id: "tab-focus-move", group: "Tabs", title: "Move between tabs", keys: ["\u2190", "\u2192"], scope: "tabs" },
+    { id: "tab-focus-shift", group: "Tabs", title: "Drag the focused tab", keys: ["\u21E7\u2190", "\u21E7\u2192"], scope: "tabs" },
+    // Sidebar
+    { id: "side-close", group: "Sidebar", title: "Close the sidebar over the page", keys: ["Esc"], own: true },
+    { id: "side-move", group: "Sidebar", title: "Move", keys: ["\u2191", "\u2193"], scope: "sidebar" },
+    { id: "side-lens", group: "Sidebar", title: "Switch lens (on the bar)", keys: ["\u2190", "\u2192"], scope: "sidebar" },
+    { id: "side-open", group: "Sidebar", title: "Open as a tab", keys: ["\u21A9"], scope: "sidebar" },
+    { id: "side-bg", group: "Sidebar", title: "Background tab", keys: ["\u2325\u21A9"], scope: "sidebar" },
+    { id: "side-rename", group: "Sidebar", title: "Rename", keys: ["F2"], scope: "sidebar" },
+    { id: "side-tags", group: "Sidebar", title: "Tags", keys: ["#"], scope: "sidebar" },
+    { id: "side-remove", group: "Sidebar", title: "Remove", keys: ["\u232B"], scope: "sidebar" },
+    { id: "side-fold", group: "Sidebar", title: "Fold a group", keys: ["Space"], scope: "sidebar" },
+    { id: "lens-filter", group: "Sidebar", title: "Filter this list", keys: ["/"], scope: "sidebar", own: true },
+    { id: "lens-tags", group: "Sidebar", title: "Tag chips", keys: ["g #"], own: true },
+    { id: "side-look", group: "Sidebar", title: "Preview a file", keys: ["Space"], scope: "sidebar", own: true },
+    { id: "side-chrome", group: "Sidebar", title: "Open in a Chrome tab", keys: ["\u2318\u21A9"], scope: "sidebar", own: true },
+    { id: "side-props", group: "Sidebar", title: "Note colour, pin and tags", keys: ["#"], scope: "sidebar", own: true },
+    // Preview
+    { id: "pv-close", group: "Preview", title: "Close", keys: ["Space", "Esc"], scope: "preview", own: true },
+    { id: "pv-step", group: "Preview", title: "Previous or next file", keys: ["\u2191", "\u2193", "\u2190", "\u2192"], scope: "preview", own: true },
+    { id: "pv-open", group: "Preview", title: "Open the page", keys: ["\u21A9"], scope: "preview", own: true },
+    { id: "pv-tab", group: "Preview", title: "Keep as a tab", keys: ["t"], scope: "preview", own: true },
+    { id: "pv-dock", group: "Preview", title: "Dock or float", keys: ["d"], scope: "preview", own: true },
+    { id: "pv-copy", group: "Preview", title: "Copy contents", keys: ["c"], scope: "preview", own: true },
+    { id: "pv-ask", group: "Preview", title: "Ask about it", keys: ["a"], scope: "preview", own: true },
+    // File page
+    { id: "fp-raw", group: "File page", title: "Raw or rendered", keys: ["r"], scope: "file", own: true },
+    { id: "fp-edit", group: "File page", title: "Edit", keys: ["e"], scope: "file", own: true },
+    { id: "fp-find", group: "File page", title: "Find in file", keys: ["/"], scope: "file", own: true },
+    { id: "fp-comment", group: "File page", title: "Comment on the selection or paragraph", keys: ["c"], scope: "file" },
+    { id: "fp-cm-reply", group: "File page", title: "Reply to the comment", keys: ["\u21E7R"], scope: "file" },
+    { id: "fp-toc", group: "File page", title: "Contents", keys: ["\u21E7O"], scope: "file", own: true },
+    { id: "fp-width", group: "File page", title: "Reading width", keys: ["\u21E7W"], scope: "file", own: true },
+    { id: "fp-comments", group: "File page", title: "Comments panel", keys: ["\u21E7C"], scope: "file" },
+    { id: "fp-cm-step", group: "File page", title: "Previous or next comment", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "file" },
+    { id: "fp-cm-post", group: "File page", title: "Post, or post a reply", keys: ["\u2318\u21A9", "\u2318\u21E7\u21A9"], scope: "file" },
+    // Editor
+    { id: "ed-save", group: "Editor", title: "Save", keys: ["\u2318S"], scope: "editor" },
+    { id: "ed-bold", group: "Editor", title: "Bold, italic, code", keys: ["\u2318B", "\u2318I", "\u2318E"], scope: "editor" },
+    { id: "ed-move", group: "Editor", title: "Move line", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "editor" },
+    { id: "ed-dup", group: "Editor", title: "Copy line", keys: ["\u2325\u21E7\u2191", "\u2325\u21E7\u2193"], scope: "editor" },
+    { id: "ed-indent", group: "Editor", title: "Indent", keys: ["\u21E5", "\u21E7\u21E5"], scope: "editor" },
+    { id: "ed-undo", group: "Editor", title: "Undo, redo", keys: ["\u2318Z", "\u2318\u21E7Z"], scope: "editor" },
+    { id: "ed-link", group: "Editor", title: "Link", keys: ["\u2318K"], scope: "editor" },
+    { id: "ed-more", group: "Editor", title: "Strike, heading, quote, numbered list", keys: ["\u2318\u21E7X", "\u2318\u21E7H", "\u2318\u21E7.", "\u2318\u21E77"], scope: "editor" },
+    { id: "ed-mode", group: "Editor", title: "Raw, split or rich", keys: ["\u2318\u21E7P"], scope: "editor" },
+    { id: "note-rename", group: "Editor", title: "Rename this note", keys: ["F2"], scope: "editor", own: true, field: true },
+    { id: "note-delete", group: "Editor", title: "Move this note to .trash", keys: ["\u2318\u21E7\u232B"], scope: "editor", own: true, field: true },
+    // Menus and dialogs
+    { id: "menu-move", group: "Menus and dialogs", title: "Move in a menu", keys: ["\u2191", "\u2193"], scope: "menu", own: true },
+    { id: "menu-pick", group: "Menus and dialogs", title: "Pick", keys: ["\u21A9"], scope: "menu", own: true },
+    { id: "dlg-tabs", group: "Menus and dialogs", title: "Dialog pages", keys: ["[", "]"], scope: "dialog", own: true },
+    { id: "dlg-fields", group: "Menus and dialogs", title: "Next control", keys: ["\u21E5"], scope: "dialog" },
+    { id: "dlg-choice", group: "Menus and dialogs", title: "Change a choice", keys: ["\u2190", "\u2192"], scope: "dialog" }
+  ];
+  var SHIFTED = { "?": "/", "{": "[", "}": "]", "#": "3", "~": "`", "_": "-", "+": "=", "<": ",", ">": ".", '"': "'", ":": ";", "|": "\\" };
+  var NAMED = {
+    "\u2318": "meta",
+    "\u21E7": "shift",
+    "\u2325": "alt",
+    "\u2303": "ctrl",
+    "\u2191": "up",
+    "\u2193": "down",
+    "\u2190": "left",
+    "\u2192": "right",
+    "\u21A9": "enter",
+    "\u232B": "backspace",
+    "\u21E5": "tab",
+    esc: "esc",
+    space: "space",
+    home: "left",
+    end: "right",
+    pgup: "up",
+    pgdn: "down"
+  };
+  function capsFor(key) {
+    if (key === "1\u20269") return ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    const out = /* @__PURE__ */ new Set();
+    for (const part of key.replace(/^hold /, "").split(" ")) {
+      if (/^(home|end|pgup|pgdn)$/i.test(part)) {
+        out.add("fn");
+        out.add(NAMED[part.toLowerCase()]);
+        continue;
       }
+      if (/^F\d+$/.test(part)) {
+        out.add(part.toLowerCase());
+        continue;
+      }
+      if (/^(esc|space)$/i.test(part)) {
+        out.add(part.toLowerCase());
+        continue;
+      }
+      let rest = part;
+      while (rest && "\u2318\u21E7\u2325\u2303".includes(rest[0]) && rest.length > 1) {
+        out.add(NAMED[rest[0]]);
+        rest = rest.slice(1);
+      }
+      const m = /^⇧(F\d+)$/.exec(part);
+      if (m) {
+        out.add(m[1].toLowerCase());
+        continue;
+      }
+      if (/^F\d+$/.test(rest)) {
+        out.add(rest.toLowerCase());
+        continue;
+      }
+      if (NAMED[rest]) {
+        out.add(NAMED[rest]);
+        continue;
+      }
+      if (SHIFTED[rest]) {
+        out.add("shift");
+        out.add(SHIFTED[rest]);
+        continue;
+      }
+      if (/^[A-Z]$/.test(rest) && !part.startsWith("\u2318")) {
+        out.add("shift");
+        out.add(rest.toLowerCase());
+        continue;
+      }
+      out.add(rest.toLowerCase());
     }
-    let layer = null;
-    function open(tab) {
-      hooks.onOpen?.();
-      let last = "";
-      try {
-        last = kvGet(memory) || "";
-      } catch {
-      }
-      show(tab ?? last);
-      root.style.display = "flex";
-      if (layer?.open) {
-        box.focus();
-        return;
-      }
-      layer = openLayer(root, { kind: "dialog", place: "none", focus: box, backdrop: root.querySelector(".fe-dlg-bg"), onClose: () => {
-        root.style.display = "none";
-        hooks.onClose?.();
-      } });
-    }
-    function close() {
-      layer?.close("api");
-    }
-    tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.tab)));
-    root.querySelector(".fe-dlg-close").addEventListener("click", close);
-    document.addEventListener("keydown", (e) => {
-      if (!isOpen()) return;
-      if (e.key === "Tab") {
-        const all = [...box.querySelectorAll('button, a[href], input, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null && !x.disabled && x.tabIndex >= 0);
-        if (!all.length) return;
-        const at = all.indexOf(document.activeElement);
-        if (e.shiftKey ? at <= 0 : at === all.length - 1 || at < 0) {
-          e.preventDefault();
-          all[e.shiftKey ? all.length - 1 : 0].focus();
-        }
-      } else if ((e.key === "[" || e.key === "]") && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) {
-        const i3 = tabs.findIndex((t) => t.classList.contains("on"));
-        const j = (i3 + (e.key === "]" ? 1 : -1) + tabs.length) % tabs.length;
-        e.preventDefault();
-        show(tabs[j].dataset.tab);
-      }
-    });
-    return { open, close, isOpen, show };
+    return [...out];
   }
 
   // src/icons.ts
@@ -1476,6 +1605,455 @@ ${body}`;
     ...Object.fromEntries(Object.entries(LINE_ICON).map(([k, body]) => [k, line(body)])),
     drag: `<svg width="10" height="14" viewBox="0 0 10 14"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="3" cy="11" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="11" r="1.2" fill="currentColor"/></svg>`
   };
+
+  // src/commands.ts
+  var bound = /* @__PURE__ */ new Map();
+  function bind(id, run, when2) {
+    bound.set(id, { run, when: when2 });
+  }
+  function canRun(id) {
+    const b = bound.get(id);
+    return !!b && (!b.when || b.when());
+  }
+  function runCommand(id, key) {
+    if (!canRun(id)) return false;
+    bound.get(id).run(key);
+    return true;
+  }
+  var NAMED2 = {
+    ArrowUp: "\u2191",
+    ArrowDown: "\u2193",
+    ArrowLeft: "\u2190",
+    ArrowRight: "\u2192",
+    Enter: "\u21A9",
+    Backspace: "\u232B",
+    Delete: "\u232B",
+    Escape: "Esc",
+    " ": "Space",
+    Tab: "\u21E5",
+    PageUp: "PgUp",
+    PageDown: "PgDn",
+    Home: "Home",
+    End: "End"
+  };
+  var SHIFT_OF = { "{": "[", "}": "]", "~": "`" };
+  function keyToken(e) {
+    const named = NAMED2[e.key];
+    let k = named ?? e.key;
+    let shift = e.shiftKey;
+    if (named) {
+    } else if (SHIFT_OF[k]) {
+      k = SHIFT_OF[k];
+      shift = true;
+    } else if (/^[a-z]$/i.test(k)) k = shift || e.metaKey ? k.toUpperCase() : k.toLowerCase();
+    else if (k.length === 1) shift = false;
+    if (e.altKey && /^Key[A-Z]$/.test(e.code)) k = e.code.slice(3);
+    return (e.metaKey ? "\u2318" : "") + (e.ctrlKey ? "\u2303" : "") + (e.altKey ? "\u2325" : "") + (shift ? "\u21E7" : "") + k;
+  }
+  var contextOf = () => ({ scopes: /* @__PURE__ */ new Set(["any"]), typing: false, blocked: false });
+  function setContext(fn) {
+    contextOf = fn;
+  }
+  var OWN = KEYMAP.filter((d) => d.own);
+  var MOVING = /* @__PURE__ */ new Set(["\u2191", "\u2193", "\u2190", "\u2192", "\u21A9", "Space", "\u232B", "Home", "End"]);
+  var baseOf = (tok) => tok.replace(/^[⌘⌃⌥⇧]+/, "");
+  var live = (d, ctx, tok = "") => {
+    const scope = d.scope ?? "any";
+    if (scope !== "any") return ctx.scopes.has(scope);
+    if (!ctx.scopes.has("any")) return false;
+    if (ctx.widget && MOVING.has(baseOf(tok))) return false;
+    return !ctx.scopes.has("preview") || d.over === true || !!tok && !!d.over?.includes(tok);
+  };
+  var pending = "";
+  var pendingTimer = null;
+  var pill = null;
+  function setPending(p) {
+    pending = p;
+    if (pendingTimer) clearTimeout(pendingTimer);
+    if (!p) {
+      pill?.remove();
+      pill = null;
+      return;
+    }
+    pendingTimer = setTimeout(() => setPending(""), 1600);
+    if (!pill) {
+      pill = document.createElement("div");
+      pill.className = "fe-chord";
+      (document.getElementById("fe") ?? document.body).appendChild(pill);
+      raise(pill);
+    }
+    const next = OWN.filter((d) => canRun(d.id) && d.keys.some((k) => k.startsWith(p + " ")));
+    pill.innerHTML = `<kbd>${esc(p)}</kbd><span>then</span>${next.slice(0, 8).map((d) => `<span class="fe-chord-o"><kbd>${esc(d.keys.find((k) => k.startsWith(p + " ")).slice(p.length + 1))}</kbd>${esc(d.title)}</span>`).join("")}`;
+  }
+  function dispatch(e) {
+    const ctx = contextOf();
+    const tok = keyToken(e);
+    const ae = document.activeElement;
+    if (tok === "\u2318K" && !(ae?.tagName === "TEXTAREA" || ae?.isContentEditable)) {
+      e.preventDefault();
+      return runCommand("palette");
+    }
+    if (ctx.blocked) {
+      setPending("");
+      return false;
+    }
+    if (ctx.typing) {
+      setPending("");
+      const d2 = OWN.find((x) => x.field && x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
+      if (d2) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        runCommand(d2.id, tok);
+        return true;
+      }
+      return false;
+    }
+    if (pending) {
+      const want = `${pending} ${tok}`;
+      setPending("");
+      const seq2 = OWN.filter((x) => x.keys.includes(want) && live(x, ctx, want) && canRun(x.id));
+      const d2 = seq2.find((x) => (x.scope ?? "any") !== "any") ?? seq2[0];
+      if (d2 && runCommand(d2.id, want)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return true;
+      }
+      return false;
+    }
+    const all = OWN.filter((x) => x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
+    const d = all.find((x) => (x.scope ?? "any") !== "any") ?? all[0];
+    if (d) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      runCommand(d.id, tok);
+      return true;
+    }
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some((x) => live(x, ctx) && canRun(x.id) && x.keys.some((k) => k.startsWith(tok + " ")))) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setPending(tok);
+      return true;
+    }
+    return false;
+  }
+  var sources = [];
+  function addPaletteSource(fn) {
+    sources.push(fn);
+  }
+  var TABS = [
+    { id: "all", label: "All", icon: PI.apps },
+    { id: "actions", label: "Actions", icon: UI_ICON.keyboard },
+    { id: "tabs", label: "Tabs", icon: PI.tabset },
+    { id: "saved", label: "Saved", icon: PI.bm },
+    { id: "recent", label: "Recent", icon: PI.recent },
+    { id: "notes", label: "Notes", icon: UI_ICON.notes },
+    { id: "here", label: "Here", icon: PI.folder },
+    { id: "comments", label: "Comments", icon: UI_ICON.comment },
+    { id: "chats", label: "Chats", icon: UI_ICON.ai }
+  ];
+  var TAB_OF_GROUP = { Tabs: "tabs", Saved: "saved", Recent: "recent", Notes: "notes", "This folder": "here", Comments: "comments", Chats: "chats" };
+  var tabOf = (it) => it.tab ?? TAB_OF_GROUP[it.group] ?? "actions";
+  var ACTION_ICON = {
+    keys: UI_ICON.keyboard,
+    settings: PI.gear,
+    hints: UI_ICON.keyboard,
+    sidebar: UI_ICON.preview,
+    theme: UI_ICON.appearance,
+    esc: UI_ICON.close,
+    up: UI_ICON.prev,
+    home: PI.home,
+    path: UI_ICON.link,
+    "goto-bg": UI_ICON.link,
+    "note-rename": UI_ICON.rename,
+    "note-delete": UI_ICON.trash,
+    "open-pick": UI_ICON.folderOpen,
+    save: PI.bm,
+    terminal: UI_ICON.terminal,
+    "terminal-copy": UI_ICON.copy,
+    "area-next": UI_ICON.stack,
+    "area-prev": UI_ICON.stack,
+    "to-listing": UI_ICON.list,
+    "to-sidebar": UI_ICON.preview,
+    "to-tabs": UI_ICON.tab,
+    "to-toolbar": UI_ICON.stack,
+    "to-path": UI_ICON.link,
+    "lens-places": PI.home,
+    "lens-saved": PI.bm,
+    "lens-notes": UI_ICON.notes,
+    "lens-recent": PI.recent,
+    "lens-search": PI.search,
+    "lens-ask": UI_ICON.ai,
+    "lens-docs": UI_ICON.comment,
+    "open-bg": UI_ICON.tab,
+    "open-chrome": UI_ICON.external,
+    menu: UI_ICON.list,
+    "select-all": UI_ICON.task,
+    "copy-paths": UI_ICON.copy,
+    "copy-path": UI_ICON.copy,
+    "copy-name": UI_ICON.copy,
+    filter: PI.search,
+    "new-note": UI_ICON.add,
+    "tree-open": UI_ICON.folderOpen,
+    "tree-close": PI.folder,
+    deep: UI_ICON.stack,
+    "view-details": UI_ICON.table,
+    "view-list": UI_ICON.list,
+    "view-tree": UI_ICON.contents,
+    "view-tiles": PI.apps,
+    "view-icons": UI_ICON.image,
+    "sort-name": UI_ICON.contents,
+    "sort-date": UI_ICON.clock,
+    "sort-size": UI_ICON.data,
+    "sort-type": UI_ICON.file,
+    "sort-rev": UI_ICON.rotate,
+    group: UI_ICON.stack,
+    "filter-panel": PI.search,
+    hidden: UI_ICON.eye,
+    "zoom-in": UI_ICON.zoomIn,
+    "zoom-out": UI_ICON.zoomOut,
+    "zoom-reset": UI_ICON.actualSize,
+    "tab-keep": UI_ICON.tab,
+    "tab-close": UI_ICON.close,
+    "tab-pin": UI_ICON.pin,
+    "tab-step": UI_ICON.next,
+    "tab-reopen": UI_ICON.reset,
+    "tab-left": UI_ICON.prev,
+    "tab-right": UI_ICON.next,
+    "tab-list": UI_ICON.list,
+    "pv-dock": UI_ICON.preview,
+    "pv-copy": UI_ICON.copy,
+    "pv-ask": UI_ICON.ai,
+    "pv-tab": UI_ICON.tab,
+    "pv-open": UI_ICON.external,
+    "fp-raw": UI_ICON.fmtCode,
+    "fp-edit": UI_ICON.rename,
+    "fp-find": PI.search,
+    "fp-toc": UI_ICON.contents,
+    "fp-width": UI_ICON.fit,
+    "fp-comments": UI_ICON.comment,
+    "fp-comment": UI_ICON.comment,
+    "fp-cm-reply": UI_ICON.comment,
+    "fp-cm-step": UI_ICON.comment
+  };
+  var iconFor = (d) => ACTION_ICON[d.id] ?? PI[GROUPS.find((g) => g.name === d.group)?.icon ?? "apps"] ?? "";
+  function score(text, q) {
+    if (!q) return 1;
+    const t = text.toLowerCase(), s = q.toLowerCase();
+    const at = t.indexOf(s);
+    if (at >= 0) return 1e3 - at - (t.length - s.length) * 0.1 + (at === 0 || t[at - 1] === " " ? 200 : 0);
+    let i3 = 0, gaps = 0, last = -1;
+    for (const ch of s) {
+      const j = t.indexOf(ch, last + 1);
+      if (j < 0) return 0;
+      gaps += j - last - 1;
+      last = j;
+      i3++;
+    }
+    return 100 - gaps;
+  }
+  var paletteEl = null;
+  function paletteOpen() {
+    return !!paletteEl;
+  }
+  function openPalette(prefill = "") {
+    if (paletteEl) {
+      paletteEl.querySelector("input")?.focus();
+      return;
+    }
+    const ctx = contextOf();
+    const cmds = KEYMAP.filter((d) => d.id !== "palette" && canRun(d.id) && (d.scope === void 0 || d.scope === "any" || ctx.scopes.has(d.scope))).map((d) => ({ title: d.title, keys: d.keys, group: d.group, tab: "actions", icon: iconFor(d), run: () => runCommand(d.id) }));
+    const items = [...cmds];
+    const late = [];
+    for (const f of sources) {
+      try {
+        const r = f();
+        if (Array.isArray(r)) items.push(...r);
+        else late.push(r);
+      } catch {
+      }
+    }
+    const box = document.createElement("div");
+    box.className = "fe-pal-wrap";
+    box.innerHTML = `<div class="fe-pal" role="dialog" aria-label="Command palette">
+    <div class="fe-pal-q"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="text" placeholder="Type a command or a place" spellcheck="false" autocomplete="off" aria-label="Command or place"><kbd>esc</kbd></div>
+    <div class="fe-pal-tabs" role="tablist"></div>
+    <div class="fe-pal-list" role="listbox"></div>
+    <div class="fe-pal-foot"><span><kbd>\u2191</kbd><kbd>\u2193</kbd> move</span><span><kbd>\u21A9</kbd> run</span><span><kbd>\u2325\u21A9</kbd> background tab</span><span><kbd>\u21E5</kbd><kbd>\u21E7\u21E5</kbd> tabs</span></div>
+  </div>`;
+    paletteEl = box;
+    const input = box.querySelector("input");
+    const tabsEl = box.querySelector(".fe-pal-tabs");
+    const list2 = box.querySelector(".fe-pal-list");
+    let shown = [];
+    let at = 0;
+    let tab = "all";
+    const matches = (it, q) => Math.max(score(it.title, q), score(it.sub ?? "", q) * 0.6, q ? score((it.keys ?? []).join(" "), q) * 0.9 : 0);
+    const paint = () => {
+      const q = input.value.trim();
+      const counts = /* @__PURE__ */ new Map();
+      for (const it of items) if (matches(it, q) > 0) {
+        const t = tabOf(it);
+        counts.set(t, (counts.get(t) ?? 0) + 1);
+        counts.set("all", (counts.get("all") ?? 0) + 1);
+      }
+      tabsEl.innerHTML = TABS.map((t) => `<button type="button" role="tab" class="fe-pal-tab${t.id === tab ? " on" : ""}${counts.get(t.id) ? "" : " empty"}" data-tab="${t.id}" aria-selected="${t.id === tab}" tabindex="-1">${t.icon}<span>${t.label}</span>${counts.get(t.id) ? `<i>${counts.get(t.id)}</i>` : ""}</button>`).join("");
+      tabsEl.querySelector(".on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
+      shown = items.filter((it) => tab === "all" || tabOf(it) === tab).map((it) => ({ it, s: matches(it, q) })).filter((x) => x.s > 0).sort((a, b) => q ? b.s - a.s : 0).slice(0, 80).map((x) => x.it);
+      at = Math.min(at, Math.max(0, shown.length - 1));
+      let lastGroup = "";
+      list2.innerHTML = shown.length ? shown.map((it, i3) => {
+        const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g">${esc(it.group)}</div>` : "";
+        lastGroup = it.group;
+        return `${head}<div class="fe-pal-i${i3 === at ? " on" : ""}" role="option" data-i="${i3}" data-tab="${tabOf(it)}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
+      }).join("") : `<div class="fe-pal-none">${late.length && tab !== "all" && !counts.get(tab) ? "Loading\u2026" : "Nothing matches"}</div>`;
+      list2.querySelector(".on")?.scrollIntoView({ block: "nearest" });
+    };
+    const setTab = (t) => {
+      tab = t;
+      at = 0;
+      paint();
+    };
+    const fire2 = (i3, alt = false) => {
+      const it = shown[i3];
+      if (!it) return;
+      layer.close("pick");
+      if (alt && it.runAlt) it.runAlt();
+      else it.run();
+    };
+    input.addEventListener("input", () => {
+      at = 0;
+      paint();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        at = (at + (e.key === "ArrowDown" ? 1 : -1) + shown.length) % Math.max(1, shown.length);
+        paint();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        fire2(at, e.altKey);
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        const ids = TABS.map((t) => t.id);
+        const live2 = ids.filter((id) => id === "all" || tabsEl.querySelector(`[data-tab="${id}"]:not(.empty)`));
+        const i3 = live2.indexOf(tab);
+        setTab(live2[(i3 + (e.shiftKey ? -1 : 1) + live2.length) % live2.length]);
+      }
+      e.stopPropagation();
+    });
+    tabsEl.addEventListener("click", (e) => {
+      const b = e.target.closest(".fe-pal-tab");
+      if (b) {
+        setTab(b.dataset.tab);
+        input.focus();
+      }
+    });
+    list2.addEventListener("mousemove", (e) => {
+      const row2 = e.target.closest(".fe-pal-i");
+      if (row2 && Number(row2.dataset.i) !== at) {
+        at = Number(row2.dataset.i);
+        list2.querySelectorAll(".fe-pal-i").forEach((r) => r.classList.toggle("on", r === row2));
+      }
+    });
+    list2.addEventListener("click", (e) => {
+      const row2 = e.target.closest(".fe-pal-i");
+      if (row2) fire2(Number(row2.dataset.i), e.altKey);
+    });
+    input.value = prefill;
+    paint();
+    for (const p of late) p.then((r) => {
+      if (paletteEl !== box) return;
+      items.push(...r);
+      paint();
+    }).catch(() => {
+    });
+    const layer = openLayer(box, { kind: "command", place: "none", focus: input, backdrop: box, onClose: () => {
+      paletteEl = null;
+    } });
+  }
+
+  // src/dialog.ts
+  var mounted = [];
+  var openOne = () => mounted.find((d) => d.isOpen());
+  bind("dlg-tabs", (key) => openOne()?.step(key === "[" ? -1 : 1), () => !!openOne());
+  var tile = (t, size = "") => `<span class="fe-dlg-tile ${size}" style="--tone:${t.tone ?? "var(--ac)"}" aria-hidden="true">${t.icon}</span>`;
+  function renderDialog(d) {
+    return `
+  <div id="${esc(d.id)}" class="fe-dlg" style="display:none">
+    <div class="fe-dlg-bg"></div>
+    <div class="fe-dlg-box" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
+      <div class="fe-dlg-title">
+        <span class="fe-dlg-mark">${d.mark}</span>
+        <span class="fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
+        <button class="fe-dlg-close" title="Close (Esc)">${UI_ICON.close}</button>
+      </div>
+      <div class="fe-dlg-tabs" role="tablist">
+        ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ""}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
+      </div>
+      ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.icon ? `<header class="fe-dlg-ph">${tile(t, "lg")}<div class="fe-dlg-ph-tx"><h2>${esc(t.label)}</h2>${t.desc || t.hint ? `<p>${esc(t.desc || t.hint)}</p>` : ""}</div></header>` : ""}${t.body}</div>`).join("")}
+    </div>
+  </div>`;
+  }
+  var focusStack = [];
+  function rememberFocus() {
+    focusStack.push(document.activeElement);
+  }
+  function restoreFocus() {
+    const el2 = focusStack.pop() ?? null;
+    if (el2 && document.contains(el2) && typeof el2.focus === "function") el2.focus();
+  }
+  function mountDialog(id, hooks = {}) {
+    const root = document.getElementById(id);
+    const box = root.querySelector(".fe-dlg-box");
+    const tabs = [...root.querySelectorAll(".fe-dlg-tab")];
+    const panes = [...root.querySelectorAll(".fe-dlg-pane")];
+    const memory = `bfb-dialog-tab:${id}`;
+    const isOpen = () => root.style.display !== "none";
+    function show(tab) {
+      if (!tabs.some((t) => t.dataset.tab === tab)) tab = tabs[0]?.dataset.tab ?? "";
+      tabs.forEach((t) => t.classList.toggle("on", t.dataset.tab === tab));
+      panes.forEach((p) => {
+        p.classList.toggle("on", p.dataset.tab === tab);
+        if (p.dataset.tab === tab) p.scrollTop = 0;
+      });
+      try {
+        kvSet(memory, tab);
+      } catch {
+      }
+    }
+    let layer = null;
+    function open(tab) {
+      hooks.onOpen?.();
+      let last = "";
+      try {
+        last = kvGet(memory) || "";
+      } catch {
+      }
+      show(tab ?? last);
+      root.style.display = "flex";
+      if (layer?.open) {
+        box.focus();
+        return;
+      }
+      layer = openLayer(root, { kind: "dialog", place: "none", focus: box, backdrop: root.querySelector(".fe-dlg-bg"), onClose: () => {
+        root.style.display = "none";
+        hooks.onClose?.();
+      } });
+    }
+    function close() {
+      layer?.close("api");
+    }
+    tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.tab)));
+    root.querySelector(".fe-dlg-close").addEventListener("click", close);
+    focusTrap(box, { when: isOpen });
+    const step2 = (dir) => {
+      const i3 = tabs.findIndex((t) => t.classList.contains("on"));
+      show(tabs[(i3 + dir + tabs.length) % tabs.length].dataset.tab);
+    };
+    mounted.push({ isOpen, step: step2 });
+    return { open, close, isOpen, show };
+  }
 
   // src/col-resize.ts
   var COL_HANDLE = '<span class="fe-col-rz" title="Drag to resize this column \xB7 double-click to reset"></span>';
@@ -16154,225 +16732,6 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     };
   }
 
-  // src/keymap.ts
-  var GROUPS = [
-    { name: "Anywhere", icon: "apps" },
-    { name: "Go", icon: "home" },
-    { name: "Listing", icon: "folder" },
-    { name: "View", icon: "pics" },
-    { name: "Tabs", icon: "tabset" },
-    { name: "Sidebar", icon: "bm" },
-    { name: "Preview", icon: "search" },
-    { name: "File page", icon: "docs" },
-    { name: "Editor", icon: "code" },
-    { name: "Menus and dialogs", icon: "gear" }
-  ];
-  var KEYMAP = [
-    // Anywhere
-    { id: "palette", group: "Anywhere", title: "Command palette", keys: ["\u2318K"], own: true, over: true },
-    { id: "keys", group: "Anywhere", title: "Keyboard map", keys: ["?"], own: true, over: true },
-    { id: "settings", group: "Anywhere", title: "Settings", keys: [","], own: true, over: true },
-    { id: "hints", group: "Anywhere", title: "Show keys on screen", keys: ["hold \u2325"], own: true, over: true },
-    { id: "area-next", group: "Anywhere", title: "Next area", keys: ["F6", "\u2303`"], own: true, over: true },
-    { id: "area-prev", group: "Anywhere", title: "Previous area", keys: ["\u21E7F6", "\u2303\u21E7`"], own: true, over: true },
-    { id: "sidebar", group: "Anywhere", title: "Sidebar on or off", keys: ["\\"], own: true, over: true },
-    { id: "theme", group: "Anywhere", title: "Dark or light", keys: ["\u21E7L"], own: true, over: true },
-    { id: "esc", group: "Anywhere", title: "Close, or step back", keys: ["Esc"] },
-    // Go
-    { id: "up", group: "Go", title: "Parent folder", keys: ["\u232B", "\u2318\u2191"], own: true, over: ["\u2318\u2191"] },
-    { id: "home", group: "Go", title: "Home", keys: ["g h"], own: true },
-    { id: "path", group: "Go", title: "Type a path", keys: ["l"], own: true },
-    { id: "goto-bg", group: "Go", title: "Open the typed path as a background tab", keys: ["\u2325\u21A9"], scope: "goto", own: true, field: true },
-    { id: "open-pick", group: "Go", title: "Open a file or folder", keys: ["o"], own: true },
-    { id: "save", group: "Go", title: "Save or unsave folder", keys: ["b"], own: true },
-    { id: "terminal", group: "Go", title: "Terminal here", keys: ["`"], own: true },
-    { id: "terminal-copy", group: "Go", title: "Copy terminal command", keys: ["\u21E7`"], own: true },
-    { id: "to-listing", group: "Go", title: "Focus the listing", keys: ["g l"], own: true },
-    { id: "to-sidebar", group: "Go", title: "Focus the sidebar", keys: ["g s"], own: true },
-    { id: "to-tabs", group: "Go", title: "Focus the tabs", keys: ["g t"], own: true },
-    { id: "to-toolbar", group: "Go", title: "Focus the toolbar", keys: ["g b"], own: true },
-    { id: "to-path", group: "Go", title: "Focus the path bar", keys: ["g p"], own: true },
-    { id: "lens-places", group: "Go", title: "Places", keys: ["g 1"], own: true },
-    { id: "lens-saved", group: "Go", title: "Saved", keys: ["g 2"], own: true },
-    { id: "lens-notes", group: "Go", title: "Notes", keys: ["g 3"], own: true },
-    { id: "lens-recent", group: "Go", title: "History", keys: ["g 4"], own: true },
-    { id: "lens-search", group: "Go", title: "Search", keys: ["g 5"], own: true },
-    { id: "lens-ask", group: "Go", title: "Ask", keys: ["g 6"], own: true },
-    { id: "lens-docs", group: "Go", title: "Comments", keys: ["g 7"], own: true },
-    // Listing
-    { id: "move", group: "Listing", title: "Move", keys: ["\u2191", "\u2193"], scope: "listing", own: true },
-    { id: "extend-up", group: "Listing", title: "Select upward", keys: ["\u21E7\u2191"], scope: "listing", own: true },
-    { id: "extend-down", group: "Listing", title: "Select downward", keys: ["\u21E7\u2193"], scope: "listing", own: true },
-    { id: "first", group: "Listing", title: "First item", keys: ["Home"], scope: "listing", own: true },
-    { id: "last", group: "Listing", title: "Last item", keys: ["End"], scope: "listing", own: true },
-    { id: "page-up", group: "Listing", title: "Page up", keys: ["PgUp"], scope: "listing", own: true },
-    { id: "page-down", group: "Listing", title: "Page down", keys: ["PgDn"], scope: "listing", own: true },
-    { id: "open", group: "Listing", title: "Open", keys: ["\u21A9"], scope: "listing", own: true },
-    { id: "open-bg", group: "Listing", title: "Keep as a background tab", keys: ["\u2325\u21A9"], scope: "listing", own: true },
-    { id: "open-chrome", group: "Listing", title: "Open in a Chrome tab", keys: ["\u2318\u21A9"], scope: "listing", own: true },
-    { id: "look", group: "Listing", title: "Preview", keys: ["Space"], scope: "listing", own: true },
-    { id: "tree-open", group: "Listing", title: "Expand folder (Tree)", keys: ["\u2192"], scope: "tree", own: true },
-    { id: "tree-close", group: "Listing", title: "Collapse folder (Tree)", keys: ["\u2190"], scope: "tree", own: true },
-    { id: "menu", group: "Listing", title: "Item menu", keys: ["x", "\u21E7F10"], scope: "listing", own: true },
-    { id: "select-all", group: "Listing", title: "Select all", keys: ["\u2318A"], scope: "listing", own: true },
-    { id: "copy-paths", group: "Listing", title: "Copy selected paths", keys: ["\u2318C"], scope: "listing", own: true },
-    { id: "copy-path", group: "Listing", title: "Copy path", keys: ["y"], scope: "listing", own: true },
-    { id: "copy-name", group: "Listing", title: "Copy name", keys: ["\u21E7Y"], scope: "listing", own: true },
-    { id: "filter", group: "Listing", title: "Filter", keys: ["/", "\u2318F"], own: true },
-    { id: "new-note", group: "Listing", title: "New note", keys: ["n"], own: true },
-    // View
-    { id: "view-details", group: "View", title: "Details", keys: ["v d"], own: true },
-    { id: "view-list", group: "View", title: "List", keys: ["v l"], own: true },
-    { id: "view-tree", group: "View", title: "Tree", keys: ["v t"], own: true },
-    { id: "view-tiles", group: "View", title: "Tiles", keys: ["v i"], own: true },
-    { id: "view-icons", group: "View", title: "Large icons", keys: ["v g"], own: true },
-    { id: "sort-name", group: "View", title: "Sort by name", keys: ["s n"], own: true },
-    { id: "sort-date", group: "View", title: "Sort by modified", keys: ["s m"], own: true },
-    { id: "sort-size", group: "View", title: "Sort by size", keys: ["s z"], own: true },
-    { id: "sort-type", group: "View", title: "Sort by type", keys: ["s t"], own: true },
-    { id: "sort-rev", group: "View", title: "Reverse the order", keys: ["s r"], own: true },
-    { id: "group", group: "View", title: "Next grouping", keys: ["s g"], own: true },
-    { id: "filter-panel", group: "View", title: "Filter panel", keys: ["f"], own: true },
-    { id: "deep", group: "View", title: "Include subfolders", keys: ["\u21E7D"], scope: "listing", own: true },
-    { id: "hidden", group: "View", title: "Hidden files", keys: ["."], own: true },
-    { id: "zoom-in", group: "View", title: "Less detail, bigger items", keys: ["="], own: true },
-    { id: "zoom-out", group: "View", title: "More detail, smaller items", keys: ["-"], own: true },
-    { id: "zoom-reset", group: "View", title: "Standard detail", keys: ["0"], own: true },
-    // Tabs
-    { id: "tab-keep", group: "Tabs", title: "Keep this place", keys: ["t"] },
-    { id: "tab-close", group: "Tabs", title: "Close", keys: ["w"] },
-    { id: "tab-pin", group: "Tabs", title: "Pin", keys: ["p"] },
-    { id: "tab-step", group: "Tabs", title: "Previous or next", keys: ["[", "]"] },
-    { id: "tab-jump", group: "Tabs", title: "Jump to 1 to 9", keys: ["1\u20269"] },
-    { id: "tab-reopen", group: "Tabs", title: "Reopen closed", keys: ["\u21E7T"] },
-    { id: "tab-left", group: "Tabs", title: "Move tab left", keys: ["\u21E7["], own: true },
-    { id: "tab-right", group: "Tabs", title: "Move tab right", keys: ["\u21E7]"], own: true },
-    { id: "tab-list", group: "Tabs", title: "All tabs", keys: ["g a"], own: true },
-    { id: "tab-focus-move", group: "Tabs", title: "Move between tabs", keys: ["\u2190", "\u2192"], scope: "tabs" },
-    { id: "tab-focus-shift", group: "Tabs", title: "Drag the focused tab", keys: ["\u21E7\u2190", "\u21E7\u2192"], scope: "tabs" },
-    // Sidebar
-    { id: "side-close", group: "Sidebar", title: "Close the sidebar over the page", keys: ["Esc"], own: true },
-    { id: "side-move", group: "Sidebar", title: "Move", keys: ["\u2191", "\u2193"], scope: "sidebar" },
-    { id: "side-lens", group: "Sidebar", title: "Switch lens (on the bar)", keys: ["\u2190", "\u2192"], scope: "sidebar" },
-    { id: "side-open", group: "Sidebar", title: "Open as a tab", keys: ["\u21A9"], scope: "sidebar" },
-    { id: "side-bg", group: "Sidebar", title: "Background tab", keys: ["\u2325\u21A9"], scope: "sidebar" },
-    { id: "side-rename", group: "Sidebar", title: "Rename", keys: ["F2"], scope: "sidebar" },
-    { id: "side-tags", group: "Sidebar", title: "Tags", keys: ["#"], scope: "sidebar" },
-    { id: "side-remove", group: "Sidebar", title: "Remove", keys: ["\u232B"], scope: "sidebar" },
-    { id: "side-fold", group: "Sidebar", title: "Fold a group", keys: ["Space"], scope: "sidebar" },
-    { id: "lens-filter", group: "Sidebar", title: "Filter this list", keys: ["/"], scope: "sidebar", own: true },
-    { id: "lens-tags", group: "Sidebar", title: "Tag chips", keys: ["g #"], own: true },
-    { id: "side-look", group: "Sidebar", title: "Preview a file", keys: ["Space"], scope: "sidebar", own: true },
-    { id: "side-chrome", group: "Sidebar", title: "Open in a Chrome tab", keys: ["\u2318\u21A9"], scope: "sidebar", own: true },
-    { id: "side-props", group: "Sidebar", title: "Note colour, pin and tags", keys: ["#"], scope: "sidebar", own: true },
-    // Preview
-    { id: "pv-close", group: "Preview", title: "Close", keys: ["Space", "Esc"], scope: "preview", own: true },
-    { id: "pv-step", group: "Preview", title: "Previous or next file", keys: ["\u2191", "\u2193", "\u2190", "\u2192"], scope: "preview", own: true },
-    { id: "pv-open", group: "Preview", title: "Open the page", keys: ["\u21A9"], scope: "preview", own: true },
-    { id: "pv-tab", group: "Preview", title: "Keep as a tab", keys: ["t"], scope: "preview", own: true },
-    { id: "pv-dock", group: "Preview", title: "Dock or float", keys: ["d"], scope: "preview", own: true },
-    { id: "pv-copy", group: "Preview", title: "Copy contents", keys: ["c"], scope: "preview", own: true },
-    { id: "pv-ask", group: "Preview", title: "Ask about it", keys: ["a"], scope: "preview", own: true },
-    // File page
-    { id: "fp-raw", group: "File page", title: "Raw or rendered", keys: ["r"], scope: "file", own: true },
-    { id: "fp-edit", group: "File page", title: "Edit", keys: ["e"], scope: "file", own: true },
-    { id: "fp-find", group: "File page", title: "Find in file", keys: ["/"], scope: "file", own: true },
-    { id: "fp-comment", group: "File page", title: "Comment on the selection or paragraph", keys: ["c"], scope: "file" },
-    { id: "fp-cm-reply", group: "File page", title: "Reply to the comment", keys: ["\u21E7R"], scope: "file" },
-    { id: "fp-toc", group: "File page", title: "Contents", keys: ["\u21E7O"], scope: "file", own: true },
-    { id: "fp-width", group: "File page", title: "Reading width", keys: ["\u21E7W"], scope: "file", own: true },
-    { id: "fp-comments", group: "File page", title: "Comments panel", keys: ["\u21E7C"], scope: "file" },
-    { id: "fp-cm-step", group: "File page", title: "Previous or next comment", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "file" },
-    { id: "fp-cm-post", group: "File page", title: "Post, or post a reply", keys: ["\u2318\u21A9", "\u2318\u21E7\u21A9"], scope: "file" },
-    // Editor
-    { id: "ed-save", group: "Editor", title: "Save", keys: ["\u2318S"], scope: "editor" },
-    { id: "ed-bold", group: "Editor", title: "Bold, italic, code", keys: ["\u2318B", "\u2318I", "\u2318E"], scope: "editor" },
-    { id: "ed-move", group: "Editor", title: "Move line", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "editor" },
-    { id: "ed-dup", group: "Editor", title: "Copy line", keys: ["\u2325\u21E7\u2191", "\u2325\u21E7\u2193"], scope: "editor" },
-    { id: "ed-indent", group: "Editor", title: "Indent", keys: ["\u21E5", "\u21E7\u21E5"], scope: "editor" },
-    { id: "ed-undo", group: "Editor", title: "Undo, redo", keys: ["\u2318Z", "\u2318\u21E7Z"], scope: "editor" },
-    { id: "ed-link", group: "Editor", title: "Link", keys: ["\u2318K"], scope: "editor" },
-    { id: "ed-more", group: "Editor", title: "Strike, heading, quote, numbered list", keys: ["\u2318\u21E7X", "\u2318\u21E7H", "\u2318\u21E7.", "\u2318\u21E77"], scope: "editor" },
-    { id: "ed-mode", group: "Editor", title: "Raw, split or rich", keys: ["\u2318\u21E7P"], scope: "editor" },
-    { id: "note-rename", group: "Editor", title: "Rename this note", keys: ["F2"], scope: "editor", own: true, field: true },
-    { id: "note-delete", group: "Editor", title: "Move this note to .trash", keys: ["\u2318\u21E7\u232B"], scope: "editor", own: true, field: true },
-    // Menus and dialogs
-    { id: "menu-move", group: "Menus and dialogs", title: "Move in a menu", keys: ["\u2191", "\u2193"], scope: "menu", own: true },
-    { id: "menu-pick", group: "Menus and dialogs", title: "Pick", keys: ["\u21A9"], scope: "menu", own: true },
-    { id: "dlg-tabs", group: "Menus and dialogs", title: "Dialog pages", keys: ["[", "]"], scope: "dialog" },
-    { id: "dlg-fields", group: "Menus and dialogs", title: "Next control", keys: ["\u21E5"], scope: "dialog" },
-    { id: "dlg-choice", group: "Menus and dialogs", title: "Change a choice", keys: ["\u2190", "\u2192"], scope: "dialog" }
-  ];
-  var SHIFTED = { "?": "/", "{": "[", "}": "]", "#": "3", "~": "`", "_": "-", "+": "=", "<": ",", ">": ".", '"': "'", ":": ";", "|": "\\" };
-  var NAMED = {
-    "\u2318": "meta",
-    "\u21E7": "shift",
-    "\u2325": "alt",
-    "\u2303": "ctrl",
-    "\u2191": "up",
-    "\u2193": "down",
-    "\u2190": "left",
-    "\u2192": "right",
-    "\u21A9": "enter",
-    "\u232B": "backspace",
-    "\u21E5": "tab",
-    esc: "esc",
-    space: "space",
-    home: "left",
-    end: "right",
-    pgup: "up",
-    pgdn: "down"
-  };
-  function capsFor(key) {
-    if (key === "1\u20269") return ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
-    const out = /* @__PURE__ */ new Set();
-    for (const part of key.replace(/^hold /, "").split(" ")) {
-      if (/^(home|end|pgup|pgdn)$/i.test(part)) {
-        out.add("fn");
-        out.add(NAMED[part.toLowerCase()]);
-        continue;
-      }
-      if (/^F\d+$/.test(part)) {
-        out.add(part.toLowerCase());
-        continue;
-      }
-      if (/^(esc|space)$/i.test(part)) {
-        out.add(part.toLowerCase());
-        continue;
-      }
-      let rest = part;
-      while (rest && "\u2318\u21E7\u2325\u2303".includes(rest[0]) && rest.length > 1) {
-        out.add(NAMED[rest[0]]);
-        rest = rest.slice(1);
-      }
-      const m = /^⇧(F\d+)$/.exec(part);
-      if (m) {
-        out.add(m[1].toLowerCase());
-        continue;
-      }
-      if (/^F\d+$/.test(rest)) {
-        out.add(rest.toLowerCase());
-        continue;
-      }
-      if (NAMED[rest]) {
-        out.add(NAMED[rest]);
-        continue;
-      }
-      if (SHIFTED[rest]) {
-        out.add("shift");
-        out.add(SHIFTED[rest]);
-        continue;
-      }
-      if (/^[A-Z]$/.test(rest) && !part.startsWith("\u2318")) {
-        out.add("shift");
-        out.add(rest.toLowerCase());
-        continue;
-      }
-      out.add(rest.toLowerCase());
-    }
-    return [...out];
-  }
-
   // src/help.ts
   var kbd = (k) => k.startsWith("hold ") ? `<i class="fe-km-then">hold</i><kbd>${esc(k.slice(5))}</kbd>` : k.split(" ").map((p) => `<kbd>${esc(p)}</kbd>`).join('<i class="fe-km-then">then</i>');
   var keys = (list2) => list2.map(kbd).join('<i class="fe-km-or">or</i>');
@@ -18554,372 +18913,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     return { ls, sel, applyAll, applyFindFromHash };
   }
 
-  // src/commands.ts
-  var bound = /* @__PURE__ */ new Map();
-  function bind(id, run, when2) {
-    bound.set(id, { run, when: when2 });
-  }
-  function canRun(id) {
-    const b = bound.get(id);
-    return !!b && (!b.when || b.when());
-  }
-  function runCommand(id, key) {
-    if (!canRun(id)) return false;
-    bound.get(id).run(key);
-    return true;
-  }
-  var NAMED2 = {
-    ArrowUp: "\u2191",
-    ArrowDown: "\u2193",
-    ArrowLeft: "\u2190",
-    ArrowRight: "\u2192",
-    Enter: "\u21A9",
-    Backspace: "\u232B",
-    Delete: "\u232B",
-    Escape: "Esc",
-    " ": "Space",
-    Tab: "\u21E5",
-    PageUp: "PgUp",
-    PageDown: "PgDn",
-    Home: "Home",
-    End: "End"
-  };
-  var SHIFT_OF = { "{": "[", "}": "]", "~": "`" };
-  function keyToken(e) {
-    const named = NAMED2[e.key];
-    let k = named ?? e.key;
-    let shift = e.shiftKey;
-    if (named) {
-    } else if (SHIFT_OF[k]) {
-      k = SHIFT_OF[k];
-      shift = true;
-    } else if (/^[a-z]$/i.test(k)) k = shift || e.metaKey ? k.toUpperCase() : k.toLowerCase();
-    else if (k.length === 1) shift = false;
-    if (e.altKey && /^Key[A-Z]$/.test(e.code)) k = e.code.slice(3);
-    return (e.metaKey ? "\u2318" : "") + (e.ctrlKey ? "\u2303" : "") + (e.altKey ? "\u2325" : "") + (shift ? "\u21E7" : "") + k;
-  }
-  var contextOf = () => ({ scopes: /* @__PURE__ */ new Set(["any"]), typing: false, blocked: false });
-  function setContext(fn) {
-    contextOf = fn;
-  }
-  var OWN = KEYMAP.filter((d) => d.own);
-  var MOVING = /* @__PURE__ */ new Set(["\u2191", "\u2193", "\u2190", "\u2192", "\u21A9", "Space", "\u232B", "Home", "End"]);
-  var baseOf = (tok) => tok.replace(/^[⌘⌃⌥⇧]+/, "");
-  var live = (d, ctx, tok = "") => {
-    const scope = d.scope ?? "any";
-    if (scope !== "any") return ctx.scopes.has(scope);
-    if (ctx.widget && MOVING.has(baseOf(tok))) return false;
-    return !ctx.scopes.has("preview") || d.over === true || !!tok && !!d.over?.includes(tok);
-  };
-  var pending = "";
-  var pendingTimer = null;
-  var pill = null;
-  function setPending(p) {
-    pending = p;
-    if (pendingTimer) clearTimeout(pendingTimer);
-    if (!p) {
-      pill?.remove();
-      pill = null;
-      return;
-    }
-    pendingTimer = setTimeout(() => setPending(""), 1600);
-    if (!pill) {
-      pill = document.createElement("div");
-      pill.className = "fe-chord";
-      (document.getElementById("fe") ?? document.body).appendChild(pill);
-      raise(pill);
-    }
-    const next = OWN.filter((d) => canRun(d.id) && d.keys.some((k) => k.startsWith(p + " ")));
-    pill.innerHTML = `<kbd>${esc(p)}</kbd><span>then</span>${next.slice(0, 8).map((d) => `<span class="fe-chord-o"><kbd>${esc(d.keys.find((k) => k.startsWith(p + " ")).slice(p.length + 1))}</kbd>${esc(d.title)}</span>`).join("")}`;
-  }
-  function dispatch(e) {
-    const ctx = contextOf();
-    const tok = keyToken(e);
-    const ae = document.activeElement;
-    if (tok === "\u2318K" && !(ae?.tagName === "TEXTAREA" || ae?.isContentEditable)) {
-      e.preventDefault();
-      return runCommand("palette");
-    }
-    if (ctx.blocked) {
-      setPending("");
-      return false;
-    }
-    if (ctx.typing) {
-      setPending("");
-      const d2 = OWN.find((x) => x.field && x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
-      if (d2) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        runCommand(d2.id, tok);
-        return true;
-      }
-      return false;
-    }
-    if (pending) {
-      const want = `${pending} ${tok}`;
-      setPending("");
-      const seq2 = OWN.filter((x) => x.keys.includes(want) && live(x, ctx, want) && canRun(x.id));
-      const d2 = seq2.find((x) => (x.scope ?? "any") !== "any") ?? seq2[0];
-      if (d2 && runCommand(d2.id, want)) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        return true;
-      }
-      return false;
-    }
-    const all = OWN.filter((x) => x.keys.includes(tok) && live(x, ctx, tok) && canRun(x.id));
-    const d = all.find((x) => (x.scope ?? "any") !== "any") ?? all[0];
-    if (d) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      runCommand(d.id, tok);
-      return true;
-    }
-    if (!e.metaKey && !e.ctrlKey && !e.altKey && OWN.some((x) => live(x, ctx) && canRun(x.id) && x.keys.some((k) => k.startsWith(tok + " ")))) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      setPending(tok);
-      return true;
-    }
-    return false;
-  }
-  var sources = [];
-  function addPaletteSource(fn) {
-    sources.push(fn);
-  }
-  var TABS = [
-    { id: "all", label: "All", icon: PI.apps },
-    { id: "actions", label: "Actions", icon: UI_ICON.keyboard },
-    { id: "tabs", label: "Tabs", icon: PI.tabset },
-    { id: "saved", label: "Saved", icon: PI.bm },
-    { id: "recent", label: "Recent", icon: PI.recent },
-    { id: "notes", label: "Notes", icon: UI_ICON.notes },
-    { id: "here", label: "Here", icon: PI.folder },
-    { id: "comments", label: "Comments", icon: UI_ICON.comment },
-    { id: "chats", label: "Chats", icon: UI_ICON.ai }
-  ];
-  var TAB_OF_GROUP = { Tabs: "tabs", Saved: "saved", Recent: "recent", Notes: "notes", "This folder": "here", Comments: "comments", Chats: "chats" };
-  var tabOf = (it) => it.tab ?? TAB_OF_GROUP[it.group] ?? "actions";
-  var ACTION_ICON = {
-    keys: UI_ICON.keyboard,
-    settings: PI.gear,
-    hints: UI_ICON.keyboard,
-    sidebar: UI_ICON.preview,
-    theme: UI_ICON.appearance,
-    esc: UI_ICON.close,
-    up: UI_ICON.prev,
-    home: PI.home,
-    path: UI_ICON.link,
-    "goto-bg": UI_ICON.link,
-    "note-rename": UI_ICON.rename,
-    "note-delete": UI_ICON.trash,
-    "open-pick": UI_ICON.folderOpen,
-    save: PI.bm,
-    terminal: UI_ICON.terminal,
-    "terminal-copy": UI_ICON.copy,
-    "area-next": UI_ICON.stack,
-    "area-prev": UI_ICON.stack,
-    "to-listing": UI_ICON.list,
-    "to-sidebar": UI_ICON.preview,
-    "to-tabs": UI_ICON.tab,
-    "to-toolbar": UI_ICON.stack,
-    "to-path": UI_ICON.link,
-    "lens-places": PI.home,
-    "lens-saved": PI.bm,
-    "lens-notes": UI_ICON.notes,
-    "lens-recent": PI.recent,
-    "lens-search": PI.search,
-    "lens-ask": UI_ICON.ai,
-    "lens-docs": UI_ICON.comment,
-    "open-bg": UI_ICON.tab,
-    "open-chrome": UI_ICON.external,
-    menu: UI_ICON.list,
-    "select-all": UI_ICON.task,
-    "copy-paths": UI_ICON.copy,
-    "copy-path": UI_ICON.copy,
-    "copy-name": UI_ICON.copy,
-    filter: PI.search,
-    "new-note": UI_ICON.add,
-    "tree-open": UI_ICON.folderOpen,
-    "tree-close": PI.folder,
-    deep: UI_ICON.stack,
-    "view-details": UI_ICON.table,
-    "view-list": UI_ICON.list,
-    "view-tree": UI_ICON.contents,
-    "view-tiles": PI.apps,
-    "view-icons": UI_ICON.image,
-    "sort-name": UI_ICON.contents,
-    "sort-date": UI_ICON.clock,
-    "sort-size": UI_ICON.data,
-    "sort-type": UI_ICON.file,
-    "sort-rev": UI_ICON.rotate,
-    group: UI_ICON.stack,
-    "filter-panel": PI.search,
-    hidden: UI_ICON.eye,
-    "zoom-in": UI_ICON.zoomIn,
-    "zoom-out": UI_ICON.zoomOut,
-    "zoom-reset": UI_ICON.actualSize,
-    "tab-keep": UI_ICON.tab,
-    "tab-close": UI_ICON.close,
-    "tab-pin": UI_ICON.pin,
-    "tab-step": UI_ICON.next,
-    "tab-reopen": UI_ICON.reset,
-    "tab-left": UI_ICON.prev,
-    "tab-right": UI_ICON.next,
-    "tab-list": UI_ICON.list,
-    "pv-dock": UI_ICON.preview,
-    "pv-copy": UI_ICON.copy,
-    "pv-ask": UI_ICON.ai,
-    "pv-tab": UI_ICON.tab,
-    "pv-open": UI_ICON.external,
-    "fp-raw": UI_ICON.fmtCode,
-    "fp-edit": UI_ICON.rename,
-    "fp-find": PI.search,
-    "fp-toc": UI_ICON.contents,
-    "fp-width": UI_ICON.fit,
-    "fp-comments": UI_ICON.comment,
-    "fp-comment": UI_ICON.comment,
-    "fp-cm-reply": UI_ICON.comment,
-    "fp-cm-step": UI_ICON.comment
-  };
-  var iconFor = (d) => ACTION_ICON[d.id] ?? PI[GROUPS.find((g) => g.name === d.group)?.icon ?? "apps"] ?? "";
-  function score(text, q) {
-    if (!q) return 1;
-    const t = text.toLowerCase(), s = q.toLowerCase();
-    const at = t.indexOf(s);
-    if (at >= 0) return 1e3 - at - (t.length - s.length) * 0.1 + (at === 0 || t[at - 1] === " " ? 200 : 0);
-    let i3 = 0, gaps = 0, last = -1;
-    for (const ch of s) {
-      const j = t.indexOf(ch, last + 1);
-      if (j < 0) return 0;
-      gaps += j - last - 1;
-      last = j;
-      i3++;
-    }
-    return 100 - gaps;
-  }
-  var paletteEl = null;
-  function paletteOpen() {
-    return !!paletteEl;
-  }
-  function openPalette(prefill = "") {
-    if (paletteEl) {
-      paletteEl.querySelector("input")?.focus();
-      return;
-    }
-    const ctx = contextOf();
-    const cmds = KEYMAP.filter((d) => d.id !== "palette" && canRun(d.id) && (d.scope === void 0 || d.scope === "any" || ctx.scopes.has(d.scope))).map((d) => ({ title: d.title, keys: d.keys, group: d.group, tab: "actions", icon: iconFor(d), run: () => runCommand(d.id) }));
-    const items = [...cmds];
-    const late = [];
-    for (const f of sources) {
-      try {
-        const r = f();
-        if (Array.isArray(r)) items.push(...r);
-        else late.push(r);
-      } catch {
-      }
-    }
-    const box = document.createElement("div");
-    box.className = "fe-pal-wrap";
-    box.innerHTML = `<div class="fe-pal" role="dialog" aria-label="Command palette">
-    <div class="fe-pal-q"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input type="text" placeholder="Type a command or a place" spellcheck="false" autocomplete="off" aria-label="Command or place"><kbd>esc</kbd></div>
-    <div class="fe-pal-tabs" role="tablist"></div>
-    <div class="fe-pal-list" role="listbox"></div>
-    <div class="fe-pal-foot"><span><kbd>\u2191</kbd><kbd>\u2193</kbd> move</span><span><kbd>\u21A9</kbd> run</span><span><kbd>\u2325\u21A9</kbd> background tab</span><span><kbd>\u21E5</kbd><kbd>\u21E7\u21E5</kbd> tabs</span></div>
-  </div>`;
-    paletteEl = box;
-    const input = box.querySelector("input");
-    const tabsEl = box.querySelector(".fe-pal-tabs");
-    const list2 = box.querySelector(".fe-pal-list");
-    let shown = [];
-    let at = 0;
-    let tab = "all";
-    const matches = (it, q) => Math.max(score(it.title, q), score(it.sub ?? "", q) * 0.6, q ? score((it.keys ?? []).join(" "), q) * 0.9 : 0);
-    const paint = () => {
-      const q = input.value.trim();
-      const counts = /* @__PURE__ */ new Map();
-      for (const it of items) if (matches(it, q) > 0) {
-        const t = tabOf(it);
-        counts.set(t, (counts.get(t) ?? 0) + 1);
-        counts.set("all", (counts.get("all") ?? 0) + 1);
-      }
-      tabsEl.innerHTML = TABS.map((t) => `<button type="button" role="tab" class="fe-pal-tab${t.id === tab ? " on" : ""}${counts.get(t.id) ? "" : " empty"}" data-tab="${t.id}" aria-selected="${t.id === tab}" tabindex="-1">${t.icon}<span>${t.label}</span>${counts.get(t.id) ? `<i>${counts.get(t.id)}</i>` : ""}</button>`).join("");
-      tabsEl.querySelector(".on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
-      shown = items.filter((it) => tab === "all" || tabOf(it) === tab).map((it) => ({ it, s: matches(it, q) })).filter((x) => x.s > 0).sort((a, b) => q ? b.s - a.s : 0).slice(0, 80).map((x) => x.it);
-      at = Math.min(at, Math.max(0, shown.length - 1));
-      let lastGroup = "";
-      list2.innerHTML = shown.length ? shown.map((it, i3) => {
-        const head = !q && it.group !== lastGroup ? `<div class="fe-pal-g">${esc(it.group)}</div>` : "";
-        lastGroup = it.group;
-        return `${head}<div class="fe-pal-i${i3 === at ? " on" : ""}" role="option" data-i="${i3}" data-tab="${tabOf(it)}">${it.icon ?? ""}<span class="fe-pal-t">${esc(it.title)}</span>${it.sub ? `<span class="fe-pal-s">${esc(it.sub)}</span>` : ""}${(it.keys ?? []).slice(0, 1).map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</div>`;
-      }).join("") : `<div class="fe-pal-none">${late.length && tab !== "all" && !counts.get(tab) ? "Loading\u2026" : "Nothing matches"}</div>`;
-      list2.querySelector(".on")?.scrollIntoView({ block: "nearest" });
-    };
-    const setTab = (t) => {
-      tab = t;
-      at = 0;
-      paint();
-    };
-    const fire2 = (i3, alt = false) => {
-      const it = shown[i3];
-      if (!it) return;
-      layer.close("pick");
-      if (alt && it.runAlt) it.runAlt();
-      else it.run();
-    };
-    input.addEventListener("input", () => {
-      at = 0;
-      paint();
-    });
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        at = (at + (e.key === "ArrowDown" ? 1 : -1) + shown.length) % Math.max(1, shown.length);
-        paint();
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        fire2(at, e.altKey);
-      } else if (e.key === "Tab") {
-        e.preventDefault();
-        const ids = TABS.map((t) => t.id);
-        const live2 = ids.filter((id) => id === "all" || tabsEl.querySelector(`[data-tab="${id}"]:not(.empty)`));
-        const i3 = live2.indexOf(tab);
-        setTab(live2[(i3 + (e.shiftKey ? -1 : 1) + live2.length) % live2.length]);
-      }
-      e.stopPropagation();
-    });
-    tabsEl.addEventListener("click", (e) => {
-      const b = e.target.closest(".fe-pal-tab");
-      if (b) {
-        setTab(b.dataset.tab);
-        input.focus();
-      }
-    });
-    list2.addEventListener("mousemove", (e) => {
-      const row2 = e.target.closest(".fe-pal-i");
-      if (row2 && Number(row2.dataset.i) !== at) {
-        at = Number(row2.dataset.i);
-        list2.querySelectorAll(".fe-pal-i").forEach((r) => r.classList.toggle("on", r === row2));
-      }
-    });
-    list2.addEventListener("click", (e) => {
-      const row2 = e.target.closest(".fe-pal-i");
-      if (row2) fire2(Number(row2.dataset.i), e.altKey);
-    });
-    input.value = prefill;
-    paint();
-    for (const p of late) p.then((r) => {
-      if (paletteEl !== box) return;
-      items.push(...r);
-      paint();
-    }).catch(() => {
-    });
-    const layer = openLayer(box, { kind: "command", place: "none", focus: input, backdrop: box, onClose: () => {
-      paletteEl = null;
-    } });
-  }
-
   // src/listing-input.ts
   function initListingInput(app, listing) {
     const { fe, toast, rawPath } = app;
@@ -19362,6 +19355,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const dialogOpen = () => [...document.querySelectorAll(".fe-dlg")].some((d) => d.style.display !== "none");
     setContext(() => {
       const ae = document.activeElement;
+      const blocked = paletteOpen() || !!openMenu2() || !!document.querySelector(".fe-dd-list, .fe-rule-pop");
+      if (dialogOpen()) return { scopes: /* @__PURE__ */ new Set(["dialog"]), typing: isTyping(ae), blocked };
       const scopes = /* @__PURE__ */ new Set(["any"]);
       const preview = isPreviewOpen();
       if (preview) scopes.add("preview");
@@ -19380,7 +19375,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         scopes,
         typing: isTyping(ae),
         widget: inSide || inTabs || inBar || !!ae?.closest("#fe-fp-bar"),
-        blocked: dialogOpen() || paletteOpen() || !!openMenu2() || !!document.querySelector(".fe-dd-list, .fe-rule-pop")
+        blocked
       };
     });
     document.addEventListener("keydown", (e) => {
