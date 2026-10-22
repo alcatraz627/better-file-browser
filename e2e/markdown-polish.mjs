@@ -66,7 +66,7 @@ try {
   await listing.goto('file://' + h.fixture + '/nested/', { waitUntil: 'load' });
   await listing.waitForSelector('#fe');
   await listing.keyboard.press('t');
-  await listing.waitForSelector('#fe-tabs .fe-tab-list svg');
+  await listing.waitForSelector('#fe-tab-list:not([hidden]) svg');
 
   const jsonPage = await h.browser.newPage();
   await jsonPage.goto('file://' + h.fixture + '/data.json', { waitUntil: 'load' });

@@ -70,6 +70,7 @@ export interface IconRule {
   label:   string;
   color:   string;
   enabled: boolean;
+  glyph?:  string;   // a picture from RULE_GLYPHS instead of the label text
 }
 
 export interface SortConfig {

@@ -4,12 +4,15 @@
 import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
-  getView, getTheme, getPalette, getZoom, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
+  getView, getPalette, getZoom, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
   homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard,
 } from './storage';
 import { notes } from './notes';
 import { initPreview } from './preview';
 import { CSS } from './styles';
+import { UI_CSS } from './styles-ui';
+import { setUiScale } from './chrome';
+import { themeMode, resolveTheme, followSystem, appIconUrl } from './theme';
 import { esc, pageHref, fileHref } from './utils';
 import { samePlace } from './places';
 import { PI, icoFile } from './icons';
@@ -112,7 +115,7 @@ loadKv().catch(() => {}).then(function () {
   const iconRules = getIconRules();
   const initZoom   = getZoom();
   const initView   = getView();
-  const initTheme  = getTheme();
+  const initTheme  = resolveTheme(themeMode());
   const initPalette = getPalette();
   const initHidden = getShowHidden();
 
@@ -160,21 +163,23 @@ loadKv().catch(() => {}).then(function () {
   const dirName  = fileMode ? fileName : (segments[segments.length - 1] || '/');
   const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + '…' : dirName;
   document.title = `${shortDir} | Better File Browser`;
-  document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${chrome.runtime.getURL('assets/favicon.svg')}">`;
+  document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${appIconUrl()}">`;
   document.body.innerHTML = html;
   const styleEl = document.createElement('style');
-  styleEl.textContent = CSS;
+  styleEl.textContent = CSS + UI_CSS;
   document.head.appendChild(styleEl);
   preload?.remove();
 
   const fe = el('fe');
   fe.dataset.wrap = settings.wrapLines === false ? 'off' : 'on';
+  fe.dataset.mode = themeMode();
+  followSystem(fe);
   // A width saved before the lens rail existed is widened once by the rail's
   // 52px, so the lists keep the room they had.
   if (settings.sidebarWidth && !settings.sidebarRail) { settings.sidebarWidth += 52; settings.sidebarRail = true; saveSettings(settings); }
   if (settings.sidebarWidth) el('fe-side').style.width = settings.sidebarWidth + 'px';
   if (!settings.showSidebar) { el('fe-side').style.display = 'none'; el('fe-side-rz').style.display = 'none'; }
-  if (settings.uiScale && settings.uiScale !== 100) (fe.style as CSSStyleDeclaration & { zoom: string }).zoom = String(settings.uiScale / 100);
+  if (settings.uiScale && settings.uiScale !== 100) setUiScale(settings.uiScale);
   if (settings.compactMode) fe.classList.add('compact');
   document.documentElement.style.setProperty('--ui-text-scale', String((settings.readerSize || 15) / 15));
   fe.style.setProperty('--rd-lh', String(settings.readerLineHeight || 1.65));
@@ -182,7 +187,7 @@ loadKv().catch(() => {}).then(function () {
   if (settings.tooltips === false) fe.classList.add('fe-notips');
 
   const app: App = {
-    fileMode, rawPath, folderPath, fileName, fe, settings, iconRules,
+    fileMode, rawPath, folderPath, fileName, fe, settings, iconRules, entryNames: nonPar.map(e => e.name),
     toast: makeToast(el('fe-toast')),
     strip: null as unknown as App['strip'],
     filePage: null,

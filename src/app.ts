@@ -15,6 +15,7 @@ export interface App {
   fe: HTMLElement;
   settings: Settings;   // one live object, mutated in place and saved
   iconRules: IconRule[];
+  entryNames: string[];   // names in this folder's listing, for rule match counts
   toast: Toast;
   strip: Strip;
   filePage: FileContent | null;

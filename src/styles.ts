@@ -590,10 +590,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-goto input:focus{border-color:color-mix(in srgb,var(--ac) 70%,var(--bd2))}
 .fe-goto-msg{margin:6px 2px 0;font-size:var(--fs-sm);color:var(--dm)}
 #fe-tabs::-webkit-scrollbar{display:none}
-.fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
-  font-size:var(--fs-sm);padding:2px 6px;border-radius:5px;margin-left:4px}
-.fe-tab-list:hover{border-color:var(--ac);color:var(--ac)}
-.fe-tab-list svg{display:block}
+/* The list of every tab: icon, name, and the digit that jumps to it. */
+.fe-tab-menu .fe-ctx-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-tab-menu .fe-ctx-item.on{color:var(--ac);font-weight:600}
+.fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.empty{padding-top:4px}
@@ -1306,9 +1306,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-bg,#fe-ql-bg{animation:fe-fade var(--t-base) var(--ease)}
 .fe-dlg-box,#fe-qlook:not(.side) #fe-ql-dialog{animation:fe-rise var(--t-base) var(--ease)}
 #fe-qlook.side{animation:fe-dock-in var(--t-base) var(--ease)}
-.fe-grp{interpolate-size:allow-keywords}
-.fe-grp::details-content{block-size:0;overflow:hidden;transition:block-size var(--t-base) var(--ease),content-visibility var(--t-base) allow-discrete}
-.fe-grp[open]::details-content{block-size:auto}
 .fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
 /* Settings and Help read as a page: the title across the top, the sections
    listed on the left the way the sidebar lists lenses, the pane on the right.
@@ -1588,7 +1585,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-st-rule-del:hover{color:var(--nc-red)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){
-  #fe *,#fe *::before,#fe *::after,#fe .fe-grp::details-content{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
+  #fe *,#fe *::before,#fe *::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
 }
 
 /* Narrow windows keep the reading column usable: the listing drops its

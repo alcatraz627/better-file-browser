@@ -16,8 +16,8 @@
   function parseEntries() {
     const table = document.querySelector("table") || document.getElementById("listing-table");
     if (!table) return [];
-    return Array.from(table.querySelectorAll("tr")).slice(1).flatMap((row) => {
-      const cells = row.querySelectorAll("td");
+    return Array.from(table.querySelectorAll("tr")).slice(1).flatMap((row2) => {
+      const cells = row2.querySelectorAll("td");
       if (cells.length < 2) return [];
       const link = cells[0]?.querySelector("a");
       if (!link) return [];
@@ -67,8 +67,8 @@
   function parseFetchedDoc(doc, baseUrl) {
     const table = doc.querySelector("table");
     if (!table) return [];
-    return Array.from(table.querySelectorAll("tr")).slice(1).flatMap((row) => {
-      const cells = row.querySelectorAll("td");
+    return Array.from(table.querySelectorAll("tr")).slice(1).flatMap((row2) => {
+      const cells = row2.querySelectorAll("td");
       if (cells.length < 2) return [];
       const link = cells[0]?.querySelector("a");
       if (!link) return [];
@@ -241,24 +241,24 @@
   function samePlace(a, b) {
     return a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
   }
-  function dedupePlaces(list) {
-    return list.filter((p, i) => list.findIndex((q) => samePlace(q.path, p.path)) === i);
+  function dedupePlaces(list2) {
+    return list2.filter((p, i2) => list2.findIndex((q) => samePlace(q.path, p.path)) === i2);
   }
-  function upsertPlace(list, place) {
-    if (list.some((p) => samePlace(p.path, place.path))) return list;
-    return [...list, place];
+  function upsertPlace(list2, place) {
+    if (list2.some((p) => samePlace(p.path, place.path))) return list2;
+    return [...list2, place];
   }
-  function removePlace(list, path) {
-    return list.filter((p) => !samePlace(p.path, path));
+  function removePlace(list2, path) {
+    return list2.filter((p) => !samePlace(p.path, path));
   }
-  function renamePlace(list, path, label) {
-    return list.map((p) => p.path === path ? { ...p, label } : p);
+  function renamePlace(list2, path, label) {
+    return list2.map((p) => p.path === path ? { ...p, label } : p);
   }
-  function movePlace(list, fromPath, toPath) {
-    const from = list.findIndex((p) => p.path === fromPath);
-    const to = list.findIndex((p) => p.path === toPath);
-    if (from < 0 || to < 0 || from === to) return list;
-    const next = [...list];
+  function movePlace(list2, fromPath, toPath) {
+    const from = list2.findIndex((p) => p.path === fromPath);
+    const to = list2.findIndex((p) => p.path === toPath);
+    if (from < 0 || to < 0 || from === to) return list2;
+    const next = [...list2];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
     return next;
@@ -271,13 +271,13 @@
     }
     return out;
   }
-  function setTags(list, path, tags) {
-    return list.map((p) => p.path === path ? { ...p, tags: tags.length ? tags : void 0 } : p);
+  function setTags(list2, path, tags) {
+    return list2.map((p) => p.path === path ? { ...p, tags: tags.length ? tags : void 0 } : p);
   }
   var TAG_COLORS = ["#58a6ff", "#3fb950", "#d29922", "#f778ba", "#a371f7", "#f0883e", "#39c5cf", "#8b949e"];
-  function reconcileTags(list, tags) {
+  function reconcileTags(list2, tags) {
     const used = [];
-    for (const p of list) for (const t of p.tags ?? []) if (!used.includes(t)) used.push(t);
+    for (const p of list2) for (const t of p.tags ?? []) if (!used.includes(t)) used.push(t);
     const kept = tags.filter((t) => used.includes(t.name));
     for (const name of used) {
       if (kept.some((t) => t.name === name)) continue;
@@ -288,23 +288,23 @@
   function cycleTagColor(tags, name) {
     return tags.map((t) => {
       if (t.name !== name) return t;
-      const i = TAG_COLORS.indexOf(t.color);
-      return { ...t, color: TAG_COLORS[(i + 1) % TAG_COLORS.length] };
+      const i2 = TAG_COLORS.indexOf(t.color);
+      return { ...t, color: TAG_COLORS[(i2 + 1) % TAG_COLORS.length] };
     });
   }
-  function filterSaved(list, text) {
+  function filterSaved(list2, text) {
     const words = text.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!words.length) return list;
-    return list.filter((p) => {
+    if (!words.length) return list2;
+    return list2.filter((p) => {
       const tags = (p.tags ?? []).map((t) => t.toLowerCase());
       const hay = `${p.label} ${p.path} ${tags.join(" ")}`.toLowerCase();
       return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
     });
   }
-  function groupByTag(list, tags) {
-    const groups = [{ tag: null, items: list.filter((p) => !p.tags?.length) }];
+  function groupByTag(list2, tags) {
+    const groups = [{ tag: null, items: list2.filter((p) => !p.tags?.length) }];
     for (const tag of tags) {
-      const items = list.filter((p) => p.tags?.[0] === tag.name);
+      const items = list2.filter((p) => p.tags?.[0] === tag.name);
       if (items.length) groups.push({ tag, items });
     }
     return groups;
@@ -338,8 +338,8 @@
   function localKeys() {
     const out = [];
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
+      for (let i2 = 0; i2 < localStorage.length; i2++) {
+        const k = localStorage.key(i2);
         if (k && isKvKey(k)) out.push(k);
       }
     } catch {
@@ -423,7 +423,7 @@
   var VIEW_KEY = "bfb-view";
   var THEME_KEY = "bfb-theme";
   var PALETTE_KEY = "bfb-palette";
-  var PALETTES = ["slate", "violet", "sand", "ink"];
+  var PALETTES = ["slate", "violet", "sand", "ink", "ocean", "forest", "ember", "nord"];
   var ZOOM_KEY = "bfb-zoom";
   var HIDDEN_KEY = "bfb-show-hidden";
   var ICON_RULES_KEY = "bfb-icon-rules-v1";
@@ -499,10 +499,10 @@
     kvSet(SAVED_KEY, JSON.stringify(merged));
     return merged;
   }
-  function saveSaved(list) {
-    list = dedupePlaces(list);
-    kvSet(SAVED_KEY, JSON.stringify(list));
-    kvSet(TAGS_KEY, JSON.stringify(reconcileTags(list, readList(TAGS_KEY))));
+  function saveSaved(list2) {
+    list2 = dedupePlaces(list2);
+    kvSet(SAVED_KEY, JSON.stringify(list2));
+    kvSet(TAGS_KEY, JSON.stringify(reconcileTags(list2, readList(TAGS_KEY))));
   }
   function getTags() {
     return reconcileTags(getSaved(), readList(TAGS_KEY));
@@ -512,16 +512,16 @@
   }
   function getRecents() {
     try {
-      const list = JSON.parse(kvGet(RECENTS_KEY) ?? "[]");
-      return Array.isArray(list) ? list.filter((r) => typeof r?.path === "string") : [];
+      const list2 = JSON.parse(kvGet(RECENTS_KEY) ?? "[]");
+      return Array.isArray(list2) ? list2.filter((r) => typeof r?.path === "string") : [];
     } catch {
       return [];
     }
   }
   function pushRecent(path) {
-    const list = getRecents().filter((r) => r.path !== path);
-    list.unshift({ path, ts: Date.now() });
-    kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 40)));
+    const list2 = getRecents().filter((r) => r.path !== path);
+    list2.unshift({ path, ts: Date.now() });
+    kvSet(RECENTS_KEY, JSON.stringify(list2.slice(0, 40)));
   }
   var HOME_KEY = "bfb-home-v1";
   function homeDir(path) {
@@ -593,9 +593,6 @@
   }
   function getView() {
     return kvGet(VIEW_KEY) ?? "details";
-  }
-  function getTheme() {
-    return kvGet(THEME_KEY) ?? "dark";
   }
   function getPalette() {
     const p = kvGet(PALETTE_KEY);
@@ -808,8 +805,8 @@ ${fm}
     const { head } = splitNote(text);
     const f = {};
     for (const line2 of fmLines(head)) {
-      const i = line2.indexOf(":");
-      if (i > 0) f[line2.slice(0, i).trim()] = unquoteYaml(line2.slice(i + 1).trim());
+      const i2 = line2.indexOf(":");
+      if (i2 > 0) f[line2.slice(0, i2).trim()] = unquoteYaml(line2.slice(i2 + 1).trim());
     }
     return {
       title: noteTitle(rel, text),
@@ -859,21 +856,21 @@ ${body}`;
     const skip = /* @__PURE__ */ new Set([...allowed, "updated"]);
     const keep = (t) => fmLines(splitNote(t).head).filter((l) => !skip.has(l.slice(0, Math.max(l.indexOf(":"), 0)).trim()));
     const a = keep(before), b = keep(after);
-    return a.length === b.length && a.every((l, i) => l === b[i]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
+    return a.length === b.length && a.every((l, i2) => l === b[i2]) ? [] : [...a.filter((l) => !b.includes(l)).map((l) => `- ${l}`), ...b.filter((l) => !a.includes(l)).map((l) => `+ ${l}`)];
   }
-  function sharedOrder(list) {
+  function sharedOrder(list2) {
     const made = (n) => n.created ?? n.mtime;
-    return [...list].sort((x, y) => {
+    return [...list2].sort((x, y) => {
       if (!!x.pinned !== !!y.pinned) return x.pinned ? -1 : 1;
       if (!x.pos !== !y.pos) return x.pos ? 1 : -1;
       if (!x.pos) return made(y) - made(x) || (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0);
       return x.pos < y.pos ? -1 : x.pos > y.pos ? 1 : x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0;
     });
   }
-  function filterNotes(list, query) {
+  function filterNotes(list2, query) {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    if (!words.length) return list;
-    return list.filter((n) => {
+    if (!words.length) return list2;
+    return list2.filter((n) => {
       const tags = (n.tags ?? []).map((t) => t.toLowerCase());
       const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ""} ${tags.join(" ")}`.toLowerCase();
       return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
@@ -979,6 +976,13 @@ ${body}`;
     help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
     gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'
   };
+  var VIEW_ICONS = [
+    { id: "details", label: "Details", ico: `<svg width="13" height="11" viewBox="0 0 13 11"><path d="M1 1h11M1 4h11M1 7h11M1 10h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
+    { id: "list", label: "List", ico: `<svg width="13" height="11" viewBox="0 0 13 11"><circle cx="2" cy="2" r="1.1" fill="currentColor"/><path d="M5 2h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2" cy="5.5" r="1.1" fill="currentColor"/><path d="M5 5.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2" cy="9" r="1.1" fill="currentColor"/><path d="M5 9h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
+    { id: "tree", label: "Tree", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><path d="M2 1.5v8h3M2 5.5h3M6 4.5h6M6 9.5h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="5.5" cy="4.5" r=".8" fill="currentColor"/><circle cx="5.5" cy="9.5" r=".8" fill="currentColor"/></svg>` },
+    { id: "tiles", label: "Tiles", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="1" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="7.5" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="7.5" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>` },
+    { id: "icons", label: "Large Icons", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/></svg>` }
+  ];
 
   // src/dialog.ts
   var tile = (t, size = "") => `<span class="fe-dlg-tile ${size}" style="--tone:${t.tone ?? "var(--ac)"}" aria-hidden="true">${t.icon}</span>`;
@@ -1053,8 +1057,8 @@ ${body}`;
         e.preventDefault();
         close();
       } else if ((e.key === "[" || e.key === "]") && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) {
-        const i = tabs.findIndex((t) => t.classList.contains("on"));
-        const j = (i + (e.key === "]" ? 1 : -1) + tabs.length) % tabs.length;
+        const i2 = tabs.findIndex((t) => t.classList.contains("on"));
+        const j = (i2 + (e.key === "]" ? 1 : -1) + tabs.length) % tabs.length;
         e.preventDefault();
         show(tabs[j].dataset.tab);
       }
@@ -1178,13 +1182,43 @@ ${body}`;
   function safeColor(color) {
     return /^#[0-9a-fA-F]{3,8}$/.test(color) || /^[a-zA-Z]{1,20}$/.test(color) ? color : "#6e7681";
   }
-  function icoCustom(label, color) {
+  var RULE_GLYPHS = {
+    image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3-3a2 2 0 0 0-3 0L6 21"/>',
+    archive: '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>',
+    lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    test: '<path d="M9 2v6L4 18a2 2 0 0 0 1.8 3h12.4a2 2 0 0 0 1.8-3L15 8V2M8 2h8M7 14h10"/>',
+    box: '<path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+    cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9"/>',
+    db: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/>',
+    code: '<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>',
+    terminal: '<path d="m4 17 6-6-6-6M12 19h8"/>',
+    book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
+    star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
+    bolt: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+    bug: '<rect width="8" height="14" x="8" y="6" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 19l-3-2M5 19l3-2M20 13h-4M4 13h4M10 4l1 2M14 4l-1 2"/>',
+    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    video: '<rect width="14" height="12" x="2" y="6" rx="2"/><path d="m22 8-6 4 6 4z"/>',
+    chart: '<path d="M3 3v18h18M7 16v-4M12 16V8M17 16v-7"/>',
+    shield: '<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3z"/>',
+    globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>',
+    branch: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="8" r="3"/><path d="M6 9v6M18 11a6 6 0 0 1-6 6H9"/>',
+    bot: '<rect width="16" height="12" x="4" y="8" rx="2"/><path d="M12 8V4H8M2 14h2M20 14h2M15 13v2M9 13v2"/>',
+    sparkle: '<path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9z"/>',
+    heart: '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/>'
+  };
+  function icoCustom(label, color, glyph) {
+    const c = safeColor(color);
+    const sheet = `<path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${c}" fill-opacity="0.12" stroke="${c}" stroke-width="1.1"/>
+    <path d="M10 0.5L15.5 6H10z" fill="${c}" fill-opacity="0.75"/>`;
+    if (glyph && RULE_GLYPHS[glyph]) {
+      return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">${sheet}
+    <svg x="3" y="7" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${RULE_GLYPHS[glyph]}</svg></svg>`;
+    }
     const lbl = String(label || "?").slice(0, 4);
     const safe = lbl.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const c = safeColor(color);
-    return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">
-    <path d="M2 0.5h8l5.5 5.5V17a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V1A.5.5 0 0 1 2 0.5z" fill="${c}" fill-opacity="0.12" stroke="${c}" stroke-width="1.1"/>
-    <path d="M10 0.5L15.5 6H10z" fill="${c}" fill-opacity="0.75"/>
+    return `<svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg">${sheet}
     <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${c}">${safe}</text>
   </svg>`;
   }
@@ -1194,7 +1228,7 @@ ${body}`;
       for (const rule of iconRules) {
         if (!rule.enabled) continue;
         try {
-          if (new RegExp(rule.pattern, "i").test(e.name)) return icoCustom(rule.label, rule.color);
+          if (new RegExp(rule.pattern, "i").test(e.name)) return icoCustom(rule.label, rule.color, rule.glyph);
         } catch {
         }
       }
@@ -1240,8 +1274,8 @@ ${body}`;
       const ths = [...table.querySelectorAll("thead th")];
       if (!table.classList.contains("fe-rz-fixed")) {
         const widths = ths.map((h) => h.getBoundingClientRect().width);
-        ths.forEach((h, i) => {
-          h.style.width = widths[i] + "px";
+        ths.forEach((h, i2) => {
+          h.style.width = widths[i2] + "px";
         });
         table.style.width = widths.reduce((a, b) => a + b, 0) + "px";
         table.classList.add("fe-rz-fixed");
@@ -1632,9 +1666,9 @@ ${body}`;
   }
   function compile(rules) {
     const kinds = [];
-    const parts = rules.map((r, i) => {
-      kinds[i] = r.kind;
-      return `(?<g${i}>${r.pattern})`;
+    const parts = rules.map((r, i2) => {
+      kinds[i2] = r.kind;
+      return `(?<g${i2}>${r.pattern})`;
     });
     return { re: new RegExp(parts.join("|"), "gm"), kinds };
   }
@@ -1667,8 +1701,8 @@ ${body}`;
       last = m.index + m[0].length;
       const g = m.groups ?? {};
       let kind;
-      for (let i = 0; i < kinds.length; i++) if (g[`g${i}`] !== void 0) {
-        kind = kinds[i];
+      for (let i2 = 0; i2 < kinds.length; i2++) if (g[`g${i2}`] !== void 0) {
+        kind = kinds[i2];
         break;
       }
       const text = esc(m[0]);
@@ -1697,7 +1731,7 @@ ${body}`;
     const gut = String(rows.length).length + 1;
     const blocks = [];
     for (let s = 0; s < rows.length; s += CODE_BLOCK) {
-      const part = rows.slice(s, s + CODE_BLOCK).map((r, i) => `<div class="fe-cl"><span class="fe-cl-n">${s + i + 1}</span><span class="fe-cl-t">${r || " "}</span></div>`).join("");
+      const part = rows.slice(s, s + CODE_BLOCK).map((r, i2) => `<div class="fe-cl"><span class="fe-cl-n">${s + i2 + 1}</span><span class="fe-cl-t">${r || " "}</span></div>`).join("");
       blocks.push(`<div class="fe-cl-blk" style="--n:${Math.min(CODE_BLOCK, rows.length - s)}">${part}</div>`);
     }
     return `${truncNote}<div class="fe-code-wrap" style="--gut:${gut}ch"><div class="fe-code">${blocks.join("")}</div></div>`;
@@ -1724,38 +1758,38 @@ ${body}`;
   }
   function codeLines(html) {
     const rows = splitHighlighted(html);
-    return rows.map((r, i) => `<span class="fe-md-l">${r}${i < rows.length - 1 ? "\n" : ""}</span>`).join("");
+    return rows.map((r, i2) => `<span class="fe-md-l">${r}${i2 < rows.length - 1 ? "\n" : ""}</span>`).join("");
   }
   function parseDSV(text, delim) {
     const rows = [];
-    let row = [];
+    let row2 = [];
     let cell = "";
     let inQ = false;
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
+    for (let i2 = 0; i2 < text.length; i2++) {
+      const ch = text[i2];
       if (inQ) {
         if (ch === '"') {
-          if (text[i + 1] === '"') {
+          if (text[i2 + 1] === '"') {
             cell += '"';
-            i++;
+            i2++;
           } else inQ = false;
         } else cell += ch;
       } else if (ch === '"' && cell === "") {
         inQ = true;
       } else if (ch === delim) {
-        row.push(cell);
+        row2.push(cell);
         cell = "";
       } else if (ch === "\n" || ch === "\r") {
-        if (ch === "\r" && text[i + 1] === "\n") i++;
-        row.push(cell);
+        if (ch === "\r" && text[i2 + 1] === "\n") i2++;
+        row2.push(cell);
         cell = "";
-        rows.push(row);
-        row = [];
+        rows.push(row2);
+        row2 = [];
       } else cell += ch;
     }
-    if (cell !== "" || row.length) {
-      row.push(cell);
-      rows.push(row);
+    if (cell !== "" || row2.length) {
+      row2.push(cell);
+      rows.push(row2);
     }
     if (rows.length && rows[rows.length - 1].every((c) => c === "")) rows.pop();
     return rows;
@@ -1792,13 +1826,13 @@ ${body}`;
       truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.tableRows.toLocaleString()} of ${dataRows.length.toLocaleString()} rows.</div>`;
     }
     const width = rows.reduce((w, r) => Math.max(w, r.length), header.length);
-    const cols = Array.from({ length: width }, (_, i) => header[i] ?? `(${i + 1})`);
-    const ths = cols.map((h, i) => {
-      const arrow = sort?.col === i ? sort.dir === "asc" ? " \u2191" : " \u2193" : "";
-      return `<th data-col="${i}" class="${numCols.has(i) ? "num" : ""}${sort?.col === i ? " sorted" : ""}" title="Click to sort">${esc(h)}${arrow}${COL_HANDLE}</th>`;
+    const cols = Array.from({ length: width }, (_, i2) => header[i2] ?? `(${i2 + 1})`);
+    const ths = cols.map((h, i2) => {
+      const arrow = sort?.col === i2 ? sort.dir === "asc" ? " \u2191" : " \u2193" : "";
+      return `<th data-col="${i2}" class="${numCols.has(i2) ? "num" : ""}${sort?.col === i2 ? " sorted" : ""}" title="Click to sort">${esc(h)}${arrow}${COL_HANDLE}</th>`;
     }).join("");
     const trs = rows.map(
-      (r) => `<tr>${cols.map((_, i) => `<td class="${numCols.has(i) ? "num" : ""}">${esc(r[i] ?? "")}</td>`).join("")}</tr>`
+      (r) => `<tr>${cols.map((_, i2) => `<td class="${numCols.has(i2) ? "num" : ""}">${esc(r[i2] ?? "")}</td>`).join("")}</tr>`
     ).join("");
     return `${truncNote}<table class="fe-ql-table fe-rz"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
   }
@@ -1897,22 +1931,22 @@ ${body}`;
     const htmlTags = [];
     let source = "";
     let codeTicks = 0;
-    for (let i = 0; i < s.length; i++) {
-      if (s[i] === "`") {
-        let end2 = i;
+    for (let i2 = 0; i2 < s.length; i2++) {
+      if (s[i2] === "`") {
+        let end2 = i2;
         while (s[end2] === "`") end2++;
-        const count = end2 - i;
+        const count = end2 - i2;
         if (!codeTicks) codeTicks = count;
         else if (codeTicks === count) codeTicks = 0;
-        source += s.slice(i, end2);
-        i = end2 - 1;
+        source += s.slice(i2, end2);
+        i2 = end2 - 1;
         continue;
       }
-      if (s[i] !== "<" || codeTicks || !/^<\/?[a-z][\w-]*\b/i.test(s.slice(i))) {
-        source += s[i];
+      if (s[i2] !== "<" || codeTicks || !/^<\/?[a-z][\w-]*\b/i.test(s.slice(i2))) {
+        source += s[i2];
         continue;
       }
-      let end = i + 1, quote = "";
+      let end = i2 + 1, quote = "";
       for (; end < s.length; end++) {
         if (quote) {
           if (s[end] === quote) quote = "";
@@ -1920,21 +1954,21 @@ ${body}`;
         else if (s[end] === ">") break;
       }
       if (end === s.length) {
-        source += s[i];
+        source += s[i2];
         continue;
       }
-      const raw = s.slice(i, end + 1);
+      const raw = s.slice(i2, end + 1);
       const name = raw.match(/^<\/?([a-z][\w-]*)/i)[1].toLowerCase();
       if (!HTML_TAGS.has(name)) {
         source += raw;
-        i = end;
+        i2 = end;
         continue;
       }
       const safe = sanitizeHtml(raw.startsWith("</") ? `<${name}></${name}>` : `${raw}${VOID_TAGS.has(name) ? "" : `</${name}>`}`, baseUrl);
       const tag = raw.startsWith("</") ? `</${name}>` : safe.slice(0, safe.indexOf(">") + 1);
       htmlTags.push(tag);
       source += `\uE000${htmlTags.length - 1}\uE001`;
-      i = end;
+      i2 = end;
     }
     let out = esc(source);
     out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
@@ -1950,7 +1984,7 @@ ${body}`;
     out = out.replace(/&lt;((?:https?|file):\/\/[^\s<>]+?)&gt;/gi, "$1");
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     out = out.replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
-    out = out.split(/(<code>[\s\S]*?<\/code>|<[^>]+>|\b(?:https?|file):\/\/\S+)/).map((part, i) => i % 2 ? part : part.replace(/(^|[^\w])__([^_\s][^_]*?)__(?!\w)/g, "$1<strong>$2</strong>").replace(/(^|[^\w])_([^_\s][^_]*?)_(?!\w)/g, "$1<em>$2</em>")).join("");
+    out = out.split(/(<code>[\s\S]*?<\/code>|<[^>]+>|\b(?:https?|file):\/\/\S+)/).map((part, i2) => i2 % 2 ? part : part.replace(/(^|[^\w])__([^_\s][^_]*?)__(?!\w)/g, "$1<strong>$2</strong>").replace(/(^|[^\w])_([^_\s][^_]*?)_(?!\w)/g, "$1<em>$2</em>")).join("");
     out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
     return out.replace(/\uE000(\d+)\uE001/g, (_m, index) => htmlTags[Number(index)]);
   }
@@ -2081,16 +2115,16 @@ ${body}`;
     const marking = !inner && !nested;
     const mark = (from, start) => {
       if (!marking) return;
-      const a = srcLine[from] ?? from + 1, b = srcLine[Math.max(from, i - 1)] ?? i;
+      const a = srcLine[from] ?? from + 1, b = srcLine[Math.max(from, i2 - 1)] ?? i2;
       for (let k = start; k < out.length; k++) if (!/^<[^>]* data-sl=/.test(out[k])) out[k] = out[k].replace(/^(<[a-z][a-z0-9]*\b[^>]*?)>/, `$1 data-sl="${a}-${b}">`);
     };
-    let i = 0;
+    let i2 = 0;
     if (!inner && lines[0] === "---") {
       const end = lines.slice(1, 60).findIndex((l) => l === "---");
       if (end >= 0) {
         const rows = lines.slice(1, end + 1).map((l) => l.match(/^([\w.-]+)\s*:\s*(.*)$/)).filter(Boolean);
         if (rows.length) out.push(`<dl class="fe-md-fm">${rows.map((m) => `<dt>${esc(m[1])}</dt><dd>${mdInline(m[2], baseUrl)}</dd>`).join("")}</dl>`);
-        i = end + 2;
+        i2 = end + 2;
       }
     }
     let paraFrom = 0, paraTo = 0;
@@ -2100,20 +2134,20 @@ ${body}`;
       out.push(`<p${marking ? ` data-sl="${srcLine[paraFrom]}-${srcLine[paraTo]}"` : ""}>${mdInline(text, baseUrl).replace(/\uE002 ?/g, "<br>")}</p>`);
       para = [];
     };
-    while (i < lines.length) {
-      const line2 = lines[i];
-      const from = i, outAt = out.length;
+    while (i2 < lines.length) {
+      const line2 = lines[i2];
+      const from = i2, outAt = out.length;
       const fence = line2.match(/^( {0,3})(`{3,}|~{3,})([^\r\n]*)$/);
       if (fence) {
         flush();
         const buf = [];
-        i++;
+        i2++;
         const marker = fence[2][0], width = fence[2].length, indent = fence[1].length;
         const close = new RegExp(`^ {0,3}${marker === "`" ? "`" : "~"}{${width},}\\s*$`);
-        while (i < lines.length && !close.test(lines[i])) {
-          buf.push(lines[i++].replace(new RegExp(`^ {0,${indent}}`), ""));
+        while (i2 < lines.length && !close.test(lines[i2])) {
+          buf.push(lines[i2++].replace(new RegExp(`^ {0,${indent}}`), ""));
         }
-        if (i < lines.length) i++;
+        if (i2 < lines.length) i2++;
         const code = buf.join("\n");
         const language = fence[3].trim().split(/\s+/)[0] || "";
         if (language.toLowerCase() === "mermaid") {
@@ -2130,14 +2164,14 @@ ${body}`;
         const n = h[1].length;
         const id = headingId(h[2].replace(/[*_`]/g, ""), seenIds);
         out.push(`<h${n} id="${esc(id)}">${mdInline(h[2], baseUrl)}<a class="fe-md-anchor" href="#${esc(id)}" title="Link to this heading"></a></h${n}>`);
-        i++;
+        i2++;
         mark(from, outAt);
         continue;
       }
       if (/^\s*<[a-zA-Z!/]/.test(line2)) {
         flush();
         const buf = [];
-        while (i < lines.length && !/^\s*$/.test(lines[i])) buf.push(lines[i++]);
+        while (i2 < lines.length && !/^\s*$/.test(lines[i2])) buf.push(lines[i2++]);
         out.push(`<div class="fe-md-html">${sanitizeHtml(buf.join("\n"), baseUrl)}</div>`);
         mark(from, outAt);
         continue;
@@ -2145,14 +2179,14 @@ ${body}`;
       if (para.length === 0 && /^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/.test(line2)) {
         flush();
         out.push("<hr>");
-        i++;
+        i2++;
         mark(from, outAt);
         continue;
       }
       if (/^\s*>/.test(line2)) {
         flush();
         const buf = [];
-        while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ""));
+        while (i2 < lines.length && /^\s*>/.test(lines[i2])) buf.push(lines[i2++].replace(/^\s*>\s?/, ""));
         const alert = buf[0]?.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i);
         if (alert) {
           const kind = alert[1].toUpperCase();
@@ -2168,19 +2202,19 @@ ${body}`;
         const ordered = /\d/.test(li[2]);
         const items = [];
         let loose = false;
-        while (i < lines.length) {
-          const m = lines[i].match(LIST_ITEM);
+        while (i2 < lines.length) {
+          const m = lines[i2].match(LIST_ITEM);
           if (!m || m[1].length !== baseIndent || /\d/.test(m[2]) !== ordered) break;
           const contentIndent = m[1].length + m[2].length + 1;
           const body = [m[3] ?? ""];
-          i++;
-          while (i < lines.length) {
-            const l = lines[i];
+          i2++;
+          while (i2 < lines.length) {
+            const l = lines[i2];
             if (/^\s*$/.test(l)) {
-              const next = lines.slice(i + 1).find((x) => !/^\s*$/.test(x));
+              const next = lines.slice(i2 + 1).find((x) => !/^\s*$/.test(x));
               if (next !== void 0 && next.match(/^\s*/)[0].length >= contentIndent) {
                 body.push("");
-                i++;
+                i2++;
                 loose = true;
                 continue;
               }
@@ -2189,12 +2223,12 @@ ${body}`;
             const ind = l.match(/^\s*/)[0].length;
             if (ind >= contentIndent || ind > baseIndent && LIST_ITEM.test(l)) {
               body.push(l.slice(Math.min(ind, contentIndent)));
-              i++;
+              i2++;
               continue;
             }
             if (!LIST_ITEM.test(l) && body[body.length - 1] !== "" && !/^\s*(#|>|```|~~~|\|)/.test(l)) {
               body.push(l.trim());
-              i++;
+              i2++;
               continue;
             }
             break;
@@ -2205,8 +2239,8 @@ ${body}`;
           const tight = html2.match(/^<p>([\s\S]*?)<\/p>(\n?[\s\S]*)$/);
           if (tight && !loose) html2 = tight[1] + tight[2];
           items.push(task ? `<li class="fe-task"><input type="checkbox" disabled${task[1] === " " ? "" : " checked"}> ${html2}</li>` : `<li>${html2}</li>`);
-          if (i < lines.length && /^\s*$/.test(lines[i]) && lines[i + 1]?.match(LIST_ITEM)?.[1].length === baseIndent) {
-            i++;
+          if (i2 < lines.length && /^\s*$/.test(lines[i2]) && lines[i2 + 1]?.match(LIST_ITEM)?.[1].length === baseIndent) {
+            i2++;
             loose = true;
           }
         }
@@ -2215,7 +2249,7 @@ ${body}`;
         mark(from, outAt);
         continue;
       }
-      if (line2.includes("|") && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i + 1])) {
+      if (line2.includes("|") && i2 + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i2 + 1])) {
         flush();
         const cells = (l) => {
           const parts = [];
@@ -2250,22 +2284,22 @@ ${body}`;
           return parts.map((c) => mdInline(c.trim(), baseUrl));
         };
         const head = cells(line2);
-        i += 2;
+        i2 += 2;
         const rows = [];
-        while (i < lines.length && lines[i].includes("|")) rows.push(cells(lines[i++]));
+        while (i2 < lines.length && lines[i2].includes("|")) rows.push(cells(lines[i2++]));
         out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table fe-rz"><thead><tr>${head.map((c) => `<th>${c}${COL_HANDLE}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
         mark(from, outAt);
         continue;
       }
       if (/^\s*$/.test(line2)) {
         flush();
-        i++;
+        i2++;
         continue;
       }
-      if (!para.length) paraFrom = i;
-      paraTo = i;
+      if (!para.length) paraFrom = i2;
+      paraTo = i2;
       para.push(line2.replace(/^\s+/, ""));
-      i++;
+      i2++;
     }
     flush();
     if (inner) return out.join("\n");
@@ -2303,7 +2337,7 @@ ${body}`;
     const keyHtml = key !== null ? `<span class="fe-jt-key">${esc(key)}</span><span class="fe-jt-colon">: </span>` : "";
     if (v !== null && typeof v === "object") {
       const isArr = Array.isArray(v);
-      const entries = isArr ? v.map((x, i) => [String(i), x]) : Object.entries(v);
+      const entries = isArr ? v.map((x, i2) => [String(i2), x]) : Object.entries(v);
       const badge = isArr ? `[${entries.length}]` : `{${entries.length}}`;
       if (!entries.length) return `<div class="fe-jt-row">${keyHtml}<span class="fe-jt-badge">${isArr ? "[]" : "{}"}</span></div>`;
       const open = depth < 2 ? " open" : "";
@@ -2324,7 +2358,7 @@ ${body}`;
     return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
   }
   function renderJsonl(text) {
-    const lines = text.split("\n").map((l, i) => ({ l, n: i + 1 })).filter((x) => x.l.trim() !== "");
+    const lines = text.split("\n").map((l, i2) => ({ l, n: i2 + 1 })).filter((x) => x.l.trim() !== "");
     let truncNote = "";
     let shown = lines;
     if (lines.length > RENDER_CAPS.jsonlLines) {
@@ -2379,7 +2413,7 @@ ${body}`;
     return { kind: kindName(e), path, items };
   }
   function metaSummary(m) {
-    const pick = (k) => m.items.find((i) => i.key === k)?.value;
+    const pick = (k) => m.items.find((i2) => i2.key === k)?.value;
     return [m.kind, pick("size"), pick("lines")].filter(Boolean).join(" \xB7 ");
   }
   var ICONS = {
@@ -2394,7 +2428,7 @@ ${body}`;
   };
   var icon = (k) => `<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] ?? ""}</svg>`;
   function metaChips(m) {
-    return m.items.map((i) => `<span class="fe-meta-item" title="${esc(i.label)}">${icon(i.key)}${esc(i.value)}</span>`).join("");
+    return m.items.map((i2) => `<span class="fe-meta-item" title="${esc(i2.label)}">${icon(i2.key)}${esc(i2.value)}</span>`).join("");
   }
 
   // src/file-fetch.ts
@@ -2425,7 +2459,7 @@ ${body}`;
   var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   async function fetchFileText(rawUrl, attempts = 3, delayMs = 150) {
     const url = new URL(rawUrl, location.href).href;
-    for (let i = 0; i < attempts; i++) {
+    for (let i2 = 0; i2 < attempts; i2++) {
       if (!chrome.runtime?.id) throw new FileFetchError("context-invalidated", "extension reloaded under this page");
       let res;
       try {
@@ -2434,7 +2468,7 @@ ${body}`;
         throw new FileFetchError("context-invalidated", String(e));
       }
       if (res === null) {
-        await sleep(delayMs * (i + 1));
+        await sleep(delayMs * (i2 + 1));
         continue;
       }
       if (res.ok) return res.text;
@@ -2774,7 +2808,7 @@ ${body}`;
     const { from, to } = lineSpan(text, sel);
     const lines = text.slice(from, to).split("\n");
     let firstDelta = 0, total = 0;
-    const changed = lines.map((l, i) => {
+    const changed = lines.map((l, i2) => {
       let d;
       if (outdent) {
         const n = l.startsWith(unit) ? unit.length : l.startsWith(" ") ? 1 : 0;
@@ -2784,7 +2818,7 @@ ${body}`;
         l = unit + l;
         d = unit.length;
       }
-      if (i === 0) firstDelta = d;
+      if (i2 === 0) firstDelta = d;
       total += d;
       return l;
     });
@@ -2816,7 +2850,7 @@ ${body}`;
     return { text: out, start: sel.start + left.length, end: sel.end + left.length };
   }
   function tableSnippet(cols = 2, rows = 2) {
-    const head = "| " + Array.from({ length: cols }, (_, i) => `Column ${i + 1}`).join(" | ") + " |";
+    const head = "| " + Array.from({ length: cols }, (_, i2) => `Column ${i2 + 1}`).join(" | ") + " |";
     const sep = "|" + Array.from({ length: cols }, () => " --- |").join("");
     const body = Array.from({ length: rows }, () => "|" + Array.from({ length: cols }, () => "   |").join("")).join("\n");
     return `${head}
@@ -3838,10 +3872,10 @@ ${body}
   }
   function render(text, ext2) {
     const body = document.getElementById("fe-ql-body");
-    const note = unrenderableNote(text);
-    if (note) {
+    const note2 = unrenderableNote(text);
+    if (note2) {
       if (sniffBinary(text)) document.getElementById("fe-ql-ai").style.display = "none";
-      body.innerHTML = `<div class="fe-ql-center">${note}</div>`;
+      body.innerHTML = `<div class="fe-ql-center">${note2}</div>`;
       return;
     }
     if (TABLE_EXTS.has(ext2)) {
@@ -4488,10 +4522,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-goto input:focus{border-color:color-mix(in srgb,var(--ac) 70%,var(--bd2))}
 .fe-goto-msg{margin:6px 2px 0;font-size:var(--fs-sm);color:var(--dm)}
 #fe-tabs::-webkit-scrollbar{display:none}
-.fe-tab-list{position:sticky;right:0;flex-shrink:0;align-self:center;background:var(--s1);border:1px solid var(--bd);color:var(--mt);cursor:pointer;
-  font-size:var(--fs-sm);padding:2px 6px;border-radius:5px;margin-left:4px}
-.fe-tab-list:hover{border-color:var(--ac);color:var(--ac)}
-.fe-tab-list svg{display:block}
+/* The list of every tab: icon, name, and the digit that jumps to it. */
+.fe-tab-menu .fe-ctx-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-tab-menu .fe-ctx-item.on{color:var(--ac);font-weight:600}
+.fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:12px}
 .fe-tab.pinned{padding:5px 6px;min-width:0}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.empty{padding-top:4px}
@@ -5204,9 +5238,6 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-bg,#fe-ql-bg{animation:fe-fade var(--t-base) var(--ease)}
 .fe-dlg-box,#fe-qlook:not(.side) #fe-ql-dialog{animation:fe-rise var(--t-base) var(--ease)}
 #fe-qlook.side{animation:fe-dock-in var(--t-base) var(--ease)}
-.fe-grp{interpolate-size:allow-keywords}
-.fe-grp::details-content{block-size:0;overflow:hidden;transition:block-size var(--t-base) var(--ease),content-visibility var(--t-base) allow-discrete}
-.fe-grp[open]::details-content{block-size:auto}
 .fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
 /* Settings and Help read as a page: the title across the top, the sections
    listed on the left the way the sidebar lists lenses, the pane on the right.
@@ -5486,7 +5517,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-st-rule-del:hover{color:var(--nc-red)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){
-  #fe *,#fe *::before,#fe *::after,#fe .fe-grp::details-content{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
+  #fe *,#fe *::before,#fe *::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
 }
 
 /* Narrow windows keep the reading column usable: the listing drops its
@@ -5522,6 +5553,656 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   .fe-set-c{max-width:100%}
 }
 `;
+
+  // src/styles-ui.ts
+  var UI_CSS = `
+/* Palettes beyond the first four: dark tokens, then light. */
+#fe[data-palette="ocean"],html:has(#fe[data-palette="ocean"]){
+  --bg:#0d1219;--s1:#131a24;--s2:#19222f;--s3:#222d3d;--bd:#222c3a;--bd2:#313e50;--tx:#e6edf5;--mt:#a1b0c2;--dm:#7d8ca0;--ac:#4da3ff;--on-ac:#0d1219;--dir:#a1b0c2}
+#fe[data-palette="ocean"][data-theme="light"],html:has(#fe[data-palette="ocean"][data-theme="light"]){
+  --bg:#eef3f9;--s1:#ffffff;--s2:#e9eff7;--s3:#dbe5f1;--bd:#d9e2ee;--bd2:#c2cfdf;--tx:#152030;--mt:#4b5d75;--dm:#687a92;--ac:#1f6fd1;--on-ac:#ffffff;--dir:#5b6d85}
+#fe[data-palette="forest"],html:has(#fe[data-palette="forest"]){
+  --bg:#0e1310;--s1:#141b16;--s2:#1a231d;--s3:#232e26;--bd:#232d26;--bd2:#334136;--tx:#e6efe8;--mt:#a3b3a7;--dm:#7f9184;--ac:#5fc77a;--on-ac:#0e1310;--dir:#a3b3a7}
+#fe[data-palette="forest"][data-theme="light"],html:has(#fe[data-palette="forest"][data-theme="light"]){
+  --bg:#f0f4ef;--s1:#ffffff;--s2:#eaf0e9;--s3:#dde6dc;--bd:#dbe3d9;--bd2:#c3d0c1;--tx:#18241a;--mt:#4d6151;--dm:#697d6c;--ac:#2e8b47;--on-ac:#ffffff;--dir:#5a6e5d}
+#fe[data-palette="ember"],html:has(#fe[data-palette="ember"]){
+  --bg:#14100d;--s1:#1c1612;--s2:#251d17;--s3:#30261e;--bd:#30261f;--bd2:#45372b;--tx:#f2e9e1;--mt:#bba99a;--dm:#988676;--ac:#ff8a3d;--on-ac:#14100d;--dir:#bba99a}
+#fe[data-palette="ember"][data-theme="light"],html:has(#fe[data-palette="ember"][data-theme="light"]){
+  --bg:#f8f2ec;--s1:#fffcf9;--s2:#f4ebe2;--s3:#eadccf;--bd:#e8dccf;--bd2:#d6c3b0;--tx:#2b1f15;--mt:#6c5847;--dm:#88725f;--ac:#c85a12;--on-ac:#ffffff;--dir:#7a6553}
+#fe[data-palette="nord"],html:has(#fe[data-palette="nord"]){
+  --bg:#1f232b;--s1:#262b34;--s2:#2c323c;--s3:#353c48;--bd:#353c47;--bd2:#444c59;--tx:#e5e9f0;--mt:#aeb6c4;--dm:#8a93a3;--ac:#88c0d0;--on-ac:#1f232b;--dir:#aeb6c4}
+#fe[data-palette="nord"][data-theme="light"],html:has(#fe[data-palette="nord"][data-theme="light"]){
+  --bg:#eceff4;--s1:#ffffff;--s2:#e5e9f0;--s3:#d8dee9;--bd:#d8dee9;--bd2:#c2cad6;--tx:#2e3440;--mt:#4c566a;--dm:#67728a;--ac:#5e81ac;--on-ac:#ffffff;--dir:#5c667a}
+.fe-set-thumb[data-p="ocean"]{--a:#4da3ff;--b:#19222f}
+.fe-set-thumb[data-p="forest"]{--a:#5fc77a;--b:#1a231d}
+.fe-set-thumb[data-p="ember"]{--a:#ff8a3d;--b:#251d17}
+.fe-set-thumb[data-p="nord"]{--a:#88c0d0;--b:#2c323c}
+#fe[data-theme="light"] .fe-set-thumb[data-p="ocean"]{--a:#1f6fd1;--b:#eef3f9}
+#fe[data-theme="light"] .fe-set-thumb[data-p="forest"]{--a:#2e8b47;--b:#f0f4ef}
+#fe[data-theme="light"] .fe-set-thumb[data-p="ember"]{--a:#c85a12;--b:#f8f2ec}
+#fe[data-theme="light"] .fe-set-thumb[data-p="nord"]{--a:#5e81ac;--b:#eceff4}
+/* System: half dark, half light. */
+#fe .fe-set-thumb[data-mode="system"]{--a:var(--ac);--b:#1c2328;--t:#fff;--c:#131a1e;background:linear-gradient(135deg,#1c2328 50%,#f4f6f8 50%)}
+#fe .fe-set-thumb[data-mode="system"] .sb{background:linear-gradient(135deg,#131a1e 50%,#e2e7eb 50%)}
+
+/* Taller dialogs: room for a page of settings or help without scrolling at once. */
+.fe-dlg-box{height:min(780px,calc(100vh - 48px))}
+#fe-settings-modal .fe-dlg-box,#fe-help-modal .fe-dlg-box{width:min(1000px,calc(100vw - 48px))}
+
+/* Settings rows: a wide row puts its control under the label. */
+.fe-set.wide{flex-direction:column;align-items:stretch;gap:10px}
+.fe-set.wide .fe-set-c{max-width:none;justify-content:flex-start}
+.fe-set.wide .fe-set-tx:has(.fe-set-l:empty){gap:0}
+.fe-set-c{max-width:70%;flex-wrap:wrap}
+#fe-st-term-hint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:var(--fs-sm)}
+.fe-set-sws.grid4{display:grid;grid-template-columns:repeat(4,max-content);gap:4px 8px;justify-content:end}
+.fe-set-h-acts{display:inline-flex;align-items:center;gap:6px}
+
+/* Icon button: no fill until hovered. */
+.fe-ibtn{display:inline-grid;place-items:center;flex:none;width:28px;height:28px;padding:0;border:0;border-radius:8px;background:none;color:var(--mt);cursor:pointer;
+  transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-ibtn:hover{background:var(--hover);color:var(--tx)}
+.fe-ibtn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-ibtn svg{width:15px;height:15px}
+
+/* A row of buttons, one on. */
+.fe-seg{display:inline-flex;align-items:stretch;gap:2px;padding:2px;border-radius:9px;background:color-mix(in srgb,var(--tx) 6%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bd2) 60%,transparent)}
+.fe-seg-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:30px;height:28px;padding:0 11px;border:0;border-radius:7px;background:none;
+  color:var(--mt);font:inherit;font-size:var(--fs-md);font-weight:500;cursor:pointer;white-space:nowrap;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-seg-b.ico{padding:0 8px}
+.fe-seg-b svg{flex:none;width:14px;height:14px}
+.fe-seg-b:hover{color:var(--tx)}
+.fe-seg-b.on{background:color-mix(in srgb,var(--ac) 20%,var(--card));color:var(--tx);box-shadow:0 1px 2px rgb(0 0 0 / .18),inset 0 0 0 1px color-mix(in srgb,var(--ac) 45%,transparent)}
+.fe-seg-b.on svg{color:var(--ac)}
+.fe-seg-b:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+#fe[data-theme="light"] .fe-seg-b.on{background:#fff;box-shadow:0 1px 2px rgb(16 24 32 / .14),inset 0 0 0 1px color-mix(in srgb,var(--ac) 50%,var(--bd))}
+
+/* A slider that steps through set values, with the value beside it. */
+.fe-sld{display:inline-flex;align-items:center;gap:12px;width:240px;--pct:50%}
+.fe-sld input{flex:1;min-width:0;height:20px;margin:0;background:none;appearance:none;-webkit-appearance:none;cursor:pointer}
+.fe-sld input::-webkit-slider-runnable-track{height:4px;border-radius:2px;
+  background:linear-gradient(90deg,var(--ac) var(--pct),color-mix(in srgb,var(--tx) 14%,transparent) var(--pct))}
+.fe-sld input::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;margin-top:-6px;border-radius:50%;background:#fff;
+  box-shadow:0 0 0 1px rgb(0 0 0 / .14),0 1px 3px rgb(0 0 0 / .3);transition:transform var(--t-fast) var(--ease)}
+.fe-sld input:hover::-webkit-slider-thumb{transform:scale(1.12)}
+.fe-sld input:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 40%,transparent),0 1px 3px rgb(0 0 0 / .3)}
+.fe-sld output{min-width:48px;padding:3px 7px;border-radius:6px;background:color-mix(in srgb,var(--tx) 6%,transparent);font:500 var(--fs-md) var(--mono);color:var(--tx);text-align:center}
+
+/* A dropdown button and its list. */
+.fe-dd{display:inline-flex}
+.fe-dd-btn{display:inline-flex;align-items:center;gap:8px;min-width:160px;height:32px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);
+  color:var(--tx);font:inherit;font-size:var(--row-fs);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
+.fe-dd-btn:hover,.fe-dd-btn[aria-expanded="true"]{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd2))}
+.fe-dd-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-dd-cur{flex:1;display:flex;align-items:center;gap:8px;min-width:0;text-align:left}
+.fe-dd-cur span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-dd-cur svg{flex:none;width:14px;height:14px;color:var(--mt)}
+.fe-dd-btn > svg{flex:none;color:var(--dm)}
+.fe-dd-none{color:var(--dm)}
+.fe-dd-list{position:fixed;z-index:600;max-height:min(360px,60vh);overflow-y:auto;padding:5px;border-radius:var(--pop-r);
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-dd-opt{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 10px;border-radius:7px;color:var(--tx);font-size:var(--row-fs);cursor:pointer;white-space:nowrap}
+.fe-dd-opt svg{flex:none;width:14px;height:14px;color:var(--mt)}
+.fe-dd-opt.kb{background:var(--hover)}
+.fe-dd-opt.on{color:var(--ac)}
+.fe-dd-opt.on svg{color:var(--ac)}
+.fe-dd-l{flex:1}
+.fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
+
+/* A list edited as chips. */
+.fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:34px;padding:4px 6px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);cursor:text}
+.fe-set.wide .fe-chipin{width:100%}
+.fe-chipin:focus-within{border-color:color-mix(in srgb,var(--ac) 70%,var(--bd2))}
+.fe-chip-x{display:inline-flex;align-items:center;gap:2px;height:24px;padding:0 3px 0 9px;border-radius:12px;background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--tx);font:500 var(--fs-md) var(--mono)}
+.fe-chip-x button{display:inline-grid;place-items:center;width:18px;height:18px;padding:0;border:0;border-radius:50%;background:none;color:var(--mt);cursor:pointer;font-size:13px;line-height:1}
+.fe-chip-x button:hover{background:var(--shade2);color:var(--tx)}
+.fe-chipin-in{flex:1;min-width:70px;height:24px;border:0;outline:0;background:none;color:var(--tx);font:var(--fs-md) var(--mono)}
+
+/* App icons: a grid of 16 tiles. */
+.fe-appicons{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+.fe-appicon{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px 6px;border-radius:10px;cursor:pointer;color:var(--mt);font-size:var(--fs-sm);
+  transition:background var(--t-fast) var(--ease)}
+.fe-appicon:hover{background:var(--hover)}
+.fe-appicon input{position:absolute;opacity:0;pointer-events:none}
+.fe-appicon img{width:40px;height:40px;border-radius:10px;box-shadow:0 1px 3px rgb(0 0 0 / .25);transition:transform var(--t-fast) var(--ease)}
+.fe-appicon:hover img{transform:translateY(-1px) scale(1.04)}
+.fe-appicon:has(input:checked){background:var(--act);color:var(--tx)}
+.fe-appicon:has(input:checked) img{box-shadow:0 0 0 2px var(--ac),0 2px 6px rgb(0 0 0 / .25)}
+.fe-appicon:has(input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
+
+/* Icon rules. */
+.fe-rule-sugg{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:12px 16px 4px}
+.fe-rule-sugg:empty{display:none}
+.fe-rule-sugg-l{font-size:var(--fs-sm);color:var(--dm);margin-right:2px}
+.fe-rule-add{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px 0 6px;margin:0;border:1px dashed var(--bd2);border-radius:13px;background:none;color:var(--mt);font:inherit;font-size:var(--fs-md);cursor:pointer}
+.fe-rule-add:hover{border-style:solid;border-color:var(--ac);color:var(--tx)}
+.fe-rule-add svg{width:13px;height:15px}
+#fe-st-rules-list{padding:6px 10px 10px}
+.fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:10px;padding:6px;border-radius:9px}
+.fe-rule:hover{background:var(--hover)}
+.fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern{opacity:.45}
+.fe-switch.sm{width:28px;height:16px;border-radius:8px}
+.fe-switch.sm::after{width:12px;height:12px}
+.fe-switch.sm:checked::after{transform:translateX(12px)}
+.fe-rule-ico{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--bd2);border-radius:9px;background:var(--card);cursor:pointer}
+.fe-rule-ico:hover{border-color:var(--ac)}
+.fe-rule-ico svg{width:18px;height:20px}
+.fe-st-rule-pattern{width:100%;height:32px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--card);color:var(--tx);font:var(--fs-md) var(--mono);outline:0}
+.fe-st-rule-pattern:focus{border-color:var(--ac)}
+.fe-st-rule-pattern.bad{border-color:var(--nc-red);color:var(--nc-red)}
+.fe-rule-n{min-width:26px;padding:2px 6px;border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
+.fe-st-rule-del:hover{color:var(--nc-red)}
+.fe-rule-pop{position:fixed;z-index:610;width:330px;padding:12px;border-radius:var(--pop-r);display:flex;flex-direction:column;gap:12px;
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-rp-sec{display:flex;flex-direction:column;gap:6px}
+.fe-rp-l{font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
+.fe-rp-glyphs{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}
+.fe-rp-g{display:grid;place-items:center;height:34px;padding:0;border:0;border-radius:7px;background:none;cursor:pointer}
+.fe-rp-g svg{width:20px;height:22px}
+.fe-rp-g:hover{background:var(--hover)}
+.fe-rp-g.on{background:var(--act);box-shadow:inset 0 0 0 1.5px var(--ac)}
+.fe-rp-label{width:90px;height:30px;padding:0 10px;font:600 var(--fs-md) var(--mono);border-radius:var(--row-r)}
+.fe-rp-sw{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:center}
+.fe-rp-c{width:26px;height:26px;padding:0;border:0;border-radius:50%;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 1px rgb(0 0 0 / .15);transition:transform var(--t-fast) var(--ease)}
+.fe-rp-c:hover{transform:scale(1.1)}
+.fe-rp-c.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--c)}
+.fe-rp-c:focus-visible,.fe-rp-g:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-rp-hex{grid-column:span 4;height:28px;padding:0 8px;font:var(--fs-md) var(--mono);border-radius:var(--row-r)}
+
+/* AI: a status line on top, then the model controls and the list. */
+.fe-ai-hero{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--nc-purple) 18%,var(--card)),var(--card));
+  border:1px solid color-mix(in srgb,var(--nc-purple) 30%,var(--bd))}
+.fe-ai-hero .fe-st-ai-head{margin:0}
+.fe-ai-hero .fe-st-ai-blink,.fe-ai-hero .fe-st-ai-blink .dot{width:12px;height:12px}
+.fe-ai-hero-tx{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+.fe-ai-hero-tx b{font-size:var(--fs-xl);font-weight:650;color:var(--tx)}
+.fe-ai-hero-tx span{font-size:var(--fs-md);color:var(--mt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:10px 16px 12px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+#fe-st-ai-grid:empty{display:none}
+.fe-st-ai-hint code{font-family:var(--mono)}
+.fe-dm{color:var(--dm)}
+.fe-ai-models{display:flex;flex-direction:column;padding:6px}
+.fe-ai-m{display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px;border-radius:9px}
+.fe-ai-m:hover{background:var(--hover)}
+.fe-ai-m svg{flex:none;width:15px;height:15px;color:var(--mt)}
+.fe-ai-m b{font-size:var(--row-fs);font-weight:550;color:var(--tx)}
+.fe-ai-m-id{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--fs-sm) var(--mono);color:var(--dm)}
+.fe-ai-where{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:color-mix(in srgb,var(--nc-green) 16%,transparent);color:var(--nc-green)}
+.fe-ai-where.cloud{background:color-mix(in srgb,var(--nc-blue) 16%,transparent);color:var(--nc-blue)}
+.fe-ai-def{padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);background:var(--act);color:var(--ac)}
+`;
+
+  // src/el.ts
+  function el(id) {
+    return document.getElementById(id);
+  }
+  function els(selector, root = document) {
+    return [...root.querySelectorAll(selector)];
+  }
+
+  // src/goto.ts
+  var LAST_KEY = "bfb-goto-last-v1";
+  function absPath(input, home) {
+    let p = input.trim().replace(/^['"]|['"]$/g, "");
+    if (!p) return null;
+    if (/^file:\/\//i.test(p)) {
+      try {
+        p = decodeURIComponent(new URL(p).pathname);
+      } catch {
+        return null;
+      }
+    }
+    if (p === "~" || p.startsWith("~/")) {
+      if (!home) return null;
+      p = home + p.slice(1);
+    }
+    return p.startsWith("/") ? p.replace(/\/{2,}/g, "/") : null;
+  }
+  async function readable(path, waitMs = 9e3) {
+    if (!path.endsWith("/")) return true;
+    const timeout = new Promise((r) => setTimeout(() => r(false), waitMs));
+    const read2 = fetchFileText(fileHref(path)).then(() => true, () => false);
+    return Promise.race([read2, timeout]);
+  }
+  async function resolvePath(path) {
+    const clean = path.replace(/\/+$/, "");
+    if (!clean) return "/";
+    const parent = clean.slice(0, clean.lastIndexOf("/") + 1) || "/";
+    const name = clean.slice(clean.lastIndexOf("/") + 1);
+    let listing;
+    const dir = fileHref(parent);
+    try {
+      listing = await fetchFileText(dir);
+    } catch {
+      if (parent === "/") return path;
+      return await resolvePath(parent) === null ? null : path;
+    }
+    const hit = parseListing(listing, dir).find((e) => e.name === name);
+    return hit ? clean + (hit.isDir ? "/" : "") : null;
+  }
+  function mountGoto(btn, home, go) {
+    let box = null;
+    const close = () => {
+      if (!box) return;
+      kvSet(LAST_KEY, box.querySelector("input").value);
+      box.remove();
+      box = null;
+      document.removeEventListener("pointerdown", away, true);
+      btn.classList.remove("on");
+    };
+    const away = (e) => {
+      if (box && !box.contains(e.target) && !btn.contains(e.target)) close();
+    };
+    const open = () => {
+      box = document.createElement("form");
+      box.id = "fe-goto";
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-label", "Go to a path");
+      const recents = getRecents().slice(0, 30);
+      box.innerHTML = `<input type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
+      <datalist id="fe-goto-list">${recents.map((r2) => `<option value="${esc(r2.path)}"></option>`).join("")}</datalist>
+      <p class="fe-goto-msg" hidden></p>`;
+      document.getElementById("fe").appendChild(box);
+      const r = btn.getBoundingClientRect();
+      box.style.top = `${r.bottom + 6}px`;
+      box.style.left = `${Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8))}px`;
+      const input = box.querySelector("input");
+      input.value = kvGet(LAST_KEY) ?? "";
+      input.focus();
+      input.select();
+      btn.classList.add("on");
+      const say = (text) => {
+        const msg = box.querySelector(".fe-goto-msg");
+        msg.hidden = false;
+        msg.textContent = text;
+      };
+      box.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const path = absPath(input.value, home());
+        if (!path) {
+          say("Paste a full path, such as ~/Code or /Users/you/notes.md");
+          return;
+        }
+        kvSet(LAST_KEY, input.value);
+        const found = await resolvePath(path);
+        if (!found) {
+          say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
+          return;
+        }
+        const slow = setTimeout(() => say("Checking that folder\u2026"), 600);
+        const ok = await readable(found);
+        clearTimeout(slow);
+        if (!ok) {
+          say(`The browser could not open ${found}. It may not have permission to read that folder.`);
+          return;
+        }
+        close();
+        go(found);
+      });
+      box.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          close();
+          btn.focus();
+        }
+      });
+      input.addEventListener("input", () => kvSet(LAST_KEY, input.value));
+      document.addEventListener("pointerdown", away, true);
+    };
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (box) close();
+      else open();
+    });
+  }
+
+  // src/motion.ts
+  var reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var EASE = "cubic-bezier(.2,.8,.2,1)";
+  var running = null;
+  var folding = /* @__PURE__ */ new WeakMap();
+  function foldTo(box, flip, done) {
+    folding.get(box)?.finish();
+    if (reduced()) {
+      flip();
+      done?.();
+      return;
+    }
+    const from = box.offsetHeight;
+    flip();
+    const to = box.offsetHeight;
+    flip();
+    const closing = to < from;
+    if (!closing) flip();
+    box.style.overflow = "hidden";
+    const anim = box.animate(
+      [{ height: from + "px", opacity: closing ? 1 : 0.4 }, { height: to + "px", opacity: closing ? 0.4 : 1 }],
+      { duration: 200, easing: EASE }
+    );
+    folding.set(box, anim);
+    anim.onfinish = () => {
+      folding.delete(box);
+      box.style.overflow = "";
+      if (closing) flip();
+      done?.();
+    };
+  }
+  function setSidebarShown(show) {
+    const side = el("fe-side"), rz = el("fe-side-rz");
+    running?.cancel();
+    running = null;
+    const shown = side.style.display !== "none";
+    if (show === shown) return;
+    if (reduced()) {
+      side.style.display = rz.style.display = show ? "" : "none";
+      return;
+    }
+    if (show) side.style.display = rz.style.display = "";
+    const w = side.offsetWidth;
+    const open = [{ width: "0px", opacity: 0, marginRight: "-10px" }, { width: w + "px", opacity: 1, marginRight: "0px" }];
+    running = side.animate(show ? open : [...open].reverse(), { duration: 220, easing: EASE });
+    running.onfinish = () => {
+      running = null;
+      if (!show) side.style.display = rz.style.display = "none";
+    };
+  }
+
+  // src/theme.ts
+  function themeMode() {
+    const m = kvGet(THEME_KEY);
+    return m === "light" || m === "system" ? m : "dark";
+  }
+  var systemDark = () => matchMedia("(prefers-color-scheme: dark)").matches;
+  function resolveTheme(mode) {
+    return mode === "system" ? systemDark() ? "dark" : "light" : mode;
+  }
+  function setThemeMode(fe, mode, save = true) {
+    fe.dataset.mode = mode;
+    fe.dataset.theme = resolveTheme(mode);
+    if (save) kvSet(THEME_KEY, mode);
+  }
+  function followSystem(fe) {
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+      if (fe.dataset.mode === "system") fe.dataset.theme = resolveTheme("system");
+    });
+  }
+  var APP_ICONS = [
+    { id: "classic", file: "01-classic.svg", name: "Classic" },
+    { id: "stack", file: "02-stack.svg", name: "Stack" },
+    { id: "tree", file: "03-tree.svg", name: "Tree" },
+    { id: "lens", file: "04-lens.svg", name: "Lens" },
+    { id: "panes", file: "05-panes.svg", name: "Panes" },
+    { id: "map", file: "06-map.svg", name: "Map" },
+    { id: "drawer", file: "07-drawer.svg", name: "Drawer" },
+    { id: "tabs", file: "08-tabs.svg", name: "Tabs" },
+    { id: "fan", file: "09-fan.svg", name: "Fan" },
+    { id: "prompt", file: "10-prompt.svg", name: "Prompt" },
+    { id: "orbit", file: "11-orbit.svg", name: "Orbit" },
+    { id: "sprout", file: "12-sprout.svg", name: "Sprout" },
+    { id: "grid", file: "13-grid.svg", name: "Grid" },
+    { id: "starred", file: "14-starred.svg", name: "Starred" },
+    { id: "mono-b", file: "15-mono-b.svg", name: "Mono B" },
+    { id: "outline", file: "16-outline.svg", name: "Outline" }
+  ];
+  var APP_ICON_KEY = "bfb-app-icon";
+  function appIconUrl(id = kvGet(APP_ICON_KEY) ?? "classic") {
+    const icon2 = APP_ICONS.find((i2) => i2.id === id) ?? APP_ICONS[0];
+    return chrome.runtime.getURL(`assets/app-icons/${icon2.file}`);
+  }
+  function setAppIcon(id) {
+    kvSet(APP_ICON_KEY, id);
+    const link = document.querySelector('link[rel="icon"]');
+    if (link) link.href = appIconUrl(id);
+  }
+
+  // src/chrome.ts
+  function setUiScale(percent) {
+    try {
+      void chrome.runtime.sendMessage({ type: "bfb-zoom", factor: (percent || 100) / 100 });
+    } catch {
+    }
+  }
+  function initChrome(app) {
+    const { fe, settings, toast } = app;
+    el("fe-status-path").addEventListener("click", () => {
+      void copyToClipboard(app.rawPath).then((ok) => toast(ok ? "Copied the path" : "Copy failed"));
+    });
+    el("fe-theme-btn").addEventListener("click", () => setThemeMode(fe, fe.dataset.theme === "dark" ? "light" : "dark"));
+    function getTermCmd(path) {
+      const term = settings.terminalApp || "ghostty";
+      const tpl = term === "custom" ? settings.terminalCmd || 'cd "${p}"' : TERMINAL_CMDS[term] || TERMINAL_CMDS.ghostty;
+      return tpl.replace(/\$\{p\}/g, path);
+    }
+    function fallbackCopy(path) {
+      const cmd = getTermCmd(path);
+      navigator.clipboard.writeText(cmd).catch(() => {
+      });
+      toast(`Copied: ${cmd}`);
+    }
+    app.openInTerminal = (path) => {
+      const term = settings.terminalApp || "ghostty";
+      if (term !== "custom") {
+        chrome.runtime.sendMessage(
+          { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_terminal", path, app: term } },
+          (res) => {
+            if (chrome.runtime.lastError || !res?.ok) fallbackCopy(path);
+          }
+        );
+        return;
+      }
+      fallbackCopy(path);
+    };
+    el("fe-term-btn").addEventListener("click", (e) => {
+      if (e.shiftKey) fallbackCopy(app.folderPath);
+      else app.openInTerminal(app.folderPath);
+    });
+    const crumbMenu = el("fe-crumb-menu");
+    let crumbMenuUrl = null;
+    function closeCrumbMenu() {
+      crumbMenu.style.display = "none";
+      crumbMenuUrl = null;
+    }
+    const bc = el("fe-bc"), more = el("fe-crumb-more");
+    const openCrumbMenu = (btn, key, html) => {
+      const rect = btn.getBoundingClientRect();
+      crumbMenu.style.left = Math.min(rect.left, window.innerWidth - 260) + "px";
+      crumbMenu.style.top = rect.bottom + 4 + "px";
+      crumbMenu.style.display = "block";
+      crumbMenu.innerHTML = html;
+      crumbMenuUrl = key;
+    };
+    const fitCrumbs = () => {
+      const groups = [...bc.querySelectorAll(".fe-cg")];
+      const pre = groups.filter((g) => g.hasAttribute("data-pre")).length;
+      groups.forEach((g, i2) => {
+        g.hidden = i2 < pre;
+      });
+      more.hidden = true;
+      const n = groups.length, order = [];
+      for (let i2 = pre + 2; i2 < n - 2; i2++) order.push(i2);
+      for (const i2 of [pre + 1, n - 2]) if (i2 > pre && i2 < n - 1 && !order.includes(i2)) order.push(i2);
+      for (const i2 of order) {
+        if (bc.scrollWidth <= bc.clientWidth) break;
+        groups[i2].hidden = true;
+        more.hidden = false;
+      }
+      const first = groups.find((g, i2) => g.hidden && i2 >= pre) ?? (pre ? groups[pre] : void 0);
+      if (pre) more.hidden = false;
+      if (first) first.before(more);
+    };
+    fitCrumbs();
+    new ResizeObserver(() => {
+      closeCrumbMenu();
+      fitCrumbs();
+    }).observe(bc);
+    const home = homeDir(app.rawPath);
+    let edit2 = null;
+    const endEdit = () => {
+      if (!edit2) return;
+      edit2.remove();
+      edit2 = null;
+      bc.hidden = false;
+      fitCrumbs();
+    };
+    const startEdit = () => {
+      if (edit2) return;
+      closeCrumbMenu();
+      const shown = home && (app.rawPath === home || app.rawPath.startsWith(home + "/")) ? "~" + app.rawPath.slice(home.length) : app.rawPath;
+      edit2 = document.createElement("form");
+      edit2.id = "fe-bc-edit";
+      edit2.innerHTML = `<input type="text" list="fe-bc-recent" spellcheck="false" autocomplete="off" aria-label="Path to a file or folder" title="Enter goes there \xB7 Esc cancels">
+      <datalist id="fe-bc-recent">${getRecents().slice(0, 30).map((r) => `<option value="${esc(r.path)}"></option>`).join("")}</datalist>`;
+      bc.after(edit2);
+      bc.hidden = true;
+      const input = edit2.querySelector("input");
+      input.value = shown;
+      input.focus();
+      input.select();
+      input.addEventListener("blur", () => setTimeout(() => {
+        if (edit2 && !edit2.contains(document.activeElement)) endEdit();
+      }, 120));
+      input.addEventListener("keydown", (ke) => {
+        if (ke.key === "Escape") {
+          ke.preventDefault();
+          ke.stopPropagation();
+          endEdit();
+        }
+      });
+      edit2.addEventListener("submit", async (se) => {
+        se.preventDefault();
+        const path = absPath(input.value, home);
+        if (!path) {
+          input.setAttribute("aria-invalid", "true");
+          toast("Type a full path, such as ~/Code or /Users/you/notes.md");
+          return;
+        }
+        const found = await resolvePath(path);
+        if (!found) {
+          input.setAttribute("aria-invalid", "true");
+          toast(`Nothing at ${path}`);
+          return;
+        }
+        const slow = setTimeout(() => toast("Checking that folder\u2026"), 600);
+        const ok = await readable(found);
+        clearTimeout(slow);
+        if (!ok) {
+          input.setAttribute("aria-invalid", "true");
+          toast(`The browser could not open ${found}. It may not have permission to read it.`);
+          return;
+        }
+        if (found.replace(/\/$/, "") === app.rawPath.replace(/\/$/, "")) {
+          endEdit();
+          return;
+        }
+        location.href = pageHref(fileHref(found));
+      });
+      input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
+    };
+    bc.title = "Click an empty part of the bar to type a path";
+    bc.addEventListener("click", (e) => {
+      if (e.target === bc) startEdit();
+    });
+    bc.addEventListener("click", async (e) => {
+      if (e.target.closest("#fe-crumb-more")) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (crumbMenu.style.display !== "none" && crumbMenuUrl === "more") {
+          closeCrumbMenu();
+          return;
+        }
+        const hid = [...bc.querySelectorAll(".fe-cg[hidden] .fe-crumb")];
+        openCrumbMenu(more, "more", `<div class="fe-dd-items">${hid.map((a) => {
+          const href = a.getAttribute("href"), name = a.textContent;
+          const icon2 = getIcon({ name, href, isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: "" }, app.iconRules);
+          return `<a href="${esc(href)}" class="fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon2}<span>${esc(name)}</span></a>`;
+        }).join("")}</div>`);
+        return;
+      }
+      const btn = e.target.closest(".fe-crumb-dd");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const url = btn.dataset.url;
+      if (crumbMenu.style.display !== "none" && crumbMenuUrl === url) {
+        closeCrumbMenu();
+        return;
+      }
+      openCrumbMenu(btn, url, '<div class="fe-dd-spinner">Loading\u2026</div>');
+      const text = await fetchFileText(url).catch((err) => {
+        console.error("[BFB] crumb dropdown failed:", url, err);
+        return null;
+      });
+      if (text === null) {
+        if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
+        return;
+      }
+      if (crumbMenuUrl !== url) return;
+      try {
+        const entries = parseListing(text, url);
+        if (!entries.length) {
+          crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>';
+          return;
+        }
+        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
+          (en) => `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
+        ).join("")}</div>`;
+        const ddSearch = crumbMenu.querySelector(".fe-dd-search");
+        ddSearch.focus();
+        ddSearch.addEventListener("input", () => {
+          const q = ddSearch.value.toLowerCase();
+          crumbMenu.querySelectorAll(".fe-dd-item").forEach((it) => {
+            it.style.display = !q || it.dataset.name.includes(q) ? "" : "none";
+          });
+        });
+        ddSearch.addEventListener("keydown", (ke) => {
+          if (ke.key === "Escape") {
+            ke.stopPropagation();
+            closeCrumbMenu();
+          } else if (ke.key === "Enter") {
+            const first = [...crumbMenu.querySelectorAll(".fe-dd-item")].find((it) => it.style.display !== "none");
+            if (first) location.href = pageHref(first.href);
+          }
+        });
+      } catch (err) {
+        console.error("[BFB] crumb dropdown parse error:", url, err);
+        if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
+      }
+    });
+    document.addEventListener("click", (e) => {
+      if (!crumbMenu.contains(e.target) && !e.target.closest(".fe-crumb-dd,#fe-crumb-more"))
+        closeCrumbMenu();
+    });
+    const side = el("fe-side");
+    const rz = el("fe-side-rz");
+    el("fe-side-toggle").addEventListener("click", () => {
+      settings.showSidebar = !settings.showSidebar;
+      saveSettings(settings);
+      setSidebarShown(settings.showSidebar);
+      const box = document.getElementById("fe-st-sidebar");
+      if (box) box.checked = settings.showSidebar;
+    });
+    rz.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      rz.classList.add("drag");
+      const startX = e.clientX;
+      const startW = side.getBoundingClientRect().width;
+      const move = (m) => {
+        side.style.width = Math.max(210, Math.min(520, startW + m.clientX - startX)) + "px";
+      };
+      const up = () => {
+        rz.classList.remove("drag");
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        settings.sidebarWidth = Math.round(side.getBoundingClientRect().width);
+        settings.sidebarRail = true;
+        saveSettings(settings);
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+    });
+  }
 
   // node_modules/yaml/browser/dist/nodes/identity.js
   var ALIAS = Symbol.for("yaml.alias");
@@ -5584,15 +6265,15 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     if (typeof ctrl !== "symbol") {
       if (isCollection(node)) {
         path = Object.freeze(path.concat(node));
-        for (let i = 0; i < node.items.length; ++i) {
-          const ci = visit_(i, node.items[i], visitor, path);
+        for (let i2 = 0; i2 < node.items.length; ++i2) {
+          const ci = visit_(i2, node.items[i2], visitor, path);
           if (typeof ci === "number")
-            i = ci - 1;
+            i2 = ci - 1;
           else if (ci === BREAK)
             return BREAK;
           else if (ci === REMOVE) {
-            node.items.splice(i, 1);
-            i -= 1;
+            node.items.splice(i2, 1);
+            i2 -= 1;
           }
         }
       } else if (isPair(node)) {
@@ -5632,15 +6313,15 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     if (typeof ctrl !== "symbol") {
       if (isCollection(node)) {
         path = Object.freeze(path.concat(node));
-        for (let i = 0; i < node.items.length; ++i) {
-          const ci = await visitAsync_(i, node.items[i], visitor, path);
+        for (let i2 = 0; i2 < node.items.length; ++i2) {
+          const ci = await visitAsync_(i2, node.items[i2], visitor, path);
           if (typeof ci === "number")
-            i = ci - 1;
+            i2 = ci - 1;
           else if (ci === BREAK)
             return BREAK;
           else if (ci === REMOVE) {
-            node.items.splice(i, 1);
-            i -= 1;
+            node.items.splice(i2, 1);
+            i2 -= 1;
           }
         }
       } else if (isPair(node)) {
@@ -5892,8 +6573,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     return anchors;
   }
   function findNewAnchor(prefix, exclude) {
-    for (let i = 1; true; ++i) {
-      const name = `${prefix}${i}`;
+    for (let i2 = 1; true; ++i2) {
+      const name = `${prefix}${i2}`;
       if (!exclude.has(name))
         return name;
     }
@@ -5936,13 +6617,13 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
       if (Array.isArray(val)) {
-        for (let i = 0, len = val.length; i < len; ++i) {
-          const v0 = val[i];
-          const v1 = applyReviver(reviver, val, String(i), v0);
+        for (let i2 = 0, len = val.length; i2 < len; ++i2) {
+          const v0 = val[i2];
+          const v1 = applyReviver(reviver, val, String(i2), v0);
           if (v1 === void 0)
-            delete val[i];
+            delete val[i2];
           else if (v1 !== v0)
-            val[i] = v1;
+            val[i2] = v1;
         }
       } else if (val instanceof Map) {
         for (const k of Array.from(val.keys())) {
@@ -5979,7 +6660,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   // node_modules/yaml/browser/dist/nodes/toJS.js
   function toJS(value, arg, ctx) {
     if (Array.isArray(value))
-      return value.map((v, i) => toJS(v, String(i), ctx));
+      return value.map((v, i2) => toJS(v, String(i2), ctx));
     if (value && typeof value.toJSON === "function") {
       if (!ctx || !hasAnchor(value))
         return value.toJSON(arg, ctx);
@@ -6212,8 +6893,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   // node_modules/yaml/browser/dist/nodes/Collection.js
   function collectionFromPath(schema4, path, value) {
     let v = value;
-    for (let i = path.length - 1; i >= 0; --i) {
-      const k = path[i];
+    for (let i2 = path.length - 1; i2 >= 0; --i2) {
+      const k = path[i2];
       if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
         const a = [];
         a[k] = v;
@@ -6374,44 +7055,44 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     let split = void 0;
     let prev = void 0;
     let overflow = false;
-    let i = -1;
+    let i2 = -1;
     let escStart = -1;
     let escEnd = -1;
     if (mode === FOLD_BLOCK) {
-      i = consumeMoreIndentedLines(text, i, indent.length);
-      if (i !== -1)
-        end = i + endStep;
+      i2 = consumeMoreIndentedLines(text, i2, indent.length);
+      if (i2 !== -1)
+        end = i2 + endStep;
     }
-    for (let ch; ch = text[i += 1]; ) {
+    for (let ch; ch = text[i2 += 1]; ) {
       if (mode === FOLD_QUOTED && ch === "\\") {
-        escStart = i;
-        switch (text[i + 1]) {
+        escStart = i2;
+        switch (text[i2 + 1]) {
           case "x":
-            i += 3;
+            i2 += 3;
             break;
           case "u":
-            i += 5;
+            i2 += 5;
             break;
           case "U":
-            i += 9;
+            i2 += 9;
             break;
           default:
-            i += 1;
+            i2 += 1;
         }
-        escEnd = i;
+        escEnd = i2;
       }
       if (ch === "\n") {
         if (mode === FOLD_BLOCK)
-          i = consumeMoreIndentedLines(text, i, indent.length);
-        end = i + indent.length + endStep;
+          i2 = consumeMoreIndentedLines(text, i2, indent.length);
+        end = i2 + indent.length + endStep;
         split = void 0;
       } else {
         if (ch === " " && prev && prev !== " " && prev !== "\n" && prev !== "	") {
-          const next = text[i + 1];
+          const next = text[i2 + 1];
           if (next && next !== " " && next !== "\n" && next !== "	")
-            split = i;
+            split = i2;
         }
-        if (i >= end) {
+        if (i2 >= end) {
           if (split) {
             folds.push(split);
             end = split + endStep;
@@ -6419,10 +7100,10 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
           } else if (mode === FOLD_QUOTED) {
             while (prev === " " || prev === "	") {
               prev = ch;
-              ch = text[i += 1];
+              ch = text[i2 += 1];
               overflow = true;
             }
-            const j = i > escEnd + 1 ? i - 2 : escStart - 1;
+            const j = i2 > escEnd + 1 ? i2 - 2 : escStart - 1;
             if (escapedFolds[j])
               return text;
             folds.push(j);
@@ -6443,9 +7124,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
     if (onFold)
       onFold();
     let res = text.slice(0, folds[0]);
-    for (let i2 = 0; i2 < folds.length; ++i2) {
-      const fold = folds[i2];
-      const end2 = folds[i2 + 1] || text.length;
+    for (let i3 = 0; i3 < folds.length; ++i3) {
+      const fold = folds[i3];
+      const end2 = folds[i3 + 1] || text.length;
       if (fold === 0)
         res = `
 ${indent}${text.slice(0, end2)}`;
@@ -6458,19 +7139,19 @@ ${indent}${text.slice(fold + 1, end2)}`;
     }
     return res;
   }
-  function consumeMoreIndentedLines(text, i, indent) {
-    let end = i;
-    let start = i + 1;
+  function consumeMoreIndentedLines(text, i2, indent) {
+    let end = i2;
+    let start = i2 + 1;
     let ch = text[start];
     while (ch === " " || ch === "	") {
-      if (i < start + indent) {
-        ch = text[++i];
+      if (i2 < start + indent) {
+        ch = text[++i2];
       } else {
         do {
-          ch = text[++i];
+          ch = text[++i2];
         } while (ch && ch !== "\n");
-        end = i;
-        start = i + 1;
+        end = i2;
+        start = i2 + 1;
         ch = text[start];
       }
     }
@@ -6491,11 +7172,11 @@ ${indent}${text.slice(fold + 1, end2)}`;
     const strLen = str.length;
     if (strLen <= limit)
       return false;
-    for (let i = 0, start = 0; i < strLen; ++i) {
-      if (str[i] === "\n") {
-        if (i - start > limit)
+    for (let i2 = 0, start = 0; i2 < strLen; ++i2) {
+      if (str[i2] === "\n") {
+        if (i2 - start > limit)
           return true;
-        start = i + 1;
+        start = i2 + 1;
         if (strLen - start <= limit)
           return false;
       }
@@ -6511,19 +7192,19 @@ ${indent}${text.slice(fold + 1, end2)}`;
     const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
     let str = "";
     let start = 0;
-    for (let i = 0, ch = json[i]; ch; ch = json[++i]) {
-      if (ch === " " && json[i + 1] === "\\" && json[i + 2] === "n") {
-        str += json.slice(start, i) + "\\ ";
-        i += 1;
-        start = i;
+    for (let i2 = 0, ch = json[i2]; ch; ch = json[++i2]) {
+      if (ch === " " && json[i2 + 1] === "\\" && json[i2 + 2] === "n") {
+        str += json.slice(start, i2) + "\\ ";
+        i2 += 1;
+        start = i2;
         ch = "\\";
       }
       if (ch === "\\")
-        switch (json[i + 1]) {
+        switch (json[i2 + 1]) {
           case "u":
             {
-              str += json.slice(start, i);
-              const code = json.substr(i + 2, 4);
+              str += json.slice(start, i2);
+              const code = json.substr(i2 + 2, 4);
               switch (code) {
                 case "0000":
                   str += "\\0";
@@ -6553,30 +7234,30 @@ ${indent}${text.slice(fold + 1, end2)}`;
                   if (code.substr(0, 2) === "00")
                     str += "\\x" + code.substr(2);
                   else
-                    str += json.substr(i, 6);
+                    str += json.substr(i2, 6);
               }
-              i += 5;
-              start = i + 1;
+              i2 += 5;
+              start = i2 + 1;
             }
             break;
           case "n":
-            if (implicitKey || json[i + 2] === '"' || json.length < minMultiLineLength) {
-              i += 1;
+            if (implicitKey || json[i2 + 2] === '"' || json.length < minMultiLineLength) {
+              i2 += 1;
             } else {
-              str += json.slice(start, i) + "\n\n";
-              while (json[i + 2] === "\\" && json[i + 3] === "n" && json[i + 4] !== '"') {
+              str += json.slice(start, i2) + "\n\n";
+              while (json[i2 + 2] === "\\" && json[i2 + 3] === "n" && json[i2 + 4] !== '"') {
                 str += "\n";
-                i += 2;
+                i2 += 2;
               }
               str += indent;
-              if (json[i + 2] === " ")
+              if (json[i2 + 2] === " ")
                 str += "\\";
-              i += 1;
-              start = i + 1;
+              i2 += 1;
+              start = i2 + 1;
             }
             break;
           default:
-            i += 1;
+            i2 += 1;
         }
     }
     str = start ? str + json.slice(start) : json;
@@ -7138,8 +7819,8 @@ ${ctx.indent}`;
     const itemCtx = Object.assign({}, ctx, { indent: itemIndent, type: null });
     let chompKeep = false;
     const lines = [];
-    for (let i = 0; i < items.length; ++i) {
-      const item = items[i];
+    for (let i2 = 0; i2 < items.length; ++i2) {
+      const item = items[i2];
       let comment2 = null;
       if (isNode(item)) {
         if (!chompKeep && item.spaceBefore)
@@ -7168,8 +7849,8 @@ ${ctx.indent}`;
       str = flowChars.start + flowChars.end;
     } else {
       str = lines[0];
-      for (let i = 1; i < lines.length; ++i) {
-        const line2 = lines[i];
+      for (let i2 = 1; i2 < lines.length; ++i2) {
+        const line2 = lines[i2];
         str += line2 ? `
 ${indent}${line2}` : "\n";
       }
@@ -7193,8 +7874,8 @@ ${indent}${line2}` : "\n";
     let reqNewline = false;
     let linesAtValue = 0;
     const lines = [];
-    for (let i = 0; i < items.length; ++i) {
-      const item = items[i];
+    for (let i2 = 0; i2 < items.length; ++i2) {
+      const item = items[i2];
       let comment = null;
       if (isNode(item)) {
         if (item.spaceBefore)
@@ -7224,7 +7905,7 @@ ${indent}${line2}` : "\n";
       if (comment)
         reqNewline = true;
       let str = stringify(item, itemCtx, () => comment = null);
-      if (i < items.length - 1)
+      if (i2 < items.length - 1)
         str += ",";
       if (comment)
         str += lineComment(str, itemIndent, commentString(comment));
@@ -7334,11 +8015,11 @@ ${indent}${end}`;
         else
           prev.value = _pair.value;
       } else if (sortEntries) {
-        const i = this.items.findIndex((item) => sortEntries(_pair, item) < 0);
-        if (i === -1)
+        const i2 = this.items.findIndex((item) => sortEntries(_pair, item) < 0);
+        if (i2 === -1)
           this.items.push(_pair);
         else
-          this.items.splice(i, 0, _pair);
+          this.items.splice(i2, 0, _pair);
       } else {
         this.items.push(_pair);
       }
@@ -7472,9 +8153,9 @@ ${indent}${end}`;
       const seq2 = [];
       if (ctx?.onCreate)
         ctx.onCreate(seq2);
-      let i = 0;
+      let i2 = 0;
       for (const item of this.items)
-        seq2.push(toJS(item, String(i++), ctx));
+        seq2.push(toJS(item, String(i2++), ctx));
       return seq2;
     }
     toString(ctx, onComment, onChompKeep) {
@@ -7492,10 +8173,10 @@ ${indent}${end}`;
       const { replacer } = ctx;
       const seq2 = new this(schema4);
       if (obj && Symbol.iterator in Object(obj)) {
-        let i = 0;
+        let i2 = 0;
         for (let it of obj) {
           if (typeof replacer === "function") {
-            const key = obj instanceof Set ? it : String(i++);
+            const key = obj instanceof Set ? it : String(i2++);
             it = replacer.call(obj, key, it);
           }
           seq2.items.push(createNode(it, void 0, ctx));
@@ -7574,12 +8255,12 @@ ${indent}${end}`;
       return isNaN(num) ? ".nan" : num < 0 ? "-.inf" : ".inf";
     let n = JSON.stringify(value);
     if (!format && minFractionDigits && (!tag || tag === "tag:yaml.org,2002:float") && /^\d/.test(n)) {
-      let i = n.indexOf(".");
-      if (i < 0) {
-        i = n.length;
+      let i2 = n.indexOf(".");
+      if (i2 < 0) {
+        i2 = n.length;
         n += ".";
       }
-      let d = minFractionDigits - (n.length - i - 1);
+      let d = minFractionDigits - (n.length - i2 - 1);
       while (d-- > 0)
         n += "0";
     }
@@ -7751,8 +8432,8 @@ ${indent}${end}`;
       } else if (typeof atob === "function") {
         const str = atob(src.replace(/[\n\r]/g, ""));
         const buffer = new Uint8Array(str.length);
-        for (let i = 0; i < str.length; ++i)
-          buffer[i] = str.charCodeAt(i);
+        for (let i2 = 0; i2 < str.length; ++i2)
+          buffer[i2] = str.charCodeAt(i2);
         return buffer;
       } else {
         onError("This environment does not support reading binary tags; either Buffer or atob is required");
@@ -7766,8 +8447,8 @@ ${indent}${end}`;
         str = buf instanceof Buffer ? buf.toString("base64") : Buffer.from(buf.buffer).toString("base64");
       } else if (typeof btoa === "function") {
         let s = "";
-        for (let i = 0; i < buf.length; ++i)
-          s += String.fromCharCode(buf[i]);
+        for (let i2 = 0; i2 < buf.length; ++i2)
+          s += String.fromCharCode(buf[i2]);
         str = btoa(s);
       } else {
         throw new Error("This environment does not support writing binary tags; either Buffer or btoa is required");
@@ -7778,8 +8459,8 @@ ${indent}${end}`;
         const lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth);
         const n = Math.ceil(str.length / lineWidth);
         const lines = new Array(n);
-        for (let i = 0, o = 0; i < n; ++i, o += lineWidth) {
-          lines[i] = str.substr(o, lineWidth);
+        for (let i2 = 0, o = 0; i2 < n; ++i2, o += lineWidth) {
+          lines[i2] = str.substr(o, lineWidth);
         }
         str = lines.join(type === Scalar.BLOCK_LITERAL ? "\n" : " ");
       }
@@ -7790,8 +8471,8 @@ ${indent}${end}`;
   // node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
   function resolvePairs(seq2, onError) {
     if (isSeq(seq2)) {
-      for (let i = 0; i < seq2.items.length; ++i) {
-        let item = seq2.items[i];
+      for (let i2 = 0; i2 < seq2.items.length; ++i2) {
+        let item = seq2.items[i2];
         if (isPair(item))
           continue;
         else if (isMap(item)) {
@@ -7808,7 +8489,7 @@ ${cn.comment}` : item.comment;
           }
           item = pair;
         }
-        seq2.items[i] = isPair(item) ? item : new Pair(item);
+        seq2.items[i2] = isPair(item) ? item : new Pair(item);
       }
     } else
       onError("Expected a sequence for this tag");
@@ -7818,11 +8499,11 @@ ${cn.comment}` : item.comment;
     const { replacer } = ctx;
     const pairs2 = new YAMLSeq(schema4);
     pairs2.tag = "tag:yaml.org,2002:pairs";
-    let i = 0;
+    let i2 = 0;
     if (iterable && Symbol.iterator in Object(iterable))
       for (let it of iterable) {
         if (typeof replacer === "function")
-          it = replacer.call(iterable, String(i++), it);
+          it = replacer.call(iterable, String(i2++), it);
         let key, value;
         if (Array.isArray(it)) {
           if (it.length === 2) {
@@ -9121,8 +9802,8 @@ ${pointer}
     if (ctx.atKey)
       ctx.atKey = false;
     let offset = fc.offset + fc.start.source.length;
-    for (let i = 0; i < fc.items.length; ++i) {
-      const collItem = fc.items[i];
+    for (let i2 = 0; i2 < fc.items.length; ++i2) {
+      const collItem = fc.items[i2];
       const { start, key, sep, value } = collItem;
       const props = resolveProps(start, {
         flow: fcName,
@@ -9135,9 +9816,9 @@ ${pointer}
       });
       if (!props.found) {
         if (!props.anchor && !props.tag && !sep && !value) {
-          if (i === 0 && props.comma)
+          if (i2 === 0 && props.comma)
             onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
-          else if (i < fc.items.length - 1)
+          else if (i2 < fc.items.length - 1)
             onError(props.start, "UNEXPECTED_TOKEN", `Unexpected empty item in ${fcName}`);
           if (props.comment) {
             if (coll.comment)
@@ -9156,7 +9837,7 @@ ${pointer}
             "Implicit keys of flow sequence pairs need to be on a single line"
           );
       }
-      if (i === 0) {
+      if (i2 === 0) {
         if (props.comma)
           onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
       } else {
@@ -9347,10 +10028,10 @@ ${pointer}
     const type = header.mode === ">" ? Scalar.BLOCK_FOLDED : Scalar.BLOCK_LITERAL;
     const lines = scalar.source ? splitLines(scalar.source) : [];
     let chompStart = lines.length;
-    for (let i = lines.length - 1; i >= 0; --i) {
-      const content = lines[i][1];
+    for (let i2 = lines.length - 1; i2 >= 0; --i2) {
+      const content = lines[i2][1];
       if (content === "" || content === "\r")
-        chompStart = i;
+        chompStart = i2;
       else
         break;
     }
@@ -9364,8 +10045,8 @@ ${pointer}
     let trimIndent = scalar.indent + header.indent;
     let offset = scalar.offset + header.length;
     let contentStart = 0;
-    for (let i = 0; i < chompStart; ++i) {
-      const [indent, content] = lines[i];
+    for (let i2 = 0; i2 < chompStart; ++i2) {
+      const [indent, content] = lines[i2];
       if (content === "" || content === "\r") {
         if (header.indent === 0 && indent.length > trimIndent)
           trimIndent = indent.length;
@@ -9376,7 +10057,7 @@ ${pointer}
         }
         if (header.indent === 0)
           trimIndent = indent.length;
-        contentStart = i;
+        contentStart = i2;
         if (trimIndent === 0 && !ctx.atRoot) {
           const message = "Block scalar values in collections must be indented";
           onError(offset, "BAD_INDENT", message);
@@ -9385,17 +10066,17 @@ ${pointer}
       }
       offset += indent.length + content.length + 1;
     }
-    for (let i = lines.length - 1; i >= chompStart; --i) {
-      if (lines[i][0].length > trimIndent)
-        chompStart = i + 1;
+    for (let i2 = lines.length - 1; i2 >= chompStart; --i2) {
+      if (lines[i2][0].length > trimIndent)
+        chompStart = i2 + 1;
     }
     let value = "";
     let sep = "";
     let prevMoreIndented = false;
-    for (let i = 0; i < contentStart; ++i)
-      value += lines[i][0].slice(trimIndent) + "\n";
-    for (let i = contentStart; i < chompStart; ++i) {
-      let [indent, content] = lines[i];
+    for (let i2 = 0; i2 < contentStart; ++i2)
+      value += lines[i2][0].slice(trimIndent) + "\n";
+    for (let i2 = contentStart; i2 < chompStart; ++i2) {
+      let [indent, content] = lines[i2];
       offset += indent.length + content.length + 1;
       const crlf = content[content.length - 1] === "\r";
       if (crlf)
@@ -9432,8 +10113,8 @@ ${pointer}
       case "-":
         break;
       case "+":
-        for (let i = chompStart; i < lines.length; ++i)
-          value += "\n" + lines[i][0].slice(trimIndent);
+        for (let i2 = chompStart; i2 < lines.length; ++i2)
+          value += "\n" + lines[i2][0].slice(trimIndent);
         if (value[value.length - 1] !== "\n")
           value += "\n";
         break;
@@ -9453,8 +10134,8 @@ ${pointer}
     let indent = 0;
     let chomp = "";
     let error = -1;
-    for (let i = 1; i < source.length; ++i) {
-      const ch = source[i];
+    for (let i2 = 1; i2 < source.length; ++i2) {
+      const ch = source[i2];
       if (!chomp && (ch === "-" || ch === "+"))
         chomp = ch;
       else {
@@ -9462,7 +10143,7 @@ ${pointer}
         if (!indent && n)
           indent = n;
         else if (error === -1)
-          error = offset + i;
+          error = offset + i2;
       }
     }
     if (error !== -1)
@@ -9470,8 +10151,8 @@ ${pointer}
     let hasSpace = false;
     let comment = "";
     let length = source.length;
-    for (let i = 1; i < props.length; ++i) {
-      const token = props[i];
+    for (let i2 = 1; i2 < props.length; ++i2) {
+      const token = props[i2];
       switch (token.type) {
         case "space":
           hasSpace = true;
@@ -9509,8 +10190,8 @@ ${pointer}
     const m = first.match(/^( *)/);
     const line0 = m?.[1] ? [m[1], first.slice(m[1].length)] : ["", first];
     const lines = [line0];
-    for (let i = 1; i < split.length; i += 2)
-      lines.push([split[i], split[i + 1]]);
+    for (let i2 = 1; i2 < split.length; i2 += 2)
+      lines.push([split[i2], split[i2 + 1]]);
     return lines;
   }
 
@@ -9620,43 +10301,43 @@ ${pointer}
   }
   function doubleQuotedValue(source, onError) {
     let res = "";
-    for (let i = 1; i < source.length - 1; ++i) {
-      const ch = source[i];
-      if (ch === "\r" && source[i + 1] === "\n")
+    for (let i2 = 1; i2 < source.length - 1; ++i2) {
+      const ch = source[i2];
+      if (ch === "\r" && source[i2 + 1] === "\n")
         continue;
       if (ch === "\n") {
-        const { fold, offset } = foldNewline(source, i);
+        const { fold, offset } = foldNewline(source, i2);
         res += fold;
-        i = offset;
+        i2 = offset;
       } else if (ch === "\\") {
-        let next = source[++i];
+        let next = source[++i2];
         const cc = escapeCodes[next];
         if (cc)
           res += cc;
         else if (next === "\n") {
-          next = source[i + 1];
+          next = source[i2 + 1];
           while (next === " " || next === "	")
-            next = source[++i + 1];
-        } else if (next === "\r" && source[i + 1] === "\n") {
-          next = source[++i + 1];
+            next = source[++i2 + 1];
+        } else if (next === "\r" && source[i2 + 1] === "\n") {
+          next = source[++i2 + 1];
           while (next === " " || next === "	")
-            next = source[++i + 1];
+            next = source[++i2 + 1];
         } else if (next === "x" || next === "u" || next === "U") {
           const length = { x: 2, u: 4, U: 8 }[next];
-          res += parseCharCode(source, i + 1, length, onError);
-          i += length;
+          res += parseCharCode(source, i2 + 1, length, onError);
+          i2 += length;
         } else {
-          const raw = source.substr(i - 1, 2);
-          onError(i - 1, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
+          const raw = source.substr(i2 - 1, 2);
+          onError(i2 - 1, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
           res += raw;
         }
       } else if (ch === " " || ch === "	") {
-        const wsStart = i;
-        let next = source[i + 1];
+        const wsStart = i2;
+        let next = source[i2 + 1];
         while (next === " " || next === "	")
-          next = source[++i + 1];
-        if (next !== "\n" && !(next === "\r" && source[i + 2] === "\n"))
-          res += i > wsStart ? source.slice(wsStart, i + 1) : ch;
+          next = source[++i2 + 1];
+        if (next !== "\n" && !(next === "\r" && source[i2 + 2] === "\n"))
+          res += i2 > wsStart ? source.slice(wsStart, i2 + 1) : ch;
       } else {
         res += ch;
       }
@@ -9801,8 +10482,8 @@ ${pointer}
     if (before) {
       if (pos === null)
         pos = before.length;
-      for (let i = pos - 1; i >= 0; --i) {
-        let st = before[i];
+      for (let i2 = pos - 1; i2 >= 0; --i2) {
+        let st = before[i2];
         switch (st.type) {
           case "space":
           case "comment":
@@ -9810,10 +10491,10 @@ ${pointer}
             offset -= st.source.length;
             continue;
         }
-        st = before[++i];
+        st = before[++i2];
         while (st?.type === "space") {
           offset += st.source.length;
-          st = before[++i];
+          st = before[++i2];
         }
         break;
       }
@@ -9955,8 +10636,8 @@ ${pointer}
     let comment = "";
     let atComment = false;
     let afterEmptyLine = false;
-    for (let i = 0; i < prelude.length; ++i) {
-      const source = prelude[i];
+    for (let i2 = 0; i2 < prelude.length; ++i2) {
+      const source = prelude[i2];
       switch (source[0]) {
         case "#":
           comment += (comment === "" ? "" : afterEmptyLine ? "\n\n" : "\n") + (source.substring(1) || " ");
@@ -9964,8 +10645,8 @@ ${pointer}
           afterEmptyLine = false;
           break;
         case "%":
-          if (prelude[i + 1]?.[0] !== "#")
-            i += 1;
+          if (prelude[i2 + 1]?.[0] !== "#")
+            i2 += 1;
           atComment = false;
           break;
         default:
@@ -10171,15 +10852,15 @@ ${end.comment}` : end.comment;
     for (const field of ["key", "value"]) {
       const token = item[field];
       if (token && "items" in token) {
-        for (let i = 0; i < token.items.length; ++i) {
-          const ci = _visit(Object.freeze(path.concat([[field, i]])), token.items[i], visitor);
+        for (let i2 = 0; i2 < token.items.length; ++i2) {
+          const ci = _visit(Object.freeze(path.concat([[field, i2]])), token.items[i2], visitor);
           if (typeof ci === "number")
-            i = ci - 1;
+            i2 = ci - 1;
           else if (ci === BREAK2)
             return BREAK2;
           else if (ci === REMOVE2) {
-            token.items.splice(i, 1);
-            i -= 1;
+            token.items.splice(i2, 1);
+            i2 -= 1;
           }
         }
         if (typeof ctrl === "function" && field === "key")
@@ -10305,14 +10986,14 @@ ${end.comment}` : end.comment;
         next = yield* this.parseNext(next);
     }
     atLineEnd() {
-      let i = this.pos;
-      let ch = this.buffer[i];
+      let i2 = this.pos;
+      let ch = this.buffer[i2];
       while (ch === " " || ch === "	")
-        ch = this.buffer[++i];
+        ch = this.buffer[++i2];
       if (!ch || ch === "#" || ch === "\n")
         return true;
       if (ch === "\r")
-        return this.buffer[i + 1] === "\n";
+        return this.buffer[i2 + 1] === "\n";
       return false;
     }
     charAt(n) {
@@ -10607,9 +11288,9 @@ ${end.comment}` : end.comment;
     *parseBlockScalarHeader() {
       this.blockScalarIndent = -1;
       this.blockScalarKeep = false;
-      let i = this.pos;
+      let i2 = this.pos;
       while (true) {
-        const ch = this.buffer[++i];
+        const ch = this.buffer[++i2];
         if (ch === "+")
           this.blockScalarKeep = true;
         else if (ch > "0" && ch <= "9")
@@ -10623,17 +11304,17 @@ ${end.comment}` : end.comment;
       let nl = this.pos - 1;
       let indent = 0;
       let ch;
-      loop: for (let i2 = this.pos; ch = this.buffer[i2]; ++i2) {
+      loop: for (let i3 = this.pos; ch = this.buffer[i3]; ++i3) {
         switch (ch) {
           case " ":
             indent += 1;
             break;
           case "\n":
-            nl = i2;
+            nl = i3;
             indent = 0;
             break;
           case "\r": {
-            const next = this.buffer[i2 + 1];
+            const next = this.buffer[i3 + 1];
             if (!next && !this.atEnd)
               return this.setNext("block-scalar");
             if (next === "\n")
@@ -10664,25 +11345,25 @@ ${end.comment}` : end.comment;
           nl = this.buffer.length;
         }
       }
-      let i = nl + 1;
-      ch = this.buffer[i];
+      let i2 = nl + 1;
+      ch = this.buffer[i2];
       while (ch === " ")
-        ch = this.buffer[++i];
+        ch = this.buffer[++i2];
       if (ch === "	") {
         while (ch === "	" || ch === " " || ch === "\r" || ch === "\n")
-          ch = this.buffer[++i];
-        nl = i - 1;
+          ch = this.buffer[++i2];
+        nl = i2 - 1;
       } else if (!this.blockScalarKeep) {
         do {
-          let i2 = nl - 1;
-          let ch2 = this.buffer[i2];
+          let i3 = nl - 1;
+          let ch2 = this.buffer[i3];
           if (ch2 === "\r")
-            ch2 = this.buffer[--i2];
-          const lastChar = i2;
+            ch2 = this.buffer[--i3];
+          const lastChar = i3;
           while (ch2 === " ")
-            ch2 = this.buffer[--i2];
-          if (ch2 === "\n" && i2 >= this.pos && i2 + 1 + indent > lastChar)
-            nl = i2;
+            ch2 = this.buffer[--i3];
+          if (ch2 === "\n" && i3 >= this.pos && i3 + 1 + indent > lastChar)
+            nl = i3;
           else
             break;
         } while (true);
@@ -10694,36 +11375,36 @@ ${end.comment}` : end.comment;
     *parsePlainScalar() {
       const inFlow = this.flowLevel > 0;
       let end = this.pos - 1;
-      let i = this.pos - 1;
+      let i2 = this.pos - 1;
       let ch;
-      while (ch = this.buffer[++i]) {
+      while (ch = this.buffer[++i2]) {
         if (ch === ":") {
-          const next = this.buffer[i + 1];
+          const next = this.buffer[i2 + 1];
           if (isEmpty(next) || inFlow && flowIndicatorChars.has(next))
             break;
-          end = i;
+          end = i2;
         } else if (isEmpty(ch)) {
-          let next = this.buffer[i + 1];
+          let next = this.buffer[i2 + 1];
           if (ch === "\r") {
             if (next === "\n") {
-              i += 1;
+              i2 += 1;
               ch = "\n";
-              next = this.buffer[i + 1];
+              next = this.buffer[i2 + 1];
             } else
-              end = i;
+              end = i2;
           }
           if (next === "#" || inFlow && flowIndicatorChars.has(next))
             break;
           if (ch === "\n") {
-            const cs = this.continueScalar(i + 1);
+            const cs = this.continueScalar(i2 + 1);
             if (cs === -1)
               break;
-            i = Math.max(i, cs - 2);
+            i2 = Math.max(i2, cs - 2);
           }
         } else {
           if (inFlow && flowIndicatorChars.has(ch))
             break;
-          end = i;
+          end = i2;
         }
       }
       if (!ch && !this.atEnd)
@@ -10740,8 +11421,8 @@ ${end.comment}` : end.comment;
       }
       return 0;
     }
-    *pushToIndex(i, allowEmpty) {
-      const s = this.buffer.slice(this.pos, i);
+    *pushToIndex(i2, allowEmpty) {
+      const s = this.buffer.slice(this.pos, i2);
       if (s) {
         yield s;
         this.pos += s.length;
@@ -10776,23 +11457,23 @@ ${end.comment}` : end.comment;
     }
     *pushTag() {
       if (this.charAt(1) === "<") {
-        let i = this.pos + 2;
-        let ch = this.buffer[i];
+        let i2 = this.pos + 2;
+        let ch = this.buffer[i2];
         while (!isEmpty(ch) && ch !== ">")
-          ch = this.buffer[++i];
-        return yield* this.pushToIndex(ch === ">" ? i + 1 : i, false);
+          ch = this.buffer[++i2];
+        return yield* this.pushToIndex(ch === ">" ? i2 + 1 : i2, false);
       } else {
-        let i = this.pos + 1;
-        let ch = this.buffer[i];
+        let i2 = this.pos + 1;
+        let ch = this.buffer[i2];
         while (ch) {
           if (tagChars.has(ch))
-            ch = this.buffer[++i];
-          else if (ch === "%" && hexDigits.has(this.buffer[i + 1]) && hexDigits.has(this.buffer[i + 2])) {
-            ch = this.buffer[i += 3];
+            ch = this.buffer[++i2];
+          else if (ch === "%" && hexDigits.has(this.buffer[i2 + 1]) && hexDigits.has(this.buffer[i2 + 2])) {
+            ch = this.buffer[i2 += 3];
           } else
             break;
         }
-        return yield* this.pushToIndex(i, false);
+        return yield* this.pushToIndex(i2, false);
       }
     }
     *pushNewline() {
@@ -10805,24 +11486,24 @@ ${end.comment}` : end.comment;
         return 0;
     }
     *pushSpaces(allowTabs) {
-      let i = this.pos - 1;
+      let i2 = this.pos - 1;
       let ch;
       do {
-        ch = this.buffer[++i];
+        ch = this.buffer[++i2];
       } while (ch === " " || allowTabs && ch === "	");
-      const n = i - this.pos;
+      const n = i2 - this.pos;
       if (n > 0) {
         yield this.buffer.substr(this.pos, n);
-        this.pos = i;
+        this.pos = i2;
       }
       return n;
     }
     *pushUntil(test) {
-      let i = this.pos;
-      let ch = this.buffer[i];
+      let i2 = this.pos;
+      let ch = this.buffer[i2];
       while (!test(ch))
-        ch = this.buffer[++i];
-      return yield* this.pushToIndex(i, false);
+        ch = this.buffer[++i2];
+      return yield* this.pushToIndex(i2, false);
     }
   };
 
@@ -10852,21 +11533,21 @@ ${end.comment}` : end.comment;
   };
 
   // node_modules/yaml/browser/dist/parse/parser.js
-  function includesToken(list, type) {
-    for (let i = 0; i < list.length; ++i)
-      if (list[i].type === type)
+  function includesToken(list2, type) {
+    for (let i2 = 0; i2 < list2.length; ++i2)
+      if (list2[i2].type === type)
         return true;
     return false;
   }
-  function findNonEmptyIndex(list) {
-    for (let i = 0; i < list.length; ++i) {
-      switch (list[i].type) {
+  function findNonEmptyIndex(list2) {
+    for (let i2 = 0; i2 < list2.length; ++i2) {
+      switch (list2[i2].type) {
         case "space":
         case "comment":
         case "newline":
           break;
         default:
-          return i;
+          return i2;
       }
     }
     return -1;
@@ -10901,9 +11582,9 @@ ${end.comment}` : end.comment;
   function getFirstKeyStartProps(prev) {
     if (prev.length === 0)
       return [];
-    let i = prev.length;
-    loop: while (--i >= 0) {
-      switch (prev[i].type) {
+    let i2 = prev.length;
+    loop: while (--i2 >= 0) {
+      switch (prev[i2].type) {
         case "doc-start":
         case "explicit-key-ind":
         case "map-value-ind":
@@ -10912,9 +11593,9 @@ ${end.comment}` : end.comment;
           break loop;
       }
     }
-    while (prev[++i]?.type === "space") {
+    while (prev[++i2]?.type === "space") {
     }
-    return prev.splice(i, prev.length);
+    return prev.splice(i2, prev.length);
   }
   function fixFlowSeqItems(fc) {
     if (fc.start.type === "flow-seq-start") {
@@ -11298,11 +11979,11 @@ ${end.comment}` : end.comment;
         let start = [];
         if (atNextItem && it.sep && !it.value) {
           const nl = [];
-          for (let i = 0; i < it.sep.length; ++i) {
-            const st = it.sep[i];
+          for (let i2 = 0; i2 < it.sep.length; ++i2) {
+            const st = it.sep[i2];
             switch (st.type) {
               case "newline":
-                nl.push(i);
+                nl.push(i2);
                 break;
               case "space":
                 break;
@@ -11721,90 +12402,90 @@ ${end.comment}` : end.comment;
   // src/formats.ts
   function lineCol(text, offset) {
     let line2 = 1, last = -1;
-    for (let i = text.indexOf("\n"); i !== -1 && i < offset; i = text.indexOf("\n", i + 1)) {
+    for (let i2 = text.indexOf("\n"); i2 !== -1 && i2 < offset; i2 = text.indexOf("\n", i2 + 1)) {
       line2++;
-      last = i;
+      last = i2;
     }
     return { line: line2, col: offset - last };
   }
   function jsonFaultAt(s) {
-    let i = 0;
+    let i2 = 0;
     const ws = () => {
-      while (i < s.length && " 	\n\r".includes(s[i])) i++;
+      while (i2 < s.length && " 	\n\r".includes(s[i2])) i2++;
     };
     const fail = () => {
-      throw i;
+      throw i2;
     };
     const value = () => {
       ws();
-      const c = s[i];
+      const c = s[i2];
       if (c === "{") {
-        i++;
+        i2++;
         ws();
-        if (s[i] === "}") {
-          i++;
+        if (s[i2] === "}") {
+          i2++;
           return;
         }
         for (; ; ) {
           ws();
-          if (s[i] !== '"') fail();
+          if (s[i2] !== '"') fail();
           str();
           ws();
-          if (s[i] !== ":") fail();
-          i++;
+          if (s[i2] !== ":") fail();
+          i2++;
           value();
           ws();
-          if (s[i] === ",") {
-            i++;
+          if (s[i2] === ",") {
+            i2++;
             continue;
           }
-          if (s[i] === "}") {
-            i++;
+          if (s[i2] === "}") {
+            i2++;
             return;
           }
           fail();
         }
       }
       if (c === "[") {
-        i++;
+        i2++;
         ws();
-        if (s[i] === "]") {
-          i++;
+        if (s[i2] === "]") {
+          i2++;
           return;
         }
         for (; ; ) {
           value();
           ws();
-          if (s[i] === ",") {
-            i++;
+          if (s[i2] === ",") {
+            i2++;
             continue;
           }
-          if (s[i] === "]") {
-            i++;
+          if (s[i2] === "]") {
+            i2++;
             return;
           }
           fail();
         }
       }
       if (c === '"') return str();
-      const lit = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(s.slice(i, i + 64));
+      const lit = /^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(s.slice(i2, i2 + 64));
       if (!lit) fail();
-      i += lit[0].length;
+      i2 += lit[0].length;
     };
     const str = () => {
-      i++;
-      while (i < s.length && s[i] !== '"') {
-        if (s[i] === "\\") i++;
-        else if (s[i] === "\n") fail();
-        i++;
+      i2++;
+      while (i2 < s.length && s[i2] !== '"') {
+        if (s[i2] === "\\") i2++;
+        else if (s[i2] === "\n") fail();
+        i2++;
       }
-      if (s[i] !== '"') fail();
-      i++;
+      if (s[i2] !== '"') fail();
+      i2++;
     };
     try {
       value();
       ws();
-      if (i < s.length) fail();
+      if (i2 < s.length) fail();
       return -1;
     } catch (at) {
       return typeof at === "number" ? Math.min(at, s.length) : 0;
@@ -11835,12 +12516,12 @@ ${end.comment}` : end.comment;
   }
   function checkJsonl(text) {
     const out = [];
-    text.split("\n").forEach((l, i) => {
+    text.split("\n").forEach((l, i2) => {
       if (!l.trim()) return;
       try {
         JSON.parse(l);
       } catch (err) {
-        out.push({ line: i + 1, severity: "error", message: `Not JSON: ${err.message}` });
+        out.push({ line: i2 + 1, severity: "error", message: `Not JSON: ${err.message}` });
       }
     });
     return out;
@@ -11855,8 +12536,8 @@ ${end.comment}` : end.comment;
     const { docs, lineCounter } = yamlDocs(text);
     const out = [];
     for (const d of docs) {
-      for (const [list, severity] of [[d.errors, "error"], [d.warnings, "warn"]]) {
-        for (const e of list) {
+      for (const [list2, severity] of [[d.errors, "error"], [d.warnings, "warn"]]) {
+        for (const e of list2) {
           const p = lineCounter.linePos(e.pos[0]);
           out.push({ line: p.line + lineOffset, col: p.col, severity, message: e.message.split("\n")[0] });
         }
@@ -11883,7 +12564,7 @@ ${end.comment}` : end.comment;
     const lines = text.split("\n");
     let start = 0;
     if (lines[0]?.trim() === "---") {
-      const end = lines.findIndex((l, i) => i > 0 && /^(---|\.\.\.)\s*$/.test(l));
+      const end = lines.findIndex((l, i2) => i2 > 0 && /^(---|\.\.\.)\s*$/.test(l));
       if (end === -1) out.push({ line: 1, severity: "error", message: "The front matter opened here is never closed with ---" });
       else {
         out.push(...checkYaml(lines.slice(1, end).join("\n"), 1));
@@ -11892,11 +12573,11 @@ ${end.comment}` : end.comment;
     }
     let fence = null;
     let lastLevel = 0;
-    for (let i = start; i < lines.length; i++) {
-      const l = lines[i];
+    for (let i2 = start; i2 < lines.length; i2++) {
+      const l = lines[i2];
       const f = /^\s{0,3}(`{3,}|~{3,})/.exec(l);
       if (f) {
-        if (!fence) fence = { mark: f[1], line: i + 1 };
+        if (!fence) fence = { mark: f[1], line: i2 + 1 };
         else if (f[1][0] === fence.mark[0] && f[1].length >= fence.mark.length && !l.slice(f.index + f[1].length).trim()) fence = null;
         continue;
       }
@@ -11904,7 +12585,7 @@ ${end.comment}` : end.comment;
       const h = /^(#{1,6})\s/.exec(l);
       if (h) {
         const level = h[1].length;
-        if (lastLevel && level > lastLevel + 1) out.push({ line: i + 1, severity: "warn", message: `Heading jumps from level ${lastLevel} to ${level}` });
+        if (lastLevel && level > lastLevel + 1) out.push({ line: i2 + 1, severity: "warn", message: `Heading jumps from level ${lastLevel} to ${level}` });
         lastLevel = level;
       }
     }
@@ -11933,12 +12614,12 @@ ${end.comment}` : end.comment;
         stack.push({ name, line: at.line });
         continue;
       }
-      const i = stack.map((s) => s.name).lastIndexOf(name);
-      if (i === -1) {
+      const i2 = stack.map((s) => s.name).lastIndexOf(name);
+      if (i2 === -1) {
         out.push({ ...at, severity: "error", message: `</${name}> closes nothing that is open` });
         continue;
       }
-      for (const s of stack.splice(i).slice(1)) {
+      for (const s of stack.splice(i2).slice(1)) {
         if (!OPTIONAL_CLOSE.has(s.name)) out.push({ line: s.line, severity: "warn", message: `<${s.name}> is closed implicitly by </${name}> on line ${at.line}` });
       }
     }
@@ -12009,7 +12690,7 @@ ${end.comment}` : end.comment;
   };
   function lineStart(t, line2, from = 0, fromLine = 0) {
     let p = from;
-    for (let i = fromLine; i < line2; i++) {
+    for (let i2 = fromLine; i2 < line2; i2++) {
       const nl = t.indexOf("\n", p);
       if (nl === -1) return t.length;
       p = nl + 1;
@@ -12117,7 +12798,7 @@ ${end.comment}` : end.comment;
       for (const p of pieces) {
         if (typeof p === "string") {
           out.s += p;
-          for (let i = 0; i < p.length; i++) out.o.push(here);
+          for (let i2 = 0; i2 < p.length; i2++) out.o.push(here);
           continue;
         }
         const span = m.indices[p];
@@ -12149,7 +12830,7 @@ ${end.comment}` : end.comment;
     [/\s+/g, [" "]]
   ];
   function visibleMap(src) {
-    let t = { s: src, o: Array.from({ length: src.length }, (_v, i) => i) };
+    let t = { s: src, o: Array.from({ length: src.length }, (_v, i2) => i2) };
     for (const [re, pieces] of PASSES) t = pass(t, re, pieces);
     const lead = t.s.length - t.s.trimStart().length;
     const keep = t.s.trim().length;
@@ -12171,11 +12852,11 @@ ${end.comment}` : end.comment;
       });
       while (walker.nextNode()) {
         const t = walker.currentNode;
-        for (let i = 0; i < t.data.length; i++) {
-          const sp2 = /\s/.test(t.data[i]);
+        for (let i2 = 0; i2 < t.data.length; i2++) {
+          const sp2 = /\s/.test(t.data[i2]);
           if (sp2 && ws) continue;
-          flat += sp2 ? " " : t.data[i];
-          at.push([t, i]);
+          flat += sp2 ? " " : t.data[i2];
+          at.push([t, i2]);
           ws = sp2;
         }
       }
@@ -12231,7 +12912,7 @@ ${end.comment}` : end.comment;
         start = lb;
         continue;
       }
-      const mark = (i) => MARKS.includes(text[i] ?? "\0") && !(text[i] === "_" && /\w/.test(text[i - 1] ?? "") && /\w/.test(text[i + 1] ?? ""));
+      const mark = (i2) => MARKS.includes(text[i2] ?? "\0") && !(text[i2] === "_" && /\w/.test(text[i2 - 1] ?? "") && /\w/.test(text[i2 + 1] ?? ""));
       const after = text[end], before = text[start - 1];
       if (mark(end) && runs(span, after) % 2) {
         while (text[end] === after) end++;
@@ -12272,10 +12953,10 @@ ${end.comment}` : end.comment;
       }
     });
     let e = -1;
-    for (let i = at.length - 1; i >= 0; i--) {
+    for (let i2 = at.length - 1; i2 >= 0; i2--) {
       try {
-        if (range.comparePoint(at[i][0], at[i][1]) === 0) {
-          e = i + 1;
+        if (range.comparePoint(at[i2][0], at[i2][1]) === 0) {
+          e = i2 + 1;
           break;
         }
       } catch {
@@ -12290,11 +12971,11 @@ ${end.comment}` : end.comment;
     const hits = [];
     for (const hay of [vis.s, vis.s.toLowerCase()]) {
       const n = hay === vis.s ? needle : needle.toLowerCase();
-      for (let i = hay.indexOf(n); i !== -1; i = hay.indexOf(n, i + 1)) hits.push(i);
+      for (let i2 = hay.indexOf(n); i2 !== -1; i2 = hay.indexOf(n, i2 + 1)) hits.push(i2);
       if (hits.length) break;
     }
     if (!hits.length) return block;
-    const v = hits.reduce((best, i) => Math.abs(i - s) < Math.abs(best - s) ? i : best, hits[0]);
+    const v = hits.reduce((best, i2) => Math.abs(i2 - s) < Math.abs(best - s) ? i2 : best, hits[0]);
     const [ws, we] = widen(text, from + vis.o[v], from + vis.o[v + needle.length - 1] + 1);
     return { start: ws, end: we, block: false };
   }
@@ -12383,15 +13064,15 @@ ${end.comment}` : end.comment;
     let curRow = -1;
     const markLine = () => {
       const v = ta.value, end = ta.selectionStart;
-      let i = tw.first();
-      for (let p = v.indexOf("\n"); p !== -1 && p < end; p = v.indexOf("\n", p + 1)) i++;
-      if (i === curRow) return;
+      let i2 = tw.first();
+      for (let p = v.indexOf("\n"); p !== -1 && p < end; p = v.indexOf("\n", p + 1)) i2++;
+      if (i2 === curRow) return;
       rowEl(curRow)?.classList.remove("cur");
-      rowEl(i)?.classList.add("cur");
-      curRow = i;
+      rowEl(i2)?.classList.add("cur");
+      curRow = i2;
     };
     let painted = [];
-    const rowHtml = (r, i) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i + 1}</span><span class="fe-fe-code">${r || " "}</span></div>`;
+    const rowHtml = (r, i2) => `<div class="fe-fe-row"><span class="fe-fe-ln">${i2 + 1}</span><span class="fe-fe-code">${r || " "}</span></div>`;
     const win = box.querySelector("#fe-fe-win");
     let lines = [];
     let lh = 0, winFirst = 0, winLast = -1;
@@ -12406,7 +13087,7 @@ ${end.comment}` : end.comment;
       }
       return rows;
     };
-    const rowEl = (i) => big ? i >= winFirst && i <= winLast ? win.children[i - winFirst] : void 0 : paintEl.children[i];
+    const rowEl = (i2) => big ? i2 >= winFirst && i2 <= winLast ? win.children[i2 - winFirst] : void 0 : paintEl.children[i2];
     const lineAtY = (clientY) => Math.floor((clientY - paintEl.getBoundingClientRect().top) / lh);
     const viewport = () => mode === "split" ? src : scroller;
     const paintWindow = (force = false) => {
@@ -12419,7 +13100,7 @@ ${end.comment}` : end.comment;
       for (let b = Math.floor(first / BLOCK); b <= Math.floor(last / BLOCK); b++) {
         const rows = blockRows(b);
         const from = Math.max(first, b * BLOCK), to = Math.min(last, b * BLOCK + rows.length - 1);
-        for (let i = from; i <= to; i++) html += rowHtml(rows[i - b * BLOCK], i);
+        for (let i2 = from; i2 <= to; i2++) html += rowHtml(rows[i2 - b * BLOCK], i2);
       }
       win.style.transform = `translateY(${first * lh}px)`;
       win.innerHTML = html;
@@ -12483,12 +13164,12 @@ ${end.comment}` : end.comment;
         b--;
         c--;
       }
-      for (let i = b - 1; i >= a; i--) paintEl.children[i].remove();
+      for (let i2 = b - 1; i2 >= a; i2--) paintEl.children[i2].remove();
       const html = rows.slice(a, c).map((r, k) => rowHtml(r, a + k)).join("");
       const next = paintEl.children[a];
       if (next) next.insertAdjacentHTML("beforebegin", html);
       else paintEl.insertAdjacentHTML("beforeend", html);
-      if (rows.length !== painted.length) for (let i = c; i < rows.length; i++) paintEl.children[i].firstChild.textContent = String(i + 1);
+      if (rows.length !== painted.length) for (let i2 = c; i2 < rows.length; i2++) paintEl.children[i2].firstChild.textContent = String(i2 + 1);
       painted = rows;
       ta.style.height = paintEl.offsetHeight + "px";
       paintEl.querySelector(".cur")?.classList.remove("cur");
@@ -12503,11 +13184,11 @@ ${end.comment}` : end.comment;
         r.removeAttribute("title");
       }
       for (const d of diags) {
-        const row = rowEl(d.line - 1);
-        if (!row) continue;
-        row.classList.add(d.severity === "error" || row.classList.contains("err") ? "err" : "warn");
-        if (row.classList.contains("err")) row.classList.remove("warn");
-        row.title = row.title ? `${row.title}
+        const row2 = rowEl(d.line - 1);
+        if (!row2) continue;
+        row2.classList.add(d.severity === "error" || row2.classList.contains("err") ? "err" : "warn");
+        if (row2.classList.contains("err")) row2.classList.remove("warn");
+        row2.title = row2.title ? `${row2.title}
 ${d.message}` : `Line ${d.line}: ${d.message}`;
       }
       const errors = diags.filter((d) => d.severity === "error").length;
@@ -12851,11 +13532,11 @@ and ${diags.length - 12} more` : "");
       count.classList.toggle("none", !!q && !hits.length);
       prev.toggleAttribute("disabled", hits.length < 2);
       next.toggleAttribute("disabled", hits.length < 2);
-      hits.forEach((h, i) => h.forEach((m) => m.classList.toggle("on", i === cur)));
+      hits.forEach((h, i2) => h.forEach((m) => m.classList.toggle("on", i2 === cur)));
     };
-    const go = (i) => {
+    const go = (i2) => {
       if (!hits.length) return;
-      cur = (i + hits.length) % hits.length;
+      cur = (i2 + hits.length) % hits.length;
       show();
       hits[cur][0].scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     };
@@ -12904,8 +13585,8 @@ and ${diags.length - 12} more` : "");
         }
       }
       hits = Array.from({ length: found }, () => []);
-      for (let i = pieces.length - 1; i >= 0; i--) {
-        const { node, s, e, hit } = pieces[i];
+      for (let i2 = pieces.length - 1; i2 >= 0; i2--) {
+        const { node, s, e, hit } = pieces[i2];
         const t = nodes[node];
         t.splitText(e);
         const mid = t.splitText(s);
@@ -12981,18 +13662,18 @@ and ${diags.length - 12} more` : "");
     const last = t.comments[t.comments.length - 1].author;
     if (last.kind === "agent") return true;
     let mine = -1;
-    t.comments.forEach((c, i) => {
-      if (c.author.kind === "human") mine = i;
+    t.comments.forEach((c, i2) => {
+      if (c.author.kind === "human") mine = i2;
     });
     return t.comments.slice(mine + 1).some((c) => /(^|\s)@(user|owner)\b/i.test(c.text || ""));
   }
   function commentHtml(text) {
     const out = [];
-    let list = [];
+    let list2 = [];
     const flush = () => {
-      if (list.length) {
-        out.push(`<ul>${list.map((l) => `<li>${l}</li>`).join("")}</ul>`);
-        list = [];
+      if (list2.length) {
+        out.push(`<ul>${list2.map((l) => `<li>${l}</li>`).join("")}</ul>`);
+        list2 = [];
       }
     };
     let para = [];
@@ -13006,7 +13687,7 @@ and ${diags.length - 12} more` : "");
       const item = /^\s*[-*]\s+(.*)$/.exec(line2);
       if (item) {
         end();
-        list.push(mdInline(item[1]));
+        list2.push(mdInline(item[1]));
         continue;
       }
       flush();
@@ -13215,7 +13896,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       <textarea data-for="${esc(id)}" rows="2" aria-label="${esc(label)}" placeholder="${esc(place)}">${esc(typed.get(id) ?? start)}</textarea>
     </div>`;
     const notice = (text, why = "") => `<div class="fe-cm-state"${why ? ` title="${esc(why)}"` : ""}>${UI_ICON.info}<span>${esc(text)}</span></div>`;
-    const iconBtn = (a, icon2, title, v = "") => `<button type="button" class="fe-cm-ib" data-a="${a}"${v ? ` data-v="${esc(v)}"` : ""} title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
+    const iconBtn2 = (a, icon2, title, v = "") => `<button type="button" class="fe-cm-ib" data-a="${a}"${v ? ` data-v="${esc(v)}"` : ""} title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
     let sugMsg = null;
     const sugHtml = (t, c, on) => {
       const s = c.suggestion;
@@ -13248,7 +13929,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         return `
       <div class="fe-cm-c${c.deleted ? " gone" : ""}">
         <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(c.author))}</b><time title="${esc(c.created)}">${esc(ago(c.created))}${c.edited ? " \xB7 edited" : ""}</time>
-          ${mine && editing !== c.id ? `<span class="fe-cm-own">${iconBtn("edit", UI_ICON.rename, "Edit this comment", c.id)}${iconBtn("del", UI_ICON.trash, "Delete this comment", c.id)}</span>` : ""}</div>
+          ${mine && editing !== c.id ? `<span class="fe-cm-own">${iconBtn2("edit", UI_ICON.rename, "Edit this comment", c.id)}${iconBtn2("del", UI_ICON.trash, "Delete this comment", c.id)}</span>` : ""}</div>
         ${body}
         ${c.suggestion ? sugHtml(t, c, on) : ""}
       </div>`;
@@ -13260,9 +13941,9 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       ${box(t.id, "Reply", done ? "Reply to reopen\u2026" : "Reply\u2026 @ to mention, # to tag")}
       <div class="fe-cm-tools">
         <button type="button" class="btn" data-size="sm" data-hover-shade data-a="${done ? "reopen" : "done"}" title="${done ? "Reopen this thread" : "Mark done"} (\u2318\u21E7\u21B5)">${done ? UI_ICON.reset + "Reopen" : UI_ICON.check + "Done"}</button>
-        ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : iconBtn("due", UI_ICON.clock, "Set a due date")}
-        ${iconBtn("link", UI_ICON.link, "Copy a link that opens this thread")}
-        ${iconBtn("brief", UI_ICON.bot, "Copy this thread as a brief for an agent")}
+        ${dueOpen === t.id ? `<input type="date" class="fe-cm-date" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : iconBtn2("due", UI_ICON.clock, "Set a due date")}
+        ${iconBtn2("link", UI_ICON.link, "Copy a link that opens this thread")}
+        ${iconBtn2("brief", UI_ICON.bot, "Copy this thread as a brief for an agent")}
         ${t.place.state !== "anchored" && !applied ? `<button type="button" class="btn" data-size="sm" data-hover-shade data-a="attach" title="Select words on the page first">Attach to selection</button>` : ""}
         <span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="reply" title="Reply (\u2318\u21B5)">Reply</button>
@@ -13308,23 +13989,23 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
         o.box.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.info}</span><p>Comments could not be read</p><p class="fe-cm-hint">${esc(failed)}</p></div>`;
         return;
       }
-      const list = visible();
-      const groups = filter === "done" || filter === "all" ? [["", list]] : [
-        ["", list.filter((t) => t.place.state === "anchored" || t.place.state === "ambiguous")],
-        ["Moved", list.filter((t) => t.place.state === "moved")],
-        ["Detached", list.filter((t) => t.place.state === "detached")]
+      const list2 = visible();
+      const groups = filter === "done" || filter === "all" ? [["", list2]] : [
+        ["", list2.filter((t) => t.place.state === "anchored" || t.place.state === "ambiguous")],
+        ["Moved", list2.filter((t) => t.place.state === "moved")],
+        ["Detached", list2.filter((t) => t.place.state === "detached")]
       ];
       const done = filter === "open" ? threads.filter((t) => t.status === "done") : [];
       const count = (f) => threads.filter((t) => f === "all" ? true : f === "done" ? t.status === "done" : f === "me" ? forOwner(t) : t.status !== "done").length;
       o.box.innerHTML = `
       <div class="fe-cm-top">
         <div class="fe-cm-filters" role="tablist">${FILTERS.map((f) => `<button type="button" role="tab" data-f="${f.id}" class="${f.id === filter ? "on" : ""}" aria-selected="${f.id === filter}" title="${f.hint}">${f.icon}<span class="fe-cm-fl">${f.label}</span><span class="fe-cm-fn">${count(f.id) || ""}</span></button>`).join("")}</div>
-        ${list.length ? iconBtn("brief-all", UI_ICON.bot, "Copy the threads shown as a brief for an agent, with links") : ""}
+        ${list2.length ? iconBtn2("brief-all", UI_ICON.bot, "Copy the threads shown as a brief for an agent, with links") : ""}
       </div>
       <div class="fe-cm-list">
         ${draftHtml()}
         ${notesLine.map((n) => `<p class="fe-cm-note">${esc(n)}</p>`).join("")}
-        ${list.length || draft ? "" : emptyHtml()}
+        ${list2.length || draft ? "" : emptyHtml()}
         ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="fe-cm-group">${name} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
         ${done.length ? `<details class="fe-cm-done"${done.some((t) => t.id === active) ? " open" : ""}><summary class="fe-cm-group">Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}
       </div>
@@ -13380,8 +14061,8 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       editing = "";
       paint();
       redraw();
-      const card = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
-      if (!card) {
+      const card2 = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
+      if (!card2) {
         filter = "all";
         paint();
         redraw();
@@ -13562,24 +14243,24 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       acFor = null;
     };
     const acShow = (ta) => {
-      const list = acList();
+      const list2 = acList();
       const c = completions(ta.value, ta.selectionStart, people(), allTags());
-      if (!list || !c) {
+      if (!list2 || !c) {
         acClose();
         return;
       }
       acFor = ta;
       acAt = Math.min(acAt, c.items.length - 1);
-      list.hidden = false;
-      list.innerHTML = c.items.map((x, i) => {
+      list2.hidden = false;
+      list2.innerHTML = c.items.map((x, i2) => {
         const hint = hintFor(x);
-        return `<div role="option" data-v="${esc(x)}" class="${i === acAt ? "on" : ""}" aria-selected="${i === acAt}">${esc(c.sigil + x)}${hint ? ` <span>${esc(hint)}</span>` : ""}</div>`;
+        return `<div role="option" data-v="${esc(x)}" class="${i2 === acAt ? "on" : ""}" aria-selected="${i2 === acAt}">${esc(c.sigil + x)}${hint ? ` <span>${esc(hint)}</span>` : ""}</div>`;
       }).join("");
       const t = ta.getBoundingClientRect(), b = o.box.getBoundingClientRect();
-      list.style.left = `${t.left - b.left}px`;
-      list.style.width = `${t.width}px`;
-      const below = t.bottom + list.offsetHeight + 8 < innerHeight;
-      list.style.top = `${below ? t.bottom - b.top + 4 : t.top - b.top - list.offsetHeight - 4}px`;
+      list2.style.left = `${t.left - b.left}px`;
+      list2.style.width = `${t.width}px`;
+      const below = t.bottom + list2.offsetHeight + 8 < innerHeight;
+      list2.style.top = `${below ? t.bottom - b.top + 4 : t.top - b.top - list2.offsetHeight - 4}px`;
     };
     const acPick = (ta, v) => {
       const c = completions(ta.value, ta.selectionStart, people(), allTags());
@@ -13609,9 +14290,9 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       const el2 = e.target;
       const ta = el2.closest("textarea[data-for]");
       if (ta) {
-        const list = acList();
-        if (list && !list.hidden && acFor === ta) {
-          const n = list.children.length;
+        const list2 = acList();
+        if (list2 && !list2.hidden && acFor === ta) {
+          const n = list2.children.length;
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
             acAt = (acAt + (e.key === "ArrowDown" ? 1 : n - 1)) % n;
@@ -13620,7 +14301,7 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
           }
           if (e.key === "Enter" || e.key === "Tab") {
             e.preventDefault();
-            acPick(ta, list.children[acAt].dataset.v);
+            acPick(ta, list2.children[acAt].dataset.v);
             return;
           }
           if (e.key === "Escape") {
@@ -13861,10 +14542,10 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
     }, POLL_MS);
     const placed = () => threads.filter((t) => t.status !== "done" && t.place.offset !== null);
     const step2 = (dir) => {
-      const list = placed();
-      if (!list.length) return;
-      const i = list.findIndex((t) => t.id === active);
-      const next = list[i === -1 ? dir === 1 ? 0 : list.length - 1 : (i + dir + list.length) % list.length];
+      const list2 = placed();
+      if (!list2.length) return;
+      const i2 = list2.findIndex((t) => t.id === active);
+      const next = list2[i2 === -1 ? dir === 1 ? 0 : list2.length - 1 : (i2 + dir + list2.length) % list2.length];
       o.reveal();
       focusThread(next.id);
       o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(next.id)}"]`)?.focus({ preventScroll: true });
@@ -13936,8 +14617,8 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
     return null;
   }
   function renderBody(text, ext2, href) {
-    const note = unrenderableNote(text);
-    if (note) return note;
+    const note2 = unrenderableNote(text);
+    if (note2) return note2;
     if (TABLE_EXTS.has(ext2)) {
       const rows = parseDSV(text, ext2 === "tsv" ? "	" : ",");
       return rows.length ? renderDSVTable(rows[0], rows.slice(1), numericCols(rows)) : unrenderableNote("");
@@ -13957,11 +14638,11 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
   }
   function markRows(rows, diags) {
     for (const d of diags) {
-      const row = rows[d.line - 1];
-      if (!row) continue;
-      if (!row.classList.contains("err")) row.classList.add(d.severity === "error" ? "err" : "warn");
-      if (d.severity === "error") row.classList.replace("warn", "err");
-      row.title = row.title ? `${row.title}
+      const row2 = rows[d.line - 1];
+      if (!row2) continue;
+      if (!row2.classList.contains("err")) row2.classList.add(d.severity === "error" ? "err" : "warn");
+      if (d.severity === "error") row2.classList.replace("warn", "err");
+      row2.title = row2.title ? `${row2.title}
 ${d.message}` : d.message;
     }
   }
@@ -13994,9 +14675,9 @@ ${d.message}` : d.message;
       if (hit) on = a;
     });
     const box = toc;
-    const row = on;
-    if (row) {
-      const r = row.getBoundingClientRect(), b = box.getBoundingClientRect();
+    const row2 = on;
+    if (row2) {
+      const r = row2.getBoundingClientRect(), b = box.getBoundingClientRect();
       if (r.top < b.top || r.bottom > b.bottom) box.scrollTop += r.top - b.top - box.clientHeight / 3;
     }
   }
@@ -14074,8 +14755,8 @@ ${d.message}` : d.message;
     const paintMeta = () => {
       const fm = fileMeta(text, ext2, rawPath);
       meta.textContent = fm.kind;
-      const row = document.getElementById("fe-status-meta");
-      if (row) row.innerHTML = metaChips(fm);
+      const row2 = document.getElementById("fe-status-meta");
+      if (row2) row2.innerHTML = metaChips(fm);
       const count = document.getElementById("fe-count");
       if (count) count.textContent = metaSummary(fm);
     };
@@ -14187,13 +14868,13 @@ ${d.message}` : d.message;
       if (isMd && !raw) spy(page, toc);
     });
     page.addEventListener("click", (e) => {
-      const row = e.target.closest(".fe-diag-row");
-      if (!row) return;
+      const row2 = e.target.closest(".fe-diag-row");
+      if (!row2) return;
       if (!raw) {
         raw = true;
         render2();
       }
-      const line2 = page.querySelectorAll(".fe-cl")[Number(row.dataset.line) - 1];
+      const line2 = page.querySelectorAll(".fe-cl")[Number(row2.dataset.line) - 1];
       if (!line2) return;
       line2.scrollIntoView({ block: "center" });
       line2.classList.add("flash");
@@ -14449,23 +15130,23 @@ ${d.message}` : d.message;
     const found = s.list.find((t) => t.path === path);
     if (found) return background ? s : { ...s, active: found.id };
     const tab = { id: newId(), path, kind: kindOf(path), label: labelFor(path), pinned: false };
-    const i = s.list.findIndex((t) => t.id === s.active);
-    const list = [...s.list];
-    list.splice(Math.max(i < 0 ? list.length : i + 1, pinnedCount(s)), 0, tab);
-    return { list, active: background ? s.active : tab.id };
+    const i2 = s.list.findIndex((t) => t.id === s.active);
+    const list2 = [...s.list];
+    list2.splice(Math.max(i2 < 0 ? list2.length : i2 + 1, pinnedCount(s)), 0, tab);
+    return { list: list2, active: background ? s.active : tab.id };
   }
   function closeTab(s, id) {
-    const i = s.list.findIndex((t) => t.id === id);
-    if (i < 0) return s;
-    const list = s.list.filter((t) => t.id !== id);
+    const i2 = s.list.findIndex((t) => t.id === id);
+    if (i2 < 0) return s;
+    const list2 = s.list.filter((t) => t.id !== id);
     let active = s.active;
-    if (active === id) active = list[Math.min(i, list.length - 1)]?.id ?? null;
-    return { list, active };
+    if (active === id) active = list2[Math.min(i2, list2.length - 1)]?.id ?? null;
+    return { list: list2, active };
   }
   function closeOthers(s, id) {
     if (!s.list.some((t) => t.id === id)) return s;
-    const list = s.list.filter((t) => t.pinned || t.id === id);
-    return { list, active: list.some((t) => t.id === s.active) ? s.active : id };
+    const list2 = s.list.filter((t) => t.pinned || t.id === id);
+    return { list: list2, active: list2.some((t) => t.id === s.active) ? s.active : id };
   }
   function activate(s, id) {
     return s.list.some((t) => t.id === id) ? { ...s, active: id } : s;
@@ -14480,17 +15161,17 @@ ${d.message}` : d.message;
   }
   function step(s, dir) {
     if (!s.list.length) return null;
-    const i = s.list.findIndex((t) => t.id === s.active);
-    const j = i < 0 ? dir > 0 ? 0 : s.list.length - 1 : (i + dir + s.list.length) % s.list.length;
+    const i2 = s.list.findIndex((t) => t.id === s.active);
+    const j = i2 < 0 ? dir > 0 ? 0 : s.list.length - 1 : (i2 + dir + s.list.length) % s.list.length;
     return s.list[j];
   }
   function moveTab(s, id, toId) {
     const from = s.list.findIndex((t2) => t2.id === id), to = s.list.findIndex((t2) => t2.id === toId);
     if (from < 0 || to < 0 || from === to || s.list[from].pinned !== s.list[to].pinned) return s;
-    const list = [...s.list];
-    const [t] = list.splice(from, 1);
-    list.splice(to, 0, t);
-    return { ...s, list };
+    const list2 = [...s.list];
+    const [t] = list2.splice(from, 1);
+    list2.splice(to, 0, t);
+    return { ...s, list: list2 };
   }
   function isTabState(v) {
     const s = v;
@@ -14505,20 +15186,20 @@ ${d.message}` : d.message;
   }
   function insertTab(s, tab, index) {
     if (s.list.some((t) => t.path === tab.path)) return s;
-    const list = [...s.list];
-    const at = Math.min(Math.max(index, pinnedCount(s)), list.length);
-    list.splice(at, 0, { ...tab, pinned: false });
-    return { ...s, list };
+    const list2 = [...s.list];
+    const at = Math.min(Math.max(index, pinnedCount(s)), list2.length);
+    list2.splice(at, 0, { ...tab, pinned: false });
+    return { ...s, list: list2 };
   }
   function splitLabel(label) {
     if (label.length <= 12) return { head: label, tail: "" };
     const ext2 = label.match(/\.[A-Za-z0-9]{1,6}$/)?.[0] ?? "";
     return { head: label.slice(0, label.length - ext2.length), tail: ext2 };
   }
-  function displayLabels(list) {
+  function displayLabels(list2) {
     const count = /* @__PURE__ */ new Map();
-    for (const t of list) count.set(t.label, (count.get(t.label) ?? 0) + 1);
-    return list.map((t) => {
+    for (const t of list2) count.set(t.label, (count.get(t.label) ?? 0) + 1);
+    return list2.map((t) => {
       if ((count.get(t.label) ?? 0) < 2) return t.label;
       const parts = t.path.split("/").filter(Boolean);
       return parts.length >= 2 ? parts[parts.length - 2] + "/" + t.label : t.label;
@@ -14583,8 +15264,8 @@ ${d.message}` : d.message;
     let closed = [];
     let drag = null;
     function commit(next) {
-      state.list.forEach((t, i) => {
-        if (!next.list.some((x) => x.id === t.id)) closed.push({ tab: t, index: i });
+      state.list.forEach((t, i2) => {
+        if (!next.list.some((x) => x.id === t.id)) closed.push({ tab: t, index: i2 });
       });
       if (closed.length > 20) closed = closed.slice(-20);
       state = next;
@@ -14627,6 +15308,7 @@ ${d.message}` : d.message;
       if (hereIn(state)?.id === id) closeHere();
       else commit(closeTab(state, id));
     }
+    const listBtn = document.getElementById("fe-tab-list");
     const menu = document.createElement("div");
     menu.className = "fe-ctx fe-tab-menu";
     menu.style.display = "none";
@@ -14703,10 +15385,10 @@ ${d.message}` : d.message;
       const { head, tail } = splitLabel(label);
       return `<span class="fe-tab-lbl"><span class="fe-tab-head">${esc(head)}</span>${tail ? `<span class="fe-tab-tail">${esc(tail)}</span>` : ""}</span>`;
     }
-    function tabHtml(t, i, on, label) {
+    function tabHtml(t, i2, on, label) {
       const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : `<span class="fe-tab-ico">${icoFolder(t.label)}</span>`;
       const tip = `${t.path}
-${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins, right-click for more)" : "middle-click closes"} \xB7 drag reorders`;
+${i2 < 9 ? `${i2 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins, right-click for more)" : "middle-click closes"} \xB7 drag reorders`;
       return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}"${on ? ' aria-current="page"' : ""} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}${lblHtml(label)}
       <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">\u2026</button>
@@ -14716,27 +15398,29 @@ ${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (
     function render2() {
       const here = hereIn(state);
       const labels = displayLabels(state.list);
-      const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i]));
+      const rows = state.list.map((t, i2) => tabHtml(t, i2, t.id === here?.id, labels[i2]));
       if (!here) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
         rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}
 Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
       }
-      if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">${CHEVRON_DOWN}</button>`);
       el2.innerHTML = rows.join("");
       fitHeads();
       el2.classList.toggle("empty", state.list.length === 0);
       el2.querySelector(".fe-tab.on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
-      el2.querySelector(".fe-tab-list")?.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        menu.innerHTML = state.list.map((t, i) => `<div class="fe-ctx-item" data-go="${esc(t.id)}">${esc(labels[i])}</div>`).join("");
-        menu.dataset.id = "";
-        menu.style.display = "block";
-        const r = e.currentTarget.getBoundingClientRect();
-        menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + "px";
-        menu.style.top = r.bottom + 4 + "px";
-      });
+      if (listBtn) {
+        listBtn.hidden = state.list.length < 2;
+        listBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          menu.innerHTML = state.list.map((t, i2) => `<div class="fe-ctx-item${t.id === here?.id ? " on" : ""}" data-go="${esc(t.id)}">${t.kind === "file" ? icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "") : icoFolder(t.label)}<span>${esc(labels[i2])}</span>${i2 < 9 ? `<kbd>${i2 + 1}</kbd>` : ""}</div>`).join("");
+          menu.dataset.id = "";
+          menu.style.display = "block";
+          const r = listBtn.getBoundingClientRect();
+          menu.style.left = Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)) + "px";
+          menu.style.top = r.bottom + 4 + "px";
+        };
+      }
       el2.querySelectorAll(".fe-tab").forEach((a) => {
         a.addEventListener("click", (e) => {
           if (e.target.closest("button")) return;
@@ -15300,6 +15984,398 @@ seconds and re-renders when the file changes on disk.
 ` }
   ];
 
+  // src/controls.ts
+  function segHtml(id, opts, title) {
+    return `<div class="fe-seg" id="${id}" role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1"${o.hint ? ` title="${esc(o.hint)}"` : ""}${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
+  }
+  function sliderHtml(id, values, unit, title) {
+    return `<div class="fe-sld" id="${id}" data-values="${values.join(",")}" data-unit="${esc(unit)}" title="${esc(title)}">
+    <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}">
+    <output></output>
+  </div>`;
+  }
+  function ddHtml(id, opts, title) {
+    return `<div class="fe-dd" id="${id}" data-opts="${esc(JSON.stringify(opts))}">
+    <button type="button" class="fe-dd-btn" aria-haspopup="listbox" aria-expanded="false" title="${esc(title)}"><span class="fe-dd-cur"></span>${CHEVRON_DOWN}</button>
+  </div>`;
+  }
+  function chipsHtml(id, placeholder, title) {
+    return `<div class="fe-chipin" id="${id}" title="${esc(title)}"><input class="fe-chipin-in" placeholder="${esc(placeholder)}" spellcheck="false" aria-label="${esc(title)}"></div>`;
+  }
+  var fire = (host) => host.dispatchEvent(new Event("change", { bubbles: true }));
+  function upgradeSeg(host) {
+    const btns = [...host.querySelectorAll(".fe-seg-b")];
+    let cur = "";
+    const paint = () => btns.forEach((b) => {
+      const on = b.dataset.v === cur;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", String(on));
+      b.tabIndex = on || !cur && b === btns[0] ? 0 : -1;
+    });
+    Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
+      cur = String(v);
+      paint();
+    } });
+    btns.forEach((b, i2) => {
+      b.addEventListener("click", () => {
+        if (cur !== b.dataset.v) {
+          cur = b.dataset.v;
+          paint();
+          fire(host);
+        }
+      });
+      b.addEventListener("keydown", (e) => {
+        const step2 = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+        const to = e.key === "Home" ? 0 : e.key === "End" ? btns.length - 1 : step2 ? (i2 + step2 + btns.length) % btns.length : -1;
+        if (to < 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        btns[to].focus();
+        btns[to].click();
+      });
+    });
+    paint();
+  }
+  function upgradeSlider(host) {
+    const values = host.dataset.values.split(",").map(Number);
+    const unit = host.dataset.unit ?? "";
+    const range = host.querySelector("input");
+    const out = host.querySelector("output");
+    const show = () => {
+      const v = values[Number(range.value)];
+      out.textContent = `${v}${unit}`;
+      host.style.setProperty("--pct", `${Number(range.value) / (values.length - 1) * 100}%`);
+    };
+    Object.defineProperty(host, "value", {
+      get: () => String(values[Number(range.value)]),
+      set: (v) => {
+        const n = Number(v);
+        let best = 0;
+        values.forEach((x, i2) => {
+          if (Math.abs(x - n) < Math.abs(values[best] - n)) best = i2;
+        });
+        range.value = String(best);
+        show();
+      }
+    });
+    range.addEventListener("input", () => {
+      show();
+      host.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    range.addEventListener("change", (e) => {
+      e.stopPropagation();
+      fire(host);
+    });
+    show();
+  }
+  var list = null;
+  var closeList = null;
+  function upgradeDd(host) {
+    const btn = host.querySelector(".fe-dd-btn");
+    const curEl = host.querySelector(".fe-dd-cur");
+    let opts = JSON.parse(host.dataset.opts || "[]");
+    let cur = "";
+    const paint = () => {
+      const o = opts.find((x) => x.value === cur);
+      curEl.innerHTML = o ? `${o.icon ?? ""}<span>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
+    };
+    Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
+      cur = String(v);
+      paint();
+    } });
+    host.setOptions = (o) => {
+      opts = o;
+      paint();
+    };
+    function open() {
+      closeList?.();
+      const fe = document.getElementById("fe") ?? document.body;
+      list = document.createElement("div");
+      list.className = "fe-dd-list";
+      list.setAttribute("role", "listbox");
+      list.innerHTML = opts.map((o) => `<div role="option" class="fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l">${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`).join("");
+      fe.appendChild(list);
+      const r = btn.getBoundingClientRect();
+      list.style.minWidth = `${r.width}px`;
+      const h = list.offsetHeight, w = list.offsetWidth;
+      list.style.left = `${Math.max(8, Math.min(r.right - w, innerWidth - w - 8))}px`;
+      list.style.top = `${r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4}px`;
+      btn.setAttribute("aria-expanded", "true");
+      const items = [...list.querySelectorAll(".fe-dd-opt")];
+      let at = Math.max(0, items.findIndex((i2) => i2.dataset.v === cur));
+      const mark = () => {
+        items.forEach((it, i2) => it.classList.toggle("kb", i2 === at));
+        items[at]?.scrollIntoView({ block: "nearest" });
+      };
+      mark();
+      const pick = (v) => {
+        const changed = v !== cur;
+        cur = v;
+        paint();
+        shut();
+        btn.focus();
+        if (changed) fire(host);
+      };
+      list.addEventListener("click", (e) => {
+        const it = e.target.closest(".fe-dd-opt");
+        if (it) pick(it.dataset.v);
+      });
+      list.addEventListener("mousemove", (e) => {
+        const it = e.target.closest(".fe-dd-opt");
+        if (it) {
+          at = items.indexOf(it);
+          mark();
+        }
+      });
+      let typed = "", typedAt = 0;
+      const onKey = (e) => {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          at = (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+          mark();
+        } else if (e.key === "Home" || e.key === "End") {
+          at = e.key === "Home" ? 0 : items.length - 1;
+          mark();
+        } else if (e.key === "Enter" || e.key === " ") {
+          if (items[at]) pick(items[at].dataset.v);
+        } else if (e.key === "Escape" || e.key === "Tab") {
+          shut();
+          if (e.key === "Escape") btn.focus();
+          else return;
+        } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+          typed = Date.now() - typedAt > 700 ? e.key.toLowerCase() : typed + e.key.toLowerCase();
+          typedAt = Date.now();
+          const hit = items.findIndex((it) => (it.querySelector(".fe-dd-l")?.textContent ?? "").toLowerCase().startsWith(typed));
+          if (hit >= 0) {
+            at = hit;
+            mark();
+          }
+        } else return;
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      const onDown = (e) => {
+        if (!list?.contains(e.target) && !host.contains(e.target)) shut();
+      };
+      document.addEventListener("keydown", onKey, true);
+      document.addEventListener("mousedown", onDown, true);
+      function shut() {
+        document.removeEventListener("keydown", onKey, true);
+        document.removeEventListener("mousedown", onDown, true);
+        list?.remove();
+        list = null;
+        closeList = null;
+        btn.setAttribute("aria-expanded", "false");
+      }
+      closeList = shut;
+    }
+    btn.addEventListener("click", () => {
+      if (btn.getAttribute("aria-expanded") === "true") closeList?.();
+      else open();
+    });
+    btn.addEventListener("keydown", (e) => {
+      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && btn.getAttribute("aria-expanded") !== "true") {
+        e.preventDefault();
+        open();
+      }
+    });
+    paint();
+  }
+  function upgradeChips(host) {
+    const input = host.querySelector(".fe-chipin-in");
+    let items = [];
+    const paint = () => {
+      host.querySelectorAll(".fe-chip-x").forEach((c) => c.remove());
+      input.insertAdjacentHTML("beforebegin", items.map((t, i2) => `<span class="fe-chip-x">${esc(t)}<button type="button" data-i="${i2}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">\xD7</button></span>`).join(""));
+    };
+    const commit = () => {
+      const add = input.value.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
+      input.value = "";
+      if (!add.length) return;
+      items = [...items, ...add.filter((a) => !items.includes(a))];
+      paint();
+      fire(host);
+    };
+    Object.defineProperty(host, "value", {
+      get: () => items.join(", "),
+      set: (v) => {
+        items = String(v).split(",").map((x) => x.trim()).filter(Boolean);
+        paint();
+      }
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === ",") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Backspace" && !input.value && items.length) {
+        items.pop();
+        paint();
+        fire(host);
+      }
+    });
+    input.addEventListener("blur", commit);
+    input.addEventListener("change", (e) => e.stopPropagation());
+    host.addEventListener("click", (e) => {
+      const b = e.target.closest(".fe-chip-x button");
+      if (b) {
+        items.splice(Number(b.dataset.i), 1);
+        paint();
+        fire(host);
+        input.focus();
+      } else if (e.target === host) input.focus();
+    });
+  }
+  function upgradeControls(root = document) {
+    root.querySelectorAll(".fe-seg:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeSeg(h);
+    });
+    root.querySelectorAll(".fe-sld:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeSlider(h);
+    });
+    root.querySelectorAll(".fe-dd:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeDd(h);
+    });
+    root.querySelectorAll(".fe-chipin:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeChips(h);
+    });
+  }
+
+  // src/settings-page.ts
+  var row = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
+  var wide = (label, desc, ctl) => `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
+  var card = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
+  var sw = (id, title) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
+  var iconBtn = (id, icon2, title) => `<button type="button" id="${id}" class="fe-ibtn" title="${title}" aria-label="${title}">${icon2}</button>`;
+  var note = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
+  var thumb = (group, value, name, kind) => `<label class="fe-set-sw" title="${name}"><input type="radio" name="${group}" value="${value}"><span class="fe-set-thumb" data-${kind}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
+  var PALETTE_NAMES = [
+    ["slate", "Slate"],
+    ["violet", "Violet"],
+    ["sand", "Sand"],
+    ["ink", "Ink"],
+    ["ocean", "Ocean"],
+    ["forest", "Forest"],
+    ["ember", "Ember"],
+    ["nord", "Nord"]
+  ];
+  var i = (body) => line(body, 14);
+  var SORT_OPTS = [
+    { value: "", label: "As listed", icon: i('<path d="M3 6h18M3 12h18M3 18h18"/>') },
+    { value: "name", label: "Name", icon: i('<path d="M4 18 8 6l4 12M5.5 14h5M15 6h5l-5 12h5"/>') },
+    { value: "date", label: "Modified", icon: i('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>') },
+    { value: "size", label: "Size", icon: i('<path d="M3 20h18M6 20v-5M10 20V9M14 20v-8M18 20V4"/>') },
+    { value: "type", label: "Type", icon: i('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h6"/>') },
+    { value: "ext", label: "Extension", icon: i('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>') }
+  ];
+  var GROUP_OPTS = [
+    { value: "none", label: "None", icon: i('<path d="M3 6h18M3 12h18M3 18h18"/>') },
+    { value: "folders-first", label: "Folders first", icon: i('<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>') },
+    { value: "files-first", label: "Files first", icon: i('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>') },
+    { value: "ext", label: "By extension", icon: i('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>') },
+    { value: "type", label: "By type", icon: i('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/>') }
+  ];
+  var TERM_OPTS = [
+    { value: "ghostty", label: "Ghostty" },
+    { value: "terminal", label: "Terminal" },
+    { value: "iterm", label: "iTerm2" },
+    { value: "wezterm", label: "WezTerm" },
+    { value: "kitty", label: "Kitty" },
+    { value: "custom", label: "Custom", hint: "your own command" }
+  ].map((o) => ({ ...o, icon: UI_ICON.terminal }));
+  function settingsDialog() {
+    return {
+      id: "fe-settings-modal",
+      mark: PI.gear,
+      title: "Settings",
+      subtitle: "Kept in this browser",
+      tabs: [
+        { key: "look", label: "Look", hint: "Theme, colour, size", icon: UI_ICON.appearance, tone: "var(--nc-pink)", desc: "Theme, colours, icon and size.", body: card(
+          "Theme",
+          row("Mode", "", `<div class="fe-set-sws">${thumb("bfb-theme", "dark", "Dark", "mode") + thumb("bfb-theme", "light", "Light", "mode") + thumb("bfb-theme", "system", "System", "mode")}</div>`) + row("Palette", "", `<div class="fe-set-sws grid4">${PALETTE_NAMES.map(([v, n]) => thumb("bfb-palette", v, n, "p")).join("")}</div>`)
+        ) + card(
+          "App icon",
+          wide("", "Shows in the tab and in an installed app window", `<div class="fe-appicons" role="radiogroup" aria-label="App icon">${APP_ICONS.map((a) => `<label class="fe-appicon" title="${a.name}"><input type="radio" name="bfb-appicon" value="${a.id}" aria-label="${a.name}"><img alt="" data-src="assets/app-icons/${a.file}"><span>${a.name}</span></label>`).join("")}</div>`)
+        ) + card(
+          "Size",
+          row("Interface", "Everything", sliderHtml("fe-st-uiscale", [80, 90, 100, 110, 125, 150], "%", "Interface size")) + row("Text", "Lists, sidebar, pages", sliderHtml("fe-st-rd-size", [12, 13, 14, 15, 16, 17, 18], " px", "Text size")) + row("Density", "", segHtml("fe-st-density", [
+            { value: "roomy", label: "Roomy", icon: i('<path d="M3 5h18M3 12h18M3 19h18"/>') },
+            { value: "compact", label: "Compact", icon: i('<path d="M3 7h18M3 11h18M3 15h18M3 19h18"/>') }
+          ], "Row spacing"))
+        ) + card(
+          "Help",
+          row("Tooltips", "Labels on hover", sw("fe-st-tooltips", "Tooltips on every control")) + row("Keyboard", "Every key, on a map", `<button id="fe-st-keys" class="fe-pbn" title="Open the keyboard map">${UI_ICON.keyboard}Keys</button>`)
+        ) },
+        { key: "folders", label: "Folders", hint: "View, order, sidebar", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "How folders open, and what a click does.", body: card(
+          "Opening a folder",
+          row("View", "", segHtml("fe-st-defview", VIEW_ICONS.map((v) => ({ value: v.id, icon: v.ico, hint: v.label })), "View a folder opens in")) + row("Sort", "", ddHtml("fe-st-sort", SORT_OPTS, "Order a folder opens in") + segHtml("fe-st-sort-dir", [
+            { value: "asc", icon: i('<path d="M12 19V5M5 12l7-7 7 7"/>'), hint: "Ascending" },
+            { value: "desc", icon: i('<path d="M12 5v14M19 12l-7 7-7-7"/>'), hint: "Descending" }
+          ], "Direction")) + row("Group", "", ddHtml("fe-st-group", GROUP_OPTS, "Grouping a folder opens with")) + row("Dates", "", segHtml("fe-st-datefmt", [{ value: "short", label: "Apr 17" }, { value: "full", label: "April 17, 2025" }], "How dates read"))
+        ) + card(
+          "Opening a file",
+          row("Click a file", "", segHtml("fe-st-click", [
+            { value: "look", label: "Preview", icon: UI_ICON.eye },
+            { value: "go", label: "Open", icon: UI_ICON.external }
+          ], "What a click on a file does")) + row("Preview", "", segHtml("fe-st-panel", [
+            { value: "modal", label: "Float", icon: i('<rect width="14" height="12" x="5" y="6" rx="2"/>') },
+            { value: "side", label: "Dock", icon: UI_ICON.preview }
+          ], "Where the preview opens") + iconBtn("fe-st-panel-reset", UI_ICON.reset, "Reset dragged sizes"))
+        ) + card(
+          "Sidebar",
+          row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
+        ) + card(
+          "Terminal",
+          row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') + note("", "fe-st-term-hint")
+        ) },
+        { key: "files", label: "Files", hint: "Pages, icons", icon: UI_ICON.files, tone: "var(--nc-teal)", desc: "Reading, file pages and icons.", body: card(
+          "Reading",
+          row("Width", "Markdown pages", segHtml("fe-st-rd-column", [
+            { value: "unset", label: "Full" },
+            { value: "xl", label: "Wide" },
+            { value: "lg", label: "Medium" },
+            { value: "md", label: "Narrow" }
+          ], "Reading width")) + row("Line height", "", sliderHtml("fe-st-rd-lh", [1.4, 1.5, 1.65, 1.8, 2], "", "Line height")) + row("Code", "", sliderHtml("fe-st-rd-code", [11, 12, 13, 14, 15, 16], " px", "Code size")) + row("Wrap lines", "Raw text and code", sw("fe-st-wrap", "Wrap long lines"))
+        ) + card(
+          "File pages",
+          row("Pages for", "", segHtml("fe-st-filepages", [
+            { value: "all", label: "All text" },
+            { value: "not-md", label: "Not .md" },
+            { value: "off", label: "Off" }
+          ], "Which files open as pages")) + row("Chrome opens", "In its own viewer", chipsHtml("fe-st-excluded-exts", ".ext", "Extensions Chrome opens itself") + iconBtn("fe-st-excluded-reset", UI_ICON.reset, "Restore .pdf .html .htm"))
+        ) + card(
+          "Icon rules",
+          `
+          <div class="fe-rule-sugg" id="fe-st-rule-sugg"></div>
+          <div id="fe-st-rules-list"></div>`,
+          `<span class="fe-set-h-acts">${iconBtn("fe-st-reset-rules", UI_ICON.reset, "Reset to the built-in rules")}<button id="fe-st-add-rule" class="fe-pbn" title="Add a rule">${UI_ICON.add}Rule</button></span>`
+        ) },
+        { key: "notes", label: "Notes", hint: "Notes, editing", icon: UI_ICON.notes, tone: "var(--nc-orange)", desc: "Your notes folder, and where you can edit.", body: card(
+          "Notes",
+          row("Folder", "Markdown files", `<input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="~/Notes" spellcheck="false" title="Notes folder">${iconBtn("fe-st-notes-pick", UI_ICON.folderOpen, "Choose a folder")}`) + note("", "fe-st-notes-hint")
+        ) + card(
+          "Editing",
+          wide("Editable folders", "Text files inside get Edit (e). Saves keep a 14-day backup.", chipsHtml("fe-st-edit-roots", "~/Code", "Folders you can edit in"))
+        ) },
+        { key: "ai", label: "AI", hint: "Models", icon: UI_ICON.ai, tone: "var(--nc-purple)", desc: "Models that answer in Ask and the preview.", body: `
+        <div id="fe-st-ai-card" class="fe-ai-hero">
+          <span class="fe-st-ai-head"><span class="fe-st-ai-blink"><span class="dot"></span></span></span>
+          <div class="fe-ai-hero-tx"><b class="fe-st-ai-state">Checking\u2026</b><span id="fe-st-ai-sub"></span></div>
+          ${iconBtn("fe-st-ai-refresh", UI_ICON.reset, "Check again")}
+        </div>` + card(
+          "On this Mac",
+          row("Model", "", ddHtml("fe-st-ai-model", [], "Local model")) + row("Keep warm", "Replies start at once", sw("fe-st-ai-warm", "Keep the model loaded")) + `<div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>` + note("", "fe-st-ai-hint")
+        ) + card("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
+        { key: "data", label: "Data", hint: "Export, import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list.", body: card(
+          "Your data",
+          row("Export", "Copies JSON", `<button id="fe-st-export" class="fe-pbn" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) + row("Import", "Then reloads", `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) + `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`
+        ) }
+      ]
+    };
+  }
+
   // src/find.ts
   var EMPTY_FIND = { scope: "here", name: "", regex: false, exts: [], text: "", caseSensitive: false, textRegex: false, maxDepth: 8 };
   function isEmptyFind(q) {
@@ -15489,10 +16565,10 @@ seconds and re-renders when the file changes on disk.
   </a>`;
   }
   function renderRows(entries, ctx, start = 0) {
-    return entries.map((e, i) => renderRow(e, ctx, start + i)).join("");
+    return entries.map((e, i2) => renderRow(e, ctx, start + i2)).join("");
   }
   function renderTiles(entries, ctx, start = 0) {
-    return entries.map((e, i) => renderTile(e, ctx, start + i)).join("");
+    return entries.map((e, i2) => renderTile(e, ctx, start + i2)).join("");
   }
   var savedFileExt = (path) => path.endsWith("/") ? "" : path.split("/").pop().match(/\.([^.]+)$/)?.[1].toLowerCase() ?? "";
   function renderSavedList(saved, tags, rawPath, filter = "", folded = /* @__PURE__ */ new Set(), hits = /* @__PURE__ */ new Map()) {
@@ -15501,7 +16577,7 @@ seconds and re-renders when the file changes on disk.
     saved = saved.filter((p) => byName.includes(p) || hits.has(p.path));
     if (!saved.length) return `<div class="fe-hint">No saved item matches.</div>`;
     const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
-    const row = (p) => {
+    const row2 = (p) => {
       const n = p.tags?.length ?? 0, hit = hits.get(p.path);
       return `
     <div class="fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
@@ -15516,11 +16592,11 @@ seconds and re-renders when the file changes on disk.
     </div>`;
     };
     return groupByTag(saved, tags).map((g) => {
-      if (!g.tag) return g.items.map(row).join("");
+      if (!g.tag) return g.items.map(row2).join("");
       const open = filter.trim() || !folded.has(g.tag.name) ? " open" : "";
       return `<details class="fe-grp" data-tag="${esc(g.tag.name)}"${open}>
       <summary class="fe-sv-tag">${CHEVRON_DOWN}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
-      ${g.items.map(row).join("")}
+      <div class="fe-grp-body">${g.items.map(row2).join("")}</div>
     </details>`;
     }).join("");
   }
@@ -15532,12 +16608,12 @@ seconds and re-renders when the file changes on disk.
       crumbs.push({ label: seg, href: fileHref(acc) });
     }
     const homeAt = home && (acc === home + "/" || acc.startsWith(home + "/")) ? home.split("/").length - 1 : -1;
-    return crumbs.map((c, i) => {
-      const last = i === crumbs.length - 1, where = esc(decodeURIComponent(c.href.slice(7)));
+    return crumbs.map((c, i2) => {
+      const last = i2 === crumbs.length - 1, where = esc(decodeURIComponent(c.href.slice(7)));
       const end = last && !trailing;
-      const label = i === homeAt ? "~" : c.label;
-      const pre = i < homeAt ? " data-pre hidden" : "";
-      return `<span class="fe-cg" data-i="${i}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where}">${esc(label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
+      const label = i2 === homeAt ? "~" : c.label;
+      const pre = i2 < homeAt ? " data-pre hidden" : "";
+      return `<span class="fe-cg" data-i="${i2}"${pre}><a href="${esc(c.href)}" class="fe-crumb${end ? " cur" : ""}" title="Go to ${where}">${esc(label)}</a><button class="fe-crumb-dd" data-url="${esc(c.href)}" title="What is in ${where}" aria-label="What is in ${where}">${end ? CHEVRON_DOWN : CHEVRON_RIGHT}</button></span>`;
     }).join("");
   }
 
@@ -15568,13 +16644,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const { initTheme, initPalette, initView, initZoom, initHidden, fileMode, rawPath, folderPath, fileName, segments, settings, curIsBookmarked, dirs, files, extOpts, recentsHTML } = p;
     const ALL_ENTRIES = p.entries;
     const ctx0 = p.ctx;
-    const VIEW_MODES = [
-      { id: "details", label: "Details", ico: `<svg width="13" height="11" viewBox="0 0 13 11"><path d="M1 1h11M1 4h11M1 7h11M1 10h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
-      { id: "list", label: "List", ico: `<svg width="13" height="11" viewBox="0 0 13 11"><circle cx="2" cy="2" r="1.1" fill="currentColor"/><path d="M5 2h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2" cy="5.5" r="1.1" fill="currentColor"/><path d="M5 5.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="2" cy="9" r="1.1" fill="currentColor"/><path d="M5 9h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` },
-      { id: "tree", label: "Tree", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><path d="M2 1.5v8h3M2 5.5h3M6 4.5h6M6 9.5h6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="5.5" cy="4.5" r=".8" fill="currentColor"/><circle cx="5.5" cy="9.5" r=".8" fill="currentColor"/></svg>` },
-      { id: "tiles", label: "Tiles", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="1" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="7.5" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="7.5" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>` },
-      { id: "icons", label: "Large Icons", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/></svg>` }
-    ];
+    const VIEW_MODES = VIEW_ICONS;
     const VIEW_LABELS = {
       details: "Full table: name, type, size, modified",
       list: "Compact single-column rows",
@@ -15586,92 +16656,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       (v) => `<button class="fe-view-btn" data-icon data-view="${v.id}" title="${v.label} view: ${VIEW_LABELS[v.id]}${v.id === initView ? " (active)" : ""}">${v.ico}</button>`
     ).join("");
     const railBtn = (lens, label, icon2, hint, hidden = false) => `<button type="button" class="fe-rail-btn" role="tab" data-lens="${lens}" id="fe-rail-${lens}" aria-controls="fe-lens-${lens}" title="${hint}" data-hint="${hint}"${hidden ? " hidden" : ""}>${icon2}<em>${label}</em></button>`;
-    const stRow = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
-    const stCard = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
-    const stSwitch = (id, title) => `<input type="checkbox" class="fe-switch" id="${id}" title="${title}">`;
-    const stNote = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
-    const thumb = (group, value, name, title) => `<label class="fe-set-sw" title="${title}"><input type="radio" name="${group}" value="${value}" title="${title}"><span class="fe-set-thumb" data-${group === "bfb-theme" ? "mode" : "p"}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
-    const SETTINGS_DIALOG = {
-      id: "fe-settings-modal",
-      mark: PI.gear,
-      title: "Settings",
-      subtitle: "Saved in this browser profile",
-      tabs: [
-        { key: "look", label: "Look", hint: "Theme, colour and size", icon: UI_ICON.appearance, tone: "var(--nc-pink)", desc: "How bfb looks: the theme, its colours, and the size of everything.", body: stCard(
-          "Theme",
-          stRow("Mode", "Dark or light surfaces", `<div class="fe-set-sws">${thumb("bfb-theme", "dark", "Dark", "Dark theme") + thumb("bfb-theme", "light", "Light", "Light theme")}</div>`) + stRow("Palette", "Accent and surface colours", `<div class="fe-set-sws">${thumb("bfb-palette", "slate", "Slate", "Slate and teal") + thumb("bfb-palette", "violet", "Violet", "Violet") + thumb("bfb-palette", "sand", "Sand", "Sand and rose") + thumb("bfb-palette", "ink", "Ink", "Ink, black and white")}</div>`)
-        ) + stCard(
-          "Size",
-          stRow("Interface size", "Scales everything", `<select id="fe-st-uiscale" class="fe-st-select" title="Scale the whole interface, sidebar and text included">${[90, 100, 110, 125, 150].map((n) => `<option value="${n}">${n}%</option>`).join("")}</select>`) + stRow("Text size", "Text throughout the app", `<select id="fe-st-rd-size" class="fe-st-select" title="Text size throughout the app">${[13, 14, 15, 16, 17].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>`) + stRow("Compact rows", "Tighter rows in lists and tiles", stSwitch("fe-st-compact", "Tighter rows and tiles"))
-        ) + stCard(
-          "Help",
-          stRow("Tooltips", "Labels on hover", stSwitch("fe-st-tooltips", "Native tooltips on every control")) + stRow("Keyboard shortcuts", "Every key on one page", `<button id="fe-st-keys" class="fe-pbn" title="Open Help on the Keyboard tab">${UI_ICON.keyboard}Show keys</button>`)
-        ) },
-        { key: "folders", label: "Folders", hint: "Views, order and the sidebar", icon: UI_ICON.folderOpen, tone: "var(--nc-blue)", desc: "What a folder shows when it opens, and what a click on a file does.", body: stCard(
-          "Opening a folder",
-          stRow("View", "How a folder first appears", `<select id="fe-st-defview" class="fe-st-select" title="View a folder opens in"><option value="details">Details</option><option value="list">List</option><option value="tree">Tree</option><option value="tiles">Tiles</option><option value="icons">Large icons</option></select>`) + stRow("Sort", "", `<select id="fe-st-sort" class="fe-st-select" title="Order every folder opens in"><option value="">As listed</option><option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option><option value="type">Type</option><option value="ext">Extension</option></select><select id="fe-st-sort-dir" class="fe-st-select" title="Direction"><option value="asc">Ascending</option><option value="desc">Descending</option></select>`) + stRow("Group", "", `<select id="fe-st-group" class="fe-st-select" title="Grouping every folder opens with"><option value="none">None</option><option value="folders-first">Folders first</option><option value="files-first">Files first</option><option value="ext">By extension</option><option value="type">By type</option></select>`) + stRow("Dates", "How the Modified column reads", `<select id="fe-st-datefmt" class="fe-st-select" title="How the Modified column reads"><option value="short">Apr 17</option><option value="full">April 17, 2025</option></select>`)
-        ) + stCard(
-          "Opening a file",
-          stRow("A click on a file", "", `<select id="fe-st-click" class="fe-st-select" title="What a plain click on a file does"><option value="look">Preview it</option><option value="go">Open it</option></select>`) + stRow("Preview", "Where the preview opens", `<select id="fe-st-panel" class="fe-st-select" title="Where the preview opens"><option value="modal">Floating window</option><option value="side">Docked to the side</option></select><button id="fe-st-panel-reset" class="fe-pbn" title="Forget the dragged sizes">${UI_ICON.reset}Reset sizes</button>`)
-        ) + stCard(
-          "Sidebar",
-          stRow("Show the sidebar", "", stSwitch("fe-st-sidebar", "Places, Notes and History on the left")) + stRow("History lens", "Recent folders, files and closed tabs", stSwitch("fe-st-sec-recent", "Folders and files you opened lately, and closed tabs"))
-        ) + stCard(
-          "Terminal",
-          stRow("Open folders in", "", `<select id="fe-st-terminal" class="fe-st-select" title="Terminal app to open the current folder in"><option value="ghostty">Ghostty</option><option value="terminal">Terminal</option><option value="iterm">iTerm2</option><option value="wezterm">WezTerm</option><option value="kitty">Kitty</option><option value="custom">Custom command</option></select>`) + stRow("Command", "Use ${p} for the folder; it is copied, not run", `<input type="text" id="fe-st-term-custom" class="fe-st-input" placeholder='open -a MyTerm "\${p}"' title='Shell command template. Use \${p} for the folder path.'>`, ' id="fe-st-term-custom-row" style="display:none"') + stNote("", "fe-st-term-hint")
-        ) },
-        { key: "files", label: "Files", hint: "Reading and file pages", icon: UI_ICON.files, tone: "var(--nc-teal)", desc: "How files read as pages, which ones Chrome keeps, and their icons.", body: stCard(
-          "Reading",
-          stRow("Reading width", "Default for Markdown pages", `<select id="fe-st-rd-column" class="fe-st-select" title="Starting width for Markdown file pages"><option value="unset">Full width</option><option value="xl">Wide, 150 characters</option><option value="lg">Medium, 130 characters</option><option value="md">Narrow, 110 characters</option></select>`) + stRow("Line height", "", `<select id="fe-st-rd-lh" class="fe-st-select" title="Line height on file pages">${["1.5", "1.65", "1.8"].map((n) => `<option value="${n}">${n}</option>`).join("")}</select>`) + stRow("Code size", "", `<select id="fe-st-rd-code" class="fe-st-select" title="Code size on file pages">${[12, 13, 14].map((n) => `<option value="${n}">${n} px</option>`).join("")}</select>`) + stRow("Wrap long lines", "Raw text and code", stSwitch("fe-st-wrap", "Wrap long lines in raw text and code"))
-        ) + stCard(
-          "File pages",
-          stRow("Show files as pages", "", `<select id="fe-st-filepages" class="fe-st-select" title="Which files opened directly get the rendered page"><option value="all">All text files</option><option value="not-md">All except Markdown</option><option value="off">Off, Chrome shows plain text</option></select>`) + stRow("Leave to Chrome", "Open these in Chrome\u2019s own viewer", `<input id="fe-st-excluded-exts" class="fe-st-input" type="text" placeholder=".pdf, .html, .htm" spellcheck="false" title="Extensions Chrome opens natively, separated by commas or spaces"><button id="fe-st-excluded-reset" class="fe-pbn" title="Restore the default list">${UI_ICON.reset}Defaults</button>`)
-        ) + stCard(
-          "Icon rules",
-          `
-          <p class="fe-set-note">Matches file names in any case, and wins over the built-in icons.</p>
-          <div class="fe-st-rules-cols">
-            <span></span><span></span>
-            <span class="fe-st-col-lbl">Pattern</span>
-            <span class="fe-st-col-lbl">Label</span>
-            <span class="fe-st-col-lbl">Colour</span>
-            <span></span>
-          </div>
-          <div id="fe-st-rules-list"></div>
-          <button id="fe-st-reset-rules" class="fe-pbn fe-set-danger" title="Replace every rule with the built-in set">${UI_ICON.reset}Reset to built-in rules</button>`,
-          `<button id="fe-st-add-rule" class="fe-pbn" title="Add an icon rule">${UI_ICON.add}Add rule</button>`
-        ) },
-        { key: "notes", label: "Notes", hint: "Notes and editing", icon: UI_ICON.notes, tone: "var(--nc-orange)", desc: "Where your notes live, and the folders you can edit files in.", body: stCard(
-          "Notes",
-          stRow("Notes folder", "A folder of Markdown files", `<input type="text" id="fe-st-notes-root" class="fe-st-input" placeholder="/Users/you/Notes" spellcheck="false" title="Absolute path of the notes folder"><button id="fe-st-notes-pick" class="fe-pbn" title="Pick the notes folder in the system chooser">${UI_ICON.folderOpen}<span>Choose</span></button>`) + stNote("", "fe-st-notes-hint")
-        ) + stCard(
-          "Editing",
-          stRow("Editable folders", "Text files inside these get an Edit button (e)", `<input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Folders separated by commas; ~ means home">`) + stNote("Each save keeps a 14-day backup in ~/Library/Application Support/BetterFileBrowser.")
-        ) },
-        { key: "ai", label: "AI", hint: "Models for Ask", icon: UI_ICON.ai, tone: "var(--nc-purple)", desc: "The model that answers questions in Ask: one on this Mac, or Gemini, which runs on Google's servers.", body: stCard(
-          "Local model",
-          `
-          <div id="fe-st-ai-card">
-            <div class="fe-st-ai-head">
-              <span class="fe-st-ai-blink"><span class="dot"></span></span>
-              <span class="fe-st-ai-state">Checking\u2026</span>
-            </div>
-            <div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>
-            <div class="fe-st-ai-controls" id="fe-st-ai-controls" style="display:none">
-              <span class="fe-set-l">Model</span>
-              <select id="fe-st-ai-model" class="fe-st-select" title="Model used for questions"></select>
-              <button id="fe-st-ai-warm" class="fe-pbn" title="Keep the model loaded"></button>
-            </div>
-            <div class="fe-st-ai-hint" id="fe-st-ai-hint"></div>
-          </div>`,
-          `<button id="fe-st-ai-refresh" class="fe-pbn" title="Check the model server again">${UI_ICON.reset}Check again</button>`
-        ) },
-        { key: "data", label: "Data", hint: "Export and import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Take your settings and saved places to another browser.", body: stCard(
-          "Your data",
-          stRow("Export", "Settings and Saved list, as JSON", `<button id="fe-st-export" class="fe-pbn" title="Copy everything this extension stores as JSON">${UI_ICON.export}Export</button>`) + stRow("Import", "Loads an export, then reloads", `<button id="fe-st-import" class="fe-pbn" title="Load a JSON export and reload">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none" title="The JSON export to load">`) + `<textarea id="fe-st-export-out" class="fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`
-        ) }
-      ]
-    };
+    const SETTINGS_DIALOG = settingsDialog();
     const HELP_DIALOG = {
       id: "fe-help-modal",
       mark: PI.help,
@@ -15762,6 +16747,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <div id="fe-tabbar">
         <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
         <div id="fe-tabs-end">
+          <button id="fe-tab-list" class="btn" data-hover-shade data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>
           <button id="fe-open-pick" class="btn" data-hover-shade data-icon data-size="sm" title="Open a file or folder" aria-label="Open a file or folder">${UI_ICON.add}</button>
           <button id="fe-open-path" class="btn" data-hover-shade data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
         </div>
@@ -15884,406 +16870,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     return PAGE_HTML;
   }
 
-  // src/el.ts
-  function el(id) {
-    return document.getElementById(id);
-  }
-  function els(selector, root = document) {
-    return [...root.querySelectorAll(selector)];
-  }
-
-  // src/goto.ts
-  var LAST_KEY = "bfb-goto-last-v1";
-  function absPath(input, home) {
-    let p = input.trim().replace(/^['"]|['"]$/g, "");
-    if (!p) return null;
-    if (/^file:\/\//i.test(p)) {
-      try {
-        p = decodeURIComponent(new URL(p).pathname);
-      } catch {
-        return null;
-      }
-    }
-    if (p === "~" || p.startsWith("~/")) {
-      if (!home) return null;
-      p = home + p.slice(1);
-    }
-    return p.startsWith("/") ? p.replace(/\/{2,}/g, "/") : null;
-  }
-  async function readable(path, waitMs = 9e3) {
-    if (!path.endsWith("/")) return true;
-    const timeout = new Promise((r) => setTimeout(() => r(false), waitMs));
-    const read2 = fetchFileText(fileHref(path)).then(() => true, () => false);
-    return Promise.race([read2, timeout]);
-  }
-  async function resolvePath(path) {
-    const clean = path.replace(/\/+$/, "");
-    if (!clean) return "/";
-    const parent = clean.slice(0, clean.lastIndexOf("/") + 1) || "/";
-    const name = clean.slice(clean.lastIndexOf("/") + 1);
-    let listing;
-    const dir = fileHref(parent);
-    try {
-      listing = await fetchFileText(dir);
-    } catch {
-      if (parent === "/") return path;
-      return await resolvePath(parent) === null ? null : path;
-    }
-    const hit = parseListing(listing, dir).find((e) => e.name === name);
-    return hit ? clean + (hit.isDir ? "/" : "") : null;
-  }
-  function mountGoto(btn, home, go) {
-    let box = null;
-    const close = () => {
-      if (!box) return;
-      kvSet(LAST_KEY, box.querySelector("input").value);
-      box.remove();
-      box = null;
-      document.removeEventListener("pointerdown", away, true);
-      btn.classList.remove("on");
-    };
-    const away = (e) => {
-      if (box && !box.contains(e.target) && !btn.contains(e.target)) close();
-    };
-    const open = () => {
-      box = document.createElement("form");
-      box.id = "fe-goto";
-      box.setAttribute("role", "dialog");
-      box.setAttribute("aria-label", "Go to a path");
-      const recents = getRecents().slice(0, 30);
-      box.innerHTML = `<input type="text" list="fe-goto-list" spellcheck="false" autocomplete="off" placeholder="Path to a file or folder" aria-label="Path to a file or folder">
-      <datalist id="fe-goto-list">${recents.map((r2) => `<option value="${esc(r2.path)}"></option>`).join("")}</datalist>
-      <p class="fe-goto-msg" hidden></p>`;
-      document.getElementById("fe").appendChild(box);
-      const r = btn.getBoundingClientRect();
-      box.style.top = `${r.bottom + 6}px`;
-      box.style.left = `${Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8))}px`;
-      const input = box.querySelector("input");
-      input.value = kvGet(LAST_KEY) ?? "";
-      input.focus();
-      input.select();
-      btn.classList.add("on");
-      const say = (text) => {
-        const msg = box.querySelector(".fe-goto-msg");
-        msg.hidden = false;
-        msg.textContent = text;
-      };
-      box.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const path = absPath(input.value, home());
-        if (!path) {
-          say("Paste a full path, such as ~/Code or /Users/you/notes.md");
-          return;
-        }
-        kvSet(LAST_KEY, input.value);
-        const found = await resolvePath(path);
-        if (!found) {
-          say(`Nothing at ${path}. Check the spelling, or pick a recent place below.`);
-          return;
-        }
-        const slow = setTimeout(() => say("Checking that folder\u2026"), 600);
-        const ok = await readable(found);
-        clearTimeout(slow);
-        if (!ok) {
-          say(`The browser could not open ${found}. It may not have permission to read that folder.`);
-          return;
-        }
-        close();
-        go(found);
-      });
-      box.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          close();
-          btn.focus();
-        }
-      });
-      input.addEventListener("input", () => kvSet(LAST_KEY, input.value));
-      document.addEventListener("pointerdown", away, true);
-    };
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (box) close();
-      else open();
-    });
-  }
-
-  // src/motion.ts
-  var reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var EASE = "cubic-bezier(.2,.8,.2,1)";
-  var running = null;
-  function setSidebarShown(show) {
-    const side = el("fe-side"), rz = el("fe-side-rz");
-    running?.cancel();
-    running = null;
-    const shown = side.style.display !== "none";
-    if (show === shown) return;
-    if (reduced()) {
-      side.style.display = rz.style.display = show ? "" : "none";
-      return;
-    }
-    if (show) side.style.display = rz.style.display = "";
-    const w = side.offsetWidth;
-    const open = [{ width: "0px", opacity: 0, marginRight: "-10px" }, { width: w + "px", opacity: 1, marginRight: "0px" }];
-    running = side.animate(show ? open : [...open].reverse(), { duration: 220, easing: EASE });
-    running.onfinish = () => {
-      running = null;
-      if (!show) side.style.display = rz.style.display = "none";
-    };
-  }
-
-  // src/chrome.ts
-  function initChrome(app) {
-    const { fe, settings, toast } = app;
-    el("fe-status-path").addEventListener("click", () => {
-      void copyToClipboard(app.rawPath).then((ok) => toast(ok ? "Copied the path" : "Copy failed"));
-    });
-    el("fe-theme-btn").addEventListener("click", () => {
-      const next = fe.dataset.theme === "dark" ? "light" : "dark";
-      fe.dataset.theme = next;
-      kvSet(THEME_KEY, next);
-    });
-    function getTermCmd(path) {
-      const term = settings.terminalApp || "ghostty";
-      const tpl = term === "custom" ? settings.terminalCmd || 'cd "${p}"' : TERMINAL_CMDS[term] || TERMINAL_CMDS.ghostty;
-      return tpl.replace(/\$\{p\}/g, path);
-    }
-    function fallbackCopy(path) {
-      const cmd = getTermCmd(path);
-      navigator.clipboard.writeText(cmd).catch(() => {
-      });
-      toast(`Copied: ${cmd}`);
-    }
-    app.openInTerminal = (path) => {
-      const term = settings.terminalApp || "ghostty";
-      if (term !== "custom") {
-        chrome.runtime.sendMessage(
-          { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_terminal", path, app: term } },
-          (res) => {
-            if (chrome.runtime.lastError || !res?.ok) fallbackCopy(path);
-          }
-        );
-        return;
-      }
-      fallbackCopy(path);
-    };
-    el("fe-term-btn").addEventListener("click", (e) => {
-      if (e.shiftKey) fallbackCopy(app.folderPath);
-      else app.openInTerminal(app.folderPath);
-    });
-    const crumbMenu = el("fe-crumb-menu");
-    let crumbMenuUrl = null;
-    function closeCrumbMenu() {
-      crumbMenu.style.display = "none";
-      crumbMenuUrl = null;
-    }
-    const bc = el("fe-bc"), more = el("fe-crumb-more");
-    const openCrumbMenu = (btn, key, html) => {
-      const rect = btn.getBoundingClientRect();
-      crumbMenu.style.left = Math.min(rect.left, window.innerWidth - 260) + "px";
-      crumbMenu.style.top = rect.bottom + 4 + "px";
-      crumbMenu.style.display = "block";
-      crumbMenu.innerHTML = html;
-      crumbMenuUrl = key;
-    };
-    const fitCrumbs = () => {
-      const groups = [...bc.querySelectorAll(".fe-cg")];
-      const pre = groups.filter((g) => g.hasAttribute("data-pre")).length;
-      groups.forEach((g, i) => {
-        g.hidden = i < pre;
-      });
-      more.hidden = true;
-      const n = groups.length, order = [];
-      for (let i = pre + 2; i < n - 2; i++) order.push(i);
-      for (const i of [pre + 1, n - 2]) if (i > pre && i < n - 1 && !order.includes(i)) order.push(i);
-      for (const i of order) {
-        if (bc.scrollWidth <= bc.clientWidth) break;
-        groups[i].hidden = true;
-        more.hidden = false;
-      }
-      const first = groups.find((g, i) => g.hidden && i >= pre) ?? (pre ? groups[pre] : void 0);
-      if (pre) more.hidden = false;
-      if (first) first.before(more);
-    };
-    fitCrumbs();
-    new ResizeObserver(() => {
-      closeCrumbMenu();
-      fitCrumbs();
-    }).observe(bc);
-    const home = homeDir(app.rawPath);
-    let edit2 = null;
-    const endEdit = () => {
-      if (!edit2) return;
-      edit2.remove();
-      edit2 = null;
-      bc.hidden = false;
-      fitCrumbs();
-    };
-    const startEdit = () => {
-      if (edit2) return;
-      closeCrumbMenu();
-      const shown = home && (app.rawPath === home || app.rawPath.startsWith(home + "/")) ? "~" + app.rawPath.slice(home.length) : app.rawPath;
-      edit2 = document.createElement("form");
-      edit2.id = "fe-bc-edit";
-      edit2.innerHTML = `<input type="text" list="fe-bc-recent" spellcheck="false" autocomplete="off" aria-label="Path to a file or folder" title="Enter goes there \xB7 Esc cancels">
-      <datalist id="fe-bc-recent">${getRecents().slice(0, 30).map((r) => `<option value="${esc(r.path)}"></option>`).join("")}</datalist>`;
-      bc.after(edit2);
-      bc.hidden = true;
-      const input = edit2.querySelector("input");
-      input.value = shown;
-      input.focus();
-      input.select();
-      input.addEventListener("blur", () => setTimeout(() => {
-        if (edit2 && !edit2.contains(document.activeElement)) endEdit();
-      }, 120));
-      input.addEventListener("keydown", (ke) => {
-        if (ke.key === "Escape") {
-          ke.preventDefault();
-          ke.stopPropagation();
-          endEdit();
-        }
-      });
-      edit2.addEventListener("submit", async (se) => {
-        se.preventDefault();
-        const path = absPath(input.value, home);
-        if (!path) {
-          input.setAttribute("aria-invalid", "true");
-          toast("Type a full path, such as ~/Code or /Users/you/notes.md");
-          return;
-        }
-        const found = await resolvePath(path);
-        if (!found) {
-          input.setAttribute("aria-invalid", "true");
-          toast(`Nothing at ${path}`);
-          return;
-        }
-        const slow = setTimeout(() => toast("Checking that folder\u2026"), 600);
-        const ok = await readable(found);
-        clearTimeout(slow);
-        if (!ok) {
-          input.setAttribute("aria-invalid", "true");
-          toast(`The browser could not open ${found}. It may not have permission to read it.`);
-          return;
-        }
-        if (found.replace(/\/$/, "") === app.rawPath.replace(/\/$/, "")) {
-          endEdit();
-          return;
-        }
-        location.href = pageHref(fileHref(found));
-      });
-      input.addEventListener("input", () => input.removeAttribute("aria-invalid"));
-    };
-    bc.title = "Click an empty part of the bar to type a path";
-    bc.addEventListener("click", (e) => {
-      if (e.target === bc) startEdit();
-    });
-    bc.addEventListener("click", async (e) => {
-      if (e.target.closest("#fe-crumb-more")) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (crumbMenu.style.display !== "none" && crumbMenuUrl === "more") {
-          closeCrumbMenu();
-          return;
-        }
-        const hid = [...bc.querySelectorAll(".fe-cg[hidden] .fe-crumb")];
-        openCrumbMenu(more, "more", `<div class="fe-dd-items">${hid.map((a) => {
-          const href = a.getAttribute("href"), name = a.textContent;
-          const icon2 = getIcon({ name, href, isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: "" }, app.iconRules);
-          return `<a href="${esc(href)}" class="fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon2}<span>${esc(name)}</span></a>`;
-        }).join("")}</div>`);
-        return;
-      }
-      const btn = e.target.closest(".fe-crumb-dd");
-      if (!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const url = btn.dataset.url;
-      if (crumbMenu.style.display !== "none" && crumbMenuUrl === url) {
-        closeCrumbMenu();
-        return;
-      }
-      openCrumbMenu(btn, url, '<div class="fe-dd-spinner">Loading\u2026</div>');
-      const text = await fetchFileText(url).catch((err) => {
-        console.error("[BFB] crumb dropdown failed:", url, err);
-        return null;
-      });
-      if (text === null) {
-        if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
-        return;
-      }
-      if (crumbMenuUrl !== url) return;
-      try {
-        const entries = parseListing(text, url);
-        if (!entries.length) {
-          crumbMenu.innerHTML = '<div class="fe-dd-empty">Empty folder</div>';
-          return;
-        }
-        crumbMenu.innerHTML = `<div class="fe-dd-search-wrap"><input class="fe-dd-search" type="text" placeholder="Filter" autocomplete="off" spellcheck="false" title="Type to narrow \xB7 Enter opens the first match \xB7 Esc closes"></div><div class="fe-dd-items">${entries.map(
-          (en) => `<a href="${esc(en.href)}" class="fe-dd-item${en.isDir ? " dir" : ""}" data-name="${esc(en.name.toLowerCase())}" title="${esc(decodeURIComponent(en.href.slice(7)))}">${getIcon(en, app.iconRules)}<span>${esc(en.name)}</span></a>`
-        ).join("")}</div>`;
-        const ddSearch = crumbMenu.querySelector(".fe-dd-search");
-        ddSearch.focus();
-        ddSearch.addEventListener("input", () => {
-          const q = ddSearch.value.toLowerCase();
-          crumbMenu.querySelectorAll(".fe-dd-item").forEach((it) => {
-            it.style.display = !q || it.dataset.name.includes(q) ? "" : "none";
-          });
-        });
-        ddSearch.addEventListener("keydown", (ke) => {
-          if (ke.key === "Escape") {
-            ke.stopPropagation();
-            closeCrumbMenu();
-          } else if (ke.key === "Enter") {
-            const first = [...crumbMenu.querySelectorAll(".fe-dd-item")].find((it) => it.style.display !== "none");
-            if (first) location.href = pageHref(first.href);
-          }
-        });
-      } catch (err) {
-        console.error("[BFB] crumb dropdown parse error:", url, err);
-        if (crumbMenuUrl === url) crumbMenu.innerHTML = '<div class="fe-dd-empty">Cannot load directory</div>';
-      }
-    });
-    document.addEventListener("click", (e) => {
-      if (!crumbMenu.contains(e.target) && !e.target.closest(".fe-crumb-dd,#fe-crumb-more"))
-        closeCrumbMenu();
-    });
-    const side = el("fe-side");
-    const rz = el("fe-side-rz");
-    el("fe-side-toggle").addEventListener("click", () => {
-      settings.showSidebar = !settings.showSidebar;
-      saveSettings(settings);
-      setSidebarShown(settings.showSidebar);
-      const box = document.getElementById("fe-st-sidebar");
-      if (box) box.checked = settings.showSidebar;
-    });
-    rz.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      rz.classList.add("drag");
-      const startX = e.clientX;
-      const startW = side.getBoundingClientRect().width;
-      const move = (m) => {
-        side.style.width = Math.max(210, Math.min(520, startW + m.clientX - startX)) + "px";
-      };
-      const up = () => {
-        rz.classList.remove("drag");
-        document.removeEventListener("pointermove", move);
-        document.removeEventListener("pointerup", up);
-        settings.sidebarWidth = Math.round(side.getBoundingClientRect().width);
-        settings.sidebarRail = true;
-        saveSettings(settings);
-      };
-      document.addEventListener("pointermove", move);
-      document.addEventListener("pointerup", up);
-    });
-  }
-
   // src/selection.ts
   function selectionRange(anchor, target) {
     const lo = Math.min(anchor, target);
     const hi = Math.max(anchor, target);
     const out = [];
-    for (let i = lo; i <= hi; i++) out.push(i);
+    for (let i2 = lo; i2 <= hi; i2++) out.push(i2);
     return out;
   }
 
@@ -16719,12 +17311,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!win) return;
       const tbody = el("fe-tbody");
       tbody.innerHTML = win.parts.slice(0, 60).join("");
-      const row = tbody.querySelector("tr[data-idx]")?.offsetHeight || 36;
-      const hdr = tbody.querySelector(".fe-group-hdr")?.offsetHeight || row;
+      const row2 = tbody.querySelector("tr[data-idx]")?.offsetHeight || 36;
+      const hdr = tbody.querySelector(".fe-group-hdr")?.offsetHeight || row2;
       let y = 0;
-      win.tops = win.parts.map((part, i) => {
+      win.tops = win.parts.map((part, i2) => {
         const t = y;
-        y += win.idxOf[i] < 0 ? hdr : row;
+        y += win.idxOf[i2] < 0 ? hdr : row2;
         return t;
       });
       win.total = y;
@@ -16778,8 +17370,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       } else {
         entries.forEach(pushEntry);
       }
-      const kept = rowParts.map((p, i) => showHidden || !hiddenRow[i] ? i : -1).filter((i) => i >= 0);
-      win = rowParts.length > WINDOW_MIN ? { parts: kept.map((i) => rowParts[i]), idxOf: kept.map((i) => idxOf[i]), tops: [], total: 0, a: 0, b: 0 } : null;
+      const kept = rowParts.map((p, i2) => showHidden || !hiddenRow[i2] ? i2 : -1).filter((i2) => i2 >= 0);
+      win = rowParts.length > WINDOW_MIN ? { parts: kept.map((i2) => rowParts[i2]), idxOf: kept.map((i2) => idxOf[i2]), tops: [], total: 0, a: 0, b: 0 } : null;
       if (win) measureWindow();
       else tbody.innerHTML = rowParts.join("");
       tiles.innerHTML = tileParts.join("");
@@ -16844,52 +17436,52 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     const sel = {
       entryShown: (en) => !en.isHidden || fe.classList.contains("show-hidden"),
-      selectable: (i) => {
-        const en = ls.visible[i];
+      selectable: (i2) => {
+        const en = ls.visible[i2];
         return !!en && !en.isParent && sel.entryShown(en);
       },
-      setSel(i) {
+      setSel(i2) {
         ls.selSet.clear();
-        ls.selIdx = i;
-        ls.anchor = i;
-        if (i >= 0) ls.selSet.add(i);
+        ls.selIdx = i2;
+        ls.anchor = i2;
+        if (i2 >= 0) ls.selSet.add(i2);
         paintSel();
         scrollToLead();
       },
-      toggleSel(i) {
-        if (ls.selSet.has(i)) ls.selSet.delete(i);
-        else ls.selSet.add(i);
-        ls.selIdx = i;
-        ls.anchor = i;
+      toggleSel(i2) {
+        if (ls.selSet.has(i2)) ls.selSet.delete(i2);
+        else ls.selSet.add(i2);
+        ls.selIdx = i2;
+        ls.anchor = i2;
         paintSel();
       },
       rangeSel(target) {
         const a = ls.anchor >= 0 ? ls.anchor : target;
         ls.selSet.clear();
-        selectionRange(a, target).filter(sel.selectable).forEach((i) => ls.selSet.add(i));
+        selectionRange(a, target).filter(sel.selectable).forEach((i2) => ls.selSet.add(i2));
         ls.selIdx = target;
         paintSel();
         scrollToLead();
       },
       selectAll() {
         ls.selSet.clear();
-        for (let i = 0; i < ls.visible.length; i++) if (sel.selectable(i)) ls.selSet.add(i);
+        for (let i2 = 0; i2 < ls.visible.length; i2++) if (sel.selectable(i2)) ls.selSet.add(i2);
         if (ls.selSet.size && ls.selIdx < 0) ls.selIdx = [...ls.selSet][0];
         paintSel();
       },
       moveSel(step2) {
-        let i = ls.selIdx;
+        let i2 = ls.selIdx;
         for (let n = 0; n < ls.visible.length; n++) {
-          i += step2;
-          if (i < 0 || i >= ls.visible.length) return;
-          if (sel.entryShown(ls.visible[i])) {
-            sel.setSel(i);
+          i2 += step2;
+          if (i2 < 0 || i2 >= ls.visible.length) return;
+          if (sel.entryShown(ls.visible[i2])) {
+            sel.setSel(i2);
             return;
           }
         }
       },
       copySelection() {
-        const paths = [...ls.selSet].sort((a, b) => a - b).map((i) => fullPath(rawPath, ls.visible[i]));
+        const paths = [...ls.selSet].sort((a, b) => a - b).map((i2) => fullPath(rawPath, ls.visible[i2]));
         if (!paths.length) return;
         copyToClipboard(paths.join("\n")).then(() => toast(`Copied ${paths.length} path${paths.length !== 1 ? "s" : ""}`));
       },
@@ -16901,13 +17493,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         else toast("No preview for this file type");
       },
       previewStep(step2) {
-        let i = ls.selIdx;
+        let i2 = ls.selIdx;
         for (let n = 0; n < ls.visible.length; n++) {
-          i += step2;
-          if (i < 0 || i >= ls.visible.length) return;
-          const en = ls.visible[i];
+          i2 += step2;
+          if (i2 < 0 || i2 >= ls.visible.length) return;
+          const en = ls.visible[i2];
           if (sel.entryShown(en) && canPreview(en)) {
-            sel.setSel(i);
+            sel.setSel(i2);
             openPreview(en);
             return;
           }
@@ -17464,7 +18056,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
       const en = entryAt(e);
       if (!en) return;
-      const i = ls.visible.indexOf(en);
+      const i2 = ls.visible.indexOf(en);
       e.preventDefault();
       if (en.isParent) {
         location.href = pageHref(en.href);
@@ -17475,17 +18067,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         return;
       }
       if (e.shiftKey || e.metaKey || e.ctrlKey) {
-        if (!sel.selectable(i)) return;
-        if (e.shiftKey && (e.metaKey || e.ctrlKey)) sel.rangeSel(i);
-        else sel.toggleSel(i);
+        if (!sel.selectable(i2)) return;
+        if (e.shiftKey && (e.metaKey || e.ctrlKey)) sel.rangeSel(i2);
+        else sel.toggleSel(i2);
         return;
       }
       if (en.isDir) {
         location.href = pageHref(en.href);
         return;
       }
-      if (!sel.selectable(i)) return;
-      sel.setSel(i);
+      if (!sel.selectable(i2)) return;
+      sel.setSel(i2);
       if (!canPreview(en) || app.settings.clickOpens === "go") {
         location.href = pageHref(en.href);
         return;
@@ -17599,7 +18191,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       else if (item.dataset.act === "term") app.openInTerminal(en.isDir ? fp : rawPath);
       else if (item.dataset.act === "cp-paths") sel.copySelection();
       else if (item.dataset.act === "cp-names") {
-        const names = [...ls.selSet].sort((a, b) => a - b).map((i) => ls.visible[i].name).join("\n");
+        const names = [...ls.selSet].sort((a, b) => a - b).map((i2) => ls.visible[i2].name).join("\n");
         copyToClipboard(names).then(() => toast(`Copied ${ls.selSet.size} names`));
       }
     });
@@ -17761,8 +18353,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     const step2 = (dir, focus = false) => {
       const usable = btns.filter((b) => !b.hidden);
-      const i = usable.findIndex((b) => b.classList.contains("on"));
-      const next = usable[(i + dir + usable.length) % usable.length];
+      const i2 = usable.findIndex((b) => b.classList.contains("on"));
+      const next = usable[(i2 + dir + usable.length) % usable.length];
       kvSet(LENS_KEY, next.dataset.lens);
       switchTo(next.dataset.lens);
       if (focus) next.focus();
@@ -17841,8 +18433,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const keys = collapsed();
         if (section.classList.contains("fe-collapsed")) keys.delete(key);
         else keys.add(key);
-        kvSet(collapseKey, JSON.stringify([...keys]));
-        applyCollapsed(keys);
+        foldTo(section, () => {
+          section.classList.toggle("fe-collapsed");
+        }, () => {
+          kvSet(collapseKey, JSON.stringify([...keys]));
+          applyCollapsed(keys);
+        });
       });
       header.prepend(toggle);
     }
@@ -17853,17 +18449,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const svList = el("fe-sv-list");
     const svFilter = el("fe-sv-filter");
     let svHits = /* @__PURE__ */ new Map();
-    const card = document.createElement("div");
-    card.id = "fe-sv-card";
-    card.hidden = true;
-    el("fe").append(card);
+    const card2 = document.createElement("div");
+    card2.id = "fe-sv-card";
+    card2.hidden = true;
+    el("fe").append(card2);
     let cardTimer = null, cardFor = null;
     function hideCard() {
       if (cardTimer) {
         clearTimeout(cardTimer);
         cardTimer = null;
       }
-      card.hidden = true;
+      card2.hidden = true;
       cardFor = null;
     }
     function showCard(item) {
@@ -17872,17 +18468,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const home = homeDir(rawPath);
       const where = isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path;
-      card.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="fe-chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
+      card2.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="fe-chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
       const r = item.getBoundingClientRect();
-      card.hidden = false;
-      const h = card.offsetHeight, w = card.offsetWidth;
+      card2.hidden = false;
+      const h = card2.offsetHeight, w = card2.offsetWidth;
       const sideRight = el("fe-side").getBoundingClientRect().right;
       if (sideRight + 8 + w <= innerWidth - 8) {
-        card.style.left = `${Math.round(sideRight + 8)}px`;
-        card.style.top = `${Math.round(Math.max(8, Math.min(r.top - 4, innerHeight - h - 8)))}px`;
+        card2.style.left = `${Math.round(sideRight + 8)}px`;
+        card2.style.top = `${Math.round(Math.max(8, Math.min(r.top - 4, innerHeight - h - 8)))}px`;
       } else {
-        card.style.left = `${Math.round(r.left + 24)}px`;
-        card.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
+        card2.style.left = `${Math.round(r.left + 24)}px`;
+        card2.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
       }
       cardFor = item;
     }
@@ -17904,7 +18500,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         cardTimer = null;
         hideCard();
         showCard(item);
-      }, card.hidden ? 450 : 120);
+      }, card2.hidden ? 450 : 120);
     });
     svList.addEventListener("pointerleave", () => {
       if (cardTimer) clearTimeout(cardTimer);
@@ -17933,14 +18529,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const openLens = () => document.querySelector("#fe-rail .fe-rail-btn.on")?.dataset.lens;
     function syncLens() {
       const box = document.getElementById("fe-lens-filter");
-      const row = document.getElementById("fe-lens-tags");
-      if (!box || !row) return;
+      const row2 = document.getElementById("fe-lens-tags");
+      if (!box || !row2) return;
       const inNotes = openLens() === "notes";
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap((p) => p.tags ?? []))].sort();
       const on = box.value.trim().toLowerCase();
-      row.hidden = !names.length;
-      row.innerHTML = names.map((n) => `<button type="button" class="fe-chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? "#8b949e")}"></i>${esc(n)}</button>`).join("");
+      row2.hidden = !names.length;
+      row2.innerHTML = names.map((n) => `<button type="button" class="fe-chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? "#8b949e")}"></i>${esc(n)}</button>`).join("");
     }
     const foldedGroups = getFoldedGroups;
     app.refreshSaved = refreshSaved;
@@ -17989,12 +18585,18 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     let clickTimer = null;
     function attachSavedEvents() {
-      els("details.fe-grp", svList).forEach((d) => d.addEventListener("toggle", () => {
-        if (svFilter.value.trim()) return;
-        const folded = foldedGroups();
-        if (d.open) folded.delete(d.dataset.tag);
-        else folded.add(d.dataset.tag);
-        saveFoldedGroups(folded);
+      els("details.fe-grp", svList).forEach((d) => d.querySelector("summary").addEventListener("click", (e) => {
+        if (e.target.closest(".fe-sv-dot")) return;
+        e.preventDefault();
+        foldTo(d, () => {
+          d.open = !d.open;
+        }, () => {
+          if (svFilter.value.trim()) return;
+          const folded = foldedGroups();
+          if (d.open) folded.delete(d.dataset.tag);
+          else folded.add(d.dataset.tag);
+          saveFoldedGroups(folded);
+        });
       }));
       els(".fe-rm-btn", svList).forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -18067,7 +18669,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       refreshSaved();
       toast("Saved");
       if (!rename) return;
-      const fresh = els(".fe-pl-item", svList).find((i) => samePlace(i.dataset.path, rawPath));
+      const fresh = els(".fe-pl-item", svList).find((i2) => samePlace(i2.dataset.path, rawPath));
       const lbl = fresh?.querySelector(".fe-pl-label");
       if (lbl) lbl.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     }
@@ -18099,12 +18701,16 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     ntList.addEventListener("click", (e) => {
       const g = e.target.closest(".fe-nt-grp");
       if (!g) return;
+      const body = g.nextElementSibling;
       const folds = noteFolds(), key = g.dataset.grp;
       if (folds.has(key)) folds.delete(key);
       else folds.add(key);
-      kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds]));
-      const root = notesRoot();
-      if (root) renderNotes(root);
+      const open = !folds.has(key);
+      g.setAttribute("aria-expanded", String(open));
+      g.title = `${open ? "Fold" : "Show"} ${g.dataset.label}`;
+      foldTo(body, () => {
+        body.hidden = !body.hidden;
+      }, () => kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds])));
     });
     let bodyHits = /* @__PURE__ */ new Map();
     const shownNotes = () => {
@@ -18118,7 +18724,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       syncLens();
       const shown = shownNotes();
       ntHint.textContent = ntFilter.value.trim() ? `${shown.length} of ${allNotes.length} notes in ${root}` : `${allNotes.length} note${allNotes.length !== 1 ? "s" : ""} in ${root}`;
-      const row = (n) => {
+      const row2 = (n) => {
         const c = colorName(n.color);
         return `
           <div class="fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}>
@@ -18134,11 +18740,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       };
       const pinned = shown.filter((n) => n.pinned), rest = shown.filter((n) => !n.pinned);
       const folded = noteFolds();
-      const group = (key, label, list) => {
+      const group = (key, label, list2) => {
         const open = !folded.has(key) || !!ntFilter.value.trim();
-        return `<button type="button" class="fe-nt-grp" data-grp="${key}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${CHEVRON_DOWN}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list.length}</span></button>` + (open ? list.map(row).join("") : "");
+        return `<button type="button" class="fe-nt-grp" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${CHEVRON_DOWN}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list2.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list2.map(row2).join("")}</div>`;
       };
-      ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row).join("") : allNotes.length ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>` : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
+      ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>` : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
       attachNoteEvents(root);
     }
     let searchTimer = null;
@@ -18294,8 +18900,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       openNoteRel(root, next.rel);
     }
     function renameNote(root, rel, reopen) {
-      const row = els(".fe-nt-item", ntList).find((i) => i.dataset.rel === rel);
-      const label = row?.querySelector(".fe-nt-label");
+      const row2 = els(".fe-nt-item", ntList).find((i2) => i2.dataset.rel === rel);
+      const label = row2?.querySelector(".fe-nt-label");
       if (!label) {
         toast("That note is not in the list. Clear the filter first.");
         return;
@@ -18304,7 +18910,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         clearTimeout(clickTimer);
         clickTimer = null;
       }
-      row.scrollIntoView({ block: "nearest" });
+      row2.scrollIntoView({ block: "nearest" });
       const meta = allNotes.find((n) => n.rel === rel);
       label.textContent = meta ? noteName(meta) : noteTitle(rel);
       const back = () => {
@@ -18416,7 +19022,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!item) return;
       const { rel, root } = ntMenu.dataset;
       closeNtMenu();
-      const row = els(".fe-nt-item", ntList).find((i) => i.dataset.rel === rel);
+      const row2 = els(".fe-nt-item", ntList).find((i2) => i2.dataset.rel === rel);
       const meta = allNotes.find((n) => n.rel === rel);
       switch (item.dataset.act) {
         case "open":
@@ -18429,7 +19035,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           renameNote(root, rel, false);
           break;
         case "props":
-          if (row) openProps(root, rel, row.querySelector(".fe-nt-props"));
+          if (row2) openProps(root, rel, row2.querySelector(".fe-nt-props"));
           break;
         case "cp-path":
           void copyToClipboard(notePath(root, rel)).then((ok) => toast(ok ? "Copied path" : "Copy failed"));
@@ -18470,7 +19076,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         deleteNote(root, rel);
         if (keep) {
           const keepRel = keep.dataset.rel;
-          setTimeout(() => els(".fe-nt-item", ntList).find((i) => i.dataset.rel === keepRel)?.querySelector(".fe-si-link")?.focus(), 400);
+          setTimeout(() => els(".fe-nt-item", ntList).find((i2) => i2.dataset.rel === keepRel)?.querySelector(".fe-si-link")?.focus(), 400);
         }
       }
     });
@@ -18582,15 +19188,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   }
   function addTurn(subject, chatId, turn) {
     const store = read();
-    const list = store[subject] ?? [];
-    let chat = list.find((c) => c.id === chatId);
+    const list2 = store[subject] ?? [];
+    let chat = list2.find((c) => c.id === chatId);
     if (!chat) {
       chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] };
-      list.push(chat);
+      list2.push(chat);
     }
     chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
     chat.at = turn.at;
-    store[subject] = list.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
+    store[subject] = list2.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
     const subjects = Object.keys(store);
     if (subjects.length > SUBJECTS) {
       const last = (k) => Math.max(...store[k].map((c) => c.at));
@@ -18647,13 +19253,13 @@ Now: ${question}` : question;
     <div id="fe-srch-list"></div>`;
     const q = el("fe-srch-q");
     const status = el("fe-srch-status");
-    const list = el("fe-srch-list");
+    const list2 = el("fe-srch-list");
     let run = 0;
     async function search() {
       const term = q.value.trim();
       const mine = ++run;
       const cancelled = () => mine !== run;
-      list.innerHTML = "";
+      list2.innerHTML = "";
       if (!term) {
         status.textContent = "Type a word and press Enter.";
         return;
@@ -18684,7 +19290,7 @@ Now: ${question}` : question;
       const hits = [...res.hits].sort((a, b) => b[1].count - a[1].count);
       const total = hits.reduce((n, [, h]) => n + h.count, 0);
       status.textContent = hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`;
-      list.innerHTML = hits.map(([href, h]) => {
+      list2.innerHTML = hits.map(([href, h]) => {
         const name = relativeName(href, root);
         const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
         return `<a class="fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
@@ -18698,7 +19304,7 @@ Now: ${question}` : question;
       } else if (e.key === "Escape") {
         q.value = "";
         run++;
-        list.innerHTML = "";
+        list2.innerHTML = "";
         status.textContent = "Type a word and press Enter.";
       }
     });
@@ -18932,16 +19538,16 @@ ${rows.join("\n")}`, name: subject };
         void ask(chip.dataset.intent);
         return;
       }
-      const row = t.closest(".fe-ask-h");
-      if (row && t.closest(".fe-ask-h-del")) {
-        deleteChat(key, row.dataset.chat);
-        if (row.dataset.chat === chatId) newChat();
+      const row2 = t.closest(".fe-ask-h");
+      if (row2 && t.closest(".fe-ask-h-del")) {
+        deleteChat(key, row2.dataset.chat);
+        if (row2.dataset.chat === chatId) newChat();
         paintHist();
         syncHistN();
         return;
       }
-      if (row && t.closest(".fe-ask-h-open")) {
-        const c = chatsFor(key).find((x) => x.id === row.dataset.chat);
+      if (row2 && t.closest(".fe-ask-h-open")) {
+        const c = chatsFor(key).find((x) => x.id === row2.dataset.chat);
         if (c) openChat(c);
       }
     });
@@ -18990,129 +19596,312 @@ ${rows.join("\n")}`, name: subject };
   }
 
   // src/settings-ui.ts
+  var RULE_SUGGESTIONS = [
+    { name: "Images", pattern: "\\.(png|jpe?g|gif|webp|svg|avif|heic)$", label: "IMG", glyph: "image", color: "#b197fc" },
+    { name: "Archives", pattern: "\\.(zip|tar|gz|tgz|rar|7z|xz)$", label: "ZIP", glyph: "archive", color: "#a1887f" },
+    { name: "Env files", pattern: "^\\.env", label: "ENV", glyph: "key", color: "#e8b923" },
+    { name: "Lockfiles", pattern: "(\\.lock|-lock\\.json|lockfile)$", label: "LCK", glyph: "lock", color: "#8b949e" },
+    { name: "Tests", pattern: "(\\.test|\\.spec|_test)\\.", label: "TST", glyph: "test", color: "#40c057" },
+    { name: "Docker", pattern: "^(dockerfile|docker-compose|compose\\.ya?ml)", label: "DKR", glyph: "box", color: "#4dabf7" },
+    { name: "Config", pattern: "(\\.config\\.[a-z]+|rc|\\.toml|\\.ini)$", label: "CFG", glyph: "gear", color: "#868e96" },
+    { name: "Data", pattern: "\\.(db|sqlite3?|sql|parquet)$", label: "DB", glyph: "db", color: "#ffa94d" },
+    { name: "Media", pattern: "\\.(mp4|mov|mkv|webm|mp3|wav|flac)$", label: "MED", glyph: "video", color: "#ff6b6b" },
+    { name: "Git", pattern: "^\\.git(ignore|attributes|modules)?$", label: "GIT", glyph: "branch", color: "#f05133" },
+    { name: "Readme", pattern: "^readme", label: "RDM", glyph: "book", color: "#4a9eff" },
+    { name: "Claude", pattern: "(^claude\\.md$|\\.claude$)", label: "Cld", glyph: "sparkle", color: "#d97757" }
+  ];
+  var SWATCHES = [
+    "#ff6b6b",
+    "#f783ac",
+    "#d97757",
+    "#ffa94d",
+    "#e8b923",
+    "#94d82d",
+    "#40c057",
+    "#38d9a9",
+    "#3bc9db",
+    "#4dabf7",
+    "#4a9eff",
+    "#748ffc",
+    "#b197fc",
+    "#da77f2",
+    "#a1887f",
+    "#8b949e"
+  ];
   function initSettingsUi(app) {
     const { fe, settings, toast } = app;
-    function renderRulesList() {
-      const list = el("fe-st-rules-list");
-      if (!app.iconRules.length) {
-        list.innerHTML = '<div class="fe-st-rules-empty">No rules yet. Click "+ Add rule" to create one.</div>';
-        return;
+    const v = (id) => el(id);
+    upgradeControls(el("fe-settings-modal"));
+    const badRegex = (p) => {
+      try {
+        new RegExp(p, "i");
+        return "";
+      } catch (e) {
+        return String(e.message);
       }
-      list.innerHTML = app.iconRules.map((rule, i) => `
-      <div class="fe-st-rule" data-idx="${i}">
-        <input type="checkbox" class="fe-st-rule-en" title="Enable" ${rule.enabled ? "checked" : ""}>
-        <div class="fe-st-rule-preview">${icoCustom(rule.label, rule.color)}</div>
-        <input type="text" class="fe-st-rule-pattern" value="${esc(rule.pattern)}" placeholder="Regex" title="Regex (case-insensitive)">
-        <input type="text" class="fe-st-rule-label"   value="${esc(rule.label)}"   placeholder="LBL"   maxlength="4" title="Badge text (\u22644 chars)">
-        <input type="color" class="fe-st-rule-color"  value="${esc(rule.color)}"        title="Icon color">
-        <button class="fe-st-rule-del" data-idx="${i}" title="Delete" aria-label="Delete icon rule">${UI_ICON.close}</button>
-      </div>`).join("");
+    };
+    const hits = (p) => {
+      try {
+        const r = new RegExp(p, "i");
+        return app.entryNames.filter((n) => r.test(n)).length;
+      } catch {
+        return 0;
+      }
+    };
+    function renderRulesList() {
+      const list2 = el("fe-st-rules-list");
+      list2.innerHTML = app.iconRules.length ? app.iconRules.map((rule, i2) => {
+        const bad = badRegex(rule.pattern);
+        return `<div class="fe-rule${rule.enabled ? "" : " off"}" data-idx="${i2}">
+        <input type="checkbox" class="fe-switch sm fe-st-rule-en" title="${rule.enabled ? "On" : "Off"}"${rule.enabled ? " checked" : ""}>
+        <button type="button" class="fe-rule-ico" title="Icon and colour">${icoCustom(rule.label, rule.color, rule.glyph)}</button>
+        <input type="text" class="fe-st-rule-pattern${bad ? " bad" : ""}" value="${esc(rule.pattern)}" placeholder="name pattern, e.g. \\.md$" spellcheck="false" title="${bad ? esc(bad) : "Matches file names, any case"}">
+        <span class="fe-rule-n" title="Matches in this folder">${bad ? "!" : hits(rule.pattern)}</span>
+        <button type="button" class="fe-ibtn fe-st-rule-del" title="Delete rule" aria-label="Delete rule">${UI_ICON.trash}</button>
+      </div>`;
+      }).join("") : '<p class="fe-set-note">No rules. Add one, or pick a suggestion.</p>';
+      const have = new Set(app.iconRules.map((r) => r.pattern));
+      const left = RULE_SUGGESTIONS.filter((s) => !have.has(s.pattern));
+      el("fe-st-rule-sugg").innerHTML = left.length ? `<span class="fe-rule-sugg-l">Add</span>` + left.map((s) => `<button type="button" class="fe-chip fe-rule-add" data-name="${esc(s.name)}" title="${esc(s.pattern)}">${icoCustom(s.label, s.color, s.glyph)}${esc(s.name)}</button>`).join("") : "";
     }
+    const saveRules = () => {
+      saveIconRules(app.iconRules);
+      app.applyAll();
+    };
+    const rulesList = el("fe-st-rules-list");
+    const ruleAt = (e) => {
+      const row2 = e.target.closest(".fe-rule");
+      if (!row2) return null;
+      const idx = parseInt(row2.dataset.idx);
+      return isNaN(idx) || idx >= app.iconRules.length ? null : [row2, idx];
+    };
+    rulesList.addEventListener("change", (e) => {
+      const hit = ruleAt(e);
+      if (!hit) return;
+      const t = e.target;
+      if (t.classList.contains("fe-st-rule-en")) {
+        app.iconRules[hit[1]].enabled = t.checked;
+        hit[0].classList.toggle("off", !t.checked);
+        saveRules();
+      }
+    });
+    rulesList.addEventListener("input", (e) => {
+      const hit = ruleAt(e);
+      if (!hit) return;
+      const t = e.target;
+      if (!t.classList.contains("fe-st-rule-pattern")) return;
+      app.iconRules[hit[1]].pattern = t.value;
+      const bad = badRegex(t.value);
+      t.classList.toggle("bad", !!bad);
+      t.title = bad || "Matches file names, any case";
+      hit[0].querySelector(".fe-rule-n").textContent = bad ? "!" : String(hits(t.value));
+      if (!bad) saveRules();
+    });
+    rulesList.addEventListener("click", (e) => {
+      const hit = ruleAt(e);
+      if (!hit) return;
+      const t = e.target;
+      if (t.closest(".fe-st-rule-del")) {
+        app.iconRules.splice(hit[1], 1);
+        saveRules();
+        renderRulesList();
+      } else if (t.closest(".fe-rule-ico")) openRulePop(hit[1], t.closest(".fe-rule-ico"));
+    });
+    el("fe-st-rule-sugg").addEventListener("click", (e) => {
+      const b = e.target.closest(".fe-rule-add");
+      const s = b && RULE_SUGGESTIONS.find((x) => x.name === b.dataset.name);
+      if (!s) return;
+      app.iconRules.push({ id: "r" + Date.now(), pattern: s.pattern, label: s.label, color: s.color, glyph: s.glyph, enabled: true });
+      saveRules();
+      renderRulesList();
+    });
+    el("fe-st-add-rule").addEventListener("click", () => {
+      app.iconRules.push({ id: "r" + Date.now(), pattern: "", label: "NEW", color: "#4a9eff", enabled: true });
+      saveIconRules(app.iconRules);
+      renderRulesList();
+      els(".fe-st-rule-pattern", rulesList).pop()?.focus();
+    });
+    el("fe-st-reset-rules").addEventListener("click", () => {
+      app.iconRules = DEFAULT_ICON_RULES.map((r) => ({ ...r }));
+      saveRules();
+      renderRulesList();
+      toast("Icon rules reset");
+    });
+    let pop = null;
+    const closePop = () => {
+      pop?.remove();
+      pop = null;
+    };
+    function openRulePop(idx, anchor) {
+      closePop();
+      const rule = app.iconRules[idx];
+      const box = document.createElement("div");
+      pop = box;
+      box.className = "fe-rule-pop";
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-label", "Icon and colour");
+      const paint = () => {
+        box.innerHTML = `
+        <div class="fe-rp-sec"><span class="fe-rp-l">Picture</span>
+          <div class="fe-rp-glyphs">
+            <button type="button" class="fe-rp-g${rule.glyph ? "" : " on"}" data-g="" title="Text badge">${icoCustom(rule.label, rule.color)}</button>
+            ${Object.keys(RULE_GLYPHS).map((g) => `<button type="button" class="fe-rp-g${rule.glyph === g ? " on" : ""}" data-g="${g}" title="${g}">${icoCustom("", rule.color, g)}</button>`).join("")}
+          </div></div>
+        <div class="fe-rp-sec"><span class="fe-rp-l">Text</span><input class="fe-st-input fe-rp-label" maxlength="4" value="${esc(rule.label)}" spellcheck="false" title="Up to 4 characters, shown when there is no picture"></div>
+        <div class="fe-rp-sec"><span class="fe-rp-l">Colour</span>
+          <div class="fe-rp-sw">${SWATCHES.map((c) => `<button type="button" class="fe-rp-c${c === rule.color ? " on" : ""}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join("")}
+          <input class="fe-st-input fe-rp-hex" value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
+      };
+      paint();
+      const apply = () => {
+        saveRules();
+        const ico = rulesList.querySelector(`.fe-rule[data-idx="${idx}"] .fe-rule-ico`);
+        if (ico) ico.innerHTML = icoCustom(rule.label, rule.color, rule.glyph);
+      };
+      box.addEventListener("click", (e) => {
+        const t = e.target;
+        const g = t.closest(".fe-rp-g"), c = t.closest(".fe-rp-c");
+        if (g) rule.glyph = g.dataset.g || void 0;
+        else if (c) rule.color = c.dataset.c;
+        else return;
+        apply();
+        paint();
+        box.querySelector(g ? `.fe-rp-g[data-g="${g.dataset.g}"]` : `.fe-rp-c[data-c="${c.dataset.c}"]`)?.focus();
+      });
+      box.addEventListener("input", (e) => {
+        const t = e.target;
+        if (t.classList.contains("fe-rp-label")) {
+          rule.label = t.value;
+          apply();
+        }
+        if (t.classList.contains("fe-rp-hex") && /^#[0-9a-f]{6}$/i.test(t.value)) {
+          rule.color = t.value;
+          apply();
+        }
+      });
+      box.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          closePop();
+          anchor.focus();
+        }
+      });
+      fe.appendChild(box);
+      const r = anchor.getBoundingClientRect();
+      box.style.left = `${Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8))}px`;
+      box.style.top = `${r.bottom + box.offsetHeight + 8 > innerHeight ? Math.max(8, r.top - box.offsetHeight - 6) : r.bottom + 6}px`;
+      box.querySelector(".fe-rp-g.on")?.focus();
+    }
+    document.addEventListener("mousedown", (e) => {
+      if (pop && !pop.contains(e.target) && !e.target.closest?.(".fe-rule-ico")) closePop();
+    }, true);
+    const aiModel = v("fe-st-ai-model");
+    const warm = el("fe-st-ai-warm");
+    function refreshAi() {
+      const head = document.querySelector("#fe-st-ai-card .fe-st-ai-head");
+      const state = document.querySelector(".fe-st-ai-state");
+      const sub = el("fe-st-ai-sub"), grid = el("fe-st-ai-grid"), hint = el("fe-st-ai-hint");
+      head.className = "fe-st-ai-head";
+      state.textContent = "Checking\u2026";
+      sub.textContent = "";
+      grid.innerHTML = "";
+      hint.innerHTML = "";
+      warm.disabled = true;
+      const kv = (k, val) => `<span class="k">${esc(k)}</span><span class="v">${esc(val)}</span>`;
+      llmAvailability().then((av) => {
+        if (av.kind === "unavailable") {
+          head.classList.add("off");
+          state.textContent = "Not set up";
+          sub.textContent = "Ask and the AI bar stay hidden";
+          hint.innerHTML = `Run <code>native/install.sh &lt;extension-id&gt;</code>, then reload. <span class="fe-dm">(${esc(av.reason)})</span>`;
+          aiModel.setOptions([]);
+          return;
+        }
+        const s = av.status;
+        head.classList.add(av.kind === "down" ? "down" : av.cold ? "cold" : "ready");
+        state.textContent = av.kind === "down" ? "Server down" : av.cold ? "Ready, cold" : "Ready";
+        sub.textContent = av.kind === "down" ? "Start Ollama, then check again" : `${settings.aiModel || s.default_model} \xB7 ${av.cold ? "first reply loads it" : "replies at once"}`;
+        grid.innerHTML = kv("Server", `${s.server}${s.host ? " \xB7 " + s.host : ""}`) + (s.toolkit_version ? kv("Toolkit", `lm ${s.toolkit_version}`) : "");
+        const resident = new Set(s.resident_models ?? []);
+        aiModel.setOptions((s.available_models ?? []).map((m) => ({
+          value: m,
+          label: m,
+          icon: UI_ICON.bot,
+          hint: [m === s.default_model ? "default" : "", resident.has(m) ? "loaded" : ""].filter(Boolean).join(" \xB7 ")
+        })));
+        aiModel.value = settings.aiModel || s.default_model;
+        warm.checked = !!s.warm;
+        warm.disabled = av.kind !== "ready";
+      });
+      const models = el("fe-st-ai-models");
+      llmModels().then(({ tiers, gemini }) => {
+        const rowHtml = (icon2, name, model, where, star = false) => `<div class="fe-ai-m">${icon2}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${star ? '<span class="fe-ai-def">default</span>' : ""}<span class="fe-ai-where${where === "Google" ? " cloud" : ""}">${where}</span></div>`;
+        models.innerHTML = tiers.length || gemini.length ? tiers.map((t) => rowHtml(UI_ICON.bot, t.alias, t.model, "This Mac")).join("") + gemini.map((g) => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, "Gemini "), g.name, "Google", g.default)).join("") + `<p class="fe-set-note">Google models send the question and the file to Google.</p>` : '<p class="fe-set-note">No model list from lm.</p>';
+      });
+    }
+    el("fe-st-ai-refresh").addEventListener("click", refreshAi);
+    aiModel.addEventListener("change", () => {
+      settings.aiModel = aiModel.value || void 0;
+      saveSettings(settings);
+    });
+    warm.addEventListener("change", () => {
+      warm.disabled = true;
+      llmWarm(warm.checked).then((r) => {
+        if (!r.ok) toast(r.message ? `Warm failed: ${r.message}` : "Warm failed");
+        refreshAi();
+      });
+    });
     function updateTermHint() {
       const term = settings.terminalApp || "ghostty";
-      const hint = document.getElementById("fe-st-term-hint");
-      if (!hint) return;
       const cmd = term === "custom" ? settings.terminalCmd || "" : TERMINAL_CMDS[term] || "";
-      hint.textContent = cmd ? `Command: ${cmd.replace(/\$\{p\}/g, app.folderPath)}` : "";
+      el("fe-st-term-hint").textContent = cmd ? cmd.replace(/\$\{p\}/g, app.folderPath) : "";
     }
-    const settingsDlg = mountDialog("fe-settings-modal");
+    const settingsDlg = mountDialog("fe-settings-modal", { onClose: closePop });
     function openSettings(tab) {
       els('input[name="bfb-theme"]').forEach((r) => {
-        r.checked = r.value === (fe.dataset.theme || "dark");
+        r.checked = r.value === (fe.dataset.mode || "dark");
       });
       els('input[name="bfb-palette"]').forEach((r) => {
         r.checked = r.value === (fe.dataset.palette || "slate");
       });
-      el("fe-st-defview").value = getView();
+      const icon2 = kvGet(APP_ICON_KEY) ?? "classic";
+      els('input[name="bfb-appicon"]').forEach((r) => {
+        r.checked = r.value === icon2;
+        const img = r.nextElementSibling;
+        if (!img.getAttribute("src")) img.src = appIconUrl(r.value);
+      });
+      v("fe-st-uiscale").value = String(settings.uiScale || 100);
+      v("fe-st-rd-size").value = String(settings.readerSize || 15);
+      v("fe-st-density").value = settings.compactMode ? "compact" : "roomy";
+      el("fe-st-tooltips").checked = settings.tooltips !== false;
+      v("fe-st-defview").value = getView();
       const order = getSortConfig();
-      el("fe-st-sort").value = order.col ?? "";
-      el("fe-st-sort-dir").value = order.dir;
-      el("fe-st-group").value = getGroupMode();
-      el("fe-st-compact").checked = !!settings.compactMode;
-      el("fe-st-wrap").checked = settings.wrapLines !== false;
+      v("fe-st-sort").value = order.col ?? "";
+      v("fe-st-sort-dir").value = order.dir;
+      v("fe-st-group").value = getGroupMode();
+      v("fe-st-datefmt").value = settings.dateFormat || "short";
+      v("fe-st-click").value = settings.clickOpens || "look";
+      v("fe-st-panel").value = getPreviewLayout().mode;
       el("fe-st-sidebar").checked = settings.showSidebar !== false;
-      el("fe-st-datefmt").value = settings.dateFormat || "short";
-      el("fe-st-terminal").value = settings.terminalApp || "ghostty";
+      el("fe-st-sec-recent").checked = !settings.hideRecent;
+      v("fe-st-terminal").value = settings.terminalApp || "ghostty";
       el("fe-st-term-custom-row").style.display = settings.terminalApp === "custom" ? "" : "none";
       el("fe-st-term-custom").value = settings.terminalCmd || "";
-      el("fe-st-notes-root").value = settings.notesRoot || "";
-      el("fe-st-edit-roots").value = (settings.editableFolders ?? []).join(", ");
-      el("fe-st-filepages").value = settings.renderFilePages || "all";
+      v("fe-st-rd-column").value = savedColumnMode(settings.readerColumn);
+      v("fe-st-rd-lh").value = String(settings.readerLineHeight || 1.65);
+      v("fe-st-rd-code").value = String(settings.readerCodeSize || 13);
+      el("fe-st-wrap").checked = settings.wrapLines !== false;
+      v("fe-st-filepages").value = settings.renderFilePages || "all";
       const excluded = Array.isArray(settings.excludedFileExtensions) ? settings.excludedFileExtensions : DEFAULT_SETTINGS.excludedFileExtensions ?? [];
-      el("fe-st-excluded-exts").value = excluded.map((x) => "." + x).join(", ");
-      el("fe-st-sec-recent").checked = !settings.hideRecent;
-      el("fe-st-tooltips").checked = settings.tooltips !== false;
-      el("fe-st-panel").value = getPreviewLayout().mode;
-      el("fe-st-click").value = settings.clickOpens || "look";
-      el("fe-st-rd-column").value = savedColumnMode(settings.readerColumn);
-      el("fe-st-uiscale").value = String(settings.uiScale || 100);
-      el("fe-st-rd-size").value = String(settings.readerSize || 15);
-      el("fe-st-rd-lh").value = String(settings.readerLineHeight || 1.65);
-      el("fe-st-rd-code").value = String(settings.readerCodeSize || 13);
+      v("fe-st-excluded-exts").value = excluded.map((x) => "." + x).join(", ");
+      el("fe-st-notes-root").value = settings.notesRoot || "";
+      v("fe-st-edit-roots").value = (settings.editableFolders ?? []).join(", ");
       updateTermHint();
       renderRulesList();
-      refreshAiStatus();
+      refreshAi();
       settingsDlg.open(tab);
     }
-    function refreshAiStatus() {
-      const head = document.querySelector(".fe-st-ai-head");
-      const state = document.querySelector(".fe-st-ai-state");
-      const grid = el("fe-st-ai-grid");
-      const hint = el("fe-st-ai-hint");
-      const controls = el("fe-st-ai-controls");
-      const modelSel = el("fe-st-ai-model");
-      const warmBtn = el("fe-st-ai-warm");
-      head.className = "fe-st-ai-head";
-      state.textContent = "Checking\u2026";
-      grid.innerHTML = "";
-      hint.innerHTML = "";
-      controls.style.display = "none";
-      const row = (k, v, cls = "") => `<span class="k">${esc(k)}</span><span class="v ${cls}">${esc(v)}</span>`;
-      llmAvailability().then((av) => {
-        if (av.kind === "unavailable") {
-          head.classList.add("off");
-          state.textContent = "Not installed";
-          hint.innerHTML = `Local AI is not set up. <details class="fe-st-ai-why"><summary>How to set it up</summary>Run <code>native/install.sh &lt;extension-id&gt;</code> once, then reload the extension. Chrome said: ${esc(av.reason)}</details>`;
-          return;
-        }
-        const s = av.status;
-        const cls = av.kind === "down" ? "down" : av.cold ? "cold" : "ready";
-        head.classList.add(cls);
-        state.textContent = av.kind === "down" ? "Server down" : av.cold ? "Ready, cold: the first reply loads the model" : "Ready and warm";
-        grid.innerHTML = [
-          row("Default model", s.default_model || "\u2014"),
-          row("Warm", s.warm ? "yes, model resident" : "no, loads on first use", s.warm ? "warm-yes" : "warm-no"),
-          row("Latency", s.latency_class),
-          row("Server", `${s.server}${s.host ? "  " + s.host : ""}`),
-          s.toolkit_version ? row("Toolkit", `lm ${s.toolkit_version}`) : ""
-        ].join("");
-        if (av.kind === "ready" && s.available_models?.length) {
-          const chosen = settings.aiModel || s.default_model;
-          modelSel.innerHTML = s.available_models.map(
-            (m) => `<option value="${esc(m)}"${m === chosen ? " selected" : ""}>${esc(m)}${m === s.default_model ? " (default)" : ""}</option>`
-          ).join("");
-          warmBtn.innerHTML = `${s.warm ? UI_ICON.unload : UI_ICON.warm}${s.warm ? "Unload (warm off)" : "Keep warm"}`;
-          warmBtn.disabled = false;
-          controls.style.display = "";
-        }
-        hint.innerHTML = av.kind === "down" ? `Ollama isn't responding. Start it, then Refresh.` : av.cold ? `Cold start: the first reply loads the model (about 2 to 3 s). "Keep warm" makes replies instant.` : `Model is resident, so replies are near-instant.`;
-      });
-    }
-    el("fe-st-ai-refresh").addEventListener("click", refreshAiStatus);
-    el("fe-st-ai-model").addEventListener("change", function() {
-      settings.aiModel = this.value || void 0;
-      saveSettings(settings);
-    });
-    el("fe-st-ai-warm").addEventListener("click", function() {
-      const btn = this;
-      const turnOn = btn.textContent !== "Unload (warm off)";
-      btn.disabled = true;
-      btn.textContent = turnOn ? "Warming\u2026" : "Unloading\u2026";
-      llmWarm(turnOn).then((r) => {
-        if (!r.ok) toast(r.message ? `Warm failed: ${r.message}` : "Warm failed");
-        refreshAiStatus();
-      });
-    });
     el("fe-settings-btn").addEventListener("click", () => openSettings());
     const helpDlg = mountDialog("fe-help-modal");
     el("fe-help-btn").addEventListener("click", () => helpDlg.open());
@@ -19122,50 +19911,127 @@ ${rows.join("\n")}`, name: subject };
     });
     app.openHelp = (tab) => helpDlg.open(tab);
     app.openSettings = openSettings;
+    els('input[name="bfb-theme"]').forEach((r) => r.addEventListener("change", () => setThemeMode(fe, r.value)));
+    els('input[name="bfb-palette"]').forEach((r) => r.addEventListener("change", () => {
+      fe.dataset.palette = r.value;
+      kvSet(PALETTE_KEY, r.value);
+    }));
+    els('input[name="bfb-appicon"]').forEach((r) => r.addEventListener("change", () => setAppIcon(r.value)));
+    v("fe-st-uiscale").addEventListener("change", () => {
+      settings.uiScale = Number(v("fe-st-uiscale").value);
+      saveSettings(settings);
+      setUiScale(settings.uiScale);
+    });
+    const textScale = () => document.documentElement.style.setProperty("--ui-text-scale", String(Number(v("fe-st-rd-size").value) / 15));
+    v("fe-st-rd-size").addEventListener("input", textScale);
+    v("fe-st-rd-size").addEventListener("change", () => {
+      textScale();
+      settings.readerSize = Number(v("fe-st-rd-size").value);
+      saveSettings(settings);
+    });
+    v("fe-st-density").addEventListener("change", () => {
+      settings.compactMode = v("fe-st-density").value === "compact";
+      saveSettings(settings);
+      fe.classList.toggle("compact", settings.compactMode);
+    });
+    el("fe-st-tooltips").addEventListener("change", function() {
+      settings.tooltips = this.checked;
+      saveSettings(settings);
+      fe.classList.toggle("fe-notips", !this.checked);
+    });
+    v("fe-st-defview").addEventListener("change", () => kvSet(VIEW_KEY, v("fe-st-defview").value));
+    const applyOrder = () => app.setOrder(
+      { col: v("fe-st-sort").value || null, dir: v("fe-st-sort-dir").value },
+      v("fe-st-group").value
+    );
+    ["fe-st-sort", "fe-st-sort-dir", "fe-st-group"].forEach((id) => el(id).addEventListener("change", applyOrder));
+    v("fe-st-datefmt").addEventListener("change", () => {
+      settings.dateFormat = v("fe-st-datefmt").value;
+      saveSettings(settings);
+      app.applyAll();
+    });
+    v("fe-st-click").addEventListener("change", () => {
+      settings.clickOpens = v("fe-st-click").value;
+      saveSettings(settings);
+    });
+    v("fe-st-panel").addEventListener("change", () => {
+      savePreviewLayout({ ...getPreviewLayout(), mode: v("fe-st-panel").value });
+      toast("The next preview opens there");
+    });
+    el("fe-st-panel-reset").addEventListener("click", () => {
+      savePreviewLayout({ mode: getPreviewLayout().mode });
+      toast("Preview sizes reset");
+    });
+    el("fe-st-sidebar").addEventListener("change", function() {
+      settings.showSidebar = this.checked;
+      saveSettings(settings);
+      setSidebarShown(this.checked);
+    });
     el("fe-st-sec-recent").addEventListener("change", function() {
       settings.hideRecent = !this.checked;
       saveSettings(settings);
       app.showLens?.(this.checked ? null : "notes", !this.checked);
     });
-    el("fe-st-tooltips").addEventListener("change", function() {
-      settings.tooltips = this.checked;
+    v("fe-st-terminal").addEventListener("change", () => {
+      settings.terminalApp = v("fe-st-terminal").value;
       saveSettings(settings);
-      toast(this.checked ? "Tooltips back after a reload" : "Tooltips off after a reload");
+      el("fe-st-term-custom-row").style.display = settings.terminalApp === "custom" ? "" : "none";
+      updateTermHint();
     });
-    el("fe-st-panel").addEventListener("change", function() {
-      savePreviewLayout({ ...getPreviewLayout(), mode: this.value });
-      toast("Applies to the next preview after a reload");
-    });
-    el("fe-st-panel-reset").addEventListener("click", () => {
-      savePreviewLayout({ mode: getPreviewLayout().mode });
-      toast("Panel sizes reset");
-    });
-    el("fe-st-click").addEventListener("change", function() {
-      settings.clickOpens = this.value;
+    el("fe-st-term-custom").addEventListener("input", function() {
+      settings.terminalCmd = this.value;
       saveSettings(settings);
+      updateTermHint();
     });
-    el("fe-st-rd-column").addEventListener("change", function() {
-      settings.readerColumn = this.value;
+    v("fe-st-rd-column").addEventListener("change", () => {
+      settings.readerColumn = v("fe-st-rd-column").value;
       saveSettings(settings);
       try {
-        kvSet(COLUMN_KEY, this.value);
+        kvSet(COLUMN_KEY, settings.readerColumn);
       } catch {
       }
     });
-    el("fe-st-rd-size").addEventListener("change", function() {
-      settings.readerSize = Number(this.value);
-      saveSettings(settings);
-      document.documentElement.style.setProperty("--ui-text-scale", String(settings.readerSize / 15));
-    });
     const readerVar = (id, key, cssVar, unit) => {
-      el(id).addEventListener("change", function() {
-        settings[key] = Number(this.value);
+      const live = () => fe.style.setProperty(cssVar, v(id).value + unit);
+      v(id).addEventListener("input", live);
+      v(id).addEventListener("change", () => {
+        live();
+        settings[key] = Number(v(id).value);
         saveSettings(settings);
-        fe.style.setProperty(cssVar, this.value + unit);
       });
     };
     readerVar("fe-st-rd-lh", "readerLineHeight", "--rd-lh", "");
     readerVar("fe-st-rd-code", "readerCodeSize", "--rd-code", "px");
+    el("fe-st-wrap").addEventListener("change", function() {
+      settings.wrapLines = this.checked;
+      saveSettings(settings);
+      fe.dataset.wrap = this.checked ? "on" : "off";
+    });
+    v("fe-st-filepages").addEventListener("change", () => {
+      settings.renderFilePages = v("fe-st-filepages").value;
+      saveSettings(settings);
+    });
+    v("fe-st-excluded-exts").addEventListener("change", () => {
+      settings.excludedFileExtensions = parseExcludedExtensions(v("fe-st-excluded-exts").value);
+      v("fe-st-excluded-exts").value = settings.excludedFileExtensions.map((x) => "." + x).join(", ");
+      saveSettings(settings);
+    });
+    el("fe-st-excluded-reset").addEventListener("click", () => {
+      settings.excludedFileExtensions = [...DEFAULT_SETTINGS.excludedFileExtensions ?? []];
+      v("fe-st-excluded-exts").value = settings.excludedFileExtensions.map((x) => "." + x).join(", ");
+      saveSettings(settings);
+    });
+    el("fe-st-notes-pick").addEventListener("click", () => app.pickNotesFolder());
+    el("fe-st-notes-root").addEventListener("change", function() {
+      settings.notesRoot = this.value.trim() || void 0;
+      saveSettings(settings);
+      app.refreshNotes();
+    });
+    v("fe-st-edit-roots").addEventListener("change", () => {
+      const list2 = v("fe-st-edit-roots").value.split(",").map((s) => s.trim()).filter(Boolean);
+      settings.editableFolders = list2.length ? list2 : void 0;
+      saveSettings(settings);
+    });
     el("fe-st-export").addEventListener("click", () => {
       const out = {};
       for (const k of kvKeys().sort()) {
@@ -19180,7 +20046,7 @@ ${rows.join("\n")}`, name: subject };
       ta.value = text;
       ta.style.display = "";
       ta.select();
-      navigator.clipboard.writeText(text).then(() => toast("Export copied to the clipboard"), () => toast("Export shown below"));
+      navigator.clipboard.writeText(text).then(() => toast("Export copied"), () => toast("Export shown below"));
     });
     el("fe-st-import").addEventListener("click", () => el("fe-st-import-file").click());
     el("fe-st-import-file").addEventListener("change", function() {
@@ -19189,155 +20055,13 @@ ${rows.join("\n")}`, name: subject };
       f.text().then((text) => {
         const data = JSON.parse(text);
         let n = 0;
-        for (const [k, v] of Object.entries(data)) if (k.startsWith("bfb-")) {
-          kvSet(k, typeof v === "string" ? v : JSON.stringify(v));
+        for (const [k, val] of Object.entries(data)) if (k.startsWith("bfb-")) {
+          kvSet(k, typeof val === "string" ? val : JSON.stringify(val));
           n++;
         }
         toast(`Imported ${n} keys, reloading`);
         setTimeout(() => location.reload(), 600);
       }).catch(() => toast("That file is not a JSON export"));
-    });
-    els('input[name="bfb-theme"]').forEach((r) => {
-      r.addEventListener("change", () => {
-        fe.dataset.theme = r.value;
-        kvSet(THEME_KEY, r.value);
-      });
-    });
-    els('input[name="bfb-palette"]').forEach((r) => {
-      r.addEventListener("change", () => {
-        fe.dataset.palette = r.value;
-        kvSet(PALETTE_KEY, r.value);
-      });
-    });
-    el("fe-st-defview").addEventListener("change", function() {
-      kvSet(VIEW_KEY, this.value);
-    });
-    const applyOrder = () => {
-      const col = el("fe-st-sort").value || null;
-      const dir = el("fe-st-sort-dir").value;
-      app.setOrder({ col, dir }, el("fe-st-group").value);
-    };
-    ["fe-st-sort", "fe-st-sort-dir", "fe-st-group"].forEach((id) => el(id).addEventListener("change", applyOrder));
-    el("fe-st-compact").addEventListener("change", function() {
-      settings.compactMode = this.checked;
-      saveSettings(settings);
-      fe.classList.toggle("compact", this.checked);
-    });
-    el("fe-st-wrap").addEventListener("change", function() {
-      settings.wrapLines = this.checked;
-      saveSettings(settings);
-      fe.dataset.wrap = this.checked ? "on" : "off";
-    });
-    el("fe-st-uiscale").addEventListener("change", function() {
-      settings.uiScale = Number(this.value);
-      saveSettings(settings);
-      fe.style.zoom = settings.uiScale === 100 ? "" : String(settings.uiScale / 100);
-    });
-    el("fe-st-sidebar").addEventListener("change", function() {
-      settings.showSidebar = this.checked;
-      saveSettings(settings);
-      setSidebarShown(this.checked);
-    });
-    el("fe-st-datefmt").addEventListener("change", function() {
-      settings.dateFormat = this.value;
-      saveSettings(settings);
-      app.applyAll();
-    });
-    el("fe-st-terminal").addEventListener("change", function() {
-      settings.terminalApp = this.value;
-      saveSettings(settings);
-      el("fe-st-term-custom-row").style.display = this.value === "custom" ? "" : "none";
-      updateTermHint();
-      const termBtn = document.getElementById("fe-term-btn");
-      if (termBtn) termBtn.title = `Open in terminal (${this.options[this.selectedIndex].text}), click opens the current folder, shift-click copies the command`;
-    });
-    el("fe-st-filepages").addEventListener("change", function() {
-      settings.renderFilePages = this.value;
-      saveSettings(settings);
-    });
-    el("fe-st-excluded-exts").addEventListener("change", function() {
-      settings.excludedFileExtensions = parseExcludedExtensions(this.value);
-      this.value = settings.excludedFileExtensions.map((x) => "." + x).join(", ");
-      saveSettings(settings);
-    });
-    el("fe-st-excluded-reset").addEventListener("click", () => {
-      settings.excludedFileExtensions = [...DEFAULT_SETTINGS.excludedFileExtensions ?? []];
-      el("fe-st-excluded-exts").value = settings.excludedFileExtensions.map((x) => "." + x).join(", ");
-      saveSettings(settings);
-    });
-    el("fe-st-notes-pick").addEventListener("click", () => app.pickNotesFolder());
-    el("fe-st-notes-root").addEventListener("change", function() {
-      settings.notesRoot = this.value.trim() || void 0;
-      saveSettings(settings);
-      app.refreshNotes();
-    });
-    el("fe-st-edit-roots").addEventListener("change", function() {
-      const list = this.value.split(",").map((s) => s.trim()).filter(Boolean);
-      settings.editableFolders = list.length ? list : void 0;
-      saveSettings(settings);
-    });
-    el("fe-st-term-custom").addEventListener("input", function() {
-      settings.terminalCmd = this.value;
-      saveSettings(settings);
-      updateTermHint();
-    });
-    const rulesList = el("fe-st-rules-list");
-    const ruleAt = (e) => {
-      const row = e.target.closest(".fe-st-rule");
-      if (!row) return null;
-      const idx = parseInt(row.dataset.idx);
-      return isNaN(idx) || idx >= app.iconRules.length ? null : [row, idx];
-    };
-    rulesList.addEventListener("change", (e) => {
-      const hit = ruleAt(e);
-      if (!hit) return;
-      const [row, idx] = hit;
-      const t = e.target;
-      if (t.classList.contains("fe-st-rule-en")) app.iconRules[idx].enabled = t.checked;
-      if (t.classList.contains("fe-st-rule-color")) {
-        app.iconRules[idx].color = t.value;
-        row.querySelector(".fe-st-rule-preview").innerHTML = icoCustom(app.iconRules[idx].label, app.iconRules[idx].color);
-      }
-      saveIconRules(app.iconRules);
-      app.applyAll();
-    });
-    rulesList.addEventListener("input", (e) => {
-      const hit = ruleAt(e);
-      if (!hit) return;
-      const [row, idx] = hit;
-      const t = e.target;
-      if (t.classList.contains("fe-st-rule-pattern")) app.iconRules[idx].pattern = t.value;
-      if (t.classList.contains("fe-st-rule-label")) {
-        app.iconRules[idx].label = t.value;
-        row.querySelector(".fe-st-rule-preview").innerHTML = icoCustom(app.iconRules[idx].label, app.iconRules[idx].color);
-      }
-      saveIconRules(app.iconRules);
-      app.applyAll();
-    });
-    rulesList.addEventListener("click", (e) => {
-      const del = e.target.closest(".fe-st-rule-del");
-      if (!del) return;
-      const idx = parseInt(del.dataset.idx);
-      if (!isNaN(idx)) {
-        app.iconRules.splice(idx, 1);
-        saveIconRules(app.iconRules);
-        app.applyAll();
-        renderRulesList();
-      }
-    });
-    el("fe-st-add-rule").addEventListener("click", () => {
-      app.iconRules.push({ id: "r" + Date.now(), pattern: "", label: "NEW", color: "#58a6ff", enabled: true });
-      saveIconRules(app.iconRules);
-      renderRulesList();
-      const inputs = els(".fe-st-rule-pattern", rulesList);
-      inputs[inputs.length - 1]?.focus();
-    });
-    el("fe-st-reset-rules").addEventListener("click", () => {
-      app.iconRules = DEFAULT_ICON_RULES.map((r) => ({ ...r }));
-      saveIconRules(app.iconRules);
-      app.applyAll();
-      renderRulesList();
-      toast("Icon rules reset to defaults");
     });
   }
 
@@ -19508,16 +20232,16 @@ ${rows.join("\n")}`, name: subject };
       const tagBox = top.querySelector(".fe-docs-tags");
       const tagHtml = tags.map((g) => `<button type="button" class="fe-chip fe-lens-tag${f.tag === g ? " on" : ""}" data-tag="${esc(g)}" title="Only documents with a thread tagged #${esc(g)}">#${esc(g)}</button>`).join("");
       if (tagBox.innerHTML !== tagHtml) tagBox.innerHTML = tagHtml;
-      const list = docRows(all, f);
+      const list2 = docRows(all, f);
       if (!usable.length) {
         rowsBox.innerHTML = `<div class="fe-cm-empty"><span class="fe-cm-empty-ico">${UI_ICON.comment}</span><p>No comments yet</p><p class="fe-cm-hint">Documents you or an agent<br>comment on show up here</p></div>`;
         return;
       }
-      if (!list.length) {
+      if (!list2.length) {
         rowsBox.innerHTML = '<div class="fe-cm-empty"><p>No document matches</p></div>';
         return;
       }
-      rowsBox.innerHTML = list.map((r) => `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
+      rowsBox.innerHTML = list2.map((r) => `<button type="button" class="fe-doc-row" data-doc="${esc(r.doc)}" title="${esc(r.doc)}">
         <span class="fe-row-ico">${icoFile(r.name.split(".").pop().toLowerCase())}</span>
         <span class="fe-doc-tx"><span class="fe-doc-name">${midHtml(r.name)}</span><span class="fe-doc-dir">${esc(short(r.doc))}</span></span>
         ${forMe(r) ? `<span class="fe-doc-me" title="Mentions you">${UI_ICON.at}</span>` : ""}
@@ -19650,7 +20374,7 @@ ${rows.join("\n")}`, name: subject };
     const iconRules = getIconRules();
     const initZoom = getZoom();
     const initView = getView();
-    const initTheme = getTheme();
+    const initTheme = resolveTheme(themeMode());
     const initPalette = getPalette();
     const initHidden = getShowHidden();
     const recents = getRecents().filter((r) => r.path !== rawPath);
@@ -19704,14 +20428,16 @@ ${rows.join("\n")}`, name: subject };
     const dirName = fileMode ? fileName : segments[segments.length - 1] || "/";
     const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + "\u2026" : dirName;
     document.title = `${shortDir} | Better File Browser`;
-    document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${chrome.runtime.getURL("assets/favicon.svg")}">`;
+    document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${appIconUrl()}">`;
     document.body.innerHTML = html;
     const styleEl = document.createElement("style");
-    styleEl.textContent = CSS2;
+    styleEl.textContent = CSS2 + UI_CSS;
     document.head.appendChild(styleEl);
     preload?.remove();
     const fe = el("fe");
     fe.dataset.wrap = settings.wrapLines === false ? "off" : "on";
+    fe.dataset.mode = themeMode();
+    followSystem(fe);
     if (settings.sidebarWidth && !settings.sidebarRail) {
       settings.sidebarWidth += 52;
       settings.sidebarRail = true;
@@ -19722,7 +20448,7 @@ ${rows.join("\n")}`, name: subject };
       el("fe-side").style.display = "none";
       el("fe-side-rz").style.display = "none";
     }
-    if (settings.uiScale && settings.uiScale !== 100) fe.style.zoom = String(settings.uiScale / 100);
+    if (settings.uiScale && settings.uiScale !== 100) setUiScale(settings.uiScale);
     if (settings.compactMode) fe.classList.add("compact");
     document.documentElement.style.setProperty("--ui-text-scale", String((settings.readerSize || 15) / 15));
     fe.style.setProperty("--rd-lh", String(settings.readerLineHeight || 1.65));
@@ -19736,6 +20462,7 @@ ${rows.join("\n")}`, name: subject };
       fe,
       settings,
       iconRules,
+      entryNames: nonPar.map((e) => e.name),
       toast: makeToast(el("fe-toast")),
       strip: null,
       filePage: null,
@@ -19811,8 +20538,8 @@ ${rows.join("\n")}`, name: subject };
     if (!homeDir(rawPath)) {
       notes.home().then((home) => {
         if (!setHomeDir(home)) return;
-        const list = document.querySelector('#fe-lens-places .fe-sec[data-sec="places"]');
-        if (list) list.innerHTML = placesHTML(home, rawPath);
+        const list2 = document.querySelector('#fe-lens-places .fe-sec[data-sec="places"]');
+        if (list2) list2.innerHTML = placesHTML(home, rawPath);
       }).catch(() => {
       });
     }

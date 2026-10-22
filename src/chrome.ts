@@ -5,11 +5,19 @@ import { el } from './el';
 import { esc, pageHref, fileHref, copyToClipboard } from './utils';
 import { kvGet, kvSet } from './kv';
 import { getIcon } from './icons';
-import { THEME_KEY, TERMINAL_CMDS, saveSettings, homeDir, getRecents } from './storage';
+import { TERMINAL_CMDS, saveSettings, homeDir, getRecents } from './storage';
 import { absPath, resolvePath, readable } from './goto';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { setSidebarShown } from './motion';
+import { setThemeMode } from './theme';
+
+/// Interface size: the tab's own Chrome zoom, set through the extension's
+/// worker. A CSS zoom on the page scaled every menu's screen coordinates a
+/// second time, so menus opened away from what was clicked.
+export function setUiScale(percent: number): void {
+  try { void chrome.runtime.sendMessage({ type: 'bfb-zoom', factor: (percent || 100) / 100 }); } catch { /* no worker in tests */ }
+}
 
 export function initChrome(app: App): void {
   const { fe, settings, toast } = app;
@@ -18,11 +26,8 @@ export function initChrome(app: App): void {
     void copyToClipboard(app.rawPath).then(ok => toast(ok ? 'Copied the path' : 'Copy failed'));
   });
 
-  el('fe-theme-btn').addEventListener('click', () => {
-    const next = fe.dataset.theme === 'dark' ? 'light' : 'dark';
-    fe.dataset.theme = next;
-    kvSet(THEME_KEY, next);
-  });
+  // The toolbar button flips to the other look and leaves System mode.
+  el('fe-theme-btn').addEventListener('click', () => setThemeMode(fe, fe.dataset.theme === 'dark' ? 'light' : 'dark'));
 
   function getTermCmd(path: string): string {
     const term = settings.terminalApp || 'ghostty';

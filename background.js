@@ -26,6 +26,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch(err => sendResponse({ ok: false, error: String(err) }));
     return true;
   }
+  // Interface size is Chrome's own zoom for the tab, so every popup the page
+  // places by screen coordinates still lands under its anchor.
+  if (msg.type === 'bfb-zoom') {
+    const tabId = _sender.tab?.id;
+    if (tabId == null) { sendResponse({ ok: false }); return; }
+    chrome.tabs.getZoom(tabId).then(cur => {
+      if (Math.abs(cur - msg.factor) < 0.001) return;
+      return chrome.tabs.setZoom(tabId, msg.factor);
+    }).then(() => sendResponse({ ok: true }), err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
   // One-shot native call (terminal button): content scripts cannot use
   // connectNative, so the round-trip happens here.
   if (msg.type === 'bfb-native-oneshot') {

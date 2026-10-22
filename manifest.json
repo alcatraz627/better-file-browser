@@ -15,7 +15,7 @@
     "128": "icon128.png"
   },
   "web_accessible_resources": [
-    { "resources": ["vendor-mermaid.js", "search-worker.js", "assets/favicon.svg"], "matches": ["file://*/*"] }
+    { "resources": ["vendor-mermaid.js", "search-worker.js", "assets/favicon.svg", "assets/app-icons/*.svg"], "matches": ["file://*/*"] }
   ],
   "content_scripts": [
     {

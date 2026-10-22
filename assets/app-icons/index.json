@@ -1,0 +1,18 @@
+[
+  {"id":"classic","file":"01-classic.svg","name":"Classic"},
+  {"id":"stack","file":"02-stack.svg","name":"Stack"},
+  {"id":"tree","file":"03-tree.svg","name":"Tree"},
+  {"id":"lens","file":"04-lens.svg","name":"Lens"},
+  {"id":"panes","file":"05-panes.svg","name":"Panes"},
+  {"id":"map","file":"06-map.svg","name":"Map"},
+  {"id":"drawer","file":"07-drawer.svg","name":"Drawer"},
+  {"id":"tabs","file":"08-tabs.svg","name":"Tabs"},
+  {"id":"fan","file":"09-fan.svg","name":"Fan"},
+  {"id":"prompt","file":"10-prompt.svg","name":"Prompt"},
+  {"id":"orbit","file":"11-orbit.svg","name":"Orbit"},
+  {"id":"sprout","file":"12-sprout.svg","name":"Sprout"},
+  {"id":"grid","file":"13-grid.svg","name":"Grid"},
+  {"id":"starred","file":"14-starred.svg","name":"Starred"},
+  {"id":"mono-b","file":"15-mono-b.svg","name":"Mono B"},
+  {"id":"outline","file":"16-outline.svg","name":"Outline"}
+]

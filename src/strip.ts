@@ -5,7 +5,7 @@
 // Mounted by the explorer and by the file page; the pure list operations
 // are in tabs.ts.
 import { esc, copyToClipboard, pageHref } from './utils';
-import { icoFile, icoFolder, CHEVRON_DOWN } from './icons';
+import { icoFile, icoFolder } from './icons';
 import { getSaved, saveSaved } from './storage';
 import { upsertPlace, removePlace } from './places';
 import {
@@ -140,6 +140,7 @@ export function mountStrip(host: StripHost): Strip {
   }
 
   // ── Hover menu ────────────────────────────────────────────────────
+  const listBtn = document.getElementById('fe-tab-list');
   const menu = document.createElement('div');
   menu.className = 'fe-ctx fe-tab-menu';
   menu.style.display = 'none';
@@ -233,20 +234,23 @@ export function mountStrip(host: StripHost): Strip {
       const ico = kindOf(rawPath) === 'file' ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split('.').pop()!.toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
       rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}\nNot kept yet · t or double-click keeps · p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
     }
-    if (state.list.length > 1) rows.push(`<button class="fe-tab-list" title="All tabs">${CHEVRON_DOWN}</button>`);
     el.innerHTML = rows.join('');
     fitHeads();
     el.classList.toggle('empty', state.list.length === 0);
     el.querySelector<HTMLElement>('.fe-tab.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
-    el.querySelector<HTMLElement>('.fe-tab-list')?.addEventListener('click', e => {
-      e.preventDefault(); e.stopPropagation();
-      menu.innerHTML = state.list.map((t, i) => `<div class="fe-ctx-item" data-go="${esc(t.id)}">${esc(labels[i])}</div>`).join('');
-      menu.dataset.id = '';
-      menu.style.display = 'block';
-      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + 'px';
-      menu.style.top = r.bottom + 4 + 'px';
-    });
+    if (listBtn) {
+      listBtn.hidden = state.list.length < 2;
+      listBtn.onclick = e => {
+        e.preventDefault(); e.stopPropagation();
+        menu.innerHTML = state.list.map((t, i) => `<div class="fe-ctx-item${t.id === here?.id ? ' on' : ''}" data-go="${esc(t.id)}">`
+          + `${t.kind === 'file' ? icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '') : icoFolder(t.label)}<span>${esc(labels[i])}</span>${i < 9 ? `<kbd>${i + 1}</kbd>` : ''}</div>`).join('');
+        menu.dataset.id = '';
+        menu.style.display = 'block';
+        const r = listBtn.getBoundingClientRect();
+        menu.style.left = Math.max(8, Math.min(r.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+        menu.style.top = r.bottom + 4 + 'px';
+      };
+    }
     el.querySelectorAll<HTMLElement>('.fe-tab').forEach(a => {
       a.addEventListener('click', e => {
         if ((e.target as HTMLElement).closest('button')) return;

@@ -17,6 +17,7 @@ import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } fro
 import { isViewPath } from './find';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
+import { foldTo } from './motion';
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
 const LENS_KEY = 'bfb-lens-v1';
@@ -161,8 +162,10 @@ export function initSidebar(app: App): void {
     toggle.addEventListener('click', () => {
       const keys = collapsed();
       if (section.classList.contains('fe-collapsed')) keys.delete(key); else keys.add(key);
-      kvSet(collapseKey, JSON.stringify([...keys]));
-      applyCollapsed(keys);
+      foldTo(section, () => { section.classList.toggle('fe-collapsed'); }, () => {
+        kvSet(collapseKey, JSON.stringify([...keys]));
+        applyCollapsed(keys);
+      });
     });
     header.prepend(toggle);
   }
@@ -295,11 +298,15 @@ export function initSidebar(app: App): void {
   function attachSavedEvents(): void {
     // A folded tag group stays folded across pages.
     // A filter opens every group on its own; those opens are not the person's.
-    els<HTMLDetailsElement>('details.fe-grp', svList).forEach(d => d.addEventListener('toggle', () => {
-      if (svFilter.value.trim()) return;
-      const folded = foldedGroups();
-      if (d.open) folded.delete(d.dataset.tag!); else folded.add(d.dataset.tag!);
-      saveFoldedGroups(folded);
+    els<HTMLDetailsElement>('details.fe-grp', svList).forEach(d => d.querySelector('summary')!.addEventListener('click', e => {
+      if ((e.target as Element).closest('.fe-sv-dot')) return;
+      e.preventDefault();
+      foldTo(d, () => { d.open = !d.open; }, () => {
+        if (svFilter.value.trim()) return;
+        const folded = foldedGroups();
+        if (d.open) folded.delete(d.dataset.tag!); else folded.add(d.dataset.tag!);
+        saveFoldedGroups(folded);
+      });
     }));
     els('.fe-rm-btn', svList).forEach(btn => {
       btn.addEventListener('click', e => {
@@ -383,11 +390,13 @@ export function initSidebar(app: App): void {
   ntList.addEventListener('click', e => {
     const g = (e.target as Element).closest<HTMLElement>('.fe-nt-grp');
     if (!g) return;
+    const body = g.nextElementSibling as HTMLElement;
     const folds = noteFolds(), key = g.dataset.grp!;
     if (folds.has(key)) folds.delete(key); else folds.add(key);
-    kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds]));
-    const root = notesRoot();
-    if (root) renderNotes(root);
+    const open = !folds.has(key);
+    g.setAttribute('aria-expanded', String(open));
+    g.title = `${open ? 'Fold' : 'Show'} ${g.dataset.label}`;
+    foldTo(body, () => { body.hidden = !body.hidden; }, () => kvSet(NOTE_FOLDS_KEY, JSON.stringify([...folds])));
   });
   // Notes whose text (not just title or tags) holds every word typed, with the
   // first matching line; filled a moment after typing stops.
@@ -427,9 +436,9 @@ export function initSidebar(app: App): void {
     const folded = noteFolds();
     const group = (key: string, label: string, list: NoteMeta[]) => {
       const open = !folded.has(key) || !!ntFilter.value.trim();
-      return `<button type="button" class="fe-nt-grp" data-grp="${key}" aria-expanded="${open}" title="${open ? 'Fold' : 'Show'} ${esc(label.toLowerCase())}">`
+      return `<button type="button" class="fe-nt-grp" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? 'Fold' : 'Show'} ${esc(label.toLowerCase())}">`
         + `${CHEVRON_DOWN}${key === 'pinned' ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ''}${label}<span class="fe-grp-n">${list.length}</span></button>`
-        + (open ? list.map(row).join('') : '');
+        + `<div class="fe-nt-gbody"${open ? '' : ' hidden'}>${list.map(row).join('')}</div>`;
     };
     ntList.innerHTML = shown.length
       ? (pinned.length ? group('pinned', 'Pinned', pinned) + group('all', 'All notes', rest) : shown.map(row).join(''))
