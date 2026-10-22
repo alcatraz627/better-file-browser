@@ -4968,7 +4968,7 @@ Now: ${question}` : question;
 .btn[aria-busy="true"]{position:relative;cursor:progress;color:transparent}
 .btn[aria-busy="true"] > *{visibility:hidden}
 .btn[aria-busy="true"]::after{content:'';position:absolute;width:var(--btn-ic,14px);height:var(--btn-ic,14px);border:2px solid var(--mt);border-right-color:transparent;border-radius:var(--r-full);animation:fe-spin var(--t-slow) linear infinite}
-.btn[data-done]{color:var(--tone-ok)}
+.btn[data-done],.btn[data-done]:not(:disabled):not([aria-disabled="true"]):hover{color:var(--tone-ok)}
 /* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
    input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
    grows from one control high. Invalid: aria-invalid="true". */
