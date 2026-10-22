@@ -20,6 +20,7 @@ import { upgradeControls, switchHtml, type ValuedEl, type DropdownEl } from './c
 import { setThemeMode, setAppIcon, appIconUrl, appIconPref, type ThemeMode } from './theme';
 import { emptyHtml } from './empty-state';
 import { reload } from './nav';
+import { errorText } from './errors';
 
 // Ready-made rules offered above the list; each appears until it is added.
 const RULE_SUGGESTIONS: (Omit<IconRule, 'id' | 'enabled'> & { name: string })[] = [
@@ -205,7 +206,7 @@ export function initSettingsUi(app: App): void {
   aiModel.addEventListener('change', () => { settings.aiModel = aiModel.value || undefined; saveSettings(settings); });
   warm.addEventListener('change', () => {
     warm.disabled = true;
-    llmWarm(warm.checked).then(r => { if (!r.ok) toast(r.message ? `Warm failed: ${r.message}` : 'Warm failed'); refreshAi(); });
+    llmWarm(warm.checked).then(r => { if (!r.ok) toast(errorText(r, 'Warming the model')); refreshAi(); });
   });
 
   // Open.

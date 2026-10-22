@@ -20,7 +20,7 @@ export async function filterNames(entries: NameEntry[], pattern: string, signal:
       if (error) reject(error); else resolve(new Set(result));
     };
     const abort = () => finish(undefined, new Error('Name matching stopped'));
-    const timer = setTimeout(() => finish(undefined, new Error('Name regex timed out')), 500);
+    const timer = setTimeout(() => finish(undefined, Object.assign(new Error('Name regex timed out'), { code: 'match-timeout' })), 500);
     signal.addEventListener('abort', abort, { once: true });
     worker.onerror = () => finish(undefined, new Error('Name matching worker failed'));
     worker.onmessage = (event: MessageEvent<{ type: string; matched?: string[]; error?: string }>) => {

@@ -9,6 +9,7 @@ import { icoFile } from './icons';
 import { UI_ICON } from './control-icons';
 import { addPaletteSource } from './commands';
 import { emptyHtml, CLEAR } from './empty-state';
+import { errorText } from './errors';
 
 export interface DocRow { doc: string; name: string; open: number; done: number; due?: string[]; mentions?: string[]; tags?: string[]; exists?: boolean; updated?: string }
 export interface DocFilter { q: string; me: boolean; due: boolean; tag?: string }
@@ -67,7 +68,7 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
   };
   const load = () => notes.docsIndex().then(rows => { all = rows.map(r => ({ ...r, doc: browsedPath(r.doc) })); paint(); }).catch(err => {
     top.hidden = true;
-    rowsBox.innerHTML = emptyHtml('failed', 'Comments could not be listed', { hint: (err as Error).message, actions: [{ a: 'retry', label: 'Try again', title: 'List the commented documents again' }] });
+    rowsBox.innerHTML = emptyHtml('failed', 'Comments could not be listed', { hint: errorText(err), actions: [{ a: 'retry', label: 'Try again', title: 'List the commented documents again' }] });
   });
   input.addEventListener('input', () => { f.q = input.value; paint(); });
   input.addEventListener('keydown', e => {

@@ -26,6 +26,7 @@ import { getIcon, DISCLOSE } from './icons';
 import { openPreview, canPreview } from './preview';
 import { upgradeControls, type ValuedEl, type DropdownEl, type Opt } from './controls';
 import { emptyHtml, CLEAR } from './empty-state';
+import { errorText } from './errors';
 
 export interface ListingState {
   all: Entry[];
@@ -279,7 +280,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       if (nameFilterAbort !== controller) return;
       nameMatches = new Set();
       nameFilterAbort = null;
-      nameFilterFailure = String(error instanceof Error ? error.message : error);
+      nameFilterFailure = errorText(error, 'Filtering names');
       applyAll();
       el('fe-count').textContent = nameFilterFailure;
     });

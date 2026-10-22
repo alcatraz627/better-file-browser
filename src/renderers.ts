@@ -5,6 +5,7 @@ import { esc } from './utils';
 import { DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { COL_HANDLE } from './col-resize';
+import { detailOf } from './errors';
 
 export const CODE_EXTS = new Set([
   'sh', 'bash', 'zsh', 'fish', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
@@ -963,7 +964,7 @@ export function renderJsonTree(text: string): string {
   try { v = JSON.parse(text); }
   catch (err) {
     // Comments and trailing commas (tsconfig, VS Code settings) still read as JSON text.
-    return `<div class="notice fe-ql-note">Not strict JSON, shown as text: ${esc((err as Error).message)}</div>${renderCode(text, 'jsonc')}`;
+    return `<div class="notice fe-ql-note">Not strict JSON, shown as text: ${esc(detailOf(err))}</div>${renderCode(text, 'jsonc')}`;
   }
   return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
 }

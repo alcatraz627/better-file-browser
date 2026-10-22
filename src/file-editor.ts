@@ -14,6 +14,7 @@ import { attachBuffer, indentLines } from './editor';
 import { wholeText, windowedText, lineStart, type TextWindow } from './text-window';
 import { UI_ICON } from './control-icons';
 import { carrier } from './comment-anchor';
+import { errorText } from './errors';
 
 const AUTOSAVE_MS = 800;
 const CHECK_MS = 300;
@@ -72,7 +73,7 @@ export interface FileEditor {
 export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Promise<FileEditor | null> {
   let doc: { text: string; mtime: number };
   try { doc = await notes.fileRead(host.root, host.rel); }
-  catch (err) { host.status(`cannot edit: ${(err as NotesError).message}`); return null; }
+  catch (err) { host.status(errorText(err, 'Opening it for editing')); return null; }
   let lineCount = 1;
   for (let p = doc.text.indexOf('\n'); p !== -1 && lineCount <= BIG_LINES; p = doc.text.indexOf('\n', p + 1)) lineCount++;
   const big = lineCount > BIG_LINES || doc.text.length > BIG_CHARS;
@@ -336,7 +337,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
         if (now && now.text === doc.text && expect !== now.mtime) { doc = now; retryAt = now.mtime; }
         else showConflict();
       }
-      else { failed = `Not saved: ${e.message}`; host.status(`not saved: ${e.message}`); }
+      else { failed = errorText(e, 'Saving'); host.status(failed); }
     } finally { saving = false; paint(); }
     if (retryAt) await write(retryAt);
   };

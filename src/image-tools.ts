@@ -1,6 +1,7 @@
 // The image preview's toolbar: zoom, actual size, rotate, flip, copy, open in the default app.
 import { UI_ICON } from './control-icons';
 import { esc } from './utils';
+import { errorText } from './errors';
 
 export interface View { fit: boolean; zoom: number; rot: number; flip: boolean }
 export const START_VIEW: View = { fit: true, zoom: 1, rot: 0, flip: false };
@@ -94,7 +95,7 @@ export function mountImageTools(wrap: HTMLElement, o: {
       if (!png) throw new Error('could not encode the image');
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
       o.notify('Image copied');
-    } catch (e) { o.notify(`Copy failed: ${(e as Error).message}`); }
+    } catch (e) { o.notify(errorText(e, 'Copying the image')); }
   };
 
   const act = (a: string) => {

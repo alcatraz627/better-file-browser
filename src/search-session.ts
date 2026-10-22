@@ -59,7 +59,7 @@ export class SearchSession extends SearchFileReader {
       const p = this.matches.get(msg.id);
       if (!p) return;
       if (msg.started) {
-        p.timer = setTimeout(() => this.failMatches(new Error('Text matching timed out')), 2000);
+        p.timer = setTimeout(() => this.failMatches(Object.assign(new Error('Text matching timed out'), { code: 'match-timeout' })), 2000);
         return;
       }
       if (p.timer) clearTimeout(p.timer);

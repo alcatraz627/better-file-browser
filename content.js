@@ -2541,6 +2541,33 @@ ${body}`;
     }, true);
   }
 
+  // src/errors.ts
+  var WORDS = {
+    unavailable: "The notes host is not installed. Run native/install.sh, then reload.",
+    notes_host: "The notes host stopped unexpectedly. Reload the page to start it again.",
+    notes_bad_root: "The notes folder is not set, or is not a folder. Pick it in Settings.",
+    notes_bad_path: "That name or place cannot be used for a note.",
+    notes_missing: "That note is not there any more; it may have been moved or deleted.",
+    notes_exists: "A note with that name already exists.",
+    notes_conflict: "The note changed on disk since it was opened. Reload it, then try again.",
+    notes_io: "The note could not be read or written.",
+    notes_too_big: "That note is too large to open here.",
+    notes_bad_op: "The notes host did not understand the request. Update the host with native/install.sh.",
+    "read-failed": "The file could not be read.",
+    "write-failed": "The change could not be saved.",
+    "match-timeout": "The search took too long. Narrow it and try again."
+  };
+  var codeOf = (err) => err && typeof err === "object" && typeof err.code === "string" ? err.code : "";
+  var wordsOf = (err) => err instanceof Error ? err.message : typeof err === "string" ? err : err?.message ?? "";
+  var detailOf = (err) => wordsOf(err);
+  function errorText(err, doing = "") {
+    const known = WORDS[codeOf(err)];
+    if (known) return known;
+    const own = wordsOf(err).trim();
+    const lead = doing ? `${doing} failed` : "That did not work";
+    return own ? `${lead}: ${own}` : `${lead}.`;
+  }
+
   // src/renderers.ts
   var CODE_EXTS = /* @__PURE__ */ new Set([
     "sh",
@@ -3622,7 +3649,7 @@ ${body}`;
     try {
       v = JSON.parse(text);
     } catch (err) {
-      return `<div class="notice fe-ql-note">Not strict JSON, shown as text: ${esc(err.message)}</div>${renderCode(text, "jsonc")}`;
+      return `<div class="notice fe-ql-note">Not strict JSON, shown as text: ${esc(detailOf(err))}</div>${renderCode(text, "jsonc")}`;
     }
     return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
   }
@@ -3983,7 +4010,7 @@ ${body}`;
         await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
         o.notify("Image copied");
       } catch (e) {
-        o.notify(`Copy failed: ${e.message}`);
+        o.notify(errorText(e, "Copying the image"));
       }
     };
     const act = (a) => {
@@ -4928,7 +4955,7 @@ Now: ${question}` : question;
         hist.innerHTML = vs.slice(0, 30).map((v) => `<button class="row fe-hist-row" data-sha="${v.sha}"><span>${whenText(v.when)}</span><span>${escHtml(v.reason)}</span><code>${v.sha}</code></button>`).join("") + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : "");
         hist.querySelectorAll(".fe-hist-row").forEach((b) => b.addEventListener("click", () => void showVersion(b.dataset.sha)));
       } catch (err) {
-        hist.innerHTML = emptyHtml("failed", "Versions could not be read", { inline: true, hint: err.message, actions: [{ a: "retry", label: "Try again", title: "Read the versions again" }] });
+        hist.innerHTML = emptyHtml("failed", "Versions could not be read", { inline: true, hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "Read the versions again" }] });
         hist.querySelector('[data-a="retry"]')?.addEventListener("click", () => {
           hist.style.display = "none";
           void toggleVersions();
@@ -4949,7 +4976,7 @@ Now: ${question}` : question;
         });
         document.getElementById("fe-hist-back").addEventListener("click", () => renderView());
       } catch (err) {
-        hist.textContent = `version failed: ${err.message}`;
+        hist.textContent = errorText(err, "Reading that version");
       }
     };
     document.getElementById("fe-ed-bar").querySelectorAll("[data-act]").forEach((b) => b.addEventListener("mousedown", (e) => {
@@ -4971,7 +4998,7 @@ Now: ${question}` : question;
         const depth = st2.rel.split("/").length - 1;
         buf.insert(`![${file.name.replace(/\.[^.]+$/, "")}](${"../".repeat(depth)}${rel})`);
       } catch (err) {
-        editHeader(`image failed: ${err.message}`);
+        editHeader(errorText(err, "Adding the image"));
       }
     };
     const imageFiles = (dt) => [...dt?.files ?? []].filter((f) => f.type.startsWith("image/"));
@@ -5160,7 +5187,7 @@ Now: ${question}` : question;
     } catch (err) {
       const e = err;
       if (edit === st) {
-        editHeader(e.code === "notes_conflict" ? "changed on disk, not saved" : `save failed: ${e.message}`);
+        editHeader(e.code === "notes_conflict" ? "changed on disk, not saved" : errorText(e, "Saving"));
         if (e.code === "notes_conflict") {
           const body = document.getElementById("fe-ql-body");
           if (!document.getElementById("fe-ed-conflict")) {
@@ -5181,7 +5208,7 @@ Now: ${question}` : question;
             });
           }
         }
-      } else deps.saveError?.(`Note save failed: ${e.message}`);
+      } else deps.saveError?.(errorText(e, "Saving the note"));
     } finally {
       st.saving = false;
       if (wrote && st.dirty) void saveNote(st);
@@ -14050,7 +14077,7 @@ ${end.comment}` : end.comment;
       try {
         JSON.parse(l);
       } catch (err) {
-        out.push({ line: i3 + 1, severity: "error", message: `Not JSON: ${err.message}` });
+        out.push({ line: i3 + 1, severity: "error", message: `Not JSON: ${detailOf(err)}` });
       }
     });
     return out;
@@ -14164,7 +14191,7 @@ ${end.comment}` : end.comment;
     try {
       return f(text, href);
     } catch (err) {
-      return `<div class="notice fe-ql-note">Could not render this file (${esc(err.message)}), so here is its text.</div>${renderCode(text, ext2)}`;
+      return `<div class="notice fe-ql-note">Could not render this file (${esc(detailOf(err))}), so here is its text.</div>${renderCode(text, ext2)}`;
     }
   };
   var FORMATS = [
@@ -14543,7 +14570,7 @@ ${end.comment}` : end.comment;
     try {
       doc = await notes.fileRead(host.root, host.rel);
     } catch (err) {
-      host.status(`cannot edit: ${err.message}`);
+      host.status(errorText(err, "Opening it for editing"));
       return null;
     }
     let lineCount = 1;
@@ -14830,8 +14857,8 @@ and ${diags.length - 12} more` : "");
             retryAt = now.mtime;
           } else showConflict();
         } else {
-          failed = `Not saved: ${e.message}`;
-          host.status(`not saved: ${e.message}`);
+          failed = errorText(e, "Saving");
+          host.status(failed);
         }
       } finally {
         saving = false;
@@ -15324,7 +15351,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         take(r);
         notesLine = r.notes;
       } catch (e) {
-        failed = e.message;
+        failed = errorText(e, "Reading the comments");
         loaded = true;
       }
       paint();
@@ -15355,7 +15382,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         lastText = o.text();
         return r;
       } catch (e) {
-        o.status(`${what} not saved: ${e.message}`);
+        o.status(errorText(e, `Saving the ${what.toLowerCase()}`));
         return null;
       } finally {
         busy = false;
@@ -15383,7 +15410,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       try {
         cur = await notes.fileRead(root, o.rel());
       } catch (e) {
-        sugSay(commentId, `Not applied: ${e.message}`);
+        sugSay(commentId, errorText(e, "Applying the suggestion"));
         return;
       }
       if (cur.text !== shown) {
@@ -15395,7 +15422,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       try {
         await notes.fileWrite(root, o.rel(), next, cur.mtime);
       } catch (e) {
-        sugSay(commentId, `Not applied: ${e.message}`);
+        sugSay(commentId, errorText(e, "Applying the suggestion"));
         return;
       }
       o.edited?.(next);
@@ -18347,7 +18374,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         else resolve(new Set(result));
       };
       const abort = () => finish(void 0, new Error("Name matching stopped"));
-      const timer = setTimeout(() => finish(void 0, new Error("Name regex timed out")), 500);
+      const timer = setTimeout(() => finish(void 0, Object.assign(new Error("Name regex timed out"), { code: "match-timeout" })), 500);
       signal.addEventListener("abort", abort, { once: true });
       worker.onerror = () => finish(void 0, new Error("Name matching worker failed"));
       worker.onmessage = (event) => {
@@ -18427,7 +18454,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const p = this.matches.get(msg.id);
         if (!p) return;
         if (msg.started) {
-          p.timer = setTimeout(() => this.failMatches(new Error("Text matching timed out")), 2e3);
+          p.timer = setTimeout(() => this.failMatches(Object.assign(new Error("Text matching timed out"), { code: "match-timeout" })), 2e3);
           return;
         }
         if (p.timer) clearTimeout(p.timer);
@@ -18719,7 +18746,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         if (nameFilterAbort !== controller) return;
         nameMatches = /* @__PURE__ */ new Set();
         nameFilterAbort = null;
-        nameFilterFailure = String(error instanceof Error ? error.message : error);
+        nameFilterFailure = errorText(error, "Filtering names");
         applyAll();
         el("fe-count").textContent = nameFilterFailure;
       });
@@ -20757,8 +20784,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         allNotes = sharedOrder(unsorted);
         renderNotes(root);
       }).catch((err) => {
-        ntHint.textContent = err.message;
-        ntList.innerHTML = err.code === "unavailable" ? emptyHtml("failed", "Notes host not installed", { inline: true, hint: "Run native/install.sh, then reload" }) : emptyHtml("failed", "Notes could not be listed", { inline: true, hint: err.message, actions: [{ a: "retry", label: "Try again", title: "List the notes again" }] });
+        ntHint.textContent = errorText(err, "Listing the notes");
+        ntList.innerHTML = err.code === "unavailable" ? emptyHtml("failed", "Notes host not installed", { inline: true, hint: errorText(err) }) : emptyHtml("failed", "Notes could not be listed", { inline: true, hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the notes again" }] });
       });
     }
     app.refreshNotes = refreshNotes;
@@ -20820,7 +20847,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           if (titled !== null) await notes.write(root, now, titled, doc.mtime);
           refreshNotes();
           if (reopen) openNoteRel(root, now);
-        }).catch((err) => toast(err.message));
+        }).catch((err) => toast(errorText(err, "Renaming the note")));
       }, back);
     }
     function deleteNote(root, rel) {
@@ -20828,7 +20855,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       notes.delete(root, rel).then(() => {
         refreshNotes();
         toast("Moved to .trash");
-      }).catch((err) => toast(err.message));
+      }).catch((err) => toast(errorText(err, "Moving the note to .trash")));
     }
     function openNoteRel(root, rel) {
       const actions = {
@@ -20856,7 +20883,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         },
         del: (r) => deleteNote(root, r)
       };
-      notes.read(root, rel).then((doc) => openNote(root, doc, refreshNotes, actions)).catch((err) => toast(err.message));
+      notes.read(root, rel).then((doc) => openNote(root, doc, refreshNotes, actions)).catch((err) => toast(errorText(err, "Opening the note")));
     }
     function openProps(root, rel, anchor) {
       notes.read(root, rel).then((doc) => openPropsMenu(anchor, readProps(rel, doc.text), async (c) => {
@@ -20869,12 +20896,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         try {
           await notes.write(root, rel, next, cur.mtime);
         } catch (err) {
-          toast(err.message);
+          toast(errorText(err, "Saving the change"));
           return;
         }
         refreshNotes();
         return readProps(rel, next);
-      })).catch((err) => toast(err.message));
+      })).catch((err) => toast(errorText(err, "Reading the note")));
     }
     const ntMenu = document.createElement("div");
     ntMenu.id = "fe-nt-ctx";
@@ -20978,7 +21005,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const d = /* @__PURE__ */ new Date(), two = (n) => String(n).padStart(2, "0");
       const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
       const rel = `untitled-${stamp}.md`;
-      notes.create(root, rel, "").then(() => openNoteRel(root, rel)).catch((err) => toast(err.message));
+      notes.create(root, rel, "").then(() => openNoteRel(root, rel)).catch((err) => toast(errorText(err, "Making the note")));
     };
     app.pickNotesFolder = () => {
       notes.pick(notesRoot() || void 0).then((root) => {
@@ -20988,7 +21015,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const field = document.getElementById("fe-st-notes-root");
         if (field) field.value = root;
         refreshNotes();
-      }).catch((err) => toast(err.code === "unavailable" ? "Notes host not installed. Run native/install.sh." : err.message));
+      }).catch((err) => toast(errorText(err, "Picking the folder")));
     };
     el("fe-nt-add").addEventListener("click", () => app.newNote());
     refreshNotes();
@@ -21642,7 +21669,7 @@ ${rows.join("\n")}`, name: subject };
     warm.addEventListener("change", () => {
       warm.disabled = true;
       llmWarm(warm.checked).then((r) => {
-        if (!r.ok) toast(r.message ? `Warm failed: ${r.message}` : "Warm failed");
+        if (!r.ok) toast(errorText(r, "Warming the model"));
         refreshAi();
       });
     });
@@ -22033,7 +22060,7 @@ ${rows.join("\n")}`, name: subject };
       paint();
     }).catch((err) => {
       top.hidden = true;
-      rowsBox.innerHTML = emptyHtml("failed", "Comments could not be listed", { hint: err.message, actions: [{ a: "retry", label: "Try again", title: "List the commented documents again" }] });
+      rowsBox.innerHTML = emptyHtml("failed", "Comments could not be listed", { hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the commented documents again" }] });
     });
     input.addEventListener("input", () => {
       f.q = input.value;
@@ -22328,7 +22355,7 @@ ${rows.join("\n")}`, name: subject };
         const path = p && absPath(p, "");
         const found = path && await resolvePath(path);
         if (found) goTab(found);
-      }).catch((err) => app.toast(`Could not open the chooser: ${err.message}`));
+      }).catch((err) => app.toast(errorText(err, "Opening the chooser")));
     });
     if (fileMode) {
       const href = viewHref || location.href;

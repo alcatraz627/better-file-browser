@@ -20,6 +20,7 @@ import { foldTo } from './motion';
 import { addPaletteSource } from './commands';
 import { openLayer, raise, rovingFocus, type Layer } from './layer';
 import { emptyHtml, CLEAR } from './empty-state';
+import { errorText } from './errors';
 
 // The rail of lenses: one panel at a time, the choice remembered across tabs.
 const lensPref = textPref('bfb-lens-v1', 'notes');
@@ -573,10 +574,10 @@ export function initSidebar(app: App): void {
       allNotes = sharedOrder(unsorted);
       renderNotes(root);
     }).catch((err: NotesError) => {
-      ntHint.textContent = err.message;
+      ntHint.textContent = errorText(err, 'Listing the notes');
       ntList.innerHTML = err.code === 'unavailable'
-        ? emptyHtml('failed', 'Notes host not installed', { inline: true, hint: 'Run native/install.sh, then reload' })
-        : emptyHtml('failed', 'Notes could not be listed', { inline: true, hint: err.message, actions: [{ a: 'retry', label: 'Try again', title: 'List the notes again' }] });
+        ? emptyHtml('failed', 'Notes host not installed', { inline: true, hint: errorText(err) })
+        : emptyHtml('failed', 'Notes could not be listed', { inline: true, hint: errorText(err), actions: [{ a: 'retry', label: 'Try again', title: 'List the notes again' }] });
     });
   }
   app.refreshNotes = refreshNotes;
@@ -628,13 +629,13 @@ export function initSidebar(app: App): void {
         if (titled !== null) await notes.write(root, now, titled, doc.mtime);
         refreshNotes();
         if (reopen) openNoteRel(root, now);
-      }).catch((err: NotesError) => toast(err.message));
+      }).catch((err: NotesError) => toast(errorText(err, 'Renaming the note')));
     }, back);
   }
   function deleteNote(root: string, rel: string): void {
     if (editingRel() === rel) discardEditor();
     notes.delete(root, rel).then(() => { refreshNotes(); toast('Moved to .trash'); })
-      .catch((err: NotesError) => toast(err.message));
+      .catch((err: NotesError) => toast(errorText(err, 'Moving the note to .trash')));
   }
   function openNoteRel(root: string, rel: string): void {
     const actions: NoteActions = {
@@ -653,17 +654,17 @@ export function initSidebar(app: App): void {
       del: r => deleteNote(root, r),
     };
     notes.read(root, rel).then(doc => openNote(root, doc, refreshNotes, actions))
-      .catch((err: NotesError) => toast(err.message));
+      .catch((err: NotesError) => toast(errorText(err, 'Opening the note')));
   }
   function openProps(root: string, rel: string, anchor: HTMLElement): void {
     notes.read(root, rel).then(doc => openPropsMenu(anchor, readProps(rel, doc.text), async c => {
       const cur = await notes.read(root, rel);
       const next = applyChange(cur.text, c);
       if (frontmatterDrift(cur.text, next, changedKeys(c)).length) { toast('Not saved: that would change other properties'); return; }
-      try { await notes.write(root, rel, next, cur.mtime); } catch (err) { toast((err as NotesError).message); return; }
+      try { await notes.write(root, rel, next, cur.mtime); } catch (err) { toast(errorText(err, 'Saving the change')); return; }
       refreshNotes();
       return readProps(rel, next);
-    })).catch((err: NotesError) => toast(err.message));
+    })).catch((err: NotesError) => toast(errorText(err, 'Reading the note')));
   }
 
   // Right-click menu on a note row; the same actions the keys and the hover buttons carry.
@@ -748,7 +749,7 @@ export function initSidebar(app: App): void {
     const rel = `untitled-${stamp}.md`;
     notes.create(root, rel, '')
       .then(() => openNoteRel(root, rel))
-      .catch((err: NotesError) => toast(err.message));
+      .catch((err: NotesError) => toast(errorText(err, 'Making the note')));
   };
   app.pickNotesFolder = () => {
     notes.pick(notesRoot() || undefined).then(root => {
@@ -757,7 +758,7 @@ export function initSidebar(app: App): void {
       const field = document.getElementById('fe-st-notes-root') as HTMLInputElement | null;
       if (field) field.value = root;
       refreshNotes();
-    }).catch((err: NotesError) => toast(err.code === 'unavailable' ? 'Notes host not installed. Run native/install.sh.' : err.message));
+    }).catch((err: NotesError) => toast(errorText(err, 'Picking the folder')));
   };
   el('fe-nt-add').addEventListener('click', () => app.newNote());
   refreshNotes();

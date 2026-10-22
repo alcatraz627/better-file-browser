@@ -9,6 +9,7 @@
 import { parseAllDocuments, LineCounter } from 'yaml';
 import { esc } from './utils';
 import { renderMarkdown, renderJsonTree, renderJsonl, renderValueTree, renderCode } from './renderers';
+import { detailOf } from './errors';
 
 export type Severity = 'error' | 'warn';
 /** One mistake found in a file, at a 1-based line (and column when known). */
@@ -97,7 +98,7 @@ function checkJsonl(text: string): Diagnostic[] {
   text.split('\n').forEach((l, i) => {
     if (!l.trim()) return;
     try { JSON.parse(l); }
-    catch (err) { out.push({ line: i + 1, severity: 'error', message: `Not JSON: ${(err as Error).message}` }); }
+    catch (err) { out.push({ line: i + 1, severity: 'error', message: `Not JSON: ${detailOf(err)}` }); }
   });
   return out;
 }
@@ -213,7 +214,7 @@ function richHtml(text: string, href: string): string {
 /** Runs a rich view; if it throws, shows the source with a note instead of nothing. */
 const safely = (f: Format['rich'], ext: string): Format['rich'] => (text, href) => {
   try { return f(text, href); }
-  catch (err) { return `<div class="notice fe-ql-note">Could not render this file (${esc((err as Error).message)}), so here is its text.</div>${renderCode(text, ext)}`; }
+  catch (err) { return `<div class="notice fe-ql-note">Could not render this file (${esc(detailOf(err))}), so here is its text.</div>${renderCode(text, ext)}`; }
 };
 
 export const FORMATS: Format[] = [

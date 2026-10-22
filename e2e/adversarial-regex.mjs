@@ -22,7 +22,7 @@ try {
     new Promise(resolve => setTimeout(() => resolve(false), 500)),
   ]);
   assert.equal(otherTabResponsive, true);
-  await slow.waitForFunction(() => document.querySelector('#fe-count').textContent.includes('timed out'), { polling: 100, timeout: 5000 }).catch(async error => {
+  await slow.waitForFunction(() => document.querySelector('#fe-count').textContent.includes('took too long'), { polling: 100, timeout: 5000 }).catch(async error => {
     console.log('name filter state:', await slow.$eval('#fe-count', el => el.textContent));
     throw error;
   });

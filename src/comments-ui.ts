@@ -13,6 +13,7 @@ import { fetchFileText } from './file-fetch';
 import { visibleOf, rangeFor, sourceSpan, type SourceSpan } from './comment-anchor';
 import { emptyHtml } from './empty-state';
 import { DISCLOSE } from './icons';
+import { errorText } from './errors';
 
 export { visibleOf };
 
@@ -184,7 +185,7 @@ export function mountComments(o: {
     try {
       const r = await notes.commentsRead(root, o.rel());
       take(r); notesLine = r.notes;
-    } catch (e) { failed = (e as Error).message; loaded = true; }
+    } catch (e) { failed = errorText(e, 'Reading the comments'); loaded = true; }
     paint(); redraw(); o.changed();
     // A #c= link opens its thread once the threads are in.
     const hit = linked && threads.find(t => t.id.startsWith(linked));
@@ -206,7 +207,7 @@ export function mountComments(o: {
       lastCompanion = await readCompanion(); lastText = o.text();
       return r;
     } catch (e) {
-      o.status(`${what} not saved: ${(e as Error).message}`);
+      o.status(errorText(e, `Saving the ${what.toLowerCase()}`));
       return null;
     } finally {
       busy = false;
@@ -227,11 +228,11 @@ export function mountComments(o: {
     if (o.editing?.()) { sugSay(commentId, 'The file is open in the editor. Press Done there, then accept.'); return; }
     const shown = o.text();
     let cur: { text: string; mtime: number };
-    try { cur = await notes.fileRead(root, o.rel()); } catch (e) { sugSay(commentId, `Not applied: ${(e as Error).message}`); return; }
+    try { cur = await notes.fileRead(root, o.rel()); } catch (e) { sugSay(commentId, errorText(e, 'Applying the suggestion')); return; }
     if (cur.text !== shown) { sugSay(commentId, 'The file changed on disk since this page loaded it. Reload, then accept again.'); return; }
     const start = t.place.offset, end = start + t.place.length;
     const next = cur.text.slice(0, start) + c.suggestion.replace + cur.text.slice(end);
-    try { await notes.fileWrite(root, o.rel(), next, cur.mtime); } catch (e) { sugSay(commentId, `Not applied: ${(e as Error).message}`); return; }
+    try { await notes.fileWrite(root, o.rel(), next, cur.mtime); } catch (e) { sugSay(commentId, errorText(e, 'Applying the suggestion')); return; }
     o.edited?.(next);
     const r = await write([{ op: 'decide', thread: t.id, comment: commentId, state: 'accepted', start, end: start + c.suggestion.replace.length, was: cur.text.slice(start, end) }], 'Accept');
     if (r) o.status('Suggestion applied; the old text is in the backups');

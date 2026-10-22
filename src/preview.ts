@@ -28,6 +28,7 @@ import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from 
 import { addTurn } from './ask-history';
 import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
+import { errorText } from './errors';
 
 const FETCH_WARN_BYTES = 8 * 1024 * 1024;
 
@@ -564,7 +565,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
         + (vs.length > 30 ? `<span class="fe-ed-hint">and ${vs.length - 30} older</span>` : '');
       hist.querySelectorAll<HTMLElement>('.fe-hist-row').forEach(b => b.addEventListener('click', () => void showVersion(b.dataset.sha!)));
     } catch (err) {
-      hist.innerHTML = emptyHtml('failed', 'Versions could not be read', { inline: true, hint: (err as NotesError).message, actions: [{ a: 'retry', label: 'Try again', title: 'Read the versions again' }] });
+      hist.innerHTML = emptyHtml('failed', 'Versions could not be read', { inline: true, hint: errorText(err), actions: [{ a: 'retry', label: 'Try again', title: 'Read the versions again' }] });
       hist.querySelector('[data-a="retry"]')?.addEventListener('click', () => { hist.style.display = 'none'; void toggleVersions(); });
     }
   };
@@ -580,7 +581,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
         hist.style.display = 'none'; ta.focus();
       });
       document.getElementById('fe-hist-back')!.addEventListener('click', () => renderView());
-    } catch (err) { hist.textContent = `version failed: ${(err as NotesError).message}`; }
+    } catch (err) { hist.textContent = errorText(err, 'Reading that version'); }
   };
   document.getElementById('fe-ed-bar')!.querySelectorAll<HTMLElement>('[data-act]').forEach(b =>
     b.addEventListener('mousedown', e => { e.preventDefault(); act(b.dataset.act!); }));
@@ -596,7 +597,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       await notes.writeBinary(root, rel, b64);
       const depth = st.rel.split('/').length - 1;
       buf.insert(`![${file.name.replace(/\.[^.]+$/, '')}](${'../'.repeat(depth)}${rel})`);
-    } catch (err) { editHeader(`image failed: ${(err as NotesError).message}`); }
+    } catch (err) { editHeader(errorText(err, 'Adding the image')); }
   };
   const imageFiles = (dt: DataTransfer | null) => [...(dt?.files ?? [])].filter(f => f.type.startsWith('image/'));
   ta.addEventListener('paste', e => { const fs = imageFiles(e.clipboardData); if (fs.length) { e.preventDefault(); fs.forEach(f => void addImage(f)); } });
@@ -723,7 +724,7 @@ async function saveNote(st = edit): Promise<void> {
   } catch (err) {
     const e = err as NotesError;
     if (edit === st) {
-      editHeader(e.code === 'notes_conflict' ? 'changed on disk, not saved' : `save failed: ${e.message}`);
+      editHeader(e.code === 'notes_conflict' ? 'changed on disk, not saved' : errorText(e, 'Saving'));
       if (e.code === 'notes_conflict') {
         const body = document.getElementById('fe-ql-body')!;
         if (!document.getElementById('fe-ed-conflict')) {
@@ -738,7 +739,7 @@ async function saveNote(st = edit): Promise<void> {
           });
         }
       }
-    } else deps.saveError?.(`Note save failed: ${e.message}`);
+    } else deps.saveError?.(errorText(e, 'Saving the note'));
   } finally {
     st.saving = false;
     if (wrote && st.dirty) void saveNote(st);

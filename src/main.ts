@@ -40,6 +40,7 @@ import { initDocsLens } from './docs-lens';
 import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
 import { setLinkHome } from './renderers';
+import { errorText } from './errors';
 
 // Tab sets from Chrome tabs closed in the last day, as rows under Recent. A
 // click adds that set's tabs to this strip; nothing is restored on its own.
@@ -224,7 +225,7 @@ loadKv().catch(() => {}).then(function () {
   mountGoto(el('fe-open-path'), () => homeDir(rawPath), (path, background) => { if (!background) { goTab(path); return; } app.strip.open(path, true); app.toast('Kept as a tab'); });
   el('fe-open-pick').addEventListener('click', () => {
     notes.pick(rawPath, 'any').then(async p => { const path = p && absPath(p, ''); const found = path && await resolvePath(path); if (found) goTab(found); })
-      .catch(err => app.toast(`Could not open the chooser: ${(err as Error).message}`));
+      .catch(err => app.toast(errorText(err, 'Opening the chooser')));
   });
   if (fileMode) {
     const href = viewHref || location.href;
