@@ -1093,6 +1093,9 @@ ${body}`;
   function topmost() {
     return stack[stack.length - 1] ?? null;
   }
+  function escTaken() {
+    return stack.some((l) => CLOSES[l.kind].esc);
+  }
   function position(el2, o) {
     const place = o.place ?? (o.point ? "point" : o.anchor ? "below" : "none");
     if (place === "none") return;
@@ -1204,12 +1207,28 @@ ${body}`;
       if (e.key !== "Tab" || !root.isConnected || getComputedStyle(root).display === "none" || o.when && !o.when()) return;
       const ae = document.activeElement;
       if (ae?.closest('textarea, [contenteditable="true"]')) return;
-      const list2 = [...root.querySelectorAll(FOCUSABLE)].filter((x) => x.offsetParent !== null && !x.disabled && x.tabIndex >= 0);
-      if (!list2.length) return;
-      const at = ae ? list2.indexOf(ae) : -1;
-      const next = at < 0 ? e.shiftKey ? list2.length - 1 : 0 : (at + (e.shiftKey ? -1 : 1) + list2.length) % list2.length;
+      const inside = !!ae && root.contains(ae);
+      const layer = ae?.closest("[data-layer]");
+      if (!inside && layer && !layer.contains(root)) return;
+      const seen = /* @__PURE__ */ new Set();
+      const stops = [...root.querySelectorAll(FOCUSABLE)].filter((x) => {
+        if (x.offsetParent === null || x.disabled || x.tabIndex < 0) return false;
+        const r = x;
+        if (r.type !== "radio" || !r.name) return true;
+        if (seen.has(r.name)) return false;
+        seen.add(r.name);
+        return true;
+      }).map((x) => {
+        const r = x;
+        return r.type === "radio" && r.name ? root.querySelector(`input[type=radio][name="${CSS.escape(r.name)}"]:checked`) ?? x : x;
+      });
+      if (!stops.length) return;
+      const first = stops[0], last = stops[stops.length - 1];
+      const here = (s) => s === ae || ae?.type === "radio" && s.name === ae.name;
+      const to = !inside ? e.shiftKey ? last : first : e.shiftKey ? here(first) ? last : null : here(last) ? first : null;
+      if (!to) return;
       e.preventDefault();
-      list2[next].focus();
+      to.focus();
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
@@ -1647,7 +1666,9 @@ ${body}`;
     End: "End"
   };
   var SHIFT_OF = { "{": "[", "}": "]", "~": "`" };
-  function keyToken(e) {
+  var MAC = typeof navigator === "undefined" || /Mac|iPhone|iPad/.test(navigator.platform);
+  function keyToken(ev) {
+    const e = MAC ? ev : { key: ev.key, code: ev.code, shiftKey: ev.shiftKey, altKey: ev.altKey, metaKey: ev.metaKey || ev.ctrlKey, ctrlKey: false };
     const named = NAMED2[e.key];
     let k = named ?? e.key;
     let shift = e.shiftKey;
@@ -1673,6 +1694,7 @@ ${body}`;
   var baseOf = (tok) => tok.replace(/^[⌘⌃⌥⇧]+/, "");
   var live = (d, ctx, tok = "") => {
     const scope = d.scope ?? "any";
+    if (scope === "preview" && ctx.widget && MOVING.has(baseOf(tok))) return false;
     if (scope !== "any") return ctx.scopes.has(scope);
     if (!ctx.scopes.has("any")) return false;
     if (ctx.widget && MOVING.has(baseOf(tok))) return false;
@@ -1707,7 +1729,7 @@ ${body}`;
       e.preventDefault();
       return runCommand("palette");
     }
-    if (ctx.blocked) {
+    if (ctx.blocked || tok === "Esc" && escTaken()) {
       setPending("");
       return false;
     }
@@ -15889,7 +15911,7 @@ ${d.message}` : d.message;
         </span>
       </div>
       <div id="fe-fp">
-        <div id="fe-page"></div>
+        <div id="fe-page" tabindex="-1"></div>
         <div id="fe-fe" style="display:none"></div>
         <aside id="fe-toc-rail" hidden>
           <div class="fe-toc-head"><h3 class="fe-rail-title"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="fe-rt-n" id="fe-cm-n"></span></h3></div>
@@ -19462,7 +19484,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         (again || (next && document.contains(next) ? next : lens.querySelector(".fe-si, .fe-si-link")))?.focus();
       };
       setTimeout(refocus, 50);
-      setTimeout(refocus, 450);
+      setTimeout(() => {
+        const a = ae();
+        if (!a || a === document.body || !a.isConnected) refocus();
+      }, 450);
     }, () => !!sideRow()?.querySelector(".fe-rm-btn"));
     bind("side-rail", () => document.querySelector("#fe-rail .fe-rail-btn.on")?.focus(), () => inLens() && !!ae()?.matches(LENS_ROWS));
     bind("side-into", () => areas[0].enter(), () => !!ae()?.closest("#fe-rail"));
@@ -19520,7 +19545,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("fp-cm-reply", () => app.filePage?.comment("reply"), commentable);
     bind("fp-comments", () => app.filePage?.comment("panel"), commentable);
     bind("fp-cm-step", (key) => app.filePage?.comment(key === "\u2325\u2191" ? "prev" : "next"), commentable);
-    bind("fp-cm-clear", () => app.filePage?.comment("clear"), () => !!app.filePage?.commentHeld());
+    bind("fp-cm-clear", () => app.filePage?.comment("clear"), () => !!app.filePage?.commentHeld() && !ae()?.closest("#fe-cm"));
     bind("fp-find", () => document.getElementById("fe-ff-q")?.focus(), () => app.fileMode && !app.filePage?.editing());
     bind("to-path", () => {
       focusFirst("#fe-bc", "a.fe-crumb:last-of-type, .fe-crumb.cur, a");

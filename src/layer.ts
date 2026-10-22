@@ -162,6 +162,8 @@ export function lower(el: HTMLElement): void {
 
 /// The topmost open layer, if any.
 export function topmost(): Layer | null { return stack[stack.length - 1] ?? null; }
+/// Whether an open layer closes on Esc, so Esc is its and no command's.
+export function escTaken(): boolean { return stack.some(l => CLOSES[l.kind].esc); }
 /// Close every open layer (for a page change or a reset).
 export function closeAll(why: CloseWhy = 'api'): void { [...stack].reverse().forEach(l => l.close(why)); }
 
@@ -304,19 +306,38 @@ export function rovingFocus(root: HTMLElement, items: string, o: { wrap?: boolea
 }
 
 /// Keeps Tab and Shift+Tab inside `root` while it shows and `when` holds:
-/// they wrap at the ends, and from outside they step in. A text area or rich
-/// editor keeps its Tab (it indents).
+/// they wrap at the ends, and from the page behind they step in. In between
+/// the browser moves focus, so a radio group stays one stop. A text area or
+/// rich editor keeps its Tab (it indents), and a layer above `root` (the
+/// palette over a dialog) keeps its own.
 export function focusTrap(root: HTMLElement, o: { when?: () => boolean } = {}): () => void {
   const onKey = (e: KeyboardEvent) => {
     if (e.key !== 'Tab' || !root.isConnected || getComputedStyle(root).display === 'none' || (o.when && !o.when())) return;
     const ae = document.activeElement as HTMLElement | null;
     if (ae?.closest('textarea, [contenteditable="true"]')) return;
-    const list = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(x => x.offsetParent !== null && !(x as HTMLButtonElement).disabled && x.tabIndex >= 0);
-    if (!list.length) return;
-    const at = ae ? list.indexOf(ae) : -1;
-    const next = at < 0 ? (e.shiftKey ? list.length - 1 : 0) : (at + (e.shiftKey ? -1 : 1) + list.length) % list.length;
+    const inside = !!ae && root.contains(ae);
+    const layer = ae?.closest<HTMLElement>('[data-layer]');
+    if (!inside && layer && !layer.contains(root)) return;
+    // Tab stops in order; a radio group counts once, at its checked radio or its first.
+    const seen = new Set<string>();
+    const stops = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(x => {
+      if (x.offsetParent === null || (x as HTMLButtonElement).disabled || x.tabIndex < 0) return false;
+      const r = x as HTMLInputElement;
+      if (r.type !== 'radio' || !r.name) return true;
+      if (seen.has(r.name)) return false;
+      seen.add(r.name);
+      return true;
+    }).map(x => {
+      const r = x as HTMLInputElement;
+      return r.type === 'radio' && r.name ? root.querySelector<HTMLElement>(`input[type=radio][name="${CSS.escape(r.name)}"]:checked`) ?? x : x;
+    });
+    if (!stops.length) return;
+    const first = stops[0], last = stops[stops.length - 1];
+    const here = (s: HTMLElement) => s === ae || ((ae as HTMLInputElement | null)?.type === 'radio' && (s as HTMLInputElement).name === (ae as HTMLInputElement).name);
+    const to = !inside ? (e.shiftKey ? last : first) : e.shiftKey ? (here(first) ? last : null) : (here(last) ? first : null);
+    if (!to) return;
     e.preventDefault();
-    list[next].focus();
+    to.focus();
   };
   document.addEventListener('keydown', onKey, true);
   return () => document.removeEventListener('keydown', onKey, true);

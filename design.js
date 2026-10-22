@@ -1,7 +1,7 @@
 "use strict";
 (() => {
   // src/styles.ts
-  var CSS = `
+  var CSS2 = `
 *{box-sizing:border-box;margin:0;padding:0}
 /* Palettes (design-system.md, Soft round 2): Slate is the default; Violet,
    Sand and Ink are picked in Settings. Each palette sets only the surface,
@@ -2639,7 +2639,7 @@ html,body{height:auto;overflow:auto;margin:0;background:var(--bg)}
 </div>`;
   }
   var style = document.createElement("style");
-  style.textContent = CSS + UI_CSS + PAGE_CSS;
+  style.textContent = CSS2 + UI_CSS + PAGE_CSS;
   document.head.appendChild(style);
   var fe = document.createElement("div");
   fe.id = "fe";

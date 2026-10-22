@@ -5,7 +5,7 @@ import { KEYMAP, GROUPS, type KeyDef, type Scope } from './keymap';
 import { PI } from './icons';
 import { UI_ICON } from './control-icons';
 import { esc } from './utils';
-import { openLayer, raise } from './layer';
+import { openLayer, raise, escTaken } from './layer';
 
 interface Bound { run: (key?: string) => void; when?: () => boolean }
 const bound = new Map<string, Bound>();
@@ -32,7 +32,10 @@ const NAMED: Record<string, string> = {
   Escape: 'Esc', ' ': 'Space', Tab: '⇥', PageUp: 'PgUp', PageDown: 'PgDn', Home: 'Home', End: 'End',
 };
 const SHIFT_OF: Record<string, string> = { '{': '[', '}': ']', '~': '`' };
-export function keyToken(e: KeyboardEvent): string {
+// Off a Mac, Ctrl does what ⌘ does (Ctrl+A, Ctrl+C), so it reads as ⌘.
+const MAC = typeof navigator === 'undefined' || /Mac|iPhone|iPad/.test(navigator.platform);
+export function keyToken(ev: KeyboardEvent): string {
+  const e = MAC ? ev : { key: ev.key, code: ev.code, shiftKey: ev.shiftKey, altKey: ev.altKey, metaKey: ev.metaKey || ev.ctrlKey, ctrlKey: false };
   const named = NAMED[e.key];
   let k = named ?? e.key;
   let shift = e.shiftKey;
@@ -64,6 +67,8 @@ const MOVING = new Set(['↑', '↓', '←', '→', '↩', 'Space', '⌫', 'Home
 const baseOf = (tok: string) => tok.replace(/^[⌘⌃⌥⇧]+/, '');
 const live = (d: KeyDef, ctx: Context, tok = '') => {
   const scope = d.scope ?? 'any';
+  // The preview's moving keys too belong to a focused sidebar, tab bar or toolbar.
+  if (scope === 'preview' && ctx.widget && MOVING.has(baseOf(tok))) return false;
   if (scope !== 'any') return ctx.scopes.has(scope);
   if (!ctx.scopes.has('any')) return false;
   if (ctx.widget && MOVING.has(baseOf(tok))) return false;
@@ -92,7 +97,7 @@ export function dispatch(e: KeyboardEvent): boolean {
   // A text area or editor that binds ⌘K itself (the note editor's link) keeps it.
   const ae = document.activeElement as HTMLElement | null;
   if (tok === '⌘K' && !(ae?.tagName === 'TEXTAREA' || ae?.isContentEditable)) { e.preventDefault(); return runCommand('palette'); }
-  if (ctx.blocked) { setPending(''); return false; }
+  if (ctx.blocked || (tok === 'Esc' && escTaken())) { setPending(''); return false; }
   if (ctx.typing) {
     setPending('');
     const d = OWN.find(x => x.field && keysOf(x).includes(tok) && live(x, ctx, tok) && canRun(x.id));

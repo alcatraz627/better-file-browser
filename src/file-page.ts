@@ -160,7 +160,7 @@ export function renderFileContent(): string {
         </span>
       </div>
       <div id="fe-fp">
-        <div id="fe-page"></div>
+        <div id="fe-page" tabindex="-1"></div>
         <div id="fe-fe" style="display:none"></div>
         <aside id="fe-toc-rail" hidden>
           <div class="fe-toc-head"><h3 class="fe-rail-title"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="fe-rt-n" id="fe-cm-n"></span></h3></div>

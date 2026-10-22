@@ -165,8 +165,9 @@ export function initFocusNav(app: App): void {
       const again = nextKey && [...lens.querySelectorAll<HTMLElement>(LENS_ROWS)].find(r => (r.closest<HTMLElement>('[data-rel]')?.dataset.rel ?? r.getAttribute('href')) === nextKey);
       (again || (next && document.contains(next) ? next : lens.querySelector<HTMLElement>('.fe-si, .fe-si-link')))?.focus();
     };
+    // The second try is for a list that redraws late, and only if focus went nowhere since.
     setTimeout(refocus, 50);
-    setTimeout(refocus, 450);
+    setTimeout(() => { const a = ae(); if (!a || a === document.body || !a.isConnected) refocus(); }, 450);
   }, () => !!sideRow()?.querySelector('.fe-rm-btn'));
   bind('side-rail', () => document.querySelector<HTMLElement>('#fe-rail .fe-rail-btn.on')?.focus(), () => inLens() && !!ae()?.matches(LENS_ROWS));
   bind('side-into', () => areas[0].enter(), () => !!ae()?.closest('#fe-rail'));
@@ -223,7 +224,8 @@ export function initFocusNav(app: App): void {
   bind('fp-cm-reply', () => app.filePage?.comment('reply'), commentable);
   bind('fp-comments', () => app.filePage?.comment('panel'), commentable);
   bind('fp-cm-step', key => app.filePage?.comment(key === '⌥↑' ? 'prev' : 'next'), commentable);
-  bind('fp-cm-clear', () => app.filePage?.comment('clear'), () => !!app.filePage?.commentHeld());
+  // Inside the comments box its own Esc runs: it puts a draft away and keeps focus.
+  bind('fp-cm-clear', () => app.filePage?.comment('clear'), () => !!app.filePage?.commentHeld() && !ae()?.closest('#fe-cm'));
   bind('fp-find', () => document.getElementById('fe-ff-q')?.focus(), () => app.fileMode && !app.filePage?.editing());
   bind('to-path', () => { focusFirst('#fe-bc', 'a.fe-crumb:last-of-type, .fe-crumb.cur, a'); flash(document.activeElement as HTMLElement); });
   bind('deep', click('fe-deep-btn'), () => !app.fileMode);
