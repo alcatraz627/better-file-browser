@@ -212,7 +212,7 @@ function richHtml(text: string, href: string): string {
 /** Runs a rich view; if it throws, shows the source with a note instead of nothing. */
 const safely = (f: Format['rich'], ext: string): Format['rich'] => (text, href) => {
   try { return f(text, href); }
-  catch (err) { return `<div class="fe-ql-note">Could not render this file (${esc((err as Error).message)}), so here is its text.</div>${renderCode(text, ext)}`; }
+  catch (err) { return `<div class="notice fe-ql-note">Could not render this file (${esc((err as Error).message)}), so here is its text.</div>${renderCode(text, ext)}`; }
 };
 
 export const FORMATS: Format[] = [

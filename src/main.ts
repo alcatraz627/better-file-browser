@@ -143,15 +143,15 @@ loadKv().catch(() => {}).then(function () {
   const recentFiles = recents.filter(r => !r.path.endsWith('/')).slice(0, 12);
   const recentsHTML = `
       <div class="fe-sec" data-sec="recent" data-collapse="recent">
-        <div class="fe-sh"><span class="fe-sh-label">Folders</span></div>
+        <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Folders</span></div>
         ${recentDirs.length ? recentDirs.map(recentRow).join('') : '<div class="fe-hint">Folders you open show up here.</div>'}
       </div>
       <div class="fe-sec" data-collapse="recent-files">
-        <div class="fe-sh"><span class="fe-sh-label">Files</span></div>
+        <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Files</span></div>
         ${recentFiles.length ? recentFiles.map(recentRow).join('') : '<div class="fe-hint">Files you open show up here.</div>'}
       </div>
       <div class="fe-sec" data-collapse="recent-tabs" id="fe-rc-tabs-sec" style="display:none">
-        <div class="fe-sh"><span class="fe-sh-label">Closed tabs</span></div>
+        <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Closed tabs</span></div>
         <div id="fe-rc-sets"></div>
       </div>`;
 

@@ -39,6 +39,16 @@ try {
   await take('preview');
   await page.keyboard.press('Escape'); await sleep(200);
 
+  // A notice: an empty file's preview says so in the notice part.
+  writeFileSync(join(h.fixture, 'empty.txt'), '');
+  await page.reload({ waitUntil: 'load' }); await sleep(400);
+  await (await page.$('#fe-tbody tr[data-idx]:has(a[href$="empty.txt"]) td.c-nm')).click();
+  await page.waitForSelector('#fe-qlook .notice', { timeout: 5000 }).catch(() => null);
+  const note = await page.evaluate(() => { const n = document.querySelector('#fe-qlook .notice'); if (!n) return null; const cs = getComputedStyle(n); return { text: n.textContent.trim(), pad: cs.paddingLeft, size: cs.fontSize }; });
+  check(!!note && /Empty file/.test(note.text) && note.pad === '12px', `an empty file's preview shows a notice: ${JSON.stringify(note)}`);
+  await page.screenshot({ path: await shot(page, 'bars-notice'), clip: { x: 300, y: 60, width: 900, height: 200 } });
+  await page.keyboard.press('Escape'); await sleep(200);
+
   const doc = join(h.fixture, 'bars.md');
   writeFileSync(doc, '# Bars\n\nSome words to comment on here.\n\n```js\nconst a = 1;\n```\n');
   spawnSync('python3', [CLI, '--json', '--as', 'bfb', 'comments', 'new', doc, '--quote', 'words to comment', 'A note'], { env, encoding: 'utf8' });

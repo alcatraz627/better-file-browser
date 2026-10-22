@@ -603,7 +603,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     const sides = clashSides(ta.value);
     if (!sides) return;
     document.getElementById('fe-ql-body')!.insertAdjacentHTML('afterbegin',
-      `<div id="fe-ed-clash" class="fe-ql-note">Two versions, keep: `
+      `<div id="fe-ed-clash" class="notice fe-ql-note">Two versions, keep: `
       + `<button class="btn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> `
       + `<button class="btn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> `
       + `<button class="btn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`);
@@ -718,7 +718,7 @@ async function saveNote(st = edit): Promise<void> {
         const body = document.getElementById('fe-ql-body')!;
         if (!document.getElementById('fe-ed-conflict')) {
           body.insertAdjacentHTML('afterbegin',
-            `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="btn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="btn" title="Write the editor text over the disk copy">Overwrite</button></div>`);
+            `<div id="fe-ed-conflict" class="notice fe-ql-note" data-tone="danger">Another program changed this note. <button id="fe-ed-reload" class="btn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="btn" title="Write the editor text over the disk copy">Overwrite</button></div>`);
           document.getElementById('fe-ed-reload')!.addEventListener('click', () => {
             notes.read(st.root, st.rel).then(d => openNote(st.root, d, st.onSaved, st.actions));
           });
@@ -789,7 +789,7 @@ export function openPreview(e: Entry): void {
   if (e.rawBytes > FETCH_WARN_BYTES) {
     body.innerHTML = `
       <div class="fe-ql-center">
-        <div class="fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
+        <div class="notice fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
         <button id="fe-ql-force" class="btn" title="Render despite the size">Load anyway</button>
       </div>`;
     document.getElementById('fe-ql-force')!.addEventListener('click', () => fetchAndRender(e, ext, seq));
@@ -801,7 +801,7 @@ export function openPreview(e: Entry): void {
 
 function fetchAndRender(e: Entry, ext: string, seq: number): void {
   const body = document.getElementById('fe-ql-body')!;
-  body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Loading…</div></div>`;
+  body.innerHTML = `<div class="fe-ql-center"><div class="notice fe-ql-note">Loading…</div></div>`;
   fetchFileText(e.href)
     .then(text => {
       if (seq !== reqSeq) return;
@@ -815,8 +815,8 @@ function fetchAndRender(e: Entry, ext: string, seq: number): void {
       console.error('[BFB] preview failed:', e.href, err);
       const stale = err instanceof FileFetchError && err.code === 'context-invalidated';
       body.innerHTML = stale
-        ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>`
-        : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
+        ? `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>`
+        : `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
       document.getElementById('fe-ql-retry')!.addEventListener('click', () => {
         if (stale) location.reload(); else fetchAndRender(e, ext, seq);
       });

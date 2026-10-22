@@ -117,6 +117,26 @@
 .bar{display:flex;align-items:center;gap:var(--sp-2);box-sizing:border-box;flex-shrink:0}
 .bar:not([data-inset]){min-height:var(--bar-h);padding:0 var(--sp-5)}
 .bar-sep{flex:none;width:1px;height:16px;margin:0 var(--sp-2);background:var(--bd)}
+/* SectionTitle, the one heading for a part of the page (docs/system/section-title.md).
+   Class sect with data-level: group (a small capital label over a list or
+   card), panel (a panel's or rail's title, with its icon and count), page (a
+   dialog or page header: a tile, a title and a line under it). Actions sit
+   at the end in sect-acts. The place sets padding. */
+.sect{display:flex;align-items:center;gap:var(--sp-3);min-width:0;margin:0}
+.sect-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.sect-acts{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:auto}
+.sect[data-level="group"]{font-size:var(--type-micro);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.sect[data-level="panel"]{font-size:var(--type-ui);font-weight:600;color:var(--tx)}
+.sect[data-level="page"]{gap:var(--sp-5)}
+.sect[data-level="page"] .sect-tx > :first-child{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
+.sect[data-level="page"] .sect-tx > :nth-child(2){margin:0;font-size:var(--fs-md);font-style:normal;font-weight:400;line-height:1.35;color:var(--dm)}
+/* Notice, a line that tells the reader about the page itself
+   (docs/system/notice.md): empty, cut short, could not render, changed on
+   disk. Class notice; data-tone danger, warn or ok; buttons in it act on it. */
+.notice{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-3);padding:var(--sp-3) var(--sp-5);color:var(--dm);font-size:var(--type-small);line-height:1.4}
+.notice[data-tone="danger"]{color:var(--tone-danger)}
+.notice[data-tone="warn"]{color:var(--nc-orange)}
+.notice[data-tone="ok"]{color:var(--tone-ok)}
 /* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
    input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
    grows from one control high. Invalid: aria-invalid="true". */
@@ -230,8 +250,7 @@ body{opacity:1!important}
 #fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
 .fe-sec{margin-bottom:4px}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none!important}
-.fe-sh{font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--dm);padding:10px 14px 5px;display:flex;align-items:center;gap:6px}
+.fe-sh{padding:10px 14px 5px}
 #fe-side .fe-sh{justify-content:flex-start!important}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
 .fe-sh-collapse svg{width:12px;height:12px;flex:none;transition:transform .12s}
@@ -595,12 +614,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-box{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);border-radius:10px;
   width:min(760px,calc(100vw - 40px));max-height:84vh;display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;outline:none}
 #fe-settings-modal .fe-dlg-box{width:min(900px,calc(100vw - 40px))}
-.fe-dlg-title{display:flex;align-items:center;gap:11px;padding:14px 16px 12px;background:var(--s2);flex:none;border-radius:10px 10px 0 0}
+.fe-dlg-title{padding:14px 16px 12px;background:var(--s2);flex:none;border-radius:10px 10px 0 0}
 .fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;
   background:var(--on);color:var(--ac);border:1px solid var(--ac)}
-.fe-dlg-tx{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
-.fe-dlg-tx b{font-size:var(--fs-xl);font-weight:600;line-height:1.2;color:var(--tx);letter-spacing:-.01em}
-.fe-dlg-tx i{font-size:var(--fs-sm);line-height:1.2;font-style:normal;color:var(--dm)}
+.fe-dlg-tx{flex-direction:column;min-width:0;flex:1}
 
 .fe-dlg-tabs{display:flex;gap:3px;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex:none;align-items:stretch;overflow-x:auto}
 .fe-dlg-tab{display:flex;flex-direction:column;gap:2px;background:none;border:none;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
@@ -762,7 +779,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
 /* The rail's two tabs, Contents and Comments. Comments needs more room, so
    the rail and the text column's right padding widen while it shows. */
-.fe-rail-title{flex:1;display:flex;align-items:center;gap:7px;margin:0;font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-rail-title{flex:1}
 .fe-rail-ico{display:inline-flex;color:var(--mt)}
 .fe-rail-ico svg{width:14px;height:14px}
 .fe-rt{border:0;background:none;padding:3px 9px;border-radius:999px;font-size:var(--fs-md);font-weight:500;
@@ -1050,8 +1067,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-ql-ai-out-body .fe-md{padding:0;white-space:normal}
 #fe-ql-ai-out-meta{padding:2px 16px 8px;font-size:var(--fs-xs);color:var(--dm)}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
-.fe-ql-note{font-size:var(--fs-md);color:var(--dm);padding:6px 14px}
-.fe-ql-note.err{color:#f85149}
 .fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
 .fe-ql-imgbar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 .fe-ql-imgstage{flex:1;min-height:0;overflow:auto;display:flex}
@@ -1410,8 +1425,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-pane{padding:20px 24px 24px}
 .fe-dlg-pane.on{gap:16px}
 .fe-set-card{background:var(--side);border:1px solid var(--bd);border-radius:12px;padding:2px 0 4px}
-.fe-set-h{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:8px 16px 4px;
-  font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-set-h{justify-content:space-between;min-height:40px;padding:8px 16px 4px}
 .fe-set{display:flex;align-items:center;gap:16px;min-height:52px;padding:8px 16px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
 .fe-set-h + .fe-set{border-top:0}
 .fe-set-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -1568,8 +1582,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
    scrolls; sections are small headings over grouped cards. Hierarchy comes
    from weight, colour, case and space, inside the five-step type scale. */
 .fe-dlg-box{grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);border-radius:14px 0 0 0;align-items:flex-start}
-.fe-dlg-tx i{line-height:1.35}
+.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);border-radius:14px 0 0 0}
+
 .fe-dlg-close{position:absolute;top:14px;right:14px;z-index:5}
 .fe-dlg-tabs{grid-column:1;grid-row:2;padding:4px 8px 12px}
 .fe-dlg-pane{grid-column:2;grid-row:1/span 2;border-radius:0 14px 14px 0}
@@ -1582,13 +1596,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-tile.lg svg{width:22px;height:22px}
 .fe-dlg-tab i{padding-left:calc(22px + var(--row-gap))}
 .fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
-.fe-dlg-ph{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:14px;margin:0 -24px;padding:22px 60px 18px 24px;
-  background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
+.fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 60px 18px 24px;background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
 .fe-dlg-ph-tx{min-width:0}
-.fe-dlg-ph h2{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
-.fe-dlg-ph p{margin:3px 0 0;font-size:var(--fs-md);line-height:1.4;color:var(--dm)}
+
 .fe-set-group{display:flex;flex-direction:column;gap:8px}
-.fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px}
 .fe-set-card{padding:0;overflow:hidden}
 .fe-set-card > .fe-set:first-child{border-top:0}
 .fe-set-card > .fe-set-note:first-child{padding-top:12px}

@@ -2021,15 +2021,15 @@ ${body}`;
   <div id="${esc(d.id)}" class="fe-dlg" style="display:none">
     <div class="fe-dlg-bg"></div>
     <div class="fe-dlg-box" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
-      <div class="fe-dlg-title">
+      <div class="sect fe-dlg-title" data-level="page">
         <span class="fe-dlg-mark">${d.mark}</span>
-        <span class="fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
+        <span class="sect-tx fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
         <button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div class="fe-dlg-tabs" role="tablist">
         ${d.tabs.map((t) => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} \xB7 [ ] switch tabs \xB7 Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ""}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ""}</button>`).join("")}
       </div>
-      ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.icon ? `<header class="fe-dlg-ph">${tile(t, "lg")}<div class="fe-dlg-ph-tx"><h2>${esc(t.label)}</h2>${t.desc || t.hint ? `<p>${esc(t.desc || t.hint)}</p>` : ""}</div></header>` : ""}${t.body}</div>`).join("")}
+      ${d.tabs.map((t) => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.icon ? `<header class="sect fe-dlg-ph" data-level="page">${tile(t, "lg")}<div class="sect-tx fe-dlg-ph-tx"><h2>${esc(t.label)}</h2>${t.desc || t.hint ? `<p>${esc(t.desc || t.hint)}</p>` : ""}</div></header>` : ""}${t.body}</div>`).join("")}
     </div>
   </div>`;
   }
@@ -2217,8 +2217,8 @@ ${body}`;
     treeNodes: 2e4
   };
   function unrenderableNote(text) {
-    if (!text.trim()) return '<div class="fe-ql-note">Empty file.</div>';
-    if (sniffBinary(text)) return '<div class="fe-ql-note">Binary file, no text to show.</div>';
+    if (!text.trim()) return '<div class="notice fe-ql-note">Empty file.</div>';
+    if (sniffBinary(text)) return '<div class="notice fe-ql-note">Binary file, no text to show.</div>';
     return "";
   }
   function sniffBinary(text) {
@@ -2576,7 +2576,7 @@ ${body}`;
     let truncNote = "";
     if (src.length > RENDER_CAPS.codeChars) {
       src = src.slice(0, RENDER_CAPS.codeChars);
-      truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.codeChars.toLocaleString()} characters. Open the raw file for the rest.</div>`;
+      truncNote = `<div class="notice fe-ql-note">Showing first ${RENDER_CAPS.codeChars.toLocaleString()} characters. Open the raw file for the rest.</div>`;
     }
     const rows = splitHighlighted(highlightCode(src, ext2));
     const gut = String(rows.length).length + 1;
@@ -2674,7 +2674,7 @@ ${body}`;
     let rows = dataRows;
     if (rows.length > RENDER_CAPS.tableRows) {
       rows = rows.slice(0, RENDER_CAPS.tableRows);
-      truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.tableRows.toLocaleString()} of ${dataRows.length.toLocaleString()} rows.</div>`;
+      truncNote = `<div class="notice fe-ql-note">Showing first ${RENDER_CAPS.tableRows.toLocaleString()} of ${dataRows.length.toLocaleString()} rows.</div>`;
     }
     const width = rows.reduce((w, r) => Math.max(w, r.length), header.length);
     const cols = Array.from({ length: width }, (_, i3) => header[i3] ?? `(${i3 + 1})`);
@@ -3201,7 +3201,7 @@ ${body}`;
     try {
       v = JSON.parse(text);
     } catch (err) {
-      return `<div class="fe-ql-note">Not strict JSON, shown as text: ${esc(err.message)}</div>${renderCode(text, "jsonc")}`;
+      return `<div class="notice fe-ql-note">Not strict JSON, shown as text: ${esc(err.message)}</div>${renderCode(text, "jsonc")}`;
     }
     return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
   }
@@ -3214,7 +3214,7 @@ ${body}`;
     let shown = lines;
     if (lines.length > RENDER_CAPS.jsonlLines) {
       shown = lines.slice(0, RENDER_CAPS.jsonlLines);
-      truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.jsonlLines.toLocaleString()} of ${lines.length.toLocaleString()} lines.</div>`;
+      truncNote = `<div class="notice fe-ql-note">Showing first ${RENDER_CAPS.jsonlLines.toLocaleString()} of ${lines.length.toLocaleString()} lines.</div>`;
     }
     const body = shown.map(({ l: line2, n }) => {
       try {
@@ -4540,7 +4540,7 @@ Now: ${question}` : question;
       if (!sides) return;
       document.getElementById("fe-ql-body").insertAdjacentHTML(
         "afterbegin",
-        `<div id="fe-ed-clash" class="fe-ql-note">Two versions, keep: <button class="btn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> <button class="btn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> <button class="btn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`
+        `<div id="fe-ed-clash" class="notice fe-ql-note">Two versions, keep: <button class="btn" data-keep="first">${UI_ICON.files}<span>${esc(sides[0])}</span></button> <button class="btn" data-keep="second">${UI_ICON.files}<span>${esc(sides[1])}</span></button> <button class="btn" data-keep="both">${UI_ICON.notes}<span>both</span></button></div>`
       );
       document.querySelectorAll("#fe-ed-clash [data-keep]").forEach((b) => b.addEventListener("click", () => {
         ta.value = settleClash(ta.value, b.dataset.keep);
@@ -4702,7 +4702,7 @@ Now: ${question}` : question;
           if (!document.getElementById("fe-ed-conflict")) {
             body.insertAdjacentHTML(
               "afterbegin",
-              `<div id="fe-ed-conflict" class="fe-ql-note err">Another program changed this note. <button id="fe-ed-reload" class="btn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="btn" title="Write the editor text over the disk copy">Overwrite</button></div>`
+              `<div id="fe-ed-conflict" class="notice fe-ql-note" data-tone="danger">Another program changed this note. <button id="fe-ed-reload" class="btn" title="Replace the editor text with the file on disk">Reload from disk</button> <button id="fe-ed-force" class="btn" title="Write the editor text over the disk copy">Overwrite</button></div>`
             );
             document.getElementById("fe-ed-reload").addEventListener("click", () => {
               notes.read(st.root, st.rel).then((d) => openNote(st.root, d, st.onSaved, st.actions));
@@ -4780,7 +4780,7 @@ Now: ${question}` : question;
     if (e.rawBytes > FETCH_WARN_BYTES) {
       body.innerHTML = `
       <div class="fe-ql-center">
-        <div class="fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
+        <div class="notice fe-ql-note">This file is ${fmtSize(e.rawBytes)}, so it may render slowly.</div>
         <button id="fe-ql-force" class="btn" title="Render despite the size">Load anyway</button>
       </div>`;
       document.getElementById("fe-ql-force").addEventListener("click", () => fetchAndRender(e, ext2, seq2));
@@ -4790,7 +4790,7 @@ Now: ${question}` : question;
   }
   function fetchAndRender(e, ext2, seq2) {
     const body = document.getElementById("fe-ql-body");
-    body.innerHTML = `<div class="fe-ql-center"><div class="fe-ql-note">Loading\u2026</div></div>`;
+    body.innerHTML = `<div class="fe-ql-center"><div class="notice fe-ql-note">Loading\u2026</div></div>`;
     fetchFileText(e.href).then((text) => {
       if (seq2 !== reqSeq) return;
       currentText = text;
@@ -4801,7 +4801,7 @@ Now: ${question}` : question;
       if (seq2 !== reqSeq) return;
       console.error("[BFB] preview failed:", e.href, err);
       const stale = err instanceof FileFetchError && err.code === "context-invalidated";
-      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="fe-ql-note err">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="fe-ql-note err">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
+      body.innerHTML = stale ? `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">The extension was reloaded; this page needs a refresh.</div><button id="fe-ql-retry" class="btn" title="Reload this page">Refresh page</button></div>` : `<div class="fe-ql-center"><div class="notice fe-ql-note" data-tone="danger">Could not read file.</div><button id="fe-ql-retry" class="btn" title="Try reading the file again">Retry</button></div>`;
       document.getElementById("fe-ql-retry").addEventListener("click", () => {
         if (stale) location.reload();
         else fetchAndRender(e, ext2, seq2);
@@ -4985,6 +4985,26 @@ Now: ${question}` : question;
 .bar{display:flex;align-items:center;gap:var(--sp-2);box-sizing:border-box;flex-shrink:0}
 .bar:not([data-inset]){min-height:var(--bar-h);padding:0 var(--sp-5)}
 .bar-sep{flex:none;width:1px;height:16px;margin:0 var(--sp-2);background:var(--bd)}
+/* SectionTitle, the one heading for a part of the page (docs/system/section-title.md).
+   Class sect with data-level: group (a small capital label over a list or
+   card), panel (a panel's or rail's title, with its icon and count), page (a
+   dialog or page header: a tile, a title and a line under it). Actions sit
+   at the end in sect-acts. The place sets padding. */
+.sect{display:flex;align-items:center;gap:var(--sp-3);min-width:0;margin:0}
+.sect-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.sect-acts{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:auto}
+.sect[data-level="group"]{font-size:var(--type-micro);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.sect[data-level="panel"]{font-size:var(--type-ui);font-weight:600;color:var(--tx)}
+.sect[data-level="page"]{gap:var(--sp-5)}
+.sect[data-level="page"] .sect-tx > :first-child{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
+.sect[data-level="page"] .sect-tx > :nth-child(2){margin:0;font-size:var(--fs-md);font-style:normal;font-weight:400;line-height:1.35;color:var(--dm)}
+/* Notice, a line that tells the reader about the page itself
+   (docs/system/notice.md): empty, cut short, could not render, changed on
+   disk. Class notice; data-tone danger, warn or ok; buttons in it act on it. */
+.notice{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-3);padding:var(--sp-3) var(--sp-5);color:var(--dm);font-size:var(--type-small);line-height:1.4}
+.notice[data-tone="danger"]{color:var(--tone-danger)}
+.notice[data-tone="warn"]{color:var(--nc-orange)}
+.notice[data-tone="ok"]{color:var(--tone-ok)}
 /* TextBox, the one text field (docs/system/textbox.md). Class tb, on an
    input or textarea. data-size: sm 22, md 28 (the default), lg 32. A textarea
    grows from one control high. Invalid: aria-invalid="true". */
@@ -5098,8 +5118,7 @@ body{opacity:1!important}
 #fe-side-rz:hover,#fe-side-rz.drag{background:var(--ac)}
 .fe-sec{margin-bottom:4px}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none!important}
-.fe-sh{font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--dm);padding:10px 14px 5px;display:flex;align-items:center;gap:6px}
+.fe-sh{padding:10px 14px 5px}
 #fe-side .fe-sh{justify-content:flex-start!important}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:6px;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
 .fe-sh-collapse svg{width:12px;height:12px;flex:none;transition:transform .12s}
@@ -5463,12 +5482,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-box{position:relative;z-index:1;background:var(--s1);border:1px solid var(--bd);border-radius:10px;
   width:min(760px,calc(100vw - 40px));max-height:84vh;display:flex;flex-direction:column;box-shadow:0 24px 64px #000d;outline:none}
 #fe-settings-modal .fe-dlg-box{width:min(900px,calc(100vw - 40px))}
-.fe-dlg-title{display:flex;align-items:center;gap:11px;padding:14px 16px 12px;background:var(--s2);flex:none;border-radius:10px 10px 0 0}
+.fe-dlg-title{padding:14px 16px 12px;background:var(--s2);flex:none;border-radius:10px 10px 0 0}
 .fe-dlg-mark{flex:none;width:26px;height:26px;border-radius:6px;display:grid;place-items:center;
   background:var(--on);color:var(--ac);border:1px solid var(--ac)}
-.fe-dlg-tx{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
-.fe-dlg-tx b{font-size:var(--fs-xl);font-weight:600;line-height:1.2;color:var(--tx);letter-spacing:-.01em}
-.fe-dlg-tx i{font-size:var(--fs-sm);line-height:1.2;font-style:normal;color:var(--dm)}
+.fe-dlg-tx{flex-direction:column;min-width:0;flex:1}
 
 .fe-dlg-tabs{display:flex;gap:3px;padding:0 16px;background:var(--s2);border-bottom:1px solid var(--bd);flex:none;align-items:stretch;overflow-x:auto}
 .fe-dlg-tab{display:flex;flex-direction:column;gap:2px;background:none;border:none;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;
@@ -5630,7 +5647,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
 /* The rail's two tabs, Contents and Comments. Comments needs more room, so
    the rail and the text column's right padding widen while it shows. */
-.fe-rail-title{flex:1;display:flex;align-items:center;gap:7px;margin:0;font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-rail-title{flex:1}
 .fe-rail-ico{display:inline-flex;color:var(--mt)}
 .fe-rail-ico svg{width:14px;height:14px}
 .fe-rt{border:0;background:none;padding:3px 9px;border-radius:999px;font-size:var(--fs-md);font-weight:500;
@@ -5918,8 +5935,6 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-ql-ai-out-body .fe-md{padding:0;white-space:normal}
 #fe-ql-ai-out-meta{padding:2px 16px 8px;font-size:var(--fs-xs);color:var(--dm)}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px}
-.fe-ql-note{font-size:var(--fs-md);color:var(--dm);padding:6px 14px}
-.fe-ql-note.err{color:#f85149}
 .fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
 .fe-ql-imgbar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 .fe-ql-imgstage{flex:1;min-height:0;overflow:auto;display:flex}
@@ -6278,8 +6293,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-pane{padding:20px 24px 24px}
 .fe-dlg-pane.on{gap:16px}
 .fe-set-card{background:var(--side);border:1px solid var(--bd);border-radius:12px;padding:2px 0 4px}
-.fe-set-h{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:40px;padding:8px 16px 4px;
-  font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-set-h{justify-content:space-between;min-height:40px;padding:8px 16px 4px}
 .fe-set{display:flex;align-items:center;gap:16px;min-height:52px;padding:8px 16px;border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
 .fe-set-h + .fe-set{border-top:0}
 .fe-set-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -6436,8 +6450,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
    scrolls; sections are small headings over grouped cards. Hierarchy comes
    from weight, colour, case and space, inside the five-step type scale. */
 .fe-dlg-box{grid-template-columns:216px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);border-radius:14px 0 0 0;align-items:flex-start}
-.fe-dlg-tx i{line-height:1.35}
+.fe-dlg-title{grid-column:1;grid-row:1;padding:18px 16px 10px;background:var(--side);border-bottom:0;border-right:1px solid var(--bd);border-radius:14px 0 0 0}
+
 .fe-dlg-close{position:absolute;top:14px;right:14px;z-index:5}
 .fe-dlg-tabs{grid-column:1;grid-row:2;padding:4px 8px 12px}
 .fe-dlg-pane{grid-column:2;grid-row:1/span 2;border-radius:0 14px 14px 0}
@@ -6450,13 +6464,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dlg-tile.lg svg{width:22px;height:22px}
 .fe-dlg-tab i{padding-left:calc(22px + var(--row-gap))}
 .fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
-.fe-dlg-ph{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:14px;margin:0 -24px;padding:22px 60px 18px 24px;
-  background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
+.fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 60px 18px 24px;background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
 .fe-dlg-ph-tx{min-width:0}
-.fe-dlg-ph h2{margin:0;font-size:var(--fs-xl);font-weight:650;line-height:1.25;color:var(--tx);letter-spacing:-.01em}
-.fe-dlg-ph p{margin:3px 0 0;font-size:var(--fs-md);line-height:1.4;color:var(--dm)}
+
 .fe-set-group{display:flex;flex-direction:column;gap:8px}
-.fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px;font-size:var(--fs-xs);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dm)}
+.fe-set-group > .fe-set-h{min-height:22px;padding:0 4px 0 6px}
 .fe-set-card{padding:0;overflow:hidden}
 .fe-set-card > .fe-set:first-child{border-top:0}
 .fe-set-card > .fe-set-note:first-child{padding-top:12px}
@@ -13795,7 +13807,7 @@ ${end.comment}` : end.comment;
     try {
       return f(text, href);
     } catch (err) {
-      return `<div class="fe-ql-note">Could not render this file (${esc(err.message)}), so here is its text.</div>${renderCode(text, ext2)}`;
+      return `<div class="notice fe-ql-note">Could not render this file (${esc(err.message)}), so here is its text.</div>${renderCode(text, ext2)}`;
     }
   };
   var FORMATS = [
@@ -15907,7 +15919,7 @@ ${d.message}` : d.message;
         <div id="fe-page" tabindex="-1"></div>
         <div id="fe-fe" style="display:none"></div>
         <aside id="fe-toc-rail" hidden>
-          <div class="fe-toc-head"><h3 class="fe-rail-title"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="fe-rt-n" id="fe-cm-n"></span></h3></div>
+          <div class="fe-toc-head"><h3 class="sect fe-rail-title" data-level="panel"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="fe-rt-n" id="fe-cm-n"></span></h3></div>
           <nav id="fe-toc"></nav>
           <div id="fe-cm" role="tabpanel" aria-label="Comments" hidden></div>
         </aside>
@@ -17131,7 +17143,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   // src/settings-page.ts
   var row = (label, desc, ctl, attrs = "") => `<div class="fe-set"${attrs}><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
   var wide = (label, desc, ctl) => `<div class="fe-set wide"><div class="fe-set-tx"><span class="fe-set-l">${label}</span>${desc ? `<span class="fe-set-d">${desc}</span>` : ""}</div><div class="fe-set-c">${ctl}</div></div>`;
-  var card2 = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="fe-set-h"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
+  var card2 = (title, rows, action = "") => `<section class="fe-set-group"><h3 class="sect fe-set-h" data-level="group"><span>${title}</span>${action}</h3><div class="fe-set-card">${rows}</div></section>`;
   var sw = (id, title) => switchHtml({ id, title });
   var iconBtn = (id, icon2, title) => `<button type="button" id="${id}" class="btn fe-ibtn" data-icon title="${title}" aria-label="${title}">${icon2}</button>`;
   var note = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
@@ -21720,15 +21732,15 @@ ${rows.join("\n")}`, name: subject };
     const recentFiles = recents.filter((r) => !r.path.endsWith("/")).slice(0, 12);
     const recentsHTML = `
       <div class="fe-sec" data-sec="recent" data-collapse="recent">
-        <div class="fe-sh"><span class="fe-sh-label">Folders</span></div>
+        <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Folders</span></div>
         ${recentDirs.length ? recentDirs.map(recentRow).join("") : '<div class="fe-hint">Folders you open show up here.</div>'}
       </div>
       <div class="fe-sec" data-collapse="recent-files">
-        <div class="fe-sh"><span class="fe-sh-label">Files</span></div>
+        <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Files</span></div>
         ${recentFiles.length ? recentFiles.map(recentRow).join("") : '<div class="fe-hint">Files you open show up here.</div>'}
       </div>
       <div class="fe-sec" data-collapse="recent-tabs" id="fe-rc-tabs-sec" style="display:none">
-        <div class="fe-sh"><span class="fe-sh-label">Closed tabs</span></div>
+        <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Closed tabs</span></div>
         <div id="fe-rc-sets"></div>
       </div>`;
     const html = renderPage({

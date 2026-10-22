@@ -26,15 +26,15 @@ export function renderDialog(d: DialogSpec): string {
   <div id="${esc(d.id)}" class="fe-dlg" style="display:none">
     <div class="fe-dlg-bg"></div>
     <div class="fe-dlg-box" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
-      <div class="fe-dlg-title">
+      <div class="sect fe-dlg-title" data-level="page">
         <span class="fe-dlg-mark">${d.mark}</span>
-        <span class="fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
+        <span class="sect-tx fe-dlg-tx"><b id="${esc(d.id)}-title">${esc(d.title)}</b><i>${esc(d.subtitle)}</i></span>
         <button class="btn fe-dlg-close" data-icon title="Close (Esc)">${UI_ICON.close}</button>
       </div>
       <div class="fe-dlg-tabs" role="tablist">
         ${d.tabs.map(t => `<button class="fe-dlg-tab" role="tab" data-tab="${esc(t.key)}" title="${esc(t.label)} · [ ] switch tabs · Esc closes"><span class="fe-dlg-tab-main">${t.icon ? tile(t) : ''}<b>${esc(t.label)}</b></span>${t.hint ? `<i>${esc(t.hint)}</i>` : ''}</button>`).join('')}
       </div>
-      ${d.tabs.map(t => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.icon ? `<header class="fe-dlg-ph">${tile(t, 'lg')}<div class="fe-dlg-ph-tx"><h2>${esc(t.label)}</h2>${t.desc || t.hint ? `<p>${esc(t.desc || t.hint!)}</p>` : ''}</div></header>` : ''}${t.body}</div>`).join('')}
+      ${d.tabs.map(t => `<div class="fe-dlg-pane" role="tabpanel" data-tab="${esc(t.key)}">${t.icon ? `<header class="sect fe-dlg-ph" data-level="page">${tile(t, 'lg')}<div class="sect-tx fe-dlg-ph-tx"><h2>${esc(t.label)}</h2>${t.desc || t.hint ? `<p>${esc(t.desc || t.hint!)}</p>` : ''}</div></header>` : ''}${t.body}</div>`).join('')}
     </div>
   </div>`;
 }

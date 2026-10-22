@@ -27,8 +27,8 @@ export const RENDER_CAPS = {
 /** The one note an empty file or a binary one gets, on the file page and in
  *  the preview alike; '' when the text is fine to render. */
 export function unrenderableNote(text: string): string {
-  if (!text.trim()) return '<div class="fe-ql-note">Empty file.</div>';
-  if (sniffBinary(text)) return '<div class="fe-ql-note">Binary file, no text to show.</div>';
+  if (!text.trim()) return '<div class="notice fe-ql-note">Empty file.</div>';
+  if (sniffBinary(text)) return '<div class="notice fe-ql-note">Binary file, no text to show.</div>';
   return '';
 }
 
@@ -307,7 +307,7 @@ export function renderCode(src: string, ext: string): string {
   let truncNote = '';
   if (src.length > RENDER_CAPS.codeChars) {
     src = src.slice(0, RENDER_CAPS.codeChars);
-    truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.codeChars.toLocaleString()} characters. Open the raw file for the rest.</div>`;
+    truncNote = `<div class="notice fe-ql-note">Showing first ${RENDER_CAPS.codeChars.toLocaleString()} characters. Open the raw file for the rest.</div>`;
   }
   // One row per line, number beside text, so a wrapped line keeps one number
   // (wrapping is a setting: #fe[data-wrap="on"]).
@@ -415,7 +415,7 @@ export function renderDSVTable(header: string[], dataRows: string[][], numCols: 
   let rows = dataRows;
   if (rows.length > RENDER_CAPS.tableRows) {
     rows = rows.slice(0, RENDER_CAPS.tableRows);
-    truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.tableRows.toLocaleString()} of ${dataRows.length.toLocaleString()} rows.</div>`;
+    truncNote = `<div class="notice fe-ql-note">Showing first ${RENDER_CAPS.tableRows.toLocaleString()} of ${dataRows.length.toLocaleString()} rows.</div>`;
   }
   // A row longer than the header still shows every cell, under a numbered
   // column, rather than silently losing the extra ones.
@@ -920,7 +920,7 @@ export function renderJsonTree(text: string): string {
   try { v = JSON.parse(text); }
   catch (err) {
     // Comments and trailing commas (tsconfig, VS Code settings) still read as JSON text.
-    return `<div class="fe-ql-note">Not strict JSON, shown as text: ${esc((err as Error).message)}</div>${renderCode(text, 'jsonc')}`;
+    return `<div class="notice fe-ql-note">Not strict JSON, shown as text: ${esc((err as Error).message)}</div>${renderCode(text, 'jsonc')}`;
   }
   return `<div class="fe-jt-root">${jsonNode(null, v, 0, { n: RENDER_CAPS.treeNodes })}</div>`;
 }
@@ -939,7 +939,7 @@ export function renderJsonl(text: string): string {
   let shown = lines;
   if (lines.length > RENDER_CAPS.jsonlLines) {
     shown = lines.slice(0, RENDER_CAPS.jsonlLines);
-    truncNote = `<div class="fe-ql-note">Showing first ${RENDER_CAPS.jsonlLines.toLocaleString()} of ${lines.length.toLocaleString()} lines.</div>`;
+    truncNote = `<div class="notice fe-ql-note">Showing first ${RENDER_CAPS.jsonlLines.toLocaleString()} of ${lines.length.toLocaleString()} lines.</div>`;
   }
   const body = shown.map(({ l: line, n }) => {
     try {
