@@ -222,9 +222,12 @@ Stacking: a layer opened from another layer sits one step above its opener
 popover in order without a fixed number for each. Tooltips sit at 700, always
 on top.
 
-Slice 0 tests whether the browser's own top layer (the popover attribute and
-`<dialog>`) works for this content script on file:// pages. If it does, the
-levels above become order of opening, and z-index leaves the stylesheet.
+The browser's own top layer (the popover attribute) works on file:// pages:
+the slice 0 probe (`e2e/probe-top-layer.mjs`) shows a later popover stacking
+above an earlier one and above any z-index. So Layer opens every floating
+layer in the top layer, the levels above become order of opening, and z-index
+leaves the stylesheet. The level tokens stay only for docks and sticky parts
+inside the page.
 
 Esc closes the topmost layer only. One ordered stack replaces the 31 separate
 Escape checks.
@@ -686,8 +689,8 @@ the new name until that part's slice absorbs it.
 
 ## 15. Owner decisions, 2026-10-22
 
-Answered on the decision page `bfb-component-system`
-(`D1a D2a D3a D4a D5a D6a D7a D8b D9a`).
+Answered on the decision page on 2026-10-22: every recommendation taken, plus
+the print sheet.
 
 1. **Icon buttons:** round on their own; rounded square inside a Segmented
    group and the rail.

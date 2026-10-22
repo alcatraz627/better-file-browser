@@ -25,14 +25,22 @@ async function main() {
     logLevel: 'info',
   });
 
+  // The design-system page (design.html), opened from the extension's own URL.
+  const designCtx = await esbuild.context({
+    entryPoints: ['src/design-page.ts'], bundle: true, outfile: 'design.js',
+    format: 'iife', target: 'chrome100', platform: 'browser', minify: false,
+    logLevel: 'info',
+  });
+
   if (watch) {
-    await Promise.all([ctx.watch(), mermaidCtx.watch(), searchCtx.watch()]);
+    await Promise.all([ctx.watch(), mermaidCtx.watch(), searchCtx.watch(), designCtx.watch()]);
     console.log('Watching for changes…');
   } else {
-    await Promise.all([ctx.rebuild(), mermaidCtx.rebuild(), searchCtx.rebuild()]);
+    await Promise.all([ctx.rebuild(), mermaidCtx.rebuild(), searchCtx.rebuild(), designCtx.rebuild()]);
     await ctx.dispose();
     await mermaidCtx.dispose();
     await searchCtx.dispose();
+    await designCtx.dispose();
   }
 }
 

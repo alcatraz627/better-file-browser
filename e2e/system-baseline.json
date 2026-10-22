@@ -1,0 +1,21 @@
+{
+  "css-radius-px": 153,
+  "css-height-px": 217,
+  "css-space-px": 626,
+  "css-zindex": 35,
+  "css-font-px": 6,
+  "css-duration": 31,
+  "css-raw-colour": 96,
+  "css-important": 26,
+  "css-media": 14,
+  "css-dup-selector": 194,
+  "js-keydown": 46,
+  "js-outside-click": 24,
+  "js-navigation": 25,
+  "js-storage": 54,
+  "js-native-control": 8,
+  "js-inline-style": 37,
+  "js-inline-svg": 22,
+  "js-message-shown": 31,
+  "js-home-literal": 7
+}
