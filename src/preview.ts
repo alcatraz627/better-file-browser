@@ -101,11 +101,11 @@ export function initPreview(d: PreviewDeps): void {
         <span id="fe-ql-meta"></span>
         <button id="fe-ql-copy" title="Copy full file contents to clipboard" disabled>
           <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-          <span>copy</span>
+          <span>Copy</span>
         </button>
-        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">${UI_ICON.external}<span>open raw</span></a>
-        <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>open</span></button>
-        <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>tab</span></button>
+        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">${UI_ICON.external}<span>Open raw</span></a>
+        <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
+        <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
         <button id="fe-ql-dock" data-icon title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
@@ -363,9 +363,10 @@ export function saveEditor(): Promise<void> { return saveNote(); }
 
 function editHeader(status: string): void {
   if (!edit) return;
+  // The title has its own field just below, so the header names the file only.
   const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
-  nameEl.innerHTML = midHtml((edit.dirty ? '● ' : '') + noteTitle(edit.rel, edit.text));
-  document.getElementById('fe-ql-meta')!.textContent = `${edit.rel} · ${status}`;
+  nameEl.hidden = true;
+  document.getElementById('fe-ql-meta')!.textContent = `${edit.dirty ? '● ' : ''}${edit.rel} · ${status}`;
 }
 
 const stripFrontMatter = (t: string) => t.replace(/^---\n[\s\S]*?\n---\n?/, '');
@@ -414,11 +415,11 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       <button class="fe-pbn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
       <button class="fe-pbn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
       <span class="fe-ed-sep" aria-hidden="true"></span>
-      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>versions</span></button>
-      ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (⌥⌘↑)">${UI_ICON.prev}<span>prev</span></button>
-      <button class="fe-pbn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>next</span></button>
-      <button class="fe-pbn" data-act="rename" title="Rename this note in the sidebar (F2 there)">${UI_ICON.rename}<span>rename</span></button>
-      <button class="fe-pbn" data-act="delete" title="Move this note to .trash">${UI_ICON.trash}<span>delete</span></button>` : ''}
+      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
+      ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (⌥⌘↑)">${UI_ICON.prev}<span>Previous</span></button>
+      <button class="fe-pbn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>Next</span></button>
+      <button class="fe-pbn" data-act="rename" title="Rename this note in the sidebar (F2 there)">${UI_ICON.rename}<span>Rename</span></button>
+      <button class="fe-pbn" data-act="delete" title="Move this note to .trash">${UI_ICON.trash}<span>Delete</span></button>` : ''}
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">⌥↑↓ move line · ⌥⇧↑↓ duplicate · ⇥ indent · Enter continues lists</span>
     </div>
@@ -659,7 +660,7 @@ async function saveNote(st = edit): Promise<void> {
       const to = st.rel.replace(/[^/]+$/, want);
       try { await notes.rename(st.root, st.rel, to); st.rel = to; } catch { /* keep the old name */ }
     }
-    if (edit === st) editHeader(st.dirty ? 'unsaved' : 'saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    if (edit === st) { editHeader(st.dirty ? 'unsaved' : 'saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); st.redrawMeta?.(); }
     st.onSaved?.(st.rel);
   } catch (err) {
     const e = err as NotesError;
@@ -697,6 +698,7 @@ export function openPreview(e: Entry): void {
 
   document.getElementById('fe-ql-icon')!.innerHTML = getIcon(e, deps.iconRules());
   const nameEl = document.getElementById('fe-ql-name') as HTMLAnchorElement;
+  nameEl.hidden = false;
   nameEl.textContent = e.name;
   nameEl.href = e.href;
   document.getElementById('fe-ql-meta')!.textContent =

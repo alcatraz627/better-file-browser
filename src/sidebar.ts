@@ -11,7 +11,7 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, slugForTitle, setTitle, setFirstLine, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
+import { notes, noteTitle, slugForTitle, retitle, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
 import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
@@ -172,8 +172,9 @@ export function initSidebar(app: App): void {
   const svFilter = el<HTMLInputElement>('fe-sv-filter');
   // Saved places found by looking inside them, with the name that matched.
   let svHits = new Map<string, string>();
-  // Resting on a saved row shows a card with its path and tags. The card stays
-  // while the pointer is on it, and its tags are buttons that filter the list.
+  // Resting on a saved row shows a card with its path and tags. It sits over
+  // the listing, so it takes no clicks: the pointer passes through it to the
+  // row underneath, and it goes away once the pointer leaves the list.
   const card = document.createElement('div');
   card.id = 'fe-sv-card';
   card.hidden = true;
@@ -190,7 +191,7 @@ export function initSidebar(app: App): void {
     const home = homeDir(rawPath);
     const where = isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path;
     card.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? '~' + where.slice(home.length) : where)}</span>`
-      + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags!.map(t => `<button type="button" class="fe-chip fe-lens-tag" data-tag="${esc(t)}" title="Show only items tagged ${esc(t)}"><i style="background:${esc(colour.get(t) ?? '#8b949e')}"></i>${esc(t)}</button>`).join('')}</span>` : '')
+      + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags!.map(t => `<span class="fe-chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? '#8b949e')}"></i>${esc(t)}</span>`).join('')}</span>` : '')
       + `<span class="fe-svc-hint">Double-click to rename · drag to reorder</span>`;
     const r = item.getBoundingClientRect();
     card.hidden = false;
@@ -215,12 +216,6 @@ export function initSidebar(app: App): void {
     cardTimer = setTimeout(() => { cardTimer = null; hideCard(); showCard(item); }, card.hidden ? 450 : 120);
   });
   svList.addEventListener('pointerleave', () => { if (cardTimer) clearTimeout(cardTimer); cardTimer = setTimeout(hideCard, 200); });
-  card.addEventListener('pointerenter', () => { if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; } });
-  card.addEventListener('pointerleave', () => { cardTimer = setTimeout(hideCard, 150); });
-  card.addEventListener('click', e => {
-    const chip = (e.target as Element).closest<HTMLElement>('.fe-lens-tag');
-    if (chip) toggleTagFilter(chip.dataset.tag!);
-  });
   svList.addEventListener('scroll', hideCard, true);
   svList.addEventListener('pointerdown', hideCard);
   svList.addEventListener('dragstart', hideCard);
@@ -433,7 +428,7 @@ export function initSidebar(app: App): void {
     const group = (key: string, label: string, list: NoteMeta[]) => {
       const open = !folded.has(key) || !!ntFilter.value.trim();
       return `<button type="button" class="fe-nt-grp" data-grp="${key}" aria-expanded="${open}" title="${open ? 'Fold' : 'Show'} ${esc(label.toLowerCase())}">`
-        + `${key === 'pinned' ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ''}${label}<span class="fe-grp-n">${list.length}</span>${CHEVRON_DOWN}</button>`
+        + `${CHEVRON_DOWN}${key === 'pinned' ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ''}${label}<span class="fe-grp-n">${list.length}</span></button>`
         + (open ? list.map(row).join('') : '');
     };
     ntList.innerHTML = shown.length
@@ -597,22 +592,20 @@ export function initSidebar(app: App): void {
       // An emptied box means "never mind", not "call it untitled".
       if (!val.trim()) { back(); return; }
       notes.read(root, rel).then(async doc => {
-        const titled = setTitle(doc.text, val);
-        let now = rel;
-        if (titled !== null) await notes.write(root, rel, titled, doc.mtime);
-        else {
-          // No front matter: the title is the first line. Give the file the
-          // matching name first, so a name already taken changes nothing.
-          const to = rel.replace(/[^/]+$/, slugForTitle(val));
-          if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some(n => n.rel.toLowerCase() === to.toLowerCase())) {
-            toast(`A note named ${to.split('/').pop()} already exists. Pick another title.`);
-            back();
-            return;
-          }
-          if (to !== rel) { await notes.rename(root, rel, to); now = to; }
-          const lined = setFirstLine(doc.text, val);
-          if (lined !== null) await notes.write(root, now, lined, doc.mtime);
+        // Rename does the same thing to every note: the file takes the new
+        // title's name, and the title itself goes where this note keeps it
+        // (its properties block, or else its first line). The file moves
+        // first, so a name already taken changes nothing.
+        const to = rel.replace(/[^/]+$/, slugForTitle(val));
+        if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some(n => n.rel.toLowerCase() === to.toLowerCase())) {
+          toast(`A note named ${to.split('/').pop()} already exists. Pick another title.`);
+          back();
+          return;
         }
+        let now = rel;
+        if (to !== rel) { await notes.rename(root, rel, to); now = to; }
+        const titled = retitle(doc.text, val);
+        if (titled !== null) await notes.write(root, now, titled, doc.mtime);
         refreshNotes();
         if (reopen) openNoteRel(root, now);
       }).catch((err: NotesError) => toast(err.message));
@@ -754,7 +747,8 @@ export function initSidebar(app: App): void {
   app.newNote = () => {
     const root = notesRoot();
     if (!root) { app.openSettings('notes'); el<HTMLInputElement>('fe-st-notes-root').focus(); return; }
-    const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+    const d = new Date(), two = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
     const rel = `untitled-${stamp}.md`;
     notes.create(root, rel, '')
       .then(() => openNoteRel(root, rel))

@@ -166,6 +166,18 @@ export function setFirstLine(text: string, title: string): string | null {
   return `# ${title}\n\n` + text;
 }
 
+// Give a note a new title wherever it keeps one now: the properties block
+// when that names a title, otherwise the first line of the writing. Pinning or
+// colouring adds a properties block without a title, and the title then still
+// lives in the first line, so that is the line a rename changes.
+export function retitle(text: string, title: string): string | null {
+  const { head, body } = splitNote(text);
+  if (head && /^title:/m.test(head)) return setTitle(text, title);
+  const lined = setFirstLine(body, title);
+  if (lined !== null) return head + lined;
+  return head ? setTitle(text, title) : null;
+}
+
 // A note edited in two places holds both sides between git-style markers. settleClash keeps
 // the first side, the second, or both (first then second); same rules as Switchboard and the Pi.
 export type Keep = 'first' | 'second' | 'both';

@@ -152,7 +152,7 @@ export function renderPage(p: PageParams): string {
         stCard('Editing',
           stRow('Editable folders', 'Text files inside these get an Edit button (e)', `<input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Folders separated by commas; ~ means home">`) +
           stNote('Each save keeps a 14-day backup in ~/Library/Application Support/BetterFileBrowser.')) },
-      { key: 'ai', label: 'AI', hint: 'Local model', icon: UI_ICON.ai, tone: 'var(--nc-purple)', desc: 'The model on this Mac that answers questions in Ask.', body:
+      { key: 'ai', label: 'AI', hint: 'Models for Ask', icon: UI_ICON.ai, tone: 'var(--nc-purple)', desc: 'The model that answers questions in Ask: one on this Mac, or Gemini, which runs on Google\'s servers.', body:
         stCard('Local model', `
           <div id="fe-st-ai-card">
             <div class="fe-st-ai-head">
@@ -176,7 +176,7 @@ export function renderPage(p: PageParams): string {
     ],
   };
   const HELP_DIALOG: DialogSpec = {
-    id: 'fe-help-modal', mark: PI.help, title: 'Help', subtitle: 'Everything runs on your machine',
+    id: 'fe-help-modal', mark: PI.help, title: 'Help', subtitle: 'What is here and how to use it',
     tabs: HELP_TABS.map(t => ({ key: t.key, label: t.label, hint: t.hint, body: `<div class="fe-md">${renderMarkdown(t.md)}</div>` })),
   };
 

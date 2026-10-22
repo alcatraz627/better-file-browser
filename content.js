@@ -90,7 +90,7 @@
   function fileHref(path) {
     return "file://" + path.split("/").map(encodeURIComponent).join("/");
   }
-  var DOWNLOAD_EXTS = /* @__PURE__ */ new Set(["yaml", "yml", "sql", "csv", "xml"]);
+  var DOWNLOAD_EXTS = /* @__PURE__ */ new Set(["yaml", "yml", "sql", "csv", "tsv", "xml"]);
   function pageHref(href) {
     if (!/^[a-z]+:/i.test(href) && typeof location !== "undefined") {
       try {
@@ -727,6 +727,13 @@ ${fm}
     return `# ${title}
 
 ` + text;
+  }
+  function retitle(text, title) {
+    const { head, body } = splitNote(text);
+    if (head && /^title:/m.test(head)) return setTitle(text, title);
+    const lined = setFirstLine(body, title);
+    if (lined !== null) return head + lined;
+    return head ? setTitle(text, title) : null;
   }
   function settleClash(text, keep) {
     const out = [];
@@ -2458,7 +2465,7 @@ ${body}`;
     const render2 = () => {
       menu.innerHTML = `
       <button class="fe-pbn fe-pm-pin${cur.pinned ? " active" : ""}" data-pm="pin" role="menuitem">${UI_ICON.pin}<span>${cur.pinned ? "unpin" : "pin to top"}</span></button>
-      <div class="fe-pm-lbl">colour</div>
+      <div class="fe-pm-lbl">Colour</div>
       <div class="fe-pm-colors">
         <button class="fe-pbn${cur.color === null ? " active" : ""}" data-pm="color" data-color="" role="menuitem">${colorDot(null)}<span>none</span></button>
         ${NOTE_COLORS.map((c) => `<button class="fe-pbn${cur.color === c ? " active" : ""}" data-pm="color" data-color="${c}" role="menuitem">${colorDot(c)}<span>${c}</span></button>`).join("")}
@@ -2526,10 +2533,10 @@ ${body}`;
       const p = o.props();
       host.innerHTML = `
       ${o.titleEditable() ? `<button id="fe-meta-title" class="fe-chip-title" data-title="${esc(p.title)}" title="${esc(p.title)}&#10;Click to edit the whole title" aria-label="Note title: ${esc(p.title)}. Click to edit.">${UI_ICON.rename}${midHtml(p.title)}</button>` : `<span class="fe-chip fe-chip-static" title="This note has no properties block yet; its title is its first line">${UI_ICON.notes}<span>${esc(p.title)}</span></span>`}
-      <button class="fe-pbn fe-chip-btn${p.pinned ? " active" : ""}" data-m="pin" title="${p.pinned ? "Unpin this note" : "Pin this note to the top of the list"}">${UI_ICON.pin}<span>${p.pinned ? "pinned" : "pin"}</span></button>
-      <button class="fe-pbn fe-chip-btn${p.color ? " active" : ""}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ?? "colour"}</span></button>
+      <button class="fe-pbn fe-chip-btn${p.pinned ? " active" : ""}" data-m="pin" title="${p.pinned ? "Unpin this note" : "Pin this note to the top of the list"}">${UI_ICON.pin}<span>${p.pinned ? "Pinned" : "Pin"}</span></button>
+      <button class="fe-pbn fe-chip-btn${p.color ? " active" : ""}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ? p.color[0].toUpperCase() + p.color.slice(1) : "Colour"}</span></button>
       ${p.tags.map((t) => `<span class="fe-chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="fe-chip-x" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
-      <button class="fe-pbn fe-chip-btn" data-m="tag" title="Add a tag">${UI_ICON.add}<span>tag</span></button>`;
+      <button class="fe-pbn fe-chip-btn" data-m="tag" title="Add a tag">${UI_ICON.add}<span>Tag</span></button>`;
       const btn = host.querySelector("#fe-meta-title");
       btn?.addEventListener("click", () => {
         const box = document.createElement("textarea");
@@ -3120,11 +3127,11 @@ ${body}
         <span id="fe-ql-meta"></span>
         <button id="fe-ql-copy" title="Copy full file contents to clipboard" disabled>
           <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
-          <span>copy</span>
+          <span>Copy</span>
         </button>
-        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">${UI_ICON.external}<span>open raw</span></a>
-        <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>open</span></button>
-        <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>tab</span></button>
+        <a id="fe-ql-open" target="_blank" rel="noopener" title="Open raw file in a new tab">${UI_ICON.external}<span>Open raw</span></a>
+        <button id="fe-ql-go" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
+        <button id="fe-ql-tab" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
         <button id="fe-ql-dock" data-icon title="Dock the preview to the side">
           <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
         </button>
@@ -3352,8 +3359,8 @@ ${body}
   function editHeader(status) {
     if (!edit) return;
     const nameEl = document.getElementById("fe-ql-name");
-    nameEl.innerHTML = midHtml((edit.dirty ? "\u25CF " : "") + noteTitle(edit.rel, edit.text));
-    document.getElementById("fe-ql-meta").textContent = `${edit.rel} \xB7 ${status}`;
+    nameEl.hidden = true;
+    document.getElementById("fe-ql-meta").textContent = `${edit.dirty ? "\u25CF " : ""}${edit.rel} \xB7 ${status}`;
   }
   var stripFrontMatter = (t) => t.replace(/^---\n[\s\S]*?\n---\n?/, "");
   function discardEditor() {
@@ -3399,11 +3406,11 @@ ${body}
       <button class="fe-pbn" data-icon data-act="table" title="Insert a table">${UI_ICON.table}</button>
       <button class="fe-pbn" data-icon data-act="image" title="Insert an image (or paste / drop one)">${UI_ICON.image}</button>
       <span class="fe-ed-sep" aria-hidden="true"></span>
-      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>versions</span></button>
-      ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>prev</span></button>
-      <button class="fe-pbn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>next</span></button>
-      <button class="fe-pbn" data-act="rename" title="Rename this note in the sidebar (F2 there)">${UI_ICON.rename}<span>rename</span></button>
-      <button class="fe-pbn" data-act="delete" title="Move this note to .trash">${UI_ICON.trash}<span>delete</span></button>` : ""}
+      <button class="fe-pbn" data-act="versions" title="Every save of this note, from the folder's git history">${UI_ICON.versions}<span>Versions</span></button>
+      ${actions ? `<button class="fe-pbn" data-act="prev" title="Previous note in the list (\u2325\u2318\u2191)">${UI_ICON.prev}<span>Previous</span></button>
+      <button class="fe-pbn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>Next</span></button>
+      <button class="fe-pbn" data-act="rename" title="Rename this note in the sidebar (F2 there)">${UI_ICON.rename}<span>Rename</span></button>
+      <button class="fe-pbn" data-act="delete" title="Move this note to .trash">${UI_ICON.trash}<span>Delete</span></button>` : ""}
       <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
       <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
     </div>
@@ -3711,7 +3718,10 @@ ${body}
         } catch {
         }
       }
-      if (edit === st) editHeader(st.dirty ? "unsaved" : "saved " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      if (edit === st) {
+        editHeader(st.dirty ? "unsaved" : "saved " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+        st.redrawMeta?.();
+      }
       st.onSaved?.(st.rel);
     } catch (err) {
       const e = err;
@@ -3757,6 +3767,7 @@ ${body}
     const ext2 = getExt(e);
     document.getElementById("fe-ql-icon").innerHTML = getIcon(e, deps.iconRules());
     const nameEl = document.getElementById("fe-ql-name");
+    nameEl.hidden = false;
     nameEl.textContent = e.name;
     nameEl.href = e.href;
     document.getElementById("fe-ql-meta").textContent = [kindName(ext2), e.rawBytes >= 0 ? fmtSize(e.rawBytes) : ""].filter(Boolean).join(" \xB7 ");
@@ -4825,14 +4836,15 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-qlook.side .fe-ed-hint{display:none}
 #fe-ql-name{font-weight:600;font-size:var(--fs-lg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
 #fe-ql-name:hover{color:var(--ac);text-decoration:underline}
-#fe-ql-meta{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap}
+#fe-ql-meta{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#fe-ql-name{min-width:0;flex-shrink:1}
 #fe-ql-body{flex:1;overflow:auto;font-size:var(--fs-md)}
 #fe-ql-body:has(> .fe-ql-htmlbar){display:flex;flex-direction:column}
 .fe-ql-htmlbar{display:flex;gap:4px;padding:6px 10px;border-bottom:1px solid var(--bd);flex:none}
 .fe-ql-html{flex:1;min-height:0;width:100%;border:0;background:#fff}
 /* The preview panel reads at the same reader sizes as the file page; dialogs keep the base size. */
 #fe-ql-body .fe-md{font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
-#fe-ql-ai{display:flex;align-items:center;gap:6px;padding:7px 14px;
+#fe-ql-ai{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 14px;
   border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0}
 #fe-ql-ai-chip{display:flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:var(--dm);
   margin-right:4px;white-space:nowrap}
@@ -4840,7 +4852,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe-ql-ai-chip.ready .dot{background:var(--green)}
 #fe-ql-ai-chip.cold .dot{background:var(--gold)}
 #fe-ql-ai-chip.down .dot{background:#f85149}
-#fe-ql-ai-q{flex:1;min-width:80px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
+#fe-ql-ai-q{flex:1;min-width:140px;background:var(--bg);border:1px solid var(--bd);color:var(--tx);
   padding:4px 9px;border-radius:5px;font-size:var(--fs-md);outline:none;transition:border-color .15s}
 #fe-ql-ai-q:focus{border-color:var(--ac)}
 #fe-ql-ai-q:disabled{opacity:.45}
@@ -5127,7 +5139,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-pl-item .fe-rm-btn:hover{color:var(--nc-red)}
 .fe-pl-item:has(.fe-pl-hit){flex-wrap:wrap}
 .fe-pl-hit{flex-basis:100%;padding:0 0 5px 29px;margin-top:-4px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#fe-sv-card{position:fixed;z-index:60;width:230px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--pop-bd);border-radius:10px;
+#fe-sv-card{position:fixed;z-index:60;pointer-events:none;width:230px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--pop-bd);border-radius:10px;
   background:var(--pop-bg);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);font-size:var(--fs-sm);color:var(--mt);line-height:1.45;animation:fe-rise var(--t-fast) var(--ease)}
 #fe-sv-card[hidden]{display:none}
 #fe-sv-card b{color:var(--tx);font-size:var(--fs-md);font-weight:600;overflow-wrap:anywhere}
@@ -5155,7 +5167,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-grp:hover{background:var(--hover);color:var(--tx)}
 .fe-nt-grp .fe-grp-n{letter-spacing:0}
 .fe-nt-grp svg{width:12px;height:12px;flex:none;transition:transform var(--t-fast) var(--ease)}
-.fe-nt-grp[aria-expanded="false"] > svg:last-child{transform:rotate(-90deg)}
+.fe-nt-grp[aria-expanded="false"] > svg:first-child{transform:rotate(-90deg)}
 .fe-nt-grp-pin{display:inline-flex;color:var(--gold)}
 .fe-nt-grp-pin svg{width:12px;height:12px}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
@@ -13403,9 +13415,10 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       const src = o.text().slice(span.start, span.end);
       if (!draft || draft.start !== span.start || draft.end !== span.end) {
         typed.delete("new");
-        if (parked && parked.start === span.start && parked.end === span.end) typed.set("new", parked.text);
+        const kept = parked.get(spanKey(span));
+        if (kept !== void 0) typed.set("new", kept);
       }
-      parked = null;
+      parked.delete(spanKey(span));
       draft = { ...span, quote: visibleOf(src) || src, attach };
       if (!attach) active = "";
       window.getSelection()?.removeAllRanges();
@@ -13416,11 +13429,16 @@ ${(c.text || "").split("\n").map((l) => "    " + l).join("\n")}`),
       o.box.querySelector(".fe-cm-new")?.scrollIntoView({ block: "nearest" });
       (o.box.querySelector('textarea[data-for="new"]') ?? o.box.querySelector('[data-a="post"]'))?.focus();
     };
-    let parked = null;
+    const parked = /* @__PURE__ */ new Map();
+    const spanKey = (s) => `${s.start}:${s.end}`;
     const cancelDraft = (keep = false) => {
       const raw = o.box.querySelector('textarea[data-for="new"]')?.value ?? typed.get("new") ?? "";
-      parked = keep && draft && !draft.attach && raw.trim() ? { start: draft.start, end: draft.end, text: raw } : null;
-      if (parked) o.status("Comment put away. Select the same words and press c to pick it up");
+      if (draft && !draft.attach) {
+        if (keep && raw.trim()) {
+          parked.set(spanKey(draft), raw);
+          o.status("Comment put away. Select the same words and press c to pick it up");
+        } else parked.delete(spanKey(draft));
+      }
       draft = null;
       typed.delete("new");
       paint();
@@ -14616,6 +14634,13 @@ ${d.message}` : d.message;
     const closeMenu = () => {
       menu.style.display = "none";
     };
+    el2.addEventListener("contextmenu", (e) => {
+      const a = e.target.closest(".fe-tab[data-id]");
+      const t = a && state.list.find((x) => x.id === a.dataset.id);
+      if (!t) return;
+      e.preventDefault();
+      openMenu2(t, a);
+    });
     function openMenu2(t, anchor) {
       const saved = getSaved().some((p) => p.path === t.path);
       menu.innerHTML = [
@@ -14681,7 +14706,7 @@ ${d.message}` : d.message;
     function tabHtml(t, i, on, label) {
       const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : `<span class="fe-tab-ico">${icoFolder(t.label)}</span>`;
       const tip = `${t.path}
-${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins)" : "middle-click closes"} \xB7 drag reorders`;
+${i < 9 ? `${i + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins, right-click for more)" : "middle-click closes"} \xB7 drag reorders`;
       return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}"${on ? ' aria-current="page"' : ""} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}${lblHtml(label)}
       <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">\u2026</button>
@@ -14920,16 +14945,16 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 
 The **\u2261** button at the top left shows or hides the sidebar, and dragging the
 sidebar's right edge resizes it. To scale the whole interface, sidebar and text
-included, set **Interface size** in **Settings \u2192 Appearance**.
+included, set **Interface size** in **Settings \u2192 Look**.
 
 ## Finding files
 
-- **Quick filter** \u2014 type in the **Filter** box (top-right), or press **\u2318F** to jump to it. Press **\u2318F** again to fall through to Chrome's own find.
-- **Text inside files** \u2014 open the **Filter** panel; the second row reads text files allowed by the name and type fields, up to 2 MB each. **Text regex** changes only content matching. Results show a first-match snippet and match count. **Run** or Enter starts a scan; **Cancel** keeps a labelled partial result. Changing the query stops the old scan. **Save view** keeps these fields in a Saved link.
-- **Deep search** \u2014 the folder button beside the filter box includes subfolders. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8).
-- **Sort** \u2014 click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
-- **Filter** panel \u2014 match names by text or regex, or show only folders / files / one extension.
-- **Hidden files** \u2014 the eye button toggles dotfiles and the .bfb.json comment files beside documents. A document with open comments shows their count on its row.
+- **Quick filter**: type in the **Filter** box (top-right), or press **\u2318F** to jump to it. Press **\u2318F** again to fall through to Chrome's own find.
+- **Text inside files**: open the **Filter** panel; the second row reads text files allowed by the name and type fields, up to 2 MB each. **Text regex** changes only content matching. Results show a first-match snippet and match count. **Run** or Enter starts a scan; **Cancel** keeps a labelled partial result. Changing the query stops the old scan. **Save view** keeps these fields in a Saved link.
+- **Deep search**: the folder button beside the filter box includes subfolders. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8).
+- **Sort**: click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
+- **Filter** panel: match names by text or regex, or show only folders / files / one extension.
+- **Hidden files**: the eye button toggles dotfiles and the .bfb.json comment files beside documents. A document with open comments shows their count on its row.
 
 ## Selecting & opening
 
@@ -14937,12 +14962,12 @@ included, set **Interface size** in **Settings \u2192 Appearance**.
 - **\u2325-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab. Both work on sidebar rows and path segments too. A click on a sidebar row opens it as a strip tab, switching to the tab that already has it.
 - **\u2191 / \u2193** move the selection, **Enter** opens, **Backspace** or **\u2318\u2191** goes up.
 - **Multi-select**: **shift-click** or **\u2318/Ctrl-click** toggles a row, **\u21E7\u2318-click** selects a range, **\u2318A** selects all. **\u2318C** copies the selected paths.
-- **Right-click** an item for Copy path, Copy name, Open in terminal \u2014 plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
+- **Right-click** an item for Copy path, Copy name, Open in terminal, plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
 
 ## Breadcrumbs
 
 Click any path segment to jump there. The chevron button next to a segment opens a
-dropdown of that folder's contents with its own filter box \u2014 type to narrow,
+dropdown of that folder's contents with its own filter box; type to narrow,
 **Enter** opens the first match. Inside your home folder the path starts at **~**;
 **\u2026** holds the folders above it and any that folded away for room.
 
@@ -14985,7 +15010,7 @@ and the new words beside them: **Accept** replaces just those words in the file
     { key: "preview", label: "Preview and Notes", hint: "panel, editor, AI", md: `
 ## File preview (Quick Look)
 
-Click a file, or select it and press **Space**, to open a preview \u2014 **Space**
+Click a file, or select it and press **Space**, to open a preview. **Space**
 again, or **Esc**, closes it. **\u2191 / \u2193** (or **\u2190 / \u2192**) step between previewable
 files; the **copy** button copies the raw contents. Files over 8 MB ask before
 loading.
@@ -15094,7 +15119,7 @@ mouse wheel over the row steps through them, and the choice is remembered.
   document with comments.
 
 Click a list's title to collapse it. Collapse choices survive a reload.
-**Settings \u2192 Appearance** can switch History off.
+**Settings \u2192 Folders** can switch History off.
 ` },
     { key: "how", label: "How it works", hint: "the model, storage, what runs where", md: `
 ## The model
@@ -15122,7 +15147,7 @@ tabs sit above browser bookmarks.
 
 ## Where your state lives
 
-Everything is stored on your machine, in the browser, and nothing leaves it.
+Everything is stored on your machine, in the browser. Nothing leaves it unless you ask a Gemini model in Ask, which sends that question and the file or folder listing to Google.
 
 - **Settings, the Saved list, tags, view, theme and reader sizes** live in
   the extension's own storage (\`chrome.storage.local\`) under \`bfb-\` keys, so
@@ -15623,7 +15648,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           "Editing",
           stRow("Editable folders", "Text files inside these get an Edit button (e)", `<input type="text" id="fe-st-edit-roots" class="fe-st-input" placeholder="~/Code, ~/Documents/notes" spellcheck="false" title="Folders separated by commas; ~ means home">`) + stNote("Each save keeps a 14-day backup in ~/Library/Application Support/BetterFileBrowser.")
         ) },
-        { key: "ai", label: "AI", hint: "Local model", icon: UI_ICON.ai, tone: "var(--nc-purple)", desc: "The model on this Mac that answers questions in Ask.", body: stCard(
+        { key: "ai", label: "AI", hint: "Models for Ask", icon: UI_ICON.ai, tone: "var(--nc-purple)", desc: "The model that answers questions in Ask: one on this Mac, or Gemini, which runs on Google's servers.", body: stCard(
           "Local model",
           `
           <div id="fe-st-ai-card">
@@ -15651,7 +15676,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       id: "fe-help-modal",
       mark: PI.help,
       title: "Help",
-      subtitle: "Everything runs on your machine",
+      subtitle: "What is here and how to use it",
       tabs: HELP_TABS.map((t) => ({ key: t.key, label: t.label, hint: t.hint, body: `<div class="fe-md">${renderMarkdown(t.md)}</div>` }))
     };
     const PAGE_HTML = `
@@ -17847,7 +17872,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const home = homeDir(rawPath);
       const where = isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path;
-      card.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<button type="button" class="fe-chip fe-lens-tag" data-tag="${esc(t)}" title="Show only items tagged ${esc(t)}"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</button>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
+      card.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="fe-chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
       const r = item.getBoundingClientRect();
       card.hidden = false;
       const h = card.offsetHeight, w = card.offsetWidth;
@@ -17884,19 +17909,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     svList.addEventListener("pointerleave", () => {
       if (cardTimer) clearTimeout(cardTimer);
       cardTimer = setTimeout(hideCard, 200);
-    });
-    card.addEventListener("pointerenter", () => {
-      if (cardTimer) {
-        clearTimeout(cardTimer);
-        cardTimer = null;
-      }
-    });
-    card.addEventListener("pointerleave", () => {
-      cardTimer = setTimeout(hideCard, 150);
-    });
-    card.addEventListener("click", (e) => {
-      const chip = e.target.closest(".fe-lens-tag");
-      if (chip) toggleTagFilter(chip.dataset.tag);
     });
     svList.addEventListener("scroll", hideCard, true);
     svList.addEventListener("pointerdown", hideCard);
@@ -18124,7 +18136,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const folded = noteFolds();
       const group = (key, label, list) => {
         const open = !folded.has(key) || !!ntFilter.value.trim();
-        return `<button type="button" class="fe-nt-grp" data-grp="${key}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list.length}</span>${CHEVRON_DOWN}</button>` + (open ? list.map(row).join("") : "");
+        return `<button type="button" class="fe-nt-grp" data-grp="${key}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${CHEVRON_DOWN}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list.length}</span></button>` + (open ? list.map(row).join("") : "");
       };
       ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row).join("") : allNotes.length ? `<div class="fe-hint">No note matches "${esc(ntFilter.value.trim())}".</div>` : `<div class="fe-hint">No notes yet.<br>Press n or + to write one.</div>`;
       attachNoteEvents(root);
@@ -18305,23 +18317,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           return;
         }
         notes.read(root, rel).then(async (doc) => {
-          const titled = setTitle(doc.text, val);
-          let now = rel;
-          if (titled !== null) await notes.write(root, rel, titled, doc.mtime);
-          else {
-            const to = rel.replace(/[^/]+$/, slugForTitle(val));
-            if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some((n) => n.rel.toLowerCase() === to.toLowerCase())) {
-              toast(`A note named ${to.split("/").pop()} already exists. Pick another title.`);
-              back();
-              return;
-            }
-            if (to !== rel) {
-              await notes.rename(root, rel, to);
-              now = to;
-            }
-            const lined = setFirstLine(doc.text, val);
-            if (lined !== null) await notes.write(root, now, lined, doc.mtime);
+          const to = rel.replace(/[^/]+$/, slugForTitle(val));
+          if (to.toLowerCase() !== rel.toLowerCase() && allNotes.some((n) => n.rel.toLowerCase() === to.toLowerCase())) {
+            toast(`A note named ${to.split("/").pop()} already exists. Pick another title.`);
+            back();
+            return;
           }
+          let now = rel;
+          if (to !== rel) {
+            await notes.rename(root, rel, to);
+            now = to;
+          }
+          const titled = retitle(doc.text, val);
+          if (titled !== null) await notes.write(root, now, titled, doc.mtime);
           refreshNotes();
           if (reopen) openNoteRel(root, now);
         }).catch((err) => toast(err.message));
@@ -18512,7 +18520,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         el("fe-st-notes-root").focus();
         return;
       }
-      const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[-:T]/g, "").slice(0, 14);
+      const d = /* @__PURE__ */ new Date(), two = (n) => String(n).padStart(2, "0");
+      const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
       const rel = `untitled-${stamp}.md`;
       notes.create(root, rel, "").then(() => openNoteRel(root, rel)).catch((err) => toast(err.message));
     };
@@ -19471,6 +19480,7 @@ ${rows.join("\n")}`, name: subject };
   }
 
   // src/docs-lens.ts
+  var browsedPath = (p) => p.replace(/^\/private\/(var|tmp|etc)(?=\/|$)/, "/$1");
   var forMe = (r) => (r.mentions ?? []).some((m) => m === "user" || m === "owner");
   function docRows(rows, f = { q: "", me: false, due: false }) {
     const q = f.q.trim().toLowerCase();
@@ -19516,7 +19526,7 @@ ${rows.join("\n")}`, name: subject };
       </button>`).join("");
     };
     const load = () => notes.docsIndex().then((rows) => {
-      all = rows;
+      all = rows.map((r) => ({ ...r, doc: browsedPath(r.doc) }));
       paint();
     }).catch((err) => {
       top.hidden = true;

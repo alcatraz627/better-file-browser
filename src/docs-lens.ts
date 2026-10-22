@@ -11,6 +11,11 @@ import { UI_ICON } from './control-icons';
 export interface DocRow { doc: string; name: string; open: number; done: number; due?: string[]; mentions?: string[]; tags?: string[]; exists?: boolean; updated?: string }
 export interface DocFilter { q: string; me: boolean; due: boolean; tag?: string }
 
+// The index stores resolved paths, and macOS resolves /var, /tmp and /etc to
+// /private/…; a person browses the short form, so the lens uses it too, or a
+// document opened from here becomes a second tab beside the one already open.
+export const browsedPath = (p: string) => p.replace(/^\/private\/(var|tmp|etc)(?=\/|$)/, '/$1');
+
 const forMe = (r: DocRow) => (r.mentions ?? []).some(m => m === 'user' || m === 'owner');
 
 /** The rows the lens shows: documents still on disk that match the filter, open ones first, then by name. */
@@ -58,7 +63,7 @@ export function initDocsLens(box: HTMLElement, home: string, go: (path: string, 
         <span class="fe-doc-n${r.open ? '' : ' done'}" title="${r.open} open, ${r.done} done">${r.open || UI_ICON.check}</span>
       </button>`).join('');
   };
-  const load = () => notes.docsIndex().then(rows => { all = rows; paint(); }).catch(err => {
+  const load = () => notes.docsIndex().then(rows => { all = rows.map(r => ({ ...r, doc: browsedPath(r.doc) })); paint(); }).catch(err => {
     top.hidden = true;
     rowsBox.innerHTML = `<div class="fe-cm-empty"><p>Comments could not be listed</p><p class="fe-cm-hint">${esc((err as Error).message)}</p></div>`;
   });

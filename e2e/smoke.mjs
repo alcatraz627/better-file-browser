@@ -918,6 +918,13 @@ try {
   await page.waitForSelector('#fe');
   check(page.url().endsWith('/nested/') && await barIsActiveTab(page), `[ wraps to the last tab by real navigation: ${page.url()}`);
 
+  await page.click('#fe-tabs .fe-tab.pinned', { button: 'right' });
+  await page.waitForSelector('.fe-tab-menu[style*="block"]', { timeout: 3_000 }).catch(() => null);
+  const pinnedMenu = await page.$$eval('.fe-tab-menu .fe-ctx-item', els => els.map(e => e.firstChild.textContent));
+  check(pinnedMenu.includes('Unpin') && pinnedMenu.includes('Copy path'), `right-click on a pinned tab opens its menu, with Unpin: ${JSON.stringify(pinnedMenu)}`);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.fe-tab-menu[style*="block"]'), { timeout: 3_000 }).catch(() => null);
+
   await page.hover('#fe-tabs .fe-tab:nth-child(2)');
   await page.click('#fe-tabs .fe-tab:nth-child(2) .fe-tab-more');
   await page.waitForSelector('.fe-tab-menu[style*="block"]', { timeout: 3_000 }).catch(() => null);

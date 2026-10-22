@@ -84,10 +84,11 @@ try {
   await sleep(500);
   check(await page.$eval('#fe-bc-edit input', i => i.hasAttribute('aria-invalid')), 'a path that is not there is marked and the box stays');
   // A real folder the browser cannot read is refused too, so the tab never lands on Chrome's error page.
+  // Its read hangs rather than failing, so the app gives up after 9 seconds.
   await page.$eval('#fe-bc-edit input', i => { i.value = ''; i.removeAttribute('aria-invalid'); });
   await page.keyboard.type('/var/root');
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => document.querySelector('#fe-bc-edit input')?.hasAttribute('aria-invalid') || !document.querySelector('#fe-bc-edit'), { timeout: 8000 }).catch(() => null);
+  await page.waitForFunction(() => document.querySelector('#fe-bc-edit input')?.hasAttribute('aria-invalid') || !document.querySelector('#fe-bc-edit'), { timeout: 12000 }).catch(() => null);
   await sleep(300);
   const denied = await page.evaluate(() => ({ marked: document.querySelector('#fe-bc-edit input')?.hasAttribute('aria-invalid'), app: !!document.getElementById('fe'), url: location.href }));
   check(denied.marked && denied.app && !denied.url.includes('/var/root'), `a folder the browser cannot read is marked and not opened: ${JSON.stringify(denied)}`);

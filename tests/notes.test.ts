@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, retitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes } from '../src/notes';
 
 describe('clash', () => {
   const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
@@ -56,6 +56,15 @@ describe('front matter', () => {
     expect(setFirstLine('', 'N')).toBeNull();
     expect(setFirstLine('  \n', 'N')).toBeNull();
     expect(noteTitle('a.md', setFirstLine('# Old\nbody', 'Fresh title')!)).toBe('Fresh title');
+  });
+  it('retitle changes the title where the note keeps it', () => {
+    expect(retitle('---\ntitle: "Old"\npinned: true\n---\nbody', 'New')).toBe('---\ntitle: "New"\npinned: true\n---\nbody');
+    expect(retitle('---\npinned: true\n---\n# Old\nbody', 'New')).toBe('---\npinned: true\n---\n# New\nbody');
+    expect(retitle('---\npinned: true\n---\nGroceries\n- milk', 'Shop')).toBe('---\npinned: true\n---\n# Shop\n\nGroceries\n- milk');
+    expect(retitle('---\npinned: true\n---\n', 'Shop')).toBe('---\ntitle: "Shop"\npinned: true\n---\n');
+    expect(retitle('plain', 'N')).toBe('# N\n\nplain');
+    expect(retitle('', 'N')).toBeNull();
+    expect(noteTitle('a.md', retitle('---\ncolor: red\n---\nOld line', 'Fresh')!)).toBe('Fresh');
   });
   it('noteTitle reads back what setTitle writes, and single-quoted YAML titles', () => {
     const t = 'a "b" c \\ d';

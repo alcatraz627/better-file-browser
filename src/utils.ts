@@ -16,7 +16,7 @@ export function fileHref(path: string): string {
 
 // Chrome downloads these instead of showing them, so the explorer opens them
 // inside their folder's page (folder/#view=name) and renders them there.
-export const DOWNLOAD_EXTS = new Set(['yaml', 'yml', 'sql', 'csv', 'xml']);
+export const DOWNLOAD_EXTS = new Set(['yaml', 'yml', 'sql', 'csv', 'tsv', 'xml']);
 
 /** The address that shows a file in the explorer: its own URL, or its folder's view route for a download type. */
 export function pageHref(href: string): string {

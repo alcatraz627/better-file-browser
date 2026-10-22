@@ -59,7 +59,8 @@ A folder always navigates.
 | middle-click | close | nothing | nothing |
 | `⌘`/`⇧`-click | browser tab or window | same | same |
 | drag | reorder within the block | none | reorder among pinned |
-| hover `…` | menu: copy path, save, pin, close, close others | none | same |
+| hover `…` | menu: copy path, save, pin, close, close others | none | no `…` |
+| right-click | the same menu | none | the same menu, with Unpin |
 | hover `✕` | close | none | no `✕` |
 
 `w` on a pinned or temporary tab does nothing. `p` on a temporary tab keeps and
@@ -98,7 +99,7 @@ panel when a note is opened as a reading tab.
 | terminal | open here; `⇧`-click copies the command instead |
 | sun / moon | toggle the theme |
 | `?` gear | Help, Settings |
-| view buttons | Details, List, Tiles, Icons |
+| view buttons | Details, List, Tree, Tiles, Icons |
 | Sort, Filter | open the panel |
 | column header / edge | sort / drag to resize |
 | eye | show hidden files |
@@ -205,7 +206,6 @@ itself every couple of seconds and re-renders when the file changes on disk.
   terminal, and the breadcrumb dropdown. Tab reaches them, the sidebar's lens
   row, filters and rows, and the floating preview's buttons (Tab stays inside
   the preview while it is open). The context menu is right-click only.
-- The toast message is always dark, in both themes.
 - A saved bookmark to a file whose name contains a `#` may be read as a search
   view rather than opened.
 - There is no drag and drop to move or copy files; dragging reorders tabs and

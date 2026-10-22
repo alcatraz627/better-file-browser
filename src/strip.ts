@@ -145,6 +145,15 @@ export function mountStrip(host: StripHost): Strip {
   menu.style.display = 'none';
   (el.closest('#fe') ?? document.body).appendChild(menu);
   const closeMenu = () => { menu.style.display = 'none'; };
+  // Right-click on any tab opens its menu; a pinned tab has no "…" button,
+  // so this is how it reaches Copy path, Save, Unpin and Close others.
+  el.addEventListener('contextmenu', e => {
+    const a = (e.target as Element).closest<HTMLElement>('.fe-tab[data-id]');
+    const t = a && state.list.find(x => x.id === a.dataset.id);
+    if (!t) return;
+    e.preventDefault();
+    openMenu(t, a!);
+  });
   function openMenu(t: Tab, anchor: HTMLElement): void {
     const saved = getSaved().some(p => p.path === t.path);
     menu.innerHTML = [
@@ -209,7 +218,7 @@ export function mountStrip(host: StripHost): Strip {
     const ico = t.kind === 'file'
       ? `<span class="fe-tab-ico">${icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '')}</span>`
       : `<span class="fe-tab-ico">${icoFolder(t.label)}</span>`;
-    const tip = `${t.path}\n${i < 9 ? `${i + 1} jumps · ` : ''}click switches · ${t.pinned ? 'pinned (p unpins)' : 'middle-click closes'} · drag reorders`;
+    const tip = `${t.path}\n${i < 9 ? `${i + 1} jumps · ` : ''}click switches · ${t.pinned ? 'pinned (p unpins, right-click for more)' : 'middle-click closes'} · drag reorders`;
     return `<a class="fe-tab${on ? ' on' : ''}${t.pinned ? ' pinned' : ''}"${on ? ' aria-current="page"' : ''} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
       ${ico}${lblHtml(label)}
       <button class="fe-tab-more" data-id="${esc(t.id)}" title="Copy path · save · pin · close others">…</button>

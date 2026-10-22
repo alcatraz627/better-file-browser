@@ -462,9 +462,10 @@ export function mountComments(o: {
     // carries over, except a draft put away with Esc on these same words.
     if (!draft || draft.start !== span.start || draft.end !== span.end) {
       typed.delete('new');
-      if (parked && parked.start === span.start && parked.end === span.end) typed.set('new', parked.text);
+      const kept = parked.get(spanKey(span));
+      if (kept !== undefined) typed.set('new', kept);
     }
-    parked = null;
+    parked.delete(spanKey(span));
     draft = { ...span, quote: visibleOf(src) || src, attach };
     if (!attach) active = '';
     window.getSelection()?.removeAllRanges();
@@ -475,13 +476,19 @@ export function mountComments(o: {
     (o.box.querySelector<HTMLElement>('textarea[data-for="new"]') ?? o.box.querySelector<HTMLElement>('[data-a="post"]'))?.focus();
   };
   // Esc puts a typed comment away rather than throwing it out; selecting the
-  // same words again brings it back. Cancel discards it.
-  let parked: { start: number; end: number; text: string } | null = null;
+  // same words again brings it back, even after commenting on other words in
+  // between. Cancel discards it.
+  const parked = new Map<string, string>();
+  const spanKey = (s: { start: number; end: number }) => `${s.start}:${s.end}`;
   const cancelDraft = (keep = false) => {
     // The box's own value: what was typed may not have been copied out yet.
     const raw = o.box.querySelector<HTMLTextAreaElement>('textarea[data-for="new"]')?.value ?? typed.get('new') ?? '';
-    parked = keep && draft && !draft.attach && raw.trim() ? { start: draft.start, end: draft.end, text: raw } : null;
-    if (parked) o.status('Comment put away. Select the same words and press c to pick it up');
+    if (draft && !draft.attach) {
+      if (keep && raw.trim()) {
+        parked.set(spanKey(draft), raw);
+        o.status('Comment put away. Select the same words and press c to pick it up');
+      } else parked.delete(spanKey(draft));
+    }
     draft = null; typed.delete('new'); paint(); redraw();
   };
   const post = async () => {

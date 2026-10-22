@@ -34,16 +34,16 @@ Switch layout from the toolbar: **Details** (table), **List** (compact),
 
 The **≡** button at the top left shows or hides the sidebar, and dragging the
 sidebar's right edge resizes it. To scale the whole interface, sidebar and text
-included, set **Interface size** in **Settings → Appearance**.
+included, set **Interface size** in **Settings → Look**.
 
 ## Finding files
 
-- **Quick filter** — type in the **Filter** box (top-right), or press **⌘F** to jump to it. Press **⌘F** again to fall through to Chrome's own find.
-- **Text inside files** — open the **Filter** panel; the second row reads text files allowed by the name and type fields, up to 2 MB each. **Text regex** changes only content matching. Results show a first-match snippet and match count. **Run** or Enter starts a scan; **Cancel** keeps a labelled partial result. Changing the query stops the old scan. **Save view** keeps these fields in a Saved link.
-- **Deep search** — the folder button beside the filter box includes subfolders. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8).
-- **Sort** — click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
-- **Filter** panel — match names by text or regex, or show only folders / files / one extension.
-- **Hidden files** — the eye button toggles dotfiles and the .bfb.json comment files beside documents. A document with open comments shows their count on its row.
+- **Quick filter**: type in the **Filter** box (top-right), or press **⌘F** to jump to it. Press **⌘F** again to fall through to Chrome's own find.
+- **Text inside files**: open the **Filter** panel; the second row reads text files allowed by the name and type fields, up to 2 MB each. **Text regex** changes only content matching. Results show a first-match snippet and match count. **Run** or Enter starts a scan; **Cancel** keeps a labelled partial result. Changing the query stops the old scan. **Save view** keeps these fields in a Saved link.
+- **Deep search**: the folder button beside the filter box includes subfolders. Names show their path from this folder, so **src/main.ts** matches **main**. The scan skips node_modules, .git and dot-folders (unless hidden files are shown), stops at 5000 items, and uses the selected depth limit (1, 2, 4, or 8).
+- **Sort**: click a column header, or open the **Sort** panel to sort by name, size, type, extension, or modified date, and to **group** (folders-first, files-first, by extension, or by type).
+- **Filter** panel: match names by text or regex, or show only folders / files / one extension.
+- **Hidden files**: the eye button toggles dotfiles and the .bfb.json comment files beside documents. A document with open comments shows their count on its row.
 
 ## Selecting & opening
 
@@ -51,12 +51,12 @@ included, set **Interface size** in **Settings → Appearance**.
 - **⌥-click** keeps a folder or file as a strip tab, in the background. **Middle-click** opens it in a new Chrome tab. Both work on sidebar rows and path segments too. A click on a sidebar row opens it as a strip tab, switching to the tab that already has it.
 - **↑ / ↓** move the selection, **Enter** opens, **Backspace** or **⌘↑** goes up.
 - **Multi-select**: **shift-click** or **⌘/Ctrl-click** toggles a row, **⇧⌘-click** selects a range, **⌘A** selects all. **⌘C** copies the selected paths.
-- **Right-click** an item for Copy path, Copy name, Open in terminal — plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
+- **Right-click** an item for Copy path, Copy name, Open in terminal, plus Preview for previewable files. With several items selected, the menu offers bulk Copy paths / Copy names.
 
 ## Breadcrumbs
 
 Click any path segment to jump there. The chevron button next to a segment opens a
-dropdown of that folder's contents with its own filter box — type to narrow,
+dropdown of that folder's contents with its own filter box; type to narrow,
 **Enter** opens the first match. Inside your home folder the path starts at **~**;
 **…** holds the folders above it and any that folded away for room.
 
@@ -99,7 +99,7 @@ and the new words beside them: **Accept** replaces just those words in the file
   { key: 'preview', label: 'Preview and Notes', hint: 'panel, editor, AI', md: `
 ## File preview (Quick Look)
 
-Click a file, or select it and press **Space**, to open a preview — **Space**
+Click a file, or select it and press **Space**, to open a preview. **Space**
 again, or **Esc**, closes it. **↑ / ↓** (or **← / →**) step between previewable
 files; the **copy** button copies the raw contents. Files over 8 MB ask before
 loading.
@@ -208,7 +208,7 @@ mouse wheel over the row steps through them, and the choice is remembered.
   document with comments.
 
 Click a list's title to collapse it. Collapse choices survive a reload.
-**Settings → Appearance** can switch History off.
+**Settings → Folders** can switch History off.
 ` },
   { key: 'how', label: 'How it works', hint: 'the model, storage, what runs where', md: `
 ## The model
@@ -236,7 +236,7 @@ tabs sit above browser bookmarks.
 
 ## Where your state lives
 
-Everything is stored on your machine, in the browser, and nothing leaves it.
+Everything is stored on your machine, in the browser. Nothing leaves it unless you ask a Gemini model in Ask, which sends that question and the file or folder listing to Google.
 
 - **Settings, the Saved list, tags, view, theme and reader sizes** live in
   the extension's own storage (\`chrome.storage.local\`) under \`bfb-\` keys, so
