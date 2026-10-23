@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Protocol test for notes_host.py: spawns the host per request the way Chrome
 does, over a temp folder. Run: python3 native/test_notes_host.py"""
-import json, os, struct, subprocess, sys, tempfile
+import json, os, struct, subprocess, sys, tempfile, time
 
 HOST = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'notes_host.py')
 
@@ -320,6 +320,36 @@ os.environ['BFB_DP_BIN'] = os.path.join(stub_dir, 'missing.sh')
 r = call({'op': 'dp', 'verb': 'compose', 'slug': 'my-page'})
 check(r.get('code') == 'dp_unavailable', f'no command installed gives a stable code: {r}')
 del os.environ['BFB_DP_BIN']
+
+# The Decisions lens reads gcc's registry: waiting, answered, never answered, seen.
+reg = tempfile.mkdtemp(prefix='bfb-dpreg-')
+def page(slug, age_days, *dots, cfg=None):
+    d = os.path.join(reg, slug); os.makedirs(d)
+    with open(os.path.join(d, 'config.json'), 'w') as fh: fh.write(cfg if cfg is not None else json.dumps({'title': slug.upper(), 'origin': {'project': 'p'}, 'decisions': [{'id': 'D1'}], 'sections': [{'id': 's1'}, {'id': 's2'}]}))
+    t = time.time() - age_days * 86400
+    os.utime(os.path.join(d, 'config.json'), (t, t))
+    for dot in dots:
+        with open(os.path.join(d, dot), 'w') as fh: fh.write('{}')
+page('old-listed', 30)
+page('old-quiet', 30)
+page('fresh', 1)
+page('done', 2, '.answer.json', '.seen.json')
+page('broken', 3, cfg='{not json')
+os.makedirs(os.path.join(reg, 'not-a-page'))
+with open(os.path.join(reg, '.pending.txt'), 'w') as fh: fh.write('old-listed\n')
+os.environ['BFB_DP_REGISTRY'] = reg
+r = call({'op': 'dpPages'})
+states = {p['slug']: p['state'] for p in r.get('pages', [])}
+check(states == {'old-listed': 'waiting', 'old-quiet': 'never', 'fresh': 'waiting', 'done': 'answered', 'broken': 'broken'},
+      f'pages are waiting when listed or fresh, answered with an answer, never otherwise: {states}')
+check([p['slug'] for p in r['pages']][:3] == ['fresh', 'done', 'broken'], f'newest first: {[p["slug"] for p in r["pages"]]}')
+fresh = next(p for p in r['pages'] if p['slug'] == 'fresh')
+check(fresh['title'] == 'FRESH' and fresh['items'] == 3 and fresh['origin'] == {'project': 'p'} and fresh['seen'] is False, f'a row carries title, item count, origin and seen: {fresh}')
+check(next(p for p in r['pages'] if p['slug'] == 'done')['seen'] is True, 'a page with .seen.json reads as seen')
+os.environ['BFB_DP_REGISTRY'] = os.path.join(reg, 'nowhere')
+r = call({'op': 'dpPages'})
+check(r.get('code') == 'dp_unavailable', f'a missing registry gives a stable code: {r}')
+del os.environ['BFB_DP_REGISTRY']
 
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

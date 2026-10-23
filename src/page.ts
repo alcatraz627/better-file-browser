@@ -109,6 +109,7 @@ export function renderPage(p: PageParams): string {
         ${railBtn('search', 'Search', PI.search, 'Search: find text in the files of this folder')}
         ${railBtn('ask', 'Ask', PI.ask, 'Ask: put a question about this file or folder to the local model')}
         ${railBtn('comments', 'Comments', UI_ICON.comment, 'Comments: every document with comments')}
+        ${railBtn('decisions', 'Decisions', UI_ICON.opinion, 'Decisions: pages an agent asked you to answer')}
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
@@ -151,6 +152,9 @@ export function renderPage(p: PageParams): string {
       </div>
       <div class="fe-lens" id="fe-lens-comments" data-lens="comments" role="tabpanel" aria-labelledby="fe-rail-comments" hidden>
         <div id="fe-docs-list"></div>
+      </div>
+      <div class="fe-lens" id="fe-lens-decisions" data-lens="decisions" role="tabpanel" aria-labelledby="fe-rail-decisions" hidden>
+        <div id="fe-dpl-list"></div>
       </div>
       </div>
     </nav>

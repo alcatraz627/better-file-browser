@@ -41,6 +41,7 @@ import { initTooltips } from './tooltip';
 import { installColumnResize } from './col-resize';
 import { mountGoto, absPath, resolvePath } from './goto';
 import { initDocsLens } from './docs-lens';
+import { initDpLens } from './dp-lens';
 import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
 import { setLinkHome } from './renderers';
@@ -257,6 +258,7 @@ loadKv().catch(() => {}).then(function () {
   // it as a new tab and keeps the one you were on.
   const goTab = (path: string, hash = '') => app.strip.go(path, hash);
   initDocsLens(el('fe-docs-list'), homeDir(rawPath), folderPath, goTab);
+  initDpLens(el('fe-dpl-list'), p => goTab(p));
   // Beside the strip: open a file or folder from the system chooser, or go to a pasted path.
   mountGoto(el('fe-open-path'), () => homeDir(rawPath), (path, background) => { if (!background) { goTab(path); return; } app.strip.open(path, true); app.toast('Kept as a tab'); });
   el('fe-open-pick').addEventListener('click', () => {

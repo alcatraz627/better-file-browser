@@ -102,6 +102,11 @@ export const notes = {
   /// Apply comment operations as the owner; the document itself is never written.
   commentsWrite: (root: string, rel: string, ops: CommentOp[]) => call({ op: 'commentsWrite', root, rel, ops }) as unknown as Promise<CommentsReply>,
   /// Every document with comments, from the bfb-docs index.
+  /// Every page in gcc's decision-page registry with whether it waits on the owner (read only).
+  dpPages: () => call({ op: 'dpPages' }).then(f => (f as unknown as { pages: import('./dp-lens').DpRow[] }).pages ?? []),
+  /// Hand a decision page's answer work (compose, submit, seen, parse) to gcc's own command.
+  dp: (verb: 'compose' | 'submit' | 'seen' | 'parse', slug: string, payload?: unknown) =>
+            call({ op: 'dp', verb, slug, payload }).then(f => (f as unknown as { result: unknown }).result),
   docsIndex: () => call({ op: 'docsIndex' }).then(f => (f as unknown as { docs: import('./docs-lens').DocRow[] }).docs ?? []),
   /// Agent sessions claude-ipc sees as live or idle, for offering @claude:<alias>.
   people: () => call({ op: 'people' }).then(f => (f as unknown as { peers: { alias: string; cwd: string; status: string }[] }).peers ?? []),

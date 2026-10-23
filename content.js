@@ -868,6 +868,10 @@
     /// Apply comment operations as the owner; the document itself is never written.
     commentsWrite: (root, rel, ops) => call({ op: "commentsWrite", root, rel, ops }),
     /// Every document with comments, from the bfb-docs index.
+    /// Every page in gcc's decision-page registry with whether it waits on the owner (read only).
+    dpPages: () => call({ op: "dpPages" }).then((f) => f.pages ?? []),
+    /// Hand a decision page's answer work (compose, submit, seen, parse) to gcc's own command.
+    dp: (verb, slug, payload) => call({ op: "dp", verb, slug, payload }).then((f) => f.result),
     docsIndex: () => call({ op: "docsIndex" }).then((f) => f.docs ?? []),
     /// Agent sessions claude-ipc sees as live or idle, for offering @claude:<alias>.
     people: () => call({ op: "people" }).then((f) => f.peers ?? []),
@@ -1655,6 +1659,7 @@ ${body}`;
     { id: "lens-search", group: "Go", title: "Search", keys: ["g 5"], own: true },
     { id: "lens-ask", group: "Go", title: "Ask", keys: ["g 6"], own: true },
     { id: "lens-docs", group: "Go", title: "Comments", keys: ["g 7"], own: true },
+    { id: "lens-dp", group: "Go", title: "Decisions", keys: ["g 8"], own: true },
     // Listing
     { id: "move", group: "Listing", title: "Move", keys: ["\u2191", "\u2193"], scope: "listing", own: true },
     { id: "extend-up", group: "Listing", title: "Select upward", keys: ["\u21E7\u2191"], scope: "listing", own: true },
@@ -13056,6 +13061,9 @@ ${t}`)) say("Note title saved");
     }
     fe.classList.remove("fe-dp-pending");
     if (!cfg) return null;
+    const slug = app.rawPath.match(/\/decision-pages\/([^/]+)\/$/)?.[1];
+    if (slug) notes.dp("seen", slug).catch(() => {
+    });
     const filesPref = textPref("bfb-dp-files:" + app.rawPath, "", "tab");
     box.innerHTML = headHtml(cfg, base) + `<div id="fe-dp-body">${bodyHtml(cfg, base)}</div>`;
     if (cfg.accent) box.style.setProperty("--ac", cfg.accent);
@@ -13534,16 +13542,23 @@ body{opacity:1!important}
 .fe-rail-btn.on,.fe-rail-btn.on:hover{background:none;color:var(--tx)}
 .fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 .fe-lens[hidden]{display:none}
-.fe-doc-row{display:flex;align-items:center;gap:var(--sp-4);width:calc(100% - 12px);margin:1px var(--sp-3);padding:var(--sp-3) var(--sp-4);border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.fe-doc-row,.fe-dpl-row{display:flex;align-items:center;gap:var(--sp-4);width:calc(100% - 12px);margin:1px var(--sp-3);padding:var(--sp-3) var(--sp-4);border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-doc-tx,.fe-dpl-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
 .fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-doc-name{font-size:var(--row-fs)}
 .fe-docs-top[hidden]{display:none}
 .fe-doc-dir{font-size:var(--fs-sm);color:var(--dm)}
+.fe-dpl-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--row-fs)}
+.fe-dpl-origin{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
 .fe-doc-me{display:inline-flex;color:var(--ac)}
 .fe-doc-me svg{width:13px;height:13px}
 .fe-doc-due{font-size:var(--fs-sm);color:var(--tx);padding:0 var(--sp-3);border-radius:var(--r-full);background:color-mix(in srgb,var(--nc-orange) 16%,transparent)}
-.fe-doc-n{flex:none}
+.fe-doc-n,.fe-dpl-n{flex:none}
+.fe-dpl-age{flex:none;font-size:var(--fs-sm);color:var(--dm)}
+.fe-dpl-row.unseen{background:color-mix(in srgb,var(--gold) 9%,transparent)}
+.fe-dpl-row.unseen .fe-dpl-title{font-weight:600}
+.fe-dpl-row .fe-row-ico{position:relative;display:flex}
+.fe-dpl-dot{position:absolute;top:calc(var(--sp-1) * -1);right:calc(var(--sp-1) * -1);width:var(--sp-3);height:var(--sp-3);border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px var(--side)}
 .fe-row-cm{flex:none}
 #fe-side-rz{width:10px}
 .fe-sec{margin-bottom:var(--sp-2)}
@@ -19501,6 +19516,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         ${railBtn("search", "Search", PI.search, "Search: find text in the files of this folder")}
         ${railBtn("ask", "Ask", PI.ask, "Ask: put a question about this file or folder to the local model")}
         ${railBtn("comments", "Comments", UI_ICON.comment, "Comments: every document with comments")}
+        ${railBtn("decisions", "Decisions", UI_ICON.opinion, "Decisions: pages an agent asked you to answer")}
       </div>
       <div id="fe-lenses">
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
@@ -19543,6 +19559,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       </div>
       <div class="fe-lens" id="fe-lens-comments" data-lens="comments" role="tabpanel" aria-labelledby="fe-rail-comments" hidden>
         <div id="fe-docs-list"></div>
+      </div>
+      <div class="fe-lens" id="fe-lens-decisions" data-lens="decisions" role="tabpanel" aria-labelledby="fe-rail-decisions" hidden>
+        <div id="fe-dpl-list"></div>
       </div>
       </div>
     </nav>
@@ -21608,7 +21627,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const h = homeDir(app.rawPath);
       if (h) go(fileHref(h + "/"));
     }, () => !!homeDir(app.rawPath));
-    const LENSES = [["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"]];
+    const LENSES = [["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"], ["lens-dp", "decisions"]];
     for (const [id, lens] of LENSES) bind(id, () => {
       if (!sidebarShown()) runCommand("sidebar");
       app.showLens?.(lens);
@@ -24372,12 +24391,125 @@ ${rows.join("\n")}`, name: subject };
     });
   }
 
+  // src/dp-lens.ts
+  var BANDS = [
+    { state: "waiting", label: "Waiting on you" },
+    { state: "answered", label: "Answered" },
+    { state: "never", label: "Never answered" },
+    { state: "broken", label: "Cannot be read" }
+  ];
+  function dpBands(rows, q = "") {
+    const n = q.trim().toLowerCase();
+    const hit = (r) => !n || [r.title, r.slug, r.origin?.project, r.origin?.topic].some((v) => v?.toLowerCase().includes(n));
+    return BANDS.map((b) => ({ ...b, rows: rows.filter((r) => r.state === b.state && hit(r)).sort((a, z) => z.mtime - a.mtime) })).filter((b) => b.rows.length);
+  }
+  function ago2(sec, now = Date.now() / 1e3) {
+    const s = Math.max(0, now - sec);
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)} min`;
+    if (s < 86400) return `${Math.floor(s / 3600)} h`;
+    if (s < 86400 * 14) return `${Math.floor(s / 86400)} d`;
+    return `${Math.floor(s / (86400 * 7))} w`;
+  }
+  var originLine = (o) => [o?.project, o?.topic, o?.goal && `goal ${o.goal}`, o?.milestone, o?.card && `card ${o.card}`].filter(Boolean).join(" \xB7 ");
+  function initDpLens(box, go2) {
+    let all = [], q = "", loaded = false, timer2 = null;
+    const folded = /* @__PURE__ */ new Set(["never"]);
+    box.innerHTML = `<div class="bar fe-lens-tools" data-inset hidden>
+      <label class="fe-lens-box"><input id="fe-dpl-q" class="tb" data-size="lg" data-lead="search" type="search" placeholder="Filter" spellcheck="false" autocomplete="off" title="Matches a page's title, name, project and topic. Esc clears."></label>
+    </div><div class="fe-dpl-rows"></div>`;
+    const top = box.querySelector(".fe-lens-tools"), rowsBox = box.querySelector(".fe-dpl-rows");
+    const input = box.querySelector("#fe-dpl-q");
+    const rowHtml = (r) => {
+      const unseen = r.state === "waiting" && !r.seen;
+      const when2 = r.state === "answered" && r.answered ? r.answered : r.mtime;
+      const origin = originLine(r.origin);
+      return `<button type="button" class="row fe-dpl-row${unseen ? " unseen" : ""}" data-path="${esc(r.path)}" data-slug="${esc(r.slug)}" title="${esc(r.title ?? r.slug)}${unseen ? " \xB7 you have not opened this one yet" : ""}">
+        <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ""}</span>
+        <span class="fe-dpl-tx"><span class="fe-dpl-title">${esc(r.title ?? r.slug)}</span>${origin ? `<span class="fe-dpl-origin">${esc(origin)}</span>` : ""}</span>
+        <span class="fe-dpl-age" title="${esc(new Date(when2 * 1e3).toLocaleString())}">${esc(ago2(when2))}</span>
+        ${r.items ? `<span class="badge fe-dpl-n" data-tone="${r.state === "waiting" ? "solid" : "quiet"}" title="${r.items} item${r.items === 1 ? "" : "s"}">${r.items}</span>` : ""}
+      </button>`;
+    };
+    const paint = () => {
+      top.hidden = !all.length;
+      if (!all.length) {
+        rowsBox.innerHTML = emptyHtml("empty", "No decision pages yet", { icon: UI_ICON.opinion, hintHtml: "Pages an agent asks you<br>to answer show up here" });
+        return;
+      }
+      const bands = dpBands(all, q);
+      if (!bands.length) {
+        rowsBox.innerHTML = emptyHtml("filtered", "No page matches", { actions: [CLEAR] });
+        return;
+      }
+      rowsBox.innerHTML = bands.map((b) => `<details class="fe-grp fe-dpl-band" data-band="${b.state}"${q || !folded.has(b.state) ? " open" : ""}>
+        <summary class="sect" data-level="group">${DISCLOSE}${esc(b.label)}<span class="fe-grp-n">${b.rows.length}</span></summary>
+        <div class="fe-grp-body">${b.rows.map(rowHtml).join("")}</div>
+      </details>`).join("");
+    };
+    const load = () => notes.dpPages().then((rows) => {
+      all = rows;
+      paint();
+    }).catch((err) => {
+      top.hidden = true;
+      rowsBox.innerHTML = emptyHtml("failed", "Decision pages could not be listed", { hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the decision pages again" }] });
+    });
+    input.addEventListener("input", () => {
+      q = input.value;
+      paint();
+    });
+    rowsBox.addEventListener("toggle", (e) => {
+      const d = e.target;
+      if (!d.dataset?.band || q) return;
+      if (d.open) folded.delete(d.dataset.band);
+      else folded.add(d.dataset.band);
+    }, true);
+    rowsBox.addEventListener("click", (e) => {
+      const b = e.target.closest(".fe-dpl-row");
+      if (b) {
+        go2(b.dataset.path + "/");
+        return;
+      }
+      const a = e.target.closest(".empty [data-a]")?.dataset.a;
+      if (a === "clear") {
+        input.value = "";
+        q = "";
+        paint();
+        input.focus();
+      } else if (a === "retry") {
+        rowsBox.innerHTML = emptyHtml("loading", "Loading\u2026");
+        void load();
+      }
+    });
+    addPaletteSource(() => (loaded ? Promise.resolve(all) : (loaded = true, load().then(() => all))).then((rows) => dpBands(rows).flatMap((b) => b.rows).map((r) => ({
+      title: r.title ?? r.slug,
+      sub: `${BANDS.find((x) => x.state === r.state).label} \xB7 ${ago2(r.mtime)}`,
+      group: "Decisions",
+      icon: UI_ICON.opinion,
+      run: () => go2(r.path + "/")
+    }))));
+    document.addEventListener("bfb-lens", (e) => {
+      const on = e.detail === "decisions";
+      if (timer2) {
+        clearInterval(timer2);
+        timer2 = null;
+      }
+      if (!on) return;
+      if (!loaded) rowsBox.innerHTML = emptyHtml("loading", "Loading\u2026");
+      loaded = true;
+      void load();
+      timer2 = setInterval(() => {
+        if (!document.hidden) void load();
+      }, 1e4);
+    });
+  }
+
   // src/main.ts
   async function showClosedSets(strip, visible2) {
     const box = document.getElementById("fe-rc-sets");
     if (!box) return;
     const section = box.closest(".fe-sec");
-    const ago2 = (at) => {
+    const ago3 = (at) => {
       const m = Math.round((Date.now() - at) / 6e4);
       return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
     };
@@ -24394,7 +24526,7 @@ ${rows.join("\n")}`, name: subject };
       const sets = all.filter((s) => !young.includes(s)).slice(0, 3);
       box.innerHTML = sets.map((s) => {
         const n = s.labels.length;
-        return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago2(s.at)}</span></button>`;
+        return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago3(s.at)}</span></button>`;
       }).join("");
       section.hidden = !(visible2 && sets.length);
     }
@@ -24458,7 +24590,7 @@ ${rows.join("\n")}`, name: subject };
     const initHidden = getShowHidden();
     const recents = getRecents().filter((r) => r.path !== rawPath);
     pushRecent(rawPath);
-    const ago2 = (ts) => {
+    const ago3 = (ts) => {
       if (!ts) return "";
       const m = Math.round((Date.now() - ts) / 6e4);
       return m < 1 ? "now" : m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
@@ -24467,7 +24599,7 @@ ${rows.join("\n")}`, name: subject };
       const name = r.path.split("/").filter(Boolean).pop() || "/";
       const isDir = r.path.endsWith("/");
       const ext2 = name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
-      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago2(r.ts)}</span></a>`;
+      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago3(r.ts)}</span></a>`;
     };
     const recentDirs = recents.filter((r) => r.path.endsWith("/")).slice(0, 12);
     const recentFiles = recents.filter((r) => !r.path.endsWith("/")).slice(0, 12);
@@ -24627,6 +24759,7 @@ ${rows.join("\n")}`, name: subject };
     void showClosedSets(app.strip, !settings.hideRecent);
     const goTab = (path, hash = "") => app.strip.go(path, hash);
     initDocsLens(el("fe-docs-list"), homeDir(rawPath), folderPath, goTab);
+    initDpLens(el("fe-dpl-list"), (p) => goTab(p));
     mountGoto(el("fe-open-path"), () => homeDir(rawPath), (path, background) => {
       if (!background) {
         goTab(path);

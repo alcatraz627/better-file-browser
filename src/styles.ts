@@ -265,16 +265,23 @@ body{opacity:1!important}
 .fe-rail-btn.on,.fe-rail-btn.on:hover{background:none;color:var(--tx)}
 .fe-rail-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 .fe-lens[hidden]{display:none}
-.fe-doc-row{display:flex;align-items:center;gap:var(--sp-4);width:calc(100% - 12px);margin:1px var(--sp-3);padding:var(--sp-3) var(--sp-4);border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-doc-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.fe-doc-row,.fe-dpl-row{display:flex;align-items:center;gap:var(--sp-4);width:calc(100% - 12px);margin:1px var(--sp-3);padding:var(--sp-3) var(--sp-4);border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-doc-tx,.fe-dpl-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
 .fe-doc-name,.fe-doc-dir{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-doc-name{font-size:var(--row-fs)}
 .fe-docs-top[hidden]{display:none}
 .fe-doc-dir{font-size:var(--fs-sm);color:var(--dm)}
+.fe-dpl-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--row-fs)}
+.fe-dpl-origin{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
 .fe-doc-me{display:inline-flex;color:var(--ac)}
 .fe-doc-me svg{width:13px;height:13px}
 .fe-doc-due{font-size:var(--fs-sm);color:var(--tx);padding:0 var(--sp-3);border-radius:var(--r-full);background:color-mix(in srgb,var(--nc-orange) 16%,transparent)}
-.fe-doc-n{flex:none}
+.fe-doc-n,.fe-dpl-n{flex:none}
+.fe-dpl-age{flex:none;font-size:var(--fs-sm);color:var(--dm)}
+.fe-dpl-row.unseen{background:color-mix(in srgb,var(--gold) 9%,transparent)}
+.fe-dpl-row.unseen .fe-dpl-title{font-weight:600}
+.fe-dpl-row .fe-row-ico{position:relative;display:flex}
+.fe-dpl-dot{position:absolute;top:calc(var(--sp-1) * -1);right:calc(var(--sp-1) * -1);width:var(--sp-3);height:var(--sp-3);border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px var(--side)}
 .fe-row-cm{flex:none}
 #fe-side-rz{width:10px}
 .fe-sec{margin-bottom:var(--sp-2)}

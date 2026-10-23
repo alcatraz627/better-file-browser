@@ -583,6 +583,57 @@ def op_dp(verb, slug, payload):
         raise NotesError(code or 'dp_failed', (out.get('message') if isinstance(out, dict) else None) or run.stderr.strip() or f'exit {run.returncode}')
     return {'t': 'dp', 'verb': verb, 'slug': slug, 'result': out}
 
+# BFB_DP_REGISTRY overrides where gcc keeps decision pages (the walks use a copy).
+DP_REGISTRY = os.environ.get('BFB_DP_REGISTRY') or os.path.expanduser('~/.claude/assets/decision-pages')
+DP_FRESH_S = 7 * 24 * 3600
+
+def op_dp_pages():
+    """Every decision page in gcc's registry with whether it waits on the owner,
+    for the Decisions lens. Read only: the lens never writes the registry.
+
+    A page waits when gcc listed it as pending, or when it is under a week old
+    and unanswered, since agents forget to mark a page pending."""
+    pending = set()
+    try:
+        with open(os.path.join(DP_REGISTRY, '.pending.txt'), encoding='utf-8') as f:
+            pending = {ln.strip() for ln in f if ln.strip()}
+    except OSError:
+        pass
+    now = time.time()
+    rows = []
+    try:
+        slugs = sorted(os.listdir(DP_REGISTRY))
+    except OSError:
+        raise NotesError('dp_unavailable', f'no decision pages at {DP_REGISTRY}')
+    for slug in slugs:
+        d = os.path.join(DP_REGISTRY, slug)
+        cfg_path = os.path.join(d, 'config.json')
+        if slug.startswith('.') or not os.path.isfile(cfg_path):
+            continue
+        try:
+            with open(cfg_path, encoding='utf-8') as f:
+                cfg = json.load(f)
+        except (OSError, ValueError):
+            rows.append({'slug': slug, 'path': d, 'broken': True, 'state': 'broken', 'mtime': os.path.getmtime(cfg_path)})
+            continue
+        mtime = os.path.getmtime(cfg_path)
+        ans = os.path.join(d, '.answer.json')
+        answered = os.path.getmtime(ans) if os.path.isfile(ans) else None
+        if answered:
+            state = 'answered'
+        elif slug in pending or now - mtime < DP_FRESH_S:
+            state = 'waiting'
+        else:
+            state = 'never'
+        rows.append({
+            'slug': slug, 'path': d, 'title': cfg.get('title') or slug, 'origin': cfg.get('origin') or {},
+            'items': len(cfg.get('decisions') or []) + len(cfg.get('sections') or []),
+            'mtime': mtime, 'answered': answered, 'state': state,
+            'seen': os.path.isfile(os.path.join(d, '.seen.json')),
+        })
+    rows.sort(key=lambda r: -r['mtime'])
+    return {'t': 'dpPages', 'registry': DP_REGISTRY, 'pages': rows}
+
 def handle(msg):
     op = msg.get('op')
     if op == 'dp': return op_dp(msg.get('verb'), msg.get('slug'), msg.get('payload'))
@@ -590,6 +641,7 @@ def handle(msg):
     if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'), msg.get('kind'))}
     if op == 'home': return {'t': 'home', 'home': os.path.expanduser('~')}
     if op == 'docsIndex': return op_docs_index()
+    if op == 'dpPages': return op_dp_pages()
     root = resolve_root(msg.get('root'))
     if op == 'stat':   return op_stat(root)
     if op == 'list':   return {'t': 'list', 'notes': list_notes(root)}

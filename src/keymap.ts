@@ -57,6 +57,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'lens-search', group: 'Go', title: 'Search', keys: ['g 5'], own: true },
   { id: 'lens-ask', group: 'Go', title: 'Ask', keys: ['g 6'], own: true },
   { id: 'lens-docs', group: 'Go', title: 'Comments', keys: ['g 7'], own: true },
+  { id: 'lens-dp', group: 'Go', title: 'Decisions', keys: ['g 8'], own: true },
 
   // Listing
   { id: 'move', group: 'Listing', title: 'Move', keys: ['↑', '↓'], scope: 'listing', own: true },

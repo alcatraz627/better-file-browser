@@ -27,8 +27,25 @@ function installNotesHost(profile, pickReply) {
   const dir = join(profile, 'NativeMessagingHosts');
   mkdirSync(dir, { recursive: true });
   const hostPath = join(profile, 'notes_host_launcher.py');
+  // Decision pages: a scratch registry, and a stand-in for gcc's command that
+  // logs each call and, for seen, writes .seen.json the first time as gcc does.
+  mkdirSync(dpRegistry(profile), { recursive: true });
+  const dpStub = join(profile, 'fake_decision_page.py');
+  writeFileSync(dpStub, `#!/usr/bin/env python3
+import json, os, sys, time
+verb, slug = sys.argv[1], sys.argv[2]
+payload = sys.stdin.read()
+open(${JSON.stringify(join(profile, 'dp-calls.jsonl'))}, 'a').write(json.dumps({'verb': verb, 'slug': slug, 'payload': payload}) + '\\n')
+if verb == 'seen':
+    p = os.path.join(${JSON.stringify(dpRegistry(profile))}, slug, '.seen.json')
+    if not os.path.exists(p):
+        open(p, 'w').write(json.dumps({'at': time.time()}))
+print(json.dumps({'ok': True}))
+`, { mode: 0o755 });
   writeFileSync(hostPath, `#!/usr/bin/env python3
 import importlib.util, os
+os.environ['BFB_DP_REGISTRY'] = ${JSON.stringify(dpRegistry(profile))}
+os.environ['BFB_DP_BIN'] = ${JSON.stringify(dpStub)}
 os.environ['BFB_DOCS_HOME'] = ${JSON.stringify(docsHome(profile))}
 os.environ['BFB_BACKUP_DIR'] = ${JSON.stringify(join(profile, 'backups'))}
 spec = importlib.util.spec_from_file_location('notes_host', ${JSON.stringify(join(ROOT, 'native', 'notes_host.py'))})
@@ -107,6 +124,8 @@ runpy.run_path(${JSON.stringify(join(ROOT, 'native', 'llm_host.py'))}, run_name=
 }
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
+// gcc's decision-page registry for one run; the live one is never touched.
+const dpRegistry = profile => join(profile, 'decision-pages');
 // Where the host and a walk's own bfb-docs calls keep comment state for one run.
 const docsHome = profile => join(profile, 'bfb-docs-state');
 export const SHOTS = join(ROOT, 'e2e', 'shots');
@@ -225,7 +244,7 @@ export async function launch({ headless = true, pickReply, lmStub = false } = {}
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, open, close, store, sw, docsHome: docsHome(profile), lmCalls };
+  return { browser, fixture, notesDir, open, close, store, sw, docsHome: docsHome(profile), lmCalls, dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl') };
 }
 
 // The extension's settings store for the running browser; set by launch().

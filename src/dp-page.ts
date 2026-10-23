@@ -8,6 +8,7 @@ import { esc } from './utils';
 import { renderMarkdown } from './renderers';
 import { fetchFileText } from './file-fetch';
 import { textPref, jsonPref, flagPref } from './storage';
+import { notes } from './notes';
 import { bind, runCommand } from './commands';
 import { bodyHtml } from './dp-cards';
 import { wireGallery, unzoomAll, viewerOpen, viewerStep } from './dp-gallery';
@@ -74,6 +75,11 @@ export async function mountDecisionPage(app: App): Promise<DpConfig | null> {
   try { cfg = parseDpConfig(await fetchFileText(base + 'config.json')); } catch { cfg = null; }
   fe.classList.remove('fe-dp-pending');
   if (!cfg) return null;
+  // Opening a page that lives in gcc's registry tells gcc it was seen (gcc
+  // keeps the first time). Until gcc has the verb this fails quietly and the
+  // lens keeps its "not opened yet" dot.
+  const slug = app.rawPath.match(/\/decision-pages\/([^/]+)\/$/)?.[1];
+  if (slug) notes.dp('seen', slug).catch(() => {});
 
   const filesPref = textPref('bfb-dp-files:' + app.rawPath, '', 'tab');
   box.innerHTML = headHtml(cfg, base) + `<div id="fe-dp-body">${bodyHtml(cfg, base)}</div>`;
