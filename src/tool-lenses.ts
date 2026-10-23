@@ -12,9 +12,9 @@ import { crawl, relativeName } from './deep-search';
 import { EMPTY_FIND, isTextCandidate, searchContents, type FindQuery } from './find';
 import { icoFile } from './icons';
 import { llmAvailability, llmModels, llmQuery, LLM_ERROR_TEXT } from './llm';
-import { addTurn, allChats, chatsFor, chatsUnder, deleteChat, withHistory, type AskChat, type AskTurn } from './ask-history';
+import { addTurn, allChats, chatsFor, chatsUnder, deleteChat, turnMeta, withHistory, type AskChat, type AskTurn } from './ask-history';
 import { addPaletteSource, bind } from './commands';
-import { quoteMarkdown, quoteTargets, sendQuote, splitThinking, takeQuote } from './ask-quote';
+import { closeOpenFence, quoteMarkdown, quoteTargets, sendQuote, splitThinking, takeQuote } from './ask-quote';
 import { openLayer, type Layer } from './layer';
 import { textPref } from './storage';
 import { UI_ICON } from './control-icons';
@@ -152,6 +152,9 @@ function initAsk(app: App): void {
 
   const model = () => pick.value || app.settings.aiModel || '';
   const isCloud = () => model().startsWith('gemini:');
+  // The name an answer is filed under before the host reports its own.
+  let defaultName = '';
+  const modelName = () => model().replace(/^gemini:/, '') || defaultName || 'default';
   // A cloud model answers even when the local server is down.
   const syncUsable = () => {
     const usable = localReady || isCloud();
@@ -178,6 +181,7 @@ function initAsk(app: App): void {
       ...models.gemini.map(g => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? ' (default)' : ''), group: "Gemini, on Google's servers" })),
     ];
     pick.setOptions(opts);
+    defaultName = a.kind === 'ready' ? opts[0].label ?? '' : '';
     pick.value = opts.some(o => o.value === saved) ? saved : '';
     syncUsable();
   }
@@ -205,7 +209,8 @@ function initAsk(app: App): void {
     return turn;
   };
   // An answer as it reads: a model's thinking folds into one row above what
-  // it said. While the answer streams, both show as plain text.
+  // it said. While it streams, the answer is drawn as markdown with any open
+  // code fence closed, and the thinking as plain text.
   const paint = (turn: HTMLElement, text: string, done: boolean) => {
     const out = turn.querySelector<HTMLElement>('.fe-ask-a')!;
     const { thinking, answer, open } = splitThinking(text);
@@ -213,10 +218,15 @@ function initAsk(app: App): void {
     const words = thinking ? thinking.split(/\s+/).filter(Boolean).length : 0;
     const think = thinking ? `<details class="fe-ask-think"><summary>${UI_ICON.ai}<span>${open ? 'Thinking' : 'Thought it through'}</span><span class="fe-ask-think-n">${words} word${words === 1 ? '' : 's'}</span></summary><div class="fe-md">${done ? renderMarkdown(thinking) : esc(thinking)}</div></details>` : '';
     const was = out.querySelector<HTMLDetailsElement>('.fe-ask-think')?.open;
-    out.innerHTML = think + (done ? renderMarkdown(answer) : `<div class="fe-ask-raw">${esc(answer)}</div>`);
+    out.innerHTML = think + renderMarkdown(done ? answer : closeOpenFence(answer));
     if (was) out.querySelector<HTMLDetailsElement>('.fe-ask-think')!.open = true;
   };
-  const metaText = (m: string, ms: number, truncated = false) => `${m} · ${(ms / 1000).toFixed(1)}s${truncated ? ' · shortened to fit' : ''}`;
+  // A turn that failed says why in plain words and offers to ask again.
+  const asks = new WeakMap<HTMLElement, { intent: string; question?: string }>();
+  const paintError = (turn: HTMLElement, code: string, message: string) => {
+    turn.querySelector('.fe-ask-a')!.innerHTML = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(LLM_ERROR_TEXT[code] ?? (message || 'The model did not answer.'))}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">Retry</button></div>`;
+    turn.querySelector('.fe-ask-meta')!.textContent = '';
+  };
   // On a folder, chats about what is inside it, four levels down, are listed too.
   const listed = () => app.fileMode ? chatsFor(key).map(chat => ({ subject: key, chat })) : chatsUnder(key);
   const below = (subject: string) => subject === key ? '' : subject.slice(key.length).replace(/^\//, '');
@@ -229,8 +239,10 @@ function initAsk(app: App): void {
     clearThread();
     for (const t of turns) {
       const el = turnEl(t.q);
+      asks.set(el, { intent: t.intent ?? 'qa', question: t.intent && t.intent !== 'qa' ? undefined : t.q });
+      if (t.error) { paintError(el, t.error, ''); continue; }
       paint(el, t.a, true);
-      el.querySelector('.fe-ask-meta')!.textContent = t.model === 'stopped' ? 'Stopped' : metaText(t.model, t.ms);
+      el.querySelector('.fe-ask-meta')!.textContent = turnMeta(t);
     }
     syncEmpty();
     showHist(false);
@@ -256,15 +268,25 @@ function initAsk(app: App): void {
     cancel?.();
     const shown = question ?? (intent === 'folder' ? 'What is in here?' : intent === 'summarize' ? 'Summarize' : 'Explain');
     const turn = turnEl(shown);
+    asks.set(turn, { intent, question });
     turn.scrollIntoView({ block: 'end' });
     const out = turn.querySelector<HTMLElement>('.fe-ask-a')!;
     const meta = turn.querySelector<HTMLElement>('.fe-ask-meta')!;
+    const started = Date.now();
+    const save = (t: AskTurn) => {
+      if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      turns.push(t);
+      addTurn(key, chatId, t);
+      syncHistN();
+    };
+    const base = { q: shown, model: modelName(), at: started, ...(intent === 'qa' ? {} : { intent }) };
     let c: { ctx: string; name: string };
     try { c = await context(); }
-    catch { out.textContent = 'Could not read this to send it.'; return; }
+    catch { paintError(turn, 'unreadable', 'Could not read this to send it.'); return; }
     let full = '';
+    let frame = 0;
     go.classList.add('stop'); go.title = 'Stop'; go.setAttribute('aria-label', 'Stop');
-    const done = () => { cancel = null; go.classList.remove('stop'); go.title = 'Ask (Enter)'; go.setAttribute('aria-label', 'Ask'); };
+    const done = () => { cancel = null; cancelAnimationFrame(frame); go.classList.remove('stop'); go.title = 'Ask (Enter)'; go.setAttribute('aria-label', 'Ask'); };
     const asked = intent === 'folder' ? 'What is in this folder? Group the files by purpose in a few short lines.' : question;
     // Stopping, a new chat or opening another chat all end the answer here:
     // the button returns to Ask and what arrived is kept, marked as stopped.
@@ -274,36 +296,36 @@ function initAsk(app: App): void {
       over = true; done();
       if (!full.trim()) { out.textContent = 'Stopped before an answer came.'; return; }
       paint(turn, full, true);
-      meta.textContent = 'Stopped';
-      if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      const t: AskTurn = { q: shown, a: full + '\n\n*(stopped)*', model: 'stopped', ms: 0, at: Date.now() };
-      turns.push(t);
-      addTurn(key, chatId, t);
-      syncHistN();
+      const t: AskTurn = { ...base, a: full, ms: Date.now() - started, stopped: true };
+      meta.textContent = turnMeta(t);
+      save(t);
     };
     const stop = llmQuery(
       {
         ctx: c.ctx, ctxName: c.name,
         // The host knows summarize, explain-code and qa; a folder question is a qa.
         intent: intent === 'explain' ? 'explain-code' : intent === 'summarize' ? 'summarize' : 'qa',
-        question: asked && intent === 'qa' ? withHistory(turns, asked) : asked,
+        question: asked && intent === 'qa' ? withHistory(turns.filter(t => !t.error), asked) : asked,
         model: model() || undefined,
         // lm gemini's own default; a local model keeps the shorter one.
         timeout: isCloud() ? 300 : undefined,
       },
       {
-        onChunk: t => { full += t; paint(turn, full, false); },
+        // At most one paint per frame, however fast the text arrives.
+        onChunk: t => { full += t; frame ||= requestAnimationFrame(() => { frame = 0; paint(turn, full, false); }); },
         onDone: info => {
           over = true; done();
           paint(turn, full, true);
-          meta.textContent = metaText(info.model, info.ms, info.truncated);
-          if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-          const t: AskTurn = { q: shown, a: full, model: info.model, ms: info.ms, at: Date.now() };
-          turns.push(t);
-          addTurn(key, chatId, t);
-          syncHistN();
+          const t: AskTurn = { ...base, a: full, model: info.model || base.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut };
+          meta.textContent = turnMeta(t, info.truncated);
+          save(t);
         },
-        onError: (code, message) => { over = true; done(); if (code !== 'cancelled') out.textContent = LLM_ERROR_TEXT[code] ?? message; },
+        onError: (code, message) => {
+          over = true; done();
+          if (code === 'cancelled') return;
+          paintError(turn, code, message);
+          save({ ...base, a: '', ms: 0, error: code });
+        },
       });
     cancel = () => { stop(); stopped(); };
   }
@@ -365,6 +387,7 @@ function initAsk(app: App): void {
     if (!btn) return;
     const inBar = blkBar.contains(btn);
     const turn = btn.closest<HTMLElement>('.fe-ask-turn');
+    if (btn.dataset.act === 'retry') { const a = turn && asks.get(turn); if (a) void ask(a.intent, a.question); return; }
     const text = selected() || (inBar ? (hoverBlock ? blockText(hoverBlock) : '') : turn ? answers.get(turn) ?? '' : '');
     if (btn.dataset.act === 'copy') copyText(text);
     else quote(text, btn);

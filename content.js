@@ -4363,9 +4363,12 @@ ${body}
       if (msg.t === "chunk") {
         gotFrame = true;
         cb.onChunk(msg.text ?? "");
+      } else if (msg.t === "step") {
+        gotFrame = true;
+        cb.onStep?.(msg.text ?? "");
       } else if (msg.t === "done") {
         finish();
-        cb.onDone({ model: msg.model ?? "", ms: msg.ms ?? 0, truncated: !!msg.truncated });
+        cb.onDone({ model: msg.model ?? "", ms: msg.ms ?? 0, truncated: !!msg.truncated, tokensIn: msg.tokens_in || void 0, tokensOut: msg.tokens_out || void 0 });
       } else if (msg.t === "error") {
         finish();
         cb.onError(msg.code ?? "unknown", msg.message ?? "");
@@ -4387,7 +4390,8 @@ ${body}
       intent: opts.intent,
       question: opts.question,
       timeout: opts.timeout ?? 120,
-      model: opts.model
+      model: opts.model,
+      files: opts.files
     });
     return () => finish();
   }
@@ -4442,6 +4446,18 @@ ${body}
   };
 
   // src/ask-history.ts
+  function turnMeta(t, truncated = false) {
+    if (t.model === "stopped") return "Stopped";
+    const n = (v) => v.toLocaleString("en-US");
+    return [
+      t.model,
+      t.tokensIn ? `in ${n(t.tokensIn)}` : "",
+      t.tokensOut ? `out ${n(t.tokensOut)}` : "",
+      t.ms ? `${(t.ms / 1e3).toFixed(1)}s` : "",
+      truncated ? "shortened to fit" : "",
+      t.stopped ? "stopped" : ""
+    ].filter(Boolean).join(" \xB7 ");
+  }
   var historyPref = jsonPref("bfb-ask-history-v1", {}, (v) => !!v && typeof v === "object");
   var CHATS_PER_SUBJECT = 20;
   var SUBJECTS = 100;
@@ -13300,7 +13316,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-turn:hover .fe-ask-acts,.fe-ask-turn:focus-within .fe-ask-acts{opacity:1}
 .fe-ask-blk{position:absolute;right:var(--sp-2);z-index:var(--z-sticky);display:flex;gap:var(--sp-1);padding:var(--sp-1);border:1px solid var(--pop-bd);border-radius:var(--r-sm);background:var(--pop-bg)}
 .fe-ask-blk[hidden]{display:none}
-.fe-ask-raw{white-space:pre-wrap;overflow-wrap:anywhere}
+.fe-ask-err{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border:1px solid var(--bd2);border-radius:var(--r-sm);color:var(--mt)}
+.fe-ask-err > span{flex:1;min-width:0}
+.fe-ask-err svg{flex:none;width:var(--row-ic);height:var(--row-ic);color:var(--nc-red)}
 .fe-ask-think{margin-bottom:var(--sp-4);border-left:2px solid var(--bd2);padding-left:var(--sp-4);color:var(--mt)}
 .fe-ask-think summary{display:flex;align-items:center;gap:var(--sp-3);cursor:pointer;list-style:none;font-size:var(--fs-sm);color:var(--dm)}
 .fe-ask-think summary::-webkit-details-marker{display:none}
@@ -21220,6 +21238,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     handoffPref.set(null);
     return now - h.at <= HANDOFF_TTL ? h : null;
   }
+  function closeOpenFence(text) {
+    const fences = text.match(/^\s*```/gm)?.length ?? 0;
+    return fences % 2 ? text + "\n```" : text;
+  }
   function splitThinking(text) {
     const m = /^\s*<think>([\s\S]*?)(<\/think>|$)/.exec(text);
     if (!m) return { thinking: "", answer: text, open: false };
@@ -21364,6 +21386,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let turns = [];
     const model = () => pick2.value || app.settings.aiModel || "";
     const isCloud = () => model().startsWith("gemini:");
+    let defaultName = "";
+    const modelName = () => model().replace(/^gemini:/, "") || defaultName || "default";
     const syncUsable = () => {
       const usable = localReady || isCloud();
       q.disabled = go2.disabled = !usable;
@@ -21390,6 +21414,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         ...models.gemini.map((g) => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? " (default)" : ""), group: "Gemini, on Google's servers" }))
       ];
       pick2.setOptions(opts);
+      defaultName = a.kind === "ready" ? opts[0].label ?? "" : "";
       pick2.value = opts.some((o) => o.value === saved) ? saved : "";
       syncUsable();
     }
@@ -21423,10 +21448,14 @@ ${rows.join("\n")}`, name: subject };
       const words = thinking ? thinking.split(/\s+/).filter(Boolean).length : 0;
       const think = thinking ? `<details class="fe-ask-think"><summary>${UI_ICON.ai}<span>${open ? "Thinking" : "Thought it through"}</span><span class="fe-ask-think-n">${words} word${words === 1 ? "" : "s"}</span></summary><div class="fe-md">${done ? renderMarkdown(thinking) : esc(thinking)}</div></details>` : "";
       const was = out.querySelector(".fe-ask-think")?.open;
-      out.innerHTML = think + (done ? renderMarkdown(answer) : `<div class="fe-ask-raw">${esc(answer)}</div>`);
+      out.innerHTML = think + renderMarkdown(done ? answer : closeOpenFence(answer));
       if (was) out.querySelector(".fe-ask-think").open = true;
     };
-    const metaText = (m, ms, truncated = false) => `${m} \xB7 ${(ms / 1e3).toFixed(1)}s${truncated ? " \xB7 shortened to fit" : ""}`;
+    const asks = /* @__PURE__ */ new WeakMap();
+    const paintError = (turn, code, message) => {
+      turn.querySelector(".fe-ask-a").innerHTML = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(LLM_ERROR_TEXT[code] ?? (message || "The model did not answer."))}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">Retry</button></div>`;
+      turn.querySelector(".fe-ask-meta").textContent = "";
+    };
     const listed = () => app.fileMode ? chatsFor(key).map((chat) => ({ subject: key, chat })) : chatsUnder(key);
     const below = (subject2) => subject2 === key ? "" : subject2.slice(key.length).replace(/^\//, "");
     const syncHistN = () => {
@@ -21449,8 +21478,13 @@ ${rows.join("\n")}`, name: subject };
       clearThread();
       for (const t of turns) {
         const el2 = turnEl(t.q);
+        asks.set(el2, { intent: t.intent ?? "qa", question: t.intent && t.intent !== "qa" ? void 0 : t.q });
+        if (t.error) {
+          paintError(el2, t.error, "");
+          continue;
+        }
         paint(el2, t.a, true);
-        el2.querySelector(".fe-ask-meta").textContent = t.model === "stopped" ? "Stopped" : metaText(t.model, t.ms);
+        el2.querySelector(".fe-ask-meta").textContent = turnMeta(t);
       }
       syncEmpty();
       showHist(false);
@@ -21482,22 +21516,33 @@ ${rows.join("\n")}`, name: subject };
       cancel?.();
       const shown = question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain");
       const turn = turnEl(shown);
+      asks.set(turn, { intent, question });
       turn.scrollIntoView({ block: "end" });
       const out = turn.querySelector(".fe-ask-a");
       const meta = turn.querySelector(".fe-ask-meta");
+      const started = Date.now();
+      const save = (t) => {
+        if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        turns.push(t);
+        addTurn(key, chatId, t);
+        syncHistN();
+      };
+      const base = { q: shown, model: modelName(), at: started, ...intent === "qa" ? {} : { intent } };
       let c;
       try {
         c = await context();
       } catch {
-        out.textContent = "Could not read this to send it.";
+        paintError(turn, "unreadable", "Could not read this to send it.");
         return;
       }
       let full = "";
+      let frame = 0;
       go2.classList.add("stop");
       go2.title = "Stop";
       go2.setAttribute("aria-label", "Stop");
       const done = () => {
         cancel = null;
+        cancelAnimationFrame(frame);
         go2.classList.remove("stop");
         go2.title = "Ask (Enter)";
         go2.setAttribute("aria-label", "Ask");
@@ -21513,12 +21558,9 @@ ${rows.join("\n")}`, name: subject };
           return;
         }
         paint(turn, full, true);
-        meta.textContent = "Stopped";
-        if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        const t = { q: shown, a: full + "\n\n*(stopped)*", model: "stopped", ms: 0, at: Date.now() };
-        turns.push(t);
-        addTurn(key, chatId, t);
-        syncHistN();
+        const t = { ...base, a: full, ms: Date.now() - started, stopped: true };
+        meta.textContent = turnMeta(t);
+        save(t);
       };
       const stop = llmQuery(
         {
@@ -21526,31 +21568,34 @@ ${rows.join("\n")}`, name: subject };
           ctxName: c.name,
           // The host knows summarize, explain-code and qa; a folder question is a qa.
           intent: intent === "explain" ? "explain-code" : intent === "summarize" ? "summarize" : "qa",
-          question: asked && intent === "qa" ? withHistory(turns, asked) : asked,
+          question: asked && intent === "qa" ? withHistory(turns.filter((t) => !t.error), asked) : asked,
           model: model() || void 0,
           // lm gemini's own default; a local model keeps the shorter one.
           timeout: isCloud() ? 300 : void 0
         },
         {
+          // At most one paint per frame, however fast the text arrives.
           onChunk: (t) => {
             full += t;
-            paint(turn, full, false);
+            frame ||= requestAnimationFrame(() => {
+              frame = 0;
+              paint(turn, full, false);
+            });
           },
           onDone: (info) => {
             over = true;
             done();
             paint(turn, full, true);
-            meta.textContent = metaText(info.model, info.ms, info.truncated);
-            if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-            const t = { q: shown, a: full, model: info.model, ms: info.ms, at: Date.now() };
-            turns.push(t);
-            addTurn(key, chatId, t);
-            syncHistN();
+            const t = { ...base, a: full, model: info.model || base.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut };
+            meta.textContent = turnMeta(t, info.truncated);
+            save(t);
           },
           onError: (code, message) => {
             over = true;
             done();
-            if (code !== "cancelled") out.textContent = LLM_ERROR_TEXT[code] ?? message;
+            if (code === "cancelled") return;
+            paintError(turn, code, message);
+            save({ ...base, a: "", ms: 0, error: code });
           }
         }
       );
@@ -21626,6 +21671,11 @@ ${rows.join("\n")}`, name: subject };
       if (!btn) return;
       const inBar = blkBar.contains(btn);
       const turn = btn.closest(".fe-ask-turn");
+      if (btn.dataset.act === "retry") {
+        const a = turn && asks.get(turn);
+        if (a) void ask(a.intent, a.question);
+        return;
+      }
       const text = selected() || (inBar ? hoverBlock ? blockText(hoverBlock) : "" : turn ? answers.get(turn) ?? "" : "");
       if (btn.dataset.act === "copy") copyText(text);
       else quote(text, btn);

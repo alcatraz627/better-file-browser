@@ -31,7 +31,8 @@ export type LlmAvailability =
 export type NativeFrame =
   | { t: 'status'; data: LlmStatus }
   | { t: 'chunk'; text: string }
-  | { t: 'done'; model: string; ms: number; truncated: boolean }
+  | { t: 'done'; model: string; ms: number; truncated: boolean; tokens_in?: number; tokens_out?: number }
+  | { t: 'step'; text: string }
   | { t: 'error'; code: string; message: string }
   | { t: 'warm'; ok: boolean; on: boolean }
   | { t: 'models'; tiers: ModelTier[]; gemini: GeminiModel[] }
@@ -102,11 +103,16 @@ export interface LlmQueryOpts {
   question?: string;
   timeout?: number;
   model?:   string;   // -m override (a model or alias), or gemini:<name>; omitted → lm default model
+  /// Files read alongside the page: text goes into the context, images are read by the local vision model.
+  files?:   string[];
 }
+export interface LlmDone { model: string; ms: number; truncated: boolean; tokensIn?: number; tokensOut?: number }
 export interface LlmCallbacks {
   onChunk: (text: string) => void;
-  onDone:  (info: { model: string; ms: number; truncated: boolean }) => void;
+  onDone:  (info: LlmDone) => void;
   onError: (code: string, message: string) => void;
+  /// A step the host takes before answering, such as reading an attached image.
+  onStep?: (text: string) => void;
 }
 
 /** Start a streamed query; the returned function cancels it. */
@@ -119,7 +125,8 @@ export function llmQuery(opts: LlmQueryOpts, cb: LlmCallbacks): () => void {
   port.onMessage.addListener((msg: NativeFrame) => {
     if (finished || !msg) return;
     if      (msg.t === 'chunk') { gotFrame = true; cb.onChunk(msg.text ?? ''); }
-    else if (msg.t === 'done')  { finish(); cb.onDone({ model: msg.model ?? '', ms: msg.ms ?? 0, truncated: !!msg.truncated }); }
+    else if (msg.t === 'step')  { gotFrame = true; cb.onStep?.(msg.text ?? ''); }
+    else if (msg.t === 'done')  { finish(); cb.onDone({ model: msg.model ?? '', ms: msg.ms ?? 0, truncated: !!msg.truncated, tokensIn: msg.tokens_in || undefined, tokensOut: msg.tokens_out || undefined }); }
     else if (msg.t === 'error') { finish(); cb.onError(msg.code ?? 'unknown', msg.message ?? ''); }
     else if (msg.t === 'native-gone') {
       // Host exit after done/error is normal; before any frame it means the
@@ -134,7 +141,7 @@ export function llmQuery(opts: LlmQueryOpts, cb: LlmCallbacks): () => void {
   port.postMessage({
     op: 'query', ctx: opts.ctx, ctxName: opts.ctxName,
     intent: opts.intent, question: opts.question, timeout: opts.timeout ?? 120,
-    model: opts.model,
+    model: opts.model, files: opts.files,
   });
   return () => finish();
 }

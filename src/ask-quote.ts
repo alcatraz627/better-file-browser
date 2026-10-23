@@ -59,6 +59,13 @@ export function takeQuote(subject: string, now = Date.now()): QuoteHandoff | nul
   return now - h.at <= HANDOFF_TTL ? h : null;
 }
 
+/** Text that is still arriving, made safe to draw as markdown: an open code
+ *  fence is closed, so a half-written block shows as code and not as prose. */
+export function closeOpenFence(text: string): string {
+  const fences = text.match(/^\s*```/gm)?.length ?? 0;
+  return fences % 2 ? text + '\n```' : text;
+}
+
 /** An answer split into the model's thinking and what it said. Some local
  *  models write their reasoning inside <think> tags before the answer;
  *  `open` means the thinking has not ended yet, as while it streams. */

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { quoteMarkdown, quoteTargets, sendQuote, takeQuote, splitThinking, QUOTE_MAX } from '../src/ask-quote';
+import { quoteMarkdown, quoteTargets, sendQuote, takeQuote, splitThinking, closeOpenFence, QUOTE_MAX } from '../src/ask-quote';
 import type { AskChat } from '../src/ask-history';
 
 const chat = (id: string, title = id): AskChat => ({ id, at: 1, title, turns: [] });
@@ -35,6 +35,12 @@ describe('ask quote', () => {
     expect(takeQuote('/p/a.md', 2000)).toBeNull();
     sendQuote({ subject: '/p/a.md', chatId: 'a1', text: 'old', at: 0 });
     expect(takeQuote('/p/a.md', 10 * 60_000)).toBeNull();
+  });
+
+  it('closes a code fence that is still open', () => {
+    expect(closeOpenFence('Look:\n```js\nconst a')).toBe('Look:\n```js\nconst a\n```');
+    expect(closeOpenFence('```\nx\n```\ndone')).toBe('```\nx\n```\ndone');
+    expect(closeOpenFence('plain')).toBe('plain');
   });
 
   it('splits thinking from the answer, open while it streams', () => {

@@ -72,8 +72,17 @@ elif args[:1] == ['q']:
     said = ('Seen the chat so far. ' if 'Earlier in this chat' in q else '') + 'Local answer from ' + model + '.'
     if 'Show your thinking' in q:
         said = '<think>\\nWeigh the two points first.\\n</think>\\n\\n- point one\\n- point two'
+    if 'Fail please' in q:
+        print(json.dumps({'t': 'error', 'code': 'timeout', 'message': 'took too long'}))
+        sys.exit(0)
+    if 'Stream code' in q:
+        import time
+        for part in ['Here:\\n\\n', '\`\`\`js\\n', 'const a = 1;\\n', 'const b = 2;\\n']:
+            print(json.dumps({'t': 'chunk', 'text': part}), flush=True)
+            time.sleep(0.6)
+        said = '\`\`\`\\n\\nDone.'
     print(json.dumps({'t': 'chunk', 'text': said}))
-    print(json.dumps({'t': 'done', 'model': model, 'ms': 12, 'truncated': False}))
+    print(json.dumps({'t': 'done', 'model': model, 'ms': 1234, 'truncated': False, 'tokens_in': 1204, 'tokens_out': 388}))
 `, { mode: 0o755 });
   const hostPath = join(profile, 'llm_host_launcher.py');
   writeFileSync(hostPath, `#!/usr/bin/env python3

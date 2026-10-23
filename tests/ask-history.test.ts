@@ -53,6 +53,14 @@ describe('ask history', () => {
     expect(ids[0]).toBe('c24');
   });
 
+  it('the line under an answer names model, tokens and time, and leaves out what is unknown', async () => {
+    const h = await fresh();
+    expect(h.turnMeta({ q: 'q', a: 'a', model: 'small', ms: 4200, at: 1, tokensIn: 1204, tokensOut: 388 })).toBe('small · in 1,204 · out 388 · 4.2s');
+    expect(h.turnMeta({ q: 'q', a: 'a', model: 'gemini-3.8-flash', ms: 900, at: 1 }, true)).toBe('gemini-3.8-flash · 0.9s · shortened to fit');
+    expect(h.turnMeta({ q: 'q', a: 'a', model: 'small', ms: 0, at: 1, stopped: true })).toBe('small · stopped');
+    expect(h.turnMeta({ q: 'q', a: 'a', model: 'stopped', ms: 0, at: 1 })).toBe('Stopped');
+  });
+
   it('a follow-up carries the last turns and stays under the limit', async () => {
     const h = await fresh();
     expect(h.withHistory([], 'Q')).toBe('Q');

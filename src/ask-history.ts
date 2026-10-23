@@ -5,7 +5,28 @@
 import { jsonPref } from './storage';
 import { isWithin } from './places';
 
-export interface AskTurn { q: string; a: string; model: string; ms: number; at: number }
+/** One question and its answer. `stopped` and `error` mark an answer that did
+ *  not finish; `files` names what was attached; `via` marks a second opinion. */
+export interface AskTurn {
+  q: string; a: string; model: string; ms: number; at: number;
+  tokensIn?: number; tokensOut?: number; stopped?: boolean; error?: string; files?: string[]; via?: string; intent?: string;
+}
+
+/** The line under an answer: model, tokens in and out, time, and how it ended.
+ *  A part that is not known is left out rather than shown as zero. */
+export function turnMeta(t: AskTurn, truncated = false): string {
+  // Turns saved before `stopped` existed kept "stopped" as their model.
+  if (t.model === 'stopped') return 'Stopped';
+  const n = (v: number) => v.toLocaleString('en-US');
+  return [
+    t.model,
+    t.tokensIn ? `in ${n(t.tokensIn)}` : '',
+    t.tokensOut ? `out ${n(t.tokensOut)}` : '',
+    t.ms ? `${(t.ms / 1000).toFixed(1)}s` : '',
+    truncated ? 'shortened to fit' : '',
+    t.stopped ? 'stopped' : '',
+  ].filter(Boolean).join(' · ');
+}
 export interface AskChat { id: string; at: number; title: string; turns: AskTurn[] }
 type Store = Record<string, AskChat[]>;
 
