@@ -12875,7 +12875,7 @@ body{opacity:1!important}
 
 /* A long folder name (a hash, a generated id) shortens so the path around it stays readable. */
 .fe-crumb{color:var(--mt);text-decoration:none;padding:var(--sp-1) 5px;border-radius:var(--r-xs);
-  font-size:var(--fs-md);flex-shrink:0;transition:background .1s,color .1s;
+  font-size:var(--fs-md);flex-shrink:0;transition:background var(--t-fast),color var(--t-fast);
   max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .fe-cg{display:inline-flex;align-items:center;flex-shrink:0;min-width:0}
 .fe-cg[hidden]{display:none}
@@ -12958,7 +12958,7 @@ body{opacity:1!important}
 .fe-rc-ago{font-size:var(--fs-sm);color:var(--dm);flex-shrink:0}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
 .fe-bm-item{display:flex;align-items:center;position:relative;user-select:none}
-.fe-drag-h{padding:7px var(--sp-2) 7px var(--sp-4);color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
+.fe-drag-h{padding:7px var(--sp-2) 7px var(--sp-4);color:var(--dm);cursor:grab;opacity:0;transition:opacity var(--t-fast);flex-shrink:0;display:flex;align-items:center}
 .fe-bm-item:hover .fe-drag-h{opacity:1}
 .fe-bm-item.dragging{opacity:.4;background:var(--hover)}
 .fe-bm-item.drag-over{border-top:2px solid var(--ac)}
@@ -13050,7 +13050,7 @@ td.c-tg{white-space:nowrap;overflow:hidden}
 .fe-find-badge{margin-left:22px}
 #fe-find-error{color:var(--tone-danger);font-size:var(--type-small)}
 #fe[data-view="details"] .fe-row .fe-find-badge{display:none}
-tbody tr{border-bottom:1px solid var(--bg);transition:background .08s}
+tbody tr{border-bottom:1px solid var(--bg);transition:background var(--t-fast)}
 tbody tr:hover{background:var(--hover)}
 tbody td{padding:5px var(--sp-5);vertical-align:middle}
 td.c-sz{text-align:right;white-space:nowrap;color:var(--dm);font-variant-numeric:tabular-nums;font-size:var(--fs-md)}
@@ -13203,7 +13203,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   padding:var(--sp-2) var(--sp-2) 5px;
   background:linear-gradient(transparent,var(--s1)cc 40%,var(--s1) 100%);
   border-radius:0 0 var(--r-sm) var(--r-sm);
-  opacity:0;transition:opacity .14s;pointer-events:none}
+  opacity:0;transition:opacity var(--t-fast);pointer-events:none}
 .fe-tile:hover .fe-acts{opacity:1;pointer-events:auto}
 #fe[data-view="list"] .fe-tile .fe-acts{
   position:absolute;right:6px;top:50%;transform:translateY(-50%);
@@ -13228,9 +13228,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   padding:9px var(--sp-5);font-size:var(--fs-md);line-height:1.7;
   max-width:380px;overflow-wrap:anywhere;word-break:break-word;
   opacity:0;
-  transition:opacity .15s ease-out;
+  transition:opacity var(--t-fast) ease-out;
 }
-#fe-tip.show{opacity:1;transition:opacity var(--t-base) ease-in .06s}
+#fe-tip.show{opacity:1;transition:opacity var(--t-base) ease-in calc(var(--t-fast) / 2)}
 .tip-header{display:flex;align-items:center;gap:7px;margin-bottom:var(--sp-2)}
 .tip-icon{flex-shrink:0;display:flex;align-items:center}
 .tip-icon svg{display:block}
@@ -13240,7 +13240,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toast{
   position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(6px);
   padding:var(--sp-4) 18px;border-radius:20px;
-  font-size:var(--fs-md);opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;
+  font-size:var(--fs-md);opacity:0;transition:all var(--t-base);pointer-events:none;white-space:nowrap;
   z-index:var(--z-toast)
 }
 #fe-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -13328,8 +13328,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-ai-head.ready .dot{background:var(--green)}
 .fe-st-ai-head.cold .dot{background:var(--gold)}
 /* Pulsing halo only when the model is actually resident (ready). */
-.fe-st-ai-head.ready .fe-st-ai-blink::after{background:var(--green);animation:fe-blink 1.6s ease-out infinite}
-.fe-st-ai-head.cold .fe-st-ai-blink::after{background:var(--gold);animation:fe-blink 2.4s ease-out infinite}
+.fe-st-ai-head.ready .fe-st-ai-blink::after{background:var(--green);animation:fe-blink var(--t-pulse) ease-out infinite}
+.fe-st-ai-head.cold .fe-st-ai-blink::after{background:var(--gold);animation:fe-blink calc(var(--t-pulse) * 1.5) ease-out infinite}
 @keyframes fe-blink{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
 .fe-st-ai-state{font-size:var(--fs-md);font-weight:600;color:var(--tx)}
 .fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:3px var(--sp-5);font-size:var(--fs-md)}
@@ -13913,6 +13913,7 @@ a.fe-fm-path:hover{text-decoration:underline}
   --ctl-xs:18px;--ctl-sm:22px;--ctl-md:28px;--ctl-lg:32px;--bar-h:40px;
   --r-xs:4px;--r-full:999px;
   --z-sticky:5;--z-panel:30;--z-popover:300;--z-overlay:400;--z-command:500;--z-toast:600;--z-tip:700;--z-step:10;
+  --t-flash:1s;--t-pulse:1.6s;--t-off:1ms;
   --tone-ok:var(--nc-green);--tone-warn:var(--nc-orange);--tone-danger:var(--nc-red);--tone-info:var(--nc-blue);
   --type-micro:var(--fs-sm);--type-small:var(--fs-md);--type-ui:var(--fs-lg);--type-ui-strong:var(--fs-lg);--type-title:var(--fs-xl)}
 @media (prefers-reduced-motion:reduce){:root,#fe{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}}
@@ -13924,14 +13925,14 @@ a.fe-fm-path:hover{text-decoration:underline}
 button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointer;width:auto;display:flex}
 .fe-si > svg,.fe-si-link > svg,.fe-dd-item > svg,.fe-ctx-item > svg{width:var(--row-ic);height:var(--row-ic);flex:none}
 .fe-sl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;font-size:var(--row-fs)}
-.fe-si-link{display:flex;align-items:center;flex:1;color:inherit;text-decoration:none;min-width:0;transition:color .1s;padding:0;gap:var(--row-gap);min-height:var(--row-h)}
+.fe-si-link{display:flex;align-items:center;flex:1;color:inherit;text-decoration:none;min-width:0;transition:color var(--t-fast);padding:0;gap:var(--row-gap);min-height:var(--row-h)}
 .fe-nt-item .fe-si-link{padding-left:var(--sp-5);padding:var(--sp-3) 0}
 .fe-pl-item .fe-drag-h,.fe-nt-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
 
 /* A note row's actions float over the end of the title on a solid fade, so
    nothing moves under the pointer on hover. In a narrow sidebar only delete
    shows; colour and open-in-tab stay in the right-click menu. */
-.fe-nt-item .fe-nt-acts{position:absolute;top:50%;transform:translateY(-50%);display:flex;align-items:center;opacity:0;pointer-events:none;transition:opacity .1s;right:4px;border-radius:0 var(--row-r) var(--row-r) 0;padding-left:var(--sp-5);--fade:var(--hover);background:linear-gradient(to right,transparent,var(--fade) 14px),linear-gradient(to right,transparent,var(--side) 14px)}
+.fe-nt-item .fe-nt-acts{position:absolute;top:50%;transform:translateY(-50%);display:flex;align-items:center;opacity:0;pointer-events:none;transition:opacity var(--t-fast);right:4px;border-radius:0 var(--row-r) var(--row-r) 0;padding-left:var(--sp-5);--fade:var(--hover);background:linear-gradient(to right,transparent,var(--fade) 14px),linear-gradient(to right,transparent,var(--side) 14px)}
 .fe-nt-item:has(> .fe-si-link.active) .fe-nt-acts{--fade:var(--on)}
 .fe-nt-item:has(.editing) .fe-nt-acts{display:none}
 
@@ -14086,7 +14087,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-fe-row.err .fe-fe-ln,.fe-cl.err .fe-cl-n{color:var(--nc-red);font-weight:600}
 .fe-fe-row.warn .fe-fe-ln,.fe-cl.warn .fe-cl-n{color:var(--nc-orange);font-weight:600}
 .fe-fe-row.err .fe-fe-code,.fe-cl.err .fe-cl-t{text-decoration:underline wavy color-mix(in srgb,var(--nc-red) 70%,transparent);text-underline-offset:3px}
-.fe-cl.flash{background:var(--on);transition:background 1s var(--ease)}
+.fe-cl.flash{background:var(--on);transition:background var(--t-flash) var(--ease)}
 .fe-fe-modes,.fe-fe-modes .fe-seg-b{border-radius:var(--r-full)}
 #fe-fe-pill .fe-fe-diag{border-radius:var(--r-full);padding:0 var(--sp-4);font-size:var(--fs-md)}
 .fe-fe-diag.error{color:var(--nc-red)}
@@ -14208,7 +14209,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
    on top), fields share one look, path chevrons show on hover only, and
    the palette swatch previews the theme in use. */
 
-#fe-bar .fe-crumb-dd{background:none;border:none;cursor:pointer;font-size:var(--fs-xs);border-radius:3px;line-height:1;transition:opacity .1s,color .1s,background .1s;flex-shrink:0;min-width:0;opacity:1;color:var(--dm);padding:3px 1px}
+#fe-bar .fe-crumb-dd{background:none;border:none;cursor:pointer;font-size:var(--fs-xs);border-radius:3px;line-height:1;transition:opacity var(--t-fast),color var(--t-fast),background var(--t-fast);flex-shrink:0;min-width:0;opacity:1;color:var(--dm);padding:3px 1px}
 #fe-bar .fe-crumb-dd:hover{background:var(--hover);opacity:1;border:none;color:var(--tx)}
 #fe-statusbar{min-width:0;overflow:hidden;white-space:nowrap}
 #fe[data-theme="light"] .fe-set-sw:nth-child(1) .fe-set-sw-chip{--b:#eaf0f2;--a:#0e8f8a}
@@ -14281,7 +14282,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none!important}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 @media (prefers-reduced-motion:reduce){
-  #fe *,#fe *::before,#fe *::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
+  #fe *,#fe *::before,#fe *::after{animation-duration:var(--t-off)!important;animation-iteration-count:1!important;transition-duration:var(--t-off)!important}
 }
 
 /* Narrow windows keep the reading column usable: the listing drops its
@@ -14657,7 +14658,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);font-size:var(--fs-md);color:var(--mt)}
 
 /* Where the keyboard is. */
-.fe-area-flash{animation:fe-area .7s var(--ease)}
+.fe-area-flash{animation:fe-area var(--t-flash) var(--ease)}
 @keyframes fe-area{0%{box-shadow:inset 0 0 0 2px var(--ac)}100%{box-shadow:inset 0 0 0 2px transparent}}
 #fe-side .fe-si:focus-visible,#fe-side .fe-si-link:focus-visible,#fe-side summary:focus-visible,#fe-side .fe-nt-grp:focus-visible,
 #fe-tabs .fe-tab:focus-visible,#fe-bc a:focus-visible,#fe-bc button:focus-visible{outline:2px solid var(--ac);outline-offset:-2px;border-radius:var(--row-r)}

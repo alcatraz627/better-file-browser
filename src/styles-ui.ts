@@ -328,7 +328,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);font-size:var(--fs-md);color:var(--mt)}
 
 /* Where the keyboard is. */
-.fe-area-flash{animation:fe-area .7s var(--ease)}
+.fe-area-flash{animation:fe-area var(--t-flash) var(--ease)}
 @keyframes fe-area{0%{box-shadow:inset 0 0 0 2px var(--ac)}100%{box-shadow:inset 0 0 0 2px transparent}}
 #fe-side .fe-si:focus-visible,#fe-side .fe-si-link:focus-visible,#fe-side summary:focus-visible,#fe-side .fe-nt-grp:focus-visible,
 #fe-tabs .fe-tab:focus-visible,#fe-bc a:focus-visible,#fe-bc button:focus-visible{outline:2px solid var(--ac);outline-offset:-2px;border-radius:var(--row-r)}
