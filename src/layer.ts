@@ -190,6 +190,19 @@ function position(el: HTMLElement, o: LayerOptions): void {
   el.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
 }
 
+// Parts that stay in the page's own layout (the narrow sidebar laid over the
+// page) but close on a press outside them, like a popover does.
+const parts: { el: HTMLElement; isOpen: () => boolean; close: () => void }[] = [];
+
+/// Close an in-page part when a press lands outside it. It shares the layers'
+/// listener, so while a layer is open the press closes only that layer.
+export function dismissOutside(el: HTMLElement, isOpen: () => boolean, close: () => void): () => void {
+  wire();
+  const part = { el, isOpen, close };
+  parts.push(part);
+  return () => { const i = parts.indexOf(part); if (i >= 0) parts.splice(i, 1); };
+}
+
 // One listener per event for every layer. Esc and outside clicks reach only the
 // topmost layer that closes on them.
 function wire(): void {
@@ -208,7 +221,8 @@ function wire(): void {
     pressTarget = e.target;
     const t = e.target as Node;
     const top = stack[stack.length - 1];
-    if (!top || top.el.contains(t)) return;
+    if (!top) { parts.forEach(p => { if (p.isOpen() && !p.el.contains(t)) p.close(); }); return; }
+    if (top.el.contains(t)) return;
     const anchor = top.opts.anchor;
     if (anchor?.contains(t)) {
       if (CLOSES[top.kind].anchor) { top.close('anchor'); anchorClosed = anchor; }

@@ -2175,6 +2175,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     el.style.left = `${Math.max(pad, Math.min(x, innerWidth - w - pad))}px`;
     el.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
   }
+  var parts = [];
   function wire() {
     if (wired) return;
     wired = true;
@@ -2191,7 +2192,13 @@ button.chip:disabled{opacity:.45;cursor:default}
       pressTarget = e.target;
       const t = e.target;
       const top = stack[stack.length - 1];
-      if (!top || top.el.contains(t)) return;
+      if (!top) {
+        parts.forEach((p) => {
+          if (p.isOpen() && !p.el.contains(t)) p.close();
+        });
+        return;
+      }
+      if (top.el.contains(t)) return;
       const anchor = top.opts.anchor;
       if (anchor?.contains(t)) {
         if (CLOSES[top.kind].anchor) {

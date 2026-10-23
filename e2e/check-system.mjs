@@ -37,9 +37,12 @@ const RULES = [
   { id: 'css-part-paint', text: css => partPaint(css), on: 'css' },
   { id: 'css-row-paint', text: css => rowPaint(css), on: 'css' },
   { id: 'js-keydown', code: /addEventListener\(\s*['"]keydown['"]/g, skip: ['layer.ts', 'resize.ts'] },
-  // Presses anywhere on the page, and clicks caught at the document, are how a
-  // part closes itself on an outside click; the layer service owns that.
-  { id: 'js-outside-click', code: /addEventListener\(\s*['"](mousedown|pointerdown)['"]|document\.addEventListener\(\s*['"]click['"]/g, skip: ['layer.ts'] },
+  // A press caught at the document is how a part closes itself on an outside
+  // click; the layer service owns that (openLayer, or dismissOutside for a part
+  // that stays in the page). Presses on an element are drags and selection
+  // guards, so they are not counted. Left today: the column drag, the Alt-hint
+  // hider, the copy-button delegate and the download-link rewrite.
+  { id: 'js-outside-click', code: /document\.addEventListener\(\s*['"](mousedown|pointerdown|click)['"]/g, skip: ['layer.ts'] },
   { id: 'js-navigation', code: /location\.(href\s*=|assign|replace|reload)|history\.(push|replace)State|window\.open\(/g, skip: ['nav.ts'] },
   { id: 'js-storage', code: /\bkv(Get|Set)\(|\b(local|session)Storage\./g, skip: ['kv.ts', 'storage.ts'] },
   { id: 'js-native-control', code: /<select\b|type="checkbox"/g, skip: ['renderers.ts', 'controls.ts'] },

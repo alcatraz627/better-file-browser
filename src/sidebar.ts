@@ -18,7 +18,7 @@ import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { foldTo } from './motion';
 import { addPaletteSource } from './commands';
-import { openLayer, raise, rovingFocus, type Layer } from './layer';
+import { dismissOutside, openLayer, raise, rovingFocus, type Layer } from './layer';
 import { emptyHtml, CLEAR } from './empty-state';
 import { errorText } from './errors';
 
@@ -80,7 +80,7 @@ function initLenses(app: App): void {
     if (narrow()) side.classList.toggle('open', !(b.classList.contains('on') && side.classList.contains('open')));
     pick(b);
   });
-  document.addEventListener('pointerdown', e => { if (side.classList.contains('open') && !side.contains(e.target as Node)) closeOverlay(); });
+  dismissOutside(side, () => side.classList.contains('open'), closeOverlay);
   // Esc (area-leave) closes it too.
   app.closeSideOverlay = () => { const was = side.classList.contains('open'); closeOverlay(); return was; };
   const step = (dir: 1 | -1) => {

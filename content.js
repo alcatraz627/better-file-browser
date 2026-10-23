@@ -776,7 +776,7 @@
   }
   async function fileRead(root, rel) {
     for (let attempt = 0; ; attempt++) {
-      const parts = [];
+      const parts2 = [];
       let mtime = -1, offset = 0, torn = false;
       while (offset != null) {
         const f = await call({ op: "fileRead", root, rel, offset });
@@ -785,10 +785,10 @@
           break;
         }
         mtime = f.mtime;
-        parts.push(f.text);
+        parts2.push(f.text);
         offset = f.next;
       }
-      if (!torn) return { text: parts.join(""), mtime };
+      if (!torn) return { text: parts2.join(""), mtime };
       if (attempt >= 3) throw new NotesError("notes_io", "the file kept changing while it was read");
     }
   }
@@ -1325,6 +1325,16 @@ ${body}`;
     el2.style.left = `${Math.max(pad, Math.min(x, innerWidth - w - pad))}px`;
     el2.style.top = `${Math.max(pad, Math.min(y, innerHeight - h - pad))}px`;
   }
+  var parts = [];
+  function dismissOutside(el2, isOpen, close) {
+    wire();
+    const part = { el: el2, isOpen, close };
+    parts.push(part);
+    return () => {
+      const i3 = parts.indexOf(part);
+      if (i3 >= 0) parts.splice(i3, 1);
+    };
+  }
   function wire() {
     if (wired) return;
     wired = true;
@@ -1341,7 +1351,13 @@ ${body}`;
       pressTarget = e.target;
       const t = e.target;
       const top = stack[stack.length - 1];
-      if (!top || top.el.contains(t)) return;
+      if (!top) {
+        parts.forEach((p) => {
+          if (p.isOpen() && !p.el.contains(t)) p.close();
+        });
+        return;
+      }
+      if (top.el.contains(t)) return;
       const anchor = top.opts.anchor;
       if (anchor?.contains(t)) {
         if (CLOSES[top.kind].anchor) {
@@ -2960,11 +2976,11 @@ ${body}`;
   }
   function compile(rules) {
     const kinds = [];
-    const parts = rules.map((r, i3) => {
+    const parts2 = rules.map((r, i3) => {
       kinds[i3] = r.kind;
       return `(?<g${i3}>${r.pattern})`;
     });
-    return { re: new RegExp(parts.join("|"), "gm"), kinds };
+    return { re: new RegExp(parts2.join("|"), "gm"), kinds };
   }
   var KIND_CLASS = {
     cmt: "tok-cmt",
@@ -3576,7 +3592,7 @@ ${body}`;
       if (line2.includes("|") && i3 + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*\s*$/.test(lines[i3 + 1])) {
         flush();
         const cells = (l) => {
-          const parts = [];
+          const parts2 = [];
           let cell = "";
           let codeTicks = 0;
           for (let p = 0; p < l.length; p++) {
@@ -3596,16 +3612,16 @@ ${body}`;
               continue;
             }
             if (l[p] === "|" && !codeTicks) {
-              parts.push(cell);
+              parts2.push(cell);
               cell = "";
               continue;
             }
             cell += l[p];
           }
-          parts.push(cell);
-          if (/^\s*\|/.test(l)) parts.shift();
-          if (/\|\s*$/.test(l) && !/\\\|\s*$/.test(l)) parts.pop();
-          return parts.map((c) => mdInline(c.trim(), baseUrl));
+          parts2.push(cell);
+          if (/^\s*\|/.test(l)) parts2.shift();
+          if (/\|\s*$/.test(l) && !/\\\|\s*$/.test(l)) parts2.pop();
+          return parts2.map((c) => mdInline(c.trim(), baseUrl));
         };
         const head = cells(line2);
         i3 += 2;
@@ -4469,17 +4485,17 @@ ${body}
   }
   function withHistory(turns, question, maxChars = 4e3) {
     if (!turns.length) return question;
-    const parts = [];
+    const parts2 = [];
     let used = 0;
     for (const t of turns.slice(-4).reverse()) {
       const block = `Q: ${t.q}
 A: ${t.a}`;
       if (used + block.length > maxChars) break;
-      parts.unshift(block);
+      parts2.unshift(block);
       used += block.length;
     }
-    return parts.length ? `Earlier in this chat:
-${parts.join("\n\n")}
+    return parts2.length ? `Earlier in this chat:
+${parts2.join("\n\n")}
 
 Now: ${question}` : question;
   }
@@ -4738,26 +4754,26 @@ Now: ${question}` : question;
         this.tags = Object.assign({}, _Directives.defaultTags);
         this.atNextDocument = false;
       }
-      const parts = line2.trim().split(/[ \t]+/);
-      const name = parts.shift();
+      const parts2 = line2.trim().split(/[ \t]+/);
+      const name = parts2.shift();
       switch (name) {
         case "%TAG": {
-          if (parts.length !== 2) {
+          if (parts2.length !== 2) {
             onError(0, "%TAG directive should contain exactly two parts");
-            if (parts.length < 2)
+            if (parts2.length < 2)
               return false;
           }
-          const [handle, prefix] = parts;
+          const [handle, prefix] = parts2;
           this.tags[handle] = prefix;
           return true;
         }
         case "%YAML": {
           this.yaml.explicit = true;
-          if (parts.length !== 1) {
+          if (parts2.length !== 1) {
             onError(0, "%YAML directive should contain exactly one part");
             return false;
           }
-          const [version] = parts;
+          const [version] = parts2;
           if (version === "1.1" || version === "1.2") {
             this.yaml.version = version;
             return true;
@@ -7109,9 +7125,9 @@ ${cn.comment}` : item.comment;
   // node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
   function parseSexagesimal(str, asBigInt) {
     const sign = str[0];
-    const parts = sign === "-" || sign === "+" ? str.substring(1) : str;
+    const parts2 = sign === "-" || sign === "+" ? str.substring(1) : str;
     const num = (n) => asBigInt ? BigInt(n) : Number(n);
-    const res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
+    const res = parts2.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
     return sign === "-" ? num(-1) * res : res;
   }
   function stringifySexagesimal(node) {
@@ -7127,18 +7143,18 @@ ${cn.comment}` : item.comment;
       value *= num(-1);
     }
     const _60 = num(60);
-    const parts = [value % _60];
+    const parts2 = [value % _60];
     if (value < 60) {
-      parts.unshift(0);
+      parts2.unshift(0);
     } else {
-      value = (value - parts[0]) / _60;
-      parts.unshift(value % _60);
+      value = (value - parts2[0]) / _60;
+      parts2.unshift(value % _60);
       if (value >= 60) {
-        value = (value - parts[0]) / _60;
-        parts.unshift(value);
+        value = (value - parts2[0]) / _60;
+        parts2.unshift(value);
       }
     }
-    return sign + parts.map((n) => String(n).padStart(2, "0")).join(":").replace(/000000\d*$/, "");
+    return sign + parts2.map((n) => String(n).padStart(2, "0")).join(":").replace(/000000\d*$/, "");
   }
   var intTime = {
     identify: (value) => typeof value === "bigint" || Number.isInteger(value),
@@ -16860,8 +16876,8 @@ ${d.message}` : d.message;
     for (const t of list3) count.set(t.label, (count.get(t.label) ?? 0) + 1);
     return list3.map((t) => {
       if ((count.get(t.label) ?? 0) < 2) return t.label;
-      const parts = t.path.split("/").filter(Boolean);
-      return parts.length >= 2 ? parts[parts.length - 2] + "/" + t.label : t.label;
+      const parts2 = t.path.split("/").filter(Boolean);
+      return parts2.length >= 2 ? parts2[parts2.length - 2] + "/" + t.label : t.label;
     });
   }
 
@@ -20361,9 +20377,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (narrow()) side.classList.toggle("open", !(b.classList.contains("on") && side.classList.contains("open")));
       pick2(b);
     });
-    document.addEventListener("pointerdown", (e) => {
-      if (side.classList.contains("open") && !side.contains(e.target)) closeOverlay();
-    });
+    dismissOutside(side, () => side.classList.contains("open"), closeOverlay);
     app.closeSideOverlay = () => {
       const was = side.classList.contains("open");
       closeOverlay();

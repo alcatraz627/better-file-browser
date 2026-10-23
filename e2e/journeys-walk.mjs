@@ -145,6 +145,11 @@ try {
   await key('Escape');
   const after = await page.evaluate(() => ({ open: document.getElementById('fe-side').classList.contains('open'), inSide: !!document.activeElement?.closest('#fe-side') }));
   check(!after.open && !after.inSide, `Esc from inside closes it and hands the keyboard back: ${JSON.stringify(after)}`);
+  await page.click('#fe-side .fe-rail-btn:not([hidden])');
+  await sleep(300);
+  await page.mouse.click(480, 400);
+  await sleep(200);
+  check(!(await sideOpen()), 'a press outside it closes it');
 } finally { await h.close(); }
 console.log(failed ? `${failed} check(s) failed` : 'all checks passed');
 process.exitCode = failed ? 1 : 0;
