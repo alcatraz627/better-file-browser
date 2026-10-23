@@ -2506,7 +2506,7 @@ ${body}`;
   var tile = (t, size = "") => `<span class="fe-dlg-tile ${size}" style="--tone:${t.tone ?? "var(--ac)"}" aria-hidden="true">${t.icon}</span>`;
   function renderDialog(d) {
     return `
-  <div id="${esc(d.id)}" class="fe-dlg" style="display:none">
+  <div id="${esc(d.id)}" class="fe-dlg" hidden>
     <div class="fe-dlg-bg scrim"></div>
     <div class="fe-dlg-box panel" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
       <div class="sect fe-dlg-title" data-level="page">
@@ -2556,7 +2556,7 @@ ${body}`;
     wireSize(root.querySelector(`#${id}-size`), box, id);
     let place = getDialogPlace(id);
     const inSide = () => box.parentElement?.id === "fe-side-pane" && !box.parentElement.hidden;
-    const isOpen = () => root.style.display !== "none" || inSide();
+    const isOpen = () => !root.hidden || inSide();
     let unfolded = false;
     function show(tab) {
       if (!tabs.some((t) => t.dataset.tab === tab)) tab = tabs[0]?.dataset.tab ?? "";
@@ -2589,13 +2589,13 @@ ${body}`;
         box.focus();
         return;
       }
-      root.style.display = "flex";
+      root.hidden = false;
       if (layer?.open) {
         box.focus();
         return;
       }
       layer = openLayer(root, { kind: "dialog", place: "none", focus: box, backdrop: root.querySelector(".fe-dlg-bg"), onClose: () => {
-        root.style.display = "none";
+        root.hidden = true;
         hooks.onClose?.();
       } });
     }
@@ -2629,7 +2629,7 @@ ${body}`;
       const i3 = tabs.findIndex((t) => t.classList.contains("on"));
       show(tabs[(i3 + dir + tabs.length) % tabs.length].dataset.tab);
     };
-    const owns = () => root.style.display !== "none" || inSide() && box.contains(document.activeElement);
+    const owns = () => !root.hidden || inSide() && box.contains(document.activeElement);
     mounted.push({ isOpen: owns, step: step2, inSide, close, box });
     return { open, close, isOpen, show };
   }
@@ -11318,14 +11318,14 @@ ${end.comment}` : end.comment;
       </div>
       <div id="fe-ql-rz" title="Drag to resize"></div>
       <div id="fe-ql-rz-side" title="Drag to resize"></div>
-      <div id="fe-ql-ai" style="display:none">
+      <div id="fe-ql-ai" hidden>
         <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
         <button class="btn fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
         <button class="btn fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
         <input id="fe-ql-ai-q" class="tb" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
         <button class="btn fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
       </div>
-      <div id="fe-ql-ai-out" style="display:none">
+      <div id="fe-ql-ai-out" hidden>
         <div id="fe-ql-ai-out-body"></div>
         <div id="fe-ql-ai-out-meta"></div>
       </div>
@@ -11503,8 +11503,8 @@ ${end.comment}` : end.comment;
     aiCancel?.();
     aiCancel = null;
     aiSeq++;
-    document.getElementById("fe-ql-ai").style.display = "none";
-    document.getElementById("fe-ql-ai-out").style.display = "none";
+    document.getElementById("fe-ql-ai").hidden = true;
+    document.getElementById("fe-ql-ai-out").hidden = true;
     document.getElementById("fe-ql-ai-out-body").innerHTML = "";
     document.getElementById("fe-ql-ai-out-meta").textContent = "";
     document.getElementById("fe-ql-ai-q").value = "";
@@ -11527,7 +11527,7 @@ ${end.comment}` : end.comment;
         b.disabled = !ready;
       });
       document.getElementById("fe-ql-ai-q").disabled = !ready;
-      document.getElementById("fe-ql-ai").style.display = "";
+      document.getElementById("fe-ql-ai").hidden = false;
     });
   }
   var aiChat = { href: "", id: "" };
@@ -11546,7 +11546,7 @@ ${end.comment}` : end.comment;
     const seq2 = ++aiSeq;
     const body = document.getElementById("fe-ql-ai-out-body");
     const meta = document.getElementById("fe-ql-ai-out-meta");
-    document.getElementById("fe-ql-ai-out").style.display = "";
+    document.getElementById("fe-ql-ai-out").hidden = false;
     body.textContent = "";
     meta.textContent = "Thinking\u2026";
     let full = "";
@@ -11621,7 +11621,7 @@ ${end.comment}` : end.comment;
     nameEl.href = fileHref(root.replace(/\/$/, "") + "/" + doc.rel);
     document.getElementById("fe-ql-open").href = nameEl.href;
     resetAiUi();
-    document.getElementById("fe-ql-ai").style.display = "none";
+    document.getElementById("fe-ql-ai").hidden = true;
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.style.display = "";
     copyBtn.disabled = false;
@@ -11653,10 +11653,10 @@ ${end.comment}` : end.comment;
       <button class="btn" data-act="next" title="Next note in the list (\u2325\u2318\u2193)">${UI_ICON.next}<span>Next</span></button>
       <button class="btn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
       <button class="btn" data-act="delete" title="Move this note to .trash (\u2318\u21E7\u232B)">${UI_ICON.trash}<span>Delete</span></button>` : ""}
-      <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
+      <input type="file" id="fe-ed-file" accept="image/*" hidden>
       <span class="fe-ed-hint">\u2325\u2191\u2193 move line \xB7 \u2325\u21E7\u2191\u2193 duplicate \xB7 \u21E5 indent \xB7 Enter continues lists</span>
     </div>
-    <div id="fe-ed-hist" style="display:none"></div>
+    <div id="fe-ed-hist" hidden></div>
     <div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
     const ta = document.getElementById("fe-ed-src");
     const view = document.getElementById("fe-ed-view");
@@ -11724,12 +11724,12 @@ ${end.comment}` : end.comment;
     const escHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
     const whenText = (ms) => new Date(ms).toLocaleString(void 0, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
     const toggleVersions = async () => {
-      if (hist.style.display !== "none") {
-        hist.style.display = "none";
+      if (!hist.hidden) {
+        hist.hidden = true;
         renderView();
         return;
       }
-      hist.style.display = "";
+      hist.hidden = false;
       hist.innerHTML = emptyHtml("loading", "Reading versions\u2026", { inline: true });
       try {
         const { versions: vs, repo } = await notes.history(root, edit?.rel ?? doc.rel);
@@ -11742,7 +11742,7 @@ ${end.comment}` : end.comment;
       } catch (err) {
         hist.innerHTML = emptyHtml("failed", "Versions could not be read", { inline: true, hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "Read the versions again" }] });
         hist.querySelector('[data-a="retry"]')?.addEventListener("click", () => {
-          hist.style.display = "none";
+          hist.hidden = true;
           void toggleVersions();
         });
       }
@@ -11756,7 +11756,7 @@ ${end.comment}` : end.comment;
           buf.snap();
           ta.value = splitNote(v.text).body;
           ta.dispatchEvent(new Event("input", { bubbles: true }));
-          hist.style.display = "none";
+          hist.hidden = true;
           ta.focus();
         });
         document.getElementById("fe-hist-back").addEventListener("click", () => renderView());
@@ -12102,7 +12102,7 @@ ${end.comment}` : end.comment;
     const body = document.getElementById("fe-ql-body");
     const note2 = unrenderableNote(text);
     if (note2) {
-      if (sniffBinary(text)) document.getElementById("fe-ql-ai").style.display = "none";
+      if (sniffBinary(text)) document.getElementById("fe-ql-ai").hidden = true;
       body.innerHTML = `<div class="fe-ql-center">${note2}</div>`;
       return;
     }
@@ -14291,6 +14291,9 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 }
 #fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none;height:var(--h)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
+/* Parts that start hidden and are shown by clearing their hidden attribute. */
+#fe-ql-ai[hidden],#fe-ql-ai-out[hidden],#fe-ed-hist[hidden],#fe-fe-banner[hidden],#fe-fe[hidden],.fe-dlg[hidden],#fe-rc-tabs-sec[hidden],
+#fe-sg-panel[hidden],#fe-filter-bar[hidden],#fe-find-depth-wrap[hidden],#fe-st-term-custom-row[hidden],#fe-st-export-out[hidden],#fe-ed-file[hidden],#fe-st-import-file[hidden]{display:none}
 /* Reduced motion, in one place: the motion tokens go to zero and anything left still settles at once. */
 @media (prefers-reduced-motion:reduce){
   :root,#fe{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}
@@ -15625,7 +15628,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const fmt = formatFor(host.ext);
     const isMd = fmt?.id === "markdown";
     box.innerHTML = `
-    <div id="fe-fe-banner" class="notice" data-tone="warn" style="display:none"></div>
+    <div id="fe-fe-banner" class="notice" data-tone="warn" hidden></div>
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">
@@ -15901,7 +15904,7 @@ and ${diags.length - 12} more` : "");
         doc = { text, mtime: r.mtime };
         base = text;
         failed = "";
-        banner.style.display = "none";
+        banner.hidden = true;
         host.saved(text);
       } catch (err) {
         const e = err;
@@ -15930,7 +15933,7 @@ and ${diags.length - 12} more` : "");
       timer2 = window.setTimeout(save, AUTOSAVE_MS);
     };
     function showConflict() {
-      banner.style.display = "";
+      banner.hidden = false;
       banner.innerHTML = `<span>${esc(host.rel.split("/").pop())} changed on disk since you opened it.</span>
       <button class="btn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
       <button class="btn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
@@ -15959,7 +15962,7 @@ and ${diags.length - 12} more` : "");
     };
     const close = async () => {
       clearTimeout(timer2);
-      if (isDirty() && !saving && banner.style.display === "none") await write(doc.mtime);
+      if (isDirty() && !saving && banner.hidden) await write(doc.mtime);
       if (isDirty() && !confirm("Your last changes are not saved. Leave anyway?")) return;
       stopWatch();
       clearTimeout(checkTimer);
@@ -16013,7 +16016,7 @@ and ${diags.length - 12} more` : "");
         base = now.text;
         buf.snap();
         tw.set(now.text);
-        banner.style.display = "none";
+        banner.hidden = true;
         paintSource();
         paint();
       } else if (act === "overwrite") {
@@ -17354,7 +17357,7 @@ ${d.message}` : d.message;
       </div>
       <div id="fe-fp">
         <div id="fe-page" tabindex="-1"></div>
-        <div id="fe-fe" style="display:none"></div>
+        <div id="fe-fe" hidden></div>
         <aside id="fe-toc-rail" hidden>
           <div class="fe-toc-head"><h3 class="sect fe-rail-title" data-level="panel"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="badge fe-rt-n" data-tone="solid" id="fe-cm-n"></span></h3></div>
           <nav id="fe-toc"></nav>
@@ -17615,7 +17618,7 @@ ${d.message}` : d.message;
         if (sideWas) setSidebarShown(true);
       };
       page.style.display = "none";
-      editBox.style.display = "";
+      editBox.hidden = false;
       find.clear();
       editBtn.classList.add("on");
       editor = await openFileEditor(editBox, {
@@ -17636,7 +17639,7 @@ ${d.message}` : d.message;
         // The file may have changed while editing (a reload from disk), so read it again.
         closed: () => {
           editor = null;
-          editBox.style.display = "none";
+          editBox.hidden = true;
           page.style.display = "";
           editBtn.classList.remove("on");
           sideBack();
@@ -17654,7 +17657,7 @@ ${d.message}` : d.message;
       editBtn.classList.remove("busy");
       paint();
       if (!editor) {
-        editBox.style.display = "none";
+        editBox.hidden = true;
         page.style.display = "";
         editBtn.classList.remove("on");
         sideBack();
@@ -18463,7 +18466,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Make room for a docked preview", "Fold the sidebar while a docked preview is open", sw("fe-st-dock-fold", "Fold the sidebar for a docked preview")) + row("Peek closes", "A hidden sidebar opens from the left edge; it closes this long after the pointer leaves", ddHtml("fe-st-peek-close", PEEK_OPTS, "When a peeked sidebar closes", "lg")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
         ) + card2(
           "Terminal",
-          row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app", "lg")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') + note("", "fe-st-term-hint") + wide(
+          row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app", "lg")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" hidden') + note("", "fe-st-term-hint") + wide(
             "Open with",
             "Your own commands for a file or folder, one per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window.",
             `<textarea id="fe-st-open-with" class="tb fe-st-input" rows="4" spellcheck="false" title="One per line, Name: command"></textarea>`
@@ -18509,7 +18512,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ) + card2("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
         { key: "data", label: "Data", hint: "Export, import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list.", body: card2(
           "Your data",
-          row("Export", "Copies JSON", `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) + row("Import", "Then reloads", `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) + `<textarea id="fe-st-export-out" class="tb fe-st-input" style="display:none" spellcheck="false" title="The export, also on the clipboard"></textarea>`
+          row("Export", "Copies JSON", `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) + row("Import", "Then reloads", `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<textarea id="fe-st-export-out" class="tb fe-st-input" hidden spellcheck="false" title="The export, also on the clipboard"></textarea>`
         ) }
       ]
     };
@@ -18923,7 +18926,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         </div>
       </div>
 
-      <div id="fe-sg-panel" style="display:none">
+      <div id="fe-sg-panel" hidden>
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Sort by</span>
           ${ddHtml("fe-sort-cols", SORT_OPTS, "Sort this folder by")}
@@ -18933,7 +18936,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         </div>
       </div>
 
-      <div id="fe-filter-bar" style="display:none">
+      <div id="fe-filter-bar" hidden>
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
           <label class="fe-in-box fe-in-name">
@@ -18957,12 +18960,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
               <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
             </span>
           </label>
-          <span id="fe-find-depth-wrap" class="fe-panel-sub" style="display:none" title="How many levels of subfolders to look in">
+          <span id="fe-find-depth-wrap" class="fe-panel-sub" hidden title="How many levels of subfolders to look in">
             <span class="fe-panel-lbl">Depth</span>
             ${ddHtml("fe-find-depth", [1, 2, 4, 8].map((n) => ({ value: String(n), label: n === 1 ? "1 level" : `${n} levels` })), "Maximum subfolder depth")}
           </span>
           <button id="fe-find-run" class="btn" data-variant="outline" title="Run the text search (Enter)">${line('<path d="M6 4l13 8-13 8z"/>', 12)}Run</button>
-          <button id="fe-find-cancel" class="btn" data-variant="outline" style="display:none" title="Stop scanning">${UI_ICON.close}Cancel</button>
+          <button id="fe-find-cancel" class="btn" data-variant="outline" hidden title="Stop scanning">${UI_ICON.close}Cancel</button>
           <span id="fe-find-status"></span>
           <span id="fe-find-error" role="alert"></span>
           <button id="fe-find-save" class="btn" data-variant="outline" title="Keep this search as a Saved view: this folder plus these fields">${line(STAR, 13)}Save view</button>
@@ -19849,8 +19852,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     });
     const sgPanel = el("fe-sg-panel");
     el("fe-sg-btn").addEventListener("click", () => {
-      const open = sgPanel.style.display === "none";
-      sgPanel.style.display = open ? "" : "none";
+      const open = sgPanel.hidden;
+      sgPanel.hidden = !open;
       el("fe-sg-btn").classList.toggle("on", open);
       el("fe-sg-btn").setAttribute("aria-expanded", String(open));
     });
@@ -19873,8 +19876,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     syncSortUi();
     const filterBar = el("fe-filter-bar");
     el("fe-filter-btn").addEventListener("click", () => {
-      const open = filterBar.style.display === "none";
-      filterBar.style.display = open ? "" : "none";
+      const open = filterBar.hidden;
+      filterBar.hidden = !open;
       el("fe-filter-btn").classList.toggle("on", open);
       el("fe-filter-btn").setAttribute("aria-expanded", String(open));
       if (open) el("fe-filter-q").focus();
@@ -19910,7 +19913,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       findSession = null;
       ls.pendingFindText = null;
       ls.contentHits = null;
-      findCancel.style.display = "none";
+      findCancel.hidden = true;
       findStatus.textContent = "";
     }
     function currentFind() {
@@ -19937,7 +19940,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       applyAll();
       if (!text) {
         findStatus.textContent = "";
-        findCancel.style.display = "none";
+        findCancel.hidden = true;
         return;
       }
       const query = { ...currentFind(), text };
@@ -19945,13 +19948,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (patternError) {
         findError.textContent = patternError;
         findStatus.textContent = "";
-        findCancel.style.display = "none";
+        findCancel.hidden = true;
         return;
       }
       if (ls.deepOn && ls.deepScanning) {
         ls.pendingFindText = text;
         findStatus.textContent = "waiting for the folder scan\u2026";
-        findCancel.style.display = "";
+        findCancel.hidden = false;
         findCancel.onclick = () => {
           ls.pendingFindText = null;
           ls.deepSeq++;
@@ -19960,8 +19963,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           ls.deepScanning = false;
           ls.deepOn = false;
           deepBtn.classList.remove("on");
-          el("fe-find-depth-wrap").style.display = "none";
-          findCancel.style.display = "none";
+          el("fe-find-depth-wrap").hidden = true;
+          findCancel.hidden = true;
           findStatus.textContent = "stopped before scanning";
           applyAll();
         };
@@ -19972,14 +19975,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         if (seq2 !== ls.findSeq) return;
         if (nameFilterFailure) {
           findError.textContent = nameFilterFailure;
-          findCancel.style.display = "none";
+          findCancel.hidden = true;
           return;
         }
       }
       const source = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
       const candidates = applyFilter(source, ls.filter, nameMatches ?? void 0).filter(isTextCandidate);
       findStatus.textContent = `scanning 0/${candidates.length}`;
-      findCancel.style.display = "";
+      findCancel.hidden = false;
       let session;
       let cancelled = false;
       findCancel.onclick = () => {
@@ -19991,7 +19994,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         session = await SearchSession.open();
       } catch (error) {
         if (seq2 !== ls.findSeq) return;
-        findCancel.style.display = "none";
+        findCancel.hidden = true;
         findError.textContent = errorText(error, "Starting the search");
         return;
       }
@@ -20016,7 +20019,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       session.close();
       if (findSession === session) findSession = null;
       if (seq2 !== ls.findSeq) return;
-      findCancel.style.display = "none";
+      findCancel.hidden = true;
       ls.contentHits = r.hits;
       findStatus.textContent = `${r.hits.size} matching file${r.hits.size === 1 ? "" : "s"} of ${r.scanned} scanned${r.failed ? `, ${r.failed} unreadable or timed out` : ""}${r.cancelled ? " (partial, stopped)" : ""}`;
       if (failure && failure !== "search stopped") findError.textContent = errorText(failureError ?? failure, "Matching text");
@@ -20079,7 +20082,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       findCase.checked = q.caseSensitive;
       findRegex.checked = q.textRegex;
       findDepth.value = String(q.maxDepth);
-      filterBar.style.display = "";
+      filterBar.hidden = false;
       el("fe-filter-btn").classList.add("on");
       if (q.scope === "deep" !== ls.deepOn) deepBtn.click();
       ls.contentHits = null;
@@ -20146,7 +20149,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       stopFind();
       ls.deepOn = !ls.deepOn;
       deepBtn.classList.toggle("on", ls.deepOn);
-      el("fe-find-depth-wrap").style.display = ls.deepOn ? "" : "none";
+      el("fe-find-depth-wrap").hidden = !ls.deepOn;
       searchEl.placeholder = ls.deepOn ? "Search subfolders" : "Filter";
       if (ls.deepOn) {
         if (!ls.deepEntries) startDeepCrawl();
@@ -20718,7 +20721,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   }
   function initFocusNav(app) {
     const fe = app.fe;
-    const dialogOpen = () => [...document.querySelectorAll(".fe-dlg")].some((d) => d.style.display !== "none");
+    const dialogOpen = () => [...document.querySelectorAll(".fe-dlg")].some((d) => !d.hidden);
     setContext(() => {
       const ae2 = document.activeElement;
       const blocked = paletteOpen() || !!openMenu2() || !!document.querySelector(".fe-dd-list, .fe-rule-pop");
@@ -23079,7 +23082,7 @@ ${rows.join("\n")}`, name: subject };
       el("fe-st-open-with").value = settings.openWithCmds ?? DEFAULT_COMMANDS;
       el("fe-st-sec-recent").checked = !settings.hideRecent;
       v("fe-st-terminal").value = settings.terminalApp || "ghostty";
-      el("fe-st-term-custom-row").style.display = settings.terminalApp === "custom" ? "" : "none";
+      el("fe-st-term-custom-row").hidden = settings.terminalApp !== "custom";
       el("fe-st-term-custom").value = settings.terminalCmd || "";
       v("fe-st-rd-column").value = savedColumnMode(settings.readerColumn);
       v("fe-st-rd-lh").value = String(settings.readerLineHeight || 1.65);
@@ -23187,7 +23190,7 @@ ${rows.join("\n")}`, name: subject };
     v("fe-st-terminal").addEventListener("change", () => {
       settings.terminalApp = v("fe-st-terminal").value;
       saveSettings(settings);
-      el("fe-st-term-custom-row").style.display = settings.terminalApp === "custom" ? "" : "none";
+      el("fe-st-term-custom-row").hidden = settings.terminalApp !== "custom";
       updateTermHint();
     });
     el("fe-st-term-custom").addEventListener("input", function() {
@@ -23245,7 +23248,7 @@ ${rows.join("\n")}`, name: subject };
       const text = JSON.stringify(exportAll(), null, 2);
       const ta = el("fe-st-export-out");
       ta.value = text;
-      ta.style.display = "";
+      ta.hidden = false;
       ta.select();
       navigator.clipboard.writeText(text).then(() => toast("Export copied"), () => toast("Export shown below"));
     });
@@ -23732,7 +23735,7 @@ ${rows.join("\n")}`, name: subject };
         const n = s.labels.length;
         return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago2(s.at)}</span></button>`;
       }).join("");
-      section.style.display = visible2 && sets.length ? "" : "none";
+      section.hidden = !(visible2 && sets.length);
     }
     box.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-rc-set");
@@ -23816,7 +23819,7 @@ ${rows.join("\n")}`, name: subject };
         <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Files</span></div>
         ${recentFiles.length ? recentFiles.map(recentRow).join("") : emptyHtml("empty", "Files you open show up here", { inline: true })}
       </div>
-      <div class="fe-sec" data-collapse="recent-tabs" id="fe-rc-tabs-sec" style="display:none">
+      <div class="fe-sec" data-collapse="recent-tabs" id="fe-rc-tabs-sec" hidden>
         <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Closed tabs</span></div>
         <div id="fe-rc-sets"></div>
       </div>`;

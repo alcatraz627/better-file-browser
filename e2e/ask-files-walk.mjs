@@ -87,8 +87,8 @@ try {
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await page.waitForSelector('.fe-nm');
   await page.$$eval('.fe-nm', ns => ns.find(n => n.textContent.trim() === 'shot.png')?.click());
-  await page.waitForFunction(() => document.getElementById('fe-ql-ai')?.style.display === '', { timeout: 10000 }).catch(() => null);
-  const bar = await page.evaluate(() => ({ shown: document.getElementById('fe-ql-ai')?.style.display === '', exp: document.getElementById('fe-ql-ai-exp')?.textContent }));
+  await page.waitForFunction(() => document.getElementById('fe-ql-ai')?.hidden === false, { timeout: 10000 }).catch(() => null);
+  const bar = await page.evaluate(() => ({ shown: document.getElementById('fe-ql-ai')?.hidden === false, exp: document.getElementById('fe-ql-ai-exp')?.textContent }));
   check(bar.shown && bar.exp === 'Describe', `an image preview offers Ask, with Describe: ${JSON.stringify(bar)}`);
   await page.click('#fe-ql-ai-exp');
   await page.waitForFunction(() => /Local answer/.test(document.getElementById('fe-ql-ai-out-body')?.textContent ?? ''), { timeout: 10000 }).catch(() => null);

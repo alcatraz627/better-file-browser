@@ -194,7 +194,7 @@ export function renderPage(p: PageParams): string {
         </div>
       </div>
 
-      <div id="fe-sg-panel" style="display:none">
+      <div id="fe-sg-panel" hidden>
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Sort by</span>
           ${ddHtml('fe-sort-cols', SORT_OPTS, 'Sort this folder by')}
@@ -204,7 +204,7 @@ export function renderPage(p: PageParams): string {
         </div>
       </div>
 
-      <div id="fe-filter-bar" style="display:none">
+      <div id="fe-filter-bar" hidden>
         <div class="fe-panel-row">
           <span class="fe-panel-lbl">Name</span>
           <label class="fe-in-box fe-in-name">
@@ -228,12 +228,12 @@ export function renderPage(p: PageParams): string {
               <label class="btn fe-in-chip" data-size="sm" data-variant="outline" data-mono title="Use a regular expression for the text"><input type="checkbox" id="fe-find-text-regex" title="Use a regular expression for the text">.*</label>
             </span>
           </label>
-          <span id="fe-find-depth-wrap" class="fe-panel-sub" style="display:none" title="How many levels of subfolders to look in">
+          <span id="fe-find-depth-wrap" class="fe-panel-sub" hidden title="How many levels of subfolders to look in">
             <span class="fe-panel-lbl">Depth</span>
             ${ddHtml('fe-find-depth', [1, 2, 4, 8].map(n => ({ value: String(n), label: n === 1 ? '1 level' : `${n} levels` })), 'Maximum subfolder depth')}
           </span>
           <button id="fe-find-run" class="btn" data-variant="outline" title="Run the text search (Enter)">${line('<path d="M6 4l13 8-13 8z"/>', 12)}Run</button>
-          <button id="fe-find-cancel" class="btn" data-variant="outline" style="display:none" title="Stop scanning">${UI_ICON.close}Cancel</button>
+          <button id="fe-find-cancel" class="btn" data-variant="outline" hidden title="Stop scanning">${UI_ICON.close}Cancel</button>
           <span id="fe-find-status"></span>
           <span id="fe-find-error" role="alert"></span>
           <button id="fe-find-save" class="btn" data-variant="outline" title="Keep this search as a Saved view: this folder plus these fields">${line(STAR, 13)}Save view</button>

@@ -247,7 +247,7 @@ export function initSettingsUi(app: App): void {
     el<HTMLTextAreaElement>('fe-st-open-with').value = settings.openWithCmds ?? DEFAULT_COMMANDS;
     el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
     v('fe-st-terminal').value = settings.terminalApp || 'ghostty';
-    el('fe-st-term-custom-row').style.display = settings.terminalApp === 'custom' ? '' : 'none';
+    el('fe-st-term-custom-row').hidden = settings.terminalApp !== 'custom';
     el<HTMLInputElement>('fe-st-term-custom').value = settings.terminalCmd || '';
     v('fe-st-rd-column').value = savedColumnMode(settings.readerColumn);
     v('fe-st-rd-lh').value = String(settings.readerLineHeight || 1.65);
@@ -324,7 +324,7 @@ export function initSettingsUi(app: App): void {
   v('fe-st-peek-close').addEventListener('change', () => { settings.peekCloseMs = Number(v('fe-st-peek-close').value); saveSettings(settings); });
   v('fe-st-terminal').addEventListener('change', () => {
     settings.terminalApp = v('fe-st-terminal').value; saveSettings(settings);
-    el('fe-st-term-custom-row').style.display = settings.terminalApp === 'custom' ? '' : 'none';
+    el('fe-st-term-custom-row').hidden = settings.terminalApp !== 'custom';
     updateTermHint();
   });
   el<HTMLInputElement>('fe-st-term-custom').addEventListener('input', function () {
@@ -374,7 +374,7 @@ export function initSettingsUi(app: App): void {
   el('fe-st-export').addEventListener('click', () => {
     const text = JSON.stringify(exportAll(), null, 2);
     const ta = el<HTMLTextAreaElement>('fe-st-export-out');
-    ta.value = text; ta.style.display = ''; ta.select();
+    ta.value = text; ta.hidden = false; ta.select();
     navigator.clipboard.writeText(text).then(() => toast('Export copied'), () => toast('Export shown below'));
   });
   el('fe-st-import').addEventListener('click', () => el<HTMLInputElement>('fe-st-import-file').click());

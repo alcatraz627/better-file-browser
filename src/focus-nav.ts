@@ -50,7 +50,7 @@ function menuKeys(e: KeyboardEvent): boolean {
 
 export function initFocusNav(app: App): void {
   const fe = app.fe;
-  const dialogOpen = () => [...document.querySelectorAll<HTMLElement>('.fe-dlg')].some(d => d.style.display !== 'none');
+  const dialogOpen = () => [...document.querySelectorAll<HTMLElement>('.fe-dlg')].some(d => !d.hidden);
   setContext(() => {
     const ae = document.activeElement;
     const blocked = paletteOpen() || !!openMenu() || !!document.querySelector('.fe-dd-list, .fe-rule-pop');

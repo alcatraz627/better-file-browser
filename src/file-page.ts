@@ -162,7 +162,7 @@ export function renderFileContent(): string {
       </div>
       <div id="fe-fp">
         <div id="fe-page" tabindex="-1"></div>
-        <div id="fe-fe" style="display:none"></div>
+        <div id="fe-fe" hidden></div>
         <aside id="fe-toc-rail" hidden>
           <div class="fe-toc-head"><h3 class="sect fe-rail-title" data-level="panel"><span class="fe-rail-ico"></span><span class="fe-rail-name"></span><span class="badge fe-rt-n" data-tone="solid" id="fe-cm-n"></span></h3></div>
           <nav id="fe-toc"></nav>
@@ -415,7 +415,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     const sideWas = sidebarShown();
     if (sideWas) setSidebarShown(false);
     const sideBack = () => { if (sideWas) setSidebarShown(true); };
-    page.style.display = 'none'; editBox.style.display = '';
+    page.style.display = 'none'; editBox.hidden = false;
     find.clear();
     editBtn.classList.add('on');
     editor = await openFileEditor(editBox, {
@@ -425,14 +425,14 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
       saved: fresh => { text = fresh; paintMeta(); },   // the pill shows Saved
       // The file may have changed while editing (a reload from disk), so read it again.
       closed: () => {
-        editor = null; editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); sideBack();
+        editor = null; editBox.hidden = true; page.style.display = ''; editBtn.classList.remove('on'); sideBack();
         fetchFileText(href).then(fresh => { text = fresh; paintMeta(); }).catch(() => {}).finally(render);
       },
       comments: comments ? { marks: () => comments!.marks(), open: id => { showComments(); comments!.show(id); } } : undefined,
     });
     editBtn.classList.remove('busy');
     paint();
-    if (!editor) { editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); sideBack(); render(); }
+    if (!editor) { editBox.hidden = true; page.style.display = ''; editBtn.classList.remove('on'); sideBack(); render(); }
   };
   editBtn.addEventListener('click', () => void edit());
   const showComments = () => showPane('cm');

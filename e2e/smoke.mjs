@@ -616,11 +616,11 @@ try {
   // while a pane scrolls; Esc closes.
   for (const [btn, id, count, shotName] of [['#fe-help-btn', 'fe-help-modal', 6, 'help-dialog'], ['#fe-settings-btn', 'fe-settings-modal', 6, 'settings-dialog']]) {
     await page.click(btn);
-    await page.waitForFunction(i => document.getElementById(i).style.display !== 'none', { timeout: 3_000 }, id).catch(() => null);
+    await page.waitForFunction(i => !document.getElementById(i).hidden, { timeout: 3_000 }, id).catch(() => null);
     const d = await page.evaluate(i => {
       const root = document.getElementById(i);
       return {
-        open: root.style.display !== 'none', title: root.querySelector('.fe-dlg-title .sect-tx b')?.textContent,
+        open: !root.hidden, title: root.querySelector('.fe-dlg-title .sect-tx b')?.textContent,
         subtitle: !!root.querySelector('.fe-dlg-title .sect-tx i')?.textContent, mark: !!root.querySelector('.fe-dlg-mark svg'),
         tabs: [...root.querySelectorAll('.fe-dlg-tab b')].map(b => b.textContent),
         shown: [...root.querySelectorAll('.fe-dlg-pane')].filter(p => getComputedStyle(p).display !== 'none').length,
@@ -657,18 +657,18 @@ try {
     await new Promise(r => setTimeout(r, 250));   // let the tab transition settle before the shot
     await shot(page, shotName);
     await page.keyboard.press('Escape');
-    const closed = await page.evaluate(i => document.getElementById(i).style.display === 'none', id);
+    const closed = await page.evaluate(i => document.getElementById(i).hidden, id);
     check(closed, `${d.title}: Esc closes`);
   }
 
   // Keyboard opens the modals: ? opens Help, , opens Settings, Esc closes each.
   await page.keyboard.press('?');
-  await page.waitForFunction(() => document.getElementById('fe-help-modal').style.display !== 'none', { timeout: 3_000 }).catch(() => null);
-  const helpByKey = await page.evaluate(() => document.getElementById('fe-help-modal').style.display !== 'none');
+  await page.waitForFunction(() => !document.getElementById('fe-help-modal').hidden, { timeout: 3_000 }).catch(() => null);
+  const helpByKey = await page.evaluate(() => !document.getElementById('fe-help-modal').hidden);
   await page.keyboard.press('Escape');
   await page.keyboard.press(',');
-  await page.waitForFunction(() => document.getElementById('fe-settings-modal').style.display !== 'none', { timeout: 3_000 }).catch(() => null);
-  const setByKey = await page.evaluate(() => document.getElementById('fe-settings-modal').style.display !== 'none');
+  await page.waitForFunction(() => !document.getElementById('fe-settings-modal').hidden, { timeout: 3_000 }).catch(() => null);
+  const setByKey = await page.evaluate(() => !document.getElementById('fe-settings-modal').hidden);
   await page.keyboard.press('Escape');
   check(helpByKey && setByKey, `? opens Help and , opens Settings: help=${helpByKey} settings=${setByKey}`);
 
@@ -734,7 +734,7 @@ try {
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="look"]');
   await page.click('#fe-st-tooltips');
   await page.click('#fe-st-keys');
-  const keysOpen = await page.evaluate(() => ({ help: document.getElementById('fe-help-modal').style.display !== 'none', tab: document.querySelector('#fe-help-modal .fe-dlg-tab.on')?.dataset.tab, settings: document.getElementById('fe-settings-modal').style.display === 'none' }));
+  const keysOpen = await page.evaluate(() => ({ help: !document.getElementById('fe-help-modal').hidden, tab: document.querySelector('#fe-help-modal .fe-dlg-tab.on')?.dataset.tab, settings: document.getElementById('fe-settings-modal').hidden }));
   check(keysOpen.help && keysOpen.tab === 'keys' && keysOpen.settings, `the Keyboard link opens Help on its Keyboard tab: ${JSON.stringify(keysOpen)}`);
   await page.keyboard.press('Escape');
   await h.store.set('bfb-settings-v1', { showSidebar: true, tooltips: true });

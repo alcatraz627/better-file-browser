@@ -41,7 +41,7 @@ try {
   check(!!pop && /Allow editing here/.test(pop.text) && /14 days/.test(pop.text) && pop.below && pop.inView, `outside an allowed folder, Edit asks in a popover: ${JSON.stringify(pop)}`);
   await page.screenshot({ path: join(SHOTS, 'edit-allow.png') });
   await page.click('#fe-allow [data-a="cancel"]');
-  check(!(await page.$('#fe-allow')) && await page.$eval('#fe-fe', el => el.style.display === 'none'), 'Cancel closes it and stays reading');
+  check(!(await page.$('#fe-allow')) && await page.$eval('#fe-fe', el => el.hidden), 'Cancel closes it and stays reading');
 
   // Allow folder: remembered in Settings, and the editor opens straight away.
   await page.click('#fe-fp-edit');
@@ -154,8 +154,8 @@ try {
   await typeAtEnd(page, 'mine\n');
   writeFileSync(md, '# Title\n\n## Section\n\nchanged elsewhere\n');
   const later = new Date(Date.now() + 5000); utimesSync(md, later, later);
-  await page.waitForFunction(() => document.getElementById('fe-fe-banner').style.display !== 'none', { timeout: 6000 }).catch(() => null);
-  check(await page.$eval('#fe-fe-banner', el => el.style.display !== 'none') && readFileSync(md, 'utf8').includes('changed elsewhere'), 'an on-disk change while edited shows the banner, file untouched');
+  await page.waitForFunction(() => !document.getElementById('fe-fe-banner').hidden, { timeout: 6000 }).catch(() => null);
+  check(await page.$eval('#fe-fe-banner', el => !el.hidden) && readFileSync(md, 'utf8').includes('changed elsewhere'), 'an on-disk change while edited shows the banner, file untouched');
   await page.click('#fe-fe-banner [data-act="reload"]');
   await page.waitForFunction(() => document.getElementById('fe-fe-ta').value.includes('changed elsewhere'), { timeout: 5000 }).catch(() => null);
   check(await page.$eval('#fe-fe-ta', el => el.value.includes('changed elsewhere')), 'Load from disk replaces the editor text');

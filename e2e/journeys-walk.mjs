@@ -106,7 +106,7 @@ try {
   // Journey 8: Settings by keys alone.
   await page.evaluate(() => document.activeElement?.blur());
   await key(',');
-  await page.waitForFunction(() => document.getElementById('fe-settings-modal')?.style.display === 'flex', { timeout: 3000 }).catch(() => null);
+  await page.waitForFunction(() => document.getElementById('fe-settings-modal')?.hidden === false, { timeout: 3000 }).catch(() => null);
   const onTab = () => page.$eval('#fe-settings-modal .fe-dlg-tab.on, #fe-settings-modal [data-tab].on', t => t.dataset.tab).catch(() => '');
   const t0 = await onTab();
   await key(']');
@@ -122,11 +122,11 @@ try {
   check(out === 0, `Tab stays inside Settings (${out} steps outside)`);
   await page.evaluate(() => document.activeElement?.blur());
   await key('?');
-  const helpOver = await page.$eval('#fe-help-modal', m => m.style.display === 'flex');
+  const helpOver = await page.$eval('#fe-help-modal', m => !m.hidden);
   check(!helpOver, '? does nothing while Settings is open');
   await key('Escape');
   await sleep(200);
-  check(await page.$eval('#fe-settings-modal', m => m.style.display !== 'flex'), 'Esc closes Settings');
+  check(await page.$eval('#fe-settings-modal', m => m.hidden), 'Esc closes Settings');
 
   // A narrow window: the sidebar opens over the page, and Esc closes it.
   await page.setViewport({ width: 500, height: 800 });

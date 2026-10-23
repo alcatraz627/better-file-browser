@@ -517,8 +517,8 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   // Sort and group panel.
   const sgPanel = el('fe-sg-panel');
   el('fe-sg-btn').addEventListener('click', () => {
-    const open = sgPanel.style.display === 'none';
-    sgPanel.style.display = open ? '' : 'none';
+    const open = sgPanel.hidden;
+    sgPanel.hidden = !open;
     el('fe-sg-btn').classList.toggle('on', open);
     el('fe-sg-btn').setAttribute('aria-expanded', String(open));
   });
@@ -543,8 +543,8 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   // Filter bar: name, regex, type, and the text-inside-files pass.
   const filterBar = el('fe-filter-bar');
   el('fe-filter-btn').addEventListener('click', () => {
-    const open = filterBar.style.display === 'none';
-    filterBar.style.display = open ? '' : 'none';
+    const open = filterBar.hidden;
+    filterBar.hidden = !open;
     el('fe-filter-btn').classList.toggle('on', open);
     el('fe-filter-btn').setAttribute('aria-expanded', String(open));
     if (open) el<HTMLInputElement>('fe-filter-q').focus();
@@ -573,7 +573,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     findSession = null;
     ls.pendingFindText = null;
     ls.contentHits = null;
-    findCancel.style.display = 'none';
+    findCancel.hidden = true;
     findStatus.textContent = '';
   }
   function currentFind(): FindQuery {
@@ -595,22 +595,22 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     findError.textContent = '';
     ls.contentHits = null;
     applyAll();
-    if (!text) { findStatus.textContent = ''; findCancel.style.display = 'none'; return; }
+    if (!text) { findStatus.textContent = ''; findCancel.hidden = true; return; }
     const query = { ...currentFind(), text };
     const patternError = textPatternError(query);
-    if (patternError) { findError.textContent = patternError; findStatus.textContent = ''; findCancel.style.display = 'none'; return; }
+    if (patternError) { findError.textContent = patternError; findStatus.textContent = ''; findCancel.hidden = true; return; }
     if (ls.deepOn && ls.deepScanning) {
       ls.pendingFindText = text;
       findStatus.textContent = 'waiting for the folder scan…';
-      findCancel.style.display = '';
+      findCancel.hidden = false;
       findCancel.onclick = () => {
         ls.pendingFindText = null;
         ls.deepSeq++;
         deepReader?.close(); deepReader = null;
         ls.deepScanning = false; ls.deepOn = false;
         deepBtn.classList.remove('on');
-        el('fe-find-depth-wrap').style.display = 'none';
-        findCancel.style.display = 'none';
+        el('fe-find-depth-wrap').hidden = true;
+        findCancel.hidden = true;
         findStatus.textContent = 'stopped before scanning';
         applyAll();
       };
@@ -619,19 +619,19 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     if (ls.filter.regex && ls.filter.q) {
       await nameFilterReady;
       if (seq !== ls.findSeq) return;
-      if (nameFilterFailure) { findError.textContent = nameFilterFailure; findCancel.style.display = 'none'; return; }
+      if (nameFilterFailure) { findError.textContent = nameFilterFailure; findCancel.hidden = true; return; }
     }
     const source = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
     const candidates = applyFilter(source, ls.filter, nameMatches ?? undefined).filter(isTextCandidate);
     findStatus.textContent = `scanning 0/${candidates.length}`;
-    findCancel.style.display = '';
+    findCancel.hidden = false;
     let session: SearchSession;
     let cancelled = false;
     findCancel.onclick = () => { cancelled = true; session?.close(); findStatus.textContent = 'stopping…'; };
     try { session = await SearchSession.open(); }
     catch (error) {
       if (seq !== ls.findSeq) return;
-      findCancel.style.display = 'none';
+      findCancel.hidden = true;
       findError.textContent = errorText(error, 'Starting the search');
       return;
     }
@@ -645,7 +645,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     session.close();
     if (findSession === session) findSession = null;
     if (seq !== ls.findSeq) return;
-    findCancel.style.display = 'none';
+    findCancel.hidden = true;
     ls.contentHits = r.hits;
     findStatus.textContent = `${r.hits.size} matching file${r.hits.size === 1 ? '' : 's'} of ${r.scanned} scanned${r.failed ? `, ${r.failed} unreadable or timed out` : ''}${r.cancelled ? ' (partial, stopped)' : ''}`;
     if (failure && failure !== 'search stopped') findError.textContent = errorText(failureError ?? failure, 'Matching text');
@@ -686,7 +686,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     findText.value = q.text; findCase.checked = q.caseSensitive;
     findRegex.checked = q.textRegex;
     findDepth.value = String(q.maxDepth);
-    filterBar.style.display = ''; el('fe-filter-btn').classList.add('on');
+    filterBar.hidden = false; el('fe-filter-btn').classList.add('on');
     if ((q.scope === 'deep') !== ls.deepOn) deepBtn.click();
     ls.contentHits = null;
     refreshNameMatches();
@@ -736,7 +736,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     stopFind();
     ls.deepOn = !ls.deepOn;
     deepBtn.classList.toggle('on', ls.deepOn);
-    el('fe-find-depth-wrap').style.display = ls.deepOn ? '' : 'none';
+    el('fe-find-depth-wrap').hidden = !ls.deepOn;
     searchEl.placeholder = ls.deepOn ? 'Search subfolders' : 'Filter';
     if (ls.deepOn) { if (!ls.deepEntries) startDeepCrawl(); else refreshNameMatches(); searchEl.focus(); }
     else { ls.deepSeq++; deepReader?.close(); deepReader = null; ls.deepScanning = false; refreshNameMatches(); }

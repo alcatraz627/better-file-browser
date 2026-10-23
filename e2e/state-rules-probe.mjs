@@ -23,6 +23,12 @@ try {
 
   const all = (sel, prop) => page.$$eval(sel, (els, p) => els.map(e => getComputedStyle(e)[p]), prop);
 
+  // Parts that start hidden: hidden at rest, and shown once the attribute clears.
+  const rest = await page.evaluate(() => ['fe-sg-panel', 'fe-filter-bar', 'fe-find-depth-wrap', 'fe-find-cancel', 'fe-rc-tabs-sec', 'fe-ql-ai', 'fe-ql-ai-out', 'fe-settings-modal', 'fe-help-modal']
+    .map(id => { const e = document.getElementById(id); if (!e) return `${id}:missing`; const hid = e.hidden && getComputedStyle(e).display === 'none'; e.hidden = false; const shown = getComputedStyle(e).display !== 'none'; e.hidden = true; return hid && shown ? '' : `${id}:${hid ? 'stays hidden when shown' : 'visible at rest'}`; })
+    .filter(Boolean));
+  check(rest.length === 0, `parts that start hidden hide at rest and show when cleared: ${rest.join(', ') || 'all 9'}`);
+
   // Collapsed sidebar sections hide everything but their heading.
   await page.evaluate(() => document.querySelectorAll('.fe-sec').forEach(s => s.classList.add('fe-collapsed')));
   const coll = await all('.fe-sec.fe-collapsed>:not(.fe-sh)', 'display');
@@ -34,7 +40,7 @@ try {
   const proxy = await all('.fe-proxy-filter', 'display');
   check(proxy.length > 0 && proxy.every(d => d === 'none'), `proxy filters hidden: ${proxy}`);
 
-  await page.evaluate(() => { const p = document.getElementById('fe-filter-bar'); if (p) p.style.display = ''; });
+  await page.evaluate(() => { const p = document.getElementById('fe-filter-bar'); if (p) p.hidden = false; });
   const nm = await all('.fe-in-name input[type="text"]', 'paddingRight');
   const tx = await all('.fe-in-text input[type="text"]', 'paddingRight');
   check(nm.length > 0 && nm.every(v => v === '40px'), `name box padding: ${nm}`);

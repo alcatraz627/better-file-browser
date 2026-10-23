@@ -27,7 +27,7 @@ try {
   assert.match(await a.$eval('#fe-find-status', el => el.textContent), /1 matching file/);
   assert.match(await b.$eval('#fe-find-status', el => el.textContent), /0 matching files/);
   assert.equal(await a.$$eval('#fe-tbody .fe-find-snippet', nodes => nodes.length), 1);
-  await a.$eval('#fe-filter-btn', button => { if (document.getElementById('fe-filter-bar').style.display === 'none') button.click(); });
+  await a.$eval('#fe-filter-btn', button => { if (document.getElementById('fe-filter-bar').hidden) button.click(); });
   await a.$eval('#fe-deep-btn', button => button.click());   // the depth control shows with Subfolders on
   // DOM clicks: page a sits behind page b, where mouse clicks wait on frames that never come.
   await a.$eval('#fe-find-depth .fe-dd-btn', button => button.click());
@@ -47,7 +47,7 @@ try {
   assert.match(results[0], /&lt;script&gt;/);
   assert.match(results[0], /<mark>alpha-42<\/mark>/);
   await a.$eval('#fe-filter-btn', button => {
-    if (document.getElementById('fe-filter-bar').style.display === 'none') button.click();
+    if (document.getElementById('fe-filter-bar').hidden) button.click();
   });
   await shot(a, 'find-regex-dark');
   await a.evaluate(() => document.getElementById('fe-theme-btn').click());
@@ -74,7 +74,7 @@ try {
   await b.$eval('#fe-find-text', input => { input.value = '('; input.dispatchEvent(new Event('input', { bubbles: true })); });
   await b.$eval('#fe-find-run', button => button.click());
   assert.equal(await b.$eval('#fe-find-error', el => el.textContent), 'Invalid text regex');
-  assert.equal(await b.$eval('#fe-find-cancel', el => el.style.display), 'none');
+  assert.equal(await b.$eval('#fe-find-cancel', el => el.hidden), true);
   await b.$eval('#fe-find-text', input => { input.value = '(a+)+$'; input.dispatchEvent(new Event('input', { bubbles: true })); });
   await b.$eval('#fe-find-run', button => button.click());
   await new Promise(resolve => setTimeout(resolve, 200));

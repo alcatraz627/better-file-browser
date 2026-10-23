@@ -64,7 +64,7 @@ async function showClosedSets(strip: Strip, visible: boolean): Promise<void> {
       const n = s.labels.length;
       return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(', '))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? '' : 's'}: ${esc(s.labels.slice(0, 3).join(', '))}${n > 3 ? '…' : ''}</span><span class="fe-rc-ago">${ago(s.at)}</span></button>`;
     }).join('');
-    section.style.display = visible && sets.length ? '' : 'none';
+    section.hidden = !(visible && sets.length);
   }
   box.addEventListener('click', e => {
     const b = (e.target as Element).closest<HTMLElement>('.fe-rc-set');
@@ -160,7 +160,7 @@ loadKv().catch(() => {}).then(function () {
         <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Files</span></div>
         ${recentFiles.length ? recentFiles.map(recentRow).join('') : emptyHtml('empty', 'Files you open show up here', { inline: true })}
       </div>
-      <div class="fe-sec" data-collapse="recent-tabs" id="fe-rc-tabs-sec" style="display:none">
+      <div class="fe-sec" data-collapse="recent-tabs" id="fe-rc-tabs-sec" hidden>
         <div class="sect fe-sh" data-level="group"><span class="fe-sh-label">Closed tabs</span></div>
         <div id="fe-rc-sets"></div>
       </div>`;

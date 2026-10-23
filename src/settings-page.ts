@@ -109,7 +109,7 @@ export function settingsDialog(): DialogSpec {
           row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
         card('Terminal',
           row('Open in', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app', 'lg')) +
-          row('Command', '${p} is the folder', `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') +
+          row('Command', '${p} is the folder', `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" hidden') +
           note('', 'fe-st-term-hint') +
           wide('Open with', 'Your own commands for a file or folder, one per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window.',
             `<textarea id="fe-st-open-with" class="tb fe-st-input" rows="4" spellcheck="false" title="One per line, Name: command"></textarea>`)) },
@@ -153,8 +153,8 @@ export function settingsDialog(): DialogSpec {
       { key: 'data', label: 'Data', hint: 'Export, import', icon: UI_ICON.data, tone: 'var(--nc-green)', desc: 'Move your settings and Saved list.', body:
         card('Your data',
           row('Export', 'Copies JSON', `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) +
-          row('Import', 'Then reloads', `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) +
-          `<textarea id="fe-st-export-out" class="tb fe-st-input" style="display:none" spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
+          row('Import', 'Then reloads', `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) +
+          `<textarea id="fe-st-export-out" class="tb fe-st-input" hidden spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
     ],
   };
 }

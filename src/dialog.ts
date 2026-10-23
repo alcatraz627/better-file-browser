@@ -25,7 +25,7 @@ const tile = (t: DialogTab, size = '') =>
 
 export function renderDialog(d: DialogSpec): string {
   return `
-  <div id="${esc(d.id)}" class="fe-dlg" style="display:none">
+  <div id="${esc(d.id)}" class="fe-dlg" hidden>
     <div class="fe-dlg-bg scrim"></div>
     <div class="fe-dlg-box panel" role="dialog" aria-labelledby="${esc(d.id)}-title" tabindex="-1">
       <div class="sect fe-dlg-title" data-level="page">
@@ -89,7 +89,7 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
   wireSize(root.querySelector<HTMLElement>(`#${id}-size`)!, box, id);
   let place = getDialogPlace(id);
   const inSide = () => box.parentElement?.id === 'fe-side-pane' && !box.parentElement.hidden;
-  const isOpen = () => root.style.display !== 'none' || inSide();
+  const isOpen = () => !root.hidden || inSide();
   // A sidebar folded away (by its setting or a docked preview) comes out for
   // the pane and goes back when the pane closes.
   let unfolded = false;
@@ -120,10 +120,10 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
       box.focus();
       return;
     }
-    root.style.display = 'flex';
+    root.hidden = false;
     if (layer?.open) { box.focus(); return; }
     // Esc and focus going back to the opener come from the layer.
-    layer = openLayer(root, { kind: 'dialog', place: 'none', focus: box, backdrop: root.querySelector<HTMLElement>('.fe-dlg-bg'), onClose: () => { root.style.display = 'none'; hooks.onClose?.(); } });
+    layer = openLayer(root, { kind: 'dialog', place: 'none', focus: box, backdrop: root.querySelector<HTMLElement>('.fe-dlg-bg'), onClose: () => { root.hidden = true; hooks.onClose?.(); } });
   }
   function close(): void {
     if (inSide()) {
@@ -157,7 +157,7 @@ export function mountDialog(id: string, hooks: { onOpen?: () => void; onClose?: 
   };
   // [ and ] step through its pages while it is a window, or while the
   // keyboard is inside it in the sidebar; elsewhere they move strip tabs.
-  const owns = () => root.style.display !== 'none' || (inSide() && box.contains(document.activeElement));
+  const owns = () => !root.hidden || (inSide() && box.contains(document.activeElement));
   mounted.push({ isOpen: owns, step, inSide, close, box });
   return { open, close, isOpen, show };
 }

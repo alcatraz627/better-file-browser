@@ -137,7 +137,7 @@ try {
   // ? opens the keyboard map.
   await k('?');
   await sleep(200);
-  check(await page.$eval('#fe-help-modal', d => d.style.display !== 'none'), '? opens Help');
+  check(await page.$eval('#fe-help-modal', d => !d.hidden), '? opens Help');
 } finally {
   await h.close();
   process.exitCode = fails.length ? 1 : 0;

@@ -92,7 +92,7 @@ try {
     const box = document.querySelector('#fe-settings-modal .fe-dlg-box') ?? document.querySelector('#fe-side-pane .fe-dlg-box');
     const tabs = box?.querySelector('.fe-dlg-tabs');
     return { inPane: !!box?.closest('#fe-side-pane'), paneShown: !!document.getElementById('fe-side-pane')?.checkVisibility(),
-      scrim: document.getElementById('fe-settings-modal').style.display, tabsDir: tabs ? getComputedStyle(tabs).flexDirection : null,
+      scrim: document.getElementById('fe-settings-modal').hidden ? 'none' : 'shown', tabsDir: tabs ? getComputedStyle(tabs).flexDirection : null,
       radius: box ? getComputedStyle(box).borderTopLeftRadius : null, w: Math.round(box?.getBoundingClientRect().width ?? 0) };
   });
   const sp = await pane();
@@ -106,7 +106,7 @@ try {
   check(again.inPane && again.paneShown, `Settings reopens in the sidebar: ${JSON.stringify(again)}`);
   await page.click('#fe-side-pane .fe-dlg-place'); await sleep(400);
   const win = await pane();
-  check(!win.inPane && win.scrim === 'flex' && win.tabsDir === 'column', `and goes back to a window: ${JSON.stringify(win)}`);
+  check(!win.inPane && win.scrim === 'shown' && win.tabsDir === 'column', `and goes back to a window: ${JSON.stringify(win)}`);
   await page.keyboard.press('Escape'); await sleep(200);
 
   // Help in the sidebar: nothing in it is wider than the pane.

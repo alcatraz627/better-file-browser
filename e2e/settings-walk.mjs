@@ -62,7 +62,7 @@ try {
   check(grp === 'folders-first', `group dropdown picks by keys: ${grp}`);
   const listGone = await page.$('.fe-dd-list');
   check(!listGone, 'the list closes after a pick');
-  const dlgOpen = await page.$eval('#fe-settings-modal', e => e.style.display !== 'none');
+  const dlgOpen = await page.$eval('#fe-settings-modal', e => !e.hidden);
   check(dlgOpen, 'Settings stays open after Enter in the list');
   // Esc closes only the topmost layer: the open list, not the dialog under it.
   await page.keyboard.press('ArrowDown');
@@ -70,7 +70,7 @@ try {
   await page.keyboard.press('Escape');
   await sleep(100);
   const escList = !!(await page.$('.fe-dd-list'));
-  const escDlg = await page.$eval('#fe-settings-modal', e => e.style.display !== 'none');
+  const escDlg = await page.$eval('#fe-settings-modal', e => !e.hidden);
   const escFocus = await page.evaluate(() => document.activeElement?.closest('#fe-st-group') != null);
   check(!escList && escDlg && escFocus, `Esc on an open list closes the list and leaves Settings open, focus on the button: ${JSON.stringify({ escList, escDlg, escFocus })}`);
 

@@ -142,14 +142,14 @@ export function initPreview(d: PreviewDeps): void {
       </div>
       <div id="fe-ql-rz" title="Drag to resize"></div>
       <div id="fe-ql-rz-side" title="Drag to resize"></div>
-      <div id="fe-ql-ai" style="display:none">
+      <div id="fe-ql-ai" hidden>
         <span id="fe-ql-ai-chip"><span class="dot"></span><span id="fe-ql-ai-chip-txt"></span></span>
         <button class="btn fe-ql-ai-btn" id="fe-ql-ai-sum" title="TL;DR of this file (local model)">Summarize</button>
         <button class="btn fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
         <input id="fe-ql-ai-q" class="tb" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
         <button class="btn fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
       </div>
-      <div id="fe-ql-ai-out" style="display:none">
+      <div id="fe-ql-ai-out" hidden>
         <div id="fe-ql-ai-out-body"></div>
         <div id="fe-ql-ai-out-meta"></div>
       </div>
@@ -323,8 +323,8 @@ function resetAiUi(): void {
   aiCancel?.();
   aiCancel = null;
   aiSeq++;
-  document.getElementById('fe-ql-ai')!.style.display = 'none';
-  document.getElementById('fe-ql-ai-out')!.style.display = 'none';
+  document.getElementById('fe-ql-ai')!.hidden = true;
+  document.getElementById('fe-ql-ai-out')!.hidden = true;
   document.getElementById('fe-ql-ai-out-body')!.innerHTML = '';
   document.getElementById('fe-ql-ai-out-meta')!.textContent = '';
   (document.getElementById('fe-ql-ai-q') as HTMLInputElement).value = '';
@@ -352,7 +352,7 @@ function setupAi(e: Entry, ext: string): void {
       ready ? (av.cold ? 'AI · cold start' : 'AI · ready') : 'AI · lm server down';
     document.querySelectorAll<HTMLButtonElement>('.fe-ql-ai-btn').forEach(b => { b.disabled = !ready; });
     (document.getElementById('fe-ql-ai-q') as HTMLInputElement).disabled = !ready;
-    document.getElementById('fe-ql-ai')!.style.display = '';
+    document.getElementById('fe-ql-ai')!.hidden = false;
   });
 }
 
@@ -374,7 +374,7 @@ function runAi(intent: string, question?: string): void {
   const seq = ++aiSeq;
   const body = document.getElementById('fe-ql-ai-out-body')!;
   const meta = document.getElementById('fe-ql-ai-out-meta')!;
-  document.getElementById('fe-ql-ai-out')!.style.display = '';
+  document.getElementById('fe-ql-ai-out')!.hidden = false;
   body.textContent = '';
   meta.textContent = 'Thinking…';
   let full = '';
@@ -462,7 +462,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   nameEl.href = fileHref(root.replace(/\/$/, '') + '/' + doc.rel);
   (document.getElementById('fe-ql-open') as HTMLAnchorElement).href = nameEl.href;
   resetAiUi();
-  document.getElementById('fe-ql-ai')!.style.display = 'none';
+  document.getElementById('fe-ql-ai')!.hidden = true;
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.style.display = ''; copyBtn.disabled = false;
   if (overlay.style.display === 'none') rememberFocus();
@@ -494,10 +494,10 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       <button class="btn" data-act="next" title="Next note in the list (⌥⌘↓)">${UI_ICON.next}<span>Next</span></button>
       <button class="btn" data-act="rename" title="Rename this note (F2)">${UI_ICON.rename}<span>Rename</span></button>
       <button class="btn" data-act="delete" title="Move this note to .trash (⌘⇧⌫)">${UI_ICON.trash}<span>Delete</span></button>` : ''}
-      <input type="file" id="fe-ed-file" accept="image/*" style="display:none">
+      <input type="file" id="fe-ed-file" accept="image/*" hidden>
       <span class="fe-ed-hint">⌥↑↓ move line · ⌥⇧↑↓ duplicate · ⇥ indent · Enter continues lists</span>
     </div>
-    <div id="fe-ed-hist" style="display:none"></div>
+    <div id="fe-ed-hist" hidden></div>
     <div class="fe-ed"><textarea id="fe-ed-src" spellcheck="true"></textarea><div id="fe-ed-view" class="fe-md"></div></div>`;
   const ta = document.getElementById('fe-ed-src') as HTMLTextAreaElement;
   const view = document.getElementById('fe-ed-view')!;
@@ -566,8 +566,8 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   const escHtml = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
   const whenText = (ms: number) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
   const toggleVersions = async () => {
-    if (hist.style.display !== 'none') { hist.style.display = 'none'; renderView(); return; }
-    hist.style.display = '';
+    if (!hist.hidden) { hist.hidden = true; renderView(); return; }
+    hist.hidden = false;
     hist.innerHTML = emptyHtml('loading', 'Reading versions…', { inline: true });
     try {
       // The note may have been renamed since it opened (a first save names it), so ask under its current name.
@@ -584,7 +584,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
       hist.querySelectorAll<HTMLElement>('.fe-hist-row').forEach(b => b.addEventListener('click', () => void showVersion(b.dataset.sha!)));
     } catch (err) {
       hist.innerHTML = emptyHtml('failed', 'Versions could not be read', { inline: true, hint: errorText(err), actions: [{ a: 'retry', label: 'Try again', title: 'Read the versions again' }] });
-      hist.querySelector('[data-a="retry"]')?.addEventListener('click', () => { hist.style.display = 'none'; void toggleVersions(); });
+      hist.querySelector('[data-a="retry"]')?.addEventListener('click', () => { hist.hidden = true; void toggleVersions(); });
     }
   };
   const showVersion = async (sha: string) => {
@@ -596,7 +596,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
         + `<button class="btn" id="fe-hist-back">Back to now</button></div>` + renderMarkdown(stripFrontMatter(v.text), nameEl.href);
       document.getElementById('fe-hist-use')!.addEventListener('click', () => {
         buf.snap(); ta.value = splitNote(v.text).body; ta.dispatchEvent(new Event('input', { bubbles: true }));
-        hist.style.display = 'none'; ta.focus();
+        hist.hidden = true; ta.focus();
       });
       document.getElementById('fe-hist-back')!.addEventListener('click', () => renderView());
     } catch (err) { hist.textContent = errorText(err, 'Reading that version'); }
@@ -867,7 +867,7 @@ function render(text: string, ext: string): void {
   const body = document.getElementById('fe-ql-body')!;
   const note = unrenderableNote(text);
   if (note) {
-    if (sniffBinary(text)) document.getElementById('fe-ql-ai')!.style.display = 'none';   // nothing for a model to read
+    if (sniffBinary(text)) document.getElementById('fe-ql-ai')!.hidden = true;   // nothing for a model to read
     body.innerHTML = `<div class="fe-ql-center">${note}</div>`;
     return;
   }

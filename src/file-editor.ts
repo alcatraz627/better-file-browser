@@ -90,7 +90,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const fmt = formatFor(host.ext);
   const isMd = fmt?.id === 'markdown';
   box.innerHTML = `
-    <div id="fe-fe-banner" class="notice" data-tone="warn" style="display:none"></div>
+    <div id="fe-fe-banner" class="notice" data-tone="warn" hidden></div>
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">
@@ -344,7 +344,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       const text = tw.text();
       const r = await notes.fileWrite(host.root, host.rel, text, expect);
       doc = { text, mtime: r.mtime }; base = text; failed = '';
-      banner.style.display = 'none';
+      banner.hidden = true;
       host.saved(text);
     } catch (err) {
       const e = err as NotesError;
@@ -362,7 +362,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const later = () => { clearTimeout(timer); timer = window.setTimeout(save, AUTOSAVE_MS); };
 
   function showConflict(): void {
-    banner.style.display = '';
+    banner.hidden = false;
     banner.innerHTML = `<span>${esc(host.rel.split('/').pop()!)} changed on disk since you opened it.</span>
       <button class="btn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
       <button class="btn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
@@ -385,7 +385,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   // Done saves what is pending first; only a failed or conflicting save asks.
   const close = async () => {
     clearTimeout(timer);
-    if (isDirty() && !saving && banner.style.display === 'none') await write(doc.mtime);
+    if (isDirty() && !saving && banner.hidden) await write(doc.mtime);
     if (isDirty() && !confirm('Your last changes are not saved. Leave anyway?')) return;
     stopWatch();
     clearTimeout(checkTimer);
@@ -431,7 +431,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     if (act === 'save') save();
     else if (act === 'done') void close();
     else if (act === 'diag' && diags.length) goToLine(diags[0].line);
-    else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; base = now.text; buf.snap(); tw.set(now.text); banner.style.display = 'none'; paintSource(); paint(); }
+    else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; base = now.text; buf.snap(); tw.set(now.text); banner.hidden = true; paintSource(); paint(); }
     else if (act === 'overwrite') { const now = await notes.fileRead(host.root, host.rel); void write(now.mtime); }
   });
   ta.addEventListener('input', () => { paintSource(); paint(); later(); checkLater(); });
