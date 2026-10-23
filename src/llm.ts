@@ -115,16 +115,72 @@ export interface LlmCallbacks {
   onStep?: (text: string) => void;
 }
 
-/** Start a streamed query; the returned function cancels it. */
-export function llmQuery(opts: LlmQueryOpts, cb: LlmCallbacks): () => void {
+/** What the background worker needs to file an answer that finishes after its
+ *  page has gone: which chat it belongs to and the turn as it was asked. */
+export interface AskJob { id: string; subject: string; chatId: string; turn: Record<string, unknown> }
+
+/** Start a streamed query; the returned function cancels it. With `job`, the
+ *  answer belongs to the background worker and keeps going if this page goes. */
+export function llmQuery(opts: LlmQueryOpts, cb: LlmCallbacks, job?: AskJob): () => void {
   const port = openProxyPort();
   if (!port) { cb.onError('unavailable', 'AI host not installed'); return () => {}; }
+  const stop = follow(port, cb, job?.id);
+  port.postMessage({
+    op: 'query', ctx: opts.ctx, ctxName: opts.ctxName,
+    intent: opts.intent, question: opts.question, timeout: opts.timeout ?? 120,
+    model: opts.model, files: opts.files, ...(job ? { job } : {}),
+  });
+  return stop;
+}
+
+/** Pick up an answer still running in the background: `onReplay` gets what
+ *  arrived so far, then frames flow as usual. `onGone` means it already ended. */
+export function llmAttach(id: string, cb: LlmCallbacks & { onReplay: (text: string, steps: string[]) => void; onGone: () => void }): () => void {
+  const port = openProxyPort();
+  if (!port) { cb.onGone(); return () => {}; }
+  const stop = follow(port, cb, id, cb);
+  port.postMessage({ op: 'attach', id });
+  return stop;
+}
+
+/** Answers running in the background, with what each has said so far. */
+export function llmRunning(): Promise<{ id: string; job: AskJob; text: string; steps: string[] }[]> {
+  return oneFrame({ op: 'running' }, 'running', m => (m as { jobs?: [] }).jobs ?? [], []);
+}
+
+/** Answers that finished while no page watched them; taking them removes them. */
+export function llmOrphans(): Promise<{ job: AskJob; text: string; steps: string[]; frame: NativeFrame }[]> {
+  return oneFrame({ op: 'orphans' }, 'orphans', m => (m as { list?: [] }).list ?? [], []);
+}
+
+function oneFrame<T>(msg: object, t: string, read: (m: unknown) => T, empty: T): Promise<T> {
+  return new Promise(resolve => {
+    const port = openProxyPort();
+    if (!port) { resolve(empty); return; }
+    const timer = setTimeout(() => { try { port.disconnect(); } catch { /* gone */ } resolve(empty); }, 3000);
+    port.onMessage.addListener((m: { t?: string }) => {
+      if (m?.t !== t) return;
+      clearTimeout(timer);
+      try { port.disconnect(); } catch { /* gone */ }
+      resolve(read(m));
+    });
+    port.onDisconnect.addListener(() => { clearTimeout(timer); resolve(empty); });
+    port.postMessage(msg);
+  });
+}
+
+// Feeds one port's frames to the callbacks; the returned function stops the
+// answer (a background job is told to stop, not just left).
+function follow(port: chrome.runtime.Port, cb: LlmCallbacks, jobId?: string,
+  attach?: { onReplay: (text: string, steps: string[]) => void; onGone: () => void }): () => void {
   let finished = false;
   let gotFrame = false;
   const finish = () => { finished = true; try { port.disconnect(); } catch { /* gone */ } };
-  port.onMessage.addListener((msg: NativeFrame) => {
+  port.onMessage.addListener((msg: NativeFrame | { t: 'replay'; text: string; steps: string[] } | { t: 'gone' }) => {
     if (finished || !msg) return;
-    if      (msg.t === 'chunk') { gotFrame = true; cb.onChunk(msg.text ?? ''); }
+    if      (msg.t === 'replay') { gotFrame = true; attach?.onReplay(msg.text ?? '', msg.steps ?? []); }
+    else if (msg.t === 'gone')   { finish(); attach?.onGone(); }
+    else if (msg.t === 'chunk') { gotFrame = true; cb.onChunk(msg.text ?? ''); }
     else if (msg.t === 'step')  { gotFrame = true; cb.onStep?.(msg.text ?? ''); }
     else if (msg.t === 'done')  { finish(); cb.onDone({ model: msg.model ?? '', ms: msg.ms ?? 0, truncated: !!msg.truncated, tokensIn: msg.tokens_in || undefined, tokensOut: msg.tokens_out || undefined }); }
     else if (msg.t === 'error') { finish(); cb.onError(msg.code ?? 'unknown', msg.message ?? ''); }
@@ -138,12 +194,10 @@ export function llmQuery(opts: LlmQueryOpts, cb: LlmCallbacks): () => void {
   port.onDisconnect.addListener(() => {
     if (!finished) { finished = true; cb.onError('disconnected', 'AI host disconnected'); }
   });
-  port.postMessage({
-    op: 'query', ctx: opts.ctx, ctxName: opts.ctxName,
-    intent: opts.intent, question: opts.question, timeout: opts.timeout ?? 120,
-    model: opts.model, files: opts.files,
-  });
-  return () => finish();
+  return () => {
+    if (jobId && !finished) try { port.postMessage({ op: 'cancel', id: jobId }); } catch { /* gone */ }
+    finish();
+  };
 }
 
 /** Warm or unwarm the default model (runs `lm warm on|off`). User-initiated. */

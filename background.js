@@ -132,6 +132,11 @@ chrome.runtime.onConnect.addListener(port => {
   if (port.name !== 'bfb-llm') return;
   let native = null;
   port.onMessage.addListener(msg => {
+    if (msg?.op === 'query' && msg.job?.id) { startAskJob(port, msg); return; }
+    if (msg?.op === 'attach') { attachAskJob(port, msg.id); return; }
+    if (msg?.op === 'cancel') { cancelAskJob(msg.id); return; }
+    if (msg?.op === 'running') { try { port.postMessage({ t: 'running', jobs: [...askJobs.values()].map(j => ({ id: j.id, job: j.job, text: j.text, steps: j.steps })) }); } catch { /* client gone */ } return; }
+    if (msg?.op === 'orphans') { void takeAskOrphans().then(list => { try { port.postMessage({ t: 'orphans', list }); } catch { /* client gone */ } }); return; }
     if (!native) {
       try {
         native = chrome.runtime.connectNative('com.better_file_browser.llm');
@@ -151,8 +156,82 @@ chrome.runtime.onConnect.addListener(port => {
   });
   port.onDisconnect.addListener(() => {
     try { native?.disconnect(); } catch { /* already closed */ }
+    // An answer this page was watching keeps going; only its viewer left.
+    for (const j of askJobs.values()) if (j.client === port) j.client = null;
   });
 });
+
+// Ask answers outlive the page that asked. The worker holds each answer's
+// native stream and the text so far, so moving to another page does not stop
+// it. A page that comes back to the same chat attaches and sees it continue.
+// An answer that finishes with no page watching is parked under
+// ORPHANS_KEY, and the next bfb page files it into the chat history.
+// An open native port keeps the worker alive, so a running answer is not lost.
+const askJobs = new Map();
+const ORPHANS_KEY = 'ask-orphans-v1';   // outside the bfb- prefix, so it stays out of settings exports
+function sendTo(port, frame) {
+  if (!port) return false;
+  try { port.postMessage(frame); return true; } catch { return false; }
+}
+function startAskJob(port, msg) {
+  const { job, ...query } = msg;
+  let native;
+  try { native = chrome.runtime.connectNative('com.better_file_browser.llm'); }
+  catch (e) { sendTo(port, { t: 'native-gone', message: String(e) }); return; }
+  const j = { id: job.id, job, native, client: port, text: '', steps: [], gotFrame: false, over: false };
+  askJobs.set(j.id, j);
+  const finish = frame => {
+    if (j.over) return;
+    j.over = true;
+    askJobs.delete(j.id);
+    try { native.disconnect(); } catch { /* closed */ }
+    if (sendTo(j.client, frame)) return;
+    void parkAskOrphan({ job: j.job, text: j.text, steps: j.steps, frame });
+  };
+  native.onMessage.addListener(m => {
+    if (j.over || !m) return;
+    if (m.t === 'chunk') { j.gotFrame = true; j.text += m.text ?? ''; }
+    else if (m.t === 'step') { j.gotFrame = true; j.steps.push(m.text ?? ''); }
+    if (m.t === 'done' || m.t === 'error') { finish(m); return; }
+    sendTo(j.client, m);
+  });
+  native.onDisconnect.addListener(() => {
+    finish({ t: 'error', code: j.gotFrame ? 'disconnected' : 'unavailable', message: chrome.runtime.lastError?.message || '' });
+  });
+  native.postMessage(query);
+}
+function attachAskJob(port, id) {
+  const j = askJobs.get(id);
+  if (!j) { sendTo(port, { t: 'gone' }); return; }
+  j.client = port;
+  sendTo(port, { t: 'replay', text: j.text, steps: j.steps });
+}
+function cancelAskJob(id) {
+  const j = askJobs.get(id);
+  if (!j) return;
+  j.over = true;
+  askJobs.delete(id);
+  try { j.native.disconnect(); } catch { /* closed */ }
+}
+// Parking and taking run one at a time, so two pages never file the same answer.
+let orphanChain = Promise.resolve();
+function parkAskOrphan(o) {
+  orphanChain = orphanChain.then(async () => {
+    const list = (await chrome.storage.local.get(ORPHANS_KEY))[ORPHANS_KEY] ?? [];
+    list.push(o);
+    await chrome.storage.local.set({ [ORPHANS_KEY]: list.slice(-50) });
+  }).catch(() => {});
+  return orphanChain;
+}
+function takeAskOrphans() {
+  const taken = orphanChain.then(async () => {
+    const list = (await chrome.storage.local.get(ORPHANS_KEY))[ORPHANS_KEY] ?? [];
+    if (list.length) await chrome.storage.local.remove(ORPHANS_KEY);
+    return list;
+  });
+  orphanChain = taken.then(() => {}, () => {});
+  return taken.catch(() => []);
+}
 
 // The toolbar button wears the app icon chosen in Settings, from PNGs rendered
 // beside each SVG (a service worker cannot draw an SVG itself).

@@ -74,3 +74,21 @@ describe('ask history', () => {
     expect(q).not.toContain('Q: old');
   });
 });
+
+describe('an answer that ended away from its page', () => {
+  const base = { q: 'Why?', model: 'small', at: 1000 };
+  it('becomes a full turn when it finished', async () => {
+    const { endedTurn } = await fresh();
+    const t = endedTurn(base, 'Because.', { t: 'done', model: 'gemma', ms: 900, tokens_in: 10, tokens_out: 3 });
+    expect(t).toMatchObject({ q: 'Why?', a: 'Because.', model: 'gemma', ms: 900, tokensIn: 10, tokensOut: 3 });
+    expect(t.stopped).toBeUndefined();
+  });
+  it('keeps what it said, marked stopped, when it was cut off', async () => {
+    const { endedTurn } = await fresh();
+    expect(endedTurn(base, 'Partly', { t: 'error', code: 'disconnected' })).toMatchObject({ a: 'Partly', stopped: true });
+  });
+  it('is a failed turn when it said nothing', async () => {
+    const { endedTurn } = await fresh();
+    expect(endedTurn(base, '', { t: 'error', code: 'timeout' })).toMatchObject({ a: '', error: 'timeout' });
+  });
+});

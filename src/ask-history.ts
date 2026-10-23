@@ -27,6 +27,15 @@ export function turnMeta(t: AskTurn, truncated = false): string {
     t.stopped ? 'stopped' : '',
   ].filter(Boolean).join(' · ');
 }
+/** The turn an answer became once it ended: finished, or cut off with what it
+ *  had said kept as a stopped answer, or failed with nothing said. */
+export function endedTurn(base: Omit<AskTurn, 'a' | 'ms'>, text: string,
+  end: { t: string; model?: string; ms?: number; tokens_in?: number; tokens_out?: number; code?: string }): AskTurn {
+  if (end.t === 'done') return { ...base, a: text, model: end.model || base.model, ms: end.ms ?? 0, tokensIn: end.tokens_in || undefined, tokensOut: end.tokens_out || undefined };
+  if (text.trim()) return { ...base, a: text, ms: Date.now() - base.at, stopped: true };
+  return { ...base, a: '', ms: 0, error: end.code || 'unknown' };
+}
+
 export interface AskChat { id: string; at: number; title: string; turns: AskTurn[] }
 type Store = Record<string, AskChat[]>;
 

@@ -4450,13 +4450,75 @@ ${body}
       port.postMessage({ op: "models" });
     });
   }
-  function llmQuery(opts, cb) {
+  function llmQuery(opts, cb, job) {
     const port = openProxyPort();
     if (!port) {
       cb.onError("unavailable", "AI host not installed");
       return () => {
       };
     }
+    const stop = follow(port, cb, job?.id);
+    port.postMessage({
+      op: "query",
+      ctx: opts.ctx,
+      ctxName: opts.ctxName,
+      intent: opts.intent,
+      question: opts.question,
+      timeout: opts.timeout ?? 120,
+      model: opts.model,
+      files: opts.files,
+      ...job ? { job } : {}
+    });
+    return stop;
+  }
+  function llmAttach(id, cb) {
+    const port = openProxyPort();
+    if (!port) {
+      cb.onGone();
+      return () => {
+      };
+    }
+    const stop = follow(port, cb, id, cb);
+    port.postMessage({ op: "attach", id });
+    return stop;
+  }
+  function llmRunning() {
+    return oneFrame({ op: "running" }, "running", (m) => m.jobs ?? [], []);
+  }
+  function llmOrphans() {
+    return oneFrame({ op: "orphans" }, "orphans", (m) => m.list ?? [], []);
+  }
+  function oneFrame(msg, t, read2, empty) {
+    return new Promise((resolve) => {
+      const port = openProxyPort();
+      if (!port) {
+        resolve(empty);
+        return;
+      }
+      const timer2 = setTimeout(() => {
+        try {
+          port.disconnect();
+        } catch {
+        }
+        resolve(empty);
+      }, 3e3);
+      port.onMessage.addListener((m) => {
+        if (m?.t !== t) return;
+        clearTimeout(timer2);
+        try {
+          port.disconnect();
+        } catch {
+        }
+        resolve(read2(m));
+      });
+      port.onDisconnect.addListener(() => {
+        clearTimeout(timer2);
+        resolve(empty);
+      });
+      port.postMessage(msg);
+    });
+  }
+  function follow(port, cb, jobId, attach) {
     let finished = false;
     let gotFrame = false;
     const finish = () => {
@@ -4468,7 +4530,13 @@ ${body}
     };
     port.onMessage.addListener((msg) => {
       if (finished || !msg) return;
-      if (msg.t === "chunk") {
+      if (msg.t === "replay") {
+        gotFrame = true;
+        attach?.onReplay(msg.text ?? "", msg.steps ?? []);
+      } else if (msg.t === "gone") {
+        finish();
+        attach?.onGone();
+      } else if (msg.t === "chunk") {
         gotFrame = true;
         cb.onChunk(msg.text ?? "");
       } else if (msg.t === "step") {
@@ -4491,17 +4559,13 @@ ${body}
         cb.onError("disconnected", "AI host disconnected");
       }
     });
-    port.postMessage({
-      op: "query",
-      ctx: opts.ctx,
-      ctxName: opts.ctxName,
-      intent: opts.intent,
-      question: opts.question,
-      timeout: opts.timeout ?? 120,
-      model: opts.model,
-      files: opts.files
-    });
-    return () => finish();
+    return () => {
+      if (jobId && !finished) try {
+        port.postMessage({ op: "cancel", id: jobId });
+      } catch {
+      }
+      finish();
+    };
   }
   function llmWarm(on) {
     return new Promise((resolve) => {
@@ -4565,6 +4629,11 @@ ${body}
       truncated ? "shortened to fit" : "",
       t.stopped ? "stopped" : ""
     ].filter(Boolean).join(" \xB7 ");
+  }
+  function endedTurn(base, text, end) {
+    if (end.t === "done") return { ...base, a: text, model: end.model || base.model, ms: end.ms ?? 0, tokensIn: end.tokens_in || void 0, tokensOut: end.tokens_out || void 0 };
+    if (text.trim()) return { ...base, a: text, ms: Date.now() - base.at, stopped: true };
+    return { ...base, a: "", ms: 0, error: end.code || "unknown" };
   }
   var historyPref = jsonPref("bfb-ask-history-v1", {}, (v) => !!v && typeof v === "object");
   var CHATS_PER_SUBJECT = 20;
@@ -21799,15 +21868,8 @@ ${rows.join("\n")}`, name: subject };
       const turn = turnEl(shown, attached, o.via);
       asks.set(turn, { intent, question, ...o });
       turn.scrollIntoView({ block: "end" });
-      const out = turn.querySelector(".fe-ask-a");
-      const meta = turn.querySelector(".fe-ask-meta");
       const started = Date.now();
-      const save = (t) => {
-        if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        turns.push(t);
-        addTurn(key, chatId, t);
-        syncHistN();
-      };
+      if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const base = {
         q: shown,
         model: useModel.replace(/^gemini:/, "") || modelName(),
@@ -21816,7 +21878,6 @@ ${rows.join("\n")}`, name: subject };
         ...attached.length ? { files: attached.slice() } : {},
         ...o.via ? { via: o.via } : {}
       };
-      const steps = [];
       let c;
       try {
         c = await context();
@@ -21824,6 +21885,37 @@ ${rows.join("\n")}`, name: subject };
         paintError(turn, "unreadable", "Could not read this to send it.");
         return;
       }
+      const asked = intent === "folder" ? "What is in this folder? Group the files by purpose in a few short lines." : question;
+      const job = { id: started.toString(36) + Math.random().toString(36).slice(2, 8), subject: key, chatId, turn: base };
+      run(turn, base, (cb) => llmQuery(
+        {
+          ctx: c.ctx,
+          ctxName: c.name,
+          // The host knows summarize, explain-code and qa; a folder question is a qa.
+          intent: intent === "explain" ? "explain-code" : intent === "summarize" ? "summarize" : "qa",
+          question: asked && intent === "qa" ? withHistory(turns.filter((t) => !t.error && !t.via), asked) : asked,
+          model: useModel || void 0,
+          // lm gemini's own default; a local model keeps the shorter one.
+          timeout: useModel.startsWith("gemini:") ? 300 : void 0,
+          files: files.length ? files : void 0
+        },
+        cb,
+        job
+      ));
+    }
+    function run(turn, base, begin) {
+      const out = turn.querySelector(".fe-ask-a");
+      const meta = turn.querySelector(".fe-ask-meta");
+      const started = base.at;
+      const save = (t) => {
+        turns.push(t);
+        addTurn(key, chatId, t);
+        syncHistN();
+      };
+      const steps = [];
+      const showSteps = () => {
+        if (!full) out.innerHTML = steps.map((x) => `<div class="fe-ask-step">${UI_ICON.image}<span>${esc(x)}\u2026</span></div>`).join("");
+      };
       let full = "";
       let frame = 0;
       go2.classList.add("stop");
@@ -21836,7 +21928,6 @@ ${rows.join("\n")}`, name: subject };
         go2.title = "Ask (Enter)";
         go2.setAttribute("aria-label", "Ask");
       };
-      const asked = intent === "folder" ? "What is in this folder? Group the files by purpose in a few short lines." : question;
       let over = false;
       const stopped = () => {
         if (over) return;
@@ -21851,23 +21942,12 @@ ${rows.join("\n")}`, name: subject };
         meta.textContent = turnMeta(t);
         save(t);
       };
-      const stop = llmQuery(
-        {
-          ctx: c.ctx,
-          ctxName: c.name,
-          // The host knows summarize, explain-code and qa; a folder question is a qa.
-          intent: intent === "explain" ? "explain-code" : intent === "summarize" ? "summarize" : "qa",
-          question: asked && intent === "qa" ? withHistory(turns.filter((t) => !t.error && !t.via), asked) : asked,
-          model: useModel || void 0,
-          // lm gemini's own default; a local model keeps the shorter one.
-          timeout: useModel.startsWith("gemini:") ? 300 : void 0,
-          files: files.length ? files : void 0
-        },
+      const stop = begin(
         {
           // Reading an image takes a while; each one shows as a step until the answer starts.
           onStep: (s) => {
             steps.push(s);
-            if (!full) out.innerHTML = steps.map((x) => `<div class="fe-ask-step">${UI_ICON.image}<span>${esc(x)}\u2026</span></div>`).join("");
+            showSteps();
           },
           // At most one paint per frame, however fast the text arrives.
           onChunk: (t) => {
@@ -21895,12 +21975,49 @@ ${rows.join("\n")}`, name: subject };
             paintError(turn, code, message);
             save({ ...base, a: "", ms: 0, error: code });
           }
+        },
+        {
+          replay: (text, had) => {
+            steps.push(...had);
+            full = text;
+            if (full) paint(turn, full, false);
+            else showSteps();
+          },
+          // It ended between the check and the pick-up; it is parked, so file it and show the chat.
+          gone: () => {
+            over = true;
+            done();
+            void settleOrphans().then(() => {
+              const c = chatsFor(key).find((x) => x.id === chatId);
+              if (c) openChat(c);
+            });
+          }
         }
       );
       cancel = () => {
         stop();
         stopped();
       };
+    }
+    async function settleOrphans() {
+      const list3 = await llmOrphans();
+      for (const o of list3) addTurn(o.job.subject, o.job.chatId, endedTurn(o.job.turn, o.text, o.frame));
+      if (list3.length) syncHistN();
+    }
+    async function resumeRunning() {
+      const mine = (await llmRunning()).find((r) => r.job.subject === key);
+      if (!mine || cancel) return;
+      const c = chatsFor(key).find((x) => x.id === mine.job.chatId);
+      if (c) openChat(c);
+      else {
+        chatId = mine.job.chatId;
+        turns = [];
+        clearThread();
+      }
+      const base = mine.job.turn;
+      const turn = turnEl(base.q, base.files ?? [], base.via);
+      asks.set(turn, { intent: base.intent ?? "qa", question: base.intent && base.intent !== "qa" ? void 0 : base.q });
+      run(turn, base, (cb, resume) => llmAttach(mine.id, { ...cb, onReplay: resume.replay, onGone: resume.gone }));
     }
     const blkBar = document.createElement("div");
     blkBar.className = "fe-ask-blk";
@@ -22160,6 +22277,7 @@ ${rows.join("\n")}`, name: subject };
       q.focus();
       q.setSelectionRange(q.value.length, q.value.length);
     }, 0);
+    void settleOrphans().then(resumeRunning);
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "ask") return;
       if (!checked) void checkModel();

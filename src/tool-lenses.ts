@@ -11,8 +11,8 @@ import { parseListing } from './parse';
 import { crawl, relativeName } from './deep-search';
 import { EMPTY_FIND, isTextCandidate, searchContents, type FindQuery } from './find';
 import { icoFile } from './icons';
-import { llmAvailability, llmModels, llmQuery, LLM_ERROR_TEXT } from './llm';
-import { addTurn, allChats, chatsFor, chatsUnder, deleteChat, turnMeta, withHistory, type AskChat, type AskTurn } from './ask-history';
+import { llmAvailability, llmModels, llmQuery, llmAttach, llmRunning, llmOrphans, LLM_ERROR_TEXT, type AskJob, type LlmCallbacks } from './llm';
+import { addTurn, endedTurn, allChats, chatsFor, chatsUnder, deleteChat, turnMeta, withHistory, type AskChat, type AskTurn } from './ask-history';
 import { addPaletteSource, bind } from './commands';
 import { closeOpenFence, isImageName, quoteMarkdown, quoteTargets, resolveMention, secondOpinion, sendQuote, splitThinking, takeQuote, type ModelOpt } from './ask-quote';
 import { openLayer, type Layer } from './layer';
@@ -283,26 +283,47 @@ function initAsk(app: App): void {
     const turn = turnEl(shown, attached, o.via);
     asks.set(turn, { intent, question, ...o });
     turn.scrollIntoView({ block: 'end' });
+    const started = Date.now();
+    // The chat gets its id now, so an answer that finishes after this page has
+    // gone still knows which chat to land in.
+    if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const base: Omit<AskTurn, 'a' | 'ms'> = { q: shown, model: useModel.replace(/^gemini:/, '') || modelName(), at: started,
+      ...(intent === 'qa' ? {} : { intent }), ...(attached.length ? { files: attached.slice() } : {}), ...(o.via ? { via: o.via } : {}) };
+    let c: { ctx: string; name: string };
+    try { c = await context(); }
+    catch { paintError(turn, 'unreadable', 'Could not read this to send it.'); return; }
+    const asked = intent === 'folder' ? 'What is in this folder? Group the files by purpose in a few short lines.' : question;
+    const job: AskJob = { id: started.toString(36) + Math.random().toString(36).slice(2, 8), subject: key, chatId, turn: base };
+    run(turn, base, cb => llmQuery(
+      {
+        ctx: c.ctx, ctxName: c.name,
+        // The host knows summarize, explain-code and qa; a folder question is a qa.
+        intent: intent === 'explain' ? 'explain-code' : intent === 'summarize' ? 'summarize' : 'qa',
+        question: asked && intent === 'qa' ? withHistory(turns.filter(t => !t.error && !t.via), asked) : asked,
+        model: useModel || undefined,
+        // lm gemini's own default; a local model keeps the shorter one.
+        timeout: useModel.startsWith('gemini:') ? 300 : undefined,
+        files: files.length ? files : undefined,
+      }, cb, job));
+  }
+
+  // One answer as it streams into its turn, whether it was just asked or is a
+  // background answer this page picked up again (`resume` replays what it had).
+  function run(turn: HTMLElement, base: Omit<AskTurn, 'a' | 'ms'>, begin: (cb: LlmCallbacks, resume: { replay: (text: string, steps: string[]) => void; gone: () => void }) => () => void): void {
     const out = turn.querySelector<HTMLElement>('.fe-ask-a')!;
     const meta = turn.querySelector<HTMLElement>('.fe-ask-meta')!;
-    const started = Date.now();
+    const started = base.at;
     const save = (t: AskTurn) => {
-      if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       turns.push(t);
       addTurn(key, chatId, t);
       syncHistN();
     };
-    const base: Omit<AskTurn, 'a' | 'ms'> = { q: shown, model: useModel.replace(/^gemini:/, '') || modelName(), at: started,
-      ...(intent === 'qa' ? {} : { intent }), ...(attached.length ? { files: attached.slice() } : {}), ...(o.via ? { via: o.via } : {}) };
     const steps: string[] = [];
-    let c: { ctx: string; name: string };
-    try { c = await context(); }
-    catch { paintError(turn, 'unreadable', 'Could not read this to send it.'); return; }
+    const showSteps = () => { if (!full) out.innerHTML = steps.map(x => `<div class="fe-ask-step">${UI_ICON.image}<span>${esc(x)}…</span></div>`).join(''); };
     let full = '';
     let frame = 0;
     go.classList.add('stop'); go.title = 'Stop'; go.setAttribute('aria-label', 'Stop');
     const done = () => { cancel = null; cancelAnimationFrame(frame); go.classList.remove('stop'); go.title = 'Ask (Enter)'; go.setAttribute('aria-label', 'Ask'); };
-    const asked = intent === 'folder' ? 'What is in this folder? Group the files by purpose in a few short lines.' : question;
     // Stopping, a new chat or opening another chat all end the answer here:
     // the button returns to Ask and what arrived is kept, marked as stopped.
     let over = false;
@@ -315,20 +336,10 @@ function initAsk(app: App): void {
       meta.textContent = turnMeta(t);
       save(t);
     };
-    const stop = llmQuery(
-      {
-        ctx: c.ctx, ctxName: c.name,
-        // The host knows summarize, explain-code and qa; a folder question is a qa.
-        intent: intent === 'explain' ? 'explain-code' : intent === 'summarize' ? 'summarize' : 'qa',
-        question: asked && intent === 'qa' ? withHistory(turns.filter(t => !t.error && !t.via), asked) : asked,
-        model: useModel || undefined,
-        // lm gemini's own default; a local model keeps the shorter one.
-        timeout: useModel.startsWith('gemini:') ? 300 : undefined,
-        files: files.length ? files : undefined,
-      },
+    const stop = begin(
       {
         // Reading an image takes a while; each one shows as a step until the answer starts.
-        onStep: s => { steps.push(s); if (!full) out.innerHTML = steps.map(x => `<div class="fe-ask-step">${UI_ICON.image}<span>${esc(x)}…</span></div>`).join(''); },
+        onStep: s => { steps.push(s); showSteps(); },
         // At most one paint per frame, however fast the text arrives.
         onChunk: t => { full += t; frame ||= requestAnimationFrame(() => { frame = 0; paint(turn, full, false); }); },
         onDone: info => {
@@ -347,8 +358,32 @@ function initAsk(app: App): void {
           paintError(turn, code, message);
           save({ ...base, a: '', ms: 0, error: code });
         },
+      },
+      {
+        replay: (text, had) => { steps.push(...had); full = text; if (full) paint(turn, full, false); else showSteps(); },
+        // It ended between the check and the pick-up; it is parked, so file it and show the chat.
+        gone: () => { over = true; done(); void settleOrphans().then(() => { const c = chatsFor(key).find(x => x.id === chatId); if (c) openChat(c); }); },
       });
     cancel = () => { stop(); stopped(); };
+  }
+
+  // Answers that finished after their page had gone are filed into their chats.
+  async function settleOrphans(): Promise<void> {
+    const list = await llmOrphans();
+    for (const o of list) addTurn(o.job.subject, o.job.chatId, endedTurn(o.job.turn as Omit<AskTurn, 'a' | 'ms'>, o.text, o.frame as { t: string }));
+    if (list.length) syncHistN();
+  }
+  // An answer about this page still running in the background picks up here,
+  // in its chat, and keeps streaming.
+  async function resumeRunning(): Promise<void> {
+    const mine = (await llmRunning()).find(r => r.job.subject === key);
+    if (!mine || cancel) return;
+    const c = chatsFor(key).find(x => x.id === mine.job.chatId);
+    if (c) openChat(c); else { chatId = mine.job.chatId; turns = []; clearThread(); }
+    const base = mine.job.turn as Omit<AskTurn, 'a' | 'ms'>;
+    const turn = turnEl(base.q, base.files ?? [], base.via);
+    asks.set(turn, { intent: base.intent ?? 'qa', question: base.intent && base.intent !== 'qa' ? undefined : base.q });
+    run(turn, base, (cb, resume) => llmAttach(mine.id, { ...cb, onReplay: resume.replay, onGone: resume.gone }));
   }
 
   // Copy and Quote act on a selection in the chat first, then on the part
@@ -535,6 +570,8 @@ function initAsk(app: App): void {
     q.value = landed.text + q.value; grow();
     q.focus(); q.setSelectionRange(q.value.length, q.value.length);
   }, 0);
+  // File answers that finished while no page watched, then pick up one still running here.
+  void settleOrphans().then(resumeRunning);
   document.addEventListener('bfb-lens', e => {
     if ((e as CustomEvent).detail !== 'ask') return;
     if (!checked) void checkModel();
