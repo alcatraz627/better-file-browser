@@ -154,7 +154,7 @@ export function settingsDialog(): DialogSpec {
         card('Your data',
           row('Export', 'Copies JSON', `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) +
           row('Import', 'Then reloads', `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) +
-          `<textarea id="fe-st-export-out" class="tb fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
+          `<textarea id="fe-st-export-out" class="tb fe-st-input" style="display:none" spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
     ],
   };
 }

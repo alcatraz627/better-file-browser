@@ -53,7 +53,9 @@ const RULES = [
   { id: 'js-storage', code: /\bkv(Get|Set)\(|\b(local|session)Storage\./g, skip: ['kv.ts', 'storage.ts'] },
   { id: 'js-native-control', code: /<select\b|type="checkbox"/g, skip: ['renderers.ts', 'controls.ts'] },
   // The design-system page draws each token by setting it inline; that is its job.
-  { id: 'js-inline-style', code: /\sstyle="/g, skip: ['design-page.ts'] },
+  // Handing a per-element value to CSS as a custom property (style="--depth:2")
+  // is how markup passes data to the stylesheet; a real property inline is not.
+  { id: 'js-inline-style', code: /\sstyle="(?!--)/g, skip: ['design-page.ts'] },
   { id: 'js-inline-svg', code: /<svg\b/g, skip: ['icons.ts', 'control-icons.ts'] },
   // errors.ts owns the words, and keeps an unknown failure's own message behind a lead.
   { id: 'js-message-shown', code: /toast\([^\n]*\.message\b|\$\{(?!d\.message|esc\(d\.message)[^}\n]*\.message\b/g, skip: ['errors.ts'] },

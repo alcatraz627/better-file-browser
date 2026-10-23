@@ -236,7 +236,7 @@ export function renderPage(p: PageParams): string {
           <button id="fe-find-cancel" class="btn" data-variant="outline" style="display:none" title="Stop scanning">${UI_ICON.close}Cancel</button>
           <span id="fe-find-status"></span>
           <span id="fe-find-error" role="alert"></span>
-          <button id="fe-find-save" class="btn" data-variant="outline" style="margin-left:auto" title="Keep this search as a Saved view: this folder plus these fields">${line(STAR, 13)}Save view</button>
+          <button id="fe-find-save" class="btn" data-variant="outline" title="Keep this search as a Saved view: this folder plus these fields">${line(STAR, 13)}Save view</button>
         </div>
       </div>
 

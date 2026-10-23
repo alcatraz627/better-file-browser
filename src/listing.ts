@@ -109,16 +109,16 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       const name = en.isParent ? 'Parent Directory' : en.name.split('/').pop()!;
       const expanded = treeExpanded.has(en.href);
       const hit = ls.contentHits?.get(en.href);
-      rows.push(`<div class="row fe-tree-row${en.isHidden ? ' dotfile' : ''}${en.isDir ? ' dir' : ''}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
+      rows.push(`<div class="row fe-tree-row${en.isHidden ? ' dotfile' : ''}${en.isDir ? ' dir' : ''}" data-idx="${idx}" style="--depth:${depth}">
         ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? 'Collapse' : 'Expand'} ${esc(name)}" aria-expanded="${expanded}">${DISCLOSE}</button>` : '<span class="fe-tree-spacer"></span>'}
         <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ''}
       </div>`);
       if (!en.isDir || !expanded) return;
-      if (treeLoading.has(en.href)) { rows.push(emptyHtml('loading', 'Loading…', { inline: true, style: `padding-left:${34 + (depth + 1) * 20}px` })); return; }
-      if (treeErrors.has(en.href)) { rows.push(emptyHtml('failed', 'This folder could not be read', { inline: true, hint: 'Collapse and expand it to try again', style: `padding-left:${34 + (depth + 1) * 20}px` })); return; }
+      if (treeLoading.has(en.href)) { rows.push(emptyHtml('loading', 'Loading…', { inline: true, indent: depth + 1 })); return; }
+      if (treeErrors.has(en.href)) { rows.push(emptyHtml('failed', 'This folder could not be read', { inline: true, hint: 'Collapse and expand it to try again', indent: depth + 1 })); return; }
       const children = treeChildren.get(en.href);
       if (!children) return;
-      if (!children.length) rows.push(emptyHtml('empty', 'Empty folder', { inline: true, style: `padding-left:${34 + (depth + 1) * 20}px` }));
+      if (!children.length) rows.push(emptyHtml('empty', 'Empty folder', { inline: true, indent: depth + 1 }));
       for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? undefined), ls.sort)) {
         if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
       }
@@ -149,7 +149,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     if (!force && a >= win.a && b <= win.b) return;
     win.a = Math.max(0, a - OVERSCAN); win.b = Math.min(n, b + OVERSCAN);
     const above = win.tops[win.a] ?? 0, below = win.total - (win.b < n ? win.tops[win.b] : win.total);
-    const spacer = (h: number) => h > 0 ? `<tr class="fe-spacer" aria-hidden="true"><td colspan="6" style="height:${h}px"></td></tr>` : '';
+    const spacer = (h: number) => h > 0 ? `<tr class="fe-spacer" aria-hidden="true"><td colspan="6" style="--h:${h}px"></td></tr>` : '';
     tbody.innerHTML = spacer(above) + win.parts.slice(win.a, win.b).join('') + spacer(below);
     paintSel();
   }

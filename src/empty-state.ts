@@ -22,15 +22,15 @@ export interface EmptyOpts {
   /// Inline sits in a list among rows (a menu, the sidebar, a tree level);
   /// the default is centered in the space the list would fill.
   inline?: boolean;
-  /// Extra inline style, for a tree level's indent.
-  style?: string;
+  /// How deep in the tree this empty level sits, for its indent.
+  indent?: number;
 }
 
 export function emptyHtml(state: ListState, text: string, o: EmptyOpts = {}): string {
   const hint = o.hintHtml ?? (o.hint ? esc(o.hint) : '');
   const acts = (o.actions ?? []).map(a =>
     `<button type="button" class="btn" data-size="sm" data-variant="outline"${a.id ? ` id="${a.id}"` : ''}${a.a ? ` data-a="${a.a}"` : ''} title="${esc(a.title)}">${a.icon ?? ''}<span>${esc(a.label)}</span></button>`).join('');
-  return `<div class="empty" data-state="${state}"${o.inline ? ' data-inline' : ' role="status"'}${o.style ? ` style="${o.style}"` : ''}>`
+  return `<div class="empty" data-state="${state}"${o.inline ? ' data-inline' : ' role="status"'}${o.indent !== undefined ? ` data-indent style="--depth:${o.indent}"` : ''}>`
     + (o.icon ? `<span class="empty-ico">${o.icon}</span>` : '')
     + `<p class="empty-t">${esc(text)}</p>`
     + (hint ? `<p class="empty-h">${hint}</p>` : '')

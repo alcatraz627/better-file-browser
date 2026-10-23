@@ -155,7 +155,7 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
     if (!g.tag) return g.items.map(row).join('');
     const open = filter.trim() || !folded.has(g.tag.name) ? ' open' : '';
     return `<details class="fe-grp" data-tag="${esc(g.tag.name)}"${open}>
-      <summary class="sect fe-sv-tag" data-level="group">${DISCLOSE}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
+      <summary class="sect fe-sv-tag" data-level="group">${DISCLOSE}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="--dot:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
       <div class="fe-grp-body">${g.items.map(row).join('')}</div>
     </details>`;
   }).join('');

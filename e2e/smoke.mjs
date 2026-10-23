@@ -231,7 +231,7 @@ try {
   await page.keyboard.press('Enter');
   const tagState = await page.evaluate(() => ({
     heads: [...document.querySelectorAll('#fe-sv-list .fe-grp')].map(g => g.dataset.tag),
-    dotColor: document.querySelector('#fe-sv-list .fe-sv-dot')?.style.background,
+    dotColor: (d => d && getComputedStyle(d).backgroundColor)(document.querySelector('#fe-sv-list .fe-sv-dot')),
     minis: Number(document.querySelector('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-pl-meta')?.textContent),
   }));
   tagState.stored = (await h.store.json('bfb-saved-v1', [])).find(p => p.path.endsWith('/nested/'))?.tags;
@@ -239,7 +239,7 @@ try {
     `tags applied and grouped: ${JSON.stringify(tagState)}`);
   const c1 = tagState.dotColor;
   await page.click('#fe-sv-list .fe-sv-dot');
-  const c2 = await page.$eval('#fe-sv-list .fe-sv-dot', el => el.style.background);
+  const c2 = await page.$eval('#fe-sv-list .fe-sv-dot', el => getComputedStyle(el).backgroundColor);
   check(c1 && c2 && c1 !== c2, `tag colour cycles ${c1} → ${c2}`);
 
   // A chip in the lens tag row filters to that tag by writing #work into the
@@ -262,7 +262,7 @@ try {
   const savedAfter = await page.evaluate(() => ({
     labels: [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].map(e => e.textContent),
     heads: [...document.querySelectorAll('#fe-sv-list .fe-grp')].map(g => g.dataset.tag),
-    dot: document.querySelector('#fe-sv-list .fe-sv-dot')?.style.background,
+    dot: (d => d && getComputedStyle(d).backgroundColor)(document.querySelector('#fe-sv-list .fe-sv-dot')),
   }));
   check(savedAfter.labels.length === 3 && savedAfter.heads.join() === 'work' && savedAfter.dot === c2, `saved state persists: ${JSON.stringify(savedAfter)}`);
 

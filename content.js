@@ -1996,7 +1996,7 @@ ${body}`;
   function emptyHtml(state, text, o = {}) {
     const hint = o.hintHtml ?? (o.hint ? esc(o.hint) : "");
     const acts = (o.actions ?? []).map((a) => `<button type="button" class="btn" data-size="sm" data-variant="outline"${a.id ? ` id="${a.id}"` : ""}${a.a ? ` data-a="${a.a}"` : ""} title="${esc(a.title)}">${a.icon ?? ""}<span>${esc(a.label)}</span></button>`).join("");
-    return `<div class="empty" data-state="${state}"${o.inline ? " data-inline" : ' role="status"'}${o.style ? ` style="${o.style}"` : ""}>` + (o.icon ? `<span class="empty-ico">${o.icon}</span>` : "") + `<p class="empty-t">${esc(text)}</p>` + (hint ? `<p class="empty-h">${hint}</p>` : "") + (acts ? `<div class="empty-a">${acts}</div>` : "") + `</div>`;
+    return `<div class="empty" data-state="${state}"${o.inline ? " data-inline" : ' role="status"'}${o.indent !== void 0 ? ` data-indent style="--depth:${o.indent}"` : ""}>` + (o.icon ? `<span class="empty-ico">${o.icon}</span>` : "") + `<p class="empty-t">${esc(text)}</p>` + (hint ? `<p class="empty-h">${hint}</p>` : "") + (acts ? `<div class="empty-a">${acts}</div>` : "") + `</div>`;
   }
   var CLEAR = { a: "clear", label: "Clear filter", title: "Show everything again" };
 
@@ -11233,8 +11233,8 @@ ${end.comment}` : end.comment;
     const sizes = [14, 20, 28, 40, 56];
     return `<style>@font-face{font-family:'bfb-spec';src:url("${esc(href)}")}</style>
     <div class="fe-ql-font">
-      ${sizes.map((s) => `<div style="font-size:${s}px">${sample}</div>`).join("")}
-      <div style="font-size:30px">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz</div>
+      ${sizes.map((s) => `<div style="--fs:${s}px">${sample}</div>`).join("")}
+      <div style="--fs:30px">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz</div>
     </div>`;
   }
   var scrollMemo = /* @__PURE__ */ new Map();
@@ -12801,6 +12801,7 @@ ${t}`)) say("Note title saved");
 .empty-a{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-3);margin-top:var(--sp-3)}
 .empty[data-inline]{align-items:flex-start;text-align:left;gap:var(--sp-1);padding:var(--sp-3) var(--row-px);font-size:var(--fs-sm)}
 .empty[data-inline] .empty-a{justify-content:flex-start;margin-top:var(--sp-2)}
+.empty[data-indent]{padding-left:calc(var(--row-px) + var(--sp-8) + var(--depth) * var(--sp-7))}
 .empty:is([data-inline],[data-state="loading"]) .empty-t{color:var(--dm)}
 #fe-empty[hidden]{display:none}
 /* Disclosure: the chevron on anything that folds turns right when folded,
@@ -12970,7 +12971,7 @@ body{opacity:1!important}
 
 .fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
 .fe-sv-tag{gap:7px;padding:var(--sp-4) var(--sp-5) 3px}
-.fe-sv-dot{width:9px;height:9px;border-radius:50%;cursor:pointer;flex-shrink:0;box-shadow:0 0 0 1px rgb(var(--ink) / calc(4 / 15))}
+.fe-sv-dot{width:9px;height:9px;border-radius:50%;cursor:pointer;flex-shrink:0;box-shadow:0 0 0 1px rgb(var(--ink) / calc(4 / 15));background:var(--dot)}
 #fe-lens-filter[hidden],.fe-lens-tags[hidden]{display:none}
 .fe-proxy-filter{display:none}
 .fe-grp > summary::-webkit-details-marker{display:none}
@@ -13021,6 +13022,7 @@ body{opacity:1!important}
 #fe-filter-bar .fe-dd-btn,#fe-sg-panel .fe-dd-btn{min-width:150px}
 #fe-find-depth .fe-dd-btn{min-width:100px}
 #fe-find-status{font-size:var(--fs-sm);color:var(--mt);margin-left:var(--sp-2)}
+#fe-find-save{margin-left:auto}
 .fe-view .fe-si-link svg{color:var(--ac);opacity:.9}
 thead{position:sticky;top:0;z-index:var(--z-sticky)}
 thead th{padding:var(--sp-3) var(--sp-5);text-align:left;font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--dm);border-bottom:1px solid var(--bd);user-select:none;white-space:nowrap;position:relative}
@@ -13081,7 +13083,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-tree{display:none;padding:var(--sp-3) 0}
 #fe[data-view="tree"] #fe-tree{display:block}
 #fe[data-view="tree"] #fe-tiles{display:none}
-.fe-tree-row{display:flex;align-items:center;min-height:29px;padding-right:var(--sp-5);gap:var(--sp-2)}
+.fe-tree-row{display:flex;align-items:center;min-height:29px;padding-right:var(--sp-5);gap:var(--sp-2);padding-left:calc(var(--row-px) + var(--depth,0) * var(--sp-7))}
 .fe-tree-toggle,.fe-tree-spacer{width:20px;height:20px;flex:none}
 .fe-tree-toggle{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--dm);cursor:pointer;border-radius:var(--r-xs)}
 .fe-tree-toggle:hover{background:var(--s2);color:var(--tx)}
@@ -13315,6 +13317,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-pane .fe-md>:first-child{margin-top:0;padding-right:36px}
 
 .fe-st-input{width:100%}
+#fe-st-export-out{height:calc(var(--ctl-md) * 4 + var(--sp-4));font:var(--fs-sm) var(--mono)}
 
 .fe-st-rule{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
   gap:var(--sp-3);align-items:center;padding:5px var(--sp-1);border-bottom:1px solid var(--bd)}
@@ -13703,7 +13706,7 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
 .fe-ql-media{max-width:100%;max-height:100%;border-radius:var(--r-xs);background:rgb(var(--ink))}
 .fe-ql-center audio{width:min(480px,90%)}
 .fe-ql-font{padding:var(--sp-7) 26px;overflow:auto;line-height:1.5}
-.fe-ql-font>div{margin:var(--sp-3) 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:var(--sp-3)}
+.fe-ql-font>div{margin:var(--sp-3) 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:var(--sp-3);font-size:var(--fs)}
 .fe-code-wrap{font:var(--fs-md)/1.55 var(--mono);min-height:100%}
 .fe-code{padding:var(--sp-4) var(--sp-5) var(--sp-5) 0;width:max-content;min-width:100%}
 .fe-cl-blk{content-visibility:auto;contain-intrinsic-size:auto calc(var(--n) * 1.55em)}
@@ -13974,7 +13977,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:var(--sp-2)}
 .fe-nt-tags{font-size:var(--fs-sm);color:var(--mt);display:flex;gap:var(--sp-2);flex-wrap:nowrap;overflow:hidden}
 .fe-nt-tag{display:inline-flex;align-items:center;gap:var(--sp-2);height:17px;padding:0 var(--sp-3);border:1px solid var(--bd2);border-radius:var(--r-full);font-size:var(--fs-xs);color:var(--mt);white-space:nowrap;flex:none}
-.fe-nt-tag i{width:6px;height:6px;border-radius:50%;flex:none}
+.fe-nt-tag i{width:6px;height:6px;border-radius:50%;flex:none;background:var(--dot)}
 .fe-nt-item .fe-nt-pin{display:inline-flex;margin-left:auto;padding-right:var(--sp-2);color:var(--gold);flex:none}
 .fe-nt-item .fe-nt-pin svg{width:12px;height:12px;opacity:1}
 .fe-nt-item:hover .fe-nt-pin,.fe-nt-item:focus-within .fe-nt-pin{visibility:hidden}
@@ -14267,7 +14270,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   #fe-page .fe-md h1{font-size:1.45em}
   #fe-page > .fe-diag{margin:var(--sp-5) var(--sp-5) 0}
 }
-#fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none}
+#fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none;height:var(--h)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
 /* Reduced motion, in one place: the motion tokens go to zero and anything left still settles at once. */
 @media (prefers-reduced-motion:reduce){
@@ -14489,7 +14492,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
   font:inherit;font-size:var(--type-small);line-height:1;white-space:nowrap;vertical-align:middle}
 .chip[data-size="sm"]{--chip-h:var(--ctl-xs);padding:0 var(--sp-3);font-size:var(--fs-sm)}
 .chip > svg{flex:none;width:12px;height:12px}
-.chip > i{flex:none;width:6px;height:6px;border-radius:var(--r-full)}
+.chip > i{flex:none;width:6px;height:6px;border-radius:var(--r-full);background:var(--dot)}
 .chip > span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .chip:has(> .btn:last-child){padding-right:var(--sp-1)}
 .chip[data-fill]{border-color:transparent;background:color-mix(in srgb,var(--chip,var(--ac)) 16%,transparent);color:var(--tx)}
@@ -14645,7 +14648,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 
 /* Key badges while \u2325 is held. */
 .fe-hints{position:fixed;inset:0;pointer-events:none}
-.fe-hints > kbd{position:fixed;transform:translate(-50%,0);background:var(--ac);color:var(--tx-on-ac);box-shadow:0 2px 6px rgb(var(--ink) / .35);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-hints > kbd{position:fixed;left:var(--x);top:var(--y);transform:translate(-50%,0);background:var(--ac);color:var(--tx-on-ac);box-shadow:0 2px 6px rgb(var(--ink) / .35);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-hints-tip{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-5);border-radius:var(--pop-r);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);font-size:var(--fs-md);color:var(--mt)}
 
@@ -18487,7 +18490,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ) + card2("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
         { key: "data", label: "Data", hint: "Export, import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list.", body: card2(
           "Your data",
-          row("Export", "Copies JSON", `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) + row("Import", "Then reloads", `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) + `<textarea id="fe-st-export-out" class="tb fe-st-input" style="display:none;width:100%;height:120px;font:var(--fs-sm) var(--mono)" spellcheck="false" title="The export, also on the clipboard"></textarea>`
+          row("Export", "Copies JSON", `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) + row("Import", "Then reloads", `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" style="display:none">`) + `<textarea id="fe-st-export-out" class="tb fe-st-input" style="display:none" spellcheck="false" title="The export, also on the clipboard"></textarea>`
         ) }
       ]
     };
@@ -18714,7 +18717,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       if (!g.tag) return g.items.map(row2).join("");
       const open = filter.trim() || !folded.has(g.tag.name) ? " open" : "";
       return `<details class="fe-grp" data-tag="${esc(g.tag.name)}"${open}>
-      <summary class="sect fe-sv-tag" data-level="group">${DISCLOSE}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="background:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
+      <summary class="sect fe-sv-tag" data-level="group">${DISCLOSE}<i class="fe-sv-dot" data-tag="${esc(g.tag.name)}" style="--dot:${esc(g.tag.color)}" title="Click to change colour"></i>${esc(g.tag.name)}<span class="fe-grp-n">${g.items.length}</span></summary>
       <div class="fe-grp-body">${g.items.map(row2).join("")}</div>
     </details>`;
     }).join("");
@@ -18943,7 +18946,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <button id="fe-find-cancel" class="btn" data-variant="outline" style="display:none" title="Stop scanning">${UI_ICON.close}Cancel</button>
           <span id="fe-find-status"></span>
           <span id="fe-find-error" role="alert"></span>
-          <button id="fe-find-save" class="btn" data-variant="outline" style="margin-left:auto" title="Keep this search as a Saved view: this folder plus these fields">${line(STAR, 13)}Save view</button>
+          <button id="fe-find-save" class="btn" data-variant="outline" title="Keep this search as a Saved view: this folder plus these fields">${line(STAR, 13)}Save view</button>
         </div>
       </div>
 
@@ -19375,22 +19378,22 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const name = en.isParent ? "Parent Directory" : en.name.split("/").pop();
         const expanded = treeExpanded.has(en.href);
         const hit = ls.contentHits?.get(en.href);
-        rows.push(`<div class="row fe-tree-row${en.isHidden ? " dotfile" : ""}${en.isDir ? " dir" : ""}" data-idx="${idx}" style="padding-left:${10 + depth * 20}px">
+        rows.push(`<div class="row fe-tree-row${en.isHidden ? " dotfile" : ""}${en.isDir ? " dir" : ""}" data-idx="${idx}" style="--depth:${depth}">
         ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? "Collapse" : "Expand"} ${esc(name)}" aria-expanded="${expanded}">${DISCLOSE}</button>` : '<span class="fe-tree-spacer"></span>'}
         <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
       </div>`);
         if (!en.isDir || !expanded) return;
         if (treeLoading.has(en.href)) {
-          rows.push(emptyHtml("loading", "Loading\u2026", { inline: true, style: `padding-left:${34 + (depth + 1) * 20}px` }));
+          rows.push(emptyHtml("loading", "Loading\u2026", { inline: true, indent: depth + 1 }));
           return;
         }
         if (treeErrors.has(en.href)) {
-          rows.push(emptyHtml("failed", "This folder could not be read", { inline: true, hint: "Collapse and expand it to try again", style: `padding-left:${34 + (depth + 1) * 20}px` }));
+          rows.push(emptyHtml("failed", "This folder could not be read", { inline: true, hint: "Collapse and expand it to try again", indent: depth + 1 }));
           return;
         }
         const children = treeChildren.get(en.href);
         if (!children) return;
-        if (!children.length) rows.push(emptyHtml("empty", "Empty folder", { inline: true, style: `padding-left:${34 + (depth + 1) * 20}px` }));
+        if (!children.length) rows.push(emptyHtml("empty", "Empty folder", { inline: true, indent: depth + 1 }));
         for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? void 0), ls.sort)) {
           if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
         }
@@ -19422,7 +19425,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       win.a = Math.max(0, a - OVERSCAN);
       win.b = Math.min(n, b + OVERSCAN);
       const above = win.tops[win.a] ?? 0, below = win.total - (win.b < n ? win.tops[win.b] : win.total);
-      const spacer = (h) => h > 0 ? `<tr class="fe-spacer" aria-hidden="true"><td colspan="6" style="height:${h}px"></td></tr>` : "";
+      const spacer = (h) => h > 0 ? `<tr class="fe-spacer" aria-hidden="true"><td colspan="6" style="--h:${h}px"></td></tr>` : "";
       tbody.innerHTML = spacer(above) + win.parts.slice(win.a, win.b).join("") + spacer(below);
       paintSel();
     }
@@ -21049,7 +21052,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       });
       hints.innerHTML = spots.map(([x, k]) => {
         const r = x.getBoundingClientRect();
-        return `<kbd style="left:${Math.round(r.left + r.width / 2)}px;top:${Math.round(r.bottom - 6)}px">${esc(k)}</kbd>`;
+        return `<kbd style="--x:${Math.round(r.left + r.width / 2)}px;--y:${Math.round(r.bottom - 6)}px">${esc(k)}</kbd>`;
       }).join("") + `<div class="fe-hints-tip"><kbd>\u2318K</kbd> every command \xB7 <kbd>?</kbd> keyboard map \xB7 <kbd>F6</kbd> next area</div>`;
       fe.appendChild(hints);
       raise(hints);
@@ -21238,7 +21241,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const home = homeDir(rawPath);
       const where = isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path;
-      card4.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
+      card4.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="chip fe-lens-tag"><i style="--dot:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
       const r = item.getBoundingClientRect();
       card4.hidden = false;
       raise(card4);
@@ -21307,7 +21310,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap((p) => p.tags ?? []))].sort();
       const on = box.value.trim().toLowerCase();
       row2.hidden = !names.length;
-      row2.innerHTML = names.map((n) => `<button type="button" class="chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" aria-pressed="${on === "#" + n.toLowerCase()}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? "#8b949e")}"></i>${esc(n)}</button>`).join("");
+      row2.innerHTML = names.map((n) => `<button type="button" class="chip fe-lens-tag${on === "#" + n.toLowerCase() ? " on" : ""}" aria-pressed="${on === "#" + n.toLowerCase()}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? "#8b949e")}" title="Show only items tagged ${esc(n)}"><i style="--dot:${esc(colour.get(n) ?? "#8b949e")}"></i>${esc(n)}</button>`).join("");
     }
     const foldedGroups = getFoldedGroups;
     app.refreshSaved = refreshSaved;
@@ -21771,7 +21774,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     app.refreshNotes = refreshNotes;
     function noteRowText(n) {
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
-      const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags.map((t) => `<span class="fe-nt-tag"><i style="background:${esc(colour.get(t) ?? "var(--dm)")}"></i>${esc(t)}</span>`).join("")}</span>` : "";
+      const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags.map((t) => `<span class="fe-nt-tag"><i style="--dot:${esc(colour.get(t) ?? "var(--dm)")}"></i>${esc(t)}</span>`).join("")}</span>` : "";
       const pin = n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : "";
       return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>${pin}`;
     }

@@ -167,7 +167,7 @@ export const UI_CSS = `
   font:inherit;font-size:var(--type-small);line-height:1;white-space:nowrap;vertical-align:middle}
 .chip[data-size="sm"]{--chip-h:var(--ctl-xs);padding:0 var(--sp-3);font-size:var(--fs-sm)}
 .chip > svg{flex:none;width:12px;height:12px}
-.chip > i{flex:none;width:6px;height:6px;border-radius:var(--r-full)}
+.chip > i{flex:none;width:6px;height:6px;border-radius:var(--r-full);background:var(--dot)}
 .chip > span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .chip:has(> .btn:last-child){padding-right:var(--sp-1)}
 .chip[data-fill]{border-color:transparent;background:color-mix(in srgb,var(--chip,var(--ac)) 16%,transparent);color:var(--tx)}
@@ -323,7 +323,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 
 /* Key badges while ⌥ is held. */
 .fe-hints{position:fixed;inset:0;pointer-events:none}
-.fe-hints > kbd{position:fixed;transform:translate(-50%,0);background:var(--ac);color:var(--tx-on-ac);box-shadow:0 2px 6px rgb(var(--ink) / .35);animation:fe-rise var(--t-fast) var(--ease)}
+.fe-hints > kbd{position:fixed;left:var(--x);top:var(--y);transform:translate(-50%,0);background:var(--ac);color:var(--tx-on-ac);box-shadow:0 2px 6px rgb(var(--ink) / .35);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-hints-tip{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-5);border-radius:var(--pop-r);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);font-size:var(--fs-md);color:var(--mt)}
 

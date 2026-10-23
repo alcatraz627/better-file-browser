@@ -321,7 +321,7 @@ export function initFocusNav(app: App): void {
     for (const [id, cmd] of Object.entries(KEY_OF)) { const x = document.getElementById(id); const k = keyOf(cmd); if (visible(x) && k) spots.push([x, k]); }
     document.querySelectorAll<HTMLElement>('#fe-view-group [data-v]').forEach(b => { const k = keyOf('view-' + b.dataset.v); if (visible(b) && k) spots.push([b, k]); });
     document.querySelectorAll<HTMLElement>('#fe-tabs .fe-tab').forEach((t, i) => { if (i < 9 && visible(t)) spots.push([t, String(i + 1)]); });
-    hints.innerHTML = spots.map(([x, k]) => { const r = x.getBoundingClientRect(); return `<kbd style="left:${Math.round(r.left + r.width / 2)}px;top:${Math.round(r.bottom - 6)}px">${esc(k)}</kbd>`; }).join('')
+    hints.innerHTML = spots.map(([x, k]) => { const r = x.getBoundingClientRect(); return `<kbd style="--x:${Math.round(r.left + r.width / 2)}px;--y:${Math.round(r.bottom - 6)}px">${esc(k)}</kbd>`; }).join('')
       + `<div class="fe-hints-tip"><kbd>⌘K</kbd> every command · <kbd>?</kbd> keyboard map · <kbd>F6</kbd> next area</div>`;
     fe.appendChild(hints);
     raise(hints);

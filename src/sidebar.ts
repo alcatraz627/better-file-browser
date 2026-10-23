@@ -189,7 +189,7 @@ export function initSidebar(app: App): void {
     const home = homeDir(rawPath);
     const where = isViewPath(p.path) ? 'Saved view in ' + p.path.split('#')[0] : p.path;
     card.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? '~' + where.slice(home.length) : where)}</span>`
-      + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags!.map(t => `<span class="chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? '#8b949e')}"></i>${esc(t)}</span>`).join('')}</span>` : '')
+      + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags!.map(t => `<span class="chip fe-lens-tag"><i style="--dot:${esc(colour.get(t) ?? '#8b949e')}"></i>${esc(t)}</span>`).join('')}</span>` : '')
       + `<span class="fe-svc-hint">Double-click to rename · drag to reorder</span>`;
     const r = item.getBoundingClientRect();
     card.hidden = false;
@@ -255,7 +255,7 @@ export function initSidebar(app: App): void {
     const names = [...new Set(inNotes ? lensNotes.tags : getSaved().flatMap(p => p.tags ?? []))].sort();
     const on = box.value.trim().toLowerCase();
     row.hidden = !names.length;
-    row.innerHTML = names.map(n => `<button type="button" class="chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" aria-pressed="${on === '#' + n.toLowerCase()}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}"><i style="background:${esc(colour.get(n) ?? '#8b949e')}"></i>${esc(n)}</button>`).join('');
+    row.innerHTML = names.map(n => `<button type="button" class="chip fe-lens-tag${on === '#' + n.toLowerCase() ? ' on' : ''}" aria-pressed="${on === '#' + n.toLowerCase()}" data-tag="${esc(n)}" style="--chip:${esc(colour.get(n) ?? '#8b949e')}" title="Show only items tagged ${esc(n)}"><i style="--dot:${esc(colour.get(n) ?? '#8b949e')}"></i>${esc(n)}</button>`).join('');
   }
   const foldedGroups = getFoldedGroups;
   app.refreshSaved = refreshSaved;
@@ -686,7 +686,7 @@ export function initSidebar(app: App): void {
   // Colour dot and pin first, then the title with tags beneath.
   function noteRowText(n: NoteMeta): string {
     const colour = new Map(getTags().map(t => [t.name, t.color]));
-    const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags!.map(t => `<span class="fe-nt-tag"><i style="background:${esc(colour.get(t) ?? 'var(--dm)')}"></i>${esc(t)}</span>`).join('')}</span>` : '';
+    const tags = (n.tags ?? []).length ? `<span class="fe-nt-tags">${n.tags!.map(t => `<span class="fe-nt-tag"><i style="--dot:${esc(colour.get(t) ?? 'var(--dm)')}"></i>${esc(t)}</span>`).join('')}</span>` : '';
     const pin = n.pinned ? `<span class="fe-nt-pin" title="Pinned">${UI_ICON.pin}</span>` : '';
     return `<span class="fe-nt-main"><span class="fe-sl fe-nt-label" title="${esc(noteName(n))}&#10;Double-click to rename (F2)">${midHtml(noteName(n))}</span>${tags}</span>${pin}`;
   }

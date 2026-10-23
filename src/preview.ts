@@ -54,8 +54,8 @@ function fontSpecimen(href: string): string {
   const sizes = [14, 20, 28, 40, 56];
   return `<style>@font-face{font-family:'bfb-spec';src:url("${esc(href)}")}</style>
     <div class="fe-ql-font">
-      ${sizes.map(s => `<div style="font-size:${s}px">${sample}</div>`).join('')}
-      <div style="font-size:30px">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz</div>
+      ${sizes.map(s => `<div style="--fs:${s}px">${sample}</div>`).join('')}
+      <div style="--fs:30px">ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>abcdefghijklmnopqrstuvwxyz</div>
     </div>`;
 }
 

@@ -70,7 +70,7 @@ try {
   const paths = await page.$$eval('#fe-tree .fe-tree-row', rows => rows.map(row => ({
     name: row.querySelector('.fe-nm').textContent,
     href: row.querySelector('a').href,
-    indent: parseInt(row.style.paddingLeft),
+    indent: parseInt(getComputedStyle(row).paddingLeft),
   })));
   assert.ok(paths.find(row => row.name === 'nested').indent < paths.find(row => row.name === 'deeper').indent);
   assert.ok(paths.find(row => row.name === 'deeper').indent < paths.find(row => row.name === 'deepest.md').indent);
