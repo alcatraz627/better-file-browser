@@ -4,6 +4,7 @@
 import type { App } from './app';
 import type { Listing } from './listing';
 import { el } from './el';
+import { APPS, openWithItems, parseCommands, runOpenWith } from './open-with';
 import { esc, fullPath, copyToClipboard, pageHref } from './utils';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab } from './preview';
 import { bind, addPaletteSource, runCommand } from './commands';
@@ -145,6 +146,8 @@ export function initListingInput(app: App, listing: Listing): void {
           `<div class="fe-ctx-sep"></div>`,
           `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? 'Unsave' : 'Save'}</span></div>`,
           `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
+          `<div class="fe-ctx-sep"></div>`,
+          openWithItems(parseCommands(app.settings.openWithCmds)),
         ].join('');
     ctxMenu.dataset.idx = String(idx);
     ctx = openLayer(ctxMenu, { kind: 'popover', place: 'point', point: { x: e.clientX, y: e.clientY }, origin: holder, role: 'menu', group: 'menu' });
@@ -160,6 +163,7 @@ export function initListingInput(app: App, listing: Listing): void {
     else if (item.dataset.act === 'cp-path') copyText(fp);
     else if (item.dataset.act === 'cp-name') copyText(en.name);
     else if (item.dataset.act === 'term')    app.openInTerminal(en.isDir ? fp : rawPath);
+    else if (item.dataset.act?.startsWith('ow:')) runOpenWith(item.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
     else if (item.dataset.act === 'save') { const now = toggleSaved(fp, en.name); app.refreshSaved(); toast(now ? `Saved ${en.name}` : `Removed ${en.name} from Saved`); }
     else if (item.dataset.act === 'cp-paths') sel.copySelection();
     else if (item.dataset.act === 'cp-names') {
@@ -252,6 +256,15 @@ export function initListingInput(app: App, listing: Listing): void {
   bind('zoom-out', () => detail(d => d + 1), onListing);
   bind('zoom-reset', () => detail(() => 3), onListing);
 
+  // The palette opens this page's file or folder in another app, or runs one of the person's commands on it.
+  addPaletteSource(() => {
+    const path = app.fileMode ? app.rawPath : app.folderPath;
+    const cmds = parseCommands(app.settings.openWithCmds);
+    return [
+      ...APPS.map(a => ({ title: a.label, sub: 'this page', group: 'Open with', icon: UI_ICON.external, run: () => runOpenWith('ow:' + a.id, path, cmds, toast) })),
+      ...cmds.map((c, i) => ({ title: c.name, sub: `${c.cmd} on this page`, group: 'Open with', icon: UI_ICON.terminal, run: () => runOpenWith('ow:#' + i, path, cmds, toast) })),
+    ];
+  });
   // The palette also goes to anything in this folder.
   addPaletteSource(() => onListing() ? ls.all.filter(en => !en.isParent).slice(0, 400).map(en => ({
     title: en.name, sub: en.isDir ? 'folder here' : 'file here', group: 'This folder', icon: getIcon(en, app.iconRules),

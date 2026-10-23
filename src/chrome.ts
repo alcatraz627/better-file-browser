@@ -46,8 +46,9 @@ export function initChrome(app: App): void {
   }
   app.openInTerminal = (path: string) => {
     const term = settings.terminalApp || 'ghostty';
-    // A named terminal opens through the launcher host; a custom command is
-    // only copied, because the extension never runs shell text.
+    // A named terminal opens through the launcher host; a custom terminal
+    // command is only copied. Shell text runs only from the person's own
+    // "Open with" commands in Settings (open-with.ts).
     if (term !== 'custom') {
       // connectNative is unavailable in content scripts; the background
       // worker relays, and a missing host falls back to the clipboard.

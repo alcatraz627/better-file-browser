@@ -36,6 +36,41 @@ if msg and msg.get('action') == 'open_terminal':
         write_msg({'success': True})
     except Exception as e:
         write_msg({'success': False, 'error': str(e)})
+elif msg and msg.get('action') == 'open_with':
+    # A file or folder in an editor by its macOS app name, or shown in Finder. Only these apps.
+    path = msg.get('path')
+    apps = {'zed': 'Zed', 'vscode': 'Visual Studio Code', 'cursor': 'Cursor'}
+    try:
+        if not isinstance(path, str) or not path.startswith('/') or not os.path.exists(path):
+            raise ValueError('path must be an existing absolute path')
+        target = msg.get('target')
+        if target == 'finder':
+            subprocess.Popen(['open', '-R', path])
+        elif target in apps:
+            subprocess.Popen(['open', '-a', apps[target], path])
+        else:
+            raise ValueError('unknown app')
+        write_msg({'success': True})
+    except Exception as e:
+        write_msg({'success': False, 'error': str(e)})
+elif msg and msg.get('action') == 'run_with':
+    # One of the person's own commands from Settings, with the path quoted as its
+    # last argument: in a new Ghostty window that stays open, or in the background.
+    import shlex
+    path, cmd = msg.get('path'), msg.get('cmd')
+    try:
+        if not isinstance(path, str) or not path.startswith('/'):
+            raise ValueError('path must be an absolute string')
+        if not isinstance(cmd, str) or not cmd.strip() or '\n' in cmd:
+            raise ValueError('the command must be one line')
+        line = f'{cmd.strip()} {shlex.quote(path)}'
+        if msg.get('terminal'):
+            subprocess.Popen(['open', '-na', 'Ghostty', '--args', '-e', '/bin/zsh', '-lc', f'{line}; exec /bin/zsh -l'])
+        else:
+            subprocess.Popen(['/bin/zsh', '-lc', line], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        write_msg({'success': True})
+    except Exception as e:
+        write_msg({'success': False, 'error': str(e)})
 elif msg and msg.get('action') == 'open_file':
     # Only an existing image file: `open` would also launch an app bundle or a script.
     path = msg.get('path')

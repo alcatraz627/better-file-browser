@@ -53,5 +53,22 @@ before = len(launched())
 r = ask({'action': 'open_terminal', 'path': work, 'app': 'Calculator'})
 verdict(r.get('success') is False and len(launched()) == before, f'an app outside the terminal list is refused: {r.get("error")}')
 
+# Open with: a known app goes to open -a, Finder reveals, anything else is refused.
+target = os.path.join(work, 'doc.md')
+open(target, 'w').write('x')
+r = ask({'action': 'open_with', 'target': 'zed', 'path': target})
+verdict(r.get('success') and launched()[-1] == f'-a Zed {target}', f'Open in Zed runs open -a Zed: {launched()[-1:]}')
+r = ask({'action': 'open_with', 'target': 'finder', 'path': target})
+verdict(r.get('success') and launched()[-1] == f'-R {target}', 'Show in Finder reveals the file')
+r = ask({'action': 'open_with', 'target': 'calculator', 'path': target})
+verdict(not r.get('success'), 'an app not on the list is refused')
+# A command of the person's own runs with the path quoted as its last argument.
+made = os.path.join(work, "made it's here.txt")
+r = ask({'action': 'run_with', 'cmd': 'touch', 'terminal': False, 'path': made})
+time.sleep(0.5)
+verdict(r.get('success') and os.path.exists(made), 'a background command runs on the path, quoted (a name with a quote and spaces)')
+r = ask({'action': 'run_with', 'cmd': 'cat\nls', 'terminal': False, 'path': target})
+verdict(not r.get('success'), 'a command over two lines is refused')
+
 print('\nall checks passed' if not failed else f'\n{failed} FAILED')
 sys.exit(1 if failed else 0)

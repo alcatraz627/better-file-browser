@@ -18203,7 +18203,11 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Make room for a docked preview", "Fold the sidebar while a docked preview is open", sw("fe-st-dock-fold", "Fold the sidebar for a docked preview")) + row("Peek closes", "A hidden sidebar opens from the left edge; it closes this long after the pointer leaves", ddHtml("fe-st-peek-close", PEEK_OPTS, "When a peeked sidebar closes", "lg")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
         ) + card2(
           "Terminal",
-          row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app", "lg")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') + note("", "fe-st-term-hint")
+          row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app", "lg")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') + note("", "fe-st-term-hint") + wide(
+            "Open with",
+            "Your own commands for a file or folder, one per line as Name: command. The path goes last, quoted. A command runs in Ghostty; start it with & to run it without a window.",
+            `<textarea id="fe-st-open-with" class="tb fe-st-input" rows="4" spellcheck="false" title="One per line, Name: command"></textarea>`
+          )
         ) },
         { key: "files", label: "Files", hint: "Pages, icons", icon: UI_ICON.files, tone: "var(--nc-teal)", desc: "Reading, file pages and icons.", body: card2(
           "Reading",
@@ -19940,6 +19944,38 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     return { ls, sel, applyAll, applyFindFromHash };
   }
 
+  // src/open-with.ts
+  var APPS = [
+    { id: "zed", label: "Open in Zed" },
+    { id: "vscode", label: "Open in VS Code" },
+    { id: "cursor", label: "Open in Cursor" },
+    { id: "finder", label: "Show in Finder" }
+  ];
+  var DEFAULT_COMMANDS = "Show contents: cat\nRun with bash: bash\nAdd to VS Code: & code --add";
+  function parseCommands(text) {
+    return (text ?? DEFAULT_COMMANDS).split("\n").map((l) => l.trim()).filter(Boolean).flatMap((l) => {
+      const at = l.indexOf(":");
+      if (at < 1) return [];
+      const name = l.slice(0, at).trim();
+      let cmd = l.slice(at + 1).trim();
+      const terminal = !cmd.startsWith("&");
+      if (!terminal) cmd = cmd.slice(1).trim();
+      return name && cmd ? [{ name, cmd, terminal }] : [];
+    });
+  }
+  function openWithItems(commands) {
+    return APPS.map((a) => `<div class="row fe-ctx-item" data-act="ow:${a.id}">${UI_ICON.external}<span>${a.label}</span></div>`).join("") + commands.map((c, i3) => `<div class="row fe-ctx-item" data-act="ow:#${i3}" title="${esc(c.cmd)} <path>${c.terminal ? ", in Ghostty" : ", in the background"}">${UI_ICON.terminal}<span>${esc(c.name)}</span></div>`).join("");
+  }
+  function runOpenWith(act, path, commands, toast) {
+    const pick2 = act.replace(/^ow:/, "");
+    const own = pick2.startsWith("#") ? commands[Number(pick2.slice(1))] : null;
+    const payload = own ? { action: "run_with", path, cmd: own.cmd, terminal: own.terminal } : { action: "open_with", path, target: pick2 };
+    chrome.runtime.sendMessage({ type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload }, (res) => {
+      if (chrome.runtime.lastError || !res?.ok) toast("Could not open it. Is the launcher installed (native/install.sh)?");
+      else if (res.response?.success === false) toast(`Could not open it: ${res.response.error}`);
+    });
+  }
+
   // src/listing-input.ts
   function initListingInput(app, listing) {
     const { fe, toast, rawPath } = app;
@@ -20090,7 +20126,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         `<div class="row fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">\u21E7Y</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? "Unsave" : "Save"}</span></div>`,
-        `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`
+        `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
+        `<div class="fe-ctx-sep"></div>`,
+        openWithItems(parseCommands(app.settings.openWithCmds))
       ].join("");
       ctxMenu.dataset.idx = String(idx);
       ctx = openLayer(ctxMenu, { kind: "popover", place: "point", point: { x: e.clientX, y: e.clientY }, origin: holder, role: "menu", group: "menu" });
@@ -20106,6 +20144,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       else if (item.dataset.act === "cp-path") copyText(fp);
       else if (item.dataset.act === "cp-name") copyText(en.name);
       else if (item.dataset.act === "term") app.openInTerminal(en.isDir ? fp : rawPath);
+      else if (item.dataset.act?.startsWith("ow:")) runOpenWith(item.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
       else if (item.dataset.act === "save") {
         const now = toggleSaved(fp, en.name);
         app.refreshSaved();
@@ -20233,6 +20272,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("zoom-in", () => detail((d) => d - 1), onListing);
     bind("zoom-out", () => detail((d) => d + 1), onListing);
     bind("zoom-reset", () => detail(() => 3), onListing);
+    addPaletteSource(() => {
+      const path = app.fileMode ? app.rawPath : app.folderPath;
+      const cmds = parseCommands(app.settings.openWithCmds);
+      return [
+        ...APPS.map((a) => ({ title: a.label, sub: "this page", group: "Open with", icon: UI_ICON.external, run: () => runOpenWith("ow:" + a.id, path, cmds, toast) })),
+        ...cmds.map((c, i3) => ({ title: c.name, sub: `${c.cmd} on this page`, group: "Open with", icon: UI_ICON.terminal, run: () => runOpenWith("ow:#" + i3, path, cmds, toast) }))
+      ];
+    });
     addPaletteSource(() => onListing() ? ls.all.filter((en) => !en.isParent).slice(0, 400).map((en) => ({
       title: en.name,
       sub: en.isDir ? "folder here" : "file here",
@@ -22755,6 +22802,7 @@ ${rows.join("\n")}`, name: subject };
       el("fe-st-sidebar").checked = settings.showSidebar !== false;
       el("fe-st-dock-fold").checked = settings.dockFoldsSidebar !== false;
       v("fe-st-peek-close").value = String(settings.peekCloseMs ?? 500);
+      el("fe-st-open-with").value = settings.openWithCmds ?? DEFAULT_COMMANDS;
       el("fe-st-sec-recent").checked = !settings.hideRecent;
       v("fe-st-terminal").value = settings.terminalApp || "ghostty";
       el("fe-st-term-custom-row").style.display = settings.terminalApp === "custom" ? "" : "none";
@@ -22853,6 +22901,10 @@ ${rows.join("\n")}`, name: subject };
       settings.hideRecent = !this.checked;
       saveSettings(settings);
       app.showLens?.(this.checked ? null : "notes", !this.checked);
+    });
+    el("fe-st-open-with").addEventListener("change", function() {
+      settings.openWithCmds = this.value;
+      saveSettings(settings);
     });
     v("fe-st-peek-close").addEventListener("change", () => {
       settings.peekCloseMs = Number(v("fe-st-peek-close").value);

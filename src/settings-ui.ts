@@ -8,6 +8,7 @@ import { el, els } from './el';
 import { esc } from './utils';
 import { icoCustom, RULE_GLYPHS } from './icons';
 import { viewPref, palettePref, exportAll, importAll, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
+import { DEFAULT_COMMANDS } from './open-with';
 import { llmAvailability, llmWarm, llmModels } from './llm';
 import { mountDialog } from './dialog';
 import { openLayer, type Layer } from './layer';
@@ -243,6 +244,7 @@ export function initSettingsUi(app: App): void {
     el<HTMLInputElement>('fe-st-sidebar').checked = settings.showSidebar !== false;
     el<HTMLInputElement>('fe-st-dock-fold').checked = settings.dockFoldsSidebar !== false;
     v('fe-st-peek-close').value = String(settings.peekCloseMs ?? 500);
+    el<HTMLTextAreaElement>('fe-st-open-with').value = settings.openWithCmds ?? DEFAULT_COMMANDS;
     el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
     v('fe-st-terminal').value = settings.terminalApp || 'ghostty';
     el('fe-st-term-custom-row').style.display = settings.terminalApp === 'custom' ? '' : 'none';
@@ -318,6 +320,7 @@ export function initSettingsUi(app: App): void {
     settings.hideRecent = !this.checked; saveSettings(settings);
     app.showLens?.(this.checked ? null : 'notes', !this.checked);
   });
+  el<HTMLTextAreaElement>('fe-st-open-with').addEventListener('change', function () { settings.openWithCmds = this.value; saveSettings(settings); });
   v('fe-st-peek-close').addEventListener('change', () => { settings.peekCloseMs = Number(v('fe-st-peek-close').value); saveSettings(settings); });
   v('fe-st-terminal').addEventListener('change', () => {
     settings.terminalApp = v('fe-st-terminal').value; saveSettings(settings);
