@@ -81,7 +81,7 @@ export const UI_CSS = `
 
 
 /* Settings rows: a wide row puts its control under the label. */
-.fe-set.wide{flex-direction:column;align-items:stretch;gap:10px}
+.fe-set.wide{flex-direction:column;align-items:stretch;gap:var(--sp-4)}
 .fe-set.wide .fe-set-c{max-width:none;justify-content:flex-start}
 .fe-set.wide .fe-set-tx:has(.fe-set-l:empty){gap:0}
 .fe-set-c{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-4);flex:none;max-width:70%;flex-wrap:wrap}
@@ -137,7 +137,7 @@ export const UI_CSS = `
 /* A dropdown button and its list. */
 .fe-dd{--dd-h:var(--ctl-md);display:inline-flex}
 .fe-dd[data-size="lg"]{--dd-h:var(--ctl-lg)}
-.fe-dd-btn{display:inline-flex;align-items:center;gap:var(--sp-4);min-width:160px;height:var(--dd-h);padding:0 10px;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);
+.fe-dd-btn{display:inline-flex;align-items:center;gap:var(--sp-4);min-width:160px;height:var(--dd-h);padding:0 var(--sp-4);border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);
   color:var(--tx);font:inherit;font-size:var(--type-ui);cursor:pointer;transition:border-color var(--t-fast) var(--ease)}
 /* The same surface and hairline as a TextBox: fields and dropdowns read as one family. */
 .fe-dd-btn:hover{border-color:color-mix(in srgb,var(--mt) 60%,var(--bd2))}
@@ -150,10 +150,10 @@ export const UI_CSS = `
 .fe-dd-none{color:var(--dm)}
 .fe-dd-list{position:fixed;z-index:var(--z-toast);max-height:min(360px,60vh);overflow-y:auto;padding:5px;border-radius:var(--pop-r);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
-.fe-dd-opt{display:flex;align-items:center;gap:9px;min-height:var(--ctl-lg);padding:0 10px;border-radius:7px;color:var(--tx);font-size:var(--row-fs);cursor:pointer;white-space:nowrap}
+.fe-dd-opt{display:flex;align-items:center;gap:9px;min-height:var(--ctl-lg);padding:0 var(--sp-4);border-radius:7px;color:var(--tx);font-size:var(--row-fs);cursor:pointer;white-space:nowrap}
 .fe-dd-opt svg{flex:none;width:14px;height:14px;color:var(--mt)}
 .fe-dd-l{flex:1}
-.fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:14px}
+.fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:var(--sp-5)}
 .fe-dd-g{padding:var(--sp-4) var(--sp-5) var(--sp-2);color:var(--dm);font-size:var(--fs-sm);font-weight:600}
 .fe-dd-g:first-child{padding-top:var(--sp-2)}
 /* Chip: a short label in a pill (docs/system/chip.md). Class chip. Tags,
@@ -228,8 +228,8 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule-sugg:empty{display:none}
 .fe-rule-sugg-l{font-size:var(--fs-sm);color:var(--dm);margin-right:var(--sp-1)}
 .chip.fe-rule-add > svg{width:13px;height:15px}
-#fe-st-rules-list{padding:var(--sp-3) 10px 10px}
-.fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:10px;padding:var(--sp-3);border-radius:9px}
+#fe-st-rules-list{padding:var(--sp-3) var(--sp-4) var(--sp-4)}
+.fe-rule{display:grid;grid-template-columns:auto auto 1fr auto auto;align-items:center;gap:var(--sp-4);padding:var(--sp-3);border-radius:9px}
 .fe-rule:hover{background:var(--hover)}
 .fe-rule.off .fe-rule-ico,.fe-rule.off .fe-st-rule-pattern{opacity:.45}
 .fe-switch.sm{width:28px;height:16px;border-radius:var(--row-r)}
@@ -258,19 +258,19 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rp-hex{grid-column:span 4}
 
 /* AI: a status line on top, then the model controls and the list. */
-.fe-ai-hero{display:flex;align-items:center;gap:14px;padding:var(--sp-6) 18px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--nc-purple) 18%,var(--card)),var(--card));
+.fe-ai-hero{display:flex;align-items:center;gap:var(--sp-5);padding:var(--sp-6) 18px;border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--nc-purple) 18%,var(--card)),var(--card));
   border:1px solid color-mix(in srgb,var(--nc-purple) 30%,var(--bd))}
 .fe-ai-hero .fe-st-ai-head{margin:0}
 .fe-ai-hero .fe-st-ai-blink,.fe-ai-hero .fe-st-ai-blink .dot{width:12px;height:12px}
 .fe-ai-hero-tx{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
 .fe-ai-hero-tx b{font-size:var(--fs-xl);font-weight:650;color:var(--tx)}
 .fe-ai-hero-tx span{font-size:var(--fs-md);color:var(--mt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:var(--sp-2) 14px;padding:10px var(--sp-6) var(--sp-5);border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
+#fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:var(--sp-2) var(--sp-5);padding:var(--sp-4) var(--sp-6) var(--sp-5);border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
 #fe-st-ai-grid:empty{display:none}
 .fe-st-ai-hint code{background:var(--bg);border:1px solid var(--bd);border-radius:3px;padding:0 var(--sp-2);font-size:var(--fs-sm);color:var(--mt);font-family:var(--mono)}
 .fe-dm{color:var(--dm)}
 .fe-ai-models{display:flex;flex-direction:column;padding:var(--sp-3)}
-.fe-ai-m{display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px;border-radius:9px}
+.fe-ai-m{display:flex;align-items:center;gap:var(--sp-4);min-height:38px;padding:0 var(--sp-4);border-radius:9px}
 .fe-ai-m:hover{background:var(--hover)}
 .fe-ai-m svg{flex:none;width:15px;height:15px;color:var(--mt)}
 .fe-ai-m b{font-size:var(--row-fs);font-weight:550;color:var(--tx)}
@@ -283,7 +283,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-wrap{position:fixed;inset:0;z-index:var(--z-tip);display:flex;justify-content:center;align-items:flex-start;padding-top:12vh;background:rgb(0 0 0 / .32);animation:fe-fade var(--t-fast) var(--ease)}
 .fe-pal{width:min(640px,calc(100vw - 32px));max-height:min(560px,72vh);display:flex;flex-direction:column;border-radius:16px;overflow:hidden;
   background:var(--card);border:1px solid var(--pop-bd);box-shadow:0 24px 64px rgb(0 0 0 / .45),0 2px 8px rgb(0 0 0 / .25);animation:fe-rise var(--t-base) var(--ease)}
-.fe-pal-q{display:flex;align-items:center;gap:10px;padding:14px var(--sp-6);border-bottom:1px solid var(--bd);color:var(--dm)}
+.fe-pal-q{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-5) var(--sp-6);border-bottom:1px solid var(--bd);color:var(--dm)}
 .fe-pal-q input{flex:1;border:0;outline:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-xl)}
 .fe-pal-list{flex:1;overflow-y:auto;padding:var(--sp-3)}
 /* Palette tabs: one per kind of entry, each with its own colour, which the
@@ -303,15 +303,15 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-tab[data-tab="here"],.fe-pal-i[data-tab="here"]{--tab-c:var(--dir)}
 .fe-pal-tab[data-tab="comments"],.fe-pal-i[data-tab="comments"]{--tab-c:var(--nc-orange)}
 .fe-pal-tab[data-tab="chats"],.fe-pal-i[data-tab="chats"]{--tab-c:var(--nc-pink)}
-.fe-pal-g{padding:10px 10px var(--sp-2)}
-.fe-pal-i{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px;border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
+.fe-pal-g{padding:var(--sp-4) var(--sp-4) var(--sp-2)}
+.fe-pal-i{display:flex;align-items:center;gap:var(--sp-4);min-height:36px;padding:0 var(--sp-4);border-radius:9px;color:var(--tx);font-size:var(--row-fs);cursor:pointer}
 .fe-pal-i svg{flex:none;width:16px;height:16px;color:var(--tab-c,var(--mt))}
 .fe-pal-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-pal-s{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dm);font-size:var(--fs-sm)}
 .fe-pal-i kbd,.fe-pal kbd,.fe-chord kbd,.fe-hints kbd,#fe-hint kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 var(--sp-3);border-radius:5px;
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--tx) 14%,transparent);color:var(--mt);font:600 var(--fs-xs) var(--mono);white-space:nowrap}
 .fe-pal-i kbd{margin-left:auto}
-.fe-pal-foot{display:flex;gap:var(--sp-6);padding:var(--sp-4) 14px;border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--dm)}
+.fe-pal-foot{display:flex;gap:var(--sp-6);padding:var(--sp-4) var(--sp-5);border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--dm)}
 .fe-pal-foot span{display:inline-flex;align-items:center;gap:var(--sp-2)}
 
 /* A key sequence waiting for its second key. */
@@ -324,7 +324,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 /* Key badges while ⌥ is held. */
 .fe-hints{position:fixed;inset:0;z-index:690;pointer-events:none}
 .fe-hints > kbd{position:fixed;transform:translate(-50%,0);background:var(--ac);color:var(--tx-on-ac);box-shadow:0 2px 6px rgb(0 0 0 / .35);animation:fe-rise var(--t-fast) var(--ease)}
-.fe-hints-tip{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) 14px;border-radius:var(--pop-r);
+.fe-hints-tip{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-5);border-radius:var(--pop-r);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);font-size:var(--fs-md);color:var(--mt)}
 
 /* Where the keyboard is. */
@@ -335,8 +335,8 @@ button.chip:disabled{opacity:.45;cursor:default}
 
 /* Help: the keyboard map. Keys with a use are tinted; hovering an action
    lights its keys, hovering a key lights its actions. */
-.fe-km{display:flex;flex-direction:column;gap:14px}
-.fe-km-board{display:flex;flex-direction:column;gap:5px;padding:14px;border-radius:14px;background:color-mix(in srgb,var(--tx) 4%,var(--card));
+.fe-km{display:flex;flex-direction:column;gap:var(--sp-5)}
+.fe-km-board{display:flex;flex-direction:column;gap:5px;padding:var(--sp-5);border-radius:14px;background:color-mix(in srgb,var(--tx) 4%,var(--card));
   border:1px solid var(--bd);position:sticky;top:-2px;z-index:2;box-shadow:0 8px 16px -12px rgb(0 0 0 / .4)}
 .fe-km-row-k{display:flex;gap:5px}
 .fe-km-cap{flex:var(--w,1) 1 0;min-width:0;height:34px;display:grid;place-items:center;border-radius:7px;font:500 var(--fs-sm) var(--mono);color:var(--dm);
@@ -352,19 +352,19 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-legend{font-size:var(--fs-sm);color:var(--dm);display:inline-flex;align-items:center;gap:var(--sp-2)}
 .fe-km-list{columns:2 320px;column-gap:18px}
 .fe-km-g{break-inside:avoid;margin-bottom:var(--sp-6);padding:var(--sp-2)}
-.fe-km-g h3{padding:var(--sp-4) 10px var(--sp-3)}
+.fe-km-g h3{padding:var(--sp-4) var(--sp-4) var(--sp-3)}
 .fe-km-g h3 svg{width:14px;height:14px}
-.fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:var(--ctl-lg);padding:0 10px;border-radius:var(--row-r);font-size:var(--row-fs);color:var(--tx)}
+.fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);min-height:var(--ctl-lg);padding:0 var(--sp-4);border-radius:var(--row-r);font-size:var(--row-fs);color:var(--tx)}
 .fe-km-k{display:inline-flex;align-items:center;gap:3px;flex:none}
 .fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:var(--ctl-sm);padding:0 var(--sp-3);border-radius:var(--r-sm);
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}
 .fe-km-then,.fe-km-or{font-style:normal;font-size:var(--fs-xs);color:var(--dm);padding:0 var(--sp-1)}
 
 /* Help: cards. */
-.fe-hs{display:flex;flex-direction:column;gap:10px}
+.fe-hs{display:flex;flex-direction:column;gap:var(--sp-4)}
 .fe-hs h3{padding:0 var(--sp-1)}
 .fe-hcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:var(--sp-4)}
-.fe-hc{display:flex;align-items:center;gap:var(--sp-5);min-height:62px;padding:10px 14px;
+.fe-hc{display:flex;align-items:center;gap:var(--sp-5);min-height:62px;padding:var(--sp-4) var(--sp-5);
   transition:transform var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
 .fe-hc:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--tone) 45%,var(--bd));box-shadow:0 6px 16px -10px color-mix(in srgb,var(--tone) 55%,transparent)}
 .fe-hc-ico{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:var(--tone);background:color-mix(in srgb,var(--tone) 16%,transparent)}
@@ -375,12 +375,12 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-hc-how{flex:none;display:flex;align-items:center;gap:3px}
 .fe-hc-tag{padding:var(--sp-1) var(--sp-4);border-radius:10px;font-size:var(--fs-sm);color:var(--tone);background:color-mix(in srgb,var(--tone) 14%,transparent)}
 /* A journey card: a title, then its steps, each with its keys on the right. */
-.fe-hj{display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-5) 14px}
-.fe-hj-h{display:flex;align-items:center;gap:10px}
+.fe-hj{display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-5) var(--sp-5)}
+.fe-hj-h{display:flex;align-items:center;gap:var(--sp-4)}
 .fe-hj-h .fe-hc-ico{width:28px;height:var(--ctl-md);border-radius:var(--row-r)}
 .fe-hj-h b{font-size:var(--fs-lg);font-weight:650;color:var(--tx)}
 .fe-hj-steps{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0 0 0 38px;list-style:none;counter-reset:step}
-.fe-hj-steps li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px;font-size:var(--fs-md);color:var(--mt);counter-increment:step}
+.fe-hj-steps li{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);min-height:24px;font-size:var(--fs-md);color:var(--mt);counter-increment:step}
 .fe-hj-steps li::before{content:counter(step);flex:none;width:16px;font-size:var(--fs-xs);color:var(--dm)}
 .fe-hj-steps li > span:first-of-type{flex:1;min-width:0}
 #fe-help-modal .fe-dlg-pane.on{gap:22px}
