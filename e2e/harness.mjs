@@ -70,6 +70,8 @@ elif args[:1] == ['q']:
     model = args[args.index('-m') + 1] if '-m' in args else 'gemma4-e4b-warm'
     q = args[-1]
     said = ('Seen the chat so far. ' if 'Earlier in this chat' in q else '') + 'Local answer from ' + model + '.'
+    if 'Show your thinking' in q:
+        said = '<think>\\nWeigh the two points first.\\n</think>\\n\\n- point one\\n- point two'
     print(json.dumps({'t': 'chunk', 'text': said}))
     print(json.dumps({'t': 'done', 'model': model, 'ms': 12, 'truncated': False}))
 `, { mode: 0o755 });

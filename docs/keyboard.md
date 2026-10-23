@@ -130,6 +130,7 @@ This file is generated from `src/keymap.ts`, the same list the app reads.
 | Tags | <kbd>#</kbd> |
 | Remove | <kbd>⌫</kbd> |
 | Fold a group | <kbd>Space</kbd> |
+| Quote the selection, or the chat part under the pointer, into a chat | <kbd>q</kbd> |
 
 ## Preview
 

@@ -5,7 +5,7 @@
 import type { App } from './app';
 import type { Entry } from './types';
 import { el } from './el';
-import { esc, fileHref, pageHref } from './utils';
+import { copyToClipboard, esc, fileHref, pageHref } from './utils';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { crawl, relativeName } from './deep-search';
@@ -13,7 +13,8 @@ import { EMPTY_FIND, isTextCandidate, searchContents, type FindQuery } from './f
 import { icoFile } from './icons';
 import { llmAvailability, llmModels, llmQuery, LLM_ERROR_TEXT } from './llm';
 import { addTurn, allChats, chatsFor, chatsUnder, deleteChat, withHistory, type AskChat, type AskTurn } from './ask-history';
-import { addPaletteSource } from './commands';
+import { addPaletteSource, bind } from './commands';
+import { quoteMarkdown, quoteTargets, sendQuote, splitThinking, takeQuote } from './ask-quote';
 import { openLayer, type Layer } from './layer';
 import { textPref } from './storage';
 import { UI_ICON } from './control-icons';
@@ -139,7 +140,7 @@ function initAsk(app: App): void {
   const histN = el('fe-ask-hist-n');
   const emptyBox = el('fe-ask-empty');
   const chipDot = box.querySelector<HTMLElement>('.fe-ask-model .dot')!;
-  const syncEmpty = () => { emptyBox.hidden = thread.children.length > 0; };
+  const syncEmpty = () => { emptyBox.hidden = !!thread.querySelector('.fe-ask-turn'); };
   // The box grows with what is typed, up to a few lines, then scrolls.
   const grow = () => { q.style.height = 'auto'; q.style.height = Math.min(q.scrollHeight, 140) + 'px'; };
   q.addEventListener('input', grow);
@@ -190,27 +191,45 @@ function initAsk(app: App): void {
     return { ctx: `Folder ${app.folderPath}\n${rows.join('\n')}`, name: subject };
   }
 
+  // What each turn's answer said, for its Copy and Quote buttons.
+  const answers = new WeakMap<HTMLElement, string>();
   const turnEl = (question: string) => {
     const turn = document.createElement('div');
     turn.className = 'fe-ask-turn';
-    turn.innerHTML = `<div class="fe-ask-q">${esc(question)}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking…</span></div><div class="fe-ask-meta"></div>`;
+    turn.innerHTML = `<div class="fe-ask-q">${esc(question)}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking…</span></div>
+      <div class="fe-ask-foot2"><span class="fe-ask-meta"></span><span class="fe-ask-acts">
+        <button type="button" class="btn" data-icon data-size="xs" data-act="copy" title="Copy this answer">${UI_ICON.copy}</button>
+        <button type="button" class="btn" data-icon data-size="xs" data-act="quote" title="Quote this answer into a chat (q)">${UI_ICON.quote}</button></span></div>`;
     thread.appendChild(turn);
     syncEmpty();
     return turn;
+  };
+  // An answer as it reads: a model's thinking folds into one row above what
+  // it said. While the answer streams, both show as plain text.
+  const paint = (turn: HTMLElement, text: string, done: boolean) => {
+    const out = turn.querySelector<HTMLElement>('.fe-ask-a')!;
+    const { thinking, answer, open } = splitThinking(text);
+    answers.set(turn, answer);
+    const words = thinking ? thinking.split(/\s+/).filter(Boolean).length : 0;
+    const think = thinking ? `<details class="fe-ask-think"><summary>${UI_ICON.ai}<span>${open ? 'Thinking' : 'Thought it through'}</span><span class="fe-ask-think-n">${words} word${words === 1 ? '' : 's'}</span></summary><div class="fe-md">${done ? renderMarkdown(thinking) : esc(thinking)}</div></details>` : '';
+    const was = out.querySelector<HTMLDetailsElement>('.fe-ask-think')?.open;
+    out.innerHTML = think + (done ? renderMarkdown(answer) : `<div class="fe-ask-raw">${esc(answer)}</div>`);
+    if (was) out.querySelector<HTMLDetailsElement>('.fe-ask-think')!.open = true;
   };
   const metaText = (m: string, ms: number, truncated = false) => `${m} · ${(ms / 1000).toFixed(1)}s${truncated ? ' · shortened to fit' : ''}`;
   // On a folder, chats about what is inside it, four levels down, are listed too.
   const listed = () => app.fileMode ? chatsFor(key).map(chat => ({ subject: key, chat })) : chatsUnder(key);
   const below = (subject: string) => subject === key ? '' : subject.slice(key.length).replace(/^\//, '');
   const syncHistN = () => { const n = listed().length; histN.textContent = n ? String(n) : ''; };
-  const newChat = () => { cancel?.(); chatId = ''; turns = []; thread.innerHTML = ''; syncEmpty(); q.focus(); };
+  const clearThread = () => thread.querySelectorAll('.fe-ask-turn').forEach(t => t.remove());
+  const newChat = () => { cancel?.(); chatId = ''; turns = []; clearThread(); syncEmpty(); q.focus(); };
   const openChat = (c: AskChat) => {
     cancel?.();
     chatId = c.id; turns = c.turns.slice();
-    thread.innerHTML = '';
+    clearThread();
     for (const t of turns) {
       const el = turnEl(t.q);
-      el.querySelector('.fe-ask-a')!.innerHTML = renderMarkdown(t.a);
+      paint(el, t.a, true);
       el.querySelector('.fe-ask-meta')!.textContent = t.model === 'stopped' ? 'Stopped' : metaText(t.model, t.ms);
     }
     syncEmpty();
@@ -254,7 +273,7 @@ function initAsk(app: App): void {
       if (over) return;
       over = true; done();
       if (!full.trim()) { out.textContent = 'Stopped before an answer came.'; return; }
-      out.innerHTML = renderMarkdown(full);
+      paint(turn, full, true);
       meta.textContent = 'Stopped';
       if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const t: AskTurn = { q: shown, a: full + '\n\n*(stopped)*', model: 'stopped', ms: 0, at: Date.now() };
@@ -273,10 +292,10 @@ function initAsk(app: App): void {
         timeout: isCloud() ? 300 : undefined,
       },
       {
-        onChunk: t => { full += t; out.textContent = full; },
+        onChunk: t => { full += t; paint(turn, full, false); },
         onDone: info => {
           over = true; done();
-          out.innerHTML = renderMarkdown(full);
+          paint(turn, full, true);
           meta.textContent = metaText(info.model, info.ms, info.truncated);
           if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
           const t: AskTurn = { q: shown, a: full, model: info.model, ms: info.ms, at: Date.now() };
@@ -288,6 +307,70 @@ function initAsk(app: App): void {
       });
     cancel = () => { stop(); stopped(); };
   }
+
+  // Copy and Quote act on a selection in the chat first, then on the part
+  // under the pointer (a paragraph, list or code block), then on a whole answer.
+  const blkBar = document.createElement('div');
+  blkBar.className = 'fe-ask-blk';
+  blkBar.hidden = true;
+  blkBar.innerHTML = `<button type="button" class="btn" data-icon data-size="xs" data-act="copy" title="Copy this part">${UI_ICON.copy}</button><button type="button" class="btn" data-icon data-size="xs" data-act="quote" title="Quote this part into a chat (q)">${UI_ICON.quote}</button>`;
+  thread.prepend(blkBar);
+  let hoverBlock: HTMLElement | null = null;
+  let hoverTurn: HTMLElement | null = null;
+  const blockText = (b: HTMLElement) => (b.querySelector('pre')?.textContent ?? b.innerText).trim();
+  const selected = () => {
+    const s = getSelection();
+    const text = s?.toString().trim() ?? '';
+    return text && s!.anchorNode && thread.contains(s!.anchorNode) ? text : '';
+  };
+  thread.addEventListener('mouseover', e => {
+    const t = e.target as Element;
+    if (blkBar.contains(t)) return;
+    hoverTurn = t.closest<HTMLElement>('.fe-ask-turn');
+    const b = t.closest<HTMLElement>('.fe-ask-a > .fe-md > *');
+    hoverBlock = b;
+    blkBar.hidden = !b;
+    // The block sits in its turn, and the turn in the thread; both are positioned.
+    if (b) blkBar.style.top = `${b.offsetTop + hoverTurn!.offsetTop}px`;
+  });
+  thread.addEventListener('mouseleave', () => { hoverBlock = hoverTurn = null; blkBar.hidden = true; });
+  const fromName = () => (app.fileMode ? app.fileName : subject);
+  const copyText = (text: string) => { void copyToClipboard(text).then(ok => app.toast(ok ? 'Copied' : 'Copy failed')); };
+  // The quote menu: this chat first, then the chats of open tabs, then recent ones.
+  let quoteLayer: Layer | null = null;
+  const quote = (text: string, anchor: HTMLElement | null) => {
+    if (!text) return;
+    const md = quoteMarkdown(text, fromName());
+    const targets = quoteTargets({ subject: key, chatId, title: turns[0]?.q ?? 'New chat' },
+      app.strip.shown().map(t => t.path), allChats().slice(0, 30), chatsFor);
+    const menu = document.createElement('div');
+    menu.className = 'fe-ctx fe-ask-qmenu';
+    menu.innerHTML = `<div class="fe-ask-qmenu-h">Quote into</div>` + targets.map((t, i) => `<div class="row fe-ctx-item" data-i="${i}" title="${esc(t.subject)}">${t.here ? UI_ICON.ai : UI_ICON.file}<span class="fe-ask-qmenu-t"><span>${esc(t.label)}</span><span class="fe-ask-qmenu-s">${esc(t.title)}</span></span></div>`).join('');
+    menu.addEventListener('click', e => {
+      const row = (e.target as Element).closest<HTMLElement>('.fe-ctx-item');
+      if (!row) return;
+      const t = targets[Number(row.dataset.i)];
+      quoteLayer?.close('pick');
+      if (t.here) { q.value = md + q.value; grow(); q.focus(); q.setSelectionRange(q.value.length, q.value.length); return; }
+      sendQuote({ subject: t.subject, chatId: t.chatId, text: md, at: Date.now() });
+      app.strip.go(t.subject, '#ask=' + encodeURIComponent(t.chatId));
+    });
+    const r = (anchor ?? hoverBlock ?? thread).getBoundingClientRect();
+    quoteLayer = openLayer(menu, anchor ? { kind: 'popover', anchor, align: 'end', role: 'menu', label: 'Quote into' }
+      : { kind: 'popover', place: 'point', point: { x: r.left + 12, y: r.top + 12 }, origin: thread, role: 'menu', label: 'Quote into' });
+    menu.querySelector('.fe-ctx-item')?.classList.add('kb');
+  };
+  thread.addEventListener('click', e => {
+    const btn = (e.target as Element).closest<HTMLElement>('[data-act]');
+    if (!btn) return;
+    const inBar = blkBar.contains(btn);
+    const turn = btn.closest<HTMLElement>('.fe-ask-turn');
+    const text = selected() || (inBar ? (hoverBlock ? blockText(hoverBlock) : '') : turn ? answers.get(turn) ?? '' : '');
+    if (btn.dataset.act === 'copy') copyText(text);
+    else quote(text, btn);
+  });
+  bind('ask-quote', () => quote(selected() || (hoverBlock ? blockText(hoverBlock) : hoverTurn ? answers.get(hoverTurn) ?? '' : ''), null),
+    () => !!selected() || !!hoverBlock || !!hoverTurn);
 
   box.addEventListener('click', e => {
     const t = e.target as Element;
@@ -329,7 +412,15 @@ function initAsk(app: App): void {
     run: () => { if (subject === key) reopen(chat.id); else app.strip.go(subject, '#ask=' + encodeURIComponent(chat.id)); },
   })));
   const askHash = /^#ask=(.+)$/.exec(location.hash);
-  if (askHash) setTimeout(() => reopen(decodeURIComponent(askHash[1])), 0);
+  // A quote sent here from another page's chat lands in the box.
+  const landed = takeQuote(key);
+  if (askHash || landed) setTimeout(() => {
+    if (askHash) reopen(decodeURIComponent(askHash[1]));
+    if (!landed) return;
+    app.showLens?.('ask');
+    q.value = landed.text + q.value; grow();
+    q.focus(); q.setSelectionRange(q.value.length, q.value.length);
+  }, 0);
   document.addEventListener('bfb-lens', e => {
     if ((e as CustomEvent).detail !== 'ask') return;
     if (!checked) void checkModel();

@@ -1152,6 +1152,7 @@ ${body}`;
     next: svg('<path d="m9 18 6-6-6-6"/>'),
     folderOpen: svg('<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>'),
     copy: svg(COPY),
+    quote: svg('<path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/>'),
     check: svg('<path d="M20 6 9 17l-5-5"/>'),
     eye: svg('<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'),
     lock: svg('<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'),
@@ -1565,6 +1566,7 @@ ${body}`;
     { id: "side-into", group: "Sidebar", title: "Into the open lens (on the bar)", keys: ["\u2325\u2193"], scope: "sidebar", own: true },
     { id: "side-fold", group: "Sidebar", title: "Fold a group", keys: ["Space"], scope: "sidebar" },
     { id: "lens-filter", group: "Sidebar", title: "Filter this list", keys: ["/"], scope: "sidebar", own: true },
+    { id: "ask-quote", group: "Sidebar", title: "Quote the selection or the part of a chat under the pointer into a chat", keys: ["q"], own: true },
     { id: "lens-tags", group: "Sidebar", title: "Tag chips", keys: ["g #"], own: true },
     { id: "side-look", group: "Sidebar", title: "Preview a file", keys: ["Space"], scope: "sidebar", own: true },
     { id: "side-chrome", group: "Sidebar", title: "Open in a Chrome tab", keys: ["\u2318\u21A9"], scope: "sidebar", own: true },
@@ -13285,15 +13287,30 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-cloud{display:flex;align-items:center;gap:var(--sp-3);margin:0 var(--sp-6) var(--sp-4);font-size:var(--fs-sm);color:var(--mt)}
 .fe-ask-cloud[hidden]{display:none}
 .fe-ask-cloud svg{width:12px;height:12px;flex:none;color:var(--gold)}
-#fe-ask-thread{display:flex;flex-direction:column;gap:var(--sp-5);padding:var(--sp-2) var(--sp-5) var(--sp-5) var(--sp-5)}
-.fe-ask-turn{display:flex;flex-direction:column;gap:var(--sp-3)}
+#fe-ask-thread{position:relative;display:flex;flex-direction:column;gap:var(--sp-5);padding:var(--sp-2) var(--sp-5) var(--sp-5) var(--sp-5)}
+.fe-ask-turn{position:relative;display:flex;flex-direction:column;gap:var(--sp-3)}
 .fe-ask-q{align-self:flex-end;max-width:88%;padding:var(--sp-3) var(--sp-4);border-radius:var(--pop-r) var(--pop-r) var(--r-xs) var(--pop-r);background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx);font-size:var(--fs-md);line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
 .fe-ask-a.fe-md{padding:0;font-size:var(--fs-md);line-height:1.55;max-width:none}
 /* renderMarkdown wraps its output in its own .fe-md, which must not pad again. */
 .fe-ask-a .fe-md{padding:0;font-size:inherit;max-width:none}
 .fe-ask-wait{color:var(--dm)}
 .fe-ask-meta{font-size:var(--fs-xs);color:var(--dm)}
-.fe-ask-meta:empty{display:none}
+.fe-ask-meta:empty{display:none}.fe-ask-foot2{display:flex;align-items:center;gap:var(--sp-3);min-height:var(--btn-h)}
+.fe-ask-acts{display:flex;gap:var(--sp-1);margin-left:auto;opacity:0;transition:opacity var(--t-fast) var(--ease)}
+.fe-ask-turn:hover .fe-ask-acts,.fe-ask-turn:focus-within .fe-ask-acts{opacity:1}
+.fe-ask-blk{position:absolute;right:var(--sp-2);z-index:var(--z-sticky);display:flex;gap:var(--sp-1);padding:var(--sp-1);border:1px solid var(--pop-bd);border-radius:var(--r-sm);background:var(--pop-bg)}
+.fe-ask-blk[hidden]{display:none}
+.fe-ask-raw{white-space:pre-wrap;overflow-wrap:anywhere}
+.fe-ask-think{margin-bottom:var(--sp-4);border-left:2px solid var(--bd2);padding-left:var(--sp-4);color:var(--mt)}
+.fe-ask-think summary{display:flex;align-items:center;gap:var(--sp-3);cursor:pointer;list-style:none;font-size:var(--fs-sm);color:var(--dm)}
+.fe-ask-think summary::-webkit-details-marker{display:none}
+.fe-ask-think summary svg{width:var(--row-ic);height:var(--row-ic)}
+.fe-ask-think-n{margin-left:auto;font-variant-numeric:tabular-nums}
+.fe-ask-think > .fe-md{max-height:30em;overflow:auto;margin-top:var(--sp-3);font-size:var(--fs-sm)}
+.fe-ask-qmenu{min-width:240px;max-width:320px}
+.fe-ask-qmenu-h{padding:var(--sp-2) var(--row-px);font-size:var(--fs-xs);color:var(--dm)}
+.fe-ask-qmenu-t{display:flex;flex-direction:column;min-width:0}
+.fe-ask-qmenu-s{font-size:var(--fs-xs);color:var(--dm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-ask-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-4);padding:var(--sp-6);color:var(--dm);font-size:var(--fs-md);text-align:center}
 .fe-ask-empty[hidden]{display:none}
 .fe-ask-empty p{margin:0}
@@ -21170,6 +21187,45 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
   }
 
+  // src/ask-quote.ts
+  var QUOTE_MAX = 4e3;
+  function quoteMarkdown(text, from) {
+    let body = text.trim();
+    const cut = body.length > QUOTE_MAX;
+    if (cut) body = body.slice(0, QUOTE_MAX).trimEnd() + " \u2026";
+    const lines = [`From ${from}${cut ? " (shortened)" : ""}:`, "", ...body.split("\n")];
+    return lines.map((l) => l ? `> ${l}` : ">").join("\n") + "\n\n";
+  }
+  var nameOf2 = (path) => path.split("/").filter(Boolean).pop() || "/";
+  function quoteTargets(here, tabPaths, recent, chatsFor2, max = 8) {
+    const out = [{ ...here, label: "This chat", here: true }];
+    const seen = /* @__PURE__ */ new Set([here.subject]);
+    const add = (subject, chat, label) => {
+      if (!chat || seen.has(subject) || out.length >= max) return;
+      seen.add(subject);
+      out.push({ subject, chatId: chat.id, title: chat.title, label, here: false });
+    };
+    for (const p of tabPaths) add(p, chatsFor2(p)[0], `${nameOf2(p)} \xB7 open tab`);
+    for (const r of recent) add(r.subject, r.chat, nameOf2(r.subject));
+    return out;
+  }
+  var handoffPref = jsonPref("bfb-ask-quote-v1", null, (v) => v === null || typeof v === "object" && typeof v.text === "string");
+  var HANDOFF_TTL = 2 * 6e4;
+  function sendQuote(h) {
+    handoffPref.set(h);
+  }
+  function takeQuote(subject, now = Date.now()) {
+    const h = handoffPref.get();
+    if (!h || h.subject !== subject) return null;
+    handoffPref.set(null);
+    return now - h.at <= HANDOFF_TTL ? h : null;
+  }
+  function splitThinking(text) {
+    const m = /^\s*<think>([\s\S]*?)(<\/think>|$)/.exec(text);
+    if (!m) return { thinking: "", answer: text, open: false };
+    return { thinking: m[1].trim(), answer: text.slice(m[0].length).replace(/^\s+/, ""), open: !m[2] };
+  }
+
   // src/tool-lenses.ts
   var listDir = async (url) => parseListing(await fetchFileText(url), url);
   var extOf = (name) => name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
@@ -21294,7 +21350,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const emptyBox = el("fe-ask-empty");
     const chipDot = box.querySelector(".fe-ask-model .dot");
     const syncEmpty = () => {
-      emptyBox.hidden = thread.children.length > 0;
+      emptyBox.hidden = !!thread.querySelector(".fe-ask-turn");
     };
     const grow = () => {
       q.style.height = "auto";
@@ -21348,13 +21404,27 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return { ctx: `Folder ${app.folderPath}
 ${rows.join("\n")}`, name: subject };
     }
+    const answers = /* @__PURE__ */ new WeakMap();
     const turnEl = (question) => {
       const turn = document.createElement("div");
       turn.className = "fe-ask-turn";
-      turn.innerHTML = `<div class="fe-ask-q">${esc(question)}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking\u2026</span></div><div class="fe-ask-meta"></div>`;
+      turn.innerHTML = `<div class="fe-ask-q">${esc(question)}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking\u2026</span></div>
+      <div class="fe-ask-foot2"><span class="fe-ask-meta"></span><span class="fe-ask-acts">
+        <button type="button" class="btn" data-icon data-size="xs" data-act="copy" title="Copy this answer">${UI_ICON.copy}</button>
+        <button type="button" class="btn" data-icon data-size="xs" data-act="quote" title="Quote this answer into a chat (q)">${UI_ICON.quote}</button></span></div>`;
       thread.appendChild(turn);
       syncEmpty();
       return turn;
+    };
+    const paint = (turn, text, done) => {
+      const out = turn.querySelector(".fe-ask-a");
+      const { thinking, answer, open } = splitThinking(text);
+      answers.set(turn, answer);
+      const words = thinking ? thinking.split(/\s+/).filter(Boolean).length : 0;
+      const think = thinking ? `<details class="fe-ask-think"><summary>${UI_ICON.ai}<span>${open ? "Thinking" : "Thought it through"}</span><span class="fe-ask-think-n">${words} word${words === 1 ? "" : "s"}</span></summary><div class="fe-md">${done ? renderMarkdown(thinking) : esc(thinking)}</div></details>` : "";
+      const was = out.querySelector(".fe-ask-think")?.open;
+      out.innerHTML = think + (done ? renderMarkdown(answer) : `<div class="fe-ask-raw">${esc(answer)}</div>`);
+      if (was) out.querySelector(".fe-ask-think").open = true;
     };
     const metaText = (m, ms, truncated = false) => `${m} \xB7 ${(ms / 1e3).toFixed(1)}s${truncated ? " \xB7 shortened to fit" : ""}`;
     const listed = () => app.fileMode ? chatsFor(key).map((chat) => ({ subject: key, chat })) : chatsUnder(key);
@@ -21363,11 +21433,12 @@ ${rows.join("\n")}`, name: subject };
       const n = listed().length;
       histN.textContent = n ? String(n) : "";
     };
+    const clearThread = () => thread.querySelectorAll(".fe-ask-turn").forEach((t) => t.remove());
     const newChat = () => {
       cancel?.();
       chatId = "";
       turns = [];
-      thread.innerHTML = "";
+      clearThread();
       syncEmpty();
       q.focus();
     };
@@ -21375,10 +21446,10 @@ ${rows.join("\n")}`, name: subject };
       cancel?.();
       chatId = c.id;
       turns = c.turns.slice();
-      thread.innerHTML = "";
+      clearThread();
       for (const t of turns) {
         const el2 = turnEl(t.q);
-        el2.querySelector(".fe-ask-a").innerHTML = renderMarkdown(t.a);
+        paint(el2, t.a, true);
         el2.querySelector(".fe-ask-meta").textContent = t.model === "stopped" ? "Stopped" : metaText(t.model, t.ms);
       }
       syncEmpty();
@@ -21441,7 +21512,7 @@ ${rows.join("\n")}`, name: subject };
           out.textContent = "Stopped before an answer came.";
           return;
         }
-        out.innerHTML = renderMarkdown(full);
+        paint(turn, full, true);
         meta.textContent = "Stopped";
         if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
         const t = { q: shown, a: full + "\n\n*(stopped)*", model: "stopped", ms: 0, at: Date.now() };
@@ -21463,12 +21534,12 @@ ${rows.join("\n")}`, name: subject };
         {
           onChunk: (t) => {
             full += t;
-            out.textContent = full;
+            paint(turn, full, false);
           },
           onDone: (info) => {
             over = true;
             done();
-            out.innerHTML = renderMarkdown(full);
+            paint(turn, full, true);
             meta.textContent = metaText(info.model, info.ms, info.truncated);
             if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
             const t = { q: shown, a: full, model: info.model, ms: info.ms, at: Date.now() };
@@ -21488,6 +21559,82 @@ ${rows.join("\n")}`, name: subject };
         stopped();
       };
     }
+    const blkBar = document.createElement("div");
+    blkBar.className = "fe-ask-blk";
+    blkBar.hidden = true;
+    blkBar.innerHTML = `<button type="button" class="btn" data-icon data-size="xs" data-act="copy" title="Copy this part">${UI_ICON.copy}</button><button type="button" class="btn" data-icon data-size="xs" data-act="quote" title="Quote this part into a chat (q)">${UI_ICON.quote}</button>`;
+    thread.prepend(blkBar);
+    let hoverBlock = null;
+    let hoverTurn = null;
+    const blockText = (b) => (b.querySelector("pre")?.textContent ?? b.innerText).trim();
+    const selected = () => {
+      const s = getSelection();
+      const text = s?.toString().trim() ?? "";
+      return text && s.anchorNode && thread.contains(s.anchorNode) ? text : "";
+    };
+    thread.addEventListener("mouseover", (e) => {
+      const t = e.target;
+      if (blkBar.contains(t)) return;
+      hoverTurn = t.closest(".fe-ask-turn");
+      const b = t.closest(".fe-ask-a > .fe-md > *");
+      hoverBlock = b;
+      blkBar.hidden = !b;
+      if (b) blkBar.style.top = `${b.offsetTop + hoverTurn.offsetTop}px`;
+    });
+    thread.addEventListener("mouseleave", () => {
+      hoverBlock = hoverTurn = null;
+      blkBar.hidden = true;
+    });
+    const fromName = () => app.fileMode ? app.fileName : subject;
+    const copyText = (text) => {
+      void copyToClipboard(text).then((ok) => app.toast(ok ? "Copied" : "Copy failed"));
+    };
+    let quoteLayer = null;
+    const quote = (text, anchor) => {
+      if (!text) return;
+      const md = quoteMarkdown(text, fromName());
+      const targets = quoteTargets(
+        { subject: key, chatId, title: turns[0]?.q ?? "New chat" },
+        app.strip.shown().map((t) => t.path),
+        allChats().slice(0, 30),
+        chatsFor
+      );
+      const menu = document.createElement("div");
+      menu.className = "fe-ctx fe-ask-qmenu";
+      menu.innerHTML = `<div class="fe-ask-qmenu-h">Quote into</div>` + targets.map((t, i3) => `<div class="row fe-ctx-item" data-i="${i3}" title="${esc(t.subject)}">${t.here ? UI_ICON.ai : UI_ICON.file}<span class="fe-ask-qmenu-t"><span>${esc(t.label)}</span><span class="fe-ask-qmenu-s">${esc(t.title)}</span></span></div>`).join("");
+      menu.addEventListener("click", (e) => {
+        const row2 = e.target.closest(".fe-ctx-item");
+        if (!row2) return;
+        const t = targets[Number(row2.dataset.i)];
+        quoteLayer?.close("pick");
+        if (t.here) {
+          q.value = md + q.value;
+          grow();
+          q.focus();
+          q.setSelectionRange(q.value.length, q.value.length);
+          return;
+        }
+        sendQuote({ subject: t.subject, chatId: t.chatId, text: md, at: Date.now() });
+        app.strip.go(t.subject, "#ask=" + encodeURIComponent(t.chatId));
+      });
+      const r = (anchor ?? hoverBlock ?? thread).getBoundingClientRect();
+      quoteLayer = openLayer(menu, anchor ? { kind: "popover", anchor, align: "end", role: "menu", label: "Quote into" } : { kind: "popover", place: "point", point: { x: r.left + 12, y: r.top + 12 }, origin: thread, role: "menu", label: "Quote into" });
+      menu.querySelector(".fe-ctx-item")?.classList.add("kb");
+    };
+    thread.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-act]");
+      if (!btn) return;
+      const inBar = blkBar.contains(btn);
+      const turn = btn.closest(".fe-ask-turn");
+      const text = selected() || (inBar ? hoverBlock ? blockText(hoverBlock) : "" : turn ? answers.get(turn) ?? "" : "");
+      if (btn.dataset.act === "copy") copyText(text);
+      else quote(text, btn);
+    });
+    bind(
+      "ask-quote",
+      () => quote(selected() || (hoverBlock ? blockText(hoverBlock) : hoverTurn ? answers.get(hoverTurn) ?? "" : ""), null),
+      () => !!selected() || !!hoverBlock || !!hoverTurn
+    );
     box.addEventListener("click", (e) => {
       const t = e.target;
       const chip = t.closest(".fe-ask-chip");
@@ -21559,7 +21706,16 @@ ${rows.join("\n")}`, name: subject };
       }
     })));
     const askHash = /^#ask=(.+)$/.exec(location.hash);
-    if (askHash) setTimeout(() => reopen(decodeURIComponent(askHash[1])), 0);
+    const landed = takeQuote(key);
+    if (askHash || landed) setTimeout(() => {
+      if (askHash) reopen(decodeURIComponent(askHash[1]));
+      if (!landed) return;
+      app.showLens?.("ask");
+      q.value = landed.text + q.value;
+      grow();
+      q.focus();
+      q.setSelectionRange(q.value.length, q.value.length);
+    }, 0);
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "ask") return;
       if (!checked) void checkModel();

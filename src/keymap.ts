@@ -125,6 +125,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'side-into', group: 'Sidebar', title: 'Into the open lens (on the bar)', keys: ['⌥↓'], scope: 'sidebar', own: true },
   { id: 'side-fold', group: 'Sidebar', title: 'Fold a group', keys: ['Space'], scope: 'sidebar' },
   { id: 'lens-filter', group: 'Sidebar', title: 'Filter this list', keys: ['/'], scope: 'sidebar', own: true },
+  { id: 'ask-quote', group: 'Sidebar', title: 'Quote the selection or the part of a chat under the pointer into a chat', keys: ['q'], own: true },
   { id: 'lens-tags', group: 'Sidebar', title: 'Tag chips', keys: ['g #'], own: true },
   { id: 'side-look', group: 'Sidebar', title: 'Preview a file', keys: ['Space'], scope: 'sidebar', own: true },
   { id: 'side-chrome', group: 'Sidebar', title: 'Open in a Chrome tab', keys: ['⌘↩'], scope: 'sidebar', own: true },
