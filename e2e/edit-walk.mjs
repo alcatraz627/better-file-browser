@@ -211,6 +211,27 @@ try {
   await page.evaluate(() => { const t = document.getElementById('fe-fe-ta'); t.value = t.value.replace('name: again\n', ''); t.dispatchEvent(new Event('input')); });
   await page.waitForFunction(() => document.getElementById('fe-fe-diag').hidden, { timeout: 3000 }).catch(() => null);
   check(await page.$eval('#fe-fe-diag', el => el.hidden) && !(await page.$('#fe-fe-paint .fe-fe-row.err')), 'removing the duplicate clears the mark and the count');
+
+  // When the column narrows without typing, the text re-wraps; the textarea
+  // must grow with it and never scroll inside itself, or the caret leaves its words.
+  const wrapMd = join(h.fixture, 'wrap-me.md');
+  writeFileSync(wrapMd, Array.from({ length: 12 }, (_, i) => `Line ${i} ` + 'words that wrap once the column gets narrow enough to need it. '.repeat(3)).join('\n') + '\n');
+  await page.setViewport({ width: 1400, height: 700 });
+  await page.goto('file://' + wrapMd, { waitUntil: 'load' });
+  await page.waitForSelector('#fe-fp-edit');
+  await page.click('#fe-fp-edit');
+  await page.waitForSelector('#fe-fe-ta', { timeout: 5000 });
+  await page.setViewport({ width: 760, height: 700 });
+  await new Promise(r => setTimeout(r, 300));
+  await page.evaluate(() => { const ta = document.getElementById('fe-fe-ta'); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); });
+  await page.keyboard.press('ArrowLeft');
+  await new Promise(r => setTimeout(r, 150));
+  const wrapped = await page.evaluate(() => {
+    const ta = document.getElementById('fe-fe-ta'), paint = document.getElementById('fe-fe-paint');
+    const last = [...paint.querySelectorAll('.fe-fe-row')].at(-2).getBoundingClientRect();
+    return { taH: ta.clientHeight, paintH: Math.round(paint.getBoundingClientRect().height), scrollTop: ta.scrollTop, lastRowBottom: Math.round(last.bottom - ta.getBoundingClientRect().top) };
+  });
+  check(wrapped.taH === wrapped.paintH && wrapped.scrollTop === 0, `after the column narrows the textarea grows with the text and does not scroll inside itself: ${JSON.stringify(wrapped)}`);
 } finally {
   console.log(results.join('\n'));
   await h.close();

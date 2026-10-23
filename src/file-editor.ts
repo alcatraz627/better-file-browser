@@ -227,6 +227,14 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     moveWindow(Math.floor((vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top + vp.clientHeight / 2) / lh));
   }, { passive: true });
 
+  // The painted copy re-wraps on its own when the column changes width (window
+  // resize, sidebar, Split, a font arriving late); the textarea must follow, or
+  // it ends up shorter than its text, scrolls inside itself, and the caret
+  // drifts off the words. It never scrolls itself: the page scrolls instead.
+  const sizeTa = new ResizeObserver(() => { if (!big) ta.style.height = paintEl.offsetHeight + 'px'; });
+  sizeTa.observe(paintEl);
+  ta.addEventListener('scroll', () => { if (big) return; if (ta.scrollTop) ta.scrollTop = 0; if (ta.scrollLeft) ta.scrollLeft = 0; });
+
   const paintSource = () => {
     if (big) { paintBig(); curRow = -1; markLine(); return; }
     const rows = splitHighlighted(highlightCode(tw.text(), host.ext));
@@ -383,6 +391,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     clearTimeout(checkTimer);
     clearTimeout(renderTimer);
     document.removeEventListener('selectionchange', onSelection);
+    sizeTa.disconnect();
     box.innerHTML = '';
     host.closed();
   };

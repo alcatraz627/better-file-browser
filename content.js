@@ -15024,6 +15024,15 @@ button.chip:disabled{opacity:.45;cursor:default}
       const vp = viewport();
       moveWindow(Math.floor((vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top + vp.clientHeight / 2) / lh));
     }, { passive: true });
+    const sizeTa = new ResizeObserver(() => {
+      if (!big) ta.style.height = paintEl.offsetHeight + "px";
+    });
+    sizeTa.observe(paintEl);
+    ta.addEventListener("scroll", () => {
+      if (big) return;
+      if (ta.scrollTop) ta.scrollTop = 0;
+      if (ta.scrollLeft) ta.scrollLeft = 0;
+    });
     const paintSource = () => {
       if (big) {
         paintBig();
@@ -15229,6 +15238,7 @@ and ${diags.length - 12} more` : "");
       clearTimeout(checkTimer);
       clearTimeout(renderTimer);
       document.removeEventListener("selectionchange", onSelection);
+      sizeTa.disconnect();
       box.innerHTML = "";
       host.closed();
     };
