@@ -1,6 +1,7 @@
 // Behaviour inside rendered markdown, wherever it appears (file page, panel,
 // help): the copy button on a code block, and an image that opens natively.
 import { copyToClipboard } from './utils';
+import { linkGccRefs } from './gcc-refs';
 import { UI_ICON } from './control-icons';
 import type { Toast } from './toast';
 import { fileExists } from './file-fetch';
@@ -42,11 +43,12 @@ export function initMarkdownUi(toast: Toast): void {
   };
   const fe = document.getElementById('fe');
   if (fe) {
-    new MutationObserver(() => { renderDiagrams(); linkFrontMatterPaths(); }).observe(fe, {
+    new MutationObserver(() => { renderDiagrams(); linkFrontMatterPaths(); linkGccRefs(); }).observe(fe, {
       childList: true, subtree: true, attributes: true, attributeFilter: ['data-theme'],
     });
     renderDiagrams();
     linkFrontMatterPaths();
+    linkGccRefs();
   }
   document.addEventListener('click', e => {
     const t = e.target as HTMLElement;

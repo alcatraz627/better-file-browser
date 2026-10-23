@@ -1399,6 +1399,49 @@ ${body}`;
       for (const l of [...stack]) if (CLOSES[l.kind].blur && !l.el.contains(t) && !l.opts.anchor?.contains(t)) l.close("blur");
     });
   }
+  function hoverCard(anchor, build, o = {}) {
+    let timer2 = 0, layer = null, dragging = false;
+    const show = () => {
+      if (dragging || layer?.open) return;
+      const el2 = build();
+      if (!el2) return;
+      layer = openLayer(el2, { kind: "hovercard", anchor, place: o.place ?? "right", align: o.align, role: "tooltip", focus: "none" });
+      el2.addEventListener("pointerenter", () => clearTimeout(timer2));
+      el2.addEventListener("pointerleave", hideSoon);
+    };
+    const hideSoon = () => {
+      clearTimeout(timer2);
+      timer2 = window.setTimeout(() => layer?.close("api"), o.hide ?? 120);
+    };
+    const onEnter = () => {
+      clearTimeout(timer2);
+      timer2 = window.setTimeout(show, o.delay ?? 400);
+    };
+    const onDrag = () => {
+      dragging = true;
+      clearTimeout(timer2);
+      layer?.close("api");
+    };
+    const onDragEnd = () => {
+      dragging = false;
+    };
+    anchor.addEventListener("pointerenter", onEnter);
+    anchor.addEventListener("pointerleave", hideSoon);
+    anchor.addEventListener("focus", onEnter);
+    anchor.addEventListener("blur", hideSoon);
+    anchor.addEventListener("dragstart", onDrag);
+    anchor.addEventListener("dragend", onDragEnd);
+    return () => {
+      clearTimeout(timer2);
+      layer?.close("api");
+      anchor.removeEventListener("pointerenter", onEnter);
+      anchor.removeEventListener("pointerleave", hideSoon);
+      anchor.removeEventListener("focus", onEnter);
+      anchor.removeEventListener("blur", hideSoon);
+      anchor.removeEventListener("dragstart", onDrag);
+      anchor.removeEventListener("dragend", onDragEnd);
+    };
+  }
   function rovingFocus(root, items, o = {}) {
     const axis = o.axis ?? "vertical";
     const onKey = (e) => {
@@ -13351,6 +13394,16 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-via{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm);color:var(--dm)}
 .fe-ask-via svg,.fe-ask-step svg{flex:none;width:var(--row-ic);height:var(--row-ic)}
 .fe-ask-step{display:flex;align-items:center;gap:var(--sp-3);color:var(--dm);font-size:var(--fs-sm)}
+.fe-ref{color:inherit;text-decoration:none}
+.fe-ref code{text-decoration:underline dotted var(--dm);text-underline-offset:3px}
+.fe-ref:hover code{color:var(--ac)}
+.fe-ref-card{width:320px;padding:var(--sp-4) var(--sp-5);font-size:var(--fs-md);line-height:1.45}
+.fe-ref-head{display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-2)}
+.fe-ref-name,.fe-ref-path{font-weight:600;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-ref-about{margin:0 0 var(--sp-3);color:var(--mt)}
+.fe-ref-hint{margin:0 0 var(--sp-3);font-family:var(--mono);font-size:var(--fs-sm);color:var(--dm)}
+.fe-ref-chips{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-bottom:var(--sp-3)}
+.fe-ref-foot{font-size:var(--fs-xs);color:var(--dm)}
 .fe-ask-qmenu{min-width:240px;max-width:320px;max-height:60vh;overflow:auto}
 .fe-ask-qmenu-h{padding:var(--sp-2) var(--row-px);font-size:var(--fs-xs);color:var(--dm)}
 .fe-ask-qmenu-t{display:flex;flex-direction:column;min-width:0}
@@ -15785,8 +15838,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       editing = "";
       paint();
       redraw();
-      const card3 = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
-      if (!card3) {
+      const card4 = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
+      if (!card4) {
         filter = "all";
         paint();
         redraw();
@@ -20522,17 +20575,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const svList = el("fe-sv-list");
     const svFilter = el("fe-sv-filter");
     let svHits = /* @__PURE__ */ new Map();
-    const card3 = document.createElement("div");
-    card3.id = "fe-sv-card";
-    card3.hidden = true;
-    el("fe").append(card3);
+    const card4 = document.createElement("div");
+    card4.id = "fe-sv-card";
+    card4.hidden = true;
+    el("fe").append(card4);
     let cardTimer = null, cardFor = null;
     function hideCard() {
       if (cardTimer) {
         clearTimeout(cardTimer);
         cardTimer = null;
       }
-      card3.hidden = true;
+      card4.hidden = true;
       cardFor = null;
     }
     function showCard(item) {
@@ -20541,18 +20594,18 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const home = homeDir(rawPath);
       const where = isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path;
-      card3.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
+      card4.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="chip fe-lens-tag"><i style="background:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
       const r = item.getBoundingClientRect();
-      card3.hidden = false;
-      raise(card3);
-      const h = card3.offsetHeight, w = card3.offsetWidth;
+      card4.hidden = false;
+      raise(card4);
+      const h = card4.offsetHeight, w = card4.offsetWidth;
       const sideRight = el("fe-side").getBoundingClientRect().right;
       if (sideRight + 8 + w <= innerWidth - 8) {
-        card3.style.left = `${Math.round(sideRight + 8)}px`;
-        card3.style.top = `${Math.round(Math.max(8, Math.min(r.top - 4, innerHeight - h - 8)))}px`;
+        card4.style.left = `${Math.round(sideRight + 8)}px`;
+        card4.style.top = `${Math.round(Math.max(8, Math.min(r.top - 4, innerHeight - h - 8)))}px`;
       } else {
-        card3.style.left = `${Math.round(r.left + 24)}px`;
-        card3.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
+        card4.style.left = `${Math.round(r.left + 24)}px`;
+        card4.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
       }
       cardFor = item;
     }
@@ -20574,7 +20627,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         cardTimer = null;
         hideCard();
         showCard(item);
-      }, card3.hidden ? 450 : 120);
+      }, card4.hidden ? 450 : 120);
     });
     svList.addEventListener("pointerleave", () => {
       if (cardTimer) clearTimeout(cardTimer);
@@ -22386,6 +22439,76 @@ ${rows.join("\n")}`, name: subject };
     });
   }
 
+  // src/gcc-refs.ts
+  var DIRS = { skills: "skill", rules: "rule", features: "feature", conventions: "convention", personas: "persona" };
+  function refOf(token, skills) {
+    const t = token.trim().replace(/^~\/\.claude\//, "");
+    const slash = /^\/([a-z][\w-]*)$/.exec(t);
+    if (slash) return skills.has(slash[1]) ? { kind: "skill", rel: `skills/${slash[1]}/SKILL.md` } : null;
+    const m = /^(skills|rules|features|conventions|personas)\/([\w.-]+(?:\/[\w.-]+)*)\/?$/.exec(t);
+    if (!m) return null;
+    if (m[1] === "skills" && !m[2].endsWith(".md")) return { kind: "skill", rel: `skills/${m[2].split("/")[0]}/SKILL.md` };
+    return { kind: DIRS[m[1]], rel: `${m[1]}/${m[2]}${/\.\w+$/.test(m[2]) ? "" : ".md"}` };
+  }
+  function cardFacts(text) {
+    const fm = /^---\n([\s\S]*?)\n---/.exec(text);
+    const rows = fm ? frontMatterRows(fm[1].split("\n")) : [];
+    const get = (k) => rows.find((r) => r.key === k);
+    const body = fm ? text.slice(fm[0].length) : text;
+    const heading = /^#\s+(.+)$/m.exec(body)?.[1];
+    const para = body.split(/\n\s*\n/).map((p) => p.trim()).find((p) => p && !p.startsWith("#") && !p.startsWith(">") && !p.startsWith("|"));
+    return {
+      name: get("name")?.value || heading,
+      about: get("description")?.value || get("brief")?.value || para?.replace(/\s+/g, " ").slice(0, 280),
+      triggers: get("triggers")?.items ?? [],
+      hint: get("argument-hint")?.value,
+      updated: get("updated")?.value
+    };
+  }
+  var claudeRoot = () => /^(\/(?:Users|home)\/[^/]+\/\.claude)\//.exec(decodeURIComponent(location.pathname))?.[1] ?? null;
+  var skillNames = null;
+  var looked = /* @__PURE__ */ new WeakSet();
+  var facts = /* @__PURE__ */ new Map();
+  function linkGccRefs() {
+    const root = claudeRoot();
+    if (!root) return;
+    const codes = [...document.querySelectorAll(".fe-md code")].filter((c) => !looked.has(c) && !c.closest("pre, a"));
+    if (!codes.length) return;
+    codes.forEach((c) => looked.add(c));
+    skillNames ??= fetchFileText(`file://${root}/skills/`).then((html) => new Set(parseListing(html, `file://${root}/skills/`).filter((e) => e.isDir && !e.isParent).map((e) => e.name.replace(/\/$/, "")))).catch(() => /* @__PURE__ */ new Set());
+    void skillNames.then((skills) => {
+      for (const code of codes) {
+        const ref = refOf(code.textContent ?? "", skills);
+        if (!ref) continue;
+        const url = `file://${root}/${ref.rel}`;
+        void fileExists(url).then((ok) => {
+          if (!ok || !code.isConnected) return;
+          const a = document.createElement("a");
+          a.className = "fe-ref";
+          a.href = url;
+          a.dataset.kind = ref.kind;
+          code.replaceWith(a);
+          a.appendChild(code);
+          hoverCard(a, () => card3(ref, url), { place: "below", align: "start" });
+        });
+      }
+    });
+  }
+  function card3(ref, url) {
+    const el2 = document.createElement("div");
+    el2.className = "fe-ctx fe-ref-card";
+    el2.innerHTML = `<div class="fe-ref-head"><span class="badge" data-size="sm">${ref.kind}</span><span class="fe-ref-path">${esc(ref.rel)}</span></div><p class="fe-ref-about">Reading\u2026</p>`;
+    if (!facts.has(url)) facts.set(url, fetchFileText(url).then(cardFacts).catch(() => null));
+    void facts.get(url).then((f) => {
+      if (!f) {
+        el2.querySelector(".fe-ref-about").textContent = "Could not read this file.";
+        return;
+      }
+      el2.innerHTML = `<div class="fe-ref-head"><span class="badge" data-size="sm">${ref.kind}</span><span class="fe-ref-name">${esc(f.name ?? ref.rel)}</span></div>` + (f.about ? `<p class="fe-ref-about">${esc(f.about)}</p>` : "") + (f.hint ? `<p class="fe-ref-hint">${esc(f.hint)}</p>` : "") + (f.triggers.length ? `<div class="fe-ref-chips">${f.triggers.slice(0, 8).map((t) => `<span class="chip" data-size="sm">${esc(t)}</span>`).join("")}</div>` : "") + `<div class="fe-ref-foot">${esc(ref.rel)}${f.updated ? ` \xB7 updated ${esc(f.updated)}` : ""}</div>`;
+    });
+    return el2;
+  }
+
   // src/md-ui.ts
   function initMarkdownUi(toast) {
     const rendered = /* @__PURE__ */ new WeakMap();
@@ -22431,6 +22554,7 @@ ${rows.join("\n")}`, name: subject };
       new MutationObserver(() => {
         renderDiagrams();
         linkFrontMatterPaths();
+        linkGccRefs();
       }).observe(fe, {
         childList: true,
         subtree: true,
@@ -22439,6 +22563,7 @@ ${rows.join("\n")}`, name: subject };
       });
       renderDiagrams();
       linkFrontMatterPaths();
+      linkGccRefs();
     }
     document.addEventListener("click", (e) => {
       const t = e.target;
@@ -22468,11 +22593,11 @@ ${rows.join("\n")}`, name: subject };
       }
     });
   }
-  var looked = /* @__PURE__ */ new WeakSet();
+  var looked2 = /* @__PURE__ */ new WeakSet();
   function linkFrontMatterPaths() {
     document.querySelectorAll(".fe-md-fm .fe-fm-path").forEach((span) => {
-      if (looked.has(span) || span.tagName === "A") return;
-      looked.add(span);
+      if (looked2.has(span) || span.tagName === "A") return;
+      looked2.add(span);
       const base = span.closest(".fe-md-fm")?.dataset.fmBase || location.href;
       const rel = span.dataset.fmPath || "";
       void findPath(rel, base).then((url) => {
