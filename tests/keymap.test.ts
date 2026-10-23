@@ -19,7 +19,9 @@ describe('keymap', () => {
     }
   });
   it('no own single key starts a sequence too', () => {
-    const singles = new Set(KEYMAP.filter(d => d.own).flatMap(d => d.keys).filter(k => !k.includes(' ')));
+    // A decision page has no "g …" sequences, and dispatch runs a scoped
+    // single key before it waits for a second, so its "g" (first card) is fine.
+    const singles = new Set(KEYMAP.filter(d => d.own && d.scope !== 'decision').flatMap(d => d.keys).filter(k => !k.includes(' ')));
     const starts = new Set(KEYMAP.filter(d => d.own).flatMap(d => d.keys).filter(k => k.includes(' ') && !k.startsWith('hold ')).map(k => k.split(' ')[0]));
     for (const s of starts) expect(singles.has(s), s).toBe(false);
   });

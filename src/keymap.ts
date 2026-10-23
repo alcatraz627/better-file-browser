@@ -3,7 +3,7 @@
 // A key is written as it is pressed: modifiers then the key ("⌘K", "⇧T"), a
 // sequence with a space ("g h"). `own` marks the keys the command layer
 // binds itself; the rest are answered by the surface that owns them.
-export type Scope = 'any' | 'listing' | 'tree' | 'preview' | 'file' | 'editor' | 'sidebar' | 'tabs' | 'menu' | 'dialog' | 'goto' | 'bar';
+export type Scope = 'any' | 'listing' | 'tree' | 'preview' | 'file' | 'editor' | 'sidebar' | 'tabs' | 'menu' | 'dialog' | 'goto' | 'bar' | 'decision';
 /// `field`: the key is a chord no text box types (such as ⌥↩), so it runs while typing too.
 /// `over`: an anywhere key that also works over the open preview; true for all its keys, or the ones listed.
 export interface KeyDef { id: string; group: string; title: string; keys: string[]; scope?: Scope; own?: boolean; field?: boolean; over?: true | string[] }
@@ -18,6 +18,7 @@ export const GROUPS: { name: string; icon: string }[] = [
   { name: 'Preview', icon: 'search' },
   { name: 'File page', icon: 'docs' },
   { name: 'Editor', icon: 'code' },
+  { name: 'Decision page', icon: 'docs' },
   { name: 'Menus and dialogs', icon: 'gear' },
 ];
 
@@ -166,6 +167,20 @@ export const KEYMAP: KeyDef[] = [
   { id: 'ed-mode', group: 'Editor', title: 'Raw, split or rich', keys: ['⌘⇧P'], scope: 'editor' },
   { id: 'note-rename', group: 'Editor', title: 'Rename this note', keys: ['F2'], scope: 'editor', own: true, field: true },
   { id: 'note-delete', group: 'Editor', title: 'Move this note to .trash', keys: ['⌘⇧⌫'], scope: 'editor', own: true, field: true },
+
+  // Decision page: a folder an agent asked the owner to answer
+  { id: 'dp-next', group: 'Decision page', title: 'Next card', keys: ['j', '↓'], scope: 'decision', own: true },
+  { id: 'dp-prev', group: 'Decision page', title: 'Previous card', keys: ['k', '↑'], scope: 'decision', own: true },
+  { id: 'dp-first', group: 'Decision page', title: 'First card', keys: ['g', 'Home'], scope: 'decision', own: true },
+  { id: 'dp-last', group: 'Decision page', title: 'Last card', keys: ['⇧G', 'End'], scope: 'decision', own: true },
+  { id: 'dp-pick', group: 'Decision page', title: 'Pick an option of this decision', keys: ['1…9'], scope: 'decision', own: true },
+  { id: 'dp-agree', group: 'Decision page', title: 'Agree or disagree with this item', keys: ['a'], scope: 'decision', own: true },
+  { id: 'dp-note', group: 'Decision page', title: 'Note on this card', keys: ['n'], scope: 'decision', own: true },
+  { id: 'dp-notes-all', group: 'Decision page', title: 'Note fields on every card', keys: ['m'], scope: 'decision', own: true },
+  { id: 'dp-end-notes', group: 'Decision page', title: 'Notes for Claude at the end', keys: ['⇧N'], scope: 'decision', own: true },
+  { id: 'dp-flagged', group: 'Decision page', title: 'Only the cards you changed', keys: ['f'], scope: 'decision', own: true },
+  { id: 'dp-theme', group: 'Decision page', title: 'Dark or light', keys: ['t'], scope: 'decision', own: true },
+  { id: 'dp-leave-field', group: 'Decision page', title: 'Leave the note you are typing in', keys: ['Esc'], scope: 'decision', own: true, field: true },
 
   // Menus and dialogs
   { id: 'menu-move', group: 'Menus and dialogs', title: 'Move in a menu', keys: ['↑', '↓'], scope: 'menu', own: true },

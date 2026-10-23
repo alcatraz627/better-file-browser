@@ -67,7 +67,9 @@ export function initFocusNav(app: App): void {
     if (visible(document.getElementById('fe-ed-bar'))) scopes.add('editor');
     const area = areaOf(ae);
     if (area?.scope) scopes.add(area.scope);
-    if (!app.fileMode && !preview && !area?.widget) {
+    // A folder shown as its decision page answers the page's keys instead of the listing's.
+    if (!app.fileMode && !preview && !area?.widget && fe.classList.contains('fe-dp-page')) scopes.add('decision');
+    else if (!app.fileMode && !preview && !area?.widget) {
       scopes.add('listing');
       if (fe.dataset.view === 'tree') scopes.add('tree');
     }

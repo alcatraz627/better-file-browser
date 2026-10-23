@@ -1618,6 +1618,7 @@ ${body}`;
     { name: "Preview", icon: "search" },
     { name: "File page", icon: "docs" },
     { name: "Editor", icon: "code" },
+    { name: "Decision page", icon: "docs" },
     { name: "Menus and dialogs", icon: "gear" }
   ];
   var KEYMAP = [
@@ -1757,6 +1758,19 @@ ${body}`;
     { id: "ed-mode", group: "Editor", title: "Raw, split or rich", keys: ["\u2318\u21E7P"], scope: "editor" },
     { id: "note-rename", group: "Editor", title: "Rename this note", keys: ["F2"], scope: "editor", own: true, field: true },
     { id: "note-delete", group: "Editor", title: "Move this note to .trash", keys: ["\u2318\u21E7\u232B"], scope: "editor", own: true, field: true },
+    // Decision page: a folder an agent asked the owner to answer
+    { id: "dp-next", group: "Decision page", title: "Next card", keys: ["j", "\u2193"], scope: "decision", own: true },
+    { id: "dp-prev", group: "Decision page", title: "Previous card", keys: ["k", "\u2191"], scope: "decision", own: true },
+    { id: "dp-first", group: "Decision page", title: "First card", keys: ["g", "Home"], scope: "decision", own: true },
+    { id: "dp-last", group: "Decision page", title: "Last card", keys: ["\u21E7G", "End"], scope: "decision", own: true },
+    { id: "dp-pick", group: "Decision page", title: "Pick an option of this decision", keys: ["1\u20269"], scope: "decision", own: true },
+    { id: "dp-agree", group: "Decision page", title: "Agree or disagree with this item", keys: ["a"], scope: "decision", own: true },
+    { id: "dp-note", group: "Decision page", title: "Note on this card", keys: ["n"], scope: "decision", own: true },
+    { id: "dp-notes-all", group: "Decision page", title: "Note fields on every card", keys: ["m"], scope: "decision", own: true },
+    { id: "dp-end-notes", group: "Decision page", title: "Notes for Claude at the end", keys: ["\u21E7N"], scope: "decision", own: true },
+    { id: "dp-flagged", group: "Decision page", title: "Only the cards you changed", keys: ["f"], scope: "decision", own: true },
+    { id: "dp-theme", group: "Decision page", title: "Dark or light", keys: ["t"], scope: "decision", own: true },
+    { id: "dp-leave-field", group: "Decision page", title: "Leave the note you are typing in", keys: ["Esc"], scope: "decision", own: true, field: true },
     // Menus and dialogs
     { id: "menu-move", group: "Menus and dialogs", title: "Move in a menu", keys: ["\u2191", "\u2193"], scope: "menu", own: true },
     { id: "menu-pick", group: "Menus and dialogs", title: "Pick", keys: ["\u21A9"], scope: "menu", own: true },
@@ -12684,6 +12698,135 @@ ${t}`)) say("Note title saved");
     });
   }
 
+  // src/dp-form.ts
+  var noneCode = (d) => d.noneCode || "z";
+  function draftedState(cfg) {
+    const s = { picks: {}, agree: {}, notes: {}, endNotes: "" };
+    for (const d of cfg.decisions ?? []) {
+      const rec = d.options.find((o) => o.rec) ?? d.options[0];
+      if (rec) s.picks[d.id] = rec.code;
+      if (d.note) s.notes[d.id] = d.note;
+    }
+    for (const x of cfg.sections ?? []) {
+      s.agree[x.id] = true;
+      if (x.note) s.notes[x.id] = x.note;
+    }
+    return s;
+  }
+  function restoreState(cfg, saved) {
+    const s = draftedState(cfg);
+    if (!saved) return s;
+    for (const d of cfg.decisions ?? []) {
+      const code = saved.picks?.[d.id];
+      if (code && (d.options.some((o) => o.code === code) || d.none && code === noneCode(d))) s.picks[d.id] = code;
+    }
+    for (const x of cfg.sections ?? []) if (typeof saved.agree?.[x.id] === "boolean") s.agree[x.id] = saved.agree[x.id];
+    for (const [id, text] of Object.entries(saved.notes ?? {})) if (typeof text === "string" && (s.picks[id] !== void 0 || s.agree[id] !== void 0)) s.notes[id] = text;
+    if (typeof saved.endNotes === "string") s.endNotes = saved.endNotes;
+    return s;
+  }
+  function flagOf(cfg, s, id) {
+    const draft = draftedState(cfg);
+    const changed = id in s.picks && s.picks[id] !== draft.picks[id] || id in s.agree && s.agree[id] !== draft.agree[id];
+    if (changed) return "changed";
+    const note2 = (s.notes[id] ?? "").trim();
+    return note2 && note2 !== (draft.notes[id] ?? "").trim() ? "noted" : null;
+  }
+  function progress(cfg, s) {
+    const ids = [...(cfg.decisions ?? []).map((d) => d.id), ...(cfg.sections ?? []).map((x) => x.id)];
+    const flagged = ids.filter((id) => flagOf(cfg, s, id)).length;
+    return { items: ids.length, flagged, asDrafted: flagged === 0 && !s.endNotes.trim() };
+  }
+  var stateKey = (cfg) => "bfb-dp-answers:" + (cfg.storageKey || cfg.title || "untitled");
+
+  // src/dp-cards.ts
+  function imgSrc(base, p) {
+    if (/^https?:\/\//.test(p)) return p;
+    if (!p || p.startsWith("/") || p.split(/[\\/]/).includes("..") || /^[a-z]+:/i.test(p)) return null;
+    return base + p.split("/").map(encodeURIComponent).join("/");
+  }
+  var md = (text, base) => `<div class="fe-dp-md">${renderMarkdown(text.replace(/([^\n])\n(?!\n)/g, "$1  \n"), base)}</div>`;
+  var stripHtml = (images, base) => {
+    const ok = (images ?? []).map((p) => [p, imgSrc(base, p)]).filter((x) => !!x[1]);
+    return ok.length ? `<div class="fe-dp-strip">${ok.map(([p, src]) => `<a class="fe-dp-shot" href="${esc(src)}" target="_blank" title="${esc(p)}"><img src="${esc(src)}" alt="${esc(p)}" loading="lazy"></a>`).join("")}</div>` : "";
+  };
+  var noteHtml = (id, notes2) => notes2 ? `
+  <div class="fe-dp-note" hidden>
+    <textarea class="tb" data-note="${esc(id)}" rows="2" placeholder="A note for Claude about ${esc(id)}" aria-label="Note on ${esc(id)}"></textarea>
+  </div>
+  <button type="button" class="btn fe-dp-addnote" data-variant="ghost" data-size="sm" data-note-for="${esc(id)}">Add a note</button>` : "";
+  function optionHtml(d, o, n, base, none = false) {
+    const imgs = (o.images ?? []).map((p) => imgSrc(base, p)).filter((s) => !!s);
+    return `<label class="fe-dp-opt${imgs.length ? " tile" : ""}${none ? " none" : ""}" data-code="${esc(o.code)}">
+      <input type="radio" name="dp-${esc(d.id)}" value="${esc(o.code)}">
+      ${imgs.length ? `<span class="fe-dp-tile-img">${imgs.map((s) => `<img src="${esc(s)}" alt="" loading="lazy">`).join("")}</span>` : ""}
+      <span class="fe-dp-opt-row">
+        <span class="badge fe-dp-num" data-size="sm">${n}</span>
+        <span class="fe-dp-opt-lbl">${esc(o.label)}</span>
+        <span class="badge fe-dp-code" data-tone="quiet" title="Answer code">${esc(o.code)}</span>
+        ${o.rec ? '<span class="badge fe-dp-rec" data-tone="solid">Recommended</span>' : ""}
+      </span>
+      ${o.why ? `<span class="fe-dp-why">${esc(o.why)}</span>` : ""}
+    </label>`;
+  }
+  function decisionHtml(d, base, notes2) {
+    const opts = [...d.options];
+    const tiles = opts.some((o) => o.images?.length);
+    const none = d.none ? { code: noneCode(d), label: d.noneLabel || "None of these" } : null;
+    return `<article class="card fe-dp-card" data-id="${esc(d.id)}" data-kind="decision" tabindex="-1">
+    <header class="fe-dp-card-head"><span class="badge fe-dp-id" data-tone="quiet">${esc(d.id)}</span><h3 class="fe-dp-q">${esc(d.question)}</h3></header>
+    ${d.context ? md(d.context, base) : ""}
+    ${stripHtml(d.images, base)}
+    <div class="fe-dp-opts${tiles ? " gallery" : ""}" role="radiogroup" aria-label="${esc(d.question)}">
+      ${opts.map((o, i3) => optionHtml(d, o, i3 + 1, base)).join("")}
+      ${none ? optionHtml(d, none, opts.length + 1, base, true) : ""}
+    </div>
+    ${noteHtml(d.id, notes2)}
+  </article>`;
+  }
+  function sectionHtml(x, base, notes2) {
+    const slots = Object.entries(x.slots ?? {});
+    return `<article class="card fe-dp-card" data-id="${esc(x.id)}" data-kind="section" tabindex="-1">
+    <header class="fe-dp-card-head">
+      <span class="badge fe-dp-id" data-tone="quiet">${esc(x.id)}</span>
+      <h3 class="fe-dp-q">${esc(x.title || x.id)}</h3>
+      ${x.prio ? `<span class="badge fe-dp-prio" data-prio="${esc(x.prio.toLowerCase())}">${esc(x.prio)}</span>` : ""}
+      <label class="fe-dp-agree"><span class="fe-dp-agree-lbl">Agree</span>${switchHtml({ title: "Agree with this as drafted", label: `Agree with ${x.id}`, checked: true, small: true, cls: "fe-dp-agree-sw" })}</label>
+    </header>
+    ${x.read ? md(x.read, base) : ""}
+    ${x.pre ? `<pre class="fe-dp-pre">${esc(x.pre)}</pre>` : ""}
+    ${slots.length ? `<dl class="fe-dp-slots">${slots.map(([k, v]) => `<div class="fe-dp-slot" data-slot="${esc(k.toLowerCase())}"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>` : ""}
+    ${stripHtml(x.images, base)}
+    ${noteHtml(x.id, notes2)}
+  </article>`;
+  }
+  function groupHtml(key, title, cards2, cfg, base) {
+    const g = cfg.groups?.[title];
+    return `<details class="fe-grp fe-dp-grp" data-grp="${esc(key)}" open${g?.color ? ` style="--grp:${esc(g.color)}"` : ""}>
+    <summary class="sect" data-level="group">${DISCLOSE}${esc(title)}<span class="fe-grp-n">${cards2.length}</span></summary>
+    ${g?.context ? `<div class="fe-dp-grp-ctx">${md(g.context, base)}</div>` : ""}
+    <div class="fe-grp-body">${cards2.join("")}</div>
+  </details>`;
+  }
+  function bodyHtml(cfg, base) {
+    const notes2 = cfg.notes !== false;
+    const out = [];
+    const ds = cfg.decisions ?? [];
+    if (ds.length) out.push(groupHtml("Decisions", "Decisions", ds.map((d) => decisionHtml(d, base, notes2)), cfg, base));
+    const bands = /* @__PURE__ */ new Map();
+    for (const x of cfg.sections ?? []) {
+      const name = x.group || "To review";
+      if (!bands.has(name)) bands.set(name, []);
+      bands.get(name).push(sectionHtml(x, base, notes2));
+    }
+    for (const [name, cards2] of bands) out.push(groupHtml("s:" + name, name, cards2, cfg, base));
+    if (notes2) out.push(`<section class="card fe-dp-end" id="fe-dp-end">
+    <h3 class="fe-dp-q">Notes for Claude</h3>
+    <textarea class="tb" id="fe-dp-endnotes" rows="3" placeholder="Anything else Claude should know" aria-label="Notes for Claude"></textarea>
+  </section>`);
+    return out.join("");
+  }
+
   // src/dp-page.ts
   function parseDpConfig(text) {
     let c;
@@ -12712,7 +12855,13 @@ ${t}`)) say("Note title saved");
       ${originChips(cfg.origin).length ? `<div class="fe-dp-origin">${originChips(cfg.origin).map((c) => `<span class="chip" title="${esc(c.label)}"><b>${esc(c.label)}</b>${esc(c.value)}</span>`).join("")}</div>` : ""}
       ${cfg.intro ? `<div class="fe-dp-intro">${renderMarkdown(cfg.intro, base)}</div>` : ""}
       <p class="fe-dp-count">${esc(count)}</p>
-    </header>`;
+    </header>
+    <div class="fe-dp-bar" id="fe-dp-bar">
+      <span class="fe-dp-progress" id="fe-dp-progress" aria-live="polite"></span>
+      ${cfg.notes !== false ? '<button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-notes" aria-pressed="false" title="Show a note field on every card (m)">Notes</button>' : ""}
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-flagged" aria-pressed="false" title="Show only the cards you changed or noted (f)">Flagged only</button>
+      <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-reset" title="Put every answer back as drafted">Reset</button>
+    </div>`;
   }
   async function mountDecisionPage(app) {
     const fe = app.fe;
@@ -12729,7 +12878,9 @@ ${t}`)) say("Note title saved");
     fe.classList.remove("fe-dp-pending");
     if (!cfg) return null;
     const filesPref = textPref("bfb-dp-files:" + app.rawPath, "", "tab");
-    box.innerHTML = headHtml(cfg, base) + `<div id="fe-dp-body"></div>`;
+    box.innerHTML = headHtml(cfg, base) + `<div id="fe-dp-body">${bodyHtml(cfg, base)}</div>`;
+    if (cfg.accent) box.style.setProperty("--ac", cfg.accent);
+    wireAnswers(cfg, box);
     const back = document.createElement("button");
     back.type = "button";
     back.id = "fe-dp-back";
@@ -12748,6 +12899,189 @@ ${t}`)) say("Note title saved");
     back.addEventListener("click", () => show(true));
     show(filesPref.get() !== "1");
     return cfg;
+  }
+  function wireAnswers(cfg, box) {
+    const key = stateKey(cfg);
+    const saved = jsonPref(key, null, (v) => v === null || typeof v === "object");
+    const folded = jsonPref(key.replace("bfb-dp-answers:", "bfb-dp-folded:"), [], Array.isArray);
+    const notesOn = flagPref("bfb-dp-notes-on", false);
+    const notesAllowed = cfg.notes !== false;
+    let state = restoreState(cfg, saved.get());
+    const cards2 = () => [...box.querySelectorAll(".fe-dp-card")];
+    const card4 = (id) => cards2().find((c) => c.dataset.id === id);
+    const showNote = (c, on) => {
+      const wrap = c.querySelector(".fe-dp-note"), add = c.querySelector(".fe-dp-addnote");
+      if (!wrap || !add) return;
+      wrap.hidden = !on;
+      add.hidden = on;
+    };
+    const mark = (c) => {
+      const id = c.dataset.id;
+      const flag = flagOf(cfg, state, id);
+      if (flag) c.dataset.flag = flag;
+      else delete c.dataset.flag;
+      const ta = c.querySelector("textarea[data-note]");
+      if (ta) c.classList.toggle("has-note", !!ta.value.trim());
+    };
+    const tally2 = () => {
+      const p = progress(cfg, state);
+      box.querySelector("#fe-dp-progress").textContent = p.asDrafted ? `${p.items} items \xB7 all as drafted` : `${p.items} items \xB7 ${p.flagged} flagged`;
+    };
+    const paint = () => {
+      for (const c of cards2()) {
+        const id = c.dataset.id;
+        if (c.dataset.kind === "decision") for (const r of c.querySelectorAll('input[type="radio"]')) r.checked = r.value === state.picks[id];
+        const sw2 = c.querySelector(".fe-dp-agree-sw");
+        if (sw2) {
+          sw2.checked = state.agree[id] !== false;
+          c.classList.toggle("disagree", !sw2.checked);
+        }
+        const ta = c.querySelector("textarea[data-note]");
+        if (ta) {
+          ta.value = state.notes[id] ?? "";
+          showNote(c, notesOn.get() || !!ta.value.trim());
+        }
+        mark(c);
+      }
+      const end = box.querySelector("#fe-dp-endnotes");
+      if (end) end.value = state.endNotes;
+      box.querySelector("#fe-dp-notes")?.setAttribute("aria-pressed", String(notesOn.get()));
+      tally2();
+    };
+    const save = () => {
+      saved.set(state);
+      tally2();
+    };
+    const shut = new Set(folded.get());
+    for (const g of box.querySelectorAll(".fe-dp-grp")) {
+      if (shut.has(g.dataset.grp)) g.open = false;
+      g.addEventListener("toggle", () => {
+        if (g.open) shut.delete(g.dataset.grp);
+        else shut.add(g.dataset.grp);
+        folded.set([...shut]);
+      });
+    }
+    box.addEventListener("change", (e) => {
+      const t = e.target;
+      const c = t.closest(".fe-dp-card");
+      if (!c) return;
+      if (t.type === "radio") state.picks[c.dataset.id] = t.value;
+      else if (t.classList.contains("fe-dp-agree-sw")) {
+        state.agree[c.dataset.id] = t.checked;
+        c.classList.toggle("disagree", !t.checked);
+      } else return;
+      focusCard(c, false);
+      mark(c);
+      save();
+    });
+    box.addEventListener("input", (e) => {
+      const t = e.target;
+      if (t.id === "fe-dp-endnotes") {
+        state.endNotes = t.value;
+        save();
+        return;
+      }
+      const c = t.closest(".fe-dp-card");
+      if (!c || !t.dataset.note) return;
+      state.notes[t.dataset.note] = t.value;
+      mark(c);
+      save();
+    });
+    box.addEventListener("click", (e) => {
+      const t = e.target;
+      const add = t.closest(".fe-dp-addnote");
+      const c = t.closest(".fe-dp-card");
+      if (add && c) {
+        openNote2(c);
+        return;
+      }
+      if (c && !t.closest("input, textarea, a, button, label")) focusCard(c, false);
+      else if (c) setCurrent(c);
+    });
+    let current = null;
+    const setCurrent = (c) => {
+      if (current === c) return;
+      current?.classList.remove("current");
+      current = c;
+      c.classList.add("current");
+    };
+    const focusCard = (c, scroll = true) => {
+      setCurrent(c);
+      c.focus({ preventScroll: true });
+      if (scroll) c.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    };
+    const openNote2 = (c) => {
+      if (!notesAllowed) return;
+      showNote(c, true);
+      setCurrent(c);
+      c.querySelector("textarea[data-note]")?.focus();
+    };
+    const reachable = () => cards2().filter((c) => c.offsetParent !== null);
+    const step2 = (by) => {
+      const list3 = reachable();
+      if (!list3.length) return;
+      const at = current ? list3.indexOf(current) : -1;
+      focusCard(list3[Math.max(0, Math.min(list3.length - 1, at < 0 ? by > 0 ? 0 : list3.length - 1 : at + by))]);
+    };
+    const flaggedOnly = (on) => {
+      box.classList.toggle("flagged-only", on);
+      box.querySelector("#fe-dp-flagged").setAttribute("aria-pressed", String(on));
+    };
+    const allNotes = (on) => {
+      if (!notesAllowed) return;
+      notesOn.set(on);
+      for (const c of cards2()) showNote(c, on || !!c.querySelector("textarea[data-note]")?.value.trim());
+      box.querySelector("#fe-dp-notes")?.setAttribute("aria-pressed", String(on));
+    };
+    box.querySelector("#fe-dp-notes")?.addEventListener("click", () => allNotes(!notesOn.get()));
+    box.querySelector("#fe-dp-flagged").addEventListener("click", () => flaggedOnly(!box.classList.contains("flagged-only")));
+    box.querySelector("#fe-dp-reset").addEventListener("click", () => {
+      if (!confirm("Put every answer back as drafted? Your picks and notes on this page are cleared.")) return;
+      state = draftedState(cfg);
+      saved.set(null);
+      paint();
+    });
+    const live2 = () => !box.hidden;
+    bind("dp-next", () => step2(1), live2);
+    bind("dp-prev", () => step2(-1), live2);
+    bind("dp-first", () => {
+      const l = reachable();
+      if (l[0]) focusCard(l[0]);
+    }, live2);
+    bind("dp-last", () => {
+      const l = reachable();
+      if (l.length) focusCard(l[l.length - 1]);
+    }, live2);
+    bind("dp-pick", (k) => {
+      const n = Number(k?.slice(-1));
+      const r = current?.dataset.kind === "decision" ? current.querySelectorAll('input[type="radio"]')[n - 1] : void 0;
+      if (r && !r.checked) {
+        r.checked = true;
+        r.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }, () => live2() && current?.dataset.kind === "decision");
+    bind("dp-agree", () => {
+      const sw2 = current?.querySelector(".fe-dp-agree-sw");
+      if (sw2) {
+        sw2.checked = !sw2.checked;
+        sw2.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }, () => live2() && current?.dataset.kind === "section");
+    bind("dp-note", () => current && openNote2(current), () => live2() && notesAllowed && !!current);
+    bind("dp-notes-all", () => allNotes(!notesOn.get()), () => live2() && notesAllowed);
+    bind("dp-end-notes", () => {
+      const end = box.querySelector("#fe-dp-endnotes");
+      end?.scrollIntoView({ block: "center" });
+      end?.focus();
+    }, () => live2() && notesAllowed);
+    bind("dp-flagged", () => flaggedOnly(!box.classList.contains("flagged-only")), live2);
+    bind("dp-theme", () => runCommand("theme"), live2);
+    bind("dp-leave-field", () => {
+      const c = document.activeElement?.closest(".fe-dp-card");
+      document.activeElement?.blur();
+      if (c) focusCard(c, false);
+    }, () => live2() && !!document.activeElement?.closest("#fe-dp textarea"));
+    paint();
   }
 
   // src/styles.ts
@@ -14371,6 +14705,51 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-intro>.fe-md{padding:0;max-width:none;color:inherit}
 .fe-dp-count{margin:0;font-size:var(--fs-sm);color:var(--dm)}
 #fe-dp-back{margin-left:var(--sp-4)}
+.fe-dp-bar{position:sticky;top:0;z-index:1;max-width:920px;margin:0 auto var(--sp-6);display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r);box-shadow:0 var(--sp-2) var(--sp-5) rgb(var(--ink) / .08)}
+.fe-dp-progress{flex:1;font-size:var(--fs-sm);color:var(--mt)}
+#fe-dp-body{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-6)}
+.fe-dp-md>.fe-md{padding:0;max-width:none;color:inherit}
+.fe-dp-grp{margin:0}
+#fe-dp-body .fe-dp-grp>summary{margin:0 0 var(--sp-3);color:var(--grp,var(--mt))}
+.fe-dp-grp>.fe-grp-body{display:flex;flex-direction:column;gap:var(--sp-4)}
+.fe-dp-grp-ctx{margin:0 0 var(--sp-4);padding:0 var(--row-px);color:var(--mt)}
+.fe-dp-card{display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-6);border-left:3px solid var(--bd);outline:none;transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-dp-card[data-flag="changed"]{border-left-color:var(--gold)}
+.fe-dp-card[data-flag="noted"]{border-left-color:var(--ac)}
+.fe-dp-card.current{box-shadow:0 0 0 2px var(--ac)}
+.fe-dp-card-head{display:flex;align-items:baseline;gap:var(--sp-3)}
+.fe-dp-q{flex:1;min-width:0;margin:0;font-family:var(--font-head);font-size:var(--fs-lg);font-weight:600;line-height:1.35;color:var(--tx)}
+.fe-dp-agree{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none;font-size:var(--fs-sm);color:var(--mt);cursor:pointer}
+.fe-dp-card.disagree .fe-dp-agree-lbl{color:var(--gold)}
+.fe-dp-prio{flex:none}
+.fe-dp-opts{display:flex;flex-direction:column;gap:var(--sp-2)}
+.fe-dp-opts.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--sp-4)}
+.fe-dp-opts.gallery .fe-dp-opt:not(.tile){grid-column:1 / -1}
+.fe-dp-opt{position:relative;display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border:1px solid var(--bd);border-radius:var(--row-r);cursor:pointer;transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
+.fe-dp-opt:hover{background:var(--hover)}
+.fe-dp-opt:has(input:checked){border-color:var(--ac);background:color-mix(in srgb,var(--ac) 10%,transparent)}
+.fe-dp-opt:has(input:focus-visible){outline:2px solid var(--ac);outline-offset:1px}
+.fe-dp-opt.none{border-style:dashed}
+.fe-dp-opt>input{position:absolute;opacity:0;pointer-events:none}
+.fe-dp-opt-row{display:flex;align-items:center;gap:var(--sp-3)}
+.fe-dp-opt-lbl{flex:1;min-width:0;color:var(--tx)}
+.fe-dp-num{visibility:hidden}
+.fe-dp-card.current .fe-dp-num{visibility:visible}
+.fe-dp-why{font-size:var(--fs-sm);color:var(--mt)}
+.fe-dp-tile-img{display:flex;gap:var(--sp-2);margin:calc(var(--sp-3) * -1) calc(var(--sp-4) * -1) 0;overflow:hidden;border-radius:var(--row-r) var(--row-r) 0 0;background:var(--s2)}
+.fe-dp-tile-img img{flex:1;min-width:0;aspect-ratio:16 / 10;object-fit:contain}
+.fe-dp-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--sp-3)}
+.fe-dp-shot{display:block;border:1px solid var(--bd);border-radius:var(--row-r);overflow:hidden;background:var(--s2)}
+.fe-dp-shot img{display:block;width:100%;aspect-ratio:16 / 10;object-fit:contain}
+.fe-dp-pre{margin:0;padding:var(--sp-4);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-sm);white-space:pre;background:var(--s2);border-radius:var(--row-r)}
+.fe-dp-slots{display:grid;grid-template-columns:max-content 1fr;gap:var(--sp-2) var(--sp-4);margin:0}
+.fe-dp-slot{display:contents}
+.fe-dp-slot dt{font-size:var(--fs-xs);font-weight:650;letter-spacing:.06em;color:var(--dm)}
+.fe-dp-slot dd{margin:0;color:var(--tx)}
+.fe-dp-addnote{align-self:flex-start}
+.fe-dp-note textarea,.fe-dp-end textarea{width:100%}
+.fe-dp-end{display:flex;flex-direction:column;gap:var(--sp-3);padding:var(--sp-6)}
+#fe-dp.flagged-only .fe-dp-card:not([data-flag]),#fe-dp.flagged-only .fe-dp-grp:not(:has(.fe-dp-card[data-flag])){display:none}
 /* Parts that start hidden and are shown by clearing their hidden attribute. */
 #fe-ql-ai[hidden],#fe-ql-ai-out[hidden],#fe-ed-hist[hidden],#fe-fe-banner[hidden],#fe-fe[hidden],.fe-dlg[hidden],#fe-rc-tabs-sec[hidden],
 #fe-sg-panel[hidden],#fe-filter-bar[hidden],#fe-find-depth-wrap[hidden],#fe-st-term-custom-row[hidden],#fe-st-export-out[hidden],#fe-ed-file[hidden],#fe-st-import-file[hidden]{display:none}
@@ -20815,7 +21194,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (visible(document.getElementById("fe-ed-bar"))) scopes.add("editor");
       const area2 = areaOf(ae2);
       if (area2?.scope) scopes.add(area2.scope);
-      if (!app.fileMode && !preview && !area2?.widget) {
+      if (!app.fileMode && !preview && !area2?.widget && fe.classList.contains("fe-dp-page")) scopes.add("decision");
+      else if (!app.fileMode && !preview && !area2?.widget) {
         scopes.add("listing");
         if (fe.dataset.view === "tree") scopes.add("tree");
       }
@@ -22651,7 +23031,7 @@ ${rows.join("\n")}`, name: subject };
     let quoteLayer = null;
     const quote = (text, anchor) => {
       if (!text) return;
-      const md = quoteMarkdown(text, fromName());
+      const md2 = quoteMarkdown(text, fromName());
       const targets = quoteTargets(
         { subject: key, chatId, title: turns[0]?.q ?? "New chat" },
         app.strip.shown().map((t) => t.path),
@@ -22667,13 +23047,13 @@ ${rows.join("\n")}`, name: subject };
         const t = targets[Number(row2.dataset.i)];
         quoteLayer?.close("pick");
         if (t.here) {
-          q.value = md + q.value;
+          q.value = md2 + q.value;
           grow();
           q.focus();
           q.setSelectionRange(q.value.length, q.value.length);
           return;
         }
-        sendQuote({ subject: t.subject, chatId: t.chatId, text: md, at: Date.now() });
+        sendQuote({ subject: t.subject, chatId: t.chatId, text: md2, at: Date.now() });
         app.strip.go(t.subject, "#ask=" + encodeURIComponent(t.chatId));
       });
       const r = (anchor ?? hoverBlock ?? thread).getBoundingClientRect();
@@ -23578,8 +23958,8 @@ ${rows.join("\n")}`, name: subject };
     if (fe) {
       const directionsHere = () => {
         if (!isDirectionsDoc(decodeURIComponent(location.pathname))) return;
-        const md = document.querySelector("#fe-page .fe-md");
-        if (md) enhanceDirections(md);
+        const md2 = document.querySelector("#fe-page .fe-md");
+        if (md2) enhanceDirections(md2);
       };
       directionsHere();
       new MutationObserver(() => {
