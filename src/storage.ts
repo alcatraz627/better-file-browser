@@ -102,6 +102,21 @@ export const HTML_GUARD_KEY = 'bfbHtmlTakeover';
 // The same route carries the page's background colour, so the loader's cover
 // matches the theme and palette in use.
 export const PAGE_BG_KEY = 'bfbPageBg';
+export function keepPageBg(color: string): void {
+  try { localStorage.setItem(PAGE_BG_KEY, color); } catch { /* storage blocked: the loader keeps its default */ }
+}
+
+// The Notes list as last drawn, read synchronously before the notes host
+// answers so the next page shows it at once. It is drawn escaped and replaced
+// by the host's answer, so a stale or tampered copy only shows for a moment.
+const NOTES_KEPT = 'bfbNotesKept';
+export function keptNotesList<T>(root: string): T[] | null {
+  try { const k = JSON.parse(localStorage.getItem(NOTES_KEPT) || 'null'); return k?.root === root && Array.isArray(k.notes) ? k.notes : null; }
+  catch { return null; }
+}
+export function keepNotesList<T>(root: string, notes: T[]): void {
+  try { localStorage.setItem(NOTES_KEPT, JSON.stringify({ root, notes })); } catch { /* full or blocked: the next page waits for the host */ }
+}
 export function syncHtmlGuard(s: Settings): void {
   try { localStorage.setItem(HTML_GUARD_KEY, ['html', 'htm'].filter(x => filePagesEnabled(x, s)).join(' ')); }
   catch { /* storage blocked: the guard stays off */ }

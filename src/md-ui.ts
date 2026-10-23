@@ -7,6 +7,7 @@ import type { Toast } from './toast';
 import { fileExists } from './file-fetch';
 import { esc } from './utils';
 import { go } from './nav';
+import { enhanceDirections, isDirectionsDoc } from './directions';
 
 // Drawn Mermaid diagrams, kept in the extension's own storage (never the
 // file:// localStorage, which any HTML file opened in Chrome can write) so a
@@ -70,7 +71,14 @@ export function initMarkdownUi(toast: Toast): void {
   };
   const fe = document.getElementById('fe');
   if (fe) {
-    new MutationObserver(() => { renderDiagrams(); linkFrontMatterPaths(); linkGccRefs(); }).observe(fe, {
+    // A directions doc's file page gains its status bar and meters once rendered (and again after a reload from disk).
+    const directionsHere = () => {
+      if (!isDirectionsDoc(decodeURIComponent(location.pathname))) return;
+      const md = document.querySelector<HTMLElement>('#fe-page .fe-md');
+      if (md) enhanceDirections(md);
+    };
+    directionsHere();
+    new MutationObserver(() => { renderDiagrams(); linkFrontMatterPaths(); linkGccRefs(); directionsHere(); }).observe(fe, {
       childList: true, subtree: true, attributes: true, attributeFilter: ['data-theme'],
     });
     renderDiagrams();

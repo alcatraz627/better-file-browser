@@ -1134,6 +1134,20 @@ a.fe-fm-path:hover{text-decoration:underline}
 .fe-md li.fe-task{list-style:none;margin-left:-1.3em;padding-left:0}
 .fe-md li.fe-task input{accent-color:var(--ac);margin-right:var(--sp-3);vertical-align:-2px}
 .fe-md-tablewrap{overflow-x:auto}
+/* A directions doc: one tone per state mark, on the row's edge, the meters and the filter chips. */
+[data-state="needs"]{--st:var(--nc-red)}
+[data-state="waiting"]{--st:var(--nc-orange)}
+[data-state="ready"]{--st:var(--nc-green)}
+[data-state="parked"]{--st:var(--dm)}
+[data-state="done"]{--st:var(--nc-teal)}
+.fe-md[data-directions] tr[data-state] td:first-child{box-shadow:inset 3px 0 0 var(--st)}
+.fe-dir-sum{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);margin:var(--sp-4) 0 var(--sp-6)}
+.fe-dir-chip b{margin-left:var(--sp-2);font-weight:600}
+.fe-dir-chip[aria-pressed="true"]{border-color:var(--st);background:color-mix(in srgb,var(--st) 16%,transparent)}
+.fe-dir-total{margin-left:var(--sp-3)}
+.fe-dir-meter{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:var(--sp-4);vertical-align:middle;font-size:var(--fs-sm);font-weight:400;color:var(--mt)}
+.fe-dir-bar{display:inline-flex;width:7em;height:.45em;border-radius:var(--r-full);overflow:hidden;background:var(--s2)}
+.fe-dir-bar i{flex:1;background:var(--st)}
 .fe-md img{display:block;margin-left:auto;margin-right:auto;cursor:zoom-in;max-width:100%;border-radius:var(--r-sm)}
 .fe-md blockquote{border-left:3px solid var(--bd2);padding:0 1em;color:var(--mt)}
 .fe-md blockquote .fe-md{padding:0}

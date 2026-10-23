@@ -7,7 +7,7 @@ import { el, els } from './el';
 import { esc, copyToClipboard, midHtml, fileHref } from './utils';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
-import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref } from './storage';
+import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
 import { notes, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta } from './notes';
@@ -640,15 +640,8 @@ export function initSidebar(app: App): void {
     // The row is redrawn; a chip picked by keyboard keeps the focus.
     if (hadFocus) [...el('fe-lens-tags').querySelectorAll<HTMLElement>('.fe-lens-tag')].find(c => c.dataset.tag === tag)?.focus();
   });
-  // The last notes list, in this browser's file:// storage, read before the host answers.
-  const NOTES_KEPT = 'bfbNotesKept';
-  function keptNotes(root: string): NoteMeta[] | null {
-    try { const k = JSON.parse(localStorage.getItem(NOTES_KEPT) || 'null'); return k?.root === root && Array.isArray(k.notes) ? k.notes : null; }
-    catch { return null; }
-  }
-  function keepNotes(root: string, list: NoteMeta[]): void {
-    try { localStorage.setItem(NOTES_KEPT, JSON.stringify({ root, notes: list })); } catch { /* full or blocked: the next page waits for the host */ }
-  }
+  const keptNotes = (root: string) => keptNotesList<NoteMeta>(root);
+  const keepNotes = (root: string, list: NoteMeta[]) => keepNotesList(root, list);
   function refreshNotes(): void {
     const root = notesRoot();
     if (!root) {

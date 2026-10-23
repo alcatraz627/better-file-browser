@@ -532,6 +532,27 @@
   }
   var HTML_GUARD_KEY = "bfbHtmlTakeover";
   var PAGE_BG_KEY = "bfbPageBg";
+  function keepPageBg(color) {
+    try {
+      localStorage.setItem(PAGE_BG_KEY, color);
+    } catch {
+    }
+  }
+  var NOTES_KEPT = "bfbNotesKept";
+  function keptNotesList(root) {
+    try {
+      const k = JSON.parse(localStorage.getItem(NOTES_KEPT) || "null");
+      return k?.root === root && Array.isArray(k.notes) ? k.notes : null;
+    } catch {
+      return null;
+    }
+  }
+  function keepNotesList(root, notes2) {
+    try {
+      localStorage.setItem(NOTES_KEPT, JSON.stringify({ root, notes: notes2 }));
+    } catch {
+    }
+  }
   function syncHtmlGuard(s) {
     try {
       localStorage.setItem(HTML_GUARD_KEY, ["html", "htm"].filter((x) => filePagesEnabled(x, s)).join(" "));
@@ -13220,6 +13241,20 @@ a.fe-fm-path:hover{text-decoration:underline}
 .fe-md li.fe-task{list-style:none;margin-left:-1.3em;padding-left:0}
 .fe-md li.fe-task input{accent-color:var(--ac);margin-right:var(--sp-3);vertical-align:-2px}
 .fe-md-tablewrap{overflow-x:auto}
+/* A directions doc: one tone per state mark, on the row's edge, the meters and the filter chips. */
+[data-state="needs"]{--st:var(--nc-red)}
+[data-state="waiting"]{--st:var(--nc-orange)}
+[data-state="ready"]{--st:var(--nc-green)}
+[data-state="parked"]{--st:var(--dm)}
+[data-state="done"]{--st:var(--nc-teal)}
+.fe-md[data-directions] tr[data-state] td:first-child{box-shadow:inset 3px 0 0 var(--st)}
+.fe-dir-sum{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);margin:var(--sp-4) 0 var(--sp-6)}
+.fe-dir-chip b{margin-left:var(--sp-2);font-weight:600}
+.fe-dir-chip[aria-pressed="true"]{border-color:var(--st);background:color-mix(in srgb,var(--st) 16%,transparent)}
+.fe-dir-total{margin-left:var(--sp-3)}
+.fe-dir-meter{display:inline-flex;align-items:center;gap:var(--sp-2);margin-left:var(--sp-4);vertical-align:middle;font-size:var(--fs-sm);font-weight:400;color:var(--mt)}
+.fe-dir-bar{display:inline-flex;width:7em;height:.45em;border-radius:var(--r-full);overflow:hidden;background:var(--s2)}
+.fe-dir-bar i{flex:1;background:var(--st)}
 .fe-md img{display:block;margin-left:auto;margin-right:auto;cursor:zoom-in;max-width:100%;border-radius:var(--r-sm)}
 .fe-md blockquote{border-left:3px solid var(--bd2);padding:0 1em;color:var(--mt)}
 .fe-md blockquote .fe-md{padding:0}
@@ -21251,21 +21286,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       toggleTagFilter(tag);
       if (hadFocus) [...el("fe-lens-tags").querySelectorAll(".fe-lens-tag")].find((c) => c.dataset.tag === tag)?.focus();
     });
-    const NOTES_KEPT = "bfbNotesKept";
-    function keptNotes(root) {
-      try {
-        const k = JSON.parse(localStorage.getItem(NOTES_KEPT) || "null");
-        return k?.root === root && Array.isArray(k.notes) ? k.notes : null;
-      } catch {
-        return null;
-      }
-    }
-    function keepNotes(root, list3) {
-      try {
-        localStorage.setItem(NOTES_KEPT, JSON.stringify({ root, notes: list3 }));
-      } catch {
-      }
-    }
+    const keptNotes = (root) => keptNotesList(root);
+    const keepNotes = (root, list3) => keepNotesList(root, list3);
     function refreshNotes() {
       const root = notesRoot();
       if (!root) {
@@ -22837,6 +22859,87 @@ ${rows.join("\n")}`, name: subject };
     return el2;
   }
 
+  // src/directions.ts
+  var DIR_STATES = [
+    { id: "needs", mark: "\u{1F534}", label: "needs you" },
+    { id: "waiting", mark: "\u{1F7E0}", label: "waiting" },
+    { id: "ready", mark: "\u{1F7E2}", label: "ready" },
+    { id: "parked", mark: "\u{1F4A4}", label: "parked" },
+    { id: "done", mark: "\u2705", label: "done" }
+  ];
+  var isDirectionsDoc = (path) => /directions[^/]*\.md$/i.test(path);
+  function rowState(text) {
+    let best = null;
+    for (const s of DIR_STATES) {
+      const at = text.indexOf(s.mark);
+      if (at >= 0 && (!best || at < best.at)) best = { at, id: s.id };
+    }
+    return best?.id ?? null;
+  }
+  function tally(states) {
+    const t = { needs: 0, waiting: 0, ready: 0, parked: 0, done: 0 };
+    for (const s of states) if (s) t[s]++;
+    return t;
+  }
+  var meterHtml = (t) => {
+    const total = DIR_STATES.reduce((n, s) => n + t[s.id], 0);
+    if (!total) return "";
+    const parts2 = DIR_STATES.filter((s) => t[s.id]).map((s) => `<i data-state="${s.id}" title="${t[s.id]} ${s.label}"></i>`.repeat(t[s.id])).join("");
+    return `<span class="fe-dir-meter" title="${t.done} of ${total} done"><span class="fe-dir-bar">${parts2}</span><span class="fe-dir-n">${t.done}/${total}</span></span>`;
+  };
+  function enhanceDirections(root) {
+    if (root.dataset.directions) return;
+    const rows = [...root.querySelectorAll("tbody tr")];
+    const states = rows.map((r) => rowState(r.textContent ?? ""));
+    if (!states.some(Boolean)) return;
+    root.dataset.directions = "on";
+    rows.forEach((r, i3) => {
+      if (states[i3]) r.dataset.state = states[i3];
+    });
+    const heads = [...root.querySelectorAll("h2, h3")];
+    for (const h of heads) {
+      const level = Number(h.tagName[1]);
+      const mine = [];
+      for (let n = h.nextElementSibling; n; n = n.nextElementSibling) {
+        if (/^H[1-6]$/.test(n.tagName) && Number(n.tagName[1]) <= level) break;
+        n.querySelectorAll("tbody tr").forEach((r) => mine.push(r.dataset.state || null));
+      }
+      const t = tally(mine);
+      const m = meterHtml(t);
+      if (!m) continue;
+      h.insertAdjacentHTML("beforeend", m);
+      const name = (h.firstChild?.textContent ?? "").trim();
+      for (const td of root.querySelectorAll("tbody td:first-child")) {
+        if (td.dataset.dirLink || td.textContent?.trim() !== name || !h.id) continue;
+        td.dataset.dirLink = "1";
+        td.innerHTML = `<a href="#${esc(h.id)}">${esc(name)}</a>${m}`;
+      }
+    }
+    const all = tally(states);
+    const bar = document.createElement("div");
+    bar.className = "fe-dir-sum";
+    bar.innerHTML = DIR_STATES.filter((s) => all[s.id]).map((s) => `<button type="button" class="chip fe-dir-chip" data-state="${s.id}" aria-pressed="false" title="Show only rows marked ${esc(s.label)}"><span>${s.mark}</span>${esc(s.label)}<b>${all[s.id]}</b></button>`).join("") + `<span class="fe-dir-total">${meterHtml(all)}</span>`;
+    const h1 = root.querySelector("h1");
+    if (h1) h1.after(bar);
+    else root.prepend(bar);
+    bar.addEventListener("click", (e) => {
+      const chip = e.target.closest(".fe-dir-chip");
+      if (!chip) return;
+      const on = chip.getAttribute("aria-pressed") !== "true";
+      bar.querySelectorAll(".fe-dir-chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
+      chip.setAttribute("aria-pressed", String(on));
+      const want = on ? chip.dataset.state : "";
+      root.dataset.dirFilter = want;
+      rows.forEach((r) => {
+        r.hidden = !!want && r.dataset.state !== want;
+      });
+      root.querySelectorAll("table").forEach((t) => {
+        const visible2 = [...t.querySelectorAll("tbody tr")].some((r) => !r.hidden);
+        (t.closest(".fe-md-tablewrap") ?? t).hidden = !!want && !visible2;
+      });
+    });
+  }
+
   // src/md-ui.ts
   var DIAGRAMS_KEY = "diagram-cache-v1";
   var hashOf = (s) => {
@@ -22912,10 +23015,17 @@ ${rows.join("\n")}`, name: subject };
     };
     const fe = document.getElementById("fe");
     if (fe) {
+      const directionsHere = () => {
+        if (!isDirectionsDoc(decodeURIComponent(location.pathname))) return;
+        const md = document.querySelector("#fe-page .fe-md");
+        if (md) enhanceDirections(md);
+      };
+      directionsHere();
       new MutationObserver(() => {
         renderDiagrams();
         linkFrontMatterPaths();
         linkGccRefs();
+        directionsHere();
       }).observe(fe, {
         childList: true,
         subtree: true,
@@ -23264,12 +23374,7 @@ ${rows.join("\n")}`, name: subject };
     const fe = el("fe");
     fe.dataset.wrap = settings.wrapLines === false ? "off" : "on";
     followSystem(fe);
-    const keepBg = () => {
-      try {
-        localStorage.setItem(PAGE_BG_KEY, getComputedStyle(fe).backgroundColor);
-      } catch {
-      }
-    };
+    const keepBg = () => keepPageBg(getComputedStyle(fe).backgroundColor);
     keepBg();
     new MutationObserver(keepBg).observe(fe, { attributes: true, attributeFilter: ["data-theme", "data-palette", "style"] });
     if (settings.sidebarWidth && !settings.sidebarRail) {
