@@ -85,6 +85,10 @@ try {
   await page.hover('#fe-ask-hist .fe-ask-h');
   await page.click('#fe-ask-hist .fe-ask-h-del');
   check(await page.$$eval('#fe-ask-hist .fe-ask-h', r => r.length) === 0 && await page.$eval('#fe-ask-hist-n', n => n.textContent) === '', 'a chat can be deleted');
+  // Only the Settings switch keeps a model loaded; asking, the lens and the
+  // model list must never warm one by themselves.
+  const warms = h.lmCalls().filter(c => c.args[0] === 'warm');
+  check(warms.length === 0, `nothing ran lm warm during the walk: ${JSON.stringify(warms.map(c => c.args))}`);
 } finally {
   console.log(results.join('\n'));
   await h.close();
