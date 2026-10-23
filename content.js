@@ -13265,7 +13265,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 /* Parts in the top layer (layer.ts) keep their own look and placement, not the
    browser's popover defaults; zero specificity, so every part's own rule wins. */
 :where([popover]){inset:auto;margin:0;padding:0;border:0;background:none;color:inherit;width:auto;height:auto;overflow:visible}
-@media (prefers-reduced-motion:reduce){#fe-hint{transition:none}}
 #fe-toast.act.show{pointer-events:auto}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -13588,7 +13587,6 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
 #fe-allow.fe-allow-note{border-color:color-mix(in srgb,var(--nc-red) 50%,var(--bd2))}
 #fe-fp-edit.busy{opacity:.6;cursor:progress}
 @keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
 /* The Keep card: a file's name, its Saved entry and, for a note, its pin and title. */
 #fe-keep{position:fixed;width:min(320px,calc(100vw - 16px));padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-4);border-radius:var(--pop-r);color:var(--tx);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
@@ -13907,7 +13905,6 @@ a.fe-fm-path:hover{text-decoration:underline}
   --syn-deco:#e2b340;--syn-fn:#d2a8ff;--syn-regex:#a5d6a7;--syn-key:#79c0ff;--syn-section:#d2a8ff;--syn-add:#3fb950;--syn-del:#f85149;
   --tone-ok:var(--nc-green);--tone-warn:var(--nc-orange);--tone-danger:var(--nc-red);--tone-info:var(--nc-blue);
   --type-micro:var(--fs-sm);--type-small:var(--fs-md);--type-ui:var(--fs-lg);--type-ui-strong:var(--fs-lg);--type-title:var(--fs-xl)}
-@media (prefers-reduced-motion:reduce){:root,#fe{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}}
 /* While a page boots nothing eases in: the first frames show it settled (main.ts drops data-booting two frames in). */
 #fe[data-booting]{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}
 .fe-si,.fe-bm-item,.fe-dd-item,.fe-ctx-item{min-height:var(--row-h);margin:0 var(--sp-3);padding:0 var(--row-px);gap:var(--row-gap);
@@ -14272,7 +14269,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 }
 #fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
+/* Reduced motion, in one place: the motion tokens go to zero and anything left still settles at once. */
 @media (prefers-reduced-motion:reduce){
+  :root,#fe{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}
+  #fe-hint{transition:none}
+  #fe-allow{animation:none}
   #fe *,#fe *::before,#fe *::after{animation-duration:var(--t-off)!important;animation-iteration-count:1!important;transition-duration:var(--t-off)!important}
 }
 

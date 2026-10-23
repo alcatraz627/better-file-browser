@@ -33,7 +33,11 @@ const RULES = [
   { id: 'css-duration', css: d => /^\s*(transition|animation)[\w-]*\s*:.*\b\d+(\.\d+)?m?s\b/.test(d) },
   { id: 'css-raw-colour', css: d => /#[0-9a-fA-F]{3,8}\b|rgba?\(\s*\d/.test(d) },
   { id: 'css-important', css: d => /!important/.test(d) },
-  { id: 'css-media', text: (css) => count(css, /@(media|container)\b/g), on: 'css' },
+  // Layout collapses by named container at the spec's widths (480, 720, 1100;
+  // section 5.9). A window @media, or a container at any other width, counts;
+  // the reduced-motion query is not a layout query and does not.
+  { id: 'css-media', text: css => (css.match(/@(media|container)[^{]*/g) ?? []).filter(q =>
+      !/^@media \(prefers-reduced-motion:reduce\)\s*$/.test(q) && !/^@container [\w-]+ \((max|min)-width:(480|720|1100)px\)\s*$/.test(q)).length, on: 'css' },
   { id: 'css-dup-selector', text: css => dupSelectors(css), on: 'css' },
   { id: 'css-dead-decl', text: css => deadDecls(css), on: 'css' },
   { id: 'css-part-paint', text: css => partPaint(css), on: 'css' },
