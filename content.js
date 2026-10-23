@@ -1152,6 +1152,8 @@ ${body}`;
     next: svg('<path d="m9 18 6-6-6-6"/>'),
     folderOpen: svg('<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>'),
     copy: svg(COPY),
+    attach: svg('<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'),
+    opinion: svg('<path d="M17 18a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2"/><rect width="18" height="18" x="3" y="4" rx="2"/><circle cx="12" cy="10" r="2"/><path d="M8 2v2M16 2v2"/>'),
     quote: svg('<path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/>'),
     check: svg('<path d="M20 6 9 17l-5-5"/>'),
     eye: svg('<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'),
@@ -11051,6 +11053,7 @@ ${end.comment}` : end.comment;
   var layout = { mode: "modal" };
   var currentEntry = null;
   var currentText = null;
+  var currentImage = null;
   var reqSeq = 0;
   var dsvHeader = [];
   var dsvRows = [];
@@ -11276,10 +11279,11 @@ ${end.comment}` : end.comment;
       if (currentEntry !== e || !isPreviewOpen()) return;
       if (av.kind === "unavailable") return;
       const tabular = TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json";
+      const image = ext2 === "image";
       const exp = document.getElementById("fe-ql-ai-exp");
-      exp.textContent = tabular ? "Describe" : "Explain";
-      exp.dataset.intent = tabular ? "describe-data" : "explain-code";
-      exp.title = tabular ? "Schema + notable observations (local model)" : "What this does, with safety callouts (local model)";
+      exp.textContent = tabular || image ? "Describe" : "Explain";
+      exp.dataset.intent = image ? "describe-image" : tabular ? "describe-data" : "explain-code";
+      exp.title = image ? "What the image shows, read by the local vision model; it never leaves this Mac" : tabular ? "Schema + notable observations (local model)" : "What this does, with safety callouts (local model)";
       const ready = av.kind === "ready";
       const chip = document.getElementById("fe-ql-ai-chip");
       chip.className = ready ? av.cold ? "cold" : "ready" : "down";
@@ -11293,9 +11297,15 @@ ${end.comment}` : end.comment;
   }
   var aiChat = { href: "", id: "" };
   var AI_ASKED = { summarize: "Summarize", explain: "Explain", describe: "Describe" };
+  var IMAGE_ASKED = { summarize: "Summarize what this image shows in a few lines.", "describe-image": "Describe this image in detail, with any text in it verbatim." };
   function runAi(intent, question) {
-    if (currentText === null || !currentEntry) return;
+    if (currentText === null && !currentImage || !currentEntry) return;
     const entry = currentEntry;
+    const image = currentImage;
+    if (image) {
+      question = question || IMAGE_ASKED[intent] || IMAGE_ASKED["describe-image"];
+      intent = "qa";
+    }
     if (aiChat.href !== entry.href) aiChat = { href: entry.href, id: "pv-" + Date.now().toString(36) };
     aiCancel?.();
     const seq2 = ++aiSeq;
@@ -11306,8 +11316,11 @@ ${end.comment}` : end.comment;
     meta.textContent = "Thinking\u2026";
     let full = "";
     aiCancel = llmQuery(
-      { ctx: currentText, ctxName: currentEntry.name, intent, question, model: deps.aiModel?.() },
+      { ctx: image ? "" : currentText ?? "", ctxName: currentEntry.name, intent, question, model: deps.aiModel?.(), files: image ? [image] : void 0 },
       {
+        onStep: (t) => {
+          if (seq2 === aiSeq) meta.textContent = t + "\u2026";
+        },
         onChunk: (t) => {
           if (seq2 !== aiSeq) return;
           full += t;
@@ -11317,12 +11330,12 @@ ${end.comment}` : end.comment;
           if (seq2 !== aiSeq) return;
           aiCancel = null;
           body.innerHTML = renderMarkdown(full);
+          const turn = { q: question || AI_ASKED[intent] || intent, a: full, model: info.model, ms: info.ms, at: Date.now(), tokensIn: info.tokensIn, tokensOut: info.tokensOut };
           try {
-            const path = decodeURIComponent(new URL(entry.href).pathname);
-            addTurn(path, aiChat.id, { q: question || AI_ASKED[intent] || intent, a: full, model: info.model, ms: info.ms, at: Date.now() });
+            addTurn(decodeURIComponent(new URL(entry.href).pathname), aiChat.id, turn);
           } catch {
           }
-          meta.textContent = `${info.model} \xB7 ${(info.ms / 1e3).toFixed(1)}s` + (info.truncated ? " \xB7 input truncated to fit the model" : "");
+          meta.textContent = turnMeta(turn, info.truncated);
         },
         onError: (code, message) => {
           if (seq2 !== aiSeq) return;
@@ -11780,12 +11793,15 @@ ${end.comment}` : end.comment;
     dsvRows = [];
     dsvSort = null;
     currentText = null;
+    currentImage = null;
     resetAiUi();
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.disabled = true;
     if (IMG_EXTS.has(ext2) || PDF_EXTS.has(ext2) || VIDEO_EXTS.has(ext2) || AUDIO_EXTS.has(ext2) || FONT_EXTS.has(ext2)) {
       copyBtn.style.display = "none";
       if (IMG_EXTS.has(ext2)) {
+        currentImage = decodeURIComponent(new URL(e.href, location.href).pathname);
+        setupAi(e, "image");
         body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
         mountImageTools(body.querySelector(".fe-ql-imgwrap"), {
           href: e.href,
@@ -13325,7 +13341,17 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-ask-think summary svg{width:var(--row-ic);height:var(--row-ic)}
 .fe-ask-think-n{margin-left:auto;font-variant-numeric:tabular-nums}
 .fe-ask-think > .fe-md{max-height:30em;overflow:auto;margin-top:var(--sp-3);font-size:var(--fs-sm)}
-.fe-ask-qmenu{min-width:240px;max-width:320px}
+.fe-ask-files{display:flex;flex-wrap:wrap;gap:var(--sp-2);padding-bottom:var(--sp-3)}
+.fe-ask-files[hidden]{display:none}
+.fe-ask-qfiles{display:flex;flex-wrap:wrap;gap:var(--sp-2);justify-content:flex-end}
+.fe-ask-file{max-width:100%;min-width:0}
+.fe-ask-file > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-ask-file svg{flex:none}
+.fe-ask-box.drop{outline:2px dashed var(--ac);outline-offset:-2px}
+.fe-ask-via{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm);color:var(--dm)}
+.fe-ask-via svg,.fe-ask-step svg{flex:none;width:var(--row-ic);height:var(--row-ic)}
+.fe-ask-step{display:flex;align-items:center;gap:var(--sp-3);color:var(--dm);font-size:var(--fs-sm)}
+.fe-ask-qmenu{min-width:240px;max-width:320px;max-height:60vh;overflow:auto}
 .fe-ask-qmenu-h{padding:var(--sp-2) var(--row-px);font-size:var(--fs-xs);color:var(--dm)}
 .fe-ask-qmenu-t{display:flex;flex-direction:column;min-width:0}
 .fe-ask-qmenu-s{font-size:var(--fs-xs);color:var(--dm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -21238,6 +21264,21 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     handoffPref.set(null);
     return now - h.at <= HANDOFF_TTL ? h : null;
   }
+  function resolveMention(text, opts) {
+    const m = /^@(\S+)\s+([\s\S]*\S)/.exec(text.trim());
+    if (!m) return null;
+    const want = m[1].toLowerCase();
+    const gem = opts.filter((o) => o.value.startsWith("gemini:"));
+    const hit = opts.find((o) => o.value && o.value.toLowerCase() === want) ?? gem.find((o) => o.value.slice(7).toLowerCase() === want) ?? (want === "gemini" ? gem.find((o) => /\(default\)/.test(o.label)) ?? gem[0] : void 0);
+    return hit ? { model: hit.value, label: hit.label.replace(/ \(default\)$/, ""), question: m[2] } : null;
+  }
+  function secondOpinion(question, answer) {
+    return `Another model answered the question "${question}" as below. Check that answer against the context: say plainly what is wrong or missing, then give a better answer.
+
+Their answer:
+${answer}`;
+  }
+  var isImageName = (name) => /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(name);
   function closeOpenFence(text) {
     const fences = text.match(/^\s*```/gm)?.length ?? 0;
     return fences % 2 ? text + "\n```" : text;
@@ -21353,8 +21394,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join("")}</div></div>
     <div class="fe-ask-form">
       <div class="fe-ask-box">
-        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
+        <div class="fe-ask-files" id="fe-ask-files" hidden></div>
+        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line; start with @code or @gemini to ask that model"></textarea>
         <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(key)}">${app.fileMode ? UI_ICON.file ?? "" : ""}<span>${esc(subject)}</span></span>
+          <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-attach" title="Attach files from this folder, or drop a file here" aria-label="Attach files">${UI_ICON.attach}</button>
           <button type="button" class="btn fe-ask-send" data-icon data-variant="solid" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? "\u2191"}</button></div>
       </div>
     </div>`;
@@ -21384,6 +21427,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let localReady = false;
     let chatId = "";
     let turns = [];
+    let attached = [];
     const model = () => pick2.value || app.settings.aiModel || "";
     const isCloud = () => model().startsWith("gemini:");
     let defaultName = "";
@@ -21430,13 +21474,16 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 ${rows.join("\n")}`, name: subject };
     }
     const answers = /* @__PURE__ */ new WeakMap();
-    const turnEl = (question) => {
+    const nameOf3 = (p) => p.split("/").filter(Boolean).pop() ?? p;
+    const fileChip = (p, remove = false) => `<span class="chip fe-ask-file" data-size="sm" title="${esc(p)}">${isImageName(p) ? UI_ICON.image : UI_ICON.file}<span>${esc(nameOf3(p))}</span>${remove ? `<button type="button" class="btn" data-icon data-size="xs" data-unattach="${esc(p)}" title="Remove" aria-label="Remove ${esc(nameOf3(p))}">${UI_ICON.close}</button>` : ""}</span>`;
+    const turnEl = (question, files = [], via = "") => {
       const turn = document.createElement("div");
       turn.className = "fe-ask-turn";
-      turn.innerHTML = `<div class="fe-ask-q">${esc(question)}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking\u2026</span></div>
+      turn.innerHTML = `${via ? `<div class="fe-ask-via">${UI_ICON.opinion}<span>${esc(via)}</span></div>` : `<div class="fe-ask-q">${esc(question)}</div>`}${files.length ? `<div class="fe-ask-qfiles">${files.map((f) => fileChip(f)).join("")}</div>` : ""}<div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking\u2026</span></div>
       <div class="fe-ask-foot2"><span class="fe-ask-meta"></span><span class="fe-ask-acts">
         <button type="button" class="btn" data-icon data-size="xs" data-act="copy" title="Copy this answer">${UI_ICON.copy}</button>
-        <button type="button" class="btn" data-icon data-size="xs" data-act="quote" title="Quote this answer into a chat (q)">${UI_ICON.quote}</button></span></div>`;
+        <button type="button" class="btn" data-icon data-size="xs" data-act="quote" title="Quote this answer into a chat (q)">${UI_ICON.quote}</button>
+        <button type="button" class="btn" data-icon data-size="xs" data-act="other" title="Ask another model to check this answer">${UI_ICON.opinion}</button></span></div>`;
       thread.appendChild(turn);
       syncEmpty();
       return turn;
@@ -21477,7 +21524,7 @@ ${rows.join("\n")}`, name: subject };
       turns = c.turns.slice();
       clearThread();
       for (const t of turns) {
-        const el2 = turnEl(t.q);
+        const el2 = turnEl(t.q, t.files, t.via);
         asks.set(el2, { intent: t.intent ?? "qa", question: t.intent && t.intent !== "qa" ? void 0 : t.q });
         if (t.error) {
           paintError(el2, t.error, "");
@@ -21511,12 +21558,14 @@ ${rows.join("\n")}`, name: subject };
       if (histLayer.open) histBtn.classList.add("on");
       else hist.hidden = true;
     };
-    async function ask(intent, question) {
-      if (go2.disabled) return;
+    async function ask(intent, question, o = {}) {
+      if (go2.disabled && !o.model) return;
       cancel?.();
-      const shown = question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain");
-      const turn = turnEl(shown);
-      asks.set(turn, { intent, question });
+      const shown = o.shown ?? question ?? (intent === "folder" ? "What is in here?" : intent === "summarize" ? "Summarize" : "Explain");
+      const files = attached.slice();
+      const useModel = o.model ?? model();
+      const turn = turnEl(shown, attached, o.via);
+      asks.set(turn, { intent, question, ...o });
       turn.scrollIntoView({ block: "end" });
       const out = turn.querySelector(".fe-ask-a");
       const meta = turn.querySelector(".fe-ask-meta");
@@ -21527,7 +21576,15 @@ ${rows.join("\n")}`, name: subject };
         addTurn(key, chatId, t);
         syncHistN();
       };
-      const base = { q: shown, model: modelName(), at: started, ...intent === "qa" ? {} : { intent } };
+      const base = {
+        q: shown,
+        model: useModel.replace(/^gemini:/, "") || modelName(),
+        at: started,
+        ...intent === "qa" ? {} : { intent },
+        ...attached.length ? { files: attached.slice() } : {},
+        ...o.via ? { via: o.via } : {}
+      };
+      const steps = [];
       let c;
       try {
         c = await context();
@@ -21568,12 +21625,18 @@ ${rows.join("\n")}`, name: subject };
           ctxName: c.name,
           // The host knows summarize, explain-code and qa; a folder question is a qa.
           intent: intent === "explain" ? "explain-code" : intent === "summarize" ? "summarize" : "qa",
-          question: asked && intent === "qa" ? withHistory(turns.filter((t) => !t.error), asked) : asked,
-          model: model() || void 0,
+          question: asked && intent === "qa" ? withHistory(turns.filter((t) => !t.error && !t.via), asked) : asked,
+          model: useModel || void 0,
           // lm gemini's own default; a local model keeps the shorter one.
-          timeout: isCloud() ? 300 : void 0
+          timeout: useModel.startsWith("gemini:") ? 300 : void 0,
+          files: files.length ? files : void 0
         },
         {
+          // Reading an image takes a while; each one shows as a step until the answer starts.
+          onStep: (s) => {
+            steps.push(s);
+            if (!full) out.innerHTML = steps.map((x) => `<div class="fe-ask-step">${UI_ICON.image}<span>${esc(x)}\u2026</span></div>`).join("");
+          },
           // At most one paint per frame, however fast the text arrives.
           onChunk: (t) => {
             full += t;
@@ -21586,6 +21649,9 @@ ${rows.join("\n")}`, name: subject };
             over = true;
             done();
             paint(turn, full, true);
+            const read2 = steps.map((s) => esc(s.replace(/^Reading/, "Read")));
+            if (read2.length === 1) out.insertAdjacentHTML("afterbegin", `<div class="fe-ask-step fe-ask-work">${UI_ICON.image}<span>${read2[0]}</span></div>`);
+            else if (read2.length) out.insertAdjacentHTML("afterbegin", `<details class="fe-ask-think fe-ask-work"><summary>${UI_ICON.image}<span>Read ${read2.length} images</span></summary><div class="fe-md">${read2.map((s) => `<p>${s}</p>`).join("")}</div></details>`);
             const t = { ...base, a: full, model: info.model || base.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut };
             meta.textContent = turnMeta(t, info.truncated);
             save(t);
@@ -21673,12 +21739,106 @@ ${rows.join("\n")}`, name: subject };
       const turn = btn.closest(".fe-ask-turn");
       if (btn.dataset.act === "retry") {
         const a = turn && asks.get(turn);
-        if (a) void ask(a.intent, a.question);
+        if (a) void ask(a.intent, a.question, a);
+        return;
+      }
+      if (btn.dataset.act === "other" && turn) {
+        askOther(turn, btn);
         return;
       }
       const text = selected() || (inBar ? hoverBlock ? blockText(hoverBlock) : "" : turn ? answers.get(turn) ?? "" : "");
       if (btn.dataset.act === "copy") copyText(text);
       else quote(text, btn);
+    });
+    const modelOpts = () => {
+      try {
+        return JSON.parse(pick2.dataset.opts || "[]");
+      } catch {
+        return [];
+      }
+    };
+    const menuOf = (anchor, head, rows, onPick, keepOpen = false) => {
+      const menu = document.createElement("div");
+      menu.className = "fe-ctx fe-ask-qmenu";
+      menu.innerHTML = `<div class="fe-ask-qmenu-h">${esc(head)}</div>` + rows.map((r, i3) => `<div class="row fe-ctx-item" data-i="${i3}">${r.icon}<span class="fe-ask-qmenu-t"><span>${esc(r.label)}</span>${r.sub ? `<span class="fe-ask-qmenu-s">${esc(r.sub)}</span>` : ""}</span></div>`).join("");
+      let layer = null;
+      menu.addEventListener("click", (e) => {
+        const row2 = e.target.closest(".fe-ctx-item");
+        if (!row2) return;
+        if (!keepOpen) layer?.close("pick");
+        onPick(Number(row2.dataset.i));
+        if (keepOpen) row2.classList.toggle("on");
+      });
+      layer = openLayer(menu, { kind: "popover", anchor, align: "end", role: "menu", label: head });
+      return menu;
+    };
+    const askOther = (turn, anchor) => {
+      const answer = answers.get(turn) ?? "";
+      const asked = asks.get(turn);
+      if (!answer || !asked) return;
+      const opts = modelOpts().filter((o) => o.value);
+      menuOf(anchor, "Ask another model to check this", opts.map((o) => ({ label: o.label, icon: o.value.startsWith("gemini:") ? UI_ICON.info : UI_ICON.ai })), (i3) => {
+        const o = opts[i3];
+        const label = o.label.replace(/ \(default\)$/, "");
+        void ask("qa", secondOpinion(asked.question ?? asked.shown ?? "", answer), { model: o.value, shown: `Second opinion from ${label}`, via: `Second opinion from ${label}` });
+      });
+    };
+    const filesBox = el("fe-ask-files");
+    const paintFiles = () => {
+      filesBox.hidden = !attached.length;
+      filesBox.innerHTML = attached.map((p) => fileChip(p, true)).join("");
+    };
+    const attach = (p) => {
+      if (!attached.includes(p)) {
+        attached.push(p);
+        paintFiles();
+      }
+    };
+    filesBox.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-unattach]");
+      if (b) {
+        attached = attached.filter((p) => p !== b.dataset.unattach);
+        paintFiles();
+        q.focus();
+      }
+    });
+    el("fe-ask-attach").addEventListener("click", async (e) => {
+      const anchor = e.currentTarget;
+      const dir = app.folderPath.replace(/\/?$/, "/");
+      let entries = [];
+      try {
+        entries = (await listDir(fileHref(dir))).filter((x) => !x.isDir && !x.isParent && !x.name.startsWith(".") && dir + x.name !== app.rawPath);
+      } catch {
+        app.toast("Could not list this folder");
+        return;
+      }
+      if (!entries.length) {
+        app.toast("No other files in this folder");
+        return;
+      }
+      const menu = menuOf(anchor, "Attach from this folder", entries.slice(0, 60).map((x) => ({ label: x.name, icon: isImageName(x.name) ? UI_ICON.image : UI_ICON.file })), (i3) => {
+        const p = dir + entries[i3].name;
+        if (attached.includes(p)) {
+          attached = attached.filter((x) => x !== p);
+          paintFiles();
+        } else attach(p);
+      }, true);
+      menu.querySelectorAll(".fe-ctx-item").forEach((r, i3) => r.classList.toggle("on", attached.includes(dir + entries[i3].name)));
+    });
+    const formBox = box.querySelector(".fe-ask-box");
+    formBox.addEventListener("dragover", (e) => {
+      if (e.dataTransfer?.types.includes("text/uri-list")) {
+        e.preventDefault();
+        formBox.classList.add("drop");
+      }
+    });
+    formBox.addEventListener("dragleave", () => formBox.classList.remove("drop"));
+    formBox.addEventListener("drop", (e) => {
+      formBox.classList.remove("drop");
+      const uris = (e.dataTransfer?.getData("text/uri-list") ?? "").split(/\r?\n/).filter((u) => u.startsWith("file://"));
+      if (!uris.length) return;
+      e.preventDefault();
+      for (const u of uris) attach(decodeURIComponent(new URL(u).pathname));
     });
     bind(
       "ask-quote",
@@ -21728,7 +21888,9 @@ ${rows.join("\n")}`, name: subject };
       }
       q.value = "";
       grow();
-      void ask("qa", text);
+      const at = resolveMention(text, modelOpts());
+      if (at) void ask("qa", at.question, { model: at.model, shown: text });
+      else void ask("qa", text);
     });
     q.addEventListener("keydown", (e) => {
       e.stopPropagation();

@@ -14,7 +14,7 @@ import { icoFile } from './icons';
 import { llmAvailability, llmModels, llmQuery, LLM_ERROR_TEXT } from './llm';
 import { addTurn, allChats, chatsFor, chatsUnder, deleteChat, turnMeta, withHistory, type AskChat, type AskTurn } from './ask-history';
 import { addPaletteSource, bind } from './commands';
-import { closeOpenFence, quoteMarkdown, quoteTargets, sendQuote, splitThinking, takeQuote } from './ask-quote';
+import { closeOpenFence, isImageName, quoteMarkdown, quoteTargets, resolveMention, secondOpinion, sendQuote, splitThinking, takeQuote, type ModelOpt } from './ask-quote';
 import { openLayer, type Layer } from './layer';
 import { textPref } from './storage';
 import { UI_ICON } from './control-icons';
@@ -122,8 +122,10 @@ function initAsk(app: App): void {
     <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join('')}</div></div>
     <div class="fe-ask-form">
       <div class="fe-ask-box">
-        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
+        <div class="fe-ask-files" id="fe-ask-files" hidden></div>
+        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line; start with @code or @gemini to ask that model"></textarea>
         <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(key)}">${app.fileMode ? UI_ICON.file ?? '' : ''}<span>${esc(subject)}</span></span>
+          <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-attach" title="Attach files from this folder, or drop a file here" aria-label="Attach files">${UI_ICON.attach}</button>
           <button type="button" class="btn fe-ask-send" data-icon data-variant="solid" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? '↑'}</button></div>
       </div>
     </div>`;
@@ -149,6 +151,8 @@ function initAsk(app: App): void {
   let localReady = false;
   let chatId = '';
   let turns: AskTurn[] = [];
+  // Files sent with every question until removed, as full paths.
+  let attached: string[] = [];
 
   const model = () => pick.value || app.settings.aiModel || '';
   const isCloud = () => model().startsWith('gemini:');
@@ -197,13 +201,16 @@ function initAsk(app: App): void {
 
   // What each turn's answer said, for its Copy and Quote buttons.
   const answers = new WeakMap<HTMLElement, string>();
-  const turnEl = (question: string) => {
+  const nameOf = (p: string) => p.split('/').filter(Boolean).pop() ?? p;
+  const fileChip = (p: string, remove = false) => `<span class="chip fe-ask-file" data-size="sm" title="${esc(p)}">${isImageName(p) ? UI_ICON.image : UI_ICON.file}<span>${esc(nameOf(p))}</span>${remove ? `<button type="button" class="btn" data-icon data-size="xs" data-unattach="${esc(p)}" title="Remove" aria-label="Remove ${esc(nameOf(p))}">${UI_ICON.close}</button>` : ''}</span>`;
+  const turnEl = (question: string, files: string[] = [], via = '') => {
     const turn = document.createElement('div');
     turn.className = 'fe-ask-turn';
-    turn.innerHTML = `<div class="fe-ask-q">${esc(question)}</div><div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking…</span></div>
+    turn.innerHTML = `${via ? `<div class="fe-ask-via">${UI_ICON.opinion}<span>${esc(via)}</span></div>` : `<div class="fe-ask-q">${esc(question)}</div>`}${files.length ? `<div class="fe-ask-qfiles">${files.map(f => fileChip(f)).join('')}</div>` : ''}<div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking…</span></div>
       <div class="fe-ask-foot2"><span class="fe-ask-meta"></span><span class="fe-ask-acts">
         <button type="button" class="btn" data-icon data-size="xs" data-act="copy" title="Copy this answer">${UI_ICON.copy}</button>
-        <button type="button" class="btn" data-icon data-size="xs" data-act="quote" title="Quote this answer into a chat (q)">${UI_ICON.quote}</button></span></div>`;
+        <button type="button" class="btn" data-icon data-size="xs" data-act="quote" title="Quote this answer into a chat (q)">${UI_ICON.quote}</button>
+        <button type="button" class="btn" data-icon data-size="xs" data-act="other" title="Ask another model to check this answer">${UI_ICON.opinion}</button></span></div>`;
     thread.appendChild(turn);
     syncEmpty();
     return turn;
@@ -222,7 +229,7 @@ function initAsk(app: App): void {
     if (was) out.querySelector<HTMLDetailsElement>('.fe-ask-think')!.open = true;
   };
   // A turn that failed says why in plain words and offers to ask again.
-  const asks = new WeakMap<HTMLElement, { intent: string; question?: string }>();
+  const asks = new WeakMap<HTMLElement, { intent: string; question?: string; model?: string; shown?: string; via?: string }>();
   const paintError = (turn: HTMLElement, code: string, message: string) => {
     turn.querySelector('.fe-ask-a')!.innerHTML = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(LLM_ERROR_TEXT[code] ?? (message || 'The model did not answer.'))}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">Retry</button></div>`;
     turn.querySelector('.fe-ask-meta')!.textContent = '';
@@ -238,7 +245,7 @@ function initAsk(app: App): void {
     chatId = c.id; turns = c.turns.slice();
     clearThread();
     for (const t of turns) {
-      const el = turnEl(t.q);
+      const el = turnEl(t.q, t.files, t.via);
       asks.set(el, { intent: t.intent ?? 'qa', question: t.intent && t.intent !== 'qa' ? undefined : t.q });
       if (t.error) { paintError(el, t.error, ''); continue; }
       paint(el, t.a, true);
@@ -263,12 +270,18 @@ function initAsk(app: App): void {
     if (histLayer.open) histBtn.classList.add('on'); else hist.hidden = true;
   };
 
-  async function ask(intent: string, question?: string): Promise<void> {
-    if (go.disabled) return;
+  // One turn's own choices: a model other than the picker's (from @name or a
+  // second opinion), the text shown in place of the question, and a label
+  // saying which answer a second opinion checks.
+  interface TurnOpts { model?: string; shown?: string; via?: string }
+  async function ask(intent: string, question?: string, o: TurnOpts = {}): Promise<void> {
+    if (go.disabled && !o.model) return;
     cancel?.();
-    const shown = question ?? (intent === 'folder' ? 'What is in here?' : intent === 'summarize' ? 'Summarize' : 'Explain');
-    const turn = turnEl(shown);
-    asks.set(turn, { intent, question });
+    const shown = o.shown ?? question ?? (intent === 'folder' ? 'What is in here?' : intent === 'summarize' ? 'Summarize' : 'Explain');
+    const files = attached.slice();
+    const useModel = o.model ?? model();
+    const turn = turnEl(shown, attached, o.via);
+    asks.set(turn, { intent, question, ...o });
     turn.scrollIntoView({ block: 'end' });
     const out = turn.querySelector<HTMLElement>('.fe-ask-a')!;
     const meta = turn.querySelector<HTMLElement>('.fe-ask-meta')!;
@@ -279,7 +292,9 @@ function initAsk(app: App): void {
       addTurn(key, chatId, t);
       syncHistN();
     };
-    const base = { q: shown, model: modelName(), at: started, ...(intent === 'qa' ? {} : { intent }) };
+    const base: Omit<AskTurn, 'a' | 'ms'> = { q: shown, model: useModel.replace(/^gemini:/, '') || modelName(), at: started,
+      ...(intent === 'qa' ? {} : { intent }), ...(attached.length ? { files: attached.slice() } : {}), ...(o.via ? { via: o.via } : {}) };
+    const steps: string[] = [];
     let c: { ctx: string; name: string };
     try { c = await context(); }
     catch { paintError(turn, 'unreadable', 'Could not read this to send it.'); return; }
@@ -305,17 +320,23 @@ function initAsk(app: App): void {
         ctx: c.ctx, ctxName: c.name,
         // The host knows summarize, explain-code and qa; a folder question is a qa.
         intent: intent === 'explain' ? 'explain-code' : intent === 'summarize' ? 'summarize' : 'qa',
-        question: asked && intent === 'qa' ? withHistory(turns.filter(t => !t.error), asked) : asked,
-        model: model() || undefined,
+        question: asked && intent === 'qa' ? withHistory(turns.filter(t => !t.error && !t.via), asked) : asked,
+        model: useModel || undefined,
         // lm gemini's own default; a local model keeps the shorter one.
-        timeout: isCloud() ? 300 : undefined,
+        timeout: useModel.startsWith('gemini:') ? 300 : undefined,
+        files: files.length ? files : undefined,
       },
       {
+        // Reading an image takes a while; each one shows as a step until the answer starts.
+        onStep: s => { steps.push(s); if (!full) out.innerHTML = steps.map(x => `<div class="fe-ask-step">${UI_ICON.image}<span>${esc(x)}…</span></div>`).join(''); },
         // At most one paint per frame, however fast the text arrives.
         onChunk: t => { full += t; frame ||= requestAnimationFrame(() => { frame = 0; paint(turn, full, false); }); },
         onDone: info => {
           over = true; done();
           paint(turn, full, true);
+          const read = steps.map(s => esc(s.replace(/^Reading/, 'Read')));
+          if (read.length === 1) out.insertAdjacentHTML('afterbegin', `<div class="fe-ask-step fe-ask-work">${UI_ICON.image}<span>${read[0]}</span></div>`);
+          else if (read.length) out.insertAdjacentHTML('afterbegin', `<details class="fe-ask-think fe-ask-work"><summary>${UI_ICON.image}<span>Read ${read.length} images</span></summary><div class="fe-md">${read.map(s => `<p>${s}</p>`).join('')}</div></details>`);
           const t: AskTurn = { ...base, a: full, model: info.model || base.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut };
           meta.textContent = turnMeta(t, info.truncated);
           save(t);
@@ -387,11 +408,78 @@ function initAsk(app: App): void {
     if (!btn) return;
     const inBar = blkBar.contains(btn);
     const turn = btn.closest<HTMLElement>('.fe-ask-turn');
-    if (btn.dataset.act === 'retry') { const a = turn && asks.get(turn); if (a) void ask(a.intent, a.question); return; }
+    if (btn.dataset.act === 'retry') { const a = turn && asks.get(turn); if (a) void ask(a.intent, a.question, a); return; }
+    if (btn.dataset.act === 'other' && turn) { askOther(turn, btn); return; }
     const text = selected() || (inBar ? (hoverBlock ? blockText(hoverBlock) : '') : turn ? answers.get(turn) ?? '' : '');
     if (btn.dataset.act === 'copy') copyText(text);
     else quote(text, btn);
   });
+  // The models the picker offers, for @name and for a second opinion.
+  const modelOpts = (): ModelOpt[] => { try { return JSON.parse(pick.dataset.opts || '[]'); } catch { return []; } };
+  const menuOf = (anchor: HTMLElement, head: string, rows: { label: string; sub?: string; icon: string }[], onPick: (i: number) => void, keepOpen = false) => {
+    const menu = document.createElement('div');
+    menu.className = 'fe-ctx fe-ask-qmenu';
+    menu.innerHTML = `<div class="fe-ask-qmenu-h">${esc(head)}</div>` + rows.map((r, i) => `<div class="row fe-ctx-item" data-i="${i}">${r.icon}<span class="fe-ask-qmenu-t"><span>${esc(r.label)}</span>${r.sub ? `<span class="fe-ask-qmenu-s">${esc(r.sub)}</span>` : ''}</span></div>`).join('');
+    let layer: Layer | null = null;
+    menu.addEventListener('click', e => {
+      const row = (e.target as Element).closest<HTMLElement>('.fe-ctx-item');
+      if (!row) return;
+      if (!keepOpen) layer?.close('pick');
+      onPick(Number(row.dataset.i));
+      if (keepOpen) row.classList.toggle('on');
+    });
+    layer = openLayer(menu, { kind: 'popover', anchor, align: 'end', role: 'menu', label: head });
+    return menu;
+  };
+  // Another model checks an answer; its reply lands as a new turn.
+  const askOther = (turn: HTMLElement, anchor: HTMLElement) => {
+    const answer = answers.get(turn) ?? '';
+    const asked = asks.get(turn);
+    if (!answer || !asked) return;
+    const opts = modelOpts().filter(o => o.value);
+    menuOf(anchor, 'Ask another model to check this', opts.map(o => ({ label: o.label, icon: o.value.startsWith('gemini:') ? UI_ICON.info : UI_ICON.ai })), i => {
+      const o = opts[i];
+      const label = o.label.replace(/ \(default\)$/, '');
+      void ask('qa', secondOpinion(asked.question ?? asked.shown ?? '', answer), { model: o.value, shown: `Second opinion from ${label}`, via: `Second opinion from ${label}` });
+    });
+  };
+
+  // Attachments: chips above the box, from the attach menu or a dropped file link.
+  const filesBox = el('fe-ask-files');
+  const paintFiles = () => {
+    filesBox.hidden = !attached.length;
+    filesBox.innerHTML = attached.map(p => fileChip(p, true)).join('');
+  };
+  const attach = (p: string) => { if (!attached.includes(p)) { attached.push(p); paintFiles(); } };
+  filesBox.addEventListener('click', e => {
+    const b = (e.target as Element).closest<HTMLElement>('[data-unattach]');
+    if (b) { attached = attached.filter(p => p !== b.dataset.unattach); paintFiles(); q.focus(); }
+  });
+  el('fe-ask-attach').addEventListener('click', async e => {
+    const anchor = e.currentTarget as HTMLElement;
+    const dir = app.folderPath.replace(/\/?$/, '/');
+    let entries: Entry[] = [];
+    try { entries = (await listDir(fileHref(dir))).filter(x => !x.isDir && !x.isParent && !x.name.startsWith('.') && dir + x.name !== app.rawPath); }
+    catch { app.toast('Could not list this folder'); return; }
+    if (!entries.length) { app.toast('No other files in this folder'); return; }
+    const menu = menuOf(anchor, 'Attach from this folder', entries.slice(0, 60).map(x => ({ label: x.name, icon: isImageName(x.name) ? UI_ICON.image : UI_ICON.file })), i => {
+      const p = dir + entries[i].name;
+      if (attached.includes(p)) { attached = attached.filter(x => x !== p); paintFiles(); } else attach(p);
+    }, true);
+    menu.querySelectorAll<HTMLElement>('.fe-ctx-item').forEach((r, i) => r.classList.toggle('on', attached.includes(dir + entries[i].name)));
+  });
+  // A file link dragged from the listing, the sidebar or a tab carries its file:// address.
+  const formBox = box.querySelector<HTMLElement>('.fe-ask-box')!;
+  formBox.addEventListener('dragover', e => { if (e.dataTransfer?.types.includes('text/uri-list')) { e.preventDefault(); formBox.classList.add('drop'); } });
+  formBox.addEventListener('dragleave', () => formBox.classList.remove('drop'));
+  formBox.addEventListener('drop', e => {
+    formBox.classList.remove('drop');
+    const uris = (e.dataTransfer?.getData('text/uri-list') ?? '').split(/\r?\n/).filter(u => u.startsWith('file://'));
+    if (!uris.length) return;
+    e.preventDefault();
+    for (const u of uris) attach(decodeURIComponent(new URL(u).pathname));
+  });
+
   bind('ask-quote', () => quote(selected() || (hoverBlock ? blockText(hoverBlock) : hoverTurn ? answers.get(hoverTurn) ?? '' : ''), null),
     () => !!selected() || !!hoverBlock || !!hoverTurn);
 
@@ -415,7 +503,10 @@ function initAsk(app: App): void {
     const text = q.value.trim();
     if (!text) { q.focus(); return; }
     q.value = ''; grow();
-    void ask('qa', text);
+    // "@code why…" asks that model this once; the picker stays as it was.
+    const at = resolveMention(text, modelOpts());
+    if (at) void ask('qa', at.question, { model: at.model, shown: text });
+    else void ask('qa', text);
   });
   q.addEventListener('keydown', e => {
     e.stopPropagation();

@@ -57,7 +57,7 @@ function installLlmHost(profile) {
 import json, sys
 args = sys.argv[1:]
 stdin = sys.stdin.read() if args[:1] == ['q'] or (args[:1] == ['gemini'] and '--json' in args) else ''
-open(${JSON.stringify(log)}, 'a').write(json.dumps({'args': args, 'stdin': stdin[:200]}) + '\\n')
+open(${JSON.stringify(log)}, 'a').write(json.dumps({'args': args, 'stdin': stdin[:4000]}) + '\\n')
 if args[:2] == ['status', '--json']:
     print(json.dumps({'api_version': 1, 'server': 'up', 'default_model': 'gemma4-e4b-warm', 'warm': True, 'latency_class': 'warm'}))
 elif args[:2] == ['models', '--json']:
@@ -85,9 +85,18 @@ elif args[:1] == ['q']:
     print(json.dumps({'t': 'done', 'model': model, 'ms': 1234, 'truncated': False, 'tokens_in': 1204, 'tokens_out': 388}))
 `, { mode: 0o755 });
   const hostPath = join(profile, 'llm_host_launcher.py');
+  // A stand-in for `see`, the local vision reader, logged like lm.
+  const fakeSee = join(profile, 'fake_see.py');
+  writeFileSync(fakeSee, `#!/usr/bin/env python3
+import json, sys
+args = sys.argv[1:]
+open(${JSON.stringify(log)}, 'a').write(json.dumps({'args': ['see', *args], 'stdin': ''}) + '\\n')
+print(json.dumps({'ok': True, 'text': 'A screenshot with a blue Save button.', 'model': 'minicpm-v4.6', 'ms': 30}))
+`, { mode: 0o755 });
   writeFileSync(hostPath, `#!/usr/bin/env python3
 import os, runpy
 os.environ['BFB_LM_BIN'] = ${JSON.stringify(fake)}
+os.environ['BFB_SEE_BIN'] = ${JSON.stringify(fakeSee)}
 runpy.run_path(${JSON.stringify(join(ROOT, 'native', 'llm_host.py'))}, run_name='__main__')
 `, { mode: 0o755 });
   writeFileSync(join(dir, 'com.better_file_browser.llm.json'), JSON.stringify({

@@ -59,6 +59,31 @@ export function takeQuote(subject: string, now = Date.now()): QuoteHandoff | nul
   return now - h.at <= HANDOFF_TTL ? h : null;
 }
 
+/** A model the picker offers, as Ask's dropdown holds it. */
+export interface ModelOpt { value: string; label: string }
+
+/** A question that starts with `@name` goes to that model for this one turn.
+ *  The name is a picker value (`code`, `gemini:gemini-4-argon`), a Gemini
+ *  model's bare name, or `gemini` for the default Gemini model. */
+export function resolveMention(text: string, opts: ModelOpt[]): { model: string; label: string; question: string } | null {
+  const m = /^@(\S+)\s+([\s\S]*\S)/.exec(text.trim());
+  if (!m) return null;
+  const want = m[1].toLowerCase();
+  const gem = opts.filter(o => o.value.startsWith('gemini:'));
+  const hit = opts.find(o => o.value && o.value.toLowerCase() === want)
+    ?? gem.find(o => o.value.slice(7).toLowerCase() === want)
+    ?? (want === 'gemini' ? gem.find(o => /\(default\)/.test(o.label)) ?? gem[0] : undefined);
+  return hit ? { model: hit.value, label: hit.label.replace(/ \(default\)$/, ''), question: m[2] } : null;
+}
+
+/** What a second model is asked when it checks another model's answer. */
+export function secondOpinion(question: string, answer: string): string {
+  return `Another model answered the question "${question}" as below. Check that answer against the context: say plainly what is wrong or missing, then give a better answer.\n\nTheir answer:\n${answer}`;
+}
+
+/** Whether a file is an image the local vision model reads. */
+export const isImageName = (name: string) => /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(name);
+
 /** Text that is still arriving, made safe to draw as markdown: an open code
  *  fence is closed, so a half-written block shows as code and not as prose. */
 export function closeOpenFence(text: string): string {

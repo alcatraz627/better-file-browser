@@ -25,7 +25,7 @@ import {
   attachBuffer, moveLines, duplicateLines, indentLines, continueList, wrapSelection, tableSnippet, type TextEdit,
 } from './editor';
 import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
-import { addTurn } from './ask-history';
+import { addTurn, turnMeta } from './ask-history';
 import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
 import { errorText } from './errors';
@@ -96,6 +96,8 @@ let overlay: HTMLElement;
 let layout: PreviewLayout = { mode: 'modal' };   // read in initPreview, once settings have loaded
 let currentEntry: Entry | null = null;
 let currentText: string | null = null;   // raw fetched contents, for copy
+// An image's path when one is shown; Ask sends it to the local vision model.
+let currentImage: string | null = null;
 let reqSeq = 0;
 
 // Table-sort state for the currently previewed .tsv/.csv
@@ -328,11 +330,12 @@ function setupAi(e: Entry, ext: string): void {
     if (currentEntry !== e || !isPreviewOpen()) return;
     if (av.kind === 'unavailable') return;
     const tabular = TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === 'json';
+    const image = ext === 'image';
     const exp = document.getElementById('fe-ql-ai-exp') as HTMLButtonElement;
-    exp.textContent    = tabular ? 'Describe' : 'Explain';
-    exp.dataset.intent = tabular ? 'describe-data' : 'explain-code';
-    exp.title = tabular
-      ? 'Schema + notable observations (local model)'
+    exp.textContent    = tabular || image ? 'Describe' : 'Explain';
+    exp.dataset.intent = image ? 'describe-image' : tabular ? 'describe-data' : 'explain-code';
+    exp.title = image ? 'What the image shows, read by the local vision model; it never leaves this Mac'
+      : tabular ? 'Schema + notable observations (local model)'
       : 'What this does, with safety callouts (local model)';
     const ready = av.kind === 'ready';
     const chip = document.getElementById('fe-ql-ai-chip')!;
@@ -349,9 +352,15 @@ function setupAi(e: Entry, ext: string): void {
 // file per preview, so the Ask lens on that file's page lists them too.
 let aiChat = { href: '', id: '' };
 const AI_ASKED: Record<string, string> = { summarize: 'Summarize', explain: 'Explain', describe: 'Describe' };
+// What the image buttons ask, since an image has no text for the model to summarize.
+const IMAGE_ASKED: Record<string, string> = { summarize: 'Summarize what this image shows in a few lines.', 'describe-image': 'Describe this image in detail, with any text in it verbatim.' };
+
 function runAi(intent: string, question?: string): void {
-  if (currentText === null || !currentEntry) return;   // fetch not done yet
+  if ((currentText === null && !currentImage) || !currentEntry) return;   // fetch not done yet
   const entry = currentEntry;
+  // An image goes to the host as a file, read by the vision model, with the question.
+  const image = currentImage;
+  if (image) { question = question || IMAGE_ASKED[intent] || IMAGE_ASKED['describe-image']; intent = 'qa'; }
   if (aiChat.href !== entry.href) aiChat = { href: entry.href, id: 'pv-' + Date.now().toString(36) };
   aiCancel?.();
   const seq = ++aiSeq;
@@ -362,8 +371,9 @@ function runAi(intent: string, question?: string): void {
   meta.textContent = 'Thinking…';
   let full = '';
   aiCancel = llmQuery(
-    { ctx: currentText, ctxName: currentEntry.name, intent, question, model: deps.aiModel?.() },
+    { ctx: image ? '' : currentText ?? '', ctxName: currentEntry.name, intent, question, model: deps.aiModel?.(), files: image ? [image] : undefined },
     {
+      onStep: t => { if (seq === aiSeq) meta.textContent = t + '…'; },
       onChunk: t => {
         if (seq !== aiSeq) return;
         full += t;
@@ -373,12 +383,11 @@ function runAi(intent: string, question?: string): void {
         if (seq !== aiSeq) return;
         aiCancel = null;
         body.innerHTML = renderMarkdown(full);
+        const turn = { q: question || AI_ASKED[intent] || intent, a: full, model: info.model, ms: info.ms, at: Date.now(), tokensIn: info.tokensIn, tokensOut: info.tokensOut };
         try {
-          const path = decodeURIComponent(new URL(entry.href).pathname);
-          addTurn(path, aiChat.id, { q: question || AI_ASKED[intent] || intent, a: full, model: info.model, ms: info.ms, at: Date.now() });
+          addTurn(decodeURIComponent(new URL(entry.href).pathname), aiChat.id, turn);
         } catch { /* history is a convenience; the answer is already shown */ }
-        meta.textContent = `${info.model} · ${(info.ms / 1000).toFixed(1)}s` +
-          (info.truncated ? ' · input truncated to fit the model' : '');
+        meta.textContent = turnMeta(turn, info.truncated);
       },
       onError: (code, message) => {
         if (seq !== aiSeq) return;
@@ -772,13 +781,16 @@ export function openPreview(e: Entry): void {
   syncSaveBtn();
   dsvHeader = []; dsvRows = []; dsvSort = null;
   currentText = null;
+  currentImage = null;
   resetAiUi();
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.disabled = true;
 
   if (IMG_EXTS.has(ext) || PDF_EXTS.has(ext) || VIDEO_EXTS.has(ext) || AUDIO_EXTS.has(ext) || FONT_EXTS.has(ext)) {
-    copyBtn.style.display = 'none';   // binary media: rendered from file://, no text/AI
+    copyBtn.style.display = 'none';   // binary media: rendered from file://, no text; images still take Ask
     if (IMG_EXTS.has(ext)) {
+      currentImage = decodeURIComponent(new URL(e.href, location.href).pathname);
+      setupAi(e, 'image');
       body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
       mountImageTools(body.querySelector<HTMLElement>('.fe-ql-imgwrap')!, {
         href: e.href, name: e.name,

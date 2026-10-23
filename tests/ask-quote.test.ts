@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { quoteMarkdown, quoteTargets, sendQuote, takeQuote, splitThinking, closeOpenFence, QUOTE_MAX } from '../src/ask-quote';
+import { quoteMarkdown, quoteTargets, sendQuote, takeQuote, splitThinking, closeOpenFence, resolveMention, isImageName, QUOTE_MAX } from '../src/ask-quote';
 import type { AskChat } from '../src/ask-history';
 
 const chat = (id: string, title = id): AskChat => ({ id, at: 1, title, turns: [] });
@@ -35,6 +35,21 @@ describe('ask quote', () => {
     expect(takeQuote('/p/a.md', 2000)).toBeNull();
     sendQuote({ subject: '/p/a.md', chatId: 'a1', text: 'old', at: 0 });
     expect(takeQuote('/p/a.md', 10 * 60_000)).toBeNull();
+  });
+
+  it('sends a question starting with @name to that model', () => {
+    const opts = [{ value: '', label: 'gemma4' }, { value: 'code', label: 'code' },
+      { value: 'gemini:gemini-3.8-flash', label: 'gemini-3.8-flash (default)' }, { value: 'gemini:gemini-4-argon', label: 'gemini-4-argon' }];
+    expect(resolveMention('@code why does this loop?', opts)).toEqual({ model: 'code', label: 'code', question: 'why does this loop?' });
+    expect(resolveMention('@gemini summarize', opts)?.model).toBe('gemini:gemini-3.8-flash');
+    expect(resolveMention('@gemini-4-argon go', opts)?.model).toBe('gemini:gemini-4-argon');
+    expect(resolveMention('@nobody hi', opts)).toBeNull();
+    expect(resolveMention('mail me @code later', opts)).toBeNull();
+    expect(resolveMention('@code', opts)).toBeNull();
+  });
+
+  it('knows an image by its name', () => {
+    expect([isImageName('shot.PNG'), isImageName('a.jpeg'), isImageName('notes.txt')]).toEqual([true, true, false]);
   });
 
   it('closes a code fence that is still open', () => {

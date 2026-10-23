@@ -5,9 +5,13 @@ One Chrome port = one host process = at most one lm subprocess. Ops:
   {op:"status"}                          -> {"t":"status","data":{...lm status --json}}
   {op:"models"}                          -> {"t":"models","tiers":[{alias,model}],"gemini":[{name,default}]}
   {op:"query", ctx, ctxName?, intent?,
-   question?, model?, maxCtx?, timeout?} -> streamed {"t":"chunk"|"done"|"error",...}
+   question?, model?, maxCtx?, timeout?,
+   files?: [path]}                       -> streamed {"t":"step"|"chunk"|"done"|"error",...}
 Closing the port (stdin EOF) SIGTERMs the lm child, which aborts the
 in-flight generation — that is the cancellation path.
+
+Overrides, all optional: BFB_LM_BIN (the lm binary), BFB_SEE_BIN (the see
+binary that reads attached images; by default the one beside lm).
 """
 import sys, os, json, struct, subprocess, threading
 from shutil import which
@@ -108,6 +112,65 @@ def handle_gemini(lm, msg, model):
     else:
         write_msg({'t': 'error', 'code': 'gemini_unavailable', 'message': str(r.get('error') or r.get('message') or 'gemini did not answer')})
 
+# Files attached to a question. Text joins the context under its name; an
+# image is read by the local vision model (`see`), so it never leaves this Mac.
+IMAGE_EXT = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.bmp', '.tif', '.tiff'}
+FILES_MAX, TEXT_MAX = 8, 100_000
+
+def find_see(lm):
+    # `see` ships beside `lm`; the env var lets the walks put a stand-in there.
+    for c in (os.environ.get('BFB_SEE_BIN'), os.path.join(os.path.dirname(lm), 'see')):
+        if c and os.path.isfile(c) and os.access(c, os.X_OK):
+            return c
+    return which('see')
+
+def read_files(lm, files, question, step):
+    """The attached files as one block of context, in the order given. `step`
+    reports each image as it is read, which takes a while."""
+    parts = []
+    for path in [str(p) for p in files][:FILES_MAX]:
+        name = os.path.basename(path.rstrip('/')) or path
+        if os.path.splitext(name)[1].lower() in IMAGE_EXT:
+            step(f'Reading {name}')
+            see = find_see(lm)
+            r = {}
+            if see:
+                try:
+                    out = subprocess.run([see, path, *([question] if question else []), '--json'],
+                                         capture_output=True, stdin=subprocess.DEVNULL, timeout=180)
+                    r = json.loads(out.stdout.decode('utf-8', 'replace') or '{}')
+                except (ValueError, subprocess.TimeoutExpired, OSError):
+                    r = {}
+            if r.get('ok') and r.get('text'):
+                parts.append(f"=== Image {name} (read by {r.get('model') or 'the vision model'}) ===\n{r['text']}")
+            else:
+                parts.append(f"=== Image {name} ===\n(could not be read: {r.get('message') or 'the vision model did not answer'})")
+            continue
+        try:
+            with open(path, 'rb') as f:
+                raw = f.read(TEXT_MAX + 1)
+        except OSError as e:
+            parts.append(f'=== {name} ===\n(could not be read: {e.strerror})')
+            continue
+        if b'\0' in raw[:4096]:
+            parts.append(f'=== {name} ===\n(not text, left out)')
+            continue
+        text = raw[:TEXT_MAX].decode('utf-8', 'replace')
+        parts.append(f"=== {name} ===\n{text}{' …(cut)' if len(raw) > TEXT_MAX else ''}")
+    return '\n\n'.join(parts)
+
+def with_files(lm, msg):
+    """The query with its attached files folded into the context."""
+    files = msg.get('files') or []
+    if not files:
+        return msg
+    extra = read_files(lm, files, str(msg.get('question') or ''), lambda text: write_msg({'t': 'step', 'text': text}))
+    ctx = str(msg.get('ctx') or '')
+    if not ctx:     # an image's own page: the image is the whole context
+        return {**msg, 'ctx': extra}
+    return {**msg, 'ctx': f'{ctx}\n\n{extra}',
+            'ctxName': f"{msg.get('ctxName') or 'this page'} and {len(files)} attached file{'s' if len(files) != 1 else ''}"}
+
 def watch(child):
     def watch_disconnect():
         # Blocks until Chrome closes the port; q's SIGTERM handler then emits
@@ -121,6 +184,7 @@ def watch(child):
     threading.Thread(target=watch_disconnect, daemon=True).start()
 
 def handle_query(lm, msg):
+    msg = with_files(lm, msg)
     model = str(msg.get('model') or '')
     if model.startswith('gemini:'):
         return handle_gemini(lm, msg, model[len('gemini:'):])
