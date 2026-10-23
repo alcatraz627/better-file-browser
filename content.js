@@ -531,6 +531,7 @@
     return !(excluded.includes(ext2.toLowerCase()) || mode === "off" || mode === "not-md" && (ext2 === "md" || ext2 === "mdx"));
   }
   var HTML_GUARD_KEY = "bfbHtmlTakeover";
+  var PAGE_BG_KEY = "bfbPageBg";
   function syncHtmlGuard(s) {
     try {
       localStorage.setItem(HTML_GUARD_KEY, ["html", "htm"].filter((x) => filePagesEnabled(x, s)).join(" "));
@@ -21003,6 +21004,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       renderNotes(root);
       if (pinChange) toast(toPinned ? "Pinned" : "Unpinned");
       const rels = [.../* @__PURE__ */ new Set([...writes.keys(), ...pinChange ? [rel] : []])];
+      arranging++;
       void (async () => {
         for (const r of rels) {
           const cur = await notes.read(root, r);
@@ -21014,9 +21016,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         }
       })().catch((err) => {
         toast(errorText(err, "Saving the new order"));
-        refreshNotes();
+      }).finally(() => {
+        if (--arranging === 0) refreshNotes();
       });
     }
+    let arranging = 0;
     ntList.addEventListener("dragstart", (e) => {
       const item = e.target.closest('.fe-nt-item[draggable="true"]');
       if (!item) return;
@@ -21087,6 +21091,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     function renderNotes(root) {
       if (ntList.querySelector(".fe-nt-label.editing") || ntDrag) return;
+      keepNotes(root, allNotes);
       const filtering = !!ntFilter.value.trim();
       lensNotes.count = allNotes.length;
       lensNotes.tags = [...new Set(allNotes.flatMap((n) => n.tags ?? []))];
@@ -21246,6 +21251,21 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       toggleTagFilter(tag);
       if (hadFocus) [...el("fe-lens-tags").querySelectorAll(".fe-lens-tag")].find((c) => c.dataset.tag === tag)?.focus();
     });
+    const NOTES_KEPT = "bfbNotesKept";
+    function keptNotes(root) {
+      try {
+        const k = JSON.parse(localStorage.getItem(NOTES_KEPT) || "null");
+        return k?.root === root && Array.isArray(k.notes) ? k.notes : null;
+      } catch {
+        return null;
+      }
+    }
+    function keepNotes(root, list3) {
+      try {
+        localStorage.setItem(NOTES_KEPT, JSON.stringify({ root, notes: list3 }));
+      } catch {
+      }
+    }
     function refreshNotes() {
       const root = notesRoot();
       if (!root) {
@@ -21266,9 +21286,20 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         return;
       }
       el("fe-notes-root").href = fileHref(root + "/");
+      if (!allNotes.length) {
+        const kept = keptNotes(root);
+        if (kept) {
+          allNotes = kept;
+          renderNotes(root);
+        }
+      }
       notes.list(root).then((unsorted) => {
-        allNotes = sharedOrder(unsorted);
-        renderNotes(root);
+        if (arranging) return;
+        const next = sharedOrder(unsorted);
+        const same = JSON.stringify(next) === JSON.stringify(allNotes);
+        allNotes = next;
+        keepNotes(root, next);
+        if (!same || !ntList.querySelector(".fe-nt-item, .fe-empty")) renderNotes(root);
       }).catch((err) => {
         ntHint.textContent = errorText(err, "Listing the notes");
         ntList.innerHTML = err.code === "unavailable" ? emptyHtml("failed", "Notes host not installed", { inline: true, hint: errorText(err) }) : emptyHtml("failed", "Notes could not be listed", { inline: true, hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the notes again" }] });
@@ -22807,6 +22838,31 @@ ${rows.join("\n")}`, name: subject };
   }
 
   // src/md-ui.ts
+  var DIAGRAMS_KEY = "diagram-cache-v1";
+  var hashOf = (s) => {
+    let h = 5381;
+    for (let i3 = 0; i3 < s.length; i3++) h = (h << 5) + h + s.charCodeAt(i3) | 0;
+    return (h >>> 0).toString(36) + s.length.toString(36);
+  };
+  async function keptDiagram(key) {
+    try {
+      return ((await chrome.storage.local.get(DIAGRAMS_KEY))[DIAGRAMS_KEY] ?? {})[key] ?? "";
+    } catch {
+      return "";
+    }
+  }
+  function keepDiagram(key, svg2) {
+    if (svg2.length > 3e5) return;
+    void chrome.storage.local.get(DIAGRAMS_KEY).then((r) => {
+      const all = r[DIAGRAMS_KEY] ?? {};
+      delete all[key];
+      all[key] = svg2;
+      const keys2 = Object.keys(all);
+      for (const k of keys2.slice(0, Math.max(0, keys2.length - 30))) delete all[k];
+      return chrome.storage.local.set({ [DIAGRAMS_KEY]: all });
+    }).catch(() => {
+    });
+  }
   function initMarkdownUi(toast) {
     const rendered = /* @__PURE__ */ new WeakMap();
     const pending3 = /* @__PURE__ */ new WeakSet();
@@ -22823,6 +22879,13 @@ ${rows.join("\n")}`, name: subject };
           const view = block.querySelector(".fe-md-mermaid-view");
           if (!view) return;
           const currentTheme = theme();
+          const key = `${currentTheme}:${hashOf(source)}`;
+          const kept = await keptDiagram(key);
+          if (kept) {
+            if (block.isConnected) view.innerHTML = kept;
+            rendered.set(block, currentTheme);
+            return;
+          }
           try {
             const { default: mermaid } = await import(chrome.runtime.getURL("vendor-mermaid.js"));
             mermaid.initialize({
@@ -22832,8 +22895,9 @@ ${rows.join("\n")}`, name: subject };
               suppressErrorRendering: true,
               theme: currentTheme === "light" ? "default" : "dark"
             });
-            const { svg: svg2 } = await mermaid.render(`fe-mermaid-${++sequence}`, source);
+            const { svg: svg2 } = await mermaid.render(`fe-mermaid-${key.replace(":", "-")}-${++sequence}`, source);
             if (block.isConnected) view.innerHTML = svg2;
+            keepDiagram(key, svg2);
           } catch {
             view.textContent = "Could not render this Mermaid diagram.";
             block.querySelector(".fe-md-mermaid-source")?.removeAttribute("hidden");
@@ -23200,6 +23264,14 @@ ${rows.join("\n")}`, name: subject };
     const fe = el("fe");
     fe.dataset.wrap = settings.wrapLines === false ? "off" : "on";
     followSystem(fe);
+    const keepBg = () => {
+      try {
+        localStorage.setItem(PAGE_BG_KEY, getComputedStyle(fe).backgroundColor);
+      } catch {
+      }
+    };
+    keepBg();
+    new MutationObserver(keepBg).observe(fe, { attributes: true, attributeFilter: ["data-theme", "data-palette", "style"] });
     if (settings.sidebarWidth && !settings.sidebarRail) {
       settings.sidebarWidth += 52;
       settings.sidebarRail = true;

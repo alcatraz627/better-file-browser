@@ -99,6 +99,9 @@ export function filePagesEnabled(ext: string, settings: Settings): boolean {
 // shares one localStorage across file:// pages; where it does not, the copy
 // is missing and the page behaves as before.
 export const HTML_GUARD_KEY = 'bfbHtmlTakeover';
+// The same route carries the page's background colour, so the loader's cover
+// matches the theme and palette in use.
+export const PAGE_BG_KEY = 'bfbPageBg';
 export function syncHtmlGuard(s: Settings): void {
   try { localStorage.setItem(HTML_GUARD_KEY, ['html', 'htm'].filter(x => filePagesEnabled(x, s)).join(' ')); }
   catch { /* storage blocked: the guard stays off */ }

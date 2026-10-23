@@ -5,7 +5,7 @@ import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
   getView, getPalette, getDensity, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
-  homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard, SETTINGS_KEY, PALETTE_KEY, THEME_KEY,
+  homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard, PAGE_BG_KEY, SETTINGS_KEY, PALETTE_KEY, THEME_KEY,
 } from './storage';
 import { notes } from './notes';
 import { initPreview } from './preview';
@@ -182,6 +182,11 @@ loadKv().catch(() => {}).then(function () {
   const fe = el('fe');
   fe.dataset.wrap = settings.wrapLines === false ? 'off' : 'on';
   followSystem(fe);
+  // The loader covers the next page in this colour before anything draws, so
+  // moving between pages never flashes another theme's background.
+  const keepBg = () => { try { localStorage.setItem(PAGE_BG_KEY, getComputedStyle(fe).backgroundColor); } catch { /* storage blocked */ } };
+  keepBg();
+  new MutationObserver(keepBg).observe(fe, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'style'] });
   // A width saved before the lens rail existed is widened once by the rail's
   // 52px, so the lists keep the room they had.
   if (settings.sidebarWidth && !settings.sidebarRail) { settings.sidebarWidth += 52; settings.sidebarRail = true; saveSettings(settings); }

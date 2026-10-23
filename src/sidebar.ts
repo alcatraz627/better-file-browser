@@ -400,6 +400,7 @@ export function initSidebar(app: App): void {
     renderNotes(root);
     if (pinChange) toast(toPinned ? 'Pinned' : 'Unpinned');
     const rels = [...new Set([...writes.keys(), ...(pinChange ? [rel] : [])])];
+    arranging++;
     void (async () => {
       for (const r of rels) {
         const cur = await notes.read(root, r);
@@ -409,8 +410,12 @@ export function initSidebar(app: App): void {
         if (frontmatterDrift(cur.text, next, ['pos', 'pinned']).length) throw new Error('that would change other properties');
         await notes.write(root, r, next, cur.mtime);
       }
-    })().catch(err => { toast(errorText(err, 'Saving the new order')); refreshNotes(); });
+    })().catch(err => { toast(errorText(err, 'Saving the new order')); })
+      .finally(() => { if (--arranging === 0) refreshNotes(); });
   }
+  // While a drop's files are being written, a listing would see half the new
+  // order and jump a note back; refreshes wait until the last write lands.
+  let arranging = 0;
   ntList.addEventListener('dragstart', e => {
     const item = (e.target as Element).closest<HTMLElement>('.fe-nt-item[draggable="true"]');
     if (!item) return;
@@ -481,6 +486,7 @@ export function initSidebar(app: App): void {
     // A refresh landing while a title is being renamed would replace the box
     // under the cursor; the rename re-renders the list itself when it ends.
     if (ntList.querySelector('.fe-nt-label.editing') || ntDrag) return;
+    keepNotes(root, allNotes);   // the next page starts from the list as drawn here, drags and pins included
     // A filtered list shows only some of a group, so a drop there has no clear place; drag only unfiltered.
     const filtering = !!ntFilter.value.trim();
     lensNotes.count = allNotes.length;
@@ -634,6 +640,15 @@ export function initSidebar(app: App): void {
     // The row is redrawn; a chip picked by keyboard keeps the focus.
     if (hadFocus) [...el('fe-lens-tags').querySelectorAll<HTMLElement>('.fe-lens-tag')].find(c => c.dataset.tag === tag)?.focus();
   });
+  // The last notes list, in this browser's file:// storage, read before the host answers.
+  const NOTES_KEPT = 'bfbNotesKept';
+  function keptNotes(root: string): NoteMeta[] | null {
+    try { const k = JSON.parse(localStorage.getItem(NOTES_KEPT) || 'null'); return k?.root === root && Array.isArray(k.notes) ? k.notes : null; }
+    catch { return null; }
+  }
+  function keepNotes(root: string, list: NoteMeta[]): void {
+    try { localStorage.setItem(NOTES_KEPT, JSON.stringify({ root, notes: list })); } catch { /* full or blocked: the next page waits for the host */ }
+  }
   function refreshNotes(): void {
     const root = notesRoot();
     if (!root) {
@@ -651,9 +666,19 @@ export function initSidebar(app: App): void {
       return;
     }
     el<HTMLAnchorElement>('fe-notes-root').href = fileHref(root + '/');
+    // The list as the last page saw it shows at once, so moving between pages
+    // never blanks it; the host's answer replaces it only if something changed.
+    if (!allNotes.length) {
+      const kept = keptNotes(root);
+      if (kept) { allNotes = kept; renderNotes(root); }
+    }
     notes.list(root).then(unsorted => {
-      allNotes = sharedOrder(unsorted);
-      renderNotes(root);
+      if (arranging) return;
+      const next = sharedOrder(unsorted);
+      const same = JSON.stringify(next) === JSON.stringify(allNotes);
+      allNotes = next;
+      keepNotes(root, next);
+      if (!same || !ntList.querySelector('.fe-nt-item, .fe-empty')) renderNotes(root);
     }).catch((err: NotesError) => {
       ntHint.textContent = errorText(err, 'Listing the notes');
       ntList.innerHTML = err.code === 'unavailable'

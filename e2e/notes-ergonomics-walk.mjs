@@ -159,7 +159,8 @@ try {
   writeFileSync(join(store, 'zz-long-title.md'), `---\ntitle: "${LONG}"\npinned: true\n---\nbody of the long note\n`);
   await page.reload({ waitUntil: 'load' });
   await applyTheme(page);
-  await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 10_000 });
+  // The list from the last page shows first; the note written on disk joins it when the host answers.
+  await page.waitForSelector('#fe-nt-list .fe-nt-item[data-rel="zz-long-title.md"]', { timeout: 10_000 });
   const geo = await page.$$eval('#fe-nt-list .fe-nt-label', els => els.map(e => ({
     full: e.title.split('\n')[0], h: e.getBoundingClientRect().height, lh: parseFloat(getComputedStyle(e).lineHeight),
     cut: (() => { const hd = e.querySelector('.fe-mid-h'); return !!hd && hd.scrollWidth > hd.clientWidth + 1; })(),

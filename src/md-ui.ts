@@ -8,6 +8,27 @@ import { fileExists } from './file-fetch';
 import { esc } from './utils';
 import { go } from './nav';
 
+// Drawn Mermaid diagrams, kept in the extension's own storage (never the
+// file:// localStorage, which any HTML file opened in Chrome can write) so a
+// page met again shows its diagrams without the wait. The 30 newest are kept.
+const DIAGRAMS_KEY = 'diagram-cache-v1';
+const hashOf = (s: string) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + s.length.toString(36); };
+async function keptDiagram(key: string): Promise<string> {
+  try { return ((await chrome.storage.local.get(DIAGRAMS_KEY))[DIAGRAMS_KEY] ?? {})[key] ?? ''; }
+  catch { return ''; }
+}
+function keepDiagram(key: string, svg: string): void {
+  if (svg.length > 300_000) return;
+  void chrome.storage.local.get(DIAGRAMS_KEY).then(r => {
+    const all: Record<string, string> = r[DIAGRAMS_KEY] ?? {};
+    delete all[key];
+    all[key] = svg;
+    const keys = Object.keys(all);
+    for (const k of keys.slice(0, Math.max(0, keys.length - 30))) delete all[k];
+    return chrome.storage.local.set({ [DIAGRAMS_KEY]: all });
+  }).catch(() => { /* extension reloaded or storage full: draw it next time */ });
+}
+
 export function initMarkdownUi(toast: Toast): void {
   const rendered = new WeakMap<HTMLElement, string>();
   const pending = new WeakSet<HTMLElement>();
@@ -24,12 +45,18 @@ export function initMarkdownUi(toast: Toast): void {
         const view = block.querySelector<HTMLElement>('.fe-md-mermaid-view');
         if (!view) return;
         const currentTheme = theme();
+        // A diagram drawn before, on any page, comes back at once.
+        const key = `${currentTheme}:${hashOf(source)}`;
+        const kept = await keptDiagram(key);
+        if (kept) { if (block.isConnected) view.innerHTML = kept; rendered.set(block, currentTheme); return; }
         try {
           const { default: mermaid } = await import(chrome.runtime.getURL('vendor-mermaid.js')) as typeof import('./mermaid-runtime');
           mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', htmlLabels: false,
             suppressErrorRendering: true, theme: currentTheme === 'light' ? 'default' : 'dark' });
-          const { svg } = await mermaid.render(`fe-mermaid-${++sequence}`, source);
+          // The id carries the diagram's hash, so two kept diagrams on one page never share marker ids.
+          const { svg } = await mermaid.render(`fe-mermaid-${key.replace(':', '-')}-${++sequence}`, source);
           if (block.isConnected) view.innerHTML = svg;
+          keepDiagram(key, svg);
         } catch {
           view.textContent = 'Could not render this Mermaid diagram.';
           block.querySelector<HTMLElement>('.fe-md-mermaid-source')?.removeAttribute('hidden');

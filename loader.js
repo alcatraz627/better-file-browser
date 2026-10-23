@@ -20,11 +20,15 @@
     csp.content = "script-src 'none'";
     head.prepend(csp);
   }
+  // The cover is the colour the last page was drawn in (src/storage.ts
+  // PAGE_BG_KEY), so a light theme never flashes dark between pages.
+  let bg = '#0d1117';
+  try { const kept = localStorage.getItem('bfbPageBg') || ''; if (/^(rgba?\([\d.,\s]+\)|#[0-9a-f]{3,8})$/i.test(kept)) bg = kept; } catch (e) { /* storage blocked */ }
   const s = document.createElement('style');
   s.id = 'bfb-preload';
   s.textContent = `
-    html { background: #0d1117 !important; }
-    body { opacity: 0 !important; transition: opacity 0.15s ease; }
+    html { background: ${bg} !important; }
+    body { opacity: 0 !important; }
   `;
   document.documentElement.appendChild(s);
   // Chrome never finishes listing a folder it may not read, so the explorer
