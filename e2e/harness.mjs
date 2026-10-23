@@ -60,10 +60,10 @@ stdin = sys.stdin.read() if args[:1] == ['q'] or (args[:1] == ['gemini'] and '--
 open(${JSON.stringify(log)}, 'a').write(json.dumps({'args': args, 'stdin': stdin[:200]}) + '\\n')
 if args[:2] == ['status', '--json']:
     print(json.dumps({'api_version': 1, 'server': 'up', 'default_model': 'gemma4-e4b-warm', 'warm': True, 'latency_class': 'warm'}))
-elif args[:1] == ['models']:
-    print('models on disk\\ntiers   small=gemma4-e4b-warm · big=gemma4:26b · code=qwen3.6:35b-a3b  (q --big)')
-elif args[:2] == ['gemini', 'models']:
-    print('gemini models (* = default):\\n    gemini-3.8-flash\\n  * gemini-3.5-flash\\npick per call: ...')
+elif args[:2] == ['models', '--json']:
+    print(json.dumps({'default': 'gemma4-e4b-warm', 'resident': [], 'available': [],
+        'tiers': [{'alias': 'small', 'model': 'gemma4-e4b-warm'}, {'alias': 'big', 'model': 'gemma4:26b'}, {'alias': 'code', 'model': 'qwen3.6:35b-a3b'}],
+        'gemini': [{'name': 'gemini-3.8-flash', 'default': False}, {'name': 'gemini-3.5-flash', 'default': True}]}))
 elif args[:1] == ['gemini']:
     print(json.dumps({'ok': True, 'text': 'Gemini says hello.', 'model': 'gemini-3.5-flash', 'ms': 5}))
 elif args[:1] == ['q']:

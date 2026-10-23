@@ -9,7 +9,7 @@ One Chrome port = one host process = at most one lm subprocess. Ops:
 Closing the port (stdin EOF) SIGTERMs the lm child, which aborts the
 in-flight generation — that is the cancellation path.
 """
-import sys, os, re, json, struct, subprocess, threading
+import sys, os, json, struct, subprocess, threading
 from shutil import which
 
 def read_msg():
@@ -54,30 +54,25 @@ def handle_warm(lm, msg):
     except Exception as e:
         write_msg({'t': 'error', 'code': 'host_warm_failed', 'message': str(e)})
 
-def parse_tiers(text):
-    """The model aliases `lm models` names on its tiers line (small=…, big=…, code=…)."""
-    for line in text.splitlines():
-        if line.strip().startswith('tiers'):
-            return [{'alias': a, 'model': m} for a, m in re.findall(r'(\w+)=([^\s·]+)', line)]
-    return []
-
-def parse_gemini_models(text):
-    """The models `lm gemini models` lists, the default marked with a star."""
-    out = []
-    for line in text.splitlines()[1:]:
-        m = re.match(r'^\s*(\*)?\s*(gemini[\w.-]*)\s*$', line)
-        if m:
-            out.append({'name': m.group(2), 'default': bool(m.group(1))})
-    return out
+def parse_models(text):
+    """The model aliases and gemini models from `lm models --json`, the only
+    shape lm promises; an unreadable answer gives empty lists."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return [], []
+    tiers = [{'alias': t['alias'], 'model': t['model']} for t in data.get('tiers') or [] if t.get('alias') and t.get('model')]
+    gemini = [{'name': g['name'], 'default': bool(g.get('default'))} for g in data.get('gemini') or [] if g.get('name')]
+    return tiers, gemini
 
 def handle_models(lm):
-    def run(*args):
-        try:
-            # stdin closed: the host's own stdin is Chrome's message pipe.
-            return subprocess.run([lm, *args], capture_output=True, stdin=subprocess.DEVNULL, timeout=15).stdout.decode('utf-8', 'replace')
-        except Exception:
-            return ''
-    write_msg({'t': 'models', 'tiers': parse_tiers(run('models')), 'gemini': parse_gemini_models(run('gemini', 'models'))})
+    try:
+        # stdin closed: the host's own stdin is Chrome's message pipe.
+        text = subprocess.run([lm, 'models', '--json'], capture_output=True, stdin=subprocess.DEVNULL, timeout=15).stdout.decode('utf-8', 'replace')
+    except Exception:
+        text = ''
+    tiers, gemini = parse_models(text)
+    write_msg({'t': 'models', 'tiers': tiers, 'gemini': gemini})
 
 # What the gemini lane is asked for each intent; lm q builds these prompts
 # itself for local models, so only this lane needs them spelled out.

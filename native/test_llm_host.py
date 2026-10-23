@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Checks for the AI host's model list: the aliases and the gemini models are
-read from lm's own output, so these pin the shapes lm prints today."""
+read from `lm models --json`, so these pin that shape."""
 import importlib.util
 import os
 
@@ -8,29 +8,23 @@ spec = importlib.util.spec_from_file_location('llm_host', os.path.join(os.path.d
 h = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(h)
 
-MODELS = """models on disk  (● resident · tier = q -m <tier>)
-    gemma4-e4b-warm:latest       5.7GB   small
-    gemma4:26b                   16.7GB  big
-tiers   small=gemma4-e4b-warm · big=gemma4:26b · code=qwen3.6:35b-a3b  (q --big / q -m code / q -m <literal>)
-"""
-GEMINI = """gemini models (* = default):
-    gemini-3.8-flash
-  * gemini-3.5-flash
-    gemini-4-argon
-pick per call: lm gemini -m <model> · set the default: GEMINI_MODEL in config.sh · extend the list: GEMINI_MODELS
-"""
+MODELS = """{"default": "gemma4-e4b-warm", "resident": [], "available": [],
+ "tiers": [{"alias": "small", "model": "gemma4-e4b-warm"}, {"alias": "code", "model": "qwen3.6:35b-a3b"}, {"alias": "broken"}],
+ "gemini": [{"name": "gemini-3.8-flash", "default": true}, {"name": "gemini-4-argon", "default": false}]}"""
 
-assert h.parse_tiers(MODELS) == [
+tiers, gemini = h.parse_models(MODELS)
+assert tiers == [
     {'alias': 'small', 'model': 'gemma4-e4b-warm'},
-    {'alias': 'big', 'model': 'gemma4:26b'},
     {'alias': 'code', 'model': 'qwen3.6:35b-a3b'},
-], h.parse_tiers(MODELS)
-assert h.parse_tiers('no tiers here') == []
-assert h.parse_gemini_models(GEMINI) == [
-    {'name': 'gemini-3.8-flash', 'default': False},
-    {'name': 'gemini-3.5-flash', 'default': True},
+], tiers
+assert gemini == [
+    {'name': 'gemini-3.8-flash', 'default': True},
     {'name': 'gemini-4-argon', 'default': False},
-], h.parse_gemini_models(GEMINI)
-assert h.parse_gemini_models('') == []
+], gemini
+# With Ollama stopped, lm still names the tiers and Gemini models in its error.
+DOWN = '{"ok":false,"code":"server_down","tiers":[{"alias":"small","model":"gemma4-e4b-warm"}],"gemini":[{"name":"gemini-3.8-flash","default":true}]}'
+assert h.parse_models(DOWN) == ([{'alias': 'small', 'model': 'gemma4-e4b-warm'}], [{'name': 'gemini-3.8-flash', 'default': True}]), h.parse_models(DOWN)
+assert h.parse_models('') == ([], [])
+assert h.parse_models('{"default": "x"}') == ([], [])
 assert set(h.GEMINI_PROMPTS) == {'summarize', 'explain-code', 'qa'}
 print('all llm host checks passed')
