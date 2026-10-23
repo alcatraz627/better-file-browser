@@ -1664,6 +1664,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-tile-img{display:flex;flex-direction:column;gap:var(--sp-2)}
 .fe-dp-media{position:relative;margin:0;border:1px solid var(--bd);border-radius:var(--row-r);overflow:hidden;background:var(--s2)}
 .fe-dp-media img{display:block;width:100%;aspect-ratio:16 / 10;object-fit:contain;cursor:zoom-in}
+.fe-dp-strip>.fe-dp-media img{aspect-ratio:auto;max-height:calc(var(--sp-9) * 8)}
 .fe-dp-media.zoomed img{aspect-ratio:auto;cursor:zoom-out}
 .fe-dp-frame{position:relative;aspect-ratio:16 / 10;overflow:hidden;background:rgb(var(--paper))}
 .fe-dp-frame iframe{position:absolute;inset:0 auto auto 0;width:var(--mock-w);height:calc(100% / var(--scale,1));border:0;transform:scale(var(--scale,1));transform-origin:0 0}
