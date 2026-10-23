@@ -10,6 +10,7 @@ import {
 import { notes } from './notes';
 import { initPreview } from './preview';
 import { setSidebarShown } from './motion';
+import { initSidePeek } from './side-peek';
 import { CSS } from './styles';
 import { UI_CSS } from './styles-ui';
 import { setUiScale } from './chrome';
@@ -270,6 +271,7 @@ loadKv().catch(() => {}).then(function () {
   initSettingsUi(app);
   initToolLenses(app);
   initSidebar(app);
+  initSidePeek();
   initFocusNav(app);
   // Before any visit under home, ask the native host where home is, so Places
   // offers Home, Desktop and the rest from the first page.

@@ -34,6 +34,8 @@ export interface LayerOptions {
   focus?: 'first' | 'none' | HTMLElement;
   role?: string;
   label?: string;
+  /// While this returns true, Esc passes this layer by (for a field inside it to use).
+  keepOnEsc?: () => boolean;
   onClose?: (why: CloseWhy) => void;
 }
 
@@ -212,7 +214,7 @@ function wire(): void {
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     stack.filter(l => l.kind === 'hovercard').forEach(l => l.close('esc'));
-    const top = [...stack].reverse().find(l => CLOSES[l.kind].esc);
+    const top = [...stack].reverse().find(l => CLOSES[l.kind].esc && !l.opts.keepOnEsc?.());
     if (!top) return;
     e.preventDefault(); e.stopPropagation();
     top.close('esc');

@@ -281,6 +281,12 @@ body{opacity:1!important}
 .fe-sec{margin-bottom:var(--sp-2)}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none!important}
 #fe-side .fe-sh{justify-content:flex-start!important}
+/* A hidden sidebar peeks out over the page from the left edge (side-peek.ts). */
+#fe-side.peek{position:fixed;left:var(--sp-4);top:calc(var(--bar-h) + var(--sp-4));bottom:var(--sp-4);z-index:var(--z-popover);border:1px solid var(--pop-bd);border-radius:var(--r-sm);box-shadow:var(--pop-sh);animation:fe-lens-in var(--t-fast) var(--ease)}
+#fe-edge{position:fixed;left:0;top:var(--bar-h);bottom:0;width:var(--sp-5);z-index:var(--z-popover);cursor:e-resize}
+#fe-edge::after{content:'';position:absolute;left:var(--sp-1);top:30%;bottom:30%;width:var(--sp-1);border-radius:var(--r-full);background:var(--ac);opacity:0;transition:opacity var(--t-fast) var(--ease)}
+#fe-edge.near::after{opacity:.55}
+#fe-edge[hidden]{display:none}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:var(--sp-3);padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
 .fe-sh-collapse:hover{color:var(--tx)}
 .fe-si{display:flex;align-items:center;color:var(--mt);text-decoration:none}
@@ -1382,7 +1388,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe.fe-column-lg #fe-fe-col{max-width:130ch}
 #fe.fe-column-md #fe-fe-col{max-width:110ch}
 [data-mode="split"] #fe-fe-scroll{overflow:hidden}
-#fe [data-mode="split"] #fe-fe-col{max-width:none;height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:0}
+#fe [data-mode="split"] #fe-fe-col{max-width:none;height:100%;display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);padding:0}
 /* Spacing on the text side is border, not padding: the typing layer is placed
    against the padding box, so padding would shift it off the painted text. */
 [data-mode="split"] #fe-fe-src{overflow:auto;padding:0 var(--sp-7) 120px 0;border-top:24px solid transparent;border-left:12px solid transparent}
@@ -2247,7 +2253,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       stack.filter((l) => l.kind === "hovercard").forEach((l) => l.close("esc"));
-      const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc);
+      const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc && !l.opts.keepOnEsc?.());
       if (!top) return;
       e.preventDefault();
       e.stopPropagation();

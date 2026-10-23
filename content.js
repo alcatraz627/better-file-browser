@@ -1426,7 +1426,7 @@ ${body}`;
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       stack.filter((l) => l.kind === "hovercard").forEach((l) => l.close("esc"));
-      const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc);
+      const top = [...stack].reverse().find((l) => CLOSES[l.kind].esc && !l.opts.keepOnEsc?.());
       if (!top) return;
       e.preventDefault();
       e.stopPropagation();
@@ -2453,6 +2453,7 @@ ${body}`;
   function setSidebarShown(show) {
     wanted = show;
     const side = el("fe-side"), rz = el("fe-side-rz");
+    side.classList.remove("peek");
     running?.cancel();
     running = null;
     const shown = side.style.display !== "none";
@@ -12107,6 +12108,80 @@ ${end.comment}` : end.comment;
     if (top) body.scrollTop = top;
   }
 
+  // src/side-peek.ts
+  var NEAR_PX = 48;
+  function initSidePeek() {
+    const fe = el("fe"), side = el("fe-side");
+    const edge = document.createElement("div");
+    edge.id = "fe-edge";
+    edge.title = "Show the sidebar";
+    fe.append(edge);
+    let layer = null;
+    let timer2 = null;
+    const peeking = () => !!layer?.open;
+    const typing = () => !!side.querySelector('input:focus, textarea:focus, [contenteditable="true"]:focus');
+    const syncEdge = () => {
+      edge.hidden = peeking() || sidebarShown();
+    };
+    const stay = () => {
+      if (timer2) {
+        clearTimeout(timer2);
+        timer2 = null;
+      }
+    };
+    const open = () => {
+      if (peeking() || sidebarShown()) return;
+      side.style.display = "";
+      side.classList.add("peek");
+      edge.classList.remove("near");
+      layer = openLayer(side, {
+        kind: "popover",
+        place: "none",
+        focus: "none",
+        label: "Sidebar",
+        keepOnEsc: typing,
+        onClose: () => {
+          stay();
+          layer = null;
+          side.classList.remove("peek");
+          if (!sidebarShown()) side.style.display = "none";
+          syncEdge();
+        }
+      });
+      syncEdge();
+    };
+    const close = () => {
+      stay();
+      layer?.close("api");
+    };
+    const later = () => {
+      stay();
+      const ms = getSettings().peekCloseMs ?? 500;
+      if (ms) timer2 = setTimeout(() => {
+        timer2 = null;
+        if (!typing()) close();
+      }, ms);
+    };
+    edge.addEventListener("pointerenter", open);
+    side.addEventListener("pointerenter", stay);
+    side.addEventListener("pointerleave", () => {
+      if (peeking()) later();
+    });
+    side.addEventListener("focusout", () => {
+      if (peeking() && !side.matches(":hover")) later();
+    });
+    document.addEventListener("pointermove", (e) => {
+      if (edge.hidden) return;
+      edge.classList.toggle("near", e.clientX < NEAR_PX);
+    }, { passive: true });
+    document.addEventListener("pointerleave", () => edge.classList.remove("near"));
+    new MutationObserver(() => {
+      if (peeking() && !side.classList.contains("peek")) close();
+      syncEdge();
+    }).observe(side, { attributes: true, attributeFilter: ["style", "class"] });
+    syncEdge();
+  }
+
   // src/styles.ts
   var CSS2 = `
 *{box-sizing:border-box;margin:0;padding:0}
@@ -12388,6 +12463,12 @@ body{opacity:1!important}
 .fe-sec{margin-bottom:var(--sp-2)}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none!important}
 #fe-side .fe-sh{justify-content:flex-start!important}
+/* A hidden sidebar peeks out over the page from the left edge (side-peek.ts). */
+#fe-side.peek{position:fixed;left:var(--sp-4);top:calc(var(--bar-h) + var(--sp-4));bottom:var(--sp-4);z-index:var(--z-popover);border:1px solid var(--pop-bd);border-radius:var(--r-sm);box-shadow:var(--pop-sh);animation:fe-lens-in var(--t-fast) var(--ease)}
+#fe-edge{position:fixed;left:0;top:var(--bar-h);bottom:0;width:var(--sp-5);z-index:var(--z-popover);cursor:e-resize}
+#fe-edge::after{content:'';position:absolute;left:var(--sp-1);top:30%;bottom:30%;width:var(--sp-1);border-radius:var(--r-full);background:var(--ac);opacity:0;transition:opacity var(--t-fast) var(--ease)}
+#fe-edge.near::after{opacity:.55}
+#fe-edge[hidden]{display:none}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:var(--sp-3);padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
 .fe-sh-collapse:hover{color:var(--tx)}
 .fe-si{display:flex;align-items:center;color:var(--mt);text-decoration:none}
@@ -13489,7 +13570,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe.fe-column-lg #fe-fe-col{max-width:130ch}
 #fe.fe-column-md #fe-fe-col{max-width:110ch}
 [data-mode="split"] #fe-fe-scroll{overflow:hidden}
-#fe [data-mode="split"] #fe-fe-col{max-width:none;height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:0}
+#fe [data-mode="split"] #fe-fe-col{max-width:none;height:100%;display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);padding:0}
 /* Spacing on the text side is border, not padding: the typing layer is placed
    against the padding box, so padding would shift it off the painted text. */
 [data-mode="split"] #fe-fe-src{overflow:auto;padding:0 var(--sp-7) 120px 0;border-top:24px solid transparent;border-left:12px solid transparent}
@@ -16983,6 +17064,11 @@ ${d.message}` : d.message;
       if (!root && !await askToAllow()) return;
       if (!root) return;
       editBtn.classList.add("busy");
+      const sideWas = sidebarShown();
+      if (sideWas) setSidebarShown(false);
+      const sideBack = () => {
+        if (sideWas) setSidebarShown(true);
+      };
       page.style.display = "none";
       editBox.style.display = "";
       find.clear();
@@ -17008,6 +17094,7 @@ ${d.message}` : d.message;
           editBox.style.display = "none";
           page.style.display = "";
           editBtn.classList.remove("on");
+          sideBack();
           fetchFileText(href).then((fresh) => {
             text = fresh;
             paintMeta();
@@ -17025,6 +17112,7 @@ ${d.message}` : d.message;
         editBox.style.display = "none";
         page.style.display = "";
         editBtn.classList.remove("on");
+        sideBack();
         render2();
       }
     };
@@ -18025,6 +18113,12 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     { value: "ext", label: "By extension", icon: i2('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>') },
     { value: "type", label: "By type", icon: i2('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/>') }
   ];
+  var PEEK_OPTS = [
+    { value: "250", label: "Quickly", hint: "\xBC second" },
+    { value: "500", label: "After a moment", hint: "\xBD second" },
+    { value: "1000", label: "Slowly", hint: "1 second" },
+    { value: "0", label: "Only on Esc or a click away" }
+  ];
   var TERM_OPTS = [
     { value: "ghostty", label: "Ghostty" },
     { value: "terminal", label: "Terminal" },
@@ -18070,7 +18164,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           ], "Where the preview opens", "lg") + iconBtn("fe-st-panel-reset", UI_ICON.reset, "Reset dragged sizes"))
         ) + card2(
           "Sidebar",
-          row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Make room for a docked preview", "Fold the sidebar while a docked preview is open", sw("fe-st-dock-fold", "Fold the sidebar for a docked preview")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
+          row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Make room for a docked preview", "Fold the sidebar while a docked preview is open", sw("fe-st-dock-fold", "Fold the sidebar for a docked preview")) + row("Peek closes", "A hidden sidebar opens from the left edge; it closes this long after the pointer leaves", ddHtml("fe-st-peek-close", PEEK_OPTS, "When a peeked sidebar closes", "lg")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
         ) + card2(
           "Terminal",
           row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app", "lg")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" style="display:none"') + note("", "fe-st-term-hint")
@@ -22612,6 +22706,7 @@ ${rows.join("\n")}`, name: subject };
       v("fe-st-panel").value = getPreviewLayout().mode;
       el("fe-st-sidebar").checked = settings.showSidebar !== false;
       el("fe-st-dock-fold").checked = settings.dockFoldsSidebar !== false;
+      v("fe-st-peek-close").value = String(settings.peekCloseMs ?? 500);
       el("fe-st-sec-recent").checked = !settings.hideRecent;
       v("fe-st-terminal").value = settings.terminalApp || "ghostty";
       el("fe-st-term-custom-row").style.display = settings.terminalApp === "custom" ? "" : "none";
@@ -22710,6 +22805,10 @@ ${rows.join("\n")}`, name: subject };
       settings.hideRecent = !this.checked;
       saveSettings(settings);
       app.showLens?.(this.checked ? null : "notes", !this.checked);
+    });
+    v("fe-st-peek-close").addEventListener("change", () => {
+      settings.peekCloseMs = Number(v("fe-st-peek-close").value);
+      saveSettings(settings);
     });
     v("fe-st-terminal").addEventListener("change", () => {
       settings.terminalApp = v("fe-st-terminal").value;
@@ -23502,6 +23601,7 @@ ${rows.join("\n")}`, name: subject };
     initSettingsUi(app);
     initToolLenses(app);
     initSidebar(app);
+    initSidePeek();
     initFocusNav(app);
     if (!homeDir(rawPath)) {
       notes.home().then((home) => {

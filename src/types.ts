@@ -34,6 +34,7 @@ export interface Tag {
 export interface Settings {
   compactMode:  boolean;
   showSidebar:  boolean;
+  peekCloseMs?: number;         // a peeked sidebar closes this long after the pointer leaves; 0 waits for Esc or a click away (default 500)
   dockFoldsSidebar?: boolean;   // a docked preview folds the sidebar away while it is open (default on)
   dateFormat:   'short' | 'full';
   terminalApp:  string;

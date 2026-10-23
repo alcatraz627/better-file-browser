@@ -15,6 +15,7 @@ import { UI_ICON } from './control-icons';
 import { openLayer } from './layer';
 import { getSettings, saveSettings, textPref, jsonPref, flagPref, choicePref } from './storage';
 import { editableRoot, editableFoldersOf, openFileEditor, type FileEditor } from './file-editor';
+import { setSidebarShown, sidebarShown } from './motion';
 import { attachFind } from './find-in-page';
 import { mountComments, type CommentsPanel, type CommentAction } from './comments-ui';
 import type { Settings } from './types';
@@ -404,6 +405,10 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     if (!root && !(await askToAllow())) return;
     if (!root) return;
     editBtn.classList.add('busy');
+    // Editing gets the room: the sidebar folds away (its edge still opens it) and comes back on Done.
+    const sideWas = sidebarShown();
+    if (sideWas) setSidebarShown(false);
+    const sideBack = () => { if (sideWas) setSidebarShown(true); };
     page.style.display = 'none'; editBox.style.display = '';
     find.clear();
     editBtn.classList.add('on');
@@ -414,14 +419,14 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
       saved: fresh => { text = fresh; paintMeta(); },   // the pill shows Saved
       // The file may have changed while editing (a reload from disk), so read it again.
       closed: () => {
-        editor = null; editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on');
+        editor = null; editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); sideBack();
         fetchFileText(href).then(fresh => { text = fresh; paintMeta(); }).catch(() => {}).finally(render);
       },
       comments: comments ? { marks: () => comments!.marks(), open: id => { showComments(); comments!.show(id); } } : undefined,
     });
     editBtn.classList.remove('busy');
     paint();
-    if (!editor) { editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); render(); }
+    if (!editor) { editBox.style.display = 'none'; page.style.display = ''; editBtn.classList.remove('on'); sideBack(); render(); }
   };
   editBtn.addEventListener('click', () => void edit());
   const showComments = () => showPane('cm');

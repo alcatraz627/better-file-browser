@@ -242,6 +242,7 @@ export function initSettingsUi(app: App): void {
     v('fe-st-panel').value = getPreviewLayout().mode;
     el<HTMLInputElement>('fe-st-sidebar').checked = settings.showSidebar !== false;
     el<HTMLInputElement>('fe-st-dock-fold').checked = settings.dockFoldsSidebar !== false;
+    v('fe-st-peek-close').value = String(settings.peekCloseMs ?? 500);
     el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
     v('fe-st-terminal').value = settings.terminalApp || 'ghostty';
     el('fe-st-term-custom-row').style.display = settings.terminalApp === 'custom' ? '' : 'none';
@@ -317,6 +318,7 @@ export function initSettingsUi(app: App): void {
     settings.hideRecent = !this.checked; saveSettings(settings);
     app.showLens?.(this.checked ? null : 'notes', !this.checked);
   });
+  v('fe-st-peek-close').addEventListener('change', () => { settings.peekCloseMs = Number(v('fe-st-peek-close').value); saveSettings(settings); });
   v('fe-st-terminal').addEventListener('change', () => {
     settings.terminalApp = v('fe-st-terminal').value; saveSettings(settings);
     el('fe-st-term-custom-row').style.display = settings.terminalApp === 'custom' ? '' : 'none';

@@ -53,6 +53,7 @@ export function sidebarShown(): boolean {
 export function setSidebarShown(show: boolean): void {
   wanted = show;
   const side = el('fe-side'), rz = el('fe-side-rz');
+  side.classList.remove('peek');   // a peek ends when the sidebar is shown or hidden for good
   running?.cancel();
   running = null;
   const shown = side.style.display !== 'none';

@@ -55,6 +55,10 @@ export const GROUP_OPTS: Opt[] = [
   { value: 'ext', label: 'By extension', icon: i('<path d="M4 7V5h16v2M9 19h6M12 5v14"/>') },
   { value: 'type', label: 'By type', icon: i('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/>') },
 ];
+const PEEK_OPTS: Opt[] = [
+  { value: '250', label: 'Quickly', hint: '¼ second' }, { value: '500', label: 'After a moment', hint: '½ second' },
+  { value: '1000', label: 'Slowly', hint: '1 second' }, { value: '0', label: 'Only on Esc or a click away' },
+];
 const TERM_OPTS: Opt[] = [
   { value: 'ghostty', label: 'Ghostty' }, { value: 'terminal', label: 'Terminal' }, { value: 'iterm', label: 'iTerm2' },
   { value: 'wezterm', label: 'WezTerm' }, { value: 'kitty', label: 'Kitty' }, { value: 'custom', label: 'Custom', hint: 'your own command' },
@@ -101,6 +105,7 @@ export function settingsDialog(): DialogSpec {
         card('Sidebar',
           row('Sidebar', '', sw('fe-st-sidebar', 'Show the sidebar')) +
           row('Make room for a docked preview', 'Fold the sidebar while a docked preview is open', sw('fe-st-dock-fold', 'Fold the sidebar for a docked preview')) +
+          row('Peek closes', 'A hidden sidebar opens from the left edge; it closes this long after the pointer leaves', ddHtml('fe-st-peek-close', PEEK_OPTS, 'When a peeked sidebar closes', 'lg')) +
           row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
         card('Terminal',
           row('Open in', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app', 'lg')) +
