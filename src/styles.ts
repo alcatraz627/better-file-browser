@@ -1637,7 +1637,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-card.disagree .fe-dp-agree-lbl{color:var(--gold)}
 .fe-dp-prio{flex:none}
 .fe-dp-opts{display:flex;flex-direction:column;gap:var(--sp-2)}
-.fe-dp-opts.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--sp-4)}
+.fe-dp-opts.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--sp-4)}
 .fe-dp-opts.gallery .fe-dp-opt:not(.tile){grid-column:1 / -1}
 .fe-dp-opt{position:relative;display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border:1px solid var(--bd);border-radius:var(--row-r);cursor:pointer;transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
 .fe-dp-opt:hover{background:var(--hover)}
@@ -1650,11 +1650,29 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-num{visibility:hidden}
 .fe-dp-card.current .fe-dp-num{visibility:visible}
 .fe-dp-why{font-size:var(--fs-sm);color:var(--mt)}
-.fe-dp-tile-img{display:flex;gap:var(--sp-2);margin:calc(var(--sp-3) * -1) calc(var(--sp-4) * -1) 0;overflow:hidden;border-radius:var(--row-r) var(--row-r) 0 0;background:var(--s2)}
-.fe-dp-tile-img img{flex:1;min-width:0;aspect-ratio:16 / 10;object-fit:contain}
 .fe-dp-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--sp-3)}
-.fe-dp-shot{display:block;border:1px solid var(--bd);border-radius:var(--row-r);overflow:hidden;background:var(--s2)}
-.fe-dp-shot img{display:block;width:100%;aspect-ratio:16 / 10;object-fit:contain}
+.fe-dp-strip>.fe-dp-media.zoomed,.fe-dp-opts.gallery>.fe-dp-opt.zoomed{grid-column:1 / -1}
+.fe-dp-tile-img{display:flex;flex-direction:column;gap:var(--sp-2)}
+.fe-dp-media{position:relative;margin:0;border:1px solid var(--bd);border-radius:var(--row-r);overflow:hidden;background:var(--s2)}
+.fe-dp-media img{display:block;width:100%;aspect-ratio:16 / 10;object-fit:contain;cursor:zoom-in}
+.fe-dp-media.zoomed img{aspect-ratio:auto;cursor:zoom-out}
+.fe-dp-frame{position:relative;aspect-ratio:16 / 10;overflow:hidden;background:rgb(var(--paper))}
+.fe-dp-frame iframe{position:absolute;inset:0 auto auto 0;width:var(--mock-w);height:calc(100% / var(--scale,1));border:0;transform:scale(var(--scale,1));transform-origin:0 0}
+.fe-dp-media-acts{position:absolute;top:var(--sp-2);right:var(--sp-2);display:flex;gap:var(--sp-1);padding:var(--sp-1);background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r);opacity:0;transition:opacity var(--t-fast) var(--ease)}
+.fe-dp-media:hover>.fe-dp-media-acts,.fe-dp-media:focus-within>.fe-dp-media-acts,.fe-dp-media-acts:has([aria-pressed="true"]){opacity:1}
+.fe-dp-view-box{position:relative;z-index:1;width:calc(100vw - var(--sp-9) * 2);height:calc(100vh - var(--sp-9) * 2);display:flex;flex-direction:column;outline:none}
+.fe-dp-view-head{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);border-bottom:1px solid var(--bd)}
+.fe-dp-view-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--tx)}
+.fe-dp-view-tools{display:flex;gap:var(--sp-1)}
+.fe-dp-view-body{flex:1;min-height:0;display:flex;flex-direction:column}
+.fe-dp-view-frame{flex:1;width:100%;border:0;background:rgb(var(--paper))}
+.fe-dp-compare{flex-direction:row}
+.fe-dp-cmp-pane+.fe-dp-cmp-pane{border-left:1px solid var(--bd)}
+.fe-dp-cmp-pane{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--card)}
+.fe-dp-cmp-label{padding:var(--sp-2) var(--sp-5);font-size:var(--fs-sm);color:var(--mt);border-bottom:1px solid var(--bd)}
+.fe-dp-cmp-scroll{flex:1;min-height:0;overflow:auto}
+.fe-dp-cmp-scroll img{display:block;width:calc(100% * var(--zoom,1));max-width:none}
+.fe-dp-cmp-scroll iframe{display:block;width:100%;height:var(--mock-tall);border:0;background:rgb(var(--paper))}
 .fe-dp-pre{margin:0;padding:var(--sp-4);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-sm);white-space:pre;background:var(--s2);border-radius:var(--row-r)}
 .fe-dp-slots{display:grid;grid-template-columns:max-content 1fr;gap:var(--sp-2) var(--sp-4);margin:0}
 .fe-dp-slot{display:contents}

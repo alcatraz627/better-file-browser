@@ -7,21 +7,18 @@ import { esc } from './utils';
 import { renderMarkdown } from './renderers';
 import { switchHtml } from './controls';
 import { DISCLOSE } from './icons';
-
-/** An image the page may show: a file inside the page's folder, or a web image. Anything climbing out with `..` is refused. */
-export function imgSrc(base: string, p: string): string | null {
-  if (/^https?:\/\//.test(p)) return p;
-  if (!p || p.startsWith('/') || p.split(/[\\/]/).includes('..') || /^[a-z]+:/i.test(p)) return null;
-  return base + p.split('/').map(encodeURIComponent).join('/');
-}
+import { mediaOf, mediaHtml, type Media } from './dp-gallery';
 
 // Agent-written context keeps its line breaks, as the old page's pre-wrap did.
 const md = (text: string, base: string) =>
   `<div class="fe-dp-md">${renderMarkdown(text.replace(/([^\n])\n(?!\n)/g, '$1  \n'), base)}</div>`;
 
+const mediaList = (images: string[] | undefined, base: string): Media[] =>
+  (images ?? []).map(p => mediaOf(base, p)).filter((m): m is Media => !!m);
+
 const stripHtml = (images: string[] | undefined, base: string) => {
-  const ok = (images ?? []).map(p => [p, imgSrc(base, p)] as const).filter((x): x is readonly [string, string] => !!x[1]);
-  return ok.length ? `<div class="fe-dp-strip">${ok.map(([p, src]) => `<a class="fe-dp-shot" href="${esc(src)}" target="_blank" title="${esc(p)}"><img src="${esc(src)}" alt="${esc(p)}" loading="lazy"></a>`).join('')}</div>` : '';
+  const ms = mediaList(images, base);
+  return ms.length ? `<div class="fe-dp-strip">${ms.map(m => mediaHtml(m)).join('')}</div>` : '';
 };
 
 const noteHtml = (id: string, notes: boolean) => notes ? `
@@ -31,10 +28,10 @@ const noteHtml = (id: string, notes: boolean) => notes ? `
   <button type="button" class="btn fe-dp-addnote" data-variant="ghost" data-size="sm" data-note-for="${esc(id)}">Add a note</button>` : '';
 
 function optionHtml(d: DpDecision, o: DpOption, n: number, base: string, none = false): string {
-  const imgs = (o.images ?? []).map(p => imgSrc(base, p)).filter((s): s is string => !!s);
+  const imgs = mediaList(o.images, base);
   return `<label class="fe-dp-opt${imgs.length ? ' tile' : ''}${none ? ' none' : ''}" data-code="${esc(o.code)}">
       <input type="radio" name="dp-${esc(d.id)}" value="${esc(o.code)}">
-      ${imgs.length ? `<span class="fe-dp-tile-img">${imgs.map(s => `<img src="${esc(s)}" alt="" loading="lazy">`).join('')}</span>` : ''}
+      ${imgs.length ? `<span class="fe-dp-tile-img">${imgs.map(m => mediaHtml(m, true)).join('')}</span>` : ''}
       <span class="fe-dp-opt-row">
         <span class="badge fe-dp-num" data-size="sm">${n}</span>
         <span class="fe-dp-opt-lbl">${esc(o.label)}</span>

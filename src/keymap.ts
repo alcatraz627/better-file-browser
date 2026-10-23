@@ -180,7 +180,8 @@ export const KEYMAP: KeyDef[] = [
   { id: 'dp-end-notes', group: 'Decision page', title: 'Notes for Claude at the end', keys: ['⇧N'], scope: 'decision', own: true },
   { id: 'dp-flagged', group: 'Decision page', title: 'Only the cards you changed', keys: ['f'], scope: 'decision', own: true },
   { id: 'dp-theme', group: 'Decision page', title: 'Dark or light', keys: ['t'], scope: 'decision', own: true },
-  { id: 'dp-leave-field', group: 'Decision page', title: 'Leave the note you are typing in', keys: ['Esc'], scope: 'decision', own: true, field: true },
+  { id: 'dp-esc', group: 'Decision page', title: 'Shrink grown pictures, or leave the note you are typing in', keys: ['Esc'], scope: 'decision', own: true, field: true },
+  { id: 'dp-view-step', group: 'Decision page', title: 'Previous or next picture in the large view', keys: ['←', '→'], scope: 'dialog', own: true },
 
   // Menus and dialogs
   { id: 'menu-move', group: 'Menus and dialogs', title: 'Move in a menu', keys: ['↑', '↓'], scope: 'menu', own: true },

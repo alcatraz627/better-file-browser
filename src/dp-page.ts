@@ -10,6 +10,7 @@ import { fetchFileText } from './file-fetch';
 import { textPref, jsonPref, flagPref } from './storage';
 import { bind, runCommand } from './commands';
 import { bodyHtml } from './dp-cards';
+import { wireGallery, unzoomAll, viewerOpen, viewerStep } from './dp-gallery';
 import { restoreState, draftedState, flagOf, progress, stateKey, type DpState } from './dp-form';
 
 export interface DpOption { code: string; label: string; rec?: boolean; why?: string; images?: string[] }
@@ -78,6 +79,7 @@ export async function mountDecisionPage(app: App): Promise<DpConfig | null> {
   box.innerHTML = headHtml(cfg, base) + `<div id="fe-dp-body">${bodyHtml(cfg, base)}</div>`;
   if (cfg.accent) box.style.setProperty('--ac', cfg.accent);
   wireAnswers(cfg, box);
+  wireGallery(box, m => app.toast(m));
   // Back from the listing: one button at the end of the listing's toolbar.
   const back = document.createElement('button');
   back.type = 'button'; back.id = 'fe-dp-back'; back.className = 'btn'; back.dataset.variant = 'outline';
@@ -245,11 +247,15 @@ function wireAnswers(cfg: DpConfig, box: HTMLElement): void {
   bind('dp-end-notes', () => { const end = box.querySelector<HTMLTextAreaElement>('#fe-dp-endnotes'); end?.scrollIntoView({ block: 'center' }); end?.focus(); }, () => live() && notesAllowed);
   bind('dp-flagged', () => flaggedOnly(!box.classList.contains('flagged-only')), live);
   bind('dp-theme', () => runCommand('theme'), live);
-  bind('dp-leave-field', () => {
+  // Esc shrinks grown pictures first, then leaves a note for its card.
+  const typingNote = () => !!(document.activeElement as HTMLElement | null)?.closest('#fe-dp textarea');
+  bind('dp-esc', () => {
+    if (unzoomAll(box)) return;
     const c = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('.fe-dp-card');
     (document.activeElement as HTMLElement | null)?.blur();
     if (c) focusCard(c, false);
-  }, () => live() && !!(document.activeElement as HTMLElement | null)?.closest('#fe-dp textarea'));
+  }, () => live() && (typingNote() || !!box.querySelector('.zoomed')));
+  bind('dp-view-step', k => viewerStep(k === '←' ? -1 : 1), viewerOpen);
 
   paint();
 }

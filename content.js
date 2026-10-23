@@ -1770,7 +1770,8 @@ ${body}`;
     { id: "dp-end-notes", group: "Decision page", title: "Notes for Claude at the end", keys: ["\u21E7N"], scope: "decision", own: true },
     { id: "dp-flagged", group: "Decision page", title: "Only the cards you changed", keys: ["f"], scope: "decision", own: true },
     { id: "dp-theme", group: "Decision page", title: "Dark or light", keys: ["t"], scope: "decision", own: true },
-    { id: "dp-leave-field", group: "Decision page", title: "Leave the note you are typing in", keys: ["Esc"], scope: "decision", own: true, field: true },
+    { id: "dp-esc", group: "Decision page", title: "Shrink grown pictures, or leave the note you are typing in", keys: ["Esc"], scope: "decision", own: true, field: true },
+    { id: "dp-view-step", group: "Decision page", title: "Previous or next picture in the large view", keys: ["\u2190", "\u2192"], scope: "dialog", own: true },
     // Menus and dialogs
     { id: "menu-move", group: "Menus and dialogs", title: "Move in a menu", keys: ["\u2191", "\u2193"], scope: "menu", own: true },
     { id: "menu-pick", group: "Menus and dialogs", title: "Pick", keys: ["\u21A9"], scope: "menu", own: true },
@@ -12739,16 +12740,194 @@ ${t}`)) say("Note title saved");
   }
   var stateKey = (cfg) => "bfb-dp-answers:" + (cfg.storageKey || cfg.title || "untitled");
 
-  // src/dp-cards.ts
-  function imgSrc(base, p) {
-    if (/^https?:\/\//.test(p)) return p;
+  // src/dp-gallery.ts
+  var MOCK_W = 1280;
+  var MOCK_TALL = 2400;
+  function mediaOf(base, p) {
+    const html = /\.html?$/i.test(p);
+    if (/^https?:\/\//.test(p)) return html ? null : { src: p, name: p.split("/").pop() || p, kind: "img" };
     if (!p || p.startsWith("/") || p.split(/[\\/]/).includes("..") || /^[a-z]+:/i.test(p)) return null;
-    return base + p.split("/").map(encodeURIComponent).join("/");
+    return { src: base + p.split("/").map(encodeURIComponent).join("/"), name: p, kind: html ? "html" : "img" };
   }
+  var actBtn = (act, icon2, title, extra = "") => `<button type="button" class="btn" data-icon data-size="sm" data-variant="ghost" data-media="${act}" title="${esc(title)}" aria-label="${esc(title)}"${extra}>${icon2}</button>`;
+  function mediaHtml(m, compare = false) {
+    const body = m.kind === "html" ? `<div class="fe-dp-frame"><iframe sandbox="allow-scripts" src="${esc(m.src)}" title="${esc(m.name)}" loading="lazy" tabindex="-1"></iframe></div>` : `<img src="${esc(m.src)}" alt="${esc(m.name)}" loading="lazy">`;
+    return `<figure class="fe-dp-media" data-kind="${m.kind}" data-src="${esc(m.src)}" data-name="${esc(m.name)}">
+    ${body}
+    <span class="fe-dp-media-acts">
+      ${m.kind === "img" ? actBtn("zoom", UI_ICON.zoomIn, "Grow to the full row, or shrink back") : ""}
+      ${actBtn("focus", UI_ICON.size, "Open large; \u2190 \u2192 go to the next")}
+      ${compare ? actBtn("compare", GLYPH.column, "Compare with another option side by side", ' aria-pressed="false"') : ""}
+    </span>
+  </figure>`;
+  }
+  var mediaIn = (scope) => [...scope.querySelectorAll(".fe-dp-media")];
+  var toMedia = (f) => ({ src: f.dataset.src, name: f.dataset.name, kind: f.dataset.kind });
+  var smooth = () => matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+  function toggleZoom(f) {
+    const on = !f.classList.contains("zoomed");
+    f.classList.toggle("zoomed", on);
+    f.closest(".fe-dp-opt")?.classList.toggle("zoomed", on);
+    if (on) requestAnimationFrame(() => f.scrollIntoView({ block: "nearest", behavior: smooth() }));
+  }
+  function unzoomAll(box) {
+    const zoomed = [...box.querySelectorAll(".zoomed")];
+    zoomed.forEach((z) => z.classList.remove("zoomed"));
+    return zoomed.length > 0;
+  }
+  var viewer = null;
+  var viewerOpen = () => !!viewer?.layer.open;
+  var viewerStep = (by) => viewer?.step?.(by);
+  function shell(title, label) {
+    const root = document.createElement("div");
+    root.className = "fe-dlg fe-dp-view";
+    root.innerHTML = `<div class="fe-dlg-bg scrim"></div>
+    <div class="panel fe-dp-view-box" role="dialog" aria-label="${esc(label)}" tabindex="-1">
+      <header class="bar fe-dp-view-head"><b class="fe-dp-view-title">${esc(title)}</b><span class="fe-dp-view-tools"></span>${actBtn("close", UI_ICON.close, "Close (Esc)")}</header>
+      <div class="fe-dp-view-body"></div>
+    </div>`;
+    (document.getElementById("fe") ?? document.body).append(root);
+    return { root, body: root.querySelector(".fe-dp-view-body"), head: root.querySelector(".fe-dp-view-head") };
+  }
+  function openShell(root, onClose) {
+    const layer = openLayer(root, {
+      kind: "dialog",
+      place: "none",
+      focus: root.querySelector(".fe-dp-view-box"),
+      backdrop: root.querySelector(".fe-dlg-bg"),
+      onClose: () => {
+        root.remove();
+        viewer = null;
+        onClose?.();
+      }
+    });
+    root.querySelector('[data-media="close"]').addEventListener("click", () => layer.close("api"));
+    return layer;
+  }
+  function openFocus(set2, at, notify) {
+    viewer?.layer.close("replaced");
+    const { root, body, head } = shell("", "Large view");
+    head.querySelector(".fe-dp-view-tools").innerHTML = set2.length > 1 ? actBtn("prev", UI_ICON.prev, "Previous (\u2190)") + actBtn("next", UI_ICON.next, "Next (\u2192)") : "";
+    let i3 = at;
+    const draw = () => {
+      const m = set2[i3];
+      head.querySelector(".fe-dp-view-title").textContent = set2.length > 1 ? `${m.name} \xB7 ${i3 + 1} of ${set2.length}` : m.name;
+      body.dataset.kind = m.kind;
+      if (m.kind === "html") body.innerHTML = `<iframe class="fe-dp-view-frame" sandbox="allow-scripts" src="${esc(m.src)}" title="${esc(m.name)}"></iframe>`;
+      else {
+        body.innerHTML = '<div class="fe-ql-imgwrap"></div>';
+        mountImageTools(body.firstElementChild, {
+          href: m.src,
+          name: m.name,
+          path: decodeURIComponent(new URL(m.src, location.href).pathname),
+          notify,
+          openNative: (p) => new Promise((res) => chrome.runtime.sendMessage(
+            { type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload: { action: "open_file", path: p } },
+            (r) => res(!chrome.runtime.lastError && !!r?.ok && r.response?.success === true)
+          ))
+        });
+      }
+    };
+    const step2 = (by) => {
+      if (set2.length > 1) {
+        i3 = (i3 + by + set2.length) % set2.length;
+        draw();
+      }
+    };
+    head.querySelector('[data-media="prev"]')?.addEventListener("click", () => step2(-1));
+    head.querySelector('[data-media="next"]')?.addEventListener("click", () => step2(1));
+    draw();
+    viewer = { layer: openShell(root), step: step2 };
+  }
+  function openCompare(a, b, labels, onClose) {
+    viewer?.layer.close("replaced");
+    const { root, body, head } = shell(`${labels[0]}  \xB7  ${labels[1]}`, "Compare two options");
+    head.querySelector(".fe-dp-view-tools").innerHTML = actBtn("out", UI_ICON.zoomOut, "Zoom out both") + actBtn("fit", UI_ICON.fit, "Fit both") + actBtn("in", UI_ICON.zoomIn, "Zoom in both");
+    body.classList.add("fe-dp-compare");
+    body.innerHTML = [a, b].map((m, k) => `<section class="fe-dp-cmp-pane" data-kind="${m.kind}">
+      <div class="fe-dp-cmp-label">${esc(labels[k])}</div>
+      <div class="fe-dp-cmp-scroll">${m.kind === "html" ? `<iframe sandbox="allow-scripts" src="${esc(m.src)}" title="${esc(m.name)}"></iframe>` : `<img src="${esc(m.src)}" alt="${esc(m.name)}">`}</div>
+    </section>`).join("");
+    const panes = [...body.querySelectorAll(".fe-dp-cmp-scroll")];
+    let zoom = 1;
+    const setZoom = (z) => {
+      zoom = Math.min(8, Math.max(1, z));
+      panes.forEach((p) => p.style.setProperty("--zoom", String(zoom)));
+    };
+    head.querySelector(".fe-dp-view-tools").addEventListener("click", (e) => {
+      const act = e.target.closest("[data-media]")?.dataset.media;
+      if (act === "in") setZoom(zoom * 1.5);
+      else if (act === "out") setZoom(zoom / 1.5);
+      else if (act === "fit") setZoom(1);
+    });
+    let syncing = false;
+    for (const p of panes) p.addEventListener("scroll", () => {
+      if (syncing) return;
+      syncing = true;
+      const fx = p.scrollLeft / Math.max(1, p.scrollWidth - p.clientWidth), fy = p.scrollTop / Math.max(1, p.scrollHeight - p.clientHeight);
+      for (const q of panes) if (q !== p) {
+        q.scrollLeft = fx * (q.scrollWidth - q.clientWidth);
+        q.scrollTop = fy * (q.scrollHeight - q.clientHeight);
+      }
+      requestAnimationFrame(() => {
+        syncing = false;
+      });
+    });
+    body.style.setProperty("--mock-tall", `${MOCK_TALL}px`);
+    viewer = { layer: openShell(root, onClose) };
+  }
+  function wireGallery(box, notify) {
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) e.target.style.setProperty("--scale", String(e.contentRect.width / MOCK_W));
+    });
+    box.querySelectorAll(".fe-dp-frame").forEach((f) => {
+      f.style.setProperty("--mock-w", `${MOCK_W}px`);
+      ro.observe(f);
+    });
+    const comparing = [];
+    const clearCompare = () => {
+      comparing.splice(0).forEach((f) => f.querySelector('[data-media="compare"]')?.setAttribute("aria-pressed", "false"));
+    };
+    const labelOf = (f) => {
+      const o = f.closest(".fe-dp-opt");
+      return o ? `${o.dataset.code} \xB7 ${o.querySelector(".fe-dp-opt-lbl")?.textContent ?? ""}` : f.dataset.name;
+    };
+    box.addEventListener("click", (e) => {
+      const t = e.target;
+      const f = t.closest(".fe-dp-media");
+      if (!f) return;
+      const act = t.closest("[data-media]")?.dataset.media ?? (t.tagName === "IMG" ? "zoom" : "");
+      if (!act) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (act === "zoom") toggleZoom(f);
+      else if (act === "focus") {
+        const set2 = mediaIn(f.closest(".fe-dp-opts, .fe-dp-strip") ?? f);
+        openFocus(set2.map(toMedia), set2.indexOf(f), notify);
+      } else if (act === "compare") {
+        const at = comparing.indexOf(f);
+        if (at >= 0) {
+          comparing.splice(at, 1);
+          f.querySelector('[data-media="compare"]').setAttribute("aria-pressed", "false");
+          return;
+        }
+        if (comparing[0] && comparing[0].closest(".fe-dp-opts") !== f.closest(".fe-dp-opts")) clearCompare();
+        comparing.push(f);
+        f.querySelector('[data-media="compare"]').setAttribute("aria-pressed", "true");
+        if (comparing.length === 2) {
+          const [a, b] = comparing;
+          openCompare(toMedia(a), toMedia(b), [labelOf(a), labelOf(b)], clearCompare);
+        }
+      }
+    }, true);
+  }
+
+  // src/dp-cards.ts
   var md = (text, base) => `<div class="fe-dp-md">${renderMarkdown(text.replace(/([^\n])\n(?!\n)/g, "$1  \n"), base)}</div>`;
+  var mediaList = (images, base) => (images ?? []).map((p) => mediaOf(base, p)).filter((m) => !!m);
   var stripHtml = (images, base) => {
-    const ok = (images ?? []).map((p) => [p, imgSrc(base, p)]).filter((x) => !!x[1]);
-    return ok.length ? `<div class="fe-dp-strip">${ok.map(([p, src]) => `<a class="fe-dp-shot" href="${esc(src)}" target="_blank" title="${esc(p)}"><img src="${esc(src)}" alt="${esc(p)}" loading="lazy"></a>`).join("")}</div>` : "";
+    const ms = mediaList(images, base);
+    return ms.length ? `<div class="fe-dp-strip">${ms.map((m) => mediaHtml(m)).join("")}</div>` : "";
   };
   var noteHtml = (id, notes2) => notes2 ? `
   <div class="fe-dp-note" hidden>
@@ -12756,10 +12935,10 @@ ${t}`)) say("Note title saved");
   </div>
   <button type="button" class="btn fe-dp-addnote" data-variant="ghost" data-size="sm" data-note-for="${esc(id)}">Add a note</button>` : "";
   function optionHtml(d, o, n, base, none = false) {
-    const imgs = (o.images ?? []).map((p) => imgSrc(base, p)).filter((s) => !!s);
+    const imgs = mediaList(o.images, base);
     return `<label class="fe-dp-opt${imgs.length ? " tile" : ""}${none ? " none" : ""}" data-code="${esc(o.code)}">
       <input type="radio" name="dp-${esc(d.id)}" value="${esc(o.code)}">
-      ${imgs.length ? `<span class="fe-dp-tile-img">${imgs.map((s) => `<img src="${esc(s)}" alt="" loading="lazy">`).join("")}</span>` : ""}
+      ${imgs.length ? `<span class="fe-dp-tile-img">${imgs.map((m) => mediaHtml(m, true)).join("")}</span>` : ""}
       <span class="fe-dp-opt-row">
         <span class="badge fe-dp-num" data-size="sm">${n}</span>
         <span class="fe-dp-opt-lbl">${esc(o.label)}</span>
@@ -12881,6 +13060,7 @@ ${t}`)) say("Note title saved");
     box.innerHTML = headHtml(cfg, base) + `<div id="fe-dp-body">${bodyHtml(cfg, base)}</div>`;
     if (cfg.accent) box.style.setProperty("--ac", cfg.accent);
     wireAnswers(cfg, box);
+    wireGallery(box, (m) => app.toast(m));
     const back = document.createElement("button");
     back.type = "button";
     back.id = "fe-dp-back";
@@ -13076,11 +13256,14 @@ ${t}`)) say("Note title saved");
     }, () => live2() && notesAllowed);
     bind("dp-flagged", () => flaggedOnly(!box.classList.contains("flagged-only")), live2);
     bind("dp-theme", () => runCommand("theme"), live2);
-    bind("dp-leave-field", () => {
+    const typingNote = () => !!document.activeElement?.closest("#fe-dp textarea");
+    bind("dp-esc", () => {
+      if (unzoomAll(box)) return;
       const c = document.activeElement?.closest(".fe-dp-card");
       document.activeElement?.blur();
       if (c) focusCard(c, false);
-    }, () => live2() && !!document.activeElement?.closest("#fe-dp textarea"));
+    }, () => live2() && (typingNote() || !!box.querySelector(".zoomed")));
+    bind("dp-view-step", (k) => viewerStep(k === "\u2190" ? -1 : 1), viewerOpen);
     paint();
   }
 
@@ -14723,7 +14906,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-card.disagree .fe-dp-agree-lbl{color:var(--gold)}
 .fe-dp-prio{flex:none}
 .fe-dp-opts{display:flex;flex-direction:column;gap:var(--sp-2)}
-.fe-dp-opts.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--sp-4)}
+.fe-dp-opts.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--sp-4)}
 .fe-dp-opts.gallery .fe-dp-opt:not(.tile){grid-column:1 / -1}
 .fe-dp-opt{position:relative;display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border:1px solid var(--bd);border-radius:var(--row-r);cursor:pointer;transition:border-color var(--t-fast) var(--ease),background var(--t-fast) var(--ease)}
 .fe-dp-opt:hover{background:var(--hover)}
@@ -14736,11 +14919,29 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-num{visibility:hidden}
 .fe-dp-card.current .fe-dp-num{visibility:visible}
 .fe-dp-why{font-size:var(--fs-sm);color:var(--mt)}
-.fe-dp-tile-img{display:flex;gap:var(--sp-2);margin:calc(var(--sp-3) * -1) calc(var(--sp-4) * -1) 0;overflow:hidden;border-radius:var(--row-r) var(--row-r) 0 0;background:var(--s2)}
-.fe-dp-tile-img img{flex:1;min-width:0;aspect-ratio:16 / 10;object-fit:contain}
 .fe-dp-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--sp-3)}
-.fe-dp-shot{display:block;border:1px solid var(--bd);border-radius:var(--row-r);overflow:hidden;background:var(--s2)}
-.fe-dp-shot img{display:block;width:100%;aspect-ratio:16 / 10;object-fit:contain}
+.fe-dp-strip>.fe-dp-media.zoomed,.fe-dp-opts.gallery>.fe-dp-opt.zoomed{grid-column:1 / -1}
+.fe-dp-tile-img{display:flex;flex-direction:column;gap:var(--sp-2)}
+.fe-dp-media{position:relative;margin:0;border:1px solid var(--bd);border-radius:var(--row-r);overflow:hidden;background:var(--s2)}
+.fe-dp-media img{display:block;width:100%;aspect-ratio:16 / 10;object-fit:contain;cursor:zoom-in}
+.fe-dp-media.zoomed img{aspect-ratio:auto;cursor:zoom-out}
+.fe-dp-frame{position:relative;aspect-ratio:16 / 10;overflow:hidden;background:rgb(var(--paper))}
+.fe-dp-frame iframe{position:absolute;inset:0 auto auto 0;width:var(--mock-w);height:calc(100% / var(--scale,1));border:0;transform:scale(var(--scale,1));transform-origin:0 0}
+.fe-dp-media-acts{position:absolute;top:var(--sp-2);right:var(--sp-2);display:flex;gap:var(--sp-1);padding:var(--sp-1);background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r);opacity:0;transition:opacity var(--t-fast) var(--ease)}
+.fe-dp-media:hover>.fe-dp-media-acts,.fe-dp-media:focus-within>.fe-dp-media-acts,.fe-dp-media-acts:has([aria-pressed="true"]){opacity:1}
+.fe-dp-view-box{position:relative;z-index:1;width:calc(100vw - var(--sp-9) * 2);height:calc(100vh - var(--sp-9) * 2);display:flex;flex-direction:column;outline:none}
+.fe-dp-view-head{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);border-bottom:1px solid var(--bd)}
+.fe-dp-view-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--tx)}
+.fe-dp-view-tools{display:flex;gap:var(--sp-1)}
+.fe-dp-view-body{flex:1;min-height:0;display:flex;flex-direction:column}
+.fe-dp-view-frame{flex:1;width:100%;border:0;background:rgb(var(--paper))}
+.fe-dp-compare{flex-direction:row}
+.fe-dp-cmp-pane+.fe-dp-cmp-pane{border-left:1px solid var(--bd)}
+.fe-dp-cmp-pane{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--card)}
+.fe-dp-cmp-label{padding:var(--sp-2) var(--sp-5);font-size:var(--fs-sm);color:var(--mt);border-bottom:1px solid var(--bd)}
+.fe-dp-cmp-scroll{flex:1;min-height:0;overflow:auto}
+.fe-dp-cmp-scroll img{display:block;width:calc(100% * var(--zoom,1));max-width:none}
+.fe-dp-cmp-scroll iframe{display:block;width:100%;height:var(--mock-tall);border:0;background:rgb(var(--paper))}
 .fe-dp-pre{margin:0;padding:var(--sp-4);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-sm);white-space:pre;background:var(--s2);border-radius:var(--row-r)}
 .fe-dp-slots{display:grid;grid-template-columns:max-content 1fr;gap:var(--sp-2) var(--sp-4);margin:0}
 .fe-dp-slot{display:contents}
@@ -17981,9 +18182,9 @@ ${d.message}` : d.message;
       const target = a && document.getElementById(a.dataset.id);
       if (!target) return;
       e.preventDefault();
-      const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const smooth2 = !matchMedia("(prefers-reduced-motion: reduce)").matches;
       toc.dataset.pin = a.dataset.id;
-      target.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+      target.scrollIntoView({ behavior: smooth2 ? "smooth" : "auto", block: "start" });
       markPlace("#" + encodeURIComponent(a.dataset.id));
       spy(page, toc);
     });
