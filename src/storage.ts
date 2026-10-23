@@ -102,8 +102,17 @@ export const HTML_GUARD_KEY = 'bfbHtmlTakeover';
 // The same route carries the page's background colour, so the loader's cover
 // matches the theme and palette in use.
 export const PAGE_BG_KEY = 'bfbPageBg';
-export function keepPageBg(color: string): void {
-  try { localStorage.setItem(PAGE_BG_KEY, color); } catch { /* storage blocked: the loader keeps its default */ }
+/** Kept per theme, with the theme choice, so a page following the system covers in the colour the system wants now.
+ *  `shapes` are the shell's cards (sidebar, main pane) as insets from the window's edges, which the
+ *  loader paints into the cover so the frame between two pages still shows the app's outline. */
+export interface CoverShape { x: number; y: number; r: number; b: number; c: string }
+export function keepPageBg(color: string, theme: string, mode: string, shapes: CoverShape[] = []): void {
+  const t = theme === 'light' ? 'light' : 'dark';
+  try {
+    localStorage.setItem(`${PAGE_BG_KEY}-${t}`, color);
+    localStorage.setItem(`${PAGE_BG_KEY}-mode`, mode);
+    localStorage.setItem(`${PAGE_BG_KEY}-shapes-${t}`, JSON.stringify(shapes));
+  } catch { /* storage blocked: the loader keeps its default */ }
 }
 
 // The Notes list as last drawn, read synchronously before the notes host

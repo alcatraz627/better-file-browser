@@ -92,3 +92,14 @@ describe('an answer that ended away from its page', () => {
     expect(endedTurn(base, '', { t: 'error', code: 'timeout' })).toMatchObject({ a: '', error: 'timeout' });
   });
 });
+
+describe('one answer watched from two tabs', () => {
+  beforeEach(() => localStorage.clear());
+  it('is filed once', async () => {
+    const { addTurn, chatsFor } = await fresh();
+    const t = { q: 'Why?', a: 'Because.', model: 'small', ms: 9, at: 4242 };
+    addTurn('/f', 'c1', t);
+    addTurn('/f', 'c1', { ...t });
+    expect(chatsFor('/f')[0].turns.length).toBe(1);
+  });
+});

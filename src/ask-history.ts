@@ -69,6 +69,8 @@ export function addTurn(subject: string, chatId: string, turn: AskTurn): AskChat
   const list = store[subject] ?? [];
   let chat = list.find(c => c.id === chatId);
   if (!chat) { chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] }; list.push(chat); }
+  // Two tabs watching one answer both finish it; the turn is filed once.
+  if (chat.turns.some(t => t.at === turn.at && t.q === turn.q)) return chat;
   chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
   chat.at = turn.at;
   store[subject] = list.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);

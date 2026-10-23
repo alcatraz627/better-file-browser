@@ -29,7 +29,7 @@ try {
     window.__nav = seen;
     new MutationObserver(list => {
       const pre = document.getElementById('bfb-preload');
-      if (pre && !seen.cover) seen.cover = pre.textContent.match(/background:\s*([^!;]+)/)?.[1].trim() ?? '';
+      if (pre && !seen.cover) { seen.cover = pre.textContent.match(/(rgba?\([^)]*\)|#[0-9a-f]+)\s*!important/i)?.[1] ?? ''; seen.cards = (pre.textContent.match(/linear-gradient/g) ?? []).length; }
       if (!seen.shell && document.getElementById('fe-nt-list')) { seen.shell = true; seen.first = document.querySelectorAll('#fe-nt-list .fe-nt-item').length; return; }
       if (!seen.shell) return;
       for (const m of list) {
@@ -48,7 +48,7 @@ try {
   await page.goto('file://' + h.fixture + '/nested/', { waitUntil: 'load' });
   await sleep(800);
   const second = await page.evaluate(() => window.__nav);
-  check(second.cover === bg, `the cover before the next page paints is the page's own background: ${second.cover} vs ${bg}`);
+  check(second.cover === bg && second.cards >= 1, `the cover before the next page paints is the page's own background with the app's cards drawn in: ${second.cover} vs ${bg}, ${second.cards} card(s)`);
   check(second.first === 2 && second.notesLate === 0, `the notes list is there from the first frame and does not redraw: ${JSON.stringify({ first: second.first, late: second.notesLate })}`);
 
   // A diagram met a second time draws straight away.

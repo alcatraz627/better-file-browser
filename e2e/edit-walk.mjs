@@ -140,6 +140,8 @@ try {
     return { off: Math.abs(row.top - (ta.top + 2 * lh)), diagShown: getComputedStyle(document.getElementById('fe-fe-diag')).display !== 'none' };
   });
   check(splitAlign.off < 1 && !splitAlign.diagShown, `in Split the typed text sits on its painted row and no empty problem count shows: ${JSON.stringify(splitAlign)}`);
+  const splitWide = await page.evaluate(() => { const ta = document.getElementById("fe-fe-ta"), cs = getComputedStyle(ta), cell = document.querySelector("#fe-fe-paint .fe-fe-row > :last-child"); return { ta: Math.round(ta.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)), cell: Math.round(cell.getBoundingClientRect().width) }; });
+  check(splitWide.ta === splitWide.cell, `in Split the typing box is as wide as the painted text, so both wrap alike: ${JSON.stringify(splitWide)}`);
   await page.screenshot({ path: join(SHOTS, 'edit-split-dark.png') });
   await page.click('#fe-fe-pill [data-mode="raw"]');
   const fullW = await page.$eval('#fe-fe-col', el => el.getBoundingClientRect().width);

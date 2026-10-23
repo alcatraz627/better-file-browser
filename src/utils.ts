@@ -46,13 +46,13 @@ export function fmtDate(dateMs: number, settings?: Pick<Settings, 'dateFormat'>,
     if (!isNaN(p.getTime())) d = p;
   }
   if (!d || isNaN(d.getTime())) return rawFallback || '—';
-  const fmt = settings?.dateFormat ?? 'short';
-  return d.toLocaleDateString('en-US',
-    fmt === 'full'
-      ? { month: 'long',  day: 'numeric', year: 'numeric' }
-      : { month: 'short', day: 'numeric', year: 'numeric' },
-  );
+  return DATE_FMT[settings?.dateFormat === 'full' ? 'full' : 'short'].format(d);
 }
+// Built once: a formatter per call cost about 0.1 ms a row, most of a big folder's first draw.
+const DATE_FMT = {
+  short: new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+  full: new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+};
 
 // A file type's name in words, the one place the listing, the preview header
 // and the file bar all read it from.

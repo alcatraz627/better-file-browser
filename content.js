@@ -118,12 +118,12 @@
       if (!isNaN(p.getTime())) d = p;
     }
     if (!d || isNaN(d.getTime())) return rawFallback || "\u2014";
-    const fmt = settings?.dateFormat ?? "short";
-    return d.toLocaleDateString(
-      "en-US",
-      fmt === "full" ? { month: "long", day: "numeric", year: "numeric" } : { month: "short", day: "numeric", year: "numeric" }
-    );
+    return DATE_FMT[settings?.dateFormat === "full" ? "full" : "short"].format(d);
   }
+  var DATE_FMT = {
+    short: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    full: new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" })
+  };
   var KINDS = {
     md: "Markdown",
     mdx: "MDX",
@@ -532,9 +532,12 @@
   }
   var HTML_GUARD_KEY = "bfbHtmlTakeover";
   var PAGE_BG_KEY = "bfbPageBg";
-  function keepPageBg(color) {
+  function keepPageBg(color, theme, mode, shapes = []) {
+    const t = theme === "light" ? "light" : "dark";
     try {
-      localStorage.setItem(PAGE_BG_KEY, color);
+      localStorage.setItem(`${PAGE_BG_KEY}-${t}`, color);
+      localStorage.setItem(`${PAGE_BG_KEY}-mode`, mode);
+      localStorage.setItem(`${PAGE_BG_KEY}-shapes-${t}`, JSON.stringify(shapes));
     } catch {
     }
   }
@@ -3621,7 +3624,7 @@ ${body}`;
         const code = buf.join("\n");
         const language = fence[3].trim().split(/\s+/)[0] || "";
         if (language.toLowerCase() === "mermaid") {
-          out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view">Rendering diagram\u2026</div></div>`);
+          out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view"></div></div>`);
         } else {
           out.push(`<div class="fe-md-code"><div class="bar fe-md-code-bar" data-inset><span class="fe-md-lang">${esc(language || "text")}</span><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || "md"))}</pre></div>`);
         }
@@ -4682,6 +4685,7 @@ ${body}
       chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] };
       list3.push(chat);
     }
+    if (chat.turns.some((t) => t.at === turn.at && t.q === turn.q)) return chat;
     chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
     chat.at = turn.at;
     store[subject] = list3.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
@@ -13419,6 +13423,8 @@ a.fe-fm-path:hover{text-decoration:underline}
   --tone-ok:var(--nc-green);--tone-warn:var(--nc-orange);--tone-danger:var(--nc-red);--tone-info:var(--nc-blue);
   --type-micro:var(--fs-sm);--type-small:var(--fs-md);--type-ui:var(--fs-lg);--type-ui-strong:var(--fs-lg);--type-title:var(--fs-xl)}
 @media (prefers-reduced-motion:reduce){:root,#fe{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}}
+/* While a page boots nothing eases in: the first frames show it settled (main.ts drops data-booting two frames in). */
+#fe[data-booting]{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}
 .fe-si,.fe-bm-item,.fe-dd-item,.fe-ctx-item{min-height:var(--row-h);margin:0 var(--sp-3);padding:0 var(--row-px);gap:var(--row-gap);
   border-radius:var(--row-r);font-size:var(--row-fs);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-dd-item,.fe-ctx-item{margin:0}
@@ -13533,7 +13539,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 @keyframes fe-lens-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
 @keyframes fe-dock-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu{animation:fe-rise var(--t-fast) var(--ease);transform-origin:top left}
-.fe-lens:not([hidden]){animation:fe-lens-in var(--t-base) var(--ease)}
+.fe-lens.entering{animation:fe-lens-in var(--t-base) var(--ease)}
 #fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch;margin-left:var(--sp-4);animation:fe-dock-in var(--t-base) var(--ease)}
 .fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
 /* Settings and Help read as a page: the title across the top, the sections
@@ -13574,6 +13580,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* Spacing on the text side is border, not padding: the typing layer is placed
    against the padding box, so padding would shift it off the painted text. */
 [data-mode="split"] #fe-fe-src{overflow:auto;padding:0 var(--sp-7) 120px 0;border-top:24px solid transparent;border-left:12px solid transparent}
+/* The typing box spans the padding box; in Split it stops short of the right padding, so it wraps where the painted text wraps. */
+[data-mode="split"] #fe-fe-ta{width:calc(100% - var(--sp-7))}
 [data-mode="split"] #fe-fe-view{overflow:auto;padding:60px 28px 120px;border-left:1px solid var(--bd)}
 #fe-fe-diag[hidden]{display:none}
 .fe-fe-rich{padding:0}
@@ -14682,6 +14690,31 @@ button.chip:disabled{opacity:.45;cursor:default}
         saveSettings(settings);
       }
     });
+  }
+
+  // src/scroll-hold.ts
+  function holdScroll(scroller, top, save) {
+    let holding = top > 0;
+    const stop = () => {
+      holding = false;
+      grow.disconnect();
+    };
+    const apply = () => {
+      if (!holding) return;
+      scroller.scrollTop = top;
+      if (Math.abs(scroller.scrollTop - top) < 2) stop();
+    };
+    const grow = new ResizeObserver(apply);
+    if (holding) {
+      for (const c of scroller.children) grow.observe(c);
+      apply();
+      for (const ev of ["wheel", "pointerdown", "keydown", "touchstart"]) scroller.addEventListener(ev, stop, { once: true, passive: true });
+      setTimeout(stop, 3e3);
+    }
+    scroller.addEventListener("scroll", () => {
+      if (!holding) save(scroller.scrollTop);
+    }, { passive: true });
+    return () => holding ? top : scroller.scrollTop;
   }
 
   // src/text-window.ts
@@ -16990,12 +17023,15 @@ ${d.message}` : d.message;
     page.addEventListener("pointerdown", unpin);
     page.addEventListener("keydown", unpin);
     const remembered = scrollMemory()[rawPath];
-    if (remembered) page.scrollTop = remembered;
-    else if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+    if (!remembered && location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
     let scrollTimer = null;
-    page.addEventListener("scroll", () => {
+    const scrolledTo = holdScroll(page, remembered ?? 0, (top) => {
       if (scrollTimer) clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(() => rememberScroll(rawPath, page.scrollTop), 300);
+      scrollTimer = setTimeout(() => rememberScroll(rawPath, top), 300);
+    });
+    addEventListener("pagehide", () => {
+      if (scrollTimer) clearTimeout(scrollTimer);
+      rememberScroll(rawPath, scrolledTo());
     });
     const toggleRaw = () => {
       if (!editor) {
@@ -19136,10 +19172,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!win) return;
       const scroller = el("fe-scroll"), tbody = el("fe-tbody");
       const offset = tbody.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-      const top2 = scroller.scrollTop - offset;
+      const top = scroller.scrollTop - offset;
       const n = win.parts.length;
-      const a = Math.max(0, firstAtOrAfter(win.tops, top2) - OVERSCAN);
-      const b = Math.min(n, firstAtOrAfter(win.tops, top2 + scroller.clientHeight) + OVERSCAN);
+      const a = Math.max(0, firstAtOrAfter(win.tops, top) - OVERSCAN);
+      const b = Math.min(n, firstAtOrAfter(win.tops, top + scroller.clientHeight) + OVERSCAN);
       if (!force && a >= win.a && b <= win.b) return;
       win.a = Math.max(0, a - OVERSCAN);
       win.b = Math.min(n, b + OVERSCAN);
@@ -19172,6 +19208,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         paintWindow();
       });
     }, { passive: true });
+    const leadPref = textPref("bfb-lead:" + rawPath, "", "tab");
+    let leadRestored = false;
     function applyAll() {
       const parent = all.filter((e) => e.isParent);
       let entries = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
@@ -19233,7 +19271,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (!app.fileMode) el("fe-count").textContent = ls.baseStatus;
       lastEntries = entries;
       paintEmpty();
-      sel.setSel(-1);
+      let lead = -1;
+      if (!leadRestored) {
+        leadRestored = true;
+        const name = leadPref.get();
+        lead = name ? ls.visible.findIndex((e) => e.name === name) : -1;
+      }
+      sel.setSel(lead);
     }
     let lastEntries = [];
     function paintEmpty() {
@@ -19362,6 +19406,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     function paintSel() {
       els("#fe-scroll [data-idx]").forEach((x) => x.classList.toggle("selected", ls.selSet.has(Number(x.dataset.idx))));
+      if (leadRestored) leadPref.set(ls.selIdx >= 0 ? ls.visible[ls.selIdx]?.name ?? "" : "");
       const t = el("fe-status-text");
       if (ls.selSet.size > 1) {
         t.textContent = `${ls.selSet.size} selected`;
@@ -19466,9 +19511,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     density.addEventListener("change", () => setDensity(Number(density.value)));
     const scroll = el("fe-scroll");
     const scrollPref2 = textPref("bfb-scroll:" + rawPath, "", "tab");
-    const top = Number(scrollPref2.get());
-    if (top) scroll.scrollTop = top;
-    scroll.addEventListener("scroll", () => scrollPref2.set(String(scroll.scrollTop)));
+    holdScroll(scroll, Number(scrollPref2.get()) || 0, (t) => scrollPref2.set(String(t)));
     const sortCols = el("fe-sort-cols"), sortDir = el("fe-sort-dir"), groupSeg = el("fe-group-btns");
     const SORT_NAMES = { name: "Name", size: "Size", date: "Modified", type: "Type", ext: "Extension" };
     function syncSortUi() {
@@ -20764,6 +20807,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const switchTo = (lens) => show(lens, (f) => {
       const from = hlRect();
       f();
+      const now = lenses.find((l) => !l.hidden);
+      if (now) {
+        now.classList.add("entering");
+        now.addEventListener("animationend", () => now.classList.remove("entering"), { once: true });
+      }
       const to = hlRect(), hl = rail.querySelector(".fe-rail-btn.on .fe-rail-hl");
       if (!from || !to || !hl || !to.width || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       hl.animate(
@@ -23075,6 +23123,10 @@ ${rows.join("\n")}`, name: subject };
       document.querySelectorAll(".fe-md-mermaid").forEach((block) => {
         if (pending3.has(block) || rendered.get(block) === theme()) return;
         pending3.add(block);
+        const slow = setTimeout(() => {
+          const v = block.querySelector(".fe-md-mermaid-view");
+          if (v && !v.childElementCount && !v.textContent) v.textContent = "Rendering diagram\u2026";
+        }, 200);
         queue = queue.then(async () => {
           if (!block.isConnected) return;
           const source = block.querySelector(".fe-md-mermaid-source")?.textContent || "";
@@ -23108,6 +23160,7 @@ ${rows.join("\n")}`, name: subject };
         }).catch(() => {
         }).finally(() => {
           pending3.delete(block);
+          clearTimeout(slow);
           if (block.isConnected && rendered.get(block) !== theme()) renderDiagrams();
         });
       });
@@ -23473,9 +23526,26 @@ ${rows.join("\n")}`, name: subject };
     const fe = el("fe");
     fe.dataset.wrap = settings.wrapLines === false ? "off" : "on";
     followSystem(fe);
-    const keepBg = () => keepPageBg(getComputedStyle(fe).backgroundColor);
+    const cardOf = (id) => {
+      const e = document.getElementById(id);
+      if (!e?.offsetWidth) return null;
+      const r = e.getBoundingClientRect();
+      let c = getComputedStyle(e).backgroundColor;
+      if (c === "rgba(0, 0, 0, 0)" && e.firstElementChild) c = getComputedStyle(e.firstElementChild).backgroundColor;
+      return { x: Math.round(r.left), y: Math.round(r.top), r: Math.round(innerWidth - r.right), b: Math.round(innerHeight - r.bottom), c };
+    };
+    const keepBg = () => requestAnimationFrame(() => setTimeout(() => keepPageBg(
+      getComputedStyle(fe).backgroundColor,
+      fe.dataset.theme ?? "dark",
+      fe.dataset.mode ?? "system",
+      ["fe-side", "fe-main"].map(cardOf).filter((s) => !!s)
+    ), 0));
+    fe.dataset.booting = "";
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      delete fe.dataset.booting;
+    }));
     keepBg();
-    new MutationObserver(keepBg).observe(fe, { attributes: true, attributeFilter: ["data-theme", "data-palette", "style"] });
+    new MutationObserver(keepBg).observe(fe, { attributes: true, attributeFilter: ["data-theme", "data-mode", "data-palette", "style"] });
     if (settings.sidebarWidth && !settings.sidebarRail) {
       settings.sidebarWidth += 52;
       settings.sidebarRail = true;

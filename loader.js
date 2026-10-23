@@ -22,12 +22,26 @@
   }
   // The cover is the colour the last page was drawn in (src/storage.ts
   // PAGE_BG_KEY), so a light theme never flashes dark between pages.
-  let bg = '#0d1117';
-  try { const kept = localStorage.getItem('bfbPageBg') || ''; if (/^(rgba?\([\d.,\s]+\)|#[0-9a-f]{3,8})$/i.test(kept)) bg = kept; } catch (e) { /* storage blocked */ }
+  // Kept per theme with the theme choice; a page that follows the system, or
+  // a first page with nothing kept, goes by the system's appearance now.
+  let mode = '', kept = '';
+  try { mode = localStorage.getItem('bfbPageBg-mode') || ''; } catch (e) { /* storage blocked */ }
+  const theme = mode === 'light' || mode === 'dark' ? mode : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  try { kept = localStorage.getItem('bfbPageBg-' + theme) || ''; } catch (e) { /* storage blocked */ }
+  const bg = /^(rgba?\([\d.,\s]+\)|#[0-9a-f]{3,8})$/i.test(kept) ? kept : theme === 'light' ? 'rgb(238, 243, 245)' : 'rgb(15, 19, 22)';
+  // The shell's cards as the last page drew them, so the one frame Chrome
+  // paints between two pages shows the app's outline rather than a blank.
+  const colour = /^(rgba?\([\d.,\s]+\)|#[0-9a-f]{3,8})$/i;
+  let cards = '';
+  try {
+    const shapes = JSON.parse(localStorage.getItem('bfbPageBg-shapes-' + theme) || '[]');
+    cards = (Array.isArray(shapes) ? shapes : []).filter(c => c && colour.test(c.c) && ['x', 'y', 'r', 'b'].every(k => Number.isFinite(c[k])))
+      .map(c => `linear-gradient(${c.c},${c.c}) ${c.x}px ${c.y}px / calc(100vw - ${c.x + c.r}px) calc(100vh - ${c.y + c.b}px) no-repeat,`).join('');
+  } catch (e) { /* nothing kept: plain cover */ }
   const s = document.createElement('style');
   s.id = 'bfb-preload';
   s.textContent = `
-    html { background: ${bg} !important; }
+    html { background: ${cards} ${bg} !important; }
     body { opacity: 0 !important; }
   `;
   document.documentElement.appendChild(s);

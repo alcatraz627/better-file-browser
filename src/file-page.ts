@@ -4,6 +4,7 @@
 // main.ts builds the shell and calls mountFileContent. HTML source is fetched
 // after takeover because the document contains rendered text, not source.
 import { esc, copyToClipboard } from './utils';
+import { holdScroll } from './scroll-hold';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
   renderCode, parseDSV, numericCols, renderDSVTable, unrenderableNote,
@@ -339,13 +340,14 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   page.addEventListener('keydown', unpin);
 
   const remembered = scrollMemory()[rawPath];
-  if (remembered) page.scrollTop = remembered;
-  else if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+  if (!remembered && location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
   let scrollTimer: ReturnType<typeof setTimeout> | null = null;
-  page.addEventListener('scroll', () => {
+  const scrolledTo = holdScroll(page, remembered ?? 0, top => {
     if (scrollTimer) clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(() => rememberScroll(rawPath, page.scrollTop), 300);
+    scrollTimer = setTimeout(() => rememberScroll(rawPath, top), 300);
   });
+  // Leaving within the save's pause still keeps the spot.
+  addEventListener('pagehide', () => { if (scrollTimer) clearTimeout(scrollTimer); rememberScroll(rawPath, scrolledTo()); });
 
   const toggleRaw = () => { if (!editor) { raw = !raw; render(); } };
 

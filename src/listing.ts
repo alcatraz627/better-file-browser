@@ -8,6 +8,7 @@ import type { Entry, SortConfig, FilterConfig, GroupMode } from './types';
 import type { FindQuery, ContentHit } from './find';
 import { el, els } from './el';
 import { esc, fmtSize, fullPath, copyToClipboard } from './utils';
+import { holdScroll } from './scroll-hold';
 import {
   viewPref, densityPref, hiddenPref, textPref, getColWidths, saveColWidths, getSaved, getTags, saveSaved,
   getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
@@ -170,6 +171,9 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     windowFrame = requestAnimationFrame(() => { windowFrame = 0; paintWindow(); });
   }, { passive: true });
 
+  // This Chrome tab remembers the selected row of each folder, by name.
+  const leadPref = textPref('bfb-lead:' + rawPath, '', 'tab');
+  let leadRestored = false;
   function applyAll(): void {
     const parent  = all.filter(e => e.isParent);
     let entries   = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
@@ -232,7 +236,11 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     if (!app.fileMode) el('fe-count').textContent = ls.baseStatus;   // a file page shows its line count there
     lastEntries = entries;
     paintEmpty();
-    sel.setSel(-1);
+    // The first draw selects the row this tab had selected here before (Back
+    // lands on it); later redraws, from a sort or a filter, start clear.
+    let lead = -1;
+    if (!leadRestored) { leadRestored = true; const name = leadPref.get(); lead = name ? ls.visible.findIndex(e => e.name === name) : -1; }
+    sel.setSel(lead);
   }
   // With no row to show, the listing says why: an empty folder, only hidden
   // files, or a filter that hides everything. Quiet while a search is running.
@@ -346,6 +354,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     // Walk the drawn rows, not the selection: a select-all on a big folder
     // would otherwise run one query per selected entry.
     els<HTMLElement>('#fe-scroll [data-idx]').forEach(x => x.classList.toggle('selected', ls.selSet.has(Number(x.dataset.idx))));
+    if (leadRestored) leadPref.set(ls.selIdx >= 0 ? ls.visible[ls.selIdx]?.name ?? '' : '');
     const t = el('fe-status-text');
     if (ls.selSet.size > 1) {
       t.textContent = `${ls.selSet.size} selected`;
@@ -449,9 +458,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   const scroll  = el('fe-scroll');
   // This Chrome tab remembers where each folder was scrolled to.
   const scrollPref = textPref('bfb-scroll:' + rawPath, '', 'tab');
-  const top = Number(scrollPref.get());
-  if (top) scroll.scrollTop = top;
-  scroll.addEventListener('scroll', () => scrollPref.set(String(scroll.scrollTop)));
+  holdScroll(scroll, Number(scrollPref.get()) || 0, t => scrollPref.set(String(t)));
 
   // Sort state: panel controls, the Sort button's label, header arrows, storage.
   const sortCols = el<ValuedEl>('fe-sort-cols'), sortDir = el<ValuedEl>('fe-sort-dir'), groupSeg = el<ValuedEl>('fe-group-btns');

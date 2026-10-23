@@ -58,6 +58,9 @@ function initLenses(app: App): void {
   const switchTo = (lens: string) => show(lens, f => {
     const from = hlRect();
     f();
+    // Only a lens picked by hand slides in; one shown as a page loads is simply there.
+    const now = lenses.find(l => !l.hidden);
+    if (now) { now.classList.add('entering'); now.addEventListener('animationend', () => now.classList.remove('entering'), { once: true }); }
     const to = hlRect(), hl = rail.querySelector<HTMLElement>('.fe-rail-btn.on .fe-rail-hl');
     if (!from || !to || !hl || !to.width || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     hl.animate([{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})` }, { transform: 'none' }],

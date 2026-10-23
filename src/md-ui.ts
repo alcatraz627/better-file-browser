@@ -40,6 +40,8 @@ export function initMarkdownUi(toast: Toast): void {
     document.querySelectorAll<HTMLElement>('.fe-md-mermaid').forEach(block => {
       if (pending.has(block) || rendered.get(block) === theme()) return;
       pending.add(block);
+      // The words "Rendering diagram" show only if drawing takes long enough to notice.
+      const slow = setTimeout(() => { const v = block.querySelector('.fe-md-mermaid-view'); if (v && !v.childElementCount && !v.textContent) v.textContent = 'Rendering diagram…'; }, 200);
       queue = queue.then(async () => {
         if (!block.isConnected) return;
         const source = block.querySelector('.fe-md-mermaid-source')?.textContent || '';
@@ -64,7 +66,7 @@ export function initMarkdownUi(toast: Toast): void {
         }
         rendered.set(block, currentTheme);
       }).catch(() => {}).finally(() => {
-        pending.delete(block);
+        pending.delete(block); clearTimeout(slow);
         if (block.isConnected && rendered.get(block) !== theme()) renderDiagrams();
       });
     });

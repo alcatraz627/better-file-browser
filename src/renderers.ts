@@ -775,7 +775,7 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false, nested 
       const code = buf.join('\n');
       const language = fence[3].trim().split(/\s+/)[0] || '';
       if (language.toLowerCase() === 'mermaid') {
-        out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view">Rendering diagram…</div></div>`);
+        out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view"></div></div>`);
       } else {
         out.push(`<div class="fe-md-code"><div class="bar fe-md-code-bar" data-inset><span class="fe-md-lang">${esc(language || 'text')}</span><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || 'md'))}</pre></div>`);
       }

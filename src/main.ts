@@ -5,7 +5,7 @@ import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
   getView, getPalette, getDensity, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
-  homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard, keepPageBg, SETTINGS_KEY, PALETTE_KEY, THEME_KEY,
+  homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard, keepPageBg, type CoverShape, SETTINGS_KEY, PALETTE_KEY, THEME_KEY,
 } from './storage';
 import { notes } from './notes';
 import { initPreview } from './preview';
@@ -185,9 +185,21 @@ loadKv().catch(() => {}).then(function () {
   followSystem(fe);
   // The loader covers the next page in this colour before anything draws, so
   // moving between pages never flashes another theme's background.
-  const keepBg = () => keepPageBg(getComputedStyle(fe).backgroundColor);
+  // Read after the first frame: reading a computed style straight after the body is replaced forces a full style pass on the boot path.
+  const cardOf = (id: string): CoverShape | null => {
+    const e = document.getElementById(id);
+    if (!e?.offsetWidth) return null;
+    const r = e.getBoundingClientRect();
+    let c = getComputedStyle(e).backgroundColor;
+    if (c === 'rgba(0, 0, 0, 0)' && e.firstElementChild) c = getComputedStyle(e.firstElementChild).backgroundColor;
+    return { x: Math.round(r.left), y: Math.round(r.top), r: Math.round(innerWidth - r.right), b: Math.round(innerHeight - r.bottom), c };
+  };
+  const keepBg = () => requestAnimationFrame(() => setTimeout(() => keepPageBg(getComputedStyle(fe).backgroundColor, fe.dataset.theme ?? 'dark', fe.dataset.mode ?? 'system',
+    ['fe-side', 'fe-main'].map(cardOf).filter((s): s is CoverShape => !!s)), 0));
+  fe.dataset.booting = '';
+  requestAnimationFrame(() => requestAnimationFrame(() => { delete fe.dataset.booting; }));
   keepBg();
-  new MutationObserver(keepBg).observe(fe, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'style'] });
+  new MutationObserver(keepBg).observe(fe, { attributes: true, attributeFilter: ['data-theme', 'data-mode', 'data-palette', 'style'] });
   // A width saved before the lens rail existed is widened once by the rail's
   // 52px, so the lists keep the room they had.
   if (settings.sidebarWidth && !settings.sidebarRail) { settings.sidebarWidth += 52; settings.sidebarRail = true; saveSettings(settings); }

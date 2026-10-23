@@ -157,7 +157,7 @@ chrome.runtime.onConnect.addListener(port => {
   port.onDisconnect.addListener(() => {
     try { native?.disconnect(); } catch { /* already closed */ }
     // An answer this page was watching keeps going; only its viewer left.
-    for (const j of askJobs.values()) if (j.client === port) j.client = null;
+    for (const j of askJobs.values()) j.clients.delete(port);
   });
 });
 
@@ -178,14 +178,16 @@ function startAskJob(port, msg) {
   let native;
   try { native = chrome.runtime.connectNative('com.better_file_browser.llm'); }
   catch (e) { sendTo(port, { t: 'native-gone', message: String(e) }); return; }
-  const j = { id: job.id, job, native, client: port, text: '', steps: [], gotFrame: false, over: false };
+  const j = { id: job.id, job, native, clients: new Set([port]), text: '', steps: [], gotFrame: false, over: false };
   askJobs.set(j.id, j);
   const finish = frame => {
     if (j.over) return;
     j.over = true;
     askJobs.delete(j.id);
     try { native.disconnect(); } catch { /* closed */ }
-    if (sendTo(j.client, frame)) return;
+    let told = false;
+    for (const c of j.clients) if (sendTo(c, frame)) told = true;
+    if (told) return;
     void parkAskOrphan({ job: j.job, text: j.text, steps: j.steps, frame });
   };
   native.onMessage.addListener(m => {
@@ -193,7 +195,7 @@ function startAskJob(port, msg) {
     if (m.t === 'chunk') { j.gotFrame = true; j.text += m.text ?? ''; }
     else if (m.t === 'step') { j.gotFrame = true; j.steps.push(m.text ?? ''); }
     if (m.t === 'done' || m.t === 'error') { finish(m); return; }
-    sendTo(j.client, m);
+    for (const c of j.clients) sendTo(c, m);
   });
   native.onDisconnect.addListener(() => {
     finish({ t: 'error', code: j.gotFrame ? 'disconnected' : 'unavailable', message: chrome.runtime.lastError?.message || '' });
@@ -203,7 +205,7 @@ function startAskJob(port, msg) {
 function attachAskJob(port, id) {
   const j = askJobs.get(id);
   if (!j) { sendTo(port, { t: 'gone' }); return; }
-  j.client = port;
+  j.clients.add(port);
   sendTo(port, { t: 'replay', text: j.text, steps: j.steps });
 }
 function cancelAskJob(id) {

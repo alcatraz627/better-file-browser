@@ -1235,6 +1235,8 @@ a.fe-fm-path:hover{text-decoration:underline}
   --tone-ok:var(--nc-green);--tone-warn:var(--nc-orange);--tone-danger:var(--nc-red);--tone-info:var(--nc-blue);
   --type-micro:var(--fs-sm);--type-small:var(--fs-md);--type-ui:var(--fs-lg);--type-ui-strong:var(--fs-lg);--type-title:var(--fs-xl)}
 @media (prefers-reduced-motion:reduce){:root,#fe{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}}
+/* While a page boots nothing eases in: the first frames show it settled (main.ts drops data-booting two frames in). */
+#fe[data-booting]{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}
 .fe-si,.fe-bm-item,.fe-dd-item,.fe-ctx-item{min-height:var(--row-h);margin:0 var(--sp-3);padding:0 var(--row-px);gap:var(--row-gap);
   border-radius:var(--row-r);font-size:var(--row-fs);transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
 .fe-dd-item,.fe-ctx-item{margin:0}
@@ -1349,7 +1351,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 @keyframes fe-lens-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
 @keyframes fe-dock-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu{animation:fe-rise var(--t-fast) var(--ease);transform-origin:top left}
-.fe-lens:not([hidden]){animation:fe-lens-in var(--t-base) var(--ease)}
+.fe-lens.entering{animation:fe-lens-in var(--t-base) var(--ease)}
 #fe-qlook.side{position:relative;inset:auto;z-index:1;flex:none;width:420px;max-width:80vw;border-left:1px solid var(--bd);align-items:stretch;justify-content:stretch;margin-left:var(--sp-4);animation:fe-dock-in var(--t-base) var(--ease)}
 .fe-sh-collapse svg{transition:transform var(--t-fast) var(--ease)}
 /* Settings and Help read as a page: the title across the top, the sections
@@ -1390,6 +1392,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* Spacing on the text side is border, not padding: the typing layer is placed
    against the padding box, so padding would shift it off the painted text. */
 [data-mode="split"] #fe-fe-src{overflow:auto;padding:0 var(--sp-7) 120px 0;border-top:24px solid transparent;border-left:12px solid transparent}
+/* The typing box spans the padding box; in Split it stops short of the right padding, so it wraps where the painted text wraps. */
+[data-mode="split"] #fe-fe-ta{width:calc(100% - var(--sp-7))}
 [data-mode="split"] #fe-fe-view{overflow:auto;padding:60px 28px 120px;border-left:1px solid var(--bd)}
 #fe-fe-diag[hidden]{display:none}
 .fe-fe-rich{padding:0}
