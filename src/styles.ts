@@ -1605,6 +1605,20 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 }
 #fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none;height:var(--h)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
+/* A decision page takes the listing's place; Files brings the listing back. While the
+   config is read, the listing stays out of sight so it never flashes first. */
+#fe.fe-dp-pending #fe-toolbar,#fe.fe-dp-pending #fe-scroll,#fe.fe-dp-page #fe-toolbar,#fe.fe-dp-page #fe-sg-panel,#fe.fe-dp-page #fe-filter-bar,#fe.fe-dp-page #fe-scroll{display:none}
+#fe-dp{flex:1;min-height:0;overflow:auto;padding:var(--sp-8) var(--sp-9)}
+#fe-dp[hidden]{display:none}
+.fe-dp-head{max-width:920px;margin:0 auto var(--sp-8);display:flex;flex-direction:column;gap:var(--sp-4)}
+.fe-dp-titlebar{display:flex;align-items:center;gap:var(--sp-5)}
+.fe-dp-title{flex:1;min-width:0;margin:0;font-family:var(--font-head);font-weight:650;font-size:calc(var(--fs-xl) * 1.6);line-height:1.25;color:var(--tx)}
+.fe-dp-origin{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.fe-dp-origin .chip b{font-weight:600;color:var(--dm);margin-right:var(--sp-2)}
+.fe-dp-intro{color:var(--mt)}
+.fe-dp-intro>.fe-md{padding:0;max-width:none;color:inherit}
+.fe-dp-count{margin:0;font-size:var(--fs-sm);color:var(--dm)}
+#fe-dp-back{margin-left:var(--sp-4)}
 /* Parts that start hidden and are shown by clearing their hidden attribute. */
 #fe-ql-ai[hidden],#fe-ql-ai-out[hidden],#fe-ed-hist[hidden],#fe-fe-banner[hidden],#fe-fe[hidden],.fe-dlg[hidden],#fe-rc-tabs-sec[hidden],
 #fe-sg-panel[hidden],#fe-filter-bar[hidden],#fe-find-depth-wrap[hidden],#fe-st-term-custom-row[hidden],#fe-st-export-out[hidden],#fe-ed-file[hidden],#fe-st-import-file[hidden]{display:none}

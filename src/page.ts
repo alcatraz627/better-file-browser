@@ -165,7 +165,7 @@ export function renderPage(p: PageParams): string {
           <button id="fe-open-path" class="btn" data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
         </div>
       </div>
-      ${fileMode ? renderFileContent() : ''}
+      ${fileMode ? renderFileContent() : '<div id="fe-dp" hidden></div>'}
       <div id="fe-toolbar" class="bar">
         <span id="fe-count">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <div id="fe-tb-right">

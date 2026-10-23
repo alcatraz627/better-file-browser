@@ -12684,6 +12684,72 @@ ${t}`)) say("Note title saved");
     });
   }
 
+  // src/dp-page.ts
+  function parseDpConfig(text) {
+    let c;
+    try {
+      c = JSON.parse(text);
+    } catch {
+      return null;
+    }
+    if (!c || typeof c !== "object") return null;
+    const cfg = c;
+    return Array.isArray(cfg.decisions) || Array.isArray(cfg.sections) ? cfg : null;
+  }
+  function originChips(o) {
+    if (!o) return [];
+    const rows = [["Topic", o.topic], ["Project", o.project], ["Session", o.session], ["Goal", o.goal], ["Milestone", o.milestone], ["Card", o.card], ["Asked", o.created]];
+    return rows.filter((r) => !!r[1]).map(([label, value]) => ({ label, value }));
+  }
+  function headHtml(cfg, base) {
+    const d = cfg.decisions?.length ?? 0, s = cfg.sections?.length ?? 0;
+    const count = [d ? `${d} decision${d === 1 ? "" : "s"}` : "", s ? `${s} item${s === 1 ? "" : "s"} to review` : ""].filter(Boolean).join(" \xB7 ");
+    return `<header class="fe-dp-head">
+      <div class="fe-dp-titlebar">
+        <h1 class="fe-dp-title">${esc(cfg.title || "Decisions")}</h1>
+        <button type="button" id="fe-dp-files" class="btn" data-variant="outline" title="Show the files in this folder">Files</button>
+      </div>
+      ${originChips(cfg.origin).length ? `<div class="fe-dp-origin">${originChips(cfg.origin).map((c) => `<span class="chip" title="${esc(c.label)}"><b>${esc(c.label)}</b>${esc(c.value)}</span>`).join("")}</div>` : ""}
+      ${cfg.intro ? `<div class="fe-dp-intro">${renderMarkdown(cfg.intro, base)}</div>` : ""}
+      <p class="fe-dp-count">${esc(count)}</p>
+    </header>`;
+  }
+  async function mountDecisionPage(app) {
+    const fe = app.fe;
+    const box = document.getElementById("fe-dp");
+    if (app.fileMode || !box || !app.entryNames.includes("config.json")) return null;
+    fe.classList.add("fe-dp-pending");
+    const base = "file://" + app.rawPath.split("/").map(encodeURIComponent).join("/");
+    let cfg = null;
+    try {
+      cfg = parseDpConfig(await fetchFileText(base + "config.json"));
+    } catch {
+      cfg = null;
+    }
+    fe.classList.remove("fe-dp-pending");
+    if (!cfg) return null;
+    const filesPref = textPref("bfb-dp-files:" + app.rawPath, "", "tab");
+    box.innerHTML = headHtml(cfg, base) + `<div id="fe-dp-body"></div>`;
+    const back = document.createElement("button");
+    back.type = "button";
+    back.id = "fe-dp-back";
+    back.className = "btn";
+    back.dataset.variant = "outline";
+    back.title = "Show this folder as its decision page";
+    back.textContent = "Decision page";
+    document.getElementById("fe-toolbar")?.append(back);
+    const show = (page) => {
+      fe.classList.toggle("fe-dp-page", page);
+      box.hidden = !page;
+      back.hidden = page;
+      filesPref.set(page ? "" : "1");
+    };
+    document.getElementById("fe-dp-files").addEventListener("click", () => show(false));
+    back.addEventListener("click", () => show(true));
+    show(filesPref.get() !== "1");
+    return cfg;
+  }
+
   // src/styles.ts
   var CSS2 = `
 *{box-sizing:border-box;margin:0;padding:0}
@@ -14291,6 +14357,20 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 }
 #fe-table tbody tr.fe-spacer td{padding:0;border:0;background:none;height:var(--h)}
 .fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:var(--nc-red)}
+/* A decision page takes the listing's place; Files brings the listing back. While the
+   config is read, the listing stays out of sight so it never flashes first. */
+#fe.fe-dp-pending #fe-toolbar,#fe.fe-dp-pending #fe-scroll,#fe.fe-dp-page #fe-toolbar,#fe.fe-dp-page #fe-sg-panel,#fe.fe-dp-page #fe-filter-bar,#fe.fe-dp-page #fe-scroll{display:none}
+#fe-dp{flex:1;min-height:0;overflow:auto;padding:var(--sp-8) var(--sp-9)}
+#fe-dp[hidden]{display:none}
+.fe-dp-head{max-width:920px;margin:0 auto var(--sp-8);display:flex;flex-direction:column;gap:var(--sp-4)}
+.fe-dp-titlebar{display:flex;align-items:center;gap:var(--sp-5)}
+.fe-dp-title{flex:1;min-width:0;margin:0;font-family:var(--font-head);font-weight:650;font-size:calc(var(--fs-xl) * 1.6);line-height:1.25;color:var(--tx)}
+.fe-dp-origin{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.fe-dp-origin .chip b{font-weight:600;color:var(--dm);margin-right:var(--sp-2)}
+.fe-dp-intro{color:var(--mt)}
+.fe-dp-intro>.fe-md{padding:0;max-width:none;color:inherit}
+.fe-dp-count{margin:0;font-size:var(--fs-sm);color:var(--dm)}
+#fe-dp-back{margin-left:var(--sp-4)}
 /* Parts that start hidden and are shown by clearing their hidden attribute. */
 #fe-ql-ai[hidden],#fe-ql-ai-out[hidden],#fe-ed-hist[hidden],#fe-fe-banner[hidden],#fe-fe[hidden],.fe-dlg[hidden],#fe-rc-tabs-sec[hidden],
 #fe-sg-panel[hidden],#fe-filter-bar[hidden],#fe-find-depth-wrap[hidden],#fe-st-term-custom-row[hidden],#fe-st-export-out[hidden],#fe-ed-file[hidden],#fe-st-import-file[hidden]{display:none}
@@ -18897,7 +18977,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <button id="fe-open-path" class="btn" data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
         </div>
       </div>
-      ${fileMode ? renderFileContent() : ""}
+      ${fileMode ? renderFileContent() : '<div id="fe-dp" hidden></div>'}
       <div id="fe-toolbar" class="bar">
         <span id="fe-count">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <div id="fe-tb-right">
@@ -24003,6 +24083,7 @@ ${rows.join("\n")}`, name: subject };
     installColumnResize();
     const listing = initListing(app, entries, { view: initView, density: initDensity, hidden: initHidden });
     initListingInput(app, listing);
+    void mountDecisionPage(app);
     initSettingsUi(app);
     initToolLenses(app);
     initSidebar(app);
