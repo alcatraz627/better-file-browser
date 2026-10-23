@@ -12067,16 +12067,14 @@ body{opacity:1!important}
 #fe-bar .fe-crumb-dd svg{display:block}
 #fe-crumb-menu{
   position:fixed;z-index:var(--z-popover);
-  background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
   min-width:220px;max-width:340px;max-height:340px;overflow:hidden;
-  box-shadow:0 8px 24px #0009;padding:var(--sp-2) 0;
 }
 #fe-crumb-menu:not([data-layer]){display:none}
 .fe-dd-search{width:100%}
 
-.fe-dd-item{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-3) var(--sp-5);
-  color:var(--tx);text-decoration:none;font-size:var(--fs-md);white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;transition:background .08s}
+.fe-dd-item{display:flex;align-items:center;
+  color:var(--tx);text-decoration:none;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
 .fe-dd-item.dir{color:var(--dir)}
 .fe-dd-item svg{flex-shrink:0}
 #fe-bm-btn.on,#fe-bm-btn.on:hover{color:var(--gold)}
@@ -12125,11 +12123,10 @@ body{opacity:1!important}
 #fe-side .fe-sh{justify-content:flex-start!important}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:var(--sp-3);padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
 .fe-sh-collapse:hover{color:var(--tx)}
-.fe-si{display:flex;align-items:center;gap:10px;padding:var(--sp-4) 14px;
-  color:var(--mt);text-decoration:none;transition:background .1s,color .1s}
+.fe-si{display:flex;align-items:center;color:var(--mt);text-decoration:none}
 .fe-rc-ago{font-size:var(--fs-sm);color:var(--dm);flex-shrink:0}
 .fe-si svg{flex-shrink:0;opacity:.7;width:19px;height:19px}
-.fe-bm-item{display:flex;align-items:center;gap:0;position:relative;user-select:none}
+.fe-bm-item{display:flex;align-items:center;position:relative;user-select:none}
 .fe-drag-h{padding:7px var(--sp-2) 7px 10px;color:var(--dm);cursor:grab;opacity:0;transition:opacity .1s;flex-shrink:0;display:flex;align-items:center}
 .fe-bm-item:hover .fe-drag-h{opacity:1}
 .fe-bm-item.dragging{opacity:.4;background:var(--hover)}
@@ -12138,7 +12135,7 @@ body{opacity:1!important}
 .fe-rm-btn{opacity:0;flex-shrink:0}
 .fe-bm-item:hover .fe-rm-btn{opacity:1}
 
-#fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 20px);margin:var(--sp-1) 10px var(--sp-3)}
+#fe-lens-filter,#fe-docs-q{display:block;width:calc(100% - 12px);margin:var(--sp-1) var(--sp-3) var(--sp-4)}
 
 .fe-pl-label.editing,.fe-pl-tags.editing{outline:1px solid var(--ac);border-radius:3px;background:var(--s2);padding:0 3px;cursor:text}
 .fe-sv-tag{gap:7px;padding:var(--sp-4) 14px 3px}
@@ -12159,8 +12156,8 @@ body{opacity:1!important}
 /* clip, not hidden: focusing a control past the edge must not scroll the pane sideways.
    The pane is a size container so its toolbar wraps by the pane's width, which a
    docked preview can make narrow in a wide window. */
-#fe-main{flex:1;display:flex;flex-direction:column;overflow:clip;container:fe-main / inline-size;min-width:0}
-#fe-toolbar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-main{flex:1;display:flex;flex-direction:column;container:fe-main / inline-size;min-width:0}
+#fe-toolbar{border-bottom:1px solid var(--bd);flex-shrink:0}
 #fe-count{font-size:var(--fs-sm);color:var(--dm);flex:1;white-space:nowrap}
 #fe-tb-right{display:flex;align-items:center;gap:var(--sp-2)}
 #fe-sg-cur{font-variant-numeric:tabular-nums}
@@ -12194,7 +12191,7 @@ body{opacity:1!important}
 #fe-find-depth .fe-dd-btn{min-width:100px}
 #fe-find-status{font-size:var(--fs-sm);color:var(--mt);margin-left:var(--sp-2)}
 .fe-view .fe-si-link svg{color:var(--ac);opacity:.9}
-thead{position:sticky;top:0;z-index:var(--z-sticky);background:var(--s2)}
+thead{position:sticky;top:0;z-index:var(--z-sticky)}
 thead th{padding:var(--sp-3) var(--sp-5);text-align:left;font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--dm);border-bottom:1px solid var(--bd);user-select:none;white-space:nowrap;position:relative}
 thead th[data-sort]{cursor:pointer}
 thead th[data-sort]:hover{color:var(--tx)}
@@ -12382,7 +12379,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   background:none;border-radius:0;padding:0;width:auto;left:auto}
 
 .fe-row td.c-nm{position:relative}
-#fe-statusbar{background:var(--s1);border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt);white-space:nowrap;overflow:hidden}
+#fe-statusbar{border-top:1px solid var(--bd);flex-shrink:0;font-size:var(--fs-md);color:var(--mt)}
 #fe-status-meta{display:flex;align-items:center;gap:var(--sp-5)}
 .fe-meta-item{display:inline-flex;align-items:center;gap:5px}
 .fe-meta-item svg{color:var(--dm)}
@@ -12397,10 +12394,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-status-path:hover{color:var(--ac);text-decoration-color:currentColor}
 #fe-tip{
   position:fixed;pointer-events:none;z-index:200;
-  background:var(--s2);border:1px solid var(--bd);border-radius:var(--r-sm);
-  padding:9px var(--sp-5);font-size:var(--fs-md);line-height:1.7;color:var(--tx);
+  padding:9px var(--sp-5);font-size:var(--fs-md);line-height:1.7;
   max-width:380px;overflow-wrap:anywhere;word-break:break-word;
-  box-shadow:0 4px 20px #000a;opacity:0;
+  opacity:0;
   transition:opacity .15s ease-out;
 }
 #fe-tip.show{opacity:1;transition:opacity var(--t-base) ease-in .06s}
@@ -12412,9 +12408,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .tip-warn{color:var(--dm);font-size:var(--fs-sm);margin-top:3px;border-top:1px solid var(--bd);padding-top:3px}
 #fe-toast{
   position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(6px);
-  background:#1f2937;color:#e5e7eb;padding:var(--sp-4) 18px;border-radius:20px;
+  padding:var(--sp-4) 18px;border-radius:20px;
   font-size:var(--fs-md);opacity:0;transition:all .22s;pointer-events:none;white-space:nowrap;
-  border:1px solid #374151;z-index:200
+  z-index:200
 }
 #fe-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 /* The label for anything with a title (tooltip.ts); same surface as the row card #fe-tip. */
@@ -12500,7 +12496,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-st-ai-blink::after{content:'';position:absolute;inset:0;border-radius:50%;background:inherit}
 .fe-st-ai-head.ready .dot{background:var(--green)}
 .fe-st-ai-head.cold .dot{background:var(--gold)}
-.fe-st-ai-head.down .dot,.fe-st-ai-head.off .dot{background:#f85149}
 /* Pulsing halo only when the model is actually resident (ready). */
 .fe-st-ai-head.ready .fe-st-ai-blink::after{background:var(--green);animation:fe-blink 1.6s ease-out infinite}
 .fe-st-ai-head.cold .fe-st-ai-blink::after{background:var(--gold);animation:fe-blink 2.4s ease-out infinite}
@@ -12520,7 +12515,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-qlook.side #fe-ql-bg,#fe-qlook.side #fe-ql-rz,#fe-qlook.side #fe-ql-size{display:none}
 #fe-qlook.side #fe-ql-rz-side{display:block}
 #fe-qlook.side #fe-ql-dialog{width:100%;height:100%;max-width:none;max-height:none}
-#fe-tabbar{display:flex;align-items:stretch;background:var(--s1);border-bottom:1px solid var(--bd);flex-shrink:0;min-height:34px}
+#fe-tabbar{display:flex;align-items:stretch;border-bottom:1px solid var(--bd);flex-shrink:0;min-height:34px}
 /* The strip takes only the room its tabs need, so + and the path button sit
    right after the last tab; past the bar's width the tabs scroll and the
    buttons stay in view. */
@@ -12548,7 +12543,6 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-lbl{display:flex;overflow:hidden;min-width:0}
 .fe-tab-head{overflow:hidden;white-space:pre;min-width:0}
 .fe-tab-tail{white-space:nowrap;flex-shrink:0}
-.fe-tab-x,.fe-tab-more{opacity:0}
 
 .fe-tab:hover .fe-tab-x,.fe-tab.on .fe-tab-x,.fe-tab:hover .fe-tab-more{opacity:1}
 
@@ -12564,14 +12558,12 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-ico{display:flex;flex-shrink:0}
 .fe-tab-menu{position:fixed}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none!important}
-#fe-fp-bar{background:var(--s2);border-bottom:1px solid var(--bd);flex-shrink:0}
+#fe-fp-bar{border-bottom:1px solid var(--bd);flex-shrink:0}
 /* Contents and Comments float over the page as a translucent card, shown and
    hidden by the two buttons right of find. The text keeps clear of the card. */
 #fe-fp{display:flex;flex:1;min-height:0;position:relative}
 #fe-toc-rail{position:absolute;top:12px;right:16px;z-index:4;width:240px;max-height:calc(100% - 24px);display:flex;flex-direction:column;min-height:0;
-  border:1px solid color-mix(in srgb,var(--bd) 80%,transparent);border-radius:var(--pop-r);
-  background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2);
-  box-shadow:0 8px 24px rgb(0 0 0 / .12),0 1px 3px rgb(0 0 0 / .08);transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
+  transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
 #fe-toc-rail[hidden]{display:none}
 #fe-toc-rail.peek{box-shadow:var(--pop-sh)}
 .fe-toc-head{display:flex;align-items:center;gap:var(--sp-3);padding:10px var(--sp-4) var(--sp-3) var(--sp-6);flex:none}
@@ -12749,7 +12741,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fe-win{will-change:transform}
 #fe-fe-view{padding:0;max-width:none}
 #fe-fe-pill{position:absolute;top:12px;right:18px;z-index:var(--z-sticky);display:flex;align-items:center;gap:var(--sp-1);padding:3px;
-  background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-full);box-shadow:0 6px 20px rgb(0 0 0 / .25)}
+  border-radius:var(--r-full)}
 #fe-fe-state{display:inline-flex;align-items:center;gap:5px;padding:0 var(--sp-4) 0 10px;font-size:var(--fs-md);color:var(--mt);
   transition:color var(--t-fast) var(--ease)}
 #fe-fe-state.saved{color:var(--green)}
@@ -12757,8 +12749,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fe-state.failed .fe-fe-dot{background:var(--nc-red)}
 #fe-fe-state svg{width:13px;height:13px}
 .fe-fe-dot{width:6px;height:6px;border-radius:50%;background:var(--ac)}
-#fe-allow{position:fixed;z-index:320;width:340px;padding:14px;background:var(--s1);border:1px solid var(--bd2);border-radius:10px;
-  box-shadow:0 12px 32px rgb(0 0 0 / .3);animation:fe-pop var(--t-base) var(--ease)}
+#fe-allow{position:fixed;z-index:320;width:340px;padding:14px;animation:fe-pop var(--t-base) var(--ease)}
 #fe-allow p{color:var(--mt);font-size:var(--fs-md);margin:var(--sp-3) 0 var(--sp-5);line-height:1.5}
 #fe-allow code{font:var(--fs-md) var(--mono);background:var(--s2);padding:1px var(--sp-2);border-radius:var(--r-xs);overflow-wrap:anywhere}
 .fe-allow-title{display:flex;align-items:center;gap:var(--sp-4);font-weight:600}
@@ -12789,7 +12780,7 @@ button.fe-chip-title:hover{border-color:var(--ac)}
 button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
 textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.35;min-height:var(--ctl-md)}
 .fe-cdot{flex:none}
-.fe-pmenu{position:fixed;z-index:2147483000;width:250px;background:var(--s1);border:1px solid var(--bd);border-radius:var(--row-r);padding:var(--sp-4);box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:var(--sp-3)}
+.fe-pmenu{position:fixed;z-index:2147483000;width:250px;padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3)}
 .fe-pmenu .btn{justify-content:flex-start}
 .fe-pm-lbl{font-size:var(--fs-sm);color:var(--mt);text-transform:uppercase;letter-spacing:.04em}
 .fe-pm-colors{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2)}
@@ -12991,11 +12982,9 @@ a.fe-fm-path:hover{text-decoration:underline}
 .fe-md-table thead{position:static;background:none}
 .fe-md-table thead th{background:color-mix(in srgb,var(--s1),var(--tx) 5%);font-weight:600;font-size:inherit;letter-spacing:0;text-transform:none;color:var(--tx);
   white-space:normal;user-select:text;padding:.55em .9em}
-#fe-ctx,.fe-ctx{position:fixed;z-index:360;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-sm);
-  min-width:180px;box-shadow:0 8px 24px #0009;padding:var(--sp-2) 0}
+#fe-ctx,.fe-ctx{position:fixed;z-index:360;min-width:180px}
 .fe-ctx:not([data-layer]){display:none}
-.fe-ctx-item{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-3) var(--sp-5);color:var(--tx);
-  font-size:var(--fs-md);cursor:pointer;white-space:nowrap}
+.fe-ctx-item{display:flex;align-items:center;color:var(--tx);cursor:pointer;white-space:nowrap}
 .fe-ctx-key{margin-left:auto;color:var(--dm);font-size:var(--fs-xs);padding-left:var(--sp-6)}
 .fe-tab-ico svg{width:15px;height:16px}
 .fe-tab-x,.fe-tab-more{opacity:.6}
@@ -13092,7 +13081,6 @@ button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointe
 .fe-grp > summary svg{width:12px;height:12px;opacity:.8}
 .fe-sh{padding:10px var(--sp-6) var(--sp-2)}
 .fe-hint{font-size:var(--fs-md);color:var(--dm);font-style:italic;line-height:1.7;padding:var(--sp-3) var(--sp-6)}
-#fe-lens-filter,#fe-docs-q{width:calc(100% - 12px);margin:var(--sp-1) var(--sp-3) var(--sp-4)}
 .fe-lens-tags{display:flex;flex-wrap:wrap;gap:var(--sp-2);padding:0 var(--sp-3) var(--sp-4)}
 /* Saved and Notes: the lens's own buttons, icon only, left of one search
    box that carries a Names/Deep switch; the tag chips scroll in a row below. */

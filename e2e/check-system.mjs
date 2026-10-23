@@ -33,6 +33,7 @@ const RULES = [
   { id: 'css-important', css: d => /!important/.test(d) },
   { id: 'css-media', text: (css) => count(css, /@(media|container)\b/g), on: 'css' },
   { id: 'css-dup-selector', text: css => dupSelectors(css), on: 'css' },
+  { id: 'css-dead-decl', text: css => deadDecls(css), on: 'css' },
   { id: 'css-part-paint', text: css => partPaint(css), on: 'css' },
   { id: 'css-row-paint', text: css => rowPaint(css), on: 'css' },
   { id: 'js-keydown', code: /addEventListener\(\s*['"]keydown['"]/g, skip: ['layer.ts', 'resize.ts'] },
@@ -61,6 +62,24 @@ function dupSelectors(css) {
   let dups = 0;
   for (const n of seen.values()) if (n > 1) dups += n - 1;
   return dups;
+}
+
+// A declaration that can never apply: a later top-level rule sets the same
+// property for every selector in its group, so the earlier value is dead
+// weight that reads as if it mattered. Commas inside :is() or :has() do not
+// split a group.
+function deadDecls(css) {
+  const flat = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@[^{]+\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+  const split = s => { const out = []; let depth = 0, cur = ''; for (const c of s) { if (c === '(') depth++; if (c === ')') depth--; if (c === ',' && !depth) { out.push(cur); cur = ''; } else cur += c; } out.push(cur); return out.map(x => x.trim().replace(/\s+/g, ' ')).filter(Boolean); };
+  const rules = [...flat.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(m => ({
+    sels: split(m[1]),
+    props: m[2].split(';').filter(d => d.includes(':') && !/!important/.test(d)).map(d => d.slice(0, d.indexOf(':')).trim()),
+  }));
+  let n = 0;
+  rules.forEach((r, i) => {
+    for (const p of r.props) if (r.sels.every(s => rules.some((l, j) => j > i && l.sels.includes(s) && l.props.includes(p)))) n++;
+  });
+  return n;
 }
 
 // The icon-button classes that moved onto the button part keep only where
