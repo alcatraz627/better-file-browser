@@ -287,5 +287,39 @@ r = call({'op': 'commentsRead', 'root': cd, 'rel': 'emoji.md'})
 pl = r['threads'][0]['place']
 check(page[pl['offset'] * 2:(pl['offset'] + pl['length']) * 2].decode('utf-16-le') == 'not sent', f'reading back gives the same UTF-16 place: {pl}')
 
+# Decision pages: the host only relays to gcc's command, here a stub that
+# echoes what it was given and plays a conflict and a failed wake.
+stub_dir = tempfile.mkdtemp(prefix='bfb-dp-')
+stub = os.path.join(stub_dir, 'decision-page.sh')
+with open(stub, 'w') as fh:
+    fh.write('''#!/usr/bin/env python3
+import json, sys
+verb, slug = sys.argv[1], sys.argv[2]
+picks = json.load(sys.stdin)
+if verb == 'submit' and slug == 'taken':
+    print(json.dumps({'code': 'dp_conflict', 'message': 'answered somewhere else'})); sys.exit(1)
+if verb == 'submit' and slug == 'nowake':
+    print(json.dumps({'written': True, 'woke': False})); sys.exit(0)
+print(json.dumps({'verb': verb, 'slug': slug, 'got': picks}))
+''')
+os.chmod(stub, 0o755)
+os.environ['BFB_DP_BIN'] = stub
+r = call({'op': 'dp', 'verb': 'compose', 'slug': 'my-page', 'payload': {'D1': 'a'}})
+check(r.get('t') == 'dp' and r['result'] == {'verb': 'compose', 'slug': 'my-page', 'got': {'D1': 'a'}}, f'dp compose relays the picks and the reply: {r}')
+r = call({'op': 'dp', 'verb': 'submit', 'slug': 'taken', 'payload': {}})
+check(r.get('t') == 'error' and r['code'] == 'dp_conflict', f'a conflict comes back as its own code: {r}')
+r = call({'op': 'dp', 'verb': 'submit', 'slug': 'nowake', 'payload': {}})
+check(r.get('result') == {'written': True, 'woke': False}, f'a written answer whose wake failed says so: {r}')
+r = call({'op': 'dp', 'verb': 'seen', 'slug': 'my-page'})
+check(r.get('t') == 'dp' and r['result']['verb'] == 'seen', f'dp seen relays: {r}')
+r = call({'op': 'dp', 'verb': 'rm', 'slug': 'my-page'})
+check(r.get('code') == 'notes_bad_op', f'a verb outside the four is refused: {r}')
+r = call({'op': 'dp', 'verb': 'parse', 'slug': '../etc'})
+check(r.get('code') == 'notes_bad_path', f'a slug that is not a page name is refused: {r}')
+os.environ['BFB_DP_BIN'] = os.path.join(stub_dir, 'missing.sh')
+r = call({'op': 'dp', 'verb': 'compose', 'slug': 'my-page'})
+check(r.get('code') == 'dp_unavailable', f'no command installed gives a stable code: {r}')
+del os.environ['BFB_DP_BIN']
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

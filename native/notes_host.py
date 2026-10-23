@@ -30,7 +30,7 @@ notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it.
 """
 import bisect
-import sys, os, json, struct, time, shutil, subprocess
+import sys, os, re, json, struct, time, shutil, subprocess
 from datetime import datetime
 
 def read_msg():
@@ -553,8 +553,39 @@ def op_docs_index():
         rows.append({**row, 'companion': comp, 'exists': os.path.exists(row.get('doc', ''))})
     return {'t': 'docsIndex', 'docs': rows}
 
+DP_VERBS = ('compose', 'submit', 'seen', 'parse')
+# BFB_DP_BIN overrides gcc's command (the tests point it at a stub).
+DP_BIN = os.environ.get('BFB_DP_BIN') or os.path.expanduser('~/.claude/scripts/decision-page/decision-page.sh')
+
+def op_dp(verb, slug, payload):
+    """Hand a decision page's answer work to gcc's own command and relay its reply.
+
+    bfb never composes, parses or writes an answer itself: compose, submit,
+    seen and parse all run `decision-page.sh <verb> <slug>` with the picks as
+    JSON on stdin, and whatever the command prints as JSON comes back."""
+    if verb not in DP_VERBS:
+        raise NotesError('notes_bad_op', f'unknown decision-page verb {verb!r}')
+    if not isinstance(slug, str) or not re.fullmatch(r'[a-z0-9][a-z0-9._-]{0,80}', slug):
+        raise NotesError('notes_bad_path', 'not a decision page name')
+    if not os.path.isfile(DP_BIN) or not os.access(DP_BIN, os.X_OK):
+        raise NotesError('dp_unavailable', 'the decision-page command is not installed')
+    try:
+        run = subprocess.run([DP_BIN, verb, slug], input=json.dumps(payload or {}),
+                             capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        raise NotesError('dp_unavailable', 'the decision-page command did not answer in 30 seconds')
+    try:
+        out = json.loads(run.stdout) if run.stdout.strip() else {}
+    except ValueError:
+        out = {'text': run.stdout}
+    if run.returncode != 0:
+        code = out.get('code') if isinstance(out, dict) else None
+        raise NotesError(code or 'dp_failed', (out.get('message') if isinstance(out, dict) else None) or run.stderr.strip() or f'exit {run.returncode}')
+    return {'t': 'dp', 'verb': verb, 'slug': slug, 'result': out}
+
 def handle(msg):
     op = msg.get('op')
+    if op == 'dp': return op_dp(msg.get('verb'), msg.get('slug'), msg.get('payload'))
     if op == 'people': return {'t': 'people', 'peers': _docs().ipc_peers()}
     if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'), msg.get('kind'))}
     if op == 'home': return {'t': 'home', 'home': os.path.expanduser('~')}
