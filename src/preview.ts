@@ -18,7 +18,7 @@ import {
   sniffBinary, unrenderableNote,
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
-import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
+import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, setFirstLine, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
 import { mountMetaBar, closePropsMenu } from './note-meta-ui';
 import { mountImageTools } from './image-tools';
 import {
@@ -687,8 +687,15 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   };
   st.redrawMeta = mountMetaBar(document.getElementById('fe-ed-meta')!, {
     props: () => readProps(st.rel, st.text),
-    titleEditable: () => !!st.head,
-    setTitle: v => { change(h => setField(h, 'title', JSON.stringify(v)), ['title']); st.redrawMeta?.(); },
+    untitled: () => !st.head && !ta.value.trim(),
+    // A note with a properties block keeps its title there; one without keeps it
+    // as its first line, so the chip writes the heading line in the text.
+    setTitle: v => {
+      if (st.head) { change(h => setField(h, 'title', JSON.stringify(v)), ['title']); st.redrawMeta?.(); return; }
+      const next = setFirstLine(ta.value, v) ?? `# ${v}\n\n`;
+      apply({ text: next, start: next.length, end: next.length });
+      st.redrawMeta?.();
+    },
     apply: c => { change(h => applyChange(h, c), changedKeys(c)); return readProps(st.rel, st.text); },
   });
   editHeader('saved');

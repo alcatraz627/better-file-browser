@@ -10,7 +10,7 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, type NoteMeta } from './notes';
+import { notes, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta } from './notes';
 import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
@@ -378,6 +378,84 @@ export function initSidebar(app: App): void {
   function notesRoot(): string { return (settings.notesRoot || '').replace(/\/$/, ''); }
   const ntFilter = el<HTMLInputElement>('fe-nt-filter');
   let allNotes: NoteMeta[] = [];
+  // Dragging a note places it in its group, and dropping it in the other group
+  // (or on the pin zone that shows while nothing is pinned) pins or unpins it.
+  // The list moves at once; the order keys reach the files after.
+  let ntDrag: string | null = null;
+  const clearDropMarks = () => els('.drop-before, .drop-after, .drop-in', ntList).forEach(x => x.classList.remove('drop-before', 'drop-after', 'drop-in'));
+  function dropNote(root: string, rel: string, toPinned: boolean, beforeRel: string | null, after: boolean): void {
+    const src = allNotes.find(n => n.rel === rel);
+    if (!src) return;
+    const group = allNotes.filter(n => !!n.pinned === toPinned && n.rel !== rel);
+    const t = beforeRel ? group.findIndex(n => n.rel === beforeRel) : -1;
+    const order = [...group];
+    order.splice(t < 0 ? 0 : t + (after ? 1 : 0), 0, src);
+    const writes = arrangeWrites(order, rel);
+    const pinChange = !!src.pinned !== toPinned;
+    if (!pinChange && order.every((n, i) => n === allNotes.filter(m => !!m.pinned === toPinned)[i])) return;
+    allNotes = sharedOrder(allNotes.map(n => {
+      const pos = writes.get(n.rel);
+      return pos || (n.rel === rel && pinChange) ? { ...n, ...(pos ? { pos } : {}), ...(n.rel === rel ? { pinned: toPinned } : {}) } : n;
+    }));
+    renderNotes(root);
+    if (pinChange) toast(toPinned ? 'Pinned' : 'Unpinned');
+    const rels = [...new Set([...writes.keys(), ...(pinChange ? [rel] : [])])];
+    void (async () => {
+      for (const r of rels) {
+        const cur = await notes.read(root, r);
+        let next = cur.text;
+        if (writes.has(r)) next = setPos(next, writes.get(r)!);
+        if (r === rel && pinChange) next = setPinned(next, toPinned);
+        if (frontmatterDrift(cur.text, next, ['pos', 'pinned']).length) throw new Error('that would change other properties');
+        await notes.write(root, r, next, cur.mtime);
+      }
+    })().catch(err => { toast(errorText(err, 'Saving the new order')); refreshNotes(); });
+  }
+  ntList.addEventListener('dragstart', e => {
+    const item = (e.target as Element).closest<HTMLElement>('.fe-nt-item[draggable="true"]');
+    if (!item) return;
+    ntDrag = item.dataset.rel!;
+    e.dataTransfer!.effectAllowed = 'move';
+    e.dataTransfer!.setData('text/plain', ntDrag);
+    setTimeout(() => item.classList.add('dragging'), 0);
+    if (!ntList.querySelector('.fe-nt-grp[data-grp="pinned"]')) {
+      ntList.insertAdjacentHTML('afterbegin', `<div class="fe-nt-pinzone"><span class="fe-nt-grp-pin">${UI_ICON.pin}</span><span>Drop here to pin</span></div>`);
+    }
+  });
+  ntList.addEventListener('dragend', () => {
+    ntDrag = null;
+    clearDropMarks();
+    els('.dragging', ntList).forEach(x => x.classList.remove('dragging'));
+    ntList.querySelector('.fe-nt-pinzone')?.remove();
+  });
+  // Where a drop would land: the upper half of a row puts the note above it, the
+  // lower half below it; a group header or the pin zone puts it at the top.
+  const dropAt = (e: DragEvent) => {
+    const t = e.target as Element;
+    const row = t.closest<HTMLElement>('.fe-nt-item');
+    if (row) { const r = row.getBoundingClientRect(); return { el: row, rel: row.dataset.rel!, pinned: row.classList.contains('pinned'), after: e.clientY > r.top + r.height / 2 }; }
+    const head = t.closest<HTMLElement>('.fe-nt-grp, .fe-nt-pinzone');
+    if (head) return { el: head, rel: null, pinned: head.classList.contains('fe-nt-pinzone') || head.dataset.grp === 'pinned', after: false };
+    return null;
+  };
+  ntList.addEventListener('dragover', e => {
+    if (!ntDrag) return;
+    const at = dropAt(e);
+    clearDropMarks();
+    if (!at || at.rel === ntDrag) return;
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'move';
+    at.el.classList.add(at.rel ? (at.after ? 'drop-after' : 'drop-before') : 'drop-in');
+  });
+  ntList.addEventListener('drop', e => {
+    if (!ntDrag) return;
+    e.preventDefault();
+    const at = dropAt(e), rel = ntDrag;
+    ntDrag = null;
+    clearDropMarks();
+    ntList.querySelector('.fe-nt-pinzone')?.remove();
+    if (at && at.rel !== rel) dropNote(notesRoot(), rel, at.pinned, at.rel, at.after);
+  });
   const noteFoldsPref = setPref('bfb-notes-folded-v1');
   const noteFolds = (): Set<string> => noteFoldsPref.get();
   ntList.addEventListener('click', e => {
@@ -402,7 +480,9 @@ export function initSidebar(app: App): void {
   function renderNotes(root: string): void {
     // A refresh landing while a title is being renamed would replace the box
     // under the cursor; the rename re-renders the list itself when it ends.
-    if (ntList.querySelector('.fe-nt-label.editing')) return;
+    if (ntList.querySelector('.fe-nt-label.editing') || ntDrag) return;
+    // A filtered list shows only some of a group, so a drop there has no clear place; drag only unfiltered.
+    const filtering = !!ntFilter.value.trim();
     lensNotes.count = allNotes.length;
     lensNotes.tags = [...new Set(allNotes.flatMap(n => n.tags ?? []))];
     syncLens();
@@ -413,7 +493,8 @@ export function initSidebar(app: App): void {
     const row = (n: NoteMeta) => {
       const c = colorName(n.color);
       return `
-          <div class="row fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}${c ? ' coloured' : ''}${(n.tags ?? []).length ? ' two' : ''}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ''}>
+          <div class="row fe-bm-item fe-nt-item${n.pinned ? ' pinned' : ''}${c ? ' coloured' : ''}${(n.tags ?? []).length ? ' two' : ''}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ''}${filtering ? '' : ' draggable="true"'}>
+            ${filtering ? '' : `<span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>`}
             <a href="${esc(fileHref(root + '/' + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel)!)}">${esc(bodyHits.get(n.rel)!)}</span>` : ''}
             </a>

@@ -221,8 +221,12 @@ try {
   check(labels[0] === 'tmp' && labels.length === 3, `drag reorders the Saved list: ${JSON.stringify(labels)}`);
 
   await page.click('#fe-rail-saved');
-  const tagBtn = await page.$('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-tag-btn');
-  await tagBtn.evaluate(el => el.click());
+  // Hover the row and click the button where it shows, as a person would; a
+  // scripted click would pass even while the button stays hidden.
+  await page.hover('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-pl-label');
+  const tagBox = await page.$eval('#fe-sv-list .fe-pl-item[data-path$="/nested/"] .fe-tag-btn', b => { const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: r.width }; });
+  check(tagBox.w > 0, `the tag button shows on a hovered Saved row (width ${tagBox.w})`);
+  await page.mouse.click(tagBox.x, tagBox.y);
   await page.keyboard.type('Work, code');
   await page.keyboard.press('Enter');
   const tagState = await page.evaluate(() => ({

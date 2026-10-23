@@ -63,6 +63,76 @@ try {
   const afterNew = await rows(page);
   check(afterNew.length === 8 && afterNew.slice(0, 2).join() === 'p1.md,p2.md' && afterNew[2].startsWith('brand-new') && afterNew.slice(3).join() === want.slice(2).join(), `a new note lands first among the unarranged: ${afterNew.join(' ')}`);
 
+  // Dragging notes: a drop above or below a row places the note there, a drop in
+  // the other group or on its header pins or unpins it, and the files carry it.
+  const fileOf = rel => readFileSync(join(store, rel), 'utf8');
+  const waitFile = async (rel, re) => { for (let i = 0; i < 40 && !re.test(fileOf(rel)); i++) await sleep(100); return re.test(fileOf(rel)); };
+  const drag = (srcRel, dstSel, after) => page.evaluate((srcRel, dstSel, after) => {
+    const src = document.querySelector(`#fe-nt-list .fe-nt-item[data-rel="${srcRel}"]`);
+    const dt = new DataTransfer();
+    src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    const zone = !!document.querySelector('#fe-nt-list .fe-nt-pinzone');
+    const target = document.querySelector(dstSel);   // measured after dragstart: the pin zone shifts rows down
+    const tr = target.getBoundingClientRect(), ty = after ? tr.bottom - 3 : tr.top + 3, x = tr.left + 20;
+    target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: x, clientY: ty }));
+    const mark = target.classList.contains('drop-after') ? 'after' : target.classList.contains('drop-before') ? 'before' : target.classList.contains('drop-in') ? 'in' : '';
+    target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: x, clientY: ty }));
+    src.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
+    return { zone, mark };
+  }, srcRel, dstSel, after);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 10_000 });
+  const startOrder = await rows(page);
+  check(await page.$$eval('#fe-nt-list .fe-nt-item', els => els.every(e => e.draggable)), 'every note row can be dragged');
+  const d1 = await drag('u2.md', '#fe-nt-list .fe-nt-item[data-rel="u1.md"]', false);
+  const o1 = await rows(page);
+  const u1At = startOrder.indexOf('u1.md');
+  check(d1.mark === 'before' && o1[u1At] === 'u2.md' && o1[u1At + 1] === 'u1.md', `dropping on the top half of a row puts the note above it: ${o1.join(' ')}`);
+  check(await waitFile('u2.md', /^pos: \S+$/m) && await waitFile('u1.md', /^pos: \S+$/m), 'the dropped note and the one it went above got pos lines in their files');
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe-nt-list .fe-nt-item', { timeout: 10_000 });
+  const o1r = await rows(page);
+  check(JSON.stringify(o1r) === JSON.stringify(o1), `the dragged order survives a reload: ${o1r.join(' ')}`);
+  const d2 = await drag('k1.md', '#fe-nt-list .fe-nt-item[data-rel="p1.md"]', true);
+  check(d2.mark === 'after' && (await rows(page))[1] === 'k1.md', 'dropping in the Pinned group under a row pins the note there');
+  check(await waitFile('k1.md', /^pinned: true$/m), 'the pin reached the file');
+  const d3 = await drag('p1.md', '#fe-nt-list .fe-nt-grp[data-grp="all"]', false);
+  check(d3.mark === 'in' && await waitFile('p1.md', /^(?![\s\S]*^pinned: true$)/m), 'dropping a pinned note on the All notes header unpins it');
+  await drag('p2.md', '#fe-nt-list .fe-nt-grp[data-grp="all"]', false);
+  await drag('k1.md', '#fe-nt-list .fe-nt-grp[data-grp="all"]', false);
+  await waitFile('k1.md', /^(?![\s\S]*^pinned: true$)/m);
+  check(!(await page.$('#fe-nt-list .fe-nt-grp')), 'with nothing pinned the list is one plain list again');
+  const d4 = await drag('u1.md', '#fe-nt-list .fe-nt-pinzone', false);
+  check(d4.zone && d4.mark === 'in' && await waitFile('u1.md', /^pinned: true$/m), 'with nothing pinned, a drag shows a pin zone and a drop there pins the note');
+  check(!(await page.$('#fe-nt-list .fe-nt-pinzone')), 'the pin zone goes away after the drop');
+  await shot(page, 'order-dragged');
+
+  // A new note offers its title chip at once, and naming it there writes the heading line.
+  await page.keyboard.press('n');
+  await page.waitForSelector('#fe-ed-src', { timeout: 8_000 });
+  await sleep(300);
+  const chip = await page.$eval('#fe-meta-title', b => ({ untitled: b.classList.contains('untitled'), text: b.textContent.trim(), bg: getComputedStyle(b).backgroundColor, color: getComputedStyle(b).color }));
+  check(chip.untitled && /Untitled/.test(chip.text) && chip.bg === 'rgba(0, 0, 0, 0)', `a new note shows a themed title chip to name it: ${JSON.stringify(chip)}`);
+  await shot(page, 'title-new');
+  const rowH = () => page.$eval('#fe-ed-meta', e => e.getBoundingClientRect().height);
+  const before = await rowH();
+  await page.click('#fe-meta-title');
+  const during = await rowH();
+  check(Math.abs(before - during) < 0.5, `opening the title box does not move the row: ${before} → ${during}`);
+  await page.keyboard.type('Named from chip');
+  await shot(page, 'title-editing');
+  await page.keyboard.press('Enter');
+  const src = await page.$eval('#fe-ed-src', t => t.value);
+  check(src.startsWith('# Named from chip'), `naming from the chip writes the heading line: ${JSON.stringify(src.slice(0, 30))}`);
+  await page.waitForFunction(() => /saved \d/.test(document.getElementById('fe-ql-meta').textContent), { timeout: 8_000 }).catch(() => null);
+  await sleep(400);
+  const named = await page.$eval('#fe-meta-title', b => b.textContent.trim());
+  check(named === 'Named from chip', `the chip then shows the new title: ${named}`);
+  await page.hover('#fe-meta-title');
+  await shot(page, 'title-hover');
+  await page.keyboard.press('Escape');
+  await sleep(500);
+
   // The note's title shows once, in its title chip under the header: one line, cut in the middle.
   await page.setViewport({ width: 900, height: 900 });
   await page.click('#fe-nt-list .fe-nt-item[data-rel="zz-long.md"] .fe-si-link');

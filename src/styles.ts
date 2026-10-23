@@ -932,11 +932,16 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
 #fe-ed-conflict{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--bd)}
 #fe-ed-meta{display:flex;align-items:center;gap:var(--sp-3);padding:7px var(--sp-4);border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
-.fe-chip-title{flex:1 1 180px;min-width:120px;font-weight:600}
-button.fe-chip-title{display:flex;align-items:center;gap:var(--sp-3);text-align:left;cursor:text;min-width:0}
-button.fe-chip-title:hover{border-color:var(--ac)}
-button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
-textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.35;min-height:var(--ctl-md)}
+/* The note's title reads as a heading on the chip row; hover shows it can be
+   edited, and the edit box opens with the same font and padding so nothing jumps. */
+.fe-chip-title{flex:1 1 180px;min-width:120px;min-height:var(--ctl-md);padding:var(--sp-1) var(--sp-3);border:1px solid transparent;border-radius:var(--r-sm);font:inherit;font-size:var(--fs-lg);font-weight:600;line-height:1.35;color:var(--tx)}
+button.fe-chip-title{display:flex;align-items:center;gap:var(--sp-3);background:none;text-align:left;cursor:text;min-width:0}
+button.fe-chip-title:hover{background:var(--hover)}
+button.fe-chip-title:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm);opacity:0;transition:opacity var(--t-fast) var(--ease)}
+button.fe-chip-title:hover svg,button.fe-chip-title:focus-visible svg{opacity:1}
+button.fe-chip-title.untitled{color:var(--dm);font-weight:400;font-style:italic}
+textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding:var(--sp-1) var(--sp-3);background:var(--s2);border-color:var(--ac);outline:none}
 .fe-cdot{flex:none}
 .fe-pmenu{position:fixed;z-index:2147483000;width:250px;padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3)}
 .fe-pmenu .btn{justify-content:flex-start}
@@ -1218,7 +1223,7 @@ button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointe
 .fe-sl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;font-size:var(--row-fs)}
 .fe-si-link{display:flex;align-items:center;flex:1;color:inherit;text-decoration:none;min-width:0;transition:color .1s;padding:0;gap:var(--row-gap);min-height:var(--row-h)}
 .fe-nt-item .fe-si-link{padding-left:var(--sp-5);padding:var(--sp-3) 0}
-.fe-pl-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
+.fe-pl-item .fe-drag-h,.fe-nt-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
 
 /* A note row's actions float over the end of the title on a solid fade, so
    nothing moves under the pointer on hover. In a narrow sidebar only delete
@@ -1256,7 +1261,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-pl-meta{display:inline-flex;align-items:center;gap:var(--sp-1);margin-left:auto;padding-right:var(--sp-1);flex:none;font-size:var(--fs-xs);color:var(--dm)}
 .fe-pl-meta svg{width:11px!important;height:11px!important;opacity:1}
 .fe-pl-item:hover .fe-pl-meta,.fe-pl-item:focus-within .fe-pl-meta{display:none}
-.fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{display:none;opacity:1}
+.fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{opacity:1}
+.fe-pl-item:not(:hover):not(:focus-within) .fe-tag-btn,.fe-pl-item:not(:hover):not(:focus-within) .fe-rm-btn{display:none}
 
 .fe-pl-item:has(.fe-pl-hit){flex-wrap:wrap}
 .fe-pl-hit{flex-basis:100%;padding:0 0 5px 29px;margin-top:-4px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1288,6 +1294,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-grp .fe-grp-n{letter-spacing:0}
 .fe-nt-grp-pin{display:inline-flex;color:var(--gold)}
 .fe-nt-grp-pin svg{width:12px;height:12px}
+/* Where a dragged note would land: a line above or below a row, a ring on a group header. Drawn as shadows so nothing moves. */
+.fe-nt-item.drop-before{box-shadow:inset 0 2px 0 var(--ac)}
+.fe-nt-item.drop-after{box-shadow:inset 0 -2px 0 var(--ac)}
+.fe-nt-grp.drop-in,.fe-nt-pinzone.drop-in{box-shadow:inset 0 0 0 1px var(--ac);color:var(--tx)}
+.fe-nt-pinzone{display:flex;align-items:center;gap:var(--sp-2);height:var(--ctl-md);margin:0 var(--sp-3) var(--sp-2);padding:0 var(--row-px);border:1px dashed var(--bd2);border-radius:var(--row-r);color:var(--dm);font-size:var(--fs-sm);animation:fe-rise var(--t-fast) var(--ease)}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);
   backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);color:var(--tx)}

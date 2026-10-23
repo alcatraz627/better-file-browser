@@ -997,6 +997,7 @@ ${lines.length ? lines.join("\n") + "\n" : ""}---
 ${body}`;
   }
   var setPinned = (text, on) => setField(text, "pinned", on ? "true" : null);
+  var setPos = (text, pos) => setField(text, "pos", pos);
   var setColor = (text, c) => setField(text, "color", c);
   var setTags2 = (text, tags) => setField(text, "tags", tags.length ? JSON.stringify(tags.join(", ")) : null);
   function frontmatterDrift(before, after, allowed) {
@@ -1022,6 +1023,45 @@ ${body}`;
       const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ""} ${tags.join(" ")}`.toLowerCase();
       return words.every((w) => w.startsWith("#") ? w.length > 1 && tags.some((t) => t.includes(w.slice(1))) : hay.includes(w));
     });
+  }
+  function keyBetween(a, b) {
+    const PICK = "123456789abcdefghijklmnopqrstuvwxyz";
+    if (a !== null && b !== null && a >= b) b = null;
+    const lo = a ?? "";
+    let hi = b, out = "";
+    for (let i3 = 0; i3 < 64; i3++) {
+      const lc = i3 < lo.length ? lo.charCodeAt(i3) : 47;
+      const hc = hi !== null && i3 < hi.length ? hi.charCodeAt(i3) : 123;
+      const between = [...PICK].filter((d) => d.charCodeAt(0) > lc && d.charCodeAt(0) < hc);
+      if (between.length) return out + between[Math.floor(between.length / 2)];
+      const c = i3 < lo.length ? lo[i3] : "0";
+      if (c.charCodeAt(0) < hc) hi = null;
+      out += c;
+    }
+    return out + "i";
+  }
+  function arrangeWrites(order, rel) {
+    const out = /* @__PURE__ */ new Map();
+    const k = order.findIndex((n) => n.rel === rel);
+    if (k < 0) return out;
+    let prev = null;
+    for (let i3 = k - 1; i3 >= 0; i3--) if (order[i3].pos) {
+      prev = order[i3].pos;
+      break;
+    }
+    for (let i3 = k; i3 < order.length; i3++) {
+      const own = i3 === k ? void 0 : order[i3].pos;
+      if (own && (prev === null || own > prev)) break;
+      let upper = null;
+      for (let j = i3 + 1; j < order.length; j++) if (order[j].pos) {
+        upper = order[j].pos;
+        break;
+      }
+      if (upper !== null && prev !== null && upper <= prev) upper = null;
+      prev = keyBetween(prev, upper);
+      out.set(order[i3].rel, prev);
+    }
+    return out;
   }
   function applyChange(text, c) {
     let t = text;
@@ -3945,8 +3985,9 @@ ${body}`;
   function mountMetaBar(host, o) {
     const draw = () => {
       const p = o.props();
+      const none = o.untitled();
       host.innerHTML = `
-      ${o.titleEditable() ? `<button id="fe-meta-title" class="fe-chip-title" data-title="${esc(p.title)}" title="${esc(p.title)}&#10;Click to edit the whole title" aria-label="Note title: ${esc(p.title)}. Click to edit.">${UI_ICON.rename}${midHtml(p.title)}</button>` : `<span class="chip" title="This note has no properties block yet; its title is its first line">${UI_ICON.notes}<span>${esc(p.title)}</span></span>`}
+      <button id="fe-meta-title" class="fe-chip-title${none ? " untitled" : ""}" data-title="${esc(none ? "" : p.title)}" title="Rename this note" aria-label="${none ? "Name this note" : `Note title: ${esc(p.title)}. Click to rename.`}">${none ? "Untitled, click to name it" : midHtml(p.title)}${UI_ICON.rename}</button>
       <button data-size="sm" class="btn fe-chip-btn${p.pinned ? " active" : ""}" data-m="pin" title="${p.pinned ? "Unpin this note" : "Pin this note to the top of the list"}">${UI_ICON.pin}<span>${p.pinned ? "Pinned" : "Pin"}</span></button>
       <button data-size="sm" class="btn fe-chip-btn${p.color ? " active" : ""}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ? p.color[0].toUpperCase() + p.color.slice(1) : "Colour"}</span></button>
       ${p.tags.map((t) => `<span class="chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="btn" data-icon data-size="xs" data-tone="danger" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
@@ -3956,15 +3997,17 @@ ${body}`;
         const box = document.createElement("textarea");
         box.id = "fe-meta-title-edit";
         box.className = "tb fe-chip-title";
-        box.value = p.title;
+        box.value = none ? "" : p.title;
+        box.placeholder = "Name this note";
         box.rows = 1;
         box.maxLength = 200;
         box.spellcheck = true;
         box.setAttribute("aria-label", "Note title");
+        const h0 = btn.offsetHeight;
         btn.replaceWith(box);
         const fit = () => {
           box.style.height = "auto";
-          box.style.height = box.scrollHeight + 2 + "px";
+          box.style.height = Math.max(h0, box.scrollHeight + 2) + "px";
         };
         fit();
         box.focus();
@@ -3974,7 +4017,7 @@ ${body}`;
           if (done) return;
           done = true;
           const v = box.value.replace(/\s*\n\s*/g, " ").trim();
-          if (save && v && v !== p.title) o.setTitle(v);
+          if (save && v && (none || v !== p.title)) o.setTitle(v);
           else draw();
         };
         box.addEventListener("input", fit);
@@ -11720,9 +11763,19 @@ ${end.comment}` : end.comment;
     };
     st.redrawMeta = mountMetaBar(document.getElementById("fe-ed-meta"), {
       props: () => readProps(st.rel, st.text),
-      titleEditable: () => !!st.head,
+      untitled: () => !st.head && !ta.value.trim(),
+      // A note with a properties block keeps its title there; one without keeps it
+      // as its first line, so the chip writes the heading line in the text.
       setTitle: (v) => {
-        change((h) => setField(h, "title", JSON.stringify(v)), ["title"]);
+        if (st.head) {
+          change((h) => setField(h, "title", JSON.stringify(v)), ["title"]);
+          st.redrawMeta?.();
+          return;
+        }
+        const next = setFirstLine(ta.value, v) ?? `# ${v}
+
+`;
+        apply({ text: next, start: next.length, end: next.length });
         st.redrawMeta?.();
       },
       apply: (c) => {
@@ -12877,11 +12930,16 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
 #fe-ed-conflict{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--bd)}
 #fe-ed-meta{display:flex;align-items:center;gap:var(--sp-3);padding:7px var(--sp-4);border-bottom:1px solid var(--bd);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
-.fe-chip-title{flex:1 1 180px;min-width:120px;font-weight:600}
-button.fe-chip-title{display:flex;align-items:center;gap:var(--sp-3);text-align:left;cursor:text;min-width:0}
-button.fe-chip-title:hover{border-color:var(--ac)}
-button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm)}
-textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.35;min-height:var(--ctl-md)}
+/* The note's title reads as a heading on the chip row; hover shows it can be
+   edited, and the edit box opens with the same font and padding so nothing jumps. */
+.fe-chip-title{flex:1 1 180px;min-width:120px;min-height:var(--ctl-md);padding:var(--sp-1) var(--sp-3);border:1px solid transparent;border-radius:var(--r-sm);font:inherit;font-size:var(--fs-lg);font-weight:600;line-height:1.35;color:var(--tx)}
+button.fe-chip-title{display:flex;align-items:center;gap:var(--sp-3);background:none;text-align:left;cursor:text;min-width:0}
+button.fe-chip-title:hover{background:var(--hover)}
+button.fe-chip-title:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button.fe-chip-title svg{flex:none;width:12px;height:12px;color:var(--dm);opacity:0;transition:opacity var(--t-fast) var(--ease)}
+button.fe-chip-title:hover svg,button.fe-chip-title:focus-visible svg{opacity:1}
+button.fe-chip-title.untitled{color:var(--dm);font-weight:400;font-style:italic}
+textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding:var(--sp-1) var(--sp-3);background:var(--s2);border-color:var(--ac);outline:none}
 .fe-cdot{flex:none}
 .fe-pmenu{position:fixed;z-index:2147483000;width:250px;padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3)}
 .fe-pmenu .btn{justify-content:flex-start}
@@ -13163,7 +13221,7 @@ button.fe-si{border:0;background:none;font:inherit;text-align:left;cursor:pointe
 .fe-sl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;font-size:var(--row-fs)}
 .fe-si-link{display:flex;align-items:center;flex:1;color:inherit;text-decoration:none;min-width:0;transition:color .1s;padding:0;gap:var(--row-gap);min-height:var(--row-h)}
 .fe-nt-item .fe-si-link{padding-left:var(--sp-5);padding:var(--sp-3) 0}
-.fe-pl-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
+.fe-pl-item .fe-drag-h,.fe-nt-item .fe-drag-h{position:absolute;left:-7px;top:0;bottom:0;padding:0;width:8px;justify-content:center}
 
 /* A note row's actions float over the end of the title on a solid fade, so
    nothing moves under the pointer on hover. In a narrow sidebar only delete
@@ -13201,7 +13259,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-pl-meta{display:inline-flex;align-items:center;gap:var(--sp-1);margin-left:auto;padding-right:var(--sp-1);flex:none;font-size:var(--fs-xs);color:var(--dm)}
 .fe-pl-meta svg{width:11px!important;height:11px!important;opacity:1}
 .fe-pl-item:hover .fe-pl-meta,.fe-pl-item:focus-within .fe-pl-meta{display:none}
-.fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{display:none;opacity:1}
+.fe-pl-item .fe-tag-btn,.fe-pl-item .fe-rm-btn{opacity:1}
+.fe-pl-item:not(:hover):not(:focus-within) .fe-tag-btn,.fe-pl-item:not(:hover):not(:focus-within) .fe-rm-btn{display:none}
 
 .fe-pl-item:has(.fe-pl-hit){flex-wrap:wrap}
 .fe-pl-hit{flex-basis:100%;padding:0 0 5px 29px;margin-top:-4px;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -13233,6 +13292,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-grp .fe-grp-n{letter-spacing:0}
 .fe-nt-grp-pin{display:inline-flex;color:var(--gold)}
 .fe-nt-grp-pin svg{width:12px;height:12px}
+/* Where a dragged note would land: a line above or below a row, a ring on a group header. Drawn as shadows so nothing moves. */
+.fe-nt-item.drop-before{box-shadow:inset 0 2px 0 var(--ac)}
+.fe-nt-item.drop-after{box-shadow:inset 0 -2px 0 var(--ac)}
+.fe-nt-grp.drop-in,.fe-nt-pinzone.drop-in{box-shadow:inset 0 0 0 1px var(--ac);color:var(--tx)}
+.fe-nt-pinzone{display:flex;align-items:center;gap:var(--sp-2);height:var(--ctl-md);margin:0 var(--sp-3) var(--sp-2);padding:0 var(--row-px);border:1px dashed var(--bd2);border-radius:var(--row-r);color:var(--dm);font-size:var(--fs-sm);animation:fe-rise var(--t-fast) var(--ease)}
 #fe-crumb-menu,#fe-ctx,.fe-ctx,.fe-pmenu,#fe-tip,#fe-hint,#fe-allow,#fe-toc-rail,#fe-fe-pill,#fe-toast{
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);
   backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);color:var(--tx)}
@@ -20817,6 +20881,85 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     const ntFilter = el("fe-nt-filter");
     let allNotes = [];
+    let ntDrag = null;
+    const clearDropMarks = () => els(".drop-before, .drop-after, .drop-in", ntList).forEach((x) => x.classList.remove("drop-before", "drop-after", "drop-in"));
+    function dropNote(root, rel, toPinned, beforeRel, after) {
+      const src = allNotes.find((n) => n.rel === rel);
+      if (!src) return;
+      const group = allNotes.filter((n) => !!n.pinned === toPinned && n.rel !== rel);
+      const t = beforeRel ? group.findIndex((n) => n.rel === beforeRel) : -1;
+      const order = [...group];
+      order.splice(t < 0 ? 0 : t + (after ? 1 : 0), 0, src);
+      const writes = arrangeWrites(order, rel);
+      const pinChange = !!src.pinned !== toPinned;
+      if (!pinChange && order.every((n, i3) => n === allNotes.filter((m) => !!m.pinned === toPinned)[i3])) return;
+      allNotes = sharedOrder(allNotes.map((n) => {
+        const pos = writes.get(n.rel);
+        return pos || n.rel === rel && pinChange ? { ...n, ...pos ? { pos } : {}, ...n.rel === rel ? { pinned: toPinned } : {} } : n;
+      }));
+      renderNotes(root);
+      if (pinChange) toast(toPinned ? "Pinned" : "Unpinned");
+      const rels = [.../* @__PURE__ */ new Set([...writes.keys(), ...pinChange ? [rel] : []])];
+      void (async () => {
+        for (const r of rels) {
+          const cur = await notes.read(root, r);
+          let next = cur.text;
+          if (writes.has(r)) next = setPos(next, writes.get(r));
+          if (r === rel && pinChange) next = setPinned(next, toPinned);
+          if (frontmatterDrift(cur.text, next, ["pos", "pinned"]).length) throw new Error("that would change other properties");
+          await notes.write(root, r, next, cur.mtime);
+        }
+      })().catch((err) => {
+        toast(errorText(err, "Saving the new order"));
+        refreshNotes();
+      });
+    }
+    ntList.addEventListener("dragstart", (e) => {
+      const item = e.target.closest('.fe-nt-item[draggable="true"]');
+      if (!item) return;
+      ntDrag = item.dataset.rel;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", ntDrag);
+      setTimeout(() => item.classList.add("dragging"), 0);
+      if (!ntList.querySelector('.fe-nt-grp[data-grp="pinned"]')) {
+        ntList.insertAdjacentHTML("afterbegin", `<div class="fe-nt-pinzone"><span class="fe-nt-grp-pin">${UI_ICON.pin}</span><span>Drop here to pin</span></div>`);
+      }
+    });
+    ntList.addEventListener("dragend", () => {
+      ntDrag = null;
+      clearDropMarks();
+      els(".dragging", ntList).forEach((x) => x.classList.remove("dragging"));
+      ntList.querySelector(".fe-nt-pinzone")?.remove();
+    });
+    const dropAt = (e) => {
+      const t = e.target;
+      const row2 = t.closest(".fe-nt-item");
+      if (row2) {
+        const r = row2.getBoundingClientRect();
+        return { el: row2, rel: row2.dataset.rel, pinned: row2.classList.contains("pinned"), after: e.clientY > r.top + r.height / 2 };
+      }
+      const head = t.closest(".fe-nt-grp, .fe-nt-pinzone");
+      if (head) return { el: head, rel: null, pinned: head.classList.contains("fe-nt-pinzone") || head.dataset.grp === "pinned", after: false };
+      return null;
+    };
+    ntList.addEventListener("dragover", (e) => {
+      if (!ntDrag) return;
+      const at = dropAt(e);
+      clearDropMarks();
+      if (!at || at.rel === ntDrag) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      at.el.classList.add(at.rel ? at.after ? "drop-after" : "drop-before" : "drop-in");
+    });
+    ntList.addEventListener("drop", (e) => {
+      if (!ntDrag) return;
+      e.preventDefault();
+      const at = dropAt(e), rel = ntDrag;
+      ntDrag = null;
+      clearDropMarks();
+      ntList.querySelector(".fe-nt-pinzone")?.remove();
+      if (at && at.rel !== rel) dropNote(notesRoot(), rel, at.pinned, at.rel, at.after);
+    });
     const noteFoldsPref = setPref("bfb-notes-folded-v1");
     const noteFolds = () => noteFoldsPref.get();
     ntList.addEventListener("click", (e) => {
@@ -20840,7 +20983,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return [...byMeta, ...allNotes.filter((n) => bodyHits.has(n.rel) && !byMeta.includes(n))];
     };
     function renderNotes(root) {
-      if (ntList.querySelector(".fe-nt-label.editing")) return;
+      if (ntList.querySelector(".fe-nt-label.editing") || ntDrag) return;
+      const filtering = !!ntFilter.value.trim();
       lensNotes.count = allNotes.length;
       lensNotes.tags = [...new Set(allNotes.flatMap((n) => n.tags ?? []))];
       syncLens();
@@ -20849,7 +20993,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const row2 = (n) => {
         const c = colorName(n.color);
         return `
-          <div class="row fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}>
+          <div class="row fe-bm-item fe-nt-item${n.pinned ? " pinned" : ""}${c ? " coloured" : ""}${(n.tags ?? []).length ? " two" : ""}" data-rel="${esc(n.rel)}"${c ? ` style="--c:var(--nc-${c})"` : ""}${filtering ? "" : ' draggable="true"'}>
+            ${filtering ? "" : `<span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>`}
             <a href="${esc(fileHref(root + "/" + n.rel))}" class="fe-si-link" title="${esc(n.rel)}">
               ${PI.docs ?? PI.folder}${noteRowText(n)}${bodyHits.has(n.rel) ? `<span class="fe-nt-hit" title="${esc(bodyHits.get(n.rel))}">${esc(bodyHits.get(n.rel))}</span>` : ""}
             </a>

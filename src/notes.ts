@@ -306,6 +306,7 @@ export function setField(text: string, key: string, value: string | null): strin
 }
 
 export const setPinned = (text: string, on: boolean) => setField(text, 'pinned', on ? 'true' : null);
+export const setPos    = (text: string, pos: string) => setField(text, 'pos', pos);
 export const setColor  = (text: string, c: NoteColor | null) => setField(text, 'color', c);
 export const setTags   = (text: string, tags: string[]) =>
   setField(text, 'tags', tags.length ? JSON.stringify(tags.join(', ')) : null);
@@ -340,6 +341,49 @@ export function filterNotes<T extends { rel: string; title?: string; color?: str
     const hay = `${n.title || noteTitle(n.rel)} ${n.rel} ${colorName(n.color) ?? ''} ${tags.join(' ')}`.toLowerCase();
     return words.every(w => w.startsWith('#') ? w.length > 1 && tags.some(t => t.includes(w.slice(1))) : hay.includes(w));
   });
+}
+
+/// An order key that sorts strictly between `a` and `b` (null means no bound on that side).
+/// Keys compare as plain strings; the result uses only 1-9 and a-z, so it never ends in the
+/// lowest character and a later key can always go below it. Existing keys may use any text.
+export function keyBetween(a: string | null, b: string | null): string {
+  const PICK = '123456789abcdefghijklmnopqrstuvwxyz';
+  if (a !== null && b !== null && a >= b) b = null;   // keys out of order: settle for "after a"
+  const lo = a ?? '';
+  let hi = b, out = '';
+  for (let i = 0; i < 64; i++) {
+    const lc = i < lo.length ? lo.charCodeAt(i) : 47;               // just below '0'
+    const hc = hi !== null && i < hi.length ? hi.charCodeAt(i) : 123; // just above 'z'
+    const between = [...PICK].filter(d => d.charCodeAt(0) > lc && d.charCodeAt(0) < hc);
+    if (between.length) return out + between[Math.floor(between.length / 2)];
+    // Nothing fits at this place: take lo's character (or '0') and look one place further.
+    const c = i < lo.length ? lo[i] : '0';
+    if (c.charCodeAt(0) < hc) hi = null;
+    out += c;
+  }
+  return out + 'i';
+}
+
+/// The `pos` writes that make the shared order read as `order`, after `rel` was dropped at its place in it.
+/// `order` is one group (pinned or not) as it should read. Unarranged notes above the dropped one stay
+/// unarranged; from the dropped note down, each note that would not already sort after the one before
+/// it gets a key, so a drop below arranged notes writes one file.
+export function arrangeWrites(order: { rel: string; pos?: string }[], rel: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const k = order.findIndex(n => n.rel === rel);
+  if (k < 0) return out;
+  let prev: string | null = null;
+  for (let i = k - 1; i >= 0; i--) if (order[i].pos) { prev = order[i].pos!; break; }
+  for (let i = k; i < order.length; i++) {
+    const own = i === k ? undefined : order[i].pos;
+    if (own && (prev === null || own > prev)) break;
+    let upper: string | null = null;
+    for (let j = i + 1; j < order.length; j++) if (order[j].pos) { upper = order[j].pos!; break; }
+    if (upper !== null && prev !== null && upper <= prev) upper = null;
+    prev = keyBetween(prev, upper);
+    out.set(order[i].rel, prev);
+  }
+  return out;
 }
 
 export interface PropChange { color?: NoteColor | null; pinned?: boolean; tags?: string[] }

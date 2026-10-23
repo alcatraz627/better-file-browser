@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, retitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes } from '../src/notes';
+import { slugForTitle, noteTitle, stampUpdated, setTitle, setFirstLine, retitle, settleClash, clashSides, splitNote, readProps, setField, setColor, setPinned, setTags, frontmatterDrift, sharedOrder, filterNotes, keyBetween, arrangeWrites, setPos } from '../src/notes';
 
 describe('clash', () => {
   const clash = 'top\n<<<<<<< HEAD\nmac line\n=======\npi line\n>>>>>>> pi/main\nmiddle\n<<<<<<< phone\nA\n=======\nB\n>>>>>>> csync-pi\nend';
@@ -191,5 +191,48 @@ describe('filterNotes', () => {
     expect(filterNotes(list, '#weekly').map(n => n.rel)).toEqual(['a.md']);
     expect(filterNotes(list, '#grocery')).toEqual([]);
     expect(filterNotes(list, '#')).toEqual([]);
+  });
+});
+
+describe('arranging notes by drag', () => {
+  it('keyBetween sorts strictly between its bounds, including after many squeezes', () => {
+    const cases: [string | null, string | null][] = [[null, null], [null, 'a'], ['a', null], ['a', 'b'], ['a', 'a1'], ['1e5', 'no'], ['no', 'null'], [null, '1'], ['i', 'i1']];
+    for (const [a, b] of cases) {
+      const k = keyBetween(a, b);
+      if (a !== null) expect(k > a, `${k} > ${a}`).toBe(true);
+      if (b !== null) expect(k < b, `${k} < ${b}`).toBe(true);
+    }
+    let lo: string | null = null; const hi = 'b';
+    for (let i = 0; i < 40; i++) { const k = keyBetween(lo, hi); if (lo) expect(k > lo).toBe(true); expect(k < hi).toBe(true); lo = k; }
+    let top: string | null = 'b';
+    for (let i = 0; i < 40; i++) { const k = keyBetween(null, top); expect(k < top!).toBe(true); top = k; }
+  });
+
+  // Every drop of every note to every place, in a mixed group, must read back
+  // through sharedOrder exactly as dropped once the writes land.
+  it('arrangeWrites makes sharedOrder read as dropped, for every drop', () => {
+    const base = [
+      { rel: 'u1', mtime: 1, created: 50 }, { rel: 'u2', mtime: 1, created: 40 }, { rel: 'u3', mtime: 1, created: 30 },
+      { rel: 'a1', mtime: 1, created: 10, pos: 'c' }, { rel: 'a2', mtime: 1, created: 20, pos: 'f' }, { rel: 'a3', mtime: 1, created: 5, pos: 'f' },
+    ];
+    const shown = sharedOrder(base);
+    for (const src of shown) {
+      for (let at = 0; at < shown.length; at++) {
+        const order = shown.filter(n => n !== src);
+        order.splice(at, 0, src);
+        const writes = arrangeWrites(order, src.rel);
+        const after = base.map(n => writes.has(n.rel) ? { ...n, pos: writes.get(n.rel)! } : n);
+        expect(sharedOrder(after).map(n => n.rel), `${src.rel} to ${at}`).toEqual(order.map(n => n.rel));
+      }
+    }
+  });
+
+  it('a drop below arranged notes writes one file', () => {
+    const order = [{ rel: 'a', pos: 'c' }, { rel: 'x' }, { rel: 'b', pos: 'm' }];
+    expect([...arrangeWrites(order, 'x').keys()]).toEqual(['x']);
+  });
+
+  it('setPos writes the pos line and keeps the rest', () => {
+    expect(setPos('---\ntitle: T\n---\nbody', 'i')).toBe('---\ntitle: T\npos: i\n---\nbody');
   });
 });

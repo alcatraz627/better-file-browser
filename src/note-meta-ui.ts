@@ -75,16 +75,16 @@ export function openPropsMenu(anchor: HTMLElement, props: NoteProps, apply: Appl
 /// The chip row above the editor text: title, pin, colour and tags. Returns a redraw.
 export function mountMetaBar(host: HTMLElement, o: {
   props: () => NoteProps;
-  titleEditable: () => boolean;
+  /** True while the note has no title of its own yet (a new, empty note). */
+  untitled: () => boolean;
   setTitle: (v: string) => void;
   apply: ApplyChange;
 }): () => void {
   const draw = () => {
     const p = o.props();
+    const none = o.untitled();
     host.innerHTML = `
-      ${o.titleEditable()
-        ? `<button id="fe-meta-title" class="fe-chip-title" data-title="${esc(p.title)}" title="${esc(p.title)}&#10;Click to edit the whole title" aria-label="Note title: ${esc(p.title)}. Click to edit.">${UI_ICON.rename}${midHtml(p.title)}</button>`
-        : `<span class="chip" title="This note has no properties block yet; its title is its first line">${UI_ICON.notes}<span>${esc(p.title)}</span></span>`}
+      <button id="fe-meta-title" class="fe-chip-title${none ? ' untitled' : ''}" data-title="${esc(none ? '' : p.title)}" title="Rename this note" aria-label="${none ? 'Name this note' : `Note title: ${esc(p.title)}. Click to rename.`}">${none ? 'Untitled, click to name it' : midHtml(p.title)}${UI_ICON.rename}</button>
       <button data-size="sm" class="btn fe-chip-btn${p.pinned ? ' active' : ''}" data-m="pin" title="${p.pinned ? 'Unpin this note' : 'Pin this note to the top of the list'}">${UI_ICON.pin}<span>${p.pinned ? 'Pinned' : 'Pin'}</span></button>
       <button data-size="sm" class="btn fe-chip-btn${p.color ? ' active' : ''}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ? p.color[0].toUpperCase() + p.color.slice(1) : 'Colour'}</span></button>
       ${p.tags.map(t => `<span class="chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="btn" data-icon data-size="xs" data-tone="danger" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join('')}
@@ -95,16 +95,18 @@ export function mountMetaBar(host: HTMLElement, o: {
       const box = document.createElement('textarea');
       box.id = 'fe-meta-title-edit';
       box.className = 'tb fe-chip-title';
-      box.value = p.title; box.rows = 1; box.maxLength = 200; box.spellcheck = true;
+      box.value = none ? '' : p.title; box.placeholder = 'Name this note'; box.rows = 1; box.maxLength = 200; box.spellcheck = true;
       box.setAttribute('aria-label', 'Note title');
+      // The box opens at the chip's height so the row does not jump, and grows only for a long title.
+      const h0 = btn.offsetHeight;
       btn.replaceWith(box);
-      const fit = () => { box.style.height = 'auto'; box.style.height = box.scrollHeight + 2 + 'px'; };
+      const fit = () => { box.style.height = 'auto'; box.style.height = Math.max(h0, box.scrollHeight + 2) + 'px'; };
       fit(); box.focus(); box.select();
       let done = false;
       const finish = (save: boolean) => {
         if (done) return; done = true;
         const v = box.value.replace(/\s*\n\s*/g, ' ').trim();
-        if (save && v && v !== p.title) o.setTitle(v); else draw();
+        if (save && v && (none || v !== p.title)) o.setTitle(v); else draw();
       };
       box.addEventListener('input', fit);
       box.addEventListener('blur', () => finish(true));
