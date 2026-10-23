@@ -26,6 +26,13 @@ export function renamePlace(list: Place[], path: string, label: string): Place[]
   return list.map(p => (p.path === path ? { ...p, label } : p));
 }
 
+/// Saved after a file was renamed on disk: its entry follows it, and keeps a
+/// name the person gave it rather than the old file name.
+export function retargetPlace(list: Place[], from: string, to: string): Place[] {
+  const base = (p: string) => p.split('/').pop() || p;
+  return list.map(p => !samePlace(p.path, from) ? p : { ...p, path: to, label: p.label === base(from) ? base(to) : p.label });
+}
+
 export function movePlace(list: Place[], fromPath: string, toPath: string): Place[] {
   const from = list.findIndex(p => p.path === fromPath);
   const to = list.findIndex(p => p.path === toPath);

@@ -64,6 +64,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'first', group: 'Listing', title: 'First item', keys: ['Home'], scope: 'listing', own: true },
   { id: 'last', group: 'Listing', title: 'Last item', keys: ['End'], scope: 'listing', own: true },
   { id: 'page-up', group: 'Listing', title: 'Page up', keys: ['PgUp'], scope: 'listing', own: true },
+  { id: 'list-rename', group: 'Listing', title: 'Rename the file', keys: ['F2'], scope: 'listing', own: true },
   { id: 'page-down', group: 'Listing', title: 'Page down', keys: ['PgDn'], scope: 'listing', own: true },
   { id: 'open', group: 'Listing', title: 'Open', keys: ['↩'], scope: 'listing', own: true },
   { id: 'open-bg', group: 'Listing', title: 'Keep as a background tab', keys: ['⌥↩'], scope: 'listing', own: true },

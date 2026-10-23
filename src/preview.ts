@@ -68,6 +68,7 @@ interface PreviewDeps {
   savedChanged?: () => void;               // Saved changed from the preview's own button
   openInTerminal?: (folder: string) => void;
   dockRoom?: (docked: boolean) => void;   // a docked preview is showing (true) or not (false)
+  rename?: (anchor: HTMLElement, path: string) => void;   // rename the previewed file on disk
 }
 // Scroll position per previewed file, for this page's lifetime.
 const scrollMemo = new Map<string, number>();
@@ -130,6 +131,7 @@ export function initPreview(d: PreviewDeps): void {
         <a id="fe-ql-open" class="btn" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
         <button id="fe-ql-go" class="btn" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
         <button id="fe-ql-tab" class="btn" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
+        <button id="fe-ql-rename" class="btn" data-icon title="Rename this file (F2 in the list)">${UI_ICON.rename}</button>
         <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
         ${SIZE_BTN('fe-ql-size')}
@@ -168,6 +170,12 @@ export function initPreview(d: PreviewDeps): void {
     syncSaveBtn();
     deps.savedChanged?.();
     deps.toast?.(now ? 'Saved' : 'Removed from Saved');
+  });
+  document.getElementById('fe-ql-rename')!.addEventListener('click', e => {
+    // A note open in the panel renames the way notes do: by its title.
+    if (!currentEntry) { noteAction('rename'); return; }
+    const p = previewedPath();
+    if (p) deps.rename?.(e.currentTarget as HTMLElement, p);
   });
   document.getElementById('fe-ql-term')!.addEventListener('click', () => {
     const p = previewedPath();

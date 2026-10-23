@@ -32,6 +32,13 @@ export function openTab(s: TabState, path: string, background = false): TabState
   return { list, active: background ? s.active : tab.id };
 }
 
+/// The tabs after a file was renamed on disk: its tab follows it, and keeps a
+/// label the person gave it.
+export function retargetTabs(s: TabState, from: string, to: string): TabState {
+  if (!s.list.some(t => t.path === from)) return s;
+  return { ...s, list: s.list.map(t => t.path !== from ? t : { ...t, path: to, label: t.label === labelFor(from) ? labelFor(to) : t.label }) };
+}
+
 export function closeTab(s: TabState, id: string): TabState {
   const i = s.list.findIndex(t => t.id === id);
   if (i < 0) return s;

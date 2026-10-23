@@ -924,6 +924,20 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fp-edit.busy{opacity:.6;cursor:progress}
 @keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
+/* The Keep card: a file's name, its Saved entry and, for a note, its pin and title. */
+#fe-keep{position:fixed;z-index:var(--z-popover);width:min(320px,calc(100vw - 16px));padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-4);border-radius:var(--pop-r);color:var(--tx);
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+#fe-keep.fe-rename{width:min(280px,calc(100vw - 16px))}
+.fe-keep-f{display:flex;flex-direction:column;gap:var(--sp-2)}
+.fe-keep-row{display:flex;gap:var(--sp-2);align-items:center}
+.fe-keep-row input{flex:1;min-width:0}
+.fe-keep-f input{width:100%}
+.fe-keep-l{font-size:var(--fs-sm);color:var(--dm)}
+.fe-keep-sec{display:flex;flex-direction:column;gap:var(--sp-3);padding-top:var(--sp-4);border-top:1px solid var(--bd)}
+.fe-keep-h{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-md);color:var(--tx)}
+.fe-keep-note{margin:0;font-size:var(--fs-sm);color:var(--dm);line-height:1.5}
+.fe-keep-msg{margin:0;font-size:var(--fs-sm);color:var(--mt)}
+.fe-keep-msg:empty{display:none}
 #fe-fp-reload{animation:fe-fade-in var(--t-base) var(--ease);font-size:var(--fs-sm);color:var(--dm)}
 #fe-ed-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 .fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}

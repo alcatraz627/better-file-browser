@@ -9,7 +9,7 @@ import { icoFile, icoFolder, PI } from './icons';
 import { isSaved, toggleSaved, jsonPref } from './storage';
 import { UI_ICON } from './control-icons';
 import {
-  EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, displayLabels, splitLabel,
+  EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, displayLabels, splitLabel, retargetTabs,
   isTabState, normalize, isStale, type TabState, type Tab, type RecoveryEntry,
 } from './tabs';
 import type { Toast } from './toast';
@@ -45,6 +45,8 @@ export interface Strip {
   restoreSet(id: string): Promise<void>;
   // Move a tab one place left or right, within its pinned or unpinned block.
   move(id: string, dir: 1 | -1): void;
+  // A file was renamed on disk: its tab follows it.
+  retarget(from: string, to: string): void;
 }
 
 const storageArea = () => (typeof chrome !== 'undefined' && chrome.storage?.local) || null;
@@ -368,6 +370,7 @@ export function mountStrip(host: StripHost): Strip {
 
   return {
     handleKey,
+    retarget(from, to) { commit(retargetTabs(state, from, to)); },
     move(id, dir) {
       const i = state.list.findIndex(t => t.id === id);
       const to = state.list[i + dir];

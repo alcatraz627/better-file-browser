@@ -9,17 +9,27 @@ import { esc, fullPath, copyToClipboard, pageHref } from './utils';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab } from './preview';
 import { bind, addPaletteSource, runCommand } from './commands';
 import { openLayer, raise, topmost, type Layer } from './layer';
-import { getSortConfig, getGroupMode, isSaved, toggleSaved } from './storage';
+import { getSortConfig, getGroupMode, isSaved, toggleSaved, textPref } from './storage';
+import { askRename } from './doc-keep';
 import { getIcon, PI } from './icons';
 import { UI_ICON } from './control-icons';
 import type { SortConfig, GroupMode } from './types';
-import { go } from './nav';
+import { go, reload } from './nav';
 
 export function initListingInput(app: App, listing: Listing): void {
   const { fe, toast, rawPath } = app;
   const { ls, sel } = listing;
   const scroll = el('fe-scroll');
   const copyText = (val: string) => { copyToClipboard(val).then(() => toast(`Copied: ${val}`)); };
+  // A rename asks beside the row, then reloads the folder with the renamed file still selected.
+  const renameRow = (en: Entry) => {
+    const row = scroll.querySelector<HTMLElement>(`[data-idx="${ls.visible.indexOf(en)}"]`);
+    if (!row) return;
+    askRename(app, row.querySelector<HTMLElement>('.fe-nm') ?? row, fullPath(rawPath, en), to => {
+      textPref('bfb-lead:' + rawPath, '', 'tab').set(to.slice(to.lastIndexOf('/') + 1));
+      reload();
+    });
+  };
 
   // The click model (docs/mouse-key-audit.md): a plain click on a file looks
   // (panel, URL unchanged) and on a folder goes; double-click goes; alt keeps
@@ -143,6 +153,7 @@ export function initListingInput(app: App, listing: Listing): void {
           canPreview(en) ? `<div class="row fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : '',
           `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
           `<div class="row fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">⇧Y</span></div>`,
+          en.isDir ? '' : `<div class="row fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
           `<div class="fe-ctx-sep"></div>`,
           `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? 'Unsave' : 'Save'}</span></div>`,
           `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
@@ -163,6 +174,7 @@ export function initListingInput(app: App, listing: Listing): void {
     else if (item.dataset.act === 'cp-path') copyText(fp);
     else if (item.dataset.act === 'cp-name') copyText(en.name);
     else if (item.dataset.act === 'term')    app.openInTerminal(en.isDir ? fp : rawPath);
+    else if (item.dataset.act === 'rename')  renameRow(en);
     else if (item.dataset.act?.startsWith('ow:')) runOpenWith(item.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
     else if (item.dataset.act === 'save') { const now = toggleSaved(fp, en.name); app.refreshSaved(); toast(now ? `Saved ${en.name}` : `Removed ${en.name} from Saved`); }
     else if (item.dataset.act === 'cp-paths') sel.copySelection();
@@ -196,6 +208,7 @@ export function initListingInput(app: App, listing: Listing): void {
   };
   bind('extend-up', () => extend(-1), onListing);
   bind('extend-down', () => extend(1), onListing);
+  bind('list-rename', () => { const en = lead(); if (en) renameRow(en); }, () => onListing() && !!lead() && !lead()!.isDir && !lead()!.isParent);
   bind('open-bg', () => { const en = lead(); if (en && !en.isParent) { app.strip.open(fullPath(rawPath, en), true); toast(`Kept ${en.name} as a tab`); } }, () => onListing() && !!lead());
   bind('open-chrome', () => { const en = lead(); if (en) go(en.href, 'chrome-tab'); }, () => onListing() && !!lead());
   bind('copy-path', () => { const en = lead(); if (en) copyText(fullPath(rawPath, en)); }, () => onListing() && !!lead());

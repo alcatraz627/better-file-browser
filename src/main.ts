@@ -5,12 +5,13 @@ import { parseEntries } from './parse';
 import { getExt } from './utils';
 import {
   getView, getPalette, getDensity, getShowHidden, getIconRules, getSettings, saveSettings, getRecents, pushRecent, getSaved,
-  homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard, keepPageBg, type CoverShape, SETTINGS_KEY, PALETTE_KEY, THEME_KEY,
+  homeDir, setHomeDir, filePagesEnabled, syncHtmlGuard, keepPageBg, textPref, type CoverShape, SETTINGS_KEY, PALETTE_KEY, THEME_KEY,
 } from './storage';
 import { notes } from './notes';
-import { initPreview } from './preview';
+import { initPreview, closePreview } from './preview';
 import { setSidebarShown } from './motion';
 import { initSidePeek } from './side-peek';
+import { mountKeep, askRename } from './doc-keep';
 import { CSS } from './styles';
 import { UI_CSS } from './styles-ui';
 import { setUiScale } from './chrome';
@@ -243,6 +244,8 @@ loadKv().catch(() => {}).then(function () {
 
   initPreview({ iconRules: () => app.iconRules, aiModel: () => settings.aiModel, keepTab: path => { app.strip.open(path, true); app.toast('Kept as a tab'); }, saveError: message => app.toast(message), toast: message => app.toast(message),
     savedChanged: () => app.refreshSaved(), openInTerminal: p => app.openInTerminal(p),
+    // The renamed file stays selected when its folder reloads.
+    rename: (anchor, p) => askRename(app, anchor, p, to => { closePreview(); textPref('bfb-lead:' + rawPath, '', 'tab').set(to.slice(to.lastIndexOf('/') + 1)); reload(); }),
     // A docked preview folds the sidebar away while it shows; the sidebar's own setting comes back after.
     dockRoom: docked => setSidebarShown(docked && settings.dockFoldsSidebar !== false ? false : settings.showSidebar) });
   // The strip: this Chrome tab's working set. Navigation is real, so the
@@ -284,6 +287,7 @@ loadKv().catch(() => {}).then(function () {
   initToolLenses(app);
   initSidebar(app);
   initSidePeek();
+  if (fileMode) mountKeep(app);
   initFocusNav(app);
   // Before any visit under home, ask the native host where home is, so Places
   // offers Home, Desktop and the rest from the first page.

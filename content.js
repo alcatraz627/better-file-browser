@@ -254,6 +254,10 @@
   function renamePlace(list3, path, label) {
     return list3.map((p) => p.path === path ? { ...p, label } : p);
   }
+  function retargetPlace(list3, from, to) {
+    const base = (p) => p.split("/").pop() || p;
+    return list3.map((p) => !samePlace(p.path, from) ? p : { ...p, path: to, label: p.label === base(from) ? base(to) : p.label });
+  }
   function movePlace(list3, fromPath, toPath) {
     const from = list3.findIndex((p) => p.path === fromPath);
     const to = list3.findIndex((p) => p.path === toPath);
@@ -1638,6 +1642,7 @@ ${body}`;
     { id: "first", group: "Listing", title: "First item", keys: ["Home"], scope: "listing", own: true },
     { id: "last", group: "Listing", title: "Last item", keys: ["End"], scope: "listing", own: true },
     { id: "page-up", group: "Listing", title: "Page up", keys: ["PgUp"], scope: "listing", own: true },
+    { id: "list-rename", group: "Listing", title: "Rename the file", keys: ["F2"], scope: "listing", own: true },
     { id: "page-down", group: "Listing", title: "Page down", keys: ["PgDn"], scope: "listing", own: true },
     { id: "open", group: "Listing", title: "Open", keys: ["\u21A9"], scope: "listing", own: true },
     { id: "open-bg", group: "Listing", title: "Keep as a background tab", keys: ["\u2325\u21A9"], scope: "listing", own: true },
@@ -11283,6 +11288,7 @@ ${end.comment}` : end.comment;
         <a id="fe-ql-open" class="btn" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
         <button id="fe-ql-go" class="btn" title="Open in this tab (Enter)">${UI_ICON.files}<span>Open</span></button>
         <button id="fe-ql-tab" class="btn" title="Keep as a strip tab (t)">${UI_ICON.tab}<span>Tab</span></button>
+        <button id="fe-ql-rename" class="btn" data-icon title="Rename this file (F2 in the list)">${UI_ICON.rename}</button>
         <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
         ${SIZE_BTN("fe-ql-size")}
@@ -11320,6 +11326,14 @@ ${end.comment}` : end.comment;
       syncSaveBtn();
       deps.savedChanged?.();
       deps.toast?.(now ? "Saved" : "Removed from Saved");
+    });
+    document.getElementById("fe-ql-rename").addEventListener("click", (e) => {
+      if (!currentEntry) {
+        noteAction("rename");
+        return;
+      }
+      const p = previewedPath();
+      if (p) deps.rename?.(e.currentTarget, p);
     });
     document.getElementById("fe-ql-term").addEventListener("click", () => {
       const p = previewedPath();
@@ -12184,6 +12198,471 @@ ${end.comment}` : end.comment;
       syncEdge();
     }).observe(side, { attributes: true, attributeFilter: ["style", "class"] });
     syncEdge();
+  }
+
+  // src/controls.ts
+  var fontAttr = (o) => o.font ? ` data-font="${esc(o.font)}"` : "";
+  var drawFonts = (box) => box.querySelectorAll("[data-font]").forEach((e) => {
+    e.style.fontFamily = e.dataset.font;
+  });
+  function segHtml(id, opts, title, size = "md") {
+    return `<div class="fe-seg" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
+  }
+  function sliderHtml(id, values, unit, title, names) {
+    return `<div class="fe-sld" id="${id}" data-values="${values.join(",")}" data-unit="${esc(unit)}"${names ? ` data-names="${esc(names.join("|"))}"` : ""} title="${esc(title)}">
+    <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}" title="${esc(title)}">
+    <output></output>
+  </div>`;
+  }
+  function ddHtml(id, opts, title, size = "md") {
+    return `<div class="fe-dd" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} data-opts="${esc(JSON.stringify(opts))}">
+    <button type="button" class="fe-dd-btn" aria-haspopup="listbox" aria-expanded="false" title="${esc(title)}"><span class="fe-dd-cur"></span>${CHEVRON_DOWN}</button>
+  </div>`;
+  }
+  function checkHtml2(id, label, title, checked = false) {
+    return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}"${checked ? " checked" : ""}><span>${esc(label)}</span></label>`;
+  }
+  function switchHtml(o) {
+    return `<input type="checkbox" role="switch" class="fe-switch${o.small ? " sm" : ""}${o.cls ? " " + o.cls : ""}"${o.id ? ` id="${o.id}"` : ""} title="${esc(o.title)}" aria-label="${esc(o.label ?? o.title)}"${o.checked ? " checked" : ""}>`;
+  }
+  function chipsHtml(id, placeholder, title) {
+    return `<div class="fe-chipin" id="${id}" title="${esc(title)}"><input class="fe-chipin-in" placeholder="${esc(placeholder)}" spellcheck="false" aria-label="${esc(title)}"></div>`;
+  }
+  var fire = (host) => host.dispatchEvent(new Event("change", { bubbles: true }));
+  function upgradeSeg(host) {
+    const btns = [...host.querySelectorAll(".fe-seg-b")];
+    let cur = "";
+    const paint = () => btns.forEach((b) => {
+      const on = b.dataset.v === cur;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", String(on));
+      b.tabIndex = on || !cur && b === btns[0] ? 0 : -1;
+    });
+    Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
+      cur = String(v);
+      paint();
+    } });
+    btns.forEach((b) => b.addEventListener("click", () => {
+      if (cur !== b.dataset.v) {
+        cur = b.dataset.v;
+        paint();
+        fire(host);
+      }
+    }));
+    rovingFocus(host, ".fe-seg-b", { axis: "both", onMove: (b) => b.click() });
+    paint();
+  }
+  function upgradeSlider(host) {
+    const values = host.dataset.values.split(",").map(Number);
+    const unit = host.dataset.unit ?? "";
+    const names = host.dataset.names?.split("|");
+    const range = host.querySelector("input");
+    const out = host.querySelector("output");
+    const show = () => {
+      const v = values[Number(range.value)];
+      out.textContent = names?.[Number(range.value)] ?? `${v}${unit}`;
+      if (names) range.setAttribute("aria-valuetext", out.textContent);
+      host.style.setProperty("--pct", `${Number(range.value) / (values.length - 1) * 100}%`);
+    };
+    Object.defineProperty(host, "value", {
+      get: () => String(values[Number(range.value)]),
+      set: (v) => {
+        const n = Number(v);
+        let best = 0;
+        values.forEach((x, i3) => {
+          if (Math.abs(x - n) < Math.abs(values[best] - n)) best = i3;
+        });
+        range.value = String(best);
+        show();
+      }
+    });
+    range.addEventListener("input", () => {
+      show();
+      host.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    range.addEventListener("change", (e) => {
+      e.stopPropagation();
+      fire(host);
+    });
+    show();
+  }
+  var list = null;
+  var closeList = null;
+  function upgradeDd(host) {
+    const btn = host.querySelector(".fe-dd-btn");
+    const curEl = host.querySelector(".fe-dd-cur");
+    let opts = JSON.parse(host.dataset.opts || "[]");
+    let cur = "";
+    const paint = () => {
+      host.dataset.value = cur;
+      const o = opts.find((x) => x.value === cur);
+      curEl.innerHTML = o ? `${o.icon ?? ""}<span${fontAttr(o)}>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
+      drawFonts(curEl);
+    };
+    Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
+      cur = String(v);
+      paint();
+    } });
+    host.setOptions = (o) => {
+      opts = o;
+      host.dataset.opts = JSON.stringify(o);
+      paint();
+    };
+    let keys2 = null;
+    function open() {
+      closeList?.();
+      list = document.createElement("div");
+      list.className = "fe-dd-list";
+      const optHtml = (o) => `<div role="option" class="row fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l"${fontAttr(o)}>${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
+      const groups = [...new Set(opts.map((o) => o.group ?? ""))];
+      list.innerHTML = groups.map((g) => {
+        const inner = opts.filter((o) => (o.group ?? "") === g).map(optHtml).join("");
+        return g ? `<div role="group" aria-label="${esc(g)}"><div class="fe-dd-g" aria-hidden="true">${esc(g)}</div>${inner}</div>` : inner;
+      }).join("");
+      drawFonts(list);
+      list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
+      const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
+        keys2 = null;
+        list = null;
+        closeList = null;
+      } });
+      if (!layer.open) return;
+      const items = [...list.querySelectorAll(".fe-dd-opt")];
+      let at = Math.max(0, items.findIndex((i3) => i3.dataset.v === cur));
+      const mark = () => {
+        items.forEach((it, i3) => it.classList.toggle("kb", i3 === at));
+        items[at]?.scrollIntoView({ block: "nearest" });
+      };
+      mark();
+      const pick2 = (v) => {
+        const changed = v !== cur;
+        cur = v;
+        paint();
+        layer.close("pick");
+        btn.focus();
+        if (changed) fire(host);
+      };
+      list.addEventListener("click", (e) => {
+        const it = e.target.closest(".fe-dd-opt");
+        if (it) pick2(it.dataset.v);
+      });
+      list.addEventListener("mousemove", (e) => {
+        const it = e.target.closest(".fe-dd-opt");
+        if (it) {
+          at = items.indexOf(it);
+          mark();
+        }
+      });
+      let typed = "", typedAt = 0;
+      keys2 = (e) => {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          at = (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+          mark();
+        } else if (e.key === "Home" || e.key === "End") {
+          at = e.key === "Home" ? 0 : items.length - 1;
+          mark();
+        } else if (e.key === "Enter" || e.key === " " && !(typed && Date.now() - typedAt < 700)) {
+          if (items[at]) pick2(items[at].dataset.v);
+        } else if (e.key === "Tab") {
+          layer.close("blur");
+          return;
+        } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+          typed = Date.now() - typedAt > 700 ? e.key.toLowerCase() : typed + e.key.toLowerCase();
+          typedAt = Date.now();
+          const hit = items.findIndex((it) => (it.querySelector(".fe-dd-l")?.textContent ?? "").toLowerCase().startsWith(typed));
+          if (hit >= 0) {
+            at = hit;
+            mark();
+          }
+        } else return;
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      closeList = () => layer.close("api");
+    }
+    btn.addEventListener("click", () => {
+      if (btn.getAttribute("aria-expanded") === "true") closeList?.();
+      else open();
+    });
+    btn.addEventListener("keydown", (e) => {
+      if (keys2) keys2(e);
+      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        open();
+      }
+    });
+    paint();
+  }
+  function upgradeChips(host) {
+    const input = host.querySelector(".fe-chipin-in");
+    let items = [];
+    const paint = () => {
+      host.dataset.value = items.join(", ");
+      host.querySelectorAll(".chip").forEach((c) => c.remove());
+      input.insertAdjacentHTML("beforebegin", items.map((t, i3) => `<span class="chip" data-fill data-mono><span>${esc(t)}</span><button type="button" class="btn" data-icon data-size="xs" data-tone="danger" data-i="${i3}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">${UI_ICON.close}</button></span>`).join(""));
+    };
+    const commit = () => {
+      const add = input.value.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
+      input.value = "";
+      if (!add.length) return;
+      items = [...items, ...add.filter((a) => !items.includes(a))];
+      paint();
+      fire(host);
+    };
+    Object.defineProperty(host, "value", {
+      get: () => items.join(", "),
+      set: (v) => {
+        items = String(v).split(",").map((x) => x.trim()).filter(Boolean);
+        paint();
+      }
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === ",") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Backspace" && !input.value && items.length) {
+        items.pop();
+        paint();
+        fire(host);
+      }
+    });
+    input.addEventListener("blur", commit);
+    input.addEventListener("change", (e) => e.stopPropagation());
+    host.addEventListener("click", (e) => {
+      const b = e.target.closest(".chip button");
+      if (b) {
+        items.splice(Number(b.dataset.i), 1);
+        paint();
+        fire(host);
+        input.focus();
+      } else if (e.target === host) input.focus();
+    });
+  }
+  function upgradeControls(root = document) {
+    root.querySelectorAll(".fe-seg:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeSeg(h);
+    });
+    root.querySelectorAll(".fe-sld:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeSlider(h);
+    });
+    root.querySelectorAll(".fe-dd:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeDd(h);
+    });
+    root.querySelectorAll(".fe-chipin:not([data-up])").forEach((h) => {
+      h.dataset.up = "1";
+      upgradeChips(h);
+    });
+  }
+
+  // src/doc-keep.ts
+  function nameProblem(name) {
+    if (!name) return "Type a name.";
+    if (name.includes("/")) return "A name cannot hold a slash.";
+    if (name === "." || name === "..") return "Pick another name.";
+    if (name.includes("\0")) return "Pick another name.";
+    return null;
+  }
+  var baseOf2 = (p) => p.slice(p.lastIndexOf("/") + 1);
+  var dirOf = (p) => p.slice(0, p.lastIndexOf("/")) || "/";
+  async function renameOnDisk(app, path, name) {
+    name = name.trim();
+    if (name === baseOf2(path)) return null;
+    const problem = nameProblem(name);
+    if (problem) {
+      app.toast(problem);
+      return null;
+    }
+    const to = dirOf(path).replace(/\/$/, "") + "/" + name;
+    try {
+      await notes.rename(dirOf(path), baseOf2(path), name);
+    } catch (err) {
+      app.toast(err.code === "notes_exists" ? `${name} is already there. Pick another name.` : errorText(err, "Renaming the file"));
+      return null;
+    }
+    const list3 = getSaved();
+    if (list3.some((p) => samePlace(p.path, path))) {
+      saveSaved(retargetPlace(list3, path, to));
+      app.refreshSaved();
+    }
+    app.strip?.retarget(path, to);
+    app.refreshNotes();
+    app.toast(`Renamed to ${name}`);
+    return to;
+  }
+  function noteOf(path) {
+    const root = (getSettings().notesRoot || "").replace(/\/$/, "");
+    return root && path.startsWith(root + "/") && /\.md$/i.test(path) ? { root, rel: path.slice(root.length + 1) } : null;
+  }
+  var KEEP_BTN = `<button id="fe-fp-keep" class="btn" title="Name, Saved and Notes for this file">${PI.bm}<span>Keep</span></button>`;
+  function mountKeep(app) {
+    const btn = document.getElementById("fe-fp-keep");
+    if (!btn) return;
+    const path = app.rawPath;
+    let layer = null;
+    const paintBtn = () => btn.classList.toggle("on", getSaved().some((p) => samePlace(p.path, path)));
+    paintBtn();
+    const open = async () => {
+      const note2 = noteOf(path);
+      const doc = note2 ? await notes.read(note2.root, note2.rel).catch(() => null) : null;
+      let props = note2 && doc ? readProps(note2.rel, doc.text) : null;
+      const saved = () => getSaved().find((p) => samePlace(p.path, path)) ?? null;
+      const s = saved();
+      const box = document.createElement("form");
+      box.id = "fe-keep";
+      const linked = !s || !props || s.label === props.title;
+      box.innerHTML = `
+      <label class="fe-keep-f"><span class="fe-keep-l">File name</span>
+        <span class="fe-keep-row"><input class="tb" data-k="name" value="${esc(baseOf2(path))}" spellcheck="false" autocomplete="off" aria-label="File name"><button type="submit" class="btn" data-variant="outline" data-k="go" title="Rename the file on disk (Enter)">Rename</button></span></label>
+      <div class="fe-keep-sec">
+        <div class="fe-keep-h">${switchHtml({ id: "fe-keep-saved", title: "Keep this file in Saved", label: "In Saved", checked: !!s, small: true })}<span>Saved</span></div>
+        <label class="fe-keep-f"><span class="fe-keep-l">Name in Saved</span>
+          <input class="tb" data-k="label" value="${esc(s?.label ?? props?.title ?? baseOf2(path))}" spellcheck="false" autocomplete="off" aria-label="Name in Saved"${s ? "" : " disabled"}></label>
+      </div>
+      <div class="fe-keep-sec">
+        ${props ? `<div class="fe-keep-h">${switchHtml({ id: "fe-keep-pinned", title: "Pin this note to the top of Notes", label: "Pinned in Notes", checked: props.pinned, small: true })}<span>Pinned in Notes</span></div>
+        <label class="fe-keep-f"><span class="fe-keep-l">Note title</span>
+          <input class="tb" data-k="title" value="${esc(props.title)}" spellcheck="false" autocomplete="off" aria-label="Note title"></label>
+        ${checkHtml2("fe-keep-link", "Same title in Saved and Notes", "Changing one title changes the other", linked)}` : `<p class="fe-keep-note">${note2 ? "This note could not be read." : "Not in your Notes folder, so it has no note title or pin."}</p>`}
+      </div>
+      <p class="fe-keep-msg" aria-live="polite"></p>`;
+      const field = (k) => box.querySelector(`[data-k="${k}"]`);
+      const say = (t) => {
+        box.querySelector(".fe-keep-msg").textContent = t;
+      };
+      const isLinked = () => !!box.querySelector("#fe-keep-link")?.checked;
+      const busyEditing = () => !!app.filePage?.unsaved();
+      const writeNote = async (change) => {
+        if (!note2) return false;
+        try {
+          const now = await notes.read(note2.root, note2.rel);
+          const text = change(now.text);
+          if (text === now.text) return true;
+          await notes.write(note2.root, note2.rel, text, now.mtime);
+          props = readProps(note2.rel, text);
+          if (!app.filePage?.editing()) app.filePage?.setText(text);
+          app.refreshNotes();
+          return true;
+        } catch (err) {
+          say(errorText(err, "Saving the note"));
+          return false;
+        }
+      };
+      const setLabel = (label) => {
+        const cur = saved();
+        if (cur && label && cur.label !== label) {
+          saveSaved(renamePlace(getSaved(), cur.path, label));
+          app.refreshSaved();
+        }
+      };
+      const setTitle2 = async (title) => {
+        if (!title || !props || title === props.title) return;
+        if (await writeNote((t) => retitle(t, title) ?? `# ${title}
+
+${t}`)) say("Note title saved");
+      };
+      box.addEventListener("change", async (e) => {
+        const t = e.target;
+        const k = t.dataset?.k ?? t.id?.replace("fe-keep-", "");
+        if (k === "saved") {
+          const on = e.target.checked;
+          const label = field("label").value.trim() || baseOf2(path);
+          saveSaved(on ? upsertPlace(getSaved(), { path, label }) : removePlace(getSaved(), path));
+          field("label").disabled = !on;
+          app.refreshSaved();
+          paintBtn();
+          say(on ? "Saved" : "Removed from Saved");
+        } else if (k === "pinned") {
+          const on = e.target.checked;
+          if (await writeNote((t2) => applyChange(t2, { pinned: on }))) say(on ? "Pinned in Notes" : "Unpinned");
+        } else if (k === "label") {
+          const v = field("label").value.trim();
+          setLabel(v);
+          if (isLinked() && field("title")) {
+            field("title").value = v;
+            await setTitle2(v);
+          }
+          say("Name in Saved changed");
+        } else if (k === "title") {
+          const v = field("title").value.trim();
+          await setTitle2(v);
+          if (isLinked() && field("label")) {
+            field("label").value = v;
+            setLabel(v);
+          }
+        }
+      });
+      box.addEventListener("input", (e) => {
+        const k = e.target.dataset?.k;
+        if (!isLinked() || k !== "label" && k !== "title") return;
+        const other = field(k === "label" ? "title" : "label");
+        if (other && !other.disabled) other.value = e.target.value;
+      });
+      box.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const active = document.activeElement;
+        const k = active?.dataset.k === "go" ? "name" : active?.dataset.k;
+        if (k !== "name") {
+          active?.blur();
+          return;
+        }
+        if (busyEditing()) {
+          say("Save your edits first, then rename.");
+          return;
+        }
+        const to = await renameOnDisk(app, path, field("name").value);
+        if (to) {
+          layer?.close("pick");
+          go(fileHref(to));
+        }
+      });
+      layer = openLayer(box, {
+        kind: "popover",
+        anchor: btn,
+        align: "end",
+        offset: 8,
+        role: "dialog",
+        label: "Keep this file",
+        focus: field("name"),
+        onClose: () => {
+          layer = null;
+          btn.classList.remove("open");
+          paintBtn();
+        }
+      });
+      if (!layer.open) {
+        layer = null;
+        return;
+      }
+      btn.classList.add("open");
+      const name = field("name");
+      const dot = name.value.lastIndexOf(".");
+      name.setSelectionRange(0, dot > 0 ? dot : name.value.length);
+    };
+    btn.addEventListener("click", () => {
+      if (layer) layer.close("api");
+      else void open();
+    });
+  }
+  function askRename(app, anchor, path, done) {
+    const box = document.createElement("form");
+    box.id = "fe-keep";
+    box.className = "fe-rename";
+    box.innerHTML = `<label class="fe-keep-f"><span class="fe-keep-l">Rename</span>
+    <input class="tb" value="${esc(baseOf2(path))}" spellcheck="false" autocomplete="off" aria-label="New name"></label>`;
+    const input = box.querySelector("input");
+    const layer = openLayer(box, { kind: "popover", anchor, align: "start", offset: 4, role: "dialog", label: "Rename", focus: input });
+    if (!layer.open) return;
+    const dot = input.value.lastIndexOf(".");
+    input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
+    box.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const to = await renameOnDisk(app, path, input.value);
+      layer.close("pick");
+      if (to) done(to);
+    });
   }
 
   // src/styles.ts
@@ -13110,6 +13589,20 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-fp-edit.busy{opacity:.6;cursor:progress}
 @keyframes fe-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#fe-allow{animation:none}}
+/* The Keep card: a file's name, its Saved entry and, for a note, its pin and title. */
+#fe-keep{position:fixed;z-index:var(--z-popover);width:min(320px,calc(100vw - 16px));padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-4);border-radius:var(--pop-r);color:var(--tx);
+  background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur)}
+#fe-keep.fe-rename{width:min(280px,calc(100vw - 16px))}
+.fe-keep-f{display:flex;flex-direction:column;gap:var(--sp-2)}
+.fe-keep-row{display:flex;gap:var(--sp-2);align-items:center}
+.fe-keep-row input{flex:1;min-width:0}
+.fe-keep-f input{width:100%}
+.fe-keep-l{font-size:var(--fs-sm);color:var(--dm)}
+.fe-keep-sec{display:flex;flex-direction:column;gap:var(--sp-3);padding-top:var(--sp-4);border-top:1px solid var(--bd)}
+.fe-keep-h{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-md);color:var(--tx)}
+.fe-keep-note{margin:0;font-size:var(--fs-sm);color:var(--dm);line-height:1.5}
+.fe-keep-msg{margin:0;font-size:var(--fs-sm);color:var(--mt)}
+.fe-keep-msg:empty{display:none}
 #fe-fp-reload{animation:fe-fade-in var(--t-base) var(--ease);font-size:var(--fs-sm);color:var(--dm)}
 #fe-ed-bar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
 .fe-ed-hint{flex:1 1 0;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-sm);color:var(--dm);white-space:nowrap}
@@ -16828,6 +17321,7 @@ ${d.message}` : d.message;
         <span id="fe-fp-meta"></span>
         <button id="fe-fp-column" class="btn" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
         <button id="fe-fp-edit" class="btn" title="Edit this file (e e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
+        ${KEEP_BTN}
         <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
         <button id="fe-fp-raw" class="btn" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
         <button id="fe-fp-copy" class="btn" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
@@ -17224,6 +17718,7 @@ ${d.message}` : d.message;
       commentable: () => !editor && !raw && !!comments,
       commentHeld: () => !editor && !raw && !!comments?.held(),
       editing: () => !!editor,
+      unsaved: () => !!editor?.dirty(),
       setText(fresh) {
         text = fresh;
         paintMeta();
@@ -17250,6 +17745,10 @@ ${d.message}` : d.message;
     const list3 = [...s.list];
     list3.splice(Math.max(i3 < 0 ? list3.length : i3 + 1, pinnedCount(s)), 0, tab);
     return { list: list3, active: background ? s.active : tab.id };
+  }
+  function retargetTabs(s, from, to) {
+    if (!s.list.some((t) => t.path === from)) return s;
+    return { ...s, list: s.list.map((t) => t.path !== from ? t : { ...t, path: to, label: t.label === labelFor(from) ? labelFor(to) : t.label }) };
   }
   function closeTab(s, id) {
     const i3 = s.list.findIndex((t) => t.id === id);
@@ -17660,6 +18159,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     window.addEventListener("pagehide", () => writeRecovery(sid, state, true));
     return {
       handleKey,
+      retarget(from, to) {
+        commit(retargetTabs(state, from, to));
+      },
       move(id, dir) {
         const i3 = state.list.findIndex((t) => t.id === id);
         const to = state.list[i3 + dir];
@@ -17841,263 +18343,6 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         pinned = null;
         filter();
       }
-    });
-  }
-
-  // src/controls.ts
-  var fontAttr = (o) => o.font ? ` data-font="${esc(o.font)}"` : "";
-  var drawFonts = (box) => box.querySelectorAll("[data-font]").forEach((e) => {
-    e.style.fontFamily = e.dataset.font;
-  });
-  function segHtml(id, opts, title, size = "md") {
-    return `<div class="fe-seg" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} role="radiogroup" aria-label="${esc(title)}" title="${esc(title)}">${opts.map((o) => `<button type="button" role="radio" class="fe-seg-b${o.label ? "" : " ico"}" data-v="${esc(o.value)}" aria-checked="false" tabindex="-1" title="${esc(o.hint ?? o.label ?? o.value)}"${o.label ? "" : ` aria-label="${esc(o.hint ?? o.value)}"`}>${o.icon ?? ""}${o.label ? `<span>${esc(o.label)}</span>` : ""}</button>`).join("")}</div>`;
-  }
-  function sliderHtml(id, values, unit, title, names) {
-    return `<div class="fe-sld" id="${id}" data-values="${values.join(",")}" data-unit="${esc(unit)}"${names ? ` data-names="${esc(names.join("|"))}"` : ""} title="${esc(title)}">
-    <input type="range" min="0" max="${values.length - 1}" step="1" aria-label="${esc(title)}" title="${esc(title)}">
-    <output></output>
-  </div>`;
-  }
-  function ddHtml(id, opts, title, size = "md") {
-    return `<div class="fe-dd" id="${id}"${size === "md" ? "" : ` data-size="${size}"`} data-opts="${esc(JSON.stringify(opts))}">
-    <button type="button" class="fe-dd-btn" aria-haspopup="listbox" aria-expanded="false" title="${esc(title)}"><span class="fe-dd-cur"></span>${CHEVRON_DOWN}</button>
-  </div>`;
-  }
-  function checkHtml2(id, label, title, checked = false) {
-    return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}"${checked ? " checked" : ""}><span>${esc(label)}</span></label>`;
-  }
-  function switchHtml(o) {
-    return `<input type="checkbox" role="switch" class="fe-switch${o.small ? " sm" : ""}${o.cls ? " " + o.cls : ""}"${o.id ? ` id="${o.id}"` : ""} title="${esc(o.title)}" aria-label="${esc(o.label ?? o.title)}"${o.checked ? " checked" : ""}>`;
-  }
-  function chipsHtml(id, placeholder, title) {
-    return `<div class="fe-chipin" id="${id}" title="${esc(title)}"><input class="fe-chipin-in" placeholder="${esc(placeholder)}" spellcheck="false" aria-label="${esc(title)}"></div>`;
-  }
-  var fire = (host) => host.dispatchEvent(new Event("change", { bubbles: true }));
-  function upgradeSeg(host) {
-    const btns = [...host.querySelectorAll(".fe-seg-b")];
-    let cur = "";
-    const paint = () => btns.forEach((b) => {
-      const on = b.dataset.v === cur;
-      b.classList.toggle("on", on);
-      b.setAttribute("aria-checked", String(on));
-      b.tabIndex = on || !cur && b === btns[0] ? 0 : -1;
-    });
-    Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
-      cur = String(v);
-      paint();
-    } });
-    btns.forEach((b) => b.addEventListener("click", () => {
-      if (cur !== b.dataset.v) {
-        cur = b.dataset.v;
-        paint();
-        fire(host);
-      }
-    }));
-    rovingFocus(host, ".fe-seg-b", { axis: "both", onMove: (b) => b.click() });
-    paint();
-  }
-  function upgradeSlider(host) {
-    const values = host.dataset.values.split(",").map(Number);
-    const unit = host.dataset.unit ?? "";
-    const names = host.dataset.names?.split("|");
-    const range = host.querySelector("input");
-    const out = host.querySelector("output");
-    const show = () => {
-      const v = values[Number(range.value)];
-      out.textContent = names?.[Number(range.value)] ?? `${v}${unit}`;
-      if (names) range.setAttribute("aria-valuetext", out.textContent);
-      host.style.setProperty("--pct", `${Number(range.value) / (values.length - 1) * 100}%`);
-    };
-    Object.defineProperty(host, "value", {
-      get: () => String(values[Number(range.value)]),
-      set: (v) => {
-        const n = Number(v);
-        let best = 0;
-        values.forEach((x, i3) => {
-          if (Math.abs(x - n) < Math.abs(values[best] - n)) best = i3;
-        });
-        range.value = String(best);
-        show();
-      }
-    });
-    range.addEventListener("input", () => {
-      show();
-      host.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    range.addEventListener("change", (e) => {
-      e.stopPropagation();
-      fire(host);
-    });
-    show();
-  }
-  var list = null;
-  var closeList = null;
-  function upgradeDd(host) {
-    const btn = host.querySelector(".fe-dd-btn");
-    const curEl = host.querySelector(".fe-dd-cur");
-    let opts = JSON.parse(host.dataset.opts || "[]");
-    let cur = "";
-    const paint = () => {
-      host.dataset.value = cur;
-      const o = opts.find((x) => x.value === cur);
-      curEl.innerHTML = o ? `${o.icon ?? ""}<span${fontAttr(o)}>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
-      drawFonts(curEl);
-    };
-    Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
-      cur = String(v);
-      paint();
-    } });
-    host.setOptions = (o) => {
-      opts = o;
-      host.dataset.opts = JSON.stringify(o);
-      paint();
-    };
-    let keys2 = null;
-    function open() {
-      closeList?.();
-      list = document.createElement("div");
-      list.className = "fe-dd-list";
-      const optHtml = (o) => `<div role="option" class="row fe-dd-opt${o.value === cur ? " on" : ""}" data-v="${esc(o.value)}" aria-selected="${o.value === cur}">${o.icon ?? ""}<span class="fe-dd-l"${fontAttr(o)}>${esc(o.label ?? o.value)}</span>${o.hint ? `<span class="fe-dd-h">${esc(o.hint)}</span>` : ""}</div>`;
-      const groups = [...new Set(opts.map((o) => o.group ?? ""))];
-      list.innerHTML = groups.map((g) => {
-        const inner = opts.filter((o) => (o.group ?? "") === g).map(optHtml).join("");
-        return g ? `<div role="group" aria-label="${esc(g)}"><div class="fe-dd-g" aria-hidden="true">${esc(g)}</div>${inner}</div>` : inner;
-      }).join("");
-      drawFonts(list);
-      list.style.minWidth = `${btn.getBoundingClientRect().width}px`;
-      const layer = openLayer(list, { kind: "popover", anchor: btn, align: "end", role: "listbox", group: "menu", onClose: () => {
-        keys2 = null;
-        list = null;
-        closeList = null;
-      } });
-      if (!layer.open) return;
-      const items = [...list.querySelectorAll(".fe-dd-opt")];
-      let at = Math.max(0, items.findIndex((i3) => i3.dataset.v === cur));
-      const mark = () => {
-        items.forEach((it, i3) => it.classList.toggle("kb", i3 === at));
-        items[at]?.scrollIntoView({ block: "nearest" });
-      };
-      mark();
-      const pick2 = (v) => {
-        const changed = v !== cur;
-        cur = v;
-        paint();
-        layer.close("pick");
-        btn.focus();
-        if (changed) fire(host);
-      };
-      list.addEventListener("click", (e) => {
-        const it = e.target.closest(".fe-dd-opt");
-        if (it) pick2(it.dataset.v);
-      });
-      list.addEventListener("mousemove", (e) => {
-        const it = e.target.closest(".fe-dd-opt");
-        if (it) {
-          at = items.indexOf(it);
-          mark();
-        }
-      });
-      let typed = "", typedAt = 0;
-      keys2 = (e) => {
-        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-          at = (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
-          mark();
-        } else if (e.key === "Home" || e.key === "End") {
-          at = e.key === "Home" ? 0 : items.length - 1;
-          mark();
-        } else if (e.key === "Enter" || e.key === " " && !(typed && Date.now() - typedAt < 700)) {
-          if (items[at]) pick2(items[at].dataset.v);
-        } else if (e.key === "Tab") {
-          layer.close("blur");
-          return;
-        } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
-          typed = Date.now() - typedAt > 700 ? e.key.toLowerCase() : typed + e.key.toLowerCase();
-          typedAt = Date.now();
-          const hit = items.findIndex((it) => (it.querySelector(".fe-dd-l")?.textContent ?? "").toLowerCase().startsWith(typed));
-          if (hit >= 0) {
-            at = hit;
-            mark();
-          }
-        } else return;
-        e.preventDefault();
-        e.stopPropagation();
-      };
-      closeList = () => layer.close("api");
-    }
-    btn.addEventListener("click", () => {
-      if (btn.getAttribute("aria-expanded") === "true") closeList?.();
-      else open();
-    });
-    btn.addEventListener("keydown", (e) => {
-      if (keys2) keys2(e);
-      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        open();
-      }
-    });
-    paint();
-  }
-  function upgradeChips(host) {
-    const input = host.querySelector(".fe-chipin-in");
-    let items = [];
-    const paint = () => {
-      host.dataset.value = items.join(", ");
-      host.querySelectorAll(".chip").forEach((c) => c.remove());
-      input.insertAdjacentHTML("beforebegin", items.map((t, i3) => `<span class="chip" data-fill data-mono><span>${esc(t)}</span><button type="button" class="btn" data-icon data-size="xs" data-tone="danger" data-i="${i3}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">${UI_ICON.close}</button></span>`).join(""));
-    };
-    const commit = () => {
-      const add = input.value.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
-      input.value = "";
-      if (!add.length) return;
-      items = [...items, ...add.filter((a) => !items.includes(a))];
-      paint();
-      fire(host);
-    };
-    Object.defineProperty(host, "value", {
-      get: () => items.join(", "),
-      set: (v) => {
-        items = String(v).split(",").map((x) => x.trim()).filter(Boolean);
-        paint();
-      }
-    });
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === ",") {
-        e.preventDefault();
-        commit();
-      } else if (e.key === "Backspace" && !input.value && items.length) {
-        items.pop();
-        paint();
-        fire(host);
-      }
-    });
-    input.addEventListener("blur", commit);
-    input.addEventListener("change", (e) => e.stopPropagation());
-    host.addEventListener("click", (e) => {
-      const b = e.target.closest(".chip button");
-      if (b) {
-        items.splice(Number(b.dataset.i), 1);
-        paint();
-        fire(host);
-        input.focus();
-      } else if (e.target === host) input.focus();
-    });
-  }
-  function upgradeControls(root = document) {
-    root.querySelectorAll(".fe-seg:not([data-up])").forEach((h) => {
-      h.dataset.up = "1";
-      upgradeSeg(h);
-    });
-    root.querySelectorAll(".fe-sld:not([data-up])").forEach((h) => {
-      h.dataset.up = "1";
-      upgradeSlider(h);
-    });
-    root.querySelectorAll(".fe-dd:not([data-up])").forEach((h) => {
-      h.dataset.up = "1";
-      upgradeDd(h);
-    });
-    root.querySelectorAll(".fe-chipin:not([data-up])").forEach((h) => {
-      h.dataset.up = "1";
-      upgradeChips(h);
     });
   }
 
@@ -19984,6 +20229,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const copyText = (val) => {
       copyToClipboard(val).then(() => toast(`Copied: ${val}`));
     };
+    const renameRow = (en) => {
+      const row2 = scroll.querySelector(`[data-idx="${ls.visible.indexOf(en)}"]`);
+      if (!row2) return;
+      askRename(app, row2.querySelector(".fe-nm") ?? row2, fullPath(rawPath, en), (to) => {
+        textPref("bfb-lead:" + rawPath, "", "tab").set(to.slice(to.lastIndexOf("/") + 1));
+        reload();
+      });
+    };
     let lookTimer = null;
     const entryAt = (e) => {
       const holder = e.target.closest("[data-idx]");
@@ -20124,6 +20377,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         canPreview(en) ? `<div class="row fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : "",
         `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">\u21E7Y</span></div>`,
+        en.isDir ? "" : `<div class="row fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? "Unsave" : "Save"}</span></div>`,
         `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>`,
@@ -20144,6 +20398,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       else if (item.dataset.act === "cp-path") copyText(fp);
       else if (item.dataset.act === "cp-name") copyText(en.name);
       else if (item.dataset.act === "term") app.openInTerminal(en.isDir ? fp : rawPath);
+      else if (item.dataset.act === "rename") renameRow(en);
       else if (item.dataset.act?.startsWith("ow:")) runOpenWith(item.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
       else if (item.dataset.act === "save") {
         const now = toggleSaved(fp, en.name);
@@ -20184,6 +20439,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     bind("extend-up", () => extend(-1), onListing);
     bind("extend-down", () => extend(1), onListing);
+    bind("list-rename", () => {
+      const en = lead();
+      if (en) renameRow(en);
+    }, () => onListing() && !!lead() && !lead().isDir && !lead().isParent);
     bind("open-bg", () => {
       const en = lead();
       if (en && !en.isParent) {
@@ -23676,6 +23935,12 @@ ${rows.join("\n")}`, name: subject };
       toast: (message) => app.toast(message),
       savedChanged: () => app.refreshSaved(),
       openInTerminal: (p) => app.openInTerminal(p),
+      // The renamed file stays selected when its folder reloads.
+      rename: (anchor, p) => askRename(app, anchor, p, (to) => {
+        closePreview();
+        textPref("bfb-lead:" + rawPath, "", "tab").set(to.slice(to.lastIndexOf("/") + 1));
+        reload();
+      }),
       // A docked preview folds the sidebar away while it shows; the sidebar's own setting comes back after.
       dockRoom: (docked) => setSidebarShown(docked && settings.dockFoldsSidebar !== false ? false : settings.showSidebar)
     });
@@ -23724,6 +23989,7 @@ ${rows.join("\n")}`, name: subject };
     initToolLenses(app);
     initSidebar(app);
     initSidePeek();
+    if (fileMode) mountKeep(app);
     initFocusNav(app);
     if (!homeDir(rawPath)) {
       notes.home().then((home) => {
