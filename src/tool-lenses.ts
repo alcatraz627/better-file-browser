@@ -100,8 +100,9 @@ function initAsk(app: App): void {
   const box = document.getElementById('fe-ask');
   if (!box) return;
   const subject = app.fileMode ? app.fileName : (app.folderPath.split('/').filter(Boolean).pop() || '/');
-  // Chats are kept per file or folder, by its full path.
-  const key = app.fileMode ? decodeURIComponent(location.pathname) : app.folderPath;
+  // Chats are kept per file or folder, by its full path. A file shown as a
+  // folder's #view= page has the folder as its URL path, so rawPath is used.
+  const key = app.fileMode ? app.rawPath : app.folderPath;
   const quick = app.fileMode
     ? [['summarize', 'Summarize'], ['explain', 'Explain']]
     : [['folder', 'What is in here?']];
@@ -121,7 +122,7 @@ function initAsk(app: App): void {
     <div class="fe-ask-form">
       <div class="fe-ask-box">
         <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
-        <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(app.fileMode ? decodeURIComponent(location.pathname) : app.folderPath)}">${app.fileMode ? UI_ICON.file ?? '' : ''}<span>${esc(subject)}</span></span>
+        <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(key)}">${app.fileMode ? UI_ICON.file ?? '' : ''}<span>${esc(subject)}</span></span>
           <button type="button" class="btn fe-ask-send" data-icon data-variant="solid" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? '↑'}</button></div>
       </div>
     </div>`;

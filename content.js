@@ -316,7 +316,7 @@
   }
   function isWithin(path, folder, depth = 4) {
     const base = folder.endsWith("/") ? folder : folder + "/";
-    if (path === folder || path === base) return true;
+    if (path === folder || path === base || path + "/" === base) return true;
     return path.startsWith(base) && path.slice(base.length).split("/").filter(Boolean).length <= depth;
   }
 
@@ -324,6 +324,7 @@
   var MIGRATED = "bfb-kv-migrated";
   var NOT_KV = "bfb-strip-v2:";
   var cache = /* @__PURE__ */ new Map();
+  var pending = /* @__PURE__ */ new Map();
   var area = null;
   var watchers = [];
   function onKvChange(fn) {
@@ -382,7 +383,13 @@
       if (name !== "local") return;
       for (const [k, c] of Object.entries(changes)) {
         if (!isKvKey(k)) continue;
-        if (cache.get(k) === c.newValue) continue;
+        const mine = pending.get(k);
+        const at = mine?.indexOf(c.newValue) ?? -1;
+        if (mine && at >= 0) {
+          mine.splice(0, at + 1);
+          if (!mine.length) pending.delete(k);
+          continue;
+        }
         if (typeof c.newValue === "string") cache.set(k, c.newValue);
         else cache.delete(k);
         watchers.forEach((fn) => fn(k));
@@ -407,11 +414,14 @@
       }
       return;
     }
+    if (cache.get(key) === value) return;
     cache.set(key, value);
+    pending.set(key, [...pending.get(key) ?? [], value]);
+    const lost = () => pending.delete(key);
     try {
-      area.set({ [key]: value }).catch(() => {
-      });
+      area.set({ [key]: value }).catch(lost);
     } catch {
+      lost();
     }
   }
   function kvKeys() {
@@ -1904,11 +1914,11 @@ ${body}`;
     if (!ctx.scopes.has("preview") || d.over === true || !!tok && !!d.over?.includes(tok)) return true;
     return !!ctx.docked && !!tok && !PREVIEW_KEYS.has(tok);
   };
-  var pending = "";
+  var pending2 = "";
   var pendingTimer = null;
   var pill = null;
   function setPending(p) {
-    pending = p;
+    pending2 = p;
     if (pendingTimer) clearTimeout(pendingTimer);
     if (!p) {
       pill?.remove();
@@ -1948,8 +1958,8 @@ ${body}`;
       }
       return false;
     }
-    if (pending) {
-      const want = `${pending} ${tok}`;
+    if (pending2) {
+      const want = `${pending2} ${tok}`;
       setPending("");
       const seq2 = OWN.filter((x) => keysOf(x).includes(want) && live(x, ctx, want) && canRun(x.id));
       const d2 = seq2.find((x) => (x.scope ?? "any") !== "any") ?? seq2[0];
@@ -12768,7 +12778,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-ql-body.fe-editing{display:flex;flex-direction:column}
 .fe-ed{display:flex;flex:1;min-height:0}
 #fe-ed-src{flex:1;min-width:0;resize:none;border:none;border-right:1px solid var(--bd);background:var(--s1);color:var(--tx);
-  font:var(--fs-md)/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px var(--sp-6);outline:none;tab-size:2}
+  font:var(--fs-md)/1.6 var(--mono);padding:14px var(--sp-6);outline:none;tab-size:2}
 #fe-ed-view{flex:1;min-width:0;overflow:auto}
 #fe-qlook.side .fe-ed{flex-direction:column}
 #fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
@@ -12856,7 +12866,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-ql-center audio{width:min(480px,90%)}
 .fe-ql-font{padding:var(--sp-7) 26px;overflow:auto;line-height:1.5}
 .fe-ql-font>div{margin:var(--sp-3) 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:var(--sp-3)}
-.fe-code-wrap{font:var(--fs-md)/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
+.fe-code-wrap{font:var(--fs-md)/1.55 var(--mono);min-height:100%}
 .fe-code{padding:10px 14px 14px 0;width:max-content;min-width:100%}
 .fe-cl-blk{content-visibility:auto;contain-intrinsic-size:auto calc(var(--n) * 1.55em)}
 .fe-cl{display:grid;grid-template-columns:calc(var(--gut,4ch) + 22px) minmax(0,1fr)}
@@ -12892,7 +12902,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe[data-theme="light"] .tok-section{color:#8250df}
 #fe[data-theme="light"] .tok-add{color:#1a7f37}
 #fe[data-theme="light"] .tok-del{color:#cf222e}
-.fe-ql-table{border-collapse:collapse;width:100%;font:var(--fs-md) 'SF Mono',Menlo,Consolas,monospace}
+.fe-ql-table{border-collapse:collapse;width:100%;font:var(--fs-md) var(--mono)}
 .fe-ql-table th{position:sticky;top:0;background:var(--s2);padding:var(--sp-3) 10px;text-align:left;
   border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
 .fe-ql-table th:hover{color:var(--tx)}
@@ -12901,7 +12911,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   max-width:340px;overflow:hidden;text-overflow:ellipsis}
 .fe-ql-table th.num,.fe-ql-table td.num{text-align:right;font-variant-numeric:tabular-nums}
 .fe-ql-table tbody tr:hover{background:var(--hover)}
-.fe-jt-root,.fe-jl-root{padding:10px 14px;font:var(--fs-md)/1.6 'SF Mono',Menlo,Consolas,monospace}
+.fe-jt-root,.fe-jl-root{padding:10px 14px;font:var(--fs-md)/1.6 var(--mono)}
 .fe-jt summary,.fe-jl-line summary{cursor:pointer;list-style:none}
 .fe-jt summary::-webkit-details-marker,.fe-jl-line summary::-webkit-details-marker{display:none}
 .fe-jt summary svg,.fe-jl-line summary svg{color:var(--dm);vertical-align:-2px}
@@ -21234,7 +21244,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const box = document.getElementById("fe-ask");
     if (!box) return;
     const subject = app.fileMode ? app.fileName : app.folderPath.split("/").filter(Boolean).pop() || "/";
-    const key = app.fileMode ? decodeURIComponent(location.pathname) : app.folderPath;
+    const key = app.fileMode ? app.rawPath : app.folderPath;
     const quick = app.fileMode ? [["summarize", "Summarize"], ["explain", "Explain"]] : [["folder", "What is in here?"]];
     const what = app.fileMode ? "this file" : "this folder";
     box.innerHTML = `
@@ -21252,7 +21262,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     <div class="fe-ask-form">
       <div class="fe-ask-box">
         <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line"></textarea>
-        <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(app.fileMode ? decodeURIComponent(location.pathname) : app.folderPath)}">${app.fileMode ? UI_ICON.file ?? "" : ""}<span>${esc(subject)}</span></span>
+        <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(key)}">${app.fileMode ? UI_ICON.file ?? "" : ""}<span>${esc(subject)}</span></span>
           <button type="button" class="btn fe-ask-send" data-icon data-variant="solid" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? "\u2191"}</button></div>
       </div>
     </div>`;
@@ -21997,14 +22007,14 @@ ${rows.join("\n")}`, name: subject };
   // src/md-ui.ts
   function initMarkdownUi(toast) {
     const rendered = /* @__PURE__ */ new WeakMap();
-    const pending2 = /* @__PURE__ */ new WeakSet();
+    const pending3 = /* @__PURE__ */ new WeakSet();
     let sequence = 0;
     let queue = Promise.resolve();
     const theme = () => document.getElementById("fe")?.dataset.theme === "light" ? "light" : "dark";
     const renderDiagrams = () => {
       document.querySelectorAll(".fe-md-mermaid").forEach((block) => {
-        if (pending2.has(block) || rendered.get(block) === theme()) return;
-        pending2.add(block);
+        if (pending3.has(block) || rendered.get(block) === theme()) return;
+        pending3.add(block);
         queue = queue.then(async () => {
           if (!block.isConnected) return;
           const source = block.querySelector(".fe-md-mermaid-source")?.textContent || "";
@@ -22029,7 +22039,7 @@ ${rows.join("\n")}`, name: subject };
           rendered.set(block, currentTheme);
         }).catch(() => {
         }).finally(() => {
-          pending2.delete(block);
+          pending3.delete(block);
           if (block.isConnected && rendered.get(block) !== theme()) renderDiagrams();
         });
       });

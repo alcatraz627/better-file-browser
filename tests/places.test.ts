@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   upsertPlace, dedupePlaces, removePlace, renamePlace, movePlace, togglePlace,
-  parseTags, setTags, reconcileTags, cycleTagColor, groupByTag, filterSaved, mergeLegacy, TAG_COLORS,
+  parseTags, setTags, reconcileTags, cycleTagColor, groupByTag, filterSaved, mergeLegacy, isWithin, TAG_COLORS,
 } from '../src/places';
 import type { Place } from '../src/types';
 
@@ -115,5 +115,20 @@ describe('mergeLegacy', () => {
       [{ path: '/a', label: 'Alpha' }, { path: '/b', label: 'Bee' }],
     );
     expect(out).toEqual([{ path: '/a', label: 'Alpha' }, { path: '/b', label: 'Bee' }, { path: '/c', label: 'c' }]);
+  });
+});
+
+describe('isWithin', () => {
+  it('counts the folder itself with or without its trailing slash', () => {
+    expect(isWithin('/p/', '/p')).toBe(true);
+    expect(isWithin('/p', '/p/')).toBe(true);
+    expect(isWithin('/p/', '/p/')).toBe(true);
+  });
+  it('rejects a name that only starts the same', () => {
+    expect(isWithin('/pq/a.md', '/p/')).toBe(false);
+  });
+  it('keeps four levels down and drops the fifth', () => {
+    expect(isWithin('/p/a/b/c/d.md', '/p/')).toBe(true);
+    expect(isWithin('/p/a/b/c/d/e.md', '/p/')).toBe(false);
   });
 });

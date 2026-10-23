@@ -926,7 +926,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:#0d1117}
 #fe-ql-body.fe-editing{display:flex;flex-direction:column}
 .fe-ed{display:flex;flex:1;min-height:0}
 #fe-ed-src{flex:1;min-width:0;resize:none;border:none;border-right:1px solid var(--bd);background:var(--s1);color:var(--tx);
-  font:var(--fs-md)/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:14px var(--sp-6);outline:none;tab-size:2}
+  font:var(--fs-md)/1.6 var(--mono);padding:14px var(--sp-6);outline:none;tab-size:2}
 #fe-ed-view{flex:1;min-width:0;overflow:auto}
 #fe-qlook.side .fe-ed{flex-direction:column}
 #fe-qlook.side #fe-ed-src{border-right:none;border-bottom:1px solid var(--bd);min-height:40%}
@@ -1014,7 +1014,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 .fe-ql-center audio{width:min(480px,90%)}
 .fe-ql-font{padding:var(--sp-7) 26px;overflow:auto;line-height:1.5}
 .fe-ql-font>div{margin:var(--sp-3) 0;word-break:break-word;border-bottom:1px solid var(--s2);padding-bottom:var(--sp-3)}
-.fe-code-wrap{font:var(--fs-md)/1.55 'SF Mono',Menlo,Consolas,monospace;min-height:100%}
+.fe-code-wrap{font:var(--fs-md)/1.55 var(--mono);min-height:100%}
 .fe-code{padding:10px 14px 14px 0;width:max-content;min-width:100%}
 .fe-cl-blk{content-visibility:auto;contain-intrinsic-size:auto calc(var(--n) * 1.55em)}
 .fe-cl{display:grid;grid-template-columns:calc(var(--gut,4ch) + 22px) minmax(0,1fr)}
@@ -1050,7 +1050,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
 #fe[data-theme="light"] .tok-section{color:#8250df}
 #fe[data-theme="light"] .tok-add{color:#1a7f37}
 #fe[data-theme="light"] .tok-del{color:#cf222e}
-.fe-ql-table{border-collapse:collapse;width:100%;font:var(--fs-md) 'SF Mono',Menlo,Consolas,monospace}
+.fe-ql-table{border-collapse:collapse;width:100%;font:var(--fs-md) var(--mono)}
 .fe-ql-table th{position:sticky;top:0;background:var(--s2);padding:var(--sp-3) 10px;text-align:left;
   border-bottom:1px solid var(--bd);cursor:pointer;white-space:nowrap;color:var(--mt);font-weight:600;z-index:1}
 .fe-ql-table th:hover{color:var(--tx)}
@@ -1059,7 +1059,7 @@ textarea.fe-chip-title{flex:1 1 100%;resize:none;overflow:hidden;line-height:1.3
   max-width:340px;overflow:hidden;text-overflow:ellipsis}
 .fe-ql-table th.num,.fe-ql-table td.num{text-align:right;font-variant-numeric:tabular-nums}
 .fe-ql-table tbody tr:hover{background:var(--hover)}
-.fe-jt-root,.fe-jl-root{padding:10px 14px;font:var(--fs-md)/1.6 'SF Mono',Menlo,Consolas,monospace}
+.fe-jt-root,.fe-jl-root{padding:10px 14px;font:var(--fs-md)/1.6 var(--mono)}
 .fe-jt summary,.fe-jl-line summary{cursor:pointer;list-style:none}
 .fe-jt summary::-webkit-details-marker,.fe-jl-line summary::-webkit-details-marker{display:none}
 .fe-jt summary svg,.fe-jl-line summary svg{color:var(--dm);vertical-align:-2px}

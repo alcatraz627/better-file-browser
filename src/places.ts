@@ -117,6 +117,6 @@ export function mergeLegacy(bookmarks: Bookmark[], places: Place[]): Place[] {
  *  level 2. A name that only starts the same ("/a/bc" for "/a/b") is not inside. */
 export function isWithin(path: string, folder: string, depth = 4): boolean {
   const base = folder.endsWith('/') ? folder : folder + '/';
-  if (path === folder || path === base) return true;
+  if (path === folder || path === base || path + '/' === base) return true;
   return path.startsWith(base) && path.slice(base.length).split('/').filter(Boolean).length <= depth;
 }

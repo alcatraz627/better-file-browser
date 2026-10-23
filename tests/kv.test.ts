@@ -65,4 +65,29 @@ describe('kv store', () => {
     f.listeners.forEach(l => l({ 'bfb-zoom': {} }, 'local'));
     expect(kv.kvGet('bfb-zoom')).toBeNull();
   });
+
+  it('two quick writes keep the second while their echoes arrive', async () => {
+    const f = fakeChrome({ 'bfb-kv-migrated': '1' });
+    const held: Record<string, { newValue?: unknown }>[] = [];
+    f.chrome.storage.local.set = async (items: Record<string, unknown>) => {
+      Object.assign(f.data, items);
+      held.push(Object.fromEntries(Object.entries(items).map(([k, v]) => [k, { newValue: v }])));
+    };
+    (globalThis as { chrome?: unknown }).chrome = f.chrome;
+    const kv = await freshKv();
+    await kv.loadKv();
+    const seen: string[] = [];
+    kv.onKvChange(k => seen.push(k));
+    kv.kvSet('bfb-settings-v1', '110');
+    kv.kvSet('bfb-settings-v1', '120');
+    held.shift() && f.listeners.forEach(l => l({ 'bfb-settings-v1': { newValue: '110' } }, 'local'));
+    expect(kv.kvGet('bfb-settings-v1')).toBe('120');
+    held.shift() && f.listeners.forEach(l => l({ 'bfb-settings-v1': { newValue: '120' } }, 'local'));
+    expect(kv.kvGet('bfb-settings-v1')).toBe('120');
+    expect(seen).toEqual([]);
+    // Another tab's write after that still comes through.
+    f.listeners.forEach(l => l({ 'bfb-settings-v1': { newValue: '90' } }, 'local'));
+    expect(kv.kvGet('bfb-settings-v1')).toBe('90');
+    expect(seen).toEqual(['bfb-settings-v1']);
+  });
 });

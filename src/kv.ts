@@ -13,6 +13,11 @@ const MIGRATED = 'bfb-kv-migrated';
 const NOT_KV = 'bfb-strip-v2:';
 
 const cache = new Map<string, string>();
+// Values this tab wrote whose change events have not come back yet, oldest
+// first. Two quick writes to one key echo back in order; comparing each echo
+// with the cache would mistake the first for another tab's write and roll the
+// value back until the second arrives.
+const pending = new Map<string, string[]>();
 let area: chrome.storage.StorageArea | null = null;
 const watchers: ((key: string) => void)[] = [];
 
@@ -60,7 +65,13 @@ export async function loadKv(): Promise<void> {
     if (name !== 'local') return;
     for (const [k, c] of Object.entries(changes)) {
       if (!isKvKey(k)) continue;
-      if (cache.get(k) === c.newValue) continue;   // this tab's own write
+      const mine = pending.get(k);
+      const at = mine?.indexOf(c.newValue as string) ?? -1;
+      if (mine && at >= 0) {   // this tab's own write
+        mine.splice(0, at + 1);
+        if (!mine.length) pending.delete(k);
+        continue;
+      }
       if (typeof c.newValue === 'string') cache.set(k, c.newValue);
       else cache.delete(k);
       watchers.forEach(fn => fn(k));
@@ -75,8 +86,12 @@ export function kvGet(key: string): string | null {
 
 export function kvSet(key: string, value: string): void {
   if (!area) { try { localStorage.setItem(key, value); } catch { /* storage full or disabled */ } return; }
+  // Writing what is already stored raises no change event, so nothing waits for one.
+  if (cache.get(key) === value) return;
   cache.set(key, value);
-  try { area.set({ [key]: value }).catch(() => {}); } catch { /* extension reloaded under the page */ }
+  pending.set(key, [...(pending.get(key) ?? []), value]);
+  const lost = () => pending.delete(key);
+  try { area.set({ [key]: value }).catch(lost); } catch { lost(); /* extension reloaded under the page */ }
 }
 
 // Every settings key currently held, for export.
