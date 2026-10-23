@@ -240,7 +240,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-rule-ico svg{width:18px;height:20px}
 .fe-st-rule-pattern{width:100%}
 .fe-rule-n{min-width:26px;padding:var(--sp-1) var(--sp-3);border-radius:10px;background:color-mix(in srgb,var(--tx) 7%,transparent);color:var(--mt);font:500 var(--fs-sm) var(--mono);text-align:center}
-.fe-rule-pop{position:fixed;z-index:610;width:330px;padding:var(--sp-5);border-radius:var(--pop-r);display:flex;flex-direction:column;gap:var(--sp-5);
+.fe-rule-pop{position:fixed;width:330px;padding:var(--sp-5);border-radius:var(--pop-r);display:flex;flex-direction:column;gap:var(--sp-5);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-rp-sec{display:flex;flex-direction:column;gap:var(--sp-3)}
 .fe-rp-l{font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
@@ -322,7 +322,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-chord-o{display:inline-flex;align-items:center;gap:5px;color:var(--tx)}
 
 /* Key badges while ⌥ is held. */
-.fe-hints{position:fixed;inset:0;z-index:690;pointer-events:none}
+.fe-hints{position:fixed;inset:0;pointer-events:none}
 .fe-hints > kbd{position:fixed;transform:translate(-50%,0);background:var(--ac);color:var(--tx-on-ac);box-shadow:0 2px 6px rgb(0 0 0 / .35);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-hints-tip{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-5);border-radius:var(--pop-r);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);font-size:var(--fs-md);color:var(--mt)}

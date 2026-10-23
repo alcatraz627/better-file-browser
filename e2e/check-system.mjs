@@ -26,7 +26,9 @@ const RULES = [
   { id: 'css-radius-px', css: d => /^\s*border-radius\s*:.*\d+px/.test(d) },
   { id: 'css-height-px', css: d => /^\s*(min-|max-)?height\s*:\s*\d+(\.\d+)?px/.test(d) },
   { id: 'css-space-px', css: d => /^\s*(padding|gap|row-gap|column-gap|margin)[\w-]*\s*:.*\d+px/.test(d) },
-  { id: 'css-zindex', css: d => /^\s*z-index\s*:\s*-?\d/.test(d) },
+  // Page layers come from the --z tokens (or the top layer); a single digit,
+  // or -1, orders a part's own children inside its stacking context and is fine.
+  { id: 'css-zindex', css: d => /^\s*z-index\s*:\s*(-?\d{2,}|-[2-9])/.test(d) },
   { id: 'css-font-px', css: d => /^\s*font(-size)?\s*:.*\d+px/.test(d) },
   { id: 'css-duration', css: d => /^\s*(transition|animation)[\w-]*\s*:.*\b\d+(\.\d+)?m?s\b/.test(d) },
   { id: 'css-raw-colour', css: d => /#[0-9a-fA-F]{3,8}\b|rgba?\(\s*\d/.test(d) },
