@@ -14,7 +14,7 @@ import { fileMeta, metaChips, metaSummary } from './file-meta';
 import { UI_ICON } from './control-icons';
 import { openLayer } from './layer';
 import { getSettings, saveSettings, textPref, jsonPref, flagPref, choicePref } from './storage';
-import { editableRoot, openFileEditor, type FileEditor } from './file-editor';
+import { editableRoot, editableFoldersOf, openFileEditor, type FileEditor } from './file-editor';
 import { attachFind } from './find-in-page';
 import { mountComments, type CommentsPanel, type CommentAction } from './comments-ui';
 import type { Settings } from './types';
@@ -380,7 +380,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
         const s = getSettings();
         s.editableFolders = [...new Set([...(s.editableFolders ?? []), a === 'folder' ? folder : rawPath])];
         saveSettings(s);
-        root = editableRoot(rawPath, s.editableFolders, home);
+        root = editableRoot(rawPath, editableFoldersOf(s), home);
         ok = !!root;
       }
       layer.close('pick');
@@ -399,6 +399,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
 
   const edit = async () => {
     if (editor || editBtn.classList.contains('busy')) return;
+    // Allowed since this page loaded, perhaps in another tab: ask the stored settings, not the copy from load.
+    if (!root) root = editableRoot(rawPath, editableFoldersOf(getSettings()), home);
     if (!root && !(await askToAllow())) return;
     if (!root) return;
     editBtn.classList.add('busy');

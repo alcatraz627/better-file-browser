@@ -494,16 +494,36 @@
   function saveIconRules(r) {
     kvSet(ICON_RULES_KEY, JSON.stringify(r));
   }
-  function getSettings() {
+  var readAs = /* @__PURE__ */ new WeakMap();
+  var snapshot = (s) => Object.fromEntries(Object.entries(s).map(([k, v]) => [k, JSON.stringify(v)]));
+  function storedSettings() {
     try {
       return { ...DEFAULT_SETTINGS, ...JSON.parse(kvGet(SETTINGS_KEY) ?? "{}") };
     } catch {
       return { ...DEFAULT_SETTINGS };
     }
   }
+  function getSettings() {
+    const s = storedSettings();
+    readAs.set(s, snapshot(s));
+    return s;
+  }
   function saveSettings(s) {
-    kvSet(SETTINGS_KEY, JSON.stringify(s));
-    syncHtmlGuard(s);
+    const was = readAs.get(s);
+    let out = s;
+    if (was) {
+      out = storedSettings();
+      const o = out, mine = s;
+      for (const k of /* @__PURE__ */ new Set([...Object.keys(was), ...Object.keys(s)])) {
+        if (JSON.stringify(mine[k]) === was[k]) continue;
+        if (mine[k] === void 0) delete o[k];
+        else o[k] = mine[k];
+      }
+      Object.assign(s, out);
+    }
+    kvSet(SETTINGS_KEY, JSON.stringify(out));
+    readAs.set(s, snapshot(s));
+    syncHtmlGuard(out);
   }
   function filePagesEnabled(ext2, settings) {
     const mode = settings.renderFilePages || "all";
@@ -14846,6 +14866,9 @@ button.chip:disabled{opacity:.45;cursor:default}
   var CHECK_MAX = 2e6;
   var BIG_RENDER_MS = 1e3;
   var TA_LINES = 3e3;
+  function editableFoldersOf(s) {
+    return [...s.editableFolders ?? [], ...s.notesRoot ? [s.notesRoot] : []];
+  }
   function editableRoot(path, folders, home = "") {
     for (const raw of folders ?? []) {
       let f = raw.trim().replace(/\/+$/, "");
@@ -16825,7 +16848,7 @@ ${d.message}` : d.message;
           const s = getSettings();
           s.editableFolders = [.../* @__PURE__ */ new Set([...s.editableFolders ?? [], a === "folder" ? folder : rawPath])];
           saveSettings(s);
-          root = editableRoot(rawPath, s.editableFolders, home);
+          root = editableRoot(rawPath, editableFoldersOf(s), home);
           ok = !!root;
         }
         layer.close("pick");
@@ -16841,6 +16864,7 @@ ${d.message}` : d.message;
     };
     const edit2 = async () => {
       if (editor || editBtn.classList.contains("busy")) return;
+      if (!root) root = editableRoot(rawPath, editableFoldersOf(getSettings()), home);
       if (!root && !await askToAllow()) return;
       if (!root) return;
       editBtn.classList.add("busy");
@@ -23150,7 +23174,7 @@ ${rows.join("\n")}`, name: subject };
     });
     if (fileMode) {
       const href = viewHref || location.href;
-      app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: settings.editableFolders });
+      app.filePage = mountFileContent({ ext: fileExt, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: editableFoldersOf(settings) });
       if (fetchSource) fetchFileText(href).then((text) => app.filePage?.setText(text)).catch(() => {
         app.filePage?.setText("Could not read this file.");
       });

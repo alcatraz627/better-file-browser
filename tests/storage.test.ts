@@ -141,3 +141,28 @@ describe('settings storage (aiModel)', () => {
     expect(getSettings().aiModel).toBe('qwen2.5-coder:3b');
   });
 });
+
+describe('settings saved from an older copy', () => {
+  beforeEach(() => localStorage.clear());
+
+  // Each page (and each Chrome tab) reads the settings once and saves its copy
+  // later; a save must not undo what another copy saved in between.
+  it('keeps a change made through another copy', () => {
+    const page = getSettings();
+    const other = getSettings();
+    other.editableFolders = ['/Users/me/Notes'];
+    saveSettings(other);
+    page.tooltips = false;
+    saveSettings(page);
+    const now = getSettings();
+    expect(now.editableFolders).toEqual(['/Users/me/Notes']);
+    expect(now.tooltips).toBe(false);
+  });
+
+  it('still clears a key the copy cleared', () => {
+    const s = getSettings();
+    s.aiModel = 'm'; saveSettings(s);
+    s.aiModel = undefined; saveSettings(s);
+    expect(getSettings().aiModel).toBeUndefined();
+  });
+});

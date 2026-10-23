@@ -51,6 +51,21 @@ try {
   const allowed = (await h.store.json('bfb-settings-v1', {})).editableFolders ?? [];
   check(allowed.includes(h.fixture), `Allow folder saves the folder and opens the editor: ${JSON.stringify(allowed)}`);
 
+  // The page's own settings copy predates the grant; saving it (the sidebar
+  // toggle does) must keep the grant, and after a reload Edit just opens.
+  await page.click('#fe-side-toggle');
+  await page.click('#fe-side-toggle');
+  const kept = (await h.store.json('bfb-settings-v1', {})).editableFolders ?? [];
+  check(kept.includes(h.fixture), `a later settings save keeps the grant: ${JSON.stringify(kept)}`);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#fe-fp-edit');
+  await page.click('#fe-fp-edit');
+  const reopened = await Promise.race([
+    page.waitForSelector('#fe-fe-ta', { timeout: 5000 }).then(() => 'editor'),
+    page.waitForSelector('#fe-allow', { timeout: 5000 }).then(() => 'asked'),
+  ]).catch(() => 'nothing');
+  check(reopened === 'editor', `after a reload Edit opens without asking again: ${reopened}`);
+
   const src = await page.evaluate(() => ({
     lines: [...document.querySelectorAll('#fe-fe-paint .fe-fe-ln')].map(e => e.textContent),
     tokens: document.querySelectorAll('#fe-fe-paint span[class^="tok-"]').length,

@@ -54,13 +54,36 @@ export function saveIconRules(r: IconRule[]): void {
   kvSet(ICON_RULES_KEY, JSON.stringify(r));
 }
 
-export function getSettings(): Settings {
+// Each page, and each Chrome tab, reads the settings once and saves its copy
+// later. A save writes only the keys this copy changed since it was read (or
+// last saved), over what is stored now, so it cannot undo a change another
+// copy made meanwhile. A copy this module did not hand out is written whole.
+const readAs = new WeakMap<Settings, Record<string, string>>();
+const snapshot = (s: Settings) => Object.fromEntries(Object.entries(s).map(([k, v]) => [k, JSON.stringify(v)]));
+function storedSettings(): Settings {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(kvGet(SETTINGS_KEY) ?? '{}') }; }
   catch { return { ...DEFAULT_SETTINGS }; }
 }
+export function getSettings(): Settings {
+  const s = storedSettings();
+  readAs.set(s, snapshot(s));
+  return s;
+}
 export function saveSettings(s: Settings): void {
-  kvSet(SETTINGS_KEY, JSON.stringify(s));
-  syncHtmlGuard(s);
+  const was = readAs.get(s);
+  let out: Settings = s;
+  if (was) {
+    out = storedSettings();
+    const o = out as unknown as Record<string, unknown>, mine = s as unknown as Record<string, unknown>;
+    for (const k of new Set([...Object.keys(was), ...Object.keys(s)])) {
+      if (JSON.stringify(mine[k]) === was[k]) continue;
+      if (mine[k] === undefined) delete o[k]; else o[k] = mine[k];
+    }
+    Object.assign(s, out);   // the copy now also holds what others saved
+  }
+  kvSet(SETTINGS_KEY, JSON.stringify(out));
+  readAs.set(s, snapshot(s));
+  syncHtmlGuard(out);
 }
 
 // The Settings choice: every text file, everything but markdown, or none.

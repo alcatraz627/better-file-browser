@@ -18,6 +18,7 @@ import { esc, pageHref, fileHref } from './utils';
 import { samePlace } from './places';
 import { PI, icoFile } from './icons';
 import { filePageExt, mountFileContent } from './file-page';
+import { editableFoldersOf } from './file-editor';
 import { fetchFileText } from './file-fetch';
 import { mountStrip, type Strip } from './strip';
 import { makeToast } from './toast';
@@ -242,7 +243,7 @@ loadKv().catch(() => {}).then(function () {
   });
   if (fileMode) {
     const href = viewHref || location.href;
-    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: settings.editableFolders });
+    app.filePage = mountFileContent({ ext: fileExt!, text: fileText, rawPath, href, column: settings.readerColumn, editableFolders: editableFoldersOf(settings) });
     if (fetchSource) fetchFileText(href).then(text => app.filePage?.setText(text)).catch(() => {
       app.filePage?.setText('Could not read this file.');
     });

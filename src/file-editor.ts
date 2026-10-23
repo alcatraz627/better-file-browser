@@ -40,6 +40,12 @@ const TA_LINES = 3000;      // lines the textarea holds at once in large mode
 
 export { splitHighlighted };
 
+/** The folders whose text files can be edited: the ones allowed, plus the notes folder, whose
+ *  files bfb already writes. */
+export function editableFoldersOf(s: { editableFolders?: string[]; notesRoot?: string }): string[] {
+  return [...(s.editableFolders ?? []), ...(s.notesRoot ? [s.notesRoot] : [])];
+}
+
 /** The allowed folder holding `path`, or null; ~ and trailing slashes are tolerated.
  *  An entry naming the file itself allows that file alone, with its folder as root. */
 export function editableRoot(path: string, folders: string[] | undefined, home = ''): string | null {
