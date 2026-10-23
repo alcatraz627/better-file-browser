@@ -4,7 +4,7 @@
 import type { Entry, Settings } from './types';
 import { esc, fileHref } from './utils';
 import { PI, CHEVRON_DOWN } from './icons';
-import { UI_ICON, line, VIEW_ICONS } from './control-icons';
+import { UI_ICON, line, VIEW_ICONS, withId } from './control-icons';
 import { getSaved, getTags, homeDir, getFoldedGroups } from './storage';
 import { HELP_TABS } from './help';
 import { renderDialog, type DialogSpec } from './dialog';
@@ -88,8 +88,8 @@ export function renderPage(p: PageParams): string {
       ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? 'currentColor' : 'none'}"/>`)}
     </button>
     <button id="fe-theme-btn" class="btn" data-icon title="Switch between dark and light">
-      ${UI_ICON.appearance.replace('<svg ', '<svg id="fe-sun" ')}
-      ${line('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>').replace('<svg ', '<svg id="fe-moon" ')}
+      ${withId(UI_ICON.appearance, 'fe-sun')}
+      ${withId(line('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>'), 'fe-moon')}
     </button>
     <button id="fe-help-btn" class="btn" data-icon title="Help (press ?), what's here and how to use it">
       ${PI.help}

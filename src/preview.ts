@@ -8,7 +8,7 @@ import { getPreviewLayout, savePreviewLayout, isSaved, toggleSaved } from './sto
 import { rememberFocus, restoreFocus } from './dialog';
 import { raise, lower, focusTrap } from './layer';
 import { getIcon, IMG_EXTS, PI } from './icons';
-import { UI_ICON } from './control-icons';
+import { UI_ICON, GLYPH } from './control-icons';
 import { SIZE_BTN, wireSize } from './panel-size';
 import { fileMeta, kindName, metaSummary } from './file-meta';
 import {
@@ -125,7 +125,7 @@ export function initPreview(d: PreviewDeps): void {
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (⌘-click / middle-click also work)"></a>
         <span id="fe-ql-meta"></span>
         <button id="fe-ql-copy" class="btn" title="Copy full file contents to clipboard" disabled>
-          <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          ${GLYPH.copySmall}
           <span>Copy</span>
         </button>
         <a id="fe-ql-open" class="btn" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
@@ -136,7 +136,7 @@ export function initPreview(d: PreviewDeps): void {
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
         ${SIZE_BTN('fe-ql-size')}
         <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
-          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
+          ${GLYPH.dock}
         </button>
         <button id="fe-ql-close" class="btn" data-icon title="Close (Esc)">${UI_ICON.close}</button>
       </div>

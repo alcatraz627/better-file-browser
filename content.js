@@ -1286,6 +1286,25 @@ ${body}`;
     { id: "tiles", label: "Tiles", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="1" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="7.5" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="7.5" width="4.5" height="4.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>` },
     { id: "icons", label: "Large Icons", ico: `<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="1" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="1" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/><rect x="7" y="7" width="5" height="5" rx="1" fill="currentColor" opacity=".6"/></svg>` }
   ];
+  var dotIcon = (fill) => `<svg class="fe-cdot" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">` + (fill ? `<circle cx="6" cy="6" r="4.5" fill="${fill}"/>` : `<circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.2"/>`) + `</svg>`;
+  var factIcon = (body) => `<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+  var withId = (icon2, id) => icon2.replace("<svg ", `<svg id="${id}" `);
+  var GLYPH = {
+    column: '<svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg>',
+    edit: '<svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>',
+    wrap: '<svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    raw: '<svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    copyPage: '<svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
+    find: '<svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><circle cx="5.5" cy="5.5" r="3.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8.4 8.4 11.5 11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+    prev: '<svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    next: '<svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    eye: '<svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
+    copySmall: '<svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
+    lines: '<svg width="11" height="11" viewBox="0 0 11 11"><path d="M2 3h7M2 6h7M2 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+    filter: '<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>',
+    dock: '<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>',
+    search: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'
+  };
 
   // src/layer.ts
   var CLOSES = {
@@ -2278,7 +2297,7 @@ ${body}`;
     const box = document.createElement("div");
     box.className = "fe-pal-wrap";
     box.innerHTML = `<div class="fe-pal" role="dialog" aria-label="Command palette">
-    <div class="fe-pal-q"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <div class="fe-pal-q">${GLYPH.search}
       <input type="text" placeholder="Type a command or a place" spellcheck="false" autocomplete="off" aria-label="Command or place"><kbd>esc</kbd></div>
     <div class="fe-pal-tabs" role="tablist"></div>
     <div class="fe-pal-list" role="listbox"></div>
@@ -3904,7 +3923,7 @@ ${body}`;
     items: '<path d="M4 2.5H2.5v9H4M10 2.5h1.5v9H10"/>',
     keys: '<path d="M4.5 2.5c-1.5 0-1.5 1-1.5 2s-1 2-1.5 2.5c.5.5 1.5 1 1.5 2.5s0 2 1.5 2M9.5 2.5c1.5 0 1.5 1 1.5 2s1 2 1.5 2.5c-.5.5-1.5 1-1.5 2.5s0 2-1.5 2"/>'
   };
-  var icon = (k) => `<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] ?? ""}</svg>`;
+  var icon = (k) => factIcon(ICONS[k] ?? "");
   function metaChips(m) {
     return m.items.map((i3) => `<span class="fe-meta-item" title="${esc(i3.label)}">${icon(i3.key)}${esc(i3.value)}</span>`).join("");
   }
@@ -3975,7 +3994,7 @@ ${body}`;
   }
 
   // src/note-meta-ui.ts
-  var colorDot = (c) => `<svg class="fe-cdot" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">` + (c ? `<circle cx="6" cy="6" r="4.5" fill="var(--nc-${c})"/>` : `<circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.2"/>`) + `</svg>`;
+  var colorDot = (c) => dotIcon(c ? `var(--nc-${c})` : null);
   var openMenu = null;
   function closePropsMenu() {
     openMenu?.close("api");
@@ -11282,7 +11301,7 @@ ${end.comment}` : end.comment;
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (\u2318-click / middle-click also work)"></a>
         <span id="fe-ql-meta"></span>
         <button id="fe-ql-copy" class="btn" title="Copy full file contents to clipboard" disabled>
-          <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          ${GLYPH.copySmall}
           <span>Copy</span>
         </button>
         <a id="fe-ql-open" class="btn" target="_blank" rel="noopener" title="The raw file, in a new tab">${UI_ICON.external}<span>Raw</span></a>
@@ -11293,7 +11312,7 @@ ${end.comment}` : end.comment;
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
         ${SIZE_BTN("fe-ql-size")}
         <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
-          <svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>
+          ${GLYPH.dock}
         </button>
         <button id="fe-ql-close" class="btn" data-icon title="Close (Esc)">${UI_ICON.close}</button>
       </div>
@@ -17315,18 +17334,18 @@ ${d.message}` : d.message;
     return `
       <div id="fe-fp-bar" class="bar">
         <span id="fe-fp-meta"></span>
-        <button id="fe-fp-column" class="btn" title="Cycle reading width"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M4 1.5v10M9 1.5v10" stroke="currentColor" stroke-width="1.1"/></svg><span class="fe-fp-column-label">Full width</span></button>
-        <button id="fe-fp-edit" class="btn" title="Edit this file (e e)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M8.5 2.5l2 2L4.5 10.5H2.5v-2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Edit</button>
+        <button id="fe-fp-column" class="btn" title="Cycle reading width">${GLYPH.column}<span class="fe-fp-column-label">Full width</span></button>
+        <button id="fe-fp-edit" class="btn" title="Edit this file (e e)">${GLYPH.edit}Edit</button>
         ${KEEP_BTN}
-        <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 3.5h10M1.5 6.5h8a2 2 0 0 1 0 4H7m1.5-1.5L7 10.5 8.5 12M1.5 9.5h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Wrap</button>
-        <button id="fe-fp-raw" class="btn" title="Raw text (r)"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M4.5 3 1.5 6.5 4.5 10M8.5 3l3 3.5-3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Raw</button>
-        <button id="fe-fp-copy" class="btn" title="Copy file contents"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 9H1.5V2a.5.5 0 0 1 .5-.5h7V2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>Copy</button>
+        <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code">${GLYPH.wrap}Wrap</button>
+        <button id="fe-fp-raw" class="btn" title="Raw text (r)">${GLYPH.raw}Raw</button>
+        <button id="fe-fp-copy" class="btn" title="Copy file contents">${GLYPH.copyPage}Copy</button>
         <span id="fe-ff" title="Find in this file (/) \xB7 Enter next \xB7 Shift+Enter previous \xB7 Esc clears">
-          <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><circle cx="5.5" cy="5.5" r="3.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8.4 8.4 11.5 11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          ${GLYPH.find}
           <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
           <span id="fe-ff-n" aria-live="polite"></span>
-          <button id="fe-ff-prev" class="btn" data-icon data-size="xs" title="Previous match (Shift+Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 7 5.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-          <button id="fe-ff-next" class="btn" data-icon data-size="xs" title="Next match (Enter)" disabled><svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M2.5 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="fe-ff-prev" class="btn" data-icon data-size="xs" title="Previous match (Shift+Enter)" disabled>${GLYPH.prev}</button>
+          <button id="fe-ff-next" class="btn" data-icon data-size="xs" title="Next match (Enter)" disabled>${GLYPH.next}</button>
         </span>
         <span class="fe-fp-panes">
           <button id="fe-fp-toc" class="btn" data-icon title="On this page: the headings" aria-label="On this page" hidden>${UI_ICON.contents}</button>
@@ -18642,14 +18661,14 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     if (e.isParent) return "";
     const dPath = esc(fullPath(rawPath, e)), dName = esc(e.name);
     const pvBtn = canPreview(e) ? `<button class="btn fe-act-btn fe-act-pv" data-icon data-size="sm" data-variant="surface" title="Preview (Space)" data-pv="${dName}">
-        <svg width="12" height="12" viewBox="0 0 13 13"><path d="M1 6.5C2.5 3 4.8 1.5 6.5 1.5S10.5 3 12 6.5C10.5 10 8.2 11.5 6.5 11.5S2.5 10 1 6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+        ${GLYPH.eye}
       </button>` : "";
     return `<span class="fe-acts" data-path="${dPath}" data-name="${dName}">
     ${pvBtn}<button class="btn fe-act-btn fe-act-cp" data-icon data-size="sm" data-variant="surface" title="Copy full path" data-copy="${dPath}">
-      <svg width="11" height="12" viewBox="0 0 11 12"><rect x="3" y="3" width="7" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 1h6v1" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      ${GLYPH.copySmall}
     </button>
     <button class="btn fe-act-btn fe-act-nm" data-icon data-size="sm" data-variant="surface" title="Copy name" data-copy="${dName}">
-      <svg width="11" height="11" viewBox="0 0 11 11"><path d="M2 3h7M2 6h7M2 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      ${GLYPH.lines}
     </button>
   </span>`;
   }
@@ -18698,7 +18717,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     const byName = filterSaved(saved, filter);
     saved = saved.filter((p) => byName.includes(p) || hits.has(p.path));
     if (!saved.length) return emptyHtml("filtered", "No saved item matches", { inline: true, actions: [CLEAR] });
-    const VIEW_ICON = `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M1.5 2h11l-4.2 5v4.5l-2.6-1.3V7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
+    const VIEW_ICON = `${GLYPH.filter}`;
     const row2 = (p) => {
       const n = p.tags?.length ?? 0, hit = hits.get(p.path);
       return `
@@ -18798,8 +18817,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? "currentColor" : "none"}"/>`)}
     </button>
     <button id="fe-theme-btn" class="btn" data-icon title="Switch between dark and light">
-      ${UI_ICON.appearance.replace("<svg ", '<svg id="fe-sun" ')}
-      ${line('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>').replace("<svg ", '<svg id="fe-moon" ')}
+      ${withId(UI_ICON.appearance, "fe-sun")}
+      ${withId(line('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>'), "fe-moon")}
     </button>
     <button id="fe-help-btn" class="btn" data-icon title="Help (press ?), what's here and how to use it">
       ${PI.help}

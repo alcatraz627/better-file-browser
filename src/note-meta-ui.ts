@@ -1,14 +1,11 @@
 // The note properties UI both the editor and the sidebar use: colour dots, the chip row
 // above the editor, and the small menu that sets colour, pin and tags.
 import { NOTE_COLORS, type NoteColor, type NoteProps, type PropChange } from './notes';
-import { UI_ICON } from './control-icons';
+import { UI_ICON, dotIcon } from './control-icons';
 import { esc, midHtml } from './utils';
 import { openLayer, type Layer } from './layer';
 
-export const colorDot = (c: NoteColor | null): string =>
-  `<svg class="fe-cdot" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">`
-  + (c ? `<circle cx="6" cy="6" r="4.5" fill="var(--nc-${c})"/>` : `<circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.2"/>`)
-  + `</svg>`;
+export const colorDot = (c: NoteColor | null): string => dotIcon(c ? `var(--nc-${c})` : null);
 
 /// Applies a change and answers with the properties as written, or void when the change failed.
 export type ApplyChange = (c: PropChange) => Promise<NoteProps | void> | NoteProps | void;

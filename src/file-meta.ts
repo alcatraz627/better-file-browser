@@ -4,6 +4,7 @@
 // its type (headings in markdown, rows and columns in a table, keys in JSON).
 import { esc, fmtSize, kindName } from './utils';
 import { parseDSV } from './renderers';
+import { factIcon } from './control-icons';
 
 export { kindName };
 export interface MetaItem { key: string; label: string; value: string }
@@ -61,7 +62,7 @@ const ICONS: Record<string, string> = {
   items: '<path d="M4 2.5H2.5v9H4M10 2.5h1.5v9H10"/>',
   keys: '<path d="M4.5 2.5c-1.5 0-1.5 1-1.5 2s-1 2-1.5 2.5c.5.5 1.5 1 1.5 2.5s0 2 1.5 2M9.5 2.5c1.5 0 1.5 1 1.5 2s1 2 1.5 2.5c-.5.5-1.5 1-1.5 2.5s0 2-1.5 2"/>',
 };
-const icon = (k: string) => `<svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] ?? ''}</svg>`;
+const icon = (k: string) => factIcon(ICONS[k] ?? '');
 
 // The status bar row: one icon and value per fact, the label in its tooltip.
 export function metaChips(m: FileMeta): string {

@@ -3,7 +3,7 @@
 // the actions they own with bind(); the keys themselves come from keymap.ts.
 import { KEYMAP, GROUPS, type KeyDef, type Scope } from './keymap';
 import { PI } from './icons';
-import { UI_ICON } from './control-icons';
+import { UI_ICON, GLYPH } from './control-icons';
 import { esc } from './utils';
 import { openLayer, raise, escTaken } from './layer';
 import { emptyHtml } from './empty-state';
@@ -201,7 +201,7 @@ export function openPalette(prefill = ''): void {
   const box = document.createElement('div');
   box.className = 'fe-pal-wrap';
   box.innerHTML = `<div class="fe-pal" role="dialog" aria-label="Command palette">
-    <div class="fe-pal-q"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <div class="fe-pal-q">${GLYPH.search}
       <input type="text" placeholder="Type a command or a place" spellcheck="false" autocomplete="off" aria-label="Command or place"><kbd>esc</kbd></div>
     <div class="fe-pal-tabs" role="tablist"></div>
     <div class="fe-pal-list" role="listbox"></div>

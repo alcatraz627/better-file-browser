@@ -18,7 +18,7 @@
   "js-storage": 0,
   "js-native-control": 2,
   "js-inline-style": 15,
-  "js-inline-svg": 21,
+  "js-inline-svg": 0,
   "js-message-shown": 0,
   "js-home-literal": 0
 }
