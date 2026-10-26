@@ -185,8 +185,10 @@ export interface FileContent {
   unsaved(): boolean;
 }
 
-/// The pane width at which the open Contents card fits beside a full text column.
+/// Below this pane width the card never docks beside the text.
 const TOC_ROOMY = 1000;
+/// The room the docked card needs right of the text: its width, its 16px inset and a gap.
+const RAIL_ROOM = { toc: 240 + 16 + 16, cm: 320 + 16 + 16 } as const;
 
 export function mountFileContent(opts: { ext: string; text: string; rawPath: string; href: string; column?: boolean | ColumnMode; editableFolders?: string[] }): FileContent {
   const { ext, rawPath, href } = opts;
@@ -289,8 +291,12 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   let comments: CommentsPanel | null = null;
   let railTab = railTabPref.get();
   // Show the rail on one pane; the remembered open state follows.
+  // Whether the reader opened the card themselves, rather than it opening as remembered.
+  let asked = false;
   const showPane = (t: 'toc' | 'cm') => {
     railTab = t; railTabPref.set(t);
+    asked = true;
+    tight = measureTight();
     if (tight) peek = true; else if (!tocOpen) { tocOpen = true; tocPref.set(true); }
     paint();
     if (t === 'toc') spy(page, toc);
@@ -298,21 +304,37 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   // The bar's button for a pane hides the rail when that pane is showing.
   const togglePane = (t: 'toc' | 'cm') => {
     if (rail.hidden || rail.dataset.tab !== t) { showPane(t); return; }
+    asked = false;
     if (tight) peek = false; else { tocOpen = false; tocPref.set(false); }
     paint();
   };
   const fp = document.getElementById('fe-fp');
+  // The card docks only where it fits right of the text column; anywhere else it
+  // stays folded to its button and opens over the text when asked, so it never
+  // covers text the reader did not ask it to, and never makes the text wrap early.
+  const measureTight = (): boolean => {
+    if (!fp || fp.clientWidth < TOC_ROOMY) return true;
+    const md = page.querySelector<HTMLElement>('.fe-md');
+    if (!md) return false;
+    const textRight = md.getBoundingClientRect().right - parseFloat(getComputedStyle(md).paddingRight);
+    return fp.getBoundingClientRect().right - textRight < RAIL_ROOM[railTab];
+  };
+  // When the layout changes whether the card fits (a window resize, the sidebar
+  // coming back after editing), a pane the reader opened stays open, over the
+  // text if it must; only the remembered default folds away.
+  const refit = () => {
+    const was = tight;
+    tight = measureTight();
+    if (tight !== was) { peek = tight && asked && !rail.hidden; paint(); }
+  };
   // Measured before the first paint, so a #comments link opening the card at
   // load is not undone when the observer first reports the width.
   if (fp) tight = fp.clientWidth < TOC_ROOMY;
   render();
-  if (fp) new ResizeObserver(() => {
-    const was = tight;
-    tight = fp.clientWidth < TOC_ROOMY;
-    if (tight !== was) { peek = false; paint(); }
-  }).observe(fp);
+  refit();
+  if (fp) new ResizeObserver(refit).observe(fp);
   toc.addEventListener('click', e => { if (tight && (e.target as Element).closest('a')) { peek = false; paint(); } });
-  colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; columnPref.set(column); paint(); });
+  colBtn.addEventListener('click', () => { column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length]; columnPref.set(column); paint(); refit(); });
   page.addEventListener('scroll', () => { if (isMd && !raw) spy(page, toc); });
   // A problem's line number opens the source at that line.
   page.addEventListener('click', e => {

@@ -89,6 +89,33 @@ try {
   await page.keyboard.press('Escape');
   await new Promise(res => setTimeout(res, 400));
   check(!(await page.$('.fe-dv-view')) && (await h.browser.pages()).length === tabs, 'Esc closes the large view, and no new tab was opened');
+
+  // Other docs write a mark followed by its name ("ready") or more words, and keep
+  // their key as a "State:" list item or a key row in a table. Each shape gets
+  // pills, a hidden key, and counts of task rows only.
+  const shapes = {
+    'list-key-directions.md': '# Plan\n\n- Marks: 🧭 direction · ✅ accepted when\n- State: 🔴 needs you · 🟠 waiting · 💤 parked · 🟢 ready · ✅ done\n\n## Now\n\n| id | state | task |\n| --- | --- | --- |\n| A1 | ✅ done | push main |\n| A2 | 🟢 ready | deploy |\n| A3 | 🟠 waiting | alert |\n',
+    'table-key-directions.md': '# Plan\n\n| | |\n| --- | --- |\n| **state** | 🔴 needs you · 🟠 waiting · 💤 parked · 🟢 ready · ✅ done |\n\n## Buckets\n\n| # | bucket | state |\n| --- | --- | --- |\n| 1 | hardening | 🔴 needs you |\n| 2 | logging | 💤 parked |\n\n## Holes\n\n| id | what | next |\n| --- | --- | --- |\n| H1 | unsaved code | 🟢 [PR #35](https://example.com) merged, so main holds it |\n',
+  };
+  const others = { 'versable-ingest-directions.md': '/Users/alcatraz627/Code/Versable/versable-ingest/docs/plan/DIRECTIONS.md', 'extractor-and-e2e-directions.md': '/Users/alcatraz627/Code/Versable/enhancement-product/frontend/.claude/notes/extractor-and-e2e-directions.md' };
+  for (const [name, text] of Object.entries(shapes)) writeFileSync(join(h.fixture, name), text);
+  for (const [name, from] of Object.entries(others)) if (existsSync(from)) copyFileSync(from, join(h.fixture, name));
+  for (const name of [...Object.keys(shapes), ...Object.keys(others).filter(n => existsSync(join(h.fixture, n)))]) {
+    await page.goto('file://' + join(h.fixture, name), { waitUntil: 'load' });
+    await page.waitForSelector('.fe-dir-sum', { timeout: 8000 });
+    const got = await page.evaluate(() => {
+      const marks = ['🔴', '🟠', '🟢', '💤', '✅'];
+      const visible = e => !e.closest('[hidden]') && e.getClientRects().length > 0;
+      const keyShown = [...document.querySelectorAll('.fe-md p, .fe-md li, .fe-md tbody tr')].filter(visible).filter(e => marks.filter(m => e.textContent.includes(m)).length >= 3).length;
+      const bare = [...document.querySelectorAll('.fe-md tbody tr[data-state] td')].filter(td => marks.some(m => td.textContent.trim().startsWith(m))).length;
+      const chips = [...document.querySelectorAll('.fe-dv-chip')].reduce((n, c) => n + Number(c.querySelector('b').textContent), 0);
+      const link = !!document.querySelector('.fe-md tbody tr[data-state] td a[href]');
+      return { pills: document.querySelectorAll('.fe-md tbody .fe-dv-pill').length, bare, keyShown, chips, rows: document.querySelectorAll('.fe-md tbody tr[data-state]').length, link };
+    });
+    check(got.pills > 0 && got.bare === 0 && got.keyShown === 0 && got.chips === got.rows, `${name}: marks read as pills, the key steps back and only task rows count: ${JSON.stringify(got)}`);
+    if (name === 'table-key-directions.md') check(got.rows === 3 && got.link, `${name}: the key row is not counted, and a pill keeps the words and link after it: ${JSON.stringify(got)}`);
+    await shot(page, `directions-${name.replace(/\.md$/, '')}`);
+  }
 } finally {
   console.log(results.join('\n'));
   await h.close();

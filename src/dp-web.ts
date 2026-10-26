@@ -10,7 +10,8 @@ import { setDpIo, type DpVerb } from './dp-io';
 import { NotesError } from './notes';
 import { makeToast } from './toast';
 import { bind, listenForKeys, setContext, runCommand } from './commands';
-import { themeMode, resolveTheme, setThemeMode, followSystem } from './theme';
+import { themeMode, setThemeMode, followSystem } from './theme';
+import { textPref } from './storage';
 import { markDocView } from './docview';
 import { esc } from './utils';
 import { UI_ICON, line } from './control-icons';
@@ -25,8 +26,7 @@ export const pageKeys = () => KEYMAP.filter(d => d.group === 'Decision page' || 
 
 // Only what this page needs beyond the shared styles: a full-window page with
 // no shell around it, and no buttons for things only the extension can do.
-const WEB_CSS = `html,body{margin:0;height:100%;background:var(--bg)}
-#fe.fe-dp-web{position:fixed;inset:0;display:flex}
+const WEB_CSS = `html,body{margin:0;height:100%;background:var(--bg)}#fe.fe-dp-web{position:fixed;inset:0;display:flex}
 .fe-dp-web #fe-main{flex:1;min-width:0}
 .fe-dp-web [data-docview-files],.fe-dp-web [data-img="open"],.fe-dp-web [data-img="copy"]{display:none}
 .fe-dp-web .fe-dp-titlebar .fe-dp-title{flex:1}
@@ -84,7 +84,10 @@ async function start(): Promise<void> {
   document.head.appendChild(style);
   document.body.innerHTML = '<div id="fe" class="fe-dp-page fe-dp-web"><main id="fe-main"><div id="fe-dp"></div></main><div id="fe-toast"></div></div>';
   const fe = document.getElementById('fe')!, box = document.getElementById('fe-dp')!;
-  setThemeMode(fe, themeMode(), false);
+  // gcc's pages share one dark and light choice under kanban-theme; this page follows it and keeps it.
+  const kanbanPref = textPref('kanban-theme');
+  const kanbanTheme = (): 'dark' | 'light' | null => { const t = kanbanPref.get(); return t === 'dark' || t === 'light' ? t : null; };
+  setThemeMode(fe, kanbanTheme() ?? themeMode(), false);
   followSystem(fe);
   const toast = makeToast(document.getElementById('fe-toast')!);
   const fail = (msg: string) => { box.innerHTML = `<p class="fe-dp-web-fail">${esc(msg)}</p>`; };
@@ -95,7 +98,8 @@ async function start(): Promise<void> {
     text: url => fetch(url, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.text(); }),
     exists: url => fetch(url, { cache: 'no-store' }).then(r => r.ok, () => false),
     dp,
-    server: '',
+    // gcc's boards are served on its loopback listener only, so over the tailnet there is nothing to link to.
+    server: ['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname) ? '' : null,
   });
   // The page's own keys work everywhere on it; a field keeps its typing.
   setContext(() => {
@@ -103,7 +107,11 @@ async function start(): Promise<void> {
     return { scopes: new Set(['any', 'decision']), typing: !!ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' && (ae as HTMLInputElement).type === 'text' || ae.isContentEditable), blocked: false };
   });
   listenForKeys();
-  bind('theme', () => setThemeMode(fe, resolveTheme(themeMode()) === 'dark' ? 'light' : 'dark'));
+  bind('theme', () => {
+    const next = fe.dataset.theme === 'dark' ? 'light' : 'dark';
+    setThemeMode(fe, next);
+    kanbanPref.set(next);
+  });
 
   const base = new URL('.', location.href).href;
   const ok = await Promise.resolve(decisionPageView.mount({ root: box, base, path: location.pathname, toast: m => toast(m), slug })).catch(() => false);

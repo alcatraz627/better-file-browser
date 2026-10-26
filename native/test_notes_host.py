@@ -4,6 +4,8 @@ does, over a temp folder. Run: python3 native/test_notes_host.py"""
 import json, os, struct, subprocess, sys, tempfile, time
 
 HOST = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'notes_host.py')
+# Every host this test spawns keeps its backups here, never in the owner's real backup folder.
+os.environ['BFB_BACKUP_DIR'] = tempfile.mkdtemp(prefix='bfb-backups-')
 
 def call(msg):
     enc = json.dumps(msg).encode('utf-8')
@@ -109,6 +111,7 @@ check(r['t'] == 'file' and r['text'] == 'a: 1\n', f'fileRead reads any text file
 w = call({'op': 'fileWrite', 'root': eroot, 'rel': 'conf.yaml', 'text': 'a: 2\n', 'expectMtime': r['mtime']})
 check(w['t'] == 'written' and open(os.path.join(eroot, 'conf.yaml')).read() == 'a: 2\n', f'fileWrite saves a .yaml: {w}')
 check(open(w['backup']).read() == 'a: 1\n', 'fileWrite keeps the previous text as a backup')
+check(w['backup'].startswith(os.environ['BFB_BACKUP_DIR']), f'the test keeps its backups out of the real backup folder: {w["backup"]}')
 os.remove(w['backup'])
 w2 = call({'op': 'fileWrite', 'root': eroot, 'rel': 'conf.yaml', 'text': 'a: 3\n', 'expectMtime': r['mtime'] - 5000})
 check(w2['code'] == 'notes_conflict' and open(os.path.join(eroot, 'conf.yaml')).read() == 'a: 2\n', 'fileWrite refuses a stale mtime')

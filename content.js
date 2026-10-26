@@ -13600,9 +13600,10 @@ ${t}`)) say("Note title saved");
     return out;
   }
   function boardLinkHtml(o) {
-    if (!o?.board) return "";
-    const href = `${dpIo().server}/b/${encodeURIComponent(o.board)}${o.card ? `?card=${encodeURIComponent(o.card)}` : ""}`;
-    return `<a class="fe-dp-olink" href="${esc(href)}" target="_blank" rel="noopener" title="${o.card ? "The card this page rules on" : "The board this page belongs to"}">${esc(o.card || o.board)}</a>`;
+    const server = dpIo().server;
+    if (!o?.board || server === null) return "";
+    const href = `${server}/b/${encodeURIComponent(o.board)}${o.card ? `?card=${encodeURIComponent(o.card)}` : ""}`;
+    return `<a class="chip fe-dp-olink" data-size="sm" data-fill href="${esc(href)}" target="_blank" rel="noopener" title="${o.card ? "The card this page rules on" : "The board this page belongs to"}">${GLYPH.column}<span>${esc(o.card || o.board)}</span></a>`;
   }
   function headHtml(cfg, base) {
     const d = cfg.decisions?.length ?? 0, s = cfg.sections?.length ?? 0;
@@ -13613,7 +13614,7 @@ ${t}`)) say("Note title saved");
         <h1 class="fe-dp-title">${esc(cfg.title || "Decisions")}</h1>
         <button type="button" id="fe-dp-files" class="btn" data-variant="outline" data-size="sm" data-tone="accent" data-docview-files title="Show the files in this folder">${UI_ICON.list}Files</button>
       </div>
-      ${topic ? `<p class="fe-dp-topicline"><span class="badge fe-dp-topic" data-size="sm" data-tone="quiet" title="Topic">${esc(topic)}</span></p>` : ""}
+      ${topic ? `<p class="fe-dp-topicline"><span class="fe-dp-topic" title="Topic">${esc(topic)}</span></p>` : ""}
       <p class="fe-dp-origin">${boardLinkHtml(cfg.origin)}${originFacts(cfg.origin).map((f) => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}" title="${esc(`${f.title ?? f.label}. Click to copy ${f.copy}`)}">${esc(f.value)}</button>`).join("")}<span class="fe-dp-count">${esc(count)}</span></p>
       ${cfg.intro ? `<div class="fe-dp-intro">${clampHtml(renderMarkdown(cfg.intro, base), 2)}</div>` : ""}
     </header>
@@ -13935,7 +13936,9 @@ ${t}`)) say("Note title saved");
     for (const s of states) if (s) t[s]++;
     return t;
   }
-  var isMarkKey = (text) => /^\s*(marks|key|legend)\s*:/i.test(text) && DIR_STATES.filter((s) => text.includes(s.mark)).length >= 3;
+  var marksIn = (text) => DIR_STATES.filter((s) => text.includes(s.mark)).length;
+  var isMarkKey = (text) => /^\s*\**(marks|key|legend|states?)\**\s*:?/i.test(text) && marksIn(text) >= 3;
+  var isKeyRow = (text) => marksIn(text) >= 3;
   var asksOwner = (heading) => /\b(waiting on you|needs you|for you)\b/i.test(heading);
   var tallies = (t) => DIR_STATES.map((s) => ({ state: s.id, n: t[s.id], label: s.label }));
   var meter = (t) => {
@@ -13944,7 +13947,9 @@ ${t}`)) say("Note title saved");
   };
   function enhanceDirections(root) {
     if (root.dataset.directions) return;
-    const rows = [...root.querySelectorAll("tbody tr")];
+    const allRows = [...root.querySelectorAll("tbody tr")];
+    const keyRows = allRows.filter((r) => isKeyRow(r.textContent ?? ""));
+    const rows = allRows.filter((r) => !keyRows.includes(r));
     const headingOf = (r) => {
       let n = r.closest("table")?.closest(".fe-md-tablewrap") ?? r.closest("table");
       while (n && !/^H[1-6]$/.test(n.tagName)) n = n.previousElementSibling;
@@ -13956,11 +13961,27 @@ ${t}`)) say("Note title saved");
     rows.forEach((r, i3) => {
       if (states[i3]) r.dataset.state = states[i3];
     });
-    for (const td of root.querySelectorAll("tbody td")) {
-      const s = DIR_STATES.find((x) => x.mark === td.textContent?.trim());
-      if (s) td.innerHTML = pillHtml(s.id, s.label);
+    for (const td of rows.flatMap((r) => [...r.cells])) {
+      const text = td.textContent?.trim() ?? "";
+      const s = DIR_STATES.find((x) => text.startsWith(x.mark));
+      if (!s) continue;
+      const rest = text.slice(s.mark.length).trim();
+      if (!rest || rest.toLowerCase() === s.label) {
+        td.innerHTML = pillHtml(s.id, s.label);
+        continue;
+      }
+      const walker = document.createTreeWalker(td, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const at = n.data.indexOf(s.mark);
+        if (at < 0) continue;
+        const after = n.splitText(at);
+        after.data = after.data.slice(s.mark.length).replace(/^\s*/, " ");
+        after.before(document.createRange().createContextualFragment(pillHtml(s.id, s.label)));
+        break;
+      }
     }
-    for (const p of root.querySelectorAll(":scope > p")) {
+    for (const r of keyRows) r.hidden = true;
+    for (const p of root.querySelectorAll(":scope > p, :scope > ul > li")) {
       const text = p.textContent ?? "";
       if (isMarkKey(text)) p.hidden = true;
       else if (/^\s*(reader|last updated)\s*:/i.test(text)) p.classList.add("fe-dir-meta");
@@ -14817,7 +14838,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
 #fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
 /* The rail's two tabs, Contents and Comments. Comments needs more room, so
-   the rail and the text column's right padding widen while it shows. */
+   the rail widens while it shows (file-page.ts docks it only where it fits). */
 .fe-rail-title{flex:1}
 .fe-rail-ico{display:inline-flex;color:var(--mt)}
 .fe-rail-ico svg{width:14px;height:14px}
@@ -15702,6 +15723,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-dp[hidden]{display:none}
 /* One column of cards; from 720 wide a rail of every item sits beside it and stays in view, wider from 1100. */
 .fe-dp-layout{max-width:920px;margin:0 auto}
+/* Long paths, links and code break rather than push past the column on a narrow window. */
+.fe-dp-col{min-width:0;overflow-wrap:anywhere}
 .fe-dp-side{display:none;position:sticky;top:0;align-self:start}
 @container fe-main (min-width:720px){
   .fe-dp-layout{display:grid;grid-template-columns:minmax(0,920px) 200px;justify-content:center;gap:var(--sp-6);max-width:none}
@@ -15713,12 +15736,16 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-head{margin:0 0 var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-3)}
 .fe-dp-titlebar{display:flex;align-items:center;gap:var(--sp-5)}
 .fe-dp-title{flex:1;min-width:0;margin:0;font-family:var(--font-head);font-weight:650;font-size:calc(var(--fs-xl) * 1.6);line-height:1.25;color:var(--tx)}
-.fe-dp-origin{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3);margin:0;font-size:var(--fs-sm);color:var(--dm)}
-.fe-dp-origin>*+*::before{content:'\xB7';margin-right:var(--sp-3);color:var(--dm)}
+/* Each separator dot sits in the gap before its item; the line clips its left edge, so an
+   item that wraps to the start of a line loses its dot instead of starting with one. */
+.fe-dp-origin{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1) var(--sp-6);margin:0 0 0 calc(-1 * var(--sp-1));padding-left:var(--sp-1);overflow:hidden;font-size:var(--fs-sm);color:var(--dm)}
+.fe-dp-origin>*{position:relative}
+.fe-dp-origin>*+*::before{content:'\xB7';position:absolute;right:100%;width:var(--sp-6);text-align:center;color:var(--dm);pointer-events:none}
 .fe-dp-topicline{margin:0 0 var(--sp-1)}
-.fe-dp-topic{white-space:normal;text-align:left}
-.fe-dp-olink{color:var(--ac);text-decoration:none}
-.fe-dp-olink:hover{text-decoration:underline}
+/* A topic is often a sentence, so it is a label that wraps, not a fixed-height badge. */
+.fe-dp-topic{display:inline-block;max-width:100%;box-sizing:border-box;padding:var(--sp-1) var(--sp-3);border-radius:var(--r-xs);background:var(--s2);color:var(--tx);font-weight:600}
+.fe-dp-olink{text-decoration:none}
+.fe-dp-olink:hover{border-color:var(--ac)}
 .fe-dp-fact{padding:0;border:0;background:none;font:inherit;color:inherit;cursor:copy}
 .fe-dp-fact:hover{color:var(--tx);text-decoration:underline}
 .fe-dp-fact:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:var(--r-xs)}
@@ -15825,10 +15852,10 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-rawbtn{float:right;margin:0 0 var(--sp-2) var(--sp-4)}
 .fe-dp-preview>.fe-dp-pre{padding:0;background:none}
 .fe-dp-pre{margin:0;padding:var(--sp-4);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-sm);white-space:pre;background:var(--s2);border-radius:var(--row-r)}
-.fe-dp-slots{display:grid;grid-template-columns:max-content 1fr;gap:var(--sp-2) var(--sp-4);margin:0}
+.fe-dp-slots{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--sp-2) var(--sp-4);margin:0}
 .fe-dp-slot{display:contents}
 .fe-dp-slot dt{font-size:var(--fs-xs);font-weight:650;letter-spacing:.06em;color:var(--dm)}
-.fe-dp-slot dd{margin:0;color:var(--tx)}
+.fe-dp-slot dd{min-width:0;margin:0;color:var(--tx)}
 .fe-dp-addnote{flex:none}
 .fe-dp-card.has-note .fe-dp-addnote{color:var(--ac)}
 .fe-dp-note textarea,.fe-dp-end textarea{width:100%}
@@ -18909,6 +18936,7 @@ ${d.message}` : d.message;
       </div>`;
   }
   var TOC_ROOMY = 1e3;
+  var RAIL_ROOM = { toc: 240 + 16 + 16, cm: 320 + 16 + 16 };
   function mountFileContent(opts) {
     const { ext: ext2, rawPath, href } = opts;
     let text = opts.text;
@@ -18999,9 +19027,12 @@ ${d.message}` : d.message;
     const cmBtnN = document.getElementById("fe-fp-cm-n");
     let comments = null;
     let railTab = railTabPref.get();
+    let asked = false;
     const showPane = (t) => {
       railTab = t;
       railTabPref.set(t);
+      asked = true;
+      tight = measureTight();
       if (tight) peek = true;
       else if (!tocOpen) {
         tocOpen = true;
@@ -19015,6 +19046,7 @@ ${d.message}` : d.message;
         showPane(t);
         return;
       }
+      asked = false;
       if (tight) peek = false;
       else {
         tocOpen = false;
@@ -19023,16 +19055,25 @@ ${d.message}` : d.message;
       paint();
     };
     const fp = document.getElementById("fe-fp");
-    if (fp) tight = fp.clientWidth < TOC_ROOMY;
-    render2();
-    if (fp) new ResizeObserver(() => {
+    const measureTight = () => {
+      if (!fp || fp.clientWidth < TOC_ROOMY) return true;
+      const md2 = page.querySelector(".fe-md");
+      if (!md2) return false;
+      const textRight = md2.getBoundingClientRect().right - parseFloat(getComputedStyle(md2).paddingRight);
+      return fp.getBoundingClientRect().right - textRight < RAIL_ROOM[railTab];
+    };
+    const refit = () => {
       const was = tight;
-      tight = fp.clientWidth < TOC_ROOMY;
+      tight = measureTight();
       if (tight !== was) {
-        peek = false;
+        peek = tight && asked && !rail.hidden;
         paint();
       }
-    }).observe(fp);
+    };
+    if (fp) tight = fp.clientWidth < TOC_ROOMY;
+    render2();
+    refit();
+    if (fp) new ResizeObserver(refit).observe(fp);
     toc.addEventListener("click", (e) => {
       if (tight && e.target.closest("a")) {
         peek = false;
@@ -19043,6 +19084,7 @@ ${d.message}` : d.message;
       column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
       columnPref.set(column);
       paint();
+      refit();
     });
     page.addEventListener("scroll", () => {
       if (isMd && !raw) spy(page, toc);

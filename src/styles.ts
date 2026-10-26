@@ -748,7 +748,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 #fe-toc a.fe-toc-h3{font-size:var(--fs-md);padding-left:34px}
 #fe-toc a.fe-toc-h4{font-size:var(--fs-md);padding-left:46px;color:var(--dm)}
 /* The rail's two tabs, Contents and Comments. Comments needs more room, so
-   the rail and the text column's right padding widen while it shows. */
+   the rail widens while it shows (file-page.ts docks it only where it fits). */
 .fe-rail-title{flex:1}
 .fe-rail-ico{display:inline-flex;color:var(--mt)}
 .fe-rail-ico svg{width:14px;height:14px}
@@ -1633,6 +1633,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-dp[hidden]{display:none}
 /* One column of cards; from 720 wide a rail of every item sits beside it and stays in view, wider from 1100. */
 .fe-dp-layout{max-width:920px;margin:0 auto}
+/* Long paths, links and code break rather than push past the column on a narrow window. */
+.fe-dp-col{min-width:0;overflow-wrap:anywhere}
 .fe-dp-side{display:none;position:sticky;top:0;align-self:start}
 @container fe-main (min-width:720px){
   .fe-dp-layout{display:grid;grid-template-columns:minmax(0,920px) 200px;justify-content:center;gap:var(--sp-6);max-width:none}
@@ -1644,12 +1646,16 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-head{margin:0 0 var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-3)}
 .fe-dp-titlebar{display:flex;align-items:center;gap:var(--sp-5)}
 .fe-dp-title{flex:1;min-width:0;margin:0;font-family:var(--font-head);font-weight:650;font-size:calc(var(--fs-xl) * 1.6);line-height:1.25;color:var(--tx)}
-.fe-dp-origin{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3);margin:0;font-size:var(--fs-sm);color:var(--dm)}
-.fe-dp-origin>*+*::before{content:'·';margin-right:var(--sp-3);color:var(--dm)}
+/* Each separator dot sits in the gap before its item; the line clips its left edge, so an
+   item that wraps to the start of a line loses its dot instead of starting with one. */
+.fe-dp-origin{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1) var(--sp-6);margin:0 0 0 calc(-1 * var(--sp-1));padding-left:var(--sp-1);overflow:hidden;font-size:var(--fs-sm);color:var(--dm)}
+.fe-dp-origin>*{position:relative}
+.fe-dp-origin>*+*::before{content:'·';position:absolute;right:100%;width:var(--sp-6);text-align:center;color:var(--dm);pointer-events:none}
 .fe-dp-topicline{margin:0 0 var(--sp-1)}
-.fe-dp-topic{white-space:normal;text-align:left}
-.fe-dp-olink{color:var(--ac);text-decoration:none}
-.fe-dp-olink:hover{text-decoration:underline}
+/* A topic is often a sentence, so it is a label that wraps, not a fixed-height badge. */
+.fe-dp-topic{display:inline-block;max-width:100%;box-sizing:border-box;padding:var(--sp-1) var(--sp-3);border-radius:var(--r-xs);background:var(--s2);color:var(--tx);font-weight:600}
+.fe-dp-olink{text-decoration:none}
+.fe-dp-olink:hover{border-color:var(--ac)}
 .fe-dp-fact{padding:0;border:0;background:none;font:inherit;color:inherit;cursor:copy}
 .fe-dp-fact:hover{color:var(--tx);text-decoration:underline}
 .fe-dp-fact:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:var(--r-xs)}
@@ -1756,10 +1762,10 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-rawbtn{float:right;margin:0 0 var(--sp-2) var(--sp-4)}
 .fe-dp-preview>.fe-dp-pre{padding:0;background:none}
 .fe-dp-pre{margin:0;padding:var(--sp-4);overflow-x:auto;font-family:var(--mono);font-size:var(--fs-sm);white-space:pre;background:var(--s2);border-radius:var(--row-r)}
-.fe-dp-slots{display:grid;grid-template-columns:max-content 1fr;gap:var(--sp-2) var(--sp-4);margin:0}
+.fe-dp-slots{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--sp-2) var(--sp-4);margin:0}
 .fe-dp-slot{display:contents}
 .fe-dp-slot dt{font-size:var(--fs-xs);font-weight:650;letter-spacing:.06em;color:var(--dm)}
-.fe-dp-slot dd{margin:0;color:var(--tx)}
+.fe-dp-slot dd{min-width:0;margin:0;color:var(--tx)}
 .fe-dp-addnote{flex:none}
 .fe-dp-card.has-note .fe-dp-addnote{color:var(--ac)}
 .fe-dp-note textarea,.fe-dp-end textarea{width:100%}

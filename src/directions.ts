@@ -41,8 +41,11 @@ export function tally(states: (DirState | null)[]): Record<DirState, number> {
   return t;
 }
 
-/** The doc's key to its own marks: a paragraph naming three or more of them, which repeats what the state bar says. */
-export const isMarkKey = (text: string): boolean => /^\s*(marks|key|legend)\s*:/i.test(text) && DIR_STATES.filter(s => text.includes(s.mark)).length >= 3;
+const marksIn = (text: string) => DIR_STATES.filter(s => text.includes(s.mark)).length;
+/** The doc's key to its own marks: a line naming three or more of them, which repeats what the state bar says. */
+export const isMarkKey = (text: string): boolean => /^\s*\**(marks|key|legend|states?)\**\s*:?/i.test(text) && marksIn(text) >= 3;
+/** A table row that is the key rather than a task: no task row carries three state marks. */
+const isKeyRow = (text: string): boolean => marksIn(text) >= 3;
 
 /** A heading whose table rows all wait on the owner even when unmarked ("Waiting on you", "Needs you"). */
 const asksOwner = (heading: string) => /\b(waiting on you|needs you|for you)\b/i.test(heading);
@@ -56,7 +59,9 @@ const meter = (t: Record<DirState, number>) => {
 /** Add the bar, the meters, the pills and the row marks to a rendered directions doc. Safe to call again. */
 export function enhanceDirections(root: HTMLElement): void {
   if (root.dataset.directions) return;
-  const rows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr')];
+  const allRows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr')];
+  const keyRows = allRows.filter(r => isKeyRow(r.textContent ?? ''));
+  const rows = allRows.filter(r => !keyRows.includes(r));
   // The heading a row sits under, for tables whose section says who they wait on.
   const headingOf = (r: HTMLElement) => {
     let n: Element | null = r.closest('table')?.closest('.fe-md-tablewrap') ?? r.closest('table');
@@ -68,13 +73,27 @@ export function enhanceDirections(root: HTMLElement): void {
   root.dataset.directions = 'on';
   rows.forEach((r, i) => { if (states[i]) r.dataset.state = states[i]!; });
 
-  // A cell holding only a mark becomes a pill that names it.
-  for (const td of root.querySelectorAll<HTMLTableCellElement>('tbody td')) {
-    const s = DIR_STATES.find(x => x.mark === td.textContent?.trim());
-    if (s) td.innerHTML = pillHtml(s.id, s.label);
+  // A cell that starts with a mark gets a pill naming it: the mark alone or the
+  // mark and its own name become the pill; any other words after it stay.
+  for (const td of rows.flatMap(r => [...r.cells])) {
+    const text = td.textContent?.trim() ?? '';
+    const s = DIR_STATES.find(x => text.startsWith(x.mark));
+    if (!s) continue;
+    const rest = text.slice(s.mark.length).trim();
+    if (!rest || rest.toLowerCase() === s.label) { td.innerHTML = pillHtml(s.id, s.label); continue; }
+    const walker = document.createTreeWalker(td, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
+      const at = n.data.indexOf(s.mark);
+      if (at < 0) continue;
+      const after = n.splitText(at);
+      after.data = after.data.slice(s.mark.length).replace(/^\s*/, ' ');
+      after.before(document.createRange().createContextualFragment(pillHtml(s.id, s.label)));
+      break;
+    }
   }
   // The doc's key to the marks, and its reader and date lines, step back.
-  for (const p of root.querySelectorAll<HTMLElement>(':scope > p')) {
+  for (const r of keyRows) r.hidden = true;
+  for (const p of root.querySelectorAll<HTMLElement>(':scope > p, :scope > ul > li')) {
     const text = p.textContent ?? '';
     if (isMarkKey(text)) p.hidden = true;
     else if (/^\s*(reader|last updated)\s*:/i.test(text)) p.classList.add('fe-dir-meta');

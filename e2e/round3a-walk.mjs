@@ -20,8 +20,11 @@ try {
   await h.store.set('bfb-theme', THEME);
   const doc = join(h.fixture, 'long.md');
   writeFileSync(doc, '# Title\n\n## One\n\n' + 'A long paragraph of words that should wrap at the same place whether or not the side card is open. '.repeat(12) + '\n\n## Two\n\nEnd.\n');
+  // The card docks only where it fits beside the text column, so this uses a
+  // reading column on a wide window (e2e/toc-cover-walk.mjs covers the rest).
+  await h.store.set('bfb-page-column-v2', 'md');
   const page = await h.open();
-  await page.setViewport({ width: 1400, height: 900 });
+  await page.setViewport({ width: 1920, height: 900 });
   await page.goto('file://' + doc, { waitUntil: 'load' });
   await page.waitForSelector('#fe-fp-toc');
   await sleep(400);

@@ -81,7 +81,7 @@ const server = http.createServer((req, res) => {
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const ORIGIN = `http://127.0.0.1:${server.address().port}`;
 
-const browser = await puppeteer.launch({ executablePath: findChrome(), headless: true, args: ['--no-first-run', '--window-size=1400,900'], defaultViewport: { width: 1400, height: 900 } });
+const browser = await puppeteer.launch({ executablePath: findChrome(), headless: true, args: ['--no-first-run', '--window-size=1400,900', '--host-resolver-rules=MAP tailnet.test 127.0.0.1'], defaultViewport: { width: 1400, height: 900 } });
 try {
   const tab = await browser.newPage();
   const errors = [], bad = [];
@@ -132,7 +132,28 @@ try {
   await tab.click('#fe-dp-web-theme');
   const t1 = await tab.evaluate(() => ({ theme: document.getElementById('fe').dataset.theme, bg: getComputedStyle(document.getElementById('fe-dp')).backgroundColor, label: document.getElementById('fe-dp-web-theme').title }));
   check(t0 !== t1.theme && /Switch to/.test(t1.label), `the switch by the title flips dark and light: ${JSON.stringify([t0, t1])}`);
+  const kept = await tab.evaluate(() => localStorage.getItem('kanban-theme'));
+  check(kept === t1.theme, `the switch keeps the choice where gcc's pages read it: ${JSON.stringify([kept, t1.theme])}`);
   await tab.click('#fe-dp-web-theme');
+
+  // A theme picked on gcc's own pages carries over, both ways.
+  for (const want of ['light', 'dark']) {
+    const p = await browser.newPage();
+    await p.evaluateOnNewDocument(t => localStorage.setItem('kanban-theme', t), want);
+    await p.goto(`${ORIGIN}/dp/${SLUG}/`, { waitUntil: 'load' });
+    await p.waitForSelector('.fe-dp-title', { timeout: 8000 });
+    const got = await p.$eval('#fe', e => e.dataset.theme);
+    check(got === want, `with ${want} chosen on gcc's pages the bfb page opens ${want}: ${got}`);
+    await p.close();
+  }
+
+  // Over the tailnet gcc serves no boards, so the page offers no board link there.
+  const far = await browser.newPage();
+  await far.goto(`http://tailnet.test:${server.address().port}/dp/${SLUG}/`, { waitUntil: 'load' });
+  await far.waitForSelector('.fe-dp-title', { timeout: 8000 });
+  const farLink = await far.evaluate(() => ({ link: document.querySelector('.fe-dp-olink')?.getAttribute('href') ?? null, topic: document.querySelector('.fe-dp-topic')?.textContent }));
+  check(farLink.link === null && farLink.topic === 'layout', `opened by another name than loopback, the topic stays and the board link is gone: ${JSON.stringify(farLink)}`);
+  await far.close();
 
   // G1 a way back to every page, and B12 ? shows the page's keys.
   const nav = await tab.evaluate(() => ({ href: document.getElementById('fe-dp-web-all')?.getAttribute('href'), text: document.getElementById('fe-dp-web-all')?.textContent }));

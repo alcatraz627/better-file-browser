@@ -134,18 +134,26 @@ function rowPaint(css) {
 
 function measure(files) {
   const css = files.filter(f => f.css).map(f => f.text).join('\n');
+  // Rules that compare rules with each other run per stylesheet: a page's own
+  // block never shares a document with bfb's styles, so it is checked alone.
+  const sheets = [files.filter(f => f.css && !f.name.includes('#css')).map(f => f.text).join('\n'), ...files.filter(f => f.name.includes('#css')).map(f => f.text)];
   const out = {};
   for (const r of RULES) {
     if (r.css) out[r.id] = decls(css).filter(r.css).length;
-    else if (r.text) out[r.id] = r.text(css);
+    else if (r.text) out[r.id] = sheets.reduce((n, s) => n + r.text(s), 0);
     else out[r.id] = files.filter(f => !f.css && !(r.skip ?? []).includes(f.name)).reduce((n, f) => n + count(f.text, r.code), 0);
   }
   return out;
 }
 
-const srcFiles = () => readdirSync(SRC).filter(n => n.endsWith('.ts')).map(name => {
+// CSS lives in the styles* modules, and also in stylesheet strings other modules
+// carry for a page of their own (const PAGE_CSS = `...`); those count as CSS too.
+const CSS_BLOCK = /const [A-Z_]*CSS\s*=\s*`([\s\S]*?)`/g;
+const srcFiles = () => readdirSync(SRC).filter(n => n.endsWith('.ts')).flatMap(name => {
   const text = readFileSync(join(SRC, name), 'utf8');
-  return { name, text, css: name.startsWith('styles') };
+  if (name.startsWith('styles')) return [{ name, text, css: true }];
+  const blocks = [...text.matchAll(CSS_BLOCK)].map((m, i) => ({ name: `${name}#css${i}`, text: m[1], css: true }));
+  return [{ name, text, css: false }, ...blocks];
 });
 
 const args = process.argv.slice(2);

@@ -5,7 +5,7 @@
 // shared kit. gcc owns the answer itself; this module only draws the page
 // (docs: ~/.claude/features/decision-pages.md).
 import { esc, copyToClipboard } from './utils';
-import { UI_ICON } from './control-icons';
+import { UI_ICON, GLYPH } from './control-icons';
 import { renderMarkdown } from './renderers';
 import { jsonPref, flagPref } from './storage';
 import { dpIo } from './dp-io';
@@ -63,9 +63,10 @@ export function originFacts(o: DpOrigin | undefined, now = Date.now()): { label:
 
 /** The board, or the card on it, that the page rules on, as a link into gcc's board view. */
 function boardLinkHtml(o: DpOrigin | undefined): string {
-  if (!o?.board) return '';
-  const href = `${dpIo().server}/b/${encodeURIComponent(o.board)}${o.card ? `?card=${encodeURIComponent(o.card)}` : ''}`;
-  return `<a class="fe-dp-olink" href="${esc(href)}" target="_blank" rel="noopener" title="${o.card ? 'The card this page rules on' : 'The board this page belongs to'}">${esc(o.card || o.board)}</a>`;
+  const server = dpIo().server;
+  if (!o?.board || server === null) return '';
+  const href = `${server}/b/${encodeURIComponent(o.board)}${o.card ? `?card=${encodeURIComponent(o.card)}` : ''}`;
+  return `<a class="chip fe-dp-olink" data-size="sm" data-fill href="${esc(href)}" target="_blank" rel="noopener" title="${o.card ? 'The card this page rules on' : 'The board this page belongs to'}">${GLYPH.column}<span>${esc(o.card || o.board)}</span></a>`;
 }
 
 function headHtml(cfg: DpConfig, base: string): string {
@@ -77,7 +78,7 @@ function headHtml(cfg: DpConfig, base: string): string {
         <h1 class="fe-dp-title">${esc(cfg.title || 'Decisions')}</h1>
         <button type="button" id="fe-dp-files" class="btn" data-variant="outline" data-size="sm" data-tone="accent" data-docview-files title="Show the files in this folder">${UI_ICON.list}Files</button>
       </div>
-      ${topic ? `<p class="fe-dp-topicline"><span class="badge fe-dp-topic" data-size="sm" data-tone="quiet" title="Topic">${esc(topic)}</span></p>` : ''}
+      ${topic ? `<p class="fe-dp-topicline"><span class="fe-dp-topic" title="Topic">${esc(topic)}</span></p>` : ''}
       <p class="fe-dp-origin">${boardLinkHtml(cfg.origin)}${originFacts(cfg.origin).map(f => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}" title="${esc(`${f.title ?? f.label}. Click to copy ${f.copy}`)}">${esc(f.value)}</button>`).join('')}<span class="fe-dp-count">${esc(count)}</span></p>
       ${cfg.intro ? `<div class="fe-dp-intro">${clampHtml(renderMarkdown(cfg.intro, base), 2)}</div>` : ''}
     </header>

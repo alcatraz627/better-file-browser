@@ -568,11 +568,14 @@ try {
     return { on: document.querySelector('#fe-toc a.on')?.dataset.id, rows: document.querySelectorAll('#fe-toc a').length, tocShown: getComputedStyle(document.getElementById('fe-toc')).display !== 'none' };
   });
   check(spied.on === 'section-12' && spied.rows === 30 && spied.tocShown, `ToC follows the scroll: ${JSON.stringify(spied)}`);
+  // At full width the card starts folded (it does not fit beside the text); docked, it starts open.
+  const railState = () => fpage.evaluate(() => ({ shown: !document.getElementById('fe-toc-rail').hidden, pressed: document.getElementById('fe-fp-toc').getAttribute('aria-pressed') }));
+  const tocStart = await railState();
   await fpage.click('#fe-fp-toc');
-  const tocHidden = await fpage.evaluate(() => document.getElementById('fe-toc-rail').hidden && document.getElementById('fe-fp-toc').getAttribute('aria-pressed') === 'false');
+  const tocFlipped = await railState();
   await fpage.click('#fe-fp-toc');
-  const tocBack = await fpage.evaluate(() => !document.getElementById('fe-toc-rail').hidden);
-  check(tocHidden && tocBack, 'the contents button right of find hides and shows the rail');
+  const tocBack = await railState();
+  check(tocFlipped.shown !== tocStart.shown && tocFlipped.pressed === String(tocFlipped.shown) && tocBack.shown === tocStart.shown, `the contents button right of find shows and hides the rail: ${JSON.stringify([tocStart, tocFlipped, tocBack])}`);
   await shot(fpage, 'file-page-long');
   await fpage.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
   await fpage.waitForSelector('#fe.fe-file-page', { timeout: 8_000 }).catch(() => null);

@@ -155,8 +155,10 @@ whose rows carry a state mark: 🔴 needs you, 🟠 waiting, 🟢 ready, 💤 pa
 - a bar at the top counts each state across the doc; clicking a state narrows
   every table to it, and clicking again shows every row;
 - each section gets a meter of its rows;
-- each bare mark becomes a named pill, and the doc's own key to the marks
-  folds away;
+- a mark at the start of a cell becomes a named pill, whether it stands
+  alone, is followed by its name ("🟢 ready") or by other words, which stay;
+- the doc's own key to the marks folds away, as a paragraph, a list item or a
+  table row, and a key row is never counted as a task;
 - rows under a "Waiting on you" heading count as needing you;
 - pictures open large, with ← → through the doc's pictures.
 

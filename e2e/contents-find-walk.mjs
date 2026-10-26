@@ -13,9 +13,12 @@ const check = (ok, msg) => { results.push(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if 
 try {
   const md = join(h.fixture, 'guide.md');
   writeFileSync(md, ['# Guide', '', 'Intro about apples.', '', '## Setup', '', 'Install apples and pears.', '', '### Details', '', 'More apples here.', '', '#### Fine print', '', 'No apples.', '', '## Usage', '', 'Use the apples.'].join('\n'));
+  // The card docks only where it fits beside the text column, so this uses a
+  // reading column on a wide window (e2e/toc-cover-walk.mjs covers the rest).
+  await h.store.set('bfb-page-column-v2', 'md');
   for (const theme of ['dark', 'light']) {
     const page = await h.browser.newPage();
-    await page.setViewport({ width: 1400, height: 800 });
+    await page.setViewport({ width: 1920, height: 800 });
     page.on('pageerror', e => console.error('[pageerror]', e.message));
     await page.goto('file://' + md, { waitUntil: 'load' });
     await page.waitForSelector('#fe-toc a');
