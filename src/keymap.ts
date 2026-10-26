@@ -181,6 +181,9 @@ export const KEYMAP: KeyDef[] = [
   { id: 'dp-end-notes', group: 'Decision page', title: 'Notes for Claude at the end', keys: ['⇧N'], scope: 'decision', own: true },
   { id: 'dp-flagged', group: 'Decision page', title: 'Only the cards you changed', keys: ['f'], scope: 'decision', own: true },
   { id: 'dp-theme', group: 'Decision page', title: 'Dark or light', keys: ['t'], scope: 'decision', own: true },
+  { id: 'dp-panel', group: 'Decision page', title: 'Show the answer as it will be sent', keys: ['p'], scope: 'decision', own: true },
+  { id: 'dp-copy', group: 'Decision page', title: 'Copy the answer', keys: ['c'], scope: 'decision', own: true },
+  { id: 'dp-submit', group: 'Decision page', title: 'Send the answer, or replace the one sent', keys: ['s', '⌘↩'], scope: 'decision', own: true },
   { id: 'dp-esc', group: 'Decision page', title: 'Shrink grown pictures, or leave the note you are typing in', keys: ['Esc'], scope: 'decision', own: true, field: true },
   { id: 'dp-view-step', group: 'Decision page', title: 'Previous or next picture in the large view', keys: ['←', '→'], scope: 'dialog', own: true },
 

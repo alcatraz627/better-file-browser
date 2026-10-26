@@ -557,42 +557,73 @@ DP_VERBS = ('compose', 'submit', 'seen', 'parse')
 # BFB_DP_BIN overrides gcc's command (the tests point it at a stub).
 DP_BIN = os.environ.get('BFB_DP_BIN') or os.path.expanduser('~/.claude/scripts/decision-page/decision-page.sh')
 
+# gcc's exit codes: 3 the page is already answered, 4 its page server is down
+# and nothing was written.
+DP_EXIT_CODES = {3: 'dp_conflict', 4: 'dp_unavailable'}
+
 def op_dp(verb, slug, payload):
     """Hand a decision page's answer work to gcc's own command and relay its reply.
 
-    bfb never composes, parses or writes an answer itself: compose, submit,
-    seen and parse all run `decision-page.sh <verb> <slug>` with the picks as
-    JSON on stdin, and whatever the command prints as JSON comes back."""
+    bfb never composes, parses or writes an answer itself. compose sends the
+    picks as JSON and gets the answer text back as {answer}; parse sends
+    {answer} and gets the picks back; submit sends {answer, replace} and gets
+    the server's reply with how the asker was told; seen sends nothing.
+    A refusal comes back as a stable code read from gcc's exit status."""
     if verb not in DP_VERBS:
         raise NotesError('notes_bad_op', f'unknown decision-page verb {verb!r}')
     if not isinstance(slug, str) or not re.fullmatch(r'[a-z0-9][a-z0-9._-]{0,80}', slug):
         raise NotesError('notes_bad_path', 'not a decision page name')
     if not os.path.isfile(DP_BIN) or not os.access(DP_BIN, os.X_OK):
         raise NotesError('dp_unavailable', 'the decision-page command is not installed')
+    payload = payload if isinstance(payload, dict) else {}
+    args, stdin = [DP_BIN, verb, slug], ''
+    if verb == 'compose':
+        stdin = json.dumps(payload)
+    elif verb in ('parse', 'submit'):
+        stdin = payload.get('answer') if isinstance(payload.get('answer'), str) else ''
+        if verb == 'submit':
+            args += ['--via', 'page'] + (['--replace'] if payload.get('replace') is True else [])
     try:
-        run = subprocess.run([DP_BIN, verb, slug], input=json.dumps(payload or {}),
-                             capture_output=True, text=True, timeout=30)
+        run = subprocess.run(args, input=stdin, capture_output=True, text=True, timeout=30)
     except subprocess.TimeoutExpired:
         raise NotesError('dp_unavailable', 'the decision-page command did not answer in 30 seconds')
+    if verb == 'compose' and run.returncode == 0:
+        return {'t': 'dp', 'verb': verb, 'slug': slug, 'result': {'answer': run.stdout.rstrip('\n')}}
     try:
         out = json.loads(run.stdout) if run.stdout.strip() else {}
     except ValueError:
         out = {'text': run.stdout}
     if run.returncode != 0:
-        code = out.get('code') if isinstance(out, dict) else None
-        raise NotesError(code or 'dp_failed', (out.get('message') if isinstance(out, dict) else None) or run.stderr.strip() or f'exit {run.returncode}')
+        code = DP_EXIT_CODES.get(run.returncode) or (out.get('code') if isinstance(out, dict) else None) or 'dp_failed'
+        msg = run.stderr.strip() or (out.get('message') or out.get('error') if isinstance(out, dict) else None) or f'exit {run.returncode}'
+        raise NotesError(code, msg)
     return {'t': 'dp', 'verb': verb, 'slug': slug, 'result': out}
 
 # BFB_DP_REGISTRY overrides where gcc keeps decision pages (the walks use a copy).
 DP_REGISTRY = os.environ.get('BFB_DP_REGISTRY') or os.path.expanduser('~/.claude/assets/decision-pages')
 DP_FRESH_S = 7 * 24 * 3600
+DP_REACH = ('hot', 'cold', 'absent')
+
+def _dp_reach():
+    """Whether the agent behind each pending page can still be woken, from
+    gcc's `decision-page.sh reach` in one call: {slug: hot|cold|absent}.
+    None when the command is missing or fails, which the lens shows as unknown."""
+    if not os.path.isfile(DP_BIN) or not os.access(DP_BIN, os.X_OK):
+        return None
+    try:
+        run = subprocess.run([DP_BIN, 'reach'], capture_output=True, text=True, timeout=10)
+        out = json.loads(run.stdout) if run.returncode == 0 else None
+    except (subprocess.TimeoutExpired, ValueError):
+        return None
+    return out if isinstance(out, dict) else None
 
 def op_dp_pages():
     """Every decision page in gcc's registry with whether it waits on the owner,
     for the Decisions lens. Read only: the lens never writes the registry.
 
     A page waits when gcc listed it as pending, or when it is under a week old
-    and unanswered, since agents forget to mark a page pending."""
+    and unanswered, since agents forget to mark a page pending. A waiting page
+    gcc lists as pending also says whether its agent can be reached."""
     pending = set()
     try:
         with open(os.path.join(DP_REGISTRY, '.pending.txt'), encoding='utf-8') as f:
@@ -631,6 +662,14 @@ def op_dp_pages():
             'mtime': mtime, 'answered': answered, 'state': state,
             'seen': os.path.isfile(os.path.join(d, '.seen.json')),
         })
+    reach = _dp_reach() if any(r['state'] == 'waiting' for r in rows) else {}
+    for r in rows:
+        if r['state'] != 'waiting':
+            continue
+        if reach is None:
+            r['reach'] = 'unknown'
+        elif r['slug'] in reach:
+            r['reach'] = reach[r['slug']] if reach[r['slug']] in DP_REACH else 'unknown'
     rows.sort(key=lambda r: -r['mtime'])
     return {'t': 'dpPages', 'registry': DP_REGISTRY, 'pages': rows}
 

@@ -1,10 +1,16 @@
 // A directions doc (DIRECTIONS.md, or any *directions*.md) is a plan the owner
 // reads to pick what comes next: tables of tasks, each row carrying a state
-// mark (needs you, waiting, ready, parked, done). On its file page the doc
-// gains a bar counting each mark, which narrows every table to that mark on a
-// click, a meter beside each section showing how its rows stand, and a
-// coloured edge on each row. The markdown itself is untouched.
+// mark (needs you, waiting, ready, parked, done). It is one of the doc views
+// (docview.ts). On its file page the doc gains a bar counting each state,
+// which narrows every table to that state on a click; a meter beside each
+// section; a state pill in place of each bare mark; and pictures that open
+// large. The doc's own key to the marks folds away, since the bar names
+// each state. The markdown itself is untouched.
 import { esc } from './utils';
+import type { DocView } from './docview';
+import { markDocView } from './docview';
+import { pillHtml, meterHtml, chipBarHtml, wireChipBar, type Tally } from './docview-status';
+import { wireMedia } from './docview-media';
 
 export type DirState = 'needs' | 'waiting' | 'ready' | 'parked' | 'done';
 export const DIR_STATES: { id: DirState; mark: string; label: string }[] = [
@@ -35,22 +41,44 @@ export function tally(states: (DirState | null)[]): Record<DirState, number> {
   return t;
 }
 
-const meterHtml = (t: Record<DirState, number>) => {
+/** The doc's key to its own marks: a paragraph naming three or more of them, which repeats what the state bar says. */
+export const isMarkKey = (text: string): boolean => /^\s*(marks|key|legend)\s*:/i.test(text) && DIR_STATES.filter(s => text.includes(s.mark)).length >= 3;
+
+/** A heading whose table rows all wait on the owner even when unmarked ("Waiting on you", "Needs you"). */
+const asksOwner = (heading: string) => /\b(waiting on you|needs you|for you)\b/i.test(heading);
+
+const tallies = (t: Record<DirState, number>): Tally[] => DIR_STATES.map(s => ({ state: s.id, n: t[s.id], label: s.label }));
+const meter = (t: Record<DirState, number>) => {
   const total = DIR_STATES.reduce((n, s) => n + t[s.id], 0);
-  if (!total) return '';
-  // One equal segment per row, grouped by state, so the bar needs no widths of its own.
-  const parts = DIR_STATES.filter(s => t[s.id]).map(s => `<i data-state="${s.id}" title="${t[s.id]} ${s.label}"></i>`.repeat(t[s.id])).join('');
-  return `<span class="fe-dir-meter" title="${t.done} of ${total} done"><span class="fe-dir-bar">${parts}</span><span class="fe-dir-n">${t.done}/${total}</span></span>`;
+  return meterHtml(tallies(t), `${t.done}/${total}`, `${t.done} of ${total} done`);
 };
 
-/** Add the bar, the meters and the row marks to a rendered directions doc. Safe to call again. */
+/** Add the bar, the meters, the pills and the row marks to a rendered directions doc. Safe to call again. */
 export function enhanceDirections(root: HTMLElement): void {
   if (root.dataset.directions) return;
   const rows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr')];
-  const states = rows.map(r => rowState(r.textContent ?? ''));
+  // The heading a row sits under, for tables whose section says who they wait on.
+  const headingOf = (r: HTMLElement) => {
+    let n: Element | null = r.closest('table')?.closest('.fe-md-tablewrap') ?? r.closest('table');
+    while (n && !/^H[1-6]$/.test(n.tagName)) n = n.previousElementSibling;
+    return n?.textContent ?? '';
+  };
+  const states = rows.map(r => rowState(r.textContent ?? '') ?? (asksOwner(headingOf(r)) ? 'needs' : null));
   if (!states.some(Boolean)) return;
   root.dataset.directions = 'on';
   rows.forEach((r, i) => { if (states[i]) r.dataset.state = states[i]!; });
+
+  // A cell holding only a mark becomes a pill that names it.
+  for (const td of root.querySelectorAll<HTMLTableCellElement>('tbody td')) {
+    const s = DIR_STATES.find(x => x.mark === td.textContent?.trim());
+    if (s) td.innerHTML = pillHtml(s.id, s.label);
+  }
+  // The doc's key to the marks, and its reader and date lines, step back.
+  for (const p of root.querySelectorAll<HTMLElement>(':scope > p')) {
+    const text = p.textContent ?? '';
+    if (isMarkKey(text)) p.hidden = true;
+    else if (/^\s*(reader|last updated)\s*:/i.test(text)) p.classList.add('fe-dir-meta');
+  }
 
   // Each section heading gets a meter of the rows below it, up to the next heading of its level or higher.
   const heads = [...root.querySelectorAll<HTMLElement>('h2, h3')];
@@ -62,7 +90,7 @@ export function enhanceDirections(root: HTMLElement): void {
       n.querySelectorAll<HTMLTableRowElement>('tbody tr').forEach(r => mine.push((r.dataset.state as DirState) || null));
     }
     const t = tally(mine);
-    const m = meterHtml(t);
+    const m = meter(t);
     if (!m) continue;
     h.insertAdjacentHTML('beforeend', m);
     // A table cell naming this section (the overview's direction column) links to it and shows the same meter.
@@ -77,20 +105,12 @@ export function enhanceDirections(root: HTMLElement): void {
   const all = tally(states);
   const bar = document.createElement('div');
   bar.className = 'fe-dir-sum';
-  bar.innerHTML = DIR_STATES.filter(s => all[s.id]).map(s =>
-    `<button type="button" class="chip fe-dir-chip" data-state="${s.id}" aria-pressed="false" title="Show only rows marked ${esc(s.label)}"><span>${s.mark}</span>${esc(s.label)}<b>${all[s.id]}</b></button>`).join('')
-    + `<span class="fe-dir-total">${meterHtml(all)}</span>`;
+  bar.innerHTML = chipBarHtml(tallies(all), `<span class="fe-dir-total">${meter(all)}</span>`);
   const h1 = root.querySelector('h1');
   if (h1) h1.after(bar); else root.prepend(bar);
 
-  // A chip narrows every table to its rows; sections left with none fold away. Clicking it again shows all.
-  bar.addEventListener('click', e => {
-    const chip = (e.target as Element).closest<HTMLElement>('.fe-dir-chip');
-    if (!chip) return;
-    const on = chip.getAttribute('aria-pressed') !== 'true';
-    bar.querySelectorAll('.fe-dir-chip').forEach(c => c.setAttribute('aria-pressed', 'false'));
-    chip.setAttribute('aria-pressed', String(on));
-    const want = on ? chip.dataset.state! : '';
+  // A chip narrows every table to its rows; tables left with none fold away. Pressing it again shows all.
+  wireChipBar(bar, want => {
     root.dataset.dirFilter = want;
     rows.forEach(r => { r.hidden = !!want && r.dataset.state !== want; });
     root.querySelectorAll('table').forEach(t => {
@@ -99,3 +119,17 @@ export function enhanceDirections(root: HTMLElement): void {
     });
   });
 }
+
+/** The directions view: decorates a rendered directions doc in place, and opens its pictures large. */
+export const directionsView: DocView = {
+  id: 'directions',
+  on: 'file',
+  claims: path => isDirectionsDoc(path),
+  mount({ root, toast }) {
+    if (root.dataset.docview) return true;
+    enhanceDirections(root);
+    markDocView(root, 'directions');
+    wireMedia(root, toast);
+    return true;
+  },
+};

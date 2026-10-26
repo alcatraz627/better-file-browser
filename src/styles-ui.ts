@@ -132,7 +132,7 @@ export const UI_CSS = `
   box-shadow:0 0 0 1px rgb(var(--ink) / .14),0 1px 3px rgb(var(--ink) / .3);transition:transform var(--t-fast) var(--ease)}
 .fe-sld input:hover::-webkit-slider-thumb{transform:scale(1.12)}
 .fe-sld input:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 40%,transparent),0 1px 3px rgb(var(--ink) / .3)}
-.fe-sld output{min-width:48px;padding:3px 7px;border-radius:var(--r-sm);background:color-mix(in srgb,var(--tx) 6%,transparent);font:500 var(--fs-md) var(--mono);color:var(--tx);text-align:center}
+.fe-sld output{min-width:48px;padding:var(--sp-2) var(--sp-4);border-radius:var(--r-sm);background:color-mix(in srgb,var(--tx) 6%,transparent);font:500 var(--fs-md) var(--mono);color:var(--tx);text-align:center}
 
 /* A dropdown button and its list. */
 .fe-dd{--dd-h:var(--ctl-md);display:inline-flex}
@@ -148,9 +148,9 @@ export const UI_CSS = `
 .fe-dd-cur svg{flex:none;width:14px;height:14px;color:var(--mt)}
 .fe-dd-btn > svg{flex:none;color:var(--dm)}
 .fe-dd-none{color:var(--dm)}
-.fe-dd-list{position:fixed;z-index:var(--z-toast);max-height:min(360px,60vh);overflow-y:auto;padding:5px;border-radius:var(--pop-r);
+.fe-dd-list{position:fixed;z-index:var(--z-toast);max-height:min(360px,60vh);overflow-y:auto;padding:var(--sp-2);border-radius:var(--pop-r);
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
-.fe-dd-opt{display:flex;align-items:center;gap:9px;min-height:var(--ctl-lg);padding:0 var(--sp-4);border-radius:7px;color:var(--tx);font-size:var(--row-fs);cursor:pointer;white-space:nowrap}
+.fe-dd-opt{display:flex;align-items:center;gap:var(--sp-4);min-height:var(--ctl-lg);padding:0 var(--sp-4);border-radius:7px;color:var(--tx);font-size:var(--row-fs);cursor:pointer;white-space:nowrap}
 .fe-dd-opt svg{flex:none;width:14px;height:14px;color:var(--mt)}
 .fe-dd-l{flex:1}
 .fe-dd-h{color:var(--dm);font-size:var(--fs-sm);padding-left:var(--sp-5)}
@@ -188,7 +188,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .badge{--badge-h:18px;display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);min-width:var(--badge-h);height:var(--badge-h);padding:0 var(--sp-2);
   box-sizing:border-box;border-radius:var(--r-full);background:color-mix(in srgb,var(--ac) 16%,transparent);color:var(--tx);
   font-size:var(--fs-xs);font-weight:500;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:middle}
-.badge[data-size="sm"]{--badge-h:14px;padding:0 3px}
+.badge[data-size="sm"]{--badge-h:14px;padding:0 var(--sp-2)}
 .badge svg{flex:none;width:10px;height:10px}
 .badge[data-tone="solid"]{background:var(--ac);color:var(--tx-on-ac)}
 .badge[data-tone="quiet"]{background:var(--s2);color:var(--dm)}
@@ -206,14 +206,14 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-check input:disabled{opacity:.45;cursor:default}
 
 /* A list edited as chips. */
-.fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:300px;max-width:100%;min-height:var(--ctl-lg);padding:var(--sp-1) var(--sp-3);box-sizing:border-box;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);cursor:text}
+.fe-chipin{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);width:300px;max-width:100%;min-height:var(--ctl-lg);padding:var(--sp-1) var(--sp-3);box-sizing:border-box;border:1px solid var(--bd2);border-radius:var(--row-r);background:var(--bg);cursor:text}
 .fe-set.wide .fe-chipin{width:100%}
 .fe-chipin:focus-within{border-color:var(--ac)}
 .fe-chipin-in{flex:1;min-width:70px;height:24px;border:0;outline:0;background:none;color:var(--tx);font:var(--fs-md) var(--mono)}
 
 /* App icons: a grid of 16 tiles. */
 .fe-appicons{display:grid;grid-template-columns:repeat(8,1fr);gap:var(--sp-3)}
-.fe-appicon{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:var(--sp-4) var(--sp-2) var(--sp-3);border-radius:10px;cursor:pointer;color:var(--mt);font-size:var(--fs-sm);
+.fe-appicon{position:relative;display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);padding:var(--sp-4) var(--sp-2) var(--sp-3);border-radius:10px;cursor:pointer;color:var(--mt);font-size:var(--fs-sm);
   transition:background var(--t-fast) var(--ease)}
 .fe-appicon:hover{background:var(--hover)}
 .fe-appicon input{position:absolute;opacity:0;pointer-events:none}
@@ -244,7 +244,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-rp-sec{display:flex;flex-direction:column;gap:var(--sp-3)}
 .fe-rp-l{font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dm)}
-.fe-rp-glyphs{display:grid;grid-template-columns:repeat(9,1fr);gap:3px}
+.fe-rp-glyphs{display:grid;grid-template-columns:repeat(9,1fr);gap:var(--sp-2)}
 .fe-rp-g{display:grid;place-items:center;height:34px;padding:0;border:0;border-radius:7px;background:none;cursor:pointer}
 .fe-rp-g svg{width:20px;height:var(--ctl-sm)}
 .fe-rp-g:hover{background:var(--hover)}
@@ -262,7 +262,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   border:1px solid color-mix(in srgb,var(--nc-purple) 30%,var(--bd))}
 .fe-ai-hero .fe-st-ai-head{margin:0}
 .fe-ai-hero .fe-st-ai-blink,.fe-ai-hero .fe-st-ai-blink .dot{width:12px;height:12px}
-.fe-ai-hero-tx{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+.fe-ai-hero-tx{flex:1;display:flex;flex-direction:column;gap:var(--sp-2);min-width:0}
 .fe-ai-hero-tx b{font-size:var(--fs-xl);font-weight:650;color:var(--tx)}
 .fe-ai-hero-tx span{font-size:var(--fs-md);color:var(--mt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #fe-st-ai-grid{display:grid;grid-template-columns:auto 1fr;gap:var(--sp-2) var(--sp-5);padding:var(--sp-4) var(--sp-6) var(--sp-5);border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent)}
@@ -319,7 +319,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   padding:var(--sp-4) var(--sp-5);border-radius:var(--pop-r);background:var(--pop-bg);border:1px solid var(--pop-bd);box-shadow:var(--pop-sh);backdrop-filter:var(--pop-blur);-webkit-backdrop-filter:var(--pop-blur);
   font-size:var(--fs-md);color:var(--mt);animation:fe-rise var(--t-fast) var(--ease)}
 .fe-chord > kbd{background:var(--ac);color:var(--tx-on-ac);box-shadow:none}
-.fe-chord-o{display:inline-flex;align-items:center;gap:5px;color:var(--tx)}
+.fe-chord-o{display:inline-flex;align-items:center;gap:var(--sp-2);color:var(--tx)}
 
 /* Key badges while ⌥ is held. */
 .fe-hints{position:fixed;inset:0;pointer-events:none}
@@ -336,9 +336,9 @@ button.chip:disabled{opacity:.45;cursor:default}
 /* Help: the keyboard map. Keys with a use are tinted; hovering an action
    lights its keys, hovering a key lights its actions. */
 .fe-km{display:flex;flex-direction:column;gap:var(--sp-5)}
-.fe-km-board{display:flex;flex-direction:column;gap:5px;padding:var(--sp-5);border-radius:14px;background:color-mix(in srgb,var(--tx) 4%,var(--card));
+.fe-km-board{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-5);border-radius:14px;background:color-mix(in srgb,var(--tx) 4%,var(--card));
   border:1px solid var(--bd);position:sticky;top:-2px;z-index:2;box-shadow:0 8px 16px -12px rgb(var(--ink) / .4)}
-.fe-km-row-k{display:flex;gap:5px}
+.fe-km-row-k{display:flex;gap:var(--sp-2)}
 .fe-km-cap{flex:var(--w,1) 1 0;min-width:0;height:34px;display:grid;place-items:center;border-radius:7px;font:500 var(--fs-sm) var(--mono);color:var(--dm);
   background:color-mix(in srgb,var(--tx) 5%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,rgb(var(--ink)) 22%,transparent);transition:background var(--t-fast),color var(--t-fast),transform var(--t-fast)}
 .fe-km-cap.fn{height:var(--ctl-sm);font-size:var(--fs-xs)}
@@ -355,7 +355,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-km-g h3{padding:var(--sp-4) var(--sp-4) var(--sp-3)}
 .fe-km-g h3 svg{width:14px;height:14px}
 .fe-km-i{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);min-height:var(--ctl-lg);padding:0 var(--sp-4);border-radius:var(--row-r);font-size:var(--row-fs);color:var(--tx)}
-.fe-km-k{display:inline-flex;align-items:center;gap:3px;flex:none}
+.fe-km-k{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none}
 .fe-km-k kbd,.fe-hc-how kbd,.fe-km-legend kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:var(--ctl-sm);padding:0 var(--sp-3);border-radius:var(--r-sm);
   background:color-mix(in srgb,var(--tx) 8%,transparent);box-shadow:inset 0 -1.5px 0 color-mix(in srgb,var(--tx) 16%,transparent);color:var(--tx);font:600 var(--fs-xs) var(--mono)}
 .fe-km-then,.fe-km-or{font-style:normal;font-size:var(--fs-xs);color:var(--dm);padding:0 var(--sp-1)}
@@ -372,7 +372,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-hc-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-1)}
 .fe-hc-tx b{font-size:var(--fs-lg);font-weight:650;color:var(--tx)}
 .fe-hc-tx span{font-size:var(--fs-md);color:var(--mt);line-height:1.35}
-.fe-hc-how{flex:none;display:flex;align-items:center;gap:3px}
+.fe-hc-how{flex:none;display:flex;align-items:center;gap:var(--sp-2)}
 .fe-hc-tag{padding:var(--sp-1) var(--sp-4);border-radius:10px;font-size:var(--fs-sm);color:var(--tone);background:color-mix(in srgb,var(--tone) 14%,transparent)}
 /* A journey card: a title, then its steps, each with its keys on the right. */
 .fe-hj{display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-5) var(--sp-5)}

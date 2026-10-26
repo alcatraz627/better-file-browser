@@ -29,19 +29,59 @@ function installNotesHost(profile, pickReply) {
   const hostPath = join(profile, 'notes_host_launcher.py');
   // Decision pages: a scratch registry, and a stand-in for gcc's command that
   // logs each call and, for seen, writes .seen.json the first time as gcc does.
+  // reach answers from dp-reach.json in the profile, which a walk writes; with
+  // no such file it answers {}, and a file holding "fail" makes it exit 1.
   mkdirSync(dpRegistry(profile), { recursive: true });
   const dpStub = join(profile, 'fake_decision_page.py');
   writeFileSync(dpStub, `#!/usr/bin/env python3
 import json, os, sys, time
-verb, slug = sys.argv[1], sys.argv[2]
+if sys.argv[1:] == ['reach']:
+    p = ${JSON.stringify(join(profile, 'dp-reach.json'))}
+    body = open(p).read() if os.path.exists(p) else '{}'
+    if body.strip() == 'fail':
+        sys.exit(1)
+    print(body)
+    sys.exit(0)
+verb, slug, rest = sys.argv[1], sys.argv[2], sys.argv[3:]
 payload = sys.stdin.read()
-open(${JSON.stringify(join(profile, 'dp-calls.jsonl'))}, 'a').write(json.dumps({'verb': verb, 'slug': slug, 'payload': payload}) + '\\n')
+open(${JSON.stringify(join(profile, 'dp-calls.jsonl'))}, 'a').write(json.dumps({'verb': verb, 'slug': slug, 'args': rest, 'payload': payload}) + '\\n')
+page = os.path.join(${JSON.stringify(dpRegistry(profile))}, slug)
+if not os.path.isfile(os.path.join(page, 'config.json')):
+    sys.stderr.write("decision-page %s: no page '%s'\\n" % (verb, slug)); sys.exit(1)
+if verb == 'compose' and os.path.exists(${JSON.stringify(join(profile, 'dp-broken'))}):
+    sys.stderr.write('decision-page compose: bun is not installed\\n'); sys.exit(1)
+if verb in ('compose', 'parse'):
+    # gcc's own composer and parser, over the scratch page's config.
+    import subprocess
+    r = subprocess.run([${JSON.stringify(BUN)}, ${JSON.stringify(join(profile, 'fake_dp_core.ts'))}, verb, os.path.join(page, 'config.json')], input=payload, capture_output=True, text=True)
+    sys.stdout.write(r.stdout); sys.stderr.write(r.stderr); sys.exit(r.returncode)
+if verb == 'submit':
+    if os.path.exists(${JSON.stringify(join(profile, 'dp-down'))}):
+        sys.stderr.write('decision-page submit: the page server on http://127.0.0.1:5106 is not answering; nothing was written\\n'); sys.exit(4)
+    ans = os.path.join(page, '.answer.json')
+    if os.path.exists(ans) and '--replace' not in rest:
+        print(json.dumps({'error': 'this page is already answered; send replace:true to overwrite it', 'answered': True, 'existing': json.load(open(ans))['answer']})); sys.exit(3)
+    via = rest[rest.index('--via') + 1] if '--via' in rest else 'cli'
+    json.dump({'answer': payload.rstrip('\\n'), 'submitted_at': int(time.time()), 'via': via}, open(ans, 'w'))
+    p = ${JSON.stringify(join(profile, 'dp-notify.json'))}
+    state = open(p).read().strip() if os.path.exists(p) else 'requested'
+    notify = {'state': state, 'via': [], 'reason': '', 'at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+    json.dump(notify, open(os.path.join(page, '.notify.json'), 'w'))
+    print(json.dumps({'ok': True, 'slug': slug, 'routed': None, 'notify': notify})); sys.exit(0)
 if verb == 'seen':
-    p = os.path.join(${JSON.stringify(dpRegistry(profile))}, slug, '.seen.json')
+    p = os.path.join(page, '.seen.json')
     if not os.path.exists(p):
         open(p, 'w').write(json.dumps({'at': time.time()}))
 print(json.dumps({'ok': True}))
 `, { mode: 0o755 });
+  writeFileSync(join(profile, 'fake_dp_core.ts'), `import { compose, parse } from ${JSON.stringify(join(homedir(), '.claude', 'scripts', 'decision-page', 'dp-core.ts'))};
+import { readFileSync } from 'node:fs';
+const [verb, cfgPath] = process.argv.slice(2);
+const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
+const input = (await Bun.stdin.text()).trim();
+if (verb === 'compose') process.stdout.write(compose(cfg, input ? JSON.parse(input) : null) + '\\n');
+else console.log(JSON.stringify(parse(input, cfg)));
+`);
   writeFileSync(hostPath, `#!/usr/bin/env python3
 import importlib.util, os
 os.environ['BFB_DP_REGISTRY'] = ${JSON.stringify(dpRegistry(profile))}
@@ -124,13 +164,15 @@ runpy.run_path(${JSON.stringify(join(ROOT, 'native', 'llm_host.py'))}, run_name=
 }
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
+// gcc's composer runs under bun; the stand-in for its command needs the full path.
+export const BUN = ['/opt/homebrew/bin/bun', '/usr/local/bin/bun', join(homedir(), '.bun', 'bin', 'bun')].find(p => existsSync(p)) ?? 'bun';
 // gcc's decision-page registry for one run; the live one is never touched.
 const dpRegistry = profile => join(profile, 'decision-pages');
 // Where the host and a walk's own bfb-docs calls keep comment state for one run.
 const docsHome = profile => join(profile, 'bfb-docs-state');
 export const SHOTS = join(ROOT, 'e2e', 'shots');
 
-function findChrome() {
+export function findChrome() {
   if (process.env.BFB_CHROME) return process.env.BFB_CHROME;
   const base = join(homedir(), '.cache', 'puppeteer', 'chrome');
   if (!existsSync(base)) throw new Error('no Chrome for Testing in ~/.cache/puppeteer/chrome');
@@ -244,15 +286,15 @@ export async function launch({ headless = true, pickReply, lmStub = false } = {}
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, open, close, store, sw, docsHome: docsHome(profile), lmCalls, dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl') };
+  return { browser, fixture, notesDir, open, close, store, sw, docsHome: docsHome(profile), lmCalls, dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
 }
 
 // The extension's settings store for the running browser; set by launch().
 export let store = null;
 
-// BFB_THEME=light runs the same checks on the light theme; screenshots get
-// a -light suffix so both sets sit side by side.
-export const THEME = process.env.BFB_THEME === 'light' ? 'light' : 'dark';
+// BFB_THEME=light (or --light) runs the same checks on the light theme;
+// screenshots get a -light suffix so both sets sit side by side.
+export const THEME = process.env.BFB_THEME === 'light' || process.argv.includes('--light') ? 'light' : 'dark';
 
 export async function applyTheme(page) {
   if (THEME === 'dark') return;

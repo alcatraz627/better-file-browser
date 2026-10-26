@@ -16,7 +16,18 @@ export interface DpRow {
   slug: string; path: string; title?: string; items?: number; mtime: number; answered?: number | null;
   state: 'waiting' | 'answered' | 'never' | 'broken'; seen?: boolean; broken?: boolean;
   origin?: { project?: string; topic?: string; session?: string; goal?: string; milestone?: string; card?: string; board?: string };
+  /** For a waiting page gcc lists as pending: whether the agent that asked can be woken. */
+  reach?: 'hot' | 'cold' | 'absent' | 'unknown';
 }
+
+/** How each reach reads on a row, and where it sorts: a live agent first, a gone one last. */
+export const REACH: Record<NonNullable<DpRow['reach']>, { label: string; tip: string; rank: number }> = {
+  hot: { label: 'agent live', tip: 'The agent that asked is running and sees your answer at once', rank: 0 },
+  cold: { label: 'agent idle', tip: 'The agent that asked is idle; it sees your answer when it next runs', rank: 1 },
+  unknown: { label: 'agent unknown', tip: 'Could not tell whether the agent that asked is running', rank: 1 },
+  absent: { label: 'agent gone', tip: 'The session that asked has ended; your answer is kept for whoever picks this up', rank: 2 },
+};
+const reachRank = (r: DpRow) => (r.reach ? REACH[r.reach].rank : 1);
 
 export const BANDS: { state: DpRow['state']; label: string }[] = [
   { state: 'waiting', label: 'Waiting on you' },
@@ -25,11 +36,12 @@ export const BANDS: { state: DpRow['state']; label: string }[] = [
   { state: 'broken', label: 'Cannot be read' },
 ];
 
-/** The rows a filter keeps, banded in BANDS order and newest first within a band. */
+/** The rows a filter keeps, banded in BANDS order. Inside a band a live agent's
+ *  page comes first and a gone one's last, newest first otherwise. */
 export function dpBands(rows: DpRow[], q = ''): { state: DpRow['state']; label: string; rows: DpRow[] }[] {
   const n = q.trim().toLowerCase();
   const hit = (r: DpRow) => !n || [r.title, r.slug, r.origin?.project, r.origin?.topic].some(v => v?.toLowerCase().includes(n));
-  return BANDS.map(b => ({ ...b, rows: rows.filter(r => r.state === b.state && hit(r)).sort((a, z) => z.mtime - a.mtime) })).filter(b => b.rows.length);
+  return BANDS.map(b => ({ ...b, rows: rows.filter(r => r.state === b.state && hit(r)).sort((a, z) => reachRank(a) - reachRank(z) || z.mtime - a.mtime) })).filter(b => b.rows.length);
 }
 
 /** How long ago, in the words a person would use: "just now", "5 min", "3 h", "2 d", "6 w". */
@@ -56,9 +68,12 @@ export function initDpLens(box: HTMLElement, go: (path: string) => void): void {
     const unseen = r.state === 'waiting' && !r.seen;
     const when = r.state === 'answered' && r.answered ? r.answered : r.mtime;
     const origin = originLine(r.origin);
-    return `<button type="button" class="row fe-dpl-row${unseen ? ' unseen' : ''}" data-path="${esc(r.path)}" data-slug="${esc(r.slug)}" title="${esc(r.title ?? r.slug)}${unseen ? ' · you have not opened this one yet' : ''}">
+    const reach = r.reach && REACH[r.reach];
+    const reachHtml = reach ? `<span class="fe-dpl-reach" data-reach="${r.reach}" title="${esc(reach.tip)}">${esc(reach.label)}</span>` : '';
+    const sub = [reachHtml, origin && esc(origin)].filter(Boolean).join(' · ');
+    return `<button type="button" class="row fe-dpl-row${unseen ? ' unseen' : ''}" data-path="${esc(r.path)}" data-slug="${esc(r.slug)}"${r.reach ? ` data-reach="${r.reach}"` : ''} title="${esc(r.title ?? r.slug)}${unseen ? ' · you have not opened this one yet' : ''}${reach ? ` · ${esc(reach.tip)}` : ''}">
         <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ''}</span>
-        <span class="fe-dpl-tx"><span class="fe-dpl-title">${esc(r.title ?? r.slug)}</span>${origin ? `<span class="fe-dpl-origin">${esc(origin)}</span>` : ''}</span>
+        <span class="fe-dpl-tx"><span class="fe-dpl-title">${esc(r.title ?? r.slug)}</span>${sub ? `<span class="fe-dpl-origin">${sub}</span>` : ''}</span>
         <span class="fe-dpl-age" title="${esc(new Date(when * 1000).toLocaleString())}">${esc(ago(when))}</span>
         ${r.items ? `<span class="badge fe-dpl-n" data-tone="${r.state === 'waiting' ? 'solid' : 'quiet'}" title="${r.items} item${r.items === 1 ? '' : 's'}">${r.items}</span>` : ''}
       </button>`;

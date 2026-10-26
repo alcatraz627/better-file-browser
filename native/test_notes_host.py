@@ -294,24 +294,37 @@ stub = os.path.join(stub_dir, 'decision-page.sh')
 with open(stub, 'w') as fh:
     fh.write('''#!/usr/bin/env python3
 import json, sys
-verb, slug = sys.argv[1], sys.argv[2]
-picks = json.load(sys.stdin)
+verb, slug, rest = sys.argv[1], sys.argv[2], sys.argv[3:]
+got = sys.stdin.read()
+if verb == 'compose':
+    print('hdr:\\nD1' + json.loads(got)['d']['D1']); sys.exit(0)
 if verb == 'submit' and slug == 'taken':
-    print(json.dumps({'code': 'dp_conflict', 'message': 'answered somewhere else'})); sys.exit(1)
-if verb == 'submit' and slug == 'nowake':
-    print(json.dumps({'written': True, 'woke': False})); sys.exit(0)
-print(json.dumps({'verb': verb, 'slug': slug, 'got': picks}))
+    print(json.dumps({'error': 'already answered', 'answered': True, 'existing': 'old'})); sys.exit(3)
+if verb == 'submit' and slug == 'down':
+    sys.stderr.write('decision-page submit: the page server is not answering; nothing was written\\n'); sys.exit(4)
+if verb == 'parse' and slug == 'gone':
+    sys.stderr.write("decision-page parse: no page 'gone'\\n"); sys.exit(1)
+print(json.dumps({'verb': verb, 'slug': slug, 'args': rest, 'stdin': got}))
 ''')
 os.chmod(stub, 0o755)
 os.environ['BFB_DP_BIN'] = stub
-r = call({'op': 'dp', 'verb': 'compose', 'slug': 'my-page', 'payload': {'D1': 'a'}})
-check(r.get('t') == 'dp' and r['result'] == {'verb': 'compose', 'slug': 'my-page', 'got': {'D1': 'a'}}, f'dp compose relays the picks and the reply: {r}')
-r = call({'op': 'dp', 'verb': 'submit', 'slug': 'taken', 'payload': {}})
-check(r.get('t') == 'error' and r['code'] == 'dp_conflict', f'a conflict comes back as its own code: {r}')
-r = call({'op': 'dp', 'verb': 'submit', 'slug': 'nowake', 'payload': {}})
-check(r.get('result') == {'written': True, 'woke': False}, f'a written answer whose wake failed says so: {r}')
+r = call({'op': 'dp', 'verb': 'compose', 'slug': 'my-page', 'payload': {'d': {'D1': 'b'}}})
+check(r.get('t') == 'dp' and r['result'] == {'answer': 'hdr:\nD1b'}, f'compose sends the picks as JSON and returns the answer text: {r}')
+r = call({'op': 'dp', 'verb': 'submit', 'slug': 'my-page', 'payload': {'answer': 'hdr:\nD1b', 'replace': True}})
+check(r.get('result') == {'verb': 'submit', 'slug': 'my-page', 'args': ['--via', 'page', '--replace'], 'stdin': 'hdr:\nD1b'},
+      f'submit sends the answer itself, says it came from the page, and asks to replace only when told: {r}')
+r = call({'op': 'dp', 'verb': 'submit', 'slug': 'my-page', 'payload': {'answer': 'x', 'replace': 'true'}})
+check(r['result']['args'] == ['--via', 'page'], f'replace needs a literal true: {r}')
+r = call({'op': 'dp', 'verb': 'parse', 'slug': 'my-page', 'payload': {'answer': 'hdr:\nD1b'}})
+check(r['result']['stdin'] == 'hdr:\nD1b' and r['result']['args'] == [], f'parse sends the answer text: {r}')
+r = call({'op': 'dp', 'verb': 'submit', 'slug': 'taken', 'payload': {'answer': 'x'}})
+check(r.get('t') == 'error' and r['code'] == 'dp_conflict', f'gcc exit 3 is a conflict: {r}')
+r = call({'op': 'dp', 'verb': 'submit', 'slug': 'down', 'payload': {'answer': 'x'}})
+check(r.get('code') == 'dp_unavailable' and 'nothing was written' in r['message'], f'gcc exit 4 means its server is down and nothing was written: {r}')
+r = call({'op': 'dp', 'verb': 'parse', 'slug': 'gone', 'payload': {'answer': 'x'}})
+check(r.get('code') == 'dp_failed' and 'no page' in r['message'], f'any other refusal is dp_failed with gcc\'s reason: {r}')
 r = call({'op': 'dp', 'verb': 'seen', 'slug': 'my-page'})
-check(r.get('t') == 'dp' and r['result']['verb'] == 'seen', f'dp seen relays: {r}')
+check(r.get('t') == 'dp' and r['result']['verb'] == 'seen' and r['result']['stdin'] == '', f'dp seen relays and sends nothing: {r}')
 r = call({'op': 'dp', 'verb': 'rm', 'slug': 'my-page'})
 check(r.get('code') == 'notes_bad_op', f'a verb outside the four is refused: {r}')
 r = call({'op': 'dp', 'verb': 'parse', 'slug': '../etc'})
@@ -346,6 +359,23 @@ check([p['slug'] for p in r['pages']][:3] == ['fresh', 'done', 'broken'], f'newe
 fresh = next(p for p in r['pages'] if p['slug'] == 'fresh')
 check(fresh['title'] == 'FRESH' and fresh['items'] == 3 and fresh['origin'] == {'project': 'p'} and fresh['seen'] is False, f'a row carries title, item count, origin and seen: {fresh}')
 check(next(p for p in r['pages'] if p['slug'] == 'done')['seen'] is True, 'a page with .seen.json reads as seen')
+
+# Reach comes from gcc's one batched call; only waiting pages carry it.
+reach_stub = os.path.join(stub_dir, 'reach.sh')
+with open(reach_stub, 'w') as fh:
+    fh.write('#!/usr/bin/env python3\nimport json, sys\nassert sys.argv[1:] == ["reach"]\nprint(json.dumps({"old-listed": "hot", "done": "cold", "fresh": "warm"}))\n')
+os.chmod(reach_stub, 0o755)
+os.environ['BFB_DP_BIN'] = reach_stub
+r = call({'op': 'dpPages'})
+reach = {p['slug']: p.get('reach') for p in r.get('pages', [])}
+check(reach == {'old-listed': 'hot', 'old-quiet': None, 'fresh': 'unknown', 'done': None, 'broken': None},
+      f'waiting pages carry reach, an odd value reads unknown, other pages none: {reach}')
+os.environ['BFB_DP_BIN'] = os.path.join(stub_dir, 'missing.sh')
+r = call({'op': 'dpPages'})
+reach = {p['slug']: p.get('reach') for p in r.get('pages', []) if p['state'] == 'waiting'}
+check(reach == {'old-listed': 'unknown', 'fresh': 'unknown'}, f'no command means every waiting page reads unknown: {reach}')
+del os.environ['BFB_DP_BIN']
+
 os.environ['BFB_DP_REGISTRY'] = os.path.join(reg, 'nowhere')
 r = call({'op': 'dpPages'})
 check(r.get('code') == 'dp_unavailable', f'a missing registry gives a stable code: {r}')

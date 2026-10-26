@@ -71,6 +71,22 @@ try {
   for (let i = 0; i < 14 && !appeared; i++) { await wait(1000); appeared = await tab.$('.fe-dpl-row[data-slug="brand-new"]') !== null; }
   check(appeared, 'E2 a new page shows up without a reload');
 
+  // E7: gcc says which agents can still be woken; a live one sorts first, a gone one last.
+  const waitingNow = () => tab.evaluate(() => [...document.querySelectorAll('.fe-dpl-band[data-band="waiting"] .fe-dpl-row')].map(r => ({
+    slug: r.dataset.slug, reach: r.querySelector('.fe-dpl-reach')?.textContent ?? '', color: getComputedStyle(r.querySelector('.fe-dpl-reach') ?? r).color,
+  })));
+  const until = async (ok, ms = 14000) => { let v; for (const t0 = Date.now(); Date.now() - t0 < ms;) { v = await waitingNow(); if (ok(v)) break; await wait(500); } return v; };
+  writeFileSync(h.dpReach, JSON.stringify({ 'listed-old': 'hot', 'fresh-ask': 'absent' }));
+  let w = await until(v => v[0]?.slug === 'listed-old');
+  check(w.map(r => r.slug).join() === 'listed-old,brand-new,fresh-ask' && w[0].reach === 'agent live' && w[2].reach === 'agent gone' && w[1].reach === '',
+    `E7 a live agent's page sorts first and a gone one's last; a page gcc does not list says nothing: ${JSON.stringify(w)}`);
+  check(w[0].color !== w[2].color, `E7 a live agent reads in green, apart from the rest: ${JSON.stringify([w[0].color, w[2].color])}`);
+  await shot(tab, 'dp-lens-reach');
+  writeFileSync(h.dpReach, 'fail');
+  w = await until(v => v.every(r => r.reach === 'agent unknown'));
+  check(w.length === 3 && w.every(r => r.reach === 'agent unknown'), `E7 when gcc cannot tell, every waiting page says unknown: ${JSON.stringify(w)}`);
+  writeFileSync(h.dpReach, '{}');
+
   // Opening a page goes there, draws it as a decision page and tells gcc it was seen.
   await tab.click('.fe-dpl-row[data-slug="fresh-ask"]');
   await tab.waitForSelector('#fe-dp:not([hidden]) .fe-dp-title', { timeout: 8000 });

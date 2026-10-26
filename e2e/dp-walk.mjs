@@ -28,7 +28,7 @@ try {
   await page.waitForSelector('#fe-dp:not([hidden]) .fe-dp-title', { timeout: 8000 });
   const first = await page.evaluate(() => ({
     title: document.querySelector('.fe-dp-title')?.textContent,
-    origin: [...document.querySelectorAll('.fe-dp-origin .chip')].length,
+    origin: [...document.querySelectorAll('.fe-dp-origin .fe-dp-fact')].map(f => f.textContent),
     intro: !!document.querySelector('.fe-dp-intro'),
     count: document.querySelector('.fe-dp-count')?.textContent,
     listing: getComputedStyle(document.getElementById('fe-scroll')).display,
@@ -66,13 +66,13 @@ try {
     title: 'Walk page', storageKey: 'walk-k', accent: '#7c3aed', intro: 'Intro text.',
     groups: { Look: { context: 'See https://example.com/x for more.', color: '#d97706' } },
     decisions: [
-      { id: 'D1', question: 'First?', context: 'Para one\nsame para\n\nPara two', images: ['a.png', '../x.png'], options: [{ code: 'a', label: 'Plain A' }, { code: 'b', label: 'Plain B', rec: true, why: 'because' }] },
+      { id: 'D1', question: 'First?', group: 'Look', context: 'Para one\nsame para\n\nPara two', images: ['a.png', '../x.png'], options: [{ code: 'a', label: 'Plain A' }, { code: 'b', label: 'Plain B', rec: true, why: 'because' }] },
       { id: 'D2', question: 'Second?', note: 'why?', none: true, noneLabel: 'Neither', options: [{ code: 'a', label: 'Tile A', images: ['a.png'], rec: true }, { code: 'b', label: 'Tile B', images: ['a.png'] }, { code: 'c', label: 'Tile C', images: ['a.png'] }] },
     ],
     sections: [
-      { id: 's1', group: 'Look', title: 'S one', prio: 'P1', read: 'Read me', slots: { KEEP: 'k', CHANGE: 'c' }, images: ['a.png', 'a.png'] },
+      { id: 's1', group: 'Look', title: 'S one', prio: 'P1', read: 'Read me', slots: { KEEP: 'k', CHANGE: 'c' }, images: ['a.png', 'a.png'], pre: '**Bold** line\n\n- one\n- two' },
       { id: 's2', group: 'Look', title: 'S two', pre: 'raw  text    spaced' },
-      { id: 's3', group: 'Other', title: 'S three', note: 'seed' },
+      { id: 's3', group: 'Other', title: 'S three', note: 'seed', read: Array.from({ length: 12 }, (v, i) => `Line ${i + 1} of a long read that should fold.`).join('\n') },
     ],
   }));
   await page.goto('file://' + full + '/', { waitUntil: 'load' });
@@ -89,14 +89,15 @@ try {
     return {
       decisions: document.querySelectorAll('.fe-dp-card[data-kind="decision"]').length, d1: checked('D1'), d2: checked('D2'),
       recs: document.querySelectorAll('.fe-dp-rec').length, recOn: [...document.querySelectorAll('.fe-dp-rec')].map(b => b.closest('.fe-dp-opt').dataset.code).join(''),
-      ctxParas: card('D1').querySelectorAll('.fe-dp-md p').length, d1Strip: card('D1').querySelectorAll('.fe-dp-strip img').length,
+      ctxParas: card('D1').querySelectorAll('.fe-dp-md p').length, d1Strip: card('D1').querySelectorAll('.fe-dv-strip img').length,
       tileTops: tiles, noneCode: none?.dataset.code, noneLabel: none?.querySelector('.fe-dp-opt-lbl').textContent, noneFull: Math.abs(none.getBoundingClientRect().width - gal) < 2,
       d2Note: { open: !card('D2').querySelector('.fe-dp-note').hidden, text: card('D2').querySelector('textarea').value },
       s3Note: { open: !card('s3').querySelector('.fe-dp-note').hidden, text: card('s3').querySelector('textarea').value },
-      s1: { title: card('s1').querySelector('.fe-dp-q').textContent, prio: card('s1').querySelector('.fe-dp-prio')?.textContent, read: card('s1').querySelector('.fe-dp-md')?.textContent.trim(), slots: card('s1').querySelectorAll('.fe-dp-slot').length, agree: card('s1').querySelector('.fe-dp-agree-sw').checked, imgs: card('s1').querySelectorAll('.fe-dp-strip img').length },
+      s1: { title: card('s1').querySelector('.fe-dp-q').textContent, prio: card('s1').querySelector('.fe-dp-prio')?.textContent, read: card('s1').querySelector('.fe-dp-md')?.textContent.trim(), slots: card('s1').querySelectorAll('.fe-dp-slot').length, agree: card('s1').querySelector('.fe-dp-agree-sw').checked, imgs: card('s1').querySelectorAll('.fe-dv-strip img').length },
       grps, lookColor: getComputedStyle(look.querySelector('summary')).color, lookLink: !!look.querySelector('.fe-dp-grp-ctx a[href^="https://example.com"]'),
       pre: { font: getComputedStyle(pre).fontFamily, ws: getComputedStyle(pre).whiteSpace, text: pre.textContent },
       end: !!document.getElementById('fe-dp-endnotes'),
+      dgrp: { d1: card('D1').querySelector('.fe-dp-dgrp')?.textContent, color: card('D1').querySelector('.fe-dp-dgrp') && getComputedStyle(card('D1').querySelector('.fe-dp-dgrp')).color, d2: !!card('D2').querySelector('.fe-dp-dgrp') },
       selBorder: getComputedStyle(card('D1').querySelector('.fe-dp-opt:has(input:checked)')).borderColor,
       progress: document.getElementById('fe-dp-progress').textContent,
     };
@@ -112,9 +113,12 @@ try {
   check(r.lookColor === 'rgb(217, 119, 6)' && r.lookLink, `A8 a group's colour tints its heading and its context links: ${JSON.stringify([r.lookColor, r.lookLink])}`);
   check(/mono|Menlo|Courier/i.test(r.pre.font) && r.pre.ws === 'pre' && r.pre.text === 'raw  text    spaced', `A21 pre text is verbatim and monospace: ${JSON.stringify(r.pre)}`);
   check(r.end, 'A24 the Notes for Claude card is there');
+  check(r.dgrp.d1 === 'Look' && r.dgrp.color === 'rgb(217, 119, 6)' && !r.dgrp.d2, `F12 a decision's group shows as a label in its group colour, and none without one: ${JSON.stringify(r.dgrp)}`);
   check(r.selBorder === 'rgb(124, 58, 237)', `A5 accent colours the selected option: ${r.selBorder}`);
   check(r.progress === '5 items · all as drafted', `B16 the progress line starts as drafted: ${r.progress}`);
   await shot(page, 'dp-cards');
+  const rail = await page.evaluate(() => [...document.querySelectorAll('.fe-dv-outline-row')].map(r => ({ id: r.dataset.target, state: r.dataset.state, val: r.querySelector('.fe-dv-outline-val').textContent, shown: r.offsetParent !== null })));
+  check(rail.length === 5 && rail.every(x => x.shown && x.state === 'drafted') && rail[0].val === 'b' && rail[1].val === 'a', `R1 the rail lists every item as drafted, with each decision's pick: ${JSON.stringify(rail)}`);
 
   const cur = () => page.evaluate(() => document.querySelector('.fe-dp-card.current')?.dataset.id ?? null);
   await page.evaluate(() => document.activeElement?.blur());
@@ -130,6 +134,36 @@ try {
   await page.keyboard.down('Shift'); await page.keyboard.press('G'); await page.keyboard.up('Shift');
   check(firstCard === 'D1' && await cur() === 's3', `B1 g and G go to the first and last card: ${firstCard}`);
 
+  // A message-like pre renders as markdown, Raw shows it verbatim and back; an aligned one starts verbatim.
+  const pv = () => page.evaluate(() => {
+    const b = document.querySelector('.fe-dp-card[data-id="s1"] .fe-dp-preview'), s2 = document.querySelector('.fe-dp-card[data-id="s2"] .fe-dp-preview');
+    const vis = el => !!el && el.offsetParent !== null;
+    return { view: b.dataset.view, strong: vis(b.querySelector('.fe-dp-md strong')), items: b.querySelectorAll('.fe-dp-md li').length, pre: vis(b.querySelector('.fe-dp-pre')) ? b.querySelector('.fe-dp-pre').textContent : null, s2: s2.dataset.view };
+  });
+  const pv1 = await pv();
+  await page.click('.fe-dp-card[data-id="s1"] .fe-dp-rawbtn');
+  const pv2 = await pv();
+  await page.click('.fe-dp-card[data-id="s1"] .fe-dp-rawbtn');
+  const pv3 = await pv();
+  check(pv1.view === 'md' && pv1.strong && pv1.items === 2 && pv1.pre === null && pv1.s2 === 'raw', `D6 a message-like pre renders as markdown; an aligned one starts verbatim: ${JSON.stringify(pv1)}`);
+  check(pv2.view === 'raw' && pv2.pre === '**Bold** line\n\n- one\n- two' && !pv2.strong && pv3.view === 'md', `D6 Raw shows the text as written, and back: ${JSON.stringify([pv2, pv3.view])}`);
+
+  // Long prose folds behind More; a rail row goes to its card.
+  const fold = () => page.evaluate(() => { const c = document.querySelector('.fe-dp-card[data-id="s3"]'); const i = c.querySelector('.fe-dv-clamp-in'); return { h: i.clientHeight, full: i.scrollHeight, more: !c.querySelector('.fe-dv-more').hidden, label: c.querySelector('.fe-dv-more').textContent }; });
+  const short = await page.evaluate(() => document.querySelector('.fe-dp-card[data-id="D1"] .fe-dv-more')?.hidden);
+  const folded = await fold();
+  check(folded.more && folded.h < folded.full && short === true, `R2 a long read folds with More; a short one shows no More: ${JSON.stringify([folded, short])}`);
+  await page.click('.fe-dp-card[data-id="s3"] .fe-dv-more');
+  const opened = await fold();
+  check(opened.h >= opened.full - 1 && opened.label === 'Less', `R2 More opens the whole read: ${JSON.stringify(opened)}`);
+  for (const id of ['D2', 's3']) {
+    await page.click(`.fe-dv-outline-row[data-target="${id}"]`);
+    await new Promise(res => setTimeout(res, 700));
+    const jumped = await page.evaluate(() => ({ cur: document.querySelector('.fe-dp-card.current')?.dataset.id, focused: document.activeElement?.dataset?.id, row: document.querySelector('.fe-dv-outline-row.active')?.dataset.target }));
+    check(jumped.cur === id && jumped.focused === id && jumped.row === id, `R3 a rail row goes to its card and the rail marks it: ${JSON.stringify(jumped)}`);
+  }
+  await shot(page, 'dp-rail');
+
   await page.click('.fe-dp-card[data-id="D1"] .fe-dp-q');
   await page.keyboard.press('1');
   await new Promise(res => setTimeout(res, 400));
@@ -140,6 +174,8 @@ try {
   const gold = await page.evaluate(() => { const d = document.createElement('i'); d.style.color = 'var(--gold)'; document.getElementById('fe').append(d); const c = getComputedStyle(d).color; d.remove(); return c; });
   check(picked.cur && picked.v === 'a' && picked.flag === 'changed' && picked.progress === '5 items · 1 flagged', `B15 B2 B16 clicking a card then 1 picks its first option: ${JSON.stringify(picked)}`);
   check(picked.edge === gold, `B17 a changed card gets the amber edge: ${picked.edge} vs ${gold}`);
+  const railD1 = await page.evaluate(() => { const r = document.querySelector('.fe-dv-outline-row[data-target="D1"]'); return { state: r.dataset.state, val: r.querySelector('.fe-dv-outline-val').textContent, segs: document.querySelectorAll('#fe-dp-meter .fe-dv-bar i[data-state="changed"]').length }; });
+  check(railD1.state === 'changed' && railD1.val === 'a' && railD1.segs === 1, `R1 the rail row and the meter follow a changed pick: ${JSON.stringify(railD1)}`);
   check(picked.nums.every(v => v === 'visible'), `A18 the focused decision shows its option numbers: ${JSON.stringify(picked.nums)}`);
 
   await page.click('.fe-dp-card[data-id="s1"] .fe-dp-q');

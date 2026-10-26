@@ -32,15 +32,20 @@ async function main() {
     logLevel: 'info',
   });
 
+  // A decision page outside the extension, served by gcc's page server at /dp-assets/dp-web.js.
+  const dpWebCtx = await esbuild.context({
+    entryPoints: ['src/dp-web.ts'], bundle: true, outfile: 'assets/dp-web/dp-web.js',
+    format: 'iife', target: 'chrome100', platform: 'browser', minify: true,
+    logLevel: 'info',
+  });
+
+  const all = [ctx, mermaidCtx, searchCtx, designCtx, dpWebCtx];
   if (watch) {
-    await Promise.all([ctx.watch(), mermaidCtx.watch(), searchCtx.watch(), designCtx.watch()]);
+    await Promise.all(all.map(c => c.watch()));
     console.log('Watching for changes…');
   } else {
-    await Promise.all([ctx.rebuild(), mermaidCtx.rebuild(), searchCtx.rebuild(), designCtx.rebuild()]);
-    await ctx.dispose();
-    await mermaidCtx.dispose();
-    await searchCtx.dispose();
-    await designCtx.dispose();
+    await Promise.all(all.map(c => c.rebuild()));
+    await Promise.all(all.map(c => c.dispose()));
   }
 }
 

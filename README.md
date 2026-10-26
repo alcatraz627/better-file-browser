@@ -120,6 +120,9 @@ The tab icon on a note row opens its **rendered file page as a tab in this page'
 ### File pages
 A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt) renders like the preview instead of Chrome's plain text, inside the same shell as a folder listing, so the sidebar, the strip and the path bar stay put. The main column carries a heading table of contents for markdown, **r** for raw, a remembered scroll position, and a re-render whenever the file changes on disk. The **Reading width** button cycles through Full, XL, LG, and MD; Settings can choose the starting width. Text size scales the whole interface. Paths beginning `/Users/alcatraz627` in Markdown become links that open in a new tab, including paths with spaces and `:line` references. Settings can limit file pages to non-markdown files or turn them off if you keep another markdown extension on file URLs. **Settings → Exclusions** lists extensions that Chrome opens natively; `.pdf`, `.html`, and `.htm` are excluded by default. Remove `.html` or `.htm` to show their source in the file page.
 
+### Decision pages and directions docs
+A folder holding an agent's decision-page `config.json` opens as the page to answer instead of a listing: cards to pick and agree on, pictures to grow or compare, notes, and an answer panel with **Copy** and **Submit** that hand the answer to gcc. The **Decisions** lens lists every page waiting on you. A `DIRECTIONS.md` file page gains a bar counting each row's state that filters the tables, section meters, and named state pills. Both are plugins on one shared kit; [Doc views](docs/doc-views.md) explains how they work.
+
 ### Find and saved views
 The Filter panel's second row searches **text inside files**: the text files the name and type fields allow (2 MB each at most) are read through the service worker, with four reads shared across browser tabs. A separate **Text regex** checkbox applies to file contents. Results show the first matching line and the number of matches in each file. The Details view adds a Matches column while content results are shown. Cancel leaves a labelled partial result; changing a query stops its old scan. **Save view** keeps the folder plus the query as a Saved row with a funnel icon; the row is a plain URL with the query in its hash, so opening it brings the search back, and a hash change on an open page applies it in place.
 
@@ -218,6 +221,9 @@ better-file-browser/
 │   ├── preview.ts              Quick Look panel (modal or docked) + AI bar + note editor
 │   ├── file-page.ts            takeover for a file opened directly in the tab
 │   ├── md-ui.ts                behaviour inside rendered markdown: code-block copy, image opens natively
+│   ├── docview*.ts             doc views: the registry and the shared kit (pictures, meters, folding, rail)
+│   ├── dp-*.ts · directions.ts the decision page, its answer panel and lens; the directions doc
+│   ├── dp-web.ts               the decision page as a standalone bundle for gcc's page server
 │   ├── renderers.ts            pure render fns: code/DSV/JSON/JSONL/markdown (unit-tested)
 │   ├── deep-search.ts          pure subtree crawler behind the deep search toggle
 │   ├── tabs.ts · places.ts     pure cores for the tab strip and the Saved list
@@ -229,6 +235,7 @@ better-file-browser/
 ├── tests/                      vitest unit tests
 ├── e2e/                        browser harness + smoke run (npm run e2e)
 ├── docs/                       documentation map, Notes contract, design records
+├── assets/dp-web/              built web bundle and shell for decision pages over http
 ├── icon.svg                    Extension icon (dark rounded square + folder)
 ├── README.md
 └── native/

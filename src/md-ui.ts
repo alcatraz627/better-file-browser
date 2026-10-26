@@ -7,7 +7,7 @@ import type { Toast } from './toast';
 import { fileExists } from './file-fetch';
 import { esc } from './utils';
 import { go } from './nav';
-import { enhanceDirections, isDirectionsDoc } from './directions';
+import { decorateFileView } from './docviews';
 
 // Drawn Mermaid diagrams, kept in the extension's own storage (never the
 // file:// localStorage, which any HTML file opened in Chrome can write) so a
@@ -73,11 +73,10 @@ export function initMarkdownUi(toast: Toast): void {
   };
   const fe = document.getElementById('fe');
   if (fe) {
-    // A directions doc's file page gains its status bar and meters once rendered (and again after a reload from disk).
+    // A file page whose doc has a view (a directions doc) is decorated once rendered, and again after a reload from disk.
     const directionsHere = () => {
-      if (!isDirectionsDoc(decodeURIComponent(location.pathname))) return;
       const md = document.querySelector<HTMLElement>('#fe-page .fe-md');
-      if (md) enhanceDirections(md);
+      if (md && !md.dataset.docview) decorateFileView(md, decodeURIComponent(location.pathname), m => toast(m));
     };
     directionsHere();
     new MutationObserver(() => { renderDiagrams(); linkFrontMatterPaths(); linkGccRefs(); directionsHere(); }).observe(fe, {
@@ -104,7 +103,7 @@ export function initMarkdownUi(toast: Toast): void {
       return;
     }
     const img = t.closest<HTMLImageElement>('.fe-md img');
-    if (img && !img.closest('a')) { e.preventDefault(); go(img.src, 'chrome-tab'); }
+    if (img && !img.closest('a, [data-docview]')) { e.preventDefault(); go(img.src, 'chrome-tab'); }
   });
 }
 

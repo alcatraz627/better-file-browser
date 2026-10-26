@@ -129,6 +129,17 @@ export function dispatch(e: KeyboardEvent): boolean {
   return false;
 }
 
+/// Send every key press on the page to its command. Capture runs before every
+/// surface's own handler, so a command key wins only when it is live; anything
+/// else falls through untouched. `first` gets a look before the commands do.
+export function listenForKeys(first?: (e: KeyboardEvent) => boolean): void {
+  document.addEventListener('keydown', e => {
+    if (e.defaultPrevented) return;
+    if (first?.(e)) return;
+    dispatch(e);
+  }, true);
+}
+
 // The palette: every command that can run now with its key, then places to
 // go, in tabs (actions, tabs, saved, recent, notes, this folder, comments,
 // chats), all filtered by what is typed. A source may answer later, as the

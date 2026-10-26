@@ -12,7 +12,7 @@ import { initPreview, closePreview } from './preview';
 import { setSidebarShown } from './motion';
 import { initSidePeek } from './side-peek';
 import { mountKeep, askRename } from './doc-keep';
-import { mountDecisionPage } from './dp-page';
+import { mountFolderView } from './docviews';
 import { CSS } from './styles';
 import { UI_CSS } from './styles-ui';
 import { setUiScale } from './chrome';
@@ -286,7 +286,7 @@ loadKv().catch(() => {}).then(function () {
   installColumnResize();
   const listing = initListing(app, entries, { view: initView, density: initDensity, hidden: initHidden });
   initListingInput(app, listing);
-  void mountDecisionPage(app);
+  void mountFolderView(app);
   initSettingsUi(app);
   initToolLenses(app);
   initSidebar(app);

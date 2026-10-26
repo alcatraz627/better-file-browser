@@ -61,3 +61,72 @@ export function progress(cfg: DpConfig, s: DpState): { items: number; flagged: n
 
 /** Where a page's answers are kept: by its storage key, else its title, as the old page did. The store keeps only bfb- keys. */
 export const stateKey = (cfg: DpConfig): string => 'bfb-dp-answers:' + (cfg.storageKey || cfg.title || 'untitled');
+
+/** The same answers in the shape gcc's composer and parser use. */
+export interface GccState {
+  d: Record<string, string>; dnotes: Record<string, string>;
+  screens: Record<string, { agree: boolean; note: string }>; endnotes: string;
+}
+
+/** bfb's answers as gcc reads them, so gcc can compose the answer string. */
+export function toGcc(cfg: DpConfig, s: DpState): GccState {
+  const g: GccState = { d: {}, dnotes: {}, screens: {}, endnotes: s.endNotes };
+  for (const d of cfg.decisions ?? []) {
+    if (s.picks[d.id]) g.d[d.id] = s.picks[d.id];
+    g.dnotes[d.id] = s.notes[d.id] ?? '';
+  }
+  for (const x of cfg.sections ?? []) g.screens[x.id] = { agree: s.agree[x.id] !== false, note: s.notes[x.id] ?? '' };
+  return g;
+}
+
+/** What gcc parsed out of a sent answer, as bfb's answers, so the form shows what was sent. */
+export function fromGcc(cfg: DpConfig, g: Partial<GccState>): DpState {
+  const s: Partial<DpState> = { picks: { ...(g.d ?? {}) }, agree: {}, notes: {}, endNotes: g.endnotes ?? '' };
+  for (const d of cfg.decisions ?? []) s.notes![d.id] = g.dnotes?.[d.id] ?? '';
+  for (const x of cfg.sections ?? []) {
+    const v = g.screens?.[x.id];
+    s.agree![x.id] = v?.agree !== false;
+    s.notes![x.id] = v?.note ?? '';
+  }
+  return restoreState(cfg, s);
+}
+
+/**
+ * The answer as bfb can write it when gcc cannot compose: the picks line every
+ * reader parses, then each note and disagreement under a heading that says it
+ * was not composed, then the notes for Claude. Never sent; only copied.
+ */
+export function fallbackAnswer(cfg: DpConfig, s: DpState): string {
+  const lines: string[] = [];
+  const ds = cfg.decisions ?? [];
+  if (ds.length) lines.push(ds.map(d => d.id + (s.picks[d.id] ?? '?')).join(' '));
+  const extra: string[] = [];
+  for (const d of ds) if ((s.notes[d.id] ?? '').trim()) extra.push(`${d.id}: ${s.notes[d.id].trim()}`);
+  for (const x of cfg.sections ?? []) {
+    const note = (s.notes[x.id] ?? '').trim();
+    if (s.agree[x.id] === false || note) extra.push(`${x.id}: ${s.agree[x.id] === false ? 'DISAGREE' : 'agree'}${note ? ` (${note})` : ''}`);
+  }
+  if (extra.length) lines.push('notes (not composed, host down):', ...extra);
+  if (s.endNotes.trim()) lines.push('notes:', s.endNotes.trim());
+  return lines.join('\n');
+}
+
+/** One sent pick, as the answered banner shows it: the option's label, and whether it moved off the recommendation. */
+export interface SentPick { id: string; code: string; label: string; moved: boolean }
+/** What an answered page says was sent: each pick, and each note or disagreement as a line. */
+export function sentSummary(cfg: DpConfig, s: DpState): { picks: SentPick[]; lines: string[] } {
+  const draft = draftedState(cfg);
+  const picks = (cfg.decisions ?? []).map(d => {
+    const code = s.picks[d.id] ?? '';
+    const label = d.options.find(o => o.code === code)?.label ?? (d.none && code === noneCode(d) ? d.noneLabel || 'None of these' : code);
+    return { id: d.id, code, label, moved: code !== draft.picks[d.id] };
+  });
+  const lines: string[] = [];
+  for (const d of cfg.decisions ?? []) if ((s.notes[d.id] ?? '').trim()) lines.push(`${d.id}: ${s.notes[d.id].trim()}`);
+  for (const x of cfg.sections ?? []) {
+    const note = (s.notes[x.id] ?? '').trim();
+    if (s.agree[x.id] === false) lines.push(`${x.title || x.id}: disagreed${note ? `, ${note}` : ''}`);
+    else if (note) lines.push(`${x.title || x.id}: ${note}`);
+  }
+  return { picks, lines };
+}

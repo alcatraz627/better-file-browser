@@ -10,6 +10,10 @@ describe('Decisions lens', () => {
       ['waiting', ['new-wait', 'old-wait']], ['answered', ['done']], ['never', ['stale']], ['broken', ['x']],
     ]);
   });
+  it('puts a live agent first and a gone one last inside a band, newest first otherwise', () => {
+    const w = [row('a', 'waiting', 50, { reach: 'absent' }), row('b', 'waiting', 40), row('c', 'waiting', 10, { reach: 'hot' }), row('d', 'waiting', 30, { reach: 'cold' }), row('e', 'waiting', 20, { reach: 'unknown' })];
+    expect(dpBands(w)[0].rows.map(r => r.slug)).toEqual(['c', 'b', 'd', 'e', 'a']);
+  });
   it('filters by title, name, project or topic and drops empty bands', () => {
     const tagged = [...rows, row('p', 'answered', 1, { title: 'Other', origin: { project: 'bfb' } })];
     expect(dpBands(tagged, 'BFB').map(b => b.rows.map(r => r.slug))).toEqual([['p']]);

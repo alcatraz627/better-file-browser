@@ -4,7 +4,7 @@
 // ⌥ is held. It also binds the commands that act on the page's own buttons.
 import type { App } from './app';
 import { KEYMAP, type Scope } from './keymap';
-import { bind, dispatch, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
+import { bind, listenForKeys, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
 import { isPreviewOpen, openPreview, noteAction } from './preview';
 import { raise, rovingFocus } from './layer';
 import { declareArea, areaOf, areaNamed, cycleArea, allRoots } from './areas';
@@ -77,13 +77,8 @@ export function initFocusNav(app: App): void {
     return { scopes, typing: isTyping(ae), widget: !!area?.widget, docked, blocked };
   });
 
-  // Capture runs before every surface's own handler, so a command key wins
-  // only when it is live; anything else falls through untouched.
-  document.addEventListener('keydown', e => {
-    if (e.defaultPrevented) return;
-    if (menuKeys(e)) return;
-    dispatch(e);
-  }, true);
+  // An open menu takes its own keys before any command.
+  listenForKeys(menuKeys);
 
   // Where focus last was in the sidebar, so coming back lands on that row.
   let lastSide: HTMLElement | null = null;
