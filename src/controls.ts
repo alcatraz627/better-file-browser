@@ -44,7 +44,7 @@ export function ddHtml(id: string, opts: Opt[], title: string, size: 'md' | 'lg'
 /// A check box with its label, for an option that is on or off inside a
 /// form. A setting in Settings is a Switch instead.
 export function checkHtml(id: string, label: string, title: string, checked = false): string {
-  return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}"${checked ? ' checked' : ''}><span>${esc(label)}</span></label>`;
+  return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}" title="${esc(title)}"${checked ? ' checked' : ''}><span>${esc(label)}</span></label>`;
 }
 
 /// A switch for a setting that takes effect at once. Small sits inside a row

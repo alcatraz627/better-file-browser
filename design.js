@@ -1236,7 +1236,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe[data-density="5"] #fe-table tbody td{height:23px}
 #fe-table tbody td:first-child{border-radius:var(--row-r) 0 0 var(--row-r)}
 #fe-table tbody td:last-child{border-radius:0 var(--row-r) var(--row-r) 0}
-#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left;padding:0 var(--sp-3)}
+#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left;padding:0 var(--sp-3);scroll-padding-top:var(--fe-th-h,0px)}
 .fe-row.selected .fe-nm{color:var(--tx)}
 .fe-tile.selected{background:var(--on);border-color:transparent}
 
@@ -2222,6 +2222,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   function esc(s) {
     return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
+  var TIME_FMT = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
   var DATE_FMT = {
     short: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }),
     full: new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" })
@@ -2881,6 +2882,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   var palettePref = choicePref(PALETTE_KEY, PALETTES, "slate");
   var densityPref = numberPref(DENSITY_KEY, 3, (n) => n >= 1 && n <= 5);
   var hiddenPref = flagPref(HIDDEN_KEY, false, "true", "false");
+  var dirsFirstPref = flagPref("bfb-dirs-first-v1", false);
 
   // src/design-page.ts
   var PAGE_CSS = `

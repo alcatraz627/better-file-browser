@@ -21,9 +21,14 @@ export function applyFilter(entries: Entry[], config: FilterConfig, regexMatches
   });
 }
 
-export function applySort(entries: Entry[], config: SortConfig): Entry[] {
-  if (!config.col) return entries;
+// Names compare by number where they hold one, so "sub 2" comes before "sub 10".
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+export function applySort(entries: Entry[], config: SortConfig, dirsFirst = false): Entry[] {
+  if (!config.col) return dirsFirst ? [...entries.filter(e => e.isDir), ...entries.filter(e => !e.isDir)] : entries;
   return [...entries].sort((a, b) => {
+    // Folders stay above files whichever way the column runs.
+    if (dirsFirst && a.isDir !== b.isDir) return a.isDir ? -1 : 1;
     let va: string | number, vb: string | number;
     if      (config.col === 'name') { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
     else if (config.col === 'size') { va = a.rawBytes; vb = b.rawBytes; }
@@ -33,7 +38,7 @@ export function applySort(entries: Entry[], config: SortConfig): Entry[] {
     else return 0;
     const cmp = typeof va === 'number'
       ? (va as number) - (vb as number)
-      : String(va).localeCompare(String(vb));
+      : collator.compare(String(va), String(vb));
     return config.dir === 'asc' ? cmp : -cmp;
   });
 }

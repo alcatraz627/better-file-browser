@@ -1234,7 +1234,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe[data-density="5"] #fe-table tbody td{height:23px}
 #fe-table tbody td:first-child{border-radius:var(--row-r) 0 0 var(--row-r)}
 #fe-table tbody td:last-child{border-radius:0 var(--row-r) var(--row-r) 0}
-#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left;padding:0 var(--sp-3)}
+#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left;padding:0 var(--sp-3);scroll-padding-top:var(--fe-th-h,0px)}
 .fe-row.selected .fe-nm{color:var(--tx)}
 .fe-tile.selected{background:var(--on);border-color:transparent}
 

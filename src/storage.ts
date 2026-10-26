@@ -324,6 +324,8 @@ export const viewPref = textPref(VIEW_KEY, 'details');
 export const palettePref = choicePref(PALETTE_KEY, PALETTES, 'slate');
 export const densityPref = numberPref(DENSITY_KEY, 3, n => n >= 1 && n <= 5);
 export const hiddenPref = flagPref(HIDDEN_KEY, false, 'true', 'false');
+/** Whether a sorted listing keeps folders above files, with no group headers. */
+export const dirsFirstPref = flagPref('bfb-dirs-first-v1', false);
 
 /** A remembered set of names, such as which groups are folded. */
 export const setPref = (id: string): Pref<Set<string>> =>

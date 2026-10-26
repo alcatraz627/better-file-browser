@@ -11,7 +11,7 @@ import { esc, fmtSize, fullPath, copyToClipboard } from './utils';
 import { holdScroll } from './scroll-hold';
 import {
   viewPref, densityPref, hiddenPref, textPref, getColWidths, saveColWidths, getSaved, getTags, saveSaved,
-  getSortConfig, saveSortConfig, getGroupMode, saveGroupMode,
+  getSortConfig, saveSortConfig, getGroupMode, saveGroupMode, dirsFirstPref,
 } from './storage';
 import { upsertPlace } from './places';
 import { selectionRange } from './selection';
@@ -97,7 +97,8 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     const showHidden = fe.classList.contains('show-hidden');
     const d = showHidden ? dirs : nonPar.filter(e => e.isDir && !e.isHidden).length;
     const f = showHidden ? files : nonPar.filter(e => !e.isDir && !e.isHidden).length;
-    return `${d} folder${d !== 1 ? 's' : ''}, ${f} file${f !== 1 ? 's' : ''}${!showHidden && hidden ? ` · ${hidden} hidden` : ''}`;
+    const parts = [d && `${d} folder${d !== 1 ? 's' : ''}`, f && `${f} file${f !== 1 ? 's' : ''}`].filter(Boolean);
+    return `${parts.length ? parts.join(', ') : 'Empty'}${!showHidden && hidden ? `${parts.length ? ' · ' : ': '}${hidden} hidden` : ''}`;
   };
   ls.baseStatus = countText();
 
@@ -119,7 +120,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       const children = treeChildren.get(en.href);
       if (!children) return;
       if (!children.length) rows.push(emptyHtml('empty', 'Empty folder', { inline: true, indent: depth + 1 }));
-      for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? undefined), ls.sort)) {
+      for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? undefined), ls.sort, dirsFirstPref.get())) {
         if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
       }
     };
@@ -157,7 +158,10 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   function measureWindow(): void {
     if (!win) return;
     const tbody = el('fe-tbody');
-    tbody.innerHTML = win.parts.slice(0, 60).join('');
+    // The sample stands on a spacer as tall as the old list, so measuring does
+    // not shrink the page and pull the scroll position up with it.
+    const held = tbody.getBoundingClientRect().height;
+    tbody.innerHTML = win.parts.slice(0, 60).join('') + `<tr class="fe-spacer" aria-hidden="true"><td colspan="6" style="--h:${Math.round(held)}px"></td></tr>`;
     const row = tbody.querySelector<HTMLElement>('tr[data-idx]')?.offsetHeight || 36;
     const hdr = tbody.querySelector<HTMLElement>('.fe-group-hdr')?.offsetHeight || row;
     let y = 0;
@@ -174,16 +178,24 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   // This Chrome tab remembers the selected row of each folder, by name.
   const leadPref = textPref('bfb-lead:' + rawPath, '', 'tab');
   let leadRestored = false;
+  let lastSetKey = '';
   function applyAll(): void {
     const parent  = all.filter(e => e.isParent);
     let entries   = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
     entries = applyFilter(entries, ls.filter, nameMatches ?? undefined);
     if (ls.contentHits) entries = entries.filter(e => ls.contentHits!.has(e.href));
-    entries = applySort(entries, ls.sort);
+    entries = applySort(entries, ls.sort, dirsFirstPref.get());
     const c = ctx();
     const tbody = el('fe-tbody');
     const tiles = el('fe-tiles');
     ls.visible = [];
+    // A different set of rows (a filter, a sort, a clear) starts at the top; the
+    // same set drawn again (hidden files, detail, comment counts) stays put.
+    const stride = Math.max(1, Math.ceil(entries.length / 64));
+    const sample = entries.filter((e, i) => i % stride === 0).map(e => e.href);
+    const setKey = `${entries.length}|${ls.group}|${ls.deepOn}|${sample.join('|')}`;
+    if (lastSetKey && setKey !== lastSetKey) el('fe-scroll').scrollTop = 0;
+    lastSetKey = setKey;
     // Only the view on screen is built; switching views redraws.
     const view = fe.dataset.view ?? 'details';
     const wantTiles = view === 'tiles' || view === 'icons', wantRows = !wantTiles && view !== 'tree';
@@ -367,6 +379,9 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
   }
   function scrollToLead(): void {
     if (ls.selIdx < 0) return;
+    // The column headers stay on top of the rows, so a row scrolled "into view"
+    // must stop below them.
+    el('fe-scroll').style.setProperty('--fe-th-h', `${document.querySelector('#fe-table thead')?.getBoundingClientRect().height ?? 0}px`);
     // A row outside the drawn window is scrolled to first, then drawn.
     if (win && !el('fe-tbody').querySelector(`[data-idx="${ls.selIdx}"]`)) {
       const part = win.idxOf.indexOf(ls.selIdx);
@@ -533,6 +548,9 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     syncSortUi();
     applyAll();
   });
+  const dirsFirstBox = el<HTMLInputElement>('fe-sort-dirs');
+  dirsFirstBox.checked = dirsFirstPref.get();
+  dirsFirstBox.addEventListener('change', () => { dirsFirstPref.set(dirsFirstBox.checked); applyAll(); });
   groupSeg.addEventListener('change', () => {
     ls.group = groupSeg.value as GroupMode;
     syncSortUi();

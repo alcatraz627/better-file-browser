@@ -118,8 +118,11 @@
       if (!isNaN(p.getTime())) d = p;
     }
     if (!d || isNaN(d.getTime())) return rawFallback || "\u2014";
+    const now = /* @__PURE__ */ new Date();
+    if (d.toDateString() === now.toDateString()) return `Today ${TIME_FMT.format(d)}`;
     return DATE_FMT[settings?.dateFormat === "full" ? "full" : "short"].format(d);
   }
+  var TIME_FMT = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
   var DATE_FMT = {
     short: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }),
     full: new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" })
@@ -770,6 +773,7 @@
   var palettePref = choicePref(PALETTE_KEY, PALETTES, "slate");
   var densityPref = numberPref(DENSITY_KEY, 3, (n) => n >= 1 && n <= 5);
   var hiddenPref = flagPref(HIDDEN_KEY, false, "true", "false");
+  var dirsFirstPref = flagPref("bfb-dirs-first-v1", false);
   var setPref = (id) => makePref(id, (r) => {
     try {
       const v = JSON.parse(r || "[]");
@@ -12292,7 +12296,7 @@ ${end.comment}` : end.comment;
   </div>`;
   }
   function checkHtml2(id, label, title, checked = false) {
-    return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}"${checked ? " checked" : ""}><span>${esc(label)}</span></label>`;
+    return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}" title="${esc(title)}"${checked ? " checked" : ""}><span>${esc(label)}</span></label>`;
   }
   function switchHtml(o) {
     return `<input type="checkbox" role="switch" class="fe-switch${o.small ? " sm" : ""}${o.cls ? " " + o.cls : ""}"${o.id ? ` id="${o.id}"` : ""} title="${esc(o.title)}" aria-label="${esc(o.label ?? o.title)}"${o.checked ? " checked" : ""}>`;
@@ -15347,7 +15351,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe[data-density="5"] #fe-table tbody td{height:23px}
 #fe-table tbody td:first-child{border-radius:var(--row-r) 0 0 var(--row-r)}
 #fe-table tbody td:last-child{border-radius:0 var(--row-r) var(--row-r) 0}
-#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left;padding:0 var(--sp-3)}
+#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left;padding:0 var(--sp-3);scroll-padding-top:var(--fe-th-h,0px)}
 .fe-row.selected .fe-nm{color:var(--tx)}
 .fe-tile.selected{background:var(--on);border-color:transparent}
 
@@ -20613,6 +20617,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <span class="fe-panel-lbl">Sort by</span>
           ${ddHtml("fe-sort-cols", SORT_OPTS, "Sort this folder by")}
           ${segHtml("fe-sort-dir", SORT_DIR_OPTS, "Direction")}
+          ${checkHtml2("fe-sort-dirs", "Folders on top", "Keep folders above files in every sort, without group headers")}
           <span class="fe-panel-lbl fe-panel-gap">Group by</span>
           ${ddHtml("fe-group-btns", GROUP_OPTS, "Group this folder by")}
         </div>
@@ -20722,9 +20727,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return true;
     });
   }
-  function applySort(entries, config) {
-    if (!config.col) return entries;
+  var collator = new Intl.Collator(void 0, { numeric: true, sensitivity: "base" });
+  function applySort(entries, config, dirsFirst = false) {
+    if (!config.col) return dirsFirst ? [...entries.filter((e) => e.isDir), ...entries.filter((e) => !e.isDir)] : entries;
     return [...entries].sort((a, b) => {
+      if (dirsFirst && a.isDir !== b.isDir) return a.isDir ? -1 : 1;
       let va, vb;
       if (config.col === "name") {
         va = a.name.toLowerCase();
@@ -20742,7 +20749,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         va = getExt(a);
         vb = getExt(b);
       } else return 0;
-      const cmp = typeof va === "number" ? va - vb : String(va).localeCompare(String(vb));
+      const cmp = typeof va === "number" ? va - vb : collator.compare(String(va), String(vb));
       return config.dir === "asc" ? cmp : -cmp;
     });
   }
@@ -21071,7 +21078,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const showHidden = fe.classList.contains("show-hidden");
       const d = showHidden ? dirs : nonPar.filter((e) => e.isDir && !e.isHidden).length;
       const f = showHidden ? files : nonPar.filter((e) => !e.isDir && !e.isHidden).length;
-      return `${d} folder${d !== 1 ? "s" : ""}, ${f} file${f !== 1 ? "s" : ""}${!showHidden && hidden ? ` \xB7 ${hidden} hidden` : ""}`;
+      const parts2 = [d && `${d} folder${d !== 1 ? "s" : ""}`, f && `${f} file${f !== 1 ? "s" : ""}`].filter(Boolean);
+      return `${parts2.length ? parts2.join(", ") : "Empty"}${!showHidden && hidden ? `${parts2.length ? " \xB7 " : ": "}${hidden} hidden` : ""}`;
     };
     ls.baseStatus = countText();
     function renderTree(entries, parent) {
@@ -21098,7 +21106,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const children = treeChildren.get(en.href);
         if (!children) return;
         if (!children.length) rows.push(emptyHtml("empty", "Empty folder", { inline: true, indent: depth + 1 }));
-        for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? void 0), ls.sort)) {
+        for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? void 0), ls.sort, dirsFirstPref.get())) {
           if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
         }
       };
@@ -21136,7 +21144,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     function measureWindow() {
       if (!win) return;
       const tbody = el("fe-tbody");
-      tbody.innerHTML = win.parts.slice(0, 60).join("");
+      const held = tbody.getBoundingClientRect().height;
+      tbody.innerHTML = win.parts.slice(0, 60).join("") + `<tr class="fe-spacer" aria-hidden="true"><td colspan="6" style="--h:${Math.round(held)}px"></td></tr>`;
       const row2 = tbody.querySelector("tr[data-idx]")?.offsetHeight || 36;
       const hdr = tbody.querySelector(".fe-group-hdr")?.offsetHeight || row2;
       let y = 0;
@@ -21159,16 +21168,22 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }, { passive: true });
     const leadPref = textPref("bfb-lead:" + rawPath, "", "tab");
     let leadRestored = false;
+    let lastSetKey = "";
     function applyAll() {
       const parent = all.filter((e) => e.isParent);
       let entries = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
       entries = applyFilter(entries, ls.filter, nameMatches ?? void 0);
       if (ls.contentHits) entries = entries.filter((e) => ls.contentHits.has(e.href));
-      entries = applySort(entries, ls.sort);
+      entries = applySort(entries, ls.sort, dirsFirstPref.get());
       const c = ctx();
       const tbody = el("fe-tbody");
       const tiles = el("fe-tiles");
       ls.visible = [];
+      const stride = Math.max(1, Math.ceil(entries.length / 64));
+      const sample = entries.filter((e, i3) => i3 % stride === 0).map((e) => e.href);
+      const setKey = `${entries.length}|${ls.group}|${ls.deepOn}|${sample.join("|")}`;
+      if (lastSetKey && setKey !== lastSetKey) el("fe-scroll").scrollTop = 0;
+      lastSetKey = setKey;
       const view = fe.dataset.view ?? "details";
       const wantTiles = view === "tiles" || view === "icons", wantRows = !wantTiles && view !== "tree";
       const showHidden = fe.classList.contains("show-hidden");
@@ -21366,6 +21381,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     function scrollToLead() {
       if (ls.selIdx < 0) return;
+      el("fe-scroll").style.setProperty("--fe-th-h", `${document.querySelector("#fe-table thead")?.getBoundingClientRect().height ?? 0}px`);
       if (win && !el("fe-tbody").querySelector(`[data-idx="${ls.selIdx}"]`)) {
         const part = win.idxOf.indexOf(ls.selIdx);
         if (part >= 0) {
@@ -21548,6 +21564,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ls.sort.dir = sortDir.value;
       if (!ls.sort.col) ls.sort.col = "name";
       syncSortUi();
+      applyAll();
+    });
+    const dirsFirstBox = el("fe-sort-dirs");
+    dirsFirstBox.checked = dirsFirstPref.get();
+    dirsFirstBox.addEventListener("change", () => {
+      dirsFirstPref.set(dirsFirstBox.checked);
       applyAll();
     });
     groupSeg.addEventListener("change", () => {
@@ -22801,7 +22823,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const rail = el("fe-rail");
     const btns = els("#fe-rail .fe-rail-btn");
     const lenses = els("#fe-lenses .fe-lens");
-    const show = (lens, paint = (f) => f()) => {
+    const show = (lens, paint = (f) => f(), quiet = false) => {
       const usable = btns.filter((b) => !b.hidden).map((b) => b.dataset.lens);
       const pick3 = usable.includes(lens) ? lens : "notes";
       for (const b of btns) {
@@ -22820,6 +22842,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         fitBar();
       });
       document.dispatchEvent(new CustomEvent("bfb-lens", { detail: pick3 }));
+      if (!quiet) document.dispatchEvent(new CustomEvent("bfb-lens-open", { detail: pick3 }));
     };
     function fitBar() {
       rail.classList.remove("tight", "tighter");
@@ -22896,8 +22919,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       tools.append(box);
       tools.after(tagRow);
     });
-    lensPref.onChange(() => show(lensPref.get()));
-    show(lensPref.get());
+    lensPref.onChange(() => show(lensPref.get(), void 0, true));
+    show(lensPref.get(), void 0, true);
   }
   function initSidebar(app) {
     const { rawPath, settings, toast } = app;
@@ -23819,7 +23842,8 @@ ${answer}`;
     initSearch(app);
     initAsk(app);
   }
-  var SEARCH_MAX_FILES = 2e3;
+  var SEARCH_MAX_FILES = 1e5;
+  var SEARCH_DEPTH = 8;
   function initSearch(app) {
     const box = document.getElementById("fe-srch");
     if (!box) return;
@@ -23837,8 +23861,13 @@ ${answer}`;
     const status = el("fe-srch-status");
     const list3 = el("fe-srch-list");
     let run = 0;
+    const lastPref2 = textPref("bfb-srch-last:" + app.folderPath, "", "tab");
+    const remember = (term) => {
+      lastPref2.set(term ? JSON.stringify({ term, deep: el("fe-srch-deep").checked, matchCase: el("fe-srch-case").checked }) : "");
+    };
     async function search() {
       const term = q.value.trim();
+      remember(term);
       const mine = ++run;
       const cancelled = () => mine !== run;
       list3.innerHTML = "";
@@ -23850,8 +23879,13 @@ ${answer}`;
       const deep = el("fe-srch-deep").checked;
       status.textContent = deep ? "Listing folders\u2026" : "Searching\u2026";
       let files;
+      let limit = "";
       try {
-        files = deep ? (await crawl(root, listDir, { maxEntries: SEARCH_MAX_FILES }, cancelled)).entries : await listDir(root);
+        if (deep) {
+          const r = await crawl(root, listDir, { maxEntries: SEARCH_MAX_FILES, maxDepth: SEARCH_DEPTH }, cancelled);
+          files = r.entries;
+          limit = [r.entryCapped ? `stopped listing at ${SEARCH_MAX_FILES.toLocaleString("en-US")} items` : "", r.depthCapped ? `folders deeper than ${SEARCH_DEPTH} levels were not searched` : ""].filter(Boolean).join("; ");
+        } else files = await listDir(root);
       } catch {
         if (!cancelled()) status.textContent = "Could not list this folder.";
         return;
@@ -23871,7 +23905,7 @@ ${answer}`;
       if (cancelled()) return;
       const hits = [...res.hits].sort((a, b) => b[1].count - a[1].count);
       const total = hits.reduce((n, [, h]) => n + h.count, 0);
-      status.textContent = hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`;
+      status.textContent = (hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`) + (limit ? ` (${limit})` : "");
       list3.innerHTML = hits.map(([href, h]) => {
         const name = relativeName(href, root);
         const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
@@ -23885,12 +23919,29 @@ ${answer}`;
         void search();
       } else if (e.key === "Escape") {
         q.value = "";
+        remember("");
         run++;
         list3.innerHTML = "";
         status.textContent = "Type a word and press Enter.";
       }
     });
+    let restore = null;
+    try {
+      restore = JSON.parse(lastPref2.get() || "null");
+    } catch {
+      restore = null;
+    }
+    if (restore?.term) {
+      q.value = restore.term;
+      el("fe-srch-deep").checked = restore.deep;
+      el("fe-srch-case").checked = restore.matchCase;
+    }
     document.addEventListener("bfb-lens", (e) => {
+      if (e.detail !== "search" || !restore) return;
+      restore = null;
+      void search();
+    });
+    document.addEventListener("bfb-lens-open", (e) => {
       if (e.detail === "search") q.focus({ preventScroll: true });
     });
   }
@@ -24501,9 +24552,10 @@ ${rows.join("\n")}`, name: subject };
     }, 0);
     void settleOrphans().then(resumeRunning);
     document.addEventListener("bfb-lens", (e) => {
-      if (e.detail !== "ask") return;
-      if (!checked) void checkModel();
-      q.focus({ preventScroll: true });
+      if (e.detail === "ask" && !checked) void checkModel();
+    });
+    document.addEventListener("bfb-lens-open", (e) => {
+      if (e.detail === "ask") q.focus({ preventScroll: true });
     });
   }
 

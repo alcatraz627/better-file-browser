@@ -30,7 +30,7 @@ function initLenses(app: App): void {
   const lenses = els<HTMLElement>('#fe-lenses .fe-lens');
   // The lens itself switches at once; the bar's look (which button is wide and
   // lit) goes through `paint`, so a switch can hand it to a view transition.
-  const show = (lens: string, paint: (f: () => void) => void = f => f()) => {
+  const show = (lens: string, paint: (f: () => void) => void = f => f(), quiet = false) => {
     const usable = btns.filter(b => !b.hidden).map(b => b.dataset.lens!);
     const pick = usable.includes(lens) ? lens : 'notes';
     for (const b of btns) { const on = b.dataset.lens === pick; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; }
@@ -39,6 +39,8 @@ function initLenses(app: App): void {
     // the lens's first row while the pointer rests where it clicked.
     paint(() => { for (const b of btns) { const on = b.dataset.lens === pick; b.classList.toggle('on', on); b.title = on ? '' : b.dataset.hint ?? ''; b.setAttribute('aria-label', b.dataset.hint ?? ''); } fitBar(); });
     document.dispatchEvent(new CustomEvent('bfb-lens', { detail: pick }));
+    // A lens that takes focus does so only when someone opened it, never as a page loads.
+    if (!quiet) document.dispatchEvent(new CustomEvent('bfb-lens-open', { detail: pick }));
   };
   // A narrow sidebar first squeezes the closed icons so the open lens keeps
   // its name; only when even that does not fit does the name go.
@@ -119,8 +121,8 @@ function initLenses(app: App): void {
     tools.append(box);
     tools.after(tagRow);
   });
-  lensPref.onChange(() => show(lensPref.get()));
-  show(lensPref.get());
+  lensPref.onChange(() => show(lensPref.get(), undefined, true));
+  show(lensPref.get(), undefined, true);
 }
 
 export function initSidebar(app: App): void {

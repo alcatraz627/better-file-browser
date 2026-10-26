@@ -123,3 +123,24 @@ describe('buildGroups', () => {
     expect(groups[0].label).toBe('All');
   });
 });
+
+describe('applySort names and folders', () => {
+  const names = (es: Entry[]) => es.map(e => e.name);
+  it('orders numbers inside names by value', () => {
+    const es = [file('sub 10'), file('sub 2'), file('sub 1')];
+    expect(names(applySort(es, { col: 'name', dir: 'asc' }))).toEqual(['sub 1', 'sub 2', 'sub 10']);
+  });
+  it('keeps folders above files in both directions when asked', () => {
+    const es = [file('a.txt'), dir('z'), file('m.txt'), dir('b')];
+    expect(names(applySort(es, { col: 'name', dir: 'asc' }, true))).toEqual(['b', 'z', 'a.txt', 'm.txt']);
+    expect(names(applySort(es, { col: 'name', dir: 'desc' }, true))).toEqual(['z', 'b', 'm.txt', 'a.txt']);
+  });
+  it('moves folders up without sorting when no column is set', () => {
+    const es = [file('b.txt'), dir('z'), file('a.txt')];
+    expect(names(applySort(es, { col: null, dir: 'asc' }, true))).toEqual(['z', 'b.txt', 'a.txt']);
+  });
+  it('leaves folders mixed in by default', () => {
+    const es = [file('b.txt'), dir('z'), file('a.txt')];
+    expect(names(applySort(es, { col: 'name', dir: 'asc' }))).toEqual(['a.txt', 'b.txt', 'z']);
+  });
+});
