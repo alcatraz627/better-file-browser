@@ -32,7 +32,10 @@ export function initToolLenses(app: App): void {
 
 // ── Search ──────────────────────────────────────────────────────────
 
-const SEARCH_MAX_FILES = 2000;
+// Far above any folder tree searched by hand; if a tree still passes it, the
+// status line says where the search stopped instead of staying quiet.
+const SEARCH_MAX_FILES = 100_000;
+const SEARCH_DEPTH = 8;
 
 function initSearch(app: App): void {
   const box = document.getElementById('fe-srch');
@@ -51,9 +54,15 @@ function initSearch(app: App): void {
   const status = el('fe-srch-status');
   const list = el('fe-srch-list');
   let run = 0;
+  // The last search in this tab for this folder, so Back lands on it again.
+  const lastPref = textPref('bfb-srch-last:' + app.folderPath, '', 'tab');
+  const remember = (term: string) => {
+    lastPref.set(term ? JSON.stringify({ term, deep: el<HTMLInputElement>('fe-srch-deep').checked, matchCase: el<HTMLInputElement>('fe-srch-case').checked }) : '');
+  };
 
   async function search(): Promise<void> {
     const term = q.value.trim();
+    remember(term);
     const mine = ++run;
     const cancelled = () => mine !== run;
     list.innerHTML = '';
@@ -62,10 +71,13 @@ function initSearch(app: App): void {
     const deep = el<HTMLInputElement>('fe-srch-deep').checked;
     status.textContent = deep ? 'Listing folders…' : 'Searching…';
     let files: Entry[];
+    let limit = '';
     try {
-      files = deep
-        ? (await crawl(root, listDir, { maxEntries: SEARCH_MAX_FILES }, cancelled)).entries
-        : await listDir(root);
+      if (deep) {
+        const r = await crawl(root, listDir, { maxEntries: SEARCH_MAX_FILES, maxDepth: SEARCH_DEPTH }, cancelled);
+        files = r.entries;
+        limit = [r.entryCapped ? `stopped listing at ${SEARCH_MAX_FILES.toLocaleString('en-US')} items` : '', r.depthCapped ? `folders deeper than ${SEARCH_DEPTH} levels were not searched` : ''].filter(Boolean).join('; ');
+      } else files = await listDir(root);
     } catch { if (!cancelled()) status.textContent = 'Could not list this folder.'; return; }
     if (cancelled()) return;
     files = files.filter(f => !f.isDir && !f.isParent && isTextCandidate(f));
@@ -75,9 +87,9 @@ function initSearch(app: App): void {
     if (cancelled()) return;
     const hits = [...res.hits].sort((a, b) => b[1].count - a[1].count);
     const total = hits.reduce((n, [, h]) => n + h.count, 0);
-    status.textContent = hits.length
+    status.textContent = (hits.length
       ? `${total} match${total === 1 ? '' : 'es'} in ${hits.length} file${hits.length === 1 ? '' : 's'}`
-      : `No file here contains "${term}".`;
+      : `No file here contains "${term}".`) + (limit ? ` (${limit})` : '');
     list.innerHTML = hits.map(([href, h]) => {
       const name = relativeName(href, root);
       const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
@@ -87,9 +99,22 @@ function initSearch(app: App): void {
   q.addEventListener('keydown', e => {
     e.stopPropagation();
     if (e.key === 'Enter') { e.preventDefault(); void search(); }
-    else if (e.key === 'Escape') { q.value = ''; run++; list.innerHTML = ''; status.textContent = 'Type a word and press Enter.'; }
+    else if (e.key === 'Escape') { q.value = ''; remember(''); run++; list.innerHTML = ''; status.textContent = 'Type a word and press Enter.'; }
   });
-  document.addEventListener('bfb-lens', e => { if ((e as CustomEvent).detail === 'search') q.focus({ preventScroll: true }); });
+  // Coming back to a folder, the last search is typed in again and runs once the lens is on screen.
+  let restore: { term: string; deep: boolean; matchCase: boolean } | null = null;
+  try { restore = JSON.parse(lastPref.get() || 'null'); } catch { restore = null; }
+  if (restore?.term) {
+    q.value = restore.term;
+    el<HTMLInputElement>('fe-srch-deep').checked = restore.deep;
+    el<HTMLInputElement>('fe-srch-case').checked = restore.matchCase;
+  }
+  document.addEventListener('bfb-lens', e => {
+    if ((e as CustomEvent).detail !== 'search' || !restore) return;
+    restore = null;
+    void search();
+  });
+  document.addEventListener('bfb-lens-open', e => { if ((e as CustomEvent).detail === 'search') q.focus({ preventScroll: true }); });
 }
 
 // ── Ask ─────────────────────────────────────────────────────────────
@@ -573,8 +598,9 @@ function initAsk(app: App): void {
   // File answers that finished while no page watched, then pick up one still running here.
   void settleOrphans().then(resumeRunning);
   document.addEventListener('bfb-lens', e => {
-    if ((e as CustomEvent).detail !== 'ask') return;
-    if (!checked) void checkModel();
-    q.focus({ preventScroll: true });
+    if ((e as CustomEvent).detail === 'ask' && !checked) void checkModel();
+  });
+  document.addEventListener('bfb-lens-open', e => {
+    if ((e as CustomEvent).detail === 'ask') q.focus({ preventScroll: true });
   });
 }

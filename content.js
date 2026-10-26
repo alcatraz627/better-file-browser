@@ -118,8 +118,11 @@
       if (!isNaN(p.getTime())) d = p;
     }
     if (!d || isNaN(d.getTime())) return rawFallback || "\u2014";
+    const now = /* @__PURE__ */ new Date();
+    if (d.toDateString() === now.toDateString()) return `Today ${TIME_FMT.format(d)}`;
     return DATE_FMT[settings?.dateFormat === "full" ? "full" : "short"].format(d);
   }
+  var TIME_FMT = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
   var DATE_FMT = {
     short: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }),
     full: new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" })
@@ -770,6 +773,7 @@
   var palettePref = choicePref(PALETTE_KEY, PALETTES, "slate");
   var densityPref = numberPref(DENSITY_KEY, 3, (n) => n >= 1 && n <= 5);
   var hiddenPref = flagPref(HIDDEN_KEY, false, "true", "false");
+  var dirsFirstPref = flagPref("bfb-dirs-first-v1", false);
   var setPref = (id) => makePref(id, (r) => {
     try {
       const v = JSON.parse(r || "[]");
@@ -4791,7 +4795,7 @@ Now: ${question}` : question;
     history.replaceState(null, "", hash);
   }
 
-  // node_modules/yaml/browser/dist/nodes/identity.js
+  // ../../../node_modules/yaml/browser/dist/nodes/identity.js
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
   var MAP = Symbol.for("yaml.map");
@@ -4827,7 +4831,7 @@ Now: ${question}` : question;
   }
   var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
 
-  // node_modules/yaml/browser/dist/visit.js
+  // ../../../node_modules/yaml/browser/dist/visit.js
   var BREAK = Symbol("break visit");
   var SKIP = Symbol("skip children");
   var REMOVE = Symbol("remove node");
@@ -4977,7 +4981,7 @@ Now: ${question}` : question;
     }
   }
 
-  // node_modules/yaml/browser/dist/doc/directives.js
+  // ../../../node_modules/yaml/browser/dist/doc/directives.js
   var escapeChars = {
     "!": "%21",
     ",": "%2C",
@@ -5140,7 +5144,7 @@ Now: ${question}` : question;
   Directives.defaultYaml = { explicit: false, version: "1.2" };
   Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
 
-  // node_modules/yaml/browser/dist/doc/anchors.js
+  // ../../../node_modules/yaml/browser/dist/doc/anchors.js
   function anchorIsValid(anchor) {
     if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
       const sa = JSON.stringify(anchor);
@@ -5200,7 +5204,7 @@ Now: ${question}` : question;
     };
   }
 
-  // node_modules/yaml/browser/dist/doc/applyReviver.js
+  // ../../../node_modules/yaml/browser/dist/doc/applyReviver.js
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
       if (Array.isArray(val)) {
@@ -5244,7 +5248,7 @@ Now: ${question}` : question;
     return reviver.call(obj, key, val);
   }
 
-  // node_modules/yaml/browser/dist/nodes/toJS.js
+  // ../../../node_modules/yaml/browser/dist/nodes/toJS.js
   function toJS(value, arg, ctx) {
     if (Array.isArray(value))
       return value.map((v, i3) => toJS(v, String(i3), ctx));
@@ -5267,7 +5271,7 @@ Now: ${question}` : question;
     return value;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Node.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Node.js
   var NodeBase = class {
     constructor(type) {
       Object.defineProperty(this, NODE_TYPE, { value: type });
@@ -5299,7 +5303,7 @@ Now: ${question}` : question;
     }
   };
 
-  // node_modules/yaml/browser/dist/nodes/Alias.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Alias.js
   var Alias = class extends NodeBase {
     constructor(source) {
       super(ALIAS);
@@ -5390,7 +5394,7 @@ Now: ${question}` : question;
     return 1;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Scalar.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Scalar.js
   var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
   var Scalar = class extends NodeBase {
     constructor(value) {
@@ -5410,7 +5414,7 @@ Now: ${question}` : question;
   Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
   Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
 
-  // node_modules/yaml/browser/dist/doc/createNode.js
+  // ../../../node_modules/yaml/browser/dist/doc/createNode.js
   var defaultTagPrefix = "tag:yaml.org,2002:";
   function findTagObject(value, tagName, tags) {
     if (tagName) {
@@ -5477,7 +5481,7 @@ Now: ${question}` : question;
     return node;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Collection.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Collection.js
   function collectionFromPath(schema4, path, value) {
     let v = value;
     for (let i3 = path.length - 1; i3 >= 0; --i3) {
@@ -5609,7 +5613,7 @@ Now: ${question}` : question;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyComment.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyComment.js
   var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
   function indentComment(comment, indent) {
     if (/^\n+$/.test(comment))
@@ -5618,7 +5622,7 @@ Now: ${question}` : question;
   }
   var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
 
-  // node_modules/yaml/browser/dist/stringify/foldFlowLines.js
+  // ../../../node_modules/yaml/browser/dist/stringify/foldFlowLines.js
   var FOLD_FLOW = "flow";
   var FOLD_BLOCK = "block";
   var FOLD_QUOTED = "quoted";
@@ -5745,7 +5749,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
     return end;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyString.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyString.js
   var getFoldOptions = (ctx, isBlock2) => ({
     indentAtStart: isBlock2 ? ctx.indent.length : ctx.indentAtStart,
     lineWidth: ctx.options.lineWidth,
@@ -6020,7 +6024,7 @@ ${indent}`);
     return res;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringify.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringify.js
   function createStringifyContext(doc, options) {
     const opt = Object.assign({
       blockQuote: true,
@@ -6133,7 +6137,7 @@ ${indent}`);
 ${ctx.indent}${str}`;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyPair.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyPair.js
   function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
     const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
     let keyComment = isNode(key) && key.comment || null;
@@ -6256,7 +6260,7 @@ ${ctx.indent}`;
     return str;
   }
 
-  // node_modules/yaml/browser/dist/log.js
+  // ../../../node_modules/yaml/browser/dist/log.js
   function warn(logLevel, warning) {
     if (logLevel === "debug" || logLevel === "warn") {
       if (typeof process !== "undefined" && process.emitWarning)
@@ -6266,7 +6270,7 @@ ${ctx.indent}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
   var MERGE_KEY = "<<";
   var merge = {
     identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
@@ -6313,7 +6317,7 @@ ${ctx.indent}`;
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
+  // ../../../node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
   function addPairToJSMap(ctx, map2, { key, value }) {
     if (isNode(key) && key.addToJSMap)
       key.addToJSMap(ctx, map2, value);
@@ -6366,7 +6370,7 @@ ${ctx.indent}`;
     return JSON.stringify(jsKey);
   }
 
-  // node_modules/yaml/browser/dist/nodes/Pair.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Pair.js
   function createPair(key, value, ctx) {
     const k = createNode(key, void 0, ctx);
     const v = createNode(value, void 0, ctx);
@@ -6395,7 +6399,7 @@ ${ctx.indent}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyCollection.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyCollection.js
   function stringifyCollection(collection, ctx, options) {
     const flow = ctx.inFlow ?? collection.flow;
     const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
@@ -6530,7 +6534,7 @@ ${indent}${end}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/nodes/YAMLMap.js
+  // ../../../node_modules/yaml/browser/dist/nodes/YAMLMap.js
   function findPair(items, key) {
     const k = isScalar(key) ? key.value : key;
     for (const it of items) {
@@ -6661,7 +6665,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/map.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/map.js
   var map = {
     collection: "map",
     default: true,
@@ -6675,7 +6679,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLMap.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/nodes/YAMLSeq.js
+  // ../../../node_modules/yaml/browser/dist/nodes/YAMLSeq.js
   var YAMLSeq = class extends Collection {
     static get tagName() {
       return "tag:yaml.org,2002:seq";
@@ -6779,7 +6783,7 @@ ${indent}${end}`;
     return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
   }
 
-  // node_modules/yaml/browser/dist/schema/common/seq.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/seq.js
   var seq = {
     collection: "seq",
     default: true,
@@ -6793,7 +6797,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLSeq.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/common/string.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/string.js
   var string = {
     identify: (value) => typeof value === "string",
     default: true,
@@ -6805,7 +6809,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/null.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/null.js
   var nullTag = {
     identify: (value) => value == null,
     createNode: () => new Scalar(null),
@@ -6816,7 +6820,7 @@ ${indent}${end}`;
     stringify: ({ source }, ctx) => typeof source === "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
   };
 
-  // node_modules/yaml/browser/dist/schema/core/bool.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/bool.js
   var boolTag = {
     identify: (value) => typeof value === "boolean",
     default: true,
@@ -6833,7 +6837,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyNumber.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyNumber.js
   function stringifyNumber({ format, minFractionDigits, tag, value }) {
     if (typeof value === "bigint")
       return String(value);
@@ -6854,7 +6858,7 @@ ${indent}${end}`;
     return n;
   }
 
-  // node_modules/yaml/browser/dist/schema/core/float.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/float.js
   var floatNaN = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -6890,7 +6894,7 @@ ${indent}${end}`;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/core/int.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/int.js
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
   var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
   function intStringify(node, radix, prefix) {
@@ -6926,7 +6930,7 @@ ${indent}${end}`;
     stringify: (node) => intStringify(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/core/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/schema.js
   var schema = [
     map,
     seq,
@@ -6941,7 +6945,7 @@ ${indent}${end}`;
     float
   ];
 
-  // node_modules/yaml/browser/dist/schema/json/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/json/schema.js
   function intIdentify2(value) {
     return typeof value === "bigint" || Number.isInteger(value);
   }
@@ -6999,7 +7003,7 @@ ${indent}${end}`;
   };
   var schema2 = [map, seq].concat(jsonScalars, jsonError);
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
   var binary = {
     identify: (value) => value instanceof Uint8Array,
     // Buffer inherits from Uint8Array
@@ -7055,7 +7059,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
   function resolvePairs(seq2, onError) {
     if (isSeq(seq2)) {
       for (let i3 = 0; i3 < seq2.items.length; ++i3) {
@@ -7121,7 +7125,7 @@ ${cn.comment}` : item.comment;
     createNode: createPairs
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
   var YAMLOMap = class _YAMLOMap extends YAMLSeq {
     constructor() {
       super();
@@ -7187,7 +7191,7 @@ ${cn.comment}` : item.comment;
     createNode: (schema4, iterable, ctx) => YAMLOMap.from(schema4, iterable, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
   function boolStringify({ value, source }, ctx) {
     const boolObj = value ? trueTag : falseTag;
     if (source && boolObj.test.test(source))
@@ -7211,7 +7215,7 @@ ${cn.comment}` : item.comment;
     stringify: boolStringify
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
   var floatNaN2 = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -7250,7 +7254,7 @@ ${cn.comment}` : item.comment;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
   var intIdentify3 = (value) => typeof value === "bigint" || Number.isInteger(value);
   function intResolve2(str, offset, radix, { intAsBigInt }) {
     const sign = str[0];
@@ -7319,7 +7323,7 @@ ${cn.comment}` : item.comment;
     stringify: (node) => intStringify2(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
   var YAMLSet = class _YAMLSet extends YAMLMap {
     constructor(schema4) {
       super(schema4);
@@ -7398,7 +7402,7 @@ ${cn.comment}` : item.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
   function parseSexagesimal(str, asBigInt) {
     const sign = str[0];
     const parts2 = sign === "-" || sign === "+" ? str.substring(1) : str;
@@ -7477,7 +7481,7 @@ ${cn.comment}` : item.comment;
     stringify: ({ value }) => value.toISOString().replace(/(T00:00:00)?\.000Z$/, "")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
   var schema3 = [
     map,
     seq,
@@ -7502,7 +7506,7 @@ ${cn.comment}` : item.comment;
     timestamp
   ];
 
-  // node_modules/yaml/browser/dist/schema/tags.js
+  // ../../../node_modules/yaml/browser/dist/schema/tags.js
   var schemas = /* @__PURE__ */ new Map([
     ["core", schema],
     ["failsafe", [map, seq, string]],
@@ -7573,7 +7577,7 @@ ${cn.comment}` : item.comment;
     }, []);
   }
 
-  // node_modules/yaml/browser/dist/schema/Schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/Schema.js
   var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
   var Schema = class _Schema {
     constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema: schema4, sortMapEntries, toStringDefaults }) {
@@ -7594,7 +7598,7 @@ ${cn.comment}` : item.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyDocument.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyDocument.js
   function stringifyDocument(doc, options) {
     const lines = [];
     let hasDirectives = options.directives === true;
@@ -7665,7 +7669,7 @@ ${cn.comment}` : item.comment;
     return lines.join("\n") + "\n";
   }
 
-  // node_modules/yaml/browser/dist/doc/Document.js
+  // ../../../node_modules/yaml/browser/dist/doc/Document.js
   var Document = class _Document {
     constructor(value, replacer, options) {
       this.commentBefore = null;
@@ -7957,7 +7961,7 @@ ${cn.comment}` : item.comment;
     throw new Error("Expected a YAML collection as document contents");
   }
 
-  // node_modules/yaml/browser/dist/errors.js
+  // ../../../node_modules/yaml/browser/dist/errors.js
   var YAMLError = class extends Error {
     constructor(name, pos, code, message) {
       super();
@@ -8013,7 +8017,7 @@ ${pointer}
     }
   };
 
-  // node_modules/yaml/browser/dist/compose/resolve-props.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-props.js
   function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
     let spaceBefore = false;
     let atNewline = startOnNewline;
@@ -8143,7 +8147,7 @@ ${pointer}
     };
   }
 
-  // node_modules/yaml/browser/dist/compose/util-contains-newline.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-contains-newline.js
   function containsNewline(key) {
     if (!key)
       return null;
@@ -8179,7 +8183,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
   function flowIndentCheck(indent, fc, onError) {
     if (fc?.type === "flow-collection") {
       const end = fc.end[0];
@@ -8190,7 +8194,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-map-includes.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-map-includes.js
   function mapIncludes(ctx, items, search) {
     const { uniqueKeys } = ctx.options;
     if (uniqueKeys === false)
@@ -8199,7 +8203,7 @@ ${pointer}
     return items.some((pair) => isEqual(pair.key, search));
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-map.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-map.js
   var startColMsg = "All mapping items must start at the same column";
   function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bm, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLMap;
@@ -8295,7 +8299,7 @@ ${pointer}
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-seq.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-seq.js
   function resolveBlockSeq({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bs, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLSeq;
     const seq2 = new NodeClass(ctx.schema);
@@ -8337,7 +8341,7 @@ ${pointer}
     return seq2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-end.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-end.js
   function resolveEnd(end, offset, reqSpace, onError) {
     let comment = "";
     if (end) {
@@ -8374,7 +8378,7 @@ ${pointer}
     return { comment, offset };
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
   var blockMsg = "Block collections are not allowed within flow collections";
   var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
   function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, fc, onError, tag) {
@@ -8554,7 +8558,7 @@ ${pointer}
     return coll;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-collection.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-collection.js
   function resolveCollection(CN2, ctx, token, onError, tagName, tag) {
     const coll = token.type === "block-map" ? resolveBlockMap(CN2, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq(CN2, ctx, token, onError, tag) : resolveFlowCollection(CN2, ctx, token, onError, tag);
     const Coll = coll.constructor;
@@ -8606,7 +8610,7 @@ ${pointer}
     return node;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
   function resolveBlockScalar(ctx, scalar, onError) {
     const start = scalar.offset;
     const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
@@ -8782,7 +8786,7 @@ ${pointer}
     return lines;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
   function resolveFlowScalar(scalar, strict, onError) {
     const { offset, type, source, end } = scalar;
     let _type;
@@ -8993,7 +8997,7 @@ ${pointer}
     return String.fromCodePoint(code);
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-scalar.js
   function composeScalar(ctx, token, tagToken, onError) {
     const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar(ctx, token, onError) : resolveFlowScalar(token, ctx.options.strict, onError);
     const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
@@ -9064,7 +9068,7 @@ ${pointer}
     return tag;
   }
 
-  // node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
   function emptyScalarPosition(offset, before, pos) {
     if (before) {
       if (pos === null)
@@ -9089,7 +9093,7 @@ ${pointer}
     return offset;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-node.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-node.js
   var CN = { composeNode, composeEmptyNode };
   function composeNode(ctx, token, props, onError) {
     const atKey = ctx.atKey;
@@ -9177,7 +9181,7 @@ ${pointer}
     return alias;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-doc.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-doc.js
   function composeDoc(options, directives, { offset, start, value, end }, onError) {
     const opts = Object.assign({ _directives: directives }, options);
     const doc = new Document(void 0, opts);
@@ -9210,7 +9214,7 @@ ${pointer}
     return doc;
   }
 
-  // node_modules/yaml/browser/dist/compose/composer.js
+  // ../../../node_modules/yaml/browser/dist/compose/composer.js
   function getErrorPos(src) {
     if (typeof src === "number")
       return [src, src + 1];
@@ -9401,7 +9405,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/cst-visit.js
+  // ../../../node_modules/yaml/browser/dist/parse/cst-visit.js
   var BREAK2 = Symbol("break visit");
   var SKIP2 = Symbol("skip children");
   var REMOVE2 = Symbol("remove item");
@@ -9457,7 +9461,7 @@ ${end.comment}` : end.comment;
     return typeof ctrl === "function" ? ctrl(item, path) : ctrl;
   }
 
-  // node_modules/yaml/browser/dist/parse/cst.js
+  // ../../../node_modules/yaml/browser/dist/parse/cst.js
   var BOM = "\uFEFF";
   var DOCUMENT = "";
   var FLOW_END = "";
@@ -9522,7 +9526,7 @@ ${end.comment}` : end.comment;
     return null;
   }
 
-  // node_modules/yaml/browser/dist/parse/lexer.js
+  // ../../../node_modules/yaml/browser/dist/parse/lexer.js
   function isEmpty(ch) {
     switch (ch) {
       case void 0:
@@ -10094,7 +10098,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/line-counter.js
+  // ../../../node_modules/yaml/browser/dist/parse/line-counter.js
   var LineCounter = class {
     constructor() {
       this.lineStarts = [];
@@ -10119,7 +10123,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/parser.js
+  // ../../../node_modules/yaml/browser/dist/parse/parser.js
   function includesToken(list3, type) {
     for (let i3 = 0; i3 < list3.length; ++i3)
       if (list3[i3].type === type)
@@ -10965,7 +10969,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/public-api.js
+  // ../../../node_modules/yaml/browser/dist/public-api.js
   function parseOptions(options) {
     const prettyErrors = options.prettyErrors !== false;
     const lineCounter = options.lineCounter || prettyErrors && new LineCounter() || null;
@@ -12269,7 +12273,7 @@ ${end.comment}` : end.comment;
   </div>`;
   }
   function checkHtml2(id, label, title, checked = false) {
-    return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}"${checked ? " checked" : ""}><span>${esc(label)}</span></label>`;
+    return `<label class="fe-check" title="${esc(title)}"><input type="checkbox" id="${id}" title="${esc(title)}"${checked ? " checked" : ""}><span>${esc(label)}</span></label>`;
   }
   function switchHtml(o) {
     return `<input type="checkbox" role="switch" class="fe-switch${o.small ? " sm" : ""}${o.cls ? " " + o.cls : ""}"${o.id ? ` id="${o.id}"` : ""} title="${esc(o.title)}" aria-label="${esc(o.label ?? o.title)}"${o.checked ? " checked" : ""}>`;
@@ -15294,7 +15298,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe[data-density="5"] #fe-table tbody td{height:23px}
 #fe-table tbody td:first-child{border-radius:var(--row-r) 0 0 var(--row-r)}
 #fe-table tbody td:last-child{border-radius:0 var(--row-r) var(--row-r) 0}
-#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left;padding:0 var(--sp-3)}
+#fe-scroll{flex:1;overflow-y:auto;transform-origin:top left;padding:0 var(--sp-3);scroll-padding-top:var(--fe-th-h,0px)}
 .fe-row.selected .fe-nm{color:var(--tx)}
 .fe-tile.selected{background:var(--on);border-color:transparent}
 
@@ -20468,6 +20472,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <span class="fe-panel-lbl">Sort by</span>
           ${ddHtml("fe-sort-cols", SORT_OPTS, "Sort this folder by")}
           ${segHtml("fe-sort-dir", SORT_DIR_OPTS, "Direction")}
+          ${checkHtml2("fe-sort-dirs", "Folders on top", "Keep folders above files in every sort, without group headers")}
           <span class="fe-panel-lbl fe-panel-gap">Group by</span>
           ${ddHtml("fe-group-btns", GROUP_OPTS, "Group this folder by")}
         </div>
@@ -20577,9 +20582,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return true;
     });
   }
-  function applySort(entries, config) {
-    if (!config.col) return entries;
+  var collator = new Intl.Collator(void 0, { numeric: true, sensitivity: "base" });
+  function applySort(entries, config, dirsFirst = false) {
+    if (!config.col) return dirsFirst ? [...entries.filter((e) => e.isDir), ...entries.filter((e) => !e.isDir)] : entries;
     return [...entries].sort((a, b) => {
+      if (dirsFirst && a.isDir !== b.isDir) return a.isDir ? -1 : 1;
       let va, vb;
       if (config.col === "name") {
         va = a.name.toLowerCase();
@@ -20597,7 +20604,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         va = getExt(a);
         vb = getExt(b);
       } else return 0;
-      const cmp = typeof va === "number" ? va - vb : String(va).localeCompare(String(vb));
+      const cmp = typeof va === "number" ? va - vb : collator.compare(String(va), String(vb));
       return config.dir === "asc" ? cmp : -cmp;
     });
   }
@@ -20926,7 +20933,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const showHidden = fe.classList.contains("show-hidden");
       const d = showHidden ? dirs : nonPar.filter((e) => e.isDir && !e.isHidden).length;
       const f = showHidden ? files : nonPar.filter((e) => !e.isDir && !e.isHidden).length;
-      return `${d} folder${d !== 1 ? "s" : ""}, ${f} file${f !== 1 ? "s" : ""}${!showHidden && hidden ? ` \xB7 ${hidden} hidden` : ""}`;
+      const parts2 = [d && `${d} folder${d !== 1 ? "s" : ""}`, f && `${f} file${f !== 1 ? "s" : ""}`].filter(Boolean);
+      return `${parts2.length ? parts2.join(", ") : "Empty"}${!showHidden && hidden ? `${parts2.length ? " \xB7 " : ": "}${hidden} hidden` : ""}`;
     };
     ls.baseStatus = countText();
     function renderTree(entries, parent) {
@@ -20953,7 +20961,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const children = treeChildren.get(en.href);
         if (!children) return;
         if (!children.length) rows.push(emptyHtml("empty", "Empty folder", { inline: true, indent: depth + 1 }));
-        for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? void 0), ls.sort)) {
+        for (const child of applySort(applyFilter(children, ls.filter, nameMatches ?? void 0), ls.sort, dirsFirstPref.get())) {
           if (!ls.contentHits || ls.contentHits.has(child.href) || child.isDir) add(child, depth + 1);
         }
       };
@@ -20991,7 +20999,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     function measureWindow() {
       if (!win) return;
       const tbody = el("fe-tbody");
-      tbody.innerHTML = win.parts.slice(0, 60).join("");
+      const held = tbody.getBoundingClientRect().height;
+      tbody.innerHTML = win.parts.slice(0, 60).join("") + `<tr class="fe-spacer" aria-hidden="true"><td colspan="6" style="--h:${Math.round(held)}px"></td></tr>`;
       const row2 = tbody.querySelector("tr[data-idx]")?.offsetHeight || 36;
       const hdr = tbody.querySelector(".fe-group-hdr")?.offsetHeight || row2;
       let y = 0;
@@ -21014,16 +21023,22 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }, { passive: true });
     const leadPref = textPref("bfb-lead:" + rawPath, "", "tab");
     let leadRestored = false;
+    let lastSetKey = "";
     function applyAll() {
       const parent = all.filter((e) => e.isParent);
       let entries = ls.deepOn && ls.deepEntries ? ls.deepEntries : nonPar;
       entries = applyFilter(entries, ls.filter, nameMatches ?? void 0);
       if (ls.contentHits) entries = entries.filter((e) => ls.contentHits.has(e.href));
-      entries = applySort(entries, ls.sort);
+      entries = applySort(entries, ls.sort, dirsFirstPref.get());
       const c = ctx();
       const tbody = el("fe-tbody");
       const tiles = el("fe-tiles");
       ls.visible = [];
+      const stride = Math.max(1, Math.ceil(entries.length / 64));
+      const sample = entries.filter((e, i3) => i3 % stride === 0).map((e) => e.href);
+      const setKey = `${entries.length}|${ls.group}|${ls.deepOn}|${sample.join("|")}`;
+      if (lastSetKey && setKey !== lastSetKey) el("fe-scroll").scrollTop = 0;
+      lastSetKey = setKey;
       const view = fe.dataset.view ?? "details";
       const wantTiles = view === "tiles" || view === "icons", wantRows = !wantTiles && view !== "tree";
       const showHidden = fe.classList.contains("show-hidden");
@@ -21221,6 +21236,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     function scrollToLead() {
       if (ls.selIdx < 0) return;
+      el("fe-scroll").style.setProperty("--fe-th-h", `${document.querySelector("#fe-table thead")?.getBoundingClientRect().height ?? 0}px`);
       if (win && !el("fe-tbody").querySelector(`[data-idx="${ls.selIdx}"]`)) {
         const part = win.idxOf.indexOf(ls.selIdx);
         if (part >= 0) {
@@ -21403,6 +21419,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ls.sort.dir = sortDir.value;
       if (!ls.sort.col) ls.sort.col = "name";
       syncSortUi();
+      applyAll();
+    });
+    const dirsFirstBox = el("fe-sort-dirs");
+    dirsFirstBox.checked = dirsFirstPref.get();
+    dirsFirstBox.addEventListener("change", () => {
+      dirsFirstPref.set(dirsFirstBox.checked);
       applyAll();
     });
     groupSeg.addEventListener("change", () => {
@@ -22632,7 +22654,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const rail = el("fe-rail");
     const btns = els("#fe-rail .fe-rail-btn");
     const lenses = els("#fe-lenses .fe-lens");
-    const show = (lens, paint = (f) => f()) => {
+    const show = (lens, paint = (f) => f(), quiet = false) => {
       const usable = btns.filter((b) => !b.hidden).map((b) => b.dataset.lens);
       const pick3 = usable.includes(lens) ? lens : "notes";
       for (const b of btns) {
@@ -22651,6 +22673,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         fitBar();
       });
       document.dispatchEvent(new CustomEvent("bfb-lens", { detail: pick3 }));
+      if (!quiet) document.dispatchEvent(new CustomEvent("bfb-lens-open", { detail: pick3 }));
     };
     function fitBar() {
       rail.classList.remove("tight", "tighter");
@@ -22727,8 +22750,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       tools.append(box);
       tools.after(tagRow);
     });
-    lensPref.onChange(() => show(lensPref.get()));
-    show(lensPref.get());
+    lensPref.onChange(() => show(lensPref.get(), void 0, true));
+    show(lensPref.get(), void 0, true);
   }
   function initSidebar(app) {
     const { rawPath, settings, toast } = app;
@@ -23650,7 +23673,8 @@ ${answer}`;
     initSearch(app);
     initAsk(app);
   }
-  var SEARCH_MAX_FILES = 2e3;
+  var SEARCH_MAX_FILES = 1e5;
+  var SEARCH_DEPTH = 8;
   function initSearch(app) {
     const box = document.getElementById("fe-srch");
     if (!box) return;
@@ -23668,8 +23692,13 @@ ${answer}`;
     const status = el("fe-srch-status");
     const list3 = el("fe-srch-list");
     let run = 0;
+    const lastPref2 = textPref("bfb-srch-last:" + app.folderPath, "", "tab");
+    const remember = (term) => {
+      lastPref2.set(term ? JSON.stringify({ term, deep: el("fe-srch-deep").checked, matchCase: el("fe-srch-case").checked }) : "");
+    };
     async function search() {
       const term = q.value.trim();
+      remember(term);
       const mine = ++run;
       const cancelled = () => mine !== run;
       list3.innerHTML = "";
@@ -23681,8 +23710,13 @@ ${answer}`;
       const deep = el("fe-srch-deep").checked;
       status.textContent = deep ? "Listing folders\u2026" : "Searching\u2026";
       let files;
+      let limit = "";
       try {
-        files = deep ? (await crawl(root, listDir, { maxEntries: SEARCH_MAX_FILES }, cancelled)).entries : await listDir(root);
+        if (deep) {
+          const r = await crawl(root, listDir, { maxEntries: SEARCH_MAX_FILES, maxDepth: SEARCH_DEPTH }, cancelled);
+          files = r.entries;
+          limit = [r.entryCapped ? `stopped listing at ${SEARCH_MAX_FILES.toLocaleString("en-US")} items` : "", r.depthCapped ? `folders deeper than ${SEARCH_DEPTH} levels were not searched` : ""].filter(Boolean).join("; ");
+        } else files = await listDir(root);
       } catch {
         if (!cancelled()) status.textContent = "Could not list this folder.";
         return;
@@ -23702,7 +23736,7 @@ ${answer}`;
       if (cancelled()) return;
       const hits = [...res.hits].sort((a, b) => b[1].count - a[1].count);
       const total = hits.reduce((n, [, h]) => n + h.count, 0);
-      status.textContent = hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`;
+      status.textContent = (hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`) + (limit ? ` (${limit})` : "");
       list3.innerHTML = hits.map(([href, h]) => {
         const name = relativeName(href, root);
         const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
@@ -23716,12 +23750,29 @@ ${answer}`;
         void search();
       } else if (e.key === "Escape") {
         q.value = "";
+        remember("");
         run++;
         list3.innerHTML = "";
         status.textContent = "Type a word and press Enter.";
       }
     });
+    let restore = null;
+    try {
+      restore = JSON.parse(lastPref2.get() || "null");
+    } catch {
+      restore = null;
+    }
+    if (restore?.term) {
+      q.value = restore.term;
+      el("fe-srch-deep").checked = restore.deep;
+      el("fe-srch-case").checked = restore.matchCase;
+    }
     document.addEventListener("bfb-lens", (e) => {
+      if (e.detail !== "search" || !restore) return;
+      restore = null;
+      void search();
+    });
+    document.addEventListener("bfb-lens-open", (e) => {
       if (e.detail === "search") q.focus({ preventScroll: true });
     });
   }
@@ -24332,9 +24383,10 @@ ${rows.join("\n")}`, name: subject };
     }, 0);
     void settleOrphans().then(resumeRunning);
     document.addEventListener("bfb-lens", (e) => {
-      if (e.detail !== "ask") return;
-      if (!checked) void checkModel();
-      q.focus({ preventScroll: true });
+      if (e.detail === "ask" && !checked) void checkModel();
+    });
+    document.addEventListener("bfb-lens-open", (e) => {
+      if (e.detail === "ask") q.focus({ preventScroll: true });
     });
   }
 

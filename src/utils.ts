@@ -46,8 +46,12 @@ export function fmtDate(dateMs: number, settings?: Pick<Settings, 'dateFormat'>,
     if (!isNaN(p.getTime())) d = p;
   }
   if (!d || isNaN(d.getTime())) return rawFallback || '—';
+  // A file touched today shows when, since the date alone says nothing new.
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return `Today ${TIME_FMT.format(d)}`;
   return DATE_FMT[settings?.dateFormat === 'full' ? 'full' : 'short'].format(d);
 }
+const TIME_FMT = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
 // Built once: a formatter per call cost about 0.1 ms a row, most of a big folder's first draw.
 const DATE_FMT = {
   short: new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),

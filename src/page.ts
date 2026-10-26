@@ -11,7 +11,7 @@ import { renderDialog, type DialogSpec } from './dialog';
 import { settingsDialog, SORT_OPTS, SORT_DIR_OPTS, GROUP_OPTS } from './settings-page';
 import { renderFileContent } from './file-page';
 import { renderRows, renderTiles, renderSavedList, renderCrumbs, type RenderContext } from './render';
-import { segHtml, ddHtml, sliderHtml } from './controls';
+import { segHtml, ddHtml, sliderHtml, checkHtml } from './controls';
 import { DENSITY_NAMES } from './storage';
 
 const SORT_ICON = line('<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>', 14);
@@ -203,6 +203,7 @@ export function renderPage(p: PageParams): string {
           <span class="fe-panel-lbl">Sort by</span>
           ${ddHtml('fe-sort-cols', SORT_OPTS, 'Sort this folder by')}
           ${segHtml('fe-sort-dir', SORT_DIR_OPTS, 'Direction')}
+          ${checkHtml('fe-sort-dirs', 'Folders on top', 'Keep folders above files in every sort, without group headers')}
           <span class="fe-panel-lbl fe-panel-gap">Group by</span>
           ${ddHtml('fe-group-btns', GROUP_OPTS, 'Group this folder by')}
         </div>

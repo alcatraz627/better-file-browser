@@ -47,6 +47,13 @@ describe('fmtDate', () => {
     expect(result).not.toMatch(/Dec/);
   });
 
+  it('shows the time for a file changed today and the date for an older one', () => {
+    const now = new Date();
+    now.setHours(9, 5, 0, 0);
+    expect(fmtDate(now.getTime(), { dateFormat: 'short' })).toBe('Today 09:05');
+    expect(fmtDate(now.getTime() - 3 * 86_400_000, { dateFormat: 'short' })).not.toMatch(/Today/);
+  });
+
   it('falls back to a parseable raw string when epoch is unknown', () => {
     expect(fmtDate(NaN, { dateFormat: 'short' }, '2024-06-15T12:00:00Z')).toMatch(/Jun/);
   });
