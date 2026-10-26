@@ -13497,13 +13497,20 @@ ${t}`)) say("Note title saved");
         <div class="fe-grp-body">${b.rows.map(rowHtml).join("")}</div>
       </details>`).join("");
     };
-    const load = () => notes.dpPages().then((rows) => {
-      all = rows;
-      paint();
-    }).catch((err) => {
-      top.hidden = true;
-      rowsBox.innerHTML = emptyHtml("failed", "Decision pages could not be listed", { hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the decision pages again" }] });
-    });
+    let seq2 = 0;
+    const load = () => {
+      const mine = ++seq2;
+      return notes.dpPages().then((rows) => {
+        if (mine === seq2) {
+          all = rows;
+          paint();
+        }
+      }).catch((err) => {
+        if (mine !== seq2) return;
+        top.hidden = true;
+        rowsBox.innerHTML = emptyHtml("failed", "Decision pages could not be listed", { hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the decision pages again" }] });
+      });
+    };
     input.addEventListener("input", () => {
       q = input.value;
       paint();
@@ -13538,6 +13545,17 @@ ${t}`)) say("Note title saved");
       icon: UI_ICON.opinion,
       run: () => go2(r.path + "/")
     }))));
+    document.addEventListener("bfb-dp-answered", (e) => {
+      const slug = e.detail;
+      const row2 = all.find((r) => r.slug === slug);
+      if (!row2) return;
+      seq2++;
+      row2.state = "answered";
+      row2.answered = Date.now() / 1e3;
+      row2.seen = true;
+      paint();
+      if (timer2) void load();
+    });
     document.addEventListener("bfb-lens", (e) => {
       const on = e.detail === "decisions";
       if (timer2) {
@@ -13790,6 +13808,7 @@ ${t}`)) say("Note title saved");
         const r = await dpIo().dp("submit", slug, { answer: text, replace });
         const st = r?.notify?.state;
         toast(st === "requested" ? "Sent. The agent was woken." : st === "queued" ? "Sent. The agent is idle; the message waits for it." : NOT_TOLD);
+        document.dispatchEvent(new CustomEvent("bfb-dp-answered", { detail: slug }));
         await readSent(true);
       } catch (err) {
         const code = codeOf2(err);
@@ -15231,7 +15250,18 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
    painted copy (#fe-fe-paint) and the textarea share font, padding and
    wrapping exactly, so the caret sits over its own text. */
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
-#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1)}
+#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1);transition:background var(--t-flash) var(--ease)}
+#fe-fe-banner.flash{background:var(--on)}
+/* The lines that differ between the file on disk and the text being edited. */
+#fe-fe-diff{flex:none;max-height:40%;overflow:auto;border-bottom:1px solid var(--bd);background:var(--s1);padding:var(--sp-3) var(--sp-5);font-family:var(--mono);font-size:var(--fs-sm);line-height:1.5}
+#fe-fe-diff[hidden]{display:none}
+.fe-fe-dhead{display:flex;gap:var(--sp-5);padding-bottom:var(--sp-2);color:var(--dm);font-family:var(--font-text)}
+.fe-fe-dhead [data-k="gone"],.fe-fe-dl[data-k="gone"] .fe-fe-dm{color:var(--tone-danger)}
+.fe-fe-dhead [data-k="new"],.fe-fe-dl[data-k="new"] .fe-fe-dm{color:var(--tone-ok)}
+.fe-fe-dl{display:grid;grid-template-columns:var(--sp-6) minmax(0,1fr);white-space:pre-wrap;overflow-wrap:anywhere;color:var(--dm)}
+.fe-fe-dl[data-k="gone"]{color:var(--tx);background:color-mix(in srgb,var(--tone-danger) 12%,transparent)}
+.fe-fe-dl[data-k="new"]{color:var(--tx);background:color-mix(in srgb,var(--tone-ok) 12%,transparent)}
+.fe-fe-dgap{color:var(--dm);padding-left:var(--sp-6)}
 #fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
 /* The top padding clears the floating pill, so a long first line is never under it. */
 #fe-fe-src{position:relative}
@@ -15970,7 +16000,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* A decision page takes the listing's place; Files brings the listing back. While the
    config is read, the listing stays out of sight so it never flashes first. */
 #fe.fe-dp-pending #fe-toolbar,#fe.fe-dp-pending #fe-scroll,#fe.fe-dp-page #fe-toolbar,#fe.fe-dp-page #fe-sg-panel,#fe.fe-dp-page #fe-filter-bar,#fe.fe-dp-page #fe-scroll{display:none}
-#fe-dp{flex:1;min-height:0;overflow:auto;padding:var(--sp-8) var(--sp-9)}
+#fe-dp{--dp-pad-y:var(--sp-8);flex:1;min-height:0;overflow:auto;padding:var(--dp-pad-y) var(--sp-9)}
 #fe-dp[hidden]{display:none}
 /* One column of cards; from 720 wide a rail of every item sits beside it and stays in view, wider from 1100. */
 .fe-dp-layout{max-width:920px;margin:0 auto}
@@ -16003,7 +16033,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-intro{color:var(--mt)}
 .fe-dp-intro .fe-md{padding:0;max-width:none;color:inherit}
 #fe-dp-back{margin-left:var(--sp-4)}
-.fe-dp-bar{position:sticky;top:0;z-index:1;margin:0 0 var(--sp-6);display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r);box-shadow:0 var(--sp-2) var(--sp-5) rgb(var(--ink) / .08)}
+.fe-dp-bar{position:sticky;top:calc(var(--dp-pad-y) * -1);z-index:1;margin:0 0 var(--sp-6);display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r);box-shadow:0 var(--sp-2) var(--sp-5) rgb(var(--ink) / .08)}
 .fe-dp-bar .fe-dv-meter{margin-left:0}
 .fe-dp-bar-gap{flex:1}
 .fe-dp-bar-end{display:flex;align-items:center;gap:var(--sp-2);margin-left:auto}
@@ -17024,6 +17054,31 @@ button.chip:disabled{opacity:.45;cursor:default}
     });
   }
 
+  // src/toast.ts
+  function makeToast(el2) {
+    let tid;
+    return (msg, ms = 2400, action) => {
+      el2.textContent = msg;
+      if (action) {
+        const btn = document.createElement("button");
+        btn.className = "fe-toast-act";
+        btn.textContent = action.label;
+        btn.title = action.label;
+        btn.addEventListener("click", () => {
+          action.run();
+          el2.classList.remove("show");
+        });
+        el2.append(" \xB7 ", btn);
+        ms = Math.max(ms, 6e3);
+      }
+      el2.classList.toggle("act", !!action);
+      raise(el2);
+      el2.classList.add("show");
+      clearTimeout(tid);
+      tid = setTimeout(() => el2.classList.remove("show"), ms);
+    };
+  }
+
   // src/scroll-hold.ts
   function holdScroll(scroller, top, save) {
     let holding = top > 0;
@@ -17401,6 +17456,47 @@ button.chip:disabled{opacity:.45;cursor:default}
     };
   }
 
+  // src/line-diff.ts
+  var MAX_CELLS = 4e6;
+  function lineDiff(disk, mine) {
+    const a = disk.split("\n"), b = mine.split("\n");
+    let head = 0;
+    while (head < a.length && head < b.length && a[head] === b[head]) head++;
+    let tail = 0;
+    while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
+    const ma = a.slice(head, a.length - tail), mb = b.slice(head, b.length - tail);
+    const out = [];
+    for (let i4 = 0; i4 < head; i4++) out.push({ kind: "same", text: a[i4] });
+    let i3 = 0, j = 0;
+    const emit = (kind, text) => out.push({ kind, text });
+    if (ma.length * mb.length > MAX_CELLS) {
+      for (; i3 < ma.length; i3++) emit("gone", ma[i3]);
+      for (; j < mb.length; j++) emit("new", mb[j]);
+    } else {
+      const w = mb.length + 1;
+      const lcs = new Uint32Array((ma.length + 1) * w);
+      for (let x = ma.length - 1; x >= 0; x--) for (let y = mb.length - 1; y >= 0; y--)
+        lcs[x * w + y] = ma[x] === mb[y] ? lcs[(x + 1) * w + y + 1] + 1 : Math.max(lcs[(x + 1) * w + y], lcs[x * w + y + 1]);
+      while (i3 < ma.length && j < mb.length) {
+        if (ma[i3] === mb[j]) {
+          emit("same", mb[j]);
+          i3++;
+          j++;
+        } else if (lcs[(i3 + 1) * w + j] >= lcs[i3 * w + j + 1]) {
+          emit("gone", ma[i3]);
+          i3++;
+        } else {
+          emit("new", mb[j]);
+          j++;
+        }
+      }
+      for (; i3 < ma.length; i3++) emit("gone", ma[i3]);
+      for (; j < mb.length; j++) emit("new", mb[j]);
+    }
+    for (let k = 0; k < tail; k++) out.push({ kind: "same", text: a[a.length - tail + k] });
+    return out;
+  }
+
   // src/file-editor.ts
   var AUTOSAVE_MS = 800;
   var CHECK_MS = 300;
@@ -17450,6 +17546,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const isMd = fmt?.id === "markdown";
     box.innerHTML = `
     <div id="fe-fe-banner" class="notice" data-tone="warn" hidden></div>
+    <div id="fe-fe-diff" hidden></div>
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">
@@ -17471,6 +17568,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const view = box.querySelector("#fe-fe-view");
     const state = box.querySelector("#fe-fe-state");
     const banner = box.querySelector("#fe-fe-banner");
+    const diffBox = box.querySelector("#fe-fe-diff");
     const diagBtn = box.querySelector("#fe-fe-diag");
     const scroller = box.querySelector("#fe-fe-scroll");
     box.classList.toggle("fe-fe-big", big);
@@ -17662,6 +17760,7 @@ and ${diags.length - 12} more` : "");
       const t = tw.text();
       diags = t.length > CHECK_MAX ? [] : diagnose(host.ext, t);
       markProblems();
+      host.typed?.(t);
     };
     const checkLater = () => {
       clearTimeout(checkTimer);
@@ -17726,6 +17825,7 @@ and ${diags.length - 12} more` : "");
         base = text;
         failed = "";
         banner.hidden = true;
+        diffBox.hidden = true;
         host.saved(text);
       } catch (err) {
         const e = err;
@@ -17745,20 +17845,65 @@ and ${diags.length - 12} more` : "");
       }
       if (retryAt) await write(retryAt);
     };
-    const save = () => {
+    const save = (asked = true) => {
       clearTimeout(timer2);
-      if (!saving && isDirty()) void write(doc.mtime);
+      if (saving || !isDirty()) return;
+      if (!banner.hidden) {
+        if (asked) askToChoose();
+        return;
+      }
+      void write(doc.mtime);
+    };
+    const askToChoose = () => {
+      const msg = "Not saved: the file changed on disk. Choose Load from disk, Keep mine or Compare.";
+      (host.notify ?? host.status)(msg);
+      banner.classList.add("flash");
+      setTimeout(() => banner.classList.remove("flash"), 700);
     };
     const later = () => {
       clearTimeout(timer2);
-      timer2 = window.setTimeout(save, AUTOSAVE_MS);
+      timer2 = window.setTimeout(() => save(false), AUTOSAVE_MS);
     };
     function showConflict() {
       banner.hidden = false;
       banner.innerHTML = `<span>${esc(host.rel.split("/").pop())} changed on disk since you opened it.</span>
       <button class="btn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
+      <button class="btn" data-act="compare" title="Show the lines that differ between the file on disk and your text">Compare</button>
       <button class="btn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
     }
+    const showDiff = async () => {
+      if (!diffBox.hidden) {
+        diffBox.hidden = true;
+        return;
+      }
+      let disk;
+      try {
+        disk = (await notes.fileRead(host.root, host.rel)).text;
+      } catch (err) {
+        host.status(errorText(err, "Reading the file on disk"));
+        return;
+      }
+      const rows = lineDiff(disk, tw.text());
+      const changed = rows.filter((r) => r.kind !== "same");
+      const keep = /* @__PURE__ */ new Set();
+      rows.forEach((r, i3) => {
+        if (r.kind !== "same") for (let k = Math.max(0, i3 - 2); k <= Math.min(rows.length - 1, i3 + 2); k++) keep.add(k);
+      });
+      let html = "", skipped = false;
+      rows.forEach((r, i3) => {
+        if (!keep.has(i3)) {
+          skipped = true;
+          return;
+        }
+        if (skipped) {
+          html += '<div class="fe-fe-dgap">\u2026</div>';
+          skipped = false;
+        }
+        html += `<div class="fe-fe-dl" data-k="${r.kind}"><span class="fe-fe-dm">${r.kind === "gone" ? "\u2212" : r.kind === "new" ? "+" : ""}</span><span class="fe-fe-dt">${esc(r.text) || " "}</span></div>`;
+      });
+      diffBox.innerHTML = `<div class="fe-fe-dhead">${changed.length ? `<span data-k="gone">\u2212 on disk</span><span data-k="new">+ yours</span>` : "The two copies have the same lines."}</div>${html}`;
+      diffBox.hidden = false;
+    };
     const external = async () => {
       try {
         if ((await notes.fileStat(host.root, host.rel)).mtime === doc.mtime) return;
@@ -17831,6 +17976,7 @@ and ${diags.length - 12} more` : "");
       if (act === "save") save();
       else if (act === "done") void close();
       else if (act === "diag" && diags.length) goToLine(diags[0].line);
+      else if (act === "compare") void showDiff();
       else if (act === "reload") {
         const now = await notes.fileRead(host.root, host.rel);
         doc = now;
@@ -17838,8 +17984,10 @@ and ${diags.length - 12} more` : "");
         buf.snap();
         tw.set(now.text);
         banner.hidden = true;
+        diffBox.hidden = true;
         paintSource();
         paint();
+        host.typed?.(now.text);
       } else if (act === "overwrite") {
         const now = await notes.fileRead(host.root, host.rel);
         void write(now.mtime);
@@ -18582,6 +18730,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const ta = o.box.querySelector(`textarea[data-for="${CSS.escape(id)}"]`);
       const text = (ta?.value ?? "").trim();
       const ops = [];
+      const wasOpen = t.status !== "done";
       if (close) ops.push({ op: t.status === "done" ? "reopen" : "done", thread: id, text });
       else if (text) ops.push({ op: t.status === "done" ? "reopen" : "reply", thread: id, text });
       if (!ops.length) {
@@ -18593,6 +18742,14 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (!await write(ops, "Reply")) {
         typed.set(id, text);
         paint();
+        return;
+      }
+      if (close && wasOpen && (filter === "open" || filter === "me")) {
+        active = "";
+        paint();
+        redraw();
+        o.box.querySelector(".fe-cm-list > .fe-cm-th, .fe-cm-done > summary")?.focus({ preventScroll: true });
+        o.toast?.("Marked done", 6e3, { label: "Undo", run: () => void reply(id, true).then(() => focusThread(id)) });
         return;
       }
       o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
@@ -19125,7 +19282,7 @@ ${d.message}` : d.message;
       if (h.getBoundingClientRect().top <= top) current = h;
       else break;
     }
-    if (heads.length && page.scrollTop + page.clientHeight >= page.scrollHeight - 2) current = heads[heads.length - 1];
+    if (heads.length && page.scrollTop > 0 && page.scrollTop + page.clientHeight >= page.scrollHeight - 2) current = heads[heads.length - 1];
     const picked = toc.dataset.pin ? document.getElementById(toc.dataset.pin) : null;
     if (picked) {
       const r = picked.getBoundingClientRect(), p = page.getBoundingClientRect();
@@ -19213,8 +19370,8 @@ ${d.message}` : d.message;
     let tight = false, peek = false;
     let column = savedColumnMode(opts.column);
     const fe = document.getElementById("fe");
-    const paintMeta = () => {
-      const fm = fileMeta(text, ext2, rawPath);
+    const paintMeta = (shown = text) => {
+      const fm = fileMeta(shown, ext2, rawPath);
       meta.textContent = fm.kind;
       const row2 = document.getElementById("fe-status-meta");
       if (row2) row2.innerHTML = metaChips(fm);
@@ -19389,6 +19546,7 @@ ${d.message}` : d.message;
     };
     const editBox = document.getElementById("fe-fe");
     const editBtn = document.getElementById("fe-fp-edit");
+    const toast = makeToast(document.getElementById("fe-toast"));
     const status = (t) => {
       document.getElementById("fe-status-text").textContent = t;
     };
@@ -19463,6 +19621,8 @@ ${d.message}` : d.message;
         ext: ext2,
         href,
         status,
+        notify: (msg) => toast(msg, 5e3),
+        typed: (t) => paintMeta(t),
         cannotEdit: (why) => {
           status(why);
           noteAtButton(why);
@@ -19513,6 +19673,7 @@ ${d.message}` : d.message;
       text: () => text,
       allow: askToAllow,
       status,
+      toast,
       changed: () => {
         paint();
         editor?.marks();
@@ -20100,31 +20261,6 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       shown,
       closedSets,
       restoreSet
-    };
-  }
-
-  // src/toast.ts
-  function makeToast(el2) {
-    let tid;
-    return (msg, ms = 2400, action) => {
-      el2.textContent = msg;
-      if (action) {
-        const btn = document.createElement("button");
-        btn.className = "fe-toast-act";
-        btn.textContent = action.label;
-        btn.title = action.label;
-        btn.addEventListener("click", () => {
-          action.run();
-          el2.classList.remove("show");
-        });
-        el2.append(" \xB7 ", btn);
-        ms = Math.max(ms, 6e3);
-      }
-      el2.classList.toggle("act", !!action);
-      raise(el2);
-      el2.classList.add("show");
-      clearTimeout(tid);
-      tid = setTimeout(() => el2.classList.remove("show"), ms);
     };
   }
 

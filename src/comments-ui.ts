@@ -133,6 +133,8 @@ export function mountComments(o: {
   allow: () => Promise<boolean>; status: (t: string) => void; changed: () => void;
   /** Show the rail on the Comments tab; show or hide it. */
   reveal: () => void; toggle: () => void;
+  /** A short message with one action, for taking back marking a thread done. */
+  toast?: (msg: string, ms?: number, action?: { label: string; run: () => void }) => void;
   /** A thread was opened from the panel (the editor selects its words). */
   picked?: (span: { offset: number; length: number }) => void;
   /** Whether the file is open in the editor, where an accepted edit would clash. */
@@ -514,12 +516,21 @@ export function mountComments(o: {
     const ta = o.box.querySelector<HTMLTextAreaElement>(`textarea[data-for="${CSS.escape(id)}"]`);
     const text = (ta?.value ?? '').trim();
     const ops: CommentOp[] = [];
+    const wasOpen = t.status !== 'done';
     if (close) ops.push({ op: t.status === 'done' ? 'reopen' : 'done', thread: id, text });
     else if (text) ops.push({ op: t.status === 'done' ? 'reopen' : 'reply', thread: id, text });
     if (!ops.length) { ta?.focus(); return; }
     if (ta) ta.value = '';   // the repaint after the write keeps no stale draft
     typed.delete(id);
     if (!(await write(ops, 'Reply'))) { typed.set(id, text); paint(); return; }
+    // A thread marked done leaves the open list; it must not stay expanded in
+    // the folded Done group, so the group closes and the focus moves on.
+    if (close && wasOpen && (filter === 'open' || filter === 'me')) {
+      active = ''; paint(); redraw();
+      o.box.querySelector<HTMLElement>('.fe-cm-list > .fe-cm-th, .fe-cm-done > summary')?.focus({ preventScroll: true });
+      o.toast?.('Marked done', 6000, { label: 'Undo', run: () => void reply(id, true).then(() => focusThread(id)) });
+      return;
+    }
     o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
   };
   const startEdit = (cid: string) => {

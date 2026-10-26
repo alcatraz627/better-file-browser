@@ -3,6 +3,7 @@
 // raw, copy), a table of contents for markdown, and the matching renderer.
 // main.ts builds the shell and calls mountFileContent. HTML source is fetched
 // after takeover because the document contains rendered text, not source.
+import { makeToast } from './toast';
 import { esc, copyToClipboard } from './utils';
 import { holdScroll } from './scroll-hold';
 import {
@@ -104,10 +105,12 @@ function spy(page: HTMLElement, toc: HTMLElement): void {
   const heads = [...page.querySelectorAll<HTMLElement>('.fe-md h1, .fe-md h2, .fe-md h3, .fe-md h4')];
   const top = page.getBoundingClientRect().top + 40;
   // The section you are reading: the last heading above the line, the first
-  // one before any is reached, and the last one once the page bottoms out.
+  // one before any is reached, and the last one once a page that scrolls is
+  // scrolled to its end. A page too short to scroll sits at its top, so its
+  // first heading stays marked there.
   let current: HTMLElement | null = heads[0] ?? null;
   for (const h of heads) { if (h.getBoundingClientRect().top <= top) current = h; else break; }
-  if (heads.length && page.scrollTop + page.clientHeight >= page.scrollHeight - 2) current = heads[heads.length - 1];
+  if (heads.length && page.scrollTop > 0 && page.scrollTop + page.clientHeight >= page.scrollHeight - 2) current = heads[heads.length - 1];
   // A heading picked from the contents stays marked while it is on screen,
   // even when the page cannot scroll it to the top.
   const picked = toc.dataset.pin ? document.getElementById(toc.dataset.pin) : null;
@@ -217,8 +220,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   const fe = document.getElementById('fe')!;
 
   // One record of the file's facts feeds the file bar, status bar and count.
-  const paintMeta = () => {
-    const fm = fileMeta(text, ext, rawPath);
+  const paintMeta = (shown = text) => {
+    const fm = fileMeta(shown, ext, rawPath);
     meta.textContent = fm.kind;
     const row = document.getElementById('fe-status-meta');
     if (row) row.innerHTML = metaChips(fm);
@@ -381,6 +384,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   // save re-renders it with the new text.
   const editBox = document.getElementById('fe-fe')!;
   const editBtn = document.getElementById('fe-fp-edit')!;
+  const toast = makeToast(document.getElementById('fe-toast')!);
   const status = (t: string) => { document.getElementById('fe-status-text')!.textContent = t; };
   const home = rawPath.match(/^\/Users\/[^/]+/)?.[0] ?? '';
   let root = editableRoot(rawPath, opts.editableFolders, home);
@@ -443,6 +447,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     editor = await openFileEditor(editBox, {
       root, rel: rawPath.slice(root.length + 1), ext, href,
       status,
+      notify: msg => toast(msg, 5000),
+      typed: t => paintMeta(t),
       cannotEdit: why => { status(why); noteAtButton(why); },
       saved: fresh => { text = fresh; paintMeta(); },   // the pill shows Saved
       // The file may have changed while editing (a reload from disk), so read it again.
@@ -462,7 +468,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   if (isMd) comments = mountComments({
     page, box: cmBox, href, path: rawPath,
     root: () => root, rel: () => rawPath.slice((root ?? '').length + 1), text: () => text,
-    allow: askToAllow, status, changed: () => { paint(); editor?.marks(); },
+    allow: askToAllow, status, toast, changed: () => { paint(); editor?.marks(); },
     reveal: showComments, toggle: toggleComments,
     picked: span => editor?.select(span.offset, span.offset + span.length),
     editing: () => !!editor,

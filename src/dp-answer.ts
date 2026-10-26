@@ -174,6 +174,8 @@ export function wireAnswer(cfg: DpConfig, box: HTMLElement, slug: string | undef
       const r = await dpIo().dp('submit', slug, { answer: text, replace }) as { notify?: Notify | null };
       const st = r?.notify?.state;
       toast(st === 'requested' ? 'Sent. The agent was woken.' : st === 'queued' ? 'Sent. The agent is idle; the message waits for it.' : NOT_TOLD);
+      // The Decisions lens moves this page to Answered now, not at its next poll.
+      document.dispatchEvent(new CustomEvent('bfb-dp-answered', { detail: slug }));
       await readSent(true);
     } catch (err) {
       const code = codeOf(err);

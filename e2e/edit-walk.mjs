@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { writeFileSync, readFileSync, utimesSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
-import { launch, SHOTS } from './harness.mjs';
+import { launch, SHOTS, THEME } from './harness.mjs';
 
 const h = await launch();
 const results = [];
@@ -21,6 +21,7 @@ try {
   const txt = join(h.fixture, 'plain.txt');
   writeFileSync(md, '# Title\n\nfirst\n');
   writeFileSync(txt, 'a: 1\n');
+  if (THEME === 'light') await h.store.set('bfb-theme', 'light');
   const page = await h.browser.newPage();
   await page.setViewport({ width: 1400, height: 900 });
   page.on('pageerror', e => console.error('[pageerror]', e.message));
@@ -156,7 +157,37 @@ try {
   const later = new Date(Date.now() + 5000); utimesSync(md, later, later);
   await page.waitForFunction(() => !document.getElementById('fe-fe-banner').hidden, { timeout: 6000 }).catch(() => null);
   check(await page.$eval('#fe-fe-banner', el => !el.hidden) && readFileSync(md, 'utf8').includes('changed elsewhere'), 'an on-disk change while edited shows the banner, file untouched');
+  // ⌘S while the banner is up says why nothing was saved and what to do; the counts follow the text; Compare shows the lines that differ.
+  await page.focus('#fe-fe-ta');
+  await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
+  await page.waitForFunction(() => /Not saved/.test(document.getElementById('fe-toast')?.textContent || ''), { timeout: 3000 }).catch(() => null);
+  const said = await page.evaluate(() => ({ toast: document.getElementById('fe-toast').textContent, shown: document.getElementById('fe-toast').classList.contains('show'), status: document.getElementById('fe-status-text').textContent }));
+  check(/Not saved/.test(said.toast) && /Compare/.test(said.toast) && said.shown && readFileSync(md, 'utf8').includes('changed elsewhere') && !readFileSync(md, 'utf8').includes('mine'),
+    `⌘S with the disk banner up says it did not save and what to choose, and the file stays: ${JSON.stringify(said)}`);
+  await typeAtEnd(page, 'a\nb\nc\nd\n');
+  await new Promise(r => setTimeout(r, 1500));
+  const counts = await page.evaluate(() => {
+    const v = document.getElementById('fe-fe-ta').value;
+    return { want: `${v.split('\n').length - (v.endsWith('\n') ? 1 : 0)} lines`, meta: document.getElementById('fe-status-meta').textContent, count: document.getElementById('fe-count')?.textContent ?? '' };
+  });
+  check(counts.meta.includes(counts.want) && !counts.meta.includes('5 lines'), `the status bar line count follows the text being edited: ${JSON.stringify(counts)}`);
+  await page.click('#fe-fe-banner [data-act="compare"]');
+  await page.waitForFunction(() => !document.getElementById('fe-fe-diff').hidden, { timeout: 3000 }).catch(() => null);
+  const diff = await page.evaluate(() => ({
+    shown: !document.getElementById('fe-fe-diff').hidden,
+    gone: [...document.querySelectorAll('#fe-fe-diff .fe-fe-dl[data-k="gone"] .fe-fe-dt')].map(e => e.textContent),
+    added: [...document.querySelectorAll('#fe-fe-diff .fe-fe-dl[data-k="new"] .fe-fe-dt')].map(e => e.textContent),
+    head: document.querySelector('#fe-fe-diff .fe-fe-dhead')?.textContent,
+  }));
+  check(diff.shown && diff.gone.includes('changed elsewhere') && diff.added.some(l => /mine/.test(l)), `Compare lists the disk-only lines and the lines typed here: ${JSON.stringify(diff)}`);
+  await page.screenshot({ path: join(SHOTS, `edit-compare${THEME === 'light' ? '-light' : ''}.png`) });
+  await page.click('#fe-fe-banner [data-act="compare"]');
+  check(await page.$eval('#fe-fe-diff', el => el.hidden), 'Compare again hides the lines');
+  await page.click('#fe-fe-banner [data-act="compare"]');
+  await page.waitForFunction(() => !document.getElementById('fe-fe-diff').hidden, { timeout: 3000 }).catch(() => null);
   await page.click('#fe-fe-banner [data-act="reload"]');
+  await page.waitForFunction(() => document.getElementById('fe-fe-diff').hidden && document.getElementById('fe-fe-banner').hidden, { timeout: 3000 }).catch(() => null);
+  check(await page.$eval('#fe-fe-diff', el => el.hidden), 'Load from disk closes the comparison');
   await page.waitForFunction(() => document.getElementById('fe-fe-ta').value.includes('changed elsewhere'), { timeout: 5000 }).catch(() => null);
   check(await page.$eval('#fe-fe-ta', el => el.value.includes('changed elsewhere')), 'Load from disk replaces the editor text');
   await page.click('#fe-fe-pill [data-act="done"]');

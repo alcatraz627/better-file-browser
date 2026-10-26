@@ -146,7 +146,10 @@ const beta = 2;
   await page.click(`#fe-cm .fe-cm-th.on [data-a="done"]`);
   await page.waitForFunction(i => document.querySelector(`#fe-cm details.fe-cm-done .fe-cm-th[data-id="${i}"]`), { timeout: 6000 }, id).catch(() => null);
   check(all().find(x => x.id === id)?.status === 'done', 'Done closes the thread and it moves to the Done group');
-  await page.click(`#fe-cm .fe-cm-th.on [data-a="reopen"]`);
+  // Done folds the thread away with an Undo that brings it back open and selected.
+  const undone = await page.evaluate(() => ({ toast: document.getElementById('fe-toast').textContent, shown: document.getElementById('fe-toast').classList.contains('show'), folded: document.querySelector('#fe-cm details.fe-cm-done')?.open === false, on: document.querySelectorAll('#fe-cm .fe-cm-th.on').length }));
+  check(/Marked done/.test(undone.toast) && undone.shown && undone.folded && undone.on === 0, `Done folds the Done group and offers Undo: ${JSON.stringify(undone)}`);
+  await page.click('#fe-toast .fe-toast-act');
   await page.waitForFunction(i => document.querySelector(`#fe-cm .fe-cm-list > .fe-cm-th[data-id="${i}"]`), { timeout: 6000 }, id).catch(() => null);
   check(all().find(x => x.id === id)?.status === 'open', 'Reopen brings it back');
   await page.click(`#fe-cm .fe-cm-th.on [data-a="untag"][data-v="schedule"]`);

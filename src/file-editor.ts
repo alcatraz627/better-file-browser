@@ -16,6 +16,7 @@ import { UI_ICON } from './control-icons';
 import { carrier } from './comment-anchor';
 import { errorText } from './errors';
 import { watch } from './watch';
+import { lineDiff } from './line-diff';
 
 const AUTOSAVE_MS = 800;
 const CHECK_MS = 300;
@@ -66,6 +67,10 @@ export interface FileEditorHost {
   cannotEdit?(why: string): void;
   // The saved text, so the reading view shows it when the editor closes.
   saved(text: string): void;
+  /** A short message at the bottom of the page. */
+  notify?(text: string): void;
+  /** The text as it stands while editing, so the counts around the page follow it. */
+  typed?(text: string): void;
   closed(): void;
   /** Comment threads on the file, marked in the gutter; offsets are in the text as last saved. */
   comments?: { marks(): { id: string; offset: number; length: number }[]; open(id: string): void };
@@ -91,6 +96,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const isMd = fmt?.id === 'markdown';
   box.innerHTML = `
     <div id="fe-fe-banner" class="notice" data-tone="warn" hidden></div>
+    <div id="fe-fe-diff" hidden></div>
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">
@@ -113,6 +119,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   const view = box.querySelector<HTMLElement>('#fe-fe-view');
   const state = box.querySelector<HTMLElement>('#fe-fe-state')!;
   const banner = box.querySelector<HTMLElement>('#fe-fe-banner')!;
+  const diffBox = box.querySelector<HTMLElement>('#fe-fe-diff')!;
   const diagBtn = box.querySelector<HTMLElement>('#fe-fe-diag')!;
   const scroller = box.querySelector<HTMLElement>('#fe-fe-scroll')!;
   box.classList.toggle('fe-fe-big', big);
@@ -291,7 +298,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     }
     for (const l of cmRows.keys()) rowEl(l)?.classList.add('cm');
   };
-  const check = () => { const t = tw.text(); diags = t.length > CHECK_MAX ? [] : diagnose(host.ext, t); markProblems(); };
+  const check = () => { const t = tw.text(); diags = t.length > CHECK_MAX ? [] : diagnose(host.ext, t); markProblems(); host.typed?.(t); };
   const checkLater = () => { clearTimeout(checkTimer); checkTimer = window.setTimeout(check, CHECK_MS); };
   const paint = () => {
     const dirty = isDirty();
@@ -344,7 +351,7 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       const text = tw.text();
       const r = await notes.fileWrite(host.root, host.rel, text, expect);
       doc = { text, mtime: r.mtime }; base = text; failed = '';
-      banner.hidden = true;
+      banner.hidden = true; diffBox.hidden = true;
       host.saved(text);
     } catch (err) {
       const e = err as NotesError;
@@ -358,15 +365,49 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     } finally { saving = false; paint(); }
     if (retryAt) await write(retryAt);
   };
-  const save = () => { clearTimeout(timer); if (!saving && isDirty()) void write(doc.mtime); };
-  const later = () => { clearTimeout(timer); timer = window.setTimeout(save, AUTOSAVE_MS); };
+  // While the banner is up the file on disk is newer than the text this save
+  // was based on, so a save would only be refused again. Say what to do instead.
+  const save = (asked = true) => {
+    clearTimeout(timer);
+    if (saving || !isDirty()) return;
+    if (!banner.hidden) { if (asked) askToChoose(); return; }
+    void write(doc.mtime);
+  };
+  const askToChoose = () => {
+    const msg = 'Not saved: the file changed on disk. Choose Load from disk, Keep mine or Compare.';
+    (host.notify ?? host.status)(msg);
+    banner.classList.add('flash');
+    setTimeout(() => banner.classList.remove('flash'), 700);
+  };
+  const later = () => { clearTimeout(timer); timer = window.setTimeout(() => save(false), AUTOSAVE_MS); };
 
   function showConflict(): void {
     banner.hidden = false;
     banner.innerHTML = `<span>${esc(host.rel.split('/').pop()!)} changed on disk since you opened it.</span>
       <button class="btn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
+      <button class="btn" data-act="compare" title="Show the lines that differ between the file on disk and your text">Compare</button>
       <button class="btn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
   }
+  // The lines that differ, the copy on disk against this one, under the banner.
+  const showDiff = async () => {
+    if (!diffBox.hidden) { diffBox.hidden = true; return; }
+    let disk: string;
+    try { disk = (await notes.fileRead(host.root, host.rel)).text; }
+    catch (err) { host.status(errorText(err, 'Reading the file on disk')); return; }
+    const rows = lineDiff(disk, tw.text());
+    const changed = rows.filter(r => r.kind !== 'same');
+    // Only the changed lines and two lines of context around each.
+    const keep = new Set<number>();
+    rows.forEach((r, i) => { if (r.kind !== 'same') for (let k = Math.max(0, i - 2); k <= Math.min(rows.length - 1, i + 2); k++) keep.add(k); });
+    let html = '', skipped = false;
+    rows.forEach((r, i) => {
+      if (!keep.has(i)) { skipped = true; return; }
+      if (skipped) { html += '<div class="fe-fe-dgap">…</div>'; skipped = false; }
+      html += `<div class="fe-fe-dl" data-k="${r.kind}"><span class="fe-fe-dm">${r.kind === 'gone' ? '−' : r.kind === 'new' ? '+' : ''}</span><span class="fe-fe-dt">${esc(r.text) || ' '}</span></div>`;
+    });
+    diffBox.innerHTML = `<div class="fe-fe-dhead">${changed.length ? `<span data-k="gone">− on disk</span><span data-k="new">+ yours</span>` : 'The two copies have the same lines.'}</div>${html}`;
+    diffBox.hidden = false;
+  };
   // Called by the page's autoreload when the file changed underneath us.
   const external = async () => {
     try {
@@ -431,7 +472,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
     if (act === 'save') save();
     else if (act === 'done') void close();
     else if (act === 'diag' && diags.length) goToLine(diags[0].line);
-    else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; base = now.text; buf.snap(); tw.set(now.text); banner.hidden = true; paintSource(); paint(); }
+    else if (act === 'compare') void showDiff();
+    else if (act === 'reload') { const now = await notes.fileRead(host.root, host.rel); doc = now; base = now.text; buf.snap(); tw.set(now.text); banner.hidden = true; diffBox.hidden = true; paintSource(); paint(); host.typed?.(now.text); }
     else if (act === 'overwrite') { const now = await notes.fileRead(host.root, host.rel); void write(now.mtime); }
   });
   ta.addEventListener('input', () => { paintSource(); paint(); later(); checkLater(); });
