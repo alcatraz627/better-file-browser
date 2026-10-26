@@ -231,6 +231,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       ls.visible = [];
       renderTree(entries, parent);
     }
+    fe.classList.toggle('fe-no-tags', !entries.some(e => c.tagsOf!(fullPath(rawPath, e)).length));
 
     const shown = fe.dataset.view === 'tree' ? entries.length : ls.visible.filter(en => !en.isParent).length;
     const filtered = !!ls.filter.q || ls.filter.type !== 'all';

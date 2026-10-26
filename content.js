@@ -434,6 +434,22 @@
   function kvKeys() {
     return area ? [...cache.keys()] : localKeys();
   }
+  function kvRemove(key) {
+    if (!area) {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+      }
+      return;
+    }
+    if (!cache.has(key)) return;
+    cache.delete(key);
+    try {
+      area.remove(key).catch(() => {
+      });
+    } catch {
+    }
+  }
 
   // src/storage.ts
   var BM_KEY = "bfb-bookmarks-v2";
@@ -782,9 +798,25 @@
       return /* @__PURE__ */ new Set();
     }
   }, (v) => JSON.stringify([...v]));
+  var PASSING_STATE = [
+    "bfb-dialog-tab:",
+    "bfb-dp-",
+    "bfb-lead:",
+    "bfb-scroll:",
+    "bfb-page-scroll-v1",
+    "bfb-goto-last-v1",
+    "bfb-lens-v1",
+    "bfb-comments-filter-v1",
+    "bfb-ask-quote-v1",
+    "bfb-reset-undo-v1"
+  ];
+  var isPassingState = (k) => PASSING_STATE.some((p) => k === p || (p.endsWith(":") || p.endsWith("-")) && k.startsWith(p));
+  var BUILT_UP = [SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, RECENTS_KEY, "bfb-saved-folded-v1", "bfb-notes-folded-v1", "bfb-ask-history-v1", "bfb-home-v1"];
+  var KEEP_IN_SETTINGS = ["notesRoot", "editableFolders"];
   function exportAll() {
     const out = {};
     for (const k of kvKeys().sort()) {
+      if (isPassingState(k)) continue;
       const raw = kvGet(k);
       try {
         out[k] = JSON.parse(raw);
@@ -794,13 +826,78 @@
     }
     return out;
   }
-  function importAll(data) {
-    let n = 0;
-    for (const [k, val] of Object.entries(data)) if (k.startsWith("bfb-")) {
-      kvSet(k, typeof val === "string" ? val : JSON.stringify(val));
-      n++;
+  var asText = (val) => typeof val === "string" ? val : JSON.stringify(val);
+  var sameJson = (a, b) => {
+    try {
+      return JSON.stringify(JSON.parse(a)) === JSON.stringify(JSON.parse(b));
+    } catch {
+      return false;
     }
-    return n;
+  };
+  function planImport(data) {
+    const plan = { changed: [], added: [], same: 0, skipped: 0, writes: {} };
+    for (const [k, val] of Object.entries(data)) {
+      if (!k.startsWith("bfb-") || isPassingState(k)) {
+        plan.skipped++;
+        continue;
+      }
+      const text = asText(val), now = kvGet(k);
+      if (now === null) plan.added.push(k);
+      else if (now === text || sameJson(now, text)) {
+        plan.same++;
+        continue;
+      } else plan.changed.push(k);
+      plan.writes[k] = text;
+    }
+    return plan;
+  }
+  var UNDO_KEY = "bfb-reset-undo-v1";
+  function applyWrites(label, writes) {
+    const before = {};
+    for (const k of Object.keys(writes)) before[k] = kvGet(k);
+    const count = Object.keys(writes).length;
+    kvSet(UNDO_KEY, JSON.stringify({ at: Date.now(), label, count, before }));
+    for (const [k, text] of Object.entries(writes)) {
+      if (text === null) kvRemove(k);
+      else kvSet(k, text);
+    }
+    return count;
+  }
+  function importPlan(plan) {
+    return applyWrites("Imported", plan.writes);
+  }
+  function resetPreferences() {
+    const writes = {};
+    for (const k of kvKeys()) {
+      if (isPassingState(k) || BUILT_UP.includes(k)) continue;
+      if (k === SETTINGS_KEY) {
+        const kept = {};
+        try {
+          const cur = JSON.parse(kvGet(k) ?? "{}");
+          for (const f of KEEP_IN_SETTINGS) if (cur[f] !== void 0) kept[f] = cur[f];
+        } catch {
+        }
+        writes[k] = Object.keys(kept).length ? JSON.stringify(kept) : null;
+      } else writes[k] = null;
+    }
+    return applyWrites("Settings reset", writes);
+  }
+  function takeUndo(maxAgeMs = 12e4) {
+    const raw = kvGet(UNDO_KEY);
+    if (raw === null) return null;
+    kvRemove(UNDO_KEY);
+    try {
+      const r = JSON.parse(raw);
+      return Date.now() - r.at <= maxAgeMs ? r : null;
+    } catch {
+      return null;
+    }
+  }
+  function undoWrites(r) {
+    for (const [k, text] of Object.entries(r.before)) {
+      if (text === null) kvRemove(k);
+      else kvSet(k, text);
+    }
   }
 
   // src/notes.ts
@@ -854,6 +951,10 @@
     rename: (root, rel, to) => call({ op: "rename", root, rel, to }),
     writeBinary: (root, rel, base64) => call({ op: "writeBinary", root, rel, base64 }),
     delete: (root, rel) => call({ op: "delete", root, rel }),
+    /// What .trash holds, newest first.
+    trashList: (root) => call({ op: "trashList", root }).then((f) => f.notes),
+    /// Put a deleted note back, at `to` when that name is free (otherwise a numbered name beside it).
+    restore: (root, trashed, to) => call({ op: "restore", root, trashed, to }),
     /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
     /// The system chooser: a folder, or with kind 'any' a file or a folder (a folder ends in /). Empty when cancelled.
     pick: (start, kind) => call({ op: "pick", start, kind }).then((f) => f.root),
@@ -1726,8 +1827,9 @@ ${body}`;
     { id: "side-rename", group: "Sidebar", title: "Rename", keys: ["F2"], scope: "sidebar", own: true },
     { id: "side-tags", group: "Sidebar", title: "Tags", keys: ["#"], scope: "sidebar" },
     { id: "side-remove", group: "Sidebar", title: "Remove", keys: ["\u232B"], scope: "sidebar", own: true },
+    { id: "side-reorder", group: "Sidebar", title: "Move a Saved or Notes row up or down (\u2325\u2193 on the bar goes into the lens)", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "sidebar", own: true },
     { id: "side-rail", group: "Sidebar", title: "To the lens bar", keys: ["\u2190"], scope: "sidebar", own: true },
-    { id: "side-into", group: "Sidebar", title: "Into the open lens (on the bar)", keys: ["\u2325\u2193"], scope: "sidebar", own: true },
+    { id: "side-into", group: "Sidebar", title: "Into the open lens (on the bar)", keys: ["\u2325\u2193"], scope: "sidebar" },
     { id: "side-fold", group: "Sidebar", title: "Fold a group", keys: ["Space"], scope: "sidebar" },
     { id: "lens-filter", group: "Sidebar", title: "Filter this list", keys: ["/"], scope: "sidebar", own: true },
     { id: "ask-quote", group: "Sidebar", title: "Quote the selection or the part of a chat under the pointer into a chat", keys: ["q"], own: true },
@@ -4135,14 +4237,15 @@ ${answer}`;
     menu.addEventListener("submit", (e) => {
       e.preventDefault();
       const inp = menu.querySelector(".fe-pm-add input");
-      const t = inp.value.replace(/,/g, " ").replace(/\s+/g, " ").trim();
-      const why = t.toLowerCase() === "pin" ? '"pin" is kept for pins; pin the note instead' : t.length > 32 ? "A tag is at most 32 characters" : cur.tags.length >= 12 && !cur.tags.includes(t) ? "A note keeps at most 12 tags" : "";
+      const typed = [...new Set(inp.value.split(",").map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean))];
+      const fresh = typed.filter((t) => !cur.tags.includes(t));
+      const why = typed.some((t) => t.toLowerCase() === "pin") ? '"pin" is kept for pins; pin the note instead' : typed.some((t) => t.length > 32) ? "A tag is at most 32 characters" : cur.tags.length + fresh.length > 12 ? "A note keeps at most 12 tags" : "";
       inp.setCustomValidity(why);
       if (why) {
         inp.reportValidity();
         return;
       }
-      if (t && !cur.tags.includes(t)) void run({ tags: [...cur.tags, t] });
+      if (fresh.length) void run({ tags: [...cur.tags, ...fresh] });
       else inp.value = "";
     });
     render2();
@@ -4420,18 +4523,34 @@ ${answer}`;
     const m = line2.match(/^(\s*)([-*+]|\d+[.)])\s(\[[ xX]\]\s)?(.*)$/);
     if (!m) return null;
     const [, ind, marker, box, rest] = m;
-    if (!rest.trim() && !box) {
-      const out2 = text.slice(0, from) + text.slice(sel.end);
-      return { text: out2, start: from, end: from };
-    }
-    if (!rest.trim() && box) {
-      const out2 = text.slice(0, from) + text.slice(sel.end);
-      return { text: out2, start: from, end: from };
+    if (!rest.trim()) {
+      const gap = from === 0 || /\n\n$/.test(text.slice(0, from)) ? "" : "\n";
+      const out2 = text.slice(0, from) + gap + text.slice(sel.end);
+      return { text: out2, start: from + gap.length, end: from + gap.length };
     }
     const nextMarker = /^\d+/.test(marker) ? String(parseInt(marker) + 1) + marker.slice(-1) : marker;
     const ins = "\n" + ind + nextMarker + " " + (box ? "[ ] " : "");
     const out = text.slice(0, sel.start) + ins + text.slice(sel.end);
     return { text: out, start: sel.start + ins.length, end: sel.start + ins.length };
+  }
+  function autoMarkerAfter(edit2) {
+    const lineStart2 = edit2.text.lastIndexOf("\n", edit2.start - 1) + 1;
+    const prefix = edit2.text.slice(lineStart2, edit2.start);
+    return /^\s*([-*+]|\d+[.)])\s(\[[ xX]\]\s)?$/.test(prefix) && lineStart2 > 0 ? { lineStart: lineStart2, prefix } : null;
+  }
+  var TYPED_MARKER = /^([-*+]|\d+[.)])\s(\[[ xX]\]\s)?/;
+  function absorbTypedMarker(text, sel, auto) {
+    if (sel.start !== sel.end || !text.startsWith(auto.prefix, auto.lineStart) || sel.start < auto.lineStart + auto.prefix.length) return null;
+    const typed = text.slice(auto.lineStart + auto.prefix.length, sel.start);
+    const m = typed.match(TYPED_MARKER);
+    if (!m) return null;
+    const rest = typed.slice(m[0].length);
+    const autoBox = /\[[ xX]\]\s$/.test(auto.prefix);
+    if (!m[2] && autoBox && /^\[[ xX]?\]?$|^$/.test(rest)) return null;
+    const ind = auto.prefix.match(/^\s*/)[0];
+    const keep = (m[2] ? ind + m[0] : auto.prefix) + rest;
+    const out = text.slice(0, auto.lineStart) + keep + text.slice(sel.start);
+    return { text: out, start: auto.lineStart + keep.length, end: auto.lineStart + keep.length };
   }
   function wrapSelection(text, sel, left, right = left) {
     const inner = text.slice(sel.start, sel.end);
@@ -12096,8 +12215,19 @@ ${end.comment}` : end.comment;
     };
     showClash();
     let viewTimer = null;
+    let autoMarker = null;
     ta.addEventListener("input", () => {
       if (!edit) return;
+      if (autoMarker) {
+        const fix = absorbTypedMarker(ta.value, sel(), autoMarker);
+        if (fix) {
+          autoMarker = null;
+          apply(fix);
+          return;
+        }
+        const typed = ta.value.slice(autoMarker.lineStart + autoMarker.prefix.length, ta.selectionStart);
+        if (!ta.value.startsWith(autoMarker.prefix, autoMarker.lineStart) || ta.selectionStart < autoMarker.lineStart + autoMarker.prefix.length || !/^[-*+\d.)[\] xX]*$/.test(typed)) autoMarker = null;
+      }
       if (!!document.getElementById("fe-ed-clash") !== !!clashSides(ta.value)) showClash();
       edit.text = edit.head + ta.value;
       edit.dirty = true;
@@ -12160,6 +12290,7 @@ ${end.comment}` : end.comment;
         if (r) {
           stop();
           apply(r);
+          autoMarker = autoMarkerAfter(r);
         }
       }
     });
@@ -14734,6 +14865,8 @@ table.fe-rz-fixed{table-layout:fixed}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
 td.c-tg{white-space:nowrap;overflow:hidden}
+/* With nothing in the folder tagged, the Tags column would only be an empty stripe. */
+#fe.fe-no-tags[data-view="details"] .c-tg{display:none}
 /* Named chips give up width (ending in \u2026) before the +N count does. */
 .fe-chips{display:flex;gap:var(--sp-2);min-width:0;overflow:hidden}
 .fe-chips .chip{flex:0 1 auto;min-width:28px}
@@ -15012,7 +15145,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-pane .fe-md>:first-child{margin-top:0;padding-right:36px}
 
 .fe-st-input{width:100%}
-#fe-st-export-out{height:calc(var(--ctl-md) * 4 + var(--sp-4));font:var(--fs-sm) var(--mono)}
+.fe-st-plan{display:flex;align-items:center;gap:var(--sp-5);flex-wrap:wrap;margin:var(--sp-3) var(--sp-5)}
+.fe-st-plan[hidden]{display:none}
+.fe-st-plan-acts{display:inline-flex;gap:var(--sp-3);margin-left:auto}
 
 .fe-st-rule{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
   gap:var(--sp-3);align-items:center;padding:var(--sp-2) var(--sp-1);border-bottom:1px solid var(--bd)}
@@ -15089,7 +15224,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab.pinned .fe-tab-ico::after{content:'';position:absolute;top:-3px;right:-3px;width:5px;height:5px;border-radius:50%;background:var(--ac)}
 .fe-tab-menu{position:fixed}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none}
-#fe-fp-bar{border-bottom:1px solid var(--bd);flex-shrink:0}
+/* Buttons that do not fit wrap to a second row; clipping would hide Find, Contents and Comments. */
+#fe-fp-bar{border-bottom:1px solid var(--bd);flex-shrink:0;flex-wrap:wrap}
 /* Contents and Comments float over the page as a translucent card, shown and
    hidden by the two buttons right of find. The text keeps clear of the card. */
 #fe-fp{display:flex;flex:1;min-height:0;position:relative}
@@ -15228,7 +15364,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
 #fe-page .fe-md{overflow-wrap:break-word;max-width:none;margin:0;padding:28px 48px 80px;font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
 #fe.fe-column-xl #fe-page .fe-md{max-width:150ch;margin:0 auto}
 #fe.fe-column-lg #fe-page .fe-md{max-width:130ch;margin:0 auto}
-#fe.fe-column-md #fe-page .fe-md{max-width:110ch;margin:0 auto}
+#fe.fe-column-md #fe-page .fe-md{max-width:80ch;margin:0 auto}
 #fe-page .fe-md blockquote > .fe-md{padding:0;margin:0;max-width:none}
 .fe-md-alert{--al:#4493f8;border-left:3px solid var(--al);padding:.6em 1em;border-radius:var(--r-xs);background:color-mix(in srgb,var(--al) 9%,transparent)}
 .fe-md-alert>.fe-md-alert-title{font-weight:600;color:var(--al);margin:0 0 var(--sp-2)}
@@ -15568,7 +15704,6 @@ a.fe-fm-path:hover{text-decoration:underline}
   #fe-toc-rail{width:clamp(150px,22vw,190px)}
   #fe-ff-q{width:110px}
   #fe-page .fe-md{padding:var(--sp-7) 18px 60px}
-  #fe-fp-bar{flex-wrap:wrap}
 }
 @container fe-main (max-width:720px){
   #fe-toolbar{flex-wrap:wrap}
@@ -15699,6 +15834,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-item.coloured .fe-si-link > svg{color:var(--c);opacity:1}
 .fe-nt-item.two .fe-si-link{align-items:flex-start}
 .fe-nt-item.two .fe-si-link > svg{margin-top:var(--sp-1)}
+#fe-lens-notes.trashing .fe-lens-box,#fe-lens-notes.trashing #fe-lens-tags{display:none}
+.fe-nt-trashed .fe-si-link{padding:var(--sp-3) 0;align-items:flex-start;cursor:default}
+.fe-nt-trashed .fe-si-link>svg{margin-top:var(--sp-1)}
+.fe-nt-when{font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-nt-trashed .fe-nt-restore{flex:none}
 .fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:var(--sp-2)}
 .fe-nt-tags{font-size:var(--fs-sm);color:var(--mt);display:flex;gap:var(--sp-2);flex-wrap:nowrap;overflow:hidden}
 .fe-nt-tag{display:inline-flex;align-items:center;gap:var(--sp-2);height:17px;padding:0 var(--sp-3);border:1px solid var(--bd2);border-radius:var(--r-full);font-size:var(--fs-xs);color:var(--mt);white-space:nowrap;flex:none}
@@ -15784,7 +15924,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-fe-col{margin:0 auto;padding:62px 28px 120px;max-width:none}
 #fe.fe-column-xl #fe-fe-col{max-width:150ch}
 #fe.fe-column-lg #fe-fe-col{max-width:130ch}
-#fe.fe-column-md #fe-fe-col{max-width:110ch}
+#fe.fe-column-md #fe-fe-col{max-width:80ch}
 [data-mode="split"] #fe-fe-scroll{overflow:hidden}
 #fe [data-mode="split"] #fe-fe-col{max-width:none;height:100%;display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);padding:0}
 /* Spacing on the text side is border, not padding: the typing layer is placed
@@ -16144,7 +16284,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-dp.flagged-only .fe-dp-card:not([data-flag]),#fe-dp.flagged-only .fe-dp-grp:not(:has(.fe-dp-card[data-flag])){display:none}
 /* Parts that start hidden and are shown by clearing their hidden attribute. */
 #fe-ql-ai[hidden],#fe-ql-ai-out[hidden],#fe-ed-hist[hidden],#fe-fe-banner[hidden],#fe-fe[hidden],.fe-dlg[hidden],#fe-rc-tabs-sec[hidden],
-#fe-sg-panel[hidden],#fe-filter-bar[hidden],#fe-find-depth-wrap[hidden],#fe-st-term-custom-row[hidden],#fe-st-export-out[hidden],#fe-ed-file[hidden],#fe-st-import-file[hidden]{display:none}
+#fe-sg-panel[hidden],#fe-filter-bar[hidden],#fe-find-depth-wrap[hidden],#fe-st-term-custom-row[hidden],#fe-ed-file[hidden],#fe-st-import-file[hidden]{display:none}
 /* Reduced motion, in one place: the motion tokens go to zero and anything left still settles at once. */
 @media (prefers-reduced-motion:reduce){
   :root,#fe{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}
@@ -19223,7 +19363,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
   var columnPref = textPref("bfb-page-column-v2");
   var oldColumnPref = textPref("bfb-page-column-v1");
   var COLUMN_MODES = ["unset", "xl", "lg", "md"];
-  var COLUMN_WIDTHS = { unset: "full", xl: "150ch", lg: "130ch", md: "110ch" };
+  var COLUMN_WIDTHS = { unset: "full", xl: "150ch", lg: "130ch", md: "80ch" };
+  var COLUMN_NAMES = { unset: "Full", xl: "Wide", lg: "Medium", md: "Narrow" };
   function columnMode(value) {
     if (value === true || value === "1") return "md";
     return COLUMN_MODES.includes(value) ? value : "unset";
@@ -19382,9 +19523,10 @@ ${d.message}` : d.message;
     const paint = () => {
       for (const mode of COLUMN_MODES) fe.classList.toggle(`fe-column-${mode}`, column === mode);
       colBtn.classList.toggle("on", column !== "unset");
-      colBtn.querySelector(".fe-fp-column-label").textContent = column === "unset" ? "Full width" : `${column.toUpperCase()} width`;
+      colBtn.querySelector(".fe-fp-column-label").textContent = `${COLUMN_NAMES[column]} width`;
       const next = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
-      colBtn.title = `Reading width: ${column === "unset" ? "full" : `${column.toUpperCase()} (${COLUMN_WIDTHS[column]})`}. Click for ${next === "unset" ? "full" : `${next.toUpperCase()} (${COLUMN_WIDTHS[next]})`}`;
+      const named = (m) => m === "unset" ? "Full" : `${COLUMN_NAMES[m]} (${COLUMN_WIDTHS[m]})`;
+      colBtn.title = `Reading width: ${named(column)}. Click for ${named(next)}`;
       colBtn.style.display = isMd && !raw ? "" : "none";
       rawBtn.style.display = editor ? "none" : "";
       const cmOpen = comments?.open() ?? 0;
@@ -20535,10 +20677,10 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ) },
         { key: "notes", label: "Notes", hint: "Notes, editing", icon: UI_ICON.notes, tone: "var(--nc-orange)", desc: "Your notes folder, and where you can edit.", body: card2(
           "Notes",
-          row("Folder", "Markdown files", `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="~/Notes" spellcheck="false" title="Notes folder">${iconBtn("fe-st-notes-pick", UI_ICON.folderOpen, "Choose a folder")}`) + note("", "fe-st-notes-hint")
+          row("Folder", "Markdown files, for example ~/Notes", `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="Not set" spellcheck="false" title="Notes folder">${iconBtn("fe-st-notes-pick", UI_ICON.folderOpen, "Choose a folder")}`) + note("", "fe-st-notes-hint")
         ) + card2(
           "Editing",
-          wide("Editable folders", "Text files inside get Edit (e e). Saves keep a 14-day backup.", chipsHtml("fe-st-edit-roots", "~/Code", "Folders you can edit in"))
+          wide("Editable folders", "Text files inside get Edit (e e), for example ~/Code. Saves keep a 14-day backup.", chipsHtml("fe-st-edit-roots", "Not set", "Folders you can edit in"))
         ) },
         { key: "ai", label: "AI", hint: "Models", icon: UI_ICON.ai, tone: "var(--nc-purple)", desc: "Models that answer in Ask and the preview.", body: `
         <div id="fe-st-ai-card" class="fe-ai-hero">
@@ -20551,7 +20693,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ) + card2("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
         { key: "data", label: "Data", hint: "Export, import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list.", body: card2(
           "Your data",
-          row("Export", "Copies JSON", `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) + row("Import", "Then reloads", `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<textarea id="fe-st-export-out" class="tb fe-st-input" hidden spellcheck="false" title="The export, also on the clipboard"></textarea>`
+          row("Export", "Saves a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" title="Save your settings and Saved list as a .json file">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places and your folders stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-tone="danger" title="Put every setting back to its default; Undo stays for a moment">${UI_ICON.reset}Reset</button>`)
         ) }
       ]
     };
@@ -20906,6 +21048,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <div class="bar fe-lens-tools" data-inset>
         <button id="fe-nt-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="New note (n)" aria-label="New note">${UI_ICON.add}</button>
         <a id="fe-notes-root" class="btn fe-lens-ib" data-icon data-size="lg" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
+        <button id="fe-nt-trash" class="btn fe-lens-ib" data-icon data-size="lg" aria-pressed="false" title="Trash: notes you deleted" aria-label="Trash: notes you deleted">${UI_ICON.trash}</button>
       </div>
       <div class="fe-sec" id="fe-notes-sec" data-sec="notes">
         <input id="fe-nt-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
@@ -21580,6 +21723,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         ls.visible = [];
         renderTree(entries, parent);
       }
+      fe.classList.toggle("fe-no-tags", !entries.some((e) => c.tagsOf(fullPath(rawPath, e)).length));
       const shown = fe.dataset.view === "tree" ? entries.length : ls.visible.filter((en) => !en.isParent).length;
       const filtered = !!ls.filter.q || ls.filter.type !== "all";
       if (ls.contentHits) {
@@ -22932,8 +23076,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         if (!a || a === document.body || !a.isConnected) refocus();
       }, 450);
     }, () => !!sideRow()?.querySelector(".fe-rm-btn"));
+    const onBar = () => !!ae()?.closest("#fe-rail");
+    const movable = () => {
+      const r = sideRow();
+      return !!r && !!app.canMoveRow?.(r) && !!ae()?.closest(".fe-si-link");
+    };
+    bind("side-reorder", (key) => {
+      if (onBar()) {
+        if (key === "\u2325\u2193") areaNamed("sidebar")?.enter();
+        return;
+      }
+      app.moveRow?.(sideRow(), key === "\u2325\u2191" ? -1 : 1);
+    }, () => onBar() || movable());
     bind("side-rail", () => document.querySelector("#fe-rail .fe-rail-btn.on")?.focus(), () => inLens() && !!ae()?.matches(LENS_ROWS));
-    bind("side-into", () => areaNamed("sidebar")?.enter(), () => !!ae()?.closest("#fe-rail"));
     const focusedTab = () => {
       const t = ae();
       return t?.closest("#fe-tabs") && t.classList.contains("fe-tab") ? t : null;
@@ -23544,6 +23699,32 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         });
       });
     }
+    const savedSiblings = (row2) => els(".fe-pl-item", row2.parentElement).filter((x) => x.parentElement === row2.parentElement);
+    app.canMoveRow = (row2) => row2.classList.contains("fe-pl-item") ? !svFilter.value.trim() : row2.classList.contains("fe-nt-item") ? row2.draggable : false;
+    app.moveRow = (row2, dir) => {
+      if (row2.classList.contains("fe-nt-item")) {
+        const root = notesRoot(), rel = row2.dataset.rel, pinned = row2.classList.contains("pinned");
+        const group = allNotes.filter((n) => !!n.pinned === pinned), at2 = group.findIndex((n) => n.rel === rel);
+        const next2 = group[at2 + dir];
+        if (!root || at2 < 0) return;
+        if (!next2) {
+          toast(dir > 0 ? "Already last" : "Already first");
+          return;
+        }
+        dropNote(root, rel, pinned, next2.rel, dir > 0);
+        els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === rel)?.querySelector(".fe-si-link")?.focus();
+        return;
+      }
+      const sibs = savedSiblings(row2), at = sibs.indexOf(row2), next = sibs[at + dir];
+      if (!next) {
+        toast(dir > 0 ? "Already last" : "Already first");
+        return;
+      }
+      const path = row2.dataset.path;
+      saveSaved(movePlace(getSaved(), path, next.dataset.path));
+      refreshSaved();
+      els(".fe-pl-item", svList).find((i3) => i3.dataset.path === path && i3.parentElement === next.parentElement)?.querySelector(".fe-si-link, .fe-si")?.focus();
+    };
     function addCurrentFolder(rename) {
       const label = rawPath.split("/").filter(Boolean).pop() || "/";
       saveSaved(upsertPlace(getSaved(), { path: rawPath, label }));
@@ -23675,7 +23856,52 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const byMeta = filterNotes(allNotes, ntFilter.value);
       return [...byMeta, ...allNotes.filter((n) => bodyHits.has(n.rel) && !byMeta.includes(n))];
     };
+    let trashOpen = false;
+    let trashed = [];
+    const trashBtn = el("fe-nt-trash");
+    function renderTrash(root) {
+      ntHint.textContent = `Trash: ${trashed.length} deleted note${trashed.length !== 1 ? "s" : ""} in ${root}/.trash`;
+      const when2 = (ms) => new Date(ms).toLocaleString(void 0, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const head = `<div class="sect fe-nt-trash-head" data-level="group">${UI_ICON.trash}Trash<span class="fe-grp-n">${trashed.length}</span></div>`;
+      ntList.innerHTML = head + (trashed.length ? trashed.map((t) => `
+      <div class="row fe-bm-item fe-nt-trashed" data-trashed="${esc(t.trashed)}">
+        <span class="fe-si-link" title="${esc(t.name)}">${PI.docs ?? PI.folder}<span class="fe-nt-main"><span class="fe-nt-label">${midHtml(t.title || noteTitle(t.name))}</span><span class="fe-nt-when">Deleted ${esc(when2(t.deleted))}</span></span></span>
+        <button class="btn fe-nt-restore" data-size="sm" data-trashed="${esc(t.trashed)}" title="Put this note back in the notes folder" aria-label="Restore ${esc(t.title || noteTitle(t.name))}">${UI_ICON.reset}<span>Restore</span></button>
+      </div>`).join("") : emptyHtml("empty", "The trash is empty", { inline: true, hint: "Deleted notes wait here until you restore them" }));
+    }
+    function showTrash(root, on) {
+      trashOpen = on;
+      trashBtn.classList.toggle("on", on);
+      el("fe-lens-notes").classList.toggle("trashing", on);
+      trashBtn.setAttribute("aria-pressed", String(on));
+      trashBtn.title = on ? "Back to the notes" : "Trash: notes you deleted";
+      if (!on) {
+        refreshNotes();
+        return;
+      }
+      notes.trashList(root).then((list3) => {
+        trashed = list3;
+        if (trashOpen) renderTrash(root);
+      }).catch((err) => toast(errorText(err, "Listing the trash")));
+    }
+    trashBtn.addEventListener("click", () => {
+      const root = notesRoot();
+      if (root) showTrash(root, !trashOpen);
+    });
+    ntList.addEventListener("click", (e) => {
+      const b = e.target.closest(".fe-nt-restore");
+      if (!b) return;
+      const root = notesRoot(), item = trashed.find((t) => t.trashed === b.dataset.trashed);
+      if (!root || !item) return;
+      notes.restore(root, item.trashed).then((r) => {
+        trashed = trashed.filter((t) => t !== item);
+        if (trashOpen) renderTrash(root);
+        refreshNotes();
+        toast(`Restored ${item.title || noteTitle(r.rel)}`);
+      }).catch((err) => toast(errorText(err, "Restoring the note")));
+    });
     function renderNotes(root) {
+      if (trashOpen) return;
       if (ntList.querySelector(".fe-nt-label.editing") || ntDrag) return;
       keepNotes(root, allNotes);
       const filtering = !!ntFilter.value.trim();
@@ -23705,8 +23931,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const open = !folded.has(key) || !!ntFilter.value.trim();
         return `<button type="button" class="sect fe-nt-grp" data-level="group" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${DISCLOSE}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list3.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list3.map(row2).join("")}</div>`;
       };
+      const heldRel = document.activeElement?.matches(".fe-si-link") ? document.activeElement.closest(".fe-nt-item")?.dataset.rel : void 0;
       ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
       attachNoteEvents(root);
+      if (heldRel) els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === heldRel)?.querySelector(".fe-si-link")?.focus();
     }
     addPaletteSource(() => {
       const root = notesRoot();
@@ -23942,9 +24170,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     function deleteNote(root, rel) {
       if (editingRel() === rel) discardEditor();
-      notes.delete(root, rel).then(() => {
+      notes.delete(root, rel).then((r) => {
         refreshNotes();
-        toast("Moved to .trash");
+        toast("Moved to .trash", 6e3, { label: "Undo", run: () => {
+          notes.restore(root, r.trashed, rel).then(() => {
+            refreshNotes();
+            toast("Put back");
+          }).catch((err) => toast(errorText(err, "Putting the note back")));
+        } });
       }).catch((err) => toast(errorText(err, "Moving the note to .trash")));
     }
     function openNoteRel(root, rel) {
@@ -25363,25 +25596,69 @@ ${rows.join("\n")}`, name: subject };
       settings.editableFolders = list3.length ? list3 : void 0;
       saveSettings(settings);
     });
+    const stamp = () => {
+      const d = /* @__PURE__ */ new Date(), two = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}`;
+    };
     el("fe-st-export").addEventListener("click", () => {
-      const text = JSON.stringify(exportAll(), null, 2);
-      const ta = el("fe-st-export-out");
-      ta.value = text;
-      ta.hidden = false;
-      ta.select();
-      navigator.clipboard.writeText(text).then(() => toast("Export copied"), () => toast("Export shown below"));
+      const blob = new Blob([JSON.stringify(exportAll(), null, 2) + "\n"], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `bfb-settings-${stamp()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1e4);
+      toast(`Saved ${a.download}`);
     });
+    const planBox = el("fe-st-import-plan");
+    let pending3 = null;
+    const hidePlan = () => {
+      pending3 = null;
+      planBox.hidden = true;
+    };
+    const short = (keys2) => keys2.map((k) => k.replace(/^bfb-/, "").replace(/-v\d+$/, "")).slice(0, 6).join(", ") + (keys2.length > 6 ? `, and ${keys2.length - 6} more` : "");
     el("fe-st-import").addEventListener("click", () => el("fe-st-import-file").click());
     el("fe-st-import-file").addEventListener("change", function() {
       const f = this.files?.[0];
+      this.value = "";
       if (!f) return;
       f.text().then((text) => {
         const data = JSON.parse(text);
-        const n = importAll(data);
-        toast(`Imported ${n} keys, reloading`);
-        setTimeout(reload, 600);
-      }).catch(() => toast("That file is not a JSON export"));
+        if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("not an export");
+        const plan = planImport(data);
+        if (!plan.changed.length && !plan.added.length) {
+          hidePlan();
+          toast("Nothing to change: this export matches what you have");
+          return;
+        }
+        pending3 = plan;
+        el("fe-st-import-plan-tx").textContent = `This file changes ${plan.changed.length} setting${plan.changed.length !== 1 ? "s" : ""}${plan.changed.length ? ` (${short(plan.changed)})` : ""} and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added)})` : ""}. ${plan.same} already match.`;
+        planBox.hidden = false;
+      }).catch(() => {
+        hidePlan();
+        toast("That file is not a JSON export");
+      });
     });
+    el("fe-st-import-cancel").addEventListener("click", hidePlan);
+    el("fe-st-import-apply").addEventListener("click", () => {
+      if (!pending3) return;
+      const n = importPlan(pending3);
+      hidePlan();
+      toast(`Imported ${n} setting${n !== 1 ? "s" : ""}, reloading`);
+      setTimeout(reload, 600);
+    });
+    el("fe-st-reset").addEventListener("click", () => {
+      const n = resetPreferences();
+      toast(`Reset ${n} setting${n !== 1 ? "s" : ""}, reloading`);
+      setTimeout(reload, 600);
+    });
+    const undo = takeUndo();
+    if (undo) toast(`${undo.label}: ${undo.count} setting${undo.count !== 1 ? "s" : ""}`, 12e3, { label: "Undo", run: () => {
+      undoWrites(undo);
+      toast("Put back, reloading");
+      setTimeout(reload, 600);
+    } });
   }
 
   // src/gcc-refs.ts

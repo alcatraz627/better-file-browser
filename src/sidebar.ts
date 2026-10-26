@@ -10,7 +10,7 @@ import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList } from './storage';
 import { samePlace, upsertPlace, removePlace, renamePlace, movePlace, setTags, parseTags, cycleTagColor } from './places';
 import { renderSavedList } from './render';
-import { notes, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta } from './notes';
+import { notes, noteTitle, slugForTitle, retitle, nameIsId, sharedOrder, filterNotes, colorName, readProps, applyChange, changedKeys, frontmatterDrift, arrangeWrites, setPos, setPinned, type NoteMeta, type TrashedNote } from './notes';
 import { openPropsMenu } from './note-meta-ui';
 import { openNote, discardEditor, editingRel, saveEditor, type NoteActions } from './preview';
 import { isViewPath } from './find';
@@ -356,6 +356,27 @@ export function initSidebar(app: App): void {
       });
     });
   }
+  // The keyboard's answer to dragging a row: one place up or down within its list or group.
+  const savedSiblings = (row: HTMLElement) => els<HTMLElement>('.fe-pl-item', row.parentElement!).filter(x => x.parentElement === row.parentElement);
+  app.canMoveRow = row => row.classList.contains('fe-pl-item') ? !svFilter.value.trim() : row.classList.contains('fe-nt-item') ? row.draggable : false;
+  app.moveRow = (row, dir) => {
+    if (row.classList.contains('fe-nt-item')) {
+      const root = notesRoot(), rel = row.dataset.rel!, pinned = row.classList.contains('pinned');
+      const group = allNotes.filter(n => !!n.pinned === pinned), at = group.findIndex(n => n.rel === rel);
+      const next = group[at + dir];
+      if (!root || at < 0) return;
+      if (!next) { toast(dir > 0 ? 'Already last' : 'Already first'); return; }
+      dropNote(root, rel, pinned, next.rel, dir > 0);
+      els<HTMLElement>('.fe-nt-item', ntList).find(i => i.dataset.rel === rel)?.querySelector<HTMLElement>('.fe-si-link')?.focus();
+      return;
+    }
+    const sibs = savedSiblings(row), at = sibs.indexOf(row), next = sibs[at + dir];
+    if (!next) { toast(dir > 0 ? 'Already last' : 'Already first'); return; }
+    const path = row.dataset.path!;
+    saveSaved(movePlace(getSaved(), path, next.dataset.path!));
+    refreshSaved();
+    els<HTMLElement>('.fe-pl-item', svList).find(i => i.dataset.path === path && i.parentElement === next.parentElement)?.querySelector<HTMLElement>('.fe-si-link, .fe-si')?.focus();
+  };
   function addCurrentFolder(rename: boolean): void {
     const label = rawPath.split('/').filter(Boolean).pop() || '/';
     saveSaved(upsertPlace(getSaved(), { path: rawPath, label }));
@@ -487,7 +508,46 @@ export function initSidebar(app: App): void {
     const byMeta = filterNotes(allNotes, ntFilter.value);
     return [...byMeta, ...allNotes.filter(n => bodyHits.has(n.rel) && !byMeta.includes(n))];
   };
+  // The Trash view takes the list's place: what .trash holds, each note with a Restore button.
+  let trashOpen = false;
+  let trashed: TrashedNote[] = [];
+  const trashBtn = el<HTMLButtonElement>('fe-nt-trash');
+  function renderTrash(root: string): void {
+    ntHint.textContent = `Trash: ${trashed.length} deleted note${trashed.length !== 1 ? 's' : ''} in ${root}/.trash`;
+    const when = (ms: number) => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const head = `<div class="sect fe-nt-trash-head" data-level="group">${UI_ICON.trash}Trash<span class="fe-grp-n">${trashed.length}</span></div>`;
+    ntList.innerHTML = head + (trashed.length ? trashed.map(t => `
+      <div class="row fe-bm-item fe-nt-trashed" data-trashed="${esc(t.trashed)}">
+        <span class="fe-si-link" title="${esc(t.name)}">${PI.docs ?? PI.folder}<span class="fe-nt-main"><span class="fe-nt-label">${midHtml(t.title || noteTitle(t.name))}</span><span class="fe-nt-when">Deleted ${esc(when(t.deleted))}</span></span></span>
+        <button class="btn fe-nt-restore" data-size="sm" data-trashed="${esc(t.trashed)}" title="Put this note back in the notes folder" aria-label="Restore ${esc(t.title || noteTitle(t.name))}">${UI_ICON.reset}<span>Restore</span></button>
+      </div>`).join('')
+      : emptyHtml('empty', 'The trash is empty', { inline: true, hint: 'Deleted notes wait here until you restore them' }));
+  }
+  function showTrash(root: string, on: boolean): void {
+    trashOpen = on;
+    trashBtn.classList.toggle('on', on);
+    el('fe-lens-notes').classList.toggle('trashing', on);
+    trashBtn.setAttribute('aria-pressed', String(on));
+    trashBtn.title = on ? 'Back to the notes' : 'Trash: notes you deleted';
+    if (!on) { refreshNotes(); return; }
+    notes.trashList(root).then(list => { trashed = list; if (trashOpen) renderTrash(root); })
+      .catch((err: NotesError) => toast(errorText(err, 'Listing the trash')));
+  }
+  trashBtn.addEventListener('click', () => { const root = notesRoot(); if (root) showTrash(root, !trashOpen); });
+  ntList.addEventListener('click', e => {
+    const b = (e.target as Element).closest<HTMLElement>('.fe-nt-restore');
+    if (!b) return;
+    const root = notesRoot(), item = trashed.find(t => t.trashed === b.dataset.trashed);
+    if (!root || !item) return;
+    notes.restore(root, item.trashed).then(r => {
+      trashed = trashed.filter(t => t !== item);
+      if (trashOpen) renderTrash(root);
+      refreshNotes();
+      toast(`Restored ${item.title || noteTitle(r.rel)}`);
+    }).catch((err: NotesError) => toast(errorText(err, 'Restoring the note')));
+  });
   function renderNotes(root: string): void {
+    if (trashOpen) return;   // the list is hidden behind the Trash view; leaving it redraws
     // A refresh landing while a title is being renamed would replace the box
     // under the cursor; the rename re-renders the list itself when it ends.
     if (ntList.querySelector('.fe-nt-label.editing') || ntDrag) return;
@@ -526,12 +586,15 @@ export function initSidebar(app: App): void {
         + `${DISCLOSE}${key === 'pinned' ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ''}${label}<span class="fe-grp-n">${list.length}</span></button>`
         + `<div class="fe-nt-gbody"${open ? '' : ' hidden'}>${list.map(row).join('')}</div>`;
     };
+    // A redraw while the keyboard is on a row must not drop it.
+    const heldRel = (document.activeElement as HTMLElement | null)?.matches('.fe-si-link') ? (document.activeElement as HTMLElement).closest<HTMLElement>('.fe-nt-item')?.dataset.rel : undefined;
     ntList.innerHTML = shown.length
       ? (pinned.length ? group('pinned', 'Pinned', pinned) + group('all', 'All notes', rest) : shown.map(row).join(''))
       : allNotes.length
         ? emptyHtml('filtered', `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] })
         : emptyHtml('empty', 'No notes yet', { inline: true, hintHtml: 'Press <kbd>n</kbd> or + to write one' });
     attachNoteEvents(root);
+    if (heldRel) els<HTMLElement>('.fe-nt-item', ntList).find(i => i.dataset.rel === heldRel)?.querySelector<HTMLElement>('.fe-si-link')?.focus();
   }
   addPaletteSource(() => {
     const root = notesRoot();
@@ -738,8 +801,13 @@ export function initSidebar(app: App): void {
   }
   function deleteNote(root: string, rel: string): void {
     if (editingRel() === rel) discardEditor();
-    notes.delete(root, rel).then(() => { refreshNotes(); toast('Moved to .trash'); })
-      .catch((err: NotesError) => toast(errorText(err, 'Moving the note to .trash')));
+    notes.delete(root, rel).then(r => {
+      refreshNotes();
+      toast('Moved to .trash', 6000, { label: 'Undo', run: () => {
+        notes.restore(root, r.trashed, rel).then(() => { refreshNotes(); toast('Put back'); })
+          .catch((err: NotesError) => toast(errorText(err, 'Putting the note back')));
+      } });
+    }).catch((err: NotesError) => toast(errorText(err, 'Moving the note to .trash')));
   }
   function openNoteRel(root: string, rel: string): void {
     const actions: NoteActions = {

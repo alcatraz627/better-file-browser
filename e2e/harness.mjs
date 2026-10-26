@@ -261,6 +261,11 @@ export async function launch({ headless = true, pickReply, lmStub = false } = {}
     edit: async (key, change, fallback = {}) => { const v = await store.json(key, fallback); const out = change(v) ?? v; await store.set(key, out); return out; },
   };
 
+  // A download lands in the throwaway profile, never in the person's Downloads folder.
+  const downloads = join(profile, 'downloads');
+  mkdirSync(downloads, { recursive: true });
+  await (await browser.target().createCDPSession()).send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloads });
+
   const fixture = makeFixture();
   // After launch: a pre-existing profile folder makes Chrome skip loading
   // the unpacked extension; the manifest is only read when a port opens.
@@ -290,7 +295,7 @@ export async function launch({ headless = true, pickReply, lmStub = false } = {}
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, open, close, store, sw, docsHome: docsHome(profile), lmCalls, lmDown: join(profile, 'lm-down'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
+  return { browser, fixture, notesDir, downloads, open, close, store, sw, docsHome: docsHome(profile), lmCalls, lmDown: join(profile, 'lm-down'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
 }
 
 // The extension's settings store for the running browser; set by launch().

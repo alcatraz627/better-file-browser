@@ -13,6 +13,8 @@ Ops (request -> reply):
   {op:"create", root, rel, text?}            -> {t:"written", rel, mtime}
   {op:"rename", root, rel, to}               -> {t:"renamed", rel, to}
   {op:"delete", root, rel}                   -> {t:"deleted", rel, trashed}
+  {op:"trashList", root}                     -> {t:"trash", notes:[{trashed, name, title, size, mtime, deleted}]}   (what .trash holds, newest first)
+  {op:"restore", root, trashed, to?}         -> {t:"restored", rel, trashed}   (back to `to`, or the note's own name; never overwrites)
   {op:"writeBinary", root, rel, base64}      -> {t:"written", rel, mtime}   (attachments, never overwrites)
   {op:"history", root, rel}                  -> {t:"history", rel, versions:[{sha,when,reason}], repo}  (git log; none outside a repo)
   {op:"version", root, rel, sha}             -> {t:"version", rel, sha, text}
@@ -27,7 +29,7 @@ Ops (request -> reply):
   {op:"fileWrite", root, rel, text, expectMtime} -> {t:"written", rel, mtime, backup}   (existing text files under 20 MB; old text backed up 14 days)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
-Delete moves the file into <root>/.trash/ rather than unlinking it.
+Delete moves the file into <root>/.trash/ rather than unlinking it; restore moves it back out.
 """
 import bisect
 import sys, os, re, json, struct, time, shutil, subprocess
@@ -361,6 +363,51 @@ def op_delete(root, rel):
         shutil.move(full + COMPANION, dst + COMPANION)
     return {'t': 'deleted', 'rel': rel, 'trashed': os.path.relpath(dst, root)}
 
+TRASH_STAMP = re.compile(r'^(\d{8}-\d{6})-(.+)$')
+
+def op_trash_list(root):
+    """The notes in <root>/.trash, newest first, each with the name it had before it was deleted."""
+    trash = os.path.join(root, '.trash')
+    out = []
+    if os.path.isdir(trash):
+        for f in os.listdir(trash):
+            full = os.path.join(trash, f)
+            if not f.lower().endswith('.md') or f.startswith('.') or not os.path.isfile(full):
+                continue
+            m = TRASH_STAMP.match(f)
+            st = os.stat(full)
+            when = int(st.st_mtime * 1000)
+            if m:
+                try: when = int(time.mktime(time.strptime(m.group(1), '%Y%m%d-%H%M%S')) * 1000)
+                except ValueError: pass
+            out.append({'trashed': '.trash/' + f, 'name': m.group(2) if m else f, 'title': note_title(full),
+                        'size': st.st_size, 'mtime': int(st.st_mtime * 1000), 'deleted': when})
+    out.sort(key=lambda n: -n['deleted'])
+    return {'t': 'trash', 'notes': out}
+
+def op_restore(root, trashed, to):
+    """Move a deleted note back out of .trash, with its comments. It goes to `to` when that is free,
+    otherwise under a numbered name beside it, so a restore never overwrites a note."""
+    src = resolve_rel(root, trashed)
+    trash = os.path.join(root, '.trash')
+    if os.path.dirname(src) != trash or not os.path.isfile(src):
+        raise NotesError('notes_missing', f'no such note in .trash: {trashed}')
+    m = TRASH_STAMP.match(os.path.basename(src))
+    want = to if isinstance(to, str) and to else (m.group(2) if m else os.path.basename(src))
+    dst = resolve_rel(root, want)
+    if dst == trash or dst.startswith(trash + os.sep):
+        raise NotesError('notes_bad_path', 'a note is not restored into .trash')
+    stem, ext = os.path.splitext(dst)
+    n = 1
+    while os.path.exists(dst):
+        n += 1
+        dst = f'{stem} ({n}){ext}'
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    os.replace(src, dst)
+    if os.path.exists(src + COMPANION) and not os.path.exists(dst + COMPANION):
+        os.replace(src + COMPANION, dst + COMPANION)
+    return {'t': 'restored', 'rel': os.path.relpath(dst, root), 'trashed': trashed}
+
 def git_out(root, args):
     """git's output in the notes folder, or None when the folder is not a repository or git says no."""
     import subprocess
@@ -689,6 +736,8 @@ def handle(msg):
     if op == 'create': return op_create(root, msg.get('rel'), msg.get('text') or '')
     if op == 'rename': return op_rename(root, msg.get('rel'), msg.get('to'))
     if op == 'delete': return op_delete(root, msg.get('rel'))
+    if op == 'trashList': return op_trash_list(root)
+    if op == 'restore': return op_restore(root, msg.get('trashed'), msg.get('to'))
     if op == 'writeBinary': return op_write_binary(root, msg.get('rel'), msg.get('base64'))
     if op == 'history': return op_history(root, msg.get('rel'))
     if op == 'version': return op_version(root, msg.get('rel'), msg.get('sha'))

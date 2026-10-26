@@ -162,8 +162,14 @@ export function initFocusNav(app: App): void {
     setTimeout(refocus, 50);
     setTimeout(() => { const a = ae(); if (!a || a === document.body || !a.isConnected) refocus(); }, 450);
   }, () => !!sideRow()?.querySelector('.fe-rm-btn'));
+  // ⌥↓ is the bar's way into the open lens and a row's way to move down, so one command answers both.
+  const onBar = () => !!ae()?.closest('#fe-rail');
+  const movable = () => { const r = sideRow(); return !!r && !!app.canMoveRow?.(r) && !!ae()?.closest('.fe-si-link'); };
+  bind('side-reorder', key => {
+    if (onBar()) { if (key === '⌥↓') areaNamed('sidebar')?.enter(); return; }
+    app.moveRow?.(sideRow()!, key === '⌥↑' ? -1 : 1);
+  }, () => onBar() || movable());
   bind('side-rail', () => document.querySelector<HTMLElement>('#fe-rail .fe-rail-btn.on')?.focus(), () => inLens() && !!ae()?.matches(LENS_ROWS));
-  bind('side-into', () => areaNamed('sidebar')?.enter(), () => !!ae()?.closest('#fe-rail'));
 
   // The focused tab: ⇧← and ⇧→ move it, ⌫ closes it, ⇧F10 opens its menu.
   const focusedTab = () => { const t = ae(); return t?.closest('#fe-tabs') && t.classList.contains('fe-tab') ? t : null; };

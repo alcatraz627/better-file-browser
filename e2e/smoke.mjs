@@ -700,7 +700,12 @@ try {
   check(colKeyOn === 'lg' && colKeyOff === 'unset', `Settings reading width writes the file-page mode: on=${colKeyOn} off=${colKeyOff}`);
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="data"]');
   await page.click('#fe-st-export');
-  const exported = await page.$eval('#fe-st-export-out', el => el.value);
+  let exported = '';
+  for (let i = 0; i < 40 && !exported; i++) {
+    const done = readdirSync(h.downloads).find(f => /^bfb-settings-\d{8}\.json$/.test(f));
+    if (done) exported = readFileSync(join(h.downloads, done), 'utf8');
+    else await new Promise(r => setTimeout(r, 150));
+  }
   let parsedExport = null;
   try { parsedExport = JSON.parse(exported); } catch { parsedExport = null; }
   check(recentHidden && parsedExport && parsedExport['bfb-settings-v1'] && parsedExport['bfb-settings-v1'].clickOpens === 'go' && parsedExport['bfb-settings-v1'].readerSize === 17 && 'bfb-saved-v1' in parsedExport,
@@ -726,6 +731,8 @@ try {
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="data"]');
   const [chooser] = await Promise.all([page.waitForFileChooser({ timeout: 5_000 }), page.click('#fe-st-import')]);
   await chooser.accept([importPath]);
+  await page.waitForSelector('#fe-st-import-plan:not([hidden])', { timeout: 5_000 });
+  await page.click('#fe-st-import-apply');
   await page.waitForFunction(() => [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].some(e => e.textContent === 'Imported root'), { timeout: 8_000 }).catch(() => null);
   const imported = await page.evaluate(() => ({
     labels: [...document.querySelectorAll('#fe-sv-list .fe-pl-label')].map(e => e.textContent),

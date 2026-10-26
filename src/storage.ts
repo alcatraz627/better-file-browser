@@ -1,6 +1,6 @@
 import type { Bookmark, IconRule, Place, RecentDir, Settings, SortConfig, GroupMode, PreviewLayout, Tag } from './types';
 import { dedupePlaces, mergeLegacy, reconcileTags, samePlace, upsertPlace, removePlace } from './places';
-import { kvGet, kvSet, kvKeys, onKvChange } from './kv';
+import { kvGet, kvSet, kvRemove, kvKeys, onKvChange } from './kv';
 
 export const BM_KEY        = 'bfb-bookmarks-v2';
 export const RECENTS_KEY   = 'bfb-recents-v1';
@@ -334,16 +334,88 @@ export const setPref = (id: string): Pref<Set<string>> =>
     catch { return new Set(); }
   }, v => JSON.stringify([...v]));
 
+// Keys that hold where the person happens to be, not what they chose: scroll places, the last
+// lens, a dialog's open tab, decision-page drafts. They stay out of an export, an import and a reset.
+const PASSING_STATE = ['bfb-dialog-tab:', 'bfb-dp-', 'bfb-lead:', 'bfb-scroll:', 'bfb-page-scroll-v1', 'bfb-goto-last-v1', 'bfb-lens-v1',
+  'bfb-comments-filter-v1', 'bfb-ask-quote-v1', 'bfb-reset-undo-v1'];
+export const isPassingState = (k: string): boolean => PASSING_STATE.some(p => k === p || ((p.endsWith(':') || p.endsWith('-')) && k.startsWith(p)));
+
+// What a person built up (Saved places, tags, history) rather than chose in Settings: exported and
+// imported, but a reset leaves it alone.
+const BUILT_UP = [SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, RECENTS_KEY, 'bfb-saved-folded-v1', 'bfb-notes-folded-v1', 'bfb-ask-history-v1', 'bfb-home-v1'];
+// Settings that name folders on this Mac; a reset keeps them so Notes and Edit stay connected.
+const KEEP_IN_SETTINGS = ['notesRoot', 'editableFolders'] as const;
+
 /** Every stored setting, for Settings' export. Values that are JSON come out parsed. */
 export function exportAll(): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const k of kvKeys().sort()) { const raw = kvGet(k)!; try { out[k] = JSON.parse(raw); } catch { out[k] = raw; } }
+  for (const k of kvKeys().sort()) { if (isPassingState(k)) continue; const raw = kvGet(k)!; try { out[k] = JSON.parse(raw); } catch { out[k] = raw; } }
   return out;
 }
 
+const asText = (val: unknown): string => typeof val === 'string' ? val : JSON.stringify(val);
+const sameJson = (a: string, b: string): boolean => {
+  try { return JSON.stringify(JSON.parse(a)) === JSON.stringify(JSON.parse(b)); } catch { return false; }
+};
+
+/** What importing an export would do: keys it would change, keys it would add, how many already match, how many it skips. */
+export interface ImportPlan { changed: string[]; added: string[]; same: number; skipped: number; writes: Record<string, string> }
+export function planImport(data: Record<string, unknown>): ImportPlan {
+  const plan: ImportPlan = { changed: [], added: [], same: 0, skipped: 0, writes: {} };
+  for (const [k, val] of Object.entries(data)) {
+    if (!k.startsWith('bfb-') || isPassingState(k)) { plan.skipped++; continue; }
+    const text = asText(val), now = kvGet(k);
+    if (now === null) plan.added.push(k);
+    else if (now === text || sameJson(now, text)) { plan.same++; continue; }
+    else plan.changed.push(k);
+    plan.writes[k] = text;
+  }
+  return plan;
+}
+
+// The last import or reset, kept for a short while so its Undo survives the reload that follows it.
+const UNDO_KEY = 'bfb-reset-undo-v1';
+export interface UndoRecord { at: number; label: string; count: number; before: Record<string, string | null> }
+
+/** Write (string) or remove (null) several keys at once, keeping what they held so the change can be taken back. */
+function applyWrites(label: string, writes: Record<string, string | null>): number {
+  const before: Record<string, string | null> = {};
+  for (const k of Object.keys(writes)) before[k] = kvGet(k);
+  const count = Object.keys(writes).length;
+  kvSet(UNDO_KEY, JSON.stringify({ at: Date.now(), label, count, before } satisfies UndoRecord));
+  for (const [k, text] of Object.entries(writes)) { if (text === null) kvRemove(k); else kvSet(k, text); }
+  return count;
+}
+
+/** Apply an import plan. Returns how many keys were written. */
+export function importPlan(plan: ImportPlan): number { return applyWrites('Imported', plan.writes); }
+
 /** Write back an export; only the explorer's own keys are taken. Returns how many. */
-export function importAll(data: Record<string, unknown>): number {
-  let n = 0;
-  for (const [k, val] of Object.entries(data)) if (k.startsWith('bfb-')) { kvSet(k, typeof val === 'string' ? val : JSON.stringify(val)); n++; }
-  return n;
+export function importAll(data: Record<string, unknown>): number { return importPlan(planImport(data)); }
+
+/** Put every preference back to its default. Saved places, history, and the notes and editable folders stay. Returns how many keys changed. */
+export function resetPreferences(): number {
+  const writes: Record<string, string | null> = {};
+  for (const k of kvKeys()) {
+    if (isPassingState(k) || BUILT_UP.includes(k)) continue;
+    if (k === SETTINGS_KEY) {
+      const kept: Record<string, unknown> = {};
+      try { const cur = JSON.parse(kvGet(k) ?? '{}') as Record<string, unknown>; for (const f of KEEP_IN_SETTINGS) if (cur[f] !== undefined) kept[f] = cur[f]; } catch { /* an unreadable block resets whole */ }
+      writes[k] = Object.keys(kept).length ? JSON.stringify(kept) : null;
+    } else writes[k] = null;
+  }
+  return applyWrites('Settings reset', writes);
+}
+
+/** The last import or reset if it is recent. It is forgotten once taken, so its Undo shows once. */
+export function takeUndo(maxAgeMs = 120_000): UndoRecord | null {
+  const raw = kvGet(UNDO_KEY);
+  if (raw === null) return null;
+  kvRemove(UNDO_KEY);
+  try { const r = JSON.parse(raw) as UndoRecord; return Date.now() - r.at <= maxAgeMs ? r : null; } catch { return null; }
+}
+
+/** Put back what an import or reset changed. */
+export function undoWrites(r: UndoRecord): void {
+  for (const [k, text] of Object.entries(r.before)) { if (text === null) kvRemove(k); else kvSet(k, text); }
 }

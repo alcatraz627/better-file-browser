@@ -135,6 +135,7 @@ export function renderPage(p: PageParams): string {
       <div class="bar fe-lens-tools" data-inset>
         <button id="fe-nt-add" class="btn fe-lens-ib" data-icon data-size="lg" data-tone="accent" title="New note (n)" aria-label="New note">${UI_ICON.add}</button>
         <a id="fe-notes-root" class="btn fe-lens-ib" data-icon data-size="lg" title="Open the notes folder" aria-label="Open the notes folder">${UI_ICON.folderOpen}</a>
+        <button id="fe-nt-trash" class="btn fe-lens-ib" data-icon data-size="lg" aria-pressed="false" title="Trash: notes you deleted" aria-label="Trash: notes you deleted">${UI_ICON.trash}</button>
       </div>
       <div class="fe-sec" id="fe-notes-sec" data-sec="notes">
         <input id="fe-nt-filter" class="fe-proxy-filter" type="text" tabindex="-1" aria-hidden="true">
