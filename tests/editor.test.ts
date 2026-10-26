@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { moveLines, duplicateLines, indentLines, continueList, wrapSelection, tableSnippet } from '../src/editor';
+import { moveLines, duplicateLines, indentLines, continueList, absorbTypedMarker, autoMarkerAfter, wrapSelection, tableSnippet } from '../src/editor';
 
 const T = 'one\ntwo\nthree';
 const at = (s: number, e = s) => ({ start: s, end: e });
@@ -45,8 +45,41 @@ describe('continueList', () => {
     expect(continueList('- a', at(3))!.text).toBe('- a\n- ');
     expect(continueList('1. a', at(4))!.text).toBe('1. a\n2. ');
     expect(continueList('- [x] done', at(10))!.text).toBe('- [x] done\n- [ ] ');
-    expect(continueList('- a\n- ', at(6))!.text).toBe('- a\n');
+    expect(continueList('- a\n- ', at(6))!.text).toBe('- a\n\n');
     expect(continueList('plain', at(5))).toBeNull();
+  });
+  it('leaves a blank line when a list ends, but not a second one', () => {
+    const r = continueList('1. one\n2. two\n3. ', at(18))!;
+    expect(r.text).toBe('1. one\n2. two\n\n');
+    expect(r.start).toBe(r.text.length);
+    expect(continueList('intro\n\n- ', at(9))!.text).toBe('intro\n\n');
+    expect(continueList('- ', at(2))!.text).toBe('');
+  });
+});
+
+describe('absorbTypedMarker', () => {
+  const after = (text: string) => autoMarkerAfter(continueList(text, at(text.length))!)!;
+  it('folds a marker typed over the automatic one into it', () => {
+    const t = '- [ ] a\n- [ ] ';
+    expect(absorbTypedMarker(t + '- [ ] ', at(t.length + 6), after('- [ ] a'))!.text).toBe(t);
+    const n = '1. one\n2. ';
+    const r = absorbTypedMarker(n + '2. ', at(n.length + 3), after('1. one'))!;
+    expect(r.text).toBe(n);
+    expect(r.start).toBe(n.length);
+  });
+  it('lets a typed checkbox turn a bullet into a task, and ignores plain text', () => {
+    const t = '- a\n- ';
+    expect(absorbTypedMarker(t + '[ ] ', at(t.length + 4), after('- a'))).toBeNull();
+    expect(absorbTypedMarker(t + '- [ ] ', at(t.length + 6), after('- a'))!.text).toBe('- a\n- [ ] ');
+    expect(absorbTypedMarker(t + 'milk', at(t.length + 4), after('- a'))).toBeNull();
+  });
+  it('waits for a checkbox that may follow a typed marker, then folds whichever way it goes', () => {
+    const t = '- [ ] a\n- [ ] ';
+    const auto = after('- [ ] a');
+    expect(absorbTypedMarker(t + '- ', at(t.length + 2), auto)).toBeNull();
+    expect(absorbTypedMarker(t + '- [', at(t.length + 3), auto)).toBeNull();
+    expect(absorbTypedMarker(t + '- [ ] ', at(t.length + 6), auto)!.text).toBe(t);
+    expect(absorbTypedMarker(t + '- m', at(t.length + 3), auto)!.text).toBe(t + 'm');
   });
 });
 

@@ -145,7 +145,7 @@ try {
   await page.screenshot({ path: join(SHOTS, 'edit-split-dark.png') });
   await page.click('#fe-fe-pill [data-mode="raw"]');
   const fullW = await page.$eval('#fe-fe-col', el => el.getBoundingClientRect().width);
-  for (let i = 0; i < 4 && !(await page.$eval('#fe-fp-column', b => /MD/.test(b.textContent))); i++) await page.click('#fe-fp-column');
+  for (let i = 0; i < 4 && !(await page.$eval('#fe-fp-column', b => /Narrow/.test(b.textContent))); i++) await page.click('#fe-fp-column');
   const mdW = await page.$eval('#fe-fe-col', el => el.getBoundingClientRect().width);
   check(mdW < fullW - 100, `the reading width narrows the editor too: ${Math.round(fullW)} → ${Math.round(mdW)}px`);
   for (let i = 0; i < 4 && !(await page.$eval('#fe-fp-column', b => /Full/.test(b.textContent))); i++) await page.click('#fe-fp-column');

@@ -3,6 +3,8 @@
 // Every call names the notes root the owner picked in Settings.
 
 export interface NoteMeta { rel: string; size: number; mtime: number; title?: string; color?: string; pinned?: boolean; tags?: string[]; pos?: string; created?: number }
+/// A deleted note as .trash holds it: `trashed` is its path under the notes folder, `name` the file name it had, `deleted` epoch ms.
+export interface TrashedNote { trashed: string; name: string; title: string; size: number; mtime: number; deleted: number }
 export interface NoteDoc  { rel: string; text: string; mtime: number }
 
 export class NotesError extends Error {
@@ -16,6 +18,8 @@ type Frame =
   | { t: 'written'; rel: string; mtime: number; backup?: string }
   | { t: 'renamed'; rel: string; to: string }
   | { t: 'deleted'; rel: string; trashed: string }
+  | { t: 'trash'; notes: TrashedNote[] }
+  | { t: 'restored'; rel: string; trashed: string }
   | { t: 'history'; rel: string; versions: NoteVersion[]; repo?: boolean }
   | { t: 'version'; rel: string; sha: string; text: string }
   | { t: 'picked'; root: string }
@@ -83,7 +87,11 @@ export const notes = {
   rename: (root: string, rel: string, to: string) => call({ op: 'rename', root, rel, to }),
   writeBinary: (root: string, rel: string, base64: string) =>
             call({ op: 'writeBinary', root, rel, base64 }) as Promise<{ rel: string; mtime: number }>,
-  delete: (root: string, rel: string) => call({ op: 'delete', root, rel }),
+  delete: (root: string, rel: string) => call({ op: 'delete', root, rel }) as Promise<{ rel: string; trashed: string }>,
+  /// What .trash holds, newest first.
+  trashList: (root: string) => call({ op: 'trashList', root }).then(f => (f as { notes: TrashedNote[] }).notes),
+  /// Put a deleted note back, at `to` when that name is free (otherwise a numbered name beside it).
+  restore: (root: string, trashed: string, to?: string) => call({ op: 'restore', root, trashed, to }) as Promise<{ rel: string; trashed: string }>,
   /// The system folder chooser, opened on `start`; resolves to '' when the person cancels.
   /// The system chooser: a folder, or with kind 'any' a file or a folder (a folder ends in /). Empty when cancelled.
   pick: (start?: string, kind?: 'any') => call({ op: 'pick', start, kind }).then(f => (f as { root: string }).root),

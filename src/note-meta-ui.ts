@@ -53,16 +53,18 @@ export function openPropsMenu(anchor: HTMLElement, props: NoteProps, apply: Appl
   menu.addEventListener('submit', e => {
     e.preventDefault();
     const inp = menu.querySelector<HTMLInputElement>('.fe-pm-add input')!;
-    // a comma would split the tag in the file, so it cannot be part of one
-    const t = inp.value.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+    // A comma ends a tag, as it does in the Saved list: "work, planning" is two tags. Spaces
+    // stay inside a tag, which the file format allows.
+    const typed = [...new Set(inp.value.split(',').map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean))];
+    const fresh = typed.filter(t => !cur.tags.includes(t));
     // the same limits the Pi and the phone keep: a "pin" tag would turn the note into a pin and
     // hide it from every Notes list, and the phone refuses more than 12 tags of 32 characters
-    const why = t.toLowerCase() === 'pin' ? '"pin" is kept for pins; pin the note instead'
-      : t.length > 32 ? 'A tag is at most 32 characters'
-      : cur.tags.length >= 12 && !cur.tags.includes(t) ? 'A note keeps at most 12 tags' : '';
+    const why = typed.some(t => t.toLowerCase() === 'pin') ? '"pin" is kept for pins; pin the note instead'
+      : typed.some(t => t.length > 32) ? 'A tag is at most 32 characters'
+      : cur.tags.length + fresh.length > 12 ? 'A note keeps at most 12 tags' : '';
     inp.setCustomValidity(why);
     if (why) { inp.reportValidity(); return; }
-    if (t && !cur.tags.includes(t)) void run({ tags: [...cur.tags, t] });
+    if (fresh.length) void run({ tags: [...cur.tags, ...fresh] });
     else inp.value = '';
   });
   render();

@@ -381,6 +381,8 @@ table.fe-rz-fixed{table-layout:fixed}
 th.sorted .si{opacity:1;color:var(--ac)}
 .c-nm{width:40%}.c-tp{width:14%}.c-tg{width:14%}.c-sz{width:11%;text-align:right}.c-dt{width:21%}
 td.c-tg{white-space:nowrap;overflow:hidden}
+/* With nothing in the folder tagged, the Tags column would only be an empty stripe. */
+#fe.fe-no-tags[data-view="details"] .c-tg{display:none}
 /* Named chips give up width (ending in …) before the +N count does. */
 .fe-chips{display:flex;gap:var(--sp-2);min-width:0;overflow:hidden}
 .fe-chips .chip{flex:0 1 auto;min-width:28px}
@@ -659,7 +661,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-pane .fe-md>:first-child{margin-top:0;padding-right:36px}
 
 .fe-st-input{width:100%}
-#fe-st-export-out{height:calc(var(--ctl-md) * 4 + var(--sp-4));font:var(--fs-sm) var(--mono)}
+.fe-st-plan{display:flex;align-items:center;gap:var(--sp-5);flex-wrap:wrap;margin:var(--sp-3) var(--sp-5)}
+.fe-st-plan[hidden]{display:none}
+.fe-st-plan-acts{display:inline-flex;gap:var(--sp-3);margin-left:auto}
 
 .fe-st-rule{display:grid;grid-template-columns:16px 22px 1fr 58px 32px 24px;
   gap:var(--sp-3);align-items:center;padding:var(--sp-2) var(--sp-1);border-bottom:1px solid var(--bd)}
@@ -733,7 +737,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab-ico{display:flex;flex-shrink:0}
 .fe-tab-menu{position:fixed}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none}
-#fe-fp-bar{border-bottom:1px solid var(--bd);flex-shrink:0}
+/* Buttons that do not fit wrap to a second row; clipping would hide Find, Contents and Comments. */
+#fe-fp-bar{border-bottom:1px solid var(--bd);flex-shrink:0;flex-wrap:wrap}
 /* Contents and Comments float over the page as a translucent card, shown and
    hidden by the two buttons right of find. The text keeps clear of the card. */
 #fe-fp{display:flex;flex:1;min-height:0;position:relative}
@@ -872,7 +877,7 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
 #fe-page .fe-md{overflow-wrap:break-word;max-width:none;margin:0;padding:28px 48px 80px;font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
 #fe.fe-column-xl #fe-page .fe-md{max-width:150ch;margin:0 auto}
 #fe.fe-column-lg #fe-page .fe-md{max-width:130ch;margin:0 auto}
-#fe.fe-column-md #fe-page .fe-md{max-width:110ch;margin:0 auto}
+#fe.fe-column-md #fe-page .fe-md{max-width:80ch;margin:0 auto}
 #fe-page .fe-md blockquote > .fe-md{padding:0;margin:0;max-width:none}
 .fe-md-alert{--al:#4493f8;border-left:3px solid var(--al);padding:.6em 1em;border-radius:var(--r-xs);background:color-mix(in srgb,var(--al) 9%,transparent)}
 .fe-md-alert>.fe-md-alert-title{font-weight:600;color:var(--al);margin:0 0 var(--sp-2)}
@@ -1197,7 +1202,6 @@ a.fe-fm-path:hover{text-decoration:underline}
   #fe-toc-rail{width:clamp(150px,22vw,190px)}
   #fe-ff-q{width:110px}
   #fe-page .fe-md{padding:var(--sp-7) 18px 60px}
-  #fe-fp-bar{flex-wrap:wrap}
 }
 @container fe-main (max-width:720px){
   #fe-toolbar{flex-wrap:wrap}
@@ -1328,6 +1332,11 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-nt-item.coloured .fe-si-link > svg{color:var(--c);opacity:1}
 .fe-nt-item.two .fe-si-link{align-items:flex-start}
 .fe-nt-item.two .fe-si-link > svg{margin-top:var(--sp-1)}
+#fe-lens-notes.trashing .fe-lens-box,#fe-lens-notes.trashing #fe-lens-tags{display:none}
+.fe-nt-trashed .fe-si-link{padding:var(--sp-3) 0;align-items:flex-start;cursor:default}
+.fe-nt-trashed .fe-si-link>svg{margin-top:var(--sp-1)}
+.fe-nt-when{font-size:var(--fs-sm);color:var(--dm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fe-nt-trashed .fe-nt-restore{flex:none}
 .fe-nt-main{display:flex;flex-direction:column;min-width:0;flex:1 1 0;gap:var(--sp-2)}
 .fe-nt-tags{font-size:var(--fs-sm);color:var(--mt);display:flex;gap:var(--sp-2);flex-wrap:nowrap;overflow:hidden}
 .fe-nt-tag{display:inline-flex;align-items:center;gap:var(--sp-2);height:17px;padding:0 var(--sp-3);border:1px solid var(--bd2);border-radius:var(--r-full);font-size:var(--fs-xs);color:var(--mt);white-space:nowrap;flex:none}
@@ -1413,7 +1422,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-fe-col{margin:0 auto;padding:62px 28px 120px;max-width:none}
 #fe.fe-column-xl #fe-fe-col{max-width:150ch}
 #fe.fe-column-lg #fe-fe-col{max-width:130ch}
-#fe.fe-column-md #fe-fe-col{max-width:110ch}
+#fe.fe-column-md #fe-fe-col{max-width:80ch}
 [data-mode="split"] #fe-fe-scroll{overflow:hidden}
 #fe [data-mode="split"] #fe-fe-col{max-width:none;height:100%;display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);padding:0}
 /* Spacing on the text side is border, not padding: the typing layer is placed
@@ -1773,7 +1782,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-dp.flagged-only .fe-dp-card:not([data-flag]),#fe-dp.flagged-only .fe-dp-grp:not(:has(.fe-dp-card[data-flag])){display:none}
 /* Parts that start hidden and are shown by clearing their hidden attribute. */
 #fe-ql-ai[hidden],#fe-ql-ai-out[hidden],#fe-ed-hist[hidden],#fe-fe-banner[hidden],#fe-fe[hidden],.fe-dlg[hidden],#fe-rc-tabs-sec[hidden],
-#fe-sg-panel[hidden],#fe-filter-bar[hidden],#fe-find-depth-wrap[hidden],#fe-st-term-custom-row[hidden],#fe-st-export-out[hidden],#fe-ed-file[hidden],#fe-st-import-file[hidden]{display:none}
+#fe-sg-panel[hidden],#fe-filter-bar[hidden],#fe-find-depth-wrap[hidden],#fe-st-term-custom-row[hidden],#fe-ed-file[hidden],#fe-st-import-file[hidden]{display:none}
 /* Reduced motion, in one place: the motion tokens go to zero and anything left still settles at once. */
 @media (prefers-reduced-motion:reduce){
   :root,#fe{--t-fast:0ms;--t-base:0ms;--t-slow:0ms}

@@ -132,10 +132,10 @@ export function settingsDialog(): DialogSpec {
 
       { key: 'notes', label: 'Notes', hint: 'Notes, editing', icon: UI_ICON.notes, tone: 'var(--nc-orange)', desc: 'Your notes folder, and where you can edit.', body:
         card('Notes',
-          row('Folder', 'Markdown files', `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="~/Notes" spellcheck="false" title="Notes folder">${iconBtn('fe-st-notes-pick', UI_ICON.folderOpen, 'Choose a folder')}`) +
+          row('Folder', 'Markdown files, for example ~/Notes', `<input type="text" id="fe-st-notes-root" class="tb fe-st-input" data-size="lg" placeholder="Not set" spellcheck="false" title="Notes folder">${iconBtn('fe-st-notes-pick', UI_ICON.folderOpen, 'Choose a folder')}`) +
           note('', 'fe-st-notes-hint')) +
         card('Editing',
-          wide('Editable folders', 'Text files inside get Edit (e e). Saves keep a 14-day backup.', chipsHtml('fe-st-edit-roots', '~/Code', 'Folders you can edit in'))) },
+          wide('Editable folders', 'Text files inside get Edit (e e), for example ~/Code. Saves keep a 14-day backup.', chipsHtml('fe-st-edit-roots', 'Not set', 'Folders you can edit in'))) },
 
       { key: 'ai', label: 'AI', hint: 'Models', icon: UI_ICON.ai, tone: 'var(--nc-purple)', desc: 'Models that answer in Ask and the preview.', body: `
         <div id="fe-st-ai-card" class="fe-ai-hero">
@@ -152,9 +152,10 @@ export function settingsDialog(): DialogSpec {
 
       { key: 'data', label: 'Data', hint: 'Export, import', icon: UI_ICON.data, tone: 'var(--nc-green)', desc: 'Move your settings and Saved list.', body:
         card('Your data',
-          row('Export', 'Copies JSON', `<button id="fe-st-export" class="btn" data-size="lg" title="Copy everything as JSON">${UI_ICON.export}Export</button>`) +
-          row('Import', 'Then reloads', `<button id="fe-st-import" class="btn" data-size="lg" title="Load a JSON export">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) +
-          `<textarea id="fe-st-export-out" class="tb fe-st-input" hidden spellcheck="false" title="The export, also on the clipboard"></textarea>`) },
+          row('Export', 'Saves a dated .json file', `<button id="fe-st-export" class="btn" data-size="lg" title="Save your settings and Saved list as a .json file">${UI_ICON.export}Export</button>`) +
+          row('Import', 'Shows what changes before it applies', `<button id="fe-st-import" class="btn" data-size="lg" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) +
+          `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` +
+          row('Reset', 'Every preference back to its default. Saved places and your folders stay.', `<button id="fe-st-reset" class="btn" data-size="lg" data-tone="danger" title="Put every setting back to its default; Undo stays for a moment">${UI_ICON.reset}Reset</button>`)) },
     ],
   };
 }

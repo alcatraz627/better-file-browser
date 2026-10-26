@@ -22,7 +22,7 @@ import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, 
 import { mountMetaBar, closePropsMenu } from './note-meta-ui';
 import { mountImageTools } from './image-tools';
 import {
-  attachBuffer, moveLines, duplicateLines, indentLines, continueList, wrapSelection, tableSnippet, type TextEdit,
+  attachBuffer, moveLines, duplicateLines, indentLines, continueList, absorbTypedMarker, autoMarkerAfter, type AutoMarker, wrapSelection, tableSnippet, type TextEdit,
 } from './editor';
 import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
 import { addTurn, turnMeta } from './ask-history';
@@ -644,8 +644,16 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   };
   showClash();
   let viewTimer: ReturnType<typeof setTimeout> | null = null;
+  // The marker Enter just put on a new list line; a person typing the same marker over it is folded into it.
+  let autoMarker: AutoMarker | null = null;
   ta.addEventListener('input', () => {
     if (!edit) return;
+    if (autoMarker) {
+      const fix = absorbTypedMarker(ta.value, sel(), autoMarker);
+      if (fix) { autoMarker = null; apply(fix); return; }
+      const typed = ta.value.slice(autoMarker.lineStart + autoMarker.prefix.length, ta.selectionStart);
+      if (!ta.value.startsWith(autoMarker.prefix, autoMarker.lineStart) || ta.selectionStart < autoMarker.lineStart + autoMarker.prefix.length || !/^[-*+\d.)[\] xX]*$/.test(typed)) autoMarker = null;
+    }
     if (!!document.getElementById('fe-ed-clash') !== !!clashSides(ta.value)) showClash();
     edit.text = edit.head + ta.value; edit.dirty = true; edit.version++; currentText = edit.text;
     editHeader('unsaved');
@@ -678,7 +686,7 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
     else if (e.key === 'Tab') { stop(); apply(indentLines(ta.value, sel(), e.shiftKey)); }
     else if (e.key === 'Enter' && !mod && !e.shiftKey) {
       const r = continueList(ta.value, sel());
-      if (r) { stop(); apply(r); }
+      if (r) { stop(); apply(r); autoMarker = autoMarkerAfter(r); }
     }
   });
   // The chip row above the text: title, pin, colour, tags. Each change edits only its own line of the properties block.

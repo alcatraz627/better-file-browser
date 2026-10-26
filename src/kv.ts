@@ -98,3 +98,11 @@ export function kvSet(key: string, value: string): void {
 export function kvKeys(): string[] {
   return area ? [...cache.keys()] : localKeys();
 }
+
+// Forget a key everywhere, so it reads as never set.
+export function kvRemove(key: string): void {
+  if (!area) { try { localStorage.removeItem(key); } catch { /* storage disabled */ } return; }
+  if (!cache.has(key)) return;
+  cache.delete(key);
+  try { area.remove(key).catch(() => { /* extension reloaded under the page */ }); } catch { /* extension reloaded under the page */ }
+}

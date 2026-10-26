@@ -7,7 +7,7 @@ import type { IconRule, SortConfig, GroupMode } from './types';
 import { el, els } from './el';
 import { esc } from './utils';
 import { icoCustom, RULE_GLYPHS } from './icons';
-import { viewPref, palettePref, exportAll, importAll, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
+import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
 import { DEFAULT_COMMANDS } from './open-with';
 import { llmAvailability, llmWarm, llmModels } from './llm';
 import { mountDialog } from './dialog';
@@ -370,22 +370,52 @@ export function initSettingsUi(app: App): void {
     settings.editableFolders = list.length ? list : undefined; saveSettings(settings);
   });
 
-  // Data.
+  // Data. An export is a dated file; an import says what it would change before it does; a reset and
+  // an import both leave an Undo that survives the reload that follows.
+  const stamp = () => { const d = new Date(), two = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}`; };
   el('fe-st-export').addEventListener('click', () => {
-    const text = JSON.stringify(exportAll(), null, 2);
-    const ta = el<HTMLTextAreaElement>('fe-st-export-out');
-    ta.value = text; ta.hidden = false; ta.select();
-    navigator.clipboard.writeText(text).then(() => toast('Export copied'), () => toast('Export shown below'));
+    const blob = new Blob([JSON.stringify(exportAll(), null, 2) + '\n'], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `bfb-settings-${stamp()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+    toast(`Saved ${a.download}`);
   });
+  const planBox = el('fe-st-import-plan');
+  let pending: ImportPlan | null = null;
+  const hidePlan = () => { pending = null; planBox.hidden = true; };
+  const short = (keys: string[]) => keys.map(k => k.replace(/^bfb-/, '').replace(/-v\d+$/, '')).slice(0, 6).join(', ') + (keys.length > 6 ? `, and ${keys.length - 6} more` : '');
   el('fe-st-import').addEventListener('click', () => el<HTMLInputElement>('fe-st-import-file').click());
   el<HTMLInputElement>('fe-st-import-file').addEventListener('change', function () {
     const f = this.files?.[0];
+    this.value = '';
     if (!f) return;
     f.text().then(text => {
       const data = JSON.parse(text) as Record<string, unknown>;
-      const n = importAll(data);
-      toast(`Imported ${n} keys, reloading`);
-      setTimeout(reload, 600);
-    }).catch(() => toast('That file is not a JSON export'));
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('not an export');
+      const plan = planImport(data);
+      if (!plan.changed.length && !plan.added.length) { hidePlan(); toast('Nothing to change: this export matches what you have'); return; }
+      pending = plan;
+      el('fe-st-import-plan-tx').textContent = `This file changes ${plan.changed.length} setting${plan.changed.length !== 1 ? 's' : ''}${plan.changed.length ? ` (${short(plan.changed)})` : ''}`
+        + ` and adds ${plan.added.length}${plan.added.length ? ` (${short(plan.added)})` : ''}. ${plan.same} already match.`;
+      planBox.hidden = false;
+    }).catch(() => { hidePlan(); toast('That file is not a JSON export'); });
   });
+  el('fe-st-import-cancel').addEventListener('click', hidePlan);
+  el('fe-st-import-apply').addEventListener('click', () => {
+    if (!pending) return;
+    const n = importPlan(pending);
+    hidePlan();
+    toast(`Imported ${n} setting${n !== 1 ? 's' : ''}, reloading`);
+    setTimeout(reload, 600);
+  });
+  el('fe-st-reset').addEventListener('click', () => {
+    const n = resetPreferences();
+    toast(`Reset ${n} setting${n !== 1 ? 's' : ''}, reloading`);
+    setTimeout(reload, 600);
+  });
+  // After a reset or an import, the reloaded page offers to take it back, once.
+  const undo = takeUndo();
+  if (undo) toast(`${undo.label}: ${undo.count} setting${undo.count !== 1 ? 's' : ''}`, 12_000, { label: 'Undo', run: () => { undoWrites(undo); toast('Put back, reloading'); setTimeout(reload, 600); } });
 }

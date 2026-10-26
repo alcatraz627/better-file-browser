@@ -33,7 +33,9 @@ export const columnPref = textPref('bfb-page-column-v2');
 const oldColumnPref = textPref('bfb-page-column-v1');
 type ColumnMode = 'unset' | 'xl' | 'lg' | 'md';
 const COLUMN_MODES: ColumnMode[] = ['unset', 'xl', 'lg', 'md'];
-const COLUMN_WIDTHS: Record<ColumnMode, string> = { unset: 'full', xl: '150ch', lg: '130ch', md: '110ch' };
+const COLUMN_WIDTHS: Record<ColumnMode, string> = { unset: 'full', xl: '150ch', lg: '130ch', md: '80ch' };
+/** The names the reader sees; storage keeps the older codes (`md` is Narrow) so an older build still reads the choice. */
+export const COLUMN_NAMES: Record<ColumnMode, string> = { unset: 'Full', xl: 'Wide', lg: 'Medium', md: 'Narrow' };
 export function columnMode(value: unknown): ColumnMode {
   if (value === true || value === '1') return 'md';
   return COLUMN_MODES.includes(value as ColumnMode) ? value as ColumnMode : 'unset';
@@ -229,9 +231,10 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   const paint = () => {
     for (const mode of COLUMN_MODES) fe.classList.toggle(`fe-column-${mode}`, column === mode);
     colBtn.classList.toggle('on', column !== 'unset');
-    colBtn.querySelector('.fe-fp-column-label')!.textContent = column === 'unset' ? 'Full width' : `${column.toUpperCase()} width`;
+    colBtn.querySelector('.fe-fp-column-label')!.textContent = `${COLUMN_NAMES[column]} width`;
     const next = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
-    colBtn.title = `Reading width: ${column === 'unset' ? 'full' : `${column.toUpperCase()} (${COLUMN_WIDTHS[column]})`}. Click for ${next === 'unset' ? 'full' : `${next.toUpperCase()} (${COLUMN_WIDTHS[next]})`}`;
+    const named = (m: ColumnMode) => m === 'unset' ? 'Full' : `${COLUMN_NAMES[m]} (${COLUMN_WIDTHS[m]})`;
+    colBtn.title = `Reading width: ${named(column)}. Click for ${named(next)}`;
     colBtn.style.display = isMd && !raw ? '' : 'none';
     // While editing, the editor's own Raw / Split / Rich switch is the only view control.
     rawBtn.style.display = editor ? 'none' : '';

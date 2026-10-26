@@ -90,24 +90,55 @@ export function indentLines(text: string, sel: Sel, outdent: boolean, unit = '  
 }
 
 // Enter inside a list item continues the list; Enter on an empty item ends it.
+// Ending a list leaves a blank line after the last item, so what is typed next
+// (a heading, a paragraph) is not glued to the list.
 export function continueList(text: string, sel: Sel): TextEdit | null {
   const from = text.lastIndexOf('\n', sel.start - 1) + 1;
   const line = text.slice(from, sel.start);
   const m = line.match(/^(\s*)([-*+]|\d+[.)])\s(\[[ xX]\]\s)?(.*)$/);
   if (!m) return null;
   const [, ind, marker, box, rest] = m;
-  if (!rest.trim() && !box) {
-    const out = text.slice(0, from) + text.slice(sel.end);
-    return { text: out, start: from, end: from };
-  }
-  if (!rest.trim() && box) {
-    const out = text.slice(0, from) + text.slice(sel.end);
-    return { text: out, start: from, end: from };
+  if (!rest.trim()) {
+    const gap = from === 0 || /\n\n$/.test(text.slice(0, from)) ? '' : '\n';
+    const out = text.slice(0, from) + gap + text.slice(sel.end);
+    return { text: out, start: from + gap.length, end: from + gap.length };
   }
   const nextMarker = /^\d+/.test(marker) ? String(parseInt(marker) + 1) + marker.slice(-1) : marker;
   const ins = '\n' + ind + nextMarker + ' ' + (box ? '[ ] ' : '');
   const out = text.slice(0, sel.start) + ins + text.slice(sel.end);
   return { text: out, start: sel.start + ins.length, end: sel.start + ins.length };
+}
+
+/// A new list line started by Enter: where it begins and the marker text put there.
+export interface AutoMarker { lineStart: number; prefix: string }
+
+/// The marker continueList just put on a line, for absorbTypedMarker to watch.
+export function autoMarkerAfter(edit: TextEdit): AutoMarker | null {
+  const lineStart = edit.text.lastIndexOf('\n', edit.start - 1) + 1;
+  const prefix = edit.text.slice(lineStart, edit.start);
+  return /^\s*([-*+]|\d+[.)])\s(\[[ xX]\]\s)?$/.test(prefix) && lineStart > 0 ? { lineStart, prefix } : null;
+}
+
+const TYPED_MARKER = /^([-*+]|\d+[.)])\s(\[[ xX]\]\s)?/;
+
+/// A person who types the marker themselves right after Enter put one there would get it twice
+/// ("- [ ] - [ ]", "2. 2."). Once what they typed after the automatic marker is a whole marker, it
+/// is folded into it: the automatic one stays, unless the typed one adds a checkbox, which then wins.
+/// When the automatic marker already has a checkbox and the typed one has none yet, the checkbox may
+/// still be coming ("- " then "[ ] "), so it waits until the next key says otherwise.
+/// Null while nothing is repeated.
+export function absorbTypedMarker(text: string, sel: Sel, auto: AutoMarker): TextEdit | null {
+  if (sel.start !== sel.end || !text.startsWith(auto.prefix, auto.lineStart) || sel.start < auto.lineStart + auto.prefix.length) return null;
+  const typed = text.slice(auto.lineStart + auto.prefix.length, sel.start);
+  const m = typed.match(TYPED_MARKER);
+  if (!m) return null;
+  const rest = typed.slice(m[0].length);
+  const autoBox = /\[[ xX]\]\s$/.test(auto.prefix);
+  if (!m[2] && autoBox && /^\[[ xX]?\]?$|^$/.test(rest)) return null;
+  const ind = auto.prefix.match(/^\s*/)![0];
+  const keep = (m[2] ? ind + m[0] : auto.prefix) + rest;
+  const out = text.slice(0, auto.lineStart) + keep + text.slice(sel.start);
+  return { text: out, start: auto.lineStart + keep.length, end: auto.lineStart + keep.length };
 }
 
 export function wrapSelection(text: string, sel: Sel, left: string, right = left): TextEdit {

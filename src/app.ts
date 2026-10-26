@@ -32,6 +32,10 @@ export interface App {
   // Switch the sidebar to a lens (null keeps the current one); hideHistory
   // removes or restores the History lens's rail button.
   showLens?(lens: string | null, hideHistory?: boolean): void;
+  /** Whether a Saved or Notes row can be moved one place with the keyboard (not while a filter hides part of its list). */
+  canMoveRow?(row: HTMLElement): boolean;
+  /** Move a Saved or Notes row one place up (-1) or down (1) and keep the keyboard on it. */
+  moveRow?(row: HTMLElement, dir: 1 | -1): void;
   /** Close the sidebar shown over the page in a narrow window; true when it was open. */
   closeSideOverlay?(): boolean;
   goUp(): void;
