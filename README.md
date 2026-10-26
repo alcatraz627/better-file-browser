@@ -86,7 +86,7 @@ Select a file and press **Space** (or click the eye button on hover, or right-cl
 A **copy** button in the header copies the full raw file contents. Previews fetch `file://` content through the background service worker (page-context `file://` XHR is CORS-blocked in current Chrome), so no extra permissions are required.
 
 ### AI (local model) — optional
-With the [local-models `lm` CLI](https://github.com/alcatraz627/local-models) installed, the preview gains an **AI bar**: **Summarize**, **Explain** (→ **Describe** for tabular files), and an **Ask** box. Answers stream in and render as markdown; closing the overlay cancels the generation. A status chip shows whether the model is warm/cold/down, and the settings modal has a **Local Model** panel with a live status blinker, a **model picker** (choose any installed model; passed as `-m`), and a **Keep warm / Unload** toggle (runs `lm warm on/off`). Fully local — the extension shells out to `lm` via a native messaging host; no network egress. Requires the `install.sh` step below.
+With the [local-models `lm` CLI](https://github.com/alcatraz627/local-models) installed, the preview gains an **AI bar**: **Summarize**, **Explain** (→ **Describe** for tabular files), and an **Ask** box. Answers stream in and render as markdown; closing the overlay cancels the generation. A status chip shows whether the model is warm/cold/down, and the settings modal has a **Local Model** panel with a live status blinker, a **model picker** (choose any installed model; passed as `-m`), and a **Keep warm / Unload** toggle (runs `lm warm on/off`). Local by default: the extension shells out to `lm` via a native messaging host, and the default model answers on this Mac. Models marked **remote** (the Gemini ones) send the question and the file to Google; the model picker, Settings and the Ask lens tag them. Requires the `install.sh` step below.
 
 ### Keyboard
 Every action has a key. **⌘K** opens the command palette (any action, tab, saved place, note or file here). **?** opens a keyboard map you can hover. Holding **⌥** shows each button's key on screen. **F6** walks the areas (sidebar, tabs, path bar, toolbar, listing), and sequences like **g h** (home), **v t** (tree view) and **s m** (sort by modified) cover the rest. The full list is [`docs/keyboard.md`](docs/keyboard.md), generated from `src/keymap.ts`.
@@ -272,7 +272,7 @@ After a build:
 2. Click the refresh icon on the **Better File Browser** card
 3. Reload any open `file://` tab
 
-`content.js` is generated — never edit it by hand; edit `src/` and rebuild. The extension makes no remote network requests; the only `fetch` calls read local `file://` URLs (via the service worker) and, if enabled, the AI bar talks to the local `lm` CLI through a native host.
+`content.js` is generated — never edit it by hand; edit `src/` and rebuild. The extension itself makes no remote network requests; the only `fetch` calls read local `file://` URLs (via the service worker) and, if enabled, the AI bar talks to the local `lm` CLI through a native host. Only a remote model you pick (Gemini) sends text off the machine, and that goes through `lm`, not the extension.
 
 ---
 

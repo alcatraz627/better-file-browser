@@ -4,7 +4,7 @@
 import { resizable } from './resize';
 import type { Entry, IconRule, PreviewLayout } from './types';
 import { esc, fmtSize, getExt, copyToClipboard, midHtml, pageHref, fileHref } from './utils';
-import { getPreviewLayout, savePreviewLayout, isSaved, toggleSaved } from './storage';
+import { getPreviewLayout, savePreviewLayout, isSaved, toggleSaved, flagPref, textPref } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
 import { raise, lower, focusTrap } from './layer';
 import { getIcon, IMG_EXTS, PI } from './icons';
@@ -18,6 +18,7 @@ import {
   sniffBinary, unrenderableNote,
 } from './renderers';
 import { fetchFileText, FileFetchError } from './file-fetch';
+import { closeOpenFence, splitThinking } from './ask-quote';
 import { notes, NotesError, noteTitle, stampUpdated, slugForTitle, settleClash, clashSides, splitNote, readProps, setField, setFirstLine, applyChange, changedKeys, frontmatterDrift, type Keep, type NoteDoc } from './notes';
 import { mountMetaBar, closePropsMenu } from './note-meta-ui';
 import { mountImageTools } from './image-tools';
@@ -25,7 +26,7 @@ import {
   attachBuffer, moveLines, duplicateLines, indentLines, continueList, wrapSelection, tableSnippet, type TextEdit,
 } from './editor';
 import { llmAvailability, llmQuery, LLM_ERROR_TEXT, type LlmAvailability } from './llm';
-import { addTurn, turnMeta } from './ask-history';
+import { addTurn, chatsFor, turnMeta, type AskTurn } from './ask-history';
 import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
 import { errorText } from './errors';
@@ -110,6 +111,15 @@ let dsvSort:   { col: number; dir: 'asc' | 'desc' } | null = null;
 // AI bar state: one in-flight query at a time, cancelled on close/rerun
 let aiCancel: (() => void) | null = null;
 let aiSeq = 0;
+// Whether AI is offered for what is open, and whether the bar is showing; the
+// bar folds away from the header button and stays that way.
+let aiOn = false;
+const aiBarPref = flagPref('bfb-ql-ai-bar-v1', true);
+// When the host was last found missing, so a tab without it does not flash the bar on every preview.
+const aiNonePref = textPref('bfb-ql-ai-none-v1', '', 'tab');
+const aiMissing = () => Date.now() - Number(aiNonePref.get() || 0) < 60_000;
+// What the last answer was asked, for Retry.
+let aiRun: { intent: string; question?: string } | null = null;
 
 export function initPreview(d: PreviewDeps): void {
   deps = d;
@@ -134,6 +144,7 @@ export function initPreview(d: PreviewDeps): void {
         <button id="fe-ql-rename" class="btn" data-icon title="Rename this file (F2 in the list)">${UI_ICON.rename}</button>
         <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
+        <button id="fe-ql-ai-btn" class="btn" data-icon title="Ask about this file (a)" aria-pressed="false" hidden>${UI_ICON.ai}</button>
         ${SIZE_BTN('fe-ql-size')}
         <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
           ${GLYPH.dock}
@@ -148,10 +159,16 @@ export function initPreview(d: PreviewDeps): void {
         <button class="btn fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
         <input id="fe-ql-ai-q" class="tb" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
         <button class="btn fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
+        <button class="btn" id="fe-ql-ai-recheck" data-variant="outline" title="Check the model again" hidden>Retry</button>
       </div>
       <div id="fe-ql-ai-out" hidden>
+        <div id="fe-ql-ai-out-q"></div>
         <div id="fe-ql-ai-out-body"></div>
-        <div id="fe-ql-ai-out-meta"></div>
+        <div id="fe-ql-ai-out-foot">
+          <span id="fe-ql-ai-out-meta"></span>
+          <button class="btn" id="fe-ql-ai-stop" data-size="sm" data-variant="outline" title="Stop this answer (Esc)" hidden>Stop</button>
+          <button class="btn" id="fe-ql-ai-retry" data-size="sm" data-variant="outline" title="Ask this again" hidden>Retry</button>
+        </div>
       </div>
       <div id="fe-ql-body"></div>
     </div>`;
@@ -232,6 +249,13 @@ export function initPreview(d: PreviewDeps): void {
   });
 
   const aiQ = document.getElementById('fe-ql-ai-q') as HTMLInputElement;
+  document.querySelectorAll<HTMLButtonElement>('.fe-ql-ai-btn').forEach(b => { b.dataset.title = b.title; });
+  document.getElementById('fe-ql-ai-btn')!.addEventListener('click', () => {
+    if (aiBarPref.get()) { aiBarPref.set(false); syncAiBar(); } else askInPreview();
+  });
+  document.getElementById('fe-ql-ai-stop')!.addEventListener('click', () => aiCancel?.());
+  document.getElementById('fe-ql-ai-retry')!.addEventListener('click', () => { if (aiRun) runAi(aiRun.intent, aiRun.question); });
+  document.getElementById('fe-ql-ai-recheck')!.addEventListener('click', () => { if (currentEntry) setupAi(currentEntry, aiExt); });
   document.getElementById('fe-ql-ai-sum')!.addEventListener('click', () => runAi('summarize'));
   document.getElementById('fe-ql-ai-exp')!.addEventListener('click', function () {
     runAi((this as HTMLElement).dataset.intent || 'explain-code');
@@ -240,11 +264,18 @@ export function initPreview(d: PreviewDeps): void {
     const q = aiQ.value.trim();
     if (!q) { aiQ.focus(); return; }
     runAi('qa', q);
+    aiQ.value = '';
   };
   document.getElementById('fe-ql-ai-ask')!.addEventListener('click', askAi);
   aiQ.addEventListener('keydown', e => {
     if (e.key === 'Enter') askAi();
-    else if (e.key === 'Escape') { e.stopPropagation(); aiQ.blur(); }
+    else if (e.key === 'Escape') {
+      // Esc steps back one thing at a time: the answer being written, then the
+      // typed question, then the preview itself.
+      if (aiCancel) { e.stopPropagation(); aiCancel(); }
+      else if (aiQ.value) { e.stopPropagation(); aiQ.value = ''; }
+      else { e.stopPropagation(); closePreview(); }
+    }
   });
 
   // Table header sorting via delegation — the body is re-rendered per click
@@ -323,89 +354,189 @@ function resetAiUi(): void {
   aiCancel?.();
   aiCancel = null;
   aiSeq++;
-  document.getElementById('fe-ql-ai')!.hidden = true;
+  aiOn = false;
+  aiRun = null;
+  syncAiBar();
   document.getElementById('fe-ql-ai-out')!.hidden = true;
+  document.getElementById('fe-ql-ai-out-q')!.textContent = '';
   document.getElementById('fe-ql-ai-out-body')!.innerHTML = '';
   document.getElementById('fe-ql-ai-out-meta')!.textContent = '';
+  setAiBusy(false);
   (document.getElementById('fe-ql-ai-q') as HTMLInputElement).value = '';
 }
 
-// Show the AI bar once the host confirms lm is reachable. "unavailable"
-// (host not installed / lm missing) keeps the bar hidden entirely — the
-// preview works exactly as before for users without the toolkit.
+// The bar shows when AI is offered here and the person has not folded it away.
+function syncAiBar(): void {
+  const open = aiOn && aiBarPref.get();
+  document.getElementById('fe-ql-ai')!.hidden = !open;
+  const btn = document.getElementById('fe-ql-ai-btn')!;
+  btn.hidden = !aiOn;
+  btn.classList.toggle('on', open);
+  btn.setAttribute('aria-pressed', String(open));
+  btn.title = open ? 'Hide the AI bar' : 'Ask about this file (a)';
+}
+
+/// Open the AI bar if it was folded away and put the cursor in its question box; false when AI is not offered here.
+export function askInPreview(): boolean {
+  if (!aiOn) return false;
+  aiBarPref.set(true);
+  syncAiBar();
+  (document.getElementById('fe-ql-ai-q') as HTMLInputElement).focus();
+  return true;
+}
+
+/// The AI bar's Stop while an answer is being written, and Retry once it has ended.
+function setAiBusy(busy: boolean): void {
+  document.getElementById('fe-ql-ai-stop')!.hidden = !busy;
+  document.getElementById('fe-ql-ai-retry')!.hidden = busy || !aiRun || document.getElementById('fe-ql-ai-out')!.hidden;
+}
+
+let aiExt = '';
+
+// Show the AI bar as soon as the preview opens, in a "checking" state, so it
+// does not push the file down when the model answers. "unavailable" (host not
+// installed / lm missing) hides it again and is remembered for a minute, so a
+// machine without the toolkit sees the preview exactly as before.
 function setupAi(e: Entry, ext: string): void {
+  if (aiMissing()) return;
+  aiExt = ext;
+  const tabular = TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === 'json';
+  const image = ext === 'image';
+  const exp = document.getElementById('fe-ql-ai-exp') as HTMLButtonElement;
+  exp.textContent    = tabular || image ? 'Describe' : 'Explain';
+  exp.dataset.intent = image ? 'describe-image' : tabular ? 'describe-data' : 'explain-code';
+  exp.dataset.title = image ? 'What the image shows, read by the local vision model; it never leaves this Mac'
+    : tabular ? 'Schema + notable observations (local model)'
+    : 'What this does, with safety callouts (local model)';
+  const chip = document.getElementById('fe-ql-ai-chip')!;
+  const chipTxt = document.getElementById('fe-ql-ai-chip-txt')!;
+  const recheck = document.getElementById('fe-ql-ai-recheck')!;
+  const q = document.getElementById('fe-ql-ai-q') as HTMLInputElement;
+  // Why the controls are off is said beside them, since a disabled button shows no hint of its own.
+  const paint = (state: 'checking' | 'ready' | 'cold' | 'down', why = '') => {
+    chip.className = state === 'checking' ? '' : state;
+    chipTxt.textContent = state === 'ready' ? 'AI · ready' : state === 'cold' ? 'AI · cold start' : state === 'down' ? why : 'AI · checking';
+    // While the check runs the controls stay live, so a click is never lost to it; only a known-down model switches them off.
+    const on = state !== 'down';
+    document.querySelectorAll<HTMLButtonElement>('.fe-ql-ai-btn').forEach(b => { b.disabled = !on; b.title = on ? b.dataset.title ?? '' : why; });
+    q.disabled = !on;
+    q.placeholder = on ? 'Ask about this file' : 'Ask is off until the model runs';
+    recheck.hidden = state !== 'down';
+  };
+  paint('checking');
+  aiOn = true;
+  syncAiBar();
+  restoreAiAnswer(e);
   llmAvailability().then((av: LlmAvailability) => {
     if (currentEntry !== e || !isPreviewOpen()) return;
-    if (av.kind === 'unavailable') return;
-    const tabular = TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === 'json';
-    const image = ext === 'image';
-    const exp = document.getElementById('fe-ql-ai-exp') as HTMLButtonElement;
-    exp.textContent    = tabular || image ? 'Describe' : 'Explain';
-    exp.dataset.intent = image ? 'describe-image' : tabular ? 'describe-data' : 'explain-code';
-    exp.title = image ? 'What the image shows, read by the local vision model; it never leaves this Mac'
-      : tabular ? 'Schema + notable observations (local model)'
-      : 'What this does, with safety callouts (local model)';
-    const ready = av.kind === 'ready';
-    const chip = document.getElementById('fe-ql-ai-chip')!;
-    chip.className = ready ? (av.cold ? 'cold' : 'ready') : 'down';
-    document.getElementById('fe-ql-ai-chip-txt')!.textContent =
-      ready ? (av.cold ? 'AI · cold start' : 'AI · ready') : 'AI · lm server down';
-    document.querySelectorAll<HTMLButtonElement>('.fe-ql-ai-btn').forEach(b => { b.disabled = !ready; });
-    (document.getElementById('fe-ql-ai-q') as HTMLInputElement).disabled = !ready;
-    document.getElementById('fe-ql-ai')!.hidden = false;
+    if (av.kind === 'unavailable') { aiNonePref.set(String(Date.now())); aiOn = false; syncAiBar(); return; }
+    aiNonePref.set('');
+    paint(av.kind === 'ready' ? (av.cold ? 'cold' : 'ready') : 'down', LLM_ERROR_TEXT.server_down);
   });
 }
 
 // Answers from the preview's AI bar join the file's Ask history, one chat per
 // file per preview, so the Ask lens on that file's page lists them too.
 let aiChat = { href: '', id: '' };
-const AI_ASKED: Record<string, string> = { summarize: 'Summarize', explain: 'Explain', describe: 'Describe' };
+const AI_ASKED: Record<string, string> = { summarize: 'Summarize', explain: 'Explain', describe: 'Describe', 'explain-code': 'Explain', 'describe-data': 'Describe', 'describe-image': 'Describe' };
 // What the image buttons ask, since an image has no text for the model to summarize.
 const IMAGE_ASKED: Record<string, string> = { summarize: 'Summarize what this image shows in a few lines.', 'describe-image': 'Describe this image in detail, with any text in it verbatim.' };
+const pathOf = (e: Entry) => decodeURIComponent(new URL(e.href, location.href).pathname);
+
+// The newest preview answer about this file comes back when it is opened again.
+function restoreAiAnswer(e: Entry): void {
+  let last: { id: string; turn: AskTurn } | null = null;
+  try {
+    for (const c of chatsFor(pathOf(e))) {
+      const ok = c.turns.filter(x => !x.error && !x.via && x.a);
+      const t = ok[ok.length - 1];
+      if (c.id.startsWith('pv-') && t) { last = { id: c.id, turn: t }; break; }
+    }
+  } catch { /* history is a convenience */ }
+  if (!last) return;
+  const { id, turn } = last;
+  aiChat = { href: e.href, id };
+  const exp = document.getElementById('fe-ql-ai-exp') as HTMLElement;
+  const byLabel: Record<string, string> = { Summarize: 'summarize', Explain: 'explain-code', Describe: exp.dataset.intent || 'describe-data' };
+  aiRun = turn.intent ? { intent: turn.intent } : byLabel[turn.q] ? { intent: byLabel[turn.q] } : { intent: 'qa', question: turn.q };
+  document.getElementById('fe-ql-ai-out')!.hidden = false;
+  document.getElementById('fe-ql-ai-out-q')!.textContent = turn.q;
+  document.getElementById('fe-ql-ai-out-body')!.innerHTML = renderMarkdown(closeOpenFence(splitThinking(turn.a).answer));
+  document.getElementById('fe-ql-ai-out-meta')!.textContent = turnMeta(turn);
+  setAiBusy(false);
+}
 
 function runAi(intent: string, question?: string): void {
   if ((currentText === null && !currentImage) || !currentEntry) return;   // fetch not done yet
   const entry = currentEntry;
+  const run = { intent, question };
+  aiRun = run;
+  const asked = question || AI_ASKED[intent] || intent;
   // An image goes to the host as a file, read by the vision model, with the question.
   const image = currentImage;
   if (image) { question = question || IMAGE_ASKED[intent] || IMAGE_ASKED['describe-image']; intent = 'qa'; }
   if (aiChat.href !== entry.href) aiChat = { href: entry.href, id: 'pv-' + Date.now().toString(36) };
   aiCancel?.();
   const seq = ++aiSeq;
+  const startedAt = Date.now();
   const body = document.getElementById('fe-ql-ai-out-body')!;
   const meta = document.getElementById('fe-ql-ai-out-meta')!;
   document.getElementById('fe-ql-ai-out')!.hidden = false;
+  document.getElementById('fe-ql-ai-out-q')!.textContent = asked;
   body.textContent = '';
   meta.textContent = 'Thinking…';
   let full = '';
-  aiCancel = llmQuery(
-    { ctx: image ? '' : currentText ?? '', ctxName: currentEntry.name, intent, question, model: deps.aiModel?.(), files: image ? [image] : undefined },
+  let frame = 0;
+  let over = false;
+  const model = deps.aiModel?.();
+  // The answer is drawn as markdown with any open code fence closed, so a half-written block still reads as code.
+  const paint = () => { body.innerHTML = renderMarkdown(closeOpenFence(splitThinking(full).answer)); };
+  const file = (extra: Partial<AskTurn>) => {
+    const turn: AskTurn = { q: asked, a: full, model: model || 'default', ms: Date.now() - startedAt, at: startedAt,
+      ...(run.intent !== 'qa' ? { intent: run.intent } : {}), ...extra };
+    try { addTurn(pathOf(entry), aiChat.id, turn); } catch { /* history is a convenience; the answer is already shown */ }
+    return turn;
+  };
+  setAiBusy(true);
+  const stopQuery = llmQuery(
+    { ctx: image ? '' : currentText ?? '', ctxName: entry.name, intent, question, model, files: image ? [image] : undefined },
     {
-      onStep: t => { if (seq === aiSeq) meta.textContent = t + '…'; },
+      onStep: t => { if (seq === aiSeq && !over) meta.textContent = t + '…'; },
       onChunk: t => {
-        if (seq !== aiSeq) return;
+        if (seq !== aiSeq || over) return;
         full += t;
-        body.textContent = full;
+        meta.textContent = '';
+        frame ||= requestAnimationFrame(() => { frame = 0; if (!over && seq === aiSeq) paint(); });
       },
       onDone: info => {
-        if (seq !== aiSeq) return;
+        if (seq !== aiSeq || over) return;
+        over = true; cancelAnimationFrame(frame);
         aiCancel = null;
-        body.innerHTML = renderMarkdown(full);
-        const turn = { q: question || AI_ASKED[intent] || intent, a: full, model: info.model, ms: info.ms, at: Date.now(), tokensIn: info.tokensIn, tokensOut: info.tokensOut };
-        try {
-          addTurn(decodeURIComponent(new URL(entry.href).pathname), aiChat.id, turn);
-        } catch { /* history is a convenience; the answer is already shown */ }
-        meta.textContent = turnMeta(turn, info.truncated);
+        paint();
+        meta.textContent = turnMeta(file({ model: info.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut }), info.truncated);
+        setAiBusy(false);
       },
       onError: (code, message) => {
-        if (seq !== aiSeq) return;
+        if (seq !== aiSeq || over) return;
+        over = true; cancelAnimationFrame(frame);
         aiCancel = null;
+        setAiBusy(false);
         if (code === 'cancelled') return;
         body.textContent = LLM_ERROR_TEXT[code] ?? message;
         meta.textContent = '';
       },
     },
   );
+  // Stop (the button, or Esc in the question box) keeps what was written, marked as stopped.
+  if (!over) aiCancel = () => {
+    if (over) return;
+    over = true; cancelAnimationFrame(frame);
+    stopQuery();
+    aiCancel = null;
+    if (full.trim()) { paint(); meta.textContent = turnMeta(file({ stopped: true })); }
+    else { body.textContent = 'Stopped before an answer came.'; meta.textContent = ''; }
+    setAiBusy(false);
+  };
 }
 
 // ── Note editor: the same panel, a textarea beside the render ─────────
@@ -462,7 +593,6 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   nameEl.href = fileHref(root.replace(/\/$/, '') + '/' + doc.rel);
   (document.getElementById('fe-ql-open') as HTMLAnchorElement).href = nameEl.href;
   resetAiUi();
-  document.getElementById('fe-ql-ai')!.hidden = true;
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.style.display = ''; copyBtn.disabled = false;
   if (overlay.style.display === 'none') rememberFocus();
@@ -867,7 +997,7 @@ function render(text: string, ext: string): void {
   const body = document.getElementById('fe-ql-body')!;
   const note = unrenderableNote(text);
   if (note) {
-    if (sniffBinary(text)) document.getElementById('fe-ql-ai')!.hidden = true;   // nothing for a model to read
+    if (sniffBinary(text)) { aiOn = false; syncAiBar(); }   // nothing for a model to read
     body.innerHTML = `<div class="fe-ql-center">${note}</div>`;
     return;
   }

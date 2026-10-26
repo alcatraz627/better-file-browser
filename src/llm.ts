@@ -221,7 +221,7 @@ export function llmWarm(on: boolean): Promise<{ ok: boolean; message?: string }>
 
 /** Human messages keyed by stable error code — never branch on message text. */
 export const LLM_ERROR_TEXT: Record<string, string> = {
-  server_down:   'The local model is not running. Start it with lm in a terminal.',
+  server_down:   'The local model is not running. Start it with lm in a terminal, then try again.',
   model_missing: 'The model is not available on the server.',
   ctx_too_large: 'This file is too large for the model.',
   timeout:       'The model took too long and was stopped.',

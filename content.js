@@ -4023,6 +4023,66 @@ ${body}`;
     return false;
   }
 
+  // src/ask-quote.ts
+  var QUOTE_MAX = 4e3;
+  function quoteMarkdown(text, from) {
+    let body = text.trim();
+    const cut = body.length > QUOTE_MAX;
+    if (cut) body = body.slice(0, QUOTE_MAX).trimEnd() + " \u2026";
+    const lines = [`From ${from}${cut ? " (shortened)" : ""}:`, "", ...body.split("\n")];
+    return lines.map((l) => l ? `> ${l}` : ">").join("\n") + "\n\n";
+  }
+  var nameOf2 = (path) => path.split("/").filter(Boolean).pop() || "/";
+  function quoteTargets(here, tabPaths, recent, chatsFor2, max = 8) {
+    const out = [{ ...here, label: "This chat", here: true }];
+    const seen = /* @__PURE__ */ new Set([here.subject]);
+    const add = (subject, chat, label) => {
+      if (!chat || seen.has(subject) || out.length >= max) return;
+      seen.add(subject);
+      out.push({ subject, chatId: chat.id, title: chat.title, label, here: false });
+    };
+    for (const p of tabPaths) add(p, chatsFor2(p)[0], `${nameOf2(p)} \xB7 open tab`);
+    for (const r of recent) add(r.subject, r.chat, nameOf2(r.subject));
+    return out;
+  }
+  var handoffPref = jsonPref("bfb-ask-quote-v1", null, (v) => v === null || typeof v === "object" && typeof v.text === "string");
+  var HANDOFF_TTL = 2 * 6e4;
+  function sendQuote(h) {
+    handoffPref.set(h);
+  }
+  function takeQuote(subject, now = Date.now()) {
+    const h = handoffPref.get();
+    if (!h || h.subject !== subject) return null;
+    handoffPref.set(null);
+    return now - h.at <= HANDOFF_TTL ? h : null;
+  }
+  var GEMINI_DEFAULT = /\((Gemini )?default\)$/;
+  var bareLabel = (label) => label.replace(/ \((Gemini )?default\)$/, "");
+  function resolveMention(text, opts) {
+    const m = /^@(\S+)\s+([\s\S]*\S)/.exec(text.trim());
+    if (!m) return null;
+    const want = m[1].toLowerCase();
+    const gem = opts.filter((o) => o.value.startsWith("gemini:"));
+    const hit = opts.find((o) => o.value && o.value.toLowerCase() === want) ?? gem.find((o) => o.value.slice(7).toLowerCase() === want) ?? (want === "gemini" ? gem.find((o) => GEMINI_DEFAULT.test(o.label)) ?? gem[0] : void 0);
+    return hit ? { model: hit.value, label: bareLabel(hit.label), question: m[2] } : null;
+  }
+  function secondOpinion(question, answer) {
+    return `Another model answered the question "${question}" as below. Check that answer against the context: say plainly what is wrong or missing, then give a better answer.
+
+Their answer:
+${answer}`;
+  }
+  var isImageName = (name) => /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(name);
+  function closeOpenFence(text) {
+    const fences = text.match(/^\s*```/gm)?.length ?? 0;
+    return fences % 2 ? text + "\n```" : text;
+  }
+  function splitThinking(text) {
+    const m = /^\s*<think>([\s\S]*?)(<\/think>|$)/.exec(text);
+    if (!m) return { thinking: "", answer: text, open: false };
+    return { thinking: m[1].trim(), answer: text.slice(m[0].length).replace(/^\s+/, ""), open: !m[2] };
+  }
+
   // src/note-meta-ui.ts
   var colorDot = (c) => dotIcon(c ? `var(--nc-${c})` : null);
   var openMenu = null;
@@ -4685,7 +4745,7 @@ ${body}
     });
   }
   var LLM_ERROR_TEXT = {
-    server_down: "The local model is not running. Start it with lm in a terminal.",
+    server_down: "The local model is not running. Start it with lm in a terminal, then try again.",
     model_missing: "The model is not available on the server.",
     ctx_too_large: "This file is too large for the model.",
     timeout: "The model took too long and was stopped.",
@@ -4791,7 +4851,7 @@ Now: ${question}` : question;
     history.replaceState(null, "", hash);
   }
 
-  // node_modules/yaml/browser/dist/nodes/identity.js
+  // ../../../node_modules/yaml/browser/dist/nodes/identity.js
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
   var MAP = Symbol.for("yaml.map");
@@ -4827,7 +4887,7 @@ Now: ${question}` : question;
   }
   var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
 
-  // node_modules/yaml/browser/dist/visit.js
+  // ../../../node_modules/yaml/browser/dist/visit.js
   var BREAK = Symbol("break visit");
   var SKIP = Symbol("skip children");
   var REMOVE = Symbol("remove node");
@@ -4977,7 +5037,7 @@ Now: ${question}` : question;
     }
   }
 
-  // node_modules/yaml/browser/dist/doc/directives.js
+  // ../../../node_modules/yaml/browser/dist/doc/directives.js
   var escapeChars = {
     "!": "%21",
     ",": "%2C",
@@ -5140,7 +5200,7 @@ Now: ${question}` : question;
   Directives.defaultYaml = { explicit: false, version: "1.2" };
   Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
 
-  // node_modules/yaml/browser/dist/doc/anchors.js
+  // ../../../node_modules/yaml/browser/dist/doc/anchors.js
   function anchorIsValid(anchor) {
     if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
       const sa = JSON.stringify(anchor);
@@ -5200,7 +5260,7 @@ Now: ${question}` : question;
     };
   }
 
-  // node_modules/yaml/browser/dist/doc/applyReviver.js
+  // ../../../node_modules/yaml/browser/dist/doc/applyReviver.js
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
       if (Array.isArray(val)) {
@@ -5244,7 +5304,7 @@ Now: ${question}` : question;
     return reviver.call(obj, key, val);
   }
 
-  // node_modules/yaml/browser/dist/nodes/toJS.js
+  // ../../../node_modules/yaml/browser/dist/nodes/toJS.js
   function toJS(value, arg, ctx) {
     if (Array.isArray(value))
       return value.map((v, i3) => toJS(v, String(i3), ctx));
@@ -5267,7 +5327,7 @@ Now: ${question}` : question;
     return value;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Node.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Node.js
   var NodeBase = class {
     constructor(type) {
       Object.defineProperty(this, NODE_TYPE, { value: type });
@@ -5299,7 +5359,7 @@ Now: ${question}` : question;
     }
   };
 
-  // node_modules/yaml/browser/dist/nodes/Alias.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Alias.js
   var Alias = class extends NodeBase {
     constructor(source) {
       super(ALIAS);
@@ -5390,7 +5450,7 @@ Now: ${question}` : question;
     return 1;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Scalar.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Scalar.js
   var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
   var Scalar = class extends NodeBase {
     constructor(value) {
@@ -5410,7 +5470,7 @@ Now: ${question}` : question;
   Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
   Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
 
-  // node_modules/yaml/browser/dist/doc/createNode.js
+  // ../../../node_modules/yaml/browser/dist/doc/createNode.js
   var defaultTagPrefix = "tag:yaml.org,2002:";
   function findTagObject(value, tagName, tags) {
     if (tagName) {
@@ -5477,7 +5537,7 @@ Now: ${question}` : question;
     return node;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Collection.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Collection.js
   function collectionFromPath(schema4, path, value) {
     let v = value;
     for (let i3 = path.length - 1; i3 >= 0; --i3) {
@@ -5609,7 +5669,7 @@ Now: ${question}` : question;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyComment.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyComment.js
   var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
   function indentComment(comment, indent) {
     if (/^\n+$/.test(comment))
@@ -5618,7 +5678,7 @@ Now: ${question}` : question;
   }
   var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
 
-  // node_modules/yaml/browser/dist/stringify/foldFlowLines.js
+  // ../../../node_modules/yaml/browser/dist/stringify/foldFlowLines.js
   var FOLD_FLOW = "flow";
   var FOLD_BLOCK = "block";
   var FOLD_QUOTED = "quoted";
@@ -5745,7 +5805,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
     return end;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyString.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyString.js
   var getFoldOptions = (ctx, isBlock2) => ({
     indentAtStart: isBlock2 ? ctx.indent.length : ctx.indentAtStart,
     lineWidth: ctx.options.lineWidth,
@@ -6020,7 +6080,7 @@ ${indent}`);
     return res;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringify.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringify.js
   function createStringifyContext(doc, options) {
     const opt = Object.assign({
       blockQuote: true,
@@ -6133,7 +6193,7 @@ ${indent}`);
 ${ctx.indent}${str}`;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyPair.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyPair.js
   function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
     const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
     let keyComment = isNode(key) && key.comment || null;
@@ -6256,7 +6316,7 @@ ${ctx.indent}`;
     return str;
   }
 
-  // node_modules/yaml/browser/dist/log.js
+  // ../../../node_modules/yaml/browser/dist/log.js
   function warn(logLevel, warning) {
     if (logLevel === "debug" || logLevel === "warn") {
       if (typeof process !== "undefined" && process.emitWarning)
@@ -6266,7 +6326,7 @@ ${ctx.indent}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
   var MERGE_KEY = "<<";
   var merge = {
     identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
@@ -6313,7 +6373,7 @@ ${ctx.indent}`;
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
+  // ../../../node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
   function addPairToJSMap(ctx, map2, { key, value }) {
     if (isNode(key) && key.addToJSMap)
       key.addToJSMap(ctx, map2, value);
@@ -6366,7 +6426,7 @@ ${ctx.indent}`;
     return JSON.stringify(jsKey);
   }
 
-  // node_modules/yaml/browser/dist/nodes/Pair.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Pair.js
   function createPair(key, value, ctx) {
     const k = createNode(key, void 0, ctx);
     const v = createNode(value, void 0, ctx);
@@ -6395,7 +6455,7 @@ ${ctx.indent}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyCollection.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyCollection.js
   function stringifyCollection(collection, ctx, options) {
     const flow = ctx.inFlow ?? collection.flow;
     const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
@@ -6530,7 +6590,7 @@ ${indent}${end}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/nodes/YAMLMap.js
+  // ../../../node_modules/yaml/browser/dist/nodes/YAMLMap.js
   function findPair(items, key) {
     const k = isScalar(key) ? key.value : key;
     for (const it of items) {
@@ -6661,7 +6721,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/map.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/map.js
   var map = {
     collection: "map",
     default: true,
@@ -6675,7 +6735,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLMap.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/nodes/YAMLSeq.js
+  // ../../../node_modules/yaml/browser/dist/nodes/YAMLSeq.js
   var YAMLSeq = class extends Collection {
     static get tagName() {
       return "tag:yaml.org,2002:seq";
@@ -6779,7 +6839,7 @@ ${indent}${end}`;
     return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
   }
 
-  // node_modules/yaml/browser/dist/schema/common/seq.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/seq.js
   var seq = {
     collection: "seq",
     default: true,
@@ -6793,7 +6853,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLSeq.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/common/string.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/string.js
   var string = {
     identify: (value) => typeof value === "string",
     default: true,
@@ -6805,7 +6865,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/null.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/null.js
   var nullTag = {
     identify: (value) => value == null,
     createNode: () => new Scalar(null),
@@ -6816,7 +6876,7 @@ ${indent}${end}`;
     stringify: ({ source }, ctx) => typeof source === "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
   };
 
-  // node_modules/yaml/browser/dist/schema/core/bool.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/bool.js
   var boolTag = {
     identify: (value) => typeof value === "boolean",
     default: true,
@@ -6833,7 +6893,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyNumber.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyNumber.js
   function stringifyNumber({ format, minFractionDigits, tag, value }) {
     if (typeof value === "bigint")
       return String(value);
@@ -6854,7 +6914,7 @@ ${indent}${end}`;
     return n;
   }
 
-  // node_modules/yaml/browser/dist/schema/core/float.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/float.js
   var floatNaN = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -6890,7 +6950,7 @@ ${indent}${end}`;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/core/int.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/int.js
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
   var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
   function intStringify(node, radix, prefix) {
@@ -6926,7 +6986,7 @@ ${indent}${end}`;
     stringify: (node) => intStringify(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/core/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/schema.js
   var schema = [
     map,
     seq,
@@ -6941,7 +7001,7 @@ ${indent}${end}`;
     float
   ];
 
-  // node_modules/yaml/browser/dist/schema/json/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/json/schema.js
   function intIdentify2(value) {
     return typeof value === "bigint" || Number.isInteger(value);
   }
@@ -6999,7 +7059,7 @@ ${indent}${end}`;
   };
   var schema2 = [map, seq].concat(jsonScalars, jsonError);
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
   var binary = {
     identify: (value) => value instanceof Uint8Array,
     // Buffer inherits from Uint8Array
@@ -7055,7 +7115,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
   function resolvePairs(seq2, onError) {
     if (isSeq(seq2)) {
       for (let i3 = 0; i3 < seq2.items.length; ++i3) {
@@ -7121,7 +7181,7 @@ ${cn.comment}` : item.comment;
     createNode: createPairs
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
   var YAMLOMap = class _YAMLOMap extends YAMLSeq {
     constructor() {
       super();
@@ -7187,7 +7247,7 @@ ${cn.comment}` : item.comment;
     createNode: (schema4, iterable, ctx) => YAMLOMap.from(schema4, iterable, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
   function boolStringify({ value, source }, ctx) {
     const boolObj = value ? trueTag : falseTag;
     if (source && boolObj.test.test(source))
@@ -7211,7 +7271,7 @@ ${cn.comment}` : item.comment;
     stringify: boolStringify
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
   var floatNaN2 = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -7250,7 +7310,7 @@ ${cn.comment}` : item.comment;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
   var intIdentify3 = (value) => typeof value === "bigint" || Number.isInteger(value);
   function intResolve2(str, offset, radix, { intAsBigInt }) {
     const sign = str[0];
@@ -7319,7 +7379,7 @@ ${cn.comment}` : item.comment;
     stringify: (node) => intStringify2(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
   var YAMLSet = class _YAMLSet extends YAMLMap {
     constructor(schema4) {
       super(schema4);
@@ -7398,7 +7458,7 @@ ${cn.comment}` : item.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
   function parseSexagesimal(str, asBigInt) {
     const sign = str[0];
     const parts2 = sign === "-" || sign === "+" ? str.substring(1) : str;
@@ -7477,7 +7537,7 @@ ${cn.comment}` : item.comment;
     stringify: ({ value }) => value.toISOString().replace(/(T00:00:00)?\.000Z$/, "")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
   var schema3 = [
     map,
     seq,
@@ -7502,7 +7562,7 @@ ${cn.comment}` : item.comment;
     timestamp
   ];
 
-  // node_modules/yaml/browser/dist/schema/tags.js
+  // ../../../node_modules/yaml/browser/dist/schema/tags.js
   var schemas = /* @__PURE__ */ new Map([
     ["core", schema],
     ["failsafe", [map, seq, string]],
@@ -7573,7 +7633,7 @@ ${cn.comment}` : item.comment;
     }, []);
   }
 
-  // node_modules/yaml/browser/dist/schema/Schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/Schema.js
   var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
   var Schema = class _Schema {
     constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema: schema4, sortMapEntries, toStringDefaults }) {
@@ -7594,7 +7654,7 @@ ${cn.comment}` : item.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyDocument.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyDocument.js
   function stringifyDocument(doc, options) {
     const lines = [];
     let hasDirectives = options.directives === true;
@@ -7665,7 +7725,7 @@ ${cn.comment}` : item.comment;
     return lines.join("\n") + "\n";
   }
 
-  // node_modules/yaml/browser/dist/doc/Document.js
+  // ../../../node_modules/yaml/browser/dist/doc/Document.js
   var Document = class _Document {
     constructor(value, replacer, options) {
       this.commentBefore = null;
@@ -7957,7 +8017,7 @@ ${cn.comment}` : item.comment;
     throw new Error("Expected a YAML collection as document contents");
   }
 
-  // node_modules/yaml/browser/dist/errors.js
+  // ../../../node_modules/yaml/browser/dist/errors.js
   var YAMLError = class extends Error {
     constructor(name, pos, code, message) {
       super();
@@ -8013,7 +8073,7 @@ ${pointer}
     }
   };
 
-  // node_modules/yaml/browser/dist/compose/resolve-props.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-props.js
   function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
     let spaceBefore = false;
     let atNewline = startOnNewline;
@@ -8143,7 +8203,7 @@ ${pointer}
     };
   }
 
-  // node_modules/yaml/browser/dist/compose/util-contains-newline.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-contains-newline.js
   function containsNewline(key) {
     if (!key)
       return null;
@@ -8179,7 +8239,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
   function flowIndentCheck(indent, fc, onError) {
     if (fc?.type === "flow-collection") {
       const end = fc.end[0];
@@ -8190,7 +8250,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-map-includes.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-map-includes.js
   function mapIncludes(ctx, items, search) {
     const { uniqueKeys } = ctx.options;
     if (uniqueKeys === false)
@@ -8199,7 +8259,7 @@ ${pointer}
     return items.some((pair) => isEqual(pair.key, search));
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-map.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-map.js
   var startColMsg = "All mapping items must start at the same column";
   function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bm, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLMap;
@@ -8295,7 +8355,7 @@ ${pointer}
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-seq.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-seq.js
   function resolveBlockSeq({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bs, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLSeq;
     const seq2 = new NodeClass(ctx.schema);
@@ -8337,7 +8397,7 @@ ${pointer}
     return seq2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-end.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-end.js
   function resolveEnd(end, offset, reqSpace, onError) {
     let comment = "";
     if (end) {
@@ -8374,7 +8434,7 @@ ${pointer}
     return { comment, offset };
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
   var blockMsg = "Block collections are not allowed within flow collections";
   var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
   function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, fc, onError, tag) {
@@ -8554,7 +8614,7 @@ ${pointer}
     return coll;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-collection.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-collection.js
   function resolveCollection(CN2, ctx, token, onError, tagName, tag) {
     const coll = token.type === "block-map" ? resolveBlockMap(CN2, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq(CN2, ctx, token, onError, tag) : resolveFlowCollection(CN2, ctx, token, onError, tag);
     const Coll = coll.constructor;
@@ -8606,7 +8666,7 @@ ${pointer}
     return node;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
   function resolveBlockScalar(ctx, scalar, onError) {
     const start = scalar.offset;
     const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
@@ -8782,7 +8842,7 @@ ${pointer}
     return lines;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
   function resolveFlowScalar(scalar, strict, onError) {
     const { offset, type, source, end } = scalar;
     let _type;
@@ -8993,7 +9053,7 @@ ${pointer}
     return String.fromCodePoint(code);
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-scalar.js
   function composeScalar(ctx, token, tagToken, onError) {
     const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar(ctx, token, onError) : resolveFlowScalar(token, ctx.options.strict, onError);
     const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
@@ -9064,7 +9124,7 @@ ${pointer}
     return tag;
   }
 
-  // node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
   function emptyScalarPosition(offset, before, pos) {
     if (before) {
       if (pos === null)
@@ -9089,7 +9149,7 @@ ${pointer}
     return offset;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-node.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-node.js
   var CN = { composeNode, composeEmptyNode };
   function composeNode(ctx, token, props, onError) {
     const atKey = ctx.atKey;
@@ -9177,7 +9237,7 @@ ${pointer}
     return alias;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-doc.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-doc.js
   function composeDoc(options, directives, { offset, start, value, end }, onError) {
     const opts = Object.assign({ _directives: directives }, options);
     const doc = new Document(void 0, opts);
@@ -9210,7 +9270,7 @@ ${pointer}
     return doc;
   }
 
-  // node_modules/yaml/browser/dist/compose/composer.js
+  // ../../../node_modules/yaml/browser/dist/compose/composer.js
   function getErrorPos(src) {
     if (typeof src === "number")
       return [src, src + 1];
@@ -9401,7 +9461,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/cst-visit.js
+  // ../../../node_modules/yaml/browser/dist/parse/cst-visit.js
   var BREAK2 = Symbol("break visit");
   var SKIP2 = Symbol("skip children");
   var REMOVE2 = Symbol("remove item");
@@ -9457,7 +9517,7 @@ ${end.comment}` : end.comment;
     return typeof ctrl === "function" ? ctrl(item, path) : ctrl;
   }
 
-  // node_modules/yaml/browser/dist/parse/cst.js
+  // ../../../node_modules/yaml/browser/dist/parse/cst.js
   var BOM = "\uFEFF";
   var DOCUMENT = "";
   var FLOW_END = "";
@@ -9522,7 +9582,7 @@ ${end.comment}` : end.comment;
     return null;
   }
 
-  // node_modules/yaml/browser/dist/parse/lexer.js
+  // ../../../node_modules/yaml/browser/dist/parse/lexer.js
   function isEmpty(ch) {
     switch (ch) {
       case void 0:
@@ -10094,7 +10154,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/line-counter.js
+  // ../../../node_modules/yaml/browser/dist/parse/line-counter.js
   var LineCounter = class {
     constructor() {
       this.lineStarts = [];
@@ -10119,7 +10179,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/parser.js
+  // ../../../node_modules/yaml/browser/dist/parse/parser.js
   function includesToken(list3, type) {
     for (let i3 = 0; i3 < list3.length; ++i3)
       if (list3[i3].type === type)
@@ -10965,7 +11025,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/public-api.js
+  // ../../../node_modules/yaml/browser/dist/public-api.js
   function parseOptions(options) {
     const prettyErrors = options.prettyErrors !== false;
     const lineCounter = options.lineCounter || prettyErrors && new LineCounter() || null;
@@ -11317,6 +11377,11 @@ ${end.comment}` : end.comment;
   var dsvSort = null;
   var aiCancel = null;
   var aiSeq = 0;
+  var aiOn = false;
+  var aiBarPref = flagPref("bfb-ql-ai-bar-v1", true);
+  var aiNonePref = textPref("bfb-ql-ai-none-v1", "", "tab");
+  var aiMissing = () => Date.now() - Number(aiNonePref.get() || 0) < 6e4;
+  var aiRun = null;
   function initPreview(d) {
     deps = d;
     layout = getPreviewLayout();
@@ -11340,6 +11405,7 @@ ${end.comment}` : end.comment;
         <button id="fe-ql-rename" class="btn" data-icon title="Rename this file (F2 in the list)">${UI_ICON.rename}</button>
         <button id="fe-ql-save" class="btn" data-icon title="Save this file">${PI.bm}</button>
         <button id="fe-ql-term" class="btn" data-icon title="Open its folder in the terminal">${UI_ICON.terminal}</button>
+        <button id="fe-ql-ai-btn" class="btn" data-icon title="Ask about this file (a)" aria-pressed="false" hidden>${UI_ICON.ai}</button>
         ${SIZE_BTN("fe-ql-size")}
         <button id="fe-ql-dock" class="btn" data-icon title="Dock the preview to the side">
           ${GLYPH.dock}
@@ -11354,10 +11420,16 @@ ${end.comment}` : end.comment;
         <button class="btn fe-ql-ai-btn" id="fe-ql-ai-exp" title="Explain this file, or describe a table (local model)"></button>
         <input id="fe-ql-ai-q" class="tb" type="text" placeholder="Ask about this file" autocomplete="off" spellcheck="false">
         <button class="btn fe-ql-ai-btn" id="fe-ql-ai-ask" title="Answer grounded in this file only">Ask</button>
+        <button class="btn" id="fe-ql-ai-recheck" data-variant="outline" title="Check the model again" hidden>Retry</button>
       </div>
       <div id="fe-ql-ai-out" hidden>
+        <div id="fe-ql-ai-out-q"></div>
         <div id="fe-ql-ai-out-body"></div>
-        <div id="fe-ql-ai-out-meta"></div>
+        <div id="fe-ql-ai-out-foot">
+          <span id="fe-ql-ai-out-meta"></span>
+          <button class="btn" id="fe-ql-ai-stop" data-size="sm" data-variant="outline" title="Stop this answer (Esc)" hidden>Stop</button>
+          <button class="btn" id="fe-ql-ai-retry" data-size="sm" data-variant="outline" title="Ask this again" hidden>Retry</button>
+        </div>
       </div>
       <div id="fe-ql-body"></div>
     </div>`;
@@ -11451,6 +11523,22 @@ ${end.comment}` : end.comment;
       copyToClipboard(currentText).then(flash);
     });
     const aiQ = document.getElementById("fe-ql-ai-q");
+    document.querySelectorAll(".fe-ql-ai-btn").forEach((b) => {
+      b.dataset.title = b.title;
+    });
+    document.getElementById("fe-ql-ai-btn").addEventListener("click", () => {
+      if (aiBarPref.get()) {
+        aiBarPref.set(false);
+        syncAiBar();
+      } else askInPreview();
+    });
+    document.getElementById("fe-ql-ai-stop").addEventListener("click", () => aiCancel?.());
+    document.getElementById("fe-ql-ai-retry").addEventListener("click", () => {
+      if (aiRun) runAi(aiRun.intent, aiRun.question);
+    });
+    document.getElementById("fe-ql-ai-recheck").addEventListener("click", () => {
+      if (currentEntry) setupAi(currentEntry, aiExt);
+    });
     document.getElementById("fe-ql-ai-sum").addEventListener("click", () => runAi("summarize"));
     document.getElementById("fe-ql-ai-exp").addEventListener("click", function() {
       runAi(this.dataset.intent || "explain-code");
@@ -11462,13 +11550,22 @@ ${end.comment}` : end.comment;
         return;
       }
       runAi("qa", q);
+      aiQ.value = "";
     };
     document.getElementById("fe-ql-ai-ask").addEventListener("click", askAi);
     aiQ.addEventListener("keydown", (e) => {
       if (e.key === "Enter") askAi();
       else if (e.key === "Escape") {
-        e.stopPropagation();
-        aiQ.blur();
+        if (aiCancel) {
+          e.stopPropagation();
+          aiCancel();
+        } else if (aiQ.value) {
+          e.stopPropagation();
+          aiQ.value = "";
+        } else {
+          e.stopPropagation();
+          closePreview();
+        }
       }
     });
     document.getElementById("fe-ql-body").addEventListener("click", (e) => {
@@ -11533,39 +11630,113 @@ ${end.comment}` : end.comment;
     aiCancel?.();
     aiCancel = null;
     aiSeq++;
-    document.getElementById("fe-ql-ai").hidden = true;
+    aiOn = false;
+    aiRun = null;
+    syncAiBar();
     document.getElementById("fe-ql-ai-out").hidden = true;
+    document.getElementById("fe-ql-ai-out-q").textContent = "";
     document.getElementById("fe-ql-ai-out-body").innerHTML = "";
     document.getElementById("fe-ql-ai-out-meta").textContent = "";
+    setAiBusy(false);
     document.getElementById("fe-ql-ai-q").value = "";
   }
+  function syncAiBar() {
+    const open = aiOn && aiBarPref.get();
+    document.getElementById("fe-ql-ai").hidden = !open;
+    const btn = document.getElementById("fe-ql-ai-btn");
+    btn.hidden = !aiOn;
+    btn.classList.toggle("on", open);
+    btn.setAttribute("aria-pressed", String(open));
+    btn.title = open ? "Hide the AI bar" : "Ask about this file (a)";
+  }
+  function askInPreview() {
+    if (!aiOn) return false;
+    aiBarPref.set(true);
+    syncAiBar();
+    document.getElementById("fe-ql-ai-q").focus();
+    return true;
+  }
+  function setAiBusy(busy) {
+    document.getElementById("fe-ql-ai-stop").hidden = !busy;
+    document.getElementById("fe-ql-ai-retry").hidden = busy || !aiRun || document.getElementById("fe-ql-ai-out").hidden;
+  }
+  var aiExt = "";
   function setupAi(e, ext2) {
+    if (aiMissing()) return;
+    aiExt = ext2;
+    const tabular = TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json";
+    const image = ext2 === "image";
+    const exp = document.getElementById("fe-ql-ai-exp");
+    exp.textContent = tabular || image ? "Describe" : "Explain";
+    exp.dataset.intent = image ? "describe-image" : tabular ? "describe-data" : "explain-code";
+    exp.dataset.title = image ? "What the image shows, read by the local vision model; it never leaves this Mac" : tabular ? "Schema + notable observations (local model)" : "What this does, with safety callouts (local model)";
+    const chip = document.getElementById("fe-ql-ai-chip");
+    const chipTxt = document.getElementById("fe-ql-ai-chip-txt");
+    const recheck = document.getElementById("fe-ql-ai-recheck");
+    const q = document.getElementById("fe-ql-ai-q");
+    const paint = (state, why = "") => {
+      chip.className = state === "checking" ? "" : state;
+      chipTxt.textContent = state === "ready" ? "AI \xB7 ready" : state === "cold" ? "AI \xB7 cold start" : state === "down" ? why : "AI \xB7 checking";
+      const on = state !== "down";
+      document.querySelectorAll(".fe-ql-ai-btn").forEach((b) => {
+        b.disabled = !on;
+        b.title = on ? b.dataset.title ?? "" : why;
+      });
+      q.disabled = !on;
+      q.placeholder = on ? "Ask about this file" : "Ask is off until the model runs";
+      recheck.hidden = state !== "down";
+    };
+    paint("checking");
+    aiOn = true;
+    syncAiBar();
+    restoreAiAnswer(e);
     llmAvailability().then((av) => {
       if (currentEntry !== e || !isPreviewOpen()) return;
-      if (av.kind === "unavailable") return;
-      const tabular = TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json";
-      const image = ext2 === "image";
-      const exp = document.getElementById("fe-ql-ai-exp");
-      exp.textContent = tabular || image ? "Describe" : "Explain";
-      exp.dataset.intent = image ? "describe-image" : tabular ? "describe-data" : "explain-code";
-      exp.title = image ? "What the image shows, read by the local vision model; it never leaves this Mac" : tabular ? "Schema + notable observations (local model)" : "What this does, with safety callouts (local model)";
-      const ready = av.kind === "ready";
-      const chip = document.getElementById("fe-ql-ai-chip");
-      chip.className = ready ? av.cold ? "cold" : "ready" : "down";
-      document.getElementById("fe-ql-ai-chip-txt").textContent = ready ? av.cold ? "AI \xB7 cold start" : "AI \xB7 ready" : "AI \xB7 lm server down";
-      document.querySelectorAll(".fe-ql-ai-btn").forEach((b) => {
-        b.disabled = !ready;
-      });
-      document.getElementById("fe-ql-ai-q").disabled = !ready;
-      document.getElementById("fe-ql-ai").hidden = false;
+      if (av.kind === "unavailable") {
+        aiNonePref.set(String(Date.now()));
+        aiOn = false;
+        syncAiBar();
+        return;
+      }
+      aiNonePref.set("");
+      paint(av.kind === "ready" ? av.cold ? "cold" : "ready" : "down", LLM_ERROR_TEXT.server_down);
     });
   }
   var aiChat = { href: "", id: "" };
-  var AI_ASKED = { summarize: "Summarize", explain: "Explain", describe: "Describe" };
+  var AI_ASKED = { summarize: "Summarize", explain: "Explain", describe: "Describe", "explain-code": "Explain", "describe-data": "Describe", "describe-image": "Describe" };
   var IMAGE_ASKED = { summarize: "Summarize what this image shows in a few lines.", "describe-image": "Describe this image in detail, with any text in it verbatim." };
+  var pathOf = (e) => decodeURIComponent(new URL(e.href, location.href).pathname);
+  function restoreAiAnswer(e) {
+    let last = null;
+    try {
+      for (const c of chatsFor(pathOf(e))) {
+        const ok = c.turns.filter((x) => !x.error && !x.via && x.a);
+        const t = ok[ok.length - 1];
+        if (c.id.startsWith("pv-") && t) {
+          last = { id: c.id, turn: t };
+          break;
+        }
+      }
+    } catch {
+    }
+    if (!last) return;
+    const { id, turn } = last;
+    aiChat = { href: e.href, id };
+    const exp = document.getElementById("fe-ql-ai-exp");
+    const byLabel = { Summarize: "summarize", Explain: "explain-code", Describe: exp.dataset.intent || "describe-data" };
+    aiRun = turn.intent ? { intent: turn.intent } : byLabel[turn.q] ? { intent: byLabel[turn.q] } : { intent: "qa", question: turn.q };
+    document.getElementById("fe-ql-ai-out").hidden = false;
+    document.getElementById("fe-ql-ai-out-q").textContent = turn.q;
+    document.getElementById("fe-ql-ai-out-body").innerHTML = renderMarkdown(closeOpenFence(splitThinking(turn.a).answer));
+    document.getElementById("fe-ql-ai-out-meta").textContent = turnMeta(turn);
+    setAiBusy(false);
+  }
   function runAi(intent, question) {
     if (currentText === null && !currentImage || !currentEntry) return;
     const entry = currentEntry;
+    const run = { intent, question };
+    aiRun = run;
+    const asked = question || AI_ASKED[intent] || intent;
     const image = currentImage;
     if (image) {
       question = question || IMAGE_ASKED[intent] || IMAGE_ASKED["describe-image"];
@@ -11574,43 +11745,88 @@ ${end.comment}` : end.comment;
     if (aiChat.href !== entry.href) aiChat = { href: entry.href, id: "pv-" + Date.now().toString(36) };
     aiCancel?.();
     const seq2 = ++aiSeq;
+    const startedAt = Date.now();
     const body = document.getElementById("fe-ql-ai-out-body");
     const meta = document.getElementById("fe-ql-ai-out-meta");
     document.getElementById("fe-ql-ai-out").hidden = false;
+    document.getElementById("fe-ql-ai-out-q").textContent = asked;
     body.textContent = "";
     meta.textContent = "Thinking\u2026";
     let full = "";
-    aiCancel = llmQuery(
-      { ctx: image ? "" : currentText ?? "", ctxName: currentEntry.name, intent, question, model: deps.aiModel?.(), files: image ? [image] : void 0 },
+    let frame = 0;
+    let over = false;
+    const model = deps.aiModel?.();
+    const paint = () => {
+      body.innerHTML = renderMarkdown(closeOpenFence(splitThinking(full).answer));
+    };
+    const file = (extra) => {
+      const turn = {
+        q: asked,
+        a: full,
+        model: model || "default",
+        ms: Date.now() - startedAt,
+        at: startedAt,
+        ...run.intent !== "qa" ? { intent: run.intent } : {},
+        ...extra
+      };
+      try {
+        addTurn(pathOf(entry), aiChat.id, turn);
+      } catch {
+      }
+      return turn;
+    };
+    setAiBusy(true);
+    const stopQuery = llmQuery(
+      { ctx: image ? "" : currentText ?? "", ctxName: entry.name, intent, question, model, files: image ? [image] : void 0 },
       {
         onStep: (t) => {
-          if (seq2 === aiSeq) meta.textContent = t + "\u2026";
+          if (seq2 === aiSeq && !over) meta.textContent = t + "\u2026";
         },
         onChunk: (t) => {
-          if (seq2 !== aiSeq) return;
+          if (seq2 !== aiSeq || over) return;
           full += t;
-          body.textContent = full;
+          meta.textContent = "";
+          frame ||= requestAnimationFrame(() => {
+            frame = 0;
+            if (!over && seq2 === aiSeq) paint();
+          });
         },
         onDone: (info) => {
-          if (seq2 !== aiSeq) return;
+          if (seq2 !== aiSeq || over) return;
+          over = true;
+          cancelAnimationFrame(frame);
           aiCancel = null;
-          body.innerHTML = renderMarkdown(full);
-          const turn = { q: question || AI_ASKED[intent] || intent, a: full, model: info.model, ms: info.ms, at: Date.now(), tokensIn: info.tokensIn, tokensOut: info.tokensOut };
-          try {
-            addTurn(decodeURIComponent(new URL(entry.href).pathname), aiChat.id, turn);
-          } catch {
-          }
-          meta.textContent = turnMeta(turn, info.truncated);
+          paint();
+          meta.textContent = turnMeta(file({ model: info.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut }), info.truncated);
+          setAiBusy(false);
         },
         onError: (code, message) => {
-          if (seq2 !== aiSeq) return;
+          if (seq2 !== aiSeq || over) return;
+          over = true;
+          cancelAnimationFrame(frame);
           aiCancel = null;
+          setAiBusy(false);
           if (code === "cancelled") return;
           body.textContent = LLM_ERROR_TEXT[code] ?? message;
           meta.textContent = "";
         }
       }
     );
+    if (!over) aiCancel = () => {
+      if (over) return;
+      over = true;
+      cancelAnimationFrame(frame);
+      stopQuery();
+      aiCancel = null;
+      if (full.trim()) {
+        paint();
+        meta.textContent = turnMeta(file({ stopped: true }));
+      } else {
+        body.textContent = "Stopped before an answer came.";
+        meta.textContent = "";
+      }
+      setAiBusy(false);
+    };
   }
   var edit = null;
   function editingRel() {
@@ -11651,7 +11867,6 @@ ${end.comment}` : end.comment;
     nameEl.href = fileHref(root.replace(/\/$/, "") + "/" + doc.rel);
     document.getElementById("fe-ql-open").href = nameEl.href;
     resetAiUi();
-    document.getElementById("fe-ql-ai").hidden = true;
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.style.display = "";
     copyBtn.disabled = false;
@@ -12132,7 +12347,10 @@ ${end.comment}` : end.comment;
     const body = document.getElementById("fe-ql-body");
     const note2 = unrenderableNote(text);
     if (note2) {
-      if (sniffBinary(text)) document.getElementById("fe-ql-ai").hidden = true;
+      if (sniffBinary(text)) {
+        aiOn = false;
+        syncAiBar();
+      }
       body.innerHTML = `<div class="fe-ql-center">${note2}</div>`;
       return;
     }
@@ -14231,6 +14449,7 @@ ${t}`)) say("Note title saved");
 .notice[data-tone="danger"]{color:var(--tone-danger)}
 .notice[data-tone="warn"]{color:var(--tone-warn)}
 .notice[data-tone="ok"]{color:var(--tone-ok)}
+#fe-conn{flex:none;border-bottom:1px solid var(--bd);background:var(--s1)}
 /* Resize handle (docs/system/resize.md). Class rz, set by resizable(). A
    thin hit area whose 2px accent line grows in on hover, drag or focus, the
    sidebar's look everywhere. data-axis="xy" is a corner grip, which keeps
@@ -15090,6 +15309,7 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
 #fe-ql-ai-chip.ready .dot{background:var(--green)}
 #fe-ql-ai-chip.cold .dot{background:var(--gold)}
 #fe-ql-ai-chip.down .dot{background:var(--danger)}
+#fe-ql-ai-chip.down{white-space:normal;line-height:1.4}
 #fe-ql-ai-q{flex:1;min-width:140px}
 
 #fe-ql-ai-q:disabled{opacity:.45}
@@ -15097,7 +15317,10 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
 #fe-ql-ai-out{border-bottom:1px solid var(--bd);max-height:42%;overflow-y:auto;flex-shrink:0;background:var(--s1)}
 #fe-ql-ai-out-body{padding:var(--sp-4) var(--sp-6) var(--sp-2);font-size:var(--fs-md);line-height:1.6;white-space:pre-wrap}
 #fe-ql-ai-out-body .fe-md{padding:0;white-space:normal}
-#fe-ql-ai-out-meta{padding:var(--sp-1) var(--sp-6) var(--sp-4);font-size:var(--fs-xs);color:var(--dm)}
+#fe-ql-ai-out-q{padding:var(--sp-4) var(--sp-6) 0;font-size:var(--fs-sm);font-weight:600;color:var(--mt)}
+#fe-ql-ai-out-q:empty{display:none}
+#fe-ql-ai-out-foot{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-1) var(--sp-6) var(--sp-4)}
+#fe-ql-ai-out-meta{flex:1;min-width:0;font-size:var(--fs-xs);color:var(--dm)}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:var(--sp-4)}
 .fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
 .fe-ql-imgbar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}
@@ -22519,7 +22742,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const pv = () => isPreviewOpen();
     bind("pv-dock", click("fe-ql-dock"), pv);
     bind("pv-copy", click("fe-ql-copy"), pv);
-    bind("pv-ask", () => document.getElementById("fe-ql-ai-q")?.focus(), () => pv() && visible(document.getElementById("fe-ql-ai-q")));
+    bind("pv-ask", () => {
+      askInPreview();
+    }, () => pv() && visible(document.getElementById("fe-ql-ai-btn")));
     bind("fp-toc", click("fe-fp-toc"), () => app.fileMode && visible(document.getElementById("fe-fp-toc")));
     bind("fp-width", click("fe-fp-column"), () => app.fileMode && visible(document.getElementById("fe-fp-column")));
     const placeIcon = (p) => p.endsWith("/") ? PI.folder : PI.docs;
@@ -23585,64 +23810,6 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
   }
 
-  // src/ask-quote.ts
-  var QUOTE_MAX = 4e3;
-  function quoteMarkdown(text, from) {
-    let body = text.trim();
-    const cut = body.length > QUOTE_MAX;
-    if (cut) body = body.slice(0, QUOTE_MAX).trimEnd() + " \u2026";
-    const lines = [`From ${from}${cut ? " (shortened)" : ""}:`, "", ...body.split("\n")];
-    return lines.map((l) => l ? `> ${l}` : ">").join("\n") + "\n\n";
-  }
-  var nameOf2 = (path) => path.split("/").filter(Boolean).pop() || "/";
-  function quoteTargets(here, tabPaths, recent, chatsFor2, max = 8) {
-    const out = [{ ...here, label: "This chat", here: true }];
-    const seen = /* @__PURE__ */ new Set([here.subject]);
-    const add = (subject, chat, label) => {
-      if (!chat || seen.has(subject) || out.length >= max) return;
-      seen.add(subject);
-      out.push({ subject, chatId: chat.id, title: chat.title, label, here: false });
-    };
-    for (const p of tabPaths) add(p, chatsFor2(p)[0], `${nameOf2(p)} \xB7 open tab`);
-    for (const r of recent) add(r.subject, r.chat, nameOf2(r.subject));
-    return out;
-  }
-  var handoffPref = jsonPref("bfb-ask-quote-v1", null, (v) => v === null || typeof v === "object" && typeof v.text === "string");
-  var HANDOFF_TTL = 2 * 6e4;
-  function sendQuote(h) {
-    handoffPref.set(h);
-  }
-  function takeQuote(subject, now = Date.now()) {
-    const h = handoffPref.get();
-    if (!h || h.subject !== subject) return null;
-    handoffPref.set(null);
-    return now - h.at <= HANDOFF_TTL ? h : null;
-  }
-  function resolveMention(text, opts) {
-    const m = /^@(\S+)\s+([\s\S]*\S)/.exec(text.trim());
-    if (!m) return null;
-    const want = m[1].toLowerCase();
-    const gem = opts.filter((o) => o.value.startsWith("gemini:"));
-    const hit = opts.find((o) => o.value && o.value.toLowerCase() === want) ?? gem.find((o) => o.value.slice(7).toLowerCase() === want) ?? (want === "gemini" ? gem.find((o) => /\(default\)/.test(o.label)) ?? gem[0] : void 0);
-    return hit ? { model: hit.value, label: hit.label.replace(/ \(default\)$/, ""), question: m[2] } : null;
-  }
-  function secondOpinion(question, answer) {
-    return `Another model answered the question "${question}" as below. Check that answer against the context: say plainly what is wrong or missing, then give a better answer.
-
-Their answer:
-${answer}`;
-  }
-  var isImageName = (name) => /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(name);
-  function closeOpenFence(text) {
-    const fences = text.match(/^\s*```/gm)?.length ?? 0;
-    return fences % 2 ? text + "\n```" : text;
-  }
-  function splitThinking(text) {
-    const m = /^\s*<think>([\s\S]*?)(<\/think>|$)/.exec(text);
-    if (!m) return { thinking: "", answer: text, open: false };
-    return { thinking: m[1].trim(), answer: text.slice(m[0].length).replace(/^\s+/, ""), open: !m[2] };
-  }
-
   // src/tool-lenses.ts
   var listDir = async (url) => parseListing(await fetchFileText(url), url);
   var extOf = (name) => name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
@@ -23726,6 +23893,11 @@ ${answer}`;
     });
   }
   var askModelPref = textPref("bfb-ask-model-v1");
+  var freshPref = jsonPref("bfb-ask-fresh-v1", [], Array.isArray, "tab");
+  var markFresh = (key, on) => {
+    const l = freshPref.get().filter((k) => k !== key);
+    freshPref.set(on ? [...l, key].slice(-50) : l);
+  };
   var when = (at) => new Date(at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   function initAsk(app) {
     const box = document.getElementById("fe-ask");
@@ -23736,13 +23908,13 @@ ${answer}`;
     const what = app.fileMode ? "this file" : "this folder";
     box.innerHTML = `
     <div class="fe-ask-top">
-      <span class="fe-ask-model"><span class="dot"></span>${ddHtml("fe-ask-model", [{ value: "", label: "Default" }], "Which model answers. Local models run on this machine; Gemini runs on Google's servers.")}</span>
+      <span class="fe-ask-model"><span class="dot"></span>${ddHtml("fe-ask-model", [{ value: "", label: "Default model" }], "Which model answers. Models on this machine stay here; remote ones (Gemini) run on Google's servers.")}</span>
       <span class="fe-ask-sp"></span>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-hist-btn" title="Earlier chats about ${app.fileMode ? what : "this folder and what is in it"}" aria-expanded="false">${UI_ICON.clock}<span class="badge fe-ask-n" data-size="sm" data-tone="solid" id="fe-ask-hist-n"></span></button>
       <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
-    <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
+    <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span><button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-ask-recheck" title="Check the model again">Retry</button></div>
     <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? "the text" : "the listing"} to Google</span></p>
     <div id="fe-ask-thread"></div>
     <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join("")}</div></div>
@@ -23768,6 +23940,8 @@ ${answer}`;
     const histN = el("fe-ask-hist-n");
     const emptyBox = el("fe-ask-empty");
     const chipDot = box.querySelector(".fe-ask-model .dot");
+    const recheck = el("fe-ask-recheck");
+    recheck.addEventListener("click", () => void checkModel());
     const syncEmpty = () => {
       emptyBox.hidden = !!thread.querySelector(".fe-ask-turn");
     };
@@ -23786,33 +23960,42 @@ ${answer}`;
     const isCloud = () => model().startsWith("gemini:");
     let defaultName = "";
     const modelName = () => model().replace(/^gemini:/, "") || defaultName || "default";
+    let reason = "";
     const syncUsable = () => {
       const usable = localReady || isCloud();
       q.disabled = go2.disabled = !usable;
+      const why = usable ? "" : reason;
+      go2.title = why || (cancel ? "Stop" : "Ask (Enter)");
+      q.placeholder = why ? "Ask is off until the model runs" : `Ask about ${what}`;
       box.querySelectorAll(".fe-ask-chip").forEach((b) => {
         b.disabled = !usable;
+        b.title = why;
       });
       cloud.hidden = !isCloud();
     };
     async function checkModel() {
       checked = true;
       state.textContent = "Checking the local model\u2026";
+      recheck.hidden = true;
       const [a, models] = await Promise.all([llmAvailability(), llmModels()]);
       const kind = a.kind === "ready" ? a.cold ? "cold" : "ready" : a.kind;
       statusRow.className = `fe-ask-status ${kind}`;
       statusRow.hidden = a.kind === "ready";
+      recheck.hidden = a.kind === "ready";
       state.textContent = a.kind === "ready" ? "" : a.kind === "down" ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+      reason = state.textContent;
       chipDot.className = `dot ${kind}`;
       chipDot.title = a.kind === "ready" ? a.cold ? "Loads on the first question" : "Ready" : state.textContent;
       localReady = a.kind === "ready";
       const saved = askModelPref.get();
+      const def = a.kind === "unavailable" ? "" : (a.status.default_model ?? "").replace(/:latest$/, "");
       const opts = [
-        { value: "", label: a.kind === "ready" ? a.status.default_model.replace(/:latest$/, "") : "Default" },
+        { value: "", label: def ? `${def} (default)` : "Default model", .../^gemini/i.test(def) ? { hint: "remote" } : {} },
         ...models.tiers.map((t) => ({ value: t.alias, label: t.alias, hint: t.model, group: "On this machine" })),
-        ...models.gemini.map((g) => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? " (default)" : ""), group: "Gemini, on Google's servers" }))
+        ...models.gemini.map((g) => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? " (Gemini default)" : ""), hint: "remote", group: "Remote: Gemini, on Google's servers" }))
       ];
       pick2.setOptions(opts);
-      defaultName = a.kind === "ready" ? opts[0].label ?? "" : "";
+      defaultName = a.kind === "ready" ? def : "";
       pick2.value = opts.some((o) => o.value === saved) ? saved : "";
       syncUsable();
     }
@@ -23870,6 +24053,7 @@ ${rows.join("\n")}`, name: subject };
       turns = [];
       clearThread();
       syncEmpty();
+      markFresh(key, true);
       q.focus();
     };
     const openChat = (c) => {
@@ -23978,7 +24162,7 @@ ${rows.join("\n")}`, name: subject };
         cancel = null;
         cancelAnimationFrame(frame);
         go2.classList.remove("stop");
-        go2.title = "Ask (Enter)";
+        syncUsable();
         go2.setAttribute("aria-label", "Ask");
       };
       let over = false;
@@ -23995,6 +24179,7 @@ ${rows.join("\n")}`, name: subject };
         meta.textContent = turnMeta(t);
         save(t);
       };
+      markFresh(key, false);
       const stop = begin(
         {
           // Reading an image takes a while; each one shows as a step until the answer starts.
@@ -24181,7 +24366,7 @@ ${rows.join("\n")}`, name: subject };
       const opts = modelOpts().filter((o) => o.value);
       menuOf(anchor, "Ask another model to check this", opts.map((o) => ({ label: o.label, icon: o.value.startsWith("gemini:") ? UI_ICON.info : UI_ICON.ai })), (i3) => {
         const o = opts[i3];
-        const label = o.label.replace(/ \(default\)$/, "");
+        const label = bareLabel(o.label);
         void ask("qa", secondOpinion(asked.question ?? asked.shown ?? "", answer), { model: o.value, shown: `Second opinion from ${label}`, via: `Second opinion from ${label}` });
       });
     };
@@ -24330,12 +24515,53 @@ ${rows.join("\n")}`, name: subject };
       q.focus();
       q.setSelectionRange(q.value.length, q.value.length);
     }, 0);
-    void settleOrphans().then(resumeRunning);
+    void settleOrphans().then(resumeRunning).then(() => {
+      if (chatId || askHash || landed || freshPref.get().includes(key)) return;
+      const last = chatsFor(key)[0];
+      if (last) openChat(last);
+    });
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "ask") return;
       if (!checked) void checkModel();
       q.focus({ preventScroll: true });
     });
+  }
+
+  // src/connection.ts
+  var CHECK_MS2 = 2e3;
+  function extensionAlive() {
+    try {
+      return !!chrome.runtime?.id;
+    } catch {
+      return false;
+    }
+  }
+  function watchConnection() {
+    const fe = document.getElementById("fe");
+    if (!fe) return;
+    let timer2 = 0;
+    const check = () => {
+      if (extensionAlive()) return;
+      clearInterval(timer2);
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+      showBanner(fe);
+    };
+    timer2 = window.setInterval(check, CHECK_MS2);
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+  }
+  function showBanner(fe) {
+    if (document.getElementById("fe-conn")) return;
+    const bar = document.createElement("div");
+    bar.id = "fe-conn";
+    bar.className = "notice";
+    bar.dataset.tone = "warn";
+    bar.setAttribute("role", "status");
+    bar.innerHTML = `<span>The extension was reloaded, so this page can no longer open files or ask the model. Refresh to carry on.</span><button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-conn-reload">Refresh page</button>`;
+    bar.querySelector("#fe-conn-reload").addEventListener("click", () => reload());
+    const body = document.getElementById("fe-body");
+    fe.insertBefore(bar, body);
   }
 
   // src/settings-ui.ts
@@ -24533,7 +24759,8 @@ ${rows.join("\n")}`, name: subject };
       hint.innerHTML = "";
       warm.disabled = true;
       const kv = (k, val) => `<span class="k">${esc(k)}</span><span class="v">${esc(val)}</span>`;
-      llmAvailability().then((av) => {
+      const avail = llmAvailability();
+      avail.then((av) => {
         if (av.kind === "unavailable") {
           head.classList.add("off");
           state.textContent = "Not set up";
@@ -24545,7 +24772,7 @@ ${rows.join("\n")}`, name: subject };
         const s = av.status;
         head.classList.add(av.kind === "down" ? "down" : av.cold ? "cold" : "ready");
         state.textContent = av.kind === "down" ? "Server down" : av.cold ? "Ready, cold" : "Ready";
-        sub.textContent = av.kind === "down" ? "Start Ollama, then check again" : `${settings.aiModel || s.default_model} \xB7 ${av.cold ? "first reply loads it" : "replies at once"}`;
+        sub.textContent = av.kind === "down" ? LLM_ERROR_TEXT.server_down : `${settings.aiModel || s.default_model} \xB7 ${av.cold ? "first reply loads it" : "replies at once"}`;
         grid.innerHTML = kv("Server", `${s.server}${s.host ? " \xB7 " + s.host : ""}`) + (s.toolkit_version ? kv("Toolkit", `lm ${s.toolkit_version}`) : "");
         const resident = new Set(s.resident_models ?? []);
         aiModel.setOptions((s.available_models ?? []).map((m) => ({
@@ -24559,9 +24786,12 @@ ${rows.join("\n")}`, name: subject };
         warm.disabled = av.kind !== "ready";
       });
       const models = el("fe-st-ai-models");
-      llmModels().then(({ tiers, gemini }) => {
-        const rowHtml = (icon2, name, model, where, star = false) => `<div class="fe-ai-m">${icon2}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${star ? '<span class="fe-ai-def">default</span>' : ""}<span class="fe-ai-where${where === "Google" ? " cloud" : ""}">${where}</span></div>`;
-        models.innerHTML = tiers.length || gemini.length ? tiers.map((t) => rowHtml(UI_ICON.bot, t.alias, t.model, "This Mac")).join("") + gemini.map((g) => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, "Gemini "), g.name, "Google", g.default)).join("") + `<p class="fe-set-note">Google models send the question and the file to Google.</p>` : '<p class="fe-set-note">No model list from lm.</p>';
+      Promise.all([avail, llmModels()]).then(([av, { tiers, gemini }]) => {
+        const def = av.kind === "unavailable" ? "" : (av.status.default_model ?? "").replace(/:latest$/, "");
+        const isDef = (t) => !!def && [t.alias, t.model].some((x) => x.replace(/:latest$/, "") === def);
+        const rowHtml = (icon2, name, model, remote, badge = "", badgeTip = "") => `<div class="fe-ai-m">${icon2}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ""}<span class="fe-ai-where${remote ? " cloud" : ""}" title="${remote ? "Sent to Google" : "Stays on this Mac"}">${remote ? "Remote" : "This Mac"}</span></div>`;
+        const lead = def && !tiers.some(isDef) ? rowHtml(UI_ICON.bot, def, "", /^gemini/i.test(def), "default", "The model lm answers with") : "";
+        models.innerHTML = tiers.length || gemini.length ? lead + tiers.map((t) => rowHtml(UI_ICON.bot, t.alias, t.model, false, isDef(t) ? "default" : "", "The model lm answers with")).join("") + gemini.map((g) => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, "Gemini "), g.name, true, g.default ? "Gemini default" : "", "Used when you ask Gemini without naming a model")).join("") + `<p class="fe-set-note">Remote models send the question and the file to Google.</p>` : '<p class="fe-set-note">No model list from lm.</p>';
       });
     }
     el("fe-st-ai-refresh").addEventListener("click", refreshAi);
@@ -25517,6 +25747,7 @@ ${rows.join("\n")}`, name: subject };
     void mountFolderView(app);
     initSettingsUi(app);
     initToolLenses(app);
+    watchConnection();
     initSidebar(app);
     initSidePeek();
     if (fileMode) mountKeep(app);

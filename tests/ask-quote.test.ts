@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { quoteMarkdown, quoteTargets, sendQuote, takeQuote, splitThinking, closeOpenFence, resolveMention, isImageName, QUOTE_MAX } from '../src/ask-quote';
+import { quoteMarkdown, quoteTargets, sendQuote, takeQuote, splitThinking, closeOpenFence, resolveMention, isImageName, bareLabel, QUOTE_MAX } from '../src/ask-quote';
 import type { AskChat } from '../src/ask-history';
 
 const chat = (id: string, title = id): AskChat => ({ id, at: 1, title, turns: [] });
@@ -46,6 +46,12 @@ describe('ask quote', () => {
     expect(resolveMention('@nobody hi', opts)).toBeNull();
     expect(resolveMention('mail me @code later', opts)).toBeNull();
     expect(resolveMention('@code', opts)).toBeNull();
+  });
+
+  it('finds the Gemini default by its own tag and names models without it', () => {
+    const opts = [{ value: '', label: 'gemma4 (default)' }, { value: 'gemini:a', label: 'a' }, { value: 'gemini:b', label: 'b (Gemini default)' }];
+    expect(resolveMention('@gemini hi', opts)).toEqual({ model: 'gemini:b', label: 'b', question: 'hi' });
+    expect([bareLabel('x (default)'), bareLabel('y (Gemini default)'), bareLabel('z')]).toEqual(['x', 'y', 'z']);
   });
 
   it('knows an image by its name', () => {

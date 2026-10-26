@@ -111,18 +111,22 @@ function installLlmHost(profile) {
   const log = join(profile, 'lm-calls.jsonl');
   const fake = join(profile, 'fake_lm.py');
   writeFileSync(fake, `#!/usr/bin/env python3
-import json, sys
+import json, os, sys
 args = sys.argv[1:]
+# A file named lm-down in the profile makes the stand-in report its model server down.
+down = os.path.exists(${JSON.stringify(join(profile, 'lm-down'))})
 stdin = sys.stdin.read() if args[:1] == ['q'] or (args[:1] == ['gemini'] and '--json' in args) else ''
 open(${JSON.stringify(log)}, 'a').write(json.dumps({'args': args, 'stdin': stdin[:4000]}) + '\\n')
 if args[:2] == ['status', '--json']:
-    print(json.dumps({'api_version': 1, 'server': 'up', 'default_model': 'gemma4-e4b-warm', 'warm': True, 'latency_class': 'warm'}))
+    print(json.dumps({'api_version': 1, 'server': 'down' if down else 'up', 'default_model': 'gemma4-e4b-warm', 'warm': not down, 'latency_class': 'down' if down else 'warm'}))
 elif args[:2] == ['models', '--json']:
     print(json.dumps({'default': 'gemma4-e4b-warm', 'resident': [], 'available': [],
         'tiers': [{'alias': 'small', 'model': 'gemma4-e4b-warm'}, {'alias': 'big', 'model': 'gemma4:26b'}, {'alias': 'code', 'model': 'qwen3.6:35b-a3b'}],
         'gemini': [{'name': 'gemini-3.8-flash', 'default': False}, {'name': 'gemini-3.5-flash', 'default': True}]}))
 elif args[:1] == ['gemini']:
     print(json.dumps({'ok': True, 'text': 'Gemini says hello.', 'model': 'gemini-3.5-flash', 'ms': 5}))
+elif args[:1] == ['q'] and down:
+    print(json.dumps({'t': 'error', 'code': 'server_down', 'message': 'ollama is not running'}))
 elif args[:1] == ['q']:
     model = args[args.index('-m') + 1] if '-m' in args else 'gemma4-e4b-warm'
     q = args[-1]
@@ -286,7 +290,7 @@ export async function launch({ headless = true, pickReply, lmStub = false } = {}
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, open, close, store, sw, docsHome: docsHome(profile), lmCalls, dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
+  return { browser, fixture, notesDir, open, close, store, sw, docsHome: docsHome(profile), lmCalls, lmDown: join(profile, 'lm-down'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
 }
 
 // The extension's settings store for the running browser; set by launch().

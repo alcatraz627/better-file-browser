@@ -34,6 +34,7 @@ import { initListingInput } from './listing-input';
 import { initFocusNav } from './focus-nav';
 import { initSidebar } from './sidebar';
 import { initToolLenses } from './tool-lenses';
+import { watchConnection } from './connection';
 import { initSettingsUi } from './settings-ui';
 import { initMarkdownUi } from './md-ui';
 import { loadKv, onKvChange } from './kv';
@@ -289,6 +290,7 @@ loadKv().catch(() => {}).then(function () {
   void mountFolderView(app);
   initSettingsUi(app);
   initToolLenses(app);
+  watchConnection();
   initSidebar(app);
   initSidePeek();
   if (fileMode) mountKeep(app);
