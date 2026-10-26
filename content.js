@@ -2293,14 +2293,16 @@ ${body}`;
     const t = text.toLowerCase(), s = q.toLowerCase();
     const at = t.indexOf(s);
     if (at >= 0) return 1e3 - at - (t.length - s.length) * 0.1 + (at === 0 || t[at - 1] === " " ? 200 : 0);
-    let i3 = 0, gaps = 0, last = -1;
+    let i3 = 0, gaps = 0, last = -1, initials = true;
     for (const ch of s) {
       const j = t.indexOf(ch, last + 1);
       if (j < 0) return 0;
+      if (j > 0 && !/[\s\-_/.]/.test(t[j - 1])) initials = false;
       gaps += j - last - 1;
       last = j;
       i3++;
     }
+    if (!initials && gaps > s.length) return 0;
     return 100 - gaps;
   }
   var paletteEl = null;
@@ -4791,7 +4793,7 @@ Now: ${question}` : question;
     history.replaceState(null, "", hash);
   }
 
-  // node_modules/yaml/browser/dist/nodes/identity.js
+  // ../../../node_modules/yaml/browser/dist/nodes/identity.js
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
   var MAP = Symbol.for("yaml.map");
@@ -4827,7 +4829,7 @@ Now: ${question}` : question;
   }
   var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
 
-  // node_modules/yaml/browser/dist/visit.js
+  // ../../../node_modules/yaml/browser/dist/visit.js
   var BREAK = Symbol("break visit");
   var SKIP = Symbol("skip children");
   var REMOVE = Symbol("remove node");
@@ -4977,7 +4979,7 @@ Now: ${question}` : question;
     }
   }
 
-  // node_modules/yaml/browser/dist/doc/directives.js
+  // ../../../node_modules/yaml/browser/dist/doc/directives.js
   var escapeChars = {
     "!": "%21",
     ",": "%2C",
@@ -5140,7 +5142,7 @@ Now: ${question}` : question;
   Directives.defaultYaml = { explicit: false, version: "1.2" };
   Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
 
-  // node_modules/yaml/browser/dist/doc/anchors.js
+  // ../../../node_modules/yaml/browser/dist/doc/anchors.js
   function anchorIsValid(anchor) {
     if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
       const sa = JSON.stringify(anchor);
@@ -5200,7 +5202,7 @@ Now: ${question}` : question;
     };
   }
 
-  // node_modules/yaml/browser/dist/doc/applyReviver.js
+  // ../../../node_modules/yaml/browser/dist/doc/applyReviver.js
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
       if (Array.isArray(val)) {
@@ -5244,7 +5246,7 @@ Now: ${question}` : question;
     return reviver.call(obj, key, val);
   }
 
-  // node_modules/yaml/browser/dist/nodes/toJS.js
+  // ../../../node_modules/yaml/browser/dist/nodes/toJS.js
   function toJS(value, arg, ctx) {
     if (Array.isArray(value))
       return value.map((v, i3) => toJS(v, String(i3), ctx));
@@ -5267,7 +5269,7 @@ Now: ${question}` : question;
     return value;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Node.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Node.js
   var NodeBase = class {
     constructor(type) {
       Object.defineProperty(this, NODE_TYPE, { value: type });
@@ -5299,7 +5301,7 @@ Now: ${question}` : question;
     }
   };
 
-  // node_modules/yaml/browser/dist/nodes/Alias.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Alias.js
   var Alias = class extends NodeBase {
     constructor(source) {
       super(ALIAS);
@@ -5390,7 +5392,7 @@ Now: ${question}` : question;
     return 1;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Scalar.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Scalar.js
   var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
   var Scalar = class extends NodeBase {
     constructor(value) {
@@ -5410,7 +5412,7 @@ Now: ${question}` : question;
   Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
   Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
 
-  // node_modules/yaml/browser/dist/doc/createNode.js
+  // ../../../node_modules/yaml/browser/dist/doc/createNode.js
   var defaultTagPrefix = "tag:yaml.org,2002:";
   function findTagObject(value, tagName, tags) {
     if (tagName) {
@@ -5477,7 +5479,7 @@ Now: ${question}` : question;
     return node;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Collection.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Collection.js
   function collectionFromPath(schema4, path, value) {
     let v = value;
     for (let i3 = path.length - 1; i3 >= 0; --i3) {
@@ -5609,7 +5611,7 @@ Now: ${question}` : question;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyComment.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyComment.js
   var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
   function indentComment(comment, indent) {
     if (/^\n+$/.test(comment))
@@ -5618,7 +5620,7 @@ Now: ${question}` : question;
   }
   var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
 
-  // node_modules/yaml/browser/dist/stringify/foldFlowLines.js
+  // ../../../node_modules/yaml/browser/dist/stringify/foldFlowLines.js
   var FOLD_FLOW = "flow";
   var FOLD_BLOCK = "block";
   var FOLD_QUOTED = "quoted";
@@ -5745,7 +5747,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
     return end;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyString.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyString.js
   var getFoldOptions = (ctx, isBlock2) => ({
     indentAtStart: isBlock2 ? ctx.indent.length : ctx.indentAtStart,
     lineWidth: ctx.options.lineWidth,
@@ -6020,7 +6022,7 @@ ${indent}`);
     return res;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringify.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringify.js
   function createStringifyContext(doc, options) {
     const opt = Object.assign({
       blockQuote: true,
@@ -6133,7 +6135,7 @@ ${indent}`);
 ${ctx.indent}${str}`;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyPair.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyPair.js
   function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
     const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
     let keyComment = isNode(key) && key.comment || null;
@@ -6256,7 +6258,7 @@ ${ctx.indent}`;
     return str;
   }
 
-  // node_modules/yaml/browser/dist/log.js
+  // ../../../node_modules/yaml/browser/dist/log.js
   function warn(logLevel, warning) {
     if (logLevel === "debug" || logLevel === "warn") {
       if (typeof process !== "undefined" && process.emitWarning)
@@ -6266,7 +6268,7 @@ ${ctx.indent}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
   var MERGE_KEY = "<<";
   var merge = {
     identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
@@ -6313,7 +6315,7 @@ ${ctx.indent}`;
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
+  // ../../../node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
   function addPairToJSMap(ctx, map2, { key, value }) {
     if (isNode(key) && key.addToJSMap)
       key.addToJSMap(ctx, map2, value);
@@ -6366,7 +6368,7 @@ ${ctx.indent}`;
     return JSON.stringify(jsKey);
   }
 
-  // node_modules/yaml/browser/dist/nodes/Pair.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Pair.js
   function createPair(key, value, ctx) {
     const k = createNode(key, void 0, ctx);
     const v = createNode(value, void 0, ctx);
@@ -6395,7 +6397,7 @@ ${ctx.indent}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyCollection.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyCollection.js
   function stringifyCollection(collection, ctx, options) {
     const flow = ctx.inFlow ?? collection.flow;
     const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
@@ -6530,7 +6532,7 @@ ${indent}${end}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/nodes/YAMLMap.js
+  // ../../../node_modules/yaml/browser/dist/nodes/YAMLMap.js
   function findPair(items, key) {
     const k = isScalar(key) ? key.value : key;
     for (const it of items) {
@@ -6661,7 +6663,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/map.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/map.js
   var map = {
     collection: "map",
     default: true,
@@ -6675,7 +6677,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLMap.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/nodes/YAMLSeq.js
+  // ../../../node_modules/yaml/browser/dist/nodes/YAMLSeq.js
   var YAMLSeq = class extends Collection {
     static get tagName() {
       return "tag:yaml.org,2002:seq";
@@ -6779,7 +6781,7 @@ ${indent}${end}`;
     return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
   }
 
-  // node_modules/yaml/browser/dist/schema/common/seq.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/seq.js
   var seq = {
     collection: "seq",
     default: true,
@@ -6793,7 +6795,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLSeq.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/common/string.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/string.js
   var string = {
     identify: (value) => typeof value === "string",
     default: true,
@@ -6805,7 +6807,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/null.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/null.js
   var nullTag = {
     identify: (value) => value == null,
     createNode: () => new Scalar(null),
@@ -6816,7 +6818,7 @@ ${indent}${end}`;
     stringify: ({ source }, ctx) => typeof source === "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
   };
 
-  // node_modules/yaml/browser/dist/schema/core/bool.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/bool.js
   var boolTag = {
     identify: (value) => typeof value === "boolean",
     default: true,
@@ -6833,7 +6835,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyNumber.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyNumber.js
   function stringifyNumber({ format, minFractionDigits, tag, value }) {
     if (typeof value === "bigint")
       return String(value);
@@ -6854,7 +6856,7 @@ ${indent}${end}`;
     return n;
   }
 
-  // node_modules/yaml/browser/dist/schema/core/float.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/float.js
   var floatNaN = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -6890,7 +6892,7 @@ ${indent}${end}`;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/core/int.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/int.js
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
   var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
   function intStringify(node, radix, prefix) {
@@ -6926,7 +6928,7 @@ ${indent}${end}`;
     stringify: (node) => intStringify(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/core/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/schema.js
   var schema = [
     map,
     seq,
@@ -6941,7 +6943,7 @@ ${indent}${end}`;
     float
   ];
 
-  // node_modules/yaml/browser/dist/schema/json/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/json/schema.js
   function intIdentify2(value) {
     return typeof value === "bigint" || Number.isInteger(value);
   }
@@ -6999,7 +7001,7 @@ ${indent}${end}`;
   };
   var schema2 = [map, seq].concat(jsonScalars, jsonError);
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
   var binary = {
     identify: (value) => value instanceof Uint8Array,
     // Buffer inherits from Uint8Array
@@ -7055,7 +7057,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
   function resolvePairs(seq2, onError) {
     if (isSeq(seq2)) {
       for (let i3 = 0; i3 < seq2.items.length; ++i3) {
@@ -7121,7 +7123,7 @@ ${cn.comment}` : item.comment;
     createNode: createPairs
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
   var YAMLOMap = class _YAMLOMap extends YAMLSeq {
     constructor() {
       super();
@@ -7187,7 +7189,7 @@ ${cn.comment}` : item.comment;
     createNode: (schema4, iterable, ctx) => YAMLOMap.from(schema4, iterable, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
   function boolStringify({ value, source }, ctx) {
     const boolObj = value ? trueTag : falseTag;
     if (source && boolObj.test.test(source))
@@ -7211,7 +7213,7 @@ ${cn.comment}` : item.comment;
     stringify: boolStringify
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
   var floatNaN2 = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -7250,7 +7252,7 @@ ${cn.comment}` : item.comment;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
   var intIdentify3 = (value) => typeof value === "bigint" || Number.isInteger(value);
   function intResolve2(str, offset, radix, { intAsBigInt }) {
     const sign = str[0];
@@ -7319,7 +7321,7 @@ ${cn.comment}` : item.comment;
     stringify: (node) => intStringify2(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
   var YAMLSet = class _YAMLSet extends YAMLMap {
     constructor(schema4) {
       super(schema4);
@@ -7398,7 +7400,7 @@ ${cn.comment}` : item.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
   function parseSexagesimal(str, asBigInt) {
     const sign = str[0];
     const parts2 = sign === "-" || sign === "+" ? str.substring(1) : str;
@@ -7477,7 +7479,7 @@ ${cn.comment}` : item.comment;
     stringify: ({ value }) => value.toISOString().replace(/(T00:00:00)?\.000Z$/, "")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
   var schema3 = [
     map,
     seq,
@@ -7502,7 +7504,7 @@ ${cn.comment}` : item.comment;
     timestamp
   ];
 
-  // node_modules/yaml/browser/dist/schema/tags.js
+  // ../../../node_modules/yaml/browser/dist/schema/tags.js
   var schemas = /* @__PURE__ */ new Map([
     ["core", schema],
     ["failsafe", [map, seq, string]],
@@ -7573,7 +7575,7 @@ ${cn.comment}` : item.comment;
     }, []);
   }
 
-  // node_modules/yaml/browser/dist/schema/Schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/Schema.js
   var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
   var Schema = class _Schema {
     constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema: schema4, sortMapEntries, toStringDefaults }) {
@@ -7594,7 +7596,7 @@ ${cn.comment}` : item.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyDocument.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyDocument.js
   function stringifyDocument(doc, options) {
     const lines = [];
     let hasDirectives = options.directives === true;
@@ -7665,7 +7667,7 @@ ${cn.comment}` : item.comment;
     return lines.join("\n") + "\n";
   }
 
-  // node_modules/yaml/browser/dist/doc/Document.js
+  // ../../../node_modules/yaml/browser/dist/doc/Document.js
   var Document = class _Document {
     constructor(value, replacer, options) {
       this.commentBefore = null;
@@ -7957,7 +7959,7 @@ ${cn.comment}` : item.comment;
     throw new Error("Expected a YAML collection as document contents");
   }
 
-  // node_modules/yaml/browser/dist/errors.js
+  // ../../../node_modules/yaml/browser/dist/errors.js
   var YAMLError = class extends Error {
     constructor(name, pos, code, message) {
       super();
@@ -8013,7 +8015,7 @@ ${pointer}
     }
   };
 
-  // node_modules/yaml/browser/dist/compose/resolve-props.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-props.js
   function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
     let spaceBefore = false;
     let atNewline = startOnNewline;
@@ -8143,7 +8145,7 @@ ${pointer}
     };
   }
 
-  // node_modules/yaml/browser/dist/compose/util-contains-newline.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-contains-newline.js
   function containsNewline(key) {
     if (!key)
       return null;
@@ -8179,7 +8181,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
   function flowIndentCheck(indent, fc, onError) {
     if (fc?.type === "flow-collection") {
       const end = fc.end[0];
@@ -8190,7 +8192,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-map-includes.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-map-includes.js
   function mapIncludes(ctx, items, search) {
     const { uniqueKeys } = ctx.options;
     if (uniqueKeys === false)
@@ -8199,7 +8201,7 @@ ${pointer}
     return items.some((pair) => isEqual(pair.key, search));
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-map.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-map.js
   var startColMsg = "All mapping items must start at the same column";
   function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bm, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLMap;
@@ -8295,7 +8297,7 @@ ${pointer}
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-seq.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-seq.js
   function resolveBlockSeq({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bs, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLSeq;
     const seq2 = new NodeClass(ctx.schema);
@@ -8337,7 +8339,7 @@ ${pointer}
     return seq2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-end.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-end.js
   function resolveEnd(end, offset, reqSpace, onError) {
     let comment = "";
     if (end) {
@@ -8374,7 +8376,7 @@ ${pointer}
     return { comment, offset };
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
   var blockMsg = "Block collections are not allowed within flow collections";
   var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
   function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, fc, onError, tag) {
@@ -8554,7 +8556,7 @@ ${pointer}
     return coll;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-collection.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-collection.js
   function resolveCollection(CN2, ctx, token, onError, tagName, tag) {
     const coll = token.type === "block-map" ? resolveBlockMap(CN2, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq(CN2, ctx, token, onError, tag) : resolveFlowCollection(CN2, ctx, token, onError, tag);
     const Coll = coll.constructor;
@@ -8606,7 +8608,7 @@ ${pointer}
     return node;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
   function resolveBlockScalar(ctx, scalar, onError) {
     const start = scalar.offset;
     const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
@@ -8782,7 +8784,7 @@ ${pointer}
     return lines;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
   function resolveFlowScalar(scalar, strict, onError) {
     const { offset, type, source, end } = scalar;
     let _type;
@@ -8993,7 +8995,7 @@ ${pointer}
     return String.fromCodePoint(code);
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-scalar.js
   function composeScalar(ctx, token, tagToken, onError) {
     const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar(ctx, token, onError) : resolveFlowScalar(token, ctx.options.strict, onError);
     const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
@@ -9064,7 +9066,7 @@ ${pointer}
     return tag;
   }
 
-  // node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
   function emptyScalarPosition(offset, before, pos) {
     if (before) {
       if (pos === null)
@@ -9089,7 +9091,7 @@ ${pointer}
     return offset;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-node.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-node.js
   var CN = { composeNode, composeEmptyNode };
   function composeNode(ctx, token, props, onError) {
     const atKey = ctx.atKey;
@@ -9177,7 +9179,7 @@ ${pointer}
     return alias;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-doc.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-doc.js
   function composeDoc(options, directives, { offset, start, value, end }, onError) {
     const opts = Object.assign({ _directives: directives }, options);
     const doc = new Document(void 0, opts);
@@ -9210,7 +9212,7 @@ ${pointer}
     return doc;
   }
 
-  // node_modules/yaml/browser/dist/compose/composer.js
+  // ../../../node_modules/yaml/browser/dist/compose/composer.js
   function getErrorPos(src) {
     if (typeof src === "number")
       return [src, src + 1];
@@ -9401,7 +9403,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/cst-visit.js
+  // ../../../node_modules/yaml/browser/dist/parse/cst-visit.js
   var BREAK2 = Symbol("break visit");
   var SKIP2 = Symbol("skip children");
   var REMOVE2 = Symbol("remove item");
@@ -9457,7 +9459,7 @@ ${end.comment}` : end.comment;
     return typeof ctrl === "function" ? ctrl(item, path) : ctrl;
   }
 
-  // node_modules/yaml/browser/dist/parse/cst.js
+  // ../../../node_modules/yaml/browser/dist/parse/cst.js
   var BOM = "\uFEFF";
   var DOCUMENT = "";
   var FLOW_END = "";
@@ -9522,7 +9524,7 @@ ${end.comment}` : end.comment;
     return null;
   }
 
-  // node_modules/yaml/browser/dist/parse/lexer.js
+  // ../../../node_modules/yaml/browser/dist/parse/lexer.js
   function isEmpty(ch) {
     switch (ch) {
       case void 0:
@@ -10094,7 +10096,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/line-counter.js
+  // ../../../node_modules/yaml/browser/dist/parse/line-counter.js
   var LineCounter = class {
     constructor() {
       this.lineStarts = [];
@@ -10119,7 +10121,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/parser.js
+  // ../../../node_modules/yaml/browser/dist/parse/parser.js
   function includesToken(list3, type) {
     for (let i3 = 0; i3 < list3.length; ++i3)
       if (list3[i3].type === type)
@@ -10965,7 +10967,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/public-api.js
+  // ../../../node_modules/yaml/browser/dist/public-api.js
   function parseOptions(options) {
     const prettyErrors = options.prettyErrors !== false;
     const lineCounter = options.lineCounter || prettyErrors && new LineCounter() || null;
@@ -11293,6 +11295,21 @@ ${end.comment}` : end.comment;
   function previewedPath() {
     return currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname) : edit ? edit.root.replace(/\/$/, "") + "/" + edit.rel : null;
   }
+  function hasText(e) {
+    const ext2 = getExt(e);
+    return !e.isDir && canPreview(e) && !IMG_EXTS.has(ext2) && !PDF_EXTS.has(ext2) && !VIDEO_EXTS.has(ext2) && !AUDIO_EXTS.has(ext2) && !FONT_EXTS.has(ext2);
+  }
+  function canAsk(e) {
+    return hasText(e) || !e.isDir && IMG_EXTS.has(getExt(e));
+  }
+  function copyContents(e, say) {
+    fetchFileText(e.href).then((text) => sniffBinary(text) ? say(`${e.name} is not a text file`) : copyToClipboard(text).then((ok) => say(ok ? `Copied the contents of ${e.name}` : "Copy failed"))).catch(() => say(`Could not read ${e.name}`));
+  }
+  var askWhenReady = null;
+  function askAbout(e) {
+    askWhenReady = e;
+    openPreview(e);
+  }
   function keepPreviewedAsTab() {
     const path = previewedPath();
     if (path && deps.keepTab) deps.keepTab(path);
@@ -11542,7 +11559,12 @@ ${end.comment}` : end.comment;
   function setupAi(e, ext2) {
     llmAvailability().then((av) => {
       if (currentEntry !== e || !isPreviewOpen()) return;
-      if (av.kind === "unavailable") return;
+      const asked = askWhenReady === e;
+      if (asked) askWhenReady = null;
+      if (av.kind === "unavailable") {
+        if (asked) deps.toast?.("Ask needs the lm toolkit, which is not installed");
+        return;
+      }
       const tabular = TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json";
       const image = ext2 === "image";
       const exp = document.getElementById("fe-ql-ai-exp");
@@ -11558,6 +11580,7 @@ ${end.comment}` : end.comment;
       });
       document.getElementById("fe-ql-ai-q").disabled = !ready;
       document.getElementById("fe-ql-ai").hidden = false;
+      if (asked && ready) document.getElementById("fe-ql-ai-q").focus();
     });
   }
   var aiChat = { href: "", id: "" };
@@ -14768,7 +14791,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 /* The list of every tab: icon, name, and the digit that jumps to it. */
 .fe-tab-menu .fe-ctx-item span:not(.fe-ctx-key){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:var(--sp-5)}
-.fe-tab.pinned{padding:var(--sp-2) var(--sp-3);min-width:0}
+/* A pinned tab is its icon, kept at the left edge while the strip scrolls; strip.ts sets its left. */
+.fe-tab.pinned,.fe-tab.pinned.on{padding:var(--sp-2) var(--sp-3);min-width:0;flex:none;position:sticky;z-index:1;box-shadow:var(--sp-2) 0 0 var(--side)}
+/* The strip's own colour fills the gaps around pinned tabs, so tabs scrolling under them never show in a gap. */
+.fe-tab.pinned:first-child{box-shadow:var(--sp-2) 0 0 var(--side),calc(-1 * var(--sp-3)) 0 0 var(--side)}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.is-empty{padding-top:var(--sp-2)}
 .fe-tab{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-4);min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
@@ -14792,8 +14818,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab:not(.on) .fe-tab-more{right:26px}
 .fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-x,.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-more{visibility:hidden}
 
-.fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
-.fe-tab-ico{display:flex;flex-shrink:0}
+.fe-tab-ico{display:flex;flex-shrink:0;position:relative}
+.fe-tab.pinned .fe-tab-ico::after{content:'';position:absolute;top:-3px;right:-3px;width:5px;height:5px;border-radius:50%;background:var(--ac)}
 .fe-tab-menu{position:fixed}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none}
 #fe-fp-bar{border-bottom:1px solid var(--bd);flex-shrink:0}
@@ -15279,7 +15305,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-side{position:relative;width:272px;flex-shrink:0;border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--side)}
 #fe-main,#fe-toolbar,#fe-fp-bar,#fe-statusbar,thead{background:var(--card)}
 #fe-tabbar,#fe-tabs{background:var(--side)}
-.fe-tab.on{color:var(--tx);background:var(--card)}
+.fe-tab.on{color:var(--tx);background:var(--card);min-width:140px;flex-shrink:0}
 #fe-table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0}
 #fe-table tbody tr{border-bottom:0}
 #fe-table tbody tr:hover{background:none}
@@ -16168,7 +16194,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-list{flex:1;overflow-y:auto;padding:var(--sp-3)}
 /* Palette tabs: one per kind of entry, each with its own colour, which the
    entries of that kind share. */
-.fe-pal-tabs{flex:none;display:flex;gap:var(--sp-1);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none}
+.fe-pal-tabs{flex:none;display:flex;flex-wrap:wrap;gap:var(--sp-1);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--bd)}
 .fe-pal-tab{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none;height:var(--ctl-md);padding:0 var(--sp-3);border:0;border-radius:var(--r-full);background:none;color:var(--mt);font:inherit;font-size:var(--fs-sm);cursor:pointer;transition:background var(--t-fast),color var(--t-fast)}
 .fe-pal-tab svg{width:1.1em;height:1.1em;color:var(--tab-c,var(--mt))}
 .fe-pal-tab i{font-style:normal;color:var(--dm);font-size:var(--fs-xs)}
@@ -19309,6 +19335,12 @@ ${d.message}` : d.message;
     if (active === id) active = list3[Math.min(i3, list3.length - 1)]?.id ?? null;
     return { list: list3, active };
   }
+  function closeToRight(s, id) {
+    const at = s.list.findIndex((t) => t.id === id);
+    if (at < 0) return s;
+    const list3 = s.list.filter((t, i3) => i3 <= at || t.pinned);
+    return { list: list3, active: list3.some((t) => t.id === s.active) ? s.active : id };
+  }
   function closeOthers(s, id) {
     if (!s.list.some((t) => t.id === id)) return s;
     const list3 = s.list.filter((t) => t.pinned || t.id === id);
@@ -19357,10 +19389,28 @@ ${d.message}` : d.message;
     list3.splice(at, 0, { ...tab, pinned: false });
     return { ...s, list: list3 };
   }
-  function splitLabel(label) {
+  function splitLabel(label, keep = 0) {
     if (label.length <= 12) return { head: label, tail: "" };
     const ext2 = label.match(/\.[A-Za-z0-9]{1,6}$/)?.[0] ?? "";
-    return { head: label.slice(0, label.length - ext2.length), tail: ext2 };
+    const base = label.length - ext2.length;
+    const cut = Math.max(0, base - keep);
+    return { head: label.slice(0, cut), tail: label.slice(cut) };
+  }
+  var HEAD_SEEN = 6;
+  function distinctKeeps(labels) {
+    const bases = labels.map((l) => l.replace(/\.[A-Za-z0-9]{1,6}$/, ""));
+    return labels.map((l, i3) => {
+      if (l.length <= 12) return 0;
+      let shared = 0;
+      bases.forEach((b, j) => {
+        if (j === i3 || labels[j].length <= 12) return;
+        let k = 0;
+        while (k < b.length && k < bases[i3].length && b[k] === bases[i3][k]) k++;
+        shared = Math.max(shared, k);
+      });
+      if (shared < HEAD_SEEN) return 0;
+      return Math.min(bases[i3].length - Math.max(0, shared - 1), 14);
+    });
   }
   function displayLabels(list3) {
     const count = /* @__PURE__ */ new Map();
@@ -19423,6 +19473,7 @@ ${d.message}` : d.message;
     let state = EMPTY;
     let closed = [];
     let drag = null;
+    const listeners = [];
     function commit(next) {
       state.list.forEach((t, i3) => {
         if (!next.list.some((x) => x.id === t.id)) closed.push({ tab: t, index: i3 });
@@ -19432,6 +19483,23 @@ ${d.message}` : d.message;
       writeSession(sid, state, closed);
       writeRecovery(sid, state, false);
       render2();
+      listeners.forEach((f) => f());
+    }
+    function closeMany(next) {
+      const gone = state.list.map((t, index) => ({ t, index })).filter((x) => !next.list.some((n) => n.id === x.t.id));
+      if (!gone.length) return;
+      commit(next);
+      toast(`Closed ${gone.length} tab${gone.length === 1 ? "" : "s"}`, 6e3, {
+        label: "undo",
+        run: () => {
+          let back = state;
+          for (const x of gone) {
+            closed = closed.filter((c) => c.tab.id !== x.t.id);
+            back = insertTab(back, x.t, x.index);
+          }
+          commit(back);
+        }
+      });
     }
     function reopenClosed() {
       const last = closed.pop();
@@ -19489,7 +19557,8 @@ ${d.message}` : d.message;
         `<div class="row fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? "Unpin" : "Pin"}</span><span class="fe-ctx-key">p</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="close">${UI_ICON.close}<span>Close</span><span class="fe-ctx-key">w</span></div>`,
-        `<div class="row fe-ctx-item" data-act="others">${UI_ICON.stack}<span>Close others</span></div>`
+        `<div class="row fe-ctx-item" data-act="others">${UI_ICON.stack}<span>Close others</span></div>`,
+        `<div class="row fe-ctx-item" data-act="right">${UI_ICON.next}<span>Close to the right</span></div>`
       ].join("");
       menu.dataset.id = t.id;
       layer = openLayer(menu, { kind: "popover", anchor, role: "menu", group: "menu" });
@@ -19512,7 +19581,8 @@ ${d.message}` : d.message;
       } else if (act === "term") host.openInTerminal?.(t.kind === "file" ? t.path.replace(/\/[^/]*$/, "") || "/" : t.path);
       else if (act === "pin") commit(togglePin(state, t.id));
       else if (act === "close") closeById(t.id);
-      else if (act === "others") commit(closeOthers(state, t.id));
+      else if (act === "others") closeMany(closeOthers(state, t.id));
+      else if (act === "right") closeMany(closeToRight(state, t.id));
     });
     function fitHeads() {
       for (const head of el2.querySelectorAll(".fe-tab-head")) {
@@ -19530,19 +19600,27 @@ ${d.message}` : d.message;
         head.textContent = full.slice(0, lo).trimEnd() + "\u2026";
       }
     }
-    function lblHtml(label) {
-      const { head, tail } = splitLabel(label);
+    function lblHtml(label, keep = 0) {
+      const { head, tail } = splitLabel(label, keep);
       return `<span class="fe-tab-lbl"><span class="fe-tab-head">${esc(head)}</span>${tail ? `<span class="fe-tab-tail">${esc(tail)}</span>` : ""}</span>`;
     }
-    function tabHtml(t, i3, on, label) {
+    function tabHtml(t, i3, on, label, keep) {
       const ico = t.kind === "file" ? `<span class="fe-tab-ico">${icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}</span>` : `<span class="fe-tab-ico">${icoFolder(t.label)}</span>`;
       const tip = `${t.path}
 ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned (p unpins, right-click for more)" : "middle-click closes"} \xB7 drag reorders`;
       return `<a class="fe-tab${on ? " on" : ""}${t.pinned ? " pinned" : ""}"${on ? ' aria-current="page"' : ""} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
-      ${ico}${lblHtml(label)}
+      ${ico}${lblHtml(label, keep)}
       <button class="btn fe-tab-more" data-icon data-size="xs" data-id="${esc(t.id)}" title="Copy path \xB7 save \xB7 pin \xB7 close others">${UI_ICON.more}</button>
       ${t.pinned ? "" : `<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="${esc(t.id)}" title="Close (w)">${UI_ICON.close}</button>`}
     </a>`;
+    }
+    function pinLeft() {
+      let x = parseFloat(getComputedStyle(el2).paddingLeft) || 0;
+      for (const a of el2.querySelectorAll(".fe-tab.pinned")) {
+        a.style.left = x + "px";
+        x += a.getBoundingClientRect().width + (parseFloat(getComputedStyle(el2).columnGap) || 0);
+      }
+      el2.style.scrollPaddingLeft = x + "px";
     }
     function shown() {
       if (hereIn(state) || !rawPath) return state.list;
@@ -19551,13 +19629,15 @@ ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned
     function render2() {
       const here = hereIn(state);
       const labels = displayLabels(state.list);
-      const rows = state.list.map((t, i3) => tabHtml(t, i3, t.id === here?.id, labels[i3]));
+      const keeps = distinctKeeps(labels);
+      const rows = state.list.map((t, i3) => tabHtml(t, i3, t.id === here?.id, labels[i3], keeps[i3]));
       if (!here) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
         rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}
 Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
       }
       el2.innerHTML = rows.join("");
+      pinLeft();
       fitHeads();
       el2.classList.toggle("is-empty", state.list.length === 0);
       el2.querySelector(".fe-tab.on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
@@ -19726,6 +19806,19 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         if (path !== rawPath) go(fileUrl(path), "here", { hash });
         else if (hash) location.hash = hash;
       },
+      closedTabs: () => closed.map((c) => c.tab).reverse().filter((t) => !state.list.some((x) => x.path === t.path)),
+      reopen(id) {
+        const c = closed.find((x) => x.tab.id === id);
+        if (!c) return;
+        closed = closed.filter((x) => x !== c);
+        writeSession(sid, state, closed);
+        commit(insertTab(state, c.tab, c.index));
+        const back = state.list.find((t) => t.path === c.tab.path);
+        if (back) goTab(back.id);
+      },
+      onChange: (fn) => {
+        listeners.push(fn);
+      },
       state: () => state,
       shown,
       closedSets,
@@ -19806,7 +19899,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       card(PI.search, T.purple, "Filter", "Narrow this folder.", keys(["/"])) + card(UI_ICON.stack, T.pink, "Palette", "Any command or place.", keys(["\u2318K"])) + card(UI_ICON.link, T.blue, "Go to a path", "Type or paste one.", keys(["l"])) + card(PI.recent, T.teal, "History", "Where you have been.", keys(["g 4"]))
     ) + cards(
       "Make things",
-      card(UI_ICON.notes, T.orange, "Notes", "Markdown, saved as you type.", keys(["n"])) + card(UI_ICON.rename, T.green, "Edit", "Any text file you allow.", keys(["e"])) + card(UI_ICON.comment, T.yellow, "Comment", "On a selection in a doc.", keys(["c"])) + card(UI_ICON.ai, T.purple, "Ask", "A model reads the file.", keys(["g 6"]))
+      card(UI_ICON.notes, T.orange, "Notes", "Markdown, saved as you type.", keys(["n"])) + card(UI_ICON.rename, T.green, "Edit", "Any text file you allow.", keys(["e e"])) + card(UI_ICON.comment, T.yellow, "Comment", "On a selection in a doc.", keys(["c"])) + card(UI_ICON.ai, T.purple, "Ask", "A model reads the file.", keys(["g 6"]))
     ) + cards(
       "Journeys, by keyboard",
       journey(UI_ICON.eye, T.teal, "Preview and sidebar", [["Preview a file", "look"], ["Dock or float it", "pv-dock"], ["Close it", "pv-close"], ["Sidebar on or off", "sidebar"]]) + journey(PI.bm, T.orange, "Saved, by tag", [["Go to Saved", "lens-saved"], ["Pick a tag", "lens-tags"], ["Filter the list", "lens-filter"], ["Preview a file", "side-look"], ["Open it as a tab", "side-open"], ["Or keep it in the background", "side-bg"]]) + journey(UI_ICON.tab, T.green, "Tabs and back", [["Focus the sidebar", "to-sidebar"], ["Open as a tab", "side-open"], ["Type a path", "path"], ["Step through tabs", "tab-step"], ["Back to the listing", "to-listing"]]) + journey(UI_ICON.link, T.blue, "Path picker", [["Type or paste a path", "path"], ["Open it as a background tab", "goto-bg"], ["All tabs", "tab-list"]]) + journey(UI_ICON.comment, T.yellow, "Comments", [["Comments panel", "fp-comments"], ["Step through threads", "fp-cm-step"], ["Comment on a selection", "fp-comment"], ["Post it", "fp-cm-post"], ["Reply", "fp-cm-reply"]]) + journey(UI_ICON.ai, T.purple, "Ask", [["Ask about the previewed file", "pv-ask"], ["Go to Ask", "lens-ask"], ["Back to the listing", "to-listing"]]) + journey(UI_ICON.notes, T.pink, "Notes", [["New note", "new-note"], ["Save", "ed-save"], ["Rename", "note-rename"], ["Colour, pin and tags", "side-props"], ["Move to .trash", "note-delete"]]) + journey(PI.gear, T.red, "Settings", [["Open Settings", "settings"], ["Next page", "dlg-tabs"], ["Next control", "dlg-fields"], ["Change a choice", "dlg-choice"]])
@@ -21932,6 +22025,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         canPreview(en) ? `<div class="row fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : "",
         `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">\u21E7Y</span></div>`,
+        hasText(en) ? `<div class="row fe-ctx-item" data-act="cp-text">${UI_ICON.copy}<span>Copy contents</span></div>` : "",
+        `<div class="row fe-ctx-item" data-act="keep">${UI_ICON.tab}<span>Keep as tab</span><span class="fe-ctx-key">\u2325\u21A9</span></div>`,
+        canAsk(en) ? `<div class="row fe-ctx-item" data-act="ask">${UI_ICON.ai}<span>Ask</span></div>` : "",
         en.isDir ? "" : `<div class="row fe-ctx-item" data-act="rename">${UI_ICON.rename}<span>Rename</span><span class="fe-ctx-key">F2</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${isSaved(fullPath(rawPath, en)) ? "Unsave" : "Save"}</span></div>`,
@@ -21952,6 +22048,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (item.dataset.act === "pv") openPreview(en);
       else if (item.dataset.act === "cp-path") copyText(fp);
       else if (item.dataset.act === "cp-name") copyText(en.name);
+      else if (item.dataset.act === "cp-text") copyContents(en, toast);
+      else if (item.dataset.act === "keep") {
+        app.strip.open(fp, true);
+        toast(`Kept ${en.name} as a tab`);
+      } else if (item.dataset.act === "ask") askAbout(en);
       else if (item.dataset.act === "term") app.openInTerminal(en.isDir ? fp : rawPath);
       else if (item.dataset.act === "rename") renameRow(en);
       else if (item.dataset.act?.startsWith("ow:")) runOpenWith(item.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
@@ -22589,6 +22690,19 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       hints?.remove();
       hints = null;
     };
+    function layOutHints(box) {
+      const placed = [];
+      const badges = [...box.querySelectorAll(":scope > kbd")].sort((a, b) => Number(a.dataset.x) - Number(b.dataset.x));
+      for (const b of badges) {
+        const cx = Number(b.dataset.x), w = b.offsetWidth;
+        let y = Number(b.dataset.y);
+        const hit = () => placed.some((p) => Math.abs(p.y - y) < 22 && cx - w / 2 < p.x1 + 3 && cx + w / 2 > p.x0 - 3);
+        for (let n = 0; hit() && n < 6; n++) y += 22;
+        placed.push({ x0: cx - w / 2, x1: cx + w / 2, y });
+        b.style.setProperty("--x", cx + "px");
+        b.style.setProperty("--y", y + "px");
+      }
+    }
     function showHints() {
       hideHints();
       hints = document.createElement("div");
@@ -22606,12 +22720,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       document.querySelectorAll("#fe-tabs .fe-tab").forEach((t, i3) => {
         if (i3 < 9 && visible(t)) spots.push([t, String(i3 + 1)]);
       });
+      const sort = document.getElementById("fe-sg-btn");
+      if (visible(sort)) spots.push([sort, "s"]);
       hints.innerHTML = spots.map(([x, k]) => {
         const r = x.getBoundingClientRect();
-        return `<kbd style="--x:${Math.round(r.left + r.width / 2)}px;--y:${Math.round(r.bottom - 6)}px">${esc(k)}</kbd>`;
+        return `<kbd data-x="${Math.round(r.left + r.width / 2)}" data-y="${Math.round(r.bottom - 6)}">${esc(k)}</kbd>`;
       }).join("") + `<div class="fe-hints-tip"><kbd>\u2318K</kbd> every command \xB7 <kbd>?</kbd> keyboard map \xB7 <kbd>F6</kbd> next area</div>`;
       fe.appendChild(hints);
       raise(hints);
+      layOutHints(hints);
     }
     document.addEventListener("keydown", (e) => {
       if (e.key === "Alt" && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.repeat) {
@@ -25241,13 +25358,20 @@ ${rows.join("\n")}`, name: subject };
       const young = all.filter((s) => Date.now() - s.at < settle);
       if (young.length) later(settle - (Date.now() - Math.min(...young.map((s) => s.at))) + 100);
       const sets = all.filter((s) => !young.includes(s)).slice(0, 3);
-      box.innerHTML = sets.map((s) => {
+      const own = strip.closedTabs().slice(0, 8);
+      const ownRows = own.map((t) => `<button type="button" class="row fe-si fe-rc-tab" data-tab="${esc(t.id)}" title="Reopen ${esc(t.path)}">${t.kind === "folder" ? PI.folder : icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}<span class="fe-sl">${esc(t.label)}</span></button>`).join("");
+      box.innerHTML = ownRows + sets.map((s) => {
         const n = s.labels.length;
         return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago3(s.at)}</span></button>`;
       }).join("");
-      section.hidden = !(visible2 && sets.length);
+      section.hidden = !(visible2 && (sets.length || own.length));
     }
     box.addEventListener("click", (e) => {
+      const t = e.target.closest(".fe-rc-tab");
+      if (t) {
+        strip.reopen(t.dataset.tab);
+        return;
+      }
       const b = e.target.closest(".fe-rc-set");
       if (b) void strip.restoreSet(b.dataset.set).then(paint);
     });
@@ -25257,6 +25381,7 @@ ${rows.join("\n")}`, name: subject };
       });
     } catch {
     }
+    strip.onChange(() => void paint());
     await paint();
   }
   loadKv().catch(() => {

@@ -62,13 +62,18 @@ async function showClosedSets(strip: Strip, visible: boolean): Promise<void> {
     const young = all.filter(s => Date.now() - s.at < settle);
     if (young.length) later(settle - (Date.now() - Math.min(...young.map(s => s.at))) + 100);
     const sets = all.filter(s => !young.includes(s)).slice(0, 3);
-    box!.innerHTML = sets.map(s => {
+    // Tabs closed in this strip come first: one click brings one back.
+    const own = strip.closedTabs().slice(0, 8);
+    const ownRows = own.map(t => `<button type="button" class="row fe-si fe-rc-tab" data-tab="${esc(t.id)}" title="Reopen ${esc(t.path)}">${t.kind === 'folder' ? PI.folder : icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '')}<span class="fe-sl">${esc(t.label)}</span></button>`).join('');
+    box!.innerHTML = ownRows + sets.map(s => {
       const n = s.labels.length;
       return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(', '))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? '' : 's'}: ${esc(s.labels.slice(0, 3).join(', '))}${n > 3 ? '…' : ''}</span><span class="fe-rc-ago">${ago(s.at)}</span></button>`;
     }).join('');
-    section.hidden = !(visible && sets.length);
+    section.hidden = !(visible && (sets.length || own.length));
   }
   box.addEventListener('click', e => {
+    const t = (e.target as Element).closest<HTMLElement>('.fe-rc-tab');
+    if (t) { strip.reopen(t.dataset.tab!); return; }
     const b = (e.target as Element).closest<HTMLElement>('.fe-rc-set');
     if (b) void strip.restoreSet(b.dataset.set!).then(paint);
   });
@@ -78,6 +83,7 @@ async function showClosedSets(strip: Strip, visible: boolean): Promise<void> {
       if (name === 'local' && Object.keys(changes).some(k => k.startsWith('bfb-strip-v2:'))) later(300);
     });
   } catch { /* extension reloaded under the page */ }
+  strip.onChange(() => void paint());
   await paint();
 }
 

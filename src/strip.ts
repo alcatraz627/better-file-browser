@@ -9,7 +9,7 @@ import { icoFile, icoFolder, PI } from './icons';
 import { isSaved, toggleSaved, jsonPref } from './storage';
 import { UI_ICON } from './control-icons';
 import {
-  EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, displayLabels, splitLabel, retargetTabs,
+  EMPTY, openTab, closeTab, closeOthers, closeToRight, distinctKeeps, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, displayLabels, splitLabel, retargetTabs,
   isTabState, normalize, isStale, type TabState, type Tab, type RecoveryEntry,
 } from './tabs';
 import type { Toast } from './toast';
@@ -45,6 +45,12 @@ export interface Strip {
   restoreSet(id: string): Promise<void>;
   // Move a tab one place left or right, within its pinned or unpinned block.
   move(id: string, dir: 1 | -1): void;
+  // Tabs closed in this strip that are not open now, newest first.
+  closedTabs(): Tab[];
+  // Bring one of them back where it was.
+  reopen(id: string): void;
+  // Called after every change to the strip, so History can follow it.
+  onChange(fn: () => void): void;
   // A file was renamed on disk: its tab follows it.
   retarget(from: string, to: string): void;
 }
@@ -101,6 +107,7 @@ export function mountStrip(host: StripHost): Strip {
   let state: TabState = EMPTY;
   let closed: Closed[] = [];   // the reopen stack, newest last
   let drag: string | null = null;
+  const listeners: (() => void)[] = [];
 
   function commit(next: TabState): void {
     // Anything that left the list goes on the reopen stack with its place.
@@ -110,6 +117,22 @@ export function mountStrip(host: StripHost): Strip {
     writeSession(sid, state, closed);
     writeRecovery(sid, state, false);
     render();
+    listeners.forEach(f => f());
+  }
+  // Close several tabs at once, and offer to put them all back where they were.
+  function closeMany(next: TabState): void {
+    const gone = state.list.map((t, index) => ({ t, index })).filter(x => !next.list.some(n => n.id === x.t.id));
+    if (!gone.length) return;
+    commit(next);
+    toast(`Closed ${gone.length} tab${gone.length === 1 ? '' : 's'}`, 6000, {
+      label: 'undo',
+      run: () => {
+        // Put each back at its old place; tabs opened meanwhile stay.
+        let back = state;
+        for (const x of gone) { closed = closed.filter(c => c.tab.id !== x.t.id); back = insertTab(back, x.t, x.index); }
+        commit(back);
+      },
+    });
   }
   function reopenClosed(): void {
     const last = closed.pop();
@@ -174,6 +197,7 @@ export function mountStrip(host: StripHost): Strip {
       `<div class="fe-ctx-sep"></div>`,
       `<div class="row fe-ctx-item" data-act="close">${UI_ICON.close}<span>Close</span><span class="fe-ctx-key">w</span></div>`,
       `<div class="row fe-ctx-item" data-act="others">${UI_ICON.stack}<span>Close others</span></div>`,
+      `<div class="row fe-ctx-item" data-act="right">${UI_ICON.next}<span>Close to the right</span></div>`,
     ].join('');
     menu.dataset.id = t.id;
     layer = openLayer(menu, { kind: 'popover', anchor, role: 'menu', group: 'menu' });
@@ -194,7 +218,8 @@ export function mountStrip(host: StripHost): Strip {
     else if (act === 'term') host.openInTerminal?.(t.kind === 'file' ? t.path.replace(/\/[^/]*$/, '') || '/' : t.path);
     else if (act === 'pin') commit(togglePin(state, t.id));
     else if (act === 'close') closeById(t.id);
-    else if (act === 'others') commit(closeOthers(state, t.id));
+    else if (act === 'others') closeMany(closeOthers(state, t.id));
+    else if (act === 'right') closeMany(closeToRight(state, t.id));
   });
 
   // ── Render ────────────────────────────────────────────────────────
@@ -216,20 +241,30 @@ export function mountStrip(host: StripHost): Strip {
       head.textContent = full.slice(0, lo).trimEnd() + '…';
     }
   }
-  function lblHtml(label: string): string {
-    const { head, tail } = splitLabel(label);
+  function lblHtml(label: string, keep = 0): string {
+    const { head, tail } = splitLabel(label, keep);
     return `<span class="fe-tab-lbl"><span class="fe-tab-head">${esc(head)}</span>${tail ? `<span class="fe-tab-tail">${esc(tail)}</span>` : ''}</span>`;
   }
-  function tabHtml(t: Tab, i: number, on: boolean, label: string): string {
+  function tabHtml(t: Tab, i: number, on: boolean, label: string, keep: number): string {
     const ico = t.kind === 'file'
       ? `<span class="fe-tab-ico">${icoFile(t.label.includes('.') ? t.label.split('.').pop()!.toLowerCase() : '')}</span>`
       : `<span class="fe-tab-ico">${icoFolder(t.label)}</span>`;
     const tip = `${t.path}\n${i < 9 ? `${i + 1} jumps · ` : ''}click switches · ${t.pinned ? 'pinned (p unpins, right-click for more)' : 'middle-click closes'} · drag reorders`;
     return `<a class="fe-tab${on ? ' on' : ''}${t.pinned ? ' pinned' : ''}"${on ? ' aria-current="page"' : ''} draggable="true" data-id="${esc(t.id)}" href="${esc(hrefFor(t))}" title="${esc(tip)}">
-      ${ico}${lblHtml(label)}
+      ${ico}${lblHtml(label, keep)}
       <button class="btn fe-tab-more" data-icon data-size="xs" data-id="${esc(t.id)}" title="Copy path · save · pin · close others">${UI_ICON.more}</button>
       ${t.pinned ? '' : `<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="${esc(t.id)}" title="Close (w)">${UI_ICON.close}</button>`}
     </a>`;
+  }
+  // Pinned tabs stay at the left edge while the rest scroll under them, side
+  // by side, each stuck where the ones before it end.
+  function pinLeft(): void {
+    let x = parseFloat(getComputedStyle(el).paddingLeft) || 0;
+    for (const a of el.querySelectorAll<HTMLElement>('.fe-tab.pinned')) {
+      a.style.left = x + 'px';
+      x += a.getBoundingClientRect().width + (parseFloat(getComputedStyle(el).columnGap) || 0);
+    }
+    el.style.scrollPaddingLeft = x + 'px';
   }
   function shown(): Tab[] {
     if (hereIn(state) || !rawPath) return state.list;
@@ -238,12 +273,14 @@ export function mountStrip(host: StripHost): Strip {
   function render(): void {
     const here = hereIn(state);
     const labels = displayLabels(state.list);
-    const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i]));
+    const keeps = distinctKeeps(labels);
+    const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i], keeps[i]));
     if (!here) {
       const ico = kindOf(rawPath) === 'file' ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split('.').pop()!.toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
       rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}\nNot kept yet · t or double-click keeps · p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
     }
     el.innerHTML = rows.join('');
+    pinLeft();
     fitHeads();
     el.classList.toggle('is-empty', state.list.length === 0);
     el.querySelector<HTMLElement>('.fe-tab.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
@@ -387,6 +424,17 @@ export function mountStrip(host: StripHost): Strip {
       if (path !== rawPath) go(fileUrl(path), 'here', { hash });
       else if (hash) location.hash = hash;
     },
+    closedTabs: () => closed.map(c => c.tab).reverse().filter(t => !state.list.some(x => x.path === t.path)),
+    reopen(id) {
+      const c = closed.find(x => x.tab.id === id);
+      if (!c) return;
+      closed = closed.filter(x => x !== c);
+      writeSession(sid, state, closed);
+      commit(insertTab(state, c.tab, c.index));
+      const back = state.list.find(t => t.path === c.tab.path);
+      if (back) goTab(back.id);
+    },
+    onChange: fn => { listeners.push(fn); },
     state: () => state,
     shown,
     closedSets,

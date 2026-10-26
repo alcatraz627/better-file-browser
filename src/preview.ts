@@ -79,6 +79,26 @@ function previewedPath(): string | null {
   return currentEntry ? decodeURIComponent(new URL(currentEntry.href, location.href).pathname)
        : edit ? edit.root.replace(/\/$/, '') + '/' + edit.rel : null;
 }
+// Whether a row has text to copy or ask about: not a folder, not a picture,
+// film, sound, font or PDF.
+export function hasText(e: Entry): boolean {
+  const ext = getExt(e);
+  return !e.isDir && canPreview(e) && !IMG_EXTS.has(ext) && !PDF_EXTS.has(ext) && !VIDEO_EXTS.has(ext) && !AUDIO_EXTS.has(ext) && !FONT_EXTS.has(ext);
+}
+// Images take Ask too: the vision model reads them.
+export function canAsk(e: Entry): boolean { return hasText(e) || (!e.isDir && IMG_EXTS.has(getExt(e))); }
+// Copy a file's whole text without opening it, as the preview's Copy does.
+export function copyContents(e: Entry, say: (m: string) => void): void {
+  fetchFileText(e.href)
+    .then(text => sniffBinary(text) ? say(`${e.name} is not a text file`) : copyToClipboard(text).then(ok => say(ok ? `Copied the contents of ${e.name}` : 'Copy failed')))
+    .catch(() => say(`Could not read ${e.name}`));
+}
+// Open the preview with the question box focused, as pressing a there does.
+let askWhenReady: Entry | null = null;
+export function askAbout(e: Entry): void {
+  askWhenReady = e;
+  openPreview(e);
+}
 export function keepPreviewedAsTab(): void {
   const path = previewedPath();
   if (path && deps.keepTab) deps.keepTab(path);
@@ -336,7 +356,9 @@ function resetAiUi(): void {
 function setupAi(e: Entry, ext: string): void {
   llmAvailability().then((av: LlmAvailability) => {
     if (currentEntry !== e || !isPreviewOpen()) return;
-    if (av.kind === 'unavailable') return;
+    const asked = askWhenReady === e;
+    if (asked) askWhenReady = null;
+    if (av.kind === 'unavailable') { if (asked) deps.toast?.('Ask needs the lm toolkit, which is not installed'); return; }
     const tabular = TABLE_EXTS.has(ext) || JSONL_EXTS.has(ext) || ext === 'json';
     const image = ext === 'image';
     const exp = document.getElementById('fe-ql-ai-exp') as HTMLButtonElement;
@@ -353,6 +375,7 @@ function setupAi(e: Entry, ext: string): void {
     document.querySelectorAll<HTMLButtonElement>('.fe-ql-ai-btn').forEach(b => { b.disabled = !ready; });
     (document.getElementById('fe-ql-ai-q') as HTMLInputElement).disabled = !ready;
     document.getElementById('fe-ql-ai')!.hidden = false;
+    if (asked && ready) (document.getElementById('fe-ql-ai-q') as HTMLInputElement).focus();
   });
 }
 

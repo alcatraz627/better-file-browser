@@ -950,7 +950,7 @@ try {
   await page.waitForSelector('.fe-tab-menu', { timeout: 3_000 }).catch(() => null);
   const menuItems = await page.$$eval('.fe-tab-menu .fe-ctx-item', els => els.map(e => e.querySelector('span')?.textContent ?? e.textContent));
   const rootSaved = (await h.store.json('bfb-saved-v1', [])).some(p => p.path === h.fixture + '/');
-  check(menuItems.join('|') === `Copy path|${rootSaved ? 'Unsave' : 'Save'}|Open in terminal|Pin|Close|Close others`, `hover menu lists the tab actions and agrees with the star: ${JSON.stringify(menuItems)}`);
+  check(menuItems.join('|') === `Copy path|${rootSaved ? 'Unsave' : 'Save'}|Open in terminal|Pin|Close|Close others|Close to the right`, `hover menu lists the tab actions and agrees with the star: ${JSON.stringify(menuItems)}`);
   await page.click('.fe-tab-menu [data-act="others"]');
   await page.waitForFunction(keptCount(2), { timeout: 3_000 }).catch(() => null);
   tabsA = await tabLabels(page);

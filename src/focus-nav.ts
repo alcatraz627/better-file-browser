@@ -310,6 +310,22 @@ export function initFocusNav(app: App): void {
   let hintTimer: ReturnType<typeof setTimeout> | null = null;
   let hints: HTMLElement | null = null;
   const hideHints = () => { if (hintTimer) clearTimeout(hintTimer); hintTimer = null; hints?.remove(); hints = null; };
+  // Badges of neighbouring controls (the lens rail, the view switcher) are
+  // wider than the controls are apart, so a badge that would cover another
+  // drops one line lower until it has room.
+  function layOutHints(box: HTMLElement): void {
+    const placed: { x0: number; x1: number; y: number }[] = [];
+    const badges = [...box.querySelectorAll<HTMLElement>(':scope > kbd')].sort((a, b) => Number(a.dataset.x) - Number(b.dataset.x));
+    for (const b of badges) {
+      const cx = Number(b.dataset.x), w = b.offsetWidth;
+      let y = Number(b.dataset.y);
+      const hit = () => placed.some(p => Math.abs(p.y - y) < 22 && cx - w / 2 < p.x1 + 3 && cx + w / 2 > p.x0 - 3);
+      for (let n = 0; hit() && n < 6; n++) y += 22;
+      placed.push({ x0: cx - w / 2, x1: cx + w / 2, y });
+      b.style.setProperty('--x', cx + 'px');
+      b.style.setProperty('--y', y + 'px');
+    }
+  }
   function showHints(): void {
     hideHints();
     hints = document.createElement('div');
@@ -318,10 +334,14 @@ export function initFocusNav(app: App): void {
     for (const [id, cmd] of Object.entries(KEY_OF)) { const x = document.getElementById(id); const k = keyOf(cmd); if (visible(x) && k) spots.push([x, k]); }
     document.querySelectorAll<HTMLElement>('#fe-view-group [data-v]').forEach(b => { const k = keyOf('view-' + b.dataset.v); if (visible(b) && k) spots.push([b, k]); });
     document.querySelectorAll<HTMLElement>('#fe-tabs .fe-tab').forEach((t, i) => { if (i < 9 && visible(t)) spots.push([t, String(i + 1)]); });
-    hints.innerHTML = spots.map(([x, k]) => { const r = x.getBoundingClientRect(); return `<kbd style="--x:${Math.round(r.left + r.width / 2)}px;--y:${Math.round(r.bottom - 6)}px">${esc(k)}</kbd>`; }).join('')
+    // Sort has no key of its own: s starts the chord (s n, s m, ...), and the chord pill lists the rest.
+    const sort = document.getElementById('fe-sg-btn');
+    if (visible(sort)) spots.push([sort!, 's']);
+    hints.innerHTML = spots.map(([x, k]) => { const r = x.getBoundingClientRect(); return `<kbd data-x="${Math.round(r.left + r.width / 2)}" data-y="${Math.round(r.bottom - 6)}">${esc(k)}</kbd>`; }).join('')
       + `<div class="fe-hints-tip"><kbd>⌘K</kbd> every command · <kbd>?</kbd> keyboard map · <kbd>F6</kbd> next area</div>`;
     fe.appendChild(hints);
     raise(hints);
+    layOutHints(hints);
   }
   document.addEventListener('keydown', e => {
     if (e.key === 'Alt' && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.repeat) { hideHints(); hintTimer = setTimeout(showHints, 450); }

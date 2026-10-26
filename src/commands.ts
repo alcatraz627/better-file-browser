@@ -188,12 +188,17 @@ export function score(text: string, q: string): number {
   const t = text.toLowerCase(), s = q.toLowerCase();
   const at = t.indexOf(s);
   if (at >= 0) return 1000 - at - (t.length - s.length) * 0.1 + (at === 0 || t[at - 1] === ' ' ? 200 : 0);
-  let i = 0, gaps = 0, last = -1;
+  let i = 0, gaps = 0, last = -1, initials = true;
   for (const ch of s) {
     const j = t.indexOf(ch, last + 1);
     if (j < 0) return 0;
+    if (j > 0 && !/[\s\-_/.]/.test(t[j - 1])) initials = false;
     gaps += j - last - 1; last = j; i++;
   }
+  // Letters scattered across the text are not a match ("sett" is not in "Copy
+  // selected paths"); only initials ("sbn" for "Sort by name") or a near-miss
+  // such as a dropped letter count.
+  if (!initials && gaps > s.length) return 0;
   return 100 - gaps;
 }
 

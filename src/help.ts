@@ -74,7 +74,7 @@ export const HELP_TABS: DialogTab[] = [
       card(PI.recent, T.teal, 'History', 'Where you have been.', keys(['g 4']))) +
     cards('Make things',
       card(UI_ICON.notes, T.orange, 'Notes', 'Markdown, saved as you type.', keys(['n'])) +
-      card(UI_ICON.rename, T.green, 'Edit', 'Any text file you allow.', keys(['e'])) +
+      card(UI_ICON.rename, T.green, 'Edit', 'Any text file you allow.', keys(['e e'])) +
       card(UI_ICON.comment, T.yellow, 'Comment', 'On a selection in a doc.', keys(['c'])) +
       card(UI_ICON.ai, T.purple, 'Ask', 'A model reads the file.', keys(['g 6']))) +
     cards('Journeys, by keyboard',
