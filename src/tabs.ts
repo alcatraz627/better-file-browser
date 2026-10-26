@@ -48,6 +48,14 @@ export function closeTab(s: TabState, id: string): TabState {
   return { list, active };
 }
 
+// Every tab right of the one named goes, pinned ones aside.
+export function closeToRight(s: TabState, id: string): TabState {
+  const at = s.list.findIndex(t => t.id === id);
+  if (at < 0) return s;
+  const list = s.list.filter((t, i) => i <= at || t.pinned);
+  return { list, active: list.some(t => t.id === s.active) ? s.active : id };
+}
+
 // Pinned tabs survive; so does the one named.
 export function closeOthers(s: TabState, id: string): TabState {
   if (!s.list.some(t => t.id === id)) return s;
@@ -125,10 +133,34 @@ export function insertTab(s: TabState, tab: Tab, index: number): TabState {
 // A cut-off tab name keeps its start, which is how people recognise a name,
 // and a file keeps its extension: "photos-fr…" and "a-long-na….md", never the
 // middle fragments a fixed-length tail leaves ("ph…om-trip").
-export function splitLabel(label: string): { head: string; tail: string } {
+// `keep` is how many characters of the name before the extension also stay
+// whole: tabs that start alike need their differing end to show.
+export function splitLabel(label: string, keep = 0): { head: string; tail: string } {
   if (label.length <= 12) return { head: label, tail: '' };
   const ext = label.match(/\.[A-Za-z0-9]{1,6}$/)?.[0] ?? '';
-  return { head: label.slice(0, label.length - ext.length), tail: ext };
+  const base = label.length - ext.length;
+  const cut = Math.max(0, base - keep);
+  return { head: label.slice(0, cut), tail: label.slice(cut) };
+}
+
+/// How much of each label's end must stay visible so no two cut-off tabs read
+/// the same: names that start alike ("report-001.csv", "report-002.csv") are
+/// told apart by where they first differ. Names that differ early need none.
+const HEAD_SEEN = 6;
+export function distinctKeeps(labels: string[]): number[] {
+  const bases = labels.map(l => l.replace(/\.[A-Za-z0-9]{1,6}$/, ''));
+  return labels.map((l, i) => {
+    if (l.length <= 12) return 0;
+    let shared = 0;
+    bases.forEach((b, j) => {
+      if (j === i || labels[j].length <= 12) return;
+      let k = 0;
+      while (k < b.length && k < bases[i].length && b[k] === bases[i][k]) k++;
+      shared = Math.max(shared, k);
+    });
+    if (shared < HEAD_SEEN) return 0;
+    return Math.min(bases[i].length - Math.max(0, shared - 1), 14);
+  });
 }
 
 // Labels as shown: two tabs with the same file name carry their folder too.

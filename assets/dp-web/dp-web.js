@@ -704,7 +704,10 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 /* The list of every tab: icon, name, and the digit that jumps to it. */
 .fe-tab-menu .fe-ctx-item span:not(.fe-ctx-key){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fe-tab-menu kbd{font:500 var(--fs-xs) var(--mono);color:var(--dm);padding-left:var(--sp-5)}
-.fe-tab.pinned{padding:var(--sp-2) var(--sp-3);min-width:0}
+/* A pinned tab is its icon, kept at the left edge while the strip scrolls; strip.ts sets its left. */
+.fe-tab.pinned,.fe-tab.pinned.on{padding:var(--sp-2) var(--sp-3);min-width:0;flex:none;position:sticky;z-index:1;box-shadow:var(--sp-2) 0 0 var(--side)}
+/* The strip's own colour fills the gaps around pinned tabs, so tabs scrolling under them never show in a gap. */
+.fe-tab.pinned:first-child{box-shadow:var(--sp-2) 0 0 var(--side),calc(-1 * var(--sp-3)) 0 0 var(--side)}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.is-empty{padding-top:var(--sp-2)}
 .fe-tab{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-4);min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
@@ -728,8 +731,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab:not(.on) .fe-tab-more{right:26px}
 .fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-x,.fe-tab:not(.on):not(:hover):not(:focus-within) .fe-tab-more{visibility:hidden}
 
-.fe-tab.pinned::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
-.fe-tab-ico{display:flex;flex-shrink:0}
+.fe-tab-ico{display:flex;flex-shrink:0;position:relative}
+.fe-tab.pinned .fe-tab-ico::after{content:'';position:absolute;top:-3px;right:-3px;width:5px;height:5px;border-radius:50%;background:var(--ac)}
 .fe-tab-menu{position:fixed}
 #fe.fe-file-page #fe-toolbar,#fe.fe-file-page #fe-sg-panel,#fe.fe-file-page #fe-filter-bar,#fe.fe-file-page #fe-scroll{display:none}
 #fe-fp-bar{border-bottom:1px solid var(--bd);flex-shrink:0}
@@ -1215,7 +1218,7 @@ a.fe-fm-path:hover{text-decoration:underline}
 #fe-side{position:relative;width:272px;flex-shrink:0;border-right:1px solid var(--bd);display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--side)}
 #fe-main,#fe-toolbar,#fe-fp-bar,#fe-statusbar,thead{background:var(--card)}
 #fe-tabbar,#fe-tabs{background:var(--side)}
-.fe-tab.on{color:var(--tx);background:var(--card)}
+.fe-tab.on{color:var(--tx);background:var(--card);min-width:140px;flex-shrink:0}
 #fe-table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0}
 #fe-table tbody tr{border-bottom:0}
 #fe-table tbody tr:hover{background:none}
@@ -2111,7 +2114,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-list{flex:1;overflow-y:auto;padding:var(--sp-3)}
 /* Palette tabs: one per kind of entry, each with its own colour, which the
    entries of that kind share. */
-.fe-pal-tabs{flex:none;display:flex;gap:var(--sp-1);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none}
+.fe-pal-tabs{flex:none;display:flex;flex-wrap:wrap;gap:var(--sp-1);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--bd)}
 .fe-pal-tab{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none;height:var(--ctl-md);padding:0 var(--sp-3);border:0;border-radius:var(--r-full);background:none;color:var(--mt);font:inherit;font-size:var(--fs-sm);cursor:pointer;transition:background var(--t-fast),color var(--t-fast)}
 .fe-pal-tab svg{width:1.1em;height:1.1em;color:var(--tab-c,var(--mt))}
 .fe-pal-tab i{font-style:normal;color:var(--dm);font-size:var(--fs-xs)}

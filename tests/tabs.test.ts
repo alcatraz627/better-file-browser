@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, isTabState, normalize,
-  isStale, insertTab, displayLabels, splitLabel, type RecoveryEntry,
+  isStale, insertTab, displayLabels, splitLabel, closeToRight, distinctKeeps, type RecoveryEntry,
 } from '../src/tabs';
 
 describe('tabs', () => {
@@ -135,5 +135,23 @@ describe('tabs', () => {
     expect(isStale(entries.stale, at)).toBe(true);
     expect(isStale(entries.empty, at)).toBe(true);
     expect(isStale(entries.live, at)).toBe(false);
+  });
+});
+
+describe('crowded strips', () => {
+  it('keeps the end that tells similar names apart', () => {
+    const names = ['quarterly-report-final-001.csv', 'quarterly-report-final-002.csv', 'readme-for-the-team.md'];
+    const keeps = distinctKeeps(names);
+    const shown = names.map((n, i) => { const { tail } = splitLabel(n, keeps[i]); return tail; });
+    expect(new Set(shown.slice(0, 2)).size).toBe(2);
+    expect(keeps[2]).toBe(0);
+  });
+
+  it('closes everything right of a tab but never a pinned tab', () => {
+    let s = openTab(openTab(openTab(openTab(EMPTY, '/a'), '/b'), '/c'), '/d');
+    s = togglePin(s, s.list[3].id);
+    const b = s.list.find(t => t.path === '/b')!;
+    const out = closeToRight(s, b.id);
+    expect(out.list.map(t => t.path).sort()).toEqual(['/a', '/b', '/d']);
   });
 });

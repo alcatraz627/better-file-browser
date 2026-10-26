@@ -63,5 +63,7 @@ describe('palette score', () => {
     expect(score('List', 'list')).toBeGreaterThan(score('Hidden files list', 'list'));
     expect(score('Sort by name', 'sbn')).toBeGreaterThan(0);
     expect(score('Tree', 'xyz')).toBe(0);
+    expect(score('Copy selected paths', 'sett')).toBe(0);
+    expect(score('Settings', 'sett')).toBeGreaterThan(score('Copy selected paths', 'sele'));
   });
 });

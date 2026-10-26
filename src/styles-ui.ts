@@ -288,7 +288,7 @@ button.chip:disabled{opacity:.45;cursor:default}
 .fe-pal-list{flex:1;overflow-y:auto;padding:var(--sp-3)}
 /* Palette tabs: one per kind of entry, each with its own colour, which the
    entries of that kind share. */
-.fe-pal-tabs{flex:none;display:flex;gap:var(--sp-1);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none}
+.fe-pal-tabs{flex:none;display:flex;flex-wrap:wrap;gap:var(--sp-1);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--bd)}
 .fe-pal-tab{display:inline-flex;align-items:center;gap:var(--sp-2);flex:none;height:var(--ctl-md);padding:0 var(--sp-3);border:0;border-radius:var(--r-full);background:none;color:var(--mt);font:inherit;font-size:var(--fs-sm);cursor:pointer;transition:background var(--t-fast),color var(--t-fast)}
 .fe-pal-tab svg{width:1.1em;height:1.1em;color:var(--tab-c,var(--mt))}
 .fe-pal-tab i{font-style:normal;color:var(--dm);font-size:var(--fs-xs)}
