@@ -95,6 +95,7 @@ async function start(): Promise<void> {
     text: url => fetch(url, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.text(); }),
     exists: url => fetch(url, { cache: 'no-store' }).then(r => r.ok, () => false),
     dp,
+    server: '',
   });
   // The page's own keys work everywhere on it; a field keeps its typing.
   setContext(() => {

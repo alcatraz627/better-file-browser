@@ -17,9 +17,11 @@ export interface DpIo {
    * A refusal rejects with a code: dp_conflict, dp_unavailable or dp_failed.
    */
   dp: (verb: DpVerb, slug: string, payload?: unknown) => Promise<unknown>;
+  /** Where gcc's page server is, for links to its boards: its loopback address in the extension, '' (this origin) on the web. */
+  server: string;
 }
 
-let io: DpIo = { text: url => fetchFileText(url), exists: fileExists, dp: notes.dp };
+let io: DpIo = { text: url => fetchFileText(url), exists: fileExists, dp: notes.dp, server: 'http://127.0.0.1:5106' };
 
 export const dpIo = (): DpIo => io;
 /** Replace where the page reads and sends; the web build calls this once before drawing. */

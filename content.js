@@ -12727,7 +12727,7 @@ ${t}`)) say("Note title saved");
   }
 
   // src/dp-io.ts
-  var io = { text: (url) => fetchFileText(url), exists: fileExists, dp: notes.dp };
+  var io = { text: (url) => fetchFileText(url), exists: fileExists, dp: notes.dp, server: "http://127.0.0.1:5106" };
   var dpIo = () => io;
 
   // src/dp-form.ts
@@ -13587,7 +13587,7 @@ ${t}`)) say("Note title saved");
   }
   function originFacts(o, now = Date.now()) {
     if (!o) return [];
-    const rows = [["Project", o.project, ""], ["Session", o.session, ""], ["Goal", o.goal, "goal "], ["Milestone", o.milestone, ""], ["Card", o.card, "card "]];
+    const rows = [["Project", o.project, ""], ["Session", o.session, ""], ["Goal", o.goal, "goal "], ["Milestone", o.milestone, ""], ["Card", o.board ? void 0 : o.card, "card "]];
     const out = rows.filter((r) => !!r[1]).map(([label, v, lead]) => ({ label, value: lead + v, copy: v }));
     if (o.created) {
       const at = Date.parse(o.created);
@@ -13599,17 +13599,23 @@ ${t}`)) say("Note title saved");
     }
     return out;
   }
+  function boardLinkHtml(o) {
+    if (!o?.board) return "";
+    const href = `${dpIo().server}/b/${encodeURIComponent(o.board)}${o.card ? `?card=${encodeURIComponent(o.card)}` : ""}`;
+    return `<a class="fe-dp-olink" href="${esc(href)}" target="_blank" rel="noopener" title="${o.card ? "The card this page rules on" : "The board this page belongs to"}">${esc(o.card || o.board)}</a>`;
+  }
   function headHtml(cfg, base) {
     const d = cfg.decisions?.length ?? 0, s = cfg.sections?.length ?? 0;
     const count = [d ? `${d} decision${d === 1 ? "" : "s"}` : "", s ? `${s} to review` : ""].filter(Boolean).join(", ");
-    const intro = cfg.intro || cfg.origin?.topic;
+    const topic = cfg.origin?.topic;
     return `<header class="fe-dp-head">
       <div class="fe-dp-titlebar">
-        <h1 class="fe-dp-title"${cfg.origin?.topic && cfg.intro ? ` title="${esc(cfg.origin.topic)}"` : ""}>${esc(cfg.title || "Decisions")}</h1>
+        <h1 class="fe-dp-title">${esc(cfg.title || "Decisions")}</h1>
         <button type="button" id="fe-dp-files" class="btn" data-variant="outline" data-size="sm" data-tone="accent" data-docview-files title="Show the files in this folder">${UI_ICON.list}Files</button>
       </div>
-      <p class="fe-dp-origin">${originFacts(cfg.origin).map((f) => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}" title="${esc(`${f.title ?? f.label}. Click to copy ${f.copy}`)}">${esc(f.value)}</button>`).join("")}<span class="fe-dp-count">${esc(count)}</span></p>
-      ${intro ? `<div class="fe-dp-intro">${clampHtml(renderMarkdown(intro, base), 2)}</div>` : ""}
+      ${topic ? `<p class="fe-dp-topicline"><span class="badge fe-dp-topic" data-size="sm" data-tone="quiet" title="Topic">${esc(topic)}</span></p>` : ""}
+      <p class="fe-dp-origin">${boardLinkHtml(cfg.origin)}${originFacts(cfg.origin).map((f) => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}" title="${esc(`${f.title ?? f.label}. Click to copy ${f.copy}`)}">${esc(f.value)}</button>`).join("")}<span class="fe-dp-count">${esc(count)}</span></p>
+      ${cfg.intro ? `<div class="fe-dp-intro">${clampHtml(renderMarkdown(cfg.intro, base), 2)}</div>` : ""}
     </header>
     ${sentHtml()}
     <div class="fe-dp-bar" id="fe-dp-bar">
@@ -15709,6 +15715,10 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-title{flex:1;min-width:0;margin:0;font-family:var(--font-head);font-weight:650;font-size:calc(var(--fs-xl) * 1.6);line-height:1.25;color:var(--tx)}
 .fe-dp-origin{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3);margin:0;font-size:var(--fs-sm);color:var(--dm)}
 .fe-dp-origin>*+*::before{content:'\xB7';margin-right:var(--sp-3);color:var(--dm)}
+.fe-dp-topicline{margin:0 0 var(--sp-1)}
+.fe-dp-topic{white-space:normal;text-align:left}
+.fe-dp-olink{color:var(--ac);text-decoration:none}
+.fe-dp-olink:hover{text-decoration:underline}
 .fe-dp-fact{padding:0;border:0;background:none;font:inherit;color:inherit;cursor:copy}
 .fe-dp-fact:hover{color:var(--tx);text-decoration:underline}
 .fe-dp-fact:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:var(--r-xs)}

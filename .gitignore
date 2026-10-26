@@ -3,3 +3,5 @@ node_modules/
 .claude/
 _*.claude.md
 e2e/shots/
+# Copies of real decision pages; they quote private PRs and work, and the repo is public.
+docs/dp-examples/

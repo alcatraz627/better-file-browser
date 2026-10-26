@@ -64,6 +64,7 @@ try {
   cpSync(join(homedir(), '.claude/assets/decision-pages/bfb-design-directions/listing.png'), join(full, 'a.png'));
   writeFileSync(join(full, 'config.json'), JSON.stringify({
     title: 'Walk page', storageKey: 'walk-k', accent: '#7c3aed', intro: 'Intro text.',
+    origin: { topic: 'gallery', board: 'bfb', card: 'card-42', project: '~/Code/x' },
     groups: { Look: { context: 'See https://example.com/x for more.', color: '#d97706' } },
     decisions: [
       { id: 'D1', question: 'First?', group: 'Look', context: 'Para one\nsame para\n\nPara two', images: ['a.png', '../x.png'], options: [{ code: 'a', label: 'Plain A' }, { code: 'b', label: 'Plain B', rec: true, why: 'because' }] },
@@ -97,6 +98,7 @@ try {
       grps, lookColor: getComputedStyle(look.querySelector('summary')).color, lookLink: !!look.querySelector('.fe-dp-grp-ctx a[href^="https://example.com"]'),
       pre: { font: getComputedStyle(pre).fontFamily, ws: getComputedStyle(pre).whiteSpace, text: pre.textContent },
       end: !!document.getElementById('fe-dp-endnotes'),
+      origin: { topic: document.querySelector('.fe-dp-head .fe-dp-topic')?.textContent, link: document.querySelector('.fe-dp-origin .fe-dp-olink')?.getAttribute('href'), linkText: document.querySelector('.fe-dp-origin .fe-dp-olink')?.textContent, target: document.querySelector('.fe-dp-origin .fe-dp-olink')?.target, facts: [...document.querySelectorAll('.fe-dp-origin .fe-dp-fact')].map(f => f.textContent) },
       dgrp: { d1: card('D1').querySelector('.fe-dp-dgrp')?.textContent, color: card('D1').querySelector('.fe-dp-dgrp') && getComputedStyle(card('D1').querySelector('.fe-dp-dgrp')).color, d2: !!card('D2').querySelector('.fe-dp-dgrp') },
       selBorder: getComputedStyle(card('D1').querySelector('.fe-dp-opt:has(input:checked)')).borderColor,
       progress: document.getElementById('fe-dp-progress').textContent,
@@ -113,6 +115,7 @@ try {
   check(r.lookColor === 'rgb(217, 119, 6)' && r.lookLink, `A8 a group's colour tints its heading and its context links: ${JSON.stringify([r.lookColor, r.lookLink])}`);
   check(/mono|Menlo|Courier/i.test(r.pre.font) && r.pre.ws === 'pre' && r.pre.text === 'raw  text    spaced', `A21 pre text is verbatim and monospace: ${JSON.stringify(r.pre)}`);
   check(r.end, 'A24 the Notes for Claude card is there');
+  check(r.origin.topic === 'gallery' && r.origin.link === 'http://127.0.0.1:5106/b/bfb?card=card-42' && r.origin.linkText === 'card-42' && r.origin.target === '_blank' && r.origin.facts.join() === '~/Code/x', `A7 the origin strip shows the topic badge and links the card on its board in gcc's page server: ${JSON.stringify(r.origin)}`);
   check(r.dgrp.d1 === 'Look' && r.dgrp.color === 'rgb(217, 119, 6)' && !r.dgrp.d2, `F12 a decision's group shows as a label in its group colour, and none without one: ${JSON.stringify(r.dgrp)}`);
   check(r.selBorder === 'rgb(124, 58, 237)', `A5 accent colours the selected option: ${r.selBorder}`);
   check(r.progress === '5 items · all as drafted', `B16 the progress line starts as drafted: ${r.progress}`);

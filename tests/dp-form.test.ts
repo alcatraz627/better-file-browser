@@ -72,6 +72,8 @@ describe('decision page answers', () => {
     expect(parseDpConfig('{"name":"x"}')).toBeNull();
     expect(parseDpConfig('not json')).toBeNull();
     expect(originFacts({ topic: 't', project: 'p', created: '2026' }).map(c => c.label)).toEqual(['Project', 'Asked']);
+    expect(originFacts({ board: 'b', card: 'c1' }).map(c => c.label)).toEqual([]);
+    expect(originFacts({ card: 'c1' }).map(c => c.value)).toEqual(['card c1']);
     const now = Date.parse('2026-10-26T12:00:00Z');
     expect(originFacts({ created: '2026-10-23T12:00:00Z' }, now)[0].value).toBe('asked 3 d ago');
     expect(originFacts({ created: 'last week' }, now)[0].value).toBe('asked last week');

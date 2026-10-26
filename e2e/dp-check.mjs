@@ -2,8 +2,12 @@
 // opened page by page, and each must draw one card per decision and item,
 // load every picture and mock page it names, and throw no page error. The
 // Decisions lens must list them all, which proves the host round trip.
-// Prints READY or FAIL per page, a SKIPPED line for what cannot be checked
-// yet, and the runtime. The live registry is copied, never opened in place.
+// Each page's answer must also match gcc: the string bfb shows for the page as
+// drawn (or as answered) is what gcc's own compose gives, and gcc's parse of it
+// composes back to the same string. Those two verbs only read the registry;
+// submit writes to it, so it stays a SKIPPED line.
+// Prints READY or FAIL per page and the runtime. The live registry is copied,
+// never opened in place.
 //
 //   node e2e/dp-check.mjs [slug ...]     check all pages, or the ones named
 //   node e2e/dp-check.mjs --self-test    prove a broken config and a dead host fail
@@ -11,9 +15,13 @@
 import { cpSync, readdirSync, existsSync, writeFileSync, mkdirSync, readFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { launch, shot } from './harness.mjs';
 
 const LIVE = join(homedir(), '.claude/assets/decision-pages');
+const DP = join(homedir(), '.claude/scripts/decision-page/decision-page.sh');
+const gcc = (verb, slug, input) => execFileSync('bash', [DP, verb, slug], { input, encoding: 'utf8' }).replace(/\n$/, '');
+const gccCompose = (slug, answer) => gcc('compose', slug, answer === undefined ? '' : gcc('parse', slug, answer));
 const args = process.argv.slice(2);
 const selfTest = args.includes('--self-test');
 const shots = args.includes('--shots');
@@ -72,6 +80,18 @@ try {
       if (got.cards !== want) why.push(`${got.cards} cards for ${want} decisions and items`);
       if (got.broken.length) why.push(`${got.broken.length} picture(s) did not load: ${[...new Set(got.broken)].slice(0, 4).join(', ')}`);
       if (errors.length) why.push(`page error: ${errors[0]}`);
+      if (!selfTest) {
+        let sent;
+        try { sent = JSON.parse(readFileSync(join(reg, slug, '.answer.json'), 'utf8')).answer; } catch { /* not answered yet */ }
+        try {
+          const want = gccCompose(slug, sent);
+          // The drafted answer shows first and a sent one refills the form a moment later, so give it time to settle.
+          await tab.waitForFunction(w => document.getElementById('fe-dp-answer-text')?.textContent === w, { timeout: 8000 }, want).catch(() => null);
+          const shown = await tab.evaluate(() => document.getElementById('fe-dp-answer-text')?.textContent ?? null);
+          if (shown !== want) why.push(`the answer bfb shows is not gcc's: ${JSON.stringify(shown?.slice(0, 80))} vs ${JSON.stringify(want.slice(0, 80))}`);
+          else if (gccCompose(slug, shown) !== shown) why.push("gcc's parse of the shown answer does not compose back to it");
+        } catch (e) { why.push(`gcc compose or parse failed: ${String(e.stderr || e.message).trim().slice(0, 120)}`); }
+      }
       if (shots) await shot(tab, `dp-check-${slug}`);
       lines.push(`${why.length ? 'FAIL ' : 'READY'} ${slug}: ${why.length ? why.join('; ') : `${got.cards} cards${got.frames ? `, ${got.frames} live mock(s)` : ''}`}`);
     } else lines.push(`FAIL  ${slug}: ${why.join('; ')}`);
@@ -90,7 +110,7 @@ try {
     lines.push(`${brokenFailed && goodReady ? 'READY' : 'FAIL '} self-test: a broken config fails and a good one passes`);
     failed = (deadFails ? 0 : 1) + (brokenFailed && goodReady ? 0 : 1);
   }
-  lines.push('SKIPPED answer round trip (compose, submit, parse): gcc has not shipped those verbs on decision-page.sh yet');
+  lines.push('SKIPPED submit: it writes into the live registry; e2e/dp-answer-walk.mjs covers it over a scratch one');
 } finally {
   await h.close();
   const secs = ((Date.now() - t0) / 1000).toFixed(1);

@@ -43,11 +43,12 @@ export function parseDpConfig(text: string): DpConfig | null {
 /**
  * Where a page came from, as the short facts of one line under its title:
  * project, session, goal, milestone, card, then how long ago it was asked.
- * The topic is left out; it reads as the intro when the page has none.
+ * The topic and a board are drawn apart, as a badge and a link; a card on a
+ * board rides in that link, so it is only a fact here when there is no board.
  */
 export function originFacts(o: DpOrigin | undefined, now = Date.now()): { label: string; value: string; copy: string; title?: string }[] {
   if (!o) return [];
-  const rows: [string, string | undefined, string][] = [['Project', o.project, ''], ['Session', o.session, ''], ['Goal', o.goal, 'goal '], ['Milestone', o.milestone, ''], ['Card', o.card, 'card ']];
+  const rows: [string, string | undefined, string][] = [['Project', o.project, ''], ['Session', o.session, ''], ['Goal', o.goal, 'goal '], ['Milestone', o.milestone, ''], ['Card', o.board ? undefined : o.card, 'card ']];
   const out: { label: string; value: string; copy: string; title?: string }[] = rows.filter((r): r is [string, string, string] => !!r[1]).map(([label, v, lead]) => ({ label, value: lead + v, copy: v }));
   if (o.created) {
     const at = Date.parse(o.created);
@@ -60,17 +61,25 @@ export function originFacts(o: DpOrigin | undefined, now = Date.now()): { label:
   return out;
 }
 
+/** The board, or the card on it, that the page rules on, as a link into gcc's board view. */
+function boardLinkHtml(o: DpOrigin | undefined): string {
+  if (!o?.board) return '';
+  const href = `${dpIo().server}/b/${encodeURIComponent(o.board)}${o.card ? `?card=${encodeURIComponent(o.card)}` : ''}`;
+  return `<a class="fe-dp-olink" href="${esc(href)}" target="_blank" rel="noopener" title="${o.card ? 'The card this page rules on' : 'The board this page belongs to'}">${esc(o.card || o.board)}</a>`;
+}
+
 function headHtml(cfg: DpConfig, base: string): string {
   const d = cfg.decisions?.length ?? 0, s = cfg.sections?.length ?? 0;
   const count = [d ? `${d} decision${d === 1 ? '' : 's'}` : '', s ? `${s} to review` : ''].filter(Boolean).join(', ');
-  const intro = cfg.intro || cfg.origin?.topic;
+  const topic = cfg.origin?.topic;
   return `<header class="fe-dp-head">
       <div class="fe-dp-titlebar">
-        <h1 class="fe-dp-title"${cfg.origin?.topic && cfg.intro ? ` title="${esc(cfg.origin.topic)}"` : ''}>${esc(cfg.title || 'Decisions')}</h1>
+        <h1 class="fe-dp-title">${esc(cfg.title || 'Decisions')}</h1>
         <button type="button" id="fe-dp-files" class="btn" data-variant="outline" data-size="sm" data-tone="accent" data-docview-files title="Show the files in this folder">${UI_ICON.list}Files</button>
       </div>
-      <p class="fe-dp-origin">${originFacts(cfg.origin).map(f => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}" title="${esc(`${f.title ?? f.label}. Click to copy ${f.copy}`)}">${esc(f.value)}</button>`).join('')}<span class="fe-dp-count">${esc(count)}</span></p>
-      ${intro ? `<div class="fe-dp-intro">${clampHtml(renderMarkdown(intro, base), 2)}</div>` : ''}
+      ${topic ? `<p class="fe-dp-topicline"><span class="badge fe-dp-topic" data-size="sm" data-tone="quiet" title="Topic">${esc(topic)}</span></p>` : ''}
+      <p class="fe-dp-origin">${boardLinkHtml(cfg.origin)}${originFacts(cfg.origin).map(f => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}" title="${esc(`${f.title ?? f.label}. Click to copy ${f.copy}`)}">${esc(f.value)}</button>`).join('')}<span class="fe-dp-count">${esc(count)}</span></p>
+      ${cfg.intro ? `<div class="fe-dp-intro">${clampHtml(renderMarkdown(cfg.intro, base), 2)}</div>` : ''}
     </header>
     ${sentHtml()}
     <div class="fe-dp-bar" id="fe-dp-bar">

@@ -61,14 +61,17 @@ gcc and is described in `~/.claude/features/decision-pages.md`.
 
 ### What the owner sees
 
-- A head with the title, where the page came from (project, session, goal,
-  how long ago; click a fact to copy it), and the intro, folded after two lines.
+- A head with the title, the topic as a badge, where the page came from (a
+  link to its board or card in gcc's page server, then project, session, goal
+  and how long ago; click a fact to copy it), and the intro, folded after two
+  lines.
 - A sticky bar with a meter of changed, noted and as-drafted items, Notes,
   Marks, Flagged only, Reset, and on the right **Answer**, **Copy** and
   **Submit**.
 - Decision cards whose options are rows with a number key, the recommended one
   tagged, and pictures as tiles: up to three in a row, four as two rows of two,
-  never narrower than 220px. Section cards have an Agree switch, a priority,
+  never narrower than 220px. A decision with a `group` shows it as a small
+  label in the group's colour. Section cards have an Agree switch, a priority,
   key-value slots and pictures.
 - A rail on the right listing every item with its current pick. It shows when
   the pane is 720px wide or more.
@@ -189,7 +192,7 @@ whose rows carry a state mark: 🔴 needs you, 🟠 waiting, 🟢 ready, 💤 pa
 | `node e2e/dp-lens-walk.mjs` | The lens, including reach |
 | `node e2e/dp-web-walk.mjs` | The web build in a plain browser against a stand-in for gcc's server |
 | `node e2e/directions-walk.mjs` | The directions doc view |
-| `node e2e/dp-check.mjs` | Every real page in gcc's registry renders |
+| `node e2e/dp-check.mjs` | Every real page in gcc's registry renders, and its answer matches gcc's compose and parse |
 
 Each walk takes `BFB_THEME=light` for the light theme. Walks copy pages into a
 scratch registry and a stand-in for gcc's command; they never touch the live

@@ -22,7 +22,7 @@ const check = (ok, msg) => { results.push(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if 
 const scratch = mkdtempSync(join(tmpdir(), 'bfb-dpweb-'));
 const SLUG = 'web-walk';
 const CFG = {
-  title: 'Web walk page', copyHeader: 'web rulings', origin: { project: 'bfb', session: 'walker' },
+  title: 'Web walk page', copyHeader: 'web rulings', origin: { project: 'bfb', session: 'walker', topic: 'layout', board: 'bfb', card: 'c7' },
   intro: 'Answer from **any** device on the tailnet.',
   decisions: [
     { id: 'D1', question: 'Which layout?', none: true, options: [{ code: 'a', label: 'Grid', rec: true, images: ['grid.svg'] }, { code: 'b', label: 'List', images: ['list.svg'] }] },
@@ -137,6 +137,8 @@ try {
   // G1 a way back to every page, and B12 ? shows the page's keys.
   const nav = await tab.evaluate(() => ({ href: document.getElementById('fe-dp-web-all')?.getAttribute('href'), text: document.getElementById('fe-dp-web-all')?.textContent }));
   check(nav.href === '/dp/' && /All decisions/.test(nav.text ?? ''), `G1 an All decisions link goes back to /dp/, which answers on both listeners: ${JSON.stringify(nav)}`);
+  const orig = await tab.evaluate(() => ({ topic: document.querySelector('.fe-dp-topic')?.textContent, link: document.querySelector('.fe-dp-olink')?.getAttribute('href') }));
+  check(orig.topic === 'layout' && orig.link === '/b/bfb?card=c7', `A7 the topic badge shows and the card link stays on this server: ${JSON.stringify(orig)}`);
   await tab.evaluate(() => document.activeElement?.blur());
   await tab.keyboard.press('?');
   const keysCard = await tab.evaluate(() => {
