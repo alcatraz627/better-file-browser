@@ -14,9 +14,9 @@ import { icoFile } from './icons';
 import { llmAvailability, llmModels, llmQuery, llmAttach, llmRunning, llmOrphans, LLM_ERROR_TEXT, type AskJob, type LlmCallbacks } from './llm';
 import { addTurn, endedTurn, allChats, chatsFor, chatsUnder, deleteChat, turnMeta, withHistory, type AskChat, type AskTurn } from './ask-history';
 import { addPaletteSource, bind } from './commands';
-import { closeOpenFence, isImageName, quoteMarkdown, quoteTargets, resolveMention, secondOpinion, sendQuote, splitThinking, takeQuote, type ModelOpt } from './ask-quote';
+import { bareLabel, closeOpenFence, isImageName, quoteMarkdown, quoteTargets, resolveMention, secondOpinion, sendQuote, splitThinking, takeQuote, type ModelOpt } from './ask-quote';
 import { openLayer, type Layer } from './layer';
-import { textPref } from './storage';
+import { jsonPref, textPref } from './storage';
 import { UI_ICON } from './control-icons';
 import { checkHtml, ddHtml, upgradeControls, type DropdownEl, type Opt } from './controls';
 import { renderMarkdown } from './renderers';
@@ -120,6 +120,10 @@ function initSearch(app: App): void {
 // ── Ask ─────────────────────────────────────────────────────────────
 
 const askModelPref = textPref('bfb-ask-model-v1');
+// Pages where "New chat" was pressed and nothing asked since: coming back to one
+// starts empty instead of reopening the chat that was put away. Lasts the tab.
+const freshPref = jsonPref<string[]>('bfb-ask-fresh-v1', [], Array.isArray, 'tab');
+const markFresh = (key: string, on: boolean) => { const l = freshPref.get().filter(k => k !== key); freshPref.set(on ? [...l, key].slice(-50) : l); };
 const when = (at: number) => new Date(at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 function initAsk(app: App): void {
@@ -135,13 +139,13 @@ function initAsk(app: App): void {
   const what = app.fileMode ? 'this file' : 'this folder';
   box.innerHTML = `
     <div class="fe-ask-top">
-      <span class="fe-ask-model"><span class="dot"></span>${ddHtml('fe-ask-model', [{ value: '', label: 'Default' }], "Which model answers. Local models run on this machine; Gemini runs on Google's servers.")}</span>
+      <span class="fe-ask-model"><span class="dot"></span>${ddHtml('fe-ask-model', [{ value: '', label: 'Default model' }], "Which model answers. Models on this machine stay here; remote ones (Gemini) run on Google's servers.")}</span>
       <span class="fe-ask-sp"></span>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-hist-btn" title="Earlier chats about ${app.fileMode ? what : 'this folder and what is in it'}" aria-expanded="false">${UI_ICON.clock}<span class="badge fe-ask-n" data-size="sm" data-tone="solid" id="fe-ask-hist-n"></span></button>
       <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
-    <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span></div>
+    <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span><button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-ask-recheck" title="Check the model again">Retry</button></div>
     <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? 'the text' : 'the listing'} to Google</span></p>
     <div id="fe-ask-thread"></div>
     <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join('')}</div></div>
@@ -167,6 +171,8 @@ function initAsk(app: App): void {
   const histN = el('fe-ask-hist-n');
   const emptyBox = el('fe-ask-empty');
   const chipDot = box.querySelector<HTMLElement>('.fe-ask-model .dot')!;
+  const recheck = el<HTMLButtonElement>('fe-ask-recheck');
+  recheck.addEventListener('click', () => void checkModel());
   const syncEmpty = () => { emptyBox.hidden = !!thread.querySelector('.fe-ask-turn'); };
   // The box grows with what is typed, up to a few lines, then scrolls.
   const grow = () => { q.style.height = 'auto'; q.style.height = Math.min(q.scrollHeight, 140) + 'px'; };
@@ -185,32 +191,43 @@ function initAsk(app: App): void {
   let defaultName = '';
   const modelName = () => model().replace(/^gemini:/, '') || defaultName || 'default';
   // A cloud model answers even when the local server is down.
+  // Why Ask is off, said on the controls themselves, since a disabled button gives no hint of its own.
+  let reason = '';
   const syncUsable = () => {
     const usable = localReady || isCloud();
     q.disabled = go.disabled = !usable;
-    box!.querySelectorAll<HTMLButtonElement>('.fe-ask-chip').forEach(b => { b.disabled = !usable; });
+    const why = usable ? '' : reason;
+    go.title = why || (cancel ? 'Stop' : 'Ask (Enter)');
+    q.placeholder = why ? 'Ask is off until the model runs' : `Ask about ${what}`;
+    box!.querySelectorAll<HTMLButtonElement>('.fe-ask-chip').forEach(b => { b.disabled = !usable; b.title = why; });
     cloud.hidden = !isCloud();
   };
 
   async function checkModel(): Promise<void> {
     checked = true;
     state.textContent = 'Checking the local model…';
+    recheck.hidden = true;
     const [a, models] = await Promise.all([llmAvailability(), llmModels()]);
     const kind = a.kind === 'ready' ? (a.cold ? 'cold' : 'ready') : a.kind;
     statusRow.className = `fe-ask-status ${kind}`;
     statusRow.hidden = a.kind === 'ready';
+    recheck.hidden = a.kind === 'ready';
     state.textContent = a.kind === 'ready' ? '' : a.kind === 'down' ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+    reason = state.textContent;
     chipDot.className = `dot ${kind}`;
     chipDot.title = a.kind === 'ready' ? (a.cold ? 'Loads on the first question' : 'Ready') : state.textContent;
     localReady = a.kind === 'ready';
     const saved = askModelPref.get();
+    // The first row names the model lm answers with, so no other row has to
+    // claim "default": Gemini's own pick is tagged as Gemini's.
+    const def = a.kind === 'unavailable' ? '' : (a.status.default_model ?? '').replace(/:latest$/, '');
     const opts: Opt[] = [
-      { value: '', label: a.kind === 'ready' ? a.status.default_model.replace(/:latest$/, '') : 'Default' },
+      { value: '', label: def ? `${def} (default)` : 'Default model', ...(/^gemini/i.test(def) ? { hint: 'remote' } : {}) },
       ...models.tiers.map(t => ({ value: t.alias, label: t.alias, hint: t.model, group: 'On this machine' })),
-      ...models.gemini.map(g => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? ' (default)' : ''), group: "Gemini, on Google's servers" })),
+      ...models.gemini.map(g => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? ' (Gemini default)' : ''), hint: 'remote', group: "Remote: Gemini, on Google's servers" })),
     ];
     pick.setOptions(opts);
-    defaultName = a.kind === 'ready' ? opts[0].label ?? '' : '';
+    defaultName = a.kind === 'ready' ? def : '';
     pick.value = opts.some(o => o.value === saved) ? saved : '';
     syncUsable();
   }
@@ -264,7 +281,7 @@ function initAsk(app: App): void {
   const below = (subject: string) => subject === key ? '' : subject.slice(key.length).replace(/^\//, '');
   const syncHistN = () => { const n = listed().length; histN.textContent = n ? String(n) : ''; };
   const clearThread = () => thread.querySelectorAll('.fe-ask-turn').forEach(t => t.remove());
-  const newChat = () => { cancel?.(); chatId = ''; turns = []; clearThread(); syncEmpty(); q.focus(); };
+  const newChat = () => { cancel?.(); chatId = ''; turns = []; clearThread(); syncEmpty(); markFresh(key, true); q.focus(); };
   const openChat = (c: AskChat) => {
     cancel?.();
     chatId = c.id; turns = c.turns.slice();
@@ -348,7 +365,7 @@ function initAsk(app: App): void {
     let full = '';
     let frame = 0;
     go.classList.add('stop'); go.title = 'Stop'; go.setAttribute('aria-label', 'Stop');
-    const done = () => { cancel = null; cancelAnimationFrame(frame); go.classList.remove('stop'); go.title = 'Ask (Enter)'; go.setAttribute('aria-label', 'Ask'); };
+    const done = () => { cancel = null; cancelAnimationFrame(frame); go.classList.remove('stop'); syncUsable(); go.setAttribute('aria-label', 'Ask'); };
     // Stopping, a new chat or opening another chat all end the answer here:
     // the button returns to Ask and what arrived is kept, marked as stopped.
     let over = false;
@@ -361,6 +378,7 @@ function initAsk(app: App): void {
       meta.textContent = turnMeta(t);
       save(t);
     };
+    markFresh(key, false);
     const stop = begin(
       {
         // Reading an image takes a while; each one shows as a step until the answer starts.
@@ -499,7 +517,7 @@ function initAsk(app: App): void {
     const opts = modelOpts().filter(o => o.value);
     menuOf(anchor, 'Ask another model to check this', opts.map(o => ({ label: o.label, icon: o.value.startsWith('gemini:') ? UI_ICON.info : UI_ICON.ai })), i => {
       const o = opts[i];
-      const label = o.label.replace(/ \(default\)$/, '');
+      const label = bareLabel(o.label);
       void ask('qa', secondOpinion(asked.question ?? asked.shown ?? '', answer), { model: o.value, shown: `Second opinion from ${label}`, via: `Second opinion from ${label}` });
     });
   };
@@ -596,7 +614,12 @@ function initAsk(app: App): void {
     q.focus(); q.setSelectionRange(q.value.length, q.value.length);
   }, 0);
   // File answers that finished while no page watched, then pick up one still running here.
-  void settleOrphans().then(resumeRunning);
+  // A page left and come back to shows the chat it had, unless it was put away with New chat.
+  void settleOrphans().then(resumeRunning).then(() => {
+    if (chatId || askHash || landed || freshPref.get().includes(key)) return;
+    const last = chatsFor(key)[0];
+    if (last) openChat(last);
+  });
   document.addEventListener('bfb-lens', e => {
     if ((e as CustomEvent).detail === 'ask' && !checked) void checkModel();
   });

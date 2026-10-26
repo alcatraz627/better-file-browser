@@ -167,6 +167,7 @@
 .notice[data-tone="danger"]{color:var(--tone-danger)}
 .notice[data-tone="warn"]{color:var(--tone-warn)}
 .notice[data-tone="ok"]{color:var(--tone-ok)}
+#fe-conn{flex:none;border-bottom:1px solid var(--bd);background:var(--s1)}
 /* Resize handle (docs/system/resize.md). Class rz, set by resizable(). A
    thin hit area whose 2px accent line grows in on hover, drag or focus, the
    sidebar's look everywhere. data-axis="xy" is a corner grip, which keeps
@@ -1029,6 +1030,7 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
 #fe-ql-ai-chip.ready .dot{background:var(--green)}
 #fe-ql-ai-chip.cold .dot{background:var(--gold)}
 #fe-ql-ai-chip.down .dot{background:var(--danger)}
+#fe-ql-ai-chip.down{white-space:normal;line-height:1.4}
 #fe-ql-ai-q{flex:1;min-width:140px}
 
 #fe-ql-ai-q:disabled{opacity:.45}
@@ -1036,7 +1038,10 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
 #fe-ql-ai-out{border-bottom:1px solid var(--bd);max-height:42%;overflow-y:auto;flex-shrink:0;background:var(--s1)}
 #fe-ql-ai-out-body{padding:var(--sp-4) var(--sp-6) var(--sp-2);font-size:var(--fs-md);line-height:1.6;white-space:pre-wrap}
 #fe-ql-ai-out-body .fe-md{padding:0;white-space:normal}
-#fe-ql-ai-out-meta{padding:var(--sp-1) var(--sp-6) var(--sp-4);font-size:var(--fs-xs);color:var(--dm)}
+#fe-ql-ai-out-q{padding:var(--sp-4) var(--sp-6) 0;font-size:var(--fs-sm);font-weight:600;color:var(--mt)}
+#fe-ql-ai-out-q:empty{display:none}
+#fe-ql-ai-out-foot{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-1) var(--sp-6) var(--sp-4)}
+#fe-ql-ai-out-meta{flex:1;min-width:0;font-size:var(--fs-xs);color:var(--dm)}
 .fe-ql-center{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:var(--sp-4)}
 .fe-ql-imgwrap{display:flex;flex-direction:column;height:100%}
 .fe-ql-imgbar{border-bottom:1px solid var(--bd);background:var(--s2);flex-shrink:0;flex-wrap:wrap}

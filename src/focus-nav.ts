@@ -5,7 +5,7 @@
 import type { App } from './app';
 import { KEYMAP, type Scope } from './keymap';
 import { bind, listenForKeys, setContext, openPalette, paletteOpen, runCommand, addPaletteSource } from './commands';
-import { isPreviewOpen, openPreview, noteAction } from './preview';
+import { isPreviewOpen, openPreview, noteAction, askInPreview } from './preview';
 import { raise, rovingFocus } from './layer';
 import { declareArea, areaOf, areaNamed, cycleArea, allRoots } from './areas';
 import { setTooltipKeys } from './tooltip';
@@ -274,7 +274,7 @@ export function initFocusNav(app: App): void {
   const pv = () => isPreviewOpen();
   bind('pv-dock', click('fe-ql-dock'), pv);
   bind('pv-copy', click('fe-ql-copy'), pv);
-  bind('pv-ask', () => document.getElementById('fe-ql-ai-q')?.focus(), () => pv() && visible(document.getElementById('fe-ql-ai-q')));
+  bind('pv-ask', () => { askInPreview(); }, () => pv() && visible(document.getElementById('fe-ql-ai-btn')));
   bind('fp-toc', click('fe-fp-toc'), () => app.fileMode && visible(document.getElementById('fe-fp-toc')));
   bind('fp-width', click('fe-fp-column'), () => app.fileMode && visible(document.getElementById('fe-fp-column')));
 

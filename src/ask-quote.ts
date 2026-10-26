@@ -59,6 +59,11 @@ export function takeQuote(subject: string, now = Date.now()): QuoteHandoff | nul
   return now - h.at <= HANDOFF_TTL ? h : null;
 }
 
+/** The tag the picker puts after the Gemini lane's own default model. */
+const GEMINI_DEFAULT = /\((Gemini )?default\)$/;
+/** A model's label without its default tag, for naming it in an answer. */
+export const bareLabel = (label: string) => label.replace(/ \((Gemini )?default\)$/, '');
+
 /** A model the picker offers, as Ask's dropdown holds it. */
 export interface ModelOpt { value: string; label: string }
 
@@ -72,8 +77,8 @@ export function resolveMention(text: string, opts: ModelOpt[]): { model: string;
   const gem = opts.filter(o => o.value.startsWith('gemini:'));
   const hit = opts.find(o => o.value && o.value.toLowerCase() === want)
     ?? gem.find(o => o.value.slice(7).toLowerCase() === want)
-    ?? (want === 'gemini' ? gem.find(o => /\(default\)/.test(o.label)) ?? gem[0] : undefined);
-  return hit ? { model: hit.value, label: hit.label.replace(/ \(default\)$/, ''), question: m[2] } : null;
+    ?? (want === 'gemini' ? gem.find(o => GEMINI_DEFAULT.test(o.label)) ?? gem[0] : undefined);
+  return hit ? { model: hit.value, label: bareLabel(hit.label), question: m[2] } : null;
 }
 
 /** What a second model is asked when it checks another model's answer. */

@@ -9,7 +9,7 @@ import { esc } from './utils';
 import { icoCustom, RULE_GLYPHS } from './icons';
 import { viewPref, palettePref, exportAll, importAll, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
 import { DEFAULT_COMMANDS } from './open-with';
-import { llmAvailability, llmWarm, llmModels } from './llm';
+import { llmAvailability, llmWarm, llmModels, LLM_ERROR_TEXT } from './llm';
 import { mountDialog } from './dialog';
 import { openLayer, type Layer } from './layer';
 import { wireKeyboardMap } from './help';
@@ -171,7 +171,8 @@ export function initSettingsUi(app: App): void {
     sub.textContent = ''; grid.innerHTML = ''; hint.innerHTML = '';
     warm.disabled = true;
     const kv = (k: string, val: string) => `<span class="k">${esc(k)}</span><span class="v">${esc(val)}</span>`;
-    llmAvailability().then((av: LlmAvailability) => {
+    const avail = llmAvailability();
+    avail.then((av: LlmAvailability) => {
       if (av.kind === 'unavailable') {
         head.classList.add('off');
         state.textContent = 'Not set up';
@@ -183,7 +184,7 @@ export function initSettingsUi(app: App): void {
       const s = av.status;
       head.classList.add(av.kind === 'down' ? 'down' : (av.cold ? 'cold' : 'ready'));
       state.textContent = av.kind === 'down' ? 'Server down' : av.cold ? 'Ready, cold' : 'Ready';
-      sub.textContent = av.kind === 'down' ? 'Start Ollama, then check again' : `${settings.aiModel || s.default_model} · ${av.cold ? 'first reply loads it' : 'replies at once'}`;
+      sub.textContent = av.kind === 'down' ? LLM_ERROR_TEXT.server_down : `${settings.aiModel || s.default_model} · ${av.cold ? 'first reply loads it' : 'replies at once'}`;
       grid.innerHTML = kv('Server', `${s.server}${s.host ? ' · ' + s.host : ''}`) + (s.toolkit_version ? kv('Toolkit', `lm ${s.toolkit_version}`) : '');
       const resident = new Set(s.resident_models ?? []);
       aiModel.setOptions((s.available_models ?? []).map(m => ({ value: m, label: m, icon: UI_ICON.bot,
@@ -193,13 +194,20 @@ export function initSettingsUi(app: App): void {
       warm.disabled = av.kind !== 'ready';
     });
     const models = el('fe-st-ai-models');
-    llmModels().then(({ tiers, gemini }) => {
-      const rowHtml = (icon: string, name: string, model: string, where: string, star = false) =>
-        `<div class="fe-ai-m">${icon}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${star ? '<span class="fe-ai-def">default</span>' : ''}<span class="fe-ai-where${where === 'Google' ? ' cloud' : ''}">${where}</span></div>`;
+    // The row marked default is the model lm itself answers with. Remote rows are
+    // the ones that send the question and the file off this machine.
+    Promise.all([avail, llmModels()]).then(([av, { tiers, gemini }]) => {
+      const def = av.kind === 'unavailable' ? '' : (av.status.default_model ?? '').replace(/:latest$/, '');
+      const isDef = (t: { alias: string; model: string }) => !!def && [t.alias, t.model].some(x => x.replace(/:latest$/, '') === def);
+      const rowHtml = (icon: string, name: string, model: string, remote: boolean, badge = '', badgeTip = '') =>
+        `<div class="fe-ai-m">${icon}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ''}<span class="fe-ai-where${remote ? ' cloud' : ''}" title="${remote ? 'Sent to Google' : 'Stays on this Mac'}">${remote ? 'Remote' : 'This Mac'}</span></div>`;
+      // A default that no listed alias names still shows, under its own name.
+      const lead = def && !tiers.some(isDef) ? rowHtml(UI_ICON.bot, def, '', /^gemini/i.test(def), 'default', 'The model lm answers with') : '';
       models.innerHTML = tiers.length || gemini.length
-        ? tiers.map(t => rowHtml(UI_ICON.bot, t.alias, t.model, 'This Mac')).join('')
-          + gemini.map(g => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, 'Gemini '), g.name, 'Google', g.default)).join('')
-          + `<p class="fe-set-note">Google models send the question and the file to Google.</p>`
+        ? lead
+          + tiers.map(t => rowHtml(UI_ICON.bot, t.alias, t.model, false, isDef(t) ? 'default' : '', 'The model lm answers with')).join('')
+          + gemini.map(g => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, 'Gemini '), g.name, true, g.default ? 'Gemini default' : '', 'Used when you ask Gemini without naming a model')).join('')
+          + `<p class="fe-set-note">Remote models send the question and the file to Google.</p>`
         : '<p class="fe-set-note">No model list from lm.</p>';
     });
   }
