@@ -89,10 +89,14 @@ export function initDpLens(box: HTMLElement, go: (path: string) => void): void {
         <div class="fe-grp-body">${b.rows.map(rowHtml).join('')}</div>
       </details>`).join('');
   };
-  const load = () => notes.dpPages().then(rows => { all = rows; paint(); }).catch(err => {
+  // Only the newest read counts: one begun before an answer was sent must not
+  // put the page back under Waiting when it lands.
+  let seq = 0;
+  const load = () => { const mine = ++seq; return notes.dpPages().then(rows => { if (mine === seq) { all = rows; paint(); } }).catch(err => {
+    if (mine !== seq) return;
     top.hidden = true;
     rowsBox.innerHTML = emptyHtml('failed', 'Decision pages could not be listed', { hint: errorText(err), actions: [{ a: 'retry', label: 'Try again', title: 'List the decision pages again' }] });
-  });
+  }); };
   input.addEventListener('input', () => { q = input.value; paint(); });
   rowsBox.addEventListener('toggle', e => {
     const d = e.target as HTMLDetailsElement;
@@ -111,6 +115,17 @@ export function initDpLens(box: HTMLElement, go: (path: string) => void): void {
     title: r.title ?? r.slug, sub: `${BANDS.find(x => x.state === r.state)!.label} · ${ago(r.mtime)}`, group: 'Decisions',
     icon: UI_ICON.opinion, run: () => go(r.path + '/'),
   }))));
+  // An answer sent from the page: its row moves to Answered at once, and the
+  // registry is read again to confirm.
+  document.addEventListener('bfb-dp-answered', e => {
+    const slug = (e as CustomEvent).detail as string;
+    const row = all.find(r => r.slug === slug);
+    if (!row) return;
+    seq++;
+    row.state = 'answered'; row.answered = Date.now() / 1000; row.seen = true;
+    paint();
+    if (timer) void load();
+  });
   // Poll only while the lens is open and the tab is in front.
   document.addEventListener('bfb-lens', e => {
     const on = (e as CustomEvent).detail === 'decisions';

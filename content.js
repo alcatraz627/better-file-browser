@@ -4791,7 +4791,7 @@ Now: ${question}` : question;
     history.replaceState(null, "", hash);
   }
 
-  // node_modules/yaml/browser/dist/nodes/identity.js
+  // ../../../node_modules/yaml/browser/dist/nodes/identity.js
   var ALIAS = Symbol.for("yaml.alias");
   var DOC = Symbol.for("yaml.document");
   var MAP = Symbol.for("yaml.map");
@@ -4827,7 +4827,7 @@ Now: ${question}` : question;
   }
   var hasAnchor = (node) => (isScalar(node) || isCollection(node)) && !!node.anchor;
 
-  // node_modules/yaml/browser/dist/visit.js
+  // ../../../node_modules/yaml/browser/dist/visit.js
   var BREAK = Symbol("break visit");
   var SKIP = Symbol("skip children");
   var REMOVE = Symbol("remove node");
@@ -4977,7 +4977,7 @@ Now: ${question}` : question;
     }
   }
 
-  // node_modules/yaml/browser/dist/doc/directives.js
+  // ../../../node_modules/yaml/browser/dist/doc/directives.js
   var escapeChars = {
     "!": "%21",
     ",": "%2C",
@@ -5140,7 +5140,7 @@ Now: ${question}` : question;
   Directives.defaultYaml = { explicit: false, version: "1.2" };
   Directives.defaultTags = { "!!": "tag:yaml.org,2002:" };
 
-  // node_modules/yaml/browser/dist/doc/anchors.js
+  // ../../../node_modules/yaml/browser/dist/doc/anchors.js
   function anchorIsValid(anchor) {
     if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
       const sa = JSON.stringify(anchor);
@@ -5200,7 +5200,7 @@ Now: ${question}` : question;
     };
   }
 
-  // node_modules/yaml/browser/dist/doc/applyReviver.js
+  // ../../../node_modules/yaml/browser/dist/doc/applyReviver.js
   function applyReviver(reviver, obj, key, val) {
     if (val && typeof val === "object") {
       if (Array.isArray(val)) {
@@ -5244,7 +5244,7 @@ Now: ${question}` : question;
     return reviver.call(obj, key, val);
   }
 
-  // node_modules/yaml/browser/dist/nodes/toJS.js
+  // ../../../node_modules/yaml/browser/dist/nodes/toJS.js
   function toJS(value, arg, ctx) {
     if (Array.isArray(value))
       return value.map((v, i3) => toJS(v, String(i3), ctx));
@@ -5267,7 +5267,7 @@ Now: ${question}` : question;
     return value;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Node.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Node.js
   var NodeBase = class {
     constructor(type) {
       Object.defineProperty(this, NODE_TYPE, { value: type });
@@ -5299,7 +5299,7 @@ Now: ${question}` : question;
     }
   };
 
-  // node_modules/yaml/browser/dist/nodes/Alias.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Alias.js
   var Alias = class extends NodeBase {
     constructor(source) {
       super(ALIAS);
@@ -5390,7 +5390,7 @@ Now: ${question}` : question;
     return 1;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Scalar.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Scalar.js
   var isScalarValue = (value) => !value || typeof value !== "function" && typeof value !== "object";
   var Scalar = class extends NodeBase {
     constructor(value) {
@@ -5410,7 +5410,7 @@ Now: ${question}` : question;
   Scalar.QUOTE_DOUBLE = "QUOTE_DOUBLE";
   Scalar.QUOTE_SINGLE = "QUOTE_SINGLE";
 
-  // node_modules/yaml/browser/dist/doc/createNode.js
+  // ../../../node_modules/yaml/browser/dist/doc/createNode.js
   var defaultTagPrefix = "tag:yaml.org,2002:";
   function findTagObject(value, tagName, tags) {
     if (tagName) {
@@ -5477,7 +5477,7 @@ Now: ${question}` : question;
     return node;
   }
 
-  // node_modules/yaml/browser/dist/nodes/Collection.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Collection.js
   function collectionFromPath(schema4, path, value) {
     let v = value;
     for (let i3 = path.length - 1; i3 >= 0; --i3) {
@@ -5609,7 +5609,7 @@ Now: ${question}` : question;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyComment.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyComment.js
   var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
   function indentComment(comment, indent) {
     if (/^\n+$/.test(comment))
@@ -5618,7 +5618,7 @@ Now: ${question}` : question;
   }
   var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
 
-  // node_modules/yaml/browser/dist/stringify/foldFlowLines.js
+  // ../../../node_modules/yaml/browser/dist/stringify/foldFlowLines.js
   var FOLD_FLOW = "flow";
   var FOLD_BLOCK = "block";
   var FOLD_QUOTED = "quoted";
@@ -5745,7 +5745,7 @@ ${indent}${text.slice(fold + 1, end2)}`;
     return end;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyString.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyString.js
   var getFoldOptions = (ctx, isBlock2) => ({
     indentAtStart: isBlock2 ? ctx.indent.length : ctx.indentAtStart,
     lineWidth: ctx.options.lineWidth,
@@ -6020,7 +6020,7 @@ ${indent}`);
     return res;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringify.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringify.js
   function createStringifyContext(doc, options) {
     const opt = Object.assign({
       blockQuote: true,
@@ -6133,7 +6133,7 @@ ${indent}`);
 ${ctx.indent}${str}`;
   }
 
-  // node_modules/yaml/browser/dist/stringify/stringifyPair.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyPair.js
   function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
     const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
     let keyComment = isNode(key) && key.comment || null;
@@ -6256,7 +6256,7 @@ ${ctx.indent}`;
     return str;
   }
 
-  // node_modules/yaml/browser/dist/log.js
+  // ../../../node_modules/yaml/browser/dist/log.js
   function warn(logLevel, warning) {
     if (logLevel === "debug" || logLevel === "warn") {
       if (typeof process !== "undefined" && process.emitWarning)
@@ -6266,7 +6266,7 @@ ${ctx.indent}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/merge.js
   var MERGE_KEY = "<<";
   var merge = {
     identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
@@ -6313,7 +6313,7 @@ ${ctx.indent}`;
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
+  // ../../../node_modules/yaml/browser/dist/nodes/addPairToJSMap.js
   function addPairToJSMap(ctx, map2, { key, value }) {
     if (isNode(key) && key.addToJSMap)
       key.addToJSMap(ctx, map2, value);
@@ -6366,7 +6366,7 @@ ${ctx.indent}`;
     return JSON.stringify(jsKey);
   }
 
-  // node_modules/yaml/browser/dist/nodes/Pair.js
+  // ../../../node_modules/yaml/browser/dist/nodes/Pair.js
   function createPair(key, value, ctx) {
     const k = createNode(key, void 0, ctx);
     const v = createNode(value, void 0, ctx);
@@ -6395,7 +6395,7 @@ ${ctx.indent}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyCollection.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyCollection.js
   function stringifyCollection(collection, ctx, options) {
     const flow = ctx.inFlow ?? collection.flow;
     const stringify4 = flow ? stringifyFlowCollection : stringifyBlockCollection;
@@ -6530,7 +6530,7 @@ ${indent}${end}`;
     }
   }
 
-  // node_modules/yaml/browser/dist/nodes/YAMLMap.js
+  // ../../../node_modules/yaml/browser/dist/nodes/YAMLMap.js
   function findPair(items, key) {
     const k = isScalar(key) ? key.value : key;
     for (const it of items) {
@@ -6661,7 +6661,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/map.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/map.js
   var map = {
     collection: "map",
     default: true,
@@ -6675,7 +6675,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLMap.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/nodes/YAMLSeq.js
+  // ../../../node_modules/yaml/browser/dist/nodes/YAMLSeq.js
   var YAMLSeq = class extends Collection {
     static get tagName() {
       return "tag:yaml.org,2002:seq";
@@ -6779,7 +6779,7 @@ ${indent}${end}`;
     return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
   }
 
-  // node_modules/yaml/browser/dist/schema/common/seq.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/seq.js
   var seq = {
     collection: "seq",
     default: true,
@@ -6793,7 +6793,7 @@ ${indent}${end}`;
     createNode: (schema4, obj, ctx) => YAMLSeq.from(schema4, obj, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/common/string.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/string.js
   var string = {
     identify: (value) => typeof value === "string",
     default: true,
@@ -6805,7 +6805,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/common/null.js
+  // ../../../node_modules/yaml/browser/dist/schema/common/null.js
   var nullTag = {
     identify: (value) => value == null,
     createNode: () => new Scalar(null),
@@ -6816,7 +6816,7 @@ ${indent}${end}`;
     stringify: ({ source }, ctx) => typeof source === "string" && nullTag.test.test(source) ? source : ctx.options.nullStr
   };
 
-  // node_modules/yaml/browser/dist/schema/core/bool.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/bool.js
   var boolTag = {
     identify: (value) => typeof value === "boolean",
     default: true,
@@ -6833,7 +6833,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyNumber.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyNumber.js
   function stringifyNumber({ format, minFractionDigits, tag, value }) {
     if (typeof value === "bigint")
       return String(value);
@@ -6854,7 +6854,7 @@ ${indent}${end}`;
     return n;
   }
 
-  // node_modules/yaml/browser/dist/schema/core/float.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/float.js
   var floatNaN = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -6890,7 +6890,7 @@ ${indent}${end}`;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/core/int.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/int.js
   var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
   var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
   function intStringify(node, radix, prefix) {
@@ -6926,7 +6926,7 @@ ${indent}${end}`;
     stringify: (node) => intStringify(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/core/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/core/schema.js
   var schema = [
     map,
     seq,
@@ -6941,7 +6941,7 @@ ${indent}${end}`;
     float
   ];
 
-  // node_modules/yaml/browser/dist/schema/json/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/json/schema.js
   function intIdentify2(value) {
     return typeof value === "bigint" || Number.isInteger(value);
   }
@@ -6999,7 +6999,7 @@ ${indent}${end}`;
   };
   var schema2 = [map, seq].concat(jsonScalars, jsonError);
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/binary.js
   var binary = {
     identify: (value) => value instanceof Uint8Array,
     // Buffer inherits from Uint8Array
@@ -7055,7 +7055,7 @@ ${indent}${end}`;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/pairs.js
   function resolvePairs(seq2, onError) {
     if (isSeq(seq2)) {
       for (let i3 = 0; i3 < seq2.items.length; ++i3) {
@@ -7121,7 +7121,7 @@ ${cn.comment}` : item.comment;
     createNode: createPairs
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/omap.js
   var YAMLOMap = class _YAMLOMap extends YAMLSeq {
     constructor() {
       super();
@@ -7187,7 +7187,7 @@ ${cn.comment}` : item.comment;
     createNode: (schema4, iterable, ctx) => YAMLOMap.from(schema4, iterable, ctx)
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/bool.js
   function boolStringify({ value, source }, ctx) {
     const boolObj = value ? trueTag : falseTag;
     if (source && boolObj.test.test(source))
@@ -7211,7 +7211,7 @@ ${cn.comment}` : item.comment;
     stringify: boolStringify
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/float.js
   var floatNaN2 = {
     identify: (value) => typeof value === "number",
     default: true,
@@ -7250,7 +7250,7 @@ ${cn.comment}` : item.comment;
     stringify: stringifyNumber
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/int.js
   var intIdentify3 = (value) => typeof value === "bigint" || Number.isInteger(value);
   function intResolve2(str, offset, radix, { intAsBigInt }) {
     const sign = str[0];
@@ -7319,7 +7319,7 @@ ${cn.comment}` : item.comment;
     stringify: (node) => intStringify2(node, 16, "0x")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/set.js
   var YAMLSet = class _YAMLSet extends YAMLMap {
     constructor(schema4) {
       super(schema4);
@@ -7398,7 +7398,7 @@ ${cn.comment}` : item.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/timestamp.js
   function parseSexagesimal(str, asBigInt) {
     const sign = str[0];
     const parts2 = sign === "-" || sign === "+" ? str.substring(1) : str;
@@ -7477,7 +7477,7 @@ ${cn.comment}` : item.comment;
     stringify: ({ value }) => value.toISOString().replace(/(T00:00:00)?\.000Z$/, "")
   };
 
-  // node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/yaml-1.1/schema.js
   var schema3 = [
     map,
     seq,
@@ -7502,7 +7502,7 @@ ${cn.comment}` : item.comment;
     timestamp
   ];
 
-  // node_modules/yaml/browser/dist/schema/tags.js
+  // ../../../node_modules/yaml/browser/dist/schema/tags.js
   var schemas = /* @__PURE__ */ new Map([
     ["core", schema],
     ["failsafe", [map, seq, string]],
@@ -7573,7 +7573,7 @@ ${cn.comment}` : item.comment;
     }, []);
   }
 
-  // node_modules/yaml/browser/dist/schema/Schema.js
+  // ../../../node_modules/yaml/browser/dist/schema/Schema.js
   var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
   var Schema = class _Schema {
     constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema: schema4, sortMapEntries, toStringDefaults }) {
@@ -7594,7 +7594,7 @@ ${cn.comment}` : item.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/stringify/stringifyDocument.js
+  // ../../../node_modules/yaml/browser/dist/stringify/stringifyDocument.js
   function stringifyDocument(doc, options) {
     const lines = [];
     let hasDirectives = options.directives === true;
@@ -7665,7 +7665,7 @@ ${cn.comment}` : item.comment;
     return lines.join("\n") + "\n";
   }
 
-  // node_modules/yaml/browser/dist/doc/Document.js
+  // ../../../node_modules/yaml/browser/dist/doc/Document.js
   var Document = class _Document {
     constructor(value, replacer, options) {
       this.commentBefore = null;
@@ -7957,7 +7957,7 @@ ${cn.comment}` : item.comment;
     throw new Error("Expected a YAML collection as document contents");
   }
 
-  // node_modules/yaml/browser/dist/errors.js
+  // ../../../node_modules/yaml/browser/dist/errors.js
   var YAMLError = class extends Error {
     constructor(name, pos, code, message) {
       super();
@@ -8013,7 +8013,7 @@ ${pointer}
     }
   };
 
-  // node_modules/yaml/browser/dist/compose/resolve-props.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-props.js
   function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
     let spaceBefore = false;
     let atNewline = startOnNewline;
@@ -8143,7 +8143,7 @@ ${pointer}
     };
   }
 
-  // node_modules/yaml/browser/dist/compose/util-contains-newline.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-contains-newline.js
   function containsNewline(key) {
     if (!key)
       return null;
@@ -8179,7 +8179,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-flow-indent-check.js
   function flowIndentCheck(indent, fc, onError) {
     if (fc?.type === "flow-collection") {
       const end = fc.end[0];
@@ -8190,7 +8190,7 @@ ${pointer}
     }
   }
 
-  // node_modules/yaml/browser/dist/compose/util-map-includes.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-map-includes.js
   function mapIncludes(ctx, items, search) {
     const { uniqueKeys } = ctx.options;
     if (uniqueKeys === false)
@@ -8199,7 +8199,7 @@ ${pointer}
     return items.some((pair) => isEqual(pair.key, search));
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-map.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-map.js
   var startColMsg = "All mapping items must start at the same column";
   function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bm, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLMap;
@@ -8295,7 +8295,7 @@ ${pointer}
     return map2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-seq.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-seq.js
   function resolveBlockSeq({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, bs, onError, tag) {
     const NodeClass = tag?.nodeClass ?? YAMLSeq;
     const seq2 = new NodeClass(ctx.schema);
@@ -8337,7 +8337,7 @@ ${pointer}
     return seq2;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-end.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-end.js
   function resolveEnd(end, offset, reqSpace, onError) {
     let comment = "";
     if (end) {
@@ -8374,7 +8374,7 @@ ${pointer}
     return { comment, offset };
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-flow-collection.js
   var blockMsg = "Block collections are not allowed within flow collections";
   var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
   function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: composeEmptyNode2 }, ctx, fc, onError, tag) {
@@ -8554,7 +8554,7 @@ ${pointer}
     return coll;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-collection.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-collection.js
   function resolveCollection(CN2, ctx, token, onError, tagName, tag) {
     const coll = token.type === "block-map" ? resolveBlockMap(CN2, ctx, token, onError, tag) : token.type === "block-seq" ? resolveBlockSeq(CN2, ctx, token, onError, tag) : resolveFlowCollection(CN2, ctx, token, onError, tag);
     const Coll = coll.constructor;
@@ -8606,7 +8606,7 @@ ${pointer}
     return node;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-block-scalar.js
   function resolveBlockScalar(ctx, scalar, onError) {
     const start = scalar.offset;
     const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
@@ -8782,7 +8782,7 @@ ${pointer}
     return lines;
   }
 
-  // node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/resolve-flow-scalar.js
   function resolveFlowScalar(scalar, strict, onError) {
     const { offset, type, source, end } = scalar;
     let _type;
@@ -8993,7 +8993,7 @@ ${pointer}
     return String.fromCodePoint(code);
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-scalar.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-scalar.js
   function composeScalar(ctx, token, tagToken, onError) {
     const { value, type, comment, range } = token.type === "block-scalar" ? resolveBlockScalar(ctx, token, onError) : resolveFlowScalar(token, ctx.options.strict, onError);
     const tagName = tagToken ? ctx.directives.tagName(tagToken.source, (msg) => onError(tagToken, "TAG_RESOLVE_FAILED", msg)) : null;
@@ -9064,7 +9064,7 @@ ${pointer}
     return tag;
   }
 
-  // node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
+  // ../../../node_modules/yaml/browser/dist/compose/util-empty-scalar-position.js
   function emptyScalarPosition(offset, before, pos) {
     if (before) {
       if (pos === null)
@@ -9089,7 +9089,7 @@ ${pointer}
     return offset;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-node.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-node.js
   var CN = { composeNode, composeEmptyNode };
   function composeNode(ctx, token, props, onError) {
     const atKey = ctx.atKey;
@@ -9177,7 +9177,7 @@ ${pointer}
     return alias;
   }
 
-  // node_modules/yaml/browser/dist/compose/compose-doc.js
+  // ../../../node_modules/yaml/browser/dist/compose/compose-doc.js
   function composeDoc(options, directives, { offset, start, value, end }, onError) {
     const opts = Object.assign({ _directives: directives }, options);
     const doc = new Document(void 0, opts);
@@ -9210,7 +9210,7 @@ ${pointer}
     return doc;
   }
 
-  // node_modules/yaml/browser/dist/compose/composer.js
+  // ../../../node_modules/yaml/browser/dist/compose/composer.js
   function getErrorPos(src) {
     if (typeof src === "number")
       return [src, src + 1];
@@ -9401,7 +9401,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/cst-visit.js
+  // ../../../node_modules/yaml/browser/dist/parse/cst-visit.js
   var BREAK2 = Symbol("break visit");
   var SKIP2 = Symbol("skip children");
   var REMOVE2 = Symbol("remove item");
@@ -9457,7 +9457,7 @@ ${end.comment}` : end.comment;
     return typeof ctrl === "function" ? ctrl(item, path) : ctrl;
   }
 
-  // node_modules/yaml/browser/dist/parse/cst.js
+  // ../../../node_modules/yaml/browser/dist/parse/cst.js
   var BOM = "\uFEFF";
   var DOCUMENT = "";
   var FLOW_END = "";
@@ -9522,7 +9522,7 @@ ${end.comment}` : end.comment;
     return null;
   }
 
-  // node_modules/yaml/browser/dist/parse/lexer.js
+  // ../../../node_modules/yaml/browser/dist/parse/lexer.js
   function isEmpty(ch) {
     switch (ch) {
       case void 0:
@@ -10094,7 +10094,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/line-counter.js
+  // ../../../node_modules/yaml/browser/dist/parse/line-counter.js
   var LineCounter = class {
     constructor() {
       this.lineStarts = [];
@@ -10119,7 +10119,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/parse/parser.js
+  // ../../../node_modules/yaml/browser/dist/parse/parser.js
   function includesToken(list3, type) {
     for (let i3 = 0; i3 < list3.length; ++i3)
       if (list3[i3].type === type)
@@ -10965,7 +10965,7 @@ ${end.comment}` : end.comment;
     }
   };
 
-  // node_modules/yaml/browser/dist/public-api.js
+  // ../../../node_modules/yaml/browser/dist/public-api.js
   function parseOptions(options) {
     const prettyErrors = options.prettyErrors !== false;
     const lineCounter = options.lineCounter || prettyErrors && new LineCounter() || null;
@@ -13254,13 +13254,20 @@ ${t}`)) say("Note title saved");
         <div class="fe-grp-body">${b.rows.map(rowHtml).join("")}</div>
       </details>`).join("");
     };
-    const load = () => notes.dpPages().then((rows) => {
-      all = rows;
-      paint();
-    }).catch((err) => {
-      top.hidden = true;
-      rowsBox.innerHTML = emptyHtml("failed", "Decision pages could not be listed", { hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the decision pages again" }] });
-    });
+    let seq2 = 0;
+    const load = () => {
+      const mine = ++seq2;
+      return notes.dpPages().then((rows) => {
+        if (mine === seq2) {
+          all = rows;
+          paint();
+        }
+      }).catch((err) => {
+        if (mine !== seq2) return;
+        top.hidden = true;
+        rowsBox.innerHTML = emptyHtml("failed", "Decision pages could not be listed", { hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the decision pages again" }] });
+      });
+    };
     input.addEventListener("input", () => {
       q = input.value;
       paint();
@@ -13295,6 +13302,17 @@ ${t}`)) say("Note title saved");
       icon: UI_ICON.opinion,
       run: () => go2(r.path + "/")
     }))));
+    document.addEventListener("bfb-dp-answered", (e) => {
+      const slug = e.detail;
+      const row2 = all.find((r) => r.slug === slug);
+      if (!row2) return;
+      seq2++;
+      row2.state = "answered";
+      row2.answered = Date.now() / 1e3;
+      row2.seen = true;
+      paint();
+      if (timer2) void load();
+    });
     document.addEventListener("bfb-lens", (e) => {
       const on = e.detail === "decisions";
       if (timer2) {
@@ -13547,6 +13565,7 @@ ${t}`)) say("Note title saved");
         const r = await dpIo().dp("submit", slug, { answer: text, replace });
         const st = r?.notify?.state;
         toast(st === "requested" ? "Sent. The agent was woken." : st === "queued" ? "Sent. The agent is idle; the message waits for it." : NOT_TOLD);
+        document.dispatchEvent(new CustomEvent("bfb-dp-answered", { detail: slug }));
         await readSent(true);
       } catch (err) {
         const code = codeOf2(err);
@@ -14957,7 +14976,18 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
    painted copy (#fe-fe-paint) and the textarea share font, padding and
    wrapping exactly, so the caret sits over its own text. */
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
-#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1)}
+#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1);transition:background var(--t-flash) var(--ease)}
+#fe-fe-banner.flash{background:var(--on)}
+/* The lines that differ between the file on disk and the text being edited. */
+#fe-fe-diff{flex:none;max-height:40%;overflow:auto;border-bottom:1px solid var(--bd);background:var(--s1);padding:var(--sp-3) var(--sp-5);font-family:var(--mono);font-size:var(--fs-sm);line-height:1.5}
+#fe-fe-diff[hidden]{display:none}
+.fe-fe-dhead{display:flex;gap:var(--sp-5);padding-bottom:var(--sp-2);color:var(--dm);font-family:var(--font-text)}
+.fe-fe-dhead [data-k="gone"],.fe-fe-dl[data-k="gone"] .fe-fe-dm{color:var(--tone-danger)}
+.fe-fe-dhead [data-k="new"],.fe-fe-dl[data-k="new"] .fe-fe-dm{color:var(--tone-ok)}
+.fe-fe-dl{display:grid;grid-template-columns:var(--sp-6) minmax(0,1fr);white-space:pre-wrap;overflow-wrap:anywhere;color:var(--dm)}
+.fe-fe-dl[data-k="gone"]{color:var(--tx);background:color-mix(in srgb,var(--tone-danger) 12%,transparent)}
+.fe-fe-dl[data-k="new"]{color:var(--tx);background:color-mix(in srgb,var(--tone-ok) 12%,transparent)}
+.fe-fe-dgap{color:var(--dm);padding-left:var(--sp-6)}
 #fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
 /* The top padding clears the floating pill, so a long first line is never under it. */
 #fe-fe-src{position:relative}
@@ -15692,7 +15722,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* A decision page takes the listing's place; Files brings the listing back. While the
    config is read, the listing stays out of sight so it never flashes first. */
 #fe.fe-dp-pending #fe-toolbar,#fe.fe-dp-pending #fe-scroll,#fe.fe-dp-page #fe-toolbar,#fe.fe-dp-page #fe-sg-panel,#fe.fe-dp-page #fe-filter-bar,#fe.fe-dp-page #fe-scroll{display:none}
-#fe-dp{flex:1;min-height:0;overflow:auto;padding:var(--sp-8) var(--sp-9)}
+#fe-dp{--dp-pad-y:var(--sp-8);flex:1;min-height:0;overflow:auto;padding:var(--dp-pad-y) var(--sp-9)}
 #fe-dp[hidden]{display:none}
 /* One column of cards; from 720 wide a rail of every item sits beside it and stays in view, wider from 1100. */
 .fe-dp-layout{max-width:920px;margin:0 auto}
@@ -15715,7 +15745,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-intro{color:var(--mt)}
 .fe-dp-intro .fe-md{padding:0;max-width:none;color:inherit}
 #fe-dp-back{margin-left:var(--sp-4)}
-.fe-dp-bar{position:sticky;top:0;z-index:1;margin:0 0 var(--sp-6);display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r);box-shadow:0 var(--sp-2) var(--sp-5) rgb(var(--ink) / .08)}
+.fe-dp-bar{position:sticky;top:calc(var(--dp-pad-y) * -1);z-index:1;margin:0 0 var(--sp-6);display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r);box-shadow:0 var(--sp-2) var(--sp-5) rgb(var(--ink) / .08)}
 .fe-dp-bar .fe-dv-meter{margin-left:0}
 .fe-dp-bar-gap{flex:1}
 .fe-dp-bar-end{display:flex;align-items:center;gap:var(--sp-2);margin-left:auto}
@@ -16736,6 +16766,31 @@ button.chip:disabled{opacity:.45;cursor:default}
     });
   }
 
+  // src/toast.ts
+  function makeToast(el2) {
+    let tid;
+    return (msg, ms = 2400, action) => {
+      el2.textContent = msg;
+      if (action) {
+        const btn = document.createElement("button");
+        btn.className = "fe-toast-act";
+        btn.textContent = action.label;
+        btn.title = action.label;
+        btn.addEventListener("click", () => {
+          action.run();
+          el2.classList.remove("show");
+        });
+        el2.append(" \xB7 ", btn);
+        ms = Math.max(ms, 6e3);
+      }
+      el2.classList.toggle("act", !!action);
+      raise(el2);
+      el2.classList.add("show");
+      clearTimeout(tid);
+      tid = setTimeout(() => el2.classList.remove("show"), ms);
+    };
+  }
+
   // src/scroll-hold.ts
   function holdScroll(scroller, top, save) {
     let holding = top > 0;
@@ -17113,6 +17168,47 @@ button.chip:disabled{opacity:.45;cursor:default}
     };
   }
 
+  // src/line-diff.ts
+  var MAX_CELLS = 4e6;
+  function lineDiff(disk, mine) {
+    const a = disk.split("\n"), b = mine.split("\n");
+    let head = 0;
+    while (head < a.length && head < b.length && a[head] === b[head]) head++;
+    let tail = 0;
+    while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
+    const ma = a.slice(head, a.length - tail), mb = b.slice(head, b.length - tail);
+    const out = [];
+    for (let i4 = 0; i4 < head; i4++) out.push({ kind: "same", text: a[i4] });
+    let i3 = 0, j = 0;
+    const emit = (kind, text) => out.push({ kind, text });
+    if (ma.length * mb.length > MAX_CELLS) {
+      for (; i3 < ma.length; i3++) emit("gone", ma[i3]);
+      for (; j < mb.length; j++) emit("new", mb[j]);
+    } else {
+      const w = mb.length + 1;
+      const lcs = new Uint32Array((ma.length + 1) * w);
+      for (let x = ma.length - 1; x >= 0; x--) for (let y = mb.length - 1; y >= 0; y--)
+        lcs[x * w + y] = ma[x] === mb[y] ? lcs[(x + 1) * w + y + 1] + 1 : Math.max(lcs[(x + 1) * w + y], lcs[x * w + y + 1]);
+      while (i3 < ma.length && j < mb.length) {
+        if (ma[i3] === mb[j]) {
+          emit("same", mb[j]);
+          i3++;
+          j++;
+        } else if (lcs[(i3 + 1) * w + j] >= lcs[i3 * w + j + 1]) {
+          emit("gone", ma[i3]);
+          i3++;
+        } else {
+          emit("new", mb[j]);
+          j++;
+        }
+      }
+      for (; i3 < ma.length; i3++) emit("gone", ma[i3]);
+      for (; j < mb.length; j++) emit("new", mb[j]);
+    }
+    for (let k = 0; k < tail; k++) out.push({ kind: "same", text: a[a.length - tail + k] });
+    return out;
+  }
+
   // src/file-editor.ts
   var AUTOSAVE_MS = 800;
   var CHECK_MS = 300;
@@ -17162,6 +17258,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const isMd = fmt?.id === "markdown";
     box.innerHTML = `
     <div id="fe-fe-banner" class="notice" data-tone="warn" hidden></div>
+    <div id="fe-fe-diff" hidden></div>
     <div id="fe-fe-scroll">
       <div id="fe-fe-col">
         <div id="fe-fe-src">
@@ -17183,6 +17280,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const view = box.querySelector("#fe-fe-view");
     const state = box.querySelector("#fe-fe-state");
     const banner = box.querySelector("#fe-fe-banner");
+    const diffBox = box.querySelector("#fe-fe-diff");
     const diagBtn = box.querySelector("#fe-fe-diag");
     const scroller = box.querySelector("#fe-fe-scroll");
     box.classList.toggle("fe-fe-big", big);
@@ -17374,6 +17472,7 @@ and ${diags.length - 12} more` : "");
       const t = tw.text();
       diags = t.length > CHECK_MAX ? [] : diagnose(host.ext, t);
       markProblems();
+      host.typed?.(t);
     };
     const checkLater = () => {
       clearTimeout(checkTimer);
@@ -17438,6 +17537,7 @@ and ${diags.length - 12} more` : "");
         base = text;
         failed = "";
         banner.hidden = true;
+        diffBox.hidden = true;
         host.saved(text);
       } catch (err) {
         const e = err;
@@ -17457,20 +17557,65 @@ and ${diags.length - 12} more` : "");
       }
       if (retryAt) await write(retryAt);
     };
-    const save = () => {
+    const save = (asked = true) => {
       clearTimeout(timer2);
-      if (!saving && isDirty()) void write(doc.mtime);
+      if (saving || !isDirty()) return;
+      if (!banner.hidden) {
+        if (asked) askToChoose();
+        return;
+      }
+      void write(doc.mtime);
+    };
+    const askToChoose = () => {
+      const msg = "Not saved: the file changed on disk. Choose Load from disk, Keep mine or Compare.";
+      (host.notify ?? host.status)(msg);
+      banner.classList.add("flash");
+      setTimeout(() => banner.classList.remove("flash"), 700);
     };
     const later = () => {
       clearTimeout(timer2);
-      timer2 = window.setTimeout(save, AUTOSAVE_MS);
+      timer2 = window.setTimeout(() => save(false), AUTOSAVE_MS);
     };
     function showConflict() {
       banner.hidden = false;
       banner.innerHTML = `<span>${esc(host.rel.split("/").pop())} changed on disk since you opened it.</span>
       <button class="btn" data-act="reload" title="Drop your changes and load the file as it is now">Load from disk</button>
+      <button class="btn" data-act="compare" title="Show the lines that differ between the file on disk and your text">Compare</button>
       <button class="btn" data-act="overwrite" title="Save your text over the newer file (the newer one is kept as a backup)">Keep mine</button>`;
     }
+    const showDiff = async () => {
+      if (!diffBox.hidden) {
+        diffBox.hidden = true;
+        return;
+      }
+      let disk;
+      try {
+        disk = (await notes.fileRead(host.root, host.rel)).text;
+      } catch (err) {
+        host.status(errorText(err, "Reading the file on disk"));
+        return;
+      }
+      const rows = lineDiff(disk, tw.text());
+      const changed = rows.filter((r) => r.kind !== "same");
+      const keep = /* @__PURE__ */ new Set();
+      rows.forEach((r, i3) => {
+        if (r.kind !== "same") for (let k = Math.max(0, i3 - 2); k <= Math.min(rows.length - 1, i3 + 2); k++) keep.add(k);
+      });
+      let html = "", skipped = false;
+      rows.forEach((r, i3) => {
+        if (!keep.has(i3)) {
+          skipped = true;
+          return;
+        }
+        if (skipped) {
+          html += '<div class="fe-fe-dgap">\u2026</div>';
+          skipped = false;
+        }
+        html += `<div class="fe-fe-dl" data-k="${r.kind}"><span class="fe-fe-dm">${r.kind === "gone" ? "\u2212" : r.kind === "new" ? "+" : ""}</span><span class="fe-fe-dt">${esc(r.text) || " "}</span></div>`;
+      });
+      diffBox.innerHTML = `<div class="fe-fe-dhead">${changed.length ? `<span data-k="gone">\u2212 on disk</span><span data-k="new">+ yours</span>` : "The two copies have the same lines."}</div>${html}`;
+      diffBox.hidden = false;
+    };
     const external = async () => {
       try {
         if ((await notes.fileStat(host.root, host.rel)).mtime === doc.mtime) return;
@@ -17543,6 +17688,7 @@ and ${diags.length - 12} more` : "");
       if (act === "save") save();
       else if (act === "done") void close();
       else if (act === "diag" && diags.length) goToLine(diags[0].line);
+      else if (act === "compare") void showDiff();
       else if (act === "reload") {
         const now = await notes.fileRead(host.root, host.rel);
         doc = now;
@@ -17550,8 +17696,10 @@ and ${diags.length - 12} more` : "");
         buf.snap();
         tw.set(now.text);
         banner.hidden = true;
+        diffBox.hidden = true;
         paintSource();
         paint();
+        host.typed?.(now.text);
       } else if (act === "overwrite") {
         const now = await notes.fileRead(host.root, host.rel);
         void write(now.mtime);
@@ -18294,6 +18442,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const ta = o.box.querySelector(`textarea[data-for="${CSS.escape(id)}"]`);
       const text = (ta?.value ?? "").trim();
       const ops = [];
+      const wasOpen = t.status !== "done";
       if (close) ops.push({ op: t.status === "done" ? "reopen" : "done", thread: id, text });
       else if (text) ops.push({ op: t.status === "done" ? "reopen" : "reply", thread: id, text });
       if (!ops.length) {
@@ -18305,6 +18454,14 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (!await write(ops, "Reply")) {
         typed.set(id, text);
         paint();
+        return;
+      }
+      if (close && wasOpen && (filter === "open" || filter === "me")) {
+        active = "";
+        paint();
+        redraw();
+        o.box.querySelector(".fe-cm-list > .fe-cm-th, .fe-cm-done > summary")?.focus({ preventScroll: true });
+        o.toast?.("Marked done", 6e3, { label: "Undo", run: () => void reply(id, true).then(() => focusThread(id)) });
         return;
       }
       o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
@@ -18837,7 +18994,7 @@ ${d.message}` : d.message;
       if (h.getBoundingClientRect().top <= top) current = h;
       else break;
     }
-    if (heads.length && page.scrollTop + page.clientHeight >= page.scrollHeight - 2) current = heads[heads.length - 1];
+    if (heads.length && page.scrollTop > 0 && page.scrollTop + page.clientHeight >= page.scrollHeight - 2) current = heads[heads.length - 1];
     const picked = toc.dataset.pin ? document.getElementById(toc.dataset.pin) : null;
     if (picked) {
       const r = picked.getBoundingClientRect(), p = page.getBoundingClientRect();
@@ -18924,8 +19081,8 @@ ${d.message}` : d.message;
     let tight = false, peek = false;
     let column = savedColumnMode(opts.column);
     const fe = document.getElementById("fe");
-    const paintMeta = () => {
-      const fm = fileMeta(text, ext2, rawPath);
+    const paintMeta = (shown = text) => {
+      const fm = fileMeta(shown, ext2, rawPath);
       meta.textContent = fm.kind;
       const row2 = document.getElementById("fe-status-meta");
       if (row2) row2.innerHTML = metaChips(fm);
@@ -19086,6 +19243,7 @@ ${d.message}` : d.message;
     };
     const editBox = document.getElementById("fe-fe");
     const editBtn = document.getElementById("fe-fp-edit");
+    const toast = makeToast(document.getElementById("fe-toast"));
     const status = (t) => {
       document.getElementById("fe-status-text").textContent = t;
     };
@@ -19160,6 +19318,8 @@ ${d.message}` : d.message;
         ext: ext2,
         href,
         status,
+        notify: (msg) => toast(msg, 5e3),
+        typed: (t) => paintMeta(t),
         cannotEdit: (why) => {
           status(why);
           noteAtButton(why);
@@ -19210,6 +19370,7 @@ ${d.message}` : d.message;
       text: () => text,
       allow: askToAllow,
       status,
+      toast,
       changed: () => {
         paint();
         editor?.marks();
@@ -19730,31 +19891,6 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       shown,
       closedSets,
       restoreSet
-    };
-  }
-
-  // src/toast.ts
-  function makeToast(el2) {
-    let tid;
-    return (msg, ms = 2400, action) => {
-      el2.textContent = msg;
-      if (action) {
-        const btn = document.createElement("button");
-        btn.className = "fe-toast-act";
-        btn.textContent = action.label;
-        btn.title = action.label;
-        btn.addEventListener("click", () => {
-          action.run();
-          el2.classList.remove("show");
-        });
-        el2.append(" \xB7 ", btn);
-        ms = Math.max(ms, 6e3);
-      }
-      el2.classList.toggle("act", !!action);
-      raise(el2);
-      el2.classList.add("show");
-      clearTimeout(tid);
-      tid = setTimeout(() => el2.classList.remove("show"), ms);
     };
   }
 

@@ -103,6 +103,26 @@ This sentence will be removed before the page opens.
   await page.click('#fe-fe-pill [data-act="done"]');
   await sleep(500);
 
+  // Marking a thread done sends it to the Done group, which stays folded: no expanded thread, no stray tooltip.
+  await page.click('#fe-cm .fe-cm-filters [data-f="open"]');
+  for (let n = 2; n <= 4; n++) {
+    const id = await page.$eval('#fe-cm .fe-cm-list > .fe-cm-th', el => el.dataset.id);
+    await page.click(`#fe-cm .fe-cm-th[data-id="${id}"]`);
+    await page.click(`#fe-cm .fe-cm-th[data-id="${id}"] [data-a="done"]`);
+    await page.waitForFunction(k => document.querySelector('#fe-cm .fe-cm-done summary span')?.textContent === String(k), { timeout: 6000 }, n).catch(() => null);
+  }
+  await page.waitForFunction(() => document.querySelector('#fe-cm .fe-cm-done'), { timeout: 6000 }).catch(() => null);
+  await page.mouse.move(700, 600);
+  await sleep(700);
+  const done = await page.evaluate(() => ({
+    folded: document.querySelector('#fe-cm .fe-cm-done')?.open === false,
+    count: document.querySelector('#fe-cm .fe-cm-done summary span')?.textContent,
+    expanded: document.querySelectorAll('#fe-cm .fe-cm-th.on').length,
+    tip: document.getElementById('fe-hint')?.classList.contains('on') ?? false,
+  }));
+  check(done.folded && done.count === '4' && done.expanded === 0 && !done.tip, `marking open threads done, down to the last, folds the Done group and leaves nothing expanded or hovered: ${JSON.stringify(done)}`);
+  await page.screenshot({ path: join(SHOTS, `comments-done-folded${THEME === 'light' ? '-light' : ''}.png`) });
+
   // Contents is still one tab away and works.
   const toc = await page.evaluate(() => { document.getElementById('fe-fp-toc').click(); return { links: document.querySelectorAll('#fe-toc a').length, cmHidden: document.getElementById('fe-cm').hidden }; });
   check(toc.links === 3 && toc.cmHidden, `Contents is the other tab and still lists the headings: ${JSON.stringify(toc)}`);

@@ -13,6 +13,9 @@ const check = (ok, msg) => { results.push(`${ok ? 'PASS' : 'FAIL'} ${msg}`); if 
 try {
   const md = join(h.fixture, 'guide.md');
   writeFileSync(md, ['# Guide', '', 'Intro about apples.', '', '## Setup', '', 'Install apples and pears.', '', '### Details', '', 'More apples here.', '', '#### Fine print', '', 'No apples.', '', '## Usage', '', 'Use the apples.'].join('\n'));
+  const long = join(h.fixture, 'long-guide.md');
+  const filler = Array.from({ length: 40 }, (v, i) => `Paragraph ${i + 1} with some words to fill the page.\n`).join('\n');
+  writeFileSync(long, ['# Guide', '', filler, '## Setup', '', filler, '## Usage', '', filler].join('\n'));
   for (const theme of ['dark', 'light']) {
     const page = await h.browser.newPage();
     await page.setViewport({ width: 1400, height: 800 });
@@ -32,6 +35,23 @@ try {
     // Order: h1, h2, h3, h4, h2. Deeper means more indent and no larger text.
     check(pads[0] < pads[1] && pads[1] < pads[2] && pads[2] < pads[3] && pads[4] === pads[1] && sizes[0] >= sizes[1] && sizes[1] >= sizes[2] && sizes[2] >= sizes[3] && sizes[0] > sizes[3],
       `${theme}: depth shows by indent and a small size step: ${JSON.stringify({ pads, sizes })}`);
+
+    // At the top the first heading is marked, on a page too short to scroll as well as a long one; the last only when scrolled to the end.
+    const marked = () => page.$$eval('#fe-toc a.on', a => a.map(x => x.textContent));
+    check((await marked()).join() === 'Guide', `${theme}: a page too short to scroll marks its first heading, not the last: ${JSON.stringify(await marked())}`);
+    await page.goto('file://' + long, { waitUntil: 'load' });
+    await page.waitForSelector('#fe-toc a');
+    const atTop = await marked();
+    await page.evaluate(() => { const p = document.getElementById('fe-page'); p.scrollTop = p.scrollHeight; });
+    await new Promise(r => setTimeout(r, 300));
+    const atEnd = await marked();
+    await page.evaluate(() => { document.getElementById('fe-page').scrollTop = 0; });
+    await new Promise(r => setTimeout(r, 300));
+    const backTop = await marked();
+    check(atTop.join() === 'Guide' && atEnd.join() === 'Usage' && backTop.join() === 'Guide', `${theme}: on a long page the first heading is marked at the top and the last at the end: ${JSON.stringify({ atTop, atEnd, backTop })}`);
+    await page.screenshot({ path: join(SHOTS, `contents-top-${theme}.png`), clip: { x: 0, y: 0, width: 1400, height: 460 } });
+    await page.goto('file://' + md, { waitUntil: 'load' });
+    await page.waitForSelector('#fe-toc a');
 
     // Find in file.
     const bar = await page.evaluate(() => {

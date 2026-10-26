@@ -184,6 +184,41 @@ try {
   rmSync(h.dpNotify);
   await page.close();
 
+  // The answer bar sticks flush to the top edge: scrolled down, no card text shows above it.
+  const long = mk('walk-long', { sections: Array.from({ length: 14 }, (v, i) => ({ id: `s${i + 1}`, title: `Section ${i + 1}`, read: 'A line of reading that is long enough to be seen if it slides above the bar. '.repeat(3) })) });
+  page = await open(long);
+  const flush = async () => {
+    await page.evaluate(() => { document.getElementById('fe-dp').scrollTop = 900; });
+    await wait(250);
+    return page.evaluate(() => {
+      const dp = document.getElementById('fe-dp').getBoundingClientRect(), bar = document.getElementById('fe-dp-bar').getBoundingClientRect();
+      const above = [...document.querySelectorAll('.fe-dp-card')].filter(c => { const r = c.getBoundingClientRect(); return Math.min(r.bottom, bar.top) - Math.max(r.top, dp.top) > 0; }).length;
+      const probe = document.elementFromPoint(bar.left + 4, Math.max(dp.top + 1, bar.top - 3));
+      return { gap: Math.round(bar.top - dp.top), cardsAbove: above, scrolled: document.getElementById('fe-dp').scrollTop, probe: probe?.closest('.fe-dp-card') ? 'card text' : 'clear' };
+    });
+  };
+  const fl = await flush();
+  check(fl.scrolled > 0 && fl.gap <= 1 && fl.cardsAbove === 0, `the answer bar sticks flush to the top edge, with no card text above it: ${JSON.stringify(fl)}`);
+  await shot(page, 'dp-bar-flush');
+  await page.close();
+
+  // The Decisions lens moves the page to Answered the moment it is sent, not at its next poll.
+  const lensPage = mk('walk-lens');
+  page = await open(lensPage);
+  await page.click('#fe-rail-decisions');
+  await page.waitForSelector('.fe-dpl-band[data-band="waiting"] .fe-dpl-row[data-slug="walk-lens"]', { timeout: 8000 });
+  await press(page, 's');
+  await until(page, () => !document.getElementById('fe-dp-sent').hidden, null, 8000);
+  await wait(700);
+  const lens = await page.evaluate(() => ({
+    waiting: !!document.querySelector('.fe-dpl-band[data-band="waiting"] .fe-dpl-row[data-slug="walk-lens"]'),
+    answered: !!document.querySelector('.fe-dpl-band[data-band="answered"] .fe-dpl-row[data-slug="walk-lens"]'),
+    age: document.querySelector('.fe-dpl-row[data-slug="walk-lens"] .fe-dpl-age')?.textContent,
+  }));
+  check(!lens.waiting && lens.answered && lens.age === 'just now', `the lens shows a sent page under Answered within a second: ${JSON.stringify(lens)}`);
+  await shot(page, 'dp-lens-answered');
+  await page.close();
+
   // A page outside gcc's registry can be copied but not sent.
   const loose = join(h.fixture, 'loose-page');
   mkdirSync(loose);

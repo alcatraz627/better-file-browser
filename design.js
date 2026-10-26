@@ -896,7 +896,18 @@ mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
    painted copy (#fe-fe-paint) and the textarea share font, padding and
    wrapping exactly, so the caret sits over its own text. */
 #fe-fe{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
-#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1)}
+#fe-fe-banner{border-bottom:1px solid var(--bd);background:var(--s1);transition:background var(--t-flash) var(--ease)}
+#fe-fe-banner.flash{background:var(--on)}
+/* The lines that differ between the file on disk and the text being edited. */
+#fe-fe-diff{flex:none;max-height:40%;overflow:auto;border-bottom:1px solid var(--bd);background:var(--s1);padding:var(--sp-3) var(--sp-5);font-family:var(--mono);font-size:var(--fs-sm);line-height:1.5}
+#fe-fe-diff[hidden]{display:none}
+.fe-fe-dhead{display:flex;gap:var(--sp-5);padding-bottom:var(--sp-2);color:var(--dm);font-family:var(--font-text)}
+.fe-fe-dhead [data-k="gone"],.fe-fe-dl[data-k="gone"] .fe-fe-dm{color:var(--tone-danger)}
+.fe-fe-dhead [data-k="new"],.fe-fe-dl[data-k="new"] .fe-fe-dm{color:var(--tone-ok)}
+.fe-fe-dl{display:grid;grid-template-columns:var(--sp-6) minmax(0,1fr);white-space:pre-wrap;overflow-wrap:anywhere;color:var(--dm)}
+.fe-fe-dl[data-k="gone"]{color:var(--tx);background:color-mix(in srgb,var(--tone-danger) 12%,transparent)}
+.fe-fe-dl[data-k="new"]{color:var(--tx);background:color-mix(in srgb,var(--tone-ok) 12%,transparent)}
+.fe-fe-dgap{color:var(--dm);padding-left:var(--sp-6)}
 #fe-fe-scroll{flex:1;min-height:0;overflow:auto;cursor:text}
 /* The top padding clears the floating pill, so a long first line is never under it. */
 #fe-fe-src{position:relative}
@@ -1631,7 +1642,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 /* A decision page takes the listing's place; Files brings the listing back. While the
    config is read, the listing stays out of sight so it never flashes first. */
 #fe.fe-dp-pending #fe-toolbar,#fe.fe-dp-pending #fe-scroll,#fe.fe-dp-page #fe-toolbar,#fe.fe-dp-page #fe-sg-panel,#fe.fe-dp-page #fe-filter-bar,#fe.fe-dp-page #fe-scroll{display:none}
-#fe-dp{flex:1;min-height:0;overflow:auto;padding:var(--sp-8) var(--sp-9)}
+#fe-dp{--dp-pad-y:var(--sp-8);flex:1;min-height:0;overflow:auto;padding:var(--dp-pad-y) var(--sp-9)}
 #fe-dp[hidden]{display:none}
 /* One column of cards; from 720 wide a rail of every item sits beside it and stays in view, wider from 1100. */
 .fe-dp-layout{max-width:920px;margin:0 auto}
@@ -1654,7 +1665,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-intro{color:var(--mt)}
 .fe-dp-intro .fe-md{padding:0;max-width:none;color:inherit}
 #fe-dp-back{margin-left:var(--sp-4)}
-.fe-dp-bar{position:sticky;top:0;z-index:1;margin:0 0 var(--sp-6);display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r);box-shadow:0 var(--sp-2) var(--sp-5) rgb(var(--ink) / .08)}
+.fe-dp-bar{position:sticky;top:calc(var(--dp-pad-y) * -1);z-index:1;margin:0 0 var(--sp-6);display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r);box-shadow:0 var(--sp-2) var(--sp-5) rgb(var(--ink) / .08)}
 .fe-dp-bar .fe-dv-meter{margin-left:0}
 .fe-dp-bar-gap{flex:1}
 .fe-dp-bar-end{display:flex;align-items:center;gap:var(--sp-2);margin-left:auto}
