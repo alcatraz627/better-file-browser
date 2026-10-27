@@ -373,9 +373,12 @@ export function initSidebar(app: App): void {
     const sibs = savedSiblings(row), at = sibs.indexOf(row), next = sibs[at + dir];
     if (!next) { toast(dir > 0 ? 'Already last' : 'Already first'); return; }
     const path = row.dataset.path!;
+    // A place with several tags shows once per tag group; the redraw replaces
+    // every row, so the moved one is found again by which of its copies it was.
+    const copy = els<HTMLElement>('.fe-pl-item', svList).filter(i => i.dataset.path === path).indexOf(row);
     saveSaved(movePlace(getSaved(), path, next.dataset.path!));
     refreshSaved();
-    els<HTMLElement>('.fe-pl-item', svList).find(i => i.dataset.path === path && i.parentElement === next.parentElement)?.querySelector<HTMLElement>('.fe-si-link, .fe-si')?.focus();
+    els<HTMLElement>('.fe-pl-item', svList).filter(i => i.dataset.path === path)[Math.max(0, copy)]?.querySelector<HTMLElement>('.fe-si-link, .fe-si')?.focus();
   };
   function addCurrentFolder(rename: boolean): void {
     const label = rawPath.split('/').filter(Boolean).pop() || '/';
@@ -427,7 +430,8 @@ export function initSidebar(app: App): void {
     if (pinChange) toast(toPinned ? 'Pinned' : 'Unpinned');
     const rels = [...new Set([...writes.keys(), ...(pinChange ? [rel] : [])])];
     arranging++;
-    void (async () => {
+    // Moves write one after another, so a second quick move reads what the first wrote.
+    arrangeChain = arrangeChain.then(async () => {
       for (const r of rels) {
         const cur = await notes.read(root, r);
         let next = cur.text;
@@ -436,9 +440,10 @@ export function initSidebar(app: App): void {
         if (frontmatterDrift(cur.text, next, ['pos', 'pinned']).length) throw new Error('that would change other properties');
         await notes.write(root, r, next, cur.mtime);
       }
-    })().catch(err => { toast(errorText(err, 'Saving the new order')); })
+    }).catch(err => { toast(errorText(err, 'Saving the new order')); })
       .finally(() => { if (--arranging === 0) refreshNotes(); });
   }
+  let arrangeChain: Promise<void> = Promise.resolve();
   // While a drop's files are being written, a listing would see half the new
   // order and jump a note back; refreshes wait until the last write lands.
   let arranging = 0;

@@ -118,6 +118,9 @@ down = os.path.exists(${JSON.stringify(join(profile, 'lm-down'))})
 stdin = sys.stdin.read() if args[:1] == ['q'] or (args[:1] == ['gemini'] and '--json' in args) else ''
 open(${JSON.stringify(log)}, 'a').write(json.dumps({'args': args, 'stdin': stdin[:4000]}) + '\\n')
 if args[:2] == ['status', '--json']:
+    # lm-slow-status makes the status check take a moment, so a walk can act while it runs.
+    if os.path.exists(${JSON.stringify(join(profile, 'lm-slow-status'))}):
+        import time; time.sleep(1.5)
     print(json.dumps({'api_version': 1, 'server': 'down' if down else 'up', 'default_model': 'gemma4-e4b-warm', 'warm': not down, 'latency_class': 'down' if down else 'warm'}))
 elif args[:2] == ['models', '--json']:
     print(json.dumps({'default': 'gemma4-e4b-warm', 'resident': [], 'available': [],
@@ -295,7 +298,7 @@ export async function launch({ headless = true, pickReply, lmStub = false } = {}
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, downloads, open, close, store, sw, docsHome: docsHome(profile), lmCalls, lmDown: join(profile, 'lm-down'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
+  return { browser, fixture, notesDir, downloads, open, close, store, sw, docsHome: docsHome(profile), lmCalls, lmDown: join(profile, 'lm-down'), lmSlowStatus: join(profile, 'lm-slow-status'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
 }
 
 // The extension's settings store for the running browser; set by launch().

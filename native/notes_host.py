@@ -357,13 +357,27 @@ def op_delete(root, rel):
     trash = os.path.join(root, '.trash')
     os.makedirs(trash, exist_ok=True)
     stamp = time.strftime('%Y%m%d-%H%M%S')
-    dst = os.path.join(trash, f'{stamp}-{os.path.basename(full)}')
+    # The name in .trash carries the note's folder, so a restore can put it back there.
+    name = trash_name(os.path.relpath(full, root))
+    dst = os.path.join(trash, f'{stamp}-{name}')
+    n = 1
+    while os.path.exists(dst):
+        n += 1
+        dst = os.path.join(trash, f'{stamp}.{n}-{name}')
     shutil.move(full, dst)
     if os.path.exists(full + COMPANION):
         shutil.move(full + COMPANION, dst + COMPANION)
     return {'t': 'deleted', 'rel': rel, 'trashed': os.path.relpath(dst, root)}
 
-TRASH_STAMP = re.compile(r'^(\d{8}-\d{6})-(.+)$')
+TRASH_STAMP = re.compile(r'^(\d{8}-\d{6})(?:\.\d+)?-(.+)$')
+
+def trash_name(rel):
+    """A note's path folded into one file name: `sub/old.md` becomes `sub%2Fold.md`."""
+    return rel.replace('%', '%25').replace(os.sep, '%2F')
+
+def trash_rel(name):
+    """The note path a .trash file name stands for; names from before folders were kept are bare."""
+    return name.replace('%2F', '/').replace('%25', '%')
 
 def op_trash_list(root):
     """The notes in <root>/.trash, newest first, each with the name it had before it was deleted."""
@@ -380,7 +394,7 @@ def op_trash_list(root):
             if m:
                 try: when = int(time.mktime(time.strptime(m.group(1), '%Y%m%d-%H%M%S')) * 1000)
                 except ValueError: pass
-            out.append({'trashed': '.trash/' + f, 'name': m.group(2) if m else f, 'title': note_title(full),
+            out.append({'trashed': '.trash/' + f, 'name': trash_rel(m.group(2)) if m else f, 'title': note_title(full),
                         'size': st.st_size, 'mtime': int(st.st_mtime * 1000), 'deleted': when})
     out.sort(key=lambda n: -n['deleted'])
     return {'t': 'trash', 'notes': out}
@@ -393,7 +407,7 @@ def op_restore(root, trashed, to):
     if os.path.dirname(src) != trash or not os.path.isfile(src):
         raise NotesError('notes_missing', f'no such note in .trash: {trashed}')
     m = TRASH_STAMP.match(os.path.basename(src))
-    want = to if isinstance(to, str) and to else (m.group(2) if m else os.path.basename(src))
+    want = to if isinstance(to, str) and to else (trash_rel(m.group(2)) if m else os.path.basename(src))
     dst = resolve_rel(root, want)
     if dst == trash or dst.startswith(trash + os.sep):
         raise NotesError('notes_bad_path', 'a note is not restored into .trash')

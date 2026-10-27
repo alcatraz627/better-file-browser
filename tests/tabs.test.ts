@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   EMPTY, openTab, closeTab, closeOthers, activate, togglePin, step, moveTab, labelFor, kindOf, isTabState, normalize,
-  isStale, insertTab, displayLabels, splitLabel, closeToRight, distinctKeeps, type RecoveryEntry,
+  isStale, insertTab, displayLabels, splitLabel, closeToRight, distinctKeeps, restoreClosed, type RecoveryEntry,
 } from '../src/tabs';
 
 describe('tabs', () => {
@@ -145,6 +145,25 @@ describe('crowded strips', () => {
     const shown = names.map((n, i) => { const { tail } = splitLabel(n, keeps[i]); return tail; });
     expect(new Set(shown.slice(0, 2)).size).toBe(2);
     expect(keeps[2]).toBe(0);
+  });
+
+  it('tells apart names that differ far from their end, in a short tail', () => {
+    const names = ['2026-01-meeting-notes-final.md', '2026-02-meeting-notes-final.md'];
+    const keeps = distinctKeeps(names);
+    const shown = names.map((n, i) => splitLabel(n, keeps[i]).tail);
+    expect(new Set(shown).size).toBe(2);
+    shown.forEach(t => { expect(t.length).toBeLessThanOrEqual(14); expect(t.endsWith('.md')).toBe(true); });
+  });
+
+  it('undo after Close others puts every tab back in order and the active tab back too', () => {
+    const s = activate(openTab(openTab(openTab(openTab(EMPTY, '/a'), '/b'), '/c'), '/d'), '');
+    const was = { ...s, active: s.list[1].id };
+    const next = closeOthers(was, was.list[3].id);
+    expect(next.active).toBe(was.list[3].id);
+    const gone = was.list.map((t, index) => ({ t, index })).filter(x => !next.list.some(n => n.id === x.t.id));
+    const back = restoreClosed(next, gone, was.active);
+    expect(back.list.map(t => t.path)).toEqual(['/a', '/b', '/c', '/d']);
+    expect(back.active).toBe(was.list[1].id);
   });
 
   it('closes everything right of a tab but never a pinned tab', () => {

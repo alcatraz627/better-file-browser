@@ -9,7 +9,7 @@ import {
 } from './storage';
 import { notes } from './notes';
 import { initPreview, closePreview } from './preview';
-import { setSidebarShown } from './motion';
+import { setSidebarShown, FOLD_SIDE_QUERY } from './motion';
 import { initSidePeek } from './side-peek';
 import { mountKeep, askRename } from './doc-keep';
 import { mountFolderView } from './docviews';
@@ -214,7 +214,15 @@ loadKv().catch(() => {}).then(function () {
   // 52px, so the lists keep the room they had.
   if (settings.sidebarWidth && !settings.sidebarRail) { settings.sidebarWidth += 52; settings.sidebarRail = true; saveSettings(settings); }
   if (settings.sidebarWidth) el('fe-side').style.width = settings.sidebarWidth + 'px';
-  if (!settings.showSidebar) { el('fe-side').style.display = 'none'; el('fe-side-rz').style.display = 'none'; }
+  // A narrow window folds the sidebar away so the page keeps its room; the
+  // hamburger still opens it, and widening brings it back as it was left.
+  // The saved setting is not touched.
+  const narrow = matchMedia(FOLD_SIDE_QUERY);
+  if (!settings.showSidebar || narrow.matches) { el('fe-side').style.display = 'none'; el('fe-side-rz').style.display = 'none'; }
+  narrow.addEventListener('change', () => {
+    const docked = !!document.querySelector<HTMLElement>('#fe-qlook.side')?.checkVisibility() && settings.dockFoldsSidebar !== false;
+    setSidebarShown(!narrow.matches && !docked && settings.showSidebar);
+  });
   // Size, fonts and colours: set at load, and again whenever another tab
   // changes one, so every open tab looks the same. Interface size is the
   // tab's zoom, which Chrome keeps per tab, so 100% is set too, not skipped.

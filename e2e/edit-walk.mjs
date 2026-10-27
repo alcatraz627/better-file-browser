@@ -265,6 +265,26 @@ try {
     return { taH: ta.clientHeight, paintH: Math.round(paint.getBoundingClientRect().height), scrollTop: ta.scrollTop, lastRowBottom: Math.round(last.bottom - ta.getBoundingClientRect().top) };
   });
   check(wrapped.taH === wrapped.paintH && wrapped.scrollTop === 0, `after the column narrows the textarea grows with the text and does not scroll inside itself: ${JSON.stringify(wrapped)}`);
+
+  // A markdown file's lists continue on Enter and end on an empty item, as in Notes.
+  const listMd = join(h.fixture, 'list-me.md');
+  writeFileSync(listMd, '');
+  await page.setViewport({ width: 1400, height: 700 });
+  await page.goto('file://' + listMd, { waitUntil: 'load' });
+  await page.waitForSelector('#fe-fp-edit');
+  await page.click('#fe-fp-edit');
+  await page.waitForSelector('#fe-fe-ta', { timeout: 5000 });
+  await page.focus('#fe-fe-ta');
+  await page.type('#fe-fe-ta', '- one');
+  await page.keyboard.press('Enter');
+  await page.type('#fe-fe-ta', 'two');
+  await page.keyboard.press('Enter');
+  await page.type('#fe-fe-ta', '- three');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await page.type('#fe-fe-ta', 'after');
+  const listed = await page.$eval('#fe-fe-ta', t => t.value);
+  check(listed === '- one\n- two\n- three\n\nafter', `in a markdown file Enter continues a list, a typed marker is absorbed, and an empty item ends it: ${JSON.stringify(listed)}`);
 } finally {
   console.log(results.join('\n'));
   await h.close();

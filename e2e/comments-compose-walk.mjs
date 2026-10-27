@@ -143,15 +143,36 @@ const beta = 2;
   t = all().find(x => x.id === id);
   check(t?.comments[0].text.includes('Edited.') && !!t.comments[0].edited, `the owner can edit their own comment and it is marked edited: ${JSON.stringify(t?.comments[0].text)}`);
   await page.screenshot({ path: join(SHOTS, `comment-thread${sfx}.png`) });
+  // Resting on Done shows its tooltip; pressing it must not leave the tooltip behind.
+  await page.hover(`#fe-cm .fe-cm-th.on [data-a="done"]`);
+  await new Promise(r => setTimeout(r, 600));
+  const tipBefore = await page.evaluate(() => document.getElementById('fe-hint')?.classList.contains('on'));
   await page.click(`#fe-cm .fe-cm-th.on [data-a="done"]`);
   await page.waitForFunction(i => document.querySelector(`#fe-cm details.fe-cm-done .fe-cm-th[data-id="${i}"]`), { timeout: 6000 }, id).catch(() => null);
   check(all().find(x => x.id === id)?.status === 'done', 'Done closes the thread and it moves to the Done group');
+  const tipAfter = await page.evaluate(() => document.getElementById('fe-hint')?.classList.contains('on'));
+  check(tipBefore && !tipAfter, `no tooltip is left behind once Done is pressed: ${JSON.stringify({ tipBefore, tipAfter })}`);
   // Done folds the thread away with an Undo that brings it back open and selected.
   const undone = await page.evaluate(() => ({ toast: document.getElementById('fe-toast').textContent, shown: document.getElementById('fe-toast').classList.contains('show'), folded: document.querySelector('#fe-cm details.fe-cm-done')?.open === false, on: document.querySelectorAll('#fe-cm .fe-cm-th.on').length }));
   check(/Marked done/.test(undone.toast) && undone.shown && undone.folded && undone.on === 0, `Done folds the Done group and offers Undo: ${JSON.stringify(undone)}`);
   await page.click('#fe-toast .fe-toast-act');
   await page.waitForFunction(i => document.querySelector(`#fe-cm .fe-cm-list > .fe-cm-th[data-id="${i}"]`), { timeout: 6000 }, id).catch(() => null);
   check(all().find(x => x.id === id)?.status === 'open', 'Reopen brings it back');
+  // Undo after the thread was reopened by hand leaves it open, rather than marking it done again.
+  await page.click(`#fe-cm .fe-cm-th.on [data-a="done"]`);
+  await page.waitForFunction(i => document.querySelector(`#fe-cm details.fe-cm-done .fe-cm-th[data-id="${i}"]`), { timeout: 6000 }, id).catch(() => null);
+  await page.evaluate(() => { const d = document.querySelector('#fe-cm details.fe-cm-done'); if (d) d.open = true; });
+  await page.click(`#fe-cm details.fe-cm-done .fe-cm-th[data-id="${id}"]`);
+  await page.waitForSelector(`#fe-cm .fe-cm-th[data-id="${id}"] [data-a="reopen"]`, { timeout: 3000 }).catch(() => null);
+  await page.click(`#fe-cm .fe-cm-th[data-id="${id}"] [data-a="reopen"]`);
+  await new Promise(r => setTimeout(r, 800));
+  const reopened = all().find(x => x.id === id)?.status;
+  const act = await page.$('#fe-toast.show .fe-toast-act');
+  if (act) await act.click();
+  await new Promise(r => setTimeout(r, 1200));
+  check(reopened === 'open' && all().find(x => x.id === id)?.status === 'open', `Undo after reopening by hand keeps the thread open: ${reopened} -> ${all().find(x => x.id === id)?.status} (toast ${act ? 'clicked' : 'gone'})`);
+  await page.waitForFunction(i => document.querySelector(`#fe-cm .fe-cm-list > .fe-cm-th[data-id="${i}"]`), { timeout: 6000 }, id).catch(() => null);
+  await page.click(`#fe-cm .fe-cm-list > .fe-cm-th[data-id="${id}"]`).catch(() => null);
   await page.click(`#fe-cm .fe-cm-th.on [data-a="untag"][data-v="schedule"]`);
   await page.waitForFunction(() => !document.querySelector('#fe-cm .fe-cm-th.on [data-a="untag"]'), { timeout: 6000 }).catch(() => null);
   await page.click(`#fe-cm .fe-cm-th.on [data-a="undue"]`);

@@ -56,8 +56,10 @@ function initSearch(app: App): void {
   let run = 0;
   // The last search in this tab for this folder, so Back lands on it again.
   const lastPref = textPref('bfb-srch-last:' + app.folderPath, '', 'tab');
-  const remember = (term: string) => {
-    lastPref.set(term ? JSON.stringify({ term, deep: el<HTMLInputElement>('fe-srch-deep').checked, matchCase: el<HTMLInputElement>('fe-srch-case').checked }) : '');
+  // The results ride along (when not huge), so coming back shows them without reading the folder again.
+  const remember = (term: string, shown?: { status: string; html: string }) => {
+    const keep = shown && shown.html.length < 200_000 ? shown : undefined;
+    lastPref.set(term ? JSON.stringify({ term, deep: el<HTMLInputElement>('fe-srch-deep').checked, matchCase: el<HTMLInputElement>('fe-srch-case').checked, ...keep }) : '');
   };
 
   async function search(): Promise<void> {
@@ -95,6 +97,7 @@ function initSearch(app: App): void {
       const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
       return `<a class="row fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
     }).join('');
+    remember(term, { status: status.textContent ?? '', html: list.innerHTML });
   }
   q.addEventListener('keydown', e => {
     e.stopPropagation();
@@ -102,7 +105,7 @@ function initSearch(app: App): void {
     else if (e.key === 'Escape') { q.value = ''; remember(''); run++; list.innerHTML = ''; status.textContent = 'Type a word and press Enter.'; }
   });
   // Coming back to a folder, the last search is typed in again and runs once the lens is on screen.
-  let restore: { term: string; deep: boolean; matchCase: boolean } | null = null;
+  let restore: { term: string; deep: boolean; matchCase: boolean; status?: string; html?: string } | null = null;
   try { restore = JSON.parse(lastPref.get() || 'null'); } catch { restore = null; }
   if (restore?.term) {
     q.value = restore.term;
@@ -111,8 +114,11 @@ function initSearch(app: App): void {
   }
   document.addEventListener('bfb-lens', e => {
     if ((e as CustomEvent).detail !== 'search' || !restore) return;
+    const r = restore;
     restore = null;
-    void search();
+    if (r.html === undefined || r.status === undefined) { void search(); return; }
+    status.textContent = `${r.status} · from earlier, Enter searches again`;
+    list.innerHTML = r.html;
   });
   document.addEventListener('bfb-lens-open', e => { if ((e as CustomEvent).detail === 'search') q.focus({ preventScroll: true }); });
 }

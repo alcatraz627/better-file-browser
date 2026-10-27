@@ -40,10 +40,11 @@ export async function crawl(
   const maxDepth   = opts.maxDepth   ?? 8;
   const maxEntries = opts.maxEntries ?? 5000;
   const skip       = opts.skipDirs   ?? DEFAULT_SKIP_DIRS;
-  // One folder may fill at most half the budget with files, so a folder of
-  // thousands of files cannot keep its siblings from being searched.
+  // While other folders wait, one folder may fill at most half the budget with
+  // files, so a folder of thousands cannot keep its siblings from being
+  // searched. What it holds back fills the budget once every folder is read.
   const perFolderFiles = Math.ceil(maxEntries / 2);
-  const entries: Entry[] = [];
+  const entries: Entry[] = [], heldBack: Entry[] = [];
   let folders = 0, entryCapped = false, depthCapped = false;
 
   // Breadth-first so shallow matches land before deep ones, with a small pool
@@ -63,9 +64,9 @@ export async function crawl(
       for (const k of kids) {
         if (k.isParent) continue;
         if (entries.length >= maxEntries) { entryCapped = true; break; }
-        if (!k.isDir && ++files > perFolderFiles) { entryCapped = true; continue; }
         const name = relativeName(k.href, rootUrl);
         const hiddenSeg = name.split('/').some(s => s.startsWith('.'));
+        if (!k.isDir && ++files > perFolderFiles) { heldBack.push({ ...k, name, isHidden: hiddenSeg }); continue; }
         entries.push({ ...k, name, isHidden: hiddenSeg });
         if (!k.isDir) continue;
         if (skip.has(k.name) || (!opts.includeHidden && k.name.startsWith('.'))) continue;
@@ -74,6 +75,11 @@ export async function crawl(
       }
     }
     opts.onProgress?.(folders, entries.length);
+  }
+  if (heldBack.length && !isCancelled()) {
+    const room = Math.max(0, maxEntries - entries.length);
+    entries.push(...heldBack.slice(0, room));
+    if (heldBack.length > room) entryCapped = true;
   }
   return { entries, folders, truncated: entryCapped || depthCapped, entryCapped, depthCapped, cancelled: isCancelled() };
 }

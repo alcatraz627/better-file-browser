@@ -9,7 +9,7 @@ import { TERMINAL_CMDS, saveSettings, homeDir, getRecents } from './storage';
 import { absPath, resolvePath, readable } from './goto';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
-import { setSidebarShown, sidebarShown } from './motion';
+import { setSidebarShown, sidebarShown, FOLD_SIDE_QUERY } from './motion';
 import { setThemeMode } from './theme';
 import { openLayer, type Layer } from './layer';
 import { emptyHtml } from './empty-state';
@@ -211,6 +211,8 @@ export function initChrome(app: App): void {
   const side = el('fe-side');
   const rz = el('fe-side-rz');
   el('fe-side-toggle').addEventListener('click', () => {
+    // While a narrow window has folded it, the sidebar opens and closes for now only.
+    if (matchMedia(FOLD_SIDE_QUERY).matches) { setSidebarShown(!sidebarShown()); return; }
     settings.showSidebar = !sidebarShown();
     saveSettings(settings);
     setSidebarShown(settings.showSidebar);

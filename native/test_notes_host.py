@@ -78,7 +78,7 @@ check(r['t'] == 'deleted' and r['trashed'].startswith('.trash/') and os.path.isf
 r = call({'op': 'list', 'root': root})
 check('.trash' not in ''.join(n['rel'] for n in r['notes']), 'list skips .trash')
 trashed = call({'op': 'trashList', 'root': root})
-check(trashed['t'] == 'trash' and [n['name'] for n in trashed['notes']] == ['old.md'] and trashed['notes'][0]['title'] == 'old',
+check(trashed['t'] == 'trash' and [n['name'] for n in trashed['notes']] == ['sub/old.md'] and trashed['notes'][0]['title'] == 'old',
       f'trashList names what .trash holds, by its name before deletion: {trashed}')
 item = trashed['notes'][0]['trashed']
 r = call({'op': 'restore', 'root': root, 'trashed': item, 'to': 'sub/old.md'})
@@ -93,9 +93,16 @@ r = call({'op': 'restore', 'root': root, 'trashed': 'sub/old.md'})
 check(r['t'] == 'error', f'restore only takes what is in .trash: {r}')
 r = call({'op': 'delete', 'root': root, 'rel': 'sub/old.md'})
 r = call({'op': 'restore', 'root': root, 'trashed': r['trashed']})
-check(r['t'] == 'restored' and r['rel'] == 'old.md', f'with no destination a note returns to the folder root under its own name: {r}')
-call({'op': 'delete', 'root': root, 'rel': 'old.md'})
-call({'op': 'restore', 'root': root, 'trashed': call({'op': 'trashList', 'root': root})['notes'][0]['trashed'], 'to': 'sub/old.md'})
+check(r['t'] == 'restored' and r['rel'] == 'sub/old.md', f'with no destination a note returns to the folder it was deleted from: {r}')
+os.makedirs(os.path.join(root, 'a')); os.makedirs(os.path.join(root, 'b'))
+for d in ('a', 'b'):
+    with open(os.path.join(root, d, 'todo.md'), 'w') as fh: fh.write(f'# {d}\n')
+for d in ('a', 'b'): call({'op': 'delete', 'root': root, 'rel': f'{d}/todo.md'})
+both = call({'op': 'trashList', 'root': root})['notes']
+check(sorted(n['name'] for n in both) == ['a/todo.md', 'b/todo.md'], f'two same-named notes deleted together both stay in .trash: {both}')
+for n in both: call({'op': 'restore', 'root': root, 'trashed': n['trashed']})
+for d in ('a', 'b'):
+    with open(os.path.join(root, d, 'todo.md')) as fh: check(fh.read() == f'# {d}\n', f'{d}/todo.md comes back to its own folder')
 r = call({'op': 'delete', 'root': root, 'rel': 'sub/old.md'})
 r = call({'op': 'write', 'root': root, 'rel': 'sub/old.md', 'text': 'recreated', 'expectMtime': mt})
 check(r['code'] == 'notes_missing' and not os.path.exists(os.path.join(root, 'sub', 'old.md')),

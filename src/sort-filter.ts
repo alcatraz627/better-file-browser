@@ -43,6 +43,17 @@ export function applySort(entries: Entry[], config: SortConfig, dirsFirst = fals
   });
 }
 
+/** A fingerprint of which rows are shown and in what order, so the listing can tell a new set from the same set redrawn. */
+export function rowSetKey(hrefs: string[], extra = ''): string {
+  // FNV-1a over every href in order: a swap or a replaced row anywhere changes it.
+  let h = 0x811c9dc5;
+  for (const s of hrefs) {
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    h = Math.imul(h ^ 0x7c, 0x01000193);
+  }
+  return `${hrefs.length}|${extra}|${(h >>> 0).toString(36)}`;
+}
+
 export function buildGroups(entries: Entry[], mode: GroupMode): Group[] {
   if (mode === 'folders-first') {
     const dirs  = entries.filter(e => e.isDir);

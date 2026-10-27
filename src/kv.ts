@@ -91,7 +91,19 @@ export function kvSet(key: string, value: string): void {
   cache.set(key, value);
   pending.set(key, [...(pending.get(key) ?? []), value]);
   const lost = () => pending.delete(key);
-  try { area.set({ [key]: value }).catch(lost); } catch { lost(); /* extension reloaded under the page */ }
+  try { track(area.set({ [key]: value }).catch(lost)); } catch { lost(); /* extension reloaded under the page */ }
+}
+
+// Writes on their way to storage, so a page about to reload can wait for them.
+const inFlight = new Set<Promise<unknown>>();
+function track(p: Promise<unknown>): void {
+  inFlight.add(p);
+  void p.finally(() => inFlight.delete(p));
+}
+
+/** Resolves once every write and removal this page started has reached storage. Call it before reloading. */
+export async function kvFlush(): Promise<void> {
+  while (inFlight.size) await Promise.allSettled([...inFlight]);
 }
 
 // Every settings key currently held, for export.
@@ -104,5 +116,5 @@ export function kvRemove(key: string): void {
   if (!area) { try { localStorage.removeItem(key); } catch { /* storage disabled */ } return; }
   if (!cache.has(key)) return;
   cache.delete(key);
-  try { area.remove(key).catch(() => { /* extension reloaded under the page */ }); } catch { /* extension reloaded under the page */ }
+  try { track(area.remove(key).catch(() => { /* extension reloaded under the page */ })); } catch { /* extension reloaded under the page */ }
 }

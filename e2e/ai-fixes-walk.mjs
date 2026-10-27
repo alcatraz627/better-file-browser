@@ -134,6 +134,9 @@ try {
     await page.waitForFunction(() => /in 1,204/.test(document.getElementById('fe-ql-ai-out-meta')?.textContent ?? '') && /Second/.test(document.getElementById('fe-ql-ai-out-q')?.textContent ?? ''), { timeout: 15000 });
     const second = await page.evaluate(() => ({ q: document.getElementById('fe-ql-ai-out-q').textContent, body: document.getElementById('fe-ql-ai-out-body').textContent, box: document.getElementById('fe-ql-ai-q').value }));
     check(second.box === '' && !/const a/.test(second.body) && /Local answer/.test(second.body), `a new question replaces the old answer and leaves the box empty: ${JSON.stringify(second)}`);
+    const hist = await h.store.json('bfb-ask-history-v1', {});
+    const pv = Object.entries(hist).filter(([k]) => k.endsWith('/readme.md')).flatMap(([, cs]) => cs).filter(c => c.id.startsWith('pv-'));
+    check(pv.length === 2 && pv.some(c => c.turns.length === 1 && c.turns[0].q === 'Stream code'), `each opening of the preview files its questions as a chat of its own: ${JSON.stringify(pv.map(c => c.turns.map(t => t.q)))}`);
     await page.keyboard.press('Escape'); await sleep(200);
   });
 
@@ -148,6 +151,31 @@ try {
     }));
     check(DOWN.test(dn.chip) && dn.recheck && dn.btns.every(([off, t]) => off && DOWN.test(t)) && dn.qDisabled, `with the model down the preview says why once, on the disabled buttons too, and offers Retry: ${JSON.stringify(dn)}`);
     await shotAt(page, 'preview-down');
+    await page.keyboard.press('Escape'); await sleep(200);
+    // A click while the check is still running waits for it, and a down model runs nothing.
+    writeFileSync(h.lmSlowStatus, '');
+    const before = h.lmCalls().filter(c => c.args[0] === 'q').length;
+    await openPreview(page, 'readme.md');
+    await page.waitForFunction(() => !document.getElementById('fe-ql-copy').disabled, { timeout: 5000 });
+    const early = await page.evaluate(() => { const b = document.getElementById('fe-ql-ai-sum'); const was = document.getElementById('fe-ql-ai-chip-txt').textContent; b.click(); return was; });
+    await page.waitForFunction(() => /not running/.test(document.getElementById('fe-ql-ai-chip-txt')?.textContent ?? ''), { timeout: 15000 });
+    await sleep(300);
+    const after = await page.evaluate(() => ({ out: !document.getElementById('fe-ql-ai-out').hidden, body: document.getElementById('fe-ql-ai-out-body').textContent }));
+    const ran = h.lmCalls().filter(c => c.args[0] === 'q').length - before;
+    check(/checking/.test(early) && !DOWN.test(after.body) && ran === 0, `Summarize clicked during the check runs nothing once the model is found down: ${JSON.stringify({ early, ...after, ran })}`);
+    await page.keyboard.press('Escape'); await sleep(200);
+    unlinkSync(h.lmDown);
+    const before2 = h.lmCalls().filter(c => c.args[0] === 'q').length;
+    await openPreview(page, 'readme.md');
+    await page.waitForFunction(() => !document.getElementById('fe-ql-copy').disabled, { timeout: 5000 });
+    const early2 = await chipText(page);
+    await page.evaluate(() => document.getElementById('fe-ql-ai-sum').click());
+    await waitReady(page);
+    await page.waitForFunction(() => /Local answer/.test(document.getElementById('fe-ql-ai-out-body')?.textContent ?? '') && document.getElementById('fe-ql-ai-out-q').textContent === 'Summarize', { timeout: 15000 }).catch(() => {});
+    const ran2 = h.lmCalls().filter(c => c.args[0] === 'q').length - before2;
+    check(/checking/.test(early2) && ran2 === 1, `and once the model is found ready, the held click runs once: ${JSON.stringify({ early2, ran2 })}`);
+    unlinkSync(h.lmSlowStatus);
+    writeFileSync(h.lmDown, '');
     await page.keyboard.press('Escape'); await sleep(200);
     await page.click('#fe-settings-btn');
     await page.waitForSelector('#fe-settings-modal .fe-dlg-box');

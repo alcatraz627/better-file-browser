@@ -90,4 +90,21 @@ describe('kv store', () => {
     expect(kv.kvGet('bfb-settings-v1')).toBe('90');
     expect(seen).toEqual(['bfb-settings-v1']);
   });
+
+  it('kvFlush waits until slow writes and removals reach storage', async () => {
+    const f = fakeChrome({ 'bfb-old': 'x' });
+    const slow = <T>(fn: () => T) => new Promise<T>(r => setTimeout(() => r(fn()), 30));
+    const local = f.chrome.storage.local as Record<string, unknown>;
+    const set = local.set as (i: Record<string, unknown>) => Promise<void>;
+    local.set = (items: Record<string, unknown>) => slow(() => set(items));
+    local.remove = (k: string) => slow(() => { delete f.data[k]; });
+    (globalThis as { chrome?: unknown }).chrome = f.chrome;
+    const kv = await freshKv();
+    await kv.loadKv();
+    kv.kvSet('bfb-new', 'y');
+    kv.kvRemove('bfb-old');
+    await kv.kvFlush();
+    expect(f.data['bfb-new']).toBe('y');
+    expect('bfb-old' in f.data).toBe(false);
+  });
 });

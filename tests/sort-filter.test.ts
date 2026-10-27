@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyFilter, applySort, buildGroups } from '../src/sort-filter';
+import { applyFilter, applySort, buildGroups, rowSetKey } from '../src/sort-filter';
 import type { Entry } from '../src/types';
 
 const file = (name: string, rawBytes = 0, dateMs = Date.UTC(2024, 0, 1)): Entry =>
@@ -142,5 +142,22 @@ describe('applySort names and folders', () => {
   it('leaves folders mixed in by default', () => {
     const es = [file('b.txt'), dir('z'), file('a.txt')];
     expect(names(applySort(es, { col: 'name', dir: 'asc' }))).toEqual(['a.txt', 'b.txt', 'z']);
+  });
+});
+
+describe('rowSetKey', () => {
+  const hrefs = Array.from({ length: 1612 }, (_, i) => `f${i}`);
+  it('changes when rows between any sampled positions swap', () => {
+    const swapped = [...hrefs];
+    [swapped[1], swapped[2]] = [swapped[2], swapped[1]];
+    expect(rowSetKey(swapped)).not.toBe(rowSetKey(hrefs));
+  });
+  it('changes when one row is replaced by another, same count', () => {
+    const other = [...hrefs];
+    other[700] = 'new';
+    expect(rowSetKey(other)).not.toBe(rowSetKey(hrefs));
+  });
+  it('stays the same for the same rows drawn again', () => {
+    expect(rowSetKey([...hrefs], 'none|false')).toBe(rowSetKey(hrefs, 'none|false'));
   });
 });

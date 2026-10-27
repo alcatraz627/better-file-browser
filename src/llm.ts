@@ -77,6 +77,14 @@ export function llmAvailability(): Promise<LlmAvailability> {
 // What Ask can pick from, read from lm itself: the local tiers by alias, and
 // the gemini lane's models (a cloud service; the file's text leaves the machine).
 export interface ModelTier { alias: string; model: string }
+/** Which listed tier is the model lm answers with: the one named as the default first, else the first that runs that model; -1 when none. */
+export function defaultTier(tiers: ModelTier[], def: string): number {
+  const bare = (x: string) => x.replace(/:latest$/, '');
+  const d = bare(def);
+  if (!d) return -1;
+  const byName = tiers.findIndex(t => bare(t.alias) === d);
+  return byName >= 0 ? byName : tiers.findIndex(t => bare(t.model) === d);
+}
 export interface GeminiModel { name: string; default: boolean }
 export function llmModels(): Promise<{ tiers: ModelTier[]; gemini: GeminiModel[] }> {
   return new Promise(resolve => {

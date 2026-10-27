@@ -9,7 +9,7 @@ import { esc } from './utils';
 import { icoCustom, RULE_GLYPHS } from './icons';
 import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
 import { DEFAULT_COMMANDS } from './open-with';
-import { llmAvailability, llmWarm, llmModels, LLM_ERROR_TEXT } from './llm';
+import { llmAvailability, llmWarm, llmModels, defaultTier, LLM_ERROR_TEXT } from './llm';
 import { mountDialog } from './dialog';
 import { openLayer, type Layer } from './layer';
 import { wireKeyboardMap } from './help';
@@ -21,6 +21,10 @@ import { upgradeControls, switchHtml, type ValuedEl, type DropdownEl } from './c
 import { setThemeMode, setAppIcon, appIconUrl, appIconPref, fontPrefs, applyFonts, type ThemeMode } from './theme';
 import { emptyHtml } from './empty-state';
 import { reload } from './nav';
+import { kvFlush } from './kv';
+
+// Reload once the writes have reached storage, and not before the toast has been seen.
+const reloadWhenSaved = (): void => { void Promise.all([kvFlush(), new Promise(r => setTimeout(r, 600))]).then(reload); };
 import { errorText } from './errors';
 
 // Ready-made rules offered above the list; each appears until it is added.
@@ -198,14 +202,14 @@ export function initSettingsUi(app: App): void {
     // the ones that send the question and the file off this machine.
     Promise.all([avail, llmModels()]).then(([av, { tiers, gemini }]) => {
       const def = av.kind === 'unavailable' ? '' : (av.status.default_model ?? '').replace(/:latest$/, '');
-      const isDef = (t: { alias: string; model: string }) => !!def && [t.alias, t.model].some(x => x.replace(/:latest$/, '') === def);
+      const defAt = defaultTier(tiers, def);
       const rowHtml = (icon: string, name: string, model: string, remote: boolean, badge = '', badgeTip = '') =>
         `<div class="fe-ai-m">${icon}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ''}<span class="fe-ai-where${remote ? ' cloud' : ''}" title="${remote ? 'Sent to Google' : 'Stays on this Mac'}">${remote ? 'Remote' : 'This Mac'}</span></div>`;
       // A default that no listed alias names still shows, under its own name.
-      const lead = def && !tiers.some(isDef) ? rowHtml(UI_ICON.bot, def, '', /^gemini/i.test(def), 'default', 'The model lm answers with') : '';
+      const lead = def && defAt < 0 ? rowHtml(UI_ICON.bot, def, '', /^gemini/i.test(def), 'default', 'The model lm answers with') : '';
       models.innerHTML = tiers.length || gemini.length
         ? lead
-          + tiers.map(t => rowHtml(UI_ICON.bot, t.alias, t.model, false, isDef(t) ? 'default' : '', 'The model lm answers with')).join('')
+          + tiers.map((t, i) => rowHtml(UI_ICON.bot, t.alias, t.model, false, i === defAt ? 'default' : '', 'The model lm answers with')).join('')
           + gemini.map(g => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, 'Gemini '), g.name, true, g.default ? 'Gemini default' : '', 'Used when you ask Gemini without naming a model')).join('')
           + `<p class="fe-set-note">Remote models send the question and the file to Google.</p>`
         : '<p class="fe-set-note">No model list from lm.</p>';
@@ -416,14 +420,14 @@ export function initSettingsUi(app: App): void {
     const n = importPlan(pending);
     hidePlan();
     toast(`Imported ${n} setting${n !== 1 ? 's' : ''}, reloading`);
-    setTimeout(reload, 600);
+    reloadWhenSaved();
   });
   el('fe-st-reset').addEventListener('click', () => {
     const n = resetPreferences();
     toast(`Reset ${n} setting${n !== 1 ? 's' : ''}, reloading`);
-    setTimeout(reload, 600);
+    reloadWhenSaved();
   });
   // After a reset or an import, the reloaded page offers to take it back, once.
   const undo = takeUndo();
-  if (undo) toast(`${undo.label}: ${undo.count} setting${undo.count !== 1 ? 's' : ''}`, 12_000, { label: 'Undo', run: () => { undoWrites(undo); toast('Put back, reloading'); setTimeout(reload, 600); } });
+  if (undo) toast(`${undo.label}: ${undo.count} setting${undo.count !== 1 ? 's' : ''}`, 12_000, { label: 'Undo', run: () => { undoWrites(undo); toast('Put back, reloading'); reloadWhenSaved(); } });
 }

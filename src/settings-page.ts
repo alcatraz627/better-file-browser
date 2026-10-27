@@ -155,7 +155,7 @@ export function settingsDialog(): DialogSpec {
           row('Export', 'Saves a dated .json file', `<button id="fe-st-export" class="btn" data-size="lg" title="Save your settings and Saved list as a .json file">${UI_ICON.export}Export</button>`) +
           row('Import', 'Shows what changes before it applies', `<button id="fe-st-import" class="btn" data-size="lg" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) +
           `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` +
-          row('Reset', 'Every preference back to its default. Saved places and your folders stay.', `<button id="fe-st-reset" class="btn" data-size="lg" data-tone="danger" title="Put every setting back to its default; Undo stays for a moment">${UI_ICON.reset}Reset</button>`)) },
+          row('Reset', 'Every preference back to its default. Saved places, your folders, commands and icon rules stay.', `<button id="fe-st-reset" class="btn" data-size="lg" data-tone="danger" title="Put every setting back to its default; Undo stays for a moment">${UI_ICON.reset}Reset</button>`)) },
     ],
   };
 }

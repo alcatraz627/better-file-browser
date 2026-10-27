@@ -434,6 +434,7 @@ function setupAi(e: Entry, ext: string): void {
   const q = document.getElementById('fe-ql-ai-q') as HTMLInputElement;
   // Why the controls are off is said beside them, since a disabled button shows no hint of its own.
   const paint = (state: 'checking' | 'ready' | 'cold' | 'down', why = '') => {
+    aiChecking = state === 'checking';
     chip.className = state === 'checking' ? '' : state;
     chipTxt.textContent = state === 'ready' ? 'AI · ready' : state === 'cold' ? 'AI · cold start' : state === 'down' ? why : 'AI · checking';
     // While the check runs the controls stay live, so a click is never lost to it; only a known-down model switches them off.
@@ -443,6 +444,8 @@ function setupAi(e: Entry, ext: string): void {
     q.placeholder = on ? 'Ask about this file' : 'Ask is off until the model runs';
     recheck.hidden = state !== 'down';
   };
+  if (aiHeld?.e !== e) aiHeld = null;
+  if (aiHeld?.e !== e) aiChat = { href: '', id: '' };   // a fresh opening files its questions as a new chat
   paint('checking');
   aiOn = true;
   syncAiBar();
@@ -452,7 +455,10 @@ function setupAi(e: Entry, ext: string): void {
     // Ask from a row's menu opens the preview and puts the cursor in the question box once the model answers.
     const asked = askWhenReady === e;
     if (asked) askWhenReady = null;
+    const held = aiHeld?.e === e ? aiHeld : null;
+    aiHeld = null;
     if (av.kind === 'unavailable') {
+      aiChecking = false;
       aiNonePref.set(String(Date.now())); aiOn = false; syncAiBar();
       if (asked) deps.toast?.('Ask needs the lm toolkit, which is not installed');
       return;
@@ -460,8 +466,13 @@ function setupAi(e: Entry, ext: string): void {
     aiNonePref.set('');
     paint(av.kind === 'ready' ? (av.cold ? 'cold' : 'ready') : 'down', LLM_ERROR_TEXT.server_down);
     if (asked && av.kind === 'ready') (document.getElementById('fe-ql-ai-q') as HTMLInputElement).focus();
+    if (held && av.kind === 'ready') runAi(held.intent, held.question);
   });
 }
+
+// A click while the model check runs is held, then run once the model is found ready, or dropped when it is down.
+let aiChecking = false;
+let aiHeld: { e: Entry; intent: string; question?: string } | null = null;
 
 // Answers from the preview's AI bar join the file's Ask history, one chat per
 // file per preview, so the Ask lens on that file's page lists them too.
@@ -473,17 +484,16 @@ const pathOf = (e: Entry) => decodeURIComponent(new URL(e.href, location.href).p
 
 // The newest preview answer about this file comes back when it is opened again.
 function restoreAiAnswer(e: Entry): void {
-  let last: { id: string; turn: AskTurn } | null = null;
+  let last: { turn: AskTurn } | null = null;
   try {
     for (const c of chatsFor(pathOf(e))) {
       const ok = c.turns.filter(x => !x.error && !x.via && x.a);
       const t = ok[ok.length - 1];
-      if (c.id.startsWith('pv-') && t) { last = { id: c.id, turn: t }; break; }
+      if (c.id.startsWith('pv-') && t) { last = { turn: t }; break; }
     }
   } catch { /* history is a convenience */ }
   if (!last) return;
-  const { id, turn } = last;
-  aiChat = { href: e.href, id };
+  const { turn } = last;
   const exp = document.getElementById('fe-ql-ai-exp') as HTMLElement;
   const byLabel: Record<string, string> = { Summarize: 'summarize', Explain: 'explain-code', Describe: exp.dataset.intent || 'describe-data' };
   aiRun = turn.intent ? { intent: turn.intent } : byLabel[turn.q] ? { intent: byLabel[turn.q] } : { intent: 'qa', question: turn.q };
@@ -495,6 +505,7 @@ function restoreAiAnswer(e: Entry): void {
 }
 
 function runAi(intent: string, question?: string): void {
+  if (aiChecking) { if (currentEntry) aiHeld = { e: currentEntry, intent, question }; return; }
   if ((currentText === null && !currentImage) || !currentEntry) return;   // fetch not done yet
   const entry = currentEntry;
   const run = { intent, question };

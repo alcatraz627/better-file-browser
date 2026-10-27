@@ -15,7 +15,7 @@ import {
 } from './storage';
 import { upsertPlace } from './places';
 import { selectionRange } from './selection';
-import { applyFilter, applySort, buildGroups } from './sort-filter';
+import { applyFilter, applySort, buildGroups, rowSetKey } from './sort-filter';
 import { crawl } from './deep-search';
 import { parseListing } from './parse';
 import { loadOpenCounts } from './doc-comments';
@@ -191,9 +191,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     ls.visible = [];
     // A different set of rows (a filter, a sort, a clear) starts at the top; the
     // same set drawn again (hidden files, detail, comment counts) stays put.
-    const stride = Math.max(1, Math.ceil(entries.length / 64));
-    const sample = entries.filter((e, i) => i % stride === 0).map(e => e.href);
-    const setKey = `${entries.length}|${ls.group}|${ls.deepOn}|${sample.join('|')}`;
+    const setKey = rowSetKey(entries.map(e => e.href), `${ls.group}|${ls.deepOn}`);
     if (lastSetKey && setKey !== lastSetKey) el('fe-scroll').scrollTop = 0;
     lastSetKey = setKey;
     // Only the view on screen is built; switching views redraws.

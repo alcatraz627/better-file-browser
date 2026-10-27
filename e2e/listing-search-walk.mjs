@@ -146,13 +146,21 @@ try {
   check(/deeper than 8 levels/.test(found.status) && !found.hits.includes('bottom.txt'), `a tree deeper than the search says so in the status line: ${found.status}`);
   await shot(w, 'listing-search-deep');
 
-  // Back keeps the query and the results.
+  // Back keeps the query and the results, shown from before rather than searched again
+  // (a file that gained the word meanwhile shows up only when Enter searches again).
+  writeFileSync(join(wide, 'w-late.txt'), 'a needle added later\n');
   await w.goto(`file://${wide}/w-0001.txt`, { waitUntil: 'load' });
   await w.goBack({ waitUntil: 'load' });
   await w.waitForSelector('#fe-srch-q');
   await w.waitForFunction(() => /match|No file/.test(document.getElementById('fe-srch-status').textContent) || document.getElementById('fe-srch-q').value === '', { timeout: 120000 }).catch(() => {});
   const back = await w.evaluate(() => ({ q: document.getElementById('fe-srch-q').value, status: document.getElementById('fe-srch-status').textContent, hits: document.querySelectorAll('#fe-srch-list .fe-srch-hit').length }));
   check(back.q === 'needle' && back.hits >= 1, `Back to the folder brings the search and its results back: ${JSON.stringify(back)}`);
+  check(back.hits === 4 && /earlier/i.test(back.status), `coming back shows the earlier results without searching the folder again: ${JSON.stringify(back)}`);
+  await w.focus('#fe-srch-q');
+  await w.keyboard.press('Enter');
+  await w.waitForFunction(() => /match/.test(document.getElementById('fe-srch-status').textContent) && !/earlier/i.test(document.getElementById('fe-srch-status').textContent), { timeout: 120000 }).catch(() => {});
+  const again = await w.evaluate(() => document.querySelectorAll('#fe-srch-list .fe-srch-hit').length);
+  check(again === 5, `Enter searches again and finds the file that changed: ${again}`);
   await w.close();
 } finally {
   console.log(`theme: ${THEME}`);

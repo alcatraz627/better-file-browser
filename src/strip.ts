@@ -9,7 +9,7 @@ import { icoFile, icoFolder, PI } from './icons';
 import { isSaved, toggleSaved, jsonPref } from './storage';
 import { UI_ICON } from './control-icons';
 import {
-  EMPTY, openTab, closeTab, closeOthers, closeToRight, distinctKeeps, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, displayLabels, splitLabel, retargetTabs,
+  EMPTY, openTab, closeTab, closeOthers, closeToRight, distinctKeeps, activate, togglePin, step, moveTab, labelFor, kindOf, insertTab, restoreClosed, displayLabels, splitLabel, retargetTabs,
   isTabState, normalize, isStale, type TabState, type Tab, type RecoveryEntry,
 } from './tabs';
 import type { Toast } from './toast';
@@ -119,18 +119,19 @@ export function mountStrip(host: StripHost): Strip {
     render();
     listeners.forEach(f => f());
   }
-  // Close several tabs at once, and offer to put them all back where they were.
+  // Close several tabs at once, and offer to put them all back where they were,
+  // with the tab that was active. The page itself stays where it is.
   function closeMany(next: TabState): void {
     const gone = state.list.map((t, index) => ({ t, index })).filter(x => !next.list.some(n => n.id === x.t.id));
     if (!gone.length) return;
+    const wasActive = state.active;
     commit(next);
     toast(`Closed ${gone.length} tab${gone.length === 1 ? '' : 's'}`, 6000, {
       label: 'undo',
       run: () => {
         // Put each back at its old place; tabs opened meanwhile stay.
-        let back = state;
-        for (const x of gone) { closed = closed.filter(c => c.tab.id !== x.t.id); back = insertTab(back, x.t, x.index); }
-        commit(back);
+        closed = closed.filter(c => !gone.some(x => x.t.id === c.tab.id));
+        commit(restoreClosed(state, gone, wasActive));
       },
     });
   }
@@ -258,13 +259,22 @@ export function mountStrip(host: StripHost): Strip {
   }
   // Pinned tabs stay at the left edge while the rest scroll under them, side
   // by side, each stuck where the ones before it end.
+  // A pinned tab that changes size later (a font, density or a strip that was
+  // hidden while drawing) moves the ones after it.
+  const pinSizes = new ResizeObserver(() => pinLeft());
   function pinLeft(): void {
     let x = parseFloat(getComputedStyle(el).paddingLeft) || 0;
-    for (const a of el.querySelectorAll<HTMLElement>('.fe-tab.pinned')) {
+    const pins = [...el.querySelectorAll<HTMLElement>('.fe-tab.pinned')];
+    for (const a of pins) {
+      a.classList.toggle('pin-end', a === pins[pins.length - 1]);
       a.style.left = x + 'px';
       x += a.getBoundingClientRect().width + (parseFloat(getComputedStyle(el).columnGap) || 0);
     }
-    el.style.scrollPaddingLeft = x + 'px';
+    el.style.scrollPaddingLeft = (pins.length ? x + 24 : x) + 'px';
+  }
+  function watchPins(): void {
+    pinSizes.disconnect();
+    el.querySelectorAll<HTMLElement>('.fe-tab.pinned').forEach(a => pinSizes.observe(a, { box: 'border-box' }));
   }
   function shown(): Tab[] {
     if (hereIn(state) || !rawPath) return state.list;
@@ -281,6 +291,7 @@ export function mountStrip(host: StripHost): Strip {
     }
     el.innerHTML = rows.join('');
     pinLeft();
+    watchPins();
     fitHeads();
     el.classList.toggle('is-empty', state.list.length === 0);
     el.querySelector<HTMLElement>('.fe-tab.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });

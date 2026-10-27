@@ -10,7 +10,7 @@ import { highlightCode, splitHighlighted } from './renderers';
 import { formatFor, diagnose, type Diagnostic } from './formats';
 import { textPref } from './storage';
 import { notes, NotesError } from './notes';
-import { attachBuffer, indentLines } from './editor';
+import { attachBuffer, indentLines, continueList, absorbTypedMarker, autoMarkerAfter, type AutoMarker, type TextEdit } from './editor';
 import { wholeText, windowedText, lineStart, type TextWindow } from './text-window';
 import { UI_ICON } from './control-icons';
 import { carrier } from './comment-anchor';
@@ -518,6 +518,22 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       moveWindow(curRow);
     }
   });
+  // A markdown file's lists behave as in Notes: Enter continues one, an empty
+  // item ends it, and a marker typed over the one Enter put there is folded in.
+  const listy = /^(md|markdown|mdx)$/i.test(host.ext);
+  let autoMarker: AutoMarker | null = null;
+  const applyEdit = (r: TextEdit) => {
+    buf.snap();
+    ta.value = r.text; ta.setSelectionRange(r.start, r.end);
+    paintSource(); paint(); later(); checkLater();
+  };
+  if (listy) ta.addEventListener('input', () => {
+    if (!autoMarker) return;
+    const fix = absorbTypedMarker(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, autoMarker);
+    if (fix) { autoMarker = null; applyEdit(fix); return; }
+    const typed = ta.value.slice(autoMarker.lineStart + autoMarker.prefix.length, ta.selectionStart);
+    if (!ta.value.startsWith(autoMarker.prefix, autoMarker.lineStart) || ta.selectionStart < autoMarker.lineStart + autoMarker.prefix.length || !/^[-*+\d.)[\] xX]*$/.test(typed)) autoMarker = null;
+  });
   ta.addEventListener('keydown', e => {
     const mod = e.metaKey || e.ctrlKey;
     if (mod && e.shiftKey && e.key.toLowerCase() === 'p') return;   // the box cycles the view
@@ -532,6 +548,10 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
       const r = indentLines(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, e.shiftKey);
       ta.value = r.text; ta.setSelectionRange(r.start, r.end);
       paintSource(); paint(); later();
+    }
+    else if (listy && e.key === 'Enter' && !mod && !e.shiftKey && !e.altKey) {
+      const r = continueList(ta.value, { start: ta.selectionStart, end: ta.selectionEnd });
+      if (r) { e.preventDefault(); applyEdit(r); autoMarker = autoMarkerAfter(r); }
     }
     e.stopPropagation();   // page keys (r, t, w, [ ]) must not fire while typing
   });

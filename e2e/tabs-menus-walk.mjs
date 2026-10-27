@@ -58,7 +58,25 @@ try {
   const strip = await page.$eval('#fe-tabs', s => s.getBoundingClientRect().left);
   const pinLeft = (await tabs())[0].left;
   check(Math.abs(pinLeft - strip) < 24, `the pinned tab stays at the left after the strip scrolls: ${pinLeft - strip}px from the edge`);
+  const divider = await page.$eval('#fe-tabs .fe-tab.pinned', a => { const s = getComputedStyle(a, '::after'); return { end: a.classList.contains('pin-end'), content: s.content, w: parseFloat(s.width) }; });
+  check(divider.end && divider.content !== 'none' && divider.w >= 12, `a fading divider follows the last pinned tab, so a tab scrolled under it never reads as part of it: ${JSON.stringify(divider)}`);
   await shot(page, 'tabs-menus-pinned');
+  // Two pinned tabs sit side by side, and stay so when one changes size without the strip redrawing (a font or density change).
+  await page.$eval('#fe-tabs', s => { s.scrollLeft = 0; });
+  await page.evaluate(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.pinned)')[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 300, clientY: 40 })));
+  await sleep(200);
+  const pinItem = await page.evaluate(() => { const i = [...document.querySelectorAll('.fe-ctx-item[data-act="pin"]')].find(x => x.offsetParent && /^Pin/.test(x.textContent.trim())); if (i) i.click(); return !!i; });
+  await sleep(300);
+  const sideBySide = () => page.$$eval('#fe-tabs .fe-tab.pinned', ps => ps.map(p => { const b = p.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; }));
+  await page.evaluate(() => { document.querySelector('#fe-tabs .fe-tab.pinned').style.paddingInline = '20px'; });
+  await sleep(200);
+  const pins = await sideBySide();
+  check(pinItem && pins.length === 2 && pins[1][0] >= pins[0][1] && pins[1][0] - pins[0][1] < 12, `two pinned tabs stay side by side when one grows: ${JSON.stringify(pins)}`);
+  await page.evaluate(() => { document.querySelector('#fe-tabs .fe-tab.pinned').style.paddingInline = ''; });
+  await page.evaluate(() => document.querySelectorAll('#fe-tabs .fe-tab.pinned')[1].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 300, clientY: 40 })));
+  await sleep(200);
+  await page.evaluate(() => [...document.querySelectorAll('.fe-ctx-item[data-act="pin"]')].find(x => x.offsetParent)?.click());
+  await sleep(300);
 
   // 25 (tab menu): Close to the right, with an undo.
   await page.$eval('#fe-tabs', s => { s.scrollLeft = 0; });
@@ -140,6 +158,8 @@ try {
   if (await appears(page, '#fe-ctx [data-act="ask"]')) await page.click('#fe-ctx [data-act="ask"]');
   await page.waitForFunction(() => document.getElementById('fe-qlook')?.style.display === 'flex', { timeout: 3000 }).catch(() => null);
   check(await page.$eval('#fe-qlook', q => q.style.display === 'flex'), 'Ask opens the preview of that file');
+  await page.keyboard.press('Escape'); await sleep(200);
+
   await page.keyboard.press('Escape');
   await sleep(200);
 

@@ -75,8 +75,16 @@ describe('crawl', () => {
     const tree: Record<string, string[]> = { [ROOT]: ['big/', 'small/'], [ROOT + 'big/']: big, [ROOT + 'small/']: ['inner/'], [ROOT + 'small/inner/']: ['target.md'] };
     const r = await crawl(ROOT, async url => tree[url].map(n => entry(url, n)), { maxEntries: 20 });
     expect(r.entries.some(e => e.name === 'small/inner/target.md')).toBe(true);
-    expect(r.entries.filter(e => e.name.startsWith('big/')).length).toBeLessThanOrEqual(10);
+    // big's held-back files fill what the siblings left of the budget.
+    expect(r.entries.length).toBe(20);
     expect(r.entryCapped).toBe(true);
+  });
+
+  it('a big folder with nothing else to search lists every file the budget allows', async () => {
+    const tree: Record<string, string[]> = { [ROOT]: Array.from({ length: 30 }, (_, i) => `f${i}.txt`) };
+    const r = await crawl(ROOT, async url => tree[url].map(n => entry(url, n)), { maxEntries: 40 });
+    expect(r.entries.length).toBe(30);
+    expect(r.entryCapped).toBe(false);
   });
 
   it('stops when cancelled and says so', async () => {

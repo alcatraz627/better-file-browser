@@ -426,10 +426,18 @@
     pending.set(key, [...pending.get(key) ?? [], value]);
     const lost = () => pending.delete(key);
     try {
-      area.set({ [key]: value }).catch(lost);
+      track(area.set({ [key]: value }).catch(lost));
     } catch {
       lost();
     }
+  }
+  var inFlight = /* @__PURE__ */ new Set();
+  function track(p) {
+    inFlight.add(p);
+    void p.finally(() => inFlight.delete(p));
+  }
+  async function kvFlush() {
+    while (inFlight.size) await Promise.allSettled([...inFlight]);
   }
   function kvKeys() {
     return area ? [...cache.keys()] : localKeys();
@@ -445,8 +453,8 @@
     if (!cache.has(key)) return;
     cache.delete(key);
     try {
-      area.remove(key).catch(() => {
-      });
+      track(area.remove(key).catch(() => {
+      }));
     } catch {
     }
   }
@@ -811,8 +819,8 @@
     "bfb-reset-undo-v1"
   ];
   var isPassingState = (k) => PASSING_STATE.some((p) => k === p || (p.endsWith(":") || p.endsWith("-")) && k.startsWith(p));
-  var BUILT_UP = [SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, RECENTS_KEY, "bfb-saved-folded-v1", "bfb-notes-folded-v1", "bfb-ask-history-v1", "bfb-home-v1"];
-  var KEEP_IN_SETTINGS = ["notesRoot", "editableFolders"];
+  var BUILT_UP = [SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, RECENTS_KEY, ICON_RULES_KEY, "bfb-saved-folded-v1", "bfb-notes-folded-v1", "bfb-ask-history-v1", "bfb-home-v1"];
+  var KEEP_IN_SETTINGS = ["notesRoot", "editableFolders", "openWithCmds", "terminalApp", "terminalCmd", "excludedFileExtensions"];
   function exportAll() {
     const out = {};
     for (const k of kvKeys().sort()) {
@@ -2611,6 +2619,7 @@ ${body}`;
       if (folding.get(box)?.anim === anim) end();
     };
   }
+  var FOLD_SIDE_QUERY = "(max-width: 960px) and (min-width: 521px)";
   var wanted = null;
   function sidebarShown() {
     return wanted ?? el("fe-side").style.display !== "none";
@@ -4525,8 +4534,10 @@ ${answer}`;
     const [, ind, marker, box, rest] = m;
     if (!rest.trim()) {
       const gap = from === 0 || /\n\n$/.test(text.slice(0, from)) ? "" : "\n";
-      const out2 = text.slice(0, from) + gap + text.slice(sel.end);
-      return { text: out2, start: from + gap.length, end: from + gap.length };
+      const below = text.slice(sel.end).replace(/^\n+/, "");
+      const out2 = text.slice(0, from) + gap + (below ? (gap ? "" : "\n") + below : "");
+      const at = below ? from : from + gap.length;
+      return { text: out2, start: at, end: at };
     }
     const nextMarker = /^\d+/.test(marker) ? String(parseInt(marker) + 1) + marker.slice(-1) : marker;
     const ins = "\n" + ind + nextMarker + " " + (box ? "[ ] " : "");
@@ -4677,6 +4688,13 @@ ${body}
       });
       port.postMessage({ op: "status" });
     });
+  }
+  function defaultTier(tiers, def) {
+    const bare = (x) => x.replace(/:latest$/, "");
+    const d = bare(def);
+    if (!d) return -1;
+    const byName = tiers.findIndex((t) => bare(t.alias) === d);
+    return byName >= 0 ? byName : tiers.findIndex((t) => bare(t.model) === d);
   }
   function llmModels() {
     return new Promise((resolve) => {
@@ -11815,6 +11833,7 @@ ${end.comment}` : end.comment;
     const recheck = document.getElementById("fe-ql-ai-recheck");
     const q = document.getElementById("fe-ql-ai-q");
     const paint = (state, why = "") => {
+      aiChecking = state === "checking";
       chip.className = state === "checking" ? "" : state;
       chipTxt.textContent = state === "ready" ? "AI \xB7 ready" : state === "cold" ? "AI \xB7 cold start" : state === "down" ? why : "AI \xB7 checking";
       const on = state !== "down";
@@ -11826,6 +11845,8 @@ ${end.comment}` : end.comment;
       q.placeholder = on ? "Ask about this file" : "Ask is off until the model runs";
       recheck.hidden = state !== "down";
     };
+    if (aiHeld?.e !== e) aiHeld = null;
+    if (aiHeld?.e !== e) aiChat = { href: "", id: "" };
     paint("checking");
     aiOn = true;
     syncAiBar();
@@ -11834,7 +11855,10 @@ ${end.comment}` : end.comment;
       if (currentEntry !== e || !isPreviewOpen()) return;
       const asked = askWhenReady === e;
       if (asked) askWhenReady = null;
+      const held = aiHeld?.e === e ? aiHeld : null;
+      aiHeld = null;
       if (av.kind === "unavailable") {
+        aiChecking = false;
         aiNonePref.set(String(Date.now()));
         aiOn = false;
         syncAiBar();
@@ -11844,8 +11868,11 @@ ${end.comment}` : end.comment;
       aiNonePref.set("");
       paint(av.kind === "ready" ? av.cold ? "cold" : "ready" : "down", LLM_ERROR_TEXT.server_down);
       if (asked && av.kind === "ready") document.getElementById("fe-ql-ai-q").focus();
+      if (held && av.kind === "ready") runAi(held.intent, held.question);
     });
   }
+  var aiChecking = false;
+  var aiHeld = null;
   var aiChat = { href: "", id: "" };
   var AI_ASKED = { summarize: "Summarize", explain: "Explain", describe: "Describe", "explain-code": "Explain", "describe-data": "Describe", "describe-image": "Describe" };
   var IMAGE_ASKED = { summarize: "Summarize what this image shows in a few lines.", "describe-image": "Describe this image in detail, with any text in it verbatim." };
@@ -11857,15 +11884,14 @@ ${end.comment}` : end.comment;
         const ok = c.turns.filter((x) => !x.error && !x.via && x.a);
         const t = ok[ok.length - 1];
         if (c.id.startsWith("pv-") && t) {
-          last = { id: c.id, turn: t };
+          last = { turn: t };
           break;
         }
       }
     } catch {
     }
     if (!last) return;
-    const { id, turn } = last;
-    aiChat = { href: e.href, id };
+    const { turn } = last;
     const exp = document.getElementById("fe-ql-ai-exp");
     const byLabel = { Summarize: "summarize", Explain: "explain-code", Describe: exp.dataset.intent || "describe-data" };
     aiRun = turn.intent ? { intent: turn.intent } : byLabel[turn.q] ? { intent: byLabel[turn.q] } : { intent: "qa", question: turn.q };
@@ -11876,6 +11902,10 @@ ${end.comment}` : end.comment;
     setAiBusy(false);
   }
   function runAi(intent, question) {
+    if (aiChecking) {
+      if (currentEntry) aiHeld = { e: currentEntry, intent, question };
+      return;
+    }
     if (currentText === null && !currentImage || !currentEntry) return;
     const entry = currentEntry;
     const run = { intent, question };
@@ -15197,6 +15227,8 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-tab.pinned,.fe-tab.pinned.on{padding:var(--sp-2) var(--sp-3);min-width:0;flex:none;position:sticky;z-index:1;box-shadow:var(--sp-2) 0 0 var(--side)}
 /* The strip's own colour fills the gaps around pinned tabs, so tabs scrolling under them never show in a gap. */
 .fe-tab.pinned:first-child{box-shadow:var(--sp-2) 0 0 var(--side),calc(-1 * var(--sp-3)) 0 0 var(--side)}
+/* After the last pinned tab, a divider: the tabs scrolling under it read as their own, never as part of the pinned one. */
+.fe-tab.pinned.pin-end::after{content:'';position:absolute;top:-1px;bottom:0;left:calc(100% + var(--sp-2));width:var(--sp-8);border-left:1px solid var(--bd2);background:linear-gradient(90deg,var(--side) 40%,transparent);pointer-events:none}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
 #fe-tabs.is-empty{padding-top:var(--sp-2)}
 .fe-tab{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-4);min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
@@ -17170,6 +17202,10 @@ button.chip:disabled{opacity:.45;cursor:default}
     const side = el("fe-side");
     const rz = el("fe-side-rz");
     el("fe-side-toggle").addEventListener("click", () => {
+      if (matchMedia(FOLD_SIDE_QUERY).matches) {
+        setSidebarShown(!sidebarShown());
+        return;
+      }
       settings.showSidebar = !sidebarShown();
       saveSettings(settings);
       setSidebarShown(settings.showSidebar);
@@ -18192,6 +18228,28 @@ and ${diags.length - 12} more` : "");
         moveWindow(curRow);
       }
     });
+    const listy = /^(md|markdown|mdx)$/i.test(host.ext);
+    let autoMarker = null;
+    const applyEdit = (r) => {
+      buf.snap();
+      ta.value = r.text;
+      ta.setSelectionRange(r.start, r.end);
+      paintSource();
+      paint();
+      later();
+      checkLater();
+    };
+    if (listy) ta.addEventListener("input", () => {
+      if (!autoMarker) return;
+      const fix = absorbTypedMarker(ta.value, { start: ta.selectionStart, end: ta.selectionEnd }, autoMarker);
+      if (fix) {
+        autoMarker = null;
+        applyEdit(fix);
+        return;
+      }
+      const typed = ta.value.slice(autoMarker.lineStart + autoMarker.prefix.length, ta.selectionStart);
+      if (!ta.value.startsWith(autoMarker.prefix, autoMarker.lineStart) || ta.selectionStart < autoMarker.lineStart + autoMarker.prefix.length || !/^[-*+\d.)[\] xX]*$/.test(typed)) autoMarker = null;
+    });
     ta.addEventListener("keydown", (e) => {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.shiftKey && e.key.toLowerCase() === "p") return;
@@ -18211,6 +18269,13 @@ and ${diags.length - 12} more` : "");
         paintSource();
         paint();
         later();
+      } else if (listy && e.key === "Enter" && !mod && !e.shiftKey && !e.altKey) {
+        const r = continueList(ta.value, { start: ta.selectionStart, end: ta.selectionEnd });
+        if (r) {
+          e.preventDefault();
+          applyEdit(r);
+          autoMarker = autoMarkerAfter(r);
+        }
       }
       e.stopPropagation();
     });
@@ -18889,7 +18954,13 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         paint();
         redraw();
         o.box.querySelector(".fe-cm-list > .fe-cm-th, .fe-cm-done > summary")?.focus({ preventScroll: true });
-        o.toast?.("Marked done", 6e3, { label: "Undo", run: () => void reply(id, true).then(() => focusThread(id)) });
+        o.toast?.("Marked done", 6e3, { label: "Undo", run: () => {
+          if (threads.find((x) => x.id === id)?.status !== "done") {
+            focusThread(id);
+            return;
+          }
+          void reply(id, true).then(() => focusThread(id));
+        } });
         return;
       }
       o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
@@ -19962,6 +20033,11 @@ ${d.message}` : d.message;
   function isStale(e, now, maxAge = RECOVERY_MAX_AGE) {
     return now - e.at > maxAge || !e.state.list.length;
   }
+  function restoreClosed(s, gone, active) {
+    let back = s;
+    for (const x of [...gone].sort((a, b) => a.index - b.index)) back = insertTab(back, x.t, x.index);
+    return back.list.some((t) => t.id === active) ? { ...back, active } : back;
+  }
   function insertTab(s, tab, index) {
     if (s.list.some((t) => t.path === tab.path)) return s;
     const list3 = [...s.list];
@@ -19974,9 +20050,11 @@ ${d.message}` : d.message;
     const ext2 = label.match(/\.[A-Za-z0-9]{1,6}$/)?.[0] ?? "";
     const base = label.length - ext2.length;
     const cut = Math.max(0, base - keep);
+    if (keep > KEEP_WHOLE) return { head: label.slice(0, cut), tail: label.slice(cut, cut + Math.max(3, 13 - ext2.length)) + "\u2026" + ext2 };
     return { head: label.slice(0, cut), tail: label.slice(cut) };
   }
   var HEAD_SEEN = 6;
+  var KEEP_WHOLE = 8;
   function distinctKeeps(labels) {
     const bases = labels.map((l) => l.replace(/\.[A-Za-z0-9]{1,6}$/, ""));
     return labels.map((l, i3) => {
@@ -19989,7 +20067,7 @@ ${d.message}` : d.message;
         shared = Math.max(shared, k);
       });
       if (shared < HEAD_SEEN) return 0;
-      return Math.min(bases[i3].length - Math.max(0, shared - 1), 14);
+      return bases[i3].length - Math.max(0, shared - 1);
     });
   }
   function displayLabels(list3) {
@@ -20068,16 +20146,13 @@ ${d.message}` : d.message;
     function closeMany(next) {
       const gone = state.list.map((t, index) => ({ t, index })).filter((x) => !next.list.some((n) => n.id === x.t.id));
       if (!gone.length) return;
+      const wasActive = state.active;
       commit(next);
       toast(`Closed ${gone.length} tab${gone.length === 1 ? "" : "s"}`, 6e3, {
         label: "undo",
         run: () => {
-          let back = state;
-          for (const x of gone) {
-            closed = closed.filter((c) => c.tab.id !== x.t.id);
-            back = insertTab(back, x.t, x.index);
-          }
-          commit(back);
+          closed = closed.filter((c) => !gone.some((x) => x.t.id === c.tab.id));
+          commit(restoreClosed(state, gone, wasActive));
         }
       });
     }
@@ -20194,13 +20269,20 @@ ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned
       ${t.pinned ? "" : `<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="${esc(t.id)}" title="Close (w)">${UI_ICON.close}</button>`}
     </a>`;
     }
+    const pinSizes = new ResizeObserver(() => pinLeft());
     function pinLeft() {
       let x = parseFloat(getComputedStyle(el2).paddingLeft) || 0;
-      for (const a of el2.querySelectorAll(".fe-tab.pinned")) {
+      const pins = [...el2.querySelectorAll(".fe-tab.pinned")];
+      for (const a of pins) {
+        a.classList.toggle("pin-end", a === pins[pins.length - 1]);
         a.style.left = x + "px";
         x += a.getBoundingClientRect().width + (parseFloat(getComputedStyle(el2).columnGap) || 0);
       }
-      el2.style.scrollPaddingLeft = x + "px";
+      el2.style.scrollPaddingLeft = (pins.length ? x + 24 : x) + "px";
+    }
+    function watchPins() {
+      pinSizes.disconnect();
+      el2.querySelectorAll(".fe-tab.pinned").forEach((a) => pinSizes.observe(a, { box: "border-box" }));
     }
     function shown() {
       if (hereIn(state) || !rawPath) return state.list;
@@ -20218,6 +20300,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       }
       el2.innerHTML = rows.join("");
       pinLeft();
+      watchPins();
       fitHeads();
       el2.classList.toggle("is-empty", state.list.length === 0);
       el2.querySelector(".fe-tab.on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
@@ -20693,7 +20776,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ) + card2("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
         { key: "data", label: "Data", hint: "Export, import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list.", body: card2(
           "Your data",
-          row("Export", "Saves a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" title="Save your settings and Saved list as a .json file">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places and your folders stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-tone="danger" title="Put every setting back to its default; Undo stays for a moment">${UI_ICON.reset}Reset</button>`)
+          row("Export", "Saves a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" title="Save your settings and Saved list as a .json file">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places, your folders, commands and icon rules stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-tone="danger" title="Put every setting back to its default; Undo stays for a moment">${UI_ICON.reset}Reset</button>`)
         ) }
       ]
     };
@@ -21253,6 +21336,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       return config.dir === "asc" ? cmp : -cmp;
     });
   }
+  function rowSetKey(hrefs, extra = "") {
+    let h = 2166136261;
+    for (const s of hrefs) {
+      for (let i3 = 0; i3 < s.length; i3++) h = Math.imul(h ^ s.charCodeAt(i3), 16777619);
+      h = Math.imul(h ^ 124, 16777619);
+    }
+    return `${hrefs.length}|${extra}|${(h >>> 0).toString(36)}`;
+  }
   function buildGroups(entries, mode) {
     if (mode === "folders-first") {
       const dirs = entries.filter((e) => e.isDir);
@@ -21309,7 +21400,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const maxEntries = opts.maxEntries ?? 5e3;
     const skip = opts.skipDirs ?? DEFAULT_SKIP_DIRS;
     const perFolderFiles = Math.ceil(maxEntries / 2);
-    const entries = [];
+    const entries = [], heldBack = [];
     let folders = 0, entryCapped = false, depthCapped = false;
     let queue = [{ url: rootUrl, depth: 0 }];
     while (queue.length && !isCancelled() && entries.length < maxEntries) {
@@ -21331,12 +21422,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             entryCapped = true;
             break;
           }
-          if (!k.isDir && ++files > perFolderFiles) {
-            entryCapped = true;
-            continue;
-          }
           const name = relativeName(k.href, rootUrl);
           const hiddenSeg = name.split("/").some((s) => s.startsWith("."));
+          if (!k.isDir && ++files > perFolderFiles) {
+            heldBack.push({ ...k, name, isHidden: hiddenSeg });
+            continue;
+          }
           entries.push({ ...k, name, isHidden: hiddenSeg });
           if (!k.isDir) continue;
           if (skip.has(k.name) || !opts.includeHidden && k.name.startsWith(".")) continue;
@@ -21348,6 +21439,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         }
       }
       opts.onProgress?.(folders, entries.length);
+    }
+    if (heldBack.length && !isCancelled()) {
+      const room = Math.max(0, maxEntries - entries.length);
+      entries.push(...heldBack.slice(0, room));
+      if (heldBack.length > room) entryCapped = true;
     }
     return { entries, folders, truncated: entryCapped || depthCapped, entryCapped, depthCapped, cancelled: isCancelled() };
   }
@@ -21679,9 +21775,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const tbody = el("fe-tbody");
       const tiles = el("fe-tiles");
       ls.visible = [];
-      const stride = Math.max(1, Math.ceil(entries.length / 64));
-      const sample = entries.filter((e, i3) => i3 % stride === 0).map((e) => e.href);
-      const setKey = `${entries.length}|${ls.group}|${ls.deepOn}|${sample.join("|")}`;
+      const setKey = rowSetKey(entries.map((e) => e.href), `${ls.group}|${ls.deepOn}`);
       if (lastSetKey && setKey !== lastSetKey) el("fe-scroll").scrollTop = 0;
       lastSetKey = setKey;
       const view = fe.dataset.view ?? "details";
@@ -23721,9 +23815,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         return;
       }
       const path = row2.dataset.path;
+      const copy = els(".fe-pl-item", svList).filter((i3) => i3.dataset.path === path).indexOf(row2);
       saveSaved(movePlace(getSaved(), path, next.dataset.path));
       refreshSaved();
-      els(".fe-pl-item", svList).find((i3) => i3.dataset.path === path && i3.parentElement === next.parentElement)?.querySelector(".fe-si-link, .fe-si")?.focus();
+      els(".fe-pl-item", svList).filter((i3) => i3.dataset.path === path)[Math.max(0, copy)]?.querySelector(".fe-si-link, .fe-si")?.focus();
     };
     function addCurrentFolder(rename) {
       const label = rawPath.split("/").filter(Boolean).pop() || "/";
@@ -23772,7 +23867,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (pinChange) toast(toPinned ? "Pinned" : "Unpinned");
       const rels = [.../* @__PURE__ */ new Set([...writes.keys(), ...pinChange ? [rel] : []])];
       arranging++;
-      void (async () => {
+      arrangeChain = arrangeChain.then(async () => {
         for (const r of rels) {
           const cur = await notes.read(root, r);
           let next = cur.text;
@@ -23781,12 +23876,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           if (frontmatterDrift(cur.text, next, ["pos", "pinned"]).length) throw new Error("that would change other properties");
           await notes.write(root, r, next, cur.mtime);
         }
-      })().catch((err) => {
+      }).catch((err) => {
         toast(errorText(err, "Saving the new order"));
       }).finally(() => {
         if (--arranging === 0) refreshNotes();
       });
     }
+    let arrangeChain = Promise.resolve();
     let arranging = 0;
     ntList.addEventListener("dragstart", (e) => {
       const item = e.target.closest('.fe-nt-item[draggable="true"]');
@@ -24396,8 +24492,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const list3 = el("fe-srch-list");
     let run = 0;
     const lastPref2 = textPref("bfb-srch-last:" + app.folderPath, "", "tab");
-    const remember = (term) => {
-      lastPref2.set(term ? JSON.stringify({ term, deep: el("fe-srch-deep").checked, matchCase: el("fe-srch-case").checked }) : "");
+    const remember = (term, shown) => {
+      const keep = shown && shown.html.length < 2e5 ? shown : void 0;
+      lastPref2.set(term ? JSON.stringify({ term, deep: el("fe-srch-deep").checked, matchCase: el("fe-srch-case").checked, ...keep }) : "");
     };
     async function search() {
       const term = q.value.trim();
@@ -24445,6 +24542,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
         return `<a class="row fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
       }).join("");
+      remember(term, { status: status.textContent ?? "", html: list3.innerHTML });
     }
     q.addEventListener("keydown", (e) => {
       e.stopPropagation();
@@ -24472,8 +24570,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     document.addEventListener("bfb-lens", (e) => {
       if (e.detail !== "search" || !restore) return;
+      const r = restore;
       restore = null;
-      void search();
+      if (r.html === void 0 || r.status === void 0) {
+        void search();
+        return;
+      }
+      status.textContent = `${r.status} \xB7 from earlier, Enter searches again`;
+      list3.innerHTML = r.html;
     });
     document.addEventListener("bfb-lens-open", (e) => {
       if (e.detail === "search") q.focus({ preventScroll: true });
@@ -25153,6 +25257,9 @@ ${rows.join("\n")}`, name: subject };
   }
 
   // src/settings-ui.ts
+  var reloadWhenSaved = () => {
+    void Promise.all([kvFlush(), new Promise((r) => setTimeout(r, 600))]).then(reload);
+  };
   var RULE_SUGGESTIONS = [
     { name: "Images", pattern: "\\.(png|jpe?g|gif|webp|svg|avif|heic)$", label: "IMG", glyph: "image", color: "#b197fc" },
     { name: "Archives", pattern: "\\.(zip|tar|gz|tgz|rar|7z|xz)$", label: "ZIP", glyph: "archive", color: "#a1887f" },
@@ -25376,10 +25483,10 @@ ${rows.join("\n")}`, name: subject };
       const models = el("fe-st-ai-models");
       Promise.all([avail, llmModels()]).then(([av, { tiers, gemini }]) => {
         const def = av.kind === "unavailable" ? "" : (av.status.default_model ?? "").replace(/:latest$/, "");
-        const isDef = (t) => !!def && [t.alias, t.model].some((x) => x.replace(/:latest$/, "") === def);
+        const defAt = defaultTier(tiers, def);
         const rowHtml = (icon2, name, model, remote, badge = "", badgeTip = "") => `<div class="fe-ai-m">${icon2}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ""}<span class="fe-ai-where${remote ? " cloud" : ""}" title="${remote ? "Sent to Google" : "Stays on this Mac"}">${remote ? "Remote" : "This Mac"}</span></div>`;
-        const lead = def && !tiers.some(isDef) ? rowHtml(UI_ICON.bot, def, "", /^gemini/i.test(def), "default", "The model lm answers with") : "";
-        models.innerHTML = tiers.length || gemini.length ? lead + tiers.map((t) => rowHtml(UI_ICON.bot, t.alias, t.model, false, isDef(t) ? "default" : "", "The model lm answers with")).join("") + gemini.map((g) => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, "Gemini "), g.name, true, g.default ? "Gemini default" : "", "Used when you ask Gemini without naming a model")).join("") + `<p class="fe-set-note">Remote models send the question and the file to Google.</p>` : '<p class="fe-set-note">No model list from lm.</p>';
+        const lead = def && defAt < 0 ? rowHtml(UI_ICON.bot, def, "", /^gemini/i.test(def), "default", "The model lm answers with") : "";
+        models.innerHTML = tiers.length || gemini.length ? lead + tiers.map((t, i3) => rowHtml(UI_ICON.bot, t.alias, t.model, false, i3 === defAt ? "default" : "", "The model lm answers with")).join("") + gemini.map((g) => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, "Gemini "), g.name, true, g.default ? "Gemini default" : "", "Used when you ask Gemini without naming a model")).join("") + `<p class="fe-set-note">Remote models send the question and the file to Google.</p>` : '<p class="fe-set-note">No model list from lm.</p>';
       });
     }
     el("fe-st-ai-refresh").addEventListener("click", refreshAi);
@@ -25646,18 +25753,18 @@ ${rows.join("\n")}`, name: subject };
       const n = importPlan(pending3);
       hidePlan();
       toast(`Imported ${n} setting${n !== 1 ? "s" : ""}, reloading`);
-      setTimeout(reload, 600);
+      reloadWhenSaved();
     });
     el("fe-st-reset").addEventListener("click", () => {
       const n = resetPreferences();
       toast(`Reset ${n} setting${n !== 1 ? "s" : ""}, reloading`);
-      setTimeout(reload, 600);
+      reloadWhenSaved();
     });
     const undo = takeUndo();
     if (undo) toast(`${undo.label}: ${undo.count} setting${undo.count !== 1 ? "s" : ""}`, 12e3, { label: "Undo", run: () => {
       undoWrites(undo);
       toast("Put back, reloading");
-      setTimeout(reload, 600);
+      reloadWhenSaved();
     } });
   }
 
@@ -26261,10 +26368,15 @@ ${rows.join("\n")}`, name: subject };
       saveSettings(settings);
     }
     if (settings.sidebarWidth) el("fe-side").style.width = settings.sidebarWidth + "px";
-    if (!settings.showSidebar) {
+    const narrow = matchMedia(FOLD_SIDE_QUERY);
+    if (!settings.showSidebar || narrow.matches) {
       el("fe-side").style.display = "none";
       el("fe-side-rz").style.display = "none";
     }
+    narrow.addEventListener("change", () => {
+      const docked = !!document.querySelector("#fe-qlook.side")?.checkVisibility() && settings.dockFoldsSidebar !== false;
+      setSidebarShown(!narrow.matches && !docked && settings.showSidebar);
+    });
     const applyLook = () => {
       setUiScale(settings.uiScale || 100);
       fe.classList.toggle("compact", !!settings.compactMode);

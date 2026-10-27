@@ -342,9 +342,9 @@ export const isPassingState = (k: string): boolean => PASSING_STATE.some(p => k 
 
 // What a person built up (Saved places, tags, history) rather than chose in Settings: exported and
 // imported, but a reset leaves it alone.
-const BUILT_UP = [SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, RECENTS_KEY, 'bfb-saved-folded-v1', 'bfb-notes-folded-v1', 'bfb-ask-history-v1', 'bfb-home-v1'];
-// Settings that name folders on this Mac; a reset keeps them so Notes and Edit stay connected.
-const KEEP_IN_SETTINGS = ['notesRoot', 'editableFolders'] as const;
+const BUILT_UP = [SAVED_KEY, PLACES_KEY, BM_KEY, TAGS_KEY, RECENTS_KEY, ICON_RULES_KEY, 'bfb-saved-folded-v1', 'bfb-notes-folded-v1', 'bfb-ask-history-v1', 'bfb-home-v1'];
+// Settings a person wrote out or that name folders on this Mac: commands, exclusions, the notes and edit folders. A reset keeps them.
+const KEEP_IN_SETTINGS = ['notesRoot', 'editableFolders', 'openWithCmds', 'terminalApp', 'terminalCmd', 'excludedFileExtensions'] as const;
 
 /** Every stored setting, for Settings' export. Values that are JSON come out parsed. */
 export function exportAll(): Record<string, unknown> {
@@ -393,7 +393,7 @@ export function importPlan(plan: ImportPlan): number { return applyWrites('Impor
 /** Write back an export; only the explorer's own keys are taken. Returns how many. */
 export function importAll(data: Record<string, unknown>): number { return importPlan(planImport(data)); }
 
-/** Put every preference back to its default. Saved places, history, and the notes and editable folders stay. Returns how many keys changed. */
+/** Put every preference back to its default. Saved places, history, icon rules, commands and folders stay. Returns how many keys changed. */
 export function resetPreferences(): number {
   const writes: Record<string, string | null> = {};
   for (const k of kvKeys()) {

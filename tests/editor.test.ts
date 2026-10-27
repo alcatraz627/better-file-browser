@@ -55,6 +55,11 @@ describe('continueList', () => {
     expect(continueList('intro\n\n- ', at(9))!.text).toBe('intro\n\n');
     expect(continueList('- ', at(2))!.text).toBe('');
   });
+  it('ending a list above other text keeps exactly one blank line before it', () => {
+    expect(continueList('- a\n- \n\n# H', at(6))!.text).toBe('- a\n\n# H');
+    expect(continueList('- a\n- \n# H', at(6))!.text).toBe('- a\n\n# H');
+    expect(continueList('- a\n- \n\n\n# H', at(6))!.start).toBe(4);
+  });
 });
 
 describe('absorbTypedMarker', () => {

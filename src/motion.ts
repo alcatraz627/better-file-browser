@@ -39,6 +39,10 @@ export function foldTo(box: HTMLElement, flip: () => void, done?: () => void): v
   anim.onfinish = () => { if (folding.get(box)?.anim === anim) end(); };
 }
 
+// Windows this wide fold the sidebar away to give the page room; narrower
+// ones keep the lens rail, which opens the sidebar over the page.
+export const FOLD_SIDE_QUERY = '(max-width: 960px) and (min-width: 521px)';
+
 // Where the sidebar is headed, set the moment it is asked to move, so a
 // second press during the slide reverses it rather than repeating it.
 let wanted: boolean | null = null;

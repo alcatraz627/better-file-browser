@@ -128,6 +128,13 @@ try {
   await sleep(1200);
   const posOnDisk = readFileSync(join(h.notesDir, 'alpha.md'), 'utf8');
   check(/^pos: /m.test(posOnDisk), 'the new order is written to the note');
+  // Two quick presses move it two places, with no write clash.
+  await page.focus('#fe-nt-list .fe-nt-item[data-rel="bravo.md"] .fe-si-link');
+  await alt(page, 'ArrowDown'); await alt(page, 'ArrowDown');
+  await sleep(2500);
+  const twice = await order();
+  const clash = await page.evaluate(() => document.getElementById('fe-toast')?.textContent ?? '');
+  check(twice === 'existing-note.md,alpha.md,charlie.md,bravo.md' && !/Saving the new order|changed on disk/.test(clash), `two quick Alt+Down presses move a note two places with no clash: ${twice} / "${clash}"`);
   await page.click('#fe-rail-saved');
   await page.waitForSelector('#fe-sv-list .fe-pl-item');
   await page.focus('#fe-sv-list .fe-pl-item[data-path$="two/"] .fe-si-link');
@@ -136,6 +143,8 @@ try {
   const sv = await page.$$eval('#fe-sv-list .fe-pl-item', r => r.map(x => x.dataset.path.replace(/.*bfb-seatd-|\/$/g, '')).join());
   const svStored = JSON.parse(await h.store.get('bfb-saved-v1')).map(p => p.label).join();
   check(sv === 'two,one,three' && svStored === 'two,one,three', `Alt+Up moves a Saved row up one and keeps it: ${sv} / ${svStored}`);
+  const svFocus = await page.evaluate(() => document.activeElement?.closest('.fe-pl-item')?.dataset.path ?? '');
+  check(svFocus.endsWith('two/'), `focus stays on the moved Saved row: "${svFocus}"`);
 
   await page.focus('#fe-rail .fe-rail-btn.on');
   await alt(page, 'ArrowDown');

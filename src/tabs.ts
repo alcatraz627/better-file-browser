@@ -119,6 +119,13 @@ export function isStale(e: RecoveryEntry, now: number, maxAge = RECOVERY_MAX_AGE
 
 // Put a tab back where it was, clamped to the list and outside the pinned
 // block; the reopen-closed stack uses this.
+/** Put closed tabs back at their old places, and make `active` the active tab again if it came back. */
+export function restoreClosed(s: TabState, gone: { t: Tab; index: number }[], active: string | null): TabState {
+  let back = s;
+  for (const x of [...gone].sort((a, b) => a.index - b.index)) back = insertTab(back, x.t, x.index);
+  return back.list.some(t => t.id === active) ? { ...back, active } : back;
+}
+
 export function insertTab(s: TabState, tab: Tab, index: number): TabState {
   if (s.list.some(t => t.path === tab.path)) return s;
   const list = [...s.list];
@@ -140,6 +147,9 @@ export function splitLabel(label: string, keep = 0): { head: string; tail: strin
   const ext = label.match(/\.[A-Za-z0-9]{1,6}$/)?.[0] ?? '';
   const base = label.length - ext.length;
   const cut = Math.max(0, base - keep);
+  // Names that differ far from their end show a short stretch from where they
+  // differ, then an ellipsis and the extension, so the tail stays narrow.
+  if (keep > KEEP_WHOLE) return { head: label.slice(0, cut), tail: label.slice(cut, cut + Math.max(3, 13 - ext.length)) + '…' + ext };
   return { head: label.slice(0, cut), tail: label.slice(cut) };
 }
 
@@ -147,6 +157,7 @@ export function splitLabel(label: string, keep = 0): { head: string; tail: strin
 /// the same: names that start alike ("report-001.csv", "report-002.csv") are
 /// told apart by where they first differ. Names that differ early need none.
 const HEAD_SEEN = 6;
+const KEEP_WHOLE = 8;
 export function distinctKeeps(labels: string[]): number[] {
   const bases = labels.map(l => l.replace(/\.[A-Za-z0-9]{1,6}$/, ''));
   return labels.map((l, i) => {
@@ -159,7 +170,7 @@ export function distinctKeeps(labels: string[]): number[] {
       shared = Math.max(shared, k);
     });
     if (shared < HEAD_SEEN) return 0;
-    return Math.min(bases[i].length - Math.max(0, shared - 1), 14);
+    return bases[i].length - Math.max(0, shared - 1);
   });
 }
 

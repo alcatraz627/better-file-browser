@@ -528,7 +528,11 @@ export function mountComments(o: {
     if (close && wasOpen && (filter === 'open' || filter === 'me')) {
       active = ''; paint(); redraw();
       o.box.querySelector<HTMLElement>('.fe-cm-list > .fe-cm-th, .fe-cm-done > summary')?.focus({ preventScroll: true });
-      o.toast?.('Marked done', 6000, { label: 'Undo', run: () => void reply(id, true).then(() => focusThread(id)) });
+      // Undo reopens only a thread that is still done; one reopened by hand meanwhile stays as it is.
+      o.toast?.('Marked done', 6000, { label: 'Undo', run: () => {
+        if (threads.find(x => x.id === id)?.status !== 'done') { focusThread(id); return; }
+        void reply(id, true).then(() => focusThread(id));
+      } });
       return;
     }
     o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });

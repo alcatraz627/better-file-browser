@@ -100,8 +100,11 @@ export function continueList(text: string, sel: Sel): TextEdit | null {
   const [, ind, marker, box, rest] = m;
   if (!rest.trim()) {
     const gap = from === 0 || /\n\n$/.test(text.slice(0, from)) ? '' : '\n';
-    const out = text.slice(0, from) + gap + text.slice(sel.end);
-    return { text: out, start: from + gap.length, end: from + gap.length };
+    // Text below the list keeps exactly one blank line above it, however many there were.
+    const below = text.slice(sel.end).replace(/^\n+/, '');
+    const out = text.slice(0, from) + gap + (below ? (gap ? '' : '\n') + below : '');
+    const at = below ? from : from + gap.length;   // on the blank line, never at the start of the text below
+    return { text: out, start: at, end: at };
   }
   const nextMarker = /^\d+/.test(marker) ? String(parseInt(marker) + 1) + marker.slice(-1) : marker;
   const ins = '\n' + ind + nextMarker + ' ' + (box ? '[ ] ' : '');
