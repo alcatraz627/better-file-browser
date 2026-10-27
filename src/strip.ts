@@ -25,6 +25,10 @@ export interface StripHost {
   toast: Toast;
   onSavedChange?: () => void;
   openInTerminal?: (folder: string) => void;
+  /** This page is Home (~/#home), which is no folder's tab. */
+  homeMode?: boolean;
+  /** The home folder, where Home lives; empty until it is known. */
+  homePath?: () => string;
 }
 // The tabs of a Chrome tab that was closed, offered in Recent.
 export interface ClosedSet { id: string; at: number; labels: string[] }
@@ -97,7 +101,9 @@ function readRecoveries(): Promise<Record<string, RecoveryEntry>> {
 
 export function mountStrip(host: StripHost): Strip {
   const { el, rawPath, toast } = host;
-  const hereIn = (s: TabState) => s.list.find(t => t.path === rawPath);
+  const homeMode = !!host.homeMode;
+  // On Home, no tab is this page: the home folder's own tab, if kept, is not "here".
+  const hereIn = (s: TabState) => homeMode ? undefined : s.list.find(t => t.path === rawPath);
   // On load, point active at this page's tab; if the page has no tab (go-up to
   // a folder that was never kept), clear active so [ ] and the next insert
   // anchor on the page you are on, not a stale tab.
@@ -156,9 +162,9 @@ export function mountStrip(host: StripHost): Strip {
   function goTab(id: string): void {
     const t = state.list.find(x => x.id === id);
     if (!t) return;
-    const s = t.path !== rawPath && rawPath && !hereIn(state) ? openTab(state, rawPath, true) : state;
+    const s = !homeMode && t.path !== rawPath && rawPath && !hereIn(state) ? openTab(state, rawPath, true) : state;
     commit(activate(s, id));
-    if (t.path !== rawPath) go(hrefFor(t));
+    if (homeMode || t.path !== rawPath) go(hrefFor(t));
   }
   function closeHere(): void {
     const here = hereIn(state);
@@ -167,6 +173,13 @@ export function mountStrip(host: StripHost): Strip {
     commit(next);
     const to = next.list.find(t => t.id === next.active);
     if (to && to.path !== rawPath) go(hrefFor(to));
+  }
+  // To Home, keeping the page you were on as a tab, the same as any switch.
+  function goHome(): void {
+    const home = host.homePath?.();
+    if (!home) return;
+    if (rawPath && !hereIn(state)) commit(openTab(state, rawPath, true));
+    go(fileUrl(home + '/'), 'here', { hash: '#home' });
   }
   function closeById(id: string): void {
     if (hereIn(state)?.id === id) closeHere();
@@ -280,12 +293,31 @@ export function mountStrip(host: StripHost): Strip {
     if (hereIn(state) || !rawPath) return state.list;
     return [...state.list, { id: '', path: rawPath, kind: kindOf(rawPath), label: labelFor(rawPath), pinned: false }];
   }
+  // Home is always the first tab. It sits before the strip, outside the tab
+  // list, so it never scrolls away and cannot be closed, moved or lost with a
+  // closed set. It shows once the home folder is known.
+  const homeTab = document.getElementById('fe-tab-home') as HTMLAnchorElement | null;
+  function paintHome(): void {
+    const home = host.homePath?.() ?? '';
+    if (!homeTab) return;
+    homeTab.hidden = !home;
+    if (!home) return;
+    homeTab.href = fileUrl(home + '/') + '#home';
+    homeTab.classList.toggle('on', homeMode);
+    if (homeMode) homeTab.setAttribute('aria-current', 'page'); else homeTab.removeAttribute('aria-current');
+  }
+  homeTab?.addEventListener('click', e => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    if (!homeMode) goHome();
+  });
   function render(): void {
     const here = hereIn(state);
     const labels = displayLabels(state.list);
     const keeps = distinctKeeps(labels);
+    paintHome();
     const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i], keeps[i]));
-    if (!here) {
+    if (!here && !homeMode) {
       const ico = kindOf(rawPath) === 'file' ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split('.').pop()!.toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
       rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}\nNot kept yet · t or double-click keeps · p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
     }
@@ -294,7 +326,10 @@ export function mountStrip(host: StripHost): Strip {
     watchPins();
     fitHeads();
     el.classList.toggle('is-empty', state.list.length === 0);
-    el.querySelector<HTMLElement>('.fe-tab.on')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    const onTab = el.querySelector<HTMLElement>('.fe-tab.on');
+    onTab?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    // The last tab goes all the way to the end, so its edge is never left a sub-pixel outside.
+    if (onTab && onTab === el.lastElementChild) el.scrollLeft = el.scrollWidth;
     if (listBtn) {
       const all = shown();
       listBtn.hidden = all.length < 2;
@@ -346,6 +381,8 @@ export function mountStrip(host: StripHost): Strip {
   function handleKey(e: KeyboardEvent): boolean {
     if (e.metaKey || e.ctrlKey || e.altKey) return false;
     const here = hereIn(state);
+    // Home is not a place to keep or pin.
+    if (homeMode && (e.key === 't' || e.key === 'p')) return true;
     if (e.key === 't') { commit(openTab(state, rawPath)); return true; }
     if (e.key === 'w') { if (here && !here.pinned) closeHere(); return true; }
     if (e.key === 'T') { reopenClosed(); return true; }
@@ -430,9 +467,9 @@ export function mountStrip(host: StripHost): Strip {
       // insert it as a kept background tab before navigating away, so a sidebar
       // click adds the target and never drops the tab the user was on.
       let s = state;
-      if (rawPath && !s.list.some(t => t.path === rawPath)) s = openTab(s, rawPath, true);
+      if (!homeMode && rawPath && !s.list.some(t => t.path === rawPath)) s = openTab(s, rawPath, true);
       commit(openTab(s, path));
-      if (path !== rawPath) go(fileUrl(path), 'here', { hash });
+      if (homeMode || path !== rawPath) go(fileUrl(path), 'here', { hash });
       else if (hash) location.hash = hash;
     },
     closedTabs: () => closed.map(c => c.tab).reverse().filter(t => !state.list.some(x => x.path === t.path)),

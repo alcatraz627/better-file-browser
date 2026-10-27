@@ -2523,7 +2523,7 @@ ${body}`;
     let at = 0;
     let tab = "all";
     const matches = (it, q) => Math.max(score(it.title, q), score(it.sub ?? "", q) * 0.6, q ? score((it.keys ?? []).join(" "), q) * 0.9 : 0);
-    const paint2 = () => {
+    const paint = () => {
       const q = input.value.trim();
       const counts = /* @__PURE__ */ new Map();
       for (const it of items) if (matches(it, q) > 0) {
@@ -2546,7 +2546,7 @@ ${body}`;
     const setTab = (t) => {
       tab = t;
       at = 0;
-      paint2();
+      paint();
     };
     const fire2 = (i3, alt = false) => {
       const it = shown[i3];
@@ -2557,13 +2557,13 @@ ${body}`;
     };
     input.addEventListener("input", () => {
       at = 0;
-      paint2();
+      paint();
     });
     input.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         at = (at + (e.key === "ArrowDown" ? 1 : -1) + shown.length) % Math.max(1, shown.length);
-        paint2();
+        paint();
       } else if (e.key === "Enter") {
         e.preventDefault();
         fire2(at, e.altKey);
@@ -2598,11 +2598,11 @@ ${body}`;
       if (row2) fire2(Number(row2.dataset.i), e.altKey);
     });
     input.value = prefill;
-    paint2();
+    paint();
     for (const p of late) p.then((r) => {
       if (paletteEl !== box) return;
       items.push(...r);
-      paint2();
+      paint();
     }).catch(() => {
     });
     const layer = openLayer(box, { kind: "command", place: "none", focus: input, backdrop: box, onClose: () => {
@@ -4357,9 +4357,9 @@ ${answer}`;
   function mountMetaBar(host, o) {
     const draw = () => {
       const p = o.props();
-      const none = o.untitled();
+      const none2 = o.untitled();
       host.innerHTML = `
-      <button id="fe-meta-title" class="fe-chip-title${none ? " untitled" : ""}" data-title="${esc(none ? "" : p.title)}" title="Rename this note" aria-label="${none ? "Name this note" : `Note title: ${esc(p.title)}. Click to rename.`}">${none ? "Untitled, click to name it" : midHtml(p.title)}${UI_ICON.rename}</button>
+      <button id="fe-meta-title" class="fe-chip-title${none2 ? " untitled" : ""}" data-title="${esc(none2 ? "" : p.title)}" title="Rename this note" aria-label="${none2 ? "Name this note" : `Note title: ${esc(p.title)}. Click to rename.`}">${none2 ? "Untitled, click to name it" : midHtml(p.title)}${UI_ICON.rename}</button>
       <button data-size="sm" class="btn fe-chip-btn${p.pinned ? " active" : ""}" data-m="pin" title="${p.pinned ? "Unpin this note" : "Pin this note to the top of the list"}">${UI_ICON.pin}<span>${p.pinned ? "Pinned" : "Pin"}</span></button>
       <button data-size="sm" class="btn fe-chip-btn${p.color ? " active" : ""}" data-m="color" title="Set this note's colour">${colorDot(p.color)}<span>${p.color ? p.color[0].toUpperCase() + p.color.slice(1) : "Colour"}</span></button>
       ${p.tags.map((t) => `<span class="chip">${UI_ICON.tag}<span>${esc(t)}</span><button class="btn" data-icon data-size="xs" data-tone="danger" data-m="untag" data-tag="${esc(t)}" title="Remove tag ${esc(t)}" aria-label="Remove tag ${esc(t)}">${UI_ICON.close}</button></span>`).join("")}
@@ -4369,7 +4369,7 @@ ${answer}`;
         const box = document.createElement("textarea");
         box.id = "fe-meta-title-edit";
         box.className = "tb fe-chip-title";
-        box.value = none ? "" : p.title;
+        box.value = none2 ? "" : p.title;
         box.placeholder = "Name this note";
         box.rows = 1;
         box.maxLength = 200;
@@ -4389,7 +4389,7 @@ ${answer}`;
           if (done) return;
           done = true;
           const v = box.value.replace(/\s*\n\s*/g, " ").trim();
-          if (save && v && (none || v !== p.title)) o.setTitle(v);
+          if (save && v && (none2 || v !== p.title)) o.setTitle(v);
           else draw();
         };
         box.addEventListener("input", fit);
@@ -11944,7 +11944,7 @@ ${end.comment}` : end.comment;
     const chipTxt = document.getElementById("fe-ql-ai-chip-txt");
     const recheck = document.getElementById("fe-ql-ai-recheck");
     const q = document.getElementById("fe-ql-ai-q");
-    const paint2 = (state, why = "") => {
+    const paint = (state, why = "") => {
       aiChecking = state === "checking";
       chip.className = state === "checking" ? "" : state;
       chipTxt.textContent = state === "ready" ? "AI \xB7 ready" : state === "cold" ? "AI \xB7 cold start" : state === "down" ? why : "AI \xB7 checking";
@@ -11959,7 +11959,7 @@ ${end.comment}` : end.comment;
     };
     if (aiHeld?.e !== e) aiHeld = null;
     if (aiHeld?.e !== e) aiChat = { href: "", id: "" };
-    paint2("checking");
+    paint("checking");
     aiOn = true;
     syncAiBar();
     restoreAiAnswer(e);
@@ -11978,7 +11978,7 @@ ${end.comment}` : end.comment;
         return;
       }
       aiNonePref.set("");
-      paint2(av.kind === "ready" ? av.cold ? "cold" : "ready" : "down", LLM_ERROR_TEXT.server_down);
+      paint(av.kind === "ready" ? av.cold ? "cold" : "ready" : "down", LLM_ERROR_TEXT.server_down);
       if (asked && av.kind === "ready") document.getElementById("fe-ql-ai-q").focus();
       if (held3 && av.kind === "ready") runAi(held3.intent, held3.question);
     });
@@ -12042,7 +12042,7 @@ ${end.comment}` : end.comment;
     let frame = 0;
     let over = false;
     const model = deps.aiModel?.();
-    const paint2 = () => {
+    const paint = () => {
       body.innerHTML = renderMarkdown(closeOpenFence(splitThinking(full).answer));
     };
     const file = (extra) => {
@@ -12074,7 +12074,7 @@ ${end.comment}` : end.comment;
           meta.textContent = "";
           frame ||= requestAnimationFrame(() => {
             frame = 0;
-            if (!over && seq2 === aiSeq) paint2();
+            if (!over && seq2 === aiSeq) paint();
           });
         },
         onDone: (info) => {
@@ -12082,7 +12082,7 @@ ${end.comment}` : end.comment;
           over = true;
           cancelAnimationFrame(frame);
           aiCancel = null;
-          paint2();
+          paint();
           meta.textContent = turnMeta(file({ model: info.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut }), info.truncated);
           setAiBusy(false);
         },
@@ -12105,7 +12105,7 @@ ${end.comment}` : end.comment;
       stopQuery();
       aiCancel = null;
       if (full.trim()) {
-        paint2();
+        paint();
         meta.textContent = turnMeta(file({ stopped: true }));
       } else {
         body.textContent = "Stopped before an answer came.";
@@ -12861,7 +12861,7 @@ ${end.comment}` : end.comment;
   function upgradeSeg(host) {
     const btns = [...host.querySelectorAll(".fe-seg-b")];
     let cur = "";
-    const paint2 = () => btns.forEach((b) => {
+    const paint = () => btns.forEach((b) => {
       const on = b.dataset.v === cur;
       b.classList.toggle("on", on);
       b.setAttribute("aria-checked", String(on));
@@ -12869,17 +12869,17 @@ ${end.comment}` : end.comment;
     });
     Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
       cur = String(v);
-      paint2();
+      paint();
     } });
     btns.forEach((b) => b.addEventListener("click", () => {
       if (cur !== b.dataset.v) {
         cur = b.dataset.v;
-        paint2();
+        paint();
         fire(host);
       }
     }));
     rovingFocus(host, ".fe-seg-b", { axis: "both", onMove: (b) => b.click() });
-    paint2();
+    paint();
   }
   function upgradeSlider(host) {
     const values = host.dataset.values.split(",").map(Number);
@@ -12922,7 +12922,7 @@ ${end.comment}` : end.comment;
     const curEl = host.querySelector(".fe-dd-cur");
     let opts = JSON.parse(host.dataset.opts || "[]");
     let cur = "";
-    const paint2 = () => {
+    const paint = () => {
       host.dataset.value = cur;
       const o = opts.find((x) => x.value === cur);
       curEl.innerHTML = o ? `${o.icon ?? ""}<span${fontAttr(o)}>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
@@ -12930,12 +12930,12 @@ ${end.comment}` : end.comment;
     };
     Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
       cur = String(v);
-      paint2();
+      paint();
     } });
     host.setOptions = (o) => {
       opts = o;
       host.dataset.opts = JSON.stringify(o);
-      paint2();
+      paint();
     };
     let keys2 = null;
     function open() {
@@ -12966,7 +12966,7 @@ ${end.comment}` : end.comment;
       const pick2 = (v) => {
         const changed = v !== cur;
         cur = v;
-        paint2();
+        paint();
         layer.close("pick");
         btn.focus();
         if (changed) fire(host);
@@ -13020,12 +13020,12 @@ ${end.comment}` : end.comment;
         open();
       }
     });
-    paint2();
+    paint();
   }
   function upgradeChips(host) {
     const input = host.querySelector(".fe-chipin-in");
     let items = [];
-    const paint2 = () => {
+    const paint = () => {
       host.dataset.value = items.join(", ");
       host.querySelectorAll(".chip").forEach((c) => c.remove());
       input.insertAdjacentHTML("beforebegin", items.map((t, i3) => `<span class="chip" data-fill data-mono><span>${esc(t)}</span><button type="button" class="btn" data-icon data-size="xs" data-tone="danger" data-i="${i3}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">${UI_ICON.close}</button></span>`).join(""));
@@ -13035,14 +13035,14 @@ ${end.comment}` : end.comment;
       input.value = "";
       if (!add.length) return;
       items = [...items, ...add.filter((a) => !items.includes(a))];
-      paint2();
+      paint();
       fire(host);
     };
     Object.defineProperty(host, "value", {
       get: () => items.join(", "),
       set: (v) => {
         items = String(v).split(",").map((x) => x.trim()).filter(Boolean);
-        paint2();
+        paint();
       }
     });
     input.addEventListener("keydown", (e) => {
@@ -13051,7 +13051,7 @@ ${end.comment}` : end.comment;
         commit();
       } else if (e.key === "Backspace" && !input.value && items.length) {
         items.pop();
-        paint2();
+        paint();
         fire(host);
       }
     });
@@ -13061,7 +13061,7 @@ ${end.comment}` : end.comment;
       const b = e.target.closest(".chip button");
       if (b) {
         items.splice(Number(b.dataset.i), 1);
-        paint2();
+        paint();
         fire(host);
         input.focus();
       } else if (e.target === host) input.focus();
@@ -13691,9 +13691,9 @@ ${t}`)) say("Note title saved");
   <div class="fe-dp-note" hidden>
     <textarea class="tb" data-note="${esc(id)}" rows="2" placeholder="A note for Claude about ${esc(id)}" aria-label="Note on ${esc(id)}"></textarea>
   </div>` : "";
-  function optionHtml(d, o, n, base, none = false) {
+  function optionHtml(d, o, n, base, none2 = false) {
     const imgs = mediaList(o.images, base);
-    return `<label class="fe-dp-opt${imgs.length ? " tile" : ""}${none ? " none" : ""}" data-code="${esc(o.code)}" data-media-label="${esc(`${o.code} \xB7 ${o.label}`)}" title="Answer code ${esc(o.code)}">
+    return `<label class="fe-dp-opt${imgs.length ? " tile" : ""}${none2 ? " none" : ""}" data-code="${esc(o.code)}" data-media-label="${esc(`${o.code} \xB7 ${o.label}`)}" title="Answer code ${esc(o.code)}">
       <input type="radio" name="dp-${esc(d.id)}" value="${esc(o.code)}">
       ${imgs.length ? `<span class="fe-dp-tile-img">${imgs.map((m) => mediaHtml(m, true)).join("")}</span>` : ""}
       <span class="fe-dp-opt-row">
@@ -13711,14 +13711,14 @@ ${t}`)) say("Note title saved");
   }
   function decisionHtml(d, cfg, base, notes2) {
     const tiles = d.options.filter((o) => o.images?.length).length;
-    const none = d.none ? { code: noneCode(d), label: d.noneLabel || "None of these" } : null;
+    const none2 = d.none ? { code: noneCode(d), label: d.noneLabel || "None of these" } : null;
     return `<article class="card fe-dp-card" data-id="${esc(d.id)}" data-kind="decision" tabindex="-1">
     <header class="fe-dp-card-head"><span class="badge fe-dp-id" data-tone="quiet">${esc(d.id)}</span><h3 class="fe-dp-q">${esc(d.question)}</h3>${decisionGroupHtml(d, cfg)}${noteBtn(d.id, notes2)}</header>
     ${d.context ? clampHtml(md(d.context, base), 3) : ""}
     ${stripHtml(mediaList(d.images, base))}
     <div class="fe-dp-opts${tiles ? " gallery" : ""}"${tiles ? ` style="--cols:${tileCols(tiles)}"` : ""} role="radiogroup" aria-label="${esc(d.question)}" data-media-set>
       ${d.options.map((o, i3) => optionHtml(d, o, i3 + 1, base)).join("")}
-      ${none ? optionHtml(d, none, d.options.length + 1, base, true) : ""}
+      ${none2 ? optionHtml(d, none2, d.options.length + 1, base, true) : ""}
     </div>
     ${noteHtml(d.id, notes2)}
   </article>`;
@@ -13825,7 +13825,7 @@ ${t}`)) say("Note title saved");
         ${arch}${r.items ? `<span class="badge fe-dpl-n" data-tone="${r.state === "waiting" ? "solid" : "quiet"}" title="${r.items} item${r.items === 1 ? "" : "s"}">${r.items}</span>` : ""}
       </button>`;
     };
-    const paint2 = () => {
+    const paint = () => {
       top.hidden = !all.length;
       if (!all.length) {
         rowsBox.innerHTML = emptyHtml("empty", "No decision pages yet", { icon: UI_ICON.opinion, hintHtml: "Pages an agent asks you<br>to answer show up here" });
@@ -13847,7 +13847,7 @@ ${t}`)) say("Note title saved");
       return notes.dpPages().then((rows) => {
         if (mine === seq2) {
           all = rows;
-          paint2();
+          paint();
         }
       }).catch((err) => {
         if (mine !== seq2) return;
@@ -13857,7 +13857,7 @@ ${t}`)) say("Note title saved");
     };
     input.addEventListener("input", () => {
       q = input.value;
-      paint2();
+      paint();
     });
     rowsBox.addEventListener("toggle", (e) => {
       const d = e.target;
@@ -13871,7 +13871,7 @@ ${t}`)) say("Note title saved");
         e.stopPropagation();
         const slug = arch.dataset.arch, now = archivedPref.get();
         archivedPref.set(now.includes(slug) ? now.filter((s) => s !== slug) : [...now, slug]);
-        paint2();
+        paint();
         return;
       }
       const b = e.target.closest(".fe-dpl-row");
@@ -13883,7 +13883,7 @@ ${t}`)) say("Note title saved");
       if (a === "clear") {
         input.value = "";
         q = "";
-        paint2();
+        paint();
         input.focus();
       } else if (a === "retry") {
         rowsBox.innerHTML = emptyHtml("loading", "Loading\u2026");
@@ -13905,7 +13905,7 @@ ${t}`)) say("Note title saved");
       row2.state = "answered";
       row2.answered = Date.now() / 1e3;
       row2.seen = true;
-      paint2();
+      paint();
       if (timer2) void load();
     });
     document.addEventListener("bfb-lens", (e) => {
@@ -14334,7 +14334,7 @@ ${t}`)) say("Note title saved");
       ], "", `${p.items} items`);
       box.querySelector("#fe-dp-progress").textContent = p.asDrafted ? `${p.items} items \xB7 all as drafted` : `${p.items} items \xB7 ${p.flagged} flagged`;
     };
-    const paint2 = () => {
+    const paint = () => {
       for (const c of cards2()) {
         const id = c.dataset.id;
         if (c.dataset.kind === "decision") for (const r of c.querySelectorAll('input[type="radio"]')) r.checked = r.value === state.picks[id];
@@ -14472,7 +14472,7 @@ ${t}`)) say("Note title saved");
       state = draftedState(cfg);
       saved.set(null);
       editedAt.set(Date.now());
-      paint2();
+      paint();
     });
     answer = wireAnswer(cfg, box, slug, base, {
       state: () => state,
@@ -14480,7 +14480,7 @@ ${t}`)) say("Note title saved");
       replace: (s) => {
         state = s;
         saved.set(state);
-        paint2();
+        paint();
       },
       editedAt: () => editedAt.get()
     }, toast);
@@ -14529,7 +14529,7 @@ ${t}`)) say("Note title saved");
       document.activeElement?.blur();
       if (c) focusCard(c, false);
     }, () => live2() && (typingNote() || !!box.querySelector(".zoomed")));
-    paint2();
+    paint();
   }
 
   // src/directions-model.ts
@@ -15317,6 +15317,20 @@ body{opacity:1!important}
 .fe-home-card-h{min-height:var(--ctl-md);padding:0 var(--sp-5)}
 .fe-home-card[data-tone="calm"] .fe-home-card-h{color:var(--tone-ok)}
 .fe-home-card .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
+#fe.fe-home-mode #fe-toolbar,#fe.fe-home-mode #fe-sg-panel,#fe.fe-home-mode #fe-filter-bar,#fe.fe-home-mode #fe-scroll,#fe.fe-home-mode #fe-dp,#fe.fe-home-mode #fe-statusbar{display:none}
+#fe-home-page{flex:1;min-height:0;overflow:auto;padding:var(--sp-9)}
+#fe-home-page[hidden]{display:none}
+.fe-hp{max-width:72rem;margin:0 auto}
+.fe-hp-head{margin:0 var(--sp-2) var(--sp-8)}
+.fe-hp-head h1{margin:0;font-size:var(--fs-xl);font-weight:650;letter-spacing:-.01em;color:var(--tx)}
+.fe-hp-head p{margin:var(--sp-2) 0 0;font-size:var(--fs-md);color:var(--mt)}
+.fe-hp-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr));gap:var(--sp-7);align-items:start}
+.fe-hp-col{display:flex;flex-direction:column;gap:var(--sp-7);min-width:0}
+.fe-hp-panel{padding:var(--sp-2) 0 var(--sp-3);border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1)}
+.fe-hp-panel[data-tone="you"]{border-color:color-mix(in srgb,var(--tone-danger) 30%,var(--bd));background:color-mix(in srgb,var(--tone-danger) 5%,var(--s1))}
+.fe-hp-panel-h{min-height:var(--ctl-md);padding:0 var(--sp-6)}
+.fe-hp-panel .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
+.fe-hp-calm{display:flex;align-items:center;gap:var(--sp-3);color:var(--tone-ok)}
 #fe-side-rz{width:10px}
 .fe-sec{margin-bottom:var(--sp-2)}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none}
@@ -15751,6 +15765,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 /* After the last pinned tab, a divider: the tabs scrolling under it read as their own, never as part of the pinned one. */
 .fe-tab.pinned.pin-end::after{content:'';position:absolute;top:-1px;bottom:0;left:calc(100% + var(--sp-2));width:var(--sp-8);border-left:1px solid var(--bd2);background:linear-gradient(90deg,var(--side) 40%,transparent);pointer-events:none}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
+#fe-tab-home{flex:none;min-width:0;margin:var(--sp-3) 0 0 var(--sp-3);position:relative}
+#fe-tab-home[hidden]{display:none}
+#fe-tab-home::after{content:'';position:absolute;top:var(--sp-2);bottom:var(--sp-2);right:calc(var(--sp-1) * -2);border-right:1px solid var(--bd2)}
 #fe-tabs.is-empty{padding-top:var(--sp-2)}
 .fe-tab{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-4);min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
   background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:112px;flex:0 1 auto;position:relative;top:1px;
@@ -18518,7 +18535,7 @@ and ${diags.length - 12} more` : "");
       clearTimeout(checkTimer);
       checkTimer = window.setTimeout(check, CHECK_MS);
     };
-    const paint2 = () => {
+    const paint = () => {
       const dirty = isDirty();
       state.innerHTML = saving ? "Saving\u2026" : failed && dirty ? '<span class="fe-fe-dot"></span>Not saved' : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
       state.className = saving ? "busy" : failed && dirty ? "failed" : dirty ? "dirty" : "saved";
@@ -18568,7 +18585,7 @@ and ${diags.length - 12} more` : "");
     }, true);
     const write = async (expect) => {
       saving = true;
-      paint2();
+      paint();
       let retryAt = 0;
       try {
         const text = tw.text();
@@ -18593,7 +18610,7 @@ and ${diags.length - 12} more` : "");
         }
       } finally {
         saving = false;
-        paint2();
+        paint();
       }
       if (retryAt) await write(retryAt);
     };
@@ -18673,7 +18690,7 @@ and ${diags.length - 12} more` : "");
           buf.snap();
           check();
           paintSource();
-          paint2();
+          paint();
         } else showConflict();
       } catch {
       }
@@ -18738,7 +18755,7 @@ and ${diags.length - 12} more` : "");
         banner.hidden = true;
         diffBox.hidden = true;
         paintSource();
-        paint2();
+        paint();
         host.typed?.(now.text);
       } else if (act === "overwrite") {
         const now = await notes.fileRead(host.root, host.rel);
@@ -18747,7 +18764,7 @@ and ${diags.length - 12} more` : "");
     });
     ta.addEventListener("input", () => {
       paintSource();
-      paint2();
+      paint();
       later();
       checkLater();
     });
@@ -18811,7 +18828,7 @@ and ${diags.length - 12} more` : "");
       ta.value = r.text;
       ta.setSelectionRange(r.start, r.end);
       paintSource();
-      paint2();
+      paint();
       later();
       checkLater();
     };
@@ -18843,7 +18860,7 @@ and ${diags.length - 12} more` : "");
         ta.value = r.text;
         ta.setSelectionRange(r.start, r.end);
         paintSource();
-        paint2();
+        paint();
         later();
       } else if (listy && e.key === "Enter" && !mod && !e.shiftKey && !e.altKey) {
         const r = continueList(ta.value, { start: ta.selectionStart, end: ta.selectionEnd });
@@ -18861,7 +18878,7 @@ and ${diags.length - 12} more` : "");
     });
     diags = doc.text.length > CHECK_MAX ? [] : diagnose(host.ext, doc.text);
     paintSource();
-    paint2();
+    paint();
     if (fmt) setMode(mode);
     ta.focus();
     return {
@@ -19147,7 +19164,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const root = o.root();
       if (!root) {
         loaded = true;
-        paint2();
+        paint();
         return;
       }
       lastCompanion = await readCompanion();
@@ -19160,7 +19177,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         failed = errorText(e, "Reading the comments");
         loaded = true;
       }
-      paint2();
+      paint();
       redraw();
       o.changed();
       const hit = linked && threads.find((t) => t.id.startsWith(linked));
@@ -19192,7 +19209,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         return null;
       } finally {
         busy = false;
-        paint2();
+        paint();
         redraw();
         o.changed();
       }
@@ -19200,7 +19217,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     const sugSay = (commentId, text) => {
       sugMsg = { id: commentId, text };
       o.status(text);
-      paint2();
+      paint();
     };
     const accept = async (t, commentId) => {
       const root = o.root();
@@ -19326,7 +19343,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     </form>` : "";
     const noneHtml = () => threads.length ? emptyHtml("filtered", "Nothing here", { icon: UI_ICON.comment, actions: [{ a: "show-all", label: "Show all", title: "Show every thread, open and done" }] }) : emptyHtml("empty", "No comments yet", { icon: UI_ICON.comment, hintHtml: "Select some text,<br>then press <kbd>c</kbd>" });
     const wanted2 = (id) => id === "new" ? !!draft && !draft.attach : id.startsWith("edit:") ? editing === id.slice(5) : id === active;
-    const paint2 = () => {
+    const paint = () => {
       const ae = document.activeElement;
       const focus = ae && o.box.contains(ae) && ae.dataset.for ? { id: ae.dataset.for, s: ae.selectionStart, e: ae.selectionEnd } : null;
       o.box.querySelectorAll("textarea[data-for]").forEach((ta) => {
@@ -19422,12 +19439,12 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       active = id;
       dueOpen = "";
       editing = "";
-      paint2();
+      paint();
       redraw();
       const card4 = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
       if (!card4) {
         filter = "all";
-        paint2();
+        paint();
         redraw();
       }
       const th = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
@@ -19473,7 +19490,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       window.getSelection()?.removeAllRanges();
       addBtn.hidden = true;
       o.reveal();
-      paint2();
+      paint();
       redraw();
       o.box.querySelector(".fe-cm-new")?.scrollIntoView({ block: "nearest" });
       (o.box.querySelector('textarea[data-for="new"]') ?? o.box.querySelector('[data-a="post"]'))?.focus();
@@ -19490,7 +19507,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
       draft = null;
       typed.delete("new");
-      paint2();
+      paint();
       redraw();
     };
     const post = async () => {
@@ -19517,7 +19534,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (id) {
         if (filter === "done") filter = "open";
         focusThread(id);
-      } else paint2();
+      } else paint();
     };
     const reply = async (id, close = false) => {
       const t = threads.find((x) => x.id === id);
@@ -19539,7 +19556,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (leaving) await collapseOut(leaving);
       if (!await write(ops, "Reply")) {
         typed.set(id, text);
-        paint2();
+        paint();
         return;
       }
       const fresh = threads.find((x) => x.id === id)?.comments.filter((c) => !seen2.has(c.id)) ?? [];
@@ -19549,7 +19566,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
       if (close && wasOpen && (filter === "open" || filter === "me")) {
         active = "";
-        paint2();
+        paint();
         redraw();
         o.box.querySelector(".fe-cm-list > .fe-cm-th, .fe-cm-done > summary")?.focus({ preventScroll: true });
         o.toast?.("Marked done", 6e3, { label: "Undo", run: () => {
@@ -19565,7 +19582,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     };
     const startEdit = (cid) => {
       editing = cid;
-      paint2();
+      paint();
       const ta = o.box.querySelector(`textarea[data-for="edit:${CSS.escape(cid)}"]`);
       if (ta) {
         ta.focus();
@@ -19575,7 +19592,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     const cancelEdit = () => {
       typed.delete("edit:" + editing);
       editing = "";
-      paint2();
+      paint();
     };
     const saveEdit = async (cid) => {
       const ta = o.box.querySelector(`textarea[data-for="edit:${CSS.escape(cid)}"]`);
@@ -19587,7 +19604,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (await write([{ op: "edit", thread: active, comment: cid, text }], "Edit")) {
         typed.delete("edit:" + cid);
         editing = "";
-        paint2();
+        paint();
       }
     };
     const copy = (text, said, btn) => copyWithCheck(btn, text).then((ok) => o.status(ok ? said : "copy failed"));
@@ -19756,7 +19773,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         e.preventDefault();
         e.stopPropagation();
         active = "";
-        paint2();
+        paint();
         redraw();
         o.page.focus({ preventScroll: true });
       }
@@ -19778,7 +19795,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (f) {
         filter = f;
         filterPref.set(f);
-        paint2();
+        paint();
         redraw();
         return;
       }
@@ -19787,7 +19804,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (a === "allow") {
         if (await o.allow()) {
           loaded = false;
-          paint2();
+          paint();
           void load();
         }
         return;
@@ -19795,13 +19812,13 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (a === "retry") {
         failed = "";
         loaded = false;
-        paint2();
+        paint();
         void load();
         return;
       }
       if (a === "show-all") {
         filter = "all";
-        paint2();
+        paint();
         redraw();
         return;
       }
@@ -19855,7 +19872,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         }
         if (a === "due") {
           dueOpen = active;
-          paint2();
+          paint();
           const inp = o.box.querySelector(".fe-cm-date");
           inp?.focus();
           try {
@@ -20035,7 +20052,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         if (!active && !draft) return false;
         draft = null;
         active = "";
-        paint2();
+        paint();
         redraw();
         return true;
       }
@@ -20087,7 +20104,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       ta?.scrollIntoView({ block: "nearest" });
       return true;
     };
-    paint2();
+    paint();
     void load();
     return {
       act,
@@ -20095,7 +20112,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       open: () => threads.filter((t) => t.status !== "done").length,
       show: (id) => {
         if (id) focusThread(id);
-        else paint2();
+        else paint();
       },
       marks: () => placed().map((t) => ({ id: t.id, offset: t.place.offset, length: t.place.length })),
       held: () => !!active || !!draft
@@ -20352,7 +20369,7 @@ ${d.message}` : d.message;
       if (count) count.textContent = metaSummary(fm);
     };
     paintMeta();
-    const paint2 = () => {
+    const paint = () => {
       for (const mode of COLUMN_MODES) fe.classList.toggle(`fe-column-${mode}`, column === mode);
       colBtn.classList.toggle("on", column !== "unset");
       colBtn.querySelector(".fe-fp-column-label").textContent = `${COLUMN_NAMES[column]} width`;
@@ -20398,7 +20415,7 @@ ${d.message}` : d.message;
       headings = !raw && isMd ? buildToc(page, toc) : 0;
       page.scrollTop = top;
       rawBtn.classList.toggle("on", raw);
-      paint2();
+      paint();
       spy(page, toc);
       find.refresh();
       comments?.redraw();
@@ -20421,7 +20438,7 @@ ${d.message}` : d.message;
         tocOpen = true;
         tocPref.set(true);
       }
-      paint2();
+      paint();
       if (t === "toc") spy(page, toc);
     };
     const togglePane = (t) => {
@@ -20435,7 +20452,7 @@ ${d.message}` : d.message;
         tocOpen = false;
         tocPref.set(false);
       }
-      paint2();
+      paint();
     };
     const fp = document.getElementById("fe-fp");
     const measureTight = () => {
@@ -20451,7 +20468,7 @@ ${d.message}` : d.message;
       tight = measureTight();
       if (tight !== was) {
         peek = tight && asked && !rail.hidden;
-        paint2();
+        paint();
       }
     };
     const railBox = wireRailBox(rail, () => refit());
@@ -20462,13 +20479,13 @@ ${d.message}` : d.message;
     toc.addEventListener("click", (e) => {
       if (tight && e.target.closest("a")) {
         peek = false;
-        paint2();
+        paint();
       }
     });
     colBtn.addEventListener("click", () => {
       column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
       columnPref.set(column);
-      paint2();
+      paint();
       refit();
     });
     page.addEventListener("scroll", () => {
@@ -20628,7 +20645,7 @@ ${d.message}` : d.message;
         } } : void 0
       });
       editBtn.classList.remove("busy");
-      paint2();
+      paint();
       if (!editor) {
         editBox.hidden = true;
         page.style.display = "";
@@ -20652,7 +20669,7 @@ ${d.message}` : d.message;
       status,
       toast,
       changed: () => {
-        paint2();
+        paint();
         editor?.marks();
       },
       reveal: showComments,
@@ -20886,7 +20903,8 @@ ${d.message}` : d.message;
   }
   function mountStrip(host) {
     const { el: el2, rawPath, toast } = host;
-    const hereIn = (s) => s.list.find((t) => t.path === rawPath);
+    const homeMode = !!host.homeMode;
+    const hereIn = (s) => homeMode ? void 0 : s.list.find((t) => t.path === rawPath);
     const activateHere = (s) => {
       const h = hereIn(s);
       return h ? activate(s, h.id) : { ...s, active: null };
@@ -20939,9 +20957,9 @@ ${d.message}` : d.message;
     function goTab(id) {
       const t = state.list.find((x) => x.id === id);
       if (!t) return;
-      const s = t.path !== rawPath && rawPath && !hereIn(state) ? openTab(state, rawPath, true) : state;
+      const s = !homeMode && t.path !== rawPath && rawPath && !hereIn(state) ? openTab(state, rawPath, true) : state;
       commit(activate(s, id));
-      if (t.path !== rawPath) go(hrefFor(t));
+      if (homeMode || t.path !== rawPath) go(hrefFor(t));
     }
     function closeHere() {
       const here = hereIn(state);
@@ -20950,6 +20968,12 @@ ${d.message}` : d.message;
       commit(next);
       const to = next.list.find((t) => t.id === next.active);
       if (to && to.path !== rawPath) go(hrefFor(to));
+    }
+    function goHome() {
+      const home = host.homePath?.();
+      if (!home) return;
+      if (rawPath && !hereIn(state)) commit(openTab(state, rawPath, true));
+      go(fileUrl(home + "/"), "here", { hash: "#home" });
     }
     function closeById(id) {
       if (hereIn(state)?.id === id) closeHere();
@@ -21052,12 +21076,29 @@ ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned
       if (hereIn(state) || !rawPath) return state.list;
       return [...state.list, { id: "", path: rawPath, kind: kindOf(rawPath), label: labelFor(rawPath), pinned: false }];
     }
+    const homeTab = document.getElementById("fe-tab-home");
+    function paintHome() {
+      const home = host.homePath?.() ?? "";
+      if (!homeTab) return;
+      homeTab.hidden = !home;
+      if (!home) return;
+      homeTab.href = fileUrl(home + "/") + "#home";
+      homeTab.classList.toggle("on", homeMode);
+      if (homeMode) homeTab.setAttribute("aria-current", "page");
+      else homeTab.removeAttribute("aria-current");
+    }
+    homeTab?.addEventListener("click", (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+      e.preventDefault();
+      if (!homeMode) goHome();
+    });
     function render2() {
       const here = hereIn(state);
       const labels = displayLabels(state.list);
       const keeps = distinctKeeps(labels);
+      paintHome();
       const rows = state.list.map((t, i3) => tabHtml(t, i3, t.id === here?.id, labels[i3], keeps[i3]));
-      if (!here) {
+      if (!here && !homeMode) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
         rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}
 Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
@@ -21067,7 +21108,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       watchPins();
       fitHeads();
       el2.classList.toggle("is-empty", state.list.length === 0);
-      el2.querySelector(".fe-tab.on")?.scrollIntoView({ inline: "nearest", block: "nearest" });
+      const onTab = el2.querySelector(".fe-tab.on");
+      onTab?.scrollIntoView({ inline: "nearest", block: "nearest" });
+      if (onTab && onTab === el2.lastElementChild) el2.scrollLeft = el2.scrollWidth;
       if (listBtn) {
         const all = shown();
         listBtn.hidden = all.length < 2;
@@ -21131,6 +21174,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     function handleKey(e) {
       if (e.metaKey || e.ctrlKey || e.altKey) return false;
       const here = hereIn(state);
+      if (homeMode && (e.key === "t" || e.key === "p")) return true;
       if (e.key === "t") {
         commit(openTab(state, rawPath));
         return true;
@@ -21228,9 +21272,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       open: (path, background = false) => commit(openTab(state, path, background)),
       go: (path, hash = "") => {
         let s = state;
-        if (rawPath && !s.list.some((t) => t.path === rawPath)) s = openTab(s, rawPath, true);
+        if (!homeMode && rawPath && !s.list.some((t) => t.path === rawPath)) s = openTab(s, rawPath, true);
         commit(openTab(s, path));
-        if (path !== rawPath) go(fileUrl(path), "here", { hash });
+        if (homeMode || path !== rawPath) go(fileUrl(path), "here", { hash });
         else if (hash) location.hash = hash;
       },
       closedTabs: () => closed.map((c) => c.tab).reverse().filter((t) => !state.list.some((x) => x.path === t.path)),
@@ -21933,6 +21977,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 
     <div id="fe-main">
       <div id="fe-tabbar">
+        <a id="fe-tab-home" class="fe-tab fe-tab-home" hidden title="Home: what waits on you, your chats and every repo's directions"><span class="fe-tab-ico">${UI_ICON.dashboard}</span><span class="fe-tab-lbl"><span class="fe-tab-head">Home</span></span></a>
         <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
         <div id="fe-tabs-end">
           <button id="fe-tab-list" class="btn" data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>
@@ -21940,7 +21985,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           <button id="fe-open-path" class="btn" data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
         </div>
       </div>
-      ${fileMode ? renderFileContent() : '<div id="fe-dp" hidden></div>'}
+      ${fileMode ? renderFileContent() : '<div id="fe-dp" hidden></div><div id="fe-home-page" hidden></div>'}
       <div id="fe-toolbar" class="bar">
         <span id="fe-count">${fileMode ? "" : `${dirs} folder${dirs !== 1 ? "s" : ""}, ${files} file${files !== 1 ? "s" : ""}`}</span>
         <div id="fe-tb-right">
@@ -24223,7 +24268,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const rail = el("fe-rail");
     const btns = els("#fe-rail .fe-rail-btn");
     const lenses = els("#fe-lenses .fe-lens");
-    const show = (lens, paint2 = (f) => f(), quiet = false) => {
+    const show = (lens, paint = (f) => f(), quiet = false) => {
       const usable = btns.filter((b) => !b.hidden).map((b) => b.dataset.lens);
       const pick3 = usable.includes(lens) ? lens : "notes";
       for (const b of btns) {
@@ -24232,7 +24277,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         b.tabIndex = on ? 0 : -1;
       }
       for (const l of lenses) l.hidden = l.dataset.lens !== pick3;
-      paint2(() => {
+      paint(() => {
         for (const b of btns) {
           const on = b.dataset.lens === pick3;
           b.classList.toggle("on", on);
@@ -25518,7 +25563,7 @@ ${rows.join("\n")}`, name: subject };
       syncEmpty();
       return turn;
     };
-    const paint2 = (turn, text, done) => {
+    const paint = (turn, text, done) => {
       const out = turn.querySelector(".fe-ask-a");
       const { thinking, answer, open } = splitThinking(text);
       answers.set(turn, answer);
@@ -25561,7 +25606,7 @@ ${rows.join("\n")}`, name: subject };
           paintError(el2, t.error, "");
           continue;
         }
-        paint2(el2, t.a, true);
+        paint(el2, t.a, true);
         el2.querySelector(".fe-ask-meta").textContent = turnMeta(t);
       }
       syncEmpty();
@@ -25667,7 +25712,7 @@ ${rows.join("\n")}`, name: subject };
           out.textContent = "Stopped before an answer came.";
           return;
         }
-        paint2(turn, full, true);
+        paint(turn, full, true);
         const t = { ...base, a: full, ms: Date.now() - started, stopped: true };
         meta.textContent = turnMeta(t);
         save(t);
@@ -25685,13 +25730,13 @@ ${rows.join("\n")}`, name: subject };
             full += t;
             frame ||= requestAnimationFrame(() => {
               frame = 0;
-              paint2(turn, full, false);
+              paint(turn, full, false);
             });
           },
           onDone: (info) => {
             over = true;
             done();
-            paint2(turn, full, true);
+            paint(turn, full, true);
             const read2 = steps.map((s) => esc(s.replace(/^Reading/, "Read")));
             if (read2.length === 1) out.insertAdjacentHTML("afterbegin", `<div class="fe-ask-step fe-ask-work">${UI_ICON.image}<span>${read2[0]}</span></div>`);
             else if (read2.length) out.insertAdjacentHTML("afterbegin", `<details class="fe-ask-think fe-ask-work"><summary>${UI_ICON.image}<span>Read ${read2.length} images</span></summary><div class="fe-md">${read2.map((s) => `<p>${s}</p>`).join("")}</div></details>`);
@@ -25711,7 +25756,7 @@ ${rows.join("\n")}`, name: subject };
           replay: (text, had) => {
             steps.push(...had);
             full = text;
-            if (full) paint2(turn, full, false);
+            if (full) paint(turn, full, false);
             else showSteps();
           },
           // It ended between the check and the pick-up; it is parked, so file it and show the chat.
@@ -26263,7 +26308,7 @@ ${rows.join("\n")}`, name: subject };
       box.className = "fe-rule-pop";
       box.setAttribute("role", "dialog");
       box.setAttribute("aria-label", "Icon and colour");
-      const paint2 = () => {
+      const paint = () => {
         box.innerHTML = `
         <div class="fe-rp-sec"><span class="fe-rp-l">Picture</span>
           <div class="fe-rp-glyphs">
@@ -26275,7 +26320,7 @@ ${rows.join("\n")}`, name: subject };
           <div class="fe-rp-sw">${SWATCHES.map((c) => `<button type="button" class="fe-rp-c${c === rule.color ? " on" : ""}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join("")}
           <input class="tb fe-st-input fe-rp-hex" data-mono value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
       };
-      paint2();
+      paint();
       const apply = () => {
         saveRules();
         const ico = rulesList.querySelector(`.fe-rule[data-idx="${idx}"] .fe-rule-ico`);
@@ -26288,7 +26333,7 @@ ${rows.join("\n")}`, name: subject };
         else if (c) rule.color = c.dataset.c;
         else return;
         apply();
-        paint2();
+        paint();
         box.querySelector(g ? `.fe-rp-g[data-g="${g.dataset.g}"]` : `.fe-rp-c[data-c="${c.dataset.c}"]`)?.focus();
       });
       box.addEventListener("input", (e) => {
@@ -26944,7 +26989,7 @@ ${rows.join("\n")}`, name: subject };
     const input = box.querySelector("#fe-docs-q");
     const short = (p) => (home && p.startsWith(home + "/") ? "~" + p.slice(home.length) : p).replace(/\/[^/]+$/, "") || "/";
     const due = (d) => (/* @__PURE__ */ new Date(d + "T00:00:00")).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const paint2 = () => {
+    const paint = () => {
       const usable = docRows(all);
       top.hidden = !usable.length;
       for (const c of top.querySelectorAll("[data-f]")) {
@@ -26979,21 +27024,21 @@ ${rows.join("\n")}`, name: subject };
     };
     const load = () => notes.docsIndex().then((rows) => {
       all = rows.map((r) => ({ ...r, doc: browsedPath(r.doc) }));
-      paint2();
+      paint();
     }).catch((err) => {
       top.hidden = true;
       rowsBox.innerHTML = emptyHtml("failed", "Comments could not be listed", { hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the commented documents again" }] });
     });
     input.addEventListener("input", () => {
       f.q = input.value;
-      paint2();
+      paint();
     });
     input.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && input.value) {
         e.preventDefault();
         input.value = "";
         f.q = "";
-        paint2();
+        paint();
       }
       e.stopPropagation();
     });
@@ -27001,14 +27046,14 @@ ${rows.join("\n")}`, name: subject };
       const tg = e.target.closest("[data-tag]");
       if (tg) {
         f.tag = f.tag === tg.dataset.tag ? "" : tg.dataset.tag;
-        paint2();
+        paint();
         return;
       }
       const c = e.target.closest("[data-f]");
       if (!c) return;
       const k = c.dataset.f;
       f[k] = !f[k];
-      paint2();
+      paint();
     });
     rowsBox.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-doc-row");
@@ -27022,11 +27067,11 @@ ${rows.join("\n")}`, name: subject };
         f.q = "";
         f.tag = "";
         f.me = f.due = f.here = false;
-        paint2();
+        paint();
         input.focus();
       } else if (a === "all") {
         f.here = false;
-        paint2();
+        paint();
       } else if (a === "retry") {
         rowsBox.innerHTML = emptyHtml("loading", "Loading\u2026");
         void load();
@@ -27060,9 +27105,11 @@ ${rows.join("\n")}`, name: subject };
 
   // src/home-lens.ts
   var archivedPref2 = jsonPref("bfb-dp-archived-v1", [], Array.isArray);
-  var CHATS_SHOWN = 5;
+  var SIDE_CHATS = 5;
+  var PAGE_CHATS = 8;
   var name = (p) => p.split("/").filter(Boolean).pop() || "/";
   var plural2 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+  var today = () => (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
   var lastAnswer = (c) => {
     const t = [...c.turns].reverse().find((x) => x.a && !x.error);
     return (t?.a ?? "").replace(/<think>[\s\S]*?<\/think>/g, "").replace(/[#*`>_[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
@@ -27094,24 +27141,52 @@ ${rows.join("\n")}`, name: subject };
     ${r.onYou ? `<span class="fe-home-you" title="${plural2(r.onYou, "item")} in this doc wait on you">${r.onYou} on you</span>` : ""}
   </button>`;
   };
+  var none = (text) => `<p class="fe-home-none">${esc(text)}</p>`;
+  var moreBtn = (shown, all) => shown < all ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">Show all ${all}</button>` : "";
   var group = (id, label, n, body, open) => `<details class="fe-grp fe-home-grp" data-grp="${id}"${open ? " open" : ""}><summary class="sect" data-level="group">${DISCLOSE}${esc(label)}<span class="fe-grp-n">${n}</span></summary><div class="fe-grp-body">${body}</div></details>`;
-  function paint(d, allShown, folded) {
+  function paintSide(d, allShown, folded) {
     const asks = d.repos.filter((r) => r.onYou);
     const waiting = d.pages.filter((p) => p.state === "waiting");
     const quiet = [...d.repos.filter((r) => !r.onYou).map(repoRow), ...d.pages.filter((p) => p.state !== "waiting").map(pageRow)];
     const n = waiting.length + asks.length;
-    const day = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
     const card4 = n ? `<section class="fe-home-card" data-tone="you"><div class="sect fe-home-card-h" data-level="group">Needs you<span class="fe-grp-n">${n}</span></div>${waiting.map(pageRow).join("")}${asks.map(repoRow).join("")}</section>` : `<section class="fe-home-card" data-tone="calm"><div class="sect fe-home-card-h" data-level="group">${UI_ICON.circleCheck}<span>Nothing waits on you</span></div></section>`;
-    const failed = d.pagesFailed ? `<p class="fe-home-none">Decision pages could not be listed</p>` : "";
-    const chats = allShown ? d.chats : d.chats.slice(0, CHATS_SHOWN);
-    const chatBody = (chats.map(chatRow).join("") || `<p class="fe-home-none">No chats yet. Ask about any file to start one.</p>`) + (chats.length < d.chats.length ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">Show all ${d.chats.length}</button>` : "");
-    return `<header class="fe-home-head">${esc(day)}</header>${card4}${failed}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
+    const failed = d.pagesFailed ? none("Decision pages could not be listed") : "";
+    const chats = allShown ? d.chats : d.chats.slice(0, SIDE_CHATS);
+    const chatBody = (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length);
+    return `<header class="fe-home-head">${esc(today())}</header>${card4}${failed}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
   }
-  function initHomeLens(box, go2) {
+  function paintPage(d, allShown) {
+    const waiting = d.pages.filter((p) => p.state === "waiting");
+    const never = d.pages.filter((p) => p.state !== "waiting");
+    const asks = d.repos.reduce((s, r) => s + r.onYou, 0);
+    const askRepos = d.repos.filter((r) => r.onYou).length;
+    const tally2 = [
+      waiting.length ? `${plural2(waiting.length, "decision")} waiting on you` : "No decision waiting",
+      asks ? `${plural2(asks, "ask")} in ${plural2(askRepos, "repo")}` : "",
+      d.chats.length ? plural2(d.chats.length, "chat") : ""
+    ].filter(Boolean).join(" \xB7 ");
+    const panel = (id, label, n, body, tone = "") => `<section class="fe-hp-panel" data-panel="${id}"${tone ? ` data-tone="${tone}"` : ""}><div class="sect fe-hp-panel-h" data-level="group">${esc(label)}<span class="fe-grp-n">${n}</span></div>${body}</section>`;
+    const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
+    const decide = d.pagesFailed ? none("Decision pages could not be listed") : waiting.map(pageRow).join("") || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`;
+    return `<div class="fe-hp">
+    <header class="fe-hp-head"><h1>${esc(today())}</h1><p>${esc(tally2)}</p></header>
+    <div class="fe-hp-cols">
+      <div class="fe-hp-col">
+        ${panel("decide", "Decisions waiting", waiting.length, decide, waiting.length ? "you" : "")}
+        ${panel("chats", "Continue", d.chats.length, (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length))}
+      </div>
+      <div class="fe-hp-col">
+        ${panel("repos", "Directions", d.repos.length, d.repos.map(repoRow).join("") || none("No directions docs found under ~/Code"))}
+        ${never.length ? panel("never", "Never answered", never.length, never.map(pageRow).join("")) : ""}
+      </div>
+    </div>
+  </div>`;
+  }
+  function mountHome(box, go2, layout2) {
     let data = null, timer2 = null, seq2 = 0, allShown = false;
     const folded = /* @__PURE__ */ new Set();
     const render2 = () => {
-      if (data) box.innerHTML = paint(data, allShown, folded);
+      if (data) box.innerHTML = layout2 === "page" ? paintPage(data, allShown) : paintSide(data, allShown, folded);
     };
     const load = async () => {
       const mine = ++seq2;
@@ -27127,6 +27202,14 @@ ${rows.join("\n")}`, name: subject };
         repos: sortRepos(docs.map((doc) => summarizeRepo(doc)))
       };
       render2();
+    };
+    const start = () => {
+      if (timer2) clearInterval(timer2);
+      if (!data) box.innerHTML = emptyHtml("loading", "Loading\u2026");
+      void load();
+      timer2 = setInterval(() => {
+        if (!document.hidden) void load();
+      }, 15e3);
     };
     box.addEventListener("toggle", (e) => {
       const g = e.target.dataset?.grp;
@@ -27147,20 +27230,23 @@ ${rows.join("\n")}`, name: subject };
       else if (row2.dataset.page) go2(row2.dataset.page + "/");
       else if (row2.dataset.doc) go2(row2.dataset.doc);
     });
+    if (layout2 === "page") {
+      start();
+      return;
+    }
     document.addEventListener("bfb-lens", (e) => {
-      const on = e.detail === "home";
+      if (e.detail === "home") {
+        start();
+        return;
+      }
       if (timer2) {
         clearInterval(timer2);
         timer2 = null;
       }
-      if (!on) return;
-      if (!data) box.innerHTML = emptyHtml("loading", "Loading\u2026");
-      void load();
-      timer2 = setInterval(() => {
-        if (!document.hidden) void load();
-      }, 15e3);
     });
   }
+  var initHomeLens = (box, go2) => mountHome(box, go2, "side");
+  var initHomePage = (box, go2) => mountHome(box, go2, "page");
 
   // src/main.ts
   async function showClosedSets(strip, visible2) {
@@ -27174,9 +27260,9 @@ ${rows.join("\n")}`, name: subject };
     let timer2 = 0;
     const later = (ms) => {
       clearTimeout(timer2);
-      timer2 = window.setTimeout(() => void paint2(), ms);
+      timer2 = window.setTimeout(() => void paint(), ms);
     };
-    async function paint2() {
+    async function paint() {
       const all = await strip.closedSets();
       const settle = 2500;
       const young = all.filter((s) => Date.now() - s.at < settle);
@@ -27197,7 +27283,7 @@ ${rows.join("\n")}`, name: subject };
         return;
       }
       const b = e.target.closest(".fe-rc-set");
-      if (b) void strip.restoreSet(b.dataset.set).then(paint2);
+      if (b) void strip.restoreSet(b.dataset.set).then(paint);
     });
     try {
       chrome.storage.onChanged.addListener((changes, name2) => {
@@ -27205,8 +27291,8 @@ ${rows.join("\n")}`, name: subject };
       });
     } catch {
     }
-    strip.onChange(() => void paint2());
-    await paint2();
+    strip.onChange(() => void paint());
+    await paint();
   }
   loadKv().catch(() => {
   }).then(function() {
@@ -27217,6 +27303,7 @@ ${rows.join("\n")}`, name: subject };
     const viewHref = viewName ? location.href.split("#")[0] + viewName : "";
     const fileExt = filePageExt(viewName ? location.pathname + viewName : location.pathname);
     const fileMode = !!fileExt && (!!viewName || filePagesEnabled(fileExt, settings));
+    const homeMode = !fileMode && location.hash === "#home";
     if (!fileMode && !document.title.startsWith("Index of")) {
       preload?.remove();
       return;
@@ -27304,7 +27391,7 @@ ${rows.join("\n")}`, name: subject };
     });
     const dirName = fileMode ? fileName : segments[segments.length - 1] || "/";
     const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + "\u2026" : dirName;
-    document.title = `${shortDir} | Better File Browser`;
+    document.title = `${homeMode ? "Home" : shortDir} | Better File Browser`;
     document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${appIconUrl()}">`;
     document.body.innerHTML = html;
     const styleEl = document.createElement("style");
@@ -27312,6 +27399,7 @@ ${rows.join("\n")}`, name: subject };
     document.head.appendChild(styleEl);
     preload?.remove();
     const fe = el("fe");
+    fe.classList.toggle("fe-home-mode", homeMode);
     fe.dataset.wrap = settings.wrapLines === false ? "off" : "on";
     followSystem(fe);
     const cardOf = (id) => {
@@ -27426,12 +27514,16 @@ ${rows.join("\n")}`, name: subject };
       // A docked preview folds the sidebar away while it shows; the sidebar's own setting comes back after.
       dockRoom: (docked) => setSidebarShown(docked && settings.dockFoldsSidebar !== false ? false : settings.showSidebar)
     });
-    app.strip = mountStrip({ el: el("fe-tabs"), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), openInTerminal: (p) => app.openInTerminal(p) });
+    app.strip = mountStrip({ el: el("fe-tabs"), rawPath, homeMode, homePath: () => homeDir(rawPath), toast: app.toast, onSavedChange: () => app.refreshSaved(), openInTerminal: (p) => app.openInTerminal(p) });
     void showClosedSets(app.strip, !settings.hideRecent);
     const goTab = (path, hash = "") => app.strip.go(path, hash);
     initDocsLens(el("fe-docs-list"), homeDir(rawPath), folderPath, goTab);
     initDpLens(el("fe-dpl-list"), (p) => goTab(p));
     initHomeLens(el("fe-home"), goTab);
+    if (homeMode) {
+      el("fe-home-page").hidden = false;
+      initHomePage(el("fe-home-page"), goTab);
+    }
     mountGoto(el("fe-open-path"), () => homeDir(rawPath), (path, background) => {
       if (!background) {
         goTab(path);
@@ -27462,14 +27554,14 @@ ${rows.join("\n")}`, name: subject };
       }
     }, true);
     window.addEventListener("hashchange", () => {
-      if (location.hash.startsWith("#view=") || viewName) reload();
+      if (location.hash.startsWith("#view=") || viewName || homeMode !== (location.hash === "#home")) reload();
     });
     initChrome(app);
     initMarkdownUi(app.toast);
     installColumnResize();
     const listing = initListing(app, entries, { view: initView, density: initDensity, hidden: initHidden });
     initListingInput(app, listing);
-    void mountFolderView(app);
+    if (!homeMode) void mountFolderView(app);
     initSettingsUi(app);
     initToolLenses(app);
     watchConnection();

@@ -308,6 +308,20 @@ body{opacity:1!important}
 .fe-home-card-h{min-height:var(--ctl-md);padding:0 var(--sp-5)}
 .fe-home-card[data-tone="calm"] .fe-home-card-h{color:var(--tone-ok)}
 .fe-home-card .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
+#fe.fe-home-mode #fe-toolbar,#fe.fe-home-mode #fe-sg-panel,#fe.fe-home-mode #fe-filter-bar,#fe.fe-home-mode #fe-scroll,#fe.fe-home-mode #fe-dp,#fe.fe-home-mode #fe-statusbar{display:none}
+#fe-home-page{flex:1;min-height:0;overflow:auto;padding:var(--sp-9)}
+#fe-home-page[hidden]{display:none}
+.fe-hp{max-width:72rem;margin:0 auto}
+.fe-hp-head{margin:0 var(--sp-2) var(--sp-8)}
+.fe-hp-head h1{margin:0;font-size:var(--fs-xl);font-weight:650;letter-spacing:-.01em;color:var(--tx)}
+.fe-hp-head p{margin:var(--sp-2) 0 0;font-size:var(--fs-md);color:var(--mt)}
+.fe-hp-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr));gap:var(--sp-7);align-items:start}
+.fe-hp-col{display:flex;flex-direction:column;gap:var(--sp-7);min-width:0}
+.fe-hp-panel{padding:var(--sp-2) 0 var(--sp-3);border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1)}
+.fe-hp-panel[data-tone="you"]{border-color:color-mix(in srgb,var(--tone-danger) 30%,var(--bd));background:color-mix(in srgb,var(--tone-danger) 5%,var(--s1))}
+.fe-hp-panel-h{min-height:var(--ctl-md);padding:0 var(--sp-6)}
+.fe-hp-panel .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
+.fe-hp-calm{display:flex;align-items:center;gap:var(--sp-3);color:var(--tone-ok)}
 #fe-side-rz{width:10px}
 .fe-sec{margin-bottom:var(--sp-2)}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none}
@@ -742,6 +756,9 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 /* After the last pinned tab, a divider: the tabs scrolling under it read as their own, never as part of the pinned one. */
 .fe-tab.pinned.pin-end::after{content:'';position:absolute;top:-1px;bottom:0;left:calc(100% + var(--sp-2));width:var(--sp-8);border-left:1px solid var(--bd2);background:linear-gradient(90deg,var(--side) 40%,transparent);pointer-events:none}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
+#fe-tab-home{flex:none;min-width:0;margin:var(--sp-3) 0 0 var(--sp-3);position:relative}
+#fe-tab-home[hidden]{display:none}
+#fe-tab-home::after{content:'';position:absolute;top:var(--sp-2);bottom:var(--sp-2);right:calc(var(--sp-1) * -2);border-right:1px solid var(--bd2)}
 #fe-tabs.is-empty{padding-top:var(--sp-2)}
 .fe-tab{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-4);min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
   background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:112px;flex:0 1 auto;position:relative;top:1px;

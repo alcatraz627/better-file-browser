@@ -44,7 +44,7 @@ import { installColumnResize } from './col-resize';
 import { mountGoto, absPath, resolvePath } from './goto';
 import { initDocsLens } from './docs-lens';
 import { initDpLens } from './dp-lens';
-import { initHomeLens } from './home-lens';
+import { initHomeLens, initHomePage } from './home-lens';
 import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
 import { setLinkHome } from './renderers';
@@ -100,6 +100,8 @@ loadKv().catch(() => {}).then(function () {
   const viewHref = viewName ? location.href.split('#')[0] + viewName : '';
   const fileExt = filePageExt(viewName ? location.pathname + viewName : location.pathname);
   const fileMode = !!fileExt && (!!viewName || filePagesEnabled(fileExt, settings));
+  // ~/#home is Home: the shell as usual, with Home in the main pane instead of the listing.
+  const homeMode = !fileMode && location.hash === '#home';
   if (!fileMode && !document.title.startsWith('Index of')) {
     preload?.remove();
     return;
@@ -184,7 +186,7 @@ loadKv().catch(() => {}).then(function () {
 
   const dirName  = fileMode ? fileName : (segments[segments.length - 1] || '/');
   const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + '…' : dirName;
-  document.title = `${shortDir} | Better File Browser`;
+  document.title = `${homeMode ? 'Home' : shortDir} | Better File Browser`;
   document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${appIconUrl()}">`;
   document.body.innerHTML = html;
   const styleEl = document.createElement('style');
@@ -193,6 +195,7 @@ loadKv().catch(() => {}).then(function () {
   preload?.remove();
 
   const fe = el('fe');
+  fe.classList.toggle('fe-home-mode', homeMode);
   fe.dataset.wrap = settings.wrapLines === false ? 'off' : 'on';
   followSystem(fe);
   // The loader covers the next page in this colour before anything draws, so
@@ -269,7 +272,7 @@ loadKv().catch(() => {}).then(function () {
     dockRoom: docked => setSidebarShown(docked && settings.dockFoldsSidebar !== false ? false : settings.showSidebar) });
   // The strip: this Chrome tab's working set. Navigation is real, so the
   // address bar is always the active tab's location.
-  app.strip = mountStrip({ el: el('fe-tabs'), rawPath, toast: app.toast, onSavedChange: () => app.refreshSaved(), openInTerminal: p => app.openInTerminal(p) });
+  app.strip = mountStrip({ el: el('fe-tabs'), rawPath, homeMode, homePath: () => homeDir(rawPath), toast: app.toast, onSavedChange: () => app.refreshSaved(), openInTerminal: p => app.openInTerminal(p) });
   void showClosedSets(app.strip, !settings.hideRecent);
   // Everything that opens a place from the sidebar or beside the strip opens
   // it as a new tab and keeps the one you were on.
@@ -277,6 +280,7 @@ loadKv().catch(() => {}).then(function () {
   initDocsLens(el('fe-docs-list'), homeDir(rawPath), folderPath, goTab);
   initDpLens(el('fe-dpl-list'), p => goTab(p));
   initHomeLens(el('fe-home'), goTab);
+  if (homeMode) { el('fe-home-page').hidden = false; initHomePage(el('fe-home-page'), goTab); }
   // Beside the strip: open a file or folder from the system chooser, or go to a pasted path.
   mountGoto(el('fe-open-path'), () => homeDir(rawPath), (path, background) => { if (!background) { goTab(path); return; } app.strip.open(path, true); app.toast('Kept as a tab'); });
   el('fe-open-pick').addEventListener('click', () => {
@@ -297,14 +301,14 @@ loadKv().catch(() => {}).then(function () {
     if (a) { const v = pageHref(a.href); if (v !== a.href) a.href = v; }
   }, true);
   // On the folder's own page a #view link only changes the hash; load it properly.
-  window.addEventListener('hashchange', () => { if (location.hash.startsWith('#view=') || viewName) reload(); });
+  window.addEventListener('hashchange', () => { if (location.hash.startsWith('#view=') || viewName || homeMode !== (location.hash === '#home')) reload(); });
 
   initChrome(app);
   initMarkdownUi(app.toast);
   installColumnResize();
   const listing = initListing(app, entries, { view: initView, density: initDensity, hidden: initHidden });
   initListingInput(app, listing);
-  void mountFolderView(app);
+  if (!homeMode) void mountFolderView(app);
   initSettingsUi(app);
   initToolLenses(app);
   watchConnection();

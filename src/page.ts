@@ -167,6 +167,7 @@ export function renderPage(p: PageParams): string {
 
     <div id="fe-main">
       <div id="fe-tabbar">
+        <a id="fe-tab-home" class="fe-tab fe-tab-home" hidden title="Home: what waits on you, your chats and every repo's directions"><span class="fe-tab-ico">${UI_ICON.dashboard}</span><span class="fe-tab-lbl"><span class="fe-tab-head">Home</span></span></a>
         <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
         <div id="fe-tabs-end">
           <button id="fe-tab-list" class="btn" data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>
@@ -174,7 +175,7 @@ export function renderPage(p: PageParams): string {
           <button id="fe-open-path" class="btn" data-icon data-size="sm" title="Go to a path you paste or type" aria-label="Go to a path">${UI_ICON.link}</button>
         </div>
       </div>
-      ${fileMode ? renderFileContent() : '<div id="fe-dp" hidden></div>'}
+      ${fileMode ? renderFileContent() : '<div id="fe-dp" hidden></div><div id="fe-home-page" hidden></div>'}
       <div id="fe-toolbar" class="bar">
         <span id="fe-count">${fileMode ? '' : `${dirs} folder${dirs !== 1 ? 's' : ''}, ${files} file${files !== 1 ? 's' : ''}`}</span>
         <div id="fe-tb-right">

@@ -235,6 +235,18 @@ function takeAskOrphans() {
   return taken.catch(() => []);
 }
 
+// The toolbar button opens Home, at the home folder bfb learned from a visit
+// (kept as bfb-home-v1); before any visit it opens the top of the disk.
+chrome.action?.onClicked.addListener(() => {
+  chrome.storage.local.get('bfb-home-v1').then(r => {
+    const home = r['bfb-home-v1'];
+    const url = typeof home === 'string' && /^\/Users\/[^/]+$/.test(home)
+      ? 'file://' + home.split('/').map(encodeURIComponent).join('/') + '/#home'
+      : 'file:///';
+    return chrome.tabs.create({ url });
+  }).catch(() => {});
+});
+
 // The toolbar button wears the app icon chosen in Settings, from PNGs rendered
 // beside each SVG (a service worker cannot draw an SVG itself).
 function setActionIcon(id) {
