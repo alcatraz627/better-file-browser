@@ -200,18 +200,19 @@ export function initSettingsUi(app: App): void {
     const models = el('fe-st-ai-models');
     // The row marked default is the model lm itself answers with. Remote rows are
     // the ones that send the question and the file off this machine.
-    Promise.all([avail, llmModels()]).then(([av, { tiers, gemini }]) => {
+    Promise.all([avail, llmModels()]).then(([av, { tiers, gemini, gpt }]) => {
       const def = av.kind === 'unavailable' ? '' : (av.status.default_model ?? '').replace(/:latest$/, '');
       const defAt = defaultTier(tiers, def);
-      const rowHtml = (icon: string, name: string, model: string, remote: boolean, badge = '', badgeTip = '') =>
-        `<div class="fe-ai-m">${icon}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ''}<span class="fe-ai-where${remote ? ' cloud' : ''}" title="${remote ? 'Sent to Google' : 'Stays on this Mac'}">${remote ? 'Remote' : 'This Mac'}</span></div>`;
+      const rowHtml = (icon: string, name: string, model: string, remote: '' | 'Google' | 'OpenAI', badge = '', badgeTip = '') =>
+        `<div class="fe-ai-m">${icon}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ''}<span class="fe-ai-where${remote ? ' cloud' : ''}" title="${remote ? `Sent to ${remote}` : 'Stays on this Mac'}">${remote ? 'Remote' : 'This Mac'}</span></div>`;
       // A default that no listed alias names still shows, under its own name.
-      const lead = def && defAt < 0 ? rowHtml(UI_ICON.bot, def, '', /^gemini/i.test(def), 'default', 'The model lm answers with') : '';
-      models.innerHTML = tiers.length || gemini.length
+      const lead = def && defAt < 0 ? rowHtml(UI_ICON.bot, def, '', /^gemini/i.test(def) ? 'Google' : '', 'default', 'The model lm answers with') : '';
+      models.innerHTML = tiers.length || gemini.length || gpt.length
         ? lead
-          + tiers.map((t, i) => rowHtml(UI_ICON.bot, t.alias, t.model, false, i === defAt ? 'default' : '', 'The model lm answers with')).join('')
-          + gemini.map(g => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, 'Gemini '), g.name, true, g.default ? 'Gemini default' : '', 'Used when you ask Gemini without naming a model')).join('')
-          + `<p class="fe-set-note">Remote models send the question and the file to Google.</p>`
+          + tiers.map((t, i) => rowHtml(UI_ICON.bot, t.alias, t.model, '', i === defAt ? 'default' : '', 'The model lm answers with')).join('')
+          + gemini.map(g => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, 'Gemini '), g.name, 'Google', g.default ? 'Gemini default' : '', 'Used when you ask Gemini without naming a model')).join('')
+          + gpt.map(g => rowHtml(UI_ICON.ai, g.label, g.name, 'OpenAI', g.default ? 'Codex default' : '', 'Used when you ask GPT without naming a model; answers through your Codex sign-in')).join('')
+          + `<p class="fe-set-note">Remote models send the question and the file to Google or OpenAI.</p>`
         : '<p class="fe-set-note">No model list from lm.</p>';
     });
   }

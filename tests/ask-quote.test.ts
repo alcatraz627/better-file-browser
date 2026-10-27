@@ -54,6 +54,15 @@ describe('ask quote', () => {
     expect([bareLabel('x (default)'), bareLabel('y (Gemini default)'), bareLabel('z')]).toEqual(['x', 'y', 'z']);
   });
 
+  it('sends @gpt to the Codex default and a GPT model by its own name', () => {
+    const opts = [{ value: '', label: 'gemma4 (default)' }, { value: 'gemini:g', label: 'g (Gemini default)' },
+      { value: 'gpt:gpt-6.1-sol', label: 'GPT-6.1-Sol' }, { value: 'gpt:gpt-6-astra', label: 'GPT-6-Astra (Codex default)' }];
+    expect(resolveMention('@gpt hi', opts)).toEqual({ model: 'gpt:gpt-6-astra', label: 'GPT-6-Astra', question: 'hi' });
+    expect(resolveMention('@gpt-6.1-sol hi', opts)?.model).toBe('gpt:gpt-6.1-sol');
+    expect(resolveMention('@gemini hi', opts)?.model).toBe('gemini:g');
+    expect(resolveMention('@gpt hi', opts.slice(0, 2))).toBeNull();
+  });
+
   it('knows an image by its name', () => {
     expect([isImageName('shot.PNG'), isImageName('a.jpeg'), isImageName('notes.txt')]).toEqual([true, true, false]);
   });

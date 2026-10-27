@@ -10,10 +10,15 @@ One Chrome port = one host process = at most one lm subprocess. Ops:
 Closing the port (stdin EOF) SIGTERMs the lm child, which aborts the
 in-flight generation — that is the cancellation path.
 
+A model named gpt:<slug> is answered by the Codex CLI on the ChatGPT sign-in,
+and models also lists those as "gpt": [{name,label,default}].
+
 Overrides, all optional: BFB_LM_BIN (the lm binary), BFB_SEE_BIN (the see
-binary that reads attached images; by default the one beside lm).
+binary that reads attached images; by default the one beside lm),
+BFB_CODEX_BIN (the codex binary), BFB_CODEX_HOME (Codex's folder, else
+CODEX_HOME, else ~/.codex).
 """
-import sys, os, json, struct, subprocess, threading
+import sys, os, re, json, struct, subprocess, tempfile, threading, time
 from shutil import which
 
 def read_msg():
@@ -70,13 +75,16 @@ def parse_models(text):
     return tiers, gemini
 
 def handle_models(lm):
-    try:
-        # stdin closed: the host's own stdin is Chrome's message pipe.
-        text = subprocess.run([lm, 'models', '--json'], capture_output=True, stdin=subprocess.DEVNULL, timeout=15).stdout.decode('utf-8', 'replace')
-    except Exception:
-        text = ''
+    text = ''
+    if lm:
+        try:
+            # stdin closed: the host's own stdin is Chrome's message pipe.
+            text = subprocess.run([lm, 'models', '--json'], capture_output=True, stdin=subprocess.DEVNULL, timeout=15).stdout.decode('utf-8', 'replace')
+        except Exception:
+            pass
     tiers, gemini = parse_models(text)
-    write_msg({'t': 'models', 'tiers': tiers, 'gemini': gemini})
+    gpt = codex_models(codex_home()) if find_codex() else []
+    write_msg({'t': 'models', 'tiers': tiers, 'gemini': gemini, 'gpt': gpt})
 
 # What the gemini lane is asked for each intent; lm q builds these prompts
 # itself for local models, so only this lane needs them spelled out.
@@ -112,6 +120,98 @@ def handle_gemini(lm, msg, model):
     else:
         write_msg({'t': 'error', 'code': 'gemini_unavailable', 'message': str(r.get('error') or r.get('message') or 'gemini did not answer')})
 
+# GPT models answer through the Codex CLI and the ChatGPT sign-in it keeps in
+# CODEX_HOME, so no API key is involved. Codex is an agent, so each call runs
+# read-only, leaves no session behind and skips the user's Codex config.
+def find_codex():
+    for c in (os.environ.get('BFB_CODEX_BIN'), '/opt/homebrew/bin/codex', '/usr/local/bin/codex',
+              os.path.expanduser('~/.local/bin/codex')):
+        if c and os.path.isfile(c) and os.access(c, os.X_OK):
+            return c
+    return which('codex')
+
+def codex_home():
+    return os.environ.get('BFB_CODEX_HOME') or os.environ.get('CODEX_HOME') or os.path.expanduser('~/.codex')
+
+def codex_models(home):
+    """The GPT models Codex offers this account, read from its own model cache,
+    with the one its config names marked default. Empty when Codex is absent."""
+    try:
+        with open(os.path.join(home, 'models_cache.json'), encoding='utf-8') as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return []
+    default = ''
+    try:
+        with open(os.path.join(home, 'config.toml'), encoding='utf-8') as f:
+            for line in f:
+                m = re.match(r'\s*model\s*=\s*"([^"]+)"', line)
+                if m:
+                    default = m.group(1)
+                    break
+    except OSError:
+        pass
+    listed = [m for m in data.get('models') or [] if m.get('slug') and m.get('visibility', 'list') == 'list']
+    listed.sort(key=lambda m: m.get('priority', 99))
+    if not any(m['slug'] == default for m in listed):
+        default = listed[0]['slug'] if listed else ''
+    return [{'name': m['slug'], 'label': m.get('display_name') or m['slug'], 'default': m['slug'] == default} for m in listed]
+
+def parse_codex(text):
+    """The answer, token counts and any failure from `codex exec --json` output.
+    Warnings arrive as error items and are not failures; a failed turn is."""
+    answer, usage, failure = '', {}, ''
+    for line in text.splitlines():
+        try:
+            ev = json.loads(line)
+        except ValueError:
+            continue
+        kind = ev.get('type')
+        item = ev.get('item') or {}
+        if kind == 'item.completed' and item.get('type') == 'agent_message':
+            answer = item.get('text') or answer
+        elif kind == 'turn.completed':
+            usage = ev.get('usage') or {}
+        elif kind in ('turn.failed', 'error'):
+            err = ev.get('error')
+            failure = (err.get('message') if isinstance(err, dict) else err) or ev.get('message') or 'codex failed'
+    return answer, usage, failure
+
+def handle_codex(msg, model):
+    codex = find_codex()
+    if not codex:
+        write_msg({'t': 'error', 'code': 'gpt_unavailable', 'message': 'codex CLI not found'})
+        return
+    home = codex_home()
+    if not model:
+        model = next((m['name'] for m in codex_models(home) if m['default']), '')
+    intent = str(msg.get('intent') or 'qa')
+    prompt = ('Answer directly in markdown. Do not run commands or open files; the document is in the stdin block. '
+              + GEMINI_PROMPTS.get(intent, GEMINI_PROMPTS['qa']).format(
+                  name=str(msg.get('ctxName') or 'the document'), question=str(msg.get('question') or '')))
+    args = [codex, 'exec', '--json', '--ephemeral', '--ignore-user-config', '--ignore-rules',
+            '-s', 'read-only', '--skip-git-repo-check', '-C', tempfile.gettempdir()]
+    if model:
+        args += ['-m', model]
+    args.append(prompt)
+    started = time.time()
+    child = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                             env={**os.environ, 'CODEX_HOME': home})
+    watch(child)
+    try:
+        out, _ = child.communicate((msg.get('ctx') or '').encode('utf-8'))
+    except BrokenPipeError:
+        out = b''
+    answer, usage, failure = parse_codex(out.decode('utf-8', 'replace'))
+    if answer and not failure:
+        write_msg({'t': 'chunk', 'text': answer})
+        write_msg({'t': 'done', 'model': model or 'gpt', 'ms': int((time.time() - started) * 1000), 'truncated': False,
+                   'tokens_in': int(usage.get('input_tokens') or 0), 'tokens_out': int(usage.get('output_tokens') or 0)})
+    elif child.returncode is not None and child.returncode < 0:
+        write_msg({'t': 'error', 'code': 'cancelled', 'message': 'cancelled'})
+    else:
+        write_msg({'t': 'error', 'code': 'gpt_unavailable', 'message': failure or 'codex did not answer'})
+
 # Files attached to a question. Text joins the context under its name; an
 # image is read by the local vision model (`see`), so it never leaves this Mac.
 IMAGE_EXT = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.bmp', '.tif', '.tiff'}
@@ -119,7 +219,7 @@ FILES_MAX, TEXT_MAX = 8, 100_000
 
 def find_see(lm):
     # `see` ships beside `lm`; the env var lets the walks put a stand-in there.
-    for c in (os.environ.get('BFB_SEE_BIN'), os.path.join(os.path.dirname(lm), 'see')):
+    for c in (os.environ.get('BFB_SEE_BIN'), lm and os.path.join(os.path.dirname(lm), 'see')):
         if c and os.path.isfile(c) and os.access(c, os.X_OK):
             return c
     return which('see')
@@ -186,6 +286,8 @@ def watch(child):
 def handle_query(lm, msg):
     msg = with_files(lm, msg)
     model = str(msg.get('model') or '')
+    if model.startswith('gpt:'):
+        return handle_codex(msg, model[len('gpt:'):])
     if model.startswith('gemini:'):
         return handle_gemini(lm, msg, model[len('gemini:'):])
     args = [lm, 'q', '--stream-json', '--ctx', '-']
@@ -226,11 +328,13 @@ def main():
     if msg is None:
         return
     lm = find_lm()
-    if not lm:
+    op = msg.get('op')
+    # GPT goes through Codex, so its models and answers need no lm.
+    gpt_only = op == 'models' or (op == 'query' and str(msg.get('model') or '').startswith('gpt:'))
+    if not lm and not gpt_only:
         write_msg({'t': 'error', 'code': 'host_no_lm',
                    'message': 'lm CLI not found (looked in ~/.local/bin, /opt/homebrew/bin, PATH)'})
         return
-    op = msg.get('op')
     if op == 'status':
         handle_status(lm)
     elif op == 'warm':

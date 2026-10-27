@@ -59,25 +59,27 @@ export function takeQuote(subject: string, now = Date.now()): QuoteHandoff | nul
   return now - h.at <= HANDOFF_TTL ? h : null;
 }
 
-/** The tag the picker puts after the Gemini lane's own default model. */
-const GEMINI_DEFAULT = /\((Gemini )?default\)$/;
+/** The tag the picker puts after a remote lane's own default model. */
+const LANE_DEFAULT = /\(((Gemini|Codex) )?default\)$/;
 /** A model's label without its default tag, for naming it in an answer. */
-export const bareLabel = (label: string) => label.replace(/ \((Gemini )?default\)$/, '');
+export const bareLabel = (label: string) => label.replace(/ \(((Gemini|Codex) )?default\)$/, '');
 
 /** A model the picker offers, as Ask's dropdown holds it. */
 export interface ModelOpt { value: string; label: string }
 
 /** A question that starts with `@name` goes to that model for this one turn.
- *  The name is a picker value (`code`, `gemini:gemini-4-argon`), a Gemini
- *  model's bare name, or `gemini` for the default Gemini model. */
+ *  The name is a picker value (`code`, `gemini:gemini-4-argon`), a remote
+ *  model's bare name, or `gemini` / `gpt` for that lane's default model. */
 export function resolveMention(text: string, opts: ModelOpt[]): { model: string; label: string; question: string } | null {
   const m = /^@(\S+)\s+([\s\S]*\S)/.exec(text.trim());
   if (!m) return null;
   const want = m[1].toLowerCase();
-  const gem = opts.filter(o => o.value.startsWith('gemini:'));
+  const lane = (name: string) => opts.filter(o => o.value.startsWith(name + ':'));
+  const remote = [...lane('gemini'), ...lane('gpt')];
+  const laneDefault = (name: string) => lane(name).find(o => LANE_DEFAULT.test(o.label)) ?? lane(name)[0];
   const hit = opts.find(o => o.value && o.value.toLowerCase() === want)
-    ?? gem.find(o => o.value.slice(7).toLowerCase() === want)
-    ?? (want === 'gemini' ? gem.find(o => GEMINI_DEFAULT.test(o.label)) ?? gem[0] : undefined);
+    ?? remote.find(o => o.value.slice(o.value.indexOf(':') + 1).toLowerCase() === want)
+    ?? (want === 'gemini' || want === 'gpt' ? laneDefault(want) : undefined);
   return hit ? { model: hit.value, label: bareLabel(hit.label), question: m[2] } : null;
 }
 

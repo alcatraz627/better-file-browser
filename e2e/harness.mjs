@@ -157,10 +157,39 @@ args = sys.argv[1:]
 open(${JSON.stringify(log)}, 'a').write(json.dumps({'args': ['see', *args], 'stdin': ''}) + '\\n')
 print(json.dumps({'ok': True, 'text': 'A screenshot with a blue Save button.', 'model': 'minicpm-v4.6', 'ms': 30}))
 `, { mode: 0o755 });
+  // A stand-in for `codex exec --json` and the model cache in its home folder,
+  // so the GPT lane is walked without a sign-in. A file named codex-fail in the
+  // profile makes it report a failed turn.
+  const fakeCodex = join(profile, 'fake_codex.py');
+  const codexHome = join(profile, 'codex-home');
+  mkdirSync(codexHome, { recursive: true });
+  writeFileSync(join(codexHome, 'models_cache.json'), JSON.stringify({ models: [
+    { slug: 'gpt-6.1-sol', display_name: 'GPT-6.1-Sol', priority: 1, visibility: 'list' },
+    { slug: 'gpt-6-astra', display_name: 'GPT-6-Astra', priority: 2, visibility: 'list' },
+    { slug: 'gpt-internal', priority: 0, visibility: 'hide' },
+  ] }));
+  writeFileSync(join(codexHome, 'config.toml'), 'model = "gpt-6-astra"\n');
+  writeFileSync(fakeCodex, `#!/usr/bin/env python3
+import json, os, sys
+args = sys.argv[1:]
+stdin = sys.stdin.read()
+open(${JSON.stringify(log)}, 'a').write(json.dumps({'args': ['codex', *args], 'stdin': stdin[:4000], 'home': os.environ.get('CODEX_HOME', '')}) + '\\n')
+model = args[args.index('-m') + 1] if '-m' in args else '?'
+events = [{'type': 'thread.started'}, {'type': 'item.completed', 'item': {'type': 'error', 'message': 'Under-development features enabled'}}]
+if os.path.exists(${JSON.stringify(join(profile, 'codex-fail'))}):
+    events.append({'type': 'turn.failed', 'error': {'message': 'not signed in'}})
+else:
+    events += [{'type': 'item.completed', 'item': {'type': 'agent_message', 'text': 'GPT answer from ' + model + '.'}},
+               {'type': 'turn.completed', 'usage': {'input_tokens': 900, 'output_tokens': 12}}]
+for e in events:
+    print(json.dumps(e))
+`, { mode: 0o755 });
   writeFileSync(hostPath, `#!/usr/bin/env python3
 import os, runpy
 os.environ['BFB_LM_BIN'] = ${JSON.stringify(fake)}
 os.environ['BFB_SEE_BIN'] = ${JSON.stringify(fakeSee)}
+os.environ['BFB_CODEX_BIN'] = ${JSON.stringify(fakeCodex)}
+os.environ['BFB_CODEX_HOME'] = ${JSON.stringify(codexHome)}
 runpy.run_path(${JSON.stringify(join(ROOT, 'native', 'llm_host.py'))}, run_name='__main__')
 `, { mode: 0o755 });
   writeFileSync(join(dir, 'com.better_file_browser.llm.json'), JSON.stringify({
@@ -298,7 +327,7 @@ export async function launch({ headless = true, pickReply, lmStub = false } = {}
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, downloads, open, close, store, sw, docsHome: docsHome(profile), lmCalls, lmDown: join(profile, 'lm-down'), lmSlowStatus: join(profile, 'lm-slow-status'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
+  return { browser, fixture, notesDir, downloads, open, close, store, sw, docsHome: docsHome(profile), lmCalls, lmDown: join(profile, 'lm-down'), codexFail: join(profile, 'codex-fail'), lmSlowStatus: join(profile, 'lm-slow-status'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
 }
 
 // The extension's settings store for the running browser; set by launch().

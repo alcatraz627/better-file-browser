@@ -4261,14 +4261,16 @@ ${body}`;
     handoffPref.set(null);
     return now - h.at <= HANDOFF_TTL ? h : null;
   }
-  var GEMINI_DEFAULT = /\((Gemini )?default\)$/;
-  var bareLabel = (label) => label.replace(/ \((Gemini )?default\)$/, "");
+  var LANE_DEFAULT = /\(((Gemini|Codex) )?default\)$/;
+  var bareLabel = (label) => label.replace(/ \(((Gemini|Codex) )?default\)$/, "");
   function resolveMention(text, opts) {
     const m = /^@(\S+)\s+([\s\S]*\S)/.exec(text.trim());
     if (!m) return null;
     const want = m[1].toLowerCase();
-    const gem = opts.filter((o) => o.value.startsWith("gemini:"));
-    const hit = opts.find((o) => o.value && o.value.toLowerCase() === want) ?? gem.find((o) => o.value.slice(7).toLowerCase() === want) ?? (want === "gemini" ? gem.find((o) => GEMINI_DEFAULT.test(o.label)) ?? gem[0] : void 0);
+    const lane = (name) => opts.filter((o) => o.value.startsWith(name + ":"));
+    const remote = [...lane("gemini"), ...lane("gpt")];
+    const laneDefault = (name) => lane(name).find((o) => LANE_DEFAULT.test(o.label)) ?? lane(name)[0];
+    const hit = opts.find((o) => o.value && o.value.toLowerCase() === want) ?? remote.find((o) => o.value.slice(o.value.indexOf(":") + 1).toLowerCase() === want) ?? (want === "gemini" || want === "gpt" ? laneDefault(want) : void 0);
     return hit ? { model: hit.value, label: bareLabel(hit.label), question: m[2] } : null;
   }
   function secondOpinion(question, answer) {
@@ -4784,6 +4786,9 @@ ${body}
     const byName = tiers.findIndex((t) => bare(t.alias) === d);
     return byName >= 0 ? byName : tiers.findIndex((t) => bare(t.model) === d);
   }
+  var REMOTE = /^(gemini|gpt):/;
+  var isRemote = (value) => REMOTE.test(value);
+  var bareModel = (value) => value.replace(REMOTE, "");
   function llmModels() {
     return new Promise((resolve) => {
       let done = false;
@@ -4795,7 +4800,7 @@ ${body}
       };
       const port = openProxyPort();
       if (!port) {
-        settle({ tiers: [], gemini: [] });
+        settle({ tiers: [], gemini: [], gpt: [] });
         return;
       }
       const timer2 = setTimeout(() => {
@@ -4803,7 +4808,7 @@ ${body}
           port.disconnect();
         } catch {
         }
-        settle({ tiers: [], gemini: [] });
+        settle({ tiers: [], gemini: [], gpt: [] });
       }, 2e4);
       port.onMessage.addListener((msg) => {
         if (msg?.t !== "models" && msg?.t !== "error" && msg?.t !== "native-gone") return;
@@ -4812,11 +4817,11 @@ ${body}
           port.disconnect();
         } catch {
         }
-        settle(msg.t === "models" ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [] } : { tiers: [], gemini: [] });
+        settle(msg.t === "models" ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [], gpt: msg.gpt ?? [] } : { tiers: [], gemini: [], gpt: [] });
       });
       port.onDisconnect.addListener(() => {
         clearTimeout(timer2);
-        settle({ tiers: [], gemini: [] });
+        settle({ tiers: [], gemini: [], gpt: [] });
       });
       port.postMessage({ op: "models" });
     });
@@ -4985,7 +4990,8 @@ ${body}
     host_no_lm: "The lm CLI was not found on this machine.",
     unavailable: "Local AI is not set up. Settings, AI shows how.",
     disconnected: "The AI host disconnected unexpectedly.",
-    gemini_unavailable: "Gemini did not answer. Check lm gemini in a terminal, or pick a local model."
+    gemini_unavailable: "Gemini did not answer. Check lm gemini in a terminal, or pick a local model.",
+    gpt_unavailable: "GPT did not answer. Check codex login in a terminal, or pick another model."
   };
 
   // src/ask-history.ts
@@ -25367,13 +25373,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
     <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span><button type="button" class="btn" data-icon data-size="xs" id="fe-ask-recheck" title="Check again" aria-label="Check the model again">${UI_ICON.reset}</button></div>
-    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? "the text" : "the listing"} to Google</span></p>
+    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? "the text" : "the listing"} to <span class="fe-ask-cloud-to">Google</span></span></p>
     <div id="fe-ask-thread"></div>
     <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join("")}</div></div>
     <div class="fe-ask-form">
       <div class="fe-ask-box">
         <div class="fe-ask-files" id="fe-ask-files" hidden></div>
-        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line; start with @code or @gemini to ask that model"></textarea>
+        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line; start with @code, @gemini or @gpt to ask that model"></textarea>
         <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(key)}">${app.fileMode ? UI_ICON.file ?? "" : ""}<span>${esc(subject)}</span></span>
           <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-attach" title="Attach files from this folder, or drop a file here" aria-label="Attach files">${UI_ICON.attach}</button>
           <button type="button" class="btn fe-ask-send" data-icon data-variant="solid" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? "\u2191"}</button></div>
@@ -25387,6 +25393,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     upgradeControls(box);
     const pick2 = el("fe-ask-model");
     const cloud = el("fe-ask-cloud");
+    const cloudTo = cloud.querySelector(".fe-ask-cloud-to");
     const hist = el("fe-ask-hist");
     const histBtn = el("fe-ask-hist-btn");
     const histN = el("fe-ask-hist-n");
@@ -25412,9 +25419,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let turns = [];
     let attached = [];
     const model = () => pick2.value || app.settings.aiModel || "";
-    const isCloud = () => model().startsWith("gemini:");
+    const isCloud = () => isRemote(model());
     let defaultName = "";
-    const modelName = () => model().replace(/^gemini:/, "") || defaultName || "default";
+    const modelName = () => bareModel(model()) || defaultName || "default";
     let reason = "";
     const syncUsable = () => {
       const usable = localReady || isCloud();
@@ -25427,6 +25434,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         b.title = why;
       });
       cloud.hidden = !isCloud();
+      cloudTo.textContent = model().startsWith("gpt:") ? "OpenAI" : "Google";
       statusRow.hidden = !checked || localReady || isCloud();
     };
     async function checkModel() {
@@ -25448,7 +25456,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const opts = [
         { value: "", label: def ? `${def} (default)` : "Default model", .../^gemini/i.test(def) ? { hint: "remote" } : {} },
         ...models.tiers.map((t) => ({ value: t.alias, label: t.alias, hint: t.model, group: "On this machine" })),
-        ...models.gemini.map((g) => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? " (Gemini default)" : ""), hint: "remote", group: "Remote: Gemini, on Google's servers" }))
+        ...models.gemini.map((g) => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? " (Gemini default)" : ""), hint: "remote", group: "Remote: Gemini, on Google's servers" })),
+        ...models.gpt.map((g) => ({ value: `gpt:${g.name}`, label: g.label + (g.default ? " (Codex default)" : ""), hint: "remote", group: "Remote: GPT, through your Codex sign-in" }))
       ];
       pick2.setOptions(opts);
       defaultName = a.kind === "ready" ? def : "";
@@ -25566,7 +25575,7 @@ ${rows.join("\n")}`, name: subject };
       if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       const base = {
         q: shown,
-        model: useModel.replace(/^gemini:/, "") || modelName(),
+        model: bareModel(useModel) || modelName(),
         at: started,
         ...intent === "qa" ? {} : { intent },
         ...attached.length ? { files: attached.slice() } : {},
@@ -25589,8 +25598,8 @@ ${rows.join("\n")}`, name: subject };
           intent: intent === "explain" ? "explain-code" : intent === "summarize" ? "summarize" : "qa",
           question: asked && intent === "qa" ? withHistory(turns.filter((t) => !t.error && !t.via), asked) : asked,
           model: useModel || void 0,
-          // lm gemini's own default; a local model keeps the shorter one.
-          timeout: useModel.startsWith("gemini:") ? 300 : void 0,
+          // lm gemini's own default, which also covers Codex; a local model keeps the shorter one.
+          timeout: isRemote(useModel) ? 300 : void 0,
           files: files.length ? files : void 0
         },
         cb,
@@ -25882,7 +25891,7 @@ ${rows.join("\n")}`, name: subject };
       const asked = asks.get(turn);
       if (!answer || !asked) return;
       const opts = modelOpts().filter((o) => o.value);
-      menuOf(anchor, "Ask another model to check this", opts.map((o) => ({ label: o.label, icon: o.value.startsWith("gemini:") ? UI_ICON.info : UI_ICON.ai })), (i3) => {
+      menuOf(anchor, "Ask another model to check this", opts.map((o) => ({ label: o.label, icon: isRemote(o.value) ? UI_ICON.info : UI_ICON.ai })), (i3) => {
         const o = opts[i3];
         const label = bareLabel(o.label);
         void ask("qa", secondOpinion(asked.question ?? asked.shown ?? "", answer), { model: o.value, shown: `Second opinion from ${label}`, via: `Second opinion from ${label}` });
@@ -26308,12 +26317,12 @@ ${rows.join("\n")}`, name: subject };
         warm.disabled = av.kind !== "ready";
       });
       const models = el("fe-st-ai-models");
-      Promise.all([avail, llmModels()]).then(([av, { tiers, gemini }]) => {
+      Promise.all([avail, llmModels()]).then(([av, { tiers, gemini, gpt }]) => {
         const def = av.kind === "unavailable" ? "" : (av.status.default_model ?? "").replace(/:latest$/, "");
         const defAt = defaultTier(tiers, def);
-        const rowHtml = (icon2, name, model, remote, badge = "", badgeTip = "") => `<div class="fe-ai-m">${icon2}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ""}<span class="fe-ai-where${remote ? " cloud" : ""}" title="${remote ? "Sent to Google" : "Stays on this Mac"}">${remote ? "Remote" : "This Mac"}</span></div>`;
-        const lead = def && defAt < 0 ? rowHtml(UI_ICON.bot, def, "", /^gemini/i.test(def), "default", "The model lm answers with") : "";
-        models.innerHTML = tiers.length || gemini.length ? lead + tiers.map((t, i3) => rowHtml(UI_ICON.bot, t.alias, t.model, false, i3 === defAt ? "default" : "", "The model lm answers with")).join("") + gemini.map((g) => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, "Gemini "), g.name, true, g.default ? "Gemini default" : "", "Used when you ask Gemini without naming a model")).join("") + `<p class="fe-set-note">Remote models send the question and the file to Google.</p>` : '<p class="fe-set-note">No model list from lm.</p>';
+        const rowHtml = (icon2, name, model, remote, badge = "", badgeTip = "") => `<div class="fe-ai-m">${icon2}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ""}<span class="fe-ai-where${remote ? " cloud" : ""}" title="${remote ? `Sent to ${remote}` : "Stays on this Mac"}">${remote ? "Remote" : "This Mac"}</span></div>`;
+        const lead = def && defAt < 0 ? rowHtml(UI_ICON.bot, def, "", /^gemini/i.test(def) ? "Google" : "", "default", "The model lm answers with") : "";
+        models.innerHTML = tiers.length || gemini.length || gpt.length ? lead + tiers.map((t, i3) => rowHtml(UI_ICON.bot, t.alias, t.model, "", i3 === defAt ? "default" : "", "The model lm answers with")).join("") + gemini.map((g) => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, "Gemini "), g.name, "Google", g.default ? "Gemini default" : "", "Used when you ask Gemini without naming a model")).join("") + gpt.map((g) => rowHtml(UI_ICON.ai, g.label, g.name, "OpenAI", g.default ? "Codex default" : "", "Used when you ask GPT without naming a model; answers through your Codex sign-in")).join("") + `<p class="fe-set-note">Remote models send the question and the file to Google or OpenAI.</p>` : '<p class="fe-set-note">No model list from lm.</p>';
       });
     }
     el("fe-st-ai-refresh").addEventListener("click", refreshAi);

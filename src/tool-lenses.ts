@@ -12,7 +12,7 @@ import { parseListing } from './parse';
 import { crawl, relativeName } from './deep-search';
 import { EMPTY_FIND, isTextCandidate, searchContents, type FindQuery } from './find';
 import { icoFile } from './icons';
-import { llmAvailability, llmModels, llmQuery, llmAttach, llmRunning, llmOrphans, LLM_ERROR_TEXT, type AskJob, type LlmCallbacks } from './llm';
+import { llmAvailability, llmModels, llmQuery, llmAttach, llmRunning, llmOrphans, isRemote, bareModel, LLM_ERROR_TEXT, type AskJob, type LlmCallbacks } from './llm';
 import { addTurn, endedTurn, allChats, chatsFor, chatsUnder, deleteChat, turnMeta, withHistory, chatMarkdown, type AskChat, type AskTurn } from './ask-history';
 import { notes } from './notes';
 import { errorText } from './errors';
@@ -158,13 +158,13 @@ function initAsk(app: App): void {
       <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
     <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span><button type="button" class="btn" data-icon data-size="xs" id="fe-ask-recheck" title="Check again" aria-label="Check the model again">${UI_ICON.reset}</button></div>
-    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? 'the text' : 'the listing'} to Google</span></p>
+    <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? 'the text' : 'the listing'} to <span class="fe-ask-cloud-to">Google</span></span></p>
     <div id="fe-ask-thread"></div>
     <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join('')}</div></div>
     <div class="fe-ask-form">
       <div class="fe-ask-box">
         <div class="fe-ask-files" id="fe-ask-files" hidden></div>
-        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line; start with @code or @gemini to ask that model"></textarea>
+        <textarea id="fe-ask-q" rows="1" placeholder="Ask about ${what}" spellcheck="false" title="Enter asks; Shift+Enter starts a new line; start with @code, @gemini or @gpt to ask that model"></textarea>
         <div class="fe-ask-foot"><span class="fe-ask-ctx" title="${esc(key)}">${app.fileMode ? UI_ICON.file ?? '' : ''}<span>${esc(subject)}</span></span>
           <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-attach" title="Attach files from this folder, or drop a file here" aria-label="Attach files">${UI_ICON.attach}</button>
           <button type="button" class="btn fe-ask-send" data-icon data-variant="solid" id="fe-ask-go" title="Ask (Enter)" aria-label="Ask">${UI_ICON.send ?? '↑'}</button></div>
@@ -178,6 +178,7 @@ function initAsk(app: App): void {
   upgradeControls(box);
   const pick = el<DropdownEl>('fe-ask-model');
   const cloud = el('fe-ask-cloud');
+  const cloudTo = cloud.querySelector<HTMLElement>('.fe-ask-cloud-to')!;
   const hist = el('fe-ask-hist');
   const histBtn = el('fe-ask-hist-btn');
   const histN = el('fe-ask-hist-n');
@@ -203,10 +204,10 @@ function initAsk(app: App): void {
   let attached: string[] = [];
 
   const model = () => pick.value || app.settings.aiModel || '';
-  const isCloud = () => model().startsWith('gemini:');
+  const isCloud = () => isRemote(model());
   // The name an answer is filed under before the host reports its own.
   let defaultName = '';
-  const modelName = () => model().replace(/^gemini:/, '') || defaultName || 'default';
+  const modelName = () => bareModel(model()) || defaultName || 'default';
   // A cloud model answers even when the local server is down.
   // Why Ask is off, said on the controls themselves, since a disabled button gives no hint of its own.
   let reason = '';
@@ -218,6 +219,7 @@ function initAsk(app: App): void {
     q.placeholder = why ? 'Ask is off until the model runs' : `Ask about ${what}`;
     box!.querySelectorAll<HTMLButtonElement>('.fe-ask-chip').forEach(b => { b.disabled = !usable; b.title = why; });
     cloud.hidden = !isCloud();
+    cloudTo.textContent = model().startsWith('gpt:') ? 'OpenAI' : 'Google';
     statusRow.hidden = !checked || localReady || isCloud();
   };
 
@@ -245,6 +247,7 @@ function initAsk(app: App): void {
       { value: '', label: def ? `${def} (default)` : 'Default model', ...(/^gemini/i.test(def) ? { hint: 'remote' } : {}) },
       ...models.tiers.map(t => ({ value: t.alias, label: t.alias, hint: t.model, group: 'On this machine' })),
       ...models.gemini.map(g => ({ value: `gemini:${g.name}`, label: g.name + (g.default ? ' (Gemini default)' : ''), hint: 'remote', group: "Remote: Gemini, on Google's servers" })),
+      ...models.gpt.map(g => ({ value: `gpt:${g.name}`, label: g.label + (g.default ? ' (Codex default)' : ''), hint: 'remote', group: 'Remote: GPT, through your Codex sign-in' })),
     ];
     pick.setOptions(opts);
     defaultName = a.kind === 'ready' ? def : '';
@@ -350,7 +353,7 @@ function initAsk(app: App): void {
     // The chat gets its id now, so an answer that finishes after this page has
     // gone still knows which chat to land in.
     if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    const base: Omit<AskTurn, 'a' | 'ms'> = { q: shown, model: useModel.replace(/^gemini:/, '') || modelName(), at: started,
+    const base: Omit<AskTurn, 'a' | 'ms'> = { q: shown, model: bareModel(useModel) || modelName(), at: started,
       ...(intent === 'qa' ? {} : { intent }), ...(attached.length ? { files: attached.slice() } : {}), ...(o.via ? { via: o.via } : {}) };
     let c: { ctx: string; name: string };
     try { c = await context(); }
@@ -364,8 +367,8 @@ function initAsk(app: App): void {
         intent: intent === 'explain' ? 'explain-code' : intent === 'summarize' ? 'summarize' : 'qa',
         question: asked && intent === 'qa' ? withHistory(turns.filter(t => !t.error && !t.via), asked) : asked,
         model: useModel || undefined,
-        // lm gemini's own default; a local model keeps the shorter one.
-        timeout: useModel.startsWith('gemini:') ? 300 : undefined,
+        // lm gemini's own default, which also covers Codex; a local model keeps the shorter one.
+        timeout: isRemote(useModel) ? 300 : undefined,
         files: files.length ? files : undefined,
       }, cb, job));
   }
@@ -579,7 +582,7 @@ function initAsk(app: App): void {
     const asked = asks.get(turn);
     if (!answer || !asked) return;
     const opts = modelOpts().filter(o => o.value);
-    menuOf(anchor, 'Ask another model to check this', opts.map(o => ({ label: o.label, icon: o.value.startsWith('gemini:') ? UI_ICON.info : UI_ICON.ai })), i => {
+    menuOf(anchor, 'Ask another model to check this', opts.map(o => ({ label: o.label, icon: isRemote(o.value) ? UI_ICON.info : UI_ICON.ai })), i => {
       const o = opts[i];
       const label = bareLabel(o.label);
       void ask('qa', secondOpinion(asked.question ?? asked.shown ?? '', answer), { model: o.value, shown: `Second opinion from ${label}`, via: `Second opinion from ${label}` });

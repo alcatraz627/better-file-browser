@@ -56,8 +56,9 @@ try {
     const rows = await ask.$$eval('#fe-st-ai-models .fe-ai-m', rs => rs.map(r => ({ name: r.querySelector('b').textContent, badge: r.querySelector('.fe-ai-def')?.textContent ?? '', where: r.querySelector('.fe-ai-where').textContent })));
     check(rows.filter(r => r.badge === 'default').length === 1 && rows.find(r => r.name === 'small')?.badge === 'default',
       `Settings marks one row "default", the one lm answers with: ${JSON.stringify(rows)}`);
-    check(rows.filter(r => r.where === 'Remote').length === 2 && rows.filter(r => r.where === 'This Mac').length === 3 && rows.find(r => r.badge === 'Gemini default')?.name === 'Gemini 3.5-flash',
-      'Settings tags Gemini rows Remote, the rest This Mac, and Gemini\'s own pick says so');
+    // Two Gemini and two GPT (the Codex stand-in) rows are remote.
+    check(rows.filter(r => r.where === 'Remote').length === 4 && rows.filter(r => r.where === 'This Mac').length === 3 && rows.find(r => r.badge === 'Gemini default')?.name === 'Gemini 3.5-flash',
+      `Settings tags Gemini and GPT rows Remote, the rest This Mac, and Gemini's own pick says so: ${JSON.stringify(rows)}`);
     await shotAt(ask, 'settings-models');
     const readme = readFileSync(join(process.cwd(), 'README.md'), 'utf8');
     check(!/Fully local/i.test(readme) && /remote/i.test(readme), 'the README no longer claims AI is fully local, and names the remote models');

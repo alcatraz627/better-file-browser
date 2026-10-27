@@ -35,7 +35,7 @@ export type NativeFrame =
   | { t: 'step'; text: string }
   | { t: 'error'; code: string; message: string }
   | { t: 'warm'; ok: boolean; on: boolean }
-  | { t: 'models'; tiers: ModelTier[]; gemini: GeminiModel[] }
+  | { t: 'models'; tiers: ModelTier[]; gemini: GeminiModel[]; gpt: GptModel[] }
   | { t: 'native-gone'; message?: string };
 
 // No caching: `lm status --json` returns in ~40ms, and a stale cache would
@@ -86,20 +86,28 @@ export function defaultTier(tiers: ModelTier[], def: string): number {
   return byName >= 0 ? byName : tiers.findIndex(t => bare(t.model) === d);
 }
 export interface GeminiModel { name: string; default: boolean }
-export function llmModels(): Promise<{ tiers: ModelTier[]; gemini: GeminiModel[] }> {
+/** A GPT model Codex offers on the ChatGPT sign-in; `label` is its display name. */
+export interface GptModel { name: string; label: string; default: boolean }
+
+/** Picker values that send the page off this machine: `gemini:<name>` and `gpt:<name>`. */
+const REMOTE = /^(gemini|gpt):/;
+export const isRemote = (value: string) => REMOTE.test(value);
+/** The model name without its lane prefix. */
+export const bareModel = (value: string) => value.replace(REMOTE, '');
+export function llmModels(): Promise<{ tiers: ModelTier[]; gemini: GeminiModel[]; gpt: GptModel[] }> {
   return new Promise(resolve => {
     let done = false;
-    const settle = (r: { tiers: ModelTier[]; gemini: GeminiModel[] }) => { if (!done) { done = true; resolve(r); } };
+    const settle = (r: { tiers: ModelTier[]; gemini: GeminiModel[]; gpt: GptModel[] }) => { if (!done) { done = true; resolve(r); } };
     const port = openProxyPort();
-    if (!port) { settle({ tiers: [], gemini: [] }); return; }
-    const timer = setTimeout(() => { try { port.disconnect(); } catch { /* gone */ } settle({ tiers: [], gemini: [] }); }, 20_000);
+    if (!port) { settle({ tiers: [], gemini: [], gpt: [] }); return; }
+    const timer = setTimeout(() => { try { port.disconnect(); } catch { /* gone */ } settle({ tiers: [], gemini: [], gpt: [] }); }, 20_000);
     port.onMessage.addListener((msg: NativeFrame) => {
       if (msg?.t !== 'models' && msg?.t !== 'error' && msg?.t !== 'native-gone') return;
       clearTimeout(timer);
       try { port.disconnect(); } catch { /* gone */ }
-      settle(msg.t === 'models' ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [] } : { tiers: [], gemini: [] });
+      settle(msg.t === 'models' ? { tiers: msg.tiers ?? [], gemini: msg.gemini ?? [], gpt: msg.gpt ?? [] } : { tiers: [], gemini: [], gpt: [] });
     });
-    port.onDisconnect.addListener(() => { clearTimeout(timer); settle({ tiers: [], gemini: [] }); });
+    port.onDisconnect.addListener(() => { clearTimeout(timer); settle({ tiers: [], gemini: [], gpt: [] }); });
     port.postMessage({ op: 'models' });
   });
 }
@@ -110,7 +118,7 @@ export interface LlmQueryOpts {
   intent?:  string;
   question?: string;
   timeout?: number;
-  model?:   string;   // -m override (a model or alias), or gemini:<name>; omitted → lm default model
+  model?:   string;   // -m override (a model or alias), gemini:<name> or gpt:<name>; omitted → lm default model
   /// Files read alongside the page: text goes into the context, images are read by the local vision model.
   files?:   string[];
 }
@@ -239,4 +247,5 @@ export const LLM_ERROR_TEXT: Record<string, string> = {
   unavailable:   'Local AI is not set up. Settings, AI shows how.',
   disconnected:  'The AI host disconnected unexpectedly.',
   gemini_unavailable: 'Gemini did not answer. Check lm gemini in a terminal, or pick a local model.',
+  gpt_unavailable: 'GPT did not answer. Check codex login in a terminal, or pick another model.',
 };
