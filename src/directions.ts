@@ -11,6 +11,18 @@ import type { DocView } from './docview';
 import { markDocView } from './docview';
 import { pillHtml, meterHtml, chipBarHtml, wireChipBar, type Tally } from './docview-status';
 import { wireMedia } from './docview-media';
+import { readDirections } from './directions-model';
+import { nextHead, nextHeadHtml } from './directions-head';
+import { applyView, mountViews, markOutline, type DirView } from './directions-views';
+import { markDone } from './directions-done';
+
+/** Light a row up for a moment, so the eye finds it after a jump. */
+function flashRow(row: HTMLTableRowElement): void {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  row.dataset.flash = '';
+  for (const td of row.cells) td.animate([{ backgroundColor: 'color-mix(in srgb, var(--ac) 24%, transparent)' }, { backgroundColor: 'transparent' }], { duration: 1400, easing: 'ease-out' });
+  window.setTimeout(() => delete row.dataset.flash, 1400);
+}
 
 export type DirState = 'needs' | 'waiting' | 'ready' | 'parked' | 'done';
 export const DIR_STATES: { id: DirState; mark: string; label: string }[] = [
@@ -59,6 +71,8 @@ const meter = (t: Record<DirState, number>) => {
 /** Add the bar, the meters, the pills and the row marks to a rendered directions doc. Safe to call again. */
 export function enhanceDirections(root: HTMLElement): void {
   if (root.dataset.directions) return;
+  // Read before anything below rewrites the cells.
+  const model = readDirections(root);
   const allRows = [...root.querySelectorAll<HTMLTableRowElement>('tbody tr')];
   const keyRows = allRows.filter(r => isKeyRow(r.textContent ?? ''));
   const rows = allRows.filter(r => !keyRows.includes(r));
@@ -68,7 +82,9 @@ export function enhanceDirections(root: HTMLElement): void {
     while (n && !/^H[1-6]$/.test(n.tagName)) n = n.previousElementSibling;
     return n?.textContent ?? '';
   };
-  const states = rows.map(r => rowState(r.textContent ?? '') ?? (asksOwner(headingOf(r)) ? 'needs' : null));
+  // A state written as a word in a state column (read by the model) counts too.
+  const worded = new Map(model.rows.map(r => [r.el, r.state]));
+  const states = rows.map(r => rowState(r.textContent ?? '') ?? (asksOwner(headingOf(r)) ? 'needs' : null) ?? worded.get(r) ?? null);
   if (!states.some(Boolean)) return;
   root.dataset.directions = 'on';
   rows.forEach((r, i) => { if (states[i]) r.dataset.state = states[i]!; });
@@ -124,19 +140,43 @@ export function enhanceDirections(root: HTMLElement): void {
   const all = tally(states);
   const bar = document.createElement('div');
   bar.className = 'fe-dir-sum';
-  bar.innerHTML = chipBarHtml(tallies(all), `<span class="fe-dir-total">${meter(all)}</span>`);
+  // Rows the doc gives no state are shown as a count, not silently left out.
+  const unmarked = model.rows.filter(r => !r.summary && !r.state && !r.el.dataset.state).length;
+  bar.innerHTML = chipBarHtml(tallies(all), `<span class="fe-dir-total">${meter(all)}</span>${unmarked ? `<span class="fe-dir-unmarked" title="Rows with no state mark or state word">${unmarked} unmarked</span>` : ''}`);
   const h1 = root.querySelector('h1');
   if (h1) h1.after(bar); else root.prepend(bar);
 
-  // A chip narrows every table to its rows; tables left with none fold away. Pressing it again shows all.
-  wireChipBar(bar, want => {
-    root.dataset.dirFilter = want;
-    rows.forEach(r => { r.hidden = !!want && r.dataset.state !== want; });
-    root.querySelectorAll('table').forEach(t => {
-      const visible = [...t.querySelectorAll<HTMLTableRowElement>('tbody tr')].some(r => !r.hidden);
-      (t.closest<HTMLElement>('.fe-md-tablewrap') ?? t).hidden = !!want && !visible;
-    });
+  // What to do next, above the bar; each item jumps to its row and flashes it.
+  const head = document.createElement('section');
+  head.className = 'fe-dir-next';
+  head.setAttribute('aria-label', 'What to do next');
+  head.innerHTML = nextHeadHtml(model, nextHead(model));
+  bar.before(head);
+  head.addEventListener('click', e => {
+    const t = e.target as Element;
+    const more = t.closest<HTMLElement>('[data-more]');
+    if (more) { bar.querySelector<HTMLElement>(`.fe-dv-chip[data-state="${more.dataset.more}"]`)?.click(); return; }
+    const row = model.rows[Number(t.closest<HTMLElement>('[data-row]')?.dataset.row)]?.el;
+    if (!row) return;
+    // A row the view or a chip hides comes back with the whole doc.
+    if (row.hidden) {
+      bar.querySelector<HTMLElement>('.fe-dv-chip[aria-pressed="true"]')?.click();
+      const seg = root.querySelector<HTMLElement & { value: string }>('#fe-dir-view');
+      if (seg && row.hidden) { seg.value = 'all'; seg.dispatchEvent(new Event('change')); }
+    }
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    flashRow(row);
   });
+
+  // A chip narrows every table to its rows, inside the view in force; tables
+  // left with none fold away. Pressing it again shows all.
+  markDone(model);
+  let view: DirView = 'all', chip = '';
+  const apply = () => applyView(root, model, view, chip);
+  wireChipBar(bar, want => { chip = want; root.dataset.dirFilter = want; apply(); });
+  view = mountViews(root, bar, v => { view = v; apply(); });
+  apply();
+  markOutline(model);
 }
 
 /** The directions view: decorates a rendered directions doc in place, and opens its pictures large. */

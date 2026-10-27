@@ -39,6 +39,38 @@ export function foldTo(box: HTMLElement, flip: () => void, done?: () => void): v
   anim.onfinish = () => { if (folding.get(box)?.anim === anim) end(); };
 }
 
+/// A block that just changed size eases from its old height to its new one,
+/// as a comment thread does when it opens to show its reply box.
+export function growFrom(box: HTMLElement, from: number): void {
+  const to = box.offsetHeight;
+  if (reduced() || !from || Math.abs(to - from) < 2) return;
+  box.style.overflow = 'hidden';
+  box.animate([{ height: from + 'px' }, { height: to + 'px' }], { duration: 200, easing: EASE })
+    .onfinish = () => { box.style.overflow = ''; };
+}
+
+/// Shrink a block to nothing and fade it, for something leaving its list.
+/// Resolves when it is gone from view; the caller removes or repaints it.
+export function collapseOut(box: HTMLElement): Promise<void> {
+  if (reduced()) return Promise.resolve();
+  box.style.overflow = 'hidden';
+  const a = box.animate([{ height: box.offsetHeight + 'px', opacity: 1 }, { height: '0px', opacity: 0, marginBottom: '0px', paddingTop: '0px', paddingBottom: '0px' }],
+    { duration: 200, easing: EASE, fill: 'forwards' });
+  return a.finished.then(() => undefined, () => undefined);
+}
+
+/// Something new arrives: it rises into place.
+export function riseIn(el: HTMLElement): void {
+  if (reduced()) return;
+  el.animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: EASE });
+}
+
+/// Draw the eye to something the reader just jumped to.
+export function pulse(el: HTMLElement): void {
+  if (reduced()) return;
+  el.animate([{ boxShadow: '0 0 0 0 color-mix(in srgb, var(--ac) 45%, transparent)' }, { boxShadow: '0 0 0 8px transparent' }], { duration: 600, easing: 'ease-out' });
+}
+
 // Windows this wide fold the sidebar away to give the page room; narrower
 // ones keep the lens rail, which opens the sidebar over the page.
 export const FOLD_SIDE_QUERY = '(max-width: 960px) and (min-width: 521px)';

@@ -256,6 +256,7 @@ export function initSettingsUi(app: App): void {
     el<HTMLInputElement>('fe-st-sidebar').checked = settings.showSidebar !== false;
     el<HTMLInputElement>('fe-st-dock-fold').checked = settings.dockFoldsSidebar !== false;
     v('fe-st-peek-close').value = String(settings.peekCloseMs ?? 500);
+    v('fe-st-pan').value = settings.panKey ?? 'Shift';
     el<HTMLTextAreaElement>('fe-st-open-with').value = settings.openWithCmds ?? DEFAULT_COMMANDS;
     el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
     v('fe-st-terminal').value = settings.terminalApp || 'ghostty';
@@ -334,6 +335,7 @@ export function initSettingsUi(app: App): void {
   });
   el<HTMLTextAreaElement>('fe-st-open-with').addEventListener('change', function () { settings.openWithCmds = this.value; saveSettings(settings); });
   v('fe-st-peek-close').addEventListener('change', () => { settings.peekCloseMs = Number(v('fe-st-peek-close').value); saveSettings(settings); });
+  v('fe-st-pan').addEventListener('change', () => { settings.panKey = v('fe-st-pan').value as typeof settings.panKey; saveSettings(settings); });
   v('fe-st-terminal').addEventListener('change', () => {
     settings.terminalApp = v('fe-st-terminal').value; saveSettings(settings);
     el('fe-st-term-custom-row').hidden = settings.terminalApp !== 'custom';

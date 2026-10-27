@@ -63,8 +63,9 @@ try {
   const noted = await until(page, t => document.getElementById('fe-dp-answer-text').textContent === t, 'walk rulings:\nD1b D2a\ns1: agree — tighter please');
   check(noted && /2 flagged/.test(await page.$eval('#fe-dp-progress', e => e.textContent)), `B20 C3 a note on an agreed item flags it and joins with a spaced em dash: ${JSON.stringify(await panelText(page))}`);
   await press(page, 'c');
-  await until(page, () => /Copied/.test(document.getElementById('fe-toast')?.textContent || ''));
+  const checked = await until(page, () => { const b = document.getElementById('fe-dp-copy'); return b.hasAttribute('data-done') && !!b.querySelector('svg path[d="M20 6 9 17l-5-5"]') && /Copy \(2\)/.test(b.textContent); });
   check(await clip(page) === await panelText(page), `B9 c copies exactly what the panel shows: ${JSON.stringify(await clip(page))}`);
+  check(checked, `c turns Copy's icon into the check, keeping its count: ${await page.$eval('#fe-dp-copy', b => b.outerHTML.slice(0, 160))}`);
   await shot(page, 'dp-answer-panel');
 
   // C1 Submit sends the panel's string, says the page sent it, and the page turns answered.

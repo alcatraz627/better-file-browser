@@ -6,6 +6,7 @@ import type { Listing } from './listing';
 import { el } from './el';
 import { APPS, openWithItems, parseCommands, runOpenWith } from './open-with';
 import { esc, fullPath, copyToClipboard, pageHref } from './utils';
+import { copyWithCheck } from './copy-done';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab, hasText, canAsk, copyContents, askAbout } from './preview';
 import { bind, addPaletteSource, runCommand } from './commands';
 import { openLayer, raise, topmost, type Layer } from './layer';
@@ -20,7 +21,9 @@ export function initListingInput(app: App, listing: Listing): void {
   const { fe, toast, rawPath } = app;
   const { ls, sel } = listing;
   const scroll = el('fe-scroll');
-  const copyText = (val: string) => { copyToClipboard(val).then(() => toast(`Copied: ${val}`)); };
+  // A row's copy key shows the check on that row's copy button, as a click does.
+  const copyText = (val: string, btn?: HTMLElement | null) => { void copyWithCheck(btn, val).then(ok => toast(ok ? `Copied: ${val}` : 'Copy failed')); };
+  const rowBtn = (en: Entry, cls: string) => scroll.querySelector<HTMLElement>(`[data-idx="${ls.visible.indexOf(en)}"] .${cls}`);
   // A rename asks beside the row, then reloads the folder with the renamed file still selected.
   const renameRow = (en: Entry) => {
     const row = scroll.querySelector<HTMLElement>(`[data-idx="${ls.visible.indexOf(en)}"]`);
@@ -49,7 +52,7 @@ export function initListingInput(app: App, listing: Listing): void {
       return;
     }
     const btn = (e.target as HTMLElement).closest<HTMLElement>('.fe-act-btn');
-    if (btn) { e.preventDefault(); e.stopPropagation(); copyText(btn.dataset.copy || ''); return; }
+    if (btn) { e.preventDefault(); e.stopPropagation(); copyText(btn.dataset.copy || '', btn); return; }
     const en = entryAt(e);
     if (!en) return;
     const i = ls.visible.indexOf(en);
@@ -217,7 +220,7 @@ export function initListingInput(app: App, listing: Listing): void {
   bind('list-rename', () => { const en = lead(); if (en) renameRow(en); }, () => onListing() && !!lead() && !lead()!.isDir && !lead()!.isParent);
   bind('open-bg', () => { const en = lead(); if (en && !en.isParent) { app.strip.open(fullPath(rawPath, en), true); toast(`Kept ${en.name} as a tab`); } }, () => onListing() && !!lead());
   bind('open-chrome', () => { const en = lead(); if (en) go(en.href, 'chrome-tab'); }, () => onListing() && !!lead());
-  bind('copy-path', () => { const en = lead(); if (en) copyText(fullPath(rawPath, en)); }, () => onListing() && !!lead());
+  bind('copy-path', () => { const en = lead(); if (en) copyText(fullPath(rawPath, en), rowBtn(en, 'fe-act-cp')); }, () => onListing() && !!lead());
   // Keys the listing answers itself, bound here too so the palette can run them.
   bind('up', () => app.goUp());
   bind('move', key => sel.moveSel(key === '↑' ? -1 : 1), onListing);
@@ -229,7 +232,7 @@ export function initListingInput(app: App, listing: Listing): void {
   bind('pv-close', () => closePreview(), () => isPreviewOpen());
   bind('pv-open', () => { const en = previewEntry(); if (en) go(en.href); }, () => isPreviewOpen() && !!previewEntry());
   bind('pv-tab', () => keepPreviewedAsTab(), () => isPreviewOpen());
-  bind('copy-name', () => { const en = lead(); if (en) copyText(en.name); }, () => onListing() && !!lead());
+  bind('copy-name', () => { const en = lead(); if (en) copyText(en.name, rowBtn(en, 'fe-act-nm')); }, () => onListing() && !!lead());
   bind('menu', () => {
     const row = leadRow();
     if (!row) return;

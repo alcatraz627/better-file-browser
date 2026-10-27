@@ -35,6 +35,7 @@ export interface Settings {
   compactMode:  boolean;
   showSidebar:  boolean;
   openWithCmds?: string;        // the person's own "Open with" commands, one per line as `Name: command` (& = background)
+  panKey?: 'Shift' | 'Alt' | 'Meta' | 'off';   // held over a reading surface, a drag scrolls it (default Shift)
   peekCloseMs?: number;         // a peeked sidebar closes this long after the pointer leaves; 0 waits for Esc or a click away (default 500)
   dockFoldsSidebar?: boolean;   // a docked preview folds the sidebar away while it is open (default on)
   dateFormat:   'short' | 'full';

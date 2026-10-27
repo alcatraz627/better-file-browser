@@ -1,7 +1,7 @@
 // Rich preview renderers for the Quick Look overlay. Each function takes raw
 // file text and returns an HTML string; nothing here touches the DOM or
 // fetches anything, so every renderer is unit-testable in isolation.
-import { esc } from './utils';
+import { esc, isIsoStamp, whenText } from './utils';
 import { DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { COL_HANDLE } from './col-resize';
@@ -705,6 +705,7 @@ export function frontMatterRows(lines: string[]): { key: string; value: string; 
 const FM_PATH = /^(~\/|\.{1,2}\/|\/)?[\w@.-]+(\/[\w@.-]+)*\/?$/;
 const fmPath = (v: string) => FM_PATH.test(v) && !/^\d/.test(v) && (v.includes('/') || /\.[a-z][\w]{0,5}$/i.test(v));
 function fmValue(v: string, baseUrl: string): string {
+  if (isIsoStamp(v)) return `<time datetime="${esc(v.trim())}">${esc(whenText(v.trim()))}</time>`;
   return fmPath(v) ? `<span class="fe-fm-path" data-fm-path="${esc(v)}">${esc(v)}</span>` : mdInline(v, baseUrl);
 }
 

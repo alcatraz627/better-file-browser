@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, splitMiddle, midHtml, pageHref } from '../src/utils';
+import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, splitMiddle, midHtml, pageHref, whenText, isIsoStamp } from '../src/utils';
 import type { Entry } from '../src/types';
 
 const file = (name: string, rawBytes = 0, dateStr = ''): Entry =>
@@ -59,6 +59,31 @@ describe('fmtDate', () => {
   });
   it('returns the raw string verbatim when it is unparseable', () => {
     expect(fmtDate(NaN, undefined, 'whenever')).toBe('whenever');
+  });
+});
+
+describe('whenText', () => {
+  const now = new Date(2026, 9, 27, 18, 0);   // Tue 27 Oct 2026, 18:00 local
+  it('says today, yesterday and the weekday within the week', () => {
+    expect(whenText(new Date(2026, 9, 27, 16, 23).getTime(), now)).toBe('Today 16:23');
+    expect(whenText(new Date(2026, 9, 26, 9, 5).getTime(), now)).toBe('Yesterday 09:05');
+    expect(whenText(new Date(2026, 9, 22, 14, 2).getTime(), now)).toBe('Thu 14:02');
+  });
+  it('gives month and day this year, and the year before that', () => {
+    expect(whenText(new Date(2026, 9, 12, 14, 2).getTime(), now)).toBe('Oct 12 14:02');
+    expect(whenText(new Date(2025, 9, 12, 14, 2).getTime(), now)).toBe('Oct 12 2025');
+  });
+  it('reads ISO strings and never echoes one back', () => {
+    const iso = new Date(2026, 9, 27, 16, 23).toISOString();
+    expect(whenText(iso, now)).toBe('Today 16:23');
+    expect(whenText(iso, now)).not.toMatch(/T\d\d:/);
+    expect(whenText('not a date', now)).toBe('');
+  });
+  it('knows a full ISO stamp from a plain date or prose', () => {
+    expect(isIsoStamp('2026-10-27T16:23:00Z')).toBe(true);
+    expect(isIsoStamp('2026-10-27T16:23:00.123+05:30')).toBe(true);
+    expect(isIsoStamp('2026-10-27')).toBe(false);
+    expect(isIsoStamp('updated 2026-10-27T16:23')).toBe(false);
   });
 });
 

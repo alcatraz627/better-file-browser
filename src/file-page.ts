@@ -4,7 +4,7 @@
 // main.ts builds the shell and calls mountFileContent. HTML source is fetched
 // after takeover because the document contains rendered text, not source.
 import { makeToast } from './toast';
-import { esc, copyToClipboard } from './utils';
+import { esc, copyToClipboard, whenText } from './utils';
 import { holdScroll } from './scroll-hold';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
@@ -24,6 +24,8 @@ import type { Settings } from './types';
 import { markPlace } from './nav';
 import { watch } from './watch';
 import { KEEP_BTN } from './doc-keep';
+import { wireRailBox } from './rail-box';
+import { copyWithCheck } from './copy-done';
 
 const scrollPref = jsonPref<Record<string, number>>('bfb-page-scroll-v1', {}, v => !!v && typeof v === 'object');
 const tocPref = flagPref('bfb-page-toc-v1', true);
@@ -152,7 +154,7 @@ export function renderFileContent(): string {
         ${KEEP_BTN}
         <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code">${GLYPH.wrap}Wrap</button>
         <button id="fe-fp-raw" class="btn" title="Raw text (r)">${GLYPH.raw}Raw</button>
-        <button id="fe-fp-copy" class="btn" title="Copy file contents">${GLYPH.copyPage}Copy</button>
+        <button id="fe-fp-copy" class="btn" title="Copy the file">${GLYPH.copyPage}Copy</button>
         <span id="fe-ff" title="Find in this file (/) · Enter next · Shift+Enter previous · Esc clears">
           ${GLYPH.find}
           <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
@@ -264,6 +266,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     }
     cmBtnN.textContent = cmOpen ? String(cmOpen) : '';
     rail.classList.toggle('peek', tight && peek);
+    if (!rail.hidden) railBox.apply();
     findBox.hidden = !!editor;
   };
   const render = () => {
@@ -323,6 +326,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     const md = page.querySelector<HTMLElement>('.fe-md');
     if (!md) return false;
     const textRight = md.getBoundingClientRect().right - parseFloat(getComputedStyle(md).paddingRight);
+    // A card the reader placed or sized by hand stays where they left it.
+    if (railBox.placed(railTab)) return false;
     return fp.getBoundingClientRect().right - textRight < RAIL_ROOM[railTab];
   };
   // When the layout changes whether the card fits (a window resize, the sidebar
@@ -333,6 +338,8 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     tight = measureTight();
     if (tight !== was) { peek = tight && asked && !rail.hidden; paint(); }
   };
+  // The card moves and resizes by hand; once it has, it no longer folds to fit.
+  const railBox = wireRailBox(rail, () => refit());
   // Measured before the first paint, so a #comments link opening the card at
   // load is not undone when the observer first reports the width.
   if (fp) tight = fp.clientWidth < TOC_ROOMY;
@@ -494,7 +501,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     saveSettings(s); syncWrap();
   });
   document.getElementById('fe-fp-copy')!.addEventListener('click', () => {
-    copyToClipboard(text).then(ok => { document.getElementById('fe-status-text')!.textContent = ok ? 'copied' : 'copy failed'; });
+    void copyWithCheck(document.getElementById('fe-fp-copy'), text).then(ok => { if (!ok) document.getElementById('fe-status-text')!.textContent = 'copy failed'; });
   });
 
   // Autoreload: while the tab is visible, poll the file and re-render on change.
@@ -515,7 +522,7 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
       text = fresh;
       paintMeta();
       render();
-      live(true, 'reloaded ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      live(true, 'reloaded ' + whenText(Date.now()).replace('Today ', ''));
     }).catch(() => live(false, 'not watching')), { pause: () => !!editor });
 
   return {

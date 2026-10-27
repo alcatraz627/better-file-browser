@@ -11,6 +11,7 @@ import { notes } from './notes';
 import { initPreview, closePreview } from './preview';
 import { setSidebarShown, FOLD_SIDE_QUERY } from './motion';
 import { initSidePeek } from './side-peek';
+import { initDragPan } from './drag-pan';
 import { mountKeep, askRename } from './doc-keep';
 import { mountFolderView } from './docviews';
 import { CSS } from './styles';
@@ -307,6 +308,7 @@ loadKv().catch(() => {}).then(function () {
   watchConnection();
   initSidebar(app);
   initSidePeek();
+  initDragPan();
   if (fileMode) mountKeep(app);
   initFocusNav(app);
   // Before any visit under home, ask the native host where home is, so Places

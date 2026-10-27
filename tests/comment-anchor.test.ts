@@ -149,6 +149,12 @@ describe('claude mentions', () => {
   it('offers the generic agent and each live one', () =>
     expect(completions('ask @cl', 7, ['user', 'claude', 'claude:bfb', 'claude:enh-scrape'], [])?.items).toEqual(['claude', 'claude:bfb', 'claude:enh-scrape']));
   it('narrows after the colon', () => expect(completions('@claude:b', 9, ['claude', 'claude:bfb', 'claude:x'], [])?.items).toEqual(['claude:bfb']));
+  it('matches anywhere in the name, not only its start', () =>
+    expect(completions('@dream', 6, ['user', 'claude:i-dream-1d06', 'claude:bfb'], [])?.items).toEqual(['claude:i-dream-1d06']));
+  it('lists live agents first, then idle, keeping order within each', () => {
+    const rank = (x: string) => x === 'claude:idle-a' ? 1 : x.startsWith('claude:') ? 0 : 2;
+    expect(completions('@cl', 3, ['claude:idle-a', 'claude:live-b', 'claude'], [], rank)?.items).toEqual(['claude:live-b', 'claude:idle-a', 'claude']);
+  });
 });
 
 describe('commentHtml', () => {

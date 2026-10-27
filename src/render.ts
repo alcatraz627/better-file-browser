@@ -68,7 +68,7 @@ export function itemActions(e: Entry, rawPath: string): string {
       </button>`
     : '';
   return `<span class="fe-acts" data-path="${dPath}" data-name="${dName}">
-    ${pvBtn}<button class="btn fe-act-btn fe-act-cp" data-icon data-size="sm" data-variant="surface" title="Copy full path" data-copy="${dPath}">
+    ${pvBtn}<button class="btn fe-act-btn fe-act-cp" data-icon data-size="sm" data-variant="surface" title="Copy path" data-copy="${dPath}">
       ${GLYPH.copySmall}
     </button>
     <button class="btn fe-act-btn fe-act-nm" data-icon data-size="sm" data-variant="surface" title="Copy name" data-copy="${dName}">

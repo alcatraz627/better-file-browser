@@ -2,6 +2,7 @@
 import { UI_ICON } from './control-icons';
 import { esc } from './utils';
 import { errorText } from './errors';
+import { flashCopied } from './copy-done';
 
 export interface View { fit: boolean; zoom: number; rot: number; flip: boolean }
 export const START_VIEW: View = { fit: true, zoom: 1, rot: 0, flip: false };
@@ -94,7 +95,7 @@ export function mountImageTools(wrap: HTMLElement, o: {
       const png = await new Promise<Blob | null>(res => cv.toBlob(res, 'image/png'));
       if (!png) throw new Error('could not encode the image');
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
-      o.notify('Image copied');
+      flashCopied(wrap.querySelector<HTMLElement>('[data-img="copy"]'));
     } catch (e) { o.notify(errorText(e, 'Copying the image')); }
   };
 

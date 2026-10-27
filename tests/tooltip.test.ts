@@ -11,6 +11,11 @@ describe('tooltip text', () => {
     expect(tipParts('/a/b\n1 jumps · click switches')).toEqual({ title: '/a/b', sub: '1 jumps · click switches', keys: [] });
     expect(tipParts('Close (w) · drag to reorder', ['w'])).toEqual({ title: 'Close', sub: 'drag to reorder', keys: ['w'] });
   });
+  it('takes a key written at the end as the key when none is given', () => {
+    expect(tipParts('Reply (⌘↵)')).toEqual({ title: 'Reply', sub: '', keys: ['⌘↵'] });
+    expect(tipParts('Cancel (Esc)')).toEqual({ title: 'Cancel', sub: '', keys: ['Esc'] });
+    expect(tipParts('Words in brackets (like these)')).toEqual({ title: 'Words in brackets (like these)', sub: '', keys: [] });
+  });
   it('keeps a plain sentence whole', () => {
     expect(tipParts('Copy full file contents to clipboard').title).toBe('Copy full file contents to clipboard');
     expect(tipParts('Reads text files in this folder, or every subfolder').sub).toBe('');

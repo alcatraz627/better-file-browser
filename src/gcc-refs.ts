@@ -6,7 +6,7 @@ import { fetchFileText, fileExists } from './file-fetch';
 import { parseListing } from './parse';
 import { frontMatterRows } from './renderers';
 import { hoverCard } from './layer';
-import { esc } from './utils';
+import { esc, isIsoStamp, whenText } from './utils';
 
 export type RefKind = 'skill' | 'rule' | 'feature' | 'convention' | 'persona' | 'script';
 export interface GccRef { kind: RefKind; rel: string }
@@ -160,7 +160,7 @@ function card(ref: GccRef, url: string): HTMLElement {
       + (f.about ? `<p class="fe-ref-about">${esc(f.about)}</p>` : '')
       + (f.hint ? `<p class="fe-ref-hint">${esc(f.hint)}</p>` : '')
       + (f.triggers.length ? `<div class="fe-ref-chips">${f.triggers.slice(0, 8).map(t => `<span class="chip" data-size="sm">${esc(t)}</span>`).join('')}</div>` : '')
-      + `<div class="fe-ref-foot">${esc(ref.rel)}${f.updated ? ` · updated ${esc(f.updated)}` : ''}</div>`;
+      + `<div class="fe-ref-foot">${esc(ref.rel)}${f.updated ? ` · updated ${esc(isIsoStamp(f.updated) ? whenText(f.updated) : f.updated)}` : ''}</div>`;
   });
   return el;
 }

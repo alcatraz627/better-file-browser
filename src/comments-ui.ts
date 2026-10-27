@@ -5,7 +5,9 @@
 // all anchoring; this file only maps spans between source and page.
 // Spec: .claude/specs/bfb-docs.md.
 import { notes, type DocThread, type CommentAuthor, type CommentOp, type CommentsReply } from './notes';
-import { esc, copyToClipboard } from './utils';
+import { esc, whenText } from './utils';
+import { copyWithCheck } from './copy-done';
+import { growFrom, collapseOut, riseIn, pulse } from './motion';
 import { mdInline } from './renderers';
 import { UI_ICON } from './control-icons';
 import { textPref } from './storage';
@@ -75,12 +77,15 @@ export function commentHtml(text: string): string {
 
 /** What to offer while typing a mention or tag: where the word being typed
  *  before the caret starts, its sigil, and the names that complete it. */
-export function completions(value: string, caret: number, people: string[], tags: string[]): { from: number; sigil: string; items: string[] } | null {
+export function completions(value: string, caret: number, people: string[], tags: string[], rank: (x: string) => number = () => 0): { from: number; sigil: string; items: string[] } | null {
   const m = /(^|\s)([@#])([\w:.-]*)$/.exec(value.slice(0, caret));
   if (!m) return null;
   const q = m[3].toLowerCase();
   const pool = m[2] === '@' ? [...people, ...DATE_WORDS] : tags;
-  const items = [...new Set(pool)].filter(x => x.toLowerCase().startsWith(q) && x.toLowerCase() !== q).slice(0, 8);
+  // A name matches anywhere; higher-ranked names (live agents) come first, then names that start with what was typed.
+  const items = [...new Set(pool)].filter(x => x.toLowerCase().includes(q) && x.toLowerCase() !== q)
+    .map((x, i) => ({ x, i, r: rank(x), p: x.toLowerCase().startsWith(q) ? 0 : 1 }))
+    .sort((a, b) => a.r - b.r || a.p - b.p || a.i - b.i).map(e => e.x).slice(0, 8);
   return items.length ? { from: caret - m[3].length - 1, sigil: m[2], items } : null;
 }
 
@@ -123,7 +128,7 @@ export interface CommentsPanel {
   held(): boolean;
 }
 
-export type CommentAction = 'comment' | 'reply' | 'panel' | 'next' | 'prev' | 'clear';
+export type CommentAction = 'comment' | 'reply' | 'panel' | 'next' | 'prev' | 'clear' | 'link' | 'brief';
 
 interface Draft extends SourceSpan { quote: string; attach?: string }
 
@@ -167,7 +172,7 @@ export function mountComments(o: {
     else if (location.hash.startsWith('#c=')) { linked = decodeURIComponent(location.hash.slice(3)); void load(); }
   });
   // Agents claude-ipc sees, asked for once the first time someone types @.
-  let peers: { alias: string; cwd: string; status: string }[] | null = null;
+  let peers: { alias: string; cwd: string; status: string; seen?: number }[] | null = null;
   const loadPeers = () => { if (peers === null) { peers = []; notes.people().then(p => { peers = p; }).catch(() => {}); } };
 
   const readCompanion = () => fetchFileText(o.href + '.bfb.json').catch(() => '');
@@ -242,7 +247,7 @@ export function mountComments(o: {
 
   // Who can be mentioned: the owner, any agent (`claude`), each live agent by
   // `claude:<alias>`, and whoever already took part here.
-  const people = () => ['user', 'claude', ...(peers ?? []).map(p => 'claude:' + p.alias),
+  const people = () => ['user', 'claude', ...[...(peers ?? [])].sort((a, b) => (b.seen ?? 0) - (a.seen ?? 0)).map(p => 'claude:' + p.alias),
     ...threads.flatMap(t => [...(t.mentions ?? []), ...t.comments.map(c => c.author.kind === 'agent' ? c.author.alias ?? '' : '')])].filter(Boolean);
   const hintFor = (x: string) => {
     if (x === 'user') return 'you';
@@ -252,6 +257,12 @@ export function mountComments(o: {
     return p ? `${p.cwd.split('/').pop() || p.cwd} · ${p.status}` : '';
   };
   const allTags = () => threads.flatMap(t => t.tags ?? []);
+  // Live agents and the two standing names list first, idle agents next, past participants last.
+  const rankOf = (x: string) => {
+    if (x === 'user' || x === 'claude') return 0;
+    const p = x.startsWith('claude:') ? peers?.find(q => q.alias === x.slice(7)) : undefined;
+    return p ? (p.status === 'live' ? 0 : 1) : 2;
+  };
 
   const visible = () => threads.filter(t =>
     filter === 'all' ? true : filter === 'done' ? t.status === 'done' : filter === 'me' ? forOwner(t) : t.status !== 'done');
@@ -289,7 +300,6 @@ export function mountComments(o: {
     const chips = [
       ...(t.tags ?? []).map(g => `<span class="chip fe-cm-chip" data-fill data-tone="quiet">#${esc(g)}${x('untag', g, `Remove tag ${g}`)}</span>`),
       t.due ? `<span class="chip fe-cm-chip" data-fill data-tone="due">${UI_ICON.clock}${esc(dueLabel(t.due))}${x('undue', '', 'Clear the due date')}</span>` : '',
-      t.status === 'done' ? `<span class="chip fe-cm-chip" data-fill data-tone="done">Done</span>` : '',
     ].join('');
     const cs = t.comments.map(c => {
       const mine = on && c.author.kind === 'human' && !c.deleted;
@@ -299,8 +309,8 @@ export function mountComments(o: {
             <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="edit-save" data-v="${esc(c.id)}" title="Save (⌘↵)">Save</button></div>`
         : `<div class="fe-cm-tx">${c.deleted ? '<i>Deleted</i>' : commentHtml(c.text || '')}</div>`;
       return `
-      <div class="fe-cm-c${c.deleted ? ' gone' : ''}">
-        <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === 'agent' ? UI_ICON.ai : ''}${esc(who(c.author))}</b><time title="${esc(c.created)}">${esc(ago(c.created))}${c.edited ? ' · edited' : ''}</time>
+      <div class="fe-cm-c${c.deleted ? ' gone' : ''}" data-c="${esc(c.id)}">
+        <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === 'agent' ? UI_ICON.ai : ''}${esc(who(c.author))}</b><time title="${esc(whenText(c.created))}">${esc(ago(c.created))}${c.edited ? ' · edited' : ''}</time>
           ${mine && editing !== c.id ? `<span class="fe-cm-own">${iconBtn('edit', UI_ICON.rename, 'Edit this comment', c.id)}${iconBtn('del', UI_ICON.trash, 'Delete this comment', c.id)}</span>` : ''}</div>
         ${body}
         ${c.suggestion ? sugHtml(t, c, on) : ''}
@@ -313,20 +323,22 @@ export function mountComments(o: {
       : t.place.state === 'ambiguous' ? notice('These words appear more than once')
       : t.place.state === 'detached' ? notice('No longer in the file', 'The quoted words were removed. Select new words and press Attach to selection to move the thread.') : '';
     const done = t.status === 'done';
+    // Open or done, as an icon in its colour: in the corner of a folded card, left of the toggle in an open one.
+    const status = `<span class="fe-cm-status" data-state="${done ? 'done' : 'open'}" role="img" aria-label="${done ? 'Done' : 'Open'}" title="${done ? 'Done' : 'Open'}">${done ? UI_ICON.circleCheck : UI_ICON.circleDashed}</span>`;
     const tools = on ? `
       ${box(t.id, 'Reply', done ? 'Reply to reopen…' : 'Reply… @ to mention, # to tag')}
       <div data-inset class="bar fe-cm-tools">
-        <button type="button" class="btn" data-size="sm" data-a="${done ? 'reopen' : 'done'}" title="${done ? 'Reopen this thread' : 'Mark done'} (⌘⇧↵)">${done ? UI_ICON.reset + 'Reopen' : UI_ICON.check + 'Done'}</button>
+        ${status}<button type="button" class="btn" data-size="sm" data-a="${done ? 'reopen' : 'done'}" title="${done ? 'Reopen this thread' : 'Mark done'} (⌘⇧↵)">${done ? UI_ICON.reset + 'Reopen' : UI_ICON.check + 'Mark done'}</button>
         ${dueOpen === t.id ? `<input type="date" class="tb fe-cm-date" data-size="sm" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? '')}">`
           : iconBtn('due', UI_ICON.clock, 'Set a due date')}
-        ${iconBtn('link', UI_ICON.link, 'Copy a link that opens this thread')}
-        ${iconBtn('brief', UI_ICON.bot, 'Copy this thread as a brief for an agent')}
+        ${iconBtn('link', UI_ICON.link, 'Copy a link to this thread')}
+        ${iconBtn('brief', UI_ICON.bot, 'Copy as a brief for an agent')}
         ${t.place.state !== 'anchored' && !applied ? `<button type="button" class="btn" data-size="sm" data-a="attach" title="Select words on the page first">Attach to selection</button>` : ''}
         <span class="fe-cm-grow"></span>
-        <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="reply" title="Reply (⌘↵)">Reply</button>
+        <button type="button" class="btn" data-icon data-size="sm" data-variant="solid" data-a="reply" title="Reply (⌘↵)" aria-label="Reply">${UI_ICON.send}</button>
       </div>` : '';
     return `<article class="fe-cm-th card${on ? ' on' : ''}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
-      <blockquote class="fe-cm-q">${esc(quote.length > 140 ? quote.slice(0, 139) + '…' : quote)}</blockquote>${where}${cs}
+      ${on ? '' : status}<blockquote class="fe-cm-q">${esc(quote.length > 140 ? quote.slice(0, 139) + '…' : quote)}</blockquote>${where}${cs}
       ${chips ? `<div class="fe-cm-chips">${chips}</div>` : ''}${tools}</article>`;
   };
 
@@ -373,7 +385,7 @@ export function mountComments(o: {
     o.box.innerHTML = `
       <div class="fe-cm-top">
         <div class="fe-cm-filters" role="tablist">${FILTERS.map(f => `<button type="button" role="tab" data-f="${f.id}" class="${f.id === filter ? 'on' : ''}" aria-selected="${f.id === filter}" title="${f.hint}">${f.icon}<span class="fe-cm-fl">${f.label}</span><span class="fe-cm-fn">${count(f.id) || ''}</span></button>`).join('')}</div>
-        ${list.length ? iconBtn('brief-all', UI_ICON.bot, 'Copy the threads shown as a brief for an agent, with links') : ''}
+        ${list.length ? iconBtn('brief-all', UI_ICON.bot, 'Copy the threads shown as a brief') : ''}
       </div>
       <div class="fe-cm-list">
         ${draftHtml()}
@@ -422,7 +434,13 @@ export function mountComments(o: {
     }
   };
 
+  // `scroll` false: the reader picked the words on the page, so the page stays
+  // put and the card in the panel glides into view and pulses once.
   const focusThread = (id: string, scroll = true) => {
+    const opening = id !== active;
+    hidePeek();
+    const cardOf = () => o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
+    const was = opening ? cardOf()?.offsetHeight ?? 0 : 0;
     active = id; dueOpen = ''; editing = '';
     paint(); redraw();
     const card = o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
@@ -430,9 +448,11 @@ export function mountComments(o: {
       filter = 'all'; paint(); redraw();
     }
     const th = o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
-    th?.scrollIntoView({ block: 'nearest' });
+    const behavior: ScrollBehavior = opening ? 'smooth' : 'auto';
+    if (th && opening) { growFrom(th, was); if (!scroll) pulse(th); }
+    th?.scrollIntoView({ block: 'nearest', behavior });
     // A long thread can run past the card: keep its reply box in sight.
-    th?.querySelector<HTMLElement>(`textarea[data-for="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' });
+    th?.querySelector<HTMLElement>(`textarea[data-for="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest', behavior });
     const r = ranges.get(id);
     if (scroll && r) {
       const box = r.getBoundingClientRect(), pg = o.page.getBoundingClientRect();
@@ -522,7 +542,14 @@ export function mountComments(o: {
     if (!ops.length) { ta?.focus(); return; }
     if (ta) ta.value = '';   // the repaint after the write keeps no stale draft
     typed.delete(id);
+    const seen = new Set(t.comments.map(c => c.id));
+    // A thread marked done folds away out of the open list.
+    const leaving = close && wasOpen && (filter === 'open' || filter === 'me') ? o.box.querySelector<HTMLElement>(`.fe-cm-th[data-id="${CSS.escape(id)}"]`) : null;
+    // It folds first: the write repaints the list, which would cut the fold short.
+    if (leaving) await collapseOut(leaving);
     if (!(await write(ops, 'Reply'))) { typed.set(id, text); paint(); return; }
+    const fresh = threads.find(x => x.id === id)?.comments.filter(c => !seen.has(c.id)) ?? [];
+    for (const c of fresh) { const el = o.box.querySelector<HTMLElement>(`.fe-cm-c[data-c="${CSS.escape(c.id)}"]`); if (el) riseIn(el); }
     // A thread marked done leaves the open list; it must not stay expanded in
     // the folded Done group, so the group closes and the focus moves on.
     if (close && wasOpen && (filter === 'open' || filter === 'me')) {
@@ -549,7 +576,9 @@ export function mountComments(o: {
     if (!text) { ta?.focus(); return; }
     if (await write([{ op: 'edit', thread: active, comment: cid, text }], 'Edit')) { typed.delete('edit:' + cid); editing = ''; paint(); }
   };
-  const copy = (text: string, said: string) => copyToClipboard(text).then(ok => o.status(ok ? said : 'copy failed'));
+  const copy = (text: string, said: string, btn?: HTMLElement | null) => copyWithCheck(btn, text).then(ok => o.status(ok ? said : 'copy failed'));
+  const threadLink = (id: string) => location.href.split('#')[0] + '#c=' + encodeURIComponent(id);
+  const copyBrief = (btn?: HTMLElement | null) => { const ts = visible(); return copy(agentBrief(o.path, o.href, ts), `${ts.length} thread${ts.length === 1 ? '' : 's'} copied as a brief for an agent`, btn); };
 
   // The floating Comment button sits just above the end of a selection.
   const addBtn = document.createElement('button');
@@ -585,7 +614,7 @@ export function mountComments(o: {
   const acClose = () => { const l = acList(); if (l) { l.hidden = true; l.innerHTML = ''; } acFor = null; };
   const acShow = (ta: HTMLTextAreaElement) => {
     const list = acList();
-    const c = completions(ta.value, ta.selectionStart, people(), allTags());
+    const c = completions(ta.value, ta.selectionStart, people(), allTags(), rankOf);
     if (!list || !c) { acClose(); return; }
     acFor = ta; acAt = Math.min(acAt, c.items.length - 1);
     list.hidden = false;
@@ -600,7 +629,7 @@ export function mountComments(o: {
     list.style.top = `${below ? t.bottom - b.top + 4 : t.top - b.top - list.offsetHeight - 4}px`;
   };
   const acPick = (ta: HTMLTextAreaElement, v: string) => {
-    const c = completions(ta.value, ta.selectionStart, people(), allTags());
+    const c = completions(ta.value, ta.selectionStart, people(), allTags(), rankOf);
     if (!c) return;
     ta.setRangeText(c.sigil + v + ' ', c.from, ta.selectionStart, 'end');
     acClose();
@@ -684,7 +713,7 @@ export function mountComments(o: {
     if (a === 'show-all') { filter = 'all'; paint(); redraw(); return; }
     if (a === 'cancel') { cancelDraft(); return; }
     if (a === 'post') { e.preventDefault(); void post(); return; }
-    if (a === 'brief-all') { const ts = visible(); void copy(agentBrief(o.path, o.href, ts), `${ts.length} thread${ts.length === 1 ? '' : 's'} copied as a brief for an agent`); return; }
+    if (a === 'brief-all') { void copyBrief(act); return; }
     if (a && active) {
       const v = act!.dataset.v ?? '';
       const t = threads.find(x => x.id === active);
@@ -705,8 +734,8 @@ export function mountComments(o: {
       }
       if (a === 'reject') { void write([{ op: 'decide', thread: active, comment: v, state: 'rejected' }], 'Reject'); return; }
       if (a === 'accept' && t) { void accept(t, v); return; }
-      if (a === 'link') { void copy(location.href.split('#')[0] + '#c=' + encodeURIComponent(active), 'Link to this thread copied'); return; }
-      if (a === 'brief' && t) { void copy(agentBrief(o.path, o.href, [t]), 'Thread copied as a brief for an agent'); return; }
+      if (a === 'link') { void copy(threadLink(active), 'Link to this thread copied', act); return; }
+      if (a === 'brief' && t) { void copy(agentBrief(o.path, o.href, [t]), 'Thread copied as a brief for an agent', act); return; }
       if (a === 'attach') {
         const span = held ?? selected()?.span;
         if (!span) { o.status('Select the words on the page first, then press Attach to selection'); return; }
@@ -729,8 +758,46 @@ export function mountComments(o: {
     }
     return '';
   };
+  // Resting on commented words for a few seconds shows the comment above them;
+  // a click on it opens the thread, as a click on the words does.
+  const PEEK_MS = 3000;
+  const peekEl = document.createElement('div');
+  peekEl.className = 'fe-cm-peek';
+  peekEl.setAttribute('role', 'tooltip');
+  peekEl.hidden = true;
+  (o.page.closest('#fe') ?? document.body).appendChild(peekEl);
+  let peekTimer = 0, peekGrace = 0;
+  const hidePeek = () => { clearTimeout(peekTimer); clearTimeout(peekGrace); peekTimer = 0; peekEl.hidden = true; delete peekEl.dataset.id; };
+  const showPeek = (id: string) => {
+    const t = threads.find(x => x.id === id), r = ranges.get(id);
+    if (!t || !r || id === active) return;
+    const first = t.comments.find(c => !c.deleted);
+    if (!first) return;
+    const more = t.comments.filter(c => !c.deleted).length - 1;
+    peekEl.innerHTML = `<div class="fe-cm-who"><b class="${first.author.kind}">${first.author.kind === 'agent' ? UI_ICON.ai : ''}${esc(who(first.author))}</b><time>${esc(ago(first.created))}</time></div>`
+      + `<div class="fe-cm-peek-tx">${esc((first.text || '').slice(0, 220))}${(first.text || '').length > 220 ? '…' : ''}</div>`
+      + (more > 0 ? `<div class="fe-cm-peek-more">${more} more repl${more === 1 ? 'y' : 'ies'}</div>` : '');
+    peekEl.dataset.id = id;
+    peekEl.hidden = false;
+    const at = r.getClientRects()[0] ?? r.getBoundingClientRect();
+    const w = peekEl.offsetWidth, hgt = peekEl.offsetHeight;
+    const left = Math.min(Math.max(8, at.left), innerWidth - w - 8);
+    const top = at.top - hgt - 8 >= 8 ? at.top - hgt - 8 : at.bottom + 8;
+    peekEl.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+  };
+  // The pointer may cross plain text on its way up to the preview; it stays while the pointer is on it.
+  const leaveSoon = () => { clearTimeout(peekGrace); peekGrace = window.setTimeout(() => { if (!peekEl.matches(':hover')) hidePeek(); }, 250); };
+  peekEl.addEventListener('click', () => { const id = peekEl.dataset.id; hidePeek(); if (id) { o.reveal(); focusThread(id, false); o.changed(); } });
+  peekEl.addEventListener('mouseenter', () => clearTimeout(peekGrace));
+  peekEl.addEventListener('mouseleave', leaveSoon);
+  o.page.addEventListener('scroll', hidePeek, { passive: true });
+
   let hovered = '', hoverFrame = 0;
+  // Where the pointer last was over the page; a repaint can forget what was
+  // hovered, so the preview asks again when its time comes.
+  let pt: { x: number; y: number } | null = null;
   o.page.addEventListener('mousemove', e => {
+    pt = { x: e.clientX, y: e.clientY };
     if (hoverFrame || !ranges.size) return;
     hoverFrame = requestAnimationFrame(() => {
       hoverFrame = 0;
@@ -738,11 +805,17 @@ export function mountComments(o: {
       if (id === hovered || !reg || !H) return;
       hovered = id;
       const r = id && id !== active ? ranges.get(id) : undefined;
-      if (r) reg.set('bfb-cm-hover', new H(r)); else reg.delete('bfb-cm-hover');
-      o.page.classList.toggle('fe-cm-pointing', !!id);
+      if (r) reg.set('bfb-cm-hover', new H(r));
+      o.page.classList.toggle('fe-cm-pointing', !!r);
+      clearTimeout(peekTimer);
+      if (r) { clearTimeout(peekGrace); if (peekEl.dataset.id !== id) { peekEl.hidden = true; peekTimer = window.setTimeout(() => { if (pt && threadAt(pt.x, pt.y) === id) showPeek(id); }, PEEK_MS); } }
+      else if (!peekEl.hidden) leaveSoon();
     });
   });
-  o.page.addEventListener('mouseleave', () => { hovered = ''; reg?.delete('bfb-cm-hover'); o.page.classList.remove('fe-cm-pointing'); });
+  o.page.addEventListener('mouseleave', () => {
+    hovered = ''; pt = null; o.page.classList.remove('fe-cm-pointing'); clearTimeout(peekTimer);
+    if (!peekEl.hidden) leaveSoon();
+  });
 
   // A click on highlighted words, or on a block's count, opens that thread.
   o.page.addEventListener('click', e => {
@@ -794,6 +867,16 @@ export function mountComments(o: {
       return true;
     }
     if (a === 'next' || a === 'prev') { step(a === 'next' ? 1 : -1); return placed().length > 0; }
+    if (a === 'brief') {
+      if (!visible().length) return false;
+      void copyBrief(o.box.querySelector<HTMLElement>('[data-a="brief-all"]'));
+      return true;
+    }
+    if (a === 'link') {
+      if (!active) { o.status('Open a comment first, then copy its link'); return true; }
+      void copy(threadLink(active), 'Link to this thread copied', o.box.querySelector<HTMLElement>(`[data-a="link"]`));
+      return true;
+    }
     if (a === 'comment') {
       const s = selected();
       if (s) { void startDraft(s.span); return true; }

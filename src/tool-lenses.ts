@@ -5,7 +5,8 @@
 import type { App } from './app';
 import type { Entry } from './types';
 import { el } from './el';
-import { copyToClipboard, esc, fileHref, pageHref } from './utils';
+import { esc, fileHref, pageHref, whenText } from './utils';
+import { copyWithCheck } from './copy-done';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
 import { crawl, relativeName } from './deep-search';
@@ -130,7 +131,7 @@ const askModelPref = textPref('bfb-ask-model-v1');
 // starts empty instead of reopening the chat that was put away. Lasts the tab.
 const freshPref = jsonPref<string[]>('bfb-ask-fresh-v1', [], Array.isArray, 'tab');
 const markFresh = (key: string, on: boolean) => { const l = freshPref.get().filter(k => k !== key); freshPref.set(on ? [...l, key].slice(-50) : l); };
-const when = (at: number) => new Date(at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const when = (at: number) => whenText(at);
 
 function initAsk(app: App): void {
   const box = document.getElementById('fe-ask');
@@ -462,7 +463,7 @@ function initAsk(app: App): void {
   });
   thread.addEventListener('mouseleave', () => { hoverBlock = hoverTurn = null; blkBar.hidden = true; });
   const fromName = () => (app.fileMode ? app.fileName : subject);
-  const copyText = (text: string) => { void copyToClipboard(text).then(ok => app.toast(ok ? 'Copied' : 'Copy failed')); };
+  const copyText = (text: string, btn: HTMLElement) => { void copyWithCheck(btn, text).then(ok => { if (!ok) app.toast('Copy failed'); }); };
   // The quote menu: this chat first, then the chats of open tabs, then recent ones.
   let quoteLayer: Layer | null = null;
   const quote = (text: string, anchor: HTMLElement | null) => {
@@ -495,7 +496,7 @@ function initAsk(app: App): void {
     if (btn.dataset.act === 'retry') { const a = turn && asks.get(turn); if (a) void ask(a.intent, a.question, a); return; }
     if (btn.dataset.act === 'other' && turn) { askOther(turn, btn); return; }
     const text = selected() || (inBar ? (hoverBlock ? blockText(hoverBlock) : '') : turn ? answers.get(turn) ?? '' : '');
-    if (btn.dataset.act === 'copy') copyText(text);
+    if (btn.dataset.act === 'copy') copyText(text, btn);
     else quote(text, btn);
   });
   // The models the picker offers, for @name and for a second opinion.

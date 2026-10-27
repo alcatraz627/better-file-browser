@@ -12,6 +12,11 @@ const DELAY = 350;
 /// "Settings (press ,)", moves out of the text into the keys row.
 export function tipParts(text: string, keys: string[] = []): { title: string; sub: string; keys: string[] } {
   let t = text;
+  // With no keys given, a key written at the end, as in "Reply (⌘↵)", is the control's key.
+  if (!keys.length) {
+    const m = t.match(/\s*\(((?:[⌘⇧⌥⌃]+)?(?:↵|↩|Esc|Space|Tab|[A-Za-z0-9,./[\]`]))\)\s*$/);
+    if (m) { keys = [m[1]]; t = t.slice(0, m.index); }
+  }
   for (const k of keys) {
     const q = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     t = t.replace(new RegExp(`\\s*\\((?:press\\s+)?${q}\\)`, 'g'), '');

@@ -5,7 +5,7 @@
 // refreshes every 10 seconds while the lens is open, so a new ask shows up
 // without a reload. Read only: gcc writes the registry.
 import { notes } from './notes';
-import { esc } from './utils';
+import { esc, whenText } from './utils';
 import { UI_ICON } from './control-icons';
 import { addPaletteSource } from './commands';
 import { emptyHtml, CLEAR } from './empty-state';
@@ -74,7 +74,7 @@ export function initDpLens(box: HTMLElement, go: (path: string) => void): void {
     return `<button type="button" class="row fe-dpl-row${unseen ? ' unseen' : ''}" data-path="${esc(r.path)}" data-slug="${esc(r.slug)}"${r.reach ? ` data-reach="${r.reach}"` : ''} title="${esc(r.title ?? r.slug)}${unseen ? ' · you have not opened this one yet' : ''}${reach ? ` · ${esc(reach.tip)}` : ''}">
         <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ''}</span>
         <span class="fe-dpl-tx"><span class="fe-dpl-title">${esc(r.title ?? r.slug)}</span>${sub ? `<span class="fe-dpl-origin">${sub}</span>` : ''}</span>
-        <span class="fe-dpl-age" title="${esc(new Date(when * 1000).toLocaleString())}">${esc(ago(when))}</span>
+        <span class="fe-dpl-age" title="${esc(whenText(when * 1000))}">${esc(ago(when))}</span>
         ${r.items ? `<span class="badge fe-dpl-n" data-tone="${r.state === 'waiting' ? 'solid' : 'quiet'}" title="${r.items} item${r.items === 1 ? '' : 's'}">${r.items}</span>` : ''}
       </button>`;
   };

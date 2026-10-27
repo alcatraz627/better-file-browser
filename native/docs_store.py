@@ -128,7 +128,7 @@ def ipc_peers():
         peers = json.loads(r.stdout).get('peers', [])
     except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
         return []
-    return [{'alias': p['alias'], 'cwd': p.get('cwd') or '', 'status': p['status']}
+    return [{'alias': p['alias'], 'cwd': p.get('cwd') or '', 'status': p['status'], 'seen': p.get('lastSeen') or 0}
             for p in peers if p.get('alias') and not p.get('service') and p.get('status') in ('live', 'idle')]
 
 

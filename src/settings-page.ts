@@ -59,6 +59,9 @@ const PEEK_OPTS: Opt[] = [
   { value: '250', label: 'Quickly', hint: '¼ second' }, { value: '500', label: 'After a moment', hint: '½ second' },
   { value: '1000', label: 'Slowly', hint: '1 second' }, { value: '0', label: 'Only on Esc or a click away' },
 ];
+const PAN_OPTS: Opt[] = [
+  { value: 'Shift', label: 'Shift' }, { value: 'Alt', label: 'Option' }, { value: 'Meta', label: 'Command' }, { value: 'off', label: 'Off' },
+];
 const TERM_OPTS: Opt[] = [
   { value: 'ghostty', label: 'Ghostty' }, { value: 'terminal', label: 'Terminal' }, { value: 'iterm', label: 'iTerm2' },
   { value: 'wezterm', label: 'WezTerm' }, { value: 'kitty', label: 'Kitty' }, { value: 'custom', label: 'Custom', hint: 'your own command' },
@@ -101,7 +104,8 @@ export function settingsDialog(): DialogSpec {
             { value: 'go', label: 'Open', icon: UI_ICON.external }], 'What a click on a file does', 'lg')) +
           row('Preview', '', segHtml('fe-st-panel', [
             { value: 'modal', label: 'Float', icon: i('<rect width="14" height="12" x="5" y="6" rx="2"/>') },
-            { value: 'side', label: 'Dock', icon: UI_ICON.preview }], 'Where the preview opens', 'lg') + iconBtn('fe-st-panel-reset', UI_ICON.reset, 'Reset dragged sizes'))) +
+            { value: 'side', label: 'Dock', icon: UI_ICON.preview }], 'Where the preview opens', 'lg') + iconBtn('fe-st-panel-reset', UI_ICON.reset, 'Reset dragged sizes')) +
+          row('Drag to scroll', 'Hold this key over a page, table or code block and drag to scroll it', ddHtml('fe-st-pan', PAN_OPTS, 'Key that turns a drag into scrolling', 'lg'))) +
         card('Sidebar',
           row('Sidebar', '', sw('fe-st-sidebar', 'Show the sidebar')) +
           row('Make room for a docked preview', 'Fold the sidebar while a docked preview is open', sw('fe-st-dock-fold', 'Fold the sidebar for a docked preview')) +

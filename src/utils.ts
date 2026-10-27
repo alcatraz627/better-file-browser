@@ -52,6 +52,26 @@ export function fmtDate(dateMs: number, settings?: Pick<Settings, 'dateFormat'>,
   return DATE_FMT[settings?.dateFormat === 'full' ? 'full' : 'short'].format(d);
 }
 const TIME_FMT = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+/** A moment as a person says it, tersely: "Today 16:23", "Yesterday 09:05",
+ *  "Mon 14:02" within the week, "Oct 12 14:02" this year, "Oct 12 2025" before.
+ *  Takes epoch ms or any date string; empty when it cannot be read. */
+export function whenText(at: number | string, now = new Date()): string {
+  const d = new Date(typeof at === 'string' ? Date.parse(at) : at);
+  if (isNaN(d.getTime())) return '';
+  const t = TIME_FMT.format(d);
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((day(now) - day(d)) / 86400000);
+  if (days === 0) return `Today ${t}`;
+  if (days === 1) return `Yesterday ${t}`;
+  if (days > 1 && days < 7) return `${WEEKDAY_FMT.format(d)} ${t}`;
+  if (d.getFullYear() === now.getFullYear()) return `${MONTH_DAY_FMT.format(d)} ${t}`;
+  return `${MONTH_DAY_FMT.format(d)} ${d.getFullYear()}`;
+}
+const WEEKDAY_FMT = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
+const MONTH_DAY_FMT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+/** A value that is a full ISO timestamp ("2026-10-27T16:23:00Z"), as front matter and agents write them. */
+export const isIsoStamp = (v: string): boolean => /^\d{4}-\d\d-\d\d[T ]\d\d:\d\d(:\d\d(\.\d+)?)?(Z|[+-]\d\d:?\d\d)?$/.test(v.trim());
 // Built once: a formatter per call cost about 0.1 ms a row, most of a big folder's first draw.
 const DATE_FMT = {
   short: new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),

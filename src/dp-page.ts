@@ -4,7 +4,8 @@
 // pictures, folding prose, the meter and the rail of items come from the
 // shared kit. gcc owns the answer itself; this module only draws the page
 // (docs: ~/.claude/features/decision-pages.md).
-import { esc, copyToClipboard } from './utils';
+import { esc, whenText } from './utils';
+import { copyWithCheck } from './copy-done';
 import { UI_ICON, GLYPH } from './control-icons';
 import { renderMarkdown } from './renderers';
 import { jsonPref, flagPref } from './storage';
@@ -46,16 +47,16 @@ export function parseDpConfig(text: string): DpConfig | null {
  * The topic and a board are drawn apart, as a badge and a link; a card on a
  * board rides in that link, so it is only a fact here when there is no board.
  */
-export function originFacts(o: DpOrigin | undefined, now = Date.now()): { label: string; value: string; copy: string; title?: string }[] {
+export function originFacts(o: DpOrigin | undefined, now = Date.now()): { label: string; value: string; copy: string; title?: string; copyName?: string }[] {
   if (!o) return [];
   const rows: [string, string | undefined, string][] = [['Project', o.project, ''], ['Session', o.session, ''], ['Goal', o.goal, 'goal '], ['Milestone', o.milestone, ''], ['Card', o.board ? undefined : o.card, 'card ']];
-  const out: { label: string; value: string; copy: string; title?: string }[] = rows.filter((r): r is [string, string, string] => !!r[1]).map(([label, v, lead]) => ({ label, value: lead + v, copy: v }));
+  const out: { label: string; value: string; copy: string; title?: string; copyName?: string }[] = rows.filter((r): r is [string, string, string] => !!r[1]).map(([label, v, lead]) => ({ label, value: lead + v, copy: v }));
   if (o.created) {
     const at = Date.parse(o.created);
     if (Number.isNaN(at)) out.push({ label: 'Asked', value: `asked ${o.created}`, copy: o.created });
     else {
       const a = ago(at / 1000, now / 1000);
-      out.push({ label: 'Asked', value: a === 'just now' ? 'asked just now' : `asked ${a} ago`, copy: o.created, title: new Date(at).toLocaleString() });
+      out.push({ label: 'Asked', value: a === 'just now' ? 'asked just now' : `asked ${a} ago`, copy: o.created, title: `Asked ${whenText(at)}`, copyName: 'the exact time' });
     }
   }
   return out;
@@ -79,7 +80,7 @@ function headHtml(cfg: DpConfig, base: string): string {
         <button type="button" id="fe-dp-files" class="btn" data-variant="outline" data-size="sm" data-tone="accent" data-docview-files title="Show the files in this folder">${UI_ICON.list}Files</button>
       </div>
       ${topic ? `<p class="fe-dp-topicline"><span class="fe-dp-topic" title="Topic">${esc(topic)}</span></p>` : ''}
-      <p class="fe-dp-origin">${boardLinkHtml(cfg.origin)}${originFacts(cfg.origin).map(f => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}" title="${esc(`${f.title ?? f.label}. Click to copy ${f.copy}`)}">${esc(f.value)}</button>`).join('')}<span class="fe-dp-count">${esc(count)}</span></p>
+      <p class="fe-dp-origin">${boardLinkHtml(cfg.origin)}${originFacts(cfg.origin).map(f => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}"${f.copyName ? ` data-copy-name="${esc(f.copyName)}"` : ''} title="${esc(`${f.title ?? f.label}. Click to copy ${f.copyName ?? f.copy}`)}">${esc(f.value)}</button>`).join('')}<span class="fe-dp-count">${esc(count)}</span></p>
       ${cfg.intro ? `<div class="fe-dp-intro">${clampHtml(renderMarkdown(cfg.intro, base), 2)}</div>` : ''}
     </header>
     ${sentHtml()}
@@ -131,7 +132,7 @@ export const decisionPageView: DocView<DpCtx> = {
     // A fact under the title copies its bare value: the project path, the session, the goal id.
     box.querySelector('.fe-dp-origin')?.addEventListener('click', e => {
       const f = (e.target as HTMLElement).closest<HTMLElement>('.fe-dp-fact');
-      if (f) void copyToClipboard(f.dataset.copy!).then(ok => toast(ok ? `Copied ${f.dataset.copy}` : 'Copy failed'));
+      if (f) void copyWithCheck(f, f.dataset.copy!).then(ok => toast(ok ? `Copied ${f.dataset.copyName ?? f.dataset.copy}` : 'Copy failed'));
     });
     // Marks on every picture show or hide together, remembered across pages.
     const marksBtn = box.querySelector<HTMLElement>('#fe-dp-marks')!;

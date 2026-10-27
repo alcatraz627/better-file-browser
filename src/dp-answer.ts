@@ -4,6 +4,8 @@
 // and shows. When gcc cannot be reached, the page still hands the owner a
 // picks line to paste, and says plainly that nothing was sent.
 import { esc, copyToClipboard } from './utils';
+import { flashCopied } from './copy-done';
+import { UI_ICON } from './control-icons';
 import { dpIo } from './dp-io';
 import { errorText } from './errors';
 import { ago } from './dp-lens';
@@ -33,7 +35,7 @@ const codeOf = (e: unknown) => (e as { code?: string })?.code ?? '';
 // One group, so at a narrow width the three wrap to the next line together.
 export const answerBarHtml = (): string => `<span class="fe-dp-bar-end">
   <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Show the answer as it will be sent (p)">Answer</button>
-  <button type="button" class="btn" data-variant="outline" data-size="sm" id="fe-dp-copy" title="Copy the answer (c)">Copy</button>
+  <button type="button" class="btn" data-variant="outline" data-size="sm" id="fe-dp-copy" title="Copy the answer (c)">${UI_ICON.copy}<span>Copy</span></button>
   <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send the answer to the agent that asked (s or ⌘↩)">Submit</button></span>`;
 
 export const answerPanelHtml = (): string => `
@@ -68,7 +70,7 @@ export function wireAnswer(cfg: DpConfig, box: HTMLElement, slug: string | undef
   };
   const paintButtons = () => {
     const p = progress(cfg, host.state());
-    copyBtn.textContent = p.flagged ? `Copy (${p.flagged})` : 'Copy';
+    copyBtn.querySelector('span')!.textContent = p.flagged ? `Copy (${p.flagged})` : 'Copy';
     submitBtn.textContent = sent ? 'Replace answer' : 'Submit';
     submitBtn.disabled = mode !== 'gcc' || busy;
     submitBtn.title = mode === 'outside' ? 'This page is not in gcc\'s registry, so it cannot be sent; Copy gives the picks line'
@@ -119,7 +121,8 @@ export function wireAnswer(cfg: DpConfig, box: HTMLElement, slug: string | undef
     await fresh();
     const ok = await copyToClipboard(text);
     if (!ok) { showPanel(true); toast('Copy was refused; the answer is in the panel to select by hand'); return; }
-    toast(mode === 'gcc' ? 'Copied the answer' : 'Copied the picks line; gcc did not compose it');
+    flashCopied(copyBtn);
+    if (mode !== 'gcc') toast('Copied the picks line; gcc did not compose it');
   };
 
   // The answered state: a notice with when and how the asker was told, the

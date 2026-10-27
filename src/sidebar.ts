@@ -4,7 +4,7 @@
 import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
-import { esc, copyToClipboard, midHtml, fileHref } from './utils';
+import { esc, copyToClipboard, midHtml, fileHref, whenText } from './utils';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList } from './storage';
@@ -519,11 +519,10 @@ export function initSidebar(app: App): void {
   const trashBtn = el<HTMLButtonElement>('fe-nt-trash');
   function renderTrash(root: string): void {
     ntHint.textContent = `Trash: ${trashed.length} deleted note${trashed.length !== 1 ? 's' : ''} in ${root}/.trash`;
-    const when = (ms: number) => new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const head = `<div class="sect fe-nt-trash-head" data-level="group">${UI_ICON.trash}Trash<span class="fe-grp-n">${trashed.length}</span></div>`;
     ntList.innerHTML = head + (trashed.length ? trashed.map(t => `
       <div class="row fe-bm-item fe-nt-trashed" data-trashed="${esc(t.trashed)}">
-        <span class="fe-si-link" title="${esc(t.name)}">${PI.docs ?? PI.folder}<span class="fe-nt-main"><span class="fe-nt-label">${midHtml(t.title || noteTitle(t.name))}</span><span class="fe-nt-when">Deleted ${esc(when(t.deleted))}</span></span></span>
+        <span class="fe-si-link" title="${esc(t.name)}">${PI.docs ?? PI.folder}<span class="fe-nt-main"><span class="fe-nt-label">${midHtml(t.title || noteTitle(t.name))}</span><span class="fe-nt-when">Deleted ${esc(whenText(t.deleted))}</span></span></span>
         <button class="btn fe-nt-restore" data-size="sm" data-trashed="${esc(t.trashed)}" title="Put this note back in the notes folder" aria-label="Restore ${esc(t.title || noteTitle(t.name))}">${UI_ICON.reset}<span>Restore</span></button>
       </div>`).join('')
       : emptyHtml('empty', 'The trash is empty', { inline: true, hint: 'Deleted notes wait here until you restore them' }));

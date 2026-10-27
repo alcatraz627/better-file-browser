@@ -117,7 +117,7 @@ export const notes = {
             call({ op: 'dp', verb, slug, payload }).then(f => (f as unknown as { result: unknown }).result),
   docsIndex: () => call({ op: 'docsIndex' }).then(f => (f as unknown as { docs: import('./docs-lens').DocRow[] }).docs ?? []),
   /// Agent sessions claude-ipc sees as live or idle, for offering @claude:<alias>.
-  people: () => call({ op: 'people' }).then(f => (f as unknown as { peers: { alias: string; cwd: string; status: string }[] }).peers ?? []),
+  people: () => call({ op: 'people' }).then(f => (f as unknown as { peers: { alias: string; cwd: string; status: string; seen?: number }[] }).peers ?? []),
   fileWrite: (root: string, rel: string, text: string, expectMtime: number) =>
             call({ op: 'fileWrite', root, rel, text, expectMtime }) as Promise<{ mtime: number; backup?: string }>,
 };

@@ -222,6 +222,9 @@ export function initFocusNav(app: App): void {
   bind('fp-comment', () => app.filePage?.comment('comment'), commentable);
   bind('fp-cm-reply', () => app.filePage?.comment('reply'), commentable);
   bind('fp-comments', () => app.filePage?.comment('panel'), commentable);
+  bind('fp-cm-link', () => app.filePage?.comment('link'), commentable);
+  bind('fp-cm-brief', () => app.filePage?.comment('brief'), commentable);
+  bind('fp-copy', click('fe-fp-copy'), () => !!app.filePage && !app.filePage.editing());
   bind('fp-cm-step', key => app.filePage?.comment(key === '⌥↑' ? 'prev' : 'next'), commentable);
   // Inside the comments box its own Esc runs: it puts a draft away and keeps focus.
   bind('fp-cm-clear', () => app.filePage?.comment('clear'), () => !!app.filePage?.commentHeld() && !ae()?.closest('#fe-cm'));
@@ -302,15 +305,21 @@ export function initFocusNav(app: App): void {
   const KEY_OF: Record<string, string> = {
     'fe-side-toggle': 'sidebar', 'fe-theme-btn': 'theme', 'fe-help-btn': 'keys', 'fe-settings-btn': 'settings', 'fe-term-btn': 'terminal',
     'fe-bm-btn': 'save', 'fe-open-pick': 'open-pick', 'fe-open-path': 'path', 'fe-tab-list': 'tab-list', 'fe-filter-btn': 'filter-panel',
-    'fe-hidden-btn': 'hidden', 'fe-search': 'filter', 'fe-fp-raw': 'fp-raw', 'fe-fp-edit': 'fp-edit', 'fe-fp-toc': 'fp-toc', 'fe-fp-column': 'fp-width',
+    'fe-hidden-btn': 'hidden', 'fe-search': 'filter', 'fe-fp-raw': 'fp-raw', 'fe-fp-edit': 'fp-edit', 'fe-fp-toc': 'fp-toc', 'fe-fp-column': 'fp-width', 'fe-fp-copy': 'fp-copy',
     'fe-ql-dock': 'pv-dock', 'fe-ql-copy': 'pv-copy', 'fe-ql-tab': 'pv-tab', 'fe-ql-go': 'pv-open', 'fe-ql-close': 'pv-close',
     'fe-rail-places': 'lens-places', 'fe-rail-saved': 'lens-saved', 'fe-rail-notes': 'lens-notes', 'fe-rail-history': 'lens-recent',
     'fe-rail-search': 'lens-search', 'fe-rail-ask': 'lens-ask', 'fe-rail-comments': 'lens-docs',
   };
+  // Controls without an id, found by where they sit.
+  const KEY_AT: Record<string, string> = {
+    '.fe-act-cp': 'copy-path', '.fe-act-nm': 'copy-name',
+    '#fe-cm [data-a="link"]': 'fp-cm-link', '#fe-cm [data-a="brief-all"]': 'fp-cm-brief'
+  };
   const keyOf = (cmd: string) => KEYMAP.find(d => d.id === cmd)?.keys[0];
   // A control's tooltip shows the keys of the command it runs.
   setTooltipKeys(x => {
-    const cmd = KEY_OF[x.id] ?? (x.matches('#fe-view-group [data-v]') ? 'view-' + x.dataset.v : '');
+    const cmd = KEY_OF[x.id] ?? (x.matches('#fe-view-group [data-v]') ? 'view-' + x.dataset.v
+      : Object.entries(KEY_AT).find(([sel]) => x.matches(sel))?.[1] ?? '');
     return (cmd && KEYMAP.find(d => d.id === cmd)?.keys) || [];
   });
   let hintTimer: ReturnType<typeof setTimeout> | null = null;

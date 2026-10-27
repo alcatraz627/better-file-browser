@@ -3,7 +3,8 @@
 // and hands it to a renderer picked by extension. No new permissions needed.
 import { resizable } from './resize';
 import type { Entry, IconRule, PreviewLayout } from './types';
-import { esc, fmtSize, getExt, copyToClipboard, midHtml, pageHref, fileHref } from './utils';
+import { esc, fmtSize, getExt, copyToClipboard, midHtml, pageHref, fileHref, whenText } from './utils';
+import { copyWithCheck } from './copy-done';
 import { getPreviewLayout, savePreviewLayout, isSaved, toggleSaved, flagPref, textPref } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
 import { raise, lower, focusTrap } from './layer';
@@ -154,7 +155,7 @@ export function initPreview(d: PreviewDeps): void {
         <span id="fe-ql-icon"></span>
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (⌘-click / middle-click also work)"></a>
         <span id="fe-ql-meta"></span>
-        <button id="fe-ql-copy" class="btn" title="Copy full file contents to clipboard" disabled>
+        <button id="fe-ql-copy" class="btn" title="Copy the file" disabled>
           ${GLYPH.copySmall}
           <span>Copy</span>
         </button>
@@ -261,11 +262,7 @@ export function initPreview(d: PreviewDeps): void {
   const copyBtn = document.getElementById('fe-ql-copy') as HTMLButtonElement;
   copyBtn.addEventListener('click', () => {
     if (currentText === null) return;
-    const flash = (ok: boolean) => {
-      copyBtn.querySelector('span')!.textContent = ok ? '✓ copied' : 'failed';
-      setTimeout(() => { copyBtn.querySelector('span')!.textContent = 'copy'; }, 1400);
-    };
-    copyToClipboard(currentText).then(flash);
+    void copyWithCheck(copyBtn, currentText).then(ok => { if (!ok) deps.toast?.('Copy failed'); });
   });
 
   const aiQ = document.getElementById('fe-ql-ai-q') as HTMLInputElement;
@@ -733,7 +730,6 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   // puts its text in the editor, and the save that follows keeps today's text in the log.
   const hist = document.getElementById('fe-ed-hist')!;
   const escHtml = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-  const whenText = (ms: number) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
   const toggleVersions = async () => {
     if (!hist.hidden) { hist.hidden = true; renderView(); return; }
     hist.hidden = false;
@@ -921,7 +917,7 @@ async function saveNote(st = edit): Promise<void> {
       const to = st.rel.replace(/[^/]+$/, want);
       try { await notes.rename(st.root, st.rel, to); st.rel = to; } catch { /* keep the old name */ }
     }
-    if (edit === st) { editHeader(st.dirty ? 'unsaved' : 'saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); st.redrawMeta?.(); }
+    if (edit === st) { editHeader(st.dirty ? 'unsaved' : 'saved ' + whenText(Date.now()).replace('Today ', '')); st.redrawMeta?.(); }
     st.onSaved?.(st.rel);
   } catch (err) {
     const e = err as NotesError;

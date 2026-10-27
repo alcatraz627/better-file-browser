@@ -123,6 +123,21 @@
     return DATE_FMT[settings?.dateFormat === "full" ? "full" : "short"].format(d);
   }
   var TIME_FMT = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  function whenText(at, now = /* @__PURE__ */ new Date()) {
+    const d = new Date(typeof at === "string" ? Date.parse(at) : at);
+    if (isNaN(d.getTime())) return "";
+    const t = TIME_FMT.format(d);
+    const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const days = Math.round((day(now) - day(d)) / 864e5);
+    if (days === 0) return `Today ${t}`;
+    if (days === 1) return `Yesterday ${t}`;
+    if (days > 1 && days < 7) return `${WEEKDAY_FMT.format(d)} ${t}`;
+    if (d.getFullYear() === now.getFullYear()) return `${MONTH_DAY_FMT.format(d)} ${t}`;
+    return `${MONTH_DAY_FMT.format(d)} ${d.getFullYear()}`;
+  }
+  var WEEKDAY_FMT = new Intl.DateTimeFormat("en-US", { weekday: "short" });
+  var MONTH_DAY_FMT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+  var isIsoStamp = (v) => /^\d{4}-\d\d-\d\d[T ]\d\d:\d\d(:\d\d(\.\d+)?)?(Z|[+-]\d\d:?\d\d)?$/.test(v.trim());
   var DATE_FMT = {
     short: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }),
     full: new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" })
@@ -1371,6 +1386,8 @@ ${body}`;
     contents: svg('<path d="M15 12H3M17 18H3M21 6H3"/>'),
     info: svg('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'),
     circle: svg('<circle cx="12" cy="12" r="9"/>'),
+    circleDashed: svg('<path d="M10.1 2.18a9.93 9.93 0 0 1 3.8 0M17.6 3.71a9.95 9.95 0 0 1 2.69 2.7M21.82 10.1a9.93 9.93 0 0 1 0 3.8M20.29 17.6a9.95 9.95 0 0 1-2.7 2.69M13.9 21.82a9.94 9.94 0 0 1-3.8 0M6.4 20.29a9.95 9.95 0 0 1-2.69-2.7M2.18 13.9a9.93 9.93 0 0 1 0-3.8M3.71 6.4a9.95 9.95 0 0 1 2.7-2.69"/>'),
+    circleCheck: svg('<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'),
     at: svg('<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>'),
     stack: svg('<path d="m12.83 2.18 8.58 3.9a1 1 0 0 1 0 1.83l-8.58 3.9a2 2 0 0 1-1.66 0L2.6 7.91a1 1 0 0 1 0-1.83l8.58-3.9a2 2 0 0 1 1.66 0z"/><path d="m22 12.5-9.17 4.16a2 2 0 0 1-1.66 0L2 12.5"/>'),
     link: svg('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
@@ -1422,6 +1439,46 @@ ${body}`;
     dock: '<svg width="13" height="13" viewBox="0 0 13 13"><rect x="1" y="1.5" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v10" stroke="currentColor" stroke-width="1.3"/></svg>',
     search: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'
   };
+
+  // src/copy-done.ts
+  var SHOWN_MS = 3e3;
+  var held = /* @__PURE__ */ new WeakMap();
+  function swapIcon(btn, html) {
+    const old = btn.querySelector("svg");
+    if (!old) return;
+    const t = document.createElement("template");
+    t.innerHTML = html.trim();
+    const next = t.content.firstElementChild;
+    if (!next) return;
+    for (const a of ["width", "height", "class"]) {
+      const v = old.getAttribute(a);
+      if (v !== null) next.setAttribute(a, v);
+    }
+    next.setAttribute("aria-hidden", "true");
+    old.replaceWith(next);
+  }
+  function flashCopied(btn) {
+    if (!btn) return;
+    let st = held.get(btn);
+    if (!st) {
+      st = { icon: btn.querySelector("svg")?.outerHTML ?? "", timer: 0 };
+      held.set(btn, st);
+      if (st.icon) swapIcon(btn, UI_ICON.check);
+    }
+    clearTimeout(st.timer);
+    btn.dataset.done = "";
+    const s = st;
+    s.timer = window.setTimeout(() => {
+      delete btn.dataset.done;
+      if (s.icon) swapIcon(btn, s.icon);
+      held.delete(btn);
+    }, SHOWN_MS);
+  }
+  async function copyWithCheck(btn, text) {
+    const ok = await copyToClipboard(text);
+    if (ok) flashCopied(btn);
+    return ok;
+  }
 
   // src/layer.ts
   var CLOSES = {
@@ -1862,6 +1919,9 @@ ${body}`;
     { id: "fp-toc", group: "File page", title: "Contents", keys: ["\u21E7O"], scope: "file", own: true },
     { id: "fp-width", group: "File page", title: "Reading width", keys: ["\u21E7W"], scope: "file", own: true },
     { id: "fp-comments", group: "File page", title: "Comments panel", keys: ["\u21E7C"], scope: "file", own: true },
+    { id: "fp-copy", group: "File page", title: "Copy the file", keys: ["y"], scope: "file", own: true },
+    { id: "fp-cm-link", group: "File page", title: "Copy a link to the comment", keys: ["\u21E7K"], scope: "file", own: true },
+    { id: "fp-cm-brief", group: "File page", title: "Copy the comments shown as a brief for an agent", keys: ["\u21E7B"], scope: "file", own: true },
     { id: "fp-cm-step", group: "File page", title: "Previous or next comment", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "file", own: true },
     { id: "fp-cm-clear", group: "File page", title: "Let go of the comment being looked at or written", keys: ["Esc"], scope: "file", own: true },
     { id: "fp-cm-post", group: "File page", title: "Post, or post a reply", keys: ["\u2318\u21A9", "\u2318\u21E7\u21A9"], scope: "file" },
@@ -2618,6 +2678,31 @@ ${body}`;
     anim.onfinish = () => {
       if (folding.get(box)?.anim === anim) end();
     };
+  }
+  function growFrom(box, from) {
+    const to = box.offsetHeight;
+    if (reduced() || !from || Math.abs(to - from) < 2) return;
+    box.style.overflow = "hidden";
+    box.animate([{ height: from + "px" }, { height: to + "px" }], { duration: 200, easing: EASE }).onfinish = () => {
+      box.style.overflow = "";
+    };
+  }
+  function collapseOut(box) {
+    if (reduced()) return Promise.resolve();
+    box.style.overflow = "hidden";
+    const a = box.animate(
+      [{ height: box.offsetHeight + "px", opacity: 1 }, { height: "0px", opacity: 0, marginBottom: "0px", paddingTop: "0px", paddingBottom: "0px" }],
+      { duration: 200, easing: EASE, fill: "forwards" }
+    );
+    return a.finished.then(() => void 0, () => void 0);
+  }
+  function riseIn(el2) {
+    if (reduced()) return;
+    el2.animate([{ opacity: 0, transform: "translateY(-4px)" }, { opacity: 1, transform: "none" }], { duration: 220, easing: EASE });
+  }
+  function pulse(el2) {
+    if (reduced()) return;
+    el2.animate([{ boxShadow: "0 0 0 0 color-mix(in srgb, var(--ac) 45%, transparent)" }, { boxShadow: "0 0 0 8px transparent" }], { duration: 600, easing: "ease-out" });
   }
   var FOLD_SIDE_QUERY = "(max-width: 960px) and (min-width: 521px)";
   var wanted = null;
@@ -3715,14 +3800,14 @@ ${body}`;
     const unquote = (s) => s.trim().replace(/^(["'])(.*)\1$/, "$2");
     for (const l of lines) {
       const kv = /^([\w.-]+)\s*:\s*(.*)$/.exec(l);
-      const item = /^\s+-\s+(.*)$/.exec(l);
+      const item2 = /^\s+-\s+(.*)$/.exec(l);
       const last = rows[rows.length - 1];
       if (kv) {
         const v = kv[2].trim();
         const flow = /^\[(.*)\]$/.exec(v);
         rows.push(flow ? { key: kv[1], value: "", items: flow[1].split(",").map(unquote).filter(Boolean) } : { key: kv[1], value: unquote(v) });
-      } else if (item && last) {
-        (last.items ??= []).push(unquote(item[1]));
+      } else if (item2 && last) {
+        (last.items ??= []).push(unquote(item2[1]));
       } else if (/^\s+\S/.test(l) && last && !last.items) {
         last.value = (/^[|>][-+]?$/.test(last.value) ? "" : last.value + " ") + l.trim();
       }
@@ -3732,6 +3817,7 @@ ${body}`;
   var FM_PATH = /^(~\/|\.{1,2}\/|\/)?[\w@.-]+(\/[\w@.-]+)*\/?$/;
   var fmPath = (v) => FM_PATH.test(v) && !/^\d/.test(v) && (v.includes("/") || /\.[a-z][\w]{0,5}$/i.test(v));
   function fmValue(v, baseUrl) {
+    if (isIsoStamp(v)) return `<time datetime="${esc(v.trim())}">${esc(whenText(v.trim()))}</time>`;
     return fmPath(v) ? `<span class="fe-fm-path" data-fm-path="${esc(v)}">${esc(v)}</span>` : mdInline(v, baseUrl);
   }
   function renderMarkdown(src, baseUrl = "", inner = false, nested = false) {
@@ -4417,7 +4503,7 @@ ${answer}`;
         const png = await new Promise((res) => cv.toBlob(res, "image/png"));
         if (!png) throw new Error("could not encode the image");
         await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
-        o.notify("Image copied");
+        flashCopied(wrap.querySelector('[data-img="copy"]'));
       } catch (e) {
         o.notify(errorText(e, "Copying the image"));
       }
@@ -5579,8 +5665,8 @@ Now: ${question}` : question;
       return anchor ? anchor.count * anchor.aliasCount : 0;
     } else if (isCollection(node)) {
       let count = 0;
-      for (const item of node.items) {
-        const c = getAliasCount(doc, item, anchors);
+      for (const item2 of node.items) {
+        const c = getAliasCount(doc, item2, anchors);
         if (c > count)
           count = c;
       }
@@ -6159,22 +6245,22 @@ ${indent}${body}`;
     return `|${header}
 ${indent}${start}${value}${end}`;
   }
-  function plainString(item, ctx, onComment, onChompKeep) {
-    const { type, value } = item;
+  function plainString(item2, ctx, onComment, onChompKeep) {
+    const { type, value } = item2;
     const { actualString, implicitKey, indent, indentStep, inFlow } = ctx;
     if (implicitKey && value.includes("\n") || inFlow && /[[\]{},]/.test(value)) {
       return quotedString(value, ctx);
     }
     if (!value || /^[\n\t ,[\]{}#&*!|>'"%@`]|^[?-]$|^[?-][ \t]|[\n:][ \t]|[ \t]\n|[\n\t ]#|[\n\t :]$/.test(value)) {
-      return implicitKey || inFlow || !value.includes("\n") ? quotedString(value, ctx) : blockString(item, ctx, onComment, onChompKeep);
+      return implicitKey || inFlow || !value.includes("\n") ? quotedString(value, ctx) : blockString(item2, ctx, onComment, onChompKeep);
     }
     if (!implicitKey && !inFlow && type !== Scalar.PLAIN && value.includes("\n")) {
-      return blockString(item, ctx, onComment, onChompKeep);
+      return blockString(item2, ctx, onComment, onChompKeep);
     }
     if (containsDocumentMarker(value)) {
       if (indent === "") {
         ctx.forceBlockIndent = true;
-        return blockString(item, ctx, onComment, onChompKeep);
+        return blockString(item2, ctx, onComment, onChompKeep);
       } else if (implicitKey && indent === indentStep) {
         return quotedString(value, ctx);
       }
@@ -6189,10 +6275,10 @@ ${indent}`);
     }
     return implicitKey ? str : foldFlowLines(str, indent, FOLD_FLOW, getFoldOptions(ctx, false));
   }
-  function stringifyString(item, ctx, onComment, onChompKeep) {
+  function stringifyString(item2, ctx, onComment, onChompKeep) {
     const { implicitKey, inFlow } = ctx;
-    const ss = typeof item.value === "string" ? item : Object.assign({}, item, { value: String(item.value) });
-    let { type } = item;
+    const ss = typeof item2.value === "string" ? item2 : Object.assign({}, item2, { value: String(item2.value) });
+    let { type } = item2;
     if (type !== Scalar.QUOTE_DOUBLE) {
       if (/[\x00-\x08\x0b-\x1f\x7f-\x9f\u{D800}-\u{DFFF}]/u.test(ss.value))
         type = Scalar.QUOTE_DOUBLE;
@@ -6265,25 +6351,25 @@ ${indent}`);
       options: opt
     };
   }
-  function getTagObject(tags, item) {
-    if (item.tag) {
-      const match = tags.filter((t) => t.tag === item.tag);
+  function getTagObject(tags, item2) {
+    if (item2.tag) {
+      const match = tags.filter((t) => t.tag === item2.tag);
       if (match.length > 0)
-        return match.find((t) => t.format === item.format) ?? match[0];
+        return match.find((t) => t.format === item2.format) ?? match[0];
     }
     let tagObj = void 0;
     let obj;
-    if (isScalar(item)) {
-      obj = item.value;
+    if (isScalar(item2)) {
+      obj = item2.value;
       let match = tags.filter((t) => t.identify?.(obj));
       if (match.length > 1) {
         const testMatch = match.filter((t) => t.test);
         if (testMatch.length > 0)
           match = testMatch;
       }
-      tagObj = match.find((t) => t.format === item.format) ?? match.find((t) => !t.format);
+      tagObj = match.find((t) => t.format === item2.format) ?? match.find((t) => !t.format);
     } else {
-      obj = item;
+      obj = item2;
       tagObj = tags.find((t) => t.nodeClass && obj instanceof t.nodeClass);
     }
     if (!tagObj) {
@@ -6306,24 +6392,24 @@ ${indent}`);
       props.push(doc.directives.tagString(tag));
     return props.join(" ");
   }
-  function stringify(item, ctx, onComment, onChompKeep) {
-    if (isPair(item))
-      return item.toString(ctx, onComment, onChompKeep);
-    if (isAlias(item)) {
+  function stringify(item2, ctx, onComment, onChompKeep) {
+    if (isPair(item2))
+      return item2.toString(ctx, onComment, onChompKeep);
+    if (isAlias(item2)) {
       if (ctx.doc.directives)
-        return item.toString(ctx);
-      if (ctx.resolvedAliases?.has(item)) {
+        return item2.toString(ctx);
+      if (ctx.resolvedAliases?.has(item2)) {
         throw new TypeError(`Cannot stringify circular structure without alias nodes`);
       } else {
         if (ctx.resolvedAliases)
-          ctx.resolvedAliases.add(item);
+          ctx.resolvedAliases.add(item2);
         else
-          ctx.resolvedAliases = /* @__PURE__ */ new Set([item]);
-        item = item.resolve(ctx.doc);
+          ctx.resolvedAliases = /* @__PURE__ */ new Set([item2]);
+        item2 = item2.resolve(ctx.doc);
       }
     }
     let tagObj = void 0;
-    const node = isNode(item) ? item : ctx.doc.createNode(item, { onTagObj: (o) => tagObj = o });
+    const node = isNode(item2) ? item2 : ctx.doc.createNode(item2, { onTagObj: (o) => tagObj = o });
     if (!tagObj)
       tagObj = getTagObject(ctx.doc.schema.tags, node);
     const props = stringifyProps(node, tagObj, ctx);
@@ -6610,16 +6696,16 @@ ${ctx.indent}`;
     let chompKeep = false;
     const lines = [];
     for (let i3 = 0; i3 < items.length; ++i3) {
-      const item = items[i3];
+      const item2 = items[i3];
       let comment2 = null;
-      if (isNode(item)) {
-        if (!chompKeep && item.spaceBefore)
+      if (isNode(item2)) {
+        if (!chompKeep && item2.spaceBefore)
           lines.push("");
-        addCommentBefore(ctx, lines, item.commentBefore, chompKeep);
-        if (item.comment)
-          comment2 = item.comment;
-      } else if (isPair(item)) {
-        const ik = isNode(item.key) ? item.key : null;
+        addCommentBefore(ctx, lines, item2.commentBefore, chompKeep);
+        if (item2.comment)
+          comment2 = item2.comment;
+      } else if (isPair(item2)) {
+        const ik = isNode(item2.key) ? item2.key : null;
         if (ik) {
           if (!chompKeep && ik.spaceBefore)
             lines.push("");
@@ -6627,7 +6713,7 @@ ${ctx.indent}`;
         }
       }
       chompKeep = false;
-      let str2 = stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+      let str2 = stringify(item2, itemCtx, () => comment2 = null, () => chompKeep = true);
       if (comment2)
         str2 += lineComment(str2, itemIndent, commentString(comment2));
       if (chompKeep && comment2)
@@ -6665,16 +6751,16 @@ ${indent}${line2}` : "\n";
     let linesAtValue = 0;
     const lines = [];
     for (let i3 = 0; i3 < items.length; ++i3) {
-      const item = items[i3];
+      const item2 = items[i3];
       let comment = null;
-      if (isNode(item)) {
-        if (item.spaceBefore)
+      if (isNode(item2)) {
+        if (item2.spaceBefore)
           lines.push("");
-        addCommentBefore(ctx, lines, item.commentBefore, false);
-        if (item.comment)
-          comment = item.comment;
-      } else if (isPair(item)) {
-        const ik = isNode(item.key) ? item.key : null;
+        addCommentBefore(ctx, lines, item2.commentBefore, false);
+        if (item2.comment)
+          comment = item2.comment;
+      } else if (isPair(item2)) {
+        const ik = isNode(item2.key) ? item2.key : null;
         if (ik) {
           if (ik.spaceBefore)
             lines.push("");
@@ -6682,19 +6768,19 @@ ${indent}${line2}` : "\n";
           if (ik.comment)
             reqNewline = true;
         }
-        const iv = isNode(item.value) ? item.value : null;
+        const iv = isNode(item2.value) ? item2.value : null;
         if (iv) {
           if (iv.comment)
             comment = iv.comment;
           if (iv.commentBefore)
             reqNewline = true;
-        } else if (item.value == null && ik?.comment) {
+        } else if (item2.value == null && ik?.comment) {
           comment = ik.comment;
         }
       }
       if (comment)
         reqNewline = true;
-      let str = stringify(item, itemCtx, () => comment = null);
+      let str = stringify(item2, itemCtx, () => comment = null);
       if (i3 < items.length - 1)
         str += ",";
       if (comment)
@@ -6805,7 +6891,7 @@ ${indent}${end}`;
         else
           prev.value = _pair.value;
       } else if (sortEntries) {
-        const i3 = this.items.findIndex((item) => sortEntries(_pair, item) < 0);
+        const i3 = this.items.findIndex((item2) => sortEntries(_pair, item2) < 0);
         if (i3 === -1)
           this.items.push(_pair);
         else
@@ -6841,16 +6927,16 @@ ${indent}${end}`;
       const map2 = Type ? new Type() : ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
       if (ctx?.onCreate)
         ctx.onCreate(map2);
-      for (const item of this.items)
-        addPairToJSMap(ctx, map2, item);
+      for (const item2 of this.items)
+        addPairToJSMap(ctx, map2, item2);
       return map2;
     }
     toString(ctx, onComment, onChompKeep) {
       if (!ctx)
         return JSON.stringify(this);
-      for (const item of this.items) {
-        if (!isPair(item))
-          throw new Error(`Map items must all be pairs; found ${JSON.stringify(item)} instead`);
+      for (const item2 of this.items) {
+        if (!isPair(item2))
+          throw new Error(`Map items must all be pairs; found ${JSON.stringify(item2)} instead`);
       }
       if (!ctx.allNullValues && this.hasAllNullValues(false))
         ctx = Object.assign({}, ctx, { allNullValues: true });
@@ -6944,8 +7030,8 @@ ${indent}${end}`;
       if (ctx?.onCreate)
         ctx.onCreate(seq2);
       let i3 = 0;
-      for (const item of this.items)
-        seq2.push(toJS(item, String(i3++), ctx));
+      for (const item2 of this.items)
+        seq2.push(toJS(item2, String(i3++), ctx));
       return seq2;
     }
     toString(ctx, onComment, onChompKeep) {
@@ -7002,9 +7088,9 @@ ${indent}${end}`;
     default: true,
     tag: "tag:yaml.org,2002:str",
     resolve: (str) => str,
-    stringify(item, ctx, onComment, onChompKeep) {
+    stringify(item2, ctx, onComment, onChompKeep) {
       ctx = Object.assign({ actualString: true }, ctx);
-      return stringifyString(item, ctx, onComment, onChompKeep);
+      return stringifyString(item2, ctx, onComment, onChompKeep);
     }
   };
 
@@ -7262,24 +7348,24 @@ ${indent}${end}`;
   function resolvePairs(seq2, onError) {
     if (isSeq(seq2)) {
       for (let i3 = 0; i3 < seq2.items.length; ++i3) {
-        let item = seq2.items[i3];
-        if (isPair(item))
+        let item2 = seq2.items[i3];
+        if (isPair(item2))
           continue;
-        else if (isMap(item)) {
-          if (item.items.length > 1)
+        else if (isMap(item2)) {
+          if (item2.items.length > 1)
             onError("Each pair must have its own sequence indicator");
-          const pair = item.items[0] || new Pair(new Scalar(null));
-          if (item.commentBefore)
-            pair.key.commentBefore = pair.key.commentBefore ? `${item.commentBefore}
-${pair.key.commentBefore}` : item.commentBefore;
-          if (item.comment) {
+          const pair = item2.items[0] || new Pair(new Scalar(null));
+          if (item2.commentBefore)
+            pair.key.commentBefore = pair.key.commentBefore ? `${item2.commentBefore}
+${pair.key.commentBefore}` : item2.commentBefore;
+          if (item2.comment) {
             const cn = pair.value ?? pair.key;
-            cn.comment = cn.comment ? `${item.comment}
-${cn.comment}` : item.comment;
+            cn.comment = cn.comment ? `${item2.comment}
+${cn.comment}` : item2.comment;
           }
-          item = pair;
+          item2 = pair;
         }
-        seq2.items[i3] = isPair(item) ? item : new Pair(item);
+        seq2.items[i3] = isPair(item2) ? item2 : new Pair(item2);
       }
     } else
       onError("Expected a sequence for this tag");
@@ -9617,15 +9703,15 @@ ${end.comment}` : end.comment;
   visit2.SKIP = SKIP2;
   visit2.REMOVE = REMOVE2;
   visit2.itemAtPath = (cst, path) => {
-    let item = cst;
+    let item2 = cst;
     for (const [field, index] of path) {
-      const tok = item?.[field];
+      const tok = item2?.[field];
       if (tok && "items" in tok) {
-        item = tok.items[index];
+        item2 = tok.items[index];
       } else
         return void 0;
     }
-    return item;
+    return item2;
   };
   visit2.parentCollection = (cst, path) => {
     const parent = visit2.itemAtPath(cst, path.slice(0, -1));
@@ -9635,12 +9721,12 @@ ${end.comment}` : end.comment;
       return coll;
     throw new Error("Parent collection not found");
   };
-  function _visit(path, item, visitor) {
-    let ctrl = visitor(item, path);
+  function _visit(path, item2, visitor) {
+    let ctrl = visitor(item2, path);
     if (typeof ctrl === "symbol")
       return ctrl;
     for (const field of ["key", "value"]) {
-      const token = item[field];
+      const token = item2[field];
       if (token && "items" in token) {
         for (let i3 = 0; i3 < token.items.length; ++i3) {
           const ci = _visit(Object.freeze(path.concat([[field, i3]])), token.items[i3], visitor);
@@ -9654,10 +9740,10 @@ ${end.comment}` : end.comment;
           }
         }
         if (typeof ctrl === "function" && field === "key")
-          ctrl = ctrl(item, path);
+          ctrl = ctrl(item2, path);
       }
     }
-    return typeof ctrl === "function" ? ctrl(item, path) : ctrl;
+    return typeof ctrl === "function" ? ctrl(item2, path) : ctrl;
   }
 
   // node_modules/yaml/browser/dist/parse/cst.js
@@ -11553,7 +11639,7 @@ ${end.comment}` : end.comment;
         <span id="fe-ql-icon"></span>
         <a id="fe-ql-name" target="_blank" rel="noopener" title="Open natively in a new tab (\u2318-click / middle-click also work)"></a>
         <span id="fe-ql-meta"></span>
-        <button id="fe-ql-copy" class="btn" title="Copy full file contents to clipboard" disabled>
+        <button id="fe-ql-copy" class="btn" title="Copy the file" disabled>
           ${GLYPH.copySmall}
           <span>Copy</span>
         </button>
@@ -11672,13 +11758,9 @@ ${end.comment}` : end.comment;
     const copyBtn = document.getElementById("fe-ql-copy");
     copyBtn.addEventListener("click", () => {
       if (currentText === null) return;
-      const flash = (ok) => {
-        copyBtn.querySelector("span").textContent = ok ? "\u2713 copied" : "failed";
-        setTimeout(() => {
-          copyBtn.querySelector("span").textContent = "copy";
-        }, 1400);
-      };
-      copyToClipboard(currentText).then(flash);
+      void copyWithCheck(copyBtn, currentText).then((ok) => {
+        if (!ok) deps.toast?.("Copy failed");
+      });
     });
     const aiQ = document.getElementById("fe-ql-ai-q");
     document.querySelectorAll(".fe-ql-ai-btn").forEach((b) => {
@@ -11855,7 +11937,7 @@ ${end.comment}` : end.comment;
       if (currentEntry !== e || !isPreviewOpen()) return;
       const asked = askWhenReady === e;
       if (asked) askWhenReady = null;
-      const held = aiHeld?.e === e ? aiHeld : null;
+      const held3 = aiHeld?.e === e ? aiHeld : null;
       aiHeld = null;
       if (av.kind === "unavailable") {
         aiChecking = false;
@@ -11868,7 +11950,7 @@ ${end.comment}` : end.comment;
       aiNonePref.set("");
       paint(av.kind === "ready" ? av.cold ? "cold" : "ready" : "down", LLM_ERROR_TEXT.server_down);
       if (asked && av.kind === "ready") document.getElementById("fe-ql-ai-q").focus();
-      if (held && av.kind === "ready") runAi(held.intent, held.question);
+      if (held3 && av.kind === "ready") runAi(held3.intent, held3.question);
     });
   }
   var aiChecking = false;
@@ -12141,7 +12223,6 @@ ${end.comment}` : end.comment;
     };
     const hist = document.getElementById("fe-ed-hist");
     const escHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-    const whenText = (ms) => new Date(ms).toLocaleString(void 0, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
     const toggleVersions = async () => {
       if (!hist.hidden) {
         hist.hidden = true;
@@ -12406,7 +12487,7 @@ ${end.comment}` : end.comment;
         }
       }
       if (edit === st) {
-        editHeader(st.dirty ? "unsaved" : "saved " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+        editHeader(st.dirty ? "unsaved" : "saved " + whenText(Date.now()).replace("Today ", ""));
         st.redrawMeta?.();
       }
       st.onSaved?.(st.rel);
@@ -12651,6 +12732,71 @@ ${end.comment}` : end.comment;
       syncEdge();
     }).observe(side, { attributes: true, attributeFilter: ["style", "class"] });
     syncEdge();
+  }
+
+  // src/drag-pan.ts
+  var SURFACES = "#fe-page, #fe-ql-body, #fe-ed-view";
+  var NOT_HERE = 'input, textarea, select, button, a, label, [contenteditable="true"], [role="toolbar"], #fe-cm, #fe-toc-rail, .fe-md-copy';
+  var held2 = (e, k) => k === "Shift" ? e.shiftKey : k === "Alt" ? e.altKey : k === "Meta" ? e.metaKey : false;
+  function surfaceAt(t) {
+    const el2 = t instanceof Element ? t : null;
+    if (!el2 || el2.closest(NOT_HERE)) return null;
+    return el2.closest(SURFACES);
+  }
+  function scroller(start, root, axis) {
+    for (let n = start; n; n = n.parentElement) {
+      const e = n, cs = getComputedStyle(e);
+      const over = axis === "x" ? cs.overflowX : cs.overflowY;
+      const room = axis === "x" ? e.scrollWidth > e.clientWidth + 1 : e.scrollHeight > e.clientHeight + 1;
+      if (room && (over === "auto" || over === "scroll")) return e;
+      if (n === root) break;
+    }
+    return null;
+  }
+  function initDragPan() {
+    const doc = document.documentElement;
+    let marked = null;
+    let drag = null;
+    const key = () => getSettings().panKey ?? "Shift";
+    const mark = (root) => {
+      if (root === marked) return;
+      marked?.removeAttribute("data-pan-on");
+      marked = root;
+      marked?.setAttribute("data-pan-on", "");
+    };
+    document.addEventListener("pointermove", (e) => {
+      if (drag && e.pointerId === drag.id) {
+        if (drag.ex) drag.ex.scrollLeft = drag.left - (e.clientX - drag.x);
+        if (drag.ey) drag.ey.scrollTop = drag.top - (e.clientY - drag.y);
+        return;
+      }
+      mark(held2(e, key()) ? surfaceAt(e.target) : null);
+    }, { passive: true });
+    document.addEventListener("keyup", (e) => {
+      if (e.key === key()) mark(null);
+    });
+    window.addEventListener("blur", () => mark(null));
+    const app = document.getElementById("fe") ?? document.body;
+    app.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || !held2(e, key())) return;
+      const root = surfaceAt(e.target);
+      if (!root) return;
+      const start = e.target;
+      const ex = scroller(start, root, "x"), ey = scroller(start, root, "y");
+      if (!ex && !ey) return;
+      e.preventDefault();
+      getSelection()?.removeAllRanges();
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, ex, ey, left: ex?.scrollLeft ?? 0, top: ey?.scrollTop ?? 0 };
+      doc.setAttribute("data-pan", "grabbing");
+      start.setPointerCapture?.(e.pointerId);
+    });
+    const end = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag = null;
+      doc.removeAttribute("data-pan");
+    };
+    document.addEventListener("pointerup", end);
+    document.addEventListener("pointercancel", end);
   }
 
   // src/controls.ts
@@ -13638,7 +13784,7 @@ ${t}`)) say("Note title saved");
       return `<button type="button" class="row fe-dpl-row${unseen ? " unseen" : ""}" data-path="${esc(r.path)}" data-slug="${esc(r.slug)}"${r.reach ? ` data-reach="${r.reach}"` : ""} title="${esc(r.title ?? r.slug)}${unseen ? " \xB7 you have not opened this one yet" : ""}${reach ? ` \xB7 ${esc(reach.tip)}` : ""}">
         <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ""}</span>
         <span class="fe-dpl-tx"><span class="fe-dpl-title">${esc(r.title ?? r.slug)}</span>${sub ? `<span class="fe-dpl-origin">${sub}</span>` : ""}</span>
-        <span class="fe-dpl-age" title="${esc(new Date(when2 * 1e3).toLocaleString())}">${esc(ago(when2))}</span>
+        <span class="fe-dpl-age" title="${esc(whenText(when2 * 1e3))}">${esc(ago(when2))}</span>
         ${r.items ? `<span class="badge fe-dpl-n" data-tone="${r.state === "waiting" ? "solid" : "quiet"}" title="${r.items} item${r.items === 1 ? "" : "s"}">${r.items}</span>` : ""}
       </button>`;
     };
@@ -13774,14 +13920,14 @@ ${t}`)) say("Note title saved");
     if (o.state !== void 0) row2.dataset.state = o.state;
     if (o.value !== void 0) row2.querySelector(".fe-dv-outline-val").textContent = o.value;
   }
-  function followOutline(nav, scroller, targets, jump, prefer = () => null) {
+  function followOutline(nav, scroller2, targets, jump, prefer = () => null) {
     nav.addEventListener("click", (e) => {
       const row2 = e.target.closest(".fe-dv-outline-row");
       if (row2) jump(row2.dataset.target);
     });
     const seen = /* @__PURE__ */ new Map();
     const onScreen = (t) => {
-      const a = t.getBoundingClientRect(), s = scroller.getBoundingClientRect();
+      const a = t.getBoundingClientRect(), s = scroller2.getBoundingClientRect();
       return a.bottom > s.top && a.top < s.bottom;
     };
     const mark = () => {
@@ -13802,7 +13948,7 @@ ${t}`)) say("Note title saved");
     const io2 = new IntersectionObserver((entries) => {
       entries.forEach((en) => seen.set(en.target, en.isIntersecting));
       mark();
-    }, { root: scroller, rootMargin: "0px 0px -55% 0px" });
+    }, { root: scroller2, rootMargin: "0px 0px -55% 0px" });
     targets.forEach((t) => io2.observe(t));
     return mark;
   }
@@ -13821,7 +13967,7 @@ ${t}`)) say("Note title saved");
   var codeOf2 = (e) => e?.code ?? "";
   var answerBarHtml = () => `<span class="fe-dp-bar-end">
   <button type="button" class="btn" data-variant="ghost" data-size="sm" id="fe-dp-panel" aria-pressed="false" aria-controls="fe-dp-answer" title="Show the answer as it will be sent (p)">Answer</button>
-  <button type="button" class="btn" data-variant="outline" data-size="sm" id="fe-dp-copy" title="Copy the answer (c)">Copy</button>
+  <button type="button" class="btn" data-variant="outline" data-size="sm" id="fe-dp-copy" title="Copy the answer (c)">${UI_ICON.copy}<span>Copy</span></button>
   <button type="button" class="btn" data-variant="solid" data-size="sm" id="fe-dp-submit" title="Send the answer to the agent that asked (s or \u2318\u21A9)">Submit</button></span>`;
   var answerPanelHtml = () => `
   <section class="card fe-dp-answer" id="fe-dp-answer" hidden aria-label="The answer as it will be sent">
@@ -13846,7 +13992,7 @@ ${t}`)) say("Note title saved");
     };
     const paintButtons = () => {
       const p = progress(cfg, host.state());
-      copyBtn.textContent = p.flagged ? `Copy (${p.flagged})` : "Copy";
+      copyBtn.querySelector("span").textContent = p.flagged ? `Copy (${p.flagged})` : "Copy";
       submitBtn.textContent = sent ? "Replace answer" : "Submit";
       submitBtn.disabled = mode !== "gcc" || busy;
       submitBtn.title = mode === "outside" ? "This page is not in gcc's registry, so it cannot be sent; Copy gives the picks line" : mode === "down" ? "gcc cannot be reached, so nothing can be sent; Copy gives the picks line" : sent ? "Send a new answer in place of the one already sent (s or \u2318\u21A9)" : "Send the answer to the agent that asked (s or \u2318\u21A9)";
@@ -13906,7 +14052,8 @@ ${t}`)) say("Note title saved");
         toast("Copy was refused; the answer is in the panel to select by hand");
         return;
       }
-      toast(mode === "gcc" ? "Copied the answer" : "Copied the picks line; gcc did not compose it");
+      flashCopied(copyBtn);
+      if (mode !== "gcc") toast("Copied the picks line; gcc did not compose it");
     };
     const paintSent = (notify, parsed) => {
       if (!sent) {
@@ -14017,7 +14164,7 @@ ${t}`)) say("Note title saved");
       if (Number.isNaN(at)) out.push({ label: "Asked", value: `asked ${o.created}`, copy: o.created });
       else {
         const a = ago(at / 1e3, now / 1e3);
-        out.push({ label: "Asked", value: a === "just now" ? "asked just now" : `asked ${a} ago`, copy: o.created, title: new Date(at).toLocaleString() });
+        out.push({ label: "Asked", value: a === "just now" ? "asked just now" : `asked ${a} ago`, copy: o.created, title: `Asked ${whenText(at)}`, copyName: "the exact time" });
       }
     }
     return out;
@@ -14038,7 +14185,7 @@ ${t}`)) say("Note title saved");
         <button type="button" id="fe-dp-files" class="btn" data-variant="outline" data-size="sm" data-tone="accent" data-docview-files title="Show the files in this folder">${UI_ICON.list}Files</button>
       </div>
       ${topic ? `<p class="fe-dp-topicline"><span class="fe-dp-topic" title="Topic">${esc(topic)}</span></p>` : ""}
-      <p class="fe-dp-origin">${boardLinkHtml(cfg.origin)}${originFacts(cfg.origin).map((f) => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}" title="${esc(`${f.title ?? f.label}. Click to copy ${f.copy}`)}">${esc(f.value)}</button>`).join("")}<span class="fe-dp-count">${esc(count)}</span></p>
+      <p class="fe-dp-origin">${boardLinkHtml(cfg.origin)}${originFacts(cfg.origin).map((f) => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}"${f.copyName ? ` data-copy-name="${esc(f.copyName)}"` : ""} title="${esc(`${f.title ?? f.label}. Click to copy ${f.copyName ?? f.copy}`)}">${esc(f.value)}</button>`).join("")}<span class="fe-dp-count">${esc(count)}</span></p>
       ${cfg.intro ? `<div class="fe-dp-intro">${clampHtml(renderMarkdown(cfg.intro, base), 2)}</div>` : ""}
     </header>
     ${sentHtml()}
@@ -14084,7 +14231,7 @@ ${t}`)) say("Note title saved");
       wireClamps(box);
       box.querySelector(".fe-dp-origin")?.addEventListener("click", (e) => {
         const f = e.target.closest(".fe-dp-fact");
-        if (f) void copyToClipboard(f.dataset.copy).then((ok) => toast(ok ? `Copied ${f.dataset.copy}` : "Copy failed"));
+        if (f) void copyWithCheck(f, f.dataset.copy).then((ok) => toast(ok ? `Copied ${f.dataset.copyName ?? f.dataset.copy}` : "Copy failed"));
       });
       const marksBtn = box.querySelector("#fe-dp-marks");
       if (box.querySelector(".fe-dv-media[data-marks]")) {
@@ -14337,7 +14484,276 @@ ${t}`)) say("Note title saved");
     paint();
   }
 
+  // src/directions-model.ts
+  var WHEN_MARKS = [["\u23E9", "now"], ["\u23ED", "next"], ["\u23F8", "later"]];
+  var STATE_WORDS = [
+    [/\b(needs you|blocked on you|on you)\b/i, "needs"],
+    [/\b(waiting|running|in progress|in review|blocked)\b/i, "waiting"],
+    [/\b(ready)\b/i, "ready"],
+    [/\b(parked|paused|deferred)\b/i, "parked"],
+    [/\b(done|shipped|merged|closed)\b/i, "done"]
+  ];
+  var KEY_SETS = [["\u{1F534}", "\u{1F7E0}", "\u{1F7E2}", "\u{1F4A4}", "\u2705"], ["\u23E9", "\u23ED", "\u23F8"], ["\u{1F5E3}", "\u{1F4CF}", "\u{1F4AD}"], ["\u{1F9ED}", "\u{1F3AF}", "\u2705", "\u{1F573}"]];
+  var isAskHeading = (t) => /\b(waiting on you|needs you|for you)\b/i.test(t);
+  var clean = (t) => (t ?? "").replace(/\s+/g, " ").trim();
+  function whenOf(text) {
+    for (const [m, w] of WHEN_MARKS) if (text.includes(m)) return w;
+    return null;
+  }
+  function stateWord(text) {
+    for (const [re, s] of STATE_WORDS) if (re.test(text)) return s;
+    return null;
+  }
+  function sectionKind(title) {
+    if (isAskHeading(title)) return "waiting";
+    if (title.includes("\u{1F9ED}")) return "direction";
+    if (title.includes("\u{1F3AF}")) return "goal";
+    if (/^\d+[.)]\s+\S/.test(title)) return "direction";
+    return "plain";
+  }
+  function lastUpdatedOf(text) {
+    const m = text.match(/last updated:?\s*\**\s*(\d{4}-\d\d-\d\d)/i);
+    if (!m) return null;
+    const d = /* @__PURE__ */ new Date(m[1] + "T00:00:00");
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function readDirections(root) {
+    const sections = [];
+    const rows = [];
+    const stack2 = [];
+    let lastUpdated = null;
+    for (const p of root.querySelectorAll("p, li")) {
+      lastUpdated = lastUpdatedOf(p.textContent ?? "");
+      if (lastUpdated) break;
+    }
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+      acceptNode: (n) => /^(H[23]|TABLE|P|LI)$/.test(n.tagName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP
+    });
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (/^H[23]$/.test(n.tagName)) {
+        const level = Number(n.tagName[1]);
+        while (stack2.length && stack2[stack2.length - 1].level >= level) stack2.pop();
+        const title = clean(n.firstChild?.textContent ?? n.textContent);
+        const s = { el: n, level, title, kind: sectionKind(title), accepted: "", parent: stack2[stack2.length - 1] ?? null };
+        sections.push(s);
+        stack2.push(s);
+        continue;
+      }
+      const section = stack2[stack2.length - 1] ?? null;
+      if (n.tagName === "P" || n.tagName === "LI") {
+        const t = clean(n.textContent);
+        if (section && !section.accepted && /^(✅|accepted when|done when)/i.test(t)) section.accepted = t.replace(/^✅\s*/, "").replace(/^(accepted|done) when\s*:?\s*/i, "");
+        continue;
+      }
+      readTable(n, section, rows);
+    }
+    const bare = (t) => t.replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\u23E9-\u23FA\uFE0F]/gu, "").replace(/^\s*\d+[.)]?\s*/, "").trim().toLowerCase();
+    const titles = new Set(sections.map((s) => bare(s.title)).filter(Boolean));
+    for (const r of rows) {
+      const cells = [...r.el.cells].slice(0, 2).map((td) => bare(td.textContent ?? ""));
+      r.summary = cells.some((c) => c && titles.has(c));
+    }
+    return { sections, rows, lastUpdated };
+  }
+  function readTable(table, section, out) {
+    const heads = [...table.querySelectorAll("thead th")].map((th) => clean(th.textContent).toLowerCase());
+    const col = (re) => heads.findIndex((h) => re.test(h));
+    const cText = col(/^(ask|task|item|what|finding|bucket|direction|goal)\b/);
+    const cNeed = col(/what i need|need from you/);
+    const cSilent = col(/say nothing|silent/);
+    const cState = col(/^(state|status)\b/);
+    const cWhen = col(/^when\b/);
+    const asks = !!section && (section.kind === "waiting" || section.parent?.kind === "waiting");
+    for (const tr of table.querySelectorAll("tbody tr")) {
+      const cells = [...tr.cells].map((td) => clean(td.textContent));
+      const all = cells.join(" | ");
+      if (KEY_SETS.some((set2) => set2.filter((m) => all.includes(m)).length >= 3)) continue;
+      const first = cells[0] ?? "";
+      const id = first.length <= 12 && /^[`#]?[A-Za-z]{0,3}\d{1,4}[a-z]?`?$/.test(first) ? first.replace(/`/g, "") : "";
+      const state = rowState(all) ?? (cState >= 0 ? stateWord(cells[cState] ?? "") : null) ?? (asks ? "needs" : null);
+      const when2 = whenOf(all) ?? (cWhen >= 0 ? /\bnow\b/i.test(cells[cWhen]) ? "now" : /\bnext\b/i.test(cells[cWhen]) ? "next" : /\blater\b/i.test(cells[cWhen]) ? "later" : null : null);
+      const longest = cells.reduce((a, b) => b.length > a.length ? b : a, "");
+      const textCol = cText >= 0 && id && cells[cText] === first ? cText + 1 : cText;
+      const text = textCol >= 0 ? cells[textCol] : cells.length > 1 && id ? cells.slice(1).reduce((a, b) => b.length > a.length ? b : a, "") : longest;
+      out.push({
+        el: tr,
+        id,
+        state,
+        when: when2,
+        text: text ?? "",
+        need: cNeed >= 0 ? cells[cNeed] ?? "" : "",
+        silent: cSilent >= 0 ? cells[cSilent] ?? "" : "",
+        section,
+        asks,
+        summary: false
+      });
+    }
+  }
+
+  // src/directions-head.ts
+  var CAP = 5;
+  var STALE_DAYS = 3;
+  var WHEN_ORDER = { now: 0, next: 1, later: 3 };
+  function nextHead(m, now = /* @__PURE__ */ new Date()) {
+    const tasks = m.rows.filter((r) => !r.summary);
+    const asks = tasks.filter((r) => r.asks);
+    const ids = new Set(asks.map((r) => r.id).filter(Boolean));
+    const you = [...asks, ...tasks.filter((r) => !r.asks && r.state === "needs" && !(r.id && ids.has(r.id)))];
+    const ready = tasks.map((r, i3) => ({ r, i: i3 })).filter((x) => x.r.state === "ready").sort((a, b) => WHEN_ORDER[a.r.when ?? "next"] + (a.r.when ? 0 : 0.5) - (WHEN_ORDER[b.r.when ?? "next"] + (b.r.when ? 0 : 0.5)) || a.i - b.i).map((x) => x.r);
+    const days = m.lastUpdated ? Math.floor((now.getTime() - m.lastUpdated.getTime()) / 864e5) : null;
+    return { you, ready, staleDays: days !== null && days > STALE_DAYS ? days : null, waiting: tasks.filter((r) => r.state === "waiting").length };
+  }
+  var plain = (t) => t.replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\u23E9-\u23FA\uFE0F]/gu, "").replace(/\s{2,}/g, " ").trim();
+  var item = (r, i3, sub) => `<li><button type="button" class="fe-dir-next-i" data-row="${i3}">${r.id ? `<span class="fe-dir-next-id">${esc(r.id)}</span>` : ""}<span class="fe-dir-next-t">${esc(plain(r.text || r.section?.title || "Row"))}</span></button>${sub ? `<div class="fe-dir-next-sub">${sub}</div>` : ""}</li>`;
+  function nextHeadHtml(m, h) {
+    const at = (r) => m.rows.indexOf(r);
+    const group = (key, title, rows, sub, empty, more) => `
+    <div class="fe-dir-next-g" data-g="${key}">
+      <div class="sect" data-level="group" role="heading" aria-level="3">${title}<span class="fe-grp-n">${rows.length || ""}</span></div>
+      ${rows.length ? `<ol>${rows.slice(0, CAP).map((r) => item(r, at(r), sub(r))).join("")}</ol>` : `<p class="fe-dir-next-none">${empty}</p>`}
+      ${rows.length > CAP ? `<button type="button" class="fe-dir-next-more" data-more="${more}">and ${rows.length - CAP} more</button>` : ""}
+    </div>`;
+    const youSub = (r) => [r.need && `<span>${esc(r.need)}</span>`, r.silent && `<span class="fe-dir-next-silent">If you say nothing: ${esc(r.silent)}</span>`, !r.need && !r.silent && r.section && !r.asks ? `<span>${esc(plain(r.section.title))}</span>` : ""].filter(Boolean).join("");
+    const readySub = (r) => [r.when && `<span class="fe-dir-next-when">${r.when}</span>`, r.section && `<span>${esc(plain(r.section.title))}</span>`].filter(Boolean).join("");
+    const stale = h.staleDays !== null || h.waiting ? `<p class="fe-dir-next-stale">${[h.staleDays !== null ? `Last updated ${h.staleDays} days ago` : "", h.waiting ? `${h.waiting} waiting on others` : ""].filter(Boolean).join(" \xB7 ")}</p>` : "";
+    return `<div class="sect fe-dir-next-h" data-level="panel">What to do next</div>${group("you", "On you", h.you, youSub, "Nothing waits on you.", "needs")}${group("ready", "Ready for an agent", h.ready, readySub, "Nothing is ready to pick up.", "ready")}${stale}`;
+  }
+
+  // src/directions-views.ts
+  var DIR_VIEWS = [
+    { id: "overview", label: "Overview", hint: "Headings, where things stand, and what done means" },
+    { id: "me", label: "On me", hint: "Only what waits on you" },
+    { id: "agent", label: "Agent can do now", hint: "Only what an agent can pick up" },
+    { id: "all", label: "All", hint: "The whole doc" }
+  ];
+  var viewPref2 = jsonPref("bfb-dir-view-v1", {}, (v) => !!v && typeof v === "object" && !Array.isArray(v));
+  var docKey = () => decodeURIComponent(location.pathname);
+  function rowInView(r, view) {
+    if (view === "all") return true;
+    if (view === "overview") return r.summary;
+    if (r.summary) return false;
+    return view === "me" ? r.state === "needs" : r.state === "ready";
+  }
+  var sectionOf = (el2, model) => {
+    let n = el2;
+    while (n && !/^H[23]$/.test(n.tagName)) n = n.previousElementSibling;
+    return model.sections.find((s) => s.el === n) ?? null;
+  };
+  var within = (s, top) => {
+    for (let x = s; x; x = x.parent) if (x === top) return true;
+    return false;
+  };
+  var standing = (s) => !!s && /where things stand|state today|current state/i.test(s.title);
+  var isAccepted = (el2) => /^\s*(✅|accepted when|done when)/i.test(el2.textContent ?? "");
+  function applyView(root, model, view, chip) {
+    root.dataset.dirView = view;
+    for (const r of model.rows) r.el.hidden = !rowInView(r, view) || !!chip && r.el.dataset.state !== chip;
+    const kids = [...root.children];
+    const filtered = view !== "all" || !!chip;
+    const known = new Set(model.rows.map((r) => r.el));
+    root.querySelectorAll("tbody tr").forEach((tr) => {
+      if (!known.has(tr)) tr.toggleAttribute("data-view-hide", filtered);
+    });
+    for (const k of kids) {
+      k.toggleAttribute("data-view-hide", false);
+      if (!filtered || k.matches("h1, .fe-dir-next, .fe-dir-sum, .fe-dir-views, .fe-md-fm")) continue;
+      const table = k.matches("table") ? k : k.querySelector(":scope > table");
+      if (table) {
+        const shown = [...table.querySelectorAll("tbody tr")].some((r) => !r.hidden && !r.hasAttribute("data-view-hide"));
+        k.toggleAttribute("data-view-hide", !shown);
+        continue;
+      }
+      if (/^H[23]$/.test(k.tagName)) {
+        const s2 = model.sections.find((x) => x.el === k);
+        if (view === "overview" && !chip) continue;
+        const any = !!s2 && model.rows.some((r) => !r.el.hidden && within(r.section, s2));
+        k.toggleAttribute("data-view-hide", !any);
+        continue;
+      }
+      if (/^H[456]$/.test(k.tagName)) {
+        k.toggleAttribute("data-view-hide", true);
+        continue;
+      }
+      const s = sectionOf(k, model);
+      const keep = view === "overview" && !chip ? !s || standing(s) || isAccepted(k) : isAccepted(k) && !!s && model.rows.some((r) => !r.el.hidden && within(r.section, s));
+      k.toggleAttribute("data-view-hide", !keep);
+    }
+  }
+  function mountViews(root, bar, onChange) {
+    const wrap = document.createElement("div");
+    wrap.className = "fe-dir-views";
+    wrap.innerHTML = segHtml("fe-dir-view", DIR_VIEWS.map((v) => ({ value: v.id, label: v.label, hint: v.hint })), "How much of the doc to show");
+    bar.after(wrap);
+    upgradeControls(wrap);
+    const seg = wrap.querySelector(".fe-seg");
+    const saved = viewPref2.get()[docKey()] ?? "all";
+    seg.value = saved;
+    seg.addEventListener("change", () => {
+      const v = seg.value;
+      viewPref2.set({ ...viewPref2.get(), [docKey()]: v });
+      onChange(v);
+    });
+    return saved;
+  }
+  function markOutline(model) {
+    const toc = document.getElementById("fe-toc");
+    if (!toc) return;
+    const rank = ["needs", "waiting", "ready", "parked"];
+    for (const s of model.sections) {
+      const a = toc.querySelector(`a[data-id="${CSS.escape(s.el.id)}"]`);
+      if (!a || a.querySelector(".fe-toc-n")) continue;
+      const open = model.rows.filter((r) => !r.summary && r.state && r.state !== "done" && within(r.section, s));
+      if (!open.length) continue;
+      const worst = rank.find((st) => open.some((r) => r.state === st)) ?? "ready";
+      a.insertAdjacentHTML("beforeend", `<span class="fe-toc-n" data-state="${worst}" title="${open.length} still open">${open.length}</span>`);
+    }
+  }
+
+  // src/directions-done.ts
+  var DONE_LEVELS = [
+    { id: "code", label: "code complete", re: /\b(code complete|implemented|built)\b/i },
+    { id: "exercised", label: "exercised", re: /\b(exercised|smoke[- ]?tested|ran it|run by the agent)\b/i },
+    { id: "reviewed", label: "reviewed", re: /\breview(ed)?\b/i },
+    { id: "tested", label: "tested", re: /\b(tested|tests? pass(es)?|suites? pass(es)?)\b/i },
+    { id: "deployed", label: "deployed", re: /\b(deploy(ed)?|in production|shipped|live)\b/i }
+  ];
+  function doneLevels(text) {
+    return DONE_LEVELS.filter((l) => l.re.test(text));
+  }
+  var inGoal = (s, g) => {
+    for (let x = s; x; x = x.parent) if (x === g) return true;
+    return false;
+  };
+  function markDone(m) {
+    for (const g of m.sections) {
+      if (!g.accepted || g.el.nextElementSibling?.classList.contains("fe-dir-done")) continue;
+      const levels = doneLevels(g.accepted);
+      const finished = m.rows.filter((r) => r.state === "done" && inGoal(r.section, g)).map((r) => r.text + " " + (r.el.textContent ?? ""));
+      const body = levels.length ? levels.map((l) => {
+        const met = finished.some((t) => l.re.test(t));
+        return `<span class="chip fe-dir-done-l" data-size="sm"${met ? " data-met" : ""} title="${met ? "A finished row says so" : "Not yet"}">${met ? "\u2713 " : ""}${esc(l.label)}</span>`;
+      }).join("") : `<span class="fe-dir-done-t">${esc(g.accepted.length > 140 ? g.accepted.slice(0, 139) + "\u2026" : g.accepted)}</span>`;
+      const line2 = document.createElement("div");
+      line2.className = "fe-dir-done";
+      line2.title = g.accepted;
+      line2.innerHTML = `<span class="fe-dir-done-k">Done when</span>${body}`;
+      g.el.after(line2);
+      for (let n = line2.nextElementSibling; n && !/^H[1-6]$/.test(n.tagName); n = n.nextElementSibling) {
+        if (/^\s*(✅|accepted when|done when)/i.test(n.textContent ?? "")) {
+          n.classList.add("fe-dir-done-src");
+          break;
+        }
+      }
+    }
+  }
+
   // src/directions.ts
+  function flashRow(row2) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    row2.dataset.flash = "";
+    for (const td of row2.cells) td.animate([{ backgroundColor: "color-mix(in srgb, var(--ac) 24%, transparent)" }, { backgroundColor: "transparent" }], { duration: 1400, easing: "ease-out" });
+    window.setTimeout(() => delete row2.dataset.flash, 1400);
+  }
   var DIR_STATES = [
     { id: "needs", mark: "\u{1F534}", label: "needs you" },
     { id: "waiting", mark: "\u{1F7E0}", label: "waiting" },
@@ -14370,6 +14786,7 @@ ${t}`)) say("Note title saved");
   };
   function enhanceDirections(root) {
     if (root.dataset.directions) return;
+    const model = readDirections(root);
     const allRows = [...root.querySelectorAll("tbody tr")];
     const keyRows = allRows.filter((r) => isKeyRow(r.textContent ?? ""));
     const rows = allRows.filter((r) => !keyRows.includes(r));
@@ -14378,7 +14795,8 @@ ${t}`)) say("Note title saved");
       while (n && !/^H[1-6]$/.test(n.tagName)) n = n.previousElementSibling;
       return n?.textContent ?? "";
     };
-    const states = rows.map((r) => rowState(r.textContent ?? "") ?? (asksOwner(headingOf(r)) ? "needs" : null));
+    const worded = new Map(model.rows.map((r) => [r.el, r.state]));
+    const states = rows.map((r) => rowState(r.textContent ?? "") ?? (asksOwner(headingOf(r)) ? "needs" : null) ?? worded.get(r) ?? null);
     if (!states.some(Boolean)) return;
     root.dataset.directions = "on";
     rows.forEach((r, i3) => {
@@ -14431,20 +14849,50 @@ ${t}`)) say("Note title saved");
     const all = tally(states);
     const bar = document.createElement("div");
     bar.className = "fe-dir-sum";
-    bar.innerHTML = chipBarHtml(tallies(all), `<span class="fe-dir-total">${meter(all)}</span>`);
+    const unmarked = model.rows.filter((r) => !r.summary && !r.state && !r.el.dataset.state).length;
+    bar.innerHTML = chipBarHtml(tallies(all), `<span class="fe-dir-total">${meter(all)}</span>${unmarked ? `<span class="fe-dir-unmarked" title="Rows with no state mark or state word">${unmarked} unmarked</span>` : ""}`);
     const h1 = root.querySelector("h1");
     if (h1) h1.after(bar);
     else root.prepend(bar);
-    wireChipBar(bar, (want) => {
-      root.dataset.dirFilter = want;
-      rows.forEach((r) => {
-        r.hidden = !!want && r.dataset.state !== want;
-      });
-      root.querySelectorAll("table").forEach((t) => {
-        const visible2 = [...t.querySelectorAll("tbody tr")].some((r) => !r.hidden);
-        (t.closest(".fe-md-tablewrap") ?? t).hidden = !!want && !visible2;
-      });
+    const head = document.createElement("section");
+    head.className = "fe-dir-next";
+    head.setAttribute("aria-label", "What to do next");
+    head.innerHTML = nextHeadHtml(model, nextHead(model));
+    bar.before(head);
+    head.addEventListener("click", (e) => {
+      const t = e.target;
+      const more = t.closest("[data-more]");
+      if (more) {
+        bar.querySelector(`.fe-dv-chip[data-state="${more.dataset.more}"]`)?.click();
+        return;
+      }
+      const row2 = model.rows[Number(t.closest("[data-row]")?.dataset.row)]?.el;
+      if (!row2) return;
+      if (row2.hidden) {
+        bar.querySelector('.fe-dv-chip[aria-pressed="true"]')?.click();
+        const seg = root.querySelector("#fe-dir-view");
+        if (seg && row2.hidden) {
+          seg.value = "all";
+          seg.dispatchEvent(new Event("change"));
+        }
+      }
+      row2.scrollIntoView({ block: "center", behavior: "smooth" });
+      flashRow(row2);
     });
+    markDone(model);
+    let view = "all", chip = "";
+    const apply = () => applyView(root, model, view, chip);
+    wireChipBar(bar, (want) => {
+      chip = want;
+      root.dataset.dirFilter = want;
+      apply();
+    });
+    view = mountViews(root, bar, (v) => {
+      view = v;
+      apply();
+    });
+    apply();
+    markOutline(model);
   }
   var directionsView = {
     id: "directions",
@@ -14807,6 +15255,9 @@ body{opacity:1!important}
 #fe-side.peek{position:fixed;left:var(--sp-4);top:calc(var(--bar-h) + var(--sp-4));bottom:var(--sp-4);z-index:var(--z-popover);border:1px solid var(--pop-bd);border-radius:var(--r-sm);box-shadow:var(--pop-sh);animation:fe-lens-in var(--t-fast) var(--ease)}
 #fe-edge{position:fixed;left:0;top:var(--bar-h);bottom:0;width:var(--sp-5);z-index:var(--z-popover);cursor:e-resize}
 #fe-edge::after{content:'';position:absolute;left:var(--sp-1);top:30%;bottom:30%;width:var(--sp-1);border-radius:var(--r-full);background:var(--ac);opacity:0;transition:opacity var(--t-fast) var(--ease)}
+/* Drag to scroll (drag-pan.ts): the hand while the key is held over a page, the closed hand while dragging. */
+[data-pan-on],[data-pan-on] *{cursor:grab}
+html[data-pan="grabbing"],html[data-pan="grabbing"] *{cursor:grabbing;user-select:none}
 #fe-edge.near::after{opacity:.55}
 #fe-edge[hidden]{display:none}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:var(--sp-3);padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
@@ -15265,7 +15716,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
 #fe-toc-rail[hidden]{display:none}
 #fe-toc-rail.peek{box-shadow:var(--pop-sh)}
-.fe-toc-head{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-4) var(--sp-3) var(--sp-6);flex:none}
+.fe-toc-head{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-4) var(--sp-3) var(--sp-6);flex:none;cursor:grab}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:var(--sp-1) 0 var(--sp-6)}
 #fe-toc a.fe-toc-h1{font-size:var(--fs-lg);font-weight:600;color:var(--tx)}
 #fe-toc a.fe-toc-h2{font-size:var(--fs-md);padding-left:22px}
@@ -15283,6 +15734,11 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-rt.on{color:var(--tx);background:var(--on)}
 .fe-rt[hidden]{display:none}
 #fe-toc-rail[data-tab="cm"]{width:320px}
+/* The card moves by its header and resizes from its lower-left corner (rail-box.ts). */
+#fe-toc-rail[data-moving]{transition:none;box-shadow:var(--pop-sh);cursor:grabbing}
+.fe-resizing #fe-toc-rail{transition:none}
+.fe-rail-rz{position:absolute;left:0;bottom:0;width:14px;aspect-ratio:1;z-index:1;transform:scaleX(-1)}
+.fe-rail-rz.rz[data-axis="xy"]{cursor:nesw-resize}
 /* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
 #fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
 /* The pane buttons right of find: icons only, the comment count as a small badge. */
@@ -15312,6 +15768,12 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-th:hover{border-color:var(--bd2)}
 .fe-cm-th.on{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 14%,transparent)}
 .fe-cm-th:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.fe-cm-status{display:inline-flex;flex:none}
+.fe-cm-status svg{width:15px;aspect-ratio:1}
+.fe-cm-status[data-state="open"]{color:var(--tone-warn)}
+.fe-cm-status[data-state="done"]{color:var(--tone-ok)}
+.fe-cm-th > .fe-cm-status{position:absolute;top:var(--sp-4);right:var(--sp-4)}
+.fe-cm-th:has(> .fe-cm-status) > .fe-cm-q{padding-right:var(--sp-7)}
 .fe-cm-q{margin:0 0 var(--sp-4);padding:0 0 0 var(--sp-4);border-left:2px solid color-mix(in srgb,var(--ac) 55%,transparent);font-size:var(--fs-sm);line-height:1.45;color:var(--mt);
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .fe-cm-state{display:flex;align-items:center;gap:var(--sp-2);margin:-2px 0 var(--sp-4);font-size:var(--fs-xs);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));cursor:default}
@@ -15375,9 +15837,19 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 /* In the text: commented words get a wash, the open thread a stronger one,
    and each block with comments a count in the right margin. */
 ::highlight(bfb-cm){background-color:color-mix(in srgb,var(--ac) 9%,transparent)}
-::highlight(bfb-cm-hover){background-color:color-mix(in srgb,var(--ac) 17%,transparent)}
+/* Commented words under the pointer: the tint deepens smoothly and a dashed
+   underline marks them as something to click (--cm-hov eases on #fe-page). */
+@property --cm-hov{syntax:'<percentage>';inherits:true;initial-value:0%}
+::highlight(bfb-cm-hover){background-color:color-mix(in srgb,var(--ac) calc(var(--cm-hov) * .17),transparent);text-decoration:underline dashed color-mix(in srgb,var(--ac) var(--cm-hov),transparent)}
 ::highlight(bfb-cm-on){background-color:color-mix(in srgb,var(--ac) 24%,transparent)}
-#fe-page.fe-cm-pointing{cursor:pointer}
+#fe-page.fe-cm-pointing{cursor:pointer;--cm-hov:100%}
+/* What a thread says, shown above its words after a few seconds of hover. */
+.fe-cm-peek{position:fixed;top:0;left:0;z-index:var(--z-popover);width:max-content;max-width:320px;background:var(--s2);color:var(--tx);border:1px solid var(--bd);
+  box-shadow:0 4px 14px rgb(var(--ink) / .4);border-radius:var(--row-r);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-md);line-height:1.4;cursor:pointer;animation:fe-fade var(--t-base) var(--ease)}
+.fe-cm-peek[hidden]{display:none}
+.fe-cm-peek:hover{border-color:var(--bd2)}
+.fe-cm-peek-tx{white-space:pre-line;margin-top:var(--sp-1)}
+.fe-cm-peek-more{margin-top:var(--sp-2);color:var(--mt);font-size:var(--fs-sm)}
 .fe-md [data-cm]{position:relative}
 .fe-md [data-cm]::after{content:attr(data-cm);position:absolute;top:2px;right:-30px;min-width:20px;height:var(--ctl-xs);padding:0 var(--sp-2);border-radius:9px 9px 9px 2px;
   background:color-mix(in srgb,var(--ac) 22%,var(--card));color:var(--tx);font-size:var(--fs-xs);font-weight:600;line-height:18px;text-align:center;cursor:pointer}
@@ -15392,7 +15864,7 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 #fe-ff-n.part{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
 mark.fe-ff-hit{background:color-mix(in srgb,var(--gold) 35%,transparent);color:inherit;border-radius:2px}
 mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
-#fe-page{flex:1;min-width:0;overflow:auto;font-size:var(--fs-md)}
+#fe-page{flex:1;min-width:0;overflow:auto;font-size:var(--fs-md);transition:--cm-hov var(--t-base) var(--ease)}
 #fe-page .fe-md{overflow-wrap:break-word;max-width:none;margin:0;padding:28px 48px 80px;font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
 #fe.fe-column-xl #fe-page .fe-md{max-width:150ch;margin:0 auto}
 #fe.fe-column-lg #fe-page .fe-md{max-width:130ch;margin:0 auto}
@@ -15697,6 +16169,33 @@ a.fe-fm-path:hover{text-decoration:underline}
 [data-state="noted"]{--st:var(--ac)}
 .fe-md[data-directions] tr[data-state] td:first-child{box-shadow:inset 3px 0 0 var(--st)}
 .fe-dir-sum{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);margin:var(--sp-4) 0 var(--sp-6)}
+/* The view switch under the state bar, and what each view folds away (directions-views.ts). */
+.fe-dir-views{margin:calc(-1 * var(--sp-3)) 0 var(--sp-6)}
+.fe-md [data-view-hide]{display:none}
+.fe-dir-unmarked{font-size:var(--fs-sm);color:var(--dm)}
+/* A goal's done-when line, terse: the bars it names, ticked when a finished row says so (directions-done.ts). */
+.fe-dir-done{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2) var(--sp-3);margin:calc(-1 * var(--sp-2)) 0 var(--sp-5);font-size:var(--fs-sm);color:var(--mt)}
+.fe-dir-done-k{font-weight:600;color:var(--tx)}
+.fe-dir-done-l[data-met]{color:var(--tone-ok)}
+.fe-dir-done-src{display:none}
+.fe-toc-n{margin-left:auto;padding-left:var(--sp-3);display:inline-flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--mt);flex:none}
+.fe-toc-n::before{content:'';width:6px;aspect-ratio:1;border-radius:50%;background:var(--st)}
+/* What to do next: what waits on you, what an agent can pick up, and staleness (directions-head.ts). */
+.fe-dir-next{display:flex;flex-wrap:wrap;gap:var(--sp-5) var(--sp-8);margin:var(--sp-5) 0 var(--sp-4);padding:var(--sp-5) var(--sp-6);border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1)}
+.fe-dir-next-h{flex-basis:100%}
+.fe-dir-next-g{flex:1 1 280px;border-left:2px solid var(--bd);padding-left:var(--sp-5);min-width:0}
+.fe-dir-next-g[data-g="you"]{border-left-color:var(--tone-danger)}
+.fe-dir-next-g[data-g="ready"]{border-left-color:var(--tone-ok)}
+.fe-dir-next ol{list-style:none;margin:var(--sp-3) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--sp-4)}
+.fe-dir-next-i{border:0;background:none;padding:0;font:inherit;text-align:left;cursor:pointer;display:flex;gap:var(--sp-3);align-items:baseline;color:var(--tx);font-weight:500}
+.fe-dir-next-i:hover .fe-dir-next-t{text-decoration:underline}
+.fe-dir-next-i:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:var(--r-xs)}
+.fe-dir-next-id{font-family:var(--mono);font-size:var(--fs-sm);color:var(--mt);flex:none}
+.fe-dir-next-sub{display:flex;flex-wrap:wrap;gap:0 var(--sp-4);font-size:var(--fs-sm);color:var(--mt);margin-top:var(--sp-1)}
+.fe-dir-next-silent{color:var(--dm)}
+.fe-dir-next-none{margin:var(--sp-3) 0 0;color:var(--mt)}
+.fe-dir-next-more{border:0;background:none;padding:0;font:inherit;cursor:pointer;color:var(--ac);font-size:var(--fs-sm);margin-top:var(--sp-3)}
+.fe-dir-next-stale{flex-basis:100%;margin:0;color:var(--tone-warn);font-size:var(--fs-sm)}
 .fe-dir-total{margin-left:var(--sp-3)}
 .fe-md>p.fe-dir-meta{font-size:var(--fs-sm);color:var(--dm)}
 /* The doc-view kit: state pills, filter chips and meters share one tone per state (--st). */
@@ -16202,6 +16701,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-fact{padding:0;border:0;background:none;font:inherit;color:inherit;cursor:copy}
 .fe-dp-fact:hover{color:var(--tx);text-decoration:underline}
 .fe-dp-fact:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:var(--r-xs)}
+.fe-dp-fact[data-done]{color:var(--tone-ok)}
 .fe-dp-intro{color:var(--mt)}
 .fe-dp-intro .fe-md{padding:0;max-width:none;color:inherit}
 #fe-dp-back{margin-left:var(--sp-4)}
@@ -16781,10 +17281,10 @@ button.chip:disabled{opacity:.45;cursor:default}
     return Promise.race([read2, timeout]);
   }
   async function resolvePath(path) {
-    const clean = path.replace(/\/+$/, "");
-    if (!clean) return "/";
-    const parent = clean.slice(0, clean.lastIndexOf("/") + 1) || "/";
-    const name = clean.slice(clean.lastIndexOf("/") + 1);
+    const clean2 = path.replace(/\/+$/, "");
+    if (!clean2) return "/";
+    const parent = clean2.slice(0, clean2.lastIndexOf("/") + 1) || "/";
+    const name = clean2.slice(clean2.lastIndexOf("/") + 1);
     let listing;
     const dir = fileHref(parent);
     try {
@@ -16794,7 +17294,7 @@ button.chip:disabled{opacity:.45;cursor:default}
       return await resolvePath(parent) === null ? null : path;
     }
     const hit = parseListing(listing, dir).find((e) => e.name === name);
-    return hit ? clean + (hit.isDir ? "/" : "") : null;
+    return hit ? clean2 + (hit.isDir ? "/" : "") : null;
   }
   var submitOpen = null;
   function gotoBackground() {
@@ -17256,7 +17756,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   }
 
   // src/scroll-hold.ts
-  function holdScroll(scroller, top, save) {
+  function holdScroll(scroller2, top, save) {
     let holding = top > 0;
     const stop = () => {
       holding = false;
@@ -17264,20 +17764,20 @@ button.chip:disabled{opacity:.45;cursor:default}
     };
     const apply = () => {
       if (!holding) return;
-      scroller.scrollTop = top;
-      if (Math.abs(scroller.scrollTop - top) < 2) stop();
+      scroller2.scrollTop = top;
+      if (Math.abs(scroller2.scrollTop - top) < 2) stop();
     };
     const grow = new ResizeObserver(apply);
     if (holding) {
-      for (const c of scroller.children) grow.observe(c);
+      for (const c of scroller2.children) grow.observe(c);
       apply();
-      for (const ev of ["wheel", "pointerdown", "keydown", "touchstart"]) scroller.addEventListener(ev, stop, { once: true, passive: true });
+      for (const ev of ["wheel", "pointerdown", "keydown", "touchstart"]) scroller2.addEventListener(ev, stop, { once: true, passive: true });
       setTimeout(stop, 3e3);
     }
-    scroller.addEventListener("scroll", () => {
-      if (!holding) save(scroller.scrollTop);
+    scroller2.addEventListener("scroll", () => {
+      if (!holding) save(scroller2.scrollTop);
     }, { passive: true });
-    return () => holding ? top : scroller.scrollTop;
+    return () => holding ? top : scroller2.scrollTop;
   }
 
   // src/text-window.ts
@@ -17311,7 +17811,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     return p;
   }
   function windowedText(ta, text, lines = 3e3) {
-    let pre = "", post = "", first = 0, held = 1, after = 0;
+    let pre = "", post = "", first = 0, held3 = 1, after = 0;
     const text_ = () => pre + ta.value + post;
     const allSelected = () => ta.selectionStart === 0 && ta.selectionEnd === ta.value.length && (pre || post) !== "";
     let selectAll = false;
@@ -17324,8 +17824,8 @@ button.chip:disabled{opacity:.45;cursor:default}
       pre = t.slice(0, a);
       post = t.slice(b);
       ta.value = t.slice(a, b);
-      held = Math.min(lines, total - first);
-      after = total - first - held;
+      held3 = Math.min(lines, total - first);
+      after = total - first - held3;
       const clamp = (x) => Math.max(0, Math.min(ta.value.length, x - a));
       ta.setSelectionRange(clamp(selStart), clamp(selEnd));
     };
@@ -17354,7 +17854,7 @@ button.chip:disabled{opacity:.45;cursor:default}
         first = 0;
         after = 0;
         ta.value = "";
-        held = 1;
+        held3 = 1;
         ta.dispatchEvent(new Event("input", { bubbles: true }));
       }
     };
@@ -17369,7 +17869,7 @@ button.chip:disabled{opacity:.45;cursor:default}
       selectAll = false;
     });
     ta.addEventListener("input", () => {
-      held = countLines(ta.value);
+      held3 = countLines(ta.value);
     });
     place(text, 0, 0, 0);
     return {
@@ -17379,7 +17879,7 @@ button.chip:disabled{opacity:.45;cursor:default}
         place(t, first + (lines >> 1), s.start, s.end);
       },
       first: () => first,
-      size: () => held,
+      size: () => held3,
       selection,
       select: (s, e) => {
         if (s >= pre.length && e <= pre.length + ta.value.length) {
@@ -17390,9 +17890,9 @@ button.chip:disabled{opacity:.45;cursor:default}
         place(t, lineOf(t, s), s, e);
       },
       center: (line2) => {
-        const total = first + held + after;
+        const total = first + held3 + after;
         const target = Math.max(0, Math.min(line2 - (lines >> 1), total - lines));
-        if (target === first || line2 - first > lines >> 3 && first + held - line2 > lines >> 3) return;
+        if (target === first || line2 - first > lines >> 3 && first + held3 - line2 > lines >> 3) return;
         const s = selection();
         place(text_(), line2, s.start, s.end);
       }
@@ -17746,7 +18246,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const banner = box.querySelector("#fe-fe-banner");
     const diffBox = box.querySelector("#fe-fe-diff");
     const diagBtn = box.querySelector("#fe-fe-diag");
-    const scroller = box.querySelector("#fe-fe-scroll");
+    const scroller2 = box.querySelector("#fe-fe-scroll");
     box.classList.toggle("fe-fe-big", big);
     const lhPx = Math.round(parseFloat(getComputedStyle(ta).fontSize) * 1.7);
     paintEl.style.lineHeight = ta.style.lineHeight = lhPx + "px";
@@ -17789,7 +18289,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     };
     const rowEl = (i3) => big ? i3 >= winFirst && i3 <= winLast ? win.children[i3 - winFirst] : void 0 : paintEl.children[i3];
     const lineAtY = (clientY) => Math.floor((clientY - paintEl.getBoundingClientRect().top) / lh);
-    const viewport = () => mode === "split" ? src : scroller;
+    const viewport = () => mode === "split" ? src : scroller2;
     const paintWindow = (force = false) => {
       const vp = viewport();
       const top = vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top;
@@ -17844,7 +18344,7 @@ button.chip:disabled{opacity:.45;cursor:default}
       placeTa();
       paintWindow(true);
     };
-    if (big) for (const el2 of [scroller, src]) el2.addEventListener("scroll", () => {
+    if (big) for (const el2 of [scroller2, src]) el2.addEventListener("scroll", () => {
       paintWindow();
       const vp = viewport();
       moveWindow(Math.floor((vp.getBoundingClientRect().top - paintEl.getBoundingClientRect().top + vp.clientHeight / 2) / lh));
@@ -18473,10 +18973,10 @@ and ${diags.length - 12} more` : "");
       }
     };
     for (const line2 of text.split("\n")) {
-      const item = /^\s*[-*]\s+(.*)$/.exec(line2);
-      if (item) {
+      const item2 = /^\s*[-*]\s+(.*)$/.exec(line2);
+      if (item2) {
         end();
-        list3.push(mdInline(item[1]));
+        list3.push(mdInline(item2[1]));
         continue;
       }
       flush();
@@ -18490,12 +18990,12 @@ and ${diags.length - 12} more` : "");
     end();
     return out.join("");
   }
-  function completions(value, caret, people, tags) {
+  function completions(value, caret, people, tags, rank = () => 0) {
     const m = /(^|\s)([@#])([\w:.-]*)$/.exec(value.slice(0, caret));
     if (!m) return null;
     const q = m[3].toLowerCase();
     const pool = m[2] === "@" ? [...people, ...DATE_WORDS] : tags;
-    const items = [...new Set(pool)].filter((x) => x.toLowerCase().startsWith(q) && x.toLowerCase() !== q).slice(0, 8);
+    const items = [...new Set(pool)].filter((x) => x.toLowerCase().includes(q) && x.toLowerCase() !== q).map((x, i3) => ({ x, i: i3, r: rank(x), p: x.toLowerCase().startsWith(q) ? 0 : 1 })).sort((a, b) => a.r - b.r || a.p - b.p || a.i - b.i).map((e) => e.x).slice(0, 8);
     return items.length ? { from: caret - m[3].length - 1, sigil: m[2], items } : null;
   }
   function agentBrief(path, href, threads) {
@@ -18662,7 +19162,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     const people = () => [
       "user",
       "claude",
-      ...(peers ?? []).map((p) => "claude:" + p.alias),
+      ...[...peers ?? []].sort((a, b) => (b.seen ?? 0) - (a.seen ?? 0)).map((p) => "claude:" + p.alias),
       ...threads.flatMap((t) => [...t.mentions ?? [], ...t.comments.map((c) => c.author.kind === "agent" ? c.author.alias ?? "" : "")])
     ].filter(Boolean);
     const hintFor = (x) => {
@@ -18673,6 +19173,11 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       return p ? `${p.cwd.split("/").pop() || p.cwd} \xB7 ${p.status}` : "";
     };
     const allTags = () => threads.flatMap((t) => t.tags ?? []);
+    const rankOf = (x) => {
+      if (x === "user" || x === "claude") return 0;
+      const p = x.startsWith("claude:") ? peers?.find((q) => q.alias === x.slice(7)) : void 0;
+      return p ? p.status === "live" ? 0 : 1 : 2;
+    };
     const visible2 = () => threads.filter((t) => filter === "all" ? true : filter === "done" ? t.status === "done" : filter === "me" ? forOwner(t) : t.status !== "done");
     const box = (id, label, place, start = "") => `
     <div class="fe-cm-box">
@@ -18701,8 +19206,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const x = (a, v, label) => on ? `<button type="button" class="btn fe-cm-x" data-icon data-size="xs" data-a="${a}" data-v="${esc(v)}" aria-label="${esc(label)}" title="${esc(label)}">${UI_ICON.close}</button>` : "";
       const chips = [
         ...(t.tags ?? []).map((g) => `<span class="chip fe-cm-chip" data-fill data-tone="quiet">#${esc(g)}${x("untag", g, `Remove tag ${g}`)}</span>`),
-        t.due ? `<span class="chip fe-cm-chip" data-fill data-tone="due">${UI_ICON.clock}${esc(dueLabel(t.due))}${x("undue", "", "Clear the due date")}</span>` : "",
-        t.status === "done" ? `<span class="chip fe-cm-chip" data-fill data-tone="done">Done</span>` : ""
+        t.due ? `<span class="chip fe-cm-chip" data-fill data-tone="due">${UI_ICON.clock}${esc(dueLabel(t.due))}${x("undue", "", "Clear the due date")}</span>` : ""
       ].join("");
       const cs = t.comments.map((c) => {
         const mine = on && c.author.kind === "human" && !c.deleted;
@@ -18710,8 +19214,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
             <button type="button" class="btn" data-size="sm" data-a="edit-cancel" title="Cancel (Esc)">Cancel</button>
             <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="edit-save" data-v="${esc(c.id)}" title="Save (\u2318\u21B5)">Save</button></div>` : `<div class="fe-cm-tx">${c.deleted ? "<i>Deleted</i>" : commentHtml(c.text || "")}</div>`;
         return `
-      <div class="fe-cm-c${c.deleted ? " gone" : ""}">
-        <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(c.author))}</b><time title="${esc(c.created)}">${esc(ago2(c.created))}${c.edited ? " \xB7 edited" : ""}</time>
+      <div class="fe-cm-c${c.deleted ? " gone" : ""}" data-c="${esc(c.id)}">
+        <div class="fe-cm-who"><b class="${c.author.kind}">${c.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(c.author))}</b><time title="${esc(whenText(c.created))}">${esc(ago2(c.created))}${c.edited ? " \xB7 edited" : ""}</time>
           ${mine && editing !== c.id ? `<span class="fe-cm-own">${iconBtn2("edit", UI_ICON.rename, "Edit this comment", c.id)}${iconBtn2("del", UI_ICON.trash, "Delete this comment", c.id)}</span>` : ""}</div>
         ${body}
         ${c.suggestion ? sugHtml(t, c, on) : ""}
@@ -18720,19 +19224,20 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const applied = t.status === "done" && t.comments.some((c) => c.suggestion?.state === "accepted");
       const where = applied ? "" : t.place.state === "moved" ? notice("Moved: the words changed", "The quoted words were edited; this is where they seem to be now.") : t.place.state === "ambiguous" ? notice("These words appear more than once") : t.place.state === "detached" ? notice("No longer in the file", "The quoted words were removed. Select new words and press Attach to selection to move the thread.") : "";
       const done = t.status === "done";
+      const status = `<span class="fe-cm-status" data-state="${done ? "done" : "open"}" role="img" aria-label="${done ? "Done" : "Open"}" title="${done ? "Done" : "Open"}">${done ? UI_ICON.circleCheck : UI_ICON.circleDashed}</span>`;
       const tools = on ? `
       ${box(t.id, "Reply", done ? "Reply to reopen\u2026" : "Reply\u2026 @ to mention, # to tag")}
       <div data-inset class="bar fe-cm-tools">
-        <button type="button" class="btn" data-size="sm" data-a="${done ? "reopen" : "done"}" title="${done ? "Reopen this thread" : "Mark done"} (\u2318\u21E7\u21B5)">${done ? UI_ICON.reset + "Reopen" : UI_ICON.check + "Done"}</button>
+        ${status}<button type="button" class="btn" data-size="sm" data-a="${done ? "reopen" : "done"}" title="${done ? "Reopen this thread" : "Mark done"} (\u2318\u21E7\u21B5)">${done ? UI_ICON.reset + "Reopen" : UI_ICON.check + "Mark done"}</button>
         ${dueOpen === t.id ? `<input type="date" class="tb fe-cm-date" data-size="sm" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : iconBtn2("due", UI_ICON.clock, "Set a due date")}
-        ${iconBtn2("link", UI_ICON.link, "Copy a link that opens this thread")}
-        ${iconBtn2("brief", UI_ICON.bot, "Copy this thread as a brief for an agent")}
+        ${iconBtn2("link", UI_ICON.link, "Copy a link to this thread")}
+        ${iconBtn2("brief", UI_ICON.bot, "Copy as a brief for an agent")}
         ${t.place.state !== "anchored" && !applied ? `<button type="button" class="btn" data-size="sm" data-a="attach" title="Select words on the page first">Attach to selection</button>` : ""}
         <span class="fe-cm-grow"></span>
-        <button type="button" class="btn" data-size="sm" data-variant="solid" data-a="reply" title="Reply (\u2318\u21B5)">Reply</button>
+        <button type="button" class="btn" data-icon data-size="sm" data-variant="solid" data-a="reply" title="Reply (\u2318\u21B5)" aria-label="Reply">${UI_ICON.send}</button>
       </div>` : "";
       return `<article class="fe-cm-th card${on ? " on" : ""}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
-      <blockquote class="fe-cm-q">${esc(quote.length > 140 ? quote.slice(0, 139) + "\u2026" : quote)}</blockquote>${where}${cs}
+      ${on ? "" : status}<blockquote class="fe-cm-q">${esc(quote.length > 140 ? quote.slice(0, 139) + "\u2026" : quote)}</blockquote>${where}${cs}
       ${chips ? `<div class="fe-cm-chips">${chips}</div>` : ""}${tools}</article>`;
     };
     const draftHtml = () => draft ? `<form class="fe-cm-th card fe-cm-new on" data-new aria-label="${draft.attach ? "Attach the thread here" : "New comment"}">
@@ -18778,7 +19283,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       o.box.innerHTML = `
       <div class="fe-cm-top">
         <div class="fe-cm-filters" role="tablist">${FILTERS.map((f) => `<button type="button" role="tab" data-f="${f.id}" class="${f.id === filter ? "on" : ""}" aria-selected="${f.id === filter}" title="${f.hint}">${f.icon}<span class="fe-cm-fl">${f.label}</span><span class="fe-cm-fn">${count(f.id) || ""}</span></button>`).join("")}</div>
-        ${list3.length ? iconBtn2("brief-all", UI_ICON.bot, "Copy the threads shown as a brief for an agent, with links") : ""}
+        ${list3.length ? iconBtn2("brief-all", UI_ICON.bot, "Copy the threads shown as a brief") : ""}
       </div>
       <div class="fe-cm-list">
         ${draftHtml()}
@@ -18834,6 +19339,10 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
     };
     const focusThread = (id, scroll = true) => {
+      const opening = id !== active;
+      hidePeek();
+      const cardOf = () => o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
+      const was = opening ? cardOf()?.offsetHeight ?? 0 : 0;
       active = id;
       dueOpen = "";
       editing = "";
@@ -18846,8 +19355,13 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         redraw();
       }
       const th = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
-      th?.scrollIntoView({ block: "nearest" });
-      th?.querySelector(`textarea[data-for="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" });
+      const behavior = opening ? "smooth" : "auto";
+      if (th && opening) {
+        growFrom(th, was);
+        if (!scroll) pulse(th);
+      }
+      th?.scrollIntoView({ block: "nearest", behavior });
+      th?.querySelector(`textarea[data-for="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest", behavior });
       const r = ranges.get(id);
       if (scroll && r) {
         const box2 = r.getBoundingClientRect(), pg = o.page.getBoundingClientRect();
@@ -18864,7 +19378,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const span = sourceSpan(o.page, o.text(), range);
       return span ? { span, range } : null;
     };
-    let held = null;
+    let held3 = null;
     const startDraft = async (span, attach) => {
       if (!o.root()) {
         if (!await o.allow()) return;
@@ -18944,10 +19458,18 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
       if (ta) ta.value = "";
       typed.delete(id);
+      const seen2 = new Set(t.comments.map((c) => c.id));
+      const leaving = close && wasOpen && (filter === "open" || filter === "me") ? o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`) : null;
+      if (leaving) await collapseOut(leaving);
       if (!await write(ops, "Reply")) {
         typed.set(id, text);
         paint();
         return;
+      }
+      const fresh = threads.find((x) => x.id === id)?.comments.filter((c) => !seen2.has(c.id)) ?? [];
+      for (const c of fresh) {
+        const el2 = o.box.querySelector(`.fe-cm-c[data-c="${CSS.escape(c.id)}"]`);
+        if (el2) riseIn(el2);
       }
       if (close && wasOpen && (filter === "open" || filter === "me")) {
         active = "";
@@ -18992,7 +19514,12 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         paint();
       }
     };
-    const copy = (text, said) => copyToClipboard(text).then((ok) => o.status(ok ? said : "copy failed"));
+    const copy = (text, said, btn) => copyWithCheck(btn, text).then((ok) => o.status(ok ? said : "copy failed"));
+    const threadLink = (id) => location.href.split("#")[0] + "#c=" + encodeURIComponent(id);
+    const copyBrief = (btn) => {
+      const ts = visible2();
+      return copy(agentBrief(o.path, o.href, ts), `${ts.length} thread${ts.length === 1 ? "" : "s"} copied as a brief for an agent`, btn);
+    };
     const addBtn = document.createElement("button");
     addBtn.type = "button";
     addBtn.id = "fe-cm-add";
@@ -19037,7 +19564,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     };
     const acShow = (ta) => {
       const list3 = acList();
-      const c = completions(ta.value, ta.selectionStart, people(), allTags());
+      const c = completions(ta.value, ta.selectionStart, people(), allTags(), rankOf);
       if (!list3 || !c) {
         acClose();
         return;
@@ -19056,7 +19583,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       list3.style.top = `${below ? t.bottom - b.top + 4 : t.top - b.top - list3.offsetHeight - 4}px`;
     };
     const acPick = (ta, v) => {
-      const c = completions(ta.value, ta.selectionStart, people(), allTags());
+      const c = completions(ta.value, ta.selectionStart, people(), allTags(), rankOf);
       if (!c) return;
       ta.setRangeText(c.sigil + v + " ", c.from, ta.selectionStart, "end");
       acClose();
@@ -19075,7 +19602,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     });
     o.box.addEventListener("pointerdown", (e) => {
       const s = selected();
-      if (s) held = s.span;
+      if (s) held3 = s.span;
       const opt = e.target.closest(".fe-cm-ac [data-v]");
       if (opt && acFor) {
         e.preventDefault();
@@ -19212,8 +19739,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         return;
       }
       if (a === "brief-all") {
-        const ts = visible2();
-        void copy(agentBrief(o.path, o.href, ts), `${ts.length} thread${ts.length === 1 ? "" : "s"} copied as a brief for an agent`);
+        void copyBrief(act2);
         return;
       }
       if (a && active) {
@@ -19271,20 +19797,20 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
           return;
         }
         if (a === "link") {
-          void copy(location.href.split("#")[0] + "#c=" + encodeURIComponent(active), "Link to this thread copied");
+          void copy(threadLink(active), "Link to this thread copied", act2);
           return;
         }
         if (a === "brief" && t) {
-          void copy(agentBrief(o.path, o.href, [t]), "Thread copied as a brief for an agent");
+          void copy(agentBrief(o.path, o.href, [t]), "Thread copied as a brief for an agent", act2);
           return;
         }
         if (a === "attach") {
-          const span = held ?? selected()?.span;
+          const span = held3 ?? selected()?.span;
           if (!span) {
             o.status("Select the words on the page first, then press Attach to selection");
             return;
           }
-          held = null;
+          held3 = null;
           void startDraft(span, active);
           return;
         }
@@ -19304,8 +19830,57 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
       return "";
     };
+    const PEEK_MS = 3e3;
+    const peekEl = document.createElement("div");
+    peekEl.className = "fe-cm-peek";
+    peekEl.setAttribute("role", "tooltip");
+    peekEl.hidden = true;
+    (o.page.closest("#fe") ?? document.body).appendChild(peekEl);
+    let peekTimer = 0, peekGrace = 0;
+    const hidePeek = () => {
+      clearTimeout(peekTimer);
+      clearTimeout(peekGrace);
+      peekTimer = 0;
+      peekEl.hidden = true;
+      delete peekEl.dataset.id;
+    };
+    const showPeek = (id) => {
+      const t = threads.find((x) => x.id === id), r = ranges.get(id);
+      if (!t || !r || id === active) return;
+      const first = t.comments.find((c) => !c.deleted);
+      if (!first) return;
+      const more = t.comments.filter((c) => !c.deleted).length - 1;
+      peekEl.innerHTML = `<div class="fe-cm-who"><b class="${first.author.kind}">${first.author.kind === "agent" ? UI_ICON.ai : ""}${esc(who(first.author))}</b><time>${esc(ago2(first.created))}</time></div><div class="fe-cm-peek-tx">${esc((first.text || "").slice(0, 220))}${(first.text || "").length > 220 ? "\u2026" : ""}</div>` + (more > 0 ? `<div class="fe-cm-peek-more">${more} more repl${more === 1 ? "y" : "ies"}</div>` : "");
+      peekEl.dataset.id = id;
+      peekEl.hidden = false;
+      const at = r.getClientRects()[0] ?? r.getBoundingClientRect();
+      const w = peekEl.offsetWidth, hgt = peekEl.offsetHeight;
+      const left = Math.min(Math.max(8, at.left), innerWidth - w - 8);
+      const top = at.top - hgt - 8 >= 8 ? at.top - hgt - 8 : at.bottom + 8;
+      peekEl.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+    };
+    const leaveSoon = () => {
+      clearTimeout(peekGrace);
+      peekGrace = window.setTimeout(() => {
+        if (!peekEl.matches(":hover")) hidePeek();
+      }, 250);
+    };
+    peekEl.addEventListener("click", () => {
+      const id = peekEl.dataset.id;
+      hidePeek();
+      if (id) {
+        o.reveal();
+        focusThread(id, false);
+        o.changed();
+      }
+    });
+    peekEl.addEventListener("mouseenter", () => clearTimeout(peekGrace));
+    peekEl.addEventListener("mouseleave", leaveSoon);
+    o.page.addEventListener("scroll", hidePeek, { passive: true });
     let hovered = "", hoverFrame = 0;
+    let pt = null;
     o.page.addEventListener("mousemove", (e) => {
+      pt = { x: e.clientX, y: e.clientY };
       if (hoverFrame || !ranges.size) return;
       hoverFrame = requestAnimationFrame(() => {
         hoverFrame = 0;
@@ -19314,14 +19889,25 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         hovered = id;
         const r = id && id !== active ? ranges.get(id) : void 0;
         if (r) reg.set("bfb-cm-hover", new H(r));
-        else reg.delete("bfb-cm-hover");
-        o.page.classList.toggle("fe-cm-pointing", !!id);
+        o.page.classList.toggle("fe-cm-pointing", !!r);
+        clearTimeout(peekTimer);
+        if (r) {
+          clearTimeout(peekGrace);
+          if (peekEl.dataset.id !== id) {
+            peekEl.hidden = true;
+            peekTimer = window.setTimeout(() => {
+              if (pt && threadAt(pt.x, pt.y) === id) showPeek(id);
+            }, PEEK_MS);
+          }
+        } else if (!peekEl.hidden) leaveSoon();
       });
     });
     o.page.addEventListener("mouseleave", () => {
       hovered = "";
-      reg?.delete("bfb-cm-hover");
+      pt = null;
       o.page.classList.remove("fe-cm-pointing");
+      clearTimeout(peekTimer);
+      if (!peekEl.hidden) leaveSoon();
     });
     o.page.addEventListener("click", (e) => {
       const me = e;
@@ -19381,6 +19967,19 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         step2(a === "next" ? 1 : -1);
         return placed().length > 0;
       }
+      if (a === "brief") {
+        if (!visible2().length) return false;
+        void copyBrief(o.box.querySelector('[data-a="brief-all"]'));
+        return true;
+      }
+      if (a === "link") {
+        if (!active) {
+          o.status("Open a comment first, then copy its link");
+          return true;
+        }
+        void copy(threadLink(active), "Link to this thread copied", o.box.querySelector(`[data-a="link"]`));
+        return true;
+      }
       if (a === "comment") {
         const s = selected();
         if (s) {
@@ -19425,6 +20024,92 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       marks: () => placed().map((t) => ({ id: t.id, offset: t.place.offset, length: t.place.length })),
       held: () => !!active || !!draft
     };
+  }
+
+  // src/rail-box.ts
+  var boxPref = jsonPref("bfb-rail-box-v1", {}, (v) => !!v && typeof v === "object" && !Array.isArray(v));
+  var MIN_W2 = 240;
+  var MAX_W = 760;
+  var MIN_H = 160;
+  var EDGE2 = 8;
+  function clampBox(b, page, card4) {
+    const out = {};
+    const w = b.w === void 0 ? card4.w : Math.round(Math.min(Math.max(MIN_W2, b.w), MAX_W, page.w - 2 * EDGE2));
+    if (b.w !== void 0) out.w = w;
+    const top = b.top === void 0 ? void 0 : Math.round(Math.min(Math.max(0, b.top), Math.max(0, page.h - MIN_H)));
+    if (top !== void 0) out.top = top;
+    if (b.h !== void 0) out.h = Math.round(Math.min(Math.max(MIN_H, b.h), page.h - (top ?? 12) - EDGE2));
+    if (b.right !== void 0) out.right = Math.round(Math.min(Math.max(0, b.right), Math.max(0, page.w - w)));
+    return out;
+  }
+  function wireRailBox(rail, onChange) {
+    const head = rail.querySelector(".fe-toc-head");
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "btn fe-rail-reset";
+    reset.dataset.icon = "";
+    reset.dataset.size = "xs";
+    reset.title = "Put the card back";
+    reset.innerHTML = UI_ICON.reset;
+    head.appendChild(reset);
+    const grip = document.createElement("div");
+    grip.className = "fe-rail-rz";
+    rail.appendChild(grip);
+    const tab = () => rail.dataset.tab === "cm" ? "cm" : "toc";
+    const host = () => rail.offsetParent;
+    const pageSize = () => {
+      const p = host();
+      return { w: p?.clientWidth ?? innerWidth, h: p?.clientHeight ?? innerHeight };
+    };
+    const cardSize = () => ({ w: rail.offsetWidth, h: rail.offsetHeight });
+    let cur = {};
+    let shown = {};
+    const paintBox = (b) => {
+      shown = b;
+      rail.style.right = b.right === void 0 ? "" : `${b.right}px`;
+      rail.style.top = b.top === void 0 ? "" : `${b.top}px`;
+      rail.style.width = b.w === void 0 ? "" : `${b.w}px`;
+      rail.style.height = b.h === void 0 ? "" : `${b.h}px`;
+      rail.style.maxHeight = b.h === void 0 ? "" : "none";
+      reset.hidden = !Object.keys(b).length;
+    };
+    const apply = () => {
+      cur = boxPref.get()[tab()] ?? {};
+      paintBox(clampBox(cur, pageSize(), cardSize()));
+    };
+    const keep = (b) => {
+      cur = b;
+      boxPref.set({ ...boxPref.get(), [tab()]: b });
+      paintBox(b);
+      onChange();
+    };
+    head.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || e.target.closest('button, a, input, [role="tab"]')) return;
+      const p = host()?.getBoundingClientRect(), r = rail.getBoundingClientRect();
+      if (!p) return;
+      const start = { right: p.right - r.right, top: r.top - p.top };
+      rail.dataset.moving = "";
+      startDrag(
+        e,
+        "grabbing",
+        (dx, dy) => paintBox(clampBox({ ...cur, right: start.right - dx, top: start.top + dy }, pageSize(), cardSize())),
+        () => {
+          delete rail.dataset.moving;
+          keep(shown);
+        }
+      );
+    });
+    resizable(grip, {
+      axis: "xy",
+      dir: -1,
+      label: "Resize the card",
+      size: () => cardSize(),
+      apply: (w, h) => paintBox(clampBox({ ...cur, w, h }, pageSize(), cardSize())),
+      commit: () => keep(shown),
+      reset: () => keep({})
+    });
+    reset.addEventListener("click", () => keep({}));
+    return { placed: (t) => Object.keys(boxPref.get()[t] ?? {}).length > 0, apply };
   }
 
   // src/file-page.ts
@@ -19532,7 +20217,7 @@ ${d.message}` : d.message;
         ${KEEP_BTN}
         <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code">${GLYPH.wrap}Wrap</button>
         <button id="fe-fp-raw" class="btn" title="Raw text (r)">${GLYPH.raw}Raw</button>
-        <button id="fe-fp-copy" class="btn" title="Copy file contents">${GLYPH.copyPage}Copy</button>
+        <button id="fe-fp-copy" class="btn" title="Copy the file">${GLYPH.copyPage}Copy</button>
         <span id="fe-ff" title="Find in this file (/) \xB7 Enter next \xB7 Shift+Enter previous \xB7 Esc clears">
           ${GLYPH.find}
           <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
@@ -19620,6 +20305,7 @@ ${d.message}` : d.message;
       }
       cmBtnN.textContent = cmOpen ? String(cmOpen) : "";
       rail.classList.toggle("peek", tight && peek);
+      if (!rail.hidden) railBox.apply();
       findBox.hidden = !!editor;
     };
     const render2 = () => {
@@ -19681,6 +20367,7 @@ ${d.message}` : d.message;
       const md2 = page.querySelector(".fe-md");
       if (!md2) return false;
       const textRight = md2.getBoundingClientRect().right - parseFloat(getComputedStyle(md2).paddingRight);
+      if (railBox.placed(railTab)) return false;
       return fp.getBoundingClientRect().right - textRight < RAIL_ROOM[railTab];
     };
     const refit = () => {
@@ -19691,6 +20378,7 @@ ${d.message}` : d.message;
         paint();
       }
     };
+    const railBox = wireRailBox(rail, () => refit());
     if (fp) tight = fp.clientWidth < TOC_ROOMY;
     render2();
     refit();
@@ -19916,8 +20604,8 @@ ${d.message}` : d.message;
       syncWrap();
     });
     document.getElementById("fe-fp-copy").addEventListener("click", () => {
-      copyToClipboard(text).then((ok) => {
-        document.getElementById("fe-status-text").textContent = ok ? "copied" : "copy failed";
+      void copyWithCheck(document.getElementById("fe-fp-copy"), text).then((ok) => {
+        if (!ok) document.getElementById("fe-status-text").textContent = "copy failed";
       });
     });
     const reloadEl = document.getElementById("fe-fp-reload");
@@ -19937,7 +20625,7 @@ ${d.message}` : d.message;
       text = fresh;
       paintMeta();
       render2();
-      live2(true, "reloaded " + (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      live2(true, "reloaded " + whenText(Date.now()).replace("Today ", ""));
     }).catch(() => live2(false, "not watching")), { pause: () => !!editor });
     return {
       toggleRaw,
@@ -20219,15 +20907,15 @@ ${d.message}` : d.message;
       layer = openLayer(menu, { kind: "popover", anchor, role: "menu", group: "menu" });
     }
     menu.addEventListener("click", (e) => {
-      const item = e.target.closest(".fe-ctx-item");
+      const item2 = e.target.closest(".fe-ctx-item");
       closeMenu();
-      if (item?.dataset.go) {
-        goTab(item.dataset.go);
+      if (item2?.dataset.go) {
+        goTab(item2.dataset.go);
         return;
       }
       const t = state.list.find((x) => x.id === menu.dataset.id);
-      if (!item || !t) return;
-      const act = item.dataset.act;
+      if (!item2 || !t) return;
+      const act = item2.dataset.act;
       if (act === "copy") void copyToClipboard(t.path).then((ok) => toast(ok ? "Copied path" : "Copy failed"));
       else if (act === "save") {
         const now = toggleSaved(t.path, t.label);
@@ -20682,6 +21370,12 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     { value: "1000", label: "Slowly", hint: "1 second" },
     { value: "0", label: "Only on Esc or a click away" }
   ];
+  var PAN_OPTS = [
+    { value: "Shift", label: "Shift" },
+    { value: "Alt", label: "Option" },
+    { value: "Meta", label: "Command" },
+    { value: "off", label: "Off" }
+  ];
   var TERM_OPTS = [
     { value: "ghostty", label: "Ghostty" },
     { value: "terminal", label: "Terminal" },
@@ -20724,7 +21418,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           ], "What a click on a file does", "lg")) + row("Preview", "", segHtml("fe-st-panel", [
             { value: "modal", label: "Float", icon: i2('<rect width="14" height="12" x="5" y="6" rx="2"/>') },
             { value: "side", label: "Dock", icon: UI_ICON.preview }
-          ], "Where the preview opens", "lg") + iconBtn("fe-st-panel-reset", UI_ICON.reset, "Reset dragged sizes"))
+          ], "Where the preview opens", "lg") + iconBtn("fe-st-panel-reset", UI_ICON.reset, "Reset dragged sizes")) + row("Drag to scroll", "Hold this key over a page, table or code block and drag to scroll it", ddHtml("fe-st-pan", PAN_OPTS, "Key that turns a drag into scrolling", "lg"))
         ) + card2(
           "Sidebar",
           row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Make room for a docked preview", "Fold the sidebar while a docked preview is open", sw("fe-st-dock-fold", "Fold the sidebar for a docked preview")) + row("Peek closes", "A hidden sidebar opens from the left edge; it closes this long after the pointer leaves", ddHtml("fe-st-peek-close", PEEK_OPTS, "When a peeked sidebar closes", "lg")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
@@ -20931,7 +21625,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         ${GLYPH.eye}
       </button>` : "";
     return `<span class="fe-acts" data-path="${dPath}" data-name="${dName}">
-    ${pvBtn}<button class="btn fe-act-btn fe-act-cp" data-icon data-size="sm" data-variant="surface" title="Copy full path" data-copy="${dPath}">
+    ${pvBtn}<button class="btn fe-act-btn fe-act-cp" data-icon data-size="sm" data-variant="surface" title="Copy path" data-copy="${dPath}">
       ${GLYPH.copySmall}
     </button>
     <button class="btn fe-act-btn fe-act-nm" data-icon data-size="sm" data-variant="surface" title="Copy name" data-copy="${dName}">
@@ -21723,12 +22417,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     function paintWindow(force = false) {
       if (!win) return;
-      const scroller = el("fe-scroll"), tbody = el("fe-tbody");
-      const offset = tbody.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-      const top = scroller.scrollTop - offset;
+      const scroller2 = el("fe-scroll"), tbody = el("fe-tbody");
+      const offset = tbody.getBoundingClientRect().top - scroller2.getBoundingClientRect().top + scroller2.scrollTop;
+      const top = scroller2.scrollTop - offset;
       const n = win.parts.length;
       const a = Math.max(0, firstAtOrAfter(win.tops, top) - OVERSCAN);
-      const b = Math.min(n, firstAtOrAfter(win.tops, top + scroller.clientHeight) + OVERSCAN);
+      const b = Math.min(n, firstAtOrAfter(win.tops, top + scroller2.clientHeight) + OVERSCAN);
       if (!force && a >= win.a && b <= win.b) return;
       win.a = Math.max(0, a - OVERSCAN);
       win.b = Math.min(n, b + OVERSCAN);
@@ -21740,8 +22434,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     function measureWindow() {
       if (!win) return;
       const tbody = el("fe-tbody");
-      const held = tbody.getBoundingClientRect().height;
-      tbody.innerHTML = win.parts.slice(0, 60).join("") + `<tr class="fe-spacer" aria-hidden="true"><td colspan="6" style="--h:${Math.round(held)}px"></td></tr>`;
+      const held3 = tbody.getBoundingClientRect().height;
+      tbody.innerHTML = win.parts.slice(0, 60).join("") + `<tr class="fe-spacer" aria-hidden="true"><td colspan="6" style="--h:${Math.round(held3)}px"></td></tr>`;
       const row2 = tbody.querySelector("tr[data-idx]")?.offsetHeight || 36;
       const hdr = tbody.querySelector(".fe-group-hdr")?.offsetHeight || row2;
       let y = 0;
@@ -21980,9 +22674,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (win && !el("fe-tbody").querySelector(`[data-idx="${ls.selIdx}"]`)) {
         const part = win.idxOf.indexOf(ls.selIdx);
         if (part >= 0) {
-          const scroller = el("fe-scroll"), tbody = el("fe-tbody");
-          const offset = tbody.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-          scroller.scrollTop = Math.max(0, offset + win.tops[part] - scroller.clientHeight / 2);
+          const scroller2 = el("fe-scroll"), tbody = el("fe-tbody");
+          const offset = tbody.getBoundingClientRect().top - scroller2.getBoundingClientRect().top + scroller2.scrollTop;
+          scroller2.scrollTop = Math.max(0, offset + win.tops[part] - scroller2.clientHeight / 2);
           paintWindow(true);
         }
       }
@@ -22098,7 +22792,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       applyAll();
     }
     els("th[data-sort]").forEach((th) => th.addEventListener("click", () => setSortCol(th.dataset.sort)));
-    const MIN_W2 = 48, LAST_MIN = 110;
+    const MIN_W3 = 48, LAST_MIN = 110;
     const lastTh = el("fe-table").querySelector("thead th.c-dt");
     const applyWidths = () => {
       const w = getColWidths();
@@ -22127,7 +22821,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           return { w: th.offsetWidth, h: 0 };
         },
         apply: (w) => {
-          th.style.width = Math.min(maxW, Math.max(MIN_W2, w)) + "px";
+          th.style.width = Math.min(maxW, Math.max(MIN_W3, w)) + "px";
         },
         reset: () => {
           const widths = getColWidths();
@@ -22543,9 +23237,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const { fe, toast, rawPath } = app;
     const { ls, sel } = listing;
     const scroll = el("fe-scroll");
-    const copyText = (val) => {
-      copyToClipboard(val).then(() => toast(`Copied: ${val}`));
+    const copyText = (val, btn) => {
+      void copyWithCheck(btn, val).then((ok) => toast(ok ? `Copied: ${val}` : "Copy failed"));
     };
+    const rowBtn = (en, cls) => scroll.querySelector(`[data-idx="${ls.visible.indexOf(en)}"] .${cls}`);
     const renameRow = (en) => {
       const row2 = scroll.querySelector(`[data-idx="${ls.visible.indexOf(en)}"]`);
       if (!row2) return;
@@ -22575,7 +23270,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       if (btn) {
         e.preventDefault();
         e.stopPropagation();
-        copyText(btn.dataset.copy || "");
+        copyText(btn.dataset.copy || "", btn);
         return;
       }
       const en = entryAt(e);
@@ -22708,29 +23403,29 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ctx = openLayer(ctxMenu, { kind: "popover", place: "point", point: { x: e.clientX, y: e.clientY }, origin: holder, role: "menu", group: "menu" });
     });
     ctxMenu.addEventListener("click", (e) => {
-      const item = e.target.closest(".fe-ctx-item");
-      if (!item) return;
+      const item2 = e.target.closest(".fe-ctx-item");
+      if (!item2) return;
       const en = ls.visible[parseInt(ctxMenu.dataset.idx)];
       closeCtx();
       if (!en) return;
       const fp = fullPath(rawPath, en);
-      if (item.dataset.act === "pv") openPreview(en);
-      else if (item.dataset.act === "cp-path") copyText(fp);
-      else if (item.dataset.act === "cp-name") copyText(en.name);
-      else if (item.dataset.act === "cp-text") copyContents(en, toast);
-      else if (item.dataset.act === "keep") {
+      if (item2.dataset.act === "pv") openPreview(en);
+      else if (item2.dataset.act === "cp-path") copyText(fp);
+      else if (item2.dataset.act === "cp-name") copyText(en.name);
+      else if (item2.dataset.act === "cp-text") copyContents(en, toast);
+      else if (item2.dataset.act === "keep") {
         app.strip.open(fp, true);
         toast(`Kept ${en.name} as a tab`);
-      } else if (item.dataset.act === "ask") askAbout(en);
-      else if (item.dataset.act === "term") app.openInTerminal(en.isDir ? fp : rawPath);
-      else if (item.dataset.act === "rename") renameRow(en);
-      else if (item.dataset.act?.startsWith("ow:")) runOpenWith(item.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
-      else if (item.dataset.act === "save") {
+      } else if (item2.dataset.act === "ask") askAbout(en);
+      else if (item2.dataset.act === "term") app.openInTerminal(en.isDir ? fp : rawPath);
+      else if (item2.dataset.act === "rename") renameRow(en);
+      else if (item2.dataset.act?.startsWith("ow:")) runOpenWith(item2.dataset.act, fp, parseCommands(app.settings.openWithCmds), toast);
+      else if (item2.dataset.act === "save") {
         const now = toggleSaved(fp, en.name);
         app.refreshSaved();
         toast(now ? `Saved ${en.name}` : `Removed ${en.name} from Saved`);
-      } else if (item.dataset.act === "cp-paths") sel.copySelection();
-      else if (item.dataset.act === "cp-names") {
+      } else if (item2.dataset.act === "cp-paths") sel.copySelection();
+      else if (item2.dataset.act === "cp-names") {
         const names = [...ls.selSet].sort((a, b) => a - b).map((i3) => ls.visible[i3].name).join("\n");
         copyToClipboard(names).then(() => toast(`Copied ${ls.selSet.size} names`));
       }
@@ -22781,7 +23476,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }, () => onListing() && !!lead());
     bind("copy-path", () => {
       const en = lead();
-      if (en) copyText(fullPath(rawPath, en));
+      if (en) copyText(fullPath(rawPath, en), rowBtn(en, "fe-act-cp"));
     }, () => onListing() && !!lead());
     bind("up", () => app.goUp());
     bind("move", (key) => sel.moveSel(key === "\u2191" ? -1 : 1), onListing);
@@ -22804,7 +23499,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("pv-tab", () => keepPreviewedAsTab(), () => isPreviewOpen());
     bind("copy-name", () => {
       const en = lead();
-      if (en) copyText(en.name);
+      if (en) copyText(en.name, rowBtn(en, "fe-act-nm"));
     }, () => onListing() && !!lead());
     bind("menu", () => {
       const row2 = leadRow();
@@ -22905,6 +23600,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   var DELAY = 350;
   function tipParts(text, keys2 = []) {
     let t = text;
+    if (!keys2.length) {
+      const m = t.match(/\s*\(((?:[⌘⇧⌥⌃]+)?(?:↵|↩|Esc|Space|Tab|[A-Za-z0-9,./[\]`]))\)\s*$/);
+      if (m) {
+        keys2 = [m[1]];
+        t = t.slice(0, m.index);
+      }
+    }
     for (const k of keys2) {
       const q = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       t = t.replace(new RegExp(`\\s*\\((?:press\\s+)?${q}\\)`, "g"), "");
@@ -23236,6 +23938,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("fp-comment", () => app.filePage?.comment("comment"), commentable);
     bind("fp-cm-reply", () => app.filePage?.comment("reply"), commentable);
     bind("fp-comments", () => app.filePage?.comment("panel"), commentable);
+    bind("fp-cm-link", () => app.filePage?.comment("link"), commentable);
+    bind("fp-cm-brief", () => app.filePage?.comment("brief"), commentable);
+    bind("fp-copy", click("fe-fp-copy"), () => !!app.filePage && !app.filePage.editing());
     bind("fp-cm-step", (key) => app.filePage?.comment(key === "\u2325\u2191" ? "prev" : "next"), commentable);
     bind("fp-cm-clear", () => app.filePage?.comment("clear"), () => !!app.filePage?.commentHeld() && !ae()?.closest("#fe-cm"));
     bind("fp-find", () => document.getElementById("fe-ff-q")?.focus(), () => app.fileMode && !app.filePage?.editing());
@@ -23346,6 +24051,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       "fe-fp-edit": "fp-edit",
       "fe-fp-toc": "fp-toc",
       "fe-fp-column": "fp-width",
+      "fe-fp-copy": "fp-copy",
       "fe-ql-dock": "pv-dock",
       "fe-ql-copy": "pv-copy",
       "fe-ql-tab": "pv-tab",
@@ -23359,9 +24065,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       "fe-rail-ask": "lens-ask",
       "fe-rail-comments": "lens-docs"
     };
+    const KEY_AT = {
+      ".fe-act-cp": "copy-path",
+      ".fe-act-nm": "copy-name",
+      '#fe-cm [data-a="link"]': "fp-cm-link",
+      '#fe-cm [data-a="brief-all"]': "fp-cm-brief"
+    };
     const keyOf = (cmd) => KEYMAP.find((d) => d.id === cmd)?.keys[0];
     setTooltipKeys((x) => {
-      const cmd = KEY_OF[x.id] ?? (x.matches("#fe-view-group [data-v]") ? "view-" + x.dataset.v : "");
+      const cmd = KEY_OF[x.id] ?? (x.matches("#fe-view-group [data-v]") ? "view-" + x.dataset.v : Object.entries(KEY_AT).find(([sel]) => x.matches(sel))?.[1] ?? "");
       return cmd && KEYMAP.find((d) => d.id === cmd)?.keys || [];
     });
     let hintTimer = null;
@@ -23591,14 +24303,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       card4.hidden = true;
       cardFor = null;
     }
-    function showCard(item) {
-      const p = getSaved().find((x) => x.path === item.dataset.path);
+    function showCard(item2) {
+      const p = getSaved().find((x) => x.path === item2.dataset.path);
       if (!p) return;
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const home = homeDir(rawPath);
       const where = isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path;
       card4.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="chip fe-lens-tag"><i style="--dot:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
-      const r = item.getBoundingClientRect();
+      const r = item2.getBoundingClientRect();
       card4.hidden = false;
       raise(card4);
       const h = card4.offsetHeight, w = card4.offsetWidth;
@@ -23610,11 +24322,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         card4.style.left = `${Math.round(r.left + 24)}px`;
         card4.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
       }
-      cardFor = item;
+      cardFor = item2;
     }
     svList.addEventListener("pointerover", (e) => {
-      const item = e.target.closest(".fe-pl-item");
-      if (item === cardFor) {
+      const item2 = e.target.closest(".fe-pl-item");
+      if (item2 === cardFor) {
         if (cardTimer) {
           clearTimeout(cardTimer);
           cardTimer = null;
@@ -23622,14 +24334,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         return;
       }
       if (cardTimer) clearTimeout(cardTimer);
-      if (!item || item.classList.contains("dragging") || item.querySelector(".editing")) {
+      if (!item2 || item2.classList.contains("dragging") || item2.querySelector(".editing")) {
         cardTimer = setTimeout(hideCard, 150);
         return;
       }
       cardTimer = setTimeout(() => {
         cardTimer = null;
         hideCard();
-        showCard(item);
+        showCard(item2);
       }, card4.hidden ? 450 : 120);
     });
     svList.addEventListener("pointerleave", () => {
@@ -23755,9 +24467,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           e.preventDefault();
-          const item = btn.closest(".fe-pl-item");
-          const path = item.dataset.path;
-          const tagsEl = item.querySelector(".fe-pl-tags");
+          const item2 = btn.closest(".fe-pl-item");
+          const path = item2.dataset.path;
+          const tagsEl = item2.querySelector(".fe-pl-tags");
           tagsEl.textContent = (getSaved().find((p) => p.path === path)?.tags ?? []).join(", ");
           tagsEl.classList.add("show");
           inlineEdit(tagsEl, (val) => saveSaved(setTags(getSaved(), path, parseTags(val))));
@@ -23771,24 +24483,24 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           refreshSaved();
         });
       });
-      els(".fe-pl-item", svList).forEach((item) => {
-        item.addEventListener("dragstart", (e) => {
-          dragSrc = item;
+      els(".fe-pl-item", svList).forEach((item2) => {
+        item2.addEventListener("dragstart", (e) => {
+          dragSrc = item2;
           e.dataTransfer.effectAllowed = "move";
-          setTimeout(() => item.classList.add("dragging"), 0);
+          setTimeout(() => item2.classList.add("dragging"), 0);
         });
-        item.addEventListener("dragend", () => item.classList.remove("dragging"));
-        item.addEventListener("dragover", (e) => {
+        item2.addEventListener("dragend", () => item2.classList.remove("dragging"));
+        item2.addEventListener("dragover", (e) => {
           e.preventDefault();
-          item.classList.add("drag-over");
+          item2.classList.add("drag-over");
         });
-        item.addEventListener("dragleave", () => item.classList.remove("drag-over"));
-        item.addEventListener("drop", (e) => {
+        item2.addEventListener("dragleave", () => item2.classList.remove("drag-over"));
+        item2.addEventListener("drop", (e) => {
           e.stopPropagation();
           e.preventDefault();
-          item.classList.remove("drag-over");
-          if (!dragSrc || dragSrc === item) return;
-          saveSaved(movePlace(getSaved(), dragSrc.dataset.path, item.dataset.path));
+          item2.classList.remove("drag-over");
+          if (!dragSrc || dragSrc === item2) return;
+          saveSaved(movePlace(getSaved(), dragSrc.dataset.path, item2.dataset.path));
           refreshSaved();
         });
       });
@@ -23885,12 +24597,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let arrangeChain = Promise.resolve();
     let arranging = 0;
     ntList.addEventListener("dragstart", (e) => {
-      const item = e.target.closest('.fe-nt-item[draggable="true"]');
-      if (!item) return;
-      ntDrag = item.dataset.rel;
+      const item2 = e.target.closest('.fe-nt-item[draggable="true"]');
+      if (!item2) return;
+      ntDrag = item2.dataset.rel;
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", ntDrag);
-      setTimeout(() => item.classList.add("dragging"), 0);
+      setTimeout(() => item2.classList.add("dragging"), 0);
       if (!ntList.querySelector('.fe-nt-grp[data-grp="pinned"]')) {
         ntList.insertAdjacentHTML("afterbegin", `<div class="fe-nt-pinzone"><span class="fe-nt-grp-pin">${UI_ICON.pin}</span><span>Drop here to pin</span></div>`);
       }
@@ -23957,11 +24669,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const trashBtn = el("fe-nt-trash");
     function renderTrash(root) {
       ntHint.textContent = `Trash: ${trashed.length} deleted note${trashed.length !== 1 ? "s" : ""} in ${root}/.trash`;
-      const when2 = (ms) => new Date(ms).toLocaleString(void 0, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
       const head = `<div class="sect fe-nt-trash-head" data-level="group">${UI_ICON.trash}Trash<span class="fe-grp-n">${trashed.length}</span></div>`;
       ntList.innerHTML = head + (trashed.length ? trashed.map((t) => `
       <div class="row fe-bm-item fe-nt-trashed" data-trashed="${esc(t.trashed)}">
-        <span class="fe-si-link" title="${esc(t.name)}">${PI.docs ?? PI.folder}<span class="fe-nt-main"><span class="fe-nt-label">${midHtml(t.title || noteTitle(t.name))}</span><span class="fe-nt-when">Deleted ${esc(when2(t.deleted))}</span></span></span>
+        <span class="fe-si-link" title="${esc(t.name)}">${PI.docs ?? PI.folder}<span class="fe-nt-main"><span class="fe-nt-label">${midHtml(t.title || noteTitle(t.name))}</span><span class="fe-nt-when">Deleted ${esc(whenText(t.deleted))}</span></span></span>
         <button class="btn fe-nt-restore" data-size="sm" data-trashed="${esc(t.trashed)}" title="Put this note back in the notes folder" aria-label="Restore ${esc(t.title || noteTitle(t.name))}">${UI_ICON.reset}<span>Restore</span></button>
       </div>`).join("") : emptyHtml("empty", "The trash is empty", { inline: true, hint: "Deleted notes wait here until you restore them" }));
     }
@@ -23987,13 +24698,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     ntList.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-nt-restore");
       if (!b) return;
-      const root = notesRoot(), item = trashed.find((t) => t.trashed === b.dataset.trashed);
-      if (!root || !item) return;
-      notes.restore(root, item.trashed).then((r) => {
-        trashed = trashed.filter((t) => t !== item);
+      const root = notesRoot(), item2 = trashed.find((t) => t.trashed === b.dataset.trashed);
+      if (!root || !item2) return;
+      notes.restore(root, item2.trashed).then((r) => {
+        trashed = trashed.filter((t) => t !== item2);
         if (trashOpen) renderTrash(root);
         refreshNotes();
-        toast(`Restored ${item.title || noteTitle(r.rel)}`);
+        toast(`Restored ${item2.title || noteTitle(r.rel)}`);
       }).catch((err) => toast(errorText(err, "Restoring the note")));
     });
     function renderNotes(root) {
@@ -24327,8 +25038,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     ntMenu.className = "fe-ctx";
     let ntLayer = null;
     const closeNtMenu = () => ntLayer?.close("pick");
-    function openNtMenu(root, item, x, y) {
-      const rel = item.dataset.rel;
+    function openNtMenu(root, item2, x, y) {
+      const rel = item2.dataset.rel;
       ntMenu.innerHTML = [
         `<div class="row fe-ctx-item" data-act="open">${UI_ICON.files}<span>Open</span><span class="fe-ctx-key">Enter</span></div>`,
         `<div class="row fe-ctx-item" data-act="tab">${UI_ICON.tab}<span>Open in a page tab</span></div>`,
@@ -24342,16 +25053,16 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ].join("");
       ntMenu.dataset.rel = rel;
       ntMenu.dataset.root = root;
-      ntLayer = openLayer(ntMenu, { kind: "popover", place: "point", point: { x, y }, origin: item, role: "menu", group: "menu" });
+      ntLayer = openLayer(ntMenu, { kind: "popover", place: "point", point: { x, y }, origin: item2, role: "menu", group: "menu" });
     }
     ntMenu.addEventListener("click", (e) => {
-      const item = e.target.closest(".fe-ctx-item");
-      if (!item) return;
+      const item2 = e.target.closest(".fe-ctx-item");
+      if (!item2) return;
       const { rel, root } = ntMenu.dataset;
       closeNtMenu();
       const row2 = els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === rel);
       const meta = allNotes.find((n) => n.rel === rel);
-      switch (item.dataset.act) {
+      switch (item2.dataset.act) {
         case "open":
           openNoteRel(root, rel);
           break;
@@ -24376,9 +25087,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       }
     });
     function attachNoteEvents(root) {
-      els(".fe-nt-item", ntList).forEach((item) => {
-        const rel = item.dataset.rel;
-        item.querySelector(".fe-si-link").addEventListener("click", (e) => {
+      els(".fe-nt-item", ntList).forEach((item2) => {
+        const rel = item2.dataset.rel;
+        item2.querySelector(".fe-si-link").addEventListener("click", (e) => {
           if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
           e.preventDefault();
           if (e.detail > 1) return;
@@ -24388,26 +25099,26 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             openNoteRel(root, rel);
           }, 250);
         });
-        item.addEventListener("contextmenu", (e) => {
+        item2.addEventListener("contextmenu", (e) => {
           e.preventDefault();
-          openNtMenu(root, item, e.clientX, e.clientY);
+          openNtMenu(root, item2, e.clientX, e.clientY);
         });
-        item.querySelector(".fe-nt-label").addEventListener("dblclick", (e) => {
+        item2.querySelector(".fe-nt-label").addEventListener("dblclick", (e) => {
           e.preventDefault();
           e.stopPropagation();
           renameNote(root, rel, false);
         });
-        item.querySelector(".fe-rm-btn").addEventListener("click", (e) => {
+        item2.querySelector(".fe-rm-btn").addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
           deleteNote(root, rel);
         });
-        item.querySelector(".fe-nt-props").addEventListener("click", (e) => {
+        item2.querySelector(".fe-nt-props").addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
           openProps(root, rel, e.currentTarget);
         });
-        item.querySelector(".fe-nt-tab").addEventListener("click", (e) => {
+        item2.querySelector(".fe-nt-tab").addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
           app.strip.go(notePath(root, rel));
@@ -24589,7 +25300,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const l = freshPref.get().filter((k) => k !== key);
     freshPref.set(on ? [...l, key].slice(-50) : l);
   };
-  var when = (at) => new Date(at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  var when = (at) => whenText(at);
   function initAsk(app) {
     const box = document.getElementById("fe-ask");
     if (!box) return;
@@ -24975,8 +25686,10 @@ ${rows.join("\n")}`, name: subject };
       blkBar.hidden = true;
     });
     const fromName = () => app.fileMode ? app.fileName : subject;
-    const copyText = (text) => {
-      void copyToClipboard(text).then((ok) => app.toast(ok ? "Copied" : "Copy failed"));
+    const copyText = (text, btn) => {
+      void copyWithCheck(btn, text).then((ok) => {
+        if (!ok) app.toast("Copy failed");
+      });
     };
     let quoteLayer = null;
     const quote = (text, anchor) => {
@@ -25025,7 +25738,7 @@ ${rows.join("\n")}`, name: subject };
         return;
       }
       const text = selected() || (inBar ? hoverBlock ? blockText(hoverBlock) : "" : turn ? answers.get(turn) ?? "" : "");
-      if (btn.dataset.act === "copy") copyText(text);
+      if (btn.dataset.act === "copy") copyText(text, btn);
       else quote(text, btn);
     });
     const modelOpts = () => {
@@ -25538,6 +26251,7 @@ ${rows.join("\n")}`, name: subject };
       el("fe-st-sidebar").checked = settings.showSidebar !== false;
       el("fe-st-dock-fold").checked = settings.dockFoldsSidebar !== false;
       v("fe-st-peek-close").value = String(settings.peekCloseMs ?? 500);
+      v("fe-st-pan").value = settings.panKey ?? "Shift";
       el("fe-st-open-with").value = settings.openWithCmds ?? DEFAULT_COMMANDS;
       el("fe-st-sec-recent").checked = !settings.hideRecent;
       v("fe-st-terminal").value = settings.terminalApp || "ghostty";
@@ -25644,6 +26358,10 @@ ${rows.join("\n")}`, name: subject };
     });
     v("fe-st-peek-close").addEventListener("change", () => {
       settings.peekCloseMs = Number(v("fe-st-peek-close").value);
+      saveSettings(settings);
+    });
+    v("fe-st-pan").addEventListener("change", () => {
+      settings.panKey = v("fe-st-pan").value;
       saveSettings(settings);
     });
     v("fe-st-terminal").addEventListener("change", () => {
@@ -25891,7 +26609,7 @@ ${rows.join("\n")}`, name: subject };
         el2.querySelector(".fe-ref-about").textContent = "Could not read this file.";
         return;
       }
-      el2.innerHTML = `<div class="fe-ref-head"><span class="badge" data-size="sm">${ref.kind}</span><span class="fe-ref-name">${esc(f.name ?? ref.rel)}</span></div>` + (f.about ? `<p class="fe-ref-about">${esc(f.about)}</p>` : "") + (f.hint ? `<p class="fe-ref-hint">${esc(f.hint)}</p>` : "") + (f.triggers.length ? `<div class="fe-ref-chips">${f.triggers.slice(0, 8).map((t) => `<span class="chip" data-size="sm">${esc(t)}</span>`).join("")}</div>` : "") + `<div class="fe-ref-foot">${esc(ref.rel)}${f.updated ? ` \xB7 updated ${esc(f.updated)}` : ""}</div>`;
+      el2.innerHTML = `<div class="fe-ref-head"><span class="badge" data-size="sm">${ref.kind}</span><span class="fe-ref-name">${esc(f.name ?? ref.rel)}</span></div>` + (f.about ? `<p class="fe-ref-about">${esc(f.about)}</p>` : "") + (f.hint ? `<p class="fe-ref-hint">${esc(f.hint)}</p>` : "") + (f.triggers.length ? `<div class="fe-ref-chips">${f.triggers.slice(0, 8).map((t) => `<span class="chip" data-size="sm">${esc(t)}</span>`).join("")}</div>` : "") + `<div class="fe-ref-foot">${esc(ref.rel)}${f.updated ? ` \xB7 updated ${esc(isIsoStamp(f.updated) ? whenText(f.updated) : f.updated)}` : ""}</div>`;
     });
     return el2;
   }
@@ -26002,18 +26720,8 @@ ${rows.join("\n")}`, name: subject };
       if (copy) {
         e.preventDefault();
         const pre = copy.closest(".fe-md-code")?.querySelector("pre");
-        copyToClipboard(pre?.textContent || "").then((ok) => {
-          if (!ok) {
-            toast("Copy failed");
-            return;
-          }
-          clearTimeout(Number(copy.dataset.timer));
-          copy.dataset.done = "";
-          copy.innerHTML = UI_ICON.check;
-          copy.dataset.timer = String(window.setTimeout(() => {
-            delete copy.dataset.done;
-            copy.innerHTML = UI_ICON.copy;
-          }, 3e3));
+        void copyWithCheck(copy, pre?.textContent || "").then((ok) => {
+          if (!ok) toast("Copy failed");
         });
         return;
       }
@@ -26502,6 +27210,7 @@ ${rows.join("\n")}`, name: subject };
     watchConnection();
     initSidebar(app);
     initSidePeek();
+    initDragPan();
     if (fileMode) mountKeep(app);
     initFocusNav(app);
     if (!homeDir(rawPath)) {

@@ -294,6 +294,9 @@ body{opacity:1!important}
 #fe-side.peek{position:fixed;left:var(--sp-4);top:calc(var(--bar-h) + var(--sp-4));bottom:var(--sp-4);z-index:var(--z-popover);border:1px solid var(--pop-bd);border-radius:var(--r-sm);box-shadow:var(--pop-sh);animation:fe-lens-in var(--t-fast) var(--ease)}
 #fe-edge{position:fixed;left:0;top:var(--bar-h);bottom:0;width:var(--sp-5);z-index:var(--z-popover);cursor:e-resize}
 #fe-edge::after{content:'';position:absolute;left:var(--sp-1);top:30%;bottom:30%;width:var(--sp-1);border-radius:var(--r-full);background:var(--ac);opacity:0;transition:opacity var(--t-fast) var(--ease)}
+/* Drag to scroll (drag-pan.ts): the hand while the key is held over a page, the closed hand while dragging. */
+[data-pan-on],[data-pan-on] *{cursor:grab}
+html[data-pan="grabbing"],html[data-pan="grabbing"] *{cursor:grabbing;user-select:none}
 #fe-edge.near::after{opacity:.55}
 #fe-edge[hidden]{display:none}
 .fe-sh-collapse{min-height:24px;min-width:0;display:flex;align-items:center;gap:var(--sp-3);padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left}
@@ -752,7 +755,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   transition:width var(--t-base) var(--ease),border-radius var(--t-base) var(--ease)}
 #fe-toc-rail[hidden]{display:none}
 #fe-toc-rail.peek{box-shadow:var(--pop-sh)}
-.fe-toc-head{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-4) var(--sp-3) var(--sp-6);flex:none}
+.fe-toc-head{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-4) var(--sp-3) var(--sp-6);flex:none;cursor:grab}
 #fe-toc{flex:1;min-height:0;overflow-y:auto;padding:var(--sp-1) 0 var(--sp-6)}
 #fe-toc a.fe-toc-h1{font-size:var(--fs-lg);font-weight:600;color:var(--tx)}
 #fe-toc a.fe-toc-h2{font-size:var(--fs-md);padding-left:22px}
@@ -770,6 +773,11 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-rt.on{color:var(--tx);background:var(--on)}
 .fe-rt[hidden]{display:none}
 #fe-toc-rail[data-tab="cm"]{width:320px}
+/* The card moves by its header and resizes from its lower-left corner (rail-box.ts). */
+#fe-toc-rail[data-moving]{transition:none;box-shadow:var(--pop-sh);cursor:grabbing}
+.fe-resizing #fe-toc-rail{transition:none}
+.fe-rail-rz{position:absolute;left:0;bottom:0;width:14px;aspect-ratio:1;z-index:1;transform:scaleX(-1)}
+.fe-rail-rz.rz[data-axis="xy"]{cursor:nesw-resize}
 /* The editor's floating pill moves left of the comments rail instead of covering its tabs. */
 #fe-fp:has(#fe-toc-rail[data-tab="cm"]:not([hidden])) #fe-fe-pill{right:352px}
 /* The pane buttons right of find: icons only, the comment count as a small badge. */
@@ -799,6 +807,12 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 .fe-cm-th:hover{border-color:var(--bd2)}
 .fe-cm-th.on{border-color:color-mix(in srgb,var(--ac) 60%,var(--bd));box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 14%,transparent)}
 .fe-cm-th:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.fe-cm-status{display:inline-flex;flex:none}
+.fe-cm-status svg{width:15px;aspect-ratio:1}
+.fe-cm-status[data-state="open"]{color:var(--tone-warn)}
+.fe-cm-status[data-state="done"]{color:var(--tone-ok)}
+.fe-cm-th > .fe-cm-status{position:absolute;top:var(--sp-4);right:var(--sp-4)}
+.fe-cm-th:has(> .fe-cm-status) > .fe-cm-q{padding-right:var(--sp-7)}
 .fe-cm-q{margin:0 0 var(--sp-4);padding:0 0 0 var(--sp-4);border-left:2px solid color-mix(in srgb,var(--ac) 55%,transparent);font-size:var(--fs-sm);line-height:1.45;color:var(--mt);
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .fe-cm-state{display:flex;align-items:center;gap:var(--sp-2);margin:-2px 0 var(--sp-4);font-size:var(--fs-xs);color:color-mix(in srgb,var(--nc-orange) 75%,var(--mt));cursor:default}
@@ -862,9 +876,19 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 /* In the text: commented words get a wash, the open thread a stronger one,
    and each block with comments a count in the right margin. */
 ::highlight(bfb-cm){background-color:color-mix(in srgb,var(--ac) 9%,transparent)}
-::highlight(bfb-cm-hover){background-color:color-mix(in srgb,var(--ac) 17%,transparent)}
+/* Commented words under the pointer: the tint deepens smoothly and a dashed
+   underline marks them as something to click (--cm-hov eases on #fe-page). */
+@property --cm-hov{syntax:'<percentage>';inherits:true;initial-value:0%}
+::highlight(bfb-cm-hover){background-color:color-mix(in srgb,var(--ac) calc(var(--cm-hov) * .17),transparent);text-decoration:underline dashed color-mix(in srgb,var(--ac) var(--cm-hov),transparent)}
 ::highlight(bfb-cm-on){background-color:color-mix(in srgb,var(--ac) 24%,transparent)}
-#fe-page.fe-cm-pointing{cursor:pointer}
+#fe-page.fe-cm-pointing{cursor:pointer;--cm-hov:100%}
+/* What a thread says, shown above its words after a few seconds of hover. */
+.fe-cm-peek{position:fixed;top:0;left:0;z-index:var(--z-popover);width:max-content;max-width:320px;background:var(--s2);color:var(--tx);border:1px solid var(--bd);
+  box-shadow:0 4px 14px rgb(var(--ink) / .4);border-radius:var(--row-r);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-md);line-height:1.4;cursor:pointer;animation:fe-fade var(--t-base) var(--ease)}
+.fe-cm-peek[hidden]{display:none}
+.fe-cm-peek:hover{border-color:var(--bd2)}
+.fe-cm-peek-tx{white-space:pre-line;margin-top:var(--sp-1)}
+.fe-cm-peek-more{margin-top:var(--sp-2);color:var(--mt);font-size:var(--fs-sm)}
 .fe-md [data-cm]{position:relative}
 .fe-md [data-cm]::after{content:attr(data-cm);position:absolute;top:2px;right:-30px;min-width:20px;height:var(--ctl-xs);padding:0 var(--sp-2);border-radius:9px 9px 9px 2px;
   background:color-mix(in srgb,var(--ac) 22%,var(--card));color:var(--tx);font-size:var(--fs-xs);font-weight:600;line-height:18px;text-align:center;cursor:pointer}
@@ -879,7 +903,7 @@ details.fe-cm-done > summary::-webkit-details-marker{display:none}
 #fe-ff-n.part{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
 mark.fe-ff-hit{background:color-mix(in srgb,var(--gold) 35%,transparent);color:inherit;border-radius:2px}
 mark.fe-ff-hit.on{background:var(--gold);color:var(--tx-on-gold)}
-#fe-page{flex:1;min-width:0;overflow:auto;font-size:var(--fs-md)}
+#fe-page{flex:1;min-width:0;overflow:auto;font-size:var(--fs-md);transition:--cm-hov var(--t-base) var(--ease)}
 #fe-page .fe-md{overflow-wrap:break-word;max-width:none;margin:0;padding:28px 48px 80px;font-size:var(--fs-xl);line-height:var(--rd-lh,1.65)}
 #fe.fe-column-xl #fe-page .fe-md{max-width:150ch;margin:0 auto}
 #fe.fe-column-lg #fe-page .fe-md{max-width:130ch;margin:0 auto}
@@ -1184,6 +1208,33 @@ a.fe-fm-path:hover{text-decoration:underline}
 [data-state="noted"]{--st:var(--ac)}
 .fe-md[data-directions] tr[data-state] td:first-child{box-shadow:inset 3px 0 0 var(--st)}
 .fe-dir-sum{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);margin:var(--sp-4) 0 var(--sp-6)}
+/* The view switch under the state bar, and what each view folds away (directions-views.ts). */
+.fe-dir-views{margin:calc(-1 * var(--sp-3)) 0 var(--sp-6)}
+.fe-md [data-view-hide]{display:none}
+.fe-dir-unmarked{font-size:var(--fs-sm);color:var(--dm)}
+/* A goal's done-when line, terse: the bars it names, ticked when a finished row says so (directions-done.ts). */
+.fe-dir-done{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2) var(--sp-3);margin:calc(-1 * var(--sp-2)) 0 var(--sp-5);font-size:var(--fs-sm);color:var(--mt)}
+.fe-dir-done-k{font-weight:600;color:var(--tx)}
+.fe-dir-done-l[data-met]{color:var(--tone-ok)}
+.fe-dir-done-src{display:none}
+.fe-toc-n{margin-left:auto;padding-left:var(--sp-3);display:inline-flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--mt);flex:none}
+.fe-toc-n::before{content:'';width:6px;aspect-ratio:1;border-radius:50%;background:var(--st)}
+/* What to do next: what waits on you, what an agent can pick up, and staleness (directions-head.ts). */
+.fe-dir-next{display:flex;flex-wrap:wrap;gap:var(--sp-5) var(--sp-8);margin:var(--sp-5) 0 var(--sp-4);padding:var(--sp-5) var(--sp-6);border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1)}
+.fe-dir-next-h{flex-basis:100%}
+.fe-dir-next-g{flex:1 1 280px;border-left:2px solid var(--bd);padding-left:var(--sp-5);min-width:0}
+.fe-dir-next-g[data-g="you"]{border-left-color:var(--tone-danger)}
+.fe-dir-next-g[data-g="ready"]{border-left-color:var(--tone-ok)}
+.fe-dir-next ol{list-style:none;margin:var(--sp-3) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--sp-4)}
+.fe-dir-next-i{border:0;background:none;padding:0;font:inherit;text-align:left;cursor:pointer;display:flex;gap:var(--sp-3);align-items:baseline;color:var(--tx);font-weight:500}
+.fe-dir-next-i:hover .fe-dir-next-t{text-decoration:underline}
+.fe-dir-next-i:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:var(--r-xs)}
+.fe-dir-next-id{font-family:var(--mono);font-size:var(--fs-sm);color:var(--mt);flex:none}
+.fe-dir-next-sub{display:flex;flex-wrap:wrap;gap:0 var(--sp-4);font-size:var(--fs-sm);color:var(--mt);margin-top:var(--sp-1)}
+.fe-dir-next-silent{color:var(--dm)}
+.fe-dir-next-none{margin:var(--sp-3) 0 0;color:var(--mt)}
+.fe-dir-next-more{border:0;background:none;padding:0;font:inherit;cursor:pointer;color:var(--ac);font-size:var(--fs-sm);margin-top:var(--sp-3)}
+.fe-dir-next-stale{flex-basis:100%;margin:0;color:var(--tone-warn);font-size:var(--fs-sm)}
 .fe-dir-total{margin-left:var(--sp-3)}
 .fe-md>p.fe-dir-meta{font-size:var(--fs-sm);color:var(--dm)}
 /* The doc-view kit: state pills, filter chips and meters share one tone per state (--st). */
@@ -1689,6 +1740,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-fact{padding:0;border:0;background:none;font:inherit;color:inherit;cursor:copy}
 .fe-dp-fact:hover{color:var(--tx);text-decoration:underline}
 .fe-dp-fact:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:var(--r-xs)}
+.fe-dp-fact[data-done]{color:var(--tone-ok)}
 .fe-dp-intro{color:var(--mt)}
 .fe-dp-intro .fe-md{padding:0;max-width:none;color:inherit}
 #fe-dp-back{margin-left:var(--sp-4)}
