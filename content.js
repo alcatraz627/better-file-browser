@@ -10,8 +10,8 @@
     }
   }
   var COMPANION = /\.bfb[^./]*\.json$/;
-  function isHiddenName(name, isDir) {
-    return name.startsWith(".") || !isDir && COMPANION.test(name);
+  function isHiddenName(name2, isDir) {
+    return name2.startsWith(".") || !isDir && COMPANION.test(name2);
   }
   function parseEntries() {
     const table = document.querySelector("table") || document.getElementById("listing-table");
@@ -29,9 +29,9 @@
       const dateStr = cells[2]?.textContent?.trim() ?? "";
       const isParent = href === "../";
       const isDir = !isParent && (href?.endsWith("/") ?? false);
-      const name = isParent ? ".." : nameOf(href, isDir ? rawName.replace(/\/$/, "") : rawName);
-      const isHidden = !isParent && isHiddenName(name, isDir);
-      return [{ name, href, isDir, isParent, isHidden, rawBytes, dateMs, dateStr }];
+      const name2 = isParent ? ".." : nameOf(href, isDir ? rawName.replace(/\/$/, "") : rawName);
+      const isHidden = !isParent && isHiddenName(name2, isDir);
+      return [{ name: name2, href, isDir, isParent, isHidden, rawBytes, dateMs, dateStr }];
     });
   }
   function parseListing(html, baseUrl) {
@@ -45,16 +45,16 @@
     for (const m of html.matchAll(/addRow\((.*?)\);/g)) {
       try {
         const a = JSON.parse("[" + m[1] + "]");
-        const name = String(a[0]), url = String(a[1]);
-        if (name === "." || name === "..") continue;
+        const name2 = String(a[0]), url = String(a[1]);
+        if (name2 === "." || name2 === "..") continue;
         const isDir = !!a[2];
         const epoch = typeof a[5] === "number" ? a[5] : NaN;
         out.push({
-          name,
+          name: name2,
           href: new URL(url + (isDir ? "/" : ""), baseUrl).href,
           isDir,
           isParent: false,
-          isHidden: isHiddenName(name, isDir),
+          isHidden: isHiddenName(name2, isDir),
           rawBytes: typeof a[3] === "number" ? a[3] : -1,
           dateMs: Number.isFinite(epoch) ? epoch * 1e3 : NaN,
           dateStr: typeof a[6] === "string" ? a[6] : ""
@@ -77,9 +77,9 @@
       if (rel === "../") return [];
       const href = new URL(rel, baseUrl).href;
       const isDir = rel?.endsWith("/") ?? false;
-      const name = nameOf(rel, isDir ? rawName.replace(/\/$/, "") : rawName);
-      const isHidden = isHiddenName(name, isDir);
-      return [{ name, href, isDir, isParent: false, isHidden, rawBytes: -1, dateMs: NaN, dateStr: "" }];
+      const name2 = nameOf(rel, isDir ? rawName.replace(/\/$/, "") : rawName);
+      const isHidden = isHiddenName(name2, isDir);
+      return [{ name: name2, href, isDir, isParent: false, isHidden, rawBytes: -1, dateMs: NaN, dateStr: "" }];
     });
   }
 
@@ -301,15 +301,15 @@
     const used = [];
     for (const p of list3) for (const t of p.tags ?? []) if (!used.includes(t)) used.push(t);
     const kept = tags.filter((t) => used.includes(t.name));
-    for (const name of used) {
-      if (kept.some((t) => t.name === name)) continue;
-      kept.push({ name, color: TAG_COLORS[kept.length % TAG_COLORS.length] });
+    for (const name2 of used) {
+      if (kept.some((t) => t.name === name2)) continue;
+      kept.push({ name: name2, color: TAG_COLORS[kept.length % TAG_COLORS.length] });
     }
     return kept;
   }
-  function cycleTagColor(tags, name) {
+  function cycleTagColor(tags, name2) {
     return tags.map((t) => {
-      if (t.name !== name) return t;
+      if (t.name !== name2) return t;
       const i3 = TAG_COLORS.indexOf(t.color);
       return { ...t, color: TAG_COLORS[(i3 + 1) % TAG_COLORS.length] };
     });
@@ -401,8 +401,8 @@
       } catch {
       }
     }
-    chrome.storage.onChanged.addListener((changes, name) => {
-      if (name !== "local") return;
+    chrome.storage.onChanged.addListener((changes, name2) => {
+      if (name2 !== "local") return;
       for (const [k, c] of Object.entries(changes)) {
         if (!isKvKey(k)) continue;
         const mine = pending.get(k);
@@ -998,6 +998,8 @@
     /// Every document with comments, from the bfb-docs index.
     /// Every page in gcc's decision-page registry with whether it waits on the owner (read only).
     dpPages: () => call({ op: "dpPages" }).then((f) => f.pages ?? []),
+    /** Each repo's directions doc with its text, newest first. */
+    directionsDocs: () => call({ op: "directionsDocs" }).then((f) => f.docs ?? []),
     /// Hand a decision page's answer work (compose, submit, seen, parse) to gcc's own command.
     dp: (verb, slug, payload) => call({ op: "dp", verb, slug, payload }).then((f) => f.result),
     docsIndex: () => call({ op: "docsIndex" }).then((f) => f.docs ?? []),
@@ -1083,8 +1085,8 @@ ${fm}
   function clashSides(text) {
     const a = text.match(/^<<<<<<< (.+)$/m)?.[1], b = text.match(/^>>>>>>> (.+)$/m)?.[1];
     if (!a || !b) return null;
-    const name = (m) => m === "HEAD" ? "this Mac's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
-    return [name(a.trim()), name(b.trim())];
+    const name2 = (m) => m === "HEAD" ? "this Mac's" : /^pi\b|csync/.test(m) ? "the Pi's" : m === "phone" ? "the phone's" : `${m}'s`;
+    return [name2(a.trim()), name2(b.trim())];
   }
   function stampUpdated(text, now = /* @__PURE__ */ new Date()) {
     const m = text.match(/^---\n([\s\S]*?)\n---/);
@@ -1386,6 +1388,7 @@ ${body}`;
     contents: svg('<path d="M15 12H3M17 18H3M21 6H3"/>'),
     info: svg('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'),
     circle: svg('<circle cx="12" cy="12" r="9"/>'),
+    dashboard: svg('<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>'),
     archive: svg('<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>'),
     expand: svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>'),
     circleDashed: svg('<path d="M10.1 2.18a9.93 9.93 0 0 1 3.8 0M17.6 3.71a9.95 9.95 0 0 1 2.69 2.7M21.82 10.1a9.93 9.93 0 0 1 0 3.8M20.29 17.6a9.95 9.95 0 0 1-2.7 2.69M13.9 21.82a9.94 9.94 0 0 1-3.8 0M6.4 20.29a9.95 9.95 0 0 1-2.69-2.7M2.18 13.9a9.93 9.93 0 0 1 0-3.8M3.71 6.4a9.95 9.95 0 0 1 2.7-2.69"/>'),
@@ -1824,6 +1827,7 @@ ${body}`;
     { id: "to-tabs", group: "Go", title: "Focus the tabs", keys: ["g t"], own: true },
     { id: "to-toolbar", group: "Go", title: "Focus the toolbar", keys: ["g b"], own: true },
     { id: "to-path", group: "Go", title: "Focus the path bar", keys: ["g p"], own: true },
+    { id: "lens-home", group: "Go", title: "Home", keys: ["g 0"], own: true },
     { id: "lens-places", group: "Go", title: "Places", keys: ["g 1"], own: true },
     { id: "lens-saved", group: "Go", title: "Saved", keys: ["g 2"], own: true },
     { id: "lens-notes", group: "Go", title: "Notes", keys: ["g 3"], own: true },
@@ -2133,8 +2137,8 @@ ${body}`;
     <text x="8" y="14.5" text-anchor="middle" font-family="'SF Mono',Menlo,Consolas,monospace" font-size="4.5" font-weight="700" fill="${c}">${lbl}</text>
   </svg>`;
   }
-  function icoFolder(name = "") {
-    const special = SPECIAL_FOLDERS.has(name);
+  function icoFolder(name2 = "") {
+    const special = SPECIAL_FOLDERS.has(name2);
     const c = special ? "#e8a838" : "#4a9eff";
     const d = special ? "#c4882a" : "#2980d9";
     return `<svg width="18" height="15" viewBox="0 0 18 15" xmlns="http://www.w3.org/2000/svg">
@@ -2519,7 +2523,7 @@ ${body}`;
     let at = 0;
     let tab = "all";
     const matches = (it, q) => Math.max(score(it.title, q), score(it.sub ?? "", q) * 0.6, q ? score((it.keys ?? []).join(" "), q) * 0.9 : 0);
-    const paint = () => {
+    const paint2 = () => {
       const q = input.value.trim();
       const counts = /* @__PURE__ */ new Map();
       for (const it of items) if (matches(it, q) > 0) {
@@ -2542,7 +2546,7 @@ ${body}`;
     const setTab = (t) => {
       tab = t;
       at = 0;
-      paint();
+      paint2();
     };
     const fire2 = (i3, alt = false) => {
       const it = shown[i3];
@@ -2553,13 +2557,13 @@ ${body}`;
     };
     input.addEventListener("input", () => {
       at = 0;
-      paint();
+      paint2();
     });
     input.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         at = (at + (e.key === "ArrowDown" ? 1 : -1) + shown.length) % Math.max(1, shown.length);
-        paint();
+        paint2();
       } else if (e.key === "Enter") {
         e.preventDefault();
         fire2(at, e.altKey);
@@ -2594,11 +2598,11 @@ ${body}`;
       if (row2) fire2(Number(row2.dataset.i), e.altKey);
     });
     input.value = prefill;
-    paint();
+    paint2();
     for (const p of late) p.then((r) => {
       if (paletteEl !== box) return;
       items.push(...r);
-      paint();
+      paint2();
     }).catch(() => {
     });
     const layer = openLayer(box, { kind: "command", place: "none", focus: input, backdrop: box, onClose: () => {
@@ -3665,14 +3669,14 @@ ${body}`;
         continue;
       }
       const raw = s.slice(i3, end + 1);
-      const name = raw.match(/^<\/?([a-z][\w-]*)/i)[1].toLowerCase();
-      if (!HTML_TAGS.has(name)) {
+      const name2 = raw.match(/^<\/?([a-z][\w-]*)/i)[1].toLowerCase();
+      if (!HTML_TAGS.has(name2)) {
         source += raw;
         i3 = end;
         continue;
       }
-      const safe = sanitizeHtml(raw.startsWith("</") ? `<${name}></${name}>` : `${raw}${VOID_TAGS.has(name) ? "" : `</${name}>`}`, baseUrl);
-      const tag = raw.startsWith("</") ? `</${name}>` : safe.slice(0, safe.indexOf(">") + 1);
+      const safe = sanitizeHtml(raw.startsWith("</") ? `<${name2}></${name2}>` : `${raw}${VOID_TAGS.has(name2) ? "" : `</${name2}>`}`, baseUrl);
+      const tag = raw.startsWith("</") ? `</${name2}>` : safe.slice(0, safe.indexOf(">") + 1);
       htmlTags.push(tag);
       source += `\uE000${htmlTags.length - 1}\uE001`;
       i3 = end;
@@ -4267,9 +4271,9 @@ ${body}`;
     const m = /^@(\S+)\s+([\s\S]*\S)/.exec(text.trim());
     if (!m) return null;
     const want = m[1].toLowerCase();
-    const lane = (name) => opts.filter((o) => o.value.startsWith(name + ":"));
+    const lane = (name2) => opts.filter((o) => o.value.startsWith(name2 + ":"));
     const remote = [...lane("gemini"), ...lane("gpt")];
-    const laneDefault = (name) => lane(name).find((o) => LANE_DEFAULT.test(o.label)) ?? lane(name)[0];
+    const laneDefault = (name2) => lane(name2).find((o) => LANE_DEFAULT.test(o.label)) ?? lane(name2)[0];
     const hit = opts.find((o) => o.value && o.value.toLowerCase() === want) ?? remote.find((o) => o.value.slice(o.value.indexOf(":") + 1).toLowerCase() === want) ?? (want === "gemini" || want === "gpt" ? laneDefault(want) : void 0);
     return hit ? { model: hit.value, label: bareLabel(hit.label), question: m[2] } : null;
   }
@@ -4279,7 +4283,7 @@ ${body}`;
 Their answer:
 ${answer}`;
   }
-  var isImageName = (name) => /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(name);
+  var isImageName = (name2) => /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(name2);
   function closeOpenFence(text) {
     const fences = text.match(/^\s*```/gm)?.length ?? 0;
     return fences % 2 ? text + "\n```" : text;
@@ -5073,10 +5077,10 @@ ${parts2.join("\n\n")}
 Now: ${question}` : question;
   }
   function chatMarkdown(subject, turns, title = turns[0]?.q ?? "Chat") {
-    const name = subject.split("/").filter(Boolean).pop() ?? subject;
+    const name2 = subject.split("/").filter(Boolean).pop() ?? subject;
     const head = `# ${title.replace(/\s+/g, " ").trim().slice(0, 120)}
 
-_Asked about [${name}](file://${encodeURI(subject)})${turns[0] ? `, ${whenText(turns[0].at)}` : ""}_
+_Asked about [${name2}](file://${encodeURI(subject)})${turns[0] ? `, ${whenText(turns[0].at)}` : ""}_
 `;
     const body = turns.map((t) => {
       const answer = t.error ? `_No answer: ${t.error}_` : splitThinking(t.a).answer.trim();
@@ -5346,8 +5350,8 @@ ${body}
         this.atNextDocument = false;
       }
       const parts2 = line2.trim().split(/[ \t]+/);
-      const name = parts2.shift();
-      switch (name) {
+      const name2 = parts2.shift();
+      switch (name2) {
         case "%TAG": {
           if (parts2.length !== 2) {
             onError(0, "%TAG directive should contain exactly two parts");
@@ -5375,7 +5379,7 @@ ${body}
           }
         }
         default:
-          onError(0, `Unknown directive ${name}`, true);
+          onError(0, `Unknown directive ${name2}`, true);
           return false;
       }
     }
@@ -5476,9 +5480,9 @@ ${body}
   }
   function findNewAnchor(prefix, exclude) {
     for (let i3 = 1; true; ++i3) {
-      const name = `${prefix}${i3}`;
-      if (!exclude.has(name))
-        return name;
+      const name2 = `${prefix}${i3}`;
+      if (!exclude.has(name2))
+        return name2;
     }
   }
   function createNodeAnchors(doc, prefix) {
@@ -6399,8 +6403,8 @@ ${indent}`);
       tagObj = tags.find((t) => t.nodeClass && obj instanceof t.nodeClass);
     }
     if (!tagObj) {
-      const name = obj?.constructor?.name ?? typeof obj;
-      throw new Error(`Tag not resolved for ${name} value`);
+      const name2 = obj?.constructor?.name ?? typeof obj;
+      throw new Error(`Tag not resolved for ${name2} value`);
     }
     return tagObj;
   }
@@ -8057,11 +8061,11 @@ ${cn.comment}` : item2.comment;
      * `name` will be used as a prefix for a new unique anchor.
      * If `name` is undefined, the generated anchor will use 'a' as a prefix.
      */
-    createAlias(node, name) {
+    createAlias(node, name2) {
       if (!node.anchor) {
         const prev = anchorNames(this);
         node.anchor = // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-        !name || prev.has(name) ? findNewAnchor(name || "a", prev) : name;
+        !name2 || prev.has(name2) ? findNewAnchor(name2 || "a", prev) : name2;
       }
       return new Alias(node.anchor);
     }
@@ -8274,9 +8278,9 @@ ${cn.comment}` : item2.comment;
 
   // node_modules/yaml/browser/dist/errors.js
   var YAMLError = class extends Error {
-    constructor(name, pos, code, message) {
+    constructor(name2, pos, code, message) {
       super();
-      this.name = name;
+      this.name = name2;
       this.code = code;
       this.message = message;
       this.pos = pos;
@@ -8848,8 +8852,8 @@ ${pointer}
     if (ce && ce.source === expectedEnd)
       cePos = ce.offset + ce.source.length;
     else {
-      const name = fcName[0].toUpperCase() + fcName.substring(1);
-      const msg = atRoot ? `${name} must end with a ${expectedEnd}` : `${name} in block collection must be sufficiently indented and end with a ${expectedEnd}`;
+      const name2 = fcName[0].toUpperCase() + fcName.substring(1);
+      const msg = atRoot ? `${name2} must end with a ${expectedEnd}` : `${name2} in block collection must be sufficiently indented and end with a ${expectedEnd}`;
       onError(offset, atRoot ? "MISSING_CHAR" : "BAD_INDENT", msg);
       if (ce && ce.source.length !== 1)
         ee.unshift(ce);
@@ -11509,20 +11513,20 @@ ${end.comment}` : end.comment;
         if (!new RegExp(`</${m[1]}\\s*>$`, "i").test(m[0])) out.push({ ...lineCol(text, m.index), severity: "error", message: `<${m[1].toLowerCase()}> is never closed` });
         continue;
       }
-      const name = m[3].toLowerCase();
-      if (VOID.has(name) || m[4] === "/") continue;
+      const name2 = m[3].toLowerCase();
+      if (VOID.has(name2) || m[4] === "/") continue;
       const at = lineCol(text, m.index);
       if (!m[2]) {
-        stack2.push({ name, line: at.line });
+        stack2.push({ name: name2, line: at.line });
         continue;
       }
-      const i3 = stack2.map((s) => s.name).lastIndexOf(name);
+      const i3 = stack2.map((s) => s.name).lastIndexOf(name2);
       if (i3 === -1) {
-        out.push({ ...at, severity: "error", message: `</${name}> closes nothing that is open` });
+        out.push({ ...at, severity: "error", message: `</${name2}> closes nothing that is open` });
         continue;
       }
       for (const s of stack2.splice(i3).slice(1)) {
-        if (!OPTIONAL_CLOSE.has(s.name)) out.push({ line: s.line, severity: "warn", message: `<${s.name}> is closed implicitly by </${name}> on line ${at.line}` });
+        if (!OPTIONAL_CLOSE.has(s.name)) out.push({ line: s.line, severity: "warn", message: `<${s.name}> is closed implicitly by </${name2}> on line ${at.line}` });
       }
     }
     for (const s of stack2) if (!OPTIONAL_CLOSE.has(s.name)) out.push({ line: s.line, severity: "warn", message: `<${s.name}> is never closed` });
@@ -11940,7 +11944,7 @@ ${end.comment}` : end.comment;
     const chipTxt = document.getElementById("fe-ql-ai-chip-txt");
     const recheck = document.getElementById("fe-ql-ai-recheck");
     const q = document.getElementById("fe-ql-ai-q");
-    const paint = (state, why = "") => {
+    const paint2 = (state, why = "") => {
       aiChecking = state === "checking";
       chip.className = state === "checking" ? "" : state;
       chipTxt.textContent = state === "ready" ? "AI \xB7 ready" : state === "cold" ? "AI \xB7 cold start" : state === "down" ? why : "AI \xB7 checking";
@@ -11955,7 +11959,7 @@ ${end.comment}` : end.comment;
     };
     if (aiHeld?.e !== e) aiHeld = null;
     if (aiHeld?.e !== e) aiChat = { href: "", id: "" };
-    paint("checking");
+    paint2("checking");
     aiOn = true;
     syncAiBar();
     restoreAiAnswer(e);
@@ -11974,7 +11978,7 @@ ${end.comment}` : end.comment;
         return;
       }
       aiNonePref.set("");
-      paint(av.kind === "ready" ? av.cold ? "cold" : "ready" : "down", LLM_ERROR_TEXT.server_down);
+      paint2(av.kind === "ready" ? av.cold ? "cold" : "ready" : "down", LLM_ERROR_TEXT.server_down);
       if (asked && av.kind === "ready") document.getElementById("fe-ql-ai-q").focus();
       if (held3 && av.kind === "ready") runAi(held3.intent, held3.question);
     });
@@ -12038,7 +12042,7 @@ ${end.comment}` : end.comment;
     let frame = 0;
     let over = false;
     const model = deps.aiModel?.();
-    const paint = () => {
+    const paint2 = () => {
       body.innerHTML = renderMarkdown(closeOpenFence(splitThinking(full).answer));
     };
     const file = (extra) => {
@@ -12070,7 +12074,7 @@ ${end.comment}` : end.comment;
           meta.textContent = "";
           frame ||= requestAnimationFrame(() => {
             frame = 0;
-            if (!over && seq2 === aiSeq) paint();
+            if (!over && seq2 === aiSeq) paint2();
           });
         },
         onDone: (info) => {
@@ -12078,7 +12082,7 @@ ${end.comment}` : end.comment;
           over = true;
           cancelAnimationFrame(frame);
           aiCancel = null;
-          paint();
+          paint2();
           meta.textContent = turnMeta(file({ model: info.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut }), info.truncated);
           setAiBusy(false);
         },
@@ -12101,7 +12105,7 @@ ${end.comment}` : end.comment;
       stopQuery();
       aiCancel = null;
       if (full.trim()) {
-        paint();
+        paint2();
         meta.textContent = turnMeta(file({ stopped: true }));
       } else {
         body.textContent = "Stopped before an answer came.";
@@ -12124,9 +12128,9 @@ ${end.comment}` : end.comment;
     document.getElementById("fe-ql-meta").textContent = `${edit.dirty ? "\u25CF " : ""}${edit.rel} \xB7 ${status}`;
   }
   var stripFrontMatter = (t) => t.replace(/^---\n[\s\S]*?\n---\n?/, "");
-  function noteAction(name) {
+  function noteAction(name2) {
     if (!edit?.actions) return false;
-    if (name === "rename") edit.actions.rename(edit.rel, true);
+    if (name2 === "rename") edit.actions.rename(edit.rel, true);
     else edit.actions.del(edit.rel);
     return true;
   }
@@ -12206,13 +12210,13 @@ ${end.comment}` : end.comment;
       const lines = ta.value.slice(from, to).split("\n").map((l) => prefix + l);
       apply({ text: ta.value.slice(0, from) + lines.join("\n") + ta.value.slice(to), start: from, end: from + lines.join("\n").length });
     };
-    const act = (name) => {
-      if (name === "bold") apply(wrapSelection(ta.value, sel(), "**"));
-      if (name === "italic") apply(wrapSelection(ta.value, sel(), "_"));
-      if (name === "code") apply(wrapSelection(ta.value, sel(), "`"));
-      if (name === "strike") apply(wrapSelection(ta.value, sel(), "~~"));
-      if (name === "quote") prefixLines("> ");
-      if (name === "olist") {
+    const act = (name2) => {
+      if (name2 === "bold") apply(wrapSelection(ta.value, sel(), "**"));
+      if (name2 === "italic") apply(wrapSelection(ta.value, sel(), "_"));
+      if (name2 === "code") apply(wrapSelection(ta.value, sel(), "`"));
+      if (name2 === "strike") apply(wrapSelection(ta.value, sel(), "~~"));
+      if (name2 === "quote") prefixLines("> ");
+      if (name2 === "olist") {
         const s = sel();
         const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
         let to = ta.value.indexOf("\n", s.end);
@@ -12220,7 +12224,7 @@ ${end.comment}` : end.comment;
         const lines = ta.value.slice(from, to).split("\n").map((l, n) => `${n + 1}. ${l}`).join("\n");
         apply({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
       }
-      if (name === "heading") {
+      if (name2 === "heading") {
         const s = sel();
         const from = ta.value.lastIndexOf("\n", s.start - 1) + 1;
         let to = ta.value.indexOf("\n", from);
@@ -12230,22 +12234,22 @@ ${end.comment}` : end.comment;
         const next = level >= 3 ? line2.replace(/^#{1,6} /, "") : "#".repeat(level + 1) + " " + line2.replace(/^#{1,6} /, "");
         apply({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
       }
-      if (name === "link") {
+      if (name2 === "link") {
         const s = sel();
         const label = ta.value.slice(s.start, s.end) || "text";
         const t = `[${label}](url)`;
         const at = s.start + label.length + 3;
         apply({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
       }
-      if (name === "list") prefixLines("- ");
-      if (name === "task") prefixLines("- [ ] ");
-      if (name === "table") buf.insert((ta.value.slice(0, ta.selectionStart).endsWith("\n") || !ta.selectionStart ? "" : "\n") + tableSnippet());
-      if (name === "image") document.getElementById("fe-ed-file").click();
-      if (name === "versions") void toggleVersions();
-      if (name === "prev") actions?.step(edit.rel, -1);
-      if (name === "next") actions?.step(edit.rel, 1);
-      if (name === "rename") actions?.rename(edit.rel);
-      if (name === "delete") actions?.del(edit.rel);
+      if (name2 === "list") prefixLines("- ");
+      if (name2 === "task") prefixLines("- [ ] ");
+      if (name2 === "table") buf.insert((ta.value.slice(0, ta.selectionStart).endsWith("\n") || !ta.selectionStart ? "" : "\n") + tableSnippet());
+      if (name2 === "image") document.getElementById("fe-ed-file").click();
+      if (name2 === "versions") void toggleVersions();
+      if (name2 === "prev") actions?.step(edit.rel, -1);
+      if (name2 === "next") actions?.step(edit.rel, 1);
+      if (name2 === "rename") actions?.rename(edit.rel);
+      if (name2 === "delete") actions?.del(edit.rel);
     };
     const hist = document.getElementById("fe-ed-hist");
     const escHtml = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -12857,7 +12861,7 @@ ${end.comment}` : end.comment;
   function upgradeSeg(host) {
     const btns = [...host.querySelectorAll(".fe-seg-b")];
     let cur = "";
-    const paint = () => btns.forEach((b) => {
+    const paint2 = () => btns.forEach((b) => {
       const on = b.dataset.v === cur;
       b.classList.toggle("on", on);
       b.setAttribute("aria-checked", String(on));
@@ -12865,17 +12869,17 @@ ${end.comment}` : end.comment;
     });
     Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
       cur = String(v);
-      paint();
+      paint2();
     } });
     btns.forEach((b) => b.addEventListener("click", () => {
       if (cur !== b.dataset.v) {
         cur = b.dataset.v;
-        paint();
+        paint2();
         fire(host);
       }
     }));
     rovingFocus(host, ".fe-seg-b", { axis: "both", onMove: (b) => b.click() });
-    paint();
+    paint2();
   }
   function upgradeSlider(host) {
     const values = host.dataset.values.split(",").map(Number);
@@ -12918,7 +12922,7 @@ ${end.comment}` : end.comment;
     const curEl = host.querySelector(".fe-dd-cur");
     let opts = JSON.parse(host.dataset.opts || "[]");
     let cur = "";
-    const paint = () => {
+    const paint2 = () => {
       host.dataset.value = cur;
       const o = opts.find((x) => x.value === cur);
       curEl.innerHTML = o ? `${o.icon ?? ""}<span${fontAttr(o)}>${esc(o.label ?? o.value)}</span>` : cur ? `<span>${esc(cur)}</span>` : '<span class="fe-dd-none">None</span>';
@@ -12926,12 +12930,12 @@ ${end.comment}` : end.comment;
     };
     Object.defineProperty(host, "value", { get: () => cur, set: (v) => {
       cur = String(v);
-      paint();
+      paint2();
     } });
     host.setOptions = (o) => {
       opts = o;
       host.dataset.opts = JSON.stringify(o);
-      paint();
+      paint2();
     };
     let keys2 = null;
     function open() {
@@ -12962,7 +12966,7 @@ ${end.comment}` : end.comment;
       const pick2 = (v) => {
         const changed = v !== cur;
         cur = v;
-        paint();
+        paint2();
         layer.close("pick");
         btn.focus();
         if (changed) fire(host);
@@ -13016,12 +13020,12 @@ ${end.comment}` : end.comment;
         open();
       }
     });
-    paint();
+    paint2();
   }
   function upgradeChips(host) {
     const input = host.querySelector(".fe-chipin-in");
     let items = [];
-    const paint = () => {
+    const paint2 = () => {
       host.dataset.value = items.join(", ");
       host.querySelectorAll(".chip").forEach((c) => c.remove());
       input.insertAdjacentHTML("beforebegin", items.map((t, i3) => `<span class="chip" data-fill data-mono><span>${esc(t)}</span><button type="button" class="btn" data-icon data-size="xs" data-tone="danger" data-i="${i3}" title="Remove ${esc(t)}" aria-label="Remove ${esc(t)}">${UI_ICON.close}</button></span>`).join(""));
@@ -13031,14 +13035,14 @@ ${end.comment}` : end.comment;
       input.value = "";
       if (!add.length) return;
       items = [...items, ...add.filter((a) => !items.includes(a))];
-      paint();
+      paint2();
       fire(host);
     };
     Object.defineProperty(host, "value", {
       get: () => items.join(", "),
       set: (v) => {
         items = String(v).split(",").map((x) => x.trim()).filter(Boolean);
-        paint();
+        paint2();
       }
     });
     input.addEventListener("keydown", (e) => {
@@ -13047,7 +13051,7 @@ ${end.comment}` : end.comment;
         commit();
       } else if (e.key === "Backspace" && !input.value && items.length) {
         items.pop();
-        paint();
+        paint2();
         fire(host);
       }
     });
@@ -13057,7 +13061,7 @@ ${end.comment}` : end.comment;
       const b = e.target.closest(".chip button");
       if (b) {
         items.splice(Number(b.dataset.i), 1);
-        paint();
+        paint2();
         fire(host);
         input.focus();
       } else if (e.target === host) input.focus();
@@ -13083,28 +13087,28 @@ ${end.comment}` : end.comment;
   }
 
   // src/doc-keep.ts
-  function nameProblem(name) {
-    if (!name) return "Type a name.";
-    if (name.includes("/")) return "A name cannot hold a slash.";
-    if (name === "." || name === "..") return "Pick another name.";
-    if (name.includes("\0")) return "Pick another name.";
+  function nameProblem(name2) {
+    if (!name2) return "Type a name.";
+    if (name2.includes("/")) return "A name cannot hold a slash.";
+    if (name2 === "." || name2 === "..") return "Pick another name.";
+    if (name2.includes("\0")) return "Pick another name.";
     return null;
   }
   var baseOf2 = (p) => p.slice(p.lastIndexOf("/") + 1);
   var dirOf = (p) => p.slice(0, p.lastIndexOf("/")) || "/";
-  async function renameOnDisk(app, path, name) {
-    name = name.trim();
-    if (name === baseOf2(path)) return null;
-    const problem = nameProblem(name);
+  async function renameOnDisk(app, path, name2) {
+    name2 = name2.trim();
+    if (name2 === baseOf2(path)) return null;
+    const problem = nameProblem(name2);
     if (problem) {
       app.toast(problem);
       return null;
     }
-    const to = dirOf(path).replace(/\/$/, "") + "/" + name;
+    const to = dirOf(path).replace(/\/$/, "") + "/" + name2;
     try {
-      await notes.rename(dirOf(path), baseOf2(path), name);
+      await notes.rename(dirOf(path), baseOf2(path), name2);
     } catch (err) {
-      app.toast(err.code === "notes_exists" ? `${name} is already there. Pick another name.` : errorText(err, "Renaming the file"));
+      app.toast(err.code === "notes_exists" ? `${name2} is already there. Pick another name.` : errorText(err, "Renaming the file"));
       return null;
     }
     const list3 = getSaved();
@@ -13114,7 +13118,7 @@ ${end.comment}` : end.comment;
     }
     app.strip?.retarget(path, to);
     app.refreshNotes();
-    app.toast(`Renamed to ${name}`);
+    app.toast(`Renamed to ${name2}`);
     return to;
   }
   function noteOf(path) {
@@ -13262,9 +13266,9 @@ ${t}`)) say("Note title saved");
         return;
       }
       btn.classList.add("open");
-      const name = field("name");
-      const dot = name.value.lastIndexOf(".");
-      name.setSelectionRange(0, dot > 0 ? dot : name.value.length);
+      const name2 = field("name");
+      const dot = name2.value.lastIndexOf(".");
+      name2.setSelectionRange(0, dot > 0 ? dot : name2.value.length);
     };
     btn.addEventListener("click", () => {
       if (layer) layer.close("api");
@@ -13752,11 +13756,11 @@ ${t}`)) say("Note title saved");
     if (ds.length) out.push(groupHtml("Decisions", "Decisions", ds.map((d) => decisionHtml(d, cfg, base, notes2)), cfg, base));
     const bands = /* @__PURE__ */ new Map();
     for (const x of cfg.sections ?? []) {
-      const name = sectionGroup(x);
-      if (!bands.has(name)) bands.set(name, []);
-      bands.get(name).push(sectionHtml(x, base, notes2));
+      const name2 = sectionGroup(x);
+      if (!bands.has(name2)) bands.set(name2, []);
+      bands.get(name2).push(sectionHtml(x, base, notes2));
     }
-    for (const [name, cards2] of bands) out.push(groupHtml("s:" + name, name, cards2, cfg, base));
+    for (const [name2, cards2] of bands) out.push(groupHtml("s:" + name2, name2, cards2, cfg, base));
     if (notes2) out.push(`<section class="card fe-dp-end" id="fe-dp-end">
     <h3 class="fe-dp-q">Notes for Claude</h3>
     <textarea class="tb" id="fe-dp-endnotes" rows="3" placeholder="Anything else Claude should know" aria-label="Notes for Claude"></textarea>
@@ -13821,7 +13825,7 @@ ${t}`)) say("Note title saved");
         ${arch}${r.items ? `<span class="badge fe-dpl-n" data-tone="${r.state === "waiting" ? "solid" : "quiet"}" title="${r.items} item${r.items === 1 ? "" : "s"}">${r.items}</span>` : ""}
       </button>`;
     };
-    const paint = () => {
+    const paint2 = () => {
       top.hidden = !all.length;
       if (!all.length) {
         rowsBox.innerHTML = emptyHtml("empty", "No decision pages yet", { icon: UI_ICON.opinion, hintHtml: "Pages an agent asks you<br>to answer show up here" });
@@ -13843,7 +13847,7 @@ ${t}`)) say("Note title saved");
       return notes.dpPages().then((rows) => {
         if (mine === seq2) {
           all = rows;
-          paint();
+          paint2();
         }
       }).catch((err) => {
         if (mine !== seq2) return;
@@ -13853,7 +13857,7 @@ ${t}`)) say("Note title saved");
     };
     input.addEventListener("input", () => {
       q = input.value;
-      paint();
+      paint2();
     });
     rowsBox.addEventListener("toggle", (e) => {
       const d = e.target;
@@ -13867,7 +13871,7 @@ ${t}`)) say("Note title saved");
         e.stopPropagation();
         const slug = arch.dataset.arch, now = archivedPref.get();
         archivedPref.set(now.includes(slug) ? now.filter((s) => s !== slug) : [...now, slug]);
-        paint();
+        paint2();
         return;
       }
       const b = e.target.closest(".fe-dpl-row");
@@ -13879,7 +13883,7 @@ ${t}`)) say("Note title saved");
       if (a === "clear") {
         input.value = "";
         q = "";
-        paint();
+        paint2();
         input.focus();
       } else if (a === "retry") {
         rowsBox.innerHTML = emptyHtml("loading", "Loading\u2026");
@@ -13901,7 +13905,7 @@ ${t}`)) say("Note title saved");
       row2.state = "answered";
       row2.answered = Date.now() / 1e3;
       row2.seen = true;
-      paint();
+      paint2();
       if (timer2) void load();
     });
     document.addEventListener("bfb-lens", (e) => {
@@ -13944,10 +13948,10 @@ ${t}`)) say("Note title saved");
   // src/docview-outline.ts
   var SHORT_ID = 4;
   function outlineHtml(items, title) {
-    let group;
+    let group2;
     const rows = items.map((it) => {
-      const head = it.group && it.group !== group ? `<li class="fe-dv-outline-grp">${esc(it.group)}</li>` : "";
-      group = it.group;
+      const head = it.group && it.group !== group2 ? `<li class="fe-dv-outline-grp">${esc(it.group)}</li>` : "";
+      group2 = it.group;
       const shortId = it.id.length <= SHORT_ID;
       return `${head}<li><button type="button" class="row fe-dv-outline-row" data-target="${esc(it.id)}" data-state="${esc(it.state ?? "")}" title="${esc(shortId ? it.label : `${it.id}: ${it.label}`)}">
       <i></i>${shortId ? `<span class="fe-dv-outline-id">${esc(it.id)}</span>` : ""}<span class="fe-dv-outline-lbl">${esc(it.label)}</span><span class="fe-dv-outline-val">${esc(it.value ?? "")}</span>
@@ -14115,10 +14119,10 @@ ${t}`)) say("Note title saved");
     };
     let ruling = null;
     const readSent = async (fromSubmit = false) => {
-      const readJson = async (name) => {
-        if (!await dpIo().exists(base + name)) return null;
+      const readJson = async (name2) => {
+        if (!await dpIo().exists(base + name2)) return null;
         try {
-          return JSON.parse(await dpIo().text(base + name));
+          return JSON.parse(await dpIo().text(base + name2));
         } catch {
           return null;
         }
@@ -14330,7 +14334,7 @@ ${t}`)) say("Note title saved");
       ], "", `${p.items} items`);
       box.querySelector("#fe-dp-progress").textContent = p.asDrafted ? `${p.items} items \xB7 all as drafted` : `${p.items} items \xB7 ${p.flagged} flagged`;
     };
-    const paint = () => {
+    const paint2 = () => {
       for (const c of cards2()) {
         const id = c.dataset.id;
         if (c.dataset.kind === "decision") for (const r of c.querySelectorAll('input[type="radio"]')) r.checked = r.value === state.picks[id];
@@ -14468,7 +14472,7 @@ ${t}`)) say("Note title saved");
       state = draftedState(cfg);
       saved.set(null);
       editedAt.set(Date.now());
-      paint();
+      paint2();
     });
     answer = wireAnswer(cfg, box, slug, base, {
       state: () => state,
@@ -14476,7 +14480,7 @@ ${t}`)) say("Note title saved");
       replace: (s) => {
         state = s;
         saved.set(state);
-        paint();
+        paint2();
       },
       editedAt: () => editedAt.get()
     }, toast);
@@ -14525,7 +14529,7 @@ ${t}`)) say("Note title saved");
       document.activeElement?.blur();
       if (c) focusCard(c, false);
     }, () => live2() && (typingNote() || !!box.querySelector(".zoomed")));
-    paint();
+    paint2();
   }
 
   // src/directions-model.ts
@@ -14651,7 +14655,7 @@ ${t}`)) say("Note title saved");
   var item = (r, i3, sub) => `<li><button type="button" class="fe-dir-next-i" data-row="${i3}">${r.id ? `<span class="fe-dir-next-id">${esc(r.id)}</span>` : ""}<span class="fe-dir-next-t">${esc(plain(r.text || r.section?.title || "Row"))}</span></button>${sub ? `<div class="fe-dir-next-sub">${sub}</div>` : ""}</li>`;
   function nextHeadHtml(m, h) {
     const at = (r) => m.rows.indexOf(r);
-    const group = (key, title, rows, sub, empty, more) => `
+    const group2 = (key, title, rows, sub, empty, more) => `
     <div class="fe-dir-next-g" data-g="${key}">
       <div class="sect" data-level="group" role="heading" aria-level="3">${title}<span class="fe-grp-n">${rows.length || ""}</span></div>
       ${rows.length ? `<ol>${rows.slice(0, CAP).map((r) => item(r, at(r), sub(r))).join("")}</ol>` : `<p class="fe-dir-next-none">${empty}</p>`}
@@ -14660,7 +14664,7 @@ ${t}`)) say("Note title saved");
     const youSub = (r) => [r.need && `<span>${esc(r.need)}</span>`, r.silent && `<span class="fe-dir-next-silent">If you say nothing: ${esc(r.silent)}</span>`, !r.need && !r.silent && r.section && !r.asks ? `<span>${esc(plain(r.section.title))}</span>` : ""].filter(Boolean).join("");
     const readySub = (r) => [r.when && `<span class="fe-dir-next-when">${r.when}</span>`, r.section && `<span>${esc(plain(r.section.title))}</span>`].filter(Boolean).join("");
     const stale = h.staleDays !== null || h.waiting ? `<p class="fe-dir-next-stale">${[h.staleDays !== null ? `Last updated ${h.staleDays} days ago` : "", h.waiting ? `${h.waiting} waiting on others` : ""].filter(Boolean).join(" \xB7 ")}</p>` : "";
-    return `<div class="sect fe-dir-next-h" data-level="panel">What to do next</div>${group("you", "On you", h.you, youSub, "Nothing waits on you.", "needs")}${group("ready", "Ready for an agent", h.ready, readySub, "Nothing is ready to pick up.", "ready")}${stale}`;
+    return `<div class="sect fe-dir-next-h" data-level="panel">What to do next</div>${group2("you", "On you", h.you, youSub, "Nothing waits on you.", "needs")}${group2("ready", "Ready for an agent", h.ready, readySub, "Nothing is ready to pick up.", "ready")}${stale}`;
   }
 
   // src/directions-views.ts
@@ -14883,11 +14887,11 @@ ${t}`)) say("Note title saved");
       const m = meter(t);
       if (!m) continue;
       h.insertAdjacentHTML("beforeend", m);
-      const name = (h.firstChild?.textContent ?? "").trim();
+      const name2 = (h.firstChild?.textContent ?? "").trim();
       for (const td of root.querySelectorAll("tbody td:first-child")) {
-        if (td.dataset.dirLink || td.textContent?.trim() !== name || !h.id) continue;
+        if (td.dataset.dirLink || td.textContent?.trim() !== name2 || !h.id) continue;
         td.dataset.dirLink = "1";
-        td.innerHTML = `<a href="#${esc(h.id)}">${esc(name)}</a>${m}`;
+        td.innerHTML = `<a href="#${esc(h.id)}">${esc(name2)}</a>${m}`;
       }
     }
     const all = tally(states);
@@ -15294,6 +15298,25 @@ body{opacity:1!important}
 .fe-dpl-row .fe-row-ico{position:relative;display:flex}
 .fe-dpl-dot{position:absolute;top:calc(var(--sp-1) * -1);right:calc(var(--sp-1) * -1);width:var(--sp-3);height:var(--sp-3);border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px var(--side)}
 .fe-row-cm{flex:none}
+.fe-home-row{display:flex;align-items:center;gap:var(--sp-4);width:calc(100% - 12px);margin:var(--sp-1) var(--sp-3);padding:var(--sp-3) var(--sp-4);border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-home-row.unseen{background:color-mix(in srgb,var(--gold) 9%,transparent)}
+.fe-home-row.unseen .fe-home-t{font-weight:600}
+.fe-home-row .fe-row-ico{position:relative;display:flex;align-self:flex-start;margin-top:var(--sp-1)}
+.fe-home-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.fe-home-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--row-fs)}
+.fe-home-s{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
+.fe-home-p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:var(--sp-1);font-size:var(--fs-sm);color:var(--mt)}
+.fe-home-age{flex:none;font-size:var(--fs-sm);color:var(--dm)}
+.fe-home-you{flex:none;font-size:var(--fs-sm);font-weight:500;color:var(--tx);padding:0 var(--sp-3);border-radius:var(--r-full);background:color-mix(in srgb,var(--tone-danger) 18%,transparent)}
+.fe-home-none{margin:var(--sp-2) var(--sp-6) var(--sp-4);font-size:var(--fs-sm);color:var(--dm)}
+.fe-home-more{margin:var(--sp-1) var(--sp-5) var(--sp-4)}
+.fe-home-row.has-p .fe-home-age{align-self:flex-start;margin-top:var(--sp-1)}
+.fe-home-head{padding:var(--sp-5) var(--sp-6) var(--sp-1);font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-home-card{margin:var(--sp-3) var(--sp-3) var(--sp-4);padding:var(--sp-1) 0 var(--sp-2);border:1px solid color-mix(in srgb,var(--tone-danger) 30%,var(--bd));border-radius:var(--r-sm);background:color-mix(in srgb,var(--tone-danger) 5%,var(--s1))}
+.fe-home-card[data-tone="calm"]{border-color:var(--bd);background:var(--s1)}
+.fe-home-card-h{min-height:var(--ctl-md);padding:0 var(--sp-5)}
+.fe-home-card[data-tone="calm"] .fe-home-card-h{color:var(--tone-ok)}
+.fe-home-card .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
 #fe-side-rz{width:10px}
 .fe-sec{margin-bottom:var(--sp-2)}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none}
@@ -17337,7 +17360,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     const clean2 = path.replace(/\/+$/, "");
     if (!clean2) return "/";
     const parent = clean2.slice(0, clean2.lastIndexOf("/") + 1) || "/";
-    const name = clean2.slice(clean2.lastIndexOf("/") + 1);
+    const name2 = clean2.slice(clean2.lastIndexOf("/") + 1);
     let listing;
     const dir = fileHref(parent);
     try {
@@ -17346,7 +17369,7 @@ button.chip:disabled{opacity:.45;cursor:default}
       if (parent === "/") return path;
       return await resolvePath(parent) === null ? null : path;
     }
-    const hit = parseListing(listing, dir).find((e) => e.name === name);
+    const hit = parseListing(listing, dir).find((e) => e.name === name2);
     return hit ? clean2 + (hit.isDir ? "/" : "") : null;
   }
   var submitOpen = null;
@@ -17492,7 +17515,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     }
   }
   var SYS = "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif";
-  var font = (id, name, family, fallback = SYS) => ({ id, name, stack: `${family},${fallback}` });
+  var font = (id, name2, family, fallback = SYS) => ({ id, name: name2, stack: `${family},${fallback}` });
   var TEXT_FONTS = [
     { id: "system", name: "System", stack: SYS },
     font("inter", "Inter", "Inter"),
@@ -17697,9 +17720,9 @@ button.chip:disabled{opacity:.45;cursor:default}
         }
         const hid = [...bc.querySelectorAll(".fe-cg[hidden] .fe-crumb")];
         openCrumbMenu(more, "more", `<div class="fe-dd-items">${hid.map((a) => {
-          const href = a.getAttribute("href"), name = a.textContent;
-          const icon2 = getIcon({ name, href, isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: "" }, app.iconRules);
-          return `<a href="${esc(href)}" class="row fe-dd-item dir" data-name="${esc(name.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon2}<span>${esc(name)}</span></a>`;
+          const href = a.getAttribute("href"), name2 = a.textContent;
+          const icon2 = getIcon({ name: name2, href, isDir: true, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: "" }, app.iconRules);
+          return `<a href="${esc(href)}" class="row fe-dd-item dir" data-name="${esc(name2.toLowerCase())}" title="${esc(decodeURIComponent(href.slice(7)))}">${icon2}<span>${esc(name2)}</span></a>`;
         }).join("")}</div>`);
         return;
       }
@@ -18495,7 +18518,7 @@ and ${diags.length - 12} more` : "");
       clearTimeout(checkTimer);
       checkTimer = window.setTimeout(check, CHECK_MS);
     };
-    const paint = () => {
+    const paint2 = () => {
       const dirty = isDirty();
       state.innerHTML = saving ? "Saving\u2026" : failed && dirty ? '<span class="fe-fe-dot"></span>Not saved' : dirty ? '<span class="fe-fe-dot"></span>Edited' : `${UI_ICON.check}Saved`;
       state.className = saving ? "busy" : failed && dirty ? "failed" : dirty ? "dirty" : "saved";
@@ -18545,7 +18568,7 @@ and ${diags.length - 12} more` : "");
     }, true);
     const write = async (expect) => {
       saving = true;
-      paint();
+      paint2();
       let retryAt = 0;
       try {
         const text = tw.text();
@@ -18570,7 +18593,7 @@ and ${diags.length - 12} more` : "");
         }
       } finally {
         saving = false;
-        paint();
+        paint2();
       }
       if (retryAt) await write(retryAt);
     };
@@ -18650,7 +18673,7 @@ and ${diags.length - 12} more` : "");
           buf.snap();
           check();
           paintSource();
-          paint();
+          paint2();
         } else showConflict();
       } catch {
       }
@@ -18715,7 +18738,7 @@ and ${diags.length - 12} more` : "");
         banner.hidden = true;
         diffBox.hidden = true;
         paintSource();
-        paint();
+        paint2();
         host.typed?.(now.text);
       } else if (act === "overwrite") {
         const now = await notes.fileRead(host.root, host.rel);
@@ -18724,7 +18747,7 @@ and ${diags.length - 12} more` : "");
     });
     ta.addEventListener("input", () => {
       paintSource();
-      paint();
+      paint2();
       later();
       checkLater();
     });
@@ -18788,7 +18811,7 @@ and ${diags.length - 12} more` : "");
       ta.value = r.text;
       ta.setSelectionRange(r.start, r.end);
       paintSource();
-      paint();
+      paint2();
       later();
       checkLater();
     };
@@ -18820,7 +18843,7 @@ and ${diags.length - 12} more` : "");
         ta.value = r.text;
         ta.setSelectionRange(r.start, r.end);
         paintSource();
-        paint();
+        paint2();
         later();
       } else if (listy && e.key === "Enter" && !mod && !e.shiftKey && !e.altKey) {
         const r = continueList(ta.value, { start: ta.selectionStart, end: ta.selectionEnd });
@@ -18838,7 +18861,7 @@ and ${diags.length - 12} more` : "");
     });
     diags = doc.text.length > CHECK_MAX ? [] : diagnose(host.ext, doc.text);
     paintSource();
-    paint();
+    paint2();
     if (fmt) setMode(mode);
     ta.focus();
     return {
@@ -19052,7 +19075,7 @@ and ${diags.length - 12} more` : "");
     return items.length ? { from: caret - m[3].length - 1, sigil: m[2], items } : null;
   }
   function agentBrief(path, href, threads) {
-    const name = (a) => a.kind === "human" ? a.name || "owner" : a.alias || "agent";
+    const name2 = (a) => a.kind === "human" ? a.name || "owner" : a.alias || "agent";
     const one = threads.length === 1;
     const short = (id) => id.slice(0, 10);
     const head = [
@@ -19067,7 +19090,7 @@ and ${diags.length - 12} more` : "");
         "",
         meta,
         ...quote.split("\n").map((l) => "> " + l),
-        ...t.comments.filter((c) => !c.deleted).map((c) => `${name(c.author)}: ${(c.text || "").trim()}`)
+        ...t.comments.filter((c) => !c.deleted).map((c) => `${name2(c.author)}: ${(c.text || "").trim()}`)
       ].join("\n");
     });
     const link = one ? [`
@@ -19124,7 +19147,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       const root = o.root();
       if (!root) {
         loaded = true;
-        paint();
+        paint2();
         return;
       }
       lastCompanion = await readCompanion();
@@ -19137,7 +19160,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         failed = errorText(e, "Reading the comments");
         loaded = true;
       }
-      paint();
+      paint2();
       redraw();
       o.changed();
       const hit = linked && threads.find((t) => t.id.startsWith(linked));
@@ -19169,7 +19192,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         return null;
       } finally {
         busy = false;
-        paint();
+        paint2();
         redraw();
         o.changed();
       }
@@ -19177,7 +19200,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     const sugSay = (commentId, text) => {
       sugMsg = { id: commentId, text };
       o.status(text);
-      paint();
+      paint2();
     };
     const accept = async (t, commentId) => {
       const root = o.root();
@@ -19303,7 +19326,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     </form>` : "";
     const noneHtml = () => threads.length ? emptyHtml("filtered", "Nothing here", { icon: UI_ICON.comment, actions: [{ a: "show-all", label: "Show all", title: "Show every thread, open and done" }] }) : emptyHtml("empty", "No comments yet", { icon: UI_ICON.comment, hintHtml: "Select some text,<br>then press <kbd>c</kbd>" });
     const wanted2 = (id) => id === "new" ? !!draft && !draft.attach : id.startsWith("edit:") ? editing === id.slice(5) : id === active;
-    const paint = () => {
+    const paint2 = () => {
       const ae = document.activeElement;
       const focus = ae && o.box.contains(ae) && ae.dataset.for ? { id: ae.dataset.for, s: ae.selectionStart, e: ae.selectionEnd } : null;
       o.box.querySelectorAll("textarea[data-for]").forEach((ta) => {
@@ -19342,7 +19365,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         ${draftHtml()}
         ${notesLine.map((n) => `<p class="fe-cm-note">${esc(n)}</p>`).join("")}
         ${list3.length || draft ? "" : noneHtml()}
-        ${groups.filter(([, ts]) => ts.length).map(([name, ts]) => `${name ? `<h4 class="sect fe-cm-group" data-level="group">${name} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
+        ${groups.filter(([, ts]) => ts.length).map(([name2, ts]) => `${name2 ? `<h4 class="sect fe-cm-group" data-level="group">${name2} <span>${ts.length}</span></h4>` : ""}${ts.map(threadHtml).join("")}`).join("")}
         ${done.length ? `<details class="fe-cm-done"${done.some((t) => t.id === active) ? " open" : ""}><summary class="sect fe-cm-group" data-level="group">${DISCLOSE}Done <span>${done.length}</span></summary>${done.map(threadHtml).join("")}</details>` : ""}
       </div>
       <div class="fe-cm-ac" role="listbox" hidden></div>`;
@@ -19399,12 +19422,12 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       active = id;
       dueOpen = "";
       editing = "";
-      paint();
+      paint2();
       redraw();
       const card4 = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
       if (!card4) {
         filter = "all";
-        paint();
+        paint2();
         redraw();
       }
       const th = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
@@ -19450,7 +19473,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       window.getSelection()?.removeAllRanges();
       addBtn.hidden = true;
       o.reveal();
-      paint();
+      paint2();
       redraw();
       o.box.querySelector(".fe-cm-new")?.scrollIntoView({ block: "nearest" });
       (o.box.querySelector('textarea[data-for="new"]') ?? o.box.querySelector('[data-a="post"]'))?.focus();
@@ -19467,7 +19490,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
       draft = null;
       typed.delete("new");
-      paint();
+      paint2();
       redraw();
     };
     const post = async () => {
@@ -19494,7 +19517,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (id) {
         if (filter === "done") filter = "open";
         focusThread(id);
-      } else paint();
+      } else paint2();
     };
     const reply = async (id, close = false) => {
       const t = threads.find((x) => x.id === id);
@@ -19516,7 +19539,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (leaving) await collapseOut(leaving);
       if (!await write(ops, "Reply")) {
         typed.set(id, text);
-        paint();
+        paint2();
         return;
       }
       const fresh = threads.find((x) => x.id === id)?.comments.filter((c) => !seen2.has(c.id)) ?? [];
@@ -19526,7 +19549,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       }
       if (close && wasOpen && (filter === "open" || filter === "me")) {
         active = "";
-        paint();
+        paint2();
         redraw();
         o.box.querySelector(".fe-cm-list > .fe-cm-th, .fe-cm-done > summary")?.focus({ preventScroll: true });
         o.toast?.("Marked done", 6e3, { label: "Undo", run: () => {
@@ -19542,7 +19565,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     };
     const startEdit = (cid) => {
       editing = cid;
-      paint();
+      paint2();
       const ta = o.box.querySelector(`textarea[data-for="edit:${CSS.escape(cid)}"]`);
       if (ta) {
         ta.focus();
@@ -19552,7 +19575,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
     const cancelEdit = () => {
       typed.delete("edit:" + editing);
       editing = "";
-      paint();
+      paint2();
     };
     const saveEdit = async (cid) => {
       const ta = o.box.querySelector(`textarea[data-for="edit:${CSS.escape(cid)}"]`);
@@ -19564,7 +19587,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (await write([{ op: "edit", thread: active, comment: cid, text }], "Edit")) {
         typed.delete("edit:" + cid);
         editing = "";
-        paint();
+        paint2();
       }
     };
     const copy = (text, said, btn) => copyWithCheck(btn, text).then((ok) => o.status(ok ? said : "copy failed"));
@@ -19733,7 +19756,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         e.preventDefault();
         e.stopPropagation();
         active = "";
-        paint();
+        paint2();
         redraw();
         o.page.focus({ preventScroll: true });
       }
@@ -19755,7 +19778,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (f) {
         filter = f;
         filterPref.set(f);
-        paint();
+        paint2();
         redraw();
         return;
       }
@@ -19764,7 +19787,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (a === "allow") {
         if (await o.allow()) {
           loaded = false;
-          paint();
+          paint2();
           void load();
         }
         return;
@@ -19772,13 +19795,13 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       if (a === "retry") {
         failed = "";
         loaded = false;
-        paint();
+        paint2();
         void load();
         return;
       }
       if (a === "show-all") {
         filter = "all";
-        paint();
+        paint2();
         redraw();
         return;
       }
@@ -19832,7 +19855,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         }
         if (a === "due") {
           dueOpen = active;
-          paint();
+          paint2();
           const inp = o.box.querySelector(".fe-cm-date");
           inp?.focus();
           try {
@@ -20012,7 +20035,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         if (!active && !draft) return false;
         draft = null;
         active = "";
-        paint();
+        paint2();
         redraw();
         return true;
       }
@@ -20064,7 +20087,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       ta?.scrollIntoView({ block: "nearest" });
       return true;
     };
-    paint();
+    paint2();
     void load();
     return {
       act,
@@ -20072,7 +20095,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       open: () => threads.filter((t) => t.status !== "done").length,
       show: (id) => {
         if (id) focusThread(id);
-        else paint();
+        else paint2();
       },
       marks: () => placed().map((t) => ({ id: t.id, offset: t.place.offset, length: t.place.length })),
       held: () => !!active || !!draft
@@ -20186,9 +20209,9 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
   }
   function filePageExt(pathname) {
     if (pathname.endsWith("/")) return null;
-    const name = decodeURIComponent(pathname.split("/").pop() || "");
-    const bare = name.toLowerCase();
-    const ext2 = ["dockerfile", "containerfile", "makefile", "gitignore"].includes(bare) ? bare : name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+    const name2 = decodeURIComponent(pathname.split("/").pop() || "");
+    const bare = name2.toLowerCase();
+    const ext2 = ["dockerfile", "containerfile", "makefile", "gitignore"].includes(bare) ? bare : name2.includes(".") ? name2.split(".").pop().toLowerCase() : "";
     if (!ext2) return null;
     if (CODE_EXTS.has(ext2) || TABLE_EXTS.has(ext2) || JSONL_EXTS.has(ext2) || ext2 === "json") return ext2;
     return null;
@@ -20329,7 +20352,7 @@ ${d.message}` : d.message;
       if (count) count.textContent = metaSummary(fm);
     };
     paintMeta();
-    const paint = () => {
+    const paint2 = () => {
       for (const mode of COLUMN_MODES) fe.classList.toggle(`fe-column-${mode}`, column === mode);
       colBtn.classList.toggle("on", column !== "unset");
       colBtn.querySelector(".fe-fp-column-label").textContent = `${COLUMN_NAMES[column]} width`;
@@ -20375,7 +20398,7 @@ ${d.message}` : d.message;
       headings = !raw && isMd ? buildToc(page, toc) : 0;
       page.scrollTop = top;
       rawBtn.classList.toggle("on", raw);
-      paint();
+      paint2();
       spy(page, toc);
       find.refresh();
       comments?.redraw();
@@ -20398,7 +20421,7 @@ ${d.message}` : d.message;
         tocOpen = true;
         tocPref.set(true);
       }
-      paint();
+      paint2();
       if (t === "toc") spy(page, toc);
     };
     const togglePane = (t) => {
@@ -20412,7 +20435,7 @@ ${d.message}` : d.message;
         tocOpen = false;
         tocPref.set(false);
       }
-      paint();
+      paint2();
     };
     const fp = document.getElementById("fe-fp");
     const measureTight = () => {
@@ -20428,7 +20451,7 @@ ${d.message}` : d.message;
       tight = measureTight();
       if (tight !== was) {
         peek = tight && asked && !rail.hidden;
-        paint();
+        paint2();
       }
     };
     const railBox = wireRailBox(rail, () => refit());
@@ -20439,13 +20462,13 @@ ${d.message}` : d.message;
     toc.addEventListener("click", (e) => {
       if (tight && e.target.closest("a")) {
         peek = false;
-        paint();
+        paint2();
       }
     });
     colBtn.addEventListener("click", () => {
       column = COLUMN_MODES[(COLUMN_MODES.indexOf(column) + 1) % COLUMN_MODES.length];
       columnPref.set(column);
-      paint();
+      paint2();
       refit();
     });
     page.addEventListener("scroll", () => {
@@ -20605,7 +20628,7 @@ ${d.message}` : d.message;
         } } : void 0
       });
       editBtn.classList.remove("busy");
-      paint();
+      paint2();
       if (!editor) {
         editBox.hidden = true;
         page.style.display = "";
@@ -20629,7 +20652,7 @@ ${d.message}` : d.message;
       status,
       toast,
       changed: () => {
-        paint();
+        paint2();
         editor?.marks();
       },
       reveal: showComments,
@@ -21378,7 +21401,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
   var pick = (label, body) => `<div class="fe-set-pick"><span class="fe-set-l">${label}</span>${body}</div>`;
   var fontOpts = (list3) => list3.map((f) => ({ value: f.id, label: f.name, font: f.stack }));
   var note = (text, id = "") => `<p class="fe-set-note"${id ? ` id="${id}"` : ""}>${text}</p>`;
-  var thumb = (group, value, name, kind) => `<label class="fe-set-sw" title="${name}"><input type="radio" name="${group}" value="${value}" title="${name}"><span class="fe-set-thumb" data-${kind}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name}</span></label>`;
+  var thumb = (group2, value, name2, kind) => `<label class="fe-set-sw" title="${name2}"><input type="radio" name="${group2}" value="${value}" title="${name2}"><span class="fe-set-thumb" data-${kind}="${value}"><i class="sb"></i><i class="r1"></i><i class="r2"></i><i class="pill"></i></span><span>${name2}</span></label>`;
   var PALETTE_NAMES = [
     ["slate", "Slate"],
     ["violet", "Violet"],
@@ -21845,6 +21868,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   <div id="fe-body">
     <nav id="fe-side">
       <div id="fe-rail" role="tablist" aria-label="Sidebar" aria-orientation="horizontal">
+        ${railBtn("home", "Home", UI_ICON.dashboard, "Home: every chat, the decisions still open, and what each repo asks of you")}
         ${railBtn("places", "Places", PI.home, "Places: Home, your folders, Applications and Root")}
         ${railBtn("saved", "Saved", PI.bm, "Saved: places and views you kept")}
         ${railBtn("notes", "Notes", PI.docs, "Notes: your notes folder")}
@@ -21855,6 +21879,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         ${railBtn("decisions", "Decisions", UI_ICON.opinion, "Decisions: pages an agent asked you to answer")}
       </div>
       <div id="fe-lenses">
+      <div class="fe-lens" id="fe-lens-home" data-lens="home" role="tabpanel" aria-labelledby="fe-rail-home" hidden>
+        <div id="fe-home"></div>
+      </div>
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
         <div class="fe-sec" data-sec="places">
         ${placesHTML(homeDir(rawPath), rawPath)}
@@ -22169,13 +22196,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
             entryCapped = true;
             break;
           }
-          const name = relativeName(k.href, rootUrl);
-          const hiddenSeg = name.split("/").some((s) => s.startsWith("."));
+          const name2 = relativeName(k.href, rootUrl);
+          const hiddenSeg = name2.split("/").some((s) => s.startsWith("."));
           if (!k.isDir && ++files > perFolderFiles) {
-            heldBack.push({ ...k, name, isHidden: hiddenSeg });
+            heldBack.push({ ...k, name: name2, isHidden: hiddenSeg });
             continue;
           }
-          entries.push({ ...k, name, isHidden: hiddenSeg });
+          entries.push({ ...k, name: name2, isHidden: hiddenSeg });
           if (!k.isDir) continue;
           if (skip.has(k.name) || !opts.includeHidden && k.name.startsWith(".")) continue;
           if (b.depth + 1 > maxDepth) {
@@ -22397,8 +22424,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         rawPath,
         iconRules: app.iconRules,
         settings: app.settings,
-        tagsOf: (path) => (byPath.get(path.replace(/\/+$/, "")) ?? []).map((name) => ({ name, color: colour.get(name) ?? "#8b949e" })),
-        openComments: (name) => openComments.get(name) ?? 0
+        tagsOf: (path) => (byPath.get(path.replace(/\/+$/, "")) ?? []).map((name2) => ({ name: name2, color: colour.get(name2) ?? "#8b949e" })),
+        openComments: (name2) => openComments.get(name2) ?? 0
       };
     };
     const nonPar = all.filter((e) => !e.isParent);
@@ -22430,12 +22457,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const add = (en, depth) => {
         const idx = ls.visible.length;
         ls.visible.push(en);
-        const name = en.isParent ? "Parent Directory" : en.name.split("/").pop();
+        const name2 = en.isParent ? "Parent Directory" : en.name.split("/").pop();
         const expanded = treeExpanded.has(en.href);
         const hit = ls.contentHits?.get(en.href);
         rows.push(`<div class="row fe-tree-row${en.isHidden ? " dotfile" : ""}${en.isDir ? " dir" : ""}" data-idx="${idx}" style="--depth:${depth}">
-        ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? "Collapse" : "Expand"} ${esc(name)}" aria-expanded="${expanded}">${DISCLOSE}</button>` : '<span class="fe-tree-spacer"></span>'}
-        <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name)}</span></a>${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
+        ${en.isDir && !en.isParent ? `<button class="fe-tree-toggle" data-url="${esc(en.href)}" aria-label="${expanded ? "Collapse" : "Expand"} ${esc(name2)}" aria-expanded="${expanded}">${DISCLOSE}</button>` : '<span class="fe-tree-spacer"></span>'}
+        <a href="${esc(en.href)}" class="fe-tree-link" title="${esc(name2)}">${getIcon(en, app.iconRules)}<span class="fe-nm">${esc(name2)}</span></a>${hit ? `<span class="badge fe-find-badge">${hit.count}</span>${renderHitSnippet(hit)}` : ""}
       </div>`);
         if (!en.isDir || !expanded) return;
         if (treeLoading.has(en.href)) {
@@ -22580,8 +22607,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       let lead = -1;
       if (!leadRestored) {
         leadRestored = true;
-        const name = leadPref.get();
-        lead = name ? ls.visible.findIndex((e) => e.name === name) : -1;
+        const name2 = leadPref.get();
+        lead = name2 ? ls.visible.findIndex((e) => e.name === name2) : -1;
       }
       sel.setSel(lead);
     }
@@ -22603,9 +22630,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         applyAll();
       }
     });
-    app.setOrder = (sort, group) => {
+    app.setOrder = (sort, group2) => {
       ls.sort = { ...sort };
-      ls.group = group;
+      ls.group = group2;
       syncSortUi();
       applyAll();
     };
@@ -23265,11 +23292,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     return (text ?? DEFAULT_COMMANDS).split("\n").map((l) => l.trim()).filter(Boolean).flatMap((l) => {
       const at = l.indexOf(":");
       if (at < 1) return [];
-      const name = l.slice(0, at).trim();
+      const name2 = l.slice(0, at).trim();
       let cmd = l.slice(at + 1).trim();
       const terminal = !cmd.startsWith("&");
       if (!terminal) cmd = cmd.slice(1).trim();
-      return name && cmd ? [{ name, cmd, terminal }] : [];
+      return name2 && cmd ? [{ name: name2, cmd, terminal }] : [];
     });
   }
   function openWithItems(commands) {
@@ -23636,8 +23663,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   function areaOf(x) {
     return x && list2.find((a) => x.closest(a.root)) || null;
   }
-  function areaNamed(name) {
-    return list2.find((a) => a.name === name) ?? null;
+  function areaNamed(name2) {
+    return list2.find((a) => a.name === name2) ?? null;
   }
   function cycleArea(from, dir, isHome) {
     let i3 = list2.findIndex((a) => (from ? !!from.closest(a.root) : false) || from === document.body && isHome(a));
@@ -23876,8 +23903,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }
     bind("area-next", () => cycle(1));
     bind("area-prev", () => cycle(-1));
-    const goArea = (name) => {
-      areaNamed(name)?.enter();
+    const goArea = (name2) => {
+      areaNamed(name2)?.enter();
       flash(document.activeElement);
     };
     bind("to-sidebar", () => {
@@ -24020,7 +24047,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const h = homeDir(app.rawPath);
       if (h) go(fileHref(h + "/"));
     }, () => !!homeDir(app.rawPath));
-    const LENSES = [["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"], ["lens-dp", "decisions"]];
+    const LENSES = [["lens-home", "home"], ["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"], ["lens-dp", "decisions"]];
     for (const [id, lens] of LENSES) bind(id, () => {
       if (!sidebarShown()) runCommand("sidebar");
       app.showLens?.(lens);
@@ -24044,8 +24071,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     }, () => !!openLens()?.querySelector(".fe-lens-tags"));
     document.querySelectorAll("#fe-lenses .fe-lens-tags, #fe-docs-list .fe-lens-tags").forEach((r) => rovingFocus(r, ".chip, button", { axis: "horizontal" }));
     bind("side-look", () => {
-      const a = focusedRow(), path = rowPath(a), name = path.split("/").pop() || path;
-      openPreview({ name, href: fileHref(path), isDir: false, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: "" });
+      const a = focusedRow(), path = rowPath(a), name2 = path.split("/").pop() || path;
+      openPreview({ name: name2, href: fileHref(path), isDir: false, isParent: false, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: "" });
     }, () => {
       const a = focusedRow();
       return !!a && !rowPath(a).endsWith("/") && !rowPath(a).includes("#");
@@ -24196,7 +24223,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const rail = el("fe-rail");
     const btns = els("#fe-rail .fe-rail-btn");
     const lenses = els("#fe-lenses .fe-lens");
-    const show = (lens, paint = (f) => f(), quiet = false) => {
+    const show = (lens, paint2 = (f) => f(), quiet = false) => {
       const usable = btns.filter((b) => !b.hidden).map((b) => b.dataset.lens);
       const pick3 = usable.includes(lens) ? lens : "notes";
       for (const b of btns) {
@@ -24205,7 +24232,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         b.tabIndex = on ? 0 : -1;
       }
       for (const l of lenses) l.hidden = l.dataset.lens !== pick3;
-      paint(() => {
+      paint2(() => {
         for (const b of btns) {
           const on = b.dataset.lens === pick3;
           b.classList.toggle("on", on);
@@ -24563,8 +24590,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     app.moveRow = (row2, dir) => {
       if (row2.classList.contains("fe-nt-item")) {
         const root = notesRoot(), rel = row2.dataset.rel, pinned = row2.classList.contains("pinned");
-        const group = allNotes.filter((n) => !!n.pinned === pinned), at2 = group.findIndex((n) => n.rel === rel);
-        const next2 = group[at2 + dir];
+        const group2 = allNotes.filter((n) => !!n.pinned === pinned), at2 = group2.findIndex((n) => n.rel === rel);
+        const next2 = group2[at2 + dir];
         if (!root || at2 < 0) return;
         if (!next2) {
           toast(dir > 0 ? "Already last" : "Already first");
@@ -24617,9 +24644,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     function dropNote(root, rel, toPinned, beforeRel, after) {
       const src = allNotes.find((n) => n.rel === rel);
       if (!src) return;
-      const group = allNotes.filter((n) => !!n.pinned === toPinned && n.rel !== rel);
-      const t = beforeRel ? group.findIndex((n) => n.rel === beforeRel) : -1;
-      const order = [...group];
+      const group2 = allNotes.filter((n) => !!n.pinned === toPinned && n.rel !== rel);
+      const t = beforeRel ? group2.findIndex((n) => n.rel === beforeRel) : -1;
+      const order = [...group2];
       order.splice(t < 0 ? 0 : t + (after ? 1 : 0), 0, src);
       const writes = arrangeWrites(order, rel);
       const pinChange = !!src.pinned !== toPinned;
@@ -24787,12 +24814,12 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       };
       const pinned = shown.filter((n) => n.pinned), rest = shown.filter((n) => !n.pinned);
       const folded = noteFolds();
-      const group = (key, label, list3) => {
+      const group2 = (key, label, list3) => {
         const open = !folded.has(key) || !!ntFilter.value.trim();
         return `<button type="button" class="sect fe-nt-grp" data-level="group" data-grp="${key}" data-label="${esc(label.toLowerCase())}" aria-expanded="${open}" title="${open ? "Fold" : "Show"} ${esc(label.toLowerCase())}">${DISCLOSE}${key === "pinned" ? `<span class="fe-nt-grp-pin">${UI_ICON.pin}</span>` : ""}${label}<span class="fe-grp-n">${list3.length}</span></button><div class="fe-nt-gbody"${open ? "" : " hidden"}>${list3.map(row2).join("")}</div>`;
       };
       const heldRel = document.activeElement?.matches(".fe-si-link") ? document.activeElement.closest(".fe-nt-item")?.dataset.rel : void 0;
-      ntList.innerHTML = shown.length ? pinned.length ? group("pinned", "Pinned", pinned) + group("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
+      ntList.innerHTML = shown.length ? pinned.length ? group2("pinned", "Pinned", pinned) + group2("all", "All notes", rest) : shown.map(row2).join("") : allNotes.length ? emptyHtml("filtered", `No note matches "${ntFilter.value.trim()}"`, { inline: true, actions: [CLEAR] }) : emptyHtml("empty", "No notes yet", { inline: true, hintHtml: "Press <kbd>n</kbd> or + to write one" });
       attachNoteEvents(root);
       if (heldRel) els(".fe-nt-item", ntList).find((i3) => i3.dataset.rel === heldRel)?.querySelector(".fe-si-link")?.focus();
     }
@@ -24882,8 +24909,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       insideTimer = setTimeout(async () => {
         const found = /* @__PURE__ */ new Map();
         await Promise.all(getSaved().filter((p) => p.path.endsWith("/") && !isViewPath(p.path)).map(async (p) => {
-          const name = (await namesIn(p.path)).find((n) => words.every((w) => n.toLowerCase().includes(w)));
-          if (name) found.set(p.path, name);
+          const name2 = (await namesIn(p.path)).find((n) => words.every((w) => n.toLowerCase().includes(w)));
+          if (name2) found.set(p.path, name2);
         }));
         if (svFilter.value.trim().toLowerCase() !== q || !deep()) return;
         svHits = found;
@@ -25231,7 +25258,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 
   // src/tool-lenses.ts
   var listDir = async (url) => parseListing(await fetchFileText(url), url);
-  var extOf = (name) => name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
+  var extOf = (name2) => name2.includes(".") ? name2.split(".").pop().toLowerCase() : "txt";
   function initToolLenses(app) {
     initSearch(app);
     initAsk(app);
@@ -25302,9 +25329,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const total = hits.reduce((n, [, h]) => n + h.count, 0);
       status.textContent = (hits.length ? `${total} match${total === 1 ? "" : "es"} in ${hits.length} file${hits.length === 1 ? "" : "s"}` : `No file here contains "${term}".`) + (limit ? ` (${limit})` : "");
       list3.innerHTML = hits.map(([href, h]) => {
-        const name = relativeName(href, root);
+        const name2 = relativeName(href, root);
         const snip = `${esc(h.line.slice(0, h.start))}<mark>${esc(h.line.slice(h.start, h.end))}</mark>${esc(h.line.slice(h.end))}`;
-        return `<a class="row fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name)}, line ${h.lineNumber}">${icoFile(extOf(name))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
+        return `<a class="row fe-si fe-srch-hit" href="${esc(pageHref(href))}" title="${esc(name2)}, line ${h.lineNumber}">${icoFile(extOf(name2))}<span class="fe-srch-tx"><span class="fe-sl">${esc(name2)}</span><span class="fe-srch-snip">${snip}</span></span><span class="fe-rc-ago">${h.count}</span></a>`;
       }).join("");
       remember(term, { status: status.textContent ?? "", html: list3.innerHTML });
     }
@@ -25491,7 +25518,7 @@ ${rows.join("\n")}`, name: subject };
       syncEmpty();
       return turn;
     };
-    const paint = (turn, text, done) => {
+    const paint2 = (turn, text, done) => {
       const out = turn.querySelector(".fe-ask-a");
       const { thinking, answer, open } = splitThinking(text);
       answers.set(turn, answer);
@@ -25534,7 +25561,7 @@ ${rows.join("\n")}`, name: subject };
           paintError(el2, t.error, "");
           continue;
         }
-        paint(el2, t.a, true);
+        paint2(el2, t.a, true);
         el2.querySelector(".fe-ask-meta").textContent = turnMeta(t);
       }
       syncEmpty();
@@ -25640,7 +25667,7 @@ ${rows.join("\n")}`, name: subject };
           out.textContent = "Stopped before an answer came.";
           return;
         }
-        paint(turn, full, true);
+        paint2(turn, full, true);
         const t = { ...base, a: full, ms: Date.now() - started, stopped: true };
         meta.textContent = turnMeta(t);
         save(t);
@@ -25658,13 +25685,13 @@ ${rows.join("\n")}`, name: subject };
             full += t;
             frame ||= requestAnimationFrame(() => {
               frame = 0;
-              paint(turn, full, false);
+              paint2(turn, full, false);
             });
           },
           onDone: (info) => {
             over = true;
             done();
-            paint(turn, full, true);
+            paint2(turn, full, true);
             const read2 = steps.map((s) => esc(s.replace(/^Reading/, "Read")));
             if (read2.length === 1) out.insertAdjacentHTML("afterbegin", `<div class="fe-ask-step fe-ask-work">${UI_ICON.image}<span>${read2[0]}</span></div>`);
             else if (read2.length) out.insertAdjacentHTML("afterbegin", `<details class="fe-ask-think fe-ask-work"><summary>${UI_ICON.image}<span>Read ${read2.length} images</span></summary><div class="fe-md">${read2.map((s) => `<p>${s}</p>`).join("")}</div></details>`);
@@ -25684,7 +25711,7 @@ ${rows.join("\n")}`, name: subject };
           replay: (text, had) => {
             steps.push(...had);
             full = text;
-            if (full) paint(turn, full, false);
+            if (full) paint2(turn, full, false);
             else showSteps();
           },
           // It ended between the check and the pick-up; it is parked, so file it and show the chat.
@@ -26236,7 +26263,7 @@ ${rows.join("\n")}`, name: subject };
       box.className = "fe-rule-pop";
       box.setAttribute("role", "dialog");
       box.setAttribute("aria-label", "Icon and colour");
-      const paint = () => {
+      const paint2 = () => {
         box.innerHTML = `
         <div class="fe-rp-sec"><span class="fe-rp-l">Picture</span>
           <div class="fe-rp-glyphs">
@@ -26248,7 +26275,7 @@ ${rows.join("\n")}`, name: subject };
           <div class="fe-rp-sw">${SWATCHES.map((c) => `<button type="button" class="fe-rp-c${c === rule.color ? " on" : ""}" data-c="${c}" style="--c:${c}" title="${c}" aria-label="${c}"></button>`).join("")}
           <input class="tb fe-st-input fe-rp-hex" data-mono value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
       };
-      paint();
+      paint2();
       const apply = () => {
         saveRules();
         const ico = rulesList.querySelector(`.fe-rule[data-idx="${idx}"] .fe-rule-ico`);
@@ -26261,7 +26288,7 @@ ${rows.join("\n")}`, name: subject };
         else if (c) rule.color = c.dataset.c;
         else return;
         apply();
-        paint();
+        paint2();
         box.querySelector(g ? `.fe-rp-g[data-g="${g.dataset.g}"]` : `.fe-rp-c[data-c="${c.dataset.c}"]`)?.focus();
       });
       box.addEventListener("input", (e) => {
@@ -26320,7 +26347,7 @@ ${rows.join("\n")}`, name: subject };
       Promise.all([avail, llmModels()]).then(([av, { tiers, gemini, gpt }]) => {
         const def = av.kind === "unavailable" ? "" : (av.status.default_model ?? "").replace(/:latest$/, "");
         const defAt = defaultTier(tiers, def);
-        const rowHtml = (icon2, name, model, remote, badge = "", badgeTip = "") => `<div class="fe-ai-m">${icon2}<b>${esc(name)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ""}<span class="fe-ai-where${remote ? " cloud" : ""}" title="${remote ? `Sent to ${remote}` : "Stays on this Mac"}">${remote ? "Remote" : "This Mac"}</span></div>`;
+        const rowHtml = (icon2, name2, model, remote, badge = "", badgeTip = "") => `<div class="fe-ai-m">${icon2}<b>${esc(name2)}</b><span class="fe-ai-m-id">${esc(model)}</span>${badge ? `<span class="fe-ai-def" title="${esc(badgeTip)}">${badge}</span>` : ""}<span class="fe-ai-where${remote ? " cloud" : ""}" title="${remote ? `Sent to ${remote}` : "Stays on this Mac"}">${remote ? "Remote" : "This Mac"}</span></div>`;
         const lead = def && defAt < 0 ? rowHtml(UI_ICON.bot, def, "", /^gemini/i.test(def) ? "Google" : "", "default", "The model lm answers with") : "";
         models.innerHTML = tiers.length || gemini.length || gpt.length ? lead + tiers.map((t, i3) => rowHtml(UI_ICON.bot, t.alias, t.model, "", i3 === defAt ? "default" : "", "The model lm answers with")).join("") + gemini.map((g) => rowHtml(UI_ICON.ai, g.name.replace(/^gemini-/, "Gemini "), g.name, "Google", g.default ? "Gemini default" : "", "Used when you ask Gemini without naming a model")).join("") + gpt.map((g) => rowHtml(UI_ICON.ai, g.label, g.name, "OpenAI", g.default ? "Codex default" : "", "Used when you ask GPT without naming a model; answers through your Codex sign-in")).join("") + `<p class="fe-set-note">Remote models send the question and the file to Google or OpenAI.</p>` : '<p class="fe-set-note">No model list from lm.</p>';
       });
@@ -26917,7 +26944,7 @@ ${rows.join("\n")}`, name: subject };
     const input = box.querySelector("#fe-docs-q");
     const short = (p) => (home && p.startsWith(home + "/") ? "~" + p.slice(home.length) : p).replace(/\/[^/]+$/, "") || "/";
     const due = (d) => (/* @__PURE__ */ new Date(d + "T00:00:00")).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const paint = () => {
+    const paint2 = () => {
       const usable = docRows(all);
       top.hidden = !usable.length;
       for (const c of top.querySelectorAll("[data-f]")) {
@@ -26952,21 +26979,21 @@ ${rows.join("\n")}`, name: subject };
     };
     const load = () => notes.docsIndex().then((rows) => {
       all = rows.map((r) => ({ ...r, doc: browsedPath(r.doc) }));
-      paint();
+      paint2();
     }).catch((err) => {
       top.hidden = true;
       rowsBox.innerHTML = emptyHtml("failed", "Comments could not be listed", { hint: errorText(err), actions: [{ a: "retry", label: "Try again", title: "List the commented documents again" }] });
     });
     input.addEventListener("input", () => {
       f.q = input.value;
-      paint();
+      paint2();
     });
     input.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && input.value) {
         e.preventDefault();
         input.value = "";
         f.q = "";
-        paint();
+        paint2();
       }
       e.stopPropagation();
     });
@@ -26974,14 +27001,14 @@ ${rows.join("\n")}`, name: subject };
       const tg = e.target.closest("[data-tag]");
       if (tg) {
         f.tag = f.tag === tg.dataset.tag ? "" : tg.dataset.tag;
-        paint();
+        paint2();
         return;
       }
       const c = e.target.closest("[data-f]");
       if (!c) return;
       const k = c.dataset.f;
       f[k] = !f[k];
-      paint();
+      paint2();
     });
     rowsBox.addEventListener("click", (e) => {
       const b = e.target.closest(".fe-doc-row");
@@ -26995,11 +27022,11 @@ ${rows.join("\n")}`, name: subject };
         f.q = "";
         f.tag = "";
         f.me = f.due = f.here = false;
-        paint();
+        paint2();
         input.focus();
       } else if (a === "all") {
         f.here = false;
-        paint();
+        paint2();
       } else if (a === "retry") {
         rowsBox.innerHTML = emptyHtml("loading", "Loading\u2026");
         void load();
@@ -27021,6 +27048,120 @@ ${rows.join("\n")}`, name: subject };
     });
   }
 
+  // src/home-model.ts
+  function summarizeRepo(doc, now = /* @__PURE__ */ new Date()) {
+    const root = document.createElement("div");
+    root.innerHTML = renderMarkdown(doc.text);
+    const h = nextHead(readDirections(root), now);
+    return { path: doc.path, repo: doc.repo, mtime: doc.mtime, onYou: h.you.length, ready: h.ready.length, staleDays: h.staleDays };
+  }
+  var sortRepos = (repos) => [...repos].sort((a, b) => Number(b.onYou > 0) - Number(a.onYou > 0) || b.onYou - a.onYou || b.mtime - a.mtime);
+  var openPages = (rows, archived = /* @__PURE__ */ new Set()) => dpBands(rows, "", archived).filter((b) => b.state !== "archived").flatMap((b) => b.rows);
+
+  // src/home-lens.ts
+  var archivedPref2 = jsonPref("bfb-dp-archived-v1", [], Array.isArray);
+  var CHATS_SHOWN = 5;
+  var name = (p) => p.split("/").filter(Boolean).pop() || "/";
+  var plural2 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
+  var lastAnswer = (c) => {
+    const t = [...c.turns].reverse().find((x) => x.a && !x.error);
+    return (t?.a ?? "").replace(/<think>[\s\S]*?<\/think>/g, "").replace(/[#*`>_[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
+  };
+  var chatRow = (c) => {
+    const ans = lastAnswer(c.chat);
+    return `<button type="button" class="row fe-home-row${ans ? " has-p" : ""}" data-chat="${esc(c.chat.id)}" data-subject="${esc(c.subject)}" title="${esc(c.chat.title)} \xB7 ${esc(c.subject)}">
+    <span class="fe-row-ico">${UI_ICON.ai}</span>
+    <span class="fe-home-tx"><span class="fe-home-t">${esc(c.chat.title)}</span><span class="fe-home-s">${esc(name(c.subject))} \xB7 ${plural2(c.chat.turns.length, "turn")}</span>${ans ? `<span class="fe-home-p">${esc(ans)}</span>` : ""}</span>
+    <span class="fe-home-age" title="${esc(whenText(c.chat.at))}">${esc(ago(c.chat.at / 1e3))}</span>
+  </button>`;
+  };
+  var pageRow = (r) => {
+    const unseen = r.state === "waiting" && !r.seen;
+    const reach = r.reach && REACH[r.reach];
+    const sub = [r.state === "waiting" ? "waiting on you" : "never answered", reach?.label, r.origin?.project].filter(Boolean).join(" \xB7 ");
+    return `<button type="button" class="row fe-home-row${unseen ? " unseen" : ""}" data-page="${esc(r.path)}" title="${esc(r.title ?? r.slug)}${unseen ? " \xB7 you have not opened this one yet" : ""}">
+    <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ""}</span>
+    <span class="fe-home-tx"><span class="fe-home-t">${esc(r.title ?? r.slug)}</span><span class="fe-home-s">${esc(sub)}</span></span>
+    <span class="fe-home-age" title="${esc(whenText(r.mtime * 1e3))}">${esc(ago(r.mtime))}</span>
+    ${r.items ? `<span class="badge" data-tone="${r.state === "waiting" ? "solid" : "quiet"}" title="${plural2(r.items, "item")}">${r.items}</span>` : ""}
+  </button>`;
+  };
+  var repoRow = (r) => {
+    const sub = [r.ready ? `${r.ready} ready for an agent` : "", r.staleDays ? `updated ${r.staleDays} d ago` : ""].filter(Boolean).join(" \xB7 ") || "nothing waiting";
+    return `<button type="button" class="row fe-home-row" data-doc="${esc(r.path)}" title="Open ${esc(r.repo)}'s directions">
+    <span class="fe-row-ico">${UI_ICON.contents}</span>
+    <span class="fe-home-tx"><span class="fe-home-t">${esc(r.repo)}</span><span class="fe-home-s">${esc(sub)}</span></span>
+    ${r.onYou ? `<span class="fe-home-you" title="${plural2(r.onYou, "item")} in this doc wait on you">${r.onYou} on you</span>` : ""}
+  </button>`;
+  };
+  var group = (id, label, n, body, open) => `<details class="fe-grp fe-home-grp" data-grp="${id}"${open ? " open" : ""}><summary class="sect" data-level="group">${DISCLOSE}${esc(label)}<span class="fe-grp-n">${n}</span></summary><div class="fe-grp-body">${body}</div></details>`;
+  function paint(d, allShown, folded) {
+    const asks = d.repos.filter((r) => r.onYou);
+    const waiting = d.pages.filter((p) => p.state === "waiting");
+    const quiet = [...d.repos.filter((r) => !r.onYou).map(repoRow), ...d.pages.filter((p) => p.state !== "waiting").map(pageRow)];
+    const n = waiting.length + asks.length;
+    const day = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+    const card4 = n ? `<section class="fe-home-card" data-tone="you"><div class="sect fe-home-card-h" data-level="group">Needs you<span class="fe-grp-n">${n}</span></div>${waiting.map(pageRow).join("")}${asks.map(repoRow).join("")}</section>` : `<section class="fe-home-card" data-tone="calm"><div class="sect fe-home-card-h" data-level="group">${UI_ICON.circleCheck}<span>Nothing waits on you</span></div></section>`;
+    const failed = d.pagesFailed ? `<p class="fe-home-none">Decision pages could not be listed</p>` : "";
+    const chats = allShown ? d.chats : d.chats.slice(0, CHATS_SHOWN);
+    const chatBody = (chats.map(chatRow).join("") || `<p class="fe-home-none">No chats yet. Ask about any file to start one.</p>`) + (chats.length < d.chats.length ? `<button type="button" class="btn fe-home-more" data-more data-size="sm" data-variant="ghost">Show all ${d.chats.length}</button>` : "");
+    return `<header class="fe-home-head">${esc(day)}</header>${card4}${failed}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
+  }
+  function initHomeLens(box, go2) {
+    let data = null, timer2 = null, seq2 = 0, allShown = false;
+    const folded = /* @__PURE__ */ new Set();
+    const render2 = () => {
+      if (data) box.innerHTML = paint(data, allShown, folded);
+    };
+    const load = async () => {
+      const mine = ++seq2;
+      const [pages, docs] = await Promise.all([
+        notes.dpPages().then((rows) => ({ rows, failed: false }), () => ({ rows: [], failed: true })),
+        notes.directionsDocs().catch(() => [])
+      ]);
+      if (mine !== seq2) return;
+      data = {
+        chats: allChats(),
+        pages: openPages(pages.rows, new Set(archivedPref2.get())),
+        pagesFailed: pages.failed,
+        repos: sortRepos(docs.map((doc) => summarizeRepo(doc)))
+      };
+      render2();
+    };
+    box.addEventListener("toggle", (e) => {
+      const g = e.target.dataset?.grp;
+      if (!g) return;
+      if (e.target.open) folded.delete(g);
+      else folded.add(g);
+    }, true);
+    box.addEventListener("click", (e) => {
+      const t = e.target;
+      if (t.closest("[data-more]")) {
+        allShown = true;
+        render2();
+        return;
+      }
+      const row2 = t.closest(".fe-home-row");
+      if (!row2) return;
+      if (row2.dataset.chat) go2(row2.dataset.subject, "#ask=" + encodeURIComponent(row2.dataset.chat));
+      else if (row2.dataset.page) go2(row2.dataset.page + "/");
+      else if (row2.dataset.doc) go2(row2.dataset.doc);
+    });
+    document.addEventListener("bfb-lens", (e) => {
+      const on = e.detail === "home";
+      if (timer2) {
+        clearInterval(timer2);
+        timer2 = null;
+      }
+      if (!on) return;
+      if (!data) box.innerHTML = emptyHtml("loading", "Loading\u2026");
+      void load();
+      timer2 = setInterval(() => {
+        if (!document.hidden) void load();
+      }, 15e3);
+    });
+  }
+
   // src/main.ts
   async function showClosedSets(strip, visible2) {
     const box = document.getElementById("fe-rc-sets");
@@ -27033,9 +27174,9 @@ ${rows.join("\n")}`, name: subject };
     let timer2 = 0;
     const later = (ms) => {
       clearTimeout(timer2);
-      timer2 = window.setTimeout(() => void paint(), ms);
+      timer2 = window.setTimeout(() => void paint2(), ms);
     };
-    async function paint() {
+    async function paint2() {
       const all = await strip.closedSets();
       const settle = 2500;
       const young = all.filter((s) => Date.now() - s.at < settle);
@@ -27056,16 +27197,16 @@ ${rows.join("\n")}`, name: subject };
         return;
       }
       const b = e.target.closest(".fe-rc-set");
-      if (b) void strip.restoreSet(b.dataset.set).then(paint);
+      if (b) void strip.restoreSet(b.dataset.set).then(paint2);
     });
     try {
-      chrome.storage.onChanged.addListener((changes, name) => {
-        if (name === "local" && Object.keys(changes).some((k) => k.startsWith("bfb-strip-v2:"))) later(300);
+      chrome.storage.onChanged.addListener((changes, name2) => {
+        if (name2 === "local" && Object.keys(changes).some((k) => k.startsWith("bfb-strip-v2:"))) later(300);
       });
     } catch {
     }
-    strip.onChange(() => void paint());
-    await paint();
+    strip.onChange(() => void paint2());
+    await paint2();
   }
   loadKv().catch(() => {
   }).then(function() {
@@ -27121,10 +27262,10 @@ ${rows.join("\n")}`, name: subject };
       return m < 1 ? "now" : m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`;
     };
     const recentRow = (r) => {
-      const name = r.path.split("/").filter(Boolean).pop() || "/";
+      const name2 = r.path.split("/").filter(Boolean).pop() || "/";
       const isDir = r.path.endsWith("/");
-      const ext2 = name.includes(".") ? name.split(".").pop().toLowerCase() : "txt";
-      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name)}</span><span class="fe-rc-ago">${ago3(r.ts)}</span></a>`;
+      const ext2 = name2.includes(".") ? name2.split(".").pop().toLowerCase() : "txt";
+      return `<a href="${esc(fileHref(r.path))}" class="row fe-si" title="${esc(r.path)}">${isDir ? PI.folder : icoFile(ext2)}<span class="fe-sl">${esc(name2)}</span><span class="fe-rc-ago">${ago3(r.ts)}</span></a>`;
     };
     const recentDirs = recents.filter((r) => r.path.endsWith("/")).slice(0, 12);
     const recentFiles = recents.filter((r) => !r.path.endsWith("/")).slice(0, 12);
@@ -27290,6 +27431,7 @@ ${rows.join("\n")}`, name: subject };
     const goTab = (path, hash = "") => app.strip.go(path, hash);
     initDocsLens(el("fe-docs-list"), homeDir(rawPath), folderPath, goTab);
     initDpLens(el("fe-dpl-list"), (p) => goTab(p));
+    initHomeLens(el("fe-home"), goTab);
     mountGoto(el("fe-open-path"), () => homeDir(rawPath), (path, background) => {
       if (!background) {
         goTab(path);

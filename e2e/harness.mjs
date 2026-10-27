@@ -88,6 +88,7 @@ os.environ['BFB_DP_REGISTRY'] = ${JSON.stringify(dpRegistry(profile))}
 os.environ['BFB_DP_BIN'] = ${JSON.stringify(dpStub)}
 os.environ['BFB_DOCS_HOME'] = ${JSON.stringify(docsHome(profile))}
 os.environ['BFB_BACKUP_DIR'] = ${JSON.stringify(join(profile, 'backups'))}
+os.environ['BFB_DIRECTIONS_ROOTS'] = ${JSON.stringify(join(profile, 'repos'))}
 spec = importlib.util.spec_from_file_location('notes_host', ${JSON.stringify(join(ROOT, 'native', 'notes_host.py'))})
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 ${pickReply ? `m.run_picker = lambda start, kind=None: ${JSON.stringify(pickReply)}` : ''}
@@ -327,7 +328,7 @@ export async function launch({ headless = true, pickReply, lmStub = false } = {}
     rmSync(notesDir, { recursive: true, force: true });
   }
 
-  return { browser, fixture, notesDir, downloads, open, close, store, sw, docsHome: docsHome(profile), lmCalls, lmDown: join(profile, 'lm-down'), codexFail: join(profile, 'codex-fail'), lmSlowStatus: join(profile, 'lm-slow-status'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
+  return { browser, fixture, notesDir, downloads, open, close, store, sw, docsHome: docsHome(profile), lmCalls, lmDown: join(profile, 'lm-down'), codexFail: join(profile, 'codex-fail'), reposDir: join(profile, 'repos'), lmSlowStatus: join(profile, 'lm-slow-status'), dpRegistry: dpRegistry(profile), dpCalls: join(profile, 'dp-calls.jsonl'), dpReach: join(profile, 'dp-reach.json'), dpDown: join(profile, 'dp-down'), dpBroken: join(profile, 'dp-broken'), dpNotify: join(profile, 'dp-notify.json') };
 }
 
 // The extension's settings store for the running browser; set by launch().

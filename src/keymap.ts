@@ -50,6 +50,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'to-tabs', group: 'Go', title: 'Focus the tabs', keys: ['g t'], own: true },
   { id: 'to-toolbar', group: 'Go', title: 'Focus the toolbar', keys: ['g b'], own: true },
   { id: 'to-path', group: 'Go', title: 'Focus the path bar', keys: ['g p'], own: true },
+  { id: 'lens-home', group: 'Go', title: 'Home', keys: ['g 0'], own: true },
   { id: 'lens-places', group: 'Go', title: 'Places', keys: ['g 1'], own: true },
   { id: 'lens-saved', group: 'Go', title: 'Saved', keys: ['g 2'], own: true },
   { id: 'lens-notes', group: 'Go', title: 'Notes', keys: ['g 3'], own: true },

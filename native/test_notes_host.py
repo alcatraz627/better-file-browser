@@ -416,5 +416,29 @@ r = call({'op': 'dpPages'})
 check(r.get('code') == 'dp_unavailable', f'a missing registry gives a stable code: {r}')
 del os.environ['BFB_DP_REGISTRY']
 
+# Directions docs for the Home lens: a repo at the root and one inside an org
+# folder are found, a linked worktree (its .git a file) and a folder that is
+# not a repo are left out.
+code = tempfile.mkdtemp(prefix='bfb-code-')
+def repo(rel, doc_rel, git_dir=True):
+    d = os.path.join(code, rel)
+    os.makedirs(os.path.dirname(os.path.join(d, doc_rel)), exist_ok=True)
+    if git_dir: os.makedirs(os.path.join(d, '.git'), exist_ok=True)
+    else: open(os.path.join(d, '.git'), 'w').write('gitdir: elsewhere\n')
+    open(os.path.join(d, doc_rel), 'w').write(f'# {rel}\n')
+repo('solo', 'DIRECTIONS.md')
+repo('Org/app', 'docs/plan/DIRECTIONS.md')
+repo('Org/app-wt', 'docs/plan/DIRECTIONS.md', git_dir=False)
+os.makedirs(os.path.join(code, 'loose'))
+open(os.path.join(code, 'loose', 'DIRECTIONS.md'), 'w').write('# loose\n')
+os.utime(os.path.join(code, 'solo', 'DIRECTIONS.md'), (1, 1))
+os.environ['BFB_DIRECTIONS_ROOTS'] = code
+r = call({'op': 'directionsDocs'})
+got = [(d['repo'], d['text'].strip()) for d in r.get('docs', [])]
+check(got == [('app', '# Org/app'), ('solo', '# solo')], f'directions docs: repos found, worktree and non-repo left out, newest first: {got}')
+os.environ['BFB_DIRECTIONS_ROOTS'] = os.path.join(code, 'nowhere')
+check(call({'op': 'directionsDocs'}).get('docs') == [], 'a missing root lists no directions docs')
+del os.environ['BFB_DIRECTIONS_ROOTS']
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

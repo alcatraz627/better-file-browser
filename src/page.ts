@@ -102,6 +102,7 @@ export function renderPage(p: PageParams): string {
   <div id="fe-body">
     <nav id="fe-side">
       <div id="fe-rail" role="tablist" aria-label="Sidebar" aria-orientation="horizontal">
+        ${railBtn('home', 'Home', UI_ICON.dashboard, 'Home: every chat, the decisions still open, and what each repo asks of you')}
         ${railBtn('places', 'Places', PI.home, 'Places: Home, your folders, Applications and Root')}
         ${railBtn('saved', 'Saved', PI.bm, 'Saved: places and views you kept')}
         ${railBtn('notes', 'Notes', PI.docs, 'Notes: your notes folder')}
@@ -112,6 +113,9 @@ export function renderPage(p: PageParams): string {
         ${railBtn('decisions', 'Decisions', UI_ICON.opinion, 'Decisions: pages an agent asked you to answer')}
       </div>
       <div id="fe-lenses">
+      <div class="fe-lens" id="fe-lens-home" data-lens="home" role="tabpanel" aria-labelledby="fe-rail-home" hidden>
+        <div id="fe-home"></div>
+      </div>
       <div class="fe-lens" id="fe-lens-places" data-lens="places" role="tabpanel" aria-labelledby="fe-rail-places" hidden>
         <div class="fe-sec" data-sec="places">
         ${placesHTML(homeDir(rawPath), rawPath)}

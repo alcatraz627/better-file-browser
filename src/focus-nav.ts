@@ -243,7 +243,7 @@ export function initFocusNav(app: App): void {
   bind('tab-right', () => moveHere(1), () => !!document.querySelector('#fe-tabs .fe-tab.on[data-id]:not([data-id=""])'));
   bind('tab-list', click('fe-tab-list'), () => !document.getElementById('fe-tab-list')?.hidden);
   bind('home', () => { const h = homeDir(app.rawPath); if (h) go(fileHref(h + '/')); }, () => !!homeDir(app.rawPath));
-  const LENSES: [string, string][] = [['lens-places', 'places'], ['lens-saved', 'saved'], ['lens-notes', 'notes'], ['lens-recent', 'history'], ['lens-search', 'search'], ['lens-ask', 'ask'], ['lens-docs', 'comments'], ['lens-dp', 'decisions']];
+  const LENSES: [string, string][] = [['lens-home', 'home'], ['lens-places', 'places'], ['lens-saved', 'saved'], ['lens-notes', 'notes'], ['lens-recent', 'history'], ['lens-search', 'search'], ['lens-ask', 'ask'], ['lens-docs', 'comments'], ['lens-dp', 'decisions']];
   for (const [id, lens] of LENSES) bind(id, () => {
     if (!sidebarShown()) runCommand('sidebar');
     app.showLens?.(lens);

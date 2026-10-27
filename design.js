@@ -291,6 +291,25 @@ body{opacity:1!important}
 .fe-dpl-row .fe-row-ico{position:relative;display:flex}
 .fe-dpl-dot{position:absolute;top:calc(var(--sp-1) * -1);right:calc(var(--sp-1) * -1);width:var(--sp-3);height:var(--sp-3);border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px var(--side)}
 .fe-row-cm{flex:none}
+.fe-home-row{display:flex;align-items:center;gap:var(--sp-4);width:calc(100% - 12px);margin:var(--sp-1) var(--sp-3);padding:var(--sp-3) var(--sp-4);border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-home-row.unseen{background:color-mix(in srgb,var(--gold) 9%,transparent)}
+.fe-home-row.unseen .fe-home-t{font-weight:600}
+.fe-home-row .fe-row-ico{position:relative;display:flex;align-self:flex-start;margin-top:var(--sp-1)}
+.fe-home-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.fe-home-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--row-fs)}
+.fe-home-s{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
+.fe-home-p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:var(--sp-1);font-size:var(--fs-sm);color:var(--mt)}
+.fe-home-age{flex:none;font-size:var(--fs-sm);color:var(--dm)}
+.fe-home-you{flex:none;font-size:var(--fs-sm);font-weight:500;color:var(--tx);padding:0 var(--sp-3);border-radius:var(--r-full);background:color-mix(in srgb,var(--tone-danger) 18%,transparent)}
+.fe-home-none{margin:var(--sp-2) var(--sp-6) var(--sp-4);font-size:var(--fs-sm);color:var(--dm)}
+.fe-home-more{margin:var(--sp-1) var(--sp-5) var(--sp-4)}
+.fe-home-row.has-p .fe-home-age{align-self:flex-start;margin-top:var(--sp-1)}
+.fe-home-head{padding:var(--sp-5) var(--sp-6) var(--sp-1);font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-home-card{margin:var(--sp-3) var(--sp-3) var(--sp-4);padding:var(--sp-1) 0 var(--sp-2);border:1px solid color-mix(in srgb,var(--tone-danger) 30%,var(--bd));border-radius:var(--r-sm);background:color-mix(in srgb,var(--tone-danger) 5%,var(--s1))}
+.fe-home-card[data-tone="calm"]{border-color:var(--bd);background:var(--s1)}
+.fe-home-card-h{min-height:var(--ctl-md);padding:0 var(--sp-5)}
+.fe-home-card[data-tone="calm"] .fe-home-card-h{color:var(--tone-ok)}
+.fe-home-card .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
 #fe-side-rz{width:10px}
 .fe-sec{margin-bottom:var(--sp-2)}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none}
@@ -2387,6 +2406,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     contents: svg('<path d="M15 12H3M17 18H3M21 6H3"/>'),
     info: svg('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'),
     circle: svg('<circle cx="12" cy="12" r="9"/>'),
+    dashboard: svg('<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>'),
     archive: svg('<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>'),
     expand: svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>'),
     circleDashed: svg('<path d="M10.1 2.18a9.93 9.93 0 0 1 3.8 0M17.6 3.71a9.95 9.95 0 0 1 2.69 2.7M21.82 10.1a9.93 9.93 0 0 1 0 3.8M20.29 17.6a9.95 9.95 0 0 1-2.7 2.69M13.9 21.82a9.94 9.94 0 0 1-3.8 0M6.4 20.29a9.95 9.95 0 0 1-2.69-2.7M2.18 13.9a9.93 9.93 0 0 1 0-3.8M3.71 6.4a9.95 9.95 0 0 1 2.7-2.69"/>'),

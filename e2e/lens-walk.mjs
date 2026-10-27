@@ -1,4 +1,4 @@
-// The sidebar is a bar of seven lenses. Notes shows first; Saved is a lens
+// The sidebar is a bar of nine lenses. Notes shows first; Saved is a lens
 // of its own; Places lists Home and the folders under it, read from a page under
 // your home; History lists what you opened lately. The choice survives a
 // reload, arrow keys move between lenses, and History can be switched off.
@@ -29,8 +29,8 @@ try {
   await page.waitForSelector('#fe-rail');
 
   const first = await state(page);
-  check(first.rail.join() === 'Places,Saved,Notes,History,Search,Ask,Comments' && first.on === 'Notes' && first.shown.join() === 'notes' && first.head === null,
-    `the bar shows seven lenses, Notes first: ${JSON.stringify(first)}`);
+  check(first.rail.join() === 'Home,Places,Saved,Notes,History,Search,Ask,Comments,Decisions' && first.on === 'Notes' && first.shown.join() === 'notes' && first.head === null,
+    `the bar shows nine lenses, Notes first: ${JSON.stringify(first)}`);
   const notes = await page.evaluate(() => ({ saved: !!document.querySelector('#fe-lens-saved #fe-sv-list'), list: !!document.querySelector('#fe-lens-notes #fe-nt-list') }));
   check(notes.saved && notes.list, `Saved and the notes list sit in lenses of their own: ${JSON.stringify(notes)}`);
   for (const theme of ['dark', 'light']) {
@@ -67,12 +67,12 @@ try {
   await page.click('#fe-st-sec-recent');
   await page.keyboard.press('Escape');
   const off = await state(page);
-  check(off.rail.join() === 'Places,Saved,Notes,Search,Ask,Comments', `switching History off removes its lens: ${JSON.stringify(off.rail)}`);
+  check(off.rail.join() === 'Home,Places,Saved,Notes,Search,Ask,Comments,Decisions', `switching History off removes its lens: ${JSON.stringify(off.rail)}`);
   await page.click('#fe-settings-btn');
   await page.click('#fe-settings-modal .fe-dlg-tab[data-tab="folders"]');
   await page.click('#fe-st-sec-recent');
   await page.keyboard.press('Escape');
-  check((await state(page)).rail.join() === 'Places,Saved,Notes,History,Search,Ask,Comments', 'switching it back on returns it');
+  check((await state(page)).rail.join() === 'Home,Places,Saved,Notes,History,Search,Ask,Comments,Decisions', 'switching it back on returns it');
 } finally {
   console.log(results.join('\n'));
   await h.close();

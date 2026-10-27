@@ -749,8 +749,56 @@ def op_dp_pages():
     rows.sort(key=lambda r: -r['mtime'])
     return {'t': 'dpPages', 'registry': DP_REGISTRY, 'pages': rows}
 
+# BFB_DIRECTIONS_ROOTS overrides where repos are looked for (colon-separated;
+# the walks point it at a copy). Each root holds repos, or folders of repos.
+DIR_ROOTS = [r for r in (os.environ.get('BFB_DIRECTIONS_ROOTS') or os.path.expanduser('~/Code')).split(':') if r]
+DIR_TEXT_MAX = 400_000
+
+def op_directions_docs():
+    """Each repo's directions doc, for the Home lens: its path, repo name, when
+    it changed and its text. Repos sit one or two folders under a root; a linked
+    worktree (whose .git is a file) repeats its main repo's doc, so it is left out."""
+    docs, seen = [], set()
+    def repo_doc(repo):
+        if not os.path.isdir(os.path.join(repo, '.git')):
+            return None
+        for rel in ('docs/plan/DIRECTIONS.md', 'DIRECTIONS.md'):
+            p = os.path.join(repo, rel)
+            if os.path.isfile(p):
+                return p
+        return None
+    for root in DIR_ROOTS:
+        try:
+            tops = sorted(os.scandir(root), key=lambda e: e.name)
+        except OSError:
+            continue
+        for top in tops:
+            if top.name.startswith('.') or not top.is_dir(follow_symlinks=False):
+                continue
+            kids = [top.path]
+            if not os.path.exists(os.path.join(top.path, '.git')):
+                try:
+                    kids = [e.path for e in sorted(os.scandir(top.path), key=lambda e: e.name)
+                            if not e.name.startswith('.') and e.is_dir(follow_symlinks=False)]
+                except OSError:
+                    kids = []
+            for repo in kids:
+                p = repo_doc(repo)
+                if not p or p in seen:
+                    continue
+                seen.add(p)
+                try:
+                    with open(p, encoding='utf-8', errors='replace') as f:
+                        text = f.read(DIR_TEXT_MAX)
+                except OSError:
+                    continue
+                docs.append({'path': p, 'repo': os.path.basename(repo), 'mtime': os.path.getmtime(p), 'text': text})
+    docs.sort(key=lambda d: -d['mtime'])
+    return {'t': 'directionsDocs', 'docs': docs}
+
 def handle(msg):
     op = msg.get('op')
+    if op == 'directionsDocs': return op_directions_docs()
     if op == 'dp': return op_dp(msg.get('verb'), msg.get('slug'), msg.get('payload'))
     if op == 'people': return {'t': 'people', 'peers': _docs().ipc_peers()}
     if op == 'pick': return {'t': 'picked', 'root': run_picker(msg.get('start'), msg.get('kind'))}
