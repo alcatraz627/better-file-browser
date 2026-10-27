@@ -147,7 +147,7 @@ loadKv().catch(() => {}).then(function () {
   // excludes the folder or file we're on. Files count as visits too, so a
   // doc read yesterday is one click away without restoring a whole strip.
   const recents = getRecents().filter(r => r.path !== rawPath);
-  pushRecent(rawPath);
+  if (!homeMode) pushRecent(rawPath);   // Home is not a visit to the home folder
   // Closed tab sets are added below the list once the strip has read them; the
   // section stays hidden while it has nothing to show.
   // History reads as three short lists: folders, files, closed tabs.

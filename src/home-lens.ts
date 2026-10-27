@@ -10,18 +10,19 @@ import { esc, whenText } from './utils';
 import { UI_ICON } from './control-icons';
 import { allChats, type AskChat } from './ask-history';
 import { ago, REACH, type DpRow } from './dp-lens';
-import { jsonPref } from './storage';
-import { summarizeRepo, sortRepos, openPages, type RepoSummary } from './home-model';
+import { jsonPref, getSaved, getRecents } from './storage';
+import { summarizeRepo, sortRepos, openPages, usageStats, type RepoSummary, type UsageStat } from './home-model';
 import { emptyHtml } from './empty-state';
-import { DISCLOSE } from './icons';
+import { DISCLOSE, PI, icoFile } from './icons';
 
 type Chat = { subject: string; chat: AskChat };
-interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean }
+interface QuickLink { path: string; label: string }
+interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: UsageStat[]; saved: QuickLink[]; recent: QuickLink[] }
 type Go = (path: string, hash?: string) => void;
 
 // The Decisions lens's hand-archived pages, so Home leaves them out too.
 const archivedPref = jsonPref<string[]>('bfb-dp-archived-v1', [], Array.isArray);
-const SIDE_CHATS = 5, PAGE_CHATS = 8;
+const SIDE_CHATS = 5, PAGE_CHATS = 8, LINKS = 8;
 
 const name = (p: string) => p.split('/').filter(Boolean).pop() || '/';
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
@@ -82,6 +83,14 @@ function paintSide(d: HomeData, allShown: boolean, folded: Set<string>): string 
     + (quiet.length ? group('quiet', 'Quiet', quiet.length, quiet.join(''), !folded.has('quiet')) : '');
 }
 
+const statCard = (s: UsageStat) =>
+  `<div class="fe-hp-stat"><b>${esc(s.value)}</b><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></div>`;
+const linkCard = (l: QuickLink) => {
+  const dir = l.path.endsWith('/');
+  const ext = l.label.includes('.') ? l.label.split('.').pop()!.toLowerCase() : '';
+  return `<button type="button" class="fe-hp-link" data-link="${esc(l.path)}" title="${esc(l.path)}">${dir ? PI.folder : icoFile(ext)}<span>${esc(l.label)}</span></button>`;
+};
+
 // The full page: a head that says how the day stands, then two columns, what
 // to act on (decisions waiting, chats to continue) beside what to keep an eye
 // on (every repo's directions, pages nobody answered).
@@ -100,8 +109,11 @@ function paintPage(d: HomeData, allShown: boolean): string {
   const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
   const decide = d.pagesFailed ? none('Decision pages could not be listed')
     : waiting.map(pageRow).join('') || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`;
+  const links = (label: string, list: QuickLink[]) => list.length
+    ? `<section class="fe-hp-links"><div class="sect fe-hp-links-h" data-level="group">${esc(label)}</div>${list.map(linkCard).join('')}</section>` : '';
   return `<div class="fe-hp">
     <header class="fe-hp-head"><h1>${esc(today())}</h1><p>${esc(tally)}</p></header>
+    <div class="fe-hp-stats">${d.stats.map(statCard).join('')}</div>
     <div class="fe-hp-cols">
       <div class="fe-hp-col">
         ${panel('decide', 'Decisions waiting', waiting.length, decide, waiting.length ? 'you' : '')}
@@ -110,6 +122,10 @@ function paintPage(d: HomeData, allShown: boolean): string {
       <div class="fe-hp-col">
         ${panel('repos', 'Directions', d.repos.length, d.repos.map(repoRow).join('') || none('No directions docs found under ~/Code'))}
         ${never.length ? panel('never', 'Never answered', never.length, never.map(pageRow).join('')) : ''}
+      </div>
+      <div class="fe-hp-col fe-hp-col-links">
+        ${links('Saved', d.saved)}${links('Opened lately', d.recent)}
+        ${!d.saved.length && !d.recent.length ? none('Places you save or open show up here') : ''}
       </div>
     </div>
   </div>`;
@@ -129,11 +145,16 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page'): void {
       notes.directionsDocs().catch(() => []),
     ]);
     if (mine !== seq) return;
+    const chats = allChats(), saved = getSaved(), recents = getRecents();
+    const savedPaths = new Set(saved.map(p => p.path));
     data = {
-      chats: allChats(),
+      chats,
       pages: openPages(pages.rows, new Set(archivedPref.get())),
       pagesFailed: pages.failed,
       repos: sortRepos(docs.map(doc => summarizeRepo(doc))),
+      stats: usageStats(chats, recents, saved, pages.rows),
+      saved: saved.slice(0, LINKS).map(p => ({ path: p.path, label: p.label || name(p.path) })),
+      recent: recents.filter(r => !savedPaths.has(r.path)).slice(0, LINKS).map(r => ({ path: r.path, label: name(r.path) })),
     };
     render();
   };
@@ -151,6 +172,8 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page'): void {
   box.addEventListener('click', e => {
     const t = e.target as Element;
     if (t.closest('[data-more]')) { allShown = true; render(); return; }
+    const link = t.closest<HTMLElement>('[data-link]');
+    if (link) { go(link.dataset.link!); return; }
     const row = t.closest<HTMLElement>('.fe-home-row');
     if (!row) return;
     if (row.dataset.chat) go(row.dataset.subject!, '#ask=' + encodeURIComponent(row.dataset.chat));

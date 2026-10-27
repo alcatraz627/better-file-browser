@@ -36,6 +36,8 @@ try {
   await h.store.set('bfb-ask-history-v1', { [h.fixture + '/readme.md']: [{ id: 'c-new', at: now - 60000, title: 'Newest chat', turns: [{ q: 'Newest chat', a: 'An answer', model: 'm', ms: 1, at: now - 60000 }] }] });
   await h.store.set('bfb-home-v1', HOME);
   await h.store.set('bfb-lens-v1', 'places');
+  await h.store.set('bfb-saved-v1', [{ path: h.fixture + '/nested/', label: 'nested', tags: ['work'] }]);
+  await h.store.set('bfb-recents-v1', [{ path: h.fixture + '/', ts: now - 60000 }]);
 
   const tab = await h.browser.newPage();
   await tab.setViewport({ width: 1400, height: 900 });
@@ -57,6 +59,21 @@ try {
   check(JSON.stringify(look.panels) === JSON.stringify([['decide', ['Fresh ask']], ['chats', ['Newest chat']], ['repos', ['asks-repo']], ['never', ['Old and quiet']]]),
     `the page holds decisions waiting and chats beside directions and pages never answered: ${JSON.stringify(look.panels)}`);
   check(/1 decision waiting on you · 3 asks in 1 repo · 1 chat/.test(look.tally), `the head says how the day stands: ${JSON.stringify(look.tally)}`);
+
+  // Stat cards on top, quick-link cards in their own narrow column.
+  const extra = await tab.evaluate(() => {
+    const stats = [...document.querySelectorAll('.fe-hp-stat')].map(s => [s.querySelector('.fe-hp-stat-l').textContent, s.querySelector('b').textContent, s.querySelector('.fe-hp-stat-s').textContent]);
+    const cols = [...document.querySelectorAll('.fe-hp-cols > .fe-hp-col')].map(c => Math.round(c.getBoundingClientRect().width));
+    const links = [...document.querySelectorAll('.fe-hp-links')].map(s => [s.querySelector('.fe-hp-links-h').textContent, [...s.querySelectorAll('.fe-hp-link span')].map(x => x.textContent)]);
+    return { stats, cols, links };
+  });
+  const stat = l => extra.stats.find(s => s[0] === l) ?? [];
+  check(extra.stats.length === 6 && stat('questions asked')[1] === '1' && stat('chats')[1] === '1' && stat('places saved').join() === 'places saved,1,1 tag' && stat('asked about most')[1] === 'readme.md',
+    `six stat cards count real usage: ${JSON.stringify(extra.stats)}`);
+  check(extra.cols.length === 3 && extra.cols[2] < extra.cols[0] * 0.6, `the quick links sit in a column about half as wide: ${JSON.stringify(extra.cols)}`);
+  const fixtureLabel = h.fixture.split('/').pop();
+  check(JSON.stringify(extra.links) === JSON.stringify([['Saved', ['nested']], ['Opened lately', [fixtureLabel]]]),
+    `quick links list saved places, then places opened lately, never Home's own folder: ${JSON.stringify(extra.links)}`);
 
   const strip = () => tab.evaluate(() => [...document.querySelectorAll('#fe-tab-home:not([hidden]), #fe-tabs .fe-tab')].map(a => ({
     home: a.id === 'fe-tab-home', on: a.classList.contains('on'), temp: a.classList.contains('temp'), label: a.textContent.trim(), close: !!a.querySelector('.fe-tab-x'),
@@ -88,6 +105,13 @@ try {
   const asked = await tab.evaluate(() => ({ href: location.href, turns: document.querySelectorAll('#fe-ask-thread .fe-ask-turn').length, tabs: [...document.querySelectorAll('#fe-tab-home:not([hidden]), #fe-tabs .fe-tab')].map(a => a.textContent.trim()) }));
   check(/readme\.md#ask=c-new$/.test(asked.href) && asked.turns === 1 && !asked.tabs.includes(HOME.split('/').pop()) && asked.tabs[0] === 'Home',
     `a chat on Home opens its file in Ask, and the home folder is not kept as a tab: ${JSON.stringify(asked)}`);
+
+  // A quick-link card opens its place.
+  await tab.goto(homeUrl, { waitUntil: 'load' });
+  await tab.waitForSelector('.fe-hp-link', { timeout: 15000 });
+  await tab.click('.fe-hp-link[data-link$="/nested/"]');
+  await tab.waitForFunction(() => /\/nested\/$/.test(location.href), { timeout: 10000 }).catch(() => null);
+  check(/\/nested\/$/.test(await tab.evaluate(() => location.href)), 'a quick-link card opens its place');
 
   // The sidebar's Home lens is still there.
   check(await tab.$eval('#fe-rail .fe-rail-btn', b => b.dataset.lens) === 'home', 'the sidebar keeps its Home lens');

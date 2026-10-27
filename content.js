@@ -15324,8 +15324,23 @@ body{opacity:1!important}
 .fe-hp-head{margin:0 var(--sp-2) var(--sp-8)}
 .fe-hp-head h1{margin:0;font-size:var(--fs-xl);font-weight:650;letter-spacing:-.01em;color:var(--tx)}
 .fe-hp-head p{margin:var(--sp-2) 0 0;font-size:var(--fs-md);color:var(--mt)}
-.fe-hp-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,24rem),1fr));gap:var(--sp-7);align-items:start}
-.fe-hp-col{display:flex;flex-direction:column;gap:var(--sp-7);min-width:0}
+.fe-hp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-5);margin-bottom:var(--sp-7)}
+@container fe-main (min-width:1100px){.fe-hp-stats{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@container fe-main (max-width:480px){.fe-hp-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.fe-hp-stat{display:flex;flex-direction:column;gap:var(--sp-1);min-width:0;padding:var(--sp-5) var(--sp-6);border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1)}
+.fe-hp-stat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-lg);font-weight:650;color:var(--tx);font-variant-numeric:tabular-nums}
+.fe-hp-stat-l{font-size:var(--fs-sm);color:var(--mt)}
+.fe-hp-stat-s{font-size:var(--fs-sm);color:var(--dm)}
+.fe-hp-cols{display:flex;flex-wrap:wrap;gap:var(--sp-7);align-items:flex-start}
+.fe-hp-links{display:flex;flex-direction:column;gap:var(--sp-2)}
+.fe-hp-links-h{padding:0 var(--sp-2) var(--sp-1)}
+.fe-hp-link{display:flex;align-items:center;gap:var(--sp-3);min-width:0;padding:var(--sp-3) var(--sp-4);border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1);color:var(--tx);font:inherit;font-size:var(--fs-sm);text-align:left;cursor:pointer;transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+.fe-hp-link span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-hp-link svg{flex:none}
+.fe-hp-link:hover{background:var(--hover);border-color:color-mix(in srgb,var(--ac) 35%,var(--bd))}
+.fe-hp-link:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-hp-col{display:flex;flex-direction:column;gap:var(--sp-7);min-width:0;flex:2 1 22rem}
+.fe-hp-col.fe-hp-col-links{flex:1 1 11rem}
 .fe-hp-panel{padding:var(--sp-2) 0 var(--sp-3);border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1)}
 .fe-hp-panel[data-tone="you"]{border-color:color-mix(in srgb,var(--tone-danger) 30%,var(--bd));background:color-mix(in srgb,var(--tone-danger) 5%,var(--s1))}
 .fe-hp-panel-h{min-height:var(--ctl-md);padding:0 var(--sp-6)}
@@ -27101,12 +27116,33 @@ ${rows.join("\n")}`, name: subject };
     return { path: doc.path, repo: doc.repo, mtime: doc.mtime, onYou: h.you.length, ready: h.ready.length, staleDays: h.staleDays };
   }
   var sortRepos = (repos) => [...repos].sort((a, b) => Number(b.onYou > 0) - Number(a.onYou > 0) || b.onYou - a.onYou || b.mtime - a.mtime);
+  function usageStats(chats, recents, saved, pages, now = Date.now()) {
+    const week = now - 7 * 864e5;
+    const day = new Date(now);
+    day.setHours(0, 0, 0, 0);
+    const turns = chats.flatMap((c) => c.chat.turns);
+    const perSubject = /* @__PURE__ */ new Map();
+    for (const c of chats) perSubject.set(c.subject, (perSubject.get(c.subject) ?? 0) + c.chat.turns.length);
+    const top = [...perSubject].sort((a, b) => b[1] - a[1])[0];
+    const answered = pages.filter((p) => p.answered).map((p) => p.answered * 1e3);
+    const tags = new Set(saved.flatMap((s) => s.tags ?? []));
+    const n = (v) => v.toLocaleString("en-US");
+    return [
+      { label: "questions asked", value: n(turns.length), sub: `${n(turns.filter((t) => t.at >= week).length)} this week` },
+      { label: "chats", value: n(chats.length), sub: `about ${n(perSubject.size)} ${perSubject.size === 1 ? "thing" : "things"}` },
+      { label: "decisions answered", value: n(answered.length), sub: `${n(answered.filter((t) => t >= week).length)} this week` },
+      { label: "places opened lately", value: n(recents.length), sub: `${n(recents.filter((r) => r.ts >= day.getTime()).length)} today` },
+      { label: "places saved", value: n(saved.length), sub: tags.size ? `${n(tags.size)} ${tags.size === 1 ? "tag" : "tags"}` : "no tags yet" },
+      { label: "asked about most", value: top ? top[0].split("/").filter(Boolean).pop() || "/" : "nothing yet", sub: top ? `${n(top[1])} ${top[1] === 1 ? "question" : "questions"}` : "ask about any file" }
+    ];
+  }
   var openPages = (rows, archived = /* @__PURE__ */ new Set()) => dpBands(rows, "", archived).filter((b) => b.state !== "archived").flatMap((b) => b.rows);
 
   // src/home-lens.ts
   var archivedPref2 = jsonPref("bfb-dp-archived-v1", [], Array.isArray);
   var SIDE_CHATS = 5;
   var PAGE_CHATS = 8;
+  var LINKS = 8;
   var name = (p) => p.split("/").filter(Boolean).pop() || "/";
   var plural2 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
   var today = () => (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
@@ -27155,6 +27191,12 @@ ${rows.join("\n")}`, name: subject };
     const chatBody = (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length);
     return `<header class="fe-home-head">${esc(today())}</header>${card4}${failed}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
   }
+  var statCard = (s) => `<div class="fe-hp-stat"><b>${esc(s.value)}</b><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></div>`;
+  var linkCard = (l) => {
+    const dir = l.path.endsWith("/");
+    const ext2 = l.label.includes(".") ? l.label.split(".").pop().toLowerCase() : "";
+    return `<button type="button" class="fe-hp-link" data-link="${esc(l.path)}" title="${esc(l.path)}">${dir ? PI.folder : icoFile(ext2)}<span>${esc(l.label)}</span></button>`;
+  };
   function paintPage(d, allShown) {
     const waiting = d.pages.filter((p) => p.state === "waiting");
     const never = d.pages.filter((p) => p.state !== "waiting");
@@ -27168,8 +27210,10 @@ ${rows.join("\n")}`, name: subject };
     const panel = (id, label, n, body, tone = "") => `<section class="fe-hp-panel" data-panel="${id}"${tone ? ` data-tone="${tone}"` : ""}><div class="sect fe-hp-panel-h" data-level="group">${esc(label)}<span class="fe-grp-n">${n}</span></div>${body}</section>`;
     const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
     const decide = d.pagesFailed ? none("Decision pages could not be listed") : waiting.map(pageRow).join("") || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`;
+    const links = (label, list3) => list3.length ? `<section class="fe-hp-links"><div class="sect fe-hp-links-h" data-level="group">${esc(label)}</div>${list3.map(linkCard).join("")}</section>` : "";
     return `<div class="fe-hp">
     <header class="fe-hp-head"><h1>${esc(today())}</h1><p>${esc(tally2)}</p></header>
+    <div class="fe-hp-stats">${d.stats.map(statCard).join("")}</div>
     <div class="fe-hp-cols">
       <div class="fe-hp-col">
         ${panel("decide", "Decisions waiting", waiting.length, decide, waiting.length ? "you" : "")}
@@ -27178,6 +27222,10 @@ ${rows.join("\n")}`, name: subject };
       <div class="fe-hp-col">
         ${panel("repos", "Directions", d.repos.length, d.repos.map(repoRow).join("") || none("No directions docs found under ~/Code"))}
         ${never.length ? panel("never", "Never answered", never.length, never.map(pageRow).join("")) : ""}
+      </div>
+      <div class="fe-hp-col fe-hp-col-links">
+        ${links("Saved", d.saved)}${links("Opened lately", d.recent)}
+        ${!d.saved.length && !d.recent.length ? none("Places you save or open show up here") : ""}
       </div>
     </div>
   </div>`;
@@ -27195,11 +27243,16 @@ ${rows.join("\n")}`, name: subject };
         notes.directionsDocs().catch(() => [])
       ]);
       if (mine !== seq2) return;
+      const chats = allChats(), saved = getSaved(), recents = getRecents();
+      const savedPaths = new Set(saved.map((p) => p.path));
       data = {
-        chats: allChats(),
+        chats,
         pages: openPages(pages.rows, new Set(archivedPref2.get())),
         pagesFailed: pages.failed,
-        repos: sortRepos(docs.map((doc) => summarizeRepo(doc)))
+        repos: sortRepos(docs.map((doc) => summarizeRepo(doc))),
+        stats: usageStats(chats, recents, saved, pages.rows),
+        saved: saved.slice(0, LINKS).map((p) => ({ path: p.path, label: p.label || name(p.path) })),
+        recent: recents.filter((r) => !savedPaths.has(r.path)).slice(0, LINKS).map((r) => ({ path: r.path, label: name(r.path) }))
       };
       render2();
     };
@@ -27222,6 +27275,11 @@ ${rows.join("\n")}`, name: subject };
       if (t.closest("[data-more]")) {
         allShown = true;
         render2();
+        return;
+      }
+      const link = t.closest("[data-link]");
+      if (link) {
+        go2(link.dataset.link);
         return;
       }
       const row2 = t.closest(".fe-home-row");
@@ -27342,7 +27400,7 @@ ${rows.join("\n")}`, name: subject };
     const initPalette = getPalette();
     const initHidden = getShowHidden();
     const recents = getRecents().filter((r) => r.path !== rawPath);
-    pushRecent(rawPath);
+    if (!homeMode) pushRecent(rawPath);
     const ago3 = (ts) => {
       if (!ts) return "";
       const m = Math.round((Date.now() - ts) / 6e4);
