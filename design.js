@@ -283,6 +283,9 @@ body{opacity:1!important}
 .fe-doc-n,.fe-dpl-n{flex:none}
 .fe-dpl-age{flex:none;font-size:var(--fs-sm);color:var(--dm)}
 .fe-dpl-reach[data-reach="hot"]{color:var(--green)}
+.fe-dpl-told{color:var(--tone-warn);font-weight:500}
+.fe-dpl-arch{flex:none;opacity:0;transition:opacity var(--t-fast) var(--ease)}
+.fe-dpl-row:hover .fe-dpl-arch,.fe-dpl-row:focus-visible .fe-dpl-arch{opacity:1}
 .fe-dpl-row.unseen{background:color-mix(in srgb,var(--gold) 9%,transparent)}
 .fe-dpl-row.unseen .fe-dpl-title{font-weight:600}
 .fe-dpl-row .fe-row-ico{position:relative;display:flex}
@@ -658,7 +661,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 .fe-dlg-tile svg{width:13px;height:13px}
 .fe-dlg-tile.lg{width:40px;height:var(--bar-h);border-radius:11px;box-shadow:inset 0 0 0 .5px rgb(var(--paper) / .22),0 4px 12px color-mix(in srgb,var(--tone) 30%,transparent)}
 .fe-dlg-tile.lg svg{width:22px;height:var(--ctl-sm)}
-.fe-dlg-pane{grid-column:2;grid-row:1/span 2;display:none;min-height:0;padding:var(--sp-7) var(--sp-8) var(--sp-8);overflow:auto;background:var(--side)}
+.fe-dlg-pane{grid-column:2;grid-row:1/span 2;display:none;min-height:0;padding:var(--sp-7) var(--sp-8) var(--sp-8);overflow:auto;background:var(--side);scroll-padding-top:calc(var(--sp-9) * 3)}
 .fe-dlg-pane.on{display:flex;flex-direction:column;gap:var(--sp-6)}
 .fe-dlg-pane:has(> .fe-dlg-ph){padding-top:0}
 .fe-dlg-ph{position:sticky;top:0;z-index:3;margin:0 -24px;padding:22px 96px 18px var(--sp-8);background:linear-gradient(var(--side) 82%,color-mix(in srgb,var(--side) 0%,transparent))}
@@ -1547,17 +1550,19 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 #fe-ask{flex:1;display:flex;flex-direction:column}
 .fe-ask-top{position:relative;display:flex;align-items:center;gap:var(--sp-1);margin:0 var(--sp-4) var(--sp-4) var(--sp-5)}
 .fe-ask-sp{flex:1}
-.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%}
+.fe-ask-model{position:relative;display:inline-flex;min-width:0;max-width:100%;flex:0 1 auto}
+.fe-ask-model>.fe-dd{min-width:0;max-width:100%}
 .fe-ask-model > .dot{position:absolute;left:10px;top:50%;margin-top:-3.5px;pointer-events:none}
-.fe-ask-model .fe-dd-btn{min-width:0;max-width:190px;padding-left:var(--sp-8)}
+.fe-ask-model .fe-dd-btn{min-width:0;max-width:min(190px,100%);padding-left:var(--sp-8)}
 .fe-ask-model .dot,.fe-ask-status .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dm)}
 .dot.ready{background:var(--green)}
 .dot.cold{background:var(--gold)}
 .dot.down,.dot.unavailable{background:var(--nc-red)}
-.fe-ask-ib{position:relative}
+.fe-ask-ib{position:relative;flex:none}
 
 .fe-ask-n{position:absolute;top:1px;right:0}
-.fe-ask-status{display:flex;align-items:center;gap:var(--sp-4);margin:0 var(--sp-6) var(--sp-4);font-size:var(--fs-sm);line-height:1.4;color:var(--mt)}
+.fe-ask-status{display:flex;align-items:center;gap:var(--sp-3);margin:0 var(--sp-6) var(--sp-4);font-size:var(--fs-sm);line-height:1.4;color:var(--mt);min-width:0}
+#fe-ask-state{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .fe-ask-status[hidden]{display:none}
 .fe-ask-cloud{display:flex;align-items:center;gap:var(--sp-3);margin:0 var(--sp-6) var(--sp-4);font-size:var(--fs-sm);color:var(--mt)}
 .fe-ask-cloud[hidden]{display:none}
@@ -1757,6 +1762,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-sent[data-told="undelivered"],.fe-dp-sent[data-told="unknown"]{border-left-color:var(--tone-warn)}
 .fe-dp-sent-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-3);margin:0 0 var(--sp-3)}
 .fe-dp-sent-told{font-size:var(--fs-sm);color:var(--dm)}
+.fe-dp-sent-ruling{font-size:var(--fs-sm);color:var(--tone-ok)}
+.fe-dp-sent-ruling[data-tone="warn"]{color:var(--tone-warn)}
 .fe-dp-sent-picks{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-bottom:var(--sp-3)}
 .fe-dp-sent-lines{margin:0 0 var(--sp-3);padding-left:var(--sp-6);font-size:var(--fs-sm);color:var(--mt)}
 .fe-dp-sent-full summary{cursor:pointer;font-size:var(--fs-sm);color:var(--dm)}
@@ -1819,6 +1826,8 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dv-frame iframe{position:absolute;inset:0 auto auto 0;width:var(--mock-w);height:calc(100% / var(--scale,1));border:0;transform:scale(var(--scale,1));transform-origin:0 0}
 .fe-dv-media-acts{position:absolute;top:var(--sp-2);right:var(--sp-2);display:flex;gap:var(--sp-1);padding:var(--sp-1);background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r);opacity:0;transition:opacity var(--t-fast) var(--ease)}
 .fe-dv-media:hover>.fe-dv-media-acts,.fe-dv-media:focus-within>.fe-dv-media-acts,.fe-dv-media-acts:has([aria-pressed="true"]){opacity:1}
+.fe-ask-large-box{position:relative;z-index:1;width:min(1040px,calc(100vw - var(--sp-9) * 2));height:calc(100vh - var(--sp-9) * 2);display:flex;flex-direction:column;overflow:hidden}
+.fe-ask-large-box>*{flex:1;min-height:0}
 .fe-dv-view-box{position:relative;z-index:1;width:calc(100vw - var(--sp-9) * 2);height:calc(100vh - var(--sp-9) * 2);display:flex;flex-direction:column;outline:none}
 .fe-dv-view-head{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);border-bottom:1px solid var(--bd)}
 .fe-dv-view-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--tx)}
@@ -2378,6 +2387,8 @@ button.chip:disabled{opacity:.45;cursor:default}
     contents: svg('<path d="M15 12H3M17 18H3M21 6H3"/>'),
     info: svg('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'),
     circle: svg('<circle cx="12" cy="12" r="9"/>'),
+    archive: svg('<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>'),
+    expand: svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>'),
     circleDashed: svg('<path d="M10.1 2.18a9.93 9.93 0 0 1 3.8 0M17.6 3.71a9.95 9.95 0 0 1 2.69 2.7M21.82 10.1a9.93 9.93 0 0 1 0 3.8M20.29 17.6a9.95 9.95 0 0 1-2.7 2.69M13.9 21.82a9.94 9.94 0 0 1-3.8 0M6.4 20.29a9.95 9.95 0 0 1-2.69-2.7M2.18 13.9a9.93 9.93 0 0 1 0-3.8M3.71 6.4a9.95 9.95 0 0 1 2.7-2.69"/>'),
     circleCheck: svg('<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'),
     at: svg('<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>'),

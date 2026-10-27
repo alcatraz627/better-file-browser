@@ -678,6 +678,17 @@ def _dp_reach():
         return None
     return out if isinstance(out, dict) else None
 
+DP_TOLD = ('requested', 'queued', 'undelivered', 'no-origin')
+
+def _dp_told(d):
+    """Whether the agent that asked was told of the answer, from the page server's .notify.json; None when not recorded."""
+    try:
+        with open(os.path.join(d, '.notify.json'), encoding='utf-8') as f:
+            st = (json.load(f) or {}).get('state')
+    except (OSError, ValueError, AttributeError):
+        return None
+    return st if st in DP_TOLD else None
+
 def op_dp_pages():
     """Every decision page in gcc's registry with whether it waits on the owner,
     for the Decisions lens. Read only: the lens never writes the registry.
@@ -713,6 +724,9 @@ def op_dp_pages():
         answered = os.path.getmtime(ans) if os.path.isfile(ans) else None
         if answered:
             state = 'answered'
+        elif slug not in pending and os.path.isfile(os.path.join(d, '.cleared')):
+            # The agent took it off the pending list (decision-page.sh pending clear): handled elsewhere.
+            state = 'cleared'
         elif slug in pending or now - mtime < DP_FRESH_S:
             state = 'waiting'
         else:
@@ -722,6 +736,7 @@ def op_dp_pages():
             'items': len(cfg.get('decisions') or []) + len(cfg.get('sections') or []),
             'mtime': mtime, 'answered': answered, 'state': state,
             'seen': os.path.isfile(os.path.join(d, '.seen.json')),
+            'told': _dp_told(d) if answered else None,
         })
     reach = _dp_reach() if any(r['state'] == 'waiting' for r in rows) else {}
     for r in rows:

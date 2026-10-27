@@ -27,6 +27,11 @@ const TOLD: Record<string, string> = {
   'no-origin': 'the page names no agent to tell',
 };
 const NOT_TOLD = 'Answered, but the agent was not told. It will see it next time it reads its pages.';
+/** What the page server did with the ruling: noted on the goal row the page names, or why not. */
+interface Ruling { state: 'written' | 'failed' | 'no-target'; target: string; reason: string }
+const rulingHtml = (r: Ruling | null) => !r || r.state === 'no-target' ? ''
+  : r.state === 'written' ? `<span class="fe-dp-sent-ruling" title="${esc(`Noted on ${r.target} in the goal record`)}">Ruling noted on ${esc(r.target.replace(/^(\w{6})\w{6}/, '$1…'))}</span>`
+  : `<span class="fe-dp-sent-ruling" data-tone="warn" title="${esc(r.reason)}">Ruling not noted on ${esc(r.target.replace(/^(\w{6})\w{6}/, '$1…'))}</span>`;
 const NOT_SENT = 'Not sent. Nothing was written; the picks line is on your clipboard instead.';
 const NOT_SENT_COMPOSED = 'Not sent. Nothing was written; the answer is on your clipboard to paste to the agent.';
 const DOWN = new Set(['unavailable', 'dp_unavailable']);
@@ -135,7 +140,7 @@ export function wireAnswer(cfg: DpConfig, box: HTMLElement, slug: string | undef
     sentBox.hidden = false;
     sentBox.dataset.told = notify?.state ?? 'unknown';
     sentBox.innerHTML = `<p class="fe-dp-sent-head"><strong>Answered ${esc(ago(sent.submitted_at) === 'just now' ? 'just now' : `${ago(sent.submitted_at)} ago`)}</strong>
-        <span class="fe-dp-sent-told" title="${esc(sent.via ? `Sent from the ${sent.via}` : 'Sent')}">${esc(told)}</span></p>
+        <span class="fe-dp-sent-told" title="${esc(sent.via ? `Sent from the ${sent.via}` : 'Sent')}">${esc(told)}</span>${rulingHtml(ruling)}</p>
       ${sum ? `<div class="fe-dp-sent-picks">${sum.picks.map(p => `<span class="chip" data-size="sm" ${p.moved ? 'data-tone="due" data-fill' : 'data-tone="quiet"'} title="${esc(`${p.id}${p.code} · ${p.moved ? 'moved off the recommendation' : 'as recommended'}`)}"><span>${esc(p.id)} · ${esc(p.label)}</span></span>`).join('')}</div>
         ${sum.lines.length ? `<ul class="fe-dp-sent-lines">${sum.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}` : ''}
       <details class="fe-dp-sent-full"><summary>Full answer as sent</summary><pre>${esc(sent.answer)}</pre></details>`;
@@ -143,6 +148,8 @@ export function wireAnswer(cfg: DpConfig, box: HTMLElement, slug: string | undef
   };
   // Read what the server stored. The form is filled from the sent answer
   // unless the owner has edited it since, so a reload never loses a replacement in progress.
+  // Where the ruling landed in the goal record, read beside the answer.
+  let ruling: Ruling | null = null;
   const readSent = async (fromSubmit = false) => {
     // Asked first, so an unanswered page leaves no missing-file error in the console.
     const readJson = async <T>(name: string): Promise<T | null> => {
@@ -152,6 +159,7 @@ export function wireAnswer(cfg: DpConfig, box: HTMLElement, slug: string | undef
     sent = await readJson<Sent>('.answer.json');
     if (!sent || typeof sent.answer !== 'string') { sent = null; paintSent(null, null); return; }
     const notify = await readJson<Notify>('.notify.json');
+    ruling = await readJson<Ruling>('.ruling.json');
     let parsed: DpState | null = null;
     if (slug) {
       try { parsed = fromGcc(cfg, await dpIo().dp('parse', slug, { answer: sent.answer }) as Partial<GccState>); } catch { parsed = null; }

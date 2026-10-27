@@ -188,17 +188,33 @@ try {
     const down = await h.browser.newPage();
     await down.setViewport({ width: 1400, height: 900 });
     await down.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
-    await down.waitForFunction(() => /not running/.test(document.getElementById('fe-ask-state')?.textContent ?? ''), { timeout: 15000 });
-    const ad = await down.evaluate(() => ({
-      state: document.getElementById('fe-ask-state').textContent, retry: !document.getElementById('fe-ask-recheck').hidden,
-      chips: [...document.querySelectorAll('.fe-ask-chip')].map(c => [c.disabled, c.title]), go: [document.getElementById('fe-ask-go').disabled, document.getElementById('fe-ask-go').title],
-    }));
-    check(DOWN.test(ad.state) && ad.retry && ad.chips.every(([off, t]) => off && DOWN.test(t)) && ad.go[0] && DOWN.test(ad.go[1]), `Ask says the same thing, offers Retry, and its disabled buttons say why: ${JSON.stringify(ad)}`);
+    await down.waitForFunction(() => /Local model is off/.test(document.getElementById('fe-ask-state')?.textContent ?? ''), { timeout: 15000 });
+    const ad = await down.evaluate(() => {
+      const st = document.getElementById('fe-ask-status'), rb = document.getElementById('fe-ask-recheck');
+      return {
+        state: document.getElementById('fe-ask-state').textContent, tip: st.title, retry: !rb.hidden && !rb.textContent.trim() && !!rb.querySelector('svg'),
+        oneLine: st.getBoundingClientRect().height < 30 && st.scrollWidth <= st.clientWidth + 1,
+        chips: [...document.querySelectorAll('.fe-ask-chip')].map(c => [c.disabled, c.title]), go: [document.getElementById('fe-ask-go').disabled, document.getElementById('fe-ask-go').title],
+      };
+    });
+    // Owner, 2026-10-27: the notice was too large; one terse line, the how-to in its tooltip, Retry as an icon.
+    check(ad.state === 'Local model is off' && DOWN.test(ad.tip) && ad.retry && ad.oneLine && ad.chips.every(([off, t]) => off && /Local model is off/.test(t)) && ad.go[0] && /Local model is off/.test(ad.go[1]),
+      `Ask says it in one terse line with the how-to on hover, Retry is an icon, and its disabled buttons say why: ${JSON.stringify(ad)}`);
     await shotAt(down, 'ask-down', { x: 0, y: 40, width: 420, height: 520 });
     unlinkSync(h.lmDown);
     await down.click('#fe-ask-recheck');
     await down.waitForFunction(() => !document.getElementById('fe-ask-q').disabled, { timeout: 15000 });
     check(await down.$eval('#fe-ask-status', s => s.hidden), 'Retry finds the model once it is running and the form wakes');
+    // A remote model does not need the local one, so Ask shows no notice for it.
+    writeFileSync(h.lmDown, '');
+    await h.store.set('bfb-ask-model-v1', 'gemini:gemini-3.5-flash');
+    await down.reload({ waitUntil: 'load' });
+    await down.waitForFunction(() => !document.getElementById('fe-ask-q')?.disabled, { timeout: 15000 }).catch(() => null);
+    await sleep(800);
+    const gem = await down.evaluate(() => ({ hidden: document.getElementById('fe-ask-status').hidden, q: !document.getElementById('fe-ask-q').disabled }));
+    check(gem.hidden && gem.q, `with Gemini picked and the local model down, Ask shows no notice and stays usable: ${JSON.stringify(gem)}`);
+    unlinkSync(h.lmDown);
+    await h.store.set('bfb-ask-model-v1', '');
     await down.close();
   });
 

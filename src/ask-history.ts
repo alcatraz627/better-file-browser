@@ -4,6 +4,8 @@
 // without bound.
 import { jsonPref } from './storage';
 import { isWithin } from './places';
+import { splitThinking } from './ask-quote';
+import { whenText } from './utils';
 
 /** One question and its answer. `stopped` and `error` mark an answer that did
  *  not finish; `files` names what was attached; `via` marks a second opinion. */
@@ -103,4 +105,17 @@ export function withHistory(turns: AskTurn[], question: string, maxChars = 4000)
     parts.unshift(block); used += block.length;
   }
   return parts.length ? `Earlier in this chat:\n${parts.join('\n\n')}\n\nNow: ${question}` : question;
+}
+
+/** A chat as markdown, the way it reads: a title, what it was about, then each
+ *  question as a heading and its answer under it. Thinking is left out; a turn
+ *  that failed says so. One turn alone gives just that question and answer. */
+export function chatMarkdown(subject: string, turns: AskTurn[], title = turns[0]?.q ?? 'Chat'): string {
+  const name = subject.split('/').filter(Boolean).pop() ?? subject;
+  const head = `# ${title.replace(/\s+/g, ' ').trim().slice(0, 120)}\n\n_Asked about [${name}](file://${encodeURI(subject)})${turns[0] ? `, ${whenText(turns[0].at)}` : ''}_\n`;
+  const body = turns.map(t => {
+    const answer = t.error ? `_No answer: ${t.error}_` : splitThinking(t.a).answer.trim();
+    return `## ${t.via ? `Second opinion: ${t.via}` : t.q.replace(/\s+/g, ' ').trim()}\n\n${answer}\n\n<sub>${t.model}${t.stopped ? ' · stopped' : ''}</sub>`;
+  }).join('\n\n');
+  return `${head}\n${body}\n`;
 }

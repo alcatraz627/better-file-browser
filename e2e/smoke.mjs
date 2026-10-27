@@ -682,7 +682,13 @@ try {
   await page.click('#fe-st-sec-recent');
   const recentHidden = await page.evaluate(() => document.getElementById('fe-rail-history').hidden);
   // Settings controls are button rows and sliders, driven the way a person would.
-  const seg = (id, v) => page.click(`#${id} .fe-seg-b[data-v="${v}"]`);
+  // A control half under the pane's sticky heading counts as on screen to the
+  // script, which would click the heading; centre it first, as a person would see it.
+  const seg = async (id, v) => {
+    const sel = `#${id} .fe-seg-b[data-v="${v}"]`;
+    await page.$eval(sel, b => b.scrollIntoView({ block: 'center' }));
+    await page.click(sel);
+  };
   const slide = (id, v) => page.$eval(`#${id}`, (host, val) => {
     const r = host.querySelector('input');
     r.value = String(host.dataset.values.split(',').map(Number).indexOf(Number(val)));
@@ -709,7 +715,7 @@ try {
   let parsedExport = null;
   try { parsedExport = JSON.parse(exported); } catch { parsedExport = null; }
   check(recentHidden && parsedExport && parsedExport['bfb-settings-v1'] && parsedExport['bfb-settings-v1'].clickOpens === 'go' && parsedExport['bfb-settings-v1'].readerSize === 17 && 'bfb-saved-v1' in parsedExport,
-    `settings toggles apply and the export carries settings and Saved: recentHidden=${recentHidden} keys=${parsedExport ? Object.keys(parsedExport).length : 'none'}`);
+    `settings toggles apply and the export carries settings and Saved: recentHidden=${recentHidden} keys=${parsedExport ? Object.keys(parsedExport).length : 'none'} clickOpens=${parsedExport?.['bfb-settings-v1']?.clickOpens} readerSize=${parsedExport?.['bfb-settings-v1']?.readerSize} saved=${!!parsedExport && 'bfb-saved-v1' in parsedExport}`);
   await page.keyboard.press('Escape');
   await page.reload({ waitUntil: 'load' });
   await page.waitForSelector('#fe');

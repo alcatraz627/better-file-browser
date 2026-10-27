@@ -5,10 +5,16 @@ const row = (slug: string, state: DpRow['state'], mtime: number, extra: Partial<
 
 describe('Decisions lens', () => {
   const rows = [row('old-wait', 'waiting', 10), row('new-wait', 'waiting', 30), row('done', 'answered', 20), row('stale', 'never', 5), row('x', 'broken', 1)];
-  it('bands waiting, answered, never, broken in that order, newest first inside a band', () => {
+  it('bands waiting, never, broken, then Archived last, newest first inside a band', () => {
     expect(dpBands(rows).map(b => [b.state, b.rows.map(r => r.slug)])).toEqual([
-      ['waiting', ['new-wait', 'old-wait']], ['answered', ['done']], ['never', ['stale']], ['broken', ['x']],
+      ['waiting', ['new-wait', 'old-wait']], ['never', ['stale']], ['broken', ['x']], ['archived', ['done']],
     ]);
+  });
+  it('files answered, agent-cleared and hand-archived pages under Archived', () => {
+    const more = [...rows, row('handled', 'cleared', 25)];
+    const b = dpBands(more, '', new Set(['old-wait']));
+    expect(b.find(x => x.state === 'archived')?.rows.map(r => r.slug)).toEqual(['handled', 'done', 'old-wait']);
+    expect(b.find(x => x.state === 'waiting')?.rows.map(r => r.slug)).toEqual(['new-wait']);
   });
   it('puts a live agent first and a gone one last inside a band, newest first otherwise', () => {
     const w = [row('a', 'waiting', 50, { reach: 'absent' }), row('b', 'waiting', 40), row('c', 'waiting', 10, { reach: 'hot' }), row('d', 'waiting', 30, { reach: 'cold' }), row('e', 'waiting', 20, { reach: 'unknown' })];

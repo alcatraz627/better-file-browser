@@ -13,7 +13,9 @@ import { crawl, relativeName } from './deep-search';
 import { EMPTY_FIND, isTextCandidate, searchContents, type FindQuery } from './find';
 import { icoFile } from './icons';
 import { llmAvailability, llmModels, llmQuery, llmAttach, llmRunning, llmOrphans, LLM_ERROR_TEXT, type AskJob, type LlmCallbacks } from './llm';
-import { addTurn, endedTurn, allChats, chatsFor, chatsUnder, deleteChat, turnMeta, withHistory, type AskChat, type AskTurn } from './ask-history';
+import { addTurn, endedTurn, allChats, chatsFor, chatsUnder, deleteChat, turnMeta, withHistory, chatMarkdown, type AskChat, type AskTurn } from './ask-history';
+import { notes } from './notes';
+import { errorText } from './errors';
 import { addPaletteSource, bind } from './commands';
 import { bareLabel, closeOpenFence, isImageName, quoteMarkdown, quoteTargets, resolveMention, secondOpinion, sendQuote, splitThinking, takeQuote, type ModelOpt } from './ask-quote';
 import { openLayer, type Layer } from './layer';
@@ -148,11 +150,14 @@ function initAsk(app: App): void {
     <div class="fe-ask-top">
       <span class="fe-ask-model"><span class="dot"></span>${ddHtml('fe-ask-model', [{ value: '', label: 'Default model' }], "Which model answers. Models on this machine stay here; remote ones (Gemini) run on Google's servers.")}</span>
       <span class="fe-ask-sp"></span>
+      <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-copyall" title="Copy the whole chat as markdown" disabled>${UI_ICON.copy}</button>
+      <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-save" title="Save the whole chat to Notes" disabled>${UI_ICON.notes}</button>
+      <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-large" title="Open the chat large" aria-pressed="false">${UI_ICON.expand}</button>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-new" title="New chat">${UI_ICON.add}</button>
       <button type="button" class="btn fe-ask-ib" data-icon id="fe-ask-hist-btn" title="Earlier chats about ${app.fileMode ? what : 'this folder and what is in it'}" aria-expanded="false">${UI_ICON.clock}<span class="badge fe-ask-n" data-size="sm" data-tone="solid" id="fe-ask-hist-n"></span></button>
       <div class="fe-ask-hist" id="fe-ask-hist" hidden></div>
     </div>
-    <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span><button type="button" class="btn" data-size="sm" data-variant="outline" id="fe-ask-recheck" title="Check the model again">Retry</button></div>
+    <div class="fe-ask-status" id="fe-ask-status" hidden><span class="dot"></span><span id="fe-ask-state">Not checked yet</span><button type="button" class="btn" data-icon data-size="xs" id="fe-ask-recheck" title="Check again" aria-label="Check the model again">${UI_ICON.reset}</button></div>
     <p class="fe-ask-cloud" id="fe-ask-cloud" hidden>${UI_ICON.info}<span>Sends ${app.fileMode ? 'the text' : 'the listing'} to Google</span></p>
     <div id="fe-ask-thread"></div>
     <div class="fe-ask-empty" id="fe-ask-empty"><p>Ask anything about ${what}.</p><div class="fe-ask-quick">${quick.map(([k, l]) => `<button type="button" class="btn fe-ask-chip" data-size="sm" data-variant="outline" data-shape="pill" data-intent="${k}">${l}</button>`).join('')}</div></div>
@@ -180,7 +185,12 @@ function initAsk(app: App): void {
   const chipDot = box.querySelector<HTMLElement>('.fe-ask-model .dot')!;
   const recheck = el<HTMLButtonElement>('fe-ask-recheck');
   recheck.addEventListener('click', () => void checkModel());
-  const syncEmpty = () => { emptyBox.hidden = !!thread.querySelector('.fe-ask-turn'); };
+  const copyAllBtn = el<HTMLButtonElement>('fe-ask-copyall'), saveBtn = el<HTMLButtonElement>('fe-ask-save'), largeBtn = el<HTMLButtonElement>('fe-ask-large');
+  const syncEmpty = () => {
+    const any = !!thread.querySelector('.fe-ask-turn');
+    emptyBox.hidden = any;
+    copyAllBtn.disabled = saveBtn.disabled = !any;
+  };
   // The box grows with what is typed, up to a few lines, then scrolls.
   const grow = () => { q.style.height = 'auto'; q.style.height = Math.min(q.scrollHeight, 140) + 'px'; };
   q.addEventListener('input', grow);
@@ -208,6 +218,7 @@ function initAsk(app: App): void {
     q.placeholder = why ? 'Ask is off until the model runs' : `Ask about ${what}`;
     box!.querySelectorAll<HTMLButtonElement>('.fe-ask-chip').forEach(b => { b.disabled = !usable; b.title = why; });
     cloud.hidden = !isCloud();
+    statusRow.hidden = !checked || localReady || isCloud();
   };
 
   async function checkModel(): Promise<void> {
@@ -217,10 +228,12 @@ function initAsk(app: App): void {
     const [a, models] = await Promise.all([llmAvailability(), llmModels()]);
     const kind = a.kind === 'ready' ? (a.cold ? 'cold' : 'ready') : a.kind;
     statusRow.className = `fe-ask-status ${kind}`;
-    statusRow.hidden = a.kind === 'ready';
     recheck.hidden = a.kind === 'ready';
-    state.textContent = a.kind === 'ready' ? '' : a.kind === 'down' ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
-    reason = state.textContent;
+    // One terse line; the how-to sits in its tooltip. It only concerns the local
+    // model, so a remote pick (Gemini) never shows it.
+    state.textContent = a.kind === 'ready' ? '' : a.kind === 'down' ? 'Local model is off' : 'lm is not installed';
+    statusRow.title = a.kind === 'ready' ? '' : a.kind === 'down' ? LLM_ERROR_TEXT.server_down : LLM_ERROR_TEXT.unavailable;
+    reason = a.kind === 'ready' ? '' : a.kind === 'down' ? 'Local model is off: start it with lm' : 'lm is not installed';
     chipDot.className = `dot ${kind}`;
     chipDot.title = a.kind === 'ready' ? (a.cold ? 'Loads on the first question' : 'Ready') : state.textContent;
     localReady = a.kind === 'ready';
@@ -258,6 +271,7 @@ function initAsk(app: App): void {
     turn.innerHTML = `${via ? `<div class="fe-ask-via">${UI_ICON.opinion}<span>${esc(via)}</span></div>` : `<div class="fe-ask-q">${esc(question)}</div>`}${files.length ? `<div class="fe-ask-qfiles">${files.map(f => fileChip(f)).join('')}</div>` : ''}<div class="fe-ask-a fe-md"><span class="fe-ask-wait">Thinking…</span></div>
       <div class="fe-ask-foot2"><span class="fe-ask-meta"></span><span class="fe-ask-acts">
         <button type="button" class="btn" data-icon data-size="xs" data-act="copy" title="Copy this answer">${UI_ICON.copy}</button>
+        <button type="button" class="btn" data-icon data-size="xs" data-act="note" title="Save this answer to Notes">${UI_ICON.notes}</button>
         <button type="button" class="btn" data-icon data-size="xs" data-act="quote" title="Quote this answer into a chat (q)">${UI_ICON.quote}</button>
         <button type="button" class="btn" data-icon data-size="xs" data-act="other" title="Ask another model to check this answer">${UI_ICON.opinion}</button></span></div>`;
     thread.appendChild(turn);
@@ -498,6 +512,49 @@ function initAsk(app: App): void {
     const text = selected() || (inBar ? (hoverBlock ? blockText(hoverBlock) : '') : turn ? answers.get(turn) ?? '' : '');
     if (btn.dataset.act === 'copy') copyText(text, btn);
     else quote(text, btn);
+  });
+  // The chat as markdown: the whole of it from the header, one answer from its row.
+  const chatSubject = () => key;
+  const turnOf = (turn: HTMLElement) => turns[[...thread.querySelectorAll('.fe-ask-turn')].indexOf(turn)];
+  const saveToNotes = (md: string, title: string) => {
+    const root = app.settings.notesRoot;
+    if (!root) { app.toast('Choose a Notes folder in Settings first'); return; }
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'chat';
+    const d = new Date(), two = (n: number) => String(n).padStart(2, '0');
+    const base = `chat-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}-${slug}`;
+    // A second save in the same minute takes the next free number instead of being refused.
+    const tryAt = (n: number): Promise<string> => {
+      const rel = `${base}${n > 1 ? `-${n}` : ''}.md`;
+      return notes.create(root, rel, md).then(() => rel, (e: { code?: string }) => (e?.code === 'notes_exists' && n < 20 ? tryAt(n + 1) : Promise.reject(e)));
+    };
+    tryAt(1)
+      .then(rel => app.toast(`Saved to Notes as ${rel}`, 5000, { label: 'Open', run: () => app.strip.go(fileHref(`${root.replace(/\/$/, '')}/${rel}`)) }))
+      .catch((e: unknown) => app.toast(errorText(e, 'Saving to Notes')));
+  };
+  copyAllBtn.addEventListener('click', () => { if (turns.length) void copyWithCheck(copyAllBtn, chatMarkdown(chatSubject(), turns)).then(ok => { if (!ok) app.toast('Copy failed'); }); });
+  saveBtn.addEventListener('click', () => { if (turns.length) saveToNotes(chatMarkdown(chatSubject(), turns), turns[0].q); });
+  thread.addEventListener('click', e => {
+    const b = (e.target as Element).closest<HTMLElement>('[data-act="note"]');
+    const turn = b?.closest<HTMLElement>('.fe-ask-turn');
+    const t = turn && turnOf(turn);
+    if (t) saveToNotes(chatMarkdown(chatSubject(), [t], t.q), t.q);
+  });
+  // Large: the same chat, moved into a wide panel over the page and back on close, so nothing restarts.
+  let large: Layer | null = null;
+  largeBtn.addEventListener('click', () => {
+    if (large) { large.close('api'); return; }
+    const home = box.parentElement!, next = box.nextSibling;
+    const wrap = document.createElement('div');
+    wrap.className = 'fe-dlg fe-ask-large';
+    wrap.innerHTML = `<div class="fe-dlg-bg scrim"></div><div class="panel fe-ask-large-box" role="dialog" aria-label="Chat"></div>`;
+    (document.getElementById('fe') ?? document.body).append(wrap);
+    wrap.querySelector('.fe-ask-large-box')!.append(box);
+    largeBtn.setAttribute('aria-pressed', 'true');
+    largeBtn.title = 'Put the chat back in the sidebar';
+    large = openLayer(wrap, {
+      kind: 'dialog', place: 'none', focus: q, backdrop: wrap.querySelector<HTMLElement>('.fe-dlg-bg'),
+      onClose: () => { home.insertBefore(box, next); wrap.remove(); large = null; largeBtn.setAttribute('aria-pressed', 'false'); largeBtn.title = 'Open the chat large'; },
+    });
   });
   // The models the picker offers, for @name and for a second opinion.
   const modelOpts = (): ModelOpt[] => { try { return JSON.parse(pick.dataset.opts || '[]'); } catch { return []; } };

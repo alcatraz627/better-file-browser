@@ -154,7 +154,8 @@ function checkMarkdown(text: string): Diagnostic[] {
     const f = /^\s{0,3}(`{3,}|~{3,})/.exec(l);
     if (f) {
       if (!fence) fence = { mark: f[1], line: i + 1 };
-      else if (f[1][0] === fence.mark[0] && f[1].length >= fence.mark.length && !l.slice(f.index + f[1].length).trim()) fence = null;
+      // A closing fence may be indented like its opener; only blanks may follow it.
+      else if (f[1][0] === fence.mark[0] && f[1].length >= fence.mark.length && !l.slice(f[0].length).trim()) fence = null;
       continue;
     }
     if (fence) continue;

@@ -107,6 +107,7 @@ try {
   const two = mk('walk-two');
   writeFileSync(join(two, '.answer.json'), JSON.stringify({ answer: 'walk rulings:\nD1b D2z\ns2: DISAGREE — too loud', submitted_at: Math.floor(Date.now() / 1000) - 7200, via: 'cli' }));
   writeFileSync(join(two, '.notify.json'), JSON.stringify({ state: 'queued', at: new Date().toISOString() }));
+  writeFileSync(join(two, '.ruling.json'), JSON.stringify({ state: 'written', target: '81fdf3de0595 #16', reason: '', at: new Date().toISOString() }));
   page = await open(two);
   const filled = await until(page, () => document.querySelector('.fe-dp-card[data-id="D2"] input[value="z"]')?.checked, null, 6000);
   await until(page, () => document.getElementById('fe-dp-answer-text').textContent.includes('D2z'), null, 4000);
@@ -119,6 +120,7 @@ try {
   check(filled && two1.d1 === 'b' && two1.d2 === 'z' && two1.s2 === false && two1.note === 'too loud', `C6 the form is filled from the sent answer, none option and disagreement included: ${JSON.stringify(two1)}`);
   check(/Answered 2 h ago/.test(two1.head) && /waits for the agent/.test(two1.head) && two1.lines.join('|') === 'Colours: disagreed, too loud', `C5 an older answer says how long ago and that the message waits: ${JSON.stringify(two1)}`);
   check(two1.panel === 'walk rulings:\nD1b D2z\ns2: DISAGREE — too loud', `C6 the refilled form composes back to the same string: ${JSON.stringify(two1.panel)}`);
+  check(/Ruling noted on 81fdf3… #16/.test(two1.head), `D7 the banner says where the ruling was noted in the goal record: ${JSON.stringify(two1.head)}`);
   await page.close();
 
   // C8 answered somewhere else while this page was open.
@@ -213,11 +215,44 @@ try {
   await wait(700);
   const lens = await page.evaluate(() => ({
     waiting: !!document.querySelector('.fe-dpl-band[data-band="waiting"] .fe-dpl-row[data-slug="walk-lens"]'),
-    answered: !!document.querySelector('.fe-dpl-band[data-band="answered"] .fe-dpl-row[data-slug="walk-lens"]'),
+    answered: !!document.querySelector('.fe-dpl-band[data-band="archived"] .fe-dpl-row[data-slug="walk-lens"]'),
     age: document.querySelector('.fe-dpl-row[data-slug="walk-lens"] .fe-dpl-age')?.textContent,
   }));
   check(!lens.waiting && lens.answered && lens.age === 'just now', `the lens shows a sent page under Answered within a second: ${JSON.stringify(lens)}`);
   await shot(page, 'dp-lens-answered');
+  // An answer whose wake failed says so on its lens row.
+  writeFileSync(join(lensPage, '.notify.json'), JSON.stringify({ state: 'undelivered', at: new Date().toISOString() }));
+  await page.click('#fe-rail-decisions');
+  await wait(300);
+  await page.click('#fe-rail-decisions');
+  const lost = await until(page, () => /agent not told/.test(document.querySelector('.fe-dpl-row[data-slug="walk-lens"]')?.textContent ?? ''), null, 12000);
+  check(lost, `D7 the lens row of an answer nobody heard says the agent was not told: ${await page.$eval('.fe-dpl-row[data-slug="walk-lens"]', r => r.textContent.replace(/\s+/g, ' ').trim()).catch(() => 'no row')}`);
+  await shot(page, 'dp-lens-not-told');
+  await page.close();
+
+  // The Archived band: answered and agent-cleared pages sit there, folded; a page can be archived by hand and put back.
+  const arch = mk('walk-arch');
+  const cleared = mk('walk-cleared');
+  writeFileSync(join(cleared, '.cleared'), '');
+  page = await open(arch);
+  await page.click('#fe-rail-decisions');
+  await page.waitForSelector('.fe-dpl-row[data-slug="walk-arch"]', { timeout: 8000 });
+  const bandOf = slug => page.evaluate(s => document.querySelector(`.fe-dpl-row[data-slug="${s}"]`)?.closest('.fe-dpl-band')?.dataset.band ?? '', slug);
+  const archOpen = await page.evaluate(() => document.querySelector('.fe-dpl-band[data-band="archived"]')?.open);
+  check(await bandOf('walk-cleared') === 'archived' && archOpen === false, `a page the agent cleared sits in Archived, which starts folded: ${JSON.stringify({ band: await bandOf('walk-cleared'), archOpen })}`);
+  check(await bandOf('walk-arch') === 'waiting', 'an unanswered page still waits on you');
+  await page.hover('.fe-dpl-row[data-slug="walk-arch"]');
+  await page.click('.fe-dpl-row[data-slug="walk-arch"] [data-arch]');
+  await wait(200);
+  const movedTo = await bandOf('walk-arch');
+  const stillHere = await page.evaluate(() => location.pathname);
+  check(movedTo === 'archived' && /walk-arch/.test(stillHere), `Archive moves the page to Archived without opening it: ${movedTo}`);
+  await page.evaluate(() => { const d = document.querySelector('.fe-dpl-band[data-band="archived"]'); if (d) d.open = true; });
+  await page.hover('.fe-dpl-row[data-slug="walk-arch"]');
+  await page.click('.fe-dpl-row[data-slug="walk-arch"] [data-arch]');
+  await wait(200);
+  check(await bandOf('walk-arch') === 'waiting', 'Put back returns it to Waiting on you');
+  await shot(page, 'dp-lens-archived');
   await page.close();
 
   // A page outside gcc's registry can be copied but not sent.

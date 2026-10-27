@@ -25,7 +25,7 @@ import { answerBarHtml, answerPanelHtml, sentHtml, wireAnswer } from './dp-answe
 export interface DpOption { code: string; label: string; rec?: boolean; why?: string; images?: ImageEntry[] }
 export interface DpDecision { id: string; question: string; context?: string; note?: string; group?: string; images?: ImageEntry[]; none?: boolean; noneLabel?: string; noneCode?: string; options: DpOption[] }
 export interface DpSection { id: string; group?: string; title?: string; prio?: string; read?: string; pre?: string; images?: ImageEntry[]; note?: string; slots?: Record<string, string> }
-export interface DpOrigin { session?: string; project?: string; topic?: string; created?: string; board?: string; card?: string; goal?: string; milestone?: string }
+export interface DpOrigin { session?: string; project?: string; topic?: string; created?: string; board?: string; card?: string; goal?: string; row?: string; milestone?: string }
 export interface DpConfig {
   title?: string; storageKey?: string; copyHeader?: string; intro?: string; notes?: boolean; accent?: string;
   origin?: DpOrigin; groups?: Record<string, { context?: string; color?: string }>;
@@ -49,7 +49,7 @@ export function parseDpConfig(text: string): DpConfig | null {
  */
 export function originFacts(o: DpOrigin | undefined, now = Date.now()): { label: string; value: string; copy: string; title?: string; copyName?: string }[] {
   if (!o) return [];
-  const rows: [string, string | undefined, string][] = [['Project', o.project, ''], ['Session', o.session, ''], ['Goal', o.goal, 'goal '], ['Milestone', o.milestone, ''], ['Card', o.board ? undefined : o.card, 'card ']];
+  const rows: [string, string | undefined, string][] = [['Project', o.project, ''], ['Session', o.session, ''], ['Goal', o.goal, 'goal '], ['Row', o.goal && o.row ? String(o.row).replace(/^#/, '') : undefined, '#'], ['Milestone', o.milestone, ''], ['Card', o.board ? undefined : o.card, 'card ']];
   const out: { label: string; value: string; copy: string; title?: string; copyName?: string }[] = rows.filter((r): r is [string, string, string] => !!r[1]).map(([label, v, lead]) => ({ label, value: lead + v, copy: v }));
   if (o.created) {
     const at = Date.parse(o.created);

@@ -56,6 +56,9 @@ describe('Markdown', () => {
   it('warns when a heading skips a level, but not inside code', () => {
     expect(diagnose('md', '# A\n### C\n')[0]).toMatchObject({ line: 2, severity: 'warn' });
     expect(diagnose('md', '# A\n```\n### not a heading\n```\n')).toEqual([]);
+    // A fence indented under a list item closes with the same indent.
+    expect(diagnose('md', '# A\n\n- step\n\n  ```bash\n  run it\n  ```\n\nAfter.\n')).toEqual([]);
+    expect(diagnose('md', '# A\n\n  ```\n  code\n  ``` trailing words\n')[0]).toMatchObject({ line: 3, severity: 'warn' });
   });
 });
 

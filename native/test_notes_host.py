@@ -378,17 +378,22 @@ page('old-quiet', 30)
 page('fresh', 1)
 page('done', 2, '.answer.json', '.seen.json')
 page('broken', 3, cfg='{not json')
+page('handled', 3.5, '.cleared')
 os.makedirs(os.path.join(reg, 'not-a-page'))
 with open(os.path.join(reg, '.pending.txt'), 'w') as fh: fh.write('old-listed\n')
 os.environ['BFB_DP_REGISTRY'] = reg
 r = call({'op': 'dpPages'})
 states = {p['slug']: p['state'] for p in r.get('pages', [])}
-check(states == {'old-listed': 'waiting', 'old-quiet': 'never', 'fresh': 'waiting', 'done': 'answered', 'broken': 'broken'},
+check(states == {'old-listed': 'waiting', 'old-quiet': 'never', 'fresh': 'waiting', 'done': 'answered', 'broken': 'broken', 'handled': 'cleared'},
       f'pages are waiting when listed or fresh, answered with an answer, never otherwise: {states}')
-check([p['slug'] for p in r['pages']][:3] == ['fresh', 'done', 'broken'], f'newest first: {[p["slug"] for p in r["pages"]]}')
+check([p['slug'] for p in r['pages']][:4] == ['fresh', 'done', 'broken', 'handled'], f'newest first: {[p["slug"] for p in r["pages"]]}')
 fresh = next(p for p in r['pages'] if p['slug'] == 'fresh')
 check(fresh['title'] == 'FRESH' and fresh['items'] == 3 and fresh['origin'] == {'project': 'p'} and fresh['seen'] is False, f'a row carries title, item count, origin and seen: {fresh}')
 check(next(p for p in r['pages'] if p['slug'] == 'done')['seen'] is True, 'a page with .seen.json reads as seen')
+# Whether the asker was told: read from .notify.json on answered pages only.
+with open(os.path.join(reg, 'done', '.notify.json'), 'w') as fh: fh.write(json.dumps({'state': 'undelivered'}))
+told = {p['slug']: p.get('told') for p in call({'op': 'dpPages'})['pages']}
+check(told['done'] == 'undelivered' and told['fresh'] is None, f'an answered page carries whether the agent was told: {told}')
 
 # Reach comes from gcc's one batched call; only waiting pages carry it.
 reach_stub = os.path.join(stub_dir, 'reach.sh')
@@ -398,7 +403,7 @@ os.chmod(reach_stub, 0o755)
 os.environ['BFB_DP_BIN'] = reach_stub
 r = call({'op': 'dpPages'})
 reach = {p['slug']: p.get('reach') for p in r.get('pages', [])}
-check(reach == {'old-listed': 'hot', 'old-quiet': None, 'fresh': 'unknown', 'done': None, 'broken': None},
+check(reach == {'old-listed': 'hot', 'old-quiet': None, 'fresh': 'unknown', 'done': None, 'broken': None, 'handled': None},
       f'waiting pages carry reach, an odd value reads unknown, other pages none: {reach}')
 os.environ['BFB_DP_BIN'] = os.path.join(stub_dir, 'missing.sh')
 r = call({'op': 'dpPages'})
