@@ -10,7 +10,7 @@ import { setDpIo, type DpVerb } from './dp-io';
 import { NotesError } from './notes';
 import { makeToast } from './toast';
 import { bind, listenForKeys, setContext, runCommand } from './commands';
-import { themeMode, setThemeMode, followSystem } from './theme';
+import { setThemeMode, followSystem } from './theme';
 import { textPref } from './storage';
 import { markDocView } from './docview';
 import { esc } from './utils';
@@ -87,7 +87,8 @@ async function start(): Promise<void> {
   // gcc's pages share one dark and light choice under kanban-theme; this page follows it and keeps it.
   const kanbanPref = textPref('kanban-theme');
   const kanbanTheme = (): 'dark' | 'light' | null => { const t = kanbanPref.get(); return t === 'dark' || t === 'light' ? t : null; };
-  setThemeMode(fe, kanbanTheme() ?? themeMode(), false);
+  // Nothing chosen yet: follow the system, as a page met for the first time should.
+  setThemeMode(fe, kanbanTheme() ?? 'system', false);
   followSystem(fe);
   const toast = makeToast(document.getElementById('fe-toast')!);
   const fail = (msg: string) => { box.innerHTML = `<p class="fe-dp-web-fail">${esc(msg)}</p>`; };
