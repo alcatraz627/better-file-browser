@@ -886,7 +886,7 @@ def op_phone_seed(kv):
     if not isinstance(kv, dict):
         raise NotesError('notes_bad_path', 'phoneSeed needs the settings as an object')
     os.makedirs(os.path.dirname(PHONE_SEED), exist_ok=True)
-    atomic_write(PHONE_SEED, json.dumps({'at': int(time.time() * 1000), 'kv': {k: v for k, v in kv.items() if k.startswith('bfb-') and isinstance(v, str)}}))
+    atomic_write(PHONE_SEED, json.dumps({'at': int(time.time() * 1000), 'kv': kv}))
     return {'t': 'seeded'}
 
 

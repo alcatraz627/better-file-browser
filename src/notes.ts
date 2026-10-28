@@ -128,7 +128,7 @@ export const notes = {
   /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
   phone: (action: 'status' | 'on' | 'off' = 'status') => call({ op: 'phone', action }) as unknown as Promise<PhoneState>,
   /// The Mac's settings, for the phone to start from.
-  phoneSeed: (kv: Record<string, string>) => call({ op: 'phoneSeed', kv }),
+  phoneSeed: (kv: Record<string, unknown>) => call({ op: 'phoneSeed', kv }),
   fileWrite: (root: string, rel: string, text: string, expectMtime: number) =>
             call({ op: 'fileWrite', root, rel, text, expectMtime }) as Promise<{ mtime: number; backup?: string }>,
 };

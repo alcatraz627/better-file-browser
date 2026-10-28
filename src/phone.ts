@@ -27,14 +27,20 @@ export async function copyPhoneLink(path: string, toast: (m: string) => void): P
 
 // The Mac is the phone's source of settings: send them when access turns on,
 // on each page while it is on, and a moment after any setting changes.
+// Everything bfb keeps goes (Saved, Notes, settings, Ask chats); caches and this
+// Mac's own tab strips stay behind.
+const NOT_SENT = (k: string) => k.startsWith('bfb-strip-v2:') || k.startsWith('diagram-cache') || k === 'bfb-kv-migrated';
 let seedT = 0;
 function pushSeed(): void {
-  if (onPhone() || kvGet(ON_KEY) !== '1') return;
+  if (onPhone()) return;
   clearTimeout(seedT);
   seedT = window.setTimeout(() => {
-    const kv: Record<string, string> = {};
-    for (const k of kvKeys()) { const v = kvGet(k); if (v != null) kv[k] = v; }
-    void notes.phoneSeed(kv).catch(() => { /* the host is missing: the phone keeps its last copy */ });
+    void chrome.storage.local.get(null).then(all => {
+      const kv: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(all)) if (!NOT_SENT(k)) kv[k] = v;
+      for (const k of kvKeys()) { const v = kvGet(k); if (v != null && !NOT_SENT(k)) kv[k] = v; }
+      return notes.phoneSeed(kv);
+    }).catch(() => { /* the host is missing: the phone keeps its last copy */ });
   }, 1500);
 }
 export function initPhoneSeed(): void {

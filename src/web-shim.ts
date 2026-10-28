@@ -122,8 +122,10 @@ export async function seedFromMac(): Promise<void> {
   try {
     const r = await fetch('/_bfb/seed.json', { cache: 'no-store' });
     if (!r.ok) return;
-    const { kv } = await r.json() as { kv?: Record<string, string> };
-    for (const [k, v] of Object.entries(kv ?? {})) if (k.startsWith('bfb-') && typeof v === 'string') localStorage.setItem(keyOf('local', k), JSON.stringify(v));
+    const { kv } = await r.json() as { kv?: Record<string, unknown> };
+    for (const [k, v] of Object.entries(kv ?? {})) {
+      try { localStorage.setItem(keyOf('local', k), JSON.stringify(v)); } catch { /* this browser's storage is full: skip the rest of the big ones */ }
+    }
   } catch { /* no seed yet: the phone starts with defaults */ }
 }
 

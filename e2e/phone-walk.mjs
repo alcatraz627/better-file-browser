@@ -17,7 +17,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const fixture = makeFixture(), notesDir = makeNotesDir();
 const tmp = mkdtempSync(join(tmpdir(), 'bfb-phone-'));
 const seed = join(tmp, 'seed.json'), sent = join(tmp, 'sent.txt'), ipc = join(tmp, 'claude-ipc');
-writeFileSync(seed, JSON.stringify({ kv: { 'bfb-settings-v1': JSON.stringify({ editableFolders: [fixture], notesRoot: notesDir }) } }));
+writeFileSync(seed, JSON.stringify({ kv: { 'bfb-settings-v1': JSON.stringify({ editableFolders: [fixture], notesRoot: notesDir }), 'bfb-saved-v1': JSON.stringify([{ path: fixture + '/nested/', label: 'Saved on the Mac' }]) } }));
 // A claude-ipc that lists one live agent and writes down what it is asked to send.
 writeFileSync(ipc, `#!/bin/sh\nif [ "$1" = peers ]; then echo '{"peers":[{"alias":"bfb","status":"live","cwd":"/tmp"}]}'; exit 0; fi\nprintf '%s\\n' "$@" > '${sent}'\n`);
 chmodSync(ipc, 0o755);
@@ -54,6 +54,12 @@ try {
   const drawerBox = await page.$eval('#fe-side', s => { const r = s.getBoundingClientRect(), l = document.getElementById('fe-lenses').getBoundingClientRect(); return { w: Math.round(r.width), lensW: Math.round(l.width), lensH: Math.round(l.height) }; });
   check(open > 100 && open < 844 && drawerBox.w > 360 && drawerBox.lensW > 300 && drawerBox.lensH > 200, `the sidebar button raises a full-width drawer with its panel: top ${open}, ${JSON.stringify(drawerBox)}`);
   await page.screenshot({ path: join(SHOTS, 'phone-drawer.png') });
+  const savedShown = await page.evaluate(async () => {
+    const b = [...document.querySelectorAll('#fe-rail button')].find(x => /saved/i.test(x.title + ' ' + (x.getAttribute('aria-label') ?? '')));
+    b?.click(); await new Promise(r => setTimeout(r, 300));
+    return document.getElementById('fe-side').textContent.includes('Saved on the Mac');
+  });
+  check(savedShown, 'the Mac\'s Saved list is in the phone drawer');
   await page.tap('.fe-drawer-scrim');
   await sleep(400);
   check(await sideTop() >= 844, 'a tap on the scrim lowers it');

@@ -1868,7 +1868,7 @@ a.fe-lens-ib:not([href]){opacity:.45;pointer-events:none}
 .fe-dp-sent-lines{margin:0 0 var(--sp-3);padding-left:var(--sp-6);font-size:var(--fs-sm);color:var(--mt)}
 .fe-dp-sent-full summary{cursor:pointer;font-size:var(--fs-sm);color:var(--dm)}
 .fe-dp-sent-full pre{margin:var(--sp-3) 0 0;font-family:var(--mono);font-size:var(--fs-sm);white-space:pre-wrap;overflow-wrap:anywhere}
-.fe-dp-progress{flex:1;font-size:var(--fs-sm);color:var(--mt)}
+.fe-dp-progress{flex:1 1 auto;min-width:max-content;white-space:nowrap;font-size:var(--fs-sm);color:var(--mt)}
 #fe-dp-body{display:flex;flex-direction:column;gap:var(--sp-6)}
 /* The rail: one row per item, its dot in the item's state, its pick at the end. */
 .fe-dv-outline{display:flex;flex-direction:column;max-height:calc(100vh - var(--sp-9) * 4);padding:var(--sp-3) 0;background:var(--card);border:1px solid var(--bd);border-radius:var(--row-r)}
