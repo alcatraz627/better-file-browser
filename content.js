@@ -13419,6 +13419,29 @@ ${t}`)) say("Note title saved");
       expand: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/></svg>',
       reset: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 8a5 5 0 1 0 1.5-3.6M3 2.5v2.5h2.5"/></svg>'
     };
+    const svg16 = (d) => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+    Object.assign(ICON, {
+      tidy: svg16('<rect x="1.5" y="2" width="5.5" height="3.5" rx="1"/><rect x="9" y="10.5" width="5.5" height="3.5" rx="1"/><path d="M4.25 5.5v2.75h7.5v2.25"/>'),
+      packed: svg16('<rect x="5.25" y="2" width="5.5" height="3.5" rx="1"/><rect x="1.5" y="10.5" width="5" height="3.5" rx="1"/><rect x="9.5" y="10.5" width="5" height="3.5" rx="1"/><path d="M6.8 5.5 4.2 10.5M9.2 5.5l2.6 5"/>'),
+      down: svg16('<path d="M8 2.5v11M4 9.5l4 4 4-4"/>'),
+      right: svg16('<path d="M2.5 8h11M9.5 4l4 4-4 4"/>'),
+      curved: svg16('<path d="M2.5 13.5C2.5 6.5 13.5 9.5 13.5 2.5"/>'),
+      square: svg16('<path d="M2.5 13.5V10a2 2 0 0 1 2-2h7a2 2 0 0 0 2-2V2.5"/>'),
+      navigate: svg16('<path d="M3.5 2.5 12.5 7l-4 1.2-1.7 4.3z"/>'),
+      focus: svg16('<circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2"/>'),
+      walk: svg16('<path d="M3.5 3.5v9l6.5-4.5z"/><path d="M12.5 3.5v9"/>'),
+      look: svg16('<path d="M8 2.5a5.5 5.5 0 1 0 0 11c.9 0 1.3-.6 1.3-1.2 0-.8-.6-1-.6-1.8 0-.6.5-1 1.1-1h1.4a2.3 2.3 0 0 0 2.3-2.3c0-2.6-2.5-4.7-5.5-4.7z"/><circle cx="5.3" cy="7.2" r=".7"/><circle cx="7.6" cy="5.1" r=".7"/><circle cx="10.4" cy="5.7" r=".7"/>'),
+      panel: svg16('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M10 2.5v11"/>'),
+      code: svg16('<path d="M6 4.5 2.5 8 6 11.5M10 4.5l3.5 3.5-3.5 3.5"/>'),
+      caret: '<svg class="dl-caret" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6.5 8 9.5l3-3"/></svg>',
+      close: svg16('<path d="M4 4l8 8M12 4l-8 8"/>'),
+      diagram: svg16('<rect x="1.5" y="2" width="5.5" height="4" rx="1"/><rect x="9" y="10" width="5.5" height="4" rx="1"/><path d="M4.25 6v2.5a1.5 1.5 0 0 0 1.5 1.5H9"/>'),
+      fsvg: svg16('<circle cx="3.5" cy="12.5" r="1.5"/><circle cx="12.5" cy="3.5" r="1.5"/><path d="M5 12.5c4 0 2-9 6-9"/>'),
+      fpng: svg16('<rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="6" cy="6.5" r="1.2"/><path d="m2.5 12 4-3.5 2.5 2 2-1.5 3 2.5"/>'),
+      fpdf: svg16('<path d="M4 2h5.5L12.5 5v9H4z"/><path d="M9.5 2v3h3M6 9h4.5M6 11.5h3"/>'),
+      fmd: svg16('<rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><path d="M4 10.5v-5l2 2.5 2-2.5v5M11.5 5.5v5M10 9l1.5 1.5L13 9"/>'),
+      ftxt: svg16('<path d="M3 4h10M3 7h10M3 10h7M3 13h5"/>')
+    });
     const plain2 = (t) => String(t ?? "").replace(/<br\s*\/?>/gi, " \xB7 ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
     const lines = (t) => String(t ?? "").split(/<br\s*\/?>/i).map(plain2).filter(Boolean);
     const bare = (t) => t.replace(/^[^\p{L}\p{N}]+/u, "");
@@ -13539,14 +13562,23 @@ ${t}`)) say("Note title saved");
           M.initialize({ startOnLoad: false, securityLevel: "strict" });
           M.__dlInit = true;
         }
+        if (!M.__dlPrimed) {
+          await M.mermaidAPI.getDiagramFromText(opts.src).catch(() => {
+          });
+          M.__dlPrimed = true;
+        }
         return M;
       };
       const srcHash = hashOf2(opts.src);
       const ownDir = (opts.src.match(/^\s*(?:flowchart|graph)\s+(TB|TD|BT|RL|LR)\b/m)?.[1] ?? "TD").replace("TB", "TD");
       const view = { layout: store2.get("layout", "elk"), dir: store2.get("dir", ownDir), look: store2.get("look", "classic"), style: store2.get("style", "soft"), edges: store2.get("edges", "curved"), mode: compact ? "navigate" : store2.get("mode", "navigate") };
       const doc = readDoc(opts.md);
-      const seg = (opt, label2, items) => `<div class="dl-seg" data-opt="${opt}" role="group" aria-label="${label2}"><span>${label2}</span>${items.map(([v, t, title]) => `<button type="button" data-v="${v}" title="${esc2(title)}" aria-label="${esc2(title)}">${t}</button>`).join("")}</div>`;
+      const seg = (opt, label2, items) => `<div class="dl-seg" data-opt="${opt}" role="group" aria-label="${label2}">${items.map(([v, icon2, title]) => `<button type="button" data-v="${v}" title="${esc2(label2 + ": " + title)}" aria-label="${esc2(title)}">${icon2}</button>`).join("")}</div>`;
       const actBtn2 = (a, icon2, title, text = "", extra = "") => `<button type="button" class="dl-act${text ? "" : " dl-icon"}" data-act="${a}" title="${esc2(title)}" aria-label="${esc2(title)}"${extra}>${icon2}${text}</button>`;
+      const menu = (id, icon2, title, body) => `<div class="dl-menu" data-menu="${id}"><button type="button" class="dl-act dl-menu-btn" aria-haspopup="menu" aria-expanded="false" title="${esc2(title)}" aria-label="${esc2(title)}">${icon2}${ICON.caret}</button><div class="dl-menu-list" role="menu" hidden>${body}</div></div>`;
+      const item2 = (attrs, icon2, name2, note2) => `<button type="button" role="menuitem" ${attrs} title="${esc2(note2)}">${icon2}<span><b>${esc2(name2)}</b><small>${esc2(note2)}</small></span></button>`;
+      const choices = (opt, label2, items) => `<div class="dl-menu-sec" data-opt="${opt}" role="group" aria-label="${label2}"><h4>${label2}</h4>${items.map(([v, name2, note2]) => `<button type="button" role="menuitemradio" data-v="${v}" title="${esc2(note2)}"><span><b>${esc2(name2)}</b><small>${esc2(note2)}</small></span></button>`).join("")}</div>`;
+      const EXPORTS = [["svg", ICON.fsvg, "SVG", "The picture, sharp at any size"], ["png", ICON.fpng, "PNG", "The picture as an image, twice the size"], ["pdf", ICON.fpdf, "PDF", "One page holding the picture"], ["md", ICON.fmd, "Markdown", "The mermaid in a fenced block, to paste in a doc"], ["txt", ICON.ftxt, "Text", "The mermaid source alone"]];
       const host = opts.themeHost ?? document.documentElement;
       const tone = () => {
         root.dataset.tone = host.dataset.theme === "light" ? "light" : "dark";
@@ -13556,27 +13588,35 @@ ${t}`)) say("Note title saved");
       root.classList.toggle("dl-compact", compact);
       if (opts.panel === false || compact) root.classList.add("dl-nopanel");
       if (opts.height) root.style.setProperty("--dl-height", opts.height);
+      const modeBtn = (m, icon2, name2, note2) => `<button type="button" role="tab" data-mode="${m}" title="${esc2(name2 + ": " + note2)}">${icon2}<b>${name2}</b></button>`;
       root.innerHTML = `
       <div class="dl-top">
-        <div class="dl-modes" role="tablist" aria-label="How to read the diagram">
-          <button type="button" role="tab" data-mode="navigate"><b>Navigate</b><span>hover and click steps</span></button>
-          <button type="button" role="tab" data-mode="focus"><b>Focus</b><span>one step's part of the flow</span></button>
-          <button type="button" role="tab" data-mode="walkthrough"><b>Walkthrough</b><span>step by step</span></button>
-        </div>
+        ${opts.title ? `<div class="dl-title"><span class="dl-title-icon">${opts.icon ?? ICON.diagram}</span><div><b>${esc2(opts.title)}</b><small class="dl-subtitle">${esc2(opts.subtitle ?? "")}</small></div></div>` : ""}
+        ${compact ? "" : `<div class="dl-modes" role="tablist" aria-label="How to read the diagram">
+          ${modeBtn("navigate", ICON.navigate, "Navigate", "hover and click steps")}
+          ${modeBtn("focus", ICON.focus, "Focus", "one step's part of the flow")}
+          ${modeBtn("walkthrough", ICON.walk, "Walk", "step through the flow")}
+        </div>`}
         <div class="dl-opts">
-          ${seg("layout", "Layout", [["elk", "Tidy", "Tidy: fewer crossing lines, steps in clear lanes"], ["dagre", "Compact", "Compact: mermaid's usual layout, tighter but more lines cross"]])}
-          ${seg("dir", "Flow", [["TD", "\u2193", "Top to bottom"], ["LR", "\u2192", "Left to right"]])}
-          ${seg("edges", "Lines", [["curved", "Curved", "Smooth curves"], ["rounded", "Square", "Right angles with rounded corners"]])}
-          ${compact ? "" : seg("style", "Colour", [["soft", "Soft", "A pale wash of each kind"], ["outline", "Outline", "Plain cards, coloured lines"], ["bold", "Bold", "Solid colours, like sticky notes"]])}
-          ${compact ? "" : seg("look", "Shapes", [["classic", "Classic", "Mermaid's classic shapes"], ["neo", "Neo", "Mermaid's newer, rounder shapes"]])}
-          <div class="dl-acts">
-            ${actBtn2("reset", ICON.reset, "Put moved boxes back", compact ? "" : "Reset", " disabled")}
-            ${(opts.tools ?? []).map((t) => actBtn2(t.act, t.icon, t.title, t.label ?? "", t.pressed != null ? ` aria-pressed="${t.pressed}"` : "")).join("")}
-            ${actBtn2("copy", ICON.copy, "Copy the mermaid source", compact ? "" : "Mermaid")}
-            ${actBtn2("svg", ICON.save, "Save as SVG", "SVG")}
-            ${actBtn2("png", ICON.save, "Save as PNG", "PNG")}
-            ${opts.expand ? actBtn2("expand", ICON.expand, "Open large, with the side panel") : ""}
-          </div>
+          ${seg("layout", "Layout", [["elk", ICON.tidy, "Tidy, fewer crossing lines and steps in clear lanes"], ["dagre", ICON.packed, "Compact, mermaid's usual layout: tighter, more lines cross"]])}
+          ${seg("dir", "Flow", [["TD", ICON.down, "Top to bottom"], ["LR", ICON.right, "Left to right"]])}
+          ${seg("edges", "Lines", [["curved", ICON.curved, "Curved"], ["rounded", ICON.square, "Square, right angles with rounded corners"]])}
+          ${compact ? "" : menu(
+        "look",
+        ICON.look,
+        "Colour and shapes",
+        choices("style", "Colour", [["soft", "Soft", "A pale wash of each kind"], ["outline", "Outline", "Plain cards, coloured lines"], ["bold", "Bold", "Solid colours, like sticky notes"]]) + choices("look", "Shapes", [["classic", "Classic", "Mermaid's classic shapes"], ["neo", "Neo", "Mermaid's newer, rounder shapes"]])
+      )}
+        </div>
+        <div class="dl-acts">
+          ${actBtn2("reset", ICON.reset, "Put moved boxes back", "", " disabled")}
+          ${(opts.tools ?? []).map((t) => actBtn2(t.act, t.icon, t.title, t.label ?? "", t.pressed != null ? ` aria-pressed="${t.pressed}"` : "")).join("")}
+          ${compact || opts.panel === false ? "" : actBtn2("panel", ICON.panel, "Show or hide the side panel", "", ' aria-pressed="true"')}
+          ${actBtn2("raw", ICON.code, "Show the mermaid text", "", ' aria-pressed="false"')}
+          ${actBtn2("copy", ICON.copy, "Copy the mermaid source")}
+          ${menu("export", ICON.save, "Download", EXPORTS.map(([f, icon2, name2, note2]) => item2(`data-export="${f}"`, icon2, name2, note2)).join(""))}
+          ${opts.expand ? actBtn2("expand", ICON.expand, "Open large, with the side panel") : ""}
+          ${opts.onClose ? actBtn2("close", ICON.close, "Close (Esc)") : ""}
         </div>
       </div>
       <div class="dl-main">
@@ -13595,8 +13635,10 @@ ${t}`)) say("Note title saved");
           <div class="dl-hint" aria-live="polite"></div>
           <div class="dl-toast" aria-live="polite"></div>
         </div>
+        <div class="dl-resize" role="separator" aria-orientation="vertical" title="Drag to resize the side panel"></div>
         <aside class="dl-panel" aria-live="polite"></aside>
-      </div>`;
+      </div>
+      <pre class="dl-raw" hidden></pre>`;
       const $ = (s) => root.querySelector(s);
       const stage = $(".dl-stage"), world = $(".dl-world"), panel = $(".dl-panel"), hint = $(".dl-hint");
       root.addEventListener("pointerenter", () => {
@@ -13607,12 +13649,15 @@ ${t}`)) say("Note title saved");
       });
       if (!active || !compact) active = me;
       let toastT;
-      const toast = (t) => {
-        $(".dl-toast").textContent = t;
+      const toast = (t, busy = false) => {
+        const el2 = $(".dl-toast");
+        el2.textContent = t;
+        el2.classList.toggle("dl-busy", busy);
         clearTimeout(toastT);
-        toastT = setTimeout(() => {
-          $(".dl-toast").textContent = "";
-        }, 1800);
+        if (!busy) toastT = setTimeout(() => {
+          el2.textContent = "";
+          el2.classList.remove("dl-busy");
+        }, 2200);
       };
       const graph = { nodes: /* @__PURE__ */ new Map(), edges: [], out: /* @__PURE__ */ new Map(), in: /* @__PURE__ */ new Map(), classes: {} };
       const titleOf = (id) => bare(lines(graph.nodes.get(id)?.text)[0] ?? id);
@@ -13682,14 +13727,21 @@ ${t}`)) say("Note title saved");
         const config = graph.flow ? { layout: view.layout, look: view.look, theme: "base", themeVariables: { fontFamily: font2, fontSize: "13.5px" }, flowchart: { padding: 16, wrappingWidth: 240, nodeSpacing: 40, rankSpacing: 56 } } : { theme: root.dataset.tone === "light" ? "default" : "dark", themeVariables: { fontFamily: font2 } };
         const head = "---\nconfig:\n" + Object.entries(config).map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`).join("\n") + "\n---\n";
         const code = head + (graph.flow ? opts.src.replace(/^(\s*)(flowchart|graph)\s+\w+/m, `$1$2 ${view.dir}`) : opts.src);
-        const ck = `s:${srcHash}|${hashOf2(head)}`;
+        const ck = `s:${hashOf2(code)}`;
+        const sized = (t) => typeof t === "string" && /viewBox="[-\d.]+ [-\d.]+ [1-9]/.test(t);
         let svg2 = await opts.cache?.get(ck).catch(() => null);
-        if (!svg2) {
+        if (!sized(svg2)) {
           try {
-            ({ svg: svg2 } = await (await loadMermaid2()).render(`dl${me}r${++renders}`, code));
+            const m = await loadMermaid2();
+            for (let i3 = 0; i3 < 2 && !sized(svg2); i3++) ({ svg: svg2 } = await m.render(`dl${me}r${++renders}`, code));
           } catch (e) {
             world.innerHTML = "";
             fail(e);
+            return false;
+          }
+          if (!sized(svg2)) {
+            world.innerHTML = "";
+            fail(new Error("mermaid drew nothing"));
             return false;
           }
           opts.cache?.set(ck, svg2);
@@ -13751,12 +13803,17 @@ ${t}`)) say("Note title saved");
           head2.setAttribute("class", "dl-head");
           head2.setAttribute("d", "M0,0 L-8,-4 L-8,4 Z");
           p.after(head2);
-          els2.edges.set(p.dataset.id, { path: p, head: head2, pts, label: null, lpos: null });
+          const hit = document.createElementNS(NS, "path");
+          hit.setAttribute("class", "dl-ehit");
+          hit.dataset.e = p.dataset.e = head2.dataset.e = p.dataset.id;
+          p.before(hit);
+          els2.edges.set(p.dataset.id, { path: p, head: head2, hit, pts, label: null, lpos: null });
         }
         for (const l of s.querySelectorAll(".edgeLabel .label[data-id]")) {
           const e = els2.edges.get(l.dataset.id);
           if (!e) continue;
           e.label = l.closest("g.edgeLabel");
+          e.label.dataset.e = l.dataset.id;
           const t = (e.label.getAttribute("transform") ?? "").match(/translate\(\s*([-\d.e]+)[ ,]+([-\d.e]+)/);
           e.lpos = t ? { x: +t[1], y: +t[2] } : null;
         }
@@ -13816,7 +13873,9 @@ ${t}`)) say("Note title saved");
         const z = pts.at(-1), y = pts.findLast?.((q, i3) => i3 < pts.length - 1 && (q.x !== z.x || q.y !== z.y)) ?? pts.at(-2);
         const ang = Math.atan2(z.y - y.y, z.x - y.x);
         const cut = [...pts.slice(0, -1), { x: z.x - Math.cos(ang) * 6, y: z.y - Math.sin(ang) * 6 }];
-        e.path.setAttribute("d", view.edges === "curved" ? basis(cut) : rounded(cut));
+        const d = view.edges === "curved" ? basis(cut) : rounded(cut);
+        e.path.setAttribute("d", d);
+        e.hit?.setAttribute("d", d);
         e.head.setAttribute("transform", `translate(${z.x}, ${z.y}) rotate(${ang * 180 / Math.PI})`);
         if (e.label && e.lpos) {
           if (moved) {
@@ -13970,13 +14029,32 @@ ${t}`)) say("Note title saved");
         if (!e.target.closest("g.node, .dl-float")) fitDefault(true);
       });
       stage.addEventListener("pointerover", (e) => {
+        if (drag) return;
         const id = e.target.closest?.("g.node")?.dataset.node;
-        if (id && !drag) modes[view.mode].hover?.(id);
+        if (id) return modes[view.mode].hover?.(id);
+        const eid = e.target.closest?.("[data-e]")?.dataset.e;
+        if (eid) hoverEdge(eid);
       });
       stage.addEventListener("pointerout", (e) => {
+        if (drag) return;
         const g = e.target.closest?.("g.node");
-        if (g && !g.contains(e.relatedTarget) && !drag) modes[view.mode].hover?.(null);
+        if (g && !g.contains(e.relatedTarget)) return modes[view.mode].hover?.(null);
+        const x = e.target.closest?.("[data-e]");
+        if (x && !e.relatedTarget?.closest?.(`[data-e="${x.dataset.e}"]`)) hoverEdge(null);
       });
+      let edgeHint = "";
+      function hoverEdge(id) {
+        els2.svg?.querySelectorAll(".dl-ehov").forEach((el2) => el2.classList.remove("dl-ehov"));
+        els2.svg?.classList.toggle("dl-ehovering", !!id);
+        if (hint.textContent === edgeHint) hint.textContent = "";
+        edgeHint = "";
+        const ge = id && graph.edges.find((x) => x.id === id);
+        if (!ge) return;
+        const e = els2.edges.get(id);
+        for (const el2 of [e?.path, e?.head, e?.label, els2.nodes.get(ge.start), els2.nodes.get(ge.end)]) el2?.classList.add("dl-ehov");
+        edgeHint = `${titleOf(ge.start)} \u2192 ${titleOf(ge.end)}${ge.text ? `: ${ge.text}` : ""}`;
+        hint.textContent = edgeHint;
+      }
       const mini = { el: $(".dl-mini"), s: 1, dots: [] };
       function highlight({ nodes = [], edges = [], how = "dim", sel = [], cur = null, trail = [] } = {}) {
         const s = els2.svg;
@@ -14315,8 +14393,8 @@ ${t}`)) say("Note title saved");
         },
         panel() {
           const id = walk.at, outs = graph.out.get(id) ?? [], main = mainChoice(id);
-          const choices = outs.length ? `<h3>${outs.length > 1 ? "Choose what happens" : "Then"}</h3><div class="dl-choices">${outs.map((e, i3) => `<button type="button" class="dl-choice${outs.length > 1 && i3 === main ? " dl-main-choice" : ""}" data-choice="${i3}" ${outs.length > 1 && i3 === main ? 'title="The main path: \u2192 takes this one"' : ""}><kbd>${outs.length > 1 ? i3 + 1 : "\u2192"}</kbd><span>${esc2(e.text || titleOf(e.end))}${e.text ? `<small>to ${esc2(titleOf(e.end))}</small>` : ""}</span></button>`).join("")}</div>` : `<h3>End of this path</h3><p class="dl-empty">Nothing comes after this step.</p>`;
-          panel.innerHTML = `<h3 style="margin-top:0">Step ${walk.hist.length + 1}</h3>` + card5(id) + choices + `<div class="dl-nav"><button type="button" class="dl-btn" data-walk="back" ${walk.hist.length ? "" : "disabled"}>\u2190 Back</button><button type="button" class="dl-btn" data-walk="choice" ${walk.hist.length ? "" : "disabled"}>Last choice</button><button type="button" class="dl-btn" data-walk="restart">Start over</button></div>` + fromDoc(id, this.cap) + `<h3>Path so far</h3><div class="dl-trailbar">${[...walk.hist, id].map((n, i3, a) => `<button type="button" data-crumb="${i3}" ${i3 === a.length - 1 ? 'aria-current="step"' : ""} title="${esc2(titleOf(n))}">${esc2(label(n))}</button>`).join("")}</div><div class="dl-tip"><kbd>\u2192</kbd> next on the main path \xB7 <kbd>\u2190</kbd> back \xB7 a number picks a branch</div>`;
+          const choices2 = outs.length ? `<h3>${outs.length > 1 ? "Choose what happens" : "Then"}</h3><div class="dl-choices">${outs.map((e, i3) => `<button type="button" class="dl-choice${outs.length > 1 && i3 === main ? " dl-main-choice" : ""}" data-choice="${i3}" ${outs.length > 1 && i3 === main ? 'title="The main path: \u2192 takes this one"' : ""}><kbd>${outs.length > 1 ? i3 + 1 : "\u2192"}</kbd><span>${esc2(e.text || titleOf(e.end))}${e.text ? `<small>to ${esc2(titleOf(e.end))}</small>` : ""}</span></button>`).join("")}</div>` : `<h3>End of this path</h3><p class="dl-empty">Nothing comes after this step.</p>`;
+          panel.innerHTML = `<h3 style="margin-top:0">Step ${walk.hist.length + 1}</h3>` + card5(id) + choices2 + `<div class="dl-nav"><button type="button" class="dl-btn" data-walk="back" ${walk.hist.length ? "" : "disabled"}>\u2190 Back</button><button type="button" class="dl-btn" data-walk="choice" ${walk.hist.length ? "" : "disabled"}>Last choice</button><button type="button" class="dl-btn" data-walk="restart">Start over</button></div>` + fromDoc(id, this.cap) + `<h3>Path so far</h3><div class="dl-trailbar">${[...walk.hist, id].map((n, i3, a) => `<button type="button" data-crumb="${i3}" ${i3 === a.length - 1 ? 'aria-current="step"' : ""} title="${esc2(titleOf(n))}">${esc2(label(n))}</button>`).join("")}</div><div class="dl-tip"><kbd>\u2192</kbd> next on the main path \xB7 <kbd>\u2190</kbd> back \xB7 a number picks a branch</div>`;
         },
         enter() {
           this.refresh();
@@ -14344,8 +14422,8 @@ ${t}`)) say("Note title saved");
           const cs = getComputedStyle(el2);
           b[i3].setAttribute("style", props.map((p) => `${p}:${cs.getPropertyValue(p)}`).join(";"));
         });
-        c.querySelector(".dl-guides")?.remove();
-        c.classList.remove("dl-dim", "dl-hide");
+        c.querySelectorAll(".dl-guides, .dl-ehit").forEach((n) => n.remove());
+        c.classList.remove("dl-dim", "dl-hide", "dl-ehovering");
         const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         const vb = src.viewBox.baseVal;
         Object.entries({ x: vb.x, y: vb.y, width: vb.width, height: vb.height, fill: getComputedStyle(stage).backgroundColor }).forEach(([k, v]) => bg.setAttribute(k, v));
@@ -14361,6 +14439,88 @@ ${t}`)) say("Note title saved");
         setTimeout(() => URL.revokeObjectURL(a.href), 2e3);
       }
       const fileBase = () => (opts.name ?? "diagram").replace(/[^\w.-]+/g, "-");
+      function canvas() {
+        return new Promise((res, rej) => {
+          const img = new Image(), scale = 2;
+          img.onload = () => {
+            const cv = document.createElement("canvas");
+            cv.width = Math.round(els2.W * scale);
+            cv.height = Math.round(els2.H * scale);
+            const ctx = cv.getContext("2d");
+            ctx.scale(scale, scale);
+            ctx.drawImage(img, 0, 0, els2.W, els2.H);
+            res(cv);
+          };
+          img.onerror = () => rej(new Error("the picture would not draw"));
+          img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(snapshot2());
+        });
+      }
+      const blobOf = (cv, type, q) => new Promise((res, rej) => cv.toBlob((b) => b ? res(b) : rej(new Error("the browser made no image")), type, q));
+      async function pdf(cv) {
+        const jpg = new Uint8Array(await (await blobOf(cv, "image/jpeg", 0.92)).arrayBuffer());
+        const W = +els2.W.toFixed(2), H = +els2.H.toFixed(2), enc = new TextEncoder(), parts2 = [], offs = [];
+        let len = 0;
+        const put = (p) => {
+          const b = typeof p === "string" ? enc.encode(p) : p;
+          parts2.push(b);
+          len += b.length;
+        };
+        const obj = (n, body) => {
+          offs[n] = len;
+          put(`${n} 0 obj
+`);
+          body();
+          put("\nendobj\n");
+        };
+        const draw2 = `q ${W} 0 0 ${H} 0 0 cm /Im0 Do Q`;
+        put("%PDF-1.4\n");
+        obj(1, () => put("<< /Type /Catalog /Pages 2 0 R >>"));
+        obj(2, () => put("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"));
+        obj(3, () => put(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>`));
+        obj(4, () => put(`<< /Length ${draw2.length} >>
+stream
+${draw2}
+endstream`));
+        obj(5, () => {
+          put(`<< /Type /XObject /Subtype /Image /Width ${cv.width} /Height ${cv.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>
+stream
+`);
+          put(jpg);
+          put("\nendstream");
+        });
+        const xref = len;
+        put(`xref
+0 6
+0000000000 65535 f 
+${[1, 2, 3, 4, 5].map((n) => String(offs[n]).padStart(10, "0") + " 00000 n \n").join("")}trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+${xref}
+%%EOF
+`);
+        return new Blob(parts2, { type: "application/pdf" });
+      }
+      async function exportAs(f) {
+        const name2 = fileBase() + "." + f, label2 = { svg: "SVG", png: "PNG", pdf: "PDF", md: "Markdown", txt: "text" }[f];
+        toast(`Preparing ${label2}\u2026`, true);
+        await new Promise((r) => requestAnimationFrame(() => setTimeout(r)));
+        try {
+          let blob;
+          if (f === "svg") blob = new Blob([snapshot2()], { type: "image/svg+xml" });
+          else if (f === "png") blob = await blobOf(await canvas(), "image/png");
+          else if (f === "pdf") blob = await pdf(await canvas());
+          else if (f === "md") blob = new Blob([`${opts.name ? `# ${opts.name}
+
+` : ""}\`\`\`mermaid
+${opts.src.replace(/\n?$/, "\n")}\`\`\`
+`], { type: "text/markdown" });
+          else blob = new Blob([opts.src], { type: "text/plain" });
+          save(blob, name2);
+          toast(`Saved ${name2}`);
+        } catch (e) {
+          toast(`${label2} failed: ${e.message}. SVG still works`);
+        }
+      }
       async function act(kind) {
         if (kind === "copy") {
           try {
@@ -14383,42 +14543,81 @@ ${t}`)) say("Note title saved");
           typeof opts.expand === "function" ? opts.expand({ ...opts, compact: false, expand: false }) : openModal();
           return;
         }
-        if (!["copy", "svg", "png", "reset"].includes(kind)) {
-          opts.onTool?.(kind, root.querySelector(`[data-act="${kind}"]`));
-          return;
-        }
-        const text = snapshot2();
-        if (kind === "svg") {
-          save(new Blob([text], { type: "image/svg+xml" }), fileBase() + ".svg");
-          toast("SVG saved");
-          return;
-        }
-        const img = new Image(), scale = 2;
-        img.onload = () => {
-          const cv = document.createElement("canvas");
-          cv.width = els2.W * scale;
-          cv.height = els2.H * scale;
-          const ctx = cv.getContext("2d");
-          ctx.scale(scale, scale);
-          ctx.drawImage(img, 0, 0, els2.W, els2.H);
-          try {
-            cv.toBlob((bl) => {
-              if (bl) {
-                save(bl, fileBase() + ".png");
-                toast("PNG saved");
-              } else toast("PNG failed: use SVG");
-            }, "image/png");
-          } catch (e) {
-            toast("The browser would not draw the labels into a PNG: use SVG");
-          }
-        };
-        img.onerror = () => toast("PNG failed: use SVG");
-        img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(text);
+        if (kind === "panel") return showPanel(root.classList.contains("dl-panel-off"));
+        if (kind === "raw") return showRaw(!root.classList.contains("dl-raw-on"));
+        if (kind === "close") return opts.onClose?.();
+        opts.onTool?.(kind, root.querySelector(`[data-act="${kind}"]`));
       }
       $(".dl-acts").addEventListener("click", (e) => {
+        const x = e.target.closest("[data-export]");
+        if (x) {
+          closeMenus();
+          exportAs(x.dataset.export);
+          return;
+        }
         const b = e.target.closest("[data-act]");
         if (b) act(b.dataset.act);
       });
+      function closeMenus(except) {
+        root.querySelectorAll(".dl-menu").forEach((m) => {
+          if (m === except) return;
+          m.querySelector(".dl-menu-list").hidden = true;
+          m.querySelector(".dl-menu-btn").setAttribute("aria-expanded", "false");
+        });
+      }
+      root.addEventListener("click", (e) => {
+        const btn = e.target.closest(".dl-menu-btn");
+        if (btn) {
+          const m = btn.closest(".dl-menu"), list3 = m.querySelector(".dl-menu-list");
+          closeMenus(m);
+          list3.hidden = !list3.hidden;
+          btn.setAttribute("aria-expanded", String(!list3.hidden));
+          if (!list3.hidden) {
+            const r = btn.getBoundingClientRect(), w = list3.offsetWidth, below = innerHeight - r.bottom > list3.offsetHeight + 12;
+            Object.assign(list3.style, { position: "fixed", top: (below ? r.bottom + 6 : Math.max(8, r.top - 6 - list3.offsetHeight)) + "px", left: Math.max(8, Math.min(innerWidth - w - 8, m.closest(".dl-opts") ? r.left : r.right - w)) + "px", right: "auto" });
+          }
+          return;
+        }
+        if (e.target.closest(".dl-menu-list [data-v]")) closeMenus();
+      });
+      document.addEventListener("pointerdown", (e) => {
+        if (!e.target.closest?.(".dl-menu")) closeMenus();
+      }, true);
+      document.addEventListener("scroll", () => closeMenus(), true);
+      function showPanel(on) {
+        root.classList.toggle("dl-panel-off", !on);
+        $('[data-act="panel"]')?.setAttribute("aria-pressed", String(on));
+        store2.set("panel", on);
+      }
+      const panelW = (w) => {
+        root.style.setProperty("--dl-panel", Math.round(w) + "px");
+      };
+      if (store2.get("panelW", 0)) panelW(store2.get("panelW", 320));
+      if (!compact && store2.get("panel", true) === false) showPanel(false);
+      $(".dl-resize").addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        const r = $(".dl-main").getBoundingClientRect(), bar = e.currentTarget;
+        bar.setPointerCapture(e.pointerId);
+        root.classList.add("dl-resizing");
+        const move = (m) => panelW(Math.max(240, Math.min(r.width * 0.6, r.right - m.clientX)));
+        const up = () => {
+          bar.removeEventListener("pointermove", move);
+          bar.removeEventListener("pointerup", up);
+          root.classList.remove("dl-resizing");
+          store2.set("panelW", parseInt(root.style.getPropertyValue("--dl-panel"), 10));
+        };
+        bar.addEventListener("pointermove", move);
+        bar.addEventListener("pointerup", up);
+      });
+      function showRaw(on) {
+        const pre = $(".dl-raw");
+        if (on) pre.textContent = opts.src;
+        pre.hidden = !on;
+        root.classList.toggle("dl-raw-on", on);
+        const b = $('[data-act="raw"]');
+        b.setAttribute("aria-pressed", String(on));
+        b.title = b.ariaLabel = on ? "Show the diagram" : "Show the mermaid text";
+      }
       function openModal() {
         const wrap = document.createElement("div");
         wrap.className = "dl-modal";
@@ -14453,7 +14652,7 @@ ${t}`)) say("Note title saved");
       }
       function paintOpts() {
         stage.dataset.style = view.style;
-        root.querySelectorAll(".dl-seg[data-opt]").forEach((s) => s.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(view[s.dataset.opt] === b.dataset.v))));
+        root.querySelectorAll("[data-opt]").forEach((s) => s.querySelectorAll("button[data-v]").forEach((b) => b.setAttribute(b.role === "menuitemradio" ? "aria-checked" : "aria-pressed", String(view[s.dataset.opt] === b.dataset.v))));
       }
       async function setOpt(opt, v) {
         view[opt] = v;
@@ -14470,12 +14669,12 @@ ${t}`)) say("Note title saved");
           modes[view.mode].enter();
         }
       }
-      root.querySelector(".dl-modes").addEventListener("click", (e) => {
+      root.querySelector(".dl-modes")?.addEventListener("click", (e) => {
         const b = e.target.closest("[data-mode]");
         if (b) setMode(b.dataset.mode);
       });
       root.querySelector(".dl-opts").addEventListener("click", (e) => {
-        const b = e.target.closest(".dl-seg button[data-v]");
+        const b = e.target.closest("[data-opt] button[data-v]");
         if (b) setOpt(b.closest("[data-opt]").dataset.opt, b.dataset.v);
       });
       $(".dl-zoom").addEventListener("click", (e) => {
@@ -14493,6 +14692,11 @@ ${t}`)) say("Note title saved");
           e.preventDefault();
           e.stopPropagation();
         };
+        if (k === "Escape" && root.querySelector(".dl-menu-list:not([hidden])")) {
+          take();
+          closeMenus();
+          return;
+        }
         if (k === "/" && !compact) {
           take();
           findIn.focus();
@@ -14574,6 +14778,9 @@ ${t}`)) say("Note title saved");
           fail(e);
           return;
         }
+        const sub = $(".dl-subtitle");
+        const count = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+        if (sub) sub.textContent = [opts.subtitle, graph.flow ? `${count(graph.nodes.size, "step")}, ${count(graph.edges.length, "link")}` : "Mermaid diagram"].filter(Boolean).join(" \xB7 ");
         paintOpts();
         if (await draw()) {
           fitDefault(false);
@@ -14595,37 +14802,73 @@ ${t}`)) say("Note title saved");
 .dl { --dl-panel: 320px; --dl-gap: 8px; display: flex; flex-direction: column; height: var(--dl-height, 80vh); min-height: 420px; font-family: var(--kit-sans, system-ui, sans-serif); color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
 .dl.dl-full { border: 0; border-radius: 0; }
 
-/* Toolbar: how to read it on the left, how it is drawn and what to do with it on the right. */
-.dl-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
-.dl-modes { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-md); background: var(--surface-2); }
-.dl-modes button { display: flex; flex-direction: column; align-items: flex-start; padding: 4px 11px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-2); cursor: pointer; font: inherit; }
-.dl-modes b { font: 600 12.5px var(--kit-sans, inherit); color: var(--text); }
-.dl-modes span { font-size: 10.5px; color: var(--dim); }
-.dl-modes button:hover { background: color-mix(in oklab, var(--surface) 60%, transparent); }
-.dl-modes button[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow-sm); }
-.dl-modes button[aria-selected="true"] b { color: var(--brand); }
-.dl-opts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* One bar: what it is, how to read it, how it is drawn, what to do with it. */
+.dl-top { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding: 7px 10px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.dl-title { display: flex; align-items: center; gap: 9px; min-width: 0; margin-right: 4px; }
+.dl-title-icon { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--brand) 14%, var(--surface)); color: var(--brand); }
+.dl-title-icon svg { width: 17px; height: 17px; }
+.dl-title b { display: block; font: 600 13.5px/1.25 var(--kit-sans, inherit); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.dl-title small { display: block; font-size: 11.5px; color: var(--dim); white-space: nowrap; }
+.dl-modes { display: flex; gap: 2px; padding: 2px; border-radius: var(--radius-md); background: var(--surface-2); }
+.dl-modes button { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-2); cursor: pointer; font: inherit; }
+.dl-modes b { font: 500 12.5px var(--kit-sans, inherit); }
+.dl-modes svg { width: 14px; height: 14px; }
+.dl-modes button:hover { color: var(--text); }
+.dl-modes button[aria-selected="true"] { background: var(--surface); color: var(--brand); box-shadow: var(--shadow-sm); }
+.dl-opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dl-acts { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .dl-seg { display: flex; align-items: center; }
-.dl-seg > span { font-size: 10.5px; color: var(--dim); margin-right: 6px; letter-spacing: .05em; text-transform: uppercase; }
-.dl-seg button, .dl-act { min-width: 30px; height: 28px; padding: 0 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-seg button, .dl-act { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 28px; min-width: 28px; padding: 0 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-seg button { width: 30px; padding: 0; }
 .dl-seg button:first-of-type { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
 .dl-seg button:last-of-type { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .dl-seg button + button { border-left: 0; }
-.dl-seg button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-content); }
-.dl-acts { display: flex; gap: 4px; }
-.dl-act { display: inline-flex; align-items: center; gap: 5px; border-radius: var(--radius-sm); }
+.dl-seg button[aria-pressed="true"], .dl-act[aria-pressed="true"] { background: color-mix(in oklab, var(--brand) 16%, var(--bg)); border-color: color-mix(in oklab, var(--brand) 50%, var(--border)); color: var(--brand); }
+.dl-seg button + button[aria-pressed="true"] { box-shadow: -1px 0 0 color-mix(in oklab, var(--brand) 50%, var(--border)); }
+.dl-act { border-radius: var(--radius-sm); }
+.dl-act.dl-icon { width: 28px; padding: 0; }
 .dl-act:hover, .dl-seg button:not([aria-pressed="true"]):hover { color: var(--text); background: var(--surface-2); }
-.dl-act svg { width: 14px; height: 14px; }
+.dl-seg svg, .dl-act svg { width: 15px; height: 15px; }
 .dl-act[hidden] { display: none; }
 .dl-act:disabled { opacity: .4; cursor: default; pointer-events: none; }
 .dl button:focus-visible, .dl input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.dl-act[data-act="close"] { border-color: transparent; background: none; margin-left: 4px; }
 
-.dl-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--dl-panel); }
-.dl.dl-nopanel .dl-main { grid-template-columns: minmax(0, 1fr); }
-.dl.dl-nopanel .dl-panel { display: none; }
+/* Menus: Colour and shapes, Download. */
+.dl-menu { position: relative; }
+.dl-menu-btn { gap: 2px; padding: 0 4px 0 7px; }
+.dl-menu-btn .dl-caret { width: 12px; height: 12px; color: var(--dim); }
+.dl-menu-btn[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
+.dl-menu-list { position: absolute; z-index: 1000; top: calc(100% + 6px); right: 0; min-width: 250px; padding: 5px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-md); }
+.dl-opts .dl-menu-list { left: 0; right: auto; }
+.dl-menu-list[hidden] { display: none; }
+.dl-menu-list button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.dl-menu-list button:hover { background: var(--surface-2); }
+.dl-menu-list button > svg { flex: none; width: 16px; height: 16px; color: var(--text-2); }
+.dl-menu-list b { display: block; font: 500 13px/1.3 var(--kit-sans, inherit); }
+.dl-menu-list small { display: block; font-size: 11.5px; color: var(--dim); }
+.dl-menu-sec + .dl-menu-sec { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+.dl-menu-sec h4 { margin: 4px 8px 2px; font: 600 10.5px var(--kit-sans, inherit); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.dl-menu-sec button::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--border); }
+.dl-menu-sec button[aria-checked="true"]::before { background: var(--brand); border-color: var(--brand); }
+
+.dl-main { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--dl-panel); }
+.dl.dl-nopanel .dl-main, .dl.dl-panel-off .dl-main { grid-template-columns: minmax(0, 1fr); }
+.dl.dl-nopanel :is(.dl-panel, .dl-resize), .dl.dl-panel-off :is(.dl-panel, .dl-resize) { display: none; }
+/* The panel's left edge drags to resize it. */
+.dl-resize { position: absolute; z-index: 3; top: 0; bottom: 0; right: calc(var(--dl-panel) - 3px); width: 6px; cursor: col-resize; }
+.dl-resize:hover, .dl-resizing .dl-resize { background: color-mix(in oklab, var(--brand) 40%, transparent); }
+.dl-resizing { user-select: none; cursor: col-resize; }
+/* The mermaid text, in place of the picture. */
+.dl-raw { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 14px 16px; background: var(--bg); color: var(--text); font: 12.5px/1.55 var(--kit-mono, monospace); white-space: pre; tab-size: 2; }
+.dl-raw[hidden] { display: none; }
+.dl-raw-on .dl-main, .dl-raw-on :is(.dl-modes, .dl-opts, [data-act="reset"], [data-act="panel"]) { display: none; }
+.dl-compact.dl-raw-on { height: auto; }
+.dl-compact .dl-raw { max-height: 70vh; }
+
 
 /* Stage: the diagram moves inside it; controls float over its corners. */
-.dl-stage { position: relative; overflow: hidden; background: var(--bg); background-image: radial-gradient(color-mix(in oklab, var(--text-3) 20%, transparent) 1px, transparent 1px); background-size: 22px 22px; cursor: grab; touch-action: none; outline: none; }
+.dl-stage { position: relative; overflow: hidden; user-select: none; -webkit-user-select: none; background: var(--bg); background-image: radial-gradient(color-mix(in oklab, var(--text-3) 20%, transparent) 1px, transparent 1px); background-size: 22px 22px; cursor: grab; touch-action: none; outline: none; }
 .dl-stage.dl-panning { cursor: grabbing; }
 .dl-stage.dl-dragging, .dl-stage.dl-dragging g.node { cursor: move !important; }
 .dl-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
@@ -14671,6 +14914,9 @@ ${t}`)) say("Note title saved");
 .dl-hint:empty { display: none; }
 .dl-toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3; padding: 6px 14px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 12.5px; box-shadow: var(--shadow-md); pointer-events: none; }
 .dl-toast:empty { display: none; }
+.dl-toast.dl-busy { display: flex; align-items: center; gap: 8px; }
+.dl-toast.dl-busy::before { content: ''; width: 11px; height: 11px; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--bg) 35%, transparent); border-top-color: var(--bg); animation: dl-spin .7s linear infinite; }
+@keyframes dl-spin { to { transform: rotate(360deg); } }
 
 /* ---- The diagram. Three styles share one set of slots. */
 .dl-stage { --n-fill: var(--surface); --n-line: color-mix(in oklab, var(--text-3) 55%, var(--surface)); --n-ink: var(--text); --n-sub: var(--text-2); --n-w: 1px; --n-r: 10px; --n-rt: 16px;
@@ -14709,6 +14955,16 @@ ${t}`)) say("Note title saved");
 .dl-world foreignObject { overflow: visible; }
 .dl-world :is(g.node, path[data-edge], g.edgeLabel, .dl-head) { transition: opacity .18s ease; }
 .dl-guides line { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; }
+/* A line under the pointer: its wide invisible twin catches the pointer; the line,
+   its words and the two steps it joins light up over whatever else is shown. */
+.dl-world .dl-ehit { fill: none; stroke: transparent; stroke-width: 14px; pointer-events: stroke; cursor: pointer; }
+.dl-mini-svg .dl-ehit { display: none; }
+.dl-world g.edgeLabel { cursor: pointer; }
+.dl-world svg.dl-ehovering .dl-ehov { opacity: 1 !important; }
+.dl-world path[data-edge].dl-ehov { stroke: var(--brand) !important; stroke-width: 2.25px !important; }
+.dl-world .dl-head.dl-ehov { fill: var(--brand); stroke: var(--brand); }
+.dl-world .edgeLabel.dl-ehov :is(.labelBkg, span, p) { color: var(--brand) !important; font-weight: 600; }
+.dl-world g.node.dl-ehov :is(rect, path, polygon, circle, ellipse) { stroke: var(--brand) !important; stroke-width: 1.75px !important; }
 
 /* Highlight: hover, focus, legend picks and the walkthrough share these. */
 .dl-world svg.dl-dim :is(g.node, path[data-edge], g.edgeLabel, .dl-head):not(.dl-on) { opacity: .42; }
@@ -14774,18 +15030,16 @@ ${t}`)) say("Note title saved");
 /* Compact: a diagram inside a document. One slim toolbar, the drawing sized to fit. */
 .dl.dl-compact { height: var(--dl-height, 240px); min-height: 0; }
 .dl-compact .dl-top { padding: 6px 8px; }
-.dl-compact .dl-modes, .dl-compact .dl-find, .dl-compact .dl-legend, .dl-compact .dl-mini, .dl-compact .dl-hint { display: none; }
-.dl-compact .dl-opts { flex: 1; justify-content: space-between; gap: 10px; }
+.dl-compact .dl-modes, .dl-compact .dl-find, .dl-compact .dl-legend, .dl-compact .dl-mini { display: none; }
+.dl-compact .dl-opts { gap: 6px; }
 .dl-compact .dl-stage { cursor: default; }
 .dl-compact :is(.dl-seg button, .dl-act) { height: 24px; font-size: 11.5px; }
-.dl-compact .dl-act.dl-icon { width: 24px; }
+.dl-compact .dl-act.dl-icon, .dl-compact .dl-seg button { width: 26px; }
+.dl-compact .dl-menu-btn { width: auto; }
 .dl-compact .dl-zoom { top: 8px; right: 8px; }
-.dl-act.dl-icon { padding: 0; width: 28px; justify-content: center; }
-.dl-act[aria-pressed="true"] { color: var(--brand); border-color: color-mix(in oklab, var(--brand) 50%, var(--border)); }
 .dl-float[hidden] { display: none; }
 /* Not a flowchart: mermaid draws it as it is, so the flowchart controls go. */
-.dl-plain .dl-seg, .dl-plain .dl-modes, .dl-plain .dl-find, .dl-plain .dl-legend, .dl-plain [data-act="reset"] { display: none; }
-.dl-plain .dl-opts { justify-content: flex-end; }
+.dl-plain :is(.dl-opts, .dl-modes, .dl-find, .dl-legend, [data-act="reset"]) { display: none; }
 
 @media (max-width: 900px) {
   .dl-main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
@@ -14875,7 +15129,6 @@ ${t}`)) say("Note title saved");
       themeHost: document.getElementById("fe") ?? document.documentElement
     });
   }
-  var SOURCE_TOOL = { act: "source", icon: UI_ICON.fmtCode, title: "Show the mermaid source", pressed: false };
 
   // src/docview-media.ts
   var MOCK_W = 1280;
@@ -15032,9 +15285,20 @@ ${t}`)) say("Note title saved");
   function openDiagram(o) {
     viewer?.layer.close("replaced");
     const { root, body } = shell(o.name || "Diagram", "Diagram, large");
+    root.classList.add("fe-dv-view-diagram");
     body.innerHTML = '<div class="fe-dv-diagram"></div>';
-    void mountDiagram(body.firstElementChild, { ...o, compact: false, expand: false, tools: [], height: "100%" });
-    viewer = { layer: openShell(root) };
+    const layer = openShell(root);
+    viewer = { layer };
+    void mountDiagram(body.firstElementChild, {
+      ...o,
+      compact: false,
+      expand: false,
+      tools: [],
+      height: "100%",
+      title: o.name || "Diagram",
+      subtitle: o.file ? decodeURIComponent(new URL(o.file).pathname.split("/").pop() ?? "") : void 0,
+      onClose: () => layer.close("api")
+    });
   }
   function openCompare(a, b, labels, onClose) {
     viewer?.layer.close("replaced");
@@ -17781,6 +18045,7 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
   background:var(--s2);border-radius:var(--r-xs);font:var(--fs-md)/1.55 var(--mono)}
 .fe-dv-diagram{flex:1;min-height:0;display:flex}
 .fe-dv-diagram.dl{border:0;border-radius:0;width:100%}
+.fe-dv-view-diagram .fe-dv-view-head{display:none}
 .fe-md-anchor{margin-left:var(--sp-4);color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity var(--t-fast)}
 .fe-md-anchor::before{content:'#'}
 .fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}
@@ -28457,7 +28722,6 @@ ${rows.join("\n")}`, name: subject };
           src,
           name: name2,
           compact: true,
-          tools: [SOURCE_TOOL],
           // On a markdown file's own page the large view reads the doc around the diagram too.
           expand: (o) => {
             if (!block.closest("#fe-page") || !/\.(md|markdown|mdx)$/i.test(location.pathname)) {
@@ -28465,9 +28729,6 @@ ${rows.join("\n")}`, name: subject };
               return;
             }
             void fetchFileText(location.href).then((md2) => openDiagram({ ...o, md: md2, file: location.href }), () => openDiagram(o));
-          },
-          onTool: (act) => {
-            if (act === "source") showSource(block, block.querySelector(".fe-md-mermaid-source")?.hasAttribute("hidden") ?? true);
           },
           onReady: () => clearTimeout(slow),
           onError: () => {
@@ -28517,10 +28778,6 @@ ${rows.join("\n")}`, name: subject };
   }
   function showSource(block, on) {
     block.querySelector(".fe-md-mermaid-source")?.toggleAttribute("hidden", !on);
-    const btn = block.querySelector('[data-act="source"]');
-    if (!btn) return;
-    btn.setAttribute("aria-pressed", String(on));
-    btn.title = btn.ariaLabel = on ? "Hide the source" : "Show the source";
   }
   var looked2 = /* @__PURE__ */ new WeakSet();
   function linkFrontMatterPaths() {

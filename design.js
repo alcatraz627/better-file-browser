@@ -1286,6 +1286,7 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
   background:var(--s2);border-radius:var(--r-xs);font:var(--fs-md)/1.55 var(--mono)}
 .fe-dv-diagram{flex:1;min-height:0;display:flex}
 .fe-dv-diagram.dl{border:0;border-radius:0;width:100%}
+.fe-dv-view-diagram .fe-dv-view-head{display:none}
 .fe-md-anchor{margin-left:var(--sp-4);color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity var(--t-fast)}
 .fe-md-anchor::before{content:'#'}
 .fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}

@@ -5,37 +5,73 @@
 .dl { --dl-panel: 320px; --dl-gap: 8px; display: flex; flex-direction: column; height: var(--dl-height, 80vh); min-height: 420px; font-family: var(--kit-sans, system-ui, sans-serif); color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
 .dl.dl-full { border: 0; border-radius: 0; }
 
-/* Toolbar: how to read it on the left, how it is drawn and what to do with it on the right. */
-.dl-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
-.dl-modes { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-md); background: var(--surface-2); }
-.dl-modes button { display: flex; flex-direction: column; align-items: flex-start; padding: 4px 11px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-2); cursor: pointer; font: inherit; }
-.dl-modes b { font: 600 12.5px var(--kit-sans, inherit); color: var(--text); }
-.dl-modes span { font-size: 10.5px; color: var(--dim); }
-.dl-modes button:hover { background: color-mix(in oklab, var(--surface) 60%, transparent); }
-.dl-modes button[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow-sm); }
-.dl-modes button[aria-selected="true"] b { color: var(--brand); }
-.dl-opts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* One bar: what it is, how to read it, how it is drawn, what to do with it. */
+.dl-top { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding: 7px 10px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.dl-title { display: flex; align-items: center; gap: 9px; min-width: 0; margin-right: 4px; }
+.dl-title-icon { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: var(--radius-sm); background: color-mix(in oklab, var(--brand) 14%, var(--surface)); color: var(--brand); }
+.dl-title-icon svg { width: 17px; height: 17px; }
+.dl-title b { display: block; font: 600 13.5px/1.25 var(--kit-sans, inherit); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.dl-title small { display: block; font-size: 11.5px; color: var(--dim); white-space: nowrap; }
+.dl-modes { display: flex; gap: 2px; padding: 2px; border-radius: var(--radius-md); background: var(--surface-2); }
+.dl-modes button { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-2); cursor: pointer; font: inherit; }
+.dl-modes b { font: 500 12.5px var(--kit-sans, inherit); }
+.dl-modes svg { width: 14px; height: 14px; }
+.dl-modes button:hover { color: var(--text); }
+.dl-modes button[aria-selected="true"] { background: var(--surface); color: var(--brand); box-shadow: var(--shadow-sm); }
+.dl-opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dl-acts { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .dl-seg { display: flex; align-items: center; }
-.dl-seg > span { font-size: 10.5px; color: var(--dim); margin-right: 6px; letter-spacing: .05em; text-transform: uppercase; }
-.dl-seg button, .dl-act { min-width: 30px; height: 28px; padding: 0 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-seg button, .dl-act { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 28px; min-width: 28px; padding: 0 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-seg button { width: 30px; padding: 0; }
 .dl-seg button:first-of-type { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
 .dl-seg button:last-of-type { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .dl-seg button + button { border-left: 0; }
-.dl-seg button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-content); }
-.dl-acts { display: flex; gap: 4px; }
-.dl-act { display: inline-flex; align-items: center; gap: 5px; border-radius: var(--radius-sm); }
+.dl-seg button[aria-pressed="true"], .dl-act[aria-pressed="true"] { background: color-mix(in oklab, var(--brand) 16%, var(--bg)); border-color: color-mix(in oklab, var(--brand) 50%, var(--border)); color: var(--brand); }
+.dl-seg button + button[aria-pressed="true"] { box-shadow: -1px 0 0 color-mix(in oklab, var(--brand) 50%, var(--border)); }
+.dl-act { border-radius: var(--radius-sm); }
+.dl-act.dl-icon { width: 28px; padding: 0; }
 .dl-act:hover, .dl-seg button:not([aria-pressed="true"]):hover { color: var(--text); background: var(--surface-2); }
-.dl-act svg { width: 14px; height: 14px; }
+.dl-seg svg, .dl-act svg { width: 15px; height: 15px; }
 .dl-act[hidden] { display: none; }
 .dl-act:disabled { opacity: .4; cursor: default; pointer-events: none; }
 .dl button:focus-visible, .dl input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.dl-act[data-act="close"] { border-color: transparent; background: none; margin-left: 4px; }
 
-.dl-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--dl-panel); }
-.dl.dl-nopanel .dl-main { grid-template-columns: minmax(0, 1fr); }
-.dl.dl-nopanel .dl-panel { display: none; }
+/* Menus: Colour and shapes, Download. */
+.dl-menu { position: relative; }
+.dl-menu-btn { gap: 2px; padding: 0 4px 0 7px; }
+.dl-menu-btn .dl-caret { width: 12px; height: 12px; color: var(--dim); }
+.dl-menu-btn[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
+.dl-menu-list { position: absolute; z-index: 1000; top: calc(100% + 6px); right: 0; min-width: 250px; padding: 5px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-md); }
+.dl-opts .dl-menu-list { left: 0; right: auto; }
+.dl-menu-list[hidden] { display: none; }
+.dl-menu-list button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.dl-menu-list button:hover { background: var(--surface-2); }
+.dl-menu-list button > svg { flex: none; width: 16px; height: 16px; color: var(--text-2); }
+.dl-menu-list b { display: block; font: 500 13px/1.3 var(--kit-sans, inherit); }
+.dl-menu-list small { display: block; font-size: 11.5px; color: var(--dim); }
+.dl-menu-sec + .dl-menu-sec { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+.dl-menu-sec h4 { margin: 4px 8px 2px; font: 600 10.5px var(--kit-sans, inherit); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.dl-menu-sec button::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--border); }
+.dl-menu-sec button[aria-checked="true"]::before { background: var(--brand); border-color: var(--brand); }
+
+.dl-main { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--dl-panel); }
+.dl.dl-nopanel .dl-main, .dl.dl-panel-off .dl-main { grid-template-columns: minmax(0, 1fr); }
+.dl.dl-nopanel :is(.dl-panel, .dl-resize), .dl.dl-panel-off :is(.dl-panel, .dl-resize) { display: none; }
+/* The panel's left edge drags to resize it. */
+.dl-resize { position: absolute; z-index: 3; top: 0; bottom: 0; right: calc(var(--dl-panel) - 3px); width: 6px; cursor: col-resize; }
+.dl-resize:hover, .dl-resizing .dl-resize { background: color-mix(in oklab, var(--brand) 40%, transparent); }
+.dl-resizing { user-select: none; cursor: col-resize; }
+/* The mermaid text, in place of the picture. */
+.dl-raw { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 14px 16px; background: var(--bg); color: var(--text); font: 12.5px/1.55 var(--kit-mono, monospace); white-space: pre; tab-size: 2; }
+.dl-raw[hidden] { display: none; }
+.dl-raw-on .dl-main, .dl-raw-on :is(.dl-modes, .dl-opts, [data-act="reset"], [data-act="panel"]) { display: none; }
+.dl-compact.dl-raw-on { height: auto; }
+.dl-compact .dl-raw { max-height: 70vh; }
+
 
 /* Stage: the diagram moves inside it; controls float over its corners. */
-.dl-stage { position: relative; overflow: hidden; background: var(--bg); background-image: radial-gradient(color-mix(in oklab, var(--text-3) 20%, transparent) 1px, transparent 1px); background-size: 22px 22px; cursor: grab; touch-action: none; outline: none; }
+.dl-stage { position: relative; overflow: hidden; user-select: none; -webkit-user-select: none; background: var(--bg); background-image: radial-gradient(color-mix(in oklab, var(--text-3) 20%, transparent) 1px, transparent 1px); background-size: 22px 22px; cursor: grab; touch-action: none; outline: none; }
 .dl-stage.dl-panning { cursor: grabbing; }
 .dl-stage.dl-dragging, .dl-stage.dl-dragging g.node { cursor: move !important; }
 .dl-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
@@ -81,6 +117,9 @@
 .dl-hint:empty { display: none; }
 .dl-toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3; padding: 6px 14px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 12.5px; box-shadow: var(--shadow-md); pointer-events: none; }
 .dl-toast:empty { display: none; }
+.dl-toast.dl-busy { display: flex; align-items: center; gap: 8px; }
+.dl-toast.dl-busy::before { content: ''; width: 11px; height: 11px; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--bg) 35%, transparent); border-top-color: var(--bg); animation: dl-spin .7s linear infinite; }
+@keyframes dl-spin { to { transform: rotate(360deg); } }
 
 /* ---- The diagram. Three styles share one set of slots. */
 .dl-stage { --n-fill: var(--surface); --n-line: color-mix(in oklab, var(--text-3) 55%, var(--surface)); --n-ink: var(--text); --n-sub: var(--text-2); --n-w: 1px; --n-r: 10px; --n-rt: 16px;
@@ -119,6 +158,16 @@
 .dl-world foreignObject { overflow: visible; }
 .dl-world :is(g.node, path[data-edge], g.edgeLabel, .dl-head) { transition: opacity .18s ease; }
 .dl-guides line { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; }
+/* A line under the pointer: its wide invisible twin catches the pointer; the line,
+   its words and the two steps it joins light up over whatever else is shown. */
+.dl-world .dl-ehit { fill: none; stroke: transparent; stroke-width: 14px; pointer-events: stroke; cursor: pointer; }
+.dl-mini-svg .dl-ehit { display: none; }
+.dl-world g.edgeLabel { cursor: pointer; }
+.dl-world svg.dl-ehovering .dl-ehov { opacity: 1 !important; }
+.dl-world path[data-edge].dl-ehov { stroke: var(--brand) !important; stroke-width: 2.25px !important; }
+.dl-world .dl-head.dl-ehov { fill: var(--brand); stroke: var(--brand); }
+.dl-world .edgeLabel.dl-ehov :is(.labelBkg, span, p) { color: var(--brand) !important; font-weight: 600; }
+.dl-world g.node.dl-ehov :is(rect, path, polygon, circle, ellipse) { stroke: var(--brand) !important; stroke-width: 1.75px !important; }
 
 /* Highlight: hover, focus, legend picks and the walkthrough share these. */
 .dl-world svg.dl-dim :is(g.node, path[data-edge], g.edgeLabel, .dl-head):not(.dl-on) { opacity: .42; }
@@ -184,18 +233,16 @@
 /* Compact: a diagram inside a document. One slim toolbar, the drawing sized to fit. */
 .dl.dl-compact { height: var(--dl-height, 240px); min-height: 0; }
 .dl-compact .dl-top { padding: 6px 8px; }
-.dl-compact .dl-modes, .dl-compact .dl-find, .dl-compact .dl-legend, .dl-compact .dl-mini, .dl-compact .dl-hint { display: none; }
-.dl-compact .dl-opts { flex: 1; justify-content: space-between; gap: 10px; }
+.dl-compact .dl-modes, .dl-compact .dl-find, .dl-compact .dl-legend, .dl-compact .dl-mini { display: none; }
+.dl-compact .dl-opts { gap: 6px; }
 .dl-compact .dl-stage { cursor: default; }
 .dl-compact :is(.dl-seg button, .dl-act) { height: 24px; font-size: 11.5px; }
-.dl-compact .dl-act.dl-icon { width: 24px; }
+.dl-compact .dl-act.dl-icon, .dl-compact .dl-seg button { width: 26px; }
+.dl-compact .dl-menu-btn { width: auto; }
 .dl-compact .dl-zoom { top: 8px; right: 8px; }
-.dl-act.dl-icon { padding: 0; width: 28px; justify-content: center; }
-.dl-act[aria-pressed="true"] { color: var(--brand); border-color: color-mix(in oklab, var(--brand) 50%, var(--border)); }
 .dl-float[hidden] { display: none; }
 /* Not a flowchart: mermaid draws it as it is, so the flowchart controls go. */
-.dl-plain .dl-seg, .dl-plain .dl-modes, .dl-plain .dl-find, .dl-plain .dl-legend, .dl-plain [data-act="reset"] { display: none; }
-.dl-plain .dl-opts { justify-content: flex-end; }
+.dl-plain :is(.dl-opts, .dl-modes, .dl-find, .dl-legend, [data-act="reset"]) { display: none; }
 
 @media (max-width: 900px) {
   .dl-main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }

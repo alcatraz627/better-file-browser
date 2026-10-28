@@ -4,7 +4,6 @@
 // direction, lines and moved boxes are view choices bfb remembers.
 import './vendor/diagram-lab.js';
 import LAB_CSS from './vendor/diagram-lab.css';
-import { UI_ICON } from './control-icons';
 
 export interface LabTool { act: string; icon: string; title: string; label?: string; pressed?: boolean }
 export interface LabOptions {
@@ -19,6 +18,9 @@ export interface LabOptions {
   height?: string;
   expand?: boolean | ((o: LabOptions) => void);
   tools?: LabTool[];
+  title?: string;
+  subtitle?: string;
+  onClose?: () => void;
   onTool?: (act: string, button: HTMLElement | null) => void;
   onError?: (e: unknown) => void;
   onReady?: (svg: SVGSVGElement | null) => void;
@@ -99,5 +101,3 @@ export async function mountDiagram(el: HTMLElement, o: LabOptions): Promise<void
     themeHost: document.getElementById('fe') ?? document.documentElement,
   });
 }
-
-export const SOURCE_TOOL: LabTool = { act: 'source', icon: UI_ICON.fmtCode, title: 'Show the mermaid source', pressed: false };

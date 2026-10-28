@@ -207,9 +207,16 @@ export function openFocus(set: Media[], at: number, notify: (m: string) => void)
 export function openDiagram(o: LabOptions): void {
   viewer?.layer.close('replaced');
   const { root, body } = shell(o.name || 'Diagram', 'Diagram, large');
+  // The viewer's own bar carries the title and close, so the dialog has one bar, not two.
+  root.classList.add('fe-dv-view-diagram');
   body.innerHTML = '<div class="fe-dv-diagram"></div>';
-  void mountDiagram(body.firstElementChild as HTMLElement, { ...o, compact: false, expand: false, tools: [], height: '100%' });
-  viewer = { layer: openShell(root) };
+  const layer = openShell(root);
+  viewer = { layer };
+  void mountDiagram(body.firstElementChild as HTMLElement, {
+    ...o, compact: false, expand: false, tools: [], height: '100%',
+    title: o.name || 'Diagram', subtitle: o.file ? decodeURIComponent(new URL(o.file).pathname.split('/').pop() ?? '') : undefined,
+    onClose: () => layer.close('api'),
+  });
 }
 
 /**

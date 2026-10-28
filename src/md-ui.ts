@@ -7,7 +7,7 @@ import { fileExists, fetchFileText } from './file-fetch';
 import { esc } from './utils';
 import { go } from './nav';
 import { decorateFileView } from './docviews';
-import { mountDiagram, SOURCE_TOOL } from './diagram-lab';
+import { mountDiagram } from './diagram-lab';
 import { openDiagram } from './docview-media';
 
 export function initMarkdownUi(toast: Toast): void {
@@ -27,13 +27,12 @@ export function initMarkdownUi(toast: Toast): void {
       }, 200);
       const name = decodeURIComponent(location.pathname.split('/').pop() || 'diagram').replace(/\.[^.]+$/, '');
       void mountDiagram(view, {
-        src, name, compact: true, tools: [SOURCE_TOOL],
+        src, name, compact: true,
         // On a markdown file's own page the large view reads the doc around the diagram too.
         expand: o => {
           if (!block.closest('#fe-page') || !/\.(md|markdown|mdx)$/i.test(location.pathname)) { openDiagram(o); return; }
           void fetchFileText(location.href).then(md => openDiagram({ ...o, md, file: location.href }), () => openDiagram(o));
         },
-        onTool: act => { if (act === 'source') showSource(block, block.querySelector('.fe-md-mermaid-source')?.hasAttribute('hidden') ?? true); },
         onReady: () => clearTimeout(slow),
         onError: () => { clearTimeout(slow); showSource(block, true); },
       });
@@ -68,13 +67,9 @@ export function initMarkdownUi(toast: Toast): void {
   });
 }
 
-/// Show or hide a diagram's source under it, keeping its toolbar button in step.
+/// Show the source under a diagram that could not be drawn.
 function showSource(block: HTMLElement, on: boolean): void {
   block.querySelector<HTMLElement>('.fe-md-mermaid-source')?.toggleAttribute('hidden', !on);
-  const btn = block.querySelector<HTMLElement>('[data-act="source"]');
-  if (!btn) return;
-  btn.setAttribute('aria-pressed', String(on));
-  btn.title = btn.ariaLabel = on ? 'Hide the source' : 'Show the source';
 }
 
 /// Front matter values that name a file become links when the file is there.
