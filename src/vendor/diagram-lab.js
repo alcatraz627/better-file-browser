@@ -7,18 +7,8 @@
 //
 // src is the mermaid text. md (optional) is the markdown the diagram lives in;
 // its tables and its plain-text path feed the side panel. Needs mermaid 12
-// (ELK is built in), as window.mermaid or passed in. Guide:
-// conventions/pages.md, Diagrams.
-//
-// For a host app (better-file-browser keeps a copy of this file):
-//   mermaid  the mermaid object, or an async function that loads it
-//   store    { get(k, fallback), set(k, v) } for view choices; localStorage by default
-//   cache    { get(k) -> Promise, set(k, v) } so a diagram seen before draws without mermaid
-//   compact  a diagram inside a document: one slim toolbar, no modes, find,
-//            legend, minimap or panel; the page keeps the wheel; sized to fit
-//   expand   true for the built-in modal, or a function(opts) that opens the host's own
-//   tools    [{ act, icon, title, label?, pressed? }] extra toolbar buttons; onTool(act, button)
-//   themeHost the element whose data-theme="light" means the light theme (default <html>)
+// (ELK is built in). Every option, and how better-file-browser keeps its
+// copy of this file: conventions/pages.md, section "Diagrams".
 (() => {
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const inline = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
