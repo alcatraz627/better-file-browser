@@ -53,10 +53,10 @@ try {
 
   // A diagram met a second time draws straight away.
   await page.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
-  await page.waitForFunction(() => document.querySelector('.fe-md-mermaid-view svg'), { timeout: 10000 });
+  await page.waitForFunction(() => document.querySelector('.fe-md-mermaid-view .dl-world svg'), { timeout: 10000 });
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await page.goto('file://' + h.fixture + '/readme.md', { waitUntil: 'load' });
-  await page.waitForFunction(() => document.querySelector('.fe-md-mermaid-view svg'), { timeout: 10000 });
+  await page.waitForFunction(() => document.querySelector('.fe-md-mermaid-view .dl-world svg'), { timeout: 10000 });
   const again = await page.evaluate(() => window.__nav);
   check(!again.diagramWait, `a diagram seen before draws without "Rendering diagram": ${JSON.stringify({ wait: again.diagramWait })}`);
 } finally {

@@ -1,0 +1,206 @@
+/* Mermaid lab: an interactive mermaid diagram viewer for pages on the kit.
+   Colours come only from the kit's variables (colors.css); each step kind
+   keeps its author's hue (--k) and gets fill, line and ink from the theme.
+   Guide: conventions/pages.md, section "Diagrams". */
+.dl { --dl-panel: 320px; --dl-gap: 8px; display: flex; flex-direction: column; height: var(--dl-height, 80vh); min-height: 420px; font-family: var(--kit-sans, system-ui, sans-serif); color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.dl.dl-full { border: 0; border-radius: 0; }
+
+/* Toolbar: how to read it on the left, how it is drawn and what to do with it on the right. */
+.dl-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.dl-modes { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-md); background: var(--surface-2); }
+.dl-modes button { display: flex; flex-direction: column; align-items: flex-start; padding: 4px 11px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-2); cursor: pointer; font: inherit; }
+.dl-modes b { font: 600 12.5px var(--kit-sans, inherit); color: var(--text); }
+.dl-modes span { font-size: 10.5px; color: var(--dim); }
+.dl-modes button:hover { background: color-mix(in oklab, var(--surface) 60%, transparent); }
+.dl-modes button[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow-sm); }
+.dl-modes button[aria-selected="true"] b { color: var(--brand); }
+.dl-opts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dl-seg { display: flex; align-items: center; }
+.dl-seg > span { font-size: 10.5px; color: var(--dim); margin-right: 6px; letter-spacing: .05em; text-transform: uppercase; }
+.dl-seg button, .dl-act { min-width: 30px; height: 28px; padding: 0 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-seg button:first-of-type { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.dl-seg button:last-of-type { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.dl-seg button + button { border-left: 0; }
+.dl-seg button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-content); }
+.dl-acts { display: flex; gap: 4px; }
+.dl-act { display: inline-flex; align-items: center; gap: 5px; border-radius: var(--radius-sm); }
+.dl-act:hover, .dl-seg button:not([aria-pressed="true"]):hover { color: var(--text); background: var(--surface-2); }
+.dl-act svg { width: 14px; height: 14px; }
+.dl-act[hidden] { display: none; }
+.dl-act:disabled { opacity: .4; cursor: default; pointer-events: none; }
+.dl button:focus-visible, .dl input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.dl-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--dl-panel); }
+.dl.dl-nopanel .dl-main { grid-template-columns: minmax(0, 1fr); }
+.dl.dl-nopanel .dl-panel { display: none; }
+
+/* Stage: the diagram moves inside it; controls float over its corners. */
+.dl-stage { position: relative; overflow: hidden; background: var(--bg); background-image: radial-gradient(color-mix(in oklab, var(--text-3) 20%, transparent) 1px, transparent 1px); background-size: 22px 22px; cursor: grab; touch-action: none; outline: none; }
+.dl-stage.dl-panning { cursor: grabbing; }
+.dl-stage.dl-dragging, .dl-stage.dl-dragging g.node { cursor: move !important; }
+.dl-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.dl-world.dl-anim { transition: transform .38s cubic-bezier(.2, .7, .2, 1); }
+.dl-world svg { display: block; overflow: visible; }
+.dl-msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; color: var(--dim); font-size: 13px; text-align: center; }
+
+.dl-float { position: absolute; z-index: 2; background: color-mix(in oklab, var(--surface) 94%, transparent); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); backdrop-filter: blur(6px); }
+.dl-find { left: 12px; top: 12px; width: 240px; }
+.dl-find input { width: 100%; box-sizing: border-box; height: 32px; padding: 0 30px 0 30px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); font: 13px var(--kit-sans, inherit); }
+.dl-find > svg { position: absolute; left: 10px; top: 9px; width: 14px; height: 14px; color: var(--dim); }
+.dl-find > kbd { position: absolute; right: 8px; top: 7px; }
+.dl-find ul { list-style: none; margin: 0; padding: 4px; border-top: 1px solid var(--border); max-height: 280px; overflow: auto; }
+.dl-find ul:empty { display: none; }
+.dl-find li { display: flex; gap: 8px; align-items: baseline; padding: 5px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--text-2); }
+.dl-find li[aria-selected="true"], .dl-find li:hover { background: var(--surface-2); color: var(--text); }
+.dl kbd { font: 500 10.5px var(--kit-mono, monospace); color: var(--dim); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--bg); }
+.dl-id { flex: none; font: 600 10.5px var(--kit-mono, monospace); color: var(--dim); background: var(--surface-2); border-radius: 4px; padding: 1px 5px; }
+
+.dl-zoom { right: 12px; top: 12px; display: flex; align-items: center; padding: 3px; gap: 2px; }
+.dl-zoom button { display: grid; place-items: center; height: 26px; min-width: 26px; padding: 0 6px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-2); cursor: pointer; font: 500 12px var(--kit-sans, inherit); }
+.dl-zoom button:hover { background: var(--surface-2); color: var(--text); }
+.dl-zoom svg { width: 14px; height: 14px; }
+.dl-zoom .dl-pct { min-width: 46px; font-variant-numeric: tabular-nums; }
+.dl-zoom i { width: 1px; height: 16px; background: var(--border); margin: 0 3px; }
+
+.dl-legend { left: 12px; bottom: 12px; padding: 4px; display: flex; flex-wrap: wrap; gap: 2px; max-width: calc(100% - 250px); }
+.dl-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px 0 8px; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-chip i { width: 10px; height: 10px; border-radius: 3px; background: color-mix(in oklab, var(--k) 22%, var(--surface)); border: 1.5px solid color-mix(in oklab, var(--k) 70%, var(--surface)); }
+.dl-chip em { font-style: normal; color: var(--dim); font-variant-numeric: tabular-nums; }
+.dl-chip:hover { background: var(--surface-2); }
+.dl-chip[aria-pressed="true"] { border-color: color-mix(in oklab, var(--k) 60%, var(--surface)); background: color-mix(in oklab, var(--k) 12%, var(--surface)); color: var(--text); }
+.dl-legend-note { flex-basis: 100%; padding: 2px 9px 4px; font-size: 12px; color: var(--text-2); }
+.dl-legend-note:empty { display: none; }
+
+.dl-mini { right: 12px; bottom: 12px; overflow: hidden; cursor: pointer; }
+.dl-mini-svg svg { display: block; width: 100%; height: 100%; }
+.dl-mini-svg :is(foreignObject, .edgeLabels, marker, .dl-guides) { display: none; }
+.dl-mini-svg path[data-edge] { fill: none !important; }
+.dl-mini-view { position: absolute; border: 1.5px solid var(--brand); background: color-mix(in oklab, var(--brand) 10%, transparent); border-radius: 3px; pointer-events: none; }
+.dl-mini-dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
+.dl-hint { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 2; padding: 5px 12px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); font-size: 12px; box-shadow: var(--shadow-sm); white-space: nowrap; pointer-events: none; }
+.dl-hint:empty { display: none; }
+.dl-toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3; padding: 6px 14px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 12.5px; box-shadow: var(--shadow-md); pointer-events: none; }
+.dl-toast:empty { display: none; }
+
+/* ---- The diagram. Three styles share one set of slots. */
+.dl-stage { --n-fill: var(--surface); --n-line: color-mix(in oklab, var(--text-3) 55%, var(--surface)); --n-ink: var(--text); --n-sub: var(--text-2); --n-w: 1px; --n-r: 10px; --n-rt: 16px;
+  --n-shadow: drop-shadow(0 1px 1px color-mix(in oklab, var(--p-neutral-950) 6%, transparent)) drop-shadow(0 3px 8px color-mix(in oklab, var(--p-neutral-950) 7%, transparent));
+  --e-line: color-mix(in oklab, var(--text-3) 75%, var(--surface)); }
+.dl[data-tone="dark"] .dl-stage { --n-shadow: drop-shadow(0 2px 6px color-mix(in oklab, var(--p-neutral-950) 45%, transparent)); }
+/* Soft: a pale wash of the kind's colour, a quiet line in the same hue. */
+.dl-stage[data-style="soft"] g.node[data-k] { --n-fill: color-mix(in oklab, var(--k) 9%, var(--surface)); --n-line: color-mix(in oklab, var(--k) 48%, var(--surface)); }
+.dl[data-tone="dark"] .dl-stage[data-style="soft"] g.node[data-k] { --n-fill: color-mix(in oklab, var(--k) 13%, var(--surface)); --n-line: color-mix(in oklab, var(--k) 42%, var(--surface)); }
+/* Outline: plain cards, the kind shown only as its line. */
+.dl-stage[data-style="outline"] { --n-r: 6px; --n-rt: 12px; }
+.dl-stage[data-style="outline"] g.node[data-k] { --n-line: color-mix(in oklab, var(--k) 80%, var(--surface)); --n-w: 1.5px; }
+/* Bold: solid kind colours with dark ink, like a sticky-note board. */
+.dl-stage[data-style="bold"] { --n-w: 0px; --n-r: 12px; }
+.dl-stage[data-style="bold"] g.node[data-k] { --n-fill: color-mix(in oklab, var(--k) 72%, var(--p-neutral-50)); --n-ink: var(--p-neutral-950); --n-sub: var(--p-neutral-800); }
+.dl-stage[data-style="bold"] g.node:not([data-k]) { --n-fill: var(--surface-2); }
+
+:is(.dl-world, .dl-mini-svg) g.node :is(rect, path, polygon, circle, ellipse) { fill: var(--n-fill) !important; stroke: var(--n-line) !important; stroke-width: var(--n-w) !important; stroke-linejoin: round; filter: none !important; }
+:is(.dl-world, .dl-mini-svg) g.node rect { rx: var(--n-r); ry: var(--n-r); }
+:is(.dl-world, .dl-mini-svg) g.node rect.dl-term { rx: var(--n-rt); ry: var(--n-rt); }
+.dl-world g.node { filter: var(--n-shadow); cursor: pointer; }
+/* Label: title line, then smaller detail lines, centred in the box. */
+.dl-world g.node foreignObject > div { display: flex !important; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; white-space: normal !important; }
+.dl-world g.node :is(.nodeLabel, .nodeLabel *, span, p) { color: var(--n-ink) !important; fill: var(--n-ink) !important; }
+.dl-world g.node .nodeLabel p { margin: 0; line-height: 1.35; }
+.dl-world g.node .dl-t { display: block; font-weight: 600; font-size: 13.5px; line-height: 1.3; }
+.dl-world g.node .dl-s { display: block; margin-top: 3px; font-size: 12px; line-height: 1.35; color: var(--n-sub) !important; }
+/* Arrows: thin lines, small rounded heads that take the line's colour. */
+:is(.dl-world, .dl-mini-svg) path[data-edge] { fill: none !important; stroke: var(--e-line) !important; stroke-width: 1.25px !important; stroke-dasharray: none !important; stroke-linejoin: round; stroke-linecap: round; }
+.dl-world .dl-head { fill: var(--e-line); stroke: var(--e-line); stroke-width: 1; stroke-linejoin: round; }
+.dl-world .dl-head.dl-on { fill: var(--brand); stroke: var(--brand); }
+.dl-world .dl-head.dl-trail { fill: var(--accent); stroke: var(--accent); }
+/* Edge labels are words on the line, not boxes: no border, the canvas colour behind them. */
+.dl-world .edgeLabel :is(.labelBkg, span, p) { background: var(--bg) !important; color: var(--dim) !important; }
+.dl-world .edgeLabel .labelBkg { font-size: 11.5px; font-weight: 500; border-radius: 4px; box-shadow: 0 0 0 2px var(--bg); }
+.dl-world foreignObject { overflow: visible; }
+.dl-world :is(g.node, path[data-edge], g.edgeLabel, .dl-head) { transition: opacity .18s ease; }
+.dl-guides line { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; }
+
+/* Highlight: hover, focus, legend picks and the walkthrough share these. */
+.dl-world svg.dl-dim :is(g.node, path[data-edge], g.edgeLabel, .dl-head):not(.dl-on) { opacity: .42; }
+.dl-world svg.dl-hide :is(g.node, path[data-edge], g.edgeLabel, .dl-head):not(.dl-on) { opacity: .1; }
+.dl-world svg.dl-hide g.node:not(.dl-on) { pointer-events: none; }
+.dl-world path[data-edge].dl-on { stroke: var(--brand) !important; stroke-width: 1.75px !important; }
+.dl-world path[data-edge].dl-trail { stroke: var(--accent) !important; stroke-width: 2px !important; }
+.dl-world .edgeLabel.dl-on :is(.labelBkg, span, p) { color: var(--text) !important; }
+.dl-world g.node.dl-sel :is(rect, path, polygon, circle, ellipse) { stroke: var(--brand) !important; stroke-width: 1.75px !important; }
+.dl-world g.node.dl-cur :is(rect, path, polygon, circle, ellipse) { stroke: var(--accent) !important; stroke-width: 2px !important; }
+.dl-world g.node.dl-hit :is(rect, path, polygon, circle, ellipse) { stroke: var(--brand) !important; stroke-width: 2px !important; }
+
+/* Side panel: the picked step, where it goes, and what the doc says about it. */
+.dl-panel { overflow: auto; border-left: 1px solid var(--border); background: var(--surface); padding: 14px 14px 32px; font-size: 13px; line-height: 1.45; color: var(--text-2); }
+.dl-panel h3 { font: 600 10.5px var(--kit-sans, inherit); letter-spacing: .07em; text-transform: uppercase; color: var(--dim); margin: 18px 0 6px; }
+.dl-panel p { margin: 0 0 8px; }
+.dl-card { padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid color-mix(in oklab, var(--k, var(--text-3)) 40%, var(--border)); background: color-mix(in oklab, var(--k, var(--text-3)) 7%, var(--surface)); }
+.dl-card-top { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--dim); }
+.dl-card-top i { width: 8px; height: 8px; border-radius: 2px; background: var(--k, var(--text-3)); }
+.dl-card h2 { font: 600 15px/1.3 var(--kit-sans, inherit); color: var(--text); margin: 6px 0 2px; }
+.dl-card .dl-sub { color: var(--text-2); font-size: 12.5px; }
+.dl-card .dl-mean { margin-top: 6px; font-size: 12px; color: var(--dim); }
+.dl-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.dl-links button { display: grid; grid-template-columns: 92px 1fr; gap: 8px; width: 100%; align-items: baseline; text-align: left; padding: 5px 6px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: 13px var(--kit-sans, inherit); cursor: pointer; }
+.dl-links button:hover { background: var(--surface-2); }
+.dl-links small { color: var(--dim); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-src { display: flex; flex-direction: column; gap: 8px; }
+.dl-src section { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.dl-src header { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; background: var(--surface-2); font-size: 11.5px; color: var(--text-2); }
+.dl-src header a { color: var(--dim); text-decoration: none; }
+.dl-src header a:hover { color: var(--brand); }
+.dl-kv { display: grid; grid-template-columns: 92px 1fr; gap: 4px 10px; padding: 8px 10px; margin: 0; }
+.dl-kv dt { color: var(--dim); font-size: 11.5px; padding-top: 1px; }
+.dl-kv dd { margin: 0; color: var(--text); font-size: 12.5px; }
+.dl-kv code, .dl-steps code { font: 11.5px var(--kit-mono, monospace); background: var(--surface-2); padding: 0 4px; border-radius: 3px; }
+.dl-steps { list-style: none; margin: 0; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text); }
+.dl-steps li { display: flex; gap: 6px; }
+.dl-steps li::before { content: ''; flex: none; width: 4px; height: 4px; margin-top: 8px; border-radius: 50%; background: var(--text-3); }
+.dl-more { border: 0; background: none; color: var(--brand); font: 500 12px var(--kit-sans, inherit); cursor: pointer; padding: 2px 0; }
+.dl-scope { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.dl-scope button { height: 26px; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-scope button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-content); }
+.dl-choices { display: flex; flex-direction: column; gap: 6px; }
+.dl-choice { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font: 500 13px var(--kit-sans, inherit); text-align: left; cursor: pointer; }
+.dl-choice:hover { border-color: var(--brand); }
+.dl-choice span { flex: 1; }
+.dl-choice small { display: block; color: var(--dim); font-weight: 400; font-size: 11.5px; }
+.dl-choice.dl-main-choice { border-color: color-mix(in oklab, var(--accent) 55%, var(--border)); }
+.dl-nav { display: flex; gap: 6px; margin-top: 10px; }
+.dl-btn { height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-btn:hover { color: var(--text); }
+.dl-btn:disabled { opacity: .45; cursor: default; }
+.dl-trailbar { display: flex; flex-wrap: wrap; gap: 4px; }
+.dl-trailbar button { padding: 1px 7px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text-2); font: 500 11px var(--kit-mono, monospace); cursor: pointer; }
+.dl-trailbar button[aria-current="step"] { border-color: var(--accent); color: var(--text); }
+.dl-empty { color: var(--dim); font-size: 12.5px; }
+.dl-tip { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--dim); }
+
+/* A modal: the same viewer, filling the window. */
+.dl-modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: color-mix(in oklab, var(--p-neutral-950) 55%, transparent); }
+.dl-modal > .dl { width: min(1600px, calc(100vw - 32px)); height: calc(100vh - 32px); box-shadow: var(--shadow-lg); }
+
+/* Compact: a diagram inside a document. One slim toolbar, the drawing sized to fit. */
+.dl.dl-compact { height: var(--dl-height, 240px); min-height: 0; }
+.dl-compact .dl-top { padding: 6px 8px; }
+.dl-compact .dl-modes, .dl-compact .dl-find, .dl-compact .dl-legend, .dl-compact .dl-mini, .dl-compact .dl-hint { display: none; }
+.dl-compact .dl-opts { flex: 1; justify-content: space-between; gap: 10px; }
+.dl-compact .dl-stage { cursor: default; }
+.dl-compact :is(.dl-seg button, .dl-act) { height: 24px; font-size: 11.5px; }
+.dl-compact .dl-act.dl-icon { width: 24px; }
+.dl-compact .dl-zoom { top: 8px; right: 8px; }
+.dl-act.dl-icon { padding: 0; width: 28px; justify-content: center; }
+.dl-act[aria-pressed="true"] { color: var(--brand); border-color: color-mix(in oklab, var(--brand) 50%, var(--border)); }
+.dl-float[hidden] { display: none; }
+/* Not a flowchart: mermaid draws it as it is, so the flowchart controls go. */
+.dl-plain .dl-seg, .dl-plain .dl-modes, .dl-plain .dl-find, .dl-plain .dl-legend, .dl-plain [data-act="reset"] { display: none; }
+.dl-plain .dl-opts { justify-content: flex-end; }
+
+@media (max-width: 900px) {
+  .dl-main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .dl-panel { border-left: 0; border-top: 1px solid var(--border); max-height: 40vh; }
+  .dl-legend { max-width: calc(100% - 24px); bottom: auto; top: 54px; }
+  .dl-find { width: calc(100% - 210px); }
+}
+@media (prefers-reduced-motion: reduce) { .dl-world.dl-anim { transition: none; } }

@@ -6,7 +6,6 @@ import { DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { COL_HANDLE } from './col-resize';
 import { detailOf } from './errors';
-import { DIAGRAM_BUTTONS } from './diagram-tools';
 
 export const CODE_EXTS = new Set([
   'sh', 'bash', 'zsh', 'fish', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
@@ -777,7 +776,7 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false, nested 
       const code = buf.join('\n');
       const language = fence[3].trim().split(/\s+/)[0] || '';
       if (language.toLowerCase() === 'mermaid') {
-        out.push(`<div class="fe-md-mermaid"><div class="bar fe-md-code-bar" data-inset role="toolbar" aria-label="Diagram tools"><span class="fe-md-lang">mermaid</span><span class="fe-md-mermaid-tools">${DIAGRAM_BUTTONS}</span></div><div class="fe-md-mermaid-view"></div><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre></div>`);
+        out.push(`<div class="fe-md-mermaid"><div class="fe-md-mermaid-view"></div><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre></div>`);
       } else {
         out.push(`<div class="fe-md-code"><div class="bar fe-md-code-bar" data-inset><span class="fe-md-lang">${esc(language || 'text')}</span><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || 'md'))}</pre></div>`);
       }

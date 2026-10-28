@@ -13,6 +13,7 @@ async function main() {
     sourcemap:   false,
     minify:      false,
     logLevel:    'info',
+    loader:      { '.css': 'text' },
   });
   const mermaidCtx = await esbuild.context({
     entryPoints: ['src/mermaid-runtime.ts'], bundle: true, outfile: 'vendor-mermaid.js',
@@ -28,13 +29,13 @@ async function main() {
   // The design-system page (design.html), opened from the extension's own URL.
   const designCtx = await esbuild.context({
     entryPoints: ['src/design-page.ts'], bundle: true, outfile: 'design.js',
-    format: 'iife', target: 'chrome100', platform: 'browser', minify: false,
+    format: 'iife', target: 'chrome100', platform: 'browser', minify: false, loader: { '.css': 'text' },
     logLevel: 'info',
   });
 
   // A decision page outside the extension, served by gcc's page server at /dp-assets/dp-web.js.
   const dpWebCtx = await esbuild.context({
-    entryPoints: ['src/dp-web.ts'], bundle: true, outfile: 'assets/dp-web/dp-web.js',
+    entryPoints: ['src/dp-web.ts'], bundle: true, outfile: 'assets/dp-web/dp-web.js', loader: { '.css': 'text' },
     format: 'iife', target: 'chrome100', platform: 'browser', minify: true,
     logLevel: 'info',
   });

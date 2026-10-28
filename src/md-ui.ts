@@ -3,73 +3,39 @@
 import { copyWithCheck } from './copy-done';
 import { linkGccRefs } from './gcc-refs';
 import type { Toast } from './toast';
-import { fileExists } from './file-fetch';
+import { fileExists, fetchFileText } from './file-fetch';
 import { esc } from './utils';
 import { go } from './nav';
 import { decorateFileView } from './docviews';
-import { bindDiagramStage, fitDiagram, saveSvg, zoomAction } from './diagram-tools';
+import { mountDiagram, SOURCE_TOOL } from './diagram-lab';
 import { openDiagram } from './docview-media';
 
-// Drawn Mermaid diagrams, kept in the extension's own storage (never the
-// file:// localStorage, which any HTML file opened in Chrome can write) so a
-// page met again shows its diagrams without the wait. The 30 newest are kept.
-const DIAGRAMS_KEY = 'diagram-cache-v1';
-const hashOf = (s: string) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + s.length.toString(36); };
-async function keptDiagram(key: string): Promise<string> {
-  try { return ((await chrome.storage.local.get(DIAGRAMS_KEY))[DIAGRAMS_KEY] ?? {})[key] ?? ''; }
-  catch { return ''; }
-}
-function keepDiagram(key: string, svg: string): void {
-  if (svg.length > 300_000) return;
-  void chrome.storage.local.get(DIAGRAMS_KEY).then(r => {
-    const all: Record<string, string> = r[DIAGRAMS_KEY] ?? {};
-    delete all[key];
-    all[key] = svg;
-    const keys = Object.keys(all);
-    for (const k of keys.slice(0, Math.max(0, keys.length - 30))) delete all[k];
-    return chrome.storage.local.set({ [DIAGRAMS_KEY]: all });
-  }).catch(() => { /* extension reloaded or storage full: draw it next time */ });
-}
-
 export function initMarkdownUi(toast: Toast): void {
-  const rendered = new WeakMap<HTMLElement, string>();
-  const pending = new WeakSet<HTMLElement>();
-  let sequence = 0;
-  let queue = Promise.resolve();
-  const theme = () => document.getElementById('fe')?.dataset.theme === 'light' ? 'light' : 'dark';
+  const mounted = new WeakSet<HTMLElement>();
+  // Each diagram gets the viewer once; the viewer follows theme changes itself.
   const renderDiagrams = () => {
     document.querySelectorAll<HTMLElement>('.fe-md-mermaid').forEach(block => {
-      if (pending.has(block) || rendered.get(block) === theme()) return;
-      pending.add(block);
+      if (mounted.has(block)) return;
+      mounted.add(block);
+      const view = block.querySelector<HTMLElement>('.fe-md-mermaid-view');
+      if (!view) return;
+      const src = block.querySelector('.fe-md-mermaid-source')?.textContent || '';
       // The words "Rendering diagram" show only if drawing takes long enough to notice.
-      const slow = setTimeout(() => { const v = block.querySelector('.fe-md-mermaid-view'); if (v && !v.childElementCount && !v.textContent) v.textContent = 'Rendering diagram…'; }, 200);
-      queue = queue.then(async () => {
-        if (!block.isConnected) return;
-        const source = block.querySelector('.fe-md-mermaid-source')?.textContent || '';
-        const view = block.querySelector<HTMLElement>('.fe-md-mermaid-view');
-        if (!view) return;
-        const currentTheme = theme();
-        // A diagram drawn before, on any page, comes back at once.
-        const key = `${currentTheme}:${hashOf(source)}`;
-        const kept = await keptDiagram(key);
-        const show = (svg: string) => { view.innerHTML = svg; bindDiagramStage(view); fitDiagram(view); };
-        if (kept) { if (block.isConnected) show(kept); rendered.set(block, currentTheme); return; }
-        try {
-          const { default: mermaid } = await import(chrome.runtime.getURL('vendor-mermaid.js')) as typeof import('./mermaid-runtime');
-          mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', htmlLabels: false,
-            suppressErrorRendering: true, theme: currentTheme === 'light' ? 'default' : 'dark' });
-          // The id carries the diagram's hash, so two kept diagrams on one page never share marker ids.
-          const { svg } = await mermaid.render(`fe-mermaid-${key.replace(':', '-')}-${++sequence}`, source);
-          if (block.isConnected) show(svg);
-          keepDiagram(key, svg);
-        } catch {
-          view.textContent = 'Could not render this Mermaid diagram.';
-          showSource(block, true);
-        }
-        rendered.set(block, currentTheme);
-      }).catch(() => {}).finally(() => {
-        pending.delete(block); clearTimeout(slow);
-        if (block.isConnected && rendered.get(block) !== theme()) renderDiagrams();
+      const slow = setTimeout(() => {
+        const stage = view.querySelector('.dl-stage');
+        if (stage && !view.dataset.ready && !stage.querySelector('.dl-msg')) stage.insertAdjacentHTML('beforeend', '<div class="dl-msg">Rendering diagram…</div>');
+      }, 200);
+      const name = decodeURIComponent(location.pathname.split('/').pop() || 'diagram').replace(/\.[^.]+$/, '');
+      void mountDiagram(view, {
+        src, name, compact: true, tools: [SOURCE_TOOL],
+        // On a markdown file's own page the large view reads the doc around the diagram too.
+        expand: o => {
+          if (!block.closest('#fe-page') || !/\.(md|markdown|mdx)$/i.test(location.pathname)) { openDiagram(o); return; }
+          void fetchFileText(location.href).then(md => openDiagram({ ...o, md, file: location.href }), () => openDiagram(o));
+        },
+        onTool: act => { if (act === 'source') showSource(block, block.querySelector('.fe-md-mermaid-source')?.hasAttribute('hidden') ?? true); },
+        onReady: () => clearTimeout(slow),
+        onError: () => { clearTimeout(slow); showSource(block, true); },
       });
     });
   };
@@ -82,7 +48,7 @@ export function initMarkdownUi(toast: Toast): void {
     };
     directionsHere();
     new MutationObserver(() => { renderDiagrams(); linkFrontMatterPaths(); linkGccRefs(); directionsHere(); }).observe(fe, {
-      childList: true, subtree: true, attributes: true, attributeFilter: ['data-theme'],
+      childList: true, subtree: true,
     });
     renderDiagrams();
     linkFrontMatterPaths();
@@ -97,21 +63,6 @@ export function initMarkdownUi(toast: Toast): void {
       void copyWithCheck(copy, pre?.textContent || '').then(ok => { if (!ok) toast('Copy failed'); });
       return;
     }
-    const mm = t.closest<HTMLElement>('.fe-md-mermaid [data-mm]');
-    if (mm) {
-      e.preventDefault();
-      const block = mm.closest<HTMLElement>('.fe-md-mermaid')!;
-      const view = block.querySelector<HTMLElement>('.fe-md-mermaid-view')!;
-      const svg = view.querySelector<SVGElement>(':scope > svg');
-      const source = block.querySelector('.fe-md-mermaid-source')?.textContent || '';
-      const act = mm.dataset.mm!;
-      if (zoomAction(view, act)) return;
-      if (act === 'source') showSource(block, mm.getAttribute('aria-pressed') !== 'true');
-      else if (act === 'copy') void copyWithCheck(mm, source).then(ok => { if (!ok) toast('Copy failed'); });
-      else if (act === 'save') { if (svg) saveSvg(svg); else toast('The diagram has not been drawn'); }
-      else if (act === 'large') { if (svg) openDiagram(svg); else toast('The diagram has not been drawn'); }
-      return;
-    }
     const img = t.closest<HTMLImageElement>('.fe-md img');
     if (img && !img.closest('a, [data-docview]')) { e.preventDefault(); go(img.src, 'chrome-tab'); }
   });
@@ -120,7 +71,7 @@ export function initMarkdownUi(toast: Toast): void {
 /// Show or hide a diagram's source under it, keeping its toolbar button in step.
 function showSource(block: HTMLElement, on: boolean): void {
   block.querySelector<HTMLElement>('.fe-md-mermaid-source')?.toggleAttribute('hidden', !on);
-  const btn = block.querySelector<HTMLElement>('[data-mm="source"]');
+  const btn = block.querySelector<HTMLElement>('[data-act="source"]');
   if (!btn) return;
   btn.setAttribute('aria-pressed', String(on));
   btn.title = btn.ariaLabel = on ? 'Hide the source' : 'Show the source';

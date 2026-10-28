@@ -9,7 +9,7 @@ import { UI_ICON, GLYPH } from './control-icons';
 import { openLayer, type Layer } from './layer';
 import { mountImageTools } from './image-tools';
 import { bind } from './commands';
-import { ZOOM_BUTTONS, bindDiagramStage, fitDiagram, saveSvg, zoomAction } from './diagram-tools';
+import { mountDiagram, type LabOptions } from './diagram-lab';
 
 /** The width a mock page is laid out at before it is scaled into its tile. */
 const MOCK_W = 1280;
@@ -203,30 +203,12 @@ export function openFocus(set: Media[], at: number, notify: (m: string) => void)
   viewer = { layer: openShell(root), step };
 }
 
-/** Open a drawn diagram large, filling the window, with the same zoom and drag as in the page. */
-export function openDiagram(svg: SVGElement): void {
+/** Open a diagram large, filling the window, with every way of reading it and the side panel. */
+export function openDiagram(o: LabOptions): void {
   viewer?.layer.close('replaced');
-  const { root, body, head } = shell('Diagram', 'Diagram, large');
-  const tools = head.querySelector<HTMLElement>('.fe-dv-view-tools')!;
-  tools.innerHTML = ZOOM_BUTTONS + actBtn('save', UI_ICON.export, 'Save as SVG');
-  body.innerHTML = '<div class="fe-md-mermaid-view fe-dv-diagram"></div>';
-  const stage = body.firstElementChild as HTMLElement;
-  const copy = svg.cloneNode(true) as SVGElement;
-  // Drawn to fill the window, keeping its shape, but never past twice its own size: a small diagram stays readable, not poster-sized.
-  copy.removeAttribute('style');
-  copy.setAttribute('width', '100%');
-  copy.setAttribute('height', '100%');
-  const vb = copy.getAttribute('viewBox')?.split(/[\s,]+/).map(Number);
-  if (vb?.length === 4 && vb[2] > 0 && vb[3] > 0) { copy.style.maxWidth = `${vb[2] * 2}px`; copy.style.maxHeight = `${vb[3] * 2}px`; }
-  stage.append(copy);
-  bindDiagramStage(stage);
-  fitDiagram(stage);
-  tools.addEventListener('click', e => {
-    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-mm], [data-media="save"]');
-    if (!b) return;
-    if (b.dataset.media === 'save') saveSvg(copy);
-    else zoomAction(stage, b.dataset.mm!);
-  });
+  const { root, body } = shell(o.name || 'Diagram', 'Diagram, large');
+  body.innerHTML = '<div class="fe-dv-diagram"></div>';
+  void mountDiagram(body.firstElementChild as HTMLElement, { ...o, compact: false, expand: false, tools: [], height: '100%' });
   viewer = { layer: openShell(root) };
 }
 

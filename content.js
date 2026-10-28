@@ -1236,8 +1236,8 @@ ${body}`;
       break;
     }
     for (let i3 = k; i3 < order.length; i3++) {
-      const own = i3 === k ? void 0 : order[i3].pos;
-      if (own && (prev === null || own > prev)) break;
+      const own2 = i3 === k ? void 0 : order[i3].pos;
+      if (own2 && (prev === null || own2 > prev)) break;
       let upper = null;
       for (let j = i3 + 1; j < order.length; j++) if (order[j].pos) {
         upper = order[j].pos;
@@ -3002,89 +3002,9 @@ ${body}`;
   function errorText(err, doing = "") {
     const known = WORDS[codeOf(err)];
     if (known) return known;
-    const own = wordsOf(err).trim();
+    const own2 = wordsOf(err).trim();
     const lead = doing ? `${doing} failed` : "That did not work";
-    return own ? `${lead}: ${own}` : `${lead}.`;
-  }
-
-  // src/diagram-tools.ts
-  var STEP = 1.25;
-  var clampZoom = (z) => Math.min(8, Math.max(0.5, z));
-  var FIT = { z: 1, x: 0, y: 0 };
-  function zoomAt(v, k, at) {
-    const z = clampZoom(v.z * k);
-    const r = z / v.z;
-    return { z, x: at.x - (at.x - v.x) * r, y: at.y - (at.y - v.y) * r };
-  }
-  var BTN = (act, icon2, title, extra = "") => `<button type="button" class="btn" data-icon data-size="sm" data-variant="ghost" data-mm="${act}" title="${esc(title)}" aria-label="${esc(title)}"${extra}>${icon2}</button>`;
-  var ZOOM_BUTTONS = BTN("out", UI_ICON.zoomOut, "Zoom out (\u2318 scroll)") + BTN("fit", UI_ICON.fit, "Fit (double-click)") + BTN("in", UI_ICON.zoomIn, "Zoom in (\u2318 scroll)");
-  var DIAGRAM_BUTTONS = ZOOM_BUTTONS + BTN("source", UI_ICON.fmtCode, "Show the source", ' aria-pressed="false"') + BTN("copy", UI_ICON.copy, "Copy the source") + BTN("save", UI_ICON.export, "Save as SVG") + BTN("large", UI_ICON.expand, "Open large");
-  var views = /* @__PURE__ */ new WeakMap();
-  function apply(stage, v) {
-    views.set(stage, v);
-    const svg2 = stage.querySelector(":scope > svg");
-    if (svg2) svg2.style.transform = v.z === 1 && !v.x && !v.y ? "" : `translate(${v.x}px,${v.y}px) scale(${v.z})`;
-    stage.dataset.zoom = String(Math.round(v.z * 100));
-    stage.classList.toggle("zoomed", v.z !== 1);
-  }
-  function fitDiagram(stage) {
-    apply(stage, FIT);
-  }
-  function zoomDiagram(stage, k, client) {
-    const svg2 = stage.querySelector(":scope > svg");
-    if (!svg2) return;
-    const v = views.get(stage) ?? FIT;
-    const r = svg2.getBoundingClientRect();
-    const left = r.left - v.x, top = r.top - v.y;
-    const at = client ? { x: client.x - left, y: client.y - top } : { x: r.width / v.z / 2, y: r.height / v.z / 2 };
-    apply(stage, zoomAt(v, k, at));
-  }
-  function zoomAction(stage, act) {
-    if (act === "in") zoomDiagram(stage, STEP);
-    else if (act === "out") zoomDiagram(stage, 1 / STEP);
-    else if (act === "fit") fitDiagram(stage);
-    else return false;
-    return true;
-  }
-  function bindDiagramStage(stage) {
-    if (stage.dataset.panBound) return;
-    stage.dataset.panBound = "1";
-    stage.addEventListener("wheel", (e) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      e.preventDefault();
-      zoomDiagram(stage, e.deltaY < 0 ? STEP : 1 / STEP, { x: e.clientX, y: e.clientY });
-    }, { passive: false });
-    stage.addEventListener("dblclick", () => fitDiagram(stage));
-    stage.addEventListener("pointerdown", (e) => {
-      const v0 = views.get(stage) ?? FIT;
-      if (e.button !== 0 || v0.z === 1) return;
-      stage.setPointerCapture(e.pointerId);
-      stage.classList.add("dragging");
-      const sx = e.clientX, sy = e.clientY;
-      const move = (m) => apply(stage, { ...v0, x: v0.x + m.clientX - sx, y: v0.y + m.clientY - sy });
-      const up = () => {
-        stage.classList.remove("dragging");
-        stage.removeEventListener("pointermove", move);
-        stage.removeEventListener("pointerup", up);
-        stage.removeEventListener("pointercancel", up);
-      };
-      stage.addEventListener("pointermove", move);
-      stage.addEventListener("pointerup", up);
-      stage.addEventListener("pointercancel", up);
-    });
-  }
-  function saveSvg(svg2, name2 = "diagram.svg") {
-    const copy = svg2.cloneNode(true);
-    copy.style.removeProperty("transform");
-    copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    const url = URL.createObjectURL(new Blob([copy.outerHTML], { type: "image/svg+xml" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name2;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1e3);
+    return own2 ? `${lead}: ${own2}` : `${lead}.`;
   }
 
   // src/renderers.ts
@@ -3970,7 +3890,7 @@ ${body}`;
         const code = buf.join("\n");
         const language = fence[3].trim().split(/\s+/)[0] || "";
         if (language.toLowerCase() === "mermaid") {
-          out.push(`<div class="fe-md-mermaid"><div class="bar fe-md-code-bar" data-inset role="toolbar" aria-label="Diagram tools"><span class="fe-md-lang">mermaid</span><span class="fe-md-mermaid-tools">${DIAGRAM_BUTTONS}</span></div><div class="fe-md-mermaid-view"></div><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre></div>`);
+          out.push(`<div class="fe-md-mermaid"><div class="fe-md-mermaid-view"></div><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre></div>`);
         } else {
           out.push(`<div class="fe-md-code"><div class="bar fe-md-code-bar" data-inset><span class="fe-md-lang">${esc(language || "text")}</span><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || "md"))}</pre></div>`);
         }
@@ -4384,7 +4304,7 @@ ${answer}`;
     openMenu?.close("api");
     openMenu = null;
   }
-  function openPropsMenu(anchor, props, apply2) {
+  function openPropsMenu(anchor, props, apply) {
     closePropsMenu();
     const menu = document.createElement("div");
     menu.className = "fe-pmenu";
@@ -4404,7 +4324,7 @@ ${answer}`;
       <form class="fe-pm-add"><input class="tb" data-size="sm" type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="btn" data-size="sm" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
     };
     const run = async (c) => {
-      const r = await apply2(c);
+      const r = await apply(c);
       if (r) cur = r;
       render2();
       openMenu?.place();
@@ -4521,23 +4441,23 @@ ${answer}`;
     if (!t.w || !t.h) return 1;
     return Math.min(1, Math.max(stageW - 32, 1) / t.w, Math.max(stageH - 32, 1) / t.h);
   }
-  var STEP2 = 1.25;
-  var clampZoom2 = (z) => Math.min(16, Math.max(0.05, z));
+  var STEP = 1.25;
+  var clampZoom = (z) => Math.min(16, Math.max(0.05, z));
   function viewTransform(v) {
     return `translate(-50%,-50%) scaleX(${v.flip ? -1 : 1}) rotate(${v.rot}deg)`;
   }
-  var BTN2 = (act, icon2, text, title) => `<button class="btn" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
+  var BTN = (act, icon2, text, title) => `<button class="btn" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
   function mountImageTools(wrap, o) {
     wrap.innerHTML = `
     <div class="bar fe-ql-imgbar" role="toolbar" aria-label="Image tools">
-      ${BTN2("in", UI_ICON.zoomIn, "zoom in", "Zoom in")}
-      ${BTN2("out", UI_ICON.zoomOut, "zoom out", "Zoom out")}
-      ${BTN2("fit", UI_ICON.fit, "fit", "Fit the picture in the panel")}
-      ${BTN2("actual", UI_ICON.actualSize, "actual size", "Show at 100%")}
-      ${BTN2("rotate", UI_ICON.rotate, "rotate", "Turn a quarter clockwise")}
-      ${BTN2("flip", UI_ICON.flip, "flip", "Mirror left to right")}
-      ${BTN2("copy", UI_ICON.copyImage, "copy image", "Copy the picture as shown")}
-      ${BTN2("open", UI_ICON.external, "open in app", "Open in the default app")}
+      ${BTN("in", UI_ICON.zoomIn, "zoom in", "Zoom in")}
+      ${BTN("out", UI_ICON.zoomOut, "zoom out", "Zoom out")}
+      ${BTN("fit", UI_ICON.fit, "fit", "Fit the picture in the panel")}
+      ${BTN("actual", UI_ICON.actualSize, "actual size", "Show at 100%")}
+      ${BTN("rotate", UI_ICON.rotate, "rotate", "Turn a quarter clockwise")}
+      ${BTN("flip", UI_ICON.flip, "flip", "Mirror left to right")}
+      ${BTN("copy", UI_ICON.copyImage, "copy image", "Copy the picture as shown")}
+      ${BTN("open", UI_ICON.external, "open in app", "Open in the default app")}
     </div>
     <div class="fe-ql-imgstage"><div class="fe-ql-imgsizer"><img class="fe-ql-img" src="${esc(o.href)}" alt="${esc(o.name)}"></div></div>
     <div class="fe-ql-dim"></div>`;
@@ -4601,7 +4521,7 @@ ${answer}`;
     };
     const act = (a) => {
       if (a === "in" || a === "out") {
-        v = { ...v, zoom: clampZoom2(zoomNow() * (a === "in" ? STEP2 : 1 / STEP2)), fit: false };
+        v = { ...v, zoom: clampZoom(zoomNow() * (a === "in" ? STEP : 1 / STEP)), fit: false };
       } else if (a === "fit") v = { ...v, fit: true };
       else if (a === "actual") v = { ...v, zoom: 1, fit: false };
       else if (a === "rotate") v = { ...v, rot: (v.rot + 90) % 360 };
@@ -5116,8 +5036,8 @@ ${body}
     return (read()[subject] ?? []).slice().sort((a, b) => b.at - a.at);
   }
   function addTurn(subject, chatId, turn) {
-    const store = read();
-    const list3 = store[subject] ?? [];
+    const store2 = read();
+    const list3 = store2[subject] ?? [];
     let chat = list3.find((c) => c.id === chatId);
     if (!chat) {
       chat = { id: chatId, at: turn.at, title: turn.q.slice(0, 80), turns: [] };
@@ -5126,22 +5046,22 @@ ${body}
     if (chat.turns.some((t) => t.at === turn.at && t.q === turn.q)) return chat;
     chat.turns.push({ ...turn, a: turn.a.slice(0, ANSWER_MAX) });
     chat.at = turn.at;
-    store[subject] = list3.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
-    const subjects = Object.keys(store);
+    store2[subject] = list3.sort((a, b) => b.at - a.at).slice(0, CHATS_PER_SUBJECT);
+    const subjects = Object.keys(store2);
     if (subjects.length > SUBJECTS) {
-      const last = (k) => Math.max(...store[k].map((c) => c.at));
+      const last = (k) => Math.max(...store2[k].map((c) => c.at));
       subjects.sort((a, b) => last(a) - last(b)).slice(0, subjects.length - SUBJECTS).forEach((k) => {
-        delete store[k];
+        delete store2[k];
       });
     }
-    historyPref.set(store);
+    historyPref.set(store2);
     return chat;
   }
   function deleteChat(subject, chatId) {
-    const store = read();
-    store[subject] = (store[subject] ?? []).filter((c) => c.id !== chatId);
-    if (!store[subject].length) delete store[subject];
-    historyPref.set(store);
+    const store2 = read();
+    store2[subject] = (store2[subject] ?? []).filter((c) => c.id !== chatId);
+    if (!store2[subject].length) delete store2[subject];
+    historyPref.set(store2);
   }
   function withHistory(turns, question, maxChars = 4e3) {
     if (!turns.length) return question;
@@ -11951,9 +11871,9 @@ ${end.comment}` : end.comment;
     const host = side ? document.getElementById("fe-body") : document.getElementById("fe");
     if (host && overlay.parentElement !== host) host.appendChild(overlay);
     overlay.style.width = side && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : "";
-    const own = !side && !dialog.dataset.size;
-    dialog.style.width = own && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : "";
-    dialog.style.height = own && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : "";
+    const own2 = !side && !dialog.dataset.size;
+    dialog.style.width = own2 && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : "";
+    dialog.style.height = own2 && layout.modalH ? `min(${layout.modalH}px, calc(100vh - 16px))` : "";
     if (side) lower(overlay);
     else if (overlay.style.display !== "none") raise(overlay);
     if (overlay.style.display !== "none") deps.dockRoom?.(side);
@@ -12277,7 +12197,7 @@ ${end.comment}` : end.comment;
     ta.value = noteBody;
     edit.ta = ta;
     const buf = attachBuffer(ta, `note:${root}/${doc.rel}`);
-    const apply2 = (r) => {
+    const apply = (r) => {
       buf.snap();
       ta.value = r.text;
       ta.setSelectionRange(r.start, r.end);
@@ -12291,13 +12211,13 @@ ${end.comment}` : end.comment;
       let to = ta.value.indexOf("\n", s.end);
       if (to < 0) to = ta.value.length;
       const lines = ta.value.slice(from, to).split("\n").map((l) => prefix + l);
-      apply2({ text: ta.value.slice(0, from) + lines.join("\n") + ta.value.slice(to), start: from, end: from + lines.join("\n").length });
+      apply({ text: ta.value.slice(0, from) + lines.join("\n") + ta.value.slice(to), start: from, end: from + lines.join("\n").length });
     };
     const act = (name2) => {
-      if (name2 === "bold") apply2(wrapSelection(ta.value, sel(), "**"));
-      if (name2 === "italic") apply2(wrapSelection(ta.value, sel(), "_"));
-      if (name2 === "code") apply2(wrapSelection(ta.value, sel(), "`"));
-      if (name2 === "strike") apply2(wrapSelection(ta.value, sel(), "~~"));
+      if (name2 === "bold") apply(wrapSelection(ta.value, sel(), "**"));
+      if (name2 === "italic") apply(wrapSelection(ta.value, sel(), "_"));
+      if (name2 === "code") apply(wrapSelection(ta.value, sel(), "`"));
+      if (name2 === "strike") apply(wrapSelection(ta.value, sel(), "~~"));
       if (name2 === "quote") prefixLines("> ");
       if (name2 === "olist") {
         const s = sel();
@@ -12305,7 +12225,7 @@ ${end.comment}` : end.comment;
         let to = ta.value.indexOf("\n", s.end);
         if (to < 0) to = ta.value.length;
         const lines = ta.value.slice(from, to).split("\n").map((l, n) => `${n + 1}. ${l}`).join("\n");
-        apply2({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
+        apply({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
       }
       if (name2 === "heading") {
         const s = sel();
@@ -12315,14 +12235,14 @@ ${end.comment}` : end.comment;
         const line2 = ta.value.slice(from, to);
         const level = line2.match(/^(#{1,6}) /)?.[1].length ?? 0;
         const next = level >= 3 ? line2.replace(/^#{1,6} /, "") : "#".repeat(level + 1) + " " + line2.replace(/^#{1,6} /, "");
-        apply2({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
+        apply({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
       }
       if (name2 === "link") {
         const s = sel();
         const label = ta.value.slice(s.start, s.end) || "text";
         const t = `[${label}](url)`;
         const at = s.start + label.length + 3;
-        apply2({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
+        apply({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
       }
       if (name2 === "list") prefixLines("- ");
       if (name2 === "task") prefixLines("- [ ] ");
@@ -12446,7 +12366,7 @@ ${end.comment}` : end.comment;
         const fix = absorbTypedMarker(ta.value, sel(), autoMarker);
         if (fix) {
           autoMarker = null;
-          apply2(fix);
+          apply(fix);
           return;
         }
         const typed = ta.value.slice(autoMarker.lineStart + autoMarker.prefix.length, ta.selectionStart);
@@ -12505,15 +12425,15 @@ ${end.comment}` : end.comment;
         actions.step(edit.rel, e.key === "ArrowDown" ? 1 : -1);
       } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
         stop();
-        apply2(e.shiftKey ? duplicateLines(ta.value, sel()) : moveLines(ta.value, sel(), e.key === "ArrowDown" ? 1 : -1));
+        apply(e.shiftKey ? duplicateLines(ta.value, sel()) : moveLines(ta.value, sel(), e.key === "ArrowDown" ? 1 : -1));
       } else if (e.key === "Tab") {
         stop();
-        apply2(indentLines(ta.value, sel(), e.shiftKey));
+        apply(indentLines(ta.value, sel(), e.shiftKey));
       } else if (e.key === "Enter" && !mod && !e.shiftKey) {
         const r = continueList(ta.value, sel());
         if (r) {
           stop();
-          apply2(r);
+          apply(r);
           autoMarker = autoMarkerAfter(r);
         }
       }
@@ -12549,7 +12469,7 @@ ${end.comment}` : end.comment;
         const next = setFirstLine(ta.value, v) ?? `# ${v}
 
 `;
-        apply2({ text: next, start: next.length, end: next.length });
+        apply({ text: next, start: next.length, end: next.length });
         st.redrawMeta?.();
       },
       apply: (c) => {
@@ -13378,12 +13298,12 @@ ${t}`)) say("Note title saved");
   }
 
   // src/docview.ts
-  var views2 = [];
+  var views = [];
   function registerDocView(v) {
-    if (!views2.some((x) => x.id === v.id)) views2.push(v);
+    if (!views.some((x) => x.id === v.id)) views.push(v);
   }
   function docViewsFor(on, path, names = []) {
-    return views2.filter((v) => v.on === on && v.claims(path, names));
+    return views.filter((v) => v.on === on && v.claims(path, names));
   }
   function markDocView(root, id) {
     root.dataset.docview = id;
@@ -13482,6 +13402,1480 @@ ${t}`)) say("Note title saved");
     }
     return { picks, lines };
   }
+
+  // src/vendor/diagram-lab.js
+  (() => {
+    const esc2 = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    const inline = (s) => esc2(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+    const reduced2 = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ICON = {
+      find: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>',
+      out: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3.5 8h9"/></svg>',
+      in: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3.5 8h9M8 3.5v9"/></svg>',
+      width: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 3v10M14 3v10M4.5 8h7M6 6l-2 2 2 2M10 6l2 2-2 2"/></svg>',
+      all: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
+      copy: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.8C3 3.4 3.4 3 3.8 3h6.7"/></svg>',
+      save: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/></svg>',
+      expand: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/></svg>',
+      reset: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 8a5 5 0 1 0 1.5-3.6M3 2.5v2.5h2.5"/></svg>'
+    };
+    const plain2 = (t) => String(t ?? "").replace(/<br\s*\/?>/gi, " \xB7 ").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    const lines = (t) => String(t ?? "").split(/<br\s*\/?>/i).map(plain2).filter(Boolean);
+    const bare = (t) => t.replace(/^[^\p{L}\p{N}]+/u, "");
+    let instances = 0, active = null;
+    function readDoc(md2) {
+      const ls = (md2 ?? "").split("\n"), tables = [], blocks = [];
+      let section = "", fence = null, buf = [];
+      const slug = (t) => t.toLowerCase().replace(/[^\w\- ]+/g, "").trim().replace(/ /g, "-");
+      for (let i3 = 0; i3 < ls.length; i3++) {
+        const l = ls[i3];
+        if (fence !== null) {
+          if (l.startsWith("```")) {
+            blocks.push({ section, lang: fence, lines: buf });
+            fence = null;
+            buf = [];
+          } else buf.push(l);
+          continue;
+        }
+        if (l.startsWith("```")) {
+          fence = l.slice(3).trim();
+          continue;
+        }
+        const h = l.match(/^#{1,4}\s+(.*)/);
+        if (h) {
+          section = h[1].trim();
+          continue;
+        }
+        if (l.startsWith("|") && ls[i3 + 1] && /^\|[\s:|-]+\|$/.test(ls[i3 + 1].trim())) {
+          const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+          const t = { section, anchor: slug(section), headers: cells(l), rows: [] };
+          for (i3 += 2; i3 < ls.length && ls[i3].startsWith("|"); i3++) t.rows.push(cells(ls[i3]));
+          i3--;
+          tables.push(t);
+        }
+      }
+      const textPath = blocks.find((b) => !b.lang && b.lines.some((x) => x.includes("\u25BC")))?.lines ?? [];
+      const legendTable = tables.find((t) => /legend/i.test(t.section));
+      const legend = new Map((legendTable?.rows ?? []).map((r) => [r[1]?.toLowerCase(), { mark: r[0], name: r[1], meaning: r[2] }]));
+      const word = (key) => new RegExp(`(^|[^\\w])${key}([^\\w]|$)`);
+      return {
+        legend,
+        rowsFor(key) {
+          if (!key) return [];
+          const re = word(key);
+          return tables.filter((t) => t !== legendTable).flatMap((t) => t.rows.filter((r) => r.some((c) => re.test(c))).map((r) => ({ t, r })));
+        },
+        // The step's line in the text path and the branch lines under it, as plain items.
+        pathFor(key) {
+          if (!key) return [];
+          const re = word(key), at = textPath.findIndex((x) => re.test(x));
+          if (at < 0) return [];
+          const out = [];
+          for (let j = at + 1; j < textPath.length && /^\s+[│├]/.test(textPath[j]); j++) {
+            const t = textPath[j].replace(/[│├└─]+/g, " ").replace(/\s*▶\s*/g, " \u2192 ").replace(/\s+/g, " ").trim();
+            if (t) out.push(t);
+          }
+          return out;
+        }
+      };
+    }
+    function basis(p) {
+      if (p.length < 3) return "M" + p.map((q) => `${q.x},${q.y}`).join("L");
+      let d = `M${p[0].x},${p[0].y}`, x0 = p[0].x, y0 = p[0].y, x1 = p[1].x, y1 = p[1].y;
+      d += `L${(5 * x0 + x1) / 6},${(5 * y0 + y1) / 6}`;
+      for (let i3 = 2; i3 < p.length; i3++) {
+        const { x, y } = p[i3];
+        d += `C${(2 * x0 + x1) / 3},${(2 * y0 + y1) / 3} ${(x0 + 2 * x1) / 3},${(y0 + 2 * y1) / 3} ${(x0 + 4 * x1 + x) / 6},${(y0 + 4 * y1 + y) / 6}`;
+        x0 = x1;
+        y0 = y1;
+        x1 = x;
+        y1 = y;
+      }
+      d += `C${(2 * x0 + x1) / 3},${(2 * y0 + y1) / 3} ${(x0 + 2 * x1) / 3},${(y0 + 2 * y1) / 3} ${x1},${y1}`;
+      return d;
+    }
+    function rounded(p, r = 12) {
+      let d = `M${p[0].x},${p[0].y}`;
+      for (let i3 = 1; i3 < p.length - 1; i3++) {
+        const a = p[i3 - 1], b = p[i3], c = p[i3 + 1];
+        const l1 = Math.hypot(b.x - a.x, b.y - a.y), l2 = Math.hypot(c.x - b.x, c.y - b.y);
+        const k = Math.min(r, l1 / 2, l2 / 2);
+        if (!k) {
+          d += `L${b.x},${b.y}`;
+          continue;
+        }
+        d += `L${b.x + (a.x - b.x) / l1 * k},${b.y + (a.y - b.y) / l1 * k}Q${b.x},${b.y} ${b.x + (c.x - b.x) / l2 * k},${b.y + (c.y - b.y) / l2 * k}`;
+      }
+      const z = p[p.length - 1];
+      return d + `L${z.x},${z.y}`;
+    }
+    const hashOf2 = (s) => {
+      let h = 5381;
+      for (let i3 = 0; i3 < s.length; i3++) h = (h << 5) + h + s.charCodeAt(i3) | 0;
+      return (h >>> 0).toString(36) + s.length.toString(36);
+    };
+    function mount(root, opts) {
+      const me = ++instances, KEY = "dl-" + (opts.key ?? "lab") + "-", compact = !!opts.compact;
+      const store2 = opts.store ?? {
+        get(k, d) {
+          try {
+            const v = localStorage.getItem(KEY + k);
+            return v == null ? d : JSON.parse(v);
+          } catch (e) {
+            return d;
+          }
+        },
+        set(k, v) {
+          try {
+            localStorage.setItem(KEY + k, JSON.stringify(v));
+          } catch (e) {
+          }
+        }
+      };
+      let M = typeof opts.mermaid === "function" ? null : opts.mermaid ?? window.mermaid;
+      const loadMermaid2 = async () => {
+        if (!M) M = await opts.mermaid();
+        if (!M.__dlInit) {
+          M.initialize({ startOnLoad: false, securityLevel: "strict" });
+          M.__dlInit = true;
+        }
+        return M;
+      };
+      const srcHash = hashOf2(opts.src);
+      const ownDir = (opts.src.match(/^\s*(?:flowchart|graph)\s+(TB|TD|BT|RL|LR)\b/m)?.[1] ?? "TD").replace("TB", "TD");
+      const view = { layout: store2.get("layout", "elk"), dir: store2.get("dir", ownDir), look: store2.get("look", "classic"), style: store2.get("style", "soft"), edges: store2.get("edges", "curved"), mode: compact ? "navigate" : store2.get("mode", "navigate") };
+      const doc = readDoc(opts.md);
+      const seg = (opt, label2, items) => `<div class="dl-seg" data-opt="${opt}" role="group" aria-label="${label2}"><span>${label2}</span>${items.map(([v, t, title]) => `<button type="button" data-v="${v}" title="${esc2(title)}" aria-label="${esc2(title)}">${t}</button>`).join("")}</div>`;
+      const actBtn2 = (a, icon2, title, text = "", extra = "") => `<button type="button" class="dl-act${text ? "" : " dl-icon"}" data-act="${a}" title="${esc2(title)}" aria-label="${esc2(title)}"${extra}>${icon2}${text}</button>`;
+      const host = opts.themeHost ?? document.documentElement;
+      const tone = () => {
+        root.dataset.tone = host.dataset.theme === "light" ? "light" : "dark";
+      };
+      tone();
+      root.classList.add("dl");
+      root.classList.toggle("dl-compact", compact);
+      if (opts.panel === false || compact) root.classList.add("dl-nopanel");
+      if (opts.height) root.style.setProperty("--dl-height", opts.height);
+      root.innerHTML = `
+      <div class="dl-top">
+        <div class="dl-modes" role="tablist" aria-label="How to read the diagram">
+          <button type="button" role="tab" data-mode="navigate"><b>Navigate</b><span>hover and click steps</span></button>
+          <button type="button" role="tab" data-mode="focus"><b>Focus</b><span>one step's part of the flow</span></button>
+          <button type="button" role="tab" data-mode="walkthrough"><b>Walkthrough</b><span>step by step</span></button>
+        </div>
+        <div class="dl-opts">
+          ${seg("layout", "Layout", [["elk", "Tidy", "Tidy: fewer crossing lines, steps in clear lanes"], ["dagre", "Compact", "Compact: mermaid's usual layout, tighter but more lines cross"]])}
+          ${seg("dir", "Flow", [["TD", "\u2193", "Top to bottom"], ["LR", "\u2192", "Left to right"]])}
+          ${seg("edges", "Lines", [["curved", "Curved", "Smooth curves"], ["rounded", "Square", "Right angles with rounded corners"]])}
+          ${compact ? "" : seg("style", "Colour", [["soft", "Soft", "A pale wash of each kind"], ["outline", "Outline", "Plain cards, coloured lines"], ["bold", "Bold", "Solid colours, like sticky notes"]])}
+          ${compact ? "" : seg("look", "Shapes", [["classic", "Classic", "Mermaid's classic shapes"], ["neo", "Neo", "Mermaid's newer, rounder shapes"]])}
+          <div class="dl-acts">
+            ${actBtn2("reset", ICON.reset, "Put moved boxes back", compact ? "" : "Reset", " disabled")}
+            ${(opts.tools ?? []).map((t) => actBtn2(t.act, t.icon, t.title, t.label ?? "", t.pressed != null ? ` aria-pressed="${t.pressed}"` : "")).join("")}
+            ${actBtn2("copy", ICON.copy, "Copy the mermaid source", compact ? "" : "Mermaid")}
+            ${actBtn2("svg", ICON.save, "Save as SVG", "SVG")}
+            ${actBtn2("png", ICON.save, "Save as PNG", "PNG")}
+            ${opts.expand ? actBtn2("expand", ICON.expand, "Open large, with the side panel") : ""}
+          </div>
+        </div>
+      </div>
+      <div class="dl-main">
+        <div class="dl-stage" aria-label="Diagram">
+          <div class="dl-world"></div>
+          <div class="dl-float dl-find">${ICON.find}<input type="search" placeholder="Find a step" aria-label="Find a step" autocomplete="off"><kbd>/</kbd><ul role="listbox"></ul></div>
+          <div class="dl-float dl-zoom" role="group" aria-label="Zoom">
+            <button type="button" data-z="out" title="Zoom out (-)" aria-label="Zoom out">${ICON.out}</button>
+            <button type="button" data-z="one" class="dl-pct" title="Back to 100%">100%</button>
+            <button type="button" data-z="in" title="Zoom in (+)" aria-label="Zoom in">${ICON.in}</button><i></i>
+            <button type="button" data-z="width" title="Fit the width, text stays readable (w)" aria-label="Fit width">${ICON.width}</button>
+            <button type="button" data-z="all" title="See it all (f)" aria-label="See it all">${ICON.all}</button>
+          </div>
+          <div class="dl-float dl-legend" aria-label="Kinds of step"></div>
+          <div class="dl-float dl-mini" title="Minimap: click or drag to move"><div class="dl-mini-svg"></div><div class="dl-mini-view"></div></div>
+          <div class="dl-hint" aria-live="polite"></div>
+          <div class="dl-toast" aria-live="polite"></div>
+        </div>
+        <aside class="dl-panel" aria-live="polite"></aside>
+      </div>`;
+      const $ = (s) => root.querySelector(s);
+      const stage = $(".dl-stage"), world = $(".dl-world"), panel = $(".dl-panel"), hint = $(".dl-hint");
+      root.addEventListener("pointerenter", () => {
+        active = me;
+      });
+      root.addEventListener("focusin", () => {
+        active = me;
+      });
+      if (!active || !compact) active = me;
+      let toastT;
+      const toast = (t) => {
+        $(".dl-toast").textContent = t;
+        clearTimeout(toastT);
+        toastT = setTimeout(() => {
+          $(".dl-toast").textContent = "";
+        }, 1800);
+      };
+      const graph = { nodes: /* @__PURE__ */ new Map(), edges: [], out: /* @__PURE__ */ new Map(), in: /* @__PURE__ */ new Map(), classes: {} };
+      const titleOf = (id) => bare(lines(graph.nodes.get(id)?.text)[0] ?? id);
+      const subOf = (id) => lines(graph.nodes.get(id)?.text).slice(1).join(" \xB7 ");
+      const kindOf2 = (n) => n.classes.find((c) => graph.classes[c]);
+      function keyOf(id, depth = 0) {
+        const m = plain2(graph.nodes.get(id)?.text).match(/\b([A-Z]\d{1,2})\b/);
+        if (m) return { key: m[1], via: null };
+        if (depth > 1) return { key: null, via: null };
+        for (const e of graph.in.get(id) ?? []) {
+          const k = keyOf(e.start, depth + 1);
+          if (k.key) return { key: k.key, via: e.start };
+        }
+        return { key: null, via: null };
+      }
+      const label = (id) => {
+        const k = keyOf(id);
+        return k.key && !k.via ? k.key : id;
+      };
+      async function readModel() {
+        let m = await opts.cache?.get("m:" + srcHash).catch(() => null);
+        if (!m) {
+          const d = await (await loadMermaid2()).mermaidAPI.getDiagramFromText(opts.src);
+          m = { flow: typeof d.db.getVertices === "function", nodes: [], edges: [], classes: {} };
+          if (m.flow) {
+            const verts = d.db.getVertices();
+            for (const v of verts instanceof Map ? verts.values() : Object.values(verts)) m.nodes.push({ id: v.id, text: v.text, type: v.type, classes: v.classes ?? [] });
+            m.edges = d.db.getEdges().map((e) => ({ id: e.id, start: e.start, end: e.end, text: plain2(e.text) }));
+            const cls = d.db.getClasses();
+            for (const [name2, c] of cls instanceof Map ? cls : Object.entries(cls)) {
+              const stroke = (c.styles ?? []).map((s) => s.match(/^stroke:\s*(#[0-9a-f]{3,8})/i)?.[1]).find(Boolean);
+              if (stroke) m.classes[name2] = { name: name2, hue: stroke };
+            }
+          }
+          opts.cache?.set("m:" + srcHash, m);
+        }
+        graph.flow = m.flow;
+        for (const n of m.nodes) graph.nodes.set(n.id, n);
+        graph.edges = m.edges;
+        graph.classes = m.classes;
+        for (const e of graph.edges) {
+          (graph.out.get(e.start) ?? graph.out.set(e.start, []).get(e.start)).push(e);
+          (graph.in.get(e.end) ?? graph.in.set(e.end, []).get(e.end)).push(e);
+        }
+        root.classList.toggle("dl-plain", !graph.flow);
+      }
+      function reach(id, dir) {
+        const seen = /* @__PURE__ */ new Map([[id, 0]]), q = [id], edges = /* @__PURE__ */ new Set();
+        while (q.length) {
+          const cur = q.shift();
+          for (const e of (dir === "out" ? graph.out : graph.in).get(cur) ?? []) {
+            const next = dir === "out" ? e.end : e.start;
+            edges.add(e.id);
+            if (!seen.has(next)) {
+              seen.set(next, seen.get(cur) + 1);
+              q.push(next);
+            }
+          }
+        }
+        return { nodes: seen, edges };
+      }
+      const els2 = { svg: null, nodes: /* @__PURE__ */ new Map(), edges: /* @__PURE__ */ new Map(), base: /* @__PURE__ */ new Map(), boxes0: /* @__PURE__ */ new Map(), boxes: /* @__PURE__ */ new Map(), W: 0, H: 0 };
+      let renders = 0, offsets = {};
+      const posKey = () => `pos-${view.layout}-${view.dir}-${view.look}`;
+      async function draw() {
+        const font2 = getComputedStyle(root).fontFamily;
+        const config = graph.flow ? { layout: view.layout, look: view.look, theme: "base", themeVariables: { fontFamily: font2, fontSize: "13.5px" }, flowchart: { padding: 16, wrappingWidth: 240, nodeSpacing: 40, rankSpacing: 56 } } : { theme: root.dataset.tone === "light" ? "default" : "dark", themeVariables: { fontFamily: font2 } };
+        const head = "---\nconfig:\n" + Object.entries(config).map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`).join("\n") + "\n---\n";
+        const code = head + (graph.flow ? opts.src.replace(/^(\s*)(flowchart|graph)\s+\w+/m, `$1$2 ${view.dir}`) : opts.src);
+        const ck = `s:${srcHash}|${hashOf2(head)}`;
+        let svg2 = await opts.cache?.get(ck).catch(() => null);
+        if (!svg2) {
+          try {
+            ({ svg: svg2 } = await (await loadMermaid2()).render(`dl${me}r${++renders}`, code));
+          } catch (e) {
+            world.innerHTML = "";
+            fail(e);
+            return false;
+          }
+          opts.cache?.set(ck, svg2);
+        }
+        stage.querySelector(".dl-msg")?.remove();
+        world.innerHTML = svg2;
+        const s = world.querySelector("svg"), vb = s.viewBox.baseVal;
+        s.removeAttribute("style");
+        s.setAttribute("width", vb.width);
+        s.setAttribute("height", vb.height);
+        Object.assign(els2, { svg: s, W: vb.width, H: vb.height });
+        els2.nodes.clear();
+        els2.edges.clear();
+        els2.base.clear();
+        if (!graph.flow) {
+          els2.boxes0.clear();
+          els2.boxes.clear();
+          buildMini();
+          return true;
+        }
+        const NS = "http://www.w3.org/2000/svg";
+        for (const g of s.querySelectorAll("g.node")) {
+          const m = g.id.match(/-flowchart-(.+)-\d+$/);
+          if (!m || !graph.nodes.has(m[1])) continue;
+          const id = m[1], n = graph.nodes.get(id), k = kindOf2(n);
+          g.dataset.node = id;
+          if (k) {
+            g.dataset.k = k;
+            g.style.setProperty("--k", graph.classes[k].hue);
+          }
+          for (const el2 of g.querySelectorAll("[style]")) for (const p2 of ["fill", "stroke", "color"]) el2.style.removeProperty(p2);
+          for (const c of Object.keys(graph.classes)) g.classList.remove(c);
+          if (n.type === "stadium" && view.look === "classic") {
+            const shape = g.querySelector(":scope > .label-container, :scope > path, :scope > g.basic");
+            if (shape) {
+              const b = shape.getBBox(), r = document.createElementNS(NS, "rect");
+              Object.entries({ x: b.x, y: b.y, width: b.width, height: b.height, class: "dl-term" }).forEach(([a, v]) => r.setAttribute(a, v));
+              shape.replaceWith(r);
+            }
+          }
+          const p = g.querySelector(".nodeLabel p") ?? g.querySelector(".nodeLabel");
+          if (p) {
+            const parts2 = p.innerHTML.split(/<br\s*\/?>/i);
+            p.innerHTML = `<span class="dl-t">${parts2[0]}</span>` + (parts2.length > 1 ? `<span class="dl-s">${parts2.slice(1).join("<br>")}</span>` : "");
+          }
+          const t = (g.getAttribute("transform") ?? "").match(/translate\(\s*([-\d.e]+)[ ,]+([-\d.e]+)/);
+          els2.base.set(id, t ? { x: +t[1], y: +t[2] } : { x: 0, y: 0 });
+          els2.nodes.set(id, g);
+        }
+        for (const p of s.querySelectorAll('path[data-edge="true"]')) {
+          let pts = null;
+          try {
+            pts = JSON.parse(atob(p.dataset.points));
+          } catch (e) {
+          }
+          p.removeAttribute("marker-end");
+          p.removeAttribute("marker-start");
+          const head2 = document.createElementNS(NS, "path");
+          head2.setAttribute("class", "dl-head");
+          head2.setAttribute("d", "M0,0 L-8,-4 L-8,4 Z");
+          p.after(head2);
+          els2.edges.set(p.dataset.id, { path: p, head: head2, pts, label: null, lpos: null });
+        }
+        for (const l of s.querySelectorAll(".edgeLabel .label[data-id]")) {
+          const e = els2.edges.get(l.dataset.id);
+          if (!e) continue;
+          e.label = l.closest("g.edgeLabel");
+          const t = (e.label.getAttribute("transform") ?? "").match(/translate\(\s*([-\d.e]+)[ ,]+([-\d.e]+)/);
+          e.lpos = t ? { x: +t[1], y: +t[2] } : null;
+        }
+        const guides = document.createElementNS(NS, "g");
+        guides.setAttribute("class", "dl-guides");
+        s.append(guides);
+        world.classList.remove("dl-anim");
+        world.style.transform = "none";
+        const o = world.getBoundingClientRect();
+        els2.boxes0.clear();
+        for (const [id, g] of els2.nodes) {
+          const r = g.getBoundingClientRect();
+          els2.boxes0.set(id, { x: r.left - o.left, y: r.top - o.top, w: r.width, h: r.height });
+        }
+        offsets = store2.get(posKey(), {});
+        placeAll();
+        buildLegend();
+        return true;
+      }
+      const delta = (id) => offsets[id] ?? { dx: 0, dy: 0 };
+      function placeNode(id) {
+        const b = els2.base.get(id), d = delta(id), b0 = els2.boxes0.get(id);
+        els2.nodes.get(id).setAttribute("transform", `translate(${b.x + d.dx}, ${b.y + d.dy})`);
+        els2.boxes.set(id, { ...b0, x: b0.x + d.dx, y: b0.y + d.dy });
+      }
+      function routeEdge(id) {
+        const e = els2.edges.get(id);
+        if (!e?.pts) return;
+        const ge = graph.edges.find((x) => x.id === id);
+        const ds = delta(ge.start), de = delta(ge.end);
+        let pts = e.pts;
+        const moved = ds.dx || ds.dy || de.dx || de.dy;
+        if (moved) {
+          const a = { x: pts[0].x + ds.dx, y: pts[0].y + ds.dy }, z2 = { x: pts.at(-1).x + de.dx, y: pts.at(-1).y + de.dy };
+          const down = view.dir === "TD" ? z2.y - a.y > 24 : z2.x - a.x > 24;
+          if (down) {
+            if (view.dir === "TD") {
+              const m = (a.y + z2.y) / 2;
+              pts = [a, { x: a.x, y: m }, { x: z2.x, y: m }, z2];
+            } else {
+              const m = (a.x + z2.x) / 2;
+              pts = [a, { x: m, y: a.y }, { x: m, y: z2.y }, z2];
+            }
+          } else {
+            let L = 0;
+            const cum = [0];
+            for (let i3 = 1; i3 < pts.length; i3++) {
+              L += Math.hypot(pts[i3].x - pts[i3 - 1].x, pts[i3].y - pts[i3 - 1].y);
+              cum.push(L);
+            }
+            pts = pts.map((q, i3) => {
+              const t = L ? cum[i3] / L : 0;
+              return { x: q.x + ds.dx * (1 - t) + de.dx * t, y: q.y + ds.dy * (1 - t) + de.dy * t };
+            });
+          }
+        }
+        const z = pts.at(-1), y = pts.findLast?.((q, i3) => i3 < pts.length - 1 && (q.x !== z.x || q.y !== z.y)) ?? pts.at(-2);
+        const ang = Math.atan2(z.y - y.y, z.x - y.x);
+        const cut = [...pts.slice(0, -1), { x: z.x - Math.cos(ang) * 6, y: z.y - Math.sin(ang) * 6 }];
+        e.path.setAttribute("d", view.edges === "curved" ? basis(cut) : rounded(cut));
+        e.head.setAttribute("transform", `translate(${z.x}, ${z.y}) rotate(${ang * 180 / Math.PI})`);
+        if (e.label && e.lpos) {
+          if (moved) {
+            const L = e.path.getTotalLength(), m = e.path.getPointAtLength(L / 2);
+            e.label.setAttribute("transform", `translate(${m.x}, ${m.y})`);
+          } else e.label.setAttribute("transform", `translate(${e.lpos.x}, ${e.lpos.y})`);
+        }
+      }
+      function placeAll() {
+        for (const id of els2.nodes.keys()) placeNode(id);
+        for (const id of els2.edges.keys()) routeEdge(id);
+        $('[data-act="reset"]').disabled = !Object.keys(offsets).length;
+        buildMini();
+      }
+      const cam = { x: 0, y: 0, k: 1 }, READ_FLOOR = 0.85;
+      const size = () => ({ w: stage.clientWidth, h: stage.clientHeight });
+      function apply(anim = false) {
+        world.classList.toggle("dl-anim", anim && !reduced2());
+        world.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.k})`;
+        $(".dl-pct").textContent = Math.round(cam.k * 100) + "%";
+        drawMiniView();
+      }
+      function fitWidth(anim = true) {
+        const { w } = size();
+        cam.k = Math.max(READ_FLOOR, Math.min(1.15, (w - 64) / els2.W));
+        cam.x = els2.W * cam.k < w ? (w - els2.W * cam.k) / 2 : 32;
+        cam.y = 64;
+        apply(anim);
+      }
+      function fitAll(anim = true) {
+        const { w, h } = size();
+        cam.k = Math.min(1.4, (w - 64) / els2.W, (h - 120) / els2.H);
+        cam.x = (w - els2.W * cam.k) / 2;
+        cam.y = 56 + (h - 120 - els2.H * cam.k) / 2;
+        apply(anim);
+      }
+      function fitBox(b, maxK = 1.2) {
+        const { w, h } = size();
+        cam.k = Math.max(READ_FLOOR, Math.min(maxK, (w - 160) / b.w, (h - 160) / b.h));
+        cam.x = w / 2 - (b.x + b.w / 2) * cam.k;
+        cam.y = h / 2 - (b.y + b.h / 2) * cam.k;
+        apply(true);
+      }
+      const union = (ids) => {
+        const bs = [...ids].map((id) => els2.boxes.get(id)).filter(Boolean);
+        if (!bs.length) return null;
+        const x = Math.min(...bs.map((b) => b.x)), y = Math.min(...bs.map((b) => b.y));
+        return { x, y, w: Math.max(...bs.map((b) => b.x + b.w)) - x, h: Math.max(...bs.map((b) => b.y + b.h)) - y };
+      };
+      function centreOn(id, k = Math.max(cam.k, 1)) {
+        const b = els2.boxes.get(id);
+        if (!b) return;
+        const { w, h } = size();
+        cam.k = k;
+        cam.x = w / 2 - (b.x + b.w / 2) * k;
+        cam.y = h / 2 - (b.y + b.h / 2) * k;
+        apply(true);
+      }
+      function zoomAt(px2, py, f) {
+        const k = Math.min(3, Math.max(0.15, cam.k * f));
+        cam.x = px2 - (px2 - cam.x) * (k / cam.k);
+        cam.y = py - (py - cam.y) * (k / cam.k);
+        cam.k = k;
+        apply(false);
+      }
+      stage.addEventListener("wheel", (e) => {
+        if (compact && !(e.ctrlKey || e.metaKey)) return;
+        e.preventDefault();
+        const r = stage.getBoundingClientRect();
+        if (e.ctrlKey || e.metaKey) zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.01));
+        else {
+          cam.x -= e.deltaX;
+          cam.y -= e.deltaY;
+          apply(false);
+        }
+      }, { passive: false });
+      let drag = null;
+      stage.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0 || e.target.closest(".dl-float")) return;
+        const node = e.target.closest("g.node")?.dataset.node;
+        drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moved: false, node, d0: node ? { ...delta(node) } : null };
+      });
+      const SNAP = 7;
+      function guide(lines2) {
+        const g = els2.svg?.querySelector(".dl-guides");
+        if (!g) return;
+        g.innerHTML = lines2.map(([x1, y1, x2, y2]) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`).join("");
+      }
+      window.addEventListener("pointermove", (e) => {
+        if (!root.isConnected) return;
+        if (!drag) return;
+        const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+        if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+        if (!drag.moved) {
+          drag.moved = true;
+          stage.classList.add(drag.node ? "dl-dragging" : "dl-panning");
+        }
+        if (!drag.node) {
+          cam.x = drag.cx + dx;
+          cam.y = drag.cy + dy;
+          apply(false);
+          return;
+        }
+        const id = drag.node, b0 = els2.boxes0.get(id);
+        let nx = drag.d0.dx + dx / cam.k, ny = drag.d0.dy + dy / cam.k;
+        const cx = b0.x + b0.w / 2 + nx, cy = b0.y + b0.h / 2 + ny, lines2 = [];
+        let bx = SNAP / cam.k, by = SNAP / cam.k, sx = null, sy = null;
+        for (const [o, b] of els2.boxes) {
+          if (o === id) continue;
+          const ox = b.x + b.w / 2, oy = b.y + b.h / 2;
+          if (Math.abs(ox - cx) < bx) {
+            bx = Math.abs(ox - cx);
+            sx = { v: ox, b };
+          }
+          if (Math.abs(oy - cy) < by) {
+            by = Math.abs(oy - cy);
+            sy = { v: oy, b };
+          }
+        }
+        if (sx) {
+          nx += sx.v - cx;
+          lines2.push([sx.v, Math.min(sx.b.y, b0.y + ny), sx.v, Math.max(sx.b.y + sx.b.h, b0.y + ny + b0.h)]);
+        }
+        if (sy) {
+          ny += sy.v - cy;
+          lines2.push([Math.min(sy.b.x, b0.x + nx), sy.v, Math.max(sy.b.x + sy.b.w, b0.x + nx + b0.w), sy.v]);
+        }
+        offsets[id] = { dx: Math.round(nx), dy: Math.round(ny) };
+        placeNode(id);
+        for (const ge of [...graph.out.get(id) ?? [], ...graph.in.get(id) ?? []]) routeEdge(ge.id);
+        guide(lines2);
+      });
+      window.addEventListener("pointerup", (e) => {
+        if (!root.isConnected) return;
+        if (!drag) return;
+        const d = drag;
+        drag = null;
+        stage.classList.remove("dl-panning", "dl-dragging");
+        if (d.moved && d.node) {
+          guide([]);
+          store2.set(posKey(), offsets);
+          placeAll();
+          modes[view.mode].refresh();
+          return;
+        }
+        if (d.moved) return;
+        if (d.node) modes[view.mode].click(d.node, e);
+        else modes[view.mode].background();
+      });
+      stage.addEventListener("dblclick", (e) => {
+        if (!e.target.closest("g.node, .dl-float")) fitDefault(true);
+      });
+      stage.addEventListener("pointerover", (e) => {
+        const id = e.target.closest?.("g.node")?.dataset.node;
+        if (id && !drag) modes[view.mode].hover?.(id);
+      });
+      stage.addEventListener("pointerout", (e) => {
+        const g = e.target.closest?.("g.node");
+        if (g && !g.contains(e.relatedTarget) && !drag) modes[view.mode].hover?.(null);
+      });
+      const mini = { el: $(".dl-mini"), s: 1, dots: [] };
+      function highlight({ nodes = [], edges = [], how = "dim", sel = [], cur = null, trail = [] } = {}) {
+        const s = els2.svg;
+        if (!s) return;
+        const on = new Set(nodes), onE = /* @__PURE__ */ new Set([...edges, ...trail]), tr = new Set(trail);
+        s.classList.toggle("dl-dim", how === "dim" && on.size > 0);
+        s.classList.toggle("dl-hide", how === "hide" && on.size > 0);
+        for (const [id, g] of els2.nodes) {
+          g.classList.toggle("dl-on", on.has(id));
+          g.classList.toggle("dl-sel", sel.includes(id));
+          g.classList.toggle("dl-cur", id === cur);
+        }
+        for (const [id, e] of els2.edges) {
+          for (const el2 of [e.path, e.head, e.label].filter(Boolean)) {
+            el2.classList.toggle("dl-on", onE.has(id));
+            el2.classList.toggle("dl-trail", tr.has(id));
+          }
+        }
+        mini.dots = [...cur ? [cur] : [], ...sel];
+        drawMiniView();
+      }
+      const around = (id) => {
+        const es = [...graph.out.get(id) ?? [], ...graph.in.get(id) ?? []];
+        return { nodes: [id, ...es.map((e) => e.start), ...es.map((e) => e.end)], edges: es.map((e) => e.id) };
+      };
+      function buildMini() {
+        if (!els2.svg) return;
+        mini.s = Math.min(180 / els2.W, 200 / els2.H);
+        const w = Math.round(els2.W * mini.s), h = Math.round(els2.H * mini.s);
+        Object.assign(mini.el.style, { width: w + "px", height: h + "px" });
+        const c = els2.svg.cloneNode(true);
+        c.setAttribute("width", w);
+        c.setAttribute("height", h);
+        c.querySelectorAll("[id]:not(svg)").forEach((n) => n.removeAttribute("id"));
+        mini.el.querySelector(".dl-mini-svg").replaceChildren(c);
+        drawMiniView();
+      }
+      function drawMiniView() {
+        if (!els2.svg) return;
+        const { w, h } = size(), s = mini.s, v = mini.el.querySelector(".dl-mini-view");
+        const left = -cam.x / cam.k, top = -cam.y / cam.k;
+        mini.el.hidden = left <= 1 && top <= 1 && left + w / cam.k >= els2.W - 1 && top + h / cam.k >= els2.H - 1;
+        Object.assign(v.style, { left: -cam.x / cam.k * s + "px", top: -cam.y / cam.k * s + "px", width: w / cam.k * s + "px", height: h / cam.k * s + "px" });
+        mini.el.querySelectorAll(".dl-mini-dot").forEach((d) => d.remove());
+        for (const id of mini.dots) {
+          const b = els2.boxes.get(id);
+          if (!b) continue;
+          const d = document.createElement("span");
+          d.className = "dl-mini-dot";
+          Object.assign(d.style, { left: (b.x + b.w / 2) * s + "px", top: (b.y + b.h / 2) * s + "px" });
+          mini.el.append(d);
+        }
+      }
+      const miniTo = (e) => {
+        const r = mini.el.getBoundingClientRect(), { w, h } = size();
+        cam.x = w / 2 - (e.clientX - r.left) / mini.s * cam.k;
+        cam.y = h / 2 - (e.clientY - r.top) / mini.s * cam.k;
+        apply(false);
+      };
+      mini.el.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        mini.el.setPointerCapture(e.pointerId);
+        miniTo(e);
+        mini.el.onpointermove = miniTo;
+      });
+      mini.el.addEventListener("pointerup", () => {
+        mini.el.onpointermove = null;
+      });
+      let legendPick = null;
+      const kindName2 = (k) => {
+        const l = doc.legend.get(k);
+        const n = l?.name ?? k;
+        return n[0].toUpperCase() + n.slice(1).toLowerCase();
+      };
+      function buildLegend() {
+        const box = $(".dl-legend"), counts = {};
+        for (const n of graph.nodes.values()) {
+          const k = kindOf2(n);
+          if (k) counts[k] = (counts[k] ?? 0) + 1;
+        }
+        const ks = Object.values(graph.classes);
+        box.hidden = !ks.length;
+        box.innerHTML = ks.map((c) => `<button type="button" class="dl-chip" data-cls="${esc2(c.name)}" style="--k:${esc2(c.hue)}" aria-pressed="${legendPick === c.name}" title="${esc2(doc.legend.get(c.name)?.meaning ?? "")}"><i></i>${esc2(kindName2(c.name))} <em>${counts[c.name] ?? 0}</em></button>`).join("") + '<div class="dl-legend-note"></div>';
+        if (legendPick) pickClass(legendPick);
+      }
+      function pickClass(name2) {
+        legendPick = name2;
+        root.querySelectorAll(".dl-chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.cls === name2)));
+        $(".dl-legend-note").textContent = name2 ? doc.legend.get(name2)?.meaning ?? "" : "";
+        if (!name2) {
+          modes[view.mode].refresh();
+          return;
+        }
+        highlight({ nodes: [...graph.nodes.values()].filter((n) => kindOf2(n) === name2).map((n) => n.id) });
+      }
+      $(".dl-legend").addEventListener("click", (e) => {
+        const c = e.target.closest(".dl-chip");
+        if (c) pickClass(legendPick === c.dataset.cls ? null : c.dataset.cls);
+      });
+      const findIn = $(".dl-find input"), findList = $(".dl-find ul");
+      let found = [], foundAt = 0;
+      function runFind() {
+        const q = findIn.value.trim().toLowerCase();
+        found = q ? [...graph.nodes.values()].filter((n) => (n.id + " " + plain2(n.text)).toLowerCase().includes(q)).slice(0, 8) : [];
+        foundAt = 0;
+        paintFind();
+        if (found.length) highlight({ nodes: found.map((n) => n.id) });
+        else modes[view.mode].refresh();
+      }
+      const paintFind = () => {
+        findList.innerHTML = found.map((n, i3) => `<li role="option" data-id="${esc2(n.id)}" aria-selected="${i3 === foundAt}"><span class="dl-id">${esc2(label(n.id))}</span>${esc2(titleOf(n.id))}</li>`).join("");
+      };
+      function goFound(id) {
+        findIn.value = "";
+        found = [];
+        paintFind();
+        findIn.blur();
+        modes[view.mode].go(id);
+      }
+      findIn.addEventListener("input", runFind);
+      findIn.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          foundAt = (foundAt + (e.key === "ArrowDown" ? 1 : -1) + found.length) % Math.max(1, found.length);
+          paintFind();
+        } else if (e.key === "Enter" && found[foundAt]) goFound(found[foundAt].id);
+        else if (e.key === "Escape") {
+          findIn.value = "";
+          runFind();
+          findIn.blur();
+        }
+      });
+      findList.addEventListener("pointerdown", (e) => {
+        const li = e.target.closest("li");
+        if (li) {
+          e.preventDefault();
+          goFound(li.dataset.id);
+        }
+      });
+      function card5(id) {
+        const n = graph.nodes.get(id), k = kindOf2(n), sub = subOf(id), mean = k && doc.legend.get(k)?.meaning;
+        return `<div class="dl-card" ${k ? `style="--k:${esc2(graph.classes[k].hue)}"` : ""}><div class="dl-card-top">${k ? `<i></i>${esc2(kindName2(k))}` : "Step"}<span class="dl-id">${esc2(label(id))}</span></div><h2>${esc2(titleOf(id))}</h2>${sub ? `<div class="dl-sub">${esc2(sub)}</div>` : ""}${mean ? `<div class="dl-mean">${esc2(mean)}</div>` : ""}</div>`;
+      }
+      function linkList(edges, dir) {
+        if (!edges.length) return "";
+        return `<h3>${dir === "out" ? "Leads to" : "Comes from"}</h3><ul class="dl-links">` + edges.map((e) => {
+          const other = dir === "out" ? e.end : e.start;
+          return `<li><button type="button" data-go="${esc2(other)}"><small title="${esc2(e.text)}">${esc2(e.text || (dir === "out" ? "then" : "after"))}</small><span>${esc2(titleOf(other))}</span></button></li>`;
+        }).join("") + "</ul>";
+      }
+      function fromDoc(id, cap) {
+        if (!opts.md) return "";
+        const { key, via } = keyOf(id);
+        if (!key) return "";
+        const rows = doc.rowsFor(key), path = doc.pathFor(key);
+        if (!rows.length && !path.length) return "";
+        const skip = (h) => /^(#|mark)$/i.test(h);
+        const sec = ({ t, r }) => `<section><header><span>${esc2(t.section.replace(/^[\dA-Z]+\.\s*/, ""))}</span>${opts.file ? `<a href="${esc2(opts.file)}#${esc2(t.anchor)}" target="_blank" rel="noopener" title="Open this part of the doc">Open</a>` : ""}</header><dl class="dl-kv">${r.map((c, i3) => c && !skip(t.headers[i3] ?? "") ? `<dt>${esc2(t.headers[i3] ?? "")}</dt><dd>${inline(c)}</dd>` : "").join("")}</dl></section>`;
+        return `<h3>From the doc${via ? `, via ${esc2(key)}` : ""}</h3><div class="dl-src">` + (path.length ? `<section><header><span>The path</span></header><ul class="dl-steps">${path.map((x) => `<li>${inline(x)}</li>`).join("")}</ul></section>` : "") + rows.slice(0, cap).map(sec).join("") + "</div>" + (rows.length > cap ? `<button type="button" class="dl-more" data-more="1">Show ${rows.length - cap} more</button>` : "");
+      }
+      panel.addEventListener("click", (e) => {
+        const go2 = e.target.closest("[data-go]");
+        if (go2) return modes[view.mode].go(go2.dataset.go);
+        if (e.target.closest("[data-more]")) {
+          modes[view.mode].cap = 99;
+          modes[view.mode].panel();
+        }
+      });
+      const modes = {};
+      const nav = { sel: null, hov: null };
+      modes.navigate = {
+        cap: 3,
+        refresh() {
+          const id = nav.hov ?? nav.sel, sel = [nav.sel, nav.hov].filter(Boolean);
+          highlight(id ? { ...around(id), sel } : { sel });
+          hint.textContent = "";
+        },
+        hover(id) {
+          if (legendPick || findIn.value) return;
+          nav.hov = id;
+          this.refresh();
+        },
+        click(id) {
+          nav.sel = id;
+          this.cap = 3;
+          this.refresh();
+          this.panel();
+        },
+        go(id) {
+          this.click(id);
+          centreOn(id);
+        },
+        background() {
+          nav.sel = null;
+          this.refresh();
+          this.panel();
+        },
+        panel() {
+          const id = nav.sel;
+          panel.innerHTML = id ? card5(id) + linkList(graph.out.get(id) ?? [], "out") + linkList(graph.in.get(id) ?? [], "in") + fromDoc(id, this.cap) : `<p class="dl-empty">Hover a step to see what it connects to. Click one to read about it here.</p><div class="dl-tip"><kbd>/</kbd> find \xB7 drag a box to move it \xB7 <kbd>w</kbd> fit width \xB7 <kbd>f</kbd> see it all</div>`;
+        },
+        enter() {
+          this.refresh();
+          this.panel();
+        }
+      };
+      const foc = { sel: null, scope: store2.get("scope", "after") };
+      const SCOPES = [["near", "Next to it"], ["after", "After"], ["before", "Before"], ["both", "Both ways"]];
+      function focusSet() {
+        const id = foc.sel;
+        if (foc.scope === "near") {
+          const a = around(id);
+          return { nodes: new Set(a.nodes), edges: a.edges, after: (graph.out.get(id) ?? []).map((e) => [e.end, 1]), before: (graph.in.get(id) ?? []).map((e) => [e.start, 1]) };
+        }
+        const none2 = { nodes: /* @__PURE__ */ new Map(), edges: /* @__PURE__ */ new Set() };
+        const down = foc.scope !== "before" ? reach(id, "out") : none2, up = foc.scope !== "after" ? reach(id, "in") : none2;
+        const sorted = (m) => [...m].filter(([n]) => n !== id).sort((a, b) => a[1] - b[1]);
+        return { nodes: /* @__PURE__ */ new Set([id, ...down.nodes.keys(), ...up.nodes.keys()]), edges: [...down.edges, ...up.edges], after: sorted(down.nodes), before: sorted(up.nodes) };
+      }
+      modes.focus = {
+        cap: 3,
+        refresh() {
+          if (!foc.sel) {
+            highlight({});
+            hint.textContent = "Click a step to focus on it";
+            return;
+          }
+          hint.textContent = "";
+          const f = focusSet();
+          highlight({ nodes: [...f.nodes], edges: f.edges, how: "hide", sel: [foc.sel] });
+        },
+        click(id) {
+          this.go(id);
+        },
+        go(id) {
+          foc.sel = id;
+          this.cap = 3;
+          this.refresh();
+          this.panel();
+          const b = union(focusSet().nodes), s = els2.boxes.get(id), { w, h } = size();
+          if (b && Math.min((w - 160) / b.w, (h - 160) / b.h) >= READ_FLOOR) fitBox(b);
+          else if (s) {
+            cam.k = READ_FLOOR;
+            cam.x = w / 2 - (s.x + s.w / 2) * cam.k;
+            cam.y = h * 0.22 - (s.y + s.h / 2) * cam.k;
+            apply(true);
+          }
+        },
+        background() {
+          foc.sel = null;
+          this.refresh();
+          this.panel();
+        },
+        panel() {
+          const id = foc.sel;
+          if (!id) {
+            panel.innerHTML = `<p class="dl-empty">Click a step. Everything that does not relate to it fades, so you read only its part of the flow.</p><div class="dl-tip"><kbd>Esc</kbd> lets go</div>`;
+            return;
+          }
+          const f = focusSet();
+          const list3 = (xs, t) => xs.length ? `<h3>${t} \xB7 ${xs.length}</h3><ul class="dl-links">${xs.map(([n, d]) => `<li><button type="button" data-go="${esc2(n)}"><small>${d === 1 ? "next" : d + " steps"}</small><span>${esc2(titleOf(n))}</span></button></li>`).join("")}</ul>` : "";
+          panel.innerHTML = card5(id) + `<div class="dl-scope" role="group" aria-label="How far to follow">${SCOPES.map(([k, l]) => `<button type="button" data-scope="${k}" aria-pressed="${foc.scope === k}">${l}</button>`).join("")}</div>` + list3(f.before, "Before it") + list3(f.after, "After it") + fromDoc(id, this.cap);
+        },
+        enter() {
+          this.refresh();
+          this.panel();
+        }
+      };
+      panel.addEventListener("click", (e) => {
+        const s = e.target.closest("[data-scope]");
+        if (!s) return;
+        foc.scope = s.dataset.scope;
+        store2.set("scope", foc.scope);
+        modes.focus.go(foc.sel);
+      });
+      const walk = { at: null, hist: [] };
+      const start = () => [...graph.nodes.keys()].find((id) => !(graph.in.get(id) ?? []).length) ?? [...graph.nodes.keys()][0];
+      function mainChoice(id) {
+        const outs = graph.out.get(id) ?? [];
+        if (outs.length < 2) return 0;
+        const walked = new Set(walk.hist);
+        const score2 = (e) => (walked.has(e.end) ? -1e6 : 0) + (e.text ? 0 : 1e3) + reach(e.end, "out").nodes.size;
+        return outs.reduce((best, e, i3) => score2(e) > score2(outs[best]) ? i3 : best, 0);
+      }
+      const walkEdges = () => walk.hist.map((id, i3) => (graph.out.get(id) ?? []).find((e) => e.end === (walk.hist[i3 + 1] ?? walk.at))?.id).filter(Boolean);
+      modes.walkthrough = {
+        cap: 2,
+        refresh() {
+          walk.at ??= start();
+          const outs = graph.out.get(walk.at) ?? [];
+          hint.textContent = "";
+          highlight({ nodes: [...walk.hist, walk.at, ...outs.map((e) => e.end)], edges: outs.map((e) => e.id), trail: walkEdges(), cur: walk.at });
+        },
+        step(to, push = true) {
+          if (push) walk.hist.push(walk.at);
+          walk.at = to;
+          this.cap = 2;
+          this.refresh();
+          this.panel();
+          centreOn(to);
+        },
+        next(i3 = mainChoice(walk.at)) {
+          const o = graph.out.get(walk.at) ?? [];
+          if (o[i3]) this.step(o[i3].end);
+        },
+        back() {
+          if (!walk.hist.length) return;
+          walk.at = walk.hist.pop();
+          this.refresh();
+          this.panel();
+          centreOn(walk.at);
+        },
+        toChoice() {
+          while (walk.hist.length) {
+            this.back();
+            if ((graph.out.get(walk.at) ?? []).length > 1) return;
+          }
+        },
+        restart() {
+          walk.hist = [];
+          walk.at = null;
+          this.refresh();
+          this.panel();
+          centreOn(walk.at, 1);
+        },
+        click(id) {
+          if (id === walk.at) return;
+          const i3 = (graph.out.get(walk.at) ?? []).findIndex((e) => e.end === id);
+          if (i3 >= 0) this.next(i3);
+          else this.step(id);
+        },
+        go(id) {
+          this.step(id);
+        },
+        background() {
+        },
+        panel() {
+          const id = walk.at, outs = graph.out.get(id) ?? [], main = mainChoice(id);
+          const choices = outs.length ? `<h3>${outs.length > 1 ? "Choose what happens" : "Then"}</h3><div class="dl-choices">${outs.map((e, i3) => `<button type="button" class="dl-choice${outs.length > 1 && i3 === main ? " dl-main-choice" : ""}" data-choice="${i3}" ${outs.length > 1 && i3 === main ? 'title="The main path: \u2192 takes this one"' : ""}><kbd>${outs.length > 1 ? i3 + 1 : "\u2192"}</kbd><span>${esc2(e.text || titleOf(e.end))}${e.text ? `<small>to ${esc2(titleOf(e.end))}</small>` : ""}</span></button>`).join("")}</div>` : `<h3>End of this path</h3><p class="dl-empty">Nothing comes after this step.</p>`;
+          panel.innerHTML = `<h3 style="margin-top:0">Step ${walk.hist.length + 1}</h3>` + card5(id) + choices + `<div class="dl-nav"><button type="button" class="dl-btn" data-walk="back" ${walk.hist.length ? "" : "disabled"}>\u2190 Back</button><button type="button" class="dl-btn" data-walk="choice" ${walk.hist.length ? "" : "disabled"}>Last choice</button><button type="button" class="dl-btn" data-walk="restart">Start over</button></div>` + fromDoc(id, this.cap) + `<h3>Path so far</h3><div class="dl-trailbar">${[...walk.hist, id].map((n, i3, a) => `<button type="button" data-crumb="${i3}" ${i3 === a.length - 1 ? 'aria-current="step"' : ""} title="${esc2(titleOf(n))}">${esc2(label(n))}</button>`).join("")}</div><div class="dl-tip"><kbd>\u2192</kbd> next on the main path \xB7 <kbd>\u2190</kbd> back \xB7 a number picks a branch</div>`;
+        },
+        enter() {
+          this.refresh();
+          this.panel();
+          if (walk.at) centreOn(walk.at);
+        }
+      };
+      panel.addEventListener("click", (e) => {
+        const c = e.target.closest("[data-choice]");
+        if (c) return modes.walkthrough.next(+c.dataset.choice);
+        const w = e.target.closest("[data-walk]");
+        if (w) return { back: () => modes.walkthrough.back(), choice: () => modes.walkthrough.toChoice(), restart: () => modes.walkthrough.restart() }[w.dataset.walk]();
+        const cr = e.target.closest("[data-crumb]");
+        if (cr && +cr.dataset.crumb < walk.hist.length) {
+          const i3 = +cr.dataset.crumb;
+          walk.at = walk.hist[i3];
+          walk.hist = walk.hist.slice(0, i3);
+          modes.walkthrough.step(walk.at, false);
+        }
+      });
+      function snapshot2() {
+        const src = els2.svg, c = src.cloneNode(true), a = src.querySelectorAll("*"), b = c.querySelectorAll("*");
+        const props = ["fill", "stroke", "stroke-width", "opacity", "color", "font-family", "font-size", "font-weight", "line-height", "background-color", "border-radius", "box-shadow", "rx", "ry", "display", "margin-top"];
+        a.forEach((el2, i3) => {
+          const cs = getComputedStyle(el2);
+          b[i3].setAttribute("style", props.map((p) => `${p}:${cs.getPropertyValue(p)}`).join(";"));
+        });
+        c.querySelector(".dl-guides")?.remove();
+        c.classList.remove("dl-dim", "dl-hide");
+        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        const vb = src.viewBox.baseVal;
+        Object.entries({ x: vb.x, y: vb.y, width: vb.width, height: vb.height, fill: getComputedStyle(stage).backgroundColor }).forEach(([k, v]) => bg.setAttribute(k, v));
+        c.prepend(bg);
+        c.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        return new XMLSerializer().serializeToString(c);
+      }
+      function save(blob, name2) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = name2;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2e3);
+      }
+      const fileBase = () => (opts.name ?? "diagram").replace(/[^\w.-]+/g, "-");
+      async function act(kind) {
+        if (kind === "copy") {
+          try {
+            await navigator.clipboard.writeText(opts.src);
+            toast("Mermaid copied");
+          } catch (e) {
+            toast("Copy was blocked by the browser");
+          }
+          return;
+        }
+        if (kind === "reset") {
+          offsets = {};
+          store2.set(posKey(), offsets);
+          placeAll();
+          modes[view.mode].refresh();
+          toast("Boxes back where the layout put them");
+          return;
+        }
+        if (kind === "expand") {
+          typeof opts.expand === "function" ? opts.expand({ ...opts, compact: false, expand: false }) : openModal();
+          return;
+        }
+        if (!["copy", "svg", "png", "reset"].includes(kind)) {
+          opts.onTool?.(kind, root.querySelector(`[data-act="${kind}"]`));
+          return;
+        }
+        const text = snapshot2();
+        if (kind === "svg") {
+          save(new Blob([text], { type: "image/svg+xml" }), fileBase() + ".svg");
+          toast("SVG saved");
+          return;
+        }
+        const img = new Image(), scale = 2;
+        img.onload = () => {
+          const cv = document.createElement("canvas");
+          cv.width = els2.W * scale;
+          cv.height = els2.H * scale;
+          const ctx = cv.getContext("2d");
+          ctx.scale(scale, scale);
+          ctx.drawImage(img, 0, 0, els2.W, els2.H);
+          try {
+            cv.toBlob((bl) => {
+              if (bl) {
+                save(bl, fileBase() + ".png");
+                toast("PNG saved");
+              } else toast("PNG failed: use SVG");
+            }, "image/png");
+          } catch (e) {
+            toast("The browser would not draw the labels into a PNG: use SVG");
+          }
+        };
+        img.onerror = () => toast("PNG failed: use SVG");
+        img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(text);
+      }
+      $(".dl-acts").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-act]");
+        if (b) act(b.dataset.act);
+      });
+      function openModal() {
+        const wrap = document.createElement("div");
+        wrap.className = "dl-modal";
+        const inner = document.createElement("div");
+        wrap.append(inner);
+        document.body.append(wrap);
+        const close = () => {
+          wrap.remove();
+          document.removeEventListener("keydown", esc22, true);
+        };
+        const esc22 = (e) => {
+          if (e.key === "Escape" && !e.target.closest?.("input")) {
+            e.stopPropagation();
+            close();
+          }
+        };
+        document.addEventListener("keydown", esc22, true);
+        wrap.addEventListener("pointerdown", (e) => {
+          if (e.target === wrap) close();
+        });
+        mount(inner, { ...opts, compact: false, expand: false, height: "100%" });
+      }
+      function setMode(m) {
+        if (!modes[m]) m = "navigate";
+        view.mode = m;
+        store2.set("mode", m);
+        root.querySelectorAll(".dl-modes [data-mode]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.mode === m)));
+        legendPick = null;
+        buildLegend();
+        nav.hov = null;
+        modes[m].enter();
+      }
+      function paintOpts() {
+        stage.dataset.style = view.style;
+        root.querySelectorAll(".dl-seg[data-opt]").forEach((s) => s.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(view[s.dataset.opt] === b.dataset.v))));
+      }
+      async function setOpt(opt, v) {
+        view[opt] = v;
+        store2.set(opt, v);
+        paintOpts();
+        if (opt === "style") return;
+        if (opt === "edges") {
+          for (const id of els2.edges.keys()) routeEdge(id);
+          buildMini();
+          return;
+        }
+        if (await draw()) {
+          fitDefault(false);
+          modes[view.mode].enter();
+        }
+      }
+      root.querySelector(".dl-modes").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-mode]");
+        if (b) setMode(b.dataset.mode);
+      });
+      root.querySelector(".dl-opts").addEventListener("click", (e) => {
+        const b = e.target.closest(".dl-seg button[data-v]");
+        if (b) setOpt(b.closest("[data-opt]").dataset.opt, b.dataset.v);
+      });
+      $(".dl-zoom").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-z]");
+        if (!b) return;
+        const { w, h } = size();
+        ({ in: () => zoomAt(w / 2, h / 2, 1.25), out: () => zoomAt(w / 2, h / 2, 0.8), one: () => zoomAt(w / 2, h / 2, 1 / cam.k), width: () => fitWidth(), all: () => fitAll() })[b.dataset.z]();
+      });
+      const onKey = (e) => {
+        if (active !== me || !root.isConnected || e.target.closest?.("input, textarea, [contenteditable]") || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (compact && !root.contains(document.activeElement)) return;
+        if (root.closest(".dl-modal") == null && document.querySelector(".dl-modal")) return;
+        const { w, h } = size(), k = e.key;
+        const take = () => {
+          e.preventDefault();
+          e.stopPropagation();
+        };
+        if (k === "/" && !compact) {
+          take();
+          findIn.focus();
+          return;
+        }
+        if (k === "Escape" && (legendPick || nav.sel || foc.sel)) {
+          take();
+          if (legendPick) pickClass(null);
+          else modes[view.mode].background();
+          return;
+        }
+        if (k === "f") {
+          take();
+          return fitAll();
+        }
+        if (k === "w") {
+          take();
+          return fitWidth();
+        }
+        if (k === "+" || k === "=") {
+          take();
+          return zoomAt(w / 2, h / 2, 1.25);
+        }
+        if (k === "-") {
+          take();
+          return zoomAt(w / 2, h / 2, 0.8);
+        }
+        if (view.mode === "walkthrough") {
+          if (k === "ArrowRight" || k === " ") {
+            take();
+            modes.walkthrough.next();
+          } else if (k === "ArrowLeft" || k === "Backspace") {
+            take();
+            modes.walkthrough.back();
+          } else if (/^[1-9]$/.test(k)) {
+            take();
+            modes.walkthrough.next(+k - 1);
+          }
+        }
+      };
+      document.addEventListener("keydown", onKey, true);
+      const themed = new MutationObserver(() => {
+        if (!root.isConnected) return;
+        const was = root.dataset.tone;
+        tone();
+        if (!graph.flow && was !== root.dataset.tone) draw().then((ok) => ok && fitDefault(false));
+        else buildMini();
+      });
+      themed.observe(host, { attributes: true, attributeFilter: ["data-theme"] });
+      new ResizeObserver(() => {
+        if (els2.svg) drawMiniView();
+      }).observe(stage);
+      function fitDefault(anim) {
+        if (!compact) {
+          const { w: w2, h: h2 } = size(), k2 = Math.min(1.15, (w2 - 64) / els2.W, (h2 - 120) / els2.H);
+          if (k2 < READ_FLOOR) return fitWidth(anim);
+          cam.k = k2;
+          cam.x = (w2 - els2.W * k2) / 2;
+          cam.y = 56 + (h2 - 120 - els2.H * k2) / 2;
+          return apply(anim);
+        }
+        const w = stage.clientWidth, k = Math.max(READ_FLOOR, Math.min(1, (w - 32) / els2.W));
+        const h = Math.min(Math.round(els2.H * k + 32), Math.round(innerHeight * 0.7));
+        root.style.setProperty("--dl-height", `${h + $(".dl-top").offsetHeight + 2}px`);
+        cam.k = k;
+        cam.x = Math.max(16, (w - els2.W * k) / 2);
+        cam.y = 16;
+        apply(anim);
+      }
+      function fail(e) {
+        stage.querySelector(".dl-msg")?.remove();
+        stage.insertAdjacentHTML("beforeend", `<div class="dl-msg">Could not render this diagram: ${esc2(e?.message ?? e)}</div>`);
+        opts.onError?.(e);
+      }
+      (async () => {
+        try {
+          await readModel();
+        } catch (e) {
+          fail(e);
+          return;
+        }
+        paintOpts();
+        if (await draw()) {
+          fitDefault(false);
+          setMode(view.mode);
+        }
+        root.dataset.ready = "1";
+        opts.onReady?.(els2.svg);
+      })();
+      return { root, setMode, setOpt, view, fit: () => fitDefault(true) };
+    }
+    window.MermaidLab = { mount };
+  })();
+
+  // src/vendor/diagram-lab.css
+  var diagram_lab_default = `/* Mermaid lab: an interactive mermaid diagram viewer for pages on the kit.
+   Colours come only from the kit's variables (colors.css); each step kind
+   keeps its author's hue (--k) and gets fill, line and ink from the theme.
+   Guide: conventions/pages.md, section "Diagrams". */
+.dl { --dl-panel: 320px; --dl-gap: 8px; display: flex; flex-direction: column; height: var(--dl-height, 80vh); min-height: 420px; font-family: var(--kit-sans, system-ui, sans-serif); color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.dl.dl-full { border: 0; border-radius: 0; }
+
+/* Toolbar: how to read it on the left, how it is drawn and what to do with it on the right. */
+.dl-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.dl-modes { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-md); background: var(--surface-2); }
+.dl-modes button { display: flex; flex-direction: column; align-items: flex-start; padding: 4px 11px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-2); cursor: pointer; font: inherit; }
+.dl-modes b { font: 600 12.5px var(--kit-sans, inherit); color: var(--text); }
+.dl-modes span { font-size: 10.5px; color: var(--dim); }
+.dl-modes button:hover { background: color-mix(in oklab, var(--surface) 60%, transparent); }
+.dl-modes button[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow-sm); }
+.dl-modes button[aria-selected="true"] b { color: var(--brand); }
+.dl-opts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dl-seg { display: flex; align-items: center; }
+.dl-seg > span { font-size: 10.5px; color: var(--dim); margin-right: 6px; letter-spacing: .05em; text-transform: uppercase; }
+.dl-seg button, .dl-act { min-width: 30px; height: 28px; padding: 0 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-seg button:first-of-type { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.dl-seg button:last-of-type { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.dl-seg button + button { border-left: 0; }
+.dl-seg button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-content); }
+.dl-acts { display: flex; gap: 4px; }
+.dl-act { display: inline-flex; align-items: center; gap: 5px; border-radius: var(--radius-sm); }
+.dl-act:hover, .dl-seg button:not([aria-pressed="true"]):hover { color: var(--text); background: var(--surface-2); }
+.dl-act svg { width: 14px; height: 14px; }
+.dl-act[hidden] { display: none; }
+.dl-act:disabled { opacity: .4; cursor: default; pointer-events: none; }
+.dl button:focus-visible, .dl input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.dl-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--dl-panel); }
+.dl.dl-nopanel .dl-main { grid-template-columns: minmax(0, 1fr); }
+.dl.dl-nopanel .dl-panel { display: none; }
+
+/* Stage: the diagram moves inside it; controls float over its corners. */
+.dl-stage { position: relative; overflow: hidden; background: var(--bg); background-image: radial-gradient(color-mix(in oklab, var(--text-3) 20%, transparent) 1px, transparent 1px); background-size: 22px 22px; cursor: grab; touch-action: none; outline: none; }
+.dl-stage.dl-panning { cursor: grabbing; }
+.dl-stage.dl-dragging, .dl-stage.dl-dragging g.node { cursor: move !important; }
+.dl-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.dl-world.dl-anim { transition: transform .38s cubic-bezier(.2, .7, .2, 1); }
+.dl-world svg { display: block; overflow: visible; }
+.dl-msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; color: var(--dim); font-size: 13px; text-align: center; }
+
+.dl-float { position: absolute; z-index: 2; background: color-mix(in oklab, var(--surface) 94%, transparent); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); backdrop-filter: blur(6px); }
+.dl-find { left: 12px; top: 12px; width: 240px; }
+.dl-find input { width: 100%; box-sizing: border-box; height: 32px; padding: 0 30px 0 30px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); font: 13px var(--kit-sans, inherit); }
+.dl-find > svg { position: absolute; left: 10px; top: 9px; width: 14px; height: 14px; color: var(--dim); }
+.dl-find > kbd { position: absolute; right: 8px; top: 7px; }
+.dl-find ul { list-style: none; margin: 0; padding: 4px; border-top: 1px solid var(--border); max-height: 280px; overflow: auto; }
+.dl-find ul:empty { display: none; }
+.dl-find li { display: flex; gap: 8px; align-items: baseline; padding: 5px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--text-2); }
+.dl-find li[aria-selected="true"], .dl-find li:hover { background: var(--surface-2); color: var(--text); }
+.dl kbd { font: 500 10.5px var(--kit-mono, monospace); color: var(--dim); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--bg); }
+.dl-id { flex: none; font: 600 10.5px var(--kit-mono, monospace); color: var(--dim); background: var(--surface-2); border-radius: 4px; padding: 1px 5px; }
+
+.dl-zoom { right: 12px; top: 12px; display: flex; align-items: center; padding: 3px; gap: 2px; }
+.dl-zoom button { display: grid; place-items: center; height: 26px; min-width: 26px; padding: 0 6px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-2); cursor: pointer; font: 500 12px var(--kit-sans, inherit); }
+.dl-zoom button:hover { background: var(--surface-2); color: var(--text); }
+.dl-zoom svg { width: 14px; height: 14px; }
+.dl-zoom .dl-pct { min-width: 46px; font-variant-numeric: tabular-nums; }
+.dl-zoom i { width: 1px; height: 16px; background: var(--border); margin: 0 3px; }
+
+.dl-legend { left: 12px; bottom: 12px; padding: 4px; display: flex; flex-wrap: wrap; gap: 2px; max-width: calc(100% - 250px); }
+.dl-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px 0 8px; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-chip i { width: 10px; height: 10px; border-radius: 3px; background: color-mix(in oklab, var(--k) 22%, var(--surface)); border: 1.5px solid color-mix(in oklab, var(--k) 70%, var(--surface)); }
+.dl-chip em { font-style: normal; color: var(--dim); font-variant-numeric: tabular-nums; }
+.dl-chip:hover { background: var(--surface-2); }
+.dl-chip[aria-pressed="true"] { border-color: color-mix(in oklab, var(--k) 60%, var(--surface)); background: color-mix(in oklab, var(--k) 12%, var(--surface)); color: var(--text); }
+.dl-legend-note { flex-basis: 100%; padding: 2px 9px 4px; font-size: 12px; color: var(--text-2); }
+.dl-legend-note:empty { display: none; }
+
+.dl-mini { right: 12px; bottom: 12px; overflow: hidden; cursor: pointer; }
+.dl-mini-svg svg { display: block; width: 100%; height: 100%; }
+.dl-mini-svg :is(foreignObject, .edgeLabels, marker, .dl-guides) { display: none; }
+.dl-mini-svg path[data-edge] { fill: none !important; }
+.dl-mini-view { position: absolute; border: 1.5px solid var(--brand); background: color-mix(in oklab, var(--brand) 10%, transparent); border-radius: 3px; pointer-events: none; }
+.dl-mini-dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
+.dl-hint { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 2; padding: 5px 12px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); font-size: 12px; box-shadow: var(--shadow-sm); white-space: nowrap; pointer-events: none; }
+.dl-hint:empty { display: none; }
+.dl-toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3; padding: 6px 14px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 12.5px; box-shadow: var(--shadow-md); pointer-events: none; }
+.dl-toast:empty { display: none; }
+
+/* ---- The diagram. Three styles share one set of slots. */
+.dl-stage { --n-fill: var(--surface); --n-line: color-mix(in oklab, var(--text-3) 55%, var(--surface)); --n-ink: var(--text); --n-sub: var(--text-2); --n-w: 1px; --n-r: 10px; --n-rt: 16px;
+  --n-shadow: drop-shadow(0 1px 1px color-mix(in oklab, var(--p-neutral-950) 6%, transparent)) drop-shadow(0 3px 8px color-mix(in oklab, var(--p-neutral-950) 7%, transparent));
+  --e-line: color-mix(in oklab, var(--text-3) 75%, var(--surface)); }
+.dl[data-tone="dark"] .dl-stage { --n-shadow: drop-shadow(0 2px 6px color-mix(in oklab, var(--p-neutral-950) 45%, transparent)); }
+/* Soft: a pale wash of the kind's colour, a quiet line in the same hue. */
+.dl-stage[data-style="soft"] g.node[data-k] { --n-fill: color-mix(in oklab, var(--k) 9%, var(--surface)); --n-line: color-mix(in oklab, var(--k) 48%, var(--surface)); }
+.dl[data-tone="dark"] .dl-stage[data-style="soft"] g.node[data-k] { --n-fill: color-mix(in oklab, var(--k) 13%, var(--surface)); --n-line: color-mix(in oklab, var(--k) 42%, var(--surface)); }
+/* Outline: plain cards, the kind shown only as its line. */
+.dl-stage[data-style="outline"] { --n-r: 6px; --n-rt: 12px; }
+.dl-stage[data-style="outline"] g.node[data-k] { --n-line: color-mix(in oklab, var(--k) 80%, var(--surface)); --n-w: 1.5px; }
+/* Bold: solid kind colours with dark ink, like a sticky-note board. */
+.dl-stage[data-style="bold"] { --n-w: 0px; --n-r: 12px; }
+.dl-stage[data-style="bold"] g.node[data-k] { --n-fill: color-mix(in oklab, var(--k) 72%, var(--p-neutral-50)); --n-ink: var(--p-neutral-950); --n-sub: var(--p-neutral-800); }
+.dl-stage[data-style="bold"] g.node:not([data-k]) { --n-fill: var(--surface-2); }
+
+:is(.dl-world, .dl-mini-svg) g.node :is(rect, path, polygon, circle, ellipse) { fill: var(--n-fill) !important; stroke: var(--n-line) !important; stroke-width: var(--n-w) !important; stroke-linejoin: round; filter: none !important; }
+:is(.dl-world, .dl-mini-svg) g.node rect { rx: var(--n-r); ry: var(--n-r); }
+:is(.dl-world, .dl-mini-svg) g.node rect.dl-term { rx: var(--n-rt); ry: var(--n-rt); }
+.dl-world g.node { filter: var(--n-shadow); cursor: pointer; }
+/* Label: title line, then smaller detail lines, centred in the box. */
+.dl-world g.node foreignObject > div { display: flex !important; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; white-space: normal !important; }
+.dl-world g.node :is(.nodeLabel, .nodeLabel *, span, p) { color: var(--n-ink) !important; fill: var(--n-ink) !important; }
+.dl-world g.node .nodeLabel p { margin: 0; line-height: 1.35; }
+.dl-world g.node .dl-t { display: block; font-weight: 600; font-size: 13.5px; line-height: 1.3; }
+.dl-world g.node .dl-s { display: block; margin-top: 3px; font-size: 12px; line-height: 1.35; color: var(--n-sub) !important; }
+/* Arrows: thin lines, small rounded heads that take the line's colour. */
+:is(.dl-world, .dl-mini-svg) path[data-edge] { fill: none !important; stroke: var(--e-line) !important; stroke-width: 1.25px !important; stroke-dasharray: none !important; stroke-linejoin: round; stroke-linecap: round; }
+.dl-world .dl-head { fill: var(--e-line); stroke: var(--e-line); stroke-width: 1; stroke-linejoin: round; }
+.dl-world .dl-head.dl-on { fill: var(--brand); stroke: var(--brand); }
+.dl-world .dl-head.dl-trail { fill: var(--accent); stroke: var(--accent); }
+/* Edge labels are words on the line, not boxes: no border, the canvas colour behind them. */
+.dl-world .edgeLabel :is(.labelBkg, span, p) { background: var(--bg) !important; color: var(--dim) !important; }
+.dl-world .edgeLabel .labelBkg { font-size: 11.5px; font-weight: 500; border-radius: 4px; box-shadow: 0 0 0 2px var(--bg); }
+.dl-world foreignObject { overflow: visible; }
+.dl-world :is(g.node, path[data-edge], g.edgeLabel, .dl-head) { transition: opacity .18s ease; }
+.dl-guides line { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; }
+
+/* Highlight: hover, focus, legend picks and the walkthrough share these. */
+.dl-world svg.dl-dim :is(g.node, path[data-edge], g.edgeLabel, .dl-head):not(.dl-on) { opacity: .42; }
+.dl-world svg.dl-hide :is(g.node, path[data-edge], g.edgeLabel, .dl-head):not(.dl-on) { opacity: .1; }
+.dl-world svg.dl-hide g.node:not(.dl-on) { pointer-events: none; }
+.dl-world path[data-edge].dl-on { stroke: var(--brand) !important; stroke-width: 1.75px !important; }
+.dl-world path[data-edge].dl-trail { stroke: var(--accent) !important; stroke-width: 2px !important; }
+.dl-world .edgeLabel.dl-on :is(.labelBkg, span, p) { color: var(--text) !important; }
+.dl-world g.node.dl-sel :is(rect, path, polygon, circle, ellipse) { stroke: var(--brand) !important; stroke-width: 1.75px !important; }
+.dl-world g.node.dl-cur :is(rect, path, polygon, circle, ellipse) { stroke: var(--accent) !important; stroke-width: 2px !important; }
+.dl-world g.node.dl-hit :is(rect, path, polygon, circle, ellipse) { stroke: var(--brand) !important; stroke-width: 2px !important; }
+
+/* Side panel: the picked step, where it goes, and what the doc says about it. */
+.dl-panel { overflow: auto; border-left: 1px solid var(--border); background: var(--surface); padding: 14px 14px 32px; font-size: 13px; line-height: 1.45; color: var(--text-2); }
+.dl-panel h3 { font: 600 10.5px var(--kit-sans, inherit); letter-spacing: .07em; text-transform: uppercase; color: var(--dim); margin: 18px 0 6px; }
+.dl-panel p { margin: 0 0 8px; }
+.dl-card { padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid color-mix(in oklab, var(--k, var(--text-3)) 40%, var(--border)); background: color-mix(in oklab, var(--k, var(--text-3)) 7%, var(--surface)); }
+.dl-card-top { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--dim); }
+.dl-card-top i { width: 8px; height: 8px; border-radius: 2px; background: var(--k, var(--text-3)); }
+.dl-card h2 { font: 600 15px/1.3 var(--kit-sans, inherit); color: var(--text); margin: 6px 0 2px; }
+.dl-card .dl-sub { color: var(--text-2); font-size: 12.5px; }
+.dl-card .dl-mean { margin-top: 6px; font-size: 12px; color: var(--dim); }
+.dl-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.dl-links button { display: grid; grid-template-columns: 92px 1fr; gap: 8px; width: 100%; align-items: baseline; text-align: left; padding: 5px 6px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: 13px var(--kit-sans, inherit); cursor: pointer; }
+.dl-links button:hover { background: var(--surface-2); }
+.dl-links small { color: var(--dim); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-src { display: flex; flex-direction: column; gap: 8px; }
+.dl-src section { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.dl-src header { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; background: var(--surface-2); font-size: 11.5px; color: var(--text-2); }
+.dl-src header a { color: var(--dim); text-decoration: none; }
+.dl-src header a:hover { color: var(--brand); }
+.dl-kv { display: grid; grid-template-columns: 92px 1fr; gap: 4px 10px; padding: 8px 10px; margin: 0; }
+.dl-kv dt { color: var(--dim); font-size: 11.5px; padding-top: 1px; }
+.dl-kv dd { margin: 0; color: var(--text); font-size: 12.5px; }
+.dl-kv code, .dl-steps code { font: 11.5px var(--kit-mono, monospace); background: var(--surface-2); padding: 0 4px; border-radius: 3px; }
+.dl-steps { list-style: none; margin: 0; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text); }
+.dl-steps li { display: flex; gap: 6px; }
+.dl-steps li::before { content: ''; flex: none; width: 4px; height: 4px; margin-top: 8px; border-radius: 50%; background: var(--text-3); }
+.dl-more { border: 0; background: none; color: var(--brand); font: 500 12px var(--kit-sans, inherit); cursor: pointer; padding: 2px 0; }
+.dl-scope { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.dl-scope button { height: 26px; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-scope button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-content); }
+.dl-choices { display: flex; flex-direction: column; gap: 6px; }
+.dl-choice { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font: 500 13px var(--kit-sans, inherit); text-align: left; cursor: pointer; }
+.dl-choice:hover { border-color: var(--brand); }
+.dl-choice span { flex: 1; }
+.dl-choice small { display: block; color: var(--dim); font-weight: 400; font-size: 11.5px; }
+.dl-choice.dl-main-choice { border-color: color-mix(in oklab, var(--accent) 55%, var(--border)); }
+.dl-nav { display: flex; gap: 6px; margin-top: 10px; }
+.dl-btn { height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text-2); font: 500 12px var(--kit-sans, inherit); cursor: pointer; }
+.dl-btn:hover { color: var(--text); }
+.dl-btn:disabled { opacity: .45; cursor: default; }
+.dl-trailbar { display: flex; flex-wrap: wrap; gap: 4px; }
+.dl-trailbar button { padding: 1px 7px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text-2); font: 500 11px var(--kit-mono, monospace); cursor: pointer; }
+.dl-trailbar button[aria-current="step"] { border-color: var(--accent); color: var(--text); }
+.dl-empty { color: var(--dim); font-size: 12.5px; }
+.dl-tip { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--dim); }
+
+/* A modal: the same viewer, filling the window. */
+.dl-modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: color-mix(in oklab, var(--p-neutral-950) 55%, transparent); }
+.dl-modal > .dl { width: min(1600px, calc(100vw - 32px)); height: calc(100vh - 32px); box-shadow: var(--shadow-lg); }
+
+/* Compact: a diagram inside a document. One slim toolbar, the drawing sized to fit. */
+.dl.dl-compact { height: var(--dl-height, 240px); min-height: 0; }
+.dl-compact .dl-top { padding: 6px 8px; }
+.dl-compact .dl-modes, .dl-compact .dl-find, .dl-compact .dl-legend, .dl-compact .dl-mini, .dl-compact .dl-hint { display: none; }
+.dl-compact .dl-opts { flex: 1; justify-content: space-between; gap: 10px; }
+.dl-compact .dl-stage { cursor: default; }
+.dl-compact :is(.dl-seg button, .dl-act) { height: 24px; font-size: 11.5px; }
+.dl-compact .dl-act.dl-icon { width: 24px; }
+.dl-compact .dl-zoom { top: 8px; right: 8px; }
+.dl-act.dl-icon { padding: 0; width: 28px; justify-content: center; }
+.dl-act[aria-pressed="true"] { color: var(--brand); border-color: color-mix(in oklab, var(--brand) 50%, var(--border)); }
+.dl-float[hidden] { display: none; }
+/* Not a flowchart: mermaid draws it as it is, so the flowchart controls go. */
+.dl-plain .dl-seg, .dl-plain .dl-modes, .dl-plain .dl-find, .dl-plain .dl-legend, .dl-plain [data-act="reset"] { display: none; }
+.dl-plain .dl-opts { justify-content: flex-end; }
+
+@media (max-width: 900px) {
+  .dl-main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .dl-panel { border-left: 0; border-top: 1px solid var(--border); max-height: 40vh; }
+  .dl-legend { max-width: calc(100% - 24px); bottom: auto; top: 54px; }
+  .dl-find { width: calc(100% - 210px); }
+}
+@media (prefers-reduced-motion: reduce) { .dl-world.dl-anim { transition: none; } }
+`;
+
+  // src/diagram-lab.ts
+  var lab = () => window.MermaidLab;
+  var TOKENS = `.dl{--bg:var(--s1);--surface:var(--s2);--surface-2:var(--s3);--border:var(--bd);
+  --text:var(--tx);--text-2:var(--mt);--text-3:var(--dm);--dim:var(--dm);--brand:var(--ac);--brand-content:var(--tx-on-ac);
+  --accent:var(--nc-orange);--radius-sm:var(--r-sm);--radius-md:10px;--shadow-sm:0 1px 2px rgb(var(--ink) / .14);
+  --shadow-md:var(--pop-sh);--shadow-lg:var(--pop-sh);--p-neutral-950:#0b0d0f;--p-neutral-800:#2b3035;--p-neutral-50:#f7f8f9;
+  --kit-sans:var(--font-text);--kit-mono:var(--mono)}`;
+  var styled = false;
+  function style() {
+    if (styled) return;
+    styled = true;
+    const el2 = document.createElement("style");
+    el2.id = "fe-diagram-lab-css";
+    el2.textContent = diagram_lab_default + TOKENS;
+    document.head.append(el2);
+  }
+  var VIEW_KEY2 = "diagram-view-v1";
+  var prefs = null;
+  var prefsLoad = null;
+  function loadPrefs() {
+    prefsLoad ??= chrome.storage.local.get(VIEW_KEY2).then((r) => {
+      prefs = r[VIEW_KEY2] ?? {};
+    }).catch(() => {
+      prefs = {};
+    });
+    return prefsLoad;
+  }
+  var own = (k) => k.startsWith("pos-") || k === "dir";
+  var store = (key) => ({
+    get: (k, d) => (own(k) ? prefs?.[`${key}:${k}`] : prefs?.[k]) ?? d,
+    set: (k, v) => {
+      if (!prefs) return;
+      prefs[own(k) ? `${key}:${k}` : k] = v;
+      void chrome.storage.local.set({ [VIEW_KEY2]: prefs }).catch(() => {
+      });
+    }
+  });
+  var CACHE_KEY = "diagram-cache-v2";
+  var cache2 = {
+    async get(k) {
+      try {
+        return ((await chrome.storage.local.get(CACHE_KEY))[CACHE_KEY] ?? {})[k] ?? null;
+      } catch {
+        return null;
+      }
+    },
+    set(k, v) {
+      if (typeof v === "string" && v.length > 3e5) return;
+      void chrome.storage.local.get(CACHE_KEY).then((r) => {
+        const all = r[CACHE_KEY] ?? {};
+        delete all[k];
+        all[k] = v;
+        const keys2 = Object.keys(all);
+        for (const old of keys2.slice(0, Math.max(0, keys2.length - 60))) delete all[old];
+        return chrome.storage.local.set({ [CACHE_KEY]: all });
+      }).catch(() => {
+      });
+    }
+  };
+  var loadMermaid = async () => (await import(chrome.runtime.getURL("vendor-mermaid.js"))).default;
+  var hashOf = (s) => {
+    let h = 5381;
+    for (let i3 = 0; i3 < s.length; i3++) h = (h << 5) + h + s.charCodeAt(i3) | 0;
+    return (h >>> 0).toString(36) + s.length.toString(36);
+  };
+  async function mountDiagram(el2, o) {
+    style();
+    await loadPrefs();
+    if (!el2.isConnected) return;
+    const key = hashOf(o.src);
+    lab().mount(el2, {
+      ...o,
+      key,
+      store: store(key),
+      cache: cache2,
+      mermaid: loadMermaid,
+      themeHost: document.getElementById("fe") ?? document.documentElement
+    });
+  }
+  var SOURCE_TOOL = { act: "source", icon: UI_ICON.fmtCode, title: "Show the mermaid source", pressed: false };
 
   // src/docview-media.ts
   var MOCK_W = 1280;
@@ -13635,31 +15029,11 @@ ${t}`)) say("Note title saved");
     draw();
     viewer = { layer: openShell(root), step: step2 };
   }
-  function openDiagram(svg2) {
+  function openDiagram(o) {
     viewer?.layer.close("replaced");
-    const { root, body, head } = shell("Diagram", "Diagram, large");
-    const tools = head.querySelector(".fe-dv-view-tools");
-    tools.innerHTML = ZOOM_BUTTONS + actBtn("save", UI_ICON.export, "Save as SVG");
-    body.innerHTML = '<div class="fe-md-mermaid-view fe-dv-diagram"></div>';
-    const stage = body.firstElementChild;
-    const copy = svg2.cloneNode(true);
-    copy.removeAttribute("style");
-    copy.setAttribute("width", "100%");
-    copy.setAttribute("height", "100%");
-    const vb = copy.getAttribute("viewBox")?.split(/[\s,]+/).map(Number);
-    if (vb?.length === 4 && vb[2] > 0 && vb[3] > 0) {
-      copy.style.maxWidth = `${vb[2] * 2}px`;
-      copy.style.maxHeight = `${vb[3] * 2}px`;
-    }
-    stage.append(copy);
-    bindDiagramStage(stage);
-    fitDiagram(stage);
-    tools.addEventListener("click", (e) => {
-      const b = e.target.closest('[data-mm], [data-media="save"]');
-      if (!b) return;
-      if (b.dataset.media === "save") saveSvg(copy);
-      else zoomAction(stage, b.dataset.mm);
-    });
+    const { root, body } = shell(o.name || "Diagram", "Diagram, large");
+    body.innerHTML = '<div class="fe-dv-diagram"></div>';
+    void mountDiagram(body.firstElementChild, { ...o, compact: false, expand: false, tools: [], height: "100%" });
     viewer = { layer: openShell(root) };
   }
   function openCompare(a, b, labels, onClose) {
@@ -15043,17 +16417,17 @@ ${t}`)) say("Note title saved");
     });
     markDone(model);
     let view = "all", chip = "";
-    const apply2 = () => applyView(root, model, view, chip);
+    const apply = () => applyView(root, model, view, chip);
     wireChipBar(bar, (want) => {
       chip = want;
       root.dataset.dirFilter = want;
-      apply2();
+      apply();
     });
     view = mountViews(root, bar, (v) => {
       view = v;
-      apply2();
+      apply();
     });
-    apply2();
+    apply();
     markOutline(model);
   }
   var directionsView = {
@@ -15076,12 +16450,12 @@ ${t}`)) say("Note title saved");
     const fe = app.fe;
     const box = document.getElementById("fe-dp");
     if (app.fileMode || !box) return null;
-    const views3 = docViewsFor("folder", app.rawPath, app.entryNames);
-    if (!views3.length) return null;
+    const views2 = docViewsFor("folder", app.rawPath, app.entryNames);
+    if (!views2.length) return null;
     fe.classList.add("fe-dp-pending");
     const base = "file://" + app.rawPath.split("/").map(encodeURIComponent).join("/");
     let shown = null;
-    for (const v of views3) {
+    for (const v of views2) {
       try {
         if (await v.mount({ root: box, base, path: app.rawPath, toast: (m) => app.toast(m), app })) {
           shown = v.id;
@@ -16400,16 +17774,13 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
 .fe-md-l::before{content:counter(ln);display:inline-block;width:2.2em;margin-right:1em;text-align:right;color:var(--dm);opacity:.6;user-select:none}
 .fe-md-l:hover{background:color-mix(in srgb,var(--tx) 6%,transparent)}
 .fe-md-mermaid{border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1);overflow:hidden}
-.fe-md-mermaid-tools{display:flex;gap:var(--sp-1)}
-.fe-md-mermaid-view{padding:var(--sp-4) var(--sp-5) var(--sp-5);overflow:hidden;text-align:center;touch-action:none}
-.fe-md-mermaid-view>svg{display:block;max-width:100%;height:auto;margin:auto;transform-origin:0 0}
-.fe-md-mermaid-view.zoomed{cursor:grab}
-.fe-md-mermaid-view.dragging{cursor:grabbing;user-select:none}
+/* The diagram viewer (diagram-lab.ts) draws inside the card; the card keeps the border. */
+.fe-md-mermaid>.dl{border:0;border-radius:0}
 .fe-md-mermaid-source[hidden]{display:none}
 .fe-md-mermaid-source{margin:0 var(--sp-5) var(--sp-5);padding:var(--sp-4);text-align:left;white-space:pre-wrap;
   background:var(--s2);border-radius:var(--r-xs);font:var(--fs-md)/1.55 var(--mono)}
-.fe-dv-diagram{flex:1;min-height:0;padding:var(--sp-5);display:flex;align-items:center;justify-content:center}
-.fe-dv-diagram>svg{width:100%;height:100%;margin:0}
+.fe-dv-diagram{flex:1;min-height:0;display:flex}
+.fe-dv-diagram.dl{border:0;border-radius:0;width:100%}
 .fe-md-anchor{margin-left:var(--sp-4);color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity var(--t-fast)}
 .fe-md-anchor::before{content:'#'}
 .fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}
@@ -18073,15 +19444,15 @@ button.chip:disabled{opacity:.45;cursor:default}
       holding = false;
       grow.disconnect();
     };
-    const apply2 = () => {
+    const apply = () => {
       if (!holding) return;
       scroller2.scrollTop = top;
       if (Math.abs(scroller2.scrollTop - top) < 2) stop();
     };
-    const grow = new ResizeObserver(apply2);
+    const grow = new ResizeObserver(apply);
     if (holding) {
       for (const c of scroller2.children) grow.observe(c);
-      apply2();
+      apply();
       for (const ev of ["wheel", "pointerdown", "keydown", "touchstart"]) scroller2.addEventListener(ev, stop, { once: true, passive: true });
       setTimeout(stop, 3e3);
     }
@@ -20384,7 +21755,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       rail.style.maxHeight = b.h === void 0 ? "" : "none";
       reset.hidden = !Object.keys(b).length;
     };
-    const apply2 = () => {
+    const apply = () => {
       cur = boxPref.get()[tab()] ?? {};
       paintBox(clampBox(cur, pageSize(), cardSize()));
     };
@@ -20420,7 +21791,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       reset: () => keep({})
     });
     reset.addEventListener("click", () => keep({}));
-    return { placed: (t) => Object.keys(boxPref.get()[t] ?? {}).length > 0, apply: apply2 };
+    return { placed: (t) => Object.keys(boxPref.get()[t] ?? {}).length > 0, apply };
   }
 
   // src/file-page.ts
@@ -23583,8 +24954,8 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   }
   function runOpenWith(act, path, commands, toast) {
     const pick2 = act.replace(/^ow:/, "");
-    const own = pick2.startsWith("#") ? commands[Number(pick2.slice(1))] : null;
-    const payload = own ? { action: "run_with", path, cmd: own.cmd, terminal: own.terminal } : { action: "open_with", path, target: pick2 };
+    const own2 = pick2.startsWith("#") ? commands[Number(pick2.slice(1))] : null;
+    const payload = own2 ? { action: "run_with", path, cmd: own2.cmd, terminal: own2.terminal } : { action: "open_with", path, target: pick2 };
     chrome.runtime.sendMessage({ type: "bfb-native-oneshot", host: "com.better_file_browser.ghostty", payload }, (res) => {
       if (chrome.runtime.lastError || !res?.ok) toast("Could not open it. Is the launcher installed (native/install.sh)?");
       else if (res.response?.success === false) toast(`Could not open it: ${res.response.error}`);
@@ -26564,7 +27935,7 @@ ${rows.join("\n")}`, name: subject };
           <input class="tb fe-st-input fe-rp-hex" data-mono value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
       };
       paint();
-      const apply2 = () => {
+      const apply = () => {
         saveRules();
         const ico = rulesList.querySelector(`.fe-rule[data-idx="${idx}"] .fe-rule-ico`);
         if (ico) ico.innerHTML = icoCustom(rule.label, rule.color, rule.glyph);
@@ -26575,7 +27946,7 @@ ${rows.join("\n")}`, name: subject };
         if (g) rule.glyph = g.dataset.g || void 0;
         else if (c) rule.color = c.dataset.c;
         else return;
-        apply2();
+        apply();
         paint();
         box.querySelector(g ? `.fe-rp-g[data-g="${g.dataset.g}"]` : `.fe-rp-c[data-c="${c.dataset.c}"]`)?.focus();
       });
@@ -26583,11 +27954,11 @@ ${rows.join("\n")}`, name: subject };
         const t = e.target;
         if (t.classList.contains("fe-rp-label")) {
           rule.label = t.value;
-          apply2();
+          apply();
         }
         if (t.classList.contains("fe-rp-hex") && /^#[0-9a-f]{6}$/i.test(t.value)) {
           rule.color = t.value;
-          apply2();
+          apply();
         }
       });
       pop = openLayer(box, { kind: "popover", anchor, offset: 6, group: "menu", focus: box.querySelector(".fe-rp-g.on") ?? "first" });
@@ -27068,85 +28439,41 @@ ${rows.join("\n")}`, name: subject };
   }
 
   // src/md-ui.ts
-  var DIAGRAMS_KEY = "diagram-cache-v1";
-  var hashOf = (s) => {
-    let h = 5381;
-    for (let i3 = 0; i3 < s.length; i3++) h = (h << 5) + h + s.charCodeAt(i3) | 0;
-    return (h >>> 0).toString(36) + s.length.toString(36);
-  };
-  async function keptDiagram(key) {
-    try {
-      return ((await chrome.storage.local.get(DIAGRAMS_KEY))[DIAGRAMS_KEY] ?? {})[key] ?? "";
-    } catch {
-      return "";
-    }
-  }
-  function keepDiagram(key, svg2) {
-    if (svg2.length > 3e5) return;
-    void chrome.storage.local.get(DIAGRAMS_KEY).then((r) => {
-      const all = r[DIAGRAMS_KEY] ?? {};
-      delete all[key];
-      all[key] = svg2;
-      const keys2 = Object.keys(all);
-      for (const k of keys2.slice(0, Math.max(0, keys2.length - 30))) delete all[k];
-      return chrome.storage.local.set({ [DIAGRAMS_KEY]: all });
-    }).catch(() => {
-    });
-  }
   function initMarkdownUi(toast) {
-    const rendered = /* @__PURE__ */ new WeakMap();
-    const pending3 = /* @__PURE__ */ new WeakSet();
-    let sequence = 0;
-    let queue = Promise.resolve();
-    const theme = () => document.getElementById("fe")?.dataset.theme === "light" ? "light" : "dark";
+    const mounted2 = /* @__PURE__ */ new WeakSet();
     const renderDiagrams = () => {
       document.querySelectorAll(".fe-md-mermaid").forEach((block) => {
-        if (pending3.has(block) || rendered.get(block) === theme()) return;
-        pending3.add(block);
+        if (mounted2.has(block)) return;
+        mounted2.add(block);
+        const view = block.querySelector(".fe-md-mermaid-view");
+        if (!view) return;
+        const src = block.querySelector(".fe-md-mermaid-source")?.textContent || "";
         const slow = setTimeout(() => {
-          const v = block.querySelector(".fe-md-mermaid-view");
-          if (v && !v.childElementCount && !v.textContent) v.textContent = "Rendering diagram\u2026";
+          const stage = view.querySelector(".dl-stage");
+          if (stage && !view.dataset.ready && !stage.querySelector(".dl-msg")) stage.insertAdjacentHTML("beforeend", '<div class="dl-msg">Rendering diagram\u2026</div>');
         }, 200);
-        queue = queue.then(async () => {
-          if (!block.isConnected) return;
-          const source = block.querySelector(".fe-md-mermaid-source")?.textContent || "";
-          const view = block.querySelector(".fe-md-mermaid-view");
-          if (!view) return;
-          const currentTheme = theme();
-          const key = `${currentTheme}:${hashOf(source)}`;
-          const kept = await keptDiagram(key);
-          const show = (svg2) => {
-            view.innerHTML = svg2;
-            bindDiagramStage(view);
-            fitDiagram(view);
-          };
-          if (kept) {
-            if (block.isConnected) show(kept);
-            rendered.set(block, currentTheme);
-            return;
-          }
-          try {
-            const { default: mermaid } = await import(chrome.runtime.getURL("vendor-mermaid.js"));
-            mermaid.initialize({
-              startOnLoad: false,
-              securityLevel: "strict",
-              htmlLabels: false,
-              suppressErrorRendering: true,
-              theme: currentTheme === "light" ? "default" : "dark"
-            });
-            const { svg: svg2 } = await mermaid.render(`fe-mermaid-${key.replace(":", "-")}-${++sequence}`, source);
-            if (block.isConnected) show(svg2);
-            keepDiagram(key, svg2);
-          } catch {
-            view.textContent = "Could not render this Mermaid diagram.";
+        const name2 = decodeURIComponent(location.pathname.split("/").pop() || "diagram").replace(/\.[^.]+$/, "");
+        void mountDiagram(view, {
+          src,
+          name: name2,
+          compact: true,
+          tools: [SOURCE_TOOL],
+          // On a markdown file's own page the large view reads the doc around the diagram too.
+          expand: (o) => {
+            if (!block.closest("#fe-page") || !/\.(md|markdown|mdx)$/i.test(location.pathname)) {
+              openDiagram(o);
+              return;
+            }
+            void fetchFileText(location.href).then((md2) => openDiagram({ ...o, md: md2, file: location.href }), () => openDiagram(o));
+          },
+          onTool: (act) => {
+            if (act === "source") showSource(block, block.querySelector(".fe-md-mermaid-source")?.hasAttribute("hidden") ?? true);
+          },
+          onReady: () => clearTimeout(slow),
+          onError: () => {
+            clearTimeout(slow);
             showSource(block, true);
           }
-          rendered.set(block, currentTheme);
-        }).catch(() => {
-        }).finally(() => {
-          pending3.delete(block);
-          clearTimeout(slow);
-          if (block.isConnected && rendered.get(block) !== theme()) renderDiagrams();
         });
       });
     };
@@ -27164,9 +28491,7 @@ ${rows.join("\n")}`, name: subject };
         directionsHere();
       }).observe(fe, {
         childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["data-theme"]
+        subtree: true
       });
       renderDiagrams();
       linkFrontMatterPaths();
@@ -27183,28 +28508,6 @@ ${rows.join("\n")}`, name: subject };
         });
         return;
       }
-      const mm = t.closest(".fe-md-mermaid [data-mm]");
-      if (mm) {
-        e.preventDefault();
-        const block = mm.closest(".fe-md-mermaid");
-        const view = block.querySelector(".fe-md-mermaid-view");
-        const svg2 = view.querySelector(":scope > svg");
-        const source = block.querySelector(".fe-md-mermaid-source")?.textContent || "";
-        const act = mm.dataset.mm;
-        if (zoomAction(view, act)) return;
-        if (act === "source") showSource(block, mm.getAttribute("aria-pressed") !== "true");
-        else if (act === "copy") void copyWithCheck(mm, source).then((ok) => {
-          if (!ok) toast("Copy failed");
-        });
-        else if (act === "save") {
-          if (svg2) saveSvg(svg2);
-          else toast("The diagram has not been drawn");
-        } else if (act === "large") {
-          if (svg2) openDiagram(svg2);
-          else toast("The diagram has not been drawn");
-        }
-        return;
-      }
       const img = t.closest(".fe-md img");
       if (img && !img.closest("a, [data-docview]")) {
         e.preventDefault();
@@ -27214,7 +28517,7 @@ ${rows.join("\n")}`, name: subject };
   }
   function showSource(block, on) {
     block.querySelector(".fe-md-mermaid-source")?.toggleAttribute("hidden", !on);
-    const btn = block.querySelector('[data-mm="source"]');
+    const btn = block.querySelector('[data-act="source"]');
     if (!btn) return;
     btn.setAttribute("aria-pressed", String(on));
     btn.title = btn.ariaLabel = on ? "Hide the source" : "Show the source";
@@ -27859,13 +29162,13 @@ ${rows.join("\n")}`, name: subject };
       const young = all.filter((s) => Date.now() - s.at < settle);
       if (young.length) later(settle - (Date.now() - Math.min(...young.map((s) => s.at))) + 100);
       const sets = all.filter((s) => !young.includes(s)).slice(0, 3);
-      const own = strip.closedTabs().slice(0, 8);
-      const ownRows = own.map((t) => `<button type="button" class="row fe-si fe-rc-tab" data-tab="${esc(t.id)}" title="Reopen ${esc(t.path)}">${t.kind === "folder" ? PI.folder : icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}<span class="fe-sl">${esc(t.label)}</span></button>`).join("");
+      const own2 = strip.closedTabs().slice(0, 8);
+      const ownRows = own2.map((t) => `<button type="button" class="row fe-si fe-rc-tab" data-tab="${esc(t.id)}" title="Reopen ${esc(t.path)}">${t.kind === "folder" ? PI.folder : icoFile(t.label.includes(".") ? t.label.split(".").pop().toLowerCase() : "")}<span class="fe-sl">${esc(t.label)}</span></button>`).join("");
       box.innerHTML = ownRows + sets.map((s) => {
         const n = s.labels.length;
         return `<button type="button" class="row fe-si fe-rc-set" data-set="${esc(s.id)}" title="Add these tabs to this strip: ${esc(s.labels.join(", "))}">${PI.tabset}<span class="fe-sl">${n} tab${n === 1 ? "" : "s"}: ${esc(s.labels.slice(0, 3).join(", "))}${n > 3 ? "\u2026" : ""}</span><span class="fe-rc-ago">${ago3(s.at)}</span></button>`;
       }).join("");
-      section.hidden = !(visible2 && (sets.length || own.length));
+      section.hidden = !(visible2 && (sets.length || own2.length));
     }
     box.addEventListener("click", (e) => {
       const t = e.target.closest(".fe-rc-tab");

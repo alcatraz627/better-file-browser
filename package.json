@@ -9,7 +9,8 @@
     "test:ui": "vitest --ui",
     "e2e": "node e2e/smoke.mjs",
     "e2e:light": "BFB_THEME=light node e2e/smoke.mjs",
-    "e2e:workflow": "node e2e/workflow.mjs"
+    "e2e:workflow": "node e2e/workflow.mjs",
+    "sync:diagram": "cp ~/.claude/scripts/pages/diagram/diagram.js src/vendor/diagram-lab.js && cp ~/.claude/scripts/pages/diagram/diagram.css src/vendor/diagram-lab.css"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",
@@ -25,7 +26,7 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "mermaid": "^11.17.2",
+    "mermaid": "^12.2.0",
     "yaml": "^2.6.1"
   }
 }
