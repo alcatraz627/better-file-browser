@@ -177,6 +177,10 @@ export function pushRecent(path: string): void {
   list.unshift({ path, ts: Date.now() });
   kvSet(RECENTS_KEY, JSON.stringify(list.slice(0, 40)));
 }
+/** Drop one place from the recent list, as if it had never been opened. */
+export function forgetRecent(path: string): void {
+  kvSet(RECENTS_KEY, JSON.stringify(getRecents().filter(r => r.path !== path)));
+}
 
 // Your home folder, read from any page under /Users/<name> and remembered,
 // so Places can offer Home, Desktop and the rest from a page outside it too.

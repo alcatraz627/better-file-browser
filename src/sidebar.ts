@@ -832,6 +832,7 @@ export function initSidebar(app: App): void {
     notes.read(root, rel).then(doc => openNote(root, doc, refreshNotes, actions))
       .catch((err: NotesError) => toast(errorText(err, 'Opening the note')));
   }
+  app.editNoteProps = (rel, anchor) => { const root = notesRoot(); if (root) openProps(root, rel, anchor); };
   function openProps(root: string, rel: string, anchor: HTMLElement): void {
     notes.read(root, rel).then(doc => openPropsMenu(anchor, readProps(rel, doc.text), async c => {
       const cur = await notes.read(root, rel);

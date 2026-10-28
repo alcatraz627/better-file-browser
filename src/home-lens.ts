@@ -1,32 +1,41 @@
-// Home: one place to see what is going on across bfb, as a full page in the
-// main pane (the default, at ~/#home) and as a lens in the sidebar. Both show
-// what waits on the owner (decision pages waiting, and each repo whose
-// directions doc has asks, with how many), every Ask chat to continue with the
-// start of its last answer, and the quiet repos and pages. A click opens the
-// thing itself: the chat on its file, the page, the doc. The lists refresh
-// when shown and every 15 seconds while they stay in view.
-import { notes } from './notes';
-import { esc, whenText } from './utils';
-import { UI_ICON } from './control-icons';
+// Home: one place to see what is going on across bfb, as a full page (the
+// default, at ~/#home) and as a sidebar lens. Both show what waits on the
+// owner, Ask chats to continue, and each repo's directions; a click opens the
+// thing itself. The page adds a path bar, usage numbers and quick links that
+// can be edited, forgotten, or opened elsewhere. Lists refresh when shown and
+// every 15 seconds while in view.
+import { notes, type NoteMeta } from './notes';
+import { esc, whenText, fileHref, pageHref } from './utils';
+import { UI_ICON, LINE_ICON, line } from './control-icons';
 import { allChats, type AskChat } from './ask-history';
 import { ago, REACH, type DpRow } from './dp-lens';
-import { jsonPref, getSaved, getRecents } from './storage';
-import { summarizeRepo, sortRepos, openPages, usageStats, type RepoSummary, type UsageStat } from './home-model';
+import { jsonPref, getSaved, saveSaved, getRecents, forgetRecent, keptNotesList, homeDir } from './storage';
+import { renamePlace, setTags, parseTags, removePlace } from './places';
+import { summarizeRepo, sortRepos, openPages, usageStats, splitByAge, type RepoSummary, type UsageStat } from './home-model';
 import { emptyHtml } from './empty-state';
 import { DISCLOSE, PI, icoFile } from './icons';
+import { absPath, resolvePath, readable, suggestPaths } from './goto';
+import { openLayer, type Layer } from './layer';
+import { go as navigate } from './nav';
+import type { App } from './app';
 
 type Chat = { subject: string; chat: AskChat };
-interface QuickLink { path: string; label: string }
-interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: UsageStat[]; saved: QuickLink[]; recent: QuickLink[] }
+interface QuickLink { path: string; label: string; kind: 'saved' | 'note' | 'recent'; tags?: string[]; rel?: string }
+interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: UsageStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[] }
 type Go = (path: string, hash?: string) => void;
 
 // The Decisions lens's hand-archived pages, so Home leaves them out too.
 const archivedPref = jsonPref<string[]>('bfb-dp-archived-v1', [], Array.isArray);
+// The page's cards the owner folded shut, by card id.
+const foldedPref = jsonPref<string[]>('bfb-home-folded-v1', [], Array.isArray);
 const SIDE_CHATS = 5, PAGE_CHATS = 8, LINKS = 8;
+/** Waiting pages older than this many days are counted, not listed. */
+const FRESH_DAYS = 14;
 
 const name = (p: string) => p.split('/').filter(Boolean).pop() || '/';
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
-const today = () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+const today = (month: 'short' | 'long' = 'short') => new Date().toLocaleDateString('en-US', { weekday: 'long', month, day: 'numeric' });
+const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
 /** The start of a chat's last real answer, as plain text. */
 const lastAnswer = (c: AskChat) => {
   const t = [...c.turns].reverse().find(x => x.a && !x.error);
@@ -41,15 +50,16 @@ const chatRow = (c: Chat) => {
     <span class="fe-home-age" title="${esc(whenText(c.chat.at))}">${esc(ago(c.chat.at / 1000))}</span>
   </button>`;
 };
-const pageRow = (r: DpRow) => {
+// `inWaiting`: the row sits in a list that already says these wait on you, so it does not say it again.
+const pageRow = (r: DpRow, inWaiting = false) => {
   const unseen = r.state === 'waiting' && !r.seen;
   const reach = r.reach && REACH[r.reach];
-  const sub = [r.state === 'waiting' ? 'waiting on you' : 'never answered', reach?.label, r.origin?.project].filter(Boolean).join(' · ');
+  const sub = [inWaiting ? '' : r.state === 'waiting' ? 'waiting on you' : 'never answered', r.origin?.project, reach?.label].filter(Boolean).join(' · ');
   return `<button type="button" class="row fe-home-row${unseen ? ' unseen' : ''}" data-page="${esc(r.path)}" title="${esc(r.title ?? r.slug)}${unseen ? ' · you have not opened this one yet' : ''}">
     <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ''}</span>
-    <span class="fe-home-tx"><span class="fe-home-t">${esc(r.title ?? r.slug)}</span><span class="fe-home-s">${esc(sub)}</span></span>
+    <span class="fe-home-tx"><span class="fe-home-t">${esc(r.title ?? r.slug)}</span>${sub ? `<span class="fe-home-s">${esc(sub)}</span>` : ''}</span>
+    ${r.items ? `<span class="badge" data-tone="quiet" title="${plural(r.items, 'question')}">${r.items}</span>` : ''}
     <span class="fe-home-age" title="${esc(whenText(r.mtime * 1000))}">${esc(ago(r.mtime))}</span>
-    ${r.items ? `<span class="badge" data-tone="${r.state === 'waiting' ? 'solid' : 'quiet'}" title="${plural(r.items, 'item')}">${r.items}</span>` : ''}
   </button>`;
 };
 const repoRow = (r: RepoSummary) => {
@@ -70,10 +80,10 @@ const group = (id: string, label: string, n: number, body: string, open: boolean
 function paintSide(d: HomeData, allShown: boolean, folded: Set<string>): string {
   const asks = d.repos.filter(r => r.onYou);
   const waiting = d.pages.filter(p => p.state === 'waiting');
-  const quiet = [...d.repos.filter(r => !r.onYou).map(repoRow), ...d.pages.filter(p => p.state !== 'waiting').map(pageRow)];
+  const quiet = [...d.repos.filter(r => !r.onYou).map(repoRow), ...d.pages.filter(p => p.state !== 'waiting').map(r => pageRow(r))];
   const n = waiting.length + asks.length;
   const card = n
-    ? `<section class="fe-home-card" data-tone="you"><div class="sect fe-home-card-h" data-level="group">Needs you<span class="fe-grp-n">${n}</span></div>${waiting.map(pageRow).join('')}${asks.map(repoRow).join('')}</section>`
+    ? `<section class="fe-home-card" data-tone="you"><div class="sect fe-home-card-h" data-level="group">Needs you<span class="fe-grp-n">${n}</span></div>${waiting.map(r => pageRow(r)).join('')}${asks.map(repoRow).join('')}</section>`
     : `<section class="fe-home-card" data-tone="calm"><div class="sect fe-home-card-h" data-level="group">${UI_ICON.circleCheck}<span>Nothing waits on you</span></div></section>`;
   const failed = d.pagesFailed ? none('Decision pages could not be listed') : '';
   const chats = allShown ? d.chats : d.chats.slice(0, SIDE_CHATS);
@@ -83,49 +93,84 @@ function paintSide(d: HomeData, allShown: boolean, folded: Set<string>): string 
     + (quiet.length ? group('quiet', 'Quiet', quiet.length, quiet.join(''), !folded.has('quiet')) : '');
 }
 
-const statCard = (s: UsageStat) =>
-  `<div class="fe-hp-stat"><b>${esc(s.value)}</b><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></div>`;
+// Each number on the page gets its own icon and colour.
+const STAT_LOOK: Record<UsageStat['id'], { icon: string; tone: string }> = {
+  asked: { icon: UI_ICON.ai, tone: 'var(--nc-purple)' },
+  chats: { icon: UI_ICON.comment, tone: 'var(--nc-blue)' },
+  answered: { icon: UI_ICON.circleCheck, tone: 'var(--nc-green)' },
+  opened: { icon: UI_ICON.clock, tone: 'var(--nc-orange)' },
+  saved: { icon: line(LINE_ICON.bm, 14), tone: 'var(--nc-pink)' },
+  top: { icon: UI_ICON.file, tone: 'var(--nc-teal)' },
+};
+const tile = (icon: string, tone: string) => `<span class="fe-dlg-tile" style="--tone:${tone}" aria-hidden="true">${icon}</span>`;
+const statCell = (s: UsageStat) =>
+  `<div class="fe-hp-stat" data-stat="${s.id}">${tile(STAT_LOOK[s.id].icon, STAT_LOOK[s.id].tone)}<div class="fe-hp-stat-tx"><b title="${esc(s.value)}">${esc(s.value)}</b><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></div></div>`;
+
 const linkCard = (l: QuickLink) => {
   const dir = l.path.endsWith('/');
   const ext = l.label.includes('.') ? l.label.split('.').pop()!.toLowerCase() : '';
-  return `<button type="button" class="fe-hp-link" data-link="${esc(l.path)}" title="${esc(l.path)}">${dir ? PI.folder : icoFile(ext)}<span>${esc(l.label)}</span></button>`;
+  const ico = l.kind === 'note' ? UI_ICON.notes : dir ? PI.folder : icoFile(ext);
+  const tags = l.tags?.length ? `<span class="fe-hp-link-tags">${l.tags.map(t => `<i>${esc(t)}</i>`).join('')}</span>` : '';
+  const end = l.kind === 'recent'
+    ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>`
+    : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
+  return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(l.path)))}" data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
 };
 
-// The full page: a head that says how the day stands, then two columns, what
-// to act on (decisions waiting, chats to continue) beside what to keep an eye
-// on (every repo's directions, pages nobody answered).
-function paintPage(d: HomeData, allShown: boolean): string {
+/** One card on the page: an icon, a title, a line saying what it holds, a count, and a body that folds away. */
+const card = (id: string, o: { icon: string; tone: string; title: string; sub: string; n?: number }, body: string, folded: Set<string>) =>
+  `<details class="fe-hp-card" data-card="${id}"${folded.has(id) ? '' : ' open'}>
+    <summary class="fe-hp-card-h">${tile(o.icon, o.tone)}<span class="fe-hp-card-tx"><b>${esc(o.title)}</b><span>${esc(o.sub)}</span></span>${o.n != null ? `<span class="fe-grp-n">${o.n}</span>` : ''}${DISCLOSE}</summary>
+    <div class="fe-hp-card-b">${body}</div>
+  </details>`;
+
+// The full page: a head that says how the day stands with a path bar under
+// it, a row of numbers, then three columns: what to act on (decisions, chats),
+// what to keep an eye on (every repo's directions), and quick links.
+function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string {
   const waiting = d.pages.filter(p => p.state === 'waiting');
-  const never = d.pages.filter(p => p.state !== 'waiting');
+  const { recent: fresh, older } = splitByAge(waiting, FRESH_DAYS);
   const asks = d.repos.reduce((s, r) => s + r.onYou, 0);
   const askRepos = d.repos.filter(r => r.onYou).length;
-  const tally = [
-    waiting.length ? `${plural(waiting.length, 'decision')} waiting on you` : 'No decision waiting',
-    asks ? `${plural(asks, 'ask')} in ${plural(askRepos, 'repo')}` : '',
-    d.chats.length ? plural(d.chats.length, 'chat') : '',
-  ].filter(Boolean).join(' · ');
-  const panel = (id: string, label: string, n: number, body: string, tone = '') =>
-    `<section class="fe-hp-panel" data-panel="${id}"${tone ? ` data-tone="${tone}"` : ''}><div class="sect fe-hp-panel-h" data-level="group">${esc(label)}<span class="fe-grp-n">${n}</span></div>${body}</section>`;
+  const chip = (to: string, text: string, tone = '') => `<button type="button" class="fe-hp-chip" data-jump="${to}"${tone ? ` data-tone="${tone}"` : ''}>${esc(text)}</button>`;
+  const chips = [
+    fresh.length ? chip('decide', `${plural(fresh.length, 'decision')} waiting`, 'you') : chip('decide', 'No decision waiting'),
+    asks ? chip('repos', `${plural(asks, 'ask')} in ${plural(askRepos, 'repo')}`, 'you') : '',
+    d.chats.length ? chip('chats', plural(d.chats.length, 'chat')) : '',
+  ].join('');
   const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
+  const olderLine = older.length
+    ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural(older.length, 'older page')} in Decisions</button>` : '';
   const decide = d.pagesFailed ? none('Decision pages could not be listed')
-    : waiting.map(pageRow).join('') || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`;
-  const links = (label: string, list: QuickLink[]) => list.length
-    ? `<section class="fe-hp-links"><div class="sect fe-hp-links-h" data-level="group">${esc(label)}</div>${list.map(linkCard).join('')}</section>` : '';
+    : (fresh.map(r => pageRow(r, true)).join('') || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
+  const links = (id: string, o: { icon: string; tone: string; title: string; sub: string }, list: QuickLink[], empty: string) =>
+    card(id, { ...o, n: list.length }, list.length ? `<div class="fe-hp-links">${list.map(linkCard).join('')}</div>` : none(empty), folded);
   return `<div class="fe-hp">
-    <header class="fe-hp-head"><h1>${esc(today())}</h1><p>${esc(tally)}</p></header>
-    <div class="fe-hp-stats">${d.stats.map(statCard).join('')}</div>
+    <header class="fe-hp-head">
+      <div class="fe-hp-hello"><h1>${esc(greeting())}</h1><span class="fe-hp-date">${esc(today('long'))}</span></div>
+      <div class="fe-hp-chips">${chips}</div>
+      <form class="fe-hp-go" role="search" autocomplete="off">
+        <span class="fe-hp-go-ico">${line(LINE_ICON.search, 16)}</span>
+        <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp" aria-label="Open a path" title="Type a path; folders and files are suggested as you type">
+        <datalist id="fe-hp-go-list"></datalist>
+        <button type="submit" class="btn" data-size="md" title="Open this path here">Open</button>
+        <button type="button" class="btn fe-hp-go-link" data-size="md" data-variant="ghost" title="Open what is typed as a web link, in a new Chrome tab">${UI_ICON.link}Open link</button>
+      </form>
+      <p class="fe-hp-go-msg" role="status" hidden></p>
+    </header>
+    <div class="fe-hp-stats">${d.stats.map(statCell).join('')}</div>
     <div class="fe-hp-cols">
       <div class="fe-hp-col">
-        ${panel('decide', 'Decisions waiting', waiting.length, decide, waiting.length ? 'you' : '')}
-        ${panel('chats', 'Continue', d.chats.length, (chats.map(chatRow).join('') || none('No chats yet. Ask about any file to start one.')) + moreBtn(chats.length, d.chats.length))}
+        ${card('decide', { icon: UI_ICON.opinion, tone: 'var(--nc-blue)', title: 'Decisions', sub: `Pages waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
+        ${card('chats', { icon: UI_ICON.ai, tone: 'var(--nc-purple)', title: 'Continue', sub: 'Ask chats, newest first', n: d.chats.length }, (chats.map(chatRow).join('') || none('No chats yet. Ask about any file to start one.')) + moreBtn(chats.length, d.chats.length), folded)}
       </div>
       <div class="fe-hp-col">
-        ${panel('repos', 'Directions', d.repos.length, d.repos.map(repoRow).join('') || none('No directions docs found under ~/Code'))}
-        ${never.length ? panel('never', 'Never answered', never.length, never.map(pageRow).join('')) : ''}
+        ${card('repos', { icon: UI_ICON.contents, tone: 'var(--nc-teal)', title: 'Directions', sub: 'Each repo’s plan, asks on you first', n: d.repos.length }, d.repos.map(repoRow).join('') || none('No directions docs found under ~/Code'), folded)}
       </div>
       <div class="fe-hp-col fe-hp-col-links">
-        ${links('Saved', d.saved)}${links('Opened lately', d.recent)}
-        ${!d.saved.length && !d.recent.length ? none('Places you save or open show up here') : ''}
+        ${links('saved', { icon: line(LINE_ICON.bm, 14), tone: 'var(--nc-pink)', title: 'Saved', sub: 'Places you keep' }, d.saved, 'Save a place with the star to see it here')}
+        ${links('notes', { icon: UI_ICON.notes, tone: 'var(--nc-orange)', title: 'Notes', sub: 'Latest first' }, d.notes, 'Notes you write show up here')}
+        ${links('recent', { icon: UI_ICON.clock, tone: 'var(--nc-green)', title: 'Opened lately', sub: '× forgets one' }, d.recent, 'Places you open show up here')}
       </div>
     </div>
   </div>`;
@@ -133,28 +178,46 @@ function paintPage(d: HomeData, allShown: boolean): string {
 
 /** Fill `box` with Home and keep it current. The sidebar lens refreshes while
  *  its lens is open; the page refreshes while its tab is in front. */
-function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page'): void {
+function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App): void {
   let data: HomeData | null = null, timer: ReturnType<typeof setInterval> | null = null, seq = 0, allShown = false;
-  const folded = new Set<string>();
-  const render = () => { if (data) box.innerHTML = layout === 'page' ? paintPage(data, allShown) : paintSide(data, allShown, folded); };
+  const folded = new Set<string>(layout === 'page' ? foldedPref.get() : []);
+  const notesRoot = () => app?.settings.notesRoot?.replace(/\/+$/, '') ?? '';
+  const noteLinks = (list: NoteMeta[]): QuickLink[] => [...list].sort((a, b) => b.mtime - a.mtime).slice(0, LINKS)
+    .map(n => ({ path: `${notesRoot()}/${n.rel}`, rel: n.rel, label: n.title || name(n.rel).replace(/\.md$/, ''), kind: 'note', tags: n.tags }));
+  const quick = (): Pick<HomeData, 'saved' | 'recent'> => {
+    const saved = getSaved(), savedPaths = new Set(saved.map(p => p.path));
+    return {
+      saved: saved.slice(0, LINKS).map(p => ({ path: p.path, label: p.label || name(p.path), kind: 'saved', tags: p.tags })),
+      recent: getRecents().filter(r => !savedPaths.has(r.path)).slice(0, LINKS).map(r => ({ path: r.path, label: name(r.path), kind: 'recent' })),
+    };
+  };
+  // A redraw keeps what is typed in the path bar and where the focus was.
+  const render = () => {
+    if (!data) return;
+    const input = box.querySelector<HTMLInputElement>('.fe-hp-go-in');
+    const typed = input?.value ?? '', had = !!input && document.activeElement === input;
+    box.innerHTML = layout === 'page' ? paintPage(data, allShown, folded) : paintSide(data, allShown, folded);
+    if (layout === 'page') wireGo(typed, had);
+  };
   // Only the newest read paints, so a slow one never overwrites a fresher list.
   const load = async () => {
     const mine = ++seq;
-    const [pages, docs] = await Promise.all([
+    const root = notesRoot();
+    const [pages, docs, noteList] = await Promise.all([
       notes.dpPages().then(rows => ({ rows, failed: false }), () => ({ rows: [] as DpRow[], failed: true })),
       notes.directionsDocs().catch(() => []),
+      layout === 'page' && root ? notes.list(root).catch(() => keptNotesList<NoteMeta>(root) ?? []) : Promise.resolve([] as NoteMeta[]),
     ]);
     if (mine !== seq) return;
-    const chats = allChats(), saved = getSaved(), recents = getRecents();
-    const savedPaths = new Set(saved.map(p => p.path));
+    const chats = allChats();
     data = {
       chats,
       pages: openPages(pages.rows, new Set(archivedPref.get())),
       pagesFailed: pages.failed,
       repos: sortRepos(docs.map(doc => summarizeRepo(doc))),
-      stats: usageStats(chats, recents, saved, pages.rows),
-      saved: saved.slice(0, LINKS).map(p => ({ path: p.path, label: p.label || name(p.path) })),
-      recent: recents.filter(r => !savedPaths.has(r.path)).slice(0, LINKS).map(r => ({ path: r.path, label: name(r.path) })),
+      stats: usageStats(chats, getRecents(), getSaved(), pages.rows),
+      notes: noteLinks(noteList),
+      ...quick(),
     };
     render();
   };
@@ -162,19 +225,148 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page'): void {
     if (timer) clearInterval(timer);
     if (!data) box.innerHTML = emptyHtml('loading', 'Loading…');
     void load();
-    timer = setInterval(() => { if (!document.hidden) void load(); }, 15_000);
+    timer = setInterval(() => { if (!document.hidden && !box.contains(document.activeElement)) void load(); }, 15_000);
   };
+
+  // The path bar: Enter opens a path here, or a web address in a new Chrome tab.
+  function wireGo(typed: string, focus: boolean): void {
+    const form = box.querySelector<HTMLFormElement>('.fe-hp-go');
+    if (!form) return;
+    const input = form.querySelector<HTMLInputElement>('input')!;
+    const msg = box.querySelector<HTMLElement>('.fe-hp-go-msg')!;
+    const say = (text: string) => { msg.hidden = !text; msg.textContent = text; };
+    const home = () => homeDir(location.pathname ? decodeURIComponent(location.pathname) : '');
+    input.value = typed;
+    if (focus) input.focus();
+    suggestPaths(input, form.querySelector('datalist')!, home);
+    input.addEventListener('input', () => say(''));
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (/^https?:\/\//i.test(text)) { navigate(text, 'chrome-tab'); return; }
+      const path = absPath(text, home());
+      if (!path) { say('Type a full path, such as ~/Code or /Users/you/notes.md'); return; }
+      const found = await resolvePath(path);
+      if (!found) { say(`Nothing at ${path}`); return; }
+      if (!await readable(found)) { say(`The browser could not open ${found}. It may not have permission to read that folder.`); return; }
+      go(found);
+    });
+    form.querySelector('.fe-hp-go-link')!.addEventListener('click', () => {
+      const text = input.value.trim();
+      if (!text) { say('Type or paste a web address first'); input.focus(); return; }
+      navigate(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : 'https://' + text, 'chrome-tab');
+    });
+  }
+
+  // A quick link's menu: open it elsewhere, edit it, or let it go.
+  const menu = document.createElement('div');
+  menu.className = 'fe-ctx fe-hp-menu';
+  let layer: Layer | null = null;
+  function openMenu(btn: HTMLElement): void {
+    const kind = btn.dataset.kind as QuickLink['kind'];
+    const item = (act: string, icon: string, text: string) => `<div class="row fe-ctx-item" data-act="${act}">${icon}<span>${text}</span></div>`;
+    menu.innerHTML = [
+      item('open', UI_ICON.files, 'Open'),
+      item('chrome', UI_ICON.external, 'Open in a new Chrome tab'),
+      item('side', UI_ICON.preview, 'Show in the sidebar'),
+      '<div class="fe-ctx-sep"></div>',
+      kind === 'saved' ? item('edit', UI_ICON.tag, 'Name and tags…') : item('props', UI_ICON.palette, 'Colour, pin and tags…'),
+      kind === 'saved' ? item('unsave', UI_ICON.trash, 'Remove from Saved') : '',
+    ].join('');
+    menu.dataset.path = btn.dataset.menu;
+    menu.dataset.kind = kind;
+    layer = openLayer(menu, { kind: 'popover', anchor: btn, align: 'end', role: 'menu', group: 'menu' });
+  }
+  menu.addEventListener('click', e => {
+    const act = (e.target as HTMLElement).closest<HTMLElement>('.fe-ctx-item')?.dataset.act;
+    const path = menu.dataset.path!, kind = menu.dataset.kind;
+    const anchor = box.querySelector<HTMLElement>(`[data-menu="${CSS.escape(path)}"]`);
+    layer?.close('pick');
+    if (!act) return;
+    if (act === 'open') go(path);
+    else if (act === 'chrome') navigate(pageHref(fileHref(path)), 'chrome-tab');
+    else if (act === 'side') showInSidebar(kind === 'note' ? 'notes' : 'saved', path);
+    else if (act === 'edit' && anchor) editSaved(path, anchor);
+    else if (act === 'props' && anchor) app?.editNoteProps?.(path.slice(notesRoot().length + 1), anchor);
+    else if (act === 'unsave') {
+      const before = getSaved();
+      saveSaved(removePlace(before, path));
+      app?.refreshSaved();
+      refreshQuick();
+      app?.toast('Removed from Saved', 6000, { label: 'undo', run: () => { saveSaved(before); app?.refreshSaved(); refreshQuick(); } });
+    }
+  });
+  function showInSidebar(lens: 'saved' | 'notes', path: string): void {
+    app?.showLens?.(lens);
+    requestAnimationFrame(() => {
+      const row = lens === 'notes'
+        ? document.querySelector<HTMLElement>(`#fe-side .fe-nt-item[data-rel="${CSS.escape(path.slice(notesRoot().length + 1))}"]`)
+        : document.querySelector<HTMLElement>(`#fe-side .fe-pl-item[data-path="${CSS.escape(path)}"]`);
+      row?.scrollIntoView({ block: 'nearest' });
+      row?.classList.add('fe-area-flash');
+      row?.focus();
+      setTimeout(() => row?.classList.remove('fe-area-flash'), 1200);
+    });
+  }
+  // A small form beside the link: its name and its tags, saved on Enter.
+  function editSaved(path: string, anchor: HTMLElement): void {
+    const place = getSaved().find(p => p.path === path);
+    if (!place) return;
+    const form = document.createElement('form');
+    form.className = 'fe-hp-edit panel';
+    form.innerHTML = `<label><span>Name</span><input class="tb" data-size="md" name="label" spellcheck="false" title="Name shown for this place"></label>
+      <label><span>Tags</span><input class="tb" data-size="md" name="tags" spellcheck="false" placeholder="work, docs" title="Tags, separated by commas"></label>
+      <div class="fe-hp-edit-acts"><button type="button" class="btn" data-size="sm" data-variant="ghost" data-cancel title="Close without saving">Cancel</button><button type="submit" class="btn" data-size="sm" data-tone="accent" title="Save the name and tags">Save</button></div>`;
+    const label = form.querySelector<HTMLInputElement>('[name="label"]')!, tags = form.querySelector<HTMLInputElement>('[name="tags"]')!;
+    label.value = place.label || name(path);
+    tags.value = (place.tags ?? []).join(', ');
+    const l = openLayer(form, { kind: 'popover', anchor, align: 'end', role: 'dialog', label: 'Name and tags', focus: label, group: 'menu' });
+    form.querySelector('[data-cancel]')!.addEventListener('click', () => l.close('api'));
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      let list = getSaved();
+      if (label.value.trim()) list = renamePlace(list, path, label.value.trim());
+      saveSaved(setTags(list, path, parseTags(tags.value)));
+      l.close('pick');
+      app?.refreshSaved();
+      refreshQuick();
+      app?.toast('Saved the name and tags');
+    });
+  }
+  const refreshQuick = () => { if (data) { data = { ...data, ...quick() }; render(); } };
+
   box.addEventListener('toggle', e => {
-    const g = (e.target as HTMLDetailsElement).dataset?.grp;
-    if (!g) return;
-    if ((e.target as HTMLDetailsElement).open) folded.delete(g); else folded.add(g);
+    const t = e.target as HTMLDetailsElement;
+    const id = t.dataset?.grp ?? t.dataset?.card;
+    if (!id) return;
+    if (t.open) folded.delete(id); else folded.add(id);
+    if (t.dataset.card) foldedPref.set([...folded]);
   }, true);
   box.addEventListener('click', e => {
     const t = e.target as Element;
-    if (t.closest('[data-more]')) { allShown = true; render(); return; }
-    const link = t.closest<HTMLElement>('[data-link]');
-    if (link) { go(link.dataset.link!); return; }
-    const row = t.closest<HTMLElement>('.fe-home-row');
+    // Only parts of Home answer: the sidebar around the lens has data- attributes of its own.
+    const hit = <T extends HTMLElement>(sel: string) => { const m = t.closest<T>(sel); return m && box.contains(m) ? m : null; };
+    if (hit('[data-more]')) { allShown = true; render(); return; }
+    const jump = hit('[data-jump]');
+    if (jump) {
+      const c = box.querySelector<HTMLDetailsElement>(`[data-card="${jump.dataset.jump}"]`);
+      if (c) { c.open = true; c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      return;
+    }
+    const lens = hit('[data-hp-lens]');
+    if (lens) { app?.showLens?.(lens.dataset.hpLens!); return; }
+    const forget = hit('[data-forget]');
+    if (forget) { forgetRecent(forget.dataset.forget!); refreshQuick(); return; }
+    const more = hit('[data-menu]');
+    if (more) { openMenu(more); return; }
+    const link = hit<HTMLAnchorElement>('[data-link]');
+    if (link) {
+      if ((e as MouseEvent).metaKey || (e as MouseEvent).ctrlKey || (e as MouseEvent).shiftKey) return;   // Chrome's own new-tab gestures keep the anchor
+      e.preventDefault();
+      go(link.dataset.link!);
+      return;
+    }
+    const row = hit('.fe-home-row');
     if (!row) return;
     if (row.dataset.chat) go(row.dataset.subject!, '#ask=' + encodeURIComponent(row.dataset.chat));
     else if (row.dataset.page) go(row.dataset.page + '/');
@@ -188,4 +380,4 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page'): void {
 }
 
 export const initHomeLens = (box: HTMLElement, go: Go) => mountHome(box, go, 'side');
-export const initHomePage = (box: HTMLElement, go: Go) => mountHome(box, go, 'page');
+export const initHomePage = (box: HTMLElement, go: Go, app: App) => mountHome(box, go, 'page', app);

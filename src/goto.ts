@@ -61,6 +61,53 @@ export async function resolvePath(path: string): Promise<string | null> {
   return hit ? clean + (hit.isDir ? '/' : '') : null;
 }
 
+// Folder listings read for suggestions, kept briefly so each key typed does not read the folder again.
+const listed = new Map<string, { at: number; names: { name: string; dir: boolean }[] }>();
+async function namesIn(dir: string): Promise<{ name: string; dir: boolean }[]> {
+  const hit = listed.get(dir);
+  if (hit && Date.now() - hit.at < 10_000) return hit.names;
+  const href = fileHref(dir);
+  const names = parseListing(await fetchFileText(href), href).filter(e => !e.isParent).map(e => ({ name: e.name, dir: e.isDir }));
+  listed.set(dir, { at: Date.now(), names });
+  return names;
+}
+
+/** What to offer while a path is typed: the entries of the folder it is in
+ *  whose names start with the part after the last slash (folders first, each
+ *  ending in /), then recent places that contain the text. A path typed with
+ *  ~ is offered with ~. Never throws; an unreadable folder offers recents only. */
+export async function pathSuggestions(input: string, home: string, limit = 12): Promise<string[]> {
+  const typed = input.trim().replace(/^['"]|['"]$/g, '');
+  const abs = absPath(typed, home);
+  const tilde = !!home && (typed === '~' || typed.startsWith('~/'));
+  const shown = (p: string) => tilde && p.startsWith(home) ? '~' + p.slice(home.length) : p;
+  const out: string[] = [];
+  if (abs) {
+    const dir = abs.endsWith('/') ? abs : abs.slice(0, abs.lastIndexOf('/') + 1) || '/';
+    const stem = abs.slice(dir.length).toLowerCase();
+    const names = await namesIn(dir).catch(() => []);
+    const hits = names.filter(n => n.name.toLowerCase().startsWith(stem) && (stem.startsWith('.') || !n.name.startsWith('.')))
+      .sort((a, b) => Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name));
+    for (const n of hits) out.push(shown(dir + n.name + (n.dir ? '/' : '')));
+  }
+  const needle = typed.toLowerCase();
+  for (const r of getRecents()) if (needle && r.path.toLowerCase().includes(needle.replace(/^~/, home.toLowerCase())) && !out.includes(shown(r.path))) out.push(shown(r.path));
+  return out.slice(0, limit);
+}
+
+/** Keep a <datalist> filled with suggestions for what is typed in `input`. */
+export function suggestPaths(input: HTMLInputElement, list: HTMLDataListElement, home: () => string): void {
+  let seq = 0;
+  const fill = async () => {
+    const mine = ++seq;
+    const opts = await pathSuggestions(input.value, home());
+    if (mine !== seq) return;
+    list.innerHTML = opts.map(p => `<option value="${esc(p)}"></option>`).join('');
+  };
+  input.addEventListener('input', () => void fill());
+  input.addEventListener('focus', () => void fill());
+}
+
 // Go to's submit while it is open; ⌥↩ calls it with background set.
 let submitOpen: ((background: boolean) => void) | null = null;
 
@@ -85,6 +132,7 @@ export function mountGoto(btn: HTMLElement, home: () => string, go: (path: strin
     const form = box;
     const input = box.querySelector('input')!;
     input.value = lastPref.get();
+    suggestPaths(input, box.querySelector('datalist')!, home);
     // A click away or Esc closes it and keeps what was typed for next time.
     layer = openLayer(box, { kind: 'popover', anchor: btn, offset: 6, role: 'dialog', label: 'Go to a path', focus: input,
       onClose: () => { lastPref.set(input.value); if (box === form) { box = null; submitOpen = null; } btn.classList.remove('on'); } });

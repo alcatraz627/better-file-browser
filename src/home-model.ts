@@ -30,8 +30,8 @@ export function summarizeRepo(doc: RepoDoc, now = new Date()): RepoSummary {
 export const sortRepos = (repos: RepoSummary[]) =>
   [...repos].sort((a, b) => Number(b.onYou > 0) - Number(a.onYou > 0) || b.onYou - a.onYou || b.mtime - a.mtime);
 
-/** One stat card on Home: a value, what it counts, and a small aside. */
-export interface UsageStat { label: string; value: string; sub: string }
+/** One stat on Home: which it is, a value, what it counts, and a small aside. */
+export interface UsageStat { id: 'asked' | 'chats' | 'answered' | 'opened' | 'saved' | 'top'; label: string; value: string; sub: string }
 
 /** Light, slightly idle facts about how bfb gets used, from what bfb already
  *  keeps: chats, places opened and saved, and decision pages answered. */
@@ -52,13 +52,20 @@ export function usageStats(
   const tags = new Set(saved.flatMap(s => s.tags ?? []));
   const n = (v: number) => v.toLocaleString('en-US');
   return [
-    { label: 'questions asked', value: n(turns.length), sub: `${n(turns.filter(t => t.at >= week).length)} this week` },
-    { label: 'chats', value: n(chats.length), sub: `about ${n(perSubject.size)} ${perSubject.size === 1 ? 'thing' : 'things'}` },
-    { label: 'decisions answered', value: n(answered.length), sub: `${n(answered.filter(t => t >= week).length)} this week` },
-    { label: 'places opened lately', value: n(recents.length), sub: `${n(recents.filter(r => r.ts >= day.getTime()).length)} today` },
-    { label: 'places saved', value: n(saved.length), sub: tags.size ? `${n(tags.size)} ${tags.size === 1 ? 'tag' : 'tags'}` : 'no tags yet' },
-    { label: 'asked about most', value: top ? (top[0].split('/').filter(Boolean).pop() || '/') : 'nothing yet', sub: top ? `${n(top[1])} ${top[1] === 1 ? 'question' : 'questions'}` : 'ask about any file' },
+    { id: 'asked', label: 'questions asked', value: n(turns.length), sub: `${n(turns.filter(t => t.at >= week).length)} this week` },
+    { id: 'chats', label: 'chats', value: n(chats.length), sub: `about ${n(perSubject.size)} ${perSubject.size === 1 ? 'thing' : 'things'}` },
+    { id: 'answered', label: 'decisions answered', value: n(answered.length), sub: `${n(answered.filter(t => t >= week).length)} this week` },
+    { id: 'opened', label: 'places opened lately', value: n(recents.length), sub: `${n(recents.filter(r => r.ts >= day.getTime()).length)} today` },
+    { id: 'saved', label: 'places saved', value: n(saved.length), sub: tags.size ? `${n(tags.size)} ${tags.size === 1 ? 'tag' : 'tags'}` : 'no tags yet' },
+    { id: 'top', label: 'asked about most', value: top ? (top[0].split('/').filter(Boolean).pop() || '/') : 'nothing yet', sub: top ? `${n(top[1])} ${top[1] === 1 ? 'question' : 'questions'}` : 'ask about any file' },
   ];
+}
+
+/** Waiting decision pages split by age: the ones touched in the last `days`
+ *  days, which Home lists, and the older ones, which it only counts. */
+export function splitByAge<T extends { mtime: number }>(rows: T[], days = 14, now = Date.now()): { recent: T[]; older: T[] } {
+  const cut = now / 1000 - days * 86400;
+  return { recent: rows.filter(r => r.mtime >= cut), older: rows.filter(r => r.mtime < cut) };
 }
 
 /** The decision pages still open, in the Decisions lens's own order. */

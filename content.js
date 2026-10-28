@@ -653,6 +653,9 @@
     list3.unshift({ path, ts: Date.now() });
     kvSet(RECENTS_KEY, JSON.stringify(list3.slice(0, 40)));
   }
+  function forgetRecent(path) {
+    kvSet(RECENTS_KEY, JSON.stringify(getRecents().filter((r) => r.path !== path)));
+  }
   var HOME_KEY = "bfb-home-v1";
   function homeDir(path) {
     const seen = path.match(/^\/Users\/[^/]+/)?.[0];
@@ -1813,7 +1816,7 @@ ${body}`;
     { id: "esc", group: "Anywhere", title: "Close, or step back", keys: ["Esc"] },
     // Go
     { id: "up", group: "Go", title: "Parent folder", keys: ["\u232B", "\u2318\u2191"], own: true, over: ["\u2318\u2191"] },
-    { id: "home", group: "Go", title: "Home", keys: ["g h"], own: true },
+    { id: "home", group: "Go", title: "Home", keys: ["g h", "e 0"], own: true, over: true },
     { id: "path", group: "Go", title: "Type a path", keys: ["l"], own: true },
     { id: "goto-bg", group: "Go", title: "Open the typed path as a background tab", keys: ["\u2325\u21A9"], scope: "goto", own: true, field: true },
     { id: "open-pick", group: "Go", title: "Open a file or folder", keys: ["o"], own: true },
@@ -4128,8 +4131,8 @@ ${body}`;
         const n = order.indexOf(id) + 1;
         return `<sup class="fe-md-fnref"><a href="#fn-${esc(id)}" id="fnref-${esc(id)}">${n}</a></sup>`;
       });
-      const listed = [...order, ...[...notes2.keys()].filter((k) => !order.includes(k))];
-      html += `<section class="fe-md-footnotes"><ol>${listed.map((id) => `<li id="fn-${esc(id)}">${mdInline(notes2.get(id), baseUrl)} <a href="#fnref-${esc(id)}" class="fe-md-fnback" title="Back to the text">\u21A9</a></li>`).join("")}</ol></section>`;
+      const listed2 = [...order, ...[...notes2.keys()].filter((k) => !order.includes(k))];
+      html += `<section class="fe-md-footnotes"><ol>${listed2.map((id) => `<li id="fn-${esc(id)}">${mdInline(notes2.get(id), baseUrl)} <a href="#fnref-${esc(id)}" class="fe-md-fnback" title="Back to the text">\u21A9</a></li>`).join("")}</ol></section>`;
     }
     return linkLocalPaths(`<div class="fe-md">${html}</div>`);
   }
@@ -14413,7 +14416,7 @@ ${t}`)) say("Note title saved");
     let state = restoreState(cfg, saved.get());
     const rail = box.querySelector(".fe-dv-outline");
     const cards2 = () => [...box.querySelectorAll(".fe-dp-card")];
-    const card4 = (id) => cards2().find((c) => c.dataset.id === id);
+    const card5 = (id) => cards2().find((c) => c.dataset.id === id);
     const showNote = (c, on) => {
       const wrap = c.querySelector(".fe-dp-note"), add = c.querySelector(".fe-dp-addnote");
       if (!wrap || !add) return;
@@ -14549,7 +14552,7 @@ ${t}`)) say("Note title saved");
       else openNote2(c);
     };
     markRail = followOutline(rail, box, cards2(), (id) => {
-      const c = card4(id);
+      const c = card5(id);
       if (!c) return;
       const g = c.closest("details");
       if (g && !g.open) g.open = true;
@@ -15414,12 +15417,12 @@ body{opacity:1!important}
 .fe-home-s{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
 .fe-home-p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:var(--sp-1);font-size:var(--fs-sm);color:var(--mt)}
 .fe-home-age{flex:none;font-size:var(--fs-sm);color:var(--dm)}
-.fe-home-you{flex:none;font-size:var(--fs-sm);font-weight:500;color:var(--tx);padding:0 var(--sp-3);border-radius:var(--r-full);background:color-mix(in srgb,var(--tone-danger) 18%,transparent)}
+.fe-home-you{flex:none;font-size:var(--fs-sm);font-weight:500;color:var(--tx);padding:0 var(--sp-3);border-radius:var(--r-full);background:color-mix(in srgb,var(--ac) 18%,transparent)}
 .fe-home-none{margin:var(--sp-2) var(--sp-6) var(--sp-4);font-size:var(--fs-sm);color:var(--dm)}
 .fe-home-more{margin:var(--sp-1) var(--sp-5) var(--sp-4)}
 .fe-home-row.has-p .fe-home-age{align-self:flex-start;margin-top:var(--sp-1)}
 .fe-home-head{padding:var(--sp-5) var(--sp-6) var(--sp-1);font-size:var(--fs-md);font-weight:600;color:var(--tx)}
-.fe-home-card{margin:var(--sp-3) var(--sp-3) var(--sp-4);padding:var(--sp-1) 0 var(--sp-2);border:1px solid color-mix(in srgb,var(--tone-danger) 30%,var(--bd));border-radius:var(--r-sm);background:color-mix(in srgb,var(--tone-danger) 5%,var(--s1))}
+.fe-home-card{margin:var(--sp-3) var(--sp-3) var(--sp-4);padding:var(--sp-1) 0 var(--sp-2);border:1px solid color-mix(in srgb,var(--ac) 30%,var(--bd));border-radius:var(--r-sm);background:color-mix(in srgb,var(--ac) 5%,var(--s1))}
 .fe-home-card[data-tone="calm"]{border-color:var(--bd);background:var(--s1)}
 .fe-home-card-h{min-height:var(--ctl-md);padding:0 var(--sp-5)}
 .fe-home-card[data-tone="calm"] .fe-home-card-h{color:var(--tone-ok)}
@@ -15427,32 +15430,69 @@ body{opacity:1!important}
 #fe.fe-home-mode #fe-toolbar,#fe.fe-home-mode #fe-sg-panel,#fe.fe-home-mode #fe-filter-bar,#fe.fe-home-mode #fe-scroll,#fe.fe-home-mode #fe-dp,#fe.fe-home-mode #fe-statusbar{display:none}
 #fe-home-page{flex:1;min-height:0;overflow:auto;padding:var(--sp-9)}
 #fe-home-page[hidden]{display:none}
-.fe-hp{max-width:72rem;margin:0 auto}
-.fe-hp-head{margin:0 var(--sp-2) var(--sp-8)}
-.fe-hp-head h1{margin:0;font-size:var(--fs-xl);font-weight:650;letter-spacing:-.01em;color:var(--tx)}
-.fe-hp-head p{margin:var(--sp-2) 0 0;font-size:var(--fs-md);color:var(--mt)}
-.fe-hp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-5);margin-bottom:var(--sp-7)}
+.fe-hp{max-width:76rem;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-7)}
+/* The head: a greeting and the date, what is waiting as chips that jump to their card, and the path bar. */
+.fe-hp-head{display:flex;flex-direction:column;gap:var(--sp-5);padding:var(--sp-8) var(--sp-8) var(--sp-7);border:1px solid var(--bd);border-radius:var(--r-sm);
+  background:radial-gradient(120% 140% at 0% 0%,color-mix(in srgb,var(--ac) 12%,transparent),transparent 60%),var(--s1)}
+.fe-hp-hello{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-2) var(--sp-6)}
+.fe-hp-hello h1{margin:0;font-size:calc(var(--fs-xl) * 1.35);font-weight:650;letter-spacing:-.02em;line-height:1.15;color:var(--tx)}
+.fe-hp-date{font-size:var(--fs-md);color:var(--mt)}
+.fe-hp-chips{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
+.fe-hp-chip{display:inline-flex;align-items:center;min-height:var(--ctl-sm);padding:0 var(--sp-5);border:1px solid var(--bd);border-radius:var(--r-full);background:var(--s2);color:var(--mt);font:inherit;font-size:var(--fs-sm);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+.fe-hp-chip:hover{background:var(--s3);color:var(--tx)}
+.fe-hp-chip[data-tone="you"]{border-color:color-mix(in srgb,var(--ac) 40%,var(--bd));background:color-mix(in srgb,var(--ac) 12%,var(--s2));color:var(--tx);font-weight:500}
+.fe-hp-chip:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.fe-hp-go{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-hp-go:focus-within{border-color:var(--ac);box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 18%,transparent)}
+.fe-hp-go-ico{display:flex;flex:none;color:var(--dm)}
+.fe-hp-go-in{flex:1;min-width:0;height:var(--ctl-md);border:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md);font-family:var(--mono);outline:none}
+.fe-hp-go-in::placeholder{color:var(--dm);font-family:var(--font-text)}
+.fe-hp-go-msg{margin:calc(var(--sp-3) * -1) 0 0;font-size:var(--fs-sm);color:var(--tone-warn)}
+.fe-hp-go-msg[hidden]{display:none}
+/* The numbers: one band, cells split by hairlines. */
+.fe-hp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--bd);border-radius:var(--r-sm);overflow:hidden;background:var(--s1)}
 @container fe-main (min-width:1100px){.fe-hp-stats{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @container fe-main (max-width:480px){.fe-hp-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.fe-hp-stat{display:flex;flex-direction:column;gap:var(--sp-1);min-width:0;padding:var(--sp-5) var(--sp-6);border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1)}
-.fe-hp-stat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-lg);font-weight:650;color:var(--tx);font-variant-numeric:tabular-nums}
+.fe-hp-stat{display:flex;align-items:flex-start;gap:var(--sp-4);min-width:0;padding:var(--sp-6);box-shadow:1px 0 0 var(--bd),0 1px 0 var(--bd)}
+.fe-hp-stat .fe-dlg-tile{margin-top:var(--sp-1)}
+.fe-hp-stat-tx{display:flex;flex-direction:column;gap:var(--sp-1);min-width:0}
+.fe-hp-stat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(var(--fs-xl) * 1.5);font-weight:650;line-height:1.1;letter-spacing:-.01em;color:var(--tx);font-variant-numeric:tabular-nums}
+.fe-hp-stat[data-stat="top"] b{font-size:calc(var(--fs-xl) * 1.1);line-height:1.5}
 .fe-hp-stat-l{font-size:var(--fs-sm);color:var(--mt)}
-.fe-hp-stat-s{font-size:var(--fs-sm);color:var(--dm)}
+.fe-hp-stat-s{font-size:var(--fs-xs);color:var(--dm)}
 .fe-hp-cols{display:flex;flex-wrap:wrap;gap:var(--sp-7);align-items:flex-start}
-.fe-hp-links{display:flex;flex-direction:column;gap:var(--sp-2)}
-.fe-hp-links-h{padding:0 var(--sp-2) var(--sp-1)}
-.fe-hp-link{display:flex;align-items:center;gap:var(--sp-3);min-width:0;padding:var(--sp-3) var(--sp-4);border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1);color:var(--tx);font:inherit;font-size:var(--fs-sm);text-align:left;cursor:pointer;transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
-.fe-hp-link span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fe-hp-link svg{flex:none}
-.fe-hp-link:hover{background:var(--hover);border-color:color-mix(in srgb,var(--ac) 35%,var(--bd))}
-.fe-hp-link:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 .fe-hp-col{display:flex;flex-direction:column;gap:var(--sp-7);min-width:0;flex:2 1 22rem}
-.fe-hp-col.fe-hp-col-links{flex:1 1 11rem}
-.fe-hp-panel{padding:var(--sp-2) 0 var(--sp-3);border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1)}
-.fe-hp-panel[data-tone="you"]{border-color:color-mix(in srgb,var(--tone-danger) 30%,var(--bd));background:color-mix(in srgb,var(--tone-danger) 5%,var(--s1))}
-.fe-hp-panel-h{min-height:var(--ctl-md);padding:0 var(--sp-6)}
-.fe-hp-panel .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
+.fe-hp-col.fe-hp-col-links{flex:1 1 15rem}
+/* A card: icon, title and what it holds, a count, and a body that folds away. */
+.fe-hp-card{border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1);overflow:hidden}
+.fe-hp-card-h{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-4) var(--sp-5);list-style:none;cursor:pointer;user-select:none}
+.fe-hp-card-h::-webkit-details-marker{display:none}
+.fe-hp-card-h:hover{background:var(--hover)}
+.fe-hp-card-h:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+.fe-hp-card[open]>.fe-hp-card-h{border-bottom:1px solid var(--bd)}
+.fe-hp-card-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.fe-hp-card-tx b{font-size:var(--fs-md);font-weight:600;color:var(--tx)}
+.fe-hp-card-tx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
+.fe-hp-card-h>.chev{flex:none;color:var(--dm)}
+.fe-hp-card-b{padding:var(--sp-2) 0 var(--sp-3)}
+.fe-hp-card .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
 .fe-hp-calm{display:flex;align-items:center;gap:var(--sp-3);color:var(--tone-ok)}
+/* Quick links: a row per place, its actions showing on hover. */
+.fe-hp-links{display:flex;flex-direction:column;padding:0 var(--sp-2)}
+.fe-hp-link{display:flex;align-items:center;gap:var(--sp-1);min-width:0;border-radius:var(--row-r);transition:background var(--t-fast) var(--ease)}
+.fe-hp-link:hover,.fe-hp-link:focus-within{background:var(--hover)}
+.fe-hp-link-a{flex:1;display:flex;align-items:center;gap:var(--sp-4);min-width:0;padding:var(--sp-3) var(--sp-4);color:var(--tx);font-size:var(--fs-sm);text-decoration:none;border-radius:var(--row-r)}
+.fe-hp-link-a:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+.fe-hp-link-a svg{flex:none}
+.fe-hp-link-tx{flex:1;min-width:0;display:flex;align-items:center;gap:var(--sp-3)}
+.fe-hp-link-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-hp-link-tags{display:flex;gap:var(--sp-1);flex:none}
+.fe-hp-link-tags i{font-style:normal;font-size:var(--fs-xs);color:var(--mt);padding:0 var(--sp-2);border-radius:var(--r-full);background:var(--s3)}
+.fe-hp-link-act{flex:none;margin-right:var(--sp-2);opacity:0;transition:opacity var(--t-fast) var(--ease)}
+.fe-hp-link:hover .fe-hp-link-act,.fe-hp-link:focus-within .fe-hp-link-act,.fe-hp-link-act[aria-expanded="true"]{opacity:1}
+.fe-hp-edit{display:flex;flex-direction:column;gap:var(--sp-4);width:18rem;padding:var(--sp-5)}
+.fe-hp-edit label{display:flex;flex-direction:column;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--mt)}
+.fe-hp-edit-acts{display:flex;justify-content:flex-end;gap:var(--sp-2)}
 #fe-side-rz{width:10px}
 .fe-sec{margin-bottom:var(--sp-2)}
 .fe-sec.fe-collapsed>:not(.fe-sh){display:none}
@@ -15887,9 +15927,13 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
 /* After the last pinned tab, a divider: the tabs scrolling under it read as their own, never as part of the pinned one. */
 .fe-tab.pinned.pin-end::after{content:'';position:absolute;top:-1px;bottom:0;left:calc(100% + var(--sp-2));width:var(--sp-8);border-left:1px solid var(--bd2);background:linear-gradient(90deg,var(--side) 40%,transparent);pointer-events:none}
 .fe-tab.pinned .fe-tab-lbl,.fe-tab.pinned .fe-tab-more{display:none}
-#fe-tab-home{flex:none;min-width:0;margin:var(--sp-3) 0 0 var(--sp-3);position:relative}
+/* Home sits before the tabs as a bare icon. It never looks selected: being on
+   Home is what having no tab open looks like. */
+#fe-tab-home{flex:none;display:flex;align-items:center;justify-content:center;width:calc(var(--ctl-md) + var(--sp-1));height:var(--ctl-md);margin:var(--sp-3) var(--sp-2) 0 var(--sp-3);position:relative;border-radius:var(--r-xs);color:var(--mt);text-decoration:none;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
+#fe-tab-home:hover{background:var(--s3);color:var(--tx)}
+#fe-tab-home:focus-visible{outline:2px solid var(--mt);outline-offset:-2px}
 #fe-tab-home[hidden]{display:none}
-#fe-tab-home::after{content:'';position:absolute;top:var(--sp-2);bottom:var(--sp-2);right:calc(var(--sp-1) * -2);border-right:1px solid var(--bd2)}
+#fe-tab-home::after{content:'';position:absolute;top:var(--sp-2);bottom:var(--sp-2);right:calc(var(--sp-2) * -1);border-right:1px solid var(--bd2)}
 #fe-tabs.is-empty{padding-top:var(--sp-2)}
 .fe-tab{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-4);min-height:29px;font-size:var(--fs-md);color:var(--mt);text-decoration:none;
   background:var(--s2);border:1px solid var(--bd);border-bottom:none;border-radius:7px 7px 0 0;white-space:nowrap;max-width:200px;min-width:112px;flex:0 1 auto;position:relative;top:1px;
@@ -17516,6 +17560,43 @@ button.chip:disabled{opacity:.45;cursor:default}
     const hit = parseListing(listing, dir).find((e) => e.name === name2);
     return hit ? clean2 + (hit.isDir ? "/" : "") : null;
   }
+  var listed = /* @__PURE__ */ new Map();
+  async function namesIn(dir) {
+    const hit = listed.get(dir);
+    if (hit && Date.now() - hit.at < 1e4) return hit.names;
+    const href = fileHref(dir);
+    const names = parseListing(await fetchFileText(href), href).filter((e) => !e.isParent).map((e) => ({ name: e.name, dir: e.isDir }));
+    listed.set(dir, { at: Date.now(), names });
+    return names;
+  }
+  async function pathSuggestions(input, home, limit = 12) {
+    const typed = input.trim().replace(/^['"]|['"]$/g, "");
+    const abs = absPath(typed, home);
+    const tilde = !!home && (typed === "~" || typed.startsWith("~/"));
+    const shown = (p) => tilde && p.startsWith(home) ? "~" + p.slice(home.length) : p;
+    const out = [];
+    if (abs) {
+      const dir = abs.endsWith("/") ? abs : abs.slice(0, abs.lastIndexOf("/") + 1) || "/";
+      const stem = abs.slice(dir.length).toLowerCase();
+      const names = await namesIn(dir).catch(() => []);
+      const hits = names.filter((n) => n.name.toLowerCase().startsWith(stem) && (stem.startsWith(".") || !n.name.startsWith("."))).sort((a, b) => Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name));
+      for (const n of hits) out.push(shown(dir + n.name + (n.dir ? "/" : "")));
+    }
+    const needle = typed.toLowerCase();
+    for (const r of getRecents()) if (needle && r.path.toLowerCase().includes(needle.replace(/^~/, home.toLowerCase())) && !out.includes(shown(r.path))) out.push(shown(r.path));
+    return out.slice(0, limit);
+  }
+  function suggestPaths(input, list3, home) {
+    let seq2 = 0;
+    const fill = async () => {
+      const mine = ++seq2;
+      const opts = await pathSuggestions(input.value, home());
+      if (mine !== seq2) return;
+      list3.innerHTML = opts.map((p) => `<option value="${esc(p)}"></option>`).join("");
+    };
+    input.addEventListener("input", () => void fill());
+    input.addEventListener("focus", () => void fill());
+  }
   var submitOpen = null;
   function gotoBackground() {
     if (!submitOpen) return false;
@@ -17536,6 +17617,7 @@ button.chip:disabled{opacity:.45;cursor:default}
       const form = box;
       const input = box.querySelector("input");
       input.value = lastPref.get();
+      suggestPaths(input, box.querySelector("datalist"), home);
       layer = openLayer(box, {
         kind: "popover",
         anchor: btn,
@@ -19568,8 +19650,8 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       editing = "";
       paint();
       redraw();
-      const card4 = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
-      if (!card4) {
+      const card5 = o.box.querySelector(`.fe-cm-th[data-id="${CSS.escape(id)}"]`);
+      if (!card5) {
         filter = "all";
         paint();
         redraw();
@@ -20252,9 +20334,9 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
   var MAX_W = 760;
   var MIN_H = 160;
   var EDGE2 = 8;
-  function clampBox(b, page, card4) {
+  function clampBox(b, page, card5) {
     const out = {};
-    const w = b.w === void 0 ? card4.w : Math.round(Math.min(Math.max(MIN_W2, b.w), MAX_W, page.w - 2 * EDGE2));
+    const w = b.w === void 0 ? card5.w : Math.round(Math.min(Math.max(MIN_W2, b.w), MAX_W, page.w - 2 * EDGE2));
     if (b.w !== void 0) out.w = w;
     const top = b.top === void 0 ? void 0 : Math.round(Math.min(Math.max(0, b.top), Math.max(0, page.h - MIN_H)));
     if (top !== void 0) out.top = top;
@@ -21089,18 +21171,23 @@ ${d.message}` : d.message;
       if (homeMode || t.path !== rawPath) go(hrefFor(t));
     }
     function closeHere() {
+      if (homeMode) return;
       const here = hereIn(state);
-      if (!here) return;
-      const next = closeTab(state, here.id);
-      commit(next);
-      const to = next.list.find((t) => t.id === next.active);
-      if (to && to.path !== rawPath) go(hrefFor(to));
+      const next = here ? closeTab(state, here.id) : state;
+      if (here) commit(next);
+      const to = next.list.find((t) => t.id === next.active) ?? next.list[next.list.length - 1];
+      if (to) {
+        if (to.path !== rawPath) go(hrefFor(to));
+      } else toHome();
+    }
+    function toHome() {
+      const home = host.homePath?.();
+      if (home) go(fileUrl(home + "/"), "here", { hash: "#home" });
     }
     function goHome() {
-      const home = host.homePath?.();
-      if (!home) return;
+      if (homeMode || !host.homePath?.()) return;
       if (rawPath && !hereIn(state)) commit(openTab(state, rawPath, true));
-      go(fileUrl(home + "/"), "here", { hash: "#home" });
+      toHome();
     }
     function closeById(id) {
       if (hereIn(state)?.id === id) closeHere();
@@ -21210,14 +21297,13 @@ ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned
       homeTab.hidden = !home;
       if (!home) return;
       homeTab.href = fileUrl(home + "/") + "#home";
-      homeTab.classList.toggle("on", homeMode);
       if (homeMode) homeTab.setAttribute("aria-current", "page");
       else homeTab.removeAttribute("aria-current");
     }
     homeTab?.addEventListener("click", (e) => {
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
       e.preventDefault();
-      if (!homeMode) goHome();
+      goHome();
     });
     function render2() {
       const here = hereIn(state);
@@ -21228,7 +21314,7 @@ ${i3 < 9 ? `${i3 + 1} jumps \xB7 ` : ""}click switches \xB7 ${t.pinned ? "pinned
       if (!here && !homeMode) {
         const ico = kindOf(rawPath) === "file" ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split(".").pop().toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
         rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}
-Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
+Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(rawPath))}<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="" title="Close (w)">${UI_ICON.close}</button></a>`);
       }
       el2.innerHTML = rows.join("");
       pinLeft();
@@ -21286,7 +21372,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         btn.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          closeById(btn.dataset.id);
+          if (btn.dataset.id) closeById(btn.dataset.id);
+          else closeHere();
         });
       });
       el2.querySelectorAll(".fe-tab-more").forEach((btn) => {
@@ -21307,7 +21394,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         return true;
       }
       if (e.key === "w") {
-        if (here && !here.pinned) closeHere();
+        if (!here?.pinned) closeHere();
         return true;
       }
       if (e.key === "T") {
@@ -21420,7 +21507,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       state: () => state,
       shown,
       closedSets,
-      restoreSet
+      restoreSet,
+      goHome
     };
   }
 
@@ -22107,7 +22195,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
 
     <div id="fe-main">
       <div id="fe-tabbar">
-        <a id="fe-tab-home" class="fe-tab fe-tab-home" hidden title="Home: what waits on you, your chats and every repo's directions"><span class="fe-tab-ico">${UI_ICON.dashboard}</span><span class="fe-tab-lbl"><span class="fe-tab-head">Home</span></span></a>
+        <a id="fe-tab-home" class="fe-tab-home" hidden title="Home (g h): what waits on you, your chats and every repo's directions" aria-label="Home"><span class="fe-tab-ico">${line(LINE_ICON.home, 16)}</span></a>
         <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
         <div id="fe-tabs-end">
           <button id="fe-tab-list" class="btn" data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>
@@ -22354,15 +22442,15 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     let queue = [{ url: rootUrl, depth: 0 }];
     while (queue.length && !isCancelled() && entries.length < maxEntries) {
       const batch = queue.splice(0, CONCURRENCY);
-      const listed = await Promise.all(batch.map(async (b) => {
+      const listed2 = await Promise.all(batch.map(async (b) => {
         try {
           return { b, kids: await listDir2(b.url) };
         } catch {
           return { b, kids: [] };
         }
       }));
-      listed.sort((x, y) => x.kids.length - y.kids.length);
-      for (const { b, kids } of listed) {
+      listed2.sort((x, y) => x.kids.length - y.kids.length);
+      for (const { b, kids } of listed2) {
         folders++;
         let files = 0;
         for (const k of kids) {
@@ -24218,10 +24306,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("tab-left", () => moveHere(-1), () => !!document.querySelector('#fe-tabs .fe-tab.on[data-id]:not([data-id=""])'));
     bind("tab-right", () => moveHere(1), () => !!document.querySelector('#fe-tabs .fe-tab.on[data-id]:not([data-id=""])'));
     bind("tab-list", click("fe-tab-list"), () => !document.getElementById("fe-tab-list")?.hidden);
-    bind("home", () => {
-      const h = homeDir(app.rawPath);
-      if (h) go(fileHref(h + "/"));
-    }, () => !!homeDir(app.rawPath));
+    bind("home", () => app.strip.goHome(), () => !!homeDir(app.rawPath));
     const LENSES = [["lens-home", "home"], ["lens-places", "places"], ["lens-saved", "saved"], ["lens-notes", "notes"], ["lens-recent", "history"], ["lens-search", "search"], ["lens-ask", "ask"], ["lens-docs", "comments"], ["lens-dp", "decisions"]];
     for (const [id, lens] of LENSES) bind(id, () => {
       if (!sidebarShown()) runCommand("sidebar");
@@ -24545,17 +24630,17 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     const svList = el("fe-sv-list");
     const svFilter = el("fe-sv-filter");
     let svHits = /* @__PURE__ */ new Map();
-    const card4 = document.createElement("div");
-    card4.id = "fe-sv-card";
-    card4.hidden = true;
-    el("fe").append(card4);
+    const card5 = document.createElement("div");
+    card5.id = "fe-sv-card";
+    card5.hidden = true;
+    el("fe").append(card5);
     let cardTimer = null, cardFor = null;
     function hideCard() {
       if (cardTimer) {
         clearTimeout(cardTimer);
         cardTimer = null;
       }
-      card4.hidden = true;
+      card5.hidden = true;
       cardFor = null;
     }
     function showCard(item2) {
@@ -24564,18 +24649,18 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const colour = new Map(getTags().map((t) => [t.name, t.color]));
       const home = homeDir(rawPath);
       const where = isViewPath(p.path) ? "Saved view in " + p.path.split("#")[0] : p.path;
-      card4.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="chip fe-lens-tag"><i style="--dot:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
+      card5.innerHTML = `<b>${esc(p.label || where)}</b><span class="fe-svc-path">${esc(home && where.startsWith(home) ? "~" + where.slice(home.length) : where)}</span>` + ((p.tags ?? []).length ? `<span class="fe-svc-tags">${p.tags.map((t) => `<span class="chip fe-lens-tag"><i style="--dot:${esc(colour.get(t) ?? "#8b949e")}"></i>${esc(t)}</span>`).join("")}</span>` : "") + `<span class="fe-svc-hint">Double-click to rename \xB7 drag to reorder</span>`;
       const r = item2.getBoundingClientRect();
-      card4.hidden = false;
-      raise(card4);
-      const h = card4.offsetHeight, w = card4.offsetWidth;
+      card5.hidden = false;
+      raise(card5);
+      const h = card5.offsetHeight, w = card5.offsetWidth;
       const sideRight = el("fe-side").getBoundingClientRect().right;
       if (sideRight + 8 + w <= innerWidth - 8) {
-        card4.style.left = `${Math.round(sideRight + 8)}px`;
-        card4.style.top = `${Math.round(Math.max(8, Math.min(r.top - 4, innerHeight - h - 8)))}px`;
+        card5.style.left = `${Math.round(sideRight + 8)}px`;
+        card5.style.top = `${Math.round(Math.max(8, Math.min(r.top - 4, innerHeight - h - 8)))}px`;
       } else {
-        card4.style.left = `${Math.round(r.left + 24)}px`;
-        card4.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
+        card5.style.left = `${Math.round(r.left + 24)}px`;
+        card5.style.top = `${Math.round(r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4)}px`;
       }
       cardFor = item2;
     }
@@ -24597,7 +24682,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         cardTimer = null;
         hideCard();
         showCard(item2);
-      }, card4.hidden ? 450 : 120);
+      }, card5.hidden ? 450 : 120);
     });
     svList.addEventListener("pointerleave", () => {
       if (cardTimer) clearTimeout(cardTimer);
@@ -25067,7 +25152,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       ntFilter.dispatchEvent(new Event("input"));
     };
     const listings = /* @__PURE__ */ new Map();
-    const namesIn = (path) => {
+    const namesIn2 = (path) => {
       const hit = listings.get(path);
       if (hit && Date.now() - hit.at < 6e4) return hit.names;
       const href = fileHref(path);
@@ -25084,7 +25169,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       insideTimer = setTimeout(async () => {
         const found = /* @__PURE__ */ new Map();
         await Promise.all(getSaved().filter((p) => p.path.endsWith("/") && !isViewPath(p.path)).map(async (p) => {
-          const name2 = (await namesIn(p.path)).find((n) => words.every((w) => n.toLowerCase().includes(w)));
+          const name2 = (await namesIn2(p.path)).find((n) => words.every((w) => n.toLowerCase().includes(w)));
           if (name2) found.set(p.path, name2);
         }));
         if (svFilter.value.trim().toLowerCase() !== q || !deep()) return;
@@ -25270,6 +25355,10 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       };
       notes.read(root, rel).then((doc) => openNote(root, doc, refreshNotes, actions)).catch((err) => toast(errorText(err, "Opening the note")));
     }
+    app.editNoteProps = (rel, anchor) => {
+      const root = notesRoot();
+      if (root) openProps(root, rel, anchor);
+    };
     function openProps(root, rel, anchor) {
       notes.read(root, rel).then((doc) => openPropsMenu(anchor, readProps(rel, doc.text), async (c) => {
         const cur = await notes.read(root, rel);
@@ -25708,10 +25797,10 @@ ${rows.join("\n")}`, name: subject };
       turn.querySelector(".fe-ask-a").innerHTML = `<div class="fe-ask-err">${UI_ICON.info}<span>${esc(LLM_ERROR_TEXT[code] ?? (message || "The model did not answer."))}</span><button type="button" class="btn" data-size="sm" data-variant="outline" data-act="retry" title="Ask this again">Retry</button></div>`;
       turn.querySelector(".fe-ask-meta").textContent = "";
     };
-    const listed = () => app.fileMode ? chatsFor(key).map((chat) => ({ subject: key, chat })) : chatsUnder(key);
+    const listed2 = () => app.fileMode ? chatsFor(key).map((chat) => ({ subject: key, chat })) : chatsUnder(key);
     const below = (subject2) => subject2 === key ? "" : subject2.slice(key.length).replace(/^\//, "");
     const syncHistN = () => {
-      const n = listed().length;
+      const n = listed2().length;
       histN.textContent = n ? String(n) : "";
     };
     const clearThread = () => thread.querySelectorAll(".fe-ask-turn").forEach((t) => t.remove());
@@ -25743,7 +25832,7 @@ ${rows.join("\n")}`, name: subject };
       showHist(false);
     };
     const paintHist = () => {
-      const chats = listed();
+      const chats = listed2();
       hist.innerHTML = chats.length ? chats.map(({ subject: subject2, chat: c }) => `<div class="row fe-ask-h${c.id === chatId ? " on" : ""}" data-chat="${esc(c.id)}" data-subject="${esc(subject2)}">
         <button type="button" class="fe-ask-h-open" title="${below(subject2) ? `Open this chat about ${esc(below(subject2))}` : "Open this chat"}"><span class="fe-ask-h-t">${esc(c.title)}</span><span class="fe-ask-h-m">${below(subject2) ? `${esc(below(subject2))} \xB7 ` : ""}${esc(when(c.at))} \xB7 ${c.turns.length} question${c.turns.length === 1 ? "" : "s"}</span></button>
         <button type="button" class="btn fe-ask-h-del" data-icon data-size="sm" data-tone="danger" title="Delete this chat" aria-label="Delete this chat">${UI_ICON.close}</button>
@@ -27296,24 +27385,34 @@ ${rows.join("\n")}`, name: subject };
     const tags = new Set(saved.flatMap((s) => s.tags ?? []));
     const n = (v) => v.toLocaleString("en-US");
     return [
-      { label: "questions asked", value: n(turns.length), sub: `${n(turns.filter((t) => t.at >= week).length)} this week` },
-      { label: "chats", value: n(chats.length), sub: `about ${n(perSubject.size)} ${perSubject.size === 1 ? "thing" : "things"}` },
-      { label: "decisions answered", value: n(answered.length), sub: `${n(answered.filter((t) => t >= week).length)} this week` },
-      { label: "places opened lately", value: n(recents.length), sub: `${n(recents.filter((r) => r.ts >= day.getTime()).length)} today` },
-      { label: "places saved", value: n(saved.length), sub: tags.size ? `${n(tags.size)} ${tags.size === 1 ? "tag" : "tags"}` : "no tags yet" },
-      { label: "asked about most", value: top ? top[0].split("/").filter(Boolean).pop() || "/" : "nothing yet", sub: top ? `${n(top[1])} ${top[1] === 1 ? "question" : "questions"}` : "ask about any file" }
+      { id: "asked", label: "questions asked", value: n(turns.length), sub: `${n(turns.filter((t) => t.at >= week).length)} this week` },
+      { id: "chats", label: "chats", value: n(chats.length), sub: `about ${n(perSubject.size)} ${perSubject.size === 1 ? "thing" : "things"}` },
+      { id: "answered", label: "decisions answered", value: n(answered.length), sub: `${n(answered.filter((t) => t >= week).length)} this week` },
+      { id: "opened", label: "places opened lately", value: n(recents.length), sub: `${n(recents.filter((r) => r.ts >= day.getTime()).length)} today` },
+      { id: "saved", label: "places saved", value: n(saved.length), sub: tags.size ? `${n(tags.size)} ${tags.size === 1 ? "tag" : "tags"}` : "no tags yet" },
+      { id: "top", label: "asked about most", value: top ? top[0].split("/").filter(Boolean).pop() || "/" : "nothing yet", sub: top ? `${n(top[1])} ${top[1] === 1 ? "question" : "questions"}` : "ask about any file" }
     ];
+  }
+  function splitByAge(rows, days = 14, now = Date.now()) {
+    const cut = now / 1e3 - days * 86400;
+    return { recent: rows.filter((r) => r.mtime >= cut), older: rows.filter((r) => r.mtime < cut) };
   }
   var openPages = (rows, archived = /* @__PURE__ */ new Set()) => dpBands(rows, "", archived).filter((b) => b.state !== "archived").flatMap((b) => b.rows);
 
   // src/home-lens.ts
   var archivedPref2 = jsonPref("bfb-dp-archived-v1", [], Array.isArray);
+  var foldedPref = jsonPref("bfb-home-folded-v1", [], Array.isArray);
   var SIDE_CHATS = 5;
   var PAGE_CHATS = 8;
   var LINKS = 8;
+  var FRESH_DAYS = 14;
   var name = (p) => p.split("/").filter(Boolean).pop() || "/";
   var plural2 = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
-  var today = () => (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  var today = (month = "short") => (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { weekday: "long", month, day: "numeric" });
+  var greeting = () => {
+    const h = (/* @__PURE__ */ new Date()).getHours();
+    return h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  };
   var lastAnswer = (c) => {
     const t = [...c.turns].reverse().find((x) => x.a && !x.error);
     return (t?.a ?? "").replace(/<think>[\s\S]*?<\/think>/g, "").replace(/[#*`>_[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
@@ -27326,15 +27425,15 @@ ${rows.join("\n")}`, name: subject };
     <span class="fe-home-age" title="${esc(whenText(c.chat.at))}">${esc(ago(c.chat.at / 1e3))}</span>
   </button>`;
   };
-  var pageRow = (r) => {
+  var pageRow = (r, inWaiting = false) => {
     const unseen = r.state === "waiting" && !r.seen;
     const reach = r.reach && REACH[r.reach];
-    const sub = [r.state === "waiting" ? "waiting on you" : "never answered", reach?.label, r.origin?.project].filter(Boolean).join(" \xB7 ");
+    const sub = [inWaiting ? "" : r.state === "waiting" ? "waiting on you" : "never answered", r.origin?.project, reach?.label].filter(Boolean).join(" \xB7 ");
     return `<button type="button" class="row fe-home-row${unseen ? " unseen" : ""}" data-page="${esc(r.path)}" title="${esc(r.title ?? r.slug)}${unseen ? " \xB7 you have not opened this one yet" : ""}">
     <span class="fe-row-ico">${UI_ICON.opinion}${unseen ? '<i class="fe-dpl-dot" aria-label="Not opened yet"></i>' : ""}</span>
-    <span class="fe-home-tx"><span class="fe-home-t">${esc(r.title ?? r.slug)}</span><span class="fe-home-s">${esc(sub)}</span></span>
+    <span class="fe-home-tx"><span class="fe-home-t">${esc(r.title ?? r.slug)}</span>${sub ? `<span class="fe-home-s">${esc(sub)}</span>` : ""}</span>
+    ${r.items ? `<span class="badge" data-tone="quiet" title="${plural2(r.items, "question")}">${r.items}</span>` : ""}
     <span class="fe-home-age" title="${esc(whenText(r.mtime * 1e3))}">${esc(ago(r.mtime))}</span>
-    ${r.items ? `<span class="badge" data-tone="${r.state === "waiting" ? "solid" : "quiet"}" title="${plural2(r.items, "item")}">${r.items}</span>` : ""}
   </button>`;
   };
   var repoRow = (r) => {
@@ -27351,76 +27450,118 @@ ${rows.join("\n")}`, name: subject };
   function paintSide(d, allShown, folded) {
     const asks = d.repos.filter((r) => r.onYou);
     const waiting = d.pages.filter((p) => p.state === "waiting");
-    const quiet = [...d.repos.filter((r) => !r.onYou).map(repoRow), ...d.pages.filter((p) => p.state !== "waiting").map(pageRow)];
+    const quiet = [...d.repos.filter((r) => !r.onYou).map(repoRow), ...d.pages.filter((p) => p.state !== "waiting").map((r) => pageRow(r))];
     const n = waiting.length + asks.length;
-    const card4 = n ? `<section class="fe-home-card" data-tone="you"><div class="sect fe-home-card-h" data-level="group">Needs you<span class="fe-grp-n">${n}</span></div>${waiting.map(pageRow).join("")}${asks.map(repoRow).join("")}</section>` : `<section class="fe-home-card" data-tone="calm"><div class="sect fe-home-card-h" data-level="group">${UI_ICON.circleCheck}<span>Nothing waits on you</span></div></section>`;
+    const card5 = n ? `<section class="fe-home-card" data-tone="you"><div class="sect fe-home-card-h" data-level="group">Needs you<span class="fe-grp-n">${n}</span></div>${waiting.map((r) => pageRow(r)).join("")}${asks.map(repoRow).join("")}</section>` : `<section class="fe-home-card" data-tone="calm"><div class="sect fe-home-card-h" data-level="group">${UI_ICON.circleCheck}<span>Nothing waits on you</span></div></section>`;
     const failed = d.pagesFailed ? none("Decision pages could not be listed") : "";
     const chats = allShown ? d.chats : d.chats.slice(0, SIDE_CHATS);
     const chatBody = (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length);
-    return `<header class="fe-home-head">${esc(today())}</header>${card4}${failed}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
+    return `<header class="fe-home-head">${esc(today())}</header>${card5}${failed}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
   }
-  var statCard = (s) => `<div class="fe-hp-stat"><b>${esc(s.value)}</b><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></div>`;
+  var STAT_LOOK = {
+    asked: { icon: UI_ICON.ai, tone: "var(--nc-purple)" },
+    chats: { icon: UI_ICON.comment, tone: "var(--nc-blue)" },
+    answered: { icon: UI_ICON.circleCheck, tone: "var(--nc-green)" },
+    opened: { icon: UI_ICON.clock, tone: "var(--nc-orange)" },
+    saved: { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)" },
+    top: { icon: UI_ICON.file, tone: "var(--nc-teal)" }
+  };
+  var tile2 = (icon2, tone) => `<span class="fe-dlg-tile" style="--tone:${tone}" aria-hidden="true">${icon2}</span>`;
+  var statCell = (s) => `<div class="fe-hp-stat" data-stat="${s.id}">${tile2(STAT_LOOK[s.id].icon, STAT_LOOK[s.id].tone)}<div class="fe-hp-stat-tx"><b title="${esc(s.value)}">${esc(s.value)}</b><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></div></div>`;
   var linkCard = (l) => {
     const dir = l.path.endsWith("/");
     const ext2 = l.label.includes(".") ? l.label.split(".").pop().toLowerCase() : "";
-    return `<button type="button" class="fe-hp-link" data-link="${esc(l.path)}" title="${esc(l.path)}">${dir ? PI.folder : icoFile(ext2)}<span>${esc(l.label)}</span></button>`;
+    const ico = l.kind === "note" ? UI_ICON.notes : dir ? PI.folder : icoFile(ext2);
+    const tags = l.tags?.length ? `<span class="fe-hp-link-tags">${l.tags.map((t) => `<i>${esc(t)}</i>`).join("")}</span>` : "";
+    const end = l.kind === "recent" ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>` : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
+    return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(l.path)))}" data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
   };
-  function paintPage(d, allShown) {
+  var card4 = (id, o, body, folded) => `<details class="fe-hp-card" data-card="${id}"${folded.has(id) ? "" : " open"}>
+    <summary class="fe-hp-card-h">${tile2(o.icon, o.tone)}<span class="fe-hp-card-tx"><b>${esc(o.title)}</b><span>${esc(o.sub)}</span></span>${o.n != null ? `<span class="fe-grp-n">${o.n}</span>` : ""}${DISCLOSE}</summary>
+    <div class="fe-hp-card-b">${body}</div>
+  </details>`;
+  function paintPage(d, allShown, folded) {
     const waiting = d.pages.filter((p) => p.state === "waiting");
-    const never = d.pages.filter((p) => p.state !== "waiting");
+    const { recent: fresh, older } = splitByAge(waiting, FRESH_DAYS);
     const asks = d.repos.reduce((s, r) => s + r.onYou, 0);
     const askRepos = d.repos.filter((r) => r.onYou).length;
-    const tally2 = [
-      waiting.length ? `${plural2(waiting.length, "decision")} waiting on you` : "No decision waiting",
-      asks ? `${plural2(asks, "ask")} in ${plural2(askRepos, "repo")}` : "",
-      d.chats.length ? plural2(d.chats.length, "chat") : ""
-    ].filter(Boolean).join(" \xB7 ");
-    const panel = (id, label, n, body, tone = "") => `<section class="fe-hp-panel" data-panel="${id}"${tone ? ` data-tone="${tone}"` : ""}><div class="sect fe-hp-panel-h" data-level="group">${esc(label)}<span class="fe-grp-n">${n}</span></div>${body}</section>`;
+    const chip = (to, text, tone = "") => `<button type="button" class="fe-hp-chip" data-jump="${to}"${tone ? ` data-tone="${tone}"` : ""}>${esc(text)}</button>`;
+    const chips = [
+      fresh.length ? chip("decide", `${plural2(fresh.length, "decision")} waiting`, "you") : chip("decide", "No decision waiting"),
+      asks ? chip("repos", `${plural2(asks, "ask")} in ${plural2(askRepos, "repo")}`, "you") : "",
+      d.chats.length ? chip("chats", plural2(d.chats.length, "chat")) : ""
+    ].join("");
     const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
-    const decide = d.pagesFailed ? none("Decision pages could not be listed") : waiting.map(pageRow).join("") || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`;
-    const links = (label, list3) => list3.length ? `<section class="fe-hp-links"><div class="sect fe-hp-links-h" data-level="group">${esc(label)}</div>${list3.map(linkCard).join("")}</section>` : "";
+    const olderLine = older.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural2(older.length, "older page")} in Decisions</button>` : "";
+    const decide = d.pagesFailed ? none("Decision pages could not be listed") : (fresh.map((r) => pageRow(r, true)).join("") || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
+    const links = (id, o, list3, empty) => card4(id, { ...o, n: list3.length }, list3.length ? `<div class="fe-hp-links">${list3.map(linkCard).join("")}</div>` : none(empty), folded);
     return `<div class="fe-hp">
-    <header class="fe-hp-head"><h1>${esc(today())}</h1><p>${esc(tally2)}</p></header>
-    <div class="fe-hp-stats">${d.stats.map(statCard).join("")}</div>
+    <header class="fe-hp-head">
+      <div class="fe-hp-hello"><h1>${esc(greeting())}</h1><span class="fe-hp-date">${esc(today("long"))}</span></div>
+      <div class="fe-hp-chips">${chips}</div>
+      <form class="fe-hp-go" role="search" autocomplete="off">
+        <span class="fe-hp-go-ico">${line(LINE_ICON.search, 16)}</span>
+        <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp" aria-label="Open a path" title="Type a path; folders and files are suggested as you type">
+        <datalist id="fe-hp-go-list"></datalist>
+        <button type="submit" class="btn" data-size="md" title="Open this path here">Open</button>
+        <button type="button" class="btn fe-hp-go-link" data-size="md" data-variant="ghost" title="Open what is typed as a web link, in a new Chrome tab">${UI_ICON.link}Open link</button>
+      </form>
+      <p class="fe-hp-go-msg" role="status" hidden></p>
+    </header>
+    <div class="fe-hp-stats">${d.stats.map(statCell).join("")}</div>
     <div class="fe-hp-cols">
       <div class="fe-hp-col">
-        ${panel("decide", "Decisions waiting", waiting.length, decide, waiting.length ? "you" : "")}
-        ${panel("chats", "Continue", d.chats.length, (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length))}
+        ${card4("decide", { icon: UI_ICON.opinion, tone: "var(--nc-blue)", title: "Decisions", sub: `Pages waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
+        ${card4("chats", { icon: UI_ICON.ai, tone: "var(--nc-purple)", title: "Continue", sub: "Ask chats, newest first", n: d.chats.length }, (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length), folded)}
       </div>
       <div class="fe-hp-col">
-        ${panel("repos", "Directions", d.repos.length, d.repos.map(repoRow).join("") || none("No directions docs found under ~/Code"))}
-        ${never.length ? panel("never", "Never answered", never.length, never.map(pageRow).join("")) : ""}
+        ${card4("repos", { icon: UI_ICON.contents, tone: "var(--nc-teal)", title: "Directions", sub: "Each repo\u2019s plan, asks on you first", n: d.repos.length }, d.repos.map(repoRow).join("") || none("No directions docs found under ~/Code"), folded)}
       </div>
       <div class="fe-hp-col fe-hp-col-links">
-        ${links("Saved", d.saved)}${links("Opened lately", d.recent)}
-        ${!d.saved.length && !d.recent.length ? none("Places you save or open show up here") : ""}
+        ${links("saved", { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)", title: "Saved", sub: "Places you keep" }, d.saved, "Save a place with the star to see it here")}
+        ${links("notes", { icon: UI_ICON.notes, tone: "var(--nc-orange)", title: "Notes", sub: "Latest first" }, d.notes, "Notes you write show up here")}
+        ${links("recent", { icon: UI_ICON.clock, tone: "var(--nc-green)", title: "Opened lately", sub: "\xD7 forgets one" }, d.recent, "Places you open show up here")}
       </div>
     </div>
   </div>`;
   }
-  function mountHome(box, go2, layout2) {
+  function mountHome(box, go2, layout2, app) {
     let data = null, timer2 = null, seq2 = 0, allShown = false;
-    const folded = /* @__PURE__ */ new Set();
+    const folded = new Set(layout2 === "page" ? foldedPref.get() : []);
+    const notesRoot = () => app?.settings.notesRoot?.replace(/\/+$/, "") ?? "";
+    const noteLinks = (list3) => [...list3].sort((a, b) => b.mtime - a.mtime).slice(0, LINKS).map((n) => ({ path: `${notesRoot()}/${n.rel}`, rel: n.rel, label: n.title || name(n.rel).replace(/\.md$/, ""), kind: "note", tags: n.tags }));
+    const quick = () => {
+      const saved = getSaved(), savedPaths = new Set(saved.map((p) => p.path));
+      return {
+        saved: saved.slice(0, LINKS).map((p) => ({ path: p.path, label: p.label || name(p.path), kind: "saved", tags: p.tags })),
+        recent: getRecents().filter((r) => !savedPaths.has(r.path)).slice(0, LINKS).map((r) => ({ path: r.path, label: name(r.path), kind: "recent" }))
+      };
+    };
     const render2 = () => {
-      if (data) box.innerHTML = layout2 === "page" ? paintPage(data, allShown) : paintSide(data, allShown, folded);
+      if (!data) return;
+      const input = box.querySelector(".fe-hp-go-in");
+      const typed = input?.value ?? "", had = !!input && document.activeElement === input;
+      box.innerHTML = layout2 === "page" ? paintPage(data, allShown, folded) : paintSide(data, allShown, folded);
+      if (layout2 === "page") wireGo(typed, had);
     };
     const load = async () => {
       const mine = ++seq2;
-      const [pages, docs] = await Promise.all([
+      const root = notesRoot();
+      const [pages, docs, noteList] = await Promise.all([
         notes.dpPages().then((rows) => ({ rows, failed: false }), () => ({ rows: [], failed: true })),
-        notes.directionsDocs().catch(() => [])
+        notes.directionsDocs().catch(() => []),
+        layout2 === "page" && root ? notes.list(root).catch(() => keptNotesList(root) ?? []) : Promise.resolve([])
       ]);
       if (mine !== seq2) return;
-      const chats = allChats(), saved = getSaved(), recents = getRecents();
-      const savedPaths = new Set(saved.map((p) => p.path));
+      const chats = allChats();
       data = {
         chats,
         pages: openPages(pages.rows, new Set(archivedPref2.get())),
         pagesFailed: pages.failed,
         repos: sortRepos(docs.map((doc) => summarizeRepo(doc))),
-        stats: usageStats(chats, recents, saved, pages.rows),
-        saved: saved.slice(0, LINKS).map((p) => ({ path: p.path, label: p.label || name(p.path) })),
-        recent: recents.filter((r) => !savedPaths.has(r.path)).slice(0, LINKS).map((r) => ({ path: r.path, label: name(r.path) }))
+        stats: usageStats(chats, getRecents(), getSaved(), pages.rows),
+        notes: noteLinks(noteList),
+        ...quick()
       };
       render2();
     };
@@ -27429,28 +27570,189 @@ ${rows.join("\n")}`, name: subject };
       if (!data) box.innerHTML = emptyHtml("loading", "Loading\u2026");
       void load();
       timer2 = setInterval(() => {
-        if (!document.hidden) void load();
+        if (!document.hidden && !box.contains(document.activeElement)) void load();
       }, 15e3);
     };
+    function wireGo(typed, focus) {
+      const form = box.querySelector(".fe-hp-go");
+      if (!form) return;
+      const input = form.querySelector("input");
+      const msg = box.querySelector(".fe-hp-go-msg");
+      const say = (text) => {
+        msg.hidden = !text;
+        msg.textContent = text;
+      };
+      const home = () => homeDir(location.pathname ? decodeURIComponent(location.pathname) : "");
+      input.value = typed;
+      if (focus) input.focus();
+      suggestPaths(input, form.querySelector("datalist"), home);
+      input.addEventListener("input", () => say(""));
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (/^https?:\/\//i.test(text)) {
+          go(text, "chrome-tab");
+          return;
+        }
+        const path = absPath(text, home());
+        if (!path) {
+          say("Type a full path, such as ~/Code or /Users/you/notes.md");
+          return;
+        }
+        const found = await resolvePath(path);
+        if (!found) {
+          say(`Nothing at ${path}`);
+          return;
+        }
+        if (!await readable(found)) {
+          say(`The browser could not open ${found}. It may not have permission to read that folder.`);
+          return;
+        }
+        go2(found);
+      });
+      form.querySelector(".fe-hp-go-link").addEventListener("click", () => {
+        const text = input.value.trim();
+        if (!text) {
+          say("Type or paste a web address first");
+          input.focus();
+          return;
+        }
+        go(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : "https://" + text, "chrome-tab");
+      });
+    }
+    const menu = document.createElement("div");
+    menu.className = "fe-ctx fe-hp-menu";
+    let layer = null;
+    function openMenu3(btn) {
+      const kind = btn.dataset.kind;
+      const item2 = (act, icon2, text) => `<div class="row fe-ctx-item" data-act="${act}">${icon2}<span>${text}</span></div>`;
+      menu.innerHTML = [
+        item2("open", UI_ICON.files, "Open"),
+        item2("chrome", UI_ICON.external, "Open in a new Chrome tab"),
+        item2("side", UI_ICON.preview, "Show in the sidebar"),
+        '<div class="fe-ctx-sep"></div>',
+        kind === "saved" ? item2("edit", UI_ICON.tag, "Name and tags\u2026") : item2("props", UI_ICON.palette, "Colour, pin and tags\u2026"),
+        kind === "saved" ? item2("unsave", UI_ICON.trash, "Remove from Saved") : ""
+      ].join("");
+      menu.dataset.path = btn.dataset.menu;
+      menu.dataset.kind = kind;
+      layer = openLayer(menu, { kind: "popover", anchor: btn, align: "end", role: "menu", group: "menu" });
+    }
+    menu.addEventListener("click", (e) => {
+      const act = e.target.closest(".fe-ctx-item")?.dataset.act;
+      const path = menu.dataset.path, kind = menu.dataset.kind;
+      const anchor = box.querySelector(`[data-menu="${CSS.escape(path)}"]`);
+      layer?.close("pick");
+      if (!act) return;
+      if (act === "open") go2(path);
+      else if (act === "chrome") go(pageHref(fileHref(path)), "chrome-tab");
+      else if (act === "side") showInSidebar(kind === "note" ? "notes" : "saved", path);
+      else if (act === "edit" && anchor) editSaved(path, anchor);
+      else if (act === "props" && anchor) app?.editNoteProps?.(path.slice(notesRoot().length + 1), anchor);
+      else if (act === "unsave") {
+        const before = getSaved();
+        saveSaved(removePlace(before, path));
+        app?.refreshSaved();
+        refreshQuick();
+        app?.toast("Removed from Saved", 6e3, { label: "undo", run: () => {
+          saveSaved(before);
+          app?.refreshSaved();
+          refreshQuick();
+        } });
+      }
+    });
+    function showInSidebar(lens, path) {
+      app?.showLens?.(lens);
+      requestAnimationFrame(() => {
+        const row2 = lens === "notes" ? document.querySelector(`#fe-side .fe-nt-item[data-rel="${CSS.escape(path.slice(notesRoot().length + 1))}"]`) : document.querySelector(`#fe-side .fe-pl-item[data-path="${CSS.escape(path)}"]`);
+        row2?.scrollIntoView({ block: "nearest" });
+        row2?.classList.add("fe-area-flash");
+        row2?.focus();
+        setTimeout(() => row2?.classList.remove("fe-area-flash"), 1200);
+      });
+    }
+    function editSaved(path, anchor) {
+      const place = getSaved().find((p) => p.path === path);
+      if (!place) return;
+      const form = document.createElement("form");
+      form.className = "fe-hp-edit panel";
+      form.innerHTML = `<label><span>Name</span><input class="tb" data-size="md" name="label" spellcheck="false" title="Name shown for this place"></label>
+      <label><span>Tags</span><input class="tb" data-size="md" name="tags" spellcheck="false" placeholder="work, docs" title="Tags, separated by commas"></label>
+      <div class="fe-hp-edit-acts"><button type="button" class="btn" data-size="sm" data-variant="ghost" data-cancel title="Close without saving">Cancel</button><button type="submit" class="btn" data-size="sm" data-tone="accent" title="Save the name and tags">Save</button></div>`;
+      const label = form.querySelector('[name="label"]'), tags = form.querySelector('[name="tags"]');
+      label.value = place.label || name(path);
+      tags.value = (place.tags ?? []).join(", ");
+      const l = openLayer(form, { kind: "popover", anchor, align: "end", role: "dialog", label: "Name and tags", focus: label, group: "menu" });
+      form.querySelector("[data-cancel]").addEventListener("click", () => l.close("api"));
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        let list3 = getSaved();
+        if (label.value.trim()) list3 = renamePlace(list3, path, label.value.trim());
+        saveSaved(setTags(list3, path, parseTags(tags.value)));
+        l.close("pick");
+        app?.refreshSaved();
+        refreshQuick();
+        app?.toast("Saved the name and tags");
+      });
+    }
+    const refreshQuick = () => {
+      if (data) {
+        data = { ...data, ...quick() };
+        render2();
+      }
+    };
     box.addEventListener("toggle", (e) => {
-      const g = e.target.dataset?.grp;
-      if (!g) return;
-      if (e.target.open) folded.delete(g);
-      else folded.add(g);
+      const t = e.target;
+      const id = t.dataset?.grp ?? t.dataset?.card;
+      if (!id) return;
+      if (t.open) folded.delete(id);
+      else folded.add(id);
+      if (t.dataset.card) foldedPref.set([...folded]);
     }, true);
     box.addEventListener("click", (e) => {
       const t = e.target;
-      if (t.closest("[data-more]")) {
+      const hit = (sel) => {
+        const m = t.closest(sel);
+        return m && box.contains(m) ? m : null;
+      };
+      if (hit("[data-more]")) {
         allShown = true;
         render2();
         return;
       }
-      const link = t.closest("[data-link]");
+      const jump = hit("[data-jump]");
+      if (jump) {
+        const c = box.querySelector(`[data-card="${jump.dataset.jump}"]`);
+        if (c) {
+          c.open = true;
+          c.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        return;
+      }
+      const lens = hit("[data-hp-lens]");
+      if (lens) {
+        app?.showLens?.(lens.dataset.hpLens);
+        return;
+      }
+      const forget = hit("[data-forget]");
+      if (forget) {
+        forgetRecent(forget.dataset.forget);
+        refreshQuick();
+        return;
+      }
+      const more = hit("[data-menu]");
+      if (more) {
+        openMenu3(more);
+        return;
+      }
+      const link = hit("[data-link]");
       if (link) {
+        if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+        e.preventDefault();
         go2(link.dataset.link);
         return;
       }
-      const row2 = t.closest(".fe-home-row");
+      const row2 = hit(".fe-home-row");
       if (!row2) return;
       if (row2.dataset.chat) go2(row2.dataset.subject, "#ask=" + encodeURIComponent(row2.dataset.chat));
       else if (row2.dataset.page) go2(row2.dataset.page + "/");
@@ -27472,7 +27774,7 @@ ${rows.join("\n")}`, name: subject };
     });
   }
   var initHomeLens = (box, go2) => mountHome(box, go2, "side");
-  var initHomePage = (box, go2) => mountHome(box, go2, "page");
+  var initHomePage = (box, go2, app) => mountHome(box, go2, "page", app);
 
   // src/main.ts
   async function showClosedSets(strip, visible2) {
@@ -27748,7 +28050,7 @@ ${rows.join("\n")}`, name: subject };
     initHomeLens(el("fe-home"), goTab);
     if (homeMode) {
       el("fe-home-page").hidden = false;
-      initHomePage(el("fe-home-page"), goTab);
+      initHomePage(el("fe-home-page"), goTab, app);
     }
     mountGoto(el("fe-open-path"), () => homeDir(rawPath), (path, background) => {
       if (!background) {

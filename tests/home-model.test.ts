@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { summarizeRepo, sortRepos, openPages, usageStats, type RepoSummary } from '../src/home-model';
+import { summarizeRepo, sortRepos, openPages, usageStats, splitByAge, type RepoSummary } from '../src/home-model';
 import type { DpRow } from '../src/dp-lens';
 
 const doc = (name: string, mtime = 1) => ({ path: `/r/${name}`, repo: name.replace('.md', ''), mtime, text: readFileSync(join(__dirname, 'fixtures/directions', name), 'utf8') });
@@ -40,8 +40,14 @@ describe('Home', () => {
   });
   it('says so plainly when nothing has been used yet', () => {
     const s = usageStats([], [], [], []);
-    expect(s.find(x => x.label === 'asked about most')).toEqual({ label: 'asked about most', value: 'nothing yet', sub: 'ask about any file' });
+    expect(s.find(x => x.label === 'asked about most')).toEqual({ id: 'top', label: 'asked about most', value: 'nothing yet', sub: 'ask about any file' });
     expect(s.find(x => x.label === 'places saved')?.sub).toBe('no tags yet');
+  });
+  it('lists waiting pages from the last two weeks and only counts older ones', () => {
+    const now = Date.UTC(2026, 9, 28);
+    const at = (days: number) => ({ mtime: now / 1000 - days * 86400 });
+    const { recent, older } = splitByAge([at(1), at(13.9), at(14.1), at(40)], 14, now);
+    expect([recent.length, older.length]).toEqual([2, 2]);
   });
   it('keeps open decision pages, waiting first, and leaves archived ones out', () => {
     const p = (slug: string, state: DpRow['state'], mtime: number): DpRow => ({ slug, path: '/' + slug, state, mtime });

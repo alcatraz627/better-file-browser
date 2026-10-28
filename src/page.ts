@@ -4,7 +4,7 @@
 import type { Entry, Settings } from './types';
 import { esc, fileHref } from './utils';
 import { PI, CHEVRON_DOWN } from './icons';
-import { UI_ICON, line, VIEW_ICONS, withId } from './control-icons';
+import { UI_ICON, LINE_ICON, line, VIEW_ICONS, withId } from './control-icons';
 import { getSaved, getTags, homeDir, getFoldedGroups } from './storage';
 import { HELP_TABS } from './help';
 import { renderDialog, type DialogSpec } from './dialog';
@@ -167,7 +167,7 @@ export function renderPage(p: PageParams): string {
 
     <div id="fe-main">
       <div id="fe-tabbar">
-        <a id="fe-tab-home" class="fe-tab fe-tab-home" hidden title="Home: what waits on you, your chats and every repo's directions"><span class="fe-tab-ico">${UI_ICON.dashboard}</span><span class="fe-tab-lbl"><span class="fe-tab-head">Home</span></span></a>
+        <a id="fe-tab-home" class="fe-tab-home" hidden title="Home (g h): what waits on you, your chats and every repo's directions" aria-label="Home"><span class="fe-tab-ico">${line(LINE_ICON.home, 16)}</span></a>
         <div id="fe-tabs" title="Tabs of this Chrome tab (t keeps this one, w closes, p pins, [ ] switch, 1-9 jump)"></div>
         <div id="fe-tabs-end">
           <button id="fe-tab-list" class="btn" data-icon data-size="sm" hidden title="All tabs" aria-label="All tabs" aria-haspopup="menu">${CHEVRON_DOWN}</button>

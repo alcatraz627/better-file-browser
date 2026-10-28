@@ -36,7 +36,7 @@ export const KEYMAP: KeyDef[] = [
 
   // Go
   { id: 'up', group: 'Go', title: 'Parent folder', keys: ['⌫', '⌘↑'], own: true, over: ['⌘↑'] },
-  { id: 'home', group: 'Go', title: 'Home', keys: ['g h'], own: true },
+  { id: 'home', group: 'Go', title: 'Home', keys: ['g h', 'e 0'], own: true, over: true },
   { id: 'path', group: 'Go', title: 'Type a path', keys: ['l'], own: true },
   { id: 'goto-bg', group: 'Go', title: 'Open the typed path as a background tab', keys: ['⌥↩'], scope: 'goto', own: true, field: true },
   { id: 'open-pick', group: 'Go', title: 'Open a file or folder', keys: ['o'], own: true },

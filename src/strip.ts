@@ -49,6 +49,8 @@ export interface Strip {
   restoreSet(id: string): Promise<void>;
   // Move a tab one place left or right, within its pinned or unpinned block.
   move(id: string, dir: 1 | -1): void;
+  // To Home, keeping the page you were on as a tab.
+  goHome(): void;
   // Tabs closed in this strip that are not open now, newest first.
   closedTabs(): Tab[];
   // Bring one of them back where it was.
@@ -166,20 +168,26 @@ export function mountStrip(host: StripHost): Strip {
     commit(activate(s, id));
     if (homeMode || t.path !== rawPath) go(hrefFor(t));
   }
+  // Close the page you are on, kept or not, and go to the tab that takes its
+  // place; with no tab left, Home is where you land.
   function closeHere(): void {
+    if (homeMode) return;
     const here = hereIn(state);
-    if (!here) return;
-    const next = closeTab(state, here.id);
-    commit(next);
-    const to = next.list.find(t => t.id === next.active);
-    if (to && to.path !== rawPath) go(hrefFor(to));
+    const next = here ? closeTab(state, here.id) : state;
+    if (here) commit(next);
+    const to = next.list.find(t => t.id === next.active) ?? next.list[next.list.length - 1];
+    if (to) { if (to.path !== rawPath) go(hrefFor(to)); }
+    else toHome();
+  }
+  function toHome(): void {
+    const home = host.homePath?.();
+    if (home) go(fileUrl(home + '/'), 'here', { hash: '#home' });
   }
   // To Home, keeping the page you were on as a tab, the same as any switch.
   function goHome(): void {
-    const home = host.homePath?.();
-    if (!home) return;
+    if (homeMode || !host.homePath?.()) return;
     if (rawPath && !hereIn(state)) commit(openTab(state, rawPath, true));
-    go(fileUrl(home + '/'), 'here', { hash: '#home' });
+    toHome();
   }
   function closeById(id: string): void {
     if (hereIn(state)?.id === id) closeHere();
@@ -303,13 +311,13 @@ export function mountStrip(host: StripHost): Strip {
     homeTab.hidden = !home;
     if (!home) return;
     homeTab.href = fileUrl(home + '/') + '#home';
-    homeTab.classList.toggle('on', homeMode);
+    // Home is where you are when no tab is: it never draws as the selected tab.
     if (homeMode) homeTab.setAttribute('aria-current', 'page'); else homeTab.removeAttribute('aria-current');
   }
   homeTab?.addEventListener('click', e => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
-    if (!homeMode) goHome();
+    goHome();
   });
   function render(): void {
     const here = hereIn(state);
@@ -319,7 +327,8 @@ export function mountStrip(host: StripHost): Strip {
     const rows = state.list.map((t, i) => tabHtml(t, i, t.id === here?.id, labels[i], keeps[i]));
     if (!here && !homeMode) {
       const ico = kindOf(rawPath) === 'file' ? `<span class="fe-tab-ico">${icoFile(labelFor(rawPath).split('.').pop()!.toLowerCase())}</span>` : `<span class="fe-tab-ico">${icoFolder(labelFor(rawPath))}</span>`;
-      rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}\nNot kept yet · t or double-click keeps · p pins">${ico}${lblHtml(labelFor(rawPath))}</a>`);
+      rows.push(`<a class="fe-tab on temp" data-id="" href="${esc(fileUrl(rawPath))}" title="${esc(rawPath)}\nNot kept yet · t or double-click keeps · p pins">${ico}${lblHtml(labelFor(rawPath))}`
+        + `<button class="btn fe-tab-x" data-icon data-size="xs" data-tone="danger" data-id="" title="Close (w)">${UI_ICON.close}</button></a>`);
     }
     el.innerHTML = rows.join('');
     pinLeft();
@@ -366,7 +375,7 @@ export function mountStrip(host: StripHost): Strip {
       });
     });
     el.querySelectorAll<HTMLElement>('.fe-tab-x').forEach(btn => {
-      btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); closeById(btn.dataset.id!); });
+      btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (btn.dataset.id) closeById(btn.dataset.id); else closeHere(); });
     });
     el.querySelectorAll<HTMLElement>('.fe-tab-more').forEach(btn => {
       btn.addEventListener('click', e => {
@@ -384,7 +393,7 @@ export function mountStrip(host: StripHost): Strip {
     // Home is not a place to keep or pin.
     if (homeMode && (e.key === 't' || e.key === 'p')) return true;
     if (e.key === 't') { commit(openTab(state, rawPath)); return true; }
-    if (e.key === 'w') { if (here && !here.pinned) closeHere(); return true; }
+    if (e.key === 'w') { if (!here?.pinned) closeHere(); return true; }
     if (e.key === 'T') { reopenClosed(); return true; }
     if (e.key === 'p') {
       const s = here ? state : openTab(state, rawPath);
@@ -487,5 +496,6 @@ export function mountStrip(host: StripHost): Strip {
     shown,
     closedSets,
     restoreSet,
+    goHome,
   };
 }

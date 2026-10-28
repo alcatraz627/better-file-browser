@@ -280,7 +280,7 @@ loadKv().catch(() => {}).then(function () {
   initDocsLens(el('fe-docs-list'), homeDir(rawPath), folderPath, goTab);
   initDpLens(el('fe-dpl-list'), p => goTab(p));
   initHomeLens(el('fe-home'), goTab);
-  if (homeMode) { el('fe-home-page').hidden = false; initHomePage(el('fe-home-page'), goTab); }
+  if (homeMode) { el('fe-home-page').hidden = false; initHomePage(el('fe-home-page'), goTab, app); }
   // Beside the strip: open a file or folder from the system chooser, or go to a pasted path.
   mountGoto(el('fe-open-path'), () => homeDir(rawPath), (path, background) => { if (!background) { goTab(path); return; } app.strip.open(path, true); app.toast('Kept as a tab'); });
   el('fe-open-pick').addEventListener('click', () => {

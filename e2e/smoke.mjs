@@ -136,7 +136,7 @@ try {
   check(page.url().endsWith('/readme.md'), `Enter with the panel open goes to the file page: ${page.url()}`);
   await page.goto('file://' + h.fixture + '/', { waitUntil: 'load' });
   await page.waitForSelector('#fe');
-  await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
+  await page.click('#fe-tabs .fe-tab[data-id]:not(.temp) .fe-tab-x');
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 0, { timeout: 3_000 }).catch(() => null);
 
   // Middle-click on a row name reaches the browser and opens a new tab.
@@ -178,7 +178,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 1, { timeout: 3_000 }).catch(() => null);
   const bgTab = { tabs: await stripLabels(), url: page.url() };
   check(bgTab.tabs.join('|') === 'nested|~' + h.fixture.split('/').pop() && bgTab.url === urlHere, `⌥ click keeps a background strip tab, URL unchanged: ${JSON.stringify(bgTab)}`);
-  await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
+  await page.click('#fe-tabs .fe-tab[data-id]:not(.temp) .fe-tab-x');
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 0, { timeout: 3_000 }).catch(() => null);
   // A double-click needs explicit press counts; ElementHandle.click({clickCount: 2}) arrives as detail 1.
   const dbl = await (await page.$('#fe-tbody a[href$="readme.md"]')).boundingBox();
@@ -307,10 +307,12 @@ try {
   await page.waitForSelector('#fe');
   // Close every kept tab so the notes flow starts on a clean strip, however many
   // a sidebar click left kept (the folder-preserve behaviour leaves one more).
-  for (let n = (await page.$$('#fe-tabs .fe-tab[data-id]')).length; n > 0; n--) {
-    await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
-    await page.waitForFunction(k => document.querySelectorAll('#fe-tabs .fe-tab[data-id]').length === k, { timeout: 3_000 }, n - 1).catch(() => null);
+  for (let n = (await page.$$('#fe-tabs .fe-tab[data-id]:not(.temp)')).length; n > 0; n--) {
+    await page.click('#fe-tabs .fe-tab[data-id]:not(.temp) .fe-tab-x');
+    await page.waitForFunction(k => document.querySelectorAll('#fe-tabs .fe-tab[data-id]:not(.temp)').length === k, { timeout: 3_000 }, n - 1).catch(() => null);
   }
+  // Closing the last tab lands on Home; the notes flow starts back on the folder.
+  if (page.url() !== urlSide) { await page.goto(urlSide, { waitUntil: 'load' }); await page.waitForSelector('#fe'); }
 
   // Notes are visible before setup. The sidebar action opens the Notes setting.
   await h.store.edit('bfb-settings-v1', s => { delete s.notesRoot; });
@@ -469,7 +471,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 1, { timeout: 3_000 }).catch(() => null);
   const noteTab = await stripLabels();
   check(noteTab[0] === 'grocery-list.md' && await page.$eval('#fe-qlook', el => el.style.display === 'none'), `alt-click on a note keeps a background tab without opening the editor: ${JSON.stringify(noteTab)}`);
-  await page.click('#fe-tabs .fe-tab[data-id] .fe-tab-x');
+  await page.click('#fe-tabs .fe-tab[data-id]:not(.temp) .fe-tab-x');
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 0, { timeout: 3_000 }).catch(() => null);
 
   // The note editor's "+ tab" keeps the note as a strip tab (regression: it used
@@ -480,7 +482,7 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll('#fe-tabs .fe-tab')].some(t => t.querySelector('.fe-tab-lbl')?.textContent === 'grocery-list.md'), { timeout: 3_000 }).catch(() => null);
   const noteEdKept = (await stripLabels()).includes('grocery-list.md');
   await page.keyboard.press('Escape');
-  const noteTabX = await page.$('#fe-tabs .fe-tab[data-id] .fe-tab-x');
+  const noteTabX = await page.$('#fe-tabs .fe-tab[data-id]:not(.temp) .fe-tab-x');
   if (noteTabX) await noteTabX.click();
   await page.waitForFunction(() => document.querySelectorAll('#fe-tabs .fe-tab:not(.temp)').length === 0, { timeout: 3_000 }).catch(() => null);
   check(noteEdKept, `note editor + tab keeps the note as a strip tab: ${noteEdKept}`);
