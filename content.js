@@ -3004,6 +3004,86 @@ ${body}`;
     return own ? `${lead}: ${own}` : `${lead}.`;
   }
 
+  // src/diagram-tools.ts
+  var STEP = 1.25;
+  var clampZoom = (z) => Math.min(8, Math.max(0.5, z));
+  var FIT = { z: 1, x: 0, y: 0 };
+  function zoomAt(v, k, at) {
+    const z = clampZoom(v.z * k);
+    const r = z / v.z;
+    return { z, x: at.x - (at.x - v.x) * r, y: at.y - (at.y - v.y) * r };
+  }
+  var BTN = (act, icon2, title, extra = "") => `<button type="button" class="btn" data-icon data-size="sm" data-variant="ghost" data-mm="${act}" title="${esc(title)}" aria-label="${esc(title)}"${extra}>${icon2}</button>`;
+  var ZOOM_BUTTONS = BTN("out", UI_ICON.zoomOut, "Zoom out (\u2318 scroll)") + BTN("fit", UI_ICON.fit, "Fit (double-click)") + BTN("in", UI_ICON.zoomIn, "Zoom in (\u2318 scroll)");
+  var DIAGRAM_BUTTONS = ZOOM_BUTTONS + BTN("source", UI_ICON.fmtCode, "Show the source", ' aria-pressed="false"') + BTN("copy", UI_ICON.copy, "Copy the source") + BTN("save", UI_ICON.export, "Save as SVG") + BTN("large", UI_ICON.expand, "Open large");
+  var views = /* @__PURE__ */ new WeakMap();
+  function apply(stage, v) {
+    views.set(stage, v);
+    const svg2 = stage.querySelector(":scope > svg");
+    if (svg2) svg2.style.transform = v.z === 1 && !v.x && !v.y ? "" : `translate(${v.x}px,${v.y}px) scale(${v.z})`;
+    stage.dataset.zoom = String(Math.round(v.z * 100));
+    stage.classList.toggle("zoomed", v.z !== 1);
+  }
+  function fitDiagram(stage) {
+    apply(stage, FIT);
+  }
+  function zoomDiagram(stage, k, client) {
+    const svg2 = stage.querySelector(":scope > svg");
+    if (!svg2) return;
+    const v = views.get(stage) ?? FIT;
+    const r = svg2.getBoundingClientRect();
+    const left = r.left - v.x, top = r.top - v.y;
+    const at = client ? { x: client.x - left, y: client.y - top } : { x: r.width / v.z / 2, y: r.height / v.z / 2 };
+    apply(stage, zoomAt(v, k, at));
+  }
+  function zoomAction(stage, act) {
+    if (act === "in") zoomDiagram(stage, STEP);
+    else if (act === "out") zoomDiagram(stage, 1 / STEP);
+    else if (act === "fit") fitDiagram(stage);
+    else return false;
+    return true;
+  }
+  function bindDiagramStage(stage) {
+    if (stage.dataset.panBound) return;
+    stage.dataset.panBound = "1";
+    stage.addEventListener("wheel", (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      zoomDiagram(stage, e.deltaY < 0 ? STEP : 1 / STEP, { x: e.clientX, y: e.clientY });
+    }, { passive: false });
+    stage.addEventListener("dblclick", () => fitDiagram(stage));
+    stage.addEventListener("pointerdown", (e) => {
+      const v0 = views.get(stage) ?? FIT;
+      if (e.button !== 0 || v0.z === 1) return;
+      stage.setPointerCapture(e.pointerId);
+      stage.classList.add("dragging");
+      const sx = e.clientX, sy = e.clientY;
+      const move = (m) => apply(stage, { ...v0, x: v0.x + m.clientX - sx, y: v0.y + m.clientY - sy });
+      const up = () => {
+        stage.classList.remove("dragging");
+        stage.removeEventListener("pointermove", move);
+        stage.removeEventListener("pointerup", up);
+        stage.removeEventListener("pointercancel", up);
+      };
+      stage.addEventListener("pointermove", move);
+      stage.addEventListener("pointerup", up);
+      stage.addEventListener("pointercancel", up);
+    });
+  }
+  function saveSvg(svg2, name2 = "diagram.svg") {
+    const copy = svg2.cloneNode(true);
+    copy.style.removeProperty("transform");
+    copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    const url = URL.createObjectURL(new Blob([copy.outerHTML], { type: "image/svg+xml" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name2;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1e3);
+  }
+
   // src/renderers.ts
   var CODE_EXTS = /* @__PURE__ */ new Set([
     "sh",
@@ -3887,7 +3967,7 @@ ${body}`;
         const code = buf.join("\n");
         const language = fence[3].trim().split(/\s+/)[0] || "";
         if (language.toLowerCase() === "mermaid") {
-          out.push(`<div class="fe-md-mermaid"><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre><div class="fe-md-mermaid-view"></div></div>`);
+          out.push(`<div class="fe-md-mermaid"><div class="bar fe-md-code-bar" data-inset role="toolbar" aria-label="Diagram tools"><span class="fe-md-lang">mermaid</span><span class="fe-md-mermaid-tools">${DIAGRAM_BUTTONS}</span></div><div class="fe-md-mermaid-view"></div><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre></div>`);
         } else {
           out.push(`<div class="fe-md-code"><div class="bar fe-md-code-bar" data-inset><span class="fe-md-lang">${esc(language || "text")}</span><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || "md"))}</pre></div>`);
         }
@@ -4301,7 +4381,7 @@ ${answer}`;
     openMenu?.close("api");
     openMenu = null;
   }
-  function openPropsMenu(anchor, props, apply) {
+  function openPropsMenu(anchor, props, apply2) {
     closePropsMenu();
     const menu = document.createElement("div");
     menu.className = "fe-pmenu";
@@ -4321,7 +4401,7 @@ ${answer}`;
       <form class="fe-pm-add"><input class="tb" data-size="sm" type="text" placeholder="new tag" autocomplete="off" spellcheck="false" maxlength="32"><button class="btn" data-size="sm" type="submit">${UI_ICON.add}<span>add</span></button></form>`;
     };
     const run = async (c) => {
-      const r = await apply(c);
+      const r = await apply2(c);
       if (r) cur = r;
       render2();
       openMenu?.place();
@@ -4438,23 +4518,23 @@ ${answer}`;
     if (!t.w || !t.h) return 1;
     return Math.min(1, Math.max(stageW - 32, 1) / t.w, Math.max(stageH - 32, 1) / t.h);
   }
-  var STEP = 1.25;
-  var clampZoom = (z) => Math.min(16, Math.max(0.05, z));
+  var STEP2 = 1.25;
+  var clampZoom2 = (z) => Math.min(16, Math.max(0.05, z));
   function viewTransform(v) {
     return `translate(-50%,-50%) scaleX(${v.flip ? -1 : 1}) rotate(${v.rot}deg)`;
   }
-  var BTN = (act, icon2, text, title) => `<button class="btn" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
+  var BTN2 = (act, icon2, text, title) => `<button class="btn" data-img="${act}" title="${esc(title)}">${icon2}<span>${text}</span></button>`;
   function mountImageTools(wrap, o) {
     wrap.innerHTML = `
     <div class="bar fe-ql-imgbar" role="toolbar" aria-label="Image tools">
-      ${BTN("in", UI_ICON.zoomIn, "zoom in", "Zoom in")}
-      ${BTN("out", UI_ICON.zoomOut, "zoom out", "Zoom out")}
-      ${BTN("fit", UI_ICON.fit, "fit", "Fit the picture in the panel")}
-      ${BTN("actual", UI_ICON.actualSize, "actual size", "Show at 100%")}
-      ${BTN("rotate", UI_ICON.rotate, "rotate", "Turn a quarter clockwise")}
-      ${BTN("flip", UI_ICON.flip, "flip", "Mirror left to right")}
-      ${BTN("copy", UI_ICON.copyImage, "copy image", "Copy the picture as shown")}
-      ${BTN("open", UI_ICON.external, "open in app", "Open in the default app")}
+      ${BTN2("in", UI_ICON.zoomIn, "zoom in", "Zoom in")}
+      ${BTN2("out", UI_ICON.zoomOut, "zoom out", "Zoom out")}
+      ${BTN2("fit", UI_ICON.fit, "fit", "Fit the picture in the panel")}
+      ${BTN2("actual", UI_ICON.actualSize, "actual size", "Show at 100%")}
+      ${BTN2("rotate", UI_ICON.rotate, "rotate", "Turn a quarter clockwise")}
+      ${BTN2("flip", UI_ICON.flip, "flip", "Mirror left to right")}
+      ${BTN2("copy", UI_ICON.copyImage, "copy image", "Copy the picture as shown")}
+      ${BTN2("open", UI_ICON.external, "open in app", "Open in the default app")}
     </div>
     <div class="fe-ql-imgstage"><div class="fe-ql-imgsizer"><img class="fe-ql-img" src="${esc(o.href)}" alt="${esc(o.name)}"></div></div>
     <div class="fe-ql-dim"></div>`;
@@ -4518,7 +4598,7 @@ ${answer}`;
     };
     const act = (a) => {
       if (a === "in" || a === "out") {
-        v = { ...v, zoom: clampZoom(zoomNow() * (a === "in" ? STEP : 1 / STEP)), fit: false };
+        v = { ...v, zoom: clampZoom2(zoomNow() * (a === "in" ? STEP2 : 1 / STEP2)), fit: false };
       } else if (a === "fit") v = { ...v, fit: true };
       else if (a === "actual") v = { ...v, zoom: 1, fit: false };
       else if (a === "rotate") v = { ...v, rot: (v.rot + 90) % 360 };
@@ -12194,7 +12274,7 @@ ${end.comment}` : end.comment;
     ta.value = noteBody;
     edit.ta = ta;
     const buf = attachBuffer(ta, `note:${root}/${doc.rel}`);
-    const apply = (r) => {
+    const apply2 = (r) => {
       buf.snap();
       ta.value = r.text;
       ta.setSelectionRange(r.start, r.end);
@@ -12208,13 +12288,13 @@ ${end.comment}` : end.comment;
       let to = ta.value.indexOf("\n", s.end);
       if (to < 0) to = ta.value.length;
       const lines = ta.value.slice(from, to).split("\n").map((l) => prefix + l);
-      apply({ text: ta.value.slice(0, from) + lines.join("\n") + ta.value.slice(to), start: from, end: from + lines.join("\n").length });
+      apply2({ text: ta.value.slice(0, from) + lines.join("\n") + ta.value.slice(to), start: from, end: from + lines.join("\n").length });
     };
     const act = (name2) => {
-      if (name2 === "bold") apply(wrapSelection(ta.value, sel(), "**"));
-      if (name2 === "italic") apply(wrapSelection(ta.value, sel(), "_"));
-      if (name2 === "code") apply(wrapSelection(ta.value, sel(), "`"));
-      if (name2 === "strike") apply(wrapSelection(ta.value, sel(), "~~"));
+      if (name2 === "bold") apply2(wrapSelection(ta.value, sel(), "**"));
+      if (name2 === "italic") apply2(wrapSelection(ta.value, sel(), "_"));
+      if (name2 === "code") apply2(wrapSelection(ta.value, sel(), "`"));
+      if (name2 === "strike") apply2(wrapSelection(ta.value, sel(), "~~"));
       if (name2 === "quote") prefixLines("> ");
       if (name2 === "olist") {
         const s = sel();
@@ -12222,7 +12302,7 @@ ${end.comment}` : end.comment;
         let to = ta.value.indexOf("\n", s.end);
         if (to < 0) to = ta.value.length;
         const lines = ta.value.slice(from, to).split("\n").map((l, n) => `${n + 1}. ${l}`).join("\n");
-        apply({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
+        apply2({ text: ta.value.slice(0, from) + lines + ta.value.slice(to), start: from, end: from + lines.length });
       }
       if (name2 === "heading") {
         const s = sel();
@@ -12232,14 +12312,14 @@ ${end.comment}` : end.comment;
         const line2 = ta.value.slice(from, to);
         const level = line2.match(/^(#{1,6}) /)?.[1].length ?? 0;
         const next = level >= 3 ? line2.replace(/^#{1,6} /, "") : "#".repeat(level + 1) + " " + line2.replace(/^#{1,6} /, "");
-        apply({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
+        apply2({ text: ta.value.slice(0, from) + next + ta.value.slice(to), start: from + next.length, end: from + next.length });
       }
       if (name2 === "link") {
         const s = sel();
         const label = ta.value.slice(s.start, s.end) || "text";
         const t = `[${label}](url)`;
         const at = s.start + label.length + 3;
-        apply({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
+        apply2({ text: ta.value.slice(0, s.start) + t + ta.value.slice(s.end), start: at, end: at + 3 });
       }
       if (name2 === "list") prefixLines("- ");
       if (name2 === "task") prefixLines("- [ ] ");
@@ -12363,7 +12443,7 @@ ${end.comment}` : end.comment;
         const fix = absorbTypedMarker(ta.value, sel(), autoMarker);
         if (fix) {
           autoMarker = null;
-          apply(fix);
+          apply2(fix);
           return;
         }
         const typed = ta.value.slice(autoMarker.lineStart + autoMarker.prefix.length, ta.selectionStart);
@@ -12422,15 +12502,15 @@ ${end.comment}` : end.comment;
         actions.step(edit.rel, e.key === "ArrowDown" ? 1 : -1);
       } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
         stop();
-        apply(e.shiftKey ? duplicateLines(ta.value, sel()) : moveLines(ta.value, sel(), e.key === "ArrowDown" ? 1 : -1));
+        apply2(e.shiftKey ? duplicateLines(ta.value, sel()) : moveLines(ta.value, sel(), e.key === "ArrowDown" ? 1 : -1));
       } else if (e.key === "Tab") {
         stop();
-        apply(indentLines(ta.value, sel(), e.shiftKey));
+        apply2(indentLines(ta.value, sel(), e.shiftKey));
       } else if (e.key === "Enter" && !mod && !e.shiftKey) {
         const r = continueList(ta.value, sel());
         if (r) {
           stop();
-          apply(r);
+          apply2(r);
           autoMarker = autoMarkerAfter(r);
         }
       }
@@ -12466,7 +12546,7 @@ ${end.comment}` : end.comment;
         const next = setFirstLine(ta.value, v) ?? `# ${v}
 
 `;
-        apply({ text: next, start: next.length, end: next.length });
+        apply2({ text: next, start: next.length, end: next.length });
         st.redrawMeta?.();
       },
       apply: (c) => {
@@ -13295,12 +13375,12 @@ ${t}`)) say("Note title saved");
   }
 
   // src/docview.ts
-  var views = [];
+  var views2 = [];
   function registerDocView(v) {
-    if (!views.some((x) => x.id === v.id)) views.push(v);
+    if (!views2.some((x) => x.id === v.id)) views2.push(v);
   }
   function docViewsFor(on, path, names = []) {
-    return views.filter((v) => v.on === on && v.claims(path, names));
+    return views2.filter((v) => v.on === on && v.claims(path, names));
   }
   function markDocView(root, id) {
     root.dataset.docview = id;
@@ -13551,6 +13631,33 @@ ${t}`)) say("Note title saved");
     });
     draw();
     viewer = { layer: openShell(root), step: step2 };
+  }
+  function openDiagram(svg2) {
+    viewer?.layer.close("replaced");
+    const { root, body, head } = shell("Diagram", "Diagram, large");
+    const tools = head.querySelector(".fe-dv-view-tools");
+    tools.innerHTML = ZOOM_BUTTONS + actBtn("save", UI_ICON.export, "Save as SVG");
+    body.innerHTML = '<div class="fe-md-mermaid-view fe-dv-diagram"></div>';
+    const stage = body.firstElementChild;
+    const copy = svg2.cloneNode(true);
+    copy.removeAttribute("style");
+    copy.setAttribute("width", "100%");
+    copy.setAttribute("height", "100%");
+    const vb = copy.getAttribute("viewBox")?.split(/[\s,]+/).map(Number);
+    if (vb?.length === 4 && vb[2] > 0 && vb[3] > 0) {
+      copy.style.maxWidth = `${vb[2] * 2}px`;
+      copy.style.maxHeight = `${vb[3] * 2}px`;
+    }
+    stage.append(copy);
+    bindDiagramStage(stage);
+    fitDiagram(stage);
+    tools.addEventListener("click", (e) => {
+      const b = e.target.closest('[data-mm], [data-media="save"]');
+      if (!b) return;
+      if (b.dataset.media === "save") saveSvg(copy);
+      else zoomAction(stage, b.dataset.mm);
+    });
+    viewer = { layer: openShell(root) };
   }
   function openCompare(a, b, labels, onClose) {
     viewer?.layer.close("replaced");
@@ -14929,17 +15036,17 @@ ${t}`)) say("Note title saved");
     });
     markDone(model);
     let view = "all", chip = "";
-    const apply = () => applyView(root, model, view, chip);
+    const apply2 = () => applyView(root, model, view, chip);
     wireChipBar(bar, (want) => {
       chip = want;
       root.dataset.dirFilter = want;
-      apply();
+      apply2();
     });
     view = mountViews(root, bar, (v) => {
       view = v;
-      apply();
+      apply2();
     });
-    apply();
+    apply2();
     markOutline(model);
   }
   var directionsView = {
@@ -14962,12 +15069,12 @@ ${t}`)) say("Note title saved");
     const fe = app.fe;
     const box = document.getElementById("fe-dp");
     if (app.fileMode || !box) return null;
-    const views2 = docViewsFor("folder", app.rawPath, app.entryNames);
-    if (!views2.length) return null;
+    const views3 = docViewsFor("folder", app.rawPath, app.entryNames);
+    if (!views3.length) return null;
     fe.classList.add("fe-dp-pending");
     const base = "file://" + app.rawPath.split("/").map(encodeURIComponent).join("/");
     let shown = null;
-    for (const v of views2) {
+    for (const v of views3) {
       try {
         if (await v.mount({ root: box, base, path: app.rawPath, toast: (m) => app.toast(m), app })) {
           shown = v.id;
@@ -16239,12 +16346,17 @@ textarea.fe-chip-title{resize:none;overflow:hidden;box-sizing:border-box;padding
 .fe-md-l{display:block;width:max-content;min-width:100%;box-sizing:border-box;padding-right:1em;border-radius:3px;counter-increment:ln}
 .fe-md-l::before{content:counter(ln);display:inline-block;width:2.2em;margin-right:1em;text-align:right;color:var(--dm);opacity:.6;user-select:none}
 .fe-md-l:hover{background:color-mix(in srgb,var(--tx) 6%,transparent)}
-.fe-md-mermaid{padding:var(--sp-5);border:1px solid var(--bd);border-radius:var(--r-sm);
-  background:var(--s1);overflow-x:auto;text-align:center}
-.fe-md-mermaid svg{display:block;max-width:100%;height:auto;margin:auto}
+.fe-md-mermaid{border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1);overflow:hidden}
+.fe-md-mermaid-tools{display:flex;gap:var(--sp-1)}
+.fe-md-mermaid-view{padding:var(--sp-4) var(--sp-5) var(--sp-5);overflow:hidden;text-align:center;touch-action:none}
+.fe-md-mermaid-view>svg{display:block;max-width:100%;height:auto;margin:auto;transform-origin:0 0}
+.fe-md-mermaid-view.zoomed{cursor:grab}
+.fe-md-mermaid-view.dragging{cursor:grabbing;user-select:none}
 .fe-md-mermaid-source[hidden]{display:none}
-.fe-md-mermaid-source{margin:var(--sp-4) 0 0;padding:var(--sp-4);text-align:left;white-space:pre-wrap;
+.fe-md-mermaid-source{margin:0 var(--sp-5) var(--sp-5);padding:var(--sp-4);text-align:left;white-space:pre-wrap;
   background:var(--s2);border-radius:var(--r-xs);font:var(--fs-md)/1.55 var(--mono)}
+.fe-dv-diagram{flex:1;min-height:0;padding:var(--sp-5);display:flex;align-items:center;justify-content:center}
+.fe-dv-diagram>svg{width:100%;height:100%;margin:0}
 .fe-md-anchor{margin-left:var(--sp-4);color:var(--dm);font-weight:400;text-decoration:none;opacity:0;transition:opacity var(--t-fast)}
 .fe-md-anchor::before{content:'#'}
 .fe-md h1:hover .fe-md-anchor,.fe-md h2:hover .fe-md-anchor,.fe-md h3:hover .fe-md-anchor,.fe-md h4:hover .fe-md-anchor,.fe-md h5:hover .fe-md-anchor,.fe-md h6:hover .fe-md-anchor{opacity:1}
@@ -17870,15 +17982,15 @@ button.chip:disabled{opacity:.45;cursor:default}
       holding = false;
       grow.disconnect();
     };
-    const apply = () => {
+    const apply2 = () => {
       if (!holding) return;
       scroller2.scrollTop = top;
       if (Math.abs(scroller2.scrollTop - top) < 2) stop();
     };
-    const grow = new ResizeObserver(apply);
+    const grow = new ResizeObserver(apply2);
     if (holding) {
       for (const c of scroller2.children) grow.observe(c);
-      apply();
+      apply2();
       for (const ev of ["wheel", "pointerdown", "keydown", "touchstart"]) scroller2.addEventListener(ev, stop, { once: true, passive: true });
       setTimeout(stop, 3e3);
     }
@@ -20181,7 +20293,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       rail.style.maxHeight = b.h === void 0 ? "" : "none";
       reset.hidden = !Object.keys(b).length;
     };
-    const apply = () => {
+    const apply2 = () => {
       cur = boxPref.get()[tab()] ?? {};
       paintBox(clampBox(cur, pageSize(), cardSize()));
     };
@@ -20217,7 +20329,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
       reset: () => keep({})
     });
     reset.addEventListener("click", () => keep({}));
-    return { placed: (t) => Object.keys(boxPref.get()[t] ?? {}).length > 0, apply };
+    return { placed: (t) => Object.keys(boxPref.get()[t] ?? {}).length > 0, apply: apply2 };
   }
 
   // src/file-page.ts
@@ -26336,7 +26448,7 @@ ${rows.join("\n")}`, name: subject };
           <input class="tb fe-st-input fe-rp-hex" data-mono value="${esc(rule.color)}" maxlength="7" spellcheck="false" title="Any hex colour"></div></div>`;
       };
       paint();
-      const apply = () => {
+      const apply2 = () => {
         saveRules();
         const ico = rulesList.querySelector(`.fe-rule[data-idx="${idx}"] .fe-rule-ico`);
         if (ico) ico.innerHTML = icoCustom(rule.label, rule.color, rule.glyph);
@@ -26347,7 +26459,7 @@ ${rows.join("\n")}`, name: subject };
         if (g) rule.glyph = g.dataset.g || void 0;
         else if (c) rule.color = c.dataset.c;
         else return;
-        apply();
+        apply2();
         paint();
         box.querySelector(g ? `.fe-rp-g[data-g="${g.dataset.g}"]` : `.fe-rp-c[data-c="${c.dataset.c}"]`)?.focus();
       });
@@ -26355,11 +26467,11 @@ ${rows.join("\n")}`, name: subject };
         const t = e.target;
         if (t.classList.contains("fe-rp-label")) {
           rule.label = t.value;
-          apply();
+          apply2();
         }
         if (t.classList.contains("fe-rp-hex") && /^#[0-9a-f]{6}$/i.test(t.value)) {
           rule.color = t.value;
-          apply();
+          apply2();
         }
       });
       pop = openLayer(box, { kind: "popover", anchor, offset: 6, group: "menu", focus: box.querySelector(".fe-rp-g.on") ?? "first" });
@@ -26872,8 +26984,13 @@ ${rows.join("\n")}`, name: subject };
           const currentTheme = theme();
           const key = `${currentTheme}:${hashOf(source)}`;
           const kept = await keptDiagram(key);
+          const show = (svg2) => {
+            view.innerHTML = svg2;
+            bindDiagramStage(view);
+            fitDiagram(view);
+          };
           if (kept) {
-            if (block.isConnected) view.innerHTML = kept;
+            if (block.isConnected) show(kept);
             rendered.set(block, currentTheme);
             return;
           }
@@ -26887,11 +27004,11 @@ ${rows.join("\n")}`, name: subject };
               theme: currentTheme === "light" ? "default" : "dark"
             });
             const { svg: svg2 } = await mermaid.render(`fe-mermaid-${key.replace(":", "-")}-${++sequence}`, source);
-            if (block.isConnected) view.innerHTML = svg2;
+            if (block.isConnected) show(svg2);
             keepDiagram(key, svg2);
           } catch {
             view.textContent = "Could not render this Mermaid diagram.";
-            block.querySelector(".fe-md-mermaid-source")?.removeAttribute("hidden");
+            showSource(block, true);
           }
           rendered.set(block, currentTheme);
         }).catch(() => {
@@ -26935,12 +27052,41 @@ ${rows.join("\n")}`, name: subject };
         });
         return;
       }
+      const mm = t.closest(".fe-md-mermaid [data-mm]");
+      if (mm) {
+        e.preventDefault();
+        const block = mm.closest(".fe-md-mermaid");
+        const view = block.querySelector(".fe-md-mermaid-view");
+        const svg2 = view.querySelector(":scope > svg");
+        const source = block.querySelector(".fe-md-mermaid-source")?.textContent || "";
+        const act = mm.dataset.mm;
+        if (zoomAction(view, act)) return;
+        if (act === "source") showSource(block, mm.getAttribute("aria-pressed") !== "true");
+        else if (act === "copy") void copyWithCheck(mm, source).then((ok) => {
+          if (!ok) toast("Copy failed");
+        });
+        else if (act === "save") {
+          if (svg2) saveSvg(svg2);
+          else toast("The diagram has not been drawn");
+        } else if (act === "large") {
+          if (svg2) openDiagram(svg2);
+          else toast("The diagram has not been drawn");
+        }
+        return;
+      }
       const img = t.closest(".fe-md img");
       if (img && !img.closest("a, [data-docview]")) {
         e.preventDefault();
         go(img.src, "chrome-tab");
       }
     });
+  }
+  function showSource(block, on) {
+    block.querySelector(".fe-md-mermaid-source")?.toggleAttribute("hidden", !on);
+    const btn = block.querySelector('[data-mm="source"]');
+    if (!btn) return;
+    btn.setAttribute("aria-pressed", String(on));
+    btn.title = btn.ariaLabel = on ? "Hide the source" : "Show the source";
   }
   var looked2 = /* @__PURE__ */ new WeakSet();
   function linkFrontMatterPaths() {

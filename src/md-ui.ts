@@ -7,6 +7,8 @@ import { fileExists } from './file-fetch';
 import { esc } from './utils';
 import { go } from './nav';
 import { decorateFileView } from './docviews';
+import { bindDiagramStage, fitDiagram, saveSvg, zoomAction } from './diagram-tools';
+import { openDiagram } from './docview-media';
 
 // Drawn Mermaid diagrams, kept in the extension's own storage (never the
 // file:// localStorage, which any HTML file opened in Chrome can write) so a
@@ -50,18 +52,19 @@ export function initMarkdownUi(toast: Toast): void {
         // A diagram drawn before, on any page, comes back at once.
         const key = `${currentTheme}:${hashOf(source)}`;
         const kept = await keptDiagram(key);
-        if (kept) { if (block.isConnected) view.innerHTML = kept; rendered.set(block, currentTheme); return; }
+        const show = (svg: string) => { view.innerHTML = svg; bindDiagramStage(view); fitDiagram(view); };
+        if (kept) { if (block.isConnected) show(kept); rendered.set(block, currentTheme); return; }
         try {
           const { default: mermaid } = await import(chrome.runtime.getURL('vendor-mermaid.js')) as typeof import('./mermaid-runtime');
           mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', htmlLabels: false,
             suppressErrorRendering: true, theme: currentTheme === 'light' ? 'default' : 'dark' });
           // The id carries the diagram's hash, so two kept diagrams on one page never share marker ids.
           const { svg } = await mermaid.render(`fe-mermaid-${key.replace(':', '-')}-${++sequence}`, source);
-          if (block.isConnected) view.innerHTML = svg;
+          if (block.isConnected) show(svg);
           keepDiagram(key, svg);
         } catch {
           view.textContent = 'Could not render this Mermaid diagram.';
-          block.querySelector<HTMLElement>('.fe-md-mermaid-source')?.removeAttribute('hidden');
+          showSource(block, true);
         }
         rendered.set(block, currentTheme);
       }).catch(() => {}).finally(() => {
@@ -94,9 +97,33 @@ export function initMarkdownUi(toast: Toast): void {
       void copyWithCheck(copy, pre?.textContent || '').then(ok => { if (!ok) toast('Copy failed'); });
       return;
     }
+    const mm = t.closest<HTMLElement>('.fe-md-mermaid [data-mm]');
+    if (mm) {
+      e.preventDefault();
+      const block = mm.closest<HTMLElement>('.fe-md-mermaid')!;
+      const view = block.querySelector<HTMLElement>('.fe-md-mermaid-view')!;
+      const svg = view.querySelector<SVGElement>(':scope > svg');
+      const source = block.querySelector('.fe-md-mermaid-source')?.textContent || '';
+      const act = mm.dataset.mm!;
+      if (zoomAction(view, act)) return;
+      if (act === 'source') showSource(block, mm.getAttribute('aria-pressed') !== 'true');
+      else if (act === 'copy') void copyWithCheck(mm, source).then(ok => { if (!ok) toast('Copy failed'); });
+      else if (act === 'save') { if (svg) saveSvg(svg); else toast('The diagram has not been drawn'); }
+      else if (act === 'large') { if (svg) openDiagram(svg); else toast('The diagram has not been drawn'); }
+      return;
+    }
     const img = t.closest<HTMLImageElement>('.fe-md img');
     if (img && !img.closest('a, [data-docview]')) { e.preventDefault(); go(img.src, 'chrome-tab'); }
   });
+}
+
+/// Show or hide a diagram's source under it, keeping its toolbar button in step.
+function showSource(block: HTMLElement, on: boolean): void {
+  block.querySelector<HTMLElement>('.fe-md-mermaid-source')?.toggleAttribute('hidden', !on);
+  const btn = block.querySelector<HTMLElement>('[data-mm="source"]');
+  if (!btn) return;
+  btn.setAttribute('aria-pressed', String(on));
+  btn.title = btn.ariaLabel = on ? 'Hide the source' : 'Show the source';
 }
 
 /// Front matter values that name a file become links when the file is there.
