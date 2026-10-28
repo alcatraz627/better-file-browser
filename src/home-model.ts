@@ -30,34 +30,42 @@ export function summarizeRepo(doc: RepoDoc, now = new Date()): RepoSummary {
 export const sortRepos = (repos: RepoSummary[]) =>
   [...repos].sort((a, b) => Number(b.onYou > 0) - Number(a.onYou > 0) || b.onYou - a.onYou || b.mtime - a.mtime);
 
-/** One stat on Home: which it is, a value, what it counts, and a small aside. */
-export interface UsageStat { id: 'asked' | 'chats' | 'answered' | 'opened' | 'saved' | 'top'; label: string; value: string; sub: string }
+/** One number on Home: what it counts, a small aside, the last seven days
+ *  when a trend helps (oldest first, today last), and whether it needs the
+ *  owner now. Each id is also where a click on it goes. */
+export interface HomeStat { id: 'waiting' | 'asks' | 'asked' | 'opened' | 'saved' | 'notes'; label: string; value: string; sub: string; series?: number[]; hot?: boolean }
 
-/** Light, slightly idle facts about how bfb gets used, from what bfb already
- *  keeps: chats, places opened and saved, and decision pages answered. */
-export function usageStats(
-  chats: { subject: string; chat: { at: number; turns: { at: number }[] } }[],
-  recents: { path: string; ts: number }[],
-  saved: { path: string; tags?: string[] }[],
-  pages: { answered?: number | null }[],
-  now = Date.now(),
-): UsageStat[] {
-  const week = now - 7 * 86400_000;
-  const day = new Date(now); day.setHours(0, 0, 0, 0);
-  const turns = chats.flatMap(c => c.chat.turns);
-  const perSubject = new Map<string, number>();
-  for (const c of chats) perSubject.set(c.subject, (perSubject.get(c.subject) ?? 0) + c.chat.turns.length);
-  const top = [...perSubject].sort((a, b) => b[1] - a[1])[0];
-  const answered = pages.filter(p => p.answered).map(p => p.answered! * 1000);
-  const tags = new Set(saved.flatMap(s => s.tags ?? []));
+/** How many of `times` (ms) fall on each of the last seven local days. */
+export function lastSevenDays(times: number[], now = Date.now()): number[] {
+  const start = new Date(now); start.setHours(0, 0, 0, 0);
+  const days = Array.from({ length: 7 }, (_, i) => start.getTime() - (6 - i) * 86400_000);
+  return days.map((d, i) => times.filter(t => t >= d && t < (days[i + 1] ?? Infinity)).length);
+}
+
+/** The six numbers on Home, each one something the owner can act on. */
+export function homeStats(o: {
+  waiting: number; asks: number; askRepos: number;
+  chats: { chat: { turns: { at: number }[] } }[];
+  recents: { ts: number }[];
+  saved: { tags?: string[] }[];
+  notes: { mtime: number }[];
+}, now = Date.now()): HomeStat[] {
   const n = (v: number) => v.toLocaleString('en-US');
+  const plural = (v: number, one: string, many = one + 's') => `${n(v)} ${v === 1 ? one : many}`;
+  const asked = lastSevenDays(o.chats.flatMap(c => c.chat.turns.map(t => t.at)), now);
+  const opened = lastSevenDays(o.recents.map(r => r.ts), now);
+  const tags = new Set(o.saved.flatMap(s => s.tags ?? []));
+  // A note's time may come in seconds or milliseconds; anything below 1e12 is seconds.
+  const week = now - 7 * 86400_000;
+  const changed = o.notes.filter(x => (x.mtime < 1e12 ? x.mtime * 1000 : x.mtime) >= week).length;
+  const sum = (a: number[]) => a.reduce((s, v) => s + v, 0);
   return [
-    { id: 'asked', label: 'questions asked', value: n(turns.length), sub: `${n(turns.filter(t => t.at >= week).length)} this week` },
-    { id: 'chats', label: 'chats', value: n(chats.length), sub: `about ${n(perSubject.size)} ${perSubject.size === 1 ? 'thing' : 'things'}` },
-    { id: 'answered', label: 'decisions answered', value: n(answered.length), sub: `${n(answered.filter(t => t >= week).length)} this week` },
-    { id: 'opened', label: 'places opened lately', value: n(recents.length), sub: `${n(recents.filter(r => r.ts >= day.getTime()).length)} today` },
-    { id: 'saved', label: 'places saved', value: n(saved.length), sub: tags.size ? `${n(tags.size)} ${tags.size === 1 ? 'tag' : 'tags'}` : 'no tags yet' },
-    { id: 'top', label: 'asked about most', value: top ? (top[0].split('/').filter(Boolean).pop() || '/') : 'nothing yet', sub: top ? `${n(top[1])} ${top[1] === 1 ? 'question' : 'questions'}` : 'ask about any file' },
+    { id: 'waiting', label: 'waiting on you', value: n(o.waiting), sub: o.waiting ? 'pages to answer' : 'nothing to answer', hot: o.waiting > 0 },
+    { id: 'asks', label: 'asks on you', value: n(o.asks), sub: o.asks ? `in ${plural(o.askRepos, 'repo')}` : 'no repo needs you', hot: o.asks > 0 },
+    { id: 'asked', label: 'questions', value: n(sum(asked)), sub: 'this week', series: asked },
+    { id: 'opened', label: 'places opened', value: n(opened[6]), sub: 'today', series: opened },
+    { id: 'saved', label: 'saved', value: n(o.saved.length), sub: tags.size ? plural(tags.size, 'tag') : 'no tags yet' },
+    { id: 'notes', label: 'notes', value: n(o.notes.length), sub: `${n(changed)} changed this week` },
   ];
 }
 

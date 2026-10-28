@@ -15413,7 +15413,6 @@ body{opacity:1!important}
 .fe-dpl-dot{position:absolute;top:calc(var(--sp-1) * -1);right:calc(var(--sp-1) * -1);width:var(--sp-3);height:var(--sp-3);border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px var(--side)}
 .fe-row-cm{flex:none}
 .fe-home-row{display:flex;align-items:center;gap:var(--sp-4);width:calc(100% - 12px);margin:var(--sp-1) var(--sp-3);padding:var(--sp-3) var(--sp-4);border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-home-row.unseen{background:color-mix(in srgb,var(--gold) 9%,transparent)}
 .fe-home-row.unseen .fe-home-t{font-weight:600}
 .fe-home-row .fe-row-ico{position:relative;display:flex;align-self:flex-start;margin-top:var(--sp-1)}
 .fe-home-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
@@ -15434,39 +15433,43 @@ body{opacity:1!important}
 #fe.fe-home-mode #fe-toolbar,#fe.fe-home-mode #fe-sg-panel,#fe.fe-home-mode #fe-filter-bar,#fe.fe-home-mode #fe-scroll,#fe.fe-home-mode #fe-dp,#fe.fe-home-mode #fe-statusbar{display:none}
 #fe-home-page{flex:1;min-height:0;overflow:auto;padding:var(--sp-9)}
 #fe-home-page[hidden]{display:none}
-.fe-hp{max-width:76rem;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-7)}
-/* The head: a greeting and the date, what is waiting as chips that jump to their card, and the path bar. */
-.fe-hp-head{display:flex;flex-direction:column;gap:var(--sp-5);padding:var(--sp-8) var(--sp-8) var(--sp-7);border:1px solid var(--bd);border-radius:var(--r-sm);
-  background:radial-gradient(120% 140% at 0% 0%,color-mix(in srgb,var(--ac) 12%,transparent),transparent 60%),var(--s1)}
-.fe-hp-hello{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-2) var(--sp-6)}
-.fe-hp-hello h1{margin:0;font-size:calc(var(--fs-xl) * 1.35);font-weight:650;letter-spacing:-.02em;line-height:1.15;color:var(--tx)}
+.fe-hp{max-width:100rem;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-6)}
+/* The head (docs/plan/home-rail.md): the day on the left, actions on the right, the path bar under both. */
+.fe-hp-head{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"hello acts" "go go";align-items:center;gap:var(--sp-5) var(--sp-6);padding:var(--sp-6) var(--sp-7);border:1px solid var(--bd);border-radius:var(--r-sm);
+  background:radial-gradient(120% 160% at 0% 0%,color-mix(in srgb,var(--ac) 10%,transparent),transparent 55%),var(--s1)}
+.fe-hp-hello{grid-area:hello;display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--sp-1) var(--sp-5);min-width:0}
+.fe-hp-hello h1{margin:0;font-size:calc(var(--fs-xl) * 1.3);font-weight:650;letter-spacing:-.02em;line-height:1.15;color:var(--tx)}
 .fe-hp-date{font-size:var(--fs-md);color:var(--mt)}
-.fe-hp-chips{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
-.fe-hp-chip{display:inline-flex;align-items:center;min-height:var(--ctl-sm);padding:0 var(--sp-5);border:1px solid var(--bd);border-radius:var(--r-full);background:var(--s2);color:var(--mt);font:inherit;font-size:var(--fs-sm);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-hp-chip:hover{background:var(--s3);color:var(--tx)}
-.fe-hp-chip[data-tone="you"]{border-color:color-mix(in srgb,var(--ac) 40%,var(--bd));background:color-mix(in srgb,var(--ac) 12%,var(--s2));color:var(--tx);font-weight:500}
-.fe-hp-chip:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-hp-go{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-hp-acts{grid-area:acts;display:flex;gap:var(--sp-1)}
+.fe-hp-go{grid-area:go;display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-5);border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
 .fe-hp-go:focus-within{border-color:var(--ac);box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 18%,transparent)}
 .fe-hp-go-ico{display:flex;flex:none;color:var(--dm)}
-.fe-hp-go-in{flex:1;min-width:0;height:var(--ctl-md);border:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md);font-family:var(--mono);outline:none}
+.fe-hp-go-in{flex:1;min-width:0;height:var(--ctl-lg);border:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md);font-family:var(--mono);outline:none}
 .fe-hp-go-in::placeholder{color:var(--dm);font-family:var(--font-text)}
-.fe-hp-go-msg{margin:calc(var(--sp-3) * -1) 0 0;font-size:var(--fs-sm);color:var(--tone-warn)}
+.fe-hp-go-msg{grid-column:1 / -1;margin:calc(var(--sp-3) * -1) 0 0;font-size:var(--fs-sm);color:var(--tone-warn)}
 .fe-hp-go-msg[hidden]{display:none}
-/* The numbers: one band, cells split by hairlines. */
+/* The numbers: one band of buttons, each going where its count lives. */
 .fe-hp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--bd);border-radius:var(--r-sm);overflow:hidden;background:var(--s1)}
 @container fe-main (min-width:1100px){.fe-hp-stats{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @container fe-main (max-width:480px){.fe-hp-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.fe-hp-stat{display:flex;align-items:flex-start;gap:var(--sp-4);min-width:0;padding:var(--sp-6);box-shadow:1px 0 0 var(--bd),0 1px 0 var(--bd)}
-.fe-hp-stat .fe-dlg-tile{margin-top:var(--sp-1)}
-.fe-hp-stat-tx{display:flex;flex-direction:column;gap:var(--sp-1);min-width:0}
-.fe-hp-stat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(var(--fs-xl) * 1.5);font-weight:650;line-height:1.1;letter-spacing:-.01em;color:var(--tx);font-variant-numeric:tabular-nums}
-.fe-hp-stat[data-stat="top"] b{font-size:calc(var(--fs-xl) * 1.1);line-height:1.5}
-.fe-hp-stat-l{font-size:var(--fs-sm);color:var(--mt)}
-.fe-hp-stat-s{font-size:var(--fs-xs);color:var(--dm)}
-.fe-hp-cols{display:flex;flex-wrap:wrap;gap:var(--sp-7);align-items:flex-start}
-.fe-hp-col{display:flex;flex-direction:column;gap:var(--sp-7);min-width:0;flex:2 1 22rem}
-.fe-hp-col.fe-hp-col-links{flex:1 1 15rem}
+.fe-hp-stat{display:flex;align-items:center;gap:var(--sp-4);min-width:0;padding:var(--sp-5);border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;box-shadow:1px 0 0 var(--bd),0 1px 0 var(--bd);transition:background var(--t-fast) var(--ease)}
+.fe-hp-stat:hover{background:var(--hover)}
+.fe-hp-stat:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+.fe-hp-stat-tx{flex:1;display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.fe-hp-stat b{font-size:calc(var(--fs-xl) * 1.4);font-weight:650;letter-spacing:-.01em;line-height:1.1;color:var(--tx);font-variant-numeric:tabular-nums}
+.fe-hp-stat.hot b{color:var(--ac)}
+.fe-hp-stat-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--mt)}
+.fe-hp-stat-s{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-xs);color:var(--dm)}
+.fe-hp-stat-top{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-3)}
+.fe-hp-bars{flex:none;display:flex;align-items:flex-end;gap:var(--sp-1);height:var(--ctl-sm);margin-bottom:var(--sp-1)}
+.fe-hp-bars i{width:var(--sp-3);height:var(--h);border-radius:var(--r-xs);background:color-mix(in srgb,var(--ac) 70%,transparent)}
+.fe-hp-bars i.nil{background:color-mix(in srgb,var(--tx) 14%,transparent)}
+/* The body: a main column beside a fixed rail of quick links. */
+.fe-hp-body{display:grid;grid-template-columns:minmax(0,1fr) 20rem;gap:var(--sp-6);align-items:start}
+@container fe-main (max-width:720px){.fe-hp-body,.fe-hp-pair{grid-template-columns:minmax(0,1fr)}}
+.fe-hp-main{display:flex;flex-direction:column;gap:var(--sp-6);min-width:0}
+.fe-hp-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-6);align-items:start}
+.fe-hp-rail{display:flex;flex-direction:column;gap:var(--sp-6);min-width:0}
 /* A card: icon, title and what it holds, a count, and a body that folds away. */
 .fe-hp-card{border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1);overflow:hidden}
 .fe-hp-card-h{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-4) var(--sp-5);list-style:none;cursor:pointer;user-select:none}
@@ -15478,7 +15481,8 @@ body{opacity:1!important}
 .fe-hp-card-tx b{font-size:var(--fs-md);font-weight:600;color:var(--tx)}
 .fe-hp-card-tx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hp-card-h>.chev{flex:none;color:var(--dm)}
-.fe-hp-card-b{padding:var(--sp-2) 0 var(--sp-3)}
+.fe-hp-card-b{max-height:26rem;overflow:auto;padding:var(--sp-2) 0 var(--sp-3)}
+.fe-hp-rail .fe-hp-card-b{max-height:16rem}
 .fe-hp-card .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
 .fe-hp-calm{display:flex;align-items:center;gap:var(--sp-3);color:var(--tone-ok)}
 /* Quick links: a row per place, its actions showing on hover. */
@@ -24298,7 +24302,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     bind("deep", click("fe-deep-btn"), () => !app.fileMode);
     bind("sidebar", click("fe-side-toggle"));
     bind("theme", click("fe-theme-btn"));
-    bind("path", click("fe-open-path"));
+    bind("path", () => {
+      const bar = document.querySelector(".fe-hp-go-in");
+      if (bar) bar.focus();
+      else click("fe-open-path")();
+    });
     bind("open-pick", click("fe-open-pick"));
     bind("save", click("fe-bm-btn"), () => !!document.getElementById("fe-bm-btn"));
     bind("terminal", click("fe-term-btn"));
@@ -27377,24 +27385,28 @@ ${rows.join("\n")}`, name: subject };
     return { path: doc.path, repo: doc.repo, mtime: doc.mtime, onYou: h.you.length, ready: h.ready.length, staleDays: h.staleDays };
   }
   var sortRepos = (repos) => [...repos].sort((a, b) => Number(b.onYou > 0) - Number(a.onYou > 0) || b.onYou - a.onYou || b.mtime - a.mtime);
-  function usageStats(chats, recents, saved, pages, now = Date.now()) {
-    const week = now - 7 * 864e5;
-    const day = new Date(now);
-    day.setHours(0, 0, 0, 0);
-    const turns = chats.flatMap((c) => c.chat.turns);
-    const perSubject = /* @__PURE__ */ new Map();
-    for (const c of chats) perSubject.set(c.subject, (perSubject.get(c.subject) ?? 0) + c.chat.turns.length);
-    const top = [...perSubject].sort((a, b) => b[1] - a[1])[0];
-    const answered = pages.filter((p) => p.answered).map((p) => p.answered * 1e3);
-    const tags = new Set(saved.flatMap((s) => s.tags ?? []));
+  function lastSevenDays(times, now = Date.now()) {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const days = Array.from({ length: 7 }, (_, i3) => start.getTime() - (6 - i3) * 864e5);
+    return days.map((d, i3) => times.filter((t) => t >= d && t < (days[i3 + 1] ?? Infinity)).length);
+  }
+  function homeStats(o, now = Date.now()) {
     const n = (v) => v.toLocaleString("en-US");
+    const plural3 = (v, one, many = one + "s") => `${n(v)} ${v === 1 ? one : many}`;
+    const asked = lastSevenDays(o.chats.flatMap((c) => c.chat.turns.map((t) => t.at)), now);
+    const opened2 = lastSevenDays(o.recents.map((r) => r.ts), now);
+    const tags = new Set(o.saved.flatMap((s) => s.tags ?? []));
+    const week = now - 7 * 864e5;
+    const changed = o.notes.filter((x) => (x.mtime < 1e12 ? x.mtime * 1e3 : x.mtime) >= week).length;
+    const sum = (a) => a.reduce((s, v) => s + v, 0);
     return [
-      { id: "asked", label: "questions asked", value: n(turns.length), sub: `${n(turns.filter((t) => t.at >= week).length)} this week` },
-      { id: "chats", label: "chats", value: n(chats.length), sub: `about ${n(perSubject.size)} ${perSubject.size === 1 ? "thing" : "things"}` },
-      { id: "answered", label: "decisions answered", value: n(answered.length), sub: `${n(answered.filter((t) => t >= week).length)} this week` },
-      { id: "opened", label: "places opened lately", value: n(recents.length), sub: `${n(recents.filter((r) => r.ts >= day.getTime()).length)} today` },
-      { id: "saved", label: "places saved", value: n(saved.length), sub: tags.size ? `${n(tags.size)} ${tags.size === 1 ? "tag" : "tags"}` : "no tags yet" },
-      { id: "top", label: "asked about most", value: top ? top[0].split("/").filter(Boolean).pop() || "/" : "nothing yet", sub: top ? `${n(top[1])} ${top[1] === 1 ? "question" : "questions"}` : "ask about any file" }
+      { id: "waiting", label: "waiting on you", value: n(o.waiting), sub: o.waiting ? "pages to answer" : "nothing to answer", hot: o.waiting > 0 },
+      { id: "asks", label: "asks on you", value: n(o.asks), sub: o.asks ? `in ${plural3(o.askRepos, "repo")}` : "no repo needs you", hot: o.asks > 0 },
+      { id: "asked", label: "questions", value: n(sum(asked)), sub: "this week", series: asked },
+      { id: "opened", label: "places opened", value: n(opened2[6]), sub: "today", series: opened2 },
+      { id: "saved", label: "saved", value: n(o.saved.length), sub: tags.size ? plural3(tags.size, "tag") : "no tags yet" },
+      { id: "notes", label: "notes", value: n(o.notes.length), sub: `${n(changed)} changed this week` }
     ];
   }
   function splitByAge(rows, days = 14, now = Date.now()) {
@@ -27463,15 +27475,29 @@ ${rows.join("\n")}`, name: subject };
     return `<header class="fe-home-head">${esc(today())}</header>${card5}${failed}` + group("chats", "Continue", d.chats.length, chatBody, !folded.has("chats")) + (quiet.length ? group("quiet", "Quiet", quiet.length, quiet.join(""), !folded.has("quiet")) : "");
   }
   var STAT_LOOK = {
-    asked: { icon: UI_ICON.ai, tone: "var(--nc-purple)" },
-    chats: { icon: UI_ICON.comment, tone: "var(--nc-blue)" },
-    answered: { icon: UI_ICON.circleCheck, tone: "var(--nc-green)" },
-    opened: { icon: UI_ICON.clock, tone: "var(--nc-orange)" },
-    saved: { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)" },
-    top: { icon: UI_ICON.file, tone: "var(--nc-teal)" }
+    waiting: { icon: UI_ICON.opinion, tone: "var(--nc-blue)", to: "Show the decisions waiting" },
+    asks: { icon: UI_ICON.contents, tone: "var(--nc-teal)", to: "Show the directions with asks on you" },
+    asked: { icon: UI_ICON.ai, tone: "var(--nc-purple)", to: "Show the chats to continue" },
+    opened: { icon: UI_ICON.clock, tone: "var(--nc-orange)", to: "Open History in the sidebar" },
+    saved: { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)", to: "Open Saved in the sidebar" },
+    notes: { icon: UI_ICON.notes, tone: "var(--nc-green)", to: "Open Notes in the sidebar" }
   };
   var tile2 = (icon2, tone) => `<span class="fe-dlg-tile" style="--tone:${tone}" aria-hidden="true">${icon2}</span>`;
-  var statCell = (s) => `<div class="fe-hp-stat" data-stat="${s.id}">${tile2(STAT_LOOK[s.id].icon, STAT_LOOK[s.id].tone)}<div class="fe-hp-stat-tx"><b title="${esc(s.value)}">${esc(s.value)}</b><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></div></div>`;
+  var DAY = (i3) => i3 === 6 ? "today" : i3 === 5 ? "yesterday" : `${6 - i3} days ago`;
+  var bars = (series) => {
+    const top = Math.max(1, ...series);
+    return `<span class="fe-hp-bars" aria-hidden="true">${series.map((v, i3) => `<i style="--h:${Math.max(12, Math.round(v / top * 100))}%"${v ? "" : ' class="nil"'} title="${DAY(i3)}: ${v}"></i>`).join("")}</span>`;
+  };
+  var statCell = (s) => `<button type="button" class="fe-hp-stat${s.hot ? " hot" : ""}" data-stat="${s.id}" title="${esc(STAT_LOOK[s.id].to)}">${tile2(STAT_LOOK[s.id].icon, STAT_LOOK[s.id].tone)}<span class="fe-hp-stat-tx"><span class="fe-hp-stat-top"><b>${esc(s.value)}</b>${s.series ? bars(s.series) : ""}</span><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></span></button>`;
+  var ACTIONS = [
+    ["note", UI_ICON.add, "New note (n)"],
+    ["ask", UI_ICON.ai, "Ask about a file or folder"],
+    ["pick", UI_ICON.folderOpen, "Open a file or folder from Finder (o)"],
+    ["palette", line(LINE_ICON.apps, 16), "Command palette (\u2318K)"],
+    ["keys", UI_ICON.keyboard, "Keyboard map (?)"],
+    ["settings", line(LINE_ICON.gear, 16), "Settings (,)"]
+  ];
+  var actionBtn = ([act, icon2, title]) => `<button type="button" class="btn" data-icon data-variant="ghost" data-hp-act="${act}" title="${esc(title)}" aria-label="${esc(title)}">${icon2}</button>`;
   var linkCard = (l) => {
     const dir = l.path.endsWith("/");
     const ext2 = l.label.includes(".") ? l.label.split(".").pop().toLowerCase() : "";
@@ -27485,16 +27511,7 @@ ${rows.join("\n")}`, name: subject };
     <div class="fe-hp-card-b">${body}</div>
   </details>`;
   function paintPage(d, allShown, folded) {
-    const waiting = d.pages.filter((p) => p.state === "waiting");
-    const { recent: fresh, older } = splitByAge(waiting, FRESH_DAYS);
-    const asks = d.repos.reduce((s, r) => s + r.onYou, 0);
-    const askRepos = d.repos.filter((r) => r.onYou).length;
-    const chip = (to, text, tone = "") => `<button type="button" class="fe-hp-chip" data-jump="${to}"${tone ? ` data-tone="${tone}"` : ""}>${esc(text)}</button>`;
-    const chips = [
-      fresh.length ? chip("decide", `${plural2(fresh.length, "decision")} waiting`, "you") : chip("decide", "No decision waiting"),
-      asks ? chip("repos", `${plural2(asks, "ask")} in ${plural2(askRepos, "repo")}`, "you") : "",
-      d.chats.length ? chip("chats", plural2(d.chats.length, "chat")) : ""
-    ].join("");
+    const { recent: fresh, older } = splitByAge(d.pages.filter((p) => p.state === "waiting"), FRESH_DAYS);
     const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
     const olderLine = older.length ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural2(older.length, "older page")} in Decisions</button>` : "";
     const decide = d.pagesFailed ? none("Decision pages could not be listed") : (fresh.map((r) => pageRow(r, true)).join("") || `<p class="fe-home-none fe-hp-calm">${UI_ICON.circleCheck}<span>Nothing waits on you</span></p>`) + olderLine;
@@ -27502,30 +27519,31 @@ ${rows.join("\n")}`, name: subject };
     return `<div class="fe-hp">
     <header class="fe-hp-head">
       <div class="fe-hp-hello"><h1>${esc(greeting())}</h1><span class="fe-hp-date">${esc(today("long"))}</span></div>
-      <div class="fe-hp-chips">${chips}</div>
+      <div class="fe-hp-acts" role="toolbar" aria-label="Start something">${ACTIONS.map(actionBtn).join("")}</div>
       <form class="fe-hp-go" role="search" autocomplete="off">
         <span class="fe-hp-go-ico">${line(LINE_ICON.search, 16)}</span>
-        <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp" aria-label="Open a path" title="Type a path; folders and files are suggested as you type">
+        <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp  (l)" aria-label="Open a path" title="Type a path; folders and files are suggested as you type">
         <datalist id="fe-hp-go-list"></datalist>
-        <button type="submit" class="btn" data-size="md" title="Open this path here">Open</button>
-        <button type="button" class="btn fe-hp-go-link" data-size="md" data-variant="ghost" title="Open what is typed as a web link, in a new Chrome tab">${UI_ICON.link}Open link</button>
+        <button type="submit" class="btn" data-icon data-variant="ghost" title="Open this path here (\u21B5)" aria-label="Open this path here">${UI_ICON.next}</button>
+        <button type="button" class="btn fe-hp-go-link" data-icon data-variant="ghost" title="Open what is typed as a web link, in a new Chrome tab" aria-label="Open as a web link">${UI_ICON.link}</button>
+        <button type="button" class="btn" data-icon data-variant="ghost" data-hp-act="pick" title="Choose a file or folder in Finder (o)" aria-label="Choose in Finder">${UI_ICON.folderOpen}</button>
       </form>
       <p class="fe-hp-go-msg" role="status" hidden></p>
     </header>
     <div class="fe-hp-stats">${d.stats.map(statCell).join("")}</div>
-    <div class="fe-hp-cols">
-      <div class="fe-hp-col">
-        ${card4("decide", { icon: UI_ICON.opinion, tone: "var(--nc-blue)", title: "Decisions", sub: `Pages waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
+    <div class="fe-hp-body">
+      <div class="fe-hp-main">
+        <div class="fe-hp-pair">
+          ${card4("decide", { icon: UI_ICON.opinion, tone: "var(--nc-blue)", title: "Decisions", sub: `Waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
+          ${card4("repos", { icon: UI_ICON.contents, tone: "var(--nc-teal)", title: "Directions", sub: "Each repo\u2019s plan, asks on you first", n: d.repos.length }, d.repos.map(repoRow).join("") || none("No directions docs found under ~/Code"), folded)}
+        </div>
         ${card4("chats", { icon: UI_ICON.ai, tone: "var(--nc-purple)", title: "Continue", sub: "Ask chats, newest first", n: d.chats.length }, (chats.map(chatRow).join("") || none("No chats yet. Ask about any file to start one.")) + moreBtn(chats.length, d.chats.length), folded)}
       </div>
-      <div class="fe-hp-col">
-        ${card4("repos", { icon: UI_ICON.contents, tone: "var(--nc-teal)", title: "Directions", sub: "Each repo\u2019s plan, asks on you first", n: d.repos.length }, d.repos.map(repoRow).join("") || none("No directions docs found under ~/Code"), folded)}
-      </div>
-      <div class="fe-hp-col fe-hp-col-links">
+      <aside class="fe-hp-rail">
         ${links("saved", { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)", title: "Saved", sub: "Places you keep" }, d.saved, "Save a place with the star to see it here")}
         ${links("notes", { icon: UI_ICON.notes, tone: "var(--nc-orange)", title: "Notes", sub: "Latest first" }, d.notes, "Notes you write show up here")}
         ${links("recent", { icon: UI_ICON.clock, tone: "var(--nc-green)", title: "Opened lately", sub: "\xD7 forgets one" }, d.recent, "Places you open show up here")}
-      </div>
+      </aside>
     </div>
   </div>`;
   }
@@ -27558,12 +27576,22 @@ ${rows.join("\n")}`, name: subject };
       ]);
       if (mine !== seq2) return;
       const chats = allChats();
+      const open = openPages(pages.rows, new Set(archivedPref2.get()));
+      const repos = sortRepos(docs.map((doc) => summarizeRepo(doc)));
       data = {
         chats,
-        pages: openPages(pages.rows, new Set(archivedPref2.get())),
+        pages: open,
         pagesFailed: pages.failed,
-        repos: sortRepos(docs.map((doc) => summarizeRepo(doc))),
-        stats: usageStats(chats, getRecents(), getSaved(), pages.rows),
+        repos,
+        stats: homeStats({
+          waiting: splitByAge(open.filter((p) => p.state === "waiting"), FRESH_DAYS).recent.length,
+          asks: repos.reduce((s, r) => s + r.onYou, 0),
+          askRepos: repos.filter((r) => r.onYou).length,
+          chats,
+          recents: getRecents(),
+          saved: getSaved(),
+          notes: noteList
+        }),
         notes: noteLinks(noteList),
         ...quick()
       };
@@ -27722,6 +27750,29 @@ ${rows.join("\n")}`, name: subject };
       if (hit("[data-more]")) {
         allShown = true;
         render2();
+        return;
+      }
+      const act = hit("[data-hp-act]")?.dataset.hpAct;
+      if (act) {
+        if (act === "note") {
+          if (app?.settings.notesRoot) app.newNote();
+          else app?.openSettings("notes");
+        } else if (act === "ask") app?.showLens?.("ask");
+        else if (act === "pick") document.getElementById("fe-open-pick")?.click();
+        else if (act === "palette") runCommand("palette");
+        else if (act === "keys") app?.openHelp("keys");
+        else if (act === "settings") app?.openSettings();
+        return;
+      }
+      const stat = hit("[data-stat]")?.dataset.stat;
+      if (stat) {
+        const card5 = { waiting: "decide", asks: "repos", asked: "chats" }[stat];
+        const lens2 = { opened: "history", saved: "saved", notes: "notes" }[stat];
+        const c = card5 && box.querySelector(`[data-card="${card5}"]`);
+        if (c) {
+          c.open = true;
+          c.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (lens2) app?.showLens?.(lens2);
         return;
       }
       const jump = hit("[data-jump]");

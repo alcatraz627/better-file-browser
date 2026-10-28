@@ -290,7 +290,6 @@ body{opacity:1!important}
 .fe-dpl-dot{position:absolute;top:calc(var(--sp-1) * -1);right:calc(var(--sp-1) * -1);width:var(--sp-3);height:var(--sp-3);border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px var(--side)}
 .fe-row-cm{flex:none}
 .fe-home-row{display:flex;align-items:center;gap:var(--sp-4);width:calc(100% - 12px);margin:var(--sp-1) var(--sp-3);padding:var(--sp-3) var(--sp-4);border:0;border-radius:var(--row-r);background:none;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
-.fe-home-row.unseen{background:color-mix(in srgb,var(--gold) 9%,transparent)}
 .fe-home-row.unseen .fe-home-t{font-weight:600}
 .fe-home-row .fe-row-ico{position:relative;display:flex;align-self:flex-start;margin-top:var(--sp-1)}
 .fe-home-tx{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
@@ -311,39 +310,43 @@ body{opacity:1!important}
 #fe.fe-home-mode #fe-toolbar,#fe.fe-home-mode #fe-sg-panel,#fe.fe-home-mode #fe-filter-bar,#fe.fe-home-mode #fe-scroll,#fe.fe-home-mode #fe-dp,#fe.fe-home-mode #fe-statusbar{display:none}
 #fe-home-page{flex:1;min-height:0;overflow:auto;padding:var(--sp-9)}
 #fe-home-page[hidden]{display:none}
-.fe-hp{max-width:76rem;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-7)}
-/* The head: a greeting and the date, what is waiting as chips that jump to their card, and the path bar. */
-.fe-hp-head{display:flex;flex-direction:column;gap:var(--sp-5);padding:var(--sp-8) var(--sp-8) var(--sp-7);border:1px solid var(--bd);border-radius:var(--r-sm);
-  background:radial-gradient(120% 140% at 0% 0%,color-mix(in srgb,var(--ac) 12%,transparent),transparent 60%),var(--s1)}
-.fe-hp-hello{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-2) var(--sp-6)}
-.fe-hp-hello h1{margin:0;font-size:calc(var(--fs-xl) * 1.35);font-weight:650;letter-spacing:-.02em;line-height:1.15;color:var(--tx)}
+.fe-hp{max-width:100rem;margin:0 auto;display:flex;flex-direction:column;gap:var(--sp-6)}
+/* The head (docs/plan/home-rail.md): the day on the left, actions on the right, the path bar under both. */
+.fe-hp-head{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"hello acts" "go go";align-items:center;gap:var(--sp-5) var(--sp-6);padding:var(--sp-6) var(--sp-7);border:1px solid var(--bd);border-radius:var(--r-sm);
+  background:radial-gradient(120% 160% at 0% 0%,color-mix(in srgb,var(--ac) 10%,transparent),transparent 55%),var(--s1)}
+.fe-hp-hello{grid-area:hello;display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--sp-1) var(--sp-5);min-width:0}
+.fe-hp-hello h1{margin:0;font-size:calc(var(--fs-xl) * 1.3);font-weight:650;letter-spacing:-.02em;line-height:1.15;color:var(--tx)}
 .fe-hp-date{font-size:var(--fs-md);color:var(--mt)}
-.fe-hp-chips{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
-.fe-hp-chip{display:inline-flex;align-items:center;min-height:var(--ctl-sm);padding:0 var(--sp-5);border:1px solid var(--bd);border-radius:var(--r-full);background:var(--s2);color:var(--mt);font:inherit;font-size:var(--fs-sm);cursor:pointer;transition:background var(--t-fast) var(--ease),color var(--t-fast) var(--ease)}
-.fe-hp-chip:hover{background:var(--s3);color:var(--tx)}
-.fe-hp-chip[data-tone="you"]{border-color:color-mix(in srgb,var(--ac) 40%,var(--bd));background:color-mix(in srgb,var(--ac) 12%,var(--s2));color:var(--tx);font-weight:500}
-.fe-hp-chip:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-.fe-hp-go{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.fe-hp-acts{grid-area:acts;display:flex;gap:var(--sp-1)}
+.fe-hp-go{grid-area:go;display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-5);border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg);transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
 .fe-hp-go:focus-within{border-color:var(--ac);box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 18%,transparent)}
 .fe-hp-go-ico{display:flex;flex:none;color:var(--dm)}
-.fe-hp-go-in{flex:1;min-width:0;height:var(--ctl-md);border:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md);font-family:var(--mono);outline:none}
+.fe-hp-go-in{flex:1;min-width:0;height:var(--ctl-lg);border:0;background:none;color:var(--tx);font:inherit;font-size:var(--fs-md);font-family:var(--mono);outline:none}
 .fe-hp-go-in::placeholder{color:var(--dm);font-family:var(--font-text)}
-.fe-hp-go-msg{margin:calc(var(--sp-3) * -1) 0 0;font-size:var(--fs-sm);color:var(--tone-warn)}
+.fe-hp-go-msg{grid-column:1 / -1;margin:calc(var(--sp-3) * -1) 0 0;font-size:var(--fs-sm);color:var(--tone-warn)}
 .fe-hp-go-msg[hidden]{display:none}
-/* The numbers: one band, cells split by hairlines. */
+/* The numbers: one band of buttons, each going where its count lives. */
 .fe-hp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--bd);border-radius:var(--r-sm);overflow:hidden;background:var(--s1)}
 @container fe-main (min-width:1100px){.fe-hp-stats{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @container fe-main (max-width:480px){.fe-hp-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.fe-hp-stat{display:flex;align-items:flex-start;gap:var(--sp-4);min-width:0;padding:var(--sp-6);box-shadow:1px 0 0 var(--bd),0 1px 0 var(--bd)}
-.fe-hp-stat .fe-dlg-tile{margin-top:var(--sp-1)}
-.fe-hp-stat-tx{display:flex;flex-direction:column;gap:var(--sp-1);min-width:0}
-.fe-hp-stat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(var(--fs-xl) * 1.5);font-weight:650;line-height:1.1;letter-spacing:-.01em;color:var(--tx);font-variant-numeric:tabular-nums}
-.fe-hp-stat[data-stat="top"] b{font-size:calc(var(--fs-xl) * 1.1);line-height:1.5}
-.fe-hp-stat-l{font-size:var(--fs-sm);color:var(--mt)}
-.fe-hp-stat-s{font-size:var(--fs-xs);color:var(--dm)}
-.fe-hp-cols{display:flex;flex-wrap:wrap;gap:var(--sp-7);align-items:flex-start}
-.fe-hp-col{display:flex;flex-direction:column;gap:var(--sp-7);min-width:0;flex:2 1 22rem}
-.fe-hp-col.fe-hp-col-links{flex:1 1 15rem}
+.fe-hp-stat{display:flex;align-items:center;gap:var(--sp-4);min-width:0;padding:var(--sp-5);border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;box-shadow:1px 0 0 var(--bd),0 1px 0 var(--bd);transition:background var(--t-fast) var(--ease)}
+.fe-hp-stat:hover{background:var(--hover)}
+.fe-hp-stat:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+.fe-hp-stat-tx{flex:1;display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.fe-hp-stat b{font-size:calc(var(--fs-xl) * 1.4);font-weight:650;letter-spacing:-.01em;line-height:1.1;color:var(--tx);font-variant-numeric:tabular-nums}
+.fe-hp-stat.hot b{color:var(--ac)}
+.fe-hp-stat-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--mt)}
+.fe-hp-stat-s{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-xs);color:var(--dm)}
+.fe-hp-stat-top{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-3)}
+.fe-hp-bars{flex:none;display:flex;align-items:flex-end;gap:var(--sp-1);height:var(--ctl-sm);margin-bottom:var(--sp-1)}
+.fe-hp-bars i{width:var(--sp-3);height:var(--h);border-radius:var(--r-xs);background:color-mix(in srgb,var(--ac) 70%,transparent)}
+.fe-hp-bars i.nil{background:color-mix(in srgb,var(--tx) 14%,transparent)}
+/* The body: a main column beside a fixed rail of quick links. */
+.fe-hp-body{display:grid;grid-template-columns:minmax(0,1fr) 20rem;gap:var(--sp-6);align-items:start}
+@container fe-main (max-width:720px){.fe-hp-body,.fe-hp-pair{grid-template-columns:minmax(0,1fr)}}
+.fe-hp-main{display:flex;flex-direction:column;gap:var(--sp-6);min-width:0}
+.fe-hp-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-6);align-items:start}
+.fe-hp-rail{display:flex;flex-direction:column;gap:var(--sp-6);min-width:0}
 /* A card: icon, title and what it holds, a count, and a body that folds away. */
 .fe-hp-card{border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1);overflow:hidden}
 .fe-hp-card-h{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-4) var(--sp-5);list-style:none;cursor:pointer;user-select:none}
@@ -355,7 +358,8 @@ body{opacity:1!important}
 .fe-hp-card-tx b{font-size:var(--fs-md);font-weight:600;color:var(--tx)}
 .fe-hp-card-tx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);color:var(--dm)}
 .fe-hp-card-h>.chev{flex:none;color:var(--dm)}
-.fe-hp-card-b{padding:var(--sp-2) 0 var(--sp-3)}
+.fe-hp-card-b{max-height:26rem;overflow:auto;padding:var(--sp-2) 0 var(--sp-3)}
+.fe-hp-rail .fe-hp-card-b{max-height:16rem}
 .fe-hp-card .fe-home-row{width:calc(100% - 8px);margin:0 var(--sp-2)}
 .fe-hp-calm{display:flex;align-items:center;gap:var(--sp-3);color:var(--tone-ok)}
 /* Quick links: a row per place, its actions showing on hover. */

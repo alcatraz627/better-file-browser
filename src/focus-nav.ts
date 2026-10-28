@@ -233,7 +233,8 @@ export function initFocusNav(app: App): void {
   bind('deep', click('fe-deep-btn'), () => !app.fileMode);
   bind('sidebar', click('fe-side-toggle'));
   bind('theme', click('fe-theme-btn'));
-  bind('path', click('fe-open-path'));
+  // On Home, l puts the cursor in Home's own path bar.
+  bind('path', () => { const bar = document.querySelector<HTMLInputElement>('.fe-hp-go-in'); if (bar) bar.focus(); else click('fe-open-path')(); });
   bind('open-pick', click('fe-open-pick'));
   bind('save', click('fe-bm-btn'), () => !!document.getElementById('fe-bm-btn'));
   bind('terminal', click('fe-term-btn'));

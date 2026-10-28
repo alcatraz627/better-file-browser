@@ -63,17 +63,19 @@ try {
     }));
     return {
       title: document.title, page: shown('fe-home-page'), listing: shown('fe-scroll'), toolbar: shown('fe-toolbar'), status: shown('fe-statusbar'),
-      hello: document.querySelector('.fe-hp-hello h1')?.textContent ?? '', chips: [...document.querySelectorAll('.fe-hp-chip')].map(c => c.textContent),
-      cards, stats: [...document.querySelectorAll('.fe-hp-stat')].map(s => ({ tile: !!s.querySelector('.fe-dlg-tile'), l: s.querySelector('.fe-hp-stat-l').textContent, v: s.querySelector('b').textContent, s: s.querySelector('.fe-hp-stat-s').textContent })),
-      cols: [...document.querySelectorAll('.fe-hp-cols > .fe-hp-col')].map(c => Math.round(c.getBoundingClientRect().width)),
+      hello: document.querySelector('.fe-hp-hello h1')?.textContent ?? '', acts: [...document.querySelectorAll('.fe-hp-acts [data-hp-act]')].map(b => b.title),
+      cards, stats: [...document.querySelectorAll('.fe-hp-stat')].map(s => ({ id: s.dataset.stat, button: s.tagName === 'BUTTON', tile: !!s.querySelector('.fe-dlg-tile'), v: s.querySelector('b').textContent, s: s.querySelector('.fe-hp-stat-s').textContent, hot: s.classList.contains('hot'), bars: s.querySelectorAll('.fe-hp-bars i').length })),
+      cols: ['.fe-hp-main', '.fe-hp-rail'].map(q => Math.round(document.querySelector(q).getBoundingClientRect().width)),
+      goBtns: [...document.querySelectorAll('.fe-hp-go button')].map(b => ({ icon: !!b.querySelector('svg'), text: b.textContent.trim() })),
     };
   });
   check(look.page && !look.listing && !look.toolbar && !look.status && look.title.startsWith('Home |'),
     `~/#home shows Home in the main pane; the listing, its toolbar and status bar are hidden: ${look.title}`);
-  check(/^Good (morning|afternoon|evening|night)$/.test(look.hello) && JSON.stringify(look.chips) === JSON.stringify(['1 decision waiting', '3 asks in 1 repo', '1 chat']),
-    `the head greets and says how the day stands in chips: ${JSON.stringify({ hello: look.hello, chips: look.chips })}`);
+  check(/^Good (morning|afternoon|evening|night)$/.test(look.hello) && JSON.stringify(look.acts) === JSON.stringify(['New note (n)', 'Ask about a file or folder', 'Open a file or folder from Finder (o)', 'Command palette (⌘K)', 'Keyboard map (?)', 'Settings (,)']),
+    `the head greets and offers the actions that start work, each naming its key: ${JSON.stringify({ hello: look.hello, acts: look.acts })}`);
+  check(look.goBtns.length === 3 && look.goBtns.every(b => b.icon && !b.text), `the path bar's buttons are icons: ${JSON.stringify(look.goBtns)}`);
   const card = id => look.cards.find(c => c.id === id) ?? {};
-  check(JSON.stringify(look.cards.map(c => c.id)) === JSON.stringify(['decide', 'chats', 'repos', 'saved', 'notes', 'recent']) && look.cards.every(c => c.tile && c.title && c.sub && c.open),
+  check(JSON.stringify(look.cards.map(c => c.id)) === JSON.stringify(['decide', 'repos', 'chats', 'saved', 'notes', 'recent']) && look.cards.every(c => c.tile && c.title && c.sub && c.open),
     `every card has an icon, a title and a line under it, and starts open: ${JSON.stringify(look.cards.map(c => [c.id, c.title, c.sub]))}`);
   check(JSON.stringify(card('decide').rows) === JSON.stringify(['Fresh ask']) && !look.cards.some(c => c.id === 'never'),
     `Decisions lists only recent waiting pages; the old page is left to the Decisions lens: ${JSON.stringify(card('decide').rows)}`);
@@ -82,10 +84,10 @@ try {
   const fixtureLabel = h.fixture.split('/').pop();
   check(JSON.stringify(card('saved').rows) === JSON.stringify(['nested']) && JSON.stringify(card('notes').rows) === JSON.stringify(['Existing note']) && JSON.stringify(card('recent').rows) === JSON.stringify([fixtureLabel, 'deeper']),
     `quick links: Saved, then Notes, then places opened lately: ${JSON.stringify([card('saved').rows, card('notes').rows, card('recent').rows])}`);
-  const stat = l => look.stats.find(s => s.l === l) ?? {};
-  check(look.stats.length === 6 && look.stats.every(s => s.tile) && stat('questions asked').v === '1' && stat('places saved').s === '1 tag' && stat('asked about most').v === 'readme.md',
-    `six numbers, each with its icon, count real usage: ${JSON.stringify(look.stats.map(s => [s.l, s.v, s.s]))}`);
-  check(look.cols.length === 3 && look.cols[2] < look.cols[0], `the quick links sit in a narrower column: ${JSON.stringify(look.cols)}`);
+  check(JSON.stringify(look.stats.map(s => [s.id, s.v, s.hot])) === JSON.stringify([['waiting', '1', true], ['asks', '3', true], ['asked', '1', false], ['opened', '2', false], ['saved', '1', false], ['notes', '1', false]])
+    && look.stats.every(s => s.button && s.tile) && look.stats.filter(s => s.bars === 7).map(s => s.id).join() === 'asked,opened',
+    `six numbers are buttons with icons, what needs you in the accent, seven days of bars on questions and places: ${JSON.stringify(look.stats)}`);
+  check(look.cols[1] < look.cols[0] * 0.5, `the quick links sit in a narrow rail beside the main column: ${JSON.stringify(look.cols)}`);
 
   // The strip: a bare Home icon that never draws as selected.
   const strip = () => tab.evaluate(() => [...document.querySelectorAll('#fe-tab-home:not([hidden]), #fe-tabs .fe-tab')].map(a => ({
@@ -96,6 +98,19 @@ try {
   check(s.length === 1 && s[0].home && !s[0].on && s[0].label === '' && s[0].aria === 'Home' && s[0].w <= 40 && s[0].bg === 'rgba(0, 0, 0, 0)',
     `on Home the strip holds only the Home icon: no label, no selection: ${JSON.stringify(s)}`);
   await shot(tab, 'home-page');
+
+  // The numbers go where they count: Saved opens its lens; the head's gear opens Settings; l types a path here.
+  await tab.click('.fe-hp-stat[data-stat="saved"]');
+  await sleep(400);
+  check(await tab.evaluate(() => !!document.querySelector('#fe-side .fe-pl-item')?.checkVisibility()), 'the saved number opens the Saved lens');
+  await tab.click('.fe-hp-acts [data-hp-act="settings"]');
+  await sleep(400);
+  check(await tab.evaluate(() => !!document.getElementById('fe-settings-modal')?.checkVisibility()), 'the gear in the head opens Settings');
+  await tab.keyboard.press('Escape'); await sleep(300);
+  await tab.evaluate(() => document.activeElement?.blur());
+  await tab.keyboard.press('l'); await sleep(200);
+  check(await tab.evaluate(() => document.activeElement?.classList.contains('fe-hp-go-in')), 'l puts the cursor in the path bar on Home');
+  await tab.evaluate(() => document.activeElement?.blur());
 
   // Cards fold, and stay folded across a reload.
   await tab.click('.fe-hp-card[data-card="chats"] > summary');

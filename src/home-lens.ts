@@ -11,7 +11,8 @@ import { allChats, type AskChat } from './ask-history';
 import { ago, REACH, type DpRow } from './dp-lens';
 import { jsonPref, getSaved, saveSaved, getRecents, forgetRecent, keptNotesList, homeDir } from './storage';
 import { renamePlace, setTags, parseTags, removePlace } from './places';
-import { summarizeRepo, sortRepos, openPages, usageStats, splitByAge, type RepoSummary, type UsageStat } from './home-model';
+import { summarizeRepo, sortRepos, openPages, homeStats, splitByAge, type RepoSummary, type HomeStat } from './home-model';
+import { runCommand } from './commands';
 import { emptyHtml } from './empty-state';
 import { DISCLOSE, PI, icoFile } from './icons';
 import { absPath, resolvePath, readable, suggestPaths } from './goto';
@@ -21,7 +22,7 @@ import type { App } from './app';
 
 type Chat = { subject: string; chat: AskChat };
 interface QuickLink { path: string; label: string; kind: 'saved' | 'note' | 'recent'; tags?: string[]; rel?: string }
-interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: UsageStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[] }
+interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[] }
 type Go = (path: string, hash?: string) => void;
 
 // The Decisions lens's hand-archived pages, so Home leaves them out too.
@@ -93,18 +94,37 @@ function paintSide(d: HomeData, allShown: boolean, folded: Set<string>): string 
     + (quiet.length ? group('quiet', 'Quiet', quiet.length, quiet.join(''), !folded.has('quiet')) : '');
 }
 
-// Each number on the page gets its own icon and colour.
-const STAT_LOOK: Record<UsageStat['id'], { icon: string; tone: string }> = {
-  asked: { icon: UI_ICON.ai, tone: 'var(--nc-purple)' },
-  chats: { icon: UI_ICON.comment, tone: 'var(--nc-blue)' },
-  answered: { icon: UI_ICON.circleCheck, tone: 'var(--nc-green)' },
-  opened: { icon: UI_ICON.clock, tone: 'var(--nc-orange)' },
-  saved: { icon: line(LINE_ICON.bm, 14), tone: 'var(--nc-pink)' },
-  top: { icon: UI_ICON.file, tone: 'var(--nc-teal)' },
+// Each number on the page gets its own icon and colour, and says where a click takes you.
+const STAT_LOOK: Record<HomeStat['id'], { icon: string; tone: string; to: string }> = {
+  waiting: { icon: UI_ICON.opinion, tone: 'var(--nc-blue)', to: 'Show the decisions waiting' },
+  asks: { icon: UI_ICON.contents, tone: 'var(--nc-teal)', to: 'Show the directions with asks on you' },
+  asked: { icon: UI_ICON.ai, tone: 'var(--nc-purple)', to: 'Show the chats to continue' },
+  opened: { icon: UI_ICON.clock, tone: 'var(--nc-orange)', to: 'Open History in the sidebar' },
+  saved: { icon: line(LINE_ICON.bm, 14), tone: 'var(--nc-pink)', to: 'Open Saved in the sidebar' },
+  notes: { icon: UI_ICON.notes, tone: 'var(--nc-green)', to: 'Open Notes in the sidebar' },
 };
 const tile = (icon: string, tone: string) => `<span class="fe-dlg-tile" style="--tone:${tone}" aria-hidden="true">${icon}</span>`;
-const statCell = (s: UsageStat) =>
-  `<div class="fe-hp-stat" data-stat="${s.id}">${tile(STAT_LOOK[s.id].icon, STAT_LOOK[s.id].tone)}<div class="fe-hp-stat-tx"><b title="${esc(s.value)}">${esc(s.value)}</b><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></div></div>`;
+const DAY = (i: number) => i === 6 ? 'today' : i === 5 ? 'yesterday' : `${6 - i} days ago`;
+/** Seven small bars, today last; each says its day and count on hover. */
+const bars = (series: number[]) => {
+  const top = Math.max(1, ...series);
+  return `<span class="fe-hp-bars" aria-hidden="true">${series.map((v, i) =>
+    `<i style="--h:${Math.max(12, Math.round(v / top * 100))}%"${v ? '' : ' class="nil"'} title="${DAY(i)}: ${v}"></i>`).join('')}</span>`;
+};
+const statCell = (s: HomeStat) =>
+  `<button type="button" class="fe-hp-stat${s.hot ? ' hot' : ''}" data-stat="${s.id}" title="${esc(STAT_LOOK[s.id].to)}">${tile(STAT_LOOK[s.id].icon, STAT_LOOK[s.id].tone)}<span class="fe-hp-stat-tx"><span class="fe-hp-stat-top"><b>${esc(s.value)}</b>${s.series ? bars(s.series) : ''}</span><span class="fe-hp-stat-l">${esc(s.label)}</span><span class="fe-hp-stat-s">${esc(s.sub)}</span></span></button>`;
+
+// The head's actions: things that start work from nowhere, each named with its key.
+const ACTIONS: [string, string, string][] = [
+  ['note', UI_ICON.add, 'New note (n)'],
+  ['ask', UI_ICON.ai, 'Ask about a file or folder'],
+  ['pick', UI_ICON.folderOpen, 'Open a file or folder from Finder (o)'],
+  ['palette', line(LINE_ICON.apps, 16), 'Command palette (⌘K)'],
+  ['keys', UI_ICON.keyboard, 'Keyboard map (?)'],
+  ['settings', line(LINE_ICON.gear, 16), 'Settings (,)'],
+];
+const actionBtn = ([act, icon, title]: [string, string, string]) =>
+  `<button type="button" class="btn" data-icon data-variant="ghost" data-hp-act="${act}" title="${esc(title)}" aria-label="${esc(title)}">${icon}</button>`;
 
 const linkCard = (l: QuickLink) => {
   const dir = l.path.endsWith('/');
@@ -124,20 +144,11 @@ const card = (id: string, o: { icon: string; tone: string; title: string; sub: s
     <div class="fe-hp-card-b">${body}</div>
   </details>`;
 
-// The full page: a head that says how the day stands with a path bar under
-// it, a row of numbers, then three columns: what to act on (decisions, chats),
-// what to keep an eye on (every repo's directions), and quick links.
+// The full page (docs/plan/home-rail.md): a head with the day, actions and the
+// path bar; a row of numbers that each go somewhere; then a main column (what
+// waits, what to continue) beside a rail of quick links.
 function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string {
-  const waiting = d.pages.filter(p => p.state === 'waiting');
-  const { recent: fresh, older } = splitByAge(waiting, FRESH_DAYS);
-  const asks = d.repos.reduce((s, r) => s + r.onYou, 0);
-  const askRepos = d.repos.filter(r => r.onYou).length;
-  const chip = (to: string, text: string, tone = '') => `<button type="button" class="fe-hp-chip" data-jump="${to}"${tone ? ` data-tone="${tone}"` : ''}>${esc(text)}</button>`;
-  const chips = [
-    fresh.length ? chip('decide', `${plural(fresh.length, 'decision')} waiting`, 'you') : chip('decide', 'No decision waiting'),
-    asks ? chip('repos', `${plural(asks, 'ask')} in ${plural(askRepos, 'repo')}`, 'you') : '',
-    d.chats.length ? chip('chats', plural(d.chats.length, 'chat')) : '',
-  ].join('');
+  const { recent: fresh, older } = splitByAge(d.pages.filter(p => p.state === 'waiting'), FRESH_DAYS);
   const chats = allShown ? d.chats : d.chats.slice(0, PAGE_CHATS);
   const olderLine = older.length
     ? `<button type="button" class="btn fe-home-more" data-hp-lens="decisions" data-size="sm" data-variant="ghost" title="Pages waiting more than ${FRESH_DAYS} days, in the Decisions lens">${plural(older.length, 'older page')} in Decisions</button>` : '';
@@ -148,30 +159,31 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
   return `<div class="fe-hp">
     <header class="fe-hp-head">
       <div class="fe-hp-hello"><h1>${esc(greeting())}</h1><span class="fe-hp-date">${esc(today('long'))}</span></div>
-      <div class="fe-hp-chips">${chips}</div>
+      <div class="fe-hp-acts" role="toolbar" aria-label="Start something">${ACTIONS.map(actionBtn).join('')}</div>
       <form class="fe-hp-go" role="search" autocomplete="off">
         <span class="fe-hp-go-ico">${line(LINE_ICON.search, 16)}</span>
-        <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp" aria-label="Open a path" title="Type a path; folders and files are suggested as you type">
+        <input type="text" class="fe-hp-go-in" list="fe-hp-go-list" spellcheck="false" placeholder="Open a path, such as ~/Code or /tmp  (l)" aria-label="Open a path" title="Type a path; folders and files are suggested as you type">
         <datalist id="fe-hp-go-list"></datalist>
-        <button type="submit" class="btn" data-size="md" title="Open this path here">Open</button>
-        <button type="button" class="btn fe-hp-go-link" data-size="md" data-variant="ghost" title="Open what is typed as a web link, in a new Chrome tab">${UI_ICON.link}Open link</button>
+        <button type="submit" class="btn" data-icon data-variant="ghost" title="Open this path here (↵)" aria-label="Open this path here">${UI_ICON.next}</button>
+        <button type="button" class="btn fe-hp-go-link" data-icon data-variant="ghost" title="Open what is typed as a web link, in a new Chrome tab" aria-label="Open as a web link">${UI_ICON.link}</button>
+        <button type="button" class="btn" data-icon data-variant="ghost" data-hp-act="pick" title="Choose a file or folder in Finder (o)" aria-label="Choose in Finder">${UI_ICON.folderOpen}</button>
       </form>
       <p class="fe-hp-go-msg" role="status" hidden></p>
     </header>
     <div class="fe-hp-stats">${d.stats.map(statCell).join('')}</div>
-    <div class="fe-hp-cols">
-      <div class="fe-hp-col">
-        ${card('decide', { icon: UI_ICON.opinion, tone: 'var(--nc-blue)', title: 'Decisions', sub: `Pages waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
+    <div class="fe-hp-body">
+      <div class="fe-hp-main">
+        <div class="fe-hp-pair">
+          ${card('decide', { icon: UI_ICON.opinion, tone: 'var(--nc-blue)', title: 'Decisions', sub: `Waiting on your answer, last ${FRESH_DAYS} days`, n: fresh.length }, decide, folded)}
+          ${card('repos', { icon: UI_ICON.contents, tone: 'var(--nc-teal)', title: 'Directions', sub: 'Each repo’s plan, asks on you first', n: d.repos.length }, d.repos.map(repoRow).join('') || none('No directions docs found under ~/Code'), folded)}
+        </div>
         ${card('chats', { icon: UI_ICON.ai, tone: 'var(--nc-purple)', title: 'Continue', sub: 'Ask chats, newest first', n: d.chats.length }, (chats.map(chatRow).join('') || none('No chats yet. Ask about any file to start one.')) + moreBtn(chats.length, d.chats.length), folded)}
       </div>
-      <div class="fe-hp-col">
-        ${card('repos', { icon: UI_ICON.contents, tone: 'var(--nc-teal)', title: 'Directions', sub: 'Each repo’s plan, asks on you first', n: d.repos.length }, d.repos.map(repoRow).join('') || none('No directions docs found under ~/Code'), folded)}
-      </div>
-      <div class="fe-hp-col fe-hp-col-links">
+      <aside class="fe-hp-rail">
         ${links('saved', { icon: line(LINE_ICON.bm, 14), tone: 'var(--nc-pink)', title: 'Saved', sub: 'Places you keep' }, d.saved, 'Save a place with the star to see it here')}
         ${links('notes', { icon: UI_ICON.notes, tone: 'var(--nc-orange)', title: 'Notes', sub: 'Latest first' }, d.notes, 'Notes you write show up here')}
         ${links('recent', { icon: UI_ICON.clock, tone: 'var(--nc-green)', title: 'Opened lately', sub: '× forgets one' }, d.recent, 'Places you open show up here')}
-      </div>
+      </aside>
     </div>
   </div>`;
 }
@@ -210,12 +222,15 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
     ]);
     if (mine !== seq) return;
     const chats = allChats();
+    const open = openPages(pages.rows, new Set(archivedPref.get()));
+    const repos = sortRepos(docs.map(doc => summarizeRepo(doc)));
     data = {
-      chats,
-      pages: openPages(pages.rows, new Set(archivedPref.get())),
-      pagesFailed: pages.failed,
-      repos: sortRepos(docs.map(doc => summarizeRepo(doc))),
-      stats: usageStats(chats, getRecents(), getSaved(), pages.rows),
+      chats, pages: open, pagesFailed: pages.failed, repos,
+      stats: homeStats({
+        waiting: splitByAge(open.filter(p => p.state === 'waiting'), FRESH_DAYS).recent.length,
+        asks: repos.reduce((s, r) => s + r.onYou, 0), askRepos: repos.filter(r => r.onYou).length,
+        chats, recents: getRecents(), saved: getSaved(), notes: noteList,
+      }),
       notes: noteLinks(noteList),
       ...quick(),
     };
@@ -347,6 +362,26 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
     // Only parts of Home answer: the sidebar around the lens has data- attributes of its own.
     const hit = <T extends HTMLElement>(sel: string) => { const m = t.closest<T>(sel); return m && box.contains(m) ? m : null; };
     if (hit('[data-more]')) { allShown = true; render(); return; }
+    const act = hit('[data-hp-act]')?.dataset.hpAct;
+    if (act) {
+      if (act === 'note') { if (app?.settings.notesRoot) app.newNote(); else app?.openSettings('notes'); }
+      else if (act === 'ask') app?.showLens?.('ask');
+      else if (act === 'pick') document.getElementById('fe-open-pick')?.click();
+      else if (act === 'palette') runCommand('palette');
+      else if (act === 'keys') app?.openHelp('keys');
+      else if (act === 'settings') app?.openSettings();
+      return;
+    }
+    // A number goes to what it counts: a card on this page, or a lens in the sidebar.
+    const stat = hit('[data-stat]')?.dataset.stat;
+    if (stat) {
+      const card = ({ waiting: 'decide', asks: 'repos', asked: 'chats' } as Record<string, string>)[stat];
+      const lens = ({ opened: 'history', saved: 'saved', notes: 'notes' } as Record<string, string>)[stat];
+      const c = card && box.querySelector<HTMLDetailsElement>(`[data-card="${card}"]`);
+      if (c) { c.open = true; c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      else if (lens) app?.showLens?.(lens);
+      return;
+    }
     const jump = hit('[data-jump]');
     if (jump) {
       const c = box.querySelector<HTMLDetailsElement>(`[data-card="${jump.dataset.jump}"]`);
