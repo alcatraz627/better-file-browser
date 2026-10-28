@@ -198,7 +198,12 @@ export function wireAnswer(cfg: DpConfig, box: HTMLElement, slug: string | undef
         showPanel(true);
         setNote('Not sent: gcc\'s page server is not answering, so nothing was written. Paste this answer to the agent, or Submit again once the server is back.', 'danger', errorText(err));
         toast(ok ? NOT_SENT_COMPOSED : 'Not sent. Nothing was written; copy the answer from the panel.');
-      } else toast(`Not sent: ${errorText(err)}`);
+      } else {
+        // A toast fades; the reason stays on the panel so it can still be read and reported.
+        showPanel(true);
+        setNote(`Not sent: ${errorText(err)}`, 'danger', String(code || ''));
+        toast(`Not sent: ${errorText(err)}`);
+      }
     } finally { busy = false; paintButtons(); }
   };
 

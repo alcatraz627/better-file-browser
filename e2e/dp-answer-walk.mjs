@@ -60,8 +60,8 @@ try {
   check(moved && bar1.copy === 'Copy (1)' && /1 flagged/.test(bar1.progress), `B8 B9 B16 a changed pick updates the panel, the Copy count and the progress: ${JSON.stringify({ text: await panelText(page), ...bar1 })}`);
   await page.click('.fe-dp-card[data-id="s1"] .fe-dp-addnote');
   await page.type('.fe-dp-card[data-id="s1"] textarea[data-note]', 'tighter please');
-  const noted = await until(page, t => document.getElementById('fe-dp-answer-text').textContent === t, 'walk rulings:\nD1b D2a\ns1: agree — tighter please');
-  check(noted && /2 flagged/.test(await page.$eval('#fe-dp-progress', e => e.textContent)), `B20 C3 a note on an agreed item flags it and joins with a spaced em dash: ${JSON.stringify(await panelText(page))}`);
+  const noted = await until(page, t => document.getElementById('fe-dp-answer-text').textContent === t, 'walk rulings:\nD1b D2a\ns1: agree: tighter please');
+  check(noted && /2 flagged/.test(await page.$eval('#fe-dp-progress', e => e.textContent)), `B20 C3 a note on an agreed item flags it and joins with a colon: ${JSON.stringify(await panelText(page))}`);
   await press(page, 'c');
   const checked = await until(page, () => { const b = document.getElementById('fe-dp-copy'); return b.hasAttribute('data-done') && !!b.querySelector('svg path[d="M20 6 9 17l-5-5"]') && /Copy \(2\)/.test(b.textContent); });
   check(await clip(page) === await panelText(page), `B9 c copies exactly what the panel shows: ${JSON.stringify(await clip(page))}`);
@@ -105,7 +105,7 @@ try {
 
   // C6 an answered page fills the form from the sent answer, not the recommendations.
   const two = mk('walk-two');
-  writeFileSync(join(two, '.answer.json'), JSON.stringify({ answer: 'walk rulings:\nD1b D2z\ns2: DISAGREE — too loud', submitted_at: Math.floor(Date.now() / 1000) - 7200, via: 'cli' }));
+  writeFileSync(join(two, '.answer.json'), JSON.stringify({ answer: 'walk rulings:\nD1b D2z\ns2: DISAGREE: too loud', submitted_at: Math.floor(Date.now() / 1000) - 7200, via: 'cli' }));
   writeFileSync(join(two, '.notify.json'), JSON.stringify({ state: 'queued', at: new Date().toISOString() }));
   writeFileSync(join(two, '.ruling.json'), JSON.stringify({ state: 'written', target: '81fdf3de0595 #16', reason: '', at: new Date().toISOString() }));
   page = await open(two);
@@ -119,7 +119,7 @@ try {
   }));
   check(filled && two1.d1 === 'b' && two1.d2 === 'z' && two1.s2 === false && two1.note === 'too loud', `C6 the form is filled from the sent answer, none option and disagreement included: ${JSON.stringify(two1)}`);
   check(/Answered 2 h ago/.test(two1.head) && /waits for the agent/.test(two1.head) && two1.lines.join('|') === 'Colours: disagreed, too loud', `C5 an older answer says how long ago and that the message waits: ${JSON.stringify(two1)}`);
-  check(two1.panel === 'walk rulings:\nD1b D2z\ns2: DISAGREE — too loud', `C6 the refilled form composes back to the same string: ${JSON.stringify(two1.panel)}`);
+  check(two1.panel === 'walk rulings:\nD1b D2z\ns2: DISAGREE: too loud', `C6 the refilled form composes back to the same string: ${JSON.stringify(two1.panel)}`);
   check(/Ruling noted on 81fdf3… #16/.test(two1.head), `D7 the banner says where the ruling was noted in the goal record: ${JSON.stringify(two1.head)}`);
   await page.close();
 
@@ -150,7 +150,7 @@ try {
   const c9 = await page.evaluate(() => ({ panel: !document.getElementById('fe-dp-answer').hidden, note: document.getElementById('fe-dp-answer-note').textContent, tone: document.getElementById('fe-dp-answer-note').dataset.tone, cause: document.getElementById('fe-dp-answer-note').title, disabled: document.getElementById('fe-dp-submit').disabled }));
   check(/Not sent\. Nothing was written/.test(await toast(page)) && !existsSync(join(four, '.answer.json')) && c9.panel && c9.tone === 'danger' && /server is not answering/.test(c9.note) && /nothing was written/.test(c9.cause) && !c9.disabled,
     `C9 a down server writes nothing and says so loudly, with gcc's words on hover; Submit stays for a retry: ${JSON.stringify({ toast: await toast(page), ...c9 })}`);
-  check(await clip(page) === composed && composed === 'walk rulings:\nD1b D2a\nD1 note — list reads faster', `C9 the composed answer is on the clipboard to paste: ${JSON.stringify(await clip(page))}`);
+  check(await clip(page) === composed && composed === 'walk rulings:\nD1b D2a\nD1 note: list reads faster', `C9 the composed answer is on the clipboard to paste: ${JSON.stringify(await clip(page))}`);
   await shot(page, 'dp-answer-down');
   rmSync(h.dpDown);
   await press(page, 's');

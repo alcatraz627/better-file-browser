@@ -14286,7 +14286,11 @@ ${t}`)) say("Note title saved");
           showPanel(true);
           setNote("Not sent: gcc's page server is not answering, so nothing was written. Paste this answer to the agent, or Submit again once the server is back.", "danger", errorText(err));
           toast(ok ? NOT_SENT_COMPOSED : "Not sent. Nothing was written; copy the answer from the panel.");
-        } else toast(`Not sent: ${errorText(err)}`);
+        } else {
+          showPanel(true);
+          setNote(`Not sent: ${errorText(err)}`, "danger", String(code || ""));
+          toast(`Not sent: ${errorText(err)}`);
+        }
       } finally {
         busy = false;
         paintButtons();
