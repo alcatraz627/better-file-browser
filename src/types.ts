@@ -38,6 +38,7 @@ export interface Settings {
   panKey?: 'Shift' | 'Alt' | 'Meta' | 'off';   // held over a reading surface, a drag scrolls it (default Shift)
   peekCloseMs?: number;         // a peeked sidebar closes this long after the pointer leaves; 0 waits for Esc or a click away (default 500)
   dockFoldsSidebar?: boolean;   // a docked preview folds the sidebar away while it is open (default on)
+  newTabHome?: boolean;         // a new Chrome tab opens Home instead of Chrome's own page (default off; background.js reads it)
   dateFormat:   'short' | 'full';
   terminalApp:  string;
   terminalCmd:  string;

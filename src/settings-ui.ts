@@ -7,8 +7,9 @@ import type { IconRule, SortConfig, GroupMode } from './types';
 import { el, els } from './el';
 import { esc } from './utils';
 import { icoCustom, RULE_GLYPHS } from './icons';
-import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode } from './storage';
+import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir } from './storage';
 import { DEFAULT_COMMANDS } from './open-with';
+import { copyWithCheck } from './copy-done';
 import { llmAvailability, llmWarm, llmModels, defaultTier, LLM_ERROR_TEXT } from './llm';
 import { mountDialog } from './dialog';
 import { openLayer, type Layer } from './layer';
@@ -26,6 +27,12 @@ import { kvFlush } from './kv';
 // Reload once the writes have reached storage, and not before the toast has been seen.
 const reloadWhenSaved = (): void => { void Promise.all([kvFlush(), new Promise(r => setTimeout(r, 600))]).then(reload); };
 import { errorText } from './errors';
+
+/// Home's address (~/#home), the same one the toolbar button and a new tab open; empty until bfb has seen the home folder.
+function homeAddress(): string {
+  const home = homeDir(decodeURIComponent(location.pathname));
+  return home ? 'file://' + home.split('/').map(encodeURIComponent).join('/') + '/#home' : '';
+}
 
 // Ready-made rules offered above the list; each appears until it is added.
 const RULE_SUGGESTIONS: (Omit<IconRule, 'id' | 'enabled'> & { name: string })[] = [
@@ -260,6 +267,8 @@ export function initSettingsUi(app: App): void {
     v('fe-st-pan').value = settings.panKey ?? 'Shift';
     el<HTMLTextAreaElement>('fe-st-open-with').value = settings.openWithCmds ?? DEFAULT_COMMANDS;
     el<HTMLInputElement>('fe-st-sec-recent').checked = !settings.hideRecent;
+    el<HTMLInputElement>('fe-st-newtab-home').checked = settings.newTabHome === true;
+    el<HTMLInputElement>('fe-st-home-url').value = homeAddress();
     v('fe-st-terminal').value = settings.terminalApp || 'ghostty';
     el('fe-st-term-custom-row').hidden = settings.terminalApp !== 'custom';
     el<HTMLInputElement>('fe-st-term-custom').value = settings.terminalCmd || '';
@@ -334,6 +343,14 @@ export function initSettingsUi(app: App): void {
     settings.hideRecent = !this.checked; saveSettings(settings);
     app.showLens?.(this.checked ? null : 'notes', !this.checked);
   });
+  el<HTMLInputElement>('fe-st-newtab-home').addEventListener('change', function () {
+    settings.newTabHome = this.checked; saveSettings(settings);
+    toast(this.checked ? 'New tabs open Home' : 'New tabs open Chrome’s page');
+  });
+  el('fe-st-home-copy').addEventListener('click', function () {
+    void copyWithCheck(this, homeAddress()).then(ok => { if (!ok) toast('Copy failed'); });
+  });
+  el<HTMLInputElement>('fe-st-home-url').addEventListener('focus', function () { this.select(); });
   el<HTMLTextAreaElement>('fe-st-open-with').addEventListener('change', function () { settings.openWithCmds = this.value; saveSettings(settings); });
   v('fe-st-peek-close').addEventListener('change', () => { settings.peekCloseMs = Number(v('fe-st-peek-close').value); saveSettings(settings); });
   v('fe-st-pan').addEventListener('change', () => { settings.panKey = v('fe-st-pan').value as typeof settings.panKey; saveSettings(settings); });

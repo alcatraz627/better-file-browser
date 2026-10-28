@@ -21670,6 +21670,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           "Sidebar",
           row("Sidebar", "", sw("fe-st-sidebar", "Show the sidebar")) + row("Make room for a docked preview", "Fold the sidebar while a docked preview is open", sw("fe-st-dock-fold", "Fold the sidebar for a docked preview")) + row("Peek closes", "A hidden sidebar opens from the left edge; it closes this long after the pointer leaves", ddHtml("fe-st-peek-close", PEEK_OPTS, "When a peeked sidebar closes", "lg")) + row("History", "Recent places and closed tabs", sw("fe-st-sec-recent", "Show the History lens"))
         ) + card2(
+          "Home",
+          row("New tabs open Home", "Every new Chrome tab shows Home instead of Chrome\u2019s own page", sw("fe-st-newtab-home", "New tabs open Home")) + row("Home address", "Paste it in Chrome\u2019s settings as the start-up page or the Home button", `<input type="text" id="fe-st-home-url" class="tb fe-st-input" data-size="lg" readonly spellcheck="false" title="The address of Home">${iconBtn("fe-st-home-copy", UI_ICON.copy, "Copy the Home address")}`)
+        ) + card2(
           "Terminal",
           row("Open in", "", ddHtml("fe-st-terminal", TERM_OPTS, "Terminal app", "lg")) + row("Command", "${p} is the folder", `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" hidden') + note("", "fe-st-term-hint") + wide(
             "Open with",
@@ -26295,6 +26298,10 @@ ${rows.join("\n")}`, name: subject };
   var reloadWhenSaved = () => {
     void Promise.all([kvFlush(), new Promise((r) => setTimeout(r, 600))]).then(reload);
   };
+  function homeAddress() {
+    const home = homeDir(decodeURIComponent(location.pathname));
+    return home ? "file://" + home.split("/").map(encodeURIComponent).join("/") + "/#home" : "";
+  }
   var RULE_SUGGESTIONS = [
     { name: "Images", pattern: "\\.(png|jpe?g|gif|webp|svg|avif|heic)$", label: "IMG", glyph: "image", color: "#b197fc" },
     { name: "Archives", pattern: "\\.(zip|tar|gz|tgz|rar|7z|xz)$", label: "ZIP", glyph: "archive", color: "#a1887f" },
@@ -26576,6 +26583,8 @@ ${rows.join("\n")}`, name: subject };
       v("fe-st-pan").value = settings.panKey ?? "Shift";
       el("fe-st-open-with").value = settings.openWithCmds ?? DEFAULT_COMMANDS;
       el("fe-st-sec-recent").checked = !settings.hideRecent;
+      el("fe-st-newtab-home").checked = settings.newTabHome === true;
+      el("fe-st-home-url").value = homeAddress();
       v("fe-st-terminal").value = settings.terminalApp || "ghostty";
       el("fe-st-term-custom-row").hidden = settings.terminalApp !== "custom";
       el("fe-st-term-custom").value = settings.terminalCmd || "";
@@ -26673,6 +26682,19 @@ ${rows.join("\n")}`, name: subject };
       settings.hideRecent = !this.checked;
       saveSettings(settings);
       app.showLens?.(this.checked ? null : "notes", !this.checked);
+    });
+    el("fe-st-newtab-home").addEventListener("change", function() {
+      settings.newTabHome = this.checked;
+      saveSettings(settings);
+      toast(this.checked ? "New tabs open Home" : "New tabs open Chrome\u2019s page");
+    });
+    el("fe-st-home-copy").addEventListener("click", function() {
+      void copyWithCheck(this, homeAddress()).then((ok) => {
+        if (!ok) toast("Copy failed");
+      });
+    });
+    el("fe-st-home-url").addEventListener("focus", function() {
+      this.select();
     });
     el("fe-st-open-with").addEventListener("change", function() {
       settings.openWithCmds = this.value;

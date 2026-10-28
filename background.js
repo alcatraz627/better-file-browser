@@ -235,15 +235,30 @@ function takeAskOrphans() {
   return taken.catch(() => []);
 }
 
-// The toolbar button opens Home, at the home folder bfb learned from a visit
-// (kept as bfb-home-v1); before any visit it opens the top of the disk.
+// Home's address, at the home folder bfb learned from a visit (kept as
+// bfb-home-v1); before any visit, the top of the disk.
+function homeUrl(home) {
+  return typeof home === 'string' && /^\/Users\/[^/]+$/.test(home)
+    ? 'file://' + home.split('/').map(encodeURIComponent).join('/') + '/#home'
+    : 'file:///';
+}
+
+// The toolbar button opens Home.
 chrome.action?.onClicked.addListener(() => {
-  chrome.storage.local.get('bfb-home-v1').then(r => {
-    const home = r['bfb-home-v1'];
-    const url = typeof home === 'string' && /^\/Users\/[^/]+$/.test(home)
-      ? 'file://' + home.split('/').map(encodeURIComponent).join('/') + '/#home'
-      : 'file:///';
-    return chrome.tabs.create({ url });
+  chrome.storage.local.get('bfb-home-v1').then(r => chrome.tabs.create({ url: homeUrl(r['bfb-home-v1']) })).catch(() => {});
+});
+
+// A new Chrome tab opens Home when Settings says so (newTabHome, off by
+// default). Off, Chrome's own new tab page shows as usual: bfb never takes
+// the new tab over, it only sends this one tab on. Reading a new tab's
+// address needs the tabs permission.
+chrome.tabs?.onCreated?.addListener(tab => {
+  const at = tab.pendingUrl || tab.url || '';
+  if (!/^chrome:\/\/(newtab|new-tab-page)\/?$/.test(at)) return;
+  chrome.storage.local.get(['bfb-settings-v1', 'bfb-home-v1']).then(r => {
+    let on = false;
+    try { on = JSON.parse(r['bfb-settings-v1'] || '{}').newTabHome === true; } catch { /* unreadable settings: leave the tab alone */ }
+    if (on && r['bfb-home-v1']) return chrome.tabs.update(tab.id, { url: homeUrl(r['bfb-home-v1']) });
   }).catch(() => {});
 });
 

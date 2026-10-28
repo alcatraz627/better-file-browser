@@ -111,6 +111,9 @@ export function settingsDialog(): DialogSpec {
           row('Make room for a docked preview', 'Fold the sidebar while a docked preview is open', sw('fe-st-dock-fold', 'Fold the sidebar for a docked preview')) +
           row('Peek closes', 'A hidden sidebar opens from the left edge; it closes this long after the pointer leaves', ddHtml('fe-st-peek-close', PEEK_OPTS, 'When a peeked sidebar closes', 'lg')) +
           row('History', 'Recent places and closed tabs', sw('fe-st-sec-recent', 'Show the History lens'))) +
+        card('Home',
+          row('New tabs open Home', 'Every new Chrome tab shows Home instead of Chrome’s own page', sw('fe-st-newtab-home', 'New tabs open Home')) +
+          row('Home address', 'Paste it in Chrome’s settings as the start-up page or the Home button', `<input type="text" id="fe-st-home-url" class="tb fe-st-input" data-size="lg" readonly spellcheck="false" title="The address of Home">${iconBtn('fe-st-home-copy', UI_ICON.copy, 'Copy the Home address')}`)) +
         card('Terminal',
           row('Open in', '', ddHtml('fe-st-terminal', TERM_OPTS, 'Terminal app', 'lg')) +
           row('Command', '${p} is the folder', `<input type="text" id="fe-st-term-custom" class="tb fe-st-input" data-size="lg" placeholder='open -a MyTerm "\${p}"' spellcheck="false" title='Shell command. \${p} is the folder.'>`, ' id="fe-st-term-custom-row" hidden') +
