@@ -85,6 +85,8 @@ try {
   cli('--as', 'bfb', 'comments', 'new', doc, '--quote', 'second paragraph', 'Seeded thread');
   await page.goto('file://' + doc, { waitUntil: 'load' });
   await page.waitForSelector('#fe-cm .fe-cm-th', { timeout: 8000 });
+  // The comments rail starts hidden; its button in the file bar shows it.
+  if (!await page.$eval('#fe-cm', e => e.checkVisibility())) { await page.click('#fe-fp-cm'); await sleep(400); }
   await page.click('#fe-cm .fe-cm-th[data-id]');
   await sleep(300);
   await page.$eval('#fe-cm .fe-cm-th[data-id]', t => t.focus());

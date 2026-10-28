@@ -26,7 +26,7 @@ try {
   const look = sel => page.$eval(sel, e => ({ bg: getComputedStyle(e).backgroundColor, fg: getComputedStyle(e).color })).catch(() => null);
   const seen = [];
   const selected = async (name, sel) => { const l = await look(sel); seen.push([name, 'selected', l]); return l; };
-  const hovered = async (name, sel) => { await page.hover(sel).catch(() => null); await sleep(200); const l = await look(sel); seen.push([name, 'hover', l]); return l; };
+  const hovered = async (name, sel) => { await page.hover(sel).catch(e => console.log('     hover failed', name, String(e.message).split('\n')[0])); await sleep(400); const l = await look(sel); seen.push([name, 'hover', l]); return l; };
 
   // Sidebar: the current place, and a row under the pointer.
   await page.click('#fe-rail-places'); await sleep(300);
@@ -79,6 +79,8 @@ try {
   writeFileSync(doc, '# Rows\n\n' + Array.from({ length: 8 }, (v, i) => `## Part ${i}\n\n${'Words. '.repeat(80)}\n`).join('\n'));
   await page.goto('file://' + doc, { waitUntil: 'load' });
   await page.waitForSelector('#fe-toc a'); await sleep(400);
+  // The contents rail starts hidden; its button beside find shows it.
+  if (!await page.$eval('#fe-toc', e => e.checkVisibility())) { await page.click('#fe-fp-toc'); await sleep(400); }
   await selected('contents current', '#fe-toc a.on');
   await hovered('contents row', '#fe-toc a:not(.on)');
   await page.screenshot({ path: await shot(page, 'rows-contents') });

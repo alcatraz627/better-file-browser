@@ -74,6 +74,8 @@ try {
   spawnSync('python3', [CLI, '--json', '--as', 'bfb', 'comments', 'new', doc, '--quote', 'words to comment', 'A note'], { env, encoding: 'utf8' });
   await page.goto('file://' + doc, { waitUntil: 'load' });
   await page.waitForSelector('#fe-fp-bar'); await sleep(400);
+  // The comments rail starts hidden; its button in the file bar shows it.
+  if (!await page.$eval('#fe-cm', e => e.checkVisibility()).catch(() => false)) { await page.click('#fe-fp-cm'); await sleep(400); }
   await page.click('#fe-cm .fe-cm-th[data-id]').catch(() => null); await sleep(300);
   await take('file page');
   await page.screenshot({ path: await shot(page, 'bars-file'), clip: { x: 0, y: 0, width: 1400, height: 160 } });
