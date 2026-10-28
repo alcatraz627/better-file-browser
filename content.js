@@ -87,8 +87,11 @@
   function esc(s) {
     return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
+  var base = "file://";
+  var fileBase = () => base;
+  var isFileUrl = (u) => u.startsWith(base + "/");
   function fileHref(path) {
-    return "file://" + path.split("/").map(encodeURIComponent).join("/");
+    return base + path.split("/").map(encodeURIComponent).join("/");
   }
   var DOWNLOAD_EXTS = /* @__PURE__ */ new Set(["yaml", "yml", "sql", "csv", "tsv", "xml"]);
   function pageHref(href) {
@@ -98,7 +101,8 @@
       } catch {
       }
     }
-    const m = href.match(/^(file:\/\/[^?#]*\/)([^/?#]+)$/);
+    if (!isFileUrl(href)) return href;
+    const m = href.match(/^([^?#]*\/)([^/?#]+)$/);
     if (!m || !m[2].includes(".")) return href;
     return DOWNLOAD_EXTS.has(m[2].split(".").pop().toLowerCase()) ? `${m[1]}#view=${m[2]}` : href;
   }
@@ -273,8 +277,8 @@
     return list3.map((p) => p.path === path ? { ...p, label } : p);
   }
   function retargetPlace(list3, from, to) {
-    const base = (p) => p.split("/").pop() || p;
-    return list3.map((p) => !samePlace(p.path, from) ? p : { ...p, path: to, label: p.label === base(from) ? base(to) : p.label });
+    const base2 = (p) => p.split("/").pop() || p;
+    return list3.map((p) => !samePlace(p.path, from) ? p : { ...p, path: to, label: p.label === base2(from) ? base2(to) : p.label });
   }
   function movePlace(list3, fromPath, toPath) {
     const from = list3.findIndex((p) => p.path === fromPath);
@@ -337,9 +341,9 @@
     return out;
   }
   function isWithin(path, folder, depth = 4) {
-    const base = folder.endsWith("/") ? folder : folder + "/";
-    if (path === folder || path === base || path + "/" === base) return true;
-    return path.startsWith(base) && path.slice(base.length).split("/").filter(Boolean).length <= depth;
+    const base2 = folder.endsWith("/") ? folder : folder + "/";
+    if (path === folder || path === base2 || path + "/" === base2) return true;
+    return path.startsWith(base2) && path.slice(base2.length).split("/").filter(Boolean).length <= depth;
   }
 
   // src/kv.ts
@@ -1008,6 +1012,12 @@
     docsIndex: () => call({ op: "docsIndex" }).then((f) => f.docs ?? []),
     /// Agent sessions claude-ipc sees as live or idle, for offering @claude:<alias>.
     people: () => call({ op: "people" }).then((f) => f.peers ?? []),
+    /// Hand one comment thread to an agent through claude-ipc.
+    sendThread: (root, rel, thread, to) => call({ op: "sendThread", root, rel, thread, to }),
+    /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
+    phone: (action = "status") => call({ op: "phone", action }),
+    /// The Mac's settings, for the phone to start from.
+    phoneSeed: (kv) => call({ op: "phoneSeed", kv }),
     fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
   };
   function slugForTitle(title) {
@@ -1336,6 +1346,7 @@ ${body}`;
     exclusions: svg('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/>'),
     notes: svg('<path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/>'),
     tab: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M12 13v5M9.5 15.5h5"/>'),
+    phone: svg('<rect width="12" height="20" x="6" y="2" rx="2.5"/><path d="M11 18h2"/>'),
     terminal: svg('<path d="m7 11 2-2-2-2M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2"/>'),
     data: svg('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/>'),
     ai: svg(SPARKLE),
@@ -3549,20 +3560,20 @@ ${body}`;
   }
   function localFileUrl(path) {
     const filePath = path.replace(/:\d+(?::\d+)?$/, "");
-    return "file://" + filePath.split("/").map(encodeURIComponent).join("/");
+    return fileHref(filePath);
   }
   var linkHome = "";
   function setLinkHome(home) {
     linkHome = home.replace(/\/$/, "");
   }
   var underHome = (path) => !!linkHome && (path === linkHome || path.startsWith(linkHome + "/"));
-  var opensNewTab = (url) => /^https?:/i.test(url) || /^file:\/\//i.test(url) && underHome(url.slice(7));
-  function resolveMdUrl(base, url) {
+  var opensNewTab = (url) => isFileUrl(url) ? underHome(decodeURIComponent(url.slice(fileBase().length))) : /^https?:/i.test(url);
+  function resolveMdUrl(base2, url) {
     if (underHome(url)) return localFileUrl(url);
-    if (!base) return url;
+    if (!base2) return url;
     if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith("//") || url.startsWith("#")) return url;
     try {
-      return new URL(url, base).href;
+      return new URL(url, base2).href;
     } catch {
       return url;
     }
@@ -5014,10 +5025,10 @@ ${body}
       t.stopped ? "stopped" : ""
     ].filter(Boolean).join(" \xB7 ");
   }
-  function endedTurn(base, text, end) {
-    if (end.t === "done") return { ...base, a: text, model: end.model || base.model, ms: end.ms ?? 0, tokensIn: end.tokens_in || void 0, tokensOut: end.tokens_out || void 0 };
-    if (text.trim()) return { ...base, a: text, ms: Date.now() - base.at, stopped: true };
-    return { ...base, a: "", ms: 0, error: end.code || "unknown" };
+  function endedTurn(base2, text, end) {
+    if (end.t === "done") return { ...base2, a: text, model: end.model || base2.model, ms: end.ms ?? 0, tokensIn: end.tokens_in || void 0, tokensOut: end.tokens_out || void 0 };
+    if (text.trim()) return { ...base2, a: text, ms: Date.now() - base2.at, stopped: true };
+    return { ...base2, a: "", ms: 0, error: end.code || "unknown" };
   }
   var historyPref = jsonPref("bfb-ask-history-v1", {}, (v) => !!v && typeof v === "object");
   var CHATS_PER_SUBJECT = 20;
@@ -11536,8 +11547,8 @@ ${end.comment}` : end.comment;
     return out;
   }
   function richHtml(text, href) {
-    const base = `<base href="${esc(href)}">`;
-    const doc = /<head[^>]*>/i.test(text) ? text.replace(/<head([^>]*)>/i, `<head$1>${base}`) : base + text;
+    const base2 = `<base href="${esc(href)}">`;
+    const doc = /<head[^>]*>/i.test(text) ? text.replace(/<head([^>]*)>/i, `<head$1>${base2}`) : base2 + text;
     return `<iframe class="fe-html-frame" sandbox="allow-same-origin" title="Rendered page" srcdoc="${esc(doc)}"></iframe>`;
   }
   var safely = (f, ext2) => (text, href) => {
@@ -14438,7 +14449,7 @@ ${t}`)) say("Note title saved");
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 2e3);
       }
-      const fileBase = () => (opts.name ?? "diagram").replace(/[^\w.-]+/g, "-");
+      const fileBase2 = () => (opts.name ?? "diagram").replace(/[^\w.-]+/g, "-");
       function canvas() {
         return new Promise((res, rej) => {
           const img = new Image(), scale = 2;
@@ -14501,7 +14512,7 @@ ${xref}
         return new Blob(parts2, { type: "application/pdf" });
       }
       async function exportAs(f) {
-        const name2 = fileBase() + "." + f, label2 = { svg: "SVG", png: "PNG", pdf: "PDF", md: "Markdown", txt: "text" }[f];
+        const name2 = fileBase2() + "." + f, label2 = { svg: "SVG", png: "PNG", pdf: "PDF", md: "Markdown", txt: "text" }[f];
         toast(`Preparing ${label2}\u2026`, true);
         await new Promise((r) => requestAnimationFrame(() => setTimeout(r)));
         try {
@@ -15139,7 +15150,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     if (!Array.isArray(v)) return [];
     return v.filter((m) => !!m && [m.x, m.y, m.w, m.h].every(fraction) && m.x + m.w <= 1.001 && m.y + m.h <= 1.001).slice(0, MAX_MARKS).map((m) => ({ x: m.x, y: m.y, w: m.w, h: m.h, label: typeof m.label === "string" ? m.label : void 0 }));
   }
-  function mediaOf(base, entry) {
+  function mediaOf(base2, entry) {
     const p = typeof entry === "string" ? entry : entry?.src;
     if (typeof p !== "string") return null;
     const html = /\.html?$/i.test(p);
@@ -15147,7 +15158,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const withMarks = (m) => marks.length ? { ...m, marks } : m;
     if (/^https?:\/\//.test(p)) return html ? null : withMarks({ src: p, name: p.split("/").pop() || p, kind: "img" });
     if (!p || p.startsWith("/") || p.split(/[\\/]/).includes("..") || /^[a-z]+:/i.test(p)) return null;
-    return withMarks({ src: base + p.split("/").map(encodeURIComponent).join("/"), name: p, kind: html ? "html" : "img" });
+    return withMarks({ src: base2 + p.split("/").map(encodeURIComponent).join("/"), name: p, kind: html ? "html" : "img" });
   }
   var marksHtml = (marks) => `<span class="fe-dv-marks" aria-hidden="true">${marks.map((m, i3) => `<span class="fe-dv-mark" style="--x:${m.x};--y:${m.y};--w:${m.w};--h:${m.h}"${m.label ? ` title="${esc(m.label)}"` : ""}><b>${i3 + 1}</b></span>`).join("")}</span>`;
   var markKeyHtml = (marks) => marks.some((m) => m.label) ? `<figcaption class="fe-dv-mark-key">${marks.map((m, i3) => `<span><b>${i3 + 1}</b>${esc(m.label ?? "")}</span>`).join("")}</figcaption>` : "";
@@ -15423,24 +15434,24 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
   }
 
   // src/dp-cards.ts
-  var md = (text, base) => `<div class="fe-dp-md">${renderMarkdown(text.replace(/([^\n])\n(?!\n)/g, "$1  \n"), base)}</div>`;
+  var md = (text, base2) => `<div class="fe-dp-md">${renderMarkdown(text.replace(/([^\n])\n(?!\n)/g, "$1  \n"), base2)}</div>`;
   var isLaidOut = (text) => /[─│┌┐└┘├┤═║╭╮╰╯]/.test(text) || /\S {3,}\S/.test(text);
-  var preHtml = (text, base) => {
+  var preHtml = (text, base2) => {
     const raw = isLaidOut(text);
     return `<div class="fe-dp-preview" data-view="${raw ? "raw" : "md"}">
     <button type="button" class="btn fe-dp-rawbtn" data-variant="ghost" data-size="sm" aria-pressed="${raw}" title="Show the text exactly as written, or rendered">Raw</button>
-    ${md(text, base)}
+    ${md(text, base2)}
     <pre class="fe-dp-pre">${esc(text)}</pre>
   </div>`;
   };
-  var mediaList = (images, base) => (images ?? []).map((p) => mediaOf(base, p)).filter((m) => !!m);
+  var mediaList = (images, base2) => (images ?? []).map((p) => mediaOf(base2, p)).filter((m) => !!m);
   var noteBtn = (id, notes2) => notes2 ? `<button type="button" class="btn fe-dp-addnote" data-icon data-variant="ghost" data-size="sm" data-note-for="${esc(id)}" title="Add a note (n)" aria-label="Add a note on ${esc(id)}">${UI_ICON.comment}</button>` : "";
   var noteHtml = (id, notes2) => notes2 ? `
   <div class="fe-dp-note" hidden>
     <textarea class="tb" data-note="${esc(id)}" rows="2" placeholder="A note for Claude about ${esc(id)}" aria-label="Note on ${esc(id)}"></textarea>
   </div>` : "";
-  function optionHtml(d, o, n, base, none2 = false) {
-    const imgs = mediaList(o.images, base);
+  function optionHtml(d, o, n, base2, none2 = false) {
+    const imgs = mediaList(o.images, base2);
     return `<label class="fe-dp-opt${imgs.length ? " tile" : ""}${none2 ? " none" : ""}" data-code="${esc(o.code)}" data-media-label="${esc(`${o.code} \xB7 ${o.label}`)}" title="Answer code ${esc(o.code)}">
       <input type="radio" name="dp-${esc(d.id)}" value="${esc(o.code)}">
       ${imgs.length ? `<span class="fe-dp-tile-img">${imgs.map((m) => mediaHtml(m, true)).join("")}</span>` : ""}
@@ -15457,21 +15468,21 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const color = cfg.groups?.[d.group]?.color;
     return `<span class="badge fe-dp-dgrp" data-size="sm" data-tone="quiet"${color ? ` style="--grp:${esc(color)}"` : ""}>${esc(d.group)}</span>`;
   }
-  function decisionHtml(d, cfg, base, notes2) {
+  function decisionHtml(d, cfg, base2, notes2) {
     const tiles = d.options.filter((o) => o.images?.length).length;
     const none2 = d.none ? { code: noneCode(d), label: d.noneLabel || "None of these" } : null;
     return `<article class="card fe-dp-card" data-id="${esc(d.id)}" data-kind="decision" tabindex="-1">
     <header class="fe-dp-card-head"><span class="badge fe-dp-id" data-tone="quiet">${esc(d.id)}</span><h3 class="fe-dp-q">${esc(d.question)}</h3>${decisionGroupHtml(d, cfg)}${noteBtn(d.id, notes2)}</header>
-    ${d.context ? clampHtml(md(d.context, base), 3) : ""}
-    ${stripHtml(mediaList(d.images, base))}
+    ${d.context ? clampHtml(md(d.context, base2), 3) : ""}
+    ${stripHtml(mediaList(d.images, base2))}
     <div class="fe-dp-opts${tiles ? " gallery" : ""}"${tiles ? ` style="--cols:${tileCols(tiles)}"` : ""} role="radiogroup" aria-label="${esc(d.question)}" data-media-set>
-      ${d.options.map((o, i3) => optionHtml(d, o, i3 + 1, base)).join("")}
-      ${none2 ? optionHtml(d, none2, d.options.length + 1, base, true) : ""}
+      ${d.options.map((o, i3) => optionHtml(d, o, i3 + 1, base2)).join("")}
+      ${none2 ? optionHtml(d, none2, d.options.length + 1, base2, true) : ""}
     </div>
     ${noteHtml(d.id, notes2)}
   </article>`;
   }
-  function sectionHtml(x, base, notes2) {
+  function sectionHtml(x, base2, notes2) {
     const slots = Object.entries(x.slots ?? {});
     return `<article class="card fe-dp-card" data-id="${esc(x.id)}" data-kind="section" tabindex="-1">
     <header class="fe-dp-card-head">
@@ -15481,34 +15492,34 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       ${noteBtn(x.id, notes2)}
       <label class="fe-dp-agree"><span class="fe-dp-agree-lbl">Agree</span>${switchHtml({ title: "Agree with this as drafted (a)", label: `Agree with ${x.id}`, checked: true, small: true, cls: "fe-dp-agree-sw" })}</label>
     </header>
-    ${x.read ? clampHtml(md(x.read, base), 4) : ""}
-    ${x.pre ? preHtml(x.pre, base) : ""}
+    ${x.read ? clampHtml(md(x.read, base2), 4) : ""}
+    ${x.pre ? preHtml(x.pre, base2) : ""}
     ${slots.length ? `<dl class="fe-dp-slots">${slots.map(([k, v]) => `<div class="fe-dp-slot" data-slot="${esc(k.toLowerCase())}"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>` : ""}
-    ${stripHtml(mediaList(x.images, base))}
+    ${stripHtml(mediaList(x.images, base2))}
     ${noteHtml(x.id, notes2)}
   </article>`;
   }
-  function groupHtml(key, title, cards2, cfg, base) {
+  function groupHtml(key, title, cards2, cfg, base2) {
     const g = cfg.groups?.[title];
     return `<details class="fe-grp fe-dp-grp" data-grp="${esc(key)}" open${g?.color ? ` style="--grp:${esc(g.color)}"` : ""}>
     <summary class="sect" data-level="group">${DISCLOSE}${esc(title)}<span class="fe-grp-n">${cards2.length}</span></summary>
-    ${g?.context ? `<div class="fe-dp-grp-ctx">${clampHtml(md(g.context, base), 2)}</div>` : ""}
+    ${g?.context ? `<div class="fe-dp-grp-ctx">${clampHtml(md(g.context, base2), 2)}</div>` : ""}
     <div class="fe-grp-body">${cards2.join("")}</div>
   </details>`;
   }
   var sectionGroup = (x) => x.group || "To review";
-  function bodyHtml(cfg, base) {
+  function bodyHtml(cfg, base2) {
     const notes2 = cfg.notes !== false;
     const out = [];
     const ds = cfg.decisions ?? [];
-    if (ds.length) out.push(groupHtml("Decisions", "Decisions", ds.map((d) => decisionHtml(d, cfg, base, notes2)), cfg, base));
+    if (ds.length) out.push(groupHtml("Decisions", "Decisions", ds.map((d) => decisionHtml(d, cfg, base2, notes2)), cfg, base2));
     const bands = /* @__PURE__ */ new Map();
     for (const x of cfg.sections ?? []) {
       const name2 = sectionGroup(x);
       if (!bands.has(name2)) bands.set(name2, []);
-      bands.get(name2).push(sectionHtml(x, base, notes2));
+      bands.get(name2).push(sectionHtml(x, base2, notes2));
     }
-    for (const [name2, cards2] of bands) out.push(groupHtml("s:" + name2, name2, cards2, cfg, base));
+    for (const [name2, cards2] of bands) out.push(groupHtml("s:" + name2, name2, cards2, cfg, base2));
     if (notes2) out.push(`<section class="card fe-dp-end" id="fe-dp-end">
     <h3 class="fe-dp-q">Notes for Claude</h3>
     <textarea class="tb" id="fe-dp-endnotes" rows="3" placeholder="Anything else Claude should know" aria-label="Notes for Claude"></textarea>
@@ -15769,7 +15780,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     <pre class="fe-dp-answer-text" id="fe-dp-answer-text"></pre>
   </section>`;
   var sentHtml = () => '<section class="card fe-dp-sent" id="fe-dp-sent" hidden></section>';
-  function wireAnswer(cfg, box, slug, base, host, toast) {
+  function wireAnswer(cfg, box, slug, base2, host, toast) {
     const q = (sel) => box.querySelector(sel);
     const panel = q("#fe-dp-answer"), pre = q("#fe-dp-answer-text"), note2 = q("#fe-dp-answer-note");
     const panelBtn = q("#fe-dp-panel"), copyBtn = q("#fe-dp-copy"), submitBtn = q("#fe-dp-submit");
@@ -15868,9 +15879,9 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     let ruling = null;
     const readSent = async (fromSubmit = false) => {
       const readJson = async (name2) => {
-        if (!await dpIo().exists(base + name2)) return null;
+        if (!await dpIo().exists(base2 + name2)) return null;
         try {
-          return JSON.parse(await dpIo().text(base + name2));
+          return JSON.parse(await dpIo().text(base2 + name2));
         } catch {
           return null;
         }
@@ -15975,7 +15986,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const href = `${server}/b/${encodeURIComponent(o.board)}${o.card ? `?card=${encodeURIComponent(o.card)}` : ""}`;
     return `<a class="chip fe-dp-olink" data-size="sm" data-fill href="${esc(href)}" target="_blank" rel="noopener" title="${o.card ? "The card this page rules on" : "The board this page belongs to"}">${GLYPH.column}<span>${esc(o.card || o.board)}</span></a>`;
   }
-  function headHtml(cfg, base) {
+  function headHtml(cfg, base2) {
     const d = cfg.decisions?.length ?? 0, s = cfg.sections?.length ?? 0;
     const count = [d ? `${d} decision${d === 1 ? "" : "s"}` : "", s ? `${s} to review` : ""].filter(Boolean).join(", ");
     const topic = cfg.origin?.topic;
@@ -15986,7 +15997,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       </div>
       ${topic ? `<p class="fe-dp-topicline"><span class="fe-dp-topic" title="Topic">${esc(topic)}</span></p>` : ""}
       <p class="fe-dp-origin">${boardLinkHtml(cfg.origin)}${originFacts(cfg.origin).map((f) => `<button type="button" class="fe-dp-fact" data-fact="${esc(f.label.toLowerCase())}" data-copy="${esc(f.copy)}"${f.copyName ? ` data-copy-name="${esc(f.copyName)}"` : ""} title="${esc(`${f.title ?? f.label}. Click to copy ${f.copyName ?? f.copy}`)}">${esc(f.value)}</button>`).join("")}<span class="fe-dp-count">${esc(count)}</span></p>
-      ${cfg.intro ? `<div class="fe-dp-intro">${clampHtml(renderMarkdown(cfg.intro, base), 2)}</div>` : ""}
+      ${cfg.intro ? `<div class="fe-dp-intro">${clampHtml(renderMarkdown(cfg.intro, base2), 2)}</div>` : ""}
     </header>
     ${sentHtml()}
     <div class="fe-dp-bar" id="fe-dp-bar">
@@ -16010,10 +16021,10 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     id: "decision-page",
     on: "folder",
     claims: (_p, names) => names.includes("config.json"),
-    async mount({ root: box, base, path, toast, slug: given }) {
+    async mount({ root: box, base: base2, path, toast, slug: given }) {
       let cfg = null;
       try {
-        cfg = parseDpConfig(await dpIo().text(base + "config.json"));
+        cfg = parseDpConfig(await dpIo().text(base2 + "config.json"));
       } catch {
         cfg = null;
       }
@@ -16022,11 +16033,11 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       if (slug) dpIo().dp("seen", slug).catch(() => {
       });
       box.innerHTML = `<div class="fe-dp-layout">
-        <div class="fe-dp-col">${headHtml(cfg, base)}<div id="fe-dp-body">${bodyHtml(cfg, base)}</div></div>
+        <div class="fe-dp-col">${headHtml(cfg, base2)}<div id="fe-dp-body">${bodyHtml(cfg, base2)}</div></div>
         <aside class="fe-dp-side">${outlineHtml(outlineItems(cfg), "On this page")}</aside>
       </div>`;
       if (cfg.accent) box.style.setProperty("--ac", cfg.accent);
-      wireAnswers(cfg, box, slug, base, toast);
+      wireAnswers(cfg, box, slug, base2, toast);
       wireMedia(box, toast);
       wireClamps(box);
       box.querySelector(".fe-dp-origin")?.addEventListener("click", (e) => {
@@ -16048,7 +16059,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       return true;
     }
   };
-  function wireAnswers(cfg, box, slug, base, toast) {
+  function wireAnswers(cfg, box, slug, base2, toast) {
     const key = stateKey(cfg);
     const saved = jsonPref(key, null, (v) => v === null || typeof v === "object");
     const editedAt = jsonPref(key.replace("bfb-dp-answers:", "bfb-dp-edited:"), 0, (v) => typeof v === "number");
@@ -16226,7 +16237,7 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
       editedAt.set(Date.now());
       paint();
     });
-    answer = wireAnswer(cfg, box, slug, base, {
+    answer = wireAnswer(cfg, box, slug, base2, {
       state: () => state,
       // The sent answer refills the form; it is not an edit, so the edit time stays.
       replace: (s) => {
@@ -16717,11 +16728,11 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const views2 = docViewsFor("folder", app.rawPath, app.entryNames);
     if (!views2.length) return null;
     fe.classList.add("fe-dp-pending");
-    const base = "file://" + app.rawPath.split("/").map(encodeURIComponent).join("/");
+    const base2 = fileHref(app.rawPath);
     let shown = null;
     for (const v of views2) {
       try {
-        if (await v.mount({ root: box, base, path: app.rawPath, toast: (m) => app.toast(m), app })) {
+        if (await v.mount({ root: box, base: base2, path: app.rawPath, toast: (m) => app.toast(m), app })) {
           shown = v.id;
           break;
         }
@@ -16754,8 +16765,8 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     return shown;
   }
   function decorateFileView(root, path, toast) {
-    const base = "file://" + path.replace(/[^/]*$/, "").split("/").map(encodeURIComponent).join("/");
-    for (const v of docViewsFor("file", path)) Promise.resolve().then(() => v.mount({ root, base, path, toast })).catch(() => {
+    const base2 = fileHref(path.replace(/[^/]*$/, ""));
+    for (const v of docViewsFor("file", path)) Promise.resolve().then(() => v.mount({ root, base: base2, path, toast })).catch(() => {
     });
   }
 
@@ -19170,7 +19181,7 @@ button.chip:disabled{opacity:.45;cursor:default}
   function absPath(input, home) {
     let p = input.trim().replace(/^['"]|['"]$/g, "");
     if (!p) return null;
-    if (/^file:\/\//i.test(p)) {
+    if (/^file:\/\//i.test(p) || isFileUrl(p)) {
       try {
         p = decodeURIComponent(new URL(p).pathname);
       } catch {
@@ -20199,7 +20210,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     paintEl.style.lineHeight = ta.style.lineHeight = lhPx + "px";
     const tw = big ? windowedText(ta, doc.text, TA_LINES) : wholeText(ta, doc.text);
     const buf = attachBuffer(ta, `file:${host.root}/${host.rel}`, { get: tw.text, set: tw.set });
-    let base = doc.text;
+    let base2 = doc.text;
     let saving = false;
     let failed = "";
     const saved = modePref.get();
@@ -20207,7 +20218,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     let diags = [];
     let checkTimer = 0;
     let timer2 = 0;
-    const isDirty = () => tw.text() !== base;
+    const isDirty = () => tw.text() !== base2;
     let curRow = -1;
     const markLine = () => {
       const v = ta.value, end = ta.selectionStart;
@@ -20368,7 +20379,7 @@ and ${diags.length - 12} more` : "");
       const ms = host.comments?.marks() ?? [];
       if (!ms.length) return;
       const t = tw.text();
-      const at = carrier(base, t);
+      const at = carrier(base2, t);
       let line2 = 0, p = -1;
       for (const m of ms.map((m2) => ({ id: m2.id, o: at(m2.offset) })).sort((a, b) => a.o - b.o)) {
         for (let nl = t.indexOf("\n", p + 1); nl !== -1 && nl < m.o; nl = t.indexOf("\n", p + 1)) {
@@ -20445,7 +20456,7 @@ and ${diags.length - 12} more` : "");
         const text = tw.text();
         const r = await notes.fileWrite(host.root, host.rel, text, expect);
         doc = { text, mtime: r.mtime };
-        base = text;
+        base2 = text;
         failed = "";
         banner.hidden = true;
         diffBox.hidden = true;
@@ -20538,7 +20549,7 @@ and ${diags.length - 12} more` : "");
         }
         if (!isDirty()) {
           doc = now;
-          base = now.text;
+          base2 = now.text;
           buf.snap();
           tw.set(now.text);
           buf.snap();
@@ -20603,7 +20614,7 @@ and ${diags.length - 12} more` : "");
       else if (act === "reload") {
         const now = await notes.fileRead(host.root, host.rel);
         doc = now;
-        base = now.text;
+        base2 = now.text;
         buf.snap();
         tw.set(now.text);
         banner.hidden = true;
@@ -20739,7 +20750,7 @@ and ${diags.length - 12} more` : "");
       dirty: isDirty,
       close: () => void close(),
       select: (start, end) => {
-        const at = carrier(base, tw.text());
+        const at = carrier(base2, tw.text());
         selectSpan(at(start), at(end));
       },
       marks: markComments
@@ -21005,6 +21016,26 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         });
       }
     };
+    const openSendMenu = async (btn, t) => {
+      if (!peers?.length) peers = await notes.people().catch(() => []);
+      const named = (t.mentions ?? []).map((m) => m.replace(/^claude:/i, "")).filter((m) => !["user", "owner", "claude"].includes(m.toLowerCase()));
+      const all = [.../* @__PURE__ */ new Set([...named, ...(peers ?? []).map((p) => p.alias)])];
+      const menu = document.createElement("div");
+      menu.className = "fe-ctx fe-cm-send";
+      menu.innerHTML = all.length ? `<div class="sect fe-ctx-h" data-level="group">Send to</div>` + all.map((a) => `<div class="row fe-ctx-item" data-to="${esc(a)}" role="menuitem">${UI_ICON.bot}<span>${esc(a)}</span>${named.includes(a) ? '<span class="fe-ctx-key">mentioned</span>' : ""}</div>`).join("") : '<div class="row fe-ctx-item" aria-disabled="true"><span>No agents are running</span></div>';
+      (document.getElementById("fe") ?? document.body).append(menu);
+      const r = btn.getBoundingClientRect();
+      const layer = openLayer(menu, { kind: "popover", place: "point", point: { x: r.left, y: r.bottom + 4 }, origin: btn, role: "menu", group: "menu", onClose: () => menu.remove() });
+      menu.addEventListener("click", (e) => {
+        const to = e.target.closest("[data-to]")?.dataset.to;
+        if (!to) return;
+        layer.close("pick");
+        const root = o.root();
+        if (!root) return;
+        o.status(`Sending to ${to}\u2026`);
+        notes.sendThread(root, o.rel(), t.id, to).then(() => o.status(`Sent to ${to}. Their answer appears in this thread.`), (err) => o.status(errorText(err, `Sending to ${to}`)));
+      });
+    };
     const readCompanion = () => fetchFileText(o.href + ".bfb.json").catch(() => "");
     const take = (r) => {
       const fresh = r.threads.flatMap((t) => t.comments.filter((c) => !seen.has(c.id) && c.author.kind === "agent").map((c) => c.author));
@@ -21179,6 +21210,7 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         ${dueOpen === t.id ? `<input type="date" class="tb fe-cm-date" data-size="sm" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? "")}">` : iconBtn2("due", UI_ICON.clock, "Set a due date")}
         ${iconBtn2("link", UI_ICON.link, "Copy a link to this thread")}
         ${iconBtn2("brief", UI_ICON.bot, "Copy as a brief for an agent")}
+        <button type="button" class="btn" data-size="sm" data-a="send-agent" title="Send this thread to an agent, who can answer in it">${UI_ICON.send}Send</button>
         ${t.place.state !== "anchored" && !applied ? `<button type="button" class="btn" data-size="sm" data-a="attach" title="Select words on the page first">Attach to selection</button>` : ""}
         <span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-icon data-size="sm" data-variant="solid" data-a="reply" title="Reply (\u2318\u21B5)" aria-label="Reply">${UI_ICON.send}</button>
@@ -21698,6 +21730,10 @@ ${href.split("#")[0]}#c=${threads[0].id}`] : [];
         }
         if (a === "done" || a === "reopen") {
           void reply(active, true);
+          return;
+        }
+        if (a === "send-agent" && t) {
+          void openSendMenu(act2, t);
           return;
         }
         if (a === "untag") {
@@ -22597,6 +22633,101 @@ ${d.message}` : d.message;
     };
   }
 
+  // src/phone.ts
+  var URL_KEY = "bfb-phone-url";
+  var ON_KEY = "bfb-phone-on";
+  var onPhone = () => /^https?:$/.test(location.protocol);
+  function phoneLink(path) {
+    const base2 = onPhone() ? location.origin : kvGet(ON_KEY) === "1" ? kvGet(URL_KEY) || "" : "";
+    return base2 ? base2 + path.split("/").map(encodeURIComponent).join("/") : "";
+  }
+  async function copyPhoneLink(path, toast) {
+    const url = phoneLink(path);
+    if (!url) {
+      toast('Turn on "Open on my phone" in Settings, Data, to get a phone link');
+      return;
+    }
+    toast(await copyToClipboard(url) ? "Phone link copied" : "Copy failed");
+  }
+  var seedT = 0;
+  function pushSeed() {
+    if (onPhone() || kvGet(ON_KEY) !== "1") return;
+    clearTimeout(seedT);
+    seedT = window.setTimeout(() => {
+      const kv = {};
+      for (const k of kvKeys()) {
+        const v = kvGet(k);
+        if (v != null) kv[k] = v;
+      }
+      void notes.phoneSeed(kv).catch(() => {
+      });
+    }, 1500);
+  }
+  function initPhoneSeed() {
+    if (onPhone()) return;
+    pushSeed();
+    onKvChange(pushSeed);
+  }
+  function initPhoneButtons(currentPath, toast) {
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (t.closest("#fe-phone-btn")) {
+        e.preventDefault();
+        void copyPhoneLink(currentPath, toast);
+        return;
+      }
+      const row2 = t.closest(".fe-phone-row-btn");
+      if (row2?.dataset.path) {
+        e.preventDefault();
+        e.stopPropagation();
+        void copyPhoneLink(row2.dataset.path.split("#")[0], toast);
+      }
+    }, true);
+  }
+  function initPhoneSettings(toast) {
+    const sw2 = document.getElementById("fe-st-phone");
+    const out = document.getElementById("fe-st-phone-url");
+    const hint = document.getElementById("fe-st-phone-hint");
+    const copy = document.getElementById("fe-st-phone-copy");
+    if (!sw2 || !out || !hint) return () => {
+    };
+    if (onPhone()) {
+      sw2.closest(".fe-set-group")?.setAttribute("hidden", "");
+      return () => {
+      };
+    }
+    const show = (s, err) => {
+      sw2.disabled = false;
+      sw2.checked = !!s?.on;
+      kvSet(ON_KEY, s?.on ? "1" : "0");
+      if (s?.url) kvSet(URL_KEY, s.url);
+      out.innerHTML = s?.on && s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url.replace(/^https:\/\//, ""))}</a>` : "<span>Off</span>";
+      if (copy) copy.disabled = !(s?.on && s.url);
+      hint.textContent = err ? errorText(err, "Phone access") : s?.why ? s.why : s?.on ? "Open the link on any device signed in to your tailnet. Nobody else can reach it." : s?.server && !s.served ? "The server is running but not on the tailnet yet; switch on again." : "Shows this Mac\u2019s folders, files and comments to your own devices on the tailnet.";
+      if (s?.on) pushSeed();
+    };
+    const refresh = () => {
+      void notes.phone("status").then((s) => show(s), (e) => show(null, e));
+    };
+    sw2.addEventListener("change", () => {
+      const want = sw2.checked;
+      sw2.disabled = true;
+      hint.textContent = want ? "Starting the phone server\u2026" : "Turning it off\u2026";
+      void notes.phone(want ? "on" : "off").then((s) => {
+        show(s);
+        toast(s.on ? "bfb is on your tailnet" : "Phone access is off");
+      }, (e) => {
+        show(null, e);
+        toast(errorText(e, "Phone access"));
+      });
+    });
+    copy?.addEventListener("click", () => {
+      const u = kvGet(URL_KEY);
+      if (u) void copyToClipboard(u).then((ok) => toast(ok ? "Link copied" : "Copy failed"));
+    });
+    return refresh;
+  }
+
   // src/tabs.ts
   var EMPTY = { list: [], active: null };
   function labelFor(path) {
@@ -22690,8 +22821,8 @@ ${d.message}` : d.message;
   function splitLabel(label, keep = 0) {
     if (label.length <= 12) return { head: label, tail: "" };
     const ext2 = label.match(/\.[A-Za-z0-9]{1,6}$/)?.[0] ?? "";
-    const base = label.length - ext2.length;
-    const cut = Math.max(0, base - keep);
+    const base2 = label.length - ext2.length;
+    const cut = Math.max(0, base2 - keep);
     if (keep > KEEP_WHOLE) return { head: label.slice(0, cut), tail: label.slice(cut, cut + Math.max(3, 13 - ext2.length)) + "\u2026" + ext2 };
     return { head: label.slice(0, cut), tail: label.slice(cut) };
   }
@@ -22811,7 +22942,7 @@ ${d.message}` : d.message;
       commit(insertTab(state, last.tab, last.index));
       toast(`Reopened ${last.tab.label}`);
     }
-    const fileUrl = (p) => "file://" + p.split("/").map(encodeURIComponent).join("/");
+    const fileUrl = (p) => fileHref(p);
     function hrefFor(t) {
       return fileUrl(t.path);
     }
@@ -22861,6 +22992,7 @@ ${d.message}` : d.message;
       const saved = isSaved(t.path);
       menu.innerHTML = [
         `<div class="row fe-ctx-item" data-act="copy">${UI_ICON.copy}<span>Copy path</span></div>`,
+        `<div class="row fe-ctx-item" data-act="phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
         `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${saved ? "Unsave" : "Save"}</span></div>`,
         host.openInTerminal ? `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>` : "",
         `<div class="row fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? "Unpin" : "Pin"}</span><span class="fe-ctx-key">p</span></div>`,
@@ -22883,6 +23015,7 @@ ${d.message}` : d.message;
       if (!item2 || !t) return;
       const act = item2.dataset.act;
       if (act === "copy") void copyToClipboard(t.path).then((ok) => toast(ok ? "Copied path" : "Copy failed"));
+      else if (act === "phone") void copyPhoneLink(t.path, toast);
       else if (act === "save") {
         const now = toggleSaved(t.path, t.label);
         host.onSavedChange?.();
@@ -23458,7 +23591,10 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
           "On this Mac",
           row("Model", "", ddHtml("fe-st-ai-model", [], "Local model", "lg")) + row("Keep warm", "Replies start at once", sw("fe-st-ai-warm", "Keep the model loaded")) + `<div class="fe-st-ai-grid" id="fe-st-ai-grid"></div>` + note("", "fe-st-ai-hint")
         ) + card2("Ask can use", `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading\u2026</p></div>`) },
-        { key: "data", label: "Data", hint: "Export, import", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list.", body: card2(
+        { key: "data", label: "Data", hint: "Export, import, phone", icon: UI_ICON.data, tone: "var(--nc-green)", desc: "Move your settings and Saved list, or read on your phone.", body: card2(
+          "On my phone",
+          row("Open on my phone", "This Mac\u2019s folders on your tailnet only", sw("fe-st-phone", "Put bfb on your tailnet")) + row("Link", "", `<span id="fe-st-phone-url" class="fe-st-phone-url">Off</span>${iconBtn("fe-st-phone-copy", UI_ICON.copy, "Copy the link")}`) + note("", "fe-st-phone-hint")
+        ) + card2(
           "Your data",
           row("Export", "Saves a dated .json file", `<button id="fe-st-export" class="btn" data-size="lg" title="Save your settings and Saved list as a .json file">${UI_ICON.export}Export</button>`) + row("Import", "Shows what changes before it applies", `<button id="fe-st-import" class="btn" data-size="lg" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) + `<div id="fe-st-import-plan" class="notice fe-st-plan" data-tone="warn" role="status" hidden><span id="fe-st-import-plan-tx"></span><span class="fe-st-plan-acts"><button id="fe-st-import-apply" class="btn" data-size="sm" data-tone="accent">Apply</button><button id="fe-st-import-cancel" class="btn" data-size="sm">Cancel</button></span></div>` + row("Reset", "Every preference back to its default. Saved places, your folders, commands and icon rules stay.", `<button id="fe-st-reset" class="btn" data-size="lg" data-tone="danger" title="Put every setting back to its default; Undo stays for a moment">${UI_ICON.reset}Reset</button>`)
         ) }
@@ -23674,11 +23810,12 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
       return `
     <div class="row fe-bm-item fe-pl-item${isViewPath(p.path) ? " fe-view" : ""}" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? "file://" + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ""}">
+      <a href="${isViewPath(p.path) ? esc(fileBase() + p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ""}">
         ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label">${esc(p.label || p.path.split("/").filter(Boolean).pop() || "/")}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ""}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ""}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
+      <button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy phone link" aria-label="Copy phone link">${UI_ICON.phone}</button>
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
       <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;
@@ -23693,7 +23830,7 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     }).join("");
   }
   function renderCrumbs(rawPath, segments, trailing = false, home = "") {
-    const crumbs = [{ label: "/", href: "file:///" }];
+    const crumbs = [{ label: "/", href: fileBase() + "/" }];
     let acc = "/";
     for (const seg of segments) {
       acc += seg + "/";
@@ -23727,8 +23864,8 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
         { label: "enhancement-product", icon: "folder", sub: "Code/Versable/enhancement-product/" },
         { label: "resumes", icon: "docs", sub: "Code/Claude/resumes/" }
       ].map((p) => ({ label: p.label, icon: p.icon, href: fileHref(home + "/" + p.sub) })) : [],
-      { label: "Applications", icon: "apps", href: "file:///Applications/" },
-      { label: "Root /", icon: "root", href: "file:///" }
+      { label: "Applications", icon: "apps", href: fileHref("/Applications/") },
+      { label: "Root /", icon: "root", href: fileHref("/") }
     ];
     return places.map(
       (p) => `<a href="${p.href}" class="row fe-si${p.href.replace(/\/$/, "") === fileHref(rawPath).replace(/\/$/, "") ? ' active" aria-current="page' : ""}" title="${esc(p.label)}
@@ -23763,6 +23900,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
   <div id="fe-bar" class="bar">
     <button id="fe-side-toggle" class="btn" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
     <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ""}<button id="fe-crumb-more" class="btn fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>\u2026</button></div>
+    <button id="fe-phone-btn" class="btn" data-icon title="Copy this ${fileMode ? "file" : "folder"}\u2019s phone link (your tailnet)" aria-label="Copy phone link">${UI_ICON.phone}</button>
     <button id="fe-term-btn" class="btn" data-icon title="Open in terminal (${settings.terminalApp || "ghostty"}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
     <button id="fe-bm-btn" data-icon class="btn ${curIsBookmarked ? "on" : ""}" title="${curIsBookmarked ? `Remove this ${fileMode ? "file" : "folder"} from Saved` : `Save this ${fileMode ? "file" : "folder"} (sidebar)`}">
       ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? "currentColor" : "none"}"/>`)}
@@ -25384,6 +25522,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         canPreview(en) ? `<div class="row fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : "",
         `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">\u21E7Y</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
         hasText(en) ? `<div class="row fe-ctx-item" data-act="cp-text">${UI_ICON.copy}<span>Copy contents</span></div>` : "",
         `<div class="row fe-ctx-item" data-act="keep">${UI_ICON.tab}<span>Keep as tab</span><span class="fe-ctx-key">\u2325\u21A9</span></div>`,
         canAsk(en) ? `<div class="row fe-ctx-item" data-act="ask">${UI_ICON.ai}<span>Ask</span></div>` : "",
@@ -25406,6 +25545,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       const fp = fullPath(rawPath, en);
       if (item2.dataset.act === "pv") openPreview(en);
       else if (item2.dataset.act === "cp-path") copyText(fp);
+      else if (item2.dataset.act === "cp-phone") void copyPhoneLink(fp, app.toast);
       else if (item2.dataset.act === "cp-name") copyText(en.name);
       else if (item2.dataset.act === "cp-text") copyContents(en, toast);
       else if (item2.dataset.act === "keep") {
@@ -27048,6 +27188,7 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
         `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
+        `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
         `<div class="fe-ctx-sep"></div>`,
         `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`
       ].join("");
@@ -27080,6 +27221,9 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
           break;
         case "cp-title":
           void copyToClipboard(meta ? noteName(meta) : noteTitle(rel)).then((ok) => toast(ok ? "Copied title" : "Copy failed"));
+          break;
+        case "cp-phone":
+          void copyPhoneLink(notePath(root, rel), toast);
           break;
         case "delete":
           deleteNote(root, rel);
@@ -27149,11 +27293,11 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
     };
     el("fe-nt-add").addEventListener("click", () => app.newNote());
     refreshNotes();
-    const anchorPath = (a) => decodeURIComponent((a.getAttribute("href") || "").slice(7));
+    const anchorPath = (a) => decodeURIComponent(a.href.slice(fileBase().length));
     for (const host of [el("fe-side"), el("fe-bc"), el("fe-crumb-menu")]) {
       host.addEventListener("click", (e) => {
-        const a = e.target.closest('a[href^="file://"]');
-        if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        const a = e.target.closest("a[href]");
+        if (!a || !isFileUrl(a.href) || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
         const path = anchorPath(a);
         if (e.altKey) {
           e.preventDefault();
@@ -27520,7 +27664,7 @@ ${rows.join("\n")}`, name: subject };
       turn.scrollIntoView({ block: "end" });
       const started = Date.now();
       if (!chatId) chatId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      const base = {
+      const base2 = {
         q: shown,
         model: bareModel(useModel) || modelName(),
         at: started,
@@ -27536,8 +27680,8 @@ ${rows.join("\n")}`, name: subject };
         return;
       }
       const asked = intent === "folder" ? "What is in this folder? Group the files by purpose in a few short lines." : question;
-      const job = { id: started.toString(36) + Math.random().toString(36).slice(2, 8), subject: key, chatId, turn: base };
-      run(turn, base, (cb) => llmQuery(
+      const job = { id: started.toString(36) + Math.random().toString(36).slice(2, 8), subject: key, chatId, turn: base2 };
+      run(turn, base2, (cb) => llmQuery(
         {
           ctx: c.ctx,
           ctxName: c.name,
@@ -27553,10 +27697,10 @@ ${rows.join("\n")}`, name: subject };
         job
       ));
     }
-    function run(turn, base, begin) {
+    function run(turn, base2, begin) {
       const out = turn.querySelector(".fe-ask-a");
       const meta = turn.querySelector(".fe-ask-meta");
-      const started = base.at;
+      const started = base2.at;
       const save = (t) => {
         turns.push(t);
         addTurn(key, chatId, t);
@@ -27588,7 +27732,7 @@ ${rows.join("\n")}`, name: subject };
           return;
         }
         paint(turn, full, true);
-        const t = { ...base, a: full, ms: Date.now() - started, stopped: true };
+        const t = { ...base2, a: full, ms: Date.now() - started, stopped: true };
         meta.textContent = turnMeta(t);
         save(t);
       };
@@ -27615,7 +27759,7 @@ ${rows.join("\n")}`, name: subject };
             const read2 = steps.map((s) => esc(s.replace(/^Reading/, "Read")));
             if (read2.length === 1) out.insertAdjacentHTML("afterbegin", `<div class="fe-ask-step fe-ask-work">${UI_ICON.image}<span>${read2[0]}</span></div>`);
             else if (read2.length) out.insertAdjacentHTML("afterbegin", `<details class="fe-ask-think fe-ask-work"><summary>${UI_ICON.image}<span>Read ${read2.length} images</span></summary><div class="fe-md">${read2.map((s) => `<p>${s}</p>`).join("")}</div></details>`);
-            const t = { ...base, a: full, model: info.model || base.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut };
+            const t = { ...base2, a: full, model: info.model || base2.model, ms: info.ms, tokensIn: info.tokensIn, tokensOut: info.tokensOut };
             meta.textContent = turnMeta(t, info.truncated);
             save(t);
           },
@@ -27624,7 +27768,7 @@ ${rows.join("\n")}`, name: subject };
             done();
             if (code === "cancelled") return;
             paintError(turn, code, message);
-            save({ ...base, a: "", ms: 0, error: code });
+            save({ ...base2, a: "", ms: 0, error: code });
           }
         },
         {
@@ -27665,10 +27809,10 @@ ${rows.join("\n")}`, name: subject };
         turns = [];
         clearThread();
       }
-      const base = mine.job.turn;
-      const turn = turnEl(base.q, base.files ?? [], base.via);
-      asks.set(turn, { intent: base.intent ?? "qa", question: base.intent && base.intent !== "qa" ? void 0 : base.q });
-      run(turn, base, (cb, resume) => llmAttach(mine.id, { ...cb, onReplay: resume.replay, onGone: resume.gone }));
+      const base2 = mine.job.turn;
+      const turn = turnEl(base2.q, base2.files ?? [], base2.via);
+      asks.set(turn, { intent: base2.intent ?? "qa", question: base2.intent && base2.intent !== "qa" ? void 0 : base2.q });
+      run(turn, base2, (cb, resume) => llmAttach(mine.id, { ...cb, onReplay: resume.replay, onGone: resume.gone }));
     }
     const blkBar = document.createElement("div");
     blkBar.className = "fe-ask-blk";
@@ -27762,9 +27906,9 @@ ${rows.join("\n")}`, name: subject };
       }
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "chat";
       const d = /* @__PURE__ */ new Date(), two = (n) => String(n).padStart(2, "0");
-      const base = `chat-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}-${slug}`;
+      const base2 = `chat-${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}-${slug}`;
       const tryAt = (n) => {
-        const rel = `${base}${n > 1 ? `-${n}` : ""}.md`;
+        const rel = `${base2}${n > 1 ? `-${n}` : ""}.md`;
         return notes.create(root, rel, md2).then(() => rel, (e) => e?.code === "notes_exists" && n < 20 ? tryAt(n + 1) : Promise.reject(e));
       };
       tryAt(1).then((rel) => app.toast(`Saved to Notes as ${rel}`, 5e3, { label: "Open", run: () => app.strip.go(fileHref(`${root.replace(/\/$/, "")}/${rel}`)) })).catch((e) => app.toast(errorText(e, "Saving to Notes")));
@@ -27896,7 +28040,7 @@ ${rows.join("\n")}`, name: subject };
     formBox.addEventListener("dragleave", () => formBox.classList.remove("drop"));
     formBox.addEventListener("drop", (e) => {
       formBox.classList.remove("drop");
-      const uris = (e.dataTransfer?.getData("text/uri-list") ?? "").split(/\r?\n/).filter((u) => u.startsWith("file://"));
+      const uris = (e.dataTransfer?.getData("text/uri-list") ?? "").split(/\r?\n/).filter(isFileUrl);
       if (!uris.length) return;
       e.preventDefault();
       for (const u of uris) attach(decodeURIComponent(new URL(u).pathname));
@@ -28045,7 +28189,7 @@ ${rows.join("\n")}`, name: subject };
   };
   function homeAddress() {
     const home = homeDir(decodeURIComponent(location.pathname));
-    return home ? "file://" + home.split("/").map(encodeURIComponent).join("/") + "/#home" : "";
+    return home ? fileHref(home + "/") + "#home" : "";
   }
   var RULE_SUGGESTIONS = [
     { name: "Images", pattern: "\\.(png|jpe?g|gif|webp|svg|avif|heic)$", label: "IMG", glyph: "image", color: "#b197fc" },
@@ -28293,8 +28437,10 @@ ${rows.join("\n")}`, name: subject };
       const cmd = term === "custom" ? settings.terminalCmd || "" : TERMINAL_CMDS[term] || "";
       el("fe-st-term-hint").textContent = cmd ? cmd.replace(/\$\{p\}/g, app.folderPath) : "";
     }
+    const refreshPhone = initPhoneSettings(toast);
     const settingsDlg = mountDialog("fe-settings-modal", { onClose: closePop });
     function openSettings(tab) {
+      refreshPhone();
       els('input[name="bfb-theme"]').forEach((r) => {
         r.checked = r.value === (fe.dataset.mode || "dark");
       });
@@ -28651,12 +28797,12 @@ ${rows.join("\n")}`, name: subject };
     const strs = [...document.querySelectorAll(".fe-jt-root .tok-str, .fe-jl-root .tok-str")].filter((s) => !looked.has(s));
     if (!codes.length && !strs.length) return;
     [...codes, ...strs].forEach((c) => looked.add(c));
-    skillNames ??= fetchFileText(`file://${root}/skills/`).then((html) => new Set(parseListing(html, `file://${root}/skills/`).filter((e) => e.isDir && !e.isParent).map((e) => e.name.replace(/\/$/, "")))).catch(() => /* @__PURE__ */ new Set());
+    skillNames ??= fetchFileText(`${fileBase()}${root}/skills/`).then((html) => new Set(parseListing(html, `${fileBase()}${root}/skills/`).filter((e) => e.isDir && !e.isParent).map((e) => e.name.replace(/\/$/, "")))).catch(() => /* @__PURE__ */ new Set());
     void skillNames.then((skills) => {
       for (const code of codes) {
         const ref = refOf(code.textContent ?? "", skills);
         if (!ref) continue;
-        const url = `file://${root}/${ref.rel}`;
+        const url = `${fileBase()}${root}/${ref.rel}`;
         void existsOnce(url).then((ok) => {
           if (!ok || !code.isConnected) return;
           const a = refLink(ref, url);
@@ -28671,7 +28817,7 @@ ${rows.join("\n")}`, name: subject };
     const text = s.textContent ?? "";
     const hits = refsIn(text, skills);
     if (!hits.length) return;
-    const urls = hits.map((h) => `file://${root}/${h.ref.rel}`);
+    const urls = hits.map((h) => `${fileBase()}${root}/${h.ref.rel}`);
     const ok = await Promise.all(urls.map(existsOnce));
     if (!ok.some(Boolean) || !s.isConnected || s.textContent !== text) return;
     const frag = document.createDocumentFragment();
@@ -28784,9 +28930,9 @@ ${rows.join("\n")}`, name: subject };
     document.querySelectorAll(".fe-md-fm .fe-fm-path").forEach((span) => {
       if (looked2.has(span) || span.tagName === "A") return;
       looked2.add(span);
-      const base = span.closest(".fe-md-fm")?.dataset.fmBase || location.href;
+      const base2 = span.closest(".fe-md-fm")?.dataset.fmBase || location.href;
       const rel = span.dataset.fmPath || "";
-      void findPath(rel, base).then((url) => {
+      void findPath(rel, base2).then((url) => {
         if (!url || !span.isConnected) return;
         const a = document.createElement("a");
         a.className = "fe-fm-path";
@@ -28799,18 +28945,18 @@ ${rows.join("\n")}`, name: subject };
       });
     });
   }
-  async function findPath(rel, base) {
+  async function findPath(rel, base2) {
     let dir;
     try {
-      dir = new URL(".", new URL(base, location.href));
+      dir = new URL(".", new URL(base2, location.href));
     } catch {
       return null;
     }
     const home = /^\/(Users|home)\/[^/]+\//.exec(dir.pathname)?.[0];
     const tries = [];
-    if (rel.startsWith("/")) tries.push("file://" + rel);
+    if (rel.startsWith("/")) tries.push(fileBase() + rel);
     else if (rel.startsWith("~/")) {
-      if (home) tries.push("file://" + home + rel.slice(2));
+      if (home) tries.push(fileBase() + home + rel.slice(2));
     } else for (let d = dir, k = 0; k < 8; k++) {
       tries.push(new URL(rel, d).href);
       const up = new URL("..", d);
@@ -29472,7 +29618,7 @@ ${rows.join("\n")}`, name: subject };
       const parentSegs = segments.slice(0, -1);
       entries.unshift({
         name: "..",
-        href: "file:///" + parentSegs.map(encodeURIComponent).join("/") + (parentSegs.length ? "/" : ""),
+        href: fileBase() + "/" + parentSegs.map(encodeURIComponent).join("/") + (parentSegs.length ? "/" : ""),
         isDir: true,
         isParent: true,
         isHidden: false,
@@ -29543,7 +29689,7 @@ ${rows.join("\n")}`, name: subject };
     const dirName = fileMode ? fileName : segments[segments.length - 1] || "/";
     const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + "\u2026" : dirName;
     document.title = `${homeMode ? "Home" : shortDir} | Better File Browser`;
-    document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${appIconUrl()}">`;
+    document.head.innerHTML = `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${appIconUrl()}">`;
     document.body.innerHTML = html;
     const styleEl = document.createElement("style");
     styleEl.textContent = CSS2 + UI_CSS;
@@ -29642,7 +29788,7 @@ ${rows.join("\n")}`, name: subject };
         }
         const up = entries.find((x) => x.isParent);
         if (up) go(up.href, "here", { exact: true });
-        else if (rawPath !== "/") go("file:///", "here", { exact: true });
+        else if (rawPath !== "/") go(fileBase() + "/", "here", { exact: true });
       }
     };
     initPreview({
@@ -29698,8 +29844,8 @@ ${rows.join("\n")}`, name: subject };
       });
     }
     document.addEventListener("mousedown", (e) => {
-      const a = e.target.closest?.('a[href^="file://"]');
-      if (a) {
+      const a = e.target.closest?.("a[href]");
+      if (a && isFileUrl(a.href)) {
         const v = pageHref(a.href);
         if (v !== a.href) a.href = v;
       }
@@ -29714,6 +29860,8 @@ ${rows.join("\n")}`, name: subject };
     initListingInput(app, listing);
     if (!homeMode) void mountFolderView(app);
     initSettingsUi(app);
+    initPhoneSeed();
+    initPhoneButtons(rawPath, app.toast);
     initToolLenses(app);
     watchConnection();
     initSidebar(app);

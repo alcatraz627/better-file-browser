@@ -4,7 +4,8 @@
 // Chrome tab bring back a strip whose tab was closed in the last day.
 // Mounted by the explorer and by the file page; the pure list operations
 // are in tabs.ts.
-import { esc, copyToClipboard, pageHref } from './utils';
+import { esc, copyToClipboard, pageHref, fileHref } from './utils';
+import { copyPhoneLink } from './phone';
 import { icoFile, icoFolder, PI } from './icons';
 import { isSaved, toggleSaved, jsonPref } from './storage';
 import { UI_ICON } from './control-icons';
@@ -156,7 +157,7 @@ export function mountStrip(host: StripHost): Strip {
   }
   // Encode each segment so a '#' or '?' in a filename is not read as a URL
   // fragment or query and lost.
-  const fileUrl = (p: string) => 'file://' + p.split('/').map(encodeURIComponent).join('/');
+  const fileUrl = (p: string) => fileHref(p);
   function hrefFor(t: Tab): string { return fileUrl(t.path); }
   // Switching away from a page that was never kept keeps it as a background
   // tab first, the same as a sidebar click, so the doc you were reading is
@@ -213,6 +214,7 @@ export function mountStrip(host: StripHost): Strip {
     const saved = isSaved(t.path);
     menu.innerHTML = [
       `<div class="row fe-ctx-item" data-act="copy">${UI_ICON.copy}<span>Copy path</span></div>`,
+      `<div class="row fe-ctx-item" data-act="phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
       `<div class="row fe-ctx-item" data-act="save">${PI.bm}<span>${saved ? 'Unsave' : 'Save'}</span></div>`,
       host.openInTerminal ? `<div class="row fe-ctx-item" data-act="term">${UI_ICON.terminal}<span>Open in terminal</span></div>` : '',
       `<div class="row fe-ctx-item" data-act="pin">${UI_ICON.pin}<span>${t.pinned ? 'Unpin' : 'Pin'}</span><span class="fe-ctx-key">p</span></div>`,
@@ -232,6 +234,7 @@ export function mountStrip(host: StripHost): Strip {
     if (!item || !t) return;
     const act = item.dataset.act;
     if (act === 'copy') void copyToClipboard(t.path).then(ok => toast(ok ? 'Copied path' : 'Copy failed'));
+    else if (act === 'phone') void copyPhoneLink(t.path, toast);
     else if (act === 'save') {
       const now = toggleSaved(t.path, t.label);
       host.onSavedChange?.();

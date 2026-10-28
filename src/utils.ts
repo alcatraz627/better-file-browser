@@ -8,10 +8,23 @@ export function esc(s: unknown): string {
     .replace(/>/g, '&gt;');
 }
 
-// A file:// URL with each path segment encoded, so a # or ? in a name is not
+// Where a file's address starts: file:// in the extension, or the phone
+// server's own origin when bfb runs as a web page (web.ts sets it first).
+let base = 'file://';
+export const fileBase = (): string => base;
+export function setFileBase(b: string): void { base = b.replace(/\/$/, ''); }
+/** Whether an address is a file's or folder's own address in this page's world. */
+export const isFileUrl = (u: string): boolean => u.startsWith(base + '/');
+/** The path an address names, or null when it is not a file address. */
+export function pathOfFileUrl(u: string): string | null {
+  if (!isFileUrl(u)) return null;
+  try { return decodeURIComponent(new URL(u).pathname); } catch { return null; }
+}
+
+// A file's address with each path segment encoded, so a # or ? in a name is not
 // read as a fragment or query when the browser follows the anchor.
 export function fileHref(path: string): string {
-  return 'file://' + path.split('/').map(encodeURIComponent).join('/');
+  return base + path.split('/').map(encodeURIComponent).join('/');
 }
 
 // Chrome downloads these instead of showing them, so the explorer opens them
@@ -21,7 +34,8 @@ export const DOWNLOAD_EXTS = new Set(['yaml', 'yml', 'sql', 'csv', 'tsv', 'xml']
 /** The address that shows a file in the explorer: its own URL, or its folder's view route for a download type. */
 export function pageHref(href: string): string {
   if (!/^[a-z]+:/i.test(href) && typeof location !== 'undefined') { try { href = new URL(href, location.href).href; } catch { /* keep as is */ } }
-  const m = href.match(/^(file:\/\/[^?#]*\/)([^/?#]+)$/);
+  if (!isFileUrl(href)) return href;
+  const m = href.match(/^([^?#]*\/)([^/?#]+)$/);
   if (!m || !m[2].includes('.')) return href;
   return DOWNLOAD_EXTS.has(m[2].split('.').pop()!.toLowerCase()) ? `${m[1]}#view=${m[2]}` : href;
 }

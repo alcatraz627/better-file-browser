@@ -42,6 +42,9 @@ export interface DocThread {
 export interface CommentsReply { rel: string; threads: DocThread[]; where: string; companion: string; notes: string[]; doc: { id: string } | null; results?: { thread?: string; comment?: string }[] }
 export type CommentOp = { op: string; thread?: string; comment?: string; text?: string; start?: number; end?: number; tags?: string[]; replace?: string; due?: string; state?: 'accepted' | 'rejected'; was?: string };
 
+/// Whether bfb is reachable from the phone: the server running, the tailnet route in place, and its address.
+export interface PhoneState { on: boolean; server: boolean; served: boolean; url: string; why: string }
+
 /// One saved version of a note, from the folder's git log: short hash, epoch ms, the commit's reason.
 export interface NoteVersion { sha: string; when: number; reason: string }
 
@@ -120,6 +123,12 @@ export const notes = {
   docsIndex: () => call({ op: 'docsIndex' }).then(f => (f as unknown as { docs: import('./docs-lens').DocRow[] }).docs ?? []),
   /// Agent sessions claude-ipc sees as live or idle, for offering @claude:<alias>.
   people: () => call({ op: 'people' }).then(f => (f as unknown as { peers: { alias: string; cwd: string; status: string; seen?: number }[] }).peers ?? []),
+  /// Hand one comment thread to an agent through claude-ipc.
+  sendThread: (root: string, rel: string, thread: string, to: string) => call({ op: 'sendThread', root, rel, thread, to }),
+  /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
+  phone: (action: 'status' | 'on' | 'off' = 'status') => call({ op: 'phone', action }) as unknown as Promise<PhoneState>,
+  /// The Mac's settings, for the phone to start from.
+  phoneSeed: (kv: Record<string, string>) => call({ op: 'phoneSeed', kv }),
   fileWrite: (root: string, rel: string, text: string, expectMtime: number) =>
             call({ op: 'fileWrite', root, rel, text, expectMtime }) as Promise<{ mtime: number; backup?: string }>,
 };

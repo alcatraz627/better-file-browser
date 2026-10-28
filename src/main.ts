@@ -18,7 +18,7 @@ import { CSS } from './styles';
 import { UI_CSS } from './styles-ui';
 import { setUiScale } from './chrome';
 import { themeMode, resolveTheme, followSystem, appIconUrl, applyFonts } from './theme';
-import { esc, pageHref, fileHref } from './utils';
+import { esc, pageHref, fileHref, fileBase, isFileUrl } from './utils';
 import { samePlace } from './places';
 import { PI, icoFile } from './icons';
 import { filePageExt, mountFileContent } from './file-page';
@@ -49,6 +49,7 @@ import { emptyHtml } from './empty-state';
 import { go, reload } from './nav';
 import { setLinkHome } from './renderers';
 import { errorText } from './errors';
+import { initPhoneSeed, initPhoneButtons } from './phone';
 
 // Tab sets from Chrome tabs closed in the last day, as rows under Recent. A
 // click adds that set's tabs to this strip; nothing is restored on its own.
@@ -126,7 +127,7 @@ loadKv().catch(() => {}).then(function () {
     const parentSegs = segments.slice(0, -1);
     entries.unshift({
       name: '..',
-      href: 'file:///' + parentSegs.map(encodeURIComponent).join('/') + (parentSegs.length ? '/' : ''),
+      href: fileBase() + '/' + parentSegs.map(encodeURIComponent).join('/') + (parentSegs.length ? '/' : ''),
       isDir: true, isParent: true, isHidden: false, rawBytes: -1, dateMs: NaN, dateStr: '',
     });
   }
@@ -187,7 +188,7 @@ loadKv().catch(() => {}).then(function () {
   const dirName  = fileMode ? fileName : (segments[segments.length - 1] || '/');
   const shortDir = dirName.length > 20 ? dirName.slice(0, 20) + '…' : dirName;
   document.title = `${homeMode ? 'Home' : shortDir} | Better File Browser`;
-  document.head.innerHTML = `<meta charset="utf-8"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${appIconUrl()}">`;
+  document.head.innerHTML = `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${appIconUrl()}">`;
   document.body.innerHTML = html;
   const styleEl = document.createElement('style');
   styleEl.textContent = CSS + UI_CSS;
@@ -260,7 +261,7 @@ loadKv().catch(() => {}).then(function () {
       if (fileMode) { go(fileHref(folderPath), 'here', { exact: true }); return; }
       const up = entries.find(x => x.isParent);
       if (up) go(up.href, 'here', { exact: true });
-      else if (rawPath !== '/') go('file:///', 'here', { exact: true });
+      else if (rawPath !== '/') go(fileBase() + '/', 'here', { exact: true });
     },
   };
 
@@ -297,8 +298,8 @@ loadKv().catch(() => {}).then(function () {
   // Any file link that Chrome would download goes to its folder's view instead,
   // whichever button or key follows the press.
   document.addEventListener('mousedown', e => {
-    const a = (e.target as Element).closest?.<HTMLAnchorElement>('a[href^="file://"]');
-    if (a) { const v = pageHref(a.href); if (v !== a.href) a.href = v; }
+    const a = (e.target as Element).closest?.<HTMLAnchorElement>('a[href]');
+    if (a && isFileUrl(a.href)) { const v = pageHref(a.href); if (v !== a.href) a.href = v; }
   }, true);
   // On the folder's own page a #view link only changes the hash; load it properly.
   window.addEventListener('hashchange', () => { if (location.hash.startsWith('#view=') || viewName || homeMode !== (location.hash === '#home')) reload(); });
@@ -310,6 +311,8 @@ loadKv().catch(() => {}).then(function () {
   initListingInput(app, listing);
   if (!homeMode) void mountFolderView(app);
   initSettingsUi(app);
+  initPhoneSeed();
+  initPhoneButtons(rawPath, app.toast);
   initToolLenses(app);
   watchConnection();
   initSidebar(app);

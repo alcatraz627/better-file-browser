@@ -1,7 +1,7 @@
 // Rich preview renderers for the Quick Look overlay. Each function takes raw
 // file text and returns an HTML string; nothing here touches the DOM or
 // fetches anything, so every renderer is unit-testable in isolation.
-import { esc, isIsoStamp, whenText } from './utils';
+import { esc, isIsoStamp, whenText, fileHref, fileBase, isFileUrl } from './utils';
 import { DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { COL_HANDLE } from './col-resize';
@@ -442,7 +442,7 @@ function badUrl(url: string): boolean {
 
 function localFileUrl(path: string): string {
   const filePath = path.replace(/:\d+(?::\d+)?$/, '');
-  return 'file://' + filePath.split('/').map(encodeURIComponent).join('/');
+  return fileHref(filePath);
 }
 
 // The home folder whose bare paths in text become file links. The page sets it
@@ -451,7 +451,7 @@ let linkHome = '';
 export function setLinkHome(home: string): void { linkHome = home.replace(/\/$/, ''); }
 const underHome = (path: string) => !!linkHome && (path === linkHome || path.startsWith(linkHome + '/'));
 // Links that leave the page open in a new tab: web pages, and files under home.
-const opensNewTab = (url: string) => /^https?:/i.test(url) || (/^file:\/\//i.test(url) && underHome(url.slice(7)));
+const opensNewTab = (url: string) => isFileUrl(url) ? underHome(decodeURIComponent(url.slice(fileBase().length))) : /^https?:/i.test(url);
 
 // Resolve a markdown image/link target against the file's own URL so relative
 // paths (logo.svg, ./docs/x.md, ../y.png) point at the right file:// location.

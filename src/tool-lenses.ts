@@ -5,7 +5,7 @@
 import type { App } from './app';
 import type { Entry } from './types';
 import { el } from './el';
-import { esc, fileHref, pageHref, whenText } from './utils';
+import { esc, fileHref, pageHref, whenText, isFileUrl } from './utils';
 import { copyWithCheck } from './copy-done';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
@@ -619,7 +619,7 @@ function initAsk(app: App): void {
   formBox.addEventListener('dragleave', () => formBox.classList.remove('drop'));
   formBox.addEventListener('drop', e => {
     formBox.classList.remove('drop');
-    const uris = (e.dataTransfer?.getData('text/uri-list') ?? '').split(/\r?\n/).filter(u => u.startsWith('file://'));
+    const uris = (e.dataTransfer?.getData('text/uri-list') ?? '').split(/\r?\n/).filter(isFileUrl);
     if (!uris.length) return;
     e.preventDefault();
     for (const u of uris) attach(decodeURIComponent(new URL(u).pathname));

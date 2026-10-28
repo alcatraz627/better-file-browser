@@ -6,6 +6,7 @@ import type { Listing } from './listing';
 import { el } from './el';
 import { APPS, openWithItems, parseCommands, runOpenWith } from './open-with';
 import { esc, fullPath, copyToClipboard, pageHref } from './utils';
+import { copyPhoneLink } from './phone';
 import { copyWithCheck } from './copy-done';
 import { openPreview, closePreview, isPreviewOpen, canPreview, previewEntry, keepPreviewedAsTab, hasText, canAsk, copyContents, askAbout } from './preview';
 import { bind, addPaletteSource, runCommand } from './commands';
@@ -156,6 +157,7 @@ export function initListingInput(app: App, listing: Listing): void {
           canPreview(en) ? `<div class="row fe-ctx-item" data-act="pv">${UI_ICON.eye}<span>Preview</span><span class="fe-ctx-key">Space</span></div>` : '',
           `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span><span class="fe-ctx-key">y</span></div>`,
           `<div class="row fe-ctx-item" data-act="cp-name">${UI_ICON.copy}<span>Copy name</span><span class="fe-ctx-key">⇧Y</span></div>`,
+          `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
           hasText(en) ? `<div class="row fe-ctx-item" data-act="cp-text">${UI_ICON.copy}<span>Copy contents</span></div>` : '',
           `<div class="row fe-ctx-item" data-act="keep">${UI_ICON.tab}<span>Keep as tab</span><span class="fe-ctx-key">⌥↩</span></div>`,
           canAsk(en) ? `<div class="row fe-ctx-item" data-act="ask">${UI_ICON.ai}<span>Ask</span></div>` : '',
@@ -178,6 +180,7 @@ export function initListingInput(app: App, listing: Listing): void {
     const fp = fullPath(rawPath, en);
     if      (item.dataset.act === 'pv')      openPreview(en);
     else if (item.dataset.act === 'cp-path') copyText(fp);
+    else if (item.dataset.act === 'cp-phone') void copyPhoneLink(fp, app.toast);
     else if (item.dataset.act === 'cp-name') copyText(en.name);
     else if (item.dataset.act === 'cp-text') copyContents(en, toast);
     else if (item.dataset.act === 'keep')    { app.strip.open(fp, true); toast(`Kept ${en.name} as a tab`); }

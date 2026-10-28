@@ -157,7 +157,11 @@ export function settingsDialog(): DialogSpec {
           note('', 'fe-st-ai-hint')) +
         card('Ask can use', `<div class="fe-ai-models" id="fe-st-ai-models"><p class="fe-set-note">Loading…</p></div>`) },
 
-      { key: 'data', label: 'Data', hint: 'Export, import', icon: UI_ICON.data, tone: 'var(--nc-green)', desc: 'Move your settings and Saved list.', body:
+      { key: 'data', label: 'Data', hint: 'Export, import, phone', icon: UI_ICON.data, tone: 'var(--nc-green)', desc: 'Move your settings and Saved list, or read on your phone.', body:
+        card('On my phone',
+          row('Open on my phone', 'This Mac’s folders on your tailnet only', sw('fe-st-phone', 'Put bfb on your tailnet')) +
+          row('Link', '', `<span id="fe-st-phone-url" class="fe-st-phone-url">Off</span>${iconBtn('fe-st-phone-copy', UI_ICON.copy, 'Copy the link')}`) +
+          note('', 'fe-st-phone-hint')) +
         card('Your data',
           row('Export', 'Saves a dated .json file', `<button id="fe-st-export" class="btn" data-size="lg" title="Save your settings and Saved list as a .json file">${UI_ICON.export}Export</button>`) +
           row('Import', 'Shows what changes before it applies', `<button id="fe-st-import" class="btn" data-size="lg" title="Choose a .json export to import">${UI_ICON.import}Import</button><input type="file" id="fe-st-import-file" accept="application/json" hidden>`) +

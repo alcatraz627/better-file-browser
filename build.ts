@@ -40,7 +40,14 @@ async function main() {
     logLevel: 'info',
   });
 
-  const all = [ctx, mermaidCtx, searchCtx, designCtx, dpWebCtx];
+  // bfb as a web page for a phone on the tailnet, served by native/web_server.py.
+  const webCtx = await esbuild.context({
+    entryPoints: ['src/web.ts'], bundle: true, outfile: 'assets/web/web.js',
+    format: 'iife', target: 'safari16', platform: 'browser', minify: true, loader: { '.css': 'text' },
+    logLevel: 'info',
+  });
+
+  const all = [ctx, mermaidCtx, searchCtx, designCtx, dpWebCtx, webCtx];
   if (watch) {
     await Promise.all(all.map(c => c.watch()));
     console.log('Watching for changes…');

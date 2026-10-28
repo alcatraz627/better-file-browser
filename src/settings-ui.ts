@@ -5,7 +5,7 @@ import type { App } from './app';
 import type { LlmAvailability } from './llm';
 import type { IconRule, SortConfig, GroupMode } from './types';
 import { el, els } from './el';
-import { esc } from './utils';
+import { esc, fileHref } from './utils';
 import { icoCustom, RULE_GLYPHS } from './icons';
 import { viewPref, palettePref, exportAll, planImport, importPlan, resetPreferences, takeUndo, undoWrites, type ImportPlan, TERMINAL_CMDS, DEFAULT_ICON_RULES, DEFAULT_SETTINGS, getView, saveIconRules, saveSettings, getPreviewLayout, savePreviewLayout, getSortConfig, getGroupMode, homeDir } from './storage';
 import { DEFAULT_COMMANDS } from './open-with';
@@ -27,11 +27,12 @@ import { kvFlush } from './kv';
 // Reload once the writes have reached storage, and not before the toast has been seen.
 const reloadWhenSaved = (): void => { void Promise.all([kvFlush(), new Promise(r => setTimeout(r, 600))]).then(reload); };
 import { errorText } from './errors';
+import { initPhoneSettings } from './phone';
 
 /// Home's address (~/#home), the same one the toolbar button and a new tab open; empty until bfb has seen the home folder.
 function homeAddress(): string {
   const home = homeDir(decodeURIComponent(location.pathname));
-  return home ? 'file://' + home.split('/').map(encodeURIComponent).join('/') + '/#home' : '';
+  return home ? fileHref(home + '/') + '#home' : '';
 }
 
 // Ready-made rules offered above the list; each appears until it is added.
@@ -236,8 +237,10 @@ export function initSettingsUi(app: App): void {
     const cmd = term === 'custom' ? (settings.terminalCmd || '') : (TERMINAL_CMDS[term] || '');
     el('fe-st-term-hint').textContent = cmd ? cmd.replace(/\$\{p\}/g, app.folderPath) : '';
   }
+  const refreshPhone = initPhoneSettings(toast);
   const settingsDlg = mountDialog('fe-settings-modal', { onClose: closePop });
   function openSettings(tab?: string): void {
+    refreshPhone();
     els<HTMLInputElement>('input[name="bfb-theme"]').forEach(r => { r.checked = r.value === (fe.dataset.mode || 'dark'); });
     els<HTMLInputElement>('input[name="bfb-palette"]').forEach(r => { r.checked = r.value === (fe.dataset.palette || 'slate'); });
     const icon = appIconPref.get();

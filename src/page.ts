@@ -43,8 +43,8 @@ export function placesHTML(home: string, rawPath: string): string {
       { label: 'enhancement-product', icon: 'folder', sub: 'Code/Versable/enhancement-product/' },
       { label: 'resumes',             icon: 'docs',   sub: 'Code/Claude/resumes/' },
     ].map(p => ({ label: p.label, icon: p.icon, href: fileHref(home + '/' + p.sub) })) : []),
-    { label: 'Applications', icon: 'apps', href: 'file:///Applications/' },
-    { label: 'Root /',       icon: 'root', href: 'file:///' },
+    { label: 'Applications', icon: 'apps', href: fileHref('/Applications/') },
+    { label: 'Root /',       icon: 'root', href: fileHref('/') },
   ];
   return places.map(p =>
     `<a href="${p.href}" class="row fe-si${p.href.replace(/\/$/, '') === fileHref(rawPath).replace(/\/$/, '') ? ' active" aria-current="page' : ''}" title="${esc(p.label)}\n${esc(p.href)}">${(PI[p.icon] ?? PI.folder)}<span class="fe-sl">${esc(p.label)}</span></a>`
@@ -83,6 +83,7 @@ export function renderPage(p: PageParams): string {
   <div id="fe-bar" class="bar">
     <button id="fe-side-toggle" class="btn" data-icon title="Show or hide the sidebar">${line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>', 15)}</button>
     <div id="fe-bc">${renderCrumbs(folderPath, segments, fileMode, homeDir(rawPath))}${fileMode ? `<span class="fe-crumb fe-crumb-file cur">${esc(fileName)}</span>` : ''}<button id="fe-crumb-more" class="btn fe-crumb-more" title="Folders hidden for room" aria-label="Folders hidden for room" hidden>…</button></div>
+    <button id="fe-phone-btn" class="btn" data-icon title="Copy this ${fileMode ? 'file' : 'folder'}’s phone link (your tailnet)" aria-label="Copy phone link">${UI_ICON.phone}</button>
     <button id="fe-term-btn" class="btn" data-icon title="Open in terminal (${settings.terminalApp || 'ghostty'}), click opens the current folder, shift-click copies the command">${UI_ICON.terminal}</button>
     <button id="fe-bm-btn" data-icon class="btn ${curIsBookmarked ? 'on' : ''}" title="${curIsBookmarked ? `Remove this ${fileMode ? 'file' : 'folder'} from Saved` : `Save this ${fileMode ? 'file' : 'folder'} (sidebar)`}">
       ${line(`<path id="fe-bm-path" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="${curIsBookmarked ? 'currentColor' : 'none'}"/>`)}

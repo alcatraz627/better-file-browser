@@ -4,7 +4,8 @@
 import type { App } from './app';
 import type { NotesError } from './notes';
 import { el, els } from './el';
-import { esc, copyToClipboard, midHtml, fileHref, whenText } from './utils';
+import { esc, copyToClipboard, midHtml, fileHref, whenText, fileBase, isFileUrl } from './utils';
+import { copyPhoneLink } from './phone';
 import { PI, DISCLOSE } from './icons';
 import { UI_ICON } from './control-icons';
 import { getSaved, saveSaved, getTags, saveTags, saveSettings, getFoldedGroups, saveFoldedGroups, homeDir, textPref, setPref, flagPref, keptNotesList, keepNotesList } from './storage';
@@ -860,6 +861,7 @@ export function initSidebar(app: App): void {
       `<div class="fe-ctx-sep"></div>`,
       `<div class="row fe-ctx-item" data-act="cp-path">${UI_ICON.copy}<span>Copy path</span></div>`,
       `<div class="row fe-ctx-item" data-act="cp-title">${UI_ICON.copy}<span>Copy title</span></div>`,
+      `<div class="row fe-ctx-item" data-act="cp-phone">${UI_ICON.phone}<span>Copy phone link</span></div>`,
       `<div class="fe-ctx-sep"></div>`,
       `<div class="row fe-ctx-item" data-act="delete">${UI_ICON.trash}<span>Move to .trash</span><span class="fe-ctx-key">Delete</span></div>`,
     ].join('');
@@ -881,6 +883,7 @@ export function initSidebar(app: App): void {
       case 'props': if (row) openProps(root, rel, row.querySelector<HTMLElement>('.fe-nt-props')!); break;
       case 'cp-path': void copyToClipboard(notePath(root, rel)).then(ok => toast(ok ? 'Copied path' : 'Copy failed')); break;
       case 'cp-title': void copyToClipboard(meta ? noteName(meta) : noteTitle(rel)).then(ok => toast(ok ? 'Copied title' : 'Copy failed')); break;
+      case 'cp-phone': void copyPhoneLink(notePath(root, rel), toast); break;
       case 'delete': deleteNote(root, rel); break;
     }
   });
@@ -944,11 +947,11 @@ export function initSidebar(app: App): void {
   // already holds the place, or keeps a new one, and goes there. Crumbs and
   // dropdown items just go. Alt keeps a background tab everywhere; Chrome's
   // own modifier and middle clicks pass through. Notes rows keep the editor.
-  const anchorPath = (a: HTMLAnchorElement) => decodeURIComponent((a.getAttribute('href') || '').slice(7));
+  const anchorPath = (a: HTMLAnchorElement) => decodeURIComponent(a.href.slice(fileBase().length));
   for (const host of [el('fe-side'), el('fe-bc'), el('fe-crumb-menu')]) {
     host.addEventListener('click', e => {
-      const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="file://"]');
-      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+      const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href]');
+      if (!a || !isFileUrl(a.href) || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
       const path = anchorPath(a);
       if (e.altKey) { e.preventDefault(); app.strip.open(isViewPath(path) ? path.split('#')[0] : path, true); return; }
       if (host.id !== 'fe-side' || a.closest('#fe-nt-list') || isViewPath(path)) return;

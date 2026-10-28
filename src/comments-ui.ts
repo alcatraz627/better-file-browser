@@ -10,6 +10,7 @@ import { copyWithCheck } from './copy-done';
 import { growFrom, collapseOut, riseIn, pulse } from './motion';
 import { mdInline } from './renderers';
 import { UI_ICON } from './control-icons';
+import { openLayer } from './layer';
 import { textPref } from './storage';
 import { fetchFileText } from './file-fetch';
 import { visibleOf, rangeFor, sourceSpan, type SourceSpan } from './comment-anchor';
@@ -175,6 +176,31 @@ export function mountComments(o: {
   let peers: { alias: string; cwd: string; status: string; seen?: number }[] | null = null;
   const loadPeers = () => { if (peers === null) { peers = []; notes.people().then(p => { peers = p; }).catch(() => {}); } };
 
+  // Send a thread to an agent: the ones it mentions first, then every agent
+  // claude-ipc sees. The agent gets the doc, the quote, the thread and how to answer.
+  const openSendMenu = async (btn: HTMLElement, t: DocThread): Promise<void> => {
+    if (!peers?.length) peers = await notes.people().catch(() => []);
+    const named = (t.mentions ?? []).map(m => m.replace(/^claude:/i, '')).filter(m => !['user', 'owner', 'claude'].includes(m.toLowerCase()));
+    const all = [...new Set([...named, ...(peers ?? []).map(p => p.alias)])];
+    const menu = document.createElement('div');
+    menu.className = 'fe-ctx fe-cm-send';
+    menu.innerHTML = all.length
+      ? `<div class="sect fe-ctx-h" data-level="group">Send to</div>` + all.map(a => `<div class="row fe-ctx-item" data-to="${esc(a)}" role="menuitem">${UI_ICON.bot}<span>${esc(a)}</span>${named.includes(a) ? '<span class="fe-ctx-key">mentioned</span>' : ''}</div>`).join('')
+      : '<div class="row fe-ctx-item" aria-disabled="true"><span>No agents are running</span></div>';
+    (document.getElementById('fe') ?? document.body).append(menu);
+    const r = btn.getBoundingClientRect();
+    const layer = openLayer(menu, { kind: 'popover', place: 'point', point: { x: r.left, y: r.bottom + 4 }, origin: btn, role: 'menu', group: 'menu', onClose: () => menu.remove() });
+    menu.addEventListener('click', e => {
+      const to = (e.target as HTMLElement).closest<HTMLElement>('[data-to]')?.dataset.to;
+      if (!to) return;
+      layer.close('pick');
+      const root = o.root();
+      if (!root) return;
+      o.status(`Sending to ${to}…`);
+      notes.sendThread(root, o.rel(), t.id, to).then(() => o.status(`Sent to ${to}. Their answer appears in this thread.`), err => o.status(errorText(err, `Sending to ${to}`)));
+    });
+  };
+
   const readCompanion = () => fetchFileText(o.href + '.bfb.json').catch(() => '');
   const take = (r: CommentsReply) => {
     const fresh = r.threads.flatMap(t => t.comments.filter(c => !seen.has(c.id) && c.author.kind === 'agent').map(c => c.author));
@@ -333,6 +359,7 @@ export function mountComments(o: {
           : iconBtn('due', UI_ICON.clock, 'Set a due date')}
         ${iconBtn('link', UI_ICON.link, 'Copy a link to this thread')}
         ${iconBtn('brief', UI_ICON.bot, 'Copy as a brief for an agent')}
+        <button type="button" class="btn" data-size="sm" data-a="send-agent" title="Send this thread to an agent, who can answer in it">${UI_ICON.send}Send</button>
         ${t.place.state !== 'anchored' && !applied ? `<button type="button" class="btn" data-size="sm" data-a="attach" title="Select words on the page first">Attach to selection</button>` : ''}
         <span class="fe-cm-grow"></span>
         <button type="button" class="btn" data-icon data-size="sm" data-variant="solid" data-a="reply" title="Reply (⌘↵)" aria-label="Reply">${UI_ICON.send}</button>
@@ -719,6 +746,7 @@ export function mountComments(o: {
       const t = threads.find(x => x.id === active);
       if (a === 'reply') { void reply(active); return; }
       if (a === 'done' || a === 'reopen') { void reply(active, true); return; }
+      if (a === 'send-agent' && t) { void openSendMenu(act!, t); return; }
       if (a === 'untag') { void write([{ op: 'untag', thread: active, tags: [v] }], 'Tag'); return; }
       if (a === 'undue') { void write([{ op: 'due', thread: active }], 'Due date'); return; }
       if (a === 'del') { void write([{ op: 'delete', thread: active, comment: v }], 'Delete'); return; }

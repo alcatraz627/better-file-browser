@@ -8,6 +8,7 @@ import { UI_ICON } from './control-icons';
 import { errorText } from './errors';
 import { decisionPageView } from './dp-page';
 import { directionsView } from './directions';
+import { fileHref } from './utils';
 
 registerDocView(decisionPageView);
 registerDocView(directionsView);
@@ -26,7 +27,7 @@ export async function mountFolderView(app: App): Promise<string | null> {
   const views = docViewsFor('folder', app.rawPath, app.entryNames);
   if (!views.length) return null;
   fe.classList.add('fe-dp-pending');
-  const base = 'file://' + app.rawPath.split('/').map(encodeURIComponent).join('/');
+  const base = fileHref(app.rawPath);
   let shown: string | null = null;
   for (const v of views) {
     // A view that breaks says so, rather than passing for a plain folder; the listing comes back either way.
@@ -58,7 +59,7 @@ export async function mountFolderView(app: App): Promise<string | null> {
 
 /** Decorate a rendered markdown file with the file views that take its path. Safe to call again. */
 export function decorateFileView(root: HTMLElement, path: string, toast: (m: string) => void): void {
-  const base = 'file://' + path.replace(/[^/]*$/, '').split('/').map(encodeURIComponent).join('/');
+  const base = fileHref(path.replace(/[^/]*$/, ''));
   // A view that fails leaves the doc as plain markdown.
   for (const v of docViewsFor('file', path)) Promise.resolve().then(() => v.mount({ root, base, path, toast })).catch(() => {});
 }

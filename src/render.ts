@@ -1,5 +1,5 @@
 import type { Entry, IconRule, Place, Settings, Tag, TipData } from './types';
-import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, fileHref } from './utils';
+import { esc, fmtSize, fmtDate, fmtType, getExt, fullPath, fileHref, fileBase } from './utils';
 import { getIcon, icoFile, IMG_EXTS, PI, CHEVRON_DOWN, CHEVRON_RIGHT, DISCLOSE } from './icons';
 import { groupByTag, filterSaved, samePlace } from './places';
 import { isViewPath } from './find';
@@ -141,11 +141,12 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
     return `
     <div class="row fe-bm-item fe-pl-item${isViewPath(p.path) ? ' fe-view' : ''}" draggable="true" data-path="${esc(p.path)}">
       <span class="fe-drag-h" aria-hidden="true">${PI.drag}</span>
-      <a href="${isViewPath(p.path) ? 'file://' + esc(p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ''}">
+      <a href="${isViewPath(p.path) ? esc(fileBase() + p.path) : fileHref(p.path)}" class="fe-si-link${samePlace(p.path, rawPath) ? ' active" aria-current="page' : ''}">
         ${isViewPath(p.path) ? VIEW_ICON : savedFileExt(p.path) ? icoFile(savedFileExt(p.path)) : PI.folder}<span class="fe-sl fe-pl-label">${esc(p.label || p.path.split('/').filter(Boolean).pop() || '/')}</span>
         ${n ? `<span class="fe-pl-meta">${UI_ICON.tag}${n}</span>` : ''}
       </a>${hit ? `<span class="fe-pl-hit">${esc(hit)}</span>` : ''}
       <span class="fe-pl-tags" title="Tags, comma separated"></span>
+      <button class="btn fe-phone-row-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Copy phone link" aria-label="Copy phone link">${UI_ICON.phone}</button>
       <button class="btn fe-tag-btn" data-icon data-size="sm" data-path="${esc(p.path)}" title="Edit tags" aria-label="Edit tags">${UI_ICON.tag}</button>
       <button class="btn fe-rm-btn" data-icon data-size="sm" data-tone="danger" data-path="${esc(p.path)}" title="Remove from Saved" aria-label="Remove from Saved">${UI_ICON.close}</button>
     </div>`;
@@ -168,7 +169,7 @@ export function renderSavedList(saved: Place[], tags: Tag[], rawPath: string, fi
 // Inside your home folder the path starts at "~": the folders above it stay in
 // the bar, folded from the start, so the "…" menu still reaches them.
 export function renderCrumbs(rawPath: string, segments: string[], trailing = false, home = ''): string {
-  const crumbs = [{ label: '/', href: 'file:///' }];
+  const crumbs = [{ label: '/', href: fileBase() + '/' }];
   let acc = '/';
   for (const seg of segments) { acc += seg + '/'; crumbs.push({ label: seg, href: fileHref(acc) }); }
   const homeAt = home && (acc === home + '/' || acc.startsWith(home + '/')) ? home.split('/').length - 1 : -1;

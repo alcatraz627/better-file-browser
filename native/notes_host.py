@@ -27,6 +27,9 @@ Ops (request -> reply):
   {op:"docsIndex"}                           -> {t:"docsIndex", docs}   (every document with comments)
   {op:"people"}                              -> {t:"people", peers}   (live and idle claude-ipc agents, for @claude:<alias>)
   {op:"fileWrite", root, rel, text, expectMtime} -> {t:"written", rel, mtime, backup}   (existing text files under 20 MB; old text backed up 14 days)
+  {op:"sendThread", root, rel, thread, to}   -> {t:"sent", to, thread}   (one comment thread to an agent, through claude-ipc)
+  {op:"phone", action:"status"|"on"|"off"}   -> {t:"phone", on, server, served, url, why}   (bfb on the tailnet: web_server.py under pm2, tailscale serve)
+  {op:"phoneSeed", kv}                       -> {t:"seeded"}   (the Mac's settings, for the phone to start from)
 Errors: {t:"error", code, message} with code in notes_bad_root, notes_bad_path,
 notes_missing, notes_exists, notes_conflict, notes_io. mtime is epoch ms.
 Delete moves the file into <root>/.trash/ rather than unlinking it; restore moves it back out.
@@ -796,8 +799,128 @@ def op_directions_docs():
     docs.sort(key=lambda d: -d['mtime'])
     return {'t': 'directionsDocs', 'docs': docs}
 
+# ---- Phone access: bfb as web pages on the tailnet (native/web_server.py).
+# The server runs under pm2 as bfb-phone on its tier-2 port; `tailscale serve`
+# publishes it to the tailnet only (never Funnel). The bfb setting "Open on my
+# phone" turns both on or off; phoneSeed hands the phone the Mac's settings.
+PHONE_PORT = 5123
+PHONE_HTTPS = 8446
+PHONE_NAME = 'bfb-phone'
+PHONE_SEED = os.environ.get('BFB_PHONE_SEED') or os.path.expanduser('~/Library/Application Support/better-file-browser/phone-seed.json')
+
+
+def _exe(name, extra=()):
+    for p in (*extra, f'/opt/homebrew/bin/{name}', f'/usr/local/bin/{name}', os.path.expanduser(f'~/.local/bin/{name}'), shutil.which(name)):
+        if p and os.path.exists(p):
+            return p
+    return None
+
+
+def _run(args, timeout=20):
+    # Chrome starts this host with a bare PATH; pm2 needs node on it.
+    env = dict(os.environ)
+    env['PATH'] = ':'.join(filter(None, [os.path.dirname(_exe('node') or ''), '/opt/homebrew/bin', '/usr/local/bin', env.get('PATH', '')]))
+    return subprocess.run(args, capture_output=True, text=True, timeout=timeout, env=env)
+
+
+def _tailscale():
+    return _exe('tailscale', ('/Applications/Tailscale.app/Contents/MacOS/Tailscale',))
+
+
+def _phone_status():
+    ts = _tailscale()
+    name, why = '', ''
+    if not ts:
+        why = 'Tailscale is not installed'
+    else:
+        try:
+            st = json.loads(_run([ts, 'status', '--json', '--peers=false'], 5).stdout)
+            if st.get('BackendState') != 'Running':
+                why = f"Tailscale is {str(st.get('BackendState') or 'off').lower()}"
+            name = (st.get('Self') or {}).get('DNSName', '').rstrip('.')
+        except (OSError, ValueError, subprocess.SubprocessError):
+            why = 'Tailscale is not answering'
+    served = False
+    if ts and not why:
+        try:
+            served = f':{PHONE_HTTPS}' in _run([ts, 'serve', 'status'], 5).stdout or f'{name}:{PHONE_HTTPS}' in _run([ts, 'serve', 'status', '--json'], 5).stdout
+        except (OSError, subprocess.SubprocessError):
+            pass
+    import socket
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        up = s.connect_ex(('127.0.0.1', PHONE_PORT)) == 0
+    return {'t': 'phone', 'on': up and served, 'server': up, 'served': served,
+            'url': f'https://{name}:{PHONE_HTTPS}' if name else '', 'why': why}
+
+
+def op_phone(action):
+    """Turn phone access on or off, or say whether it is on and where."""
+    if action in ('on', 'off'):
+        pm2, ts = _exe('pm2'), _tailscale()
+        if not pm2:
+            raise NotesError('notes_io', 'pm2 is not installed, so the phone server cannot run')
+        if action == 'on':
+            if not ts:
+                raise NotesError('notes_io', 'Tailscale is not installed')
+            server = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web_server.py')
+            if _run([pm2, 'describe', PHONE_NAME]).returncode == 0:
+                _run([pm2, 'restart', PHONE_NAME])
+            else:
+                _run([pm2, 'start', server, '--name', PHONE_NAME, '--interpreter', sys.executable, '--', '--port', str(PHONE_PORT)])
+            _run([pm2, 'save'])
+            r = _run([ts, 'serve', '--bg', f'--https={PHONE_HTTPS}', f'http://127.0.0.1:{PHONE_PORT}'])
+            if r.returncode:
+                raise NotesError('notes_io', (r.stderr or r.stdout).strip()[-300:] or 'tailscale serve failed')
+        else:
+            if ts:
+                _run([ts, 'serve', f'--https={PHONE_HTTPS}', 'off'])
+            _run([pm2, 'stop', PHONE_NAME])
+            _run([pm2, 'save'])
+        time.sleep(0.6)
+    return _phone_status()
+
+
+def op_phone_seed(kv):
+    """Keep the Mac's bfb settings where the phone server hands them to the phone."""
+    if not isinstance(kv, dict):
+        raise NotesError('notes_bad_path', 'phoneSeed needs the settings as an object')
+    os.makedirs(os.path.dirname(PHONE_SEED), exist_ok=True)
+    atomic_write(PHONE_SEED, json.dumps({'at': int(time.time() * 1000), 'kv': {k: v for k, v in kv.items() if k.startswith('bfb-') and isinstance(v, str)}}))
+    return {'t': 'seeded'}
+
+
+def op_send_thread(root, rel, thread_id, to):
+    """Hand one comment thread to an agent through claude-ipc, with how to answer it."""
+    if not to or not re.fullmatch(r'[A-Za-z][\w.-]{0,63}', to):
+        raise NotesError('notes_bad_path', 'pick an agent to send to')
+    reply = op_comments_read(root, rel)
+    t = next((x for x in reply.get('threads', []) if x.get('id') == thread_id), None)
+    if not t:
+        raise NotesError('notes_missing', 'that thread is gone')
+    full = resolve_rel(root, rel)
+    line = (t.get('place') or {}).get('line') or (t.get('anchor') or {}).get('line')
+    quote = ((t.get('anchor') or {}).get('exact') or '').strip()
+    said = '\n'.join(f"- {c.get('author', {}).get('alias') or c.get('author', {}).get('name') or 'owner'}: {c.get('text', '').strip()}"
+                     for c in t.get('comments', []) if not c.get('deleted'))
+    msg = (f"The owner sent you a comment thread from bfb.\n"
+           f"Doc: {full}{f' (line {line})' if line else ''}\n"
+           f"On: \"{quote[:300]}\"\n{said}\n\n"
+           f"Read it with: bfb-docs comments show {full} {thread_id}\n"
+           f"Answer in the thread with: bfb-docs comments reply {full} {thread_id} \"<your reply>\"")
+    exe = os.environ.get('BFB_CLAUDE_IPC') or _exe('claude-ipc')
+    if not exe:
+        raise NotesError('notes_io', 'claude-ipc is not installed')
+    r = _run([exe, 'send', '--to', to, msg], 15)
+    if r.returncode:
+        raise NotesError('notes_io', (r.stderr or r.stdout).strip()[-300:] or f'could not send to {to}')
+    return {'t': 'sent', 'to': to, 'thread': thread_id}
+
+
 def handle(msg):
     op = msg.get('op')
+    if op == 'phone': return op_phone(msg.get('action') or 'status')
+    if op == 'phoneSeed': return op_phone_seed(msg.get('kv'))
     if op == 'directionsDocs': return op_directions_docs()
     if op == 'dp': return op_dp(msg.get('verb'), msg.get('slug'), msg.get('payload'))
     if op == 'people': return {'t': 'people', 'peers': _docs().ipc_peers()}
@@ -823,6 +946,7 @@ def handle(msg):
     if op == 'fileStat':  return op_file_stat(root, msg.get('rel'))
     if op == 'commentsRead':  return op_comments_read(root, msg.get('rel'))
     if op == 'commentsWrite': return op_comments_write(root, msg.get('rel'), msg.get('ops'))
+    if op == 'sendThread': return op_send_thread(root, msg.get('rel'), msg.get('thread'), msg.get('to'))
     if op == 'fileWrite': return op_file_write(root, msg.get('rel'), msg.get('text'), msg.get('expectMtime'))
     raise NotesError('notes_bad_op', f'unknown op {op!r}')
 

@@ -4,7 +4,7 @@ import { copyWithCheck } from './copy-done';
 import { linkGccRefs } from './gcc-refs';
 import type { Toast } from './toast';
 import { fileExists, fetchFileText } from './file-fetch';
-import { esc } from './utils';
+import { esc, fileBase } from './utils';
 import { go } from './nav';
 import { decorateFileView } from './docviews';
 import { mountDiagram } from './diagram-lab';
@@ -102,8 +102,8 @@ async function findPath(rel: string, base: string): Promise<string | null> {
   try { dir = new URL('.', new URL(base, location.href)); } catch { return null; }
   const home = /^\/(Users|home)\/[^/]+\//.exec(dir.pathname)?.[0];
   const tries: string[] = [];
-  if (rel.startsWith('/')) tries.push('file://' + rel);
-  else if (rel.startsWith('~/')) { if (home) tries.push('file://' + home + rel.slice(2)); }
+  if (rel.startsWith('/')) tries.push(fileBase() + rel);
+  else if (rel.startsWith('~/')) { if (home) tries.push(fileBase() + home + rel.slice(2)); }
   else for (let d = dir, k = 0; k < 8; k++) {
     tries.push(new URL(rel, d).href);
     const up = new URL('..', d);

@@ -6,7 +6,7 @@ import { fetchFileText, fileExists } from './file-fetch';
 import { parseListing } from './parse';
 import { frontMatterRows } from './renderers';
 import { hoverCard } from './layer';
-import { esc, isIsoStamp, whenText } from './utils';
+import { esc, isIsoStamp, whenText, fileBase } from './utils';
 
 export type RefKind = 'skill' | 'rule' | 'feature' | 'convention' | 'persona' | 'script';
 export interface GccRef { kind: RefKind; rel: string }
@@ -106,14 +106,14 @@ export function linkGccRefs(): void {
   const strs = [...document.querySelectorAll<HTMLElement>('.fe-jt-root .tok-str, .fe-jl-root .tok-str')].filter(s => !looked.has(s));
   if (!codes.length && !strs.length) return;
   [...codes, ...strs].forEach(c => looked.add(c));
-  skillNames ??= fetchFileText(`file://${root}/skills/`)
-    .then(html => new Set(parseListing(html, `file://${root}/skills/`).filter(e => e.isDir && !e.isParent).map(e => e.name.replace(/\/$/, ''))))
+  skillNames ??= fetchFileText(`${fileBase()}${root}/skills/`)
+    .then(html => new Set(parseListing(html, `${fileBase()}${root}/skills/`).filter(e => e.isDir && !e.isParent).map(e => e.name.replace(/\/$/, ''))))
     .catch(() => new Set<string>());
   void skillNames.then(skills => {
     for (const code of codes) {
       const ref = refOf(code.textContent ?? '', skills);
       if (!ref) continue;
-      const url = `file://${root}/${ref.rel}`;
+      const url = `${fileBase()}${root}/${ref.rel}`;
       void existsOnce(url).then(ok => {
         if (!ok || !code.isConnected) return;
         const a = refLink(ref, url);
@@ -130,7 +130,7 @@ async function linkInString(s: HTMLElement, root: string, skills: Set<string>): 
   const text = s.textContent ?? '';
   const hits = refsIn(text, skills);
   if (!hits.length) return;
-  const urls = hits.map(h => `file://${root}/${h.ref.rel}`);
+  const urls = hits.map(h => `${fileBase()}${root}/${h.ref.rel}`);
   const ok = await Promise.all(urls.map(existsOnce));
   if (!ok.some(Boolean) || !s.isConnected || s.textContent !== text) return;
   const frag = document.createDocumentFragment();

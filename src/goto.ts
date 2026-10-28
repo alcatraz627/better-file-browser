@@ -2,7 +2,7 @@
 // paste or type a file or folder path, with recent places offered as you
 // type. The box keeps what was last typed in it, like a scratch pad, and a
 // click anywhere else closes it.
-import { esc, fileHref, pageHref } from './utils';
+import { esc, fileHref, pageHref, isFileUrl } from './utils';
 import { getRecents, textPref } from './storage';
 import { fetchFileText } from './file-fetch';
 import { parseListing } from './parse';
@@ -22,7 +22,7 @@ export function pathToHref(input: string, home: string): string | null {
 export function absPath(input: string, home: string): string | null {
   let p = input.trim().replace(/^['"]|['"]$/g, '');
   if (!p) return null;
-  if (/^file:\/\//i.test(p)) { try { p = decodeURIComponent(new URL(p).pathname); } catch { return null; } }
+  if (/^file:\/\//i.test(p) || isFileUrl(p)) { try { p = decodeURIComponent(new URL(p).pathname); } catch { return null; } }
   if (p === '~' || p.startsWith('~/')) { if (!home) return null; p = home + p.slice(1); }
   return p.startsWith('/') ? p.replace(/\/{2,}/g, '/') : null;
 }
