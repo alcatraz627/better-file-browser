@@ -97,6 +97,9 @@ try {
   for (const [vw, drag] of [[900, 0], [800, 0], [640, 0], [1400, 210]]) {
     await page.setViewport({ width: vw, height: 900 });
     if (drag) await page.$eval('#fe-side', (s, w) => { s.style.width = w + 'px'; }, drag);
+    await sleep(300);
+    // A narrow window folds the sidebar away; the hamburger brings it back.
+    if (!await page.$eval('#fe-side', s => s.checkVisibility())) { await page.click('#fe-side-toggle'); await sleep(400); }
     await page.click('#fe-rail-comments');
     await sleep(400);
     const off = await offBar();

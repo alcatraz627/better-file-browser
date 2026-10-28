@@ -257,9 +257,10 @@ body{opacity:1!important}
 .fe-rail-hl{position:absolute;inset:0;z-index:-1;border-radius:var(--row-r);pointer-events:none;transform-origin:0 0}
 .fe-rail-btn.on .fe-rail-hl{background:color-mix(in srgb,var(--ac) 16%,transparent)}
 .fe-rail-btn.on:hover .fe-rail-hl{background:color-mix(in srgb,var(--ac) 22%,transparent)}
-#fe-rail.tight .fe-rail-btn:not(.on){flex:1 1 0;min-width:22px;padding:0 var(--sp-1)}
-#fe-rail.tight .fe-rail-btn.on{padding:0 var(--sp-3);gap:var(--sp-2)}
-#fe-rail.tighter .fe-rail-btn{flex:1 1 0;min-width:22px;padding:0 var(--sp-2)}
+#fe-rail.tight{gap:0;padding-inline:var(--sp-2)}
+#fe-rail.tight .fe-rail-btn:not(.on){flex:1 1 0;min-width:18px;padding:0}
+#fe-rail.tight .fe-rail-btn.on{flex:0 0 auto;padding:0 var(--sp-2);gap:var(--sp-2)}
+#fe-rail.tighter .fe-rail-btn{flex:1 1 0;min-width:18px;padding:0}
 #fe-rail.tighter .fe-rail-btn.on{gap:0}
 #fe-rail.tighter .fe-rail-btn em{display:none}
 .fe-rail-btn:hover{background:var(--hover);color:var(--tx)}
