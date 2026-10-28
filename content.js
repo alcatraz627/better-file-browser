@@ -20823,6 +20823,11 @@ ${d.message}` : d.message;
       const sideBack = () => {
         if (sideWas) setSidebarShown(true);
       };
+      const held3 = [...page.childNodes];
+      page.replaceChildren();
+      const restore = () => {
+        if (!page.firstChild) page.append(...held3);
+      };
       page.style.display = "none";
       editBox.hidden = false;
       find.clear();
@@ -20848,6 +20853,7 @@ ${d.message}` : d.message;
         closed: () => {
           editor = null;
           editBox.hidden = true;
+          restore();
           page.style.display = "";
           editBtn.classList.remove("on");
           sideBack();
@@ -20866,6 +20872,7 @@ ${d.message}` : d.message;
       paint();
       if (!editor) {
         editBox.hidden = true;
+        restore();
         page.style.display = "";
         editBtn.classList.remove("on");
         sideBack();

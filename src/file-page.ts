@@ -451,6 +451,11 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
     const sideWas = sidebarShown();
     if (sideWas) setSidebarShown(false);
     const sideBack = () => { if (sideWas) setSidebarShown(true); };
+    // The read view leaves the document while editing: hidden, a large file's
+    // highlighted lines still cost every key a style pass over each of them.
+    const held = [...page.childNodes];
+    page.replaceChildren();
+    const restore = () => { if (!page.firstChild) page.append(...held); };
     page.style.display = 'none'; editBox.hidden = false;
     find.clear();
     editBtn.classList.add('on');
@@ -463,14 +468,14 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
       saved: fresh => { text = fresh; paintMeta(); },   // the pill shows Saved
       // The file may have changed while editing (a reload from disk), so read it again.
       closed: () => {
-        editor = null; editBox.hidden = true; page.style.display = ''; editBtn.classList.remove('on'); sideBack();
+        editor = null; editBox.hidden = true; restore(); page.style.display = ''; editBtn.classList.remove('on'); sideBack();
         fetchFileText(href).then(fresh => { text = fresh; paintMeta(); }).catch(() => {}).finally(render);
       },
       comments: comments ? { marks: () => comments!.marks(), open: id => { showComments(); comments!.show(id); } } : undefined,
     });
     editBtn.classList.remove('busy');
     paint();
-    if (!editor) { editBox.hidden = true; page.style.display = ''; editBtn.classList.remove('on'); sideBack(); render(); }
+    if (!editor) { editBox.hidden = true; restore(); page.style.display = ''; editBtn.classList.remove('on'); sideBack(); render(); }
   };
   editBtn.addEventListener('click', () => void edit());
   const showComments = () => showPane('cm');
