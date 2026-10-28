@@ -27550,7 +27550,7 @@ ${rows.join("\n")}`, name: subject };
       <aside class="fe-hp-rail">
         ${links("saved", { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)", title: "Saved", sub: "Places you keep" }, d.saved, "Save a place with the star to see it here")}
         ${links("notes", { icon: UI_ICON.notes, tone: "var(--nc-orange)", title: "Notes", sub: "Latest first" }, d.notes, "Notes you write show up here")}
-        ${links("recent", { icon: UI_ICON.clock, tone: "var(--nc-green)", title: "Opened lately", sub: "\xD7 forgets one" }, d.recent, "Places you open show up here")}
+        ${links("recent", { icon: UI_ICON.clock, tone: "var(--nc-green)", title: "Opened lately", sub: "Newest first" }, d.recent, "Places you open show up here")}
       </aside>
     </div>
   </div>`;
