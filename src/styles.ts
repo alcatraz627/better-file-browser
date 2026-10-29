@@ -344,9 +344,14 @@ body{opacity:1!important}
 .fe-hp-bars i.nil{background:color-mix(in srgb,var(--tx) 14%,transparent)}
 /* The body: a main column beside a fixed rail of quick links. */
 .fe-hp-body{display:grid;grid-template-columns:minmax(0,1fr) 20rem;gap:var(--sp-6);align-items:start}
-@container fe-main (max-width:720px){.fe-hp-body,.fe-hp-pair{grid-template-columns:minmax(0,1fr)}}
 .fe-hp-main{display:flex;flex-direction:column;gap:var(--sp-6);min-width:0}
 .fe-hp-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-6);align-items:start}
+/* After .fe-hp-pair, or its two columns win and squeeze every title on a narrow page. */
+@container fe-main (max-width:720px){.fe-hp-body,.fe-hp-pair{grid-template-columns:minmax(0,1fr)}}
+@container fe-main (max-width:480px){
+  .fe-hp-head{grid-template-columns:minmax(0,1fr);grid-template-areas:"hello" "acts" "go";padding:var(--sp-5)}
+  .fe-hp-acts{flex-wrap:wrap}
+}
 .fe-hp-rail{display:flex;flex-direction:column;gap:var(--sp-6);min-width:0}
 /* A card: icon, title and what it holds, a count, and a body that folds away. */
 .fe-hp-card{border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1);overflow:hidden}
@@ -640,6 +645,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   position:absolute;right:8px;top:50%;transform:translateY(-50%);
   opacity:0;transition:opacity var(--t-fast);pointer-events:none}
 .fe-row:hover .fe-acts{opacity:1;pointer-events:auto}
+.fe-act-more{display:none}
 .fe-tile .fe-acts{
   display:flex;justify-content:center;gap:var(--sp-2);
   position:absolute;bottom:0;left:0;right:0;

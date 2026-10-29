@@ -40,6 +40,17 @@ export function initListingInput(app: App, listing: Listing): void {
   // a background strip tab; shift or cmd toggles the row and shift-cmd ranges.
   // The anchor keeps its href so middle click reaches Chrome.
   let lookTimer: ReturnType<typeof setTimeout> | null = null;
+  // A touch screen has no ⇧ or ⌘, so Select mode stands in for them: while it
+  // is on, a tap adds or removes a row. Turning it off keeps only the lead row.
+  const selecting = () => fe.classList.contains('fe-selecting');
+  const selCount = () => document.dispatchEvent(new CustomEvent('bfb-selection', { detail: ls.selSet.size }));
+  bind('select-mode', () => {
+    const on = !selecting();
+    fe.classList.toggle('fe-selecting', on);
+    if (!on && ls.selIdx >= 0) sel.setSel(ls.selIdx);
+    selCount();
+  }, () => !app.fileMode);
+  bind('select-shown', () => { sel.selectAll(); selCount(); }, () => !app.fileMode);
   const entryAt = (e: Event): Entry | null => {
     const holder = (e.target as HTMLElement).closest<HTMLElement>('[data-idx]');
     return holder ? ls.visible[parseInt(holder.dataset.idx!)] ?? null : null;
@@ -52,6 +63,14 @@ export function initListingInput(app: App, listing: Listing): void {
       if (en) { sel.setSel(ls.visible.indexOf(en)); openPreview(en); }
       return;
     }
+    // A touch screen has no right-click, so the row's "…" opens the same menu.
+    const more = (e.target as HTMLElement).closest<HTMLElement>('.fe-act-more');
+    if (more) {
+      e.preventDefault(); e.stopPropagation();
+      const r = more.getBoundingClientRect();
+      more.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left, clientY: r.bottom }));
+      return;
+    }
     const btn = (e.target as HTMLElement).closest<HTMLElement>('.fe-act-btn');
     if (btn) { e.preventDefault(); e.stopPropagation(); copyText(btn.dataset.copy || '', btn); return; }
     const en = entryAt(e);
@@ -59,6 +78,7 @@ export function initListingInput(app: App, listing: Listing): void {
     const i = ls.visible.indexOf(en);
     e.preventDefault();
     if (en.isParent) { go(en.href); return; }
+    if (selecting()) { if (sel.selectable(i)) { sel.toggleSel(i); selCount(); } return; }
     if (e.altKey) { app.strip.open(fullPath(rawPath, en), true); return; }
     if (e.shiftKey || e.metaKey || e.ctrlKey) {
       if (!sel.selectable(i)) return;

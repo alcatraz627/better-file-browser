@@ -135,6 +135,8 @@ export async function openFileEditor(box: HTMLElement, host: FileEditorHost): Pr
   let failed = '';   // why the last save failed, until one succeeds
   const saved = modePref.get() as Mode;
   let mode: Mode = fmt && saved && MODES.some(m => m.id === saved) ? saved : 'raw';
+  // Two panes side by side do not fit a phone, so it opens on the text alone.
+  if (mode === 'split' && matchMedia('(max-width:760px)').matches) mode = 'raw';
   let diags: Diagnostic[] = [];
   let checkTimer = 0;
   let timer = 0;

@@ -22,7 +22,7 @@ export interface DocFilter { q: string; me: boolean; due: boolean; tag?: string;
 // document opened from here becomes a second tab beside the one already open.
 export const browsedPath = (p: string) => p.replace(/^\/private\/(var|tmp|etc)(?=\/|$)/, '/$1');
 
-const forMe = (r: DocRow) => (r.mentions ?? []).some(m => m === 'user' || m === 'owner');
+export const forMe = (r: DocRow) => (r.mentions ?? []).some(m => m === 'user' || m === 'owner');
 
 /** The rows the lens shows: documents still on disk that match the filter, open ones first, then by name. */
 export function docRows(rows: DocRow[], f: DocFilter = { q: '', me: false, due: false }): DocRow[] {

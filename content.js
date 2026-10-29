@@ -17116,9 +17116,14 @@ body{opacity:1!important}
 .fe-hp-bars i.nil{background:color-mix(in srgb,var(--tx) 14%,transparent)}
 /* The body: a main column beside a fixed rail of quick links. */
 .fe-hp-body{display:grid;grid-template-columns:minmax(0,1fr) 20rem;gap:var(--sp-6);align-items:start}
-@container fe-main (max-width:720px){.fe-hp-body,.fe-hp-pair{grid-template-columns:minmax(0,1fr)}}
 .fe-hp-main{display:flex;flex-direction:column;gap:var(--sp-6);min-width:0}
 .fe-hp-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-6);align-items:start}
+/* After .fe-hp-pair, or its two columns win and squeeze every title on a narrow page. */
+@container fe-main (max-width:720px){.fe-hp-body,.fe-hp-pair{grid-template-columns:minmax(0,1fr)}}
+@container fe-main (max-width:480px){
+  .fe-hp-head{grid-template-columns:minmax(0,1fr);grid-template-areas:"hello" "acts" "go";padding:var(--sp-5)}
+  .fe-hp-acts{flex-wrap:wrap}
+}
 .fe-hp-rail{display:flex;flex-direction:column;gap:var(--sp-6);min-width:0}
 /* A card: icon, title and what it holds, a count, and a body that folds away. */
 .fe-hp-card{border:1px solid var(--bd);border-radius:var(--r-sm);background:var(--s1);overflow:hidden}
@@ -17412,6 +17417,7 @@ td.c-tp{color:var(--dm);font-size:var(--fs-sm)}
   position:absolute;right:8px;top:50%;transform:translateY(-50%);
   opacity:0;transition:opacity var(--t-fast);pointer-events:none}
 .fe-row:hover .fe-acts{opacity:1;pointer-events:auto}
+.fe-act-more{display:none}
 .fe-tile .fe-acts{
   display:flex;justify-content:center;gap:var(--sp-2);
   position:absolute;bottom:0;left:0;right:0;
@@ -20215,6 +20221,7 @@ button.chip:disabled{opacity:.45;cursor:default}
     let failed = "";
     const saved = modePref.get();
     let mode = fmt && saved && MODES.some((m) => m.id === saved) ? saved : "raw";
+    if (mode === "split" && matchMedia("(max-width:760px)").matches) mode = "raw";
     let diags = [];
     let checkTimer = 0;
     let timer2 = 0;
@@ -22705,7 +22712,7 @@ ${d.message}` : d.message;
       sw2.checked = !!s?.on;
       kvSet(ON_KEY, s?.on ? "1" : "0");
       if (s?.url) kvSet(URL_KEY, s.url);
-      out.innerHTML = s?.on && s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url.replace(/^https:\/\//, ""))}</a>` : "<span>Off</span>";
+      out.innerHTML = s?.on && s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener" title="Open bfb as the phone sees it">${esc(s.url.replace(/^https?:\/\//, ""))}</a>` : "<span>Off</span>";
       if (copy) copy.disabled = !(s?.on && s.url);
       hint.textContent = err ? errorText(err, "Phone access") : s?.why ? s.why : s?.on ? "Open the link on any device signed in to your tailnet. Nobody else can reach it." : s?.server && !s.served ? "The server is running but not on the tailnet yet; switch on again." : "Shows this Mac\u2019s folders, files and comments to your own devices on the tailnet.";
       if (s?.on) pushSeed();
@@ -23760,6 +23767,9 @@ Not kept yet \xB7 t or double-click keeps \xB7 p pins">${ico}${lblHtml(labelFor(
     </button>
     <button class="btn fe-act-btn fe-act-nm" data-icon data-size="sm" data-variant="surface" title="Copy name" data-copy="${dName}">
       ${GLYPH.lines}
+    </button>
+    <button class="btn fe-act-more" data-icon data-size="sm" data-variant="ghost" title="Actions" aria-label="Actions for ${dName}">
+      ${UI_ICON.more}
     </button>
   </span>`;
   }
@@ -25387,6 +25397,18 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       });
     };
     let lookTimer = null;
+    const selecting = () => fe.classList.contains("fe-selecting");
+    const selCount = () => document.dispatchEvent(new CustomEvent("bfb-selection", { detail: ls.selSet.size }));
+    bind("select-mode", () => {
+      const on = !selecting();
+      fe.classList.toggle("fe-selecting", on);
+      if (!on && ls.selIdx >= 0) sel.setSel(ls.selIdx);
+      selCount();
+    }, () => !app.fileMode);
+    bind("select-shown", () => {
+      sel.selectAll();
+      selCount();
+    }, () => !app.fileMode);
     const entryAt = (e) => {
       const holder = e.target.closest("[data-idx]");
       return holder ? ls.visible[parseInt(holder.dataset.idx)] ?? null : null;
@@ -25403,6 +25425,14 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
         }
         return;
       }
+      const more = e.target.closest(".fe-act-more");
+      if (more) {
+        e.preventDefault();
+        e.stopPropagation();
+        const r = more.getBoundingClientRect();
+        more.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left, clientY: r.bottom }));
+        return;
+      }
       const btn = e.target.closest(".fe-act-btn");
       if (btn) {
         e.preventDefault();
@@ -25416,6 +25446,13 @@ ${esc(p.href)}">${PI[p.icon] ?? PI.folder}<span class="fe-sl">${esc(p.label)}</s
       e.preventDefault();
       if (en.isParent) {
         go(en.href);
+        return;
+      }
+      if (selecting()) {
+        if (sel.selectable(i3)) {
+          sel.toggleSel(i3);
+          selCount();
+        }
         return;
       }
       if (e.altKey) {

@@ -74,6 +74,9 @@ export function itemActions(e: Entry, rawPath: string): string {
     <button class="btn fe-act-btn fe-act-nm" data-icon data-size="sm" data-variant="surface" title="Copy name" data-copy="${dName}">
       ${GLYPH.lines}
     </button>
+    <button class="btn fe-act-more" data-icon data-size="sm" data-variant="ghost" title="Actions" aria-label="Actions for ${dName}">
+      ${UI_ICON.more}
+    </button>
   </span>`;
 }
 

@@ -53,7 +53,7 @@ export function dpBands(rows: DpRow[], q = '', archived: ReadonlySet<string> = n
 }
 
 // Pages archived by hand, by slug, in this browser.
-const archivedPref = jsonPref<string[]>('bfb-dp-archived-v1', [], Array.isArray);
+export const archivedPref = jsonPref<string[]>('bfb-dp-archived-v1', [], Array.isArray);
 
 /** How long ago, in the words a person would use: "just now", "5 min", "3 h", "2 d", "6 w". */
 export function ago(sec: number, now = Date.now() / 1000): string {
