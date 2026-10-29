@@ -3851,7 +3851,8 @@ ${B.join(`
   .bfb-web #fe-count,.bfb-web #fe-density-wrap,.bfb-web #fe-tb-right > .bar-sep{display:none}
   .bfb-web #fe-toolbar{padding:4px 6px;min-height:0}
   .bfb-web #fe-tb-right{flex:1;min-width:0;flex-wrap:nowrap;gap:2px;overflow-x:auto;scrollbar-width:none}
-  .bfb-web #fe-tb-right .fe-tb-box{order:-1;flex:1 0 110px;min-width:110px}
+  .bfb-web #fe-tb-right .fe-tb-box{order:-1;flex:1 0 110px;min-width:110px;position:sticky;left:0;z-index:1;
+    background:var(--card);box-shadow:6px 0 6px -2px var(--card)}
   .bfb-web #fe-tb-right > *{flex-shrink:0}
   .bfb-web #fe-sg-cur{display:none}
 
