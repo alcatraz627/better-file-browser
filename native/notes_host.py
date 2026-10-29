@@ -800,11 +800,13 @@ def op_directions_docs():
     return {'t': 'directionsDocs', 'docs': docs}
 
 # ---- Phone access: bfb as web pages on the tailnet (native/web_server.py).
-# The server runs under pm2 as bfb-phone on its tier-2 port; `tailscale serve`
-# publishes it to the tailnet only (never Funnel). The bfb setting "Open on my
-# phone" turns both on or off; phoneSeed hands the phone the Mac's settings.
+# The server runs under pm2 as bfb-phone on its tier-2 port, and also answers
+# on this Mac's tailnet IP, which only tailnet devices can reach. The phone
+# opens it by that IP over plain http, so it needs no Tailscale DNS and no
+# certificate. The bfb setting "Open on my phone" turns it on or off;
+# phoneSeed hands the phone the Mac's settings.
 PHONE_PORT = 5123
-PHONE_HTTPS = 8446
+PHONE_TS_PORT = 8446
 PHONE_NAME = 'bfb-phone'
 PHONE_SEED = os.environ.get('BFB_PHONE_SEED') or os.path.expanduser('~/Library/Application Support/better-file-browser/phone-seed.json')
 
@@ -827,31 +829,31 @@ def _tailscale():
     return _exe('tailscale', ('/Applications/Tailscale.app/Contents/MacOS/Tailscale',))
 
 
-def _phone_status():
-    ts = _tailscale()
-    name, why = '', ''
+def _tailnet_ip(ts):
+    """This Mac's IPv4 address on the tailnet, and why there is none."""
     if not ts:
-        why = 'Tailscale is not installed'
-    else:
-        try:
-            st = json.loads(_run([ts, 'status', '--json', '--peers=false'], 5).stdout)
-            if st.get('BackendState') != 'Running':
-                why = f"Tailscale is {str(st.get('BackendState') or 'off').lower()}"
-            name = (st.get('Self') or {}).get('DNSName', '').rstrip('.')
-        except (OSError, ValueError, subprocess.SubprocessError):
-            why = 'Tailscale is not answering'
-    served = False
-    if ts and not why:
-        try:
-            served = f':{PHONE_HTTPS}' in _run([ts, 'serve', 'status'], 5).stdout or f'{name}:{PHONE_HTTPS}' in _run([ts, 'serve', 'status', '--json'], 5).stdout
-        except (OSError, subprocess.SubprocessError):
-            pass
+        return '', 'Tailscale is not installed'
+    try:
+        st = json.loads(_run([ts, 'status', '--json', '--peers=false'], 5).stdout)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return '', 'Tailscale is not answering'
+    if st.get('BackendState') != 'Running':
+        return '', f"Tailscale is {str(st.get('BackendState') or 'off').lower()}"
+    return next((a for a in (st.get('Self') or {}).get('TailscaleIPs') or [] if '.' in a), ''), ''
+
+
+def _listening(host, port):
     import socket
     with socket.socket() as s:
         s.settimeout(0.5)
-        up = s.connect_ex(('127.0.0.1', PHONE_PORT)) == 0
+        return bool(host) and s.connect_ex((host, port)) == 0
+
+
+def _phone_status():
+    ip, why = _tailnet_ip(_tailscale())
+    up, served = _listening('127.0.0.1', PHONE_PORT), _listening(ip, PHONE_TS_PORT)
     return {'t': 'phone', 'on': up and served, 'server': up, 'served': served,
-            'url': f'https://{name}:{PHONE_HTTPS}' if name else '', 'why': why}
+            'url': f'http://{ip}:{PHONE_TS_PORT}' if ip else '', 'why': why}
 
 
 def op_phone(action):
@@ -860,21 +862,22 @@ def op_phone(action):
         pm2, ts = _exe('pm2'), _tailscale()
         if not pm2:
             raise NotesError('notes_io', 'pm2 is not installed, so the phone server cannot run')
+        # An older setup published the port through `tailscale serve`, which
+        # holds it; clear that either way so the server can answer there itself.
+        if ts:
+            _run([ts, 'serve', f'--http={PHONE_TS_PORT}', 'off'])
+            _run([ts, 'serve', f'--https={PHONE_TS_PORT}', 'off'])
         if action == 'on':
-            if not ts:
-                raise NotesError('notes_io', 'Tailscale is not installed')
+            ip, why = _tailnet_ip(ts)
+            if not ip:
+                raise NotesError('notes_io', why or 'This Mac has no tailnet address')
             server = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web_server.py')
-            if _run([pm2, 'describe', PHONE_NAME]).returncode == 0:
-                _run([pm2, 'restart', PHONE_NAME])
-            else:
-                _run([pm2, 'start', server, '--name', PHONE_NAME, '--interpreter', sys.executable, '--', '--port', str(PHONE_PORT)])
+            # Start fresh so the tailnet address is current (pm2 restart keeps old arguments).
+            _run([pm2, 'delete', PHONE_NAME])
+            _run([pm2, 'start', server, '--name', PHONE_NAME, '--interpreter', sys.executable, '--',
+                  '--port', str(PHONE_PORT), '--also', f'{ip}:{PHONE_TS_PORT}'])
             _run([pm2, 'save'])
-            r = _run([ts, 'serve', '--bg', f'--https={PHONE_HTTPS}', f'http://127.0.0.1:{PHONE_PORT}'])
-            if r.returncode:
-                raise NotesError('notes_io', (r.stderr or r.stdout).strip()[-300:] or 'tailscale serve failed')
         else:
-            if ts:
-                _run([ts, 'serve', f'--https={PHONE_HTTPS}', 'off'])
             _run([pm2, 'stop', PHONE_NAME])
             _run([pm2, 'save'])
         time.sleep(0.6)

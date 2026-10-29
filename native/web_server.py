@@ -29,6 +29,8 @@ import re
 import struct
 import subprocess
 import sys
+import threading
+import time
 import urllib.parse
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -41,7 +43,7 @@ ASSET_DIRS = ('assets/app-icons/',)
 # Native hosts the phone may reach, and ops that only make sense at the Mac's own screen.
 HOSTS = {'com.better_file_browser.notes': os.path.join(HERE, 'notes_host.py')}
 DESK_ONLY_OPS = {'pick', 'phone'}
-HOST_OK = re.compile(r'^(localhost|127\.0\.0\.1|\[::1\]|[a-z0-9-]+(\.[a-z0-9-]+)*\.ts\.net)(:\d+)?$', re.I)
+HOST_OK = re.compile(r'^(localhost|127\.0\.0\.1|\[::1\]|[a-z0-9-]+(\.[a-z0-9-]+)*\.ts\.net|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3})(:\d+)?$', re.I)
 TEXT_LIMIT = 20 * 1024 * 1024
 # The Mac's bfb settings, pushed by the extension while phone access is on (op phoneSeed).
 SEED = os.environ.get('BFB_PHONE_SEED') or os.path.expanduser('~/Library/Application Support/better-file-browser/phone-seed.json')
@@ -224,11 +226,37 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--port', type=int, default=5123)
+    ap.add_argument('--also', action='append', default=[], metavar='HOST:PORT',
+                    help="another address to answer on, such as this Mac's tailnet IP")
     a = ap.parse_args()
     srv = ThreadingHTTPServer(('127.0.0.1', a.port), Handler)
     srv.daemon_threads = True
     print(f'bfb phone server on http://127.0.0.1:{srv.server_address[1]}', flush=True)
+    for addr in a.also:
+        host, _, port = addr.rpartition(':')
+        threading.Thread(target=serve_when_free, args=(host, int(port)), daemon=True).start()
     srv.serve_forever()
+
+
+def serve_when_free(host, port):
+    """Answer on another address as soon as it can be had.
+
+    The tailnet address appears only once Tailscale is up, and Tailscale can
+    hold a port for a while after a serve entry on it is removed, so keep
+    trying instead of taking the whole server down."""
+    said = False
+    while True:
+        try:
+            extra = ThreadingHTTPServer((host, port), Handler)
+            break
+        except OSError as e:
+            if not said:
+                print(f'waiting for {host}:{port} ({e.strerror}); retrying every 5 s', flush=True)
+                said = True
+            time.sleep(5)
+    extra.daemon_threads = True
+    print(f'bfb phone server also on http://{host}:{port}', flush=True)
+    extra.serve_forever()
 
 
 if __name__ == '__main__':

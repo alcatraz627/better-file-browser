@@ -76,7 +76,7 @@ export function initPhoneSettings(toast: (m: string) => void): () => void {
     sw.checked = !!s?.on;
     kvSet(ON_KEY, s?.on ? '1' : '0');
     if (s?.url) kvSet(URL_KEY, s.url);
-    out.innerHTML = s?.on && s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url.replace(/^https:\/\//, ''))}</a>` : '<span>Off</span>';
+    out.innerHTML = s?.on && s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener" title="Open bfb as the phone sees it">${esc(s.url.replace(/^https?:\/\//, ''))}</a>` : '<span>Off</span>';
     if (copy) copy.disabled = !(s?.on && s.url);
     hint.textContent = err ? errorText(err, 'Phone access')
       : s?.why ? s.why

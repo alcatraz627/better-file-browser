@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f1316">
+  <title>bfb phone mock</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="shell-top">
+    <h1>bfb on the phone <small>mock with sample data</small></h1>
+    <span class="grow"></span>
+    <span class="shell-group" role="group" aria-label="Theme">
+      <button type="button" data-shell="theme" data-v="dark">Dark</button>
+      <button type="button" data-shell="theme" data-v="light">Light</button>
+    </span>
+    <span class="shell-group" role="group" aria-label="Text size">
+      <button type="button" data-shell="size" data-v="sm">Small</button>
+      <button type="button" data-shell="size" data-v="md">Medium</button>
+      <button type="button" data-shell="size" data-v="lg">Large</button>
+    </span>
+    <button type="button" class="shell-btn" data-shell="wall">Every screen</button>
+    <button type="button" class="shell-btn" data-shell="reset">Start over</button>
+  </header>
+  <div class="shell" id="one">
+    <aside class="rail" aria-label="The map">
+      <h2>EVERY PLACE</h2><div id="tree"></div>
+      <h2>SHEETS ON THIS SCREEN</h2><div class="chipset" id="sheets"></div>
+      <h2>PUT THE APP IN A STATE</h2><div class="chipset" id="states"></div>
+    </aside>
+    <main class="stage"><div class="phone" id="phone" aria-label="bfb on a phone"></div></main>
+    <aside class="inspect" id="inspect" aria-label="About this screen"></aside>
+  </div>
+  <div class="wall" id="wall" hidden></div>
+
+  <script src="model.js"></script>
+  <script src="icons.js"></script>
+  <script src="data.js"></script>
+  <script src="kit.js"></script>
+  <script src="screens.js"></script>
+  <script src="sheets.js"></script>
+  <script src="app.js"></script>
+  <script src="review.js"></script>
+  <script src="check.js"></script>
+</body>
+</html>
