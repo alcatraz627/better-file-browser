@@ -128,6 +128,39 @@ try {
     else check(links.col && links.chips > 0 && !links.wrong.length, `${name}: each list row shows exactly its doc row's links: ${JSON.stringify({ chips: links.chips, several: links.multi, none: links.none, kinds: links.kinds, wrong: links.wrong.slice(0, 3) })}`);
     if (links.any) check(!links.broken.length, `${name}: every link chip has its icon and a real name: ${JSON.stringify(links.broken)}`);
     if (name === 'links') check(links.kinds.join() === 'commit,doc,file,issue,linear,pr,web' && links.multi === 2 && links.none === 2, `links: every kind shows, two rows have several links and two have none: ${JSON.stringify({ kinds: links.kinds, several: links.multi, none: links.none })}`);
+    // Direction cards sit above the list: one per direction, none for the asks table.
+    const cards = await page.evaluate(() => {
+      const box = document.querySelector('.fe-dir-list');
+      const groups = [...box.querySelectorAll('tbody[data-group]')].map(b => ({ key: b.dataset.group, title: b.querySelector('.fe-dl-fold').textContent.trim() }));
+      const cs = [...box.querySelectorAll('.fe-dc')].map(c => ({ key: c.dataset.goto, title: c.querySelector('.fe-dc-t').textContent, pct: c.querySelector('.fe-dc-ring text').textContent }));
+      const grid = box.querySelector('.fe-dc-grid'), table = box.querySelector('.fe-dl');
+      return { groups, cs, above: !!grid && !!table && grid.getBoundingClientRect().bottom <= table.getBoundingClientRect().top + 1 };
+    });
+    const wantCards = cards.groups.filter(g => g.title !== 'Waiting on you' && g.title !== 'Other sections' && g.title !== 'Before the first heading').map(g => g.key);
+    check(cards.above && JSON.stringify(cards.cs.map(c => c.key)) === JSON.stringify(wantCards) && cards.cs.every(c => /^\d+%$/.test(c.pct)),
+      `${name}: one card per direction sits above the list, each with its ring: ${JSON.stringify(cards.cs.map(c => `${c.title} ${c.pct}`))}`);
+    if (cards.cs.length) {
+      await page.evaluate(() => { document.getElementById('fe-page').scrollTop = 0; });
+      await sleep(200);
+      const last = cards.cs[cards.cs.length - 1];
+      await page.click(`.fe-dc[data-goto="${last.key}"]`); await sleep(900);
+      // In view: its heading is on screen below the pinned bar, or the page went as far as it scrolls.
+      const went = await page.evaluate(k => {
+        const s = document.getElementById('fe-page'), b = document.querySelector(`.fe-dir-list tbody[data-group="${k}"]`), r = b.getBoundingClientRect();
+        const bar = document.querySelector('.fe-dir-sum').getBoundingClientRect(), pg = s.getBoundingClientRect();
+        const atEnd = s.scrollTop + s.clientHeight >= s.scrollHeight - 2;
+        return { rows: b.querySelectorAll('tr[data-row]').length, top: Math.round(r.top), barBottom: Math.round(bar.bottom), scrolled: Math.round(s.scrollTop), atEnd, inView: r.top >= bar.bottom - 1 && (r.top < pg.top + pg.height / 2 || (atEnd && r.top < pg.bottom - 60)) };
+      }, last.key);
+      check(went.rows > 0 && went.scrolled > 0 && went.inView, `${name}: a card opens its group in the list and brings it into view: ${JSON.stringify(went)}`);
+      // A state chip narrows the cards as it narrows the rows.
+      await page.evaluate(() => document.querySelector('.fe-dir-sum .fe-dv-chip[data-state="ready"]')?.click()); await sleep(300);
+      const narrowed = await page.evaluate(() => [...document.querySelectorAll('.fe-dc')].map(c => [...c.querySelectorAll('.fe-dc-legend [data-state]')].map(s => s.dataset.state)));
+      check(narrowed.length > 0 && narrowed.every(l => l.join() === 'ready'), `${name}: with "ready" on, each card counts only ready rows: ${JSON.stringify(narrowed)}`);
+      await page.evaluate(() => { const s = document.getElementById('fe-page'), g = document.querySelector('.fe-dc-grid'); s.scrollTop += g.getBoundingClientRect().top - s.getBoundingClientRect().top - 120; });
+      await sleep(300);
+      await shot(page, `directions-cards-${name}`);
+      await page.evaluate(() => document.querySelector('.fe-dir-sum .fe-dv-chip[data-state="ready"]')?.click()); await sleep(300);
+    }
     if (links.chips) {
       const before = (await h.browser.pages()).length;
       await page.click('.fe-dir-list .fe-dl-link'); await sleep(800);

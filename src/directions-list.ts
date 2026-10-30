@@ -91,6 +91,35 @@ const meterOf = (rows: DirRow[]) => {
   return meterHtml(STATES.map(s => ({ state: s.id, n: n(s.id), label: s.label })), `${done}/${rows.length}`, `${done} of ${rows.length} done`);
 };
 
+// A ring of how much of a direction is done, with the share written inside.
+const ringHtml = (done: number, total: number) => {
+  const C = 2 * Math.PI * 18, share = total ? done / total : 0;
+  return `<svg class="fe-dc-ring" viewBox="0 0 44 44" role="img" aria-label="${done} of ${total} done"><circle cx="22" cy="22" r="18"/>`
+    // No arc at 0%: its rounded end would still draw a dot.
+    + (share ? `<circle class="on" cx="22" cy="22" r="18" stroke-dasharray="${(share * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 22 22)"/>` : '')
+    + `<text x="22" y="26" text-anchor="middle">${Math.round(share * 100)}%</text></svg>`;
+};
+
+/** One card per direction above the list: how far along it is (the ring
+ *  counts every row), then the states and next rows of what the filter shows.
+ *  The asks table gets no card, and a direction the filter empties drops out. */
+export function cardsHtml(groups: Group[]): string {
+  const cards = groups.filter(g => g.section && g.section.kind !== 'waiting').map(g => {
+    const shown = g.rows.filter(r => !r.el.hidden);
+    if (!shown.length) return '';
+    const n = (rs: DirRow[], s: DirState) => rs.filter(r => r.el.dataset.state === s).length;
+    const legend = STATES.filter(s => n(shown, s.id)).map(s => `<span data-state="${s.id}"><i></i>${n(shown, s.id)} ${s.label}</span>`).join('');
+    const next = shown.filter(r => r.el.dataset.state === 'needs' || r.el.dataset.state === 'ready').slice(0, 3);
+    const nextHtml = next.length
+      ? next.map(r => `<span class="fe-dc-row" data-state="${r.el.dataset.state}"><i></i>${r.id ? `<b>${esc(r.id)}</b>` : ''}<span>${esc(plain(r.text || 'Row'))}</span></span>`).join('')
+      : '<span class="fe-dc-none">Nothing to pick up</span>';
+    return `<button type="button" class="fe-dc" data-goto="${esc(g.key)}" title="Show these rows in the list">`
+      + `<span class="fe-dc-hd">${ringHtml(n(g.rows, 'done'), g.rows.length)}<span class="fe-dc-t">${esc(g.title)}</span></span>`
+      + `<span class="fe-dc-legend">${legend}</span><span class="fe-dc-next">${nextHtml}</span></button>`;
+  }).join('');
+  return cards ? `<div class="fe-dc-grid">${cards}</div>` : '';
+}
+
 /** The list's markup for the rows the doc view shows; `brief` folds every group to its heading. */
 export function listHtml(m: DirModel, groups: Group[], brief: boolean, open: Set<string>): string {
   const at = (r: DirRow) => m.rows.indexOf(r);
@@ -154,15 +183,25 @@ export function mountList(bar: HTMLElement, m: DirModel, hooks: ListHooks): { pa
   const paint = (f: DirFilter) => {
     last = f;
     box.hidden = f.layout !== 'list';
-    if (!box.hidden) box.innerHTML = listHtml(m, groups, f.depth === 'overview' && !isFiltered(f), open);
+    if (!box.hidden) box.innerHTML = cardsHtml(groups) + listHtml(m, groups, f.depth === 'overview' && !isFiltered(f), open);
   };
+  const brief = (f: DirFilter) => f.depth === 'overview' && !isFiltered(f);
   box.addEventListener('click', e => {
     const t = e.target as Element;
     if (t.closest('.fe-dl-link')) return;   // a link chip opens its link, not the row
+    // A card opens its group, if folded, and brings it into view.
+    const card = t.closest<HTMLElement>('.fe-dc');
+    if (card && last) {
+      const key = card.dataset.goto!;
+      if (brief(last)) open.add(key); else open.delete('-' + key);
+      paint(last);
+      box.querySelector(`tbody[data-group="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      return;
+    }
     const fold = t.closest<HTMLElement>('.fe-dl-fold');
     if (fold && last) {
       const key = fold.closest<HTMLElement>('[data-group]')!.dataset.group!;
-      const k = last.depth === 'overview' && !isFiltered(last) ? key : '-' + key;
+      const k = brief(last) ? key : '-' + key;
       if (open.has(k)) open.delete(k); else open.add(k);
       paint(last);
       return;

@@ -1446,6 +1446,24 @@ a.fe-fm-path:hover{text-decoration:underline}
 .fe-dl-sub{display:block;font-size:var(--fs-sm);color:var(--dm);margin-top:1px}
 .fe-dl-when{font-size:var(--fs-sm);color:var(--mt)}
 .fe-dl-links{width:16em;white-space:normal}
+.fe-dir-list tbody[data-group]{scroll-margin-top:calc(var(--dir-bar-h,0px) + var(--sp-4))}
+.fe-dc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--sp-4);margin:0 0 var(--sp-5)}
+.fe-dc{display:flex;flex-direction:column;gap:var(--sp-3);min-width:0;padding:var(--sp-4) var(--sp-5);border:1px solid var(--bd);border-radius:var(--row-r);background:var(--s1);color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-dc:hover{border-color:var(--bd2)}
+.fe-dc:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.fe-dc-hd{display:flex;align-items:center;gap:var(--sp-4);min-width:0}
+.fe-dc-t{font-weight:600;font-size:var(--fs-lg);line-height:1.3;min-width:0}
+.fe-dc-ring{flex:none;width:40px;height:40px}
+.fe-dc-ring circle{fill:none;stroke:color-mix(in srgb,var(--tx) 10%,transparent);stroke-width:5}
+.fe-dc-ring circle.on{stroke:var(--nc-green,var(--tone-ok));stroke-linecap:round}
+.fe-dc-ring text{font-size:11px;fill:var(--tx);font-variant-numeric:tabular-nums}
+.fe-dc-legend{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-4);font-size:var(--fs-sm);color:var(--mt)}
+.fe-dc-legend span,.fe-dc-row{display:inline-flex;align-items:center;gap:var(--sp-2);min-width:0}
+.fe-dc-legend i,.fe-dc-row i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--st)}
+.fe-dc-next{display:flex;flex-direction:column;gap:var(--sp-1);font-size:var(--fs-sm);min-width:0}
+.fe-dc-row b{flex:none;font-weight:500;color:var(--mt);font-family:var(--mono,monospace);font-size:.92em}
+.fe-dc-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-dc-none{font-size:var(--fs-sm);color:var(--dm)}
 .fe-dl-link{display:inline-flex;align-items:center;gap:var(--sp-1);margin:1px var(--sp-1) 1px 0;max-width:16em;font-size:var(--fs-sm);color:var(--tx);text-decoration:none;white-space:nowrap;vertical-align:middle}
 .fe-dl-link span{overflow:hidden;text-overflow:ellipsis}
 .fe-dl-link svg{width:12px;height:12px;flex:none;color:var(--mt)}

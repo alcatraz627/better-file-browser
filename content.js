@@ -16695,6 +16695,22 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const done = n("done");
     return meterHtml(STATES.map((s) => ({ state: s.id, n: n(s.id), label: s.label })), `${done}/${rows.length}`, `${done} of ${rows.length} done`);
   };
+  var ringHtml = (done, total) => {
+    const C = 2 * Math.PI * 18, share = total ? done / total : 0;
+    return `<svg class="fe-dc-ring" viewBox="0 0 44 44" role="img" aria-label="${done} of ${total} done"><circle cx="22" cy="22" r="18"/>` + (share ? `<circle class="on" cx="22" cy="22" r="18" stroke-dasharray="${(share * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 22 22)"/>` : "") + `<text x="22" y="26" text-anchor="middle">${Math.round(share * 100)}%</text></svg>`;
+  };
+  function cardsHtml(groups) {
+    const cards2 = groups.filter((g) => g.section && g.section.kind !== "waiting").map((g) => {
+      const shown = g.rows.filter((r) => !r.el.hidden);
+      if (!shown.length) return "";
+      const n = (rs, s) => rs.filter((r) => r.el.dataset.state === s).length;
+      const legend = STATES.filter((s) => n(shown, s.id)).map((s) => `<span data-state="${s.id}"><i></i>${n(shown, s.id)} ${s.label}</span>`).join("");
+      const next = shown.filter((r) => r.el.dataset.state === "needs" || r.el.dataset.state === "ready").slice(0, 3);
+      const nextHtml = next.length ? next.map((r) => `<span class="fe-dc-row" data-state="${r.el.dataset.state}"><i></i>${r.id ? `<b>${esc(r.id)}</b>` : ""}<span>${esc(plain2(r.text || "Row"))}</span></span>`).join("") : '<span class="fe-dc-none">Nothing to pick up</span>';
+      return `<button type="button" class="fe-dc" data-goto="${esc(g.key)}" title="Show these rows in the list"><span class="fe-dc-hd">${ringHtml(n(g.rows, "done"), g.rows.length)}<span class="fe-dc-t">${esc(g.title)}</span></span><span class="fe-dc-legend">${legend}</span><span class="fe-dc-next">${nextHtml}</span></button>`;
+    }).join("");
+    return cards2 ? `<div class="fe-dc-grid">${cards2}</div>` : "";
+  }
   function listHtml(m, groups, brief, open) {
     const at = (r) => m.rows.indexOf(r);
     const links = new Map(groups.flatMap((g) => g.rows).map((r) => [r, rowLinks(r.el)]));
@@ -16746,15 +16762,25 @@ ${opts.src.replace(/\n?$/, "\n")}\`\`\`
     const paint = (f) => {
       last = f;
       box.hidden = f.layout !== "list";
-      if (!box.hidden) box.innerHTML = listHtml(m, groups, f.depth === "overview" && !isFiltered(f), open);
+      if (!box.hidden) box.innerHTML = cardsHtml(groups) + listHtml(m, groups, f.depth === "overview" && !isFiltered(f), open);
     };
+    const brief = (f) => f.depth === "overview" && !isFiltered(f);
     box.addEventListener("click", (e) => {
       const t = e.target;
       if (t.closest(".fe-dl-link")) return;
+      const card5 = t.closest(".fe-dc");
+      if (card5 && last) {
+        const key = card5.dataset.goto;
+        if (brief(last)) open.add(key);
+        else open.delete("-" + key);
+        paint(last);
+        box.querySelector(`tbody[data-group="${CSS.escape(key)}"]`)?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+        return;
+      }
       const fold = t.closest(".fe-dl-fold");
       if (fold && last) {
         const key = fold.closest("[data-group]").dataset.group;
-        const k = last.depth === "overview" && !isFiltered(last) ? key : "-" + key;
+        const k = brief(last) ? key : "-" + key;
         if (open.has(k)) open.delete(k);
         else open.add(k);
         paint(last);
@@ -18530,6 +18556,24 @@ a.fe-fm-path:hover{text-decoration:underline}
 .fe-dl-sub{display:block;font-size:var(--fs-sm);color:var(--dm);margin-top:1px}
 .fe-dl-when{font-size:var(--fs-sm);color:var(--mt)}
 .fe-dl-links{width:16em;white-space:normal}
+.fe-dir-list tbody[data-group]{scroll-margin-top:calc(var(--dir-bar-h,0px) + var(--sp-4))}
+.fe-dc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--sp-4);margin:0 0 var(--sp-5)}
+.fe-dc{display:flex;flex-direction:column;gap:var(--sp-3);min-width:0;padding:var(--sp-4) var(--sp-5);border:1px solid var(--bd);border-radius:var(--row-r);background:var(--s1);color:var(--tx);font:inherit;text-align:left;cursor:pointer}
+.fe-dc:hover{border-color:var(--bd2)}
+.fe-dc:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.fe-dc-hd{display:flex;align-items:center;gap:var(--sp-4);min-width:0}
+.fe-dc-t{font-weight:600;font-size:var(--fs-lg);line-height:1.3;min-width:0}
+.fe-dc-ring{flex:none;width:40px;height:40px}
+.fe-dc-ring circle{fill:none;stroke:color-mix(in srgb,var(--tx) 10%,transparent);stroke-width:5}
+.fe-dc-ring circle.on{stroke:var(--nc-green,var(--tone-ok));stroke-linecap:round}
+.fe-dc-ring text{font-size:11px;fill:var(--tx);font-variant-numeric:tabular-nums}
+.fe-dc-legend{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-4);font-size:var(--fs-sm);color:var(--mt)}
+.fe-dc-legend span,.fe-dc-row{display:inline-flex;align-items:center;gap:var(--sp-2);min-width:0}
+.fe-dc-legend i,.fe-dc-row i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--st)}
+.fe-dc-next{display:flex;flex-direction:column;gap:var(--sp-1);font-size:var(--fs-sm);min-width:0}
+.fe-dc-row b{flex:none;font-weight:500;color:var(--mt);font-family:var(--mono,monospace);font-size:.92em}
+.fe-dc-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fe-dc-none{font-size:var(--fs-sm);color:var(--dm)}
 .fe-dl-link{display:inline-flex;align-items:center;gap:var(--sp-1);margin:1px var(--sp-1) 1px 0;max-width:16em;font-size:var(--fs-sm);color:var(--tx);text-decoration:none;white-space:nowrap;vertical-align:middle}
 .fe-dl-link span{overflow:hidden;text-overflow:ellipsis}
 .fe-dl-link svg{width:12px;height:12px;flex:none;color:var(--mt)}
