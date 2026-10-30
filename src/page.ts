@@ -63,6 +63,7 @@ export function renderPage(p: PageParams): string {
     tree:    'Expand folders without leaving this page',
     tiles:   'Medium icon grid with filename below',
     icons:   'Large icon grid',
+    gallery: 'A large preview above a strip of thumbnails',
   };
 
   const viewSeg = segHtml('fe-view-group', VIEW_MODES.map(v => ({ value: v.id, icon: v.ico, hint: `${v.label} view: ${VIEW_LABELS[v.id]}` })), 'View');
@@ -252,6 +253,8 @@ export function renderPage(p: PageParams): string {
         </div>
       </div>
 
+      <div id="fe-gal" hidden><div class="fe-gal-card" hidden></div></div>
+      <div id="fe-gal-rz" title="Drag to resize the preview and the strip · double-click to reset" role="separator" aria-orientation="horizontal" aria-label="Resize the gallery" tabindex="0" hidden></div>
       <div id="fe-scroll">
         <table id="fe-table">
           <thead>

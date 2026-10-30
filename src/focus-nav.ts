@@ -224,6 +224,9 @@ export function initFocusNav(app: App): void {
   bind('fp-comments', () => app.filePage?.comment('panel'), commentable);
   bind('fp-cm-link', () => app.filePage?.comment('link'), commentable);
   bind('fp-cm-brief', () => app.filePage?.comment('brief'), commentable);
+  bind('fp-cm-send', () => app.filePage?.comment('send'), commentable);
+  bind('fp-cm-due', () => app.filePage?.comment('due'), commentable);
+  bind('fp-cm-attach', () => app.filePage?.comment('attach'), commentable);
   bind('fp-copy', click('fe-fp-copy'), () => !!app.filePage && !app.filePage.editing());
   bind('fp-cm-step', key => app.filePage?.comment(key === '⌥↑' ? 'prev' : 'next'), commentable);
   // Inside the comments box its own Esc runs: it puts a draft away and keeps focus.
@@ -314,7 +317,8 @@ export function initFocusNav(app: App): void {
   // Controls without an id, found by where they sit.
   const KEY_AT: Record<string, string> = {
     '.fe-act-cp': 'copy-path', '.fe-act-nm': 'copy-name',
-    '#fe-cm [data-a="link"]': 'fp-cm-link', '#fe-cm [data-a="brief-all"]': 'fp-cm-brief'
+    '#fe-cm [data-a="link"]': 'fp-cm-link', '#fe-cm [data-a="brief-all"]': 'fp-cm-brief', '#fe-cm [data-a="brief"]': 'fp-cm-brief',
+    '#fe-cm [data-a="send-agent"]': 'fp-cm-send', '#fe-cm [data-a="due"]': 'fp-cm-due', '#fe-cm [data-a="attach"]': 'fp-cm-attach'
   };
   const keyOf = (cmd: string) => KEYMAP.find(d => d.id === cmd)?.keys[0];
   // A control's tooltip shows the keys of the command it runs.

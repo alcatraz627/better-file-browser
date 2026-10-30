@@ -35,8 +35,9 @@ try {
   }));
   const counted = sum.chips.reduce((n, [, c]) => n + c, 0);
   check(sum.chips.length >= 2 && counted === sum.rows, `the bar counts every marked row by state: ${JSON.stringify(sum.chips)} over ${sum.rows} rows`);
-  check(sum.meters >= 2, `sections carry a meter of their rows: ${sum.meters}`);
-  check(/inset/.test(sum.edge), `a marked row has a coloured edge: ${sum.edge}`);
+  // Headings stay plain and rows carry no edge: the pills, the overview's meters and the Contents counts say it once.
+  check(sum.meters === 0, `section headings carry no meter: ${sum.meters}`);
+  check(!/inset/.test(sum.edge), `a marked row has no coloured edge beside its pill: ${sum.edge}`);
   await shot(page, 'directions');
   const linked = await page.$$eval('.fe-md tbody td a[href^="#"] + .fe-dv-meter', els => els.length);
   check(linked >= 2, `the overview's direction names link to their sections, each with a meter: ${linked}`);
@@ -105,7 +106,8 @@ try {
     await page.waitForSelector('.fe-dir-sum', { timeout: 8000 });
     const got = await page.evaluate(() => {
       const marks = ['🔴', '🟠', '🟢', '💤', '✅'];
-      const visible = e => !e.closest('[hidden]') && e.getClientRects().length > 0;
+      // checkVisibility, since words inside a closed <details> (the ⓘ legend) still report boxes.
+      const visible = e => !e.closest('[hidden]') && e.checkVisibility();
       const keyShown = [...document.querySelectorAll('.fe-md p, .fe-md li, .fe-md tbody tr')].filter(visible).filter(e => marks.filter(m => e.textContent.includes(m)).length >= 3).length;
       const bare = [...document.querySelectorAll('.fe-md tbody tr[data-state] td')].filter(td => marks.some(m => td.textContent.trim().startsWith(m))).length;
       const chips = [...document.querySelectorAll('.fe-dv-chip')].reduce((n, c) => n + Number(c.querySelector('b').textContent), 0);

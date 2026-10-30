@@ -1,7 +1,7 @@
-// A directions doc can be read at four depths: Overview, On me, Agent can do
-// now, All. Filtered views keep each row's headings above it, the choice is
-// kept per doc, a state chip narrows inside the view, and the Contents rail
-// shows each section's open count in its most pressing state.
+// A directions doc reads as Overview or Full, narrowed by any mix of state
+// chips. A narrowed doc keeps each row's headings above it, Overview or Full
+// is kept per doc, and the Contents rail shows each section's open count in
+// its most pressing state.
 // BFB_THEME=light runs it on the light theme.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -31,27 +31,38 @@ try {
     return { rows, heads, prose };
   });
   const pick = async v => { await page.click(`#fe-dir-view [data-v="${v}"]`); await sleep(250); };
+  const chip = async s => { await page.click(`.fe-dv-chip[data-state="${s}"]`); await sleep(250); };
 
   let s = await seen();
   check(s.rows.includes('W1') && s.rows.includes('S4') && s.rows.includes('Seeds'), `All shows every row: ${s.rows.join(',')}`);
 
-  await pick('me');
+  await chip('needs');
   s = await seen();
-  check(s.rows.join() === 'W1,W2,A1', `On me shows only what waits on you: ${s.rows.join(',')}`);
+  check(s.rows.join() === 'W1,W2,A1', `the needs-you chip shows only what waits on you: ${s.rows.join(',')}`);
   check(s.heads.includes('Waiting on you') && s.heads.includes('Watering') && s.heads.includes('A schedule from the sensors') && !s.heads.includes('Seeds'),
     `its rows keep their headings, and empty sections fold: ${s.heads.join(' | ')}`);
   await shot(page, 'directions-view-me');
 
-  await pick('agent');
+  await chip('needs'); await chip('ready');
   s = await seen();
-  check(s.rows.join() === 'S2,S3,A3', `Agent can do now shows only ready rows: ${s.rows.join(',')}`);
+  check(s.rows.join() === 'S2,S3,A3', `the ready chip shows only what an agent can pick up: ${s.rows.join(',')}`);
   check(!s.heads.includes('Waiting on you') && s.heads.includes('Import every supplier'), `with their headings: ${s.heads.join(' | ')}`);
 
-  await page.click('.fe-dv-chip[data-state="needs"]');
-  await sleep(200);
+  await chip('needs');
   s = await seen();
-  check(s.rows.length === 0, `a state chip narrows inside the view: ${s.rows.join(',') || 'none'}`);
-  await page.click('.fe-dv-chip[data-state="needs"]');
+  check(s.rows.join() === 'W1,W2,S2,S3,A1,A3', `two chips show both states at once: ${s.rows.join(',') || 'none'}`);
+  const status = await page.$eval('.fe-dir-status', e => e.textContent.trim());
+  check(/^Showing 6 of \d+/.test(status) && /Clear/.test(status), `the bar says what is showing: "${status}"`);
+  await page.click('.fe-dir-clear'); await sleep(250);
+  s = await seen();
+  check(s.rows.includes('S4') && !(await page.$('.fe-dir-clear')), `Clear shows every row again: ${s.rows.length} rows`);
+
+  await page.type('.fe-dir-q input', 'feed'); await sleep(500);
+  s = await seen();
+  check(s.rows.length > 0 && s.rows.every(r => /^S\d/.test(r)), `the filter box narrows rows by their words: ${s.rows.join(',')}`);
+  await page.click('.fe-dir-clear'); await sleep(250);
+  const q = await page.$eval('.fe-dir-q input', i => i.value);
+  check(q === '', 'Clear empties the filter box too');
 
   await pick('overview');
   s = await seen();
@@ -79,7 +90,7 @@ try {
   await page.click('.fe-dir-next-g[data-g="ready"] li:first-child .fe-dir-next-i');
   await sleep(600);
   const back = await page.evaluate(() => ({ v: document.querySelector('#fe-dir-view [aria-checked="true"]')?.dataset.v, s2: [...document.querySelectorAll('.fe-md tbody tr')].find(r => r.cells[0].textContent.trim() === 'S2')?.offsetParent !== null }));
-  check(back.v === 'all' && back.s2, `jumping to a row the view hides switches to All: ${JSON.stringify(back)}`);
+  check(back.v === 'full' && back.s2, `jumping to a row the view hides switches to Full: ${JSON.stringify(back)}`);
 
   // The Contents rail counts what is open per section.
   await page.click('#fe-fp-toc').catch(() => {});

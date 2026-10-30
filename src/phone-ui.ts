@@ -100,7 +100,7 @@ const PHONE_CSS = `
      Find, Comments and Edit; Wrap, Raw, Copy and Keep wait under "…". */
   .bfb-web #fe.fe-file-page #fe-statusbar{display:none}
   .bfb-web #fe-fp-bar{order:9;border-bottom:0;border-top:1px solid var(--bd);padding:4px}
-  .bfb-web #fe-fp-wrap,.bfb-web #fe-fp-raw,.bfb-web #fe-fp-copy,.bfb-web #fe-fp-keep{display:none!important}
+  .bfb-web #fe-fp-wrap,.bfb-web #fe-fp-raw,.bfb-web #fe-fp-copy,.bfb-web #fe-fp-keep,.bfb-web #fe-fp-export{display:none!important}
   .bfb-web #bfb-fp-more{display:inline-flex;flex:none}
 
   /* A decision page's answer bar stays at the bottom with Submit in reach. */

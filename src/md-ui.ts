@@ -1,5 +1,6 @@
 // Behaviour inside rendered markdown, wherever it appears (file page, panel,
-// help): the copy button on a code block, and an image that opens natively.
+// help): the copy and save-as-picture buttons on a code block or table, and
+// an image that opens natively.
 import { copyWithCheck } from './copy-done';
 import { linkGccRefs } from './gcc-refs';
 import type { Toast } from './toast';
@@ -9,6 +10,7 @@ import { go } from './nav';
 import { decorateFileView } from './docviews';
 import { mountDiagram } from './diagram-lab';
 import { openDiagram } from './docview-media';
+import { openBlockMenu } from './doc-export';
 
 export function initMarkdownUi(toast: Toast): void {
   const mounted = new WeakSet<HTMLElement>();
@@ -55,6 +57,8 @@ export function initMarkdownUi(toast: Toast): void {
   }
   document.addEventListener('click', e => {
     const t = e.target as HTMLElement;
+    const shot = t.closest<HTMLElement>('.fe-blk-x');
+    if (shot) { e.preventDefault(); openBlockMenu(shot, toast); return; }
     const copy = t.closest<HTMLElement>('.fe-md-copy');
     if (copy) {
       e.preventDefault();

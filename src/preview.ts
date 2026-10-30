@@ -38,7 +38,7 @@ const FETCH_WARN_BYTES = 8 * 1024 * 1024;
 // Media types rendered straight from file:// (like images): no fetch, no text
 // copy, no AI bar. Only formats Chrome plays/renders natively are claimed.
 const PDF_EXTS   = new Set(['pdf']);
-const VIDEO_EXTS = new Set(['mp4', 'm4v', 'webm', 'ogv', 'mov']);
+export const VIDEO_EXTS = new Set(['mp4', 'm4v', 'webm', 'ogv', 'mov']);
 const AUDIO_EXTS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac']);
 const FONT_EXTS  = new Set(['ttf', 'otf', 'woff', 'woff2']);
 
@@ -231,7 +231,7 @@ export function initPreview(d: PreviewDeps): void {
 
   // While the floating preview is open, Tab moves through its own controls
   // and wraps, rather than walking the listing hidden behind its scrim.
-  focusTrap(overlay, { when: () => layout.mode !== 'side' });
+  focusTrap(overlay, { when: () => !isPreviewDocked() });
 
   // The corner grip (floating) sets the window's size; the left edge (docked)
   // sets the panel's width. Both are the shared resize handle.
@@ -314,15 +314,28 @@ export function isPreviewOpen(): boolean {
 }
 
 export function isPreviewDocked(): boolean {
-  return layout.mode === 'side';
+  return layout.mode === 'side' || !!galleryHost;
 }
+
+// The Gallery view holds the preview in its stage above the thumbnails. While
+// it does, the panel is part of the page: it never floats, folds the sidebar
+// or closes on Esc, and follows the selected thumbnail.
+let galleryHost: HTMLElement | null = null;
+/** Put the preview in a gallery stage, or give it back to its own layout with null. */
+export function setPreviewHost(host: HTMLElement | null): void {
+  galleryHost = host;
+  if (overlay) applyLayout();
+}
+/** Whether the preview lives in the Gallery view's stage. */
+export function isPreviewInGallery(): boolean { return !!galleryHost; }
 
 // Modal: a fixed overlay under #fe with a scrim. Side: the same element moved
 // into #fe-body as a flex sibling of the listing, no scrim, owner-set width.
 function applyLayout(): void {
   const dialog = document.getElementById('fe-ql-dialog')!;
-  const side = layout.mode === 'side';
+  const side = layout.mode === 'side' || !!galleryHost;
   overlay.classList.toggle('side', side);
+  overlay.classList.toggle('gal', !!galleryHost);
   dialog.toggleAttribute('data-dock', side);
   // Docked, the header's text buttons show their icon alone; their title names them.
   overlay.querySelectorAll<HTMLElement>('#fe-ql-hdr > .btn').forEach(b => {
@@ -330,11 +343,11 @@ function applyLayout(): void {
     if (side) { b.dataset.icon = ''; b.dataset.dockIcon = ''; }
     else if ('dockIcon' in b.dataset) { delete b.dataset.icon; delete b.dataset.dockIcon; }
   });
-  const host = side ? document.getElementById('fe-body') : document.getElementById('fe');
+  const host = galleryHost ?? (side ? document.getElementById('fe-body') : document.getElementById('fe'));
   if (host && overlay.parentElement !== host) host.appendChild(overlay);
   // Remembered sizes are pixels from a wider window; cap them by the window
   // now, so a narrower window keeps room for the listing and the close button.
-  overlay.style.width = side && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : '';
+  overlay.style.width = side && !galleryHost && layout.sideW ? `min(${layout.sideW}px, max(280px, calc(100vw - 600px)))` : '';
   // Large and extra large take their size from the window, not the grip.
   const own = !side && !dialog.dataset.size;
   dialog.style.width  = own && layout.modalW ? `min(${layout.modalW}px, calc(100vw - 16px))` : '';
@@ -342,13 +355,14 @@ function applyLayout(): void {
   // Floating, it stacks with the other floating parts; docked, it is part of the page.
   if (side) lower(overlay);
   else if (overlay.style.display !== 'none') raise(overlay);
-  if (overlay.style.display !== 'none') deps.dockRoom?.(side);
+  if (overlay.style.display !== 'none') deps.dockRoom?.(side && !galleryHost);
   const dock = document.getElementById('fe-ql-dock')!;
   dock.title = side ? 'Float the preview as a window' : 'Dock the preview to the side';
   dock.classList.toggle('on', side);
 }
 
 export function closePreview(): void {
+  if (galleryHost && overlay.style.display !== 'none') return;
   if (edit) {
     // Leaving the editor flushes a pending autosave; the write completes
     // after the panel is gone and the sidebar refreshes from its callback.
@@ -633,8 +647,8 @@ export function openNote(root: string, doc: NoteDoc, onSaved?: (rel: string) => 
   copyBtn.style.display = ''; copyBtn.disabled = false;
   if (overlay.style.display === 'none') rememberFocus();
   overlay.style.display = 'flex';
-  deps.dockRoom?.(layout.mode === 'side');
-  if (layout.mode !== 'side') raise(overlay);
+  deps.dockRoom?.(layout.mode === 'side' && !galleryHost);
+  if (!isPreviewDocked()) raise(overlay);
   syncSaveBtn();
 
   const body = document.getElementById('fe-ql-body')!;
@@ -964,8 +978,8 @@ export function openPreview(e: Entry): void {
   const body = document.getElementById('fe-ql-body')!;
   if (overlay.style.display === 'none') rememberFocus();
   overlay.style.display = 'flex';
-  deps.dockRoom?.(layout.mode === 'side');
-  if (layout.mode !== 'side') raise(overlay);
+  deps.dockRoom?.(layout.mode === 'side' && !galleryHost);
+  if (!isPreviewDocked()) raise(overlay);
   syncSaveBtn();
   dsvHeader = []; dsvRows = []; dsvSort = null;
   currentText = null;

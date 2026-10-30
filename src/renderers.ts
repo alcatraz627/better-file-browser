@@ -7,6 +7,9 @@ import { UI_ICON } from './control-icons';
 import { COL_HANDLE } from './col-resize';
 import { detailOf } from './errors';
 
+/** A small button on a table or code block that saves it as a picture (doc-export.ts opens its menu). */
+const BLOCK_SHOT_BTN = `<button type="button" class="btn fe-blk-x" data-icon data-size="sm" title="Save as a picture (SVG or PNG)" aria-label="Save as a picture">${UI_ICON.image}</button>`;
+
 export const CODE_EXTS = new Set([
   'sh', 'bash', 'zsh', 'fish', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx',
   'py', 'rb', 'go', 'rs', 'java', 'kt', 'swift', 'c', 'cpp', 'h', 'cs', 'php',
@@ -778,7 +781,7 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false, nested 
       if (language.toLowerCase() === 'mermaid') {
         out.push(`<div class="fe-md-mermaid"><div class="fe-md-mermaid-view"></div><pre class="fe-md-mermaid-source" hidden>${esc(code)}</pre></div>`);
       } else {
-        out.push(`<div class="fe-md-code"><div class="bar fe-md-code-bar" data-inset><span class="fe-md-lang">${esc(language || 'text')}</span><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || 'md'))}</pre></div>`);
+        out.push(`<div class="fe-md-code"><div class="bar fe-md-code-bar" data-inset><span class="fe-md-lang">${esc(language || 'text')}</span><span class="fe-md-code-acts">${BLOCK_SHOT_BTN}<button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block">${UI_ICON.copy}</button></span></div><pre class="fe-md-pre fe-md-lines">${codeLines(highlightCode(code, language || 'md'))}</pre></div>`);
       }
       mark(from, outAt);
       continue;
@@ -896,7 +899,7 @@ export function renderMarkdown(src: string, baseUrl = '', inner = false, nested 
       i += 2;
       const rows: string[][] = [];
       while (i < lines.length && lines[i].includes('|')) rows.push(cells(lines[i++]));
-      out.push(`<div class="fe-md-tablewrap"><table class="fe-md-table fe-rz"><thead><tr>${
+      out.push(`<div class="fe-md-tablewrap">${BLOCK_SHOT_BTN}<table class="fe-md-table fe-rz"><thead><tr>${
         head.map(c => `<th>${c}${COL_HANDLE}</th>`).join('')
       }</tr></thead><tbody>${
         rows.map(r => `<tr>${Array.from({ length: head.length }, (_, n) => `<td>${r[n] ?? ''}</td>`).join('')}</tr>`).join('')

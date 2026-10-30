@@ -196,7 +196,7 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
     lastSetKey = setKey;
     // Only the view on screen is built; switching views redraws.
     const view = fe.dataset.view ?? 'details';
-    const wantTiles = view === 'tiles' || view === 'icons', wantRows = !wantTiles && view !== 'tree';
+    const wantTiles = view === 'tiles' || view === 'icons' || view === 'gallery', wantRows = !wantTiles && view !== 'tree';
     const showHidden = fe.classList.contains('show-hidden');
     const rowParts: string[] = [], tileParts: string[] = [], idxOf: number[] = [], hiddenRow: boolean[] = [];
     const pushEntry = (e: Entry) => {
@@ -314,6 +314,8 @@ export function initListing(app: App, all: Entry[], init: { view: string; densit
       ls.selIdx = i; ls.anchor = i;
       if (i >= 0) ls.selSet.add(i);
       paintSel(); scrollToLead();
+      // The Gallery view's stage follows the lead.
+      document.dispatchEvent(new CustomEvent('bfb-lead'));
     },
     toggleSel(i) {
       if (ls.selSet.has(i)) ls.selSet.delete(i); else ls.selSet.add(i);

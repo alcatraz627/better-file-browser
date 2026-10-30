@@ -1,12 +1,12 @@
-// The top of a directions doc answers "what do I do next" in three short
-// lists: what waits on the owner (the Waiting-on-you asks first, each with
-// what is needed and what happens on silence), what an agent can pick up
-// now, and whether the doc has gone stale. Each item jumps to its row, so the
-// ask is read in its own context; nothing is copied out of the doc.
+// The top of a directions doc answers "what do I do next" in two short
+// lists: what waits on the owner (the Waiting-on-you asks first) and what an
+// agent can pick up now, three lines each. Each item jumps to its row, so the
+// ask is read in its own context; what happens on silence shows on hover.
+// Whether the doc has gone stale sits in the state bar beside it.
 import { esc } from './utils';
 import type { DirModel, DirRow } from './directions-model';
 
-const CAP = 5;
+const CAP = 3;
 const STALE_DAYS = 3;
 const WHEN_ORDER = { now: 0, next: 1, later: 3 } as const;
 
@@ -35,20 +35,30 @@ export function nextHead(m: DirModel, now = new Date()): NextHead {
 
 // The doc's marks are already said by the group and its words; shown text drops them.
 const plain = (t: string) => t.replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF\u23E9-\u23FA\uFE0F]/gu, '').replace(/\s{2,}/g, ' ').trim();
-const item = (r: DirRow, i: number, sub: string) => `<li><button type="button" class="fe-dir-next-i" data-row="${i}">${r.id ? `<span class="fe-dir-next-id">${esc(r.id)}</span>` : ''}<span class="fe-dir-next-t">${esc(plain(r.text || r.section?.title || 'Row'))}</span></button>${sub ? `<div class="fe-dir-next-sub">${sub}</div>` : ''}</li>`;
+// One line per item: the id, what it is, and one muted clause; the rest of the ask reads on hover.
+const item = (r: DirRow, i: number, sub: string, tip: string) => `<li><button type="button" class="fe-dir-next-i" data-row="${i}"${tip ? ` title="${esc(tip)}"` : ''}>${r.id ? `<span class="fe-dir-next-id">${esc(r.id)}</span>` : ''}<span class="fe-dir-next-t">${esc(plain(r.text || r.section?.title || 'Row'))}</span>${sub ? `<span class="fe-dir-next-sub">${sub}</span>` : ''}</button></li>`;
 
 /** The head's markup. Row numbers index into the model's rows. */
 export function nextHeadHtml(m: DirModel, h: NextHead): string {
   const at = (r: DirRow) => m.rows.indexOf(r);
-  const group = (key: string, title: string, rows: DirRow[], sub: (r: DirRow) => string, empty: string, more: string) => `
+  // The count is the state chip's own: every row in that state, so the head and the bar agree.
+  const inState = (s: string) => m.rows.filter(r => !r.summary && (r.el.dataset.state ?? r.state) === s).length;
+  const group = (key: string, title: string, rows: DirRow[], sub: (r: DirRow) => string, tip: (r: DirRow) => string, empty: string, more: string) => {
+    const n = Math.max(inState(more), rows.length);
+    return `
     <div class="fe-dir-next-g" data-g="${key}">
-      <div class="sect" data-level="group" role="heading" aria-level="3">${title}<span class="fe-grp-n">${rows.length || ''}</span></div>
-      ${rows.length ? `<ol>${rows.slice(0, CAP).map(r => item(r, at(r), sub(r))).join('')}</ol>` : `<p class="fe-dir-next-none">${empty}</p>`}
-      ${rows.length > CAP ? `<button type="button" class="fe-dir-next-more" data-more="${more}">and ${rows.length - CAP} more</button>` : ''}
+      <div class="sect" data-level="group" role="heading" aria-level="3">${title}<span class="fe-grp-n">${n || ''}</span>${n > CAP ? `<button type="button" class="fe-dir-next-more" data-more="${more}" title="Show every row in this state">all ${n}</button>` : ''}</div>
+      ${rows.length ? `<ol>${rows.slice(0, CAP).map(r => item(r, at(r), sub(r), tip(r))).join('')}</ol>` : `<p class="fe-dir-next-none">${empty}</p>`}
     </div>`;
-  const youSub = (r: DirRow) => [r.need && `<span>${esc(r.need)}</span>`, r.silent && `<span class="fe-dir-next-silent">If you say nothing: ${esc(r.silent)}</span>`, !r.need && !r.silent && r.section && !r.asks ? `<span>${esc(plain(r.section.title))}</span>` : ''].filter(Boolean).join('');
-  const readySub = (r: DirRow) => [r.when && `<span class="fe-dir-next-when">${r.when}</span>`, r.section && `<span>${esc(plain(r.section.title))}</span>`].filter(Boolean).join('');
-  const stale = h.staleDays !== null || h.waiting
-    ? `<p class="fe-dir-next-stale">${[h.staleDays !== null ? `Last updated ${h.staleDays} days ago` : '', h.waiting ? `${h.waiting} waiting on others` : ''].filter(Boolean).join(' · ')}</p>` : '';
-  return `<div class="sect fe-dir-next-h" data-level="panel">What to do next</div>${group('you', 'On you', h.you, youSub, 'Nothing waits on you.', 'needs')}${group('ready', 'Ready for an agent', h.ready, readySub, 'Nothing is ready to pick up.', 'ready')}${stale}`;
+  };
+  const youSub = (r: DirRow) => r.need ? esc(r.need) : r.section && !r.asks ? esc(plain(r.section.title)) : '';
+  const youTip = (r: DirRow) => [r.need, r.silent && `If you say nothing: ${r.silent}`].filter(Boolean).join('\n');
+  const readySub = (r: DirRow) => [r.when, r.section && plain(r.section.title)].filter(Boolean).map(s => esc(s!)).join(' · ');
+  return `${group('you', 'On you', h.you, youSub, youTip, 'Nothing waits on you.', 'needs')}${group('ready', 'Ready for an agent', h.ready, readySub, () => '', 'Nothing is ready to pick up.', 'ready')}`;
+}
+
+/** How fresh the doc is, for the state bar: days since its update when stale, and what waits on others. */
+export function staleHtml(h: NextHead): string {
+  const parts = [h.staleDays !== null ? `updated ${h.staleDays} days ago` : '', h.waiting ? `${h.waiting} waiting on others` : ''].filter(Boolean);
+  return parts.length ? `<span class="fe-dir-next-stale">${parts.join(' · ')}</span>` : '';
 }

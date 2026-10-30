@@ -1,20 +1,24 @@
 // A directions doc (DIRECTIONS.md, or any *directions*.md) is a plan the owner
 // reads to pick what comes next: tables of tasks, each row carrying a state
 // mark (needs you, waiting, ready, parked, done). It is one of the doc views
-// (docview.ts). On its file page the doc gains a bar counting each state,
-// which narrows every table to that state on a click; a meter beside each
-// section; a state pill in place of each bare mark; and pictures that open
-// large. The doc's own key to the marks folds away, since the bar names
-// each state. The markdown itself is untouched.
+// (docview.ts). On its file page the doc gains what to do next at the top,
+// then one pinned row of controls: Doc or List, a chip per state (any mix),
+// Overview or Full, a filter box, and a line saying what is showing. One
+// filter record drives the doc, the list and the page address
+// (directions-state.ts). Bare marks read as named pills, the doc's key to the
+// marks folds away, and pictures open large. The markdown is untouched.
 import { esc } from './utils';
 import type { DocView } from './docview';
 import { markDocView } from './docview';
-import { pillHtml, meterHtml, chipBarHtml, wireChipBar, type Tally } from './docview-status';
+import { pillHtml, meterHtml, chipBarHtml, type Tally } from './docview-status';
 import { wireMedia } from './docview-media';
 import { readDirections } from './directions-model';
 import { nextHead, nextHeadHtml } from './directions-head';
-import { applyView, mountViews, markOutline, type DirView } from './directions-views';
+import { applyView, mountDepth, markOutline, savedDepth, saveDepth } from './directions-views';
 import { markDone } from './directions-done';
+import { UI_ICON } from './control-icons';
+import { mountList, mountLayoutSeg, listRow, savedLayout, saveLayout } from './directions-list';
+import { startFilter, hashFor, filterFromHash, isFiltered, ownsHash, type DirFilter } from './directions-state';
 
 /** Light a row up for a moment, so the eye finds it after a jump. */
 function flashRow(row: HTMLTableRowElement): void {
@@ -87,7 +91,9 @@ export function enhanceDirections(root: HTMLElement): void {
   const states = rows.map(r => rowState(r.textContent ?? '') ?? (asksOwner(headingOf(r)) ? 'needs' : null) ?? worded.get(r) ?? null);
   if (!states.some(Boolean)) return;
   root.dataset.directions = 'on';
-  rows.forEach((r, i) => { if (states[i]) r.dataset.state = states[i]!; });
+  // A line of the overview table only names a direction; it is not a task, so it takes no state and no count.
+  const summaries = new Set<Element>(model.rows.filter(r => r.summary).map(r => r.el));
+  rows.forEach((r, i) => { if (states[i] && !summaries.has(r)) r.dataset.state = states[i]!; });
 
   // A cell that starts with a mark gets a pill naming it: the mark alone or the
   // mark and its own name become the pill; any other words after it stay.
@@ -107,15 +113,17 @@ export function enhanceDirections(root: HTMLElement): void {
       break;
     }
   }
-  // The doc's key to the marks, and its reader and date lines, step back.
+  // The doc's key to the marks and its note to agents step aside; its date
+  // moves into the state bar when the bar can say it.
   for (const r of keyRows) r.hidden = true;
   for (const p of root.querySelectorAll<HTMLElement>(':scope > p, :scope > ul > li')) {
     const text = p.textContent ?? '';
-    if (isMarkKey(text)) p.hidden = true;
-    else if (/^\s*(reader|last updated)\s*:/i.test(text)) p.classList.add('fe-dir-meta');
+    if (isMarkKey(text) || /^\s*\**reader\**\s*:/i.test(text) || (model.lastUpdated && /^\s*\**last updated/i.test(text))) p.hidden = true;
   }
 
-  // Each section heading gets a meter of the rows below it, up to the next heading of its level or higher.
+  // A cell of the overview naming a section links to it, with a meter of that
+  // section's rows (up to the next heading of its level or higher). The
+  // headings themselves stay plain: the pills and the Contents counts say it.
   const heads = [...root.querySelectorAll<HTMLElement>('h2, h3')];
   for (const h of heads) {
     const level = Number(h.tagName[1]);
@@ -127,8 +135,6 @@ export function enhanceDirections(root: HTMLElement): void {
     const t = tally(mine);
     const m = meter(t);
     if (!m) continue;
-    h.insertAdjacentHTML('beforeend', m);
-    // A table cell naming this section (the overview's direction column) links to it and shows the same meter.
     const name = (h.firstChild?.textContent ?? '').trim();
     for (const td of root.querySelectorAll<HTMLTableCellElement>('tbody td:first-child')) {
       if (td.dataset.dirLink || td.textContent?.trim() !== name || !h.id) continue;
@@ -137,45 +143,124 @@ export function enhanceDirections(root: HTMLElement): void {
     }
   }
 
-  const all = tally(states);
+  const all = tally(rows.map((r, i) => summaries.has(r) ? null : states[i]));
+  const tasks = model.rows.filter(r => !r.summary).map(r => r.el);
+  const next = nextHead(model);
+  // One row of controls: Doc or List, the state chips, Overview or Full, the
+  // filter box, then a status line that says what is showing.
   const bar = document.createElement('div');
   bar.className = 'fe-dir-sum';
-  // Rows the doc gives no state are shown as a count, not silently left out.
-  const unmarked = model.rows.filter(r => !r.summary && !r.state && !r.el.dataset.state).length;
-  bar.innerHTML = chipBarHtml(tallies(all), `<span class="fe-dir-total">${meter(all)}</span>${unmarked ? `<span class="fe-dir-unmarked" title="Rows with no state mark or state word">${unmarked} unmarked</span>` : ''}`);
+  bar.innerHTML = `<div class="fe-dir-chips">${chipBarHtml(tallies(all))}</div>`
+    + `<label class="fe-dir-q" title="Narrow the rows to those holding these words"><input type="search" placeholder="Filter rows" spellcheck="false" autocomplete="off" aria-label="Filter rows"></label>`
+    + `<span class="fe-dir-status" aria-live="polite"></span>`;
   const h1 = root.querySelector('h1');
   if (h1) h1.after(bar); else root.prepend(bar);
+  const chips = bar.querySelector<HTMLElement>('.fe-dir-chips')!;
+  const qBox = bar.querySelector<HTMLInputElement>('.fe-dir-q input')!;
+  const status = bar.querySelector<HTMLElement>('.fe-dir-status')!;
+  // Rows the doc gives no state are counted, not silently left out.
+  const unmarked = model.rows.filter(r => !r.summary && !r.state && !r.el.dataset.state).length;
 
   // What to do next, above the bar; each item jumps to its row and flashes it.
   const head = document.createElement('section');
   head.className = 'fe-dir-next';
   head.setAttribute('aria-label', 'What to do next');
-  head.innerHTML = nextHeadHtml(model, nextHead(model));
+  head.innerHTML = nextHeadHtml(model, next);
   bar.before(head);
+
+  markDone(model);
+  let f: DirFilter = startFilter(location.hash, { layout: savedLayout(), depth: savedDepth() });
+  const layoutSeg = mountLayoutSeg(bar, l => { saveLayout(l); set({ layout: l }); });
+  const depthSeg = mountDepth(bar, d => { saveDepth(d); set({ depth: d }); });
+  bar.append(qBox.parentElement!, status);
+
+  // Show a row in the doc: a row the filter hides brings the whole doc back.
+  const jump = (row: HTMLTableRowElement) => {
+    if (row.hidden || f.layout !== 'doc') set({ layout: 'doc', ...(row.hidden ? { states: new Set(), q: '', depth: 'full' as const } : {}) });
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    flashRow(row);
+  };
+  const list = mountList(bar, model, {
+    row: jump,
+    section: id => { set({ layout: 'doc' }); document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); },
+  });
+
+  // The doc's "How to read this" section explains the marks and the layout;
+  // it folds into a legend at the end of the bar instead of taking a screen.
+  const howTo = model.sections.find(s => s.level === 2 && /^how to read/i.test(s.title));
+  if (howTo && !model.rows.some(r => !r.summary && r.section === howTo)) {
+    const parts: Element[] = [];
+    for (let n = howTo.el.nextElementSibling; n && !/^H[12]$/.test(n.tagName) && !n.matches('.fe-dir-next, .fe-dir-sum, .fe-dir-list'); n = n.nextElementSibling) parts.push(n);
+    const legend = document.createElement('details');
+    legend.className = 'fe-dir-legend';
+    legend.innerHTML = `<summary class="fe-dir-legend-b" title="How to read this doc">${UI_ICON.info}</summary><div class="fe-dir-legend-body"><div class="fe-dir-legend-h">${esc(howTo.title)}</div></div>`;
+    legend.querySelector('.fe-dir-legend-body')!.append(...parts);
+    // The marks key hides from the doc because the chips name each state; in the legend it is the point.
+    legend.querySelectorAll<HTMLElement>('[hidden]').forEach(n => { n.hidden = false; });
+    bar.append(legend);
+    howTo.el.hidden = true;
+    document.querySelector(`#fe-toc a[data-id="${CSS.escape(howTo.el.id)}"]`)?.remove();
+    // A click outside closes it, as a menu would.
+    document.addEventListener('pointerdown', e => { if (legend.open && !legend.contains(e.target as Node)) legend.open = false; });
+  }
+
+  // Draw everything from the filter, then write it to the address.
+  function render(): void {
+    applyView(root, model, f);
+    list.paint(f);
+    root.dataset.dirLayout = f.layout;
+    layoutSeg.set(f.layout);
+    depthSeg.set(f.depth);
+    chips.querySelectorAll<HTMLElement>('.fe-dv-chip').forEach(c => c.setAttribute('aria-pressed', String(f.states.has(c.dataset.state as DirState))));
+    if (qBox.value !== f.q && document.activeElement !== qBox) qBox.value = f.q;
+    const shown = tasks.filter(r => !r.hidden).length;
+    status.innerHTML = isFiltered(f)
+      ? `Showing ${shown} of ${tasks.length} <button type="button" class="fe-dir-clear" title="Show every row again">Clear</button>`
+      : [`<span class="fe-dir-total" title="${all.done} of ${tasks.length} rows done">${all.done}/${tasks.length} done</span>`,
+        unmarked ? `<span class="fe-dir-unmarked" title="Rows with no state mark or state word">${unmarked} unmarked</span>` : '',
+        next.staleDays !== null ? `<span class="fe-dir-next-stale" title="The doc's Last updated line">updated ${next.staleDays} days ago</span>` : ''].filter(Boolean).join('');
+    status.dataset.filtered = String(isFiltered(f));
+    if (ownsHash(location.hash)) {
+      const want = hashFor(f);
+      const cur = location.hash.startsWith('#dir?') ? location.hash : '';
+      if (want !== cur && (want || cur)) history.replaceState(history.state, '', location.pathname + location.search + (want || ''));
+    }
+  }
+  function set(p: Partial<DirFilter>): void { f = { ...f, ...p }; render(); }
+
+  chips.addEventListener('click', e => {
+    const c = (e.target as Element).closest<HTMLElement>('.fe-dv-chip');
+    if (!c) return;
+    const s = new Set(f.states), id = c.dataset.state as DirState;
+    if (s.has(id)) s.delete(id); else s.add(id);
+    set({ states: s });
+  });
+  let typing = 0;
+  qBox.addEventListener('input', () => { clearTimeout(typing); typing = window.setTimeout(() => set({ q: qBox.value }), 120); });
+  qBox.addEventListener('keydown', e => { if (e.key === 'Escape' && qBox.value) { e.stopPropagation(); qBox.value = ''; set({ q: '' }); } });
+  status.addEventListener('click', e => { if ((e.target as Element).closest('.fe-dir-clear')) { qBox.value = ''; set({ states: new Set(), q: '' }); } });
   head.addEventListener('click', e => {
     const t = e.target as Element;
     const more = t.closest<HTMLElement>('[data-more]');
-    if (more) { bar.querySelector<HTMLElement>(`.fe-dv-chip[data-state="${more.dataset.more}"]`)?.click(); return; }
-    const row = model.rows[Number(t.closest<HTMLElement>('[data-row]')?.dataset.row)]?.el;
+    if (more) { set({ states: new Set([more.dataset.more as DirState]) }); return; }
+    const at = Number(t.closest<HTMLElement>('[data-row]')?.dataset.row);
+    const row = model.rows[at]?.el;
     if (!row) return;
-    // A row the view or a chip hides comes back with the whole doc.
-    if (row.hidden) {
-      bar.querySelector<HTMLElement>('.fe-dv-chip[aria-pressed="true"]')?.click();
-      const seg = root.querySelector<HTMLElement & { value: string }>('#fe-dir-view');
-      if (seg && row.hidden) { seg.value = 'all'; seg.dispatchEvent(new Event('change')); }
+    // While the list shows, the head's links find the row in the list.
+    if (f.layout === 'list') {
+      if (row.hidden) set({ states: new Set(), q: '', depth: 'full' });
+      const hit = listRow(root, at);
+      if (hit) { hit.scrollIntoView({ block: 'center', behavior: 'smooth' }); flashRow(hit); return; }
     }
-    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    flashRow(row);
+    jump(row);
   });
-
-  // A chip narrows every table to its rows, inside the view in force; tables
-  // left with none fold away. Pressing it again shows all.
-  markDone(model);
-  let view: DirView = 'all', chip = '';
-  const apply = () => applyView(root, model, view, chip);
-  wireChipBar(bar, want => { chip = want; root.dataset.dirFilter = want; apply(); });
-  view = mountViews(root, bar, v => { view = v; apply(); });
-  apply();
+  // The contents rail lists the doc's headings; picking one reads it in the doc.
+  document.getElementById('fe-toc')?.addEventListener('click', e => { if (f.layout === 'list' && (e.target as Element).closest('a')) set({ layout: 'doc' }); }, true);
+  // An address edited by hand, or pasted in, takes over.
+  addEventListener('hashchange', () => { const p = filterFromHash(location.hash); if (p) { f = { ...f, ...p }; render(); } });
+  // The bar stays pinned while the doc scrolls; the list's group headings sit under it.
+  new ResizeObserver(() => root.style.setProperty('--dir-bar-h', `${bar.offsetHeight}px`)).observe(bar);
+  render();
   markOutline(model);
 }
 

@@ -331,7 +331,7 @@ describe('renderMarkdown', () => {
     expect(html).toContain('<dl class="fe-md-fm" data-fm-base=""><dt>title</dt><dd>T</dd><dt>n</dt><dd>2</dd></dl>');
     expect(html).toContain('<li class="fe-task"><input type="checkbox" disabled checked> a</li>');
     expect(html).toContain('<input type="checkbox" disabled> b</li>');
-    expect(html).toMatch(/<span class="fe-md-lang">py<\/span><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block"><svg/);
+    expect(html).toMatch(/<span class="fe-md-lang">py<\/span><span class="fe-md-code-acts"><button type="button" class="btn fe-blk-x"[^>]*>.*?<\/button><button type="button" class="btn fe-md-copy" data-icon data-size="sm" title="Copy this block" aria-label="Copy this block"><svg/);
     expect(html).not.toContain('<h1 id="---">');
   });
   it('joins consecutive lines into one paragraph, splits on blanks', () => {

@@ -16,6 +16,7 @@ import { mountKeep, askRename } from './doc-keep';
 import { mountFolderView } from './docviews';
 import { CSS } from './styles';
 import { UI_CSS } from './styles-ui';
+import { PRINT_CSS, initPrint } from './doc-print';
 import { setUiScale } from './chrome';
 import { themeMode, resolveTheme, followSystem, appIconUrl, applyFonts } from './theme';
 import { esc, pageHref, fileHref, fileBase, isFileUrl } from './utils';
@@ -32,6 +33,7 @@ import type { App } from './app';
 import { initChrome } from './chrome';
 import { initListing } from './listing';
 import { initListingInput } from './listing-input';
+import { initGallery } from './gallery';
 import { initFocusNav } from './focus-nav';
 import { initSidebar } from './sidebar';
 import { initToolLenses } from './tool-lenses';
@@ -191,7 +193,7 @@ loadKv().catch(() => {}).then(function () {
   document.head.innerHTML = `<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>${document.title}</title><link rel="icon" type="image/svg+xml" href="${appIconUrl()}">`;
   document.body.innerHTML = html;
   const styleEl = document.createElement('style');
-  styleEl.textContent = CSS + UI_CSS;
+  styleEl.textContent = CSS + UI_CSS + PRINT_CSS;
   document.head.appendChild(styleEl);
   preload?.remove();
 
@@ -306,9 +308,11 @@ loadKv().catch(() => {}).then(function () {
 
   initChrome(app);
   initMarkdownUi(app.toast);
+  initPrint();
   installColumnResize();
   const listing = initListing(app, entries, { view: initView, density: initDensity, hidden: initHidden });
   initListingInput(app, listing);
+  initGallery(app, listing);
   if (!homeMode) void mountFolderView(app);
   initSettingsUi(app);
   initPhoneSeed();

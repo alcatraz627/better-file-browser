@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderMarkdown } from '../src/renderers';
 import { readDirections } from '../src/directions-model';
-import { nextHead, nextHeadHtml } from '../src/directions-head';
+import { nextHead, nextHeadHtml, staleHtml } from '../src/directions-head';
 
 const model = (name: string) => {
   const root = document.createElement('div');
@@ -35,7 +35,9 @@ describe('what to do next', () => {
     const html = nextHeadHtml(m, nextHead(m, new Date('2026-10-27T12:00:00')));
     expect(html).toContain('A yes on model B, or another model');
     expect(html).toContain('If you say nothing: I order model B on Friday');
-    expect(html).toContain('Last updated 7 days ago');
+    // Staleness reads in the state bar, beside the chips, rather than in the head.
+    expect(html).not.toContain('days ago');
+    expect(staleHtml(nextHead(m, new Date('2026-10-27T12:00:00')))).toContain('updated 7 days ago');
     const empty = nextHeadHtml(m, { you: [], ready: [], staleDays: null, waiting: 0 });
     expect(empty).toContain('Nothing waits on you.');
   });

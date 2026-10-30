@@ -85,9 +85,12 @@ export function initListingInput(app: App, listing: Listing): void {
       if (e.shiftKey && (e.metaKey || e.ctrlKey)) sel.rangeSel(i); else sel.toggleSel(i);
       return;
     }
-    if (en.isDir) { go(en.href); return; }
+    // In the Gallery a click picks the thumbnail for the stage, folders too; a double-click opens it.
+    const gallery = fe.dataset.view === 'gallery';
+    if (en.isDir && !gallery) { go(en.href); return; }
     if (!sel.selectable(i)) return;
     sel.setSel(i);
+    if (gallery) return;
     if (!canPreview(en) || app.settings.clickOpens === 'go') { go(en.href); return; }
     // The panel waits out the double-click interval, or its scrim would
     // swallow the second click that means go; dblclick below does the going.
@@ -97,7 +100,7 @@ export function initListingInput(app: App, listing: Listing): void {
   });
   scroll.addEventListener('dblclick', e => {
     const en = entryAt(e);
-    if (!en || en.isDir || en.isParent || e.altKey || e.shiftKey || e.metaKey || e.ctrlKey) return;
+    if (!en || (en.isDir && fe.dataset.view !== 'gallery') || en.isParent || e.altKey || e.shiftKey || e.metaKey || e.ctrlKey) return;
     e.preventDefault();
     if (lookTimer) { clearTimeout(lookTimer); lookTimer = null; }
     go(en.href);
@@ -276,7 +279,7 @@ export function initListingInput(app: App, listing: Listing): void {
   }, onListing);
   bind('filter-panel', () => el('fe-filter-btn').click(), onListing);
   bind('hidden', () => el('fe-hidden-btn').click(), onListing);
-  for (const v of ['details', 'list', 'tree', 'tiles', 'icons']) {
+  for (const v of ['details', 'list', 'tree', 'tiles', 'icons', 'gallery']) {
     bind('view-' + v, () => document.querySelector<HTMLElement>(`#fe-view-group [data-v="${v}"]`)?.click(), onListing);
   }
   const sortBy = (col: SortConfig['col']) => { const s = getSortConfig(); app.setOrder({ col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' }, getGroupMode()); };

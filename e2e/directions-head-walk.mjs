@@ -31,9 +31,10 @@ const open = async (src, name) => {
 };
 const headOf = page => page.evaluate(() => {
   const g = k => [...document.querySelectorAll(`.fe-dir-next-g[data-g="${k}"] li`)].map(li => li.innerText.replace(/\s+/g, ' ').trim());
+  const tips = k => [...document.querySelectorAll(`.fe-dir-next-g[data-g="${k}"] li .fe-dir-next-i`)].map(b => b.title);
   const head = document.querySelector('.fe-dir-next');
   const bar = document.querySelector('.fe-dir-sum');
-  return { shown: !!head, above: !!head && !!bar && !!(head.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING), you: g('you'), ready: g('ready'), stale: document.querySelector('.fe-dir-next-stale')?.textContent ?? '', none: [...document.querySelectorAll('.fe-dir-next-none')].map(p => p.textContent) };
+  return { shown: !!head, above: !!head && !!bar && !!(head.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING), you: g('you'), youTips: tips('you'), ready: g('ready'), stale: document.querySelector('.fe-dir-next-stale')?.textContent ?? '', youN: document.querySelector('.fe-dir-next-g[data-g="you"] .fe-grp-n')?.textContent ?? '', needsChip: document.querySelector('.fe-dv-chip[data-state="needs"] b')?.textContent ?? '0', none: [...document.querySelectorAll('.fe-dir-next-none')].map(p => p.textContent) };
 });
 
 try {
@@ -41,10 +42,12 @@ try {
   let page = await open(join(ROOT, 'tests/fixtures/directions/standard.md'), 'standard');
   let hd = await headOf(page);
   check(hd.shown && hd.above, `the head sits above the state bar: ${JSON.stringify({ shown: hd.shown, above: hd.above })}`);
-  check(hd.you.length === 3 && /^W1 Pick the moisture sensor/.test(hd.you[0]) && /If you say nothing: I order model B on Friday/.test(hd.you[0]) && /^A1/.test(hd.you[2]),
-    `On you lists the asks first, each with what is needed and what silence means: ${JSON.stringify(hd.you)}`);
+  check(hd.you.length === 3 && /^W1 Pick the moisture sensor A yes on model B/.test(hd.you[0]) && !/If you say nothing/.test(hd.you[0]) && /^A1/.test(hd.you[2]),
+    `On you lists the asks first, one line each with what is needed: ${JSON.stringify(hd.you)}`);
+  check(/If you say nothing: I order model B on Friday/.test(hd.youTips[0]), `what silence means reads on hover: ${JSON.stringify(hd.youTips[0])}`);
   check(hd.ready.map(t => t.split(' ')[0]).join() === 'S2,A3,S3', `Ready lists now before next: ${JSON.stringify(hd.ready)}`);
-  check(/Last updated \d+ days ago/.test(hd.stale) && /1 waiting on others/.test(hd.stale), `the doc says it is stale: "${hd.stale}"`);
+  check(/updated \d+ days ago/.test(hd.stale), `the doc says it is stale: "${hd.stale}"`);
+  check(hd.youN === hd.needsChip, `On you counts the same rows as the needs-you chip: ${hd.youN} and ${hd.needsChip}`);
   await shot(page, 'directions-head');
 
   // An item jumps to its row and lights it.
@@ -81,6 +84,7 @@ try {
     hd = await headOf(page);
     const name = src.split('/Versable/')[1].split('/')[0];
     check(hd.shown && (hd.you.length + hd.ready.length) > 0, `${name}: the head shows ${hd.you.length} on you and ${hd.ready.length} ready${hd.stale ? `, "${hd.stale}"` : ''}`);
+    check(hd.youN === hd.needsChip, `${name}: On you counts the same rows as the needs-you chip: ${hd.youN} and ${hd.needsChip}`);
     if (name === 'slack-automation') await shot(page, 'directions-head-real');
     await page.close();
   }

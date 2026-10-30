@@ -26,6 +26,7 @@ import { watch } from './watch';
 import { KEEP_BTN } from './doc-keep';
 import { wireRailBox } from './rail-box';
 import { copyWithCheck } from './copy-done';
+import { wireDocExport } from './doc-export';
 
 const scrollPref = jsonPref<Record<string, number>>('bfb-page-scroll-v1', {}, v => !!v && typeof v === 'object');
 const tocPref = flagPref('bfb-page-toc-v1', true);
@@ -155,6 +156,7 @@ export function renderFileContent(): string {
         <button id="fe-fp-wrap" class="btn" title="Wrap long lines in raw text and code">${GLYPH.wrap}Wrap</button>
         <button id="fe-fp-raw" class="btn" title="Raw text (r)">${GLYPH.raw}Raw</button>
         <button id="fe-fp-copy" class="btn" title="Copy the file">${GLYPH.copyPage}Copy</button>
+        <button id="fe-fp-export" class="btn" title="Export as a Google Doc, Word document, PDF or web page" aria-haspopup="menu" hidden>${UI_ICON.export}Export</button>
         <span id="fe-ff" title="Find in this file (/) · Enter next · Shift+Enter previous · Esc clears">
           ${GLYPH.find}
           <input id="fe-ff-q" type="text" placeholder="Find" spellcheck="false" autocomplete="off" aria-label="Find in this file" title="Find in this file (/)">
@@ -508,6 +510,9 @@ export function mountFileContent(opts: { ext: string; text: string; rawPath: str
   document.getElementById('fe-fp-copy')!.addEventListener('click', () => {
     void copyWithCheck(document.getElementById('fe-fp-copy'), text).then(ok => { if (!ok) document.getElementById('fe-status-text')!.textContent = 'copy failed'; });
   });
+  const exportBtn = document.getElementById('fe-fp-export')!;
+  exportBtn.hidden = !isMd;
+  if (isMd) wireDocExport(exportBtn, () => ({ text, href }), page, toast);
 
   // Autoreload: while the tab is visible, poll the file and re-render on change.
   const reloadEl = document.getElementById('fe-fp-reload')!;

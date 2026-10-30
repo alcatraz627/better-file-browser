@@ -440,5 +440,21 @@ os.environ['BFB_DIRECTIONS_ROOTS'] = os.path.join(code, 'nowhere')
 check(call({'op': 'directionsDocs'}).get('docs') == [], 'a missing root lists no directions docs')
 del os.environ['BFB_DIRECTIONS_ROOTS']
 
+# Sending a thread to an agent goes out as a request, the kind claude-ipc
+# wakes an idle session for, and asks for no reply back to bfb.
+open(os.path.join(ed, 'sent.md'), 'w').write('# sent\nthe words\n')
+th = {'id': 't-1', 'anchor': {'exact': 'the words', 'line': 2}, 'place': {'line': 2},
+      'comments': [{'author': {'kind': 'human'}, 'text': 'look at this'}]}
+with mock.patch.object(nh, 'op_comments_read', return_value={'threads': [th]}), \
+     mock.patch.object(nh, '_run', return_value=mock.Mock(returncode=0, stdout='', stderr='')) as run:
+    r = nh.handle({'op': 'sendThread', 'root': ed, 'rel': 'sent.md', 'thread': 't-1', 'to': 'bfb'})
+    argv = run.call_args[0][0]
+    kind = argv[argv.index('--kind') + 1] if '--kind' in argv else None
+    check(r == {'t': 'sent', 'to': 'bfb', 'thread': 't-1'} and kind == 'request' and '--no-reply-expected' in argv
+          and argv[argv.index('--to') + 1] == 'bfb' and 'look at this' in argv[-1],
+          f'a sent thread is a request that wakes the agent and wants no reply: {argv[1:-1]}')
+    # Chrome runs the host with no session, and claude-ipc refuses a sender it cannot name.
+    check('--from' in argv and argv[argv.index('--from') + 1] == 'user', f'the thread goes out as the owner: {argv[1:-1]}')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

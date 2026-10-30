@@ -62,17 +62,17 @@ try {
     const th = document.querySelector('#fe-cm .fe-cm-th.on');
     const s = th.querySelector('.fe-cm-tools .fe-cm-status'), t = th.querySelector('.fe-cm-tools [data-a="done"]');
     const a = s?.getBoundingClientRect(), b = t?.getBoundingClientRect();
-    return { status: s?.dataset.state, left: !!a && !!b && a.right <= b.left + 1 && Math.abs((a.top + a.height / 2) - (b.top + b.height / 2)) < 3, corner: !!th.querySelector(':scope > .fe-cm-status'), toggle: t?.textContent.trim() };
+    return { status: s?.dataset.state, left: !!a && !!b && a.right <= b.left + 1 && Math.abs((a.top + a.height / 2) - (b.top + b.height / 2)) < 3, corner: !!th.querySelector(':scope > .fe-cm-status'), toggle: t?.getAttribute('aria-label'), text: t?.textContent.trim() };
   });
-  check(row.status === 'open' && row.left && !row.corner && row.toggle === 'Mark done', `in an open thread the icon sits left of the toggle: ${JSON.stringify(row)}`);
+  check(row.status === 'open' && row.left && !row.corner && /^Mark done/.test(row.toggle) && row.text === '', `in an open thread the icon sits left of the Mark done icon: ${JSON.stringify(row)}`);
 
   // The toggle flips it: the icon turns done and the toggle reads Reopen.
   await page.click('#fe-cm .fe-cm-filters [data-f="all"]');
   await sleep(300);
   await page.click(`#fe-cm .fe-cm-th[data-id="${settled}"] .fe-cm-q`);
   await sleep(300);
-  const reopen = await page.$eval('#fe-cm .fe-cm-th.on', th => ({ s: th.querySelector('.fe-cm-tools .fe-cm-status')?.dataset.state, t: th.querySelector('.fe-cm-tools [data-a="reopen"]')?.textContent.trim() }));
-  check(reopen.s === 'done' && reopen.t === 'Reopen', `a done thread shows the done icon beside Reopen: ${JSON.stringify(reopen)}`);
+  const reopen = await page.$eval('#fe-cm .fe-cm-th.on', th => ({ s: th.querySelector('.fe-cm-tools .fe-cm-status')?.dataset.state, t: th.querySelector('.fe-cm-tools [data-a="reopen"]')?.getAttribute('aria-label') }));
+  check(reopen.s === 'done' && /^Reopen/.test(reopen.t ?? ''), `a done thread shows the done icon beside Reopen: ${JSON.stringify(reopen)}`);
   // Reply is an icon; its tooltip names it and its key.
   const rb = '#fe-cm .fe-cm-th.on [data-a="reply"]';
   const rInfo = await page.$eval(rb, b => ({ text: b.textContent.trim(), svg: !!b.querySelector('svg'), w: Math.round(b.getBoundingClientRect().width), h: Math.round(b.getBoundingClientRect().height) }));

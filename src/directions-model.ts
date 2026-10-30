@@ -87,6 +87,22 @@ export function lastUpdatedOf(text: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * The direction a row belongs to, for grouping: its nearest 🧭 (or numbered)
+ * section when the doc marks them, the doc's ask table as its own group, and
+ * otherwise the top heading above it. A doc that marks directions puts rows
+ * outside them under "Other sections", so reference headings never pose as
+ * directions.
+ */
+export function directionOf(s: DirSection | null, m: DirModel): DirSection | 'other' | null {
+  for (let x = s; x; x = x.parent) if (x.kind === 'waiting' || x.kind === 'direction') return x;
+  if (!s) return null;
+  if (m.sections.some(x => x.kind === 'direction')) return 'other';
+  let top = s;
+  while (top.parent) top = top.parent;
+  return top;
+}
+
 /** Read a rendered directions doc. Pure over the DOM: it changes nothing. */
 export function readDirections(root: HTMLElement): DirModel {
   const sections: DirSection[] = [];

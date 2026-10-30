@@ -129,7 +129,7 @@ export interface CommentsPanel {
   held(): boolean;
 }
 
-export type CommentAction = 'comment' | 'reply' | 'panel' | 'next' | 'prev' | 'clear' | 'link' | 'brief';
+export type CommentAction = 'comment' | 'reply' | 'panel' | 'next' | 'prev' | 'clear' | 'link' | 'brief' | 'send' | 'due' | 'attach';
 
 interface Draft extends SourceSpan { quote: string; attach?: string }
 
@@ -197,7 +197,7 @@ export function mountComments(o: {
       const root = o.root();
       if (!root) return;
       o.status(`Sending to ${to}…`);
-      notes.sendThread(root, o.rel(), t.id, to).then(() => o.status(`Sent to ${to}. Their answer appears in this thread.`), err => o.status(errorText(err, `Sending to ${to}`)));
+      notes.sendThread(root, o.rel(), t.id, to).then(() => o.status(`Sent to ${to}, which wakes it if idle. Its answer appears in this thread.`), err => o.status(errorText(err, `Sending to ${to}`)));
     });
   };
 
@@ -351,17 +351,21 @@ export function mountComments(o: {
     const done = t.status === 'done';
     // Open or done, as an icon in its colour: in the corner of a folded card, left of the toggle in an open one.
     const status = `<span class="fe-cm-status" data-state="${done ? 'done' : 'open'}" role="img" aria-label="${done ? 'Done' : 'Open'}" title="${done ? 'Done' : 'Open'}">${done ? UI_ICON.circleCheck : UI_ICON.circleDashed}</span>`;
+    // One row of icons; each tooltip names the action and its key. The two
+    // agent actions sit together as one group, apart from the thread's own.
     const tools = on ? `
       ${box(t.id, 'Reply', done ? 'Reply to reopen…' : 'Reply… @ to mention, # to tag')}
       <div data-inset class="bar fe-cm-tools">
-        ${status}<button type="button" class="btn" data-size="sm" data-a="${done ? 'reopen' : 'done'}" title="${done ? 'Reopen this thread' : 'Mark done'} (⌘⇧↵)">${done ? UI_ICON.reset + 'Reopen' : UI_ICON.check + 'Mark done'}</button>
+        ${status}${done ? iconBtn('reopen', UI_ICON.reset, 'Reopen this thread (⌘⇧↵)') : iconBtn('done', UI_ICON.check, 'Mark done (⌘⇧↵)')}
         ${dueOpen === t.id ? `<input type="date" class="tb fe-cm-date" data-size="sm" data-a="due-in" aria-label="Due date" value="${esc(t.due ?? '')}">`
           : iconBtn('due', UI_ICON.clock, 'Set a due date')}
         ${iconBtn('link', UI_ICON.link, 'Copy a link to this thread')}
-        ${iconBtn('brief', UI_ICON.bot, 'Copy as a brief for an agent')}
-        <button type="button" class="btn" data-size="sm" data-a="send-agent" title="Send this thread to an agent, who can answer in it">${UI_ICON.send}Send</button>
-        ${t.place.state !== 'anchored' && !applied ? `<button type="button" class="btn" data-size="sm" data-a="attach" title="Select words on the page first">Attach to selection</button>` : ''}
+        ${t.place.state !== 'anchored' && !applied ? iconBtn('attach', UI_ICON.attach, 'Attach to the selected words · Select them on the page first') : ''}
         <span class="fe-cm-grow"></span>
+        <span class="fe-cm-grp" role="group" aria-label="For an agent">
+          ${iconBtn('brief', UI_ICON.bot, 'Copy as a brief for an agent')}
+          ${iconBtn('send-agent', UI_ICON.plane, 'Send to an agent · It wakes and answers in this thread')}
+        </span>
         <button type="button" class="btn" data-icon data-size="sm" data-variant="solid" data-a="reply" title="Reply (⌘↵)" aria-label="Reply">${UI_ICON.send}</button>
       </div>` : '';
     return `<article class="fe-cm-th card${on ? ' on' : ''}" data-id="${esc(t.id)}" tabindex="0" aria-label="Comment on: ${esc(t.anchor.exact.slice(0, 80))}">
@@ -444,17 +448,22 @@ export function mountComments(o: {
   const redraw = () => {
     ranges.clear();
     o.page.querySelectorAll('[data-cm]').forEach(b => b.removeAttribute('data-cm'));
-    const all: Range[] = [];
+    // Open threads are tinted; done ones keep only a faint dashed underline,
+    // so their words can still be found and opened without calling for attention.
+    const all: Range[] = [], closed: Range[] = [];
     for (const t of threads) {
-      if (t.status === 'done' || t.place.offset === null || t.place.line === null) continue;
+      if (t.place.offset === null || t.place.line === null) continue;
       const r = rangeOfSpan(t.place.offset, t.place.length);
       if (!r) continue;
-      ranges.set(t.id, r); all.push(r);
+      ranges.set(t.id, r);
+      if (t.status === 'done') { closed.push(r); continue; }
+      all.push(r);
       const block = (r.startContainer.nodeType === 1 ? r.startContainer as Element : r.startContainer.parentElement)?.closest<HTMLElement>('[data-sl]');
       if (block) block.dataset.cm = String(Number(block.dataset.cm || 0) + 1);
     }
     if (reg && H) {
       reg.set('bfb-cm', new H(...all));
+      reg.set('bfb-cm-done', new H(...closed));
       const on = draft ? rangeOfSpan(draft.start, draft.end - draft.start) : ranges.get(active);
       if (on) reg.set('bfb-cm-on', new H(on)); else reg.delete('bfb-cm-on');
       reg.delete('bfb-cm-hover'); hovered = '';
@@ -483,7 +492,10 @@ export function mountComments(o: {
     const r = ranges.get(id);
     if (scroll && r) {
       const box = r.getBoundingClientRect(), pg = o.page.getBoundingClientRect();
-      if (box.top < pg.top + 40 || box.bottom > pg.bottom - 40) o.page.scrollTop += box.top - pg.top - pg.height / 3;
+      // The page glides to the words, so the reader sees where they went.
+      if (box.top < pg.top + 40 || box.bottom > pg.bottom - 40) {
+        o.page.scrollBy({ top: box.top - pg.top - pg.height / 3, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }
     }
     const t = threads.find(x => x.id === id);
     if (t && t.place.offset !== null) o.picked?.({ offset: t.place.offset, length: t.place.length });
@@ -606,6 +618,18 @@ export function mountComments(o: {
   const copy = (text: string, said: string, btn?: HTMLElement | null) => copyWithCheck(btn, text).then(ok => o.status(ok ? said : 'copy failed'));
   const threadLink = (id: string) => location.href.split('#')[0] + '#c=' + encodeURIComponent(id);
   const copyBrief = (btn?: HTMLElement | null) => { const ts = visible(); return copy(agentBrief(o.path, o.href, ts), `${ts.length} thread${ts.length === 1 ? '' : 's'} copied as a brief for an agent`, btn); };
+  const openDue = () => {
+    dueOpen = active; paint();
+    const inp = o.box.querySelector<HTMLInputElement>('.fe-cm-date');
+    inp?.focus();
+    try { inp?.showPicker(); } catch { /* not allowed here; the field still takes typing */ }
+  };
+  const attachHere = () => {
+    const span = held ?? selected()?.span;
+    if (!span) { o.status('Select the words on the page first, then attach'); return; }
+    held = null;
+    void startDraft(span, active);
+  };
 
   // The floating Comment button sits just above the end of a selection.
   const addBtn = document.createElement('button');
@@ -753,24 +777,12 @@ export function mountComments(o: {
       if (a === 'edit') { startEdit(v); return; }
       if (a === 'edit-cancel') { cancelEdit(); return; }
       if (a === 'edit-save') { void saveEdit(v); return; }
-      if (a === 'due') {
-        dueOpen = active; paint();
-        const inp = o.box.querySelector<HTMLInputElement>('.fe-cm-date');
-        inp?.focus();
-        try { inp?.showPicker(); } catch { /* not allowed here; the field still takes typing */ }
-        return;
-      }
+      if (a === 'due') { openDue(); return; }
       if (a === 'reject') { void write([{ op: 'decide', thread: active, comment: v, state: 'rejected' }], 'Reject'); return; }
       if (a === 'accept' && t) { void accept(t, v); return; }
       if (a === 'link') { void copy(threadLink(active), 'Link to this thread copied', act); return; }
       if (a === 'brief' && t) { void copy(agentBrief(o.path, o.href, [t]), 'Thread copied as a brief for an agent', act); return; }
-      if (a === 'attach') {
-        const span = held ?? selected()?.span;
-        if (!span) { o.status('Select the words on the page first, then press Attach to selection'); return; }
-        held = null;
-        void startDraft(span, active);
-        return;
-      }
+      if (a === 'attach') { attachHere(); return; }
     }
     if (el.closest('a, textarea, input, .fe-cm-tools, .fe-cm-ac, .fe-cm-new, button')) return;
     const th = el.closest<HTMLElement>('.fe-cm-th[data-id]');
@@ -781,11 +793,13 @@ export function mountComments(o: {
   const threadAt = (x: number, y: number) => {
     const pos = (document as unknown as { caretRangeFromPoint?: (x: number, y: number) => Range | null }).caretRangeFromPoint?.(x, y);
     if (!pos) return '';
-    for (const [id, r] of ranges) {
+    // Where an open thread and a done one share words, the open one answers.
+    for (const [id, r] of [...ranges].sort(([a], [b]) => Number(isDone(a)) - Number(isDone(b)))) {
       try { if (r.isPointInRange(pos.startContainer, pos.startOffset)) return id; } catch { /* other document part */ }
     }
     return '';
   };
+  const isDone = (id: string) => threads.find(t => t.id === id)?.status === 'done';
   // Resting on commented words for a few seconds shows the comment above them;
   // a click on it opens the thread, as a click on the words does.
   const PEEK_MS = 3000;
@@ -850,7 +864,7 @@ export function mountComments(o: {
     const me = e as MouseEvent;
     const block = (me.target as Element).closest<HTMLElement>('[data-cm]');
     if (block && me.clientX > block.getBoundingClientRect().right - 4) {
-      const id = [...ranges].find(([, r]) => block.contains(r.startContainer))?.[0];
+      const id = [...ranges].find(([k, r]) => !isDone(k) && block.contains(r.startContainer))?.[0];
       if (id) { o.reveal(); focusThread(id, false); o.changed(); return; }
     }
     if (window.getSelection()?.toString()) return;
@@ -895,6 +909,21 @@ export function mountComments(o: {
       return true;
     }
     if (a === 'next' || a === 'prev') { step(a === 'next' ? 1 : -1); return placed().length > 0; }
+    // The open thread's own actions; with none open they say how to get one.
+    const open = threads.find(x => x.id === active);
+    if (a === 'send' || a === 'due' || a === 'attach') {
+      if (!open) { o.status('Open a comment first'); return true; }
+      o.reveal();
+      if (a === 'send') { const b = o.box.querySelector<HTMLElement>('.fe-cm-th.on [data-a="send-agent"]'); if (b) void openSendMenu(b, open); }
+      else if (a === 'due') openDue();
+      else if (open.place.state === 'anchored') o.status('This thread already sits on its words');
+      else attachHere();
+      return true;
+    }
+    if (a === 'brief' && open) {
+      void copy(agentBrief(o.path, o.href, [open]), 'Thread copied as a brief for an agent', o.box.querySelector<HTMLElement>('.fe-cm-th.on [data-a="brief"]'));
+      return true;
+    }
     if (a === 'brief') {
       if (!visible().length) return false;
       void copyBrief(o.box.querySelector<HTMLElement>('[data-a="brief-all"]'));

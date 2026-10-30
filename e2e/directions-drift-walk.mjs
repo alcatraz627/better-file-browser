@@ -38,12 +38,13 @@ try {
   // States written as words in a state column.
   let page = await open('freetext');
   let f = await facts(page);
-  check(f.chips.waiting >= 2 && f.chips.ready >= 2, `words in a state column count as states: ${JSON.stringify(f.chips)}`);
+  // "Alerts | next | waiting on review" in the shape table names a direction, so only L1 ("running") counts as waiting.
+  check(f.chips.waiting === 1 && f.chips.ready >= 2, `words in a state column count as states, and overview lines do not: ${JSON.stringify(f.chips)}`);
   check(f.ready.includes('Mute rules') && f.you.includes('Name the alert channel') && f.you.includes('Which teams get it'), `the head reads them too: ${JSON.stringify({ you: f.you, ready: f.ready })}`);
-  await page.click('#fe-dir-view [data-v="agent"]');
+  await page.click('.fe-dv-chip[data-state="ready"]');
   await sleep(200);
   const agent = await visibleRows(page);
-  check(agent.join() === 'R1,L2', `Agent can do now finds the worded ready row: ${agent.join(',')}`);
+  check(agent.join() === 'R1,L2', `the ready chip finds the worded ready row: ${agent.join(',')}`);
   await page.close();
 
   // Numbered buckets, no Waiting section, unmarked findings.
@@ -51,12 +52,12 @@ try {
   f = await facts(page);
   check(f.unmarked === '2 unmarked', `rows with no state show as a count: "${f.unmarked}"`);
   check(f.you.join() === 'Crash on empty page' && f.ready.join() === 'Slow login', `On you and Ready come from the marked rows: ${JSON.stringify({ you: f.you, ready: f.ready })}`);
-  await page.click('#fe-dir-view [data-v="me"]');
+  await page.click('.fe-dv-chip[data-state="needs"]');
   await sleep(200);
   const me = await visibleRows(page);
   const heads = await page.$$eval('.fe-md h2', hs => hs.filter(h => h.offsetParent !== null).map(h => h.firstChild.textContent.trim()));
-  check(me.join() === 'H1' && heads.includes('1. Hotfixes') && !heads.includes('3. Data quality'), `On me keeps the bucket heading above its row: ${JSON.stringify({ me, heads })}`);
-  await page.click('#fe-dir-view [data-v="all"]');
+  check(me.join() === 'H1' && heads.includes('1. Hotfixes') && !heads.includes('3. Data quality'), `the needs-you chip keeps the bucket heading above its row: ${JSON.stringify({ me, heads })}`);
+  await page.click('.fe-dv-chip[data-state="needs"]');
   await sleep(200);
   await shot(page, 'directions-drift-buckets');
   await page.close();
