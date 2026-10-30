@@ -4,13 +4,13 @@
 // main.ts builds the shell and calls mountFileContent. HTML source is fetched
 // after takeover because the document contains rendered text, not source.
 import { makeToast } from './toast';
-import { esc, copyToClipboard, whenText } from './utils';
+import { esc, whenText } from './utils';
 import { holdScroll } from './scroll-hold';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
-  renderCode, parseDSV, numericCols, renderDSVTable, unrenderableNote,
+  renderCode,
 } from './renderers';
-import { formatFor, diagnose, renderFile, type Diagnostic } from './formats';
+import { diagnose, renderFile, type Diagnostic } from './formats';
 import { fetchFileText } from './file-fetch';
 import { fileMeta, metaChips, metaSummary } from './file-meta';
 import { UI_ICON, GLYPH } from './control-icons';
@@ -20,7 +20,6 @@ import { editableRoot, editableFoldersOf, openFileEditor, type FileEditor } from
 import { setSidebarShown, sidebarShown } from './motion';
 import { attachFind } from './find-in-page';
 import { mountComments, type CommentsPanel, type CommentAction } from './comments-ui';
-import type { Settings } from './types';
 import { markPlace } from './nav';
 import { watch } from './watch';
 import { KEEP_BTN } from './doc-keep';

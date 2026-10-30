@@ -5,7 +5,7 @@
 import { CSS } from './styles';
 import { UI_CSS } from './styles-ui';
 import { segHtml, ddHtml, sliderHtml, chipsHtml, upgradeControls, type ValuedEl } from './controls';
-import { UI_ICON, line } from './control-icons';
+import { UI_ICON } from './control-icons';
 import { PALETTES } from './storage';
 import { esc } from './utils';
 

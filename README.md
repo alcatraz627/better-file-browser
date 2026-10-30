@@ -56,6 +56,7 @@ Chrome navigates to a file:// folder or supported file
 | **Tree** | Folder rows expand in place; children load on demand |
 | **Tiles** | Medium icon grid with name below |
 | **Large Icons** | Oversized icon grid |
+| **Gallery** | A large preview of the selected file over a strip of thumbnails; drag the edge to resize the strip (keys `v s`) |
 
 Switch with the toolbar buttons. Preference persists across sessions.
 
@@ -120,8 +121,13 @@ The tab icon on a note row opens its **rendered file page as a tab in this page'
 ### File pages
 A file opened directly in the tab (markdown, code, json, jsonl, tsv/csv, txt) renders like the preview instead of Chrome's plain text, inside the same shell as a folder listing, so the sidebar, the strip and the path bar stay put. The main column carries a heading table of contents for markdown, **r** for raw, a remembered scroll position, and a re-render whenever the file changes on disk. The **Reading width** button cycles through Full, XL, LG, and MD; Settings can choose the starting width. Text size scales the whole interface. Paths beginning `/Users/alcatraz627` in Markdown become links that open in a new tab, including paths with spaces and `:line` references. Settings can limit file pages to non-markdown files or turn them off if you keep another markdown extension on file URLs. **Settings → Exclusions** lists extensions that Chrome opens natively; `.pdf`, `.html`, and `.htm` are excluded by default. Remove `.html` or `.htm` to show their source in the file page.
 
+Printing a markdown page prints the doc alone, full length, with diagrams as still pictures. The **Export** menu turns it into a Google Doc (copied, then a new Doc opens to paste into), a Word `.docx`, a PDF, or a self-contained web page. Any table or code block also exports as SVG or PNG from its own corner button.
+
+### Comments
+Select words on a markdown page and press **c** to comment. Threads sit in the Comments panel (**⇧C**) and in a `.bfb.json` file beside the doc. An open thread's bar is one row of icons: mark done, due date (**⇧U**), copy link (**⇧K**), and a pair for agents: copy as a brief (**⇧B**) and **Send** (**⇧S**). Send wakes the agent through claude-ipc, and its answer arrives in the thread. Opening a thread glides the page to its words. Open threads are highlighted, and done threads keep a faint dashed underline. How agents read and answer threads: [Comments for agents](docs/comments-for-agents.md).
+
 ### Decision pages and directions docs
-A folder holding an agent's decision-page `config.json` opens as the page to answer instead of a listing: cards to pick and agree on, pictures to grow or compare, notes, and an answer panel with **Copy** and **Submit** that hand the answer to gcc. The **Decisions** lens lists every page waiting on you. A `DIRECTIONS.md` file page gains a bar counting each row's state that filters the tables, section meters, and named state pills. Both are plugins on one shared kit; [Doc views](docs/doc-views.md) explains how they work.
+A folder holding an agent's decision-page `config.json` opens as the page to answer instead of a listing: cards to pick and agree on, pictures to grow or compare, notes, and an answer panel with **Copy** and **Submit** that hand the answer to gcc. The **Decisions** lens lists every page waiting on you. A `DIRECTIONS.md` file page gains a pinned filter row (state chips, a filter box, Overview or Full, kept in the address) and a **List** layout: direction cards with progress rings over one table of every task row, with each row's links as chips. Both are plugins on one shared kit; [Doc views](docs/doc-views.md) explains how they work.
 
 ### Find and saved views
 The Filter panel's second row searches **text inside files**: the text files the name and type fields allow (2 MB each at most) are read through the service worker, with four reads shared across browser tabs. A separate **Text regex** checkbox applies to file contents. Results show the first matching line and the number of matches in each file. The Details view adds a Matches column while content results are shown. Cancel leaves a labelled partial result; changing a query stops its old scan. **Save view** keeps the folder plus the query as a Saved row with a funnel icon; the row is a plain URL with the query in its hash, so opening it brings the search back, and a hash change on an open page applies it in place.

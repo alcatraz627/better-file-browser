@@ -163,7 +163,7 @@ export const KEYMAP: KeyDef[] = [
   { id: 'fp-cm-attach', group: 'File page', title: 'Attach the comment to the selected words', keys: ['⇧A'], scope: 'file', own: true },
   { id: 'fp-cm-step', group: 'File page', title: 'Previous or next comment', keys: ['⌥↑', '⌥↓'], scope: 'file', own: true },
   { id: 'fp-cm-clear', group: 'File page', title: 'Let go of the comment being looked at or written', keys: ['Esc'], scope: 'file', own: true },
-  { id: 'fp-cm-post', group: 'File page', title: 'Post, or post a reply', keys: ['⌘↩', '⌘⇧↩'], scope: 'file' },
+  { id: 'fp-cm-post', group: 'File page', title: 'Post or reply; with ⇧, also mark the thread done or reopen it', keys: ['⌘↩', '⌘⇧↩'], scope: 'file' },
 
   // Editor
   { id: 'ed-save', group: 'Editor', title: 'Save', keys: ['⌘S'], scope: 'editor' },

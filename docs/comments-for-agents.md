@@ -88,3 +88,17 @@ Paste this into a project whose markdown files people comment on:
 `@claude` puts a thread in every agent's inbox. `@claude:<alias>` puts it in
 the inbox of the agent with that claude-ipc alias. `@user` is the owner.
 Mentions do not message anyone; agents find them with `inbox`.
+
+## Send
+
+**Send** on a thread (or **⇧S**) does message an agent. The owner picks the
+agent, and bfb's native host hands the thread to it through claude-ipc. The
+message names the doc, the quoted words and every comment, and gives the
+`bfb-docs comments show` and `reply` commands to answer with.
+
+It goes out as a `request` from `user`:
+
+- `user` is the owner's claude-ipc name. Chrome runs the host outside any
+  session, so the host has no alias of its own.
+- A request wakes an idle session. An `inform` would wait for its next turn.
+- No reply to bfb is expected. The answer belongs in the thread.

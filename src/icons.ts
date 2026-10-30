@@ -1,5 +1,4 @@
 import type { Entry, IconRule } from './types';
-import { esc } from './utils';
 import { line, LINE_ICON } from './control-icons';
 
 export const EXT_COLORS: Record<string, string> = {

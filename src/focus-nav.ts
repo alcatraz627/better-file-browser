@@ -14,8 +14,7 @@ import { closeSideDialog } from './dialog';
 import { gotoBackground } from './goto';
 import { homeDir, getSaved, getRecents } from './storage';
 import { PI } from './icons';
-import { fileHref, pageHref, esc } from './utils';
-import { go } from './nav';
+import { fileHref, esc } from './utils';
 
 // offsetParent alone calls every fixed-position element hidden, menus included.
 const visible = (x: Element | null): x is HTMLElement => !!x && (x as HTMLElement).checkVisibility();

@@ -149,18 +149,52 @@ extension, so the web build hides those two buttons.
 ## Directions docs
 
 A file named `DIRECTIONS.md`, or any `*directions*.md`, is a plan of tables
-whose rows carry a state mark: 🔴 needs you, 🟠 waiting, 🟢 ready, 💤 parked,
-✅ done. On its file page the markdown is left as written and decorated:
+whose rows carry one of five state marks (🔴 needs you, 🟠 waiting, 🟢 ready,
+💤 parked, ✅ for finished rows). On its file page the markdown is left as
+written and decorated.
 
-- a bar at the top counts each state across the doc; clicking a state narrows
-  every table to it, and clicking again shows every row;
-- each section gets a meter of its rows;
-- a mark at the start of a cell becomes a named pill, whether it stands
-  alone, is followed by its name ("🟢 ready") or by other words, which stay;
-- the doc's own key to the marks folds away, as a paragraph, a list item or a
-  table row, and a key row is never counted as a task;
-- rows under a "Waiting on you" heading count as needing you;
-- pictures open large, with ← → through the doc's pictures.
+### The head
+
+A short head says what to do next. It lists three one-line items on you and
+three ready for an agent. Each item links to its row.
+
+### The filter row
+
+One filter row stays pinned while the page scrolls. It holds:
+
+- the Doc / List switch
+- a chip per state, where several can be on at once
+- Overview or Full
+- a box that narrows rows by id or words
+- "Showing N of M · Clear" whenever a filter is on
+- the ⓘ legend, which holds the doc's "How to read this" section and its key
+  to the marks
+
+The filter lives in the address (`#dir?…`). Back and a shared link bring the
+same view.
+
+### Doc and List
+
+**Doc** shows the doc itself, narrowed to the matching rows.
+
+**List** shows every task row in one bordered table, grouped by direction. It
+holds exactly the rows the doc would show. A row opens the doc at that row.
+
+- **Direction cards** sit above the table, one per direction. A ring shows how
+  much of the direction is finished, counting every row. Below it are the
+  state counts and next rows of what the filter shows. A card opens its group.
+- **Links** is a column of chips, one per link in the row: PR, issue, commit,
+  Linear ticket, Google doc, other page or file. It hides when no row has a
+  link.
+
+### Marks
+
+- A mark at the start of a cell becomes a named pill. This happens whether
+  the mark stands alone, is followed by its name ("🟢 ready") or by other
+  words, which stay.
+- A key row is never counted as a task.
+- Rows under a "Waiting on you" heading count as needing you.
+- Pictures open large, with ← → through the doc's pictures.
 
 ## Files
 
@@ -179,7 +213,10 @@ whose rows carry a state mark: 🔴 needs you, 🟠 waiting, 🟢 ready, 💤 pa
 | `src/dp-io.ts` | Where a page reads and sends: extension or web |
 | `src/dp-lens.ts` | The Decisions lens |
 | `src/dp-web.ts` | The web build's entry |
-| `src/directions.ts` | The directions doc view |
+| `src/directions.ts` | The directions doc view: head, filter row, Doc layout |
+| `src/directions-model.ts` | Reads the doc into sections and rows, with each row's state and direction |
+| `src/directions-state.ts` | The filter record and its `#dir?` address form |
+| `src/directions-list.ts` | The List layout: direction cards, grouped rows, link chips |
 | `native/notes_host.py` | `dp` (relay to gcc's command) and `dpPages` (the lens's list, with reach) |
 
 ## Checks
@@ -194,6 +231,9 @@ whose rows carry a state mark: 🔴 needs you, 🟠 waiting, 🟢 ready, 💤 pa
 | `node e2e/dp-lens-walk.mjs` | The lens, including reach |
 | `node e2e/dp-web-walk.mjs` | The web build in a plain browser against a stand-in for gcc's server |
 | `node e2e/directions-walk.mjs` | The directions doc view |
+| `node e2e/directions-bar-walk.mjs` | The pinned filter row and the ⓘ legend |
+| `node e2e/directions-list-walk.mjs` | The List: same rows as the doc, cards, link chips, a row opening the doc |
+| `node e2e/directions-url-walk.mjs` | The filter kept in the address, Back, a pasted link |
 | `node e2e/dp-check.mjs` | Every real page in gcc's registry renders, and its answer matches gcc's compose and parse |
 
 Each walk takes `BFB_THEME=light` for the light theme. Walks copy pages into a

@@ -151,12 +151,20 @@ This file is generated from `src/keymap.ts`, the same list the app reads.
 | Raw or rendered | <kbd>r</kbd> |
 | Edit | <kbd>e</kbd> <kbd>e</kbd> |
 | Find in file | <kbd>/</kbd> |
-| Comment on selection | <kbd>c</kbd> |
+| Comment on the selection or paragraph | <kbd>c</kbd> |
+| Reply to the comment | <kbd>⇧R</kbd> |
 | Contents | <kbd>⇧O</kbd> |
 | Reading width | <kbd>⇧W</kbd> |
 | Comments panel | <kbd>⇧C</kbd> |
+| Copy the file | <kbd>y</kbd> |
+| Copy a link to the comment | <kbd>⇧K</kbd> |
+| Copy the open comment, or else the comments shown, as a brief for an agent | <kbd>⇧B</kbd> |
+| Send the comment to an agent | <kbd>⇧S</kbd> |
+| Set a due date on the comment | <kbd>⇧U</kbd> |
+| Attach the comment to the selected words | <kbd>⇧A</kbd> |
 | Previous or next comment | <kbd>⌥↑</kbd> or <kbd>⌥↓</kbd> |
-| Post, or post a reply | <kbd>⌘↩</kbd> or <kbd>⌘⇧↩</kbd> |
+| Let go of the comment being looked at or written | <kbd>Esc</kbd> |
+| Post or reply; with ⇧, also mark the thread done or reopen it | <kbd>⌘↩</kbd> or <kbd>⌘⇧↩</kbd> |
 
 ## Editor
 

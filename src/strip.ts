@@ -4,7 +4,7 @@
 // Chrome tab bring back a strip whose tab was closed in the last day.
 // Mounted by the explorer and by the file page; the pure list operations
 // are in tabs.ts.
-import { esc, copyToClipboard, pageHref, fileHref } from './utils';
+import { esc, copyToClipboard, fileHref } from './utils';
 import { copyPhoneLink } from './phone';
 import { icoFile, icoFolder, PI } from './icons';
 import { isSaved, toggleSaved, jsonPref } from './storage';

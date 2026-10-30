@@ -3,7 +3,7 @@
 // and hands it to a renderer picked by extension. No new permissions needed.
 import { resizable } from './resize';
 import type { Entry, IconRule, PreviewLayout } from './types';
-import { esc, fmtSize, getExt, copyToClipboard, midHtml, pageHref, fileHref, whenText } from './utils';
+import { esc, fmtSize, getExt, copyToClipboard, fileHref, whenText } from './utils';
 import { copyWithCheck } from './copy-done';
 import { getPreviewLayout, savePreviewLayout, isSaved, toggleSaved, flagPref, textPref } from './storage';
 import { rememberFocus, restoreFocus } from './dialog';
@@ -14,7 +14,7 @@ import { SIZE_BTN, wireSize } from './panel-size';
 import { fileMeta, kindName, metaSummary } from './file-meta';
 import {
   CODE_EXTS, TABLE_EXTS, JSONL_EXTS,
-  renderCode, renderJsonTree, renderJsonl, renderMarkdown,
+  renderCode, renderMarkdown,
   parseDSV, numericCols, sortDSVRows, renderDSVTable,
   sniffBinary, unrenderableNote,
 } from './renderers';

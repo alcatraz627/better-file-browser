@@ -1950,7 +1950,7 @@ ${body}`;
     { id: "fp-cm-attach", group: "File page", title: "Attach the comment to the selected words", keys: ["\u21E7A"], scope: "file", own: true },
     { id: "fp-cm-step", group: "File page", title: "Previous or next comment", keys: ["\u2325\u2191", "\u2325\u2193"], scope: "file", own: true },
     { id: "fp-cm-clear", group: "File page", title: "Let go of the comment being looked at or written", keys: ["Esc"], scope: "file", own: true },
-    { id: "fp-cm-post", group: "File page", title: "Post, or post a reply", keys: ["\u2318\u21A9", "\u2318\u21E7\u21A9"], scope: "file" },
+    { id: "fp-cm-post", group: "File page", title: "Post or reply; with \u21E7, also mark the thread done or reopen it", keys: ["\u2318\u21A9", "\u2318\u21E7\u21A9"], scope: "file" },
     // Editor
     { id: "ed-save", group: "Editor", title: "Save", keys: ["\u2318S"], scope: "editor" },
     { id: "ed-bold", group: "Editor", title: "Bold, italic, code", keys: ["\u2318B", "\u2318I", "\u2318E"], scope: "editor" },
