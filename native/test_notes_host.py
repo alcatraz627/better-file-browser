@@ -456,5 +456,32 @@ with mock.patch.object(nh, 'op_comments_read', return_value={'threads': [th]}), 
     # Chrome runs the host with no session, and claude-ipc refuses a sender it cannot name.
     check('--from' in argv and argv[argv.index('--from') + 1] == 'user', f'the thread goes out as the owner: {argv[1:-1]}')
 
+# Local tools: only listed names can be started, start waits for the port, and
+# a failed pm2 call says why instead of reporting the tool as up.
+try:
+    nh.handle({'op': 'service', 'name': 'kanban', 'action': 'stop'})
+    check(False, 'an unlisted service is refused')
+except nh.NotesError as e:
+    check('not a local tool' in str(e), f'an unlisted service is refused: {e}')
+up = iter([False, False, True])
+with mock.patch.object(nh, '_exe', return_value='/opt/homebrew/bin/pm2'), \
+     mock.patch.object(nh, '_run', return_value=mock.Mock(returncode=0, stdout='', stderr='')) as run, \
+     mock.patch.object(nh, '_listening', side_effect=lambda h, p: next(up, True)), \
+     mock.patch.object(nh.time, 'sleep'):
+    r = nh.handle({'op': 'service', 'name': 'ghostty-settings', 'action': 'start'})
+    check(run.call_args[0][0][1:] == ['start', 'ghostty-settings'] and r['up'] and r['url'] == 'http://127.0.0.1:5124/',
+          f'start runs pm2 start and waits for the port: {r}')
+with mock.patch.object(nh, '_exe', return_value='/opt/homebrew/bin/pm2'), \
+     mock.patch.object(nh, '_run', return_value=mock.Mock(returncode=1, stdout='', stderr='[PM2][ERROR] Process not found')):
+    try:
+        nh.handle({'op': 'service', 'name': 'ghostty-settings', 'action': 'start'})
+        check(False, 'a failed pm2 start is an error')
+    except nh.NotesError as e:
+        check('Process not found' in str(e), f'a failed pm2 start is an error with the reason: {e}')
+with mock.patch.object(nh, '_listening', return_value=False):
+    r = nh.handle({'op': 'services'})
+    check([s['name'] for s in r['services']] == ['ghostty-settings'] and r['services'][0]['up'] is False,
+          f'services lists each local tool and whether it is up: {r}')
+
 print(f'\n{"all checks passed" if not fails else str(fails) + " check(s) failed"}')
 sys.exit(1 if fails else 0)

@@ -4,7 +4,7 @@
 // thing itself. The page adds a path bar, usage numbers and quick links that
 // can be edited, forgotten, or opened elsewhere. Lists refresh when shown and
 // every 15 seconds while in view.
-import { notes, type NoteMeta } from './notes';
+import { notes, type NoteMeta, type ServiceState } from './notes';
 import { esc, whenText, fileHref, pageHref } from './utils';
 import { UI_ICON, LINE_ICON, line } from './control-icons';
 import { allChats, type AskChat } from './ask-history';
@@ -22,7 +22,7 @@ import type { App } from './app';
 
 type Chat = { subject: string; chat: AskChat };
 interface QuickLink { path: string; label: string; kind: 'saved' | 'note' | 'recent'; tags?: string[]; rel?: string }
-interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[] }
+interface HomeData { chats: Chat[]; pages: DpRow[]; repos: RepoSummary[]; pagesFailed: boolean; stats: HomeStat[]; saved: QuickLink[]; notes: QuickLink[]; recent: QuickLink[]; tools: ServiceState[] }
 type Go = (path: string, hash?: string) => void;
 
 // The Decisions lens's hand-archived pages, so Home leaves them out too.
@@ -137,6 +137,16 @@ const linkCard = (l: QuickLink) => {
   return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(l.path)))}" data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
 };
 
+// A local tool: click opens it, starting it first when it is stopped; the end
+// button stops a running one. Tools stop themselves when idle, so most visits
+// find them stopped and one click is the whole start-up.
+const toolRow = (s: ServiceState) => {
+  const end = s.up
+    ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-tool-stop="${esc(s.name)}" title="Stop ${esc(s.label)}" aria-label="Stop ${esc(s.label)}">${UI_ICON.power}</button>`
+    : '';
+  return `<div class="fe-hp-link" data-kind="tool"><a class="fe-hp-link-a" href="${esc(s.url)}" data-tool="${esc(s.name)}" data-up="${s.up ? '1' : ''}" title="${esc(s.up ? `Open ${s.label}` : `Start and open ${s.label}`)}. ${esc(s.about)}">${UI_ICON.terminal}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(s.label)}</span><span class="fe-hp-link-tags"><i>${s.up ? 'running' : 'stopped'}</i></span></span></a>${end}</div>`;
+};
+
 /** One card on the page: an icon, a title, a line saying what it holds, a count, and a body that folds away. */
 const card = (id: string, o: { icon: string; tone: string; title: string; sub: string; n?: number }, body: string, folded: Set<string>) =>
   `<details class="fe-hp-card" data-card="${id}"${folded.has(id) ? '' : ' open'}>
@@ -183,6 +193,7 @@ function paintPage(d: HomeData, allShown: boolean, folded: Set<string>): string 
         ${links('saved', { icon: line(LINE_ICON.bm, 14), tone: 'var(--nc-pink)', title: 'Saved', sub: 'Places you keep' }, d.saved, 'Save a place with the star to see it here')}
         ${links('notes', { icon: UI_ICON.notes, tone: 'var(--nc-orange)', title: 'Notes', sub: 'Latest first' }, d.notes, 'Notes you write show up here')}
         ${links('recent', { icon: UI_ICON.clock, tone: 'var(--nc-green)', title: 'Opened lately', sub: 'Newest first' }, d.recent, 'Places you open show up here')}
+        ${d.tools.length ? card('tools', { icon: UI_ICON.terminal, tone: 'var(--nc-teal)', title: 'Local tools', sub: 'Start on click, stop when idle', n: d.tools.length }, `<div class="fe-hp-links">${d.tools.map(toolRow).join('')}</div>`, folded) : ''}
       </aside>
     </div>
   </div>`;
@@ -215,10 +226,11 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
   const load = async () => {
     const mine = ++seq;
     const root = notesRoot();
-    const [pages, docs, noteList] = await Promise.all([
+    const [pages, docs, noteList, tools] = await Promise.all([
       notes.dpPages().then(rows => ({ rows, failed: false }), () => ({ rows: [] as DpRow[], failed: true })),
       notes.directionsDocs().catch(() => []),
       layout === 'page' && root ? notes.list(root).catch(() => keptNotesList<NoteMeta>(root) ?? []) : Promise.resolve([] as NoteMeta[]),
+      layout === 'page' ? notes.services().catch(() => [] as ServiceState[]) : Promise.resolve([] as ServiceState[]),
     ]);
     if (mine !== seq) return;
     const chats = allChats();
@@ -232,6 +244,7 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
         chats, recents: getRecents(), saved: getSaved(), notes: noteList,
       }),
       notes: noteLinks(noteList),
+      tools,
       ...quick(),
     };
     render();
@@ -394,6 +407,27 @@ function mountHome(box: HTMLElement, go: Go, layout: 'side' | 'page', app?: App)
     if (forget) { forgetRecent(forget.dataset.forget!); refreshQuick(); return; }
     const more = hit('[data-menu]');
     if (more) { openMenu(more); return; }
+    const stop = hit('[data-tool-stop]');
+    if (stop) {
+      const s = data?.tools.find(t => t.name === stop.dataset.toolStop);
+      notes.service(stop.dataset.toolStop!, 'stop')
+        .then(() => app?.toast(`Stopped ${s?.label ?? 'the tool'}`), err => app?.toast(`Couldn't stop ${s?.label ?? 'the tool'}: ${(err as Error).message}`, 8000))
+        .finally(() => void load());
+      return;
+    }
+    const tool = hit<HTMLAnchorElement>('[data-tool]');
+    if (tool) {
+      const s = data?.tools.find(t => t.name === tool.dataset.tool);
+      if (!s) return;
+      e.preventDefault();
+      if (s.up) { navigate(s.url, 'chrome-tab'); return; }
+      app?.toast(`Starting ${s.label}…`);
+      notes.service(s.name, 'start').then(r => {
+        if (r.up) navigate(r.url, 'chrome-tab');
+        else app?.toast(`${s.label} did not start in time. Try again, or run: svc up ${s.name}`, 8000);
+      }, err => app?.toast(`Couldn't start ${s.label}: ${(err as Error).message}`, 8000)).finally(() => void load());
+      return;
+    }
     const link = hit<HTMLAnchorElement>('[data-link]');
     if (link) {
       if ((e as MouseEvent).metaKey || (e as MouseEvent).ctrlKey || (e as MouseEvent).shiftKey) return;   // Chrome's own new-tab gestures keep the anchor

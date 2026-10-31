@@ -1016,6 +1016,10 @@
     sendThread: (root, rel, thread, to) => call({ op: "sendThread", root, rel, thread, to }),
     /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
     phone: (action = "status") => call({ op: "phone", action }),
+    /// Local tools (small local web apps that stop when idle): each one and whether it is up.
+    services: () => call({ op: "services" }).then((f) => f.services ?? []),
+    /// Start or stop one local tool; answers once its port is up or gone.
+    service: (name2, action) => call({ op: "service", name: name2, action }),
     /// The Mac's settings, for the phone to start from.
     phoneSeed: (kv) => call({ op: "phoneSeed", kv }),
     fileWrite: (root, rel, text, expectMtime) => call({ op: "fileWrite", root, rel, text, expectMtime })
@@ -1348,6 +1352,7 @@ ${body}`;
     tab: svg('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M12 13v5M9.5 15.5h5"/>'),
     phone: svg('<rect width="12" height="20" x="6" y="2" rx="2.5"/><path d="M11 18h2"/>'),
     terminal: svg('<path d="m7 11 2-2-2-2M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2"/>'),
+    power: svg('<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>'),
     data: svg('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/>'),
     ai: svg(SPARKLE),
     keyboard: svg('<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/>'),
@@ -30721,6 +30726,10 @@ ${rows.join("\n")}`, name: subject };
     const end = l.kind === "recent" ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-forget="${esc(l.path)}" title="Forget ${esc(l.label)}" aria-label="Forget ${esc(l.label)}">${UI_ICON.close}</button>` : `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-menu="${esc(l.path)}" data-kind="${l.kind}" title="Open, edit or show in the sidebar" aria-label="More for ${esc(l.label)}">${UI_ICON.more}</button>`;
     return `<div class="fe-hp-link" data-kind="${l.kind}"><a class="fe-hp-link-a" href="${esc(pageHref(fileHref(l.path)))}" data-link="${esc(l.path)}" title="${esc(l.path)}">${ico}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(l.label)}</span>${tags}</span></a>${end}</div>`;
   };
+  var toolRow = (s) => {
+    const end = s.up ? `<button type="button" class="btn fe-hp-link-act" data-icon data-size="xs" data-variant="ghost" data-tool-stop="${esc(s.name)}" title="Stop ${esc(s.label)}" aria-label="Stop ${esc(s.label)}">${UI_ICON.power}</button>` : "";
+    return `<div class="fe-hp-link" data-kind="tool"><a class="fe-hp-link-a" href="${esc(s.url)}" data-tool="${esc(s.name)}" data-up="${s.up ? "1" : ""}" title="${esc(s.up ? `Open ${s.label}` : `Start and open ${s.label}`)}. ${esc(s.about)}">${UI_ICON.terminal}<span class="fe-hp-link-tx"><span class="fe-hp-link-l">${esc(s.label)}</span><span class="fe-hp-link-tags"><i>${s.up ? "running" : "stopped"}</i></span></span></a>${end}</div>`;
+  };
   var card4 = (id, o, body, folded) => `<details class="fe-hp-card" data-card="${id}"${folded.has(id) ? "" : " open"}>
     <summary class="fe-hp-card-h">${tile2(o.icon, o.tone)}<span class="fe-hp-card-tx"><b>${esc(o.title)}</b><span>${esc(o.sub)}</span></span>${o.n != null ? `<span class="fe-grp-n">${o.n}</span>` : ""}${DISCLOSE}</summary>
     <div class="fe-hp-card-b">${body}</div>
@@ -30758,6 +30767,7 @@ ${rows.join("\n")}`, name: subject };
         ${links("saved", { icon: line(LINE_ICON.bm, 14), tone: "var(--nc-pink)", title: "Saved", sub: "Places you keep" }, d.saved, "Save a place with the star to see it here")}
         ${links("notes", { icon: UI_ICON.notes, tone: "var(--nc-orange)", title: "Notes", sub: "Latest first" }, d.notes, "Notes you write show up here")}
         ${links("recent", { icon: UI_ICON.clock, tone: "var(--nc-green)", title: "Opened lately", sub: "Newest first" }, d.recent, "Places you open show up here")}
+        ${d.tools.length ? card4("tools", { icon: UI_ICON.terminal, tone: "var(--nc-teal)", title: "Local tools", sub: "Start on click, stop when idle", n: d.tools.length }, `<div class="fe-hp-links">${d.tools.map(toolRow).join("")}</div>`, folded) : ""}
       </aside>
     </div>
   </div>`;
@@ -30784,10 +30794,11 @@ ${rows.join("\n")}`, name: subject };
     const load = async () => {
       const mine = ++seq2;
       const root = notesRoot();
-      const [pages, docs, noteList] = await Promise.all([
+      const [pages, docs, noteList, tools] = await Promise.all([
         notes.dpPages().then((rows) => ({ rows, failed: false }), () => ({ rows: [], failed: true })),
         notes.directionsDocs().catch(() => []),
-        layout2 === "page" && root ? notes.list(root).catch(() => keptNotesList(root) ?? []) : Promise.resolve([])
+        layout2 === "page" && root ? notes.list(root).catch(() => keptNotesList(root) ?? []) : Promise.resolve([]),
+        layout2 === "page" ? notes.services().catch(() => []) : Promise.resolve([])
       ]);
       if (mine !== seq2) return;
       const chats = allChats();
@@ -30808,6 +30819,7 @@ ${rows.join("\n")}`, name: subject };
           notes: noteList
         }),
         notes: noteLinks(noteList),
+        tools,
         ...quick()
       };
       render2();
@@ -31013,6 +31025,28 @@ ${rows.join("\n")}`, name: subject };
       const more = hit("[data-menu]");
       if (more) {
         openMenu3(more);
+        return;
+      }
+      const stop = hit("[data-tool-stop]");
+      if (stop) {
+        const s = data?.tools.find((t2) => t2.name === stop.dataset.toolStop);
+        notes.service(stop.dataset.toolStop, "stop").then(() => app?.toast(`Stopped ${s?.label ?? "the tool"}`), (err) => app?.toast(`Couldn't stop ${s?.label ?? "the tool"}: ${err.message}`, 8e3)).finally(() => void load());
+        return;
+      }
+      const tool = hit("[data-tool]");
+      if (tool) {
+        const s = data?.tools.find((t2) => t2.name === tool.dataset.tool);
+        if (!s) return;
+        e.preventDefault();
+        if (s.up) {
+          go(s.url, "chrome-tab");
+          return;
+        }
+        app?.toast(`Starting ${s.label}\u2026`);
+        notes.service(s.name, "start").then((r) => {
+          if (r.up) go(r.url, "chrome-tab");
+          else app?.toast(`${s.label} did not start in time. Try again, or run: svc up ${s.name}`, 8e3);
+        }, (err) => app?.toast(`Couldn't start ${s.label}: ${err.message}`, 8e3)).finally(() => void load());
         return;
       }
       const link = hit("[data-link]");

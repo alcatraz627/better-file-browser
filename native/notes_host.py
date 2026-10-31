@@ -884,6 +884,46 @@ def op_phone(action):
     return _phone_status()
 
 
+# ---- Local tools: small local web apps that run only while you use them.
+# Each is a pm2 process on its tier-2 port that stops itself when idle, so Home
+# shows whether it is up and starts or stops it. Only names listed here can be
+# touched, so a page cannot ask the host to start anything else.
+SERVICES = {
+    'ghostty-settings': {'label': 'Ghostty settings', 'port': 5124,
+                         'about': 'Edit the Ghostty config with a preview and a backup. Stops after 5 idle minutes.'},
+}
+
+
+def _service_state(name):
+    s = SERVICES[name]
+    return {'name': name, 'label': s['label'], 'about': s['about'],
+            'up': _listening('127.0.0.1', s['port']), 'url': f"http://127.0.0.1:{s['port']}/"}
+
+
+def op_services():
+    return {'t': 'services', 'services': [_service_state(n) for n in SERVICES]}
+
+
+def op_service(name, action):
+    """Start or stop one local tool, then say whether it is up."""
+    if name not in SERVICES:
+        raise NotesError('notes_bad_path', f'{name or "that"} is not a local tool bfb can start')
+    if action in ('start', 'stop'):
+        pm2 = _exe('pm2')
+        if not pm2:
+            raise NotesError('notes_io', 'pm2 is not installed, so local tools cannot run')
+        r = _run([pm2, action, name])
+        if r.returncode:
+            raise NotesError('notes_io', (r.stderr or r.stdout).strip()[-300:] or f'pm2 could not {action} {name}')
+        # pm2 says "online" as soon as it spawns the process; wait for the port.
+        want_up = action == 'start'
+        for _ in range(40):
+            if _listening('127.0.0.1', SERVICES[name]['port']) == want_up:
+                break
+            time.sleep(0.25)
+    return {'t': 'service', **_service_state(name)}
+
+
 def op_phone_seed(kv):
     """Keep the Mac's bfb settings where the phone server hands them to the phone."""
     if not isinstance(kv, dict):
@@ -928,6 +968,8 @@ def op_send_thread(root, rel, thread_id, to):
 def handle(msg):
     op = msg.get('op')
     if op == 'phone': return op_phone(msg.get('action') or 'status')
+    if op == 'services': return op_services()
+    if op == 'service': return op_service(msg.get('name'), msg.get('action') or 'status')
     if op == 'phoneSeed': return op_phone_seed(msg.get('kv'))
     if op == 'directionsDocs': return op_directions_docs()
     if op == 'dp': return op_dp(msg.get('verb'), msg.get('slug'), msg.get('payload'))

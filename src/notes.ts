@@ -44,6 +44,7 @@ export type CommentOp = { op: string; thread?: string; comment?: string; text?: 
 
 /// Whether bfb is reachable from the phone: the server running, the tailnet route in place, and its address.
 export interface PhoneState { on: boolean; server: boolean; served: boolean; url: string; why: string }
+export interface ServiceState { name: string; label: string; about: string; up: boolean; url: string }
 
 /// One saved version of a note, from the folder's git log: short hash, epoch ms, the commit's reason.
 export interface NoteVersion { sha: string; when: number; reason: string }
@@ -127,6 +128,10 @@ export const notes = {
   sendThread: (root: string, rel: string, thread: string, to: string) => call({ op: 'sendThread', root, rel, thread, to }),
   /// Phone access: whether bfb is on the tailnet and where, or turn it on or off.
   phone: (action: 'status' | 'on' | 'off' = 'status') => call({ op: 'phone', action }) as unknown as Promise<PhoneState>,
+  /// Local tools (small local web apps that stop when idle): each one and whether it is up.
+  services: () => call({ op: 'services' }).then(f => (f as unknown as { services: ServiceState[] }).services ?? []),
+  /// Start or stop one local tool; answers once its port is up or gone.
+  service: (name: string, action: 'start' | 'stop') => call({ op: 'service', name, action }) as unknown as Promise<ServiceState>,
   /// The Mac's settings, for the phone to start from.
   phoneSeed: (kv: Record<string, unknown>) => call({ op: 'phoneSeed', kv }),
   fileWrite: (root: string, rel: string, text: string, expectMtime: number) =>
